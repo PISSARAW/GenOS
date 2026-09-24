@@ -1,10 +1,52 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
-## 1. Principe fondamental
+## 1. Définition
 
-> **Biocénose est le système de délibération collective, de contestation et de formation de jugement de GenOS lorsque la réponse ne peut pas être confiée à une seule autorité, qu'il existe plusieurs perspectives légitimes ou incomplètes, et que la qualité du résultat dépend de la diversité, de l'indépendance, de la confrontation et de l'agrégation des connaissances.**
+Biocénose dans GenOS est le mécanisme d'orchestration qui exécute une mission comme un **collectif délibérant formant un jugement partagé à partir de connaissances distribuées, de perspectives indépendantes et de désaccords légitimes**. Contrairement aux autres topologies (Trinity = hypothèses concurrentes, A-Team = expertises complémentaires, Syncytium = fusion d'état continu, Holobionte = hiérarchie), Biocénose impose une **indépendance cognitive scellée, une délibération structurée et une agrégation par type de question**.
 
-Biocénose n'est pas un « consensus multi-agent ». C'est **l'épidémiologie collective** de GenOS : la façon dont la communauté construit un jugement partagé à partir de connaissances distribuées, de désaccords légitimes et de preuves contestées.
+Le mot « Biocénose » vient de l'écologie : une biocénose est l'ensemble des organismes vivants partageant un même biotope, en interaction constante — compétition, coopération, prédation, symbiose — mais sans fusion en un super-organisme. GenOS emprunte ce concept : les agents ne partagent pas un état viscéral ; ils maintiennent des **cognitions distinctes** qui interagissent par des mécanismes épistémiques explicites.
+
+Les principes fondateurs sont :
+
+1. **Indépendance cognitive scellée** : chaque agent forme sa position avant de voir les autres ;
+2. **Constitution communautaire antérieure** : les règles de décision sont fixées avant toute réponse ;
+3. **Délibération au niveau des claims** : confrontation par affirmation, pas par solution globale ;
+4. **Agrégation adaptée au type de question** : pas d'algorithme unique ;
+5. **Préservation du désaccord légitime** : le dissent utile n'est jamais écrasé par la majorité.
+
+Biocénose n'est pas un vote multi-agent. C'est une **formation de jugement collectif**. Le but n'est pas que tout le monde soit d'accord ; le but est que chaque claim matérielle ait été indépendamment proposée, proprement contestée, évidentiellement évaluée, et que le jugement final préserve à la fois ce que les preuves supportent et ce qui reste légitimement disputé.
+
+Le cœur fonctionnel est réparti entre :
+
+- [backend/src/services/biocenoseService.js](../../../backend/src/services/biocenoseService.js) : analyse de mission et activation ;
+- [backend/src/services/epistemic/epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : diversité fonctionnelle, détection monoculture ;
+- [backend/src/services/epistemic/epistemicIndependenceService.js](../../../backend/src/services/epistemic/epistemicIndependenceService.js) : indépendance épistémique ;
+- [backend/src/services/hierarchicalQuorumService.js](../../../backend/src/services/hierarchicalQuorumService.js) : quorum hiérarchique pour communautés massives ;
+- [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des rôles communautaires.
+
+Le principe est : une communauté cognitivement diversifiée, dont les membres jugent indépendamment puis délibèrent structurellement, forme un jugement plus robuste qu'une autorité unique — non parce qu'elle converge, mais parce qu'elle cartographie correctement l'espace du désaccord.
+
+---
+
+## 2. Non un consensus multi-agent, mais une épistémologie collective
+
+GenOS applique une logique de délibération épistémique :
+
+1. **Cognitions distinctes** : chaque agent maintient sa propre position jusqu'au moment prévu par le protocole ;
+2. **Commitment scellé** : les jugements initiaux sont signés cryptographiquement avant exposition ;
+3. **Agrégation par evidence, non par autorité** : le poids d'un jugement dépend de sa calibration historique, de son indépendance et de la qualité de ses preuves — pas de son statut ;
+4. **Désaccord comme donnée** : une position minoritaire avec preuves est conservée, pas écrasée ;
+5. **Arrêt sur critère explicite** : la communauté s'arrête quand le coût d'une autre ronde dépasse son espérance de valeur.
+
+Les mécanismes de qualité sont explicites :
+
+- **sealed judgment** : aucune influence sociale sur le jugement initial ;
+- **commit-reveal** : les positions sont engagées avant d'être révélées ;
+- **claim-level deliberation** : la confrontation se fait par affirmation atomique, pas par solution globale ;
+- **argument graph** : les relations entre claims (SUPPORT, ATTACK, REFUTE, UNDERCUT, DEPEND_ON, QUALIFY, COUNTEREXAMPLE) sont structurées et auditable ;
+- **effective diversity** : la diversité cognitive est mesurée, pas supposée ;
+- **conformity monitoring** : les changements d'avis sont classés par cause (preuve vs majorité) ;
+- **dissent preservation** : le dissent matériel persiste dans le DissentLedger.
 
 La distinction avec les autres topologies est fondamentale :
 
@@ -17,13 +59,13 @@ A-Team
     plusieurs expertises complémentaires
     → comment construire ensemble un artefact ?
 
-Biome
-    environnement + populations + niches + ressources
-    → où investir les ressources collectivement ?
+Syncytium
+    état partagé et synchronisation continue
+    → comment fusionner en temps réel ?
 
-Métapopulation
-    plusieurs dèmes semi-indépendants
-    → comment survivre aux extinctions locales ?
+Holobionte
+    hiérarchie host + symbionts
+    → comment intégrer sécuritairement ?
 
 Biocénose
     plusieurs perspectives légitimes ou incomplètes
@@ -31,683 +73,827 @@ Biocénose
       après délibération, confrontation et agrégation ?
 ```
 
-Biocénose demande :
-> **« Que doit croire ou décider la communauté après que ses membres ont raisonné indépendamment, confronté leurs preuves, exposé leurs désaccords et mis à jour leurs positions sans écraser les minorités utiles ? »**
+---
 
-Et surtout :
-> **Le but de Biocénose n'est pas de fabriquer du consensus. Le but est de fabriquer un désaccord bien traité.**
+## 3. Définition mathématique de la délibération collective
+
+La délibération Biocénose est un problème de **formation de jugement sous indépendance cognitive contrôlée**.
+
+Soit :
+
+- $Q$ : la question posée ;
+- $\mathcal{M} = \{M_1, \ldots, M_N\}$ : les $N$ membres de la communauté ;
+- $\mathcal{C} = \{C_1, \ldots, C_K\}$ : les claims atomiques décomposant $Q$ ;
+- $\mathbf{P}_i = (p_{i,1}, \ldots, p_{i,K})$ : le vecteur de positions de $M_i$ sur chaque claim ;
+- $w_i$ : le poids de jugement de $M_i$ ;
+- $\mathcal{A}$ : l'argument graph sur $\mathcal{C}$.
+
+### 3.1 Classification de la question
+
+Le **Question Classifier** détermine :
+
+$$\text{type}(Q) \in \{ \text{factual}, \text{probabilistic}, \text{design}, \text{normative}, \text{exploratory} \}$$
+
+| Type | Nature | Méthode d'agrégation | Outcome typique |
+|------|--------|---------------------|-----------------|
+| Faitiel | Vérifiable par oracle externe | Oracle > communauté | VERIFIED_CONSENSUS |
+| Probabiliste | Prévision sous incertitude | Probability pooling pondéré | ROBUST_CONSENSUS |
+| Conception | Multi-critères, comproms | Pareto / argument graph | PARETO_PLURALISM |
+| Normatif | Dépend de valeurs | Préservation du pluralisme | HUMAN_JUDGMENT_REQUIRED |
+| Exploratoire | Cadrages multiples légitimes | Pluralisme explicite | IRREDUCIBLE_DISAGREEMENT |
+
+### 3.2 Le protocole de délibération
+
+Le protocole suit une séquence stricte de 8 phases :
+
+$$\text{JUDGE} \rightarrow \text{COMMIT} \rightarrow \text{BLIND\_AGG} \rightarrow \text{EXPOSE} \rightarrow \text{CHALLENGE} \rightarrow \text{REVISE} \rightarrow \text{RE\_AGG} \rightarrow \text{DECIDE/PRESERVE}$$
+
+**Phase 1 — Sealed Independent Judgment** :
+
+$$\forall i : \mathbf{P}_i^{(r)} \perp \!\!\! \perp \{ \mathbf{P}_j^{(r)} : j \neq i \}$$
+
+Chaque membre produit sa position sans connaître celle des autres.
+
+**Phase 2 — Commit** :
+
+$$\text{commit}_i^{(r)} = H(\mathbf{P}_i^{(r)} \| \text{salt}_i)$$
+
+L'engagement cryptographique scelle la position avant révélation.
+
+**Phase 3 — Blind Aggregate** :
+
+$$\mathbf{P}_{\text{blind}}^{(r)} = f_{\text{agg}}(\{ \mathbf{P}_i^{(r)} \}, \{ w_i \})$$
+
+L'agrégation initiale se fait sans que les membres aient vu les autres positions.
+
+**Phase 4 — Expose Arguments** :
+
+$$\mathcal{A}^{(r)} = \text{buildGraph}(\{ \mathbf{P}_i^{(r)} \}, \{ \text{args}_i^{(r)} \})$$
+
+L'argument graph est construit à partir des positions révélées.
+
+**Phase 5 — Challenge** :
+
+$$\forall (C_k, C_l) \in \text{attackEdges}(\mathcal{A}) : \text{evaluateChallenge}(C_k, C_l)$$
+
+Chaque relation d'attaque est évaluée.
+
+**Phase 6 — Revise** :
+
+$$\mathbf{P}_i^{(r+1)} = \text{update}(\mathbf{P}_i^{(r)}, \Delta_{\text{evidence}}, \Delta_{\text{social}})$$
+
+La mise à jour est tracée : cause évidentielle vs cause sociale.
+
+**Phase 7 — Re-aggregate** :
+
+$$\mathbf{P}_{\text{final}} = f_{\text{agg}}(\{ \mathbf{P}_i^{(R)} \}, \{ w_i \}, \mathcal{A}^{(R)})$$
+
+**Phase 8 — Decide or Preserve Dissent** :
+
+$$\text{outcome} = \text{judge}(\mathbf{P}_{\text{final}}, \mathcal{A}^{(R)}, \text{dissentLedger})$$
+
+### 3.3 Pondération des jugements
+
+Le poids de chaque membre est calculé par :
+
+$$w_i = \text{Calibration}_i \times \text{ExpertiseFit}_i \times \text{Independence}_i \times \text{EvidenceQuality}_i$$
+
+Chaque composante est normalisée dans $[0, 1]$ et bornée pour éviter la domination :
+
+$$w_i^{\text{clip}} = \min\left(w_i,\ w_{\max}\right) \quad \text{où } w_{\max} = 2 \cdot \text{median}(\{w_j\})$$
+
+**Calibration** : Mesure la correspondance historique entre probabilités déclarées et fréquences observées.
+
+$$\text{Calibration}_i = 1 - \frac{1}{|\mathcal{D}_i|} \sum_{d \in \mathcal{D}_i} \text{BS}_i(d)$$
+
+où $\text{BS}_i(d)$ est le Brier score historique du membre $i$ sur le domaine $d$.
+
+**Expertise Fit** : Correspondance entre capacités et exigences.
+
+$$\text{ExpertiseFit}_i = \text{sim}(\text{capabilities}_i, \text{requirements}(Q))$$
+
+Cosine similarity entre les capacités du membre et les exigences de la question.
+
+**Indépendance** : Non-corrélation avec les autres membres.
+
+$$\text{Independence}_i = 1 - \frac{1}{N-1} \sum_{j \neq i} |\rho_{ij}|$$
+
+où $\rho_{ij}$ est la corrélation historique des jugements entre $M_i$ et $M_j$.
+
+**Evidence Quality** : Qualité moyenne des preuves apportées.
+
+$$\text{EvidenceQuality}_i = \frac{1}{K_i} \sum_{k=1}^{K_i} q(e_{i,k})$$
+
+où $q(e)$ évalue la vérifiabilité, la reproductibilité et la source de chaque évidence.
+
+### 3.4 Nombre effectif de membres
+
+Des agents corrélés ne constituent pas une communauté diversifiée :
+
+$$N_{\text{eff}} = \frac{N}{1 + \frac{2}{N} \sum_{i < j} \rho_{ij}}$$
+
+ou par décomposition en valeurs propres de la matrice de corrélation $\Sigma$ :
+
+$$N_{\text{eff}} = \frac{(\sum_k \lambda_k)^2}{\sum_k \lambda_k^2}$$
+
+Cela empêche de présenter 93 votes / 100 comme très fort si les 100 sont des clones cognitifs. Un $N_{\text{eff}} \approx 1$ malgré $N = 100$ indique une monoculture.
+
+### 3.5 Agrégation et Proper Scoring Rules
+
+**Probability pooling pondéré** : 
+
+$$p_{\text{agg}}(C_k) = \frac{\sum_i w_i \cdot p_{i,k}}{\sum_i w_i}$$
+
+**Logarithmic pooling** (évite la compression vers 0.5) :
+
+$$p_{\text{agg}}(C_k) \propto \prod_i p_{i,k}^{w_i / \sum_j w_j}$$
+
+**Brier Score** : Mesure la calibration des probabilités.
+
+$$\text{BS}_i = \frac{1}{T} \sum_{t=1}^{T} (p_{i,t} - o_t)^2$$
+
+Décomposition : $\text{BS} = \text{Reliability} - \text{Resolution} + \text{Uncertainty}$
+
+**Logarithmic Score** : Strictement propre, pénalise les certitudes fausses.
+
+$$\text{LS}_i = -\frac{1}{T} \sum_{t=1}^{T} [o_t \ln p_{i,t} + (1 - o_t) \ln(1 - p_{i,t})]$$
+
+**Spherical Score** : Borné dans $[0, 1]$, propre.
+
+$$\text{SS}_i = \frac{1}{T} \sum_{t=1}^{T} \frac{p_{i,t}^{o_t} (1-p_{i,t})^{1-o_t}}{\sqrt{p_{i,t}^2 + (1-p_{i,t})^2}}$$
+
+Ces scores sont **propres** : ils incitent le membre à déclarer sa vraie croyance, pas à manipuler sa prédiction pour apparaître calibré.
 
 ---
 
-## 2. L'implémentation actuelle n'est pas encore réellement une communauté
+## 4. Les neuf outcomes et leurs conditions
 
-Dans `backend/src/services/biocenoseService.js`, la composition produit exactement :
-```text
-community_facilitator
-independent_solver
-adversarial_reviewer
-consensus_observer
-```
+Biocénose produit un **CommunityJudgment** avec un statut de décision parmi neuf possibles.
 
-Donc il n'y a en réalité qu'**un seul solver indépendant**. C'est incompatible avec la documentation qui raisonne elle-même sur $S_1, S_2, \ldots, S_n$. Une communauté où une seule proposition est formulée puis critiquée ressemble davantage à author → reviewer → judge qu'à une véritable Biocénose.
+### 4.1 VERIFIED_CONSENSUS
 
-Le premier changement conceptuel est :
-```text
-Biocénose ≠ 4 rôles = 4 agents
-```
-mais :
-```text
-Biocénose
-    governance plane
-    +
-    N independent contributors
-    +
-    M reviewers/verifiers
-    +
-    aggregation/observer plane
-```
+Oracle externe disponible + accord communautaire. La communauté converge vers la réponse que l'oracle confirme. La vérification externe prime sur le vote.
 
-Les rôles actuels peuvent rester, mais comme **fonctions communautaires**, pas comme cardinalité fixe.
+$$\text{VERIFIED\_CONSENSUS} \iff \exists \text{oracle} : \text{oracle} = \text{majority} \land N_{\text{eff}} \geq N_{\min}$$
 
----
+### 4.2 ROBUST_CONSENSUS
 
-## 3. Le `kneePoint` Pareto n'est pas un consensus
+Accord fort sans oracle décisif + diversité effective suffisante. Le consensus est « robuste » car il repose sur des jugements indépendants diversifiés.
 
-`evaluateCommunity()` appelle actuellement `arenaTaskEvaluation.evaluateDossiersPareto(...)` puis expose `consensus: evaluation.kneePoint`. Cela mélange deux concepts. Arena répond « quel candidat présente le meilleur compromis multiobjectif ? ». Un consensus répond « quelles propositions la communauté accepte-t-elle après confrontation ? ». Ce n'est pas la même question.
+$$\text{ROBUST\_CONSENSUS} \iff \text{maj\_ratio} \geq 0.8 \land N_{\text{eff}} \geq N_{\min} \land \text{conformity\_risk} < \tau$$
 
-Et surtout, Arena compare aujourd'hui potentiellement Solver, Reviewer, Observer comme candidats. Or le Reviewer n'est pas une solution concurrente au Solver — il produit une fonction différente.
+### 4.3 QUALIFIED_CONSENSUS
 
-Biocénose ultime doit abandonner comme primitive centrale `candidate ranking` et utiliser `claim-level deliberation + argument graph + belief aggregation + decision rule`. Arena/Pareto reste utile à l'intérieur d'une décision lorsqu'il existe réellement plusieurs options concurrentes.
+Accord majoritaire avec réserves matérielles documentées dans le DissentLedger.
 
----
+$$\text{QUALIFIED\_CONSENSUS} \iff \text{maj\_ratio} \in [0.6, 0.8) \land |\text{dissentLedger}| > 0$$
 
-## 4. La diversité actuelle mesure la mauvaise chose
+### 4.4 PLURALITY_WITH_DISSENT
 
-`communityDiversity()` calcule une entropie de Shannon sur EXECUTE, VERIFY, OBSERVE... Donc Solver executes + Reviewer verifies + Observer observes produit mécaniquement de la diversité. Mais cela ne prouve absolument pas : diversité d'évidence, diversité de raisonnement, erreurs indépendantes, sources indépendantes.
+Une position domine mais une minorité significative diverge avec des preuves matérielles.
 
-Heureusement, GenOS possède déjà un meilleur embryon dans `backend/src/services/epistemic/epistemicBiocenoseService.js` avec : functional diversity, error diversity, tool diversity, provider diversity, strategy diversity, effective diversity, monoculture detection. C'est ce service qui devrait devenir une composante centrale de la vraie Biocénose.
+$$\text{PLURALITY\_WITH\_DISSENT} \iff \text{maj\_ratio} \in [0.6, 0.8) \land \text{dissent\_materiality} > \tau_{\text{dissent}}$$
 
----
+### 4.5 PARETO_PLURALISM
 
-## 5. Le Brier actuel a un problème conceptuel subtil
+Plusieurs options légitimes non dominées selon les critères. Aucune option ne domine universellement ; le choix dépend de pondérations de valeurs.
 
-Le code a correctement corrigé une première erreur : sans oracle externe, il refuse de fabriquer une vérité circulaire. C'est très bien. Mais si l'oracle est déjà disponible, pourquoi demander à la communauté de déterminer la réponse ? L'oracle donne déjà la réponse.
+$$\text{PARETO\_PLURALISM} \iff |\{o : \text{nonDominated}(o)\}| \geq 2 \land \text{questionType} \in \{\text{design}, \text{exploratory}\}$$
 
-Le Brier doit surtout servir à apprendre : Agent A historical calibration excellent, Agent B historical overconfidence high — et influencer les futurs jugements. Pas découvrir rétroactivement la vérité du problème qu'on vient de résoudre.
+### 4.6 IRREDUCIBLE_DISAGREEMENT
 
-Le bon cycle est :
-```text
-t0 agent predicts P=.80
-t1 community aggregates
-t2 external truth becomes known
-t3 Brier score calculated
-t4 future calibration/reputation updated
-```
+Désaccord raisonnable persistant après toutes les rondes. La communauté a épuisé les rondes et les preuves ; le désaccord est structurel.
 
-Les proper scoring rules sont précisément destinées à évaluer la qualité de probabilités déclarées ([PubsOnline:Neyman][1]). Je transformerais `brier_weighted_consensus` en `historically_calibrated_probability_pooling`.
+$$\text{IRREDUCIBLE\_DISAGREEMENT} \iff r = r_{\max} \land \text{belief\_change\_rate} < \epsilon \land \text{new\_evidence\_rate} < \epsilon$$
+
+### 4.7 REQUEST_MORE_EVIDENCE
+
+Preuve insuffisante pour toute position. La communauté demande davantage d'évidence.
+
+$$\text{REQUEST\_MORE\_EVIDENCE} \iff \forall i : \text{evidenceStrength}_i < \tau_{\text{evidence}}$$
+
+### 4.8 ESCALATE_EXPERIMENT
+
+Question empirique non résolue par la délibération seule. Escalade vers Trinity.
+
+$$\text{ESCALATE\_EXPERIMENT} \iff \text{empirical\_disagreement} \land \text{experiment\_feasible} \land \text{expectedInformationGain} > \tau_{\text{info}}$$
+
+### 4.9 HUMAN_JUDGMENT_REQUIRED
+
+Décision normative ou préférentielle non délégable. Implique des valeurs humaines.
+
+$$\text{HUMAN\_JUDGMENT\_REQUIRED} \iff \text{questionType} = \text{normative} \land \text{values\_conflict} \land \text{no\_technical\_resolution}$$
 
 ---
 
-## 6. Une communauté ne doit pas rechercher le consensus à tout prix
-
-C'est probablement **le principe le plus important de Biocénose ultime**. Consensus n'est pas synonyme de vérité.
-
-Une étude ACL 2026 sur le multi-agent debate conclut que le débat homogène classique peut être moins performant qu'un simple vote majoritaire et identifie deux facteurs décisifs : diversité initiale et communication explicite de confiance calibrée ([ACL Anthology:Zhu 2026][2]).
-
-Un autre travail de 2026 met en évidence l'émergence possible de consensus collectifs biaisés dans des débats LLM, avec un rôle de la conformité et une réduction de ce phénomène avec davantage d'hétérogénéité ([arXiv:Okawa 2026][3]).
-
-La littérature sur les groupes humains montre depuis longtemps que le dissent peut faire émerger des informations qui seraient perdues par une convergence prématurée ([PubMed:Hidden Profiles][4]).
-
-Donc CONVERGENCE ↑ n'est pas toujours QUALITY ↑.
-
----
-
-## 7. La sortie fondamentale doit devenir un `CommunityJudgment`
-
-Pas simplement `consensus = candidate A`. Je définirais :
-```text
-CommunityJudgment {
-    acceptedClaims, rejectedClaims, contestedClaims, unresolvedQuestions
-    supportedOptions, dominatedOptions
-    majorityPosition, minorityPositions
-    evidenceGraph
-    confidence, calibrationBasis
-    dissentReport
-    decisionStatus
-}
-```
-
-Et surtout plusieurs sorties possibles :
-
-| Outcome | Significance |
-|---------|--------------|
-| `VERIFIED_CONSENSUS` | preuves externes + accord |
-| `ROBUST_CONSENSUS` | accord indépendant fort sans oracle décisif |
-| `QUALIFIED_CONSENSUS` | accord avec réserves importantes |
-| `PLURALITY_WITH_DISSENT` | une position domine mais minorité substantielle |
-| `PARETO_PLURALISM` | plusieurs options légitimes non dominées |
-| `IRREDUCIBLE_DISAGREEMENT` | désaccord raisonnable persistant |
-| `REQUEST_MORE_EVIDENCE` | preuve insuffisante |
-| `ESCALATE_EXPERIMENT` | question empirique à tester |
-| `HUMAN_JUDGMENT_REQUIRED` | décision normative/préférentielle non délégable |
-
----
-
-## 8. Avant la communauté : classifier le type de question
-
-### Question factuelle vérifiable
-« Cette fonction produit-elle une race condition ? » Priorité : test, reproduction, formal verifier, evidence. Pas 7 agents disent oui.
-
-### Question probabiliste
-« Probabilité que cette migration échoue ? » Ici probability pooling, historical calibration, Brier/log scoring est approprié.
-
-### Question de conception
-« Quelle architecture conserver ? » Plusieurs compromis peuvent être valides. Utiliser criteria, Pareto, argumentation, trade-offs.
-
-### Question normative
-« Quel compromis est acceptable ? » Il n'existe parfois pas de vérité technique unique. Préserver values, stakeholder constraints, plural alternatives et éventuellement renvoyer à l'humain.
-
-### Question exploratoire
-Plusieurs cadrages du problème peuvent être légitimes. Le résultat peut rester pluraliste.
-
----
-
-## 9. La constitution de la communauté doit être définie AVANT de voir les réponses
-
-C'est une faiblesse potentielle de la documentation actuelle. Le Facilitator est censé définir thresholds, decision boundaries, rules — mais la simulation documentée place aussi le Facilitator vers la fin après Solver/Reviewer/Observer. C'est dangereux.
-
-Je créerais donc un `Community Constitution` scellé avant la première réponse :
-```text
-question type, eligibility, roles
-evidence standard, independence requirements
-aggregation method, quorum policy, abstention policy
-dissent policy, round limit, stopping rule
-escalation rule, verification policy
-constitutionHash
-```
-
-Puis constitutionHash. Une modification après commencement doit être versionnée et visible.
-
----
-
-## 10. Les membres doivent d'abord répondre en isolation
-
-Phase SEALED INDEPENDENT JUDGMENT. Chaque membre produit position, claims, probabilities, assumptions, evidence, unknowns et signe commitmentHash avant de voir les autres.
-
-C'est essentiel parce que la sagesse d'une foule dépend fortement de l'indépendance des erreurs ; des erreurs corrélées réduisent fortement l'intérêt de l'agrégation ([PMC:Wisdom Crowd Diversity][5]).
-
----
-
-## 11. Puis seulement vient la délibération
-
-Le protocole cible devrait être :
-```text
-INDEPENDENT → COMMIT → BLIND AGGREGATE → EXPOSE ARGUMENTS → CHALLENGE → REQUEST EVIDENCE → REVISE → RE-AGGREGATE → DECIDE OR PRESERVE DISSENT
-```
-
-Cela permet de mesurer séparément private belief et post-social belief. Donc GenOS peut observer « Agent A changed because evidence E » versus « Agent A changed merely because majority=7/10 ». Cette distinction est extrêmement importante.
-
----
-
-## 12. La délibération doit être claim-level
-
-Pas Solution A vs Solution B, mais Claim C1, Claim C2, Claim C3... Une proposition peut être correcte sur C1, fausse sur C2, incertaine sur C3. Le verdict collectif doit pouvoir recombiner les claims.
-
----
-
-## 13. Créer un Argument Graph
-
-Je connecterais cela directement au système épistémique existant :
-```text
-Claim ↑ support Evidence
-Claim A ├── SUPPORT ← Claim B
-         ├── ATTACK ← Claim C
-         ├── UNDERCUT ← Evidence D
-         └── DEPENDS_ON → Assumption E
-```
-
-Relations : SUPPORT, ATTACK, REFUTE, UNDERCUT, DEPEND_ON, QUALIFY, COUNTEREXAMPLE. Les recherches récentes sur la délibération LLM explorent justement des argument graphs et des cadres de bipolar/quantitative argumentation pour rendre les désaccords auditable plutôt que d'utiliser une simple synthèse textuelle ([ACL Anthology:ARGSBASE][6]).
-
-GenOS possède déjà presque toutes les briques dans son EpistemicState : claims, refutations, contradictions, evidenceLinks, uncertainties. Il faut les réutiliser.
-
----
-
-## 14. Chaque changement d'avis doit avoir une raison
-
-Au lieu de before=.2 après=.8 enregistrer BELIEF_UPDATE reason : NEW_EVIDENCE, COUNTEREXAMPLE, FORMAL_REFUTATION, BETTER_ARGUMENT, MAJORITY_SIGNAL, AUTHORITY_SIGNAL, SELF_CORRECTION. Le système peut ensuite détecter social conformity si des agents changent massivement après exposition à la majorité sans nouvelles preuves.
-
----
-
-## 15. Introduire un `Conformity Monitor`
-
-Mesures : beliefUpdateAfterEvidence, beliefUpdateAfterMajority, beliefUpdateAfterHighStatusAgent, beliefUpdateWithoutNewInformation. Si social updates >> evidential updates alors GROUPTHINK_RISK. Actions : reblind round, recruit dissent, hide vote counts, introduce independent verifier.
-
----
-
-## 16. Ne surtout pas afficher le score global trop tôt
-
-Si les agents voient 8/10 support A avant leur seconde analyse, on fabrique potentiellement de l'ancrage. Donc rounds initiaux : argument-visible, vote-hidden, identity-hidden. Puis seulement plus tard aggregate statistics. Le Delphi classique repose justement sur anonymat, itération, feedback contrôlé et synthèse statistique ([BMJ:DCAT][7]).
-
----
-
-## 17. Le dissent doit être un objet persistant
-
-Créer DissentLedger. Chaque position minoritaire possède claimRefs, supportingEvidence, supporters, independence, materiality, counterexamples, status. Jamais `minority lost vote → delete`. Mais `majority accepted + minority preserved`. Parce qu'une position minoritaire peut contenir l'information rare correcte.
-
----
-
-## 18. Introduire le `Minority Veto` limité
-
-Pas un veto politique général. Un veto épistémique lorsque la minorité possède : deterministic counterexample, formal contradiction, critical safety evidence, unique verified evidence. Exemple : 9 agents « patch works » mais 1 agent a un test reproductable qui crash → PROMOTION BLOCKED. L'évidence bat le nombre.
-
----
-
-## 19. Il faut protéger le dissent utile, pas n'importe quel dissent
-
-$$DissentValue = EvidenceStrength \times Independence \times Materiality \times Novelty$$
-
-et non minority = automatically valuable.
-
----
-
-## 20. La diversité doit être multi-dimensionnelle
-
-Je mesurerais au moins : modèle, provider, stratégie, cognitive recipe, source, evidence type, lineage, retrieval, error history, position. Et construire Community Independence Graph réutilisant epistemicIndependenceService.
-
----
-
-## 21. Le nombre de personnes n'est pas la diversité effective
-
-100 agents + même modèle + même prompt + même sources peut représenter effective community size ≈ 1. Il faudrait calculer $N_{eff}$ à partir des corrélations/indépendances. Cela empêche de présenter 93 votes / 100 comme très fort si les 100 sont des clones cognitifs.
-
----
-
-## 22. Recrutement adaptatif
-
-Si community monoculture detected le système doit chercher : different provider, different evidence modality, different strategy, different expertise, different retrieval corpus. Le service épistémique actuel possède déjà shouldRecruit() et recommendNiche(). C'est une excellente base. Il faut le rendre causal au runtime.
-
----
-
-## 23. Le Reviewer unique doit disparaître
-
-Un reviewer unique devient un goulot d'étranglement. Il peut miss flaws, be biased, anchor everyone. Il faut une Reviewer Population : factual verifier, counterexample hunter, assumption auditor, security reviewer, logic reviewer. Chaque claim est routé vers les reviewers appropriés.
-
----
-
-## 24. Generator ≠ Reviewer ≠ Aggregator
-
-Séparation obligatoire : Generators produisent positions, Reviewers attack/support claims, Verifiers test empirical assertions, Aggregator combine judgments, Observer monitors social dynamics. Aucun agent ne doit contrôler simultanément toutes ces fonctions sur une décision importante.
-
----
-
-## 25. La vraie Biocénose est donc une communauté de niches épistémiques
-
-On pourrait avoir : Population of generators, Population of skeptics, Population of empirical verifiers, Population of formal verifiers, Population of minority scouts, Population of intégrateurs. Chaque population occupe une niche cognitive.
-
----
-
-## 26. L'agrégation doit dépendre de la question
-
-Il ne faut jamais un algorithme unique. Faits avec oracle : oracle > community. Probabilités : weighted probability pool. Les travaux récents comparant différentes règles montrent que les agrégations probabilistes peuvent offrir un meilleur compromis exactitude/décisivité que des règles majoritaires dans certains contextes, et que la corrélation des jugements compte fortement ([Wiley:Condorcet][8]). Options multicritères : Pareto. Arguments complexes : argument graph semantics. Valeurs/préférences : preserve pluralism.
-
----
-
-## 27. Brier weighting doit devenir historique
-
-Pour chaque membre : CalibrationProfile contenant domain, sampleCount, Brier, logScore, reliabilityCurve, overconfidence, underconfidence. Par domaine. Un excellent forecaster en backend n'obtient pas automatiquement la même autorité en droit ou en mathématiques.
-
----
-
-## 28. Il faut aussi un score de spécialisation
-
-Poids final d'un jugement : $w_i = Calibration_i \times ExpertiseFit_i \times Independence_i \times EvidenceQuality_i$ avec limites pour éviter un agent dominant. Pas historically good → dictator.
-
----
-
-## 29. Un marché prédictif interne peut devenir un variant
-
-Pas besoin d'argent réel. Chaque agent reçoit un budget virtuel de conviction. Il peut distribuer 70 units on A, 20 on B, 10 abstain. Le système calcule une probabilité agrégée. Après résolution externe : proper scoring met à jour la calibration. Des recherches sur prediction markets montrent que combinaison statistique, pondération historique et recalibration peuvent extraire efficacement l'information distribuée ([PubsOnline:Atanasov][9]). Très intéressant pour un variant Forecasting Biocenose.
-
----
-
-## 30. Les variants de Biocénose
-
-| Variant | Structure | Usage |
-|---------|-----------|-------|
-| **Epistemic Jury** | jugements indépendants → preuves → verdict | validation technique |
-| **Delphi Community** | rounds anonymes + feedback contrôlé | expertise incertaine |
-| **Adversarial Assembly** | propositions + attaque/défense | robustesse |
-| **Forecasting Crowd** | probabilités calibrées | prévision |
-| **Argumentation Community** | claim/argument graph | raisonnements contestables |
-| **Polycentric Council** | plusieurs sous-communautés | grands systèmes |
-| **Byzantine-Resilient Community** | filtrage de membres malveillants | environnements non fiables |
-| **Minority-Preserving Jury** | consensus + dissent ledger | décisions à fort risque |
-| **Representative Community** | échantillonnage de perspectives | énorme population |
-| **Persistent Community** | réputation et culture long terme | projet durable |
-| **Human–AI Deliberation** | humain comme participant/arbitre | valeurs et ambiguïtés |
-| **Hybrid Oracle Community** | crowd + verifiers déterministes | science/code/math |
-
-Les cinq que je prioriserais : Epistemic Jury, Delphi, Adversarial Assembly, Argumentation Community, Minority-Preserving Jury.
-
----
-
-## 31. Variant Delphi
-
-Très naturel pour Biocénose. Round 0 private answer, Round 1 anonymous aggregate + reasons, Round 2 agents reconsider, Round 3 stability test. Mais avec un garde-fou majeur : convergence is not mandatory. La littérature Delphi avertit qu'un nombre excessif de rounds peut encourager un consensus forcé ; les méthodes modernes conservent donc des stopping rules explicites ([BMJ:DCAT][7]).
-
----
-
-## 32. Variant Adversarial Assembly
-
-Plusieurs propositions. Puis red reviewers, blue defenders, neutral verifier — mais avec engagements initiaux scellés. Important : le débat peut aussi propager de mauvaises convictions. Des travaux récents montrent que des agents persuasifs/adversariaux peuvent influencer négativement une délibération multi-agent ([Nature:Kraidia 2026][10]). Donc persuasion power ≠ epistemic authority.
-
----
-
-## 33. Variant Byzantine-Resilient
-
-Si certains membres peuvent être compromised, malfunctioning, prompt-injected, strategically deceptive — ne pas utiliser simple majority. Le système doit permettre local filtering, evidence verification, reputation bounds, graph robustness, quarantine. Un travail de 2026 propose un protocole de consensus multi-LLM visant explicitement la tolérance à des agents byzantins, avec filtrage local ([arXiv:Lee 2026][11]). GenOS a déjà beaucoup des primitives nécessaires avec immune system, quarantine, provenance, independence graph.
-
----
-
-## 34. Biocénose massive : 100 ou 1000 agents
-
-Le `hierarchicalQuorumService` possède déjà local quorum → global quorum pour de grands groupes. Mais l'implémentation actuelle réduit chaque cluster à one winning value puis les winners votent. Cela peut détruire une minorité importante. Exemple : Cluster A 51 X / 49 Y → X ; Cluster B 51 X / 49 Y → X → 100% X alors que la population réelle était 51% X / 49% Y. C'est une perte catastrophique d'information.
-
----
-
-## 35. Le hierarchical quorum doit transmettre une distribution
-
-Chaque cluster doit retourner distribution, confidence, effectiveDiversity, evidence refs, minority claims, critical objections. Pas juste winner=X.
-
----
-
-## 36. Et la minorité doit disposer d'un bypass
-
-Si un cluster contient 1 verified counterexample il doit pouvoir atteindre directement le niveau supérieur même si 99 autres agents ne le soutiennent pas. Appelons cela Minority Evidence Escalation Channel.
-
----
-
-## 37. Representative sampling pour 1000 agents
-
-Créer des sous-panels selon expertise, independence, evidence niche, error history. Puis recruter davantage seulement si uncertainty remains high. Donc la taille communautaire devient adaptative.
-
----
-
-## 38. Community stopping rule
-
-On arrête lorsque ExpectedValueOfAnotherRound < RoundCost. Approximé avec belief change rate, new evidence rate, remaining contradictions, confidence interval, critical dissent. Si trois rounds ne changent plus rien : stop. Mais stable disagreement peut être la bonne sortie.
-
----
-
-## 39. Cas : revue de code à haut risque
-
-« Cette modification auth peut-elle être mergée ? » Biocénose : 2 independent code reviewers + security reviewer + test verifier + invariant reviewer + observer. Sortie : accepted token validation correct, contested refresh rotation, blocking dissent : reproducible replay attack. Même si quatre reviewers approuvent, le test bloquant empêche le merge.
-
----
-
-## 40. Cas : recherche scientifique
-
-Mission : « Quelle conclusion les données permettent-elles réellement ? » Populations : literature reviewers, methodology reviewers, statistical reviewer, replication reviewer, skeptic. La sortie n'est pas answer=A mais well-supported claims, weak claims, open controversies, missing experiments.
-
----
-
-## 41. Cas : deep research sur sources contradictoires
-
-official sources, academic literature, industry, independent audits, community reports. Chaque sous-communauté produit une position. Puis claims, sources, contradictions sont confrontés. C'est nettement meilleur qu'une synthèse LLM qui lisse les contradictions.
-
----
-
-## 42. Cas : architecture logicielle sans oracle unique
-
-« Monolithe modulaire ou microservices ? » La communauté peut représenter operations, developer productivity, security, cost, scalability. La sortie correcte peut être : Option A dominates under conditions X / Option B dominates under conditions Y. Donc PARETO_PLURALISM est souvent meilleur que consensus forcé.
-
----
-
-## 43. Cas : sécurité
-
-Plusieurs équipes : defender, attacker, implementation reviewer, incident responder, formal verifier. Le consensus n'autorise pas une vulnérabilité. Une seule faille reproductible : critical dissent bloque le résultat.
-
----
-
-## 44. Cas : validation modèle ML/IA
-
-Communauté : performance, bias/fairness evaluation, distribution shift, adversarial evaluation, calibration, operational monitoring. Les désaccords sont conservés par dimension. Cela évite qu'un bon score moyen efface une faille critique.
-
----
-
-## 45. Cas : jugement de benchmarks LLM
-
-Très intéressant pour GenOS lui-même. Plutôt qu'un seul LLM-as-judge : independent judges, blind answer identity, claim-level scoring, calibration, adversarial critic, puis agrégation. Des travaux récents tels que D3 utilisent justement anonymisation, diversification de rôles et débat budgété pour améliorer l'évaluation multi-agent ([ACL Anthology:D3][12]).
-
----
-
-## 46. Cas : décision organisationnelle
-
-Lorsque plusieurs critères légitimes s'opposent : engineering, cost, operations, security, user experience. La Biocénose peut expliciter facts, trade-offs, disagreements mais laisser le choix de valeurs final à l'humain.
-
----
-
-## 47. Biocénose vs Trinity
-
-Si on peut construire un test discriminant : Trinity. Si la qualité dépend surtout de connaissances distribuées, contestation et jugement : Biocénose.
-
----
-
-## 48. Et les deux peuvent être imbriquées
-
-Biocénose identifie deux affirmations irréconciliables (C17 true / C17 false) mais constate qu'une expérience peut trancher. Alors ESCALATE_EXPERIMENT → local Trinity → result → Biocénose updates beliefs. C'est une excellente composition.
-
----
-
-## 49. Biocénose vs A-Team
-
-A-Team = different responsibilities. Biocénose = different judgments. A-Team construit. Biocénose juge, confronte et légitime épistémiquement.
-
----
-
-## 50. Biocénose vs Métapopulation
-
-Métapopulation cherche à conserver des populations semi-indépendantes over time. Biocénose cherche collective judgment. Une Métapopulation peut contenir plusieurs communautés Biocénose locales.
-
----
-
-## 51. Biocénose vs Syncytium
-
-Syncytium veut shared state convergence. Biocénose doit préserver independent private belief jusqu'au bon moment. Trop de Syncytium détruirait précisément la valeur de Biocénose.
-
----
-
-## 52. Architecture ultime
+## 5. Architecture du système
 
 ```text
-                         QUESTION
-                            │
-                            ▼
-                    Question Classifier
-                            │
-                            ▼
-                 Community Constitution
-                       [COMMITTED]
-                            │
-                            ▼
-                  Community Formation
-          expertise + diversity + independence
-                            │
-            ┌───────────────┼───────────────┐
-            ▼               ▼               ▼
-        Member A        Member B         Member C...
-            │               │               │
-            └──── SEALED INDEPENDENT ───────┘
-                            │
-                            ▼
-                     Commitments
-                            │
-                            ▼
-                       Claim Graph
-                            │
-            ┌───────────────┼────────────────┐
-            ▼               ▼                ▼
-         Reviewers       Verifiers       Dissent scouts
-            │               │                │
-            └────── structured challenge ────┘
-                            │
-                            ▼
+                           QUESTION
+                              │
+                              ▼
+                      Question Classifier
+                              │
+                              ▼
+                   Community Constitution
+                         [COMMITTED]
+                              │
+                              ▼
+                    Community Formation
+            expertise + diversity + independence
+                              │
+            ┌─────────────────┼─────────────────┐
+            ▼                 ▼                 ▼
+        Member A          Member B          Member C...
+            │                 │                 │
+            └──── SEALED INDEPENDENT ──────────┘
+                              │
+                              ▼
+                          Commitments
+                              │
+                              ▼
+                        Claim Graph
+                              │
+            ┌─────────────────┼─────────────────┐
+            ▼                 ▼                 ▼
+         Reviewers         Verifiers       Dissent scouts
+            │                 │                 │
+            └──── structured challenge ────────┘
+                              │
+                              ▼
                     Evidence Resolution
-                            │
-                            ▼
+                              │
+                              ▼
                     Belief Revision Round
-                            │
-                            ▼
+                              │
+                              ▼
                 Independence / Groupthink Gate
-                            │
-                            ▼
+                              │
+                              ▼
                   Aggregation Policy Router
-             ┌──────────────┼──────────────┐
-             ▼              ▼              ▼
-          Oracle       Probability       Argument/
-          based          pooling          pluralism
-             │              │              │
-             └──────────────┴──────────────┘
-                            │
-                            ▼
+             ┌────────────────┼────────────────┐
+             ▼                ▼                ▼
+          Oracle          Probability       Argument/
+          based             pooling          pluralism
+             │                │                │
+             └────────────────┴────────────────┘
+                              │
+                              ▼
                     Community Judgment
-                            │
-          ┌─────────────────┼─────────────────┐
-          ▼                 ▼                 ▼
-       consensus          dissent         unresolved
-          │                 │                 │
-          └─────────────────┴─────────────────┘
-                            │
-                            ▼
-                      Learning
-           calibration / reputation / protocol
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+       consensus            dissent          unresolved
+          │                   │                   │
+          └───────────────────┴───────────────────┘
+                              │
+                              ▼
+                        Learning
+             calibration / reputation / protocol
 ```
 
 ---
 
-## 53. Ce qui rendrait Biocénose vraiment exceptionnelle
+## 6. Community Constitution
 
-Pas : plusieurs agents votent. Pas : plusieurs agents débattent.
+La **Community Constitution** est le contrat épistémique scellé avant la première réponse. Elle définit les règles du jeu délibératif et ne peut être modifiée après le début sans versionnage explicite.
 
-Le différenciateur potentiel serait :
-```text
-protocol committed before answers
-+ sealed independent judgments
-+ effective cognitive diversity
-+ error-correlation measurement
-+ claim-level argument graphs
-+ evidence-first authority
-+ historical calibration
-+ domain-specific reputation
-+ anonymous structured deliberation
-+ explicit belief updates
-+ groupthink/conformity detection
-+ minority evidence preservation
-+ adaptive recruitment
-+ aggregation rule chosen by question type
-+ Byzantine resistance
-+ hierarchical deliberation without losing dissent
-+ experiment escalation into Trinity
-+ pluralism as valid final outcome
-```
-
-C'est une combinaison beaucoup plus ambitieuse qu'un « council of LLMs ».
-
----
-
-## 54. L'invariant fondamental
-
-Je résumerais Biocénose ultime par :
-> **A community is not successful because everyone agrees.**
-> **A community is successful when every material claim has been independently proposed, properly challenged, evidentially evaluated, and the final judgment preserves both what the evidence supports and what remains legitimately disputé.**
-
-Si le processus aboutit à un consensus robuste, très bien. S'il aboutit à 60% A / 35% B / 5% abstention avec une objection minoritaire parfaitement valide, **le bon fonctionnement du système consiste précisément à ne pas faire disparaître cette objection**.
-
-C'est là que Biocénose pourrait devenir l'une des topologies les plus importantes de GenOS : **Trinity permettrait à GenOS de faire de la science expérimentale ; Biocénose lui permettrait de construire une véritable épistémologie collective.**
-
----
-
-## 55. Contrat runtime
-
-### CommunitySession
+### 6.1 Structure
 
 ```typescript
-CommunitySession {
-    sessionId
-    missionId
-    constitutionHash
-    questionType  // factual | probabilistic | design | normative | exploratory
-    variant  // epistemic_jury | delphi | adversarial_assembly | forecasting_crowd | argumentation | polycentric | byzantine_resilient | minority_preserving | representative | persistent | human_ai | hybrid_oracle
-    members[]
-    claimGraph
-    argumentGraph
-    dissentLedger
-    conformityMonitor
-    observer
-    aggregationPolicy
-    status
-    roundCount
-    judgment
+CommunityConstitution {
+    constitutionId
+    questionType          // factual | probabilistic | design | normative | exploratory
+    variant               // epistemic_jury | delphi | adversarial_assembly | ...
+    eligibility {
+        minIndependence   // seuil d'indépendance minimum
+        minCalibration    // seuil de calibration minimum
+        requiredCapabilities[]
+        excludedProviders[] // pour éviter monoculture
+    }
+    evidenceStandard {
+        minEvidencePerClaim
+        requiredVerifiability
+        reproducibilityRequired
+        sourceDiversityMin
+    }
+    independenceRequirements {
+        sealedCommitment  // engagement cryptographique requis
+        blindInitialRound // première ronde à l'aveugle
+        maxCorrelation    // corrélation max entre membres
+    }
+    aggregation {
+        method            // oracle | probability_pooling | pareto | argument_graph | pluralism
+        weights           // calibration | expertise | independence | evidence
+        quorumPolicy      // simple_majority | supermajority | effective_majority
+        abstentionPolicy   // allowed | discouraged | forbidden
+    }
+    dissent {
+        preservation      // dissent ledger activé
+        materialityThreshold
+        vetoEnabled       // minority veto activé
+        vetoConditions    // deterministic_counterexample | formal_contradiction | ...
+    }
+    rounds {
+        maxRounds
+        stoppingRule      // stability | evidence_exhaustion | budget
+        minRounds
+    }
+    escalation {
+        toTrinity         // escalade vers Trinity possible
+        toHuman           // escalade vers humain possible
+        evidenceThreshold // seuil pour demander plus d'évidence
+    }
+    constitutionHash      // SHA-256 du contenu ci-dessus
 }
 ```
 
-### CommunityMember
+### 6.2 Scellement de la constitution
+
+$$\text{constitutionHash} = H(\text{CommunityConstitution})$$
+
+Toute modification après le début crée une nouvelle version :
+
+$$\text{constitutionHash}_{v+1} = H(\text{CommunityConstitution}_{v+1} \| \text{constitutionHash}_v)$$
+
+La chaîne de versions est publique et auditable.
+
+### 6.3 Pourquoi sceller avant les réponses
+
+Sceller la constitution avant les réponses empêche :
+- **L'ajustement des règles au résultat** : « on change le seuil de majorité parce que 51% ne suffit pas » ;
+- **La manipulation du quorum** : « on recrute 5 agents supplémentaires pour faire basculer le vote » ;
+- **Le changement de méthode d'agrégation** : « le pooling donne B, passons au vote majoritaire ».
+
+La constitution est le cadre invariant dans lequel la délibération se déroule.
+
+---
+
+## 7. Question Classifier
+
+Le **Question Classifier** détermine le type de question avant toute formation de communauté. Ce choix détermine la méthode d'agrégation, les critères d'éligibilité et les outcomes possibles.
 
 ```typescript
-CommunityCommunityMember {
-    memberId
-    role  // generator | reviewer | verifier | dissent_scout | aggregator | observer
-    model
-    provider
-    cognitiveRecipe
-    capabilities
-    calibrationProfile
-    independenceScore
-    sealedCommitment
-    currentPosition
-    beliefUpdateHistory
+type QuestionType = 'factual' | 'probabilistic' | 'design' | 'normative' | 'exploratory';
+
+function classify(question: string): QuestionType {
+    // - Présence de « probabilité », « risque », « chance » → probabilistic
+    // - Présence de « devrait », « acceptable », « éthique » → normative
+    // - Présence de « architecture », « design », « implémentation » → design
+    // - Présence de « explorer », « alternatives », « cadrages » → exploratory
+    // - Présence de « est-ce que », « vérifier », « prouver » → factual
 }
 ```
 
-### Claim
+Les questions composites retournent un vecteur de types avec pondération :
+
+$$\text{typeVector}(Q) = \{(\text{factual}, 0.6), (\text{normative}, 0.4)\}$$
+
+Dans ce cas, la constitution est adaptée : la partie factuelle suit les règles factuelles, la partie normative préserve le pluralisme.
+
+---
+
+## 8. Sealed Independent Judgment
+
+La phase de **Sealed Independent Judgment** est le cœur épistémique de Biocénose. Elle garantit que chaque membre forme sa position sans influence sociale.
+
+### 8.1 Protocole de scellement
+
+Pour chaque membre $M_i$ :
+
+1. **Réception** : $M_i$ reçoit $Q$ et la constitution scellée ;
+2. **Recherche de preuves** : collecte indépendante ;
+3. **Formation de position** : production de $\mathbf{P}_i$ ;
+4. **Génération de sel** : $\text{salt}_i$ aléatoire ;
+5. **Calcul de l'engagement** : $\text{commit}_i = H(\mathbf{P}_i \| \text{salt}_i)$ ;
+6. **Soumission** : $\text{commit}_i$ est publié (pas $\mathbf{P}_i$) ;
+7. **Révélation** : après tous les engagements, révélation de $(\mathbf{P}_i, \text{salt}_i)$ ;
+8. **Vérification** : $H(\mathbf{P}_i \| \text{salt}_i) = \text{commit}_i$.
+
+### 8.2 Pourquoi le scellement est essentiel
+
+La sagesse d'une foule dépend de l'indépendance des erreurs :
+
+$$\text{Var}(\bar{P}) = \frac{1}{N^2} \left[ \sum_i \sigma_i^2 + \sum_{i \neq j} \rho_{ij} \sigma_i \sigma_j \right]$$
+
+Si $\rho_{ij} = 1$ (parfaitement corrélés) : $\text{Var}(\bar{P}) = \sigma^2$ (équivalent à un seul jugement). Si $\rho_{ij} = 0$ (indépendants) : $\text{Var}(\bar{P}) = \frac{\sigma^2}{N}$ (réduction linéaire).
+
+### 8.3 Engagement cryptographique
+
+$$\text{commit}_i = \text{SHA-256}(\text{serialize}(\mathbf{P}_i) \| \text{salt}_i)$$
+
+Le sel empêche les attaques par précalcul. Après révélation, le système vérifie que $\text{timing}(\text{reveal}_i) > \text{timing}(\text{commit}_j)$ pour tous les membres.
+
+---
+
+## 9. Argument Graph
+
+L'**Argument Graph** est la structure centrale de la délibération Biocénose. Il représente les relations épistémiques entre claims, preuves et assumptions.
+
+### 9.1 Structure du graphe
 
 ```typescript
-Claim {
-    claimId
-    statement
-    proposerId
-    evidenceRefs[]
-    argumentRefs[]
-    supportScore
-    attackScore
-    status  // accepted | rejected | contested | unresolved
+ArgumentGraph {
+    nodes: Claim[] | Evidence[] | Assumption[]
+    edges: ArgumentEdge[]
+}
+
+ArgumentEdge {
+    source: nodeId
+    target: nodeId
+    relation: RelationType
+    weight: number
+    proposer: memberId
+}
+
+enum RelationType {
+    SUPPORT,        // C1 soutient C2
+    ATTACK,         // C1 attaque C2 (relation générale)
+    REFUTE,         // C1 réfute C2 (preuve directe contraire)
+    UNDERCUT,       // E1 sape le raisonnement de C1 vers C2
+    DEPEND_ON,      // C1 dépend de l'hypothèse A1
+    QUALIFY,        // C1 qualifie C2 (condition, contexte, portée)
+    COUNTEREXAMPLE  // E1 est un contre-exemple à C1
 }
 ```
 
-### CommunityJudgment
+### 9.2 Sémantique des relations
+
+| Relation | Sémantique | Effet |
+|----------|-----------|-------|
+| SUPPORT | Le claim source renforce le claim cible | Augmente le support score |
+| ATTACK | Le claim source affaiblit le cible | Augmente l'attack score |
+| REFUTE | Le claim source prouve la fausseté du cible | Augmente fortement l'attack score |
+| UNDERCUT | L'évidence sape le raisonnement intermédiaire | Réduit le poids du raisonnement |
+| DEPEND_ON | Le claim cible dépend d'une hypothèse | Si l'hypothèse est rejetée, le claim est affaibli |
+| QUALIFY | Le claim source restreint la portée du cible | Modifie les conditions d'application |
+| COUNTEREXAMPLE | L'évidence est un contre-exemple direct | Bloque la généralisation du claim |
+
+### 9.3 Calcul des scores de claim
+
+Pour chaque claim $C_k$ :
+
+$$\text{supportScore}(C_k) = \sum_{(C_j, C_k, \text{SUPPORT}) \in \mathcal{A}} w_j \cdot q(C_j)$$
+
+$$\text{attackScore}(C_k) = \sum_{(C_j, C_k, \text{ATTACK/REFUTE}) \in \mathcal{A}} w_j \cdot q(C_j)$$
+
+$$\text{netScore}(C_k) = \text{supportScore}(C_k) - \text{attackScore}(C_k)$$
+
+### 9.4 Statut des claims
+
+$$\text{status}(C_k) = \begin{cases} \text{accepted} & \text{si } \text{netScore}(C_k) > \tau_{\text{accept}} \\ \text{rejected} & \text{si } \text{netScore}(C_k) < -\tau_{\text{accept}} \\ \text{contested} & \text{si } |\text{netScore}(C_k)| \leq \tau_{\text{accept}} \land \text{attackScore}(C_k) > 0 \\ \text{unresolved} & \text{si } \text{supportScore}(C_k) = 0 \land \text{attackScore}(C_k) = 0 \end{cases}$$
+
+### 9.5 Sémantique quantitative (QBA)
+
+Pour modéliser les attaques sur les raisonnements :
+
+$$\text{strength}(C_k) = \text{baseStrength}(C_k) \cdot \prod_{(C_j, C_k, \text{UNDERCUT})} (1 - \text{undercutStrength}(C_j, C_k))$$
+
+---
+
+## 10. Conformity Monitor
+
+Le **Conformity Monitor** détecte les dynamiques de groupe qui dégradent la qualité épistémique.
+
+### 10.1 Mesures de conformité
+
+Pour chaque membre $M_i$ et chaque ronde $r$ :
+
+- $\Delta_{\text{evidence}, i}^{(r)}$ : changement après nouvelle preuve ;
+- $\Delta_{\text{majority}, i}^{(r)}$ : changement après exposition à la majorité ;
+- $\Delta_{\text{status}, i}^{(r)}$ : changement après exposition à un agent de haut statut ;
+- $\Delta_{\text{none}, i}^{(r)}$ : changement sans nouvelle information.
+
+### 10.2 Détection du groupthink
+
+$$\text{groupthinkRisk}^{(r)} = \frac{\sum_i \Delta_{\text{majority}, i}^{(r)}}{\sum_i \Delta_{\text{evidence}, i}^{(r)} + \epsilon}$$
+
+Si $\text{groupthinkRisk} > \tau_{\text{groupthink}}$ (typiquement 2.0), déclenchement de contre-mesures.
+
+### 10.3 Contre-mesures
+
+| Risque | Contre-mesure |
+|--------|--------------|
+| $\Delta_{\text{majority}} \gg \Delta_{\text{evidence}}$ | Reblind round : cacher les statistiques agrégées |
+| $\Delta_{\text{status}} \gg \Delta_{\text{evidence}}$ | Anonymat renforcé : cacher les identités |
+| $\Delta_{\text{none}} > 0$ | Injection de nouvelles preuves |
+| Monoculture détectée | Recrutement adaptatif de perspectives divergentes |
+
+### 10.4 Classification des changements d'avis
 
 ```typescript
-CommunityJudgment {
-    acceptedClaims[]
-    rejectedClaims[]
-    contestedClaims[]
-    unresolvedQuestions[]
-    supportedOptions[]
-    dominatedOptions[]
-    majorityPosition
-    minorityPositions[]
-    evidenceGraph
-    confidence
-    calibrationBasis
-    dissentReport
-    decisionStatus  // VERIFIED_CONSENSUS | ROBUST_CONSENSUS | QUALIFIED_CONSENSUS | PLURALITY_WITH_DISSENT | PARETO_PLURALISM | IRREDUCIBLE_DISAGREEMENT | REQUEST_MORE_EVIDENCE | ESCALATE_EXPERIMENT | HUMAN_JUDGMENT_REQUIRED
+enum BeliefUpdateReason {
+    NEW_EVIDENCE,           // Nouvelle preuve apportée
+    COUNTEREXAMPLE,         // Contre-exemple direct
+    FORMAL_REFUTATION,      // Réfutation formelle
+    BETTER_ARGUMENT,        // Argument supérieur présenté
+    MAJORITY_SIGNAL,        // Influence de la majorité (conformité)
+    AUTHORITY_SIGNAL,       // Influence d'un agent de haut statut
+    SELF_CORRECTION,        // Auto-correction sans influence externe
+    NONE                    // Pas de changement
+}
+```
+
+Le ratio $\frac{|\text{MAJORITY\_SIGNAL}| + |\text{AUTHORITY\_SIGNAL}|}{|\text{NEW\_EVIDENCE}| + |\text{COUNTEREXAMPLE}| + |\text{FORMAL\_REFUTATION}|}$ est le cœur du Conformity Monitor.
+
+---
+
+## 11. Minority Veto et DissentLedger
+
+### 11.1 Minority Veto
+
+Mécanisme épistémique (pas politique) : un contre-exemple déterministe bloque la promotion d'un claim, quelle que soit la majorité.
+
+$$\text{vetoTriggered}(C_k) \iff \exists e \in \text{Evidence} : \text{isCounterexample}(e, C_k) \land \text{isDeterministic}(e)$$
+
+| Type | Condition | Effet |
+|------|-----------|-------|
+| Contre-exemple déterministe | Test reproductible qui échoue | PROMOTION_BLOCKED |
+| Contradiction formelle | Preuve logique d'incohérence | PROMOTION_BLOCKED |
+| Évidence de sécurité critique | Vulnérabilité reproductible | PROMOTION_BLOCKED |
+| Évidence vérifiée unique | Source indépendante irréfutable | PROMOTION_BLOCKED |
+
+**Exemple** : 9 agents « patch works », 1 agent avec test reproductible crashant → veto. L'évidence bat le nombre.
+
+### 11.2 DissentLedger
+
+```typescript
+DissentLedger { entries: DissentEntry[] }
+
+DissentEntry {
+    claimId, position, claimRefs[], supportingEvidence[],
+    supporters[], independence, materiality, novelty,
+    counterexamples[], status  // active | resolved | preserved
+}
+```
+
+### 11.3 Valeur du dissent
+
+$$\text{DissentValue} = \text{EvidenceStrength} \times \text{Independence} \times \text{Materiality} \times \text{Novelty}$$
+
+Un dissent de haute valeur est préservé même face à une large majorité. La littérature sur les « hidden profiles » montre que le dissent peut faire émerger des informations perdues par convergence prématurée.
+
+---
+
+## 12. Les douze variants de Biocénose
+
+Biocénose décline en douze variants, chacun adapté à un contexte spécifique.
+
+### 12.1 Epistemic Jury
+
+Structure : N juges indépendants → preuves → verdict. Usage : Validation technique, revue de code, audit. Chaque juge produit son verdict en isolation. Les verdicts sont agrégés par vote pondéré. Pas de confrontation directe — l'indépendance est la protection.
+
+### 12.2 Delphi Community
+
+Structure : Rondes anonymes + feedback contrôlé + stopping rules. Usage : Expertise incertaine, prévision, estimation. Round 0 : réponse privée anonyme. Round 1 : agrégat anonyme + raisons (sans identité). Round 2 : reconsidération. Round 3 : test de stabilité. Stopping rules : $\text{stop} \iff \text{IQR}^{(r)} < \tau_{\text{spread}} \lor r = r_{\max} \lor \text{budgetExhausted}$. La convergence n'est pas obligatoire.
+
+### 12.3 Adversarial Assembly
+
+Structure : Propositions + attaque/défense + vérification. Usage : Robustesse, sécurité, stress-test. Des « red reviewers » attaquent, des « blue defenders » défendent, des « neutral verifiers » évaluent. Les engagements initiaux sont scellés. Attention : persuasion power ≠ epistemic authority.
+
+### 12.4 Forecasting Crowd
+
+Structure : Probabilités calibrées + scoring rules + marché prédictif interne. Usage : Prévision, estimation de risque. Marché prédictif : $p_{\text{market}}(A) = \frac{\sum_i \text{stake}_i(A)}{\sum_i \text{totalBudget}_i}$. Budget virtuel, se réinitialise à chaque mission.
+
+### 12.5 Argumentation Community
+
+Structure : Claim/argument graph + délibération structurée. Usage : Raisonnements contestables, décisions complexes. Variant le plus structuré. Chaque affirmation est un claim dans l'argument graph. Les relations (SUPPORT, ATTACK, REFUTE, UNDERCUT, DEPEND_ON, QUALIFY, COUNTEREXAMPLE) sont explicitement modélisées.
+
+### 12.6 Polycentric Council
+
+Structure : Sous-communautés semi-indépendantes + coordination. Usage : Grands systèmes, organisations multi-échelles. Plusieurs sous-communautés délibèrent localement. Leurs jugements sont agrégés par un conseil central. Chaque sous-communauté conserve son DissentLedger local.
+
+### 12.7 Byzantine-Resilient Community
+
+Structure : Filtrage local + evidence verification + reputation bounds. Usage : Environnements non fiables. Menaces : agents compromis, défaillants, trompeurs stratégiques, prompt-injected. Contre-mesures : filtrage local, evidence verification, reputation bounds, quarantaine, graph robustesse. Tolérance : $N \geq 3f + 1$.
+
+### 12.8 Minority-Preserving Jury
+
+Structure : Consensus + DissentLedger + veto épistémique. Usage : Décisions à fort risque, sécurité, éthique. Variant le plus conservateur. Le veto épistémique est activé par défaut. Le dissent est toujours préservé.
+
+### 12.9 Representative Community
+
+Structure : Échantillonnage de perspectives + pondération. Usage : Populations massives (1000+ agents). Sous-panels représentatifs selon expertise, indépendance, niche évidentielle, historique d'erreurs. Recrutement adaptatif : davantage seulement si l'incertitude reste élevée.
+
+### 12.10 Persistent Community
+
+Structure : Réputation long terme + culture communautaire. Usage : Projets durables, organisations apprenantes. La communauté persiste au-delà d'une seule mission. Les profils de calibration, DissentLedgers et cultures délibératives sont accumulés.
+
+### 12.11 Human–AI Deliberation
+
+Structure : Humains comme participants ou arbitres. Usage : Valeurs, ambiguïtés, décisions normatives. Les humains participent soit comme membres à part entière, soit comme arbitres finaux pour les questions normatives.
+
+### 12.12 Hybrid Oracle Community
+
+Structure : Crowd + vérificateurs déterministes. Usage : Science, code, mathématiques. La communauté produit des jugements, mais les vérificateurs déterministes (tests, preuves formelles) ont un pouvoir de veto.
+
+---
+
+## 13. Intégration Trinity : ESCALATE_EXPERIMENT
+
+### 13.1 Principe
+
+Quand Biocénose identifie un désaccord empirique non tranchable par délibération seule, elle escalade vers Trinity pour une expérience contrôlée.
+
+### 13.2 Protocole
+
+```
+Biocénose → Désaccord empirique détecté → ESCALATE_EXPERIMENT
+    → Trinity : hypothèses concurrentes → Expérience contrôlée
+    → Résultat expérimental → Retour à Biocénose
+    → Mise à jour des croyances
+```
+
+### 13.3 Formalisation
+
+$$\text{ESCALATE\_EXPERIMENT} \iff \text{empiricalDisagreement}(C_k) \land \text{experimentFeasible}(C_k)$$
+
+Trinity teste les hypothèses. Retour : $\forall i : \mathbf{P}_i^{(r+1)} = \text{updateBelief}(\mathbf{P}_i^{(r)}, \text{result})$
+
+### 13.4 Exemple
+
+Biocénose débat : « L'architecture X réduit-elle la latence de 50% ? » — 60% oui, 40% non. Le désaccord est empirique. ESCALATE_EXPERIMENT vers Trinity. Trinity teste X vs référence. Résultat : X réduit de 30% (pas 50%). Biocénose met à jour : le claim « réduction de 50% » est rejeté, le claim « réduction significative » est accepté avec qualification.
+
+---
+
+## 14. Cas d'usage typiques
+
+### 14.1 Revue de code à haut risque
+
+Mission : « Cette modification auth peut-elle être mergée ? » Communauté : 2 reviewers indépendants + security reviewer + test verifier + invariant reviewer + observer. Sortie : accepted (token validation correct), contested (refresh rotation), blocking dissent (replay attack reproductible). Même si quatre reviewers approuvent, le test bloquant empêche le merge.
+
+### 14.2 Recherche scientifique
+
+Mission : « Quelle conclusion les données permettent-elles réellement ? » Communauté : literature reviewers, methodology reviewers, statistical reviewers, replication reviewers, skeptics. Sortie : well-supported claims, weak claims, open controversies, missing experiments. Pas « answer=A » mais une cartographie de la certitude.
+
+### 14.3 Architecture sans oracle unique
+
+Mission : « Monolithe modulaire ou microservices ? » Communauté : operations, developer productivity, security, cost, scalability. Sortie : Option A dominates under conditions X / Option B dominates under conditions Y. PARETO_PLURALISM est souvent meilleur que consensus forcé.
+
+### 14.4 Sécurité
+
+Communauté : defender, attacker, implementation reviewer, incident responder, formal verifier. Le consensus n'autorise pas une vulnérabilité. Une seule faille reproductible : critical dissent bloque le résultat.
+
+### 14.5 Validation modèle ML/IA
+
+Communauté : performance, bias/fairness, distribution shift, adversarial evaluation, calibration, operational monitoring. Les désaccords sont conservés par dimension. Un bon score moyen n'efface pas une faille critique.
+
+### 14.6 Décision organisationnelle
+
+Communauté : engineering, cost, operations, security, UX. Sortie : facts, trade-offs, disagreements explicites, choix de valeurs final à l'humain (HUMAN_JUDGMENT_REQUIRED).
+
+---
+
+## 15. Biocénose vs autres topologies
+
+| Aspect | Trinity | A-Team | Syncytium | Holobionte | Biocénose |
+|--------|---------|--------|-----------|------------|-----------|
+| Décomposition | Hypothèses (3) | Domaines (N) | État (4) | Hiérarchie (4) | Perspectives (N) |
+| Autorité | Orchestrateur | Domaines isolés | Coordinator | Host central | Constitution |
+| Objectif | Résister à l'expérience | Construire | Converger l'état | Production sécurisée | Former un jugement |
+| Sortie | Hypothèse gagnante | Artefact | État fusionné | Système intégré | Judgment (9 outcomes) |
+| Quand utiliser | Test discriminant | Artefact multi-disciplines | Temps réel collaboratif | Sécurité hiérarchique | Connaissances distribuées |
+
+**Imbrication** : Biocénose ↔ Trinity (ESCALATE_EXPERIMENT). Biocénose peut contenir plusieurs communautés locales (Polycentric). Une Biocénose peut déléguer des sous-problèmes à A-Team.
+
+---
+
+## 16. Composition et allocation
+
+### 16.1 Contrat d'entrée
+
+```javascript
+biologicalModeService.compose('biocenose', "Should we merge this security patch?")
+```
+
+### 16.2 Validation stricte
+
+1. **mission présente** : aucune Biocénose sans mission explicite ;
+2. **mode reconnu** : 'biocenose' dans les modes biologiques ;
+3. **constitution générée** : une Community Constitution est scellée avant les réponses.
+
+Erreurs : `BIOLOGICAL_MISSION_REQUIRED`, `BIOLOGICAL_MODE_UNKNOWN`, `BIOCENOSE_CONSTITUTION_FAILED`.
+
+### 16.3 Sortie
+
+```javascript
+{
+  sessionId: "bioc_12345", constitutionHash: "a1b2c3...",
+  questionType: "factual", variant: "epistemic_jury",
+  members: [
+    { memberId: "M1", role: "generator", independenceScore: 0.92 },
+    { memberId: "M2", role: "reviewer", independenceScore: 0.88 },
+    { memberId: "M3", role: "verifier", independenceScore: 0.95 },
+    { memberId: "M4", role: "dissent_scout", independenceScore: 0.90 }
+  ],
+  claimGraph: { nodes: [], edges: [] },
+  dissentLedger: { entries: [] },
+  conformityMonitor: { socialUpdates: 0, evidentialUpdates: 0, groupthinkRisk: 0 },
+  status: "deliberating", roundCount: 0
 }
 ```
 
 ---
 
-## 56. Architecture du système (fichiers)
+## 17. Allocation de budget et modèles
 
-| Fichier | Rôle |
-|---------|------|
-| `backend/src/services/biocenoseService.js` | Analyse de mission et activation |
-| `backend/src/services/biologicalModeService.js` | Composition des rôles |
-| `backend/src/services/epistemic/epistemicBiocenoseService.js` | Diversité fonctionnelle, détection monoculture |
-| `backend/src/services/epistemic/epistemicIndependenceService.js` | Indépendance épistémique |
-| `backend/src/services/agentRuntimeAdapter/index.js` | Dispatch des agents |
-| `backend/src/services/hierarchicalQuorumService.js` | Quorum hiérarchique |
+$$T_{\text{per\_member}} = \frac{T_{\text{worker}} \times s}{N}$$
+
+| Rôle | Modèle | Raison |
+|------|--------|--------|
+| Generator | `frontier` | Positions complexes |
+| Reviewer | `frontier` | Analyse critique |
+| Verifier | `standard` | Vérification ciblée |
+| Dissent scout | `frontier` | Perspectives rares |
+| Aggregator | `standard` | Combinaison pondérée |
+| Observer | `standard` | Surveillance dynamiques |
+
+Budget adaptatif : $N_{\text{actual}} = \min(N_{\max}, N_{\text{base}} + \Delta N \cdot \frac{\text{uncertainty}}{\tau_{\text{uncertainty}}})$
 
 ---
 
-## 57. Télémétrie et observabilité
+## 18. Télémétrie et observabilité
 
-Nouvelles métriques enregistrées pour chaque session Biocénose :
-```text
-sessionId, variant, questionType, roundCount, constitutionHash
-members: [{memberId, role, model, provider, independenceScore, calibrationScore}]
-claimGraph: {nodes, edges, accepted, rejected, contested}
-dissentLedger: [{claimId, supporters, evidenceStrength, independence, status}]
-conformity: {socialUpdates, evidentialUpdates, groupthinkRisk}
-aggregation: {method, weights, diversityDimensions}
-judgment: {decisionStatus, confidence, dissentPreserved}
-calibration: [{memberId, brierBefore, brierAfter, logScore}]
+```typescript
+BiocenoseTelemetry {
+    sessionId, variant, questionType, constitutionHash, roundCount,
+    members: [{ memberId, role, independenceScore, calibrationScore, beliefUpdateHistory }],
+    claimGraph: { nodes, edges, accepted, rejected, contested, unresolved },
+    dissentLedger: [{ claimId, supporters, evidenceStrength, independence, materiality, status }],
+    conformity: { socialUpdates, evidentialUpdates, majoritySignalUpdates, groupthinkRisk },
+    aggregation: { method, weights, diversityDimensions },
+    judgment: { decisionStatus, confidence, dissentPreserved },
+    calibration: [{ memberId, brierBefore, brierAfter, logScore, sphericalScore }]
+}
 ```
 
+Ces métriques aident à valider la qualité délibérative, détecter la conformité excessive, mesurer la diversité effective, évaluer la calibration, et auditer le dissent.
+
 ---
 
-## 58. Références internes
+## 19. Configuration et paramètres
+
+```bash
+export GENOS_BIOCENOSE_DEFAULT_MEMBERS=4
+export GENOS_BIOCENOSE_MAX_MEMBERS=100
+export GENOS_BIOCENOSE_MAX_ROUNDS=5
+export GENOS_BIOCENOSE_STABILITY_THRESHOLD=0.05
+export GENOS_BIOCENOSE_GROUPTHINK_THRESHOLD=2.0
+export GENOS_BIOCENOSE_DISSENT_MATERIALITY=0.3
+export GENOS_BIOCENOSE_MAX_WEIGHT_RATIO=2.0
+export GENOS_BIOCENOSE_MIN_CALIBRATION=0.6
+export GENOS_BIOCENOSE_MIN_INDEPENDENCE=0.5
+export GENOS_BIOCENOSE_TRINITY_ESCALATION=true
+export GENOS_BIOCENOSE_HUMAN_ESCALATION=true
+```
+
+Les paramètres de constitution (quorum, méthode d'agrégation, veto, anonymat) sont définis dans la constitution scellée, pas en variable d'environnement.
+
+---
+
+## 20. Limitations et design notes
+
+1. **Pas de consensus par défaut** : le consensus n'est pas synonyme de vérité. Neuf outcomes reflètent la diversité des situations épistémiques.
+2. **Constitution scellée** : empêche l'ajustement des règles au résultat.
+3. **Scellement des jugements** : garantit l'indépendance cognitive.
+4. **Neuf outcomes** : couvrent l'espace des situations épistémiques.
+5. **Inappropriée si** : oracle direct disponible, tâche séquentielle, urgence extrême, domaine monodisciplinaire. Préférer Trinity, A-Team, Syncytium, ou autorité unique.
+
+---
+
+## 16. Quand NE PAS utiliser Biocénose
+
+| Si... | Pourquoi |
+|-------|----------|
+| La réponse est un fait objectif avec oracle externe | Un test ou un vérificateur déterministe décide sans délibération |
+| Il existe une autorité légitime incontestable | L'humain seul décide — la Biocénose introduit du bruit |
+| Le temps de délibération est trop coûteux | Chaque round multiplie les tokens et la latence |
+| Il faut une décision unique immédiate | La Biocénose produit un jugement pluriel ou une abstention |
+| Le problème est strictement technique et déterministe | Les algorithmes classiques sont plus fiables que la délibération |
+| L'objectif est de produire un artefact complexe | L'A-Team construit, la Biocénose juge |
+
+**Test mental :** La qualité du résultat dépend-elle de la diversité des perspectives et de la confrontation des connaissances ? Si oui, Biocénose est appropriée. Si la réponse est déjà connue ou si l'oracle est accessible, un vérificateur direct est préférable.
+
+---
+
+## 21. Références internes
 
 - [ORCHESTRATION.md](../orchestration.md) : orchestration générale, gates et preuves
 - [TRINITY.md](trinity.md) : orchestration comparative par hypothèses
 - [A_TEAM.md](a-team.md) : orchestration multidisciplinaire par domaines
+- [SYNCYTIUM.md](syncytium.md) : orchestration par état partagé
+- [HOLOBIONTE.md](holobionte.md) : orchestration hiérarchisée intégrée
 - [BIOME.md](biome.md) : orchestration par environnement et populations
 - [METAPOPULATION.md](metapopulation.md) : orchestration par populations semi-indépendantes
 - [biocenoseService.js](../../../backend/src/services/biocenoseService.js) : activation de Biocénose
 - [epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : diversité épistémique
+- [epistemicIndependenceService.js](../../../backend/src/services/epistemic/epistemicIndependenceService.js) : indépendance épistémique
+- [hierarchicalQuorumService.js](../../../backend/src/services/hierarchicalQuorumService.js) : quorum hiérarchique
+- [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des modes
 
 ---
 
-## 59. Références externes
+## 22. Références externes
 
 | Référence | Apport pour Biocénose |
 |-----------|----------------------|
@@ -726,9 +912,209 @@ calibration: [{memberId, brierBefore, brierAfter, logScore}]
 
 ---
 
-## 60. Implementation & capacités (GenOS v3)
+## 23. Schémas d'Architecture et de Délibération
+
+### 23.1 Topologie de la Communauté Délibérante
+
+```mermaid
+flowchart TB
+    subgraph Constitution["Community Constitution (Scellée Avant Réponses)"]
+        Rules["Règles de décision\nQuorum, Agrégation, Dissent"]
+        Hash["constitutionHash = SHA-256(Constitution)"]
+    end
+
+    subgraph Membres["Membres Indépendants (Cognitions Distinctes)"]
+        M1["Membre 1 (Generator)"]
+        M2["Membre 2 (Reviewer)"]
+        M3["Membre 3 (Verifier)"]
+        M4["Membre 4 (Dissent Scout)"]
+    end
+
+    subgraph Protocole["Protocole de Délibération"]
+        Phase1["Phase 1: Sealed Independent Judgment\ncommit_i = H(P_i || salt_i)"]
+        Phase2["Phase 2: Blind Aggregate\nP_agg = f(P_i, w_i)"]
+        Phase3["Phase 3: Expose Arguments\nBuild Argument Graph"]
+        Phase4["Phase 4: Challenge & Revise\nTrack: evidence vs majority"]
+        Phase5["Phase 5: Re-aggregate & Decide\n9 outcomes possibles"]
+    end
+
+    subgraph Sorties["Community Judgment"]
+        Consensus["VERIFIED_CONSENSUS\nROBUST_CONSENSUS\nQUALIFIED_CONSENSUS"]
+        Pluralisme["PLURALITY_WITH_DISSENT\nPARETO_PLURALISM\nIRREDUCIBLE_DISAGREEMENT"]
+        Escalade["REQUEST_MORE_EVIDENCE\nESCALATE_EXPERIMENT\nHUMAN_JUDGMENT_REQUIRED"]
+    end
+
+    Constitution --> Membres
+    Membres --> Phase1
+    Phase1 --> Phase2
+    Phase2 --> Phase3
+    Phase3 --> Phase4
+    Phase4 --> Phase5
+    Phase5 --> Consensus
+    Phase5 --> Pluralisme
+    Phase5 --> Escalade
+```
+
+### 23.2 Séquence de Délibération et Suivi de Conformité
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Q as Question
+    participant C as Constitution
+    participant M1 as Membre 1
+    participant M2 as Membre 2
+    participant M3 as Membre 3
+    participant A as Argument Graph
+    participant D as DissentLedger
+    participant CM as Conformity Monitor
+
+    Q->>C: Classification de la question
+    C->>C: Scellement (constitutionHash)
+    C->>M1: Constitution + Question
+    C->>M2: Constitution + Question
+    C->>M3: Constitution + Question
+
+    par Jugement indépendant scellé
+        M1->>C: commit_1 = H(P_1 || salt_1)
+        M2->>C: commit_2 = H(P_2 || salt_2)
+        M3->>C: commit_3 = H(P_3 || salt_3)
+    end
+
+    par Révélation
+        M1->>A: (P_1, salt_1)
+        M2->>A: (P_2, salt_2)
+        M3->>A: (P_3, salt_3)
+    end
+
+    A->>A: Construction du graphe d'arguments
+    A->>M1: Exposition des arguments (aveugle)
+    A->>M2: Exposition des arguments (aveugle)
+    A->>M3: Exposition des arguments (aveugle)
+
+    M1->>CM: Changement d'avis (raison: evidence)
+    M2->>CM: Changement d'avis (raison: majority)
+    M3->>CM: Changement d'avis (raison: evidence)
+
+    CM->>CM: Calcul groupthinkRisk
+    alt groupthinkRisk > threshold
+        CM->>A: Contre-mesure (reblind round)
+    else Normal
+        CM->>A: Continuer la délibération
+    end
+
+    A->>D: Dissent matériel détecté
+    D->>D: Preservation dans DissentLedger
+
+    A->>A: Agrégation finale
+    A->>Q: Community Judgment (outcome)
+```
+
+### 23.3 Machine à états de la Délibération
+
+```mermaid
+stateDiagram-v2
+    [*] --> QuestionClassification
+    QuestionClassification --> ConstitutionScellement
+    ConstitutionScellement --> FormationCommunaute
+
+    state FormationCommunaute {
+        [*] --> Recrutement
+        Recrutement --> VerificationIndependence
+        VerificationIndependence --> ScellementCompetences
+        ScellementCompetences --> [*]
+    }
+
+    FormationCommunaute --> Deliberation
+
+    state Deliberation {
+        [*] --> JugementIndependant
+        JugementIndependant --> Commitments
+        Commitments --> BlindAggregate
+        BlindAggregate --> ExposeArguments
+        ExposeArguments --> Challenge
+        Challenge --> ConformityCheck
+        ConformityCheck --> Revision
+        Revision --> StabiliteTest
+        StabiliteTest --> JugementIndependant : Non stable
+        StabiliteTest --> [*] : Stable ou r_max
+    }
+
+    Deliberation --> AgregationFinale
+
+    state AgregationFinale {
+        [*] --> CalculScores
+        CalculScores --> ApplicationVeto
+        ApplicationVeto --> DecisionOutcome
+        DecisionOutcome --> [*]
+    }
+
+    AgregationFinale --> CommunityJudgment
+
+    state CommunityJudgment {
+        [*] --> OutcomeRouter
+        OutcomeRouter --> VerifiedConsensus : Oracle + accord
+        OutcomeRouter --> RobustConsensus : Accord indépendant fort
+        OutcomeRouter --> QualifiedConsensus : Accord + réserves
+        OutcomeRouter --> PluralityDissent : Majorité + minorité
+        OutcomeRouter --> ParetoPluralisme : Options non dominées
+        OutcomeRouter --> IrreducibleDisagreement : Désaccord structurel
+        OutcomeRouter --> RequestEvidence : Preuve insuffisante
+        OutcomeRouter --> EscalateTrinity : Expérience décisive
+        OutcomeRouter --> HumanJudgment : Valeurs non délégables
+    }
+
+    CommunityJudgment --> Apprentissage
+    Apprentissage --> [*]
+```
+
+### 23.4 Graphe d'Argumentation et Relations Épistémiques
+
+```mermaid
+flowchart LR
+    subgraph Claims["Claims Atomiques"]
+        C1["C1: Le patch corrige la vulnérabilité"]
+        C2["C2: Le patch réduit la latence de 50%"]
+        C3["C3: Le patch est sûr en production"]
+    end
+
+    subgraph Preuves["Évidences"]
+        E1["E1: Test unitaire passe"]
+        E2["E2: Test de charge montre 30%"]
+        E3["E3: Crash reproductible en edge case"]
+    end
+
+    subgraph Hypotheses["Hypothèses"]
+        A1["A1: Le modèle de charge est réaliste"]
+        A2["A2: L'edge case est rare en production"]
+    end
+
+    C1 -->|SUPPORT| C3
+    E1 -->|SUPPORT| C1
+    E2 -->|REFUTE| C2
+    E3 -->|COUNTEREXAMPLE| C3
+    A1 -->|DEPEND_ON| C2
+    A2 -->|QUALIFY| C3
+    C2 -->|UNDERCUT| C3
+```
+
+---
+
+## 24. Implementation & capacités (GenOS v3)
 
 Depuis la v3, cette topologie est câblée au runtime :
+
 - Service de coordination : `biocenoseService.js`.
 - Capacités requises : `EVIDENCE_BARRIER`, `EPISTEMIC_INDEPENDENCE`, `ARGUMENT_GRAPH`, `DELIBERATION_PROTOCOL`, `CALIBRATION_ENGINE`, `CONFORMITY_MONITOR`, `BYZANTINE_RESISTANCE`, `DISSENT_PRESERVATION`.
-- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils.
+- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+
+---
+
+## 25. L'invariant fondamental
+
+> **Une communauté n'est pas réussie parce que tout le monde est d'accord.**
+> **Une communauté est réussie lorsque chaque claim matérielle a été indépendamment proposée, proprement contestée, évidentiellement évaluée, et que le jugement final préserve à la fois ce que les preuves supportent et ce qui reste légitimement disputé.**
+
+Si le processus aboutit à un consensus robuste, très bien. S'il aboutit à 60% A / 35% B / 5% abstention avec une objection minoritaire parfaitement valide, **le bon fonctionnement du système consiste précisément à ne pas faire disparaître cette objection**.
+
+C'est là que Biocénose devient l'une des topologies les plus importantes de GenOS : **Trinity permet à GenOS de faire de la science expérimentale ; Biocénose lui permet de construire une véritable épistémologie collective.**

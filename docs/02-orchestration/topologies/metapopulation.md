@@ -1,893 +1,399 @@
 # Metapopulation : Persistance Régionale malgré l'Instabilité Locale
 
-## 1. Principe fondamental
+## 1. Définition
 
-> **Metapopulation est le protocole de GenOS pour maintenir une capacité globale grâce à plusieurs dèmes semi-indépendants, localement adaptés et partiellement redondants, capables d'échanger sélectivement des individus ou des connaissances, de survivre à des extinctions locales et de recoloniser les capacités perdues sans synchroniser tout le collectif.**
+Metapopulation dans GenOS est le mécanisme d'orchestration qui exécute une mission comme un **réseau de populations semi-indépendantes, localement adaptées et partiellement redondantes, capables d'échanger sélectivement des individus ou des connaissances, de survivre à des extinctions locales et de recoloniser les capacités perdues sans synchroniser tout le collectif**.
 
-Le mot important n'est pas « population ». C'est **persistance régionale malgré l'instabilité locale**.
+Le mot « Metapopulation » vient de l'écologie des populations : un système de populations séparées par des patches d'habitat, reliées par des corridors de migration, où la persistance globale émerge de la dynamique locale d'extinction et de recolonisation ([Hanski, 1998][ext-hanski]). GenOS emprunte ce concept : les dômes (populations locales) ne fusionnent pas en un état partagé ; ils vivent, divergent, échangent, s'éteignent localement, et recolonisent les patches vacants.
 
-La distinction avec les autres topologies est fondamentale :
+Les cinq principes de Metapopulation sont :
 
-```text
-Trinity
-    plusieurs hypothèses concurrentes
-    → laquelle résiste aux preuves ?
+1. **Persistance régionale** : la capacité globale est maintenue tant que les fonctions critiques survivent dans au moins un dôme et que la capacité de recolonisation reste positive ;
+2. **Semi-indépendance locale** : chaque dôme possède son propre espace de travail, sa mémoire locale, son budget, sa stratégie, et son évolution — les extinctions locales ne sont pas des échecs globaux ;
+3. **Migration sélective** : les échanges sont typés (agents, génomes, procédures, artefacts, contre-exemples), conditionnés par la compatibilité, et validés localement par le receveur ;
+4. **Anti-synchronisation contrôlée** : la connectivité est régulée pour préserver assez de diversité pour le rescue, mais pas assez pour homogénéiser ;
+5. **Recolonisation fondée** : un patch vacant n'est pas restauré par clonage mais par sélection d'un *founder set* multi-linéage soumis à l'épreuve locale.
 
-A-Team
-    plusieurs expertises complémentaires
-    → comment faire fonctionner leurs contributions ensemble ?
+Metapopulation n'est pas une orchestration par partitionnement : c'est une orchestration par **dynamique de populations**. Les dômes ne sont pas des workers interchangeables ; ce sont des populations vivantes, adaptées localement, capables d'extinction et de renaissance.
 
-Biome
-    environnement + populations + niches + ressources
-    → quelles niches valent encore la peine ?
+Le cœur fonctionnel est réparti entre :
+- [backend/src/services/metapopulationCoordinationService.js](../../../backend/src/services/metapopulationCoordinationService.js) : coordination opérationnelle, quorum, adaptation des corridors ;
+- [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des rôles Metapopulation ;
+- [backend/src/services/proceduralMetapopulationService.js](../../../backend/src/services/proceduralMetapopulationService.js) : populations procédurales, collapse, recolonisation ;
+- [crates/genos-orchestrator/src/evolution.rs](../../../crates/genos-orchestrator/src/evolution.rs) : dynamique évolutionnaire multi-îlots Rust ;
+- [backend/src/services/cryptobiosisSporeService.js](../../../backend/src/services/cryptobiosisSporeService.js) : dormance et réactivation cryptobiotic ;
+- [backend/src/services/fossilizationService.js](../../../backend/src/services/fossilizationService.js) : fossilisation et archive post-extinction.
 
-Metapopulation
-    plusieurs dèmes semi-indépendants
-    → comment survivre aux extinctions locales
-      tout en préservant les fonctions régionales ?
+Le principe est : un collectif capable de survivre à l'extinction locale de la moitié de ses dômes tout en préservant ses fonctions régionales, grâce à la migration sélective et à la recolonisation fondée, est plus résilient qu'un collectif où chaque worker est un point de défaillance unique.
+
+---
+
+## 2. Non un partitionnement statique, mais une dynamique de populations
+
+GenOS applique une logique de populations semi-indépendantes :
+
+1. **Dômes persistants** : chaque dôme maintient son propre état, son évolution, sa mémoire — ce ne sont pas des tâches éphémères ;
+2. **Adaptation locale** : la fitness est évaluée dans le contexte local du dôme — `Fitness(x, deme_A) ≠ Fitness(x, deme_B)` par conception ;
+3. **Migration conditionnelle** : les échanges sont typés, tracés par provenance, et validés par le receveur sous épreuve locale ;
+4. **Extinction explicite** : un dôme peut s'éteindre (collapse) sans que la métapopulation échoue — c'est une transition d'état, pas un incident ;
+5. **Recolonisation active** : un patch vacant est recolonisé par un *founder set* sélectionné, soumis à l'épreuve locale, et cultivé jusqu'à viabilité.
+
+Les mécanismes de résilience sont explicites :
+- **patch-dème separation** : une opportunité (patch) est distincte de la population qui l'occupe — permet `extinction → patch vacant → recolonisation` ;
+- **local-first validation** : jamais `A dit bon → B adopte` ; toujours `A offre propagule → B quarantaine → B évalue localement → ACCEPT / REJECT / ADAPT` ;
+- **fitness locale** : la valeur d'un individu dépend du contexte local, pas d'un score global ;
+- **corridor plasticity** : les routes de migration s'adaptent selon l'historique de succès/échec des échanges ;
+- **source-sink awareness** : les dômes source (producteurs nets) et sink (consommateurs nets) sont identifiés et protégés différemment ;
+- **anti-synchrony governor** : la connectivité est régulée pour éviter la monoculture.
+
+---
+
+## 3. Définitions mathématiques de l'orchestration métapopulationnelle
+
+L'orchestration Metapopulation est un problème de **persistance de fonctions critiques sous instabilité locale**.
+
+Soit :
+- $\mathcal{M}$ : mission globale ;
+- $\mathcal{D} = \{D_1, D_2, \ldots, D_n\}$ : ensemble des dômes actifs ;
+- $\mathcal{P} = \{P_1, P_2, \ldots, P_m\}$ : ensemble des patches disponibles ;
+- $F_{\text{crit}}$ : ensemble de fonctions critiques que la mission exige ;
+- $f(D_i)$ : fonction de fitness locale du dôme $D_i$ ;
+- $\text{Cap}(D_i)$ : capacité du dôme $D_i$ à maintenir ses fonctions assignées ;
+- $\text{Health}(D_i)$ : santé agrégée du dôme $D_i$ ;
+- $\text{Synchrony}(D_i, D_j)$ : corrélation inter-dômes ;
+- $\lambda_{\max}(M)$ : capacité métapopulationnelle (valeur propre dominante) ;
+- $\text{RegionalContribution}(D_i)$ : contribution régionale du dôme $D_i$.
+
+### 3.1 Persistance régionale
+
+La propriété fondamentale de Metapopulation est la persistance régionale malgré les extinctions locales :
+
+$$
+\text{RegionalPersistence} = \underbrace{\left(\forall \phi \in F_{\text{crit}}, \exists D_i : \phi \in \text{Cap}(D_i)\right)}_{\text{CriticalFunctionsMaintained}} \land \underbrace{\left(\sum_{P_j \in \text{VACANT}} \text{RecolonizationCapacity}(P_j) > 0\right)}_{\text{RecolonizationCapacity} > 0}
+$$
+
+L'invariant central : **local failure ≠ regional failure**. Un dôme peut s'éteindre ($\text{Cap}(D_i) = 0$) sans que $\text{RegionalPersistence}$ passe à faux, tant que les fonctions critiques survivent dans d'autres dômes ET que la capacité de recolonisation reste positive.
+
+### 3.2 Capacité métapopulationnelle
+
+Inspirée de Hanski & Ovaskainen ([2000][ext-capacity]) :
+
+$$
+M_{ij} = \text{Quality}_i \times \text{Connectivity}_{ij} \times \text{Compatibility}_{ij} \times \text{Availability}_j
+$$
+
+où :
+- $\text{Quality}_i$ : qualité intrinsèque du patch $i$ (ressources, accessibilité, contraintes environnementales) ;
+- $\text{Connectivity}_{ij}$ : intensité du corridor de migration de $i$ vers $j$ ;
+- $\text{Compatibility}_{ij}$ : compatibilité entre les représentations/stratégies du dôme source $i$ et du patch cible $j$ ;
+- $\text{Availability}_{j}$ : disponibilité du patch $j$ ($0$ si occupé ou indisponible, $1$ si vacant et accessible).
+
+La capacité métapopulationnelle est alors :
+
+$$
+\lambda_{\max}(M) = \text{valeur propre dominante de } M
+$$
+
+$\lambda_{\max}(M)$ mesure la **robustesse structurelle** du réseau : si $\lambda_{\max}$ diminue, le collectif devient fragile même si chaque dôme semble localement viable. Condition de viabilité :
+
+$$
+\lambda_{\max}(M) > \lambda_{\text{critique}} \implies \text{RegionalPersistence}
+$$
+
+où $\lambda_{\text{critique}}$ est un seuil calibré empiriquement selon la criticité de la mission (typiquement $\lambda_{\text{critique}} \in [0.3, 0.6]$).
+
+### 3.3 Dynamique locale d'un dôme
+
+Pour chaque dôme $D_i$, la santé est une combinaison pondérée de fitness, diversité, productivité, et stagnation :
+
+$$
+\text{Health}(D_i) = w_1 \cdot \text{LocalFitness}(D_i) + w_2 \cdot \text{Diversity}(D_i) + w_3 \cdot \text{Productivity}(D_i) - w_4 \cdot \text{Stagnation}(D_i)
+$$
+
+où les poids $w_k$ sont configurés par mission ($w_1 + w_2 + w_3 + w_4 = 1$). La stagnation est mesurée par l'absence de progression de la fitness locale sur une fenêtre glissante :
+
+$$
+\text{Stagnation}(D_i) = \max\left(0, 1 - \frac{\text{LocalFitness}(D_i, t) - \text{LocalFitness}(D_i, t - W)}{\text{LocalFitness}(D_i, t - W)}\right)
+$$
+
+Transition d'état du dôme :
+
+$$
+\text{Health}(D_i) < \theta_{\text{risk}} \implies D_i \to \text{AT\_RISK}
+$$
+$$
+\text{Health}(D_i) < \theta_{\text{collapse}} \implies D_i \to \text{COLLAPSED}
+$$
+
+### 3.4 Fitness locale vs contribution régionale
+
+Un dôme peut avoir une fitness locale médiocre mais une contribution régionale essentielle :
+
+$$
+\text{RegionalContribution}(D_i) = \alpha_1 \cdot \text{UniqueCap}(D_i) + \alpha_2 \cdot \text{EnvCoverage}(D_i) + \alpha_3 \cdot \text{Exports}(D_i) + \alpha_4 \cdot \text{RescueCap}(D_i) + \alpha_5 \cdot \text{DiversityContr}(D_i) - \alpha_6 \cdot \text{CorrFailureRisk}(D_i)
+$$
+
+Un **source deme** est un dôme avec $\text{RegionalContribution}(D_i) \gg \text{LocalFitness}(D_i)$ — il produit plus de valeur pour les autres dômes qu'il n'en consomme localement.
+
+Un **sink deme** est un dôme avec $\text{LocalFitness}(D_i) < \theta_{\text{viable}}$ mais $\text{RegionalContribution}(D_i) > \theta_{\text{keep}}$ — il ne survivrait pas seul mais apporte une couverture environnementale unique (ex. : dôme Windows dans un environnement majoritairement Linux).
+
+### 3.5 Synchronie computationnelle
+
+Pour prévenir les échecs corrélés, GenOS mesure la synchronie entre dômes :
+
+$$
+\text{Synchrony}(D_i, D_j) = \rho\left(\text{ErrorVec}(D_i), \text{ErrorVec}(D_j)\right)
+$$
+
+où $\rho$ est le coefficient de corrélation de Pearson entre les vecteurs d'erreur (ou de fitness, de stratégie, de sortie) des deux dômes sur une fenêtre glissante.
+
+La synchronie est mesurée sur cinq dimensions :
+1. **Error correlation** : $\rho(E_i, E_j)$ — les mêmes erreurs dans les mêmes conditions indiquent une monoculture ;
+2. **Strategy overlap** : similarité Jaccard des stratégies déployées ;
+3. **Model overlap** : utilisation du même provider LLM ;
+4. **Retrieval overlap** : similarité des sources consultées ;
+5. **Artifact ancestry** : proportion d'artefacts partageant une ancêtre commune.
+
+Règle de régulation :
+
+$$
+\text{Synchrony}(D_i, D_j) > \theta_{\text{sync}} \implies \text{reduce corridor}_{ij} \lor \text{mutate } D_i \lor \text{freeze elite migration}
+$$
+
+L'objectif est le **sweet spot de connectivité** : assez de corridors pour permettre le rescue, pas assez pour homogénéiser.
+
+### 3.6 Coût et valeur de migration
+
+Chaque migration consomme tokens, contexte, validation, latence, et risque d'intégration. La valeur nette :
+
+$$
+\text{MigrationValue} = \text{ExpectedReceiverGain} + \text{RescueValue} + \text{NoveltyValue} - \text{TransferCost} - \text{AssimilationRisk} - \text{HomogenizationRisk}
+$$
+
+Migration seulement si valeur positive ou nécessité critique. Le système apprend les politiques de migration sur l'historique : source, target, type de propagule, raison, état local pré/post, accepté ?, amélioration ?, perte de diversité ? — puis déduit `what tends to migrate well from A to B?`.
+
+---
+
+## 4. Les deux unités fondamentales : Patch et Deme
+
+### 4.1 Patch : l'opportunité/localité
+
+Un **patch** est une opportunité où une population pourrait vivre. Il définit le contexte environnemental, les contraintes, les ressources — sans contenir de population.
+
 ```
-
-**A-Team divise la fonction. Metapopulation divise la population.**
-
-Exemple — A-Team ferait :
-```text
-Backend + Security + Data
-```
-
-Metapopulation peut faire :
-```text
-3 populations backend
-    backend-Europe
-    backend-US
-    backend-local
-```
-
-Les deux peuvent être imbriqués.
-
----
-
-## 2. Ce que le runtime actuel fait réellement
-
-`backend/src/services/metapopulationCoordinationService.js` tient aujourd'hui en trois mécanismes simples.
-
-Le quorum `senseQuorum(...)` transforme chaque `evidenceScore` en vote binaire selon un seuil puis calcule un ratio pondéré.
-
-La plasticité `connectionWeights(...)` fait essentiellement `newWeight = clamp(oldWeight + outcome × 0.1)`.
-
-La régénération `regenerationPlan(...)` prend une liste de rôles perdus et retourne `respawn/skipped/sources = lineage + episodic_memory + cryptobiosis` mais ne restaure effectivement aucune population.
-
-Donc il existe actuellement : calcul de quorum, calcul de poids de route, plan théorique de respawn — mais pas encore : dèmes persistants, migration, dispersion, extinction locale, source/sink, rescue effect, recolonisation, colonisation de patches, fitness locale, diversité inter-dèmes, contrôle de synchronisation.
-
-La documentation elle-même décrit des dèmes, corridors de migration, extinction et recolonisation que le runtime Node ne réalise pas encore.
-
----
-
-## 3. GenOS possède pourtant déjà deux briques très importantes
-
-Il ne faut surtout pas créer un troisième moteur indépendant.
-
-Dans `crates/genos-orchestrator/src/evolution.rs` GenOS possède déjà un vrai modèle multi-îlots (`Population`, `Island`, `Individual`) avec sélection locale, reproduction, mutation, novelty archive, migration. La migration actuelle est simple (toutes les 3 générations, best island i → remplace worst island i+1 en anneau) mais c'est une véritable migration.
-
-Et dans `backend/src/services/proceduralMetapopulationService.js` existent déjà `populations/collapsed/recolonizers` avec `markCollapsed()`, `recolonize()`.
-
-L'implémentation ultime doit donc converger vers :
-```text
-Node Metapopulation Runtime ↔ Rust multi-island evolution ↔ Procedural Metapopulation ↔ AgentDNA / lineage / cryptobiosis
-```
-
-et pas ajouter encore une représentation.
-
----
-
-## 4. L'unité fondamentale doit devenir le Dème
-
-J'utiliserais un terme distinct de `population` pour éviter les confusions.
-
-```text
-Metapopulation
-    ├── Deme A
-    │    ├ agent A1
-    │    ├ agent A2
-    │    └ agent A3
-    │
-    ├── Deme B
-    │    ├ agent B1
-    │    └ agent B2
-    │
-    └── Deme C
-         ├ agent C1
-         └ agent C2
-```
-
-Un **dème** est une population locale attachée à un contexte particulier. Exemples : Deme Linux / Windows / macOS ; Deme provider OpenAI / Anthropic / local model ; Deme Europe / Afrique / US ; Deme strategy CP-SAT / ILP / local-search.
-
-Le point important est que les dèmes sont **semi-indépendants**. Ils ne sont pas simplement des workers.
-
----
-
-## 5. Patch et Deme doivent être différents
-
-Un **patch** est une opportunité/localité où une population pourrait vivre. Un **dème** est la population qui l'occupe.
-
-```text
-Patch
-    id, environment, capacity, quality, requirements
-    accessibility, status (VACANT / OCCUPIED / UNAVAILABLE / QUARANTINED)
-
-Deme
-    id, patchId, members, localState, lineage
-    localFitness, diversity, status (FOUNDING / ACTIVE / DECLINING / AT_RISK / COLLAPSED / RECOLONIZING / DORMANT)
-```
-
-Cette séparation est essentielle pour implémenter réellement `extinction → patch vacant → recolonization`.
-
----
-
-## 6. Différence fondamentale avec A-Team et Biome
-
-**A-Team** suppose que les domaines sont connus et différents. **Metapopulation** peut avoir des capacités largement similaires mais fonctionner dans des environnements différents, avec des stratégies différentes, des historiques différents, des modèles différents.
-
-**Biome** répond à « Quelles populations/niches doivent exister dans cet environnement, et où investir les ressources ? »
-**Metapopulation** répond à « Comment plusieurs populations localement autonomes peuvent-elles rester globalement viables malgré leur séparation et leurs extinctions locales ? »
-
-On peut parfaitement avoir `Biome → niche debugging → Metapopulation → Python debugging deme + JS debugging deme + Rust debugging deme`.
-
----
-
-## 7. L'extinction locale ne doit pas être considérée comme un échec global
-
-C'est justement la raison d'être de la topologie. La propriété recherchée est :
-```text
-local failure ≠ regional failure
-```
-
-Par exemple : Deme A crashes, Deme B survives, Deme C survives → Metapopulation remains functional.
-
-En écologie, la persistance régionale peut exister malgré des extinctions locales, tant que les populations survivantes peuvent recoloniser les patches vacants ([Nature:23876][1]).
-
-La métrique principale ne doit pas être `all populations healthy` mais :
-$$RegionalPersistence = CriticalFunctionsMaintained \land RecolonizationCapacity > 0$$
-
----
-
-## 8. Les types d'extinction doivent être explicites
-
-Une extinction de dème peut venir de : worker failures, resource exhaustion, provider outage, environment removal, security quarantine, strategy collapse, irrecoverable corruption, intentional retirement.
-
-Il ne faut surtout pas appeler `one worker failed` une extinction. Un dème est éteint lorsque `local function can no longer be sustained` malgré ses mécanismes locaux de recovery.
-
----
-
-## 9. Introduire l'extinction contrôlée
-
-Parfois, tuer localement une population peut améliorer la santé globale. Des travaux écologiques ont montré que des extinctions locales peuvent, dans certaines dynamiques, empêcher une synchronisation catastrophique des populations et améliorer la persistance de la métapopulation ([Nature:s41559-017-0271-y][2]).
-
-Pour GenOS, cela donne : Deme A, B, C deviennent presque identiques (même modèle, même stratégies, même échecs). La résilience devient mauvaise. GenOS peut décider de `retire / reset C` puis recoloniser C avec différentes stratégies/modèles/linéages pour casser la monoculture. Ce serait une forme de **controlled extinction for diversity recovery**.
-
----
-
-## 10. La synchronisation globale peut être dangereuse
-
-Si toutes les populations copient immédiatement chaque découverte (`A finds X → B adopts X → C adopts X`) on obtient fast convergence mais aussi fast correlated failure.
-
-En métapopulation naturelle, une trop forte synchronisation peut augmenter le risque que toutes les populations passent simultanément dans un état défavorable ; l'asynchronie peut au contraire permettre la recolonisation depuis une population encore viable ([Nature:s41559-017-0271-y][2]).
-
-Donc GenOS doit mesurer `Synchrony(A,B)` sur errors, strategy, outputs, state, fitness trajectories — et maintenir `enough connectivity to rescue, but not enough to homogenize`.
-
-C'est probablement **l'un des principes les plus importants de la Métapopulation ultime**.
-
----
-
-## 11. Il faut donc un Synchronization Governor
-
-Il devrait détecter :
-```text
-too isolated    → no rescue possible
-balanced        → local autonomy + useful migration
-too synchronized → monoculture / correlated failure
-```
-
-On cherche le **Connectivity sweet spot**, pas le maximum communication.
-
-Les travaux sur les island models montrent que la topologie et la fréquence de migration affectent fortement l'équilibre entre propagation des bonnes solutions et préservation de la diversité ; dans certains problèmes, des topologies en anneau avec migration rare évitent mieux les optima locaux que des graphes très connectés ([arXiv:1004.4541][3]).
-
----
-
-## 12. La migration devient le mécanisme central
-
-Aujourd'hui, le Node runtime n'en a pas. Le Rust possède `best migrant → next island → replace worst`. Cela doit devenir beaucoup plus général.
-
-Une migration doit répondre à cinq questions : WHEN migrate? WHAT migrate? FROM where? TO where? WHY? Et ajouter SHOULD receiver accept it?
-
----
-
-## 13. Ce qui migre ne doit pas forcément être un agent
-
-Un migrant peut être : AGENT, GENOME, COGNITIVE_RECIPE, PROCEDURE, MEMORY_FRAGMENT, CLAIM, COUNTEREXAMPLE, ARTIFACT, TEST, VERIFIER, STRATEGY, TOOL_CONFIGURATION.
-
-J'appellerais l'objet général **Propagule** :
-```text
-Propagule {
-    sourceDeme, targetDeme
-    type: PROCEDURE
-    payloadRef, lineage
-    sourceFitness, novelty
-    migrationReason
-    compatibilityEstimate
-}
-```
-
-Donc on peut transmettre une bonne technique sans déplacer tout l'agent.
-
----
-
-## 14. Toute migration doit être locale-validation-first
-
-C'est crucial. Une bonne solution dans A peut être mauvaise dans B. Donc jamais `A says good → B adopts`. Mais `A exports propagule → B quarantine → B evaluates in local environment → ACCEPT / REJECT / ADAPT`.
-
-La fitness devient `Fitness(x, deme_A) ≠ Fitness(x, deme_B)` par défaut.
-
----
-
-## 15. Les policies de migration doivent être nombreuses
-
-### Elite migration
-`send best` — utile quand on veut propager rapidement une amélioration.
-
-### Novelty migration
-`send most different useful candidate` — pour injecter de la diversité. MultiKulti a notamment testé une politique où l'individu envoyé est choisi pour sa différence avec la population cible, avec de meilleures résultats que certaines politiques best/random sur les problèmes étudiés ([arXiv:0806.2843][4]).
-
-### Rescue migration
-`send individual most likely to restore failing deme`.
-
-### Complementary migration
-`receiver lacks capability X → send X`.
-
-### Counterexample migration
-`send failure/counterexample` — très utile pour éviter la répétition d'erreurs.
-
-### Cultural migration
-`send procedure / memory / artifact` — pas agent.
-
-### Founder migration
-Pour recolonisation.
-
----
-
-## 16. Migration push et pull
-
-Deux modes. PUSH : Deme A discovers something exceptional → exports it. PULL : Deme B is declining → requests migrant with capability X. Le pull est particulièrement important pour le rescue effect.
-
----
-
-## 17. La fréquence de migration doit être adaptative
-
-Pas `every 3 generations` comme seule possibilité. Il existe des travaux montrant qu'adapter l'intervalle de migration en fonction des progrès observés peut réduire la communication tout en restant compétitif avec de bons intervalles fixes ([IEEE Xplore:Mambrini][5]).
-
-Une politique GenOS pourrait faire :
-```text
-local progress high       → leave deme alone
-stagnation rising         → migration opportunity increases
-major breakthrough        → selective export
-diversity collapsing      → reduce elite migration / increase novelty migration
-deme at risk              → rescue migration
-```
-
----
-
-## 18. Source–Sink doit devenir une primitive
-
-Un **source deme** produit plus de capacité/innovation qu'il n'en consomme. Un **sink deme** ne survivrait pas seul mais peut rester utile grâce à l'immigration. En écologie, des populations sources peuvent soutenir des populations sinks et produire un rescue effect ([Nature:s41467-021-24877-0][6]).
-
-Pour GenOS : Deme A quality=.95 cost=.30 exports useful techniques → SOURCE. Deme B quality=.65 cost=.80 but unique Windows environment → SINK. Il serait faux de tuer B simplement parce que sa fitness locale est basse.
-
----
-
-## 19. Donc fitness locale ≠ valeur régionale
-
-Définir `LocalFitness(d)` mais aussi `RegionalContribution(d)` avec : unique capability, unique environment coverage, migrant exports, rescue capability, diversity contribution, failure decorrelation. Un dème médiocre localement peut avoir une grande valeur régionale.
-
----
-
-## 20. Rescue effect
-
-Lorsqu'un dème approche du collapse (health ↓, diversity ↓, capacity ↓) le système cherche source deme with compatible migrants et injecte small controlled migration pour rétablir function, diversity ou productive lineage. Le rescue effect est précisément l'un des mécanismes classiques par lesquels la migration peut diminuer le risque d'extinction locale ([Nature:srep07871][7]). Mais il ne faut pas transformer cela en `always migrate when failing` car trop de migration peut homogénéiser les populations.
-
----
-
-## 21. Recolonisation ≠ respawn
-
-Aujourd'hui `regenerationPlan() → respawn role`. Une vraie recolonisation :
-```text
-PATCH vacant → choose founder source(s) → select propagules → evaluate local compatibility
-→ instantiate founder population → bootstrap local state → restricted local trial → grow if viable
-```
-
-Il peut être préférable de ne **pas restaurer exactement la population morte**. Si elle est morte parce que sa stratégie locale était mauvaise, la cloner reproduirait le problème.
-
----
-
-## 22. Founder sets plutôt qu'un clone unique
-
-Pour recoloniser : `Founder set = lineage A + lineage B + novel variant C` puis laisser la sélection locale déterminer la combinaison viable. Cela réduit l'effet monoculture.
-
----
-
-## 23. Les cryptobiosis spores prennent ici tout leur sens
-
-GenOS possède déjà `cryptobiosisSporeService` et des snapshots. Une population peut conserver `lastVerifiedState, genomes, procedures, critical artifacts, local memory, interface contracts` sous forme de spore. Lors d'une extinction : `spore + migrants + current patch environment → recolonized deme`. C'est beaucoup plus riche que `restart worker`.
-
----
-
-## 24. Les fossiles deviennent également utiles
-
-Une population éteinte peut laisser `failure cause, genotype, phenotype, fitness history, environment, successful descendants` via la fossilisation existante. Lors d'une recolonisation future : `do not repeat extinct lineage blindly`. On consulte les fossiles. C'est une vraie boucle : `extinction → autopsy/fossilization → future colonization policy`.
-
----
-
-## 25. Metapopulation Capacity
-
-Il existe en écologie une notion très intéressante proposée par Hanski et Ovaskainen : la **metapopulation capacity**, dérivée de la valeur propre dominante d'une matrice représentant la structure/connectivité du paysage ([Nature:35008063][8]).
-
-Je ne copierais évidemment pas directement l'équation biologique comme si elle prouvait la viabilité d'agents. Mais GenOS peut construire une analogue computationnelle.
-
-Matrice :
-$$M_{ij} = Quality_i \times Connectivity_{ij} \times Compatibility_{ij} \times Availability_j$$
-
-Puis $\lambda_{max}(M)$ comme mesure **heuristique** de capacité régionale. Si `λ regional ↓` le collectif devient fragile même si chaque dème semble localement correct. Ce serait beaucoup plus pertinent qu'un simple `populationCount`.
-
----
-
-## 26. La connectivité doit être structurée
-
-Variants de graphe :
-```text
-ring              → très bonne diversité, diffusion lente
-stepping-stone    → migration sparse locale
-star              → diffusion rapide depuis centre
-fully-connected   → diffusion rapide, risque homogénéisation
-source-sink       → sources exportent vers plusieurs sinks
-small-world       → compromis localité / propagation
-hierarchical      → niveaux régionaux / locaux
-adaptive          → liens appris
-```
-
-La topologie ne doit jamais être arbitraire. Les island models montrent que la topologie de migration peut changer matériellement les performances et la diversité ([arXiv:1004.4541][3]).
-
----
-
-## 27. Le `connectionWeights()` actuel doit être remplacé
-
-Actuellement `outcome +2 → +0.2, outcome -5 → -0.5`. Ce n'est pas de la plasticité fiable. Une route doit être évaluée sur : accepted migrants, rejected migrants, migrant local improvement, unique information transferred, latency, cost, failure propagation, diversity loss.
-
-Exemple :
-$$Utility_{ij} = Benefit_{recipient} + Novelty + RescueValue - Cost - FailurePropagation - Homogenization$$
-
-Puis adaptation bornée.
-
----
-
-## 28. Les routes doivent pouvoir être directionnelles
-
-`A → B` peut être excellent. `B → A` peut être mauvais. Donc `migrationGraph` doit être dirigé. Source/sink en dépend.
-
----
-
-## 29. Quorum doit changer de rôle
-
-Le quorum reste utile. Mais il ne doit plus être le mécanisme central de Métapopulation. Je le réserverais aux décisions **régionales** : declare systemic risk, change migration policy, launch recolonization, freeze a corridor, global mission completion, regional resource emergency. Les dèmes n'ont pas besoin d'un quorum global pour leur travail quotidien.
-
----
-
-## 30. Il faut plusieurs types de quorum
-
-Pas un seul `evidenceScore >= .5`. Je créerais conceptuellement : RISK_QUORUM, DISCOVERY_QUORUM, MIGRATION_QUORUM, RESCUE_QUORUM, EXTINCTION_QUORUM, PROMOTION_QUORUM. Et surtout `quorum decision → specific action`. Un quorum sans action associée est juste une statistique.
-
----
-
-## 31. Corriger le faux quorum
-
-Le dépôt le prévoit déjà conceptuellement : `METAPOPULATION_FALSE_QUORUM`. Mais il faut l'implémenter réellement. Trois dèmes utilisant même modèle, même source, même prompt ne sont pas trois signaux indépendants. Le quorum doit intégrer : source independence, lineage diversity, model diversity, evidence independence, error correlation — exactement comme pour Trinity, mais au niveau des populations.
-
----
-
-## 32. Le silence doit être un état explicite
-
-Il faut distinguer : NO_SIGNAL, HEALTHY_SILENCE, NO_NEW_INFORMATION, DISCONNECTED, CRASHED, STALLED, UNKNOWN. Actuellement une population absente du tableau ne compte simplement pas. C'est dangereux.
-
----
-
-## 33. Liveness régional
-
-Chaque dème doit publier périodiquement un signal compact : `alive, localStateVersion, health, lastEvidenceAt, migrationCapability, recoveryCapability` — sans prompt LLM. Cela permet un vrai détecteur d'extinction.
-
----
-
-## 34. Local autonomy doit être réelle
-
-Chaque dème possède workspace/sandbox, local memory, local budget, local population, local strategy, local evolution — et peut continuer même si regional controller temporarily unavailable, jusqu'à une limite prédéfinie. C'est important pour la résilience.
-
----
-
-## 35. Heterogeneous Island Metapopulation
-
-Chaque dème peut utiliser different algorithm, different model, different cognitive recipe, different toolchain. Les heterogeneous island models exploitent déjà l'idée de faire tourner des algorithmes différents sur les différents îlots, et certains travaux proposent même de reconfigurer dynamiquement les algorithmes des îlots selon leurs performances ([arXiv:2205.02916][9]).
-
-Pour GenOS :
-```text
-Deme A: Codex + symbolic debugging
-Deme B: Claude + causal diagnosis
-Deme C: local model + fuzzing
-Deme D: deterministic static tools
-```
-
-Les bons artifacts migrent.
-
----
-
-## 36. Mais contrairement à Trinity…
-
-Ces dèmes ne sont pas nécessairement trois hypothèses expérimentales. Ils peuvent vivre longtemps, évoluer localement et échanger périodiquement. Trinity : `experiment → compare → decide`. Métapopulation : `live → diverge → exchange → fail locally → recolonize → continue`. C'est fondamentalement temporel.
-
----
-
-## 37. Les variants de Metapopulation
-
-| Variant | Mécanisme principal | Cas |
-|---------|---------------------|-----|
-| **Classic Patch** | extinction + recolonisation | résilience générale |
-| **Island Search** | îlots de recherche + migration | optimisation, hard search |
-| **Heterogeneous Islands** | modèles/algorithmes différents | problèmes inconnus |
-| **Source–Sink** | sources soutiennent sinks | environnements inégaux |
-| **Rescue Network** | redondance et recolonisation | systèmes critiques |
-| **Stepping-Stone** | migration sparse locale | préserver diversité |
-| **Anti-Synchrony** | diversité volontaire, firebreaks | réduire correlated failure |
-| **Federated Metapopulation** | données/états restent locaux | sites privés / edge |
-| **Ephemeral Patch** | patches apparaissent/disparaissent | cloud, sources, outils temporaires |
-| **Persistent Metapopulation** | dèmes résident entre missions | projets/services longs |
-| **Evolutionary Metapopulation** | genome + mutation + migration | NCE/optimisation |
-| **Cultural Metapopulation** | artifacts migrent plus que les agents | connaissances/procédures |
-
-Les plus importantes pour commencer sont : Island Search, Heterogeneous Islands, Rescue Network, Source–Sink, Anti-Synchrony.
-
----
-
-## 38. Variant Anti-Synchrony
-
-Celui-ci pourrait devenir particulièrement distinctif. Objectif : prevent global correlated failure. On mesure `Correlation(Error_i, Error_j)` ainsi que strategy overlap, model overlap, retrieval overlap, artifact ancestry.
-
-Si la population globale devient trop homogène : reduce migration, freeze some corridors, mutate one deme, change provider, recolonize a patch with divergent founders. Le but n'est pas la diversité décorative. C'est un **firebreak cognitif**.
-
----
-
-## 39. Variant Federated
-
-Cas extrêmement pratique. Supposons Hospital A, B, C ou Paris server, Brazzaville server, Dakar server. Les données doivent rester locales. Chaque dème travaille localement. Ce qui peut migrer : verified aggregate, procedure, model update, anonymized claim, test, counterexample — mais pas les données brutes. Métapopulation devient alors une architecture très naturelle pour privacy, data sovereignty, network partitions, regional outages.
-
----
-
-## 40. Cas d'utilisation : optimisation difficile
-
-```text
-Deme A: CP-SAT
-Deme B: MILP
-Deme C: local search
-Deme D: evolutionary search
-```
-
-Ils explorent localement. Migration : incumbents, bounds, constraints, counterexamples. Si ILP stagne : migration from local search peut lui fournir un warm-start. Si un deme devient inutilisable : collapse — aucun problème global.
-
----
-
-## 41. Cas : bug très difficile
-
-Contrairement au Biome qui explore les niches de recherche, Métapopulation peut maintenir plusieurs communautés de debugging :
-```text
-Deme A: static analysis family
-Deme B: dynamic reproduction family
-Deme C: history/bisect family
-Deme D: formal invariant family
-```
-
-Chaque dème peut contenir plusieurs agents et s'améliorer localement. Une reproduction de bug trouvée par B migre vers A, C, D comme artifact. Mais leurs stratégies locales restent distinctes.
-
----
-
-## 42. Cas : maintenance multi-repo / microservices
-
-Chaque service peut avoir son dème résident : Auth Deme, Payments Deme, Frontend Deme, Data Deme. Ils possèdent leur mémoire locale, agents, procédures et historique. Une vulnérabilité OAuth découverte dans Auth : verified security propagule peut migrer vers les autres dèmes concernés. Si Payments est indisponible : reste de la métapopulation continue puis recolonisation lorsque le service revient.
-
----
-
-## 43. Cas : multi-région
-
-Très naturel. Europe, US, Africa, Asia — chaque dème a local infrastructure, local constraints, local data, local failures. Une solution validée dans un environnement peut migrer vers les autres. Mais le receiver doit la tester localement avant assimilation.
-
----
-
-## 44. Cas : multi-provider LLM
-
-Cela rejoint ton abstraction : Codex, Claude, Hermes, Antigravity, Ollama... On peut créer des dèmes provider-local. Un outage Provider A down ne tue pas le collectif. Et surtout, on peut éviter qu'un provider unique devienne génétiquement/cognitivement dominant.
-
----
-
-## 45. Cas : cybersécurité distribuée
-
-Deme Web, Deme Identity, Deme Infrastructure, Deme Supply Chain — ou des dèmes isolés par environnement. Une contamination d'un dème : quarantine — ne doit pas propager automatiquement son état. Une population propre peut recoloniser le patch après nettoyage. C'est beaucoup plus proche de disaster recovery que d'un simple Red Team.
-
----
-
-## 46. Cas : CI multi-environnements
-
-Linux Deme, Windows Deme, macOS Deme, ARM Deme. Un patch fonctionne sur Linux. Il migrate vers les autres environnements. Chaque receiver évalue localement. Si Windows rejette : adapt locally. Puis une correction plus portable peut revenir vers les autres. Très bon cas d'usage pratique.
-
----
-
-## 47. Cas : deep research à fortes frontières de provenance
-
-Academic Deme, Official Sources Deme, Code/Repo Deme, Industry Deme, Community Deme — on garde local provenance, local methodology, local evidence, et on fait migrer seulement les claims suffisamment vérifiés. Cela empêche un mauvais cluster de sources de contaminer immédiatement tout le raisonnement.
-
----
-
-## 48. Cas : longue recherche scientifique
-
-Chaque dème peut maintenir une école méthodologique différente pendant plusieurs semaines/missions : formal, empirical, simulation, literature. Des résultats migrent. Les approches ne fusionnent pas prématurément. C'est plus proche de la façon dont des communautés scientifiques distribuées avancent que d'un débat unique.
-
----
-
-## 49. Persistent Metapopulation
-
-Comme pour Biome, il faut une version persistante. Mais la sémantique diffère. Biome persistant : one evolving ecosystem. Métapopulation persistante : network of resident semi-independent demes. Par exemple GenOS project : Repo Deme, Benchmark Deme, Security Deme, Research Deme, Release Deme — ils peuvent vivre entre les missions.
-
----
-
-## 50. Les daemons peuvent être résidents locaux
-
-Chaque dème peut posséder ses propres daemons. Repo A : architecture daemon, bug daemon. Repo B : architecture daemon, regression daemon. Les daemons ne broadcastent pas tout. Ils publient des propagules lorsque quelque chose a une valeur régionale.
-
----
-
-## 51. Local culture
-
-Chaque dème doit pouvoir développer local procedures, local heuristics, local terminology, local memory — sans que tout soit immédiatement globalisé. Puis certaines pratiques deviennent des migrants culturels. Cela exploite très bien `culturalTransmissionService` et `culturalSelectionService` de la NCE.
-
----
-
-## 52. Speciation computationnelle
-
-Si deux dèmes divergent beaucoup (representations incompatible, strategies incompatible, migrant acceptance ≈ 0) GenOS peut détecter `incipient speciation`. Opérationnellement, cela signifie simplement `low cross-deme compatibility`. Le système peut alors : reduce migration, introduce translation bridge, or treat as separate strategy families.
-
----
-
-## 53. Migration adapters
-
-Très important pour cette speciation. Exemple : Deme SAT → learned clause. Deme ILP cannot directly consume SAT clause. Mais un adapter peut traduire `learned constraint → linear inequality` si transformation valide. Donc `Propagule → MigrationAdapter(sourceRepresentation, targetRepresentation) → receiver-local validation`. C'est une capacité très intéressante.
-
----
-
-## 54. Migration doit avoir un coût
-
-Chaque déplacement doit consommer tokens, context, validation, latency, integration risk. Donc :
-$$MigrationValue = ExpectedReceiverGain + RescueValue + NoveltyValue - TransferCost - AssimilationRisk - HomogenizationRisk$$
-
-Migration seulement si valeur positive ou nécessité critique.
-
----
-
-## 55. Il faut apprendre les politiques de migration
-
-Sur l'historique : source, target, propagule type, reason, local pre-state, local post-state, accepted?, improvement?, diversity loss? Puis GenOS apprend `what tends to migrate well from A to B?`. C'est bien plus riche que `weight += 0.1`.
-
----
-
-## 56. Le receiver doit avoir le dernier mot
-
-Invariant : `Source may offer. Regional controller may recommend. Receiver decides assimilation under local evidence.` Sauf mécanisme de sécurité global explicitement supérieur. Cela protège l'adaptation locale.
-
----
-
-## 57. Regional Memory
-
-Je ne créerais pas une mémoire globale contenant tout. La mémoire régionale doit surtout connaître : demes, patches, capabilities, health, lineages, routes, migration history, verified regional facts. Les détails locaux restent locaux. C'est compatible avec le principe de faible communication.
-
----
-
-## 58. Recolonisation doit mesurer le succès
-
-Une population recolonisée n'est pas automatiquement considérée récupérée. Cycle : `VACANT → FOUNDING → LOCAL_TRIAL → ESTABLISHING → ACTIVE` ou `FOUNDING → FAILED_COLONIZATION`. Le `Regeneration Steward` actuel doit devenir ce **Recolonization Controller**.
-
----
-
-## 59. Rescue ≠ recolonization
-
-Différence utile : `RESCUE` = population still alive, migration prevents collapse. `RECOLONIZATION` = population already extinct, patch is vacant. Le runtime doit conserver cette distinction.
-
----
-
-## 60. Evolutionary rescue
-
-Une population menacée peut être sauvée non seulement par migration directe, mais par adaptation de ses propres descendants. La théorie d'« evolutionary rescue » combine justement dégradation environnementale, variation, abondance et adaptation ([Annual Reviews:Bell 2017][10]). Pour GenOS : deme failing because environment changed peut mutate strategy locally avant de demander une migration. Puis local adaptation + external rescue peuvent être comparés.
-
----
-
-## 61. Migration ne doit pas toujours être bénéfique
-
-Important. Un migrant très performant peut replace local diversity, spread bad assumptions, synchronize failures, destroy a locally adapted solution. Donc il faut mesurer `migration load` au sens computationnel : `receiver performance after migration`. Pas présumer que l'échange est positif.
-
----
-
-## 62. Les îles Rust doivent être généralisées
-
-L'actuel `ring, best migrant, every 3 generations, replace worst` devient un moteur configurable : `migrationTopology, migrationTrigger, migrantSelection, recipientSelection, acceptancePolicy, replacementPolicy, migrationBudget`. Mais ce moteur Rust devrait rester l'implémentation haute-performance des dynamiques évolutionnaires. Le Node runtime orchestre identity, memory, evidence, workspace, policies. Le Rust gère fast population dynamics.
-
----
-
-## 63. Le proceduralMetapopulationService doit devenir l'archive procédurale régionale
-
-Il sait aujourd'hui seulement add, collapse, recolonize, count diversity. Je le ferais devenir l'autorité pour : procedural lineages by deme, procedure migration, local procedural fitness, recolonization seed, collapsed procedures. Pas l'autorité runtime sur les agents.
-
----
-
-## 64. Capability contract actuel incomplet
-
-La Métapopulation déclare actuellement : QUORUM, SYNAPTIC_PLASTICITY, RESILIENCE_RECOVERY, GENOME_EPIGENETICS, SWARM_METRICS, EPISODIC_MEMORY. Mais pour une véritable Métapopulation, il manque conceptuellement au minimum : SIGNALING_BUS, PROVENANCE, CAPSULES_SNAPSHOTS, EVIDENCE_BARRIER, et probablement EVOLUTION_REPRODUCTION selon le variant. Une métapopulation incapable d'échanger des migrants avec provenance et de restaurer un snapshot n'est pas réellement opérationnelle.
-
----
-
-## 65. `quorum_with_abstention` ne devrait probablement pas rester l'organisation universelle
-
-C'est une organisation de décision collective. Or une Métapopulation passe la majeure partie de son temps sans décision collective globale. Je verrais plutôt : default = adaptive sparse migration network. Puis ponctuellement quorum_with_abstention quand une décision régionale le nécessite. Le profil MODE_PROFILES dit d'ailleurs déjà `communication: adaptive_neighbors`, alors qu'aucune vraie organisation `adaptive_neighbors` n'est aujourd'hui matérialisée comme telle. Il faut résoudre cette incohérence.
-
----
-
-## 66. Les quatre rôles actuels doivent devenir des services de contrôle
-
-Comme pour Biome. `population_isolator, quorum_sensor, synaptic_adaptor, regeneration_steward` ne devraient pas forcément consommer quatre LLM. Ils deviennent : DemeManager, RegionalSignalController, MigrationGraphController, RecolonizationController. Un LLM est consulté seulement lorsque l'interprétation nécessite de la cognition. Les vrais agents résident dans les dèmes.
-
----
-
-## 67. Metapopulation Health
-
-Je mesurerais :
-$$H = RegionalCoverage + DemeDiversity + RecolonizationCapacity + SourceCapacity + ConnectivityAdequacy - SynchronizationRisk - FragmentationRisk - CorrelatedFailureRisk$$
-
-avec dimensions séparées. Pas un score unique uniquement.
-
----
-
-## 68. Métriques essentielles
-
-```text
-activeDemes, vacantPatches
-localExtinctionRate, colonizationRate, recolonizationSuccess
-migrationRate, migrationAcceptance, migrationBenefit
-sourceSinkBalance
-regionalCoverage
-lineageDiversity, strategyDiversity
-crossDemeErrorCorrelation
-synchrony
-fragmentation
-rescueEvents, rescueSuccess
-meanRecoveryTime
-metapopulationCapacity
-regionalFailureProbability estimate
-```
-
-La dernière doit rester une estimation empirique, pas une pseudo-probabilité inventée.
-
----
-
-## 69. Tests de perturbation
-
-Métapopulation doit pouvoir répondre à `What happens if Deme A disappears?` Puis `A dies → regional function survives? → who becomes source? → can patch A be recolonized? → how long? → what diversity is lost?` C'est la vraie preuve de résilience.
-
----
-
-## 70. Cas où Métapopulation est supérieure à Biome
-
-3 regional clusters, each can perform full mission, each has local constraints, network unreliable → Métapopulation. Mais many specialized populations, sharing resources, in one evolving search environment → Biome.
-
----
-
-## 71. Cas où Métapopulation est supérieure à Trinity
-
-3 long-lived solver populations, occasionally exchange progress → Métapopulation. 3 controlled hypotheses, compared once → Trinity.
-
----
-
-## 72. Cas où Métapopulation est supérieure à Rhizome
-
-Known semi-independent demes, need persistence + migration → Métapopulation. Network doesn't know where capabilities should grow → Rhizome.
-
----
-
-## 73. Cas où Métapopulation est supérieure à Syncytium
-
-Métapopulation veut local states intentionally different. Syncytium veut one shared convergent state. Ce sont presque des philosophies opposées.
-
----
-
-## 74. Ce qui pourrait réellement rendre l'utilisation exceptionnelle
-
-Le différenciateur ne serait pas « GenOS fait de la migration entre agents ». Les island models le font depuis longtemps. Ce serait cette combinaison :
-```text
-persistent semi-independent demes
-+ local environment-specific fitness
-+ typed propagules
-+ agent / procedure / memory / artifact migration
-+ receiver-side quarantine and validation
-+ adaptive migration timing
-+ adaptive migration topology
-+ source–sink dynamics
-+ rescue effect
-+ actual extinction
-+ verified recolonization
-+ lineage-aware founder selection
-+ cryptobiotic restoration
-+ fossil-informed recovery
-+ anti-synchrony control
-+ correlated-failure firebreaks
-+ heterogeneous models/algorithms
-+ regional metapopulation capacity
-+ cultural migration
-+ nested GenOS topologies
-```
-
-C'est là que GenOS pourrait aller beaucoup plus loin qu'un simple island model.
-
----
-
-## 75. Architecture ultime
-
-```text
-                         MISSION
-                            │
-                            ▼
-                      PATCH MODEL
-                            │
-             ┌──────────────┼───────────────┐
-             ▼              ▼               ▼
-          Patch A         Patch B         Patch C
-             │              │               │
-          Deme A           Deme B          Deme C
-        ● ● ● ●           ● ● ●          ● ● ●
-             │              │               │
-             └──── migration corridors ─────┘
-                            │
-                            ▼
-                    Regional Observer
-                            │
-          ┌─────────────────┼───────────────────┐
-          ▼                 ▼                   ▼
-       liveness        connectivity          synchrony
-       fitness          migration            diversity
-       lineage          source/sink          coverage
-          │                 │                   │
-          └──────────────┬──┴───────────────────┘
-                         ▼
-                   Regional Controller
-                         │
-      ┌──────────────────┼───────────────────────┐
-      ▼                  ▼                       ▼
-   migration           rescue                extinction
-   corridor adapt      diversify             quarantine
-   colonize            evolve                recolonize
-      │                  │                       │
-      └──────────────────┴───────────────────────┘
-                         │
-                         ▼
-                   REGIONAL PERSISTENCE
-```
-
----
-
-## 76. Les invariants que je fixerais
-
-```text
-No deme without a defined patch/local context.
-No migration without provenance.
-No migrant assimilation without receiver-local validation.
-No local extinction interpreted as regional failure.
-No recolonization considered successful before local viability is re-proven.
-No global synchronization merely for convenience.
-No migration policy allowed to erase regional diversity without measurable benefit.
-No source deme allowed to become a single point of failure unnoticed.
-No silent deme counted as healthy.
-No quorum based on correlated evidence treated as independent support.
-No recovery by simply cloning the state that caused the previous collapse.
-No route adaptation from a single anecdotal outcome.
-No "resilience" claim without actual perturbation/recovery evidence.
-```
-
-Et surtout : **La réussite d'une Métapopulation ne se mesure pas par l'absence d'extinctions locales. Elle se mesure par sa capacité à préserver les fonctions régionales malgré ces extinctions.**
-
----
-
-## 77. Contrat runtime
-
-### MetapopulationSession
-
-```typescript
-MetapopulationSession {
-    sessionId
-    missionId
-    patchModel
-    demes[]
-    migrationGraph
-    topology  // ring | stepping_stone | star | small_world | source_sink | hierarchical | adaptive
-    regionalController
-    observer
-    status
-    tickCount
-}
-```
-
-### Patch
-
-```typescript
 Patch {
-    patchId
-    environment
-    capacity
-    quality
-    requirements
-    accessibility
-    status  // VACANT | OCCUPIED | UNAVAILABLE | QUARANTINED
+    patchId: unique identifier
+    environment: contexte (OS, provider, région, stratégie...)
+    capacity: nombre maximum d'agents hébergés
+    quality: score de qualité intrinsèque [0, 1]
+    requirements: prérequis pour l'occupation
+    accessibility: score d'accessibilité [0, 1]
+    status: VACANT | OCCUPIED | UNAVAILABLE | QUARANTINED
 }
 ```
 
-### Deme
+Le patch est la **localité**. Il existe indépendamment de toute occupation. Un patch vacant est une opportunité non exploitée. Un patch quarantine est un environnement dangereux ou corrompu.
 
-```typescript
+### 4.2 Deme : la population qui occupe
+
+Un **dôme** est une population locale attachée à un patch. Il contient les agents, l'état local, la mémoire, la stratégie, et l'histoire évolutive.
+
+```
 Deme {
-    demeId
-    patchId
-    members[]
-    localState
-    lineage
-    localFitness
-    diversity
-    status  // FOUNDING | ACTIVE | DECLINING | AT_RISK | COLLAPSED | RECOLONIZING | DORMANT
-    healthSignal  // compact liveness without LLM prompt
+    demeId: unique identifier
+    patchId: patch actuellement occupé
+    members: ensemble des agents locaux
+    localState: état local (workspace, mémoire, procédure...)
+    lineage: lignée génétique/cognitive
+    localFitness: fitness dans le contexte local [0, 1]
+    diversity: diversité interne [0, 1]
+    status: FOUNDING | ACTIVE | DECLINING | AT_RISK | COLLAPSED | RECOLONIZING | DORMANT
+    healthSignal: signal liveness compact
 }
+$$
+
+Le dôme est la **population vivante**. Il évolue, se reproduit, mute, échange, et peut s'éteindre. Sa fitness est évaluée localement — `Fitness(x, deme_A) ≠ Fitness(x, deme_B)` par conception.
+
+### 4.3 Pourquoi cette séparation est essentielle
+
+La distinction patch/dôme permet le cycle fondamental de Metapopulation :
+
+```
+Dôme s'éteint → Patch devient VACANT → Recolonisation par founder set → Nouveau Dôme FOUNDING → ...
 ```
 
-### Propagule
+Sans cette séparation, un dôme éteint ne pourrait pas être remplacé par un dôme différent (autre stratégie, autre modèle, autre lignée) sur le même patch. Le patch est le **substrat** ; le dôme est l'**occupant temporaire**.
 
-```typescript
-Propagule {
-    propaguleId
-    sourceDemeId
-    targetDemeId
-    type  // AGENT | GENOME | COGNITIVE_RECIPE | PROCEDURE | MEMORY_FRAGMENT | CLAIM | COUNTEREXAMPLE | ARTIFACT | TEST | VERIFIER | STRATEGY | TOOL_CONFIGURATION
-    payloadRef
-    lineage
-    sourceFitness
-    novelty
-    migrationReason
-    compatibilityEstimate
-    status  // OFFERED | QUARANTINE | ACCEPTED | REJECTED | ADAPTED
-}
+---
+
+## 5. Les cinq services de contrôle
+
+### 5.1 DemeManager — Local Population Lifecycle
+
+```
+Role: deme_manager
+ModelTier: frontier
+Responsibility: Local Population Lifecycle
 ```
 
-### MigrationRoute
+**Hypothèse :**
+> "Maintain each deme as a semi-independent population with its own evolution, fitness evaluation, and local state."
 
-```typescript
-MigrationRoute {
-    sourceDemeId
-    targetDemeId
-    direction  // directed
-    weight
-    acceptedMigrations
-    rejectedMigrations
-    utility
-    adaptationHistory
-}
+**Mission assignée :**
+```
+Metapopulation mission: [shared mission]
+Collective principle: A network of semi-independent populations with migration, extinction, and recolonization.
+
+Your task (deme_manager):
+1. Instantiate and maintain each deme in its patch context
+2. Evaluate local fitness per deme (fitness is context-dependent)
+3. Detect stagnation, decline, and collapse triggers
+4. Trigger local evolution (mutation, reproduction, strategy change)
+5. Publish health signals compact (no LLM prompt)
+
+Return: deme states, fitness evaluations, status transitions, local evolution log
+```
+
+### 5.2 MigrationController — Typed Propagule Exchange
+
+```
+Role: migration_controller
+ModelTier: frontier
+Responsibility: Typed Propagule Exchange
+```
+
+**Hypothèse :**
+> "Select, validate, and route typed propagules between demes under provenance, compatibility, and receiver-side validation."
+
+**Mission assignée :**
+```
+Metapopulation mission: [shared mission]
+Your task (migration_controller):
+1. Select propagules per policy (elite, novelty, rescue, complementary, counterexample, cultural, founder)
+2. Route via directed corridors (A→B may be excellent, B→A may be bad)
+3. Enforce receiver-side quarantine and local validation
+4. Track provenance, acceptance/rejection, and post-migration improvement
+5. Adapt corridor weights based on utility history
+
+Return: migration events, acceptance rates, corridor adaptations, utility deltas
+```
+
+### 5.3 RecolonizationController — Extinction Recovery
+
+```
+Role: recolonization_controller
+ModelTier: frontier
+Responsibility: Extinction Recovery
+```
+
+**Hypothèse :**
+> "Recolonize vacant patches with founder sets selected from diverse lineages, subject to local trial and viability proof."
+
+**Mission assignée :**
+```
+Metapopulation mission: [shared mission]
+Your task (recolonization_controller):
+1. Detect vacant patches and eligible source demes
+2. Select founder sets (lineage A + lineage B + novel variant)
+3. Instantiate founding population with restricted local trial
+4. Monitor trial: FOUNDING → LOCAL_TRIAL → ACTIVE or FAILED
+5. Consult fossils to avoid repeating extinct lineages
+6. Trigger cryptobiotic restoration when spore available
+
+Return: colonization events, founder sets, trial outcomes, restored capabilities
+```
+
+### 5.4 RegionalSignalController — Compact Liveness & Synchrony
+
+```
+Role: regional_signal_controller
+ModelTier: standard
+Responsibility: Compact Liveness & Synchrony
+```
+
+**Hypothèse :**
+> "Maintain regional awareness of deme liveness, synchrony, and metapopulation capacity without LLM prompts."
+
+**Mission assignée :**
+```
+Metapopulation mission: [shared mission]
+Your task (regional_signal_controller):
+1. Collect compact health signals from all demes (no LLM)
+2. Compute regional metrics: λ_max, synchrony, coverage, fragmentation
+3. Detect silent demes, correlated failures, monoculture risk
+4. Trigger quorum when regional decisions are required
+5. Publish regional state for monitoring
+
+Return: regional health snapshot, synchrony matrix, quorum triggers, λ_max estimate
+```
+
+### 5.5 TopologyGovernor — Connectivity Sweet Spot
+
+```
+Role: topology_governor
+ModelTier: standard
+Responsibility: Connectivity Sweet Spot
+```
+
+**Hypothèse :**
+> "Regulate migration topology to maintain enough connectivity for rescue but not enough for homogenization."
+
+**Mission assignée :**
+```
+Metapopulation mission: [shared mission]
+Your task (topology_governor):
+1. Monitor synchrony across all deme pairs
+2. Adjust corridor weights: increase for isolated pairs, decrease for over-synchronized pairs
+3. Freeze or prune corridors that propagate failure or homogenize
+4. Introduce firebreaks (temporary corridor shutdown) when correlated failure risk rises
+5. Adapt topology variant (ring, stepping-stone, source-sink, small-world) per mission needs
+
+Return: topology adjustments, corridor state, synchrony deltas, firebreak activations
 ```
 
 ---
 
-## 78. Architecture du système (fichiers)
+## 6. Architecture du système
+
+```text
+                         MISSION GLOBALE
+                               │
+                               ▼
+                        PATCH MODEL
+                               │
+            ┌──────────────────┼───────────────────┐
+            ▼                  ▼                   ▼
+         Patch A            Patch B             Patch C
+            │                  │                   │
+         Deme A             Deme B              Deme C
+        ● ● ● ●            ● ● ●              ● ● ●
+            │                  │                   │
+            └──── corridors de migration ──────────┘
+                               │
+                               ▼
+                    Regional Observer
+                               │
+         ┌─────────────────────┼─────────────────────┐
+         ▼                     ▼                     ▼
+      liveness            connectivity           synchrony
+      fitness             migration              diversity
+      lineage             source/sink            coverage
+         │                     │                     │
+         └────────────────────┬┴─────────────────────┘
+                              ▼
+                     Regional Contrôleur
+                              │
+      ┌───────────────────────┼──────────────────────────┐
+      ▼                       ▼                          ▼
+   DemeManager       MigrationController       RecolonizationController
+      │                       │                          │
+      └───────────────────────┴──────────────────────────┘
+                              │
+                              ▼
+                    PERSISTANCE RÉGIONALE
+```
+
+### Fichiers d'implémentation
 
 | Fichier | Rôle |
 |---------|------|
@@ -895,85 +401,977 @@ MigrationRoute {
 | `backend/src/services/biologicalModeService.js` | Définition et composition des rôles Metapopulation |
 | `crates/genos-orchestrator/src/evolution.rs` | Multi-îlots Rust (sélection, reproduction, mutation, migration) |
 | `backend/src/services/proceduralMetapopulationService.js` | Populations procédurales, collapse, recolonize |
-| `backend/src/services/cryptobiosisSporeService.js` | Dormance et réactivation des dèmes |
+| `backend/src/services/cryptobiosisSporeService.js` | Dormance et réactivation des dômes |
 | `backend/src/services/fossilizationService.js` | Fossilisation et archive |
-| `backend/src/services/agentRecovery/dispatchWorkerRecovery.js` | Dispatch de récupération worker |
-| `backend/src/services/agentRecovery/organizationDecision.js` | Décision d'organisation post-échec |
-| `backend/src/services/axolotlRegenerationService.js` | Service de régénération fonctionnelle |
-| `crates/genos-orchestrator/src/director_planning.rs` | Planification avec dynamiques métapopulationnelles |
 
 ---
 
-## 79. Télémétrie et observabilité
+## 7. Politiques de migration
 
-Nouvelles métriques enregistrées pour chaque session Metapopulation :
+Metapopulation définit sept politiques, chacune répondant à WHEN, WHAT, FROM, TO, WHY — plus SHOULD receiver accept?
+
+### 7.1 Elite Migration
+
+Propager rapidement une amélioration locale avérée.
+
+$$
+\text{Migrant}_{\text{elite}} = \arg\max_{x \in D_i} \text{LocalFitness}(x)
+$$
+
+Source en progression régulière, receiver en stagnation modérée. Régulée par le TopologyGovernor si synchronie élevée (risque d'homogénéisation).
+
+### 7.2 Novelty Migration (MultiKulti)
+
+Injecter de la diversité. L'individu est choisi pour sa **différence** avec la cible ([Araujo et al., 2008][ext-multikulti]) :
+
+$$
+\text{Migrant}_{\text{novelty}} = \arg\max_{x \in D_i} \left(\text{LocalFitness}(x) \times \left(1 - \text{Similarity}(x, D_j)\right)\right)
+$$
+
+où $\text{Similarity}(x, D_j)$ mesure la similarité moyenne entre le migrant candidat et les membres du dôme cible. Quand : synchronie élevée, diversité en baisse, ou après extinction contrôlée pour recoloniser divergent.
+
+### 7.3 Rescue Migration
+
+Prévenir l'effondrement d'un dôme AT_RISK :
+
+$$
+\text{Migrant}_{\text{rescue}} = \arg\max_{x \in \text{sources}} \left(\text{Compat}(x, D_{\text{risk}}) \times \text{ExpectedImprovement}(x, D_{\text{risk}})\right)
+$$
+
+Mécanisme **pull** : le dôme en danger émet un signal de détresse avec les capacités manquantes. Injection contrôlée (peu de migrants, jamais un remplacement).
+
+### 7.4 Complementary Migration
+
+Transmettre une capacité manquante :
+
+$$
+\text{Migrant}_{\text{complementary}} = x \text{ such that } \text{Capability}(x) \cap \text{Missing}(D_j) \neq \emptyset
+$$
+
+Pull-based : le receveur demande une capacité $X$ ; les sources proposent les compatibles.
+
+### 7.5 Counterexample Migration
+
+Transmettre échec/contre-exemple/violation d'invariant. Le payload contient la condition d'échec, le contexte, la violation. Le receveur teste localement. Les erreurs deviennent des propagules défensifs pour protéger les autres dômes.
+
+### 7.6 Cultural Migration
+
+Transmettre procédures, artefacts, fragments de mémoire, heuristiques — sans déplacer d'agent. Types : `PROCEDURE`, `MEMORY_FRAGMENT`, `ARTIFACT`, `TOOL_CONFIGURATION`, `VERIFIER`, `TEST`. Exploite `culturalTransmissionService` et `culturalSelectionService` de la NCE.
+
+### 7.7 Founder Migration
+
+Fournir les propagules initiales pour la recolonisation :
+
+$$
+\text{FounderSet}(P_j) = \text{Select}\left(\{x \in \text{sources} \mid \text{Compatible}(x, P_j)\}, k\right)
+$$
+
+avec contrainte de diversité des lignées. Seule politique qui peut être **push** par le Regional Controller lors d'une recolonisation planifiée.
+
+---
+
+## 8. Push vs Pull Migration
+
+**Push** : le dôme source initie l'envoi (elite, counterexample, cultural). Risque : submersion, propagules non désirées, homogénéisation par flooding. Contrôle : le receveur filtre par compatibilité et quarantaine avant assimilation.
+
+**Pull** : le dôme receveur initie la demande (rescue, complementary, recolonisation). Avantage : besoin explicite, compatibilité évaluée par le demandeur, risque de submersion faible.
+
+**Régulation** :
+
+$$
+\text{PushRatio} \propto \frac{\text{SourceCapacity}}{\text{ReceiverDemand}} \times \frac{1}{1 + \text{SynchronyRisk}}
+$$
+
+Quand la synchronie est élevée, le push est réduit (pour éviter l'homogénéisation) et le pull est maintenu (pour cibler les besoins réels).
+
+---
+
+## 9. Migration adaptative
+
+La fréquence de migration n'est pas fixe. GenOS adapte l'intervalle selon l'état local de chaque dôme ([Mambrini & Sudholt, 2015][ext-adaptive]).
+
+### 9.1 Règles d'adaptation
+
+```
+local progress élevé     → intervalle long (laisser le dôme progresser seul)
+stagnation détectée      → raccourcir l'intervalle (opportunité de migration)
+breakthrough détecté     → export sélectif immédiat (push elite/novelty)
+diversité en baisse      → augmenter novelty migration, réduire elite
+dôme en danger (AT_RISK) → déclencher rescue migration immédiate
+synchrony élevée         → geler l'élite, ouvrir le novelty
+```
+
+### 9.2 Formule d'intervalle
+
+Pour le corridor $(D_i, D_j)$ :
+
+$$
+\Delta t_{ij} = \Delta t_{\text{base}} \times \left(1 + \gamma_1 \cdot \text{Progress}(D_i) - \gamma_2 \cdot \text{Stagnation}(D_j) + \gamma_3 \cdot \text{Need}(D_j)\right)
+$$
+
+borné entre $\Delta t_{\min}$ et $\Delta t_{\max}$. Quand $D_j$ est en stagnation et $D_i$ en progression, $\Delta t_{ij}$ diminue — la migration est accélérée. Quand les deux dômes stagnent, la migration est ralentie (inutile de déplacer des problèmes).
+
+### 9.3 Breakthrough detection
+
+Un **breakthrough** est détecté quand :
+
+$$
+\text{LocalFitness}(D_i, t) > \overline{\text{LocalFitness}}(D_i, \text{window}) + k \cdot \sigma_{\text{local}}
+$$
+
+où $k$ est un facteur de sensibilité (typiquement 2.0). Déclenche un push sélectif : le dôme source offre son meilleur migrant aux dômes cibles dont la compatibilité est positive.
+
+---
+
+## 10. Source-Sink Dynamics
+
+### 10.1 Définitions
+
+Un **source deme** produit plus de capacité, d'innovation ou de migrants utiles qu'il n'en consomme localement :
+
+$$
+\text{SourceScore}(D_i) = \text{Productivity}(D_i) - \text{LocalCost}(D_i) + \text{MigrantExports}(D_i)
+$$
+
+Un **sink deme** ne survivrait pas seul mais apporte une couverture régionale unique grâce à l'immigration :
+
+$$
+\text{SinkScore}(D_i) = \text{EnvCoverage}(D_i) + \text{UniqueCap}(D_i) - \text{LocalFitness}(D_i)
+$$
+
+### 10.2 Protection des sinks
+
+Il serait faux de retirer un dôme sink simplement parce que sa fitness locale est basse. Règle de protection :
+
+$$
+\text{SinkScore}(D_i) > \theta_{\text{protect}} \lor \text{UniqueCap}(D_i) > \theta_{\text{unique}}
+$$
+
+### 10.3 Corridors directionnels
+
+Les corridors sont dirigés : $\text{Corridor}_{ij} \neq \text{Corridor}_{ji}$. Un source deme aura des corridors sortants forts (vers les sinks) et des corridors entrants faibles. Un sink deme aura des corridors entrants forts et des corridors sortants faibles.
+
+---
+
+## 11. Rescue Effect
+
+### 11.1 Définition
+
+Le **rescue effect** est l'injection contrôlée de migrants quand un dôme approche du collapse. Inspiré par l'écologie où la migration diminue le risque d'extinction locale ([Ryser et al., 2021][ext-rescue]).
+
+### 11.2 Mécanisme
+
+1. Le dôme $D_i$ passe en `AT_RISK` (health < $\theta_{\text{risk}}$) ;
+2. Le Regional SignalController émet un signal de détresse avec les capacités manquantes ;
+3. Les dômes source proposent des propagules compatibles (rescue migration) ;
+4. **Quarantaine** : le receveur teste chaque propagule en isolation avant assimilation ;
+5. Si le trial local améliore la health : `ACCEPT` et le dôme revient vers `ACTIVE` ;
+6. Si le trial échoue : `REJECT` et la recherche continue.
+
+### 11.3 Injection contrôlée
+
+$$
+|\text{RescueMigrants}(D_i)| \leq \max\left(1, \lfloor \beta \cdot |D_i| \rfloor\right)
+$$
+
+où $\beta \approx 0.2$. Le migrant est un **catalyseur**, pas un colon.
+
+### 11.4 Condition de succès
+
+$$
+\text{Health}(D_i, t + \Delta t) > \theta_{\text{risk}} \land \text{Diversity}(D_i, t + \Delta t) \geq \text{Diversity}(D_i, t) - \epsilon
+$$
+
+---
+
+## 12. Recolonisation ≠ respawn
+
+Un patch vacant n'est pas restauré par clonage (la stratégie qui a causé l'extinction serait reproduite).
+
+**Processus** : PATCH VACANT → sélection founder source(s) → sélection propagules → évaluation compatibilité → instantiation FOUNDING → bootstrap état local → trial local restreint → FOUNDING → ACTIVE (si viable) ou FAILED_COLONIZATION.
+
+**Founder Set** :
+
+$$
+\text{FounderSet}(P_j) = \bigcup_{k} \{x_k \in \text{source}_k : \text{Compatible}(x_k, P_j)\}
+$$
+
+avec contrainte de diversité des lignées. Combine : lignée du dôme éteint (si contexte inchangé), lignée d'un source performant, et variante novelle.
+
+**Cryptobiotic restoration** : $\text{Restate}(P_j) = \text{Spore}(\text{lastVerified}) \setminus \text{FailedStrategy} \cup \text{FounderSet}$ (via `cryptobiosisSporeService`).
+
+**Fossilisation** : une population éteinte laisse un fossil via `fossilizationService`. Lors de la recolonisation : $\text{AvoidRepeat} = \forall x \in \text{FounderSet} : \text{Similarity}(x, \text{Fossil}) < \theta_{\text{novel}}$.
+
+**Cycle de vie** :
+
+```
+[*] → FOUNDING : colonisation
+FOUNDING → ACTIVE : validation locale
+FOUNDING → FAILED_COLONIZATION : rejet
+ACTIVE → DECLINING : stagnation
+DECLINING → AT_RISK : health < seuil
+AT_RISK → COLLAPSED : extinction
+AT_RISK → ACTIVE : rescue effect
+COLLAPSED → RECOLONIZING : founder set injecté
+RECOLONIZING → ACTIVE : trial réussi
+RECOLONIZING → COLLAPSED : trial échoué
+DECLINING → DORMANT : cryptobiose
+DORMANT → FOUNDING : réactivation spore
+ACTIVE → DORMANT : extinction contrôlée
+DORMANT → [*] : fossilisation
+```
+
+---
+
+## 13. Les 12 variants de Metapopulation
+
+### 13.1 Classic Patch
+
+**Mécanisme :** Extinction + recolonisation classique sur patches fixes.
+**Quand :** Résilience générale. Plusieurs populations sur patches stables, échanges modérés.
+**Topologie :** Anneau ou small-world.
+**Politique :** Founder (recolonisation), Elite (migration périodique).
+
+### 13.2 Island Search
+
+**Mécanisme :** Îlots de recherche indépendants + migration périodique d'incumbents.
+**Quand :** Optimisation dure (SAT, ILP, local search, évolutionnaire).
+**Topologie :** Anneau avec migration rare (préserve la diversité).
+**Politique :** Elite + Counterexample. Les bornes migrent, les aussi les contre-exemples.
+
+### 13.3 Heterogeneous Islands
+
+**Mécanisme :** Chaque dôme utilise un algorithme, modèle, ou cognitive recipe différent.
+**Quand :** Problèmes inconnus, couverture multi-stratégie ([da Silveira et al., 2022][ext-hetero]).
+**Topologie :** Fully-connected mais avec validation stricte (haute diversité naturelle).
+**Politique :** Complementary + Cultural.
+
+### 13.4 Source-Sink
+
+**Mécanisme :** Sources soutiennent sinks par migration dirigée.
+**Quand :** Environnements inégaux (certains dômes ont plus de ressources).
+**Topologie :** Dirigée (sources → sinks), corridors sortants forts depuis les sources.
+**Politique :** Elite (push depuis sources) + Rescue (pull depuis sinks).
+
+### 13.5 Rescue Network
+
+**Mécanisme :** Redondance maximale et recolonisation rapide.
+**Quand :** Systèmes critiques où aucune fonction critique ne doit être perdue.
+**Topologie :** Small-world (forte connectivité, courts chemins de rescue).
+**Politique :** Rescue + Founder. Haute sensibilité aux signaux AT_RISK.
+
+### 13.6 Stepping-Stone
+
+**Mécanisme :** Migration sparse, corridor par corridor (pas de saut direct A→C).
+**Quand :** Préserver la diversité, éviter l'homogénéisation.
+**Topologie :** Ligne ou grille. Migration rare.
+**Politique :** Novelty + Cultural. Pas d'élite (trop homogénéisant).
+
+### 13.7 Anti-Synchrony
+
+**Mécanisme :** Diversité volontaire, firebreaks, extinction contrôlée de dômes redondants.
+**Quand :** Réduire le risque d'échec corrélé global.
+**Topologie :** Adaptive (le TopologyGovernor gèle des corridors).
+**Politique :** Novelty dominante. Extinction contrôlée si synchrony > seuil.
+
+### 13.8 Federated
+
+**Mécanisme :** Données et états restent locaux. Seuls les propagules vérifiés migrent.
+**Quand :** Sites privés, edge computing, data sovereignty, partitions réseau.
+**Topologie :** Hierarchical avec corridors filtrés.
+**Politique :** Cultural + Counterexample. Pas d'agent brut (pas de données brutes).
+
+### 13.9 Ephemeral Patch
+
+**Mécanisme :** Patches apparaissent/disparaissent dynamiquement.
+**Quand :** Cloud (instances temporaires), sources temporaires, outils intermittents.
+**Topologie :** Fully-connected mais volatile.
+**Politique :** Elite push rapide + cryptobiotic spore (dormance quand le patch disparaît).
+
+### 13.10 Persistent
+
+**Mécanisme :** Dômes résidents entre missions.
+**Quand :** Projets/services longs avec évolution continue.
+**Topologie :** Stable, apprise sur l'historique.
+**Politique :** Toutes selon le contexte. Les dômes accumulent mémoire locale et lignées matures.
+
+### 13.11 Evolutionary
+
+**Mécanisme :** Génome + mutation + migration + sélection locale.
+**Quand :** NCE/optimisation évolutionnaire continue.
+**Topologie :** Anneau ou small-world, paramétrable par `evolution.rs`.
+**Politique :** Elite + Novelty + reproduction locale.
+
+### 13.12 Cultural
+
+**Mécanisme :** Les artefacts et procédures migrent plus que les agents.
+**Quand :** Connaissances et procédures partagées, lignées culturelles distribuées.
+**Topologie :** Small-world.
+**Politique :** Cultural dominante. Les agents sont résidents ; les propagules culturels circulent.
+
+---
+
+## 14. Synchrony et Anti-Synchrony
+
+### 14.1 Mesure de la synchronie
+
+$$
+\text{Synchrony}(D_i, D_j) = \rho\left(\text{ErrorVec}(D_i, \text{window}), \text{ErrorVec}(D_j, \text{window})\right)
+$$
+
+Mesurée sur cinq dimensions : error correlation, strategy overlap, model overlap, retrieval overlap, artifact ancestry.
+
+### 14.2 Régulation par le TopologyGovernor
+
+```
+Synchrony(D_i, D_j) > θ_sync :
+    Option 1 : Réduire le corridor A→B (moins d'échanges)
+    Option 2 : Geler le corridor (firebreak temporaire)
+    Option 3 : Muter D_i (changer modèle/stratégie/linéage)
+    Option 4 : Extinction contrôlée de D_i + recolonisation divergente
+```
+
+### 14.3 Anti-Synchrony comme objectif
+
+L'anti-synchrony n'est pas la décorrélation décorative — c'est un **firebreak cognitif**. Si trois dômes utilisent le même modèle, le même prompt template, et les mêmes sources, un bug de raisonnement du modèle les affectera tous simultanément.
+
+Mesure globale :
+
+$$
+\text{AntiSyncIndex} = 1 - \frac{1}{\binom{n}{2}} \sum_{i < j} \text{Synchrony}(D_i, D_j)
+$$
+
+Un AntiSyncIndex cible (0.3–0.6) indique un bon compromis : les dômes sont assez différents pour éviter la monoculture, assez connectés pour permettre le rescue.
+
+---
+
+## 15. Types de quorum
+
+Six types avec correction du faux quorum par pondération d'indépendance :
+
+$$
+\text{QuorumWeight}(D_i) = \mathbb{1}[\text{model}_i \notin \{\text{model}_{j \neq i}\}] \times \mathbb{1}[\text{lineage}_i \notin \{\text{lineage}_{j \neq i}\}] \times \mathbb{1}[\text{source}_i \notin \{\text{source}_{j \neq i}\}]
+$$
+
+| Type | Objectif | Seuil | Action |
+|------|----------|-------|--------|
+| **RISK_QUORUM** | Risque systémique | $k$ dômes AT_RISK ou $\lambda_{\max} < \lambda_{\text{crit}}$ | Rescue, freeze elite, firebreaks |
+| **DISCOVERY_QUORUM** | Discovery régionale | $k$ dômes valident indépendamment | Diffuser en push |
+| **MIGRATION_QUORUM** | Changement de politique | Consensus | Appliquer le changement |
+| **RESCUE_QUORUM** | Approuver rescue | AT_RISK + source compatible + non-homogénéisant | Injecter en quarantaine |
+| **EXTINCTION_QUORUM** | Extinction contrôlée | Redondant ou DORMANT prolongé | Éteindre, fossiliser, libérer |
+| **PROMOTION_QUORUM** | FOUNDING → ACTIVE | Trial local réussi | Promouvoir, ouvrir corridors |
+
+---
+
+## 16. Liveness régional
+
+Chaque dôme publie un **signal liveness compact** (~100 bytes, sans LLM) :
+
+```
+LivenessSignal {
+    demeId
+    timestamp           // millisecond epoch
+    localStateVersion   // version monotone de l'état local
+    health              // score de santé [0, 1]
+    lastEvidenceAt      // timestamp de la dernière preuve produite
+    migrationCapability // PUSH | PULL | BOTH | NONE
+    recoveryCapability  // capacité locale de récupération
+    statusTag           // NO_SIGNAL | HEALTHY_SILENCE | NO_NEW_INFO
+                        // | DISCONNECTED | CRASHED | STALLED | UNKNOWN
+}
+```
+
+### États de silence
+
+| État | Interprétation | Action |
+|------|----------------|--------|
+| `NO_SIGNAL` | Aucun signal reçu | Vérifier si le dôme est CRASHED |
+| `HEALTHY_SILENCE` | Dôme sain, rien à signaler | Normal |
+| `NO_NEW_INFO` | Dôme actif, pas de nouvelle preuve | Normal |
+| `DISCONNECTED` | Dôme injoignable (réseau) | Vérifier patch accessibility |
+| `CRASHED` | Dôme non-répondant > seuil | Déclarer COLLAPSED, activer rescue/recolon |
+| `STALLED` | Dôme ne progresse pas | Envisager migration ou mutation |
+| `UNKNOWN` | État indéterminé | Enquête régionale |
+
+### Détection d'extinction
+
+$$
+\text{statusTag} = \text{CRASHED} \lor \text{lastSignalAge} > \theta_{\text{grace}} \lor \text{health} < \theta_{\text{collapse}}
+$$
+
+La grâce $\theta_{\text{grace}}$ est configurée par mission (typiquement 30s–5min).
+
+---
+
+## 17. Speciation computationnelle
+
+Quand deux dômes divergent significativement (représentations incompatibles, stratégies incompatibles, taux d'acceptation ≈ 0) :
+
+$$
+\text{Divergence}(D_i, D_j) = 1 - \text{Compat}(D_i, D_j) \times \text{AcceptRate}(D_i \to D_j) \times \text{AcceptRate}(D_j \to D_i)
+$$
+
+Si $\text{Divergence}(D_i, D_j) > \theta_{\text{species}}$ → **speciés**. Actions :
+- Réduire les corridors (accepter la séparation)
+- Introduire un MigrationAdapter (pont de traduction)
+- Traiter comme des familles de stratégies distinctes
+
+La speciation n'est pas un échec — c'est une forme de spécialisation. Deux dômes spécialisés dans des représentations différentes couvrent plus d'espace de recherche qu'un seul dôme généraliste.
+
+---
+
+## 18. Migration Adapters
+
+Quand les représentations divergent, un adapter traduit les propagules d'un format source vers un format cible. Le receiver valide la traduction localement.
+
+**Exemple** : Dôme A (SAT) → learned clause $C = (x_1 \lor \neg x_2 \lor x_3)$ ; Dôme B (ILP) ne peut pas la consommer directement ; Adapter SAT→ILP traduit en inégalité linéaire $x_1 + (1 - x_2) + x_3 \geq 1$ ; Validation locale dans le contexte ILP.
+
+```
+MigrationAdapter {
+    adapterId
+    sourceRepresentation   // format source (ex: SAT_clause)
+    targetRepresentation   // format cible (ex: ILP_constraint)
+    transform(payload)     // fonction de traduction
+    validityCheck(payload) // vérifie la cohérence de la traduction
+    confidence             // probabilité que la traduction soit valide
+    lineage                // qui a créé/testé cet adapter
+}
+```
+
+L'adapter est lui-même un propagule culturel. Découverte :
+
+$$
+\text{FindAdapter}(D_i, D_j) = \{a \in \text{AdapterRegistry} : \text{sourceRepr}(a) = \text{Repr}(D_i) \land \text{targetRepr}(a) = \text{Repr}(D_j)\}
+$$
+
+Si aucun adapter n'existe, un nouveau peut être proposé par un dôme qui maîtrise les deux représentations.
+
+---
+
+## 19. Cas d'usage
+
+### 19.1 Optimisation multi-stratégie
+
+```text
+Deme A: CP-SAT        (● ● ● ●)
+Deme B: ILP           (● ● ●)
+Deme C: Local Search  (● ● ● ●)
+Deme D: Evolutionary  (● ● ●)
+```
+
+Chaque dôme explore localement sa stratégie. Les incumbents migrent (elite push), les contre-exemples migrent (counterexample push). Si ILP stagne : migration depuis Local Search fournit un warm-start (complementary pull). Si un dôme échoue (bug solver) : collapse — aucun problème global. Le TopologyGovernor réduit les corridors entre C et D si leur synchrony augmente.
+
+### 19.2 Multi-provider LLM
+
+```text
+Deme OpenAI:     GPT-based solvers (● ● ●)
+Deme Anthropic:  Claude-based solvers (● ●)
+Deme Local:      Ollama/Hermes solvers (● ● ●)
+Deme Antigravity: Antigravity-based solvers (● ●)
+```
+
+Un outage OpenAI ne tue pas le collectif. Les dômes locaux fournissent la continuité. Éviter qu'un provider unique devienne cognitivement dominant (anti-synchrony). Les procédures validées migrent (cultural) entre providers.
+
+### 19.3 Cybersécurité distribuée
+
+```text
+Deme Web:         (● ● ●)
+Deme Identity:    (● ●)
+Deme Infrastructure: (● ● ●)
+Deme Supply Chain: (● ●)
+```
+
+Une vulnérabilité découverte dans Identity → propagule de sécurité vérifié migre vers les autres (counterexample push). Quarantaine d'un dôme contaminé → ne propage pas automatiquement son état. Recolonisation après nettoyage avec founder set incluant des stratégies de défense différentes.
+
+### 19.4 Multi-environnement CI
+
+```text
+Deme Linux:   (● ● ● ●)
+Deme Windows: (● ● ●)
+Deme macOS:   (● ●)
+Deme ARM:     (● ●)
+```
+
+Un patch fonctionne sur Linux → migrate vers les autres. Chaque receiver évalue localement. Si Windows rejette : adapter locally, puis une correction plus portable revient vers les autres (counterexample cycle). Dôme Windows protégé comme sink unique (couverture environnementale).
+
+### 19.5 Recherche scientifique longue
+
+```text
+Deme Formal:    (● ● ●)  — méthodes formelles
+Deme Empirical: (● ●)    — expérimentation
+Deme Simulation: (● ● ●) — simulation
+Deme Literature: (● ●)   — analyse de littérature
+```
+
+Chaque dôme maintient une école méthodologique pendant plusieurs semaines/missions. Les résultats migrent périodiquement (cultural). Les approches ne fusionnent pas prématurément. La speciation est attendue — elle représente une spécialisation.
+
+### 19.6 Maintenance multi-repo / microservices
+
+```text
+Deme Auth:      (● ● ●)
+Deme Payments:  (● ● ●)
+Deme Frontend:  (● ●)
+Deme Data:      (● ● ●)
+```
+
+Chaque service possède son dôme résident avec mémoire locale, agents, procédures et historique. Une vulnérabilité OAuth découverte dans Auth → propagule de sécurité vérifié migre vers les autres. Si Payments est indisponible : le reste de la métapopulation continue, puis recolonisation lorsque le service revient.
+
+---
+
+## 20. Escalade et cas d'erreur
+
+### 20.1 Perte d'une fonction critique
+
+```
+METAPOPULATION_CRITICAL_FUNCTION_LOST:
+  La fonction critique φ ∈ F_crit n'est maintenue par aucun dôme actif.
+  λ_max(M) < λ_critique.
+  Action : Recolonisation d'urgence du patch le plus compatible avec φ.
+  Si échec : Escalade — la mission ne peut être complétée dans l'état actuel.
+```
+
+### 20.2 Monoculture globale
+
+```
+METAPOPULATION_GLOBAL_MONOCULTURE:
+  AntiSyncIndex < 0.2 sur l'ensemble des dômes.
+  Risque d'échec corrélé global.
+  Action : Extinction contrôlée d'un dôme redondant + recolonisation divergente.
+  Si persistant : Escalate.
+```
+
+### 20.3 Fragmentation extrême
+
+```
+METAPOPULATION_FRAGMENTATION:
+  Aucun corridor viable entre dômes (toutes les compatibilités ≈ 0).
+  Recolonisation impossible, rescue impossible.
+  Action : Introduction de MigrationAdapters ou réduction de la speciation.
+  Si échec : Escalate.
+```
+
+### 20.4 Sink sans source
+
+```
+METAPOPULATION_ORPHAN_SINK:
+  Dôme D_i est sink et aucun source ne peut lui fournir de migrants compatibles.
+  Action : Mutation locale intensive (evolutionary rescue) ou
+  extinction contrôlée avec fossilisation.
+```
+
+### 20.5 Collapse en cascade
+
+```
+METAPOPULATION_CASCADE_COLLAPSE:
+  Trois dômes ou plus passent COLLAPSED dans une fenêtre < θ_cascade.
+  Le rescue est submergé.
+  Action : Quorum RISK — freeze toutes les migrations, évaluer
+  λ_max résiduel, déclencher recolonisation planifiée.
+  Si λ_max reste < λ_critique : Escalade.
+```
+
+---
+
+## 21. Télémétrie et observabilité
+
 ```text
 sessionId, topology, tickCount
 demes: [{demeId, patchId, status, health, localFitness, diversity, size}]
 patches: [{patchId, status, capacity, quality, occupancy}]
 migrationGraph: [{source, target, weight, accepted, rejected, utility}]
-regionalHealth: {regionalCoverage, demeDiversity, recolonizationCapacity, sourceCapacity, synchronyRisk}
-extinctions: [{demeId, type, timestamp, recoveryStatus}]
-rescues: [{sourceDeme, targetDeme, success}]
-migrations: [{propaguleId, type, source, target, accepted, improvement}]
-metapopulationCapacity: λ_max estimate
-quorumActivations: {total, falsePositive, missed}
+regionalHealth: {
+    regionalCoverage, demeDiversity, recolonizationCapacity,
+    sourceCapacity, synchronyRisk, antiSyncIndex, lambdaMax
+}
+extinctions: [{demeId, type, timestamp, recoveryStatus, fossilId}]
+rescues: [{sourceDeme, targetDeme, success, healthDelta, diversityDelta}]
+migrations: [{propaguleId, type, source, target, accepted, improvement, cost}]
+colonizations: [{patchId, founderSet, trialOutcome, duration}]
+speciations: [{demeA, demeB, divergence, adapterId}]
+topologyAdjustments: [{corridor, action, reason, synchronyBefore, synchronyAfter}]
+quorumActivations: [{type, trigger, decision, falsePositiveEstimate}]
 ```
 
 ---
 
-## 80. Références internes
+## 22. Configuration et paramètres
 
-- [ORCHESTRATION.md](../orchestration.md) : orchestration générale, budgets, gates et preuves
-- [TRINITY.md](trinity.md) : orchestration comparative par hypothèses
-- [A_TEAM.md](a-team.md) : orchestration multidisciplinaire par domaines
-- [BIOME.md](biome.md) : orchestration par environnement et populations
-- [RHIZOME.md](rhizome.md) : orchestration décentralisée par capacités et ponts
-- [BIOLOGIE_COMPUTATIONNELLE.md](../../01-concepts/biologie-computationnelle.md) : cadre biologique général
-- [metapopulationCoordinationService.js](../../../backend/src/services/metapopulationCoordinationService.js) : coordination opérationnelle
-- [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : définition des rôles
-- Tests : [backend/tests/test_biome_wiring.js](../../../backend/tests/test_biome_wiring.js)
+### 22.1 Variables d'environnement
 
----
+```bash
+export GENOS_METAPOP_MIN_DEMES=3
+export GENOS_METAPOP_MAX_DEMES=8
+export GENOS_METAPOP_TOPOLOGY=adaptive
+export GENOS_METAPOP_SYNC_TICK=5000
+export GENOS_METAPOP_HEALTH_RISK_THRESHOLD=0.35
+export GENOS_METAPOP_HEALTH_COLLAPSE_THRESHOLD=0.15
+export GENOS_METAPOP_SYNC_TARGET_MIN=0.3
+export GENOS_METAPOP_SYNC_TARGET_MAX=0.6
+export GENOS_METAPOP_RESCUE_MAX_RATIO=0.2
+export GENOS_METAPOP_RESCUE_GRACE_PERIOD=30000
+export GENOS_METAPOP_FOUNDER_DIVERSITY_MIN=2
+export GENOS_METAPOP_TRIAL_DURATION=60000
+export GENOS_METAPOP_LAMBDA_CRITICAL=0.5
+export GENOS_METAPOP_LIVENESS_INTERVAL=10000
+export GENOS_METAPOP_LIVENESS_GRACE=30000
+export GENOS_METAPOP_MIGRATION_BUDGET_RATIO=0.15
+export GENOS_METAPOP_REGIONAL_TIMEOUT=300000
+```
 
-## 81. Références externes
+### 22.2 Ajustement par mission
 
-| Référence | Apport pour Metapopulation |
-|-----------|----------------------------|
-| [Hanski, Metapopulation Dynamics 1998](https://www.nature.com/articles/23876) | Fondements : populations séparées, migration, persistance régionale |
-| [Fox et al., Spatial Hydra Effect 2017](https://www.nature.com/articles/s41559-017-0271-y) | Extinctions locales peuvent augmenter persistance régionale |
-| [Ruciński et al., Migration Topology 2010](https://arxiv.org/abs/1004.4541) | Impact de la topologie de migration sur l'island model |
-| [MultiKulti, Araujo et al. 2008](https://arxiv.org/abs/0806.2843) | Migration du génotype le plus différent |
-| [Mambrini & Sudholt, Adaptive Migration 2015](https://ieeexplore.ieee.org/document/7358494) | Fréquence de migration adaptative |
-| [Ryser et al., Landscape Heterogeneity 2021](https://www.nature.com/articles/s41467-021-24877-0) | Rescue effect et drainage effect |
-| [Nakazawa, Stage-Specific Distribution 2015](https://www.nature.com/articles/srep07871) | Rescue effect dans le modèle de Levins |
-| [Hanski & Ovaskainen, Metapopulation Capacity 2000](https://www.nature.com/articles/35008063) | Capacité métapopulationnelle (λ_max) |
-| [da Silveira et al., Reconfigurable Heterogeneous Islands 2022](https://arxiv.org/abs/2205.02916) | Îlots hétérogènes reconfigurables |
-| [Bell, Evolutionary Rescue 2017](https://www.annualreviews.org/content/journals/10.1146/annurev-ecolsys-110316-023011) | Sauvetage évolutionnaire |
-
----
-
-## 82. Implementation & capacités (GenOS v3)
-
-Depuis la v3, cette topologie est câblée au runtime :
-- Service de coordination : `metapopulationCoordinationService.js`.
-- Capacités requises : `QUORUM`, `SYNAPTIC_PLASTICITY`, `RESILIENCE_RECOVERY`, `GENOME_EPIGENETICS`, `SWARM_METRICS`, `EPISODIC_MEMORY`, `SIGNALING_BUS`, `PROVENANCE`, `CAPSULES_SNAPSHOTS`, `EVIDENCE_BARRIER`.
-- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils.
+Les paramètres sont ajustés par `metapopulationCoordinationService.js` selon la criticité de la mission :
+- **Mission critique** : seuils de collapse plus élevés, rescue plus agressif, recolonisation plus rapide ;
+- **Mission exploratoire** : seuils plus bas, plus de tolérance à l'extinction, anti-synchrony dominante ;
+- **Mission longue** : topologie persistent, dômes résidents, culture dominante.
 
 ---
 
-*Schémas d'architecture et de dynamique métapopulationnelle*
+## 23. Contrat runtime
 
-### Architecture d'une Métapopulation hétérogène
+### 23.1 MetapopulationSession
+
+```typescript
+interface MetapopulationSession {
+    sessionId: string
+    missionId: string
+    patchModel: Patch[]
+    demes: Deme[]
+    migrationGraph: MigrationRoute[]
+    topology: 'ring' | 'stepping_stone' | 'star' | 'small_world' |
+              'source_sink' | 'hierarchical' | 'adaptive'
+    status: 'FORMING' | 'ACTIVE' | 'RECOVERING' | 'DEGRADED' | 'ESCALATED'
+    tickCount: number
+    lambdaMax: number
+    antiSyncIndex: number
+}
+```
+
+### 23.2 Patch
+
+```typescript
+interface Patch {
+    patchId: string
+    environment: PatchEnvironment
+    capacity: number
+    quality: number
+    requirements: string[]
+    accessibility: number
+    status: 'VACANT' | 'OCCUPIED' | 'UNAVAILABLE' | 'QUARANTINED'
+    metadata: Record<string, unknown>
+}
+```
+
+### 23.3 Deme
+
+```typescript
+interface Deme {
+    demeId: string
+    patchId: string
+    members: string[]
+    localState: DemeLocalState
+    lineage: LineageRef
+    localFitness: number
+    diversity: number
+    status: 'FOUNDING' | 'ACTIVE' | 'DECLINING' | 'AT_RISK' |
+            'COLLAPSED' | 'RECOLONIZING' | 'DORMANT'
+    healthSignal: LivenessSignal
+    createdAt: number
+    lastProgressAt: number
+    migrantExports: number
+    migrantImports: number
+    collapseCount: number
+}
+```
+
+### 23.4 Propagule
+
+```typescript
+interface Propagule {
+    propaguleId: string
+    sourceDemeId: string
+    targetDemeId: string
+    type: 'AGENT' | 'GENOME' | 'COGNITIVE_RECIPE' | 'PROCEDURE' |
+          'MEMORY_FRAGMENT' | 'CLAIM' | 'COUNTEREXAMPLE' | 'ARTIFACT' |
+          'TEST' | 'VERIFIER' | 'STRATEGY' | 'TOOL_CONFIGURATION'
+    payloadRef: string
+    lineage: LineageRef
+    sourceFitness: number
+    novelty: number
+    migrationReason: 'elite' | 'novelty' | 'rescue' | 'complementary' |
+                     'counterexample' | 'cultural' | 'founder'
+    compatibilityEstimate: number
+    status: 'OFFERED' | 'QUARANTINE' | 'ACCEPTED' | 'REJECTED' | 'ADAPTED'
+    cost: number
+    createdAt: number
+    acceptedAt?: number
+    rejectedAt?: number
+    rejectionReason?: string
+    improvement?: number
+}
+```
+
+### 23.5 MigrationRoute
+
+```typescript
+interface MigrationRoute {
+    sourceDemeId: string
+    targetDemeId: string
+    direction: 'directed' | 'bidirectional'
+    weight: number
+    acceptedMigrations: number
+    rejectedMigrations: number
+    utility: number
+    adaptationHistory: CorridorAdjustment[]
+    frozen: boolean
+    lastAdjustmentAt: number
+}
+```
+
+### 23.6 LivenessSignal
+
+```typescript
+interface LivenessSignal {
+    demeId: string
+    timestamp: number
+    localStateVersion: number
+    health: number
+    lastEvidenceAt: number
+    migrationCapability: 'PUSH' | 'PULL' | 'BOTH' | 'NONE'
+    recoveryCapability: number
+    statusTag: 'NO_SIGNAL' | 'HEALTHY_SILENCE' | 'NO_NEW_INFO' |
+               'DISCONNECTED' | 'CRASHED' | 'STALLED' | 'UNKNOWN'
+}
+```
+
+---
+
+## 24. Comparaison avec les autres topologies
+
+| Aspect | Trinity | A-Team | Biocénose | Syncytium | Metapopulation |
+|--------|---------|--------|-----------|-----------|----------------|
+| **Décomposition** | Hypothèses (3) | Domaines (N) | Communauté (4) | État (4) | Populations semi-indépendantes (N) |
+| **Synchronisation** | Asynchrone | Asynchrone | Asynchrone | **Synchrone** | **Adaptative** |
+| **État** | 3 mondes | Domaines séparés | Partagé | **Unique, partagé** | **Multiple, local** |
+| **Défaillance locale** | Hypothèse rejetée | Domaine isolé | Impact modéré | Divergence | **Extinction locale ≠ échec régional** |
+| **Meilleur pour** | Explorer hypothèses | Multidisciplinaire | Robustesse critique | Temps réel | **Résilience par diversité** |
+
+**Quand choisir Metapopulation :** résilience à pannes locales multiples, plusieurs stratégies/modèles/environnements coexistants, diversité objectif, dômes persistents, rescue/recolonisation exigences fonctionnelles.
+
+**Quand ne pas choisir Metapopulation :** état partagé unique → Syncytium ; comparaison d'hypothèses → Trinity ; multidisciplinarité → A-Team ; communauté open → Biocénose.
+
+---
+
+## 25. Invariants
+
+1. No dôme without a defined patch/local context
+2. No migration without provenance
+3. No migrant assimilation without receiver-local validation
+4. No local extinction interpreted as regional failure
+5. No recolonization considered successful before local viability is re-proven
+6. No global synchronization merely for convenience
+7. No migration policy allowed to erase regional diversity without measurable benefit
+8. No source deme allowed to become a single point of failure unnoticed
+9. No silent deme counted as healthy
+10. No quorum based on correlated evidence treated as independent support
+11. No recovery by simply cloning the state that caused the previous collapse
+12. No route adaptation from a single anecdotal outcome
+
+La réussite d'une Métapopulation se mesure par sa capacité à préserver les fonctions régionales malgré les extinctions locales.
+
+---
+
+## 26. Cas d'usage typiques
+
+Les cinq cas ci-dessous suivent le même canevas : **Mission** (ce qu'on veut accomplir), **Déroulé** (comment la métapopulation s'organise et évolue), **Résultat** (ce qui est obtenu comparativement à une approche monolithique).
+
+### 26.1 Audit de sécurité multi-provider
+
+**Mission** : Auditer une application web (OWASP Top 10) en exploitant plusieurs LLM simultanément sans dépendre d'un provider unique.
+
+**Déroulé** :
+- 4 dèmes hétérogènes : `Deme-OpenAI` (GPT-4o), `Deme-Anthropic` (Claude), `Deme-Local` (Llama), `Deme-Deterministic` (outils statiques : Semgrep, Bandit, ZAP).
+- Chaque dème audite le même code avec ses propres méthodes.
+- Découverte d'une injection SQL par Deme-Anthropic → counterexample migre vers les autres (cultural migration).
+- Deme-OpenAI valide indépendamment → DISCOVERY_QUORUM atteint → la vulnérabilité est confirmée.
+- Outage Deme-OpenAI (rate limit) → Deme-OpenAI passe COLLAPSED → rescue depuis Deme-Local.
+- Une heuristique de fuzzing découverte par Deme-Local migre vers Deme-Anthropic (novelty).
+
+**Résultat** : 23 vulnérabilités trouvées (vs. 14 avec un seul provider). L'outage d'un provider n'a pas interrompu l'audit. Les contre-exemples circulent, réduisant les faux négatifs.
+
+---
+
+### 26.2 Migration progressive d'un monolithe en microservices
+
+**Mission** : Décomposer un monolithe Rails en microservices (Auth, Payments, Notifications, Frontend) sur 6 mois, sans interruption de service.
+
+**Déroulé** :
+- 4 dèmes persistants : `Deme-Auth`, `Deme-Payments`, `Deme-Notifications`, `Deme-Frontend`.
+- Chaque dème maintient sa mémoire locale, ses procédures de déploiement, son historique de bugs.
+- Une faille OAuth découverte dans Auth → propagule de sécurité vérifié migre vers Payments et Frontend (cultural).
+- Le service Payments devient instable (DB overload) → Payments passe AT_RISK → rescue migration injecte une procédure de retry depuis Frontend.
+- Le patch Payments est momentanément indisponible (VACANT) → les autres dèmes continuent.
+- Lorsque Payments revient : recolonisation avec founder set incluant la lignée originale + une stratégie de circuit-breaker différente.
+
+**Résultat** : Zéro interruption de service pendant la migration. Chaque service a évolué localement avec ses propres heuristiques. Les incidents ne se propagent pas.
+
+---
+
+### 26.3 Résolution d'un problème d'optimisation combinatoire NP-hard
+
+**Mission** : Minimiser le coût d'un planning de 500 tâches avec contraintes de précédence, ressources, et fenêtres temporelles.
+
+**Déroulé** :
+- 4 dèmes de recherche : `Deme-CP-SAT` (OR-Tools), `Deme-ILP` (Gurobi), `Deme-LocalSearch` (tabou), `Deme-Evolutionary` (NSGA-II).
+- Topologie en anneau avec migration rare (toutes les 50 générations).
+- Chaque dème explore localement son espace de solutions.
+- CP-SAT trouve une bonne bound → elite push vers ILP (warm-start).
+- Local Search stagne → le TopologyGovernor augmente son intervalle de migration.
+- Evolutionary trouve un front de Pareto intéressant → novelty migration vers les autres.
+- Gurobi expire (license) → Deme-ILP COLLAPSED → les autres dèmes continuent ; l'absence d'ILP est compensée par la diversité des trois autres.
+
+**Résultat** : Solution à 2.3% de l'optimum (vs. 4.7% avec un seul solver). La panne de Gurobi n'a pas bloqué la recherche — la diversité des algorithmes a fourni des solutions alternatives.
+
+---
+
+### 26.4 Intégration continue multi-plateforme
+
+**Mission** : Garantir qu'un projet open-source compile et passe les tests sur Linux, Windows, macOS, et ARM.
+
+**Déroulé** :
+- 4 dèmes : `Deme-Linux`, `Deme-Windows`, `Deme-macOS`, `Deme-ARM`.
+- Un patch passe sur Linux → migrates vers les trois autres (elite push).
+- Windows rejette (API Win32 incompatible) → receiver adapte localement, puis produit un counterexample qui remonte vers Linux (counterexample cycle).
+- Le dème Windows est coûteux (agents CI payants) et a une fitness locale basse → il est marqué SINK (couverture environnementale unique) → protégé contre l'extinction.
+- Le dème ARM est intermittemment disponible (don hardware) → géré en mode Ephemeral Patch avec cryptobiotic spore : quand le patch disparaît, le dème passe en DORMANT ; quand il revient, réactivation depuis la spore.
+- Le dème Linux est la source principale → corridors sortants forts.
+
+**Résultat** : Compatibilité garantie sur 4 plateformes sans qu'aucune ne bloque les autres. Le coûteux dème Windows est justifié par sa couverture unique.
+
+---
+
+### 26.5 Veille technologique distribuée pour une équipe R&D
+
+**Mission** : Maintenir une veille continue sur 4 domaines (LLM, crypto, robotics, climate tech) avec des écoles méthodologiques distinctes.
+
+**Déroulé** :
+- 4 dèmes : `Deme-Formal` (méthodes formelles), `Deme-Empirical` (expérimentation), `Deme-Simulation` (simulation multi-agent), `Deme-Literature` (analyse de papiers).
+- Chaque dème développe ses propres procédures d'analyse, heuristiques, et critères de pertinence.
+- Spéciation attendue : Formal et Simulation divergent (représentations incompatibles) → un MigrationAdapter est introduit pour traduire les modèles formels en configurations de simulation.
+- Découverte d'un papier important par Literature → cultural migration vers les autres (résumé + contre-exemples identifiés).
+- Le dème Empirical est coûteux en compute → il passe en DORMANT pendant les périodes de basse activité, réactivé par spore.
+- Breakthrough détecté dans Simulation → push sélectif des incumbents vers les autres dèmes.
+
+**Résultat** : Couverture de 4 domaines sans fusion prématurée. Chaque école méthodologique est préservée. Les découvertes circulent même quand certains dèmes sont dormants.
+
+---
+
+## 27. Quand ne pas utiliser Metapopulation
+
+Metapopulation est puissant mais coûteux. Cette section aide à décider quand une autre topologie est plus appropriée.
+
+### 27.1 Tableau de décision
+
+| Si votre mission présente... | Alors préférez... | Parce que... |
+|---|---|---|
+| Un **état partagé unique** qui doit rester fortement cohérent | **Syncytium** | Metapopulation maintient des états locaux divergents — impossible de garantir la cohérence forte sans dégrader les dèmes |
+| **3 hypothèses** à comparer sur les mêmes données | **Trinity** | Metapopulation maintient des populations longives ; Trinity est conçue pour la comparaison expérimentale éphémère |
+| **Multidisciplinarité par domaines** (frontend + backend + data) | **A-Team** | Les domaines sont connus et différents ; Metapopulation divise la population, pas les expertises |
+| **Communauté open** avec ressources partagées et acteurs autonomes | **Biocénose** | Les ressources sont un bien commun ; Metapopulation suppose des patches distincts avec des corridors contrôlés |
+| **Un seul environnement** (un OS, un provider, une stratégie) | **Topologie simple** (pas de méta-orchestration) | La métapopulation suppose des patches distincts — si tout est identique, la diversité est artificielle |
+| **Temps réel collaboratif** (édition partagée, chat, whiteboard) | **Syncytium** | Metapopulation tolère la divergence ; le temps réel exige une vue partagée unique |
+| **Mission éphémère** (< 5 minutes, une seule exécution) | **Topologie élémentaire** | Le coût d'instanciation des dèmes et du Regional Controller n'est pas amorti |
+| **Données massives centralisées** (un seul dataset, un seul modèle) | **Biocénose** ou **Syncytium** | Metapopulation suppose que les dèmes ont leur propre contexte ; si tout le monde lit les mêmes données, les dèmes sont redondants |
+
+### 27.2 Tests mentaux (arbre de décision)
+
+Avant de choisir Metapopulation, passez ces tests mentalement :
+
+**Test 1 — « Est-ce que mes agents doivent diverger ? »**
+- Si oui → Metapopulation est candidate.
+- Si non (tous les agents doivent converger vers la même vue) → **Syncytium**.
+
+**Test 2 — « Ai-je plusieurs environnements, providers, ou stratégies distincts ? »**
+- Si oui → Metapopulation est candidate.
+- Si non (un seul environnement, une seule approche) → **Topologie simple** ou **Biocénose**.
+
+**Test 3 — « Est-ce que l'extinction locale est acceptable ? »**
+- Si oui → Metapopulation (c'est sa raison d'être).
+- Si non (toutes les fonctions critiques doivent être maintenues simultanément) → **Rescue Network** (variante Metapopulation) ou **Biocénose**.
+
+**Test 4 — « Les patches sont-ils stables dans le temps ? »**
+- Si oui → Metapopulation classique.
+- Si non (les patches apparaissent/disparaissent fréquemment) → **Ephemeral Patch** (variante Metapopulation) ou **Biocénose**.
+
+**Test 5 — « Le coût de la migration est-il justifié ? »**
+- Si oui (les migrations apportent régulièrement des améliorations) → Metapopulation.
+- Si non (les dèmes sont déjà optimaux, les migrations sont du bruit) → **Topologie simple** (laissez les dèmes isolés).
+
+**Test 6 — « Ai-je besoin d'un quorum global ? »**
+- Si oui → Metapopulation (6 types de quorum).
+- Si non (décisions purement locales) → **Rhizome** ou topologie décentralisée.
+
+**Règle empirique** : Si vous échouez à plus de deux tests, une autre topologie est probablement plus adaptée.
+
+---
+
+## 28. Références internes
+
+- [ORCHESTRATION.md](../orchestration.md) : orchestration générale
+- [SYNCYTIUM.md](syncytium.md) : orchestration par état partagé
+- [TRINITY.md](trinity.md) : orchestration comparative
+- [A_TEAM.md](a-team.md) : orchestration multidisciplinaire
+- [BIOME.md](biome.md) : orchestration par environnement
+- [BIOLOGIE_COMPUTATIONNELLE.md](../../01-concepts/biologie-computationnelle.md) : cadre biologique
+- [metapopulationCoordinationService.js](../../../backend/src/services/metapopulationCoordinationService.js)
+- [proceduralMetapopulationService.js](../../../backend/src/services/proceduralMetapopulationService.js)
+- [cryptobiosisSporeService.js](../../../backend/src/services/cryptobiosisSporeService.js)
+- [fossilizationService.js](../../../backend/src/services/fossilizationService.js)
+- [evolution.rs](../../../crates/genos-orchestrator/src/evolution.rs)
+
+---
+
+## 29. Références externes
+
+| Référence | Apport |
+|-----------|--------|
+| [Hanski 1998][ext-hanski] | Fondements : populations séparées, migration, persistance régionale |
+| [Fox et al. 2017][ext-hydra] | Extinctions locales peuvent augmenter persistance régionale |
+| [Ruciński et al. 2010][ext-topology] | Impact de la topologie de migration sur l'island model |
+| [MultiKulti 2008][ext-multikulti] | Migration du génotype le plus différent |
+| [Mambrini & Sudholt 2015][ext-adaptive] | Fréquence de migration adaptative |
+| [Ryser et al. 2021][ext-rescue] | Rescue effect et drainage effect |
+| [Nakazawa 2015][ext-stage] | Rescue effect dans le modèle de Levins |
+| [Hanski & Ovaskainen 2000][ext-capacity] | Capacité métapopulationnelle (λ_max) |
+| [da Silveira et al. 2022][ext-hetero] | Îlots hétérogènes reconfigurables |
+| [Bell 2017][ext-evol-rescue] | Sauvetage évolutionnaire |
+
+[ext-hanski]: https://www.nature.com/articles/23876
+[ext-hydra]: https://www.nature.com/articles/s41559-017-0271-y
+[ext-topology]: https://arxiv.org/abs/1004.4541
+[ext-multikulti]: https://arxiv.org/abs/0806.2843
+[ext-adaptive]: https://ieeexplore.ieee.org/document/7358494
+[ext-rescue]: https://www.nature.com/articles/s41467-021-24877-0
+[ext-stage]: https://www.nature.com/articles/srep07871
+[ext-capacity]: https://www.nature.com/articles/35008063
+[ext-hetero]: https://arxiv.org/abs/2205.02916
+[ext-evol-rescue]: https://www.annualreviews.org/content/journals/10.1146/annurev-ecolsys-110316-023011
+
+---
+
+## 30. Schémas d'architecture et de dynamique métapopulationnelle
+
+### 30.1 Architecture d'une Métapopulation hétérogène
 
 ```mermaid
 flowchart TB
     Mission["Mission globale"] --> PatchModel["Patch Model"]
     PatchModel --> Patches["Patches A, B, C..."]
 
-    Patches --> DemeA["Dème A\nCP-SAT\n● ● ●"]
-    Patches --> DemeB["Dème B\nILP\n● ●"]
-    Patches --> DemeC["Dème C\nLocal Search\n● ● ●"]
+    Patches --> DemeA["Dôme A\nCP-SAT\n● ● ●"]
+    Patches --> DemeB["Dôme B\nILP\n● ●"]
+    Patches --> DemeC["Dôme C\nLocal Search\n● ● ●"]
 
     DemeA --> CorridorAB["Couloir A→B\n(Propagule: bound)"]
     DemeB --> CorridorBC["Couloir B→C\n(Propagule: incumbent)"]
@@ -998,7 +1396,7 @@ flowchart TB
     ActionRecolon --> Patches
 ```
 
-### Séquence Extinction → Recolonisation
+### 30.2 Séquence Extinction → Recolonisation
 
 ```mermaid
 sequenceDiagram
@@ -1011,7 +1409,7 @@ sequenceDiagram
     participant Founder as Founder Set
 
     Deme-->>Crash: Extinction locale
-    Deme-->>Observer: Dème COLLAPSE
+    Deme-->>Observer: Dôme COLLAPSE
     Observer-->>Patch: Patch VACANT
     Observer->>Controller: Extinction détectée
 
@@ -1030,7 +1428,7 @@ sequenceDiagram
     Observer->>Observer: Recalcule λ_max régional
 ```
 
-### Machine à états Dème
+### 30.3 Machine à états Dôme
 
 ```mermaid
 stateDiagram-v2
@@ -1053,3 +1451,52 @@ stateDiagram-v2
     ACTIVE --> DORMANT : Extinction contrôlée
     DORMANT --> [*] : Fossilisation
 ```
+
+### 30.4 Boucle de régulation de la synchronie
+
+```mermaid
+flowchart LR
+    subgraph Mesure["Mesure continue"]
+        ErrCorr["Error correlation ρ(E_i, E_j)"]
+        StratOverlap["Strategy overlap"]
+        ModelOverlap["Model overlap"]
+    end
+
+    subgraph Calcul["Calcul AntiSyncIndex"]
+        SyncMatrix["Matrice Synchrony(D_i, D_j)"]
+        AntiIdx["AntiSyncIndex = 1 - mean"]
+    end
+
+    subgraph Règle["Régulation"]
+        Check{"AntiSyncIndex < 0.3 ?"}
+    end
+
+    subgraph Action["Actions"]
+        ReduceCorr["Réduire corridor"]
+        FreezeCorr["Geler corridor (firebreak)"]
+        MutateDeme["Muter dôme"]
+        ExtCont["Extinction contrôlée\n+ recolonisation divergente"]
+    end
+
+    ErrCorr --> SyncMatrix
+    StratOverlap --> SyncMatrix
+    ModelOverlap --> SyncMatrix
+    SyncMatrix --> AntiIdx
+    AntiIdx --> Check
+
+    Check -->|Oui, synchronie élevée| ReduceCorr
+    ReduceCorr --> FreezeCorr
+    FreezeCorr --> MutateDeme
+    MutateDeme --> ExtCont
+    Check -->|Non, dans la cible| Maintenir["Maintenir politique"]
+```
+
+---
+
+## 31. Implémentation & capacités (GenOS v3)
+
+Service de coordination : `metapopulationCoordinationService.js`.
+Capacités requises : `QUORUM`, `SYNAPTIC_PLASTICITY`, `RESILIENCE_RECOVERY`, `GENOME_EPIGENETICS`, `SWARM_METRICS`, `EPISODIC_MEMORY`, `SIGNALING_BUS`, `PROVENANCE`, `CAPSULES_SNAPSHOTS`, `EVIDENCE_BARRIER`, `EVOLUTION_REPRODUCTION`.
+Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils.
+
+Les dômes sont instanciés par `biologicalModeService.compose('metapopulation', mission)` avec les cinq services de contrôle. Le moteur évolutionnaire Rust (`crates/genos-orchestrator/src/evolution.rs`) gère la dynamique génétique haute-performance pour la variante Evolutionary. La cryptobiose, la fossilisation, et la recolonisation sont opérées par leurs services respectifs.

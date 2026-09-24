@@ -1,745 +1,139 @@
 # Biome : Écologie Adaptative de GenOS
 
-## 1. Principe fondamental
+## 1. Définition
 
-> **Biome est le protocole de GenOS pour maintenir et faire évoluer un ensemble de populations spécialisées dans un environnement dynamique, sous ressources limitées, lorsque la structure optimale du travail n'est pas connue à l'avance et doit émerger de l'interaction entre niches, populations, ressources et résultats.**
+Biome dans GenOS est le mécanisme d'orchestration qui exécute une mission comme une **écologie adaptative de populations spécialisées**, où la structure optimale du travail n'est pas connue à l'avance et doit émerger de l'interaction entre niches, populations, ressources et résultats. Contrairement aux modèles précédents (Trinity = hypothèses isolées, A-Team = domaines isolés, Syncytium = état partagé continu, Biocénose = agents autonomes, Holobionte = hiérarchie), Biome impose une **régulation écologique dynamique** : les populations croissent, déclinent, migrent et s'éteignent en fonction de la productivité marginale des niches qu'elles exploitent.
 
-Biome n'est pas « A-Team avec allocation dynamique ». A-Team suppose que les domaines sont connus. Trinity suppose que les hypothèses sont identifiables. **Biome suppose que la structure de recherche elle-même doit émerger.**
+Le mot « Biome » vient de l'écologie : un biome est un ensemble d'écosystèmes partageant des conditions environnementales similaires et des interactions biotiques structurantes. Les agents ne sont pas des workers interchangeables, mais des **individus** regroupés en **populations** occupant des **niches** dans un **environnement** dynamique.
 
-La distinction est fondamentale :
+Les quatre rôles du Biome sont :
 
-```text
-Trinity
-    plusieurs hypothèses concurrentes
-    → laquelle résiste aux preuves ?
+1. **Environment Model** : maintient une représentation de l'environnement de mission, détecte les opportunités et les perturbations ;
+2. **Resource Steward** : gère le vecteur de ressources multidimensionnel, calcule les capacités de charge, alloue par productivité marginale ;
+3. **Population Regulation** : opère les dynamiques de naissance, mort, migration, cryptobiose des populations en fonction de leur fitness locale ;
+4. **Ecosystem Observer** : mesure la santé écologique multidimensionnelle, détecte les tipping points, évalue la résilience.
 
-A-Team
-    plusieurs expertises complémentaires
-    → comment faire fonctionner leurs contributions ensemble ?
+Biome n'est pas une orchestration par allocation : c'est une orchestration par **sélection écologique**. Les populations ne survivent pas parce qu'elles existent, mais parce qu'elles exploitent des niches viables avec une fitness positive sous ressources limitées.
 
-Biome
-    environnement + populations + niches + ressources
-    → quelles niches valent encore la peine d'être exploitées ?
-    → quelles populations doivent croître ou décroître ?
-    → où déplacer les ressources ?
-    → quelles interactions deviennent dangereuses ?
-    → quelles nouvelles niches apparaissent ?
-    → comment survivre aux perturbations ?
+Le cœur fonctionnel est réparti entre :
+- `biomeCoordinationService.js` : boucle écologique principale, allocation, foraging, santé ;
+- `biologicalModeService.js` : composition des quatre rôles écologiques ;
+- `foragingScoutHarvesterService.js` : foraging (Marginal Value Theorem, Lévy flights) ;
+- `proceduralBiomePopulationService.js` : populations procédurales par niche ;
+- `cryptobiosisSporeService.js` : dormance et réactivation ;
+- `fossilizationService.js` : fossilisation et archive.
+
+---
+
+## 2. Non une équipe de workers, mais une écologie de populations
+
+GenOS applique une logique de régulation écologique :
+
+1. **Environnement modélisé** : l'espace de mission est un environnement dynamique avec des gradients de ressources, des opportunités et des perturbations ;
+2. **Niches dynamiques** : les niches ne sont pas déclarées à l'avance — elles sont découvertes, créées, fusionnées ou abandonnées en fonction des signaux environnementaux ;
+3. **Capacité de charge** : chaque niche porte une capacité $K_i$ fonction des ressources disponibles, de la productivité marginale et des coûts de coordination ;
+4. **Fitness locale** : la fitness d'un agent est évaluée relativement à sa niche, pas globalement ;
+5. **Sélection écologique** : les populations croissent dans les niches viables, déclinent dans les niches saturées ou improductives, migrent vers de meilleures opportunités ;
+6. **Mémoire environnementale** : les populations laissent des traces (artefacts, gradients, marqueurs) qui influencent les futures décisions de forage.
+
+Les mécanismes de régulation sont explicites : modélisation d'environnement partagée, découverte de niches émergentes, allocation par productivité marginale, préservation de la diversité par protection des minorités fonctionnellement distinctes, résilience par redondance fonctionnelle, et construction d'environnement par accumulation d'artefacts.
+
+---
+
+## 3. Définition mathématique de l'orchestration écologique
+
+Soit :
+- $M$ : mission ;
+- $E_t$ : environnement au timestamp $t$ ;
+- $\mathcal{N} = \{N_1, \ldots, N_k\}$ : ensemble des niches actives ;
+- $\mathcal{P} = \{P_1, \ldots, P_m\}$ : ensemble des populations ;
+- $R_i$ : vecteur de ressources de la population $i$ ;
+- $K_i$ : capacité de charge de la niche ;
+- $\Phi(a, n, t)$ : fitness de l'agent $a$ dans la niche $n$ au temps $t$.
+
+À chaque tick écologique :
+
+$$\text{For each population } i:$$
+
+$$\text{if } \Phi(P_i, N_i, t) > \theta_{\text{survival}} \text{ and } R_i \geq R_{\min}:$$
+
+$$R_{i,t+1} = R_{i,t} + \Delta R_{\text{grow}}(P_i, N_i)$$
+
+$$\text{else if } \Phi(P_i, N_i, t) < \theta_{\text{decline}}:$$
+
+$$R_{i,t+1} = R_{i,t} - \Delta R_{\text{shrink}}(P_i, N_i)$$
+
+$$\text{else:}$$
+
+$$R_{i,t+1} = R_{i,t} + \Delta R_{\text{maintain}}(P_i, N_i)$$
+
+L'écosystème converge vers un état stable quand :
+
+$$\text{equilibrium}(E_t) = 1 \iff \forall i : \left| \frac{\Delta R_i}{\Delta t} \right| < \epsilon$$
+
+La diversité est maintenue quand :
+
+$$\text{diversity}(\mathcal{P}, \mathcal{N}, t) > \theta_{\text{minimum}}$$
+
+---
+
+## 4. Les quatre rôles et hypothèses
+
+Biome crée toujours exactement 4 rôles écologiques :
+
+### 4.1 Environment Model
+
+```
+Role: environment_model | ModelTier: frontier | Member Number: 1
+Responsibility: Ecological Cartography
+Hypothesis: "Maintain a dynamic model of the mission environment,
+detect ecological opportunities and perturbations, and produce
+the niche opportunity map."
 ```
 
-Biome devient **l'écologie adaptative** de GenOS : le système utilisé lorsque l'on ne sait pas seulement *qui doit faire quoi*, mais lorsque l'on doit continuellement décider **quelles niches valent encore la peine d'être exploitées, quelles populations doivent croître ou décroître, où déplacer les ressources, quelles interactions deviennent dangereuses, quelles nouvelles niches apparaissent et comment survivre aux perturbations**.
+Tâches : modéliser l'environnement dynamique, détecter les nouvelles niches, suivre les capacités de charge, identifier les tipping points, prédire les phases de succession, maintenir le biofilm.
 
----
+### 4.2 Resource Steward
 
-## 2. Ce que Biome actuel fait réellement
-
-Le dépôt possède déjà plusieurs briques réelles.
-
-`biomeCoordinationService.js` crée une session persistante avec une organisation `energy_huddle`, une matrice biofilm, quatre rôles génériques, une allocation de budget proportionnelle à `demand × priority`, une étape de foraging et une métrique de santé basée sur l'entropie de Shannon.
-
-La session est persistée dans `topology_sessions`, et les opérations `snapshot`, `allocate`, `forage`, `health` sont accessibles via `genos_topology_session`.
-
-Le foraging repose réellement sur `foragingScoutHarvesterService.js`, avec une approximation du Marginal Value Theorem et des pas de Lévy. GenOS possède aussi `SearchPatchService`, capable de représenter un patch comme une hypothèse, famille de fichiers, base documentaire, stratégie, branche, outil ou espace de paramètres.
-
-Il existe également déjà plusieurs briques qu'un Biome ultime devrait impérativement réutiliser plutôt que réimplémenter : la Natural Creative Ecology, le moteur POET, la curiosité fondée sur le progrès, la plasticité phénotypique, l'évolution multi-îlots, les organismes procéduraux portant explicitement `niche`, `populationId` et `biomeId`, la stigmergie et les mécanismes de résilience.
-
-Donc la matière première est là. Mais le moteur écologique n'est pas encore là.
-
----
-
-## 3. Le problème principal : le Biome ne ferme aucune boucle écologique
-
-Actuellement, quelqu'un doit explicitement appeler `allocate()`, `forage()`, `health()`. Ces opérations écrivent ensuite leurs résultats dans la matrice biofilm.
-
-Il n'existe pas encore de boucle :
-```text
-observe → estimate ecological state → decide → grow / shrink / migrate / split populations → reallocate resources → change search behaviour → observe effect
+```
+Role: resource_steward | ModelTier: frontier | Member Number: 2
+Responsibility: Resource Metabolism
+Hypothesis: "Regulate the multidimensional resource vector,
+compute carrying capacities, allocate budgets by marginal
+productivity, and protect the resilience reserve."
 ```
 
-Le document `topologies-et-capacites.md` le reconnaît d'ailleurs : la boucle autonome Biome reste à réaliser.
+Tâches : maintenir $R_i = (Tokens, Time, Calls, GPU, Memory, Tools, Concurrency, Risk, Attention)$, calculer $K_i$, calculer $\text{Pressure}_i = N_i / K_i$, allouer par $\frac{MV_i \times IG_i \times Crit_i}{Cost_i \times Press_i \times Risk_i}$, maintenir $R_{\text{reserve}}$.
 
-**Le futur Biome ne doit pas avoir pour rôle de fournir des fonctions écologiques à l'orchestrateur. Il doit être la boucle écologique.**
+### 4.3 Population Regulation
 
----
-
-## 4. Les quatre rôles actuels ne doivent pas être quatre workers
-
-Aujourd'hui `biologicalModeService` produit :
-```text
-environment_mapper
-resource_steward
-population_specialist
-ecosystem_observer
+```
+Role: population_regulation | ModelTier: standard | Member Number: 3
+Responsibility: Population Dynamics
+Hypothesis: "Operate population dynamics: birth, death, migration,
+speciation, and cryptobiosis based on local fitness."
 ```
 
-Ce modèle est intéressant comme **fonctions écologiques**, mais mauvais comme composition concrète.
+Tâches : évaluer $\Phi(a,n,t)$, croissance/déclin des populations, migration (MR > switch cost), recrutement via spores, stratégies de reproduction.
 
-Un Biome ne devrait pas être 4 agents. Il devrait être :
-```text
-1 Environment Model
-1 Resource Regulation Plane
-N niches
-N populations
-N×M individuals
-1 Ecosystem Observer Plane
+### 4.4 Ecosystem Observer
+
+```
+Role: ecosystem_observer | ModelTier: frontier | Member Number: 4
+Responsibility: Ecological Health & Resilience
+Hypothesis: "Measure multidimensional ecological health,
+detect tipping points, evaluate functional redundancy,
+and assess resilience capacity."
 ```
 
-Exemple :
-```text
-                        BIOME
-                          │
-                 Environment Model
-                          │
-        ┌─────────────────┼─────────────────┐
-        ▼                 ▼                 ▼
-   Niche: Repo       Niche: Web       Niche: Formal
-   population         population       population
-    scanners          researchers       solvers
-     ● ● ●             ● ●              ● ●
-        │                 │                 │
-        └────────── ecological links ──────┘
-                          │
-                   Resource Steward
-                          │
-                   Ecosystem Observer
-```
-
-`environment_mapper`, `resource_steward` et `ecosystem_observer` deviennent principalement **services de contrôle**. `population_specialist` devient une abstraction de population, pas un unique agent.
+Tâches : calculer $H_{\text{taxonomic}}$, $H_{\text{functional}}$, $H_{\text{response}}$, détecter tipping points, identifier keystone populations, perturbations contrôlées.
 
 ---
 
-## 5. La vraie unité fondamentale doit être la niche
-
-A-Team possède des responsabilités. Biome doit posséder des **niches**.
-
-Une niche n'est pas simplement `domain = security`. Une niche est un espace de conditions dans lequel une certaine stratégie/population est utile.
-
-Je définirais :
-```text
-Niche {
-    nicheId
-    opportunity
-    environmentDescriptor
-    requiredCapabilities
-    availableResources
-    entryConditions
-    survivalConditions
-    exitConditions
-    rewardSignals
-    informationSignals
-    competitors
-    mutualists
-    predators
-    dependencies
-    carryingCapacity
-    occupancy
-    productivity
-    novelty
-    informationGain
-    uncertainty
-    stability
-    disturbanceLevel
-}
-```
-
-Exemples de niches GenOS :
-```text
-"chercher la cause dans l'historique Git"
-"explorer la DB"
-"tester l'hypothèse de race condition"
-"chercher une preuve formelle"
-"explorer documentation externe"
-"fuzzing de parser"
-"optimisation ILP"
-"chercher exemples similaires dans memory"
-```
-
-C'est radicalement différent d'un domaine. Une même mission backend peut contenir dix niches.
-
----
-
-## 6. Et les niches doivent pouvoir apparaître et disparaître
-
-C'est là que Biome devient réellement intéressant.
-
-Le modèle traditionnel à la MAP-Elites place des solutions dans des niches définies selon des dimensions comportementales. MAP-Elites cherche précisément à conserver des solutions **diverses et performantes**, au lieu de ne garder qu'un unique optimum ([arXiv:1504.04909][1]).
-
-Mais l'une des limites d'une grille fixe est justement que les dimensions pertinentes peuvent ne pas être connues à l'avance. Des approches plus ouvertes comme AURORA cherchent à apprendre ou modifier les descripteurs de niches ([arXiv:2406.04235][2]).
-
-Pour GenOS, cela suggère :
-```text
-Niche discovery ≠ static array declared at mission start
-```
-
-Le Biome doit pouvoir observer :
-```text
-large unexplained residual
-new capability discovered
-repeated handoff failures
-novel artifact
-new source
-new failure mode
-```
-et créer `NEW NICHE`.
-
-Exemple :
-```text
-initial niches: code inspection, tests, logs
-logs population discovers clock drift anomalies
-→ new niche: distributed-time investigation
-→ recruit/create population
-```
-
-C'est beaucoup plus proche de la vraie écologie : les organismes ne font pas que s'adapter à une niche statique ; ils peuvent choisir, conformer et parfois modifier leur niche. La littérature écologique moderne distingue justement niche choice, niche conformance et niche construction ([Nature][3]).
-
----
-
-## 7. Il faut distinguer niche fondamentale et niche réalisée
-
-Cette idée biologique devient extrêmement utile pour GenOS.
-
-Un agent possède une **fundamental niche** = tout ce qu'il pourrait théoriquement traiter compte tenu de son DNA, outils, modèle, skills, mémoire, cognitive recipe.
-
-Mais sa **realized niche** dépend de : available resources, competition, other agents, environment, current mission, permissions.
-
-Exemple :
-```text
-Agent A
-fundamental niche: Python, SQL, debugging, algorithms
-actual Biome: Python debugging already saturated, no SQL specialist present
-realized niche: SQL investigation
-```
-
-Ça rendrait AgentDNA, phénotype et Biome extrêmement bien connectés.
-
----
-
-## 8. Il faut arrêter de considérer les ressources comme seulement des tokens
-
-`allocateResources()` gère aujourd'hui un entier.
-
-Le Resource Steward ultime doit gérer un vecteur :
-$$R_i = (Tokens, Time, Calls, GPU, Memory, Tools, Concurrency, Risk, Attention)$$
-
-Chaque niche possède une demande différente :
-```text
-Formal proof niche: high compute, low web, high verification
-Web research niche: high browsing, moderate LLM, high provenance
-Fuzzing niche: high execution, low LLM
-```
-
-Cela devient une véritable économie écologique.
-
----
-
-## 9. La carrying capacity doit devenir réelle
-
-Chaque niche devrait avoir :
-$$K_i = f(resources, marginal\ productivity, contention, coordination\ overhead)$$
-et :
-$$Pressure_i = \frac{Population_i}{K_i}$$
-
-Si N << K : la niche peut recruter.
-Si N ≈ K : elle est saturée.
-Si N > K : GenOS doit geler des individus, les réaffecter, fusionner des workers redondants, les déplacer ou les terminer.
-
-Cela transforme `workerGarage` d'une simple capacité globale en composante d'une écologie de ressources.
-
----
-
-## 10. La fitness doit être locale et environnementale
-
-Le Biome ne doit surtout pas calculer un unique score global d'agent.
-
-Un agent peut être mauvais globalement mais excellent dans une niche rare. Le `ProceduralOrganism` possède déjà `ecology.niche` et `fitness.components`.
-
-Je définirais :
-$$Fitness(a,n,t) = Success + Evidence + InformationGain + NoveltyContribution + Complementarity - Cost - Risk - ResourcePressure$$
-
-Un même agent :
-```text
-Agent A
-fitness(repo_scan) = .91
-fitness(web_research) = .42
-fitness(formal_proof) = .11
-```
-
-Il ne faut donc pas tuer Agent A parce que sa fitness moyenne vaut .48. Il possède une niche dans laquelle il est excellent. C'est précisément l'esprit Quality-Diversity ([arXiv:1504.04909][1]).
-
----
-
-## 11. Biome devrait maintenir un véritable archive de niches
-
-Je créerais conceptuellement :
-```text
-EcologicalArchive
-
-Niche 1
- ├ elite populations
- ├ best individuals
- ├ failed adaptations
- └ stepping stones
-
-Niche 2
- ├ ...
-```
-
-Ce n'est pas exactement MAP-Elites, car GenOS doit conserver plus que le meilleur individu. Il faut conserver : best performer, most robust, cheapest, most novel, best verifier, best stepping stone. Chaque niche possède potentiellement un petit front de Pareto.
-
-Une solution non optimale aujourd'hui peut être utile plus tard. POET a justement montré l'intérêt des **stepping stones** : une solution développée dans un environnement peut débloquer un autre environnement que l'optimisation directe ne résolvait pas ([arXiv:1901.01753][4]).
-
-GenOS possède déjà `cryptobiosisSporeService` et `fossilizationService`. Biome devrait être l'un des principaux consommateurs de ces mécanismes.
-
----
-
-## 12. Une population doit réellement être une population
-
-Aujourd'hui `population_specialist` est un rôle singulier.
-
-Je remplacerais cela par :
-```text
-Population {
-    populationId
-    nicheId
-    individuals[]
-    genotypeDistribution
-    phenotypeDistribution
-    strategies[]
-    cognitiveRecipes[]
-    resourcePool
-    localMemory
-    culturalMemory
-    diversity
-    productivity
-    health
-    birthRate
-    deathRate
-    migrationRate
-    lineage
-}
-```
-
-Les individus peuvent être différents (different model, provider, recipe, toolset, strategy, memory subset) mais ils appartiennent à une population parce qu'ils exploitent la même niche.
-
----
-
-## 13. Les populations doivent avoir plusieurs stratégies de reproduction
-
-Selon la situation :
-```text
-clone best individual
-mutate strategy
-recombine two useful individuals
-spawn specialist
-import individual from another niche
-reactivate dormant spore
-```
-
-Pas nécessairement biologique dans les noms. Le principe est : **quand une niche est prometteuse, produire de nouvelles variantes autour de ce qui fonctionne, sans perdre la diversité.** C'est ici que l'évolution multi-îlots actuelle de GenOS peut se brancher directement.
-
----
-
-## 14. Il faut introduire compétition, mutualisme et prédation informationnelle
-
-Toutes les relations entre populations ne sont pas des dépendances. Je donnerais à Biome cinq relations fondamentales :
-
-| Relation | Traduction GenOS |
-|----------|------------------|
-| compétition | deux populations consomment la même ressource/niche |
-| mutualisme | chacune augmente la productivité de l'autre |
-| commensalisme | A bénéficie de B sans effet notable sur B |
-| inhibition | A produit un signal qui invalide/diminue B |
-| prédation | une population teste/détruit systématiquement les artefacts faibles d'une autre |
-
-Exemple :
-```text
-Generator population ↕ mutualism Verifier population
-Generator → provides candidates
-Verifier → eliminates invalid ones
-```
-
-Ou :
-```text
-2 web-search populations → same sources, same queries → competition / redundancy → merge or redirect one
-```
-
----
-
-## 15. Le Biome doit détecter la redondance fonctionnelle
-
-Deux populations peuvent avoir des rôles différents mais produire le même signal. Le Resource Steward doit constater :
-$$MarginalContribution(B|A) \approx 0$$
-et : shrink B, redirect B, or merge populations.
-
-À l'inverse, une population minoritaire produisant régulièrement des informations uniques doit être protégée. Cela dépasse énormément une allocation `demand × priority`.
-
----
-
-## 16. L'entropie de Shannon actuelle n'est pas une santé d'écosystème
-
-`ecosystemHealth()` fait actuellement essentiellement `entropy(labels) >= .5 → resilient`. C'est trop faible. Six labels différents peuvent donner une grande diversité sans produire le moindre résultat utile.
-
-Une vraie santé écologique doit être multidimensionnelle :
-$$H = f(Diversity, FunctionalCoverage, Productivity, ResourcePressure, DependencyHealth, RecoveryCapacity, Redundancy, Novelty, Stability)$$
-
-Je séparerais notamment :
-```text
-taxonomic diversity = combien de types différents ?
-functional diversity = combien de comportements/capacités différents ?
-response diversity = plusieurs façons différentes de remplir la même function ?
-productivity = valeur réellement produite
-resilience = capacité à absorber/recover d'une perturbation
-```
-
-La littérature sur la résilience écologique insiste justement sur la distinction entre résistance, récupération et changement de régime, plutôt qu'un simple indice de diversité ([Nature][5]).
-
----
-
-## 17. Il faut détecter les tipping points
-
-Biome doit observer les signes : rising latency, increasing retries, declining marginal yield, dependency backlog, resource concentration, falling diversity, increased error correlation — qui peuvent annoncer un regime shift avant le crash.
-
-Exemple :
-```text
-80% budget → one population
-70% new evidence → derivative of same source
-recovery reserve → 0
-latency → rising
-```
-
-Localement, tout semble encore fonctionner. Mais le système devient fragile. Biome doit pouvoir dire `ECOSYSTEM_APPROACHING_TIPPING_POINT` et agir avant l'effondrement.
-
----
-
-## 18. Les perturbations doivent devenir un outil de diagnostic
-
-Un vrai Biome ne doit pas seulement subir les perturbations. GenOS peut en injecter de petites et contrôlées :
-```text
-remove one worker
-reduce one niche budget
-disable one source
-withhold one tool
-delay one dependency
-```
-et mesurer : does ecosystem continue? what compensates? which function collapses?
-
-Cela donne : resistance, recovery time, functional redundancy, keystone populations.
-
-Des travaux écologiques montrent que la résilience dépend notamment de la connectivité et du type de perturbation ([Nature][6]). Ce serait l'équivalent écologique du chaos engineering.
-
----
-
-## 19. Cela permet d'identifier les « keystone populations »
-
-Certaines populations utilisent peu de ressources mais empêchent l'effondrement global. Exemple : un `dependency auditor` ne produit que 2 % des artifacts, mais sa suppression fait chuter integration success 94% → 51 %.
-
-Le Resource Steward doit mesurer :
-$$KeystoneImpact(p) = Performance(E) - Performance(E \setminus p)$$
-par perturbations contrôlées ou historique causal.
-
----
-
-## 20. Introduire la succession écologique
-
-C'est probablement l'un des mécanismes les plus intéressants absents du repo.
-
-Les populations utiles au début d'une mission ne sont pas celles utiles à la fin. Exemple développement :
-```text
-EARLY SUCCESSION: exploration, requirements, repo mapping, research
-MID SUCCESSION: architecture, implementation, tests
-LATE SUCCESSION: hardening, integration, security, documentation
-```
-
-Donc les populations doivent apparaître, croître puis décliner. Pas rester vivantes jusqu'à la fin parce qu'elles ont été lancées au départ.
-
-Un Biome mature doit avoir : pioneer populations, established populations, late-stage populations, decomposers/archive workers — sans forcément exposer ces métaphores biologiques à l'API.
-
----
-
-## 21. Certaines populations doivent modifier l'environnement lui-même
-
-C'est la **niche construction**.
-
-Exemple : une search population crée index, summary, cache, graph. Les futures populations ont désormais un environnement plus facile. Ou : une population test crée un harness automatique. L'environnement de recherche vient de changer.
-
-Donc :
-$$Environment_{t+1} = Environment_t + Artifacts(populations_t)$$
-
-Le Biome n'est plus seulement « agents adapt to environment » mais « agents ↔ environment ».
-
----
-
-## 22. Biome + POET doit former une boucle naturelle
-
-Tu as déjà `poetExecutionEngine.js` et `environmentGeneratorService`. POET couple précisément environnements et solutions, crée de nouveaux défis, puis transfère des solutions entre environnements ; ce transfert de stepping stones est une part centrale de son intérêt ([arXiv:1901.01753][4]).
-
-Je ne créerais donc surtout pas un second POET dans Biome. Je ferais :
-```text
-Biome
-  ├ niche ecology
-  ├ resource dynamics
-  ├ populations
-  │
-  └── when environment itself should evolve → NCE / POET
-```
-
-Et dans l'autre direction :
-```text
-POET creates new environment → Biome decides:
-    which population can colonize it?
-    do we spawn one?
-    transfer existing individual?
-    is this niche viable?
-```
-
-C'est un couplage extrêmement naturel.
-
----
-
-## 23. XLand apporte une autre leçon importante
-
-L'expérience XLand de DeepMind générait dynamiquement les tâches en fonction de la progression des agents, en cherchant des défis ni trop simples ni trop difficiles, avec plusieurs générations et une grande variété d'environnements et co-joueurs ([Google DeepMind][7]).
-
-Pour GenOS, Biome challenge difficulty pourrait viser :
-$$P(success) \in [\alpha, \beta]$$
-
-Cela rejoint directement le `curiosityService` actuel : learning progress, information gain, novelty, cost, risk. Donc le Resource Steward devrait consommer **Curiosity**, pas inventer sa propre métrique d'intérêt.
-
----
-
-## 24. Le foraging actuel est utile mais mathématiquement trop simplifié
-
-`evaluatePatchYield()` calcule actuellement `recentInfoGain / elapsedTimeSec` et compare à un `envMeanReturnRate` fixe.
-
-La vraie décision devrait tenir compte de : travel/switch cost, expected alternative yield, uncertainty, remaining patch potential, parallel occupancy, risk.
-
-Plus précisément :
-$$Stay(p) \iff MarginalReturn(p) > ExpectedReturn(alternatives) - SwitchCost$$
-
-Et surtout : `PATCH_DEPARTURE` doit réellement produire un comportement : stop exploiting current patch, select new niche/patch, move worker/population, update resource allocation. Aujourd'hui il ne donne qu'un conseil.
-
----
-
-## 25. Même problème pour le Lévy flight
-
-`computeLevyFlightStep()` retourne `LOCAL_INTENSIVE_EXPLOITATION` ou `LEVY_MACRO_JUMP` mais n'exécute rien.
-
-Dans le Biome ultime :
-```text
-LOCAL  → neighboring patch selection
-MACRO  → distant niche search, new source family, new representation, different tool, different strategy
-```
-
-Le « stepLength » doit être traduit en distance réelle dans un espace : capability distance, semantic distance, source distance, strategy distance, repository graph distance. Sinon le Lévy flight reste une métaphore.
-
----
-
-## 26. Le biofilm doit devenir mémoire environnementale
-
-`biofilmMatrixService` est actuellement un petit key-value store versionné. Bonne fondation.
-
-Mais le biofilm ultime devrait porter : resource gradients, risk gradients, evidence deposits, dead ends, productive niches, toxicity/repellent signals, population density, dependencies, artifacts.
-
-Une population peut donc apprendre indirectement « don't search there » sans conversation LLM. Cela devient de la vraie stigmergie.
-
-Exemple :
-```text
-patch:file-family/auth    yield=.02  visits=8  repellent=.91
-patch:git-history/oauth    yield=.76  visits=2  attractant=.83
-```
-
-Un nouveau worker n'a pas besoin de recevoir un long rapport. Il suit le gradient.
-
----
-
-## 27. Cela peut rendre le « 0 prompt inutile » extrêmement puissant
-
-Biome pourrait communiquer principalement par état environnemental compact : resource gradient, pheromone, risk marker, occupancy, yield, claim refs — plutôt que Worker A writes 3,000 tokens / Worker B reads 3,000 tokens.
-
-La communication devient agent → environment → agents et non agent → agent → agent → agent.
-
-C'est l'un des cas où ton biomimétisme peut réellement réduire les tokens plutôt que simplement donner des noms biologiques aux messages.
-
----
-
-## 28. Les interactions doivent être rewired dynamiquement
-
-Une revue de 2026 sur les réseaux écologiques insiste justement sur le fait que les réseaux d'interaction ne sont pas statiques : les organismes rewiring leurs interactions face à des changements de conditions, avec des conséquences sur la résilience ([Nature][8]).
-
-C'est directement exploitable. Aujourd'hui `population A ↔ population B` ne devrait pas être immuable. Si B stops providing useful information et C becomes a better neighbor, le réseau devrait devenir A ↔ C.
-
-C'est différent de Rhizome : Rhizome cherche surtout des routes/capacités. Biome rewiring vise les relations écologiques en fonction de leur effet sur la santé et la productivité du système.
-
----
-
-## 29. Les ressources communes introduisent le problème des commons
-
-C'est important si des agents autonomes choisissent eux-mêmes leur consommation. Des expériences LLM sur la gestion d'une ressource commune montrent que la durabilité collective peut être difficile à atteindre et dépend fortement des mécanismes de communication et de raisonnement sur les conséquences à long terme ([arXiv:2404.16698][9]).
-
-Donc Biome ne doit pas demander naïvement « worker, how much budget do you need? » et croire la réponse. Il faut : request, observed productivity, historical efficiency, criticality, marginal return, ecosystem state — puis décision du Steward.
-
----
-
-## 30. Un vrai modèle d'allocation
-
-Au lieu de $w_i = demand_i \times priority_i$, je viserais :
-$$Allocation_i \propto \frac{MarginalValue_i \times InformationGain_i \times Criticality_i \times LearningProgress_i \times KeystoneValue_i}{Cost_i \times ResourcePressure_i \times Redundancy_i \times Risk_i}$$
-
-avec contraintes $R_i \ge R_{min,i}$ et $\sum R_i + R_{reserve} \le R$.
-
-La réserve doit être réelle. Biome sans réserve de récupération n'est pas résilient.
-
----
-
-## 31. TerraLingua 2026 montre une direction intéressante
-
-Un travail très récent, TerraLingua, étudie précisément une **écologie persistante de LLM** avec ressources limitées et durée de vie limitée, où des artefacts persistent au-delà des individus et influencent les générations futures. Les auteurs rapportent notamment émergence de division du travail, normes coopératives, structures de groupe et lignées d'artefacts ([arXiv:2603.16910][10]).
-
-Je ne copierais évidemment pas TerraLingua. Mais il valide expérimentalement que les variables : resource constraints, persistent artifacts, agent turnover, long-lived environment — produisent des dynamiques beaucoup plus intéressantes qu'une simulation multi-agent sans conséquence. Ces quatre propriétés devraient être centrales dans le Biome GenOS.
-
----
-
-## 32. Une variante « Persistent Biome » devient donc particulièrement intéressante
-
-Contrairement aux autres topologies qui peuvent disparaître avec une mission : Persistent Biome peut survivre aux missions. Par exemple un repo GenOS repository biome contient continuellement : code-analysis population, test population, security population, documentation population, dependency-monitor population.
-
-Les missions entrent dans le Biome comme perturbations/opportunités. Les connaissances, niches et trails restent. C'est beaucoup plus proche de ton idée des daemons. Les daemons pourraient être les espèces résidentes d'un Biome persistant.
-
----
-
-## 33. Les variants de Biome
-
-Je ne créerais pas douze nouveaux orchestrateurs ; ce seraient des politiques écologiques.
-
-| Variant | Caractéristique | Usage |
-|---------|-----------------|-------|
-| **Resource Biome** | compétition/allocation de ressources | budget limité, beaucoup d'agents |
-| **Exploration Biome** | niches + foraging + curiosity | recherche, debugging inconnu |
-| **Quality-Diversity Biome** | archive de niches et élites diverses | créativité, optimisation |
-| **Successional Biome** | populations changent par phase | gros projets longs |
-| **Resilience Biome** | redondance + perturbations + recovery | systèmes critiques |
-| **Persistent Biome** | environnement longue durée | repo/project/organization |
-| **Open-Ended Biome** | niches/environnements nouveaux | recherche NCE |
-| **Adversarial Biome** | populations attaquent/défendent | cybersécurité |
-| **Knowledge Biome** | sources = niches, agents = foragers | recherche profonde |
-| **Compute Biome** | ressources matérielles comme environnement | local/cloud/multi-model |
-| **Multi-scale Biome** | individus→populations→communautés | très grandes missions |
-
-Les plus importants pour la V1 ultime seraient : Exploration, Resource, Resilience, Persistent, Quality-Diversity.
-
----
-
-## 34. Cas d'utilisation exact : bug inconnu
-
-C'est probablement un excellent exemple.
-
-Mission : « Trouve le bug inconnu dans ce repo. »
-
-A-Team présupposerait assez vite des responsabilités. Trinity présupposerait trois hypothèses. Biome peut commencer sans savoir où est le problème.
-```text
-Environment: repository
-Initial niches: failing tests, logs, recent commits, static analysis, runtime behaviour
-```
-Populations explorent. Après quelques ticks :
-```text
-static analysis: yield ↓ → population shrinks
-recent commits: yield ↑ → population grows
-logs: discovers timing anomaly → new concurrency niche
-concurrency niche finds reproducible race → verifier population colonizes it
-```
-C'est exactement le type de problème où la structure de recherche doit émerger.
-
----
-
-## 35. Cas : deep research
-
-Mission : « Détermine ce qui est réellement vrai sur X. »
-
-Niches : academic literature, official docs, industry reports, code/repos, community reports, contradictory evidence.
-
-Les populations peuvent se spécialiser par écosystème de source, pas par discipline. Une source saturée ou répétitive perd du budget. Un nouveau cluster contradictoire crée une nouvelle niche. Une population provenance/verifier agit comme contrôle écologique.
-
----
-
-## 36. Cas : optimisation complexe
-
-Par exemple Conway 99 ou optimisation combinatoire. Niches : CP-SAT, ILP, local search, symmetry breaking, constructive heuristics, evolution, formal bounds.
-
-Les populations occupent chaque niche. Si CP-SAT makes rapid progress, elle croît. Si elle stagne, budget redirected. Une solution partielle produite par une niche peut coloniser une autre : local-search solution → warm start ILP. C'est un stepping stone ecological transfer.
-
----
-
-## 37. Cas : cybersécurité
-
-Niches : attack surface, authentication, permissions, dependencies, fuzzing, configuration, business logic.
-
-Une vulnérabilité découverte crée une nouvelle niche exploitability qui peut contenir : exploit reproduction population, mitigation population, regression-test population. Et un patch peut modifier l'environnement, entraînant une nouvelle succession.
-
----
-
-## 38. Cas : très gros repo
-
-Le repo est l'environnement. Les modules deviennent des habitats. Les patches de recherche peuvent être : directory, dependency cluster, ownership cluster, runtime path, change hotspot.
-
-Des populations se déplacent selon : complexity, bug density, change frequency, unknownness, test failure density. Tu obtiens quelque chose de beaucoup plus puissant qu'une simple découpe en sous-dossiers.
-
----
-
-## 39. Cas : compute/model routing
-
-Biome peut aussi optimiser l'utilisation des modèles. Habitat : local CPU, local GPU, cloud cheap, cloud frontier, formal solver.
-
-Populations : light classifiers, heavy reasoners, code workers, verifiers.
-
-Le Resource Steward peut observer quality / €, quality / token, latency, failure rate — et déplacer les populations. C'est une vraie écologie de compute.
-
----
-
-## 40. Quand ne surtout pas utiliser Biome
-
-Biome a un overhead important. Il ne faut pas l'utiliser pour :
-```text
-2+2
-simple code patch
-known linear workflow
-three clean alternatives
-well-known multidisciplinary project
-shared-state realtime collaboration
-```
-
-Le bon test :
-> Est-ce que je connais déjà la bonne décomposition ? Si oui, souvent A-Team.
-> Est-ce que je compare quelques hypothèses ? Trinity.
-> Est-ce que la structure de recherche, les populations utiles et l'allocation des ressources doivent changer en fonction de ce qu'on découvre ? Biome.
-
----
-
-## 41. Biome vs Rhizome
-
-La distinction doit rester nette.
-```text
-Rhizome: "où puis-je faire pousser une nouvelle route/capacité ?"
-Biome: "quelles populations doivent vivre où, avec quelles ressources et quelles interactions ?"
-```
-Rhizome optimise le réseau d'accès aux capacités. Biome optimise l'écologie des populations dans l'environnement. Un Biome peut utiliser un Rhizome pour la connectivité interne.
-
----
-
-## 42. Biome vs Métapopulation
+## 5. Architecture du système
 
 ```text
-Biome = environnement + niches + interactions + ressources
-Metapopulation = plusieurs populations séparées spatialement/logiquement avec migration, extinction et recolonisation
-```
-
-La métapopulation pourrait devenir une structure à l'intérieur d'un Biome. Exemple : Biome niche = debugging, metapopulation : island A → Python, island B → JS, island C → Rust.
-
----
-
-## 43. Le modèle ultime du runtime
-
-```text
-MISSION / PERSISTENT ENVIRONMENT
+Mission / Environnement Persistant
              │
              ▼
       Environment Model
@@ -757,36 +151,780 @@ MISSION / PERSISTENT ENVIRONMENT
     Pop A   Pop B     Pop C
    ● ● ●    ● ●      ● ● ●
      │       │         │
-     └──── environmental trails ────┐
-                                    │
-                        Ecosystem Observer
-                                    │
-              ┌─────────────────────┼──────────────┐
-              ▼                     ▼              ▼
-           fitness              resources      interactions
-              │                     │              │
-              └────────────┬────────┴──────────────┘
+     └──── environmental trails (biofilm) ──┐
+                                            │
+                                 Ecosystem Observer
+                                            │
+              ┌─────────────────────────────┼──────────┐
+              ▼                             ▼          ▼
+           fitness                      resources  interactions
+              │                             │          │
+              └────────────┬────────────────┴──────────┘
                            ▼
                      Ecology Controller
                            │
-         ┌─────────────────┼────────────────────┐
-         ▼                 ▼                    ▼
-       grow              shrink               migrate
-       split             merge                dormancy
-       mutate            recruit              rewire
+         ┌─────────────────┼────────────────┐
+         ▼                 ▼                ▼
+       grow             shrink            migrate
+       split             merge            dormancy
+       mutate           recruit           rewire
                            │
                            ▼
                        new tick
 ```
 
-C'est ça, l'implémentation ultime.
+---
+
+## 6. La niche : unité fondamentale
+
+Une niche n'est pas un domaine. C'est un **espace de conditions écologiques** dans lequel une stratégie/population est productive. Chaque niche porte un état complet : nicheId, opportunity, environmentDescriptor, requiredCapabilities, availableResources, entryConditions, survivalConditions, exitConditions, rewardSignals, informationSignals, competitors, mutualists, predators, dependencies, carryingCapacity, occupancy, productivity, novelty, informationGain, uncertainty, stability, disturbanceLevel.
+
+Exemples de niches GenOS : « chercher la cause dans l'historique Git », « tester l'hypothèse de race condition », « explorer documentation externe non officielle », « fuzzing de parser avec corpus mutatif ». Une même mission peut contenir des dizaines de niches non évidentes au départ.
 
 ---
 
-## 44. Les invariants du vrai Biome
+## 7. Niche fondamentale vs niche réalisée
 
-Je fixerais ces invariants conceptuels :
-```text
+Chaque agent possède une **niche fondamentale** — tout ce qu'il pourrait théoriquement traiter compte tenu de son DNA, outils, modèle, skills, mémoire :
+
+$$\text{FundamentalNiche}(a) = \{ t \mid \text{Capability}(a) \supseteq \text{Requirements}(t) \}$$
+
+La **niche réalisée** est le sous-ensemble effectif dans le Biome :
+
+$$\text{RealizedNiche}(a, B) = \text{FundamentalNiche}(a) \cap \text{AvailableOpportunities}(B)$$
+
+La compression fondamentale → réalisée est mesurée par :
+
+$$\text{NicheCompression}(a, B) = 1 - \frac{|\text{RealizedNiche}(a, B)|}{|\text{FundamentalNiche}(a)|}$$
+
+Exemple : Agent A a pour fondamentale `{Python, SQL, debugging, algorithms}` mais la niche Python est saturée → sa réalisée devient `{SQL investigation}`. Le phénotype détermine la fondamentale, l'écologie détermine la réalisée, la fitness résultante $\Phi(a,n,t)$ évalue la correspondance.
+
+---
+
+## 8. Capacité de charge et pression écologique
+
+Chaque niche porte une capacité de charge :
+
+$$K_i = \left\lfloor \frac{R_{\text{available},i}}{r_{\min,i}} \cdot \frac{1}{1 + c_i \cdot \rho_i} \right\rfloor$$
+
+où $R_{\text{available},i}$ est le budget disponible, $r_{\min,i}$ les ressources par individu, $c_i$ le coefficient de coordination, $\rho_i$ la densité de population.
+
+La pression écologique mesure la saturation :
+
+$$\text{Pressure}_i = \frac{N_i}{K_i}$$
+
+Les trois régimes :
+$$\text{Regime}(i) = \begin{cases} \text{vacant} & \text{if } \text{Pressure}_i < 0.3 \\ \text{viable} & \text{if } 0.3 \leq \text{Pressure}_i < 0.9 \\ \text{saturé} & \text{if } \text{Pressure}_i \geq 0.9 \end{cases}$$
+
+Conséquences :
+$$\text{For each niche } i:$$
+- $\text{Pressure}_i < 0.3$ : recruter ou activer une spore
+- $\text{Pressure}_i \geq 1.0$ : cryptobiose des excédents ou redirection
+- $\text{marginalYield}(i) < \theta_{\text{departure}}$ : déclencher migration
+
+Le coût de coordination croît non-linéairement :
+$$C_{\text{coord}}(i) = c_i \cdot N_i \cdot \log(N_i) + \sum_{j \neq i} \text{InteractionCost}(i, j)$$
+
+---
+
+## 9. Fitness locale et environnementale
+
+La fitness est évaluée **relativement à une niche et un moment** :
+
+$$\Phi(a, n, t) = Success + Evidence + IG + NC + Complementarity - Cost - Risk - RP$$
+
+où :
+- $Success(a,n,t)$ : taux de succès des actions dans la niche ;
+- $Evidence(a,n,t)$ : qualité des preuves produites ;
+- $IG(a,n,t)$ : information gain (réduction d'incertitude) ;
+- $NC(a,n,t)$ : contribution à la nouveauté (non-redondance) ;
+- $Complementarity(a,n,t)$ : complémentarité mutualiste ;
+- $Cost(a,n,t)$ : coût en ressources consommées ;
+- $Risk(a,n,t)$ : risque (artefacts invalides, propagation d'erreurs) ;
+- $RP(a,n,t)$ : pression sur les ressources (coût externe aux autres).
+
+Forme normalisée :
+$$\Phi_{\text{norm}}(a,n,t) = \frac{\Phi(a,n,t) - \mu_{\Phi}(n)}{\sigma_{\Phi}(n) + \epsilon}$$
+
+Fitness d'une population (moyenne + bonus de diversité) :
+$$\Phi(P, n, t) = \frac{1}{|P|} \sum_{a \in P} \Phi(a,n,t) + \lambda_D \cdot D(P)$$
+
+Exemple multi-niche :
+```
+Agent A : Φ(repo_scan) = 0.91, Φ(web_research) = 0.42, Φ(formal_proof) = 0.11
+```
+L'agent n'est pas éliminé (moyenne 0.48) — il est affecté à `repo_scan` où il excelle. C'est l'esprit Quality-Diversity : la valeur est locale, pas globale.
+
+---
+
+## 10. Le vecteur de ressources multidimensionnel
+
+Le Resource Steward gère un vecteur de 9 dimensions pour chaque population :
+
+$$R_i = (R_i^{\text{tokens}}, R_i^{\text{time}}, R_i^{\text{calls}}, R_i^{\text{GPU}}, R_i^{\text{memory}}, R_i^{\text{tools}}, R_i^{\text{concurrency}}, R_i^{\text{risk}}, R_i^{\text{attention}})$$
+
+Profiles de niches :
+- **Formal proof** : (high tokens, high time, low calls, high GPU, high memory, solver tools, low concurrency, low risk, high attention)
+- **Web research** : (moderate tokens, moderate time, high calls, low GPU, moderate memory, web tools, high concurrency, moderate risk, moderate attention)
+- **Fuzzing** : (low tokens, high time, very high calls, high GPU, high memory, execution tools, high concurrency, high risk, low attention)
+
+Allocation optimale :
+$$Allocation_i \propto \frac{MV_i \times IG_i \times Crit_i \times LP_i \times KV_i}{Cost_i \times Press_i \times Redun_i \times Risk_i}$$
+
+avec contraintes $R_i \ge R_{\min,i}$ et $\sum_i R_i + R_{\text{reserve}} \le R_{\text{total}}$.
+
+La réserve de résilience $R_{\text{reserve}}$ est non-négociable — un Biome sans réserve n'est pas résilient.
+
+Productivité marginale :
+$$MV_i(t) = \frac{\partial Yield_i(t)}{\partial R_i(t)} \approx \frac{Yield_i(t) - Yield_i(t-\Delta t)}{R_i(t) - R_i(t-\Delta t)}$$
+
+---
+
+## 11. Les cinq relations écologiques
+
+| Relation | Définition mathématique | Traduction GenOS |
+|----------|------------------------|------------------|
+| **Compétition** | $\frac{\partial \Phi_i}{\partial N_j} < 0$ et $\frac{\partial \Phi_j}{\partial N_i} < 0$ | Deux populations consomment les mêmes ressources — l'une réduit la fitness de l'autre |
+| **Mutualisme** | $\frac{\partial \Phi_i}{\partial N_j} > 0$ et $\frac{\partial \Phi_j}{\partial N_i} > 0$ | Chaque population augmente la productivité de l'autre |
+| **Commensalisme** | $\frac{\partial \Phi_i}{\partial N_j} > 0$ et $\frac{\partial \Phi_j}{\partial N_i} \approx 0$ | A bénéficie de B sans effet notable sur B |
+| **Inhibition** | $\frac{\partial \Phi_i}{\partial N_j} \ll 0$ unilatéral | A produit un signal/artefact qui invalide ou diminue B |
+| **Prédation** | $\Phi_{\text{pred}}(N_{\text{prey}}) > 0$ et $\Phi_{\text{prey}}(N_{\text{pred}}) < 0$ | Une population teste/détruit systématiquement les artefacts faibles d'une autre |
+
+Exemples :
+- **Compétition** : deux populations web search utilisent les mêmes sources → fusion ou redirection
+- **Mutualisme** : générateur + vérificateur de candidats → les deux tirent valeur
+- **Commensalisme** : une population d'indexation bénéficie à toutes les autres sans coût
+- **Inhibition** : vérification formelle qui rejette les artefacts d'une génération rapide
+- **Prédation** : fuzzing qui teste/détruit les artefacts produits par une population de construction
+
+La matrice d'interaction $\mathbf{M}(t) \in \mathbb{R}^{n \times n}$ est réestimée à chaque tick. Elle peut changer de signe — c'est le **rewiring écologique**.
+
+Redondance fonctionnelle :
+$$Redundancy(A, B) = 1 - \frac{MarginalContribution(B | A)}{MarginalContribution(B)}$$
+
+Si $Redundancy(A, B) \approx 1$, le Biome réduit B, fusionne, ou redirige.
+
+---
+
+## 12. Diversité : entropie de Shannon multidimensionnel
+
+**Diversité taxonomique** (richesses en types) :
+$$H_{\text{taxonomic}} = -\sum_{i=1}^{k} p_i \log_2(p_i), \quad J = \frac{H_{\text{tax}}}{\log_2(k)}$$
+
+**Diversité fonctionnelle** (capacités comportementales distinctes) :
+$$H_{\text{functional}} = -\sum_{f \in \mathcal{F}} p_f \log_2(p_f)$$
+
+**Diversité de réponse** (stratégies distinctes pour une même fonction) :
+$$H_{\text{response}}(f) = -\sum_{s \in S_f} p_s^{(f)} \log_2(p_s^{(f)})$$
+
+Une haute diversité de réponse pour les fonctions critiques est le cœur de la **résilience**.
+
+**Santé écologique** (vecteur, pas scalaire) :
+$$\mathcal{H}(t) = \begin{pmatrix} H_{\text{taxonomic}}(t) \\ H_{\text{functional}}(t) \\ \overline{H_{\text{response}}}(t) \\ Productivity(t) \\ ResourcePressure(t) \\ DependencyHealth(t) \\ RecoveryCapacity(t) \end{pmatrix}$$
+
+L'écosystème est sain quand $\forall j : \theta_{\min,j} \le \mathcal{H}_j(t) \le \theta_{\max,j}$.
+
+---
+
+## 13. Tipping Points : détection de changement de régime
+
+Le Biome surveille 7 signaux précurseurs de régime shift :
+1. Latence montante : $\frac{\partial \text{Latency}}{\partial t} > 0$ pendant $\geq 3$ ticks
+2. Rendement marginal décroissant : $MV_i(t) < MV_i(t-1) < MV_i(t-2)$
+3. Concentration des ressources : $H_{\text{resources}} < \theta_{\min}$
+4. Corrélation d'erreurs montante : $\frac{\partial \text{ErrorCorrelation}}{\partial t} > 0$
+5. Réserve épuisée : $R_{\text{reserve}} < 0.1 \times R_{\text{total}}$
+6. Diversité fonctionnelle en chute : $H_{\text{functional}}(t) < 0.5 \times H_{\text{functional}}(t_0)$
+7. Délais de dépendance croissants : $\frac{\partial \text{DependencyBacklog}}{\partial t} > 0$
+
+Indice de proximité :
+$$\text{TippingProximity}(t) = \sum_{k=1}^{7} w_k \cdot \sigma(s_k(t) - \bar{s}_k)$$
+
+Niveaux d'alerte :
+$$\text{AlertLevel}(t) = \begin{cases} \text{GREEN} & < 0.3 \\ \text{YELLOW} & 0.3 \leq \ldots < 0.6 \\ \text{ORANGE} & 0.6 \leq \ldots < 0.8 \\ \text{RED} & \geq 0.8 \end{cases}$$
+
+En ORANGE/RED : redistribution forcée, cryptobiose de la population dominante, création de niches de secours, perturbation contrôlée.
+
+---
+
+## 14. Succession écologique
+
+Les populations utiles au début d'une mission ne sont pas celles utiles à la fin :
+
+```
+Phase pionnière : exploration, cartographie, recherche, analyse superficielle
+Phase d'établissement : architecture, implémentation, tests, artefacts structurants
+Phase de maturité : hardening, intégration, sécurité, optimisation, vérification formelle
+Phase de déclin/fermeture : archivage, fossilisation, nettoyage, transfert
+```
+
+Vecteur de proportions :
+$$\vec{S}(t) = \begin{pmatrix} P_{\text{pioneer}}(t) \\ P_{\text{established}}(t) \\ P_{\text{mature}}(t) \\ P_{\text{decline}}(t) \end{pmatrix}, \quad \sum_i S_i(t) = 1$$
+
+Phase dominante : $\text{Phase}(t) = \arg\max_i S_i(t)$
+
+Transitions déclenchées par seuils :
+$$\text{pioneer} \to \text{established} \iff \begin{cases} Coverage(artifacts) > 0.6 \\ Productivity(pioneer) < \theta_{\text{decline}} \\ ResourceReserve > 0.3 \end{cases}$$
+
+À chaque transition : cryptobiose des populations sortantes, recrutement des entrantes, réallocation des ressources, archive des artefacts.
+
+---
+
+## 15. Niche Construction
+
+Les populations modifient l'environnement par leurs artefacts :
+
+$$E_{t+1} = E_t + \sum_{P \in \mathcal{P}} \text{Artifacts}(P, t)$$
+
+Exemples :
+- Population « code-scanner » crée un graphe de dépendances → nouvelles niches accessibles
+- Population « test-harness-builder » génère des tests → nouvelle niche de vérification
+- Population « doc-indexer » produit un index → recherche sémantique enrichie
+
+Les artefacts modifient la capacité de charge :
+$$K_i(t+1) = K_i(t) + \sum_{A \in \text{Artifacts}(t)} \text{Enrichment}(A, N_i)$$
+
+$$\text{Enrichment}(A, N_i) = \alpha \cdot \frac{\partial r_{\min,i}}{\partial A} + \beta \cdot \frac{\partial Yield_i}{\partial A}$$
+
+La communication devient `agent → environment → agents`, réduisant les coûts de coordination — c'est de la vraie stigmergie.
+
+---
+
+## 16. Foraging et Lévy flights
+
+Le foraging suit le **Marginal Value Theorem** :
+
+$$\text{Stay}(p) \iff MR(p) > \mathbb{E}[R(\text{alternatives})] - C_{\text{switch}}$$
+
+où $MR(p) = \frac{\partial Yield(p)}{\partial t}$, $\mathbb{E}[R(\text{alternatives})]$ est le rendement attendu des alternatives, $C_{\text{switch}}$ le coût de migration.
+
+Quand $MR(p) < \mathbb{E}[R(\text{alternatives})] - C_{\text{switch}}$ → PATCH_DEPARTURE → sélection nouveau patch → migration → mise à jour des interactions.
+
+Le Lévy flight utilise une distribution de pas à queue lourde :
+$$P(\ell) \sim \ell^{-\mu}, \quad 1 < \mu \le 3$$
+
+Traduit en distances multiples :
+```
+Espace de capacités     : stepLength → capability distance
+Espace sémantique       : stepLength → semantic distance (embedding cosine)
+Espace des sources      : stepLength → source distance
+Espace des stratégies   : stepLength → strategy distance
+Espace du graphe repo   : stepLength → repository graph distance
+```
+
+Mode local ($\ell$ petit) : neighboring patch, exploitation fine.
+Mode Lévy ($\ell$ grand) : distant niche, nouvelle source famille, représentation différente.
+
+$$\text{Mode}(t) = \begin{cases} \text{LOCAL} & \text{if } MR(p) > \theta_{\text{high}} \\ \text{LEVY} & \text{if } MR(p) < \theta_{\text{low}} \text{ and } Uncertainty > \theta_{\text{novelty}} \end{cases}$$
+
+---
+
+## 17. Le biofilm : mémoire environnementale
+
+Le biofilm est un **champ de gradients stigmergiques** qui guide le foraging sans communication explicite :
+
+```
+patch:file-family/auth        yield=0.02  visits=8  repellent=0.91
+patch:git-history/oauth        yield=0.76  visits=2  attractant=0.83
+niche:concurrency/fuzzing      yield=0.45  occupancy=3  pressure=0.67
+source:arxiv/2406.04235        yield=0.88  provenance=high  trust=0.9
+tool:ILP-solver                yield=0.33  calls=120  saturation=0.7
+signal:dead-end/parser-v2      repellent=0.95  confidence=0.8
+stepping-stone:arch-spec-v3    type=stepping  unlocks=formal-verif-niche
+```
+
+Navigation par gradients :
+$$\nabla \text{Attractant}(p, t) = \sum_{q \in \text{visited}} \text{yield}(q) \cdot e^{-\frac{d(p,q)^2}{2\sigma^2}}$$
+
+$$\nabla \text{Repellent}(p, t) = \sum_{q \in \text{failed}} (1 - \text{yield}(q)) \cdot e^{-\frac{d(p,q)^2}{2\sigma^2}}$$
+
+Stigmergie zero-prompt : Population A explore X (yield=0.02, visits=8) → dépose repellent=0.91. Population B arrive → évite X sans LLM → suit le gradient vers Y (attractant=0.83).
+
+Stepping stones :
+$$\text{SteppingStone}(A) = \begin{cases} 1 & \text{if } \exists N' \notin \text{Accessible}(E_t) \text{ and } N' \in \text{Accessible}(E_t + A) \\ 0 & \text{sinon} \end{cases}$$
+
+---
+
+## 18. Métapopulation : capacité de la matrice $M_{ij}$
+
+Quand le Biome opère sur plusieurs îlots, la matrice $\mathbf{M} \in \mathbb{R}^{n \times n}$ décrit les taux de migration :
+
+$$M_{ij} = \text{migration rate from îlot } i \text{ to } j, \quad \sum_{j} M_{ij} = 1$$
+
+La capacité globale est déterminée par la valeur propre dominante :
+
+$$\lambda_{\max}(\mathbf{M}) = \max_i |\lambda_i(\mathbf{M})|$$
+
+La métapopulation persiste si $\lambda_{\max}(\mathbf{M}) > 1$ — le flux de migration est suffisant pour recoloniser les îlots éteints.
+
+Exemple :
+```
+Biome debugging :
+  Îlot A : Python population (runtime analysis)
+  Îlot B : JavaScript population (DOM inspection)
+  Îlot C : Rust population (memory safety)
+M_AB = 0.3 (migration quand corrélation détectée)
+```
+
+---
+
+## 19. Biome + POET : couplage naturel
+
+Biome et POET forment une boucle de coévolution :
+
+```
+POET crée nouvel environnement E'
+    ↓
+Biome évalue E' : quelle population coloniser ? Créer niche ? Transférer ? Budget ?
+    ↓
+Population colonise E'
+    ↓
+Biome mesure fitness et rendement
+    ↓
+Si rendement > seuil → population croît ; si < seuil → population migre
+    ↓
+Biome signale à POET : E' résolu (ou non)
+    ↓
+POET génère E'' à partir des stepping stones de E'
+```
+
+Transfert de stepping stones :
+$$\text{TransferSuccess}(E_i \to E_j) = f\left(\text{Similarity}(E_i, E_j), \text{SteppingStoneQuality}(s_i), \text{NicheVacancy}(E_j)\right)$$
+
+Biome évalue la niche vacancy et alloue une population pour recevoir le stepping stone.
+
+---
+
+## 20. Les 11 variants du Biome
+
+| Variant | Principe | Usage |
+|---------|----------|-------|
+| **Resource Biome** | Compétition/allocation sous budget strict | Budget limité, beaucoup d'agents |
+| **Exploration Biome** | Niches + foraging + curiosity | Recherche, debugging inconnu |
+| **Quality-Diversity Biome** | Archive de niches et élites diverses | Créativité, optimisation |
+| **Successional Biome** | Populations changent par phase | Gros projets longs |
+| **Resilience Biome** | Redondance + perturbations + recovery | Systèmes critiques |
+| **Persistent Biome** | Environnement longue durée | Repo/project/organisation |
+| **Open-Ended Biome** | Niches/environnements nouveaux | Recherche NCE |
+| **Adversarial Biome** | Populations attaquent/défendent | Cybersécurité |
+| **Knowledge Biome** | Sources = niches, agents = foragers | Recherche profonde |
+| **Compute Biome** | Ressources matérielles comme environnement | Local/cloud/multi-model |
+| **Multi-scale Biome** | individus→populations→communautés | Très grandes missions |
+
+Chaque variant est une politique écologique qui modifie les poids des termes de fitness, les seuils de régulation et les stratégies de foraging.
+
+---
+
+## 21. Contrat runtime
+
+### BiomeSession
+
+```typescript
+BiomeSession {
+    sessionId, missionId, missionSnapshotHash
+    environmentModel
+    variant  // resource | exploration | quality_diversity | successional |
+             // resilience | persistent | open_ended | adversarial |
+             // knowledge | compute | multi_scale
+    niches[], populations[], resourceSteward, observer
+    allocationModel, status, tickCount
+    successionPhase  // pioneer | established | mature | decline
+}
+```
+
+### Niche
+
+```typescript
+Niche {
+    nicheId, opportunity, environmentDescriptor, requiredCapabilities
+    availableResources, entryConditions, survivalConditions, exitConditions
+    rewardSignals, informationSignals
+    competitors[], mutualists[], predators[], dependencies[]
+    carryingCapacity, occupancy, productivity, novelty, informationGain
+    uncertainty, stability, disturbanceLevel
+}
+```
+
+### Population
+
+```typescript
+Population {
+    populationId, nicheId, individuals[]
+    genotypeDistribution, phenotypeDistribution, strategies[], cognitiveRecipes[]
+    resourcePool, localMemory, culturalMemory
+    diversity, productivity, health
+    birthRate, deathRate, migrationRate, lineage
+}
+```
+
+### Individual
+
+```typescript
+Individual {
+    individualId, populationId, nicheId
+    phenotype, model, provider, cognitiveRecipe, toolset
+    resourceAllocation, fitnessHistory, lineage
+    status  // active | dormant | migrating | terminated
+}
+```
+
+---
+
+## 22. Architecture du système
+
+| Fichier | Rôle |
+|---------|------|
+| `biomeCoordinationService.js` | Boucle écologique, allocation, foraging, santé |
+| `biologicalModeService.js` | Composition des quatre rôles écologiques |
+| `foragingScoutHarvesterService.js` | Foraging (MVT, Lévy flights, patch departure) |
+| `proceduralBiomePopulationService.js` | Populations procédurales par niche |
+| `cryptobiosisSporeService.js` | Dormance et réactivation des spores |
+| `fossilizationService.js` | Fossilisation et archive des stepping stones |
+| `agentFleetService.js` | Création, exécution et validation des workers |
+| `agentOrchestrationState.js` | État de mission, continuations, télémétrie |
+| `workerGarageService.js` | Gestion des slots de workers |
+| `agentAutonomyPlanService.js` | Plan d'autonomie et activation |
+| `crates/genos-orchestrator/src/director_planning.rs` | Planification avec preamble Biome |
+
+---
+
+## 23. Activation et composition
+
+Biome s'activate quand :
+1. Structure de recherche inconnue : on ne sait pas à l'avance qui doit faire quoi
+2. Niches dynamiques : opportunités et populations doivent émerger et évoluer
+3. Ressources limitées sous compétition : allocation par productivité marginale
+4. Diversité requise : approches variées et couverture fonctionnelle large
+5. Résilience critique : le système doit survivre aux perturbations
+
+Biome est dégradée si décomposition connue (→ A-Team), ≤3 hypothèses (→ Trinity), collaboration temps réel (→ Syncytium), budget insuffisant.
+
+```javascript
+biologicalModeService.compose('biome', "Find the unknown bug in this repository")
+// → [{role:'environment_model', modelTier:'frontier', memberNumber:1},
+//    {role:'resource_steward', modelTier:'frontier', memberNumber:2},
+//    {role:'population_regulation', modelTier:'standard', memberNumber:3},
+//    {role:'ecosystem_observer', modelTier:'frontier', memberNumber:4}]
+```
+
+---
+
+## 24. Télémétrie et observabilité
+
+```
+sessionId, variant, tickCount
+niches: [{nicheId, carryingCapacity, occupancy, productivity, informationGain,
+          uncertainty, stability, disturbanceLevel}]
+populations: [{populationId, nicheId, size, diversity, health, birthRate,
+               deathRate, migrationRate}]
+resources: {allocated, consumed, reserve, pressure, vector}
+ecologicalHealth: {taxonomicDiversity, functionalDiversity, responseDiversity,
+                   productivity, resilience, tippingPointProximity}
+interactions: [{source, target, type, strength, sign}]
+successionPhase: pioneer | established | mature | decline
+perturbations: [{type, target, effect, recoveryTime}]
+keystonePopulations: [{populationId, impact}]
+archiveStats: {nichesArchived, steppingStones, failedAdaptations}
+stigmergySignals: {attractants, repellents, gradients}
+foragingMetrics: {patchesVisited, levyFlights, patchDepartures, switchCosts}
+```
+
+---
+
+## 25. Moniteur TUI natif
+
+```
+backend/src/services/biomeMonitorServer.js → NDJSON TCP 127.0.0.1:4592
+genos-tui (biome_tui/)
+  ├── live.rs      : client TCP, reconnexion automatique
+  ├── model.rs     : applique snapshot / niche / population / signal
+  └── view.rs      : rend Environment + Niches + panneau Écologie
+```
+
+```bash
+genos run --mode biome --monitor
+genos run --mode biome --monitor --session-id biome_1234567890_ab12
+```
+
+---
+
+## 26. Biome vs autres topologies
+
+| Aspect | Trinity | A-Team | Syncytium | Biocénose | Holobionte | Biome |
+|--------|---------|--------|-----------|-----------|------------|-------|
+| **Décomposition** | Hypothèses (3) | Domaines (N) | État (4) | Communauté (4) | Hiérarchie (4) | Niches (k) |
+| **Autorité** | Orchestr. central | Domaines isolés | Coordinator | Consensus | Host central | Ecology Controller |
+| **Synchronisation** | Asynchrone | Asynchrone | Continue | Asynchrone | Asynchrone | Tick écologique |
+| **Allocation** | Par hypothèse | Par domaine | Par slice | Par consensus | Par délégation | Par MV marginale |
+| **Meilleur pour** | Explorer hypothèses | Multidisciplinaire | Temps réel | Robustesse critique | Production sécurisée | Structure émergente |
+
+**Biome vs Rhizome** : Rhizome optimise le réseau de capacités ; Biome optimise l'écologie des populations. Un Biome peut utiliser un Rhizome pour la connectivité interne.
+
+**Biome vs Métapopulation** : La métapopulation est une structure à l'intérieur d'un Biome (ex: îlot A→Python, B→JS, C→Rust).
+
+---
+
+## 27. Cas d'usage détaillés
+
+### 27.1 Cas 1 : Debugging de bug inconnu
+
+**Mission :** « Trouve le bug inconnu dans ce repo. »
+
+Biome excelle ici car la structure de recherche est inconnue au départ.
+
+**Initialisation :**
+```
+Environment : repository (fichiers, historique, tests, documentation)
+Niches initiales :
+  - failing tests : reproduction des échecs de test
+  - logs : analyse des logs d'exécution
+  - recent commits : investigation de l'historique Git
+  - static analysis : scan de code statique
+  - runtime behaviour : observation du comportement à l'exécution
+```
+
+**Déroulement écologique :**
+
+```
+Tick 1-3 : Phase pionnière
+  Les 5 populations initiales explorent leurs niches respectives.
+  Le biofilm commence à accumuler des signaux :
+    - tests/failing_yield : yield=0.12, visits=3, attractant=0.4
+    - git/recent_auth     : yield=0.67, visits=2, attractant=0.8
+    - logs/timing         : yield=0.45, visits=5, neutral=0.5
+
+Tick 4 : Régulation
+  static analysis : yield↓ (0.08), visits=6, pressure=0.33
+    → Biome déclenche shrink : population passe de 3 à 1 individu
+    → 2 individus cryptobiosés (spores créées)
+  recent commits : yield↑ (0.72), visits=3, pressure=0.5
+    → Biome déclenche grow : recrute 1 individu depuis le garage
+    → pression monte à 0.67
+
+Tick 5 : Découverte de niche
+  logs population découvre une anomalie temporelle (clock drift)
+    → Signal non expliqué détecté : residual = 0.89
+    → Biome crée NOUVELLE NICHE : concurrency_investigation
+    → Spore dormante (créée au tick 2 par un agent spécialisé) réactivée
+    → Nouvelle population colonise la niche
+    → Budget alloué depuis la réserve (R_reserve temporairement réduite)
+
+Tick 6-8 : Exploitation et mutualisme
+  concurrency niche finds reproducible race condition
+    → yield=0.85, visits=1, attractant=0.91
+    → Biome crée niche adjacente : verification_race
+    → Population de vérification colonise (mutualisme : concurrency + verifier)
+    → Matrice d'interaction : M_{concurrency,verifier} = +0.7
+
+Tick 9 : Résolution
+  Bug reproduit, evidence collectée, preuve formelle vérifiée
+    → Productivité de la niche concurrency↓ (problème résolu)
+    → Succession transition : exploration → resolution
+    → Populations pionnières cryptobiosées
+    → Populations de résolution recrutées (spores réactivées)
+    → Archive : stepping stone « race reproduction → formal proof » fossilisé
+
+Résultat : 12 niches découvertes, 7 populations actives à pic,
+3 stepping stones archivés, bug résolu avec preuve vérifiée.
+```
+
+### 27.2 Cas 2 : Recherche approfondie multi-source
+
+**Mission :** « Détermine ce qui est réellement vrai sur la sécurité de X. »
+
+Ici les niches sont des écosystèmes de sources, pas des disciplines.
+
+**Niches découvertes dynamiquement :**
+```
+Source académique (arXiv, IEEE, ACM)
+Source officielle (documentation, advisories, CVEs)
+Source industrielle (raports de sécurité, blogs techniques)
+Source communautaire (GitHub issues, StackExchange, Twitter/X)
+Source contradictoire (articles débunkant, opinions opposées)
+Source de vérification (preuves formelles, PoC reproductibles)
+```
+
+**Dynamique :**
+- Source académique : yield stable (0.75), visits élevées, saturée → shrink
+- Source contradictoire : yield élevé (0.88), visits rares, attractant=0.9 → grow
+- Source communautaire : yield variable, dépend de la curation → pression fluctuante
+- Source de vérification : mutualisme fort avec toutes les autres → keystone population
+  - KeystoneImpact(verifier) = 0.84 (sans elle, 84% des claims non vérifiées)
+
+**Détection de tipping point :**
+À T+15, 70% du budget va vers les sources communautaires (faciles d'accès mais peu fiables). TippingProximity monte à 0.72 (ORANGE). Le Biome gèle 50% du budget communauté, le redirige vers la vérification, et crée une niche « source primaire » pour remonter aux sources originales.
+
+### 27.3 Cas 3 : Cybersécurité adversariale
+
+**Mission :** « Trouve et exploite les vulnérabilités de cette application. »
+
+Biome Adversarial active les relations de prédation et inhibition.
+
+**Niches initiales :**
+```
+attack surface mapping
+authentication bypass
+authorization escalation
+dependency vulnerability
+fuzzing (input validation)
+configuration audit
+business logic flaws
+```
+
+**Dynamique adversariale :**
+```
+Population fuzzing → prédation sur population d'analyse statique
+  (les artefacts fuzzés invalident les hypothèses statiques)
+  M_{fuzzing,static_analysis} = -0.6 (inhibition)
+
+Population auth-bypass → mutualisme avec authorization-escalation
+  (un bypass auth permet tester l'escalation)
+  M_{auth,escalation} = +0.8
+
+Découverte CVE dans dépendance → nouvelle niche créée : exploitability
+  → populations colonisent : PoC reproduction, mitigation, regression-test
+```
+
+Quand un patch est produit, l'environnement change (Niche Construction) :
+- L'exploitability niche se ferme (patch appliqué)
+- La regression-test niche s'ouvre (vérifier le fix)
+- Les populations exploit migrent vers d'autres vulnérabilités
+
+### 27.4 Cas 4 : Optimisation complexe (Conway 99, ILP)
+
+**Mission :** « Résous l'instance X du problème Y de manière optimale. »
+
+**Niches :**
+```
+CP-SAT solver
+ILP (Integer Linear Programming)
+Local search (hill climbing, simulated annealing)
+Symmetry breaking
+Constructive heuristics
+Evolutionary strategies
+Formal bounds (preuve d'optimalité)
+```
+
+**Succession :**
+```
+Phase pionnière : constructive heuristics + local search (rapides, explorent)
+Phase d'établissement : CP-SAT + ILP (structurants, bornent)
+Phase de maturité : formal bounds (vérifient l'optimalité)
+```
+
+**Transfert de stepping stone :**
+Local-search trouve une solution partielle de qualité 0.7 → warm-start ILP → ILP converge vers optimalité 0.95 → formal bounds confirme. Le Biome archive le stepping stone « partial-solution → ILP-warm-start » pour les futures instances.
+
+### 27.5 Cas 5 : Routing compute/modèles
+
+**Mission :** « Résous ce problème avec le meilleur rapport qualité/coût. »
+
+**Habitats (ressources matérielles) :**
+```
+Local CPU (gratuit, limité)
+Local GPU (coût modéré, parallélisme)
+Cloud cheap (spot/preemptible, peu fiable)
+Cloud frontier (coût élevé, capacités maximales)
+Formel solver (coût très élevé, preuves garanties)
+```
+
+**Populations :**
+```
+Light classifiers (peu coûteux, qualité modérée)
+Heavy reasoners (coûteux, haute qualité)
+Code workers (spécialisés, qualité variable)
+Verificateurs (coût modulaire, détection d'erreurs)
+```
+
+Le Resource Steward observe qualité/€, qualité/token, latence, taux d'échec pour chaque population×habitat, et déplace les populations. Exemple : un heavy reasoner sur cloud cheap produit qualité=0.6 pour 0.1€/token, mais le même sur local GPU produit qualité=0.7 pour 0.01€/token → migration.
+
+---
+
+## 28. Quand ne pas utiliser Biome
+
+Biome a un overhead significatif (4 rôles écologiques, régulation par tick, calcul de métriques multidimensionnelles). Il ne faut **surtout pas** l'utiliser quand la structure de travail est connue à l'avance.
+
+### 28.1 Tests de décision
+
+**Utiliser A-Team si :** la mission se décompose en disciplines/resp connues
+> « Construire une API REST avec auth, DB, tests, déploiement »
+→ Domaines connus, frontières claires → A-Team
+
+**Utiliser Trinity si :** ≤ 3 hypothèses alternatives bien identifiées
+> « Le bug est soit race condition, soit memory leak, soit off-by-one »
+→ Trois hypothèses claires, évaluation comparative → Trinity
+
+**Utiliser Syncytium si :** collaboration temps réel sur état partagé
+> « Édition collaborative d'un document par 5 agents en temps réel »
+→ État partagé continu nécessaire → Syncytium
+
+**Utiliser Biocénose si :** consensus distribué nécessaire sans chef
+> « Vote distribué sur l'acceptation d'un artifact critique »
+→ Protocole de consensus, pas d'orchestrateur central → Biocénose
+
+**Utiliser Holobionte si :** production sécurisée avec hiérarchie stricte
+> « Déploiement multi-étapes avec gates obligatoires et rollback »
+→ Hiérarchie de contrôle, étapes séquentielles → Holobionte
+
+### 28.2 Le bon test
+
+> Est-ce que je connais déjà la bonne décomposition ? Si oui → A-Team.
+> Est-ce que je compare quelques hypothèses ? → Trinity.
+> Est-ce que la structure de recherche, les populations utiles et l'allocation des ressources doivent changer en fonction de ce qu'on découvre ? → Biome.
+
+---
+
+## 29. Mécanismes avancés : cryptobiose et fossilisation
+
+### 29.1 Cryptobiose
+
+Quand une population est improductive mais potentiellement utile dans le futur (niche non saturée actuellement, ou stepping stone pour autre chose), le Biome ne la tue pas — il la met en **cryptobiose** :
+
+$$\text{Cryptobiose}(P, t) \iff \Phi(P, n, t) < \theta_{\text{decline}} \text{ et } \exists n' : \Phi(P, n', t_{\text{futur}}) > \theta_{\text{survival}}$$
+
+La cryptobiose :
+1. Sérialise l'état complet de la population (phénotype, mémoire, stratégie, lineage) ;
+2. Crée une **spore** dans l'archive ;
+3. Libère les ressources allouées vers $R_{\text{reserve}}$ ;
+4. Marque la spore avec les **conditions de réactivation** (niche, contexte, signaux).
+
+### 29.2 Réactivation
+
+Une spore est réactivée quand :
+$$\text{Reactivate}(s, t) \iff \text{Conditions}(s) \subseteq \text{Signaux}(E_t)$$
+
+Exemples de conditions :
+- « Niche concurrency disponible avec uncertainty > 0.7 »
+- « Source académique X non explorée mais mentionnée dans 3 preuves »
+- « Artifact de type Y produit mais non vérifié »
+
+La réactivation est un **recrutement écologique instantané** — pas de bootstrap, l'héritage est restauré.
+
+### 29.3 Fossilisation
+
+La fossilisation est l'archive permanente des **stepping stones** — les artefacts qui ne sont pas des solutions finales mais qui débloquent l'accès à de nouvelles niches :
+
+$$\text{Fossilize}(A) \iff \text{SteppingStone}(A) \text{ et } \text{Qualité}(A) > \theta_{\text{archive}}$$
+
+Les fossiles sont conservés dans `fossilizationService.js` et consultables par les futures missions via le Persistent Biome. Un fossile contient :
+- L'artefact lui-même (code, preuve, index, graphe) ;
+- Le contexte de production (niche, population, stratégie) ;
+- Les conditions de réutilisation (niches débloquées, prérequis) ;
+- La lignée (ancêtres, mutations, sélection).
+
+### 29.4 Mémoire inter-missions
+
+Un Persistent Biome accumule des fossiles et spores entre les missions. Quand une nouvelle mission démarre, le Biome consulte l'archive :
+
+$$\text{InitialNiches}(M_{\text{new}}) = \text{Discover}(M_{\text{new}}) \cup \text{Reactivate}(F_{\text{relevant}})$$
+
+Cela permet un **apprentissage écologique organisationnel** — les niches et stratégies découvertes dans une mission peuvent être réactivées dans une mission future similaire.
+
+---
+
+## 30. Les invariants du Biome
+
+```
 No population without a niche.
 No niche without measurable opportunity or necessity.
 No resource allocation without observed marginal value.
@@ -801,303 +939,93 @@ No ecosystem success if local successes produce global collapse.
 
 ---
 
-## 45. Ce qui pourrait réellement placer Biome à un niveau inhabituel
+## 31. Schémas d'architecture et de régulation
 
-Le différenciateur ne serait absolument pas « GenOS utilise des populations d'agents » ou « GenOS s'inspire de l'écologie ». Cela n'a pas beaucoup de valeur en soi.
-
-Le différenciateur serait cette combinaison :
-```text
-dynamic niche discovery
-+ quality-diversity
-+ resource metabolism
-+ information foraging
-+ carrying capacity
-+ persistent environmental memory
-+ population birth/death/migration
-+ succession
-+ niche construction
-+ perturbation/resilience
-+ ecological network rewiring
-+ POET environment coevolution
-+ NCE curiosity
-+ AgentDNA / phenotype adaptation
-+ stepping-stone conservation
-+ zero-prompt stigmergic coordination
-```
-
-À ma connaissance, les recherches actuelles explorent certaines de ces dimensions séparément : POET pour la coévolution environnement-solution, MAP-Elites/QD pour la diversité de solutions, XLand pour l'open-ended curriculum, GovSim pour la ressource commune, TerraLingua pour les écologies persistantes de LLM ([arXiv:1901.01753][4]).
-
-**Le pari spécifique de GenOS serait de les rendre opérationnelles ensemble à l'intérieur d'un orchestrateur généraliste.** Mais il faudra le démontrer expérimentalement : ce serait prématuré de dire que GenOS les dépasse simplement parce que les mécanismes existent.
-
-Le benchmark décisif sera de montrer que, face à une tâche dont la structure de recherche est inconnue, **le Biome découvre de meilleures niches, réalloue intelligemment son compute et conserve davantage de pistes utiles qu'un orchestrateur statique, pour un budget total identique**.
-
-C'est à ce moment-là que le biomimétisme de GenOS devient particulièrement convaincant : **la nature n'est plus utilisée comme catalogue de noms ou de solutions ; l'écosystème devient effectivement le processus de recherche.**
-
----
-
-## 46. Contrat runtime
-
-### BiomeSession
-
-```typescript
-BiomeSession {
-    sessionId
-    missionId
-    missionSnapshotHash
-    environmentModel
-    variant  // resource | exploration | quality_diversity | successional | resilience | persistent | open_ended | adversarial | knowledge | compute | multi_scale
-    niches[]
-    populations[]
-    resourceSteward
-    observer
-    allocationModel
-    status
-    tickCount
-}
-```
-
-### Niche
-
-```typescript
-Niche {
-    nicheId
-    opportunity
-    environmentDescriptor
-    requiredCapabilities
-    availableResources
-    entryConditions
-    survivalConditions
-    exitConditions
-    rewardSignals
-    informationSignals
-    competitors[]
-    mutualists[]
-    predators[]
-    dependencies[]
-    carryingCapacity
-    occupancy
-    productivity
-    novelty
-    informationGain
-    uncertainty
-    stability
-    disturbanceLevel
-}
-```
-
-### Population
-
-```typescript
-Population {
-    populationId
-    nicheId
-    individuals[]
-    genotypeDistribution
-    phenotypeDistribution
-    strategies[]
-    cognitiveRecipes[]
-    resourcePool
-    localMemory
-    culturalMemory
-    diversity
-    productivity
-    health
-    birthRate
-    deathRate
-    migrationRate
-    lineage
-}
-```
-
-### Individual
-
-```typescript
-Individual {
-    individualId
-    populationId
-    nicheId
-    phenotype
-    model
-    provider
-    cognitiveRecipe
-    toolset
-    resourceAllocation
-    fitnessHistory
-    lineage
-    status  // active | dormant | migrating | terminated
-}
-```
-
----
-
-## 47. Architecture du système (fichiers)
-
-| Fichier | Rôle |
-|---------|------|
-| `backend/src/services/biomeCoordinationService.js` | Composition, allocation, foraging, santé |
-| `backend/src/services/biologicalModeService.js` | Définition et composition des rôles Biome |
-| `backend/src/services/foragingScoutHarvesterService.js` | Foraging (Marginal Value Theorem, Lévy flights) |
-| `backend/src/services/agentAutonomyPlanService.js` | Plan d'autonomie et activation des workers |
-| `backend/src/services/agentFleetService.js` | Création, exécution et validation des workers |
-| `backend/src/services/agentOrchestrationState.js` | État de mission, continuations et télémétrie |
-| `backend/src/services/workerGarageService.js` | Gestion des slots de workers |
-| `backend/src/services/proceduralBiomePopulationService.js` | Populations procédurales par niche |
-| `backend/src/services/cryptobiosisSporeService.js` | Dormance et réactivation |
-| `backend/src/services/fossilizationService.js` | Fossilisation et archive |
-| `crates/genos-orchestrator/src/director_planning.rs` | Planification avec preamble Biome |
-
----
-
-## 48. Télémétrie et observabilité
-
-Nouvelles métriques enregistrées pour chaque session Biome :
-```text
-sessionId, variant, tickCount
-niches: [{nicheId, carryingCapacity, occupancy, productivity, informationGain, stability}]
-populations: [{populationId, nicheId, size, diversity, health, birthRate, deathRate, migrationRate}]
-resources: {allocated, consumed, reserve, pressure}
-ecologicalHealth: {taxonomicDiversity, functionalDiversity, responseDiversity, productivity, resilience, tippingPointProximity}
-interactions: [{source, target, type, strength}]
-successionPhase: exploration | establishment | maturity | decline
-perturbations: [{type, target, effect, recoveryTime}]
-keystonePopulations: [{populationId, impact}]
-archiveStats: {nichesArchived, steppingStones, failedAdaptations}
-stigmergySignals: {attractants, repellents, gradients}
-```
-
----
-
-## 49. Moniteur TUI natif (`genos run --mode biome --monitor`)
-
-```text
-backend/src/services/biomeMonitorServer.js
-  ↓ NDJSON TCP 127.0.0.1:4592
-genos-tui (crates/genos-cli/src/commands/biome_tui/)
-  ├── live.rs      : client TCP, reconnexion automatique
-  ├── model.rs     : applique snapshot / niche / population / signal
-  └── view.rs      : rend Environment + Niches + panneau Écologie
-```
-
-Protocole NDJSON :
-```json
-{"type":"snapshot", sessionId, tick, niches:[...], populations:[...], ecology:{health, productivity, resilience}}
-{"type":"niche_event", sessionId, nicheId, event, payload}
-{"type":"population_event", sessionId, populationId, event, payload}
-{"type":"ecology", sessionId, health, tippingPoint, successionPhase}
-{"type":"stigmergy", sessionId, signals:[...]}
-```
-
-Commande :
-```bash
-genos run --mode biome --monitor
-genos run --mode biome --monitor --session-id biome_1234567890_ab12
-```
-
----
-
-## 50. Références internes
-
-- [ORCHESTRATION.md](../orchestration.md) : orchestration générale, budgets, gates et preuves
-- [TRINITY.md](trinity.md) : orchestration comparative par hypothèses
-- [A_TEAM.md](a-team.md) : orchestration multidisciplinaire par domaines
-- [RUNTIME_AGENTIQUE.md](../../01-concepts/runtime-agentique.md) : runtime des agents autonomes
-- [BIOLOGIE_COMPUTATIONNELLE.md](../../01-concepts/biologie-computationnelle.md) : cadre biologique général
-- [biomeCoordinationService.js](../../../backend/src/services/biomeCoordinationService.js) : coordination opérationnelle
-- [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : définition des rôles
-- [foragingScoutHarvesterService.js](../../../backend/src/services/foragingScoutHarvesterService.js) : foraging
-
----
-
-## 51. Références externes
-
-| Référence | Apport pour Biome |
-|-----------|-------------------|
-| [MAP-Elites, Mouret & Clune 2015](https://arxiv.org/abs/1504.04909) | Archive de solutions diverses et performantes par niche |
-| [AURORA, Faldor & Cully 2024](https://arxiv.org/pdf/2406.04235) | Apprentissage non supervisé de descripteurs de niches |
-| [Singh et al., Niche Concept 2024](https://www.nature.com/articles/s44358-025-00060-x) | Distinction niche choice / conformance / construction |
-| [POET, Wang et al. 2019](https://arxiv.org/abs/1901.01753) | Coévolution environnement-solution, stepping stones |
-| [Thorogood et al., Biological Resilience 2023](https://www.nature.com/articles/s44185-023-00022-6) | Résistance vs récupération vs changement de régime |
-| [Pearson et al., Disturbance & Connectivity 2021](https://www.nature.com/articles/s41598-021-80987-1) | Le type de perturbation modifie l'effet de la connectivité |
-| [XLand, DeepMind 2021](https://deepmind.google/blog/generally-capable-agents-emerge-from-open-ended-play/) | Curriculum open-ended, difficulté adaptative |
-| [Ward et al., Rewiring 2026](https://www.nature.com/articles/s44358-026-00159-9) | Réseaux écologiques dynamiques, rewiring adaptatif |
-| [GovSim, Piatti et al. 2024](https://arxiv.org/abs/2404.16698) | Gestion de ressources communes par agents LLM |
-| [TerraLingua, Paolo et al. 2026](https://arxiv.org/abs/2603.16910) | Écologie persistante de LLM, artefacts durables |
-
----
-
-## 52. Implementation & capacités (GenOS v3)
-
-Depuis la v3, cette topologie est câblée au runtime :
-- Service de coordination : `biomeCoordinationService.js`.
-- Capacités requises : `STIGMERGY`, `SWARM_METRICS`, `WEB_FORAGING`, `RESILIENCE_RECOVERY`, `NicheDiscovery`, `EcologicalArchive`, `PERTURBATION_DIAGNOSTIC`.
-- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils.
-
----
-
-*Schémas d'architecture et de régulation environnementale*
-
-### Architecture Biome ultime
+### 31.1 Topologie de l'Écologie Adaptative
 
 ```mermaid
 flowchart TB
-    Mission["Mission / Environnement Persistant"] --> EnvModel["Environment Model"]
-    EnvModel --> NicheDiscovery["Niche Discovery"]
-    NicheDiscovery --> OpportunityMap["Ecological Opportunity Map"]
-    OpportunityMap --> Niches["Niches dynamiques"]
+    subgraph Environnement["Environnement Dynamique"]
+        EnvModel["Environment Model<br/>Carte d'opportunités"]
+        Biofilm["Matrice Biofilm<br/>Gradients stigmergiques"]
+    end
 
-    Niches --> PopA["Population A ● ● ●"]
-    Niches --> PopB["Population B ● ●"]
-    Niches --> PopC["Population C ● ● ●"]
+    subgraph Niches["Niches Écologiques"]
+        N1["Niche A: repo_scan<br/>K=10, N=3"]
+        N2["Niche B: web_research<br/>K=6, N=2"]
+        N3["Niche C: formal_proof<br/>K=4, N=1"]
+        N4["Niche D: concurrency<br/>K=5, N=0"]
+    end
 
-    PopA --> Trails["Environmental Trails (biofilm)"]
-    PopB --> Trails
-    PopC --> Trails
+    subgraph Populations["Populations"]
+        PopA["Pop A: ● ● ●<br/>fitness=0.91"]
+        PopB["Pop B: ● ●<br/>fitness=0.67"]
+        PopC["Pop C: ●<br/>fitness=0.45"]
+        Spore["Spore dormante"]
+    end
 
-    Trails --> Observer["Ecosystem Observer"]
-    Observer --> Ecology["Ecology Controller"]
+    subgraph Regulation["Régulation"]
+        Steward["Resource Steward<br/>Allocation par MV"]
+        Controller["Ecology Controller<br/>grow / shrink / migrate"]
+        Observer["Ecosystem Observer<br/>Santé + Tipping Points"]
+    end
 
-    Ecology --> Grow["grow / split / mutate"]
-    Ecology --> Shrink["shrink / merge / dormancy"]
-    Ecology --> Migrate["migrate / recruit / rewire"]
+    EnvModel -->|"découverte"| N4
+    EnvModel --> N1
+    EnvModel --> N2
+    EnvModel --> N3
 
-    Grow --> NewTick["new tick"]
-    Shrink --> NewTick
-    Migrate --> NewTick
+    N1 --> PopA
+    N2 --> PopB
+    N3 --> PopC
+    N4 -->|"recrute"| Spore
 
-    NewTick --> Niches
+    PopA -->|"artefacts"| Biofilm
+    PopB --> Biofilm
+    PopC --> Biofilm
+
+    Biofilm -->|"gradients"| Steward
+    PopA -->|"fitness"| Observer
+    PopB --> Observer
+    PopC --> Observer
+
+    Observer -->|"health"| Controller
+    Steward -->|"allocations"| Controller
+
+    Controller -->|"grow"| PopA
+    Controller -->|"shrink"| PopB
+    Controller -->|"migrate"| PopC
+    Controller -->|"activate"| Spore
 ```
 
-### Séquence de régulation écologique
+### 31.2 Séquence de régulation
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Env as Environment
     participant Niche as Niche
     participant Pop as Population
     participant Steward as Resource Steward
     participant Observer as Ecosystem Observer
     participant Controller as Ecology Controller
 
-    Niche->>Observer: Signal : yield ↓, visits=8
-    Observer->>Controller: Niche saturation détectée
-    Controller->>Steward: Réallocation requise
+    Niche->>Observer : yield ↓, visits=8, pressure=1.1
+    Observer->>Controller : Niche saturée
 
-    Steward->>Steward: Calcule MarginalValue, KeystoneValue, Redundancy
-    Steward->>Pop: Réduit budget (N → N-2)
-    Steward->>Pop: Cryptobiose sur 2 individus
+    Controller->>Steward : Réallocation requise
+    Steward->>Steward : Calcule MV, Keystone, Redundancy
+    Steward->>Pop : Réduit budget, cryptobiose 2 individus
 
-    alt Nouvelle opportunité détectée
-        Observer->>Controller: Nouveau cluster contradictoire
-        Controller->>Niche: Crée nouvelle niche
-        Controller->>Pop: Recrute population (spore → active)
+    alt Nouvelle opportunité
+        Observer->>Controller : Nouveau cluster contradictoire
+        Controller->>Niche : Crée nouvelle niche
+        Controller->>Pop : Recrute (spore → active)
     end
 
-    Controller->>Env: Artifacts déposés (index, cache)
-    Controller->>Controller: new tick
+    Controller->>Controller : new tick
 ```
 
-### Machine à états du cycle écologique
+### 31.3 Machine à états du cycle
 
 ```mermaid
 stateDiagram-v2
@@ -1125,21 +1053,217 @@ stateDiagram-v2
     state Observation {
         [*] --> HealthCheck
         HealthCheck --> TippingPoint?
-        TippingPoint? --> Stable: OK
-        TippingPoint? --> AtRisk: Warning
+        TippingPoint? --> Stable : OK
+        TippingPoint? --> AtRisk : Warning
     }
 
     Observation --> Regulation
 
     state Regulation {
         [*] --> Evaluate
-        Evaluate --> Grow: niche viable
-        Evaluate --> Shrink: niche saturée
-        Evaluate --> Migrate: meilleure niche
-        Evaluate --> Rewire: interaction changée
-        Evaluate --> Perturb: diagnostic
+        Evaluate --> Grow : viable, P < 0.9
+        Evaluate --> Shrink : saturée, P ≥ 1
+        Evaluate --> Migrate : MR < seuil
+        Evaluate --> Rewire : interaction changée
+        Evaluate --> Perturb : diagnostic
+        Evaluate --> Discover : nouveau signal
     }
 
     Regulation --> Establishment
-    Regulation --> [*]: mission complète
+    Regulation --> [*] : mission complète
 ```
+
+### 31.4 Modèle mathématique de la fitness
+
+```mermaid
+graph LR
+    subgraph Fitness["Φ(a,n,t) = Fitness locale"]
+        direction TB
+        Pos["Termes positifs"]
+        Neg["Termes négatifs"]
+        
+        Pos --> S["Success"]
+        Pos --> E["Evidence"]
+        Pos --> IG["Information Gain"]
+        Pos --> NC["Novelty Contribution"]
+        Pos --> C["Complementarity"]
+        
+        Neg --> Co["Cost"]
+        Neg --> R["Risk"]
+        Neg --> RP["Resource Pressure"]
+    end
+    
+    subgraph Normalisation["Φ_norm = (Φ - μ) / (σ + ε)"]
+        direction TB
+        Raw["Φ brut"] --> Norm["Φ normalisée"]
+        Norm --> Pop["Φ_pop = moyenne + λ_D · D(P)"]
+    end
+    
+    Fitness --> Normalisation
+    
+    subgraph Décision["Décision écologique"]
+        direction TB
+        Grow["Grow : Φ > θ_survive et P < 0.9"]
+        Shrink["Shrink : Φ < θ_decline ou P ≥ 1"]
+        Migrate["Migrate : MR < E[R_alt] - C_switch"]
+    end
+    
+    Normalisation --> Décision
+```
+
+---
+
+## 32. Configuration et paramètres
+
+```bash
+export GENOS_BIOME_ROLES=4
+export GENOS_BIOME_TICK=5000                    # ms entre régulations
+export GENOS_BIOME_RESERVE_RATIO=0.15            # réserve non-négociable
+export GENOS_BIOME_CRYPTOBIOSIS_THRESHOLD=0.2    # fitness < seuil → dormance
+export GENOS_BIOME_FORAGE_DEPARTURE_THRESHOLD=0.05
+export GENOS_BIOME_TIPPING_ORANGE=0.6
+export GENOS_BIOME_DIVERSITY_BONUS=0.1           # λ_D
+export GENOS_BIOME_ARCHIVE_MAX=10000
+export GENOS_BIOME_LEVY_MU=2.0                   # exposant Lévy
+```
+
+---
+
+## 33. Limitations et design notes
+
+**Pourquoi pas allocation par demande ?** Le Biome observe la productivité marginale réelle, pas la productivité déclarée. Les agents surestiment systématiquement leurs besoins futurs.
+
+**Pourquoi la réserve est non-négociable ?** Un écosystème sans réserve ne peut pas absorber de perturbation. $R_{\text{reserve}} = 0.15 \times R_{\text{total}}$ garantit la recolonisation après perturbation.
+
+**Pourquoi la diversité est-elle un terme de fitness ?** Un écosystème homogène est fragile face aux perturbations. $\lambda_D \cdot D(P)$ protège les minorités fonctionnellement distinctes contre la compétition asymétrique.
+
+**Pourquoi le Lévy flight ?** Les distributions à queue lourde optimisent la recherche dans les espaces non structurés (Charnov MVT, Viswanathan 1999). Les macro-rares permettent de découvrir des niches éloignées que l'exploitation locale ne trouverait jamais.
+
+**Pourquoi 4 rôles ?** 1 modèle d'environnement (carte), 1 intendant (ressources), 1 régulateur (populations), 1 observateur (santé). Chacun est essentiel et non-substituable — comme les quatre fonctions écologiques fondamentales.
+
+**Pourquoi pas de « eventual consistency » ?** Biome exige une forte cohérence écologique (état unique, synchronisé par tick). L'eventual consistency tolère la divergence temporaire — acceptable pour Biocénose, pas pour Biome où la divergence = déséquilibre.
+
+---
+
+## 34. Cas d'usage typiques
+
+### 34.1 Diagnostic de bug non reproductible
+
+**Mission :** « Un bug intermittent apparaît en production mais pas en staging. Aucun test ne le capture. Trouve la cause racine et propose une correction. »
+
+**Déroulé :**
+- Le Biome initialise cinq niches : `log_analysis`, `static_analysis`, `commit_history`, `runtime_tracing`, `concurrency_model`.
+- La population `static_analysis` (K=4) ne trouve rien après deux cycles → le Steward réduit son allocation à 1 individu et réalloue les ressources libérées.
+- `commit_history` identifie un commit suspect il y a 3 jours → la population double (K=8) et se spécialise sur la régression introduite.
+- Une anomalie de timing est détectée dans les logs → un spore dormant de type `concurrency_model` est activé (cryptobiose → réveil).
+- La nouvelle niche `concurrency_model` confirme une race condition entre deux goroutines asynchrones.
+- Le Biome déclenche une succession écologique : la niche `runtime_tracing` se spécialise en `race_verification`, une population de test fuzzer colonise la niche pour générer un cas reproductible.
+
+**Résultat :** Cause racine identifiée (race condition), test de régression ajouté, patch proposé et vérifié par la population `race_verification`. La niche `concurrency_model` reste active avec une population de surveillance permanente.
+
+---
+
+### 34.2 Recherche multi-source sur un sujet controversé
+
+**Mission :** « Détermine l'état de l'art sur [sujet X] avec fiabilité vérifiable, en distinguant consensus académique, pratiques industrielles et opinions non fondées. »
+
+**Déroulé :**
+- L'Environnement modèle l'espace informationnel en six niches : `academic_sources`, `official_documentation`, `industry_blogs`, `community_discussions`, `contradictory_claims`, `provenance_verification`.
+- La population `academic_sources` (K=6) extrait les positions des articles peer-reviewed.
+- `contradictory_claims` identifie un désaccord entre deux écoles de pensée → le Biome crée une niche de compétition `debate_analysis` où deux populations s'affrontent pour vérifier les preuves citées.
+- `provenance_verification` détecte qu'un blog influent cite un preprint rétracté → la population `provenance_verification` (K=4) croît et émet un signal de faible confiance vers le biofilm.
+- L'Observer écologique mesure une entropie élevée dans la niche `community_discussions` → interprété comme signe de polarisation, non de diversité fonctionnelle.
+
+**Résultat :** Rapport structuré distinguant : (1) consensus académique vérifié, (2) pratiques industrielles majoritaires, (3) zones de controverse avec preuves pour chaque camp. Score de confiance par claim. La niche `provenance_verification` persiste comme population de surveillance pour les futures recherches.
+
+---
+
+### 34.3 Audit de sécurité d'une application web
+
+**Mission :** « Audite l'application [Y] et identifie toutes les vulnérabilités exploitables, avec preuve d'exploitation et recommandation de mitigation. »
+
+**Déroulé :**
+- Sept niches initiales : `auth_sessions`, `input_validation`, `dependency_scoping`, `access_control`, `crypto_usage`, `business_logic`, `config_hardening`.
+- `input_validation` trouve une injection SQL → le Biome crée une nouvelle niche `exploit_reproduction` et y recrute des spores dormantes de type `payload_crafting`.
+- La population `exploit_reproduction` (K=3) produit un PoC fonctionnel → le Steward détecte une haute productivité marginale et alloue davantage de ressources.
+- Simultanément, `access_control` trouve un IDOR → une seconde population `exploit_reproduction` colonise la niche en parallèle.
+- `dependency_scoping` trouve une CVE critique dans une lib → la population `regression_testing` est activée pour vérifier que le patch proposé ne casse pas les fonctionnalités.
+- L'Observer détecte une corrélation entre les niches `auth_sessions` et `config_hardening` → suggère une population de type `session_hardening` (niche construction).
+
+**Résultat :** 3 vulnérabilités critiques et 7 modérées, chacune avec PoC, score CVSS vérifié, et patch testé par la population `regression_testing`. Rapport consolidé avec prioritisation par exploitabilité et impact.
+
+---
+
+### 34.4 Optimisation d'un système multi-objectif
+
+**Mission :** « Optimise le pipeline de [Z] en minimisant coût, latence et taux d'erreur simultanément, avec des solutions Pareto-optimales. »
+
+**Déroulé :**
+- L'espace des solutions est modélisé en niches algorithmiques : `local_search`, `constraint_solver`, `genetic_algorithm`, `formal_bounds`, `heuristic_construction`.
+- `local_search` trouve rapidement une solution satisfaisante → le biofilm stocke cette solution comme gradient pour `constraint_solver` (warm-start écologique).
+- `genetic_algorithm` explore une région inattendue de l'espace → le Biome crée une niche fille `adaptive_mutation` spécialisée dans cette région.
+- `formal_bounds` fournit une borne inférieure → permet au Steward d'élaguer les populations dont la fitness est en dessous du bound.
+- Une succession écologique s'opère : `heuristic_construction` → `local_search` → `constraint_solver`, chaque population préparant le terrain pour la suivante (stepping-stone écologique).
+- L'Observer maintient une archive MAP-Elites des meilleures solutions par région de l'espace objectif.
+
+**Résultat :** Front Pareto-optimal avec 12 solutions non-dominées, classées par compromis coût/latence/erreur. La solution recommandée réduit le coût de 40% tout en maintenant le taux d'erreur < 0.1%. L'archive MAP-Elites persiste pour des requêtes futures similaires.
+
+---
+
+### 34.5 Orchestration de calcul hétérogène
+
+**Mission :** « Exécute [Workload W] en répartissant les tâches entre ressources locales (CPU, GPU) et cloud (GPU spot, TPU, formal solver) selon qualité/prix/latence. »
+
+**Déroulé :**
+- Cinq niches/habitats : `local_cpu`, `local_gpu`, `cloud_spot`, `cloud_frontier`, `formal_solver`.
+- Les populations déplacent leurs individus entre habitats selon le gradient de qualité/€ (productivité marginale par habitat).
+- Un batch de tâches ML est envoyé sur `local_gpu` → latence élevée détectée → migration de 3 individus vers `cloud_spot`.
+- `cloud_spot` subit une interruption (spot revocation) → le Biome déclenche une cryptobiose : les tâches en cours sont mises en spores dormantes sur `local_cpu` en attendant.
+- `formal_solver` résout un sous-problème complexe mais coûteux → le Steward calcule que le coût marginal dépasse la valeur → la population est réduite et la niche reste occupée par une spore dormante.
+- L'Observer détecte un pattern temporel : certains habitats sont moins chers la nuit → un Lévy flight temporel est planifié (migration nocturne).
+
+**Résultat :** Le workload est complété avec un coût 35% inférieur au tout-cloud et 50% inférieur au tout-local. Le maintien de spores dormantes permet de réactiver `formal_solver` si une tâche future le nécessite. Le biofilm retient les gradients de qualité/€ par habitat et heure.
+
+---
+
+## 34. Références internes
+
+- [ORCHESTRATION.md](../orchestration.md) : orchestration générale, gates et preuves
+- [SYNCYTIUM.md](syncytium.md) : orchestration par état partagé
+- [TRINITY.md](trinity.md) : orchestration comparative
+- [A_TEAM.md](a-team.md) : orchestration multidisciplinaire
+- [BIOCENOSE.md](biocenose.md) : orchestration communautaire
+- [HOLOBIONTE.md](holobionte.md) : orchestration hiérarchisée
+- [RUNTIME_AGENTIQUE.md](../../01-concepts/runtime-agentique.md)
+- [BIOLOGIE_COMPUTATIONNELLE.md](../../01-concepts/biologie-computationnelle.md)
+- [biomeCoordinationService.js](../../../backend/src/services/biomeCoordinationService.js)
+- [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js)
+- [foragingScoutHarvesterService.js](../../../backend/src/services/foragingScoutHarvesterService.js)
+- [cryptobiosisSporeService.js](../../../backend/src/services/cryptobiosisSporeService.js)
+
+---
+
+## 35. Références externes
+
+| Référence | Apport |
+|-----------|--------|
+| [MAP-Elites, Mouret & Clune 2015](https://arxiv.org/abs/1504.04909) | Archive QD par niche |
+| [AURORA, Faldor & Cully 2024](https://arxiv.org/pdf/2406.04235) | Descripteurs de niches appris |
+| [Singh et al., Niche Concept 2024](https://www.nature.com/articles/s44358-025-00060-x) | Choice/Conformance/Construction |
+| [POET, Wang et al. 2019](https://arxiv.org/abs/1901.01753) | Coévolution env-solution, stepping stones |
+| [Thorogood et al., Resilience 2023](https://www.nature.com/articles/s44185-023-00022-6) | Résistance/récupération/régime |
+| [XLand, DeepMind 2021](https://deepmind.google/blog/generally-capable-agents-emerge-from-open-ended-play/) | Curriculum open-ended |
+| [Ward et al., Rewiring 2026](https://www.nature.com/articles/s44358-026-00159-9) | Réseaux écologiques dynamiques |
+| [GovSim, Piatti et al. 2024](https://arxiv.org/abs/2404.16698) | Ressources communes par LLM |
+| [TerraLingua, Paolo et al. 2026](https://arxiv.org/abs/2603.16910) | Écologie persistante de LLM |
+| [Charnov, MVT 1976](https://doi.org/10.1016/0040-5809(76)90001-7) | Théorème valeur marginale |
+| [Viswanathan, Lévy flights 1999](https://doi.org/10.1038/44593) | Optimisation recherche |
+
+---
+
+## 36. Implementation & capacités (GenOS v3)
+
+- Service : `biomeCoordinationService.js`
+- Capacités : `STIGMERGY`, `SWARM_METRICS`, `WEB_FORAGING`, `RESILIENCE_RECOVERY`, `NicheDiscovery`, `EcologicalArchive`, `PERTURBATION_DIAGNOSTIC`, `ForagingMVT`, `QualityDiversityArchive`, `BiofilmMemory`, `MetapopulationMigration`
+- Contrat exposé par `topologyCapabilityService` et rendu effectif dans les leases d'outils (`toolLeasePolicy.leaseForCapabilities`).
+
