@@ -216,4 +216,39 @@ async function listEvents(db, holobiontId) {
   return rows.map((row) => ({ ...row, payload: JSON.parse(row.payloadJson), payloadJson: undefined }));
 }
 
-module.exports = { createSession, appendEvent, getSession, listEvents, reduceEvent };
+async function updateLifecycleStatus(db, input = {}) {
+  return withTransaction(db, async (tx) => {
+    const row = await tx.get('SELECT revision, status, session_json FROM holobiont_sessions WHERE holobiont_id = ?', input.holobiontId);
+    if (!row) throw Object.assign(new Error('Holobiont session not found.'), { code: 'HOLOBIONT_SESSION_NOT_FOUND' });
+    if (Number(input.expectedRevision) !== row.revision) {
+      throw Object.assign(new Error('Holobiont session revision conflict.'), { code: 'HOLOBIONT_REVISION_CONFLICT' });
+    }
+    validateLifecycleTransition(row.status, input.status);
+    if (row.status === input.status) return { status: row.status, revision: row.revision, changed: false };
+    const revision = row.revision + 1;
+    const session = { ...JSON.parse(row.session_json), status: input.status, revision };
+    const result = await tx.run(`UPDATE holobiont_sessions SET status = ?, revision = ?, session_json = ?,
+      updated_at = CURRENT_TIMESTAMP WHERE holobiont_id = ? AND revision = ?`,
+    input.status, revision, JSON.stringify(session), input.holobiontId, row.revision);
+    if (result.changes !== 1) throw Object.assign(new Error('Holobiont session revision conflict.'), { code: 'HOLOBIONT_REVISION_CONFLICT' });
+    await tx.run(`INSERT INTO holobiont_lifecycle_events (lifecycle_event_id, holobiont_id, revision, event_type, payload_json)
+      VALUES (?, ?, ?, ?, ?)`, randomUUID(), input.holobiontId, revision, input.eventType,
+    JSON.stringify(input.payload || {}));
+    return { status: input.status, revision, changed: true };
+  });
+}
+
+function validateLifecycleTransition(current, next) {
+  const allowed = current === 'ACTIVE' ? ['QUIESCENT', 'CLOSED'] : current === 'QUIESCENT' ? ['ACTIVE'] : [];
+  if (!allowed.includes(next)) {
+    throw Object.assign(new Error(`Invalid Holobiont lifecycle transition: ${current} -> ${next}.`), { code: 'HOLOBIONT_LIFECYCLE_TRANSITION_INVALID' });
+  }
+}
+
+async function listLifecycleEvents(db, holobiontId) {
+  const rows = await db.all(`SELECT revision, event_type AS eventType, payload_json AS payloadJson, created_at AS createdAt
+    FROM holobiont_lifecycle_events WHERE holobiont_id = ? ORDER BY revision`, holobiontId);
+  return rows.map((row) => ({ ...row, payload: JSON.parse(row.payloadJson), payloadJson: undefined }));
+}
+
+module.exports = { createSession, appendEvent, getSession, listEvents, reduceEvent, updateLifecycleStatus, listLifecycleEvents };

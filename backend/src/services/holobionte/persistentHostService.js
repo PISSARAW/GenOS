@@ -23,7 +23,7 @@ function capabilityGap(session, requested = []) {
 
 async function findPersistentHost(db, hostId) {
   const row = await db.get(`SELECT holobiont_id FROM holobiont_sessions
-    WHERE host_id = ? AND scope = 'PERSISTENT' AND status = 'ACTIVE'
+    WHERE host_id = ? AND scope = 'PERSISTENT' AND status IN ('ACTIVE', 'QUIESCENT')
     ORDER BY updated_at DESC, holobiont_id LIMIT 1`, hostId);
   return row ? store.getSession(db, row.holobiont_id) : null;
 }
@@ -54,6 +54,14 @@ async function openPersistentHost(db, input = {}) {
   let reused = true;
   if (!session) {
     ({ session, reused } = await createPersistentHost(db, { ...input, hostId }));
+  }
+  if (session.status === 'QUIESCENT') {
+    const resumed = await store.updateLifecycleStatus(db, {
+      holobiontId: session.holobiontId, expectedRevision: session.revision,
+      status: 'ACTIVE', eventType: 'RESUMED', payload: { missionId }
+    });
+    session = await store.getSession(db, session.holobiontId);
+    session.revision = resumed.revision;
   }
   session = await attachMission({ db, session, missionId });
   return { session, reused, capabilityGap: capabilityGap(session, input.requiredCapabilities) };

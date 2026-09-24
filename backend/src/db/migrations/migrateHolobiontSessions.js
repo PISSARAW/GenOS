@@ -38,6 +38,16 @@ async function migrateHolobiontSessions(db) {
     CREATE INDEX IF NOT EXISTS idx_holobiont_mission_links_host
       ON holobiont_mission_links(host_id, attached_at);
 
+    CREATE TABLE IF NOT EXISTS holobiont_lifecycle_events (
+      lifecycle_event_id TEXT PRIMARY KEY,
+      holobiont_id TEXT NOT NULL REFERENCES holobiont_sessions(holobiont_id) ON DELETE CASCADE,
+      revision INTEGER NOT NULL,
+      event_type TEXT NOT NULL CHECK (event_type IN ('QUIESCENT', 'RESUMED', 'CLOSED')),
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (holobiont_id, revision)
+    );
+
     CREATE TABLE IF NOT EXISTS holobiont_events (
       event_id TEXT PRIMARY KEY,
       holobiont_id TEXT NOT NULL,
