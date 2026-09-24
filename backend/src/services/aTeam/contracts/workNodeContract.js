@@ -14,6 +14,7 @@ function validateWorkNode(node) {
   validateOptionalOwner(node.ownerAgentId, errors);
   validateNodeRisk(node.risk, errors);
   validateNodeCriticality(node.criticality, errors);
+  validateEstimatedDuration(node.estimatedDuration, errors);
   if (!WORK_NODE_STATUS.includes(node.status)) errors.push('work node status is invalid.');
   return result(errors);
 }
@@ -28,6 +29,10 @@ function validateNodeRisk(value, errors) {
 
 function validateNodeCriticality(value, errors) {
   if (!['low', 'medium', 'high', 'critical'].includes(value)) errors.push('criticality is invalid.');
+}
+
+function validateEstimatedDuration(value, errors) {
+  if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) <= 0)) errors.push('estimatedDuration must be a positive number.');
 }
 
 module.exports = { validateWorkNode };

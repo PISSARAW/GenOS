@@ -4,6 +4,9 @@ const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
 const aTeamRunStore = require('./aTeam/teamRunStore');
+const workGraphCompiler = require('./aTeam/workGraph/workGraphCompiler');
+const workGraphStore = require('./aTeam/workGraph/workGraphStore');
+const topologySessionStore = require('./topologySessionStore');
 const aTeamCoordination = require('./aTeamCoordinationService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
@@ -175,7 +178,20 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
 async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan }) {
   const aTeam = autonomyPlan.aTeam;
   if (!aTeam || aTeam.activated !== true) return;
-  const run = await aTeamRunStore.create(db, {
+  const runDraft = buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan });
+  const persisted = await persistRunAndGraph({ db, runDraft, members: aTeam.members });
+  applyWorkGraphStages(aTeam.members || [], persisted.graph);
+  aTeam.teamRun = persisted.run;
+  aTeam.workGraph = persisted.graph;
+  emit(agentId, 'A_TEAM_RUN_CREATED', 'PERSIST_TEAM_RUN', `Persisted canonical A-Team run '${persisted.run.teamRunId}' with WorkGraph '${persisted.graph.workGraphId}'.`, {
+    teamRunId: persisted.run.teamRunId, workGraphId: persisted.graph.workGraphId,
+    revision: persisted.run.revision, memberCount: persisted.run.members.length, criticalPath: persisted.graph.criticalPath.nodeIds
+  }, 'info');
+}
+
+function buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan }) {
+  const aTeam = autonomyPlan.aTeam;
+  return aTeamRunStore.teamRunRecord({
     missionId: agentId,
     goal: missionText(normalizedMission),
     successCriteria: normalizedMission.successCriteria || normalizedMission.acceptanceCriteria || [],
@@ -184,12 +200,26 @@ async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan })
     capabilityGaps: aTeam.capabilityCoverage?.uncovered || [],
     members: aTeam.members || []
   });
-  aTeam.teamRun = run;
-  emit(agentId, 'A_TEAM_RUN_CREATED', 'PERSIST_TEAM_RUN', `Persisted canonical A-Team run '${run.teamRunId}'.`, {
-    teamRunId: run.teamRunId,
-    revision: run.revision,
-    memberCount: run.members.length
-  }, 'info');
+}
+
+async function persistRunAndGraph({ db, runDraft, members }) {
+  const graphDraft = workGraphCompiler.compileWorkGraph({ teamRunId: runDraft.teamRunId, members: members || [] });
+  const graph = await workGraphStore.create(db, graphDraft);
+  let run;
+  try {
+    run = await aTeamRunStore.create(db, { ...runDraft, workGraphId: graph.workGraphId });
+  } catch (error) {
+    await topologySessionStore.remove(db, graph.workGraphId);
+    throw error;
+  }
+  return { run, graph };
+}
+
+function applyWorkGraphStages(members, graph) {
+  for (const member of members) {
+    const memberId = member.memberId || member.agentId || member.workerId || member.domain || member.subSystem || member.label || member.role;
+    member.pipelineStage = graph.memberStages[memberId] || 0;
+  }
 }
 
 async function applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan }) {
