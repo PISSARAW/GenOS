@@ -1,7 +1,7 @@
 # Biocénose : Système de Délibération Collective et de Formation de Jugement
 
 - **Statut** : Topologie disponible ; le service assemble une communauté et expose des évaluations et métriques. Le protocole épistémique complet décrit dans cette page n'est pas implémenté de bout en bout.
-- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, évaluation Pareto et métriques de diversité.
+- **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, évaluation Pareto et métriques de diversité.
 - **Dernière revue** : 2026-09-24
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
@@ -57,6 +57,13 @@ présentes dans `biocenoseService` sont les suivantes :
   `communityClaimGraph` normalise les espaces et la casse, déduplique les textes
   normalisés et conserve les membres qui ont soutenu le même claim dans une table
   append-only. C'est une déduplication textuelle, pas une équivalence sémantique ;
+- `routeClaimReview` dirige un claim vers les reviewers dont les spécialités déclarées
+  correspondent au risque et au type indiqués. Sans correspondance spécialisée, un
+  reviewer disponible est choisi en repli ;
+- `routeClaimVerification` ne marque jamais un claim vérifié. Il renvoie les vérificateurs
+  dont les capacités déterministes déclarées correspondent aux contrôles requis, ou
+  `UNVERIFIED` si aucun ne correspond. L'exécution du contrôle et sa preuve restent à
+  fournir par le plan de vérification ;
 - `evaluateCommunity` n'envoie à l'arène Pareto que les dossiers explicitement
   identifiés comme générateurs ou options candidates. Les rôles de revue,
   vérification, facilitation et observation en sont exclus. Le point genou est exposé
