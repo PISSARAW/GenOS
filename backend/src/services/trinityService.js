@@ -58,11 +58,23 @@ function compose(mission) {
   }));
 }
 
+function normalizeIntegrationChecks(checks) {
+  return Array.isArray(checks) ? [...new Set(checks.map((id) => String(id).trim()).filter(Boolean))] : [];
+}
+
+function normalizeClaimVerificationChecks(checks) {
+  return Array.isArray(checks)
+    ? checks.filter((entry) => entry && typeof entry === 'object').map((entry) => ({
+      claim: String(entry.claim || '').trim(),
+      commandIds: Array.isArray(entry.commandIds) ? [...new Set(entry.commandIds.map((id) => String(id).trim()).filter(Boolean))] : []
+    })).filter((entry) => entry.claim && entry.commandIds.length)
+    : [];
+}
+
 function designHypotheses(mission, supplied = {}) {
   const analysis = analyzeMission(mission);
-  const integrationChecks = Array.isArray(supplied.integrationChecks)
-    ? [...new Set(supplied.integrationChecks.map((id) => String(id).trim()).filter(Boolean))]
-    : [];
+  const integrationChecks = normalizeIntegrationChecks(supplied.integrationChecks);
+  const claimVerificationChecks = normalizeClaimVerificationChecks(supplied.claimVerificationChecks);
   return {
     centralProblem: String(supplied.centralProblem || mission || '').trim(),
     assumptions: Array.isArray(supplied.assumptions) ? supplied.assumptions : [],
@@ -71,6 +83,7 @@ function designHypotheses(mission, supplied = {}) {
     candidateHypotheses: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
     selectedTriplet: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
     integrationChecks,
+    claimVerificationChecks,
     selectionMethod: 'fixed_v1',
     utilityScore: null
   };

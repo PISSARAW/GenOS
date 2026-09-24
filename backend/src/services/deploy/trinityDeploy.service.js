@@ -49,7 +49,8 @@ class TrinityDeployService {
       workspaceId, 
       workspace,
       executionBudget,
-      integrationChecks
+      integrationChecks,
+      claimVerificationChecks
     } = params;
 
     const db = await this.initRepo();
@@ -93,7 +94,7 @@ class TrinityDeployService {
         missionId,
         domain: analysis.domain,
         snapshotHash: isolatedWorlds[0].snapshotHash,
-        design: trinityService.designHypotheses(taskPrompt, { integrationChecks }),
+        design: trinityService.designHypotheses(taskPrompt, { integrationChecks, claimVerificationChecks }),
         isolationPolicy: { sharedMemory: 'read-only-snapshot', communication: 'forbidden', provenanceTracking: 'full', randomSeedPerChamber: false },
         budgetPolicy
       });

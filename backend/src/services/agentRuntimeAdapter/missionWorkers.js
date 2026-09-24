@@ -43,7 +43,8 @@ async function persistTrinityExperiment(db, input) {
       domain: autonomyPlan.trinity.domain,
       snapshotHash: snapshotHashes[0],
       design: trinityService.designHypotheses(normalizedMission.prompt || normalizedMission.currentTask || '', {
-        integrationChecks: normalizedMission.trinityIntegrationChecks
+        integrationChecks: normalizedMission.trinityIntegrationChecks,
+        claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
       }),
       isolationPolicy: { sharedMemory: 'read-only-snapshot', communication: 'forbidden', provenanceTracking: 'full', randomSeedPerChamber: false },
       budgetPolicy

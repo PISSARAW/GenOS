@@ -222,7 +222,7 @@ async function promoteWinner(db, input = {}) {
     const commit = await git.createCommit(gitRequest, {
       agentId: winner.agentId,
       refName: `trinity/${experiment.id}`,
-      metadata: { experimentId: experiment.id, worldNumber: result.selectedWorld, contentHash: verification.contentHash, candidateWorkspaceId: artifact.candidateWorkspaceId, integrationChecks: verification.integrationChecks }
+      metadata: { experimentId: experiment.id, worldNumber: result.selectedWorld, contentHash: verification.contentHash, candidateWorkspaceId: artifact.candidateWorkspaceId, integrationChecks: verification.integrationChecks, claimChecks: verification.claimChecks }
     });
     const stored = await git.getObject(db, gitRequest, commit.id);
     if (!stored || !git.verifyObjectSignature(stored)) throw new Error('AgentGit candidate reference signature is invalid.');
@@ -266,8 +266,38 @@ async function verifyCandidate(db, input) {
   const contentHash = await hashWorkspace(artifact.targetWorkspace);
   if (contentHash !== artifact.contentHash) throw Object.assign(new Error('Candidate changed during integration verification.'), { code: 'TRINITY_CANDIDATE_HASH_CHANGED' });
   const claims = Array.isArray(winner.report?.claims) ? winner.report.claims : [];
-  if (claims.length) throw Object.assign(new Error('Independent claim reverification is not yet wired; claims cannot be promoted.'), { code: 'TRINITY_CLAIM_REVERIFICATION_UNAVAILABLE' });
-  return { contentHash, integrationChecks, claimsReverified: true, sourceAgentId: winner.agentId };
+  const claimChecks = await verifyClaimChecks({ claims, plans: design.claimVerificationChecks, commands, diagnostics, workspaceId: artifact.candidateWorkspaceId });
+  return { contentHash, integrationChecks, claimChecks, claimsCoveredByChecks: true, sourceAgentId: winner.agentId };
+}
+
+function claimCommandIds(claim, plans, availableCommands) {
+  const claimKey = String(claim?.id || claim?.statement || claim || '').trim();
+  const commandIds = new Map((Array.isArray(plans) ? plans : []).map((plan) => [plan.claim, plan.commandIds])).get(claimKey) || [];
+  if (!commandIds.length || commandIds.some((id) => !availableCommands.has(id))) {
+    throw Object.assign(new Error(`Claim lacks an available verification command: ${claimKey}`), { code: 'TRINITY_CLAIM_VERIFICATION_REQUIRED' });
+  }
+  return { claimKey, commandIds };
+}
+
+async function runClaimCommand(input) {
+  const { claimKey, commandId, diagnostics, workspaceId } = input;
+  const result = await diagnostics.runWorkspaceTest(workspaceId, commandId);
+  const receipt = { claim: claimKey, commandId, exitCode: result.exitCode, signal: result.signal || null, passed: result.exitCode === 0 && !result.signal };
+  if (!receipt.passed) throw Object.assign(new Error(`Claim verification failed: ${claimKey} (${commandId})`), { code: 'TRINITY_CLAIM_VERIFICATION_FAILED' });
+  return receipt;
+}
+
+async function verifyClaimChecks(input) {
+  const { claims, plans, commands, diagnostics, workspaceId } = input;
+  if (!claims.length) return [];
+  const receipts = [];
+  for (const claim of claims) {
+    const plan = claimCommandIds(claim, plans, commands);
+    for (const commandId of plan.commandIds) {
+      receipts.push(await runClaimCommand({ claimKey: plan.claimKey, commandId, diagnostics, workspaceId }));
+    }
+  }
+  return receipts;
 }
 
 async function updateExperimentDecision(db, missionId, result) {
