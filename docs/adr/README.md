@@ -70,6 +70,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | [0062](0062-transmission-verticale-holobionte.md) | Transmission verticale Holobionte | Accepté | 2026-09-24 | Holobionte, génération, héritage, AEIS, admission |
 
+| [0063](0063-acquisition-horizontale-holobionte.md) | Acquisition horizontale Holobionte | Accepté | 2026-09-24 | Holobionte, acquisition, quarantaine, AEIS, admission |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.

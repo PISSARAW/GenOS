@@ -50,7 +50,7 @@ const eventReducers = {
   IMMUNE_REJECTION: (session, payload) => recordImmuneEvent(session, payload, 'rejections'),
   IMMUNE_OVERRIDE: (session, payload) => recordImmuneEvent(session, payload, 'overrides'),
   VERTICAL_TRANSMISSION: (session, payload) => recordTransmission(session, payload, 'VERTICAL_TRANSMISSION'),
-  HORIZONTAL_ACQUISITION: (session, payload) => recordTransmission(session, payload, 'HORIZONTAL_ACQUISITION')
+  HORIZONTAL_ACQUISITION: recordHorizontalAcquisition
 };
 
 function updateConstitution(session, payload) {
@@ -93,6 +93,21 @@ function changeSymbiontStatus(session, payload, status) {
   const update = { ...admission, ...replacement, status };
   updateSymbiont(session.candidateSymbionts, symbiontId, update);
   updateSymbiont(session.residentSymbionts, symbiontId, update);
+  return session;
+}
+
+function recordHorizontalAcquisition(session, payload) {
+  const symbiontId = String(payload.symbiontId || '');
+  const candidate = session.candidateSymbionts.find((item) => item.id === symbiontId);
+  if (payload.releaseReceipt) {
+    if (!candidate || candidate.status !== 'QUARANTINED' || payload.immuneReview?.allowed !== true) {
+      throw Object.assign(new Error('Only an AEIS-approved quarantined candidate can be released.'), { code: 'HOLOBIONT_QUARANTINE_STATE_INVALID' });
+    }
+    updateSymbiont(session.candidateSymbionts, symbiontId, {
+      status: 'CANDIDATE', quarantineRelease: payload.releaseReceipt
+    });
+  }
+  recordTransmission(session, payload, 'HORIZONTAL_ACQUISITION');
   return session;
 }
 
