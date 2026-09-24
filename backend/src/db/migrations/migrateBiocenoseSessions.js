@@ -4,7 +4,7 @@ const TABLES = [
   'biocenose_communities', 'biocenose_members', 'biocenose_constitutions',
   'biocenose_commitments', 'biocenose_claims', 'biocenose_arguments',
   'biocenose_claim_owners', 'biocenose_belief_updates', 'biocenose_dissent', 'biocenose_judgments',
-  'biocenose_events'
+  'biocenose_calibration', 'biocenose_events'
 ];
 
 async function migrateBiocenoseSessions(db) {
@@ -128,6 +128,25 @@ async function migrateBiocenoseSessions(db) {
       created_at TEXT NOT NULL,
       FOREIGN KEY (community_id) REFERENCES biocenose_communities(community_id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS biocenose_calibration (
+      calibration_id TEXT PRIMARY KEY,
+      community_id TEXT NOT NULL,
+      member_id TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      probability REAL NOT NULL CHECK (probability >= 0 AND probability <= 1),
+      outcome INTEGER NOT NULL CHECK (outcome IN (0, 1)),
+      brier_score REAL NOT NULL CHECK (brier_score >= 0 AND brier_score <= 1),
+      oracle_ref TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (community_id) REFERENCES biocenose_communities(community_id) ON DELETE CASCADE,
+      FOREIGN KEY (community_id, member_id) REFERENCES biocenose_members(community_id, member_id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_biocenose_calibration_member_domain
+      ON biocenose_calibration(member_id, domain, created_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_biocenose_calibration_event_member
+      ON biocenose_calibration(community_id, event_id, member_id, domain);
 
     CREATE TABLE IF NOT EXISTS biocenose_events (
       event_id TEXT PRIMARY KEY,

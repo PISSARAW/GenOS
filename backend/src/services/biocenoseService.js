@@ -20,6 +20,7 @@ const dissentLedger = require('./biocenose/dissent/dissentLedger');
 const minorityEvidenceVeto = require('./biocenose/dissent/minorityEvidenceVetoService');
 const beliefRevision = require('./biocenose/deliberation/beliefRevisionService');
 const communityAggregation = require('./biocenose/question/communityAggregationService');
+const calibration = require('./biocenose/calibration/calibrationService');
 const questionClassifier = require('./biocenose/question/questionClassifier');
 const constitutionService = require('./biocenose/governance/constitutionService');
 const communityFormationService = require('./biocenose/formation/communityFormationService');
@@ -232,6 +233,8 @@ module.exports = {
   evaluateMinorityEvidenceVeto: minorityEvidenceVeto.evaluate,
   reviseBelief: beliefRevision.revise,
   aggregateCommunityJudgments: communityAggregation.aggregate,
+  recordCalibrationOutcome: calibration.recordResolution,
+  communityMemberReputation: calibration.reputation,
   brierConsensus,
   quorumWithAbstention,
   hierarchicalQuorumPlan: hierarchicalQuorum.planForAgentCount
