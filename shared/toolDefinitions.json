@@ -537,6 +537,7 @@
               "evaporate",
               "record_outcome",
               "conductivity",
+              "bridge",
               "allocate",
               "forage",
               "health"
@@ -612,6 +613,12 @@
           },
           "decay": {
             "type": "number"
+          },
+          "bridge": {
+            "type": "object"
+          },
+          "proof": {
+            "type": "object"
           },
           "edges": {
             "type": "array",

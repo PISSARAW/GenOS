@@ -19,6 +19,7 @@ const routePlanner = require('./rhizome/routing/routePlanner');
 const trailService = require('./rhizome/stigmergy/trailService');
 const routeOutcomeService = require('./rhizome/learning/routeOutcomeService');
 const conductivityService = require('./rhizome/routing/conductivityService');
+const bridgeService = require('./rhizome/bridges/bridgeService');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -247,6 +248,16 @@ async function runConductivityStep(sessionId, options = {}) {
   });
 }
 
+async function integrateBridge(sessionId, input, options = {}) {
+  return mutateSession(sessionId, options, {
+    type: 'BRIDGE_INTEGRATED',
+    payload: { bridgeId: input.bridge?.bridgeId, verificationId: input.proof?.signedReceipt?.nonce },
+    apply: (session) => Object.assign(session, bridgeService.integrate({
+      session, ...input, trustedVerifierDigests: options.trustedVerifierDigests
+    }))
+  });
+}
+
 function routeAlternatives(session, target, now) {
   const capable = session.members.filter((member) => member.role === target || (Array.isArray(member.capabilities) && member.capabilities.includes(target)));
   const marker = `route:capability/${target}`;
@@ -303,4 +314,4 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, depositTrail, routeDirectMember, routeToCapability, graphSnapshot, addCapabilityNode, addCapabilityEdge, inspectCapabilityNeed, planGrowth, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, coherence, runSlimeMouldStep, closeSession, rehydrate };
