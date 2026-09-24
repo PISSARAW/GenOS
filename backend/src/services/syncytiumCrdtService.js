@@ -4,6 +4,7 @@ const ROLE_COLORS = {
   consistency_guardian: '#f59e0b',
   integration_executor: '#8b5cf6'
 };
+const typedCrdt = require('./syncytiumCrdtTypeRegistry');
 
 function roleColor(role) {
   return ROLE_COLORS[role] || '#06b6d4';
@@ -20,16 +21,28 @@ function applyDelete(text, index, len) {
   return text.slice(0, index) + text.slice(end);
 }
 
-function applyKind(state, kind) {
+function applyKind(state, kind, operation) {
   // Ops without a well-formed `kind` must be ignored, never crash the server.
   if (!kind || typeof kind.type !== 'string') return;
-  if (kind.type === 'insert_text') {
-    state.text = applyInsert(state.text, kind.index || 0, kind.text || '');
-  } else if (kind.type === 'delete_text') {
-    state.text = applyDelete(state.text, kind.index || 0, kind.len || 0);
-  } else if (kind.type === 'set_field') {
+  const handlers = {
+    insert_text: () => { state.text = applyInsert(state.text, kind.index || 0, kind.text || ''); },
+    delete_text: () => { state.text = applyDelete(state.text, kind.index || 0, kind.len || 0); },
+    set_field: () => applySetField(state, kind, operation),
+    typed_field: () => typedCrdt.apply(state.typedFields, operation, operation)
+  };
+  handlers[kind.type]?.();
+}
+
+function applySetField(state, kind, operation) {
+  if (operation.fieldType !== 'LWW_REGISTER') {
     state.fields[kind.key] = kind.value;
+    return;
   }
+  const typedOperation = {
+    ...operation,
+    kind: { type: 'typed_field', key: kind.key, action: 'assign', value: kind.value }
+  };
+  typedCrdt.apply(state.typedFields, typedOperation, operation);
 }
 
 // Only a genuine [start, end] pair of finite numbers is a valid selection;
@@ -117,7 +130,7 @@ class SyncytiumCrdt {
   }
 
   getSnapshot(targetMs = null, maxOps = null) {
-    const state = { text: '', fields: {}, cursors: {}, invariants: {} };
+    const state = { text: '', fields: {}, typedFields: {}, cursors: {}, invariants: {} };
     let lastMs = 0;
     let applied = 0;
 
@@ -126,7 +139,7 @@ class SyncytiumCrdt {
       if (maxOps !== null && applied >= maxOps) break;
       applied += 1;
       lastMs = Math.max(lastMs, op.timestampMs);
-      applyKind(state, op.kind);
+      applyKind(state, op.kind, op);
       updateCursor(state, op);
       updateInvariant(state, op);
     }
@@ -139,7 +152,7 @@ class SyncytiumCrdt {
       step: applied,
       timestampMs: lastMs,
       textContent: state.text,
-      sharedFields: state.fields,
+      sharedFields: { ...state.fields, ...typedCrdt.materialize(state.typedFields) },
       cursors: Object.values(state.cursors).sort((a, b) => a.agentId.localeCompare(b.agentId)),
       invariants: Object.values(state.invariants).sort((a, b) => a.name.localeCompare(b.name)),
       totalOps: applied,

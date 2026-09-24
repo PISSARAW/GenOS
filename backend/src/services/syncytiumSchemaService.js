@@ -7,6 +7,7 @@ const DATA_TYPES = new Set([
 const CONSISTENCY_ZONES = new Set([
   'EVENTUAL', 'CAUSAL', 'INVARIANT_PRESERVING', 'SERIALIZABLE', 'APPEND_ONLY', 'IMMUTABLE'
 ]);
+const crdtTypes = require('./syncytiumCrdtTypeRegistry');
 
 function compile(input) {
   if (input == null) return null;
@@ -53,9 +54,14 @@ function normalizeDefinition(path, definition = {}) {
     consistencyZone,
     authorityPolicy: definition.authorityPolicy || 'MEMBERS',
     invariantRefs: Array.isArray(definition.invariantRefs) ? [...definition.invariantRefs] : [],
+    allowedTransitions: normalizeTransitions(definition.allowedTransitions),
     visibility: definition.visibility || 'DOMAIN',
     replicationPolicy: definition.replicationPolicy || 'ALL_SUBSCRIBED'
   };
+}
+
+function normalizeTransitions(transitions) {
+  return Array.isArray(transitions) ? [...transitions] : [];
 }
 
 function defaultMerge(dataType) {
@@ -63,7 +69,11 @@ function defaultMerge(dataType) {
 }
 
 function admitOperation(schema, operation) {
-  if (operation?.kind?.type !== 'set_field') return { operation, warnings: [] };
+  if (operation?.kind?.type === 'typed_field') return admitTypedOperation(schema, operation);
+  return operation?.kind?.type === 'set_field' ? admitSetField(schema, operation) : { operation, warnings: [] };
+}
+
+function admitSetField(schema, operation) {
   if (!schema) return legacyOperation(operation);
   const key = String(operation.kind.key || '').trim();
   const field = schema.fields[key];
@@ -72,6 +82,21 @@ function admitOperation(schema, operation) {
     throw Object.assign(new Error(`Field '${key}' requires a ${field.dataType} operation.`), { code: 'SYNCYTIUM_TYPED_OPERATION_REQUIRED' });
   }
   return { operation: { ...operation, schemaVersion: schema.schemaVersion, fieldType: field.dataType }, warnings: [] };
+}
+
+function admitTypedOperation(schema, operation) {
+  if (!schema) throw Object.assign(new Error('Typed field operations require a shared state schema.'), { code: 'SYNCYTIUM_SCHEMA_REQUIRED' });
+  if (!operation.opId || typeof operation.opId !== 'string') throw Object.assign(new Error('Typed field operations require opId.'), { code: 'SYNCYTIUM_OP_ID_REQUIRED' });
+  const key = String(operation.kind.key || '').trim();
+  const field = schema.fields[key];
+  if (!field) throw Object.assign(new Error(`Field '${key}' is not declared by the shared state schema.`), { code: 'SYNCYTIUM_FIELD_UNDECLARED' });
+  if (!crdtTypes.supports(field.dataType, operation.kind.action)) {
+    throw Object.assign(new Error(`Action '${operation.kind.action}' is not supported for ${field.dataType}.`), { code: 'SYNCYTIUM_TYPED_OPERATION_INVALID' });
+  }
+  return {
+    operation: { ...operation, fieldType: field.dataType, fieldRules: { allowedTransitions: field.allowedTransitions } },
+    warnings: []
+  };
 }
 
 function legacyOperation(operation) {
