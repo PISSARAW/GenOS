@@ -371,7 +371,10 @@ const applyCodeChange = (sessionId, change, options = {}) => codeVariant.applyCh
 const recordCodeTestResult = (sessionId, result, options = {}) => codeVariant.recordTestResult(sessionId, result, options);
 const recordCodeBuildState = (sessionId, build, options = {}) => codeVariant.recordBuildState(sessionId, build, options);
 const codeSnapshot = (sessionId, options = {}) => codeVariant.snapshot(sessionId, options);
-const variantFacade = createVariantFacade({ createSession, applyOperation, applyTransaction, snapshot });
+const variantFacade = createVariantFacade({
+  createSession, applyOperation, applyTransaction, snapshot, createSnapshot, listSnapshots,
+  explain, localizeFaults, chooseRepairCandidates, repairInvariant
+});
 
 async function closeSession(sessionId, options = {}) {
   const existed = sessions.delete(sessionId);

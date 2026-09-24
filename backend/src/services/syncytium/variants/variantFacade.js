@@ -6,6 +6,7 @@ const { createEpistemicVariantService } = require('./epistemic/epistemicVariantS
 const { createBlackboardVariantService } = require('./blackboard/blackboardVariantService');
 const { createHierarchicalVariantService } = require('./hierarchical/hierarchicalVariantService');
 const { createHumanAiVariantService } = require('./humanAi/humanAiVariantService');
+const { createRoleServiceDirectory } = require('../runtime/roleServiceDirectory');
 
 function createVariantFacade(syncytium) {
   return {
@@ -14,7 +15,8 @@ function createVariantFacade(syncytium) {
     ...createEpistemicVariantService(syncytium),
     ...createBlackboardVariantService(syncytium),
     ...createHierarchicalVariantService(syncytium),
-    ...createHumanAiVariantService(syncytium)
+    ...createHumanAiVariantService(syncytium),
+    ...createRoleServiceDirectory(syncytium)
   };
 }
 
