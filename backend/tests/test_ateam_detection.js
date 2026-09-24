@@ -13,10 +13,11 @@ assert.equal(single.recommended, false, 'a single domain never recommends an A-T
 // Non-mathematical wording that merely says "résoudre" is not misclassified.
 assert.equal(aTeam.analyzeMission('Résoudre une récurrence de programmation dynamique.').recommended, false);
 
-// Overflow is surfaced instead of silently dropped.
+// Unstaffed needs are represented as capability gaps; legacy overflow stays empty.
 const rich = aTeam.analyzeMission('Développer le frontend React, le backend Express, la data SQL, la sécurité OAuth, les tests QA, les déploiements DevOps, un agent IA, le produit et la recherche scientifique.');
 assert.equal(rich.detectedDomains.length, aTeam.MAX_MEMBERS);
-assert.ok(rich.overflowDomains.length > 0);
-assert.equal(rich.totalDetected, aTeam.MAX_MEMBERS + rich.overflowDomains.length);
+assert.equal(rich.overflowDomains.length, 0);
+assert.equal(rich.capabilityGaps.length, rich.capabilityCoverage.uncovered.length);
+assert.ok(rich.totalDetected >= rich.detectedDomains.length);
 
-console.log('A-Team detects mathematics and surfaces overflow domains.');
+console.log('A-Team detects mathematics and surfaces capability gaps.');

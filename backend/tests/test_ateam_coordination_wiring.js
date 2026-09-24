@@ -19,7 +19,8 @@ assert.equal(handoffs.length, 3);
 assert.equal(handoffs[0].from, 'literary_creation');
 assert.equal(handoffs[0].to, 'dramaturgy');
 assert.equal(handoffs[0].signalType, 'ligand');
-assert.ok(handoffs[0].content.startsWith('handoff:'));
+assert.equal(handoffs[0].content, '');
+assert.ok(handoffs[0].signalBlob);
 
 const arbitration = coordination.arbitrateIntegration([
   { workerId: 'a', name: 'frontend', role: 'frontend_engineer', events: [{ evidenceReport: { outcome: 'success', coverage: 0.9, claims: [{ statement: 'Frontend compiled with full component coverage.', evidence: ['build'] }] } }] },

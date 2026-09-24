@@ -12,6 +12,7 @@ const topologyCapabilityService = require('./topologyCapabilityService');
 const toolLeasePolicy = require('./toolLeasePolicy');
 const signalingBus = require('./biomimeticSignalingBus');
 const arenaTaskEvaluation = require('./arenaTaskEvaluation');
+const { prepareTeamLifecycle } = require('./aTeam/lifecycle/teamLifecycleService');
 
 const DEFAULT_ORGANIZATION = 'specialist_expert_committee';
 
@@ -139,7 +140,16 @@ function coordinateMembers(members, options = {}) {
 
 function composeTeam(options = {}) {
   const members = aTeamService.compose(options);
-  return { members, ...coordinateMembers(members, options) };
+  const coordination = coordinateMembers(members, options);
+  const lifecycle = prepareTeamLifecycle({
+    goal: options.projectGoal,
+    successCriteria: options.successCriteria,
+    organization: coordination.organization,
+    members,
+    requiredCapabilities: members.flatMap((member) => member.capabilities.map((capability) => ({ capability }))),
+    availableSlots: options.available
+  });
+  return { members, ...coordination, ...lifecycle };
 }
 
 function arbitrateIntegration(dossiers, options = {}) {

@@ -16,6 +16,7 @@ const selfModel = require('./selfModelService');
 const autobiographicalRecall = require('./autobiographicalMemory/orchestratorRecall');
 const survivalState = require('./survivalStateService');
 const cognitivePhenotype = require('./cognitivePhenotypeService');
+const { prepareTeamLifecycle } = require('./aTeam/lifecycle/teamLifecycleService');
 
 function clampShare(value) {
   return Math.max(0, Math.min(1, value));
@@ -77,13 +78,30 @@ function missionText(normalizedMission) {
   return normalizedMission.prompt || normalizedMission.currentTask || '';
 }
 
-function attachAteamCoordination({ aTeam, agentId, emitEvent = emit }) {
+function attachAteamCoordination({ aTeam, agentId, normalizedMission, emitEvent = emit }) {
   try {
     const coordinated = aTeamCoordination.coordinateMembers(aTeam.members, { enforceCapabilities: false });
     aTeam.organization = coordinated.organization;
     aTeam.capabilityContract = coordinated.capabilityContract;
     aTeam.capabilityAudit = coordinated.capabilityAudit;
     aTeam.handoffs = coordinated.handoffs;
+    if (normalizedMission) {
+      const lifecycle = prepareTeamLifecycle({
+        goal: missionText(normalizedMission),
+        successCriteria: normalizedMission.successCriteria || normalizedMission.acceptanceCriteria,
+        organization: coordinated.organization,
+        members: aTeam.members,
+        requiredCapabilities: aTeam.requiredCapabilities || []
+      });
+      aTeam.prebrief = lifecycle.prebrief;
+      aTeam.teamContract = lifecycle.teamContract;
+      aTeam.readiness = lifecycle.readiness;
+      if (!lifecycle.readiness.ready) {
+        aTeam.activated = false;
+        aTeam.reason = `A-Team is not ready: ${lifecycle.readiness.blockers.join(', ')}.`;
+        emitEvent(agentId, 'A_TEAM_BLOCKED', 'TEAM_READINESS_GATE', aTeam.reason, lifecycle.readiness, 'warning');
+      }
+    }
     if (coordinated.capabilityAudit.missing.length) {
       aTeam.activated = false;
       aTeam.reason = `A-Team capabilities are unavailable: ${coordinated.capabilityAudit.missing.join(', ')}.`;
@@ -162,7 +180,7 @@ function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWor
     && autonomyPlan.aTeam.recommended
     && affordableAteamMembers >= aTeamWorkerCount;
   if (autonomyPlan.aTeam.activated) {
-    attachAteamCoordination({ aTeam: autonomyPlan.aTeam, agentId });
+    attachAteamCoordination({ aTeam: autonomyPlan.aTeam, agentId, normalizedMission });
   }
   if (autonomyPlan.aTeam.activated) {
     activateATeam({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount });

@@ -47,6 +47,17 @@ function readSubSystems(request) {
   return [];
 }
 
+function requestedSuccessCriteria(request) {
+  return request.success_criteria || request.successCriteria || request.acceptance_criteria || request.acceptanceCriteria;
+}
+
+function requireReadyTeam(readiness) {
+  if (readiness.ready) return;
+  throw Object.assign(new Error(`A-Team is not ready: ${readiness.blockers.join(', ')}.`), {
+    code: 'A_TEAM_NOT_READY', readiness
+  });
+}
+
 function emitImmediateCompletion({ runner, orchestratorId, planId }) {
   if (!runner) emit(orchestratorId, 'A_TEAM_STAGES_COMPLETED', 'SCHEDULE_STAGES', 'A-Team has no deferred stages.', { planId }, 'info');
 }
@@ -60,8 +71,10 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
     subSystems: readSubSystems(request),
     assignedRoles: request.assigned_roles || request.assignedRoles,
     modelTiers: request.model_tiers || request.modelTiers,
+    successCriteria: requestedSuccessCriteria(request),
     available: garage.available
   });
+  requireReadyTeam(team.readiness);
   const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: team.members });
   // Independent producers start now; the detached runner waits for them before
   // launching the consumer stages.
@@ -76,6 +89,9 @@ async function dispatchTeam({ db, context, parent, launchWorker }) {
       projectGoal,
       capacity: workerGarage.MAX_ACTIVE_WORKERS,
       organization: team.organization,
+      teamContractVersion: team.teamContract.version,
+      teamContractHash: team.teamContract.contractHash,
+      readiness: team.readiness,
       capabilityContract: team.capabilityContract,
       capabilityAudit: team.capabilityAudit,
       planId: plan.planId,
