@@ -9,7 +9,7 @@ Cette spécification définit le format **héréditaire binaire** `AgentDNA` v1 
 - Interopérable Node ↔ Rust via MessagePack et un encodage 2 bits explicite.
 - Lié à l'[ADR 0001](../docs/adr/0001-agent-dna-binary-format.md) (décision) et à [GENOME_SPEC.md](GENOME_SPEC.md) (manifeste portable `AgentGenome`, distinct et non héréditaire).
 
-Statut d'implémentation : spécification terminée. Le format binaire AgentDNA v1 est décrit de bout en bout (magic `GDNA`, en-tête 32 octets, table de sections, encodage 2-bit, canonicalisation SHA-256, signature Ed25519, leurres, spéciation, graft). Le CLI actuel lit encore un `Genome` JSON nu dans `<matrix_root>/chromatin/<agent_id>.json` ; la migration vers le conteneur `.dna` est décrite en §12. La forme autopoïétique du génome (portable, signé, binaire, generational) est spécifiée mais n'est pas encore le format de production — les agents vivent encore en JSON legacy.
+Statut d'implémentation : spécification terminée et format binaire AgentDNA v1 en production via `genos genome compile` (`crates/genos-dna/src/compile.rs`, `crates/genos-cli/src/commands/genome.rs`, magic `GDNA`, en-tête 32 octets, table de sections, encodage 2-bit, canonicalisation SHA-256, signature Ed25519, leurres, spéciation, graft — couvert par `crates/genos-dna/src/tests.rs`). Les commandes `genome compile/validate/inspect/sign/cross/mutate/clone/decoy/graft/speciate` lisent et écrivent du `.dna` (MessagePack, jamais JSON en sortie). Le JSON legacy reste lisible en compatibilité (détection `≠ GDNA` → lecture `Genome`, § Migration) et certains chemins historiques (`<matrix_root>/chromatin/<agent_id>.json` pour la reproduction/division et l'état chromatine) subsistent le temps de la transition.
 
 ## Non-objectifs
 

@@ -128,6 +128,13 @@ Exemples :
 
 ### Phase 2 — Vrais agents GenOS
 
+> Note d'implémentation (D2/D23) : la proposition initiale de 5 fichiers ci-dessous
+> est supersédée par la décision Phases 22-23 + § Alternatives 2 (rejet des daemons
+> spécialisés permanents) et l'état D23 single-archetype. Seul
+> `agents/daemons/resident_daemon.agent.json` existe ; cartographie, investigation,
+> vérification et réconciliation sont des organelles du résident, avec phénotypes
+> écologiques émergents sous pression mesurée (pas de processus/classe séparés).
+
 ```text
 agents/daemons/
     resident_daemon.agent.json
@@ -338,7 +345,9 @@ Réutiliser existant : `agents`, `telemetry_events`, `provenance_records`, `sign
 
 `backend/bin/genos-daemon.cjs` → parse flags, bootstrap DB, load configured resident daemons, start `ResidentDaemonRuntime`, install signal subscriptions, fallback timers, graceful shutdown.
 
-Architecture services proposée :
+Architecture services proposée (dont `daemonRegistryService.js` /
+`daemonLifecycleService.js`, non retenus en v1 — voir écart D2 : fonctions
+portées par `residentDaemonRuntime.js`) :
 ```
 backend/src/services/daemon/
 ├── residentDaemonRuntime.js

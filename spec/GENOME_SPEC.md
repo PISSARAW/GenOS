@@ -23,9 +23,20 @@ The following are implementation concerns and are not part of portability guaran
 
 ## Required Genome Sections
 
+Normatif : `spec/genome.schema.json` fait foi. Champs requis :
+
+- apiVersion
+- kind (`AgentGenome`)
 - metadata
 - identity
 - cognition
+- memory
+- models
+- tools
+
+Sections optionnelles (portables, préservées, utilisées par les agents en production
+comme `agents/daemons/resident_daemon.agent.json`) :
+
 - objectives
 - policies
 - capabilities
@@ -37,12 +48,14 @@ The following are implementation concerns and are not part of portability guaran
 
 Portable formats:
 
-- YAML
-- JSON
+- JSON (seul format supporté par le runtime : fichiers `.agent.json`)
 
 Schema source:
 
 - spec/genome.schema.json
+
+Note : YAML n'est pas supporté par le runtime actuel ; toute mention historique
+de YAML doit être lue comme JSON.
 
 ## Compatibility
 
