@@ -59,6 +59,9 @@ régional. L'état ne doit pas être enfermé dans un unique document JSON mutab
    dème receveur par un adaptateur enregistré selon le type. Une assimilation
    n'est acceptée qu'avec un reçu de provenance ; l'adaptateur reçoit l'identité
    de migration comme clé d'idempotence.
+10. Séparer la sélection des propagules de leur émission. Les stratégies
+    produisent un plan push ou une réponse à une requête pull ciblée ; chaque
+    offre suit ensuite la capacité du corridor et la validation receveur.
 
 ## Conséquences
 

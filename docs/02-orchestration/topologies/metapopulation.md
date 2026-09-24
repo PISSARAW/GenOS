@@ -1544,7 +1544,7 @@ Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre 
 | **PR3 — livré** | Isolation et liveness | Capsules workspace par dème, frontières d'écriture via l'API, état/mémoire/budget locaux ; heartbeats append-only, santé et quarantaine sur violation. |
 | **PR4 — livré** | Graphe et corridors | Graphe dirigé persistant, qualité/capacité dérivées des patches et politiques ring, stepping-stone, star, small-world, fully-connected, source-sink, hierarchical et adaptive. |
 | **PR5 — livré** | Propagules et quarantaine receveur | Types et provenance persistés, quarantaine du receveur, validation/assimilation par adaptateurs enregistrés, rejet tracé et reçu d'assimilation. |
-| **PR6** | Politiques de migration | Sélection elite, novelty, rescue, complementary, counterexample, cultural et founder ; push/pull et requêtes ciblées. |
+| **PR6 — livré** | Politiques de migration | Sélection elite, novelty, rescue, complementary, counterexample, cultural et founder ; plan push par receveur et requêtes pull ciblées. |
 | **PR7** | Déclencheurs adaptatifs | Déclencher la migration selon stagnation, amélioration, génération, coût, risque de synchronisation et budget. |
 | **PR8** | Source/sink et contribution régionale | Détecter les populations sources et sinks, mesurer la couverture unique et protéger les dèmes régionaux utiles malgré une fitness locale faible. |
 | **PR9** | Rescue effect | Secours depuis une source compatible, essai borné, mesure du bénéfice et rollback si le dème receveur régresse. |

@@ -60,5 +60,11 @@ Seul un adaptateur enregistré pour le type concerné peut valider localement
 le payload puis l'assimiler. Un rejet de validation est journalisé ; une
 assimilation acceptée exige un reçu avec provenance. Les adaptateurs reçoivent
 l'identifiant de migration comme clé d'idempotence afin qu'une reprise après
-erreur ne duplique pas leurs effets. Les politiques de sélection et déclencheurs
-de migration arrivent dans les lots suivants.
+erreur ne duplique pas leurs effets. Les déclencheurs adaptatifs arrivent dans
+les lots suivants.
+
+Le PR6 fournit les stratégies `elite`, `novelty`, `rescue`, `complementary`,
+`counterexample`, `cultural` et `founder`. Le plan push répartit les candidats
+par dème receveur ; une requête pull peut cibler une source, des types, des
+seuils de preuve ou des lignées exclues. Ces fonctions planifient la sélection ;
+les offres restent soumises à la capacité du corridor et à la quarantaine PR5.
