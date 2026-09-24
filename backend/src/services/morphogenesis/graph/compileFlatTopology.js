@@ -4,7 +4,7 @@ const { createMorphologyGraph } = require('./morphologyGraph');
 const { createRhizomeBranch } = require('../rhizomeBranchAdapter');
 
 function compileFlatTopology(input = {}) {
-  const { selectedTopology = 'single_agent', graphId, missionId, version = 1, status = 'proposed', budget = {}, globalInvariants = [], variant = null, mission = null, scope = 'mission', workers = [] } = input;
+  const { selectedTopology = 'single_agent', organization = null, graphId, missionId, version = 1, status = 'proposed', budget = {}, globalInvariants = [], variant = null, mission = null, scope = 'mission', workers = [] } = input;
   const topology = selectedTopology ?? 'single_agent';
   const graph = createMorphologyGraph({
     graphId,
@@ -16,6 +16,7 @@ function compileFlatTopology(input = {}) {
     rootNode: {
       kind: topology === 'single_agent' ? 'DIRECT_WORKER' : 'TOPOLOGY',
       topology,
+      organization,
       variant,
       mission,
       scope,

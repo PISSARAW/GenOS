@@ -15,6 +15,7 @@ function createMorphologyNode(input = {}) {
     nodeId: valueOr(input.nodeId, randomUUID()),
     kind: valueOr(input.kind, input.topology ? 'TOPOLOGY' : 'PRIMITIVE'),
     topology: valueOr(input.topology, null),
+    organization: valueOr(input.organization, null),
     variant: valueOr(input.variant, null),
     scope: valueOr(input.scope, null),
     mission: valueOr(input.mission, null),

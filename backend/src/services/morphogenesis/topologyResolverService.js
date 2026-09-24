@@ -2,9 +2,9 @@
 
 const { capabilitiesForMode, capabilitiesForOrganization } = require('../topologyCapabilityService');
 
+const { DEFINITIONS } = require('./registry/topologyRegistry');
+
 const TOPOLOGIES = Object.freeze({
-  specialist_expert_committee: { independence: 0.5, diversity: 0.3, coordination_overhead: 0.4, communication_overhead: 0.5, latency: 0.4, risk: 0.3, state_preservation: 0.8, token_cost: 0.3, daemon_support: 0.5 },
-  red_blue_coevolution: { independence: 0.9, diversity: 0.8, coordination_overhead: 0.7, communication_overhead: 0.8, latency: 0.5, risk: 0.7, state_preservation: 0.5, token_cost: 0.7, daemon_support: 0.6 },
   trinity: { independence: 0.95, diversity: 0.7, coordination_overhead: 0.6, communication_overhead: 0.6, latency: 0.4, risk: 0.4, state_preservation: 0.7, token_cost: 0.5, daemon_support: 0.7 },
   a_team: { independence: 0.5, diversity: 0.4, coordination_overhead: 0.5, communication_overhead: 0.5, latency: 0.3, risk: 0.3, state_preservation: 0.7, token_cost: 0.4, daemon_support: 0.5 },
   syncytium: { independence: 0.2, diversity: 0.2, coordination_overhead: 0.2, communication_overhead: 0.9, latency: 0.8, risk: 0.3, state_preservation: 0.95, token_cost: 0.8, daemon_support: 0.8 },
@@ -15,7 +15,7 @@ const TOPOLOGIES = Object.freeze({
   metapopulation: { independence: 0.7, diversity: 0.6, coordination_overhead: 0.4, communication_overhead: 0.4, latency: 0.3, risk: 0.3, state_preservation: 0.8, token_cost: 0.4, daemon_support: 0.6 }
 });
 
-const ALL_IDS = Object.freeze(Object.keys(TOPOLOGIES));
+const ALL_IDS = Object.freeze(Object.keys(DEFINITIONS));
 
 const WEIGHTS = Object.freeze({
   problem_fit: 0.20, capability_fit: 0.15, communication_fit: 0.10, epistemic_independence: 0.10,
@@ -34,8 +34,8 @@ function all(conditions) {
 const RULES = Object.freeze([
   { id: 'trinity', test: p => all([(p.hypotheses_count || 0) >= 3, (p.uncertainty || 0) > 0.6]), bonus: 0.3, reason: 'Multiple hypotheses with high uncertainty' },
   { id: 'trinity', test: p => (p.needed_independence || 0) > 0.7, bonus: 0.2, reason: 'High independence needed' },
-  { id: 'red_blue_coevolution', test: p => (p.adversarial_risk || 0) > 0.5, bonus: 0.3, reason: 'Adversarial risk detected' },
-  { id: 'red_blue_coevolution', test: p => p.domain === 'security', bonus: 0.2, reason: 'Security domain' },
+  { id: 'biocenose', test: p => (p.adversarial_risk || 0) > 0.5, bonus: 0.3, reason: 'Adversarial risk detected' },
+  { id: 'biocenose', test: p => p.domain === 'security', bonus: 0.2, reason: 'Security domain' },
   { id: 'syncytium', test: p => (p.shared_state_importance || 0) > 0.6, bonus: 0.25, reason: 'Shared state critical' },
   { id: 'syncytium', test: p => all([(p.trust_level || 0) > 0.7, (p.common_ground || 0) > 0.6]), bonus: 0.2, reason: 'High trust and common ground' },
   { id: 'rhizome', test: p => (p.exploration_need || 0) > 0.6, bonus: 0.3, reason: 'Exploration needed' },
@@ -44,16 +44,15 @@ const RULES = Object.freeze([
   { id: 'metapopulation', test: p => all([(p.uncertainty || 0) > 0.5, (p.needed_independence || 0) > 0.4]), bonus: 0.15, reason: 'Moderate uncertainty with independence' },
   { id: 'biocenose', test: p => (p.needed_diversity || 0) > 0.6, bonus: 0.2, reason: 'Diversity needed' },
   { id: 'holobionte', test: p => all([(p.shared_state_importance || 0) > 0.5, (p.trust_level || 0) > 0.5]), bonus: 0.2, reason: 'Shared state with trust' },
-  { id: 'specialist_expert_committee', test: p => (p.uncertainty || 0) < 0.3, bonus: 0.2, reason: 'Low uncertainty, well-defined' },
+  { id: 'a_team', test: p => (p.uncertainty || 0) < 0.3, bonus: 0.2, reason: 'Low uncertainty, well-defined' },
   { id: 'a_team', test: p => p.domain, bonus: 0.1, reason: 'Domain-specific problem' }
 ]);
 
 const TRANSITION_PENALTIES = Object.freeze({
   'trinity->syncytium': 0.8, 'syncytium->trinity': 0.7,
   'trinity->rhizome': 0.5, 'rhizome->trinity': 0.5,
-  'red_blue_coevolution->syncytium': 0.7, 'syncytium->red_blue_coevolution': 0.6,
   'biome->rhizome': 0.3, 'rhizome->biome': 0.3,
-  'specialist_expert_committee->a_team': 0.2, 'a_team->specialist_expert_committee': 0.2,
+  'biocenose->a_team': 0.2, 'a_team->biocenose': 0.2,
   'biocenose->metapopulation': 0.4, 'metapopulation->biocenose': 0.4,
   'holobionte->syncytium': 0.5, 'syncytium->holobionte': 0.5
 });

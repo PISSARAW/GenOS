@@ -10,6 +10,9 @@ const { extendPlan } = require('./morphogenesisPlanExtensions');
 const controlLoop = require('./cognitiveControlLoopService');
 const { compileFlatTopology } = require('./graph/compileFlatTopology');
 const biocenoseMorphogenesisAdapter = require('../biocenose/integration/biocenoseMorphogenesisAdapter');
+const topologyResolver = require('./topologyResolverService');
+const { selectMinimumMorphology } = require('./synthesis/minimalMorphologyPolicy');
+const { TOPOLOGY_IDS, classifyMorphologyLabel, isTopology } = require('./morphogenesisOntology');
 
 function contractForTopology(topology) {
   return contractFor({ mode: topology, organization: topology });
@@ -24,24 +27,63 @@ function candidateFor(topology, contracts, cost) {
   base.risk = 0.2;
   base.exploratory = topology === 'rhizome';
   base.evidenceOriented = topology === 'trinity';
-  base.stabilizing = topology === 'specialist_expert_committee';
+  base.stabilizing = topology === 'biocenose';
   return base;
 }
 
-function selectTopology(ctx, contracts, cost) {
-  const expression = ctx.expression;
-  if (!expression) return { topology: ctx.proposedTopology, receipt: null };
-  const current = (ctx.currentState && ctx.currentState.topology) || 'team';
-  const proposed = ctx.proposedTopology || 'specialist_expert_committee';
-  const set = [current, proposed, 'trinity'].filter((v, i, a) => a.indexOf(v) === i);
-  const candidates = set.map((topo) => candidateFor(topo, contracts, cost));
-  try {
-    const decision = controlLoop.decideMorphology({ expression, candidates });
-    if (decision && decision.chosen) return { topology: decision.chosen.topology, receipt: decision.receipt };
-  } catch (_) {
-    return { topology: proposed, receipt: null };
+function selectTopology(ctx, candidates) {
+  const labels = classifyMorphologyLabel(ctx.proposedTopology);
+  const organization = ctx.proposedOrganization || (labels.kind === 'organization' ? labels.id : null);
+  const minimum = Array.isArray(ctx.minimumMorphologyCandidates)
+    ? selectMinimumMorphology(ctx.minimumMorphologyCandidates, ctx.morphologyDemand || {}) : null;
+  const minimumTopology = minimum && minimum.valid && minimum.selected.level === 'simple_topology'
+    ? minimum.selected.candidate.topology || minimum.selected.candidate.id : null;
+  const requested = minimumTopology || (isTopology(ctx.proposedTopology) ? ctx.proposedTopology : null);
+  if (requested && ctx.forceMorphologySelection !== true && !ctx.problemProfile && !ctx.expression) {
+    return { candidate: findCandidate(candidates, requested), receipt: null, organization, minimum };
   }
-  return { topology: proposed, receipt: null };
+  const resolution = topologyResolver.resolveTopology(resolverContext(ctx));
+  const expression = ctx.expression;
+  if (expression) return selectWithCognitiveLoop({ candidates, expression, organization, minimum, resolution });
+  const fallback = isTopology(ctx.currentState?.topology) ? ctx.currentState.topology : 'a_team';
+  return { candidate: findCandidate(candidates, resolution?.topology || fallback), receipt: resolution, organization, minimum };
+}
+
+function findCandidate(candidates, topology) {
+  return candidates.find((candidate) => candidate.topology === topology) || candidates[0];
+}
+
+function selectWithCognitiveLoop(input) {
+  const options = input.candidates.map((candidate) => candidateFor(candidate.topology, candidate.contracts, candidate.plan.expectedCost));
+  try {
+    const decision = controlLoop.decideMorphology({ expression: input.expression, candidates: options });
+    if (decision?.scored) {
+      const candidate = selectCombinedCandidate(input.candidates, decision.scored, input.resolution?.rankings || []);
+      return { candidate, receipt: { cognitive: decision.receipt, topology: input.resolution }, organization: input.organization, minimum: input.minimum };
+    }
+  } catch (_) { /* Resolver supplies the deterministic fallback. */ }
+  return { candidate: findCandidate(input.candidates, input.resolution?.topology), receipt: input.resolution, organization: input.organization, minimum: input.minimum };
+}
+
+function selectCombinedCandidate(candidates, cognitiveScores, topologyRanks) {
+  const total = Math.max(candidates.length - 1, 1);
+  const cognitiveRank = new Map(cognitiveScores.map((entry, index) => [entry.candidate.topology, index]));
+  const topologyRank = new Map(topologyRanks.map((entry, index) => [entry.topology, index]));
+  return candidates.slice().sort((left, right) => {
+    const leftScore = 2 - (cognitiveRank.get(left.topology) || 0) / total - (topologyRank.get(left.topology) || 0) / total;
+    const rightScore = 2 - (cognitiveRank.get(right.topology) || 0) / total - (topologyRank.get(right.topology) || 0) / total;
+    return rightScore - leftScore;
+  })[0];
+}
+
+function resolverContext(ctx) {
+  return {
+    problemProfile: ctx.problemProfile || ctx.expression?.problemProfile || {},
+    currentState: ctx.currentState,
+    relations: ctx.relations,
+    history: ctx.morphologyHistory,
+    availableCapabilities: availableCapsOf(ctx.currentState)
+  };
 }
 
 function phenotypeFitnessForTopology(phenotypeId, contract) {
@@ -239,31 +281,69 @@ function planMorphogenesis(ctx) {
   return plan;
 }
 
-function buildMorphogenesisPlan(ctx) {
-  const contracts = buildContracts(ctx);
-  const components = buildPlanComponents(ctx, contracts);
-  const targetAgents = components.preserve.concat(components.rebind).map((a) => ({ id: a.agentId, capabilities: (getPhenotype(a.phenotype) || {}).capabilities || [] }));
+function compileTopologyCandidate(ctx, topology) {
+  const candidateCtx = { ...ctx, proposedTopology: topology };
+  const contracts = buildContracts(candidateCtx);
+  const components = buildPlanComponents(candidateCtx, contracts);
+  const targetAgents = components.preserve.concat(components.rebind).map((agent) => ({
+    id: agent.agentId,
+    capabilities: (getPhenotype(agent.phenotype) || {}).capabilities || []
+  }));
   const plan = assemblePlan(components);
-  plan.genotypeActions = planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db });
-  plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
-  plan.plasmidActions = planPlasmidActions({ requiredCapabilities: contracts.pc.required || [], availablePlasmids: ctx.availablePlasmids || [], targetAgents });
-  Object.assign(plan, buildIdentityExtensions({ expression: ctx.expression || {}, problem: ctx.problem, event: ctx.event, checkpoint: ctx.checkpoint, ancestral: ctx.ancestral }));
-  plan.rollbackPlan = generateRollbackPlan(plan);
-  const selection = selectTopology(ctx, contracts, plan.expectedCost);
-  plan.selectedTopology = selection.topology;
   const graph = compileFlatTopology({
-    selectedTopology: selection.topology,
+    selectedTopology: topology,
+    organization: ctx.proposedOrganization || (classifyMorphologyLabel(ctx.proposedTopology).kind === 'organization' ? ctx.proposedTopology : null),
     missionId: ctx.missionId || ctx.problemId,
     mission: ctx.problem || ctx.mission,
     budget: ctx.budget,
     workers: targetAgents,
     rhizomeBranch: ctx.rhizomeBranch === true
   });
+  return { topology, contracts, components, targetAgents, plan, graph };
+}
+
+function buildTopologyCandidates(ctx) {
+  const allCandidatesNeeded = ctx.forceMorphologySelection === true || ctx.problemProfile || ctx.expression;
+  const minimumTopology = minimumTopologyFrom(ctx);
+  const requested = minimumTopology || (isTopology(ctx.proposedTopology) ? ctx.proposedTopology : 'a_team');
+  const ids = allCandidatesNeeded ? TOPOLOGY_IDS : [requested];
+  return ids.map((topology) => compileTopologyCandidate(ctx, topology));
+}
+
+function minimumTopologyFrom(ctx) {
+  if (!Array.isArray(ctx.minimumMorphologyCandidates)) return null;
+  const decision = selectMinimumMorphology(ctx.minimumMorphologyCandidates, ctx.morphologyDemand || {});
+  if (!decision.valid || decision.selected.level !== 'simple_topology') return null;
+  const candidate = decision.selected.candidate;
+  const topology = candidate.topology || candidate.id;
+  return isTopology(topology) ? topology : null;
+}
+
+function buildMorphogenesisPlan(ctx) {
+  const candidates = buildTopologyCandidates(ctx);
+  const selection = selectTopology(ctx, candidates);
+  const chosen = selection.candidate;
+  const { contracts, components, targetAgents, graph } = chosen;
+  const plan = chosen.plan;
+  plan.genotypeActions = planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db });
+  plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
+  plan.plasmidActions = planPlasmidActions({ requiredCapabilities: contracts.pc.required || [], availablePlasmids: ctx.availablePlasmids || [], targetAgents });
+  Object.assign(plan, buildIdentityExtensions({ expression: ctx.expression || {}, problem: ctx.problem, event: ctx.event, checkpoint: ctx.checkpoint, ancestral: ctx.ancestral }));
+  plan.rollbackPlan = generateRollbackPlan(plan);
+  plan.selectedTopology = chosen.topology;
+  plan.selectedOrganization = selection.organization;
+  plan.minimumMorphologyDecision = selection.minimum;
+  plan.candidateMorphologies = candidates.map((candidate) => ({
+    topology: candidate.topology,
+    missingCapabilities: candidate.contracts.missing,
+    spawnCount: candidate.components.spawn.length,
+    expectedCost: candidate.plan.expectedCost
+  }));
   plan.morphologyGraphRef = { graphId: graph.graphId, version: graph.version };
   plan.morphologyPatch = { operation: 'replace_root', graph };
   plan.controlReceipt = selection.receipt;
   const utilityCtx = {
-    morphology: { requiredCapabilities: contracts.pc.required || [], topology: ctx.proposedTopology || 'specialist_expert_committee', tokenCost: plan.expectedCost ? plan.expectedCost.tokens : 0, latency: plan.expectedCost ? plan.expectedCost.latency : 0, transitionCost: plan.expectedCost ? plan.expectedCost.risk : 0, coordinationCost: 0, risk: plan.expectedCost ? plan.expectedCost.risk : 0 },
+    morphology: { requiredCapabilities: contracts.pc.required || [], topology: chosen.topology, tokenCost: plan.expectedCost ? plan.expectedCost.tokens : 0, latency: plan.expectedCost ? plan.expectedCost.latency : 0, transitionCost: plan.expectedCost ? plan.expectedCost.risk : 0, coordinationCost: 0, risk: plan.expectedCost ? plan.expectedCost.risk : 0 },
     epistemicState: ctx.epistemicState,
     memoryContext: ctx.memoryContext,
     regulatoryState: ctx.regulatoryState,
