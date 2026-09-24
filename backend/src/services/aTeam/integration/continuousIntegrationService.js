@@ -3,6 +3,7 @@
 const { observeAteamIntegration } = require('../../aTeamIntegrationObserver');
 const { evaluateQualityGate } = require('../../aTeamQualityGateService');
 const { validateWorkGraph } = require('../workGraph/graphValidation');
+const { planRepair } = require('../adaptation/teamRepairService');
 
 function graphHealth(graph) {
   if (!graph) return { available: false, valid: null, errors: [] };
@@ -46,6 +47,13 @@ function runContinuousIntegration(input = {}) {
   const health = graphHealth(aTeam.workGraph);
   const failures = [...(Array.isArray(input.failures) ? input.failures : []), ...integrationFailures(observation, health), ...capabilityFailures(aTeam)];
   const contracts = unresolvedContracts(aTeam, observation);
+  const repairPlan = planRepair({
+    gaps: aTeam.capabilityGaps || aTeam.capabilityCoverage?.uncovered?.map((capability) => ({ capability })) || [],
+    members: aTeam.members,
+    candidates: aTeam.recruitmentCandidates,
+    budget: aTeam.repairBudget,
+    availableSlots: aTeam.availableSlots
+  });
   const warnings = health.available ? [] : ['WorkGraph health was not supplied.'];
   return {
     readyToIntegrate: failures.length === 0 && contracts.length === 0,
@@ -54,6 +62,7 @@ function runContinuousIntegration(input = {}) {
     integrationGraphHealth: health,
     uncoveredCapabilities: aTeam.capabilityCoverage?.uncovered || [],
     unresolvedContracts: contracts,
+    repairPlan,
     observation
   };
 }
