@@ -1604,5 +1604,7 @@ d'enregistrer le cycle comme vérifié.
 
 L'appelant fournit encore les candidats, les signaux et le contexte local du
 receveur. Une erreur pendant la revue laisse la migration en quarantaine pour
-reprise idempotente. Les essais rescue avec fitness avant/après, l'extinction
-et la recolonisation ne sont pas encore automatisés par cette boucle.
+reprise idempotente. Le rescue est piloté avec mesures de fitness avant/après
+et rollback lorsqu'une capacité unique protégée régresse ; il requiert un
+adaptateur receveur dédié et garde un nombre d'essais borné. L'extinction et la
+recolonisation ne sont pas encore automatisées par cette boucle.

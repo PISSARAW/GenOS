@@ -100,7 +100,12 @@ L'acceptation exige un reçu avec provenance ; les deux issues terminales sont
 relues en base avant validation du cycle. Une erreur de revue laisse le
 propagule en quarantaine pour reprise idempotente.
 
-Les essais rescue avec fitness avant/après, les décisions d'extinction et les
-recolonisations ne sont pas encore pilotés automatiquement par cette boucle.
+Un rescue explicite réutilise la mesure de fitness avant/après et le rollback
+déjà vérifié. Il est permis seulement pour un dème en risque protégé par une
+capacité régionale unique, avec un adaptateur receveur fournissant mesure et
+annulation ; le nombre d'essais reste plafonné. Une régression déclenche le
+rollback idempotent, la pénalité du corridor, une seconde mesure de fitness et
+la persistance du résultat. Les décisions d'extinction et les recolonisations
+ne sont pas encore pilotées automatiquement par cette boucle.
 Le benchmark actuel mesure les métriques régionales ; il ne constitue pas
 encore une comparaison scientifique à budget égal.

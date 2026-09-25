@@ -7,6 +7,7 @@ const { planAntiSynchrony } = require('../observability/antiSynchronyService');
 const { evaluateRegionalUtility } = require('../observability/regionalUtilityService');
 const { transitionDeme } = require('../demes/demeLifecycleService');
 const corridorStore = require('../migration/corridorStore');
+const migrationStore = require('../migration/migrationStore');
 const regionalMigrationLoop = require('./regionalMigrationLoopService');
 const { runRegionalRuntime } = require('./regionalRuntimeService');
 
@@ -28,16 +29,17 @@ async function observeRegion(input, options) {
   requireDb(options);
   const session = await metapopulationStore.loadSession(options.db, input.metapopulationId);
   if (!session) throw brainError('METAPOPULATION_SESSION_UNKNOWN', 'Unknown metapopulation session.');
-  const [liveness, corridors, errorVectors] = await Promise.all([
+  const [liveness, corridors, errorVectors, rescueAttempts] = await Promise.all([
     inspectRegion(input.metapopulationId, { ...options, now: input.now }),
-    corridorStore.listGraph(options.db, input.metapopulationId), readErrorVectors(options.db, input.metapopulationId, session.demes)
+    corridorStore.listGraph(options.db, input.metapopulationId), readErrorVectors(options.db, input.metapopulationId, session.demes),
+    migrationStore.countRescueAttemptsByDeme(options.db, input.metapopulationId)
   ]);
   const demes = enrichDemes(session);
   const contribution = analyzeContribution(demes, corridors, input.contributionOptions || {});
   const synchrony = planAntiSynchrony({ demes, observations: errorVectors, threshold: input.synchronyThreshold });
   const utility = evaluateRegionalUtility({ demes, corridors, migrations: input.migrationCandidates || [] });
   return { metapopulationId: input.metapopulationId, revision: session.revision, status: session.status,
-    demes, patches: session.patches, corridors, liveness, contribution, synchrony, utility };
+    demes, patches: session.patches, corridors, liveness, contribution, synchrony, utility, rescueAttempts };
 }
 
 function diagnoseRegion(observed, input = {}) {

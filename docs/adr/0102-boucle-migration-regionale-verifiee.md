@@ -28,20 +28,21 @@ Le cerveau régional diagnostiquait les besoins et les stratégies sélectionnai
 4. Vérifier qu'un adaptateur receveur est enregistré, puis lui déléguer validation et assimilation sans contourner la quarantaine.
 5. Vérifier en persistance l'issue terminale `ACCEPTED` ou `REJECTED` avant d'enregistrer le cycle comme réussi.
 6. En cas d'erreur d'adaptateur, conserver la migration en quarantaine avec sa clé idempotente pour permettre une reprise sûre.
+7. Pour un rescue d'un dème à capacité unique protégé, exiger de l'adaptateur des mesures de fitness avant/après et un rollback. En cas de régression, annuler l'assimilation, appliquer la pénalité du corridor, vérifier la fitness restaurée et persister l'issue avec son reçu.
 
 ## Conséquences
 
 ### Positives
 
 - La boucle relie trigger, sélection, utilité, corridor, quarantaine, décision du receveur et preuve d'issue.
-- Les tests couvrent l'acceptation avec reçu, le rejet, l'absence d'offre sans trigger et le blocage d'une migration défavorable.
+- Les tests couvrent l'acceptation avec reçu, le rejet, l'absence d'offre sans trigger, le blocage d'une migration défavorable et le rollback d'un rescue qui régresse.
 - Le débit demeure borné à un propagule par cycle et la capacité du corridor reste appliquée par la persistance.
 
 ### Négatives
 
 - L'appelant fournit encore les signaux, candidats et contexte local du receveur.
 - Une erreur de revue laisse un élément en quarantaine qui demande une reprise explicite.
-- Les métriques avant/après nécessaires au rollback rescue ne sont pas encore exécutées dans cette boucle.
+- Les rescues exigent un adaptateur de mesure et d'annulation ; sans lui, l'action est bloquée.
 
 ## Alternatives
 

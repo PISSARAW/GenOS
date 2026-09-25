@@ -49,6 +49,17 @@ async function countRescueAttempts(db, metapopulationId, targetDemeId) {
   return rows.filter((row) => parseJson(row.evidence_json).migrationReason === 'rescue').length;
 }
 
+async function countRescueAttemptsByDeme(db, metapopulationId) {
+  await migrateMetapopulation(db);
+  const rows = await db.all('SELECT target_deme_id, evidence_json FROM metapopulation_migrations WHERE metapopulation_id = ?', metapopulationId);
+  return rows.reduce((counts, row) => {
+    if (parseJson(row.evidence_json).migrationReason === 'rescue') {
+      counts[row.target_deme_id] = (counts[row.target_deme_id] || 0) + 1;
+    }
+    return counts;
+  }, {});
+}
+
 async function resolveMigration(db, metapopulationId, decision) {
   await migrateMetapopulation(db);
   const { migrationId } = decision;
@@ -83,6 +94,23 @@ async function rollbackAcceptedMigration(db, metapopulationId, input) {
   return toMigration(await readMigrationRow(db, metapopulationId, input.migrationId));
 }
 
+async function recordRescueOutcome(db, metapopulationId, input) {
+  await migrateMetapopulation(db);
+  await withTransaction(db, async () => {
+    const row = await db.get('SELECT * FROM metapopulation_migrations WHERE metapopulation_id = ? AND migration_id = ?', metapopulationId, input.migrationId);
+    if (!row || !['ACCEPTED', 'ROLLED_BACK'].includes(row.status) || parseJson(row.evidence_json).migrationReason !== 'rescue') {
+      throw storeError('METAPOPULATION_RESCUE_OUTCOME_INVALID', 'A resolved rescue migration is required.');
+    }
+    const evidence = { ...parseJson(row.evidence_json), rescueOutcome: input.outcome };
+    await db.run('UPDATE metapopulation_migrations SET evidence_json = ? WHERE migration_id = ?', JSON.stringify(evidence), input.migrationId);
+    await appendEvent(db, metapopulationId, { type: 'RESCUE_OUTCOME_RECORDED', payload: {
+      migrationId: input.migrationId, targetDemeId: row.target_deme_id, rollback: input.outcome.rollback,
+      benefit: input.outcome.benefit
+    } });
+  });
+  return toMigration(await readMigrationRow(db, metapopulationId, input.migrationId));
+}
+
 async function readMigrationRow(db, metapopulationId, migrationId) {
   return db.get('SELECT * FROM metapopulation_migrations WHERE metapopulation_id = ? AND migration_id = ?', metapopulationId, migrationId);
 }
@@ -110,4 +138,5 @@ function toMigration(row) {
 function parseJson(value) { try { return JSON.parse(value || '{}'); } catch (_) { return {}; } }
 function storeError(code, message) { return Object.assign(new Error(message), { code }); }
 
-module.exports = { offerMigration, getMigration, listQuarantine, countRescueAttempts, resolveMigration, rollbackAcceptedMigration };
+module.exports = { offerMigration, getMigration, listQuarantine, countRescueAttempts, resolveMigration,
+  countRescueAttemptsByDeme, rollbackAcceptedMigration, recordRescueOutcome };

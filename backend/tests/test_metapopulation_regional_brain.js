@@ -54,6 +54,7 @@ async function runtimeChecks() {
   process.env.GENOS_ADMIN_PASSWORD ||= 'regional-brain-test-password';
   process.env.GENOS_AGENT_GIT_SIGNING_SECRET ||= 'regional-brain-test-signing-secret';
   let acceptPropagule = true;
+  let rescueFitnessPhase = 'before';
   try {
     const db = await database.getDatabase(dbPath);
     const session = await metapopulation.createMetapopulationSession('Protect regional capability coverage.', { db });
@@ -61,7 +62,7 @@ async function runtimeChecks() {
     await metapopulation.createPatch(sessionId, { patchId: 'patch-fragile', environment: {}, requirements: [],
       resources: {}, carryingCapacity: 4, quality: 0.7, accessibility: 0.8 }, { db });
     await metapopulation.createDeme(sessionId, { demeId: 'deme-fragile', patchId: 'patch-fragile',
-      fitness: { score: 0.2 }, localStrategies: ['formal-proof'] }, { db });
+      fitness: { score: 0.15 }, localStrategies: ['formal-proof'] }, { db });
     await metapopulation.createPatch(sessionId, { patchId: 'patch-source', environment: {}, requirements: [],
       resources: {}, carryingCapacity: 4, quality: 0.9, accessibility: 0.9 }, { db });
     await metapopulation.createDeme(sessionId, { demeId: 'deme-source', patchId: 'patch-source',
@@ -84,7 +85,13 @@ async function runtimeChecks() {
       validate: async () => acceptPropagule ? { valid: true, evidence: { receiverTrial: 'passed' } }
         : { valid: false, evidence: { receiverTrial: 'rejected' }, reason: 'Receiver rejected strategy.' },
       assimilate: async ({ migration }) => ({ receiptId: `receipt-${migration.migrationId}`,
-        provenance: { receiver: migration.targetDemeId, verified: true } })
+        provenance: { receiver: migration.targetDemeId, verified: true } }),
+      measureFitness: async ({ phase }) => {
+        rescueFitnessPhase = phase;
+        return phase === 'after' ? 0.1 : 0.15;
+      },
+      rollback: async ({ migration }) => ({ receiptId: `rollback-${migration.migrationId}`,
+        provenance: { receiver: migration.targetDemeId, restored: true } })
     });
     const waiting = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId,
       maxCycles: 1, ...migrationCycle('propagule-waiting', false) }, { db });
@@ -110,6 +117,23 @@ async function runtimeChecks() {
     assert.ok(events.some((event) => event.type === 'REGIONAL_CYCLE_RECORDED'));
     assert.ok(events.some((event) => event.type === 'MIGRATION_ACCEPTED'));
     assert.ok(events.some((event) => event.type === 'MIGRATION_REJECTED'));
+    acceptPropagule = true;
+    const rescue = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId,
+      maxCycles: 1, ...rescueCycle() }, { db });
+    assert.equal(rescue.cycles[0].status, 'VERIFIED');
+    assert.equal(rescue.cycles[0].actionCount, 1);
+    assert.equal(rescueFitnessPhase, 'after-rollback');
+    assert.equal((await metapopulation.getDeme(sessionId, 'deme-fragile', { db })).fitness.score, 0.15);
+    const migrationStore = require('../src/services/metapopulation/migration/migrationStore');
+    const rescueRow = await migrationStore.getMigration(db, sessionId, 'propagule-rescue');
+    assert.equal(rescueRow.status, 'ROLLED_BACK');
+    assert.equal(rescueRow.evidence.rescueOutcome.rollback, true);
+    const rescueEvents = await metapopulation.listMetapopulationEvents(sessionId, { db });
+    assert.ok(rescueEvents.some((event) => event.type === 'RESCUE_OUTCOME_RECORDED'));
+    const cappedRescue = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId,
+      maxCycles: 1, ...rescueCycle('propagule-rescue-exhausted') }, { db });
+    assert.equal(cappedRescue.cycles[0].status, 'VERIFIED');
+    assert.equal(cappedRescue.cycles[0].actionCount, 0, 'rescue attempt limit blocks a new offer');
     assert.deepEqual(await metapopulation.listPropaguleQuarantine({ metapopulationId: sessionId,
       targetDemeId: 'deme-fragile' }, { db }), []);
   } finally {
@@ -127,6 +151,19 @@ function migrationCycle(propaguleId, triggered = true, worthwhile = true) {
       sourceEvidence: [{ kind: 'VERIFIED' }], provenance: { source: 'regional-brain-test' },
       sourceFitness: 0.9, novelty: 0.8, complementarity: 0.9, expectedReceiverGain: worthwhile ? 0.8 : 0.05,
       transferCost: worthwhile ? 0.1 : 0.2, assimilationRisk: 0.1, homogenizationRisk: 0.1 }]
+  }] };
+}
+
+function rescueCycle(propaguleId = 'propagule-rescue') {
+  return { enableMigration: true, migrationRequests: [{ sourceDemeId: 'deme-source', targetDemeId: 'deme-fragile',
+    reason: 'rescue', policy: 'rescue', trigger: { stagnationGenerations: 5 },
+    receiver: { demeId: 'deme-fragile' }, maxAttempts: 1,
+    candidates: [{ propaguleId, type: 'STRATEGY', sourceDemeId: 'deme-source',
+      targetDemeId: 'deme-fragile', payloadRef: `strategy:${propaguleId}`, migrationReason: 'rescue',
+      lineageRefs: ['lineage-source'], sourceEvidence: [{ kind: 'VERIFIED' }],
+      provenance: { source: 'regional-rescue-test' }, sourceFitness: 0.9, targetFitness: 0.15,
+      compatibility: 0.9, novelty: 0.8, criticalRescue: true, expectedReceiverGain: 0.05,
+      transferCost: 0.2, assimilationRisk: 0.1, homogenizationRisk: 0.1 }]
   }] };
 }
 
