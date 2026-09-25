@@ -14,18 +14,19 @@ comparées sur le même horizon, avec les preuves de chaque résultat.
 
 ## Décision
 
-Le benchmark accepte 50 à 100 missions distinctes, dans le même ordre pour douze
-bras comparatifs couvrant les approches de base, les ablations et le Holobionte
-complet. Chaque exécution doit fournir son succès, son coût, ses tokens, un
-vérificateur et des références de preuve. Les métriques symbiotiques sont calculées
-quand leurs observations existent; les dénominateurs nuls produisent une valeur
-indisponible. Le rapport ne prend aucune décision de promotion.
+Le runner exécute 50 à 100 missions distinctes, dans le même ordre pour douze bras
+comparatifs couvrant les approches de base, les ablations et le Holobionte complet.
+L'exécution concrète de chaque mission est fournie par l'appelant. Chaque résultat
+doit fournir son succès, son coût, ses tokens, un vérificateur et des références de
+preuve. Les métriques symbiotiques sont calculées quand leurs observations existent;
+les dénominateurs nuls produisent une valeur indisponible. Le rapport ne prend
+aucune décision de promotion.
 
 ## Conséquences
 
 ### Positives
 
-- Les effets longitudinaux sont comparés sur les mêmes missions.
+- Les douze approches sont exécutées en ordre apparié sur les mêmes missions.
 - La réutilisation, les admissions dangereuses, les erreurs immunitaires, la dépendance, la redondance, la rétention, la dysbiose et le rétablissement restent inspectables.
 - Les résultats peuvent être audités grâce aux preuves attachées à chaque exécution.
 

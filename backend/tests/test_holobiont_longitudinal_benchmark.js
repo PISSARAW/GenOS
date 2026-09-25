@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('assert');
-const { ARMS, evaluateLongitudinalBenchmark } = require('../src/services/holobionte/benchmark/longitudinalBenchmarkService');
+const { ARMS, evaluateLongitudinalBenchmark, runLongitudinalBenchmark } = require('../src/services/holobionte/benchmark/longitudinalBenchmarkService');
 
 function run(missionId, armIndex, missionIndex) {
   const metricValues = armIndex === ARMS.indexOf('fullHolobiont') ? {
@@ -46,6 +46,26 @@ function testEvidenceAndMatchedHorizonAreRequired() {
   assert.throws(() => evaluateLongitudinalBenchmark(unevidenced), { code: 'HOLOBIONT_EVIDENCE_REQUIRED' });
 }
 
-testLongitudinalComparison();
-testEvidenceAndMatchedHorizonAreRequired();
-console.log('✅ Holobiont longitudinal benchmark tests passed.');
+async function testCampaignRunnerKeepsPairedOrder() {
+  const calls = [];
+  const missions = Array.from({ length: 50 }, (_, index) => ({ id: `mission-${index}` }));
+  const report = await runLongitudinalBenchmark({
+    benchmarkId: 'executed-campaign', missions,
+    runMission: async ({ arm, mission, sequence }) => {
+      calls.push({ arm, missionId: mission.id, sequence });
+      return run(mission.id, ARMS.indexOf(arm), sequence);
+    }
+  });
+  assert.strictEqual(calls.length, 600);
+  assert.deepStrictEqual(calls.slice(0, 50).map((call) => call.missionId), missions.map((mission) => mission.id));
+  assert.strictEqual(report.arms.fullHolobiont.missionCount, 50);
+}
+
+async function main() {
+  testLongitudinalComparison();
+  testEvidenceAndMatchedHorizonAreRequired();
+  await testCampaignRunnerKeepsPairedOrder();
+  console.log('✅ Holobiont longitudinal benchmark tests passed.');
+}
+
+main().catch((error) => { console.error(error); process.exitCode = 1; });

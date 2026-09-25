@@ -131,4 +131,32 @@ function evaluateLongitudinalBenchmark(input = {}) {
   };
 }
 
-module.exports = { ARMS, evaluateLongitudinalBenchmark };
+function validateCampaign(input) {
+  if (typeof input.runMission !== 'function' || !Array.isArray(input.missions)) {
+    throw invalid('missions and a runMission function are required.');
+  }
+  const missionIds = input.missions.map((mission) => text(mission?.id || mission?.missionId, 'mission id'));
+  if (missionIds.length < 50 || missionIds.length > 100 || new Set(missionIds).size !== missionIds.length) {
+    throw invalid('A campaign requires 50 to 100 distinct sequential missions.');
+  }
+  return missionIds;
+}
+
+async function runLongitudinalBenchmark(input = {}) {
+  const missionIds = validateCampaign(input);
+  const arms = {};
+  for (const arm of ARMS) {
+    arms[arm] = [];
+    for (let index = 0; index < input.missions.length; index += 1) {
+      const mission = input.missions[index];
+      const result = await input.runMission({ arm, mission, sequence: index });
+      if (result?.missionId && result.missionId !== missionIds[index]) {
+        throw invalid(`Runner returned an out-of-sequence mission for ${arm}.`);
+      }
+      arms[arm].push({ ...result, missionId: missionIds[index] });
+    }
+  }
+  return evaluateLongitudinalBenchmark({ benchmarkId: input.benchmarkId, arms });
+}
+
+module.exports = { ARMS, evaluateLongitudinalBenchmark, runLongitudinalBenchmark };
