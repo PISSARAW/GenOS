@@ -3,6 +3,7 @@
 const communityStore = require('../communityStore');
 const controller = require('./communityController');
 const protocolHandlers = require('./protocolHandlers');
+const ecologicalController = require('./ecologicalController');
 const { createHash } = require('crypto');
 const variantPolicies = require('../variants/variantPolicyRouter');
 
@@ -32,15 +33,31 @@ async function runRound(input) {
       await recordBlockedStep(input, error);
       throw error;
     }
-    if (result.status !== 'IN_PROGRESS') return result;
+    if (result.status !== 'IN_PROGRESS') return await completeRound({ input, session, result, variantPolicy });
     session = await communityStore.loadSession(input.db, input.communityId);
-    if (session.round + 1 >= constitution.constitution.roundLimit) return result;
+    if (session.round + 1 >= constitution.constitution.roundLimit) {
+      return completeRound({ input, session, result, variantPolicy, roundLimitReached: true });
+    }
     session = await communityStore.appendEvent(input.db, {
       communityId: input.communityId, actorId: input.actorId,
       type: 'PHASE_CHANGED', payload: { from: session.phase, to: 'SEALED_JUDGMENT', reason: 'CONTINUE_DELIBERATION' },
       patch: { phase: 'SEALED_JUDGMENT', round: session.round + 1 }
     });
   } while (true);
+}
+
+async function completeRound(context) {
+  const { input, session, result, variantPolicy } = context;
+  const decision = ecologicalController.evaluate({
+    communityId: input.communityId, round: result.round, session,
+    receipts: result.receipts, variantPolicy, executionNeeded: input.executionNeeded,
+    roundLimitReached: context.roundLimitReached === true
+  });
+  await communityStore.appendEvent(input.db, {
+    communityId: input.communityId, actorId: input.actorId,
+    type: 'ECOLOGICAL_CONTROL_DECISION', payload: decision, patch: {}
+  });
+  return { ...result, ecologicalDecision: decision };
 }
 
 async function recordStep(input, step) {

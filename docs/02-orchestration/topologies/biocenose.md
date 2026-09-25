@@ -132,6 +132,11 @@ Cette distinction est essentielle : les sections qui suivent décrivent le modè
   Chaque étape terminée est auditée par hash ; une erreur de modèle, une réponse invalide
   ou une capacité requise absente bloque le parcours et produit un événement de blocage.
   Le runtime poursuit les tours suivants jusqu'à un jugement final ou à la limite de tours.
+  À la fin, `ecologicalController` agrège les reçus en observation écologique, propose
+  une prochaine action et enregistre `ECOLOGICAL_CONTROL_DECISION`. Les handoffs Human,
+  Direct et Trinity sont recommandés via Morphogenèse ; demande de reviewers indépendants,
+  collecte de données et escalade de limite restent des actions proposées, non exécutées.
+  Une indépendance non mesurée ne déclenche pas de recrutement automatique.
   `summarizeBiocenoseBenchmark` calcule le taux de faux consensus, la préservation des
   minorités correctes et le budget de tokens sur des cas marqués comme évalués ;
 - `evaluateMinorityEvidenceVeto` requiert un reçu de vérification fourni par un
@@ -172,6 +177,10 @@ jusqu'à une décision, un désaccord irréductible ou la limite constitutionnel
 intégration peut remplacer l'invocation des membres et fournir un exécuteur de
 vérifications déterministes ; le runtime ne transforme pas une vérification absente en
 preuve ni une sortie de modèle invalide en jugement.
+
+Après chaque arrêt, le contrôleur écologique persiste un relevé des signaux du tour et une
+action proposée. Cette boucle observe et oriente ; elle ne recrute pas automatiquement,
+ne reblinde pas les membres et ne change pas le variant ou la topologie.
 
 La constitution est persistée, versionnée et validée. La finalisation contrôle son
 identité et son hash, et applique les gates de reçus factuels et de dissent critique,
