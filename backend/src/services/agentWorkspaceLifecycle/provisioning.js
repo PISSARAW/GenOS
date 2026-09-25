@@ -4,7 +4,7 @@ const path = require('path');
 const { normalizeRelativePath, resolveContainedPath } = require('../pathSafety');
 const { runCommand, withGitRepoLock } = require('./git');
 const { bestEffort, pathExists, samePath, isInside } = require('./support');
-const { availableBytes, removeSensitiveFiles, createExclusionFilter, copyTree } = require('./copy');
+const { availableBytes, estimateCopyBytes, removeSensitiveFiles, createExclusionFilter, copyTree } = require('./copy');
 const { maxCopyBytes, addCopyBytes, isSensitivePath } = require('./constants');
 const { trackWorkspace } = require('./cleanup');
 
@@ -64,6 +64,7 @@ async function isGitWorkspace(source) {
 }
 
 async function provisionVfsWorkspace(source, destination, workerId) {
+  await assertCopyCapacity({ source, destination });
   const state = { bytes: 0, limit: maxCopyBytes(), entries: 0 };
   const ctx = { state, isExcluded: createExclusionFilter() };
   try {
@@ -145,9 +146,7 @@ async function rollbackWorktree(source, destination) {
 }
 
 async function copyWorkspace(source, destination, workerId) {
-  if (await availableBytes(path.dirname(destination)) < 1024 * 1024 * 1024) {
-    throw new Error('Insufficient disk space for a non-Git isolated workspace; free at least 1 GiB or use a Git workspace.');
-  }
+  await assertCopyCapacity({ source, destination });
   const state = { bytes: 0, limit: maxCopyBytes(), entries: 0 };
   const ctx = { state, isExcluded: createExclusionFilter() };
   try {
@@ -159,6 +158,20 @@ async function copyWorkspace(source, destination, workerId) {
     throw error;
   }
   return destination;
+}
+
+async function assertCopyCapacity({ source, destination }) {
+  const estimatedBytes = await estimateCopyBytes(source);
+  const configuredHeadroom = Number(process.env.GENOS_WORKSPACE_COPY_HEADROOM_BYTES);
+  const headroom = Number.isSafeInteger(configuredHeadroom) && configuredHeadroom >= 0
+    ? configuredHeadroom
+    : 256 * 1024 * 1024;
+  const requiredBytes = estimatedBytes + headroom;
+  const freeBytes = await availableBytes(path.dirname(destination));
+  if (freeBytes >= requiredBytes) return;
+  throw Object.assign(new Error(
+    `Insufficient disk space for isolated workspace: estimated ${estimatedBytes} bytes plus ${headroom} bytes headroom, ${freeBytes} bytes available.`
+  ), { code: 'WORKSPACE_DISK_SPACE_INSUFFICIENT', estimatedBytes, headroom, freeBytes });
 }
 
 async function provisionGitWorkspace(source, destination, workerId) {

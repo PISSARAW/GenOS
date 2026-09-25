@@ -2,7 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { walk } = require('../../utils/fs');
 const {
-  MAX_COPY_DEPTH, MAX_COPY_ENTRIES, SENSITIVE_COPY_FILES, addCopyBytes, isSensitivePath
+  MAX_COPY_DEPTH, MAX_COPY_ENTRIES, SENSITIVE_COPY_FILES, addCopyBytes, isSensitivePath, maxCopyBytes
 } = require('./constants');
 
 async function availableBytes(directory) {
@@ -33,6 +33,46 @@ function createExclusionFilter() {
   return (name) => {
     return excluded.has(name) || SENSITIVE_COPY_FILES.test(name) || /\.(db-shm|db-wal|db-journal)$/i.test(name) || /^genos\.db\.backup-/i.test(name);
   };
+}
+
+async function estimateCopyBytes(source) {
+  const state = { bytes: 0, limit: maxCopyBytes(), entries: 0 };
+  await measureCopyNode({ source, relative: '', state, isExcluded: createExclusionFilter() });
+  return state.bytes;
+}
+
+async function measureCopyNode({ source, relative, state, isExcluded }) {
+  const baseName = path.basename(source);
+  if (isExcluded(baseName) || isSensitivePath(relative || baseName)) return;
+  const sourceStat = await readCopyStat(source);
+  if (!sourceStat) return;
+  if (sourceStat.isSymbolicLink()) return;
+  if (sourceStat.isFile()) {
+    addCopyBytes(state, sourceStat.size);
+    return;
+  }
+  if (!sourceStat.isDirectory()) return;
+  await measureCopyDirectory({ source, relative, state, isExcluded });
+}
+
+async function readCopyStat(source) {
+  try {
+    return await fs.lstat(source);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function measureCopyDirectory({ source, relative, state, isExcluded }) {
+  const depth = relative ? relative.split(path.sep).length : 0;
+  if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit.`);
+  for (const entry of await fs.readdir(source)) {
+    if (isExcluded(entry)) continue;
+    state.entries += 1;
+    if (state.entries > MAX_COPY_ENTRIES) throw new Error(`Workspace copy exceeds the ${MAX_COPY_ENTRIES}-entry limit.`);
+    await measureCopyNode({ source: path.join(source, entry), relative: relative ? path.join(relative, entry) : entry, state, isExcluded });
+  }
 }
 
 async function copyTree(ctx, node) {
@@ -73,4 +113,4 @@ async function copyDirectory(ctx, node) {
   }
 }
 
-module.exports = { availableBytes, removeSensitiveFiles, createExclusionFilter, copyTree };
+module.exports = { availableBytes, estimateCopyBytes, removeSensitiveFiles, createExclusionFilter, copyTree };

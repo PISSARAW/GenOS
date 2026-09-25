@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { createIsolatedWorkspace } = require('../src/services/agentRuntimeAdapter');
+const { estimateCopyBytes } = require('../src/services/agentWorkspaceLifecycle/copy');
 
 async function run() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-isolation-'));
@@ -22,6 +23,7 @@ async function run() {
     outside = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-outside-'));
     fs.writeFileSync(path.join(outside, 'secret.txt'), 'must not copy');
     try { fs.symlinkSync(outside, path.join(root, 'linked-outside'), process.platform === 'win32' ? 'junction' : 'dir'); } catch (_) {}
+    assert.equal(await estimateCopyBytes(root), Buffer.byteLength('parent evidence'));
     const capsule = await createIsolatedWorkspace(root, 'worker-a');
     assert.strictEqual(fs.readFileSync(path.join(capsule, 'mission.txt'), 'utf8'), 'parent evidence');
     assert.strictEqual(fs.existsSync(path.join(capsule, '.git')), false);
