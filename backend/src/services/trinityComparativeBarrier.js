@@ -109,6 +109,7 @@ function buildComparison(result) {
     tied: result.comparativeAnalysis?.tied === true,
     jury: result.jury || null,
     crossExamination: result.comparativeAnalysis?.crossExamination || null,
+    synthesizedClaims: result.outcome === 'SYNTHESIZE_CLAIMS' ? result.mergedEvidence?.claims || [] : [],
     claimGraph: trinityClaimGraph.summary(result.comparativeAnalysis?.claimGraph || { status: 'unavailable', nodes: [], edges: [] })
   };
 }
@@ -141,7 +142,7 @@ async function applyTrinityComparison(ctx) {
   const initialReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
   const crossExamination = await trinityCrossExamination.examine(ctx.db, initialReports, trinity.hypothesisDesign);
   const worldReports = crossExamination.reports;
-  const claimGraph = trinityClaimGraph.build(worldReports);
+  const claimGraph = trinityClaimGraph.build(worldReports, trinity.hypothesisDesign?.claimGraph);
   const maxLatencyMs = await experimentLatencySla(ctx.db, trinity.missionId);
   const result = trinityService.mergeTrinityEvidence(worldReports, {
     domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds, claimGraph
@@ -151,7 +152,10 @@ async function applyTrinityComparison(ctx) {
   result.comparativeAnalysis.claimGraph = claimGraph;
   await recordComparison(ctx, trinity, result);
   trinity.comparison = buildComparison(result);
-  trinity.comparison.promotion = await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId, result });
+  trinity.comparison.synthesizedClaims = result.outcome === 'SYNTHESIZE_CLAIMS' ? result.mergedEvidence?.claims || [] : [];
+  trinity.comparison.promotion = result.outcome === 'SYNTHESIZE_CLAIMS'
+    ? { promoted: false, reason: 'synthesized_claims_require_artifact_assembly' }
+    : await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId, result });
   emitComparison(ctx, trinity, result);
   return result;
 }
@@ -312,7 +316,7 @@ async function updateExperimentDecision(db, missionId, result) {
   const evidenceRef = comparisonEvidenceRef(missionId, result);
   const outcome = outcomeFor(result);
   const decision = decisionRecord(result, outcome);
-  const next = result?.canMerge || outcome === 'KEEP_PARETO_SET' ? 'decided' : 'escalated';
+  const next = result?.canMerge || ['KEEP_PARETO_SET', 'SYNTHESIZE_CLAIMS'].includes(outcome) ? 'decided' : 'escalated';
   const status = await advanceExperiment(db, experiment, evidenceRef);
   await persistDecision(db, { experiment, status, next, decision, evidenceRef, canMerge: result?.canMerge === true, outcome });
 }
@@ -321,13 +325,13 @@ function outcomeFor(result) {
   if (result?.outcome) return result.outcome;
   return result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT';
 }
-
 function decisionRecord(result, outcome) {
   return {
     outcome, reason: result?.reason || null, bestScore: result?.bestScore || 0,
     evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto),
     jury: result?.jury || null,
     crossExamination: result?.comparativeAnalysis?.crossExamination || null,
+    synthesizedClaims: outcome === 'SYNTHESIZE_CLAIMS' ? result?.mergedEvidence?.claims || [] : [],
     claimGraph: trinityClaimGraph.summary(result?.comparativeAnalysis?.claimGraph || { status: 'unavailable', nodes: [], edges: [] })
   };
 }
