@@ -1,6 +1,7 @@
 'use strict';
 
 function enrichMission(context, mission, role) {
+  if (context.request?.mode === 'metapopulation') return mission;
   if (!context.nceEnrichments) return mission;
   const topologyNCE = require('../src/services/topologyNCEService');
   const enrichments = context.nceEnrichments;
