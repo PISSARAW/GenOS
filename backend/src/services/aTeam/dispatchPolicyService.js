@@ -7,6 +7,7 @@ const { allocateCriticalPathBudget } = require('./budget/criticalPathBudgetServi
 const { assessBoundaryRisk } = require('./boundaries/boundaryRiskService');
 const { assignBoundarySpanners } = require('./boundaries/boundarySpannerService');
 const { composeMultiteam } = require('./multiteam/multiteamComposer');
+const { buildOperationalPolicy } = require('./variants/operationalVariantPolicy');
 
 function prepareDispatchPolicy(input = {}) {
   const mission = input.mission || {};
@@ -19,8 +20,9 @@ function prepareDispatchPolicy(input = {}) {
   const boundaries = assessBoundaries(graph, members);
   const budget = allocateBudget(input.totalBudget, members, graph);
   const details = variantRuntime({ mission, plan, members, boundaries });
+  const operational = buildOperationalPolicy({ mission, plan, members, boundaries });
   const policy = {
-    ...plan, ...details, boundaryAssessment: boundaries,
+    ...plan, ...details, ...operational, boundaryAssessment: boundaries,
     boundarySpanners: assignBoundarySpanners(boundaries.interfaces, members), budgetAllocation: budget
   };
   return { members: attachVariantInstructions(attachBudgets(members, budget), policy), policy };

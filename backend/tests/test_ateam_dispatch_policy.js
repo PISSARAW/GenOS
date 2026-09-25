@@ -23,11 +23,12 @@ function run() {
   const pod = prepareDispatchPolicy({ mission: { goal: 'Product feature', variant: 'cross_functional_pod' }, members });
   assert.ok(pod.members.find((member) => member.subSystem === 'api').consults.includes('web'));
   assert.equal(pod.policy.boundarySpanners[0].ownerMemberId, 'security');
-  const incident = prepareDispatchPolicy({ mission: { variant: 'incident_command' }, members });
+  const incidentMembers = [...members, { subSystem: 'ops', role: 'operations' }];
+  const incident = prepareDispatchPolicy({ mission: { variant: 'incident_command', incidentRoles: { commander: 'api', operations: 'ops', planning: 'web', logistics: 'security' }, sitrepIntervalMinutes: 15, operationalObjectives: ['restore service'] }, members: incidentMembers });
   assert.equal(incident.policy.commanderMemberId, 'api');
   assert.match(incident.members[0].mission, /Coordinate the incident response/);
-  const matrix = prepareDispatchPolicy({ mission: { variant: 'matrix_team', functionalOwnerId: 'fn-1', productOwnerId: 'pd-1' }, members });
-  assert.deepEqual(matrix.policy.authorityMatrix.axes, ['functional', 'product']);
+  const matrix = prepareDispatchPolicy({ mission: { variant: 'matrix_team', functionalOwnerId: 'fn-1', productOwnerId: 'pd-1', decisionAuthorities: [{ decisionType: 'release', functionalOwnerId: 'fn-1', productOwnerId: 'pd-1' }] }, members });
+  assert.equal(matrix.policy.decisionAuthorities[0].decisionType, 'release');
   const adaptive = prepareDispatchPolicy({ mission: { variant: 'adaptive', phases: [{ id: 'build', variant: 'pipeline' }, { id: 'review', variant: 'incident_command' }] }, members });
   assert.deepEqual(adaptive.policy.phases.map((phase) => phase.variant), ['pipeline', 'incident_command']);
   const multi = prepareDispatchPolicy({
@@ -39,6 +40,15 @@ function run() {
   });
   assert.equal(multi.policy.multiteamPlan.graph.nodes.length, 2);
   assert.throws(() => prepareDispatchPolicy({ mission: { variant: 'incident_command' }, members: members.slice(0, 2) }), { code: 'ATEAM_VARIANT_TEAM_TOO_SMALL' });
+  const committee = prepareDispatchPolicy({ mission: { variant: 'expert_committee' }, members });
+  assert.equal(committee.policy.consensusProtocol.dissentRequired, true);
+  assert.equal(committee.policy.expertiseMatrix.length, members.length);
+  const tiger = prepareDispatchPolicy({ mission: { variant: 'tiger_team', urgentMandate: { scope: 'restore API', timeboxMinutes: 60, stopCriteria: ['service restored'] } }, members: members.slice(0, 2) });
+  assert.equal(tiger.policy.urgentMandate.postMortemRequired, true);
+  const interfaceContracts = [{ fromDomain: 'api', toDomain: 'web', semanticSchema: { type: 'object' } }, { fromDomain: 'api', toDomain: 'security', semanticSchema: { type: 'object' } }];
+  const boundary = prepareDispatchPolicy({ mission: { variant: 'boundary_spanner', interfaceContracts }, members });
+  assert.ok(boundary.policy.interfaceContracts.every((contract) => contract.dualValidationRequired));
+  assert.throws(() => prepareDispatchPolicy({ mission: { variant: 'boundary_spanner' }, members }), { code: 'ATEAM_INTERFACE_CONTRACT_REQUIRED' });
 }
 
 run();
