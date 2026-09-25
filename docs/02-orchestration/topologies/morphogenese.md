@@ -2106,3 +2106,24 @@ baselines sont raccordées et qu'une exécution mesurée n'est pas publiée.
 Aucune optimalité globale, supériorité empirique ni intégration de production
 ne découle de la seule présence de ces composants. Pour l'état précis du
 noyau de contrôle et ses limites, voir [noyau de contrôle morphogénétique](../noyau-controle-morphogenetique.md).
+
+## 46. Inventaire du branchement (audit du 2026-09-25)
+
+Le registre, le résolveur, l'ontologie et le contrat de capacités déclarent
+les mêmes huit identifiants canoniques. Les points de composition ne sont
+toutefois pas encore alignés :
+
+| Topologie | Point de composition | État du dispatch commun |
+| --- | --- | --- |
+| Trinity | `trinityService.compose` | Absent de `biologicalTopologyService` |
+| A-Team | `aTeamService.analyzeMission` et `aTeamService.compose` | Absent de `biologicalTopologyService` |
+| Biome | `biomeCoordinationService.composeBiome` | Dispatch dédié |
+| Biocénose | `biocenoseService.prepareCommunity` | Dispatch dédié; dépend de la base |
+| Holobionte | `holobionteCoordinationService.composeHolobiont` | Dispatch dédié |
+| Syncytium | `syncytiumCoordinationService.createSession` | Dispatch dédié |
+| Rhizome | `rhizomeCoordinationService.composeRhizome` | Dispatch dédié |
+| Métapopulation | `metapopulationCoordinationService.createMetapopulationSession` | Dispatch dédié |
+
+Cet inventaire ne qualifie pas une topologie d'exécutable sur la seule base
+de sa présence dans le registre. La composition, le runtime, les contrats de
+capacité et les migrations entre topologies doivent être vérifiés séparément.
