@@ -1,6 +1,7 @@
 'use strict';
 
 const morphogenesis = require('../../morphogenesis/morphogenesisPlannerService');
+const admissionService = require('../security/capabilityAdmissionService');
 
 const TARGETS = Object.freeze({
   hypothesis_competition: 'trinity',
@@ -49,4 +50,22 @@ function candidateNode(input, proposal) {
   };
 }
 
-module.exports = { propose, candidateNode };
+function admit(session, input, policy) {
+  if (!Number.isInteger(input.expectedGraphVersion) || input.expectedGraphVersion !== session.graphVersion) {
+    throw Object.assign(new Error('Sub-topology candidate was planned against a stale graph.'), { code: 'RHIZOME_NESTED_PLAN_STALE' });
+  }
+  const node = session.nodes.find((item) => item.nodeId === input.nodeId);
+  if (!node || node.kind !== 'SUB_TOPOLOGY') {
+    throw Object.assign(new Error('Unknown Rhizome sub-topology candidate.'), { code: 'RHIZOME_NESTED_NODE_UNKNOWN' });
+  }
+  const target = node.localContext?.targetTopology;
+  if (!input.morphogenesisPlan || input.morphogenesisPlan.selectedTopology !== target) {
+    throw Object.assign(new Error('Morphogenesis plan does not select the proposed sub-topology.'), { code: 'RHIZOME_NESTED_PLAN_MISMATCH' });
+  }
+  const active = admissionService.admit(node, input.proof, policy);
+  session.nodes = session.nodes.map((item) => item.nodeId === active.nodeId ? active : item);
+  session.graphVersion += 1;
+  return { node: active, graphVersion: session.graphVersion };
+}
+
+module.exports = { propose, candidateNode, admit };

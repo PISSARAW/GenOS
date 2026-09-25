@@ -40,6 +40,11 @@ function create(input) {
         session.variantPolicy = policy;
         return { sessionId, variant: policy.name };
       }
+    }),
+    admitNestedTopology: (sessionId, admission, options = {}) => input.mutateSession(sessionId, options, {
+      type: 'SUB_TOPOLOGY_ADMITTED',
+      payload: { nodeId: admission.nodeId, targetTopology: admission.morphogenesisPlan?.selectedTopology },
+      apply: (session) => input.nestedTopologyService.admit(session, admission, options.admissionPolicy)
     })
   };
 }
