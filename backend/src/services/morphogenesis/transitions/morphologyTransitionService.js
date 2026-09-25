@@ -1,6 +1,7 @@
 'use strict';
 
 const { validateMorphologyPatch } = require('./morphologyPatch');
+const { adaptTopologyTransition } = require('../adapters/topologyAdapterService');
 
 const TRANSITION_STAGES = Object.freeze([
   'PLAN', 'VALIDATE', 'SNAPSHOT', 'BRANCH', 'EXPERIMENT', 'COMPARE',
@@ -17,6 +18,24 @@ function planErrors(patch, graph) {
   if (!graph || !Number.isInteger(graph.version)) return errors.concat('current graph version is required');
   if (graph.version !== patch.baseGraphVersion) errors.push('patch base graph version is stale');
   return errors;
+}
+
+function graphTopology(graph) {
+  if (!graph) return null;
+  if (graph.topology) return graph.topology;
+  const root = (graph.nodes || []).find((node) => node.nodeId === graph.rootNodeId);
+  return root?.topology || null;
+}
+
+function topologyHandoff(context) {
+  const fromTopology = graphTopology(context.graph);
+  const toTopology = context.patch.targetTopology || graphTopology(context.patch.graph);
+  if (!fromTopology || !toTopology || fromTopology === toTopology) return { supported: true, adapted: false };
+  return adaptTopologyTransition({
+    fromTopology,
+    toTopology,
+    payload: context.patch.topologyTransitionPayload || context.topologyTransitionPayload || {}
+  });
 }
 
 async function restoreSnapshot(snapshot, adapters, cause) {
@@ -50,7 +69,10 @@ async function transitionMorphology(context, adapters) {
   if (adapterErrors.length) return { committed: false, errors: adapterErrors };
   const errors = planErrors(context.patch, context.graph);
   if (errors.length) return { committed: false, errors };
-  return executeStages(context, adapters);
+  const handoff = topologyHandoff(context);
+  if (!handoff.supported) return { committed: false, errors: [`topology transition rejected: ${handoff.reason}`] };
+  const patch = { ...context.patch, topologyHandoff: handoff };
+  return executeStages({ ...context, patch }, adapters);
 }
 
 module.exports = { TRANSITION_STAGES, transitionMorphology };
