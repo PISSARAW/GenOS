@@ -115,7 +115,8 @@ function validateMember(mode, member) {
   if (expected === null) {
     return orchestratorAssignment(mode, role, member);
   }
-  return workerAssignment(mode, { role, expected }, member);
+  const assigned = member.workerKind ? member : { ...member, workerKind: expected };
+  return workerAssignment(mode, { role, expected }, assigned);
 }
 
 function applyToMember(mode, member) {

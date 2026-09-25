@@ -84,17 +84,19 @@ figure pas dans le contrat du worker, le lease, ou le runtime de topologie.
 | Biome | `resource_steward` | `bounded_worker` |
 | Biome | `population_specialist` | `specialist` |
 
-Un composeur doit transmettre explicitement `workerKind` pour chaque membre
-issu de cette matrice. Le dispatch reconstruit ensuite le contrat depuis le
-registre serveur; il ne fait jamais confiance à un contrat fourni par le
-composeur. Un rôle absent de la matrice est une erreur de composition à
-traiter explicitement, et non un motif de repli silencieux.
+À la frontière de composition, cette matrice complète `workerKind` lorsqu'un
+membre n'en porte pas encore. Un type déjà fourni doit être connu et identique
+au type attendu; un conflit ou un rôle absent de la matrice bloque la
+composition. Il n'y a pas de repli topologique vers `bounded_worker`. Le
+dispatch reconstruit le contrat depuis le registre serveur et ne fait jamais
+confiance à un contrat fourni par le composeur.
 
-Les huit composeurs renseignent maintenant `workerKind` explicitement. Avant le
-lancement, A-Team et Trinity refusent les types inconnus ou incompatibles. Le
-plan renvoyé expose pour chaque membre `role`, `workerKind` et `reason`. Les six
-modes biologiques exposent aussi ces membres typés dans leur résultat ou leur
-session, mais leur composition ne déclenche pas à elle seule leur exécution.
+Les huit topologies produisent un `workerKind` explicite via leur composeur ou
+cette matrice. Avant le lancement, A-Team et Trinity refusent les types
+inconnus ou incompatibles. Le plan renvoyé expose pour chaque membre `role`,
+`workerKind` et `reason`. Les six modes biologiques exposent aussi ces membres
+typés dans leur résultat ou leur session, mais leur composition ne déclenche
+pas à elle seule leur exécution.
 Voir [Types de workers](../03-reference/types-de-workers.md) pour les contrats,
 artefacts et limites de chaque type.
 
