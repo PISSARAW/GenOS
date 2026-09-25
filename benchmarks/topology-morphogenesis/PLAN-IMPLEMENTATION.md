@@ -1,9 +1,17 @@
 # Plan d’implémentation — preuve causale des topologies
 
-- **Statut** : proposé
+- **Statut** : implémentation partielle; qualification confirmatoire bloquée
 - **Portée** : protocole comparatif, instrumentation et sélection Morphogenèse
 - **Référence** : campagne de qualification `benchmarks/topology-morphogenesis/README.md`
 - **Dernière revue** : 2026-09-25
+
+## État d'exécution — 2026-09-25
+
+Les premières phases ont livré le contrat JSON des tâches, la provenance d'exécution, un générateur reproductible d'affectations, quatre oracles déterministes, la séparation entre vérification d'exécution et preuve de mécanisme, un audit lexical A-Team et un évaluateur anti-fuite pour les résultats Morphogenèse.
+
+La campagne causale **n'a pas encore été exécutée**. `run-comparison-plan.cjs` produit uniquement un ordre d'affectation (`assignment-only`); aucun des sept bras ne possède son adaptateur d'exécution. Trois probes persistantes (Biome, Syncytium, Rhizome) sont intégrées; les cinq autres restent non instrumentées. Les quatre tâches de comparaison n'ont pas d'hypothèse de topologie adaptée/inadéquate préenregistrée. L'évaluateur Morphogenèse n'a reçu aucun jeu d'issues holdout observées. La vérification de disponibilité actuelle est dans `node benchmarks/topology-morphogenesis/check-phase-readiness.cjs`; elle doit rester bloquante jusqu'à la résolution de ces manques et au gel d'un arbre propre.
+
+Le rapport A-Team courant mesure un comportement de détection sous des paires de paraphrases choisies manuellement. Il constitue un audit exploratoire de sensibilité lexicale, pas une preuve de qualité sémantique ni de l'effet causal A-Team.
 
 ## Objectif
 
