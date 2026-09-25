@@ -6,9 +6,15 @@ const REQUIRED_SERVICES = Object.freeze([
   'observe', 'diagnose', 'generateNeeds', 'repairOrSynthesize', 'typeCheck',
   'hardGate', 'paretoEvaluate', 'kernel', 'governance', 'transition', 'credit', 'memory'
 ]);
+const SHADOW_SERVICES = Object.freeze([
+  'observe', 'diagnose', 'generateNeeds', 'repairOrSynthesize', 'typeCheck', 'hardGate', 'paretoEvaluate'
+]);
 
-function validateServices(services) {
-  return REQUIRED_SERVICES.filter((name) => !services || typeof services[name] !== 'function' && name !== 'kernel');
+function validateServices(services, mode = 'commit') {
+  const required = mode === 'shadow' ? SHADOW_SERVICES : REQUIRED_SERVICES.filter((name) => name !== 'kernel');
+  const missing = required.filter((name) => !services || typeof services[name] !== 'function');
+  if (mode !== 'shadow' && typeof services?.kernel?.adjudicate !== 'function') missing.push('kernel.adjudicate');
+  return missing;
 }
 
 async function evaluateProposal(context, services) {
@@ -54,12 +60,20 @@ async function commitDecision(input) {
 }
 
 async function runMorphogenesisRuntime(context, services) {
-  const missing = validateServices(services);
+  const mode = context?.mode === 'shadow' ? 'shadow' : 'commit';
+  const missing = validateServices(services, mode);
   if (missing.length) return { decision: 'REJECTED', committed: false, errors: missing.map((name) => `missing runtime service: ${name}`) };
   const evaluated = await evaluateProposal(context, services);
   if (!evaluated.accepted) return { decision: 'REJECTED', committed: false, evaluation: evaluated };
+  if (mode === 'shadow') return {
+    decision: 'SHADOWED',
+    committed: false,
+    authorityPending: 'rust_kernel_and_governance',
+    proposal: evaluated.proposal,
+    evaluation: evaluated
+  };
   const authorization = await authorizeProposal(evaluated, context, services);
   return commitDecision({ authorization, evaluated, context, services });
 }
 
-module.exports = { REQUIRED_SERVICES, runMorphogenesisRuntime, validateServices };
+module.exports = { REQUIRED_SERVICES, SHADOW_SERVICES, runMorphogenesisRuntime, validateServices };

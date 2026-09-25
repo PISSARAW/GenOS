@@ -25,9 +25,27 @@ async function attachMorphogenesisPlan(ctx) {
     });
     ctx.morphogenesisPlan = plan;
     ctx.autonomyPlan.morphogenesisPlan = plan;
+    if (shadowMorphogenesisEnabled()) await attachMorphogenesisShadow(ctx, plan);
   } catch (_) {
     ctx.morphogenesisPlan = null;
   }
+}
+
+function shadowMorphogenesisEnabled() {
+  return /^(1|true|on)$/i.test(String(process.env.GENOS_MORPHOGENESIS_V2_SHADOW || ''));
+}
+
+async function attachMorphogenesisShadow(ctx, plan) {
+  const { runMorphogenesisShadow } = require('../morphogenesis/runtime/morphogenesisShadowAdapter');
+  const result = await runMorphogenesisShadow(plan, { missionId: ctx.agentId });
+  ctx.morphogenesisV2Shadow = result;
+  ctx.autonomyPlan.morphogenesisV2Shadow = {
+    decision: result.decision,
+    committed: result.committed,
+    authorityPending: result.authorityPending || null,
+    errors: result.errors || result.evaluation?.typing?.errors || []
+  };
+  emit(ctx.agentId, 'MORPHOGENESIS_V2_SHADOW', 'SENSE_WORLD', 'Morphogenesis V2 evaluated a non-committing shadow proposal.', ctx.autonomyPlan.morphogenesisV2Shadow, 'info');
 }
 
 function assertAutonomyPlanExecutable(ctx) {
