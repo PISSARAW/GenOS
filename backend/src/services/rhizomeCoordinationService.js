@@ -129,7 +129,7 @@ async function composeRhizome(mission, options = {}) {
     ...normalizeRhizomeSession({
       rhizomeId: sessionId,
       missionId: options.missionId || sessionId,
-      scope: options.scope,
+      scope: options.scope || variant.session?.scope,
       graphVersion: options.graphVersion,
       nodes: options.nodes,
       edges: options.edges,
@@ -148,7 +148,7 @@ async function composeRhizome(mission, options = {}) {
     matrix: createSwarmMatrix(),
     members: normalizeMembers(Array.isArray(options.members) ? options.members : biologicalModeService.compose('rhizome', goal))
   };
-  if (options.db) {
+  if (options.db && variant.session?.persistence !== false) {
     const created = await store.createRhizome(options.db, { id: session.sessionId, state: serialize(session), graph: graphProjection(session) }, {
       type: 'SESSION_CREATED', payload: { mission: goal, organization }
     });
