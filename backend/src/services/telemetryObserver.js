@@ -42,6 +42,8 @@ class TelemetryObserver extends EventEmitter {
     this.persistedEvents = 0;
     this.droppedEvents = 0;
     this.persistenceErrors = 0;
+    this.retryPersistenceAfterLock = false;
+    this.persistenceRetryDelayMs = 250;
     this.maxTelemetryRows = Math.max(1000, Number(process.env.GENOS_TELEMETRY_RETENTION_ROWS) || 100000);
     this.maxTraceRows = Math.max(1000, Number(process.env.GENOS_TRACE_RETENTION_ROWS) || 100000);
     this.maxTokenRows = Math.max(1000, Number(process.env.GENOS_TOKEN_RETENTION_ROWS) || 500000);
@@ -132,6 +134,7 @@ class TelemetryObserver extends EventEmitter {
   }
 
   async drainPersistQueue() {
+    if (this.persisting) return;
     this.persisting = true;
     let abortDueToClosedDb = false;
     try {
@@ -140,8 +143,19 @@ class TelemetryObserver extends EventEmitter {
       abortDueToClosedDb = true;
     } finally {
       this.persisting = false;
-      if (!abortDueToClosedDb && this.persistQueue.length) setImmediate(() => this.drainPersistQueue().catch(() => {}));
+      this.schedulePendingPersistence(abortDueToClosedDb);
     }
+  }
+
+  schedulePendingPersistence(aborted) {
+    if (!this.persistQueue.length) return;
+    if (!aborted) {
+      setImmediate(() => this.drainPersistQueue().catch(() => {}));
+      return;
+    }
+    if (!this.retryPersistenceAfterLock) return;
+    this.retryPersistenceAfterLock = false;
+    setTimeout(() => this.drainPersistQueue().catch(() => {}), this.persistenceRetryDelayMs);
   }
 
   async flush(timeoutMs = 5000) {

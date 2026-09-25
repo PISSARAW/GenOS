@@ -4,5 +4,25 @@
   "agent_count": 3,
   "mission": "TM-T06. Tenir un registre partagé de quatre tâches fictives avec identifiants t1 à t4 et statut initial ouvert. Appliquer deux mises à jour indépendantes et compatibles via les opérations de session Syncytium: t1 terminé et t2 assigné. Lire ensuite un snapshot depuis la session persistée. Vérifier présence des quatre tâches, conservation des deux mises à jour, révision/historique et invariants. Rapporter session_id, opérations/révisions avant et après, snapshot et tout conflit; ne pas inférer une convergence depuis la seule composition.",
   "executor": "local",
+  "session_options": {
+    "schema": {
+      "schemaId": "campaign-syncytium-v1",
+      "fields": {
+        "tasks.t1.status": { "dataType": "LWW_REGISTER" },
+        "tasks.t2.status": { "dataType": "LWW_REGISTER" },
+        "tasks.t2.assignee": { "dataType": "LWW_REGISTER" },
+        "tasks.t3.status": { "dataType": "LWW_REGISTER" },
+        "tasks.t4.status": { "dataType": "LWW_REGISTER" }
+      },
+      "invariants": [
+        {
+          "id": "task_status_is_present",
+          "scope": ["tasks.t1.status"],
+          "dependencies": ["tasks.t1.status"],
+          "predicate": { "op": "present", "path": "tasks.t1.status" }
+        }
+      ]
+    }
+  },
   "timeoutMs": 120000
 }

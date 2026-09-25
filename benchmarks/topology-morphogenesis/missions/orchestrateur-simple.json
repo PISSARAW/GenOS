@@ -1,6 +1,6 @@
 {
   "action": "orchestrate",
-  "mission": "Référence TM-00. Sans créer ni modifier de fichier, résoudre le contrôle déterministe suivant et présenter les calculs vérifiables. Entrée: un lot contient 24 éléments; 3 sont rejetés puis les éléments restants sont répartis également entre 7 groupes. Donner le nombre par groupe et le reste. Répondre avec les champs entree, calcul, resultat, verification. Ne déclarer la mission terminée que si le résultat est vérifié par calcul exact.",
+  "mission": "Référence TM-00. Sans créer ni modifier de fichier, résoudre le contrôle déterministe suivant et présenter les calculs vérifiables. Entrée: un lot contient 24 éléments; 3 sont rejetés puis les éléments restants sont répartis également entre 7 groupes. Donner le nombre par groupe et le reste. Répondre avec les champs entree, calcul, resultat, verification. Dans calcul, écrire littéralement les égalités 24 - 3 = 21, 21 / 7 = 3 et 21 mod 7 = 0. Ne déclarer la mission terminée que si le résultat est vérifié par calcul exact.",
   "executor": "local",
   "autonomous_orchestration": false,
   "execution_budget": { "tokens": 10000, "latencyMs": 240000 },

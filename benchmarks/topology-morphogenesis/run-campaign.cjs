@@ -26,6 +26,8 @@ const missionVerifiers = {
 };
 
 function environment(name) {
+  const missionPath = path.join(__dirname, 'missions', `${name}.json`);
+  const mission = JSON.parse(fs.readFileSync(missionPath, 'utf8'));
   return {
     ...process.env,
     GENOS_DB_PATH: path.join(output, 'campaign.db'),
@@ -38,17 +40,36 @@ function environment(name) {
     GENOS_LOCAL_MODEL_TIMEOUT_MS: process.env.GENOS_LOCAL_MODEL_TIMEOUT_MS || '30000',
     GENOS_SQLITE_BUSY_TIMEOUT_MS: '30000',
     GENOS_WORKTREE_GC_DELAY_MS: '5000',
-    GENOS_MORPHOGENESIS_V2_SHADOW: name === 'morphogenese-shadow' ? '1' : '0'
+    GENOS_MORPHOGENESIS_V2_SHADOW: name === 'morphogenese-shadow' ? '1' : '0',
+    ...(name === 'topologie-syncytium' && mission.session_options?.schema
+      ? { GENOS_SYNCYTIUM_SESSION_SCHEMA: JSON.stringify(mission.session_options.schema) } : {})
   };
+}
+
+function prepareMissionPayload(name, payload) {
+  const requestedTimeout = Number(payload.timeoutMs) || 300000;
+  const topologyTimeout = name === 'topologie-rhizome' ? 600000 : 360000;
+  if (topologyMissions.has(name)) payload.timeoutMs = Math.max(requestedTimeout, topologyTimeout);
+  if (name === 'orchestrateur-simple') payload.timeoutMs = Math.max(requestedTimeout, 300000);
+  const budget = payload.execution_budget || {};
+  const effectiveTimeout = Number(payload.timeoutMs) || requestedTimeout;
+  payload.execution_budget = {
+    ...budget,
+    tokens: Number(budget.tokens) || 10000,
+    latencyMs: Number(budget.latencyMs) || Math.max(10000, Math.min(effectiveTimeout - 10000, 300000))
+  };
+  if (name === 'orchestrateur-simple') payload.execution_budget.latencyMs = 240000;
+  return payload;
+}
+
+function processTimeoutMs(name, payload) {
+  const stages = name === 'topologie-metapopulation' ? 3 : 1;
+  return Math.max(360000, payload.timeoutMs * stages + 30000);
 }
 
 function execute(name) {
   const missionPath = path.join(__dirname, 'missions', `${name}.json`);
-  const payload = JSON.parse(fs.readFileSync(missionPath, 'utf8'));
-  if (name === 'orchestrateur-simple') {
-    payload.timeoutMs = Math.max(Number(payload.timeoutMs) || 0, 300000);
-    payload.execution_budget = { ...(payload.execution_budget || {}), tokens: 10000, latencyMs: 240000 };
-  }
+  const payload = prepareMissionPayload(name, JSON.parse(fs.readFileSync(missionPath, 'utf8')));
   const log = fs.openSync(path.join(output, `${name}.log`), 'w');
   const started = Date.now();
   return new Promise((resolve) => {
@@ -56,7 +77,7 @@ function execute(name) {
     const child = spawn(process.execPath, ['backend/bin/genos-orchestrate.cjs', JSON.stringify(payload)], {
       cwd: repo, env: environment(name), stdio: ['ignore', log, log], windowsHide: true
     });
-    const timer = setTimeout(() => { timedOut = true; child.kill(); }, 360000);
+    const timer = setTimeout(() => { timedOut = true; child.kill(); }, processTimeoutMs(name, payload));
     child.once('error', (error) => resolve({ name, error: error.message, durationMs: Date.now() - started }));
     child.once('close', (exitCode) => {
       clearTimeout(timer);
@@ -72,10 +93,18 @@ function readReceipt(name) {
   for (let index = lines.length - 1; index >= 0; index--) {
     try {
       const candidate = JSON.parse(lines[index]);
-      if (candidate?.orchestratorId) return candidate;
+      if (receiptMatchesMission(name, candidate)) return candidate;
     } catch (_) { /* diagnostic line */ }
   }
   return null;
+}
+
+function receiptMatchesMission(name, receipt) {
+  if (!receipt?.orchestratorId) return false;
+  if (!topologyMissions.has(name)) return Object.hasOwn(receipt, 'completionGate');
+  if (name === 'topologie-trinity') return Boolean(receipt.trinity);
+  if (name === 'topologie-a-team') return Boolean(receipt.aTeam || receipt.team);
+  return Boolean(receipt.biologicalMode);
 }
 
 function verifyMissionExecution(options) {
@@ -178,7 +207,8 @@ async function recordMissionResult({ name, run, db, results }) {
   results.missions.push({ ...run, orchestratorId: receipt?.orchestratorId || null,
     verdict: receipt?.verdict || null, completionGate: receipt?.completionGate || null,
     dispatchStatus: getDispatchStatus(receipt),
-    sessionId: receipt?.biologicalMode?.sessionId || null, workers, independentProof: proof, lifecycle, verification });
+    sessionId: receipt?.biologicalMode?.sessionId || receipt?.biologicalMode?.rhizomeId || null,
+    workers, independentProof: proof, lifecycle, verification });
   results.verification = summarizeVerification(results);
   fs.writeFileSync(path.join(output, 'campaign-results.json'), JSON.stringify(results, null, 2));
   const dispatch = getDispatchStatus(receipt, 'not-applicable');

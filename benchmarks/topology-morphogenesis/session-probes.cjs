@@ -31,12 +31,18 @@ function syncProbeVerified(input) {
     && input.writeCount === 6;
 }
 
+function hasPassingInvariantReceipt(writes) {
+  return writes.some((write) => (write.invariants || []).some((receipt) =>
+    receipt.invariantId === 'task_status_is_present' && receipt.passed === true));
+}
+
 function refreshSyncReceipt(receipt) {
   if (!receipt?.after) return receipt;
   const fields = receipt.after.shared?.sharedFields || {};
   const ids = new Set((receipt.history?.operations || []).map((item) => item.opId));
   receipt.valuesVerified = syncValuesVerified(fields);
-  receipt.invariantEvidence = Object.keys(receipt.invariants?.definitions || {}).length > 0;
+  receipt.invariantEvidence = Object.hasOwn(receipt.invariants?.definitions || {}, 'task_status_is_present')
+    && hasPassingInvariantReceipt(receipt.writes || []);
   receipt.verified = syncProbeVerified({ valuesVerified: receipt.valuesVerified,
     invariantEvidence: receipt.invariantEvidence, ids, writeCount: receipt.writes?.length || 0 });
   return receipt;
@@ -83,7 +89,8 @@ async function probeSyncytium(sessionId) {
   const ids = new Set((history.operations || []).map((item) => item.opId));
   const fields = after.shared?.sharedFields || {};
   const valuesVerified = syncValuesVerified(fields);
-  const invariantEvidence = Object.keys(invariants.definitions || {}).length > 0;
+  const invariantEvidence = Object.hasOwn(invariants.definitions || {}, 'task_status_is_present')
+    && hasPassingInvariantReceipt(writes);
   return { before, writes, after, history, invariants,
     valuesVerified, invariantEvidence,
     verified: syncProbeVerified({ valuesVerified, invariantEvidence, ids, writeCount: writes.length }) };
@@ -120,14 +127,26 @@ function loadEnvironment() {
   catch (error) { if (error.code !== 'ENOENT') throw error; }
 }
 
-async function probeMission({ name, probe, results, receipts }) {
+async function findSessionId(db, name) {
+  const topology = name.replace('topologie-', '');
+  const table = await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'topology_sessions'");
+  if (!table) return null;
+  const row = await db.get(
+    'SELECT id FROM topology_sessions WHERE topology = ? ORDER BY updated_at DESC LIMIT 1',
+    topology
+  );
+  return row?.id || null;
+}
+
+async function probeMission({ name, probe, results, receipts, db }) {
   const mission = results.missions.find((item) => item.name === name);
-  if (!mission?.sessionId) return { verified: false, error: 'session_id missing' };
+  const sessionId = mission?.sessionId || await findSessionId(db, name);
+  if (!sessionId) return { verified: false, error: 'session_id missing', blockedBy: mission?.lifecycle || 'mission_receipt_missing' };
   if (receipts[name]) {
     if (name === 'topologie-syncytium') refreshSyncReceipt(receipts[name]);
     return receipts[name];
   }
-  try { return await probe(mission.sessionId); }
+  try { return await probe(sessionId); }
   catch (error) { return { verified: false, error: error.message }; }
 }
 
@@ -153,13 +172,13 @@ async function main() {
   ];
   const receiptPath = path.join(output, 'session-probes.json');
   const receipts = fs.existsSync(receiptPath) ? JSON.parse(fs.readFileSync(receiptPath, 'utf8')) : {};
+  const db = await getDatabase();
   try {
     for (const [name, probe] of probes) {
-      receipts[name] = await probeMission({ name, probe, results, receipts });
+      receipts[name] = await probeMission({ name, probe, results, receipts, db });
       fs.writeFileSync(receiptPath, JSON.stringify(receipts, null, 2));
       process.stdout.write(`${name}: ${receipts[name].verified ? 'verified' : 'unverified'}\n`);
     }
-    const db = await getDatabase();
     await refreshWorkers(db, results, receipts);
     results.qualification = 'experimental';
     fs.writeFileSync(path.join(output, 'campaign-results.json'), JSON.stringify(results, null, 2));

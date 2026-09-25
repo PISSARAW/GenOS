@@ -65,6 +65,7 @@ async function persistHead(observer) {
     const db = await getDatabase();
     await persistOne(observer, db, queuedEvent);
     observer.persistedEvents += 1;
+    observer.persistenceRetryDelayMs = 250;
     if (observer.persistedEvents % 1000 === 0) await observer.pruneHistory(db);
     return false;
   } catch (error) {
@@ -75,8 +76,14 @@ async function persistHead(observer) {
 function handlePersistError(observer, queuedEvent, error) {
   observer.persistenceErrors += 1;
   console.error('[TelemetryObserver] Event persistence failed:', error.message);
-  if (isDbClosedError(error) || /SQLITE_BUSY|locked/i.test(error.message)) {
+  if (isDbClosedError(error)) {
     observer.persistQueue.unshift(queuedEvent);
+    return true;
+  }
+  if (/SQLITE_BUSY|locked/i.test(error.message)) {
+    observer.persistQueue.unshift(queuedEvent);
+    observer.retryPersistenceAfterLock = true;
+    observer.persistenceRetryDelayMs = Math.min(5000, observer.persistenceRetryDelayMs * 2);
     return true;
   }
   return false;

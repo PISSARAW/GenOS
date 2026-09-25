@@ -72,10 +72,18 @@ function composeBiocenose({ db, orchestratorId, mission, options = {} }) {
   return biocenoseService.prepareCommunity({ db, orchestratorId, mission, options });
 }
 
-async function composeSyncytium({ db, orchestratorId, mission }) {
-  const session = await syncytiumCoordinationService.createSession(mission, { db });
+async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
+  const schema = options.sessionOptions?.schema || readSyncytiumSchema();
+  const session = await syncytiumCoordinationService.createSession(mission, {
+    db, schema
+  });
   await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Syncytium mode activation' });
   return session;
+}
+
+function readSyncytiumSchema() {
+  const serialized = process.env.GENOS_SYNCYTIUM_SESSION_SCHEMA;
+  return serialized ? JSON.parse(serialized) : undefined;
 }
 
 async function composeHolobionte({ db, orchestratorId, mission }) {
