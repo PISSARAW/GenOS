@@ -98,16 +98,21 @@ async function prepareDispatch({ db, context }) {
     successCriteria: requestedSuccessCriteria(request),
     available: garage.available
   });
-  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members);
+  const workerAssignments = workerAssignmentsFor(request);
+  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members, workerAssignments);
   const policy = prepareDispatchPolicy({
     mission: { ...request, goal: projectGoal }, members: team.members,
     totalBudget: requestedTokenBudget(request)
   });
   team.members = policy.members;
-  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members);
+  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members, workerAssignments);
   team.executionPolicy = policy.policy;
   requireReadyTeam(team.readiness);
   return { db, request, garage, projectGoal, team, context };
+}
+
+function workerAssignmentsFor(request) {
+  return request.worker_assignments || request.workerAssignments || {};
 }
 
 function requestedTokenBudget(request) {
@@ -194,6 +199,8 @@ async function persistPlannedWorkers(input) {
     name: member.name || member.label || member.role,
     role: member.role || 'worker',
     workerKind: member.workerKind,
+    methodContract: member.methodContract,
+    workerAssignment: member.workerAssignment,
     mission: member.mission || input.context.task
   })));
 }

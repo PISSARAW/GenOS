@@ -154,6 +154,7 @@ function buildPrompt(ctx) {
   const lines = [identity.introduction, selfBlock || null, formatConsciencePrompt(conscience)];
   lines.push(...promptMissionLines(mission));
   lines.push(`Worker kind: ${request.workerKind}. ${workerKinds.promptRule(request.workerKind)}`);
+  if (request.methodContract) lines.push(`Method contract: ${JSON.stringify(request.methodContract)}. Follow it and report unmet preconditions.`);
   lines.push(workerKinds.evidenceRule(request.workerContract));
   const dnaBlock = dnaPromptBlock(dnaSelection);
   if (dnaBlock) lines.push(dnaBlock);
@@ -320,7 +321,9 @@ async function incarnateAgent(opts) {
   request.workerKind = workerKinds.resolveWorkerKind(request.workerKind, request.role);
   request.workerContract = workerKinds.buildWorkerContract(request.workerKind, {
     ...request.mission, orchestratorAgentId: request.parentAgentId,
-    scope: request.mission?.scope || request.workspace?.root || request.workspace?.projectId
+    scope: request.mission?.scope || request.workspace?.root || request.workspace?.projectId,
+    methodContract: request.methodContract,
+    workerAssignment: request.workerAssignment
   });
   const c = opts.ctx || {};
   const db = c.db;

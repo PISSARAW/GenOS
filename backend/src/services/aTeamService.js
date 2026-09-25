@@ -80,7 +80,6 @@ const FICTION_TEAM = [
   {
     label: 'literary_creation',
     role: 'literary_author',
-    workerKind: 'creative_worker',
     modelTier: 'frontier',
     capabilities: ['literary_voice', 'character_psychology'],
     hypothesis: 'Create the fiction with a distinctive voice, psychologically specific characters, and scene-level emotional truth.',
@@ -90,7 +89,6 @@ const FICTION_TEAM = [
   {
     label: 'dramaturgy',
     role: 'dramaturg',
-    workerKind: 'creative_worker',
     modelTier: 'frontier',
     capabilities: ['dramaturgy', 'twist_design'],
     hypothesis: 'Review the author dossier, then own conflict, pacing, narrative architecture, and the causal preparation of the ending.',
@@ -100,7 +98,6 @@ const FICTION_TEAM = [
   {
     label: 'literary_criticism',
     role: 'literary_critic',
-    workerKind: 'verifier_worker',
     modelTier: 'standard',
     capabilities: ['literary_criticism'],
     hypothesis: 'Judge the author and dramaturgy dossiers for prose, interpretive depth, restraint, and emotional credibility without rewriting the author.',
@@ -146,8 +143,6 @@ function isObserverRole(role) {
 
 function buildMember(candidate, selected) {
   const { domain, role, modelTier, score } = candidate;
-  const workerKind = role === 'security_reviewer' || role === 'quality_engineer'
-    ? 'verifier_worker' : role === 'integration_observer' ? 'synthesis_worker' : 'specialist';
   const dependsOn = isObserverRole(role)
     ? selected.filter((item) => !isObserverRole(item.role)).map((item) => item.domain)
     : [];
@@ -155,7 +150,6 @@ function buildMember(candidate, selected) {
     label: domain,
     hypothesis: `Own the ${domain} competency for the shared mission and return evidence to the orchestrator.`,
     role,
-    workerKind,
     modelTier,
     capabilities: [domain],
     authority: { owns: [domain], mayModify: [domain], mayPropose: [], mustConsult: [], mayRead: [], cannotOverride: [] },
@@ -279,7 +273,6 @@ function buildAssignment(composition, member, context) {
     subSystem: member.subSystem,
     label: member.subSystem,
     role: member.role,
-    workerKind: member.workerKind,
     modelTier: member.modelTier,
     capabilities: [member.subSystem],
     authority: { owns: [member.subSystem], mayModify: [member.subSystem], mayPropose: [], mustConsult: [], mayRead: [], cannotOverride: [] },
@@ -290,13 +283,6 @@ function buildAssignment(composition, member, context) {
   };
 }
 
-function workerKindForRole(role) {
-  if (['security_reviewer', 'quality_engineer', 'literary_critic'].includes(role)) return 'verifier_worker';
-  if (role === 'integration_observer') return 'synthesis_worker';
-  if (['literary_author', 'dramaturg', 'direct_author', 'planned_author', 'self_correcting_literary_author'].includes(role)) return 'creative_worker';
-  return 'specialist';
-}
-
 function compose(options = {}) {
   const composition = prepareComposition(options);
   validateComposition(composition);
@@ -304,7 +290,6 @@ function compose(options = {}) {
   const members = composition.systems.map((subSystem, index) => ({
     subSystem,
     role: String(composition.roles[index] || `${subSystem}_specialist`).trim(),
-    workerKind: workerKindForRole(String(composition.roles[index] || `${subSystem}_specialist`).trim()),
     modelTier: String(composition.tiers[index] || 'standard').trim()
   }));
   const producers = members.filter((member) => !isObserverRole(member.role)).map((member) => member.subSystem);

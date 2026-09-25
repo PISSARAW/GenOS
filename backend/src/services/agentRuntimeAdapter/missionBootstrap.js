@@ -34,7 +34,9 @@ async function resolveWorkerIdentity(normalizedMission, dispatchedAgent) {
   } else {
     normalizedMission.workerContract = workerKinds.buildWorkerContract(normalizedMission.workerKind, normalizedMission);
   }
-  require('../agents/workerContractEnforcement').assertRuntimeContract(normalizedMission.workerContract, normalizedMission.workerKind);
+  const contractEnforcement = require('../agents/workerContractEnforcement');
+  contractEnforcement.assertRuntimeContract(normalizedMission.workerContract, normalizedMission.workerKind);
+  contractEnforcement.assertAssignmentMatches(normalizedMission.workerContract, normalizedMission);
 }
 
 function persistedWorkerContract(agent) {

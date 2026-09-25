@@ -45,60 +45,44 @@ Les parcours Trinity et A-Team ont leurs entrées d'orchestration dédiées. Pou
 
 ### 3.1 Matrice des types de workers
 
-La matrice suivante est la règle d'affectation attendue entre les rôles de
-composition et les `WorkerKind` canoniques. Elle évite que le rôle seul soit
-résolu par défaut en `bounded_worker`. Elle ne confère aucune autorité qui ne
-figure pas dans le contrat du worker, le lease, ou le runtime de topologie.
+Il n'existe plus de correspondance unique topologie-rôle → `WorkerKind`. Les
+huit topologies passent par `topologyWorkerKindService`, qui combine les
+capacités obligatoires du rôle avec celles du `methodContract`, puis choisit
+parmi les types qui satisfont toutes ces contraintes. Les préférences de
+sélection servent à départager les candidats compatibles; elles ne peuvent
+pas contourner une capacité manquante. Un type explicitement demandé est
+contrôlé de la même façon et fait échouer la composition s'il est incompatible.
 
-| Topologie | Rôle de composition | `WorkerKind` attendu |
-| --- | --- | --- |
-| Trinity | monde `direct` | `bounded_worker` |
-| Trinity | monde `structured` | `specialist` |
-| Trinity | monde `falsification` | `adaptive_worker` |
-| Trinity, écriture créative | chacun des trois mondes | `creative_worker` |
-| A-Team | spécialiste de domaine | `specialist` |
-| A-Team | `security_reviewer`, `quality_engineer` | `verifier_worker` |
-| A-Team | `integration_observer` | `synthesis_worker` |
-| A-Team, fiction | `literary_author`, `dramaturg` | `creative_worker` |
-| A-Team, fiction | `literary_critic` | `verifier_worker` |
-| Biocénose | `community_facilitator` | `liaison_worker` |
-| Biocénose | `independent_solver`, `generator` | `bounded_worker` |
-| Biocénose | `adversarial_reviewer`, `reviewer` | `red_worker` |
-| Biocénose | `consensus_observer`, `verifier` | `verifier_worker` |
-| Holobionte | `host_orchestrator` | orchestrateur, sans `WorkerKind` |
-| Holobionte | `specialist_symbiont` | `symbiotic_worker` |
-| Holobionte | `immune_symbiont` | `red_worker` |
-| Holobionte | `memory_symbiont` | `synthesis_worker` |
-| Syncytium | `shared_state_coordinator` | `liaison_worker` |
-| Syncytium | `parallel_executor` | `bounded_worker` |
-| Syncytium | `consistency_guardian` | `verifier_worker` |
-| Syncytium | `integration_executor` | `synthesis_worker` |
-| Rhizome | `rootless_coordinator`, `local_bridge` | `liaison_worker` |
-| Rhizome | `capability_offshoot` | `specialist` |
-| Rhizome | `boundary_scout` | `scout_cell` |
-| Métapopulation | `population_isolator` | `bounded_worker` |
-| Métapopulation | `quorum_sensor` | `scout_cell` |
-| Métapopulation | `synaptic_adaptor` | `adaptive_worker` |
-| Métapopulation | `regeneration_steward` | `recovery_worker` |
-| Biome | `environment_mapper`, `ecosystem_observer` | `scout_cell` |
-| Biome | `resource_steward` | `bounded_worker` |
-| Biome | `population_specialist` | `specialist` |
+| Exigence de mission ou de rôle | Candidats préférés (si compatibles) |
+| --- | --- |
+| Observation (`observe`) | `scout_cell`, `resident_daemon` |
+| Exécution bornée (`scoped_execution`) | `bounded_worker`, `specialist`, `procedural_executor` |
+| Procédure déterministe (`deterministic_procedure`) | `procedural_executor` |
+| Stratégie adaptative (`adaptive_strategy`) | `adaptive_worker` |
+| Vérification (`verify`) | `verifier_worker`, `formal_worker` |
+| Revue adversariale (`adversarial_review`) | `red_worker`, `forensic_worker` |
+| Preuve formelle (`formal_proof`) | `formal_worker` |
+| Expérimentation (`experiment`) | `experimental_worker` |
+| Synthèse avec provenance (`synthesize`, `preserve_provenance`) | `synthesis_worker` |
+| Coordination (`coordinate`) | `liaison_worker`, `sub_orchestrator` |
+| Transfert (`handoff`) | `liaison_worker` |
 
-À la frontière de composition, cette matrice complète `workerKind` lorsqu'un
-membre n'en porte pas encore. Un type déjà fourni doit être connu et identique
-au type attendu; un conflit ou un rôle absent de la matrice bloque la
-composition. Il n'y a pas de repli topologique vers `bounded_worker`. Le
-dispatch reconstruit le contrat depuis le registre serveur et ne fait jamais
-confiance à un contrat fourni par le composeur.
+Le rôle `host_orchestrator` demeure un orchestrateur sans `WorkerKind`. Les
+méthodes connues ajoutent leurs capacités au contrat du rôle : par exemple,
+`dynamic_programming` requiert `deterministic_procedure`, tandis que
+`evolutionary_search` requiert `adaptive_strategy`. Une méthode personnalisée
+doit déclarer ses `requiredCapabilities`; une méthode inconnue sans capacités
+déclarées échoue fermée. Sans contrat de méthode explicite, l'affectation porte
+`prompt_defined` et ne certifie pas qu'une méthode seulement mentionnée dans
+le prompt a été reconnue.
 
-Les huit topologies produisent un `workerKind` explicite via leur composeur ou
-cette matrice. Avant le lancement, A-Team et Trinity refusent les types
-inconnus ou incompatibles. Le plan renvoyé expose pour chaque membre `role`,
-`workerKind` et `reason`. Les six modes biologiques exposent aussi ces membres
-typés dans leur résultat ou leur session, mais leur composition ne déclenche
-pas à elle seule leur exécution.
-Voir [Types de workers](../03-reference/types-de-workers.md) pour les contrats,
-artefacts et limites de chaque type.
+Le plan expose pour chaque membre `role`, `workerKind`, `methodContract`,
+capacités requises, candidats compatibles et motif de sélection. Les contrats
+sont persistés puis reconstruits et contrôlés côté serveur. Les six modes
+biologiques produisent les membres typés dans leur résultat ou leur session;
+leur composition seule ne lance pas nécessairement les workers. Voir
+[Types de workers](../03-reference/types-de-workers.md#141-types-de-workers-vs-rôles-de-mission)
+et [ADR 0123](../adr/0123-separer-profil-worker-et-contrat-de-methode.md).
 
 ### Plan exécuté pour Rhizome et Biome
 

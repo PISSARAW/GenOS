@@ -42,7 +42,9 @@ async function composeMode(input = {}) {
   const composition = composer
     ? await composer(context)
     : { members: biologicalModeService.compose(context.key, context.mission) };
-  return topologyWorkerKindService.applyTopologyWorkerKinds(context.key, composition);
+  return topologyWorkerKindService.applyTopologyWorkerKinds(
+    context.key, composition, context.workerAssignments || context.options?.workerAssignments
+  );
 }
 
 function composeTrinity({ mission }) {

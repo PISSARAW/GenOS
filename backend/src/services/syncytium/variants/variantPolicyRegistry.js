@@ -2,7 +2,7 @@
 
 const schemaService = require('../../syncytiumSchemaService');
 
-const POLICY_PRIORITY = Object.freeze(['code', 'graph', 'transactional', 'speculative', 'hierarchical']);
+const POLICY_PRIORITY = Object.freeze(['humanAi', 'code', 'graph', 'transactional', 'speculative', 'hierarchical']);
 const FIELD_SETS = Object.freeze({
   code: { files: 'MAP', tests: 'ADD_WINS_SET', builds: 'MV_REGISTER' },
   graph: { graph_nodes: 'MAP', graph_edges: 'MAP' },
@@ -10,7 +10,11 @@ const FIELD_SETS = Object.freeze({
   epistemic: { claims: 'ADD_WINS_SET', evidence: 'ADD_WINS_SET', refutations: 'ADD_WINS_SET', uncertainty: 'ADD_WINS_SET' },
   blackboard: { events: 'ADD_WINS_SET' },
   document: { sections: 'SEQUENCE', comments: 'ADD_WINS_SET' },
-  realtimeControl: { controls: 'STATE_MACHINE' }
+  realtimeControl: { controls: 'STATE_MACHINE' },
+  humanAi: {
+    'human.presence': 'MAP', 'human.leases': 'MAP', 'human.comments': 'ADD_WINS_SET',
+    'human.approvals': 'MAP', 'critical.actions': 'MAP'
+  }
 });
 const DEFINITIONS = Object.freeze([
   definition('hard', ['serialized', 'critical', 'transactional'], ['CRDT_SHARED_STATE', 'INVARIANT_GATES'], 'SERIALIZABLE', 'ALL_SUBSCRIBED', ['ROLLBACK', 'COORDINATE'], ['invariant_violation', 'authority_violation']),
@@ -24,7 +28,8 @@ const DEFINITIONS = Object.freeze([
   definition('localFirst', ['local-first', 'partition', 'offline'], ['CRDT_SHARED_STATE', 'RESILIENCE_RECOVERY', 'SELECTIVE_SYNC'], 'EVENTUAL', 'LOCAL_FIRST', ['QUEUE_AND_RECONCILE'], ['partition_budget_exceeded']),
   definition('speculative', ['speculative', 'counterfactual', 'what-if'], ['CAUSAL_STATE', 'CAPSULES_SNAPSHOTS'], 'CAUSAL', 'BRANCH_ONLY', ['DISCARD_BRANCH', 'PROMOTE_VALIDATED'], ['promotion_gate_failed']),
   definition('hierarchical', ['hierarchical', 'region', 'multi-region', '1000 agents'], ['SELECTIVE_SYNC', 'INVARIANT_GATES'], 'INVARIANT_PRESERVING', 'REGION_BOUNDARY', ['RECONCILE_BOUNDARY'], ['critical_boundary_violation']),
-  definition('realtimeControl', ['realtime control', 'reflex', 'safety signal'], ['SIGNALING_BUS', 'INVARIANT_GATES'], 'SERIALIZABLE', 'REFLEX_AND_DELTA', ['STOP_AND_REPAIR'], ['safety_signal'])
+  definition('realtimeControl', ['realtime control', 'reflex', 'safety signal'], ['SIGNALING_BUS', 'INVARIANT_GATES'], 'SERIALIZABLE', 'REFLEX_AND_DELTA', ['STOP_AND_REPAIR'], ['safety_signal']),
+  definition('humanAi', ['human-ai', 'human ai', 'human authority', 'human approval', 'human and agent'], ['CRDT_SHARED_STATE', 'HUMAN_AUTHORITY', 'AUTHORSHIP', 'EXPLICIT_CONSENT'], 'SERIALIZABLE', 'SELECTIVE', ['PAUSE_AND_REVIEW', 'UNDO_WITH_ATTRIBUTION'], ['approval_required', 'consent_withdrawn', 'authority_violation'])
 ]);
 
 function definition(...values) {
@@ -63,8 +68,15 @@ function analyzeFit(definitionItem, mission, context = {}) {
 
 function configureSchema(definitionItem, context = {}) {
   const fields = Object.fromEntries(Object.entries(FIELD_SETS[definitionItem.id] || {})
-    .map(([path, dataType]) => [path, { dataType, consistencyZone: fieldZone(definitionItem, path) }]));
-  Object.assign(fields, normalizeFields(context.fields));
+    .map(([path, dataType]) => [path, {
+      dataType, consistencyZone: fieldZone(definitionItem, path),
+      ...(definitionItem.id === 'humanAi' ? humanFieldOwnership(path) : {})
+    }]));
+  const customFields = normalizeFields(context.fields);
+  if (definitionItem.id === 'humanAi' && Object.keys(customFields).some((path) => path in FIELD_SETS.humanAi)) {
+    throw Object.assign(new Error('Human-AI policy fields are reserved and cannot be overridden.'), { code: 'SYNCYTIUM_HUMAN_AI_INVALID' });
+  }
+  Object.assign(fields, customFields);
   return schemaService.compile({
     schemaId: `syncytium-${definitionItem.id}-policy-v1`, fields,
     invariants: context.invariants || []
@@ -74,7 +86,12 @@ function configureSchema(definitionItem, context = {}) {
 function fieldZone(definitionItem, path) {
   if (definitionItem.id === 'transactional' && ['budget', 'inventory', 'capacity'].includes(path)) return 'INVARIANT_PRESERVING';
   if (['epistemic', 'blackboard'].includes(definitionItem.id)) return 'APPEND_ONLY';
+  if (definitionItem.id === 'humanAi') return path === 'human.comments' ? 'APPEND_ONLY' : 'SERIALIZABLE';
   return definitionItem.zone;
+}
+
+function humanFieldOwnership(path) {
+  return { visibility: 'GLOBAL', ownerDomain: path === 'human.approvals' ? 'human-authority' : 'organism' };
 }
 
 function normalizeFields(fields = {}) {
@@ -89,8 +106,26 @@ function configureConsistencyZones(definitionItem, context = {}) {
 }
 
 function configureDomains(definitionItem, context = {}) {
+  if (definitionItem.id === 'humanAi') return humanAiDomains(context.nuclei || []);
   if (definitionItem.id !== 'hierarchical') return Array.isArray(context.nuclearDomains) ? [...context.nuclearDomains] : [];
   return regionsToDomains(context.regions || [], contractPaths(context.sharedContracts));
+}
+
+function humanAiDomains(nuclei) {
+  if (!Array.isArray(nuclei) || !nuclei.some((nucleus) => nucleus.kind === 'human')) {
+    throw Object.assign(new Error('Human-AI Syncytium requires at least one human nucleus.'), { code: 'SYNCYTIUM_HUMAN_AI_INVALID' });
+  }
+  const humans = nuclei.filter((nucleus) => nucleus.kind === 'human').map((nucleus) => nucleus.principalId);
+  const members = nuclei.map((nucleus) => nucleus.principalId);
+  const sharedPaths = Object.keys(FIELD_SETS.humanAi).filter((path) => path !== 'human.approvals');
+  return [
+    { domainId: 'organism', members, owns: sharedPaths },
+    { domainId: 'human-authority', members: humans, owns: ['human.approvals'], mayRead: ['*'] },
+    ...nuclei.map((nucleus) => ({
+      domainId: nucleus.nucleusId, members: [nucleus.principalId], mayWrite: sharedPaths,
+      mayRead: ['*'], subscriptions: ['*']
+    }))
+  ];
 }
 
 function contractPaths(contracts) {
@@ -146,22 +181,41 @@ async function createPolicySession(context) {
   const { mission, request, syncytium } = context;
   const policy = request.variantId ? getPolicy(request.variantId) : selectPolicy(mission, request);
   const configuration = request.configuration || {};
+  if (policy.id === 'humanAi' && !configuration.nuclei?.some((nucleus) => nucleus.kind === 'human')) {
+    throw Object.assign(new Error('Human-AI Syncytium requires at least one human nucleus.'), { code: 'SYNCYTIUM_HUMAN_AI_INVALID' });
+  }
   const schema = policy.configureSchema(configuration);
+  const fit = policy.analyzeFit(mission, request);
+  const selection = policySelection(policy, fit, request.variantId);
+  const variantPolicy = policySummary({ policy, mission, configuration, context: request });
   const session = await syncytium.createSession(mission, {
     ...(request.sessionOptions || {}), schema,
+    variantPolicy,
+    variantSelection: selection,
     nuclearDomains: policy.configureDomains({
-      ...configuration, nuclearDomains: configuration.nuclearDomains || request.sessionOptions?.nuclearDomains
+      ...configuration, nuclearDomains: configuration.nuclearDomains || request.sessionOptions?.nuclearDomains,
+      nuclei: configuration.nuclei
     })
   });
+  return { ...session, variantPolicy, variantSelection: session.variantSelection };
+}
+
+function policySelection(policy, fit, explicitVariant) {
   return {
-    ...session,
-    variantPolicy: {
-      id: policy.id, fit: policy.analyzeFit(mission, { variantId: policy.id }),
-      consistencyZones: policy.configureConsistencyZones(configuration),
-      invariants: policy.configureInvariants(configuration),
-      replication: policy.configureReplication(), repair: policy.configureRepair(),
-      stopConditions: policy.configureStopConditions()
-    }
+    id: policy.id, method: explicitVariant ? 'explicit' : fit.recommended ? 'mission_fit' : 'safe_baseline',
+    confidence: explicitVariant ? 1 : fit.score,
+    reasons: fit.matchedSignals?.length ? fit.matchedSignals : ['NO_DISCRIMINATING_MISSION_SIGNAL']
+  };
+}
+
+function policySummary(input) {
+  const { policy, mission, configuration, context } = input;
+  return {
+    id: policy.id, fit: policy.analyzeFit(mission, context),
+    consistencyZones: policy.configureConsistencyZones(configuration),
+    invariants: policy.configureInvariants(configuration),
+    replication: policy.configureReplication(), repair: policy.configureRepair(),
+    stopConditions: policy.configureStopConditions()
   };
 }
 

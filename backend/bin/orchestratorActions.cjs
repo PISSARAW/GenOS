@@ -260,7 +260,7 @@ async function prepareWorker({ db, context, parent, reusable }) {
   validateWorkspace(request.workspace_root, sourceWorkspace);
   const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, workerCapsuleId(context), process.env.GENOS_CAPSULE_ROOT);
   await insertWorker({ db, context, parent, request, name, role, workerKind });
-  return { name, role, workerKind, workspaceRoot };
+  return { name, role, workerKind, methodContract: request.methodContract, workerAssignment: request.workerAssignment, workspaceRoot };
 }
 function workerRole(request) { return String(request.role || 'implementation'); }
 function workerSlotId(context) { return context.reusedWorker ? context.id : null; }
@@ -278,9 +278,12 @@ function validateWorkspace(requested, source) {
 }
 async function insertWorker({ db, context, parent, request, name, role, workerKind }) {
   const workerKinds = require('../src/services/agents/workerKindService');
-  const contract = workerKinds.buildWorkerContract(workerKind, { prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId });
+  const contract = workerKinds.buildWorkerContract(workerKind, {
+    prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId,
+    methodContract: request.methodContract, workerAssignment: request.workerAssignment
+  });
   if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
-  const metadata = JSON.stringify({ workerKind, workerContract: contract });
+  const metadata = JSON.stringify({ workerKind, workerContract: contract, workerAssignment: request.workerAssignment || null, methodContract: request.methodContract || null });
   if (context.reusedWorker) {
     await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);
     return;
@@ -311,9 +314,9 @@ async function startWorkerMission({ db, context, parent, reusable, worker }) {
   const capabilities = capabilityManifest.owned || [];
   const toolLease = workerToolLeaseForCapabilities(worker.role, capabilities);
 
-  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, workerKind: worker.workerKind, modelTier: parent.model_tier }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
+  const workerLaunch = workerLaunchPayload({ db, context, member: { mission: workerPrompt, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, modelTier: parent.model_tier }, workerId: context.id, parent, capabilities, capabilityManifest, toolLease });
 
-  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, workerKind: worker.workerKind, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, localRuntime });
+  await dispatchWorkerMission({ agentId: context.id, name: worker.name, role: worker.role, workerKind: worker.workerKind, methodContract: worker.methodContract, workerAssignment: worker.workerAssignment, prompt: workerLaunch.mission, modelTier: firstValue(context.request.model_tier, reusable?.modelTier, parent.model_tier), workspaceRoot: worker.workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: context.orchestratorId, strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: workerPolicy(context.request), toolLease, capabilityManifest, capabilities, timeoutMs: context.request.timeoutMs, localRuntime });
 }
 
 function buildCapabilityContext(context, parent, missionBudget) {

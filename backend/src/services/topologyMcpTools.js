@@ -9,6 +9,16 @@ function publicComposition(result) {
   return output;
 }
 
+function compositionOptions(args) {
+  return {
+    ...(args.options || {}),
+    variantId: args.variant_id || args.variantId || args.variant || args.options?.variantId || args.options?.variant,
+    scope: args.scope || args.options?.scope,
+    configuration: args.configuration || args.options?.configuration,
+    workerAssignments: args.worker_assignments || args.workerAssignments || args.options?.workerAssignments
+  };
+}
+
 async function composeBiologicalMode(args = {}) {
   try {
     const db = await getDatabase();
@@ -17,7 +27,7 @@ async function composeBiologicalMode(args = {}) {
       orchestratorId: args.orchestrator_id,
       mode: args.mode,
       mission: args.mission,
-      options: args.options || {}
+      options: compositionOptions(args)
     });
     return { configured: true, success: true, status: 'topology_composed', ...publicComposition(result) };
   } catch (error) {

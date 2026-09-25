@@ -158,13 +158,33 @@ function buildWorkerArtifact(kind, reply, provenance) {
 
 function inspectWorkerArtifact(kind, reply, provenance) {
   const expected = require('./workerKindService').kindDefinition(kind).artifact;
+  const methodContract = provenance?.methodContract || null;
+  const artifactProvenance = { ...(provenance || {}) };
+  delete artifactProvenance.methodContract;
   const parsed = parseArtifactReply(reply);
   const issues = [];
   if (!parsed) issues.push(reply ? 'response.invalid_json' : 'response.absent');
   if (parsed && !Array.isArray(parsed.claims)) issues.push('claims.missing_or_invalid');
-  const input = { parsed, expected, provenance, issues };
-  if (expected === 'dossier') return inspectDossier(input);
-  return inspectSpecialized(input);
+  const input = { parsed, expected, provenance: artifactProvenance, issues };
+  const result = expected === 'dossier' ? inspectDossier(input) : inspectSpecialized(input);
+  return validateMethodEvidence(result, parsed, methodContract);
+}
+
+function validateMethodEvidence(result, parsed, methodContract) {
+  const required = Array.isArray(methodContract?.requiredEvidence) ? methodContract.requiredEvidence : [];
+  const missing = required.filter((path) => !hasEvidenceItem(valueAtPath(parsed, path)));
+  if (!missing.length) return result;
+  return {
+    artifact: null,
+    issues: [...result.issues, ...missing.map((path) => `methodEvidence.missing:${path}`)]
+  };
+}
+
+function valueAtPath(value, path) {
+  return String(path || '').split('.').filter(Boolean).reduce((current, key) => {
+    if (!current || typeof current !== 'object') return undefined;
+    return current[key];
+  }, value);
 }
 
 function inspectDossier(input) {

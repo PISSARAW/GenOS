@@ -50,6 +50,8 @@ function workerLaunchPayload(args) {
     mission,
     role: member.role,
     workerKind,
+    methodContract: member.methodContract,
+    workerAssignment: member.workerAssignment,
     model_tier: member.modelTier,
     capabilities: capabilities || [],
     capabilityManifest: capabilityManifest || null,

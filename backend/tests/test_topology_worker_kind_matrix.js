@@ -62,21 +62,20 @@ async function persistAndCheckWorker(mode, member, index) {
 
 function verifyMappedTopology(mode, rawMembers) {
   const members = topologyKinds.applyTopologyWorkerKinds(mode, rawMembers);
-  const expectedKinds = topologyKinds.MODE_ROLE_KINDS[mode];
   for (const member of members) {
-    const expected = expectedKinds[member.role];
-    assert.equal(member.workerKind, expected, `${mode}:${member.role} mapping`);
-    assert.equal(member.executionMode, expected === null ? 'orchestrator' : 'worker');
-    if (expected !== null) {
+    assert.equal(member.executionMode, member.workerKind ? 'worker' : 'orchestrator');
+    if (member.workerKind) {
       assert.ok(member.workerKindReason, `${mode}:${member.role} includes its mapping reason`);
+      assert.ok(member.workerAssignment.requiredCapabilities.every((capability) =>
+        workerKinds.KIND_CAPABILITIES[member.workerKind].includes(capability)));
+      assert.equal(member.workerAssignment.workerKind, member.workerKind);
     }
   }
   return members;
 }
 
 async function verifyBiologicalBranches() {
-  const modes = Object.keys(topologyKinds.MODE_ROLE_KINDS)
-    .filter((mode) => !['a_team', 'trinity'].includes(mode));
+  const modes = ['biocenose', 'biome', 'holobionte', 'metapopulation', 'rhizome', 'syncytium'];
   const services = [
     [biocenose, 'prepareCommunity'], [biome, 'composeBiome'],
     [holobionte, 'composeHolobiont'], [metapopulation, 'createMetapopulationSession'],
@@ -111,7 +110,7 @@ async function verifyProductTopologies() {
   const securityComposition = await composeMode({ mode: 'trinity', mission: securityMission });
   const trinityMembers = securityComposition.members;
   assert.deepEqual(trinityMembers.map((member) => member.workerKind), [
-    'bounded_worker', 'specialist', 'adaptive_worker'
+    'bounded_worker', 'specialist', 'red_worker'
   ]);
   for (const [index, member] of trinityMembers.entries()) await persistAndCheckWorker('trinity', member, index);
 
@@ -146,7 +145,7 @@ async function verifyFailClosedCases() {
     code: 'TOPOLOGY_WORKER_KIND_UNKNOWN'
   });
   assert.throws(() => topologyKinds.applyTopologyWorkerKinds('biome', [{ role: 'environment_mapper', workerKind: 'bounded_worker' }]), {
-    code: 'TOPOLOGY_WORKER_KIND_MISMATCH'
+    code: 'WORKER_KIND_CAPABILITY_MISMATCH'
   });
   assert.throws(() => topologyKinds.applyTopologyWorkerKinds('trinity', [{ role: 'worker', chamber: 'unmapped' }]), {
     code: 'TOPOLOGY_WORKER_KIND_MISSING'
@@ -156,10 +155,38 @@ async function verifyFailClosedCases() {
   });
 }
 
+function verifyMethodContractsSelectSpecialists() {
+  const cases = [
+    ['implementation', 'dynamic_programming', 'procedural_executor'],
+    ['implementation', 'evolutionary_search', 'adaptive_worker'],
+    ['implementation', 'formal_proof', 'formal_worker'],
+    ['implementation', 'experimental_design', 'experimental_worker'],
+    ['adversarial_reviewer', 'threat_modeling', 'red_worker'],
+    ['analyst', 'causal_analysis', 'forensic_worker'],
+    ['recovery_specialist', 'recolonization', 'recovery_worker'],
+    ['integration_observer', 'synthesis', 'synthesis_worker'],
+    ['literary_author', 'creative_writing', 'creative_worker']
+  ];
+  for (const [role, methodId, expectedKind] of cases) {
+    const [member] = topologyKinds.applyTopologyWorkerKinds('method-fit', [{
+      role, methodContract: { version: 1, methodId }
+    }]);
+    assert.equal(member.workerKind, expectedKind, `${role}/${methodId} selects ${expectedKind}`);
+  }
+  assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
+    role: 'implementation', methodContract: { version: 1, methodId: 'unregistered_method' }
+  }]), { code: 'WORKER_METHOD_UNSUPPORTED' });
+  assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
+    role: 'implementation', workerKind: 'bounded_worker',
+    methodContract: { version: 1, methodId: 'formal_proof' }
+  }]), { code: 'WORKER_KIND_CAPABILITY_MISMATCH' });
+}
+
 async function run() {
   await verifyBiologicalBranches();
   await verifyProductTopologies();
   await verifyFailClosedCases();
+  verifyMethodContractsSelectSpecialists();
   console.log('Topology worker kind matrix, persistence, contracts, and permissions: PASS');
 }
 

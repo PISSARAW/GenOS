@@ -26,7 +26,8 @@ function attachWorkerArtifact(evidenceReport, context) {
   const kind = workerKinds.resolveWorkerKind(mission.workerKind, mission.role);
   const inspected = inspectWorkerArtifact(kind, evidenceReport, {
     source: 'worker-inprocess-local', model: mission.localModel || 'local-model',
-    workspaceRoot: mission.workspaceRoot || '', agentName: context.agentName || ''
+    workspaceRoot: mission.workspaceRoot || '', agentName: context.agentName || '',
+    methodContract: mission.methodContract || null
   });
   evidenceReport.workerArtifact = inspected.artifact;
   if (!inspected.artifact) {

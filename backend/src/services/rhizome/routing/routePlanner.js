@@ -52,7 +52,7 @@ function buildAlternatives(input) {
       nodeIds: path.nodeIds,
       edgeIds: path.edges.map((edge) => edge.edgeId),
       utility: policy.objectiveWeights
-        ? scoring.objectiveScore(path, provider, { weights: policy.objectiveWeights, now: policy.now }) + shortPathBonus
+        ? scoring.objectiveScore(path, provider, policy.objectiveWeights, policy.now) + shortPathBonus
         : scoring.routeScore(path, provider) + shortPathBonus,
       cost: path.edges.reduce((sum, edge) => sum + edge.cost, provider.cost),
       latency: path.edges.reduce((sum, edge) => sum + edge.latency, provider.latency),

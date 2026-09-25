@@ -140,6 +140,11 @@
             "type": "string",
             "description": "Goal or user request to achieve."
           },
+          "worker_assignments": {
+            "type": "object",
+            "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
+            "additionalProperties": { "type": "object", "additionalProperties": true }
+          },
           "strategy": {
             "type": "string",
             "description": "Optional strategy hint from the 78 available."
@@ -444,6 +449,25 @@
           "mission": {
             "type": "string",
             "description": "Mission to analyze."
+          },
+          "variant_id": {
+            "type": "string",
+            "enum": ["controlled", "heterogeneous", "adversarial", "counterfactual", "factorial", "pareto", "jury", "recursive", "adaptive", "temporal", "oracular", "exploratory"],
+            "description": "Optional Trinity variant. Conceptual variants are rejected; partial variants report their limits."
+          },
+          "trinity_jury": {
+            "type": "object",
+            "description": "Optional advisory jury configuration. Jury variant requires enabled=true and at least two distinct modelUris.",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "modelUris": { "type": "array", "items": { "type": "string" } },
+              "maxCostUsd": { "type": "number" }
+            }
+          },
+          "worker_assignments": {
+            "type": "object",
+            "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
+            "additionalProperties": { "type": "object", "additionalProperties": true }
           }
         },
         "required": [
@@ -469,6 +493,11 @@
               "type": "string"
             },
             "description": "Distinct subsystems."
+          },
+          "worker_assignments": {
+            "type": "object",
+            "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
+            "additionalProperties": { "type": "object", "additionalProperties": true }
           }
         },
         "required": [
@@ -500,6 +529,11 @@
           "mission": {
             "type": "string",
             "description": "Mission shared by the collective."
+          },
+          "worker_assignments": {
+            "type": "object",
+            "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
+            "additionalProperties": { "type": "object", "additionalProperties": true }
           },
           "orchestrator_id": {
             "type": "string",

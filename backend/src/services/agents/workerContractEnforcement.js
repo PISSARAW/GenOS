@@ -48,9 +48,27 @@ function assertRuntimeContract(contract, kind) {
   if (!contract || contract.version !== 1 || contract.identity?.workerKind !== kind) {
     throw Object.assign(new Error('Worker runtime contract identity is invalid.'), { code: 'INVALID_WORKER_CONTRACT' });
   }
+  workerKinds.assertMethodCompatibility(kind, contract.mission?.methodContract);
+  if (contract.assignment?.workerKind && contract.assignment.workerKind !== kind) {
+    throw Object.assign(new Error('Worker assignment and runtime contract select different kinds.'), { code: 'INVALID_WORKER_CONTRACT' });
+  }
   assertNoUnsupportedDelegation(contract, kind);
   if (kind === 'sub_orchestrator' && !validSubOrchestratorContract(contract)) {
     throw Object.assign(new Error('Sub-orchestrator delegation contract is missing, expired, or outside its limits.'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
+  }
+  return true;
+}
+
+function assertAssignmentMatches(contract, request) {
+  const assignment = contract?.assignment;
+  if (!assignment) return true;
+  if (assignment.workerKind !== contract.identity?.workerKind) {
+    throw Object.assign(new Error('Persisted assignment kind does not match the runtime contract.'), { code: 'INVALID_WORKER_CONTRACT' });
+  }
+  const expected = contract.mission?.methodContract;
+  const actual = request?.methodContract;
+  if (expected?.methodId && actual?.methodId !== expected.methodId) {
+    throw Object.assign(new Error('Dispatched method does not match the persisted worker assignment.'), { code: 'WORKER_METHOD_MISMATCH' });
   }
   return true;
 }
@@ -76,4 +94,4 @@ function delegationIsDisabled(contract) {
     && contract.spawnBudget === 0 && contract.delegationDepth === 0;
 }
 
-module.exports = { AUTHORITY_TOOLS, toolAction, assertWorkerToolAllowed, enforcePersistedWorkerTool, assertRuntimeContract };
+module.exports = { AUTHORITY_TOOLS, toolAction, assertWorkerToolAllowed, enforcePersistedWorkerTool, assertRuntimeContract, assertAssignmentMatches };

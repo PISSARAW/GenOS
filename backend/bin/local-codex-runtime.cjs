@@ -232,7 +232,7 @@ function emitCompletion(state, reply) {
   const { buildDossierArtifact, buildWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
   const workerKinds = require('../src/services/agents/workerKindService');
   const modelRef = String(state.mission.localModel || process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'local-model');
-  const provenance = { source: 'local-codex-runtime', model: modelRef, workspaceRoot: state.workspaceRoot, agentName: state.agentName };
+  const provenance = { source: 'local-codex-runtime', model: modelRef, workspaceRoot: state.workspaceRoot, agentName: state.agentName, methodContract: state.mission.methodContract || null };
   const kind = workerKinds.resolveWorkerKind(state.mission.workerKind, state.mission.role);
   const workerArtifact = state.mission.executionMode === 'worker'
     ? buildWorkerArtifact(kind, reply, provenance)

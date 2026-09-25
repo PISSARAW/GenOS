@@ -156,7 +156,13 @@ function checkLocalRuntime(policyRequest, request) {
 async function startOrchestratorMission(opts) {
   const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology } = opts;
   await announceTerritoryEntry(db, request);
-  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: enhancedPrompt, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider, morphology });
+  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: promptWithWorkerAssignments(enhancedPrompt, request), modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider, morphology });
+}
+
+function promptWithWorkerAssignments(prompt, request = {}) {
+  const assignments = request.worker_assignments || request.workerAssignments;
+  if (!assignments) return prompt;
+  return `${prompt}\n\nUser-supplied topology worker assignments: ${JSON.stringify(assignments)}. Pass these contracts to the matching topology roles without changing their method requirements.`;
 }
 
 function autonomousOrchestrationEnabled(policyRequest, request) {

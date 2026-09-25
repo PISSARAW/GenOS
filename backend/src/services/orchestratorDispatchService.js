@@ -10,6 +10,8 @@ function buildWorkerMission(input = {}) {
     prompt: input.prompt,
     role: input.role || 'worker',
     workerKind,
+    methodContract: input.methodContract || null,
+    workerAssignment: input.workerAssignment || null,
     workspaceId: input.workspaceId,
     workspaceRoot: input.workspaceRoot,
     workspaceProvisioned: input.workspaceProvisioned === true,
@@ -35,6 +37,7 @@ function buildWorkerMission(input = {}) {
   mission.prompt = [
     mission.prompt,
     `Worker kind: ${workerKind}. ${workerKinds.promptRule(workerKind)}`,
+    mission.methodContract ? `Method contract: ${JSON.stringify(mission.methodContract)}. Follow it and report unmet preconditions.` : null,
     workerKinds.evidenceRule(mission.workerContract)
   ].filter(Boolean).join('\n\n');
   return mission;

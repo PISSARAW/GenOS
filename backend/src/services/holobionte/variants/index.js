@@ -75,26 +75,25 @@ function getVariant(name) {
 
 function selectForMission(mission, options = {}) {
   const explicit = options.variantId || options.variant;
-  if (explicit) return selection(getVariant(explicit), { source: 'explicit', reason: 'operator_selection', mission, options });
+  if (explicit) return selection(getVariant(explicit), 'explicit', 'operator_selection', mission, options);
   const intent = INTENTS.find((item) => item.pattern.test(String(mission || '')));
   const candidate = intent && policies[intent.variant];
   if (candidate && candidate.analyzeFit(options).compatible) {
-    return selection(candidate, { source: 'mission_fit', reason: intent.reason, mission, options });
+    return selection(candidate, 'mission_fit', intent.reason, mission, options);
   }
   const baseline = policies.organelle.analyzeFit(options).compatible ? policies.organelle : policies.procedural;
-  return selection(baseline, { source: 'safe_baseline', reason: 'no_compatible_specialization', mission, options });
+  return selection(baseline, 'safe_baseline', 'no_compatible_specialization', mission, options);
 }
 
-function selection(policy, context) {
-  const fit = policy.analyzeFit(context.options);
+function selection(policy, source, reason, mission, options) {
+  const fit = policy.analyzeFit(options);
   if (!fit.compatible) throw Object.assign(new Error(`Holobiont variant requires: ${fit.reasons.join(', ')}.`), {
     code: 'HOLOBIONT_VARIANT_INCOMPATIBLE', details: fit
   });
   return {
     policy,
-    receipt: { topology: 'holobionte', variantId: policy.name, source: context.source,
-      reason: context.reason, fitScore: fit.score,
-      missionFingerprint: String(context.mission || '').trim().toLowerCase().slice(0, 160) }
+    receipt: { topology: 'holobionte', variantId: policy.name, source, reason, fitScore: fit.score,
+      missionFingerprint: String(mission || '').trim().toLowerCase().slice(0, 160) }
   };
 }
 

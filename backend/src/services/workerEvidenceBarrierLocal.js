@@ -262,7 +262,9 @@ async function runGenerationStage(ctx) {
   const kind = workerKinds.resolveWorkerKind(ctx.mission.workerKind, ctx.mission.role);
   const workerContract = ctx.mission.workerContract || workerKinds.buildWorkerContract(kind, {
     prompt: ctx.mission.prompt, scope: ctx.mission.workspaceRoot,
-    orchestratorAgentId: ctx.mission.orchestratorAgentId
+    orchestratorAgentId: ctx.mission.orchestratorAgentId,
+    methodContract: ctx.mission.methodContract,
+    workerAssignment: ctx.mission.workerAssignment
   });
   const promptText = localEvidencePrompt.buildAnalysisPrompt({
     codeWorker: codeWorker,
@@ -272,7 +274,7 @@ async function runGenerationStage(ctx) {
     agentName: agentName,
     prompt: ctx.mission.prompt,
     workerSelfBlock: wsBlock,
-    workerInstruction: `Worker kind: ${kind}. ${workerKinds.promptRule(kind)}`,
+    workerInstruction: `Worker kind: ${kind}. ${workerKinds.promptRule(kind)}${ctx.mission.methodContract ? ` Method contract: ${JSON.stringify(ctx.mission.methodContract)}.` : ''}`,
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
   ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;

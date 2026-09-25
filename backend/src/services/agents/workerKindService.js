@@ -22,6 +22,31 @@ const KINDS = Object.freeze({
   sub_orchestrator: ['Organizational', 'dossier', 'SubOrchestrator']
 });
 
+const KIND_CAPABILITIES = Object.freeze({
+  scout_cell: ['observe'], resident_daemon: ['observe', 'execute'],
+  bounded_worker: ['execute', 'scoped_execution'], adaptive_worker: ['execute', 'scoped_execution', 'adaptive_strategy', 'domain_specialization'],
+  specialist: ['execute', 'analyze', 'domain_specialization'], procedural_executor: ['execute', 'scoped_execution', 'deterministic_procedure', 'domain_specialization'],
+  symbiotic_worker: ['execute', 'host_bound'], verifier_worker: ['analyze', 'verify'],
+  red_worker: ['analyze', 'verify', 'adversarial_review', 'domain_specialization'], experimental_worker: ['execute', 'scoped_execution', 'experiment', 'measure', 'domain_specialization'],
+  formal_worker: ['execute', 'scoped_execution', 'formal_proof', 'domain_specialization'], synthesis_worker: ['analyze', 'synthesize', 'preserve_provenance'],
+  creative_worker: ['create_candidate'], medical_worker: ['analyze', 'clinical_context'],
+  recovery_worker: ['execute', 'recover'], forensic_worker: ['analyze', 'causal_analysis'],
+  liaison_worker: ['coordinate', 'handoff'], teaching_worker: ['analyze', 'teach'],
+  sub_orchestrator: ['analyze', 'coordinate', 'delegate']
+});
+
+const METHOD_CAPABILITIES = Object.freeze({
+  lpt: ['deterministic_procedure'], greedy: ['deterministic_procedure'], greedy_search: ['deterministic_procedure'],
+  dynamic_programming: ['deterministic_procedure'], subset_sum: ['deterministic_procedure'],
+  local_search: ['deterministic_procedure'], constraint_programming: ['deterministic_procedure'],
+  evolutionary_search: ['adaptive_strategy'], genetic_algorithm: ['adaptive_strategy'],
+  formal_proof: ['formal_proof'], theorem_proving: ['formal_proof'],
+  experimental_design: ['experiment'], controlled_experiment: ['experiment'],
+  adversarial_review: ['adversarial_review'], threat_modeling: ['adversarial_review'],
+  causal_analysis: ['causal_analysis'], recovery: ['recover'], recolonization: ['recover'],
+  synthesis: ['synthesize'], creative_writing: ['create_candidate']
+});
+
 const ROLE_ALIASES = Object.freeze({
   implementation: 'bounded_worker', frontend_developer: 'bounded_worker',
   independent_reviewer: 'verifier_worker', neutral_observer: 'scout_cell',
@@ -91,15 +116,46 @@ function applyAuthorityOverrides(kind, profile = {}) {
   return { ...profile, write: false, ...(AUTHORITY_OVERRIDES[resolveWorkerKind(kind)] || {}) };
 }
 
+function assertMethodCompatibility(kind, methodContract) {
+  if (!methodContract) return true;
+  const required = requiredMethodCapabilities(methodContract);
+  const available = KIND_CAPABILITIES[resolveWorkerKind(kind)] || [];
+  const missing = required.filter((capability) => !available.includes(capability));
+  if (missing.length) {
+    throw Object.assign(new Error(`Worker kind '${kind}' cannot satisfy method '${methodContract.methodId}'; missing capabilities: ${missing.join(', ')}.`), {
+      code: 'WORKER_METHOD_INCOMPATIBLE', requiredCapabilities: missing
+    });
+  }
+  return true;
+}
+
+function requiredMethodCapabilities(methodContract) {
+  if (methodContract.version !== 1) throw methodContractError();
+  if (typeof methodContract.methodId !== 'string' || !methodContract.methodId.trim()) throw methodContractError();
+  const methodId = normalize(methodContract.methodId);
+  const supplied = Array.isArray(methodContract.requiredCapabilities) ? methodContract.requiredCapabilities : [];
+  const required = [...new Set([...(METHOD_CAPABILITIES[methodId] || []), ...supplied])];
+  if (methodId !== 'prompt_defined' && !required.length) {
+    throw Object.assign(new Error(`Method '${methodId}' has no registered worker capability.`), { code: 'WORKER_METHOD_UNSUPPORTED' });
+  }
+  return required;
+}
+
+function methodContractError() {
+  return Object.assign(new Error('Method contract must declare version 1 and a methodId.'), { code: 'WORKER_METHOD_CONTRACT_INVALID' });
+}
+
 function buildWorkerContract(kind, mission = {}) {
   const definition = kindDefinition(kind);
+  assertMethodCompatibility(definition.kind, mission.methodContract);
   const profile = require('./phenotypeRegistryService').getAuthorityProfile(definition.authorityPhenotype) || {};
   const authorities = applyAuthorityOverrides(definition.kind, profile);
   const subOrchestrator = definition.kind === 'sub_orchestrator';
   return {
     version: 1,
     identity: { workerKind: definition.kind, parentId: mission.orchestratorAgentId || mission.parentAgentId || null },
-    mission: { objective: mission.prompt || mission.currentTask || '', scope: mission.scope || mission.workspaceRoot || '' },
+    mission: { objective: mission.prompt || mission.currentTask || '', scope: mission.scope || mission.workspaceRoot || '', methodContract: mission.methodContract },
+    assignment: mission.workerAssignment,
     authority: {
       read: Boolean(authorities.read), analyze: Boolean(authorities.analyze),
       execute: Boolean(authorities.execute), write: Boolean(authorities.write),
@@ -133,4 +189,4 @@ function evidenceRule(contract) {
   return artifactInstruction(contract);
 }
 
-module.exports = { KINDS, ROLE_ALIASES, PROMPT_RULES, AUTHORITY_OVERRIDES, normalize, resolveWorkerKind, kindDefinition, applyAuthorityOverrides, buildWorkerContract, grantBoundedDelegation, promptRule, evidenceRule };
+module.exports = { KINDS, KIND_CAPABILITIES, METHOD_CAPABILITIES, ROLE_ALIASES, PROMPT_RULES, AUTHORITY_OVERRIDES, normalize, resolveWorkerKind, kindDefinition, applyAuthorityOverrides, assertMethodCompatibility, buildWorkerContract, grantBoundedDelegation, promptRule, evidenceRule };

@@ -25,6 +25,8 @@ const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'pattern
 const INTEGER_FIELDS = new Set(['after_id', 'limit', 'budget_steps', 'exact_match', 'stagnation', 'injection_step', 'iteration', 'tokens']);
 const NUMBER_FIELDS = new Set(['similarity', 'expected', 'observed', 'tolerance', 'elapsed', 'uncertainty', 'confidence']);
 const MCP_CONTRACT_VERSION = 'genos.mcp/v1';
+const { workerAssignmentsSchema } = require('./workerAssignmentsSchema');
+const { trinityDesignSchema } = require('./trinityDesignSchema');
 
 function applyToolSpecificOverrides(toolName, schema) {
   if (toolName === 'genos_replay') {
@@ -89,6 +91,7 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       mission: { type: 'string', description: 'Goal or user request to achieve.' },
+      worker_assignments: workerAssignmentsSchema(),
       strategy: { type: 'string', description: 'Optional strategy hint from the available strategies.' },
       background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. False waits within the MCP timeout.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor: Codex, Hermes/Nous, Antigravity host, or all discovered local models.' },
@@ -226,7 +229,13 @@ const TOOL_BASE_SCHEMAS = {
   },
   genos_trinity_launch: {
     type: 'object',
-    properties: { mission: { type: 'string', description: 'Mission to analyze.' } },
+    properties: {
+      mission: { type: 'string', description: 'Mission to analyze.' },
+      variant_id: { type: 'string', enum: ['controlled', 'heterogeneous', 'adversarial', 'counterfactual', 'factorial', 'pareto', 'jury', 'recursive', 'adaptive', 'temporal', 'oracular', 'exploratory'], description: 'Optional Trinity variant; conceptual variants are rejected, and partial variants report their limits.' },
+      experimental_design: { type: 'object', description: 'Composable Trinity policy axes. Omitted axes use the controlled three-world baseline.', properties: trinityDesignSchema() },
+      trinity_jury: { type: 'object', description: 'Optional advisory jury configuration. Jury variant requires enabled=true and at least two distinct modelUris.', properties: { enabled: { type: 'boolean' }, modelUris: { type: 'array', items: { type: 'string' } }, maxCostUsd: { type: 'number' } } },
+      worker_assignments: workerAssignmentsSchema()
+    },
     required: ['mission'],
   },
   genos_a_team_preview: {
@@ -234,6 +243,7 @@ const TOOL_BASE_SCHEMAS = {
     properties: {
       project_goal: { type: 'string', description: 'Overarching project goal.' },
       sub_systems: { type: ['array', 'string'], items: { type: 'string' }, description: 'Distinct subsystems (array of strings or comma-separated string).' },
+      worker_assignments: workerAssignmentsSchema(),
     },
     required: ['project_goal', 'sub_systems'],
   },
@@ -242,6 +252,10 @@ const TOOL_BASE_SCHEMAS = {
     properties: {
       mode: { type: 'string', enum: ['biome', 'syncytium', 'holobionte', 'biocenose', 'rhizome', 'metapopulation'], description: 'Biological organization mode.' },
         mission: { type: 'string', description: 'Mission shared by the collective.' },
+        variant_id: { type: 'string', description: 'Optional variant identifier for the selected topology; unknown or incompatible variants are rejected.' },
+        scope: { type: 'string', description: 'Optional session scope such as mission, workspace, project, or persistent.' },
+        configuration: { type: 'object', description: 'Optional topology-specific runtime configuration.' },
+        worker_assignments: workerAssignmentsSchema(),
         orchestrator_id: { type: 'string', description: 'Orchestrator whose organization should be changed.' },
     },
     required: ['mode', 'mission'],

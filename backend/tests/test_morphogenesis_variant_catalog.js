@@ -14,6 +14,9 @@ function run() {
   assert.equal(biocenose.maturity, 'partial');
   const syncytium = registry.variants.resolve('syncytium', 'code');
   assert.deepEqual(syncytium.requiredCapabilities, ['CRDT_SHARED_STATE', 'SEMANTIC_CONFLICTS', 'EVIDENCE_BARRIER']);
+  const humanAi = registry.variants.resolve('syncytium', 'humanAi');
+  assert.equal(humanAi.maturity, 'implemented');
+  assert.deepEqual(humanAi.requiredCapabilities, ['CRDT_SHARED_STATE', 'HUMAN_AUTHORITY', 'AUTHORSHIP', 'EXPLICIT_CONSENT']);
   const rhizome = registry.variants.resolve('rhizome', 'resilient');
   assert.equal(rhizome.parameters.resilience.alternatives, 4);
   assert.equal(registry.variants.resolve('holobionte', 'adaptiveMicrobiome').maturity, 'partial');

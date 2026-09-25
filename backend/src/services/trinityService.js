@@ -18,8 +18,6 @@ function membersFor(profile) {
     chamber: chambers[i],
     label, hypothesis: `${profile.hypotheses[i]} Report evidenceVector (correctness, coverage, robustness, reproducibility, novelty, cost, latency, risk, uncertainty, constraintCoverage), hardConstraintsPassed, and budgetStatus. Use null for unmeasured dimensions and cite each measured dimension in evidenceVectorEvidence using IDs from evidence[]. Never invent measurements or evidence.`, role: profile.roles[i],
     modelTier: i === 0 ? 'standard' : 'frontier', domain: profile.domain,
-    workerKind: profile.domain === 'creative_writing' ? 'creative_worker'
-      : ['bounded_worker', 'specialist', 'adaptive_worker'][i],
     artifact: profile.artifact, pipelineStage: 0
   }));
 }

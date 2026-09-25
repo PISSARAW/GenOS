@@ -257,9 +257,9 @@ Source : `backend/src/services/agents/phenotypeRegistryService.js` (261 lignes).
 
 `applyAuthorityOverrides(kind, profile) = {…profile, write:false, …OVERRIDES[kind]}` — `write:false` forcé par défaut.
 
-`buildWorkerContract(kind, mission)` : `getAuthorityProfile(phenotype)` + overrides + `mission:{objective, scope}` + `identity:{workerKind, parentId}` + `version:1`. Le contrat de base force `spawn/delegate/topology=false` et `spawnBudget=0, delegationDepth=0`; `grantBoundedDelegation()` constitue une seconde étape explicite pour un `sub_orchestrator` persistant. La stratégie est vraie seulement pour `adaptive_worker|specialist|sub_orchestrator`; les limites de base incluent `maxIterations=scout?1 : sub?30 : null`.
+`buildWorkerContract(kind, mission)` : `getAuthorityProfile(phenotype)` + overrides + `mission:{objective, scope, methodContract}` + `identity:{workerKind, parentId}` + `assignment` + `version:1`. Le contrat de base force `spawn/delegate/topology=false` et `spawnBudget=0, delegationDepth=0`; `grantBoundedDelegation()` constitue une seconde étape explicite pour un `sub_orchestrator` persistant. La stratégie est vraie seulement pour `adaptive_worker|specialist|sub_orchestrator`; les limites de base incluent `maxIterations=scout?1 : sub?30 : null`.
 
-Fonctions : `normalize()` (trim + camel→snake + `[\s-]`→`_` + minuscules), `resolveWorkerKind(explicit, role)` (explicite inconnu ⇒ `UNKNOWN_WORKER_KIND` ; sinon kind direct, alias, ou défaut sûr `bounded_worker`), `kindDefinition()`, `promptRule()`, `evidenceRule()` (via `workerArtifactContract.artifactInstruction`).
+Fonctions : `normalize()` (trim + camel→snake + `[\s-]`→`_` + minuscules), `resolveWorkerKind(explicit, role)` (explicite inconnu ⇒ `UNKNOWN_WORKER_KIND` ; sinon kind direct, alias, ou défaut sûr `bounded_worker` pour les chemins génériques), `kindDefinition()`, `promptRule()`, `evidenceRule()` (via `workerArtifactContract.artifactInstruction`). Les topologies utilisent d'abord le sélecteur par capacités décrit en §14.1.
 
 ---
 
@@ -287,7 +287,7 @@ Principe ADR 0064 : « l'incarnation reconstruit le contrat côté serveur ; les
 
 ## 6. Rôles de mission, exécuteurs et topologies : ce qui n'est pas un type
 
-- Les rôles de mission (`implementation`, `independent_reviewer`, `analyst`, `frontend_developer`, `strategist`, `dramaturg`, …) décrivent une affectation. Ils sont résolus via `ROLE_ALIASES` ou `KINDS` direct, sinon `bounded_worker` par défaut. Ils ne sont pas des identifiants `WorkerKind`.
+- Les rôles de mission (`implementation`, `independent_reviewer`, `analyst`, `frontend_developer`, `strategist`, `dramaturg`, …) décrivent une affectation. Dans les chemins génériques, ils peuvent être résolus via `ROLE_ALIASES` ou `KINDS` direct, sinon `bounded_worker` par défaut. Les huit topologies appliquent plutôt leurs exigences de rôle et de méthode par capacités (§14.1). Les rôles ne sont pas des identifiants `WorkerKind`.
 - `local`, `codex`, `caller_mcp` désignent un exécuteur ou un chemin d'exécution (`cognitiveExecutor.js`, `missionLease.js`), pas un phénotype. `caller_mcp` exige `GENOS_MCP_SAMPLING_URL` sinon `MCP_SAMPLING_UNAVAILABLE`.
 - Les topologies (Trinity, A-Team, Biome, Biocénose, Holobionte, Syncytium, Rhizome, Métapopulation ; voir `docs/02-orchestration/topologies/morphogenese.md`) décrivent l'organisation d'une mission ; elles peuvent affecter plusieurs workers sans créer de nouveaux types canoniques.
 - `authorityMatrixService.js` expose 13 dimensions (`read, analyze, signal, execute, write, delegate, spawn, promote, mutate, topology, strategy, escalate, reconcile`) et 8 profils canoniques + `Reconciler` hors-spec. C'est un lookup pur sans effet de bord. `can('SubOrchestrator','spawn')===true` mais `can('sub_orchestrator','spawn')===false` après overrides.
@@ -424,7 +424,38 @@ Aucune variable ne réactive le spawn imbriqué. Le contrat de base est non dél
 
 ### 14.1 Types de workers vs rôles de mission
 
-Les rôles décrivent *qui fait quoi* dans une mission ; les types décrivent *sous quel contrat*. Un même `bounded_worker` peut porter les rôles `implementation`, `frontend_developer`, `analyst` ou `blue_team` sans changer de garanties. Traiter le rôle comme identifiant de type est rejeté (ADR 0064) : les rôles sont des alias opérationnels incomplets.
+Les rôles décrivent *qui fait quoi* dans une mission ; les types décrivent *sous quel contrat* ; la méthode décrit *comment résoudre le problème*. Depuis l'ADR 0123, le sélecteur commun des huit topologies convertit les contraintes du rôle et du contrat de méthode en capacités requises, puis choisit un `WorkerKind` parmi les candidats qui satisfont toutes ces exigences. Les préférences ne départagent que les candidats compatibles. Un kind explicite est refusé s'il manque une capacité requise. Traiter le rôle comme identifiant de type est rejeté (ADR 0064) : les rôles restent distincts des types.
+
+Les appels de topologie peuvent déclarer les exigences par membre dans `worker_assignments`, indexé par rôle. Exemple :
+
+```json
+{
+  "worker_assignments": {
+    "population_isolator": {
+      "methodContract": {
+        "version": 1,
+        "methodId": "dynamic_programming",
+        "parameters": { "objective": "minimize_makespan" },
+        "requiredEvidence": ["submission.assignments", "submission.makespan"],
+        "evaluator": { "id": "two_machine_scheduling_v1" }
+      }
+    }
+  }
+}
+```
+
+Le catalogue associe les méthodes connues à des capacités : programmation
+dynamique, LPT, recherche locale et programmation par contraintes exigent une
+procédure déterministe; recherche évolutionnaire exige une adaptation locale;
+preuve formelle, expérimentation, audit adversarial, analyse causale,
+récupération, synthèse et création ont chacune leur capacité. Une méthode
+personnalisée doit déclarer `requiredCapabilities`. Le sélecteur combine ces
+exigences avec celles du rôle, persiste `workerAssignment` et
+`methodContract`, puis reconstruit et contrôle le contrat côté serveur.
+`requiredEvidence` nomme des chemins dans le JSON de résultat. Le validateur
+d'artefact du runtime local les vérifie avant acceptation de l'artefact. Sans
+méthode explicite, le contrat porte `prompt_defined`; GenOS ne prétend alors
+pas avoir vérifié l'adéquation d'un algorithme nommé dans le texte libre.
 
 ### 14.2 Types de workers vs exécuteurs
 
@@ -452,6 +483,7 @@ Les topologies (voir `morphogenese.md`) composent des organisations ; les worker
 | `crates/genos-worker/src/invariants.rs` | `check_action`, `is_verified_success`. |
 | `crates/genos-worker/src/tests.rs` | 16 tests de contrat et table des 19 artefacts. |
 | `backend/src/services/agents/workerKindService.js` | Catalogue Node `KINDS`, alias, consignes, overrides, `buildWorkerContract`. |
+| `backend/src/services/topologyWorkerKindService.js` | Capacités de rôles et méthodes, sélection centrale et contrôles pour les huit topologies. |
 | `backend/src/services/agents/phenotypeRegistryService.js` | 9 phénotypes stockés, phénotypes virtuels, `canSpawn`. |
 | `backend/src/services/agents/workerContractEnforcement.js` | `AUTHORITY_TOOLS`, `assertWorkerToolAllowed`, `assertRuntimeContract`. |
 | `backend/src/services/agents/workerArtifactContract.js` | 10 types d'artefacts, `validateWorkerArtifact`. |
@@ -472,7 +504,10 @@ Les topologies (voir `morphogenese.md`) composent des organisations ; les worker
 
 ```mermaid
 flowchart LR
-  KIND["WorkerKind canonique<br/>19 snake_case"] --> RESOLVE["resolveWorkerKind<br/>explicit > kind > alias > bounded"]
+  COMPOSE["Topologie<br/>rôle + methodContract"] --> SELECT["topologyWorkerKindService<br/>capacités + préférences"]
+  SELECT --> RESOLVE["WorkerKind compatible"]
+  GENERIC["Dispatch générique"] --> FALLBACK["resolveWorkerKind<br/>explicit > kind > alias > bounded"]
+  FALLBACK --> RESOLVE
   RESOLVE --> BUILD["buildWorkerContract<br/>profil + overrides<br/>spawn/delegate/topology=false"]
   BUILD --> PERSIST["agents.metadata_json<br/>workerKind + workerContract"]
   PERSIST --> BOOT["missionBootstrap<br/>reconstruction + assertRuntimeContract"]
@@ -1243,46 +1278,19 @@ La campagne a utilisé le checkout de travail courant, qui contenait d'autres mo
 
 ---
 
-## 47. Affectation attendue par topologie
+## 47. Affectation par capacités et topologie
 
-Les rôles des topologies et les `WorkerKind` ne sont pas le même vocabulaire :
-le premier décrit une position dans une composition, le second définit un
-contrat d'exécution et un artefact. La matrice de référence se trouve dans
-[Topologies & contrat de capacités](../02-orchestration/topologies-et-capacites.md#31-matrice-des-types-de-workers).
+L'affectation des huit topologies est décrite dans
+[Topologies & contrat de capacités](../02-orchestration/topologies-et-capacites.md#31-matrice-des-types-de-workers)
+et décidée par `topologyWorkerKindService`. Ce service conserve les contraintes
+propres aux rôles et aux orchestrateurs, puis ajoute celles d'un `methodContract`
+structuré lorsqu'il est fourni. Il ne choisit pas un algorithme à partir du
+texte libre. Les détails du contrat, les capacités de méthode, les preuves et
+les limites de `prompt_defined` sont décrits en §14.1.
 
-Le composeur porte le résultat de cette matrice dans `member.workerKind`. À la
-frontière de composition, un type absent est complété depuis l'entrée
-topologie-rôle. Un type fourni qui est inconnu ou incompatible, ou un rôle sans
-entrée dans la matrice, fait échouer la composition; aucun repli topologique
-vers `bounded_worker` n'est appliqué. À l'incarnation, le backend appelle
-`resolveWorkerKind()` puis `buildWorkerContract()` et persiste le type canonique
-avec le contrat reconstruit. Le repli de rôle vers `bounded_worker` reste
-réservé aux chemins génériques qui n'ont aucune règle topologique dédiée.
-
-L'affectation de type ne remplace pas les règles propres aux topologies :
-
-- `host_orchestrator` reste un orchestrateur et ne devient pas un
-  `sub_orchestrator`.
-- Les mutations du Syncytium, la croissance du Rhizome, les corridors de la
-  Métapopulation et l'allocation du Biome restent gouvernés par leurs services
-  respectifs.
-- Le type impose l'artefact de sortie : par exemple `scout_cell` produit une
-  `scout_observation`, `verifier_worker` et `red_worker` un
-  `verification_report`, et `synthesis_worker` un `synthesis_dossier`.
-
-### Écart d'implémentation
-
-Les huit topologies renseignent `member.workerKind` directement ou à partir de
-leur entrée explicite dans la matrice. A-Team et Trinity propagent ce type au
-worker lancé et reconstruisent son contrat au dispatch. Les six modes
-biologiques produisent des membres typés dans leur composition/session, mais ne
-lancent pas automatiquement ces workers. Le test ciblé vérifie la propagation
-jusqu'à la persistance, l'identité du contrat, l'artefact requis et les
-autorisations effectives pour chaque branche de la matrice.
-
-Avant lancement A-Team ou Trinity, le validateur exige un type canonique connu
-et compatible avec le rôle topologique; un identifiant inconnu ou un conflit
-bloque le dispatch. Si le composeur n'a pas fourni le type, l'entrée explicite
-de la matrice le complète; un rôle sans mapping bloque la composition. Le plan
-inclut `role`, `workerKind` et `reason` pour rendre l'affectation vérifiable par
-l'appelant.
+Le `WorkerKind` sélectionné fixe l'artefact et les garanties de runtime; il ne
+remplace pas la sémantique collective de la topologie. La composition des six
+topologies biologiques produit des membres typés mais n'implique pas, à elle
+seule, leur lancement. Les artefacts sont vérifiés par les barrières de preuve
+du chemin d'exécution concerné; la vérification des chemins `requiredEvidence`
+est actuellement raccordée au validateur d'artefacts du runtime local.

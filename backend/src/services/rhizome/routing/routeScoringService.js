@@ -11,9 +11,7 @@ function routeScore(route, provider) {
   return Number((utility + provider.reliability - route.edges.length * 0.1).toFixed(4));
 }
 
-function objectiveScore(route, provider, options = {}) {
-  const weights = options.weights || {};
-  const now = options.now || Date.now();
+function objectiveScore(route, provider, weights = {}, now = Date.now()) {
   const reliability = route.edges.reduce((value, edge) => value * edge.reliability, provider.reliability);
   const cost = route.edges.reduce((sum, edge) => sum + edge.cost, provider.cost);
   const latency = route.edges.reduce((sum, edge) => sum + edge.latency, provider.latency);

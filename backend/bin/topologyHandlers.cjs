@@ -104,6 +104,8 @@ function persistWorkerIdentity({ db, context, member, parent, workerId }) {
     name: member.name || member.label || member.role,
     role: member.role || 'worker',
     workerKind: member.workerKind,
+    methodContract: member.methodContract,
+    workerAssignment: member.workerAssignment,
     mission: member.mission || context.task
   });
 }
@@ -340,9 +342,10 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
 
 function composeBiologicalMode({ db, context, mode, mission }) {
   const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;
+  const workerAssignments = context.request.worker_assignments || context.request.workerAssignments;
   return biologicalTopology.composeMode({
     db, orchestratorId: context.orchestratorId, mode, mission,
-    options: { agentCount, clusterSize, fanout, organization }
+    options: { agentCount, clusterSize, fanout, organization, workerAssignments }
   });
 }
 
