@@ -83,7 +83,16 @@ async function runTests() {
   assert.equal(remaining.length, 1, 'Only consolidated episode should remain');
   assert.equal(remaining[0].id, ep1.id);
   assert.equal(remaining[0].isConsolidated, 1);
+  const repeatConsolidation = await episodicMemoryService.consolidateEpisodes({ agentId, sessionId, purgeBelowThreshold: true });
+  assert.equal(repeatConsolidation.totalProcessed, 0, 'Purged episodes must never be selected for consolidation again');
   console.log('  ✅ PASS: Hippocampal consolidation promoted high reward & purged low reward episode');
+
+  const tenantAgent = `tenant_agent_${Date.now()}`;
+  await episodicMemoryService.recordEpisode({ agentId: tenantAgent, organizationId: 'org-a', projectId: 'project-a', sessionId: 'shared-session', rewardScore: 0.9 });
+  await episodicMemoryService.recordEpisode({ agentId: tenantAgent, organizationId: 'org-b', projectId: 'project-b', sessionId: 'shared-session', rewardScore: 0.9 });
+  const scopedEpisodes = await episodicMemoryService.getRecentEpisodes({ agentId: tenantAgent, organizationId: 'org-a', projectId: 'project-a' });
+  assert.equal(scopedEpisodes.length, 1, 'Episodic recall must stay within the requested tenant');
+  assert.equal(scopedEpisodes[0].organizationId, 'org-a');
 
   // -------------------------------------------------------------------------
   // Test 3: Direct MCP Tool Routing

@@ -88,7 +88,8 @@ async function createFoundationTables(db) {
     turn_number INTEGER DEFAULT 0, action_type TEXT, context_state TEXT DEFAULT '{}',
     action_input TEXT, observation_output TEXT, reward_score REAL DEFAULT 0.0,
     is_consolidated INTEGER DEFAULT 0, is_purged INTEGER NOT NULL DEFAULT 0,
-    purged_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    purged_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    organization_id TEXT, project_id TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_episodic_agent_session ON episodic_memories (agent_id, session_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_episodic_consolidated ON episodic_memories (is_consolidated, created_at);
@@ -222,6 +223,9 @@ async function ensureEpisodicColumns(db) {
   const episodicColumns = new Set((await db.all('PRAGMA table_info(episodic_memories)')).map((column) => column.name));
   if (!episodicColumns.has('is_purged')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN is_purged INTEGER NOT NULL DEFAULT 0');
   if (!episodicColumns.has('purged_at')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN purged_at DATETIME');
+  if (!episodicColumns.has('organization_id')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN organization_id TEXT');
+  if (!episodicColumns.has('project_id')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN project_id TEXT');
+  await db.exec('CREATE INDEX IF NOT EXISTS idx_episodic_tenant ON episodic_memories (organization_id, project_id, agent_id, session_id)');
 }
 
 async function ensureAgentRuntimeColumns(db) {

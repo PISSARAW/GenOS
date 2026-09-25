@@ -5,21 +5,21 @@ module.exports = {
 
   QueryGraphRag: async (call, callback) => {
     try {
-      const { query, limit } = call.request || {};
-      const res = await graphRag.queryKnowledgeGraph(query || '', limit || 5);
+      const { query, limit, organization_id, project_id } = call.request || {};
+      const res = await graphRag.queryKnowledgeGraph(query || '', { limit: limit || 5, organizationId: organization_id, projectId: project_id });
       callback(null, {
         context_nodes: (res.nodes || []).map((n) => typeof n === 'string' ? n : (n.label || n.id)),
         synthesis: res.synthesis || 'Knowledge synthesis ready.'
       });
     } catch (err) {
-      callback(null, { context_nodes: [], synthesis: err.message });
+      callback(err);
     }
   },
 
   IngestDocument: async (call, callback) => {
     try {
-      const { doc_id, text } = call.request || {};
-      const result = await graphRag.ingestDocument(doc_id || 'doc-1', text || '');
+      const { doc_id, text, organization_id, project_id } = call.request || {};
+      const result = await graphRag.ingestDocument(doc_id || 'doc-1', text || '', { organizationId: organization_id, projectId: project_id });
       callback(null, {
         success: true,
         entities_extracted: result.entitiesCount || 1

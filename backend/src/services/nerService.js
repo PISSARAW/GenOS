@@ -149,7 +149,24 @@ async function extractEntities(text, options = {}) {
  * @param {string} decisionId
  * @returns {Promise<{ extractedCount: number, synapsesCreated: number }>}
  */
-async function enrichKnowledgeGraph(db, text, decisionId) {
+async function linkEntityRelation(db, options) {
+  const { relation, decisionId, scope } = options;
+  let targetQuery = 'SELECT id FROM genome_decisions WHERE (title LIKE ? OR content LIKE ?) AND id != ?';
+  const targetParams = [`%${relation.entity_b}%`, `%${relation.entity_b}%`, decisionId];
+  if (scope.organizationId) {
+    targetQuery += ' AND (organization_id = ? OR organization_id IS NULL) AND (project_id = ? OR project_id IS NULL)';
+    targetParams.push(scope.organizationId, scope.projectId);
+  }
+  const target = await db.get(`${targetQuery} LIMIT 1`, ...targetParams);
+  if (!target) return 0;
+  await db.run(
+    'INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, organization_id, project_id) VALUES (?, ?, 1.2, ?, ?)',
+    decisionId, target.id, scope.organizationId || null, scope.projectId || null
+  );
+  return 1;
+}
+
+async function enrichKnowledgeGraph(db, { text, decisionId, scope = {} } = {}) {
   if (!db || !text || !decisionId) {
     return { extractedCount: 0, synapsesCreated: 0 };
   }
@@ -158,22 +175,8 @@ async function enrichKnowledgeGraph(db, text, decisionId) {
     const { relations } = await extractEntities(text);
     if (!relations.length) return { extractedCount: 0, synapsesCreated: 0 };
 
-    let created = 0;
-    for (const rel of relations) {
-      // Look for any existing decision whose title or content mentions entity_b
-      const target = await db.get(
-        `SELECT id FROM genome_decisions WHERE (title LIKE ? OR content LIKE ?) AND id != ? LIMIT 1`,
-        `%${rel.entity_b}%`, `%${rel.entity_b}%`, decisionId
-      );
-
-      if (target) {
-        await db.run(
-          `INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, 1.2)`,
-          decisionId, target.id
-        );
-        created++;
-      }
-    }
+    const created = (await Promise.all(relations.map((relation) => linkEntityRelation(db, { relation, decisionId, scope }))))
+      .reduce((total, count) => total + count, 0);
 
     return { extractedCount: relations.length, synapsesCreated: created };
   } catch {
