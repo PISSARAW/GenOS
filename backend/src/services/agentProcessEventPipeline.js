@@ -80,7 +80,15 @@ function checkSwarmSentinel(ctx, event, finalEvent) {
   const sentinelResult = swarmSentinel.inspectEvent(agentId, event);
   if (sentinelResult.intervention && !ctx.state.termination && !finalEvent) {
     emit(agentId, 'SWARM_ENTROPY_COLLAPSE', 'SENTINEL_HALT', sentinelResult.reason, {
-      state: sentinelResult.state, normalizedEntropy: sentinelResult.normalizedEntropy
+      state: sentinelResult.state,
+      reasonCode: sentinelResult.reasonCode,
+      normalizedEntropy: sentinelResult.normalizedEntropy,
+      rawEntropy: sentinelResult.rawEntropy,
+      sampleSize: sentinelResult.sampleSize,
+      uniqueActions: sentinelResult.uniqueActions,
+      dominanceRatio: sentinelResult.dominanceRatio,
+      transitionEntropy: sentinelResult.transitionEntropy,
+      cycleLength: sentinelResult.cycleLength
     }, 'critical', 'deadlock_collapse');
     ctx.haltRuntime(ctx, 'deadlock_collapse', sentinelResult.reason, 'Runtime halted: Swarm Sentinel detected infinite cognitive repetition / deadlock.', { sentinelResult });
     return true;

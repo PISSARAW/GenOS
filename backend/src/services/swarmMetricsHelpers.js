@@ -64,7 +64,7 @@ function computeConditionalEntropy(transitions, stateCounts, totalTransitions) {
 
 function detectPeriodicCycle(items) {
   for (const period of [1, 2, 3, 4, 5, 6, 7, 8, 12, 16]) {
-    const minItems = period === 1 ? 3 : period * 2;
+    const minItems = period === 1 ? 4 : period * 2;
     if (items.length < minItems) continue;
     let matches = 0;
     let comparisons = 0;
@@ -93,8 +93,7 @@ function collapseFlags(metrics) {
   const isDominantRepetition = (metrics.dominanceRatio >= 0.85 && metrics.totalActions >= 4) ||
     (metrics.totalActions >= 4 && metrics.uniqueActions === 1);
   const isEntropyCollapsed = metrics.normalizedEntropy < 0.20 && metrics.totalActions >= 4;
-  const isDeadlockCycle = (metrics.isPeriodicCycle && metrics.totalActions >= (metrics.cycleLength === 1 ? 3 : metrics.cycleLength * 2)) ||
-    (metrics.totalActions >= 4 && metrics.transitionEntropy === 0 && metrics.uniqueActions <= 3);
+  const isDeadlockCycle = metrics.isPeriodicCycle;
   return { isDominantRepetition, isEntropyCollapsed, isDeadlockCycle };
 }
 
@@ -103,6 +102,7 @@ function collapsedResult(metrics, flags) {
     return {
       driftState: 'COLLAPSE_DEADLOCK',
       diagnostic: `Cyclic deadlock detected: periodic loop of length ${metrics.cycleLength} detected.`,
+      reasonCode: 'PERIODIC_ACTION_CYCLE',
       normalizedEntropy: Number(Math.min(metrics.normalizedEntropy, metrics.transitionEntropy).toFixed(3))
     };
   }
@@ -110,12 +110,14 @@ function collapsedResult(metrics, flags) {
     return {
       driftState: 'COLLAPSE_DEADLOCK',
       diagnostic: `High repetition dominance (${Math.round(metrics.dominanceRatio * 100)}%): single action repetition collapse.`,
+      reasonCode: 'DOMINANT_ACTION_REPETITION',
       normalizedEntropy: metrics.normalizedEntropy
     };
   }
   return {
     driftState: 'COLLAPSE_DEADLOCK',
-    diagnostic: 'Low entropy collapse detected: infinite repetition or frozen logic.',
+    diagnostic: 'Low action entropy detected across a minimum window.',
+    reasonCode: 'LOW_ACTION_ENTROPY',
     normalizedEntropy: metrics.normalizedEntropy
   };
 }
@@ -128,12 +130,14 @@ function collapseResult(metrics, flags) {
     return {
       driftState: 'SPIKE_CONFUSION',
       diagnostic: 'High entropy spike detected: erratic tool switching or hallucination loop.',
+      reasonCode: 'HIGH_ACTION_ENTROPY',
       normalizedEntropy: metrics.normalizedEntropy
     };
   }
   return {
     driftState: 'OPTIMAL_EXPLORATION',
     diagnostic: 'Swarm operating within balanced exploration-exploitation parameters.',
+    reasonCode: null,
     normalizedEntropy: metrics.normalizedEntropy
   };
 }

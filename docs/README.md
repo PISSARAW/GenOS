@@ -227,6 +227,7 @@ Index : [adr/README.md](adr/README.md)
 - [0108-branchement-topologies-fail-closed.md](adr/0108-branchement-topologies-fail-closed.md) — dispatch commun des huit topologies et migrations refusées sans adaptateur testé.
 - [0116-execution-fiable-communication.md](adr/0116-execution-fiable-communication.md) — mode shadow sans effet, audience vérifiée et publication refusée si la persistance échoue.
 - [0117-enveloppe-canonique-communication.md](adr/0117-enveloppe-canonique-communication.md) — métadonnées versionnées partagées entre signaux et messages d'organisation.
+- [0119-actions-metier-et-detection-de-collapse.md](adr/0119-actions-metier-et-detection-de-collapse.md) — exclusion des événements internes et critères probants d'arrêt du Sentinel.
 - [0097-calibration-immunitaire-holobionte.md](adr/0097-calibration-immunitaire-holobionte.md) — mesurer les faux positifs et faux négatifs immunitaires avec des preuves indépendantes.
 - [0113-benchmark-avec-sans-genos.md](adr/0113-benchmark-avec-sans-genos.md) — benchmark apparié avec / sans GenOS, campagne v1 sur runner A-Team.
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des 19 types et état d'intégration.

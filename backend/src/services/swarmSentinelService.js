@@ -9,8 +9,16 @@ const { calculateShannonEntropy, detectDeadlocks } = require('./swarmMetricsServ
 
 const agentActionWindows = new Map();
 const recentInteractions = [];
-const GENERIC_ACTIONS = new Set(['NONE', 'EXECUTE', 'STEP', 'ACTION', 'GENERIC_ACTION']);
-const IGNORED_EVENT_TYPES = ['AGENT_STEP', 'STEP', 'NONE'];
+const GENERIC_ACTIONS = new Set(['NONE', 'EXECUTE', 'STEP', 'ACTION', 'GENERIC_ACTION', 'COMMAND_EXECUTION']);
+const INTERNAL_EVENT_PREFIXES = [
+  'AGENT_RUNTIME_', 'AGENT_CAPSULE_', 'WORKER_RUNTIME_', 'WORKER_RECOVERY_',
+  'HALLUCINATION_MONITORING_', 'NATURAL_SEARCH_', 'SWARM_', 'CONSCIENCE_',
+  'COGNITIVE_', 'STRATEGY_GUARDRAIL_'
+];
+const INTERNAL_EVENT_TYPES = new Set([
+  'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED', 'AGENT_PLAN_CREATED',
+  'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN'
+]);
 
 function normalizeCommandSignature(cmd) {
   if (typeof cmd !== 'string') return null;
@@ -82,17 +90,14 @@ function readAction(event) {
   return `action:${action}`;
 }
 
-function readEventType(event) {
-  const eventType = String(event.eventType || '').trim();
-  if (!eventType) return null;
-  if (IGNORED_EVENT_TYPES.includes(eventType.toUpperCase())) return null;
-  return `event:${eventType}`;
+function isInternalEvent(event) {
+  const eventType = String(event.eventType || '').trim().toUpperCase();
+  return INTERNAL_EVENT_TYPES.has(eventType) || INTERNAL_EVENT_PREFIXES.some(prefix => eventType.startsWith(prefix));
 }
 
-function readDetailSignature(event) {
-  if (typeof event.detail !== 'string') return null;
-  if (event.detail.length <= 0) return null;
-  return normalizeCommandSignature(event.detail);
+function isLifecycleOnlyEvent(event) {
+  const payloadType = String(event.payload?.type || '').trim().toLowerCase();
+  return ['item.started', 'turn.started', 'turn.completed'].includes(payloadType);
 }
 
 function extractActionSignature(event) {
@@ -103,13 +108,12 @@ function extractActionSignature(event) {
   if (commandSignature) return commandSignature;
   const itemSignature = readItemSignature(event);
   if (itemSignature) return itemSignature;
+  const eventType = String(event.eventType || '').trim().toUpperCase();
+  const actionName = String(event.action || '').trim().toUpperCase();
+  if (eventType === 'AGENT_STEP' && ['THINK', 'VERIFY'].includes(actionName)) return null;
   const action = readAction(event);
   if (action) return action;
-  const eventType = readEventType(event);
-  if (eventType) return eventType;
-  const detailSignature = readDetailSignature(event);
-  if (detailSignature) return detailSignature;
-  return 'generic:action';
+  return null;
 }
 
 function pushActionWindow(agentId, signature) {
@@ -131,7 +135,13 @@ function buildDrift(options) {
     state: options.state,
     normalizedEntropy: metrics.normalizedEntropy,
     rawEntropy: metrics.rawEntropy,
-    reason
+    reason,
+    reasonCode: metrics.reasonCode || null,
+    sampleSize: metrics.sampleSize,
+    uniqueActions: metrics.uniqueActions,
+    dominanceRatio: metrics.dominanceRatio,
+    transitionEntropy: metrics.transitionEntropy,
+    cycleLength: metrics.cycleLength
   };
 }
 
@@ -159,7 +169,9 @@ function buildEntropyIntervention(metrics) {
 }
 
 function inspectEvent(agentId, event) {
-  if (!agentId || !event) return { intervention: false, action: 'NONE' };
+  if (!agentId || !event || isInternalEvent(event) || isLifecycleOnlyEvent(event)) {
+    return { intervention: false, action: 'NONE' };
+  }
 
   const signature = extractActionSignature(event);
   if (!signature) return { intervention: false, action: 'NONE' };

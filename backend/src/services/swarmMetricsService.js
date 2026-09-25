@@ -65,6 +65,7 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
     transitionEntropy,
     isPeriodicCycle,
     cycleLength,
+    reasonCode: drift.reasonCode || null,
     diagnosticRecommendation: drift.diagnostic,
     sparkline
   };

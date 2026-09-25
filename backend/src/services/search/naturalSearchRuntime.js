@@ -6,6 +6,7 @@ const { HypothesisLedger, HYPOTHESIS_STATUS, PROVENANCE } = require('./hypothesi
 const { CausalProgressService } = require('./causalProgressService');
 const { SearchPersistence } = require('./searchPersistenceService');
 const { SearchIntegration } = require('./searchIntegrationService');
+const { handlePostReceiptMemory } = require('./naturalSearchMemory');
 const { getDatabase } = require('../../db');
 
 const { ActuatorModules } = require('./actuatorModules');
@@ -13,6 +14,11 @@ const { handleHypothesisProtocol } = require('./hypothesisEventProtocol');
 
 const agentSearchState = new Map();
 let cachedDb = null;
+const NATURAL_SEARCH_INPUT_EVENTS = new Set([
+  'AGENT_STEP', 'AGENT_MESSAGE', 'TOOL_EXECUTED', 'TOOL_RESULT', 'TOOL_CALL_COMPLETED',
+  'EVIDENCE_REPORT', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'
+]);
+const NON_PROGRESS_STEP_ACTIONS = new Set(['THINK', 'VERIFY']);
 
 async function ensureDb() {
   if (cachedDb) return cachedDb;
@@ -287,6 +293,7 @@ async function persistSearchState(agentId, searchState, selection) {
 
 async function checkNaturalSearchControl(ctx, event, finalEvent = null) {
   void finalEvent;
+  if (!shouldProcessNaturalSearchEvent(event)) return false;
   const { agentId, normalizedMission } = ctx;
   try {
     const searchState = await getOrCreateSearchState(agentId, ctx.db);
@@ -299,28 +306,14 @@ async function checkNaturalSearchControl(ctx, event, finalEvent = null) {
   }
 }
 
-function handlePostReceiptMemory({ searchState, selection, receipt, searchCtx, agentId, eventType }) {
-  if (receipt?.status !== 'success') return;
-  const isEvoProcess = selection.process === 'EVOLUTION' || selection.process === 'CLONAL_AFFINITY_SEARCH';
-  if (isEvoProcess) {
-    try {
-      const genome = searchState.actuator.modules.getBestGenome ? searchState.actuator.modules.getBestGenome() : null;
-      if (genome && receipt.result) {
-        const plasmid = searchState.actuator.modules.compilePlasmid(genome, {
-          environment: { searchYield: searchCtx.searchYield || 0, falsifiedHypotheses: searchCtx.falsifiedHypotheses || 0 },
-          generations: receipt.result.evolutionLog ? receipt.result.evolutionLog.length : 0, successRate: 0.7, reproducible: true,
-        });
-        if (plasmid) searchState.actuator.modules.cultureService.transmit(plasmid.id, agentId);
-      }
-    } catch (_) {}
-  }
-  for (const h of searchState.ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified')) {
-    try {
-      searchState.actuator.modules.recordNegativeOutcome(agentId, h,
-        { ref: `falsified:${h.id}`, strength: 0.8, reliability: 0.9 },
-        { signature: eventType, conditions: [], scope: 'agent' });
-    } catch (_) {}
-  }
+function shouldProcessNaturalSearchEvent(event) {
+  const eventType = String(event?.eventType || '').trim().toUpperCase();
+  if (!NATURAL_SEARCH_INPUT_EVENTS.has(eventType)) return false;
+  const payloadType = String(event.payload?.type || '').trim().toLowerCase();
+  if (['item.started', 'turn.started', 'turn.completed'].includes(payloadType)) return false;
+  if (eventType !== 'AGENT_STEP') return true;
+  const action = String(event?.action || '').trim().toUpperCase();
+  return !NON_PROGRESS_STEP_ACTIONS.has(action);
 }
 
 function handleEventIngestion({ searchState, ctx, event, eventType, agentId, normalizedMission }) {
@@ -361,7 +354,10 @@ async function processSearchEvent(searchState, ctx, event) {
   await persistSearchState(agentId, searchState, selection);
 }
 
-module.exports = { checkNaturalSearchControl, getOrCreateSearchState, clearSearchState, flushSearchState, ensureDb, initializeNaturalSearchRuntime };
+module.exports = {
+  checkNaturalSearchControl, shouldProcessNaturalSearchEvent, getOrCreateSearchState,
+  clearSearchState, flushSearchState, ensureDb, initializeNaturalSearchRuntime
+};
 
 async function initializeNaturalSearchRuntime(db) {
   cachedDb = db;
