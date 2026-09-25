@@ -161,6 +161,7 @@ function probeATeam() {
   const analyses = prompts.map((prompt) => aTeam.analyzeMission(prompt));
   return { scope: 'lexical composition sensitivity; exploratory only',
     detectedDomains: analyses.map((analysis) => analysis.detectedDomains),
+    formulationSensitive: JSON.stringify(analyses[0].detectedDomains) !== JSON.stringify(analyses[1].detectedDomains),
     verified: analyses.every((analysis) => Array.isArray(analysis.members)) };
 }
 
