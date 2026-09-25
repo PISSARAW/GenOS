@@ -90,6 +90,29 @@ const FRONTIER_ROLES = new Set([
   'population_isolator', 'synaptic_adaptor'
 ]);
 
+const RHIZOME_ROLE_TASKS = Object.freeze({
+  rootless_coordinator: 'Construis une réponse à la mission à partir des objectifs, invariants et limites partagés. Réponds au besoin utilisateur, distingue les faits des hypothèses et définis les critères de preuve ainsi que les règles de transfert temporaire de coordination.',
+  capability_offshoot: 'Cartographie les capacités évidentes, puis découvre les maillons nécessaires qui manquent. Pour chaque capacité, donne ses entrées, sorties, dépendances et contrat local. Propose une branche distincte pour chaque dépendance inconnue.',
+  local_bridge: 'Repère les contrats et données partagés entre capacités. Décris les interfaces compatibles, les transformations nécessaires, les preuves à conserver et les routes alternatives possibles.',
+  boundary_scout: 'Explore les frontières, dépendances non cartographiées, goulets d’étranglement, hypothèses fragiles et routes de rechange. Signale explicitement les branches qui méritent une exploration indépendante.'
+});
+
+const POPULATION_STRATEGIES = Object.freeze([
+  ['gloutonne', /\b(?:greedy|gloutonn\w*)\b/i], ['programmation dynamique', /\b(?:dynamic programming|programmation dynamique|dp)\b/i],
+  ['recherche locale', /\b(?:local search|recherche locale)\b/i], ['recherche évolutionnaire', /\b(?:evolutionary|évolutionnaire|evolutionary search)\b/i],
+  ['programmation par contraintes', /\b(?:constraint programming|programmation par contraintes|\bcp\b)\b/i],
+  ['navigateur desktop', /\b(?:desktop browser|navigateur desktop|browser desktop)\b/i], ['mobile à faible réseau', /\b(?:low.network mobile|mobile à faible réseau)\b/i],
+  ['terminal limité', /\b(?:limited terminal|terminal très limité|terminal limité)\b/i], ['performance', /\bperformance\b/i],
+  ['lisibilité', /\b(?:readability|lisibilité)\b/i], ['tolérance aux entrées invalides', /\b(?:invalid input|entrées invalides)\b/i],
+  ['faible mémoire', /\b(?:low memory|faible mémoire)\b/i], ['threat modeling', /\b(?:threat modeling|modélisation des menaces)\b/i],
+  ['analyse logique', /\b(?:logical analysis|analyse logique)\b/i], ['raisonnement adversarial', /\b(?:adversarial thinking|raisonnement adversarial)\b/i],
+  ['vérification d’invariants', /\b(?:invariant verification|vérification d.invariants)\b/i]
+]);
+
+function rhizomeMission(role, goal) {
+  return `Mission Rhizome partagée : ${goal}\nRôle local : ${role}. ${RHIZOME_ROLE_TASKS[role]}\n\nRetourne uniquement un objet JSON valide, sans bloc Markdown, qui respecte ce contrat de worker : inclue claims=[{"statement":"résumé de la réponse","evidence":["énoncé de mission et hypothèses explicites"]}] et workerArtifact={"type":"dossier","content":{"claims":[{"statement":"même résumé","evidence":["énoncé de mission et hypothèses explicites"]}]},"provenance":{"sourceRefs":["mission utilisateur"]}}. Ajoute aussi les champs "answer":"réponse détaillée de cette branche", "capabilities":[{"id":"identifiant-kebab-case","label":"nom","description":"périmètre","inputs":["contrat ou donnée"],"outputs":["contrat ou donnée"],"dependsOn":["id de capacité"]}], "unknownDependencies":[{"id":"identifiant-kebab-case","label":"nom","reason":"pourquoi elle est nécessaire"}], "interfaces":[{"from":"id","to":"id","relation":"BRIDGES","contract":"contrat partagé","data":["donnée"]}], "assumptions":["hypothèse non vérifiée"], "evidence":["référence ou observation"]. N’invente pas de preuves ni de dépendances confirmées; marque les déductions comme hypothèses. Les capacités et liens proposés restent à découvrir tant qu’ils ne sont pas vérifiés.`;
+}
+
 function definitionFor(mode) {
   const key = String(mode || '').trim().toLowerCase();
   if (!MODE_DEFINITIONS[key]) throw Object.assign(new Error(`Unknown biological mode '${mode}'.`), { code: 'BIOLOGICAL_MODE_UNKNOWN' });
@@ -105,11 +128,40 @@ function compose(mode, mission) {
     mechanisms: definition.mechanisms || [],
     modelTier: FRONTIER_ROLES.has(role) ? 'frontier' : 'standard',
     memberNumber: index + 1,
+    ...(mode === 'metapopulation' ? { workerKind: metapopulationWorkerKind(role) } : {}),
     // Holobionte Symbiotes run on a local inference runtime (see symbioteRuntimeService); other modes stay cloud.
     engine: symbioteRuntime.engineFor(role),
     runtimeBridge: RUNTIME_BRIDGE_CONTRACT,
-    mission: `${definition.label} shared mission: ${goal}\nCollective principle: ${definition.description}\nRole hypothesis: ${definition.hypotheses[index]}\nReturn evidence, state changes, and integration constraints to the orchestrator.`
+    mission: mode === 'metapopulation'
+      ? metapopulationMission(goal, role, index)
+      : mode === 'rhizome'
+        ? rhizomeMission(role, goal)
+        : `${definition.label} shared mission: ${goal}\nCollective principle: ${definition.description}\nRole hypothesis: ${definition.hypotheses[index]}\nReturn evidence, state changes, and integration constraints to the orchestrator.`
   }));
+}
+
+function metapopulationWorkerKind(role) {
+  return {
+    population_isolator: 'bounded_worker', quorum_sensor: 'scout_cell',
+    synaptic_adaptor: 'adaptive_worker', regeneration_steward: 'recovery_worker'
+  }[role];
+}
+
+function metapopulationMission(goal, role, index) {
+  const assignment = assignedPopulationMethod(goal, index);
+  const methods = [
+    `Use exactly this local method: ${assignment}. Do not substitute or blend methods. Return the method name and a concrete result.`,
+    `Use exactly this local method: ${assignment}. Do not repeat another population's method. Return the method name, calculations/findings, and concrete result.`,
+    `Use exactly this local method: ${assignment}. Evaluate imported techniques only as candidates; validate them against your own constraints and fitness, adopt only a proven local improvement, and explain rejections. Never copy a complete solution.`,
+    `Use exactly this local method: ${assignment}. Track local fitness and lineage; preserve multiple viable approaches. If collapse is specified, identify it, recolonize using founders from at least two lineages, and verify viability and non-clonality.`
+  ];
+  return `Metapopulation mission (all populations address the same problem): ${goal}\nPopulation ${index + 1}: ${role}. Assigned method: ${assignment}. Local mandate: ${methods[index]}\nKeep populations independent while publishing transferable techniques and counterexamples with supporting calculations or evidence. The receiver must validate imports locally; local constraints and fitness remain authoritative. Return a substantive result, method, evidence/calculations, fitness assessment, accepted/rejected migrations, and unresolved risks. Do not claim a result that contradicts your calculations.`;
+}
+
+function assignedPopulationMethod(goal, index) {
+  const found = POPULATION_STRATEGIES.map(([label, pattern]) => ({ label, position: goal.search(pattern) }))
+    .filter((item) => item.position >= 0).sort((left, right) => left.position - right.position);
+  return found[index]?.label || ['recherche gloutonne', 'programmation dynamique', 'recherche locale', 'recherche évolutionnaire'][index];
 }
 
 function runtimeBridgeContract() {

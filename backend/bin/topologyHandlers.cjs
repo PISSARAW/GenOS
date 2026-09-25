@@ -5,6 +5,7 @@ const trinityMissionSupervisor = require('../src/services/trinityMissionSupervis
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamDispatch = require('../src/services/aTeamDispatchService');
 const biologicalTopology = require('../src/services/biologicalTopologyService');
+const rhizomeMissionResults = require('../src/services/rhizome/rhizomeMissionResultService');
 const { randomUUID } = require('crypto');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 const { buildLaunchCapabilities } = require('../src/services/agents/agentIncarnationPayloadService');
@@ -41,9 +42,28 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
       status: 'accepted', mode, mission,
       capacity: workerGarage.getDynamicCapacity(context.orchestratorId),
       mechanisms: collectMechanisms(members),
-      ...topology, members: accepted
+      ...topology, members: accepted,
+      ...(mode === 'metapopulation' ? {
+        status: initialRoundComplete(accepted, members) ? 'completed' : 'partial',
+        complete: initialRoundComplete(accepted, members),
+        migrationReviewStatus: accepted.every((member) => member.result?.status === 'completed') ? 'completed' : 'partial',
+        results: accepted.map((member) => member.result || null),
+        answer: accepted.map((member) => `## ${member.role}\n${populationAnswer(member)}`).join('\n\n')
+      } : {})
     }
   };
+}
+
+function initialRoundComplete(accepted, members) {
+  return accepted.length === members.length && accepted.every((member) =>
+    member.result?.initialResults?.some((result) => result.role === member.role && result.status === 'completed'));
+}
+
+function populationAnswer(member) {
+  const review = member.result?.answer;
+  if (review) return review;
+  const initial = member.result?.initialResults?.find((result) => result.role === member.role);
+  return initial?.answer || 'Aucune réponse vérifiée.';
 }
 
 function getRunnerStdio(workerId) {
@@ -91,6 +111,8 @@ function runnerEnvironment() {
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
     GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
     GENOS_RUNNER_LOG_DIR: detachedSpawn.runtimeDirectory(),
+    GENOS_DB_BACKUP_SKIP: '1',
+    GENOS_DB_BOOTSTRAP_SKIP: '1',
     GENOS_EXECUTION_MODE: 'orchestrator'
   };
 }
@@ -102,11 +124,17 @@ async function spawnTopologyWorker({ db, context, member, parent, workerId, laun
     toolLease: launchCaps.toolLease });
   const args = [context.bridgePath, ...detachedSpawn.toSpawnArgs(JSON.stringify(payload))];
   const log = getRunnerStdio(workerId);
-  const runner = require('child_process').spawn(process.execPath, args,
-    { cwd: context.repoRoot, detached: !awaitWorker, shell: false, windowsHide: true,
-      stdio: log.stdio, env: runnerEnvironment() });
+  const runner = require('child_process').spawn(process.execPath,
+    args,
+    { cwd: context.repoRoot, detached: !awaitWorker, shell: false,
+      windowsHide: true, stdio: log.stdio, env: runnerEnvironment() });
   runner.once('spawn', log.close);
   runner.once('error', log.close);
+  await waitForWorkerStart(runner, db, workerId);
+  if (awaitWorker) await waitForWorkerExit(runner, db, workerId);
+}
+
+async function waitForWorkerStart(runner, db, workerId) {
   try {
     await new Promise((resolve, reject) => {
       runner.once('spawn', resolve);
@@ -116,14 +144,13 @@ async function spawnTopologyWorker({ db, context, member, parent, workerId, laun
     await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, workerId);
     throw error;
   }
-  if (!awaitWorker) { runner.unref(); return; }
+}
+
+async function waitForWorkerExit(runner, db, workerId) {
   const exitCode = await new Promise((resolve) => runner.once('close', resolve));
-  if (exitCode !== 0) {
-    await db.run("UPDATE agents SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'idle'", workerId);
-    throw new Error(
-      'Topology worker ' + workerId + ' exited with code ' + exitCode + '; inspect its runner log.'
-    );
-  }
+  if (exitCode === 0) return;
+  await db.run("UPDATE agents SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'idle'", workerId);
+  throw new Error('Topology worker ' + workerId + ' exited with code ' + exitCode + '; inspect its runner log.');
 }
 
 function workerSummary(member, index, workerId) {
@@ -189,31 +216,135 @@ async function handleBiological(db, context) {
   context.nceEnrichments = await buildNCEEnrichments(context, 'biological');
   const composition = await composeBiologicalMode({ db, context, mode, mission });
   const members = composition.members || [];
+  const accepted = await dispatchAndCollectResults({ db, context, mode, parent, members });
+  const topology = topologyDetails(composition);
+  const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
+  await applyRhizomeResults({ db, mode, topology, accepted, output: out });
+  process.stdout.write(JSON.stringify(out));
+}
+
+async function dispatchAndCollectResults({ db, context, mode, parent, members }) {
   const accepted = await dispatchBiologicalMembers({ db, context, mode, parent, members });
-  const topology = composition ? {
+  if (mode !== 'metapopulation') return accepted;
+  return dispatchMetapopulationReview({ db, context, parent, members, initialWorkers: accepted });
+}
+
+async function dispatchMetapopulationReview({ db, context, parent, members, initialWorkers }) {
+  await waitForMetapopulationWorkers(db, initialWorkers, context.request.timeoutMs);
+  for (const member of initialWorkers) member.result = await readMetapopulationResult(db, member);
+  const initial = initialWorkers.map((member) => ({ role: member.role, ...member.result }));
+  const reviewMembers = members.map((member) => ({ ...member, mission: migrationReviewPrompt(member, initial) }));
+  const accepted = await dispatchBiologicalMembers({ db, context, mode: 'metapopulation', parent, members: reviewMembers });
+  await waitForMetapopulationWorkers(db, accepted, context.request.timeoutMs);
+  for (const member of accepted) {
+    member.result = await readMetapopulationResult(db, member);
+    member.result.initialResults = initial;
+  }
+  return accepted;
+}
+
+async function waitForMetapopulationWorkers(db, members, timeoutMs) {
+  const requested = Number(timeoutMs);
+  const limit = Number.isFinite(requested) ? Math.max(10000, Math.min(requested, 360000)) : 180000;
+  const deadline = Date.now() + limit;
+  while (Date.now() < deadline) {
+    const rows = await Promise.all(members.map((member) => db.get('SELECT status FROM agents WHERE id = ?', member.workerId)));
+    if (rows.every((row) => ['completed', 'failed', 'error', 'blocked', 'unverified', 'terminated', 'quarantined'].includes(row?.status))) return;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+function topologyDetails(composition) {
+  if (!composition) return {};
+  return {
     organization: composition.organization,
     capabilityContract: composition.capabilityContract,
     sessionId: composition.sessionId || composition.rhizomeId || null,
     graphVersion: composition.graphVersion ?? null
-  } : {};
-  const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
-  process.stdout.write(JSON.stringify(out));
+  };
+}
+
+async function applyRhizomeResults({ db, mode, topology, accepted, output }) {
+  if (mode !== 'rhizome' || !topology.sessionId) return;
+  const result = await rhizomeMissionResults.collect(db, topology.sessionId, accepted);
+  Object.assign(output.biologicalMode, result, { status: result.status, graphVersion: result.graph.graphVersion });
+}
+
+async function readMetapopulationResult(db, member) {
+  const agent = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
+  const event = await db.get(`SELECT id, payload_json FROM telemetry_events WHERE agent_id = ?
+    AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1`, member.workerId);
+  const report = parseEvidence(event?.payload_json);
+  const answer = evidenceAnswer(report);
+  const complete = completedEvidence(agent, report, answer);
+  return { workerId: member.workerId, role: member.role, status: complete ? 'completed' : agent?.status || 'NO_EVIDENCE',
+    answer: answer || null, evidenceEventId: event?.id || null, outcome: report?.outcome || null };
+}
+
+function evidenceAnswer(report) {
+  const content = report?.workerArtifact?.content || {};
+  const claims = Array.isArray(content.claims) ? content.claims : Array.isArray(report?.claims) ? report.claims : [];
+  const statements = claims.map((claim) => claim?.statement).filter((value) => typeof value === 'string' && value.trim());
+  const observations = content.observations;
+  const detail = observations ? JSON.stringify(observations) : '';
+  return [statements.join('\n'), detail, report?.answer].filter(Boolean).join('\n').trim();
+}
+
+function completedEvidence(agent, report, answer) {
+  return agent?.status === 'completed' && report?.outcome === 'success' && answer.length > 0;
+}
+
+function parseEvidence(value) {
+  try { const payload = JSON.parse(value || '{}'); return payload.evidenceReport || payload.report || payload; }
+  catch (_) { return null; }
+}
+
+function migrationReviewPrompt(member, results) {
+  const peers = results.filter((result) => result.role !== member.role)
+    .map((result) => `${result.role}: ${String(result.answer || 'No verified answer.').slice(0, 1200)}`).join('\n\n');
+  return `${member.mission}\n\nMIGRATION REVIEW: Evaluate these peer findings as candidate techniques:\n${peers}\n\nTest each candidate against your assigned method, local constraints and fitness. Adopt only a demonstrated local improvement; otherwise reject it with reasons. Preserve your own method and lineage. Return your revised result with explicit accepted/rejected migration decisions.`;
 }
 
 async function dispatchBiologicalMembers({ db, context, mode, parent, members }) {
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full`), { code: 'WORKER_GARAGE_FULL' });
   const selected = selectMembers(members, garage.available);
-  if (process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
+  if (mode === 'rhizome') return dispatchRhizomeMembers({ db, context, selected, parent });
+  if (mode === 'metapopulation' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
     const completed = [];
     for (let offset = 0; offset < selected.length; offset += 2) {
       const pair = selected.slice(offset, offset + 2);
-      const results = await Promise.all(pair.map((member, index) => launchWorker({ db, context, member, index: offset + index + 1, parent })));
-      completed.push(...results);
+      if (mode === 'metapopulation') {
+        completed.push(...await Promise.all(pair.map((member, index) =>
+          launchWorker({ db, context, member, index: offset + index + 1, parent }))));
+        continue;
+      }
+      const pairResults = await Promise.allSettled(
+        pair.map((member, index) => launchWorker({ db, context, member, index: offset + index + 1, parent }))
+      );
+      for (const result of pairResults) {
+        if (result.status === 'fulfilled') {
+          completed.push(result.value);
+        } else {
+          console.error(`[topology] Worker launch failed: ${result.reason?.message || result.reason}`);
+        }
+      }
     }
     return completed;
   }
   return Promise.all(selected.map((member, index) => launchWorker({ db, context, member, index: index + 1, parent })));
+}
+
+async function dispatchRhizomeMembers({ db, context, selected, parent }) {
+  const completed = [];
+  for (const [index, member] of selected.entries()) {
+    try {
+      completed.push(await launchWorker({ db, context, member, index: index + 1, parent }));
+    } catch (error) {
+      console.error(`[topology] Rhizome branch failed: ${error?.message || error}`);
+    }
+  }
+  return completed;
 }
 
 function composeBiologicalMode({ db, context, mode, mission }) {

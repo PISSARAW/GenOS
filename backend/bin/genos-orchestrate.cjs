@@ -79,7 +79,7 @@ async function waitForCompletion(db) {
   while (Date.now() < deadline) {
     let agents, trinityWorlds;
     try {
-      agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
+      agents = await db.all('SELECT id, status, runtime_pid FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
       trinityWorlds = await db.all("SELECT agent_id, status FROM trinity_worlds WHERE mission LIKE ? ORDER BY world_number", `%${id.slice(0, 24)}%`);
     } catch (err) {
       if (err?.code === 'SQLITE_BUSY' || /busy|locked/i.test(err?.message || '')) {
@@ -90,7 +90,7 @@ async function waitForCompletion(db) {
       throw err;
     }
     busyRetries = 0;
-    const allTerminal = agents.length && agents.every((agent) => ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'].includes(agent.status));
+    const allTerminal = agents.length && agents.every((agent) => !agent.runtime_pid && ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'].includes(agent.status));
     const trinityTerminal = trinityWorlds.length >= 3 && trinityWorlds.every((w) => ['blocked', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(w.status));
     if (allTerminal || trinityTerminal) return agents;
     pulseTick += 1;

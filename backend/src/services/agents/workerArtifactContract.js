@@ -7,12 +7,25 @@ const REQUIRED_FIELDS = Object.freeze({
   dossier: ['claims'],
   verification_report: ['verdict', 'evidence'],
   experiment_record: ['hypothesis', 'protocol', 'measurements'],
-  formal_certificate: ['claim', 'solver', 'result'],
+  formal_certificate: ['claim', 'solver', 'result', 'solverReceipt'],
   synthesis_dossier: ['synthesis', 'sources'],
-  creative_candidate: ['candidate'],
-  clinical_report: ['diagnoses', 'uncertainty'],
+  creative_candidate: ['candidate', 'assumptions', 'falsificationTest'],
+  clinical_report: ['caseScope', 'differentialConsiderations', 'uncertainty', 'safetyNote'],
   causal_dossier: ['causalChain', 'evidence'],
   training_packet: ['prerequisites', 'steps', 'evidence']
+});
+
+const CONTENT_TEMPLATES = Object.freeze({
+  scout_observation: { observations: ['<observation>'] },
+  dossier: { claims: [{ statement: '<claim>', evidence: ['<source-ref>'] }] },
+  verification_report: { verdict: 'reject', evidence: ['<reproduction-ref>'] },
+  experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: ['<measurement>'] },
+  formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', evidence: ['<receipt-ref>'] } },
+  synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'] },
+  creative_candidate: { candidate: '<candidate>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
+  clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['<general-consideration>'], uncertainty: '<uncertainty>', safetyNote: 'No individual diagnosis or treatment advice.' },
+  causal_dossier: { causalChain: ['<event-ref>: <causal-link>'], evidence: ['<receipt-ref>'] },
+  training_packet: { prerequisites: ['<prerequisite>'], steps: ['<step>'], evidence: ['<source-ref>'] }
 });
 
 function reportOf(dossier) {
@@ -37,12 +50,32 @@ function claimsAreSubstantiated(content) {
 function contentIsValid(type, content) {
   if (!hasRequiredFields(content, REQUIRED_FIELDS[type] || [])) return false;
   if (type === 'dossier' && !claimsAreSubstantiated(content)) return false;
-  if (type === 'verification_report') {
-    const verdict = String(content.verdict).toLowerCase();
-    return ['accept', 'reject', 'unresolved'].includes(verdict)
-      && hasEvidenceItem(content.evidence || content.reproductionEvidence);
-  }
+  return specializedContentIsValid(type, content);
+}
+
+function specializedContentIsValid(type, content) {
+  if (type === 'verification_report') return validVerificationContent(content);
+  if (type === 'formal_certificate') return hasSolverReceipt(content.solverReceipt);
+  if (type === 'clinical_report') return isNonDiagnosticClinicalReport(content);
   return true;
+}
+
+function validVerificationContent(content) {
+  const verdict = String(content.verdict).toLowerCase();
+  return ['accept', 'reject', 'unresolved'].includes(verdict)
+    && hasEvidenceItem(content.evidence || content.reproductionEvidence);
+}
+
+function hasSolverReceipt(receipt) {
+  return Boolean(receipt && typeof receipt.id === 'string' && receipt.id.trim()
+    && Array.isArray(receipt.evidence) && receipt.evidence.some(hasEvidenceItem));
+}
+
+function isNonDiagnosticClinicalReport(content) {
+  return content.caseScope === 'synthetic_educational'
+    && !Object.hasOwn(content, 'diagnoses')
+    && !Object.hasOwn(content, 'treatment')
+    && !Object.hasOwn(content, 'patientSpecificAdvice');
 }
 
 function hasProvenance(artifact) {
@@ -52,7 +85,12 @@ function hasProvenance(artifact) {
 function artifactInstruction(contract) {
   const required = contract?.evidence?.requiredArtifacts || [];
   if (!required.length) return '';
-  return `Return evidenceReport.workerArtifact as {type, content, provenance}; type must be ${required.join(' or ')}. Required content fields: ${required.map((type) => `${type}=[${(REQUIRED_FIELDS[type] || []).join(', ')}]`).join('; ')}. Provenance must contain source references.`;
+  const template = required.map((type) => ({ type, content: CONTENT_TEMPLATES[type] }));
+  if (required.every((type) => type === 'dossier')) {
+    return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims })}. The top-level claims form the dossier; cite source references in evidence.`;
+  }
+  const artifact = template[0];
+  return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance.`;
 }
 
 function artifactError(workerId, expected) {
@@ -79,19 +117,76 @@ function buildDossierArtifact(reply, provenance) {
 }
 
 function parseArtifactReply(reply) {
+  if (reply && typeof reply === 'object' && !Array.isArray(reply)) return reply;
   const text = String(reply || '').trim();
   const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  const candidate = fenced ? fenced[1] : text;
+  const candidate = (fenced ? fenced[1] : text).replace(/^json\s*(?=\{)/i, '');
   try { return JSON.parse(candidate); } catch (_) { return null; }
 }
 
 function buildWorkerArtifact(kind, reply, provenance) {
+  return inspectWorkerArtifact(kind, reply, provenance).artifact;
+}
+
+function inspectWorkerArtifact(kind, reply, provenance) {
   const expected = require('./workerKindService').kindDefinition(kind).artifact;
-  if (expected === 'dossier') return buildDossierArtifact(reply, provenance);
   const parsed = parseArtifactReply(reply);
-  if (!parsed || parsed.type !== expected || !parsed.content || typeof parsed.content !== 'object') return null;
-  if (!contentIsValid(expected, parsed.content)) return null;
-  return { type: expected, content: parsed.content, provenance: provenance || {} };
+  const issues = [];
+  if (!parsed) issues.push(reply ? 'response.invalid_json' : 'response.absent');
+  if (parsed && !Array.isArray(parsed.claims)) issues.push('claims.missing_or_invalid');
+  const input = { parsed, expected, provenance, issues };
+  if (expected === 'dossier') return inspectDossier(input);
+  return inspectSpecialized(input);
+}
+
+function inspectDossier(input) {
+  const { parsed, expected, provenance, issues } = input;
+  if (!parsed || issues.length) return { artifact: null, issues };
+  const content = { claims: parsed.claims };
+  if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
+  return { artifact: issues.length ? null : { type: expected, content, provenance: provenance || {} }, issues };
+}
+
+function inspectSpecialized(input) {
+  const { parsed, expected, provenance, issues } = input;
+  if (!parsed) return { artifact: null, issues };
+  const artifact = parsed.workerArtifact;
+  if (!artifact || typeof artifact !== 'object') issues.push('workerArtifact.missing');
+  else if (artifact.type !== expected) issues.push('workerArtifact.type.mismatch');
+  const content = artifact && artifact.content;
+  inspectRequiredContent(expected, content, issues);
+  if (issues.length) return { artifact: null, issues };
+  return { artifact: { type: expected, content, provenance: provenance || {} }, issues };
+}
+
+function inspectRequiredContent(expected, content, issues) {
+  if (!content || typeof content !== 'object' || Array.isArray(content)) {
+    issues.push('workerArtifact.content.missing_or_invalid');
+    return;
+  }
+  for (const field of REQUIRED_FIELDS[expected] || []) {
+    if (!hasEvidenceItem(content[field])) issues.push(`workerArtifact.content.${field}.missing_or_invalid`);
+  }
+  if (contentIsValid(expected, content)) return;
+  appendSpecializedContentIssue(expected, content, issues);
+}
+
+function appendSpecializedContentIssue(expected, content, issues) {
+  const issue = specializedContentIssue(expected, content);
+  if (issue) issues.push(issue);
+}
+
+function specializedContentIssue(expected, content) {
+  const issues = {
+    clinical_report: !isNonDiagnosticClinicalReport(content) && 'caseScope.must_be_synthetic_educational_and_non_diagnostic',
+    formal_certificate: !hasSolverReceipt(content.solverReceipt) && 'solverReceipt.invalid',
+    verification_report: !validVerdict(content.verdict) && 'verdict.invalid'
+  };
+  return issues[expected] ? `workerArtifact.content.${issues[expected]}` : null;
+}
+
+function validVerdict(verdict) {
+  return ['accept', 'reject', 'unresolved'].includes(String(verdict).toLowerCase());
 }
 
 function validateWorkerArtifact(dossier, worker) {
@@ -110,4 +205,4 @@ function validateWorkerArtifact(dossier, worker) {
   return true;
 }
 
-module.exports = { REQUIRED_FIELDS, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact };
+module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
