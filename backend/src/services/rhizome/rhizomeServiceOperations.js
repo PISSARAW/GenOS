@@ -41,12 +41,38 @@ function create(input) {
         return { sessionId, variant: policy.name };
       }
     }),
+    maintainTick: (sessionId, options = {}) => input.mutateSession(sessionId, options, {
+      type: 'TICK_HOMEOSTASIS',
+      payload: { tickId: options.tickId || null },
+      apply: (session) => maintainTick({ ...input, session, options })
+    }),
     admitNestedTopology: (sessionId, admission, options = {}) => input.mutateSession(sessionId, options, {
       type: 'SUB_TOPOLOGY_ADMITTED',
       payload: { nodeId: admission.nodeId, targetTopology: admission.morphogenesisPlan?.selectedTopology },
       apply: (session) => input.nestedTopologyService.admit(session, admission, options.admissionPolicy)
     })
   };
+}
+
+function maintainTick(input) {
+  const { session, options } = input;
+  const working = { nodes: [...session.nodes], edges: [...session.edges], graphVersion: session.graphVersion, activeNeeds: session.activeNeeds, coordinationLoci: session.coordinationLoci };
+  const conductivity = input.conductivityService.step({
+    session: working, alpha: options.alpha, beta: options.beta, decay: options.decay
+  });
+  const pruning = input.pruningService.inspect(working, options);
+  const shouldPrune = session.variantPolicy?.pruning?.enabled
+    && [...pruning.edgeDispositions, ...pruning.nodeDispositions].some(isRetirement);
+  const pruningResult = shouldPrune ? input.pruningExecutor.apply(working, pruning, options) : null;
+  session.nodes = working.nodes;
+  session.edges = working.edges;
+  session.graphVersion = working.graphVersion;
+  const evaporation = input.trailService.evaporate(session.matrix, options.now);
+  return { graphVersion: session.graphVersion, evaporation, conductivity, pruning: pruningResult };
+}
+
+function isRetirement(item) {
+  return item.action === 'PRUNE' || item.action === 'FOSSILIZE';
 }
 
 module.exports = { create };

@@ -25,6 +25,7 @@ const graphProjector = require('./rhizome/graph/rhizomeGraphProjector');
 const capabilityAdmission = require('./rhizome/security/capabilityAdmissionService');
 const directMemberRouter = require('./rhizome/routing/directMemberRouter');
 const variantPolicyService = require('./rhizome/variants/variantPolicyService');
+const pruningExecutorService = require('./rhizome/pruning/pruningExecutorService');
 const nestedTopologyService = require('./rhizome/nested/nestedTopologyService');
 const rhizomeServiceOperations = require('./rhizome/rhizomeServiceOperations');
 
@@ -388,7 +389,7 @@ async function closeSession(sessionId, options = {}) {
 const restoredOperations = rhizomeServiceOperations.create({
   mutateSession, getSession, trailService, directMemberRouter, capabilityGraph,
   graphProjector, graphAnalytics, pruningService,
-  pruningExecutor: require('./rhizome/pruning/pruningExecutorService'), variantPolicyService, nestedTopologyService
+  pruningExecutor: pruningExecutorService, variantPolicyService, nestedTopologyService, conductivityService
 });
 
 module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };

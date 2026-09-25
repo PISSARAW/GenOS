@@ -9,8 +9,11 @@ async function tick(input) {
   const snapshot = await rhizome.graphSnapshot(input.sessionId, options);
   const route = await rhizome.routeToCapability(input.sessionId, input.need, options);
   const action = actionPlanner.plan(route, input.need);
-  if (action.type === 'EXECUTE_ROUTE') return runRoute({ input, options, snapshot, route, action });
-  return inspectGap({ input, options, snapshot, route, action });
+  const result = action.type === 'EXECUTE_ROUTE'
+    ? await runRoute({ input, options, snapshot, route, action })
+    : await inspectGap({ input, options, snapshot, route, action });
+  const maintenance = await rhizome.maintainTick(input.sessionId, options);
+  return { ...result, maintenance };
 }
 
 async function runRoute(context) {
