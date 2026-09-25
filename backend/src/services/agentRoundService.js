@@ -11,6 +11,7 @@ const { evidenceScore, extractEvidenceReport } = require('./agentEvidenceService
 const crypto = require('crypto');
 const { buildContinuationContext } = require('../../bin/agent-runtime-prompt.cjs');
 const durableContinuation = require('./durableContinuationService');
+const trinityAdaptiveBudget = require('./trinityAdaptiveBudgetService');
 
 const MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3;
 
@@ -149,12 +150,46 @@ function noCompletedWorkerDescriptor() {
   };
 }
 
+function emitAdaptiveBudgetSkipped(orchestratorId, state, continuation) {
+  emit(orchestratorId, 'TRINITY_ADAPTIVE_BUDGET_SKIPPED', 'ADAPTIVE_BUDGET',
+    'Adaptive continuation requires three completed worlds, evidence-backed uncertainty, and a minimum tranche for each world.',
+    { worldCount: state.workerIds.size, continuationPool: continuation?.pool || 0 }, 'warning');
+}
+
+function advanceTrinityAdaptiveRound(state, orchestratorId) {
+  const continuation = state.plan.tokenPolicy.rounds?.continuation;
+  const allocation = trinityAdaptiveBudget.allocate({
+    workerIds: [...state.workerIds], results: [...state.results.values()],
+    pool: Number(continuation?.pool || 0),
+    minimumTokens: Number(state.plan.tokenPolicy.minimumWorkerTokens || 1)
+  });
+  if (!allocation || continuation?.survivorCount !== state.workerIds.size) {
+    state.plan.trinity.adaptiveBudgetDecision = {
+      status: 'skipped', reason: 'three_completed_worlds_with_verified_uncertainty_and_minimum_tranches_required'
+    };
+    autonomousRounds.delete(orchestratorId);
+    emitAdaptiveBudgetSkipped(orchestratorId, state, continuation);
+    return;
+  }
+  state.plan.trinity.adaptiveBudgetDecision = allocation;
+  emit(orchestratorId, 'TRINITY_ADAPTIVE_BUDGET_ALLOCATED', 'ADAPTIVE_BUDGET',
+    'The remaining token pool was weighted by each world’s evidence-backed uncertainty; all three worlds continue.',
+    { basis: allocation.basis, worlds: allocation.worlds.map(({ worldNumber, uncertainty, evidenceRefs, tokens }) => ({ worldNumber, uncertainty, evidenceRefs, tokens })) }, 'info');
+  const continuationPlan = { ...continuation, workerTokens: allocation.worlds.map((world) => world.tokens) };
+  const queued = allocation.worlds.map((world, index) => queueContinuationMission({
+    state, survivor: state.results.get(world.agentId), continuation: continuationPlan, index, orchestratorId
+  }));
+  autonomousRounds.delete(orchestratorId);
+  for (const workerId of queued) dispatchPendingContinuation(workerId);
+}
+
 async function advanceAutonomousRound(mission, event) {
   const registered = registerInitialResult(mission, event);
   if (!registered) return;
   const { state, orchestratorId } = registered;
 
   if (state.plan.trinity?.activated === true) {
+    if (state.plan.trinity.adaptiveBudget === true) return advanceTrinityAdaptiveRound(state, orchestratorId);
     autonomousRounds.delete(orchestratorId);
     emit(
       orchestratorId,

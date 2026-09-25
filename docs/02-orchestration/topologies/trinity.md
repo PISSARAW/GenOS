@@ -56,7 +56,7 @@ V1 calcule `evIndex = clamp01(0.20·hypothesisCount + 0.15·domainUncertainty + 
 
 Le lancement automatique est autorisé lorsque `evIndex >= 0.50`, `budgetRatio <= 1`, et le budget disponible couvre trois allocations minimales configurées. Une demande explicite peut ignorer le seuil `evIndex`, mais pas les limites de budget, de sécurité ou d'isolation. Si un signal obligatoire autre que `errorCorrelation` est inconnu, l'engagement automatique est refusé avec `insufficient_inputs`; l'appel explicite peut continuer et consigne les inconnues.
 
-Le budget total est réparti également entre les trois chambres après réservation du budget orchestrateur. Aucun worker ne peut dépasser son budget en empruntant à un autre. À épuisement, le monde termine avec `budget_exhausted`; il n'y a pas de réallocation en v1. La limite de durée est appliquée par expérience et par monde.
+Par défaut, le budget worker est réparti également entre les trois chambres après réservation du budget orchestrateur. Aucun worker ne peut dépasser son budget en empruntant à un autre. À épuisement, le monde termine avec `budget_exhausted`. Une mission peut activer `trinityAdaptiveBudget: true` : si le pool suffit à financer deux passages minimaux et que les trois mondes initiaux terminent avec un Evidence Vector dont l'incertitude référence des preuves présentes, le pool de continuation est réparti selon `0,1 + uncertainty`. Les trois mondes continuent toujours ; aucun n'est éliminé sur son incertitude. En cas d'échec, de référence invalide ou de pool insuffisant, la continuation est omise. L'allocation ou son motif d'omission est persisté avec la décision. La limite de durée est appliquée par expérience et par monde.
 
 ### Contrat de preuve et comparaison
 
@@ -102,7 +102,7 @@ La promotion prépare un candidat distinct depuis le workspace isolé du monde g
 
 ### Portée explicitement reportée
 
-V1 n'implémente pas Trinity-Factorial, Trinity-Recursive, l'adaptation du nombre de replicas en cours de run, l'apprentissage des poids, l'estimation statistique de corrélation d'erreurs, les solveurs formels non présents dans le runtime, ni une garantie de diversité des fournisseurs. Le jury est implémenté uniquement comme avis consultatif borné ; il n'est pas une source de preuve ni un arbitre du résultat. Les autres propositions restent des variantes de recherche et ne sont pas des critères d'acceptation du runtime v1.
+V1 n'implémente pas Trinity-Factorial, Trinity-Recursive, l'adaptation du nombre de replicas en cours de run, l'apprentissage des poids, l'estimation statistique de corrélation d'erreurs, les solveurs formels non présents dans le runtime, ni une garantie de diversité des fournisseurs. Le jury est implémenté uniquement comme avis consultatif borné ; il n'est pas une source de preuve ni un arbitre du résultat. Les variantes factorielles et récursives restent des variantes de recherche et ne sont pas des critères d'acceptation du runtime v1.
 
 Le benchmark synthétique reproductible `node scripts/trinity-synthetic-benchmark.js --seed=42 --iterations=100` exerce les décisions Pareto sur des vecteurs déterministes : gagnant dominant, frontière conflictuelle, échec de contrainte dure et référence de preuve manquante. Il publie les taux de fausse promotion, de promotion correcte, de conservation Pareto, d'escalade et de rejeu déterministe avec la seed et le nombre d'itérations. Ce corpus contrôle le comportement déterministe du comparateur ; il ne mesure ni qualité de modèle, ni fiabilité en production, ni avantage contre un LLM direct.
 

@@ -27,9 +27,12 @@ function trinityBudgetPolicy(autonomyPlan, normalizedMission) {
   const perChamberTokens = Array.isArray(initialRound.workerTokens)
     ? initialRound.workerTokens
     : Array(3).fill(initialRound.perWorkerTokens || 0);
+  const continuation = autonomyPlan.tokenPolicy.rounds?.continuation || {};
   return {
     totalTokens: autonomyPlan.tokenPolicy.total,
     perChamberTokens,
+    continuationPerChamberTokens: continuation.workerTokens || [],
+    adaptiveBudget: autonomyPlan.trinity.adaptiveBudget === true,
     maxLatencyMs: normalizedMission.executionBudget?.latencyMs || null,
     overflowBehavior: 'escalate'
   };

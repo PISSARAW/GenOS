@@ -34,7 +34,9 @@ function enforceTrinityBudget(plan) {
     throw Object.assign(new Error('Trinity requires exactly three dispatched worlds.'), { code: 'TRINITY_WORLD_COUNT_INVALID' });
   }
   const policy = plan.tokenPolicy || {};
-  policy.allocation = 'equal_minimum_then_score_weighted';
+  policy.allocation = plan.trinity.adaptiveBudget === true
+    ? 'trinity_adaptive_all_worlds'
+    : 'equal_minimum_then_score_weighted';
   policy.rounds = buildAllocation({
     totalTokens: policy.total,
     workerShare: policy.workerShare,

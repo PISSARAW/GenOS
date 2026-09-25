@@ -18,6 +18,21 @@ function splitPool(pool, workerCount) {
   };
 }
 
+function adaptiveAllWorldsAllocation({ workerPool, workers, minimum, mode }) {
+  const minimumPass = minimum * workers;
+  if (workerPool < minimumPass * 2) {
+    return { mode, workerPool, initial: { workerCount: workers, pool: workerPool, ...splitPool(workerPool, workers) },
+      continuation: { survivorCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: 0, workerTokens: [] } };
+  }
+  const initialPool = Math.max(minimumPass, Math.floor(workerPool / 2));
+  const continuationPool = workerPool - initialPool;
+  return {
+    mode, workerPool,
+    initial: { workerCount: workers, pool: initialPool, ...splitPool(initialPool, workers) },
+    continuation: { survivorCount: workers, pool: continuationPool, ...splitPool(continuationPool, workers) }
+  };
+}
+
 // This is intentionally deterministic.  The runtime can persist and replay the
 // allocation decision instead of asking a model to invent a budget split.
 function buildAllocation({ totalTokens, workerShare, workerCount, minimumWorkerTokens, mode }) {
@@ -29,6 +44,8 @@ function buildAllocation({ totalTokens, workerShare, workerCount, minimumWorkerT
   if (!workers || workerPool < minimum * workers) {
     return { mode, workerPool, initial: { workerCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: 0 }, continuation: { survivorCount: 0, pool: workerPool, perWorkerTokens: 0, remainderTokens: workerPool } };
   }
+
+  if (mode === 'trinity_adaptive_all_worlds') return adaptiveAllWorldsAllocation({ workerPool, workers, minimum, mode });
 
   if (mode !== 'successive_halving_with_reallocation') {
     const initialSplit = splitPool(workerPool, workers);

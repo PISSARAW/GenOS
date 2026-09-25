@@ -155,6 +155,7 @@ function reportTrinityPlan({ autonomyPlan, agentId, automaticRequest, trinityWor
 async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, dispatchedAgent, effectiveWorkerShare, effectiveOrchestratorReserve }) {
   autonomyPlan.trinity = trinityService.analyzeMission(missionText(normalizedMission));
   autonomyPlan.trinity.dimensionThresholds = normalizedMission.trinityDimensionThresholds || {};
+  autonomyPlan.trinity.adaptiveBudget = normalizedMission.trinityAdaptiveBudget === true;
   const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);
   await applyTrinityHypothesisDesign(autonomyPlan.trinity, normalizedMission, {
     db, agentId, organizationId: dispatchedAgent.organization_id, projectId: dispatchedAgent.project_id

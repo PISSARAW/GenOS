@@ -111,7 +111,8 @@ function buildComparison(result) {
     jury: result.jury || null,
     crossExamination: result.comparativeAnalysis?.crossExamination || null,
     synthesizedClaims: result.outcome === 'SYNTHESIZE_CLAIMS' ? result.mergedEvidence?.claims || [] : [],
-    claimGraph: trinityClaimGraph.summary(result.comparativeAnalysis?.claimGraph || { status: 'unavailable', nodes: [], edges: [] })
+    claimGraph: trinityClaimGraph.summary(result.comparativeAnalysis?.claimGraph || { status: 'unavailable', nodes: [], edges: [] }),
+    adaptiveBudget: result.comparativeAnalysis?.adaptiveBudget || null
   };
 }
 
@@ -122,7 +123,8 @@ async function recordComparison(ctx, trinity, result) {
     comparison: result.comparativeAnalysis,
     decision: {
       canMerge: result.canMerge, outcome: result.outcome, jury: result.jury || null,
-      crossExamination: result.comparativeAnalysis?.crossExamination || null
+      crossExamination: result.comparativeAnalysis?.crossExamination || null,
+      adaptiveBudget: trinity.adaptiveBudgetDecision || null
     }
   });
 }
@@ -151,6 +153,7 @@ async function applyTrinityComparison(ctx) {
   result.jury = await trinityBlindJury.evaluate({ db: ctx.db, agentId: ctx.agentId, outcome: result.outcome, mission: trinity.hypothesisDesign?.centralProblem, config: trinity.hypothesisDesign?.juryConfig, reports: worldReports });
   result.comparativeAnalysis.crossExamination = trinityCrossExamination.summary(crossExamination);
   result.comparativeAnalysis.claimGraph = claimGraph;
+  result.comparativeAnalysis.adaptiveBudget = trinity.adaptiveBudgetDecision || null;
   await recordComparison(ctx, trinity, result);
   trinity.comparison = buildComparison(result);
   trinity.comparison.synthesizedClaims = result.outcome === 'SYNTHESIZE_CLAIMS' ? result.mergedEvidence?.claims || [] : [];
@@ -166,7 +169,6 @@ function emitComparison(ctx, trinity, result) {
     : `Trinity decision ${result.outcome || 'ESCALATE_EXPERIMENT'}: ${result.reason || 'no unique verified Pareto winner'}.`;
   emit(ctx.agentId, 'TRINITY_COMPARATIVE_BARRIER', 'COMPARE_TRINITY', detail, trinity.comparison, result.canMerge ? 'info' : 'warning');
 }
-
 function validateMergeInput(db, result) {
   if (!result || result.canMerge !== true || !result.selectedWorld) return { valid: false, reason: 'no_merge' };
   const comparison = result.comparativeAnalysis || {};
@@ -174,14 +176,12 @@ function validateMergeInput(db, result) {
   if (!db || !winner || !winner.agentId) return { valid: false, reason: 'no_winner_agent' };
   return { valid: true, winner };
 }
-
 async function loadMergeContext(db, winner) {
   const winnerAgent = await db.get("SELECT workspace_id, id, name FROM agents WHERE id = ?", winner.agentId);
   const workspace = await db.get('SELECT * FROM workspaces WHERE id = ?', winnerAgent?.workspace_id);
   const world = await db.get('SELECT workspace_root FROM trinity_worlds WHERE agent_id = ?', winner.agentId);
   return { winnerAgent, workspace, sourcePath: world?.workspace_root || workspace?.path };
 }
-
 async function updateWorldStatuses(db, result, winner) {
   await db.run("UPDATE trinity_worlds SET status = 'candidate', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", winner.agentId);
   const scored = result.comparativeAnalysis?.scoredWorlds || [];
