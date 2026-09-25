@@ -19,7 +19,8 @@ async function runCycle(db, input = {}, dependencies = {}) {
   const healthReport = await assessHealth(db, {
     holobiontId: session.holobiontId, symbiontId: plan.resident.id,
     resourcePressure: input.resourcePressure, dependencyScore: input.dependencyScore,
-    falseAlertRate: input.falseAlertRate
+    falseAlertRate: input.falseAlertRate, fitnessVector: input.fitnessVector,
+    dysbiosisSignals: input.dysbiosisSignals
   });
   return {
     status: 'VERIFIED', holobiontId: session.holobiontId,
