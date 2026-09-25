@@ -11,6 +11,7 @@ function evidenceText(receipt) {
       ...(Array.isArray(report.workerArtifact?.content?.claims) ? report.workerArtifact.content.claims : [])
     ];
     return claims.map((claim) => String(claim?.statement || '')).join('\n')
+      .replace(/\\+(div|mod)\b/g, '$1')
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   } catch {
     return '';
@@ -24,7 +25,7 @@ function verifySimpleMissionProof(receipt, missionName) {
   const perGroup = Math.floor(remaining / groups);
   const remainder = remaining % groups;
   const evidence = evidenceText(receipt);
-  const division = new RegExp(`(?:${remaining}\\s*(?:÷|/|\\\\div)\\s*${groups}|\\\\frac\\s*\\{\\s*${remaining}\\s*\\}\\s*\\{\\s*${groups}\\s*\\})\\s*=\\s*${perGroup}`);
+  const division = new RegExp(`(?:${remaining}\\s*(?:÷|/|div)\\s*${groups}|\\\\frac\\s*\\{\\s*${remaining}\\s*\\}\\s*\\{\\s*${groups}\\s*\\})\\s*=\\s*${perGroup}`);
   const checks = {
     subtraction: new RegExp(`24\\s*[-−]\\s*3\\s*=\\s*${remaining}`).test(evidence)
       || new RegExp(`24[\\s\\S]{0,120}3[\\s\\S]{0,120}${remaining}`).test(evidence),

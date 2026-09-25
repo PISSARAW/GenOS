@@ -127,8 +127,9 @@ async function probeRhizome(sessionId) {
     { edgeId: 'parser-validator', from: 'json-parser', to: 'schema-validator', relation: 'ROUTES_TO', status: 'ACTIVE' },
     { edgeId: 'validator-explainer', from: 'schema-validator', to: 'error-explainer', relation: 'ROUTES_TO', status: 'ACTIVE' }
   ];
-  for (const node of nodes) await operate(sessionId, 'add_node', { node });
-  for (const edge of edges) await operate(sessionId, 'add_edge', { edge });
+  const additions = missingGraphItems(before.graph, nodes, edges);
+  for (const node of additions.nodes) await operate(sessionId, 'add_node', { node });
+  for (const edge of additions.edges) await operate(sessionId, 'add_edge', { edge });
   const deposit = await operate(sessionId, 'deposit', {
     marker: 'route:capability/json_schema_validate', amount: 2,
     capability: 'json_schema_validate'
@@ -137,9 +138,19 @@ async function probeRhizome(sessionId) {
     need: { needId: 'tm-route-1', capability: 'json_schema_validate', input: { ok: true } }
   });
   const after = await operate(sessionId, 'snapshot');
-  return { before, nodes, edges, deposit, route, after,
+  const nodeIds = new Set((after.graph?.nodes || []).map((node) => node.nodeId));
+  const edgeIds = new Set((after.graph?.edges || []).map((edge) => edge.edgeId));
+  return { before, nodes, edges, addedNodes: additions.nodes, addedEdges: additions.edges, deposit, route, after,
     verified: route.selected === true && route.route?.nodeIds?.includes('schema-validator')
-      && route.route?.edgeIds?.length > 0 && after.graph?.nodes?.length >= 3 };
+      && route.route?.edgeIds?.length > 0 && nodes.every((node) => nodeIds.has(node.nodeId))
+      && edges.every((edge) => edgeIds.has(edge.edgeId)) };
+}
+
+function missingGraphItems(graph, nodes, edges) {
+  const nodeIds = new Set((graph?.nodes || []).map((node) => node.nodeId));
+  const edgeIds = new Set((graph?.edges || []).map((edge) => edge.edgeId));
+  return { nodes: nodes.filter((node) => !nodeIds.has(node.nodeId)),
+    edges: edges.filter((edge) => !edgeIds.has(edge.edgeId)) };
 }
 
 function probeTrinity() {
@@ -266,4 +277,6 @@ async function main() {
   } finally { await closeDatabase(); }
 }
 
-main().catch((error) => { console.error(error); process.exitCode = 1; });
+if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
+
+module.exports = { missingGraphItems };
