@@ -22,7 +22,37 @@ async function runRoute(context) {
   const outcome = await rhizome.recordRouteOutcome(input.sessionId, execution.receipt, {
     ...options, trustedVerifierDigests: input.trustedVerifierDigests
   });
+  if (execution.receipt.outcome === 'FAILURE') {
+    return recoverFailedRoute({ ...context, execution, outcome });
+  }
   return { status: `ROUTE_${execution.receipt.outcome}`, snapshot, route, action, execution, outcome };
+}
+
+async function recoverFailedRoute(context) {
+  const { input, options, snapshot, route, action, execution, outcome } = context;
+  const repair = await rhizome.repairRoute(input.sessionId, {
+    need: input.need, receipt: execution.receipt
+  }, { ...options, trustedVerifierDigests: input.trustedVerifierDigests });
+  if (!repair.repaired) {
+    const fallback = await inspectGap({ input, options, snapshot, route, action });
+    return { ...fallback, status: growthFallback(fallback) ? fallback.status : 'ROUTE_FAILED_NO_ALTERNATIVE', execution, outcome, repair };
+  }
+  const retry = await actionExecutor.execute({
+    route: repair, need: input.need, execute: input.execute, verify: input.verify
+  });
+  if (retry.status !== 'VERIFIED') return { status: 'ROUTE_RETRY_UNVERIFIED', snapshot, route, action, execution, outcome, repair, retry };
+  const retryOutcome = await rhizome.recordRouteOutcome(input.sessionId, retry.receipt, {
+    ...options, trustedVerifierDigests: input.trustedVerifierDigests
+  });
+  return {
+    status: retry.receipt.outcome === 'SUCCESS' ? 'ROUTE_RECOVERED' : 'ROUTE_RETRY_FAILED',
+    snapshot, route, action, execution, outcome, repair, retry, retryOutcome
+  };
+}
+
+function growthFallback(result) {
+  return result.status === 'GAP_OPEN' || result.status === 'GROWTH_PROPOSED'
+    || String(result.status).startsWith('GROWTH_');
 }
 
 async function inspectGap(context) {
