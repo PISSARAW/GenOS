@@ -2,82 +2,65 @@
 
 - **Statut** : Cadre conceptuel — architecture cible planifiée pour une orchestration à état partagé, multinucléée et convergente.
 - **Portée** : modèle complet du protocole Syncytium, de la composition et du commit causal à la convergence, la reprise et l'exploitation.
-- **Dernière revue** : 2026-09-24
+- **Dernière revue** : 2026-09-25
+
+> **Statut scientifique et mathématique.** Les équations de cette fiche sont un modèle de conception, sauf indication explicite contraire. Elles ne constituent ni une preuve du comportement du dépôt ni une mesure expérimentale. Le code actuel expose notamment un conseil morphogénétique partiel ; il ne réalise pas le protocole distribué décrit ci-dessous. Les propriétés CRDT ne valent que sous les hypothèses propres au type et au protocole de réplication considérés.
 
 ## 1. Définition
 
-Syncytium est le **protocole d'orchestration par état partagé vivant** de GenOS, dans lequel plusieurs unités cognitives spécialisées travaillent simultanément sur un même état continu, convergent par fusion cytoplasmique et maintiennent des garanties de cohérence causale stricte à chaque tick de synchronisation.
+Syncytium est un **modèle de conception d'orchestration autour d'un état partagé**. Il propose que plusieurs unités travaillent sur des opérations liées à un état commun, avec des règles explicites de fusion, de causalité et de validation. La fiche décrit une architecture cible ; elle ne garantit pas à elle seule la réplication, la convergence ni la préservation des invariants en production.
 
-Le mot « Syncytium » vient de la biologie du développement : un syncytium vrai (comme les muscles squelettiques ou le syncytiotrophoblaste placentaire) est une masse multinucléée où des milliers de noyaux partagent un cytoplasme commun sans membrane de séparation. Chaque noyau conserve son identité transcriptionnelle (son programme d'expression local), mais les produits de transcription diffusent librement dans le cytoplasme partagé. GenOS emprunte ce principe : chaque unité cognitive conserve son mandat local, ses invariants privés et son autorité décisionnelle, mais opère sur un état partagé dont les mutations sont visibles immédiatement et convergent mathématiquement.
+En biologie, une fibre musculaire squelettique est une cellule multinucléée formée par fusion de précurseurs. Ses noyaux ne sont pas des processus indépendants : ils partagent une cellule, mais leur transcription et la distribution des ARN et protéines sont spatialement régulées. La notion de « domaine myonucléaire » est un modèle discuté et variable, pas une frontière où un noyau serait le seul à agir. L'analogie avec GenOS est donc limitée au partage d'un environnement et à la spécialisation locale ; elle ne justifie aucune propriété de cohérence informatique.
 
 Le principe fondateur est :
 
-> **Quand une mission exige que plusieurs spécialistes modifient simultanément le même état avec des garanties de cohérence, Syncytium fait de cet état un cytoplasme commun : chaque mutation locale diffuse, chaque conflit est détecté structurellement, et la convergence est garantie par construction mathématique — non par négociation ad hoc.**
+> **Hypothèse de conception :** lorsque plusieurs spécialistes modifient un état commun, des types de données répliqués et des invariants explicites peuvent permettre de séparer les opérations fusionnables de celles qui exigent une coordination. La détection des conflits dépend de la définition des opérations, des invariants et du protocole effectivement exécuté.
 
-Syncytium se distingue des autres topologies GenOS par trois propriétés fondamentales :
+Syncytium se distingue conceptuellement des autres topologies GenOS par trois objectifs :
 
-1. **ReplicaConvergence (G1)** : deux répliques qui ont vu les mêmes opérations convergent vers le même état, quel que soit l'ordre de réception — garantie par la structure CRDT du shared state.
-2. **SemanticCoherence (G2)** : l'état partagé ne contient que des valeurs valides selon le schéma sémantique déclaré — les types ne sont pas de simples types mémoire mais des invariants sémantiques.
-3. **InvariantPreservation (G3)** : les invariants déclarés dans le `SharedStateSchema` sont vérifiés à chaque opération ; aucune mutation ne peut produire un état qui viole un invariant sans déclencher une escalade immédiate.
+1. **Convergence conditionnelle** : certaines familles de CRDT convergent si leurs conditions de livraison, d'identification et de fusion sont satisfaites.
+2. **Validité applicative** : un schéma peut déclarer des contraintes, mais leur seule déclaration ne les vérifie pas.
+3. **Coordination selon les invariants** : l'analyse de confluence peut établir si des opérations peuvent être appliquées sans coordination ; cette fiche ne fournit pas un vérificateur formel général.
 
 ---
 
-## 2. Définition Mathématique du Protocole de Fusion Cytoplasmique
+## 2. Modèle mathématique et garanties conditionnelles
 
-### 2.1 Formalisation du Syncytium
+Les symboles ci-dessous définissent un vocabulaire pour raisonner sur la conception. Ils ne spécifient pas une implémentation complète.
+
+### 2.1 Formalisation du modèle Syncytium
 
 Soit :
-- $\mathcal{M}$ : mission partagée (intention globale, ressources, bornes) ;
-- $\mathcal{S}_t$ : état partagé vivant au tick $t$ — un cytoplasme structuré en CRDT ;
-- $\mathcal{N} = \{N_1, N_2, N_3, N_4\}$ : ensemble des noyaux (unités cognitives) ;
-- $\Delta_i$ : mutation proposée par le noyau $N_i$ ;
-- $\mathcal{I} = \{I_1, \ldots, I_k\}$ : ensemble des invariants déclarés ;
-- $\mathcal{C}$ : vecteur de version causal global ;
-- $\mathcal{D}$ : dependency set de l'opération courante.
+- $M$ : mission et contraintes ;
+- $S$ : état logique ;
+- $R = \{r_1, \ldots, r_n\}$ : réplicas ou participants (aucun nombre fixe n'est impliqué) ;
+- $o$ : opération, avec son auteur et son contexte causal si le protocole les fournit ;
+- $I(S)$ : prédicat indiquant que l'état respecte les invariants applicatifs ;
+- $H$ : relation « arrive avant » (happens-before) sur les opérations.
 
-Le syncytium est défini comme le tuple :
+Le système peut être décrit abstraitement par :
 
-$$\text{Syncytium} = \langle \mathcal{M}, \mathcal{S}_t, \mathcal{N}, \mathcal{I}, \mathcal{C}, \mathcal{D}, \tau \rangle$$
+$$X = \langle M, S, R, I, H, P \rangle$$
 
-où $\tau$ est la période de synchronisation (tick).
+où $P$ désigne le protocole de réplication et de coordination choisi. Il n'est pas nécessairement périodique : une durée de tick $\tau$ ne peut être introduite que si le système implémente réellement une synchronisation périodique.
 
-À chaque tick de synchronisation $\tau$, pour chaque noyau $N_i$ :
+Une opération candidate $o$ transforme un état par une fonction partielle $apply$ :
 
-$$\text{if } \text{InvariantConvergent}(\Delta_i, \mathcal{S}_t, \mathcal{I}) = \top :$$
+$$apply(S, o) = S' \quad\text{si l'opération est autorisée et ses préconditions sont satisfaites}$$
 
-$$\mathcal{S}_{t+1} = \mathcal{S}_t \circ \Delta_i$$
+La diffusion, la validation et le traitement d'un rejet sont des étapes du protocole à définir ; elles ne découlent pas de cette notation.
 
-$$\text{diffuse}(\mathcal{S}_{t+1}, \mathcal{C}')$$
+### 2.2 Réplication et convergence
 
-$$\text{else} :$$
+Le terme CRDT recouvre plusieurs constructions, avec des préconditions distinctes. Pour un **CRDT à état** (state-based), l'état forme généralement un semi-treillis join-semilattice et la fusion est un join : elle est associative, commutative et idempotente. La convergence éventuelle suppose notamment que les états locaux évoluent de façon monotone et que les informations de fusion finissent par être échangées ([Shapiro et al., rapport INRIA RR-7506](https://inria.hal.science/inria-00555588/document)).
 
-$$\text{CONFLICT\_DETECTED}(\Delta_i, \mathcal{S}_t, \mathcal{I}, \text{conflictType})$$
+Pour un **CRDT à opérations** (operation-based), la preuve dépend des opérations concurrentes, de leur livraison et de l'exécution par les réplicas. On ne peut donc pas affirmer que chaque mutation ou chaque type mentionné dans cette fiche est commutatif, idempotent ou tolère un ordre arbitraire. Un LWW-register, par exemple, impose une règle de résolution déterministe et peut perdre une mise à jour ; convergence ne signifie ni absence de perte sémantique ni respect automatique des invariants.
 
-### 2.2 Convergence des Répliques (Garantie G1)
+**Propriété conditionnelle visée :** si deux réplicas partent d'états compatibles, appliquent le même ensemble d'opérations admissibles selon le même type CRDT et satisfont les hypothèses de livraison et de fusion de ce type, alors ils convergent vers des états équivalents. Cette propriété est un résultat du protocole CRDT précis, pas une preuve de Syncytium au niveau applicatif.
 
-L'état partagé est structuré en CRDT (Conflict-free Replicated Data Type). Pour chaque champ du `SharedStateSchema`, la structure mathématique garantit :
+### 2.3 Schéma et validité applicative
 
-**Commutativité** : l'ordre d'application des mutations n'affecte pas l'état final.
-
-$$\forall \Delta_i, \Delta_j : \mathcal{S} \circ \Delta_i \circ \Delta_j = \mathcal{S} \circ \Delta_j \circ \Delta_i$$
-
-**Idempotence** : appliquer la même mutation deux fois a le même effet que l'appliquer une fois.
-
-$$\forall \Delta_i : \mathcal{S} \circ \Delta_i \circ \Delta_i = \mathcal{S} \circ \Delta_i$$
-
-**Associativité** : le regroupement des mutations n'affecte pas le résultat.
-
-$$\forall \Delta_i, \Delta_j, \Delta_k : (\mathcal{S} \circ \Delta_i) \circ (\Delta_j \circ \Delta_k) = \mathcal{S} \circ (\Delta_i \circ \Delta_j) \circ \Delta_k$$
-
-**Théorème de Convergence** : Soient $\mathcal{S}^A$ et $\mathcal{S}^B$ deux répliques du même état partagé. Si $\mathcal{S}^A$ et $\mathcal{S}^B$ ont intégré le même ensemble d'opérations $\mathcal{O} = \{\Delta_1, \ldots, \Delta_n\}$ (quel que soit l'ordre), alors :
-
-$$\mathcal{S}^A = \mathcal{S}^B$$
-
-**Preuve par induction structurelle** : immédiat pour les G-Counter (commutativité de l'addition) et les G-Set (idempotence de l'union). Pour les structures à états complexes (OR-Set, LWW-Register, PN-Counter), la preuve utilise l'unicité des identifiants d'opération et la monotonicité du vecteur de version.
-
-### 2.3 Cohérence Sémantique (Garantie G2)
-
-La cohérence sémantique est garantie par le `SharedStateSchema`. Chaque champ de l'état est une `StateFieldDefinition` :
+Dans le schéma cible, chaque champ peut être décrit par une `StateFieldDefinition` :
 
 $$\text{StateFieldDefinition} = \langle \text{path}, \text{datatype}, \text{mergeSemantics}, \text{invariants}, \text{authority}, \text{conflictPolicy}, \text{visibility}, \text{locality} \rangle$$
 
@@ -91,17 +74,19 @@ où :
 - **visibility** : portée de visibilité (public, role-private, nucleus-private) ;
 - **locality** : localité du champ (hot, cold, frozen).
 
-La cohérence sémantique globale est :
+On peut représenter la validité d'un état par :
 
-$$\text{SemanticCoherence}(\mathcal{S}) = \forall f \in \text{schema}(\mathcal{S}) : \text{Valid}(f.\text{datatype}, f.\text{path}(\mathcal{S})) \land \bigwedge_{I \in f.\text{invariants}} I(f.\text{path}(\mathcal{S}))$$
+$$Valid(S) = WellTyped(S) \land \bigwedge_{I \in \mathcal{I}} I(S)$$
 
-### 2.4 Préservation des Invariants (Garantie G3)
+Cette formule définit un objectif. Elle n'implique pas que toutes les opérations soient contrôlées : l'implémentation doit exécuter les validations sur les bons états et faire échouer ou coordonner les transitions invalides.
+
+### 2.4 Préservation des invariants et invariant-confluence
 
 Les invariants sont des prédicats logiques sur l'état. À chaque opération proposée :
 
-$$\text{InvariantPreservation}(\Delta, \mathcal{S}, \mathcal{I}) = \forall I \in \text{affected\_invariants}(\Delta) : I(\mathcal{S} \circ \Delta) = I(\mathcal{S})$$
+$$Valid(S) \land apply(S,o)=S' \implies Valid(S')$$
 
-L'analyse d'invariant confluence détermine quels invariants sont affectés par une opération donnée. Cette analyse est incrémentale : seuls les invariants dont les champs dépendants sont modifiés sont réévalués.
+La formule exprime la préservation pour une transition séquentielle. En environnement concurrent, valider chaque branche isolément ne suffit pas toujours : la fusion de deux états valides peut être invalide. Invariant-confluence étudie précisément si des états valides issus d'un même état antérieur peuvent être fusionnés tout en restant valides. Une sélection incrémentale des invariants à vérifier n'est sûre que si les dépendances de chaque invariant sont complètes et fiables.
 
 **Invariants incrémentaux** : Pour chaque opération $\Delta$, le système calcule l'ensemble des invariants potentiellement affectés :
 
@@ -109,69 +94,55 @@ $$\text{affected\_invariants}(\Delta) = \{I \in \mathcal{I} \mid \text{depends}(
 
 où $\text{depends}(I)$ est l'ensemble des chemins de l'état dont dépend l'invariant $I$, et $\text{writes}(\Delta)$ est l'ensemble des chemins modifiés par $\Delta$.
 
-### 2.5 Analyse d'Invariant Confluence : Quand la Coordination est-elle Nécessaire ?
+### 2.5 Quand la coordination peut-elle être évitée ?
 
 L'analyse d'invariant confluence détermine si une opération peut être appliquée localement sans coordination globale, ou si elle exige une coordination. Soient $\Delta_i$ et $\Delta_j$ deux opérations proposées par des noyaux distincts.
 
-**Définition (Confluence)** : Un ensemble d'opérations $\mathcal{O}$ est confluent si et seulement si :
+L'indépendance de l'ordre des opérations est une propriété plus forte et différente de l'invariant-confluence. Une écriture possible de l'indépendance de replay est :
 
-$$\forall \pi \in \text{permutations}(\mathcal{O}) : \text{replay}(\mathcal{S}_0, \pi(\mathcal{O})) = \text{replay}(\mathcal{S}_0, \mathcal{O})$$
+$$\forall \pi \in AllowedOrders(\mathcal{O}) : replay(S_0,\pi(\mathcal{O})) \equiv replay(S_0,\mathcal{O})$$
 
-Autrement dit, l'ordre d'application ne change pas l'état final.
+Les ordres autorisés doivent respecter les dépendances causales et les hypothèses du type de données. L'équivalence $\equiv$ doit être définie par le modèle ; elle n'implique pas nécessairement l'égalité octet par octet.
 
-**Théorème de Coordination** : La coordination est inutile si et seulement si l'opération satisfait simultanément :
-1. **Confluence structurelle** : le type CRDT sous-jacent commute avec lui-même ;
-2. **Confluence sémantique** : l'opération ne peut pas produire d'état violant un invariant partagé.
+Le cadre d'invariant-confluence de Bailis et al. établit, pour un ensemble donné de transactions, d'invariants, d'états accessibles et d'une fonction de fusion, si une exécution sans coordination peut préserver la validité. Il ne se réduit pas à tester si un type CRDT « commute ». La conclusion dépend du modèle formel retenu et des hypothèses d'accès et de fusion ([Bailis et al., PVLDB 2015](https://www.vldb.org/pvldb/vol8/p185-bailis.pdf)).
+
+Une formulation simplifiée de la condition étudiée est :
+
+$$\forall S_0,S_1,S_2:\; I(S_0) \land I(S_1) \land I(S_2) \land reachable(S_0,S_1) \land reachable(S_0,S_2) \implies I(merge(S_1,S_2))$$
+
+Cette formule suppose que `merge` et l'ensemble des transactions accessibles sont ceux définis par le modèle analysé ; ce n'est pas un test complet pour toute application.
 
 Formellement :
 
-$$\text{needsCoordination}(\Delta) = \begin{cases} \bot & \text{if } \text{isCommutativeCRDT}(\Delta.\text{datatype}) \land \text{invariantsSafe}(\Delta) \\ \top & \text{otherwise} \end{cases}$$
+$$I\text{-confluent}(T,I,merge) \Rightarrow \text{coordination-free execution may preserve } I$$
 
-**Analyse structurelle** : Pour les types purs (G-Counter, G-Set, OR-Set, PN-Counter), la confluence structurelle est automatique. Pour les types à état (LWW-Register, MV-Register, State-Machine CRDT), la confluence dépend des horodatages et des politiques de merge.
+La non-I-confluence indique qu'une exécution sans coordination n'est pas suffisante pour garantir l'invariant sous le modèle étudié ; elle ne prescrit pas à elle seule un mécanisme de coordination particulier.
 
-**Analyse sémantique** : Pour chaque invariant $I$ potentiellement affecté par $\Delta$ :
+### 2.6 Classes GREEN, AMBER et RED (classification proposée)
 
-$$\text{invariantsSafe}(\Delta) = \forall I \in \text{affected\_invariants}(\Delta) : \text{canNeverViolate}(I, \Delta)$$
+Ces catégories sont une convention de conception locale, non une taxonomie standard des CRDT. Leur classification doit être calculée par un composant réel avant qu'on puisse lui attribuer un effet de sûreté.
 
-Si un invariant peut être violé par une exécution concurrente de $\Delta$, la coordination est requise.
-
-### 2.6 Classes d'Opérations : GREEN, AMBER, RED
-
-Les opérations du syncytium sont classées en trois catégories selon leur besoin de coordination :
-
-**GREEN — Coordination-free** : L'opération commute structurellement et ne peut jamais violer un invariant. Application immédiate, diffusion asynchrone.
-
-$$\text{classify}(\Delta) = \text{GREEN} \iff \text{isCommutativeCRDT}(\Delta) \land \forall I \in \text{affected}(\Delta) : \text{invariantsAlwaysSatisfied}(I, \Delta)$$
+**GREEN — Sans coordination dans le modèle étudié** : ne classer ainsi que si les propriétés du type de données et la I-confluence des transactions ont été établies pour les invariants concernés. La commutativité seule ne suffit pas.
 
 Exemples : incrémenter un compteur G-Counter, ajouter un élément à un G-Set, publier un heartbeat.
 
-**AMBER — Conditionally Coordinated** : L'opération commute structurellement mais peut potentiellement violer un invariant en présence de concurrence. Vérification locale des invariants avant commit.
+**AMBER — Vérification conditionnelle** : le modèle exige des préconditions ou contrôles précis. Une vérification locale ne protège pas d'une course avec une autre réplique, sauf si le protocole garantit l'exclusion, la sérialisation ou une vérification de la fusion.
 
-$$\text{classify}(\Delta) = \text{AMBER} \iff \text{isCommutativeCRDT}(\Delta) \land \exists I \in \text{affected}(\Delta) : \text{invariantsConditionallySatisfied}(I, \Delta)$$
+Exemples à analyser selon la sémantique exacte : suppression avec tombstone, mise à jour de registre avec règle de résolution, modification de valeur soumise à une borne globale.
 
-Exemples : supprimer un élément d'un OR-Set, mettre à jour un LWW-Register, modifier un champ numérique avec contrainte de borne.
+**RED — Coordination requise** : le modèle établit qu'une exécution sans coordination ne préserve pas l'invariant ; il faut alors choisir un protocole de coordination adapté (verrou, lease, transaction, séquenceur, ou autre mécanisme prouvé).
 
-**RED — Strongly Coordinated** : L'opération ne commute pas ou affecte un invariant critique. Coordination globale obligatoire avant application.
+Le caractère « critique » d'un invariant n'implique pas à lui seul que toute opération le concernant doive être coordonnée ; c'est la preuve de sûreté sous le modèle retenu qui guide la décision.
 
-$$\text{classify}(\Delta) = \text{RED} \iff \neg\text{isCommutativeCRDT}(\Delta) \lor \exists I \in \text{affected}(\Delta) : I.\text{critical} = \top$$
+### 2.7 Causalité : relation happened-before et vecteurs de version
 
-Exemples : transition d'une state-machine CRDT, réorganisation d'un tree CRDT, mutation d'un champ sous lease exclusif.
+Lamport a défini une relation partielle happened-before et des horloges scalaires qui la respectent : si $a$ arrive avant $b$, alors $L(a)<L(b)$ ; la réciproque est fausse ([Lamport, 1978](https://lamport.azurewebsites.net/pubs/time-clocks.pdf)). Un vecteur de version peut représenter davantage d'information causale dans des systèmes adaptés, mais aucun mécanisme de ce type n'est garanti par cette fiche.
 
-### 2.7 Causalité : Vecteur de Version, Dot, Dependency Set
-
-Le syncytium ne se contente pas d'horloges de Lamport. Il maintient une causalité complète à trois niveaux :
-
-**Horloge de Lamport** : Pour tout couple d'opérations $(\Delta_i, \Delta_j)$ :
+Pour une relation causale $\rightarrow$ :
 
 $$\Delta_i \rightarrow \Delta_j \implies L(\Delta_i) < L(\Delta_j)$$
 
-où $\rightarrow$ est la relation de causalité de happens-before :
-
-$$\Delta_i \rightarrow \Delta_j \iff \text{same nucleus et } \Delta_i \text{ avant } \Delta_j \text{ dans l'ordre local}$$
-
-$$\lor \text{ diffusion } \Delta_i \text{ reçue par le noyau de } \Delta_j \text{ avant que } \Delta_j \text{ soit proposée}$$
-
-**Vecteur de Version** : Chaque noyau $N_i$ maintient un vecteur $V_i = (v_{i,1}, v_{i,2}, v_{i,3}, v_{i,4})$ où $v_{i,j}$ est le nombre d'opérations du noyau $N_j$ connues de $N_i$.
+Un vecteur de version, lorsqu'il est utilisé, est indexé par les identités des participants et comparé composante par composante. La taille fixe de quatre participants n'est pas une propriété mathématique du modèle.
 
 **Comparaison causale** : Pour deux vecteurs $V$ et $V'$ :
 
@@ -181,21 +152,21 @@ $$V < V' \iff V \leq V' \land V \neq V'$$
 
 $$V \parallel V' \iff \neg(V \leq V') \land \neg(V' \leq V)$$
 
-**Dot (Event Identifier)** : Chaque opération porte un identifiant unique $\text{dot} = (N_i, \text{seq}_i)$ où $\text{seq}_i$ est un compteur monotone local au noyau. Le dot est totalement ordonné par rapport au vecteur de version.
+**Identifiant d'opération :** un couple (participant, séquence locale) peut servir d'identifiant unique si les identités et séquences ne sont jamais réutilisées. Un tel identifiant n'ordonne pas totalement les opérations : deux dots concurrents peuvent être incomparables causalement.
 
-**Dependency Set** : Chaque opération $\Delta$ porte un ensemble de dépendances $\text{deps}(\Delta)$ — l'ensemble des dots des opérations qui doivent être appliquées avant $\Delta$. Pour un noyau $N_i$ :
+**Contexte causal** : une opération peut transporter le contexte des événements observés. Ce contexte compact n'est pas nécessairement la liste explicite des dépendances à appliquer en premier :
 
-$$\text{deps}(\Delta_i) = \{(N_j, s) \mid s \leq v_{i,j}\}$$
+$$context(o) = V_i \quad\text{(représentation possible si un vecteur de version est utilisé)}$$
 
-**Causal Delivery** : Une opération $\Delta$ n'est appliquée que lorsque toutes ses dépendances ont été intégrées :
+**Livraison causale (conditionnelle au protocole)** : si une opération déclare un contexte causal explicite, ce contexte peut servir à différer son application jusqu'à réception des dépendances :
 
 $$\text{canApply}(\Delta) = \forall d \in \text{deps}(\Delta) : d \in \text{applied}(\mathcal{S})$$
 
-### 2.8 Distinguer Concurrence de Conflit
+### 2.8 Distinguer concurrence, chevauchement d'écriture et conflit applicatif
 
 Le syncytium distingue fondamentalement la concurrence du conflit :
 
-**Concurrence** : Deux opérations $\Delta_i$ et $\Delta_j$ sont concurrentes si elles sont proposées à des ticks distincts sans relation causale entre elles.
+**Concurrence :** deux opérations sont concurrentes si aucune ne précède l'autre selon happened-before.
 
 $$\Delta_i \parallel \Delta_j \iff \neg(\Delta_i \rightarrow \Delta_j) \land \neg(\Delta_j \rightarrow \Delta_i)$$
 
@@ -205,23 +176,23 @@ La concurrence est normale et attendue dans un syncytium. Elle ne produit pas de
 
 $$\text{collide}(\Delta_i, \Delta_j) \iff \text{writes}(\Delta_i) \cap \text{writes}(\Delta_j) \neq \emptyset$$
 
-La collision d'écriture n'est pas un conflit en soi : si le type CRDT sous-jacent commute, les deux opérations fusionnent sans intervention.
+Un chevauchement n'est pas un conflit en soi ; il faut examiner les sémantiques du type de données et les invariants. Inversement, deux écritures distinctes peuvent ensemble violer un invariant.
 
-**Conflit** : Un conflit est une situation où l'application simultanée de deux opérations produit un état qui viole un invariant, ou où les opérations ne commutent pas et ne peuvent pas être fusionnées automatiquement.
+**Conflit applicatif** : deux opérations créent un conflit si, selon le modèle applicatif, leur exécution ou leur fusion rend l'état invalide ou si aucune règle de résolution admise n'existe. Des opérations sur des champs distincts peuvent violer ensemble un invariant ; un chevauchement d'écriture n'est ni nécessaire ni suffisant.
 
-$$\text{conflict}(\Delta_i, \Delta_j) \iff \text{collide}(\Delta_i, \Delta_j) \land \neg\text{canMerge}(\Delta_i, \Delta_j, \mathcal{I})$$
+$$conflict(o_1,o_2,S) \iff \neg Valid(merge(apply(S,o_1),apply(S,o_2))) \quad\text{(si les deux branches sont admissibles)}$$
 
 **Principe fondamental** :
 
 $$\text{Concurrence} \neq \text{Collision} \neq \text{Conflict}$$
 
-Deux opérations concurrentes sur le même champ peuvent ne jamais entrer en conflit si le CRDT commute. Deux opérations non concurrentes (causalement ordonnées) sur le même champ ne produisent jamais de conflit car elles sont séquentielles. Seule la conjonction de collision + non-commutativité + invariant potentiellement violé constitue un conflit.
+Deux opérations concurrentes peuvent être fusionnables pour un type donné ; deux opérations causalement ordonnées peuvent néanmoins violer une règle métier. Une collision d'écriture n'établit donc ni l'existence ni l'absence d'un conflit applicatif.
 
 ---
 
-## 3. Les Quatre Rôles Cytoplasmiques
+## 3. Quatre rôles envisagés dans le modèle
 
-Syncytium crée toujours exactement 4 noyaux densément synchronisés, avec des rôles complémentaires inspirés par la spécialisation des myonoyaux biologiques.
+La conception décrit quatre responsabilités possibles. Ce nombre n'est pas une exigence mathématique ni une propriété biologique transposable ; la composition effective dépend du runtime et ne prouve pas l'existence d'un état répliqué partagé.
 
 ### 3.1 Shared State Coordinator (Frontier)
 
@@ -444,40 +415,40 @@ Parallel Executor                    Shared State Coordinator                Con
 
 ## 5. Activation du Protocole
 
-### Conditions d'activation
+### Critères de pertinence (conception)
 
-Syncytium s'active quand la mission présente les caractéristiques suivantes :
+La conception considère la topologie pertinente quand la mission présente les caractéristiques suivantes :
 
 1. **Parallélisme couplé** : la mission se décompose en plusieurs tranches qui partagent des champs d'état et dont les résultats sont mutuellement dépendants.
 2. **Cohérence stricte requise** : la divergence temporaire entre les noyaux n'est pas acceptable — les invariants doivent être préservés à chaque tick.
-3. **Borne de latence** : la synchronisation doit avoir lieu dans un budget de temps configurable (par défaut 100ms entre ticks).
-4. **Couplage mesurable** : le CouplingScore de la mission dépasse le seuil d'activation du syncytium.
+3. **Latence tolérée** : les contraintes de latence et les coûts de coordination sont mesurés sur le déploiement visé.
+4. **Signaux disponibles** : le conseiller morphogénétique peut recevoir les mesures nécessaires à son heuristique.
 
 ### Calcul du CouplingScore
 
-Le CouplingScore quantifie le degré de dépendance mutuelle entre les tranches d'une mission :
+La formule historique ci-dessous n'est pas une métrique dimensionnellement définie : elle multiplie une proportion, une densité, une fréquence (avec unité) et un coût sans préciser l'échelle de normalisation. Elle ne doit pas servir de seuil universel ni être présentée comme un résultat scientifique.
 
-$$\text{CouplingScore} = \text{SharedWrites} \times \text{DependencyDensity} \times \text{UpdateFrequency} \times \text{StalenessCost}$$
+Le conseiller morphogénétique implémenté utilise une heuristique distincte. Il accepte quatre composantes de couplage normalisées dans $[0,1]$ (directement ou dérivées de compteurs et références fournis), puis calcule leur produit :
+
+$$C = w_s \times d \times u \times c_s$$
 
 où :
-- **SharedWrites** : proportion de champs écrits par plus d'un noyau (entre 0 et 1) ;
-- **DependencyDensity** : nombre moyen de dépendances par opération (normalisé) ;
-- **UpdateFrequency** : fréquence moyenne des mutations par seconde ;
-- **StalenessCost** : coût d'une lecture stale (entre 0 et 1, où 1 signifie qu'une lecture stale est catastrophique).
+- $w_s$ : densité d'écritures partagées ;
+- $d$ : densité des dépendances ;
+- $u$ : fréquence relative des mises à jour ;
+- $c_s$ : coût relatif des lectures périmées.
 
-Syncytium est activé quand :
+Ce produit est une heuristique de conseil, non une mesure validée du « couplage ». Une composante manquante rend le score indéterminé ; elle n'est pas remplacée par zéro. En l'absence de ces composantes, le conseiller ne recommande pas A-Team sur la seule base d'un couplage faible ; d'autres signaux explicitement fournis peuvent toutefois proposer une autre topologie. Le seuil de faible couplage est $0{,}2$ dans le code actuel, combiné à un faible niveau d'écritures partagées ou de dépendances et à l'absence d'invariants partagés. C'est un paramètre d'implémentation, pas un seuil scientifique.
 
-$$\text{CouplingScore} > \theta_{\text{syncytium}}$$
+Les autres signaux de transition utilisent leurs propres seuils configurés dans le code. Une recommandation peut produire un plan morphogénétique validé, mais ne déclenche pas elle-même une transition.
 
-où $\theta_{\text{syncytium}}$ est le seuil de configuration (par défaut 0.6).
-
-### Exemple d'activation
+### Exemple de composition de rôles (illustratif)
 
 ```javascript
 const mission = "Orchestrate real-time collaborative refactoring of a 50-file codebase across 4 specialized teams.";
 const analysis = biologicalModeService.compose('syncytium', mission);
 
-// Résultat : 4 noyaux cytoplasmiques
+// La composition propose quatre rôles ; elle ne crée pas à elle seule un état CRDT partagé.
 // [
 //   { role: 'shared_state_coordinator', modelTier: 'frontier', memberNumber: 1,
 //     mission: 'Syncytium shared mission: ...\nRole hypothesis: Maintain the shared mission state...' },
@@ -490,9 +461,9 @@ const analysis = biologicalModeService.compose('syncytium', mission);
 // ]
 ```
 
-### Conditions d'exclusion
+### Cas où une autre topologie peut convenir
 
-Syncytium n'est **pas activé** si :
+Les indications ci-dessous sont des recommandations de conception, pas des exclusions exécutées par le runtime :
 - **Mission strictement séquentielle** : une seule tranche, pas de parallélisme.
 - **Budget insuffisant** : moins de 4 workers ne peuvent être financés.
 - **Tolérance à la divergence** : la mission accepte la cohérence finale → utiliser Biocénose.
@@ -508,21 +479,21 @@ Syncytium n'est **pas activé** si :
 biologicalModeService.compose('syncytium', "Orchestrate real-time collaborative editing with shared state.")
 ```
 
-La composition valide :
+Dans la conception proposée, la composition validerait :
 1. **Mission explicite** : aucune composition sans mission.
 2. **Mode reconnu** : 'syncytium' parmi les modes biologiques.
-3. **Quatre noyaux générés** : toujours exactement 4 rôles cytoplasmiques.
-4. **Schéma séminal** : le SharedStateSchema est dérivé de la mission.
+3. **Quatre rôles envisagés** : les rôles décrits dans cette fiche sont une proposition de composition.
+4. **Schéma partagé** : la génération et la validation automatique d'un SharedStateSchema restent à démontrer.
 
 ### Allocation du budget
 
-Le budget est réparti entre les quatre rôles :
+Une règle possible de répartition est :
 
 $$T_{\text{per\_nucleus}} = \frac{T_{\text{worker}} \times s}{4}$$
 
 où :
 - $T_{\text{worker}}$ : budget alloué aux workers.
-- $s$ : ratio d'allocation (typiquement 0.6–0.8).
+- $s$ : fraction affectée à ce groupe (choix de configuration, sans valeur par défaut validée).
 - $4$ : nombre de rôles cytoplasmiques.
 
 ### Modèles utilisés
@@ -588,7 +559,7 @@ struct AtomicOperationGroup {
 
 **Application atomique** : Les `writes` d'un groupe sont appliquées ensemble ou pas du tout. Si une seule `postcondition` échoue après application, tout le groupe est annulé (rollback partiel) et le conflit est enregistré.
 
-### Exemple de commit pipeline
+### Exemple de commit pipeline (illustratif)
 
 ```javascript
 // Parallel Executor 2 propose une mutation
@@ -628,11 +599,9 @@ if (checkResult.allSatisfied) {
 
 Le syncytium atteint la quiescence cytoplasmique quand :
 
-$$\text{quiescence}(\mathcal{S}_t) = \top \iff \forall N_i \in \mathcal{N} : \text{pending\_ops}(N_i) = 0 \land \forall I \in \mathcal{I} : I(\mathcal{S}_t) = \top$$
+$$quiescent(S) \iff pending(S)=\varnothing \land Valid(S) \land CausallyComplete(S)$$
 
-Formellement, la quiescence est un point fixe :
-
-$$\text{quiescence}(\mathcal{S}) = \forall \Delta : \text{canApply}(\Delta, \mathcal{S}) = \bot \land \text{InvariantPreservation}(\mathcal{S}, \mathcal{I}) = \top$$
+La quiescence n'est pas un point fixe déductible de l'état seul : elle suppose une connaissance suffisante des producteurs et des opérations en transit. Sans mécanisme de suivi des participants et des messages en vol, une file vide localement ne prouve pas qu'il n'y a plus de travail.
 
 ### Critères de fusion
 
@@ -644,9 +613,9 @@ $$\text{canMerge} = \begin{cases} \top & \text{si } \text{quiescence}(\mathcal{S
 
 $$\text{causalCompleteness}(\mathcal{S}) = \forall \Delta \in \text{applied}(\mathcal{S}) : \forall d \in \text{deps}(\Delta) : d \in \text{applied}(\mathcal{S})$$
 
-### Rapport d'intégration
+### Rapport d'intégration (exemple fictif)
 
-Quand la quiescence est atteinte et la causalité complète, l'Integration Executor produit :
+L'exemple suivant est une sortie fictive destinée à illustrer un format de rapport ; il ne provient pas d'une campagne ni d'une exécution vérifiée :
 
 ```
 ## Rapport de Fusion Syncytium
@@ -724,13 +693,13 @@ struct SyncytiumTelemetry {
 }
 ```
 
-### Détection de staleness
+### Estimation du retard causal (modèle)
 
-Le Consistency Guardian mesure la staleness de chaque noyau :
+Le modèle peut estimer le retard d'un replica à partir d'un vecteur de version :
 
-$$\text{staleness}(N_i) = \max(V_{\text{global}}) - \min(V_i)$$
+$$lag_i = \max_j\bigl(V_{global}[j] - V_i[j]\bigr)$$
 
-Quand $\text{staleness}(N_i) > \theta_{\text{staleness}}$, une resynchronisation ciblée est déclenchée.
+Une resynchronisation pourrait être envisagée si ce retard dépasse un seuil configuré ; la formule seule ne déclenche aucun mécanisme.
 
 ### Journal causal structuré
 
@@ -755,7 +724,11 @@ Chaque opération est enregistrée avec :
 
 ## 11. Configuration
 
-### Variables d'environnement
+### Variables d'environnement proposées (non vérifiées)
+
+Les noms, valeurs et comportements ci-dessous décrivent une configuration cible ; le dépôt ne confirme pas que le runtime les lit ou applique ces réglages.
+
+Les noms, seuils et valeurs de l'exemple suivant décrivent le modèle cible ; ils ne sont pas présentés comme des variables prises en charge par le runtime actuel.
 
 ```bash
 # Période de synchronisation (ms entre chaque tick)
@@ -766,9 +739,6 @@ export GENOS_SYNCYTIUM_STALENESS_BUDGET=10
 
 # Seuil de backpressure (taille de file d'attente)
 export GENOS_SYNCYTIUM_BACKPRESSURE_THRESHOLD=100
-
-# Seuil du CouplingScore pour activation automatique
-export GENOS_SYNCYTIUM_COUPLING_THRESHOLD=0.6
 
 # Politique de partition par défaut
 export GENOS_SYNCYTIUM_PARTITION_POLICY=QUEUE_OPERATION
@@ -783,13 +753,12 @@ export GENOS_SYNCYTIUM_GC_MARGIN=50
 export GENOS_SYNCYTIUM_SNAPSHOT_DELTA_THRESHOLD=1000
 ```
 
-### Configuration par mission
+### Configuration cible par mission (exemple non exécutable)
 
 ```yaml
 syncytium:
   sync_tick_ms: 100
   staleness_budget: 10
-  coupling_threshold: 0.6
   partition_policy: QUEUE_OPERATION
   convergence_timeout_ms: 60000
   adaptive_sync:
@@ -810,31 +779,29 @@ syncytium:
 
 ### Scalabilité structurelle
 
-Syncytium est conçu pour 4 noyaux. Au-delà, la complexité de coordination croît quadratiquement :
+Le modèle d'exemple utilise quatre rôles. Le nombre de participants et le coût induit doivent être évalués pour chaque protocole :
 
-$$\text{coordination\_cost} = O(n^2) \text{ pour } n > 4$$
+La complexité de coordination dépend du graphe de communication, des invariants et du protocole. Aucune borne $O(n^2)$ n'est établie ici ; elle doit être déduite d'un algorithme concret et mesurée.
 
 Pour les missions nécessitant plus de 4 unités, utiliser des topologies emboîtées (A-Team avec Syncytium local, ou Rhizome avec Syncytium cluster).
 
 ### Latence minimale
 
-La période de synchronisation $\tau$ est bornée inférieurement par la latence réseau :
+Il n'existe pas de borne universelle de période déduite de la seule latence réseau. La latence de bout en bout dépend aussi du transport, du traitement, des files, des reprises et du modèle de cohérence. Toute cible de synchronisation doit être mesurée sur le déploiement visé.
 
-$$\tau \geq 2 \times \text{network\_latency} + \text{processing\_time}$$
-
-Pour les systèmes temps réel avec $\tau < 10\text{ms}$, utiliser Real-Time Control Syncytium avec WCET analysis.
+Une contrainte temps réel requiert une analyse de pire temps d'exécution (WCET), des hypothèses de charge et un environnement matériel définis ; le seuil de 10 ms n'est pas une règle générale.
 
 ### Budget mémoire
 
-Le journal causal et les snapshots adaptatifs consomment de la mémoire proportionnellement au taux de mutation :
+Les structures suivantes sont des composantes possibles d'un budget mémoire, pas une loi de proportionnalité mesurée :
 
-$$\text{memory\_usage} = \text{journal\_size} + \text{snapshot\_size} + \text{tombstone\_overhead}$$
+$$M_{total} = M_{journal}+M_{snapshots}+M_{tombstones}+M_{index}+M_{buffers}+M_{runtime}$$
 
 Le garbage collection compense partiellement, mais les missions à très haut taux de mutation peuvent nécessiter un archivage externe.
 
 ### Tolérance aux partitions
 
-Le syncytium tolère les partitions temporaires selon la politique configurée, mais une partition prolongée d'un noyau en zone SERIALIZABLE bloque les opérations RED. Le mode QUEUE_OPERATION permet de continuer avec les autres noyaux, mais la convergence est retardée jusqu'à la reconnexion.
+Le comportement en partition dépend du protocole choisi : opérations bloquées, mises en attente ou acceptées localement n'offrent pas les mêmes garanties. Cette fiche ne démontre ni tolérance aux partitions ni reprise sûre.
 
 ---
 
@@ -844,14 +811,16 @@ Le syncytium tolère les partitions temporaires selon la politique configurée, 
 |--------|---------|--------|-----------|------------|---------|-----------|
 | **Décomposition** | Hypothèses (3) | Domaines (N) | Communauté (4) | Hiérarchie (4) | Capacités (N) | État (4) |
 | **Autorité** | Orchest. central | Domaines isolés | Protocole/consensus | Host central | Aucune autorité | Coordinator |
-| **Synchronisation** | Asynchrone | Asynchrone | Asynchrone | Asynchrone | Asynchrone | **Synchrone** |
-| **Consistency** | Comparative | Per-domain | Consensus | Hierarchical | Aucune | **Strong** |
+| **Synchronisation** | Selon implémentation | Selon implémentation | Selon implémentation | Selon implémentation | Selon implémentation | **Cible : état partagé** |
+| **Consistency** | À vérifier | À vérifier | À vérifier | À vérifier | À vérifier | **À spécifier et vérifier** |
 | **Parallélisme** | Limité (3 mondes) | Bon | Bon | Délégué | Maximal | **Maximal** |
 | **État partagé** | Non | Non | Non | Partiel | Non | **Oui** |
 | **Conflit handling** | Confrontation | Isolation | Vote | Host décide | Ignore | **Détection structurelle** |
 | **Meilleur pour** | Explorer hypothèses | Multidisciplinaire | Robustesse critique | Production sécurisée | Ramification libre | **Temps réel collaboratif** |
 
-### Choix de la topology
+Ce tableau compare des intentions de conception, pas des garanties vérifiées ou une mesure comparative des performances.
+
+### Choix de la topologie
 
 $$\text{topology} = \begin{cases} \text{Trinity} & \text{if } \text{épistémie multiple requise} \\ \text{A-Team} & \text{if } \text{domaines disciplinaires isolés} \\ \text{Biocénose} & \text{if } \text{cohérence finale suffisante} \\ \text{Holobionte} & \text{if } \text{hiérarchie stricte} \\ \text{Rhizome} & \text{if } \text{ramification de capacités} \\ \text{Syncytium} & \text{if } \text{état partagé strict requis} \end{cases}$$
 
@@ -973,7 +942,17 @@ stateDiagram-v2
 
 ## 15. Architecture technique prévue
 
-Cette section décrit les composants visés par la conception Syncytium. Elle présente les responsabilités attendues une fois l'architecture raccordée au runtime ; les jalons d'implémentation et les écarts observés sont suivis séparément dans [l'audit de cohérence](syncytium_audit_report.json).
+Cette section distingue les responsabilités de l'architecture cible des capacités réellement raccordées. Aucun audit de cohérence séparé n'est publié dans ce dépôt.
+
+### Capacités raccordées au runtime
+
+Une intégration partielle permet désormais de demander un **conseil de transition morphogénétique** depuis une session Syncytium persistée, via l'opération `morphogenesis` de `genos_topology_session`. Cette analyse lit l'instantané de la session (domaines actifs, invariants et cohérence), combine ces données avec les signaux de transition fournis par l'appelant, puis peut construire un plan avec le planificateur Morphogenèse.
+
+Les signaux de couplage acceptent soit une valeur normalisée entre 0 et 1, soit un couple de compteurs pour la densité d'écritures partagées, la densité de dépendances, la fréquence de mises à jour et le coût des lectures périmées. Si un signal de couplage requis manque, le score reste indéterminé et le conseiller ne propose pas A-Team sur la seule base d'un couplage faible ; les données absentes ne sont pas assimilées à zéro. Les autres signaux explicites peuvent toutefois guider une recommandation différente. Les signaux explicites de conflit sémantique, d'expérimentabilité, de centralité des désaccords et d'autonomie régionale peuvent aussi orienter la recommandation.
+
+Une transition proposée n'est pas exécutée automatiquement. Pour une session incohérente, l'analyse bloque la planification (`SYNCYTIUM_INCONSISTENT`). Le plan éventuel est validé par le planificateur Morphogenèse ; un plan invalide est écarté (`MORPHOGENESIS_PLAN_INVALID`). `planningContextComplete` indique seulement si l'inventaire des agents a été fourni : sa valeur ne signifie ni que la transition a été appliquée ni que l'exécution est complète. Les recommandations, seuils et sorties du plan sont des aides à la décision, pas des preuves de performance.
+
+Le service de benchmark agrège des compteurs fournis par l'appelant et calcule quatre ratios : conflits sémantiques manqués, opérations sûres sans coordination, violations d'invariants promues hors Syncytium et mises à jour pertinentes délivrées. Un ratio sans dénominateur exploitable est retourné comme non mesuré. L'agrégateur compare les budgets par tâche, mais ne lance pas lui-même les scénarios : aucune campagne réelle ni aucun gain empirique n'est établi par cette capacité. Voir le [protocole de benchmark Syncytium](../../06-benchmarks/benchmark-syncytium.md).
 
 Le Syncytium doit s'intégrer au runtime GenOS au moyen des composants suivants :
 
@@ -1051,7 +1030,11 @@ genos biological deploy --mode syncytium --headless --budget 200000
 
 ---
 
-## Annexes A : Les Cinq États Logiques Partagés
+## Annexes A : Espaces d'état proposés
+
+Les annexes A à N et P à S contiennent des contrats, formules et mécanismes envisagés. Ce sont des esquisses à formaliser et à implémenter ; leur présence ne signifie pas qu'ils existent dans le runtime. Les politiques de partition, réparation, snapshots, GC, leases et backpressure requièrent des preuves séparées, adaptées à leurs modèles de panne.
+
+
 
 Le syncytium maintient cinq espaces logiques distincts au sein de l'état partagé, chacun avec ses propres règles de cohérence et de visibilité.
 
@@ -1246,25 +1229,25 @@ Les branches contrefactuelles sont des snapshots divergents qui ne modifient pas
 
 Le syncytium produit des snapshots adaptatifs — leur fréquence et granularité s'adaptent à la dynamique de l'état :
 
-$$\text{snapshotInterval} = f(\text{mutationRate}, \text{invariantViolationRate}, \text{stalenessBudget})$$
+Le choix d'un intervalle de snapshot est une politique d'ingénierie à mesurer selon le coût des snapshots, la fréquence des mutations, la durée de reprise visée et les contraintes de stockage.
 
-Quand le taux de mutation est élevé, les snapshots sont plus fréquents mais plus légers (delta seulement). Quand le taux est faible, les snapshots sont complets mais espacés.
+Une fréquence plus élevée peut réduire le travail de reprise au prix d'écritures supplémentaires ; le compromis et la taille des snapshots dépendent de la structure de l'état et doivent être mesurés.
 
 ### Garbage Collection
 
 Les opérations anciennes sont collectées quand elles ne sont plus nécessaires à la convergence :
 
-$$\text{canGC}(\Delta) = \forall N_i : \Delta \in \text{applied}(N_i) \land \Delta.\text{dot} < \min(V_i) - \theta_{\text{gc}}$$
+$$canGC(x) \Rightarrow stable(x) \land noLiveReference(x)$$
 
-où $\theta_{\text{gc}}$ est une marge de sécurité configurable.
+La stabilité doit être établie par un protocole de stabilité, en prenant en compte les réplicas hors ligne, la rétention et les reprises. Une marge fixe sur des vecteurs n'est pas, à elle seule, une preuve de sûreté du GC.
 
 ### Tombstones
 
-Les suppressions (dans les OR-Set, par exemple) sont marquées par des tombstones — des marqueurs qui indiquent qu'un élément a été supprimé à un point causal donné. Les tombstones sont nécessaires pour garantir la convergence : sans eux, une suppression pourrait être « oubliée » par un noyau qui n'a pas encore vu l'élément.
+Dans un OR-Set fondé sur des tombstones, ceux-ci conservent l'information causale de suppression afin qu'une réplique retardataire ne réintroduise pas l'élément. D'autres constructions peuvent encoder ou compacter les suppressions autrement ; le mécanisme précis appartient au type de données utilisé.
 
 $$\text{tombstone}(\text{element}) = \langle \text{elementId}, \text{removedAt}: \text{dot} \rangle$$
 
-Les tombstones sont eux-mêmes soumis au GC une fois que tous les noyaux les ont intégrés.
+Un tombstone ne peut être collecté que si aucun état ni message retardé pertinent ne peut réintroduire l'élément supprimé. Cela exige un protocole de stabilité et une politique explicite pour les réplicas absents.
 
 ---
 
@@ -1290,24 +1273,24 @@ Le protocole de base se décline en plusieurs variantes spécialisées selon le 
 
 ---
 
-## Annexes H : Zones de Cohérence
+## Annexes H : Zones de cohérence proposées
 
-Les champs du SharedStateSchema peuvent être assignés à différentes zones de cohérence, chacune offrant des garanties distinctes :
+Ces étiquettes décrivent des garanties visées, pas des garanties fournies automatiquement par le `SharedStateSchema`. Chaque zone nécessite des mécanismes d'exécution et des tests adaptés. En particulier, « invariant-preserving » exige de préciser si la propriété couvre un replica, une transaction ou la fusion de plusieurs états.
 
 | Zone | Garantie | Usage typique |
 |------|----------|---------------|
 | **EVENTUAL** | Convergence finale, divergence temporaire possible | Métriques, heartbeats |
 | **CAUSAL** | Opérations causalement liées visibles dans l'ordre | Statuts, contenus |
-| **INVARIANT_PRESERVING** | Aucun invariant local violé | Données métier avec contraintes |
+| **INVARIANT_PRESERVING** | Invariants désignés vérifiés selon un protocole à préciser | Données métier avec contraintes |
 | **SERIALIZABLE** | Transactions apparaissent comme exécutées en séquence | Déploiements, workflows |
 | **IMMUTABLE** | Écrit une fois, lu ensuite | Description de mission, configuration |
 | **APPEND_ONLY** | Ne peut que croître | Journaux, historiques |
 
 ---
 
-## Annexes I : Politique de Partition
+## Annexes I : Politique de partition envisagée
 
-Quand un noyau est partitionné (perte de connectivité), le syncytium applique une politique configurable :
+En cas de partition réseau, une implémentation pourrait appliquer une politique explicite. Le tableau suivant est une proposition ; aucune politique de partition ni valeur par défaut n'est établie par ce document :
 
 | Politique | Comportement |
 |-----------|--------------|
@@ -1316,7 +1299,7 @@ Quand un noyau est partitionné (perte de connectivité), le syncytium applique 
 | **QUEUE_OPERATION** | Les opérations proposées sont mises en file d'attente et évaluées à la reconnexion. |
 | **REJECT_OPERATION** | Les opérations proposées sont rejetées immédiatement. Le noyau doit se reconnecter pour continuer. |
 
-La politique par défaut est **QUEUE_OPERATION** pour les champs CAUSAL et EVENTUAL, et **REJECT_OPERATION** pour les champs SERIALIZABLE et IMMUTABLE.
+Les choix entre mise en attente, rejet et mutation locale impliquent des compromis différents de disponibilité et de validité ; il faut les définir pour le système et ses invariants.
 
 ---
 
@@ -1393,17 +1376,17 @@ $$\text{backpressure}(N_i) = \begin{cases} \text{slowDown} & \text{if } \text{qu
 
 ### Staleness Budget
 
-Chaque noyau a un **budget de staleness** — le nombre maximal de ticks pendant lesquels il peut être en retard sur le vecteur global sans être considéré comme stale.
+Un budget exprimé en opérations mesure un retard causal, pas un temps écoulé. Pour exprimer un retard temporel, il faut des horodatages, une borne d'horloge et une définition des messages en transit.
 
-$$\text{stalenessBudget}(N_i) = \theta_{\text{staleness}} - \text{lag}(N_i)$$
+$$remainingOps_i = \max(0, \theta_{ops} - lag_i)$$
 
-où $\text{lag}(N_i) = \max(V_{\text{global}}) - \min(V_i)$.
+où $lag_i = \max_j(V_{global}[j]-V_i[j])$ si $V_{global}$ est le join composante par composante des vecteurs connus. Cette mesure compte un retard en opérations, pas en ticks. Un seuil temporel exige des horloges et des hypothèses supplémentaires.
 
-Quand le budget est épuisé : $\text{stalenessBudget}(N_i) = 0 \implies \text{triggerResync}(N_i)$
+Un système peut définir une action de resynchronisation lorsque ce budget opérationnel est épuisé, mais cette fiche ne spécifie ni n'implémente cette action.
 
 ### Adaptive Sync Frequency
 
-La fréquence de synchronisation $\tau$ s'adapte dynamiquement :
+La règle suivante est une heuristique de conception à évaluer ; elle ne prouve pas qu'une fréquence plus élevée réduit le taux de conflit ou améliore les performances :
 
 $$\tau_{\text{new}} = \tau_{\text{base}} \times \begin{cases} 0.5 & \text{if } \text{conflictRate} > \theta_{\text{high}} \\ 1.0 & \text{if } \theta_{\text{low}} \leq \text{conflictRate} \leq \theta_{\text{high}} \\ 2.0 & \text{if } \text{conflictRate} < \theta_{\text{low}} \end{cases}$$
 
@@ -1416,9 +1399,9 @@ Les champs du schema sont classés par localité :
 
 ---
 
-## Annexes M : Cas d'Usage Typiques
+## Annexes M : Scénarios d'usage illustratifs
 
-### Cas 1 : Édition collaborative en temps réel
+### Cas 1 : Édition collaborative en temps réel (scénario)
 
 **Mission :** « Orchestrer l'édition collaborative d'un document de 50 pages par 4 rédacteurs spécialisés. »
 
@@ -1426,7 +1409,7 @@ Les champs du schema sont classés par localité :
 
 **Résultat :** Le document converge avec tous les deltas intégrés dans l'ordre causal. Les conflits de chevauchement sont résolus par la politique de merge du text-crdt.
 
-### Cas 2 : Refactoring coordonné multi-service
+### Cas 2 : Refactoring coordonné multi-service (scénario)
 
 **Mission :** « Déployer une nouvelle API à travers 5 microservices avec état de déploiement partagé. »
 
@@ -1434,7 +1417,7 @@ Les champs du schema sont classés par localité :
 
 **Résultat :** Tous les services sont déployés dans l'ordre de dépendance correct, avec un audit trail causal complet.
 
-### Cas 3 : Calcul parallèle avec état partagé
+### Cas 3 : Calcul parallèle avec état partagé (scénario)
 
 **Mission :** « Calculer une simulation distribuée avec partage d'état intermédiaire. »
 
@@ -1442,7 +1425,7 @@ Les champs du schema sont classés par localité :
 
 **Résultat :** La simulation converge vers un état cohérent qui respecte tous les invariants physiques.
 
-### Cas 4 : Gestion de projet temps réel
+### Cas 4 : Gestion de projet temps réel (scénario)
 
 **Mission :** « Coordonner 4 équipes sur un backlog partagé avec prioritisation dynamique. »
 
@@ -1458,28 +1441,28 @@ Les champs du schema sont classés par localité :
 2. **Tranches totalement indépendantes** : les résultats de chaque tranche n'affectent pas les autres. Utiliser A-Team.
 3. **Tolérance à la divergence** : la mission accepte que les noyaux divergent temporairement et convergent finalement. Utiliser Biocénose.
 4. **Indépendance épistémique requise** : les tranches doivent développer des hypothèses contradictoires sans s'influencer. Utiliser Trinity.
-5. **Ressources limitées** : le budget ne permet qu'un ou deux workers. Syncytium exige 4 noyaux.
-6. **Couplage faible** : le CouplingScore est inférieur au seuil. Les avantages ne justifient pas le coût de coordination.
+5. **Ressources limitées** : comparer le coût des participants et de leur coordination au bénéfice attendu du partage.
+6. **Faible besoin de partage** : comparer les coûts de coordination attendus aux contraintes de la mission.
 7. **Missions hiérarchiques strictes** : un host central doit contrôler tous les aspects. Utiliser Holobionte.
 8. **Missions rhizomatiques** : les capacités doivent se ramifier librement sans état partagé. Utiliser Rhizome.
 
 ### Test rapide
 
-$$\text{useSyncytium} = \text{CouplingScore} > \theta \land \text{budget} \geq 4 \land \text{parallelism} > 1 \land \text{strictConsistency}$$
+$$\text{adéquation}(T) = f(\text{partage d'état}, \text{invariants}, \text{latence tolérée}, \text{coût de coordination})$$
 
-Si l'une de ces conditions est fausse, évaluer les alternatives.
+Ces éléments sont des critères d'orientation conceptuels, pas des conditions suffisantes ni des règles exécutées automatiquement.
 
 ---
 
-## Annexes O : Biomimétisme — Myonuclear Domains Biologiques
+## Annexes O : Analogie biologique et limites
 
-Le syncytium s'inspire directement de la physiologie des myofibres squelettiques — de vrais syncytiums biologiques formés par la fusion de plusieurs myoblastes.
+Une fibre musculaire squelettique est un syncytium formé lors de la fusion de myoblastes. Cette ressemblance de vocabulaire inspire le modèle, mais ne constitue pas une homologie fonctionnelle ni une preuve de sûreté informatique.
 
 ### Myofibre squelettique
 
-Une myofibre squelettique contient des centaines de noyaux partageant un cytoplasme commun (le sarcoplasme). Chaque noyau gouverne un volume local appelé **myonuclear domain** — une région du sarcoplasme où il est le seul à transcrire ses gènes.
+Une myofibre peut contenir de nombreux noyaux dans un cytoplasme continu. Les profils de transcription varient selon la position et la fonction des noyaux. Le « domaine myonucléaire » désigne une hypothèse de territoire fonctionnel ; sa taille, sa stabilité et son pouvoir explicatif restent discutés. Les ARN peuvent être transportés et localisés, tandis que certaines protéines diffusent plus largement : les produits nucléaires ne sont donc pas simplement confinés à des territoires étanches. Ces nuances sont discutées dans une revue récente sur les domaines myonucléaires ([Murach et al., 2023](https://pmc.ncbi.nlm.nih.gov/articles/PMC9931674/)) ; la compartimentation fonctionnelle et l'hétérogénéité nucléaire ont aussi été observées par séquençage de noyaux uniques ([Kim et al., 2020](https://www.nature.com/articles/s41467-020-20064-9)).
 
-**Principe clé** : le partage du cytoplasme n'efface pas la spécialisation locale. Chaque noyau exprime un programme transcriptionnel adapté à sa position dans la fibre.
+**Observation prudente** : le partage d'un cytoplasme est compatible avec une hétérogénéité transcriptionnelle et une organisation spatiale. Il ne signifie ni indépendance des noyaux ni confinement exclusif des produits à une zone.
 
 ### Transposition dans GenOS
 
@@ -1489,21 +1472,19 @@ Une myofibre squelettique contient des centaines de noyaux partageant un cytopla
 | Myonoyau | Noyau cognitif (rôle cytoplasmique) |
 | Myonuclear domain | Domaine d'autorité (StateFieldDefinition.authority) |
 | Produits de transcription | Mutations (opérations sur l'état) |
-| Jonctions communicantes (gap junctions) | Canaux de diffusion causale |
-| Contraction synchronisée | Quiescence cytoplasmique |
-| Innervation motrice | Mission partagée |
+| Communication moléculaire et transport intracellulaire | Flux de messages et d'opérations (analogie fonctionnelle seulement) |
+| Activité coordonnée de la fibre | Coordination des participants (analogie, sans équivalent mécaniste) |
+| Signaux physiologiques | Contraintes et objectifs de mission (analogie) |
 
 ### Spécialisation locale malgré cytoplasme partagé
 
-Formellement, le myonuclear domain d'un noyau $N_i$ est :
+Dans le modèle logiciel, un domaine d'autorité peut être défini par :
 
-$$\text{domain}(N_i) = \{f \in \text{schema} \mid f.\text{authority} = N_i\}$$
+$$\text{authorityDomain}(r_i) = \{f \mid authority(f)=r_i\}$$
 
-Et la propriété de spécialisation est :
+Cette définition décrit une règle d'accès logicielle. Elle ne formalise pas le domaine myonucléaire biologique. Les règles d'écriture partagée doivent être décidées par le schéma, la politique de fusion et les invariants ; l'autorité seule ne rend pas une fusion sûre.
 
-$$\forall N_i \neq N_j : \text{writes}(N_i) \cap \text{writes}(N_j) \subseteq \{f \mid f.\text{conflictPolicy} \neq \text{reject}\}$$
-
-Les noyaux peuvent partager des champs d'écriture, mais seulement si la politique de conflit permet la fusion (c'est-à-dire si le CRDT sous-jacent commute).
+La biologie n'impose donc ni quatre rôles, ni un partage d'autorité, ni un algorithme CRDT.
 
 ---
 
@@ -1686,4 +1667,3 @@ flowchart LR
 - [syncytiumCoordinationService.js](../../../backend/src/services/syncytiumCoordinationService.js) : service de session actuel.
 - [syncytiumCrdtService.js](../../../backend/src/services/syncytiumCrdtService.js) : journal et reconstruction actuels.
 - [syncytiumCytoplasmService.js](../../../backend/src/services/syncytiumCytoplasmService.js) : modèle heuristique des flux.
-- [Audit de cohérence](syncytium_audit_report.json) : écarts d'implémentation et défauts relevés.
