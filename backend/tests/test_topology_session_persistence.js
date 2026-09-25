@@ -12,23 +12,52 @@ function eventRow(params) {
 function runStatement(state, sql, params) {
   const statement = String(sql).trim().toUpperCase();
   if (statement.startsWith('INSERT INTO TOPOLOGY_SESSIONS')) return insertSession(state.rows, statement, params);
-  if (statement.startsWith('INSERT INTO SYNCYTIUM_SESSION_REVISIONS')) { state.syncytiumRevisions.set(params[0], params[1] ?? 0); return { changes: 1 }; }
-  if (statement.startsWith('UPDATE SYNCYTIUM_SESSION_REVISIONS')) return updateRevision(state.syncytiumRevisions, params);
-  if (statement.startsWith('INSERT INTO SYNCYTIUM_APPLIED_OPS')) { state.syncytiumOps.add(`${params[0]}:${params[1]}`); return { changes: 1 }; }
-  if (statement.startsWith('INSERT INTO TOPOLOGY_SESSION_EVENTS')) return insertEvent(state.events, params);
+  if (statement.includes('RHIZOME_NODES')) return updateRhizomeRows({ rows: state.rhizomeNodes, statement, params, kind: 'node' });
+  if (statement.includes('RHIZOME_EDGES')) return updateRhizomeRows({ rows: state.rhizomeEdges, statement, params, kind: 'edge' });
   if (statement.startsWith('UPDATE TOPOLOGY_SESSIONS')) return updateSession(state.rows, statement, params);
+  if (statement.includes('SYNCYTIUM')) return runSyncytiumStatement(state, statement, params);
+  if (statement.startsWith('INSERT INTO TOPOLOGY_SESSION_EVENTS')) return insertEvent(state.events, statement, params);
   if (statement.startsWith('DELETE')) return deleteSession(state.rows, params);
   return { changes: 0 };
 }
 
+function runSyncytiumStatement(state, statement, params) {
+  if (statement.startsWith('INSERT INTO SYNCYTIUM_SESSION_REVISIONS')) {
+    state.syncytiumRevisions.set(params[0], params[1] ?? 0);
+    return { changes: 1 };
+  }
+  if (statement.startsWith('UPDATE')) return updateRevision(state.syncytiumRevisions, params);
+  state.syncytiumOps.add(`${params[0]}:${params[1]}`);
+  return { changes: 1 };
+}
+
+function updateRhizomeRows({ rows, statement, params, kind }) {
+  if (statement.startsWith('DELETE')) {
+    const retained = rows.filter((row) => row.session_id !== params[0]);
+    rows.splice(0, rows.length, ...retained);
+  } else {
+    const suffix = kind === 'node' ? 'node' : 'edge';
+    rows.push({ session_id: params[0], [`${suffix}_id`]: params[1], graph_version: params[2], [`${suffix}_json`]: params[3] });
+  }
+  return { changes: 1 };
+}
+
 function insertSession(rows, statement, params) {
+  if (statement.includes("VALUES (?, 'BIOME', ?")) {
+    rows.set(params[0], { topology: 'biome', state_json: params[1], revision: 0 });
+    return { changes: 1 };
+  }
   const current = rows.get(params[0]);
   const revision = statement.includes('VALUES (?, ?, ?, 1') ? 1 : (current?.revision || 0) + (current ? 1 : 0);
   rows.set(params[0], { topology: params[1], state_json: params[2], revision });
   return { changes: 1 };
 }
 
-function insertEvent(events, params) {
+function insertEvent(events, statement, params) {
+  if (statement.includes("VALUES (?, 'BIOME', ?")) {
+    events.push({ session_id: params[0], topology: 'biome', revision: params[1], event_type: params[2], payload_json: params[3] });
+    return { changes: 1 };
+  }
   events.push(eventRow(params));
   return { changes: 1 };
 }
@@ -58,14 +87,20 @@ function deleteSession(rows, params) {
 }
 
 function fakeDb() {
-  const state = { rows: new Map(), events: [], syncytiumRevisions: new Map(), syncytiumOps: new Set() };
+  const state = { rows: new Map(), events: [], rhizomeNodes: [], rhizomeEdges: [], syncytiumRevisions: new Map(), syncytiumOps: new Set() };
   return {
     run: async (sql, ...params) => runStatement(state, sql, params),
     get: async (sql, ...params) => readRecord(state, sql, params),
-    all: async (sql, ...params) => String(sql).includes('topology_session_events')
-      ? state.events.filter((event) => event.session_id === params[0]).sort((a, b) => a.revision - b.revision)
-      : [{ name: 'revision' }]
+    all: async (sql, ...params) => readRows(state, sql, params)
   };
+}
+
+function readRows(state, sql, params) {
+  const statement = String(sql);
+  if (statement.includes('topology_session_events')) return state.events.filter((event) => event.session_id === params[0]).sort((a, b) => a.revision - b.revision);
+  if (statement.includes('FROM rhizome_nodes')) return state.rhizomeNodes.filter((row) => row.session_id === params[0]);
+  if (statement.includes('FROM rhizome_edges')) return state.rhizomeEdges.filter((row) => row.session_id === params[0]);
+  return [{ name: 'revision' }];
 }
 
 function readRecord(state, sql, params) {
@@ -78,7 +113,10 @@ function readRecord(state, sql, params) {
 (async () => {
   const db = fakeDb();
 
-  const syn = await syncytium.createSession('Shared state session.', { db });
+  const syn = await syncytium.createSession('Shared state session.', {
+    db,
+    schema: { schemaId: 'test-session', schemaVersion: 1, fields: [{ path: 'mcp.status', dataType: 'LWW_REGISTER' }] }
+  });
   await syncytium.applyOperation(syn.sessionId, { agentId: 'w1', role: 'r', kind: { type: 'insert_text', index: 0, text: 'shared' } }, { db });
   const synRecord = await store.load(db, syn.sessionId);
   assert.equal(synRecord.topology, 'syncytium');
@@ -95,6 +133,29 @@ function readRecord(state, sql, params) {
   assert.deepEqual((await store.events(db, rhiz.sessionId)).map((event) => event.type), ['SESSION_CREATED', 'TRAIL_DEPOSITED']);
   const revivedRhiz = rhizome.rehydrate(rhizRecord);
   assert.ok(revivedRhiz.matrix.getDecayedIntensity('edge:e1') > 0);
+
+  const graphNodes = [
+    { nodeId: 'parser', kind: 'AGENT', capabilities: ['json_parse'], state: 'ACTIVE' },
+    { nodeId: 'validator', kind: 'AGENT', capabilities: ['json_schema_validate'], state: 'ACTIVE' },
+    { nodeId: 'explainer', kind: 'AGENT', capabilities: ['json_error_explain'], state: 'ACTIVE' }
+  ];
+  for (const node of graphNodes) {
+    await tools.applyTopologyOperation(db, { session_id: rhiz.sessionId, operation: 'add_node', node });
+  }
+  const graphEdges = [
+    { edgeId: 'parser-validator', from: 'parser', to: 'validator', relation: 'ROUTES_TO', status: 'ACTIVE' },
+    { edgeId: 'validator-explainer', from: 'validator', to: 'explainer', relation: 'ROUTES_TO', status: 'ACTIVE' }
+  ];
+  for (const edge of graphEdges) {
+    await tools.applyTopologyOperation(db, { session_id: rhiz.sessionId, operation: 'add_edge', edge });
+  }
+  const route = await tools.applyTopologyOperation(db, {
+    session_id: rhiz.sessionId, operation: 'route',
+    need: { needId: 'schema-check', capability: 'json_schema_validate' }
+  });
+  assert.equal(route.selected, true);
+  assert.deepEqual(route.route.nodeIds, ['parser', 'validator']);
+  assert.deepEqual(route.route.edgeIds, ['parser-validator']);
 
   const snap = await tools.applyTopologyOperation(db, { session_id: syn.sessionId, operation: 'snapshot' });
   assert.equal(snap.shared.textContent, 'shared');
@@ -125,9 +186,9 @@ function readRecord(state, sql, params) {
   assert.ok((await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'invariants'
   })).definitions);
-  assert.ok((await tools.applyTopologyOperation(db, {
+  assert.ok(Array.isArray(await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'replicas'
-  })).replicas);
+  })));
   assert.ok((await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'health'
   })).consistency);

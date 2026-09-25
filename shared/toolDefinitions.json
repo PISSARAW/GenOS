@@ -539,6 +539,8 @@
               "replicas",
               "health",
               "morphogenesis",
+              "add_node",
+              "add_edge",
               "deposit",
               "direct_member",
               "route",
@@ -559,6 +561,12 @@
             ]
           },
           "op": {
+            "type": "object"
+          },
+          "node": {
+            "type": "object"
+          },
+          "edge": {
             "type": "object"
           },
           "signals": {

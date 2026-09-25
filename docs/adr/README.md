@@ -97,6 +97,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0113](0113-benchmark-avec-sans-genos.md) | Benchmark apparié avec / sans GenOS (campagne v1) | Accepté | 2026-09-25 | Évaluation, preuve, orchestration |
 | [0116](0116-execution-fiable-communication.md) | Exécution fiable des décisions de communication | Accepté | 2026-09-25 | Communication, transport, sécurité |
 | [0117](0117-enveloppe-canonique-communication.md) | Enveloppe canonique de communication | Accepté | 2026-09-25 | Communication, contrats, interopérabilité |
+| [0118](0118-preparer-les-workers-et-operer-le-graphe-rhizome.md) | Préparer les workers de topologie et exposer le graphe Rhizome | Accepté | 2026-09-25 | Topologies, workers, Rhizome, Morphogenèse |
+| [0119](0119-actions-metier-et-detection-de-collapse.md) | Actions métier et détection de collapse | Accepté | 2026-09-25 | Runtime worker, supervision, observabilité |
 
 ## Cycle de vie d'un ADR
 

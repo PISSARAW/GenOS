@@ -189,7 +189,17 @@ async function executeMission(db, state) {
   if (morphology?.agents?.length > 0) {
     const morphoRuntime = require('../src/services/morphogenesis/morphogenesisRuntime').getMorphogenesisRuntime();
     const morphoResult = await morphoRuntime.executeMorphology(morphology, { orchestratorId: id, evidence: outcome.evidence, reason: `post-mission morphogenesis (verdict=${finalVerdict})` });
-    telemetry.emitEvent({ eventType: 'MORPHOGENESIS_COMPLETED', agentId: id, action: 'MORPHO_EXECUTED', detail: `Applied ${morphoResult.topology} with ${morphoResult.agents?.length || 0} agents`, payload: { topology: morphoResult.topology, commitId: morphoResult.commitId }, severity: 'info' });
+    const committed = Boolean(morphoResult.commitId);
+    telemetry.emitEvent({
+      eventType: committed ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED',
+      agentId: id,
+      action: committed ? 'MORPHO_COMMITTED' : 'MORPHO_PROPOSED',
+      detail: committed
+        ? `Committed ${morphoResult.topology} morphology with ${morphoResult.agents?.length || 0} agents`
+        : `Morphology ${morphoResult.topology || 'unresolved'} evaluated without a commit receipt`,
+      payload: { topology: morphoResult.topology || null, committed, commitId: morphoResult.commitId || null },
+      severity: committed ? 'info' : 'warning'
+    });
   }
 
   const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity });

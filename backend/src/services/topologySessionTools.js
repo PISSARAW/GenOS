@@ -98,6 +98,14 @@ async function routeRhizomeNeed(db, sessionId, args) {
   return rhizome.routeToCapability(sessionId, args.need || {}, { db });
 }
 
+async function addRhizomeNode(db, sessionId, args) {
+  return rhizome.addCapabilityNode(sessionId, args.node || {}, { db });
+}
+
+async function addRhizomeEdge(db, sessionId, args) {
+  return rhizome.addCapabilityEdge(sessionId, args.edge || {}, { db });
+}
+
 async function evaporateRhizomeTrails(db, sessionId) {
   return rhizome.evaporateTrails(sessionId, { db });
 }
@@ -182,7 +190,7 @@ const OPERATIONS = {
     replicas: replicasSyncytium, health: healthSyncytium,
     morphogenesis: morphogenesisSyncytium
   },
-  rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, signal: publishRhizomeSignal, locus: manageRhizomeLocus, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
+  rhizome: { snapshot: rhizomeSnapshot, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, signal: publishRhizomeSignal, locus: manageRhizomeLocus, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome, health: assessBiome }
 };
 

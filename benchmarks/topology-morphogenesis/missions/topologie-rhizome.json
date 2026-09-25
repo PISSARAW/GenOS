@@ -2,7 +2,7 @@
   "action": "dispatch_biological",
   "mode": "rhizome",
   "agent_count": 3,
-  "mission": "TM-T07. Construire un graphe de capacités pour une demande de validation JSON: un membre sait parser le JSON, un autre vérifier le schéma, un troisième expliquer les erreurs. Déposer un signal stigmergique lié à la capacité de schéma, sélectionner ou router un membre admissible pour vérifier {\"ok\":true}, puis consigner le résultat. Vérifier que le membre choisi possède la capacité requise et que l'arête/trace du dépôt est observable dans la session Rhizome. Rapporter session_id, membres/capacités, dépôt, route et preuve d'admissibilité.",
+  "mission": "TM-T07. La session Rhizome créée par dispatch_biological fournit sessionId; conserver cet identifiant. Dans cette session, créer avec genos_topology_session/add_node trois noeuds ACTIVE : json-parser (AGENT, capacité json_parse), schema-validator (AGENT, capacité json_schema_validate) et error-explainer (AGENT, capacité json_error_explain). Créer les arêtes ACTIVE parser->validator et validator->explainer avec relation ROUTES_TO. Déposer le marqueur route:capability/json_schema_validate avec la capacité json_schema_validate. Router le besoin {needId: tm-route-1, capability: json_schema_validate, input: {ok: true}}. Exiger verdict route_selected, route incluant schema-validator et edgeIds non vides; consigner un reçu SUCCESS lié au routeId avec preuve de validation JSON. Prendre un snapshot final et vérifier les trois noeuds, deux arêtes, trace et version. Si un outil nécessaire manque ou échoue, déclarer le blocage sans prétendre que la route a réussi. Rapporter session_id, révisions, graphVersion, IDs des noeuds/arêtes, dépôt, route et reçu.",
   "executor": "local",
   "timeoutMs": 120000
 }

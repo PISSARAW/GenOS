@@ -47,7 +47,7 @@ Remove-Item Env:GENOS_MORPHOGENESIS_V2_SHADOW
 
 Les missions des paliers 1 et 2 sont réunies dans un payload par topologie : le même lancement doit d'abord démontrer la composition, puis satisfaire les critères spécifiques du palier 2. Si la session, l'opération, la preuve ou la métrique spécifique n'est pas réellement observée, classer le mécanisme comme **non démontré** même si les workers terminent.
 
-Le dispatch biologique ne fournit pas nécessairement le `session_id` aux workers ni dans son accusé de réception. Pour Syncytium, Rhizome et Biome, si le worker ne peut pas joindre la session, compléter le palier avec l'interface MCP en deux temps : appeler `genos_biological_mode` pour composer le mode avec l'identifiant de mission, puis reprendre le `session_id` renvoyé et exécuter `genos_topology_session` avec l'opération propre au cas. Conserver les deux reçus. Cette séquence vérifie les sessions et leurs opérations; elle ne prouve pas à elle seule le branchement de ces opérations au dispatch d'une mission backend.
+Le dispatch biologique retourne maintenant l'identifiant et la version de toute session qu'il compose. Les missions Syncytium, Rhizome et Biome doivent reprendre ce `sessionId` dans leurs appels `genos_topology_session` et conserver les reçus de composition et d'opération. Rhizome expose `add_node` et `add_edge` afin que le cas de routage puisse construire un graphe persistant. Si l'accusé de réception ne contient aucun identifiant, classer la session comme non créée et ne pas inférer un succès à partir des workers acceptés.
 
 ## Matrice des missions
 

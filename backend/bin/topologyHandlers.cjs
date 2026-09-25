@@ -8,6 +8,7 @@ const biologicalTopology = require('../src/services/biologicalTopologyService');
 const { randomUUID } = require('crypto');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 const { buildLaunchCapabilities } = require('../src/services/agents/agentIncarnationPayloadService');
+const { ensureTopologyWorker } = require('../src/services/topologyWorkerPersistenceService');
 
 function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
@@ -70,10 +71,30 @@ function launchCapabilities(context, member) {
   });
 }
 
-function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
+async function launchWorker({ db, context, member, index, parent, suppliedWorkerId }) {
   const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
   const launchCaps = launchCapabilities(context, member);
-  const runnerEnv = {
+  await persistWorkerIdentity({ db, context, member, parent, workerId });
+  spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps });
+  return workerSummary(member, index, workerId);
+}
+
+function persistWorkerIdentity({ db, context, member, parent, workerId }) {
+  return ensureTopologyWorker(db, {
+    workerId,
+    parentId: context.orchestratorId,
+    workspaceId: parent.workspace_id,
+    isolationMode: parent.isolation_mode,
+    modelTier: member.modelTier || parent.model_tier,
+    name: member.name || member.label || member.role,
+    role: member.role || 'worker',
+    workerKind: member.workerKind,
+    mission: member.mission || context.task
+  });
+}
+
+function runnerEnvironment() {
+  return {
     ...process.env,
     GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || '',
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
@@ -81,14 +102,23 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
     GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
     GENOS_EXECUTION_MODE: 'orchestrator'
   };
+}
+
+function spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps }) {
   // shell:false — with shell:true the exec path is concatenated unquoted and breaks
   // on Windows when node lives under "C:\Program Files" (workers never start).
   const runner = require('child_process').spawn(
     process.execPath,
     [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent, capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest, toolLease: launchCaps.toolLease }))],
-    { cwd: context.repoRoot, detached: true, shell: false, stdio: getRunnerStdio(workerId), env: runnerEnv }
+    { cwd: context.repoRoot, detached: true, shell: false, stdio: getRunnerStdio(workerId), env: runnerEnvironment() }
   );
+  runner.once('error', async (error) => {
+    await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, workerId).catch(() => {});
+  });
   runner.unref();
+}
+
+function workerSummary(member, index, workerId) {
   return {
     workerId,
     subSystem: member.subSystem,
@@ -102,25 +132,31 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
 async function ensureParent({ db, context }) {
   const contracts = require('../src/services/strategyContractService');
   let parent = await db.get(
-    "SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
+    "SELECT a.id, a.status, a.is_apoptotic, a.workspace_id, a.model_tier, a.isolation_mode, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
     context.orchestratorId
   );
-  if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status))) {
-    context.orchestratorId = createOrchestratorId('mcp_orchestrator');
-    await db.run(
-      `INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`,
-      context.orchestratorId, context.task
-    );
-    parent = await db.get(
-      "SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
-      context.orchestratorId
-    );
-  }
+  if (isUnavailableParent(parent)) parent = await replaceParent(db, context);
   if (!parent) throw new Error(`Orchestrator '${context.orchestratorId}' was not found.`);
   if (!await contracts.getLatestContract(db, context.orchestratorId)) {
     await contracts.saveContract(db, { agentId: context.orchestratorId, problem: context.task, createdBy: 'mcp_' + context.action });
   }
   return parent;
+}
+
+function isUnavailableParent(parent) {
+  return Boolean(parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status)));
+}
+
+async function replaceParent(db, context) {
+  context.orchestratorId = createOrchestratorId('mcp_orchestrator');
+  await db.run(
+    `INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`,
+    context.orchestratorId, context.task
+  );
+  return db.get(
+    "SELECT a.id, a.status, a.is_apoptotic, a.workspace_id, a.model_tier, a.isolation_mode, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
+    context.orchestratorId
+  );
 }
 
 function buildNCEEnrichments(context, topology) {
@@ -143,18 +179,32 @@ async function handleBiological(db, context) {
   const mode = String(context.request.mode || '').trim().toLowerCase();
   const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
   context.nceEnrichments = await buildNCEEnrichments(context, 'biological');
-  const composition = await biologicalTopology.composeMode({
-    db, orchestratorId: context.orchestratorId, mode, mission,
-    options: { agentCount: context.request.agent_count, clusterSize: context.request.cluster_size, fanout: context.request.fanout, organization: context.request.organization }
-  });
+  const composition = await composeBiologicalMode({ db, context, mode, mission });
   const members = composition.members || [];
+  const accepted = await dispatchBiologicalMembers({ db, context, mode, parent, members });
+  const topology = composition ? {
+    organization: composition.organization,
+    capabilityContract: composition.capabilityContract,
+    sessionId: composition.sessionId || composition.rhizomeId || null,
+    graphVersion: composition.graphVersion ?? null
+  } : {};
+  const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
+  process.stdout.write(JSON.stringify(out));
+}
+
+async function dispatchBiologicalMembers({ db, context, mode, parent, members }) {
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full`), { code: 'WORKER_GARAGE_FULL' });
   const selected = selectMembers(members, garage.available);
-  const accepted = selected.map((member, index) => launchWorker({ context, member, index: index + 1, parent }));
-  const topology = composition ? { organization: composition.organization, capabilityContract: composition.capabilityContract } : {};
-  const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
-  process.stdout.write(JSON.stringify(out));
+  return Promise.all(selected.map((member, index) => launchWorker({ db, context, member, index: index + 1, parent })));
+}
+
+function composeBiologicalMode({ db, context, mode, mission }) {
+  const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;
+  return biologicalTopology.composeMode({
+    db, orchestratorId: context.orchestratorId, mode, mission,
+    options: { agentCount, clusterSize, fanout, organization }
+  });
 }
 
 async function handleTrinity(db, context) {
@@ -173,7 +223,7 @@ async function handleTrinity(db, context) {
       `INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, 'queued', ?)`,
       `${missionId}_world_${member.worldNumber}`, mission, member.worldNumber, trinityName, member.role, workerId
     );
-    launchWorker({ context, member: { ...member, name: trinityName }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
+    await launchWorker({ db, context, member: { ...member, name: trinityName }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
     accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
   }
   const supervision = trinityMissionSupervisor.launch({ missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot });

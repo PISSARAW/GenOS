@@ -136,11 +136,12 @@ function shouldReturnExisting(canonical) {
 async function launchDispatch({ setup, activeRun, runnerToken, context, parent, launchWorker }) {
   const { team, garage, projectGoal } = setup;
   const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: activeRun.members, planId: activeRun.teamRunId });
+  await persistPlannedWorkers({ db: setup.db, context, parent, members: plan.members });
   const existingWorkerIds = await workersAlreadyPresent(setup.db, plan.members);
   // Independent producers start now; the detached runner waits for them before
   // launching the consumer stages.
   const stageZero = plan.members.filter((member) => member.pipelineStage === 0 && !existingWorkerIds.has(member.workerId));
-  const accepted = await Promise.all(stageZero.map((member, index) => launchWorker({ context, member, index: index + 1, parent, suppliedWorkerId: member.workerId })));
+  const accepted = await Promise.all(stageZero.map((member, index) => launchWorker({ db: setup.db, context, member, index: index + 1, parent, suppliedWorkerId: member.workerId })));
   const runner = plan.maxStage > 0 ? spawnStageRunner({ context, plan, parentWorkspaceRoot: parent.workspace_root, skipWorkerIds: [...existingWorkerIds], runnerToken }) : null;
   if (!runner) await aTeamRuntime.releaseExecution({ db: setup.db, teamRunId: activeRun.teamRunId, token: runnerToken });
   emitImmediateCompletion({ runner, orchestratorId: context.orchestratorId, planId: plan.planId });
@@ -171,10 +172,25 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
 
 async function workersAlreadyPresent(db, members) {
   const rows = await Promise.all(members.map(async (member) => {
-    const row = await db.get('SELECT id FROM agents WHERE id = ?', member.workerId);
-    return row ? member.workerId : null;
+    const row = await db.get('SELECT id, status FROM agents WHERE id = ?', member.workerId);
+    return row && row.status !== 'idle' ? member.workerId : null;
   }));
   return new Set(rows.filter(Boolean));
+}
+
+async function persistPlannedWorkers(input) {
+  const { ensureTopologyWorker } = require('./topologyWorkerPersistenceService');
+  await Promise.all(input.members.map((member) => ensureTopologyWorker(input.db, {
+    workerId: member.workerId,
+    parentId: input.context.orchestratorId,
+    workspaceId: input.parent.workspace_id,
+    isolationMode: input.parent.isolation_mode,
+    modelTier: member.modelTier || input.parent.model_tier,
+    name: member.name || member.label || member.role,
+    role: member.role || 'worker',
+    workerKind: member.workerKind,
+    mission: member.mission || input.context.task
+  })));
 }
 
 async function advanceRunToExecution(db, run) {
