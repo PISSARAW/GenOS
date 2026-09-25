@@ -26,6 +26,7 @@ const capabilityAdmission = require('./rhizome/security/capabilityAdmissionServi
 const directMemberRouter = require('./rhizome/routing/directMemberRouter');
 const variantPolicyService = require('./rhizome/variants/variantPolicyService');
 const nestedTopologyService = require('./rhizome/nested/nestedTopologyService');
+const rhizomeServiceOperations = require('./rhizome/rhizomeServiceOperations');
 
 const DEFAULT_ORGANIZATION = 'mycelial_routing';
 const ROLE_CAPABILITIES = Object.freeze({
@@ -388,4 +389,9 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = { composeRhizome, depositTrail: null, routeDirectMember: null, routeToCapability, graphSnapshot: null, projectGraph: null, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, graphHealth: null, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+const restoredOperations = rhizomeServiceOperations.create({
+  mutateSession, getSession, trailService, directMemberRouter, capabilityGraph,
+  graphProjector, graphAnalytics
+});
+
+module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
