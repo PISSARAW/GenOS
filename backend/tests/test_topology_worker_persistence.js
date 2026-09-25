@@ -9,10 +9,10 @@ function fakeDb() {
     agents,
     async get(_sql, id) { return agents.get(id) || null; },
     async run(_sql, ...values) {
-      const [id, name, role, workspaceId, modelTier, isolationMode, parentId, currentTask, metadataJson] = values;
+      const [id, name, role, workspaceId, modelTier, isolationMode, parentId, about, currentTask, metadataJson] = values;
       agents.set(id, {
         id, name, role, workspace_id: workspaceId, model_tier: modelTier,
-        isolation_mode: isolationMode, parent_agent_id: parentId, current_task: currentTask,
+        isolation_mode: isolationMode, parent_agent_id: parentId, about, current_task: currentTask,
         execution_mode: 'worker', status: 'idle', metadata_json: metadataJson
       });
       return { changes: 1 };
@@ -30,6 +30,7 @@ async function main() {
   const row = db.agents.get(identity.workerId);
   assert.equal(row.parent_agent_id, identity.parentId);
   assert.equal(row.execution_mode, 'worker');
+  assert.equal(row.about, `Worker scope: ${identity.mission}`);
   assert.equal(JSON.parse(row.metadata_json).workerKind, 'bounded_worker');
   assert.deepEqual(await ensureTopologyWorker(db, identity), { workerId: identity.workerId, created: false });
   await assert.rejects(

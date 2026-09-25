@@ -16,7 +16,7 @@ function buildActionContext(ctx) {
     orchestratorId: ctx.orchestratorId,
     id: ctx.id,
     repoRoot: path.resolve(__dirname, '../..'),
-    bridgePath: __filename,
+    bridgePath: path.join(__dirname, 'genos-orchestrate.cjs'),
     waitForCompletion: ctx.waitForCompletion
   };
 }

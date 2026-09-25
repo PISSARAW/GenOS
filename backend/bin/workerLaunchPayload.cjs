@@ -17,6 +17,14 @@ function enrichMission(context, mission, role) {
   });
 }
 
+function selectedExecutor(context) {
+  return context.request?.executor || process.env.GENOS_AGENT_EXECUTOR;
+}
+
+function localRuntimeFlag(member) {
+  return member.engine === 'local' ? { localRuntime: true } : {};
+}
+
 function workerLaunchPayload(args) {
   const { context, member, workerId, parent, capabilities, capabilityManifest, toolLease } = args;
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
@@ -41,6 +49,9 @@ function workerLaunchPayload(args) {
     timeoutMs: context.request?.timeoutMs,
     workspace_root: context.request?.workspace_root || parent?.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true,
+    reuseWorkerId: workerId,
+    executor: selectedExecutor(context),
+    ...localRuntimeFlag(member),
   };
 }
 

@@ -227,7 +227,9 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     execution_budget: executionBudget,
     timeoutMs: request.timeoutMs,
     workspace_root: request.workspace_root || parentWorkspaceRoot,
-    reuseChecked: true
+    reuseChecked: true,
+    reuseWorkerId: member.workerId,
+    executor: request.executor || process.env.GENOS_AGENT_EXECUTOR
   };
 }
 

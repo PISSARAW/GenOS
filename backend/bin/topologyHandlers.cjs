@@ -9,6 +9,7 @@ const { randomUUID } = require('crypto');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 const { buildLaunchCapabilities } = require('../src/services/agents/agentIncarnationPayloadService');
 const { ensureTopologyWorker } = require('../src/services/topologyWorkerPersistenceService');
+const { toSpawnArgs } = require('./detachedSpawn.cjs');
 
 function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
@@ -75,7 +76,7 @@ async function launchWorker({ db, context, member, index, parent, suppliedWorker
   const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
   const launchCaps = launchCapabilities(context, member);
   await persistWorkerIdentity({ db, context, member, parent, workerId });
-  spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps });
+  await spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps });
   return workerSummary(member, index, workerId);
 }
 
@@ -104,18 +105,30 @@ function runnerEnvironment() {
   };
 }
 
-function spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps }) {
+async function spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps }) {
+  const awaitWorker = process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
   // shell:false — with shell:true the exec path is concatenated unquoted and breaks
   // on Windows when node lives under "C:\Program Files" (workers never start).
   const runner = require('child_process').spawn(
     process.execPath,
-    [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent, capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest, toolLease: launchCaps.toolLease }))],
-    { cwd: context.repoRoot, detached: true, shell: false, stdio: getRunnerStdio(workerId), env: runnerEnvironment() }
+    [context.bridgePath, ...toSpawnArgs(JSON.stringify(workerLaunchPayload({ context, member, workerId, parent, capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest, toolLease: launchCaps.toolLease })))],
+    { cwd: context.repoRoot, detached: !awaitWorker, shell: false, stdio: getRunnerStdio(workerId), env: runnerEnvironment() }
   );
-  runner.once('error', async (error) => {
-    await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, workerId).catch(() => {});
-  });
-  runner.unref();
+  try {
+    await new Promise((resolve, reject) => {
+      runner.once('spawn', resolve);
+      runner.once('error', reject);
+    });
+  } catch (error) {
+    await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, workerId);
+    throw error;
+  }
+  if (!awaitWorker) { runner.unref(); return; }
+  const exitCode = await new Promise((resolve) => runner.once('close', resolve));
+  if (exitCode !== 0) {
+    await db.run("UPDATE agents SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'idle'", workerId);
+    throw new Error(`Topology worker '${workerId}' exited with code ${exitCode}; inspect its runner log.`);
+  }
 }
 
 function workerSummary(member, index, workerId) {
@@ -196,6 +209,15 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full`), { code: 'WORKER_GARAGE_FULL' });
   const selected = selectMembers(members, garage.available);
+  if (process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
+    const completed = [];
+    for (let offset = 0; offset < selected.length; offset += 2) {
+      const pair = selected.slice(offset, offset + 2);
+      const results = await Promise.all(pair.map((member, index) => launchWorker({ db, context, member, index: offset + index + 1, parent })));
+      completed.push(...results);
+    }
+    return completed;
+  }
   return Promise.all(selected.map((member, index) => launchWorker({ db, context, member, index: index + 1, parent })));
 }
 

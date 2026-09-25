@@ -8,6 +8,15 @@ Cette campagne fait progresser la preuve du contrat jusqu'à l'exécution observ
 
 ## Lancement d'une mission
 
+Pour exécuter les douze cas dans l'ordre et conserver leurs journaux et états de workers :
+
+```powershell
+node benchmarks/topology-morphogenesis/run-campaign.cjs
+node benchmarks/topology-morphogenesis/session-probes.cjs artifacts/topology-morphogenesis/<dossier-du-run>
+```
+
+Le premier programme affiche le dossier créé. Il utilise un espace de travail témoin isolé et attend la fin des workers biologiques, par paires, afin d'observer leurs états sans saturer les copies de capsules. Le second exerce les sessions persistées Biome, Syncytium et Rhizome et écrit `session-probes.json`. `campaign-results.json` contient les états finaux et garde la qualification `experimental` tant que les critères de passage ne sont pas réunis. Les journaux bruts restent dans le dossier du run; un `exitCode` nul pour un dispatch indique seulement que la requête a été traitée.
+
 Depuis la racine du dépôt, PowerShell :
 
 ```powershell
@@ -144,3 +153,20 @@ Les dispatchs ont produit 30 identifiants worker dans les reçus examinés, mais
 Les répétitions ne sont pas engagées : aucun scénario complet n'a passé sa barrière de mission. Le seul passage spécifique confirmé est l'évaluation non committante V2 shadow. Aucun statut opérationnel global ne peut être attribué sur cette exécution.
 
 Voir aussi [Topologies et contrat de capacités](../../docs/02-orchestration/topologies-et-capacites.md), [Orchestration](../../docs/02-orchestration/orchestration.md) et [Catalogue des variants morphologiques](../../docs/02-orchestration/topologies/variants-morphologiques.md).
+
+## Relance instrumentée — 2026-09-25
+
+Le lanceur a parcouru les douze missions et conservé les sorties dans `artifacts/topology-morphogenesis/campaign-2026-09-25T08-57-24-523Z/`. Les corrections de câblage ont fait passer les workers biologiques de `idle` à des états d'exécution observables. Cette relance est **exploratoire** : le code et `HEAD` ont changé pendant son exécution, et elle ne vaut donc pas répétition d'un même commit.
+
+| Voie | Observation | Verdict limité |
+|---|---|---|
+| Orchestrateur simple | délai atteint, aucun reçu de réussite | palier 0 non passé |
+| Trinity et A-Team | trois workers Trinity terminaux; A-Team a un worker en erreur et un worker de récupération encore actif | composition/exécution partielles, comparaison et intégration non prouvées |
+| Six modes biologiques | quatre workers persistés et exécutés par mode; certains sont `terminated` | dispatch observable, mécanismes à qualifier séparément |
+| Biome | allocation de 6 unités entre trois niches et foraging inscrits dans la session | opérations de session vérifiées; mission complète non prouvée |
+| Syncytium | deux mises à jour conservées dans l'historique et le snapshot; aucune définition d'invariant dans la session | convergence observée, critère d'invariant non vérifié |
+| Rhizome | trois nœuds, deux arêtes, dépôt et route vers `schema-validator` persistés | routage de session vérifié; reçu d'exécution de la validation absent |
+| Planner et V2 shadow | planner refusé par la clôture; V2 a émis `SHADOWED`, `committed: false` | prévol shadow observé, transition opérationnelle non autorisée |
+| Contrôle négatif | délai de campagne atteint sans verdict de gate | inconclusif |
+
+Le moteur local a échoué ou s'est arrêté dans plusieurs workers; aucun résultat de dispatch ne remplace une preuve de livrable. La qualification reste **expérimentale**. Une nouvelle campagne doit être lancée sur un commit figé avec un moteur capable de terminer les missions et avec les invariants Syncytium définis, puis répétée trois fois avant toute promotion du périmètre testé.

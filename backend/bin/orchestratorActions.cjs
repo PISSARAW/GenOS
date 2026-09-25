@@ -260,7 +260,8 @@ async function prepareWorker({ db, context, parent, reusable }) {
   const name = workerName(request, role, context.task);
   const sourceWorkspace = workspaceFor(parent, context);
   validateWorkspace(request.workspace_root, sourceWorkspace);
-  const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, workerCapsuleId(context), path.dirname(sourceWorkspace));
+  const capsuleRoot = process.env.GENOS_CAPSULE_ROOT || path.dirname(sourceWorkspace);
+  const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, workerCapsuleId(context), capsuleRoot);
   await insertWorker({ db, context, parent, request, name, role, workerKind });
   return { name, role, workerKind, workspaceRoot };
 }
@@ -279,7 +280,9 @@ function validateWorkspace(requested, source) {
   if (requested && norm(requested) !== norm(source)) throw new Error(`Requested workspace root does not match orchestrator workspace '${source}'.`);
 }
 async function insertWorker({ db, context, parent, request, name, role, workerKind }) {
-  const contract = require('../src/services/agents/workerKindService').buildWorkerContract(workerKind, { prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId });
+  const workerKinds = require('../src/services/agents/workerKindService');
+  const contract = workerKinds.buildWorkerContract(workerKind, { prompt: context.task, scope: context.task, orchestratorAgentId: context.orchestratorId });
+  if (workerKind === 'sub_orchestrator') workerKinds.grantBoundedDelegation(contract);
   const metadata = JSON.stringify({ workerKind, workerContract: contract });
   if (context.reusedWorker) {
     await db.run('UPDATE agents SET metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', metadata, context.id);
@@ -394,4 +397,4 @@ async function handleAction(context) {
   return true;
 }
 if (require.main === module) require('./orchestratorActionsCli.cjs').run({ handleAction }).catch((e) => { console.error(e.message); process.exit(1); });
-module.exports = { handleAction, handleBackground, initializeMission };
+module.exports = { handleAction, handleBackground, initializeMission, workerLaunchPayload };

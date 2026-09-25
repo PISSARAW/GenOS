@@ -40,8 +40,8 @@ async function run() {
     const db = {
       get: async (_sql, id) => agents.get(id) || (createCount >= 3 ? { id, status: 'idle' } : null),
       run: async (_sql, ...values) => {
-        const [id, name, role, workspaceId, modelTier, isolationMode, parentId, currentTask, metadataJson] = values;
-        agents.set(id, { id, name, role, workspace_id: workspaceId, model_tier: modelTier, isolation_mode: isolationMode, parent_agent_id: parentId, current_task: currentTask, metadata_json: metadataJson, status: 'idle', execution_mode: 'worker' });
+        const [id, name, role, workspaceId, modelTier, isolationMode, parentId, about, currentTask, metadataJson] = values;
+        agents.set(id, { id, name, role, workspace_id: workspaceId, model_tier: modelTier, isolation_mode: isolationMode, parent_agent_id: parentId, about, current_task: currentTask, metadata_json: metadataJson, status: 'idle', execution_mode: 'worker' });
         return { changes: 1 };
       }
     };
@@ -67,6 +67,13 @@ async function run() {
     runtime.claimExecution = originals.claim;
     runtime.releaseExecution = originals.release;
   }
+  const payload = scheduler.workerLaunchPayload({
+    plan: { orchestratorId: 'mission-dispatch' },
+    member: { workerId: 'worker-a', role: 'api', mission: 'Build API', dependsOn: [], pipelineStage: 1 },
+    request: { executor: 'local' }
+  });
+  assert.equal(payload.reuseWorkerId, 'worker-a');
+  assert.equal(payload.executor, 'local');
   console.log('A-Team dispatch persists one canonical run and does not duplicate a retry.');
 }
 

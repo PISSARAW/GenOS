@@ -23,10 +23,11 @@ function validateExistingWorker(existing, input) {
 
 async function insertTopologyWorker({ db, input, workerKind, workerContract }) {
   await db.run(`INSERT INTO agents
-    (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, isolation_mode, parent_agent_id, current_task, metadata_json)
-    VALUES (?, ?, ?, 'idle', 'GenOS', 'worker', ?, ?, ?, ?, ?, ?)`,
+    (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, isolation_mode, parent_agent_id, about, current_task, metadata_json)
+    VALUES (?, ?, ?, 'idle', 'GenOS', 'worker', ?, ?, ?, ?, ?, ?, ?)`,
   input.workerId, input.name || input.role, input.role || 'worker', input.workspaceId || null,
   input.modelTier || 'standard', input.isolationMode || 'Branch', input.parentId,
+  `Worker scope: ${input.mission || ''}`,
   input.mission || '', JSON.stringify({ workerKind, workerContract }));
   return { workerId: input.workerId, created: true };
 }
