@@ -22,6 +22,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [dossiers-agents-et-conscience.md](dossiers-agents-et-conscience.md) — dossiers de preuves, conscience opérationnelle et transitions.
 - [contrats-strategie-et-execution.md](contrats-strategie-et-execution.md) — contrats versionnés, sélection et approbation des runs.
 - [topologies/morphogenese.md](topologies/morphogenese.md) — cadre transversal de construction et de composition des organisations cognitives.
+- [relations-inter-agents.md](relations-inter-agents.md) — relations typées entre agents (29 types, 6 classes, persistance, fiches et schémas par type).
 
 ## Modes de composition
 
