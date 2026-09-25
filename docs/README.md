@@ -125,11 +125,6 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 
 Index : [03-reference/README.md](03-reference/README.md)
 
-- [0103-vecteur-fitness-holobionte.md](adr/0103-vecteur-fitness-holobionte.md) — conserver les dix dimensions de fitness séparément avec leurs preuves.
-- [0104-dysbiose-holobionte.md](adr/0104-dysbiose-holobionte.md) — observer le déséquilibre du Holobionte à partir de signaux bornés.
-- [0105-benchmark-longitudinal-holobionte.md](adr/0105-benchmark-longitudinal-holobionte.md) — comparer douze variantes sur 50 à 100 missions appariées.
-- [0106-detection-surreaction-immunitaire-holobionte.md](adr/0106-detection-surreaction-immunitaire-holobionte.md) — signaler les blocages répétés de résultats sûrs sans affaiblir les gates.
-- [0107-impact-keystone-holobionte.md](adr/0107-impact-keystone-holobionte.md) — mesurer l'effet du symbionte avec et sans lui, à partir de preuves appariées.
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des types de workers, profils Node et limites d’intégration.
 - [api-et-contrats.md](03-reference/api-et-contrats.md) — REST, gRPC, MCP, CLI, compatibilité, erreurs.
 - [outils-mcp.md](03-reference/outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
@@ -176,6 +171,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [evaluation-qualite.md](06-qualite-preuves/evaluation-qualite.md) — évaluation, qualité, tests générés et exécutés.
 - [tests-et-validation.md](06-qualite-preuves/tests-et-validation.md) — validation du dépôt et suites de test.
 - [tests-des-contrats-recents.md](06-qualite-preuves/tests-des-contrats-recents.md) — validation des contrats récemment documentés.
+- [benchmark-ateam.md](06-benchmarks/benchmark-ateam.md) — protocole apparié A-Team, ablations et limites des résultats.
 - [matrice-coherence-code-docs.md](06-qualite-preuves/matrice-coherence-code-docs.md) — registre de cohérence code↔documentation.
 - [locomo.md](06-qualite-preuves/benchmarks/locomo.md) — résultats officiels LoCoMo.
 - [swe-bench-lite.md](06-qualite-preuves/benchmarks/swe-bench-lite.md) — résultats officiels SWE-bench Lite.
@@ -222,11 +218,6 @@ Index : [adr/README.md](adr/README.md)
 - [0090-variants-executables-biocenose.md](adr/0090-variants-executables-biocenose.md) — politiques de variant liées à la constitution et appliquées par le runtime.
 - [0100-controle-ecologique-biocenose.md](adr/0100-controle-ecologique-biocenose.md) — observation du tour et décisions écologiques append-only, reliées aux handoffs Morphogenèse.
 - [0097-calibration-immunitaire-holobionte.md](adr/0097-calibration-immunitaire-holobionte.md) — mesurer les faux positifs et faux négatifs immunitaires avec des preuves indépendantes.
-- [0103-vecteur-fitness-holobionte.md](adr/0103-vecteur-fitness-holobionte.md) — conserver les dix dimensions de fitness séparément avec leurs preuves.
-- [0104-dysbiose-holobionte.md](adr/0104-dysbiose-holobionte.md) — observer le déséquilibre du Holobionte à partir de signaux bornés.
-- [0105-benchmark-longitudinal-holobionte.md](adr/0105-benchmark-longitudinal-holobionte.md) — comparer douze variantes sur 50 à 100 missions appariées.
-- [0106-detection-surreaction-immunitaire-holobionte.md](adr/0106-detection-surreaction-immunitaire-holobionte.md) — signaler les blocages répétés de résultats sûrs sans affaiblir les gates.
-- [0107-impact-keystone-holobionte.md](adr/0107-impact-keystone-holobionte.md) — mesurer l'effet du symbionte avec et sans lui, à partir de preuves appariées.
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des 19 types et état d'intégration.
 
 ---
