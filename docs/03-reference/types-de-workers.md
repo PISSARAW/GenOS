@@ -1196,7 +1196,7 @@ Les 19 types de workers sont un vocabulaire exécutable commun : mêmes contrats
 
 - **Rust** : `genos-worker` expose contrat, cycle (18 étapes), dossiers, 8 règles `check_action` (+ succès vérifié), 19 presets, 16 tests. Annonce « 20 invariants » : seuls 8 numéros + succès vérifié sont encodés ; le reste est objectif de conception.
 - **Node** : `workerKindService` (19 `KINDS`, 16 alias, 19 consignes, 6 overrides, `resolve/normalize/kindDefinition/buildWorkerContract/promptRule/evidenceRule`), `phenotypeRegistryService` (9 phénotypes stockés + virtuels), `workerContractEnforcement` (`AUTHORITY_TOOLS`, `WORKER_CONTRACT_DENIED`, `UNSUPPORTED_WORKER_DELEGATION`), `missionBootstrap` (`WORKER_KIND_MISMATCH`), `agentFleetWorkers` (dispatch générique, `metadata_json`), `authorityMatrixService` (lookup 13 dimensions), `workerArtifactContract` (10 types, `INVALID_WORKER_ARTIFACT`), barrières `SATISFIED/PARTIAL/STRICT`.
-- **Délégation bornée** : un worker `sub_orchestrator` peut lancer au plus cinq enfants d'un seul niveau via `genos_delegate_worker`. Le backend vérifie le contrat persisté et son expiration, limite les kinds enfants à `scout_cell`, `bounded_worker`, `adaptive_worker` et `verifier_worker`, puis attend la fin de mission et retourne l'état et le résultat. La durée de vie du contrat est d'une heure et le budget de mission enfant est plafonné à 10 000 tokens.
+- **Délégation bornée — implémentation présente, validation de bout en bout incomplète** : le chemin `genos_delegate_worker` vérifie l'identité d'agent résolue par le contrôleur MCP, le contrat persistant et son expiration. Il limite les kinds enfants à `scout_cell`, `bounded_worker`, `adaptive_worker` et `verifier_worker`, transmet au runtime une mission enfant plafonnée à 10 000 tokens et attend son résultat. Le contrat dure une heure et autorise jusqu'à cinq enfants. Le test actuel simule la base, la création et le superviseur : il ne prouve pas encore l'authentification d'un processus worker réel ni l'exécution d'une mission enfant réelle.
 - **Asymétries connues** : ces limites sont exécutées uniquement par le backend Node ; elles ne remplacent pas les contrats Rust. Les projections `procedural/symbiotic/formal` sur `BoundedWorker` et `teaching_worker` sur `ScoutCell` restent à harmoniser.
 - Le backend applique une traduction Node des invariants, pas le crate Rust : parité à tester ; aucun pont Rust→Node sûr et défini n'existe (ADR 0064).
 
@@ -1210,7 +1210,11 @@ Les 19 types de workers sont un vocabulaire exécutable commun : mêmes contrats
 | `agentRuntimeAdapter/missionBootstrap.resolveWorkerIdentity` | Verrou boot : `MISMATCH` et refus des contrats imbriqués non pris en charge. |
 | `controllers/mcpController.resolveToolAuthorization` | `enforcePersistedWorkerTool` → 403 `WORKER_CONTRACT_DENIED`. |
 | `workerEvidenceBarrier*.js + dossierValidation.js` | `validateWorkerDossiers` → `validateWorkerArtifact` → `SATISFIED` vs `PARTIAL`. |
-| `agents/subOrchestratorDispatchService.js` | Dispatch MCP authentifié, création SQL via `agentFleetWorkers`, supervision synchrone via `startMission`. |
+| `agents/subOrchestratorDispatchService.js` | Dispatch depuis l'identité d'agent résolue par MCP, création SQL via `agentFleetWorkers`, supervision synchrone via `startMission`; le test de flux utilise des doubles pour la base et le runtime. |
 | `authorityMatrixService.js` | Lookup pur, aucun effet de bord. |
 
 Voir ADR 0043 (phénotypes), ADR 0044 (matrice et gates), ADR 0064 (registre et dispatch).
+
+### Portée des vérifications actuelles
+
+La matrice des 19 kinds vérifie la construction du contrat et du prompt de dispatch, l'artefact exigé et le rejet d'un artefact du mauvais type. Elle ne lance pas une mission de modèle pour chacun des kinds. Le test de sous-orchestration contrôle l'autorisation, les bornes, la propagation du budget et le résultat au moyen de dépendances simulées. La validation de ces parcours avec une identité runtime émise par le backend, une base isolée et de vraies missions enfants reste nécessaire avant de qualifier les 19 kinds d'opérationnels de bout en bout.
