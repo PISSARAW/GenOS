@@ -20,6 +20,16 @@ const RESTING_POTENTIAL_MV = -70.0;
 const DEFAULT_THRESHOLD_MV = -55.0;
 const HYPERPOLARIZATION_MIN_MV = -85.0;
 const ACTION_POTENTIAL_MAX_MV = 30.0;
+const GENERAL_ACTION_TOOLS = Object.freeze(['genos_inspect', 'genos_diagnose', 'genos_run']);
+const NEGATED_ACTION = /\b(?:don't|do not|never|not|no|without|sans)\b.{0,60}\b(?:run|test|execute|lance|exécute|crée|cree|delete|supprime|efface|deploy|déploie|fork|snapshot|replay|audit|inspect|cherche|regarde|vérifie|verifie)\b|\bne\b.{0,35}\b(?:lance|test|exécute|execute|crée|cree|supprime|efface|déploie|fork|snapshot|rejoue|audite|inspecte|cherche|regarde|vérifie|verifie)\b.{0,25}\b(?:pas|jamais)\b/i;
+
+function normalizedText(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function removeNegatedClauses(query) {
+  return String(query || '').split(/[,.!?;]|\b(?:and|but|et|mais|however)\b/i).filter((clause) => !NEGATED_ACTION.test(clause)).join(' ').trim();
+}
 
 // Striatal Affordance Clusters: groups tools by functional domain
 const AFFORDANCE_CLUSTERS = Object.freeze({
@@ -84,7 +94,7 @@ function calculateMembranePotential(query, options = {}) {
     return {
       membranePotentialMv: RESTING_POTENTIAL_MV,
       restingPotentialMv: RESTING_POTENTIAL_MV,
-      thresholdMv: options.thresholdMv || DEFAULT_THRESHOLD_MV,
+      thresholdMv: typeof options.thresholdMv === 'number' ? options.thresholdMv : DEFAULT_THRESHOLD_MV,
       isDepolarized: false,
       depolarizationDelta: 0,
       classification: 'SILENT_INPUT'
@@ -112,9 +122,9 @@ function calculateMembranePotential(query, options = {}) {
 
   // Affordance cluster hits
   let clusterMatches = 0;
-  const lower = text.toLowerCase();
+  const lower = normalizedText(text);
   for (const cluster of Object.values(AFFORDANCE_CLUSTERS)) {
-    if (cluster.keywords.some((kw) => lower.includes(kw))) {
+    if (cluster.keywords.some((kw) => lower.includes(normalizedText(kw)))) {
       clusterMatches += 1;
     }
   }
@@ -146,8 +156,8 @@ function calculateMembranePotential(query, options = {}) {
  * Level 1: Ultra-fast Chemoreceptor / Receptor Gate (<1 ms, 0 token)
  */
 function evaluateChemoreceptorGate(query, options = {}) {
-  const potential = calculateMembranePotential(query, options);
   const startHr = process.hrtime.bigint();
+  const potential = calculateMembranePotential(query, options);
   const elapsedMicros = Math.max(1, Math.round(Number(process.hrtime.bigint() - startHr) / 1000));
 
   return {
@@ -191,7 +201,7 @@ function evaluateThalamicGuardrail(query, options = {}) {
   }
 
   // Ambiguous twilight zone (-72 mV to -55 mV): apply thalamic deterministic discriminator
-  const text = String(query || '').toLowerCase();
+  const text = normalizedText(query);
   const hasConcreteTarget = /\b(dans|sur|pour|avec|fichier|repo|repository|code|snapshot|id|branche|agent)\b/.test(text);
   const hasVerbImp = /\b(fais|fais-moi|peux-tu|va|lance|regarde|cherche|vérifie|verifie|check|trouve)\b/.test(text);
   const isActionIntent = hasConcreteTarget && hasVerbImp;
@@ -211,14 +221,14 @@ function evaluateThalamicGuardrail(query, options = {}) {
  * the query's affordances, preventing attention saturation in 7B models.
  */
 function selectAffordantTools(query, candidateTools = [], options = {}) {
-  const text = String(query || '').toLowerCase();
+  const text = normalizedText(query);
   const candidates = Array.isArray(candidateTools) ? candidateTools : [];
   if (!candidates.length) return [];
 
   const matchedTools = new Set();
 
   for (const cluster of Object.values(AFFORDANCE_CLUSTERS)) {
-    const hitsCluster = cluster.keywords.some((kw) => text.includes(kw));
+    const hitsCluster = cluster.keywords.some((kw) => text.includes(normalizedText(kw)));
     if (hitsCluster) {
       for (const t of cluster.tools) {
         if (candidates.includes(t)) {
@@ -233,10 +243,8 @@ function selectAffordantTools(query, candidateTools = [], options = {}) {
     return Array.from(matchedTools);
   }
 
-  // If general action was required but no specific cluster was hit,
-  // return a safe conservative minimal kernel (first 3 matching candidates) rather than all 20+
-  const fallbackLimit = options.fallbackLimit || 4;
-  return candidates.slice(0, fallbackLimit);
+  // Stable general-action tools avoid making selection depend on catalog order.
+  return GENERAL_ACTION_TOOLS.filter((tool) => candidates.includes(tool));
 }
 
 /**
@@ -249,18 +257,37 @@ function selectAffordantTools(query, candidateTools = [], options = {}) {
  * @returns {object} Full gating evaluation result.
  */
 function evaluateToolGating(query, candidateTools = [], options = {}) {
+  const candidates = Array.isArray(candidateTools) ? candidateTools : [];
   if (options.bypassGating === true || process.env.GENOS_DISABLE_TOOL_GATING === '1') {
     return {
       gatingActive: false,
       requiresTools: true,
-      disinhibitedTools: Array.isArray(candidateTools) ? candidateTools : [],
+      disinhibitedTools: candidates,
       membranePotentialMv: 0.0,
       gateState: 'BYPASSED',
       reason: 'Gating explicitly bypassed'
     };
   }
 
-  const level1 = evaluateChemoreceptorGate(query, options);
+  const effectiveQuery = removeNegatedClauses(query);
+  if (!effectiveQuery) {
+    return {
+      gatingActive: true,
+      requiresTools: false,
+      gatingLevelUsed: 1,
+      decisionReason: 'EXPLICIT_ACTION_NEGATION',
+      gateState: 'HYPERPOLARIZED',
+      membranePotentialMv: RESTING_POTENTIAL_MV,
+      thresholdMv: typeof options.thresholdMv === 'number' ? options.thresholdMv : DEFAULT_THRESHOLD_MV,
+      disinhibitedTools: [],
+      candidateCount: candidates.length,
+      disinhibitedCount: 0,
+      suppressedCount: candidates.length,
+      shieldScore: 1.0
+    };
+  }
+
+  const level1 = evaluateChemoreceptorGate(effectiveQuery, options);
 
   let requiresTools = false;
   let gatingLevelUsed = 1;
@@ -270,7 +297,7 @@ function evaluateToolGating(query, candidateTools = [], options = {}) {
     requiresTools = true;
   } else if (level1.membranePotentialMv >= -62.0) {
     // Twilight zone: elevate to Thalamic Guardrail (Level 2)
-    const level2 = evaluateThalamicGuardrail(query, options);
+    const level2 = evaluateThalamicGuardrail(effectiveQuery, options);
     gatingLevelUsed = 2;
     requiresTools = level2.requiresTools;
     decisionReason = level2.reason;
@@ -282,7 +309,7 @@ function evaluateToolGating(query, candidateTools = [], options = {}) {
   // Level 3: Selective Disinhibition
   let disinhibitedTools = [];
   if (requiresTools) {
-    disinhibitedTools = selectAffordantTools(query, candidateTools, options);
+    disinhibitedTools = selectAffordantTools(effectiveQuery, candidates, options);
   }
 
   return {
@@ -294,10 +321,10 @@ function evaluateToolGating(query, candidateTools = [], options = {}) {
     membranePotentialMv: level1.membranePotentialMv,
     thresholdMv: level1.thresholdMv,
     disinhibitedTools,
-    candidateCount: candidateTools.length,
+    candidateCount: candidates.length,
     disinhibitedCount: disinhibitedTools.length,
-    suppressedCount: candidateTools.length - disinhibitedTools.length,
-    shieldScore: Number(((candidateTools.length - disinhibitedTools.length) / Math.max(1, candidateTools.length)).toFixed(2))
+    suppressedCount: candidates.length - disinhibitedTools.length,
+    shieldScore: Number(((candidates.length - disinhibitedTools.length) / Math.max(1, candidates.length)).toFixed(2))
   };
 }
 

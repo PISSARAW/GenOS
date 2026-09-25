@@ -14,6 +14,7 @@ pub use types::{
 mod tests {
     use super::*;
     use std::sync::Mutex;
+    static MOCK_LLM_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_chat_message_serialization() {
@@ -66,6 +67,10 @@ mod tests {
 
     #[test]
     fn test_server_chat_completions() {
+        let _mock_guard = MOCK_LLM_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("GENOS_MOCK_LLM", "1");
+        }
         let mut auth = TenantAuth::new();
         auth.register_tenant("test_client", "sk-secret-token");
         let limiter = Mutex::new(RateLimiter::new(10, 1));
@@ -78,35 +83,54 @@ mod tests {
         let (status, _, body) = handle_http_request(&req, &auth, &limiter);
         assert_eq!(status, 200);
         assert!(body.contains("chat.completion"));
-        assert!(body.contains("Ping"));
+        assert!(body.contains("SIMULATION EXPLICITE"));
+        unsafe {
+            std::env::remove_var("GENOS_MOCK_LLM");
+        }
     }
 
     #[test]
-    fn test_server_defaults_to_thalamic_triage() {
+    fn test_server_promotes_complex_prompt_to_system_two() {
+        let _mock_guard = MOCK_LLM_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("GENOS_MOCK_LLM", "1");
+        }
         let auth = TenantAuth::new();
         let limiter = Mutex::new(RateLimiter::new(10, 1));
         let payload = r#"{"model":"genos-core-v3","messages":[{"role":"user","content":"Build a complete distributed architecture for a complex swarm of agents."}]}"#;
         let req = format!(
             "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{}",
-            payload.len(), payload
+            payload.len(),
+            payload
         );
         let (status, _, body) = handle_http_request(&req, &auth, &limiter);
         assert_eq!(status, 200);
-        assert!(body.contains("Requête ultra-complexe détectée"));
+        assert!(body.contains("SIMULATION EXPLICITE; niveau 2"));
+        unsafe {
+            std::env::remove_var("GENOS_MOCK_LLM");
+        }
     }
 
     #[test]
     fn test_server_allows_explicit_system_two() {
+        let _mock_guard = MOCK_LLM_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("GENOS_MOCK_LLM", "1");
+        }
         let auth = TenantAuth::new();
         let limiter = Mutex::new(RateLimiter::new(10, 1));
         let payload = r#"{"model":"genos-core-v3","messages":[{"role":"user","content":"Ping"}]}"#;
         let req = format!(
             "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nX-GenOS-System: 2\r\nContent-Length: {}\r\n\r\n{}",
-            payload.len(), payload
+            payload.len(),
+            payload
         );
         let (status, _, body) = handle_http_request(&req, &auth, &limiter);
         assert_eq!(status, 200);
-        assert!(body.contains("Echo: Ping"));
+        assert!(body.contains("SIMULATION EXPLICITE; niveau 2"));
+        unsafe {
+            std::env::remove_var("GENOS_MOCK_LLM");
+        }
     }
 
     #[test]
@@ -120,7 +144,8 @@ mod tests {
         let _ = std::thread::spawn(move || {
             let _guard = limiter_clone.lock().unwrap();
             panic!("Intentional panic to poison mutex");
-        }).join();
+        })
+        .join();
 
         assert!(limiter.is_poisoned());
 

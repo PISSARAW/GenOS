@@ -3,7 +3,9 @@ use genos_api::server::start_server;
 use std::env;
 
 fn print_help() {
-    println!("GenOS REST API Server\n\nUsage: genos-api [OPTIONS]\n\nOptions:\n  --host <HOST>       Bind address (default: 127.0.0.1)\n  --port <PORT>       Bind port (default: 8085)\n  --api-key <KEY>     Development API key\n  -h, --help          Print this help\n  -V, --version       Print version");
+    println!(
+        "GenOS REST API Server\n\nUsage: genos-api [OPTIONS]\n\nOptions:\n  --host <HOST>       Bind address (default: 127.0.0.1)\n  --port <PORT>       Bind port (default: 8085)\n  --api-key <KEY>     Development API key\n  -h, --help          Print this help\n  -V, --version       Print version"
+    );
 }
 
 fn parse_args(args: &[String]) -> Result<Option<(String, u16, Option<String>)>, String> {
@@ -27,12 +29,23 @@ fn parse_args(args: &[String]) -> Result<Option<(String, u16, Option<String>)>, 
             println!("genos-api 0.1.0");
             return Ok(None);
         }
-        let value = args.get(index + 1).ok_or_else(|| format!("Missing value for {}.", option))?;
+        let value = args
+            .get(index + 1)
+            .ok_or_else(|| format!("Missing value for {}.", option))?;
         match option {
-            "--port" => port = value.parse().map_err(|_| format!("Invalid port '{}'.", value))?,
+            "--port" => {
+                port = value
+                    .parse()
+                    .map_err(|_| format!("Invalid port '{}'.", value))?
+            }
             "--host" => host = value.clone(),
             "--api-key" => api_key = Some(value.clone()),
-            _ => return Err(format!("Unknown option '{}'. Use --help for usage.", option)),
+            _ => {
+                return Err(format!(
+                    "Unknown option '{}'. Use --help for usage.",
+                    option
+                ));
+            }
         }
         index += 2;
     }
@@ -44,7 +57,10 @@ fn main() {
     let (host, port, api_key) = match parse_args(&args) {
         Ok(Some(parsed)) => parsed,
         Ok(None) => return,
-        Err(error) => { eprintln!("genos-api: {}", error); std::process::exit(2); }
+        Err(error) => {
+            eprintln!("genos-api: {}", error);
+            std::process::exit(2);
+        }
     };
 
     let mut auth = TenantAuth::new();
@@ -57,10 +73,21 @@ fn main() {
         auth.register_tenant("admin_dev", &dev_key);
     }
 
-    let rate_limit = env::var("GENOS_API_RATE_LIMIT").ok().and_then(|v| v.parse().ok()).unwrap_or(100);
-    let rate_window = env::var("GENOS_API_RATE_WINDOW_SECS").ok().and_then(|v| v.parse().ok()).unwrap_or(10);
-    let limiter = RateLimiter::new(rate_limit, rate_window);
-    println!("Starting GenOS REST API Server (OpenAI-compatible) on http://{}:{}", host, port);
+    let rate_limit: u32 = env::var("GENOS_API_RATE_LIMIT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(100);
+    let rate_window = env::var("GENOS_API_RATE_WINDOW_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(10)
+        .max(1);
+    let refill_per_sec = rate_limit.div_ceil(rate_window).max(1);
+    let limiter = RateLimiter::new(rate_limit, refill_per_sec);
+    println!(
+        "Starting GenOS REST API Server (OpenAI-compatible) on http://{}:{}",
+        host, port
+    );
 
     let addr = format!("{}:{}", host, port);
     if let Err(e) = start_server(&addr, auth, limiter) {

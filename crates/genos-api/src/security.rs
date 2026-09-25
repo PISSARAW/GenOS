@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::time::Instant;
 
 #[derive(Clone, Debug)]
 pub struct RateLimiter {
     pub capacity: u32,
     pub refill_per_sec: u32,
     tokens: u32,
+    last_refill: Instant,
 }
 
 impl RateLimiter {
@@ -13,10 +15,19 @@ impl RateLimiter {
             capacity,
             refill_per_sec,
             tokens: capacity,
+            last_refill: Instant::now(),
         }
     }
 
     pub fn try_acquire(&mut self, cost: u32) -> bool {
+        let elapsed = self.last_refill.elapsed().as_secs();
+        if elapsed > 0 {
+            self.tokens = self
+                .tokens
+                .saturating_add((elapsed as u32).saturating_mul(self.refill_per_sec))
+                .min(self.capacity);
+            self.last_refill += std::time::Duration::from_secs(elapsed);
+        }
         if self.tokens >= cost {
             self.tokens -= cost;
             true
@@ -30,6 +41,7 @@ impl RateLimiter {
             .tokens
             .saturating_add(seconds.saturating_mul(self.refill_per_sec))
             .min(self.capacity);
+        self.last_refill = Instant::now();
     }
 }
 
@@ -60,5 +72,20 @@ impl TenantAuth {
 
     pub fn has_keys(&self) -> bool {
         !self.keys.is_empty()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RateLimiter;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn token_bucket_refills_automatically_after_elapsed_time() {
+        let mut limiter = RateLimiter::new(1, 1);
+        assert!(limiter.try_acquire(1));
+        assert!(!limiter.try_acquire(1));
+        limiter.last_refill = Instant::now() - Duration::from_secs(1);
+        assert!(limiter.try_acquire(1));
     }
 }

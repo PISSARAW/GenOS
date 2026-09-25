@@ -87,7 +87,7 @@ const ALL_CANDIDATES = [
   'genos_snapshot', 'genos_replay', 'genos_capsule_create',
   'genos_orchestrate', 'genos_delegate_worker', 'genos_change_organization',
   'genos_change_strategy', 'genos_trinity_launch',
-  'genos_audit', 'genos_biomimicry',
+  'genos_audit', 'genos_biomimicry', 'genos_inspect',
   'genos_diagnose', 'genos_run', 'genos_diff'
 ];
 
@@ -103,6 +103,26 @@ runTest('3.2 Selectively recruits strategy tools when strategy modification is r
   const selected = selectAffordantTools("Change de stratégie et bascule sur le protocole MCTS", ALL_CANDIDATES);
   assert.ok(selected.includes('genos_change_strategy'), 'Must include genos_change_strategy');
   assert.strictEqual(selected.includes('genos_snapshot'), false, 'Must not include snapshot');
+});
+
+runTest('3.3 Explicitly negated actions do not expose tools', () => {
+  const result = evaluateToolGating("Ne lance pas les tests du repo", ALL_CANDIDATES);
+  assert.strictEqual(result.requiresTools, false);
+  assert.deepStrictEqual(result.disinhibitedTools, []);
+  assert.strictEqual(result.decisionReason, 'EXPLICIT_ACTION_NEGATION');
+});
+
+runTest('3.5 A negated clause does not suppress a separate requested action', () => {
+  const result = evaluateToolGating('Ne lance pas les tests, mais inspecte le repo', ALL_CANDIDATES);
+  assert.strictEqual(result.requiresTools, true);
+  assert.ok(result.disinhibitedTools.includes('genos_inspect'));
+});
+
+runTest('3.4 Unmapped general actions use a stable allowlisted fallback', () => {
+  const first = selectAffordantTools('ouvre le workspace et examine le contexte', ALL_CANDIDATES);
+  const reversed = selectAffordantTools('ouvre le workspace et examine le contexte', [...ALL_CANDIDATES].reverse());
+  assert.deepStrictEqual(first, ['genos_inspect', 'genos_diagnose', 'genos_run'].filter((tool) => ALL_CANDIDATES.includes(tool)));
+  assert.deepStrictEqual(reversed, first);
 });
 
 // 4. Unified Gating & False Affordance Shield for 7B Models

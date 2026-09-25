@@ -28,10 +28,7 @@ fn api_feature_exposes_security_and_types() {
 }
 
 #[test]
-fn thalamus_facade_works_offline() {
-    // "Ping" court-circuite le réseau et renvoie un écho déterministe.
-    assert_eq!(genos_orchestrator::thalamus::consult("Ping", 1), "Echo: Ping");
-
+fn thalamus_complexity_scoring_works_offline() {
     let score = genos_orchestrator::thalamus::evaluate_prompt_complexity(
         "architecture systeme distribue avec agents orchestrateur",
     );

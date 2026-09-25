@@ -1,156 +1,130 @@
+mod chat;
+
 use crate::security::{RateLimiter, TenantAuth};
-use crate::types::{
-    ChatChoice, ChatCompletionRequest, ChatCompletionResponse, ChatOutputMessage, ChatUsage,
-    HealthResponse,
-};
-use chrono::Utc;
+use serde::Serialize;
 use serde_json::json;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread;
-use uuid::Uuid;
-use crate::thalamus::call_llm_api;
+
+const MAX_REQUEST_BYTES: usize = 10 * 1024 * 1024;
+type HttpResponse = (u16, Vec<(String, String)>, String);
+
+pub(super) struct ParsedRequest {
+    pub method: String,
+    pub path: String,
+    pub auth_header: Option<String>,
+    pub rethink: bool,
+    pub system_level: u8,
+    pub body: String,
+}
+
+impl ParsedRequest {
+    fn parse(raw: &str) -> Result<Self, HttpResponse> {
+        let (headers, body) = raw
+            .split_once("\r\n\r\n")
+            .or_else(|| raw.split_once("\n\n"))
+            .ok_or_else(|| {
+                error_response(400, "Malformed HTTP request.", "invalid_request_error")
+            })?;
+        let mut lines = headers.lines();
+        let parts = lines
+            .next()
+            .unwrap_or("")
+            .split_whitespace()
+            .collect::<Vec<_>>();
+        if parts.len() < 2 {
+            return Err(error_response(
+                400,
+                "Malformed HTTP request.",
+                "invalid_request_error",
+            ));
+        }
+        let (auth_header, rethink, system_level) = parse_headers(lines);
+        Ok(Self {
+            method: parts[0].to_string(),
+            path: parts[1].to_string(),
+            auth_header,
+            rethink,
+            system_level,
+            body: body.trim().to_string(),
+        })
+    }
+
+    fn is_health_probe(&self) -> bool {
+        self.method == "GET" && matches!(self.path.as_str(), "/healthz" | "/readyz" | "/livez")
+    }
+
+    fn is_models_request(&self) -> bool {
+        self.method == "GET" && matches!(self.path.as_str(), "/v1/models" | "/models")
+    }
+
+    fn is_chat_request(&self) -> bool {
+        self.method == "POST"
+            && matches!(
+                self.path.as_str(),
+                "/v1/chat/completions" | "/chat/completions"
+            )
+    }
+}
+
+fn parse_headers<'a>(lines: impl Iterator<Item = &'a str>) -> (Option<String>, bool, u8) {
+    let mut auth = None;
+    let mut rethink = false;
+    let mut level = 1;
+    for line in lines {
+        if let Some((name, value)) = line.split_once(':') {
+            match name.trim().to_ascii_lowercase().as_str() {
+                "authorization" => auth = Some(value.trim().to_string()),
+                "x-genos-rethink" => rethink = value.trim().eq_ignore_ascii_case("true"),
+                "x-genos-system" => level = value.trim().parse::<u8>().unwrap_or(1).clamp(1, 2),
+                _ => {}
+            }
+        }
+    }
+    (auth, rethink, level)
+}
 
 pub fn handle_http_request(
-    raw_req: &str,
+    raw: &str,
     auth: &TenantAuth,
     limiter: &Mutex<RateLimiter>,
-) -> (u16, Vec<(String, String)>, String) {
-    let mut lines = raw_req.lines();
-    let request_line = lines.next().unwrap_or("");
-    let parts: Vec<&str> = request_line.split_whitespace().collect();
-    if parts.len() < 2 {
-        return (400, vec![("Content-Type".into(), "application/json".into())], json!({ "error": "Malformed HTTP request" }).to_string());
+) -> HttpResponse {
+    let request = match ParsedRequest::parse(raw) {
+        Ok(request) => request,
+        Err(response) => return response,
+    };
+    if request.is_health_probe() {
+        return chat::health_response();
     }
-
-    let method = parts[0];
-    let path = parts[1];
-
-    // Extract Headers and Body
-    let mut auth_header: Option<String> = None;
-    let mut rethink = false;
-    let mut system_level = 1; // Thalamic triage is the default; clients may explicitly request System 2.
-    for line in lines.by_ref() {
-        if line.trim().is_empty() {
-            break;
-        }
-        if let Some(pos) = line.find(':') {
-            let key = line[..pos].trim().to_lowercase();
-            let val = line[pos + 1..].trim();
-            if key == "authorization" {
-                auth_header = Some(val.to_string());
-            }
-            if key == "x-genos-rethink" && val.to_lowercase() == "true" {
-                rethink = true;
-            }
-            if key == "x-genos-system" {
-                if let Ok(lvl) = val.parse::<u8>() {
-                    system_level = lvl.clamp(1, 2);
-                }
-            }
-        }
+    if request.is_models_request() {
+        return chat::models_response();
     }
-
-    let body = raw_req
-        .split("\r\n\r\n")
-        .nth(1)
-        .or_else(|| raw_req.split("\n\n").nth(1))
-        .unwrap_or("")
-        .trim();
-
-    // 1. Health probes
-    if method == "GET" && (path == "/healthz" || path == "/readyz" || path == "/livez") {
-        let resp = HealthResponse {
-            status: "healthy".into(),
-            version: "3.0.0".into(),
-            timestamp: Utc::now().to_rfc3339(),
-        };
-        return (200, vec![("Content-Type".into(), "application/json".into())], serde_json::to_string(&resp).unwrap());
+    if request.is_chat_request() {
+        return chat::handle_chat_completion(&request, auth, limiter);
     }
+    error_response(
+        404,
+        &format!("Not Found: {} {}", request.method, request.path),
+        "invalid_route",
+    )
+}
 
-    // 2. OpenAI Models List
-    if method == "GET" && (path == "/v1/models" || path == "/models") {
-        let models = json!({
-            "object": "list",
-            "data": [
-                { "id": "genos-core-v3", "object": "model", "owned_by": "genos", "permission": [] },
-                { "id": "genos-biology", "object": "model", "owned_by": "genos", "permission": [] },
-                { "id": "genos-swarm-intelligence", "object": "model", "owned_by": "genos", "permission": [] }
-            ]
-        });
-        return (200, vec![("Content-Type".into(), "application/json".into())], models.to_string());
-    }
+pub(super) fn json_response<T: Serialize>(status: u16, body: &T) -> HttpResponse {
+    let serialized = serde_json::to_string(body).unwrap_or_else(|_| "{}".into());
+    (status, json_headers(), serialized)
+}
 
-    // 3. OpenAI Chat Completions
-    if method == "POST" && (path == "/v1/chat/completions" || path == "/chat/completions") {
-        // Authenticate if TenantAuth has registered keys and derive a non-secret cache scope.
-        let cache_scope = if let Some(token) = auth_header.and_then(|h| h.strip_prefix("Bearer ").map(|s| s.trim().to_string())) {
-            if auth.verify_key(&token).is_none() {
-                return (401, vec![("Content-Type".into(), "application/json".into())], json!({
-                    "error": { "message": "Invalid or unauthorized API key", "type": "authentication_error" }
-                }).to_string());
-            }
-            auth.verify_key(&token).unwrap_or("anonymous").to_string()
-        } else if auth.has_keys() {
-            return (401, vec![("Content-Type".into(), "application/json".into())], json!({
-                "error": { "message": "Authentication is required for this API endpoint", "type": "authentication_error" }
-            }).to_string());
-        } else {
-            "anonymous".to_string()
-        };
+pub(super) fn error_response(status: u16, message: &str, error_type: &str) -> HttpResponse {
+    json_response(
+        status,
+        &json!({ "error": { "message": message, "type": error_type } }),
+    )
+}
 
-        // Rate Limiter
-        {
-            let mut lim = limiter.lock().unwrap_or_else(|p| p.into_inner());
-            if !lim.try_acquire(1) {
-                return (429, vec![("Content-Type".into(), "application/json".into())], json!({
-                    "error": { "message": "Rate limit exceeded. Try again later.", "type": "rate_limit_error" }
-                }).to_string());
-            }
-        }
-
-        // Parse Request Body
-        let chat_req: ChatCompletionRequest = match serde_json::from_str(body) {
-            Ok(parsed) => parsed,
-            Err(e) => {
-                return (400, vec![("Content-Type".into(), "application/json".into())], json!({
-                    "error": { "message": format!("Invalid ChatCompletionRequest JSON: {}", e), "type": "invalid_request_error" }
-                }).to_string());
-            }
-        };
-
-        let last_prompt = chat_req.messages.last().map(|m| m.content.as_str()).unwrap_or("Hello from client");
-        
-        let completion_text = call_llm_api(last_prompt, rethink, system_level, &cache_scope);
-        
-        let prompt_tokens = (last_prompt.len() / 4).max(1) as u64;
-        let completion_tokens = (completion_text.len() / 4).max(1) as u64;
-
-        let completion_resp = ChatCompletionResponse {
-            id: format!("chatcmpl-{}", Uuid::new_v4().simple()),
-            object: "chat.completion".into(),
-            created: Utc::now().timestamp() as u64,
-            model: chat_req.model.unwrap_or_else(|| "genos-core-v3".into()),
-            choices: vec![ChatChoice {
-                index: 0,
-                message: ChatOutputMessage {
-                    role: "assistant".into(),
-                    content: Some(completion_text),
-                },
-                finish_reason: "stop".into(),
-            }],
-            usage: ChatUsage {
-                prompt_tokens,
-                completion_tokens,
-                total_tokens: prompt_tokens + completion_tokens,
-            },
-        };
-
-        return (200, vec![("Content-Type".into(), "application/json".into())], serde_json::to_string(&completion_resp).unwrap());
-    }
-
-    (404, vec![("Content-Type".into(), "application/json".into())], json!({ "error": { "message": format!("Not Found: {} {}", method, path), "type": "invalid_route" } }).to_string())
+fn json_headers() -> Vec<(String, String)> {
+    vec![("Content-Type".into(), "application/json".into())]
 }
 
 fn handle_connection(
@@ -158,104 +132,165 @@ fn handle_connection(
     auth: Arc<TenantAuth>,
     limiter: Arc<Mutex<RateLimiter>>,
 ) {
-    let mut request_bytes = Vec::new();
-    let mut buffer = [0; 8192];
-    let mut content_length: Option<usize> = None;
-    let mut header_end_offset: Option<usize> = None;
-
-    loop {
-        match stream.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(n) => {
-                request_bytes.extend_from_slice(&buffer[..n]);
-
-                if header_end_offset.is_none() {
-                    if let Some(pos) = request_bytes.windows(4).position(|w| w == b"\r\n\r\n") {
-                        header_end_offset = Some(pos + 4);
-                    } else if let Some(pos) = request_bytes.windows(2).position(|w| w == b"\n\n") {
-                        header_end_offset = Some(pos + 2);
-                    }
-
-                    if let Some(header_end) = header_end_offset {
-                        let headers_str = String::from_utf8_lossy(&request_bytes[..header_end]);
-                        for line in headers_str.lines() {
-                            let lower = line.to_lowercase();
-                            if let Some(val) = lower.strip_prefix("content-length:") {
-                                if let Ok(cl) = val.trim().parse::<usize>() {
-                                    content_length = Some(cl.min(10 * 1024 * 1024));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if let (Some(header_end), Some(cl)) = (header_end_offset, content_length) {
-                    if request_bytes.len() >= header_end + cl {
-                        break;
-                    }
-                } else if header_end_offset.is_some() && content_length.is_none() {
-                    break;
-                }
-
-                if request_bytes.len() >= 10 * 1024 * 1024 {
-                    break;
-                }
-            }
-            Err(_) => break,
-        }
-    }
-
-    if request_bytes.is_empty() {
-        return;
-    }
-
-    let raw = String::from_utf8_lossy(&request_bytes);
-    let (status_code, headers, body) = handle_http_request(&raw, &auth, &limiter);
-        let status_line = match status_code {
-            200 => "HTTP/1.1 200 OK",
-            400 => "HTTP/1.1 400 BAD REQUEST",
-            401 => "HTTP/1.1 401 UNAUTHORIZED",
-            404 => "HTTP/1.1 404 NOT FOUND",
-            429 => "HTTP/1.1 429 TOO MANY REQUESTS",
-            _ => "HTTP/1.1 500 INTERNAL SERVER ERROR",
-        };
-
-        let mut response = format!(
-            "{}\r\nContent-Length: {}\r\nConnection: close\r\n",
-            status_line,
-            body.len()
-        );
-        for (k, v) in headers {
-            response.push_str(&format!("{}: {}\r\n", k, v));
-        }
-        response.push_str("\r\n");
-        response.push_str(&body);
-
-        let _ = stream.write_all(response.as_bytes());
+    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(15)));
+    let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(15)));
+    if let Some(bytes) = read_http_request(&mut stream) {
+        let request = String::from_utf8_lossy(&bytes);
+        let response = handle_http_request(&request, &auth, &limiter);
+        let _ = stream.write_all(&serialize_http_response(response).as_bytes());
         let _ = stream.flush();
+    }
+}
+
+fn read_http_request(stream: &mut TcpStream) -> Option<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let mut buffer = [0; 8192];
+    let mut header_end = None;
+    let mut content_length = None;
+    loop {
+        let count = match stream.read(&mut buffer) {
+            Ok(count) if count > 0 => count,
+            _ => break,
+        };
+        bytes.extend_from_slice(&buffer[..count]);
+        update_request_bounds(&bytes, &mut header_end, &mut content_length);
+        if request_complete(bytes.len(), header_end, content_length)
+            || bytes.len() >= MAX_REQUEST_BYTES
+        {
+            break;
+        }
+    }
+    if bytes.is_empty() { None } else { Some(bytes) }
+}
+
+fn update_request_bounds(
+    bytes: &[u8],
+    header_end: &mut Option<usize>,
+    content_length: &mut Option<usize>,
+) {
+    if header_end.is_none() {
+        *header_end = bytes
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .map(|position| position + 4)
+            .or_else(|| {
+                bytes
+                    .windows(2)
+                    .position(|window| window == b"\n\n")
+                    .map(|position| position + 2)
+            });
+        if let Some(end) = *header_end {
+            *content_length = parse_content_length(&bytes[..end]);
+        }
+    }
+}
+
+fn parse_content_length(headers: &[u8]) -> Option<usize> {
+    String::from_utf8_lossy(headers).lines().find_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        if !name.trim().eq_ignore_ascii_case("content-length") {
+            return None;
+        }
+        value
+            .trim()
+            .parse::<usize>()
+            .ok()
+            .map(|length| length.min(MAX_REQUEST_BYTES))
+    })
+}
+
+fn request_complete(
+    received: usize,
+    header_end: Option<usize>,
+    content_length: Option<usize>,
+) -> bool {
+    match (header_end, content_length) {
+        (Some(header_end), Some(content_length)) => received >= header_end + content_length,
+        (Some(_), None) => true,
+        _ => false,
+    }
+}
+
+fn serialize_http_response(response: HttpResponse) -> String {
+    let (status, headers, body) = response;
+    let status_line = match status {
+        200 => "HTTP/1.1 200 OK",
+        400 => "HTTP/1.1 400 BAD REQUEST",
+        401 => "HTTP/1.1 401 UNAUTHORIZED",
+        404 => "HTTP/1.1 404 NOT FOUND",
+        429 => "HTTP/1.1 429 TOO MANY REQUESTS",
+        502 => "HTTP/1.1 502 BAD GATEWAY",
+        503 => "HTTP/1.1 503 SERVICE UNAVAILABLE",
+        504 => "HTTP/1.1 504 GATEWAY TIMEOUT",
+        _ => "HTTP/1.1 500 INTERNAL SERVER ERROR",
+    };
+    let mut output = format!(
+        "{status_line}\r\nContent-Length: {}\r\nConnection: close\r\n",
+        body.len()
+    );
+    for (name, value) in headers {
+        output.push_str(&format!("{name}: {value}\r\n"));
+    }
+    output.push_str("\r\n");
+    output.push_str(&body);
+    output
 }
 
 pub fn start_server(addr: &str, auth: TenantAuth, limiter: RateLimiter) -> Result<(), String> {
-    let listener = TcpListener::bind(addr).map_err(|e| format!("Failed to bind {}: {}", addr, e))?;
-    println!("[GenOS API Server] Listening on http://{}", addr);
-
-    let auth_arc = Arc::new(auth);
-    let limiter_arc = Arc::new(Mutex::new(limiter));
-
+    let listener =
+        TcpListener::bind(addr).map_err(|error| format!("Failed to bind {addr}: {error}"))?;
+    println!("[GenOS API Server] Listening on http://{addr}");
+    let auth = Arc::new(auth);
+    let limiter = Arc::new(Mutex::new(limiter));
+    let worker_count = thread::available_parallelism()
+        .map(|count| count.get())
+        .unwrap_or(4)
+        .clamp(2, 16);
+    let (sender, receiver) = mpsc::sync_channel::<TcpStream>(64);
+    let receiver = Arc::new(Mutex::new(receiver));
+    spawn_workers(
+        worker_count,
+        WorkerServices {
+            receiver,
+            auth,
+            limiter,
+        },
+    );
     for stream in listener.incoming() {
         match stream {
-            Ok(stream) => {
-                let auth_clone = Arc::clone(&auth_arc);
-                let limiter_clone = Arc::clone(&limiter_arc);
-                thread::spawn(move || {
-                    handle_connection(stream, auth_clone, limiter_clone);
-                });
-            }
-            Err(e) => {
-                eprintln!("[GenOS API Server] Connection error: {}", e);
-            }
+            Ok(stream) => sender
+                .send(stream)
+                .map_err(|error| format!("API worker queue stopped: {error}"))?,
+            Err(error) => eprintln!("[GenOS API Server] Connection error: {error}"),
         }
     }
-
     Ok(())
+}
+
+struct WorkerServices {
+    receiver: Arc<Mutex<mpsc::Receiver<TcpStream>>>,
+    auth: Arc<TenantAuth>,
+    limiter: Arc<Mutex<RateLimiter>>,
+}
+
+fn spawn_workers(count: usize, services: WorkerServices) {
+    for _ in 0..count {
+        let receiver = Arc::clone(&services.receiver);
+        let auth = Arc::clone(&services.auth);
+        let limiter = Arc::clone(&services.limiter);
+        thread::spawn(move || {
+            loop {
+                let stream = receiver
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .recv();
+                match stream {
+                    Ok(stream) => {
+                        handle_connection(stream, Arc::clone(&auth), Arc::clone(&limiter))
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+    }
 }
