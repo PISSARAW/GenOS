@@ -10,67 +10,93 @@ portent une maturité `heuristic`; elles peuvent guider le contrôle, mais ne so
 pas des preuves physiques ou métier indépendantes.
 - **Portée** : `crates/genos-orchestrator/src/physics.rs`, exemple
   `crates/genos-orchestrator/examples/mission_physics.rs`.
-- **Dernière revue** : 2026-09-16.
+- **Dernière revue** : 2026-09-25.
 
 ## 1. Définition du domaine
 
-Le vivant (biologie) donne des boucles de survie ; l'animal (sensorimoteur) donne
-perception, action, coordination. Il manque une troisième couche : **l'inerte**,
-qui donne des lois, des contraintes, une matière, une inertie, des seuils, une
-conservation, une usure. Sans elle, l'orchestrateur choisit « la meilleure action
-logique » dans un monde sans coût ni friction — un pur langage. La physique
-computationnelle fait que chaque décision est évaluée **dans un monde matériel
-contraint** : rien n'est gratuit, tout changement laisse une trace, tout état se
-dégrade s'il n'est pas maintenu, toute force excessive crée des dommages, tout
-système a une capacité maximale, tout franchissement de seuil change le régime.
+Cette couche de contrôle emprunte à la physique un vocabulaire pour représenter
+des coûts, des limites, de l'inertie et des seuils. Le runtime calcule des
+indices à partir de `WorldState` et applique des règles de décision bornées;
+il ne simule pas un monde matériel, une conservation, une usure ni des lois
+physiques générales.
 
-## 2. Modèle mathématique ou logique
+## 2. Modèle de contrôle (indices sans unité)
 
 `PhysicalState` (0..1 par champ) : `energy`, `entropy`, `friction`, `inertia`,
 `pressure`, `temperature`, `viscosity`, `elasticity`, `plasticity`,
 `rupture_risk`, `resonance`, `structural_gravity: {chemin -> poids}`.
 
-Dérivation (`PhysicalState::derive`) depuis un `WorldState` observé, avec
-propagation d'inertie/plasticité depuis l'état précédent (mémoire, pas une
-recopie instantanée — même principe que `VolitionState::propagate`) :
+Dérivation exacte de `PhysicalState::derive` depuis `WorldState`. Les quantités
+sont des indices de contrôle bornés dans `[0,1]`, sans unité physique : `budget`
+est normalisé par la constante 120, les poids et seuils sont des paramètres du
+code, et les noms « énergie » ou « entropie » ne leur donnent pas le sens des
+grandeurs thermodynamiques. Avec `clamp01(x)=min(1,max(0,x))` :
 
 ```text
-energy      = budget / budget_max
-entropy     = f(workers/requis, stress, dissonance, taux d'echec)
-friction    = f(stress, 1 - energy)
-pressure    = max(budget_pressure, threat)
-rupture_risk = f(threat, entropy, malades)
-elasticity  = 1 - f(rupture_risk, entropy)
-inertia_t   = 0.7 * inertia_(t-1) + 0.3 * cible(stabilite, pression)
+energy       = clamp01(budget / 120)
+entropy      = clamp01(.25*min(workers/max(required_workers,1),1)
+                       + .35*stress + .25*dissonance + .15*failure_rate)
+pressure     = clamp01(max(budget_pressure, threat))
+friction     = clamp01(.5*stress + .5*(1-energy))
+rupture_risk = clamp01(.5*threat + .3*entropy + .2*min(diseased/5,1))
+elasticity   = clamp01(1 - .5*rupture_risk - .3*entropy)
+temperature  = clamp01(.6*stress + .4*il6)
+viscosity    = clamp01(.5*(1-energy) + .5*entropy)
+resonance    = clamp01(.6*failure_rate + .4*I[traitor])
+target       = clamp01(.3 + .5*(1-clamp01(failure_rate)) - .3*pressure)
+inertia_t    = target                         (sans état antérieur)
+             = clamp01(.7*inertia_(t-1) + .3*target) (sinon)
+plasticity_t = clamp01(.3*rupture_risk)       (sans état antérieur)
+             = clamp01(.8*plasticity_(t-1) + .2*rupture_risk) (sinon)
+structural_gravity_t = copie de la valeur précédente (ou map vide)
 ```
 
-Chaque action a une **masse** (`ActionProfile`) : `mass`, `friction`,
-`blast_radius`, `reversibility`, `latency`, `entropy_delta`,
-`evidence_debt_delta`. Le score d'utilité (loi « faire payer les décisions ») :
+Parmi ces champs, le contrôle de régime utilise `rupture_risk`, `energy` et
+`entropy`; le seuil anti-pivot utilise `inertia` et `pressure`; le score
+`utility_score` utilise `friction`, `rupture_risk` et `entropy`. Les champs
+`temperature`, `viscosity`, `elasticity`, `plasticity`, `resonance` et la carte
+`structural_gravity` sont dérivés ou conservés, mais ne modulent pas ces trois
+décisions dans le chemin documenté.
+
+Le profil d'action contient `mass`, `friction`, `blast_radius`, `reversibility`,
+`latency`, `entropy_delta` et `evidence_debt_delta`. La formule du score ci-dessous
+ne consomme qu'une partie de ce profil.
+
+Le score d'action réellement utilisé par `utility_score` est :
 
 ```text
 utility = expected_gain
-        - friction_action * (1 + friction_monde)
-        - blast_radius * (1 - reversibilite) * (1 + rupture_risk)
-        - entropy_delta_action * (1 + entropy_monde)
+        - profile.friction * (1 + phys.friction)
+        - profile.blast_radius * (1-profile.reversibility) * (1+phys.rupture_risk)
+        - profile.entropy_delta * (1+phys.entropy)
 ```
+
+La masse, la latence et la variation de dette de preuve font partie du profil,
+mais n'entrent pas dans cette fonction de score. Elles ne doivent donc pas être
+présentées comme des coûts déjà pris en compte par cette formule.
 
 Seuil d'inertie anti-pivot (`inertia_threshold`) :
 
 ```text
 seuil = clamp(0.05 + 0.2*inertia + 0.1*(succes_actuel - 0.5) - 0.1*pression, 0, 0.4)
-pivot autorise ssi  score(nouvelle_strategie) - score(strategie_actuelle) > seuil
+pivot autorisé ssi estimation(nouvelle_strategie) - estimation(strategie_actuelle) > seuil
 ```
+
+Ces calculs sont des règles déterministes testables, pas des lois physiques ni
+des modèles prédictifs validés. Les coefficients n'ont pas été calibrés par une
+étude comparative; les tests établissent les cas codés, pas la qualité générale
+des décisions.
 
 ## 3. Analogies biologiques et limites réelles
 
-Les champs reprennent des phénomènes physiques (inertie, friction, gravité,
-entropie, pression, température, cristallisation, viscosité, élasticité,
-plasticité, seuil de rupture, résonance, diffusion) traduits en règles de
-contrôle mesurables — voir le tableau §5. Ce ne sont **pas** des simulations
+Les champs empruntent des noms à des phénomènes physiques (inertie, friction,
+gravité, entropie, pression, température, cristallisation, viscosité, élasticité,
+plasticité, seuil de rupture, résonance, diffusion) traduits en indices de
+contrôle — voir le tableau §5. Ce ne sont **pas** des simulations
 physiques réelles (pas d'équations différentielles, pas de conservation
-d'énergie stricte) : ce sont des heuristiques bornées [0,1] calibrées pour
-produire un comportement de contrôle plausible, au même titre que les autres
+d'énergie stricte) : ce sont des heuristiques bornées [0,1], sans calibration
+empirique annoncée, qui produisent un comportement de contrôle déterminé par les
+constantes du code, au même titre que les autres
 métaphores biologiques du dépôt (voir `docs/CONVENTIONS.md` §3 : ne jamais
 présenter une métaphore comme une fonctionnalité prouvée au-delà de ce qui est
 implémenté).
@@ -161,12 +187,9 @@ consolidation.
 
 ## 9. Comparaison avec le marché
 
-Les moteurs d'orchestration LLM classiques (LangGraph, AutoGen, CrewAI)
-scorent des actions sur un gain attendu seul, sans notion de coût matériel
-composé (friction + risque + entropie), sans gating d'inertie anti-pivot, et
-sans classification différenciée des artefacts touchés. La couche physique de
-GenOS rend ces trois aspects explicites, mesurables et testés, plutôt que
-délégués au prompt.
+Cette fiche ne formule pas de comparaison empirique avec d'autres orchestrateurs.
+Une telle comparaison nécessiterait des versions identifiées, des tâches communes,
+des budgets contrôlés et des mesures reproductibles.
 
 ## 10. Limites, garde-fous, non-objectifs
 

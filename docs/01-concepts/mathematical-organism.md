@@ -12,7 +12,7 @@ parent: natural-creative-ecology.md
 
 ## 1. Définition du domaine
 
-Le **Mathematical Organism** est un système de recherche mathématique formel qui implémente la **Natural Creative Ecology (NCE)** dans le domaine des preuves. Contrairement aux approches qui ajoutent simplement un solveur SAT ou un noyau Lean à un LLM, il applique six principes biologiques mesurables :
+Le **Mathematical Organism** est un prototype logiciel de recherche assistée en mathématiques, organisé autour de mécanismes inspirés de la **Natural Creative Ecology (NCE)**. Les noms biologiques désignent ici des politiques et des structures de données, pas des mécanismes biologiques. Leur présence dans le code ne démontre ni leur fidélité à un phénomène vivant ni leur avantage scientifique.
 
 | Niveau | Source biologique | Comportement computationnel | Service |
 |--------|------------------|----------------------------|---------|
@@ -27,15 +27,14 @@ Le **Mathematical Organism** est un système de recherche mathématique formel q
 
 ### Invariant fondamental
 
-> **Lean n'est pas biologique. Lean est la physique du monde.**
-> Une proposition qui ne compile pas n'est pas autorisée — comme un état physiquement impossible.
-> Le biomimétisme intervient dans *la manière de chercher la preuve*, pas dans le critère d'acceptation.
+> **Lean est un vérificateur formel, pas une physique du monde.**
+> Une compilation réussie établit que le terme accepté type-check dans l'environnement Lean utilisé (imports, axiomes et version compris). Elle ne valide pas automatiquement la traduction de l'énoncé naturel, la pertinence du modèle, ni l'absence d'hypothèses indésirables. Le biomimétisme décrit des choix de recherche; il ne change pas ce contrat de vérification.
 
 ### Hypothèse de recherche
 
 > *La nature a-t-elle découvert non pas les réponses, mais les mécanismes généraux permettant de chercher ?*
 
-La fitness n'est jamais « le LLM pense que cette preuve est bonne ». Elle est vectorielle :
+Le code représente une fitness vectorielle :
 
 $$F(L) = [P, N, I, A, T, R, C]$$
 
@@ -47,7 +46,7 @@ $$F(L) = [P, N, I, A, T, R, C]$$
 - **R** = résistance à la falsification (robustesse aux contre-exemples)
 - **C** = coût inversé (efficacité des ressources)
 
-Pas de score unique obligatoire. **Front de Pareto.**
+La sélection Pareto compare ces coordonnées selon leur ordre numérique; elle ne rend pas les métriques valides ni comparables scientifiquement. Certaines coordonnées sont des entrées fournies par l'appelant et ont des valeurs par défaut. Dans `mathematicalPopulation.js`, `P` est calculé à partir des obligations vérifiées, `A` à partir du nombre d'affordances, et `C` à partir du coût relatif au budget; `N`, `I`, `T` et `R` peuvent recevoir des valeurs par défaut. Jusqu'à définition d'opérationnalisation, calibration et validation indépendantes de chaque métrique, le front obtenu est un outil de tri logiciel, pas une mesure de qualité mathématique établie.
 
 ---
 
@@ -198,7 +197,7 @@ rejeté pour interdire l'injection de code Lean via les imports.
 
 ### CU1 : Preuve de Conway-99
 
-Une lignée explore la niche SAT. Après 10 itérations, le rendement marginal chute. La MVT déclenche une migration vers la niche « algebraic ». Une recombinaison produit une nouvelle stratégie. L'enfant est enregistré dans la population parentale et dans `environment.lineages`. Un lemme utile migre (HGT) vers une autre niche.
+Scénario illustratif, non résultat expérimental : on peut enregistrer des gains d'information et des coûts dans une niche SAT, comparer le rendement récent à un seuil d'écosystème, puis proposer un départ. Le service utilise une moyenne des trois derniers rendements (après au moins deux observations); cette règle inspirée du théorème de valeur marginale ne modélise pas à elle seule les hypothèses écologiques de ce théorème et ne démontre pas qu'une migration améliore la recherche. La création d'enfant et le transfert de lemme sont des opérations logicielles distinctes, chacune soumise à ses propres contrôles.
 
 ### CU2 : Foraging littéraire
 
@@ -348,19 +347,24 @@ MathematicalOrganism
 
 ---
 
-## 7. Comparaison avec le marché
+## 7. Portée des affirmations et validation scientifique
 
-| Système | Mécanisme dominant | Limite |
-|---|---|---|
-| Lean + LLM naïf | Générateur de code | Pas de sélection, pas de mémoire |
-| AlphaEvolve | Évolution seule | Pas de culture, pas de foraging |
-| POET | Coévolution env-agent | Pas d'immunité, pas de culture |
-| Voyager | Accumulation compétences | Pas de niches, pas de MVT |
-| **GenOS Math** | NCE complète (6+1 niveaux) | Prototype architectural avancé |
+Les noms de services, les tests unitaires et les scénarios de démonstration établissent des propriétés de code limitées à leurs fixtures. Ils ne prouvent pas qu'une stratégie trouve davantage de théorèmes, réduit le coût de recherche, généralise à d'autres domaines ou surpasse un système tiers. Les tableaux comparatifs et les hypothèses de recherche ci-dessous doivent être lus comme des questions à mesurer, pas comme des conclusions.
+
+Une évaluation comparative devrait pré-enregistrer les tâches et budgets, utiliser des instances séparées pour réglage et test, rapporter les versions de Lean/Mathlib et les axiomes, répéter les méthodes stochastiques avec graines publiées, comparer les ablations à budget égal, et rapporter taux de preuve vérifiée, temps/coût, échecs de formalisation et intervalles d'incertitude. Les réussites de Lean doivent être comptées séparément des conjectures, des contre-exemples et des échecs de traduction.
+
+## 8. Comparaison avec d'autres systèmes
+
+Aucune comparaison de performance n'est revendiquée ici. Les catégories
+« sélection », « mémoire », « évolution » ou « exploration » doivent être
+opérationnalisées de la même façon pour chaque système avant de conclure qu'une
+fonction est absente ou qu'une approche est supérieure. Une comparaison valide
+doit figer versions, tâches, budgets, outils de preuve et critères de réussite;
+les résultats doivent être rapportés par tâche avec incertitude.
 
 ---
 
-## 8. Tests et validation
+## 9. Tests et validation
 
 La suite complète s'exécute avec :
 
@@ -386,7 +390,7 @@ kernel-tests de l'autre.
 
 ---
 
-## 9. Références
+## 10. Références
 
 - Charnov, E. L. (1976). Optimal foraging, the marginal value theorem. *Theoretical Population Biology*.
 - Burnet, F. M. (1959). *The Clonal Selection Theory of Acquired Immunity*. Cambridge University Press.

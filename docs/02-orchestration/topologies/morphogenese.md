@@ -2,7 +2,7 @@
 
 - **Statut** : Cadre opérationnel du noyau GenOS
 - **Portée** : construction, composition, séparation, fusion, transformation et destruction dynamique des organisations cognitives
-- **Dernière revue** : 2026-09-24
+- **Dernière revue** : 2026-09-25
 
 ---
 
@@ -12,7 +12,8 @@ La **Morphogenèse** GenOS est le système de contrôle qui construit, compose, 
 
 Contrairement à un orchestrateur qui exécute un plan fixe, la Morphogenèse maintient un **MorphologyGraph** vivant. Son graphe de containment/autorité peut être arborescent, tandis que les communications, le partage d'état, les preuves, les ressources et les migrations sont représentés par des liens transversaux.
 
-La Morphogenèse opère à l'intersection de trois boucles de contrôle :
+La proposition d'architecture distingue trois échelles de contrôle; ces
+cadences et capacités ne sont pas garanties par le runtime courant :
 
 1. **Boucle rapide** (secondes/minutes) : ajustements paramétriques, migration de workers, changement de paramètres de communication
 2. **Boucle structurelle** (minutes/heures) : spawn/retire de nœuds, split/merge, changement de variante topologique
@@ -26,9 +27,26 @@ La Morphogenèse vise, pour toute mission et tout contexte, une morphologie **va
 
 ---
 
-## 2. Définition Mathématique
+## 2. Spécification formelle et statut des modèles
 
-### 2.1 MorphologyGraph Récursif
+Les formules de cette fiche ont des statuts différents. Elles sont soit des
+invariants vérifiables sur une structure concrète, soit des définitions
+opérationnelles candidates, soit des propositions de conception. Une formule
+ne devient pas un théorème parce qu'elle est écrite en notation mathématique.
+Sauf indication explicite et preuve avec hypothèses, métriques et domaine de
+validité, les scores et seuils ci-dessous sont des heuristiques à calibrer, et
+les opérateurs décrivent une sémantique souhaitée plutôt qu'une garantie du
+runtime. Les tests de contrat démontrent seulement les cas et invariants qu'ils
+exécutent.
+
+Dans cette documentation, **vérifié formellement** signifie accepté par un
+vérificateur de preuve avec son environnement explicite; **invariant logiciel**
+signifie contrôlé par une précondition ou un validateur; **résultat empirique**
+exige un protocole et des données reproductibles; **heuristique** désigne une
+règle déterministe ou un score non validé; **analogie** est un vocabulaire
+inspiré d'un autre domaine. Ces statuts ne sont pas interchangeables.
+
+## 2.1 Représentation du MorphologyGraph
 
 Le MorphologyGraph est un graphe dont chaque sommet est un **MorphologyNode**. Le containment définit une hiérarchie acyclique; les autres relations sont des arêtes typées transversales.
 
@@ -65,41 +83,47 @@ Le graphe comprend des vues distinctes pour le containment, la communication, l'
 
 ### 2.2 ProblemMorphologyProfile
 
-Le **ProblemMorphologyProfile** caractérise le problème pour guider le choix morphologique. Il définit 19 dimensions normalisées dans $[0, 1]$. Dans la version évoluée, chaque dimension porte aussi sa confiance, ses références de preuve et sa date d'observation.
+Le **ProblemMorphologyProfile** vise à caractériser le problème pour guider le choix morphologique. La fiche définit 19 dimensions proposées dans $[0, 1]$. Ces bornes ne garantissent pas que les dimensions soient mesurées ou calibrées; confiance, références de preuve et date d'observation sont des extensions de conception et ne doivent être décrites comme présentes que si le schéma du profil les stocke effectivement.
 
 $$\text{ProblemMorphologyProfile} = \langle \; \sigma_{\text{epistemic}}, \; \sigma_{\text{separability}}, \; \sigma_{\text{decidability}}, \; \sigma_{\text{decomposability}}, \; \sigma_{\text{coupling}}, \; \sigma_{\text{staleReadCost}}, \; \sigma_{\text{authorityAsymmetry}}, \; \sigma_{\text{deliberativeNeed}}, \; \sigma_{\text{dissentImportance}}, \; \sigma_{\text{structureUnknownness}}, \; \sigma_{\text{ecologicalComplexity}}, \; \sigma_{\text{resourceCompetition}}, \; \sigma_{\text{localAutonomy}}, \; \sigma_{\text{persistenceNeed}}, \; \sigma_{\text{failureCorrelation}}, \; \sigma_{\text{capabilityUncertainty}}, \; \sigma_{\text{adversarialRisk}}, \; \sigma_{\text{privacySeparation}}, \; \sigma_{\text{temporalHorizon}} \; \rangle$$
 
-| Dimension | Définition | Impact morphologique |
+| Dimension | Définition | Hypothèse de conception à évaluer |
 |-----------|-----------|---------------------|
-| $\sigma_{\text{epistemic}}$ | Incertitude épistémique (connaissances incomplètes) | Favorise Trinity, Rhizome |
-| $\sigma_{\text{separability}}$ | Separabilité des hypothèses | Favorise PARALLEL, COMPETE |
-| $\sigma_{\text{decidability}}$ | Decidabilité expérimentale | Favorise Trinity, A-Team |
-| $\sigma_{\text{decomposability}}$ | Décomposabilité fonctionnelle | Favorise NEST, SEQUENCE |
-| $\sigma_{\text{coupling}}$ | Couplage d'état entre sous-problèmes | Favorise Syncytium, Holobionte |
-| $\sigma_{\text{staleReadCost}}$ | Coût de lecture périmée | Favorise Syncytium (fraîcheur forte) |
-| $\sigma_{\text{authorityAsymmetry}}$ | Asymétrie d'autorité requise | Favorise A-Team, NEST |
-| $\sigma_{\text{deliberativeNeed}}$ | Besoin de délibération collective | Favorise Biocénose, Biome |
-| $\sigma_{\text{dissentImportance}}$ | Importance du dissentiment | Favorise Rhizome, Métapopulation |
-| $\sigma_{\text{structureUnknownness}$ | Inconnue structurelle | Favorise Rhizome, Métapopulation |
-| $\sigma_{\text{ecologicalComplexity}$ | Complexité écologique | Favorise Biocénose, Holobionte |
-| $\sigma_{\text{resourceCompetition}$ | Compétition pour les ressources | Favorise COMPETE, Métapopulation |
+| $\sigma_{\text{epistemic}}$ | Incertitude épistémique (connaissances incomplètes) | Pourrait justifier l'évaluation de Trinity ou Rhizome |
+| $\sigma_{\text{separability}}$ | Séparabilité des hypothèses | Pourrait justifier l'évaluation de PARALLEL ou COMPETE |
+| $\sigma_{\text{decidability}}$ | Décidabilité expérimentale | Pourrait justifier l'évaluation de Trinity ou A-Team |
+| $\sigma_{\text{decomposability}}$ | Décomposabilité fonctionnelle | Pourrait justifier NEST ou SEQUENCE |
+| $\sigma_{\text{coupling}}$ | Couplage d'état entre sous-problèmes | Pourrait justifier l'évaluation de Syncytium ou Holobionte |
+| $\sigma_{\text{staleReadCost}}$ | Coût de lecture périmée | Pourrait motiver un mécanisme de fraîcheur; la topologie seule ne le garantit pas |
+| $\sigma_{\text{authorityAsymmetry}}$ | Asymétrie d'autorité requise | Pourrait justifier A-Team ou NEST sous contrat d'autorité vérifié |
+| $\sigma_{\text{deliberativeNeed}}$ | Besoin de délibération collective | Pourrait justifier l'évaluation de Biocénose ou Biome |
+| $\sigma_{\text{dissentImportance}}$ | Importance du dissentiment | Pourrait justifier la conservation de propositions divergentes |
+| $\sigma_{\text{structureUnknownness}}$ | Inconnue structurelle | Pourrait motiver l'exploration par Rhizome ou Métapopulation |
+| $\sigma_{\text{ecologicalComplexity}}$ | Complexité écologique | Pourrait motiver Biocénose ou Holobionte |
+| $\sigma_{\text{resourceCompetition}}$ | Compétition pour les ressources | Pourrait motiver COMPETE ou Métapopulation |
 | $\sigma_{\text{localAutonomie}}$ | Autonomie locale requise | Favorise Métapopulation, FEDERATE |
-| $\sigma_{\text{persistenceNeed}$ | Besoin de persistance | Favorise Holobionte, Biome |
-| $\sigma_{\text{failureCorrelation}$ | Corrélation des défaillances | Favorise PARALLEL (isolation) |
-| $\sigma_{\text{capabilityUncertainty}$ | Incertitude sur les capacités | Favorise COMPETE, Biocénose |
-| $\sigma_{\text{adversarialRisk}$ | Risque adversarial | Favorise PARALLEL, BRIDGE |
-| $\sigma_{\text{privacySeparation}$ | Séparation privacy | Favorise PARALLEL, NEST |
-| $\sigma_{\text{temporalHorizon}$ | Horizon temporel | Favorise SEQUENCE (court), Holobionte (long) |
+| $\sigma_{\text{persistenceNeed}}$ | Besoin de persistance | Pourrait motiver Holobionte ou Biome |
+| $\sigma_{\text{failureCorrelation}}$ | Corrélation des défaillances | Pourrait motiver une isolation; PARALLEL ne garantit pas à lui seul l'indépendance des pannes |
+| $\sigma_{\text{capabilityUncertainty}}$ | Incertitude sur les capacités | Pourrait motiver une comparaison COMPETE ou une communauté Biocénose |
+| $\sigma_{\text{adversarialRisk}}$ | Risque adversarial | Pourrait motiver des voies indépendantes; BRIDGE n'est pas en soi une défense |
+| $\sigma_{\text{privacySeparation}}$ | Séparation privacy | Pourrait motiver des frontières PARALLEL/NEST, sous réserve de contrôles effectifs |
+| $\sigma_{\text{temporalHorizon}}$ | Horizon temporel | Peut influer sur les coûts de persistance et de séquencement |
 
-**Score d'affectation topologique** :
+**Score d'affectation topologique — forme illustrative** :
 
 $$\text{TopologyFit}(T, P) = \vec{w}_T \cdot \text{proj}_T(P)$$
 
-où $\vec{w}_T$ est le vecteur de poids spécifique à la topology $T$ et $\text{proj}_T$ projette le profil sur les dimensions pertinentes pour $T$.
+où $\vec{w}_T$ et $\text{proj}_T$ devraient être appris ou justifiés par
+validation. Cette formule n'est pas la spécification exacte du résolveur
+implémenté et aucune calibration empirique de ces 19 dimensions n'est affirmée.
 
 ### 2.3 Algèbre des Topologies
 
-GenOS définit huit opérateurs de composition. Chacun est un foncteur de catégories qui transforme des sous-morphologies en une morphologie composite avec propriétés émergentes.
+La conception décrit huit opérateurs de composition. Le terme « foncteur » au
+sens de la théorie des catégories n'est pas établi ici : catégories source et
+cible, morphismes et préservation de composition/identité ne sont pas définis.
+On les traite comme des opérateurs logiciels candidats dont les contrats
+doivent être spécifiés et testés séparément.
 
 #### 2.3.1 NEST — Composition Hiérarchique
 
@@ -1682,7 +1706,8 @@ $$\text{check}(M_i, M_j) = \text{stateModel}(M_i) \times \text{stateModel}(M_j) 
 
 ## 30. Multi-Timescale Control
 
-La Morphogenèse opère trois boucles de contrôle à différentes échelles temporelles.
+Cette décomposition est une cible d'architecture. Les durées affichées sont des
+ordres de grandeur proposés, pas des périodes garanties par le runtime.
 
 ### 30.1 Fast Morphogenesis (secondes/minutes)
 
@@ -1716,7 +1741,7 @@ $$\text{EvolutionaryMorphogenesis} : \Delta t \in [1\text{h}, 24\text{h}]$$
 
 ---
 
-## 31. Fractal Morphogenesis
+## 31. Fractal Morphogenesis (cible de conception)
 
 La morphogenèse fractale permet aux sous-orchestrateurs d'opérer leur propre morphogenèse locale.
 
@@ -1726,7 +1751,7 @@ Tout nœud composite peut embarquer un **sous-orchestrateur morphogénétique** 
 
 $$\text{FractalMorphogenesis} = \text{NEST}(\text{globalOrchestrator}, \; \{\text{localOrchestrator}_i\})$$
 
-### 31.2 Garanties
+### 31.2 Invariants souhaités
 
 - Chaque sous-orchestrateur respecte les contraints du parent
 - Le budget local est une sous-allocation du budget parent
@@ -1735,9 +1760,11 @@ $$\text{FractalMorphogenesis} = \text{NEST}(\text{globalOrchestrator}, \; \{\tex
 
 ### 31.3 Profondeur Récursive
 
-$$\text{fractalDepth} \le \text{maxDepth} - 2$$
+$$0 \le \text{fractalDepth} \le \text{maxDepth}$$
 
-pour préserver les niveaux de contrôle global.
+La marge fixe de deux niveaux n'a pas de justification générale. Si une
+application réserve des niveaux au contrôle global, elle doit les encoder dans
+son propre budget de profondeur et vérifier cette contrainte.
 
 ---
 
@@ -1745,16 +1772,21 @@ pour préserver les niveaux de contrôle global.
 
 ### 32.1 Principe
 
-$$\text{MinimumSufficientMorphology}(P) = \arg\min_{M} |M| \quad \text{s.t.} \quad \text{U}(M) \ge \tau_{\text{quality}}$$
+$$\widehat M = \arg\min_{M \in \mathcal{C}_{tested}} \text{Cost}(M) \quad \text{s.t.} \quad \widehat Q(M) \ge \tau_Q$$
 
-La morphologie minimale suffisante est le plus petit graphe morphologique qui atteint le seuil de qualité requis.
+Cette notation décrit un objectif expérimental sur un ensemble fini de candidats
+testés. $\widehat Q$ est une estimation de qualité assortie d'un protocole et
+d'incertitude; $\mathcal{C}_{tested}$ dépend du budget d'exploration. Elle ne
+garantit ni l'existence d'un candidat satisfaisant ni le minimum global sur
+toutes les morphologies possibles. Dans l'implémentation actuelle, l'optimalité
+de cet objectif n'est pas établie.
 
 ### 32.2 Application
 
-1. Commencer avec un nœud Direct ou Trinity
-2. Évaluer l'utilité
-3. Si insuffisant, ajouter le nœud le plus pertinent (via MorphologicalNecessity)
-4. Itérer jusqu'à $\text{U}(M) \ge \tau_{\text{quality}}$
+1. Définir une population finie de candidats et les contraintes dures
+2. Mesurer leur qualité et leur coût sous un protocole commun
+3. Estimer l'incertitude, y compris celle de formalisation et d'observation
+4. Comparer les candidats admissibles; rapporter la frontière mesurée, pas un optimum global
 
 ### 32.3 Avantage
 
@@ -1770,7 +1802,11 @@ La morphologie minimale suffisante est le plus petit graphe morphologique qui at
 
 L'autophagie organisationnelle retire automatiquement les sous-morphologies devenues inutiles.
 
-$$\text{autophagie}(M_i) = \begin{cases} \text{RETIRE\_NODE}(M_i) & \text{if } \text{NecessityIndex}(M_i) < 0.1 \\ \text{REDUCE\_BUDGET}(M_i) & \text{if } \text{budgetConsumption} < 0.2 \\ \text{KEEP}(M_i) & \text{otherwise} \end{cases}$$
+Règle candidate, non seuil runtime validé : une politique peut retirer un nœud
+quand sa contribution marginale estimée reste négative après prise en compte
+de l'incertitude, du coût de transition et des exigences de réversibilité. Les
+valeurs historiques `0.1` et `0.2` ne sont pas des seuils calibrés et ne
+constituent pas une recommandation par défaut.
 
 ### 33.2 Apoptose Locale
 
@@ -1789,9 +1825,11 @@ $$\text{apoptose}(M_i) = \text{migrateState}(M_i, \text{parent}) \circ \text{mig
 
 ---
 
-## 34. Morphogenetic Invariants
+## 34. Contraintes morphogénétiques candidates
 
-Les invariants morphogénétiques sont les propriétés que le MorphologyGraph doit toujours satisfaire.
+Ces contraintes sont des objectifs de validation. Elles ne s'appliquent que
+lorsqu'un validateur concret les impose; la présence dans ce tableau ne prouve
+pas qu'elles sont toutes vérifiées sur chaque chemin d'exécution.
 
 | # | Invariant | Formule | Sévérité |
 |---|-----------|---------|----------|
@@ -1861,15 +1899,26 @@ $$\phi_{\text{in}} : \text{Inputs}(T_d) \to \text{Outputs}(T_s)^{-1}$$
 
 $$\text{transCost}(\phi) = \alpha \cdot \text{typeDistance}(T_s, T_d) + \beta \cdot \text{schemaGap}(T_s, T_d) + \gamma \cdot \text{latency}(\phi)$$
 
+Forme de coût candidate seulement : les trois termes doivent être rendus
+comparables (normalisation ou conversion explicite) avant pondération; les
+coefficients ne sont pas calibrés ici.
+
 ### 36.4 Fidélité
 
-$$\text{Fidelity}(\phi) = \frac{|\{x \in \text{Outputs}(T_s) : \phi(x) \in \text{ValidInputs}(T_d)\}|}{|\text{Outputs}(T_s)|} \ge \tau_{\text{bridge}}$$
+La fidélité ne peut être estimée qu'à partir d'un corpus défini d'entrées et de
+critères de conservation sémantique. Un simple taux d'acceptation de schéma ne
+mesure pas la préservation du sens. Tout seuil $\tau_{\text{bridge}}$ exige une
+justification par risque et une validation dédiée; cette expression est une
+proposition de mesure, pas un seuil global présentement garanti.
 
 ---
 
 ## 37. CouplingScore
 
-Le CouplingScore quantifie le degré d'accouplement entre sous-morphologies.
+La formule historique ci-dessous est un indice candidat, non une métrique
+calibrée. Ses facteurs mélangent comptages, fréquences et coûts, et certains
+termes peuvent être indéfinis (par exemple intervalle ou taux nul); leur produit
+n'a donc pas d'échelle universelle.
 
 $$\text{CouplingScore}(M) = \text{SharedWrites} \times \text{DependencyDensity} \times \text{UpdateFrequency} \times \text{StalenessCost}$$
 
@@ -1889,15 +1938,15 @@ $$\text{UpdateFrequency}(M) = \frac{1}{|\mathcal{M}|} \sum_{i=1}^{|\mathcal{M}|}
 
 $$\text{StalenessCost}(M) = \frac{1}{|\mathcal{M}|} \sum_{i=1}^{|\mathcal{M}|} \frac{\text{freshnessRequirement}_i^{-1}}{\text{mutationRate}_i} \cdot \text{impactFactor}_i$$
 
-### 37.5 Seuils
+### 37.5 Calibration et usage
 
-| CouplingScore | Diagnostic | Action |
-|--------------|-----------|--------|
-| $[0, 0.2)$ | Découplage optimal | Aucune |
-| $[0.2, 0.5)$ | Couplage acceptable | Surveillance |
-| $[0.5, 0.8)$ | Couplage élevé | Découplage ciblé |
-| $[0.8, 1.0)$ | Couplage critique | Restructuration |
-| $> 1.0$ | Pathologie | Réfection complète |
+Les anciens seuils numériques sont retirés : ils n'étaient pas dérivés d'un
+jeu de mesures ou d'une analyse de sensibilité. Avant d'utiliser cet indice pour
+déclencher une restructuration, il faut définir les unités/fenêtres, traiter les
+valeurs manquantes et nulles, normaliser les composantes sur un jeu de référence,
+puis mesurer sa relation avec les conflits et coûts observés. En attendant,
+utiliser les signaux élémentaires comme observables séparés et ne pas interpréter
+le score comme un diagnostic de pathologie.
 
 ---
 
@@ -1955,21 +2004,29 @@ Pour éviter les oscillations morphologiques, une transition n'est effectuée qu
 
 ### 39.2 Condition
 
-$$\text{ExpectedGain} > \text{TransitionCost} + \text{HysteresisMargin}$$
+$$\text{borneInf}(\Delta\widehat{Q}) > \widehat{C}_{transition} + H$$
 
-où $\text{HysteresisMargin} = \eta \cdot \text{U}(M_{\text{current}})$ et $\eta \in [0.05, 0.2]$.
+Condition de décision candidate si les quantités sont estimées sur une même
+échelle et si la borne d'incertitude est disponible. La marge $H$ doit être
+choisie par validation du coût des oscillations et des transitions manquées;
+la plage historique de $\eta$ n'est pas empiriquement justifiée.
 
 ### 39.3 Fenêtre Anti-Flap
 
-$$\Delta t_{\text{entre transitions}} \ge \text{antiFlapWindow} = 300\text{s}$$
+$$\Delta t_{\text{entre transitions}} \ge \text{antiFlapWindow}$$
+
+La valeur de la fenêtre dépend de la latence, de la durée de mission et du coût
+de migration; 300 secondes est retiré comme constante universelle.
 
 ### 39.4 Délai Progressif
 
 En cas de transitions répétées, le délai augmente :
 
-$$\text{antiFlapWindow}_n = \text{antiFlapWindow}_0 \cdot 2^{\text{flapCount}}$$
+$$\text{antiFlapWindow}_n = \text{antiFlapWindow}_0 \cdot b^{\text{flapCount}}, \quad b > 1$$
 
-avec reset après $\Delta t > 10 \times \text{antiFlapWindow}_0$ sans transition.
+Cette forme géométrique est une option de conception; base, plafond et reset
+doivent être définis et testés pour le contrôleur concerné avant d'être décrits
+comme un comportement disponible.
 
 ---
 
@@ -2009,13 +2066,19 @@ avec reset après $\Delta t > 10 \times \text{antiFlapWindow}_0$ sans transition
 
 ## 41. Quand NE PAS Utiliser Morphogenèse
 
+Les seuils et durées ci-dessous sont des heuristiques illustratives, non des
+règles universelles. Ils doivent être validés sur les tâches et budgets visés.
+
 ### 41.1 Problèmes Simples et Déterministes
 
-Si $\sigma_{\text{epistemic}} < 0.2$ et $\sigma_{\text{structureUnknownness}} < 0.2$, une approche Direct ou A-Team simple suffit. La morphogenèse apporte une complexité inutile.
+Un faible score de profilage pourrait suggérer de commencer par une exécution
+simple. Les seuils `0.2` ne sont pas calibrés et ne garantissent ni suffisance
+ni économie de coût.
 
 ### 41.2 Missions Ultra-Courtes (< 5 minutes)
 
-Le coût de la morphogenèse initiale dépasse le bénéfice pour les missions très courtes. Utiliser une topology fixe.
+Pour une mission courte, comparer le coût d'initialisation aux gains mesurés;
+la limite de cinq minutes n'est pas une frontière empirique établie.
 
 ### 41.3 Systèmes à Contraintes Rigides Non-Négociables
 
@@ -2023,11 +2086,14 @@ Si les contraintes de sécurité ou de compliance interdisent toute restructurat
 
 ### 41.4 Environnements sans Observabilité
 
-La Morphogenèse nécessite une télémétrie riche. Sans observables suffisants, les boucles de contrôle ne peuvent pas fonctionner.
+Les décisions adaptatives dépendent des observables effectivement disponibles.
+Une télémétrie insuffisante augmente l'incertitude; son effet précis doit être
+établi pour chaque contrôleur.
 
 ### 41.5 Équipes Non-Entraînées à la Cognition Distribuée
 
-La Morphogenèse produit des organisations cognitives complexes. Si les agents ne sont pas formés à la cognition distribuée, la dysbiose est probable.
+Les risques de coordination doivent être mesurés dans le contexte visé; la
+notion de « dysbiose » est ici une métaphore, pas un diagnostic validé.
 
 ### 41.6 Budget Ultra-Restricté
 
@@ -2035,43 +2101,47 @@ Si le budget ne permet qu'un seul agent, la morphogenèse ne peut pas opérer. U
 
 ---
 
-## 42. Synthèse des Formules
+## 42. Vocabulaire des métriques candidates
 
-| Symbole | Nom | Formule |
-|---------|-----|---------|
-| $\text{U}(M)$ | Utilité morphologique | $\sum_k w_k v_k(M)$ |
-| $\text{MR}(M, M^*)$ | Morphological Regret | $\text{U}(M^*) - \text{U}(M)$ |
-| $\text{ME}(M)$ | Morphological Efficiency | $\text{U}(M) / \text{Cost}(M)$ |
-| $\text{MN}(T_i, \mathcal{M})$ | Morphological Necessity | $\Delta\text{U} / \text{U}$ |
-| $\text{CS}(M)$ | Coupling Score | $\text{SW} \times \text{DD} \times \text{UF} \times \text{SC}$ |
-| $\text{Fidelity}(\phi)$ | Fidélité d'adaptation | $|\phi^{-1}(\text{Valid})| / |\text{Outputs}|$ |
-| $\text{DR}(\mathcal{M})$ | Dysbiosis Risk | $1 - \prod_d (1 - p_d)$ |
-| $\text{MG}(\mathcal{M})$ | Mutualism Gain | $\text{U} - \sum \text{U}_{\text{isolated}}$ |
-| $\text{TC}$ | Transition Cost | $\alpha \cdot \text{StateMigration} + \beta \cdot \text{Warmup} + \gamma \cdot \text{Validation}$ |
-| $\text{HM}$ | Hysteresis Margin | $\eta \cdot \text{U}(M_{\text{current}})$ |
+Les expressions ci-dessous sont des définitions de travail pour un protocole
+d'évaluation. Elles ne sont pas un tableau de métriques opérationnelles
+uniformément fournies par le runtime. Toute comparaison exige une utilité
+orientée (quels critères sont minimisés/maximisés), une échelle commune, une
+gestion des observations manquantes et une estimation d'incertitude.
+
+| Nom | Interprétation proposée | Précaution |
+|-----|-------------------------|------------|
+| Utilité $U(M)$ | Agrégation multi-critères d'une morphologie | Poids et unités à définir; score non universel |
+| Regret | Écart à un meilleur candidat de référence | $M^*$ n'est connu que pour un ensemble fini évalué, sauf oracle |
+| Efficacité | Progrès vérifié rapporté aux ressources consommées | Définir progrès, coût et budget partagé |
+| Nécessité marginale | Variation observée après ajout/retrait d'un nœud | Nécessite ablation ou contrefactuel valide |
+| Fidélité d'adaptation | Préservation de propriétés sémantiques sur un corpus | Acceptation de schéma seule insuffisante |
+| Risque / gain mutualiste | Agrégats de risques ou de gains conjoints | Hypothèses d'indépendance et unité à expliciter |
+| Coût de transition | Coûts mesurés de migration, démarrage et validation | Ne pas sommer des grandeurs d'unités différentes sans normalisation |
 
 ---
 
-## 43. Propriétés Algébriques
+## 43. Propriétés algébriques : statut
 
-### 43.1 Table de Propriétés
+Les lois algébriques dépendent de la sémantique et des contrats de chaque
+opérateur. Le tableau historique de cette fiche affirmait associativité,
+commutativité ou idempotence sans préciser l'égalité observée (structure,
+sorties, effets, coût), les préconditions, ni la gestion des échecs. Ces
+affirmations sont retirées comme propriétés établies.
 
-| Propriété | NEST | PARALLEL | SEQUENCE | GATE | COMPETE | WRAP | BRIDGE | FEDERATE |
-|-----------|------|----------|----------|------|---------|------|--------|----------|
-| Associatif | ✗ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ |
-| Commutatif | ✗ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ |
-| Idempotent | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ |
+Pour démontrer une loi, il faut définir une sémantique déterministe, préciser
+les hypothèses de compatibilité des entrées et comparer les résultats selon une
+équivalence déclarée. En particulier, l'ordre parallèle peut changer les effets
+si les écritures se recouvrent; un DAG de dépendances ne suffit pas à assurer la
+confluence. Un CRDT converge seulement sous ses hypothèses de réplication,
+commutativité/idempotence des opérations, livraison et résolution des conflits;
+cela ne prouve pas la confluence de l'organisation complète.
 
-### 43.2 Théorème de Confluence
-
-Une composition morphologique est confluent si :
-1. Chaque opérateur interne est confluent par construction
-2. Les dépendances forment un DAG
-3. Les SharedWrites sont gérés par CRDT convergent
-
-### 43.3 Théorème de Monotonie
-
-L'utilité est monotone croissant en nombre d'agents si et seulement si le DysbiosisRisk ne dépasse pas $\tau_{\text{dysbio}}$.
+La monotonie de l'utilité avec le nombre d'agents n'est pas établie. Le coût de
+coordination, le budget, les dépendances et la qualité peuvent évoluer avec le
+nombre d'agents; une condition exprimée par un risque de dysbiose ne suffit pas
+sans fonction d'utilité définie et preuve. Cette propriété reste une hypothèse
+expérimentale à étudier, pas un théorème du runtime.
 
 ---
 
