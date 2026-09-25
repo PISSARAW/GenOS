@@ -77,15 +77,32 @@ function normalizeCandidates(supplied = {}) {
 
 function selectTriplet(candidates) {
   if (candidates.length < CHAMBERS.length) return null;
-  const selected = new Map();
-  for (const candidate of candidates) {
-    if (candidate.chamber && !selected.has(candidate.chamber)) selected.set(candidate.chamber, candidate);
+  const pools = CHAMBERS.map((chamber) => candidates.filter((candidate) => !candidate.chamber || candidate.chamber === chamber));
+  let best = null;
+  for (const direct of pools[0]) {
+    for (const structured of pools[1]) {
+      for (const falsification of pools[2]) {
+        const selected = [direct, structured, falsification];
+        if (new Set(selected.map((candidate) => candidate.id)).size !== CHAMBERS.length) continue;
+        const triplet = selected.map((candidate, index) => ({ ...candidate, chamber: CHAMBERS[index] }));
+        if (preferTriplet(triplet, best)) best = triplet;
+      }
+    }
   }
-  const remaining = candidates.filter((candidate) => ![...selected.values()].includes(candidate));
-  for (const chamber of CHAMBERS) {
-    if (!selected.has(chamber)) selected.set(chamber, remaining.shift());
+  return best;
+}
+
+function preferTriplet(candidate, current) {
+  if (!current) return true;
+  const candidateScore = scoreTriplet(candidate);
+  const currentScore = scoreTriplet(current);
+  if (candidateScore.orthogonalityScore !== currentScore.orthogonalityScore) {
+    return candidateScore.orthogonalityScore > currentScore.orthogonalityScore;
   }
-  return CHAMBERS.map((chamber) => ({ ...selected.get(chamber), chamber }));
+  if (candidateScore.falsifiabilityScore !== currentScore.falsifiabilityScore) {
+    return candidateScore.falsifiabilityScore > currentScore.falsifiabilityScore;
+  }
+  return candidate.map((item) => item.id).join('|') < current.map((item) => item.id).join('|');
 }
 
 function hypothesisText(candidate, fallback) {
