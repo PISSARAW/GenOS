@@ -167,13 +167,14 @@ async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, 
 }
 
 async function applyTrinityHypothesisDesign(trinity, normalizedMission, context) {
-  const design = trinity.activated
+  const baseDesign = trinity.activated
     ? await trinityHypothesisGeneration.design({ ...context, normalizedMission })
     : trinityService.designHypotheses(missionText(normalizedMission), {
       ...(normalizedMission.trinityHypothesisDesign || {}),
       integrationChecks: normalizedMission.trinityIntegrationChecks,
       claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
     });
+  const design = { ...baseDesign, juryConfig: normalizedMission.trinityJury || null };
   trinity.hypothesisDesign = design;
   trinity.members = trinity.members.map((member, index) => {
     const selected = design.selectedTriplet[index];

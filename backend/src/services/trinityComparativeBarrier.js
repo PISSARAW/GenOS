@@ -17,6 +17,7 @@ const { emit } = require('./agentOrchestrationState');
 const trinityCrossExamination = require('./trinityCrossExaminationService');
 const candidateVerification = require('./trinityCandidateVerificationService');
 const trinityClaimGraph = require('./trinityClaimGraphService');
+const trinityBlindJury = require('./trinityBlindJuryService');
 
 function reportOf(event) {
   if (!event) return null;
@@ -147,7 +148,7 @@ async function applyTrinityComparison(ctx) {
   const result = trinityService.mergeTrinityEvidence(worldReports, {
     domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds, claimGraph
   });
-  result.jury = { status: 'unavailable', reason: 'judge_dispatch_not_configured', votes: [] };
+  result.jury = await trinityBlindJury.evaluate({ db: ctx.db, agentId: ctx.agentId, outcome: result.outcome, mission: trinity.hypothesisDesign?.centralProblem, config: trinity.hypothesisDesign?.juryConfig, reports: worldReports });
   result.comparativeAnalysis.crossExamination = trinityCrossExamination.summary(crossExamination);
   result.comparativeAnalysis.claimGraph = claimGraph;
   await recordComparison(ctx, trinity, result);
@@ -159,7 +160,6 @@ async function applyTrinityComparison(ctx) {
   emitComparison(ctx, trinity, result);
   return result;
 }
-
 function emitComparison(ctx, trinity, result) {
   const detail = result.canMerge
     ? `Trinity selected World ${result.selectedWorld} (${result.selectedRole}) as a candidate; promotion checks are still pending.`
