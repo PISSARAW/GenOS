@@ -19,12 +19,13 @@ function transitionAdapters(regionalValid) {
 }
 
 function transitionInput() {
-  const plan = { transitionRequested: true, currentTopology: 'a_team', proposedTopology: 'syncytium' };
+  const plan = { transitionRequested: true, currentTopology: 'trinity', proposedTopology: 'a_team' };
   return { demeId: 'deme-a', plan, context: {
-    graph: { scope: 'deme', demeId: 'deme-a', topology: 'a_team', version: 1 },
+    graph: { scope: 'deme', demeId: 'deme-a', topology: 'trinity', version: 1 },
     regionalTopology: 'metapopulation',
-    patch: { demeId: 'deme-a', targetTopology: 'syncytium', baseGraphVersion: 1,
+    patch: { demeId: 'deme-a', targetTopology: 'a_team', baseGraphVersion: 1,
       operations: [{ type: 'CHANGE_PARAMETERS' }], reason: 'local failure pressure', evidence: [{ verified: true }],
+      topologyTransitionPayload: { verifiedClaims: [{ id: 'claim-1', text: 'local result', status: 'verified' }] },
       rollbackPlan: { restoreDomains: ['graph', 'workers', 'leases', 'state', 'budgets'] } }
   } };
 }
