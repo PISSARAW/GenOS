@@ -94,6 +94,11 @@ function selectTriplet(candidates) {
 
 function preferTriplet(candidate, current) {
   if (!current) return true;
+  const candidateExperiment = buildDiscriminatingExperiment(candidate);
+  const currentExperiment = buildDiscriminatingExperiment(current);
+  const candidateDiscrimination = candidateExperiment?.discriminationScore || 0;
+  const currentDiscrimination = currentExperiment?.discriminationScore || 0;
+  if (candidateDiscrimination !== currentDiscrimination) return candidateDiscrimination > currentDiscrimination;
   const candidateScore = scoreTriplet(candidate);
   const currentScore = scoreTriplet(current);
   if (candidateScore.orthogonalityScore !== currentScore.orthogonalityScore) {
@@ -134,8 +139,13 @@ function buildDiscriminatingExperiment(selectedTriplet) {
     expectedOutcome: candidate.experiment.expectedOutcome,
     sourceRefs: candidate.sourceRefs || ['mission']
   }));
+  const discriminatingOutcomeCount = outcomes.size;
   const digest = crypto.createHash('sha256').update(JSON.stringify({ protocol, predictions })).digest('hex').slice(0, 16);
-  return { id: `experiment_${digest}`, protocol, predictions, status: 'proposed', method: 'shared_protocol_divergent_predictions_v1' };
+  return {
+    id: `experiment_${digest}`, protocol, predictions,
+    discriminatingOutcomeCount, discriminationScore: Number((discriminatingOutcomeCount / CHAMBERS.length).toFixed(4)),
+    status: 'proposed', method: 'shared_protocol_divergent_predictions_v1'
+  };
 }
 
 function hypothesisTokens(candidate) {
