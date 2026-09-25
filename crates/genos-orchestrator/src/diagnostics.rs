@@ -6,10 +6,10 @@
 
 use crate::GenosEcosystem;
 use crate::dna_ops;
-use crate::plasmids::{PlasmidBank, Skill};
+use crate::plasmids::{PlasmidBank, PlasmidTransfer, Skill};
 use crate::trace::{Outcome, ReplayReport, Verdict};
 use genos_biology::specialized_cells::prokaryote::ProkaryoticAgent;
-use genos_biology::therapy::{apply_systemic_therapy_to_cell, SystemicTherapy};
+use genos_biology::therapy::{SystemicTherapy, apply_systemic_therapy_to_cell};
 use genos_dna::model::AgentDna;
 use genos_dna::operations::{CrossOptions, MutateOptions};
 use std::path::Path;
@@ -17,7 +17,8 @@ use uuid::Uuid;
 
 impl GenosEcosystem {
     /// Enregistre une action d'agent (trace + journal d'événements).
-    pub fn record_action(&mut self, agent: Uuid, action: &str, outcome: Outcome) {
+    pub fn record_action(&mut self, agent: Uuid, event: (&str, Outcome)) {
+        let (action, outcome) = event;
         let tick = self.events.count() as u64;
         self.traces.record(agent, tick, action, outcome);
         self.events.append(
@@ -193,7 +194,11 @@ impl GenosEcosystem {
             self.prokaryote.plasmids.push(plasmid);
         }
         let mut recipient = ProkaryoticAgent::new(&agent.to_string());
-        match self.plasmids.transfer(&self.prokaryote, &mut recipient, &id) {
+        match self.plasmids.transfer(PlasmidTransfer {
+            donor: &self.prokaryote,
+            recipient: &mut recipient,
+            plasmid_id: &id,
+        }) {
             Ok(_) => "plasmide (SKILL_REPAIR) transfere".to_string(),
             Err(error) => format!("transfert echoue : {error}"),
         }
@@ -205,7 +210,10 @@ impl GenosEcosystem {
             Skill::Heal => self.heal(agent),
             Skill::Throttle => {
                 let throttle = self.throttle_flux(120.0);
-                format!("throttle applique (flux admis {:.1})", throttle.admitted_flux)
+                format!(
+                    "throttle applique (flux admis {:.1})",
+                    throttle.admitted_flux
+                )
             }
             Skill::Repair => match self.orchestrator.active_cells.get_mut(&agent) {
                 Some(cell) => {

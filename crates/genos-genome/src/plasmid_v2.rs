@@ -1,5 +1,8 @@
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+pub const MAX_PLASMID_POOL_SIZE: usize = 1024;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct PlasmidInstance {
@@ -28,9 +31,9 @@ impl PlasmidInstance {
         Self {
             id: Uuid::new_v4(),
             instruction: params.instruction,
-            metabolic_cost: params.metabolic_cost.clamp(0.0, 1.0),
-            replication_rate: params.replication_rate.clamp(0.0, 1.0),
-            stability: params.stability.clamp(0.0, 1.0),
+            metabolic_cost: bounded(params.metabolic_cost),
+            replication_rate: bounded(params.replication_rate),
+            stability: bounded(params.stability),
             compatibility_group: params.compatibility_group,
             acquired_from: None,
             acquired_at: 0,
@@ -53,17 +56,29 @@ impl PlasmidInstance {
     }
 
     pub fn maintain(&mut self, energy_budget: f64) -> bool {
+        self.maintain_with_rng(energy_budget, &mut rand::rng())
+    }
+
+    pub fn maintain_with_rng<R: RngExt + ?Sized>(
+        &mut self,
+        energy_budget: f64,
+        rng: &mut R,
+    ) -> bool {
         if energy_budget < self.metabolic_cost {
-            self.stability -= 0.1;
+            self.stability = (self.stability - 0.1).clamp(0.0, 1.0);
         }
-        rand::random::<f64>() > self.stability.max(0.0)
+        rng.random::<f64>() > self.stability
     }
 
     pub fn replicate(&self) -> Option<PlasmidInstance> {
-        if rand::random::<f64>() < self.replication_rate {
+        self.replicate_with_rng(&mut rand::rng())
+    }
+
+    pub fn replicate_with_rng<R: RngExt + ?Sized>(&self, rng: &mut R) -> Option<PlasmidInstance> {
+        if rng.random::<f64>() < self.replication_rate {
             let mut child = self.clone();
-            child.id = Uuid::new_v4();
-            child.generation += 1;
+            child.id = Uuid::from_bytes(rng.random::<[u8; 16]>());
+            child.generation = child.generation.saturating_add(1);
             Some(child)
         } else {
             None
@@ -71,11 +86,16 @@ impl PlasmidInstance {
     }
 
     pub fn is_lost(&self, energy_budget: f64) -> bool {
-        if energy_budget < self.metabolic_cost {
-            rand::random::<f64>() < 0.5
+        self.is_lost_with_rng(energy_budget, &mut rand::rng())
+    }
+
+    pub fn is_lost_with_rng<R: RngExt + ?Sized>(&self, energy_budget: f64, rng: &mut R) -> bool {
+        let probability = if energy_budget < self.metabolic_cost {
+            0.5
         } else {
-            rand::random::<f64>() < (1.0 - self.stability)
-        }
+            1.0 - self.stability
+        };
+        rng.random::<f64>() < probability.clamp(0.0, 1.0)
     }
 
     pub fn is_compatible(&self, other: &PlasmidInstance) -> bool {
@@ -93,12 +113,22 @@ impl PlasmidPool {
     pub fn new(energy_budget: f64) -> Self {
         Self {
             plasmids: Vec::new(),
-            energy_budget,
+            energy_budget: if energy_budget.is_finite() {
+                energy_budget.max(0.0)
+            } else {
+                0.0
+            },
         }
     }
 
     pub fn add(&mut self, plasmid: PlasmidInstance) {
-        if !self.has_compatible(&plasmid) {
+        let valid_instruction = !plasmid.instruction.trim().is_empty();
+        let duplicate_id = self.plasmids.iter().any(|stored| stored.id == plasmid.id);
+        if valid_instruction
+            && !duplicate_id
+            && self.plasmids.len() < MAX_PLASMID_POOL_SIZE
+            && !self.has_compatible(&plasmid)
+        {
             self.plasmids.push(plasmid);
         }
     }
@@ -108,6 +138,10 @@ impl PlasmidPool {
     }
 
     pub fn cycle(&mut self) -> PlasmidCycleResult {
+        self.cycle_with_rng(&mut rand::rng())
+    }
+
+    pub fn cycle_with_rng<R: RngExt + ?Sized>(&mut self, rng: &mut R) -> PlasmidCycleResult {
         let energy_budget = self.energy_budget;
         let current = self.plasmids.clone();
 
@@ -115,13 +149,26 @@ impl PlasmidPool {
         let mut lost: Vec<Uuid> = Vec::new();
         let mut replicated: Vec<PlasmidInstance> = Vec::new();
 
-        for plasmid in &current {
-            if plasmid.is_lost(energy_budget) {
+        let mut used_budget = 0.0;
+        for original in &current {
+            let mut plasmid = original.clone();
+            let remaining_budget = (energy_budget - used_budget).max(0.0);
+            if plasmid.maintain_with_rng(remaining_budget, rng)
+                || used_budget + plasmid.metabolic_cost > energy_budget
+                || retained.len() + replicated.len() >= MAX_PLASMID_POOL_SIZE
+            {
                 lost.push(plasmid.id);
             } else {
+                used_budget += plasmid.metabolic_cost;
                 retained.push(plasmid.clone());
-                if let Some(child) = plasmid.replicate() {
-                    replicated.push(child);
+                if retained.len() + replicated.len() < MAX_PLASMID_POOL_SIZE {
+                    if let Some(child) = plasmid
+                        .replicate_with_rng(rng)
+                        .filter(|child| used_budget + child.metabolic_cost <= energy_budget)
+                    {
+                        used_budget += child.metabolic_cost;
+                        replicated.push(child);
+                    }
                 }
             }
         }
@@ -152,6 +199,14 @@ impl PlasmidPool {
             }
         }
         self.plasmids = keep;
+    }
+}
+
+fn bounded(value: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
     }
 }
 
@@ -240,5 +295,48 @@ mod tests {
         let p = PlasmidInstance::acquired("RESISTANCE_GENE", source_id, "IncA");
         assert_eq!(p.acquired_from, Some(source_id));
         assert_eq!(p.metabolic_cost, 0.05);
+    }
+
+    #[test]
+    fn pool_cycle_respects_total_energy_budget() {
+        use rand::SeedableRng;
+        let mut pool = PlasmidPool::new(0.2);
+        pool.add(PlasmidInstance::new(plasmid(("A", 0.15, 1.0, "IncA"))));
+        pool.add(PlasmidInstance::new(plasmid(("B", 0.15, 1.0, "IncB"))));
+        let mut rng = rand::rngs::StdRng::seed_from_u64(12);
+        pool.cycle_with_rng(&mut rng);
+        assert!(pool.total_metabolic_cost() <= pool.energy_budget);
+    }
+
+    #[test]
+    fn pool_growth_has_a_hard_ceiling() {
+        let mut pool = PlasmidPool::new(1.0);
+        for index in 0..=MAX_PLASMID_POOL_SIZE {
+            pool.add(PlasmidInstance::new(plasmid((
+                "A",
+                0.0,
+                1.0,
+                &format!("Inc{index}"),
+            ))));
+        }
+        assert_eq!(pool.plasmids.len(), MAX_PLASMID_POOL_SIZE);
+    }
+
+    #[test]
+    fn seeded_replication_has_reproducible_instance_ids() {
+        use rand::SeedableRng;
+        let plasmid = PlasmidInstance::new(PlasmidParams {
+            instruction: "REVIEW".to_string(),
+            metabolic_cost: 0.1,
+            replication_rate: 1.0,
+            stability: 1.0,
+            compatibility_group: "IncA".to_string(),
+        });
+        let mut first_rng = rand::rngs::StdRng::seed_from_u64(91);
+        let mut second_rng = rand::rngs::StdRng::seed_from_u64(91);
+        assert_eq!(
+            plasmid.replicate_with_rng(&mut first_rng),
+            plasmid.replicate_with_rng(&mut second_rng)
+        );
     }
 }

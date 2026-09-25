@@ -209,6 +209,7 @@ module.exports = { TOOL_HANDLERS };
 // façon générique: tout handler qui déclare required[] est contrôlé, aucun
 // bridge_id/pair_id/host_id ne doit recevoir de valeur par défaut silencieuse.
 const HANDLER_REQUIRED = {
+  genos_evolution_assimilate_plasmid: ['agent_id', 'plasmid_id'],
   genos_biomimicry_thalamic_bridge: ['bridge_id'],
   genos_biomimicry_conjoined_twin_bind: ['pair_id'],
   genos_biomimicry_mirror_twin_fork: ['pair_id'],

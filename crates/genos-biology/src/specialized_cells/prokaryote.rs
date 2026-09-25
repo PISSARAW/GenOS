@@ -72,14 +72,25 @@ impl ProkaryoticAgent {
         if !self.has_sex_pilus {
             return Err("Donneur incapable de conjugaison (absence de pilus F)".to_string());
         }
+        if self.id == recipient.id {
+            return Err("Le donneur et le receveur doivent être distincts".to_string());
+        }
 
-        let plasmid_to_transfer = self.plasmids.iter()
+        let plasmid_to_transfer = self
+            .plasmids
+            .iter()
             .find(|p| p.plasmid_id == plasmid_id)
             .cloned()
             .ok_or_else(|| format!("Plasmide '{}' non trouvé chez le donneur", plasmid_id))?;
+        if !valid_plasmid(&plasmid_to_transfer) {
+            return Err("Plasmide incomplet; transfert refusé".to_string());
+        }
 
-        // Le receveur intègre le plasmide sans passer par l'orchestrateur central
-        if !recipient.plasmids.iter().any(|p| p.plasmid_id == plasmid_id) {
+        let already_present = recipient
+            .plasmids
+            .iter()
+            .any(|p| p.plasmid_id == plasmid_id);
+        if !already_present {
             recipient.plasmids.push(plasmid_to_transfer.clone());
         }
 
@@ -87,15 +98,26 @@ impl ProkaryoticAgent {
             donor_id: self.id.clone(),
             recipient_id: recipient.id.clone(),
             transferred_plasmid_id: plasmid_id.to_string(),
-            pilus_connection_latency_ms: 0.85,
+            pilus_connection_latency_ms: 0.0,
             horizontal_transfer_success: true,
-            status: "HGT_CONJUGATION_COMPLETE_PEER_TO_PEER".to_string(),
+            status: if already_present {
+                "PLASMID_ALREADY_PRESENT"
+            } else {
+                "HGT_TRANSFER_SIMULATED"
+            }
+            .to_string(),
         })
     }
 
     /// Transformation naturelle : absorption d'un plasmide libre dans l'environnement
     pub fn assimilate_transformation(&mut self, free_plasmid: Plasmid) -> bool {
-        if self.is_competent_for_transformation && !self.plasmids.iter().any(|p| p.plasmid_id == free_plasmid.plasmid_id) {
+        if self.is_competent_for_transformation
+            && valid_plasmid(&free_plasmid)
+            && !self
+                .plasmids
+                .iter()
+                .any(|p| p.plasmid_id == free_plasmid.plasmid_id)
+        {
             self.plasmids.push(free_plasmid);
             true
         } else {
@@ -128,18 +150,31 @@ impl ProkaryoticAgent {
         (daughter_a, daughter_b)
     }
 
-    /// Exécution instantanée d'une compétence plasmidique sans overhead nucléaire
+    /// Retourne une description de simulation; n'exécute pas le payload.
     pub fn execute_plasmid(&self, plasmid_id: &str) -> Option<PlasmidExecutionYield> {
-        self.plasmids.iter().find(|p| p.plasmid_id == plasmid_id).map(|plasmid| {
-            PlasmidExecutionYield {
-                plasmid_id: plasmid.plasmid_id.clone(),
-                skill_name: plasmid.skill_name.clone(),
-                execution_output: format!("EXECUTED_SKILL_{}: {}", plasmid.skill_name, plasmid.executable_payload),
-                latency_micros: 15,
-                nucleus_overhead_cost: 0.0, // Zéro surcoût de noyau
-            }
-        })
+        self.plasmids
+            .iter()
+            .find(|p| p.plasmid_id == plasmid_id)
+            .map(|plasmid| {
+                PlasmidExecutionYield {
+                    plasmid_id: plasmid.plasmid_id.clone(),
+                    skill_name: plasmid.skill_name.clone(),
+                    execution_output: format!(
+                        "PAYLOAD_NOT_EXECUTED_{}: {}",
+                        plasmid.skill_name, plasmid.executable_payload
+                    ),
+                    latency_micros: 0,
+                    nucleus_overhead_cost: 0.0, // Zéro surcoût de noyau
+                }
+            })
     }
+}
+
+fn valid_plasmid(plasmid: &Plasmid) -> bool {
+    !plasmid.plasmid_id.trim().is_empty()
+        && !plasmid.skill_name.trim().is_empty()
+        && !plasmid.executable_payload.trim().is_empty()
+        && plasmid.copy_number > 0
 }
 
 #[cfg(test)]
@@ -163,15 +198,24 @@ mod tests {
         assert_eq!(recipient.plasmids.len(), 0);
 
         // Conjugaison directe de pair à pair
-        let report = donor.conjugate_transfer_plasmid(&mut recipient, "pResist_anti_injection")
+        let report = donor
+            .conjugate_transfer_plasmid(&mut recipient, "pResist_anti_injection")
             .expect("HGT success");
         assert!(report.horizontal_transfer_success);
         assert_eq!(recipient.plasmids.len(), 1);
 
         // Exécution par le receveur
-        let exec_yield = recipient.execute_plasmid("pResist_anti_injection").expect("Exec ok");
+        let exec_yield = recipient
+            .execute_plasmid("pResist_anti_injection")
+            .expect("Exec ok");
         assert_eq!(exec_yield.nucleus_overhead_cost, 0.0);
         assert_eq!(exec_yield.skill_name, "ADVERSARIAL_INJECTION_DEFENSE");
+        assert!(
+            exec_yield
+                .execution_output
+                .starts_with("PAYLOAD_NOT_EXECUTED_")
+        );
+        assert_eq!(exec_yield.latency_micros, 0);
 
         // Division binaire
         let (d1, d2) = recipient.binary_fission();

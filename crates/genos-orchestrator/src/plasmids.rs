@@ -38,6 +38,12 @@ pub struct PlasmidBank {
     pub plasmids: Vec<Plasmid>,
 }
 
+pub struct PlasmidTransfer<'a> {
+    pub donor: &'a ProkaryoticAgent,
+    pub recipient: &'a mut ProkaryoticAgent,
+    pub plasmid_id: &'a str,
+}
+
 impl PlasmidBank {
     pub fn new() -> Self {
         Self::default()
@@ -66,6 +72,13 @@ impl PlasmidBank {
     }
 
     pub fn add(&mut self, plasmid: Plasmid) -> usize {
+        if let Some(index) = self
+            .plasmids
+            .iter()
+            .position(|stored| stored.plasmid_id == plasmid.plasmid_id)
+        {
+            return index;
+        }
         self.plasmids.push(plasmid);
         self.plasmids.len() - 1
     }
@@ -79,12 +92,9 @@ impl PlasmidBank {
     }
 
     /// Transfert horizontal (conjugaison) d'un plasmide donneur -> receveur.
-    pub fn transfer(
-        &self,
-        donor: &ProkaryoticAgent,
-        recipient: &mut ProkaryoticAgent,
-        plasmid_id: &str,
-    ) -> Result<HgtTransferReport, String> {
-        donor.conjugate_transfer_plasmid(recipient, plasmid_id)
+    pub fn transfer(&self, request: PlasmidTransfer<'_>) -> Result<HgtTransferReport, String> {
+        request
+            .donor
+            .conjugate_transfer_plasmid(request.recipient, request.plasmid_id)
     }
 }

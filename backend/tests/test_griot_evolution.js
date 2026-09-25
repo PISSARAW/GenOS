@@ -8,7 +8,7 @@ const { validateToolArguments } = require('../src/services/mcpArgumentValidation
 let executedCommand = '';
 function mockRun(command) {
   executedCommand = command;
-  return Buffer.from('success');
+  return Buffer.from(JSON.stringify({ success: true, persisted: true, plasmid_id: 'persisted-plasmid', status: 'assimilated' }));
 }
 
 function runSpeciationTest() {
@@ -43,10 +43,10 @@ async function runOrganizationSignalTest() {
   assert.strictEqual(result.success, true);
   assert.strictEqual(result.transport, 'local+zero_text');
   const inbox = await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId: orchestratorId });
-  const signal = inbox.messages.find((message) => message.signal?.plasmidId === 'plasmid_x');
+  const signal = inbox.messages.find((message) => message.signal?.plasmidId === 'persisted-plasmid');
   assert(signal, 'Assimilation metadata should be available in the owner organization inbox.');
   assert.strictEqual(signal.signalType, 'plasmid');
-  assert.deepStrictEqual(signal.signal, { operation: 'assimilated', plasmidId: 'plasmid_x', recipientAgentId: workerId });
+  assert.deepStrictEqual(signal.signal, { operation: 'assimilated', plasmidId: 'persisted-plasmid', recipientAgentId: workerId });
   assert.strictEqual(JSON.stringify(signal.signal).includes('plasmid_code'), false);
   console.log('Plasmid assimilation organization signal test passed.');
 }

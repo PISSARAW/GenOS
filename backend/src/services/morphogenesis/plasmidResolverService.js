@@ -15,8 +15,8 @@
  *   8. Change topology/strategy?
  */
 
-const { createPlasmid, assimilate } = require('../capabilityPlasmidService');
-const { DECISION_TYPES, findFallbacks } = require('../capabilityEscalationService');
+const { findFallbacks } = require('../capabilityEscalationService');
+const { evaluateAllGates, transitionStatus } = require('./plasmidGateService');
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -26,6 +26,8 @@ const PLASMID_STATUS = Object.freeze({
   AVAILABLE: 'available',
   LEASED: 'leased',
   ASSIMILATED: 'assimilated',
+  DISABLED: 'disabled',
+  SUPERSEDED: 'superseded',
   EXPIRED: 'expired',
   REVOKED: 'revoked'
 });
@@ -49,10 +51,9 @@ const RESOLUTION_ORDER = Object.freeze([
 ]);
 
 const DEFAULT_TTL_MS = 3600000; // 1 hour
-const MAX_ASSIMILATION_COUNT = 10;
 
 // ---------------------------------------------------------------------------
-// In-memory plasmid registry (plugged into db in production)
+// Process-local capability manifest registry; durable agent bindings are stored separately.
 // ---------------------------------------------------------------------------
 
 const plasmidRegistry = new Map();
@@ -63,9 +64,9 @@ const assimilationLog = [];
 // ---------------------------------------------------------------------------
 
 const MANIFEST_DEFAULTS = {
-  donor: null, capability: null, tools: [], evidence: [],
+  donor: null, capability: null, code: null, tools: [], requiredTools: [], requiredAuthority: null, evidence: [],
   provenance: null, compatibility: { topologies: [], roles: [] },
-  risk: 0.5, recipient: null
+  risk: 0.5, recipient: null, status: PLASMID_STATUS.AVAILABLE, acquisitionCount: 0
 };
 
 function buildManifest(opts = {}) {
@@ -75,10 +76,12 @@ function buildManifest(opts = {}) {
     ...opts,
     id: opts.id || `plasmid_${Math.random().toString(36).slice(2, 10)}`,
     acquiredAt: now,
-    expiresAt: now + (opts.ttlMs || DEFAULT_TTL_MS),
+    requiredTools: opts.requiredTools || opts.tools || [],
+    expiresAt: now + (Number.isFinite(opts.ttlMs) && opts.ttlMs > 0 ? opts.ttlMs : DEFAULT_TTL_MS),
     expressionStatus: EXPRESSION_STATUS.LATENT,
     assimilationCount: 0,
-    successCount: 0
+    successCount: 0,
+    status: opts.status || PLASMID_STATUS.AVAILABLE
   };
 }
 
@@ -122,7 +125,7 @@ const RESOLUTION_STEPS = [
   {
     step: 'OWNED',
     test: (c) => hasCapability(c.targetAgent, c.requiredCapability),
-    result: () => ({ action: 'DENY', reasoning: 'already_owned', step: 'OWNED' })
+    result: () => ({ action: 'SATISFIED', reasoning: 'already_owned', step: 'OWNED' })
   },
   {
     step: 'LEASE',
@@ -132,7 +135,7 @@ const RESOLUTION_STEPS = [
   {
     step: 'DELEGATE',
     test: (c) => c.helperAgent && hasCapability(c.helperAgent, c.requiredCapability),
-    result: (c) => ({ action: 'DENY', reasoning: 'delegate_to_helper', step: 'DELEGATE', delegateTo: c.helperAgent.id })
+    result: (c) => ({ action: 'DELEGATE', reasoning: 'delegate_to_helper', step: 'DELEGATE', delegateTo: c.helperAgent.id })
   },
   {
     step: 'PLASMID',
@@ -142,7 +145,7 @@ const RESOLUTION_STEPS = [
   {
     step: 'GENOME',
     test: (c) => c.specializedGenomes?.length > 0 && findMatchingGenome(c.specializedGenomes, c.requiredCapability),
-    result: (c, hit) => ({ action: 'ASSIMILATE_PLASMID', plasmidId: null, reasoning: 'genome_available', step: 'GENOME', genomeId: hit.id })
+    result: (c, hit) => ({ action: 'USE_GENOME', reasoning: 'genome_available', step: 'GENOME', genomeId: hit.id })
   },
   {
     step: 'SPAWN',
@@ -181,7 +184,7 @@ function findLeaseCandidate(availablePlasmids, targetAgent) {
 function findCompatiblePlasmid(availablePlasmids, targetAgent) {
   if (!Array.isArray(availablePlasmids)) return null;
   const candidates = availablePlasmids.filter(p =>
-    p.capability && isCompatible(p, targetAgent) && !isExpired(p)
+    p.capability && p.status === PLASMID_STATUS.AVAILABLE && isCompatible(p, targetAgent) && !isExpired(p)
   );
   candidates.sort((a, b) => (a.risk || 0.5) - (b.risk || 0.5));
   return candidates[0] || null;
@@ -198,17 +201,21 @@ function findMatchingGenome(genomes, capability) {
 
 function acquirePlasmid(ctx) {
   if (!ctx || typeof ctx !== 'object') throw new Error('Invalid context');
-  const { plasmidId, fromAgentId, toAgentId, db } = ctx;
+  const { plasmidId, fromAgentId, toAgentId } = ctx;
 
   const plasmid = plasmidRegistry.get(plasmidId);
   if (!plasmid) throw new Error(`Plasmid not found: ${plasmidId}`);
   if (isExpired(plasmid)) throw new Error(`Plasmid expired: ${plasmidId}`);
+  if (plasmid.status !== PLASMID_STATUS.AVAILABLE) throw new Error(`Plasmid is not available: ${plasmidId}`);
+  if (!fromAgentId || !toAgentId) throw new Error('Donor and recipient are required.');
+  const transition = transitionStatus(plasmidId, PLASMID_STATUS.LEASED, 'acquired');
+  if (!transition.success) throw new Error(transition.error);
 
   plasmid.recipient = toAgentId;
   plasmid.donor = fromAgentId;
   plasmid.status = PLASMID_STATUS.LEASED;
-  plasmid.expressionStatus = EXPRESSION_STATUS.REPLICATING;
-  plasmid.assimilationCount += 1;
+  plasmid.expressionStatus = EXPRESSION_STATUS.LATENT;
+  plasmid.acquisitionCount += 1;
 
   logEvent({ type: 'ACQUIRE', plasmidId, fromAgentId, toAgentId });
   return { ...plasmid };
@@ -216,23 +223,37 @@ function acquirePlasmid(ctx) {
 
 function assimilatePlasmid(ctx) {
   if (!ctx || typeof ctx !== 'object') throw new Error('Invalid context');
-  const { plasmidId, agentId, db } = ctx;
+  const { plasmidId, agentId, recipient } = ctx;
 
   const plasmid = plasmidRegistry.get(plasmidId);
   if (!plasmid) throw new Error(`Plasmid not found: ${plasmidId}`);
   if (isExpired(plasmid)) throw new Error(`Plasmid expired: ${plasmidId}`);
+  assertRecipientLease(plasmid, agentId, recipient);
+  assertPassingGates(plasmid, recipient);
+  const transition = transitionStatus(plasmidId, PLASMID_STATUS.ASSIMILATED, 'gates_passed');
+  if (!transition.success) throw new Error(transition.error);
 
   plasmid.recipient = agentId;
   plasmid.status = PLASMID_STATUS.ASSIMILATED;
   plasmid.expressionStatus = EXPRESSION_STATUS.EXPRESSED;
   plasmid.successCount += 1;
 
-  if (plasmid.assimilationCount >= MAX_ASSIMILATION_COUNT) {
-    plasmid.expressionStatus = EXPRESSION_STATUS.SILENCED;
-  }
+  plasmid.assimilationCount += 1;
 
   logEvent({ type: 'ASSIMILATE', plasmidId, agentId });
-  return { ...plasmid };
+  return structuredClone(plasmid);
+}
+
+function assertRecipientLease(plasmid, agentId, recipient) {
+  if (plasmid.status !== PLASMID_STATUS.LEASED || plasmid.recipient !== agentId) {
+    throw new Error('Plasmid must be leased to this recipient before assimilation.');
+  }
+  if (!recipient || recipient.id !== agentId) throw new Error('Recipient profile is required for plasmid gates.');
+}
+
+function assertPassingGates(plasmid, recipient) {
+  const gateResult = evaluateAllGates(plasmid, recipient);
+  if (!gateResult.passed) throw new Error(`Plasmid assimilation gate failed: ${gateResult.reason}`);
 }
 
 function expirePlasmid(ctx) {
@@ -241,20 +262,22 @@ function expirePlasmid(ctx) {
 
   const plasmid = plasmidRegistry.get(plasmidId);
   if (!plasmid) throw new Error(`Plasmid not found: ${plasmidId}`);
+  const transition = transitionStatus(plasmidId, PLASMID_STATUS.EXPIRED, reason || 'expired');
+  if (!transition.success) throw new Error(transition.error);
 
   plasmid.status = PLASMID_STATUS.EXPIRED;
   plasmid.expressionStatus = EXPRESSION_STATUS.SILENCED;
   plasmid.expiresAt = Date.now();
 
   logEvent({ type: 'EXPIRE', plasmidId, reason });
-  return { ...plasmid };
+  return structuredClone(plasmid);
 }
 
 function getPlasmidStatus(plasmidId) {
   if (!plasmidId) return null;
   const plasmid = plasmidRegistry.get(plasmidId);
   if (!plasmid) return null;
-  return { ...plasmid };
+  return structuredClone(plasmid);
 }
 
 // ---------------------------------------------------------------------------
@@ -262,8 +285,14 @@ function getPlasmidStatus(plasmidId) {
 // ---------------------------------------------------------------------------
 
 function registerPlasmid(manifest) {
-  if (!manifest || !manifest.id) throw new Error('Invalid plasmid manifest');
-  plasmidRegistry.set(manifest.id, { ...manifest });
+  if (!manifest || !manifest.id || !manifest.capability || typeof manifest.code !== 'string' || !manifest.code.trim()) {
+    throw new Error('Plasmid manifest requires an id, capability, and non-empty code.');
+  }
+  if (!Array.isArray(manifest.requiredTools) || !manifest.requiredAuthority) {
+    throw new Error('Plasmid manifest requires requiredTools and requiredAuthority.');
+  }
+  if (plasmidRegistry.has(manifest.id)) throw new Error(`Plasmid already registered: ${manifest.id}`);
+  plasmidRegistry.set(manifest.id, structuredClone(manifest));
   return manifest.id;
 }
 
@@ -277,11 +306,11 @@ function clearRegistry() {
 }
 
 function getRegistry() {
-  return Array.from(plasmidRegistry.values());
+  return Array.from(plasmidRegistry.values(), (plasmid) => structuredClone(plasmid));
 }
 
 function getAssimilationLog() {
-  return [...assimilationLog];
+  return assimilationLog.map((entry) => structuredClone(entry));
 }
 
 // ---------------------------------------------------------------------------

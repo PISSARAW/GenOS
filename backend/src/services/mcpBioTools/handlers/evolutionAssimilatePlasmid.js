@@ -24,7 +24,7 @@ async function organizationContext(args) {
   return { db, orchestratorId: owner, agentId, plasmidId };
 }
 
-async function publishAssimilation(context, args) {
+async function publishAssimilation(context, plasmidId) {
   return dynamicOrganization.publish(context.db, {
     orchestratorId: context.orchestratorId,
     senderAgentId: context.agentId,
@@ -32,7 +32,7 @@ async function publishAssimilation(context, args) {
     signalType: 'plasmid',
     signalData: {
       operation: 'assimilated',
-      plasmidId: context.plasmidId,
+      plasmidId,
       recipientAgentId: context.agentId
     }
   });
@@ -42,12 +42,17 @@ async function handleEvolutionAssimilatePlasmid(args = {}, run) {
   const context = await organizationContext(args);
   const command = `genos evolution assimilate-plasmid --agent-id ${quoteCliArg(args.agent_id)} --plasmid-id ${quoteCliArg(args.plasmid_id)}` + (args.source_agent ? ` --source ${quoteCliArg(args.source_agent)}` : '');
   const output = run(command).toString();
-  if (!context) return { configured: true, success: true, status: 'completed', transport: 'local', output };
+  let result;
+  try { result = JSON.parse(output); } catch { throw new Error('Plasmid CLI returned invalid JSON; assimilation status is unknown.'); }
+  if (result.success !== true || result.persisted !== true || !result.plasmid_id) {
+    throw new Error('Plasmid CLI did not confirm a persisted assimilation.');
+  }
+  if (!context) return { configured: true, ...result, status: 'completed', transport: 'local', output };
   try {
-    const signal = await publishAssimilation(context, args);
-    return { configured: true, success: true, status: 'completed', transport: 'local+zero_text', signal, output };
+    const signal = await publishAssimilation(context, result.plasmid_id);
+    return { configured: true, ...result, status: 'completed', transport: 'local+zero_text', signal, output };
   } catch (error) {
-    return { configured: true, success: true, status: 'completed_signal_error', transport: 'local', signalError: error.message, output };
+    return { configured: true, ...result, status: 'completed_signal_error', transport: 'local', signalError: error.message, output };
   }
 }
 
