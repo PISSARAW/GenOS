@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "pairs": [
+    {
+      "id": "checkout-reliability",
+      "expectedDomains": ["backend", "data", "security", "operations"],
+      "keyworded": "Concevoir le checkout e-commerce: API Node, tables SQL, OAuth, permissions et observabilité CI/CD. Éviter double débit, survente et perte après timeout.",
+      "paraphrased": "Après double clic ou délai réseau, une commande ne doit produire qu’un débit, le stock ne doit pas passer sous zéro, chaque tentative doit pouvoir être reprise et mesurée."
+    },
+    {
+      "id": "data-recovery",
+      "expectedDomains": ["data", "backend", "operations"],
+      "keyworded": "Construire un pipeline ETL SQL avec API, reprise sur incident, déploiement Kubernetes et monitoring.",
+      "paraphrased": "Chaque nuit, consolider les ventes sans perdre les lignes lors d'une panne; reprendre au dernier lot validé et signaler les écarts au responsable."
+    },
+    {
+      "id": "accessible-interface",
+      "expectedDomains": ["frontend", "product", "quality"],
+      "keyworded": "Créer une interface React accessible avec UX, CSS, tests QA et critères produit.",
+      "paraphrased": "Permettre une utilisation intégrale au clavier et par lecteur d'écran, vérifier les parcours avec des utilisateurs et bloquer une régression avant livraison."
+    }
+  ]
+}
