@@ -1,5 +1,9 @@
 # Workflows et jobs dans GenOS
 
+- **Statut** : Partiel
+- **Portée** : définitions et runs de workflows, jobs applicatifs et reprise du backend.
+- **Dernière revue** : 2026-09-25
+
 ## 1. Objet et périmètre
 
 Cette documentation décrit le moteur de workflows et les jobs applicatifs tels qu’ils sont effectivement implémentés dans le dépôt GenOS. Elle ne décrit pas un moteur d’orchestration générique ou un “pipeline orchestrator” idéal. Elle reflète le comportement réel du backend, du worker, des contrôleurs, des tables SQLite et des services de routage / évaluation.

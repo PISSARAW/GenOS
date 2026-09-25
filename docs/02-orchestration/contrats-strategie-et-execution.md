@@ -1,8 +1,14 @@
 # Contrats de stratégie et exécution
 
-- **Statut** : Implémenté
-- **Portée** : contrats versionnés, sélection de stratégie et runs contrôlés.
-- **Dernière revue** : 2026-09-18
+- **Statut** : Partiel
+- **Portée** : contrats versionnés, sélection de stratégie, routage minimal et runs contrôlés.
+- **Dernière revue** : 2026-09-25
+
+Cette fiche regroupe plusieurs parcours implémentés à des degrés différents.
+Le statut global reste partiel : la sélection du contrat, l'approbation d'un
+run et le choix de la topologie sont des décisions distinctes. Les stubs et
+fallbacks signalés dans les sections dédiées ne constituent pas un parcours
+complet en production.
 
 ## 1. Rôle
 

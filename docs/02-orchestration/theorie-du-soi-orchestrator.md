@@ -1,5 +1,9 @@
 # Théorie du soi de l'orchestrator
 
+- **Statut** : Implémenté
+- **Portée** : modèle de soi et calibration de l'orchestrator dans le control plane Node.
+- **Dernière revue** : 2026-09-25
+
 ## Statut d'implémentation
 
 Implémenté dans le control plane Node.js par `selfModelService`. Le modèle est

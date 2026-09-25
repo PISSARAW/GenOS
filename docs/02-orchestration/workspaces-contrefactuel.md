@@ -1,5 +1,9 @@
 # Workspaces et état contre-factuel dans GenOS
 
+- **Statut** : Partiel
+- **Portée** : snapshots, capsules, isolation de workspace, replay et promotion.
+- **Dernière revue** : 2026-09-25
+
 ## 1. Objet et périmètre
 
 Cette documentation décrit la gestion des workspaces, des branches, des snapshots et du contre-factuel tel qu’ils sont effectivement implémentés dans le dépôt GenOS. Elle ne décrit pas un concept générique de “sandbox” de bout en bout : elle reflète les services et les mécanismes réellement présents dans le code, notamment :

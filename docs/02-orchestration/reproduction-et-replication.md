@@ -1,5 +1,9 @@
 # Reproduction et réplication GenOS
 
+- **Statut** : Partiel
+- **Portée** : reproduction gouvernée côté Rust et mécanismes connexes du backend.
+- **Dernière revue** : 2026-09-25
+
 ## 1. Définition
 
 La reproduction et la réplication dans GenOS désignent un système de clonage, de division et de transmission de traits entre agents, formulé comme une couche biologique de robustesse et de sécurité pour les agents logiciels.

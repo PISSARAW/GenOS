@@ -1,5 +1,9 @@
 # Git transpose aux agents GenOS
 
+- **Statut** : Partiel
+- **Portée** : versionnage de l'état agentique et promotion des workspaces.
+- **Dernière revue** : 2026-09-25
+
 ## 1. Objet et périmètre
 
 Cette documentation décrit la transposition des primitives Git vers les agents GenOS. Elle couvre deux couches complémentaires qu’il faut distinguer :

@@ -1,5 +1,9 @@
 # Primitives exécutables dans GenOS
 
+- **Statut** : Partiel
+- **Portée** : registre de stratégies, dispatch des handlers et gates de preuve du backend.
+- **Dernière revue** : 2026-09-25
+
 ## 1. Objet et périmètre
 
 Cette documentation décrit les primitives exécutables qui constituent le moteur opérationnel de GenOS. Elle ne décrit pas une abstraction théorique de “tool calling” ou une boîte à outils générique : elle reflète le comportement effectif du dépôt, c’est-à-dire la manière dont un agent, une stratégie, ou un orchestrateur déclenche des actions structurées et vérifiables.

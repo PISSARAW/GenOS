@@ -1,5 +1,167 @@
 # Orchestration GenOS
 
+- **Statut** : Partiel ; les contrôles mission et les workers sont actifs, mais toutes les structures morphologiques ne dirigent pas encore le chemin principal d'exécution.
+- **Portée** : cycle d'une mission backend, du routage initial à la vérification, la clôture ou la reprise.
+- **Dernière revue** : 2026-09-25
+
+## Contrat opérationnel courant — référence d'implémentation
+
+Cette section décrit le chemin effectif du backend. Elle prévaut sur les exemples,
+variantes de recherche et recommandations des sections suivantes lorsqu'ils diffèrent.
+La présence d'un service, d'un nom de topology ou d'un résultat HTTP ne prouve ni son
+activation pour la mission ni la validité de son résultat.
+
+### Frontière et maturité
+
+GenOS conserve deux boucles distinctes : le backend Node planifie et supervise les
+missions et leurs workers ; le crate Rust `genos-orchestrator` exécute une simulation
+locale de son écosystème. Le crate Rust ne lance pas à lui seul les workers backend, ne
+crée pas leurs workspaces et ne certifie pas le livrable d'une mission Node.
+
+Le chemin central de mission utilise encore le préparateur morphologique historique. Le
+planner Morphogenèse enrichit ensuite le plan d'autonomie. Le runtime Morphogenèse V2 est
+disponible en **shadow** opt-in (`GENOS_MORPHOGENESIS_V2_SHADOW=1|true|on`) ; ce chemin
+évalue une proposition sans transition ni commit. Son chemin de commit exige des
+adaptateurs d'adjudication Rust et de gouvernance et n'est pas le chemin de production
+principal. Voir [ADR 0076](../adr/0076-runtime-morphogenese-v2.md) et
+[ADR 0101](../adr/0101-prevol-shadow-et-commit-cas-morphogenese-v2.md).
+
+### Cycle effectif d'une mission
+
+Lorsqu'une requête passe par le pont de mémoire/routage, elle suit d'abord l'échelle
+minimale suffisante : profil de requête, sélection d'une voie d'exécution et éventuelle
+réutilisation d'un résultat connu. Une requête simple peut s'arrêter à une primitive ou
+une procédure. Les autres voies créent une mission supervisée.
+
+```mermaid
+flowchart TD
+    REQ[Requête normalisée] --> ROUTE[Profil et route d'exécution]
+    ROUTE -->|champion valide| REUSE[Réutilisation avec provenance]
+    ROUTE -->|primitive / procédure| DIRECT[Exécution minimale]
+    ROUTE -->|worker ou collectif| CONTRACT[Contrat stratégie et budget]
+    CONTRACT --> LEGACY[Préparation morphologique historique]
+    LEGACY --> PLAN[AutonomyPlan et sélection des affectations]
+    PLAN --> SHADOW[Prévol Morphogenèse V2 optionnel]
+    SHADOW --> DISPATCH[Dispatch des affectations retenues]
+    DISPATCH --> WORK[Workers et workspaces isolés]
+    WORK --> EVIDENCE[Barrière de quiescence et dossiers de preuve]
+    EVIDENCE --> GATE[Gate de clôture : preuve et invariants]
+    GATE -->|satisfait| STORE[Résultat vérifié et mémoire]
+    GATE -->|manque ou échec| RECOVER[Reprise bornée, report ou blocage]
+```
+
+Le diagramme montre des responsabilités, pas une transaction ACID unique. Les écritures
+dans SQLite, les workspaces, les événements et les opérations Git ont leurs propres
+frontières et compensations.
+
+| Étape | Composant principal | Résultat vérifiable |
+| --- | --- | --- |
+| Profil et route, si le pont de routage est utilisé | `requestProfilerService`, `executionRouterService`, `bestKnownResultService` | classe de requête, route choisie, résultat réutilisable éventuel |
+| Contrat de stratégie | `strategyContractService` | contrat et portfolio autorisés pour la mission |
+| Préparation morphologique historique | `morphogenesisRuntime.prepareMorphology` depuis `orchestratorMissionHelpers.prepareMission` | plan limité à `single_agent`, `parallel_forks` ou `trinity` selon la stratégie |
+| Plan d'autonomie | `autonomousOrchestrationService` et `agentRuntimeAdapter/missionPlanning.js` | phases réalisables, workers, budget, gates, organisation |
+| Dispatch | `agentRuntimeAdapter/missionWorkers.js`, `agentFleetService.js` | affectations sélectionnées comparées aux workers effectivement créés |
+| Exécution et preuve | `agentFleetService.js`, `agentEvidenceService.js` | dossiers, événements d'état et barrière de preuve/quiescence |
+| Clôture | `homeostasisContractService.js` et collecte de preuve mission | invariants et preuves requis satisfaits, ou motif de blocage |
+| Reprise | `workerFailureRecoveryService.js`, `agentRecoveryService.js` | décision bornée : réparer, forker, bisecter, remplacer ou escalader |
+
+### Contrats qui prévalent
+
+1. **Transport réussi ≠ décision valide.** Un worker créé ou terminé n'est pas une preuve.
+   La synthèse et la promotion dépendent des dossiers, des vérifications et de leurs
+   références de provenance.
+2. **Le dispatch est réconcilié.** Le nombre, l'identité et l'ordre des workers créés
+   doivent correspondre aux affectations retenues. Un écart émet
+   `WORKER_DISPATCH_FAILED` et bloque la suite ; un dispatch volontairement suspendu est
+   rapporté comme `WORKER_DISPATCH_DEFERRED`.
+3. **Les limites de mission priment sur la recommandation.** Budget, leases, fan-out,
+   isolation, capacité du garage et contraintes de survie peuvent réduire ou bloquer le
+   plan. Une demande de Trinity n'autorise pas à contourner ces limites.
+4. **Trinity exige trois mondes comparables.** Le runtime refuse un autre nombre de
+   chambres ou des empreintes de snapshot différentes. Les mondes ne partagent pas leurs
+   sorties pendant la phase indépendante.
+5. **La morphologie planifiée n'est pas automatiquement exécutée.** Le préparateur
+   historique détermine encore le plan physique principal. Le planner Morphogenèse peut
+   construire des candidats pour les huit topologies et joindre un graphe au plan
+   d'autonomie ; cette présence ne prouve pas que le dispatcher a instancié ce graphe.
+6. **Les organisations ne sont pas des topologies.** `specialist_expert_committee`,
+   `red_blue_coevolution` et les autres organisations sont des politiques d'organisation.
+   Une `topology` canonique est l'un des huit identifiants du registre. Leur sélection,
+   leurs variants et les opérateurs de composition sont des dimensions séparées.
+7. **Le prévol V2 ne commit pas.** Le shadow est consultatif. La transition V2 de commit
+   requiert l'adjudication noyau et la gouvernance ; un résultat `SHADOWED` n'est jamais
+   un reçu d'autorisation.
+8. **La clôture exige les deux familles de conditions.** `homeostasisSatisfied` nécessite
+   les invariants et les preuves requises ; l'absence d'une preuve obligatoire maintient
+   la mission dans un état bloqué ou incomplet.
+
+### État des voies morphologiques
+
+| Voie | État vérifié | Ce que cet état ne garantit pas |
+| --- | --- | --- |
+| `single_agent`, `parallel_forks`, `trinity` du runtime historique | sélectionnés par le préparateur à partir du contrat et de la stratégie | que les autres topologies soient sélectionnées par cette voie |
+| Huit composeurs de `biologicalTopologyService.composeMode` | dispatch explicite vers un composeur dédié | que le sélecteur général de mission choisisse automatiquement les huit |
+| Planner Morphogenèse | peut scorer/planifier les topologies canoniques et compiler un candidat choisi en graphe | que son graphe soit le plan physique transmis à tous les runtimes |
+| Catalogue central de variants | découvre les variants projetés de six registres locaux et expose leur maturité | qu'un variant soit automatiquement élu ou interprété uniformément |
+| Composition `NEST`, `PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`, `BRIDGE`, `FEDERATE` | contrats et éléments de runtime existent selon les opérateurs | qu'une expression composite arbitraire soit compilée puis exécutée de bout en bout |
+| Transition Morphogenèse inter-topologies | adaptateur testé Trinity → A-Team pour les revendications vérifiées | qu'une transition sans adaptateur soit permise ; elle échoue fermé |
+| Runtime Morphogenèse V2 | prévol shadow activable par variable d'environnement | qu'il remplace le chemin de mission ou autorise une mutation |
+
+Les transitions de topologie sont limitées aux adaptateurs enregistrés. Pour l'état et les
+preuves actuels des topologies, voir [la référence morphogénétique](topologies/morphogenese.md),
+[les adaptateurs de topologie](../adr/0108-branchement-topologies-fail-closed.md) et
+[le catalogue des variants](topologies/variants-morphologiques.md).
+
+### Limites de capacité et garanties de charge
+
+Les plafonds d'agents dépendent des paramètres de déploiement, du budget de mission, des
+contraintes de survie et de la capacité du worker garage. Une valeur de configuration ou
+une capacité théorique à relever un plafond ne constitue pas un benchmark de charge. Les
+exemples de « 100 agents », de clusters ou de synthèse par tissus ci-dessous ne doivent
+pas être lus comme une garantie de latence, de coût, de disponibilité ou de passage à
+l'échelle sans un benchmark reproduisible du chemin concerné.
+
+Les workers reçoivent des leases et des workspaces délimités. Le chemin d'exécution doit
+refuser les accès qui sortent du périmètre accordé. Les clés, secrets, résultats non
+vérifiés et données dont le transfert n'est pas autorisé ne doivent pas être injectés
+dans une autre branche par simple copie de dossier ou partage de contexte.
+
+### Résultats terminaux à distinguer
+
+| Résultat | Signification opérationnelle |
+| --- | --- |
+| Réutilisé | un résultat connu a satisfait les critères de validité et de fraîcheur du routage |
+| Exécuté directement | la requête a été servie par une primitive ou une procédure, sans flotte de workers |
+| Prêt | le plan possède des phases réalisables ; il n'atteste pas encore leur dispatch |
+| Dispatché | les affectations sélectionnées correspondent aux workers créés ; le travail reste à prouver |
+| Barrière satisfaite | les dossiers attendus sont terminaux et les contrôles de preuve ont réussi |
+| Mission clôturée | le gate de complétion accepte preuves requises et invariants |
+| Incomplet / bloqué | preuve manquante, invariant échoué, capacité insuffisante ou phase irréalisable |
+| Escaladé | les reprises permises sont épuisées ou aucune décision sûre n'est disponible |
+
+Ces résultats ne sont pas interchangeables. Les événements de télémétrie sont des
+observations auditables du parcours ; ils ne remplacent pas les reçus de tests, de preuve
+ou de promotion.
+
+### Vérification et navigation opérationnelles
+
+| Question | Point de vérification |
+| --- | --- |
+| Une requête a-t-elle choisi une voie minimale ? | profil et résultat de `executionRouterService` / événements de routage mémoire |
+| Le dispatch correspond-il au plan ? | `WORKER_DISPATCH_SELECTED`, `WORKER_DISPATCH_RECONCILED` ou `WORKER_DISPATCH_FAILED` |
+| Les dossiers sont-ils assez complets ? | `backend/tests/test_orchestration_evidence_barrier.js` et les références d'évidence persistées |
+| Trinity a-t-elle lancé trois environnements comparables ? | expérimentation persistée, trois mondes, empreintes de snapshot identiques |
+| Une clôture est-elle autorisée ? | reçu du gate de complétion : evidence satisfaite et invariants satisfaits |
+| Une nouvelle topology peut-elle recevoir l'état courant ? | adaptateur source→cible enregistré, sortie validée et reçu de transition |
+| Le code backend est-il conforme ? | `python scripts/ci/check_code_quality.py`, `npm test` et suites ciblées listées dans `AGENTS.md` |
+
+Pour les fondations formelles, consulter [Contrats, stratégie et exécution](contrats-strategie-et-execution.md),
+[Noyau de contrôle morphogénétique](noyau-controle-morphogenetique.md),
+[Topologies et capacités](topologies-et-capacites.md),
+[Trinity](topologies/trinity.md) et [Morphogenèse](topologies/morphogenese.md).
+
+---
+
 ## 1. Définition
 
 L’orchestration dans GenOS est le mécanisme de planification, de partitionnement, d’exécution et de validation d’une mission complexe en plusieurs branches concurrentes, avec une barrière de preuve avant promotion ou fusion. Le système ne “décide” pas seulement quelles tâches lancer : il encadre la mission par des limites, des gates de décision, des preuves de validité, des budgets de tokens, des sélections de survivants, et des mécanismes de reprise en cas d’échec.

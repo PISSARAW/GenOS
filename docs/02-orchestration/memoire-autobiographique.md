@@ -1,5 +1,9 @@
 # Mémoire autobiographique de l'orchestrator
 
+- **Statut** : Partiel
+- **Portée** : capture, consolidation, rappel et oubli des épisodes du control plane Node.
+- **Dernière revue** : 2026-09-25
+
 Une mémoire d'expériences vécues, transformées en règles de décision conditionnelles,
 prouvées, réutilisables et oubliables. Elle relie mission, perception, décision, action,
 preuve, conséquence et apprentissage — et elle revient dans la boucle de décision avant
@@ -44,6 +48,10 @@ le worker désigné, via `GENOS_AUTOBIOGRAPHICAL_MEMORY_ENABLED`). Chaque évén
 télémétrique dont le type est reconnu (`EVENT_KIND_MAP`) est scoré, et transformé en
 épisode s'il franchit le seuil de saillance.
 
+L'activation, l'abonnement du worker responsable et la reconnaissance du type
+d'événement sont des conditions distinctes. Un événement non reconnu ou reçu
+hors du worker désigné n'est pas réputé capturé.
+
 ## Consolidation en leçons
 
 `backend/src/services/autobiographicalMemory/lessonService.js` regroupe les épisodes
@@ -77,6 +85,12 @@ bornés, copiés dans `autobiographicalAdjustments`, propagés à la politique d
 tracés par les événements `AUTOBIOGRAPHICAL_RECALL_*`. Ils ne peuvent ni accorder une
 permission d'outil ni contourner les portes de preuve.
 
+L'ajustement du rappel est un signal de planification, pas une décision autonome.
+L'absence de souvenirs pertinents doit rester un rappel vide : elle ne prouve
+pas qu'une stratégie n'a jamais échoué ou réussi. Une recommandation mémorisée
+doit être revalidée contre le workspace, le budget et les preuves de la mission
+courante.
+
 ## Oubli
 
 `episodeStore.forgetStaleEpisodes` marque `is_forgotten = 1` les épisodes anciens
@@ -91,3 +105,21 @@ Le modèle de soi de l'orchestrator (`selfModelService.js`,
 comportementale calibrée à partir des exécutions de stratégie. La mémoire
 autobiographique en est le substrat épisodique : elle explique *pourquoi* un biais existe
 (quels épisodes l'ont produit), là où le modèle de soi ne fait que le mesurer.
+
+## Cycle, audit et vérification
+
+```text
+événement reconnu -> score de saillance -> épisode -> consolidation (>= 2 cas)
+  -> rappel conditionnel -> ajustement borné du plan -> oubli des épisodes périmés
+```
+
+Les épisodes oubliés restent conservés pour la piste d'audit, mais ne participent
+plus au rappel ni à la consolidation. Les leçons consolidées conservent leurs
+épisodes de soutien et de contradiction ; leur confiance bornée ne remplace pas
+une preuve d'exécution.
+
+Le contrat est exercé par
+[`backend/tests/test_autobiographical_memory.js`](../../backend/tests/test_autobiographical_memory.js).
+Il couvre la capture, la consolidation, le rappel et les ajustements. Le test ne
+prouve pas que chaque catégorie de télémétrie est reconnue en production : cette
+couverture dépend du mapping des événements et de l'activation au démarrage.
