@@ -31,7 +31,10 @@ function run() {
   const adaptive = prepareDispatchPolicy({ mission: { variant: 'adaptive', phases: [{ id: 'build', variant: 'pipeline' }, { id: 'review', variant: 'incident_command' }] }, members });
   assert.deepEqual(adaptive.policy.phases.map((phase) => phase.variant), ['pipeline', 'incident_command']);
   const multi = prepareDispatchPolicy({
-    mission: { variant: 'multiteam', teams: [{ teamId: 'product', members: [] }, { teamId: 'platform', members: [] }] },
+    mission: { variant: 'multiteam', teams: [
+      { teamId: 'product', members: [{ memberId: 'p1' }, { memberId: 'p2' }] },
+      { teamId: 'platform', members: [{ memberId: 's1' }, { memberId: 's2' }] }
+    ] },
     members: [...members, { subSystem: 'qa', role: 'qa', capabilities: ['qa'] }]
   });
   assert.equal(multi.policy.multiteamPlan.graph.nodes.length, 2);
