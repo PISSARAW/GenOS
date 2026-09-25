@@ -9,6 +9,7 @@ const rhizomeCoordinationService = require('./rhizomeCoordinationService');
 const biomeCoordinationService = require('./biomeCoordinationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
+const topologyWorkerKindService = require('./topologyWorkerKindService');
 
 const MODE_ALIASES = Object.freeze({ ateam: 'a_team', holobiont: 'holobionte' });
 
@@ -38,7 +39,10 @@ async function composeMode(input = {}) {
   const context = { ...input, key: normalizeMode(input.mode) };
   if (context.key === 'axolotl' || context.key === 'plastique') return composeAxolotl(context);
   const composer = COMPOSERS[context.key];
-  return composer ? composer(context) : { members: biologicalModeService.compose(context.key, context.mission) };
+  const composition = composer
+    ? await composer(context)
+    : { members: biologicalModeService.compose(context.key, context.mission) };
+  return topologyWorkerKindService.applyTopologyWorkerKinds(context.key, composition);
 }
 
 function composeTrinity({ mission }) {

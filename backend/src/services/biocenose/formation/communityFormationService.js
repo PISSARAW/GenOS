@@ -31,6 +31,8 @@ function populationMember({ template, role, index, candidate }) {
     ...profile,
     memberId,
     role,
+    workerKind: role === 'reviewer' ? 'red_worker'
+      : role === 'verifier' ? 'verifier_worker' : 'bounded_worker',
     memberNumber: index + 1,
     mission: `${template.mission}\nWork independently as ${role}; return evidence, assumptions, and unresolved claims.`
   };

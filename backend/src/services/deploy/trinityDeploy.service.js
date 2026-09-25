@@ -62,6 +62,7 @@ class TrinityDeployService {
     const worlds = composed.map((m) => ({
       name: `Trinity Worker (World ${m.worldNumber}: ${m.role})`,
       role: m.role,
+      workerKind: m.workerKind,
       task: m.hypothesis,
       modelTier: m.modelTier === 'standard' ? 'Standard' : 'Pro',
       domain: m.domain,
@@ -152,6 +153,15 @@ class TrinityDeployService {
         current_task: w.mission || `${taskPrompt} — ${w.task}`
       });
 
+      const workerKinds = require('../agents/workerKindService');
+      const workerContract = workerKinds.buildWorkerContract(w.workerKind, {
+        prompt: w.mission || `${taskPrompt} — ${w.task}`,
+        scope: w.workspaceRoot,
+        orchestratorAgentId: orchestratorId
+      });
+      await db.run('UPDATE agents SET metadata_json = ? WHERE id = ?',
+        JSON.stringify({ workerKind: w.workerKind, workerContract }), id);
+
       await trinityExperimentStore.createWorld(db, {
         id: worldId, mission: taskPrompt, worldNumber: w.worldNumber, name: w.name,
         strategy: w.role, status: 'queued', agentId: id, experimentId: missionId,
@@ -195,6 +205,7 @@ class TrinityDeployService {
       });
       runtimeAdapter.startMission({
         agentId: id, name: w.name, role: w.role, prompt: w.mission || `${taskPrompt} — ${w.task}`,
+        workerKind: w.workerKind,
         modelTier: w.modelTier, workspaceIsolation: 'Branch', workspaceId, workspaceRoot: w.workspaceRoot,
         workspaceProvisioned: true,
         executionBudget: {

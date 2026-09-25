@@ -90,12 +90,12 @@ registre serveur; il ne fait jamais confiance à un contrat fourni par le
 composeur. Un rôle absent de la matrice est une erreur de composition à
 traiter explicitement, et non un motif de repli silencieux.
 
-Le statut courant reste **partiel** : `agentFleetWorkers` et le dispatch
-orchestrateur propagent déjà un `workerKind` explicite, mais les huit
-composeurs ne renseignent pas encore tous ce champ. La matrice décrit donc la
-cible de câblage et les tests attendus, sans présenter l'affectation exhaustive
-comme exécutée aujourd'hui. Voir [Types de workers](../03-reference/types-de-workers.md)
-pour les contrats, artefacts et limites de chaque type.
+Les huit composeurs renseignent maintenant `workerKind` explicitement. A-Team
+et Trinity le transmettent aussi au worker lancé. Les six modes biologiques
+exposent des membres typés dans leur résultat de composition ou leur session,
+mais leur composition ne déclenche pas à elle seule l'exécution de ces workers.
+Voir [Types de workers](../03-reference/types-de-workers.md) pour les contrats,
+artefacts et limites de chaque type.
 
 ### Plan exécuté pour Rhizome et Biome
 
