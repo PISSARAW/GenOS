@@ -9,7 +9,16 @@ const path = require('path');
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
 process.stdin.on('end', async () => {
-  await main(raw);
+  try {
+    await main(raw);
+  } catch (error) {
+    console.error(`[local-codex-runtime] Mission bootstrap failed: ${error?.stack || error}`);
+    process.exitCode = 1;
+  }
+});
+process.stdin.on('error', (error) => {
+  console.error(`[local-codex-runtime] Mission stdin failed: ${error.message}`);
+  process.exitCode = 1;
 });
 
 async function main(rawInput) {
