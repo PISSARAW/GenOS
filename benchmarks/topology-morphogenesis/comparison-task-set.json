@@ -7,28 +7,52 @@
       "prompt": "Énumérer exhaustivement les triplets d'entiers positifs a < b < c tels que a+b+c=12. Retourner un objet JSON avec la propriété triples, un tableau de triplets.",
       "oracle": "verifyIntegerPartitions",
       "comparisonEligible": true,
-      "topologyHypothesis": null
+      "topologyHypothesis": {
+        "adaptedCondition": "adapted-topology:trinity",
+        "wrongCondition": "wrong-topology:biocenose",
+        "rationale": "L'énumération exhaustive bénéficie potentiellement de stratégies de recherche distinctes, mais un vote corrélé n'ajoute pas de garantie.",
+        "primaryMetric": "exact-oracle-match",
+        "falsifier": "Trinity ne dépasse pas le modèle seul en exactitude sous budget apparié, ou son avantage disparaît à l'ablation de comparaison."
+      }
     },
     {
       "id": "distinct-letters-fr",
       "prompt": "Pour les mots biome, niche et espèce, donner l'ensemble des lettres distinctes en conservant è distinct de e. Retourner un objet JSON avec distinctLetters (tableau) et count (nombre).",
       "oracle": "verifyDistinctLetters",
       "comparisonEligible": true,
-      "topologyHypothesis": null
+      "topologyHypothesis": {
+        "adaptedCondition": "adapted-topology:biocenose",
+        "wrongCondition": "wrong-topology:rhizome",
+        "rationale": "La réponse est un ensemble fini vérifiable; abstention et calibration face à l'oracle peuvent réduire les erreurs de consensus.",
+        "primaryMetric": "exact-oracle-match",
+        "falsifier": "La Biocénose n'améliore pas l'exactitude appariée ou atteint un consensus faux aussi souvent que le contrôle."
+      }
     },
     {
       "id": "dependency-order",
       "prompt": "Ordonner les étapes requirements, design, implementation, validation sous les contraintes: requirements avant design; design avant implementation; implementation avant validation. Retourner un objet JSON avec la propriété order (tableau d'identifiants).",
       "oracle": "verifyDependencyOrder",
       "comparisonEligible": true,
-      "topologyHypothesis": null
+      "topologyHypothesis": {
+        "adaptedCondition": "adapted-topology:a-team",
+        "wrongCondition": "wrong-topology:trinity",
+        "rationale": "Les contraintes forment un DAG explicite; une équipe avec responsabilités et handoffs peut limiter les violations d'ordre.",
+        "primaryMetric": "constraint-satisfaction",
+        "falsifier": "L'A-Team ne réduit pas les violations de dépendances par rapport au modèle seul et à l'ablation du DAG."
+      }
     },
     {
       "id": "arithmetic-partition",
       "prompt": "Un lot contient 24 éléments; 3 sont rejetés puis le reste est réparti également entre 7 groupes. Retourner un objet JSON avec remaining, perGroup et remainder.",
       "oracle": "verifyArithmeticPartition",
       "comparisonEligible": true,
-      "topologyHypothesis": null
+      "topologyHypothesis": {
+        "adaptedCondition": "model-alone",
+        "wrongCondition": "adapted-topology",
+        "rationale": "Ce contrôle arithmétique court ne présente ni dépendance, ni incertitude, ni besoin de recherche distribuée; la coordination devrait ajouter du coût sans gain d'exactitude.",
+        "primaryMetric": "exact-oracle-match",
+        "falsifier": "Une topologie dépasse de façon reproductible le modèle seul en exactitude ou en coût total sous le même budget."
+      }
     }
   ]
 }

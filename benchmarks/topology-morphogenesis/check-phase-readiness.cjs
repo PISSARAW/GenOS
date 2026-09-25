@@ -21,7 +21,10 @@ function missingTopologyProbes() {
 }
 
 function unassignedHypotheses() {
-  return taskSet.tasks.filter((task) => task.comparisonEligible && !task.topologyHypothesis).map((task) => task.id);
+  const required = ['adaptedCondition', 'wrongCondition', 'rationale', 'primaryMetric', 'falsifier'];
+  return taskSet.tasks.filter((task) => task.comparisonEligible
+    && (!task.topologyHypothesis || required.some((key) => !String(task.topologyHypothesis[key] || '').trim())))
+    .map((task) => task.id);
 }
 
 function sourceState() {
