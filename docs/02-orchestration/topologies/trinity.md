@@ -104,6 +104,8 @@ La promotion prépare un candidat distinct depuis le workspace isolé du monde g
 
 V1 n'implémente pas Trinity-Factorial, Trinity-Recursive, l'adaptation du nombre de replicas en cours de run, l'apprentissage des poids, l'estimation statistique de corrélation d'erreurs, les solveurs formels non présents dans le runtime, ni une garantie de diversité des fournisseurs. Le jury est implémenté uniquement comme avis consultatif borné ; il n'est pas une source de preuve ni un arbitre du résultat. Les autres propositions restent des variantes de recherche et ne sont pas des critères d'acceptation du runtime v1.
 
+Le benchmark synthétique reproductible `node scripts/trinity-synthetic-benchmark.js --seed=42 --iterations=100` exerce les décisions Pareto sur des vecteurs déterministes : gagnant dominant, frontière conflictuelle, échec de contrainte dure et référence de preuve manquante. Il publie les taux de fausse promotion, de promotion correcte, de conservation Pareto, d'escalade et de rejeu déterministe avec la seed et le nombre d'itérations. Ce corpus contrôle le comportement déterministe du comparateur ; il ne mesure ni qualité de modèle, ni fiabilité en production, ni avantage contre un LLM direct.
+
 ## 1. Définition
 
 **Trinity** est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.
