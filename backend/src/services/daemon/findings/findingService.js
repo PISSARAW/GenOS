@@ -13,6 +13,7 @@
 
 const { migrateDaemonFindings } = require('../../../db/migrations/migrateDaemonFindings');
 const lifecycle = require('./findingLifecycleService');
+const territoryService = require('../daemonTerritoryService');
 
 const ID_PATTERN = /^finding\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const TERRITORY_PATTERN = /^territory\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -133,8 +134,10 @@ function rowsToFindings(rows) {
 async function transitionFinding(db, change) {
   if (!db || !change || !change.id || !change.toStatus) return { transitioned: false, errors: ['change-required'] };
   await migrateDaemonFindings(db);
-  const current = await db.get('SELECT status FROM daemon_findings WHERE id = ?', change.id);
+  const current = await db.get('SELECT status, territory_id FROM daemon_findings WHERE id = ?', change.id);
   if (!current) return { transitioned: false, errors: ['not-found'] };
+  const revalidationError = await validateStaleRevalidation(db, change, current);
+  if (revalidationError) return { transitioned: false, errors: [revalidationError] };
   if (!lifecycle.canTransition(current.status, change.toStatus)) {
     return { transitioned: false, errors: [`forbidden-transition:${current.status}->${change.toStatus}`] };
   }
@@ -144,6 +147,14 @@ async function transitionFinding(db, change) {
     await lifecycle.onPostTransition(db, updated.finding, change.toStatus);
   } catch (_) {}
   return updated;
+}
+
+async function validateStaleRevalidation(db, change, current) {
+  if (current.status !== 'STALE' || change.toStatus !== 'HYPOTHESIZED') return null;
+  if (!SHA_PATTERN.test(change.headSha || '')) return 'revalidation-head-required';
+  const stored = await territoryService.getTerritory(db, { id: current.territory_id });
+  if (!stored.found) return 'revalidation-territory-missing';
+  return stored.territory.headSha === change.headSha ? null : 'revalidation-head-not-current';
 }
 
 async function applyTransition(db, change, fromStatus) {

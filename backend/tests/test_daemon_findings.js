@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const findingService = require('../src/services/daemon/findings/findingService');
 const evidenceService = require('../src/services/daemon/findings/findingEvidenceService');
 const lifecycle = require('../src/services/daemon/findings/findingLifecycleService');
+const territoryService = require('../src/services/daemon/daemonTerritoryService');
 
 const HEAD_A = 'a'.repeat(40);
 const HEAD_B = 'b'.repeat(40);
@@ -42,6 +43,11 @@ async function main() {
   assert.equal(lifecycle.isTerminal('SUPPORTED'), false);
 
   const db = await openDb();
+  await territoryService.createTerritory(db, {
+    id: 'territory.findings-test', organizationId: 'org-1', projectId: 'project-1',
+    workspaceId: 'workspace-1', repoIdentity: 'findings-test', rootPath: '/tmp/findings-test',
+    headSha: HEAD_A, state: 'ACTIVE'
+  });
 
   // 2. Création + validation (limitations obligatoires)
   const created = await findingService.createFinding(db, baseFinding('finding.auth-drift-001'));
@@ -78,8 +84,14 @@ async function main() {
   await findingService.createFinding(db, baseFinding('finding.stale-001'));
   const marked = await findingService.markStaleOnHead(db, { territoryId: 'territory.findings-test', headSha: HEAD_B });
   assert.ok(marked.marked >= 1);
+  await territoryService.updateHead(db, { id: 'territory.findings-test', headSha: HEAD_B });
   const staleOne = await findingService.getFinding(db, { id: 'finding.stale-001' });
   assert.equal(staleOne.finding.status, 'STALE');
+  const staleHead = await findingService.transitionFinding(db, {
+    id: 'finding.stale-001', toStatus: 'HYPOTHESIZED', headSha: HEAD_A
+  });
+  assert.equal(staleHead.transitioned, false);
+  assert.ok(staleHead.errors.includes('revalidation-head-not-current'));
   const rehyp = await findingService.transitionFinding(db, { id: 'finding.stale-001', toStatus: 'HYPOTHESIZED', headSha: HEAD_B });
   assert.equal(rehyp.finding.status, 'HYPOTHESIZED');
   assert.equal(rehyp.finding.headSha, HEAD_B);
