@@ -1,0 +1,22 @@
+{
+  "protocolVersion": 1,
+  "planId": "topology-causal-comparison-v1",
+  "status": "preregistered-pilot-design",
+  "budgetPolicy": "same_total_tokens_and_latency",
+  "seedBlocks": [104729, 130363, 155921],
+  "conditions": [
+    { "id": "model-alone", "role": "baseline", "adapter": "pending" },
+    { "id": "simple-multi-agent", "role": "baseline", "adapter": "pending" },
+    { "id": "adapted-topology", "role": "treatment", "adapter": "pending" },
+    { "id": "wrong-topology", "role": "negative-treatment", "adapter": "pending" },
+    { "id": "mechanism-ablation", "role": "ablation", "adapter": "pending" },
+    { "id": "morphogenesis", "role": "learned-selection", "adapter": "pending" },
+    { "id": "oracle-selection", "role": "upper-bound", "adapter": "pending" }
+  ],
+  "eligibleTaskIds": ["orchestrateur-simple"],
+  "limitations": [
+    "A randomized assignment schedule is not an experiment result.",
+    "The current task set has no topology comparison task with an independent oracle.",
+    "Condition adapters remain pending until a common task and execution contract exist."
+  ]
+}

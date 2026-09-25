@@ -10,6 +10,8 @@ Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json
 
 Chaque exécution archive la provenance du commit, l'état propre/sale de l'arbre source, les empreintes de la suite, des missions et des reçus extraits, les états des workers, les temps, ainsi que la portée explicite de l'oracle. Le format de sortie est décrit par [schemas/campaign-results.schema.json](schemas/campaign-results.schema.json). Un arbre modifié est automatiquement marqué non admissible comme résultat confirmatoire.
 
+La préinscription et la randomisation des blocs appariés sont amorcées dans [comparison-plan.json](comparison-plan.json). Générer un ordre reproductible avec `node benchmarks/topology-morphogenesis/run-comparison-plan.cjs`; le résultat porte `status: assignment-only`, donc ne contient aucun résultat d'exécution. Les sept conditions causales sont déclarées, mais leurs adaptateurs restent bloqués jusqu'à l'ajout de tâches comparables avec oracles indépendants.
+
 Cette campagne fait progresser la preuve du contrat jusqu'à l'exécution observable. Un dispatch accepté ou une mission terminée ne suffit pas à qualifier une topologie d'opérationnelle. Il faut des opérations spécifiques observables, des livrables vérifiés, des répétitions et des contrôles négatifs réussis.
 
 ## Lancement d'une mission
