@@ -2109,14 +2109,14 @@ noyau de contrôle et ses limites, voir [noyau de contrôle morphogénétique](.
 
 ## 46. Inventaire du branchement (audit du 2026-09-25)
 
-Le registre, le résolveur, l'ontologie et le contrat de capacités déclarent
-les mêmes huit identifiants canoniques. Les points de composition ne sont
-toutefois pas encore alignés :
+Le registre, le résolveur, l'ontologie, le contrat de capacités et le dispatch
+commun déclarent les mêmes huit identifiants canoniques. Les composeurs sont
+maintenant tous adressables par ce dispatch :
 
 | Topologie | Point de composition | État du dispatch commun |
 | --- | --- | --- |
-| Trinity | `trinityService.compose` | Absent de `biologicalTopologyService` |
-| A-Team | `aTeamService.analyzeMission` et `aTeamService.compose` | Absent de `biologicalTopologyService` |
+| Trinity | `trinityService.compose` | Dispatch dédié; trois chambres produites |
+| A-Team | `aTeamService.analyzeMission` et `aTeamService.compose` | Dispatch dédié; au moins deux domaines requis |
 | Biome | `biomeCoordinationService.composeBiome` | Dispatch dédié |
 | Biocénose | `biocenoseService.prepareCommunity` | Dispatch dédié; dépend de la base |
 | Holobionte | `holobionteCoordinationService.composeHolobiont` | Dispatch dédié |
@@ -2124,6 +2124,15 @@ toutefois pas encore alignés :
 | Rhizome | `rhizomeCoordinationService.composeRhizome` | Dispatch dédié |
 | Métapopulation | `metapopulationCoordinationService.createMetapopulationSession` | Dispatch dédié |
 
-Cet inventaire ne qualifie pas une topologie d'exécutable sur la seule base
-de sa présence dans le registre. La composition, le runtime, les contrats de
-capacité et les migrations entre topologies doivent être vérifiés séparément.
+Les tests de planification vérifient que chaque topologie canonique peut être
+sélectionnée et inscrite comme racine du graphe. Les tests de câblage dédiés
+couvrent les composeurs Biome, Biocénose, Holobionte, Syncytium, Rhizome et
+Métapopulation; Trinity et A-Team ont aussi un test du dispatch commun.
+
+Une seule conversion inter-topologies est actuellement enregistrée et
+testée : Trinity vers A-Team, à partir des affirmations vérifiées. Le service
+de transition refuse les autres changements de topologie tant qu'un
+adaptateur n'existe pas. Les huit plans ne démontrent donc pas que les huit
+runtimes peuvent se convertir les uns vers les autres. Le classement traite
+maintenant les coûts comme des pénalités directes et préserve les valeurs
+numériques nulles, notamment zéro. Voir [ADR 0108](../../adr/0108-branchement-topologies-fail-closed.md).
