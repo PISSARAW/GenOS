@@ -40,6 +40,10 @@ Chaque intervention expose son code de cause, la taille de l'échantillon, le
 nombre d'actions distinctes, le ratio de dominance, l'entropie de transition et
 la longueur du cycle détecté.
 
+Le choix d'une stratégie de repli est conservé comme métadonnée structurée du
+contrat (`primaryFallback`). Le sélecteur n'écrit pas ce diagnostic sur stderr :
+un journal runtime ne doit pas devenir une nouvelle entrée de mission.
+
 ## Conséquences
 
 ### Positives
@@ -48,6 +52,8 @@ la longueur du cycle détecté.
 - Les arrêts du Sentinel reposent sur des séquences d'actions observées et
   répétées, et leur cause est disponible dans la télémétrie.
 - Natural Search ne s'auto-alimente plus à partir des événements de supervision.
+- Le diagnostic de repli reste consultable dans le contrat sans générer un
+  événement runtime susceptible de réentrer dans les superviseurs.
 
 ### Négatives
 

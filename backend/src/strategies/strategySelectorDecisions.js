@@ -43,7 +43,6 @@ function selectStrategyPortfolio(input = {}) {
     const pool = eligible.length > 0 ? eligible : decisions;
     const fallback = bestByScore(pool, decisions);
     if (!fallback) throw new Error('No strategy available');
-    process.stderr.write(`[selectStrategyPortfolio] fallback strategy=${fallback.strategy.id}\n`);
     const fallbackObj = { requested: requestedPrimary, selected: fallback.strategy.id, reason: 'primary unavailable' };
     const fallbackDecision = { ...fallback, id: fallback.strategy.id, status: 'selected', eligible: true, score: fallback.score ?? 0.001 };
     const decisionsWithFallback = decisions.concat([fallbackDecision]);
