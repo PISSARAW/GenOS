@@ -208,11 +208,20 @@ async function executeMission(db, state) {
   evaluation = contResult.evaluation;
   organism = contResult.organism;
   finalVerdict = contResult.finalVerdict;
-  const finalSuccess = completionGate.allowed === true || finalVerdict === 'completed';
+  const finalStatus = resolveFinalMissionStatus(outcome, completionGate, finalVerdict);
+  finalVerdict = finalStatus.verdict;
 
   await persistMissionChampion(db, outcome);
-  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalSuccess, finalVerdict, continuity, completionGate, id });
-  if (!finalSuccess) process.exitCode = 2;
+  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id });
+  if (!finalStatus.success) process.exitCode = 2;
+}
+
+function resolveFinalMissionStatus(outcome, completionGate, verdict) {
+  const success = outcome.success === true
+    && completionGate.allowed === true
+    && verdict === 'completed';
+  if (success || verdict !== 'completed') return { success, verdict };
+  return { success: false, verdict: completionGate.allowed === true ? outcome.verdict : 'homeostasis_blocked' };
 }
 
 async function executeMorphology({ morphology, outcome, finalVerdict, orchestratorId }) {
