@@ -26,6 +26,13 @@ function main() {
   assert.equal(advisor.evaluateMorphogenesis({ regionalAutonomy: 0.9 }).targetTopology, 'metapopulation');
   assert.equal(advisor.evaluateMorphogenesis({ disagreementCentrality: 0.8 }).targetTopology, 'biocenose');
   assert.equal(advisor.evaluateMorphogenesis({ semanticConflictRate: 0.7, experimentability: 0.8 }).targetTopology, 'trinity');
+  const incomplete = advisor.evaluateMorphogenesis({});
+  assert.equal(incomplete.targetTopology, 'syncytium');
+  assert.equal(incomplete.couplingScore, null);
+  assert.equal(incomplete.components.sharedWriteDensity, null);
+  assert.deepEqual(incomplete.measurementGaps, [
+    'sharedWriteDensity', 'dependencyDensity', 'updateFrequency', 'stalenessCost'
+  ]);
   assert.throws(() => advisor.evaluateMorphogenesis({ updateFrequency: 1.5 }),
     (error) => error.code === 'SYNCYTIUM_MORPHOGENESIS_SIGNAL_INVALID');
 }
@@ -57,6 +64,18 @@ async function verifySessionAnalysis() {
   assert.equal(transition.targetTopology, 'biocenose');
   assert.equal(transition.morphogenesisPlan.selectedTopology, 'biocenose');
   assert.equal(transition.morphogenesisPlan.reason, transition.reason);
+  assert.equal(transition.morphogenesisPlan.validation.valid, true);
+  assert.equal(transition.planningContextComplete, false);
+  const noTelemetry = await syncytium.analyzeSessionMorphogenesis(coupled.sessionId, {});
+  assert.equal(noTelemetry.targetTopology, 'syncytium');
+  assert.equal(noTelemetry.morphogenesisPlan, null);
+  const planner = require('../src/services/morphogenesis/morphogenesisPlannerService');
+  const invalidPlan = await syncytium.analyzeSessionMorphogenesis(coupled.sessionId, {
+    disagreementCentrality: 0.9,
+    currentState: { agents: new Map(), capabilities: planner.contractForTopology('biocenose').required }
+  });
+  assert.equal(invalidPlan.morphogenesisPlan, null);
+  assert.equal(invalidPlan.planningBlocked, 'MORPHOGENESIS_PLAN_INVALID');
 }
 
 Promise.resolve().then(main).then(verifySessionAnalysis).then(() => {

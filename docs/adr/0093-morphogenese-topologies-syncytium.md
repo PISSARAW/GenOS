@@ -27,6 +27,8 @@ La morphogenèse doit pouvoir proposer une topologie mieux adaptée lorsque le p
 3. Recommander Direct pour une seule région active, Trinity pour un conflit sémantique expérimentalement décidable, Biocenose pour un désaccord central, Metapopulation pour une autonomie régionale et A-Team pour un couplage faible.
 4. Garder les seuils et motifs de recommandation visibles dans le résultat.
 5. Présenter la transition comme un conseil; le runtime de Morphogenesis garde l'autorisation et l'exécution du changement.
+6. Exposer l'analyse de session par `genos_topology_session(operation: "morphogenesis")`; les métriques de couplage absentes sont signalées et ne justifient pas une sortie vers A-Team.
+7. Calculer USCR, CAR, IVER et RSE à partir de comptes de benchmark explicites, avec comparaison de variantes à budget égal.
 
 ## Conséquences
 
@@ -40,6 +42,8 @@ La morphogenèse doit pouvoir proposer une topologie mieux adaptée lorsque le p
 
 - Les seuils sont des heuristiques configurées, pas des paramètres appris des performances.
 - La qualité du score dépend de mesures fournies par l'appelant; ce lot ne prétend pas collecter automatiquement les métriques de staleness et de dépendance.
+- Un ratio sans dénominateur observé est marqué non mesuré; le service ne transforme pas une absence de preuve en zéro.
+- Le calculateur de benchmark agrège des comptes observés mais n'exécute pas à lui seul la matrice de workloads; les résultats doivent provenir de runs réels.
 
 ## Alternatives
 

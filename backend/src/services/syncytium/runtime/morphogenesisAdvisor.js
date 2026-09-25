@@ -14,21 +14,23 @@ const THRESHOLDS = Object.freeze({
 function createMorphogenesisAdvisor(syncytium) {
   return {
     evaluateMorphogenesis: (signals) => evaluateMorphogenesis(signals || {}),
-    analyzeSessionMorphogenesis: (sessionId, signals) => analyzeSession(sessionId, signals || {}, syncytium)
+    analyzeSessionMorphogenesis: (sessionId, signals) => analyzeSession(sessionId, signals || {}, syncytium),
+    evaluateMorphogenesisBenchmarks: (runs) => require('../benchmark/syncytiumBenchmarkService').compareRuns(runs)
   };
 }
 
 function evaluateMorphogenesis(signals = {}) {
   const components = normalizeSignals(signals);
-  const couplingScore = components.sharedWriteDensity * components.dependencyDensity
-    * components.updateFrequency * components.stalenessCost;
+  const measurementGaps = missingCouplingSignals(signals);
+  const couplingScore = measurementGaps.length ? null : components.sharedWriteDensity
+    * components.dependencyDensity * components.updateFrequency * components.stalenessCost;
   const transitionSignals = normalizeTransitionSignals(signals);
-  const transition = chooseTransition({ ...transitionSignals, couplingScore, ...components });
+  const transition = chooseTransition({ ...transitionSignals, couplingScore, measurementGaps, ...components });
   return {
     sourceTopology: 'syncytium', targetTopology: transition.target,
     transitionRequired: transition.target !== 'syncytium', reason: transition.reason,
     couplingScore, components, sharedInvariantCount: transitionSignals.sharedInvariantCount,
-    thresholds: THRESHOLDS
+    thresholds: THRESHOLDS, measurementGaps
   };
 }
 
@@ -43,10 +45,13 @@ function normalizeSignals(signals) {
 
 function ratioSignal(context) {
   const { signals, directName, numeratorName, denominatorName } = context;
-  if (signals[directName] !== undefined) return unitValue(signals[directName], directName);
+  if (signals[directName] !== undefined && signals[directName] !== null) return unitValue(signals[directName], directName);
+  if (signals[numeratorName] === undefined || signals[numeratorName] === null
+    || signals[denominatorName] === undefined || signals[denominatorName] === null
+    || Number(signals[denominatorName]) <= 0) return null;
   const numerator = nonNegative(signals[numeratorName] || 0, numeratorName);
   const denominator = nonNegative(signals[denominatorName] || 0, denominatorName);
-  return denominator > 0 ? Math.min(1, numerator / denominator) : 0;
+  return Math.min(1, numerator / denominator);
 }
 
 function chooseTransition(signals) {
@@ -67,6 +72,9 @@ function chooseTransition(signals) {
 }
 
 function looselyCoupled(signals) {
+  if (signals.measurementGaps.length) {
+    return { target: 'syncytium', reason: 'Insufficient coupling telemetry; retain Syncytium until measurements are available.' };
+  }
   const weakWrites = signals.sharedWriteDensity < THRESHOLDS.lowSharedWrites;
   const weakDependencies = signals.dependencyDensity < THRESHOLDS.lowDependencies;
   if (signals.couplingScore < THRESHOLDS.looseCoupling && (weakWrites || weakDependencies)
@@ -74,6 +82,17 @@ function looselyCoupled(signals) {
     return { target: 'a_team', reason: 'Domains have become loosely coupled.' };
   }
   return { target: 'syncytium', reason: 'Shared state remains sufficiently coupled.' };
+}
+
+function missingCouplingSignals(signals) {
+  return [
+    ['sharedWriteDensity', 'sharedWrites', 'totalWrites'],
+    ['dependencyDensity', 'dependencyLinks', 'possibleDependencies'],
+    ['updateFrequency', 'updatesPerMinute', 'expectedUpdatesPerMinute'],
+    ['stalenessCost', 'staleReadCost', 'maxStaleReadCost']
+  ].filter(([direct, numerator, denominator]) => (signals[direct] === undefined || signals[direct] === null)
+    && (signals[numerator] === undefined || !Number.isFinite(Number(signals[denominator]))
+      || Number(signals[denominator]) <= 0)).map(([direct]) => direct);
 }
 
 function normalizeTransitionSignals(signals) {
@@ -115,22 +134,48 @@ async function analyzeSession(sessionId, signals, syncytium) {
   const recommendation = evaluateMorphogenesis({ ...signals, activeDomains, sharedInvariantCount });
   const result = { ...recommendation, sessionId, stateVersion: snapshot.shared.totalOps, consistency: snapshot.consistency };
   if (!recommendation.transitionRequired || recommendation.targetTopology === 'direct') {
-    return { ...result, morphogenesisPlan: null };
+    return { ...result, morphogenesisPlan: null, planningContextComplete: false };
   }
-  return { ...result, morphogenesisPlan: createTransitionPlan({ sessionId, signals, recommendation }) };
+  if (snapshot.consistency.verdict !== 'consistent') {
+    return { ...result, morphogenesisPlan: null, planningBlocked: 'SYNCYTIUM_INCONSISTENT' };
+  }
+  const morphogenesisPlan = createTransitionPlan({ sessionId, signals, recommendation });
+  if (!morphogenesisPlan.validation.valid) {
+    return {
+      ...result, morphogenesisPlan: null, planningBlocked: 'MORPHOGENESIS_PLAN_INVALID',
+      planningErrors: morphogenesisPlan.validation.errors
+    };
+  }
+  return {
+    ...result, morphogenesisPlan,
+    planningContextComplete: hasAgentInventory(signals)
+  };
+}
+
+function hasAgentInventory(signals) {
+  const agents = signals.currentState?.agents || signals.currentAgents;
+  if (agents instanceof Map) return agents.size > 0;
+  return Array.isArray(agents) && agents.length > 0;
 }
 
 function createTransitionPlan(context) {
   const { sessionId, signals, recommendation } = context;
   const planner = require('../../morphogenesis/morphogenesisPlannerService');
-  return planner.planMorphogenesis({
+  const currentState = signals.currentState || {};
+  const plan = planner.planMorphogenesis({
     missionId: sessionId,
     mission: signals.mission || `Syncytium transition ${sessionId}`,
-    currentState: { topology: 'syncytium', agents: new Map(), capabilities: signals.availableCapabilities || [] },
+    currentState: {
+      ...currentState, topology: 'syncytium',
+      agents: currentState.agents || signals.currentAgents || new Map(),
+      capabilities: currentState.capabilities || signals.availableCapabilities || []
+    },
     proposedTopology: recommendation.targetTopology,
     budget: signals.budget || 0,
     reason: recommendation.reason
   });
+  plan.validation = planner.validatePlan({ plan });
+  return plan;
 }
 
 module.exports = { THRESHOLDS, createMorphogenesisAdvisor, evaluateMorphogenesis };
