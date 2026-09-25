@@ -6,6 +6,7 @@ const strategyContracts = require('../strategyContractService');
 const workerGarage = require('../workerGarageService');
 const AgentRepository = require('../../repositories/agent.repository');
 const trinityService = require('../trinityService');
+const topologyWorkerKinds = require('../topologyWorkerKindService');
 const workspaceLifecycle = require('../agentWorkspaceLifecycleService');
 const { hashWorkspace } = require('../trinitySnapshotService');
 const trinityExperimentStore = require('../trinityExperimentStore');
@@ -57,12 +58,13 @@ class TrinityDeployService {
     const taskPrompt = prompt || 'Trinity mission';
     const budget = normalizeMissionBudget(executionBudget || {});
     const analysis = trinityService.analyzeMission(taskPrompt);
-    const composed = trinityService.compose(taskPrompt);
+    const composed = topologyWorkerKinds.applyTopologyWorkerKinds('trinity', trinityService.compose(taskPrompt));
 
     const worlds = composed.map((m) => ({
       name: `Trinity Worker (World ${m.worldNumber}: ${m.role})`,
       role: m.role,
       workerKind: m.workerKind,
+      workerKindReason: m.workerKindReason,
       task: m.hypothesis,
       modelTier: m.modelTier === 'standard' ? 'Standard' : 'Pro',
       domain: m.domain,
@@ -160,7 +162,7 @@ class TrinityDeployService {
         orchestratorAgentId: orchestratorId
       });
       await db.run('UPDATE agents SET metadata_json = ? WHERE id = ?',
-        JSON.stringify({ workerKind: w.workerKind, workerContract }), id);
+        JSON.stringify({ workerKind: w.workerKind, workerKindReason: w.workerKindReason, workerContract }), id);
 
       await trinityExperimentStore.createWorld(db, {
         id: worldId, mission: taskPrompt, worldNumber: w.worldNumber, name: w.name,
@@ -173,6 +175,8 @@ class TrinityDeployService {
         worldNumber: w.worldNumber,
         name: w.name,
         chamber: composed[index].chamber,
+        workerKind: w.workerKind,
+        workerKindReason: w.workerKindReason,
         strategy: w.role,
         hypothesis: w.task,
         domain: w.domain,
@@ -255,6 +259,7 @@ class TrinityDeployService {
       orchestratorId,
       orchestratorName,
       orchestratorContract,
+      workerPlan: topologyWorkerKinds.workerPlanFor(worlds),
       persistedWorlds,
       agentIds
     };

@@ -90,10 +90,11 @@ registre serveur; il ne fait jamais confiance à un contrat fourni par le
 composeur. Un rôle absent de la matrice est une erreur de composition à
 traiter explicitement, et non un motif de repli silencieux.
 
-Les huit composeurs renseignent maintenant `workerKind` explicitement. A-Team
-et Trinity le transmettent aussi au worker lancé. Les six modes biologiques
-exposent des membres typés dans leur résultat de composition ou leur session,
-mais leur composition ne déclenche pas à elle seule l'exécution de ces workers.
+Les huit composeurs renseignent maintenant `workerKind` explicitement. Avant le
+lancement, A-Team et Trinity refusent les types inconnus ou incompatibles. Le
+plan renvoyé expose pour chaque membre `role`, `workerKind` et `reason`. Les six
+modes biologiques exposent aussi ces membres typés dans leur résultat ou leur
+session, mais leur composition ne déclenche pas à elle seule leur exécution.
 Voir [Types de workers](../03-reference/types-de-workers.md) pour les contrats,
 artefacts et limites de chaque type.
 

@@ -33,6 +33,8 @@ function plannedMember({ member, index, orchestratorId, planId }) {
     index,
     subSystem: withDefault(member.subSystem, withDefault(member.label, withDefault(member.role, `member_${index}`))),
     role: member.role,
+    workerKind: member.workerKind,
+    workerKindReason: member.workerKindReason,
     agentId: withDefault(member.agentId, workerId),
     label: member.label,
     modelTier: member.modelTier,

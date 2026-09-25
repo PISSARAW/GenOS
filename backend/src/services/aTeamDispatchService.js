@@ -17,6 +17,7 @@ const aTeamStageScheduler = require('./aTeamStageScheduler');
 const aTeamRuntime = require('./aTeam/aTeamRuntime');
 const { prepareDispatchPolicy } = require('./aTeam/dispatchPolicyService');
 const { emit } = require('./agentOrchestrationState');
+const topologyWorkerKinds = require('./topologyWorkerKindService');
 
 function stageRunnerPath() {
   return path.resolve(__dirname, '../../bin/genos-ateam-stage-runner.cjs');
@@ -97,11 +98,13 @@ async function prepareDispatch({ db, context }) {
     successCriteria: requestedSuccessCriteria(request),
     available: garage.available
   });
+  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members);
   const policy = prepareDispatchPolicy({
     mission: { ...request, goal: projectGoal }, members: team.members,
     totalBudget: requestedTokenBudget(request)
   });
   team.members = policy.members;
+  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members);
   team.executionPolicy = policy.policy;
   requireReadyTeam(team.readiness);
   return { db, request, garage, projectGoal, team, context };
@@ -136,6 +139,7 @@ function shouldReturnExisting(canonical) {
 async function launchDispatch({ setup, activeRun, runnerToken, context, parent, launchWorker }) {
   const { team, garage, projectGoal } = setup;
   const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: activeRun.members, planId: activeRun.teamRunId });
+  plan.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', plan.members);
   await persistPlannedWorkers({ db: setup.db, context, parent, members: plan.members });
   const existingWorkerIds = await workersAlreadyPresent(setup.db, plan.members);
   // Independent producers start now; the detached runner waits for them before
@@ -161,6 +165,7 @@ async function launchDispatch({ setup, activeRun, runnerToken, context, parent, 
       readiness: team.readiness,
       capabilityContract: team.capabilityContract,
       capabilityAudit: team.capabilityAudit,
+      workerPlan: topologyWorkerKinds.workerPlanFor(plan.members),
       planId: plan.planId,
       stages: aTeamService.planStages(team.members).stages,
       stageRunnerPid: runner ? runner.pid : null,

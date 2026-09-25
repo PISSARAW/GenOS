@@ -1268,3 +1268,8 @@ contrat au dispatch. Les six modes biologiques produisent des membres typés dan
 leur composition/session, mais ne lancent pas automatiquement ces workers.
 La vérification bout en bout de chaque type et de son artefact reste à établir
 pour chaque runtime qui consomme ces membres.
+
+Avant lancement A-Team ou Trinity, le validateur exige un type explicite connu
+et compatible avec le rôle topologique; une absence, un identifiant inconnu ou
+un conflit bloque le dispatch. Le plan inclut `role`, `workerKind` et `reason`
+pour rendre l'affectation vérifiable par l'appelant.
