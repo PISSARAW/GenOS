@@ -7,6 +7,7 @@ function reviewPrompt(member, results) {
     ? JSON.stringify(candidates)
     : 'Aucune idée transférable étayée n’est disponible.';
   return `${member.mission}\n\nYOUR INITIAL RESULT: ${String(own?.answer || 'No result.').slice(0, 1200)}\n` +
+    `YOUR INITIAL SUBMISSION: ${JSON.stringify(own?.submission || {})}\n` +
     `TRANSFERABLE IDEAS ONLY (not peer solutions): ${candidateText}\n\n` +
     'Keep your assigned method and local constraints. Test each idea against your own inputs and compute your own fitness before and after. ' +
     'Do not copy a peer answer, schedule, implementation, or complete solution. Return migrationDecisions as JSON objects with ideaId, decision (accepted/rejected), reason, localValidation, fitnessBefore, fitnessAfter, fitnessDirection (minimize/maximize), and evidenceRefs. ' +
@@ -39,12 +40,12 @@ function validateReviewDecisions(input) {
 }
 
 function reviewContext(mission) {
-  const match = String(mission || '').match(/YOUR INITIAL RESULT: ([\s\S]*?)\nTRANSFERABLE IDEAS ONLY \(not peer solutions\): ([\s\S]*?)\n\n/);
+  const match = String(mission || '').match(/YOUR INITIAL RESULT: ([\s\S]*?)\nYOUR INITIAL SUBMISSION: ([\s\S]*?)\nTRANSFERABLE IDEAS ONLY \(not peer solutions\): ([\s\S]*?)\n\n/);
   if (!match) return { baselineAnswer: '', candidates: [] };
   try {
-    return { baselineAnswer: match[1].trim(), candidates: JSON.parse(match[2]) };
+    return { baselineAnswer: match[1].trim(), baselineSubmission: JSON.parse(match[2]), candidates: JSON.parse(match[3]) };
   } catch (_) {
-    return { baselineAnswer: match[1].trim(), candidates: [] };
+    return { baselineAnswer: match[1].trim(), baselineSubmission: null, candidates: [] };
   }
 }
 
@@ -55,22 +56,36 @@ function validateOneDecision(decision, input, candidates) {
   const claimedAccepted = decision?.decision === 'accepted';
   const baseline = input.baselineValidation;
   const final = input.finalValidation;
-  const improvement = schedulingImproved(baseline, final, decision?.fitnessDirection);
+  const improvement = schedulingImproved(baseline, final, final?.fitnessDirection);
+  const fitnessReported = reportedFitnessMatches(decision, baseline, final);
   const accepted = Boolean(claimedAccepted && candidates.has(ideaId) && decision.localValidation === true
-    && evidenceRefs.length && improvement);
+    && evidenceRefs.length && improvement && fitnessReported);
   return {
     ideaId: ideaId || 'unknown', decision: accepted ? 'accepted' : 'rejected', reason,
     localValidation: accepted, evidenceRefs,
     validationReason: accepted ? 'receiver reproduced a verified local fitness improvement' : rejectionReason({
-      claimedAccepted, ideaId, candidates, decision, evidenceRefs, improvement
+      claimedAccepted, ideaId, candidates, decision, evidenceRefs, improvement, fitnessReported
     })
   };
 }
 
 function schedulingImproved(before, after, direction) {
-  if (!before?.applicable || !before.valid || !after?.applicable || !after.valid) return false;
-  if (!Number.isFinite(before.computedMakespan) || !Number.isFinite(after.computedMakespan)) return false;
-  return direction === 'minimize' && after.computedMakespan < before.computedMakespan;
+  const beforeFitness = localFitness(before);
+  const afterFitness = localFitness(after);
+  if (!before?.applicable || !before.valid || !after?.applicable || !after.valid
+    || !Number.isFinite(beforeFitness) || !Number.isFinite(afterFitness)) return false;
+  return direction === 'maximize' ? afterFitness > beforeFitness
+    : direction === 'minimize' && afterFitness < beforeFitness;
+}
+
+function localFitness(result) {
+  return Number.isFinite(result?.fitnessValue) ? result.fitnessValue : result?.computedMakespan;
+}
+
+function reportedFitnessMatches(decision, before, after) {
+  return Number.isFinite(decision?.fitnessBefore) && Number.isFinite(decision?.fitnessAfter)
+    && decision.fitnessBefore === localFitness(before) && decision.fitnessAfter === localFitness(after)
+    && decision.fitnessDirection === after?.fitnessDirection;
 }
 
 function rejectionReason(input) {
@@ -78,6 +93,7 @@ function rejectionReason(input) {
   if (!input.candidates.has(input.ideaId)) return 'candidate was not among the ideas supplied to this receiver';
   if (input.decision.localValidation !== true || !input.evidenceRefs.length) return 'local evidence is missing';
   if (!input.improvement) return 'no independently verified local fitness improvement';
+  if (!input.fitnessReported) return 'reported fitness does not match the deterministic local evaluator';
   return 'candidate did not pass local migration validation';
 }
 

@@ -21,8 +21,8 @@ function enrichMission(context, mission, role) {
 function migrationInstructions(mission) {
   const review = String(mission).includes('TRANSFERABLE IDEAS ONLY');
   const contract = review
-    ? 'Include migrationDecisions in your evidence JSON. For every supplied idea, report ideaId, decision, reason, localValidation, fitnessBefore, fitnessAfter, fitnessDirection and evidenceRefs. Do not mark an idea accepted unless you independently reproduce a local fitness improvement.'
-    : 'Include transferableIdeas in your evidence JSON as bounded technique/counterexample objects {ideaId, technique, rationale, evidenceRefs}. Never include a complete solution, answer, schedule, or code as a transferable idea. Set migrationDecisions to an empty array.';
+    ? 'Include top-level submission and migrationDecisions in your evidence JSON. For every supplied idea, report ideaId, decision, reason, localValidation, fitnessBefore, fitnessAfter, fitnessDirection and evidenceRefs. Do not mark an idea accepted unless the deterministic local evaluator independently reproduces a fitness improvement.'
+    : 'Include top-level submission and transferableIdeas in your evidence JSON as bounded technique/counterexample objects {ideaId, technique, rationale, evidenceRefs}. Never include a complete solution, answer, schedule, or code as a transferable idea. Set migrationDecisions to an empty array.';
   return `${mission}\n\nMETAPOPULATION MIGRATION CONTRACT: ${contract}`;
 }
 

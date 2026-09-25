@@ -1,25 +1,26 @@
 'use strict';
 const { validateSchedulingResult } = require('./schedulingEvidenceValidator');
 const migrationService = require('./metapopulationMigrationService');
+const comparativeEvaluation = require('../comparativeMissionEvaluationService');
 
 async function read(db, member) {
   const agent = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
   const event = await db.get(`SELECT id, payload_json FROM telemetry_events WHERE agent_id = ?
     AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1`, member.workerId);
+  return assembleResult({ member, agent, event });
+}
+
+function assembleResult({ member, agent, event }) {
   const report = parseEvidence(event?.payload_json);
   const answer = evidenceAnswer(report);
   const expectedMethod = String(member.mission || '').match(/Assigned method:\s*([^\n.]+)/i)?.[1]?.trim() || '';
   const methodValidated = methodEvidenceMatches(primaryEvidence(report), expectedMethod);
-  const schedulingValidation = validateSchedulingResult({ mission: member.mission, answer, method: expectedMethod });
-  const domainValidation = requireFixtureValidation(member.mission, schedulingValidation);
   const structured = structuredReport(report);
+  const fixtureId = fixtureIdFrom(member.mission);
   const review = migrationService.reviewContext(member.mission);
-  const baselineValidation = validateSchedulingResult({ mission: member.mission,
-    answer: review.baselineAnswer, method: expectedMethod });
-  const migrationDecisions = migrationService.validateReviewDecisions({
-    decisions: structured.migrationDecisions, candidates: review.candidates,
-    baselineValidation, finalValidation: domainValidation
-  });
+  const domainValidation = validateDomainResult({ member, answer, expectedMethod, structured, fixtureId });
+  const baselineValidation = validateBaseline({ member, review, expectedMethod, fixtureId });
+  const migrationDecisions = validateMigrations({ structured, review, baselineValidation, domainValidation });
   const complete = completedEvidence({ agent, report, answer, methodValidated, domainValidation });
   const status = complete ? 'completed' : agent?.status === 'completed' ? 'unverified' : agent?.status || 'NO_EVIDENCE';
   return { workerId: member.workerId, role: member.role, status,
@@ -28,19 +29,52 @@ async function read(db, member) {
     transferableIdeas: structured.transferableIdeas, migrationDecisions };
 }
 
-function requireFixtureValidation(mission, validation) {
-  if (!String(mission || '').includes('Comparative mission fixture') || validation?.applicable) return validation;
-  return { applicable: true, valid: false, reasons: ['No deterministic evaluator is registered for this fixture domain.'] };
+function validateDomainResult(input) {
+  if (input.fixtureId) return comparativeEvaluation.evaluateFixtureSubmission({
+    fixtureId: input.fixtureId, submission: input.structured.submission,
+    answer: input.answer, method: input.expectedMethod
+  });
+  return validateSchedulingResult({ mission: input.member.mission, answer: input.answer, method: input.expectedMethod });
+}
+
+function validateBaseline(input) {
+  if (input.fixtureId) return comparativeEvaluation.evaluateFixtureSubmission({
+    fixtureId: input.fixtureId, submission: input.review.baselineSubmission,
+    answer: input.review.baselineAnswer, method: input.expectedMethod
+  });
+  return validateSchedulingResult({ mission: input.member.mission,
+    answer: input.review.baselineAnswer, method: input.expectedMethod });
+}
+
+function validateMigrations(input) {
+  return migrationService.validateReviewDecisions({
+    decisions: input.structured.migrationDecisions, candidates: input.review.candidates,
+    baselineValidation: input.baselineValidation, finalValidation: input.domainValidation
+  });
+}
+
+function fixtureIdFrom(mission) {
+  const id = String(mission || '').match(/comparative-level-(\d+)-[\w-]+/i)?.[0];
+  return id ? `level-${id.match(/\d+/)[0]}` : null;
 }
 
 function structuredReport(report) {
   const content = report?.workerArtifact?.content || {};
-  const parsed = [report?.answer, report?.claims?.[0]?.statement, content.claims?.[0]?.statement]
-    .map(parseStructuredAnswer).find(Boolean) || {};
+  const parsed = parseFirstStructuredAnswer([report?.answer, report?.claims?.[0]?.statement,
+    content.claims?.[0]?.statement]) || {};
   return {
-    transferableIdeas: report?.transferableIdeas || content.transferableIdeas || parsed.transferableIdeas || [],
-    migrationDecisions: report?.migrationDecisions || content.migrationDecisions || parsed.migrationDecisions || []
+    transferableIdeas: firstPresent([report?.transferableIdeas, content.transferableIdeas, parsed.transferableIdeas]) || [],
+    migrationDecisions: firstPresent([report?.migrationDecisions, content.migrationDecisions, parsed.migrationDecisions]) || [],
+    submission: firstPresent([report?.submission, content.submission, parsed.submission]) || null
   };
+}
+
+function parseFirstStructuredAnswer(values) {
+  return values.map(parseStructuredAnswer).find(Boolean);
+}
+
+function firstPresent(values) {
+  return values.find((value) => value !== undefined && value !== null);
 }
 
 function parseStructuredAnswer(value) {

@@ -1,1 +1,115 @@
-{"schemaVersion":"1","missionId":"comparative-level-5-security-audit-v1","problem":{"domain":"synthetic-security-audit","statement":"Auditer le pseudo-système et identifier les vulnérabilités démontrables sans exécuter de charge réelle.","inputs":{"system":"Le service accepte un jeton de session signé HMAC-SHA256. La vérification compare les signatures avec ==. Le cookie session n'a ni Secure ni SameSite. Les routes /profile et /admin vérifient uniquement que le cookie existe, sans contrôler le sujet ni le rôle. Les exports sont écrits dans /srv/export/<userInput> sans canonicalisation.","scope":"analyse statique synthétique uniquement"},"constraints":["Chaque constat cite un comportement fourni.","Distinguer vulnérabilité démontrée, hypothèse et limite.","Aucune charge ni cible réelle."],"objective":{"metric":"validated-findings","direction":"maximize"}},"populations":[{"id":"threat-model","method":"threat modeling","localObjectives":["actifs et frontières de confiance"],"fitness":{"metric":"validated-findings","direction":"maximize"},"evidenceRequirements":["actif, menace, preuve"]},{"id":"logic","method":"analyse logique","localObjectives":["vérifier les contrôles et implications"],"fitness":{"metric":"validated-findings","direction":"maximize"},"evidenceRequirements":["règle, contre-exemple, preuve"]},{"id":"adversarial","method":"raisonnement adversarial","localObjectives":["contre-exemples plausibles dans le périmètre"],"fitness":{"metric":"validated-findings","direction":"maximize"},"evidenceRequirements":["préconditions et chemin logique"]},{"id":"invariants","method":"vérification d'invariants","localObjectives":["tester les invariants d'accès et de confinement"],"fitness":{"metric":"validated-findings","direction":"maximize"},"evidenceRequirements":["invariant, violation ou preuve de maintien"]}],"migration":{"enabled":true,"requireLocalValidation":true,"prohibitWholeSolutionCopy":true},"reproducibility":{"seed":"level-5-v1","maxRuntimeMs":60000,"maxTokens":16000},"evaluation":{"kind":"synthetic-finding-validation","requiredEvidence":["input-reference","local-revalidation"],"prohibitExploitExecution":true}}
+{
+  "schemaVersion": "1",
+  "missionId": "comparative-level-5-security-audit-v1",
+  "problem": {
+    "domain": "synthetic-security-audit",
+    "statement": "Auditer le pseudo-système et identifier les vulnérabilités démontrables sans exécuter de charge réelle.",
+    "inputs": {
+      "system": "Le service accepte un jeton de session signé HMAC-SHA256. La vérification compare les signatures avec ==. Le cookie session n'a ni Secure ni SameSite. Les routes /profile et /admin vérifient uniquement que le cookie existe, sans contrôler le sujet ni le rôle. Les exports sont écrits dans /srv/export/<userInput> sans canonicalisation.",
+      "scope": "analyse statique synthétique uniquement"
+    },
+    "constraints": [
+      "Chaque constat cite un comportement fourni.",
+      "Distinguer vulnérabilité démontrée, hypothèse et limite.",
+      "Aucune charge ni cible réelle."
+    ],
+    "objective": {
+      "metric": "validated-findings",
+      "direction": "maximize"
+    }
+  },
+  "populations": [
+    {
+      "id": "threat-model",
+      "method": "threat modeling",
+      "localObjectives": [
+        "actifs et frontières de confiance"
+      ],
+      "fitness": {
+        "metric": "validated-findings",
+        "direction": "maximize"
+      },
+      "evidenceRequirements": [
+        "actif, menace, preuve"
+      ]
+    },
+    {
+      "id": "logic",
+      "method": "analyse logique",
+      "localObjectives": [
+        "vérifier les contrôles et implications"
+      ],
+      "fitness": {
+        "metric": "validated-findings",
+        "direction": "maximize"
+      },
+      "evidenceRequirements": [
+        "règle, contre-exemple, preuve"
+      ]
+    },
+    {
+      "id": "adversarial",
+      "method": "raisonnement adversarial",
+      "localObjectives": [
+        "contre-exemples plausibles dans le périmètre"
+      ],
+      "fitness": {
+        "metric": "validated-findings",
+        "direction": "maximize"
+      },
+      "evidenceRequirements": [
+        "préconditions et chemin logique"
+      ]
+    },
+    {
+      "id": "invariants",
+      "method": "vérification d'invariants",
+      "localObjectives": [
+        "tester les invariants d'accès et de confinement"
+      ],
+      "fitness": {
+        "metric": "validated-findings",
+        "direction": "maximize"
+      },
+      "evidenceRequirements": [
+        "invariant, violation ou preuve de maintien"
+      ]
+    }
+  ],
+  "migration": {
+    "enabled": true,
+    "requireLocalValidation": true,
+    "prohibitWholeSolutionCopy": true
+  },
+  "reproducibility": {
+    "seed": "level-5-v1",
+    "maxRuntimeMs": 60000,
+    "maxTokens": 16000
+  },
+  "evaluation": {
+    "kind": "synthetic-finding-validation",
+    "requiredEvidence": [
+      "input-reference",
+      "local-revalidation"
+    ],
+    "prohibitExploitExecution": true,
+    "knownFindings": [
+      {
+        "id": "timing-comparison",
+        "reference": "compare les signatures avec =="
+      },
+      {
+        "id": "cookie-flags",
+        "reference": "ni Secure ni SameSite"
+      },
+      {
+        "id": "missing-authorization",
+        "reference": "sans contrôler le sujet ni le rôle"
+      },
+      {
+        "id": "path-traversal",
+        "reference": "sans canonicalisation"
+      }
+    ]
+  }
+}

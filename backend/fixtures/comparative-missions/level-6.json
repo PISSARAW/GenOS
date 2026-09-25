@@ -1,1 +1,131 @@
-{"schemaVersion":"1","missionId":"comparative-level-6-collapse-recolonization-v1","problem":{"domain":"constrained-optimization","statement":"Maximiser la valeur d'un portefeuille sous budget puis recoloniser une population effondrée après changement de contrainte.","inputs":{"budget":10,"projects":{"A":{"cost":6,"value":10},"B":{"cost":5,"value":8},"C":{"cost":4,"value":7},"D":{"cost":3,"value":5},"E":{"cost":2,"value":3}},"constraintChange":{"field":"budget","from":10,"to":4,"collapsedPopulationId":"greedy"},"lineages":["alpha","beta","gamma","delta"]},"constraints":["Coût total au plus égal au budget actif.","Après changement, déclarer effondrée toute stratégie dont aucun candidat ne respecte la contrainte.","Founder set issu d'au moins deux lignées distinctes; solution viable non clonée."],"objective":{"metric":"portfolio-value","direction":"maximize"}},"populations":[{"id":"greedy","method":"recherche gloutonne valeur/coût","localObjectives":["valeur sous budget"],"fitness":{"metric":"portfolio-value","direction":"maximize"},"evidenceRequirements":["sélection et coût total"]},{"id":"dynamic","method":"programmation dynamique sac à dos","localObjectives":["optimum exact sous budget"],"fitness":{"metric":"portfolio-value","direction":"maximize"},"evidenceRequirements":["table d'états et reconstruction"]},{"id":"local","method":"recherche locale","localObjectives":["voisinage de sélection"],"fitness":{"metric":"portfolio-value","direction":"maximize"},"evidenceRequirements":["mouvements et fitness"]},{"id":"evolutionary","method":"recherche évolutionnaire","localObjectives":["diversité de lignées"],"fitness":{"metric":"portfolio-value","direction":"maximize"},"evidenceRequirements":["lignées et diversité"]}],"migration":{"enabled":true,"requireLocalValidation":true,"prohibitWholeSolutionCopy":true},"reproducibility":{"seed":"level-6-v1","maxRuntimeMs":90000,"maxTokens":20000},"evaluation":{"kind":"collapse-recolonization","requireCollapseEvent":true,"minimumFounderLineages":2,"requireNovelViableSolution":true}}
+{
+  "schemaVersion": "1",
+  "missionId": "comparative-level-6-collapse-recolonization-v1",
+  "problem": {
+    "domain": "constrained-optimization",
+    "statement": "Maximiser la valeur d'un portefeuille sous budget puis recoloniser une population effondrée après changement de contrainte.",
+    "inputs": {
+      "budget": 10,
+      "projects": {
+        "A": {
+          "cost": 6,
+          "value": 10
+        },
+        "B": {
+          "cost": 5,
+          "value": 8
+        },
+        "C": {
+          "cost": 4,
+          "value": 7
+        },
+        "D": {
+          "cost": 3,
+          "value": 5
+        },
+        "E": {
+          "cost": 2,
+          "value": 3
+        }
+      },
+      "constraintChange": {
+        "field": "budget",
+        "from": 10,
+        "to": 4,
+        "collapsedPopulationId": "greedy"
+      },
+      "lineages": [
+        "alpha",
+        "beta",
+        "gamma",
+        "delta"
+      ]
+    },
+    "constraints": [
+      "Coût total au plus égal au budget actif.",
+      "Après changement, déclarer effondrée toute stratégie dont aucun candidat ne respecte la contrainte.",
+      "Founder set issu d'au moins deux lignées distinctes; solution viable non clonée."
+    ],
+    "objective": {
+      "metric": "portfolio-value",
+      "direction": "maximize"
+    }
+  },
+  "populations": [
+    {
+      "id": "greedy",
+      "method": "recherche gloutonne à candidat unique A",
+      "localObjectives": [
+        "valeur sous budget"
+      ],
+      "fitness": {
+        "metric": "portfolio-value",
+        "direction": "maximize"
+      },
+      "evidenceRequirements": [
+        "sélection et coût total"
+      ]
+    },
+    {
+      "id": "dynamic",
+      "method": "programmation dynamique sac à dos",
+      "localObjectives": [
+        "optimum exact sous budget"
+      ],
+      "fitness": {
+        "metric": "portfolio-value",
+        "direction": "maximize"
+      },
+      "evidenceRequirements": [
+        "table d'états et reconstruction"
+      ]
+    },
+    {
+      "id": "local",
+      "method": "recherche locale",
+      "localObjectives": [
+        "voisinage de sélection"
+      ],
+      "fitness": {
+        "metric": "portfolio-value",
+        "direction": "maximize"
+      },
+      "evidenceRequirements": [
+        "mouvements et fitness"
+      ]
+    },
+    {
+      "id": "evolutionary",
+      "method": "recherche évolutionnaire",
+      "localObjectives": [
+        "diversité de lignées"
+      ],
+      "fitness": {
+        "metric": "portfolio-value",
+        "direction": "maximize"
+      },
+      "evidenceRequirements": [
+        "lignées et diversité"
+      ]
+    }
+  ],
+  "migration": {
+    "enabled": true,
+    "requireLocalValidation": true,
+    "prohibitWholeSolutionCopy": true
+  },
+  "reproducibility": {
+    "seed": "level-6-v1",
+    "maxRuntimeMs": 90000,
+    "maxTokens": 20000
+  },
+  "evaluation": {
+    "kind": "collapse-recolonization",
+    "requireCollapseEvent": true,
+    "minimumFounderLineages": 2,
+    "requireNovelViableSolution": true,
+    "invalidatedInitialSelection": [
+      "A"
+    ]
+  }
+}
