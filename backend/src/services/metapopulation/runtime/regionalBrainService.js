@@ -7,6 +7,7 @@ const { planAntiSynchrony } = require('../observability/antiSynchronyService');
 const { evaluateRegionalUtility } = require('../observability/regionalUtilityService');
 const { transitionDeme } = require('../demes/demeLifecycleService');
 const corridorStore = require('../migration/corridorStore');
+const regionalMigrationLoop = require('./regionalMigrationLoopService');
 const { runRegionalRuntime } = require('./regionalRuntimeService');
 
 function createRegionalBrain(options = {}) {
@@ -57,7 +58,10 @@ function planRegionalActions(diagnosis, observed, input = {}) {
     .map((item) => ({ type: 'MARK_DEME_AT_RISK', demeId: item.demeId, reasons: item.reasons }));
   const pairs = updatablePairs(observed, diagnosis.synchronyPairs, input);
   if (pairs.length) actions.push({ type: 'REGULATE_CORRIDORS', pairs, freeze: input.freezeCorrelatedCorridors === true });
-  return { actions, recommendations: buildRecommendations(diagnosis, observed), observedRevision: observed.revision,
+  const migration = regionalMigrationLoop.planMigrationAction({ input, observed });
+  if (migration.action) actions.push(migration.action);
+  return { actions, recommendations: buildRecommendations(diagnosis, observed), migrationAssessments: migration.assessments,
+    observedRevision: observed.revision,
     diagnosis: diagnosis.status };
 }
 
@@ -87,6 +91,7 @@ async function executeAction(action, context) {
     return { type: action.type, demeId: action.demeId, status: deme.status };
   }
   if (action.type === 'REGULATE_CORRIDORS') return regulateCorridors(action, context);
+  if (action.type === 'MIGRATE_PROPAGULE') return regionalMigrationLoop.executeMigrationAction(action, context);
   throw brainError('REGIONAL_ACTION_UNSUPPORTED', `Unsupported regional action: ${action.type}`);
 }
 
@@ -115,7 +120,8 @@ function adjustCorridor(corridor, action, input) {
 async function verifyRegionalActions(context) {
   const demesValid = await verifyDemeActions(context);
   const corridorsValid = await verifyCorridorActions(context);
-  return { valid: context.execution.completed === true && demesValid && corridorsValid,
+  const migrationsValid = await regionalMigrationLoop.verifyMigrationActions(context);
+  return { valid: context.execution.completed === true && demesValid && corridorsValid && migrationsValid,
     diagnosis: context.diagnosis.status, actionCount: context.plan.actions.length,
     regionalRevisionBefore: context.observed.revision, regionalTopologyUnchanged: true };
 }

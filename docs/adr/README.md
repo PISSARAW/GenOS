@@ -81,6 +81,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0093](0093-controleur-regional-autonome-metapopulation.md) | Contrôleur régional autonome de Métapopulation | Accepté | 2026-09-24 | Métapopulation, runtime, observabilité, Morphogenèse |
 | [0097](0097-calibration-immunitaire-holobionte.md) | Calibration immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, épistémologie |
 
+| [0102](0102-boucle-migration-regionale-verifiee.md) | Boucle de migration régionale vérifiée | Accepté | 2026-09-25 | Métapopulation, migration, corridors, runtime |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.

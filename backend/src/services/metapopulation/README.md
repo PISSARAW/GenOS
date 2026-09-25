@@ -29,7 +29,8 @@ persistance.
 `metapopulationStore.js` persiste les sessions, patches et dèmes dans des tables
 normalisées. Les créations, changements de statut et mises à jour du profil local
 sont ajoutés au journal régional append-only. Les corridors et migrations ont
-leurs tables, mais leur cycle de vie sera livré dans un lot ultérieur.
+leurs tables et services persistants ; leur orchestration régionale est décrite
+plus bas.
 
 La migration `073-metapopulation-sessions` crée le schéma. La façade
 `metapopulationCoordinationService.js` expose les opérations du modèle local.
@@ -60,8 +61,7 @@ Seul un adaptateur enregistré pour le type concerné peut valider localement
 le payload puis l'assimiler. Un rejet de validation est journalisé ; une
 assimilation acceptée exige un reçu avec provenance. Les adaptateurs reçoivent
 l'identifiant de migration comme clé d'idempotence afin qu'une reprise après
-erreur ne duplique pas leurs effets. Les déclencheurs adaptatifs arrivent dans
-les lots suivants.
+erreur ne duplique pas leurs effets.
 
 Le PR6 fournit les stratégies `elite`, `novelty`, `rescue`, `complementary`,
 `counterexample`, `cultural` et `founder`. Le plan push répartit les candidats
@@ -81,3 +81,26 @@ Le PR9 prépare au plus trois essais rescue (plafond configurable), à partir
 d'une source compatible vers une cible en difficulté. Le résultat compare la
 fitness avant/après ; une régression vérifiée peut appeler l'adaptateur de
 rollback, tracer son reçu et diminuer le poids du corridor.
+
+## Runtime régional vérifié
+
+Le cerveau régional interne relie l'observation persistée, le diagnostic, le
+plan, l'exécution, la vérification relue depuis SQLite et l'enregistrement du
+cycle. Il peut signaler un dème `AT_RISK` et réguler les corridors dirigés
+exposés à l'homogénéisation. Les transitions morphogénétiques restent limitées
+au dème et passent par le service de transition transactionnelle.
+
+Une migration est orchestrée uniquement si `enableMigration: true` et si une
+requête fournit `trigger`, `candidates`, `receiver` et la politique de sélection.
+Le contrôleur exige un trigger positif, une utilité régionale nette positive
+(sauf rescue critique), un corridor dirigé actif de capacité positive et un
+adaptateur receveur enregistré. Il sélectionne au plus un candidat par cycle,
+l'offre en quarantaine, puis laisse le receveur valider, assimiler ou rejeter.
+L'acceptation exige un reçu avec provenance ; les deux issues terminales sont
+relues en base avant validation du cycle. Une erreur de revue laisse le
+propagule en quarantaine pour reprise idempotente.
+
+Les essais rescue avec fitness avant/après, les décisions d'extinction et les
+recolonisations ne sont pas encore pilotés automatiquement par cette boucle.
+Le benchmark actuel mesure les métriques régionales ; il ne constitue pas
+encore une comparaison scientifique à budget égal.

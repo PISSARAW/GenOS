@@ -1591,3 +1591,18 @@ Mesurer réussite de mission et survie des fonctions régionales après défaill
 Une Métapopulation réussit si les fonctions régionales critiques sont préservées, les défaillances locales contenues, les migrations sélectivement utiles, la diversité régionale suffisante, la capacité de recolonisation disponible et aucune défaillance systémique non résolue.
 
 > Une bonne Métapopulation GenOS n'est pas celle où aucun dème ne meurt. C'est celle où des dèmes peuvent mourir sans que l'intelligence collective perde sa capacité à continuer, apprendre et recoloniser.
+
+## Runtime régional livré : migration vérifiée
+
+Le Regional Brain exécute une migration lorsqu'un cycle reçoit explicitement
+`enableMigration: true` et un signal adaptatif déclenché. Il sélectionne au
+plus un candidat selon la politique demandée, vérifie l'utilité attendue et le
+corridor dirigé, puis place le propagule en quarantaine. L'adaptateur du
+receveur reste seul responsable de valider, assimiler avec reçu de provenance,
+ou rejeter. Le runtime relit ensuite l'issue terminale dans la persistance avant
+d'enregistrer le cycle comme vérifié.
+
+L'appelant fournit encore les candidats, les signaux et le contexte local du
+receveur. Une erreur pendant la revue laisse la migration en quarantaine pour
+reprise idempotente. Les essais rescue avec fitness avant/après, l'extinction
+et la recolonisation ne sont pas encore automatisés par cette boucle.
