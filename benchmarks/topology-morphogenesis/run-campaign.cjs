@@ -55,6 +55,8 @@ function environment(name) {
     GENOS_TOPOLOGY_AWAIT_WORKERS: '1',
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || 'local',
     GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || 'qwen2.5-coder:7b',
+    GENOS_DEFAULT_MODEL: 'ollama://qwen2.5-coder:7b',
+    GENOS_MIN_LOCAL_MODEL_PARAMETERS: '7000000000',
     GENOS_ORCHESTRATOR_BRIDGE: path.join(repo, 'backend/bin/genos-orchestrate.cjs'),
     GENOS_BIN: '',
     GENOS_MCP_BIN: '',
@@ -351,6 +353,8 @@ async function main() {
   process.env.GENOS_CAPSULE_ROOT = path.join(output, 'capsules');
   process.env.GENOS_RUNNER_LOG_DIR = path.join(output, 'runner-logs');
   process.env.GENOS_LOCAL_MODEL = process.env.GENOS_LOCAL_MODEL || 'qwen2.5-coder:7b';
+  process.env.GENOS_DEFAULT_MODEL = 'ollama://qwen2.5-coder:7b';
+  process.env.GENOS_MIN_LOCAL_MODEL_PARAMETERS = '7000000000';
   process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS = '10000';
   process.env.GENOS_SQLITE_MAX_RETRIES = '8';
   process.env.GENOS_ADMIN_PASSWORD = randomBytes(32).toString('base64url');

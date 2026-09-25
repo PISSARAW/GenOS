@@ -72,8 +72,8 @@ function localPlanTimeoutMs(models, mission = {}) {
   const missionTimeout = Number(mission.timeoutMs || 30000);
   const largestParameters = (Array.isArray(models) ? models : []).reduce((max, model) => Math.max(max, modelScale(model)), 0);
   const billions = largestParameters / 1_000_000_000;
-  const scaled = Math.round(1500 + billions * 2000);
-  const ceiling = Math.min(60000, Math.max(2500, Math.floor(missionTimeout * 0.5)));
+  const scaled = Math.round(30000 + billions * 12000);
+  const ceiling = Math.min(240000, Math.max(2500, Math.floor(missionTimeout * 0.95)));
   return Math.max(2500, Math.min(ceiling, scaled));
 }
 
