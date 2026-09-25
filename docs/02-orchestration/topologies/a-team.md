@@ -1108,10 +1108,10 @@ La consolidation fusionne les rôles de plusieurs agents en un seul agent à cap
 | Consolidate | $\langle R_i \cup R_j, C_i \cup C_j, A_i \cup A_j \rangle$ | Fusion atomique de rôles |
 
 L'A-Team de GenOS est un système de coordination riche, formel et adaptable — où chaque décision de composition, communication et transfert est pilotée par des modèles mathématiques explicites et vérifiables.
-# A-Team Topology — Part 3: Variantes, Intégration, Biomimétisme, Communications
+# A-Team — Partie 3 : Variantes, intégration, biomimétisme et communications
 
-> **Statut** : Cadre conceptuel à réaliser progressivement. Les variantes décrites ne sont pas toutes exécutables par le runtime.
-> **Portée** : taxonomie de variantes, intégration continue, recovery organisationnel, biomimétisme et communications.
+> **Statut** : Partiel. Le dispatch matérialise et vérifie certains contrats propres aux variantes; plusieurs propriétés décrites ci-dessous restent des objectifs ou des consignes, pas des mécanismes d'exécution.
+> **Portée** : taxonomie de variantes, contrats de dispatch, intégration continue, recovery organisationnel, biomimétisme et communications.
 > **Prérequis** : les contrats normatifs de cette fiche ; Pareto ne s'applique qu'aux décisions locales entre options substituables.
 
 ---
@@ -1132,6 +1132,28 @@ Chaque variante est une spécialisation visée du même noyau d'orchestration, a
 | 9 | **Multiteam System (MTS)** | Ensemble de teams A-Team elles-mêmes composants d'une meta-mission. Chaque sous-team a son propre objectif mais contribue à un objectif systémique. | Réseau de teams, avec boundary spanners inter-teams (liaisons). | Refonte de plateforme : équipe Frontend, Backend, Data, Infrastructure, chacune A-Team, coordonnées par un Integration Council. | Propriété émergeante non-réductible à une seule team. |
 | 10 | **Adaptive A-Team** | A-Team dont la composition et la structure évoluent au cours de la mission en fonction des écarts détectés. | Structure méta avec boucle : observe → diagnose gap → recrute/libère → reconfigure DAG → continue. | Mission exploratoire dont le périmètre n'est pas connu à l'avancement : recherche, innovation radicale, due diligence. | Résilience structurelle, coût de reconfiguration. |
 | 11 | **Relay Team** | Agents se passent le relais séquentiellement, chaque agent complétant le travail du précédent sans parallélisme. | Chaîne strictement séquentielle $A_1 \xrightarrow{\tau_1} A_2 \xrightarrow{\tau_2} \dots$ où $\tau_i$ est un artifact handoff formalisé. | Tâches avec contrainte de contexte maximal : un seul agent peut détenir le state complet à un moment. | Garantie de cohérence contextuelle, latence maximale. |
+
+### 1.1.1 Contrats de dispatch actuellement appliqués
+
+`prepareDispatchPolicy` joint un plan opérationnel à la politique de dispatch. Les validations échouent avant le lancement des workers lorsqu'un prérequis obligatoire manque. Le plan n'est pas une preuve que les mécanismes de coordination annoncés ont été exécutés.
+
+| Variante | Contrat produit ou prérequis vérifié | Portée et limite actuelle |
+|---|---|---|
+| Expert Committee | Matrice des compétences déclarées, recouvrements entre membres, quorum borné par la taille d'équipe, protocole de consensus et champ `calibrationRequired`. | L'indépendance initiale est une politique de contexte; le runtime ne mesure pas la calibration et n'exécute pas de rounds de consensus/dissent. |
+| Pipeline / Project DAG | Contrats de stage listant `inputSchema` et `outputSchema` fournis, avec validation marquée requise; le WorkGraph et le scheduler existants ordonnent les dépendances. | Les schémas ne sont pas exigés ni validés par ce nouveau plan; streaming, backpressure, cache et retry local ne sont pas fournis par cette politique. |
+| Cross-Functional Pod | Propriétaires dérivés des responsabilités déclarées et métrique simple exposant le nombre de dépendances déclarées et `externalDependencyLimit` (0 par défaut). | Le seuil est descriptif; le dispatch ne bloque pas encore sur dépassement et ne réalise pas à lui seul le cycle design→build→test→ship. |
+| Boundary-Spanner | Chaque interface inter-domaine détectée doit avoir une entrée `mission.interfaceContracts` avec `fromDomain` et `toDomain`; le plan exige provenance, contrôles de compatibilité et validation des deux côtés. | Le service vérifie la présence du contrat, pas la compatibilité sémantique du schéma ni la dérive; les marqueurs décrivent des obligations aval. |
+| Matrix Team | `decisionAuthorities` doit fournir des entrées uniques par `decisionType`, chacune avec un propriétaire fonctionnel et produit; le plan nomme une règle de résolution des désaccords. | La résolution transactionnelle n'est pas exécutée par ce plan; les propriétaires ne sont pas contrôlés contre un annuaire d'acteurs. |
+| Tiger Team | `urgentMandate` doit préciser `scope`, `timeboxMinutes` strictement positif et `stopCriteria`; audit, post-mortem et restitution des privilèges sont requis dans le plan. | La timebox et les privilèges temporaires ne sont pas appliqués par un contrôleur runtime ici. |
+| Incident Command | Rôles `commander`, `operations`, `planning` et `logistics` assignés à des membres, cadence SITREP positive et objectifs opérationnels. | Timeline, SITREP, handover et clôture sont des exigences du plan; aucun mécanisme ICS de cadence/span-of-control n'est démarré ici. |
+| Multiteam System | Composition existante valide les équipes, les contrats inter-équipes, le graphe acyclique, le conseil et ses limites. | Pas de composition team-of-teams récursive complète ni de budget global/local fourni par ce contrat de dispatch. |
+| Adaptive A-Team | Compare les capacités requises déclarées aux capacités/expertises déclarées et produit des gaps avec actions `RECRUIT`, coût et seuil d'hystérésis. | Ce résultat ne lance pas le recrutement et ne réalise pas une reconfiguration transactionnelle, le transfert mémoire ou la mesure du thrashing. |
+| Relay Team | Prépare un paquet ordonné avec état/résumé déclarés, version numérique et empreinte SHA-256; exige validation receveur, rollback owner et lease dans le plan. | Pas de validation effective par le receveur, d'acquisition/expiration de lease ni de rollback exécuté par cette politique. |
+
+Les noms des champs d'entrée ci-dessus sont ceux du contrat JavaScript `mission` transmis à `prepareDispatchPolicy`. En particulier, une sélection explicite d'une variante ne suffit pas à satisfaire ses préconditions: Tiger Team, Incident Command, Matrix Team et Boundary-Spanner refusent le dispatch si leurs contrats requis sont absents ou invalides.
+
+Implémentation : [`operationalVariantPolicy.js`](../../../backend/src/services/aTeam/variants/operationalVariantPolicy.js), appelée par [`dispatchPolicyService.js`](../../../backend/src/services/aTeam/dispatchPolicyService.js). Les tests du contrat de dispatch sont dans [`test_ateam_dispatch_policy.js`](../../../backend/tests/test_ateam_dispatch_policy.js). La politique déclarative ne change pas seule les permissions et n'autorise jamais la promotion d'une sortie sans preuve.
+
 ### 1.2 Formule de Sélection de Variante
 
 La sélection de la variante optimale est une fonction des propriétés de la mission :
