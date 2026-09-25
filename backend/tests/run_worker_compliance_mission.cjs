@@ -55,7 +55,7 @@ async function missionFor(context) {
 async function validateMission(context) {
   const { db, worker, metadata, parentId, kind, scenario, execution } = context;
   const { agent, report, eventPayload } = await readWorkerOutcome(db, worker.agentId);
-  if (report) validateWorkerArtifact({ events: [{ evidenceReport: report }] }, { agentId: worker.agentId, workerContract: metadata.workerContract });
+  const artifactValidationError = validateArtifactForMission(report, worker.agentId, metadata.workerContract);
   const expected = kinds.kindDefinition(kind).artifact;
   const artifact = report?.workerArtifact?.type || null;
   const correctReference = hasFixtureReference(report, scenario.sourceRef);
@@ -64,7 +64,15 @@ async function validateMission(context) {
   const parentBound = metadata.workerContract.identity.parentId === parentId;
   const runtimeStarted = Boolean(execution);
   const passed = successfulOutcome({ agent, report, artifact, expected, correctReference, refusalsValidated, persistedContract, parentBound, runtimeStarted });
-  return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, error: passed ? null : execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
+  return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, error: passed ? null : artifactValidationError || execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
+}
+
+function validateArtifactForMission(report, workerId, workerContract) {
+  if (!report) return null;
+  try {
+    validateWorkerArtifact({ events: [{ evidenceReport: report }] }, { agentId: workerId, workerContract });
+    return null;
+  } catch (error) { return error.message; }
 }
 
 async function readWorkerOutcome(db, workerId) {
@@ -100,17 +108,46 @@ async function runOne({ runId, kind }) {
   const workspaceId = `compliance-workspace-${runId}-${kind}`;
   const parentId = `compliance-parent-${runId}-${kind}`;
   const db = await getDatabase(process.env.GENOS_DB_PATH);
+  let context = null;
+  let execution = null;
   try {
-    const context = await createWorkerContext({ db, parentId, workspaceId, rootWorkspace, kind, model, runId });
-    const execution = await executeWorkerMission(context);
+    context = await createWorkerContext({ db, parentId, workspaceId, rootWorkspace, kind, model, runId });
+    execution = await executeWorkerMission(context);
     const result = await validateMission({ ...context, db, execution });
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.passed) process.exitCode = 1;
+  } catch (error) {
+    const result = failedMissionResult({ runId, kind, parentId, error, context, execution });
+    saveResult(result);
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    process.exitCode = 1;
   } finally {
     await require('../src/services/telemetryObserver').flush(5000).catch(() => undefined);
     await closeDatabase();
   }
+}
+
+function failedMissionResult(options) {
+  const { runId, kind, parentId, error, context, execution } = options;
+  return {
+    runId,
+    kind,
+    workerId: context?.worker?.agentId || null,
+    persistedContract: Boolean(context?.metadata?.workerContract?.identity?.workerKind === kind),
+    parentBound: Boolean(context?.metadata?.workerContract?.identity?.parentId === parentId),
+    runtimeStarted: Boolean(execution),
+    status: execution ? 'execution_failed' : 'not_started',
+    outcome: null,
+    expectedArtifact: kinds.kindDefinition(kind).artifact,
+    artifact: null,
+    sourceEvidenceValidated: false,
+    refusalsValidated: context ? validateExpectedRefusals(kind, context.metadata.workerContract) : false,
+    stageTimings: {},
+    artifactDiagnostics: null,
+    passed: false,
+    error: error.message
+  };
 }
 
 async function createWorkerContext(options) {
