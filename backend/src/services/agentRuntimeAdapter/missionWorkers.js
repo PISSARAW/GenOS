@@ -7,6 +7,7 @@ const { hashWorkspace } = require('../trinitySnapshotService');
 const trinityService = require('../trinityService');
 const aTeamRuntime = require('../aTeam/aTeamRuntime');
 const teamRunStore = require('../aTeam/teamRunStore');
+const trinityHistoricalMemory = require('../trinityHistoricalMemoryService');
 
 function emitTeamComposition(ctx, autonomousWorkers) {
   const { agentId, autonomyPlan } = ctx;
@@ -28,9 +29,12 @@ function trinityBudgetPolicy(autonomyPlan, normalizedMission) {
   const perChamberTokens = Array.isArray(initialRound.workerTokens)
     ? initialRound.workerTokens
     : Array(3).fill(initialRound.perWorkerTokens || 0);
+  const continuation = autonomyPlan.tokenPolicy.rounds?.continuation || {};
   return {
     totalTokens: autonomyPlan.tokenPolicy.total,
     perChamberTokens,
+    continuationPerChamberTokens: continuation.workerTokens || [],
+    adaptiveBudget: autonomyPlan.trinity.adaptiveBudget === true,
     maxLatencyMs: normalizedMission.executionBudget?.latencyMs || null,
     overflowBehavior: 'escalate'
   };
@@ -39,15 +43,20 @@ function trinityBudgetPolicy(autonomyPlan, normalizedMission) {
 async function persistTrinityExperiment(db, input) {
   const { trinityMissionId, snapshotHashes, autonomyPlan, normalizedMission, autonomousWorkers, budgetPolicy } = input;
   await withTransaction(db, async (tx) => {
+    const baseDesign = autonomyPlan.trinity.hypothesisDesign || trinityService.designHypotheses(normalizedMission.prompt || normalizedMission.currentTask || '', {
+      ...(normalizedMission.trinityHypothesisDesign || {}),
+      integrationChecks: normalizedMission.trinityIntegrationChecks,
+      claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
+    });
+    const design = await trinityHistoricalMemory.attach(tx, {
+      domain: autonomyPlan.trinity.domain, experimentId: trinityMissionId, design: baseDesign
+    });
     await trinityExperimentStore.create(tx, {
       id: trinityMissionId,
       missionId: trinityMissionId,
       domain: autonomyPlan.trinity.domain,
       snapshotHash: snapshotHashes[0],
-      design: trinityService.designHypotheses(normalizedMission.prompt || normalizedMission.currentTask || '', {
-        integrationChecks: normalizedMission.trinityIntegrationChecks,
-        claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
-      }),
+      design,
       isolationPolicy: { sharedMemory: 'read-only-snapshot', communication: 'forbidden', provenanceTracking: 'full', randomSeedPerChamber: false },
       budgetPolicy
     });
@@ -69,7 +78,11 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
   if (!(autonomyPlan.trinity?.activated && autonomousWorkers.length)) return;
   const snapshotHashes = await Promise.all(autonomousWorkers.map((worker) => hashWorkspace(worker.workspaceRoot)));
   assertTrinitySnapshot(autonomousWorkers, snapshotHashes);
-  const trinityMissionId = `trinity_${agentId}_${Date.now()}`;
+  const executionRunId = ctx.executionRun?.id;
+  if (!executionRunId) {
+    throw Object.assign(new Error('Trinity requires a persisted execution run id.'), { code: 'TRINITY_EXECUTION_RUN_REQUIRED' });
+  }
+  const trinityMissionId = `trinity_${agentId}_${executionRunId}`;
   autonomyPlan.trinity.missionId = trinityMissionId;
   autonomyPlan.trinity.experimentId = trinityMissionId;
   await persistTrinityExperiment(db, {

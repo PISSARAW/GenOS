@@ -71,8 +71,21 @@ function normalizeClaimVerificationChecks(checks) {
     : [];
 }
 
+function selectedTripletFor(candidates, analysis) {
+  return hypothesisDesign.selectTriplet(candidates)
+    || analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis, sourceRefs: ['mission'] }));
+}
+
+function selectionMethodFor(candidates) {
+  return candidates.length >= 3 && hypothesisDesign.selectTriplet(candidates) ? 'supplied_candidates_v1' : 'fixed_v1';
+}
+
 function designHypotheses(mission, supplied = {}) {
   const analysis = analyzeMission(mission);
+  const candidates = hypothesisDesign.normalizeCandidates(supplied);
+  const selectedTriplet = selectedTripletFor(candidates, analysis);
+  const scores = hypothesisDesign.scoreTriplet(selectedTriplet);
+  const experimentDesign = hypothesisDesign.buildDiscriminatingExperiment(selectedTriplet);
   const integrationChecks = normalizeIntegrationChecks(supplied.integrationChecks);
   const claimVerificationChecks = normalizeClaimVerificationChecks(supplied.claimVerificationChecks);
   return {
@@ -80,11 +93,14 @@ function designHypotheses(mission, supplied = {}) {
     assumptions: Array.isArray(supplied.assumptions) ? supplied.assumptions : [],
     uncertainties: Array.isArray(supplied.uncertainties) ? supplied.uncertainties : [],
     decisionVariables: Array.isArray(supplied.decisionVariables) ? supplied.decisionVariables : [],
-    candidateHypotheses: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
-    selectedTriplet: analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis })),
+    candidateHypotheses: candidates.length ? candidates : analysis.members.map((member) => ({ chamber: member.chamber, hypothesis: member.hypothesis, sourceRefs: ['mission'] })),
+    selectedTriplet,
+    ...scores,
+    experimentDesign,
     integrationChecks,
     claimVerificationChecks,
-    selectionMethod: 'fixed_v1',
+    claimGraph: { trustedRelations: Array.isArray(supplied.claimGraph?.trustedRelations) ? supplied.claimGraph.trustedRelations : [] },
+    selectionMethod: selectionMethodFor(candidates),
     utilityScore: null
   };
 }
@@ -93,6 +109,8 @@ const telemetry = require('./telemetryObserver');
 const adaptive = require('./adaptiveParameterService');
 const { calculateEvIndex } = require('./trinityValueService');
 const trinityPareto = require('./trinityParetoService');
+const hypothesisDesign = require('./trinityHypothesisDesignService');
+const trinityClaimGraph = require('./trinityClaimGraphService');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },
@@ -223,7 +241,7 @@ function complementaryClaimsFrom(worlds, winner, claimGraph) {
 function hasComplementEdge(claim, winnerClaims, claimGraph) {
   if (!claim?.id || !Array.isArray(winnerClaims) || !Array.isArray(claimGraph?.edges)) return false;
   return winnerClaims.some((winnerClaim) => winnerClaim?.id && claimGraph.edges.some((edge) => {
-    if (edge?.type !== 'complements') return false;
+    if (edge?.type !== 'complements' || edge.status !== 'mission_asserted' || edge.verification?.actor !== 'mission_author' || !edge.sourceRefs?.length) return false;
     return (edge.from === claim.id && edge.to === winnerClaim.id)
       || (edge.to === claim.id && edge.from === winnerClaim.id);
   }));
@@ -235,6 +253,10 @@ function mergeTrinityEvidence(worldEntries, options = {}) {
   const comparison = compareWorlds(entries, domain);
   const pareto = trinityPareto.compare(entries, options);
   comparison.pareto = pareto;
+  if (pareto.outcome === 'KEEP_PARETO_SET') {
+    const synthesis = trinityClaimGraph.synthesize(comparison.scoredWorlds, pareto, options.claimGraph || { nodes: [], edges: [] });
+    if (synthesis) return synthesizedClaimsResult(comparison, pareto, synthesis);
+  }
   const accepted = pareto.outcome === 'PROMOTE_WORLD';
   if (accepted) {
     const winner = comparison.scoredWorlds.find((world) => world.worldNumber === pareto.selectedWorld);
@@ -244,6 +266,18 @@ function mergeTrinityEvidence(worldEntries, options = {}) {
     return { canMerge: true, outcome: pareto.outcome, selectedWorld: winner.worldNumber, selectedRole: winner.role, bestScore: comparison.bestScore, comparativeAnalysis: comparison, mergedEvidence: { ...winnerReport, author: { name: 'Trinity Consolidated Synthesis', selectedWorld: winner.worldNumber, selectedRole: winner.role }, outcome: 'success', claims: [...winnerClaims, ...complementaryClaims], comparativeAnalysis: { winner: winner.worldNumber, winningRole: winner.role, score: comparison.bestScore, matrix: comparison.comparisonMatrix, evidenceVector: winner.vector } } };
   }
   return { canMerge: false, outcome: pareto.outcome, selectedWorld: null, bestScore: comparison.bestScore, reason: pareto.reason || `Pareto frontier retained ${pareto.frontier.length} candidates.`, recommendation: 'Escalate to human review or re-launch with modified mission.', comparativeAnalysis: comparison, mergedEvidence: null };
+}
+
+function synthesizedClaimsResult(comparison, pareto, synthesis) {
+  comparison.pareto = { ...pareto, outcome: 'SYNTHESIZE_CLAIMS', reason: 'frontier_claims_are_evidence_backed_and_mission_linked' };
+  return {
+    canMerge: false, outcome: 'SYNTHESIZE_CLAIMS', selectedWorld: null, bestScore: comparison.bestScore,
+    reason: comparison.pareto.reason, comparativeAnalysis: comparison,
+    mergedEvidence: {
+      author: { name: 'Trinity Claim Synthesis', frontier: synthesis.frontier },
+      outcome: 'success', claims: synthesis.claims, comparativeAnalysis: { frontier: synthesis.frontier }
+    }
+  };
 }
 
 function validateWorldEntries(entries) {

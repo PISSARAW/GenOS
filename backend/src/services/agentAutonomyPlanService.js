@@ -2,6 +2,8 @@ const { buildAutonomyPlan, applySurvivalConstraints } = require('./autonomousOrc
 const { buildAllocation } = require('./tokenAllocationService');
 const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
+const trinityHypothesisGeneration = require('./trinityHypothesisGenerationService');
+const hypothesisDesign = require('./trinityHypothesisDesignService');
 const aTeamService = require('./aTeamService');
 const aTeamRuntime = require('./aTeam/aTeamRuntime');
 const aTeamCoordination = require('./aTeamCoordinationService');
@@ -150,15 +152,39 @@ function reportTrinityPlan({ autonomyPlan, agentId, automaticRequest, trinityWor
   }
 }
 
-function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve }) {
+async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, dispatchedAgent, effectiveWorkerShare, effectiveOrchestratorReserve }) {
   autonomyPlan.trinity = trinityService.analyzeMission(missionText(normalizedMission));
   autonomyPlan.trinity.dimensionThresholds = normalizedMission.trinityDimensionThresholds || {};
+  autonomyPlan.trinity.adaptiveBudget = normalizedMission.trinityAdaptiveBudget === true;
   const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);
+  await applyTrinityHypothesisDesign(autonomyPlan.trinity, normalizedMission, {
+    db, agentId, organizationId: dispatchedAgent.organization_id, projectId: dispatchedAgent.project_id
+  });
   if (autonomyPlan.trinity.activated) {
     activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, trinityWorkerCount: engagement.trinityWorkerCount });
   } else {
     reportTrinityPlan({ autonomyPlan, agentId, ...engagement });
   }
+}
+
+async function applyTrinityHypothesisDesign(trinity, normalizedMission, context) {
+  const baseDesign = trinity.activated
+    ? await trinityHypothesisGeneration.design({ ...context, normalizedMission })
+    : trinityService.designHypotheses(missionText(normalizedMission), {
+      ...(normalizedMission.trinityHypothesisDesign || {}),
+      integrationChecks: normalizedMission.trinityIntegrationChecks,
+      claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
+    });
+  const design = { ...baseDesign, juryConfig: normalizedMission.trinityJury || null };
+  trinity.hypothesisDesign = design;
+  trinity.members = trinity.members.map((member, index) => {
+    const selected = design.selectedTriplet[index];
+    return selected ? {
+      ...member,
+      hypothesis: hypothesisDesign.hypothesisText(selected, member.hypothesis),
+      hypothesisId: selected.id || null
+    } : member;
+  });
 }
 
 function activateATeam({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount }) {
@@ -309,7 +335,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   }
   const effectiveWorkerShare = resolveEffectiveWorkerShare(autonomyPlan, configuredWorkerShare);
   const effectiveOrchestratorReserve = resolveEffectiveOrchestratorReserve(autonomyPlan, configuredOrchestratorReserve);
-  applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
+  await applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, dispatchedAgent, effectiveWorkerShare, effectiveOrchestratorReserve });
   applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve });
   await persistATeamRun({ db, agentId, normalizedMission, autonomyPlan });
   const phenotypeReport = cognitivePhenotype.attachPhenotypesToPlan({
