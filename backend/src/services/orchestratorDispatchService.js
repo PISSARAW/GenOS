@@ -32,7 +32,11 @@ function buildWorkerMission(input = {}) {
     autonomousOrchestration: false
   };
   mission.workerContract = workerKinds.buildWorkerContract(workerKind, mission);
-  mission.prompt = [mission.prompt, `Worker kind: ${workerKind}. ${workerKinds.promptRule(workerKind)}`].filter(Boolean).join('\n\n');
+  mission.prompt = [
+    mission.prompt,
+    `Worker kind: ${workerKind}. ${workerKinds.promptRule(workerKind)}`,
+    workerKinds.evidenceRule(mission.workerContract)
+  ].filter(Boolean).join('\n\n');
   return mission;
 }
 

@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const workerKinds = require('../src/services/agents/workerKindService');
 const enforcement = require('../src/services/agents/workerContractEnforcement');
+const { buildWorkerMission } = require('../src/services/orchestratorDispatchService');
 const { validateWorkerDossiers } = require('../src/services/agentEvidenceService');
 
 const CONTENT = {
@@ -28,15 +29,45 @@ function dossier(kind, contract, artifactType = contract.evidence.requiredArtifa
 }
 
 for (const kind of Object.keys(workerKinds.KINDS)) {
-  const contract = workerKinds.buildWorkerContract(kind, { scope: '/workspace' });
+  const scenario = missionScenario(kind);
+  const mission = buildWorkerMission({ workerKind: kind, prompt: scenario, workspaceRoot: '/workspace' });
+  const contract = mission.workerContract;
   const required = contract.evidence.requiredArtifacts[0];
   const wrongType = required === 'creative_candidate' ? 'dossier' : 'creative_candidate';
+  assert.match(mission.prompt, new RegExp(workerKinds.promptRule(kind).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(mission.prompt, new RegExp(`type must be ${required}`));
+  assert.match(mission.prompt, new RegExp(scenario));
   enforcement.assertRuntimeContract(contract, kind);
   assert.doesNotThrow(() => validateWorkerDossiers([dossier(kind, contract)], [{ agentId: kind, workerContract: contract }]));
   assert.throws(
     () => validateWorkerDossiers([dossier(kind, contract, wrongType)], [{ agentId: kind, workerContract: contract }]),
     { code: 'INVALID_WORKER_ARTIFACT' }
   );
+}
+
+function missionScenario(kind) {
+  const scenarios = {
+    scout_cell: 'Observe the repository and cite files without changing them.',
+    resident_daemon: 'Monitor worker health and report evidence-backed anomalies.',
+    bounded_worker: 'Implement the assigned bounded change and report verification evidence.',
+    adaptive_worker: 'Compare permitted strategies and use the best within budget.',
+    specialist: 'Review the assigned narrow domain and state its boundaries.',
+    procedural_executor: 'Run the deterministic procedure and return its receipts.',
+    symbiotic_worker: 'Use only host-granted capabilities and report the handoff.',
+    verifier_worker: 'Independently verify the claim and return a verdict with reproduction evidence.',
+    red_worker: 'Find a falsifiable failure case and attach reproduction evidence.',
+    experimental_worker: 'Test the hypothesis with a stated protocol and measurements.',
+    formal_worker: 'Prove the exact claim and identify the solver result.',
+    synthesis_worker: 'Synthesize source dossiers and preserve disagreements.',
+    creative_worker: 'Produce a candidate draft with assumptions and a falsification test.',
+    medical_worker: 'Assess candidate diagnoses with evidence and uncertainty.',
+    recovery_worker: 'Apply the leased recovery action and report the restored state.',
+    forensic_worker: 'Reconstruct the causal chain from receipts and label hypotheses.',
+    liaison_worker: 'Prepare a sourced handoff between the assigned groups.',
+    teaching_worker: 'Write a validated procedure with prerequisites and evidence.',
+    sub_orchestrator: 'Coordinate only the assigned subgraph and report its bounded outcome.'
+  };
+  return scenarios[kind];
 }
 
 const nested = workerKinds.buildWorkerContract('sub_orchestrator');
