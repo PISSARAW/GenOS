@@ -106,8 +106,8 @@ function buildPolicyInput(ctx, intent, manifest) {
     independenceThreshold: 0.5,
     maxCost: 50,
     weights: { novelty: 1, relevance: 1, actionability: 1, capability: 1 },
-    stigmergyAvailable: true,
-    dialectAvailable: manifest.preferredEncoding === 'symbol-dialect',
+    stigmergyAvailable: false,
+    dialectAvailable: false,
     ttlMs: 60000,
     humanRequired: intent.risk === 'critical',
     coefficients: { baseCost: 0.1, perRecipient: 0.05, encodingFactor: 1, groundingFactor: 1 }
