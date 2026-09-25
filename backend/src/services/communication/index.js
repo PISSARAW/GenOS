@@ -20,7 +20,7 @@ const { assessAgency, assessAgencyBatch } = require('./agencyDriver');
 const { recommendActions, recommendActionsBatch, getAgentRates, queryRecentOutcomes } = require('./recommendActions');
 const { runCycle, runCycleBatch, simulateExecution } = require('./runCycleDriver');
 const { getExpertise, recordOutcome } = require('./transactiveMemoryService');
-const { createEnvelope, validateEnvelope, digestPayload } = require('./communicationEnvelopeService');
+const { createEnvelope, validateEnvelope, digestPayload, verifyEnvelopePayload } = require('./communicationEnvelopeService');
 
 module.exports = {
   // Policy engine
@@ -68,5 +68,6 @@ module.exports = {
   recordOutcome,
   createEnvelope,
   validateEnvelope,
-  digestPayload
+  digestPayload,
+  verifyEnvelopePayload
 };

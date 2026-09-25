@@ -76,6 +76,7 @@ async function handleSignalRead(args, run) {
       createdAt: s.createdAt,
       content: s.content,
       decoded: s.decoded,
+      integrity: s.integrity,
     })),
     transport: 'zero_text',
   };

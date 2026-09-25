@@ -36,7 +36,7 @@ function stringList(value, field) {
   return [...new Set(value)];
 }
 
-function createEnvelope(input) {
+function prepareEnvelopeInput(input) {
   if (!input || typeof input !== 'object') throw new Error('Communication envelope input is required.');
   if (!['signal', 'organization_message'].includes(input.kind)) throw new Error('Unsupported communication envelope kind.');
   if (!MODALITIES.has(input.modality)) throw new Error('Unsupported communication envelope modality.');
@@ -45,7 +45,12 @@ function createEnvelope(input) {
   const recipients = stringList(input.recipientAgentIds || [], 'recipientAgentIds');
   const groundingRequired = input.groundingRequired || 'none';
   if (!GROUNDING_LEVELS.has(groundingRequired)) throw new Error('Unsupported grounding requirement.');
-  const envelope = {
+  return { input, createdAt, recipients, groundingRequired };
+}
+
+function assembleEnvelope(prepared) {
+  const { input, createdAt, recipients, groundingRequired } = prepared;
+  return {
     version: ENVELOPE_VERSION,
     messageId: input.messageId || `comm_${crypto.randomUUID()}`,
     kind: input.kind,
@@ -62,24 +67,44 @@ function createEnvelope(input) {
     groundingRequired,
     payloadDigest: digestPayload(input.payload)
   };
+}
+
+function createEnvelope(input) {
+  const envelope = assembleEnvelope(prepareEnvelopeInput(input));
   const validation = validateEnvelope(envelope);
   if (!validation.valid) throw new Error(`Invalid communication envelope: ${validation.errors.join(' ')}`);
   return envelope;
 }
 
-function nonEmptyStringArray(value) {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string' && item.trim().length > 0);
+function isNonEmptyString(value) {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
-function validateIdentity(envelope, errors) {
+function nonEmptyStringArray(value) {
+  return Array.isArray(value) && value.every(isNonEmptyString);
+}
+
+function validateCoreIdentity(envelope, errors) {
   if (envelope.version !== ENVELOPE_VERSION) errors.push('Unsupported envelope version.');
   if (typeof envelope.messageId !== 'string' || !envelope.messageId) errors.push('messageId is required.');
   if (!['signal', 'organization_message'].includes(envelope.kind)) errors.push('Unsupported kind.');
   if (!MODALITIES.has(envelope.modality)) errors.push('Unsupported modality.');
+}
+
+function validateAddress(envelope, errors) {
   if (!['targeted', 'routed'].includes(envelope.recipientMode)) errors.push('Unsupported recipientMode.');
   if (envelope.recipientMode === 'targeted' && (!Array.isArray(envelope.recipientAgentIds) || envelope.recipientAgentIds.length === 0)) errors.push('Targeted envelopes require recipients.');
+}
+
+function validateSenderAndChannel(envelope, errors) {
   if (typeof envelope.senderAgentId !== 'string' && envelope.senderAgentId !== null) errors.push('senderAgentId must be a string or null.');
   if (typeof envelope.channel !== 'string' || !envelope.channel || envelope.channel.length > 64) errors.push('channel must contain 1 to 64 characters.');
+}
+
+function validateIdentity(envelope, errors) {
+  validateCoreIdentity(envelope, errors);
+  validateAddress(envelope, errors);
+  validateSenderAndChannel(envelope, errors);
 }
 
 function validateReferences(envelope, errors) {
@@ -104,4 +129,11 @@ function validateEnvelope(envelope) {
   return { valid: errors.length === 0, errors };
 }
 
-module.exports = { ENVELOPE_VERSION, createEnvelope, validateEnvelope, digestPayload };
+function verifyEnvelopePayload(envelope, payload) {
+  const validation = validateEnvelope(envelope);
+  if (!validation.valid) return { valid: false, reason: 'invalid_envelope', errors: validation.errors };
+  const digestMatches = digestPayload(payload) === envelope.payloadDigest;
+  return { valid: digestMatches, reason: digestMatches ? null : 'payload_digest_mismatch', errors: [] };
+}
+
+module.exports = { ENVELOPE_VERSION, createEnvelope, validateEnvelope, digestPayload, verifyEnvelopePayload };

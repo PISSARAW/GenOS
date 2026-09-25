@@ -14,6 +14,7 @@ const { updateAgent: runtimeUpdateAgent } = require('./agentOrchestrationState')
 const dynamicOrg = require('./dynamicOrganizationService');
 const signalDelivery = require('./signalDeliveryService');
 const { recordPendingDeliveries } = require('./signalDeliveryHelpers');
+const { createEnvelope, verifyEnvelopePayload } = require('./communication/communicationEnvelopeService');
 
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
 const LOCAL_BROADCAST_LOG = new Map();
@@ -60,7 +61,10 @@ async function persistSignalRow(row) {
     signalMetrics.recordPublish();
   } catch (e) {
     signalMetrics.recordDbError(e);
-    console.warn('[SignalingTransport] DB publish failed after retries:', e.message);
+    throw Object.assign(new Error(`Signal persistence failed after retries: ${e.message}`), {
+      code: 'SIGNAL_PERSISTENCE_FAILED',
+      cause: e,
+    });
   }
 }
 
@@ -135,14 +139,24 @@ function updatePlasticityForRecipients(signal, dispatchResult, routing) {
   }
 }
 
-async function routeAndDispatch(signal, params) {
-  const routing = await routeCollectiveSignal({
-    db: await getDatabase().catch(() => null),
-    signalId: signal.id,
-    signalType: signal.formatted.signalType,
-    signalData: signal.signalData,
-    orchestratorId: signal.senderAgentId,
+async function routeSignal(signal, params) {
+  return routeCollectiveSignal({
+    db: await getDatabase().catch(() => null), signalId: signal.id,
+    signalType: signal.formatted.signalType, signalData: signal.signalData,
+    orchestratorId: signal.senderAgentId, recipientAgentIds: params.recipientAgentIds,
   });
+}
+
+function scopeMismatchResult(signal, routing) {
+  if (routing.routingMode !== 'scope_mismatch') return null;
+  return { signalId: signal.id, published: false, signalType: signal.formatted.signalType,
+    suppressedBy: 'recipient_scope', suppressionReason: 'One or more requested recipients are outside the authorized routing scope.', routing };
+}
+
+async function routeAndDispatch(signal, params) {
+  const routing = await routeSignal(signal, params);
+  const mismatch = scopeMismatchResult(signal, routing);
+  if (mismatch) return mismatch;
   // Destinataires AVANT dispatch : les récepteurs ciblés matchent dessus, jamais sur l'émetteur.
   const recipientAgentIds = (routing.recipients || []).filter((r) => r.kind === 'agent' && r.agentId).map((r) => r.agentId);
   let dispatchResult = { dispatched: false };
@@ -215,14 +229,30 @@ async function publishSignal(params) {
 
 async function buildSignalFromParams(params) {
   const { signalType, signalData = {}, topic = '', senderAgentId = null, signalId = null, ttlMs = DEFAULT_SIGNAL_TTL_MS, contentFallback = null, repressors = [], depth = 0 } = params;
+  const payloadData = signalData || {};
   const normalizedType = validateSignalType(signalType);
-  const repression = repressionFor({ type: normalizedType, topic, signalData, repressors });
+  const repression = repressionFor({ type: normalizedType, topic, signalData: payloadData, repressors });
   if (!repression.accepted) {
     return { accepted: false, result: buildRejectedResult(signalId, normalizedType, repression) };
   }
   const id = signalId || `sig_${require('crypto').randomUUID()}`;
-  const formatted = formatSignalForTransport({ signalType: normalizedType, signalData, contentFallback });
-  return { accepted: true, id, formatted, normalizedType, signalData, topic: String(topic || '').trim(), senderAgentId, ttlMs, depth: Math.max(0, Number(depth || 0)), expiresAt: ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null };
+  const envelope = buildSignalEnvelope({
+    params, id, normalizedType, payloadData, ttlMs, senderAgentId
+  });
+  const transportData = Object.assign({}, payloadData, { communicationEnvelope: envelope });
+  const formatted = formatSignalForTransport({ signalType: normalizedType, signalData: transportData, contentFallback });
+  return { accepted: true, id, formatted, normalizedType, signalData: transportData, topic: String(topic || '').trim(), senderAgentId, ttlMs, depth: Math.max(0, Number(depth || 0)), expiresAt: ttlMs > 0 ? new Date(Date.now() + ttlMs).toISOString() : null };
+}
+
+function buildSignalEnvelope(input) {
+  const { params, id, normalizedType, payloadData, ttlMs, senderAgentId } = input;
+  return createEnvelope({
+    messageId: id, kind: 'signal', senderAgentId, recipientAgentIds: params.recipientAgentIds,
+    channel: params.channel || 'signal', modality: normalizedType, semanticRefs: params.semanticRefs,
+    artifactRefs: params.artifactRefs || [payloadData.artifactRef || payloadData.artifact_id].filter(Boolean),
+    scope: params.scope || null, groundingRequired: params.groundingRequired,
+    ttlMs, payload: payloadData
+  });
 }
 
 function buildRejectedResult(signalId, normalizedType, repression) {
@@ -252,11 +282,27 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
   try {
     const db = await getDatabase();
     const rows = await retryDbOperation(() => db.all(sql, vals));
-    return rows.map(r => ({ signalId: r.signal_id, signalType: r.signal_type, signalBlob: r.signal_blob, content: r.content, topic: r.topic, senderAgentId: r.sender_agent_id, createdAt: r.created_at, decoded: r.signal_blob ? unpackSignalPayload(r.signal_blob, r.signal_type) : null }));
+    return rows.map(decodeSignalRow).filter(Boolean);
   } catch (e) {
     console.warn('[SignalingTransport] readSignalsForAgent failed after retries:', e.message);
     return [];
   }
+}
+
+function decodeSignalRow(row) {
+  const decoded = row.signal_blob ? unpackSignalPayload(row.signal_blob, row.signal_type) : null;
+  const envelope = decoded?.communicationEnvelope;
+  const result = { signalId: row.signal_id, signalType: row.signal_type, signalBlob: row.signal_blob, content: row.content, topic: row.topic, senderAgentId: row.sender_agent_id, createdAt: row.created_at, decoded };
+  if (!envelope) return { ...result, integrity: { status: 'legacy_unverified' } };
+  const { communicationEnvelope, ...payload } = decoded;
+  const verification = verifyEnvelopePayload(communicationEnvelope, payload);
+  const boundToRow = communicationEnvelope.messageId === row.signal_id
+    && communicationEnvelope.senderAgentId === (row.sender_agent_id || null)
+    && communicationEnvelope.modality === row.signal_type;
+  if (!verification.valid || !boundToRow) {
+    return { ...result, decoded: null, integrity: { status: 'rejected', reason: verification.reason || 'metadata_mismatch' } };
+  }
+  return { ...result, integrity: { status: 'verified', messageId: communicationEnvelope.messageId } };
 }
 
 async function markSignalsSeen(subscriberAgentId, signalIds) {
