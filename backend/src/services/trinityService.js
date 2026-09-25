@@ -231,7 +231,7 @@ function complementaryClaimsFrom(worlds, winner, claimGraph) {
 function hasComplementEdge(claim, winnerClaims, claimGraph) {
   if (!claim?.id || !Array.isArray(winnerClaims) || !Array.isArray(claimGraph?.edges)) return false;
   return winnerClaims.some((winnerClaim) => winnerClaim?.id && claimGraph.edges.some((edge) => {
-    if (edge?.type !== 'complements') return false;
+    if (edge?.type !== 'complements' || edge.status !== 'verified' || !edge.verification?.receipt) return false;
     return (edge.from === claim.id && edge.to === winnerClaim.id)
       || (edge.to === claim.id && edge.from === winnerClaim.id);
   }));

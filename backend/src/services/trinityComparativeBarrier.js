@@ -16,6 +16,7 @@ const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
 const trinityCrossExamination = require('./trinityCrossExaminationService');
 const candidateVerification = require('./trinityCandidateVerificationService');
+const trinityClaimGraph = require('./trinityClaimGraphService');
 
 function reportOf(event) {
   if (!event) return null;
@@ -107,7 +108,8 @@ function buildComparison(result) {
     paretoFrontier: result.comparativeAnalysis?.pareto?.frontier?.map((world) => world.worldNumber) || [],
     tied: result.comparativeAnalysis?.tied === true,
     jury: result.jury || null,
-    crossExamination: result.comparativeAnalysis?.crossExamination || null
+    crossExamination: result.comparativeAnalysis?.crossExamination || null,
+    claimGraph: trinityClaimGraph.summary(result.comparativeAnalysis?.claimGraph || { status: 'unavailable', nodes: [], edges: [] })
   };
 }
 
@@ -139,12 +141,14 @@ async function applyTrinityComparison(ctx) {
   const initialReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
   const crossExamination = await trinityCrossExamination.examine(ctx.db, initialReports, trinity.hypothesisDesign);
   const worldReports = crossExamination.reports;
+  const claimGraph = trinityClaimGraph.build(worldReports);
   const maxLatencyMs = await experimentLatencySla(ctx.db, trinity.missionId);
   const result = trinityService.mergeTrinityEvidence(worldReports, {
-    domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds
+    domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds, claimGraph
   });
   result.jury = { status: 'unavailable', reason: 'judge_dispatch_not_configured', votes: [] };
   result.comparativeAnalysis.crossExamination = trinityCrossExamination.summary(crossExamination);
+  result.comparativeAnalysis.claimGraph = claimGraph;
   await recordComparison(ctx, trinity, result);
   trinity.comparison = buildComparison(result);
   trinity.comparison.promotion = await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId, result });
@@ -323,7 +327,8 @@ function decisionRecord(result, outcome) {
     outcome, reason: result?.reason || null, bestScore: result?.bestScore || 0,
     evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto),
     jury: result?.jury || null,
-    crossExamination: result?.comparativeAnalysis?.crossExamination || null
+    crossExamination: result?.comparativeAnalysis?.crossExamination || null,
+    claimGraph: trinityClaimGraph.summary(result?.comparativeAnalysis?.claimGraph || { status: 'unavailable', nodes: [], edges: [] })
   };
 }
 

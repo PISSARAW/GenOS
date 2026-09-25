@@ -80,6 +80,8 @@ Une égalité de score scalaire ne départage jamais les mondes. Un juge ne peut
 
 Chaque revendication possède un identifiant stable, un énoncé, une provenance vers le monde, une liste de preuves, un niveau de vérification, une confiance rapportée et des relations typées (`supports`, `contradicts`, `verifies`, `complements`). La confiance déclarée par un modèle n'est pas une preuve.
 
+Après les dossiers terminaux, le runtime construit un `claimGraph` depuis les claims substantiels des trois rapports. Les IDs absents reçoivent un identifiant déterministe lié au monde et à l'énoncé. Les relations déclarées par les workers sont conservées comme arêtes `proposed`, avec leurs références source ; elles ne sont jamais promues en arêtes vérifiées par la seule déclaration du worker. Le résumé du graphe est persisté avec la décision. En v1, aucun vérificateur de relations sémantiques n'est configuré : les arêtes proposées ne déclenchent donc pas `SYNTHESIZE_CLAIMS`.
+
 Une revendication n'entre dans la synthèse que si elle est substantielle, référencée par au moins une preuve, non réfutée par un vérificateur de priorité supérieure, et reliée au graphe. Une revendication perdante n'est fusionnée que si le graphe établit `complements` avec les revendications retenues ; une simple propriété textuelle `relation: "complements"` fournie par le worker ne suffit pas à établir ce lien. Les revendications contradictoires sont toutes deux conservées dans le rapport de comparaison, marquées en conflit, et exclues de la synthèse jusqu'à résolution par vérification.
 
 ### Cycle de vie, échec et reprise
