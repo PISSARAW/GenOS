@@ -33,7 +33,7 @@ async function createAgentRelations(db) {
     common_ground_estimate REAL NOT NULL DEFAULT 0, epistemic_independence REAL NOT NULL DEFAULT 0,
     error_correlation REAL NOT NULL DEFAULT 0, disclosure_level REAL NOT NULL DEFAULT 0,
     preferred_dialect TEXT, last_interaction DATETIME, organization_id TEXT, project_id TEXT,
-    provenance_hash TEXT, relation_class TEXT,
+    provenance_hash TEXT, relation_class TEXT, metadata_json TEXT NOT NULL DEFAULT '{}',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(source_agent_id) REFERENCES agents(id) ON DELETE CASCADE,
     FOREIGN KEY(target_agent_id) REFERENCES agents(id) ON DELETE CASCADE
@@ -44,6 +44,7 @@ async function enrichAgentRelations(db) {
   const existing = await db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='agent_relations'");
   if (!existing.length) await createAgentRelations(db);
   await ensureColumn({ db, table: 'agent_relations', column: 'relation_class', sqlType: 'TEXT' });
+  await ensureColumn({ db, table: 'agent_relations', column: 'metadata_json', sqlType: "TEXT NOT NULL DEFAULT '{}'" });
   for (const col of ['familiarity', 'interaction_count', 'shared_history', 'authority',
     'trust_for_domain', 'common_ground_estimate', 'epistemic_independence', 'error_correlation',
     'disclosure_level', 'preferred_dialect', 'last_interaction', 'organization_id', 'project_id',

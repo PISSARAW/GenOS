@@ -121,5 +121,5 @@ Ces primitives sont également vérifiées par le registre des stratégies : ell
 ne sont plus traitées comme des handlers manquants lorsque leur contrat de
 collecte et leurs tests sont disponibles.
 - **Registres en mémoire** : la plupart des handlers utilisent des `Map` module-level perdus au redémarrage.
-- **Pas de persistance relationnelle cross-agent** : les relations chimeriques, jumeaux, plasmides sont en mémoire.
+- **Persistance relationnelle cross-agent** : les liens chimériques, jumeaux, parents-enfants et plasmidiques sont persistés dans `agent_relations`. Les détails propres aux handlers peuvent encore dépendre de registres en mémoire ; consulter `biomimicry-handlers.md` pour le périmètre du registre relationnel.
 - **Codex local requis** : les handlers appellent `genos biomimicry ...` via `runGenosSync` — si le binaire Rust n'est pas disponible, les handlers retournent `tool_error`.

@@ -10,6 +10,7 @@
 
 const RELATION_COLUMNS = [
   ['relation_class', 'TEXT'],
+  ['metadata_json', "TEXT NOT NULL DEFAULT '{}'"],
   ['familiarity', 'REAL NOT NULL DEFAULT 0'],
   ['interaction_count', 'INTEGER NOT NULL DEFAULT 0'],
   ['shared_history', 'REAL NOT NULL DEFAULT 0'],

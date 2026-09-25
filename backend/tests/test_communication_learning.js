@@ -11,6 +11,7 @@ process.env.NODE_ENV = 'test';
 process.env.GENOS_SCHEMA_MAINTENANCE = '0';
 
 const { initializeSchema } = require('../src/db/schema');
+const { migrateRelationCommunicationProfile } = require('../src/db/migrations/migrateRelationCommunicationProfile');
 const learning = require('../src/services/communication/communicationLearningService');
 const signalMetrics = require('../src/services/signalMetricsService');
 const plasticity = require('../src/services/synapticPlasticityService');
@@ -22,6 +23,7 @@ async function setup() {
   await db.exec('PRAGMA journal_mode = WAL;');
   await db.exec('PRAGMA busy_timeout = 5000;');
   await initializeSchema(db);
+  await migrateRelationCommunicationProfile(db);
   return db;
 }
 
@@ -198,6 +200,7 @@ async function testLearnSuccess(db) {
   const relation = await db.get('SELECT * FROM agent_relations WHERE source_agent_id = ? AND target_agent_id = ?', 'alice', 'bob');
   assert.ok(relation, 'relation present');
   assert.ok(Number(relation.interaction_count) >= 11, 'interaction_count incremented');
+  assert.equal(JSON.parse(relation.metadata_json).interactionCount, Number(relation.interaction_count), 'profile metadata interaction count stays current');
 
   const ground = await db.get('SELECT * FROM communication_common_ground WHERE semantic_fingerprint = ?', 'sha256:new_ref_1');
   assert.equal(ground, undefined, 'no common ground for new ref (recipientKnew=false)');
@@ -238,6 +241,7 @@ async function testLearnRecipientKnew(db) {
 
   const relation = await db.get('SELECT * FROM agent_relations WHERE source_agent_id = ? AND target_agent_id = ?', 'alice', 'bob');
   assert.ok(Number(relation.familiarity) <= 0.5, 'familiarity not boosted on failure');
+  assert.equal(JSON.parse(relation.metadata_json).familiarity, Number(relation.familiarity), 'profile metadata familiarity stays current');
 }
 
 async function testReturnShape(db) {

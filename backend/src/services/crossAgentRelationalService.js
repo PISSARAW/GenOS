@@ -4,23 +4,25 @@ const crypto = require('crypto');
 const { getDatabase, withTransaction } = require('../db');
 
 const RELATION_CLASSES = Object.freeze({
-  lineage: { types: new Set(['parent', 'child', 'twin', 'ancestor', 'descendant', 'chimera', 'plasmid', 'graft']) },
-  organizational: { types: new Set(['manager', 'subordinate', 'colleague', 'mentor', 'collaborator']) },
+  lineage: { types: new Set(['parent', 'child', 'sibling', 'twin', 'ancestor', 'descendant', 'chimera', 'plasmid', 'graft']) },
+  organizational: { types: new Set(['manager', 'subordinate', 'colleague', 'coworker', 'mentor', 'collaborator', 'client', 'supplier']) },
   collaborative: { types: new Set(['collaborator', 'colleague', 'partner']) },
-  social: { types: new Set(['friend', 'partner', 'colleague']) },
+  social: { types: new Set(['stranger', 'friend', 'partner', 'bonded_partner', 'neighbor', 'rival', 'temporary_ally', 'guardian', 'dependent']) },
   epistemic: { types: new Set(['verifier', 'reviewer']) },
   adversarial: { types: new Set(['adversary']) }
 });
 
 const RELATION_TYPES = new Set([
-  'parent', 'child', 'twin', 'ancestor', 'descendant', 'chimera', 'plasmid', 'graft',
-  'manager', 'subordinate', 'colleague', 'collaborator', 'mentor',
-  'friend', 'partner', 'verifier', 'reviewer', 'adversary'
+  'parent', 'child', 'sibling', 'twin', 'ancestor', 'descendant', 'chimera', 'plasmid', 'graft',
+  'manager', 'subordinate', 'colleague', 'coworker', 'collaborator', 'mentor',
+  'stranger', 'friend', 'partner', 'bonded_partner', 'neighbor', 'rival', 'temporary_ally',
+  'client', 'supplier', 'guardian', 'dependent', 'verifier', 'reviewer', 'adversary'
 ]);
 
 const RELATION_PROPERTY_PRESETS = Object.freeze({
   parent: { familiarity: 0.8, sharedHistory: 0.7, authority: 0.9, trustForDomain: 0.7, epistemicIndependence: 0.2, errorCorrelation: 0.8, disclosureLevel: 0.6 },
   child: { familiarity: 0.8, sharedHistory: 0.7, authority: 0.3, trustForDomain: 0.7, epistemicIndependence: 0.2, errorCorrelation: 0.8, disclosureLevel: 0.6 },
+  sibling: { familiarity: 0.8, interactionCount: 8, sharedHistory: 0.8, authority: 0.5, trustForDomain: 0.6, commonGroundEstimate: 0.7, epistemicIndependence: 0.4, errorCorrelation: 0.6, disclosureLevel: 0.6 },
   twin: { familiarity: 0.9, sharedHistory: 0.9, authority: 0.5, trustForDomain: 0.8, epistemicIndependence: 0.1, errorCorrelation: 0.9, disclosureLevel: 0.8 },
   ancestor: { familiarity: 0.6, sharedHistory: 0.6, authority: 0.7, trustForDomain: 0.6, epistemicIndependence: 0.3, errorCorrelation: 0.6, disclosureLevel: 0.5 },
   descendant: { familiarity: 0.6, sharedHistory: 0.5, authority: 0.3, trustForDomain: 0.5, epistemicIndependence: 0.3, errorCorrelation: 0.6, disclosureLevel: 0.5 },
@@ -30,10 +32,20 @@ const RELATION_PROPERTY_PRESETS = Object.freeze({
   manager: { familiarity: 0.5, authority: 0.8, trustForDomain: 0.5, disclosureLevel: 0.3 },
   subordinate: { familiarity: 0.5, authority: 0.3, trustForDomain: 0.5, disclosureLevel: 0.6 },
   colleague: { familiarity: 0.5, interactionCount: 5, sharedHistory: 0.4, authority: 0.4, trustForDomain: 0.6, commonGroundEstimate: 0.5, disclosureLevel: 0.5 },
+  coworker: { familiarity: 0.5, interactionCount: 5, sharedHistory: 0.4, authority: 0.4, trustForDomain: 0.6, commonGroundEstimate: 0.5, disclosureLevel: 0.5 },
   collaborator: { familiarity: 0.6, interactionCount: 5, sharedHistory: 0.5, authority: 0.5, trustForDomain: 0.7, commonGroundEstimate: 0.6, disclosureLevel: 0.5 },
   mentor: { familiarity: 0.6, sharedHistory: 0.5, authority: 0.7, trustForDomain: 0.7, disclosureLevel: 0.5 },
   friend: { familiarity: 0.7, interactionCount: 12, sharedHistory: 0.6, authority: 0.3, trustForDomain: 0.6, commonGroundEstimate: 0.5, disclosureLevel: 0.4 },
   partner: { familiarity: 0.6, interactionCount: 8, sharedHistory: 0.5, authority: 0.5, trustForDomain: 0.6, commonGroundEstimate: 0.5, disclosureLevel: 0.5 },
+  stranger: { familiarity: 0, sharedHistory: 0, authority: 0, trustForDomain: 0, commonGroundEstimate: 0, epistemicIndependence: 1, errorCorrelation: 0, disclosureLevel: 0.3 },
+  neighbor: { familiarity: 0.3, sharedHistory: 0.2, authority: 0.3, trustForDomain: 0.4, commonGroundEstimate: 0.3, epistemicIndependence: 0.7, errorCorrelation: 0.3, disclosureLevel: 0.5 },
+  bonded_partner: { familiarity: 0.8, sharedHistory: 0.7, authority: 0.5, trustForDomain: 0.8, commonGroundEstimate: 0.7, epistemicIndependence: 0.4, errorCorrelation: 0.5, disclosureLevel: 0.7 },
+  rival: { familiarity: 0.4, sharedHistory: 0.3, authority: 0.3, trustForDomain: 0.2, commonGroundEstimate: 0.2, epistemicIndependence: 0.9, errorCorrelation: 0.1, disclosureLevel: 0.2 },
+  temporary_ally: { familiarity: 0.3, sharedHistory: 0.2, authority: 0.3, trustForDomain: 0.4, commonGroundEstimate: 0.3, epistemicIndependence: 0.6, errorCorrelation: 0.3, disclosureLevel: 0.4 },
+  client: { familiarity: 0.4, sharedHistory: 0.3, authority: 0.2, trustForDomain: 0.5, commonGroundEstimate: 0.4, epistemicIndependence: 0.5, errorCorrelation: 0.4, disclosureLevel: 0.5 },
+  supplier: { familiarity: 0.4, sharedHistory: 0.3, authority: 0.4, trustForDomain: 0.5, commonGroundEstimate: 0.4, epistemicIndependence: 0.5, errorCorrelation: 0.4, disclosureLevel: 0.5 },
+  guardian: { familiarity: 0.6, sharedHistory: 0.5, authority: 0.7, trustForDomain: 0.6, commonGroundEstimate: 0.5, epistemicIndependence: 0.3, errorCorrelation: 0.5, disclosureLevel: 0.6 },
+  dependent: { familiarity: 0.5, sharedHistory: 0.4, authority: 0.2, trustForDomain: 0.4, commonGroundEstimate: 0.4, epistemicIndependence: 0.3, errorCorrelation: 0.5, disclosureLevel: 0.5 },
   verifier: { familiarity: 0.3, authority: 0.4, trustForDomain: 0.6, epistemicIndependence: 0.9, errorCorrelation: 0.2, disclosureLevel: 0.7 },
   reviewer: { familiarity: 0.3, authority: 0.4, trustForDomain: 0.6, epistemicIndependence: 0.9, errorCorrelation: 0.2, disclosureLevel: 0.8 },
   adversary: { familiarity: 0.2, authority: 0.2, epistemicIndependence: 1.0, errorCorrelation: 0.1, disclosureLevel: 0.1 }

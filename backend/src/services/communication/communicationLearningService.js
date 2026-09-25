@@ -92,9 +92,11 @@ async function learnRelation(query) {
   const result = await query.db.run(
     `UPDATE agent_relations SET interaction_count = interaction_count + 1,
        familiarity = MIN(1.0, MAX(0.0, familiarity + ?)),
+       metadata_json = json_set(COALESCE(metadata_json, '{}'), '$.familiarity', MIN(1.0, MAX(0.0, familiarity + ?)),
+         '$.interactionCount', interaction_count + 1),
        last_interaction = CURRENT_TIMESTAMP
      WHERE (source_agent_id = ? AND target_agent_id = ?) OR (source_agent_id = ? AND target_agent_id = ?)`,
-    [delta, query.senderId, query.receiverId, query.receiverId, query.senderId]
+    [delta, delta, query.senderId, query.receiverId, query.receiverId, query.senderId]
   );
   return { noted: result.changes > 0 };
 }
