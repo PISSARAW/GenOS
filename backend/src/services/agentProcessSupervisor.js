@@ -4,6 +4,7 @@
  * decisions, and translates the exit into a terminal agent outcome.
  */
 const path = require('path');
+const fsSync = require('fs');
 const { spawn } = require('child_process');
 const { encodeMission } = require('./runtimeProtocol');
 const { resolveExecutable, isLocalRuntime } = require('./agentRuntimeExecutable');
@@ -228,7 +229,6 @@ function resolveSpawnCommand(resolvedExecutable) {
 
 function ensureCwd(spawnOptions) {
   if (!spawnOptions || !spawnOptions.cwd) return;
-  const fsSync = require('fs');
   try { fsSync.mkdirSync(spawnOptions.cwd, { recursive: true }); } catch (_) {}
 }
 
@@ -260,7 +260,6 @@ function probeAttempt(spawnSpec) {
 }
 
 async function probeCommand(spawnSpec) {
-  const fsSync = require('fs');
   for (let attempt = 0; attempt < 3; attempt++) {
     const ok = await probeAttempt(spawnSpec);
     if (ok) return true;
@@ -281,17 +280,26 @@ function isTransientSpawnError(err) {
 }
 
 async function spawnWithRetry(spawnSpec, spawnOptions, maxAttempts) {
+  let lastError;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const child = spawn(spawnSpec.cmd, spawnSpec.args, spawnOptions);
       attachNoopErrorSinks(child);
+      await new Promise((resolve, reject) => {
+        child.once('spawn', resolve);
+        child.once('error', reject);
+      });
       return child;
     } catch (err) {
-      const canRetry = attempt < maxAttempts - 1 && isTransientSpawnError(err);
+      lastError = err;
+      const executableExists = fsSync.existsSync(spawnSpec.cmd);
+      const canRetry = attempt < maxAttempts - 1
+        && (isTransientSpawnError(err) || (err.code === 'ENOENT' && executableExists));
       if (!canRetry) throw err;
       await sleepMs(400);
     }
   }
+  throw lastError;
 }
 
 async function spawnRuntimeWithRetry(spawnSpec, spawnOptions) {
@@ -379,4 +387,5 @@ async function superviseMission(options) {
   return { started: true, executionRun };
 }
 
-module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest, reportOrchestrationActionFailure };
+module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest,
+  reportOrchestrationActionFailure, spawnRuntimeWithRetry };
