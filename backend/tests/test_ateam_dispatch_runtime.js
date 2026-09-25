@@ -36,15 +36,25 @@ async function run() {
   runtime.releaseExecution = async () => true;
   try {
     const context = { orchestratorId: 'mission-dispatch', task: 'Build API', repoRoot: process.cwd(), request: {} };
-    const db = { get: async () => createCount >= 3 ? { id: 'worker-a' } : null };
-    const first = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: () => { launches += 1; return { workerId: 'worker-a' }; } });
+    const agents = new Map();
+    const db = {
+      get: async (_sql, id) => agents.get(id) || (createCount >= 3 ? { id, status: 'idle' } : null),
+      run: async (_sql, ...values) => {
+        const [id, name, role, workspaceId, modelTier, isolationMode, parentId, currentTask, metadataJson] = values;
+        agents.set(id, { id, name, role, workspace_id: workspaceId, model_tier: modelTier, isolation_mode: isolationMode, parent_agent_id: parentId, current_task: currentTask, metadata_json: metadataJson, status: 'idle', execution_mode: 'worker' });
+        return { changes: 1 };
+      }
+    };
+    const launch = () => { launches += 1; agents.get('worker-a').status = 'running'; return { workerId: 'worker-a' }; };
+    const first = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(first.aTeam.teamRunId, 'run-stable');
     assert.equal(first.aTeam.workGraphId, 'graph-stable');
     assert.equal(launches, 1);
-    const second = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: () => { launches += 1; } });
+    assert.equal(agents.get('worker-a').parent_agent_id, context.orchestratorId);
+    const second = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(second.aTeam.reused, true);
     assert.equal(launches, 1);
-    const resumed = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: () => { launches += 1; } });
+    const resumed = await dispatchTeam({ db, context, parent: { workspace_root: process.cwd() }, launchWorker: launch });
     assert.equal(resumed.aTeam.teamRunId, 'run-stable');
     assert.equal(launches, 1);
   } finally {
