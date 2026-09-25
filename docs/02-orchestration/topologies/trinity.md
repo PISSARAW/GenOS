@@ -1,7 +1,7 @@
 # Trinity — Laboratoire Scientifique Interne de GenOS
 
-- **Statut** : Partiel ; le contrat opérationnel v1 décrit le runtime implémenté et ses limites. La génération de candidates est disponible sur demande avec budget ; l'adaptation statistique et les variantes avancées restent différées.
-- **Portée v1** : exactement trois mondes logiciels indépendants, comparaison de leurs preuves, décision comparative et promotion d'un artefact candidat. Les variantes de recherche restent hors du runtime v1.
+- **Statut** : Partiel ; le contrat opérationnel v1 décrit le runtime implémenté et ses limites. La génération de candidates est disponible sur demande avec budget ; l'adaptation statistique et plusieurs politiques avancées restent différées.
+- **Portée v1** : exactement trois mondes logiciels indépendants, composés par huit axes de politique, comparaison de leurs preuves, décision comparative et promotion d'un artefact candidat. Les axes partiels exposent leurs limites dans le reçu.
 - **Dernière revue** : 2026-09-25
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
@@ -9,6 +9,40 @@
 ## Contrat opérationnel v1 — référence d'implémentation
 
 Cette section décrit le comportement déterministe du runtime v1 et répond aux choix nécessaires pour interpréter les parties conceptuelles ci-dessous. Elle prévaut en cas de contradiction avec une formule, un exemple ou une variante de recherche ultérieurs. « Doit » désigne une exigence runtime. Un mécanisme explicitement reporté ne doit pas être présenté comme actif.
+
+### Variants sélectionnables
+
+`variant_id` accepte les douze identifiants du catalogue Trinity. Sans choix explicite,
+Morphogenèse retient `controlled` comme baseline. Le reçu inclut un
+`experimentalDesignId` reproductible; celui-ci identifie le plan fixe à trois stratégies,
+mais ne prétend pas figer les fournisseurs ou les seeds.
+
+`controlled` est exécutable comme baseline. `heterogeneous`, `adversarial`,
+`counterfactual`, `pareto`, `jury`, `adaptive`, `temporal` et `exploratory` sont des modes
+partiels : ils ajoutent des consignes ou activent un mécanisme déjà borné, et leur reçu
+énumère les limites. `jury` exige `trinity_jury.enabled=true` et au moins deux `modelUris`
+distincts et un `maxCostUsd` positif. `adaptive` active l'allocation adaptative de budget, sans changer le nombre de
+mondes. `factorial`, `recursive` et `oracular` sont reconnus mais refusés avant lancement,
+car leurs moteurs ne sont pas implémentés. L'auto-sélection garde la baseline lorsqu'un
+signal correspond à un mode partiel et expose ce mode comme suggestion.
+
+Les variants se composent par axe dans `experimental_design`; cet exemple réunit les
+politiques de diversité, de préparation adversariale, d'objectifs Pareto et de budget
+adaptatif sans créer un nouvel identifiant de variant :
+
+```json
+{
+  "diversityPolicy": "heterogeneous",
+  "interactionPolicy": "adversarial_review_prep",
+  "objectivePolicy": "pareto_orthogonal",
+  "replicationPolicy": "adaptive_budget_fixed_replicas"
+}
+```
+
+Le compilateur conserve les trois mondes, active le scheduler adaptatif uniquement sur le
+runtime qui le fournit et produit un reçu de maturité partielle avec les limites de chaque
+axe. Si un chemin de lancement ne fournit pas l'adaptateur requis, il refuse cette
+composition avant de créer les mondes.
 
 ### Décisions de périmètre
 

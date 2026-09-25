@@ -2,6 +2,7 @@ const { buildAutonomyPlan, applySurvivalConstraints } = require('./autonomousOrc
 const { buildAllocation } = require('./tokenAllocationService');
 const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
+const trinityVariants = require('./trinityVariantService');
 const trinityHypothesisGeneration = require('./trinityHypothesisGenerationService');
 const hypothesisDesign = require('./trinityHypothesisDesignService');
 const aTeamService = require('./aTeamService');
@@ -154,8 +155,20 @@ function reportTrinityPlan({ autonomyPlan, agentId, automaticRequest, trinityWor
 
 async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, dispatchedAgent, effectiveWorkerShare, effectiveOrchestratorReserve }) {
   autonomyPlan.trinity = trinityService.analyzeMission(missionText(normalizedMission));
+  const requestedVariant = normalizedMission.trinityVariantId || normalizedMission.trinityVariant
+    || normalizedMission.variant_id;
+  autonomyPlan.trinity.variantSelection = trinityVariants.selectForMission(missionText(normalizedMission), {
+    variantId: requestedVariant,
+    experimentalDesign: normalizedMission.trinityExperimentalDesign || normalizedMission.experimentalDesign,
+    trinityJury: normalizedMission.trinityJury,
+    availableAdapters: ['adaptive_budget_scheduler', 'blind_jury_adjudicator']
+  });
+  autonomyPlan.trinity.members = trinityVariants.applyToMembers(
+    autonomyPlan.trinity.members, autonomyPlan.trinity.variantSelection
+  );
   autonomyPlan.trinity.dimensionThresholds = normalizedMission.trinityDimensionThresholds || {};
-  autonomyPlan.trinity.adaptiveBudget = normalizedMission.trinityAdaptiveBudget === true;
+  autonomyPlan.trinity.adaptiveBudget = normalizedMission.trinityAdaptiveBudget === true
+    || autonomyPlan.trinity.variantSelection.effects?.adaptiveBudget === true;
   const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);
   await applyTrinityHypothesisDesign(autonomyPlan.trinity, normalizedMission, {
     db, agentId, organizationId: dispatchedAgent.organization_id, projectId: dispatchedAgent.project_id
@@ -175,7 +188,11 @@ async function applyTrinityHypothesisDesign(trinity, normalizedMission, context)
       integrationChecks: normalizedMission.trinityIntegrationChecks,
       claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
     });
-  const design = { ...baseDesign, juryConfig: normalizedMission.trinityJury || null };
+  const design = {
+    ...baseDesign,
+    juryConfig: normalizedMission.trinityJury || null,
+    variantSelection: trinity.variantSelection
+  };
   trinity.hypothesisDesign = design;
   trinity.members = trinity.members.map((member, index) => {
     const selected = design.selectedTriplet[index];

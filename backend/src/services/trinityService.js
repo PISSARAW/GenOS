@@ -48,14 +48,17 @@ function analyzeMission(mission) {
   };
 }
 
-function compose(mission) {
+function compose(mission, options = {}) {
   const goal = String(mission || '').trim();
   if (!goal) throw Object.assign(new Error('Trinity mission is required.'), { code: 'TRINITY_MISSION_REQUIRED' });
   const analysis = analyzeMission(goal);
-  return analysis.members.map((member, index) => ({
-    ...member, worldNumber: index + 1,
+  const variantSelection = trinityVariants.selectForMission(goal, options);
+  const members = analysis.members.map((member, index) => ({
+    ...member,
+    worldNumber: index + 1,
     mission: `Trinity mission: ${goal}\nDomain: ${analysis.domain}\nSealed chamber: ${member.chamber}\nWorld strategy: ${member.hypothesis}\nDo not request, read, or infer other chamber outputs. Return an artifact, acceptance checks, evidence, uncertainties, and execution limits.`
   }));
+  return trinityVariants.applyToMembers(members, variantSelection);
 }
 
 function normalizeIntegrationChecks(checks) {
@@ -111,6 +114,7 @@ const { calculateEvIndex } = require('./trinityValueService');
 const trinityPareto = require('./trinityParetoService');
 const hypothesisDesign = require('./trinityHypothesisDesignService');
 const trinityClaimGraph = require('./trinityClaimGraphService');
+const trinityVariants = require('./trinityVariantService');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },
