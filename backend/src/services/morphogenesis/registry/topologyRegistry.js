@@ -5,6 +5,7 @@ const { createTopologyContract, validateTopologyContract } = require('./topology
 const { createTopologyVersionRegistry } = require('./topologyVersionRegistry');
 const { createVariantRegistry } = require('./variantRegistry');
 const { createTopologyRelationRegistry } = require('./topologyRelationRegistry');
+const { topologyVariants } = require('./variantCatalog');
 
 const DEFINITIONS = Object.freeze({
   trinity: { problemSemantics: ['competing hypotheses', 'experimental comparison'], inputSemantics: { unit: 'claims_or_hypotheses' }, outputSemantics: { unit: 'evidence_backed_synthesis' }, independenceModel: { required: true }, stateModel: { writes: 'isolated', reads: 'shared' }, authorityModel: { decision: 'evidence_gated' }, communicationModel: { default: 'orchestrator_mediated' }, evidenceModel: { mode: 'comparative_barrier' }, resourceModel: { budget: 'pooled' }, lifecycleModel: { persistence: 'mission_scoped' }, strengths: ['independent comparison'], weaknesses: ['coordination overhead'], failureModes: ['correlated hypotheses'], observables: ['hypothesis_count', 'comparison_coverage'] },
@@ -27,17 +28,19 @@ function createTopologyRegistry() {
 
   for (const topologyId of context.topologyIds) {
     const capabilities = contractFor({ mode: topologyId });
+    const variants = topologyVariants(topologyId);
     registerTopology(context, {
       topologyId,
       contractVersion: '2.0.0',
       ...DEFINITIONS[topologyId],
       requiredCapabilities: capabilities.required,
-      variants: ['default'],
+      variants: ['default', ...variants.map((variant) => variant.variantId)],
       validParents: [],
       validChildren: [],
       transitionIn: [],
       transitionOut: []
     }, true);
+    registerCatalogVariants(context, topologyId, variants);
   }
 
   context.relationRegistry.register({ left: 'biocenose', right: 'holobionte', relation: 'SYNERGISTIC', evidenceStatus: 'conceptual' });
@@ -80,6 +83,10 @@ function createTopologyRegistry() {
     relations: context.relationRegistry,
     versions: context.versionRegistry
   };
+}
+
+function registerCatalogVariants(context, topology, variants) {
+  for (const variant of variants) context.variantRegistry.register({ topology, ...variant });
 }
 
 function registerTopology(context, input, makeCurrent = false) {
