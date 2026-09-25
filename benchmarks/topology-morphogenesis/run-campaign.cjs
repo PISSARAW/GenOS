@@ -16,6 +16,13 @@ const missions = [
   'topologie-syncytium', 'topologie-rhizome', 'topologie-metapopulation',
   'morphogenese-plan', 'morphogenese-shadow', 'garde-preuve-negative'
 ];
+const topologyMissions = new Set(missions.filter((name) => name.startsWith('topologie-')));
+const missionVerifiers = {
+  'orchestrateur-simple': verifySimpleMission,
+  'morphogenese-plan': verifyMorphogenesisPlan,
+  'morphogenese-shadow': verifyMorphogenesisShadow,
+  'garde-preuve-negative': verifyNegativeControl,
+};
 
 function environment(name) {
   return {
@@ -67,6 +74,69 @@ function readReceipt(name) {
   return null;
 }
 
+function verifyMissionExecution(options) {
+  const { name, run, receipt } = options;
+  const failures = [];
+  if (run.timedOut) failures.push('mission timed out');
+  if (!receipt?.orchestratorId) failures.push('orchestrator receipt missing');
+  if (run.exitCode !== 0 && name !== 'garde-preuve-negative') failures.push(`process exited with code ${run.exitCode ?? 'unknown'}`);
+  failures.push(...(missionVerifiers[name] || verifyTopology)(options));
+  return { passed: failures.length === 0, failures };
+}
+
+function verifySimpleMission({ receipt, proof }) {
+  const failures = [];
+  if (receipt?.success !== true || receipt?.completionGate?.allowed !== true) failures.push('completion gate did not authorize the mission');
+  if (proof?.verified !== true) failures.push('independent arithmetic proof missing or invalid');
+  return failures;
+}
+
+function verifyTopology({ workers, receipt }) {
+  const failures = [];
+  if (workers.length === 0) failures.push('no persisted topology workers');
+  const unfinished = workers.filter((worker) => worker.status !== 'completed');
+  if (unfinished.length) failures.push(`${unfinished.length} topology worker(s) are not completed`);
+  const mode = receipt?.trinity || receipt?.aTeam || receipt?.biologicalMode;
+  if (mode?.status === 'partial' || mode?.complete === false) failures.push('topology dispatch is partial');
+  return failures;
+}
+
+function verifyMorphogenesisPlan({ receipt }) {
+  return receipt?.success === true && receipt?.completionGate?.allowed === true
+    ? [] : ['morphogenesis plan did not pass the completion gate'];
+}
+
+function verifyMorphogenesisShadow({ receipt }) {
+  const failures = [];
+  const event = receipt?.telemetry?.find((entry) => entry.event_type === 'MORPHOGENESIS_V2_SHADOW');
+  let decision = null;
+  try { decision = JSON.parse(event?.payload_json || '{}'); } catch (_) {}
+  if (decision?.decision !== 'SHADOWED') failures.push('V2 shadow decision missing');
+  if (decision?.committed !== false) failures.push('shadow run committed or commit state is unproven');
+  if (decision?.errors?.length) failures.push('shadow evaluation reported errors');
+  if (receipt?.success !== true || receipt?.completionGate?.allowed !== true) failures.push('shadow mission completion gate did not pass');
+  return failures;
+}
+
+function verifyNegativeControl({ receipt }) {
+  const missingEvidence = receipt?.continuity?.missingEvidence || [];
+  return receipt?.completionGate?.allowed === false && missingEvidence.length > 0
+    ? [] : ['negative control did not prove an evidence-based block'];
+}
+
+function summarizeVerification(results, probes = null) {
+  const failed = results.missions.filter((mission) => mission.verification?.passed !== true);
+  const failedProbes = probes
+    ? Object.entries(probes).filter(([, probe]) => probe?.verified !== true).map(([name]) => name)
+    : [];
+  return {
+    passed: failed.length === 0 && probes !== null && failedProbes.length === 0,
+    failedMissions: failed.map((mission) => mission.name),
+    failedSessionProbes: failedProbes,
+    sessionProbesPending: probes === null
+  };
+}
+
 async function workerStates(db, receipt) {
   if (!receipt?.orchestratorId) return [];
   const rows = await db.all(
@@ -74,6 +144,35 @@ async function workerStates(db, receipt) {
     receipt.orchestratorId
   );
   return rows.map((row) => ({ id: row.id, status: row.status }));
+}
+
+async function recordMissionResult({ name, run, db, results }) {
+  const receipt = readReceipt(name);
+  const workers = await workerStates(db, receipt);
+  const proof = verifySimpleMissionProof(receipt, name);
+  const verification = verifyMissionExecution({ name, run, receipt, workers, proof });
+  results.missions.push({ ...run, orchestratorId: receipt?.orchestratorId || null,
+    verdict: receipt?.verdict || null, completionGate: receipt?.completionGate || null,
+    dispatchStatus: receipt?.biologicalMode?.status || receipt?.trinity?.status || receipt?.team?.status || null,
+    sessionId: receipt?.biologicalMode?.sessionId || null, workers, independentProof: proof, verification });
+  results.verification = summarizeVerification(results);
+  fs.writeFileSync(path.join(output, 'campaign-results.json'), JSON.stringify(results, null, 2));
+  process.stdout.write(`${name}: exit=${run.exitCode ?? 'error'} workers=${workers.length} verified=${verification.passed}\n`);
+}
+
+async function finalizeCampaign() {
+  const probes = await runSessionProbes();
+  process.stdout.write(`session-probes: exit=${probes.exitCode ?? 'error'}\n`);
+  const resultsPath = path.join(output, 'campaign-results.json');
+  const results = JSON.parse(fs.readFileSync(resultsPath, 'utf8'));
+  const probePath = path.join(output, 'session-probes.json');
+  const probeReceipts = probes.exitCode === 0 && fs.existsSync(probePath)
+    ? JSON.parse(fs.readFileSync(probePath, 'utf8')) : null;
+  results.verification = summarizeVerification(results, probeReceipts);
+  if (probes.exitCode !== 0) results.verification.failedSessionProbes.push('session-probe-runner');
+  fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
+  if (results.verification.passed !== true || probes.exitCode !== 0) process.exitCode = 1;
+  process.stdout.write(`${output}\n`);
 }
 
 function runSessionProbes() {
@@ -105,20 +204,10 @@ async function main() {
     results.gitCommit = git('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
     for (const name of missions) {
       const run = await execute(name);
-      const receipt = readReceipt(name);
-      const workers = await workerStates(db, receipt);
-      const proof = verifySimpleMissionProof(receipt, name);
-      results.missions.push({ ...run, orchestratorId: receipt?.orchestratorId || null,
-        verdict: receipt?.verdict || null, completionGate: receipt?.completionGate || null,
-        dispatchStatus: receipt?.biologicalMode?.status || receipt?.trinity?.status || receipt?.team?.status || null,
-        sessionId: receipt?.biologicalMode?.sessionId || null, workers, independentProof: proof });
-      fs.writeFileSync(path.join(output, 'campaign-results.json'), JSON.stringify(results, null, 2));
-      process.stdout.write(`${name}: exit=${run.exitCode ?? 'error'} workers=${workers.length}\n`);
+      await recordMissionResult({ name, run, db, results });
     }
   } finally { await closeDatabase(); }
-  const probes = await runSessionProbes();
-  process.stdout.write(`session-probes: exit=${probes.exitCode ?? 'error'}\n`);
-  process.stdout.write(`${output}\n`);
+  await finalizeCampaign();
 }
 
 if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
