@@ -30,6 +30,16 @@ function create(input) {
       type: 'STRUCTURE_PRUNED',
       payload: { expectedGraphVersion: plan?.graphVersion },
       apply: (session) => input.pruningExecutor.apply(session, plan, options)
+    }),
+    setVariant: (sessionId, name, options = {}) => input.mutateSession(sessionId, options, {
+      type: 'VARIANT_SWITCHED',
+      payload: { variant: name },
+      apply: (session) => {
+        const policy = input.variantPolicyService.resolve(name);
+        session.variant = policy.name;
+        session.variantPolicy = policy;
+        return { sessionId, variant: policy.name };
+      }
     })
   };
 }

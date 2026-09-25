@@ -2,6 +2,8 @@
 
 const assert = require('node:assert/strict');
 const homeostasis = require('../src/services/rhizome/runtime/homeostasisController');
+const rhizome = require('../src/services/rhizomeCoordinationService');
+const runtime = require('../src/services/rhizome/runtime/rhizomeRuntime');
 
 function run() {
   const controller = homeostasis.create();
@@ -16,5 +18,18 @@ function run() {
   assert.equal(stable.observe({ status: 'GAP_OPEN' }).stableTicks, 0);
 }
 
+async function verifyRuntimeVariantSwitch() {
+  const need = { needId: 'gap', capability: 'missing' };
+  const dynamic = await rhizome.composeRhizome('Switch after capability uncertainty.', { variant: 'routing' });
+  await runtime.run({ sessionId: dynamic.sessionId, needs: [need], maxTicks: 1 });
+  assert.equal(dynamic.variant, 'exploratory');
+  const fixed = await rhizome.composeRhizome('Keep a fixed route profile.', { variant: 'routing' });
+  await runtime.run({ sessionId: fixed.sessionId, needs: [need], maxTicks: 1, dynamicVariants: false });
+  assert.equal(fixed.variant, 'routing');
+}
+
 run();
-console.log('Rhizome homeostasis controller: PASS');
+verifyRuntimeVariantSwitch().then(() => console.log('Rhizome homeostasis and variants: PASS')).catch((error) => {
+  console.error('Rhizome homeostasis runtime failed:', error);
+  process.exit(1);
+});

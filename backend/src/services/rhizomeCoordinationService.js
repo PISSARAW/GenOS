@@ -388,7 +388,7 @@ async function closeSession(sessionId, options = {}) {
 const restoredOperations = rhizomeServiceOperations.create({
   mutateSession, getSession, trailService, directMemberRouter, capabilityGraph,
   graphProjector, graphAnalytics, pruningService,
-  pruningExecutor: require('./rhizome/pruning/pruningExecutorService')
+  pruningExecutor: require('./rhizome/pruning/pruningExecutorService'), variantPolicyService
 });
 
 module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
