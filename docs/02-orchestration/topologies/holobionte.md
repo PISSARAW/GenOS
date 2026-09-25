@@ -1,14 +1,14 @@
 # Holobionte : Protocole de Symbiose Cognitive Host-Symbionte avec Immunité Adaptative
 
 - **Statut** : Partiel
-- **Portée** : composition de quatre rôles, routage local des symbiotes, contrat de capacités et veto immunitaire côté backend Node.js.
-- **Dernière revue** : 2026-09-24
+- **Portée** : deux chemins coexistent : le compositeur historique à quatre rôles et un runtime persistant qui sélectionne des symbiotes résidents par capacité.
+- **Dernière revue** : 2026-09-25
 
-Les sections qui décrivent un cycle de vie complet, une constitution persistante, une allocation adaptative ou des métriques de fitness présentent un **cadre conceptuel**. Elles ne décrivent pas des garanties du runtime actuel.
+Le runtime persistant couvre les sessions, contrats, admission, exécution par capacité, santé, contribution, transmission et succession. Les schémas ci-dessous restent conceptuels lorsqu’ils décrivent des garanties plus larges que ces services. La sélection, les gates et les actions de santé ne rendent pas automatiquement chaque chemin historique conforme au nouveau runtime.
 
 ## 1. Définition
 
-Holobionte dans GenOS est un mode d'orchestration qui compose une mission en quatre rôles complémentaires : un hôte, un spécialiste, un validateur immunitaire et un rôle mémoire. Le runtime expose aussi un contrat de capacités et un contrôle de veto sur les sorties. L'acquisition dynamique, la résidence et la co-adaptation décrites ci-dessous sont des objectifs de conception, pas un cycle complet implémenté.
+Holobionte dans GenOS conserve un compositeur historique qui compose une mission en quatre rôles. Un second chemin, persistant, ouvre une session d’hôte, admet des symbiotes, choisit un résident selon la capacité demandée, exécute cette capacité et évalue l’état de santé. Ce runtime ne remplace pas automatiquement les anciens points d’entrée. Les modèles conceptuels de cette fiche ne constituent des garanties que lorsqu’un service et son intégration sont cités explicitement.
 
 Le modèle conceptuel repose sur une **symbiologie fonctionnelle avec autorité centrale** où :
 
@@ -56,7 +56,7 @@ Mécanismes explicites :
 
 ## 3. Modèle conceptuel du protocole symbiotique
 
-Les équations de cette section formalisent le modèle visé. Le runtime actuel ne calcule pas ces fonctions de valeur, de fitness, de dysbiose ou de cycle de vie.
+Les équations de cette section formalisent le modèle global visé. Certaines notions ont maintenant des services dédiés (fitness vectorielle, contribution, dysbiose et transmission), avec des entrées et garanties bornées décrites en section 26. Les équations ne sont pas toutes calculées comme un score unifié.
 
 L'orchestration Holobionte est un problème de **délégation sécurisée, d'évaluation continue et d'allocation optimale**.
 
@@ -792,7 +792,7 @@ Le contrôle réellement appelé par le veto de l'hôte se trouve dans [immuneSy
 Le service immunitaire global comprend aussi le balayage de menaces, l'arrêt d'urgence par coupe-circuit, la validation/réparation de formats et des boucles de nouvelle tentative pour certaines sorties de modèle. Le veto Holobionte utilise l'inspection de sortie et le score de santé ; ce n'est pas une approbation de sécurité métier ni une preuve de sûreté.
 
 ### Modèle conceptuel
-Les catégories innée, adaptative et régulatoire restent une manière de concevoir une immunité plus complète. L'archivage des pathogènes, la tolérance par partenaire et la régulation homéostatique spécifiques à Holobionte ne sont pas reliés à un cycle de vie de symbiote dans le service de coordination.
+Les catégories innée, adaptative et régulatoire décrivent un modèle plus large que les contrôles implémentés. Le plan immunitaire, l’admission et la détection de sur-réaction ont des services dédiés ; leur présence ne signifie pas que chaque composition historique traverse ces contrôles. Voir les limites d’intégration en section 26.
 
 ### Niveaux de rejet proposés
 
@@ -872,7 +872,7 @@ Les variantes suivantes sont des pistes de conception et ne sont pas des options
 
 **Pourquoi router certains traitements en local :** réduire les appels réseau pour les embeddings et traitements locaux. La latence et le coût dépendent de l'environnement ; le routage ne garantit pas à lui seul que le Host détient toutes les décisions.
 
-**Cycle de vie continu :** objectif d'évolution du modèle ; le runtime actuel ne met pas en œuvre l'acquisition continue, la quarantaine ou l'expulsion des symbiotes.
+**Cycle de vie :** des services couvrent admission, résidence, transmission, succession et sanctions. Ils ne forment pas une boucle universelle de promotion/quarantaine/expulsion automatiquement appliquée à tous les chemins Holobionte.
 
 ---
 
@@ -1049,35 +1049,31 @@ sequenceDiagram
 
 ## 26. Implémentation et capacités (GenOS v3)
 
-La topologie est partiellement intégrée au backend. Voir la [matrice des capacités](../topologies-et-capacites.md) et le contrat déclaré dans `topologyCapabilityService`.
+La topologie est partiellement intégrée. Les services ci-dessous décrivent le runtime persistant disponible dans `backend/src/services/holobionte/`. La [matrice des capacités](../topologies-et-capacites.md) décrit les prérequis déclarés ; cette déclaration seule ne prouve pas l’exécution d’une capacité.
 
-### Comportements disponibles
+### Chemins d’exécution
 
-- `composeHolobionte(mission, options)` produit le mode et les quatre membres. Les options exposées par ce service permettent notamment de définir `hostAuthority`.
-- `activateHolobionte(mission, context)` renvoie une activation horodatée ; elle n'exécute pas les membres.
-- `holobionteCoordinationService.composeHolobiont(mission, options)` ajoute un résumé hôte/symbiotes, les moteurs calculés par rôle et le contrat de capacités.
-- `holobionteCoordinationService.hostVeto(dossier)` extrait le texte de preuve du dossier et retourne `allowed`, `reason`, les informations de santé et l'indicateur de dérive. Un dossier sans livrable est refusé.
-- `symbioteRuntimeService` route les rôles symbiotiques vers l'inférence locale lorsqu'un modèle adapté est configuré. Les embeddings utilisent l'endpoint local configuré, sans bascule vers un fournisseur cloud.
-- Le contrat Holobionte déclare des capacités comme `IMMUNE_SYSTEM`, `LOCAL_INFERENCE`, `GRAPH_MEMORY`, `GENOME_EPIGENETICS` et plusieurs capacités procédurales. Cette déclaration décrit les prérequis attendus ; elle n'implémente pas à elle seule ces mécanismes.
+- Le chemin historique `biologicalModeService` / `holobionteService` compose quatre rôles et produit une activation déclarative. Il ne faut pas le confondre avec le cycle persistant par capacité.
+- `holobiontStore` et les contrats de session conservent l’état d’un hôte et de ses symbiotes. Les services d’admission, de choix de partenaire, de planification et d’exécution sélectionnent un résident pour une capacité demandée.
+- `holobiontRuntime.runCycle(db, input)` planifie la capacité, exécute le résident retenu, puis renvoie le rapport de santé et l’action suggérée. Un écart de capacité est renvoyé comme `CAPABILITY_GAP` ; une exécution rejetée reste distincte d’une exécution vérifiée.
+- Les adaptateurs connectent certains symbiotes existants (A-Team, daemon résident, Rhizome, Syncytium et Trinity). Leur présence ne signifie pas que tous les points d’entrée des topologies utilisent le runtime Holobionte.
 
-### Exemple vérifiable
+### Santé, contribution et transmission
 
-```javascript
-const coordination = require('./backend/src/services/holobionteCoordinationService');
+- Le plan immunitaire et l’admission contrôlent les symbiotes selon les services correspondants ; calibration et détection de sur-réaction mesurent certains faux positifs. Ces contrôles ne relâchent pas les gates de sûreté.
+- Le registre de contribution calcule une fitness relationnelle à partir des événements et références de preuve disponibles. Le vecteur global comporte dix dimensions séparées, requiert des références de preuve et ne calcule pas de score agrégé par défaut.
+- Le détecteur de dysbiose reçoit six signaux normalisés entre 0 et 1, calcule un score heuristique et retourne `STABLE`, `WATCH` ou `ALERT`. Il ne dérive pas lui-même les signaux et n’applique aucune action automatique.
+- Les services de transmission couvrent héritage vertical, acquisition horizontale, transmission mixte et transfert procédural contrôlé. Validation, succession, résilience et impact keystone disposent également de services dédiés ; leurs sorties dépendent des données fournies et ne prouvent pas à elles seules un bénéfice causal.
 
-const composition = coordination.composeHolobiont('Examiner cette proposition et ses preuves.');
-console.log(composition.host.role);
-console.log(composition.symbiotes.map((member) => member.role));
-console.log(composition.capabilityContract.required);
+### Benchmark longitudinal
 
-const decision = coordination.hostVeto({
-  events: [{ evidenceReport: { claims: [{ statement: 'Résultat avec éléments vérifiables.' }] } }]
-});
-console.log(decision.allowed, decision.reason);
-```
+Le runner compare douze bras sur les mêmes 50 à 100 missions ordonnées. Chaque résultat exige des références de preuve et un identifiant de vérificateur. Il calcule succès, coûts, jetons et métriques de symbiose, mais retourne `promotionDecision: null` : l’évaluation ne promeut rien. Le runner est injectable ; les tests utilisent une fonction de mission simulée. Aucune campagne réelle de 600 à 1 200 exécutions n’est attestée par ces tests. Voir le [protocole du benchmark longitudinal](../../06-benchmarks/benchmark-longitudinal-holobionte.md) et l’[ADR 0105](../../../docs/adr/0105-benchmark-longitudinal-holobionte.md).
 
-Les tests d'intégration correspondants sont `backend/tests/test_biocenose_holobionte_services.js` et `backend/tests/test_holobionte_wiring.js`.
+### Limites à garder visibles
 
-### Écarts avec le modèle
+- Le compositeur historique reste une composition fixe à quatre rôles ; le runtime persistant est un chemin distinct.
+- L’évaluation de dysbiose est conditionnelle à la fourniture de signaux. Le rapport de santé ne déclenche pas automatiquement les actions suggérées.
+- Le vecteur de fitness n’est pas un indicateur de succès global et les dimensions ne sont pas agrégées implicitement.
+- Les tests valident les contrats et le runner avec des entrées synthétiques ; ils ne démontrent ni un gain de performance réel, ni une campagne longitudinale exécutée.
 
-Le backend ne fournit pas ici de moteur `holobionteService.execute`, d'analyse `analyzeMission`, de mémoire de lignée Holobionte, de cycle de vie avec quarantaine/promotion/expulsion, de score de dysbiose, ni des métriques de fitness présentées dans les sections conceptuelles. Aucune commande CLI `biological deploy` ni les variables de configuration Holobionte proposées dans d'anciennes versions de cette fiche ne sont exposées par cette implémentation.
+Les services associés sont notamment `holobionte/holobiontStore.js`, `holobionte/runtime/holobiontRuntime.js`, `holobionte/fitness/holobiontFitnessVectorService.js` et `holobionte/health/dysbiosisDetector.js`. Les décisions connexes sont indexées dans [l’index des ADR](../../../docs/adr/README.md), dont les ADR [0097](../../../docs/adr/0097-calibration-immunitaire-holobionte.md), [0103](../../../docs/adr/0103-vecteur-fitness-holobionte.md), [0104](../../../docs/adr/0104-dysbiose-holobionte.md), [0105](../../../docs/adr/0105-benchmark-longitudinal-holobionte.md), [0106](../../../docs/adr/0106-detection-surreaction-immunitaire-holobionte.md) et [0107](../../../docs/adr/0107-impact-keystone-holobionte.md).
