@@ -250,8 +250,9 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       session_id: { type: 'string' },
-      operation: { type: 'string', enum: ['snapshot', 'apply', 'schema', 'domains', 'history', 'explain', 'branch', 'promote', 'invariants', 'conflicts', 'replicas', 'health', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'signal', 'locus', 'repair', 'prune', 'allocate', 'forage'] },
+      operation: { type: 'string', enum: ['snapshot', 'apply', 'schema', 'domains', 'history', 'explain', 'branch', 'promote', 'invariants', 'conflicts', 'replicas', 'health', 'morphogenesis', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'signal', 'locus', 'repair', 'prune', 'allocate', 'forage'] },
       op: { type: 'object' }, transaction: { type: 'object' }, branch: { type: 'object' },
+      signals: { type: 'object' },
       branch_id: { type: 'string' }, domain_id: { type: 'string' }, path: { type: 'string' },
       version: { type: ['string', 'number', 'object'] }, marker: { type: 'string' }, amount: { type: 'number' },
       is_repellent: { type: 'boolean' }, need: { type: ['string', 'object'] }, edges: { type: 'array', items: { type: 'object' } },

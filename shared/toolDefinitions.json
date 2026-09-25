@@ -538,6 +538,7 @@
               "conflicts",
               "replicas",
               "health",
+              "morphogenesis",
               "deposit",
               "direct_member",
               "route",
@@ -558,6 +559,9 @@
             ]
           },
           "op": {
+            "type": "object"
+          },
+          "signals": {
             "type": "object"
           },
           "transaction": {

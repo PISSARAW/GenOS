@@ -76,6 +76,12 @@ async function healthSyncytium(db, sessionId) {
   return { consistency: snapshot.consistency, replicas };
 }
 
+async function morphogenesisSyncytium(db, sessionId, args) {
+  return syncytium.analyzeSessionMorphogenesis(sessionId, {
+    ...(args.signals || {}), options: { db }
+  });
+}
+
 async function depositRhizome(db, sessionId, args) {
   return rhizome.depositTrail(sessionId, args.marker || args.key, {
     db, amount: args.amount, isRepellent: args.is_repellent, kind: args.trail_kind,
@@ -173,7 +179,8 @@ const OPERATIONS = {
     schema: syncytiumSchema, domains: syncytiumDomains, history: syncytiumHistory,
     explain: explainSyncytium, branch: branchSyncytium, promote: promoteSyncytium,
     invariants: invariantsSyncytium, conflicts: conflictsSyncytium,
-    replicas: replicasSyncytium, health: healthSyncytium
+    replicas: replicasSyncytium, health: healthSyncytium,
+    morphogenesis: morphogenesisSyncytium
   },
   rhizome: { snapshot: rhizomeSnapshot, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, signal: publishRhizomeSignal, locus: manageRhizomeLocus, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome, health: assessBiome }
