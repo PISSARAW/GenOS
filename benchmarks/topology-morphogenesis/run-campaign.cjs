@@ -54,7 +54,10 @@ function environment(name) {
     GENOS_RUNNER_LOG_DIR: path.join(output, 'runner-logs'),
     GENOS_TOPOLOGY_AWAIT_WORKERS: '1',
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || 'local',
-    GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || 'qwen2.5:14b',
+    GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || 'qwen2.5-coder:7b',
+    GENOS_ORCHESTRATOR_BRIDGE: path.join(repo, 'backend/bin/genos-orchestrate.cjs'),
+    GENOS_BIN: '',
+    GENOS_MCP_BIN: '',
     GENOS_LOCAL_MODEL_TIMEOUT_MS: process.env.GENOS_LOCAL_MODEL_TIMEOUT_MS || '120000',
     GENOS_SQLITE_BUSY_TIMEOUT_MS: '10000',
     GENOS_SQLITE_MAX_RETRIES: '8',
@@ -347,10 +350,12 @@ async function main() {
   process.env.GENOS_WORKSPACE_ROOT = fixture;
   process.env.GENOS_CAPSULE_ROOT = path.join(output, 'capsules');
   process.env.GENOS_RUNNER_LOG_DIR = path.join(output, 'runner-logs');
-  process.env.GENOS_LOCAL_MODEL = process.env.GENOS_LOCAL_MODEL || 'qwen2.5:14b';
-  process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS = '30000';
+  process.env.GENOS_LOCAL_MODEL = process.env.GENOS_LOCAL_MODEL || 'qwen2.5-coder:7b';
+  process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS = '10000';
+  process.env.GENOS_SQLITE_MAX_RETRIES = '8';
   process.env.GENOS_ADMIN_PASSWORD = randomBytes(32).toString('base64url');
-  process.loadEnvFile(path.join(repo, '.env'));
+  const envFile = path.join(repo, '.env');
+  if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   const { getDatabase, closeDatabase } = require('../../backend/src/db');
   const db = await getDatabase();
   const results = { schemaVersion: 1, suiteId: suite.suiteId, suiteStatus: suite.status, suiteSha256: sha256(fs.readFileSync(path.join(__dirname, 'suite.json'))),
