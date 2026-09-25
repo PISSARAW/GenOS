@@ -17,6 +17,20 @@ function allocatedBudget(allocations) {
   return total;
 }
 
+function allocationsPersisted(allocations, snapshot) {
+  const entries = new Map((snapshot.entries || []).map((entry) => [entry.key, entry.budget]));
+  return (allocations || []).length === 3 && allocations.every((allocation) =>
+    entries.get(`resource:${allocation.id}`) === allocation.budget);
+}
+
+function foragePersisted(forage, snapshot, previousVersion) {
+  const receipt = forage.receipt || {};
+  const history = snapshot.ecologicalState?.patchHistories?.['niche-biome'] || [];
+  return Number(receipt.resultingRevision) > Number(receipt.previousRevision)
+    && snapshot.version > previousVersion
+    && history.some((item) => item.patchId === 'niche-biome' && item.return === 2);
+}
+
 function syncValuesVerified(fields) {
   return fields['tasks.t1.status'] === 'done'
     && fields['tasks.t2.status'] === 'open'
@@ -63,7 +77,8 @@ async function probeBiome(sessionId) {
   const after = await operate(sessionId, 'snapshot');
   return { before, allocation, forage, after,
     verified: allocatedBudget(allocation.allocations) === 6
-      && after.version > before.version };
+      && allocationsPersisted(allocation.allocations, after)
+      && foragePersisted(forage, after, before.version) };
 }
 
 async function probeSyncytium(sessionId) {
