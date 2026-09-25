@@ -22,7 +22,36 @@ function selectCandidates(candidates, options = {}) {
     .sort((left, right) => right.score - left.score || left.candidate.propaguleId.localeCompare(right.candidate.propaguleId));
   const limit = normalizeLimit(options.limit);
   if (policy === 'founder') return selectFounderSet(ranked, limit);
+  if (options.diversityMode === 'provider-algorithm-lineage') return selectDiverse(ranked, limit);
   return ranked.slice(0, limit).map((entry) => selected(entry, policy, entry.score));
+}
+
+function selectDiverse(ranked, limit) {
+  const remaining = [...ranked];
+  const selectedEntries = [];
+  const dimensions = { providers: new Set(), algorithms: new Set(), lineages: new Set() };
+  while (remaining.length && selectedEntries.length < limit) {
+    remaining.sort((left, right) => diversityScore(right, dimensions) - diversityScore(left, dimensions));
+    const next = remaining.shift();
+    selectedEntries.push(selected(next, 'complementary', diversityScore(next, dimensions)));
+    recordDiversity(next.candidate, dimensions);
+  }
+  return selectedEntries;
+}
+
+function diversityScore(entry, dimensions) {
+  const candidate = entry.candidate;
+  const refs = Array.isArray(candidate.lineageRefs) ? candidate.lineageRefs : [];
+  const novelty = Number(!dimensions.providers.has(candidate.providerId))
+    + Number(!dimensions.algorithms.has(candidate.algorithmId))
+    + Number(refs.some((ref) => !dimensions.lineages.has(ref)));
+  return entry.score + novelty * 0.25;
+}
+
+function recordDiversity(candidate, dimensions) {
+  if (candidate.providerId) dimensions.providers.add(candidate.providerId);
+  if (candidate.algorithmId) dimensions.algorithms.add(candidate.algorithmId);
+  for (const ref of candidate.lineageRefs || []) dimensions.lineages.add(ref);
 }
 
 function selectFounderSet(ranked, limit) {

@@ -39,6 +39,7 @@ async function observeRegion(input, options) {
   const synchrony = planAntiSynchrony({ demes, observations: errorVectors, threshold: input.synchronyThreshold });
   const utility = evaluateRegionalUtility({ demes, corridors, migrations: input.migrationCandidates || [] });
   return { metapopulationId: input.metapopulationId, revision: session.revision, status: session.status,
+    variant: session.variant, variantPolicy: session.variantPolicy || {},
     demes, patches: session.patches, corridors, liveness, contribution, synchrony, utility, rescueAttempts };
 }
 

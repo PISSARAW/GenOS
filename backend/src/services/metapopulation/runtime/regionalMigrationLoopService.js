@@ -9,12 +9,18 @@ const migrationService = require('../migration/propaguleMigrationService');
 const migrationStore = require('../migration/migrationStore');
 const rescueService = require('../migration/rescueEffectService');
 const metapopulationStore = require('../metapopulationStore');
+const { authorizeFederationTransfer } = require('../policy/metapopulationPolicyService');
 
 function planMigrationAction(context) {
   if (context.input.enableMigration !== true) return { action: null, assessments: [] };
   const assessments = [];
   for (const request of requests(context.input)) {
-    const trigger = evaluateTrigger(request.trigger || {});
+    const policy = context.observed.variantPolicy || {};
+    const trigger = evaluateTrigger({
+      ...(request.trigger || {}),
+      generationInterval: request.trigger?.generationInterval || frequencyInterval(policy.migrationFrequency),
+      generation: request.trigger?.generation ?? context.input.generation
+    });
     if (!trigger.triggered) {
       assessments.push({ targetDemeId: request.targetDemeId, reason: trigger.blockedBy[0] || 'TRIGGER_NOT_MET' });
       continue;
@@ -27,16 +33,38 @@ function planMigrationAction(context) {
 }
 
 function selectEligibleAction(request, observed) {
+  const variantPolicy = observed.variantPolicy || {};
   const candidates = selectCandidates(request.candidates, {
-    policy: request.policy || 'novelty', targetDemeId: request.targetDemeId,
+    policy: request.policy || variantPolicy.migration || 'novelty',
+    diversityMode: variantPolicy.diversityMode,
+    targetDemeId: request.targetDemeId,
     sourceDemeId: request.sourceDemeId, limit: request.limit || 1,
     minFitness: request.minFitness, minNovelty: request.minNovelty
   });
   for (const candidate of candidates) {
+    if (!federationEligible(candidate, request, variantPolicy)) continue;
     const action = candidateAction(candidate, request, observed);
     if (action) return action;
   }
   return null;
+}
+
+function federationEligible(candidate, request, policy) {
+  if (!policy.sovereign) return true;
+  if (policy.verifiedPropagulesOnly && candidate.transferProof?.verified !== true) return false;
+  return authorizeFederationTransfer({
+    classification: candidate.dataClassification,
+    sourceRegion: request.sourceRegion,
+    targetRegion: request.targetRegion,
+    federationAgreement: request.federationAgreement === true,
+    refs: candidate.transferRefs
+  }).allowed;
+}
+
+function frequencyInterval(frequency) {
+  if (frequency === 'rare') return 10;
+  if (frequency === 'periodic') return 5;
+  return undefined;
 }
 
 function candidateAction(candidate, request, observed) {
