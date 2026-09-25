@@ -1,6 +1,7 @@
 'use strict';
 
 const rhizomeTick = require('./rhizomeTick');
+const homeostasisController = require('./homeostasisController');
 
 async function run(input) {
   if (!Array.isArray(input.needs)) {
@@ -8,8 +9,10 @@ async function run(input) {
   }
   const maximum = Math.max(1, Math.min(100, Number(input.maxTicks) || input.needs.length || 1));
   const results = [];
+  const homeostasis = homeostasisController.create();
   for (const need of input.needs.slice(0, maximum)) {
     const result = await rhizomeTick.tick({ ...input, need });
+    result.homeostasis = homeostasis.observe(result, input);
     results.push(result);
     if (await stopRequested(input.stopWhen, result)) return { results, stopReason: 'STOP_CONDITION' };
   }
