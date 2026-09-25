@@ -72,18 +72,36 @@ async function main() {
   assert.equal(byFamily.security.status, 'ACTIVE');
   assert.equal(byFamily.documentation.status, 'DORMANT');
   assert.ok(byFamily.contract.budded, 'first activation buds');
+  const steady = await phenotype.assignPhenotypes(db, { territoryId: T });
+  assert.equal(steady.phenotypes.find((p) => p.family === 'contract').budded, false);
+  const firstBudding = (await phenotype.getPhenotypes(db, { territoryId: T }))
+    .find((row) => row.family === 'contract').budded_at;
 
-  // 3. Pression retombée → DORMANT, jamais supprimé, budded_at conservé.
-  await db.run("DELETE FROM daemon_findings WHERE territory_id = ?", T);
+  // 3. Findings STALE ne maintiennent pas de pression écologique.
+  await db.run("UPDATE daemon_findings SET status = 'STALE' WHERE territory_id = ?", T);
   await db.run("DELETE FROM daemon_stigmergy_markers WHERE territory_id = ?", T);
+  const stalePressure = await phenotype.measureEcologicalPressure(db, { territoryId: T });
+  assert.ok(stalePressure.pressures.contract < 0.6);
+  assert.ok(stalePressure.pressures.dependency < 0.6);
+
+  // 4. Pression retombée → DORMANT, jamais supprimé, budded_at conservé.
   const dormant = await phenotype.assignPhenotypes(db, { territoryId: T });
   assert.ok(dormant.phenotypes.every((p) => p.status === 'DORMANT'));
   const rows = await phenotype.getPhenotypes(db, { territoryId: T });
   assert.equal(rows.length, 10, 'phenotypes persist, never deleted');
   const contract = rows.find((r) => r.family === 'contract');
-  assert.ok(contract.budded_at, 'bud scar kept after dormancy');
+  assert.equal(contract.budded_at, firstBudding, 'bud scar kept after dormancy');
 
-  // 4. Territoire inconnu : échec doux.
+  // 5. Réactivation : nouvel événement de budding, même cicatrice historique.
+  await makeFinding(db, { id: 'finding.ph-broken-3', detectorId: 'broken-import' });
+  await makeFinding(db, { id: 'finding.ph-broken-4', detectorId: 'broken-import' });
+  const rebudded = await phenotype.assignPhenotypes(db, { territoryId: T });
+  assert.equal(rebudded.phenotypes.find((p) => p.family === 'contract').budded, true);
+  const returned = (await phenotype.getPhenotypes(db, { territoryId: T }))
+    .find((row) => row.family === 'contract');
+  assert.equal(returned.budded_at, firstBudding);
+
+  // 6. Territoire inconnu : échec doux.
   assert.equal((await phenotype.measureEcologicalPressure(db, {})).measured, false);
   assert.equal((await phenotype.assignPhenotypes(db, {})).assigned, false);
 

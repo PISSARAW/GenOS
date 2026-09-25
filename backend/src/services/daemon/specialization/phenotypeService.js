@@ -99,7 +99,7 @@ async function measureEcologicalPressure(db, args) {
   await migrateDaemonStigmergy(db);
   const sensed = await interoception.senseTerritory(db, args.territoryId, { now: args.now });
   const findings = await findingService.listFindings(db, { territoryId: args.territoryId });
-  const live = findings.filter((f) => f.status !== 'REFUTED' && f.status !== 'EXPIRED');
+  const live = findings.filter((f) => !['REFUTED', 'EXPIRED', 'STALE'].includes(f.status));
   const vars = sensed.variables || {};
   const pressures = await derivePressures(db, { vars, live, all: findings, territoryId: args.territoryId });
   return {
@@ -244,7 +244,8 @@ async function assignFamily(db, job) {
     job.family
   );
   const status = nextStatus(row && row.status, job.pressure);
-  const budded = (row && row.buddedAt) || (row && row.budded_at) || null;
+  const budded = status === 'ACTIVE' && (!row || row.status !== 'ACTIVE');
+  const previousBudding = (row && row.buddedAt) || (row && row.budded_at) || null;
   await db.run(
     `INSERT INTO daemon_phenotypes (territory_id, family, status, pressure, budded_at, updated_at)
      VALUES (?, ?, ?, ?, ?, datetime('now'))
@@ -256,9 +257,9 @@ async function assignFamily(db, job) {
     job.family,
     status,
     job.pressure,
-    status === 'ACTIVE' ? new Date().toISOString() : budded
+    status === 'ACTIVE' ? new Date().toISOString() : previousBudding
   );
-  return { family: job.family, status, pressure: job.pressure, budded: status === 'ACTIVE' };
+  return { family: job.family, status, pressure: job.pressure, budded };
 }
 
 async function getPhenotypes(db, query) {
