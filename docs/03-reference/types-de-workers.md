@@ -1,6 +1,6 @@
 # Types de workers GenOS
 
-- **Statut** : Vocabulaire de référence aligné sur le code au 2026-09-25. Partiel assumé : les 19 types ont des contrats et des validateurs d'artefacts typés ; le dispatch imbriqué du sous-orchestrateur reste désactivé côté Node.
+- **Statut** : Les 19 kinds passent une campagne locale de conformité avec `qwen2.5:14b` au 2026-09-25. Les contrats Rust et Node gardent des sémantiques distinctes ; la délégation du sous-orchestrateur n'a pas été exercée par cette campagne comme mission parent-enfant réelle.
 - **Portée** : `crates/genos-worker` (autorité Rust), registre Node des phénotypes et des `WorkerKind`, vocabulaire des rôles de mission, preuves et dispatch.
 - **Dernière revue** : 2026-09-25
 
@@ -227,9 +227,9 @@ sub_orchestrator: Organizational / dossier / SubOrchestrator
 
 Seuls 7 profils d'autorité distincts sont réutilisés côté Node (`ScoutCell, ResidentDaemon, BoundedWorker, AdaptiveWorker, Specialist, Verifier, SubOrchestrator`). Les types sans profil dédié sont projetés sur un profil existant, sans prétendre que cela équivaut à un phénotype Rust spécialisé.
 
-`ROLE_ALIASES` (16 entrées) : `implementation→bounded_worker`, `frontend_developer→bounded_worker`, `independent_reviewer→verifier_worker`, `neutral_observer→scout_cell`, `verifier→verifier_worker`, `red_team→red_worker`, `blue_team→bounded_worker`, `analyst→bounded_worker`, `recovery_specialist→recovery_worker`, `contract_auditor→verifier_worker`, `strategist→sub_orchestrator`, `literary_author/direct_author/planned_author/dramaturg→creative_worker`, `literary_critic→verifier_worker`.
+`ROLE_ALIASES` (19 entrées au 2026-09-25) : `implementation→bounded_worker`, `frontend_developer→bounded_worker`, `independent_reviewer→verifier_worker`, `neutral_observer→scout_cell`, `verifier→verifier_worker`, `red_team→red_worker`, `blue_team→bounded_worker`, `analyst→bounded_worker`, `recovery_specialist→recovery_worker`, `contract_auditor→verifier_worker`, `strategist→sub_orchestrator`, `literary_author/direct_author/planned_author/dramaturg→creative_worker`, `literary_critic→verifier_worker`, `ux_designer/backend_architect/security_engineer→specialist`.
 
-`PROMPT_RULES` (19 consignes, une par kind) : ex. `scout_cell` « Observe only… », `bounded_worker` « Complete only the assigned scope using the current tool lease… », `verifier_worker` « Verify independently and return Accept, Reject, or Unresolved… », `creative_worker` « …do not promote it », `sub_orchestrator` « Coordinate only this subgraph; do not alter global topology or promote results; honor spawn and depth ceilings. » Cette dernière formulation est **trompeuse côté Node** : le contrat effectif met spawn/depth à `0` (voir §4.3) ; elle décrit le plafond Rust, pas l'autorisation Node.
+`PROMPT_RULES` (19 consignes, une par kind) : ex. `scout_cell` « Observe only… », `bounded_worker` « Complete only the assigned scope using the current tool lease… », `verifier_worker` « Verify independently and return Accept, Reject, or Unresolved… », `creative_worker` « …do not promote it », `sub_orchestrator` « Coordinate only this subgraph; do not alter global topology or promote results; honor spawn and depth ceilings. » Cette dernière consigne rappelle les limites, mais ne confère pas elle-même l'autorité : celle-ci vient du contrat Node persistant et du dispatcher borné (§4.3 et §5.3).
 
 ### 4.2 Phénotypes Node réellement stockés
 
@@ -247,17 +247,17 @@ Source : `backend/src/services/agents/phenotypeRegistryService.js` (261 lignes).
 | `ResidentDaemon` | `spawn:false, execute:false` | `0 / 0` |
 | `Reconciler` | `write:true` | `0 / 0` |
 
-`getPhenotype(id)` : lookup direct, sinon normalisation → `KINDS`/`ROLE_ALIASES` → `kindDefinition` → base `authorityPhenotype` + `applyAuthorityOverrides`, avec identifiant synthétique PascalCase. C'est ce qui crée les phénotypes virtuels (`ProceduralExecutor`, `RedWorker`, …) sans les stocker. Point critique : `canSpawn('SubOrchestrator')===true` sur le brut, mais `getPhenotype('sub_orchestrator')` passe par les overrides (`spawn:false`) ⇒ `canSpawn===false`. Le contrat effectif annule le phénotype brut.
+`getPhenotype(id)` : lookup direct, sinon normalisation → `KINDS`/`ROLE_ALIASES` → `kindDefinition` → base `authorityPhenotype` + `applyAuthorityOverrides`, avec identifiant synthétique PascalCase. C'est ce qui crée les phénotypes virtuels (`ProceduralExecutor`, `RedWorker`, …) sans les stocker. `buildWorkerContract('sub_orchestrator')` est volontairement non délégant par défaut. La création persistée par `agentFleetWorkers` applique ensuite `grantBoundedDelegation`; le dispatch dédié exige ce contrat borné et non expiré.
 
 `Orchestrator` n'est pas un type de worker dans `WorkerKind`. `Reconciler` est une extension Node hors des 19 canoniques.
 
 ### 4.3 Contrat Node effectif et overrides
 
-`AUTHORITY_OVERRIDES` (6 entrées) : `resident_daemon:{execute:true}`, `specialist:{write:false}`, `creative_worker:{execute:false}`, `synthesis_worker:{execute:false}`, `liaison_worker:{execute:false}`, `sub_orchestrator:{write:false, spawn:false, delegate:false}` avec commentaire : « Node's mission dispatcher currently rejects worker-originated spawning. Keep the effective contract honest until nested dispatch is implemented. »
+`AUTHORITY_OVERRIDES` (6 entrées) : `resident_daemon:{execute:true}`, `specialist:{write:false}`, `creative_worker:{execute:false}`, `synthesis_worker:{execute:false}`, `liaison_worker:{execute:false}`, `sub_orchestrator:{write:false, spawn:false, delegate:false}`. Ce sont les valeurs du contrat de base; seule la fabrique persistante du `sub_orchestrator` peut ensuite appeler `grantBoundedDelegation()`.
 
 `applyAuthorityOverrides(kind, profile) = {…profile, write:false, …OVERRIDES[kind]}` — `write:false` forcé par défaut.
 
-`buildWorkerContract(kind, mission)` : `getAuthorityProfile(phenotype)` + overrides + `mission:{objective, scope}` + `identity:{workerKind, parentId}` + `version:1`. Durcissements explicites : `authority={spawn:false, delegate:false, topology:false}` pour **tous**, `spawnBudget=0, delegationDepth=0` pour tous, `strategy` vraie seulement pour `adaptive_worker|specialist|sub_orchestrator`, `limits.maxIterations = scout?1 : sub?30 : null`.
+`buildWorkerContract(kind, mission)` : `getAuthorityProfile(phenotype)` + overrides + `mission:{objective, scope}` + `identity:{workerKind, parentId}` + `version:1`. Le contrat de base force `spawn/delegate/topology=false` et `spawnBudget=0, delegationDepth=0`; `grantBoundedDelegation()` constitue une seconde étape explicite pour un `sub_orchestrator` persistant. La stratégie est vraie seulement pour `adaptive_worker|specialist|sub_orchestrator`; les limites de base incluent `maxIterations=scout?1 : sub?30 : null`.
 
 Fonctions : `normalize()` (trim + camel→snake + `[\s-]`→`_` + minuscules), `resolveWorkerKind(explicit, role)` (explicite inconnu ⇒ `UNKNOWN_WORKER_KIND` ; sinon kind direct, alias, ou défaut sûr `bounded_worker`), `kindDefinition()`, `promptRule()`, `evidenceRule()` (via `workerArtifactContract.artifactInstruction`).
 
@@ -274,14 +274,14 @@ Le type et le contrat dérivé sont persistés dans `agents.metadata_json = JSON
 Principe ADR 0064 : « l'incarnation reconstruit le contrat côté serveur ; les données fournies par l'appelant ne définissent pas l'autorité ».
 
 - `agents/workerContractEnforcement.js` (`enforcePersistedWorkerTool`) : relit `execution_mode, metadata_json, role`, si `worker` alors `resolveWorkerKind(metadata.workerKind, role)` + `buildWorkerContract(kind, mission)` puis assertion d'outil.
-- `agentRuntimeAdapter/missionBootstrap.js` (`resolveWorkerIdentity`) : recalcule le kind, `WORKER_KIND_MISMATCH` si divergence, puis `buildWorkerContract` + `assertRuntimeContract`. Tout contrat muté avec `spawn/delegate/budget>0` échoue au boot avec `UNSUPPORTED_WORKER_DELEGATION`.
+- `agentRuntimeAdapter/missionBootstrap.js` (`resolveWorkerIdentity`) : recalcule le kind, `WORKER_KIND_MISMATCH` si divergence, puis contrôle le contrat persistant. Un contrat délégant n'est accepté que pour `sub_orchestrator` avec profondeur 1, budget d'enfants conforme, limites présentes et expiration future; toute autre délégation échoue au boot.
 - `agents/agentIncarnationService.js` (`incarnateAgent`) : écrase `request.workerKind/workerContract` par `resolve + build` ; `computeLease` (rôle/caps → DNA → phénotype → provided, `stripOrchestrate`) ; `setupAuthority` (`allowFileEdits = ap.allowFileEdits ∧ contract.authority.write`, `permittedToolSet`, `executionMode:'worker'`).
 - `orchestratorDispatchService.js` (`buildWorkerMission`) : même pattern + injection `Worker kind: X. promptRule(X)` dans le prompt.
 - `agentAuthorityService.js` : expose seulement `agent.workerKind` ; ne fait pas confiance à l'autorité stockée ; un `execution_mode==='worker'` ne peut pas devenir orchestrateur (`ORCHESTRATOR_REQUIRED`), exige `parent_agent_id==orchestratorId` et même `workspace_id`.
 
 ### 5.3 Dispatch réel générique
 
-`agentFleetWorkers.js` (`createAutonomousWorkers`) : validation des affectations (limite garage), `resolveWorkerKind(assignment.workerKind, assignment.role)` en boucle, `INSERT` worker, compensation `includePersistedWorkers` en erreur. `buildWorkerPrompt` injecte `Worker kind: X. promptRule(X)` + bloc créatif. `effectiveToolLease` via `workerToolLeaseForCapabilities`, intersecté DNA/affectation. **Aucun branchement `if kind===sub_orchestrator`** : les 19 kinds passent par le même tuyau ; `sub_orchestrator` est persisté et dispatché comme worker ordinaire avec `spawn:0`.
+`agentFleetWorkers.js` (`createAutonomousWorkers`) : validation des affectations (limite garage), résolution du kind, insertion du worker et compensation en erreur. Pour `sub_orchestrator`, `workerInsertValues` appelle `grantBoundedDelegation()` avant persistance. Le dispatcher dédié `subOrchestratorDispatchService` impose une allowlist de quatre kinds enfants, cinq enfants au plus, un budget plafonné à 10 000 tokens et une attente du résultat avec validation d'artefact. Les autres kinds gardent le contrat de base non délégant.
 
 ---
 
@@ -309,7 +309,7 @@ Socle `8000 / 300_000 / 60_000`. Variantes : `procedural` et `formal` `tokens=0`
 - `toolLeasePolicy.js` : `WORKER_BASE_LEASE` restreint, `ORCHESTRATOR_CORE_LEASE` large. `restrictProvidedLease` ne peut que restreindre ; `genos_orchestrate` toujours retiré.
 - `missionLease.js` (`enforceMissionToolLease`) : fraîcheur du bail (`AGENT_TOOL_LEASE_STALE`), dérivation, restriction, et si `contract.authority.execute===false ⇒ toolLease=[]` (concerne `ScoutCell`, `ResidentDaemon` brut, `creative/synthesis/liaison` après overrides).
 - `workerContractEnforcement.js` : `AUTHORITY_TOOLS = {spawn:[genos_create, genos_fork, genos_delegate_worker], promote:[genos_record_decision, genos_merge], topology:[genos_change_organization, genos_topology_session], strategy:[genos_change_strategy], write:[genos_run, genos_execute_primitive]}`, `toolAction()` défaut `execute`, `assertWorkerToolAllowed()` ⇒ `WORKER_CONTRACT_DENIED` (403 via `mcpController.js` `resolveToolAuthorization`, avant `platformSafety`, audit et circuit-breaker).
-- `assertRuntimeContract()` : `version!==1` ou `identity.workerKind!==kind ⇒ INVALID_WORKER_CONTRACT` ; tout `spawn/delegate/budget/depth ⇒ UNSUPPORTED_WORKER_DELEGATION`.
+- `assertRuntimeContract()` : `version!==1` ou `identity.workerKind!==kind ⇒ INVALID_WORKER_CONTRACT` ; délégation hors `sub_orchestrator` ou contrat enfant invalide/expiré ⇒ `UNSUPPORTED_WORKER_DELEGATION`.
 - Après barrière, `stripDelegationTools` retire `genos_delegate_worker, genos_trinity_launch` du lease et des outils obligatoires (`synthesisOnly=true`, `dispatchWorkers=[]`).
 - Bail opérateur MCP (`mcpExecutor/config.js`) : `GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS`, `GENOS_MCP_LEASE_EXPIRES_AT`, `GENOS_MCP_EXPOSE_ALL` (fail-closed), distinct du bail agent.
 
@@ -321,7 +321,7 @@ Le seul dispatch par étapes est `workerEvidenceBarrierPipeline.js` (orchestrate
 
 Quiescence (`workerEvidenceBarrierQuiescence.js`) : `idle/blocked` comptent comme quiescents, 2 passes stables, `timeoutMs` défaut `60_000` (barrière : `workerBarrierTimeoutMs ?? min(8000, timeoutMs*0.35)` ou `60_000`), codes `WORKER_BARRIER_TIMEOUT/CANCELLED/NOT_FOUND/NO_EVIDENCE/STRICT_PARTIAL`.
 
-`subOrchestratorService.js` (363 lignes) existe mais n'est **pas raccordé** : machine à baux en mémoire (`collectiveStateService`), `requestEscalation/evaluateEscalation/grantLease/buildToolLease/canSpawnWorker/createSubOrchestrator/spawnWorkerFromSubOrch` via `incarnateAgent` mémoire collective, jamais `agents` SQL ni `startMission` ni `dispatchWorkerMission`. Zéro appelant hors auto-références. Son `SUB_ORCH_LEASE_TOOLS` (15 outils dont `genos_delegate_worker`) et `defaultLease {maxDepth:1, maxChildren:5}` sont inopérants côté Node : `incarnateAgent` reconstruit un contrat `spawn:false` et le boot refuserait tout spawn.
+`subOrchestratorService.js` (363 lignes) est un ancien chemin distinct, non raccordé : sa machine à baux en mémoire (`collectiveStateService`) n'est pas le dispatch agent SQL. Le dispatch actuellement raccordé est `agents/subOrchestratorDispatchService.js` (§5.3), qui exige l'identité persistée et `grantBoundedDelegation()`. Ne pas confondre les leases de l'ancien service avec l'autorité effective du dispatcher actif.
 
 ---
 
@@ -386,7 +386,7 @@ Côté Node : `metadata_json.workerKind`, `workerContract` reconstruit, `promptR
 | `strict` (barrière) | `workerEvidenceBarrier.js` | `strict!==false` rejette le partiel. |
 | Garage / limites d'affectation | `agentFleetWorkers.js` | Plafond d'enfants à la création. |
 
-Aucune variable ne réactive le spawn imbriqué : il est durci à `false/0` dans `buildWorkerContract` et refusé par `assertRuntimeContract`.
+Aucune variable ne réactive le spawn imbriqué. Le contrat de base est non délégant; seule l'incarnation persistée `sub_orchestrator` reçoit le contrat borné via `grantBoundedDelegation()`, puis passe par l'allowlist et les limites du dispatcher dédié.
 
 ---
 
@@ -401,8 +401,8 @@ Aucune variable ne réactive le spawn imbriqué : il est durci à `false/0` dans
 
 ### 13.2 Limites de transition
 
-- Dispatch imbriqué désactivé : `sub_orchestrator` Node = coordinateur sans spawn (`spawn/delegate/write:false`, `budget/depth:0`). Ne pas exposer un budget que le runtime n'applique pas.
-- `subOrchestratorService.js` non raccordé : baux mémoire, pas de `INSERT` worker ni de `startMission` enfant.
+- Le dispatch imbriqué Node est implémenté sous forme bornée, mais sa validation de bout en bout reste incomplète : quatre kinds enfants autorisés, cinq enfants au maximum, 10 000 tokens maximum par enfant, expiration du contrat après une heure et délai d'attente de 60 secondes.
+- Le test du dispatcher simule la base, la création et le superviseur; il ne démontre pas encore l'authentification d'un processus worker réel ni une mission parent-enfant réelle. Ne pas présenter ce chemin comme validé de bout en bout.
 - `enforcePersistedWorkerTool` n'est appelé que dans `mcpController.resolveToolAuthorization`, pas dans le pipeline barrière lui-même.
 
 ### 13.3 Limites de ressources
@@ -414,7 +414,7 @@ Aucune variable ne réactive le spawn imbriqué : il est durci à `false/0` dans
 ### 13.4 Limites épistémiques
 
 - Barrière partielle ≠ preuve complète : `evidenceReport || noAnswerProof` suffit en partiel, artefact typé + provenance exigés seulement en `SATISFIED`.
-- `PROMPT_RULES.sub_orchestrator` parle de plafonds spawn/depth alors que le contrat les met à `0` : formulation héritée du preset Rust, à lire comme plafond de conception, pas comme autorisation Node.
+- `PROMPT_RULES.sub_orchestrator` rappelle des plafonds spawn/depth; cette consigne ne confère pas l'autorité. Le contrat persistant borné et le dispatcher MCP dédié déterminent l'autorisation effective.
 - `orchestratorDispatchService` n'injecte pas `evidenceRule` (seul `agentIncarnationService` le fait) : asymétrie à corriger ou à documenter comme telle.
 - Les 20 invariants annoncés n'en codent que 8 (+ succès vérifié) : le reste est objectif de validation, applicable uniquement si un validateur concret l'impose.
 
@@ -517,7 +517,7 @@ graph TD
 
 ### 16.4 Schémas par type (contrat réel → exécution → preuve)
 
-Chaque schéma suit le même gabarit : `preset Rust` (autorité, lease, budget) → `contrat Node effectif` (`buildWorkerContract`, spawn/delegate/topologie à `false`) → `garde MCP` → `artefact` → `barrière`. Les valeurs sont celles de `presets.rs`, `workerKindService.js` et `workerArtifactContract.js`. Aucun schéma n'invente une capacité non codée.
+Chaque schéma suit le même gabarit : `preset Rust` (autorité, lease, budget) → `contrat Node effectif` (`buildWorkerContract` non délégant par défaut; exception du sous-orchestrateur explicitement bornée) → `garde MCP` → `artefact` → `barrière`. Les valeurs sont celles de `presets.rs`, `workerKindService.js` et `workerArtifactContract.js`. Aucun schéma n'invente une capacité non codée.
 
 #### 16.4.1 `scout_cell`
 
@@ -754,7 +754,7 @@ validateWorkerArtifact(dossier, worker); // INVALID_WORKER_ARTIFACT si type/cham
 
 ## 18. Fiches détaillées des 19 types
 
-Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat Node effectif → artefact et validation → consigne de mission → limites et anti-patterns. Les garanties Rust sont encodées ; les autorisations Node sont celles de `buildWorkerContract` (spawn/delegate/topologie toujours `false`, `write:false` par défaut).
+Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat Node effectif → artefact et validation → consigne de mission → limites et anti-patterns. Les garanties Rust sont encodées ; côté Node, `buildWorkerContract` refuse spawn/délégation par défaut et seul le sous-orchestrateur persisté reçoit le contrat borné du dispatcher dédié. `write:false` reste le défaut.
 
 ### 18.1 `scout_cell` (Sensorielle)
 
@@ -940,11 +940,12 @@ Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat
 
 - **Responsabilité (conception Rust)** : coordination locale bornée — 5 enfants, profondeur 1, `tokens=20_000`, 30 itérations, lease `spawn_capped`.
 - **Preset** : `suborchestrator_preset` — seul avec `spawn+delegate`, `depth=1`, `budget=5`.
-- **Node effectif** : `authorityPhenotype=SubOrchestrator` mais `buildWorkerContract` durcit `spawn:false, delegate:false, topology:false, budget:0, depth:0` et override `write:false`. `getPhenotype('sub_orchestrator')` ⇒ `canSpawn=false`. `assertRuntimeContract` refuse tout contrat muté avec spawn/delegate/budget.
+- **Node effectif** : `buildWorkerContract` crée d'abord un contrat de base sans spawn/délégation; la persistance d'un worker `sub_orchestrator` applique `grantBoundedDelegation` (5 enfants, profondeur 1, expiration d'une heure, plafonds de tokens). `assertRuntimeContract` et `subOrchestratorDispatchService` acceptent uniquement cette forme bornée et les quatre kinds enfants autorisés.
 - **Artefact** : `dossier`.
 - **Consigne** : voir §4.1 (plafonds = conception Rust, pas autorisation Node).
-- **Critère** : chaque enfant hériterait budget réduit et autorisations bornées **si** le dispatch imbriqué existait ; en l'état, toute tentative spawn/délégation est refusée (`UNSUPPORTED_WORKER_DELEGATION` au boot, `WORKER_CONTRACT_DENIED` au MCP).
-- **Anti-pattern** : annoncer un budget inutilisable ; coder un chemin qui suppose des enfants réellement dispatchés.
+- **Critère** : le contrat actif, l'allowlist, le budget, le compte d'enfants et l'expiration sont vérifiés; chaque enfant doit terminer avec un artefact contractuel valide.
+- **Limite** : le chemin est couvert par des tests à base et runtime simulés, pas encore par une mission parent-enfant réelle.
+- **Anti-pattern** : confondre les presets Rust et la traduction bornée Node, ou annoncer la validation de bout en bout sans exécution réelle.
 
 ---
 
@@ -952,9 +953,9 @@ Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat
 
 - **Exploration → livraison** : `scout_cell` (observation) → `bounded_worker` (implémentation) → `verifier_worker` (Accept/Reject/Unresolved) → `liaison_worker` (handoff). Ne crée aucun kind : rôles `neutral_observer/implementation/independent_reviewer` via alias.
 - **Arène expérimentale** : `experimental_worker` (hypothèse/protocole/mesures) + `red_worker` (falsification) + `synthesis_worker` (désaccords préservés). Gate parent seul promeut.
-- **Réparation** : `recovery_worker` (restaure, 3 itérations) puis `forensic_worker` (autopsie) puis `medical_worker` (diagnostic + incertitude). Jamais de terminaison auto.
+- **Réparation** : `recovery_worker` (restaure, 3 itérations) puis `forensic_worker` (autopsie) puis `medical_worker` (considérations pédagogiques sur vignette simulée + incertitude). Jamais de terminaison auto.
 - **Connaissance persistante** : `resident_daemon` (territoire, `signal_on_finding`) + `teaching_worker` (paquet validé) + `specialist` (niche). Plasticité par `niche_fit/dedifferentiate`.
-- **Coordination sans spawn** : `sub_orchestrator` Node comme coordinateur de sous-graphe (pas de lancement d'enfants) ; tout besoin d'enfants repasse par l'orchestrateur parent et le dispatch générique.
+- **Coordination bornée** : `sub_orchestrator` délègue uniquement aux quatre kinds autorisés, dans les limites de budget, d'enfants et de durée du dispatcher dédié.
 
 ---
 
@@ -1073,7 +1074,7 @@ Ces cadences sont des ordres de grandeur proposés, pas des garanties du runtime
 
 ## 31. Fractale des workers (cible de conception)
 
-Principe : un `sub_orchestrator` pourrait opérer sa propre coordination locale sous les mêmes invariants. Invariants souhaités : budget enfant ≤ budget parent, profondeur ≤ 1 (Rust), autorité = intersection. En l'état Node, la profondeur effective est `0` et le spawn est refusé : la fractale est une cible, pas une capacité.
+Principe : un `sub_orchestrator` opère une coordination locale bornée. Rust définit un preset à profondeur 1 et cinq enfants; Node accorde ces droits uniquement via le contrat persistant, puis applique une allowlist, un budget enfant plafonné et une expiration. L'équivalence complète des garanties n'est pas établie; voir les limites au §13.2.
 
 ---
 
@@ -1188,17 +1189,18 @@ Associativité, commutativité, idempotence ou monotonie des compositions de wor
 
 ## 44. Conclusion
 
-Les 19 types de workers sont un vocabulaire exécutable commun : mêmes contrats, mêmes cycles, mêmes dossiers côté Rust ; mêmes identifiants, mêmes artefacts, mêmes refus fail-closed côté Node. La présence au catalogue ne vaut pas raccordement de bout en bout : chaque type n'est complet que si ses critères positifs et négatifs sont vérifiés dans le runtime concerné, avec artefact typé et provenance à la barrière.
+Rust et Node partagent un catalogue de 19 identifiants, familles et artefacts attendus; `test_worker_kind_registry.js` compare ces trois dimensions aux sources Rust. Cette parité de catalogue ne signifie pas identité des contrats. Rust exécute les presets, recettes, baux et budgets de `WorkerRuntimeContract`; Node projette certains kinds sur des phénotypes d'autorité existants, puis applique ses propres leases, overrides, contrats d'artefacts et règles de dispatch. Les différences connues sont listées ci-dessous et doivent rester visibles. La présence au catalogue ne vaut pas raccordement de bout en bout : chaque type doit être validé dans son runtime avec ses refus attendus, son artefact et sa provenance.
 
 ---
 
 ## 45. État d'implémentation du runtime (audit 2026-09-25)
 
 - **Rust** : `genos-worker` expose contrat, cycle (18 étapes), dossiers, 8 règles `check_action` (+ succès vérifié), 19 presets, 16 tests. Annonce « 20 invariants » : seuls 8 numéros + succès vérifié sont encodés ; le reste est objectif de conception.
-- **Node** : `workerKindService` (19 `KINDS`, 16 alias, 19 consignes, 6 overrides, `resolve/normalize/kindDefinition/buildWorkerContract/promptRule/evidenceRule`), `phenotypeRegistryService` (9 phénotypes stockés + virtuels), `workerContractEnforcement` (`AUTHORITY_TOOLS`, `WORKER_CONTRACT_DENIED`, `UNSUPPORTED_WORKER_DELEGATION`), `missionBootstrap` (`WORKER_KIND_MISMATCH`), `agentFleetWorkers` (dispatch générique, `metadata_json`), `authorityMatrixService` (lookup 13 dimensions), `workerArtifactContract` (10 types, `INVALID_WORKER_ARTIFACT`), barrières `SATISFIED/PARTIAL/STRICT`.
-- **Délégation bornée — implémentation présente, validation de bout en bout incomplète** : le chemin `genos_delegate_worker` vérifie l'identité d'agent résolue par le contrôleur MCP, le contrat persistant et son expiration. Il limite les kinds enfants à `scout_cell`, `bounded_worker`, `adaptive_worker` et `verifier_worker`, transmet au runtime une mission enfant plafonnée à 10 000 tokens et attend son résultat. Le contrat dure une heure et autorise jusqu'à cinq enfants. Le test actuel simule la base, la création et le superviseur : il ne prouve pas encore l'authentification d'un processus worker réel ni l'exécution d'une mission enfant réelle.
-- **Asymétries connues** : ces limites sont exécutées uniquement par le backend Node ; elles ne remplacent pas les contrats Rust. Les projections `procedural/symbiotic/formal` sur `BoundedWorker` et `teaching_worker` sur `ScoutCell` restent à harmoniser.
-- Le backend applique une traduction Node des invariants, pas le crate Rust : parité à tester ; aucun pont Rust→Node sûr et défini n'existe (ADR 0064).
+- **Node** : `workerKindService` (19 `KINDS`, 19 alias, 19 consignes, 6 overrides, `resolve/normalize/kindDefinition/buildWorkerContract/promptRule/evidenceRule`), `phenotypeRegistryService` (9 phénotypes stockés + virtuels), `workerContractEnforcement` (`AUTHORITY_TOOLS`, `WORKER_CONTRACT_DENIED`, `UNSUPPORTED_WORKER_DELEGATION`), `missionBootstrap` (`WORKER_KIND_MISMATCH`), `agentFleetWorkers` (dispatch générique, `metadata_json`), `authorityMatrixService` (lookup 13 dimensions), `workerArtifactContract` (10 types, `INVALID_WORKER_ARTIFACT`), barrières `SATISFIED/PARTIAL/STRICT`.
+- **Délégation bornée — implémentation présente, validation de bout en bout incomplète** : le chemin `genos_delegate_worker` vérifie l'identité d'agent résolue par le contrôleur MCP, le contrat persistant et son expiration. Il limite les kinds enfants à `scout_cell`, `bounded_worker`, `adaptive_worker` et `verifier_worker`, plafonne les tokens à 10 000 (et au budget du parent), attend le résultat pendant 60 secondes et autorise jusqu'à cinq enfants. Le contrat de délégation dure une heure. Les presets Rust donnent également spawn=5/profondeur=1, mais avec un budget tokens de 20 000 et sans cette expiration Node. Les tests simulent la base et le superviseur; ils ne prouvent pas une mission parent-enfant réelle.
+- **Parité vérifiée** : les identifiants canoniques, familles et artefacts des 19 kinds sont comparés entre `WorkerKind`/`family_of`/`preset_for` Rust et `KINDS` Node par `test_worker_kind_registry.js`.
+- **Asymétries sémantiques** : `procedural_executor` et `formal_worker` héritent côté Rust de la recette déterministe, du lease solveur et de `tokens=0`; Node ne porte pas ces champs dans son contrat effectif. `symbiotic_worker` reçoit côté Rust la capacité `procedural_host` et une intersection d'autorité; Node le projette sur `BoundedWorker`. `teaching_worker` est un preset organisationnel avec mémoire culturelle côté Rust, projeté sur `ScoutCell` côté Node. `sub_orchestrator` reçoit un contrat délégant uniquement lors de sa création persistée Node, avec allowlist, plafond de tokens et expiration propres au backend. Ces projections sont documentées, pas déclarées identiques.
+- Le backend applique une traduction Node des invariants, pas le crate Rust. Il n'existe pas de pont Rust→Node sûr et défini (ADR 0064); le test de parité porte donc sur le catalogue et les champs explicitement comparables, pas sur l'équivalence complète du runtime.
 
 ## 46. Inventaire du dispatch (audit 2026-09-25)
 
@@ -1217,7 +1219,7 @@ Voir ADR 0043 (phénotypes), ADR 0044 (matrice et gates), ADR 0064 (registre et 
 
 ### Portée des vérifications actuelles
 
-La matrice de contrat vérifie la construction du contrat et du prompt de dispatch, l'artefact exigé et le rejet d'un artefact du mauvais type. Une campagne séparée lance aussi des missions réelles avec un modèle local et une base isolée. Elle valide le contrat persisté, le démarrage du runtime, l'artefact attendu avec provenance, sa validation et le statut final. Cette campagne ne couvre pas encore les refus attendus pour chaque type ; un succès positif ne suffit donc pas à qualifier un type d'opérationnel au sens complet de la conformité.
+La matrice de contrat vérifie la construction du contrat et du prompt de dispatch, l'artefact exigé et le rejet d'un artefact du mauvais type. La campagne lance une mission réelle par kind avec un modèle local, une base, des workspaces et des capsules isolés. Elle vérifie le contrat persisté et lié au parent, le démarrage du runtime, l'artefact attendu avec référence de fixture et provenance, la validation, le statut final ainsi que trois refus attendus (artefact mal typé, action topologique interdite, identité altérée). Un passage établit le fonctionnement dans cette configuration et pour cette exécution ; il ne mesure pas la fiabilité répétée, les autres modèles ou l'équivalence avec le runtime Rust. La mission individuelle de `sub_orchestrator` ne prouve pas le spawn supervisé d'un worker enfant.
 
 ### Résultat initial de la campagne isolée du 2026-09-25 (avant correction)
 
@@ -1232,6 +1234,12 @@ Les 19 missions ont été exécutées dans une base SQLite, des espaces de trava
 Les cinq échecs d'artefact ont terminé en statut `error` : la réponse normalisée ne contenait pas un artefact du type requis avec ses champs de contenu. Ils ne sont pas convertis en succès à partir de simples claims. Le test du worker médical est synthétique et ne constitue pas une validation clinique.
 
 Cette mesure précède les consignes JSON canoniques et les fixtures spécialisées décrites ci-dessus ; elle sert de référence d'échec, pas de certification du code corrigé. Aucun type n'est déclaré pleinement opérationnel par cette campagne. Pour relancer la campagne reproductible, définir `GENOS_COMPLIANCE_ROOT`, `GENOS_DB_PATH`, `GENOS_WORKSPACE_ROOT`, `GENOS_CAPSULE_ROOT`, `GENOS_ADMIN_PASSWORD` et `GENOS_LOCAL_MODEL` (URI locale explicite), puis exécuter `node backend/tests/run_worker_compliance_missions.cjs`. Le runner exige une racine temporaire hors dépôt, lance un processus isolé par kind, génère ses consignes depuis le contrat runtime, vérifie l'artefact et sa référence de fixture, et contrôle les refus d'un artefact mal typé, d'une promotion interdite et d'une identité altérée. Le rapport conserve les durées de préparation du prompt, d'inférence, de parsing et de validation ; `GENOS_COMPLIANCE_LATENCY_MS` borne le délai d'inférence (défaut 180 000 ms, plafond runtime 900 000 ms).
+
+### Résultat après correction — campagne isolée du 2026-09-25
+
+La relance `1790346642337-40b91b5f` a validé **19/19 kinds** avec `ollama://qwen2.5:14b`. Chaque type a passé les contrôles positifs (contrat persistant, parent, exécution terminée, artefact contractuel et référence de fixture) et les trois refus attendus. Le rapport JSON est conservé dans `D:\genos-worker-compliance-final-20260925-163041\worker-compliance-report.json`; la racine dédiée sur D: était nécessaire car le provisionnement vérifie une marge disque de 256 Mio.
+
+La campagne a utilisé le checkout de travail courant, qui contenait d'autres modifications locales non committées. Le résultat certifie donc ce parcours, ce modèle et cet état de code observé; il ne constitue pas une certification reproductible d'un SHA propre. Pour qualifier la robustesse, répéter les missions et varier les modèles/configurations. Elle ne valide pas le runtime Rust ni la délégation réelle parent-enfant du `sub_orchestrator`. Le résultat initial avec le modèle 7B reste documenté ci-dessus comme mesure historique antérieure aux corrections.
 
 ---
 

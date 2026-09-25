@@ -21,6 +21,18 @@ L'ADR 0043 et le crate `genos-worker` définissent 19 types canoniques. Le backe
 - Refuser par défaut les actions MCP qui dépassent l'autorité effective et exiger un `workerArtifact` typé, avec les champs sémantiques et la provenance requis, avant de valider un dossier.
 - Raccorder `genos_delegate_worker` au contrat `sub_orchestrator` persistant avec une profondeur maximale de un, cinq enfants au plus, une allowlist fermée, une expiration d'une heure et un budget enfant plafonné. Le contrôleur MCP fournit l'identité d'agent qu'il a résolue depuis le principal authentifié. Le chemin attend et rapporte le résultat de `startMission`.
 
+## Vérification de parité (2026-09-25)
+
+Le test `backend/tests/test_worker_kind_registry.js` compare les 19 identifiants Rust à `KINDS` Node, puis compare `family_of()` et l'artefact final de chaque branche `preset_for()` à la famille et à l'artefact Node. Il contrôle aussi des écarts de contrat connus : `formal_worker` hérite du budget nul du preset procédural en Rust, tandis que le contrat Node ne modélise pas les budgets de ressources; le `sub_orchestrator` Rust porte spawn/délégation dans son preset, tandis que Node part d'un contrat non délégant puis applique explicitement `grantBoundedDelegation()` avant persistance.
+
+Cette vérification porte sur les champs comparables du catalogue et sur quelques divergences choisies. Elle ne prouve ni l'équivalence de tous les champs de `WorkerRuntimeContract`, ni l'interopérabilité des runtimes. Les projections d'autorité, baux d'outils, cognition, mémoire, communication, ressources et cycle de vie restent spécifiques à chaque runtime et doivent être décrits comme telles dans `docs/03-reference/types-de-workers.md`.
+
+## Campagne runtime par kind (2026-09-25)
+
+Le runner `backend/tests/run_worker_compliance_missions.cjs` a exécuté une mission isolée pour chacun des 19 kinds avec `ollama://qwen2.5:14b` : 19/19 ont passé la chaîne contrat persistant lié au parent → exécution → artefact attendu et référence de fixture → validation → statut `completed`. Chaque mission a aussi vérifié le refus d'un artefact mal typé, d'une action topologique interdite et d'une identité altérée. Le rapport de la campagne `1790346642337-40b91b5f` se trouve dans `D:\genos-worker-compliance-final-20260925-163041\worker-compliance-report.json`.
+
+Cette preuve est bornée à une campagne, un modèle et au checkout de travail utilisé (qui contenait d'autres changements locaux non committés). Elle ne démontre pas une fiabilité répétée, une parité sémantique Rust/Node, ni l'authentification et la supervision d'une exécution réelle de worker enfant par `sub_orchestrator`; les limites de délégation ci-dessous restent donc applicables.
+
 ## Conséquences
 
 ### Positives
