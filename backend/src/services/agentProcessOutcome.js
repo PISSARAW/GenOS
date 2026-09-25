@@ -5,7 +5,7 @@ const SAFE_RUNTIME_ENV = new Set([
 ]);
 const SAFE_GENOS_ENV = new Set([
   'GENOS_WORKSPACE_ROOT', 'GENOS_CAPSULE_ROOT', 'GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS',
-  'GENOS_DB_BACKUP_SKIP', 'GENOS_SILENT_UPDATES', 'GENOS_MCP_SAMPLING_URL',
+  'GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP', 'GENOS_SILENT_UPDATES', 'GENOS_MCP_SAMPLING_URL',
   'GENOS_MCP_SAMPLING_TOKEN', 'GENOS_SAMPLING_TOKEN', 'GENOS_MCP_PROVIDER',
   'GENOS_MCP_SAMPLING_TIMEOUT_MS', 'GENOS_MCP_TOOL_URL',
   'GENOS_COGNITIVE_PHENOTYPE'
@@ -41,7 +41,7 @@ function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdate
     if (BLOCKED_RUNTIME_ENV.has(name)) continue;
     if (isAllowedRuntimeEnv(name)) environment[name] = value;
   }
-  for (const name of ['GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP']) {
+  for (const name of ['GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']) {
     if (process.env[name]) environment[name] = process.env[name];
   }
   return {

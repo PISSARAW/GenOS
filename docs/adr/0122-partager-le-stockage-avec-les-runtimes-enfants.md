@@ -10,7 +10,7 @@ La campagne peut isoler sa base SQLite et ses capsules sous une racine dédiée.
 
 ## Décision
 
-Transmettre aux processus enfants uniquement les paramètres de stockage explicitement autorisés : chemin de base, racine de capsules et délai SQLite. Le chemin défini par le processus GenOS parent est l'autorité ; une valeur fournie dans l'environnement de mission ne peut pas le remplacer. Les workers MCP ne relancent pas la sauvegarde de la base : le processus orchestrateur propriétaire a déjà initialisé et sauvegardé la base avant leur démarrage. Un orchestrateur autonome conserve le comportement normal de sauvegarde.
+Transmettre aux processus enfants uniquement les paramètres de stockage explicitement autorisés : chemin de base, racine de capsules et délai SQLite. Le chemin défini par le processus GenOS parent est l'autorité ; une valeur fournie dans l'environnement de mission ne peut pas le remplacer. Les workers MCP ne relancent ni les migrations/seed ni la sauvegarde : le processus orchestrateur propriétaire a déjà initialisé la base avant leur démarrage. Un orchestrateur autonome conserve le comportement normal d'initialisation et de sauvegarde.
 
 ## Conséquences
 

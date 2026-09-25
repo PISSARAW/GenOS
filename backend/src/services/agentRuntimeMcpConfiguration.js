@@ -1,7 +1,8 @@
 'use strict';
 
 const SHARED_STORAGE_KEYS = [
-  'GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP', 'GENOS_CAPSULE_ROOT'
+  'GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP',
+  'GENOS_DB_BOOTSTRAP_SKIP', 'GENOS_CAPSULE_ROOT'
 ];
 
 function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env }) {
@@ -20,11 +21,18 @@ function buildMcpServerEnvironment({ state, binaries, sourceEnv = process.env })
     GENOS_MCP_DISABLED_TOOLS: 'genos_orchestrate'
   };
   for (const key of SHARED_STORAGE_KEYS) {
-    if (key !== 'GENOS_DB_BACKUP_SKIP' && sourceEnv[key]) environment[key] = sourceEnv[key];
+    if (!['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP'].includes(key) && sourceEnv[key]) environment[key] = sourceEnv[key];
   }
-  if (state.executionMode === 'worker') environment.GENOS_DB_BACKUP_SKIP = '1';
-  else if (sourceEnv.GENOS_DB_BACKUP_SKIP) environment.GENOS_DB_BACKUP_SKIP = sourceEnv.GENOS_DB_BACKUP_SKIP;
+  applyWorkerDatabasePolicy(environment, state.executionMode, sourceEnv);
   return environment;
+}
+
+function applyWorkerDatabasePolicy(environment, executionMode, sourceEnv) {
+  const isWorker = executionMode === 'worker';
+  for (const key of ['GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']) {
+    if (isWorker) environment[key] = '1';
+    else if (sourceEnv[key]) environment[key] = sourceEnv[key];
+  }
 }
 
 function serializeMcpServerEnvironment(environment) {

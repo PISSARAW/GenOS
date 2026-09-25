@@ -15,26 +15,29 @@ function testHermesRuntimeEnvironment() {
 }
 
 function testDatabaseEnvironmentStaysOnCampaignDatabase() {
-  const previous = Object.fromEntries(['GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP']
+  const previous = Object.fromEntries(['GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']
     .map((name) => [name, process.env[name]]));
   process.env.GENOS_DB_PATH = 'D:/campaign/campaign.db';
   process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS = '30000';
   process.env.GENOS_DB_BACKUP_SKIP = '1';
+  process.env.GENOS_DB_BOOTSTRAP_SKIP = '0';
   try {
     const env = buildRuntimeEnvironment({ GENOS_DB_PATH: 'C:/repo/genos.db' }, 'D:/campaign/workspace', false);
     assert.equal(env.GENOS_DB_PATH, 'D:/campaign/campaign.db');
     assert.equal(env.GENOS_SQLITE_BUSY_TIMEOUT_MS, '30000');
     assert.equal(env.GENOS_DB_BACKUP_SKIP, '1');
+    assert.equal(env.GENOS_DB_BOOTSTRAP_SKIP, '0');
     const mcpEnv = buildMcpServerEnvironment({
       state: { executionMode: 'worker', mission: { agentId: 'worker-1' },
         allowedCommands: [], allowFileEdits: false, executionPolicy: { silentUpdates: false },
         toolLease: [], orchestratorAgentId: 'parent-1' },
       binaries: { workspace: 'D:/campaign/workspace', genosBinary: '', orchestratorBridge: '' },
-      sourceEnv: { ...env, GENOS_DB_BACKUP_SKIP: undefined }
+      sourceEnv: { ...env, GENOS_DB_BACKUP_SKIP: undefined, GENOS_DB_BOOTSTRAP_SKIP: undefined }
     });
     const serialized = serializeMcpServerEnvironment(mcpEnv);
     assert.match(serialized, /GENOS_DB_PATH="D:\/campaign\/campaign\.db"/);
     assert.match(serialized, /GENOS_DB_BACKUP_SKIP="1"/);
+    assert.match(serialized, /GENOS_DB_BOOTSTRAP_SKIP="1"/);
   } finally {
     for (const [name, value] of Object.entries(previous)) {
       if (value === undefined) delete process.env[name];
