@@ -34,7 +34,7 @@ et capacités). Les champs absents restent incomplets. Produire ensuite le
 rapport et le persister dans la base locale :
 
 ```bash
-node benchmarks/gmub/run-gmub.cjs --input campaign.json --out report.json --persist backend/genos.db
+node benchmarks/gmub/run-gmub.cjs --input measured.json --out report.json --persist backend/genos.db
 node benchmarks/gmub/run-gmub.cjs --export-suite gmub-r1 --persist backend/genos.db --out gmub-r1-export.json
 ```
 
@@ -45,8 +45,8 @@ reste `incomplete` et ne peut pas être présentée comme campagne complète.
 
 `example-runs.json` : `{ suite, model, stats, cost, wmc: {frontier, margin}, runs: [...] }`.
 Export reproductible : commit, topologie, `declared/activated/observed_capabilities`,
-seed, tokens, coût, latence persistés en `uplift_runs` (migration `049`)
-et réexportés en JSON.
+seed, tokens, coût, latence persistés en `uplift_runs` (migration `049`,
+provenance modèle/répétition complétée par `081`) et réexportés en JSON.
 
 ## Tranche 2 — contrôle compute et WMC
 

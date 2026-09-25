@@ -10,6 +10,7 @@
     "requestedModel",
     "servedModel",
     "genos_commit",
+    "working_tree_clean",
     "topology",
     "declared_capabilities",
     "activated_capabilities",

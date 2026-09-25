@@ -1,0 +1,18 @@
+{
+  "action": "dispatch_team",
+  "mission": "Mission GENOS-FEAT-001 : Concevoir une fonctionnalité complète « mot de passe oublié » pour l'application GenOS. L'équipe doit produire trois livrables cohérents entre eux : (1) le parcours utilisateur UX complet avec tous les écrans, états d'erreur, messages utilisateur et considérations d'accessibilité ; (2) les endpoints backend nécessaires (POST/GET/PUT sur /api/v1/auth/forgot-password et /api/v1/auth/reset) avec leurs payloads, codes HTTP, validation, rate limiting, et gestion des tokens ; (3) les protections de sécurité : prevention de l'énumération d'emails, tokens à usage unique avec expiration, rate limiting, protection XSS/CSRF/SQL injection, politiques de password, invalidation de sessions, et considérations email. Les trois livrables doivent être cohérents : aucun endpoint ne doit introduire de faille, aucun écran utilisateur ne doit révéler d'information interne, chaque décision de sécurité doit avoir une justification claire. Livrable final : trois documents markdown dans le repo.",
+  "domains": ["design", "backend", "security"],
+  "success_criteria": [
+    "Le parcours utilisateur décrit tous les écrans, états (chargement, erreur, succès) et messages utilisateur sans révéler d'information interne (pas de différenciation email existant/inexistant).",
+    "Les endpoints backend sont spécifiés avec méthodes, chemins, payloads, codes HTTP (200/400/401/403/404/409/422/429/500), validation d'entrée, et gestion des tokens (création, expiration, invalidation, hash).",
+    "Les protections de sécurité couvrent : énumération d'emails (réponse uniforme), tokens à usage unique avec expiration courte, rate limiting par IP/email/token, XSS/CSRF/SQL injection, politique de password forte, invalidation de sessions existantes après reset, email de confirmation post-reset.",
+    "Chaque décision de sécurité est justifiée (pourquoi 15 min d'expiration, pourquoi hash du token en base, pourquoi invalidation des sessions, etc.).",
+    "Les trois documents sont cohérents : codes HTTP ↔ messages UX, protections backend ↔ écrans UX, justification sécurité ↔ implémentation prévue."
+  ],
+  "assigned_roles": [
+    {"role": "ux_designer", "workerKind": "specialist"},
+    {"role": "backend_architect", "workerKind": "specialist"},
+    {"role": "security_engineer", "workerKind": "specialist"}
+  ],
+  "timeoutMs": 900000
+}
