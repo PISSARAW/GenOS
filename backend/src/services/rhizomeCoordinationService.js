@@ -328,10 +328,6 @@ async function repairRoute(sessionId, input, options = {}) {
   });
 }
 
-async function inspectPruning(sessionId, options = {}) {
-  return pruningService.inspect(await getSession(sessionId, options.db), options);
-}
-
 async function quarantineRoute(sessionId, input, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'EDGE_QUARANTINED',
@@ -391,7 +387,8 @@ async function closeSession(sessionId, options = {}) {
 
 const restoredOperations = rhizomeServiceOperations.create({
   mutateSession, getSession, trailService, directMemberRouter, capabilityGraph,
-  graphProjector, graphAnalytics
+  graphProjector, graphAnalytics, pruningService,
+  pruningExecutor: require('./rhizome/pruning/pruningExecutorService')
 });
 
-module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, inspectPruning, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, inspectPruning, applyPruningPlan, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };

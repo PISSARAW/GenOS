@@ -24,7 +24,13 @@ function create(input) {
       }
       return input.graphProjector.project(options.db, options.graphStore, sessionId);
     },
-    graphHealth: async (sessionId, options = {}) => input.graphAnalytics.assess(await input.getSession(sessionId, options.db))
+    graphHealth: async (sessionId, options = {}) => input.graphAnalytics.assess(await input.getSession(sessionId, options.db)),
+    inspectPruning: async (sessionId, options = {}) => input.pruningService.inspect(await input.getSession(sessionId, options.db), options),
+    applyPruningPlan: (sessionId, plan, options = {}) => input.mutateSession(sessionId, options, {
+      type: 'STRUCTURE_PRUNED',
+      payload: { expectedGraphVersion: plan?.graphVersion },
+      apply: (session) => input.pruningExecutor.apply(session, plan, options)
+    })
   };
 }
 
