@@ -15,9 +15,14 @@ const fixture = path.join(output, 'workspace');
 const missions = suite.tasks.map((task) => task.id);
 const tasksById = new Map(suite.tasks.map((task) => [task.id, task]));
 const sessionProbeByTask = Object.freeze({
+  'topologie-trinity': 'topologie-trinity',
+  'topologie-a-team': 'topologie-a-team',
   'topologie-biome': 'topologie-biome',
+  'topologie-biocenose': 'topologie-biocenose',
+  'topologie-holobionte': 'topologie-holobionte',
   'topologie-syncytium': 'topologie-syncytium',
-  'topologie-rhizome': 'topologie-rhizome'
+  'topologie-rhizome': 'topologie-rhizome',
+  'topologie-metapopulation': 'topologie-metapopulation'
 });
 const topologyMissions = new Set(missions.filter((name) => name.startsWith('topologie-')));
 const missionVerifiers = {

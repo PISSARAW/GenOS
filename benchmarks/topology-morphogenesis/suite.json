@@ -27,7 +27,7 @@
       "missionFile": "missions/topologie-trinity.json",
       "family": "topology",
       "mechanism": "Trois mondes isolés, comparaison finale et décision de promotion.",
-      "mechanismProbe": "not-instrumented:world-isolation-comparison",
+      "mechanismProbe": "trinity-component-probe",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Supprimer l’isolation ou la comparaison finale."
@@ -37,7 +37,7 @@
       "missionFile": "missions/topologie-a-team.json",
       "family": "topology",
       "mechanism": "Dépendances de travail et intégration des artefacts des spécialistes.",
-      "mechanismProbe": "not-instrumented:artifact-dependency-integration",
+      "mechanismProbe": "a-team-composition-probe",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Remplacer le DAG par une équipe générique sans dépendances."
@@ -57,7 +57,7 @@
       "missionFile": "missions/topologie-biocenose.json",
       "family": "topology",
       "mechanism": "Contributions distinctes, quorum, désaccord et abstention calibrée.",
-      "mechanismProbe": "not-instrumented:quorum-oracle-comparison",
+      "mechanismProbe": "biocenose-oracle-contract-probe",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Désactiver le quorum ou corréler les contributions."
@@ -67,7 +67,7 @@
       "missionFile": "missions/topologie-holobionte.json",
       "family": "topology",
       "mechanism": "Contribution symbiotique persistée et veto lié à une violation vérifiable.",
-      "mechanismProbe": "not-instrumented:symbiont-veto-persistence",
+      "mechanismProbe": "holobionte-known-threat-veto-probe",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Désactiver le symbiote ou le contrôle immunitaire testé."
@@ -97,7 +97,7 @@
       "missionFile": "missions/topologie-metapopulation.json",
       "family": "topology",
       "mechanism": "Perte de capacité, migration ou recolonisation, puis capacité restaurée.",
-      "mechanismProbe": "not-instrumented:capacity-loss-recolonization",
+      "mechanismProbe": "metapopulation-extinction-contract-probe",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Empêcher la migration ou garder la population figée."
