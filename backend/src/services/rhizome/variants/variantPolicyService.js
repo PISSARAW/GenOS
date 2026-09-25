@@ -2,17 +2,17 @@
 
 const PROFILES = Object.freeze({
   exploratory: Object.freeze({ routing: { maxHops: 6 }, growth: { threshold: 0 }, pruning: { enabled: false }, resilience: { alternatives: 2 }, stop: { stableTicks: 3 } }),
-  routing: Object.freeze({ routing: { maxHops: 12 }, growth: { threshold: 0.2 }, pruning: { enabled: true }, resilience: { alternatives: 2 }, stop: { stableTicks: 2 } }),
+  routing: Object.freeze({ routing: { maxHops: 12, objectiveWeights: { latency: 0.2, cost: 0.2, risk: 0.25, trust: 0.2, freshness: 0.15 } }, growth: { threshold: 0.2 }, pruning: { enabled: true }, resilience: { alternatives: 2 }, stop: { stableTicks: 2 } }),
   growth: Object.freeze({ routing: { maxHops: 8 }, growth: { threshold: 0 }, pruning: { enabled: false }, resilience: { alternatives: 2 }, stop: { stableTicks: 4 } }),
-  resilient: Object.freeze({ routing: { maxHops: 12 }, growth: { threshold: 0.15 }, pruning: { enabled: true }, resilience: { alternatives: 4 }, stop: { stableTicks: 3 } }),
-  sparse: Object.freeze({ routing: { maxHops: 5 }, growth: { threshold: 0.5 }, pruning: { enabled: true }, resilience: { alternatives: 1 }, stop: { stableTicks: 2 } }),
+  resilient: Object.freeze({ routing: { maxHops: 12, alternatives: 4, objectiveWeights: { latency: 0.15, cost: 0.1, risk: 0.45, trust: 0.2, freshness: 0.1 } }, growth: { threshold: 0.15 }, pruning: { enabled: true }, resilience: { alternatives: 4 }, stop: { stableTicks: 3 } }),
+  sparse: Object.freeze({ routing: { maxHops: 5, alternatives: 1 }, growth: { threshold: 0.5 }, pruning: { enabled: true }, resilience: { alternatives: 1 }, stop: { stableTicks: 2 } }),
   persistent: Object.freeze({ session: { scope: 'persistent', persistence: true }, routing: { maxHops: 12 }, growth: { threshold: 0.2 }, pruning: { enabled: true }, resilience: { automaticRepair: true }, stop: { stableTicks: 2 } }),
   ephemeral: Object.freeze({ session: { scope: 'mission', persistence: false }, routing: { maxHops: 6 }, growth: { threshold: 0 }, pruning: { enabled: false }, resilience: { automaticRepair: false }, stop: { stableTicks: 2 } }),
-  small_world: Object.freeze({ routing: { maxHops: 3, preferShortPaths: true }, growth: { threshold: 0.1 }, pruning: { enabled: true }, resilience: { alternatives: 2 }, stop: { stableTicks: 2 } }),
+  small_world: Object.freeze({ routing: { maxHops: 3, preferShortPaths: true, objectiveWeights: { latency: 0.4, cost: 0.1, risk: 0.2, trust: 0.2, freshness: 0.1 } }, growth: { threshold: 0.1 }, pruning: { enabled: true }, resilience: { alternatives: 2 }, stop: { stableTicks: 2 } }),
   private: Object.freeze({ routing: { maxHops: 8, privateOnly: true }, growth: { threshold: 0.25 }, pruning: { enabled: false }, resilience: { automaticRepair: true }, stop: { stableTicks: 2 } }),
   cross_representation: Object.freeze({ routing: { maxHops: 12, requireBridge: true }, growth: { threshold: 0.2 }, pruning: { enabled: true }, bridges: { enabled: true, requireVerified: true }, stop: { stableTicks: 2 } }),
   procedural: Object.freeze({ routing: { maxHops: 8 }, growth: { threshold: 0 }, propagation: { enabled: true, requireLocalEvidence: true }, pruning: { enabled: false }, stop: { stableTicks: 3 } }),
-  self_healing: Object.freeze({ routing: { maxHops: 12 }, growth: { threshold: 0.1 }, pruning: { enabled: true }, resilience: { automaticRepair: true, alternatives: 4 }, stop: { stableTicks: 3 } })
+  self_healing: Object.freeze({ routing: { maxHops: 12, alternatives: 4 }, growth: { threshold: 0.1 }, pruning: { enabled: true }, resilience: { automaticRepair: true, alternatives: 4 }, stop: { stableTicks: 3 } })
 });
 
 function resolve(name = 'routing') {

@@ -51,7 +51,9 @@ function buildAlternatives(input) {
       capability: need.capability,
       nodeIds: path.nodeIds,
       edgeIds: path.edges.map((edge) => edge.edgeId),
-      utility: scoring.routeScore(path, provider) + shortPathBonus,
+      utility: policy.objectiveWeights
+        ? scoring.objectiveScore(path, provider, { weights: policy.objectiveWeights, now: policy.now }) + shortPathBonus
+        : scoring.routeScore(path, provider) + shortPathBonus,
       cost: path.edges.reduce((sum, edge) => sum + edge.cost, provider.cost),
       latency: path.edges.reduce((sum, edge) => sum + edge.latency, provider.latency),
       reliability: path.edges.reduce((value, edge) => value * edge.reliability, provider.reliability),
@@ -66,7 +68,9 @@ function plan(session, value, policy = {}) {
   const activeIds = new Set(nodes.map((node) => node.nodeId));
   const configuredHops = Number(policy.maxHops) || activeIds.size;
   const paths = findPaths({ session, starts: startNodeIds(session, nodes), activeIds, maxHops: configuredHops, onWork: policy.onWork });
-  const alternatives = buildAlternatives({ paths, nodes, need, policy });
+  const candidates = buildAlternatives({ paths, nodes, need, policy });
+  const limit = Number.isInteger(policy.alternatives) ? Math.max(1, policy.alternatives) : candidates.length;
+  const alternatives = candidates.slice(0, limit);
   if (!alternatives.length) return { needId: need.needId, capability: need.capability, selected: false, verdict: 'unreachable', alternatives: [] };
   return { needId: need.needId, capability: need.capability, selected: true, verdict: 'route_selected', route: alternatives[0], alternatives };
 }
