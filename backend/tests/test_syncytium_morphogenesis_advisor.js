@@ -43,6 +43,20 @@ async function verifySessionAnalysis() {
   assert.equal(result.sessionId, session.sessionId);
   assert.equal(result.sharedInvariantCount, 1);
   assert.equal(result.targetTopology, 'direct');
+  assert.equal(result.morphogenesisPlan, null);
+
+  const coupled = await syncytium.createSession('Coupled state ready for deliberation.', {
+    nuclearDomains: [
+      { domainId: 'worker-a', members: ['agent-a'] },
+      { domainId: 'worker-b', members: ['agent-b'] }
+    ]
+  });
+  const transition = await syncytium.analyzeSessionMorphogenesis(coupled.sessionId, {
+    disagreementCentrality: 0.9
+  });
+  assert.equal(transition.targetTopology, 'biocenose');
+  assert.equal(transition.morphogenesisPlan.selectedTopology, 'biocenose');
+  assert.equal(transition.morphogenesisPlan.reason, transition.reason);
 }
 
 Promise.resolve().then(main).then(verifySessionAnalysis).then(() => {

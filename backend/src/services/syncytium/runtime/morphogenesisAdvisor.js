@@ -113,7 +113,24 @@ async function analyzeSession(sessionId, signals, syncytium) {
   const activeDomains = Object.keys(snapshot.domains || {}).filter((domainId) => !['organism', 'shared-state'].includes(domainId)).length;
   const sharedInvariantCount = Object.keys(snapshot.schema?.invariants || {}).length;
   const recommendation = evaluateMorphogenesis({ ...signals, activeDomains, sharedInvariantCount });
-  return { ...recommendation, sessionId, stateVersion: snapshot.shared.totalOps, consistency: snapshot.consistency };
+  const result = { ...recommendation, sessionId, stateVersion: snapshot.shared.totalOps, consistency: snapshot.consistency };
+  if (!recommendation.transitionRequired || recommendation.targetTopology === 'direct') {
+    return { ...result, morphogenesisPlan: null };
+  }
+  return { ...result, morphogenesisPlan: createTransitionPlan({ sessionId, signals, recommendation }) };
+}
+
+function createTransitionPlan(context) {
+  const { sessionId, signals, recommendation } = context;
+  const planner = require('../../morphogenesis/morphogenesisPlannerService');
+  return planner.planMorphogenesis({
+    missionId: sessionId,
+    mission: signals.mission || `Syncytium transition ${sessionId}`,
+    currentState: { topology: 'syncytium', agents: new Map(), capabilities: signals.availableCapabilities || [] },
+    proposedTopology: recommendation.targetTopology,
+    budget: signals.budget || 0,
+    reason: recommendation.reason
+  });
 }
 
 module.exports = { THRESHOLDS, createMorphogenesisAdvisor, evaluateMorphogenesis };
