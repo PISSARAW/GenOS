@@ -43,7 +43,10 @@ async function run() {
     let dispatched = 0;
     const input = {
       db: {}, teamRunId: runRecord.teamRunId, repairId: 'repair-1', budget: 3, availableSlots: 1,
-      repairPlan: { status: 'RECRUIT', capability: 'security', candidate: { agentId: 'candidate', capabilities: ['security'], estimatedCost: 2 }, estimatedCost: 2 },
+      repairPlan: {
+        status: 'RECRUIT', capability: 'security', candidate: { agentId: 'candidate', capabilities: ['security'], estimatedCost: 2 }, estimatedCost: 2,
+        morphogenesis: { plan: { topology: 'a_team', reason: 'a_team_recruit' }, candidate: { evidenceIds: [] } }
+      },
       reserveCandidate: async () => ({ accepted: true, token: 'reservation' }),
       launchWorker: async () => { dispatched += 1; return { workerId: 'worker-security', status: 'ACTIVE' }; }
     };
@@ -51,6 +54,8 @@ async function run() {
     assert.equal(result.receipt.status, 'COMPLETED');
     assert.equal(result.run.status, 'RUNNING');
     assert.equal(result.run.members.find((member) => member.workerId === 'worker-security').status, 'ACTIVE');
+    assert.equal(result.receipt.morphogenesisProposal.status, 'PENDING_REVIEW');
+    assert.equal(result.receipt.morphogenesisProposal.applied, false);
     const replay = await executeRepair(input);
     assert.equal(replay.replayed, true);
     assert.equal(dispatched, 1);

@@ -156,8 +156,16 @@ async function releaseReservation(input, reservation, run) {
 
 async function completeRepair({ input, run, repairId, result }) {
   const completedAt = new Date().toISOString();
-  const execution = finishReceipt(run.execution, repairId, { status: 'COMPLETED', workerId: result.workerId, completedAt });
+  const execution = finishReceipt(run.execution, repairId, {
+    status: 'COMPLETED', workerId: result.workerId, completedAt,
+    morphogenesisProposal: pendingMorphogenesisProposal(input.repairPlan.morphogenesis, repairId)
+  });
   return saveRepair(input, run, { status: input.deferResume ? 'REPAIRING' : 'RUNNING', members: result.members, execution });
+}
+
+function pendingMorphogenesisProposal(value, repairId) {
+  if (!value) return null;
+  return { repairId, status: 'PENDING_REVIEW', applied: false, plan: value.plan || value, candidate: value.candidate || null };
 }
 
 async function recordBlocked({ input, run, repairId, error }) {

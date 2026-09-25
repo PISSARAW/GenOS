@@ -30,6 +30,9 @@ de réparation, l'action, l'état, les dates et l'identifiant du worker quand il
 Un appel répété avec le même `repairId` retourne le reçu existant sans relancer les
 adaptateurs. Un conflit de révision n'est pas rejoué automatiquement : l'appelant doit
 recharger le run et décider si un nouvel identifiant de réparation est justifié.
+Si le plan contient `morphogenesis`, le reçu conserve également `morphogenesisProposal`
+avec l'état `PENDING_REVIEW` et `applied: false`. Ce lien est durable et idempotent ; il
+ne déclenche pas le moteur transactionnel Morphogenesis.
 
 ## Limites du lot
 
