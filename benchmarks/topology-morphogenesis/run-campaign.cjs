@@ -2,21 +2,18 @@
 
 const fs = require('fs');
 const path = require('path');
-const { randomBytes } = require('crypto');
+const { createHash, randomBytes } = require('crypto');
 const { spawn } = require('child_process');
 const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
 
 const repo = path.resolve(__dirname, '../..');
+const suite = JSON.parse(fs.readFileSync(path.join(__dirname, 'suite.json'), 'utf8'));
 const runId = `campaign-${new Date().toISOString().replace(/[:.]/g, '-')}`;
 const artifactRoot = path.resolve(process.env.GENOS_CAMPAIGN_OUTPUT_ROOT || path.join(repo, 'artifacts', 'topology-morphogenesis'));
 const output = path.join(artifactRoot, runId);
 const fixture = path.join(output, 'workspace');
-const missions = [
-  'orchestrateur-simple', 'topologie-trinity', 'topologie-a-team',
-  'topologie-biome', 'topologie-biocenose', 'topologie-holobionte',
-  'topologie-syncytium', 'topologie-rhizome', 'topologie-metapopulation',
-  'morphogenese-plan', 'morphogenese-shadow', 'garde-preuve-negative'
-];
+const missions = suite.tasks.map((task) => task.id);
+const tasksById = new Map(suite.tasks.map((task) => [task.id, task]));
 const topologyMissions = new Set(missions.filter((name) => name.startsWith('topologie-')));
 const missionVerifiers = {
   'orchestrateur-simple': verifySimpleMission,
@@ -24,6 +21,17 @@ const missionVerifiers = {
   'morphogenese-shadow': verifyMorphogenesisShadow,
   'garde-preuve-negative': verifyNegativeControl,
 };
+
+function validateSuiteManifest() {
+  const ids = new Set();
+  for (const task of suite.tasks) {
+    const file = path.resolve(__dirname, task.missionFile);
+    if (ids.has(task.id)) throw new Error(`Duplicate suite task: ${task.id}`);
+    if (!file.startsWith(`${__dirname}${path.sep}`) || !fs.existsSync(file)) throw new Error(`Invalid suite mission file: ${task.missionFile}`);
+    if (task.comparisonEligible && task.oracle.status !== 'independent') throw new Error(`Task lacks an independent oracle: ${task.id}`);
+    ids.add(task.id);
+  }
+}
 
 function environment(name) {
   const missionPath = path.join(__dirname, 'missions', `${name}.json`);
@@ -44,6 +52,39 @@ function environment(name) {
     ...(name === 'topologie-syncytium' && mission.session_options?.schema
       ? { GENOS_SYNCYTIUM_SESSION_SCHEMA: JSON.stringify(mission.session_options.schema) } : {})
   };
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function missionDigest(name) {
+  const task = tasksById.get(name);
+  const file = path.join(__dirname, task.missionFile);
+  return sha256(fs.readFileSync(file));
+}
+
+function campaignIdentityFailures(results) {
+  const failures = [];
+  if (results.schemaVersion !== 1 || !results.suiteId || !/^[a-f0-9]{40}$/i.test(results.gitCommit || '')) failures.push('campaign identity or source commit missing');
+  if (!/^[a-f0-9]{64}$/.test(results.suiteSha256 || '')) failures.push('suite digest missing');
+  if (!results.sourceState || typeof results.sourceState.confirmatoryEligible !== 'boolean') failures.push('source tree state missing');
+  return failures;
+}
+
+function missionEvidenceFailures(mission) {
+  const failures = [];
+  if (!mission.missionFile || !/^[a-f0-9]{64}$/.test(mission.missionSha256 || '')) failures.push(`${mission.name}: mission provenance missing`);
+  if (mission.receiptObjectSha256 !== null && !/^[a-f0-9]{64}$/.test(mission.receiptObjectSha256 || '')) failures.push(`${mission.name}: invalid receipt digest`);
+  if (!Array.isArray(mission.workers) || typeof mission.verification?.passed !== 'boolean') failures.push(`${mission.name}: execution evidence incomplete`);
+  if (!mission.oracleVerification?.status) failures.push(`${mission.name}: oracle scope missing`);
+  return failures;
+}
+
+function validateCampaignEvidence(results) {
+  const failures = campaignIdentityFailures(results);
+  for (const mission of results.missions) failures.push(...missionEvidenceFailures(mission));
+  if (failures.length) throw new Error(`Invalid campaign evidence: ${failures.join('; ')}`);
 }
 
 function prepareMissionPayload(name, payload) {
@@ -72,17 +113,18 @@ function execute(name) {
   const payload = prepareMissionPayload(name, JSON.parse(fs.readFileSync(missionPath, 'utf8')));
   const log = fs.openSync(path.join(output, `${name}.log`), 'w');
   const started = Date.now();
+  const startedAt = new Date(started).toISOString();
   return new Promise((resolve) => {
     let timedOut = false;
     const child = spawn(process.execPath, ['backend/bin/genos-orchestrate.cjs', JSON.stringify(payload)], {
       cwd: repo, env: environment(name), stdio: ['ignore', log, log], windowsHide: true
     });
     const timer = setTimeout(() => { timedOut = true; child.kill(); }, processTimeoutMs(name, payload));
-    child.once('error', (error) => resolve({ name, error: error.message, durationMs: Date.now() - started }));
+    child.once('error', (error) => resolve({ name, startedAt, endedAt: new Date().toISOString(), error: error.message, durationMs: Date.now() - started }));
     child.once('close', (exitCode) => {
       clearTimeout(timer);
       fs.closeSync(log);
-      resolve({ name, exitCode, timedOut, durationMs: Date.now() - started });
+      resolve({ name, startedAt, endedAt: new Date().toISOString(), exitCode, timedOut, durationMs: Date.now() - started });
     });
   });
 }
@@ -200,16 +242,23 @@ async function workerStates(db, receipt) {
 
 async function recordMissionResult({ name, run, db, results }) {
   const receipt = readReceipt(name);
+  const task = tasksById.get(name);
   const workers = await workerStates(db, receipt);
   const proof = verifySimpleMissionProof(receipt, name);
   const verification = verifyMissionExecution({ name, run, receipt, workers, proof });
   const lifecycle = classifyMissionLifecycle({ name, run, receipt, workers, verification });
-  results.missions.push({ ...run, orchestratorId: receipt?.orchestratorId || null,
+  results.missions.push({ ...run, missionFile: task.missionFile, missionSha256: missionDigest(name),
+    mechanism: task.mechanism, oracleVerification: { status: task.oracle.status,
+      passed: task.oracle.status === 'independent' ? proof?.verified === true : null },
+    receiptObjectSha256: receipt ? sha256(JSON.stringify(receipt)) : null,
+    receiptLogFile: `${name}.log`,
+    orchestratorId: receipt?.orchestratorId || null,
     verdict: receipt?.verdict || null, completionGate: receipt?.completionGate || null,
     dispatchStatus: getDispatchStatus(receipt),
     sessionId: receipt?.biologicalMode?.sessionId || receipt?.biologicalMode?.rhizomeId || null,
     workers, independentProof: proof, lifecycle, verification });
   results.verification = summarizeVerification(results);
+  validateCampaignEvidence(results);
   fs.writeFileSync(path.join(output, 'campaign-results.json'), JSON.stringify(results, null, 2));
   const dispatch = getDispatchStatus(receipt, 'not-applicable');
   process.stdout.write(`${name}: lifecycle=${lifecycle} dispatch=${dispatch} exit=${run.exitCode ?? 'error'} workers=${workers.length} verified=${verification.passed}\n`);
@@ -225,6 +274,8 @@ async function finalizeCampaign() {
     ? JSON.parse(fs.readFileSync(probePath, 'utf8')) : null;
   results.verification = summarizeVerification(results, probeReceipts);
   if (probes.exitCode !== 0) results.verification.failedSessionProbes.push('session-probe-runner');
+  results.completedAt = new Date().toISOString();
+  validateCampaignEvidence(results);
   fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
   if (results.verification.passed !== true || probes.exitCode !== 0) process.exitCode = 1;
   process.stdout.write(`${output}\n`);
@@ -242,6 +293,7 @@ function runSessionProbes() {
 }
 
 async function main() {
+  validateSuiteManifest();
   fs.mkdirSync(fixture, { recursive: true });
   fs.mkdirSync(path.join(output, 'runner-logs'), { recursive: true });
   fs.writeFileSync(path.join(fixture, 'README.md'), 'Isolated campaign workspace.\n');
@@ -255,11 +307,17 @@ async function main() {
   process.loadEnvFile(path.join(repo, '.env'));
   const { getDatabase, closeDatabase } = require('../../backend/src/db');
   const db = await getDatabase();
-  const results = { suiteVersion: '1.0.0', runId, gitCommit: null,
-    environment: { executor: 'local', model: process.env.GENOS_LOCAL_MODEL, database: 'isolated campaign database' }, missions: [] };
+  const results = { schemaVersion: 1, suiteId: suite.suiteId, suiteStatus: suite.status, suiteSha256: sha256(fs.readFileSync(path.join(__dirname, 'suite.json'))),
+    runId, startedAt: new Date().toISOString(), gitCommit: null,
+    environment: { executor: 'local', requestedModel: process.env.GENOS_LOCAL_MODEL, servedModel: null,
+      toolPolicy: suite.controls.toolPolicy, budgetPolicy: suite.controls.budgetPolicy, database: 'isolated campaign database' }, missions: [] };
   try {
     const git = require('child_process').execFileSync;
     results.gitCommit = git('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    const changedPaths = git('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
+    results.sourceState = { workingTreeClean: changedPaths.length === 0,
+      changedPathCount: changedPaths.length,
+      confirmatoryEligible: changedPaths.length === 0 };
     for (const name of missions) {
       const run = await execute(name);
       await recordMissionResult({ name, run, db, results });

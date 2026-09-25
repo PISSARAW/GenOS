@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.local/schemas/topology-morphogenesis-results.schema.json",
+  "title": "Topology Morphogenesis campaign evidence",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schemaVersion", "suiteId", "suiteStatus", "suiteSha256", "runId", "startedAt", "gitCommit", "sourceState", "environment", "missions", "verification"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "suiteId": { "type": "string", "minLength": 1 },
+    "suiteStatus": { "enum": ["protocol", "pilot", "confirmatory"] },
+    "suiteSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "runId": { "type": "string", "minLength": 1 },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": "string", "format": "date-time" },
+    "gitCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "sourceState": {
+      "type": "object",
+      "required": ["workingTreeClean", "changedPathCount", "confirmatoryEligible"],
+      "properties": {
+        "workingTreeClean": { "type": "boolean" },
+        "changedPathCount": { "type": "integer", "minimum": 0 },
+        "confirmatoryEligible": { "type": "boolean" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["executor", "requestedModel", "servedModel", "toolPolicy", "budgetPolicy", "database"],
+      "properties": {
+        "executor": { "type": "string" },
+        "requestedModel": { "type": "string" },
+        "servedModel": { "type": ["string", "null"] },
+        "toolPolicy": { "type": "string" },
+        "budgetPolicy": { "type": "string" },
+        "database": { "type": "string" }
+      }
+    },
+    "missions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "startedAt", "endedAt", "durationMs", "missionFile", "missionSha256", "oracleVerification", "receiptObjectSha256", "receiptLogFile", "workers", "verification", "lifecycle"],
+        "properties": {
+          "name": { "type": "string" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "endedAt": { "type": "string", "format": "date-time" },
+          "durationMs": { "type": "number", "minimum": 0 },
+          "missionFile": { "type": "string" },
+          "missionSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "oracleVerification": {
+            "type": "object",
+            "required": ["status", "passed"],
+            "properties": {
+              "status": { "enum": ["independent", "runtime-contract-only", "missing"] },
+              "passed": { "type": ["boolean", "null"] }
+            }
+          },
+          "receiptObjectSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "receiptLogFile": { "type": "string" },
+          "workers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "status"],
+              "properties": { "id": { "type": "string" }, "status": { "type": "string" } }
+            }
+          },
+          "verification": {
+            "type": "object",
+            "required": ["passed", "failures"],
+            "properties": {
+              "passed": { "type": "boolean" },
+              "failures": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "lifecycle": { "type": "string" }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["passed", "failedMissions", "failedSessionProbes", "sessionProbesPending"],
+      "properties": {
+        "passed": { "type": "boolean" },
+        "failedMissions": { "type": "array", "items": { "type": "string" } },
+        "failedSessionProbes": { "type": "array", "items": { "type": "string" } },
+        "sessionProbesPending": { "type": "boolean" }
+      }
+    }
+  }
+}
