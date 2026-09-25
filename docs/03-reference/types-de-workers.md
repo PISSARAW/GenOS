@@ -1217,7 +1217,21 @@ Voir ADR 0043 (phénotypes), ADR 0044 (matrice et gates), ADR 0064 (registre et 
 
 ### Portée des vérifications actuelles
 
-La matrice des 19 kinds vérifie la construction du contrat et du prompt de dispatch, l'artefact exigé et le rejet d'un artefact du mauvais type. Elle ne lance pas une mission de modèle pour chacun des kinds. Le test de sous-orchestration contrôle l'autorisation, les bornes, la propagation du budget et le résultat au moyen de dépendances simulées. La validation de ces parcours avec une identité runtime émise par le backend, une base isolée et de vraies missions enfants reste nécessaire avant de qualifier les 19 kinds d'opérationnels de bout en bout.
+La matrice de contrat vérifie la construction du contrat et du prompt de dispatch, l'artefact exigé et le rejet d'un artefact du mauvais type. Une campagne séparée lance aussi des missions réelles avec un modèle local et une base isolée. Elle valide le contrat persisté, le démarrage du runtime, l'artefact attendu avec provenance, sa validation et le statut final. Cette campagne ne couvre pas encore les refus attendus pour chaque type ; un succès positif ne suffit donc pas à qualifier un type d'opérationnel au sens complet de la conformité.
+
+### Résultat de la campagne isolée du 2026-09-25
+
+Les 19 missions ont été exécutées dans une base SQLite, des espaces de travail et des capsules placés sous un répertoire temporaire dédié, avec `qwen2.5-coder:7b` via Ollama. Les identités et contrats persistés ont été vérifiés avant exécution, les espaces de travail ont été contrôlés contre la racine isolée, puis le statut, le résultat et l'artefact ont été comparés au contrat.
+
+| Résultat du parcours positif | Types |
+|---|---|
+| Artefact attendu validé et statut `completed` (13/19) | `scout_cell`, `resident_daemon`, `bounded_worker`, `adaptive_worker`, `specialist`, `procedural_executor`, `symbiotic_worker`, `verifier_worker`, `synthesis_worker`, `recovery_worker`, `liaison_worker`, `teaching_worker`, `sub_orchestrator` |
+| Échec d'artefact spécialisé (5/19) | `red_worker`, `formal_worker`, `creative_worker`, `medical_worker`, `forensic_worker` |
+| Échec d'exécution (1/19) | `experimental_worker` — délai de la route locale dépassé |
+
+Les cinq échecs d'artefact ont terminé en statut `error` : la réponse normalisée ne contenait pas un artefact du type requis avec ses champs de contenu. Ils ne sont pas convertis en succès à partir de simples claims. Le test du worker médical est synthétique et ne constitue pas une validation clinique.
+
+**Qualification : aucun des 19 types n'est déclaré pleinement opérationnel par cette campagne**, car les refus attendus ne sont pas encore exécutés comme scénarios négatifs dans ce parcours. Treize types ont réussi le parcours positif de bout en bout décrit ci-dessus ; six restent en échec positif. Une campagne complète devra ajouter, pour chaque type, des refus vérifiés (identité/contrat invalide ou expiré, artefact absent/mal typé, autorité hors lease), puis confirmer que le statut et la gate restent en échec. Rapport brut isolé : `%TEMP%/genos-worker-compliance-isolated-20260925/worker-compliance-report.json`.
 
 ---
 
@@ -1248,9 +1262,9 @@ L'affectation de type ne remplace pas les règles propres aux topologies :
 
 ### Écart d'implémentation
 
-La matrice est un contrat de câblage documenté. Au 2026-09-25, les dispatchers
-génériques savent persister et appliquer un type explicite, mais tous les
-composeurs des huit topologies ne renseignent pas encore `member.workerKind`.
-Avant de déclarer cette matrice effective, chaque composeur doit fournir le
-champ, le dispatch doit le conserver jusqu'à l'incarnation, et un test doit
-vérifier le type et l'artefact attendus pour chaque rôle couvert.
+Les composeurs des huit topologies renseignent désormais `member.workerKind`.
+A-Team et Trinity propagent ce type au worker lancé et reconstruisent son
+contrat au dispatch. Les six modes biologiques produisent des membres typés dans
+leur composition/session, mais ne lancent pas automatiquement ces workers.
+La vérification bout en bout de chaque type et de son artefact reste à établir
+pour chaque runtime qui consomme ces membres.
