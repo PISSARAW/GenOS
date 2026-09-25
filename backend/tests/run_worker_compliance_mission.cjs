@@ -33,8 +33,9 @@ function validateExpectedRefusals(kind, contract) {
   return artifactRejected && actionRejected && identityRejected;
 }
 
-async function seedParent(db, parentId, workspaceId) {
-  await db.run('INSERT OR IGNORE INTO workspaces (id,name,path,language) VALUES (?,?,?,?)', workspaceId, 'Isolated worker compliance', process.env.GENOS_WORKSPACE_ROOT, 'TypeScript');
+async function seedParent(options) {
+  const { db, parentId, workspaceId, workspaceRoot } = options;
+  await db.run('INSERT OR IGNORE INTO workspaces (id,name,path,language) VALUES (?,?,?,?)', workspaceId, `Isolated worker compliance ${workspaceId}`, workspaceRoot, 'TypeScript');
   await db.run(`INSERT OR IGNORE INTO agents (id,name,role,status,agent_type,execution_mode,workspace_id,cognitive_budget,cognitive_baseline_budget,model_tier,language,isolation_mode,parent_agent_id,metadata_json) VALUES (?,?,?,'idle',?,'orchestrator',?,100000,100000,'Local','TypeScript','Branch',NULL,'{}')`, parentId, 'Compliance orchestrator', 'compliance', 'GenOS', workspaceId);
   const contract = contracts.buildStrategyContract({ mission: 'Run one isolated worker kind compliance mission.', allowPrototype: true });
   if (!(await contracts.getLatestContract(db, parentId, workspaceId))) await contracts.saveContract(db, { agentId: parentId, workspaceId, contract, createdBy: 'worker-compliance-harness' });
@@ -46,7 +47,7 @@ async function missionFor(context) {
   const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`, hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local' };
   const created = await fleet.createAutonomousWorkers(db, { id: parentId, agent_type: 'GenOS' }, {
     plan: { strategyContract: { primary: strategy.contract.selected_strategy.primary }, tokenPolicy: { total: 5000, workerShare: 0.6, orchestratorReserve: 0.4, allocation: 'fixed' }, dispatchWorkers: [assignment] },
-    mission: { prompt: `${scenario.prompt} Verified fixture receipt: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: process.env.GENOS_WORKSPACE_ROOT, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
+    mission: { prompt: `${scenario.prompt} Verified fixture receipt: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
   });
   return created[0];
 }
@@ -114,7 +115,7 @@ async function runOne({ runId, kind }) {
 
 async function createWorkerContext(options) {
   const { db, parentId, workspaceId, rootWorkspace, kind, model, runId } = options;
-  await seedParent(db, parentId, workspaceId);
+  await seedParent({ db, parentId, workspaceId, workspaceRoot: rootWorkspace });
   const scenario = workerComplianceScenario(kind);
   const worker = await missionFor({ db, parentId, workspaceId, kind, model, scenario });
   const row = await db.get('SELECT metadata_json FROM agents WHERE id = ?', worker.agentId);
