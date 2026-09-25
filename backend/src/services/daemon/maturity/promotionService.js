@@ -76,10 +76,16 @@ function liveStats(runs) {
 
 function warmProtocolWins(arms) {
   const cold = arms.A;
+  const digest = arms.B;
   const warm = arms.C;
   if (!warm.taskSuccess) return false;
-  if (!cold.taskSuccess) return true;
-  return successRank(warm) >= successRank(cold) && warm.tokensUsed <= cold.tokensUsed;
+  return improvesBaseline(warm, cold) && improvesBaseline(warm, digest);
+}
+
+function improvesBaseline(warm, baseline) {
+  if (!baseline.taskSuccess) return true;
+  const rankGain = successRank(warm) - successRank(baseline);
+  return rankGain > 0 || (rankGain === 0 && warm.tokensUsed < baseline.tokensUsed);
 }
 
 function successRank(metrics) {

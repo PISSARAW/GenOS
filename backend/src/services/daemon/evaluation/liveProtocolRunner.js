@@ -98,12 +98,22 @@ async function runAllArms(db, args) {
 function liveVerdict(arms) {
   const byArm = {};
   arms.forEach((a) => { byArm[a.arm] = a.metrics; });
+  const warm = byArm.C;
+  const digest = byArm.B;
   return {
-    warmSolved: byArm.C.taskSuccess === true,
+    warmSolved: warm.taskSuccess === true,
+    digestSolved: digest.taskSuccess === true,
     coldSolved: byArm.A.taskSuccess === true,
-    warmBetterOrEqual: successRank(byArm.C) >= successRank(byArm.A),
-    tokenDeltaWarmVsCold: (byArm.A.tokensUsed || 0) - (byArm.C.tokensUsed || 0)
+    warmBetterOrEqual: successRank(warm) >= successRank(byArm.A),
+    warmBetterThanDigest: improvesDigest(warm, digest),
+    tokenDeltaWarmVsCold: (byArm.A.tokensUsed || 0) - (warm.tokensUsed || 0),
+    tokenDeltaWarmVsDigest: (digest.tokensUsed || 0) - (warm.tokensUsed || 0)
   };
+}
+
+function improvesDigest(warm, digest) {
+  const rankGain = successRank(warm) - successRank(digest);
+  return rankGain > 0 || (rankGain === 0 && warm.tokensUsed < digest.tokensUsed);
 }
 
 function successRank(metrics) {

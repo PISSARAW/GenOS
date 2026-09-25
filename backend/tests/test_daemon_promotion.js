@@ -110,11 +110,29 @@ async function main() {
   assert.equal(receipts.length, 2);
   assert.equal(receipts[1].to_maturity, 'STABLE');
 
-  // 5. Suites rouges → EXPERIMENTAL même avec le reste au vert.
+  // 5. Warm matching the raw digest while costing more is not daemon value-add.
+  for (let r = 0; r < 6; r += 1) {
+    await liveProtocol.runLiveProtocol(db, {
+      coldTerritoryId: `territory.promo-cold-${r % 3}`,
+      warmTerritoryId: `territory.promo-warm-${r % 3}`,
+      mission: `negative value-add ${r}`,
+      executor: async ({ arm }) => arm === 'A'
+        ? { taskSuccess: false, correctLocalization: false, tokensUsed: 73 }
+        : { taskSuccess: true, correctLocalization: true, tokensUsed: arm === 'B' ? 270 : 287 }
+    });
+  }
+  const noValueAdd = await promotion.evaluateMaturity(db, { suitesGreen: true });
+  assert.equal(noValueAdd.maturity, 'EXPERIMENTAL');
+  assert.equal(noValueAdd.evidence.liveProtocols, 9);
+  assert.equal(noValueAdd.evidence.liveBetterProtocols, 3);
+  assert.equal(noValueAdd.evidence.liveBetterRate, 1 / 3);
+  assert.ok(noValueAdd.reasons.some((reason) => reason.includes('live warm benefit rate')));
+
+  // 6. Suites rouges → EXPERIMENTAL même avec le reste au vert.
   const red = await promotion.evaluateMaturity(db, { suitesGreen: false });
   assert.equal(red.maturity, 'EXPERIMENTAL');
   assert.ok(red.reasons.join(' ').includes('suites not green'));
-  assert.equal((await promotion.listPromotions(db)).length, 3);
+  assert.equal((await promotion.listPromotions(db)).length, 4);
 
   await db.close();
   console.log('Daemon promotion tests passed (evidence-gated STABLE, blockers listed).');

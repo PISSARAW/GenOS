@@ -125,6 +125,9 @@ Exemples :
 - `GenOS/backend/services` — scope: `backend/src/services/`
 
 **Commit-aware** : un finding établi sur `HEAD = ABC` ne doit jamais être injecté comme vérité à `HEAD = XYZ` sans revalidation.
+Une transition `STALE → HYPOTHESIZED` doit en outre nommer exactement le HEAD
+actuellement enregistré pour son territoire ; un HEAD fourni par l'appelant mais déjà
+dépassé est refusé.
 
 ### Phase 2 — Vrais agents GenOS
 
@@ -330,6 +333,10 @@ Sénescence = révisions cognitives coûteuses (phenotype mutations, territory r
 Pas de daemons prédéfinis. `ResidentDaemon` → pression (securityFindings, authChurn, secretEvents, dependencyRisk, verificationDemand) → `Security phenotype` émerge. Si pression redescend → phenotype dormant ou bud apoptosis.
 
 Familles après noyau : Security, Contract, Historian, Chaperone, Metabolic, Dependency, Documentation, CrossRepo Symbiont, Repair, DeepResearch.
+
+Le calcul des pressions exclut les findings `STALE`, réfutés et expirés. Le signal
+`budded` marque uniquement une transition de dormance vers `ACTIVE` ; la date de
+première activation est conservée comme trace, y compris après dormance et réactivation.
 
 ### Phase 24 — Stockage SQLite (élimine `daemon_repo_state.json`)
 
@@ -629,8 +636,8 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 | D17 | benchmark warm-start + runs 055 | `evaluation/warmStartBenchmark.js` | proxy déterministe (rappel de connaissance), pas succès LLM bout en bout — protocole live A/B/C reste hors ligne |
 | D18 | 6 bras d'ablation + deltas vs FULL | `evaluation/ablationRunner.js` | vues filtrées d'un même brief (pas de re-compilation dupliquée) ; FULL domine par construction des vues |
 | D19 | ordonnanceur U(a) + plan métabolique | `scheduling/computeScheduler.js` | pur, sans IO ; sensing toujours, LLM gaté (seuil + budget + machine) |
-| D20 | gate experimental → stable + reçus | `maturity/promotionService.js` | seuils : ≥3 paires warm, gain moyen ≥1, FULL dominant, faux-findings ≤0.5, 0 staleness, suites vertes et ≥3 triples live A/B/C complets, dont ≥2/3 où le warm résout avec qualité au moins égale sans coût tokens supérieur ; jamais de promotion proxy seule |
-| D21 | protocole live A/B/C + harnais honnête | `evaluation/liveProtocolRunner.js` | bras A/B/C exécutés par un exécuteur injecté et regroupés sous un identifiant de protocole ; sans exécuteur → `ran:false`, zéro ligne, promotion bloquée (jamais de succès simulé) ; reçus persistés `kind='live-protocol'` |
+| D20 | gate experimental → stable + reçus | `maturity/promotionService.js` | seuils : ≥3 paires warm, gain moyen ≥1, FULL dominant, faux-findings ≤0.5, 0 staleness, suites vertes et ≥3 triples live A/B/C complets, dont ≥2/3 où C est non-inférieur à A et apporte un gain strict de qualité ou de coût face au digest B ; jamais de promotion proxy seule |
+| D21 | protocole live A/B/C + harnais honnête | `evaluation/liveProtocolRunner.js` | bras A/B/C exécutés par un exécuteur injecté et regroupés sous un identifiant de protocole ; verdicts séparent cold A, digest brut B et brief warm C ; sans exécuteur → `ran:false`, zéro ligne, promotion bloquée (jamais de succès simulé) ; reçus persistés `kind='live-protocol'` |
 | D22 | pont production (système nerveux live) | `daemonProductionBridge.js` + annonce au bootstrap mission | `ORCHESTRATOR_ENTERED` émis au démarrage mission si un territoire est enregistré sur le workspace (lookup seule, jamais de création fantôme) ; dégradation gracieuse si aucun daemon |
 | D23 | génome single-archetype + legacy reclassés | `agents/daemons/resident_daemon.agent.json`, `workspace_git_daemon` (legacy-compat), `sentinel_daemon_keeper` (superviseur control-plane) | aucun nouveau `*_daemon.agent.json` ; les fichiers sont conservés (provenance scellée), pas renommés |
 

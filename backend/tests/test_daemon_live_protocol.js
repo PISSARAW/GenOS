@@ -76,7 +76,9 @@ async function main() {
   assert.equal(ran.verdict.warmSolved, true);
   assert.equal(ran.verdict.coldSolved, false);
   assert.equal(ran.verdict.warmBetterOrEqual, true);
+  assert.equal(ran.verdict.warmBetterThanDigest, true);
   assert.equal(ran.verdict.tokenDeltaWarmVsCold, 600);
+  assert.equal(ran.verdict.tokenDeltaWarmVsDigest, 400);
   const rows = await liveRows(db);
   assert.equal(rows.length, 3);
   assert.ok(rows.every((r) => r.head_sha === HEAD_A));
