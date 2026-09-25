@@ -13,6 +13,10 @@ const biocenoseMorphogenesisAdapter = require('../biocenose/integration/biocenos
 const topologyResolver = require('./topologyResolverService');
 const { selectMinimumMorphology } = require('./synthesis/minimalMorphologyPolicy');
 const { TOPOLOGY_IDS, classifyMorphologyLabel, isTopology } = require('./morphogenesisOntology');
+const { resolveRequestedProfile, profileForGraph, applyProfileToPlan } = require('./registry/topologyProfileService');
+const { createTopologyRegistry } = require('./registry/topologyRegistry');
+
+const topologyRegistry = createTopologyRegistry();
 
 function contractForTopology(topology) {
   return contractFor({ mode: topology, organization: topology });
@@ -38,8 +42,10 @@ function selectTopology(ctx, candidates) {
     ? selectMinimumMorphology(ctx.minimumMorphologyCandidates, ctx.morphologyDemand || {}) : null;
   const minimumTopology = minimum && minimum.valid && minimum.selected.level === 'simple_topology'
     ? minimum.selected.candidate.topology || minimum.selected.candidate.id : null;
-  const requested = minimumTopology || (isTopology(ctx.proposedTopology) ? ctx.proposedTopology : null);
-  if (requested && ctx.forceMorphologySelection !== true && !ctx.problemProfile && !ctx.expression) {
+  const requested = ctx.topologyProfile?.baseTopology || minimumTopology
+    || (isTopology(ctx.proposedTopology) ? ctx.proposedTopology : null);
+  if (requested && ctx.forceMorphologySelection !== true
+    && (ctx.topologyProfile || (!ctx.problemProfile && !ctx.expression))) {
     return { candidate: findCandidate(candidates, requested), receipt: null, organization, minimum };
   }
   const resolution = topologyResolver.resolveTopology(resolverContext(ctx));
@@ -283,6 +289,7 @@ function planMorphogenesis(ctx) {
 
 function compileTopologyCandidate(ctx, topology) {
   const candidateCtx = { ...ctx, proposedTopology: topology };
+  const profileResolution = resolveRequestedProfile(ctx, topology, topologyRegistry.variants);
   const contracts = buildContracts(candidateCtx);
   const components = buildPlanComponents(candidateCtx, contracts);
   const targetAgents = components.preserve.concat(components.rebind).map((agent) => ({
@@ -298,15 +305,17 @@ function compileTopologyCandidate(ctx, topology) {
     budget: ctx.budget,
     workers: targetAgents,
     rhizomeBranch: ctx.rhizomeBranch === true,
-    trinityBranch: ctx.trinityBranch === true
+    trinityBranch: ctx.trinityBranch === true,
+    topologyProfile: profileForGraph(profileResolution)
   });
-  return { topology, contracts, components, targetAgents, plan, graph };
+  return { topology, contracts, components, targetAgents, plan, graph, profileResolution };
 }
 
 function buildTopologyCandidates(ctx) {
   const allCandidatesNeeded = ctx.forceMorphologySelection === true || ctx.problemProfile || ctx.expression;
   const minimumTopology = minimumTopologyFrom(ctx);
-  const requested = minimumTopology || (isTopology(ctx.proposedTopology) ? ctx.proposedTopology : 'a_team');
+  const requested = ctx.topologyProfile?.baseTopology || minimumTopology
+    || (isTopology(ctx.proposedTopology) ? ctx.proposedTopology : 'a_team');
   const ids = allCandidatesNeeded ? TOPOLOGY_IDS : [requested];
   return ids.map((topology) => compileTopologyCandidate(ctx, topology));
 }
@@ -321,6 +330,10 @@ function minimumTopologyFrom(ctx) {
 }
 
 function buildMorphogenesisPlan(ctx) {
+  if (ctx.topologyProfile && isTopology(ctx.proposedTopology)
+    && ctx.topologyProfile.baseTopology !== ctx.proposedTopology) {
+    throw new Error('topologyProfile.baseTopology must match proposedTopology');
+  }
   const candidates = buildTopologyCandidates(ctx);
   const selection = selectTopology(ctx, candidates);
   const chosen = selection.candidate;
@@ -332,6 +345,7 @@ function buildMorphogenesisPlan(ctx) {
   Object.assign(plan, buildIdentityExtensions({ expression: ctx.expression || {}, problem: ctx.problem, event: ctx.event, checkpoint: ctx.checkpoint, ancestral: ctx.ancestral }));
   plan.rollbackPlan = generateRollbackPlan(plan);
   plan.selectedTopology = chosen.topology;
+  applyProfileToPlan(plan, chosen.profileResolution);
   plan.selectedOrganization = selection.organization;
   plan.minimumMorphologyDecision = selection.minimum;
   plan.candidateMorphologies = candidates.map((candidate) => ({

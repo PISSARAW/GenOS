@@ -100,6 +100,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0118](0118-preparer-les-workers-et-operer-le-graphe-rhizome.md) | Préparer les workers de topologie et exposer le graphe Rhizome | Accepté | 2026-09-25 | Topologies, workers, Rhizome, Morphogenèse |
 | [0119](0119-actions-metier-et-detection-de-collapse.md) | Actions métier et détection de collapse | Accepté | 2026-09-25 | Runtime worker, supervision, observabilité |
 | [0121](0121-contrat-mission-comparative-et-frontieres.md) | Contrat de mission comparative et frontières de responsabilité | Accepté | 2026-09-25 | Contrats, orchestration, Métapopulation, évaluation |
+| [0125](0125-profils-morphologiques-composables.md) | Profils morphologiques composables | Accepté | 2026-09-25 | Morphogenèse, catalogue de variants, graphes d'exécution |
 | [0122](0122-evaluation-comparative-intertopologies-et-recolonisation.md) | Évaluation comparative inter-topologies et preuve de recolonisation | Accepté | 2026-09-25 | Topologies, évaluateurs, Métapopulation, lignées |
 
 ## Cycle de vie d'un ADR

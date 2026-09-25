@@ -5,6 +5,7 @@ function createVariantRegistry() {
   return {
     register: (input) => registerVariant(variants, input),
     resolve: (topology, variantId) => resolveVariant(variants, topology, variantId),
+    listEntries: (topology) => Array.from((variants.get(topology) || new Map()).values(), (item) => structuredClone(item)),
     list: (topology) => Array.from((variants.get(topology) || new Map()).keys())
   };
 }

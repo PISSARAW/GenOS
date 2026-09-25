@@ -6,6 +6,7 @@ const { createTopologyVersionRegistry } = require('./topologyVersionRegistry');
 const { createVariantRegistry } = require('./variantRegistry');
 const { createTopologyRelationRegistry } = require('./topologyRelationRegistry');
 const { topologyVariants } = require('./variantCatalog');
+const { resolveTopologyProfile, normalizeProfile } = require('./topologyProfileService');
 
 const DEFINITIONS = Object.freeze({
   trinity: { problemSemantics: ['competing hypotheses', 'experimental comparison'], inputSemantics: { unit: 'claims_or_hypotheses' }, outputSemantics: { unit: 'evidence_backed_synthesis' }, independenceModel: { required: true }, stateModel: { writes: 'isolated', reads: 'shared' }, authorityModel: { decision: 'evidence_gated' }, communicationModel: { default: 'orchestrator_mediated' }, evidenceModel: { mode: 'comparative_barrier' }, resourceModel: { budget: 'pooled' }, lifecycleModel: { persistence: 'mission_scoped' }, strengths: ['independent comparison'], weaknesses: ['coordination overhead'], failureModes: ['correlated hypotheses'], observables: ['hypothesis_count', 'comparison_coverage'] },
@@ -80,6 +81,10 @@ function createTopologyRegistry() {
     get: (topologyId, version) => context.versionRegistry.get(topologyId, version),
     list: () => [...context.topologyIds],
     variants: context.variantRegistry,
+    profiles: {
+      normalize: normalizeProfile,
+      resolve: (profile) => resolveTopologyProfile(profile, context.variantRegistry)
+    },
     relations: context.relationRegistry,
     versions: context.versionRegistry
   };
