@@ -1,14 +1,14 @@
 # Trinity — Laboratoire Scientifique Interne de GenOS
 
-- **Statut** : Partiel ; le contrat opérationnel v1 ci-dessous est la cible d'implémentation, pas une description de fonctionnalités déjà toutes disponibles.
+- **Statut** : Partiel ; le contrat opérationnel v1 décrit le runtime implémenté et ses limites. La génération autonome d'hypothèses, l'adaptation statistique et les variantes de recherche restent différées.
 - **Portée v1** : exactement trois mondes logiciels indépendants, comparaison de leurs preuves, décision comparative et promotion d'un artefact candidat. Les variantes de recherche restent hors du runtime v1.
-- **Dernière revue** : 2026-09-24
+- **Dernière revue** : 2026-09-25
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
 ## Contrat opérationnel v1 — référence d'implémentation
 
-Cette section répond aux choix nécessaires pour transformer les parties conceptuelles ci-dessous en comportement déterministe. Elle prévaut en cas de contradiction avec une formule, un exemple ou une variante de recherche ultérieurs. « Doit » désigne une exigence runtime. Un mécanisme explicitement reporté ne doit pas être présenté comme actif.
+Cette section décrit le comportement déterministe du runtime v1 et répond aux choix nécessaires pour interpréter les parties conceptuelles ci-dessous. Elle prévaut en cas de contradiction avec une formule, un exemple ou une variante de recherche ultérieurs. « Doit » désigne une exigence runtime. Un mécanisme explicitement reporté ne doit pas être présenté comme actif.
 
 ### Décisions de périmètre
 
@@ -70,8 +70,8 @@ Règles d'agrégation, dans cet ordre :
 2. Éliminer les mondes échouant une contrainte dure ou un plancher mesurable.
 3. Calculer le front de Pareto sur correctness, coverage, robustness, reproducibility, novelty, cost, latency, risk, uncertainty et constraint coverage, en utilisant le même ensemble de dimensions mesurées pour tous les candidats comparés. Les dimensions de coût, latence, risque et incertitude sont minimisées ; les autres sont maximisées.
 4. S'il reste un seul monde, retourner `PROMOTE_WORLD` uniquement après passage des vérificateurs requis.
-5. Si plusieurs mondes non dominés ont des revendications compatibles et que chaque revendication fusionnée a une preuve, retourner `SYNTHESIZE_CLAIMS`.
-6. Si plusieurs mondes non dominés restent et qu'une synthèse sûre n'est pas possible, retourner `KEEP_PARETO_SET`.
+5. Si plusieurs mondes non dominés ont des claims liés entre eux par une arête mission `supports`, `verifies` ou `complements`, que chaque claim a des références d'évidence valides et un reçu indépendant de vérification dans son monde d'origine, et qu'aucun lien `contradicts` ne concerne la frontière, retourner `SYNTHESIZE_CLAIMS`. Cela produit une décision et des claims persistés, pas un artefact composite promu.
+6. Si plusieurs mondes non dominés restent et que ces conditions de synthèse ne sont pas réunies, retourner `KEEP_PARETO_SET`.
 7. Si aucun monde ne passe les gardes ou si des preuves requises manquent, retourner `ESCALATE_EXPERIMENT`.
 
 Une égalité de score scalaire ne départage jamais les mondes. Un juge ne peut pas annuler un échec de test, une contradiction avec une preuve externe ou un échec de contrainte dure.
@@ -84,7 +84,7 @@ Après les dossiers terminaux, le runtime construit un `claimGraph` depuis les c
 
 Quand plusieurs mondes non dominés restent, `SYNTHESIZE_CLAIMS` est retourné si les claims reliés par `supports`, `verifies` ou `complements` possèdent chacun des références d'évidence valides et un reçu de vérification déterministe indépendant obtenu dans leur monde d'origine, et qu'aucune arête `contradicts` n'unit ces claims sur la frontière. Les claims synthétisés et le graphe sont persistés avec leurs reçus. Ce contrôle ne vérifie pas un artefact composite : faute d'assembleur de workspace synthétique en v1, `promotion` reste refusée avec `synthesized_claims_require_artifact_assembly`. Toute future promotion devra assembler puis revérifier le candidat composite.
 
-Une revendication n'entre dans la synthèse que si elle est substantielle, référencée par au moins une preuve, non réfutée par un vérificateur de priorité supérieure, et reliée au graphe. Une revendication perdante n'est fusionnée que si le graphe établit `complements` avec les revendications retenues ; une simple propriété textuelle `relation: "complements"` fournie par le worker ne suffit pas à établir ce lien. Les revendications contradictoires sont toutes deux conservées dans le rapport de comparaison, marquées en conflit, et exclues de la synthèse jusqu'à résolution par vérification.
+Une revendication n'entre dans la synthèse que si elle est substantielle, que chacune de ses références figure dans les preuves de son rapport, qu'elle possède un reçu de vérification déterministe indépendant et qu'elle est liée au graphe par une relation mission admise. Les relations déclarées par les workers restent proposées ; elles ne suffisent pas à établir un lien de synthèse. Toute contradiction observée entre les claims de la frontière bloque la synthèse, qui reste alors au niveau `KEEP_PARETO_SET` jusqu'à résolution.
 
 ### Cycle de vie, échec et reprise
 
