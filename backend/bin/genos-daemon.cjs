@@ -55,19 +55,9 @@ function startFallbackTimer(bridge, territoryId, intervalMs) {
   return timer;
 }
 
-async function bootstrapTerritory(db, territoryId) {
-  const existing = await territoryService.getTerritory(db, { id: territoryId });
-  if (existing.found) return existing.territory;
-  return territoryService.createTerritory(db, {
-    id: territoryId,
-    organizationId: 'org-resident',
-    projectId: 'proj-resident',
-    workspaceId: 'ws-resident',
-    repoIdentity: territoryId,
-    rootPath: process.cwd(),
-    headSha: '0'.repeat(40),
-    state: 'ACTIVE'
-  });
+async function resolveRegisteredTerritory(db, territoryId) {
+  const result = await territoryService.getTerritory(db, { id: territoryId });
+  return result.found ? result.territory : null;
 }
 
 async function shutdown(ctx) {
@@ -84,7 +74,8 @@ async function main() {
   }
 
   const db = await getDatabase();
-  await bootstrapTerritory(db, flags.territoryId);
+  const territory = await resolveRegisteredTerritory(db, flags.territoryId);
+  if (!territory) throw new Error(`Territory ${flags.territoryId} is not registered; register it before starting the daemon.`);
 
   const runtime = runtimeService.createRuntime({ db });
   await runtimeService.registerDaemon(runtime, {
@@ -105,7 +96,11 @@ async function main() {
   process.once('SIGTERM', stop);
 }
 
-main().catch((err) => {
-  process.stderr.write(`[genos-daemon] Fatal: ${err.message}\n`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    process.stderr.write(`[genos-daemon] Fatal: ${err.message}\n`);
+    process.exit(1);
+  });
+}
+
+module.exports = { resolveRegisteredTerritory };
