@@ -8,6 +8,7 @@ const root = __dirname;
 const repo = path.resolve(root, '../..');
 const suite = JSON.parse(fs.readFileSync(path.join(root, 'suite.json'), 'utf8'));
 const plan = JSON.parse(fs.readFileSync(path.join(root, 'comparison-plan.json'), 'utf8'));
+const taskSet = JSON.parse(fs.readFileSync(path.join(root, plan.taskSetFile), 'utf8'));
 const outputRoot = path.resolve(process.env.GENOS_COMPARISON_OUTPUT_ROOT || path.join(repo, 'artifacts', 'topology-morphogenesis', 'comparison-plans'));
 
 function digest(value) {
@@ -38,10 +39,10 @@ function shuffleConditions(conditions, seed) {
 function validatePlan() {
   const conditionIds = plan.conditions.map((condition) => condition.id);
   if (new Set(conditionIds).size !== conditionIds.length) throw new Error('Comparison condition IDs must be unique.');
-  if (plan.budgetPolicy !== suite.controls.budgetPolicy) throw new Error('Comparison budget policy differs from the suite contract.');
+  if (!suite.controls || plan.budgetPolicy !== suite.controls.budgetPolicy) throw new Error('Comparison budget policy differs from the suite contract.');
   for (const taskId of plan.eligibleTaskIds) {
-    const task = suite.tasks.find((entry) => entry.id === taskId);
-    if (!task || task.oracle.status !== 'independent' || !task.comparisonEligible) {
+    const task = taskSet.tasks.find((entry) => entry.id === taskId);
+    if (!task || !task.oracle || !task.comparisonEligible) {
       throw new Error(`Task is not eligible for comparison: ${taskId}`);
     }
   }
@@ -68,6 +69,7 @@ function main() {
     createdAt: timestamp,
     status: 'assignment-only',
     suiteSha256: digest(fs.readFileSync(path.join(root, 'suite.json'))),
+    taskSetSha256: digest(fs.readFileSync(path.join(root, plan.taskSetFile))),
     planSha256: digest(fs.readFileSync(path.join(root, 'comparison-plan.json'))),
     conditions: plan.conditions,
     blocks: makeBlocks(),

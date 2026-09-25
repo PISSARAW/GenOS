@@ -13,7 +13,8 @@
     { "id": "morphogenesis", "role": "learned-selection", "adapter": "pending" },
     { "id": "oracle-selection", "role": "upper-bound", "adapter": "pending" }
   ],
-  "eligibleTaskIds": ["orchestrateur-simple"],
+  "taskSetFile": "comparison-task-set.json",
+  "eligibleTaskIds": ["integer-partitions-12", "distinct-letters-fr", "dependency-order", "arithmetic-partition"],
   "limitations": [
     "A randomized assignment schedule is not an experiment result.",
     "The current task set has no topology comparison task with an independent oracle.",
