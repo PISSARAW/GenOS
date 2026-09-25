@@ -1,0 +1,63 @@
+{
+  "version": "v1",
+  "adr": "docs/adr/0113-benchmark-avec-sans-genos.md",
+  "protocol": "paired-counterbalanced-v1",
+  "runner": "benchmarks/ateam/benchmarkRunner.cjs",
+  "campaign": {
+    "arms": ["solo", "a_team_full"],
+    "repetitionsPilot": 2,
+    "repetitionsFull": 3,
+    "modelPolicy": "single fixed Ollama model for the whole campaign, recorded in the report",
+    "budgetPolicy": "same token and timeout budget for both arms on each scenario x repetition pair"
+  },
+  "scenarios": [
+    {
+      "scenarioId": "config-patch",
+      "mission": "Locate the misconfigured timeout key in the provided service config, patch it to 30s, and produce evidence: patched file diff, config load check output, and the list of tests that verify or refute the fix.",
+      "verifierId": "config-load-check",
+      "budget": { "tokens": 8000, "timeoutMs": 240000 }
+    },
+    {
+      "scenarioId": "stacktrace-debug",
+      "mission": "Diagnose the provided Python stack trace (KeyError on cache lookup after failover), separate observed regularity from cause, propose the most likely cause, and list the tests that would verify or refute each claim.",
+      "verifierId": "evidence-gate",
+      "budget": { "tokens": 10000, "timeoutMs": 300000 }
+    },
+    {
+      "scenarioId": "stale-cache-failover",
+      "mission": "Diagnose why a distributed cache serves stale reads after failover. The causal uncertainty persists: separate observed regularity from cause, propose the most likely cause, and list the tests that would verify or refute each claim.",
+      "verifierId": "evidence-gate",
+      "budget": { "tokens": 10000, "timeoutMs": 300000 }
+    },
+    {
+      "scenarioId": "throughput-emergence",
+      "mission": "Evaluate whether the observed throughput collapse under load is real emergence from component interactions or merely labeling. Run isolation reasoning: what disappears when components are isolated, and which tests distinguish emergence from aggregation?",
+      "verifierId": "evidence-gate",
+      "budget": { "tokens": 10000, "timeoutMs": 300000 }
+    },
+    {
+      "scenarioId": "api-release",
+      "mission": "Prepare a minimal API release: implement the two missing endpoints from the provided OpenAPI stub, keep backward compatibility, and produce evidence: endpoint diff, smoke-test output, and regression checklist.",
+      "verifierId": "smoke-tests",
+      "budget": { "tokens": 12000, "timeoutMs": 360000 }
+    },
+    {
+      "scenarioId": "data-import",
+      "mission": "Fix the CSV data-import job that drops rows with quoted delimiters. Produce evidence: corrected parser diff, row-count before/after on the fixture, and the regression tests run.",
+      "verifierId": "rowcount-fixture",
+      "budget": { "tokens": 12000, "timeoutMs": 360000 }
+    },
+    {
+      "scenarioId": "auth-refactor-small",
+      "mission": "Refactor the provided auth helper to isolate token validation from session handling without changing behavior. Produce evidence: refactor diff, existing unit-test output, and any new regression introduced or avoided.",
+      "verifierId": "unit-tests",
+      "budget": { "tokens": 14000, "timeoutMs": 420000 }
+    },
+    {
+      "scenarioId": "dossier-quality",
+      "mission": "On the assigned incident report, produce a worker dossier with falsifiable claims, distinguishing tests, and explicit uncertainties. A dossier with only conclusions and no tests is a failure.",
+      "verifierId": "evidence-gate",
+      "budget": { "tokens": 8000, "timeoutMs": 240000 }
+    }
+  ]
+}

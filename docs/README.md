@@ -221,6 +221,7 @@ Index : [adr/README.md](adr/README.md)
 - [0090-variants-executables-biocenose.md](adr/0090-variants-executables-biocenose.md) — politiques de variant liées à la constitution et appliquées par le runtime.
 - [0100-controle-ecologique-biocenose.md](adr/0100-controle-ecologique-biocenose.md) — observation du tour et décisions écologiques append-only, reliées aux handoffs Morphogenèse.
 - [0097-calibration-immunitaire-holobionte.md](adr/0097-calibration-immunitaire-holobionte.md) — mesurer les faux positifs et faux négatifs immunitaires avec des preuves indépendantes.
+- [0113-benchmark-avec-sans-genos.md](adr/0113-benchmark-avec-sans-genos.md) — benchmark apparié avec / sans GenOS, campagne v1 sur runner A-Team.
 - [0103-vecteur-fitness-holobionte.md](adr/0103-vecteur-fitness-holobionte.md) — conserver les dix dimensions de fitness séparément avec leurs preuves.
 - [0104-dysbiose-holobionte.md](adr/0104-dysbiose-holobionte.md) — observer le déséquilibre du Holobionte à partir de signaux bornés.
 - [0105-benchmark-longitudinal-holobionte.md](adr/0105-benchmark-longitudinal-holobionte.md) — comparer douze variantes sur 50 à 100 missions appariées.
