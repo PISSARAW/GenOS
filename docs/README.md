@@ -223,6 +223,7 @@ Index : [adr/README.md](adr/README.md)
 - [0105-benchmark-longitudinal-holobionte.md](adr/0105-benchmark-longitudinal-holobionte.md) — comparer douze variantes sur 50 à 100 missions appariées.
 - [0106-detection-surreaction-immunitaire-holobionte.md](adr/0106-detection-surreaction-immunitaire-holobionte.md) — signaler les blocages répétés de résultats sûrs sans affaiblir les gates.
 - [0107-impact-keystone-holobionte.md](adr/0107-impact-keystone-holobionte.md) — mesurer la contribution par comparaison appariée avec et sans symbionte.
+- [0108-branchement-topologies-fail-closed.md](adr/0108-branchement-topologies-fail-closed.md) — dispatch commun des huit topologies et migrations refusées sans adaptateur testé.
 - [types-de-workers.md](03-reference/types-de-workers.md) — catalogue des 19 types et état d'intégration.
 
 ---
