@@ -14,6 +14,7 @@ ces organisations ; elle n'est pas un neuvième mode.
 - [syncytium.md](syncytium.md) — orchestration par état partagé et synchronisation continue.
 - [rhizome.md](rhizome.md) — orchestration décentralisée par ramification de capacités.
 - [metapopulation.md](metapopulation.md) — orchestration par populations semi-indépendantes.
+- [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance et maturité des variants des topologies.
 
 ## Voir aussi
 
