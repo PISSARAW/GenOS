@@ -40,18 +40,26 @@ function reportText(dossier) {
   return (report.claims || []).map((claim) => claim.statement).filter(Boolean).join('\n') || report.artifactText || '';
 }
 
+function isUnhealthy(chaperoned, drift, threats) {
+  const healthScore = chaperoned.health ? chaperoned.health.health_score : null;
+  return threats.length > 0 || chaperoned.warning === true || drift?.warning === true
+    || (typeof healthScore === 'number' && healthScore < HEALTH_THRESHOLD);
+}
+
 function hostVeto(dossier = {}) {
   const text = reportText(dossier);
   if (!text.trim()) return { allowed: false, reason: 'no_deliverable', health: null, drift: false };
+  const threatScan = immuneSystem.scanThreats(text);
   const chaperoned = immuneSystem.chaperoneAgentOutput(text, {});
   const drift = immuneSystem.evaluateCognitiveDrift(text);
-  const healthScore = chaperoned.health ? chaperoned.health.health_score : null;
-  const unhealthy = chaperoned.warning === true || drift?.warning === true || (typeof healthScore === 'number' && healthScore < HEALTH_THRESHOLD);
+  const threats = Array.isArray(threatScan?.threats) ? threatScan.threats : [];
+  const unhealthy = isUnhealthy(chaperoned, drift, threats);
   return {
     allowed: !unhealthy,
     reason: unhealthy ? 'immune_veto' : 'accepted',
     health: chaperoned.health || null,
     drift: drift?.warning === true,
+    threats,
     textLength: String(chaperoned.purifiedText || text).length
   };
 }
