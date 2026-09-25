@@ -1,7 +1,7 @@
 'use strict';
 
 function enrichMission(context, mission, role) {
-  if (context.request?.mode === 'metapopulation') return mission;
+  if (context.request?.mode === 'metapopulation') return migrationInstructions(mission);
   if (!context.nceEnrichments) return mission;
   const topologyNCE = require('../src/services/topologyNCEService');
   const enrichments = context.nceEnrichments;
@@ -16,6 +16,14 @@ function enrichMission(context, mission, role) {
     culturalTraits: enrichments.culturalTraits,
     explorationDomains: enrichments.explorationDomains,
   });
+}
+
+function migrationInstructions(mission) {
+  const review = String(mission).includes('TRANSFERABLE IDEAS ONLY');
+  const contract = review
+    ? 'Include migrationDecisions in your evidence JSON. For every supplied idea, report ideaId, decision, reason, localValidation, fitnessBefore, fitnessAfter, fitnessDirection and evidenceRefs. Do not mark an idea accepted unless you independently reproduce a local fitness improvement.'
+    : 'Include transferableIdeas in your evidence JSON as bounded technique/counterexample objects {ideaId, technique, rationale, evidenceRefs}. Never include a complete solution, answer, schedule, or code as a transferable idea. Set migrationDecisions to an empty array.';
+  return `${mission}\n\nMETAPOPULATION MIGRATION CONTRACT: ${contract}`;
 }
 
 function selectedExecutor(context) {

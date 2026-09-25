@@ -1,5 +1,6 @@
 'use strict';
 const { validateSchedulingResult } = require('./schedulingEvidenceValidator');
+const migrationService = require('./metapopulationMigrationService');
 
 async function read(db, member) {
   const agent = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
@@ -9,12 +10,49 @@ async function read(db, member) {
   const answer = evidenceAnswer(report);
   const expectedMethod = String(member.mission || '').match(/Assigned method:\s*([^\n.]+)/i)?.[1]?.trim() || '';
   const methodValidated = methodEvidenceMatches(primaryEvidence(report), expectedMethod);
-  const domainValidation = validateSchedulingResult({ mission: member.mission, answer, method: expectedMethod });
+  const schedulingValidation = validateSchedulingResult({ mission: member.mission, answer, method: expectedMethod });
+  const domainValidation = requireFixtureValidation(member.mission, schedulingValidation);
+  const structured = structuredReport(report);
+  const review = migrationService.reviewContext(member.mission);
+  const baselineValidation = validateSchedulingResult({ mission: member.mission,
+    answer: review.baselineAnswer, method: expectedMethod });
+  const migrationDecisions = migrationService.validateReviewDecisions({
+    decisions: structured.migrationDecisions, candidates: review.candidates,
+    baselineValidation, finalValidation: domainValidation
+  });
   const complete = completedEvidence({ agent, report, answer, methodValidated, domainValidation });
   const status = complete ? 'completed' : agent?.status === 'completed' ? 'unverified' : agent?.status || 'NO_EVIDENCE';
   return { workerId: member.workerId, role: member.role, status,
     answer: answer || null, evidenceEventId: event?.id || null, outcome: report?.outcome || null,
-    expectedMethod: expectedMethod || null, methodValidated, domainValidation };
+    expectedMethod: expectedMethod || null, methodValidated, domainValidation,
+    transferableIdeas: structured.transferableIdeas, migrationDecisions };
+}
+
+function requireFixtureValidation(mission, validation) {
+  if (!String(mission || '').includes('Comparative mission fixture') || validation?.applicable) return validation;
+  return { applicable: true, valid: false, reasons: ['No deterministic evaluator is registered for this fixture domain.'] };
+}
+
+function structuredReport(report) {
+  const content = report?.workerArtifact?.content || {};
+  const parsed = [report?.answer, report?.claims?.[0]?.statement, content.claims?.[0]?.statement]
+    .map(parseStructuredAnswer).find(Boolean) || {};
+  return {
+    transferableIdeas: report?.transferableIdeas || content.transferableIdeas || parsed.transferableIdeas || [],
+    migrationDecisions: report?.migrationDecisions || content.migrationDecisions || parsed.migrationDecisions || []
+  };
+}
+
+function parseStructuredAnswer(value) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+  if (typeof value !== 'string') return null;
+  const source = value.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  try {
+    const parsed = JSON.parse(source);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function normalizeMethodEvidence(value) {
@@ -71,7 +109,9 @@ function readableAnswer(value) {
 }
 
 function completedEvidence({ agent, report, answer, methodValidated, domainValidation }) {
-  return agent?.status === 'completed' && report?.outcome === 'success' && answer.length > 0 && methodValidated && domainValidation?.valid !== false;
+  return agent?.status === 'completed' && report?.outcome === 'success' && answer.length > 0
+    && methodValidated && domainValidation?.valid !== false
+    && (!domainValidation?.applicable || domainValidation.valid === true);
 }
 
 function parseEvidence(value) {
@@ -80,17 +120,7 @@ function parseEvidence(value) {
 }
 
 function reviewPrompt(member, results) {
-  const own = results.find((result) => result.role === member.role);
-  const peers = results.filter((result) => result.role !== member.role)
-    .map((result) => {
-      const reason = result.domainValidation?.valid === false
-        ? `Local validation rejected this candidate: ${result.domainValidation.reasons.join('; ')}.`
-        : `Evidence status: ${result.status}.`;
-      return `${result.role} (${reason}): ${String(result.answer || 'No verified answer.').slice(0, 1200)}`;
-    }).join('\n\n');
-  const ownValidation = own?.domainValidation?.valid === false
-    ? `Your initial result was rejected locally: ${own.domainValidation.reasons.join('; ')}.` : `Your initial evidence status: ${own?.status || 'unknown'}.`;
-  return `${member.mission}\n\nYOUR INITIAL CANDIDATE: ${String(own?.answer || 'No result.').slice(0, 1200)}\n${ownValidation}\n\nMIGRATION REVIEW: Evaluate these peer findings as candidate techniques:\n${peers}\n\nRecompute any rejected claim from the supplied inputs. Test each peer candidate against your assigned method, local constraints and fitness. Adopt only a demonstrated local improvement; otherwise reject it with reasons. Preserve your own method and lineage. Return a revised, fully evidenced result with explicit accepted/rejected migration decisions.`;
+  return migrationService.reviewPrompt(member, results);
 }
 
 module.exports = { read, reviewPrompt };

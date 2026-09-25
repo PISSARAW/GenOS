@@ -33,6 +33,7 @@ const populationWorker = workerLaunchPayload({
   member: { role: 'quorum_sensor', mission: 'A=1, B=1. Preserve these exact inputs.', engine: 'cloud' },
   workerId: 'population-worker', parent: { workspace_root: '/workspace' }
 });
-assert.equal(populationWorker.mission, 'A=1, B=1. Preserve these exact inputs.');
+assert.ok(populationWorker.mission.includes('A=1, B=1. Preserve these exact inputs.'));
+assert.ok(populationWorker.mission.includes('METAPOPULATION MIGRATION CONTRACT'));
 
 console.log('Topology worker launch payload: PASS');

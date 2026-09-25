@@ -61,6 +61,17 @@ demeure non vérifié ou partiel.
 
 ## État d'implémentation
 
-Le validateur de forme des missions et des résultats est implémenté dans le
-backend avec un test dédié. Son branchement sur tous les chemins d'orchestration,
-les évaluateurs métier et les fixtures des six missions restent à réaliser.
+Le validateur de forme des missions et des résultats, les fixtures versionnées
+des six niveaux et le lanceur `node backend/bin/run-comparative-mission.cjs
+<level-1..level-6>` sont implémentés. Les tests confirment que chaque fixture
+est valide et compose le nombre prévu de populations. Ce lanceur démarre une
+mission réelle; il ne garantit pas que chaque worker produira un résultat
+accepté par l'évaluateur.
+
+Le contrôle de migrations ne transmet que les idées techniques explicites, pas
+les réponses des pairs. Une adoption est acceptée seulement si l'idée a été
+présentée au receveur, que celui-ci fournit des références de preuve et que
+l'évaluateur local de planification confirme une amélioration. Les autres
+domaines restent fermés à l'adoption tant qu'ils n'ont pas d'évaluateur métier
+reproductible. De même, les fixtures sans évaluateur enregistré retournent un
+résultat non vérifié au lieu d'être déclarées complètes.
