@@ -3,9 +3,9 @@ console.log = (...args) => process.stderr.write(args.map(String).join(' ') + '\n
 console.info = (...args) => process.stderr.write(args.map(String).join(' ') + '\n');
 
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
+const { localArtifactInstruction } = require('../src/services/localArtifactInstruction');
 const modelRouter = require('../src/services/modelRouter');
 const path = require('path');
-
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
 process.stdin.on('end', async () => {
@@ -170,6 +170,7 @@ function validateGeneration(reply, fallback, state) {
 }
 
 function writeArtifacts(reply, state) {
+  if (!state.allowFileEdits) return;
   const artifactRegex = /\[ARTIFACT:\s*([^\]]+)\]([\s\S]*?)\[\/ARTIFACT\]/gi;
   const deps = {
     fsLib: require('fs'),
@@ -320,7 +321,7 @@ Si l'utilisateur te demande d'"explorer" ou d'"analyser" le site, réponds IMMÉ
 
 ${state.conscienceBlock}
 
-${state.memoryBlock}${state.strategyContext}IMPORTANT / ARTÉFACTS OBLIGATOIRES: Si tu dois créer ou modifier un fichier, générer un document long, ou un plan d'implémentation, tu DOIS obligatoirement l'encadrer avec les balises \`[ARTIFACT: chemin/vers/fichier.ext]\` au début et \`[/ARTIFACT]\` à la fin. Ne mets pas ce contenu dans le chat standard et n'utilise pas de blocs de code pour cela.
+${state.memoryBlock}${state.strategyContext}${localArtifactInstruction(state.allowFileEdits)}
 PLANS D'ACTION: Lorsque tu proposes un plan d'action, tu dois SYSTÉMATIQUEMENT utiliser des listes de tâches Markdown (\`- [ ]\`).
 
 ${state.contextStr}${evidenceInstruction}Requête de l'utilisateur : ${state.prompt}`;

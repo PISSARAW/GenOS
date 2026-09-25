@@ -145,8 +145,10 @@ function buildDossierArtifact(reply, provenance) {
 function parseArtifactReply(reply) {
   if (reply && typeof reply === 'object' && !Array.isArray(reply)) return reply;
   const text = String(reply || '').trim();
-  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  const candidate = (fenced ? fenced[1] : text).replace(/^json\s*(?=\{)/i, '');
+  const tagged = text.match(/^\[ARTIFACT:\s*[^\]]+\]([\s\S]*?)\[\/ARTIFACT\]$/i);
+  const source = (tagged ? tagged[1] : text).trim();
+  const fenced = source.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const candidate = (fenced ? fenced[1] : source).replace(/^json\s*(?=\{)/i, '');
   try { return JSON.parse(candidate); } catch (_) { return null; }
 }
 
