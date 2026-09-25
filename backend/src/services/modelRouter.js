@@ -98,6 +98,7 @@ function buildRouteContext(opts, clock, remainingMs) {
     projectId: opts.projectId,
     seed: opts.seed,
     stream: opts.stream !== false,
+    enforceSchema: opts.enforceSchema,
     signal: opts.signal,
     displayWidth: opts.displayWidth || 1920,
     displayHeight: opts.displayHeight || 1080,
