@@ -241,7 +241,7 @@ function applyGrowthAdmission(session, input, admissionPolicy) {
   }
   const discovered = { ...input.node, state: 'DISCOVERED' };
   const active = capabilityAdmission.admit(discovered, input.proof, admissionPolicy);
-  let updated = capabilityGraph.addNode(session, discovered);
+  let updated = capabilityGraph.addNode({ ...session, nodes: [...session.nodes], edges: [...session.edges] }, discovered);
   for (const edge of input.edges) updated = capabilityGraph.addEdge(updated, edge);
   updated.nodes = updated.nodes.map((node) => node.nodeId === active.nodeId ? active : node);
   updated.graphVersion += 1;

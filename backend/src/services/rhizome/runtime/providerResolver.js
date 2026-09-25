@@ -1,10 +1,9 @@
 'use strict';
 
 function matchesProvider(provider, ctx) {
-  return ctx.trustedIds.has(provider.providerId)
-    && provider.growthActions.includes(ctx.candidate.action)
-    && provider.capabilities.includes(ctx.need.capability)
-    && typeof provider.instantiate === 'function';
+  return ctx.trustedIds.has(provider.providerId) && Array.isArray(provider.growthActions)
+    && provider.growthActions.includes(ctx.candidate.action) && Array.isArray(provider.capabilities)
+    && provider.capabilities.includes(ctx.need.capability) && typeof provider.instantiate === 'function';
 }
 
 function create(providers = [], trustedProviderIds = []) {
@@ -17,7 +16,7 @@ function create(providers = [], trustedProviderIds = []) {
       .sort((left, right) => left.providerId.localeCompare(right.providerId))[0];
     if (!provider) return null;
     const result = await provider.instantiate(input);
-    if (!result || !result.node || !Array.isArray(result.edges || [])) return null;
+    if (!validResult(result, input.need.capability)) return null;
     return {
       provider,
       node: {
@@ -27,6 +26,12 @@ function create(providers = [], trustedProviderIds = []) {
       edges: result.edges || []
     };
   };
+}
+
+function validResult(result, capability) {
+  return Boolean(result?.node && typeof result.node.nodeId === 'string'
+    && Array.isArray(result.node.capabilities) && result.node.capabilities.includes(capability)
+    && Array.isArray(result.edges || []));
 }
 
 module.exports = { create };

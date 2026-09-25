@@ -1,11 +1,19 @@
 'use strict';
 
+const { createHash } = require('node:crypto');
 const { normalizeCapabilityNode } = require('../contracts/capabilityNode');
+const verifierReceipts = require('../../epistemicVerifierReceiptService');
+
+function evidenceDigest(node, proof) {
+  const subject = [node.nodeId, [...node.capabilities].sort(), proof.candidateId, proof.capability,
+    [...(proof.evidenceRefs || [])].sort(), proof.independent === true];
+  return `sha256:${createHash('sha256').update(JSON.stringify(subject)).digest('hex')}`;
+}
 
 function admit(value, proof, policy = {}) {
   const node = normalizeCapabilityNode(value);
   validateCandidate(node);
-  const identity = validateVerifier(proof, policy.trustedVerifierDigests || []);
+  const identity = validateVerifier(node, proof, policy.trustedVerifierDigests || []);
   validateProviders(node, policy.trustedProviderIds || []);
   validateRequirements(node, proof.evidenceRefs || []);
   const checkedAt = validDate(proof.verifiedAt);
@@ -24,13 +32,33 @@ function validateCandidate(node) {
   if (!node.providers.length) fail('RHIZOME_ADMISSION_PROVIDER_REQUIRED', 'Capability admission requires at least one provider.');
 }
 
-function validateVerifier(proof, trustedDigests) {
+function validateVerifier(node, proof, trustedDigests) {
   const evidenceId = typeof proof?.evidenceId === 'string' ? proof.evidenceId.trim() : '';
   const digest = typeof proof?.verifierDigest === 'string' ? proof.verifierDigest.trim() : '';
-  if (proof?.kind !== 'CAPABILITY_VERIFIED' || !evidenceId || !new Set(trustedDigests).has(digest)) {
+  if (!verifierIdentityValid({ proof, evidenceId, digest, trustedDigests })
+    || !proofMatchesNode(node, proof) || !validSignedEvidence({ node, proof, evidenceId, trustedDigests })) {
     fail('RHIZOME_ADMISSION_EVIDENCE_REQUIRED', 'Capability admission requires verification from a trusted verifier.');
   }
   return { evidenceId };
+}
+
+function verifierIdentityValid(input) {
+  const { proof, evidenceId, digest, trustedDigests } = input;
+  return proof?.kind === 'CAPABILITY_VERIFIED' && Boolean(evidenceId)
+    && new Set(trustedDigests).has(digest) && proof.independent === true;
+}
+
+function proofMatchesNode(node, proof) {
+  return proof.nodeId === node.nodeId && node.capabilities.includes(proof.capability);
+}
+
+function validSignedEvidence(input) {
+  const { node, proof, evidenceId, trustedDigests } = input;
+  const receipt = proof.signedReceipt;
+  return Boolean(receipt) && receipt.resultId === evidenceId
+    && receipt.verifierDigest === proof.verifierDigest && receipt.status === 'verified' && receipt.independent === true
+    && receipt.evidenceDigest === evidenceDigest(node, proof)
+    && verifierReceipts.validateReceipt(receipt, trustedDigests);
 }
 
 function validateProviders(node, trustedProviders) {
@@ -55,4 +83,4 @@ function fail(code, message) {
   throw Object.assign(new Error(message), { code });
 }
 
-module.exports = { admit };
+module.exports = { admit, evidenceDigest };

@@ -6,6 +6,10 @@ const { open } = require('sqlite');
 const { migrateHolobiontSessions } = require('../src/db/migrations/migrateHolobiontSessions');
 const store = require('../src/services/holobionte/holobiontStore');
 const rhizome = require('../src/services/holobionte/symbionts/rhizomeAdapter');
+const admissionService = require('../src/services/rhizome/security/capabilityAdmissionService');
+const receipts = require('../src/services/epistemicVerifierReceiptService');
+
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'rhizome-test-secret';
 
 function rhizomeCandidate(kind = 'TOOL') {
   return {
@@ -30,11 +34,16 @@ async function run() {
     const host = await store.createSession(db, {
       hostId: 'rhizome-host', scope: 'PERSISTENT', constitution: { hostId: 'rhizome-host' }
     });
+    const proof = { kind: 'CAPABILITY_VERIFIED', evidenceId: 'proof:database-read', verifierDigest: 'trusted-digest',
+      evidenceRefs: ['schema-check'], verifiedAt: '2026-09-24T12:00:00.000Z', candidateId: 'database-candidate',
+      nodeId: 'node.read-database', capability: 'database-read', independent: true };
+    proof.signedReceipt = receipts.issueReceipt({ resultId: proof.evidenceId,
+      evidenceDigest: admissionService.evidenceDigest(rhizomeCandidate(), proof),
+      verifierDigest: proof.verifierDigest, independent: true });
     const input = {
       holobiontId: host.holobiontId, expectedSessionRevision: host.revision,
       gap: gap(), node: rhizomeCandidate(),
-      proof: { kind: 'CAPABILITY_VERIFIED', evidenceId: 'proof:database-read', verifierDigest: 'trusted-digest',
-        evidenceRefs: ['schema-check'], verifiedAt: '2026-09-24T12:00:00.000Z' },
+      proof,
       admissionPolicy: { trustedVerifierDigests: ['trusted-digest'], trustedProviderIds: ['provider.db'] }
     };
     const result = await rhizome.registerRhizomeCandidate(db, input);

@@ -5,9 +5,11 @@ const rhizomeTick = require('./rhizomeTick');
 const providerResolver = require('./providerResolver');
 const verifierResolver = require('./verifierResolver');
 const growthExecutor = require('./growthExecutor');
+const providerAdapterRegistry = require('./providerAdapterRegistry');
 
 function create(input = {}) {
-  const resolveProvider = providerResolver.create(input.providers, input.trustedProviderIds);
+  const providers = [...(input.providers || []), ...providerAdapterRegistry.create(input.adapters)];
+  const resolveProvider = providerResolver.create(providers, input.trustedProviderIds);
   const resolveVerifier = verifierResolver.create(input.verifiers, input.trustedVerifierDigests);
   const executeGrowth = growthExecutor.create({ resolveProvider, resolveVerifier, admissionPolicy: {
     trustedProviderIds: input.trustedProviderIds || [],

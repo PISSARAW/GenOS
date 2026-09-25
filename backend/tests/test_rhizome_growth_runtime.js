@@ -3,6 +3,10 @@
 const assert = require('node:assert/strict');
 const rhizome = require('../src/services/rhizomeCoordinationService');
 const runtimeFactory = require('../src/services/rhizome/runtime/rhizomeRuntime');
+const admission = require('../src/services/rhizome/security/capabilityAdmissionService');
+const receipts = require('../src/services/epistemicVerifierReceiptService');
+
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'rhizome-test-secret';
 
 const PROVIDER_ID = 'formal-proof-worker';
 const VERIFIER_DIGEST = 'formal-proof-verifier-v1';
@@ -20,10 +24,7 @@ function runtime(withVerifier) {
   const verifiers = withVerifier ? [{
     verifierId: 'formal-proof-reviewer', verifierDigest: VERIFIER_DIGEST,
     capabilities: ['formal_proof'],
-    verifyCapability: async () => ({
-      kind: 'CAPABILITY_VERIFIED', evidenceId: 'proof-check-1',
-      verifierDigest: VERIFIER_DIGEST, evidenceRefs: [], verifiedAt: '2026-09-24T00:00:00.000Z'
-    })
+    verifyCapability: async ({ candidate: selected, node, need }) => signedProof(selected, node, need)
   }] : [];
   return runtimeFactory.create({
     providers: [{
@@ -38,6 +39,15 @@ function runtime(withVerifier) {
     trustedProviderIds: [PROVIDER_ID],
     trustedVerifierDigests: withVerifier ? [VERIFIER_DIGEST] : []
   });
+}
+
+function signedProof(candidate, node, need) {
+  const proof = { kind: 'CAPABILITY_VERIFIED', evidenceId: 'proof-check-1', verifierDigest: VERIFIER_DIGEST,
+    independent: true, evidenceRefs: [], verifiedAt: '2026-09-24T00:00:00.000Z',
+    candidateId: candidate.candidateId, nodeId: node.nodeId, capability: need.capability };
+  proof.signedReceipt = receipts.issueReceipt({ resultId: proof.evidenceId,
+    evidenceDigest: admission.evidenceDigest(node, proof), verifierDigest: VERIFIER_DIGEST, independent: true });
+  return proof;
 }
 
 async function verifyVerifiedGrowth() {

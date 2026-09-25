@@ -3,7 +3,15 @@
 const routePlanner = require('../routing/routePlanner');
 
 const NEED = Object.freeze({ needId: 'benchmark-need', capability: 'verify' });
-const BUDGET_UNITS = 8;
+const BUDGET_LIMIT = 80;
+
+function meter() {
+  let used = 0;
+  return {
+    spend(units) { used += units; },
+    report() { return { budgetLimit: BUDGET_LIMIT, budgetUsed: used, withinBudget: used <= BUDGET_LIMIT }; }
+  };
+}
 
 function node(nodeId, capabilities = []) {
   return { nodeId, kind: 'AGENT', capabilities, state: 'ACTIVE', reliability: 0.9 };
@@ -21,42 +29,45 @@ function graph(nodes, edges) {
   return { nodes, edges, coordinationLoci: [{ holderNodeId: 'source' }] };
 }
 
-function reachability(value) {
-  const result = routePlanner.plan(value, NEED);
+function reachability(value, budget) {
+  const result = routePlanner.plan(value, NEED, { onWork: (units) => budget.spend(units) });
   return { reachable: result.selected, route: result.selected ? result.route.nodeIds : [] };
 }
 
 function fixedDagScenario() {
+  const budget = meter();
   const value = graph([node('source'), node('middle'), node('target', ['verify'])], [edge('a', 'source', 'middle'), edge('b', 'middle', 'target')]);
-  const before = reachability(value);
+  const before = reachability(value, budget);
   value.edges[0].status = 'QUARANTINED';
-  const after = reachability(value);
-  return { name: 'fixed_dag', budgetUnits: BUDGET_UNITS, nodeCount: value.nodes.length, edgeCount: 2, before, after, recovered: after.reachable };
+  const after = reachability(value, budget);
+  return { name: 'fixed_dag', ...budget.report(), nodeCount: value.nodes.length, edgeCount: 2, before, after, recovered: after.reachable };
 }
 
 function rhizomeScenario() {
+  const budget = meter();
   const value = graph([
     node('source'), node('primary'), node('alternate'), node('target', ['verify'])
   ], [
     edge('primary-in', 'source', 'primary'), edge('primary-out', 'primary', 'target'),
     edge('alternate-in', 'source', 'alternate'), edge('alternate-out', 'alternate', 'target')
   ]);
-  const before = reachability(value);
+  const before = reachability(value, budget);
   value.edges[0].status = 'QUARANTINED';
   value.edges[1].status = 'QUARANTINED';
-  const after = reachability(value);
-  return { name: 'rhizome_redundant', budgetUnits: BUDGET_UNITS, nodeCount: value.nodes.length, edgeCount: value.edges.length, before, after, recovered: after.reachable };
+  const after = reachability(value, budget);
+  return { name: 'rhizome_redundant', ...budget.report(), nodeCount: value.nodes.length, edgeCount: value.edges.length, before, after, recovered: after.reachable };
 }
 
 function faultInjectionScenario() {
+  const budget = meter();
   const faults = [['primary-in'], ['primary-out'], ['alternate-in'], ['alternate-out']];
-  const singleFaultRecovery = faults.map((ids) => runInjectedFault(ids)).filter((caseResult) => caseResult.reachable).length;
+  const singleFaultRecovery = faults.map((ids) => runInjectedFault(ids, budget)).filter((caseResult) => caseResult.reachable).length;
   const doubleFaults = [['primary-in', 'alternate-in'], ['primary-out', 'alternate-out']];
-  const doubleFaultRecovery = doubleFaults.map((ids) => runInjectedFault(ids)).filter((caseResult) => caseResult.reachable).length;
-  return { name: 'fault_injection', budgetUnits: BUDGET_UNITS, singleFaultCases: faults.length, singleFaultRecovery, doubleFaultCases: doubleFaults.length, doubleFaultRecovery };
+  const doubleFaultRecovery = doubleFaults.map((ids) => runInjectedFault(ids, budget)).filter((caseResult) => caseResult.reachable).length;
+  return { name: 'fault_injection', ...budget.report(), singleFaultCases: faults.length, singleFaultRecovery, doubleFaultCases: doubleFaults.length, doubleFaultRecovery };
 }
 
-function runInjectedFault(edgeIds) {
+function runInjectedFault(edgeIds, budget) {
   const value = graph([
     node('source'), node('primary'), node('alternate'), node('target', ['verify'])
   ], [
@@ -64,20 +75,21 @@ function runInjectedFault(edgeIds) {
     edge('alternate-in', 'source', 'alternate'), edge('alternate-out', 'alternate', 'target')
   ]);
   value.edges = value.edges.map((item) => edgeIds.includes(item.edgeId) ? { ...item, status: 'QUARANTINED' } : item);
-  return reachability(value);
+  return reachability(value, budget);
 }
 
 function growthScenario() {
+  const budget = meter();
   const value = graph([node('source')], []);
-  const before = reachability(value);
+  const before = reachability(value, budget);
   value.nodes.push(node('sprout', ['verify']));
   value.edges.push(edge('sprout-bridge', 'source', 'sprout'));
-  const after = reachability(value);
-  return { name: 'verified_growth', budgetUnits: BUDGET_UNITS, nodeCount: value.nodes.length, edgeCount: value.edges.length, before, after, usefulGrowth: !before.reachable && after.reachable };
+  const after = reachability(value, budget);
+  return { name: 'verified_growth', ...budget.report(), nodeCount: value.nodes.length, edgeCount: value.edges.length, before, after, usefulGrowth: !before.reachable && after.reachable };
 }
 
 function untrustedGrowthScenario() {
-  return { name: 'untrusted_growth', budgetUnits: BUDGET_UNITS, admitted: false, rejection: 'RHIZOME_ADMISSION_PROVIDER_UNTRUSTED' };
+  return { name: 'untrusted_growth', ...meter().report(), admitted: false, rejection: 'RHIZOME_ADMISSION_PROVIDER_UNTRUSTED' };
 }
 
 function runSuite() {
@@ -89,7 +101,7 @@ function runSuite() {
   const directLookupHit = ['verify'].includes(NEED.capability);
   return {
     benchmark: 'RhizomeV1',
-    budgetUnits: BUDGET_UNITS,
+    budgetLimit: BUDGET_LIMIT,
     scenarios: [fixedDag, rhizome, faults, growth, untrustedGrowth],
     comparisons: {
       lookupReportsCapabilityWithoutPath: directLookupHit && !growth.before.reachable,

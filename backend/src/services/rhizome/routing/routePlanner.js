@@ -30,6 +30,7 @@ function findPaths(input) {
   while (pending.length) {
     const current = pending.shift();
     found.push(current);
+    input.onWork?.((input.session.edges || []).length || 1);
     if (current.edges.length < maxHops) pending.push(...expandState(current, input.session.edges || [], input.activeIds));
   }
   return found;
@@ -64,7 +65,7 @@ function plan(session, value, policy = {}) {
   const nodes = activeNodes(session, policy);
   const activeIds = new Set(nodes.map((node) => node.nodeId));
   const configuredHops = Number(policy.maxHops) || activeIds.size;
-  const paths = findPaths({ session, starts: startNodeIds(session, nodes), activeIds, maxHops: configuredHops });
+  const paths = findPaths({ session, starts: startNodeIds(session, nodes), activeIds, maxHops: configuredHops, onWork: policy.onWork });
   const alternatives = buildAlternatives({ paths, nodes, need, policy });
   if (!alternatives.length) return { needId: need.needId, capability: need.capability, selected: false, verdict: 'unreachable', alternatives: [] };
   return { needId: need.needId, capability: need.capability, selected: true, verdict: 'route_selected', route: alternatives[0], alternatives };
