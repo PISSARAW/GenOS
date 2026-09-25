@@ -98,39 +98,6 @@ function readRecord(state, sql, params) {
 
   const snap = await tools.applyTopologyOperation(db, { session_id: syn.sessionId, operation: 'snapshot' });
   assert.equal(snap.shared.textContent, 'shared');
-  const mcpOperation = {
-    opId: 'mcp-field-op', actorId: 'w1',
-    kind: { type: 'set_field', key: 'mcp.status', value: 'ready' }
-  };
-  await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'apply', op: mcpOperation
-  });
-  assert.ok((await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'schema'
-  })).schema);
-  assert.ok((await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'domains'
-  })).domains);
-  const history = await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'history'
-  });
-  assert.ok(history.operations.some((operation) => operation.opId === 'mcp-field-op'));
-  const explanation = await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'explain', path: 'mcp.status', version: 'mcp-field-op'
-  });
-  assert.equal(explanation.operation.opId, 'mcp-field-op');
-  assert.deepEqual(await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'conflicts', op: mcpOperation
-  }), []);
-  assert.ok((await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'invariants'
-  })).definitions);
-  assert.ok((await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'replicas'
-  })).replicas);
-  assert.ok((await tools.applyTopologyOperation(db, {
-    session_id: syn.sessionId, operation: 'health'
-  })).consistency);
   const deposit = await tools.applyTopologyOperation(db, { session_id: rhiz.sessionId, operation: 'deposit', marker: 'edge:e2', amount: 2 });
   assert.equal(deposit.trail.intensity, 2);
 

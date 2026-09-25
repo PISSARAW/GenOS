@@ -10,27 +10,33 @@ Ce document fixe le vocabulaire de référence à partir de l’ADR [0043](../ad
 
 Les identifiants canoniques sont les noms runtime en `snake_case` retournés par `WorkerKind::name()`. Les familles sont celles de `family_of()`.
 
-| Famille | Identifiant | Responsabilité portée par le preset Rust |
-|---|---|---|
-| Sensorielle | `scout_cell` | Observation ponctuelle, lecture seule, dossier `scout_observation`, une itération. |
-| Sensorielle | `resident_daemon` | Observation résidente, sondes sûres et signalement des découvertes. |
-| Exécution | `bounded_worker` | Exécution bornée avec lease d’outils, sans spawn. |
-| Exécution | `adaptive_worker` | Exécution avec changements locaux de stratégie plafonnés. |
-| Exécution | `specialist` | Adaptation locale dans une niche déclarée. |
-| Exécution | `procedural_executor` | Exécution déterministe, lease solver, budget de tokens nul. |
-| Exécution | `symbiotic_worker` | Hôte procédural dont les capacités sont ajoutées au contrat. |
-| Épistémique | `verifier_worker` | Vérification indépendante, outils de test sûrs, rapport de vérification. |
-| Épistémique | `red_worker` | Revue adversariale fondée sur le preset de vérification. |
-| Épistémique | `experimental_worker` | Mission expérimentale avec dossier de mesures. |
-| Épistémique | `formal_worker` | Exécution déterministe avec certificat formel attendu. |
-| Épistémique | `synthesis_worker` | Synthèse conservant les désaccords, sans autorité d’écriture. |
-| Adaptation et réparation | `creative_worker` | Production de candidats créatifs, sans promotion directe. |
-| Adaptation et réparation | `medical_worker` | Diagnostic avec rapport clinique attendu. |
-| Adaptation et réparation | `recovery_worker` | Restauration via lease dédié et nombre d’itérations réduit. |
-| Adaptation et réparation | `forensic_worker` | Analyse causale post-incident avec dossier dédié. |
-| Organisationnelle | `liaison_worker` | Communication de pont entre groupes. |
-| Organisationnelle | `teaching_worker` | Transmission d’une procédure validée dans un paquet de formation. |
-| Organisationnelle | `sub_orchestrator` | Coordination locale avec spawn/délégation plafonnés. |
+| Famille | Identifiant | Garantie du preset Rust | Critère de complétude de bout en bout |
+|---|---|---|---|
+| Sensorielle | `scout_cell` | Lecture seule, une itération, dossier `scout_observation`. | Une action d’écriture/exécution est refusée et une observation sourcée passe. |
+| Sensorielle | `resident_daemon` | Sondes sûres, signalement de découvertes, durée non plafonnée. | Les sondes autorisées passent, les actions de mission restent refusées et un signal conserve sa provenance. |
+| Exécution | `bounded_worker` | Exécution bornée avec lease d’outils, sans spawn. | Une action du lease passe, une action hors lease et un spawn sont refusés. |
+| Exécution | `adaptive_worker` | Changements locaux de stratégie plafonnés. | Une stratégie autorisée passe et le dépassement du plafond est refusé. |
+| Exécution | `specialist` | Adaptation locale dans une niche déclarée. | Le contrat porte la niche et refuse toute capacité non accordée par celle-ci. |
+| Exécution | `procedural_executor` | Procédure déterministe, lease solver, zéro budget de tokens. | Seul le solver loué est accessible et son reçu valide l’exécution. |
+| Exécution | `symbiotic_worker` | Hôte procédural, capacités limitées par le contrat hôte. | L’intersection des capacités est appliquée ; une capacité excédentaire est refusée. |
+| Épistémique | `verifier_worker` | Vérification indépendante, tests sûrs, rapport de vérification. | Un verdict Accept/Reject/Unresolved étayé passe ; un verdict sans preuve échoue. |
+| Épistémique | `red_worker` | Revue adversariale issue du preset de vérification. | Un contre-exemple reproductible est accepté comme résultat ; la promotion directe est refusée. |
+| Épistémique | `experimental_worker` | Hypothèse, protocole et mesures dans un dossier dédié. | Les trois champs sont validés et les mesures sont rattachées au protocole. |
+| Épistémique | `formal_worker` | Exécution déterministe avec certificat attendu. | Le certificat identifie la proposition, le solveur et son résultat vérifiable. |
+| Épistémique | `synthesis_worker` | Synthèse préservant les désaccords, sans écriture. | Les sources et divergences matérielles sont conservées et l’écriture est refusée. |
+| Adaptation et réparation | `creative_worker` | Production de candidats sans promotion directe. | Le candidat inclut hypothèses et falsification ; toute promotion directe est refusée. |
+| Adaptation et réparation | `medical_worker` | Diagnostic avec rapport clinique attendu. | Diagnostics et incertitude sont sourcés ; aucune action clinique autonome n’est possible. |
+| Adaptation et réparation | `recovery_worker` | Restauration par lease dédié et trois itérations maximum. | Seule la restauration louée passe et l’état restauré est prouvé. |
+| Adaptation et réparation | `forensic_worker` | Analyse causale post-incident avec dossier dédié. | La chaîne causale référence les éléments observés et distingue faits et hypothèses. |
+| Organisationnelle | `liaison_worker` | Communication de pont entre groupes. | Le transfert conserve destinataires, références et provenance ; l’exécution est refusée. |
+| Organisationnelle | `teaching_worker` | Procédure validée transmise dans un paquet de formation. | Prérequis, étapes et preuves sont validés ; une procédure non étayée échoue. |
+| Organisationnelle | `sub_orchestrator` | Coordination locale bornée : 5 enfants, profondeur 1 dans le preset Rust. | Chaque enfant hérite d’un budget réduit et d’autorisations bornées ; toute limite dépassée est refusée. |
+
+Ces critères sont des exigences de livraison, pas une déclaration de capacité déjà disponible. Un type n’est complet que si les critères positifs et négatifs sont vérifiés dans le runtime concerné.
+
+### Critères communs
+
+Pour chaque type, la vérification doit couvrir : résolution de l’identifiant canonique, persistance et reconstruction du contrat, autorisation/refus des outils, validation de l’artefact attendu, provenance et propagation des échecs. Les scénarios de refus couvrent au minimum un type inconnu, une permission excédentaire et un artefact incomplet. Le critère `sub_orchestrator` ajoute le plafond de budget, la profondeur et l’arrêt des descendants.
 
 Source des contrats : [`presets.rs`](../../crates/genos-worker/src/presets.rs). La table décrit les garanties encodées par le preset ; elle ne prouve pas à elle seule leur application par les deux runtimes.
 
