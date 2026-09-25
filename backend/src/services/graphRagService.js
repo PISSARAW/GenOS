@@ -3,10 +3,7 @@
  * Recursive SQLite CTE traversal, Hippocampal Time Cells, and Vector Spreading Activation
  */
 
-const { cosineSimilarity, textToVector } = require('./memoryScoring');
-const MAX_GRAPH_QUERY_BYTES = 20 * 1024;
-const MAX_GRAPH_DOCUMENT_BYTES = 5 * 1024 * 1024;
-const MAX_GRAPH_QUERY_LIMIT = 50;
+const { cosineSimilarity } = require('./memoryScoring');
 
 function decodeEmbeddingBlob(blob) {
   if (!blob) return [];
@@ -19,81 +16,83 @@ function decodeEmbeddingBlob(blob) {
   return [];
 }
 
-function ragScope(options = {}) {
-  const organizationId = String(options.organizationId || '').trim();
-  const projectId = String(options.projectId || '').trim();
-  if (Boolean(organizationId) !== Boolean(projectId)) throw new Error('Organization and project scope must be provided together.');
-  if (!organizationId && !options.allowGlobal) throw new Error('An authorized tenant scope is required for GraphRAG.');
-  return { organizationId: organizationId || null, projectId: projectId || null };
-}
-
 /**
  * Traverses memory_synapses graph up to 2 hops using SQLite recursive CTE
  * @param {string[]} topIds
  * @param {object} db
  * @returns {Promise<object[]>}
  */
-function buildTraversalQuery(topIds, options) {
-  const tenant = options.tenant || options;
-  const ownerClause = options.ownerId ? ' AND gd.created_by = ?' : '';
-  const nodeScope = tenant.organizationId ? ' AND (gd.organization_id = ? OR gd.organization_id IS NULL)' : '';
-  const orgScope = tenant.organizationId ? ' AND (ms.organization_id = ? OR ms.organization_id IS NULL)' : '';
-  const projectScope = tenant.projectId ? ' AND (ms.project_id = ? OR ms.project_id IS NULL)' : '';
-  const params = [...topIds];
-  if (options.ownerId) params.push(options.ownerId);
-  if (tenant.organizationId) params.push(tenant.organizationId, tenant.organizationId);
-  if (tenant.projectId) params.push(tenant.projectId);
-  return {
-    params,
-    sql: `
+async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {}) {
+  if (!db || !topIds.length) return [];
+
+  const placeholders = topIds.map(() => '?').join(',');
+  try {
+    const ownerClause = ownerId ? ' AND gd.created_by = ?' : '';
+    const orgClause = tenant.organizationId ? ' AND (gd.organization_id = ? OR gd.organization_id IS NULL)' : '';
+    const synapseOrgClause = tenant.organizationId ? ' AND (ms.organization_id = ? OR ms.organization_id IS NULL)' : '';
+    const synapseProjectClause = tenant.projectId ? ' AND (ms.project_id = ? OR ms.project_id IS NULL)' : '';
+    const queryParams = [...topIds];
+    if (ownerId) queryParams.push(ownerId);
+    if (tenant.organizationId) queryParams.push(tenant.organizationId);
+    if (tenant.projectId) queryParams.push(tenant.projectId);
+    if (tenant.organizationId) queryParams.push(tenant.organizationId);
+
+    const synapses = await db.all(`
       WITH RECURSIVE
         traverse(id, depth, weight) AS (
-          SELECT id, 0, 1.0 FROM genome_decisions gd WHERE id IN (${topIds.map(() => '?').join(',')})${ownerClause}${nodeScope}
+          SELECT id, 0, 1.0 FROM genome_decisions gd WHERE id IN (${placeholders})${ownerClause}${orgClause}
           UNION
           SELECT
             CASE WHEN ms.source_id = t.id THEN ms.target_id ELSE ms.source_id END,
             t.depth + 1,
             t.weight * (MIN(2.0, ms.weight) / 2.0)
           FROM traverse t
-          JOIN memory_synapses ms ON (ms.source_id = t.id OR ms.target_id = t.id)${orgScope}${projectScope}
+          JOIN memory_synapses ms ON (ms.source_id = t.id OR ms.target_id = t.id)${synapseOrgClause}${synapseProjectClause}
           WHERE t.depth < 2 AND ms.weight > 0 AND (ms.transmitter_type IS NULL OR ms.transmitter_type != 'gaba')
         )
-      SELECT id, depth, weight FROM traverse WHERE depth > 0 ORDER BY weight DESC, depth ASC LIMIT 15`
-  };
-}
+      SELECT id, depth, weight FROM traverse WHERE depth > 0
+      ORDER BY weight DESC, depth ASC LIMIT 15
+    `, queryParams);
 
-function collectEdgeWeights(synapses, topIds) {
-  const weights = new Map();
-  for (const edge of synapses) {
-    if (topIds.includes(edge.id)) continue;
-    if (!weights.has(edge.id) || edge.weight > weights.get(edge.id)) weights.set(edge.id, edge.weight);
-  }
-  return weights;
-}
+    const linkedIds = [];
+    const synapseWeightById = new Map();
+    for (const s of synapses) {
+      if (!topIds.includes(s.id)) {
+        linkedIds.push(s.id);
+        if (!synapseWeightById.has(s.id) || s.weight > synapseWeightById.get(s.id)) {
+          synapseWeightById.set(s.id, s.weight);
+        }
+      }
+    }
+    const uniqueLinkedIds = [...new Set(linkedIds)];
+    if (!uniqueLinkedIds.length) return [];
 
-async function fetchConnectedDecisions(ids, db, options) {
-  const tenant = options.tenant || options;
-  const ownerId = options.ownerId || '';
-  const clauses = [ownerId ? ' AND created_by = ?' : '', tenant.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : '', tenant.projectId ? ' AND (project_id = ? OR project_id IS NULL)' : ''];
-  const params = [...ids, ...(ownerId ? [ownerId] : []), ...(tenant.organizationId ? [tenant.organizationId] : []), ...(tenant.projectId ? [tenant.projectId] : [])];
-  return db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE id IN (${ids.map(() => '?').join(',')})${clauses.join('')}`, ...params);
-}
+    const linkedPlaceholders = uniqueLinkedIds.map(() => '?').join(',');
+    const connectedDecisions = await db.all(
+      `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE id IN (${linkedPlaceholders})${ownerId ? ' AND created_by = ?' : ''}${tenant.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : ''}${tenant.projectId ? ' AND (project_id = ? OR project_id IS NULL)' : ''}`,
+      [...uniqueLinkedIds, ...(ownerId ? [ownerId] : []), ...(tenant.organizationId ? [tenant.organizationId] : []), ...(tenant.projectId ? [tenant.projectId] : [])]
+    );
 
-function mapConnectedDecision(item, weights) {
-  const edgeWeight = weights.get(item.id) ?? 1.0;
-  const score = Number(((item.synaptic_weight || 1.0) * 0.4 * Math.min(2.5, Math.max(0.1, edgeWeight))).toFixed(4));
-  return { id: item.id, title: item.title, category: item.category, status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS', summary: item.content, tags: ['genome', item.category, 'graph_association'], author: item.created_by, createdAt: item.created_at, vector: decodeEmbeddingBlob(item.embedding_blob), synaptic_weight: item.synaptic_weight || 1.0, similarityScore: score, cosineMetric: 0.5, synaptic_edge_weight: Number(edgeWeight.toFixed(4)) };
-}
-
-async function traverseSynapses(topIds = [], db = null, options = {}) {
-  if (!db || !topIds.length) return [];
-  try {
-    const plan = buildTraversalQuery(topIds, options);
-    const edges = await db.all(plan.sql, ...plan.params);
-    const weights = collectEdgeWeights(edges, topIds);
-    if (!weights.size) return [];
-    const decisions = await fetchConnectedDecisions([...weights.keys()], db, options);
-    return decisions.map((item) => mapConnectedDecision(item, weights));
+    return connectedDecisions.map(item => {
+      const edgeWeight = synapseWeightById.get(item.id) ?? 1.0;
+      const normalizedEdge = Math.min(2.5, Math.max(0.1, edgeWeight));
+      const score = Number(((item.synaptic_weight || 1.0) * 0.4 * normalizedEdge).toFixed(4));
+      return {
+        id: item.id,
+        title: item.title,
+        category: item.category,
+        status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
+        summary: item.content,
+        tags: ['genome', item.category, 'graph_association'],
+        author: item.created_by,
+        createdAt: item.created_at,
+        vector: decodeEmbeddingBlob(item.embedding_blob),
+        synaptic_weight: item.synaptic_weight || 1.0,
+        similarityScore: score,
+        cosineMetric: 0.5,
+        synaptic_edge_weight: Number(edgeWeight.toFixed(4))
+      };
+    });
   } catch {
     return [];
   }
@@ -207,7 +206,7 @@ async function expandGraphRag(topItems = [], db = null, options = {}) {
 
   // 1. Spreading Activation through physical synapses
   if (topIds.length > 0 && db) {
-    const synapticNeighbors = await traverseSynapses(topIds, db, options);
+    const synapticNeighbors = await traverseSynapses(topIds, db, options.ownerId || '', { organizationId: options.organizationId, projectId: options.projectId });
     for (const item of synapticNeighbors) {
       if (!topItems.find(t => t.id === item.id) && !connectedItems.find(c => c.id === item.id)) {
         connectedItems.push(item);
@@ -271,11 +270,8 @@ const { getDatabase } = require('../db');
  * @param {object} dbInstance
  * @returns {Promise<{ docId: string, entitiesCount: number, relationsCount: number }>}
  */
-async function ingestDocument(docId, text, options = {}) {
-  const scope = ragScope(options);
-  if (typeof docId !== 'string' || !docId.trim() || docId.length > 256) throw new Error('Document id must be a non-empty string of at most 256 characters.');
-  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > MAX_GRAPH_DOCUMENT_BYTES) throw new Error('Document text exceeds the configured size limit.');
-  const db = options.dbInstance || await getDatabase();
+async function ingestDocument(docId, text, dbInstance = null) {
+  const db = dbInstance || await getDatabase();
   const { entities, relations } = await nerService.extractEntities(text);
 
   const content = String(text || '').slice(0, 1000);
@@ -284,21 +280,13 @@ async function ingestDocument(docId, text, options = {}) {
   const vec = (await embed(content)) || textToVector(content);
   const float32 = new Float32Array(vec);
   const buffer = Buffer.from(float32.buffer);
-  const existing = await db.get('SELECT organization_id, project_id FROM genome_decisions WHERE id = ?', docId);
-  if (existing && (existing.organization_id !== scope.organizationId || existing.project_id !== scope.projectId)) {
-    throw new Error('Document id already belongs to another memory scope.');
-  }
   await db.run(
-    `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
-     VALUES (?, ?, ?, ?, 'graph_rag', 'document', 1.0, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET title = excluded.title, content = excluded.content,
-       embedding_blob = excluded.embedding_blob, category = excluded.category
-     WHERE genome_decisions.organization_id IS excluded.organization_id
-       AND genome_decisions.project_id IS excluded.project_id`,
-    docId, title, content, buffer, scope.organizationId, scope.projectId
+    `INSERT OR REPLACE INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight)
+     VALUES (?, ?, ?, ?, 'graph_rag', 'document', 1.0)`,
+    docId, title, content, buffer
   );
 
-  const enriched = await nerService.enrichKnowledgeGraph(db, { text, decisionId: docId, scope });
+  const enriched = await nerService.enrichKnowledgeGraph(db, text, docId);
 
   return {
     docId,
@@ -315,45 +303,44 @@ async function ingestDocument(docId, text, options = {}) {
  * @param {object} dbInstance
  * @returns {Promise<{ nodes: object[], synthesis: string }>}
  */
-async function findMatchingDecisions(query, db, scope, limit) {
-  const { entities } = await nerService.extractEntities(query);
-  const entityTerms = entities.slice(0, 50).map((entity) => entity.text);
-  const tenantSql = scope.organizationId
-    ? ' AND (organization_id = ? OR organization_id IS NULL) AND (project_id = ? OR project_id IS NULL)'
-    : '';
-  const tenantParams = scope.organizationId ? [scope.organizationId, scope.projectId] : [];
-  if (entityTerms.length) {
-    const termsSql = entityTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
-    const termParams = entityTerms.flatMap((term) => [`%${term}%`, `%${term}%`]);
-    const matches = await db.all(`SELECT id, title, category, content, synaptic_weight FROM genome_decisions WHERE ${termsSql}${tenantSql} ORDER BY synaptic_weight DESC LIMIT ?`, ...termParams, ...tenantParams, limit);
-    if (matches.length) return matches;
-  }
-  return db.all(`SELECT id, title, category, content, synaptic_weight FROM genome_decisions WHERE (title LIKE ? OR content LIKE ?)${tenantSql} ORDER BY synaptic_weight DESC LIMIT ?`, `%${query}%`, `%${query}%`, ...tenantParams, limit);
-}
-
-function boundedGraphLimit(value) {
-  const limit = Number(value);
-  return Number.isSafeInteger(limit) ? Math.max(1, Math.min(limit, MAX_GRAPH_QUERY_LIMIT)) : 5;
-}
-
-function graphSynthesis(query, nodes) {
-  const labels = nodes.map((node) => node.title || node.label || node.id);
-  return `Found ${nodes.length} graph node(s) linked to '${query}': ${labels.slice(0, 3).join(', ')}`;
-}
-
-async function queryKnowledgeGraph(query, options = {}) {
-  const scope = ragScope(options);
-  const db = options.dbInstance || await getDatabase();
+async function queryKnowledgeGraph(query, limit = 5, dbInstance = null) {
+  const db = dbInstance || await getDatabase();
   const q = String(query || '').trim();
   if (!q) return { nodes: [], synthesis: 'Empty query' };
-  if (Buffer.byteLength(q, 'utf8') > MAX_GRAPH_QUERY_BYTES) throw new Error('GraphRAG query exceeds the configured size limit.');
-  const boundedLimit = boundedGraphLimit(options.limit);
-  const matchedDecisions = await findMatchingDecisions(q, db, scope, boundedLimit);
-  const topIds = matchedDecisions.map(d => d.id);
-  const synapticNeighbors = await traverseSynapses(topIds, db, scope);
 
-  const allNodes = [...matchedDecisions, ...synapticNeighbors].slice(0, boundedLimit * 2);
-  return { nodes: allNodes, synthesis: graphSynthesis(q, allNodes) };
+  const { entities } = await nerService.extractEntities(q);
+  const entityTerms = entities.map(e => e.text);
+
+  let matchedDecisions = [];
+  if (entityTerms.length > 0) {
+    const placeholders = entityTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
+    const params = entityTerms.flatMap(t => [`%${t}%`, `%${t}%`]);
+    matchedDecisions = await db.all(
+      `SELECT id, title, category, content, synaptic_weight FROM genome_decisions
+       WHERE ${placeholders} ORDER BY synaptic_weight DESC LIMIT ?`,
+      ...params, limit
+    );
+  }
+
+  if (matchedDecisions.length === 0) {
+    matchedDecisions = await db.all(
+      `SELECT id, title, category, content, synaptic_weight FROM genome_decisions
+       WHERE title LIKE ? OR content LIKE ? ORDER BY synaptic_weight DESC LIMIT ?`,
+      `%${q}%`, `%${q}%`, limit
+    );
+  }
+
+  const topIds = matchedDecisions.map(d => d.id);
+  const synapticNeighbors = await traverseSynapses(topIds, db);
+
+  const allNodes = [...matchedDecisions, ...synapticNeighbors].slice(0, limit * 2);
+  const labels = allNodes.map(n => n.title || n.label || n.id);
+  const synthesis = `Found ${allNodes.length} graph node(s) linked to '${q}': ${labels.slice(0, 3).join(', ')}`;
+
+  return {
+    nodes: allNodes,
+    synthesis
+  };
 }
 
 module.exports = {

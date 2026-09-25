@@ -1,17 +1,22 @@
 /**
  * @file consciousnessTransfer.js
- * @description Biomimetic & Temporal handler for Consciousness Transfer (Groundhog Day / Edge of Tomorrow Replay).
- * Restores physical/workspace baseline state S(t0) while preserving and injecting the entire
- * episodic memory and causal knowledge graph accumulated up to t_future into the restored agent.
+ * @description Registry-only temporal replay simulation; it does not restore an agent runtime.
  */
 
 'use strict';
 
 const consciousnessRegistry = new Map(); /* persisterHook: consciousnessRegistry */
+const MAX_REGISTRY_ENTRIES = 1000;
+
+function registryMap() {
+  return module.exports.consciousnessRegistry || consciousnessRegistry;
+}
 
 function getOrCreateConsciousness(agentId, baselineId = 'snap-baseline-t0') {
-  if (!consciousnessRegistry.has(agentId)) {
-    consciousnessRegistry.set(agentId, {
+  const registry = registryMap();
+  if (!registry.has(agentId)) {
+    if (registry.size >= MAX_REGISTRY_ENTRIES) throw new Error('Replay simulation registry capacity reached.');
+    registry.set(agentId, {
       agent_id: agentId,
       current_iteration: 1,
       baseline_snapshot_id: baselineId,
@@ -21,42 +26,26 @@ function getOrCreateConsciousness(agentId, baselineId = 'snap-baseline-t0') {
       created_at: new Date().toISOString()
     });
   }
-  return consciousnessRegistry.get(agentId);
+  return registry.get(agentId);
 }
 
 function executeConsciousnessTransfer(record, baselineId, futureMemories = []) {
-  if (baselineId) {
-    record.baseline_snapshot_id = baselineId;
-  }
-  const newMemories = Array.isArray(futureMemories) ? futureMemories : [];
-  for (const mem of newMemories) {
-    record.cumulative_memories.push({
-      memory: mem,
-      iteration_origin: record.current_iteration,
-      injected_at: new Date().toISOString()
-    });
-  }
-  record.current_iteration += 1;
-  record.transferred_failures_count += newMemories.length;
-  record.last_transfer_at = new Date().toISOString();
-
   return {
     configured: true,
-    success: true,
-    status: 'consciousness_transferred',
+    success: false,
+    status: 'not_implemented',
     transport: 'temporal_consciousness_transfer_engine',
     action: 'execute_transfer',
     agent_id: record.agent_id,
-    new_iteration: record.current_iteration,
-    restored_baseline: record.baseline_snapshot_id,
-    total_preserved_memories: record.cumulative_memories.length,
-    injected_memories_count: newMemories.length,
-    output: `Consciousness transferred to baseline '${record.baseline_snapshot_id}'. Agent restarted at iteration #${record.current_iteration} with ${record.cumulative_memories.length} forward memories intact.`
+    restored_baseline: baselineId || record.baseline_snapshot_id,
+    injected_memories_count: Array.isArray(futureMemories) ? futureMemories.length : 0,
+    output: 'Replay was not executed: this handler has no snapshot restore or runtime memory injection adapter.'
   };
 }
 
 function handleConsciousnessTransfer(params = {}) {
   const agentId = params.agent_id || params.target_id || 'agent-time-traveler-1';
+  if (typeof agentId !== 'string' || agentId.length > 128) throw new Error('Replay simulation agent id must be a string of at most 128 characters.');
   const record = getOrCreateConsciousness(agentId, params.baseline_snapshot_id);
   const action = params.action || 'status';
 
@@ -67,7 +56,7 @@ function handleConsciousnessTransfer(params = {}) {
   return {
     configured: true,
     success: true,
-    status: 'active',
+    status: 'simulation_only',
     transport: 'temporal_consciousness_transfer_engine',
     action: 'status',
     agent_id: record.agent_id,
@@ -75,7 +64,7 @@ function handleConsciousnessTransfer(params = {}) {
     baseline_snapshot_id: record.baseline_snapshot_id,
     cumulative_memories_count: record.cumulative_memories.length,
     last_transfer_at: record.last_transfer_at,
-    output: `Consciousness transfer engine active for '${agentId}': iteration #${record.current_iteration}, memories=${record.cumulative_memories.length}.`
+    output: `Registry simulation for '${agentId}': iteration #${record.current_iteration}, memories=${record.cumulative_memories.length}. No agent state was transferred.`
   };
 }
 
@@ -105,11 +94,7 @@ function _ensureconsciousnessRegistryPersistent() {
     const mapToUse = stored && stored.size ? stored : consciousnessRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::consciousness_transfer', 'consciousnessRegistry', mapToUse) : mapToUse;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'consciousnessRegistry', {
-      value: persistentMap,
-      writable: true,
-      configurable: true
-    });
+    module.exports.consciousnessRegistry = persistentMap;
     _consciousnessRegistryPersistent = true;
   } catch (_) { /* best-effort */ }
 }
@@ -137,8 +122,6 @@ function onMutation(snapshot) {
   // La Map est déjà persistée par le proxy ; on ne fait rien de plus.
 }
 
-_ensureconsciousnessRegistryPersistent();
-
 module.exports = {
   handleConsciousnessTransfer,
   handleConsciousnessError,
@@ -146,4 +129,6 @@ module.exports = {
   setAdaptivePersister,
   getAdaptivePersister,
   getSnapshot,
-  onMutation};
+  onMutation
+};
+

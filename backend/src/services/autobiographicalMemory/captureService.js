@@ -63,17 +63,11 @@ function outcomeFromEvent(event, payload) {
   };
 }
 
-function firstValue(...values) {
-  return values.find(Boolean) || null;
-}
-
 function episodeFromEvent(event, kind, salienceResult) {
   const payload = event.payload || {};
   return {
-    agentId: firstValue(event.agentId, 'orchestrator'),
-    missionId: firstValue(payload.missionId, payload.executionRunId, payload.runId),
-    organizationId: firstValue(payload.organizationId, payload.organization_id, event.organizationId),
-    projectId: firstValue(payload.projectId, payload.project_id, event.projectId),
+    agentId: event.agentId || 'orchestrator',
+    missionId: payload.missionId || payload.executionRunId || payload.runId || null,
     kind,
     salience: salienceResult.salience,
     situation: situationFromEvent(event, payload),

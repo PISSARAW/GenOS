@@ -41,6 +41,10 @@ Pipeline d'exécution (ordre critique) :
 5. **EventBus** — notification push (après coalescing)
 6. **Plasticité** — renforcement/dépression des canaux
 
+La publication échoue maintenant avec `SIGNAL_PERSISTENCE_FAILED` si la
+persistance échoue après les reprises; un signal non persisté n'est jamais rendu
+comme publié.
+
 ```js
 // Publication typique
 await signalingTransportService.publishSignal({

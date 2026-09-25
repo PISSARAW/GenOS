@@ -82,7 +82,7 @@ async function runSynapticIntegritySuite() {
     idSource, idTargetGaba, 'gaba', testOrg, testProj
   );
 
-  const traversed = await graphRag.traverseSynapses([idSource], db, { ownerId: testAgent, organizationId: testOrg });
+  const traversed = await graphRag.traverseSynapses([idSource], db, testAgent, { organizationId: testOrg });
   const hasExcitatory = traversed.some(n => n.id === idTargetA);
   const hasGaba = traversed.some(n => n.id === idTargetGaba);
   check(hasExcitatory, 'GraphRAG successfully propagated across excitatory glutamate synapse');

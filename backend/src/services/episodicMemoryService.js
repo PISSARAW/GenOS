@@ -4,7 +4,7 @@
  */
 
 const crypto = require('crypto');
-const { getDatabase, withTransaction } = require('../db');
+const { getDatabase } = require('../db');
 const DEFAULT_MAX_EPISODE_FIELD_BYTES = 1024 * 1024;
 const DEFAULT_MAX_EPISODE_BYTES = 4 * 1024 * 1024;
 
@@ -75,8 +75,6 @@ function normalizeEpisodeFields(episode) {
   return {
     id: defaultEpisodeId(episode),
     agentId: firstTruthy(episode.agent_id, episode.agentId, 'unknown'),
-    organizationId: firstTruthy(episode.organization_id, episode.organizationId, null),
-    projectId: firstTruthy(episode.project_id, episode.projectId, null),
     sessionId: firstTruthy(episode.session_id, episode.sessionId, null),
     taskId: firstTruthy(episode.task_id, episode.taskId, null),
     turnNumber: normalizeTurnNumber(episode),
@@ -98,13 +96,6 @@ function isValidReward(rewardScore) {
 }
 
 function validateEpisodeFields(fields) {
-  validateEpisodePayloadSize(fields);
-  validateTenantPair(fields.organizationId, fields.projectId);
-  validateEpisodeIdentifiers(fields);
-  if (!isValidReward(fields.rewardScore)) throw new Error('rewardScore must be a finite number between 0 and 1.');
-}
-
-function validateEpisodePayloadSize(fields) {
   const limits = episodeLimits();
   const entries = [
     ['context_state', fields.contextState],
@@ -119,18 +110,8 @@ function validateEpisodePayloadSize(fields) {
   if (totalFieldBytes(fields) > limits.maxBytes) {
     throw new Error(`Episode exceeds the ${limits.maxBytes}-byte limit.`);
   }
-}
-
-function validateTenantPair(organizationId, projectId) {
-  if (Boolean(organizationId) !== Boolean(projectId)) throw new Error('Organization and project scope must be provided together.');
-}
-
-function validateEpisodeIdentifiers(fields) {
-  for (const name of ['id', 'agentId', 'organizationId', 'projectId', 'sessionId', 'taskId', 'actionType']) {
-    const value = fields[name];
-    if (value !== null && value !== undefined && (typeof value !== 'string' || value.length > 256 || /[\u0000-\u001f]/.test(value))) {
-      throw new Error(`Episode ${name} must be a string of at most 256 characters without control characters.`);
-    }
+  if (!isValidReward(fields.rewardScore)) {
+    throw new Error('rewardScore must be a finite number between 0 and 1.');
   }
 }
 
@@ -144,16 +125,16 @@ async function recordEpisode(episode = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
   const fields = normalizeEpisodeFields(episode);
   validateEpisodeFields(fields);
-  const isConsolidated = 0;
+  const isConsolidated = firstNonNull(episode.is_consolidated, episode.isConsolidated) ? 1 : 0;
   const createdAt = defaultCreatedAt(episode);
 
   await db.run(
     `INSERT INTO episodic_memories (
-      id, agent_id, organization_id, project_id, session_id, task_id, turn_number,
+      id, agent_id, session_id, task_id, turn_number,
       action_type, context_state, action_input, observation_output,
       reward_score, is_consolidated, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    fields.id, fields.agentId, fields.organizationId, fields.projectId, fields.sessionId, fields.taskId, fields.turnNumber,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    fields.id, fields.agentId, fields.sessionId, fields.taskId, fields.turnNumber,
     fields.actionType, fields.contextState, fields.actionInput, fields.observationOutput,
     fields.rewardScore, isConsolidated, createdAt
   );
@@ -161,8 +142,6 @@ async function recordEpisode(episode = {}, dbOverride = null) {
   return {
     id: fields.id,
     agentId: fields.agentId,
-    organizationId: fields.organizationId,
-    projectId: fields.projectId,
     sessionId: fields.sessionId,
     taskId: fields.taskId,
     turnNumber: fields.turnNumber,
@@ -184,7 +163,7 @@ async function recordEpisode(episode = {}, dbOverride = null) {
  */
 async function getRecentEpisodes(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
-  const { agentId, organizationId, projectId, sessionId, taskId, unconsolidatedOnly = false, limit = 50, offset = 0 } = options;
+  const { agentId, sessionId, taskId, unconsolidatedOnly = false, limit = 50, offset = 0 } = options;
 
   let query = 'SELECT * FROM episodic_memories WHERE is_purged = 0';
   const params = [];
@@ -193,10 +172,6 @@ async function getRecentEpisodes(options = {}, dbOverride = null) {
     query += ' AND agent_id = ?';
     params.push(agentId);
   }
-  if (organizationId) { query += ' AND organization_id = ?'; params.push(organizationId); }
-  if (projectId) { query += ' AND project_id = ?'; params.push(projectId); }
-  if (Boolean(organizationId) !== Boolean(projectId)) throw new Error('Organization and project scope must be provided together.');
-  if (!organizationId) query += ' AND organization_id IS NULL AND project_id IS NULL';
   if (sessionId) {
     query += ' AND session_id = ?';
     params.push(sessionId);
@@ -210,14 +185,12 @@ async function getRecentEpisodes(options = {}, dbOverride = null) {
   }
 
   query += ' ORDER BY created_at DESC, turn_number DESC LIMIT ? OFFSET ?';
-  params.push(boundedInteger(limit, { fallback: 50, minimum: 1, maximum: 500 }), boundedInteger(offset, { fallback: 0, minimum: 0, maximum: 100000 }));
+  params.push(Math.max(1, limit), Math.max(0, offset));
 
   const rows = await db.all(query, ...params);
   return rows.map(r => ({
     id: r.id,
     agentId: r.agent_id,
-    organizationId: r.organization_id,
-    projectId: r.project_id,
     sessionId: r.session_id,
     taskId: r.task_id,
     turnNumber: r.turn_number,
@@ -231,13 +204,6 @@ async function getRecentEpisodes(options = {}, dbOverride = null) {
   }));
 }
 
-function boundedInteger(value, limits) {
-  const { fallback, minimum, maximum } = limits;
-  const number = Number(value);
-  if (!Number.isSafeInteger(number)) return fallback;
-  return Math.max(minimum, Math.min(maximum, number));
-}
-
 function normalizeThreshold(scoreThreshold) {
   const threshold = Number(scoreThreshold);
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
@@ -246,10 +212,8 @@ function normalizeThreshold(scoreThreshold) {
   return threshold;
 }
 
-function consolidationFilter(options) {
-  const { agentId, sessionId, organizationId, projectId } = options;
-  if (Boolean(organizationId) !== Boolean(projectId)) throw new Error('Organization and project scope must be provided together.');
-  let query = 'SELECT id, reward_score FROM episodic_memories WHERE is_purged = 0 AND is_consolidated = 0';
+function consolidationFilter(agentId, sessionId) {
+  let query = 'SELECT id, reward_score FROM episodic_memories WHERE is_consolidated = 0';
   const params = [];
   if (agentId) {
     query += ' AND agent_id = ?';
@@ -259,8 +223,6 @@ function consolidationFilter(options) {
     query += ' AND session_id = ?';
     params.push(sessionId);
   }
-  if (organizationId) { query += ' AND organization_id = ?'; params.push(organizationId); }
-  if (projectId) { query += ' AND project_id = ?'; params.push(projectId); }
   return { query, params };
 }
 
@@ -303,24 +265,22 @@ async function runIdBatches(db, ids, buildStatement) {
  */
 async function consolidateEpisodes(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
-  const { agentId, organizationId, projectId, sessionId, scoreThreshold = 0.7, purgeBelowThreshold = false } = options;
+  const { agentId, sessionId, scoreThreshold = 0.7, purgeBelowThreshold = false } = options;
   const threshold = normalizeThreshold(scoreThreshold);
-  return withTransaction(db, async (tx) => {
-    const { query, params } = consolidationFilter({ agentId, sessionId, organizationId, projectId });
-    const unconsolidated = await tx.all(query, ...params);
-    const { consolidatedIds, purgedIds } = classifyEpisodes(unconsolidated, threshold, purgeBelowThreshold);
+  const { query, params } = consolidationFilter(agentId, sessionId);
+  const unconsolidated = await db.all(query, ...params);
+  const { consolidatedIds, purgedIds } = classifyEpisodes(unconsolidated, threshold, purgeBelowThreshold);
 
-    await runIdBatches(tx, consolidatedIds, (placeholders) => `${consolidateStatement(placeholders)} AND is_purged = 0 AND is_consolidated = 0`);
-    await runIdBatches(tx, purgedIds, (placeholders) => `${purgeStatement(placeholders)} AND is_purged = 0 AND is_consolidated = 0`);
+  await runIdBatches(db, consolidatedIds, consolidateStatement);
+  await runIdBatches(db, purgedIds, purgeStatement);
 
-    return {
-      consolidatedCount: consolidatedIds.length,
-      purgedCount: purgedIds.length,
-      totalProcessed: unconsolidated.length,
-      consolidatedIds,
-      purgedIds
-    };
-  });
+  return {
+    consolidatedCount: consolidatedIds.length,
+    purgedCount: purgedIds.length,
+    totalProcessed: unconsolidated.length,
+    consolidatedIds,
+    purgedIds
+  };
 }
 
 /**
@@ -329,19 +289,13 @@ async function consolidateEpisodes(options = {}, dbOverride = null) {
  * @param {object} [dbOverride]
  * @returns {Promise<object|null>}
  */
-async function getEpisodeById(id, dbOverride = null, options = {}) {
+async function getEpisodeById(id, dbOverride = null) {
   const db = dbOverride || await getDatabase();
-  const organizationId = options.organizationId || null;
-  const projectId = options.projectId || null;
-  if (Boolean(organizationId) !== Boolean(projectId)) throw new Error('Organization and project scope must be provided together.');
-  const r = await db.get(`SELECT * FROM episodic_memories WHERE id = ? AND is_purged = 0
-    AND organization_id IS ? AND project_id IS ?`, id, organizationId, projectId);
+  const r = await db.get('SELECT * FROM episodic_memories WHERE id = ?', id);
   if (!r) return null;
   return {
     id: r.id,
     agentId: r.agent_id,
-    organizationId: r.organization_id,
-    projectId: r.project_id,
     sessionId: r.session_id,
     taskId: r.task_id,
     turnNumber: r.turn_number,

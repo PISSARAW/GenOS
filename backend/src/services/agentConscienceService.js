@@ -15,8 +15,6 @@ const DEFAULT_MAX_DISSONANCE = config.maxDissonance();
 const DEFAULT_BASELINE_BUDGET = Math.max(1.0, Number(process.env.GENOS_BASELINE_BUDGET) || 100.0);
 const DEFAULT_EUREKA_WINDOW_MS = 60 * 1000;
 const DEFAULT_EUREKA_LIMIT = 3;
-const persistTails = new Map();
-const { resolveConflictIntoState } = require('./conscienceMerge');
 
 function createCognitiveRegulationState(initial = {}) {
   const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -33,16 +31,21 @@ function createCognitiveRegulationState(initial = {}) {
   };
 }
 
+function boundedMetric(value, min, max) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : min;
+}
+
 function summarizeMetrics(metrics) {
   const input = metrics || {};
   const cognitiveHealth = input.cognitiveHealth || {};
   const rawHealth = cognitiveHealth.health_score === undefined ? 1 : cognitiveHealth.health_score;
   return {
-    errorsInLoop: Math.max(0, Number(input.errorsInLoop) || 0),
-    progressScore: Math.max(0, Number(input.progressScore) || 0),
-    repetitionScore: Math.max(0, Number(cognitiveHealth.repetition_score) || 0),
-    semanticDrift: Math.max(0, Number(cognitiveHealth.semantic_drift) || 0),
-    healthScore: Math.max(0, Math.min(1, Number(rawHealth)))
+    errorsInLoop: Math.floor(boundedMetric(input.errorsInLoop, 0, 100)),
+    progressScore: boundedMetric(input.progressScore, 0, 10),
+    repetitionScore: boundedMetric(cognitiveHealth.repetition_score, 0, 1),
+    semanticDrift: boundedMetric(cognitiveHealth.semantic_drift, 0, 1),
+    healthScore: boundedMetric(rawHealth, 0, 1, 0)
   };
 }
 
@@ -106,20 +109,24 @@ function evaluateBranch(state, metrics = {}) {
  * sans évidence, no-op (un Eurêka gratuit fausserait la régulation).
  * Rate-limit : au plus `limit` Eurêkas par `windowMs` (défaut 3/min).
  */
-function hasEurekaEvidence(options) {
-  const opts = options || {};
-  if (opts.validated === true) return true;
-  const evidence = opts.evidence;
-  if (evidence === undefined || evidence === null) return false;
-  if (typeof evidence === 'string') return evidence.trim().length > 0;
-  if (Array.isArray(evidence)) return evidence.length > 0;
-  if (typeof evidence === 'object') return Object.keys(evidence).length > 0;
-  return true;
+function isEurekaEvidenceItem(item) {
+  if (typeof item === 'string') return item.trim().length > 0;
+  return Boolean(item && typeof item === 'object' && Object.keys(item).length > 0);
 }
 
-function triggerEureka(state, options = {}) {
-  if (state.isApoptotic) return state;
-  if (!hasEurekaEvidence(options)) return state;
+function isSubstantiatedEurekaClaim(claim) {
+  return Array.isArray(claim?.evidence) && claim.evidence.some(isEurekaEvidenceItem);
+}
+
+function hasEurekaEvidence(options) {
+  const evidence = options?.evidence;
+  return evidence?.source === 'genos-evidence-gate'
+    && Array.isArray(evidence.claims)
+    && Boolean(evidence.artifact?.type && evidence.artifact?.content && evidence.artifact?.provenance)
+    && evidence.claims.some(isSubstantiatedEurekaClaim);
+}
+
+function prepareEurekaWindow(state, options) {
   const now = Number(options.now || Date.now());
   const windowMs = Math.max(1, Number(options.windowMs || DEFAULT_EUREKA_WINDOW_MS));
   const limit = Math.max(1, Math.floor(Number(options.limit || DEFAULT_EUREKA_LIMIT)));
@@ -127,7 +134,11 @@ function triggerEureka(state, options = {}) {
     state.eurekaWindowStartedAt = now;
     state.eurekaWindowCount = 0;
   }
-  if (state.eurekaWindowCount >= limit) return state;
+  return state.eurekaWindowCount < limit;
+}
+
+function triggerEureka(state, options = {}) {
+  if (state.isApoptotic || !hasEurekaEvidence(options) || !prepareEurekaWindow(state, options)) return state;
   state.eurekaWindowCount += 1;
   state.eurekaMoments += 1;
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel / 2.0);
@@ -162,90 +173,6 @@ function formatCognitiveRegulationPrompt(state) {
 // Rétrocompatibilité
 const formatConsciencePrompt = formatCognitiveRegulationPrompt;
 const createConscienceState = createCognitiveRegulationState;
-
-async function persistCognitiveRegulationState(..._args) {
-  const [db, agentId, state, options] = _args;
-  const opts = options || {};
-  const previousTail = persistTails.get(agentId) || Promise.resolve();
-  const operation = previousTail.catch(() => {}).then(() => { return persistStateNow(db, agentId, state, true, opts); });
-  const tracked = operation.catch(() => {}).finally(() => {
-    if (persistTails.get(agentId) === tracked) persistTails.delete(agentId);
-  });
-  persistTails.set(agentId, tracked);
-  return operation;
-}
-
-async function recordCognitiveRegulationTransition(db, transition) {
-  const options = transition.options || {};
-  const reason = String(options.reason || 'evaluation');
-  const fromApoptotic = transition.previous.is_apoptotic ? 1 : 0;
-  const toApoptotic = transition.state.isApoptotic ? 1 : 0;
-  await db.run(
-    'INSERT INTO conscience_transitions (agent_id, from_revision, to_revision, from_dissonance, to_dissonance, from_budget, to_budget, from_apoptotic, to_apoptotic, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    transition.agentId,
-    transition.previous.conscience_revision,
-    transition.state.revision + 1,
-    transition.previous.dissonance_level,
-    transition.state.dissonanceLevel,
-    transition.previous.cognitive_budget,
-    transition.state.currentBudget,
-    fromApoptotic,
-    toApoptotic,
-    reason
-  );
-}
-
-function persistFailure(agentId, revision, cause) {
-  throw Object.assign(
-    new Error(`Cognitive regulation persist failed for agent ${agentId} at revision ${revision}: ${cause?.message || cause}`),
-    { code: 'CONSCIENCE_PERSIST_FAILED', agentId, revision, cause }
-  );
-}
-
-async function persistStateNow(..._args) {
-  const [db, agentId, state, retryArg, optionsArg] = _args;
-  const retry = retryArg === undefined ? true : retryArg;
-  const options = optionsArg || {};
-  const previous = await db.get(
-    'SELECT dissonance_level, cognitive_budget, is_apoptotic, conscience_revision, updated_at FROM agents WHERE id = ?',
-    agentId
-  );
-  if (!previous) {
-    throw new Error(`Agent ${agentId} not found in database for cognitive regulation persistence`);
-  }
-  const result = await db.run(
-      `UPDATE agents SET 
-         dissonance_level = ?, 
-         eureka_count = ?, 
-         cognitive_budget = ?,
-         cognitive_baseline_budget = ?,
-         cognitive_max_dissonance = ?,
-         is_apoptotic = ?,
-         conscience_revision = conscience_revision + 1,
-         updated_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND conscience_revision = ?`,
-      state.dissonanceLevel,
-      state.eurekaMoments,
-      state.currentBudget,
-      state.baselineBudget,
-      state.maxDissonanceThreshold,
-      state.isApoptotic ? 1 : 0,
-      agentId,
-      state.revision
-  );
-  if (result.changes !== 1) {
-    if (!retry) throw new Error(`Cognitive regulation state conflict for agent ${agentId} at revision ${state.revision}`);
-    const current = await db.get(
-      'SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, is_apoptotic, conscience_revision, updated_at FROM agents WHERE id = ?',
-      agentId
-    );
-    if (!current) throw new Error(`Cognitive regulation state conflict for agent ${agentId} at revision ${state.revision}`);
-    resolveConflictIntoState(state, previous, current);
-    return persistStateNow(db, agentId, state, false, options);
-  }
-  await recordCognitiveRegulationTransition(db, { agentId, previous, state, options }).catch((cause) => persistFailure(agentId, state.revision, cause));
-  state.revision += 1;
-}
 
 async function loadCognitiveRegulationState(db, agentId) {
   try {
@@ -302,12 +229,23 @@ module.exports = {
   evaluateBranch,
   triggerEureka,
   hasEurekaEvidence,
+  isEurekaRateLimited: async function isEurekaRateLimited({ db, agentId, limit = DEFAULT_EUREKA_LIMIT, windowMs = DEFAULT_EUREKA_WINDOW_MS }) {
+    const row = await db.get(
+      `SELECT COUNT(*) AS count FROM conscience_transitions
+       WHERE agent_id = ? AND reason IN ('supervisor_eureka')
+         AND created_at >= datetime('now', ?)` ,
+      agentId,
+      `-${Math.ceil(Math.max(1, Number(windowMs) || DEFAULT_EUREKA_WINDOW_MS) / 1000)} seconds`
+    );
+    return Number(row?.count || 0) >= Math.max(1, Math.floor(Number(limit) || DEFAULT_EUREKA_LIMIT));
+  },
   markApoptotic,
   formatCognitiveRegulationPrompt,
   formatConsciencePrompt,
-  persistCognitiveRegulationState,
+  persistCognitiveRegulationState: require('./_shared').persistConscienceState,
   loadCognitiveRegulationState,
   loadConscienceState: loadCognitiveRegulationState,
   getCognitiveRegulationTransitions,
+  getConscienceTransitions: getCognitiveRegulationTransitions,
   persistConscienceState: require('./_shared').persistConscienceState
 };

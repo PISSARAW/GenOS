@@ -35,8 +35,6 @@ function rowToEpisode(row) {
     agentId: row.agent_id,
     missionId: row.mission_id,
     kind: row.kind,
-    organizationId: row.organization_id || null,
-    projectId: row.project_id || null,
     salience: row.salience,
     situation: parseJson(row.situation_json, {}),
     decision: parseJson(row.decision_json, {}),
@@ -54,8 +52,6 @@ function episodeToRow(episode, id, createdAt) {
     agent_id: episode.agentId || 'orchestrator',
     mission_id: episode.missionId || null,
     kind: episode.kind || 'event',
-    organization_id: episode.organizationId || null,
-    project_id: episode.projectId || null,
     salience: Number(episode.salience) || 0,
     situation_json: toJson(episode.situation, {}),
     decision_json: toJson(episode.decision, {}),
@@ -74,10 +70,10 @@ async function recordEpisode(episode = {}, dbOverride = null) {
   const row = episodeToRow(episode, id, createdAt);
   await db.run(
     `INSERT INTO autobiographical_episodes (
-      id, agent_id, mission_id, kind, organization_id, project_id, salience,
+      id, agent_id, mission_id, kind, salience,
       situation_json, decision_json, action_json, outcome_json, lesson_json, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    row.id, row.agent_id, row.mission_id, row.kind, row.organization_id, row.project_id, row.salience,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    row.id, row.agent_id, row.mission_id, row.kind, row.salience,
     row.situation_json, row.decision_json, row.action_json, row.outcome_json, row.lesson_json, row.created_at
   );
   return rowToEpisode(row);
@@ -89,10 +85,6 @@ function buildRecentQuery(options) {
   if (options.agentId) { clauses.push('agent_id = ?'); params.push(options.agentId); }
   if (options.missionId) { clauses.push('mission_id = ?'); params.push(options.missionId); }
   if (options.kind) { clauses.push('kind = ?'); params.push(options.kind); }
-  if (options.organizationId) { clauses.push('organization_id = ?'); params.push(options.organizationId); }
-  if (options.projectId) { clauses.push('project_id = ?'); params.push(options.projectId); }
-  if (Boolean(options.organizationId) !== Boolean(options.projectId)) throw new Error('Organization and project scope must be provided together.');
-  if (!options.allTenants && !options.organizationId) clauses.push('organization_id IS NULL AND project_id IS NULL');
   if (Number.isFinite(options.minSalience)) { clauses.push('salience >= ?'); params.push(options.minSalience); }
   return { where: clauses.join(' AND '), params };
 }
@@ -100,8 +92,7 @@ function buildRecentQuery(options) {
 async function getRecentEpisodes(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
   const { where, params } = buildRecentQuery(options);
-  const parsedLimit = Number(options.limit);
-  const limit = Number.isSafeInteger(parsedLimit) ? Math.max(1, Math.min(parsedLimit, 500)) : 20;
+  const limit = Math.max(1, Number(options.limit) || 20);
   const rows = await db.all(
     `SELECT * FROM autobiographical_episodes WHERE ${where} ORDER BY salience DESC, created_at DESC LIMIT ?`,
     ...params, limit

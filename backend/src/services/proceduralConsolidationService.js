@@ -138,7 +138,6 @@ function consolidatePath(policy, episodes) {
       successRate: clamp01(successRate),
       observedAt: new Date().toISOString(),
       contexts: [...new Set(relevant.map((e) => JSON.stringify(e.context || {})))],
-      sourceEpisodeIds: [...new Set(relevant.flatMap((episode) => episode.sourceEpisodeIds || []))],
     },
     transitionContrast: transitions.slice(0, 5),
     consolidated: true,

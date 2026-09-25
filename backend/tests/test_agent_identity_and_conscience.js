@@ -52,20 +52,21 @@ async function runTests() {
 
   // Moment Eurêka diminue la dissonance par deux et augmente le budget
   // (Eurêka exige une preuve réelle : sans evidence, no-op).
-  agentConscience.triggerEureka(state, { evidence: { breakthrough: 'test_insight' } });
+  const verifiedEvidence = { source: 'genos-evidence-gate', claims: [{ statement: 'test insight', evidence: ['test artifact'] }], artifact: { type: 'dossier', content: { claims: [{ statement: 'test insight', evidence: ['test artifact'] }] }, provenance: ['test run'] } };
+  agentConscience.triggerEureka(state, { evidence: verifiedEvidence });
   assert.strictEqual(state.eurekaMoments, 1);
   assert.strictEqual(state.dissonanceLevel, 5.0);
   console.log(`   [OK] Eurêka ! Dissonance réduite à = ${state.dissonanceLevel}, Eurêkas = ${state.eurekaMoments}`);
 
   // Eurêka sans preuve : refusé (pas de dissonance gratuite)
   const noEvidence = agentConscience.createConscienceState({ dissonanceLevel: 8 });
-  agentConscience.triggerEureka(noEvidence);
+  agentConscience.triggerEureka(noEvidence, { evidence: false, validated: true });
   assert.strictEqual(noEvidence.eurekaMoments, 0);
   assert.strictEqual(noEvidence.dissonanceLevel, 8);
   console.log(`   [OK] Eurêka sans preuve refusé (no-op).`);
 
   const rateLimited = agentConscience.createConscienceState({ dissonanceLevel: 32 });
-  for (let index = 0; index < 4; index += 1) agentConscience.triggerEureka(rateLimited, { now: 1000 + index, limit: 3, windowMs: 60000, evidence: { step: index } });
+  for (let index = 0; index < 4; index += 1) agentConscience.triggerEureka(rateLimited, { now: 1000 + index, limit: 3, windowMs: 60000, evidence: verifiedEvidence });
   assert.strictEqual(rateLimited.eurekaMoments, 3);
   console.log(`   [OK] Limite Eureka par fenêtre respectée (${rateLimited.eurekaMoments}/3).`);
 
@@ -85,7 +86,7 @@ async function runTests() {
   // Prompt d'introspection
   const healthyState = agentConscience.createConscienceState();
   const promptBlock = agentConscience.formatConsciencePrompt(healthyState);
-  assert.ok(promptBlock.includes('HARMONIE COGNITIVE'));
+  assert.ok(promptBlock.includes('HARMONIE INTERNE'));
   assert.ok(promptBlock.includes("Seuil d'apoptose"));
   console.log(`   [OK] Bloc de conscience pour prompt validé.`);
 
@@ -143,11 +144,12 @@ async function runTests() {
   assert.strictEqual(reloadedState.dissonanceLevel, 5.0);
 
   // Deuxième transition : Eurêka (avec preuve)
-  agentConscience.triggerEureka(reloadedState, { evidence: { breakthrough: 'persisted_insight' } });
-  await agentConscience.persistConscienceState(db, agentId, reloadedState, { reason: 'eureka_breakthrough' });
+  agentConscience.triggerEureka(reloadedState, { evidence: verifiedEvidence });
+  await agentConscience.persistConscienceState(db, agentId, reloadedState, { reason: 'supervisor_eureka' });
   assert.strictEqual(reloadedState.revision, 2);
   assert.strictEqual(reloadedState.dissonanceLevel, 2.5);
   assert.strictEqual(reloadedState.eurekaMoments, 1);
+  assert.strictEqual(await agentConscience.isEurekaRateLimited({ db, agentId }), false);
   console.log(`   [OK] Révisions incrémentées séquentiellement (0 -> 1 -> 2) avec motifs enregistrés.`);
 
   // --- 5. Test d'Auditabilité des Transitions ---
@@ -155,7 +157,7 @@ async function runTests() {
   const transitions = await agentConscience.getConscienceTransitions(db, agentId, { limit: 10 });
   assert.strictEqual(transitions.length, 2);
   assert.strictEqual(transitions[0].toRevision, 2);
-  assert.strictEqual(transitions[0].reason, 'eureka_breakthrough');
+  assert.strictEqual(transitions[0].reason, 'supervisor_eureka');
   assert.strictEqual(transitions[1].toRevision, 1);
   assert.strictEqual(transitions[1].reason, 'eval_loop_test');
   console.log(`   [OK] Transitions récupérées et ordonnées avec succès (${transitions.length} transitions trouvées).`);
@@ -176,15 +178,19 @@ async function runTests() {
   // --- 7. Test des Outils MCP & Contrôleur API ---
   console.log("\n7. Test des Outils MCP et du Contrôleur Express...");
   const { dispatchTool } = require('../src/services/mcpToolRegistry');
+  const previousLease = process.env.GENOS_MCP_LEASE;
+  process.env.GENOS_MCP_LEASE = 'genos_get_conscience_state,genos_get_conscience_history';
   const mcpStateRes = await dispatchTool('genos_get_conscience_state', { agent_id: agentId });
   assert.strictEqual(mcpStateRes.kind, 'bio');
   assert.strictEqual(mcpStateRes.result.conscience.revision, 2);
   assert.strictEqual(mcpStateRes.result.conscience.eurekaMoments, 1);
 
   const mcpHistoryRes = await dispatchTool('genos_get_conscience_history', { agent_id: agentId, limit: 5 });
+  if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE;
+  else process.env.GENOS_MCP_LEASE = previousLease;
   assert.strictEqual(mcpHistoryRes.kind, 'bio');
   assert.strictEqual(mcpHistoryRes.result.count, 2);
-  assert.strictEqual(mcpHistoryRes.result.transitions[0].reason, 'eureka_breakthrough');
+  assert.strictEqual(mcpHistoryRes.result.transitions[0].reason, 'supervisor_eureka');
 
   const conscienceController = require('../src/controllers/agentConscienceController');
   let ctrlJson = null;

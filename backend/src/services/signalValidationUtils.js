@@ -45,6 +45,9 @@ function validatePayloadSize(signalData, signalBlob) {
 }
 
 function validateArgs(params) {
+  if (Array.isArray(params.signalData)) {
+    throw new Error('signalData must be a JSON object, not an array');
+  }
   if (params.signalData !== undefined && params.signalData !== null && typeof params.signalData !== 'object') {
     throw new Error('signalData must be an object');
   }

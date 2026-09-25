@@ -1,7 +1,7 @@
 ﻿use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 pub mod cognitive_regulation;
-pub use cognitive_regulation::CognitiveRegulationState;
+pub use cognitive_regulation::{CognitiveRegulationState, EvaluationDelta};
 pub mod clinical;
 pub use clinical::{ClinicalState, DiseaseCategory, Pathology};
 pub mod interoception;
@@ -220,7 +220,7 @@ impl AgentCell {
 
         if penalty > 0.0 || cost > 0.0 {
             // Apply dissonance penalty and budget cost
-            self.conscience.apply_evaluation(penalty, 0.0, cost);
+            self.conscience.apply_evaluation(EvaluationDelta { penalty, relief: 0.0, budget_cost: cost });
         }
         
         // Mort par entropie absolue ou par jauge écrasée

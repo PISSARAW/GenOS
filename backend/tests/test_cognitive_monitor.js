@@ -19,6 +19,7 @@ runTest('Attention Loop (Écholalie) détectée avec précision', () => {
     
     // On s'attend à ce que evaluateCognitiveHealth retourne un objet avec repetition_score et health_score
     const result = evaluateCognitiveHealth(echolaliaText, expectedTerms, []);
+    assert.strictEqual(result.measurement_basis, 'lexical_heuristic');
     
     assert.ok(result.repetition_score > 0.7, 'Le score de répétition doit être élevé (> 0.7).');
     assert.ok(result.health_score < 0.5, 'Le score de santé globale doit chuter (< 0.5).');

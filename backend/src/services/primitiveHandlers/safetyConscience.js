@@ -14,32 +14,26 @@ async function conscienceEvaluate(context = {}) {
   const agentId = context.targetId || context.agentId || 'strategy_agent';
   const state = await agentConscience.loadConscienceState(db, agentId);
 
-  const evalResult = agentConscience.evaluateBranch(state, {
-    errorsInLoop: context.errorsInLoop || 0,
-    progressScore: context.progressScore || 0,
-    cognitiveHealth: context.cognitiveHealth || {}
-  });
-
-  try {
-    await agentConscience.persistConscienceState(db, agentId, state, { reason: 'primitive_evaluate' });
-  } catch (_) {}
+  const harmony = Math.max(0, Math.min(100, Math.round(
+    ((state.maxDissonanceThreshold - state.dissonanceLevel) / state.maxDissonanceThreshold) * 100
+  )));
 
   telemetry.emitEvent({
-    eventType: 'CONSCIENCE_EVALUATED',
+    eventType: 'CONSCIENCE_STATE_READ',
     agentId,
-    action: 'EVALUATE',
-    detail: `Conscience state: dissonance=${state.dissonanceLevel.toFixed(1)}, harmony=${evalResult.harmony}%, apoptotic=${evalResult.apoptoticTriggered}`,
-    severity: evalResult.apoptoticTriggered ? 'critical' : 'info',
-    payload: { state, evalResult }
+    action: 'READ',
+    detail: `Conscience state: dissonance=${state.dissonanceLevel.toFixed(1)}, harmony=${harmony}%, apoptotic=${state.isApoptotic}`,
+    severity: 'info',
+    payload: { state }
   });
 
   return {
     success: true,
     agentId,
     dissonanceLevel: state.dissonanceLevel,
-    harmony: evalResult.harmony,
+    harmony,
     isApoptotic: state.isApoptotic,
-    apoptoticTriggered: evalResult.apoptoticTriggered,
+    apoptoticTriggered: false,
     currentBudget: state.currentBudget,
     maxDissonanceThreshold: state.maxDissonanceThreshold
   };
@@ -54,21 +48,13 @@ async function conscienceEureka(context = {}) {
   const agentId = context.targetId || context.agentId || 'strategy_agent';
   const state = await agentConscience.loadConscienceState(db, agentId);
 
-  const before = state.eurekaMoments;
-  agentConscience.triggerEureka(state, {
-    evidence: context.evidence !== undefined ? context.evidence : (context.proof !== undefined ? context.proof : context.successEvidence),
-    validated: context.validated === true
-  });
-  const granted = state.eurekaMoments > before;
-  try {
-    await agentConscience.persistConscienceState(db, agentId, state, { reason: 'primitive_eureka' });
-  } catch (_) {}
+  const granted = false;
 
   telemetry.emitEvent({
-    eventType: 'COGNITIVE_EUREKA',
+    eventType: 'COGNITIVE_EUREKA_WITHHELD',
     agentId,
-    action: 'EUREKA',
-    detail: `Eureka moment registered! Dissonance halved to ${state.dissonanceLevel.toFixed(1)}.`,
+    action: 'EUREKA_WITHHELD',
+    detail: 'Eureka reward withheld: only supervisor-validated evidence can grant it.',
     severity: 'info',
     payload: { state }
   });
@@ -79,6 +65,7 @@ async function conscienceEureka(context = {}) {
     dissonanceLevel: state.dissonanceLevel,
     eurekaMoments: state.eurekaMoments,
     eurekaGranted: granted,
+    reason: 'supervisor_evidence_required',
     currentBudget: state.currentBudget
   };
 }

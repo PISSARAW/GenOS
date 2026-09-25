@@ -165,7 +165,7 @@ fn main() {
     // Conscience avancee : sante, derive, repetition
     {
         let cell = orch.active_cells.get_mut(&kwame).unwrap();
-        orch.conscience.evaluate_branch_extended(&mut cell.conscience, 1, 5.0, 0.2, 0.1, 0.4);
+        orch.conscience.evaluate_branch_extended(&mut cell.conscience, genos_orchestrator::conscience::BranchMetrics { errors_in_loop: 1, progress_score: 5.0, repetition_score: 0.2, semantic_drift: 0.1, health_score: 0.4 });
     }
     let kw_state = orch.evaluate_worker(kwame, (0, 5.0)).unwrap();
     println!("[4] Kwame : dissonance={:.1} apoptose={}", kw_state.dissonance_level, kw_state.is_apoptotic);

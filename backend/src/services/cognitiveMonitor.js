@@ -44,7 +44,7 @@ function calculateScores(textLower, expectedTerms, forbiddenTerms) {
 }
 
 function evaluateCognitiveHealth(text, expectedTerms = [], forbiddenTerms = []) {
-    if (!text) return { health_score: 1.0, repetition_score: 0, topic_alignment: 1.0, semantic_drift: 0 };
+    if (!text) return { health_score: 1.0, repetition_score: 0, topic_alignment: 1.0, semantic_drift: 0, measurement_basis: 'lexical_heuristic' };
     
     const scores = calculateScores(text.toLowerCase(), expectedTerms, forbiddenTerms);
     
@@ -64,7 +64,8 @@ function evaluateCognitiveHealth(text, expectedTerms = [], forbiddenTerms = []) 
         health_score: Math.max(0, health),
         repetition_score: scores.repetition,
         topic_alignment: scores.topic,
-        semantic_drift: scores.drift
+        semantic_drift: scores.drift,
+        measurement_basis: 'lexical_heuristic'
     };
 }
 

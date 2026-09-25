@@ -23,6 +23,7 @@ function runTests() {
   });
   assert.strictEqual(initStatus.configured, true);
   assert.strictEqual(initStatus.success, true);
+  assert.strictEqual(initStatus.status, 'simulation_only');
   assert.strictEqual(initStatus.current_iteration, 1);
   assert.strictEqual(initStatus.cumulative_memories_count, 0);
   console.log('✅ PASS: Initial timeline iteration #1 verified');
@@ -38,11 +39,11 @@ function runTests() {
     ]
   });
   assert.strictEqual(transferRes.configured, true);
-  assert.strictEqual(transferRes.success, true);
-  assert.strictEqual(transferRes.new_iteration, 2);
-  assert.strictEqual(transferRes.total_preserved_memories, 2);
+  assert.strictEqual(transferRes.success, false);
+  assert.strictEqual(transferRes.status, 'not_implemented');
+  assert.strictEqual(transferRes.injected_memories_count, 2);
   assert.strictEqual(transferRes.restored_baseline, 'snap-git-commit-initial');
-  console.log('✅ PASS: Replay executed at t0 with 2 forward memories preserved');
+  console.log('✅ PASS: Unsupported replay fails honestly without claiming state transfer');
 
   // 3. Second death / retry loop with additional memories
   const transferRes2 = handleConsciousnessTransfer({
@@ -52,9 +53,10 @@ function runTests() {
       { failure: 'TIMEOUT_ON_DOWNSTREAM_RPC', resolution: 'ENABLE_CIRCUIT_BREAKER_WITH_JITTER' }
     ]
   });
-  assert.strictEqual(transferRes2.new_iteration, 3);
-  assert.strictEqual(transferRes2.total_preserved_memories, 3);
-  console.log('✅ PASS: Iteration #3 successfully accumulated cumulative memories');
+  assert.strictEqual(transferRes2.success, false);
+  assert.strictEqual(transferRes2.status, 'not_implemented');
+  assert.strictEqual(transferRes2.injected_memories_count, 1);
+  console.log('✅ PASS: Unsupported replay fails honestly without claiming state transfer');
 
   console.log('🎉 ALL CONSCIOUSNESS TRANSFER TESTS PASSED!');
 }

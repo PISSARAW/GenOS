@@ -74,16 +74,24 @@ async function fetchOrgBudgetRecipients(db, orgId) {
   );
 }
 
+function constrainRecipients(recipients, requestedRecipientIds) {
+  if (!Array.isArray(requestedRecipientIds)) return { recipients, mismatch: false };
+  const requested = [...new Set(requestedRecipientIds.filter((id) => typeof id === 'string' && id.length > 0))];
+  const allowed = recipients.filter((recipient) => requested.includes(recipient.agentId));
+  return { recipients: allowed, mismatch: allowed.length !== requested.length || requested.length !== requestedRecipientIds.length };
+}
+
 /**
  * Détermine les destinataires d'un signal.
  * Scope strict : même organisation ET même projet que l'orchestrateur.
  */
-async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}, orchestratorId = null }) {
+async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}, orchestratorId = null, recipientAgentIds }) {
   const topic = extractTopic(signalType, signalData);
   const recipients = [];
 
   if (!db) {
-    return { signalId, signalType, topic, recipients: [], routingMode: 'local_only' };
+    return { signalId, signalType, topic, recipients: [],
+      routingMode: Array.isArray(recipientAgentIds) ? 'scope_mismatch' : 'local_only' };
   }
 
   try {
@@ -108,13 +116,15 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
     console.warn('[SignalRouter] routeCollectiveSignal query failed, local-only routing:', e.message);
   }
 
+  const constrained = constrainRecipients(recipients.filter((recipient) => recipient.kind === 'agent'), recipientAgentIds);
+  const finalRecipients = Array.isArray(recipientAgentIds) ? constrained.recipients : recipients;
   return {
     signalId,
     signalType,
     topic,
-    recipients,
-    routed: recipients.length > 0,
-    routingMode: recipients.length ? 'distributed' : 'local_only',
+    recipients: finalRecipients,
+    routed: !constrained.mismatch && finalRecipients.length > 0,
+    routingMode: constrained.mismatch ? 'scope_mismatch' : finalRecipients.length ? 'distributed' : 'local_only',
   };
 }
 

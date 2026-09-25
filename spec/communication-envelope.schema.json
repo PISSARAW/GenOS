@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/communication-envelope.schema.json",
+  "title": "CommunicationEnvelope",
+  "description": "Enveloppe commune aux transports verbaux et non verbaux; le payload est référencé par son empreinte.",
+  "type": "object",
+  "required": [
+    "version", "messageId", "kind", "senderAgentId", "recipientMode",
+    "recipientAgentIds", "channel", "modality", "semanticRefs", "artifactRefs",
+    "scope", "createdAt", "expiresAt", "groundingRequired", "payloadDigest"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "messageId": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["signal", "organization_message"] },
+    "senderAgentId": { "type": ["string", "null"] },
+    "recipientMode": { "enum": ["targeted", "routed"] },
+    "recipientAgentIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "channel": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "modality": { "enum": ["text", "structured", "ligand", "voltage", "pheromone", "plasmid", "tensor"] },
+    "semanticRefs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "artifactRefs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "scope": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "properties": {
+            "orchestratorId": { "type": "string" },
+            "organizationId": { "type": ["string", "null"] },
+            "projectId": { "type": ["string", "null"] },
+            "organizationVersion": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": ["string", "null"], "format": "date-time" },
+    "groundingRequired": {
+      "enum": ["none", "transport_ack", "semantic_ack", "action_ack", "verified_ack", "human_confirmation"]
+    },
+    "payloadDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  },
+  "additionalProperties": false
+}

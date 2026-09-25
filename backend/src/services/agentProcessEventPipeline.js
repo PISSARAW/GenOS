@@ -2,7 +2,8 @@ const { decodeEvents, MAX_FRAME_BYTES } = require('./runtimeProtocol');
 const strategyExecution = require('./strategyExecutionService');
 const hallucinationMonitor = require('./hallucinationMonitoringService');
 const resilienceService = require('./resilienceService');
-const { extractEvidenceReport, validateDossierInfluence } = require('./agentEvidenceService');
+const { extractEvidenceReport, validateDossierInfluence, hasDecisionEvidence } = require('./agentEvidenceService');
+const { validateWorkerArtifact, REQUIRED_FIELDS } = require('./agents/workerArtifactContract');
 const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agentRoundService');
 const agentRecoveryService = require('./agentRecoveryService');
 const agentConscience = require('./agentConscienceService');
@@ -122,10 +123,27 @@ function classifyConscienceEvent(event, eventType, observation) {
   const isHallucinationEvent = Boolean(observation?.monitored && observation?.detected);
   const isErrorEvent = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType)
     || (event.severity === 'error' && !['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType));
-  const isSuccessEvent = ['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType)
+  const isSuccessEvent = eventType === 'EVIDENCE_REPORT'
     && event.severity !== 'error'
-    && !isHallucinationEvent;
+    && !isHallucinationEvent
+    && hasVerifiedSuccessArtifact(event);
   return { isHallucinationEvent, isErrorEvent, isSuccessEvent };
+}
+
+function hasVerifiedSuccessArtifact(event) {
+  const report = extractEvidenceReport(event.payload);
+  if (report.outcome !== 'success' || !hasDecisionEvidence(event)) return false;
+  const artifactType = report.workerArtifact?.type;
+  if (!artifactType || !REQUIRED_FIELDS[artifactType]) return false;
+  try {
+    validateWorkerArtifact({ events: [{ evidenceReport: report }] }, {
+      agentId: event.agentId || 'runtime-agent',
+      workerContract: { evidence: { requiredArtifacts: [artifactType] } }
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
 }
 
 function buildCognitiveHealth(event, isHallucinationEvent) {
@@ -159,8 +177,12 @@ async function runConscienceCheck(ctx, event, observation) {
     return false;
   }
   if (isSuccessEvent) {
-    // Eurêka adossé à l'événement de succès observé (preuve réelle).
-    agentConscience.triggerEureka(conscienceState, { evidence: { eventType: event.eventType, action: event.action } });
+    const evidence = extractEvidenceReport(event.payload);
+    const rateLimited = await agentConscience.isEurekaRateLimited({ db, agentId });
+    if (rateLimited) return false;
+    agentConscience.triggerEureka(conscienceState, {
+      evidence: { source: 'genos-evidence-gate', claims: evidence.claims, artifact: evidence.workerArtifact }
+    });
     emit(agentId, 'COGNITIVE_EUREKA', 'EUREKA', `Événement Eurêka enregistré ! Dissonance réduite à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'info');
     await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'supervisor_eureka' });
   }

@@ -9,7 +9,7 @@
  * valid optimal decision. The LLM does NOT decide whether to communicate.
  */
 
-const { decideCommunication } = require('./communicationPolicyEngine');
+const { decideCommunication, getMode } = require('./communicationPolicyEngine');
 const { buildManifest } = require('./communicationManifestService');
 const { publishSignal } = require('../signalingTransportService');
 
@@ -152,7 +152,10 @@ async function executeSignal(decision, ctx) {
     return { executed: false, reason: 'SILENCE_DECISION' };
   }
   if (decision.action === 'STIGMERGY') {
-    return { executed: true, channel: 'STIGMERGY', signalId: null };
+    return { executed: false, channel: 'STIGMERGY', reason: 'CHANNEL_EXECUTION_NOT_CONNECTED' };
+  }
+  if (decision.action !== 'SIGNAL') {
+    return { executed: false, channel: decision.action, reason: 'CHANNEL_EXECUTION_NOT_CONNECTED' };
   }
   const recipients = decision.recipients || [];
   if (recipients.length === 0 && decision.scope !== 'GLOBAL_BROADCAST') {
@@ -190,10 +193,11 @@ async function publishAndWrap(decision, ctx, recipients) {
   const signalData = buildSignalData(ctx, decision);
   const topic = recipients.length > 0 ? 'checkpoint' : 'global';
   const params = {
-    signalType: 'semantic',
+    signalType: 'ligand',
     signalData,
     topic,
     senderAgentId: ctx.agentId,
+    recipientAgentIds: recipients.length > 0 ? recipients : undefined,
     ttlMs: decision.ttlMs || 60000
   };
   const result = await publishSignal(params);
@@ -211,7 +215,9 @@ async function evaluateCheckpoint(ctx) {
   const input = buildPolicyInput(ctx, intent, manifest);
   const decision = await decideCommunication(input);
   const receipt = buildReceipt(ctx, decision);
-  receipt.executed = decision.action === 'SILENCE'
+  receipt.executed = getMode() === 'shadow'
+    ? { executed: false, reason: 'SHADOW_MODE' }
+    : decision.action === 'SILENCE'
     ? { executed: false, reason: 'SILENCE_DECISION' }
     : await executeSignal(decision, ctx);
   storeReceipt(ctx.agentId, receipt);

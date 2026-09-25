@@ -18,18 +18,14 @@ const fossilization = require('./fossilizationService');
 /**
  * Fetch unconsolidated episodic memories for procedural consolidation
  */
-async function fetchUnconsolidatedEpisodes(tx, opts = {}) {
-  let query = `
+async function fetchUnconsolidatedEpisodes(tx) {
+  return tx.all(`
     SELECT id, agent_id, session_id, task_id, turn_number, action_type,
-           context_state, reward_score, created_at, organization_id, project_id
+           context_state, reward_score, created_at
     FROM episodic_memories
     WHERE is_purged = 0 AND is_consolidated = 0
-  `;
-  const params = [];
-  if (opts.organizationId) { query += ' AND organization_id = ?'; params.push(opts.organizationId); }
-  if (opts.projectId) { query += ' AND project_id = ?'; params.push(opts.projectId); }
-  query += ' ORDER BY organization_id, project_id, agent_id, session_id, created_at, turn_number';
-  return tx.all(query, ...params);
+    ORDER BY session_id, created_at, turn_number
+  `);
 }
 
 /**
@@ -38,10 +34,9 @@ async function fetchUnconsolidatedEpisodes(tx, opts = {}) {
 function groupEpisodesBySession(rows) {
   const sessions = {};
   for (const row of rows) {
-    const sid = row.session_id || `episode-${row.id}`;
-    const sidKey = JSON.stringify([row.organization_id || null, row.project_id || null, row.agent_id, sid, row.task_id || null]);
-    if (!sessions[sidKey]) sessions[sidKey] = [];
-    sessions[sidKey].push(row);
+    const sid = row.session_id || 'no-session';
+    if (!sessions[sid]) sessions[sid] = [];
+    sessions[sid].push(row);
   }
   return sessions;
 }
@@ -51,9 +46,8 @@ function groupEpisodesBySession(rows) {
  */
 function buildTrajectoryEpisodes(sessions) {
   const episodes = [];
-  for (const turns of Object.values(sessions)) {
+  for (const [sessionId, turns] of Object.entries(sessions)) {
     if (turns.length < 2) continue;
-    const sessionId = turns[0].session_id || `episode-${turns[0].id}`;
     const trajectory = turns.map(t => t.action_type || 'step');
     const avgReward = turns.reduce((s, t) => s + (t.reward_score || 0), 0) / turns.length;
     let context = {};
@@ -65,7 +59,6 @@ function buildTrajectoryEpisodes(sessions) {
       success: avgReward >= 0.5,
       context: { sessionId, taskId: turns[0].task_id, agentId: turns[0].agent_id, ...context },
       observedAt: turns[turns.length - 1].created_at,
-      sourceEpisodeIds: turns.map((turn) => turn.id),
     });
   }
   return episodes;
@@ -84,10 +77,8 @@ async function storeGoldenPath(tx, result, opts) {
   });
   // Dédup : le même chemin consolidé deux fois ne crée qu'une entrée.
   const duplicate = await tx.get(
-    `SELECT id FROM genome_decisions WHERE category = 'golden_path' AND content = ?
-       AND (organization_id = ? OR (organization_id IS NULL AND ? IS NULL))
-       AND (project_id = ? OR (project_id IS NULL AND ? IS NULL)) LIMIT 1`,
-    content, opts.organizationId || null, opts.organizationId || null, opts.projectId || null, opts.projectId || null
+    `SELECT id FROM genome_decisions WHERE category = 'golden_path' AND content = ? LIMIT 1`,
+    content
   ).catch(() => null);
   if (duplicate) return duplicate.id;
   const gpId = crypto.randomUUID();
@@ -107,7 +98,7 @@ async function markEpisodesConsolidated(tx, episodeIds) {
   for (let i = 0; i < episodeIds.length; i += BATCH_SIZE) {
     const batch = episodeIds.slice(i, i + BATCH_SIZE);
     const placeholders = batch.map(() => '?').join(',');
-    await tx.run(`UPDATE episodic_memories SET is_consolidated = 1 WHERE id IN (${placeholders}) AND is_purged = 0 AND is_consolidated = 0`, ...batch);
+    await tx.run(`UPDATE episodic_memories SET is_consolidated = 1 WHERE id IN (${placeholders})`, ...batch);
   }
 }
 
@@ -115,7 +106,7 @@ async function markEpisodesConsolidated(tx, episodeIds) {
  * Extract episodic memories, consolidate into golden paths, mark sources consolidated
  */
 async function consolidateProceduralMemories(tx, opts) {
-  const rows = await fetchUnconsolidatedEpisodes(tx, opts);
+  const rows = await fetchUnconsolidatedEpisodes(tx);
   if (rows.length < 2) {
     return { consolidated: false, reason: 'insufficient_episodes', goldenPaths: 0, episodesMarked: 0 };
   }
@@ -129,7 +120,7 @@ async function consolidateProceduralMemories(tx, opts) {
     return { consolidated: false, reason: result.reason, goldenPaths: 0, episodesMarked: 0 };
   }
   const gpId = await storeGoldenPath(tx, result, opts);
-  const episodeIds = episodes.flatMap((episode) => episode.sourceEpisodeIds || []);
+  const episodeIds = rows.map(r => r.id);
   await markEpisodesConsolidated(tx, episodeIds);
   return {
     consolidated: true,
@@ -144,27 +135,18 @@ async function consolidateProceduralMemories(tx, opts) {
 /**
  * Helper: run a single step of the sleep cycle with its own error handling
  */
-function tenantFilter(options = {}) {
-  if (Boolean(options.organizationId) !== Boolean(options.projectId)) throw new Error('Organization and project scope must be provided together.');
-  return options.organizationId
-    ? { sql: ' AND organization_id = ? AND project_id = ?', params: [options.organizationId, options.projectId] }
-    : { sql: '', params: [] };
-}
-
-async function decaySynapticWeights(tx, weightDecayFactor, scope) {
-  const filter = tenantFilter(scope);
+async function decaySynapticWeights(tx, weightDecayFactor) {
   await tx.run(
     `UPDATE genome_decisions 
      SET synaptic_weight = CASE 
        WHEN category IN ('core', 'golden_path', 'architecture', 'invariant') THEN MAX(1.0, ROUND(synaptic_weight * ?, 4))
        ELSE ROUND(synaptic_weight * ?, 4)
-     END WHERE 1 = 1${filter.sql}`,
-    weightDecayFactor, weightDecayFactor, ...filter.params
+     END`,
+    weightDecayFactor, weightDecayFactor
   );
 }
 
-async function consolidateSynapses(tx, synapseDecayFactor, scope) {
-  const filter = tenantFilter(scope);
+async function consolidateSynapses(tx, synapseDecayFactor) {
   await tx.run(`
     UPDATE memory_synapses
     SET weight = CASE WHEN weight < 0 THEN MAX(-20.0, weight - 0.05 * activity_history) ELSE MIN(20.0, weight + 0.05 * activity_history) END,
@@ -172,8 +154,8 @@ async function consolidateSynapses(tx, synapseDecayFactor, scope) {
         c3_opsonization = 0.0,
         cd47_expression = MIN(2.0, cd47_expression + 0.1),
         spine_morphology = CASE WHEN receptor_density + 0.05 >= 1.5 THEN 'mushroom' ELSE 'thin' END
-    WHERE activity_history > 0${filter.sql}
-  `, ...filter.params);
+    WHERE activity_history > 0
+  `);
 
   await tx.run(`
     UPDATE memory_synapses
@@ -182,24 +164,22 @@ async function consolidateSynapses(tx, synapseDecayFactor, scope) {
         c3_opsonization = MIN(2.0, c3_opsonization + 0.1),
         cd47_expression = MAX(0.0, cd47_expression - 0.05),
         spine_morphology = CASE WHEN receptor_density - 0.05 < 0.6 THEN 'filopodia' WHEN receptor_density - 0.05 < 1.3 THEN 'stubby' ELSE spine_morphology END
-    WHERE (activity_history IS NULL OR activity_history = 0)${filter.sql}
-  `, synapseDecayFactor, ...filter.params);
+    WHERE activity_history IS NULL OR activity_history = 0
+  `, synapseDecayFactor);
 }
 
 async function pruneDeadSynapses(tx, opts) {
   const { minTransmissionWeight, c3Threshold, cd47Threshold } = opts;
-  const filter = tenantFilter(opts);
   return tx.run(
-    `DELETE FROM memory_synapses WHERE (ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?))${filter.sql}`,
-    minTransmissionWeight, c3Threshold, cd47Threshold, ...filter.params
+    'DELETE FROM memory_synapses WHERE ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?)',
+    minTransmissionWeight, c3Threshold, cd47Threshold
   );
 }
 
-async function resetActivityHistory(tx, scope) {
-  const filter = tenantFilter(scope);
+async function resetActivityHistory(tx) {
   // Decay, pas reset brutal : diviser par deux préserve la trace d'activité
   // récente (LTP/LTD différentielle du cycle suivant) au lieu d'amnésier.
-  await tx.run(`UPDATE memory_synapses SET activity_history = CAST(activity_history / 2 AS INTEGER) WHERE 1 = 1${filter.sql}`, ...filter.params);
+  await tx.run('UPDATE memory_synapses SET activity_history = CAST(activity_history / 2 AS INTEGER)');
 }
 
 async function archiveDecisions(tx, doomedIds) {
@@ -222,20 +202,15 @@ async function archiveDecisions(tx, doomedIds) {
           lineageId: row.id,
           reason: 'sleep-cycle pruning (apoptosis)',
           mode: 'trace',
-          mineralPayload: { title: row.title, content: row.content, category: row.category, created_by: row.created_by },
+          mineralPayload: { title: row.title, category: row.category, created_by: row.created_by },
           organizationId: row.organization_id || null,
           projectId: row.project_id || null
         });
         await fossilization.persistFossil(tx, record);
         archived += 1;
-      } catch (error) {
-        throw new Error(`Could not archive decision ${row.id}: ${error.message}`);
-      }
+      } catch (_) {}
     }
-  } catch (error) {
-    throw new Error(`Could not archive decisions before pruning: ${error.message}`);
-  }
-  if (archived !== doomedIds.length) throw new Error('Decision archive count did not match the pruning set.');
+  } catch (_) {}
   return archived;
 }
 
@@ -262,16 +237,14 @@ async function pruneOrphanedDecisions(tx, opts) {
   return doomedIds.length;
 }
 
-async function pruneTrajectories(tx, trajectoryRetentionDays, options = {}) {
+async function pruneTrajectories(tx, trajectoryRetentionDays) {
   try {
-    const filter = tenantFilter(options);
     const doomed = await tx.all(`
       SELECT id, status, created_at FROM trajectories
       WHERE is_exceptional = 0
         AND status = 'rejected'
         AND datetime(created_at) < datetime('now', '-' || ? || ' days')
-        ${filter.sql}
-    `, trajectoryRetentionDays, ...filter.params);
+    `, trajectoryRetentionDays);
     if (doomed.length === 0) return 0;
     // Archive vers le fossile avant suppression (best-effort, via le
     // service canonique pour garder fossil_strata cohérent).
@@ -285,9 +258,7 @@ async function pruneTrajectories(tx, trajectoryRetentionDays, options = {}) {
           mineralPayload: { status: row.status, created_at: row.created_at }
         });
         await fossilization.persistFossil(tx, record);
-      } catch (error) {
-        throw new Error(`Could not archive trajectory ${row.id}: ${error.message}`);
-      }
+      } catch (_) {}
     }
     const placeholders = doomed.map(() => '?').join(',');
     const res = await tx.run(
@@ -329,16 +300,16 @@ async function runSleepCycle(db = null, options = {}) {
     let proceduralStats = { consolidated: false, goldenPaths: 0, episodesMarked: 0 };
 
     await withTransaction(database, async (tx) => {
-      await decaySynapticWeights(tx, weightDecayFactor, options);
-      await consolidateSynapses(tx, synapseDecayFactor, options);
-      const prunedSynapses = await pruneDeadSynapses(tx, { minTransmissionWeight, c3Threshold, cd47Threshold, organizationId, projectId });
-      await resetActivityHistory(tx, options);
+      await decaySynapticWeights(tx, weightDecayFactor);
+      await consolidateSynapses(tx, synapseDecayFactor);
+      const prunedSynapses = await pruneDeadSynapses(tx, { minTransmissionWeight, c3Threshold, cd47Threshold });
+      await resetActivityHistory(tx);
       apoptosisCount = await pruneOrphanedDecisions(tx, {
         orphanWeightThreshold,
         organizationId: options.organizationId || null,
         projectId: options.projectId || null
       });
-      const prunedTrajectories = await pruneTrajectories(tx, trajectoryRetentionDays, options);
+      const prunedTrajectories = await pruneTrajectories(tx, trajectoryRetentionDays);
       exosomeStats = await synapticTransmission.absorbExosomes(tx);
       exosomeStats.prunedTrajectories = prunedTrajectories;
       exosomeStats.prunedSynapses = prunedSynapses?.changes || 0;

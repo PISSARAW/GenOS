@@ -30,8 +30,6 @@ async function recordExperience(context = {}) {
 
   const episode = await episodicMemory.recordEpisode({
     agentId,
-    organizationId: firstTruthy(context.organizationId, context.organization_id, null),
-    projectId: firstTruthy(context.projectId, context.project_id, null),
     sessionId,
     taskId,
     turnNumber,

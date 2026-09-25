@@ -39,12 +39,12 @@ async function runTests() {
   const docId = `doc-ner-test-${Date.now()}`;
   const docText = 'GenOS et Google DeepMind renforcent SQLite avec des index vectoriels et du Rust.';
 
-  const ingestRes = await graphRagService.ingestDocument(docId, docText, { dbInstance: db, allowGlobal: true });
+  const ingestRes = await graphRagService.ingestDocument(docId, docText, db);
   assert.strictEqual(ingestRes.docId, docId, 'Le docId doit correspondre');
   assert.ok(ingestRes.entitiesCount >= 2, 'Au moins 2 entités extraites');
   console.log(`-> Cas 2.1 Validé : Document ingéré (${ingestRes.entitiesCount} entités, ${ingestRes.synapsesCreated} synapses).`);
 
-  const queryRes = await graphRagService.queryKnowledgeGraph('SQLite Rust', { limit: 5, dbInstance: db, allowGlobal: true });
+  const queryRes = await graphRagService.queryKnowledgeGraph('SQLite Rust', 5, db);
   assert.ok(Array.isArray(queryRes.nodes), 'Doit retourner un tableau de noeuds');
   assert.ok(typeof queryRes.synthesis === 'string', 'Doit retourner une synthèse textuelle');
   assert.ok(queryRes.nodes.length > 0, 'Le graphe doit renvoyer des noeuds associés');

@@ -1,6 +1,6 @@
 # Types de communication : Écologie communicationnelle GenOS
 
-- **Statut** : Partiel (cœur implémenté et testé ; mesure réelle des tokens et exécution ACTIVE du policy engine non branchées)
+- **Statut** : Partiel (enveloppe versionnée branchée au Signal Plane et aux messages d'organisation ; checkpoint en shadow par défaut ; mesure réelle des tokens et adaptateurs généraux non branchés)
 - **Portée** : les 7 types de communication inter-agents, leurs déclencheurs, leurs garanties et leur gouvernance (coût, métriques, shadow, apprentissage)
 - **Dernière revue** : 2026-09-25
 
@@ -303,6 +303,8 @@ sequenceDiagram
 
 Tables sœurs : `agent_organization_state` (1 ligne par orchestrateur, `version+1` par transition) + `agent_organization_transitions` (journal `org-transition-<uuid>`). `changeOrganization` idempotent (`changed:false` si même topologie), `flushBufferedMessages` sauf vers `network_silence`.
 
+**Enveloppe canonique v1 (partiellement intégrée).** `spec/communication-envelope.schema.json` et `communicationEnvelopeService.js` définissent un contrat commun. Le Signal Plane l'embarque dans les signaux et `dynamicOrganizationService.publish` l'ajoute aux messages d'organisation. Les champs historiques restent lisibles pour compatibilité; les consommateurs ne vérifient pas encore l'empreinte à la lecture.
+
 ### 6.8 Type 4 — Common Ground / delta (on ne transmet que l'inconnu)
 
 ```mermaid
@@ -461,7 +463,9 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
 ### 10.3 Non-objectifs
 
 - Pas de mesure réelle de tokens (`chars/4` déjà banni, compteur réel non branché — invariant 11 non tenu).
-- Pas d'exécution ACTIVE du policy engine en production (shadow par défaut ; voie checkpoint non gardée).
+- Le policy engine reste en shadow par défaut. Le pont checkpoint refuse maintenant
+  tout effet en shadow; en mode active il n'exécute que les signaux ligand dont
+  l'audience a été vérifiée. Les autres encodages attendent un adaptateur réel.
 - Pas de `STIGMERGY` persistant via `executeSignal` (`signalId:null`).
 - Pas de bouclage `recommendActions → policy engine`.
 - Pas de preuve qu'un `transport_ack` vaut décision valide (la beard épistémique reste entière : seul `verified_ack/human_confirmation` + gate de preuve autorise une promotion).
@@ -503,7 +507,7 @@ Compteurs mémoire (`communicationMetricsService.js:15-43`, perdus au restart) :
 - Verbal : `../../backend/src/services/communication/verbalEscalationService.js`, `../../backend/src/services/communication/dialogueSessionService.js`, `../../backend/src/services/communication/speechActCompilerService.js`, `../../backend/src/services/communication/dialectService.js`, `../../backend/src/services/philosophy/speechActService.js`
 - Gouvernance : `../../backend/src/services/communication/communicationPolicyEngine.js`, `../../backend/src/services/communication/communicationCostService.js`, `../../backend/src/services/communication/communicationMetricsService.js`, `../../backend/src/services/communication/communicationShadowLogService.js`, `../../backend/src/services/communication/communicationLearningService.js`, `../../backend/src/services/communication/communicationCheckpointService.js`, `../../backend/src/services/communication/agencyDriver.js`, `../../backend/src/services/communication/runCycleDriver.js`, `../../backend/src/services/communication/recommendActions.js`, `../../backend/src/services/communication/index.js`
 - Stigmergie épistémique : `../../backend/src/services/epistemic/epistemicStigmergyService.js`, `../../backend/src/services/epistemic/stigmergyInterProcessBridge.js`
-- Schémas : `../../spec/communication-intent.schema.json`, `../../spec/communication-decision.schema.json`, `../../spec/common-ground.schema.json`, `../../spec/grounding-receipt.schema.json`, `../../spec/dialect-contract.schema.json`
+- Schémas : `../../spec/communication-envelope.schema.json`, `../../spec/communication-intent.schema.json`, `../../spec/communication-decision.schema.json`, `../../spec/common-ground.schema.json`, `../../spec/grounding-receipt.schema.json`, `../../spec/dialect-contract.schema.json`
 - Outils : `../../shared/toolDefinitions.json` (`genos_change_organization`, `genos_organization_state`, `genos_worker_publish`, `genos_worker_inbox`)
 
 ### 13.2 Documentation liée
@@ -516,4 +520,6 @@ Compteurs mémoire (`communicationMetricsService.js:15-43`, perdus au restart) :
 - [API et contrats](../03-reference/api-et-contrats.md) — surfaces REST/gRPC/MCP/CLI.
 - [Outils MCP](../03-reference/outils-mcp.md) — catalogue, leases, gating.
 - [ADR 003x — invariants d'écologie communicationnelle](../adr/003x-communication-ecology.md) — les 12 invariants (statut : propositionnel).
+- [ADR 0116 — exécution fiable](../adr/0116-execution-fiable-communication.md) — mode shadow sans effet, audience vérifiée et persistance requise.
+- [ADR 0117 — enveloppe canonique](../adr/0117-enveloppe-canonique-communication.md) — contrat commun pour les signaux et messages d'organisation.
 - [Index documentation](../README.md) — hub par familles.

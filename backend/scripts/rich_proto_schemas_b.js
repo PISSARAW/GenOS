@@ -128,9 +128,9 @@ service RagService {
 
 message Empty {}
 message PingResponse { string status = 1; }
-message RagQueryRequest { string query = 1; int32 limit = 2; string organization_id = 3; string project_id = 4; }
+message RagQueryRequest { string query = 1; int32 limit = 2; }
 message RagQueryResponse { repeated string context_nodes = 1; string synthesis = 2; }
-message RagIngestRequest { string doc_id = 1; string text = 2; string organization_id = 3; string project_id = 4; }
+message RagIngestRequest { string doc_id = 1; string text = 2; }
 message RagIngestResponse { bool success = 1; int32 entities_extracted = 2; }
 `,
 

@@ -54,7 +54,7 @@ function recordQualia(input = {}) {
  * Brentano : l'intentionnalité est la marque distinctive du mental.
  * Husserl : structure noèse (acte) / noème (contenu intentionnel).
  */
-function recordIntentionality({ agentId, target, mode = 'aboutness' }) {
+function recordIntentionality({ agentId, target, mode = 'aboutness', act = 'perception' }) {
   if (!agentId || !target) {
     throw new Error('consciousnessService.recordIntentionality requires agentId and target');
   }
@@ -62,13 +62,15 @@ function recordIntentionality({ agentId, target, mode = 'aboutness' }) {
   if (!validModes.has(mode)) {
     throw new Error(`consciousnessService.recordIntentionality invalid mode: ${mode}`);
   }
+  const validActs = new Set(['perception', 'imagination', 'judgment', 'memory', 'decision', 'desire']);
+  if (!validActs.has(act)) throw new Error(`consciousnessService.recordIntentionality invalid act: ${act}`);
   return {
     agentId,
     target,
     mode,
     noesis: {
-    act: 'perception', // acte de conscience (Husserl)
-    type: 'perception',
+    act,
+    type: act,
     },
     noema: {
       target: target, // objet intentionnel (Husserl) — sinon le test de consciousnessService attend i.noema.target
@@ -111,8 +113,8 @@ function checkSupervenience(options = {}) {
   const mentalSame = mentalHashA === mentalHashB;
   const counterexampleObserved = physicalSame && !mentalSame;
   return {
-    supervenes: !counterexampleObserved,
-    status: counterexampleObserved ? 'counterexample_observed' : 'no_counterexample_observed',
+    supervenes: counterexampleObserved ? false : null,
+    status: counterexampleObserved ? 'counterexample_observed' : 'not_established',
     evidenceStatus: 'bounded_state_comparison',
     candidateOnly: true,
     physicalBase: { hashA: physicalHashA, hashB: physicalHashB, same: physicalSame },
