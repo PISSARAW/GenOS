@@ -1,13 +1,8 @@
 #!/usr/bin/env node
 /**
- * GenOS autoscan — vérification de l'état du système sans traverser
- * le bridge Mission (qui exige un budget/plan d'autonomie complet).
- *
- * Health backend (healthz/readyz/livez) + organisation_state + worker_inbox
- * appelés directement via les services backend (dynamicOrganization).
- *
- * Si messages non lus existent → lance genos_orchestrate mission=worker_inbox_triage
- * en background. Sinon → "Tout clair".
+ * GenOS autoscan (cron) — healthz/readyz/livez + organisation_state + worker_inbox.
+ * Si messages non lus → lance genos_orchestrate mission=worker_inbox_triage en background.
+ * Sinon → "Tout clair".
  */
 'use strict';
 
@@ -22,10 +17,9 @@ const ORCHESTRATE_CLI = path.join(REPO, 'backend', 'bin', 'genos-orchestrate.cjs
 const TIMESTAMP = new Date().toISOString();
 const HOST = process.env.COMPUTERNAME || process.env.HOSTNAME || 'unknown';
 
-// ---------- services backend ----------
-const db = require(path.join(REPO, 'backend', 'src', 'db'));
-const dynamicOrganization = require(path.join(REPO, 'backend', 'src', 'services', 'dynamicOrganizationService'));
-const { createOrchestratorId } = require(path.join(REPO, 'backend', 'src', 'services', 'orchestratorIdFactory'));
+// Import différé pour éviter le cycle db↔services au chargement.
+function getDb() { return require(path.join(REPO, 'backend', 'src', 'db')).getDatabase(); }
+function getDynamicOrg() { return require(path.join(REPO, 'backend', 'src', 'services', 'dynamicOrganizationService')); }
 
 function httpGet(url, timeoutMs = 5000) {
   return new Promise((resolve) => {
@@ -46,20 +40,24 @@ async function probeHealth() {
     httpGet(`${BACKEND_URL}/livez`),
   ]);
   if (results.some(r => !r.ok)) {
-    console.error('[HEALTH] Proches health échoués:', JSON.stringify(results));
-    process.exit(2);
+    throw new Error(`Health probes failed: ${JSON.stringify(results.map(r => ({ status: r.status, error: r.error })))}`);
   }
   return results.map(r => ({ status: r.status }));
 }
 
-async function readOrganizationState(orchestratorId) {
-  const database = await db.getDatabase();
-  return dynamicOrganization.getStateForMember(database, orchestratorId, orchestratorId);
-}
-
-async function readWorkerInbox(orchestratorId) {
-  const database = await db.getDatabase();
-  return dynamicOrganization.inbox(database, { orchestratorId, requesterAgentId: orchestratorId, afterId: null, limit: 1000 });
+function ensureOrchestrator(db, orchestratorId) {
+  return db.run(
+    `INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    orchestratorId,
+    'Autoscan Cron',
+    'Scanner',
+    'idle',
+    'orchestrator',
+    'frontier',
+    'Branch',
+    'Health + inbox check'
+  );
 }
 
 function dispatchTriage(orchestratorId) {
@@ -81,60 +79,50 @@ function bail(label, payload, code) {
   process.exit(code);
 }
 
-// ---------- point d'entrée ----------
 (async function main() {
   console.log('[INFO] Démarrage scan GenOS —', HOST, TIMESTAMP);
 
   let health, orgState, inbox;
   try {
     health = await probeHealth();
-    console.log('[INFO] Health backend OK');
+    console.log('[INFO] Health backend OK —', JSON.stringify(health));
   } catch (e) {
-    bail('HEALTH', e && e.message || e, 2);
+    bail('HEALTH', { error: e.message || e }, 2);
   }
 
-  const orchestratorId = createOrchestratorId('mcp_orchestrator_autoscan') || 'mcp_orchestrator_autoscan';
+  const orchestratorId = 'mcp_orchestrator_autoscan_' + require('crypto').randomUUID().slice(0, 8);
 
   try {
-    orgState = await readOrganizationState(orchestratorId);
-  } catch (e) {
-    if (e && e.message && e.message.includes('was not found')) {
-      console.log('[INFO] Orchestrateur autoscan absent — création auto');
-      const database = await db.getDatabase();
-      await database.run(
-        `INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        orchestratorId,
-        'Autoscan',
-        'Scanner',
-        'idle',
-        'orchestrator',
-        'frontier',
-        'Branch',
-        'Health + inbox check'
-      );
-      orgState = await readOrganizationState(orchestratorId);
-    } else {
-      bail('ORG', e && e.message || e, 3);
+    const db = await getDb();
+    await ensureOrchestrator(db, orchestratorId);
+    const dynamicOrg = getDynamicOrg();
+    orgState = await dynamicOrg.getState(db, orchestratorId);
+    if (!orgState) {
+      await dynamicOrg.changeOrganization(db, { orchestratorId, organization: 'specialist_expert_committee', reason: 'Autoscan initialisation' });
+      orgState = await dynamicOrg.getState(db, orchestratorId);
     }
+  } catch (e) {
+    bail('ORG', { error: e.message || e, orchestratorId }, 3);
   }
 
   try {
-    inbox = await readWorkerInbox(orchestratorId);
+    const db = await getDb();
+    const dynamicOrg = getDynamicOrg();
+    inbox = await dynamicOrg.inbox(db, { orchestratorId, requesterAgentId: orchestratorId, limit: 1000 });
   } catch (e) {
-    bail('INBOX', e && e.message || e, 3);
+    bail('INBOX', { error: e.message || e, orchestratorId }, 3);
   }
+
+  if (!orgState || typeof orgState !== 'object') bail('ORG', orgState, 4);
+  if (!inbox || typeof inbox !== 'object') bail('INBOX', inbox, 4);
 
   const messages = Array.isArray(inbox.messages) ? inbox.messages : [];
   const unread = messages.filter(m => m && m.read === false).length;
   const total = messages.length;
 
-  if (!orgState || typeof orgState !== 'object') bail('ORG', orgState, 4);
-  if (!inbox || typeof inbox !== 'object') bail('INBOX', inbox, 4);
-
   console.log('[INFO] organisation_state:', JSON.stringify({ organization: orgState.organization, version: orgState.version }));
   console.log(`[INFO] Boîte worker: ${total} message(s), ${unread} non lu(s)`);
-  messages.forEach((m, i) => console.log(`  [${i}] ${m.kind || 'n/a'} — read=${!!m.read} — ${(m.summary || JSON.stringify(m)).slice(0,120)}`));
+  messages.forEach((m, i) => console.log(`  [${i}] ${m.kind || 'n/a'} — read=${!!m.read} — ${(m.content || JSON.stringify(m)).slice(0, 120)}`));
 
   const report = {
     scan_time: TIMESTAMP,
@@ -152,6 +140,7 @@ function bail(label, payload, code) {
   } else {
     console.log('[INFO] Tout clair.');
   }
+
   console.log(JSON.stringify(report, null, 2));
 })().catch(err => {
   console.error('[ERREUR] Scan échoué:', err && err.stack ? err.stack : err);

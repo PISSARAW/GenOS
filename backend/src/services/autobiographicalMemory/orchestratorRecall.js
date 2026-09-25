@@ -14,6 +14,8 @@ function clamp(value, minimum, maximum) {
 function buildSituation({ agentId, normalizedMission }) {
   return {
     agentId,
+    organizationId: normalizedMission.organizationId || normalizedMission.organization_id,
+    projectId: normalizedMission.projectId || normalizedMission.project_id,
     missionId: normalizedMission.missionId || normalizedMission.executionRunId || normalizedMission.runId,
     kind: normalizedMission.autobiographicalKind || normalizedMission.kind,
     goal: normalizedMission.prompt || normalizedMission.currentTask || normalizedMission.goal || ''

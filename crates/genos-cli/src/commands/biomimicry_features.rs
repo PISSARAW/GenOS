@@ -224,22 +224,30 @@ fn handle_bet_hedging(action: &str, params: &[String]) {
 
 fn handle_hippocampal(action: &str, params: &[String]) {
     let agent_id = extract_param(params, "agent_id").unwrap_or_else(|| "default".to_string());
-    let score: f64 = extract_param(params, "success_score").and_then(|s| s.parse().ok()).unwrap_or(1.0);
-    let episodes_count: usize = extract_param(params, "episodes_count").and_then(|s| s.parse().ok()).unwrap_or(1);
+    let score: f64 = extract_param(params, "success_score")
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|value| value.is_finite())
+        .unwrap_or(1.0)
+        .clamp(0.0, 1.0);
+    let episodes_count: usize = extract_param(params, "episodes_count")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
     let ripple_frequency_hz = (150.0 + (score * 100.0)).clamp(150.0, 250.0);
-    let consolidated = score >= 0.7;
-    let consolidated_count = if consolidated { episodes_count } else { 0 };
-    let purged_count = if consolidated { 0 } else { episodes_count };
+    let would_consolidate = score >= 0.7;
+    let predicted_consolidated_count = if would_consolidate { episodes_count } else { 0 };
+    let predicted_purged_count = if would_consolidate { 0 } else { episodes_count };
+    let dag_step_count = params.iter().filter(|value| value.starts_with("dag_step=")).count();
 
     println!("{}", json!({
-        "success": true, "feature": "hippocampal", "action": action,
+        "success": true, "mode": "simulation_only", "feature": "hippocampal", "action": action,
         "agent_id": agent_id, "success_score": score,
         "sharp_wave_ripple_hz": ripple_frequency_hz,
-        "consolidated_to_longterm": consolidated,
-        "episodes_processed": episodes_count,
-        "consolidated_count": consolidated_count,
-        "purged_count": purged_count,
-        "status": if consolidated { "CONSOLIDATED" } else { "EPISODIC_PURGED" }
+        "would_consolidate": would_consolidate,
+        "episodes_count_input": episodes_count,
+        "predicted_consolidated_count": predicted_consolidated_count,
+        "predicted_purged_count": predicted_purged_count,
+        "dag_step_count": dag_step_count,
+        "status": "SIMULATION_ONLY"
     }));
 }
 
@@ -256,6 +264,5 @@ fn handle_gate_eval(action: &str, params: &[String]) {
         "params": params, "invariant_verified": true, "verdict": "PERMITTED"
     }));
 }
-
 
 

@@ -137,7 +137,9 @@ impl PhysicalState {
         let viscosity = clamp01(0.5 * (1.0 - energy) + 0.5 * entropy);
         let inertia = inertia_from(state, previous, pressure);
         let plasticity = plasticity_from(previous, rupture_risk);
-        let structural_gravity = previous.map(|p| p.structural_gravity.clone()).unwrap_or_default();
+        let structural_gravity = previous
+            .map(|p| p.structural_gravity.clone())
+            .unwrap_or_default();
         Self {
             energy,
             entropy,
@@ -185,7 +187,9 @@ pub fn action_profile(concept: Concept) -> ActionProfile {
             Organize | Recruit => (0.5, 0.3, 0.2, 0.6, 0.4, 0.1, 0.1),
             Immune | Virology | Feign => (0.6, 0.4, 0.35, 0.5, 0.35, 0.15, 0.2),
             Therapy | Spore | Glia => (0.45, 0.25, 0.2, 0.7, 0.3, 0.05, 0.05),
-            Mutate | Cross | Endosymbiosis | Genomics | Plasmid => (0.8, 0.5, 0.5, 0.3, 0.5, 0.3, 0.35),
+            Mutate | Cross | Endosymbiosis | Genomics | Plasmid => {
+                (0.8, 0.5, 0.5, 0.3, 0.5, 0.3, 0.35)
+            }
             Kill => (0.9, 0.6, 0.7, 0.1, 0.3, 0.2, 0.3),
             Communicate => (0.2, 0.15, 0.1, 0.9, 0.2, 0.0, -0.05),
             Actuate => (0.7, 0.5, 0.6, 0.2, 0.6, 0.2, 0.4),
@@ -383,4 +387,3 @@ impl Director {
         }
     }
 }
-

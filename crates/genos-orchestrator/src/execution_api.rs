@@ -1,7 +1,7 @@
+use crate::GenosEcosystem;
 use crate::director::Strategy;
 use crate::planner::Concept;
 use crate::tick::TickReport;
-use crate::GenosEcosystem;
 
 impl GenosEcosystem {
     /// Exécute une séquence de concepts donnée (utilisé par les mondes isolés).

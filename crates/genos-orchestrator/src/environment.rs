@@ -5,9 +5,9 @@
 //! **perçoit un monde externe, agit dessus, et reçoit une récompense externe**
 //! (au lieu d'un état purement interne).
 
+use crate::GenosEcosystem;
 use crate::learning::context_from_state;
 use crate::planner::Concept;
-use crate::GenosEcosystem;
 use serde_json::json;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
@@ -24,25 +24,12 @@ pub struct Percept {
 /// Action que l'agent exerce sur l'environnement.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
-    Read {
-        path: String,
-    },
-    Write {
-        path: String,
-        content: String,
-    },
-    Append {
-        path: String,
-        content: String,
-    },
-    Delete {
-        path: String,
-    },
+    Read { path: String },
+    Write { path: String, content: String },
+    Append { path: String, content: String },
+    Delete { path: String },
     List,
-    Run {
-        program: String,
-        args: Vec<String>,
-    },
+    Run { program: String, args: Vec<String> },
 }
 
 /// Retour d'une action, éventuellement accompagné d'un percept.
@@ -77,7 +64,10 @@ impl FileSandbox {
         if candidate.is_absolute() {
             return Err("chemin absolu interdit".to_string());
         }
-        if candidate.components().any(|c| matches!(c, Component::ParentDir)) {
+        if candidate
+            .components()
+            .any(|c| matches!(c, Component::ParentDir))
+        {
             return Err("remontee interdite (..)".to_string());
         }
         Ok(self.root.join(candidate))
@@ -174,12 +164,8 @@ impl Environment for FileSandbox {
         self.ops += 1;
         let result = match action {
             Action::Read { path } => self.read_file(&path).map(Some),
-            Action::Write { path, content } => {
-                self.write_file(&path, &content).map(|_| None)
-            }
-            Action::Append { path, content } => {
-                self.append_file(&path, &content).map(|_| None)
-            }
+            Action::Write { path, content } => self.write_file(&path, &content).map(|_| None),
+            Action::Append { path, content } => self.append_file(&path, &content).map(|_| None),
             Action::Delete { path } => self.delete_file(&path).map(|_| None),
             Action::List => Ok(Some(self.sense(""))),
             Action::Run { .. } => Err("execution interdite dans FileSandbox".to_string()),

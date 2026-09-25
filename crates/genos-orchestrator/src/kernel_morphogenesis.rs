@@ -89,7 +89,11 @@ pub struct HysteresisPolicy {
 
 impl Default for HysteresisPolicy {
     fn default() -> Self {
-        Self { minimum_gain: 0.15, cooldown: Duration::from_secs(30), transition_budget: 1.0 }
+        Self {
+            minimum_gain: 0.15,
+            cooldown: Duration::from_secs(30),
+            transition_budget: 1.0,
+        }
     }
 }
 
@@ -103,7 +107,11 @@ pub struct MorphogenesisPlanner {
 
 impl Default for MorphogenesisPlanner {
     fn default() -> Self {
-        Self { policy: HysteresisPolicy::default(), last_change: None, budget_left: 1.0 }
+        Self {
+            policy: HysteresisPolicy::default(),
+            last_change: None,
+            budget_left: 1.0,
+        }
     }
 }
 
@@ -123,14 +131,22 @@ pub struct Totals {
 
 impl MorphogenesisPlanner {
     pub fn new(policy: HysteresisPolicy) -> Self {
-        Self { policy, last_change: None, budget_left: 1.0 }
+        Self {
+            policy,
+            last_change: None,
+            budget_left: 1.0,
+        }
     }
 
     /// Construit un plan a partir des propositions.
     pub fn plan(&mut self, input: &PlanInput<'_>) -> MorphogenesisPlan {
         let totals = self.sum_proposals(input.proposals);
         if self.should_hold(&totals) {
-            return MorphogenesisPlan::no_change("gain insuffisant ou cooldown", totals.gain, totals.cost);
+            return MorphogenesisPlan::no_change(
+                "gain insuffisant ou cooldown",
+                totals.gain,
+                totals.cost,
+            );
         }
         self.build_plan(input, &totals)
     }
@@ -201,9 +217,9 @@ impl MorphogenesisPlanner {
                 from: String::from("strategie_courante"),
                 to: String::from("strategie_cible"),
             }),
-            open if open == "require_approval" => {
-                plan.governance_requirements.push(String::from("approbation_humaine"))
-            }
+            open if open == "require_approval" => plan
+                .governance_requirements
+                .push(String::from("approbation_humaine")),
             _ => plan.preserves.push(item.target.clone()),
         }
     }

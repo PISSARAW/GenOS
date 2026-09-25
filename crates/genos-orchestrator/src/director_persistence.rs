@@ -13,7 +13,10 @@ use uuid::Uuid;
 impl GenosEcosystem {
     /// Persiste l'expérience apprise du directeur (stats, bandits contextuels,
     /// paramètres organisationnels) sur disque, dans le coffre de snapshots.
-    pub fn save_director_state(&mut self, dir: impl Into<std::path::PathBuf>) -> Result<Uuid, String> {
+    pub fn save_director_state(
+        &mut self,
+        dir: impl Into<std::path::PathBuf>,
+    ) -> Result<Uuid, String> {
         if !self.snapshots.is_open() {
             self.snapshots.open(dir)?;
         }

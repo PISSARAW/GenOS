@@ -4,6 +4,7 @@
  */
 
 const { getDatabase } = require('../db');
+const crypto = require('node:crypto');
 const vectorMemoryService = require('../services/vectorMemoryService');
 const telemetry = require('../services/telemetryObserver');
 const { boundedInteger } = require('./argumentBounds');

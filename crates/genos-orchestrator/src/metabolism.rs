@@ -5,7 +5,7 @@
 //! sans énergie.
 
 use crate::GenosEcosystem;
-use genos_biology::glycolysis::{run_metabolic_cycle, MetabolicCycleReport};
+use genos_biology::glycolysis::{MetabolicCycleReport, run_metabolic_cycle};
 use std::time::Instant;
 
 /// Combien de tokens de budget ATP correspondent à une mole d'ATP chimique
@@ -46,7 +46,9 @@ impl Metabolism {
     /// Reconstitue l'ATP selon le temps réel écoulé (horloge saturante).
     pub fn refill(&mut self) {
         let now = Instant::now();
-        let elapsed = now.saturating_duration_since(self.last_refill).as_secs_f64();
+        let elapsed = now
+            .saturating_duration_since(self.last_refill)
+            .as_secs_f64();
         if elapsed > 0.0 {
             self.atp = (self.atp + elapsed * self.refill_per_sec).min(self.capacity);
             self.last_refill = now;
@@ -113,4 +115,3 @@ impl GenosEcosystem {
         report
     }
 }
-

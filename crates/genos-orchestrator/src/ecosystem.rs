@@ -7,6 +7,7 @@
 //! thérapies et ADN compilé. Tous les crates GenOS sont en outre ré-exportés à la
 //! racine du crate orchestrateur (`genos_orchestrator::genos_store`, etc.).
 
+use crate::BiomimeticOrchestrator;
 use crate::director::Director;
 use crate::evolution::Population;
 use crate::immune_cyber::CyberImmune;
@@ -19,13 +20,12 @@ use crate::signaling::SignalingCascade;
 use crate::snapshots::SnapshotVault;
 use crate::trace::TraceStore;
 use crate::virology::VirologyLab;
-use crate::BiomimeticOrchestrator;
-use genos_biology::pathology::{assess_agent_clinical_status, ClinicalStatusReport};
-use genos_biology::phenotype::{create_default_registry, PhenotypeRegistry};
+use genos_biology::pathology::{ClinicalStatusReport, assess_agent_clinical_status};
+use genos_biology::phenotype::{PhenotypeRegistry, create_default_registry};
 use genos_biology::quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
 use genos_biology::sensory::{AccessoryOlfactoryBulb, EcholocationCortex};
 use genos_biology::specialized_cells::cnidocyte::DischargeImpact;
-use genos_biology::therapy::{apply_systemic_therapy_to_cell, SystemicTherapy, TherapyOutcome};
+use genos_biology::therapy::{SystemicTherapy, TherapyOutcome, apply_systemic_therapy_to_cell};
 use genos_biology::{
     Choanocyte, Cnidocyte, ElectricOrganStack, ElectricShockBurst, GlialCell, GlialEnvironment,
     GlialPipeline, HgtTransferReport, Iridophore, ObserverPerspective, OssificationReport,

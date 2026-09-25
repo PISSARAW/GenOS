@@ -1,6 +1,6 @@
-use genos_biology::pathology::{check_degenerative_state, Pathology};
-use genos_cell::AgentCell;
+use genos_biology::pathology::{Pathology, check_degenerative_state};
 use genos_biology::therapy::SystemicTherapy;
+use genos_cell::AgentCell;
 
 pub fn therapy_for_pathology(pathology: &Pathology) -> SystemicTherapy {
     match pathology {
@@ -45,7 +45,9 @@ pub fn diagnose_active_virions(ecosystem: &mut crate::GenosEcosystem) {
         return;
     }
     for cell in ecosystem.orchestrator.active_cells.values_mut() {
-        if !cell.clinical.is_quarantined && signatures.iter().any(|signature| signature == &cell.role) {
+        if !cell.clinical.is_quarantined
+            && signatures.iter().any(|signature| signature == &cell.role)
+        {
             for signature in &signatures {
                 cell.clinical.diagnose(Pathology::ViralInfection {
                     pathogen_signature: signature.clone(),

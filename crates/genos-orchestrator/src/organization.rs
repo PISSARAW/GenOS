@@ -71,25 +71,139 @@ use Visibility::*;
 
 /// Les 19 organisations de GenOS.
 pub const ORGANIZATIONS: [Organization; 19] = [
-    Organization { name: "specialist_expert_committee", topology: HubAndSpoke, exchange: Indirect, visibility: Attributed, routing: Orchestrator },
-    Organization { name: "blind_adversarial_review", topology: IsolatedCritics, exchange: Indirect, visibility: Anonymous, routing: Broadcast },
-    Organization { name: "red_blue_coevolution", topology: AdversarialTriangle, exchange: Active, visibility: Attributed, routing: AdversarialPair },
-    Organization { name: "brier_weighted_consensus", topology: WeightedQuorum, exchange: Active, visibility: Attributed, routing: Broadcast },
-    Organization { name: "quorum_with_abstention", topology: Quorum, exchange: Active, visibility: Attributed, routing: Broadcast },
-    Organization { name: "stigmergy", topology: SharedEnvironment, exchange: Implicit, visibility: Attributed, routing: SharedTrail },
-    Organization { name: "flocking_boids", topology: DynamicNeighbors, exchange: Active, visibility: Attributed, routing: Broadcast },
-    Organization { name: "fish_school_search", topology: WeightedBarycenter, exchange: Implicit, visibility: Attributed, routing: Broadcast },
-    Organization { name: "slime_mould_network", topology: AdaptiveMesh, exchange: Implicit, visibility: Attributed, routing: Capability },
-    Organization { name: "grey_wolf_optimizer", topology: AlphaBetaDelta, exchange: Indirect, visibility: Attributed, routing: Ranked },
-    Organization { name: "mycelial_routing", topology: CapabilityMesh, exchange: Active, visibility: Attributed, routing: Capability },
-    Organization { name: "dynamic_polyethism", topology: RoleGradient, exchange: Active, visibility: Attributed, routing: Capability },
-    Organization { name: "energy_huddle", topology: ResourceHuddle, exchange: Active, visibility: Attributed, routing: Broadcast },
-    Organization { name: "network_silence", topology: Isolated, exchange: Buffered, visibility: Attributed, routing: CriticalOnly },
-    Organization { name: "strategy_arena", topology: IsolatedCompetitors, exchange: Indirect, visibility: Sealed, routing: Orchestrator },
-    Organization { name: "hierarchical_merge", topology: Hierarchy, exchange: Indirect, visibility: Attributed, routing: Orchestrator },
-    Organization { name: "competitive_arena", topology: IsolatedCompetitors, exchange: Indirect, visibility: Sealed, routing: Orchestrator },
-    Organization { name: "isolated_recovery", topology: Isolated, exchange: Indirect, visibility: Sealed, routing: Orchestrator },
-    Organization { name: "memory_compilation", topology: SharedMemory, exchange: Implicit, visibility: Attributed, routing: SharedTrail },
+    Organization {
+        name: "specialist_expert_committee",
+        topology: HubAndSpoke,
+        exchange: Indirect,
+        visibility: Attributed,
+        routing: Orchestrator,
+    },
+    Organization {
+        name: "blind_adversarial_review",
+        topology: IsolatedCritics,
+        exchange: Indirect,
+        visibility: Anonymous,
+        routing: Broadcast,
+    },
+    Organization {
+        name: "red_blue_coevolution",
+        topology: AdversarialTriangle,
+        exchange: Active,
+        visibility: Attributed,
+        routing: AdversarialPair,
+    },
+    Organization {
+        name: "brier_weighted_consensus",
+        topology: WeightedQuorum,
+        exchange: Active,
+        visibility: Attributed,
+        routing: Broadcast,
+    },
+    Organization {
+        name: "quorum_with_abstention",
+        topology: Quorum,
+        exchange: Active,
+        visibility: Attributed,
+        routing: Broadcast,
+    },
+    Organization {
+        name: "stigmergy",
+        topology: SharedEnvironment,
+        exchange: Implicit,
+        visibility: Attributed,
+        routing: SharedTrail,
+    },
+    Organization {
+        name: "flocking_boids",
+        topology: DynamicNeighbors,
+        exchange: Active,
+        visibility: Attributed,
+        routing: Broadcast,
+    },
+    Organization {
+        name: "fish_school_search",
+        topology: WeightedBarycenter,
+        exchange: Implicit,
+        visibility: Attributed,
+        routing: Broadcast,
+    },
+    Organization {
+        name: "slime_mould_network",
+        topology: AdaptiveMesh,
+        exchange: Implicit,
+        visibility: Attributed,
+        routing: Capability,
+    },
+    Organization {
+        name: "grey_wolf_optimizer",
+        topology: AlphaBetaDelta,
+        exchange: Indirect,
+        visibility: Attributed,
+        routing: Ranked,
+    },
+    Organization {
+        name: "mycelial_routing",
+        topology: CapabilityMesh,
+        exchange: Active,
+        visibility: Attributed,
+        routing: Capability,
+    },
+    Organization {
+        name: "dynamic_polyethism",
+        topology: RoleGradient,
+        exchange: Active,
+        visibility: Attributed,
+        routing: Capability,
+    },
+    Organization {
+        name: "energy_huddle",
+        topology: ResourceHuddle,
+        exchange: Active,
+        visibility: Attributed,
+        routing: Broadcast,
+    },
+    Organization {
+        name: "network_silence",
+        topology: Isolated,
+        exchange: Buffered,
+        visibility: Attributed,
+        routing: CriticalOnly,
+    },
+    Organization {
+        name: "strategy_arena",
+        topology: IsolatedCompetitors,
+        exchange: Indirect,
+        visibility: Sealed,
+        routing: Orchestrator,
+    },
+    Organization {
+        name: "hierarchical_merge",
+        topology: Hierarchy,
+        exchange: Indirect,
+        visibility: Attributed,
+        routing: Orchestrator,
+    },
+    Organization {
+        name: "competitive_arena",
+        topology: IsolatedCompetitors,
+        exchange: Indirect,
+        visibility: Sealed,
+        routing: Orchestrator,
+    },
+    Organization {
+        name: "isolated_recovery",
+        topology: Isolated,
+        exchange: Indirect,
+        visibility: Sealed,
+        routing: Orchestrator,
+    },
+    Organization {
+        name: "memory_compilation",
+        topology: SharedMemory,
+        exchange: Implicit,
+        visibility: Attributed,
+        routing: SharedTrail,
+    },
 ];
 
 pub fn catalog() -> &'static [Organization; 19] {
@@ -119,7 +233,15 @@ pub enum Superorganism {
 impl Superorganism {
     pub fn all() -> [Superorganism; 7] {
         use Superorganism::*;
-        [Holobionte, Syncytium, Metapopulation, Rhizome, Biocenose, Biome, Swarm]
+        [
+            Holobionte,
+            Syncytium,
+            Metapopulation,
+            Rhizome,
+            Biocenose,
+            Biome,
+            Swarm,
+        ]
     }
 
     pub fn name(self) -> &'static str {

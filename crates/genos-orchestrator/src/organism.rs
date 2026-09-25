@@ -6,11 +6,11 @@
 //! buts endogènes (Phase 2), décision/apprentissage (Phases 4) et, en variante,
 //! l'environnement incarné (Phase 1).
 
+use crate::GenosEcosystem;
 use crate::director::Strategy;
 use crate::environment::Environment;
 use crate::evolution::EvolutionReport;
 use crate::planner::Concept;
-use crate::GenosEcosystem;
 
 /// Réglages de la boucle organisme.
 #[derive(Clone, Debug)]

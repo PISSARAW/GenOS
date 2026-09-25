@@ -20,9 +20,16 @@ function normalizeObserverFailures(report) {
     .filter(Boolean);
 }
 
+const CANONICAL_DIMENSIONS = Object.freeze({
+  missionCoverage: 'MCC',
+  staffedCoverage: 'TSC',
+  runtimeToolCoverage: 'RCA',
+  verifiedCoverage: 'VEC'
+});
+
 function coverageDimensions(coverage) {
   return ['missionCoverage', 'staffedCoverage', 'runtimeToolCoverage', 'verifiedCoverage']
-    .map((name) => ({ name, ...(coverage[name] || {}), ratio: coverage[name]?.ratio ?? null }));
+    .map((name) => ({ name, canonical: CANONICAL_DIMENSIONS[name], ...(coverage[name] || {}), ratio: coverage[name]?.ratio ?? null }));
 }
 
 function invalidDimensions(dimensions) {

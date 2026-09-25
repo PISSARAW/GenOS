@@ -1,10 +1,8 @@
-pub mod conscience;
-pub mod core_self;
-pub mod self_evolution;
-pub(crate) mod execution_api;
-pub mod clinical_therapy;
 pub mod autopoiesis;
 pub mod behaviors;
+pub mod clinical_therapy;
+pub mod conscience;
+pub mod core_self;
 pub mod diagnostics;
 pub mod director;
 pub mod director_persistence;
@@ -15,10 +13,19 @@ pub mod ecosystem_params;
 pub mod environment;
 pub mod evolution;
 pub mod evolution_types;
+pub(crate) mod execution_api;
 pub mod genome_ops;
 pub mod global_workspace;
 pub mod immune_cyber;
 pub mod instincts;
+pub mod kernel_cycle;
+pub mod kernel_diagnosis;
+pub mod kernel_governance;
+pub mod kernel_incarnation;
+pub mod kernel_morphogenesis;
+pub mod kernel_morphogenesis_lease;
+pub mod kernel_resolvers;
+pub mod kernel_state;
 pub mod learning;
 pub mod membrane_chemistry;
 pub mod metabolism;
@@ -28,81 +35,83 @@ pub mod orchestrator;
 pub mod organism;
 pub mod organization;
 pub mod phylogeny;
-pub mod physics;
 pub mod physical_telemetry;
-pub mod plasmids;
+pub mod physics;
 pub mod planner;
+pub mod plasmids;
 pub mod recruitment;
 pub mod reproduction_cycle;
+pub mod self_evolution;
+pub mod sensorimotor;
 pub mod sensory;
 pub mod signaling;
 pub mod snapshots;
+pub mod tick;
 pub mod tissue_scheduler;
 pub mod token_bucket;
 pub mod trace;
 pub mod virology;
-pub mod sensorimotor;
-pub mod tick;
 pub mod volition;
 pub mod worlds;
-pub mod kernel_state;
-pub mod kernel_diagnosis;
-pub mod kernel_resolvers;
-pub mod kernel_morphogenesis;
-pub mod kernel_incarnation;
-pub mod kernel_morphogenesis_lease;
-pub mod kernel_governance;
-pub mod kernel_cycle;
 
 #[cfg(feature = "api")]
 pub mod thalamus;
 
-pub use conscience::{Conscience, CognitiveRegulationState};
+pub use conscience::{CognitiveRegulationState, Conscience};
 #[deprecated(since = "0.3", note = "Use CognitiveRegulationState instead")]
 pub type ConscienceState = CognitiveRegulationState;
 pub use autopoiesis::{Membrane, SelfModel, SelfRepairReport};
-pub use director::{Decision, Director, Step, Strategy};
-pub use drives::{AutonomyGateReport, Drives, GoalSelector, Volition};
-pub use ecosystem_params::{CrossoverParams, FreezeParams, OscillatorParams, ThawParams};
-pub use ecosystem::GenosEcosystem;
-pub use environment::{Action, EmbodiedReport, Environment, Feedback, FileSandbox, Percept, ProcessSandbox};
-pub use evolution::{EvolutionReport, Individual, InnovationBlocked, Island, Population, QualityProof};
-pub use global_workspace::{
-    BroadcastEffect, GlobalWorkspaceReport, WorkspaceConsumer, WorkspaceEvent, WorkspaceSignal,
-};
 pub use core_self::{
     AgencyAttribution, AgencyComparator, Claim, CognitiveProvenance, CoreSelf, CoreSelfState,
     Intention, ObservedOutcome,
 };
+pub use director::{Decision, Director, Step, Strategy};
+pub use drives::{AutonomyGateReport, Drives, GoalSelector, Volition};
+pub use ecosystem::GenosEcosystem;
+pub use ecosystem_params::{CrossoverParams, FreezeParams, OscillatorParams, ThawParams};
+pub use environment::{
+    Action, EmbodiedReport, Environment, Feedback, FileSandbox, Percept, ProcessSandbox,
+};
+pub use evolution::{
+    EvolutionReport, Individual, InnovationBlocked, Island, Population, QualityProof,
+};
+pub use global_workspace::{
+    BroadcastEffect, GlobalWorkspaceReport, WorkspaceConsumer, WorkspaceEvent, WorkspaceSignal,
+};
 pub use instincts::{InstinctActivation, InstinctState};
+pub use learning::{Learner, LinearBandit, context_from_state};
 pub use metabolism::Metabolism;
-pub use learning::{LinearBandit, Learner, context_from_state};
 pub use orchestrator::BiomimeticOrchestrator;
 pub use organism::{OrganismConfig, OrganismReport};
-pub use organization::{Organization, Superorganism, catalog, select_organization, select_superorganism};
-pub use physics::{
-    ActionProfile, DecisionContext, Material, PhysicalState, Regime, UtilityInputs, action_profile,
-    classify_material, classify_material_explicit, determine_regime, inertia_threshold, utility_score,
+pub use organization::{
+    Organization, Superorganism, catalog, select_organization, select_superorganism,
 };
 pub use physical_telemetry::PhysicalTelemetry;
+pub use physics::{
+    ActionProfile, DecisionContext, Material, PhysicalState, Regime, UtilityInputs, action_profile,
+    classify_material, classify_material_explicit, determine_regime, inertia_threshold,
+    utility_score,
+};
+pub use planner::{ActionStats, Concept, Goal, WorldState};
 pub use plasmids::{PlasmidBank, Skill};
-pub use trace::{Outcome, ReplayReport, Verdict};
-pub use tick::{MissionReport, TickReport};
-pub use volition::VolitionState;
-pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
-pub use planner::{Concept, Goal, WorldState, ActionStats};
 pub use recruitment::{Candidate, Demand, RecruitmentDecision, RecruitmentPlanner, Selection};
-pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};
+pub use tick::{MissionReport, TickReport};
 pub use tissue_scheduler::{
     InProcessPoolConfig, InProcessTask, InProcessTaskResult, InProcessWorkerPool, PoolHealth,
-    SchedulerHealth, SquadBudget, SquadHealth, SquadTask, SquadTaskResult,
-    TissueBudget, TissueHealth, TissueScheduler, TissueSchedulerConfig, WorkerBudget,
+    SchedulerHealth, SquadBudget, SquadHealth, SquadTask, SquadTaskResult, TissueBudget,
+    TissueHealth, TissueScheduler, TissueSchedulerConfig, WorkerBudget,
 };
+pub use token_bucket::{
+    AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision,
+    TokenBucketScheduler,
+};
+pub use trace::{Outcome, ReplayReport, Verdict};
+pub use volition::VolitionState;
+pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
 
 // Accès direct à tout l'écosystème GenOS depuis le crate orchestrateur.
 pub use genos_biology;
 pub use genos_cell;
-pub use genos_worker;
 pub use genos_common;
 pub use genos_dna;
 pub use genos_genome;
@@ -111,6 +120,7 @@ pub use genos_reproduction;
 pub use genos_sensorimotor;
 pub use genos_signal;
 pub use genos_store;
+pub use genos_worker;
 
 /// Accès à la couche API GenOS (activé par la feature `api`).
 #[cfg(feature = "api")]
@@ -162,7 +172,9 @@ mod tests {
         assert!(!state.is_apoptotic);
 
         // 6. Sporulation & Germination
-        let spore_idx = orch.sporulate_cell(worker_id, SporeType::BacterialEndospore).unwrap();
+        let spore_idx = orch
+            .sporulate_cell(worker_id, SporeType::BacterialEndospore)
+            .unwrap();
         assert_eq!(orch.dormant_spores.len(), 1);
         let revived = orch.germinate_spore(spore_idx, (true, true)).unwrap();
         assert_eq!(revived.role, "Bacterial Vegetative Cell");
@@ -187,8 +199,18 @@ mod tests {
     #[test]
     fn test_orchestrator_uses_immune_selection() {
         let mut orch = BiomimeticOrchestrator::new("Immune_Prime", 50.0, 100.0);
-        orch.immune_selection.detectors.push(genos_immune::AntibodyDetector::new("SQL", "SQL_INJECTION", 0.8));
-        let antigen = genos_immune::Antigen { id: "threat-1".into(), epitope: "SQL_INJECTION".into(), danger_level: 0.9 };
+        orch.immune_selection
+            .detectors
+            .push(genos_immune::AntibodyDetector::new(
+                "SQL",
+                "SQL_INJECTION",
+                0.8,
+            ));
+        let antigen = genos_immune::Antigen {
+            id: "threat-1".into(),
+            epitope: "SQL_INJECTION".into(),
+            danger_level: 0.9,
+        };
         assert!(orch.detect_immune_threat(&antigen));
         assert_eq!(orch.immune_selection.memory_pool.len(), 1);
     }
@@ -201,7 +223,11 @@ mod tests {
         // 1. Initial compute step allowed
         let decision = scheduler.schedule_step("worker-1", 20.0);
         match decision {
-            SchedulingDecision::Allowed { allocated_tokens, remaining_tokens, .. } => {
+            SchedulingDecision::Allowed {
+                allocated_tokens,
+                remaining_tokens,
+                ..
+            } => {
                 assert_eq!(allocated_tokens, 20.0);
                 assert!((remaining_tokens - 30.0).abs() < 1e-3);
             }
@@ -219,6 +245,9 @@ mod tests {
 
         // 4. Heavy waste causes throttling / sleep
         let drain = scheduler.penalize_waste("worker-1", 1.0).unwrap();
-        assert!(matches!(drain.state, BucketState::Throttled { .. } | BucketState::Apoptotic));
+        assert!(matches!(
+            drain.state,
+            BucketState::Throttled { .. } | BucketState::Apoptotic
+        ));
     }
 }

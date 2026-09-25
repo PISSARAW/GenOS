@@ -50,9 +50,31 @@ impl Concept {
     pub fn all() -> Vec<Concept> {
         use Concept::*;
         vec![
-            Observe, Replay, Organize, Recruit, Delegate, Audit, Immune, Virology, Throttle,
-            Therapy, Spore, Glia, Signaling, Stigmergy, Quorum, Neuro, Mutate, Cross,
-            Endosymbiosis, Genomics, Plasmid, Feign, Kill, Communicate, Actuate,
+            Observe,
+            Replay,
+            Organize,
+            Recruit,
+            Delegate,
+            Audit,
+            Immune,
+            Virology,
+            Throttle,
+            Therapy,
+            Spore,
+            Glia,
+            Signaling,
+            Stigmergy,
+            Quorum,
+            Neuro,
+            Mutate,
+            Cross,
+            Endosymbiosis,
+            Genomics,
+            Plasmid,
+            Feign,
+            Kill,
+            Communicate,
+            Actuate,
         ]
     }
 
@@ -199,7 +221,7 @@ impl WorldState {
             Throttle => true,
             Therapy | Spore | Glia => self.diseased > 0,
             Signaling | Stigmergy | Quorum | Neuro => self.workers >= 2,
-            Mutate | Cross | Endosymbiosis |             Genomics => self.workers >= 1,
+            Mutate | Cross | Endosymbiosis | Genomics => self.workers >= 1,
             Plasmid => self.diagnosed && self.flagged > 0 && !self.skill_granted,
             Feign => self.adversary,
             Kill => self.traitor,
@@ -323,4 +345,3 @@ impl ActionStats {
         self.attempts == 0
     }
 }
-

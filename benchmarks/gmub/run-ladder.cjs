@@ -66,6 +66,9 @@ async function runCase(model, testCase, opts) {
   const passed = scoreCase(answer, testCase.expected, testCase.pattern);
   return {
     model,
+    mode: 'solo',
+    requestedModel: model,
+    servedModel: result.model || result.servedModel || null,
     case_id: testCase.id,
     domain: testCase.domain,
     raw: text.slice(0, 500),
@@ -75,7 +78,7 @@ async function runCase(model, testCase, opts) {
     inputTokens: result.inputTokens || 0,
     outputTokens: result.outputTokens || 0,
     latencyMs,
-    costUsd: 0,
+    costUsd: null,
     seed
   };
 }
@@ -96,7 +99,7 @@ async function main() {
         results.push(r);
         process.stderr.write(`${r.passed ? 'PASS' : 'FAIL'} (${r.latencyMs}ms)\n`);
       } catch (e) {
-        results.push({ model, case_id: c.id, domain: c.domain, passed: false, error: e.message, latencyMs: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, seed: cfg.seed });
+        results.push({ model, mode: 'solo', requestedModel: model, servedModel: null, case_id: c.id, domain: c.domain, passed: false, error: e.message, latencyMs: 0, inputTokens: 0, outputTokens: 0, costUsd: null, seed: cfg.seed });
         process.stderr.write(`ERROR: ${e.message}\n`);
       }
     }

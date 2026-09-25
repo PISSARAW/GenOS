@@ -60,11 +60,26 @@ fn push_spec(set: &mut ProposalSet, spec: &ProposalSpec<'_>) {
 
 fn emit(set: &mut ProposalSet, spec: &ProposalSpec<'_>) {
     let gains = gain_for(spec.action);
-    push_spec(set, &ProposalSpec { resolver: spec.resolver, action: spec.action, target: spec.target, gain: gains.0, cost: gains.1 });
+    push_spec(
+        set,
+        &ProposalSpec {
+            resolver: spec.resolver,
+            action: spec.action,
+            target: spec.target,
+            gain: gains.0,
+            cost: gains.1,
+        },
+    );
 }
 
 fn spec<'a>(resolver: &'a str, action: &'a str, target: &'a str) -> ProposalSpec<'a> {
-    ProposalSpec { resolver, action, target, gain: 0.0, cost: 0.0 }
+    ProposalSpec {
+        resolver,
+        action,
+        target,
+        gain: 0.0,
+        cost: 0.0,
+    }
 }
 
 fn gain_for(action: &str) -> (f64, f64) {
@@ -91,47 +106,95 @@ pub fn resolve_all(input: &ResolverInput<'_>) -> ProposalSet {
 
 fn collect_epistemic(input: &ResolverInput<'_>, set: &mut ProposalSet) {
     match input.diagnosis.failure {
-        FailureType::Epistemic => emit(set, &spec("EpistemicResolver", "spawn_verifier", "scope_courant")),
-        FailureType::Model => emit(set, &spec("ModelResolver", "assign_independent_model", "verifier_1")),
-        FailureType::Environmental => emit(set, &spec("EnvironmentResolver", "reprofile_mission", "mission")),
+        FailureType::Epistemic => emit(
+            set,
+            &spec("EpistemicResolver", "spawn_verifier", "scope_courant"),
+        ),
+        FailureType::Model => emit(
+            set,
+            &spec("ModelResolver", "assign_independent_model", "verifier_1"),
+        ),
+        FailureType::Environmental => emit(
+            set,
+            &spec("EnvironmentResolver", "reprofile_mission", "mission"),
+        ),
         _ => {}
     }
     if input.state.epistemics.uncertainties.len() > 3 {
-        emit(set, &spec("NicheResolver", "spawn_probe", "zone_incertaine"));
+        emit(
+            set,
+            &spec("NicheResolver", "spawn_probe", "zone_incertaine"),
+        );
     }
 }
 
 fn collect_cognitive(input: &ResolverInput<'_>, set: &mut ProposalSet) {
     match input.diagnosis.failure {
-        FailureType::Cognitive => emit(set, &spec("CognitivePhenotypeResolver", "change_recipe", "worker_cible")),
-        FailureType::Strategic => emit(set, &spec("StrategyResolver", "change_strategy", "scope_courant")),
-        FailureType::Procedural => emit(set, &spec("ProceduralResolver", "activate_procedure", "scope_courant")),
+        FailureType::Cognitive => emit(
+            set,
+            &spec(
+                "CognitivePhenotypeResolver",
+                "change_recipe",
+                "worker_cible",
+            ),
+        ),
+        FailureType::Strategic => emit(
+            set,
+            &spec("StrategyResolver", "change_strategy", "scope_courant"),
+        ),
+        FailureType::Procedural => emit(
+            set,
+            &spec("ProceduralResolver", "activate_procedure", "scope_courant"),
+        ),
         _ => {}
     }
 }
 
 fn collect_structural(input: &ResolverInput<'_>, set: &mut ProposalSet) {
     match input.diagnosis.failure {
-        FailureType::Capability => emit(set, &spec("CapabilityResolver", "request_capability", "scope_courant")),
-        FailureType::Topology => emit(set, &spec("TopologyResolver", "change_topology", "scope_courant")),
-        FailureType::Communication => {
-            emit(set, &spec("CommunicationResolver", "adjust_physiology", "scope_courant"))
-        }
-        FailureType::Pathological => emit(set, &spec("ClinicalPlanner", "isolate_worker", "worker_pathologique")),
+        FailureType::Capability => emit(
+            set,
+            &spec("CapabilityResolver", "request_capability", "scope_courant"),
+        ),
+        FailureType::Topology => emit(
+            set,
+            &spec("TopologyResolver", "change_topology", "scope_courant"),
+        ),
+        FailureType::Communication => emit(
+            set,
+            &spec(
+                "CommunicationResolver",
+                "adjust_physiology",
+                "scope_courant",
+            ),
+        ),
+        FailureType::Pathological => emit(
+            set,
+            &spec("ClinicalPlanner", "isolate_worker", "worker_pathologique"),
+        ),
         _ => {}
     }
     if input.state.collective.subgraphs.len() > 1 {
-        emit(set, &spec("RelationResolver", "bridge_subgraphs", "interfaces"));
+        emit(
+            set,
+            &spec("RelationResolver", "bridge_subgraphs", "interfaces"),
+        );
     }
 }
 
 fn collect_resources(input: &ResolverInput<'_>, set: &mut ProposalSet) {
     match input.diagnosis.failure {
-        FailureType::Resource => emit(set, &spec("ResourceAllocator", "shrink_topology", "scope_courant")),
+        FailureType::Resource => emit(
+            set,
+            &spec("ResourceAllocator", "shrink_topology", "scope_courant"),
+        ),
         _ => {}
     }
     if input.state.budget_pressure() > 0.8 {
-        emit(set, &spec("ResiliencePlanner", "degrade_gracefully", "mission"));
+        emit(
+            set,
+            &spec("ResiliencePlanner", "degrade_gracefully", "mission"),
+        );
     }
     if input.state.governance.risk_level > 0.7 {
         emit(set, &spec("GovernancePlane", "require_approval", "plan"));

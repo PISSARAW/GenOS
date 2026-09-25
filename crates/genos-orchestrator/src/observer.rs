@@ -38,7 +38,10 @@ impl GenosEcosystem {
             .count();
 
         // Entrées de stress : dissonance, inflammation, échec, pression budgétaire.
-        let dissonance = self.orchestrator.cognitive_regulation_state.dissonance_level;
+        let dissonance = self
+            .orchestrator
+            .cognitive_regulation_state
+            .dissonance_level;
         let il6: f64 = self
             .orchestrator
             .active_cells
@@ -69,8 +72,13 @@ impl GenosEcosystem {
             + 0.20 * budget_pressure)
             .clamp(0.0, 1.0);
 
-        let evidence_events = self.events.read_stream(0).iter()
-            .filter(|e| e.event_type == "OBSERVE" || e.event_type == "HUMAN" || e.event_type == "INTEL")
+        let evidence_events = self
+            .events
+            .read_stream(0)
+            .iter()
+            .filter(|e| {
+                e.event_type == "OBSERVE" || e.event_type == "HUMAN" || e.event_type == "INTEL"
+            })
             .count();
         let uncertain = evidence_events == 0 || active_virions >= 2;
         let observed = evidence_events > 0;

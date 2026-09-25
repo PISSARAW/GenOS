@@ -11,8 +11,6 @@ const episodeStore = require('./episodeStore');
 
 const MIN_SUPPORT_FOR_LESSON = 2;
 const MAX_CONFIDENCE = 0.95;
-const BASE_CONFIDENCE = 0.5;
-const CONFIDENCE_STEP = 0.1;
 
 function clusterKeyFor(episode) {
   const strategy = episode.decision?.selectedStrategy || episode.action?.tool || 'unspecified';
@@ -30,7 +28,7 @@ function isFailure(episode) {
 function groupByCluster(episodes) {
   const clusters = new Map();
   for (const episode of episodes) {
-    const key = clusterKeyFor(episode);
+    const key = JSON.stringify([episode.organizationId || null, episode.projectId || null, clusterKeyFor(episode)]);
     if (!clusters.has(key)) clusters.set(key, []);
     clusters.get(key).push(episode);
   }
@@ -55,24 +53,28 @@ function recommendedActionFor(failureCount, successCount) {
   return failureCount >= successCount ? 'avoid_strategy_before_retry' : 'reuse_strategy_first';
 }
 
-function lessonIdFor(scope, claim) {
-  const hash = crypto.createHash('sha256').update(`${scope}\0${claim}`).digest('hex').slice(0, 24);
+function lessonIdFor(key) {
+  const hash = crypto.createHash('sha256').update(key).digest('hex').slice(0, 24);
   return `lesson_${hash}`;
 }
 
 function buildLessonFromCluster(key, episodes) {
+  const [organizationId, projectId, clusterKey] = JSON.parse(key);
   const successes = episodes.filter(isSuccess);
   const failures = episodes.filter(isFailure);
   const support = successes.length + failures.length;
   if (support < MIN_SUPPORT_FOR_LESSON) return null;
-  const claim = claimFor(key, successes.length, failures.length);
+  const claim = claimFor(clusterKey, successes.length, failures.length);
   const dominant = failures.length >= successes.length ? failures : successes;
   const counter = failures.length >= successes.length ? successes : failures;
+  const supportConfidence = 0.5 + (0.45 * (support / (support + 4)) * (Math.abs(successes.length - failures.length) / support));
   return {
-    id: lessonIdFor(key, claim),
-    scope: key.split('::')[0],
+    id: lessonIdFor(key),
+    organizationId,
+    projectId,
+    scope: clusterKey.split('::')[0],
     claim,
-    confidence: Math.min(MAX_CONFIDENCE, BASE_CONFIDENCE + CONFIDENCE_STEP * dominant.length),
+    confidence: Math.min(MAX_CONFIDENCE, supportConfidence),
     supportingEpisodes: dominant.map((episode) => episode.id),
     counterExamples: counter.map((episode) => episode.id),
     reuseConditions: reuseConditionsFor(dominant[0]),
@@ -85,15 +87,19 @@ async function upsertLesson(lesson, dbOverride) {
   const db = dbOverride || await getDatabase();
   await db.run(
     `INSERT INTO autobiographical_lessons (
-      id, scope, claim, confidence, supporting_episodes_json, counter_examples_json,
+      id, scope, organization_id, project_id, active, claim, confidence, supporting_episodes_json, counter_examples_json,
       reuse_conditions_json, avoid_conditions_json, recommended_action, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET
+      claim = excluded.claim,
+      organization_id = excluded.organization_id,
+      project_id = excluded.project_id,
+      active = 1,
       confidence = excluded.confidence,
       supporting_episodes_json = excluded.supporting_episodes_json,
       counter_examples_json = excluded.counter_examples_json,
       updated_at = CURRENT_TIMESTAMP`,
-    lesson.id, lesson.scope, lesson.claim, lesson.confidence,
+    lesson.id, lesson.scope, lesson.organizationId, lesson.projectId, lesson.claim, lesson.confidence,
     JSON.stringify(lesson.supportingEpisodes), JSON.stringify(lesson.counterExamples),
     JSON.stringify(lesson.reuseConditions), JSON.stringify(lesson.avoidConditions), lesson.recommendedAction
   );
@@ -102,7 +108,7 @@ async function upsertLesson(lesson, dbOverride) {
 
 async function consolidateLessons(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
-  const episodes = await episodeStore.getRecentEpisodes({ ...options, limit: options.limit || 500 }, db);
+  const episodes = await episodeStore.getRecentEpisodes({ ...options, allTenants: true, limit: options.limit || 500 }, db);
   const clusters = groupByCluster(episodes);
   const produced = [];
   for (const [key, clusterEpisodes] of clusters) {
@@ -117,6 +123,8 @@ function rowToLesson(row) {
   return {
     id: row.id,
     scope: row.scope,
+    organizationId: row.organization_id || null,
+    projectId: row.project_id || null,
     claim: row.claim,
     confidence: row.confidence,
     supportingEpisodes: JSON.parse(row.supporting_episodes_json || '[]'),
@@ -130,9 +138,15 @@ function rowToLesson(row) {
 
 async function getLessons(options = {}, dbOverride = null) {
   const db = dbOverride || await getDatabase();
+  if (Boolean(options.organizationId) !== Boolean(options.projectId)) throw new Error('Organization and project scope must be provided together.');
   const clauses = [];
   const params = [];
   if (options.scope) { clauses.push('scope = ?'); params.push(options.scope); }
+  if (options.organizationId) { clauses.push('organization_id = ?'); params.push(options.organizationId); }
+  else { clauses.push('organization_id IS NULL'); }
+  if (options.projectId) { clauses.push('project_id = ?'); params.push(options.projectId); }
+  else { clauses.push('project_id IS NULL'); }
+  clauses.push('active = 1');
   if (Number.isFinite(options.minConfidence)) { clauses.push('confidence >= ?'); params.push(options.minConfidence); }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const limit = Math.max(1, Number(options.limit) || 20);

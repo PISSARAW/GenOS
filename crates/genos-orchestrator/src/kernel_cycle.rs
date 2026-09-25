@@ -5,11 +5,11 @@
 //! gouvernance, delegue via l'incarnation unique, collecte les preuves,
 //! met a jour l'etat, re evalue, versionne (AgentGit) et rapporte.
 
-use crate::kernel_diagnosis::{diagnose, DiagnosisInput};
+use crate::kernel_diagnosis::{DiagnosisInput, diagnose};
 use crate::kernel_governance::{GovernanceDecision, GovernanceInput, GovernancePlane};
 use crate::kernel_incarnation::{AgentIncarnationRequest, AgentIncarnationService, AutonomyLevel};
 use crate::kernel_morphogenesis::{MorphogenesisPlan, MorphogenesisPlanner, PlanInput};
-use crate::kernel_resolvers::{resolve_all, ResolverInput};
+use crate::kernel_resolvers::{ResolverInput, resolve_all};
 use crate::kernel_state::{EpistemicUpdate, Observations, OrchestratorState};
 use serde::{Deserialize, Serialize};
 
@@ -89,7 +89,11 @@ impl ControlKernel {
         let governance = self.authorize(&plan);
         let spawned = self.apply_if_allowed(&plan, &governance);
         self.close_step(input, &plan);
-        StepOutcome { plan_applied: spawned.is_empty().eq(&false), governance, agents_spawned: spawned }
+        StepOutcome {
+            plan_applied: spawned.is_empty().eq(&false),
+            governance,
+            agents_spawned: spawned,
+        }
     }
 
     fn decide(&mut self, input: &StepInput) -> MorphogenesisPlan {
@@ -99,7 +103,10 @@ impl ControlKernel {
             worker_error_rate: input.worker_error_rate,
         };
         let diagnosis = diagnose(&diagnosis_in);
-        let resolver_in = ResolverInput { state: &self.state, diagnosis: &diagnosis };
+        let resolver_in = ResolverInput {
+            state: &self.state,
+            diagnosis: &diagnosis,
+        };
         let proposals = resolve_all(&resolver_in);
         let plan_in = PlanInput {
             proposals: &proposals,
@@ -120,7 +127,11 @@ impl ControlKernel {
         self.governance.validate(&input)
     }
 
-    fn apply_if_allowed(&mut self, plan: &MorphogenesisPlan, decision: &GovernanceDecision) -> Vec<String> {
+    fn apply_if_allowed(
+        &mut self,
+        plan: &MorphogenesisPlan,
+        decision: &GovernanceDecision,
+    ) -> Vec<String> {
         match decision.allowed {
             true => self.execute_plan(plan),
             false => Vec::new(),
@@ -163,12 +174,19 @@ impl ControlKernel {
     fn record_topology(&mut self, plan: &MorphogenesisPlan) {
         if let Some(change) = plan.topology_changes.first() {
             self.current_topology.clone_from(&change.to);
-            self.state.history.morphology_history.push(change.to.clone());
+            self.state
+                .history
+                .morphology_history
+                .push(change.to.clone());
         }
     }
 
     fn snapshot(&mut self, plan: &MorphogenesisPlan) {
-        let id = format!("commit_{}_{}", self.commits.len() + 1, plan.reason.replace(' ', "_"));
+        let id = format!(
+            "commit_{}_{}",
+            self.commits.len() + 1,
+            plan.reason.replace(' ', "_")
+        );
         self.commits.push(id.clone());
         self.state.history.agent_git_head = Some(id);
         self.state.resilience.checkpoints.push(plan.reason.clone());
@@ -182,7 +200,10 @@ impl ControlKernel {
         };
         self.state.revise_epistemics(&update);
         if input.success {
-            self.state.history.recent_successes.push(plan.reason.clone());
+            self.state
+                .history
+                .recent_successes
+                .push(plan.reason.clone());
         }
         self.update_health();
     }

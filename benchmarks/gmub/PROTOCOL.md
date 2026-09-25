@@ -45,9 +45,10 @@ efficiency-matched, sinon le rapport le signalera (`tokenMultiplier`).
 ## Phase 4 — analyse et publication
 
 ```bash
-node benchmarks/gmub/new-campaign.cjs --suite gmub-r1 --model <base> --models <m1,m2,m3> --cases <c1,c2,..> --out campaign.json
+node benchmarks/gmub/new-campaign.cjs --suite gmub-r1 --model <base> --models <m1,m2,m3> --cases <c1,c2,..> --seed 42 --topology trinity --out campaign.json
 # ... remplir les scores mesurés ...
-node benchmarks/gmub/run-gmub.cjs --input campaign.json --out report.json
+node benchmarks/gmub/run-gmub.cjs --input campaign.json --out report.json --persist backend/genos.db
+node benchmarks/gmub/run-gmub.cjs --export-suite gmub-r1 --persist backend/genos.db --out gmub-r1-export.json
 ```
 
 Publier la carte (template au README) **avec** les `inconclusifs` :

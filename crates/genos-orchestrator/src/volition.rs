@@ -16,11 +16,11 @@
 //! endogène, comme une pulsion qui persiste au-delà de l'instant qui l'a fait
 //! naître.
 
+use crate::GenosEcosystem;
 use crate::director::Strategy;
 use crate::drives::Drives;
 use crate::planner::WorldState;
 use crate::tick::TickReport;
-use crate::GenosEcosystem;
 use serde_json::json;
 
 /// Coût ATP du réflexe vital : débité directement, hors coût de `Concept`.
@@ -65,8 +65,7 @@ impl VolitionState {
         let survival_drive = (Self::MOMENTUM * previous.survival_drive
             + (1.0 - Self::MOMENTUM) * instant)
             .clamp(0.0, 1.0);
-        let safe =
-            state.threat <= 0.0 && !state.adversary && state.diseased == 0 && !state.traitor;
+        let safe = state.threat <= 0.0 && !state.adversary && state.diseased == 0 && !state.traitor;
         let free_desire = if state.apoptotic {
             0.0
         } else if safe {
@@ -127,10 +126,11 @@ impl GenosEcosystem {
         if !spent {
             return false;
         }
-        self.orchestrator.membrane.repair(VITAL_REFLEX_REPAIR_AMOUNT);
-        let reason = format!(
-            "survie pure : pression={pressure:.2} (hors mission, hors deliberation)"
-        );
+        self.orchestrator
+            .membrane
+            .repair(VITAL_REFLEX_REPAIR_AMOUNT);
+        let reason =
+            format!("survie pure : pression={pressure:.2} (hors mission, hors deliberation)");
         self.record_event(
             "VITAL_REFLEX",
             json!({ "reason": &reason, "atp_spent": spent, "survival_drive": pressure }),
@@ -171,7 +171,7 @@ impl GenosEcosystem {
         self.bare_report(None)
     }
 
-fn bare_report(&self, halt: Option<String>) -> TickReport {
+    fn bare_report(&self, halt: Option<String>) -> TickReport {
         TickReport {
             tick: self.events.count() as u64,
             strategy: Strategy::Solo,
@@ -191,7 +191,11 @@ mod tests {
 
     #[test]
     fn survival_drive_persiste_au_dela_de_l_instant_qui_l_a_fait_naitre() {
-        let threatened = WorldState { threat: 0.9, stress: 0.9, ..Default::default() };
+        let threatened = WorldState {
+            threat: 0.9,
+            stress: 0.9,
+            ..Default::default()
+        };
         let safe = WorldState::default();
         let after_threat = VolitionState::propagate(&VolitionState::default(), &threatened);
         assert!(after_threat.survival_drive > 0.0);
@@ -220,7 +224,10 @@ mod tests {
             volition = VolitionState::propagate(&volition, &safe);
         }
         assert!(volition.demands_free_expression());
-        let danger = WorldState { threat: 0.9, ..Default::default() };
+        let danger = WorldState {
+            threat: 0.9,
+            ..Default::default()
+        };
         for _ in 0..3 {
             volition = VolitionState::propagate(&volition, &danger);
         }

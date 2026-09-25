@@ -79,12 +79,14 @@ function launchWorker({ context, member, index, parent, suppliedWorkerId }) {
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
     GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
     GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
-    GENOS_EXECUTION_MODE: process.env.GENOS_EXECUTION_MODE || 'orchestrator'
+    GENOS_EXECUTION_MODE: 'orchestrator'
   };
+  // shell:false — with shell:true the exec path is concatenated unquoted and breaks
+  // on Windows when node lives under "C:\Program Files" (workers never start).
   const runner = require('child_process').spawn(
     process.execPath,
     [context.bridgePath, JSON.stringify(workerLaunchPayload({ context, member, workerId, parent, capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest, toolLease: launchCaps.toolLease }))],
-    { cwd: context.repoRoot, detached: true, shell: true, stdio: getRunnerStdio(workerId), env: runnerEnv }
+    { cwd: context.repoRoot, detached: true, shell: false, stdio: getRunnerStdio(workerId), env: runnerEnv }
   );
   runner.unref();
   return {

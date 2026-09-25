@@ -78,8 +78,15 @@ fn predictable_prescribed_dies_early_artifact() {
     // pénalisée ×0.1), l'évolué minimal survit. Comparer les deux
     // fitness sans le dire, c'est comparer un vivant à un mort.
     let outcome = survival_fitness_detailed(&[1.0; 7], &EnvironmentKind::Predictable, 30);
-    assert!(!outcome.survived, "prescribed must die early in predictable");
-    assert!(outcome.death_tick.unwrap_or(30) < 10, "death must be early, got {:?}", outcome.death_tick);
+    assert!(
+        !outcome.survived,
+        "prescribed must die early in predictable"
+    );
+    assert!(
+        outcome.death_tick.unwrap_or(30) < 10,
+        "death must be early, got {:?}",
+        outcome.death_tick
+    );
     let report = evolve_self_strata(&EnvironmentKind::Predictable, 40, 42);
     assert!(!report.prescribed_survived);
     assert!(report.prescribed_death_tick.unwrap_or(30) < 10);

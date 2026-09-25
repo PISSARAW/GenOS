@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+const MAX_SHORT_TERM_MESSAGES: usize = 128;
+const MAX_MESSAGE_BYTES: usize = 64 * 1024;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
@@ -19,10 +22,29 @@ impl Hippocampus {
     }
 
     pub fn memorize(&mut self, role: &str, content: &str) {
+        let bounded_role: String = role.chars().take(64).collect();
+        let mut bounded_content = String::new();
+        for character in content.chars() {
+            if bounded_content.len() + character.len_utf8() > MAX_MESSAGE_BYTES {
+                break;
+            }
+            bounded_content.push(character);
+        }
         self.short_term_memory.push(ChatMessage {
-            role: role.to_string(),
-            content: content.to_string(),
+            role: bounded_role,
+            content: bounded_content,
         });
+        if self.short_term_memory.len() > MAX_SHORT_TERM_MESSAGES {
+            self.short_term_memory.remove(0);
+        }
+    }
+
+    pub fn recall_recent(&self, limit: usize) -> Vec<ChatMessage> {
+        let start = self
+            .short_term_memory
+            .len()
+            .saturating_sub(limit.min(MAX_SHORT_TERM_MESSAGES));
+        self.short_term_memory[start..].to_vec()
     }
 
     pub fn clear(&mut self) {
@@ -38,6 +60,12 @@ use std::fmt;
 pub struct GraphMemory {
     // We use Arc to share the connection pool safely across cells if needed
     pub client: Arc<neo4rs::Graph>,
+}
+
+pub struct SynapseInput<'a> {
+    pub entity_a: &'a str,
+    pub relationship: &'a str,
+    pub entity_b: &'a str,
 }
 
 impl fmt::Debug for GraphMemory {
@@ -58,27 +86,46 @@ impl GraphMemory {
     }
 
     /// Ingestion Biomimétique (Consolidation) : Crée des synapses entre deux concepts
-    pub async fn consolidate_synapse(&self, entity_a: &str, relationship: &str, entity_b: &str) -> Result<(), neo4rs::Error> {
+    pub async fn consolidate_synapse(&self, input: SynapseInput<'_>) -> Result<(), neo4rs::Error> {
+        let SynapseInput {
+            entity_a,
+            relationship,
+            entity_b,
+        } = input;
+        if entity_a.trim().is_empty()
+            || entity_b.trim().is_empty()
+            || relationship.trim().is_empty()
+        {
+            return Ok(());
+        }
         // Dans une cellule, la création d'une synapse nécessite de l'énergie (transaction)
         let mut txn = self.client.start_txn().await?;
-        
+
         let q = neo4rs::query("MERGE (a:Concept {name: $name_a}) MERGE (b:Concept {name: $name_b}) MERGE (a)-[r:SYNAPSE {type: $rel}]->(b)")
             .param("name_a", entity_a.to_string())
             .param("name_b", entity_b.to_string())
             .param("rel", relationship.to_string());
-            
+
         txn.run(q).await?;
         txn.commit().await?;
-        
-        println!("🧠 [Hippocampe] Synapse consolidée : {} --[{}]--> {}", entity_a, relationship, entity_b);
+
+        println!(
+            "🧠 [Hippocampe] Synapse consolidée : {} --[{}]--> {}",
+            entity_a, relationship, entity_b
+        );
         Ok(())
     }
 
-    /// Rappel Biomimétique (Spreading Activation / Multi-Hop) : 
+    /// Rappel Biomimétique (Spreading Activation / Multi-Hop) :
     /// Récupère le sous-graphe sémantique autour d'un concept jusqu'à 'depth' degrés de séparation.
-    pub async fn recall_spreading_activation(&self, concept: &str, depth: u8) -> Result<String, neo4rs::Error> {
+    pub async fn recall_spreading_activation(
+        &self,
+        concept: &str,
+        depth: u8,
+    ) -> Result<String, neo4rs::Error> {
         // Requête Cypher : Trouve tous les chemins autour du concept,
         // puis extrait toutes les synapses (relations) uniques de ce sous-graphe pour l'Agent.
+        let bounded_depth = depth.clamp(1, 3);
         let query_str = format!(
             "MATCH p=(start:Concept {{name: $concept}})-[*1..{}]-(related) \
              UNWIND relationships(p) AS rel \
@@ -86,21 +133,27 @@ impl GraphMemory {
              MATCH (a)-[rel]->(b) \
              RETURN a.name AS source, type(rel) AS relation, b.name AS target \
              LIMIT 100",
-            depth
+            bounded_depth
         );
-        
+
         let q = neo4rs::query(&query_str).param("concept", concept.to_string());
-            
+
         let mut result = self.client.execute(q).await?;
         let mut context_builder = String::new();
-        context_builder.push_str(&format!("Réseau neuronal activé pour le concept '{}':\n", concept));
-        
+        context_builder.push_str(&format!(
+            "Réseau neuronal activé pour le concept '{}':\n",
+            concept
+        ));
+
         let mut nodes_found = 0;
-        while let Ok(Some(row)) = result.next().await {
+        loop {
+            let Some(row) = result.next().await? else {
+                break;
+            };
             let source: String = row.get("source").unwrap_or_default();
             let relation: String = row.get("relation").unwrap_or_default();
             let target: String = row.get("target").unwrap_or_default();
-            
+
             context_builder.push_str(&format!("- {} --[{}]--> {}\n", source, relation, target));
             nodes_found += 1;
         }
@@ -108,16 +161,16 @@ impl GraphMemory {
         if nodes_found == 0 {
             context_builder.push_str("(Aucun souvenir direct ou indirect trouvé dans le réseau)");
         }
-        
+
         Ok(context_builder)
     }
 }
 
 use std::collections::HashMap;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 /// Fente Synaptique (Working Memory Cache)
-/// Permet de stocker les réponses exactes pour court-circuiter le réseau 
+/// Permet de stocker les réponses exactes pour court-circuiter le réseau
 /// si l'agent a déjà résolu ce problème récemment (O(1) lookup).
 #[derive(Clone, Debug)]
 pub struct SynapticCleft {
@@ -137,21 +190,35 @@ impl Default for SynapticCleft {
 impl SynapticCleft {
     pub fn recall(&mut self, prompt: &str) -> Option<String> {
         self.prune(); // Mécanisme d'oubli biologique
-        
+
         if let Some((response, _)) = self.cache.get(prompt) {
-            println!("⚡ [Fente Synaptique] Cache Hit (1ms) ! Court-circuitage de Neo4J et du Ribosome.");
+            println!(
+                "⚡ [Fente Synaptique] Cache Hit (1ms) ! Court-circuitage de Neo4J et du Ribosome."
+            );
             return Some(response.clone());
         }
         None
     }
 
     pub fn memorize(&mut self, prompt: &str, response: &str) {
-        self.cache.insert(prompt.to_string(), (response.to_string(), Instant::now()));
+        if self.cache.len() >= 1024 && !self.cache.contains_key(prompt) {
+            if let Some(oldest) = self
+                .cache
+                .iter()
+                .min_by_key(|(_, (_, timestamp))| *timestamp)
+                .map(|(key, _)| key.clone())
+            {
+                self.cache.remove(&oldest);
+            }
+        }
+        self.cache
+            .insert(prompt.to_string(), (response.to_string(), Instant::now()));
     }
 
     /// Oubli (Cache Invalidation) : Détruit les neurotransmetteurs périmés pour économiser la RAM
     fn prune(&mut self) {
         let now = Instant::now();
-        self.cache.retain(|_, (_, timestamp)| now.duration_since(*timestamp) < self.memory_duration);
+        self.cache
+            .retain(|_, (_, timestamp)| now.duration_since(*timestamp) < self.memory_duration);
     }
 }

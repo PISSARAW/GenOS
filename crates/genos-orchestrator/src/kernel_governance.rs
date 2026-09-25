@@ -30,7 +30,9 @@ pub struct GovernancePlane {
 
 impl Default for GovernancePlane {
     fn default() -> Self {
-        Self { principal_authority: String::from("orchestrator_principal") }
+        Self {
+            principal_authority: String::from("orchestrator_principal"),
+        }
     }
 }
 

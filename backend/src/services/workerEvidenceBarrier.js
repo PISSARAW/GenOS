@@ -118,6 +118,11 @@ async function runPipelineStage(ctx) {
   });
 }
 
+function resolveBarrierTimeout(missionTimeoutMs) {
+  const scaled = Math.floor(Number(missionTimeoutMs) * 0.35);
+  return Math.max(120000, Math.min(600000, scaled));
+}
+
 async function runEvidenceBarrier(barrierContext) {
   const workers = barrierContext.autonomousWorkers;
   if (!workers) return;
@@ -139,7 +144,7 @@ async function runEvidenceBarrier(barrierContext) {
       contract: readContract({ contractRecord: barrierContext.contractRecord }),
       barrier: barrier,
       timeoutMs: barrierContext.normalizedMission.workerBarrierTimeoutMs ??
-        (barrierContext.normalizedMission.timeoutMs ? Math.min(8000, Math.floor(barrierContext.normalizedMission.timeoutMs * 0.35)) : 60000)
+        (barrierContext.normalizedMission.timeoutMs ? resolveBarrierTimeout(barrierContext.normalizedMission.timeoutMs) : 60000)
     });
   } catch (error) {
     if (resolveTimeoutFlag(error)) {

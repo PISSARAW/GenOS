@@ -183,7 +183,9 @@ impl OrchestratorState {
             self.environment.drift.insert(change.clone(), 1.0);
         }
         for brief in obs.daemon_briefs.iter() {
-            self.environment.current_state.insert(String::from("daemon"), brief.clone());
+            self.environment
+                .current_state
+                .insert(String::from("daemon"), brief.clone());
         }
     }
 
@@ -198,7 +200,9 @@ impl OrchestratorState {
 
     fn apply_telemetry(&mut self, obs: &Observations) {
         for entry in obs.telemetry.iter() {
-            self.collective.health_summary.insert(entry.0.clone(), *entry.1);
+            self.collective
+                .health_summary
+                .insert(entry.0.clone(), *entry.1);
         }
         for entry in obs.resource_usage.iter() {
             self.apply_resource_sample(entry.0, *entry.1);
@@ -239,7 +243,9 @@ impl OrchestratorState {
         for contradiction in update.new_contradictions.iter() {
             self.epistemics.contradictions.push(contradiction.clone());
         }
-        self.epistemics.evidence_gaps.retain(|gap| update.resolved_gaps.contains(gap).eq(&false));
+        self.epistemics
+            .evidence_gaps
+            .retain(|gap| update.resolved_gaps.contains(gap).eq(&false));
     }
 
     /// Pression budgetaire normalisee entre 0 et 1.
@@ -249,7 +255,10 @@ impl OrchestratorState {
 
     /// Taux d'occupation des slots workers.
     pub fn slot_pressure(&self) -> f64 {
-        self.ratio_used(self.resources.worker_slots_used as u64, self.resources.worker_slots_total as u64)
+        self.ratio_used(
+            self.resources.worker_slots_used as u64,
+            self.resources.worker_slots_total as u64,
+        )
     }
 
     fn ratio_used(&self, used: u64, total: u64) -> f64 {

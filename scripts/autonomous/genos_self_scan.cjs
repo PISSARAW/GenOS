@@ -7,13 +7,12 @@ const bridge = path.join(repoRoot, 'backend/bin/genos-orchestrate.cjs');
 
 async function triage() {
   const db = await getDatabase();
-  const orchestratorId = 'standalone_orchestrator';
-  const requesterAgentId = orchestratorId;
+  const orchestratorId = 'orch-prime';
 
   console.log('--- organization_state ---');
   let state;
   try {
-    state = await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId);
+    state = await dynamicOrganization.getStateForMember(db, orchestratorId, orchestratorId);
   } catch (e) {
     state = { error: e.message, code: e.code };
   }
@@ -22,7 +21,7 @@ async function triage() {
   console.log('--- worker_inbox ---');
   let inbox;
   try {
-    inbox = await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: 0, limit: 50 });
+    inbox = await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId: orchestratorId, afterId: 0, limit: 50 });
   } catch (e) {
     inbox = { error: e.message, code: e.code };
   }

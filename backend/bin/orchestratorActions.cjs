@@ -63,13 +63,14 @@ function buildRunnerEnv() {
 }
 
 function spawnDetachedRunner(context, runnerRequest, runnerEnv) {
+  const helper = require('./detachedSpawn.cjs');
+  const args = [context.bridgePath, ...helper.toSpawnArgs(JSON.stringify(runnerRequest))];
   if (process.platform === 'win32') {
-    const args = [context.bridgePath, JSON.stringify(runnerRequest)];
-    const runner = spawn('cmd.exe', ['/c', process.execPath, ...args], { cwd: context.repoRoot, detached: true, stdio: 'ignore', env: runnerEnv });
+    const runner = spawn(process.execPath, args, { cwd: context.repoRoot, detached: true, windowsHide: true, stdio: 'ignore', env: runnerEnv });
     runner.unref();
     return runner;
   }
-  const runner = spawn(process.execPath, [context.bridgePath, JSON.stringify(runnerRequest)], { cwd: context.repoRoot, detached: true, shell: true, stdio: 'ignore', env: runnerEnv });
+  const runner = spawn(process.execPath, args, { cwd: context.repoRoot, detached: true, shell: true, stdio: 'ignore', env: runnerEnv });
   runner.unref();
   return runner;
 }

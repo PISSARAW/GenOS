@@ -40,7 +40,11 @@ pub struct DiagnosisInput<'a> {
 
 impl Diagnosis {
     pub fn healthy() -> Self {
-        Self { failure: FailureType::None, confidence: 1.0, detail: String::from("nominal") }
+        Self {
+            failure: FailureType::None,
+            confidence: 1.0,
+            detail: String::from("nominal"),
+        }
     }
 }
 
@@ -87,7 +91,12 @@ fn diagnose_structural(input: &DiagnosisInput<'_>) -> Option<Diagnosis> {
         return Some(Diagnosis {
             failure: FailureType::Capability,
             confidence: 0.8,
-            detail: state.capabilities.missing.first().cloned().unwrap_or_default(),
+            detail: state
+                .capabilities
+                .missing
+                .first()
+                .cloned()
+                .unwrap_or_default(),
         });
     }
     if state.resources.cpu_pressure > 0.9 {

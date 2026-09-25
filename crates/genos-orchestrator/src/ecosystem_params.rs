@@ -1,6 +1,6 @@
 //! Paramètres groupés des API GenosEcosystem (règle repo : ≤3 params).
 
-use genos_biology::pathology::{assess_agent_clinical_status, ClinicalStatusReport};
+use genos_biology::pathology::{ClinicalStatusReport, assess_agent_clinical_status};
 use genos_cell::AgentCell;
 use genos_dna::model::AgentDna;
 use genos_genome::Genome;

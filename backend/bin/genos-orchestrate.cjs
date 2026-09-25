@@ -43,7 +43,8 @@ if (cliHelp.checkHelp(process.argv, 'genos-orchestrate.cjs')) return;
 
 let request = {};
 try {
-  request = JSON.parse(process.argv[2] || '{}');
+  const helper = require('./detachedSpawn.cjs');
+  request = JSON.parse(helper.loadArgv(process.argv) || process.argv[2] || '{}');
 } catch (error) {
   process.stderr.write(`[genos-orchestrate] Invalid JSON payload argument: ${error.message}\n`);
   process.exit(1);

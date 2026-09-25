@@ -6,7 +6,7 @@
 //! se recharge de lui-même.
 
 use crate::GenosEcosystem;
-use genos_biology::lipid_membrane::{synthesize_phospholipids, MembraneSynthesisReport};
+use genos_biology::lipid_membrane::{MembraneSynthesisReport, synthesize_phospholipids};
 
 /// Combien d'intégrité de membrane correspond à une mole de phospholipide
 /// réellement synthétisée (facteur de conversion documenté, cohérent avec
@@ -23,10 +23,18 @@ impl GenosEcosystem {
     /// Retourne `None` si l'ATP est insuffisant ou si les substrats sont
     /// épuisés (aucune réparation fictive).
     pub fn repair_membrane_via_lipogenesis(&mut self) -> Option<MembraneSynthesisReport> {
-        if !self.orchestrator.metabolism.consume(MEMBRANE_SYNTHESIS_ATP_COST) {
+        if !self
+            .orchestrator
+            .metabolism
+            .consume(MEMBRANE_SYNTHESIS_ATP_COST)
+        {
             return None;
         }
-        let report = synthesize_phospholipids(&mut self.orchestrator.lipid_chemistry, MEMBRANE_SYNTHESIS_ATP_COST).ok()?;
+        let report = synthesize_phospholipids(
+            &mut self.orchestrator.lipid_chemistry,
+            MEMBRANE_SYNTHESIS_ATP_COST,
+        )
+        .ok()?;
         let integrity_gain = report.phospholipids_built_mol * INTEGRITY_PER_PHOSPHOLIPID_MOL;
         self.orchestrator.membrane.repair(integrity_gain);
         Some(report)
@@ -43,7 +51,9 @@ mod tests {
         eco.orchestrator.membrane.integrity = 0.1;
         eco.orchestrator.membrane.semantic_integrity = 0.1;
         let atp_before = eco.orchestrator.metabolism.available();
-        let report = eco.repair_membrane_via_lipogenesis().expect("ATP et substrats disponibles");
+        let report = eco
+            .repair_membrane_via_lipogenesis()
+            .expect("ATP et substrats disponibles");
         assert!(report.phospholipids_built_mol > 0.0);
         assert!(eco.orchestrator.metabolism.available() < atp_before);
         assert!(eco.orchestrator.membrane.total_integrity() > 0.1);

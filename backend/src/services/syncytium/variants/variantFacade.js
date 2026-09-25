@@ -24,7 +24,9 @@ function createVariantFacade(syncytium) {
     ...createVariantPolicyService(syncytium),
     ...createNestedTopologyService(syncytium),
     ...createMorphogenesisAdvisor(syncytium),
-    createAutonomousRuntime: (options) => createSyncytiumRuntime(syncytium, options || {})
+    createAutonomousRuntime: (options) => createSyncytiumRuntime(syncytium, options || {}),
+    inspectHistory: syncytium.inspectHistory,
+    inspectConflicts: syncytium.inspectConflicts
   };
 }
 

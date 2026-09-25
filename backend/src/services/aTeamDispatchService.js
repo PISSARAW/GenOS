@@ -93,6 +93,7 @@ async function prepareDispatch({ db, context }) {
     subSystems: readSubSystems(request),
     assignedRoles: request.assigned_roles || request.assignedRoles,
     modelTiers: request.model_tiers || request.modelTiers,
+    dependencies: request.dependencies || request.depends_on || request.dependsOn,
     successCriteria: requestedSuccessCriteria(request),
     available: garage.available
   });

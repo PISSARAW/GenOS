@@ -6,16 +6,16 @@
 //! enregistrés dont la saillance franchit le seuil. Les activations non
 //! triviales sont journalisées comme événements `INSTINCT`. Voir docs/01-concepts/instinct.md.
 
-use crate::volition::VolitionState;
 use crate::GenosEcosystem;
 use crate::planner::WorldState;
+use crate::volition::VolitionState;
 use genos_biology::instinct::{
     ExecutionContext, FixedActionPattern, HormoneState, InnateReleasingMechanism, InstinctLibrary,
     InstinctOutcome, InstinctProgram, InstinctRunContext, Modality, MotorStep, SignStimulus,
     StimulusField,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub trait InstinctActionExecutor: Send {
     fn execute(&mut self, step: &MotorStep) -> Result<InstinctActionReceipt, String>;
@@ -153,7 +153,9 @@ impl GenosEcosystem {
         let hormones = hormone_state_from(state);
         let execution = execution_context(&self.instincts.authorized_tools);
         let programs = self.instincts.library.programs.clone();
-        let mut activations: Vec<InstinctActivation> = programs.iter().map(|program| {
+        let mut activations: Vec<InstinctActivation> = programs
+            .iter()
+            .map(|program| {
                 let ctx = InstinctRunContext {
                     field: &field,
                     hormones: &hormones,
@@ -175,10 +177,13 @@ impl GenosEcosystem {
         }
         for (program, activation) in programs.iter().zip(&activations) {
             if activation.evaluation.released {
-                self.record_event("INSTINCT_TRIGGER", json!({
-                    "locus": activation.locus, "evaluation": activation.evaluation,
-                    "stimuli": field.readings, "hormones": hormones
-                }));
+                self.record_event(
+                    "INSTINCT_TRIGGER",
+                    json!({
+                        "locus": activation.locus, "evaluation": activation.evaluation,
+                        "stimuli": field.readings, "hormones": hormones
+                    }),
+                );
             }
             let event_type = match activation.outcome {
                 InstinctOutcome::Complete { .. } => "INSTINCT_COMPLETE",
@@ -206,15 +211,24 @@ impl GenosEcosystem {
             };
             for (index, step) in program.paf.steps.iter().enumerate() {
                 match executor.execute(step) {
-                    Ok(receipt) if !receipt.execution_id.trim().is_empty() && !receipt.evidence_ref.trim().is_empty() => {
-                        results.push((index, true, json!({
-                            "execution_id": receipt.execution_id,
-                            "evidence_ref": receipt.evidence_ref,
-                            "result": receipt.result
-                        })));
+                    Ok(receipt)
+                        if !receipt.execution_id.trim().is_empty()
+                            && !receipt.evidence_ref.trim().is_empty() =>
+                    {
+                        results.push((
+                            index,
+                            true,
+                            json!({
+                                "execution_id": receipt.execution_id,
+                                "evidence_ref": receipt.evidence_ref,
+                                "result": receipt.result
+                            }),
+                        ));
                     }
                     Ok(_) => {
-                        let reason = "Executor returned a receipt without execution_id/evidence_ref".to_string();
+                        let reason =
+                            "Executor returned a receipt without execution_id/evidence_ref"
+                                .to_string();
                         results.push((index, false, json!({ "reason": reason })));
                         failure = Some((index, reason));
                         break;
@@ -229,14 +243,24 @@ impl GenosEcosystem {
         }
         for (index, succeeded, detail) in results {
             let step = &program.paf.steps[index];
-            let event_type = if succeeded { "INSTINCT_ACTION_EXECUTED" } else { "INSTINCT_ACTION_REFUSED" };
-            self.record_event(event_type, json!({
-                "locus": program.id, "paf": program.paf.name, "step": index,
-                "tool": step.tool, "action": step.action, "result": detail
-            }));
+            let event_type = if succeeded {
+                "INSTINCT_ACTION_EXECUTED"
+            } else {
+                "INSTINCT_ACTION_REFUSED"
+            };
+            self.record_event(
+                event_type,
+                json!({
+                    "locus": program.id, "paf": program.paf.name, "step": index,
+                    "tool": step.tool, "action": step.action, "result": detail
+                }),
+            );
         }
         if let Some((index, reason)) = failure {
-            return InstinctOutcome::Interrupt { at_step: index, reason };
+            return InstinctOutcome::Interrupt {
+                at_step: index,
+                reason,
+            };
         }
         InstinctOutcome::Complete {
             steps_executed: program.paf.steps.len(),
@@ -256,7 +280,12 @@ mod tests {
             ..WorldState::default()
         };
         let field = stimulus_field_from(&state);
-        assert!(field.readings.iter().any(|s| s.signature == "threat_detected"));
+        assert!(
+            field
+                .readings
+                .iter()
+                .any(|s| s.signature == "threat_detected")
+        );
     }
 
     #[test]
@@ -266,10 +295,12 @@ mod tests {
             ..WorldState::default()
         };
         let field = stimulus_field_from(&state);
-        assert!(field
-            .readings
-            .iter()
-            .any(|s| s.signature == "resource_exhausted"));
+        assert!(
+            field
+                .readings
+                .iter()
+                .any(|s| s.signature == "resource_exhausted")
+        );
     }
 
     #[test]

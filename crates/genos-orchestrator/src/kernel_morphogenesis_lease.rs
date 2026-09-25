@@ -34,28 +34,48 @@ pub struct LocalMorphogenesisRequest {
 
 impl MorphogenesisLease {
     pub fn authorizes(&self, request: &LocalMorphogenesisRequest, now: u64) -> bool {
-        !request.global_mutation && now < self.expires_at_unix_secs
-            && self.scope_valid(request) && self.changes_valid(request)
-            && self.boundaries_valid(request) && self.budget_valid(request)
+        !request.global_mutation
+            && now < self.expires_at_unix_secs
+            && self.scope_valid(request)
+            && self.changes_valid(request)
+            && self.boundaries_valid(request)
+            && self.budget_valid(request)
     }
 
     fn scope_valid(&self, request: &LocalMorphogenesisRequest) -> bool {
         request.node_id == self.node_id
-            && request.affected_node_ids.iter().all(|id| self.allowed_node_ids.contains(id))
+            && request
+                .affected_node_ids
+                .iter()
+                .all(|id| self.allowed_node_ids.contains(id))
     }
 
     fn changes_valid(&self, request: &LocalMorphogenesisRequest) -> bool {
-        request.operations.iter().all(|op| self.allowed_operators.contains(op))
-            && request.topologies.iter().all(|item| self.allowed_topologies.contains(item))
+        request
+            .operations
+            .iter()
+            .all(|op| self.allowed_operators.contains(op))
+            && request
+                .topologies
+                .iter()
+                .all(|item| self.allowed_topologies.contains(item))
     }
 
     fn boundaries_valid(&self, request: &LocalMorphogenesisRequest) -> bool {
-        request.state_boundaries.iter().all(|item| self.state_boundaries.contains(item))
-            && request.required_authority.iter().all(|item| self.authority_ceiling.contains(item))
+        request
+            .state_boundaries
+            .iter()
+            .all(|item| self.state_boundaries.contains(item))
+            && request
+                .required_authority
+                .iter()
+                .all(|item| self.authority_ceiling.contains(item))
     }
 
     fn budget_valid(&self, request: &LocalMorphogenesisRequest) -> bool {
-        request.workers <= self.max_workers && request.depth <= self.max_depth
-            && request.token_cost <= self.token_budget && request.transition_cost <= self.transition_budget
+        request.workers <= self.max_workers
+            && request.depth <= self.max_depth
+            && request.token_cost <= self.token_budget
+            && request.transition_cost <= self.transition_budget
     }
 }

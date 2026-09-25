@@ -2,16 +2,18 @@
 //! `run` qui itère jusqu'à l'arrêt en produisant un rapport global.
 
 use crate::GenosEcosystem;
-use crate::clinical_therapy::{diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology};
-use crate::{director::Strategy, learning::context_from_state};
+use crate::clinical_therapy::{
+    diagnose_active_virions, first_pathology_for_cell, therapy_for_pathology,
+};
 use crate::planner::{Concept, Goal, WorldState};
 use crate::plasmids::Skill;
 use crate::signaling::SignalingCascade;
 use crate::trace::Verdict;
+use crate::{director::Strategy, learning::context_from_state};
 use genos_biology::neurobiology::Neurotransmitter;
 use genos_biology::pathology::assess_agent_clinical_status;
-use genos_biology::therapy::apply_systemic_therapy_to_cell;
 use genos_biology::spore::SporeType;
+use genos_biology::therapy::apply_systemic_therapy_to_cell;
 use genos_cell::AgentCell;
 use genos_signal::SignalingMode;
 use serde_json::json;
@@ -60,7 +62,7 @@ fn pre_deliberation(eco: &mut GenosEcosystem, state: &WorldState) -> Option<Tick
 }
 
 impl GenosEcosystem {
-pub fn tick(&mut self, goal: &Goal) -> TickReport {
+    pub fn tick(&mut self, goal: &Goal) -> TickReport {
         // Autopoïèse : la frontière se dégrade ; rompue, l'organisme meurt.
         self.orchestrator.membrane.update();
         if !self.orchestrator.membrane.is_alive() {
@@ -110,7 +112,8 @@ pub fn tick(&mut self, goal: &Goal) -> TickReport {
         }
         // Attribution de crédit + reproduction autonome.
         let episode_reward = if sim.goal_reached(goal) { 1.0 } else { 0.0 };
-        self.director.assign_credit(&report.executed, episode_reward);
+        self.director
+            .assign_credit(&report.executed, episode_reward);
         let _ = self.attempt_autonomous_reproduction_if_alive();
         report
     }

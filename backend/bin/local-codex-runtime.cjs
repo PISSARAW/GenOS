@@ -216,9 +216,13 @@ async function runPostPipeline(services, state, reply) {
 }
 
 function emitCompletion(state, reply) {
+  const { buildDossierArtifact } = require('../src/services/agents/workerArtifactContract');
+  const modelRef = String(state.mission.localModel || process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'local-model');
+  const provenance = { source: 'local-codex-runtime', model: modelRef, workspaceRoot: state.workspaceRoot, agentName: state.agentName };
   const report = {
     outcome: 'success',
     claims: [{ statement: reply, evidence: [state.selfIntro] }],
+    workerArtifact: buildDossierArtifact(reply, provenance),
     author: { name: state.agentName, meaning: state.nameMeaning, role: state.mission.role || 'Assistant IA de développement' }
   };
   emitEvent(state, {

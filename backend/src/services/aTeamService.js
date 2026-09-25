@@ -241,6 +241,21 @@ function validateComposition({ goal, systems, capacity, freeSlots }) {
   if (systems.length > freeSlots) throw Object.assign(new Error(`A-Team requires ${systems.length} free slots, but worker garage is full (slots: ${capacity - freeSlots}/${capacity} used — wait or increase MAX_ACTIVE_WORKERS).`), { code: 'WORKER_GARAGE_FULL' });
 }
 
+const CREATIVE_DEFAULT_DEPS = Object.freeze({
+  editing: ['creative_writing'],
+  critique: ['creative_writing', 'editing']
+});
+
+function creativeDefaults(systems) {
+  const out = {};
+  for (const [domain, deps] of Object.entries(CREATIVE_DEFAULT_DEPS)) {
+    if (!systems.includes(domain)) continue;
+    const known = deps.filter((dep) => systems.includes(dep));
+    if (known.length) out[domain] = known;
+  }
+  return out;
+}
+
 function memberDependencies(composition, member, producers) {
   const explicit = composition.deps[member.subSystem];
   if (Array.isArray(explicit)) return explicit.filter((domain) => domain !== member.subSystem);
@@ -271,6 +286,7 @@ function buildAssignment(composition, member, context) {
 function compose(options = {}) {
   const composition = prepareComposition(options);
   validateComposition(composition);
+  composition.deps = { ...creativeDefaults(composition.systems), ...composition.deps };
   const members = composition.systems.map((subSystem, index) => ({
     subSystem,
     role: String(composition.roles[index] || `${subSystem}_specialist`).trim(),

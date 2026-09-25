@@ -63,6 +63,21 @@ function artifactError(workerId, expected) {
   return error;
 }
 
+function artifactEvidenceRefs(provenance) {
+  const refs = [provenance && provenance.model, provenance && provenance.workspaceRoot];
+  return refs.filter((ref) => typeof ref === 'string' && ref.trim());
+}
+
+function buildDossierArtifact(reply, provenance) {
+  const statement = String(reply || '').slice(0, 8000);
+  const source = (provenance && provenance) || {};
+  return {
+    type: 'dossier',
+    content: { claims: [{ statement, evidence: artifactEvidenceRefs(source) }] },
+    provenance: source
+  };
+}
+
 function validateWorkerArtifact(dossier, worker) {
   const required = worker.workerContract?.evidence?.requiredArtifacts || [];
   if (!required.length) return true;
@@ -79,4 +94,4 @@ function validateWorkerArtifact(dossier, worker) {
   return true;
 }
 
-module.exports = { REQUIRED_FIELDS, artifactInstruction, validateWorkerArtifact };
+module.exports = { REQUIRED_FIELDS, artifactInstruction, validateWorkerArtifact, buildDossierArtifact };

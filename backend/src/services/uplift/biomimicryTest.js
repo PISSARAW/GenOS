@@ -23,11 +23,12 @@ function dimensionVerdicts(samples, opts) {
 
 function biomimeticVerdict(samples, opts) {
   const verdicts = dimensionVerdicts(samples, opts);
-  const dims = BIO_DIMENSIONS.filter((d) => verdicts[d]);
-  const wins = dims.filter((d) => verdicts[d].beaten === true);
+  const dims = BIO_DIMENSIONS;
+  const wins = dims.filter((d) => verdicts[d]?.beaten === true);
   return {
     dimensions: verdicts,
-    bioSuperior: wins.length === dims.length && dims.length > 0,
+    bioSuperior: wins.length === dims.length,
+    missingDimensions: dims.filter((d) => !verdicts[d]),
     wins,
     kind: 'metric',
     qualityGuarantee: false

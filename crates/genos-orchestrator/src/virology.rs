@@ -59,6 +59,8 @@ impl VirologyLab {
 
     /// Transcription inverse d'un rétrovirus en brin d'ADN.
     pub fn reverse_transcribe(&self, index: usize) -> Option<DnaStrand> {
-        self.retroviruses.get(index).map(Retrovirus::reverse_transcribe)
+        self.retroviruses
+            .get(index)
+            .map(Retrovirus::reverse_transcribe)
     }
 }

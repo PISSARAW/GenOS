@@ -117,7 +117,10 @@ impl AgentIncarnationService {
     }
 
     /// Incarne un agent à partir d'une requete validee.
-    pub fn incarnate(&mut self, request: &AgentIncarnationRequest) -> Result<IncarnatedAgent, String> {
+    pub fn incarnate(
+        &mut self,
+        request: &AgentIncarnationRequest,
+    ) -> Result<IncarnatedAgent, String> {
         self.validate(request)?;
         self.counter += 1;
         let choice = ModelChoice {

@@ -47,7 +47,9 @@ impl Membrane {
     /// Dégradation selon le temps réel écoulé.
     pub fn update(&mut self) {
         let now = Instant::now();
-        let elapsed = now.saturating_duration_since(self.last_update).as_secs_f64();
+        let elapsed = now
+            .saturating_duration_since(self.last_update)
+            .as_secs_f64();
         if elapsed > 0.0 {
             self.integrity = (self.integrity - elapsed * self.degrade_per_sec).max(0.0);
             self.semantic_integrity =
@@ -73,8 +75,7 @@ impl Membrane {
     pub fn repair(&mut self, amount: f64) {
         let amount = amount.max(0.0);
         self.integrity = (self.integrity + amount).min(self.capacity);
-        self.semantic_integrity =
-            (self.semantic_integrity + amount).min(self.semantic_capacity);
+        self.semantic_integrity = (self.semantic_integrity + amount).min(self.semantic_capacity);
         self.repairs += 1;
     }
 
@@ -112,19 +113,17 @@ impl GenosEcosystem {
         self.orchestrator.metabolism.refill();
         let needs_repair = self.orchestrator.membrane.total_integrity()
             < self.orchestrator.membrane.total_capacity()
-            || self
-                .orchestrator
-                .active_cells
-                .keys()
-                .any(|id| {
-                    !self.agent_dna.contains_key(id)
-                        || self
-                            .orchestrator
-                            .active_cells
-                            .get(id)
-                            .and_then(|cell| cell.genome_id)
-                            .is_some_and(|genome_id| !self.orchestrator.genomes.contains_key(&genome_id))
-                });
+            || self.orchestrator.active_cells.keys().any(|id| {
+                !self.agent_dna.contains_key(id)
+                    || self
+                        .orchestrator
+                        .active_cells
+                        .get(id)
+                        .and_then(|cell| cell.genome_id)
+                        .is_some_and(|genome_id| {
+                            !self.orchestrator.genomes.contains_key(&genome_id)
+                        })
+            });
         if needs_repair {
             self.self_repair();
         }

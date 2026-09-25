@@ -302,10 +302,12 @@ mod tests {
         if report.broadcast.contains(&"metabolisme".to_string()) {
             let after = eco.instincts.volition.survival_drive;
             assert!(after > before, "broadcast must raise survival drive");
-            assert!(report
-                .effects
-                .iter()
-                .any(|e| e.module == "volition" && e.adjustment.contains("survival")));
+            assert!(
+                report
+                    .effects
+                    .iter()
+                    .any(|e| e.module == "volition" && e.adjustment.contains("survival"))
+            );
         }
     }
 

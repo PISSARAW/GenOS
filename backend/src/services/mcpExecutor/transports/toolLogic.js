@@ -293,14 +293,12 @@ async function hippocampalConsolidate(args, runLocal, timeoutMs) {
   const episodicMemoryService = require('../../episodicMemoryService');
   try {
     const score = Number.isFinite(Number(args.success_score)) ? Number(args.success_score) : 1.0;
-    let consolidationResult = null;
-    try {
-      consolidationResult = await episodicMemoryService.consolidateEpisodes({
-        agentId: args.agent_id, sessionId: args.session_id,
-        scoreThreshold: score >= 0.7 ? score : 0.7, purgeBelowThreshold: args.purge_failed !== false
-      });
-    } catch (err) {}
-    const episodesCount = consolidationResult?.totalProcessed || 1;
+    const consolidationResult = await episodicMemoryService.consolidateEpisodes({
+      agentId: args.agent_id, sessionId: args.session_id,
+      organizationId: args.organization_id, projectId: args.project_id,
+      scoreThreshold: score >= 0.7 ? score : 0.7, purgeBelowThreshold: args.purge_failed !== false
+    });
+    const episodesCount = consolidationResult.totalProcessed;
     const steps = (args.dag_step || []).map((s) => `--param dag_step=${s}`).join(' ');
     const out = runSafeSync(`genos biomimicry bio-feature --feature hippocampal --action consolidate --param agent_id=${args.agent_id} --param success_score=${score} --param episodes_count=${episodesCount} ${steps}`, timeoutMs);
     return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString(), consolidation: consolidationResult };

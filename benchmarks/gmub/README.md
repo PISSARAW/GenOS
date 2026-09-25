@@ -20,6 +20,29 @@ node benchmarks/gmub/new-campaign.cjs --suite gmub-r1 --model <base> --models <m
 node benchmarks/gmub/run-gmub.cjs --input benchmarks/gmub/example-runs.json --out /tmp/gmub-report.json
 ```
 
+Le gabarit capture automatiquement le commit courant (`--seed` et
+`--topology` peuvent être fixés explicitement). Après avoir rempli les
+mesures, assembler les exports des phases :
+
+```bash
+node benchmarks/gmub/merge-measurements.cjs --campaign campaign.json --solo ladder-results.json --control compute-control-results.json --genos genos-results.json --out measured.json
+```
+
+L'export `genos-results.json` doit contenir un tableau de runs mesurés au
+même format (`case_id`, `score`, tokens, coûts, latence, commit, topologie
+et capacités). Les champs absents restent incomplets. Produire ensuite le
+rapport et le persister dans la base locale :
+
+```bash
+node benchmarks/gmub/run-gmub.cjs --input campaign.json --out report.json --persist backend/genos.db
+node benchmarks/gmub/run-gmub.cjs --export-suite gmub-r1 --persist backend/genos.db --out gmub-r1-export.json
+```
+
+La persistance conserve les runs, les paires et la comparaison. Les runs
+répétés sont appariés par cas et numéro de répétition. Le rapport expose
+`integrity.status`; une campagne avec scores, coûts ou provenance manquants
+reste `incomplete` et ne peut pas être présentée comme campagne complète.
+
 `example-runs.json` : `{ suite, model, stats, cost, wmc: {frontier, margin}, runs: [...] }`.
 Export reproductible : commit, topologie, `declared/activated/observed_capabilities`,
 seed, tokens, coût, latence persistés en `uplift_runs` (migration `049`)
@@ -32,8 +55,9 @@ et réexportés en JSON.
   sans architecture GenOS. Le rapport exige `C > B > A` avec IC95 sur les
   trois paires (`abc.fullOrdering`) ; `organizationBonus` = gain GenOS
   au-delà du compute naïf.
-- `wmc` : plus petit modèle + GenOS dépassant un frontier solo donné ;
-  `wmcCurve` suit son évolution par version GenOS.
+- HMB et WMC ne retiennent un modèle comme battu que si la borne basse de
+  l'IC apparié dépasse la marge. La WMC exige les mêmes cas entre le GenOS
+  candidat et le frontier solo.
 - Efficiency-matched : comparer `Quality/Cost` à budgets plafonnés égaux
   (`summarizeCost`), pas seulement les scores bruts.
 

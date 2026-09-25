@@ -2,10 +2,10 @@
 
 use genos_cell::AgentCell;
 use genos_genome::{DnaStrand, Genome};
+use genos_reproduction::PhylogeneticTree;
 use genos_reproduction::phylogeny::{
     HybridizationResult, molecular_clock, trace_mitochondrial_eve,
 };
-use genos_reproduction::PhylogeneticTree;
 
 /// Laboratoire de phylogenèse (méthodes statiques).
 pub struct PhylogenyLab;
