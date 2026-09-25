@@ -16,7 +16,14 @@ paramètres appliqués avant persistance du run.
 | `adaptive` | Les phases explicites sont chacune converties en plan de variante ; le choix reste visible dans `execution.organizationPolicy.phases`. |
 | `multiteam` | Les définitions de sous-équipes et contrats sont validées et un graphe programme ainsi qu'un conseil sont produits dans la politique persistée. Sans sous-équipes explicites, le dispatch échoue. |
 
-Le plan multiteam produit ici est un contrat de composition persistant. Le dispatch de
-workers reste celui de l'A-Team parent ; l'exécution récursive des sous-runs demande un
-runner de programme dédié. Les champs d'autorité orientent les responsabilités données
-aux workers et ne modifient pas les ACL du backend.
+Le runner de programme `multiteam/programRuntimeService.js` persiste l'état des sous-équipes,
+les exécute par couches topologiques via un adaptateur `executeTeam`, et bloque un consumer
+tant que chaque contrat entrant bloquant n'est pas marqué vérifié avec une référence de
+preuve. L'adaptateur doit déléguer à la barrière de preuves du sous-run et fournir une clé
+d'idempotence stable ; le runner la dérive de l'identifiant du programme et de l'équipe.
+Un résultat `WAITING` reste réessayable et ne débloque aucun consumer.
+
+Le dispatch A-Team générique ne fournit pas encore cet adaptateur : la variante multiteam
+compose et persiste le graphe/conseil, tandis que le runner ci-dessus est disponible pour
+une intégration qui dispose d'un exécuteur de sous-run vérifié. Les champs d'autorité
+orientent les responsabilités données aux workers et ne modifient pas les ACL du backend.
