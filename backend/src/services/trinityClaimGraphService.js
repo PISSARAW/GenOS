@@ -97,9 +97,15 @@ function collectSynthesisClaims(input) {
   const { scoredWorlds, frontier, eligible } = input;
   const claims = (scoredWorlds || []).filter((world) => frontier.has(world.worldNumber)).flatMap((world) =>
     (world.report?.claims || []).filter((claim) => eligible.has(claimId(claim, world.worldNumber))
-      && validEvidenceRefs(claim, world.report).length).map((claim) => ({ ...claim, sourceWorld: world.worldNumber })));
+      && validEvidenceRefs(claim, world.report).length && hasIndependentVerification(claim))
+      .map((claim) => ({ ...claim, sourceWorld: world.worldNumber })));
   if (claims.length < 2 || new Set(claims.map((claim) => claim.sourceWorld)).size < 2) return null;
   return { claims, frontier: [...frontier] };
+}
+
+function hasIndependentVerification(claim) {
+  return claim.verificationLevel === 'independent_deterministic'
+    && Array.isArray(claim.verificationReceipts) && claim.verificationReceipts.length > 0;
 }
 
 function nodesOnFrontier(edge, nodes, frontier) {
