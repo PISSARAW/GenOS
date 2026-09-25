@@ -1,5 +1,7 @@
 'use strict';
 
+const { DEFINITIONS } = require('../registry/topologyRegistry');
+
 function topologyKey(value) {
   return String(value || '').toLowerCase().replace(/[- ]/g, '_');
 }
@@ -13,6 +15,9 @@ function validateRegistration(input) {
     throw new Error('adapter id, version and topology endpoints are required');
   }
   if (typeof input.adapt !== 'function') throw new TypeError('adapter must provide an adapt function');
+  if (!DEFINITIONS[topologyKey(input.fromTopology)] || !DEFINITIONS[topologyKey(input.toTopology)]) {
+    throw new Error('adapter endpoints must be registered canonical topologies');
+  }
 }
 
 function createTopologyAdapterRegistry() {
