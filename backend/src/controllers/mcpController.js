@@ -192,7 +192,7 @@ function scopedToolArgs(req, toolName, args) {
 async function executeToolTransport(input) {
   const { res, toolName, args, timeoutMs, agentId } = input;
   try {
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs) });
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, agentId, timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs) });
     recordToolOutcome(toolName, result);
     telemetry.emitEvent(toolOutcomeEvent({ toolName, args, agentId, result }));
     return res.status(result.success ? 200 : result.configured ? 502 : 503).json(result);

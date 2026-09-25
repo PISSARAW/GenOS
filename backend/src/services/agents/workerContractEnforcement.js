@@ -39,7 +39,8 @@ async function enforcePersistedWorkerTool(db, agentId, toolName) {
   try { metadata = typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {}; }
   catch (_) { throw contractError('unknown', toolAction(toolName)); }
   const kind = workerKinds.resolveWorkerKind(metadata.workerKind, agent.role);
-  const contract = workerKinds.buildWorkerContract(kind, metadata.workerContract?.mission || {});
+  const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, {});
+  if (contract.identity?.workerKind !== kind) throw contractError('unknown', toolAction(toolName));
   return assertWorkerToolAllowed(contract, toolName);
 }
 

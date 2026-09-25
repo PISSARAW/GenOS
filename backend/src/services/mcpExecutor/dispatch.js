@@ -124,7 +124,7 @@ async function executeRemoteTransport(toolName, args, timeoutMs) {
   };
 }
 
-async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000, preValidated = false }) {
+async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000, preValidated = false, agentId = null }) {
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
@@ -133,9 +133,12 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const rejection = preValidateTool({ registry, toolName: normalizedToolName, args, executionKind });
     if (rejection) return rejection;
   }
+  if (normalizedToolName === 'genos_delegate_worker') {
+    return executeToolLogic(normalizedToolName, args, { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, db: await require('../../db').getDatabase() });
+  }
   if (hasConfiguredEndpoint()) return executeRemoteTransport(normalizedToolName, args, timeoutMs);
   const runLocal = createLocalRunner(timeoutMs);
-  return executeToolLogic(toolName, args, { runLocal, timeoutMs });
+  return executeToolLogic(toolName, args, { runLocal, timeoutMs, agentId });
 }
 
 async function listTools() {

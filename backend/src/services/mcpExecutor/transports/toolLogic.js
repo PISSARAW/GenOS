@@ -368,6 +368,10 @@ async function executeToolLogic(toolName, args, context = {}) {
   // Re-validation fail-closed: ne jamais faire confiance à preValidated.
   const revalidation = revalidateToolCall(toolName, args);
   if (revalidation) return revalidation;
+  if (toolName === 'genos_delegate_worker') {
+    if (!context.agentId) return { configured: true, success: false, status: 'denied', code: 'WORKER_CALLER_REQUIRED', error: 'An authenticated worker caller is required.' };
+    return require('../../agents/subOrchestratorDispatchService').dispatchSubOrchestratorWorker(context.db, context.agentId, args);
+  }
   const genomeResult = await require('../../mcpGenomeTools').executeGenomeTool(toolName, args, runLocal);
   if (genomeResult) return genomeResult;
   const commandBuilder = LOCAL_COMMAND_TOOLS[toolName];
@@ -375,7 +379,7 @@ async function executeToolLogic(toolName, args, context = {}) {
   const syncBuilder = SYNC_COMMAND_TOOLS[toolName];
   if (syncBuilder) return runSyncResult(() => syncBuilder(args), timeoutMs);
   const customHandler = CUSTOM_TOOL_HANDLERS[toolName];
-  if (customHandler) return customHandler(args, runLocal, timeoutMs);
+  if (customHandler) return customHandler(args, runLocal, timeoutMs, context);
   return dispatchToTransport(toolName, args, timeoutMs);
 }
 

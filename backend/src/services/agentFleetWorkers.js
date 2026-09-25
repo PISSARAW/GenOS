@@ -304,7 +304,19 @@ async function persistWorker(db, details) {
 function workerInsertValues(details) {
   const { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, mission } = details;
   const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, { prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id });
+  grantSubOrchestratorContract(workerContract, assignment.workerKind);
   return [id, identity.name, identity.name_meaning, assignment.role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, route.selectedModel || assignment.modelTier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0, JSON.stringify({ workerKind: assignment.workerKind, workerContract })];
+}
+
+function grantSubOrchestratorContract(contract, kind) {
+  if (kind !== 'sub_orchestrator') return;
+  contract.authority.spawn = true;
+  contract.authority.delegate = true;
+  contract.spawnBudget = 5;
+  contract.delegationDepth = 1;
+  contract.limits.maxChildren = 5;
+  contract.limits.maxTokens = 10000;
+  contract.delegationExpiresAt = Date.now() + 3600000;
 }
 
 function resolveGenotypeRef(evolution) {

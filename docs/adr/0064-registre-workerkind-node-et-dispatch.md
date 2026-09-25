@@ -19,7 +19,7 @@ L'ADR 0043 et le crate `genos-worker` définissent 19 types canoniques. Le backe
 - Persister le type et le contrat dérivé dans `agents.metadata_json` et transmettre le type au dispatch. L'incarnation reconstruit le contrat côté serveur ; les données fournies par l'appelant ne définissent pas l'autorité.
 - Garder les profils d'autorité Node comme couche de permissions projetée. Le backend applique les invariants pertinents au moyen de son enforcement Node ; il ne charge pas le crate Rust et les deux runtimes restent séparés.
 - Refuser par défaut les actions MCP qui dépassent l'autorité effective et exiger un `workerArtifact` typé, avec les champs sémantiques et la provenance requis, avant de valider un dossier.
-- Désactiver spawn et délégation pour `sub_orchestrator` dans Node tant que le dispatch worker-enfant n'existe pas ; ne pas exposer un budget que le runtime n'applique pas.
+- N'autoriser le spawn Node que depuis un worker `sub_orchestrator` dont le contrat serveur est persisté. Le dispatch MCP vérifie l'identité authentifiée, le contrat, l'expiration, l'allowlist et le plafond de cinq enfants ; il attend et rapporte le résultat de chaque mission enfant. La profondeur reste limitée à un niveau.
 
 ## Conséquences
 
@@ -32,7 +32,7 @@ L'ADR 0043 et le crate `genos-worker` définissent 19 types canoniques. Le backe
 
 - Les profils génériques Node ne reproduisent pas toute la sémantique des presets Rust.
 - Le backend applique une traduction Node des invariants, pas l'implémentation Rust elle-même ; toute divergence nécessite des tests de parité.
-- Le sous-orchestrateur Node ne peut pas encore lancer de workers enfants.
+- Les limites de spawn Node sont une traduction locale ; elles ne sont pas exécutées par le crate Rust.
 
 ## Alternatives
 
