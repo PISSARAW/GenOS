@@ -344,13 +344,13 @@ function resolveAgentIdentity(mission, agentIdentity) {
 
 async function loadConscienceBlock(mission, agentConscience) {
   let conscienceState = agentConscience.createConscienceState();
+  let db = null;
   try {
     const { getDatabase } = require('../src/db');
-    const db = await getDatabase();
-    if (mission.agentId) {
-      conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
-    }
+    db = await getDatabase();
+    if (mission.agentId) conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
   } catch (_) {}
+  if (db) await require('../src/db').closeDatabase().catch(() => {});
   return agentConscience.formatConsciencePrompt(conscienceState);
 }
 

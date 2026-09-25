@@ -74,6 +74,13 @@ assert(inspectWorkerArtifact('creative_worker', { outcome: 'success', claims: CO
 assert(inspectWorkerArtifact('medical_worker', { outcome: 'success', claims: CONTENT.dossier.claims, workerArtifact: { type: 'clinical_report', content: { diagnoses: ['x'], caseScope: 'synthetic_educational', differentialConsiderations: ['x'], uncertainty: 'high', safetyNote: 'No advice.' } } }).issues.some((issue) => issue.includes('non_diagnostic')));
 
 const specialized = workerKinds.buildWorkerContract('formal_worker');
+const rhizomeScout = workerKinds.buildWorkerContract('scout_cell', {
+  prompt: 'Rhizome discovery branch: map network dependencies.'
+});
+const rhizomeInstruction = workerKinds.evidenceRule(rhizomeScout);
+assert.match(rhizomeInstruction, /capabilities/);
+assert.match(rhizomeInstruction, /unknownDependencies/);
+assert.match(rhizomeInstruction, /workerArtifact/);
 const genericSuccess = { eventType: 'EVIDENCE_REPORT', severity: 'info', payload: {
   outcome: 'success', claims: [{ statement: 'claim', evidence: ['source'] }],
   workerArtifact: { type: 'dossier', content: CONTENT.dossier, provenance: { source: 'runtime' } }

@@ -18,7 +18,7 @@ const MODE_ROLE_KINDS = Object.freeze({
     immune_symbiont: 'red_worker', memory_symbiont: 'synthesis_worker'
   }),
   metapopulation: Object.freeze({
-    population_isolator: 'bounded_worker', quorum_sensor: 'scout_cell',
+    population_isolator: 'bounded_worker', quorum_sensor: 'bounded_worker',
     synaptic_adaptor: 'adaptive_worker', regeneration_steward: 'recovery_worker'
   }),
   rhizome: Object.freeze({
@@ -30,6 +30,13 @@ const MODE_ROLE_KINDS = Object.freeze({
     consistency_guardian: 'verifier_worker', integration_executor: 'synthesis_worker'
   }),
   trinity: Object.freeze({})
+});
+
+const METAPOPULATION_KIND_OPTIONS = Object.freeze({
+  population_isolator: ['bounded_worker'],
+  quorum_sensor: ['bounded_worker', 'scout_cell'],
+  synaptic_adaptor: ['adaptive_worker', 'bounded_worker'],
+  regeneration_steward: ['recovery_worker', 'adaptive_worker', 'bounded_worker']
 });
 
 const KIND_REASONS = Object.freeze({
@@ -56,6 +63,10 @@ function trinityKind(member) {
 
 function expectedWorkerKind(mode, member) {
   if (mode === 'trinity') return trinityKind(member);
+  if (mode === 'metapopulation') {
+    const allowed = METAPOPULATION_KIND_OPTIONS[member?.role] || [];
+    if (allowed.includes(member?.workerKind)) return member.workerKind;
+  }
   if (mode === 'a_team') {
     const role = String(member?.role || '').trim();
     if (['security_reviewer', 'quality_engineer', 'literary_critic'].includes(role)) return 'verifier_worker';

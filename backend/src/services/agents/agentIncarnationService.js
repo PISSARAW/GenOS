@@ -177,7 +177,8 @@ async function setupWorkspace(ctx) {
   const isVfs = useVfsWorkspace(request, role);
   try {
     return await createIsolatedWorkspace(sourceWorkspace, agentId, {
-      capsuleRoot: request.mission?.capsuleRoot, vfs: request.mission?.executionPolicy?.allowFileEdits !== true || isVfs
+      capsuleRoot: request.mission?.capsuleRoot || process.env.GENOS_CAPSULE_ROOT,
+      vfs: request.mission?.executionPolicy?.allowFileEdits !== true || isVfs
     });
   } catch (_) { return null; }
 }

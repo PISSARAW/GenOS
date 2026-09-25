@@ -87,6 +87,10 @@ const suites = {
   concurrency: [
     ['seed concurrency', 'test_seed_concurrency.js']
   ],
+  workers: [
+    ['Rust and Node worker kind parity', 'test_worker_kind_registry.js'],
+    ['worker type compliance mission', 'test_worker_type_compliance_mission.js']
+  ],
   epistemicScheduler: [
     ['active task fingerprints', 'test_epistemic_scheduler_active_registry.js'],
     ['independent redundancy', 'test_epistemic_scheduler_redundancy.js'],
@@ -124,6 +128,7 @@ suites.all = [
   ...suites.continuity,
   ...suites.providers,
   ...suites.concurrency,
+  ...suites.workers,
   ...suites.epistemicScheduler
 ];
 

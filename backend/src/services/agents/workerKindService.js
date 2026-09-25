@@ -30,7 +30,8 @@ const ROLE_ALIASES = Object.freeze({
   recovery_specialist: 'recovery_worker', contract_auditor: 'verifier_worker',
   strategist: 'sub_orchestrator', literary_author: 'creative_worker',
   direct_author: 'creative_worker', planned_author: 'creative_worker',
-  dramaturg: 'creative_worker', literary_critic: 'verifier_worker'
+  dramaturg: 'creative_worker', literary_critic: 'verifier_worker',
+  ux_designer: 'specialist', backend_architect: 'specialist', security_engineer: 'specialist'
 });
 const { artifactInstruction } = require('./workerArtifactContract');
 const PROMPT_RULES = Object.freeze({
@@ -60,8 +61,8 @@ const AUTHORITY_OVERRIDES = Object.freeze({
   creative_worker: { execute: false },
   synthesis_worker: { execute: false },
   liaison_worker: { execute: false },
-  // Node's mission dispatcher currently rejects worker-originated spawning.
-  // Keep the effective contract honest until nested dispatch is implemented.
+  // The base contract stays non-delegating; worker creation may grant the
+  // separate, bounded sub-orchestrator contract before persistence.
   sub_orchestrator: { write: false, spawn: false, delegate: false }
 });
 

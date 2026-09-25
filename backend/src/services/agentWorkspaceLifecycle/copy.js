@@ -29,10 +29,22 @@ async function removeSensitiveFiles(root) {
 }
 
 function createExclusionFilter() {
-  const excluded = new Set(['.git', '.genos', '.genos-agent-worlds', 'node_modules', 'target']);
+  const excluded = new Set([
+    '.git', '.genos', '.genos-agent-worlds', '.codex-worktrees', 'artifacts', 'node_modules', 'target'
+  ]);
   return (name) => {
-    return excluded.has(name) || SENSITIVE_COPY_FILES.test(name) || /\.(db-shm|db-wal|db-journal)$/i.test(name) || /^genos\.db\.backup-/i.test(name);
+    return excluded.has(name) || SENSITIVE_COPY_FILES.test(name)
+      || isDatabaseArtifact(name) || isAgentRunWorkspace(name);
   };
+}
+
+function isDatabaseArtifact(name) {
+  return /\.(?:db|sqlite|sqlite3)(?:-(?:shm|wal|journal))?$/i.test(name)
+    || /^genos\.db\.backup-/i.test(name);
+}
+
+function isAgentRunWorkspace(name) {
+  return /^worker_.*_run_\d+$/i.test(name);
 }
 
 async function estimateCopyBytes(source) {

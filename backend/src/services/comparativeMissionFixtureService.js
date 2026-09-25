@@ -5,6 +5,14 @@ const { validateComparativeMission } = require('./comparativeMissionContract');
 
 const FIXTURE_IDS = Object.freeze(['level-1', 'level-2', 'level-3', 'level-4', 'level-5', 'level-6']);
 const FIXTURE_ROOT = path.resolve(__dirname, '../../fixtures/comparative-missions');
+const SUBMISSION_GUIDANCE = Object.freeze({
+  'two-machine-scheduling': 'submission: provide task assignments, durations and reported makespan; include a readable answer string for independent recomputation.',
+  'constraint-checklist': 'submission.environments[populationId]: checks keyed by required criteria and evidenceRefs; return only the local environment design.',
+  'parser-contract': 'submission.parserSource: include the proposed implementation and test matrix. This fixture remains unverified until an isolated code runner is available.',
+  'bin-packing': 'submission.bins: array of {id, items:[{id,weight}]}; include every fixture item exactly once.',
+  'synthetic-finding-validation': 'submission.findings: array of {id,evidenceRef}; evidenceRef must quote a passage from the supplied pseudo-system.',
+  'collapse-recolonization': 'submission.collapse: {populationId,initialSelection}; submission.recolonization: {founderLineages,projects,neighborProjects}; submission.continuingPopulations: viable portfolios for every surviving population.'
+});
 
 function loadFixture(id) {
   if (!FIXTURE_IDS.includes(id)) {
@@ -27,7 +35,8 @@ function renderFixtureMission(fixture) {
     `Problem: ${JSON.stringify(fixture.problem)}`,
     `Populations: ${JSON.stringify(fixture.populations)}`,
     `Migration policy: ${JSON.stringify(fixture.migration)}`,
-    `Evaluation contract: ${JSON.stringify(fixture.evaluation)}`
+    `Evaluation contract: ${JSON.stringify(fixture.evaluation)}`,
+    `Required submission: ${SUBMISSION_GUIDANCE[fixture.evaluation.kind] || 'Provide a structured submission.'}`
   ];
   if (fixture.evaluation.kind === 'two-machine-scheduling') {
     const tasks = Object.entries(fixture.problem.inputs.jobs).map(([name, duration]) => `${name}=${duration}`).join(', ');

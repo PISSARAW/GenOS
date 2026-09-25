@@ -25,14 +25,15 @@ async function replaceGraph(db, metapopulationId, input) {
 async function upsertCorridor(db, metapopulationId, corridor) {
   const now = new Date().toISOString();
   await db.run(`INSERT INTO metapopulation_corridors
-    (corridor_id, metapopulation_id, source_deme_id, target_deme_id, enabled, capacity, migration_cost,
+    (corridor_id, metapopulation_id, source_deme_id, target_deme_id, status, strength, protocol_json, occurred_at,
+     enabled, capacity, migration_cost,
      compatibility, accepted_migrations, rejected_migrations, benefit_history_json, homogenization_risk, weight, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, 'ACTIVE', ?, '{}', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(metapopulation_id, source_deme_id, target_deme_id) DO UPDATE SET
      enabled = excluded.enabled, capacity = excluded.capacity, migration_cost = excluded.migration_cost,
      compatibility = excluded.compatibility, homogenization_risk = excluded.homogenization_risk,
      weight = excluded.weight, updated_at = excluded.updated_at`,
-  corridor.corridorId, metapopulationId, corridor.sourceDemeId, corridor.targetDemeId, Number(corridor.enabled),
+  corridor.corridorId, metapopulationId, corridor.sourceDemeId, corridor.targetDemeId, corridor.weight, now, Number(corridor.enabled),
   corridor.capacity, corridor.migrationCost, corridor.compatibility, corridor.acceptedMigrations,
   corridor.rejectedMigrations, JSON.stringify(corridor.benefitHistory), corridor.homogenizationRisk, corridor.weight, now, now);
 }

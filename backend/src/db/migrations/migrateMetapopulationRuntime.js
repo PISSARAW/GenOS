@@ -3,10 +3,10 @@ const { migrateMetapopulation } = require('./migrateMetapopulation');
 
 async function migrateMetapopulationRuntime(db) {
   await migrateMetapopulation(db);
-  await ensureColumn(db, 'workspace_path', 'TEXT');
-  await ensureColumn(db, 'workspace_owner_id', 'TEXT');
-  await ensureColumn(db, 'local_boundary_json', "TEXT NOT NULL DEFAULT '[]'");
-  await ensureColumn(db, 'budget_json', "TEXT NOT NULL DEFAULT '{}'");
+  await ensureColumn(db, { table: 'metapopulation_demes', column: 'workspace_path', declaration: 'TEXT' });
+  await ensureColumn(db, { table: 'metapopulation_demes', column: 'workspace_owner_id', declaration: 'TEXT' });
+  await ensureColumn(db, { table: 'metapopulation_demes', column: 'local_boundary_json', declaration: "TEXT NOT NULL DEFAULT '[]'" });
+  await ensureColumn(db, { table: 'metapopulation_demes', column: 'budget_json', declaration: "TEXT NOT NULL DEFAULT '{}'" });
   await db.exec(`
     CREATE TABLE IF NOT EXISTS metapopulation_deme_heartbeats (
       heartbeat_id TEXT PRIMARY KEY,
@@ -28,10 +28,11 @@ async function migrateMetapopulationRuntime(db) {
   `);
 }
 
-async function ensureColumn(db, column, declaration) {
-  const columns = await db.all('PRAGMA table_info(metapopulation_demes)');
+async function ensureColumn(db, options) {
+  const { table, column, declaration } = options;
+  const columns = await db.all(`PRAGMA table_info(${table})`);
   if (!columns.some((entry) => entry.name === column)) {
-    await db.exec(`ALTER TABLE metapopulation_demes ADD COLUMN ${column} ${declaration}`);
+    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${declaration}`);
   }
 }
 

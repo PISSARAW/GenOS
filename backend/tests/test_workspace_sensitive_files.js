@@ -6,8 +6,12 @@ async function run() {
 	const isExcluded = createExclusionFilter();
 	assert.equal(isExcluded('.env'), true);
 	assert.equal(isExcluded('id_rsa'), true);
+	assert.equal(isExcluded('genos.db'), true);
 	assert.equal(isExcluded('genos.db-wal'), true);
 	assert.equal(isExcluded('genos.db.backup-20260916-075110'), true);
+	assert.equal(isExcluded('worker_agent_run_1790349144340'), true);
+	assert.equal(isExcluded('.codex-worktrees'), true);
+	assert.equal(isExcluded('artifacts'), true);
 	assert.equal(isExcluded('README.md'), false);
 
 	const missing = path.resolve(__dirname, 'missing-during-workspace-copy');

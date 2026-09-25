@@ -288,10 +288,6 @@ const migrationRunners = [
     const { migrateHolobiontMemory } = require('./migrateHolobiontMemory');
     await migrateHolobiontMemory(db);
   }),
-  createMigrationRunner('081-gmub-operational', 'Add operational provenance fields and indexes for GMUB campaigns', async (db) => {
-    const { migrateGmubOperational } = require('./migrateGmubOperational');
-    await migrateGmubOperational(db);
-  }),
 ];
 
 async function runMigration(db, version, description) {

@@ -1,16 +1,16 @@
 'use strict';
 
-const trinityService = require('../src/services/trinityService');
-const trinityMissionSupervisor = require('../src/services/trinityMissionSupervisor');
+const topologyTrinityHandler = require('./topologyTrinityHandler.cjs');
+const metapopulationMissionResults = require('../src/services/metapopulation/metapopulationMissionResultService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamDispatch = require('../src/services/aTeamDispatchService');
 const biologicalTopology = require('../src/services/biologicalTopologyService');
-const rhizomeMissionResults = require('../src/services/rhizome/rhizomeMissionResultService');
 const { randomUUID } = require('crypto');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 const { buildLaunchCapabilities } = require('../src/services/agents/agentIncarnationPayloadService');
 const { ensureTopologyWorker } = require('../src/services/topologyWorkerPersistenceService');
 const detachedSpawn = require('./detachedSpawn.cjs');
+const rhizomeMissionRunner = require('../src/services/rhizome/rhizomeMissionRunnerService');
 
 function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
@@ -44,9 +44,9 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
       mechanisms: collectMechanisms(members),
       ...topology, members: accepted,
       ...(mode === 'metapopulation' ? {
-        status: initialRoundComplete(accepted, members) ? 'completed' : 'partial',
-        complete: initialRoundComplete(accepted, members),
-        migrationReviewStatus: accepted.every((member) => member.result?.status === 'completed') ? 'completed' : 'partial',
+        status: metapopulationComplete(accepted, members) ? 'completed' : 'partial',
+        complete: metapopulationComplete(accepted, members),
+        migrationReviewStatus: accepted.length === members.length && accepted.every((member) => isVerifiedResult(member.result)) ? 'completed' : 'partial',
         results: accepted.map((member) => member.result || null),
         answer: accepted.map((member) => `## ${member.role}\n${populationAnswer(member)}`).join('\n\n')
       } : {})
@@ -54,16 +54,20 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
   };
 }
 
-function initialRoundComplete(accepted, members) {
-  return accepted.length === members.length && accepted.every((member) =>
-    member.result?.initialResults?.some((result) => result.role === member.role && result.status === 'completed'));
+function metapopulationComplete(accepted, members) {
+  const reviewedComplete = accepted.length === members.length && accepted.every((member) => isVerifiedResult(member.result));
+  return reviewedComplete;
+}
+
+function isVerifiedResult(result) {
+  return result?.status === 'completed' && result.methodValidated !== false && result.domainValidation?.valid !== false;
 }
 
 function populationAnswer(member) {
-  const review = member.result?.answer;
+  const review = isVerifiedResult(member.result) ? member.result.answer : null;
   if (review) return review;
   const initial = member.result?.initialResults?.find((result) => result.role === member.role);
-  return initial?.answer || 'Aucune réponse vérifiée.';
+  return isVerifiedResult(initial) ? initial.answer : 'Aucune réponse vérifiée.';
 }
 
 function getRunnerStdio(workerId) {
@@ -118,7 +122,7 @@ function runnerEnvironment() {
 }
 
 async function spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps }) {
-  const awaitWorker = process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
+  const awaitWorker = context.request.mode === 'rhizome' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
   const payload = workerLaunchPayload({ context, member, workerId, parent,
     capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest,
     toolLease: launchCaps.toolLease });
@@ -159,7 +163,11 @@ function workerSummary(member, index, workerId) {
     subSystem: member.subSystem,
     memberNumber: member.memberNumber || index,
     role: member.role,
+    branchCandidateId: member.branchCandidateId,
+    branchCandidateLabel: member.branchCandidateLabel,
+    branchCandidateReason: member.branchCandidateReason,
     modelTier: member.modelTier,
+    mission: member.mission,
     status: 'accepted',
   };
 }
@@ -219,7 +227,7 @@ async function handleBiological(db, context) {
   const accepted = await dispatchAndCollectResults({ db, context, mode, parent, members });
   const topology = topologyDetails(composition);
   const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
-  await applyRhizomeResults({ db, mode, topology, accepted, output: out });
+  await applyRhizomeResults({ db, context, mode, topology, accepted, parent, output: out });
   process.stdout.write(JSON.stringify(out));
 }
 
@@ -230,28 +238,45 @@ async function dispatchAndCollectResults({ db, context, mode, parent, members })
 }
 
 async function dispatchMetapopulationReview({ db, context, parent, members, initialWorkers }) {
-  await waitForMetapopulationWorkers(db, initialWorkers, context.request.timeoutMs);
-  for (const member of initialWorkers) member.result = await readMetapopulationResult(db, member);
+  const initialSettled = await waitForMetapopulationWorkers(db, initialWorkers, context.request.timeoutMs);
+  for (const member of initialWorkers) member.result = await metapopulationMissionResults.read(db, member);
   const initial = initialWorkers.map((member) => ({ role: member.role, ...member.result }));
-  const reviewMembers = members.map((member) => ({ ...member, mission: migrationReviewPrompt(member, initial) }));
-  const accepted = await dispatchBiologicalMembers({ db, context, mode: 'metapopulation', parent, members: reviewMembers });
-  await waitForMetapopulationWorkers(db, accepted, context.request.timeoutMs);
-  for (const member of accepted) {
-    member.result = await readMetapopulationResult(db, member);
-    member.result.initialResults = initial;
+  if (!initialSettled) {
+    for (const member of initialWorkers) member.result.initialResults = initial;
+    return initialWorkers;
+  }
+  let candidates = initial;
+  let accepted = initialWorkers;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    accepted = await reviewMetapopulationCandidates({ db, context, parent, members, candidates });
+    await waitForMetapopulationWorkers(db, accepted, context.request.timeoutMs);
+    for (const member of accepted) {
+      member.result = await metapopulationMissionResults.read(db, member);
+      member.result.initialResults = initial;
+    }
+    candidates = accepted.map((member) => ({ role: member.role, ...member.result }));
+    if (accepted.every((member) => isVerifiedResult(member.result))) break;
   }
   return accepted;
 }
 
+function reviewMetapopulationCandidates({ db, context, parent, members, candidates }) {
+  const reviewMembers = members.map((member) => ({
+    ...member, mission: metapopulationMissionResults.reviewPrompt(member, candidates)
+  }));
+  return dispatchBiologicalMembers({ db, context, mode: 'metapopulation', parent, members: reviewMembers });
+}
+
 async function waitForMetapopulationWorkers(db, members, timeoutMs) {
   const requested = Number(timeoutMs);
-  const limit = Number.isFinite(requested) ? Math.max(10000, Math.min(requested, 360000)) : 180000;
+  const limit = Number.isFinite(requested) ? Math.max(10000, Math.min(requested, 600000)) : 180000;
   const deadline = Date.now() + limit;
   while (Date.now() < deadline) {
     const rows = await Promise.all(members.map((member) => db.get('SELECT status FROM agents WHERE id = ?', member.workerId)));
-    if (rows.every((row) => ['completed', 'failed', 'error', 'blocked', 'unverified', 'terminated', 'quarantined'].includes(row?.status))) return;
+    if (rows.every((row) => ['completed', 'failed', 'error', 'blocked', 'unverified', 'terminated', 'quarantined'].includes(row?.status))) return true;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
+  return false;
 }
 
 function topologyDetails(composition) {
@@ -264,52 +289,30 @@ function topologyDetails(composition) {
   };
 }
 
-async function applyRhizomeResults({ db, mode, topology, accepted, output }) {
+async function applyRhizomeResults({ db, context, mode, topology, accepted, parent, output }) {
   if (mode !== 'rhizome' || !topology.sessionId) return;
-  const result = await rhizomeMissionResults.collect(db, topology.sessionId, accepted);
+  const discovery = await rhizomeMissionRunner.completeMission({
+    db, sessionId: topology.sessionId, accepted, mission: output.biologicalMode.mission,
+    dispatch: (members) => dispatchRhizomeMissionMembers({ db, context, members, parent })
+  });
+  const { result, discoveredBranches } = discovery;
+  output.biologicalMode.members.push(...discoveredBranches);
   Object.assign(output.biologicalMode, result, { status: result.status, graphVersion: result.graph.graphVersion });
 }
 
-async function readMetapopulationResult(db, member) {
-  const agent = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
-  const event = await db.get(`SELECT id, payload_json FROM telemetry_events WHERE agent_id = ?
-    AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1`, member.workerId);
-  const report = parseEvidence(event?.payload_json);
-  const answer = evidenceAnswer(report);
-  const complete = completedEvidence(agent, report, answer);
-  return { workerId: member.workerId, role: member.role, status: complete ? 'completed' : agent?.status || 'NO_EVIDENCE',
-    answer: answer || null, evidenceEventId: event?.id || null, outcome: report?.outcome || null };
-}
-
-function evidenceAnswer(report) {
-  const content = report?.workerArtifact?.content || {};
-  const claims = Array.isArray(content.claims) ? content.claims : Array.isArray(report?.claims) ? report.claims : [];
-  const statements = claims.map((claim) => claim?.statement).filter((value) => typeof value === 'string' && value.trim());
-  const observations = content.observations;
-  const detail = observations ? JSON.stringify(observations) : '';
-  return [statements.join('\n'), detail, report?.answer].filter(Boolean).join('\n').trim();
-}
-
-function completedEvidence(agent, report, answer) {
-  return agent?.status === 'completed' && report?.outcome === 'success' && answer.length > 0;
-}
-
-function parseEvidence(value) {
-  try { const payload = JSON.parse(value || '{}'); return payload.evidenceReport || payload.report || payload; }
-  catch (_) { return null; }
-}
-
-function migrationReviewPrompt(member, results) {
-  const peers = results.filter((result) => result.role !== member.role)
-    .map((result) => `${result.role}: ${String(result.answer || 'No verified answer.').slice(0, 1200)}`).join('\n\n');
-  return `${member.mission}\n\nMIGRATION REVIEW: Evaluate these peer findings as candidate techniques:\n${peers}\n\nTest each candidate against your assigned method, local constraints and fitness. Adopt only a demonstrated local improvement; otherwise reject it with reasons. Preserve your own method and lineage. Return your revised result with explicit accepted/rejected migration decisions.`;
+function dispatchRhizomeMissionMembers({ db, context, members, parent }) {
+  return rhizomeMissionRunner.dispatchMembers({
+    members,
+    hasCapacity: async () => (await workerGarage.state(db, context.orchestratorId)).available > 0,
+    launch: (member, index) => launchWorker({ db, context, member, index, parent })
+  });
 }
 
 async function dispatchBiologicalMembers({ db, context, mode, parent, members }) {
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full`), { code: 'WORKER_GARAGE_FULL' });
   const selected = selectMembers(members, garage.available);
-  if (mode === 'rhizome') return dispatchRhizomeMembers({ db, context, selected, parent });
+  if (mode === 'rhizome') return dispatchRhizomeMissionMembers({ db, context, members: selected, parent });
   if (mode === 'metapopulation' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
     const completed = [];
     for (let offset = 0; offset < selected.length; offset += 2) {
@@ -335,18 +338,6 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
   return Promise.all(selected.map((member, index) => launchWorker({ db, context, member, index: index + 1, parent })));
 }
 
-async function dispatchRhizomeMembers({ db, context, selected, parent }) {
-  const completed = [];
-  for (const [index, member] of selected.entries()) {
-    try {
-      completed.push(await launchWorker({ db, context, member, index: index + 1, parent }));
-    } catch (error) {
-      console.error(`[topology] Rhizome branch failed: ${error?.message || error}`);
-    }
-  }
-  return completed;
-}
-
 function composeBiologicalMode({ db, context, mode, mission }) {
   const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;
   return biologicalTopology.composeMode({
@@ -356,26 +347,7 @@ function composeBiologicalMode({ db, context, mode, mission }) {
 }
 
 async function handleTrinity(db, context) {
-  const parent = await ensureParent({ db, context });
-  const garage = await workerGarage.state(db, context.orchestratorId);
-  if (garage.available < 3) throw Object.assign(new Error(`Trinity requires 3 free worker slots`), { code: 'WORKER_GARAGE_FULL' });
-  const mission = context.request.mission || context.request.project_goal || context.request.goal || 'Trinity comparative mission';
-  context.nceEnrichments = await buildNCEEnrichments(context, 'trinity');
-  const members = trinityService.compose(mission);
-  const missionId = `trinity_${context.orchestratorId}_${randomUUID()}`;
-  const accepted = [];
-  for (const member of members) {
-    const workerId = createOrchestratorId(`worker_${context.orchestratorId}_${member.worldNumber}`);
-    const trinityName = `Trinity Worker (World ${member.worldNumber}: ${member.label})`;
-    await db.run(
-      `INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, 'queued', ?)`,
-      `${missionId}_world_${member.worldNumber}`, mission, member.worldNumber, trinityName, member.role, workerId
-    );
-    await launchWorker({ db, context, member: { ...member, name: trinityName }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
-    accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
-  }
-  const supervision = trinityMissionSupervisor.launch({ missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot });
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: { status: 'accepted', mission, missionId, capacity: workerGarage.getDynamicCapacity(context.orchestratorId), worlds: accepted, supervision } }));
+  return topologyTrinityHandler.handle({ db, context, ensureParent, workerGarage, buildNCEEnrichments, createOrchestratorId, launchWorker });
 }
 
 module.exports = { handleTeam, handleBiological, handleTrinity };

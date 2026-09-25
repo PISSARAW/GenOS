@@ -198,7 +198,31 @@ async function persistRecoveryAgent(db, source, target) {
 async function createRecoveryWorkspace(source, mission, target) {
   const sourceRoot = firstTruthy(source.workspace_root, mission.workspaceRoot, process.env.GENOS_WORKSPACE_ROOT, path.resolve(__dirname, '../../../..'));
   const capsuleName = `${target.targetId}_${target.decision.action}_${target.report.attempt + 1}`;
-  const workspaceRoot = await createIsolatedWorkspace(sourceRoot, capsuleName, mission.capsuleRoot);
+  try {
+    return await provisionRecoveryWorkspace(sourceRoot, capsuleName, mission.capsuleRoot);
+  } catch (error) {
+    const fallbackRoot = process.env.GENOS_WORKSPACE_ROOT;
+    if (!canRetryFromStableWorkspace(error, sourceRoot, fallbackRoot)) throw error;
+    return provisionRecoveryWorkspace(fallbackRoot, capsuleName, mission.capsuleRoot);
+  }
+}
+
+function canRetryFromStableWorkspace(error, sourceRoot, fallbackRoot) {
+  const sourceWasRemoved = error?.code === 'ENOENT' && /scandir|copyfile|lstat/i.test(String(error.message || ''));
+  return Boolean(fallbackRoot && !sameWorkspace(sourceRoot, fallbackRoot)
+    && (isDepthLimitError(error) || sourceWasRemoved));
+}
+
+function isDepthLimitError(error) {
+  return /workspace copy exceeds the \d+-level depth limit/i.test(String(error?.message || ''));
+}
+
+function sameWorkspace(left, right) {
+  return path.resolve(left).toLowerCase() === path.resolve(right).toLowerCase();
+}
+
+async function provisionRecoveryWorkspace(sourceRoot, capsuleName, capsuleRoot) {
+  const workspaceRoot = await createIsolatedWorkspace(sourceRoot, capsuleName, capsuleRoot);
   return { workspaceRoot, capsuleName };
 }
 

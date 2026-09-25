@@ -1,12 +1,11 @@
 module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };
 
-const path = require('path');
 const circuitBreaker = require('./circuitBreaker');
 const workerGarage = require('./workerGarageService');
 const workerKinds = require('./agents/workerKindService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
 const { autonomousWorkerId } = require('./agentRoundService');
-const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
+const workerWorkspaceRecovery = require('./agentFleetWorkerWorkspace');
 const { emit, workerToolLeaseForCapabilities } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
@@ -243,15 +242,8 @@ async function prepareWorkerAssets(workerContext) {
   return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, dnaSelection, mission };
 }
 
-function createWorkerWorkspace(workerContext, id) {
-  const { assignment, mission, sourceWorkspace } = workerContext;
-  const isVfsWorker = !/coder|developer|implementation/i.test(assignment.role || '');
-  const assignments = workerContext.assignments || [];
-  const allowEdits = mission.executionPolicy?.allowFileEdits === true || config.allowFileEdits();
-  return createIsolatedWorkspace(sourceWorkspace, id, {
-    capsuleRoot: mission.capsuleRoot,
-    vfs: !allowEdits || mission.vfsWorkspace === true || (assignments.length > 12 && isVfsWorker)
-  });
+async function createWorkerWorkspace(workerContext, id) {
+  return workerWorkspaceRecovery.create(workerContext, id);
 }
 
 function validatePromptBudget(details) {

@@ -3,10 +3,10 @@
 function soloEntries(runs) {
   const byModel = new Map();
   for (const r of runs || []) {
-    if (!r || r.mode !== 'solo') continue;
+    if (!isSoloRun(r)) continue;
     const model = String(r.model || '').trim();
     const score = Number(r.score);
-    if (!model || !Number.isFinite(score)) continue;
+    if (!isValidEntry(model, score)) continue;
     if (!byModel.has(model)) byModel.set(model, []);
     byModel.get(model).push(score);
   }
@@ -17,9 +17,19 @@ function soloEntries(runs) {
   }));
 }
 
+function isSoloRun(run) {
+  return Boolean(run) && run.mode === 'solo' && run.score !== null &&
+    run.score !== undefined && run.score !== '';
+}
+
+function isValidEntry(model, score) {
+  return Boolean(model) && Number.isFinite(score);
+}
+
 function buildLadder(runs) {
   const solos = soloEntries(runs || []);
-  return solos.map((entry, index) => ({ ...entry, rank: index }));
+  return solos.sort((a, b) => a.score - b.score || a.model.localeCompare(b.model))
+    .map((entry, index) => ({ ...entry, rank: index }));
 }
 
 function effectiveRank(genosScore, ladder) {

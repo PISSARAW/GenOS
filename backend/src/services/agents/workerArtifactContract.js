@@ -85,12 +85,38 @@ function hasProvenance(artifact) {
 function artifactInstruction(contract) {
   const required = contract?.evidence?.requiredArtifacts || [];
   if (!required.length) return '';
+  const rhizome = rhizomeArtifactInstruction(contract, required);
+  if (rhizome) return rhizome;
   const template = required.map((type) => ({ type, content: CONTENT_TEMPLATES[type] }));
   if (required.every((type) => type === 'dossier')) {
     return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims })}. The top-level claims form the dossier; cite source references in evidence.`;
   }
   const artifact = template[0];
   return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance.`;
+}
+
+function rhizomeArtifactInstruction(contract, required) {
+  const objective = contract?.mission?.objective || '';
+  if (!/Mission Rhizome|Rhizome discovery branch/i.test(objective)) return '';
+  const output = rhizomeOutputTemplate(required);
+  return `This is a Rhizome capability-mapping branch. Return one JSON object matching this schema: ${JSON.stringify(output)}. Keep the complete capability map at the top level, fill every listed field, and put the required typed worker artifact under workerArtifact. Treat unknownDependencies as hypotheses, cite only real references or label observations, and never invent evidence.`;
+}
+
+function rhizomeOutputTemplate(required) {
+  const output = {
+    outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    answer: '<branch answer>', capabilities: [], unknownDependencies: [],
+    interfaces: [], assumptions: [], evidence: []
+  };
+  const artifactType = required[0];
+  if (artifactType && artifactType !== 'dossier') {
+    output.workerArtifact = {
+      type: artifactType,
+      content: CONTENT_TEMPLATES[artifactType],
+      provenance: { sourceRefs: ['<source-ref>'] }
+    };
+  }
+  return output;
 }
 
 function artifactError(workerId, expected) {

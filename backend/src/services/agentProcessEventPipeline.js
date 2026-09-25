@@ -252,15 +252,21 @@ function enqueueStatusUpdate(ctx, event, nextStatus) {
   ctx.state.executionQueue = ctx.state.executionQueue.then(() => { return updateAgent(ctx.agentId, nextStatus, event.currentTask); });
 }
 
+function rejectedWorkerCompletion(eventType, state) {
+  return eventType === 'AGENT_COMPLETED' && state.missionDomainState.hasDomainFailure;
+}
+
+function resolveWorkerTerminalStatus(eventType, eventStatus, state) {
+  return rejectedWorkerCompletion(eventType, state) ? 'failed' : eventStatus;
+}
+
 function handleDecodedEvent(ctx, event) {
   const payload = parseEventPayload(event);
   applyDomainStateFromEvent({
     state: ctx.state, event: { ...event, payload }, eventType: event.eventType,
     workerContract: ctx.normalizedMission?.workerContract
   });
-  const invalidArtifactCompletion = event.eventType === 'AGENT_COMPLETED'
-    && ctx.state.missionDomainState.hasDomainFailure;
-  if (invalidArtifactCompletion) {
+  if (rejectedWorkerCompletion(event.eventType, ctx.state)) {
     ctx.state.terminalEventSeen = true;
     enqueueStatusUpdate(ctx, event, 'failed');
     ctx.emitTracked('AGENT_FAILED', 'EVIDENCE_GATE', 'Worker completion rejected because its required typed artifact failed validation.', {
@@ -268,7 +274,7 @@ function handleDecodedEvent(ctx, event) {
     }, 'error', 'failed');
     return;
   }
-  const nextStatus = event.status;
+  const nextStatus = resolveWorkerTerminalStatus(event.eventType, event.status, ctx.state);
   if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN'].includes(event.eventType)) {
     ctx.state.terminalEventSeen = true;
   }
@@ -363,7 +369,7 @@ async function handleChildClose(ctx, code, signal) {
 module.exports = {
   applyDomainStateFromEvent, checkDossierInfluence, checkHallucination, checkStrategyGuardrail,
   checkSwarmSentinel, checkInteractionDeadlock, classifyConscienceEvent, buildCognitiveHealth,
-  runConscienceCheck, isFinalEvent, processEventQueueImpl, handleDecodedEvent, handleStdoutData,
+  runConscienceCheck, isFinalEvent, rejectedWorkerCompletion, resolveWorkerTerminalStatus, processEventQueueImpl, handleDecodedEvent, handleStdoutData,
   handleStderrData, handleStdinError, handleChildError, handleChildClose, checkNaturalSearchControl,
   clearSearchState
 };

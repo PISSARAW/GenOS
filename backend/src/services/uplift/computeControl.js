@@ -12,17 +12,34 @@ const NAIVE_STRATEGIES = Object.freeze([
 function triplesFor(runs, base) {
   const byCase = new Map();
   for (const r of runs || []) {
-    if (r.suite !== base.suite || r.model !== base.model) continue;
-    if (!byCase.has(r.case_id)) byCase.set(r.case_id, {});
-    byCase.get(r.case_id)[r.mode] = r.score;
+    if (!matchesBase(r, base)) continue;
+    addRun(byCase, r);
   }
   const triples = [];
-  for (const [id, m] of byCase) {
-    if (Number.isFinite(m.solo) && Number.isFinite(m.compute_control) && Number.isFinite(m.genos)) {
-      triples.push({ case_id: id, solo: m.solo, control: m.compute_control, genos: m.genos });
-    }
+  for (const m of byCase.values()) {
+    if (hasCompleteTriple(m)) triples.push(toTriple(m));
   }
   return triples;
+}
+
+function matchesBase(run, base) {
+  return run.suite === base.suite && run.model === base.model;
+}
+
+function addRun(byCase, run) {
+  const replicate = run.replicate || 0;
+  const key = `${run.case_id}:${replicate}`;
+  if (!byCase.has(key)) byCase.set(key, { case_id: run.case_id, replicate });
+  byCase.get(key)[run.mode] = run.score;
+}
+
+function hasCompleteTriple(metric) {
+  return Number.isFinite(metric.solo) && Number.isFinite(metric.compute_control) && Number.isFinite(metric.genos);
+}
+
+function toTriple(metric) {
+  return { case_id: metric.case_id, replicate: metric.replicate,
+    solo: metric.solo, control: metric.compute_control, genos: metric.genos };
 }
 
 function pairsFrom(triples, left, right) {
@@ -40,7 +57,7 @@ function summarizeABC(triples, opts) {
     genosOverControl,
     genosOverSolo,
     organizationBonus: genosOverControl.beaten === true,
-    fullOrdering: controlOverSolo.beaten === true && genosOverControl.beaten === true,
+    fullOrdering: controlOverSolo.beaten === true && genosOverControl.beaten === true && genosOverSolo.beaten === true,
     kind: 'metric',
     qualityGuarantee: false
   };
