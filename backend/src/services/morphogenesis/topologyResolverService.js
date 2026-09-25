@@ -24,7 +24,8 @@ const WEIGHTS = Object.freeze({
 });
 
 function get(obj, key, fallback) {
-  return obj && obj[key] ? obj[key] : fallback;
+  if (!obj || obj[key] === undefined || obj[key] === null) return fallback;
+  return obj[key];
 }
 
 function all(conditions) {
@@ -107,11 +108,10 @@ function diversityScore(id, profile) {
   return 1 - Math.abs(needed - t.diversity);
 }
 
-function transitionScore(id, current) {
+function transitionCost(id, current) {
   const cur = get(current, 'topology', null);
-  if (!cur) return 1;
-  if (cur === id) return 1;
-  return 1 - getTransitionCost(cur, id).cost;
+  if (!cur || cur === id) return 0;
+  return getTransitionCost(cur, id).cost;
 }
 
 function relationFit(id, relations) {
@@ -149,12 +149,12 @@ function computeFactors(id, ctx) {
     communication_fit: communicationFit(id, profile),
     epistemic_independence: independenceScore(id, profile),
     diversity: diversityScore(id, profile),
-    coordination_overhead: t ? 1 - t.coordination_overhead : 0,
-    transition_cost: transitionScore(id, current),
-    state_preservation_cost: t ? t.state_preservation : 0,
-    token_cost: t ? 1 - t.token_cost : 0,
-    latency: t ? 1 - t.latency : 0,
-    risk: t ? 1 - t.risk : 0,
+    coordination_overhead: t ? t.coordination_overhead : 0,
+    transition_cost: transitionCost(id, current),
+    state_preservation_cost: t ? 1 - t.state_preservation : 0,
+    token_cost: t ? t.token_cost : 0,
+    latency: t ? t.latency : 0,
+    risk: t ? t.risk : 0,
     daemon_support: t ? t.daemon_support : 0,
     relation_fit: relationFit(id, relations),
     historical_success: historicalSuccess(id, history)
@@ -164,7 +164,7 @@ function computeFactors(id, ctx) {
 function weightedScore(factors) {
   let score = 0;
   for (const [factor, weight] of Object.entries(WEIGHTS)) {
-    score += (factors[factor] || 0) * weight;
+    score += (factors[factor] ?? 0) * weight;
   }
   return Math.round(score * 1000) / 1000;
 }
@@ -198,7 +198,7 @@ function scoreTopology(topologyId, ctx) {
   const { reasons, risks } = factorReasons(factors);
   const profile = get(ctx, 'problemProfile', {});
   reasons.push(...ruleReasons(topologyId, profile));
-  return { score: weightedScore(factors), reasons, risks };
+  return { score: weightedScore(factors), reasons, risks, factors };
 }
 
 function getTransitionCost(from, to) {
@@ -221,4 +221,4 @@ function resolveTopology(ctx) {
   return { topology: best.topology, score: best.score, reasons: best.reasons, risks: best.risks, rankings: results };
 }
 
-module.exports = { TOPOLOGIES, ALL_IDS, scoreTopology, compareTopologies, getTransitionCost, resolveTopology };
+module.exports = { TOPOLOGIES, ALL_IDS, scoreTopology, compareTopologies, getTransitionCost, resolveTopology, weightedScore };
