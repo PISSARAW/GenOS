@@ -17,6 +17,7 @@ const { compactStrategyContract, compactAutonomyPlan, buildAgentRuntimePrompt } 
 const { handleRuntimeClose } = require('./agent-runtime-close.cjs');
 const events = require('./agent-runtime-events.cjs');
 const { resolveCodexLaunch } = require('./codexLaunchResolver.cjs');
+const { buildMcpServerEnvironment, serializeMcpServerEnvironment } = require('../src/services/agentRuntimeMcpConfiguration');
 
 const ORCHESTRATOR_INSTRUCTION = 'You are the GenOS orchestrator. You own strategy selection, task decomposition, worker dispatch, evaluation, replay, promotion, and the current worker organization. The control plane evaluated the complete strategy registry before producing this contract; use the selected portfolio rather than treating every strategy as mandatory. At every material scope change, new risk, repeated failure, or evidence that invalidates the current problem profile, reassess whether the active strategy still fits. Call genos_change_strategy with the current need and evidence-backed reason when it may not fit; the control plane will evaluate all strategies, version the contract only when a different portfolio is better, and preserve the remaining budget. Do not switch merely for novelty or oscillate between equivalent portfolios. You may call genos_change_organization at any decision gate when evidence or mission needs justify a different topology or communication mode; record the reason and use genos_organization_state to verify the transition. Inspect the Trinity intent in the autonomous plan before dispatching workers. If Trinity was explicitly requested, use the three control-plane worlds already composed. If the user asked to be interviewed to create a plan, conduct the interview first and consider genos_trinity_launch only after the answers produce a sufficiently concrete shared mission; do not launch it merely because planning was mentioned. When a mission genuinely requires at least two distinct competency domains and Trinity is not the better shape, use the control-plane A-Team already composed in the plan; if none was composed, the token policy still permits it, and two or more specialists are necessary, call genos_a_team_preview once with two or three bounded subsystems and matching roles. Do not create an A-Team for a single-domain task, exceed the token policy, duplicate members already running, or combine A-Team and Trinity in the same three-slot garage. Before a risky mutation, retrieve negative knowledge or diagnose, snapshot/fork when comparing alternatives, evaluate evidence, and record the decision. Change strategy or organization only on evidence, keep parasite/adversarial branches isolated, and stop or reallocate branches using the token policy.';
 
@@ -268,13 +269,13 @@ function buildMcpConfig(binaries) {
 }
 
 function buildMcpServerArgs(state, binaries, mcp) {
-  const { executionMode } = state;
   if (!mcp.mcpCommand) return [];
+  const environment = buildMcpServerEnvironment({ state, binaries, sourceEnv: process.env });
   return [
     '-c', `mcp_servers.genos.command=${JSON.stringify(mcp.mcpCommand)}`,
     '-c', `mcp_servers.genos.args=${JSON.stringify(mcp.mcpArgs)}`,
     '-c', `mcp_servers.genos.cwd=${JSON.stringify(binaries.workspace)}`,
-    '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(binaries.workspace)},GENOS_BIN=${JSON.stringify(binaries.genosBinary || '')},GENOS_MCP_TOOL_TIMEOUT_MS="120000",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(binaries.orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(state.mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(state.orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(state.allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(state.allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(state.executionPolicy.silentUpdates === true ? 'true' : 'false')},GENOS_MCP_LEASE=${JSON.stringify(state.toolLease.join(','))},GENOS_MCP_DISABLED_TOOLS="genos_orchestrate"}`,
+    '-c', `mcp_servers.genos.env=${serializeMcpServerEnvironment(environment)}`,
     '-c', `mcp_servers.genos.enabled_tools=${JSON.stringify(state.toolLease)}`,
     '-c', 'mcp_servers.genos.disabled_tools=["genos_orchestrate"]',
     '-c', 'mcp_servers.genos.startup_timeout_sec=30',

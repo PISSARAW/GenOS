@@ -1,6 +1,7 @@
 const assert = require('assert');
 const { loadLeasedTools, runToolSession } = require('../bin/solar-tool-runtime.cjs');
 const { buildRuntimeEnvironment } = require('../src/services/agentProcessOutcome');
+const { buildMcpServerEnvironment, serializeMcpServerEnvironment } = require('../src/services/agentRuntimeMcpConfiguration');
 
 function testHermesRuntimeEnvironment() {
   const env = buildRuntimeEnvironment({
@@ -11,6 +12,35 @@ function testHermesRuntimeEnvironment() {
   assert.equal(env.LOCALAPPDATA, 'C:/Users/test/AppData/Local');
   assert.equal(env.GENOS_SOLAR_MODEL, 'solar-test');
   assert.equal(env.UNRELATED_SECRET, undefined);
+}
+
+function testDatabaseEnvironmentStaysOnCampaignDatabase() {
+  const previous = Object.fromEntries(['GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP']
+    .map((name) => [name, process.env[name]]));
+  process.env.GENOS_DB_PATH = 'D:/campaign/campaign.db';
+  process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS = '30000';
+  process.env.GENOS_DB_BACKUP_SKIP = '1';
+  try {
+    const env = buildRuntimeEnvironment({ GENOS_DB_PATH: 'C:/repo/genos.db' }, 'D:/campaign/workspace', false);
+    assert.equal(env.GENOS_DB_PATH, 'D:/campaign/campaign.db');
+    assert.equal(env.GENOS_SQLITE_BUSY_TIMEOUT_MS, '30000');
+    assert.equal(env.GENOS_DB_BACKUP_SKIP, '1');
+    const mcpEnv = buildMcpServerEnvironment({
+      state: { executionMode: 'worker', mission: { agentId: 'worker-1' },
+        allowedCommands: [], allowFileEdits: false, executionPolicy: { silentUpdates: false },
+        toolLease: [], orchestratorAgentId: 'parent-1' },
+      binaries: { workspace: 'D:/campaign/workspace', genosBinary: '', orchestratorBridge: '' },
+      sourceEnv: { ...env, GENOS_DB_BACKUP_SKIP: undefined }
+    });
+    const serialized = serializeMcpServerEnvironment(mcpEnv);
+    assert.match(serialized, /GENOS_DB_PATH="D:\/campaign\/campaign\.db"/);
+    assert.match(serialized, /GENOS_DB_BACKUP_SKIP="1"/);
+  } finally {
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
 }
 
 async function testLeasedToolRoundTrip() {
@@ -104,7 +134,8 @@ function toolCallReply(name, id) {
   };
 }
 
-Promise.resolve().then(testHermesRuntimeEnvironment).then(testLeasedToolRoundTrip).then(testRejectsUnleasedCalls).then(testHonorsCancellationAndEventReserve).then(() => {
+Promise.resolve().then(testHermesRuntimeEnvironment).then(testDatabaseEnvironmentStaysOnCampaignDatabase)
+  .then(testLeasedToolRoundTrip).then(testRejectsUnleasedCalls).then(testHonorsCancellationAndEventReserve).then(() => {
   console.log('Solar tool runtime tests passed.');
 }).catch((error) => {
   console.error(error);
