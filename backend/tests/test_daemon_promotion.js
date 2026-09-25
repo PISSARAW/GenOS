@@ -7,6 +7,7 @@ const ablation = require('../src/services/daemon/evaluation/ablationRunner');
 const territoryService = require('../src/services/daemon/daemonTerritoryService');
 const findingService = require('../src/services/daemon/findings/findingService');
 const stigmergy = require('../src/services/daemon/daemonStigmergyService');
+const liveProtocol = require('../src/services/daemon/evaluation/liveProtocolRunner');
 
 const HEAD_A = 'a'.repeat(40);
 
@@ -63,6 +64,7 @@ async function main() {
   assert.equal(denied.maturity, 'EXPERIMENTAL');
   assert.ok(denied.reasons.length > 0, 'blockers listed');
   assert.ok(denied.reasons.join(' ').includes('warm-start pairs'));
+  assert.ok(denied.reasons.join(' ').includes('complete live protocols'));
   assert.equal((await promotion.listPromotions(empty)).length, 1);
   await empty.close();
 
@@ -80,18 +82,39 @@ async function main() {
   }
   const abl = await ablation.runAblations(db, { territoryId: 'territory.promo-warm-0', mission: 'fix auth' });
   assert.equal(abl.ablated, true);
+
+  // 3. Proxy evidence alone cannot promote: three complete live A/B/C triples are required.
+  const proxyOnly = await promotion.evaluateMaturity(db, { suitesGreen: true });
+  assert.equal(proxyOnly.maturity, 'EXPERIMENTAL');
+  assert.ok(proxyOnly.reasons.join(' ').includes('complete live protocols'));
+  for (let r = 0; r < 3; r += 1) {
+    const run = await liveProtocol.runLiveProtocol(db, {
+      coldTerritoryId: `territory.promo-cold-${r}`,
+      warmTerritoryId: `territory.promo-warm-${r}`,
+      mission: `live probe ${r}`,
+      executor: async ({ arm }) => arm === 'C'
+        ? { taskSuccess: true, correctLocalization: true, tokensUsed: 400 }
+        : { taskSuccess: false, correctLocalization: false, tokensUsed: 1000 }
+    });
+    assert.equal(run.ran, true);
+  }
+
+  // 4. Three supported live triples plus proxy evidence can pass the technical gate.
   const granted = await promotion.evaluateMaturity(db, { suitesGreen: true });
-  assert.equal(granted.maturity, 'STABLE');
+  assert.equal(granted.maturity, 'STABLE', granted.reasons.join('; '));
   assert.deepEqual(granted.reasons, []);
   assert.ok(granted.evidence.meanRecallGain >= 1);
+  assert.equal(granted.evidence.liveProtocols, 3);
+  assert.equal(granted.evidence.liveBetterProtocols, 3);
   const receipts = await promotion.listPromotions(db);
-  assert.equal(receipts.length, 1);
-  assert.equal(receipts[0].to_maturity, 'STABLE');
+  assert.equal(receipts.length, 2);
+  assert.equal(receipts[1].to_maturity, 'STABLE');
 
-  // 3. Suites rouges → EXPERIMENTAL même avec le reste au vert.
+  // 5. Suites rouges → EXPERIMENTAL même avec le reste au vert.
   const red = await promotion.evaluateMaturity(db, { suitesGreen: false });
   assert.equal(red.maturity, 'EXPERIMENTAL');
   assert.ok(red.reasons.join(' ').includes('suites not green'));
+  assert.equal((await promotion.listPromotions(db)).length, 3);
 
   await db.close();
   console.log('Daemon promotion tests passed (evidence-gated STABLE, blockers listed).');

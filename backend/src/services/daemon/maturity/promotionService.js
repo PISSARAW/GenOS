@@ -21,6 +21,8 @@ const { migrateDaemonTerritory } = require('../../../db/migrations/migrateDaemon
 const MIN_RUNS = 3;
 const MIN_MEAN_RECALL_GAIN = 1;
 const MAX_FALSE_FINDING_RATE = 0.5;
+const MIN_LIVE_PROTOCOLS = 3;
+const MIN_LIVE_BETTER_RATE = 2 / 3;
 
 function mean(values) {
   if (!values.length) return 0;
@@ -51,6 +53,39 @@ function dominates(fullMetrics, armMetrics) {
   return (armMetrics.recalledDeadEnds || 0) <= (fullMetrics.recalledDeadEnds || 0);
 }
 
+function parseMetrics(row) {
+  try {
+    return JSON.parse(row.metrics_json || '{}');
+  } catch (_) {
+    return {};
+  }
+}
+
+function liveStats(runs) {
+  const protocols = new Map();
+  runs.forEach((run) => {
+    const metrics = parseMetrics(run);
+    if (!metrics.protocolId || !['A', 'B', 'C'].includes(run.arm)) return;
+    if (!protocols.has(metrics.protocolId)) protocols.set(metrics.protocolId, {});
+    protocols.get(metrics.protocolId)[run.arm] = metrics;
+  });
+  const complete = [...protocols.values()].filter((arms) => arms.A && arms.B && arms.C);
+  const better = complete.filter(warmProtocolWins).length;
+  return { complete: complete.length, better, betterRate: complete.length ? better / complete.length : 0 };
+}
+
+function warmProtocolWins(arms) {
+  const cold = arms.A;
+  const warm = arms.C;
+  if (!warm.taskSuccess) return false;
+  if (!cold.taskSuccess) return true;
+  return successRank(warm) >= successRank(cold) && warm.tokensUsed <= cold.tokensUsed;
+}
+
+function successRank(metrics) {
+  return (metrics.taskSuccess ? 2 : 0) + (metrics.correctLocalization ? 1 : 0);
+}
+
 async function findingStats(db) {
   await migrateDaemonFindings(db);
   await migrateDaemonTerritory(db);
@@ -72,19 +107,24 @@ async function evaluateMaturity(db, args) {
   await migrateDaemonEvaluation(db);
   const warmRuns = await db.all("SELECT * FROM daemon_eval_runs WHERE kind = 'warm-start' ORDER BY created_at DESC");
   const ablationRuns = await db.all("SELECT * FROM daemon_eval_runs WHERE kind = 'ablation' ORDER BY created_at DESC");
+  const liveRuns = await db.all("SELECT * FROM daemon_eval_runs WHERE kind = 'live-protocol' ORDER BY created_at DESC");
   const stats = await findingStats(db);
-  return decidePromotion(db, { args: args || {}, warmRuns, ablationRuns, stats });
+  return decidePromotion(db, { args: args || {}, warmRuns, ablationRuns, liveRuns, stats });
 }
 
 async function decidePromotion(db, job) {
   const { args, warmRuns, ablationRuns, stats } = job;
   const warm = warmStats(warmRuns);
-  const reasons = collectBlockers({ args, warm, ablationRuns, stats });
+  const live = liveStats(job.liveRuns || []);
+  const reasons = collectBlockers({ args, warm, ablationRuns, live, stats });
   const maturity = reasons.length === 0 ? 'STABLE' : 'EXPERIMENTAL';
   const evidence = {
     warmPairs: warm.pairs,
     meanRecallGain: warm.meanGain,
     ablationArms: ablationRuns.length,
+    liveProtocols: live.complete,
+    liveBetterProtocols: live.better,
+    liveBetterRate: live.betterRate,
     falseFindingRate: falseRate(stats),
     staleErrors: stats.staleErrors,
     suitesGreen: args.suitesGreen === true
@@ -104,6 +144,8 @@ function collectBlockers(job) {
   if (job.warm.pairs < MIN_RUNS) reasons.push(`only ${job.warm.pairs} warm-start pairs, need ${MIN_RUNS}`);
   if (job.warm.meanGain < MIN_MEAN_RECALL_GAIN) reasons.push(`mean recall gain ${job.warm.meanGain}, need ${MIN_MEAN_RECALL_GAIN}`);
   if (!ablationDominated(job.ablationRuns)) reasons.push('ablation coverage missing or FULL not dominating');
+  if (job.live.complete < MIN_LIVE_PROTOCOLS) reasons.push(`only ${job.live.complete} complete live protocols, need ${MIN_LIVE_PROTOCOLS}`);
+  if (job.live.betterRate < MIN_LIVE_BETTER_RATE) reasons.push(`live warm benefit rate ${job.live.betterRate}, need ${MIN_LIVE_BETTER_RATE}`);
   if (falseRate(job.stats) > MAX_FALSE_FINDING_RATE) reasons.push(`false-finding rate ${falseRate(job.stats)}, max ${MAX_FALSE_FINDING_RATE}`);
   if (job.stats.staleErrors > 0) reasons.push(`${job.stats.staleErrors} staleness errors`);
   if (job.args.suitesGreen !== true) reasons.push('daemon suites not green');
@@ -121,4 +163,12 @@ async function listPromotions(db) {
   return db.all('SELECT * FROM daemon_promotions ORDER BY decided_at DESC');
 }
 
-module.exports = { evaluateMaturity, listPromotions, MIN_RUNS, MIN_MEAN_RECALL_GAIN, MAX_FALSE_FINDING_RATE };
+module.exports = {
+  evaluateMaturity,
+  listPromotions,
+  MIN_RUNS,
+  MIN_MEAN_RECALL_GAIN,
+  MAX_FALSE_FINDING_RATE,
+  MIN_LIVE_PROTOCOLS,
+  MIN_LIVE_BETTER_RATE
+};

@@ -90,6 +90,8 @@ async function main() {
 
   console.log('\n=== Phase 4: Evaluate maturity (suitesGreen: true) ===');
   const result = await promotion.evaluateMaturity(db, { suitesGreen: true });
+  assert.equal(result.maturity, 'EXPERIMENTAL');
+  assert.ok(result.reasons.some((reason) => reason.includes('complete live protocols')));
   console.log(`  Maturity: ${result.maturity}`);
   console.log(`  Blockers: ${result.reasons.length}`);
   if (result.reasons.length > 0) {
@@ -121,7 +123,7 @@ async function main() {
   }
 
   await db.close();
-  console.log('\n=== DONE: STABLE promotion achieved ===');
+  console.log('\n=== DONE: proxy evidence correctly remains EXPERIMENTAL until live runs exist ===');
 }
 
 main().catch((error) => { console.error(error); process.exit(1); });

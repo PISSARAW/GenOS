@@ -629,8 +629,8 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 | D17 | benchmark warm-start + runs 055 | `evaluation/warmStartBenchmark.js` | proxy déterministe (rappel de connaissance), pas succès LLM bout en bout — protocole live A/B/C reste hors ligne |
 | D18 | 6 bras d'ablation + deltas vs FULL | `evaluation/ablationRunner.js` | vues filtrées d'un même brief (pas de re-compilation dupliquée) ; FULL domine par construction des vues |
 | D19 | ordonnanceur U(a) + plan métabolique | `scheduling/computeScheduler.js` | pur, sans IO ; sensing toujours, LLM gaté (seuil + budget + machine) |
-| D20 | gate experimental → stable + reçus | `maturity/promotionService.js` | seuils : ≥3 paires warm, gain moyen ≥1, FULL dominant, faux-findings ≤0.5, 0 staleness, suites vertes ; STABLE exige en plus une preuve live (D21), jamais accordé sur proxy seul |
-| D21 | protocole live A/B/C + harnais honnête | `evaluation/liveProtocolRunner.js` | bras A/B/C exécutés par un exécuteur injecté ; sans exécuteur → `ran:false`, zéro ligne, promotion bloquée (jamais de succès simulé) ; reçus persistés `kind='live-protocol'` |
+| D20 | gate experimental → stable + reçus | `maturity/promotionService.js` | seuils : ≥3 paires warm, gain moyen ≥1, FULL dominant, faux-findings ≤0.5, 0 staleness, suites vertes et ≥3 triples live A/B/C complets, dont ≥2/3 où le warm résout avec qualité au moins égale sans coût tokens supérieur ; jamais de promotion proxy seule |
+| D21 | protocole live A/B/C + harnais honnête | `evaluation/liveProtocolRunner.js` | bras A/B/C exécutés par un exécuteur injecté et regroupés sous un identifiant de protocole ; sans exécuteur → `ran:false`, zéro ligne, promotion bloquée (jamais de succès simulé) ; reçus persistés `kind='live-protocol'` |
 | D22 | pont production (système nerveux live) | `daemonProductionBridge.js` + annonce au bootstrap mission | `ORCHESTRATOR_ENTERED` émis au démarrage mission si un territoire est enregistré sur le workspace (lookup seule, jamais de création fantôme) ; dégradation gracieuse si aucun daemon |
 | D23 | génome single-archetype + legacy reclassés | `agents/daemons/resident_daemon.agent.json`, `workspace_git_daemon` (legacy-compat), `sentinel_daemon_keeper` (superviseur control-plane) | aucun nouveau `*_daemon.agent.json` ; les fichiers sont conservés (provenance scellée), pas renommés |
 
@@ -638,7 +638,7 @@ Chaque sprint : suite de tests dédiée (`backend/tests/test_daemon_*.js`, 29 su
 
 ## Maturité du daemon (D20–D21)
 
-Statut : **EXPERIMENTAL**. Le gate de promotion est implémenté et testé (chemins STABLE et EXPERIMENTAL), et le harnais live A/B/C existe (`liveProtocolRunner.js`, bras persistés `kind='live-protocol'`, exécuteur `backend/bin/genos-live-protocol.cjs`).
+Statut : **EXPERIMENTAL**. Le gate de promotion exige maintenant trois triples live A/B/C complets et un bénéfice warm observé dans au moins deux tiers d'entre eux, en plus des critères proxy. Les appels de test avec callbacks déterministes vérifient le calcul du gate ; ils ne constituent pas les reçus live nécessaires à une promotion réelle. Le harnais live A/B/C existe (`liveProtocolRunner.js`, bras persistés `kind='live-protocol'`, exécuteur `backend/bin/genos-live-protocol.cjs`).
 
 Premier point de données live (2026-09-24, hors ligne, modèle local `llama3.1:8b`, température 0, tâche de localisation d'un require fautif sur fixture, n=2 triples, reçus hors arbre) : bras A (LLM seul) échoue 2/2, bras B (digest brut) et C (TerritoryBrief warm, 10 observations) réussissent 2/2 — `warmSolved=true, coldSolved=false`, coût C ≈ B (~280 tokens vs 73 pour l'échec aveugle de A). C'est une première preuve directionnelle, pas une promotion : STABLE reste bloqué jusqu'à un protocole élargi (tâches variées, modèle frontière, décision opérateur via `promotionService`). Le proxy déterministe montre un gain de rappel warm ≥ 0 ; les ablations montrent FULL dominant sur les vues.
 

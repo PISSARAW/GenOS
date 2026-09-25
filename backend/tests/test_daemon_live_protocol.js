@@ -80,6 +80,9 @@ async function main() {
   const rows = await liveRows(db);
   assert.equal(rows.length, 3);
   assert.ok(rows.every((r) => r.head_sha === HEAD_A));
+  const protocolIds = rows.map((row) => JSON.parse(row.metrics_json).protocolId);
+  assert.ok(protocolIds.every(Boolean));
+  assert.equal(new Set(protocolIds).size, 1);
   const arms = rows.map((r) => r.arm).sort();
   assert.deepEqual(arms, ['A', 'B', 'C']);
 

@@ -46,7 +46,7 @@ async function runLiveArm(db, job) {
   const headSha = job.headSha || await headOf(db, job.territoryId);
   if (!headSha) return { arm: job.arm, ran: false, reason: 'unknown-head' };
   const reported = await job.executor({ arm: job.arm, territoryId: job.territoryId, mission: job.mission });
-  const metrics = toLiveMetrics(reported);
+  const metrics = toLiveMetrics(reported, job.protocolId);
   const id = liveRunId(job.arm);
   await db.run(
     `INSERT INTO daemon_eval_runs (id, kind, arm, territory_id, head_sha, metrics_json)
@@ -60,9 +60,10 @@ async function runLiveArm(db, job) {
   return { arm: job.arm, ran: true, runId: id, metrics };
 }
 
-function toLiveMetrics(reported) {
+function toLiveMetrics(reported, protocolId) {
   const source = reported || {};
   return {
+    protocolId,
     taskSuccess: source.taskSuccess === true,
     correctLocalization: source.correctLocalization === true,
     tokensUsed: num(source.tokensUsed),
@@ -86,10 +87,11 @@ async function runLiveProtocol(db, args) {
 }
 
 async function runAllArms(db, args) {
+  const protocolId = liveRunId('protocol');
   const out = [];
-  out.push(await runLiveArm(db, { arm: 'A', territoryId: args.coldTerritoryId, mission: args.mission, executor: args.executor }));
-  out.push(await runLiveArm(db, { arm: 'B', territoryId: args.coldTerritoryId, mission: args.mission, executor: args.executor }));
-  out.push(await runLiveArm(db, { arm: 'C', territoryId: args.warmTerritoryId, mission: args.mission, executor: args.executor }));
+  out.push(await runLiveArm(db, { arm: 'A', territoryId: args.coldTerritoryId, mission: args.mission, executor: args.executor, protocolId }));
+  out.push(await runLiveArm(db, { arm: 'B', territoryId: args.coldTerritoryId, mission: args.mission, executor: args.executor, protocolId }));
+  out.push(await runLiveArm(db, { arm: 'C', territoryId: args.warmTerritoryId, mission: args.mission, executor: args.executor, protocolId }));
   return out;
 }
 
