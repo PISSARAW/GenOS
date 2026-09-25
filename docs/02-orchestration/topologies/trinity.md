@@ -84,7 +84,7 @@ Une revendication n'entre dans la synthèse que si elle est substantielle, réf�
 
 ### Cycle de vie, échec et reprise
 
-Les états d'expérience sont `designed → sealed_running → sealed_complete → cross_examining → decided → promotion_preparing → promoted`. Les sorties terminales alternatives sont `rejected`, `escalated` et `promotion_failed`. Chaque transition est enregistrée avec horodatage, acteur, motif et référence de preuve. Une reprise est idempotente : elle ne relance pas un monde déjà terminé avec un dossier valide. Une transition partielle ne peut pas rendre un gagnant promu.
+Les états d'expérience sont `designed → sealed_running → sealed_complete → cross_examining → decided → promotion_preparing → promoted`. Pendant `cross_examining`, les commandes configurées pour les claims sont rejouées par le vérificateur AEIS indépendant sur une copie isolée de chaque workspace terminal. Les reçus, échecs et plans manquants sont résumés dans `crossExamination` du dossier de décision. Cette étape ne fait pas de critique sémantique entre modèles ; la promotion réexécute les contrôles du gagnant après création du candidat. Les sorties terminales alternatives sont `rejected`, `escalated` et `promotion_failed`. Chaque transition est enregistrée avec horodatage, acteur, motif et référence de preuve. Une reprise est idempotente : elle ne relance pas un monde déjà terminé avec un dossier valide. Une transition partielle ne peut pas rendre un gagnant promu.
 
 Si un monde échoue, son dossier d'échec est conservé. L'expérience ne passe pas à la décision tant que les trois mondes n'ont pas un résultat terminal. L'absence de preuve sur l'un des trois mène à `ESCALATE_EXPERIMENT`; elle ne réduit pas silencieusement le nombre de mondes.
 

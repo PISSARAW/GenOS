@@ -14,7 +14,8 @@ const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const { hashWorkspace } = require('./trinitySnapshotService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
-const trinityClaimVerification = require('./trinityClaimVerificationService');
+const trinityCrossExamination = require('./trinityCrossExaminationService');
+const candidateVerification = require('./trinityCandidateVerificationService');
 
 function reportOf(event) {
   if (!event) return null;
@@ -105,7 +106,8 @@ function buildComparison(result) {
     bestScore: result.bestScore,
     paretoFrontier: result.comparativeAnalysis?.pareto?.frontier?.map((world) => world.worldNumber) || [],
     tied: result.comparativeAnalysis?.tied === true,
-    jury: result.jury || null
+    jury: result.jury || null,
+    crossExamination: result.comparativeAnalysis?.crossExamination || null
   };
 }
 
@@ -114,7 +116,10 @@ async function recordComparison(ctx, trinity, result) {
     missionId: trinity.missionId,
     orchestratorId: ctx.agentId,
     comparison: result.comparativeAnalysis,
-    decision: { canMerge: result.canMerge, outcome: result.outcome, jury: result.jury || null }
+    decision: {
+      canMerge: result.canMerge, outcome: result.outcome, jury: result.jury || null,
+      crossExamination: result.comparativeAnalysis?.crossExamination || null
+    }
   });
 }
 
@@ -131,12 +136,15 @@ async function applyTrinityComparison(ctx) {
   if (!trinity || trinity.activated !== true) return null;
   const threshold = Number(trinity.threshold) || 0.70;
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, ctx.workers || []);
-  const worldReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
+  const initialReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
+  const crossExamination = await trinityCrossExamination.examine(ctx.db, initialReports, trinity.hypothesisDesign);
+  const worldReports = crossExamination.reports;
   const maxLatencyMs = await experimentLatencySla(ctx.db, trinity.missionId);
   const result = trinityService.mergeTrinityEvidence(worldReports, {
     domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds
   });
   result.jury = { status: 'unavailable', reason: 'judge_dispatch_not_configured', votes: [] };
+  result.comparativeAnalysis.crossExamination = trinityCrossExamination.summary(crossExamination);
   await recordComparison(ctx, trinity, result);
   trinity.comparison = buildComparison(result);
   trinity.comparison.promotion = await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId, result });
@@ -232,10 +240,13 @@ async function promoteWinner(db, input = {}) {
     return { promoted: false, reason: 'candidate_artifact_creation_failed' };
   }
   try {
-    const verification = await verifyCandidate(db, { missionId, winner, artifact });
+    const verification = await candidateVerification.verify(db, { missionId, winner, artifact });
     const experiment = await db.get('SELECT id FROM trinity_experiments WHERE mission_id = ?', missionId);
     if (!experiment) throw new Error('Trinity experiment disappeared before final promotion.');
-    const decision = { outcome: 'PROMOTED', worldNumber: result.selectedWorld, artifact, verification, jury: result.jury || null };
+    const decision = {
+      outcome: 'PROMOTED', worldNumber: result.selectedWorld, artifact, verification,
+      jury: result.jury || null, crossExamination: result.comparativeAnalysis?.crossExamination || null
+    };
     const git = require('./agentGitService');
     const gitRequest = { user: { username: 'trinity-runtime' }, body: {} };
     const commit = await git.createCommit(gitRequest, {
@@ -290,62 +301,46 @@ async function previousPromotion(input) {
   };
 }
 
-async function verifyCandidate(db, input) {
-  const { missionId, winner, artifact } = input;
-  const row = await db.get('SELECT design_json FROM trinity_experiments WHERE mission_id = ?', missionId);
-  const design = JSON.parse(row?.design_json || '{}');
-  const required = Array.isArray(design.integrationChecks) ? design.integrationChecks : [];
-  if (!required.length) throw Object.assign(new Error('No integration checks were configured.'), { code: 'TRINITY_INTEGRATION_CHECKS_REQUIRED' });
-  const diagnostics = require('./workspaceDiagnosticsService');
-  const available = await diagnostics.inspectWorkspace(artifact.candidateWorkspaceId);
-  const commands = new Set(available.testCommands.map((command) => command.id));
-  if (required.some((id) => !commands.has(id))) throw Object.assign(new Error('A configured integration check is unavailable in the candidate.'), { code: 'TRINITY_INTEGRATION_CHECK_UNAVAILABLE' });
-  const integrationChecks = [];
-  for (const commandId of required) {
-    const receipt = await diagnostics.runWorkspaceTest(artifact.candidateWorkspaceId, commandId);
-    integrationChecks.push(commandReceipt(receipt, { commandId }));
-    if (receipt.exitCode !== 0 || receipt.signal) throw Object.assign(new Error(`Integration check failed: ${commandId}`), { code: 'TRINITY_INTEGRATION_CHECK_FAILED' });
-  }
-  const claims = Array.isArray(winner.report?.claims) ? winner.report.claims : [];
-  const claimChecks = await trinityClaimVerification.verify({
-    claims, plans: design.claimVerificationChecks, commands, candidate: artifact,
-    sourceAgentId: winner.agentId, report: winner.report
-  });
-  const contentHash = await hashWorkspace(artifact.targetWorkspace);
-  if (contentHash !== artifact.contentHash) throw Object.assign(new Error('Candidate changed during verification.'), { code: 'TRINITY_CANDIDATE_HASH_CHANGED' });
-  return { contentHash, integrationChecks, claimChecks, claimsCoveredByChecks: true, sourceAgentId: winner.agentId };
-}
-
-function outputHash(value) {
-  return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
-}
-
-function commandReceipt(result, context) {
-  return {
-    ...context,
-    command: result.command,
-    exitCode: result.exitCode,
-    signal: result.signal || null,
-    durationMs: result.durationMs,
-    stdoutHash: outputHash(result.stdout),
-    stderrHash: outputHash(result.stderr),
-    passed: result.exitCode === 0 && !result.signal
-  };
-}
-
 async function updateExperimentDecision(db, missionId, result) {
   if (!missionId) return;
   const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ?', missionId);
   if (!experiment) return;
   const evidenceRef = comparisonEvidenceRef(missionId, result);
+  const outcome = outcomeFor(result);
+  const decision = decisionRecord(result, outcome);
+  const next = result?.canMerge || outcome === 'KEEP_PARETO_SET' ? 'decided' : 'escalated';
+  const status = await advanceExperiment(db, experiment, evidenceRef);
+  await persistDecision(db, { experiment, status, next, decision, evidenceRef, canMerge: result?.canMerge === true, outcome });
+}
+
+function outcomeFor(result) {
+  if (result?.outcome) return result.outcome;
+  return result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT';
+}
+
+function decisionRecord(result, outcome) {
+  return {
+    outcome, reason: result?.reason || null, bestScore: result?.bestScore || 0,
+    evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto),
+    jury: result?.jury || null,
+    crossExamination: result?.comparativeAnalysis?.crossExamination || null
+  };
+}
+
+async function advanceExperiment(db, experiment, evidenceRef) {
   let status = experiment.status;
   if (status === 'sealed_running') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'sealed_complete', reason: 'all_worlds_terminal', evidenceRef })).status;
   if (status === 'sealed_complete') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'cross_examining', reason: 'comparative_review_started', evidenceRef })).status;
-  const outcome = result?.outcome || (result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT');
-  const decision = { outcome, reason: result?.reason || null, bestScore: result?.bestScore || 0, evidenceVectorDecision: vectorDecisionSummary(result?.comparativeAnalysis?.pareto), jury: result?.jury || null };
-  const next = result?.canMerge || outcome === 'KEEP_PARETO_SET' ? 'decided' : 'escalated';
-  if (status === 'cross_examining') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision, reason: decision.reason || outcome, evidenceRef })).status;
-  if (status === 'decided' && result?.canMerge) await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision, reason: 'candidate_promotion_prepared', evidenceRef });
+  return status;
+}
+
+async function persistDecision(db, input) {
+  const { experiment, status, next, decision, evidenceRef, canMerge, outcome } = input;
+  if (status === 'cross_examining') {
+    await trinityExperimentStore.transition(db, { id: experiment.id, status: next, decision, reason: decision.reason || outcome, evidenceRef });
+  } else if (status === 'decided' && canMerge) {
+    await trinityExperimentStore.transition(db, { id: experiment.id, status: 'promotion_preparing', decision, reason: 'candidate_promotion_prepared', evidenceRef });
+  }
 }
 
 function comparisonEvidenceRef(missionId, result) {
@@ -354,7 +349,8 @@ function comparisonEvidenceRef(missionId, result) {
     agentId: world.agentId,
     evidence: world.report?.evidence,
     vector: world.report?.evidenceVector,
-    vectorRefs: world.report?.evidenceVectorEvidence
+    vectorRefs: world.report?.evidenceVectorEvidence,
+    crossExamination: world.report?.crossExamination
   }));
   const digest = crypto.createHash('sha256').update(JSON.stringify(worlds)).digest('hex');
   return `trinity-comparison:${missionId}:${digest}`;
