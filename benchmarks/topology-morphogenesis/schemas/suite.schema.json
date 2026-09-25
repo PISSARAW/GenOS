@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.local/schemas/topology-morphogenesis-suite.schema.json",
+  "title": "Topology Morphogenesis experiment suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "suiteId", "status", "controls", "tasks"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "suiteId": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["protocol", "pilot", "confirmatory"] },
+    "controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modelPolicy", "toolPolicy", "budgetPolicy", "randomization", "repetitions"],
+      "properties": {
+        "modelPolicy": { "enum": ["same_requested_and_served_model"] },
+        "toolPolicy": { "enum": ["same_tool_allowlist"] },
+        "budgetPolicy": { "enum": ["same_total_tokens_and_latency"] },
+        "randomization": { "enum": ["randomized_within_paired_blocks"] },
+        "repetitions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pilot", "confirmatory"],
+          "properties": {
+            "pilot": { "type": "integer", "minimum": 1 },
+            "confirmatory": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "missionFile", "family", "mechanism", "oracle", "comparisonEligible"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "missionFile": { "type": "string", "pattern": "^missions/[a-z0-9-]+\\.json$" },
+          "family": { "enum": ["reference", "topology", "morphogenesis", "negative-control"] },
+          "mechanism": { "type": "string", "minLength": 1 },
+          "oracle": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "kind"],
+            "properties": {
+              "status": { "enum": ["independent", "runtime-contract-only", "missing"] },
+              "kind": { "enum": ["deterministic-checker", "runtime-contract", "gate-refusal", "missing"] },
+              "verifier": { "type": "string", "minLength": 1 }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "status": { "const": "independent" } }, "required": ["status"] },
+                "then": { "required": ["verifier"] }
+              },
+              {
+                "if": { "properties": { "status": { "const": "missing" } }, "required": ["status"] },
+                "then": { "properties": { "kind": { "const": "missing" } }, "required": ["kind"] }
+              }
+            ]
+          },
+          "comparisonEligible": { "type": "boolean" },
+          "ablation": { "type": "string", "minLength": 1 }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "comparisonEligible": { "const": true } }, "required": ["comparisonEligible"] },
+            "then": { "properties": { "oracle": { "properties": { "status": { "const": "independent" } } } } }
+          }
+        ]
+      }
+    }
+  }
+}

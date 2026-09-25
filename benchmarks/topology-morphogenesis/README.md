@@ -4,6 +4,10 @@
 - **Statut** : protocole à exécuter ; aucun résultat de campagne n'est présumé
 - **Périmètre** : huit topologies canoniques, préparateur Morphogenèse, prévol V2 en shadow et chemin simple de l'orchestrateur backend
 
+Le plan d'implémentation de la comparaison causale est décrit dans [PLAN-IMPLEMENTATION.md](PLAN-IMPLEMENTATION.md).
+
+Le contrat et l'inventaire initial des tâches sont versionnés dans [suite.json](suite.json), conformément à [schemas/suite.schema.json](schemas/suite.schema.json). À ce stade, seule la référence arithmétique possède un oracle indépendant; les autres tâches restent des probes de mécanisme ou des contrôles de contrat et ne sont pas admissibles à une comparaison confirmatoire.
+
 Cette campagne fait progresser la preuve du contrat jusqu'à l'exécution observable. Un dispatch accepté ou une mission terminée ne suffit pas à qualifier une topologie d'opérationnelle. Il faut des opérations spécifiques observables, des livrables vérifiés, des répétitions et des contrôles négatifs réussis.
 
 ## Lancement d'une mission

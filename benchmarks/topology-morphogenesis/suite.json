@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "topology-morphogenesis-causal-v1",
+  "status": "protocol",
+  "controls": {
+    "modelPolicy": "same_requested_and_served_model",
+    "toolPolicy": "same_tool_allowlist",
+    "budgetPolicy": "same_total_tokens_and_latency",
+    "randomization": "randomized_within_paired_blocks",
+    "repetitions": {
+      "pilot": 1,
+      "confirmatory": 3
+    }
+  },
+  "tasks": [
+    {
+      "id": "orchestrateur-simple",
+      "missionFile": "missions/orchestrateur-simple.json",
+      "family": "reference",
+      "mechanism": "Chemin simple avec preuve arithmétique exacte.",
+      "oracle": { "status": "independent", "kind": "deterministic-checker", "verifier": "simpleMissionProof.cjs" },
+      "comparisonEligible": true
+    },
+    {
+      "id": "topologie-trinity",
+      "missionFile": "missions/topologie-trinity.json",
+      "family": "topology",
+      "mechanism": "Trois mondes isolés, comparaison finale et décision de promotion.",
+      "oracle": { "status": "missing", "kind": "missing" },
+      "comparisonEligible": false,
+      "ablation": "Supprimer l’isolation ou la comparaison finale."
+    },
+    {
+      "id": "topologie-a-team",
+      "missionFile": "missions/topologie-a-team.json",
+      "family": "topology",
+      "mechanism": "Dépendances de travail et intégration des artefacts des spécialistes.",
+      "oracle": { "status": "missing", "kind": "missing" },
+      "comparisonEligible": false,
+      "ablation": "Remplacer le DAG par une équipe générique sans dépendances."
+    },
+    {
+      "id": "topologie-biome",
+      "missionFile": "missions/topologie-biome.json",
+      "family": "topology",
+      "mechanism": "Allocation, foraging et réallocation après observation d’état.",
+      "oracle": { "status": "missing", "kind": "missing" },
+      "comparisonEligible": false,
+      "ablation": "Figer l’allocation et désactiver la réallocation."
+    },
+    {
+      "id": "topologie-biocenose",
+      "missionFile": "missions/topologie-biocenose.json",
+      "family": "topology",
+      "mechanism": "Contributions distinctes, quorum, désaccord et abstention calibrée.",
+      "oracle": { "status": "missing", "kind": "missing" },
+      "comparisonEligible": false,
+      "ablation": "Désactiver le quorum ou corréler les contributions."
+    },
+    {
+      "id": "topologie-holobionte",
+      "missionFile": "missions/topologie-holobionte.json",
+      "family": "topology",
+      "mechanism": "Contribution symbiotique persistée et veto lié à une violation vérifiable.",
+      "oracle": { "status": "missing", "kind": "missing" },
+      "comparisonEligible": false,
+      "ablation": "Désactiver le symbiote ou le contrôle immunitaire testé."
+    },
+    {
+      "id": "topologie-syncytium",
+      "missionFile": "missions/topologie-syncytium.json",
+      "family": "topology",
+      "mechanism": "Mises à jour concurrentes lues depuis un état partagé convergent.",
+      "oracle": { "status": "missing", "kind": "missing" },
+      "comparisonEligible": false,
+      "ablation": "Remplacer l’état partagé par des états locaux isolés."
+    },
+    {
+      "id": "topologie-rhizome",
+      "missionFile": "missions/topologie-rhizome.json",
+      "family": "topology",
+      "mechanism": "Gap détecté, capacité instanciée et résultat consommé sur le nouveau chemin.",
+      "oracle": { "status": "missing", "kind": "missing" },
+      "comparisonEligible": false,
+      "ablation": "Retirer la croissance du graphe ou son exécuteur."
+    },
+    {
+      "id": "topologie-metapopulation",
+      "missionFile": "missions/topologie-metapopulation.json",
+      "family": "topology",
+      "mechanism": "Perte de capacité, migration ou recolonisation, puis capacité restaurée.",
+      "oracle": { "status": "missing", "kind": "missing" },
+      "comparisonEligible": false,
+      "ablation": "Empêcher la migration ou garder la population figée."
+    },
+    {
+      "id": "morphogenese-plan",
+      "missionFile": "missions/morphogenese-plan.json",
+      "family": "morphogenesis",
+      "mechanism": "Plan candidat, contraintes et motif de sélection consultables.",
+      "oracle": { "status": "runtime-contract-only", "kind": "runtime-contract" },
+      "comparisonEligible": false
+    },
+    {
+      "id": "morphogenese-shadow",
+      "missionFile": "missions/morphogenese-shadow.json",
+      "family": "morphogenesis",
+      "mechanism": "Prévol V2 évalué en shadow sans engagement de transition.",
+      "oracle": { "status": "runtime-contract-only", "kind": "runtime-contract" },
+      "comparisonEligible": false
+    },
+    {
+      "id": "garde-preuve-negative",
+      "missionFile": "missions/garde-preuve-negative.json",
+      "family": "negative-control",
+      "mechanism": "Refus ou escalade quand aucune preuve suffisante n’est fournie.",
+      "oracle": { "status": "runtime-contract-only", "kind": "gate-refusal" },
+      "comparisonEligible": false
+    }
+  ]
+}
