@@ -1,7 +1,7 @@
 ---
 title: GenOS Model Uplift Benchmark et Capability Amplification Benchmark
 date: 2026-09-23
-status: proposed
+status: accepted
 authors: GenOS
 decision-id: 0035
 ---
@@ -47,6 +47,8 @@ Modules :
   quality/tokens, multiplicateurs.
 - Migration `049-uplift-tables` : `uplift_runs`, `uplift_pairs`,
   `uplift_comparisons` + export JSON `benchmarks/gmub/`.
+- Migration `081-gmub-operational` and `campaignRepository.js` : provenance
+  du modèle demandé/servi, répétitions, persistance transactionnelle et export.
 - `benchmarks/gmub/` : suite, runner, exports reproductibles.
 
 Règles :

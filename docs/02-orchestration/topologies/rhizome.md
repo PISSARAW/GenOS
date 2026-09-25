@@ -1,8 +1,10 @@
 # Rhizome : Orchestration Décentralisée par Ramification de Capacités
 
-- **Statut** : Cadre opérationnel
+- **Statut** : Partiel
 - **Portée** : orchestration décentralisée par ramification de capacités, coordination locale, routage, croissance et résilience du réseau
-- **Dernière revue** : 2026-09-24
+- **Dernière revue** : 2026-09-25
+- **Lecture** : cette page décrit le modèle prévu de Rhizome, en particulier les rôles et comportements des sections 4 à 21. Les formules et réglages de ces sections sont des spécifications ou des exemples, pas nécessairement des mécanismes actifs. La section 3 marque chaque formule selon son statut ; les sections 22 et 24 situent l'implémentation actuelle.
+
 
 ## 1. Définition
 
@@ -50,255 +52,95 @@ Rhizome est adapté aux missions exploratoires, aux architectures modulaires, au
 
 ---
 
-## 3. Définition mathématique
+## 3. Modèle scientifique et mathématique
 
-### 3.1 Le Graphe Dynamique Rhizomatique
+### 3.1 Statut des formules
 
-Soit :
+Les formules ci-dessous sont marquées **opérationnel** lorsqu'elles sont calculées par le backend, **définition** lorsqu'elles formalisent un indicateur, et **conceptuel** lorsqu'elles ne sont pas implémentées. Les analogies avec Physarum, les fourmis et la stigmergie inspirent certains choix ; elles ne démontrent ni équivalence biologique ni performance émergente de GenOS.
 
-- $M$ : mission globale ;
-- $G_t = (N_t, E_t)$ : graphe Rhizome à l'instant $t$ ;
-- $N_t$ : ensemble de nœuds de capacité ou de coordination ;
-- $E_t$ : ensemble de ponts (arêtes) entre nœuds ;
-- $c(n)$ : capacité fournie par le nœud $n$ ;
-- $D(M)$ : capacités nécessaires à la mission ;
-- $P$ : preuves publiées par les nœuds et les ponts ;
-- $R$ : budget global d'extension.
+### 3.2 Graphe et contrats — opérationnel
 
-Le graphe $G_t$ évolue selon des opérations atomiques :
+À la révision entière $v$, le graphe est $G_v=(V_v,E_v)$. Les nœuds décrivent des capacités ; les arêtes orientées relient des nœuds et portent une relation, un statut, la compatibilité, la conductivité, les coûts, la fiabilité, la qualité de preuve et des traces. Le `graphVersion` change lors des mutations. Un plan de croissance calculé sur une version obsolète est rejeté.
 
-$$\text{mutate}(G_t, op) = \begin{cases} G_{t+1} = (N_t \cup \{n_{new}\}, E_t) & \text{if } op = \text{spawn}(n_{new}) \\ G_{t+1} = (N_t, E_t \cup \{e_{new}\}) & \text{if } op = \text{bridge}(e_{new}) \\ G_{t+1} = (N_t \setminus \{n\}, E_t \setminus \text{incident}(n)) & \text{if } op = \text{prune}(n) \\ G_{t+1} = (N_t, E_t \setminus \{e\}) & \text{if } op = \text{sever}(e) \end{cases}$$
+Un nœud est disponible pour la recherche s'il est `ACTIVE` ou `AVAILABLE` et non marqué `UNAVAILABLE`. Une arête est franchissable si son statut est `ACTIVE` et sa destination disponible. Les contrats réels sont définis dans [capabilityNode.js](../../../backend/src/services/rhizome/contracts/capabilityNode.js) et [capabilityEdge.js](../../../backend/src/services/rhizome/contracts/capabilityEdge.js).
 
-Chaque opération atomique préserve l'invariant de connexité partielle : la suppression d'un nœud ou d'une arête ne fragmente pas le graphe au-delà d'un seuil de redondance configurable $f_{min}$.
+L'admission de croissance vérifie la version du graphe, le provider autorisé et le reçu HMAC du verifier. Le reçu est lié au nœud, au candidat, à la capacité et aux références de preuve avant l'activation. Cette atomicité concerne cette admission ; elle ne garantit pas que toute opération, avec ou sans persistance, soit transactionnelle.
 
-### 3.2 CapabilityNode : Structure d'un nœud
+### 3.3 Accessibilité et lacunes — opérationnel
 
-Un nœud $n \in N_t$ est défini par la tuple :
+Soit $A_v$ l'ensemble des nœuds disponibles. Pour détecter les lacunes, $S_v$ contient les détenteurs de loci disponibles, ou tous les nœuds disponibles lorsqu'il n'existe pas de locus. L'ensemble atteignable est la fermeture des sources sur les arêtes actives :
 
-$$n = (\text{id}, \text{role}, \text{capabilities}[], \text{inputs}[], \text{outputs}[], \text{requirements}[], \text{state}, \text{reliability}, \text{cost}, \text{latency})$$
+$$R_v=\{x\in A_v\mid \exists s\in S_v : s\leadsto x\text{ par des arêtes actives}\}.$$
 
-où :
+Un besoin $q$ est satisfait s'il existe dans $R_v$ un nœud qui annonce la capacité demandée et possède toutes les références de preuve requises. Sinon, le détecteur distingue capacité absente, route inaccessible et preuve requise manquante. Le gap est indexé par le besoin et la version du graphe. Son reçu est une observation du diagnostic, pas une preuve indépendante que le besoin métier est vrai.
 
-| Champ | Type | Description |
-|---|---|---|
-| `id` | string | Identifiant unique du nœud |
-| `role` | enum | `rootless_coordinator`, `capability_offshoot`, `local_bridge`, `boundary_scout` |
-| `capabilities` | string[] | Liste des capacités déployées par le nœud |
-| `inputs` | string[] | Dépendances entrantes requises |
-| `outputs` | string[] | Produits sortants publiés |
-| `requirements` | string[] | Permissions et ressources nécessaires |
-| `state` | enum | `latent`, `active`, `dormant`, `pruned`, `quarantined` |
-| `reliability` | float ∈ [0,1] | Historique de succès mesuré |
-| `cost` | {tokens, latencyMs} | Coût d'exécution observé |
-| `latency` | float (ms) | Latence moyenne de réponse |
-| `fitness` | float ∈ [0,1] | Score de contribution au réseau |
+Pour un ensemble explicite $Q$ de besoins, on peut définir la couverture agrégée :
 
-Le score de fitness évolue selon :
+$$C_v(Q)=\frac{|\{q\in Q:q\text{ est satisfait par un nœud atteignable}\}|}{|Q|},\quad |Q|>0.$$
 
-$$\text{fitness}(n)_{t+1} = (1 - \delta) \cdot \text{fitness}(n)_t + \delta \cdot \text{qualityScore}(n_{\text{latest}})$$
+C'est une définition d'indicateur ; le runtime actuel détecte les lacunes besoin par besoin et ne calcule pas ce score global. Le routeur a son propre départ : détenteurs de loci, sinon racines, sinon tous les nœuds disponibles si aucun nœud racine n'existe. Sa recherche est en plus bornée par les sauts de la variante. Il ne faut pas confondre ce parcours avec celui, non borné, du détecteur de lacunes.
 
-où $\delta \in (0, 1]$ est le facteur d'apprentissage et $\text{qualityScore}$ agrège la précision, la rapidité et la pertinence des produits du nœud.
+### 3.4 Valeur et budget de croissance — opérationnel
 
-### 3.3 CapabilityEdge : Structure d'un pont
+Pour un candidat $c$ et un gap $g$, le score calculé est :
 
-Un pont $e \in E_t$ est défini par la tuple :
+$$GV(c,g)=U_c\,s_g\,p_g-C_{\mathrm{création}}-C_{\mathrm{coordination}}-R_{\mathrm{duplication}}.$$
 
-$$e = (\text{id}, \text{from}, \text{to}, \text{contract}, \text{compatibility}, \text{conductivity}, \text{latency}, \text{cost}, \text{successRate}, \text{pheromone}, \text{repellent})$$
+Les grandeurs $U_c,s_g,p_g$, coûts et risque de duplication sont fournis avec le candidat ou le diagnostic ; le runtime n'estime pas une espérance statistique d'utilité et ne calcule pas de similarité cosinus. Un candidat doit être suffisant, citer la preuve du gap courant, dépasser le seuil configuré et respecter le budget. Le budget vaut `budgets.growth`, sinon `budgets.default`, sinon zéro ; le coût comparé est $C_{création}+C_{coordination}$. La sélection suit un ordre déterministe d'actions, privilégiant la réutilisation avant l'attachement ou la création.
 
-où :
+Le plan est attaché à `graphVersion`. Son exécution requiert un provider déclaré et un verifier de confiance. La réussite de l'admission atteste le passage des gates et la preuve signée ; elle n'atteste pas, à elle seule, qu'un worker ou service externe a réellement démarré. L'hôte du runtime fournit les fonctions d'adaptateur.
 
-| Champ | Type | Description |
-|---|---|---|
-| `id` | string | Identifiant unique du pont |
-| `from`, `to` | string | Nœuds source et destination |
-| `contract` | object | Protocole, schémas d'entrée/sortie, version |
-| `compatibility` | float ∈ [0,1] | Compatibilité des contrats entre producteur et consommateur |
-| `conductivity` | float | Conductivité Physarum $K_e(t)$ |
-| `latency` | float (ms) | Latence de transport |
-| `cost` | {tokens} | Coût de transmission |
-| `successRate` | float ∈ [0,1] | Taux de succès historique |
-| `pheromone` | float | Intensité de la phéromone positive |
-| `repellent` | float | Intensité du répulsif négatif |
-| `trailType` | enum | Type de trace stigmergique |
-| `provenance` | string[] | Chaîne de provenance |
+### 3.5 Classement de routes — opérationnel
 
-### 3.4 Couverture et Lacunes
+Pour une arête $e$, le routeur calcule :
 
-La couverture du réseau mesure la proportion de capacités requises qui sont accessibles :
+$$u(e)=\frac{c_e+s_e+p_e+\min(K_e,1)}{4}+\frac{T^+_e-T^-_e}{100}-\frac{coût_e}{100}-\frac{latence_e}{10000}.$$
 
-$$\text{coverage}(G_t, M) = \frac{|D(M) \cap \bigcup_{n \in N_t} c(n)|}{|D(M)|}$$
+où $c_e$ est la compatibilité, $s_e$ le taux de succès, $p_e$ la qualité des preuves et $T^+_e,T^-_e$ les traces positives et négatives.
 
-Le **BoundaryDetector** calcule la lacune $\text{Gap}(g)$ comme la différence entre le besoin et les capacités atteignables depuis le sous-graphe $g$ :
+Pour un chemin $P$ qui aboutit au provider $n$ :
 
-$$\text{Gap}(g) = \text{Need}(M) - \text{ReachableCapabilities}(G_t, g)$$
+$$U(P,n)=\sum_{e\in P}u(e)+r_n-0.1|P|.$$
 
-où $\text{ReachableCapabilities}(G_t, g) = \bigcup_{n \in \text{reachable}(g)} c(n)$.
+où $r_n$ est la fiabilité du provider terminal.
 
-La fonction $\text{reachable}(g)$ retourne l'ensemble des nœuds accessibles depuis $g$ par parcours en largeur borné par la profondeur de ponts $h_{max}$ :
+La variante `small_world` ajoute $1/(1+|P|)$. Les chemins doivent satisfaire la capacité, les contraintes de coût et de latence, le risque maximal et les exigences de preuve. Ils sont triés par score décroissant, puis par identifiant de route. La fiabilité retournée pour un chemin est le produit des fiabilités de ses arêtes et du provider.
 
-$$\text{reachable}(g) = \{ n \in N_t \mid \exists \text{ chemin } g \leadsto n \text{ de longueur } \leq h_{max} \}$$
+C'est un parcours et un classement déterministes. Le runtime ne choisit pas les arêtes par softmax de conductivité et ne fait pas de tirage probabiliste.
 
-La **criticité d'une lacune** est pondérée par le nombre de chemins dépendants :
+### 3.6 Conductivité — règle discrète inspirée de Physarum
 
-$$\text{criticality}(\text{gap}_i) = 1 + \alpha \cdot |\{ e \in E_t \mid \text{gap}_i \in \text{dependencies}(e) \}|$$
+À chaque pas, le backend met à jour chaque arête ainsi :
 
-où $\alpha$ est un facteur d'amplification (par défaut 0.1).
+$$K'_e=\operatorname{clip}_{[0,1]}\left(K_e+\alpha\min(1,F_e/100)-\beta\min(1,N_e/100)-\lambda K_e\right),$$
 
-### 3.5 Valeur de Croissance
+où $F_e$ est le flux vérifié accumulé et $N_e$ la trace négative. Les valeurs par défaut sont $\alpha=0.5$, $\beta=0.5$ et $\lambda=0.02$. Le flux vérifié est consommé puis remis à zéro. C'est une règle de mise à jour numérique bornée, distincte du modèle différentiel de Tero et al. La conductivité ne détermine qu'un terme du score de route.
 
-La création d'une nouvelle branche est justifiée par la **Valeur de Croissance** ($GV$) :
+### 3.7 Décroissance des traces — opérationnel
 
-$$GV(n_{new}) = \mathbb{E}[U(n_{new})] \times C_{need} \times \text{Conf}_{gap} - C_{create} - C_{coord} - C_{dup}$$
+Pour une trace d'intensité ρ, après un délai Δt, le backend applique une demi-vie $h$ :
 
-où :
+$$\rho(t+\Delta t)=\rho(t)\,2^{-\Delta t/h}.$$
 
-- $\mathbb{E}[U(n_{new})]$ : utilité attendue de la nouvelle capacité, estimée par le Scout à partir des similarités passées ;
-- $C_{need}$ : criticité du besoin (0.0 à 1.0) ;
-- $\text{Conf}_{gap}$ : confiance dans la détection de la lacune (0.0 à 1.0), basée sur le nombre d'observations indépendantes ;
-- $C_{create}$ : coût de création (tokens, temps), normalisé par le budget disponible ;
-- $C_{coord}$ : coût de coordination (ponts, synchronisation), normalisé par le budget disponible ;
-- $C_{dup}$ : risque de duplication avec une capacité existante.
+Une demi-vie explicite peut être fournie ; sinon elle dépend du type de trace et de sa confiance. Les pannes temporaires et fortes latences décroissent plus vite ; les résultats vérifiés et succès de route persistent plus longtemps ; les risques ou échecs de sécurité reçoivent une demi-vie multipliée par quatre. Un dépôt ultérieur est ajouté séparément.
 
-La duplication est mesurée par la similarité cosinus entre la nouvelle capacité et les capacités existantes :
+Les traces de `SwarmMatrix` et les champs `trailState` des arêtes sont distincts. La décroissance de la matrice n'implique pas automatiquement la mise à jour de chaque trace d'arête.
 
-$$C_{dup} = \lambda_{dup} \times \max_{n \in N_t} \text{sim}(c(n_{new}), c(n))$$
+### 3.8 Santé structurelle et résilience — opérationnel
 
-où $\lambda_{dup}$ est le poids du risque de duplication (par défaut 0.3).
+L'analyseur calcule les composantes connexes, nœuds isolés, ponts du graphe (arêtes dont la suppression augmente le nombre de composantes) et points d'articulation (nœuds dont la suppression l'augmente). Ces mesures décrivent la structure à un instant donné ; elles ne garantissent ni disponibilité externe ni tolérance générale aux pannes.
 
-Le **seuil de spawn** $\theta_{spawn}$ détermine si une croissance est justifiée :
+Après un échec assorti d'un reçu de route vérifié, le runtime peut chercher une route alternative. L'admission de croissance refusée ne doit pas activer le candidat. Il n'existe pas d'invariant global $f_{min}$ imposant un seuil de connexité pour toutes les suppressions : les politiques de pruning et de réparation s'appliquent séparément.
 
-$$\text{shouldSpawn}(n_{new}) = \begin{cases} 1 & \text{if } GV(n_{new}) > \theta_{spawn} \land \text{budgetRemaining} \geq C_{create} \\ 0 & \text{sinon} \end{cases}$$
+### 3.9 Formules non implémentées — conceptuel
 
-### 3.6 Conductivité Physarum
+Les formules de fitness de pont, variance de latence, score de provenance, seuil global $C_{min}$, score minimal $F_{min}$, couverture minimale de 95 %, transfert de coordination par seuil de fiabilité et bail calculé à partir de la stabilité ne sont pas évaluées par le runtime actuel. Il n'existe donc pas de garantie `canMerge` fondée sur ces équations. Une route sélectionnée, un nœud admis et une mission promue sont des états distincts ; la promotion utilise les gates et reçus de niveau supérieur.
 
-Inspiré par la dynamique de flux du Physarum polycephalum, la conductivité de chaque pont évolue selon l'équation différentielle :
+### 3.10 Benchmark et limites statistiques
 
-$$\frac{dK_e}{dt} = \alpha \cdot \phi_e^{util}(t) - \beta \cdot K_e(t) \cdot \mathbb{1}_{[\phi_e^{util}(t) = 0]}$$
+Le benchmark actuel utilise des graphes synthétiques déterministes : un DAG fixe, deux chemins redondants, pannes simples et doubles, puis un cas de croissance. Le cas de croissance ajoute directement un nœud et une arête au graphe ; il ne passe pas par les gates d'admission. Le cas provider non fiable retourne un rejet prédéfini et n'exécute pas le service d'admission. Le compteur de travail du routeur est borné à 80 unités par scénario ; chaque état de chemin traité ajoute max(1, |E|) unités, où |E| est le nombre total d'arêtes. C'est un proxy du travail de recherche, pas un décompte d'inspections réelles ni une mesure d'opérations machine, de tokens, de millisecondes ou d'un budget de production.
 
-où :
-
-- $K_e(t)$ : conductivité du pont $e$ à l'instant $t$ ;
-- $\alpha$ : taux de renforcement (learning rate, défaut 0.3) ;
-- $\beta$ : taux de décroissance (decay rate, défaut 0.1) ;
-- $\phi_e^{util}(t)$ : flux d'utilité transporté par le pont pendant l'intervalle ;
-- $\mathbb{1}_{[\phi_e^{util}(t) = 0]}$ : indicateur de non-utilisation.
-
-La version discrète par pas de temps $\Delta t$ :
-
-$$K_e(t + \Delta t) = K_e(t) \cdot (1 - \beta)^{\Delta t} + \alpha \cdot \phi_e^{util}$$
-
-La probabilité de routage par le pont $e$ suit un softmax sur les conductivités :
-
-$$P(\text{route via } e) = \frac{\exp(K_e(t) / \tau)}{\sum_{e' \in \text{out}(n)} \exp(K_{e'}(t) / \tau)}$$
-
-où $\tau$ est la température exploratoire ($\tau \to 0$ : exploitation pure ; $\tau \to \infty$ : exploration uniforme ; défaut 0.5).
-
-Le flux d'utilité $\phi_e^{util}$ est calculé à partir des résultats de transport :
-
-$$\phi_e^{util} = \text{successRate}(e) \cdot \frac{\text{dataVolume}(e)}{\text{latency}(e)} \cdot \text{trailBoost}(e)$$
-
-où $\text{trailBoost}(e)$ est un facteur multiplicatif basé sur les phéromones positives :
-
-$$\text{trailBoost}(e) = 1 + \gamma \cdot \text{pheromone}(e) - \delta \cdot \text{repellent}(e)$$
-
-avec $\gamma = 0.2$ et $\delta = 0.4$ par défaut.
-
-### 3.7 Stigmergie et Évaporation Adaptative
-
-Le système de stigmergie dépose des traces (phéromones et répulsifs) sur les nœuds et les arêtes. L'intensité d'une trace $\rho$ suit :
-
-$$\rho(t + \Delta t) = \rho(t) \cdot e^{-\lambda_{evap}(\sigma) \cdot \Delta t} + \Delta\rho_{deposit}$$
-
-Le taux d'évaporation $\lambda_{evap}$ est adaptatif selon le type de signal $\sigma$ :
-
-$$\lambda_{evap}(\sigma) = \begin{cases} \lambda_{fast} & \text{if } \sigma \in \{ \text{ROUTE_FAILURE}, \text{DEAD_END}, \text{HIGH_COST} \} \\ \lambda_{slow} & \text{if } \sigma \in \{ \text{CAPABILITY_FOUND}, \text{ROUTE_SUCCESS} \} \\ \lambda_{base} & \text{otherwise} \end{cases}$$
-
-avec par défaut $\lambda_{fast} = 0.15$, $\lambda_{slow} = 0.02$, $\lambda_{base} = 0.05$.
-
-Les types de traces supportés :
-
-| SignalType | Définition | Taux d'évaporation | Demi-vie indicative |
-|---|---|---|---|
-| `CAPABILITY_FOUND` | Une nouvelle capacité a été identifiée | $\lambda_{slow}$ | longue |
-| `ROUTE_SUCCESS` | Un chemin viable a été emprunté avec succès | $\lambda_{slow}$ | longue |
-| `ROUTE_FAILURE` | Un chemin s'est révélé infranchissable | $\lambda_{fast}$ | courte |
-| `DEAD_END` | Un sous-graphe est un cul-de-sac confirmé | $\lambda_{fast}$ | courte |
-| `HIGH_COST` | La route est fonctionnelle mais coûteuse | $\lambda_{fast}$ | courte |
-| `COORDINATION_BRANCH` | Point de coordination temporaire actif | $\lambda_{base}$ | moyenne |
-| `BOUNDARY_FRONTIER` | Frontière exploratoire ouverte | $\lambda_{base}$ | moyenne |
-| `QUARANTINE_VIOLATION` | Nœud placé en quarantaine | $\lambda_{fast}$ | courte |
-
-L'évaporation adaptative permet au réseau d'oublier rapidement les signaux négatifs (échec, impasse) tout en conservant durablement les découvertes positives.
-
-### 3.8 Fitness d'un Pont
-
-La qualité d'un pont est évaluée par une fonction de fitness multidimensionnelle :
-
-$$F(e) = w_p \cdot P_e + w_c \cdot C_{compat} - w_l \cdot L_e - w_r \cdot R_e$$
-
-où :
-
-- $P_e$ : score de provenance des éléments transportés (0 à 1) ;
-- $C_{compat}$ : compatibilité des contrats entre producteur et consommateur (0 à 1) ;
-- $L_e$ : latence normalisée du pont (0 à 1) ;
-- $R_e$ : risque de perte ou d'ambiguïté (0 à 1) ;
-- $w_p, w_c, w_l, w_r$ : poids de pondération ($\sum w_i = 1$ par convention, défaut $w_p=0.3, w_c=0.3, w_l=0.2, w_r=0.2$).
-
-La provenance $P_e$ est calculée comme :
-
-$$P_e = \frac{|\text{provenanceChain}(e) \cap \text{verifiedSources}|}{|\text{provenanceChain}(e)|}$$
-
-Le risque $R_e$ combine la variance de latence et le taux d'échec :
-
-$$R_e = \eta \cdot \text{Var}(\text{latency}_e) + (1 - \eta) \cdot (1 - \text{successRate}_e)$$
-
-avec $\eta = 0.5$ par défaut.
-
-### 3.9 Conditions de Fusion et de Promotion
-
-Une mission peut être promue si le réseau couvre le périmètre critique et si chaque dépendance indispensable dispose d'une route vérifiée :
-
-$$\text{canMerge}(G_t, M) = \begin{cases} 1 & \text{si } \text{coverage}(G_t, M) \geq C_{min} \land \forall d \in D_{critical}, \text{routeVerified}(d) = 1 \\ 0 & \text{sinon} \end{cases}$$
-
-avec $C_{min} = 0.95$ par défaut.
-
-La vérification d'une route $\text{routeVerified}(d)$ exige :
-
-$$\text{routeVerified}(d) = \begin{cases} 1 & \text{si } \exists \text{ chemin } n_{source} \leadsto n_{target} \text{ avec } \forall e \in \text{chemin}, F(e) \geq F_{min} \land \text{provenance}(e) = \text{intacte} \\ 0 & \text{sinon} \end{cases}$$
-
-avec $F_{min} = 0.4$ par défaut.
-
-### 3.10 CoordinationLocus
-
-Le Coordinator est un **CoordinationLocus** temporaire dont la structure est :
-
-$$\text{CoordinationLocus} = (\text{scope}, \text{holder}, \text{reason}, \text{leaseUntil}, \text{transferConditions}, \text{authorityBounds})$$
-
-où :
-
-| Champ | Type | Description |
-|---|---|---|
-| `scope` | subgraph | Périmètre de la coordination $G_{scope} \subseteq G_t$ |
-| `holder` | nodeID | Nœud actuellement détenteur du locus |
-| `reason` | string | Raison de la coordination actuelle |
-| `leaseUntil` | timestamp | Horodatage d'expiration du bail |
-| `transferConditions` | predicate[] | Conditions déclenchant le transfert |
-| `authorityBounds` | {allowed, forbidden} | Bornes d'autorité |
-
-Le Coordinator transfère la coordination lorsque :
-
-$$\text{shouldTransfer}(locus) = \begin{cases} 1 & \text{si } t > \text{leaseUntil} \lor \text{holder.reliability} < \theta_{min} \\ 0 & \text{sinon} \end{cases}$$
-
-avec $\theta_{min} = 0.3$ par défaut.
-
-La durée du bail est calculée dynamiquement :
-
-$$\text{leaseDuration} = \text{baseLease} \cdot \left(1 + \frac{\text{networkStability}}{2}\right)$$
-
-où $\text{networkStability}$ est la proportion de nœuds fiables dans le scope.
-
----
-
+Les résultats décrivent uniquement les cas codés. Il n'y a ni tirages répétés, ni intervalle de confiance, ni mesure de latence réelle, ni comparaison statistique de runtime. Toute affirmation de supériorité ou de robustesse générale requiert des topologies représentatives, des essais répétés, un budget réel égalisé et des métriques définies à l'avance.
 ## 4. Les quatre rôles et hypothèses
 
 Rhizome compose exactement quatre membres. Les membres 1 et 3 utilisent le tier `frontier` ; les membres 2 et 4 utilisent le tier `standard`.
@@ -1307,7 +1149,7 @@ Quand l'autorité doit être concentrée dans un hôte clair et que les relation
 
 ### 21.5 Latence ultra-faible garantie
 
-Quand chaque milliseconde de synchronisation compte et que le système doit garantir des temps de réponse déterministes, le routage exploratoire de Rhizome ne convient pas. Le softmax de conductivité introduit une latence de décision non déterministe.
+Pour les besoins à temps de réponse déterministe, mesurer le parcours et les providers dans la cible ; le runtime ne garantit aucune borne de latence de bout en bout.
 
 ### 21.6 Pas de modularité des capacités
 
@@ -1315,26 +1157,21 @@ Si la mission est un bloc monolithique qui ne peut pas être décomposé en capa
 
 ---
 
-## 22. Implémentation prévue et capacités
+## 22. Implémentation et écarts connus
 
-Le mode Rhizome s'appuie sur les capacités déclarées dans le contrat de topologie ;
-les composants ci-dessous décrivent son ancrage actuel et les responsabilités
-attendues du runtime. Voir [Topologies et capacités](../topologies-et-capacites.md).
+Rhizome est **partiellement implémenté** dans le backend. Les fonctions vérifiables comprennent :
 
-- Composition des rôles `rootless_coordinator`, `capability_offshoot`, `local_bridge` et `boundary_scout` par `biologicalModeService`.
-- Sessions, traces stigmergiques, sélection directe d'un membre, cohérence et pas Physarum par `rhizomeCoordinationService` ; les mutations persistées sont versionnées et journalisées.
-- Contrat de capacités Rhizome fourni par `topologyCapabilityService` et utilisé par la politique de leases.
-- Graphe de télémétrie, export JSON et serveur du CLI dans `crates/genos-cli/src/commands/rhizome_telemetry/`.
+- contrats du graphe, détection de lacunes et diagnostic lié à la version du graphe ;
+- planification d'une croissance suffisante, référencée au gap et limitée par le budget déclaré ;
+- registre runtime d'adaptateurs typés (`agent`, `daemon`, `tool`, `service`, `human`, `runtime`) ; l'hôte fournit chaque fonction d'instanciation et la liste des providers de confiance ;
+- vérification épistémique et reçu HMAC rattaché au candidat, au nœud, à la capacité et aux éléments de preuve ;
+- routage BFS borné, classement déterministe, reçus de résultat, recherche de route alternative et quarantaine ;
+- maintenance des traces et conductivité, mesures de santé structurelle, politiques de pruning et persistance versionnée lorsque le store est fourni ;
+- proposition et admission de sous-topologies via Morphogénèse, soumises aux gates d'admission.
 
-Le graphe du CLI est une simulation de télémétrie (`simulator.rs`) ; il ne constitue
-pas encore le graphe opérationnel de capacités du backend.
+Ne sont pas fournis par le runtime seul : les exécuteurs concrets de tous les types de providers, la preuve qu'un service ou worker externe a démarré, le softmax de routage, le modèle statistique de fitness des ponts, une condition mathématique de promotion de mission ou un benchmark de production.
 
-Les équations, invariants et variantes des sections précédentes expriment le
-comportement visé par le modèle Rhizome ; leur présence formalise la spécification
-et ne signifie pas que chaque mécanisme est déjà réalisé dans le runtime.
-
----
-
+Le CLI de télémétrie dans `crates/genos-cli/src/commands/rhizome_telemetry/` utilise un simulateur ; ce n'est pas le graphe opérationnel du backend. Les tests `backend/tests/test_rhizome_*.js` et `backend/tests/test_morphogenesis_rhizome_branch.js` valident les scénarios codés, sans valider les analogies biologiques ni les performances de production.
 ## 23. Commandes CLI
 
 ```bash
@@ -1363,17 +1200,24 @@ cargo run -p genos-cli -- rhizome serve --port 4790
 - [BIOLOGIE_COMPUTATIONNELLE.md](../../01-concepts/biologie-computationnelle.md) : cadre biologique général
 - [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des rôles Rhizome
 - [rhizomeCoordinationService.js](../../../backend/src/services/rhizomeCoordinationService.js) : service de coordination Rhizome
+- [routePlanner.js](../../../backend/src/services/rhizome/routing/routePlanner.js) et [routeScoringService.js](../../../backend/src/services/rhizome/routing/routeScoringService.js) : recherche et classement des routes
+- [growthValueService.js](../../../backend/src/services/rhizome/growth/growthValueService.js) et [growthBudgetService.js](../../../backend/src/services/rhizome/growth/growthBudgetService.js) : valeur et budget des candidats
+- [capabilityAdmissionService.js](../../../backend/src/services/rhizome/security/capabilityAdmissionService.js) : vérification et admission des candidats
+- [graphAnalyticsService.js](../../../backend/src/services/rhizome/analytics/graphAnalyticsService.js) : mesures de structure et résilience
+- [conductivityService.js](../../../backend/src/services/rhizome/routing/conductivityService.js) : mise à jour de conductivité
+- [trailDecayService.js](../../../backend/src/services/rhizome/stigmergy/trailDecayService.js) : décroissance des traces
+- [benchmarkSuite.js](../../../backend/src/services/rhizome/analytics/benchmarkSuite.js) : scénarios synthétiques et compteur de travail
 - [agentAutonomyPlanService.js](../../../backend/src/services/agentAutonomyPlanService.js) : plan d'autonomie
 - [agentFleetService.js](../../../backend/src/services/agentFleetService.js) : fleet de workers et barrière d'évidence
 - [agentOrchestrationState.js](../../../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
 
 ## Références externes
 
-- **Physarum polycephalum** : Tero et al. (2010), "Rules for Biologically Inspired Adaptive Network Design", *Science*.
-- **Stigmergie** : Grassé (1959), "La reconstruction du nid chez les termites", *Insectes Sociaux*.
-- **Graphes dynamiques** : Casteigts et al. (2012), "Time-Varying Graphs and Dynamic Networks", *Int. J. Parallel Emergent Distrib. Syst*.
-- **Routage par phéromones** : Dorigo et al. (2006), "Ant Colony Optimization", *IEEE Computational Intelligence Magazine*.
-- **Similarité cosinus et détection de duplication** : Manning et al. (2008), *Introduction to Information Retrieval*, Cambridge University Press.
+- **Physarum polycephalum** : Tero et al. (2010), ["Rules for Biologically Inspired Adaptive Network Design"](https://doi.org/10.1126/science.1177894), *Science* 327(5964), 439–442. Inspiration ; formule différente dans GenOS.
+- **Stigmergie** : Grassé (1959), ["La reconstruction du nid et les coordinations interindividuelles chez Bellicositermes natalensis et Cubitermes sp."](https://apice.unibo.it/bin/view/Publication/StigmergyGrasse59), *Insectes Sociaux* 6(1), 41–80. Référence historique ; elle ne valide pas les traces numériques de GenOS.
+- **Graphes dynamiques** : Casteigts et al. (2012), ["Time-Varying Graphs and Dynamic Networks"](https://doi.org/10.1080/17445760.2012.668546), *International Journal of Parallel, Emergent and Distributed Systems* 27(5), 387–408.
+- **Optimisation par colonie de fourmis** : Dorigo & Gambardella (1997), ["Ant Colony System: A Cooperative Learning Approach to the Traveling Salesman Problem"](https://doi.org/10.1109/4235.585892), *IEEE Transactions on Evolutionary Computation* 1(1), 53–66. ACS ne fait pas partie des algorithmes Rhizome implémentés.
+- **Similarité cosinus** : le risque de duplication est fourni au planificateur ; aucun calcul de similarité cosinus dans le runtime Rhizome.
 - **Rhizome philosophique** : Deleuze & Guattari (1980), *Mille Plateaux*, Éditions de Minuit — fondation conceptuelle de la décentralisation sans centre.
 
 ---

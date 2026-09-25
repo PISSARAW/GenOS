@@ -79,9 +79,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0089](0089-gates-decision-biocenose.md) | Gates de promotion au jugement Biocénose | Accepté | 2026-09-24 | Biocénose, épistémologie, gouvernance, audit |
 | [0090](0090-variants-executables-biocenose.md) | Variants exécutables de Biocénose | Accepté | 2026-09-24 | Biocénose, protocoles, décisions |
 | [0093](0093-controleur-regional-autonome-metapopulation.md) | Contrôleur régional autonome de Métapopulation | Accepté | 2026-09-24 | Métapopulation, runtime, observabilité, Morphogenèse |
-| [0100](0100-controle-ecologique-biocenose.md) | Contrôle écologique de Biocénose | Accepté | 2026-09-25 | Biocénose, runtime, observabilité, Morphogenèse |
 | [0097](0097-calibration-immunitaire-holobionte.md) | Calibration immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, épistémologie |
-
+| [0098](0098-detection-surreaction-immunitaire-holobionte.md) | Détection de sur-réaction immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, gouvernance |
+| [0099](0099-impact-keystone-holobionte.md) | Impact des symbiontes keystone | Accepté | 2026-09-25 | Holobionte, résilience, mesure de contribution |
+| [0100](0100-controle-ecologique-biocenose.md) | Contrôle écologique de Biocénose | Accepté | 2026-09-25 | Biocénose, runtime, observabilité, Morphogenèse |
 | [0102](0102-boucle-migration-regionale-verifiee.md) | Boucle de migration régionale vérifiée | Accepté | 2026-09-25 | Métapopulation, migration, corridors, runtime |
 | [0086](0086-branche-rhizome-morphogenese.md) | Branche Rhizome dans la Morphogenèse | Proposé | 2026-09-24 | Morphogenèse, Rhizome, exploration, preuves, budgets |
 | [0087](0087-branche-trinity-morphogenese.md) | Branche Trinity dans la Morphogenèse | Accepté | 2026-09-24 | Morphogenèse, Trinity, comparaison, preuves, budgets |
@@ -91,8 +92,12 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0105](0105-benchmark-longitudinal-holobionte.md) | Benchmark longitudinal Holobionte | Accepté | 2026-09-25 | Holobionte, évaluation, preuves |
 | [0106](0106-detection-surreaction-immunitaire-holobionte.md) | Détection de sur-réaction immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, gouvernance |
 | [0107](0107-impact-keystone-holobionte.md) | Impact des symbiontes keystone | Accepté | 2026-09-25 | Holobionte, résilience, mesure de contribution |
+| [0103](0103-routage-fiable-du-thalamus.md) | Routage fiable du thalamus | Accepté | 2026-09-25 | API LLM, routage, cache, filtrage d'outils |
 | [0108](0108-branchement-topologies-fail-closed.md) | Branchement fail-closed des topologies | Accepté | 2026-09-25 | Orchestration, morphogenèse, transitions, preuves |
 | [0113](0113-benchmark-avec-sans-genos.md) | Benchmark apparié avec / sans GenOS (campagne v1) | Accepté | 2026-09-25 | Évaluation, preuve, orchestration |
+| [0116](0116-execution-fiable-communication.md) | Exécution fiable des décisions de communication | Accepté | 2026-09-25 | Communication, transport, sécurité |
+| [0117](0117-enveloppe-canonique-communication.md) | Enveloppe canonique de communication | Accepté | 2026-09-25 | Communication, contrats, interopérabilité |
+
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
