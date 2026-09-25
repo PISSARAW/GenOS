@@ -5,6 +5,7 @@ const { withTransaction } = require('../../db');
 const trinityExperimentStore = require('../trinityExperimentStore');
 const { hashWorkspace } = require('../trinitySnapshotService');
 const trinityService = require('../trinityService');
+const trinityHistoricalMemory = require('../trinityHistoricalMemoryService');
 
 function emitTeamComposition(ctx, autonomousWorkers) {
   const { agentId, autonomyPlan } = ctx;
@@ -37,16 +38,20 @@ function trinityBudgetPolicy(autonomyPlan, normalizedMission) {
 async function persistTrinityExperiment(db, input) {
   const { trinityMissionId, snapshotHashes, autonomyPlan, normalizedMission, autonomousWorkers, budgetPolicy } = input;
   await withTransaction(db, async (tx) => {
+    const baseDesign = autonomyPlan.trinity.hypothesisDesign || trinityService.designHypotheses(normalizedMission.prompt || normalizedMission.currentTask || '', {
+      ...(normalizedMission.trinityHypothesisDesign || {}),
+      integrationChecks: normalizedMission.trinityIntegrationChecks,
+      claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
+    });
+    const design = await trinityHistoricalMemory.attach(tx, {
+      domain: autonomyPlan.trinity.domain, experimentId: trinityMissionId, design: baseDesign
+    });
     await trinityExperimentStore.create(tx, {
       id: trinityMissionId,
       missionId: trinityMissionId,
       domain: autonomyPlan.trinity.domain,
       snapshotHash: snapshotHashes[0],
-      design: autonomyPlan.trinity.hypothesisDesign || trinityService.designHypotheses(normalizedMission.prompt || normalizedMission.currentTask || '', {
-        ...(normalizedMission.trinityHypothesisDesign || {}),
-        integrationChecks: normalizedMission.trinityIntegrationChecks,
-        claimVerificationChecks: normalizedMission.trinityClaimVerificationChecks
-      }),
+      design,
       isolationPolicy: { sharedMemory: 'read-only-snapshot', communication: 'forbidden', provenanceTracking: 'full', randomSeedPerChamber: false },
       budgetPolicy
     });
