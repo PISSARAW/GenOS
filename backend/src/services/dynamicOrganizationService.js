@@ -10,6 +10,7 @@ const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticS
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
+const { createOrganizationEnvelope, signalDataWithEnvelope, payloadWithEnvelope, verifyOrganizationMessage } = require('./communication/organizationEnvelopeAdapter');
 // Même cycle que `../db` (voir withTransactionDb) : `collectiveSignalOrganizationRouter`
 // capturé au chargement arrive vide selon le point d'entrée. Résolution à l'appel.
 function signalRouter() {
@@ -271,17 +272,23 @@ async function publish(db, options = {}) {
   if (recipientAgentId) await assertMember(db, orchestratorId, recipientAgentId);
   const normalizedKind = String(kind).trim().toLowerCase();
   if (!MESSAGE_KINDS.has(normalizedKind)) throw organizationError('INVALID_MESSAGE_KIND', `Unsupported organization message kind '${kind}'.`);
-  const signalInfo = resolveSignalPayload(content, signalType, signalData);
+  let signalInfo = resolveSignalPayload(content, signalType, signalData);
   assertAdversarialRecipient(state, sender, recipientAgentId);
   assertRoutingAuthority({ organization: state.organization, policy: state.policy, sender, recipientAgentId, orchestratorId });
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
   const scope = await fetchAgentScope(db, orchestratorId);
+  const envelope = createOrganizationEnvelope({
+    messageId: `orgmsg_${crypto.randomUUID()}`, senderAgentId, route, signalType: signalInfo.signalType,
+    payload, scope: { orchestratorId, organizationId: scope.organizationId, projectId: scope.projectId, organizationVersion: state.version },
+    contentPayload: { content: signalInfo.content, payload, signalData: typeof signalData === 'string' ? { payload: signalData } : signalData }
+  });
+  signalInfo = resolveSignalPayload(content, signalType, signalDataWithEnvelope(signalData, envelope));
   const result = await db.run(
     `INSERT INTO agent_organization_messages(orchestrator_id, organization, organization_version, sender_agent_id,
       recipient_agent_id, channel, kind, content, payload_json, signal_type, signal_blob, delivery, organization_id, project_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     orchestratorId, state.organization, state.version, senderAgentId, route.recipientAgentId,
-    route.channel, normalizedKind, signalInfo.content, JSON.stringify(payload || {}),
+    route.channel, normalizedKind, signalInfo.content, JSON.stringify(payloadWithEnvelope(payload, envelope)),
     signalInfo.signalType, signalInfo.signalBlob, route.delivery,
     scope.organizationId, scope.projectId
   );
@@ -308,13 +315,17 @@ async function publish(db, options = {}) {
 
 function mapInboxRow(row) {
   const signal = unpackSignalPayload(row.signalBlob, row.signalType, row.payloadJson);
+  const payload = parsePayload(row.payloadJson);
+  const integrity = verifyOrganizationMessage(row, payload, signal);
   const profile = organizationProfile(row.organization);
   const isAnonymous = Boolean(profile && profile.visibility === 'anonymous');
   return {
     ...row,
     senderAgentId: isAnonymous ? 'anonymous_worker' : row.senderAgentId,
-    payload: parsePayload(row.payloadJson),
-    signal,
+    content: integrity.status === 'rejected' ? '' : row.content,
+    payload: integrity.status === 'rejected' ? null : payload,
+    signal: integrity.status === 'rejected' ? null : signal,
+    integrity,
     hasBiomimeticSignal: row.signalType !== 'text' && Boolean(signal)
   };
 }
