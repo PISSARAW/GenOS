@@ -6,6 +6,8 @@ const { provisionMissionWorkspace } = require('../src/services/agentRuntimeAdapt
 
 async function main() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-orchestrator-workspace-'));
+  const previousCapsuleRoot = process.env.GENOS_CAPSULE_ROOT;
+  process.env.GENOS_CAPSULE_ROOT = path.join(directory, 'capsules');
   const source = path.join(directory, 'source');
   fs.mkdirSync(source);
   fs.writeFileSync(path.join(source, 'mission.txt'), 'keep source untouched');
@@ -20,6 +22,8 @@ async function main() {
     assert.equal(worker.workspaceRoot, orchestrator.workspaceRoot, 'a worker keeps the workspace allocated by its orchestrator');
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
+    if (previousCapsuleRoot === undefined) delete process.env.GENOS_CAPSULE_ROOT;
+    else process.env.GENOS_CAPSULE_ROOT = previousCapsuleRoot;
   }
 }
 

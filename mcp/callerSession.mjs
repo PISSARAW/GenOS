@@ -38,7 +38,6 @@ const transport = new StdioClientTransport({
   stderr: 'pipe',
   env: { ...process.env, GENOS_REPO_ROOT: root, GENOS_MCP_PROVIDER: 'codex-caller',
     GENOS_WORKSPACE_ROOT: briefPath ? path.dirname(path.resolve(briefPath)) : root,
-    GENOS_CAPSULE_ROOT: path.join(root, '.genos-agent-worlds'),
     GENOS_MCP_LEASE: 'genos_orchestrate', GENOS_MCP_TOOL_TIMEOUT_MS: '1200000',
     GENOS_STREAM_TELEMETRY: '1' }
 });

@@ -15,7 +15,9 @@ const fs = require('fs');
  *     └── objects/       → sha256/...
  */
 
-const ROOT = path.resolve(__dirname, '../../../.genos/data');
+const { chooseDataRoot, pinDataRoot } = require('./storagePlacement');
+const selection = chooseDataRoot();
+const ROOT = selection.root;
 
 const PATHS = {
   root: ROOT,
@@ -35,6 +37,7 @@ const FILES = {
 };
 
 function ensureDirs() {
+  pinDataRoot(selection);
   for (const dir of Object.values(PATHS)) {
     fs.mkdirSync(dir, { recursive: true });
   }

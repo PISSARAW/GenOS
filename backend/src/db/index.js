@@ -70,7 +70,13 @@ async function getDatabase(dbFilePath) {
   } else if (dbInstance) {
     return dbInstance;
   }
-  const defaultPath = process.env.GENOS_DB_PATH || path.resolve(__dirname, '../../genos.db');
+  const legacyPath = path.resolve(__dirname, '../../genos.db');
+  let defaultPath = process.env.GENOS_DB_PATH || legacyPath;
+  if (!process.env.GENOS_DB_PATH && !fs.existsSync(legacyPath)) {
+    const storage = require('../storage/storagePaths');
+    storage.ensureDirs();
+    defaultPath = storage.FILES.sqlite;
+  }
   const filename = dbFilePath ? path.resolve(dbFilePath) : path.resolve(defaultPath);
   // Requests may reach the backend while it is still bootstrapping.  Reuse the
   // same connection/bootstrap promise instead of running two seed passes in

@@ -9,6 +9,7 @@
  */
 
 const path = require('path');
+const fs = require('fs');
 
 class DuckDBStore {
   constructor(options = {}) {
@@ -35,7 +36,9 @@ class DuckDBStore {
     } catch (err) {
       console.warn('[DuckDBStore] sqlite_scanner unavailable:', err.message);
     }
-    const sqlitePath = this._sqlitePath || process.env.GENOS_DB_PATH || path.resolve(__dirname, '../../../genos.db');
+    const legacyPath = path.resolve(__dirname, '../../../genos.db');
+    const sqlitePath = this._sqlitePath || process.env.GENOS_DB_PATH ||
+      (fs.existsSync(legacyPath) ? legacyPath : FILES.sqlite);
     try {
       await this.attachSqlite(sqlitePath, 'operational');
     } catch (err) {

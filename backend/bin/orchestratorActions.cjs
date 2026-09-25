@@ -258,8 +258,7 @@ async function prepareWorker({ db, context, parent, reusable }) {
   const name = workerName(request, role, context.task);
   const sourceWorkspace = workspaceFor(parent, context);
   validateWorkspace(request.workspace_root, sourceWorkspace);
-  const capsuleRoot = process.env.GENOS_CAPSULE_ROOT || path.dirname(sourceWorkspace);
-  const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, workerCapsuleId(context), capsuleRoot);
+  const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, workerCapsuleId(context), process.env.GENOS_CAPSULE_ROOT);
   await insertWorker({ db, context, parent, request, name, role, workerKind });
   return { name, role, workerKind, workspaceRoot };
 }

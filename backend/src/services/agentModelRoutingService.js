@@ -5,6 +5,7 @@
 const os = require('os');
 const modelRouter = require('./modelRouter');
 const localModelDiscovery = require('./localModelDiscovery');
+const { readHostEnvironment, deriveAdaptivePolicy } = require('./hostEnvironment');
 
 let previousCpuSample = null;
 
@@ -99,14 +100,17 @@ function rankLocalModels(models, modelTier) {
 
 async function localWorkerRoute(options = {}) {
   const { db, agentId, role, modelTier, tenant = {} } = options;
-  const cpuCount = os.cpus().length;
+  const dataPath = process.env.GENOS_DB_PATH || require('../storage/storagePaths').PATHS.root;
+  const profile = readHostEnvironment({ dataPath });
+  const hostPolicy = deriveAdaptivePolicy(profile);
+  const cpuCount = profile.cpuCount;
   const load = machineLoad();
-  const freeMemoryRatio = os.freemem() / os.totalmem();
+  const freeMemoryRatio = profile.freeMemoryBytes / profile.totalMemoryBytes;
   const models = await localModelDiscovery.discoverLocalModels();
   const localCodeEnabled = process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS === '1';
   const reviewRole = /reviewer|observer|red_team|blue_team/i.test(role || '');
   const implementationRole = /implementation|coder|developer/i.test(role || '');
-  const eligible = (reviewRole || (localCodeEnabled && implementationRole)) && cpuCount >= 4 && load !== null && load < cpuCount * 0.8 && freeMemoryRatio >= 0.15;
+  const eligible = (reviewRole || (localCodeEnabled && implementationRole)) && hostPolicy.allowLocalModel && load !== null && load < cpuCount * 0.8;
   const chatModels = competentLocalModels(models, { role, modelTier, purpose: 'worker' });
   const policy = await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, chatModels.map((model) => model.uri));
   const orderedUris = policy.configured
@@ -118,6 +122,7 @@ async function localWorkerRoute(options = {}) {
     policy: { ...policy, primary: selected || policy.primary, fallbacks: orderedUris.filter((uri) => uri !== selected) },
     criteria: {
       cpuCount, load1m: load, freeMemoryRatio: Number(freeMemoryRatio.toFixed(3)), role, modelTier,
+      environmentState: hostPolicy.state, environmentReasons: hostPolicy.reasons,
       eligible, competencyFloorParameters: localCompetencyFloor({ role, modelTier, purpose: 'worker' }),
       localModelsDisabled: process.env.GENOS_DISABLE_LOCAL_MODELS === '1',
       discoveredModels: models.map((model) => model.uri), capableModels: chatModels.map((model) => model.uri), orderedModels: orderedUris

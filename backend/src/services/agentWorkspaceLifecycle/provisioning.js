@@ -7,6 +7,7 @@ const { bestEffort, pathExists, samePath, isInside } = require('./support');
 const { availableBytes, estimateCopyBytes, removeSensitiveFiles, createExclusionFilter, copyTree } = require('./copy');
 const { maxCopyBytes, addCopyBytes, isSensitivePath } = require('./constants');
 const { trackWorkspace } = require('./cleanup');
+const { chooseCapsuleRoot, headroomBytes } = require('./placement');
 
 function assertWorkerId(workerId) {
   const normalized = normalizeRelativePath(String(workerId || ''), 'worker id');
@@ -33,17 +34,22 @@ function assertCapsuleBoundary(resolvedCapsuleRoot, source, defaultRoot) {
   throw new Error(`Capsule root '${resolvedCapsuleRoot}' is outside the source workspace boundary.`);
 }
 
-function resolveCapsuleRoot(source, capsuleRootOverride) {
+function resolveCapsuleRoot(source, capsuleRootOverride, automaticRoot) {
   const defaultRoot = path.join(path.dirname(source), '.genos-agent-worlds');
-  const capsuleRoot = capsuleRootOverride || process.env.GENOS_CAPSULE_ROOT || defaultRoot;
-  if (!capsuleRootOverride) return capsuleRoot;
-  assertCapsuleBoundary(path.resolve(capsuleRootOverride), source, defaultRoot);
-  return capsuleRoot;
+  if (capsuleRootOverride) {
+    assertCapsuleBoundary(path.resolve(capsuleRootOverride), source, defaultRoot);
+    return capsuleRootOverride;
+  }
+  return process.env.GENOS_CAPSULE_ROOT || automaticRoot || defaultRoot;
 }
 
 function resolveDestination(source, workerId, { capsuleRoot, capsuleRootOverride }) {
   if (capsuleRootOverride) return resolveContainedPath(capsuleRoot, workerId, 'capsule path');
   return resolveContainedPath(path.join(capsuleRoot, path.basename(source)), workerId, 'capsule path');
+}
+
+function isManagedCapsuleSource(source) {
+  return String(source).split(/[\\/]/).includes('.genos-agent-worlds');
 }
 
 async function assertNoTrackedSymlinks(source) {
@@ -165,7 +171,7 @@ async function assertCopyCapacity({ source, destination }) {
   const configuredHeadroom = Number(process.env.GENOS_WORKSPACE_COPY_HEADROOM_BYTES);
   const headroom = Number.isSafeInteger(configuredHeadroom) && configuredHeadroom >= 0
     ? configuredHeadroom
-    : 256 * 1024 * 1024;
+    : headroomBytes();
   const requiredBytes = estimatedBytes + headroom;
   const freeBytes = await availableBytes(path.dirname(destination));
   if (freeBytes >= requiredBytes) return;
@@ -197,8 +203,13 @@ async function provisionGitWorkspace(source, destination, workerId) {
 async function createIsolatedWorkspace(sourceRoot, workerId, optionsOverride) {
   const source = path.resolve(sourceRoot);
   const normalizedWorkerId = assertWorkerId(workerId);
-  const { capsuleRootOverride, useVfs } = resolveOverrides(optionsOverride);
-  const capsuleRoot = resolveCapsuleRoot(source, capsuleRootOverride);
+  const overrides = resolveOverrides(optionsOverride);
+  const capsuleRootOverride = isManagedCapsuleSource(source) ? null : overrides.capsuleRootOverride;
+  const { useVfs } = overrides;
+  const estimatedBytes = await estimateCopyBytes(source);
+  const automaticRoot = capsuleRootOverride || process.env.GENOS_CAPSULE_ROOT
+    ? null : chooseCapsuleRoot(estimatedBytes);
+  const capsuleRoot = resolveCapsuleRoot(source, capsuleRootOverride, automaticRoot);
   const destination = resolveDestination(source, normalizedWorkerId, { capsuleRoot, capsuleRootOverride });
   await fs.mkdir(path.dirname(destination), { recursive: true });
   if (useVfs) return provisionVfsWorkspace(source, destination, normalizedWorkerId);

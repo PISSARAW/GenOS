@@ -6,7 +6,6 @@
 const http = require('http');
 const https = require('https');
 const cluster = require('cluster');
-const os = require('os');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const telemetry = require('./src/services/telemetryObserver');
@@ -21,6 +20,7 @@ const { readPort } = require('./src/services/runtimeConfig');
 const { readTransportTlsConfig, grpcServerCredentials } = require('./src/services/tlsConfig');
 const trinityMonitorServer = require('./src/services/trinityMonitorServer');
 const { attachAutobiographicalCapture } = require('./src/services/autobiographicalMemory/captureService');
+const { readHostEnvironment, deriveAdaptivePolicy } = require('./src/services/hostEnvironment');
 
 const PORT = readPort('PORT', process.env.PORT, 4000);
 
@@ -75,8 +75,10 @@ function registerClusterLifecycle(workers, jobWorkerPids) {
 
 function runPrimaryProcess() {
   console.log(`[GenOS Cluster] Primary ${process.pid} is running`);
-  // Fork workers for each CPU core (cap at 4 to preserve resources for LLMs)
-  const numCPUs = Math.min(os.cpus().length, 4);
+  const profile = readHostEnvironment({ dataPath: require('./src/storage/storagePaths').PATHS.root });
+  const policy = deriveAdaptivePolicy(profile);
+  const numCPUs = policy.maxWorkers;
+  console.log(`[GenOS Environment] ${policy.state}: ${numCPUs} backend worker(s); ${policy.reasons.join(', ') || 'capacity available'}`);
   const { workers, jobWorkerPids } = bootstrapClusterWorkers(numCPUs);
   registerClusterLifecycle(workers, jobWorkerPids);
   if (process.env.GENOS_ENABLE_AUTOSTART === '1') {
