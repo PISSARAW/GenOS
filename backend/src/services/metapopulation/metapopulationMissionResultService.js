@@ -1,7 +1,7 @@
 'use strict';
 const { validateSchedulingResult } = require('./schedulingEvidenceValidator');
 const migrationService = require('./metapopulationMigrationService');
-const comparativeEvaluation = require('../comparativeMissionEvaluationService');
+const topologyEvaluation = require('../topologyMissionEvaluationService');
 
 async function read(db, member) {
   const agent = await db.get('SELECT status FROM agents WHERE id = ?', member.workerId);
@@ -30,18 +30,19 @@ function assembleResult({ member, agent, event }) {
 }
 
 function validateDomainResult(input) {
-  if (input.fixtureId) return comparativeEvaluation.evaluateFixtureSubmission({
-    fixtureId: input.fixtureId, submission: input.structured.submission,
-    answer: input.answer, method: input.expectedMethod
-  });
+  if (input.fixtureId) return topologyEvaluation.evaluateMissionResult({
+    topology: 'metapopulation', fixtureId: input.fixtureId,
+    submission: input.structured.submission, answer: input.answer, method: input.expectedMethod
+  }).evaluation;
   return validateSchedulingResult({ mission: input.member.mission, answer: input.answer, method: input.expectedMethod });
 }
 
 function validateBaseline(input) {
-  if (input.fixtureId) return comparativeEvaluation.evaluateFixtureSubmission({
-    fixtureId: input.fixtureId, submission: input.review.baselineSubmission,
-    answer: input.review.baselineAnswer, method: input.expectedMethod
-  });
+  if (input.fixtureId) return topologyEvaluation.evaluateMissionResult({
+    topology: 'metapopulation', fixtureId: input.fixtureId,
+    submission: input.review.baselineSubmission, answer: input.review.baselineAnswer,
+    method: input.expectedMethod
+  }).evaluation;
   return validateSchedulingResult({ mission: input.member.mission,
     answer: input.review.baselineAnswer, method: input.expectedMethod });
 }

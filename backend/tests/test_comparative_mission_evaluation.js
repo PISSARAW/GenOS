@@ -43,6 +43,22 @@ const recolonization = evaluateFixtureSubmission({ fixtureId: 'level-6', submiss
   ]
 } });
 assert.equal(recolonization.valid, true);
+const clonedRecovery = evaluateFixtureSubmission({ fixtureId: 'level-6', submission: {
+  collapse: { populationId: 'greedy', initialSelection: ['A'] },
+  recolonization: { founderLineages: ['alpha', 'alpha'], projects: ['C'], neighborProjects: ['E'] },
+  continuingPopulations: [
+    { populationId: 'dynamic', projects: ['C'] },
+    { populationId: 'local', projects: ['D'] },
+    { populationId: 'evolutionary', projects: ['E'] }
+  ]
+} });
+assert.equal(clonedRecovery.valid, false);
+const nonContinuingRecovery = evaluateFixtureSubmission({ fixtureId: 'level-6', submission: {
+  collapse: { populationId: 'greedy', initialSelection: ['A'] },
+  recolonization: { founderLineages: ['alpha', 'beta'], projects: ['C'], neighborProjects: ['E'] },
+  continuingPopulations: [{ populationId: 'dynamic', projects: ['C'] }]
+} });
+assert.equal(nonContinuingRecovery.valid, false);
 assert.equal(evaluateFixtureSubmission({ fixtureId: 'level-3', submission: {
   sandboxReceipt: { runnerId: 'claimed', evidenceRef: 'claimed', casesPassed: 5 }
 } }).valid, false);

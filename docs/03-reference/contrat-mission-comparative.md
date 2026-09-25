@@ -19,6 +19,12 @@ Les autres topologies peuvent adopter le contrat d'évaluation. Elles ne reçoiv
 pas implicitement les politiques de migration ni les garanties de diversité de
 Métapopulation.
 
+Le service `topologyMissionEvaluationService` expose l'évaluateur déterministe
+aux modes de topologie enregistrés. Il retourne le résultat commun et signale la
+politique de migration par receveur uniquement pour Métapopulation. Ce point
+d'entrée partagé n'active pas automatiquement les migrations dans les autres
+topologies et ne remplace pas leur dispatch de mission.
+
 ## Schéma de mission
 
 Le validateur `backend/src/services/comparativeMissionContract.js` impose les
@@ -85,6 +91,12 @@ logicielle de la fonctionnalité.
 Le niveau 3 reste systématiquement non vérifié : GenOS n'exécute pas du code de
 parseur fourni par un worker et aucun exécuteur isolé n'est encore configuré.
 Un reçu auto-déclaré par le worker ne lève pas ce blocage.
+
+Pour le niveau 6, l'évaluateur vérifie le résultat soumis : effondrement déclaré,
+pluralité des lignées fondatrices, viabilité sous la nouvelle contrainte,
+différence avec le voisin fourni et poursuite des populations survivantes.
+Cette vérification ne déclenche pas elle-même les essais persistants de
+recolonisation du runtime.
 
 ## Ordre de validation
 

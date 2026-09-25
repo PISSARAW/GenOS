@@ -12,7 +12,8 @@ const PHASES = Object.freeze([
   ] },
   { name: 'Migration validée par le receveur', tests: ['test_metapopulation_migration_review.js'] },
   { name: 'Évaluateurs locaux et dispatch worker', tests: [
-    'test_comparative_mission_evaluation.js', 'test_topology_worker_launch_payload.js'
+    'test_comparative_mission_evaluation.js', 'test_topology_mission_evaluation.js',
+    'test_topology_worker_launch_payload.js'
   ] }
 ]);
 
