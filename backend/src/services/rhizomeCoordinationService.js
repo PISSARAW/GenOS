@@ -391,4 +391,4 @@ const restoredOperations = rhizomeServiceOperations.create({
   pruningExecutor: require('./rhizome/pruning/pruningExecutorService')
 });
 
-module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, inspectPruning, applyPruningPlan, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
