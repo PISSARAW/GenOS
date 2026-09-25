@@ -8,7 +8,8 @@ const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
 
 const repo = path.resolve(__dirname, '../..');
 const runId = `campaign-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-const output = path.join(repo, 'artifacts', 'topology-morphogenesis', runId);
+const artifactRoot = path.resolve(process.env.GENOS_CAMPAIGN_OUTPUT_ROOT || path.join(repo, 'artifacts', 'topology-morphogenesis'));
+const output = path.join(artifactRoot, runId);
 const fixture = path.join(output, 'workspace');
 const missions = [
   'orchestrateur-simple', 'topologie-trinity', 'topologie-a-team',
@@ -29,7 +30,7 @@ function environment(name) {
     ...process.env,
     GENOS_DB_PATH: path.join(output, 'campaign.db'),
     GENOS_WORKSPACE_ROOT: fixture,
-    GENOS_CAPSULE_ROOT: path.join(repo, '.genos-agent-worlds', runId),
+    GENOS_CAPSULE_ROOT: path.join(output, 'capsules'),
     GENOS_RUNNER_LOG_DIR: path.join(output, 'runner-logs'),
     GENOS_TOPOLOGY_AWAIT_WORKERS: '1',
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || 'local',
@@ -69,7 +70,10 @@ function readReceipt(name) {
   const log = fs.readFileSync(path.join(output, `${name}.log`), 'utf8');
   const lines = log.trim().split(/\r?\n/);
   for (let index = lines.length - 1; index >= 0; index--) {
-    try { return JSON.parse(lines[index]); } catch (_) { /* diagnostic line */ }
+    try {
+      const candidate = JSON.parse(lines[index]);
+      if (candidate?.orchestratorId) return candidate;
+    } catch (_) { /* diagnostic line */ }
   }
   return null;
 }
@@ -137,6 +141,25 @@ function summarizeVerification(results, probes = null) {
   };
 }
 
+function classifyMissionLifecycle(options) {
+  const { name, run, receipt, workers, verification } = options;
+  if (verification.passed) return 'verified';
+  if (run.timedOut) return 'timed_out';
+  if (!receipt?.orchestratorId) return 'receipt_missing';
+  if (topologyMissions.has(name) && workers.some((worker) => worker.status !== 'completed')) {
+    return 'workers_incomplete';
+  }
+  if (run.exitCode !== 0 && name !== 'garde-preuve-negative') return 'execution_failed';
+  return 'completed_unverified';
+}
+
+function getDispatchStatus(receipt, fallback = null) {
+  for (const key of ['biologicalMode', 'trinity', 'team']) {
+    if (receipt?.[key]?.status) return receipt[key].status;
+  }
+  return fallback;
+}
+
 async function workerStates(db, receipt) {
   if (!receipt?.orchestratorId) return [];
   const rows = await db.all(
@@ -151,13 +174,15 @@ async function recordMissionResult({ name, run, db, results }) {
   const workers = await workerStates(db, receipt);
   const proof = verifySimpleMissionProof(receipt, name);
   const verification = verifyMissionExecution({ name, run, receipt, workers, proof });
+  const lifecycle = classifyMissionLifecycle({ name, run, receipt, workers, verification });
   results.missions.push({ ...run, orchestratorId: receipt?.orchestratorId || null,
     verdict: receipt?.verdict || null, completionGate: receipt?.completionGate || null,
-    dispatchStatus: receipt?.biologicalMode?.status || receipt?.trinity?.status || receipt?.team?.status || null,
-    sessionId: receipt?.biologicalMode?.sessionId || null, workers, independentProof: proof, verification });
+    dispatchStatus: getDispatchStatus(receipt),
+    sessionId: receipt?.biologicalMode?.sessionId || null, workers, independentProof: proof, lifecycle, verification });
   results.verification = summarizeVerification(results);
   fs.writeFileSync(path.join(output, 'campaign-results.json'), JSON.stringify(results, null, 2));
-  process.stdout.write(`${name}: exit=${run.exitCode ?? 'error'} workers=${workers.length} verified=${verification.passed}\n`);
+  const dispatch = getDispatchStatus(receipt, 'not-applicable');
+  process.stdout.write(`${name}: lifecycle=${lifecycle} dispatch=${dispatch} exit=${run.exitCode ?? 'error'} workers=${workers.length} verified=${verification.passed}\n`);
 }
 
 async function finalizeCampaign() {
@@ -191,6 +216,9 @@ async function main() {
   fs.mkdirSync(path.join(output, 'runner-logs'), { recursive: true });
   fs.writeFileSync(path.join(fixture, 'README.md'), 'Isolated campaign workspace.\n');
   process.env.GENOS_DB_PATH = path.join(output, 'campaign.db');
+  process.env.GENOS_WORKSPACE_ROOT = fixture;
+  process.env.GENOS_CAPSULE_ROOT = path.join(output, 'capsules');
+  process.env.GENOS_RUNNER_LOG_DIR = path.join(output, 'runner-logs');
   process.env.GENOS_LOCAL_MODEL = process.env.GENOS_LOCAL_MODEL || 'qwen2.5:14b';
   process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS = '30000';
   process.env.GENOS_ADMIN_PASSWORD = randomBytes(32).toString('base64url');
