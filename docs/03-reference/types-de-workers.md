@@ -1218,3 +1218,39 @@ Voir ADR 0043 (phénotypes), ADR 0044 (matrice et gates), ADR 0064 (registre et 
 ### Portée des vérifications actuelles
 
 La matrice des 19 kinds vérifie la construction du contrat et du prompt de dispatch, l'artefact exigé et le rejet d'un artefact du mauvais type. Elle ne lance pas une mission de modèle pour chacun des kinds. Le test de sous-orchestration contrôle l'autorisation, les bornes, la propagation du budget et le résultat au moyen de dépendances simulées. La validation de ces parcours avec une identité runtime émise par le backend, une base isolée et de vraies missions enfants reste nécessaire avant de qualifier les 19 kinds d'opérationnels de bout en bout.
+
+---
+
+## 47. Affectation attendue par topologie
+
+Les rôles des topologies et les `WorkerKind` ne sont pas le même vocabulaire :
+le premier décrit une position dans une composition, le second définit un
+contrat d'exécution et un artefact. La matrice de référence se trouve dans
+[Topologies & contrat de capacités](../02-orchestration/topologies-et-capacites.md#31-matrice-des-types-de-workers).
+
+Le composeur doit porter le résultat de cette matrice dans `member.workerKind`.
+À l'incarnation, le backend appelle `resolveWorkerKind()` puis
+`buildWorkerContract()` et persiste le type canonique avec le contrat reconstruit.
+Une valeur explicite inconnue est refusée. Un repli de rôle vers
+`bounded_worker` reste réservé aux chemins génériques qui ne sont associés à
+aucune topologie.
+
+L'affectation de type ne remplace pas les règles propres aux topologies :
+
+- `host_orchestrator` reste un orchestrateur et ne devient pas un
+  `sub_orchestrator`.
+- Les mutations du Syncytium, la croissance du Rhizome, les corridors de la
+  Métapopulation et l'allocation du Biome restent gouvernés par leurs services
+  respectifs.
+- Le type impose l'artefact de sortie : par exemple `scout_cell` produit une
+  `scout_observation`, `verifier_worker` et `red_worker` un
+  `verification_report`, et `synthesis_worker` un `synthesis_dossier`.
+
+### Écart d'implémentation
+
+La matrice est un contrat de câblage documenté. Au 2026-09-25, les dispatchers
+génériques savent persister et appliquer un type explicite, mais tous les
+composeurs des huit topologies ne renseignent pas encore `member.workerKind`.
+Avant de déclarer cette matrice effective, chaque composeur doit fournir le
+champ, le dispatch doit le conserver jusqu'à l'incarnation, et un test doit
+vérifier le type et l'artefact attendus pour chaque rôle couvert.

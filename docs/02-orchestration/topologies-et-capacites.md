@@ -43,6 +43,60 @@ capacités requises + un profil (preuve, mémoire, budget, communication, moteur
 
 Les parcours Trinity et A-Team ont leurs entrées d'orchestration dédiées. Pour les six modes biologiques, `genos_biological_mode` appelle `biologicalTopologyService.composeMode({ db, orchestratorId, mode, mission })`; les sessions Syncytium, Rhizome et Biome sont ensuite observables et opérables par `genos_topology_session`. La composition seule ne rend pas effectives les capacités simplement inscrites au contrat.
 
+### 3.1 Matrice des types de workers
+
+La matrice suivante est la règle d'affectation attendue entre les rôles de
+composition et les `WorkerKind` canoniques. Elle évite que le rôle seul soit
+résolu par défaut en `bounded_worker`. Elle ne confère aucune autorité qui ne
+figure pas dans le contrat du worker, le lease, ou le runtime de topologie.
+
+| Topologie | Rôle de composition | `WorkerKind` attendu |
+| --- | --- | --- |
+| Trinity | monde `direct` | `bounded_worker` |
+| Trinity | monde `structured` | `specialist` |
+| Trinity | monde `falsification` | `adaptive_worker` |
+| Trinity, écriture créative | chacun des trois mondes | `creative_worker` |
+| A-Team | spécialiste de domaine | `specialist` |
+| A-Team | `security_reviewer`, `quality_engineer` | `verifier_worker` |
+| A-Team | `integration_observer` | `synthesis_worker` |
+| A-Team, fiction | `literary_author`, `dramaturg` | `creative_worker` |
+| A-Team, fiction | `literary_critic` | `verifier_worker` |
+| Biocénose | `community_facilitator` | `liaison_worker` |
+| Biocénose | `independent_solver`, `generator` | `bounded_worker` |
+| Biocénose | `adversarial_reviewer`, `reviewer` | `red_worker` |
+| Biocénose | `consensus_observer`, `verifier` | `verifier_worker` |
+| Holobionte | `host_orchestrator` | orchestrateur, sans `WorkerKind` |
+| Holobionte | `specialist_symbiont` | `symbiotic_worker` |
+| Holobionte | `immune_symbiont` | `red_worker` |
+| Holobionte | `memory_symbiont` | `synthesis_worker` |
+| Syncytium | `shared_state_coordinator` | `liaison_worker` |
+| Syncytium | `parallel_executor` | `bounded_worker` |
+| Syncytium | `consistency_guardian` | `verifier_worker` |
+| Syncytium | `integration_executor` | `synthesis_worker` |
+| Rhizome | `rootless_coordinator`, `local_bridge` | `liaison_worker` |
+| Rhizome | `capability_offshoot` | `specialist` |
+| Rhizome | `boundary_scout` | `scout_cell` |
+| Métapopulation | `population_isolator` | `bounded_worker` |
+| Métapopulation | `quorum_sensor` | `scout_cell` |
+| Métapopulation | `synaptic_adaptor` | `adaptive_worker` |
+| Métapopulation | `regeneration_steward` | `recovery_worker` |
+| Biome | `environment_mapper`, `ecosystem_observer` | `scout_cell` |
+| Biome | `resource_steward` | `bounded_worker` |
+| Biome | `population_specialist` | `specialist` |
+
+Un composeur doit transmettre explicitement `workerKind` pour chaque membre
+issu de cette matrice. Le dispatch reconstruit ensuite le contrat depuis le
+registre serveur; il ne fait jamais confiance à un contrat fourni par le
+composeur. Un rôle absent de la matrice est une erreur de composition à
+traiter explicitement, et non un motif de repli silencieux.
+
+Le statut courant reste **partiel** : `agentFleetWorkers` et le dispatch
+orchestrateur propagent déjà un `workerKind` explicite, mais les huit
+composeurs ne renseignent pas encore tous ce champ. La matrice décrit donc la
+cible de câblage et les tests attendus, sans présenter l'affectation exhaustive
+comme exécutée aujourd'hui. Voir [Types de workers](../03-reference/types-de-workers.md)
+pour les contrats, artefacts et limites de chaque type.
+
 ### Plan exécuté pour Rhizome et Biome
 
 1. Exposer leurs sessions dans le catalogue MCP et le dispatch local (`genos_biological_mode`, `genos_topology_session`).
