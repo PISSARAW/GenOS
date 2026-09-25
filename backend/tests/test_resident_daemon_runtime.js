@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const runtime = require('../src/services/daemon/residentDaemonRuntime');
+const supervisor = require('../src/services/daemon/daemonSupervisorService');
+const territoryService = require('../src/services/daemon/daemonTerritoryService');
 
 async function openDb() {
   const sqlite = require('sqlite');
@@ -42,6 +44,16 @@ async function main() {
 
   // 3. Register + heartbeat en mémoire et SQLite
   const db = await openDb();
+  await territoryService.createTerritory(db, {
+    id: 'territory.genos-backend',
+    organizationId: 'org-runtime',
+    projectId: 'project-runtime',
+    workspaceId: 'workspace-runtime',
+    repoIdentity: 'runtime-test',
+    rootPath: '/tmp/runtime-test',
+    headSha: 'a'.repeat(40),
+    state: 'ACTIVE'
+  });
   const rt = runtime.createRuntime(db, {});
   assert.equal(rt.genomeRef, runtime.GENOME_REF);
   const reg = await runtime.registerDaemon(rt, { daemonId: 'daemon.resident-1', territoryId: 'territory.genos-backend' });
@@ -63,14 +75,49 @@ async function main() {
   const unknown = await runtime.heartbeat(rt, { daemonId: 'daemon.ghost' });
   assert.equal(unknown.updated, false);
 
-  // 6. getDaemonState mémoire puis SQLite
+  // 6. Restart on same territory restores runtime state and revision count.
   const mem = await runtime.getDaemonState(rt, { daemonId: 'daemon.resident-1' });
   assert.equal(mem.found, true);
   assert.equal(mem.source, 'memory');
   const rt2 = runtime.createRuntime(db, {});
-  const persisted = await runtime.getDaemonState(rt2, { daemonId: 'daemon.resident-1' });
+  const resumed = await runtime.registerDaemon(rt2, {
+    daemonId: 'daemon.resident-1', territoryId: 'territory.genos-backend'
+  });
+  assert.equal(resumed.resumed, true);
+  assert.equal(resumed.activity, 'DORMANT');
+  assert.equal(resumed.revisions, 1);
+  const afterRestart = await runtime.heartbeat(rt2, { daemonId: 'daemon.resident-1', revision: true });
+  assert.equal(afterRestart.revisions, 2);
+
+  // 7. A resident identity cannot silently move to a different territory.
+  const conflict = await runtime.registerDaemon(rt2, {
+    daemonId: 'daemon.resident-1', territoryId: 'territory.other'
+  });
+  assert.equal(conflict.registered, false);
+  assert.ok(conflict.errors.includes('daemon-territory-conflict'));
+
+  // 8. Read persisted state from a fresh, unregistered runtime.
+  const rt3 = runtime.createRuntime(db, {});
+  const persisted = await runtime.getDaemonState(rt3, { daemonId: 'daemon.resident-1' });
   assert.equal(persisted.found, true);
   assert.equal(persisted.source, 'sqlite');
+  assert.equal(persisted.revisions, 2);
+
+  // 9. Sentinel view reports heartbeat staleness and invalid territory ownership.
+  const healthy = await supervisor.listDaemonHealth(db, { now: Date.now() + 1000 });
+  assert.equal(healthy.daemons[0].status, 'HEALTHY', JSON.stringify(healthy.daemons[0]));
+  const stale = await supervisor.listDaemonHealth(db, {
+    now: Date.now() + 100000, staleAfterMs: 90000
+  });
+  assert.equal(stale.daemons[0].status, 'STALE');
+  await db.run(
+    'UPDATE daemon_runtime_state SET territory_id = ? WHERE daemon_id = ?',
+    'territory.missing',
+    'daemon.resident-1'
+  );
+  const orphaned = await supervisor.listDaemonHealth(db, { now: Date.now() + 1000 });
+  assert.equal(orphaned.daemons[0].status, 'DEGRADED');
+  assert.equal(orphaned.daemons[0].recommendedAction, 'inspect-process-and-territory');
 
   await db.close();
   console.log('Resident daemon runtime tests passed (lifecycle, genome authority, heartbeat, Hayflick).');

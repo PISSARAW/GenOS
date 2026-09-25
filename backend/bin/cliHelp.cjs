@@ -61,21 +61,15 @@ const BINARY_REGISTRY = {
   },
   'genos-daemon.cjs': {
     name: 'genos-daemon',
-    description: 'GenOS persistent background monitoring daemon and autostart manager.',
-    syntax: 'node genos-daemon.cjs [options] [--help]',
+    description: 'Run the territory-bound ResidentDaemon host.',
+    syntax: 'node genos-daemon.cjs --territory <id> --daemon-id <id>',
     options: [
-      { flag: '--help, -h', desc: 'Display this help message and exit.' },
-      { flag: '--interactive', desc: 'Run the daemon interactively in foreground.' },
-      { flag: '--scan-only', desc: 'Scan agent health and exit without starting daemon loop.' },
-      { flag: '--enable-autostart', desc: 'Register daemon in operating system startup.' },
-      { flag: '--disable-autostart', desc: 'Unregister daemon from startup.' },
-      { flag: '--status', desc: 'Display current daemon running status.' }
+      { flag: '--territory <id>', desc: 'Use an already registered territory.' },
+      { flag: '--daemon-id <id>', desc: 'Register this resident daemon identity.' }
     ],
     payloadFields: [],
     examples: [
-      'node genos-daemon.cjs --status',
-      'node genos-daemon.cjs --scan-only',
-      'node genos-daemon.cjs --interactive'
+      'node genos-daemon.cjs --territory territory.genos --daemon-id daemon.genos'
     ]
   },
   'genos-ateam-audit.js': {

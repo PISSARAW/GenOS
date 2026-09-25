@@ -72,21 +72,60 @@ async function ensureRuntimeTables(runtime) {
 async function registerDaemon(runtime, input) {
   if (!runtime || !input || !input.daemonId || !input.territoryId) return { registered: false };
   await ensureRuntimeTables(runtime);
-  const activity = isValidActivity(input.activity) ? input.activity : 'BOOTSTRAPPING';
-  const health = isValidHealth(input.health) ? input.health : 'HEALTHY';
-  if (runtime.db) {
-    await runtime.db.run(
-      `INSERT INTO daemon_runtime_state (daemon_id, territory_id, activity, health, cognitive_revisions)
-       VALUES (?, ?, ?, ?, 0)
-       ON CONFLICT(daemon_id) DO UPDATE SET territory_id = excluded.territory_id`,
-      input.daemonId,
-      input.territoryId,
-      activity,
-      health
-    );
+  const prior = await findPriorState(runtime, input.daemonId);
+  if (territoryConflict(prior, input.territoryId)) {
+    return { registered: false, errors: ['daemon-territory-conflict'] };
   }
-  runtime.daemons.set(input.daemonId, { territoryId: input.territoryId, activity, health, revisions: 0 });
-  return { registered: true, daemonId: input.daemonId, activity, health };
+  const state = restoreRuntimeState(input, prior);
+  await persistRegistration(runtime, { daemonId: input.daemonId, state, resumed: Boolean(prior) });
+  runtime.daemons.set(input.daemonId, state);
+  return { registered: true, daemonId: input.daemonId, ...state, resumed: Boolean(prior) };
+}
+
+async function findPriorState(runtime, daemonId) {
+  if (!runtime.db) return null;
+  return runtime.db.get('SELECT * FROM daemon_runtime_state WHERE daemon_id = ?', daemonId);
+}
+
+function territoryConflict(prior, territoryId) {
+  return Boolean(prior && prior.territory_id !== territoryId);
+}
+
+async function persistRegistration(runtime, registration) {
+  if (!runtime.db) return;
+  if (registration.resumed) return touchRegistration(runtime.db, registration.daemonId);
+  return insertRegistration(runtime.db, registration);
+}
+
+async function touchRegistration(db, daemonId) {
+  await db.run(
+    "UPDATE daemon_runtime_state SET last_heartbeat_at = datetime('now'), updated_at = datetime('now') WHERE daemon_id = ?",
+    daemonId
+  );
+}
+
+async function insertRegistration(db, registration) {
+  await db.run(
+    `INSERT INTO daemon_runtime_state
+      (daemon_id, territory_id, activity, health, cognitive_revisions, last_heartbeat_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+    registration.daemonId,
+    registration.state.territoryId,
+    registration.state.activity,
+    registration.state.health,
+    registration.state.revisions
+  );
+}
+
+function restoreRuntimeState(input, prior) {
+  const activity = prior ? prior.activity : input.activity;
+  const health = prior ? prior.health : input.health;
+  return {
+    territoryId: input.territoryId,
+    activity: isValidActivity(activity) ? activity : 'BOOTSTRAPPING',
+    health: isValidHealth(health) ? health : 'HEALTHY',
+    revisions: Number((prior && prior.cognitive_revisions) || 0)
+  };
 }
 
 async function heartbeat(runtime, tick) {

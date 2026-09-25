@@ -1,8 +1,14 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const { resolveRegisteredTerritory } = require('../bin/genos-daemon.cjs');
+const {
+  resolveRegisteredTerritory,
+  createResidentRuntime,
+  subscribeToSignals
+} = require('../bin/genos-daemon.cjs');
 const territoryService = require('../src/services/daemon/daemonTerritoryService');
+const bridgeService = require('../src/services/daemon/daemonEventBridgeService');
+const signalEventBus = require('../src/services/signalEventBus');
 
 async function openDb() {
   const sqlite = require('sqlite');
@@ -38,8 +44,20 @@ async function main() {
   const resolved = await resolveRegisteredTerritory(db, 'territory.host-cli');
   assert.equal(resolved.id, 'territory.host-cli');
   assert.equal(resolved.headSha, 'a'.repeat(40));
+
+  const bridge = bridgeService.createBridge({ db });
+  assert.equal(createResidentRuntime(db).db, db);
+  const unsubscribe = subscribeToSignals(bridge, 'territory.host-cli');
+  signalEventBus.publish({
+    signalType: 'text',
+    signalData: { eventType: 'TERRITORY_COMMIT', headSha: 'b'.repeat(40) }
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const updated = await territoryService.getTerritory(db, { id: 'territory.host-cli' });
+  assert.equal(updated.territory.headSha, 'b'.repeat(40));
+  unsubscribe();
   await db.close();
-  console.log('Daemon host CLI tests passed (registered territory required, no phantom territory).');
+  console.log('Daemon host CLI tests passed (registered territory, signal bus lifecycle).');
 }
 
 main().catch((error) => { console.error(error); process.exit(1); });

@@ -17,6 +17,7 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const territoryService = require('../src/services/daemon/daemonTerritoryService');
 const runtimeService = require('../src/services/daemon/residentDaemonRuntime');
 const eventBridge = require('../src/services/daemon/daemonEventBridgeService');
+const signalEventBus = require('../src/services/signalEventBus');
 
 const SUBSCRIBED_SIGNALS = [
   'TERRITORY_FILE_CHANGED',
@@ -26,6 +27,7 @@ const SUBSCRIBED_SIGNALS = [
 ];
 
 const DEFAULT_FALLBACK_MS = 60000;
+const DEFAULT_HEARTBEAT_MS = 30000;
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -37,19 +39,41 @@ function parseArgs(argv) {
   return out;
 }
 
-function createSignalSubscriptions(bridge, territoryId) {
-  const subs = [];
-  for (const signalType of SUBSCRIBED_SIGNALS) {
-    subs.push({ type: signalType, handle: (payload) => {
-      eventBridge.ingestEvent(bridge, { type: signalType, territoryId, ...(payload || {}) });
-    } });
-  }
-  return subs;
+function eventFromSignal(signal, defaultTerritoryId) {
+  const data = signal && signal.signalData;
+  if (!data || !SUBSCRIBED_SIGNALS.includes(data.eventType)) return null;
+  return {
+    type: data.eventType,
+    territoryId: data.territoryId || defaultTerritoryId,
+    headSha: data.headSha,
+    payload: data.payload || {}
+  };
+}
+
+function createResidentRuntime(db) {
+  return runtimeService.createRuntime(db);
+}
+
+function subscribeToSignals(bridge, territoryId) {
+  const listener = (signal) => {
+    const event = eventFromSignal(signal, territoryId);
+    if (event) eventBridge.ingestEvent(bridge, event).catch(() => {});
+  };
+  signalEventBus.onSignal(listener);
+  return () => signalEventBus.off('signal', listener);
 }
 
 function startFallbackTimer(bridge, territoryId, intervalMs) {
   const timer = setInterval(() => {
     eventBridge.ingestEvent(bridge, { type: 'KNOWLEDGE_STALE', territoryId });
+  }, intervalMs);
+  if (timer.unref) timer.unref();
+  return timer;
+}
+
+function startHeartbeatTimer(runtime, daemonId, intervalMs) {
+  const timer = setInterval(() => {
+    runtimeService.heartbeat(runtime, { daemonId }).catch(() => {});
   }, intervalMs);
   if (timer.unref) timer.unref();
   return timer;
@@ -61,7 +85,9 @@ async function resolveRegisteredTerritory(db, territoryId) {
 }
 
 async function shutdown(ctx) {
+  if (ctx.unsubscribeSignals) ctx.unsubscribeSignals();
   if (ctx.fallbackTimer) clearInterval(ctx.fallbackTimer);
+  if (ctx.heartbeatTimer) clearInterval(ctx.heartbeatTimer);
   await closeDatabase().catch(() => {});
   console.log(`[genos-daemon] ${ctx.daemonId} shutdown complete.`);
 }
@@ -77,7 +103,7 @@ async function main() {
   const territory = await resolveRegisteredTerritory(db, flags.territoryId);
   if (!territory) throw new Error(`Territory ${flags.territoryId} is not registered; register it before starting the daemon.`);
 
-  const runtime = runtimeService.createRuntime({ db });
+  const runtime = createResidentRuntime(db);
   await runtimeService.registerDaemon(runtime, {
     daemonId: flags.daemonId,
     territoryId: flags.territoryId,
@@ -85,10 +111,11 @@ async function main() {
   });
 
   const bridge = eventBridge.createBridge({ db, runtime, daemonId: flags.daemonId });
-  const subscriptions = createSignalSubscriptions(bridge, flags.territoryId);
+  const unsubscribeSignals = subscribeToSignals(bridge, flags.territoryId);
   const fallbackTimer = startFallbackTimer(bridge, flags.territoryId, DEFAULT_FALLBACK_MS);
+  const heartbeatTimer = startHeartbeatTimer(runtime, flags.daemonId, DEFAULT_HEARTBEAT_MS);
 
-  const ctx = { db, runtime, bridge, subscriptions, fallbackTimer, daemonId: flags.daemonId };
+  const ctx = { db, runtime, bridge, unsubscribeSignals, fallbackTimer, heartbeatTimer, daemonId: flags.daemonId };
   console.log(`[genos-daemon] ${flags.daemonId} active on ${flags.territoryId}. Signals: ${SUBSCRIBED_SIGNALS.join(', ')}. Fallback: ${DEFAULT_FALLBACK_MS}ms.`);
 
   const stop = () => { shutdown(ctx).then(() => process.exit(0)).catch(() => process.exit(1)); };
@@ -103,4 +130,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { resolveRegisteredTerritory };
+module.exports = { resolveRegisteredTerritory, createResidentRuntime, eventFromSignal, subscribeToSignals };
