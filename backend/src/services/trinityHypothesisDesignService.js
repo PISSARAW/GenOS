@@ -46,6 +46,7 @@ function normalizeCandidate(candidate, knownSources) {
   const digest = crypto.createHash('sha256').update(hypothesis.toLowerCase()).digest('hex').slice(0, 12);
   return {
     id: String(candidate.id || `hypothesis_${digest}`),
+    origin: candidate.origin === 'model_generated' ? 'model_generated' : 'caller_supplied',
     chamber: CHAMBERS.includes(candidate.chamber) ? candidate.chamber : null,
     hypothesis,
     sourceRefs,
