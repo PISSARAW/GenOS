@@ -14,6 +14,11 @@ const output = path.join(artifactRoot, runId);
 const fixture = path.join(output, 'workspace');
 const missions = suite.tasks.map((task) => task.id);
 const tasksById = new Map(suite.tasks.map((task) => [task.id, task]));
+const sessionProbeByTask = Object.freeze({
+  'topologie-biome': 'topologie-biome',
+  'topologie-syncytium': 'topologie-syncytium',
+  'topologie-rhizome': 'topologie-rhizome'
+});
 const topologyMissions = new Set(missions.filter((name) => name.startsWith('topologie-')));
 const missionVerifiers = {
   'orchestrateur-simple': verifySimpleMission,
@@ -72,12 +77,25 @@ function campaignIdentityFailures(results) {
   return failures;
 }
 
+function hasMissionProvenance(mission) {
+  return Boolean(mission.missionFile) && /^[a-f0-9]{64}$/.test(mission.missionSha256 || '');
+}
+
+function hasValidReceiptDigest(mission) {
+  return mission.receiptObjectSha256 === null || /^[a-f0-9]{64}$/.test(mission.receiptObjectSha256 || '');
+}
+
+function hasExecutionEvidence(mission) {
+  return Array.isArray(mission.workers) && typeof mission.verification?.passed === 'boolean';
+}
+
 function missionEvidenceFailures(mission) {
   const failures = [];
-  if (!mission.missionFile || !/^[a-f0-9]{64}$/.test(mission.missionSha256 || '')) failures.push(`${mission.name}: mission provenance missing`);
-  if (mission.receiptObjectSha256 !== null && !/^[a-f0-9]{64}$/.test(mission.receiptObjectSha256 || '')) failures.push(`${mission.name}: invalid receipt digest`);
-  if (!Array.isArray(mission.workers) || typeof mission.verification?.passed !== 'boolean') failures.push(`${mission.name}: execution evidence incomplete`);
+  if (!hasMissionProvenance(mission)) failures.push(`${mission.name}: mission provenance missing`);
+  if (!hasValidReceiptDigest(mission)) failures.push(`${mission.name}: invalid receipt digest`);
+  if (!hasExecutionEvidence(mission)) failures.push(`${mission.name}: execution evidence incomplete`);
   if (!mission.oracleVerification?.status) failures.push(`${mission.name}: oracle scope missing`);
+  if (!mission.mechanismEvidence?.status) failures.push(`${mission.name}: mechanism evidence scope missing`);
   return failures;
 }
 
@@ -224,6 +242,27 @@ function classifyMissionLifecycle(options) {
   return 'completed_unverified';
 }
 
+function initialMechanismEvidence(task) {
+  const status = task.mechanismProbe?.startsWith('not-instrumented:') ? 'not-instrumented'
+    : task.mechanismProbe ? 'pending' : 'not-applicable';
+  return { probeId: task.mechanismProbe, status, passed: null, receiptFile: null, receiptSha256: null };
+}
+
+function applyMechanismProbeResults(results, probes) {
+  for (const mission of results.missions) {
+    const probeName = sessionProbeByTask[mission.name];
+    if (!probeName) continue;
+    const receipt = probes?.[probeName];
+    mission.mechanismEvidence = {
+      probeId: tasksById.get(mission.name).mechanismProbe,
+      status: receipt?.verified === true ? 'verified' : receipt?.verified === false ? 'failed' : 'missing',
+      passed: receipt?.verified === true,
+      receiptFile: 'session-probes.json',
+      receiptSha256: receipt ? sha256(JSON.stringify(receipt)) : null
+    };
+  }
+}
+
 function getDispatchStatus(receipt, fallback = null) {
   for (const key of ['biologicalMode', 'trinity', 'team']) {
     if (receipt?.[key]?.status) return receipt[key].status;
@@ -248,7 +287,7 @@ async function recordMissionResult({ name, run, db, results }) {
   const verification = verifyMissionExecution({ name, run, receipt, workers, proof });
   const lifecycle = classifyMissionLifecycle({ name, run, receipt, workers, verification });
   results.missions.push({ ...run, missionFile: task.missionFile, missionSha256: missionDigest(name),
-    mechanism: task.mechanism, oracleVerification: { status: task.oracle.status,
+    mechanism: task.mechanism, mechanismEvidence: initialMechanismEvidence(task), oracleVerification: { status: task.oracle.status,
       passed: task.oracle.status === 'independent' ? proof?.verified === true : null },
     receiptObjectSha256: receipt ? sha256(JSON.stringify(receipt)) : null,
     receiptLogFile: `${name}.log`,
@@ -272,6 +311,7 @@ async function finalizeCampaign() {
   const probePath = path.join(output, 'session-probes.json');
   const probeReceipts = probes.exitCode === 0 && fs.existsSync(probePath)
     ? JSON.parse(fs.readFileSync(probePath, 'utf8')) : null;
+  applyMechanismProbeResults(results, probeReceipts);
   results.verification = summarizeVerification(results, probeReceipts);
   if (probes.exitCode !== 0) results.verification.failedSessionProbes.push('session-probe-runner');
   results.completedAt = new Date().toISOString();

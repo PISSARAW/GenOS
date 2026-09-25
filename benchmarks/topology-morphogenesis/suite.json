@@ -18,6 +18,7 @@
       "missionFile": "missions/orchestrateur-simple.json",
       "family": "reference",
       "mechanism": "Chemin simple avec preuve arithmétique exacte.",
+      "mechanismProbe": null,
       "oracle": { "status": "independent", "kind": "deterministic-checker", "verifier": "simpleMissionProof.cjs" },
       "comparisonEligible": true
     },
@@ -26,6 +27,7 @@
       "missionFile": "missions/topologie-trinity.json",
       "family": "topology",
       "mechanism": "Trois mondes isolés, comparaison finale et décision de promotion.",
+      "mechanismProbe": "not-instrumented:world-isolation-comparison",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Supprimer l’isolation ou la comparaison finale."
@@ -35,6 +37,7 @@
       "missionFile": "missions/topologie-a-team.json",
       "family": "topology",
       "mechanism": "Dépendances de travail et intégration des artefacts des spécialistes.",
+      "mechanismProbe": "not-instrumented:artifact-dependency-integration",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Remplacer le DAG par une équipe générique sans dépendances."
@@ -44,6 +47,7 @@
       "missionFile": "missions/topologie-biome.json",
       "family": "topology",
       "mechanism": "Allocation, foraging et réallocation après observation d’état.",
+      "mechanismProbe": "biome-session-probe",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Figer l’allocation et désactiver la réallocation."
@@ -53,6 +57,7 @@
       "missionFile": "missions/topologie-biocenose.json",
       "family": "topology",
       "mechanism": "Contributions distinctes, quorum, désaccord et abstention calibrée.",
+      "mechanismProbe": "not-instrumented:quorum-oracle-comparison",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Désactiver le quorum ou corréler les contributions."
@@ -62,6 +67,7 @@
       "missionFile": "missions/topologie-holobionte.json",
       "family": "topology",
       "mechanism": "Contribution symbiotique persistée et veto lié à une violation vérifiable.",
+      "mechanismProbe": "not-instrumented:symbiont-veto-persistence",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Désactiver le symbiote ou le contrôle immunitaire testé."
@@ -71,6 +77,7 @@
       "missionFile": "missions/topologie-syncytium.json",
       "family": "topology",
       "mechanism": "Mises à jour concurrentes lues depuis un état partagé convergent.",
+      "mechanismProbe": "syncytium-session-probe",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Remplacer l’état partagé par des états locaux isolés."
@@ -80,6 +87,7 @@
       "missionFile": "missions/topologie-rhizome.json",
       "family": "topology",
       "mechanism": "Gap détecté, capacité instanciée et résultat consommé sur le nouveau chemin.",
+      "mechanismProbe": "rhizome-session-probe",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Retirer la croissance du graphe ou son exécuteur."
@@ -89,6 +97,7 @@
       "missionFile": "missions/topologie-metapopulation.json",
       "family": "topology",
       "mechanism": "Perte de capacité, migration ou recolonisation, puis capacité restaurée.",
+      "mechanismProbe": "not-instrumented:capacity-loss-recolonization",
       "oracle": { "status": "missing", "kind": "missing" },
       "comparisonEligible": false,
       "ablation": "Empêcher la migration ou garder la population figée."
@@ -98,6 +107,7 @@
       "missionFile": "missions/morphogenese-plan.json",
       "family": "morphogenesis",
       "mechanism": "Plan candidat, contraintes et motif de sélection consultables.",
+      "mechanismProbe": null,
       "oracle": { "status": "runtime-contract-only", "kind": "runtime-contract" },
       "comparisonEligible": false
     },
@@ -106,6 +116,7 @@
       "missionFile": "missions/morphogenese-shadow.json",
       "family": "morphogenesis",
       "mechanism": "Prévol V2 évalué en shadow sans engagement de transition.",
+      "mechanismProbe": null,
       "oracle": { "status": "runtime-contract-only", "kind": "runtime-contract" },
       "comparisonEligible": false
     },
@@ -114,6 +125,7 @@
       "missionFile": "missions/garde-preuve-negative.json",
       "family": "negative-control",
       "mechanism": "Refus ou escalade quand aucune preuve suffisante n’est fournie.",
+      "mechanismProbe": null,
       "oracle": { "status": "runtime-contract-only", "kind": "gate-refusal" },
       "comparisonEligible": false
     }

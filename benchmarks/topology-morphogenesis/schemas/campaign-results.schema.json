@@ -39,7 +39,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "startedAt", "endedAt", "durationMs", "missionFile", "missionSha256", "oracleVerification", "receiptObjectSha256", "receiptLogFile", "workers", "verification", "lifecycle"],
+        "required": ["name", "startedAt", "endedAt", "durationMs", "missionFile", "missionSha256", "oracleVerification", "mechanismEvidence", "receiptObjectSha256", "receiptLogFile", "workers", "verification", "lifecycle"],
         "properties": {
           "name": { "type": "string" },
           "startedAt": { "type": "string", "format": "date-time" },
@@ -53,6 +53,17 @@
             "properties": {
               "status": { "enum": ["independent", "runtime-contract-only", "missing"] },
               "passed": { "type": ["boolean", "null"] }
+            }
+          },
+          "mechanismEvidence": {
+            "type": "object",
+            "required": ["probeId", "status", "passed", "receiptFile", "receiptSha256"],
+            "properties": {
+              "probeId": { "type": ["string", "null"] },
+              "status": { "enum": ["verified", "failed", "missing", "pending", "not-instrumented", "not-applicable"] },
+              "passed": { "type": ["boolean", "null"] },
+              "receiptFile": { "type": ["string", "null"] },
+              "receiptSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }
             }
           },
           "receiptObjectSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },

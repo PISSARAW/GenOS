@@ -35,12 +35,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "missionFile", "family", "mechanism", "oracle", "comparisonEligible"],
+        "required": ["id", "missionFile", "family", "mechanism", "mechanismProbe", "oracle", "comparisonEligible"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
           "missionFile": { "type": "string", "pattern": "^missions/[a-z0-9-]+\\.json$" },
           "family": { "enum": ["reference", "topology", "morphogenesis", "negative-control"] },
           "mechanism": { "type": "string", "minLength": 1 },
+          "mechanismProbe": { "type": ["string", "null"] },
           "oracle": {
             "type": "object",
             "additionalProperties": false,
