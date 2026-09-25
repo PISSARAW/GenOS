@@ -3,7 +3,7 @@ const strategyExecution = require('./strategyExecutionService');
 const hallucinationMonitor = require('./hallucinationMonitoringService');
 const resilienceService = require('./resilienceService');
 const { extractEvidenceReport, validateDossierInfluence, hasDecisionEvidence } = require('./agentEvidenceService');
-const { validateWorkerArtifact, REQUIRED_FIELDS } = require('./agents/workerArtifactContract');
+const { validateWorkerArtifact } = require('./agents/workerArtifactContract');
 const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agentRoundService');
 const agentRecoveryService = require('./agentRecoveryService');
 const agentConscience = require('./agentConscienceService');
@@ -16,12 +16,16 @@ const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const workerGarage = require('./workerGarageService');
 const { checkNaturalSearchControl, clearSearchState } = require('./search/naturalSearchRuntime');
 
-function applyDomainStateFromEvent(state, event, eventType) {
+function applyDomainStateFromEvent(context) {
+  const { state, event, eventType, workerContract } = context;
   if (eventType === 'EVIDENCE_REPORT') {
     try {
       const report = extractEvidenceReport(event.payload);
       if (report) {
         if (report.outcome === 'success') {
+          if (workerContract?.evidence?.requiredArtifacts?.length) {
+            validateWorkerArtifact({ events: [{ evidenceReport: report }] }, { agentId: event.agentId, workerContract });
+          }
           state.missionDomainState.unverified = false;
           state.missionDomainState.domainVerdict = 'completed';
         } else {
@@ -29,7 +33,12 @@ function applyDomainStateFromEvent(state, event, eventType) {
           state.missionDomainState.domainVerdict = 'failed';
         }
       }
-    } catch (_) {}
+    } catch (error) {
+      state.missionDomainState.hasDomainFailure = true;
+      state.missionDomainState.unverified = false;
+      state.missionDomainState.domainVerdict = 'failed';
+      state.missionDomainState.artifactFailure = error.code || 'INVALID_WORKER_ARTIFACT';
+    }
   }
   if (['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType)) {
     state.missionDomainState.hasDomainFailure = true;
@@ -127,26 +136,26 @@ function checkInteractionDeadlock(ctx, event, finalEvent) {
   return false;
 }
 
-function classifyConscienceEvent(event, eventType, observation) {
+function classifyConscienceEvent(context) {
+  const { event, eventType, observation, workerContract } = context;
   const isHallucinationEvent = Boolean(observation?.monitored && observation?.detected);
   const isErrorEvent = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType)
     || (event.severity === 'error' && !['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType));
   const isSuccessEvent = eventType === 'EVIDENCE_REPORT'
     && event.severity !== 'error'
     && !isHallucinationEvent
-    && hasVerifiedSuccessArtifact(event);
+    && hasVerifiedSuccessArtifact(event, workerContract);
   return { isHallucinationEvent, isErrorEvent, isSuccessEvent };
 }
 
-function hasVerifiedSuccessArtifact(event) {
+function hasVerifiedSuccessArtifact(event, workerContract) {
   const report = extractEvidenceReport(event.payload);
   if (report.outcome !== 'success' || !hasDecisionEvidence(event)) return false;
-  const artifactType = report.workerArtifact?.type;
-  if (!artifactType || !REQUIRED_FIELDS[artifactType]) return false;
+  if (!workerContract?.evidence?.requiredArtifacts?.length) return false;
   try {
     validateWorkerArtifact({ events: [{ evidenceReport: report }] }, {
       agentId: event.agentId || 'runtime-agent',
-      workerContract: { evidence: { requiredArtifacts: [artifactType] } }
+      workerContract
     });
     return true;
   } catch (_) {
@@ -165,9 +174,11 @@ function buildCognitiveHealth(event, isHallucinationEvent) {
 }
 
 async function runConscienceCheck(ctx, event, observation) {
-  const { db, agentId, conscienceState } = ctx;
+  const { db, agentId, conscienceState, normalizedMission } = ctx;
   const eventType = event.eventType;
-  const { isHallucinationEvent, isErrorEvent, isSuccessEvent } = classifyConscienceEvent(event, eventType, observation);
+  const { isHallucinationEvent, isErrorEvent, isSuccessEvent } = classifyConscienceEvent({
+    event, eventType, observation, workerContract: normalizedMission?.workerContract
+  });
   if (isErrorEvent || isHallucinationEvent) {
     const cognitiveHealth = buildCognitiveHealth(event, isHallucinationEvent);
     const evalResult = agentConscience.evaluateBranch(conscienceState, {
@@ -211,7 +222,6 @@ async function processEventQueueImpl(ctx) {
       const decision = await strategyExecution.recordExecutionEvent(db, agentId, currentEvent);
       const eventType = currentEvent.eventType;
       const finalEvent = isFinalEvent(eventType, currentEvent);
-      applyDomainStateFromEvent(state, currentEvent, eventType);
       const observation = await hallucinationMonitor.recordObservation(db, currentEvent);
       if (checkDossierInfluence(ctx, currentEvent, eventType)) continue;
       if (await checkHallucination(ctx, currentEvent, observation)) continue;
@@ -244,6 +254,20 @@ function enqueueStatusUpdate(ctx, event, nextStatus) {
 
 function handleDecodedEvent(ctx, event) {
   const payload = parseEventPayload(event);
+  applyDomainStateFromEvent({
+    state: ctx.state, event: { ...event, payload }, eventType: event.eventType,
+    workerContract: ctx.normalizedMission?.workerContract
+  });
+  const invalidArtifactCompletion = event.eventType === 'AGENT_COMPLETED'
+    && ctx.state.missionDomainState.hasDomainFailure;
+  if (invalidArtifactCompletion) {
+    ctx.state.terminalEventSeen = true;
+    enqueueStatusUpdate(ctx, event, 'failed');
+    ctx.emitTracked('AGENT_FAILED', 'EVIDENCE_GATE', 'Worker completion rejected because its required typed artifact failed validation.', {
+      code: ctx.state.missionDomainState.artifactFailure || 'EVIDENCE_REPORT_NOT_SUCCESS'
+    }, 'error', 'failed');
+    return;
+  }
   const nextStatus = event.status;
   if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN'].includes(event.eventType)) {
     ctx.state.terminalEventSeen = true;

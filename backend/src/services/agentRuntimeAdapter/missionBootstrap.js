@@ -6,6 +6,7 @@ const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } =
 const { validateBudgetCoherence, normalizeMissionBudget, validateShareSum } = require('../budgetCoherenceService');
 const { emit, cancelledStarts } = require('../agentOrchestrationState');
 const { assertCallerMcpConfiguration } = require('../cognitiveExecutor');
+const { withWriteRetry } = require('../../db');
 
 function assertMissionNotCancelled(agentId) {
   if (cancelledStarts.has(agentId)) {
@@ -23,8 +24,25 @@ async function resolveWorkerIdentity(normalizedMission, dispatchedAgent) {
     throw Object.assign(new Error('Dispatched worker kind does not match the persisted worker identity.'), { code: 'WORKER_KIND_MISMATCH' });
   }
   normalizedMission.workerKind = dispatchedAgent.workerKind || requestedKind;
-  normalizedMission.workerContract = workerKinds.buildWorkerContract(normalizedMission.workerKind, normalizedMission);
+  const persistedContract = persistedWorkerContract(dispatchedAgent);
+  if (normalizedMission.workerKind === 'sub_orchestrator' && persistedContract) {
+    if (persistedContract.identity?.parentId !== dispatchedAgent.parent_agent_id) {
+      throw Object.assign(new Error('Persisted sub-orchestrator contract has a different parent.'), { code: 'INVALID_SUBORCHESTRATOR_CONTRACT' });
+    }
+    normalizedMission.workerContract = persistedContract;
+  } else {
+    normalizedMission.workerContract = workerKinds.buildWorkerContract(normalizedMission.workerKind, normalizedMission);
+  }
   require('../agents/workerContractEnforcement').assertRuntimeContract(normalizedMission.workerContract, normalizedMission.workerKind);
+}
+
+function persistedWorkerContract(agent) {
+  try {
+    const metadata = typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {};
+    return metadata.workerContract || null;
+  } catch (_) {
+    throw Object.assign(new Error('Persisted worker metadata is invalid.'), { code: 'INVALID_WORKER_CONTRACT' });
+  }
 }
 
 async function initializeMissionContext(mission) {
@@ -34,7 +52,13 @@ async function initializeMissionContext(mission) {
   assertCallerMcpConfiguration(normalizedMission);
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const executable = configuredExecutable(normalizedMission);
-  const db = await require('../../db').getDatabase();
+  // Workers freshly spawned by a parent orchestrator contend on the same SQLite
+  // file (WAL single-writer). Retry the DB open so the child can bootstrap
+  // without immediately failing on SQLITE_BUSY / SQLITE_MISUSE.
+  const db = await withWriteRetry(
+    () => require('../../db').getDatabase(),
+    { maxRetries: 10, baseDelayMs: 200 }
+  );
   assertMissionNotCancelled(agentId);
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);
   await resolveWorkerIdentity(normalizedMission, dispatchedAgent);

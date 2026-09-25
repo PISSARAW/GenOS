@@ -19,6 +19,9 @@ async function main(rawInput) {
   } catch (e) {
     process.exit(2);
   }
+  mission.workerKind = mission.workerKind || mission.worker_kind;
+  mission.workerContractJson = mission.workerContractJson || mission.worker_contract_json;
+  mission.workerContract = parseJson(mission.workerContractJson);
 
   const prompt = mission.prompt || mission.currentTask || 'No prompt provided';
   const contextStr = buildWorkspaceContext();
@@ -216,13 +219,19 @@ async function runPostPipeline(services, state, reply) {
 }
 
 function emitCompletion(state, reply) {
-  const { buildDossierArtifact } = require('../src/services/agents/workerArtifactContract');
+  const { buildDossierArtifact, buildWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
+  const workerKinds = require('../src/services/agents/workerKindService');
   const modelRef = String(state.mission.localModel || process.env.GENOS_LOCAL_MODEL || process.env.OLLAMA_MODEL || 'local-model');
   const provenance = { source: 'local-codex-runtime', model: modelRef, workspaceRoot: state.workspaceRoot, agentName: state.agentName };
+  const kind = workerKinds.resolveWorkerKind(state.mission.workerKind, state.mission.role);
+  const workerArtifact = state.mission.executionMode === 'worker'
+    ? buildWorkerArtifact(kind, reply, provenance)
+    : buildDossierArtifact(reply, provenance);
+  if (!workerArtifact) throw new Error(`Local model did not return a valid '${workerKinds.kindDefinition(kind).artifact}' artifact.`);
   const report = {
     outcome: 'success',
     claims: [{ statement: reply, evidence: [state.selfIntro] }],
-    workerArtifact: buildDossierArtifact(reply, provenance),
+    workerArtifact,
     author: { name: state.agentName, meaning: state.nameMeaning, role: state.mission.role || 'Assistant IA de développement' }
   };
   emitEvent(state, {
@@ -279,6 +288,23 @@ async function loadMemoryBlock(agentMemory, state) {
 }
 
 function buildFramedPrompt(state) {
+  if (state.mission.executionMode !== 'worker') {
+    return buildUncontractedPrompt(state);
+  }
+  const workerKinds = require('../src/services/agents/workerKindService');
+  const kind = workerKinds.resolveWorkerKind(state.mission.workerKind, state.mission.role);
+  const contract = state.mission.workerContract || workerKinds.buildWorkerContract(kind, {
+    prompt: state.prompt, scope: state.workspaceRoot,
+    orchestratorAgentId: state.mission.orchestratorAgentId
+  });
+  const evidenceRule = workerKinds.evidenceRule(contract);
+  const instruction = evidenceRule
+    ? `CONTRAT DE PREUVE OBLIGATOIRE : ${evidenceRule}\nPour un artefact spécialisé, réponds par un objet JSON valide avec les champs requis.\n\n`
+    : '';
+  return buildUncontractedPrompt(state, instruction);
+}
+
+function buildUncontractedPrompt(state, evidenceInstruction = '') {
   return `${state.selfIntro} Tu as un accès TOTAL et DIRECT au "site" ou "projet" dont parle l'utilisateur, car il s'agit du code source local fourni ci-dessous.
 RÈGLE ABSOLUE : Tu ne dois SOUS AUCUN PRÉTEXTE t'excuser, dire que tu es une IA générique, ou affirmer que tu n'as pas accès à internet. Tu incarnes ton rôle et ton identité (${state.agentName}). Tu AS déjà accès au site via les fichiers.
 Si l'utilisateur te demande d'"explorer" ou d'"analyser" le site, réponds IMMÉDIATEMENT en te basant sur le contexte ci-dessous, sans aucune phrase d'avertissement.
@@ -288,7 +314,7 @@ ${state.conscienceBlock}
 ${state.memoryBlock}${state.strategyContext}IMPORTANT / ARTÉFACTS OBLIGATOIRES: Si tu dois créer ou modifier un fichier, générer un document long, ou un plan d'implémentation, tu DOIS obligatoirement l'encadrer avec les balises \`[ARTIFACT: chemin/vers/fichier.ext]\` au début et \`[/ARTIFACT]\` à la fin. Ne mets pas ce contenu dans le chat standard et n'utilise pas de blocs de code pour cela.
 PLANS D'ACTION: Lorsque tu proposes un plan d'action, tu dois SYSTÉMATIQUEMENT utiliser des listes de tâches Markdown (\`- [ ]\`).
 
-${state.contextStr}Requête de l'utilisateur : ${state.prompt}`;
+${state.contextStr}${evidenceInstruction}Requête de l'utilisateur : ${state.prompt}`;
 }
 
 function resolveAgentIdentity(mission, agentIdentity) {

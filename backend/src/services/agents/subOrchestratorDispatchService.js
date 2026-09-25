@@ -3,6 +3,8 @@
 const ALLOWED_CHILD_KINDS = new Set(['scout_cell', 'bounded_worker', 'adaptive_worker', 'verifier_worker']);
 const MAX_CHILDREN = 5;
 const MAX_CHILD_TOKENS = 10000;
+const CHILD_TIMEOUT_MS = 60000;
+const CHILD_TERMINAL_STATES = new Set(['completed', 'failed', 'error', 'terminated', 'blocked', 'unverified', 'quarantined']);
 
 function parseMetadata(row) {
   try { return typeof row.metadata_json === 'string' ? JSON.parse(row.metadata_json) : row.metadata_json || {}; }
@@ -51,24 +53,73 @@ function workerPlan(parent, assignment) {
 
 async function createChild(db, parent, args) {
   const assignment = childAssignment(args);
-  await ensureCapacity(db, parent.id);
   const fleet = require('../agentFleetWorkers');
+  const { withTransaction } = require('../../db');
   const mission = {
     prompt: String(args.mission).trim().slice(0, 12000), executor: 'local',
     workspaceRoot: (await db.get('SELECT path FROM workspaces WHERE id = ?', parent.workspace_id))?.path,
     executionPolicy: { allowFileEdits: false }, executionBudget: { events: 100 }
   };
-  const workers = await fleet.createAutonomousWorkers(db, { id: parent.id, agent_type: parent.agent_type }, {
-    plan: workerPlan(parent, assignment), mission
+  const workers = await withTransaction(db, async () => {
+    await ensureCapacity(db, parent.id);
+    return fleet.createAutonomousWorkers(db, { id: parent.id, agent_type: parent.agent_type }, {
+      plan: workerPlan(parent, assignment), mission
+    });
   });
   return { child: workers[0], mission };
 }
 
-async function superviseChild(child, mission, parentAgentId) {
+async function childOutcome(db, childId) {
+  const agent = await db.get('SELECT id, status, metadata_json FROM agents WHERE id = ?', childId);
+  if (!agent || !CHILD_TERMINAL_STATES.has(agent.status)) return null;
+  if (agent.status !== 'completed') return failedChild(agent.status, 'CHILD_NOT_COMPLETED');
+  return validateChildEvidence(db, agent);
+}
+
+function failedChild(childStatus, code) {
+  return { status: 'failed', childStatus, success: false, code };
+}
+
+async function validateChildEvidence(db, agent) {
+  const { id: childId, metadata_json: metadataJson, status } = agent;
+  const metadata = parseMetadata({ metadata_json: metadataJson });
+  const event = await db.get("SELECT payload_json FROM telemetry_events WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 1", childId);
+  if (!event) return failedChild(status, 'MISSING_EVIDENCE_REPORT');
+  const payload = parseJson(event.payload_json);
+  const report = require('../agentEvidenceService').extractEvidenceReport(payload);
+  try {
+    require('./workerArtifactContract').validateWorkerArtifact({ events: [{ evidenceReport: report }] }, {
+      agentId: childId, workerContract: metadata.workerContract
+    });
+  } catch (error) {
+    return failedChild(status, error.code || 'INVALID_WORKER_ARTIFACT');
+  }
+  if (report.outcome !== 'success') return failedChild(status, 'CHILD_REPORT_NOT_SUCCESS');
+  return { status, success: true, evidenceReport: report };
+}
+
+function parseJson(value) {
+  try { return JSON.parse(value || '{}'); } catch (_) { return {}; }
+}
+
+async function waitForChild(db, childId) {
+  const deadline = Date.now() + CHILD_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const outcome = await childOutcome(db, childId);
+    if (outcome) return outcome;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return { status: 'timeout', success: false, code: 'SUBORCHESTRATOR_CHILD_TIMEOUT' };
+}
+
+async function superviseChild(context) {
+  const { db, child, mission, parentAgentId } = context;
   const { startMission } = require('../agentRuntimeAdapter');
   try {
-    const result = await startMission({ ...mission, executionBudget: { ...mission.executionBudget, ...child.executionBudget }, agentId: child.agentId, role: child.role, workerKind: child.workerKind, orchestratorAgentId: parentAgentId, workspaceId: child.workspaceId });
-    return { status: 'completed', result };
+    await startMission({ ...mission, executionBudget: { ...mission.executionBudget, ...child.executionBudget }, agentId: child.agentId, role: child.role, workerKind: child.workerKind, orchestratorAgentId: parentAgentId, workspaceId: child.workspaceId });
+    const outcome = await waitForChild(db, child.agentId);
+    if (outcome.status === 'timeout') await require('../agentRuntimeAdapter').stopMission(child.agentId);
+    return outcome;
   } catch (error) {
     return { status: 'failed', error: { code: error.code || 'CHILD_MISSION_FAILED', message: error.message } };
   }
@@ -77,8 +128,8 @@ async function superviseChild(child, mission, parentAgentId) {
 async function dispatchSubOrchestratorWorker(db, callerAgentId, args) {
   const parent = await loadAuthorizedParent(db, callerAgentId);
   const { child, mission } = await createChild(db, parent, args);
-  const supervision = await superviseChild(child, mission, parent.id);
+  const supervision = await superviseChild({ db, child, mission, parentAgentId: parent.id });
   return { configured: true, success: supervision.status === 'completed', status: supervision.status, transport: 'worker_dispatch', parentAgentId: parent.id, childAgentId: child.agentId, supervision };
 }
 
-module.exports = { dispatchSubOrchestratorWorker, loadAuthorizedParent, childAssignment, MAX_CHILDREN, MAX_CHILD_TOKENS };
+module.exports = { dispatchSubOrchestratorWorker, loadAuthorizedParent, childAssignment, MAX_CHILDREN, MAX_CHILD_TOKENS, CHILD_TIMEOUT_MS };

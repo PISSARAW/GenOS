@@ -38,16 +38,23 @@ async function verifyDispatchSupervision() {
     return [{ agentId: 'child-1', role: 'bounded_worker', workerKind: 'bounded_worker', workspaceId: 'ws-1', executionBudget: { tokens: 5000 } }];
   };
   runtime.startMission = async (request) => { startRequest = request; return { success: true, artifact: 'dossier' }; };
+  const childContract = { identity: { workerKind: 'bounded_worker' }, evidence: { requiredArtifacts: ['dossier'] } };
   const db = { get: async (sql) => {
     if (sql.includes('COUNT(*)')) return { count: 0 };
     if (sql.includes('FROM workspaces')) return { path: 'C:/workspace' };
+    if (sql.includes('telemetry_events')) return { payload_json: JSON.stringify({ evidenceReport: {
+      outcome: 'success', claims: [{ statement: 'claim', evidence: ['source'] }],
+      workerArtifact: { type: 'dossier', content: { claims: [{ statement: 'claim', evidence: ['source'] }] }, provenance: { source: 'runtime' } }
+    } }) };
+    if (sql.includes('SELECT id, status, metadata_json')) return { id: 'child-1', status: 'completed', metadata_json: JSON.stringify({ workerContract: childContract }) };
     return { id: 'sub-1', role: 'sub_orchestrator', agent_type: 'GenOS', workspace_id: 'ws-1', cognitive_budget: 5000, execution_mode: 'worker', metadata_json: metadata() };
   } };
   try {
     const result = await dispatchSubOrchestratorWorker(db, 'sub-1', { mission: 'Review a bounded change.' });
     assert.equal(result.status, 'completed');
     assert.equal(result.childAgentId, 'child-1');
-    assert.equal(result.supervision.result.artifact, 'dossier');
+    assert.equal(result.supervision.success, true);
+    assert.equal(result.supervision.evidenceReport.workerArtifact.type, 'dossier');
     assert.equal(startRequest.orchestratorAgentId, 'sub-1');
     assert.equal(startRequest.executionBudget.tokens, 5000);
   } finally {

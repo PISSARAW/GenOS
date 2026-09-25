@@ -15,17 +15,8 @@ const { buildWorkerSelf, formatWorkerSelfPrompt } = require('./workerSelfService
 const { advanceAutonomousRound } = require('./agentRoundService');
 const agentRecoveryService = require('./agentRecoveryService');
 const { scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
-
-function isCodeWorkerRole(role) {
-  if (!role) return false;
-  if (/implementation|coder|developer/i.test(role)) return true;
-  return false;
-}
-
-function isCodeWorkerMission(mission) {
-  if (process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS !== '1') return false;
-  return isCodeWorkerRole(mission.role);
-}
+const localEvidenceArtifact = require('./workerEvidenceLocalArtifact');
+const localEvidencePrompt = require('./workerEvidenceLocalPrompt');
 
 function estimatePromptTokens(prompt) {
   return Math.ceil(Buffer.byteLength(String(prompt), 'utf8') / 4);
@@ -70,13 +61,6 @@ function isOrchestratorMission(mission) {
   if (mission.execution_mode === 'orchestrator') return true;
   if (/orchestrator/i.test(mission.agentId)) return true;
   return false;
-}
-
-function buildAnalysisPrompt(ctx) {
-  const ws = ctx.workerSelfBlock ? ctx.workerSelfBlock + '\n' : '';
-  if (ctx.codeWorker) return ctx.selfIntro + '\n' + ws + ctx.conscienceBlock + '\nYou are a bounded GenOS local code worker (' + ctx.agentName + '). Return only strict JSON. Branch mission:\n' + ctx.prompt;
-  if (ctx.orchestrator) return ctx.selfIntro + '\n' + ws + ctx.conscienceBlock + '\nYou are a GenOS orchestrator (' + ctx.agentName + '). Mission:\n' + ctx.prompt;
-  return ctx.selfIntro + '\n' + ws + ctx.conscienceBlock + '\nYou are a bounded GenOS local worker (' + ctx.agentName + '). Analyse this assigned branch. Branch mission:\n' + ctx.prompt;
 }
 
 function resolveMaxTokens(budget, estimate) {
@@ -266,7 +250,7 @@ async function emitLocalCompleted(ctx) {
 }
 
 async function runGenerationStage(ctx) {
-  const codeWorker = isCodeWorkerMission(ctx.mission);
+  const codeWorker = localEvidencePrompt.isCodeWorkerMission(ctx.mission);
   const estimate = estimatePromptTokens(ctx.mission.prompt);
   const budget = resolveTokenBudget(ctx.mission);
   throwIfPromptOverBudget(estimate, budget);
@@ -278,14 +262,22 @@ async function runGenerationStage(ctx) {
   const workerModel = resolveWorkerModel(ctx.mission);
   let wsBlock = '';
   try { wsBlock = formatWorkerSelfPrompt(await buildWorkerSelf(ctx.db, { agentId: ctx.mission.agentId, workerRole: ctx.mission.role || 'worker', workerContext: { mission: ctx.mission.prompt } })); } catch (_) {}
-  const promptText = buildAnalysisPrompt({
+  const workerKinds = require('./agents/workerKindService');
+  const kind = workerKinds.resolveWorkerKind(ctx.mission.workerKind, ctx.mission.role);
+  const workerContract = ctx.mission.workerContract || workerKinds.buildWorkerContract(kind, {
+    prompt: ctx.mission.prompt, scope: ctx.mission.workspaceRoot,
+    orchestratorAgentId: ctx.mission.orchestratorAgentId
+  });
+  const promptText = localEvidencePrompt.buildAnalysisPrompt({
     codeWorker: codeWorker,
     orchestrator: isOrchestratorMission(ctx.mission),
     selfIntro: selfIntro,
     conscienceBlock: conscienceBlock,
     agentName: agentName,
     prompt: ctx.mission.prompt,
-    workerSelfBlock: wsBlock
+    workerSelfBlock: wsBlock,
+    workerInstruction: `Worker kind: ${kind}. ${workerKinds.promptRule(kind)}`,
+    evidenceRule: workerKinds.evidenceRule(workerContract)
   });
   const result = await generateWorkerResult({
     db: ctx.db,
@@ -309,6 +301,8 @@ async function runEvidenceStage(ctx) {
   throwIfImmuneRejected(immuneReport);
   const evidenceReport = immuneReport.report;
   attachProposalTests(evidenceReport, proposal);
+  localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
+  localEvidenceArtifact.attachWorkerArtifact(evidenceReport, ctx);
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);

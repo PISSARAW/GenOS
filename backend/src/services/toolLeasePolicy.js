@@ -193,6 +193,7 @@ function roleInAllowList(role, allowList) {
 
 function workerLeaseForRole(role) {
   const lease = [...WORKER_BASE_LEASE];
+  if (normalizeRole(role) === 'sub_orchestrator') lease.push('genos_delegate_worker');
   const review = roleInAllowList(role, REVIEWER_ROLE_ALLOW_LIST);
   const observe = roleInAllowList(role, OBSERVER_ROLE_ALLOW_LIST);
   if (review || observe) lease.push('genos_adversarial_review');

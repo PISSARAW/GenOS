@@ -5,6 +5,9 @@ const workerKinds = require('../src/services/agents/workerKindService');
 const enforcement = require('../src/services/agents/workerContractEnforcement');
 const { buildWorkerMission } = require('../src/services/orchestratorDispatchService');
 const { validateWorkerDossiers } = require('../src/services/agentEvidenceService');
+const leasePolicy = require('../src/services/toolLeasePolicy');
+const { classifyConscienceEvent, applyDomainStateFromEvent } = require('../src/services/agentProcessEventPipeline');
+const { buildWorkerArtifact } = require('../src/services/agents/workerArtifactContract');
 
 const CONTENT = {
   scout_observation: { observations: ['found'] },
@@ -34,6 +37,9 @@ for (const kind of Object.keys(workerKinds.KINDS)) {
   const contract = mission.workerContract;
   const required = contract.evidence.requiredArtifacts[0];
   const wrongType = required === 'creative_candidate' ? 'dossier' : 'creative_candidate';
+  const artifactReply = required === 'dossier' ? 'grounded claim' : JSON.stringify({ type: required, content: CONTENT[required] });
+  assert.equal(buildWorkerArtifact(kind, artifactReply, { source: 'runtime', model: 'fixture' })?.type, required);
+  if (required !== 'dossier') assert.equal(buildWorkerArtifact(kind, 'unstructured response', { source: 'runtime' }), null);
   assert.match(mission.prompt, new RegExp(workerKinds.promptRule(kind).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(mission.prompt, new RegExp(`type must be ${required}`));
   assert.match(mission.prompt, new RegExp(scenario));
@@ -44,6 +50,16 @@ for (const kind of Object.keys(workerKinds.KINDS)) {
     { code: 'INVALID_WORKER_ARTIFACT' }
   );
 }
+
+const specialized = workerKinds.buildWorkerContract('formal_worker');
+const genericSuccess = { eventType: 'EVIDENCE_REPORT', severity: 'info', payload: {
+  outcome: 'success', claims: [{ statement: 'claim', evidence: ['source'] }],
+  workerArtifact: { type: 'dossier', content: CONTENT.dossier, provenance: { source: 'runtime' } }
+} };
+assert.equal(classifyConscienceEvent({ event: genericSuccess, eventType: 'EVIDENCE_REPORT', workerContract: specialized }).isSuccessEvent, false);
+const state = { missionDomainState: { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' } };
+applyDomainStateFromEvent({ state, event: genericSuccess, eventType: 'EVIDENCE_REPORT', workerContract: specialized });
+assert.equal(state.missionDomainState.domainVerdict, 'failed');
 
 function missionScenario(kind) {
   const scenarios = {
@@ -75,6 +91,11 @@ assert.equal(nested.authority.spawn, false);
 assert.equal(nested.authority.delegate, false);
 assert.equal(nested.spawnBudget, 0);
 assert.throws(() => enforcement.assertRuntimeContract({ ...nested, authority: { ...nested.authority, spawn: true } }, 'sub_orchestrator'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
+const delegated = workerKinds.grantBoundedDelegation(workerKinds.buildWorkerContract('sub_orchestrator'));
+assert.equal(enforcement.assertRuntimeContract(delegated, 'sub_orchestrator'), true);
+assert.throws(() => enforcement.assertRuntimeContract({ ...delegated, delegationExpiresAt: Date.now() - 1 }, 'sub_orchestrator'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
+assert(leasePolicy.workerLeaseForRole('sub_orchestrator').includes('genos_delegate_worker'));
+assert(!leasePolicy.workerLeaseForRole('bounded_worker').includes('genos_delegate_worker'));
 assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('verifier_worker'), 'genos_merge'), { code: 'WORKER_CONTRACT_DENIED' });
 assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('creative_worker'), 'genos_search_failures'), { code: 'WORKER_CONTRACT_DENIED' });
 assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('bounded_worker'), 'genos_search_failures'), true);

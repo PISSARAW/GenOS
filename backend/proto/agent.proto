@@ -39,6 +39,8 @@ message AgentMission {
   // Dynamic capability contract and manifest for capability-aware dispatch.
   repeated string capabilities = 27;
   string capability_manifest_json = 28;
+  string worker_kind = 29;
+  string worker_contract_json = 30;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }

@@ -78,6 +78,22 @@ function buildDossierArtifact(reply, provenance) {
   };
 }
 
+function parseArtifactReply(reply) {
+  const text = String(reply || '').trim();
+  const fenced = text.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const candidate = fenced ? fenced[1] : text;
+  try { return JSON.parse(candidate); } catch (_) { return null; }
+}
+
+function buildWorkerArtifact(kind, reply, provenance) {
+  const expected = require('./workerKindService').kindDefinition(kind).artifact;
+  if (expected === 'dossier') return buildDossierArtifact(reply, provenance);
+  const parsed = parseArtifactReply(reply);
+  if (!parsed || parsed.type !== expected || !parsed.content || typeof parsed.content !== 'object') return null;
+  if (!contentIsValid(expected, parsed.content)) return null;
+  return { type: expected, content: parsed.content, provenance: provenance || {} };
+}
+
 function validateWorkerArtifact(dossier, worker) {
   const required = worker.workerContract?.evidence?.requiredArtifacts || [];
   if (!required.length) return true;
@@ -94,4 +110,4 @@ function validateWorkerArtifact(dossier, worker) {
   return true;
 }
 
-module.exports = { REQUIRED_FIELDS, artifactInstruction, validateWorkerArtifact, buildDossierArtifact };
+module.exports = { REQUIRED_FIELDS, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact };

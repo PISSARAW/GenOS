@@ -48,10 +48,32 @@ function assertRuntimeContract(contract, kind) {
   if (!contract || contract.version !== 1 || contract.identity?.workerKind !== kind) {
     throw Object.assign(new Error('Worker runtime contract identity is invalid.'), { code: 'INVALID_WORKER_CONTRACT' });
   }
+  assertNoUnsupportedDelegation(contract, kind);
+  if (kind === 'sub_orchestrator' && !validSubOrchestratorContract(contract)) {
+    throw Object.assign(new Error('Sub-orchestrator delegation contract is missing, expired, or outside its limits.'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
+  }
+  return true;
+}
+
+function assertNoUnsupportedDelegation(contract, kind) {
+  if (kind === 'sub_orchestrator') return;
   if (contract.authority?.spawn || contract.authority?.delegate || contract.spawnBudget || contract.delegationDepth) {
     throw Object.assign(new Error('Node worker dispatch does not support nested spawn or delegation.'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
   }
-  return true;
+}
+
+function validSubOrchestratorContract(contract) {
+  if (delegationIsDisabled(contract)) return true;
+  return contract.authority?.spawn === true && contract.authority?.delegate === true
+    && contract.spawnBudget >= 1 && contract.spawnBudget <= 5
+    && contract.delegationDepth === 1 && contract.limits?.maxChildren === contract.spawnBudget
+    && contract.limits?.maxTokens <= 10000 && Number.isFinite(contract.delegationExpiresAt)
+    && Date.now() < contract.delegationExpiresAt;
+}
+
+function delegationIsDisabled(contract) {
+  return contract.authority?.spawn !== true && contract.authority?.delegate !== true
+    && contract.spawnBudget === 0 && contract.delegationDepth === 0;
 }
 
 module.exports = { AUTHORITY_TOOLS, toolAction, assertWorkerToolAllowed, enforcePersistedWorkerTool, assertRuntimeContract };

@@ -113,6 +113,17 @@ function buildWorkerContract(kind, mission = {}) {
   };
 }
 
+function grantBoundedDelegation(contract) {
+  if (contract.identity?.workerKind !== 'sub_orchestrator') return contract;
+  contract.authority.spawn = true;
+  contract.authority.delegate = true;
+  contract.spawnBudget = 5;
+  contract.delegationDepth = 1;
+  contract.delegationExpiresAt = Date.now() + 3600000;
+  contract.limits = { ...contract.limits, maxChildren: 5, maxTokens: 10000 };
+  return contract;
+}
+
 function promptRule(kind) {
   return PROMPT_RULES[resolveWorkerKind(kind)];
 }
@@ -121,4 +132,4 @@ function evidenceRule(contract) {
   return artifactInstruction(contract);
 }
 
-module.exports = { KINDS, ROLE_ALIASES, PROMPT_RULES, AUTHORITY_OVERRIDES, normalize, resolveWorkerKind, kindDefinition, applyAuthorityOverrides, buildWorkerContract, promptRule, evidenceRule };
+module.exports = { KINDS, ROLE_ALIASES, PROMPT_RULES, AUTHORITY_OVERRIDES, normalize, resolveWorkerKind, kindDefinition, applyAuthorityOverrides, buildWorkerContract, grantBoundedDelegation, promptRule, evidenceRule };

@@ -206,6 +206,8 @@ function buildMissionEnvelope(ctx, identity, runtimeStrategyContract) {
     localRoutingPolicyJson: JSON.stringify(normalizedMission.localRoutingPolicy || {}),
     capabilities: normalizedMission.capabilities || [],
     capabilityManifestJson: normalizedMission.capabilityManifestJson || null,
+    workerKind: normalizedMission.workerKind || '',
+    workerContractJson: JSON.stringify(normalizedMission.workerContract || {}),
   };
 }
 

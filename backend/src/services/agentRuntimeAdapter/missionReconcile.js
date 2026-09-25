@@ -2,9 +2,23 @@ const { getDatabase } = require('../../db');
 const { activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingWorkerRecoveries, pendingContinuations, emit, updateAgent, orchestratorToolLease } = require('../agentOrchestrationState');
 const { processMatches, terminateChild } = require('../processTermination');
 
+async function markRuntimeTerminated(db, row, error = null) {
+  const { id, runtime_pid, runtime_executable } = row;
+  const updated = await db.run(
+    `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running' AND runtime_pid = ? AND runtime_executable = ?`,
+    id, runtime_pid, runtime_executable
+  );
+  if (!updated.changes) return 0;
+  const detail = error
+    ? `Persisted runtime ${runtime_pid} for agent ${id} was confirmed dead; marked terminated.`
+    : `Persisted runtime ${runtime_pid} did not match its recorded executable; marked terminated.`;
+  emit(id, 'RUNTIME_RECONCILED', 'RECONCILE', detail, { runtime_pid, runtime_executable, ...(error ? { error: error.message } : {}) }, error ? 'info' : 'warning');
+  return 1;
+}
+
 async function reconcilePersistedRuntimeRow(db, row) {
   const { id, status, runtime_pid, runtime_executable } = row;
-  if (!runtime_pid) return 0;
+  if (!runtime_pid || status !== 'running') return 0;
   // Vérifie d'abord que le PID existe toujours (signal 0 ne tue pas le process),
   // puis vérifie que le PID correspond bien à l'exécutable GenOS enregistré.
   // Un PID recyclé par le système aurait un exécutable différent → faux positif évité.
@@ -13,26 +27,10 @@ async function reconcilePersistedRuntimeRow(db, row) {
     // processMatches retourne false si l'exécutable est inconnu ou ne correspond pas
     // → dans ce cas, le PID existe mais n'est pas le nôtre → marquer terminé
     if (processMatches(runtime_pid, runtime_executable)) return 0;
-    const updated = await db.run(
-      `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      id
-    );
-    if (updated.changes) {
-      emit(id, 'RUNTIME_RECONCILED', 'RECONCILE', `Persisted runtime ${runtime_pid} did not match its recorded executable; marked terminated.`, { runtime_pid, runtime_executable }, 'warning');
-      return 1;
-    }
-    return 0;
+    return markRuntimeTerminated(db, row);
   } catch (err) {
-    // PID inaccessible (processus mort ou privilèges insuffisants) → supposer terminé
-    const updated = await db.run(
-      `UPDATE agents SET status = 'terminated', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-      id
-    );
-    if (updated.changes) {
-      emit(id, 'RUNTIME_RECONCILED', 'RECONCILE', `Persisted runtime ${runtime_pid} for agent ${id} was dead or unreachable; marked terminated.`, { runtime_pid, runtime_executable, error: err.message }, 'info');
-      return 1;
-    }
-    return 0;
+    if (err.code !== 'ESRCH') return 0;
+    return markRuntimeTerminated(db, row, err);
   }
 }
 
@@ -101,7 +99,7 @@ async function reconcileDeadOrchestratorChildren(db) {
 }
 
 async function reconcilePersistedRuntimes(db) {
-  const rows = await db.all("SELECT id, status, runtime_pid, runtime_executable FROM agents WHERE status != 'terminated' AND runtime_pid IS NOT NULL");
+  const rows = await db.all("SELECT id, status, runtime_pid, runtime_executable FROM agents WHERE status = 'running' AND runtime_pid IS NOT NULL");
   let reconciled = 0;
   for (const row of rows) {
     reconciled += await reconcilePersistedRuntimeRow(db, row);
