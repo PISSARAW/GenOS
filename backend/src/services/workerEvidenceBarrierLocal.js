@@ -67,16 +67,15 @@ function resolveMaxTokens(budget, estimate) {
   if (budget <= 0) return undefined;
   return budget - estimate;
 }
-
 function resolveMaxCost(mission) {
   if (!mission.executionBudget) return undefined;
   const value = Number(mission.executionBudget.costUsd);
   if (Number.isFinite(value)) return value;
   return undefined;
 }
-
 async function generateWorkerResult(ctx) {
-  return modelRouter.generate({
+  const startedAt = Date.now();
+  try { return await modelRouter.generate({
     db: ctx.db,
     agentId: ctx.mission.agentId,
     model: ctx.workerModel,
@@ -86,7 +85,7 @@ async function generateWorkerResult(ctx) {
     maxCostUsd: ctx.maxCost,
     policy: ctx.policy,
     prompt: ctx.promptText
-  });
+  }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }
 }
 
 function consumedTokensOf(result) {
@@ -117,12 +116,14 @@ function resolveImmuneReport(ctx) {
   });
 }
 
-function throwIfImmuneRejected(report) {
+function throwIfImmuneRejected(report, outputText) {
   if (report.ok) return;
   const message = report.error;
   let detail = 'Local worker did not return a repairable evidence report.';
   if (message) detail = message;
-  throw Object.assign(new Error(detail), { code: 'IMMUNE_OUTPUT_REJECTED', painSignal: report.painSignal });
+  const text = String(outputText || '');
+  const reason = text.trim() ? 'response.unrepairable_json' : 'response.absent';
+  throw Object.assign(new Error(detail), { code: 'IMMUNE_OUTPUT_REJECTED', painSignal: report.painSignal, workerArtifactDiagnostics: { issues: [reason], outputExcerpt: text.slice(0, 2048) } });
 }
 
 function attachProposalTests(evidenceReport, proposal) {
@@ -159,24 +160,21 @@ function assertClaimsHaveEvidence(evidenceReport) {
     throw new Error('Local worker evidence report contains claims without evidence.');
   }
 }
-
 function resolvePolicy(mission, workerModel) {
   if (mission.localRoutingPolicy) return mission.localRoutingPolicy;
   return { primary: workerModel, preferLocal: true };
 }
-
 function resolveLatency(mission) {
-  if (!mission.executionBudget) return 30000;
-  if (mission.executionBudget.latencyMs === undefined) return 30000;
-  if (mission.executionBudget.latencyMs === null) return 30000;
-  return Number(mission.executionBudget.latencyMs);
+  const budget = Number(mission.executionBudget?.latencyMs);
+  const missionTimeout = Number(mission.timeoutMs);
+  const configured = Number.isFinite(budget) && budget > 0 ? budget : missionTimeout;
+  return Number.isFinite(configured) && configured > 0 ? Math.min(configured, 900000) : 30000;
 }
 async function emitLocalStarted(ctx) {
   const started = emit(ctx.mission.agentId, 'LOCAL_WORKER_STARTED', 'LOCAL_MODEL', 'Started local-model worker.', { model: ctx.localModel, criteria: ctx.criteria }, 'info', 'running');
   await strategyExecution.recordExecutionEvent(ctx.db, ctx.mission.agentId, started);
   return started;
 }
-
 function reportMilestone(mission, event) {
   const milestone = userProgress.milestoneFromEvent(event, { agentId: mission.agentId, agentName: mission.name, task: mission.prompt });
   if (!milestone) return;
@@ -189,7 +187,6 @@ function reportMilestone(mission, event) {
   userProgress.report({ orchestratorId: orchestratorId, sourceAgentId: mission.agentId, silent: silent });
   void milestone;
 }
-
 function maybeEmitDecisionBlocked(mission, event) {
   const evidence = require('./agentEvidenceService');
   if (evidence.hasDecisionEvidence(event)) return null;
@@ -200,7 +197,6 @@ function maybeEmitDecisionBlocked(mission, event) {
   }, 'warning', 'blocked');
   return null;
 }
-
 function maybeExecuteDecision(mission, event) {
   const evidence = require('./agentEvidenceService');
   if (evidence.hasDecisionEvidence(event) === false) return;
@@ -213,7 +209,6 @@ function maybeExecuteDecision(mission, event) {
   emit(ownerId, 'ORCHESTRATION_DECISION_GATE', decision.action, decision.reason, { gateId: gateId, sourceAgentId: mission.agentId, sourceEvent: event.eventType }, 'info');
   actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: mission.agentId, decision: decision, event: event, workspaceRoot: mission.workspaceRoot }).catch(() => undefined);
 }
-
 async function publishLocalSuccess(ctx) {
   const { recordWorkerEvidence } = require('./agentEvidenceService');
   recordWorkerEvidence(ctx.mission, ctx.event);
@@ -225,7 +220,6 @@ async function publishLocalSuccess(ctx) {
   await scheduleWorkspaceCleanup(ctx.mission.agentId);
   require('./agentDnaInnovation').captureFromSuccess({ db: ctx.db, mission: ctx.mission, event: ctx.event }).catch(() => undefined);
 }
-
 async function emitLocalCompleted(ctx) {
   await updateAgent(ctx.mission.agentId, 'completed', ctx.statusText);
   const completed = emit(
@@ -240,7 +234,8 @@ async function emitLocalCompleted(ctx) {
       evidenceReport: ctx.evidenceReport,
       noAnswerProof: ctx.noAnswerProof,
       proposal: ctx.proposal,
-      usage: ctx.usage
+      usage: ctx.usage,
+      stageTimings: ctx.stageTimings
     },
     'info',
     'completed'
@@ -250,6 +245,7 @@ async function emitLocalCompleted(ctx) {
 }
 
 async function runGenerationStage(ctx) {
+  const promptStartedAt = Date.now();
   const codeWorker = localEvidencePrompt.isCodeWorkerMission(ctx.mission);
   const estimate = estimatePromptTokens(ctx.mission.prompt);
   const budget = resolveTokenBudget(ctx.mission);
@@ -279,6 +275,7 @@ async function runGenerationStage(ctx) {
     workerInstruction: `Worker kind: ${kind}. ${workerKinds.promptRule(kind)}`,
     evidenceRule: workerKinds.evidenceRule(workerContract)
   });
+  ctx.stageTimings.promptPreparationMs = Date.now() - promptStartedAt;
   const result = await generateWorkerResult({
     db: ctx.db,
     mission: ctx.mission,
@@ -287,6 +284,7 @@ async function runGenerationStage(ctx) {
     maxTokens: resolveMaxTokens(budget, estimate),
     maxCost: resolveMaxCost(ctx.mission),
     policy: resolvePolicy(ctx.mission, workerModel),
+    stageTimings: ctx.stageTimings,
     promptText: promptText
   });
   return { codeWorker: codeWorker, estimate: estimate, budget: budget, agentName: agentName, nameMeaning: nameMeaning, workerModel: workerModel, result: result };
@@ -297,12 +295,17 @@ async function runEvidenceStage(ctx) {
   throwIfConsumedOverBudget(consumed, ctx.budget);
   const proposal = await resolveProposal({ codeWorker: ctx.codeWorker, workspaceRoot: ctx.mission.workspaceRoot, text: ctx.result.text });
   throwIfProposalFailed(proposal);
-  const immuneReport = resolveImmuneReport({ text: ctx.result.text, agentName: ctx.agentName, nameMeaning: ctx.nameMeaning, role: ctx.mission.role });
-  throwIfImmuneRejected(immuneReport);
+  const parseStartedAt = Date.now();
+  let immuneReport;
+  try { immuneReport = resolveImmuneReport({ text: ctx.result.text, agentName: ctx.agentName, nameMeaning: ctx.nameMeaning, role: ctx.mission.role }); }
+  finally { ctx.stageTimings.responseParsingMs = Date.now() - parseStartedAt; }
+  throwIfImmuneRejected(immuneReport, ctx.result.text);
   const evidenceReport = immuneReport.report;
   attachProposalTests(evidenceReport, proposal);
   localEvidenceArtifact.attachFullText(evidenceReport, ctx.result);
-  localEvidenceArtifact.attachWorkerArtifact(evidenceReport, ctx);
+  const validationStartedAt = Date.now();
+  try { localEvidenceArtifact.attachWorkerArtifact(evidenceReport, ctx); }
+  finally { ctx.stageTimings.artifactValidationMs = Date.now() - validationStartedAt; }
   const proof = resolveNoAnswerProof(evidenceReport);
   const noAnswer = isNoAnswerReport(evidenceReport, proof);
   if (noAnswer === false) assertClaimsHaveEvidence(evidenceReport);
@@ -332,7 +335,7 @@ async function publishLocalFailure(ctx) {
     eventType,
     action,
     ctx.error.message,
-    { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel },
+    { executionRunId: ctx.executionRun.id, model: ctx.mission.localModel, workerArtifactDiagnostics: ctx.error.workerArtifactDiagnostics || undefined, stageTimings: ctx.stageTimings || undefined },
     'warning',
     eventStatus
   );
@@ -348,15 +351,17 @@ async function publishLocalFailure(ctx) {
 async function runLocalWorker(db, mission, executionRun) {
   await updateAgent(mission.agentId, 'running', mission.prompt);
   await emitLocalStarted({ db: db, mission: mission, localModel: mission.localModel, criteria: mission.localRoutingCriteria });
+  const stageTimings = {};
   try {
-    const generation = await runGenerationStage({ db: db, mission: mission });
+    const generation = await runGenerationStage({ db: db, mission: mission, stageTimings: stageTimings });
     const evidence = await runEvidenceStage({
       result: generation.result,
       budget: generation.budget,
       codeWorker: generation.codeWorker,
       mission: mission,
       agentName: generation.agentName,
-      nameMeaning: generation.nameMeaning
+      nameMeaning: generation.nameMeaning,
+      stageTimings: stageTimings
     });
     let eventType = 'AGENT_COMPLETED';
     if (evidence.noAnswer) eventType = 'WORKER_NO_ANSWER_PROVEN';
@@ -383,11 +388,12 @@ async function runLocalWorker(db, mission, executionRun) {
       evidenceReport: evidence.evidenceReport,
       noAnswerProof: noAnswerProof,
       proposal: evidence.proposal,
-      usage: { input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens, cost_usd: generation.result.costUsd, tokens: evidence.consumed }
+      usage: { input_tokens: generation.result.inputTokens, output_tokens: generation.result.outputTokens, cost_usd: generation.result.costUsd, tokens: evidence.consumed },
+      stageTimings: stageTimings
     });
     return { started: true, executionRun: executionRun, local: true, result: generation.result };
   } catch (error) {
-    return publishLocalFailure({ db: db, mission: mission, executionRun: executionRun, error: error });
+    return publishLocalFailure({ db: db, mission: mission, executionRun: executionRun, error: error, stageTimings: stageTimings });
   }
 }
 

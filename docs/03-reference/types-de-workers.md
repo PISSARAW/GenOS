@@ -329,22 +329,22 @@ Quiescence (`workerEvidenceBarrierQuiescence.js`) : `idle/blocked` comptent comm
 
 ### 9.1 Types d'artefacts Node
 
-Source : `backend/src/services/agents/workerArtifactContract.js` (82 lignes). 10 types `REQUIRED_FIELDS` :
+Source : `backend/src/services/agents/workerArtifactContract.js`. Les modèles de schéma et `REQUIRED_FIELDS` vivent dans le même registre ; `artifactInstruction(contract)` sérialise le schéma canonique déjà injecté par le runtime. Les artefacts spécialisés doivent être imbriqués sous `workerArtifact` ; les claims seules ne satisfont que `dossier`.
 
 ```
 scout_observation: [observations]
 dossier: [claims]
 verification_report: [verdict, evidence]
 experiment_record: [hypothesis, protocol, measurements]
-formal_certificate: [claim, solver, result]
+formal_certificate: [claim, solver, result, solverReceipt]
 synthesis_dossier: [synthesis, sources]
-creative_candidate: [candidate]
-clinical_report: [diagnoses, uncertainty]
+creative_candidate: [candidate, assumptions, falsificationTest]
+clinical_report: [caseScope, differentialConsiderations, uncertainty, safetyNote]
 causal_dossier: [causalChain, evidence]
 training_packet: [prerequisites, steps, evidence]
 ```
 
-`contentIsValid()` : `dossier` exige `claims=[{statement non vide + evidence}]` ; `verification_report` exige `verdict ∈ accept/reject/unresolved + evidence||reproductionEvidence`. `hasProvenance() = provenance ∨ evidenceRefs` via `hasEvidenceItem`. `artifactInstruction(contract)` : « Return `evidenceReport.workerArtifact` as `{type, content, provenance}` ; type must be … Required content fields … Provenance must contain source references. » Injectée via `evidenceRule()` dans `agentIncarnationService.js` (asymétrie factuelle : `orchestratorDispatchService` n'injecte que `promptRule`, pas `evidenceRule`).
+`contentIsValid()` : `dossier` exige `claims=[{statement non vide + evidence}]` ; `verification_report` exige `verdict ∈ accept/reject/unresolved + preuve`. Le certificat formel exige un reçu identifié et sourcé. Le rapport clinique exige `caseScope=synthetic_educational`, n'accepte ni `diagnoses` ni `treatment`, et ne produit qu'un contenu pédagogique non diagnostique. `hasProvenance() = provenance ∨ evidenceRefs` via `hasEvidenceItem`. Le dispatcher et l'incarnation injectent tous deux `evidenceRule()` depuis le même contrat.
 
 ### 9.2 Validation à la barrière
 
@@ -861,9 +861,9 @@ Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat
 - **Responsabilité** : exécution déterministe avec certificat attendu.
 - **Preset** : `formal_preset` — hérite `procedural` (`tokens=0`, `solver`, `deterministic`), `formal_certificate`.
 - **Node** : projeté sur `BoundedWorker` (divergence à noter : Node ne porte pas `tokens=0`).
-- **Artefact** : `formal_certificate[claim, solver, result]` + provenance.
-- **Consigne** : « Return a formal certificate tied to the exact claim and solver result. »
-- **Critère** : certificat identifiant proposition, solveur et résultat vérifiable.
+- **Artefact** : `formal_certificate[claim, solver, result, solverReceipt{id, evidence}]` + provenance.
+- **Consigne** : la preuve doit citer un reçu de solveur fourni ou réellement exécuté ; aucun reçu ne peut être inventé.
+- **Critère** : le reçu identifie le résultat du solveur et référence sa preuve.
 - **Anti-pattern** : certificat découplé du solveur réellement loué.
 
 ### 18.12 `synthesis_worker` (Épistémique)
@@ -881,19 +881,19 @@ Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat
 - **Responsabilité** : production de candidats sans promotion directe.
 - **Preset** : `creative_preset` — lecture seule, `divergent`, `allowed_recipe_changes=true`, `max_cognitif=2`, `creative_candidate`.
 - **Node** : projeté sur `BoundedWorker` + override `{execute:false}`.
-- **Artefact** : `creative_candidate[candidate]` + provenance ; côté Rust `hypothesis/assumptions/falsification_test` exigés par la sémantique.
-- **Consigne** : « Return a candidate artifact with assumptions and a falsification test; do not promote it. »
+- **Artefact** : `creative_candidate[candidate, assumptions, falsificationTest]` + provenance. Le format alternatif `artifact/artifactText/creativeEvaluation` est supprimé du prompt local.
+- **Consigne** : produire ces trois champs dans `workerArtifact.content`, sans promotion.
 - **Critère** : hypothèses + falsification présentes ; promotion refusée (règle 4).
 - **Anti-pattern** : auto-promotion du candidat ; candidat sans test de falsification.
 
 ### 18.14 `medical_worker` (Adaptation et réparation)
 
-- **Responsabilité** : diagnostic avec rapport clinique, sans action clinique autonome.
+- **Responsabilité** : analyse pédagogique non diagnostique d'une vignette explicitement simulée ; aucune action clinique autonome.
 - **Preset** : `medical_preset` — verifier + `clinical_report`, 8 itérations, jamais terminaison auto.
 - **Node** : `authorityPhenotype=Verifier`.
-- **Artefact** : `clinical_report[diagnoses, uncertainty]` + provenance ; côté Rust `symptoms/evidence/therapy_options`.
-- **Consigne** : « Return candidate diagnoses, evidence, uncertainty, and therapy options; do not terminate agents. »
-- **Critère** : diagnostics et incertitude sourcés ; aucune terminaison autonome.
+- **Artefact** : `clinical_report[caseScope, differentialConsiderations, uncertainty, safetyNote]` + provenance. `caseScope` vaut `synthetic_educational` ; `diagnoses`, `treatment` et `patientSpecificAdvice` sont refusés.
+- **Consigne** : donner des considérations générales et l'incertitude, sans diagnostic ni recommandation de traitement.
+- **Critère** : portée simulée explicite, contenu non diagnostique et note de sécurité ; aucune terminaison autonome.
 - **Anti-pattern** : thérapie appliquée sans gate humain/parent.
 
 ### 18.15 `recovery_worker` (Adaptation et réparation)
@@ -911,7 +911,7 @@ Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat
 - **Responsabilité** : analyse causale post-incident, faits séparés des hypothèses.
 - **Preset** : `forensic_preset` — verifier + `causal_dossier`.
 - **Node** : `authorityPhenotype=Verifier`.
-- **Artefact** : `causal_dossier[causalChain, evidence]` + provenance.
+- **Artefact** : `causal_dossier[causalChain, evidence]` + provenance ; chaque lien doit citer les reçus d'incident fournis.
 - **Consigne** : « Reconstruct the causal chain from receipts and evidence; separate facts from hypotheses. »
 - **Critère** : chaîne causale référençant éléments observés, faits vs hypothèses distingués.
 - **Anti-pattern** : causalité sans reçus ; hypothèses présentées comme faits.
@@ -1219,7 +1219,7 @@ Voir ADR 0043 (phénotypes), ADR 0044 (matrice et gates), ADR 0064 (registre et 
 
 La matrice de contrat vérifie la construction du contrat et du prompt de dispatch, l'artefact exigé et le rejet d'un artefact du mauvais type. Une campagne séparée lance aussi des missions réelles avec un modèle local et une base isolée. Elle valide le contrat persisté, le démarrage du runtime, l'artefact attendu avec provenance, sa validation et le statut final. Cette campagne ne couvre pas encore les refus attendus pour chaque type ; un succès positif ne suffit donc pas à qualifier un type d'opérationnel au sens complet de la conformité.
 
-### Résultat de la campagne isolée du 2026-09-25
+### Résultat initial de la campagne isolée du 2026-09-25 (avant correction)
 
 Les 19 missions ont été exécutées dans une base SQLite, des espaces de travail et des capsules placés sous un répertoire temporaire dédié, avec `qwen2.5-coder:7b` via Ollama. Les identités et contrats persistés ont été vérifiés avant exécution, les espaces de travail ont été contrôlés contre la racine isolée, puis le statut, le résultat et l'artefact ont été comparés au contrat.
 
@@ -1231,7 +1231,7 @@ Les 19 missions ont été exécutées dans une base SQLite, des espaces de trava
 
 Les cinq échecs d'artefact ont terminé en statut `error` : la réponse normalisée ne contenait pas un artefact du type requis avec ses champs de contenu. Ils ne sont pas convertis en succès à partir de simples claims. Le test du worker médical est synthétique et ne constitue pas une validation clinique.
 
-**Qualification : aucun des 19 types n'est déclaré pleinement opérationnel par cette campagne**, car les refus attendus ne sont pas encore exécutés comme scénarios négatifs dans ce parcours. Treize types ont réussi le parcours positif de bout en bout décrit ci-dessus ; six restent en échec positif. Une campagne complète devra ajouter, pour chaque type, des refus vérifiés (identité/contrat invalide ou expiré, artefact absent/mal typé, autorité hors lease), puis confirmer que le statut et la gate restent en échec. Rapport brut isolé : `%TEMP%/genos-worker-compliance-isolated-20260925/worker-compliance-report.json`.
+Cette mesure précède les consignes JSON canoniques et les fixtures spécialisées décrites ci-dessus ; elle sert de référence d'échec, pas de certification du code corrigé. Aucun type n'est déclaré pleinement opérationnel par cette campagne. Pour relancer la campagne reproductible, définir `GENOS_COMPLIANCE_ROOT`, `GENOS_DB_PATH`, `GENOS_WORKSPACE_ROOT`, `GENOS_CAPSULE_ROOT`, `GENOS_ADMIN_PASSWORD` et `GENOS_LOCAL_MODEL` (URI locale explicite), puis exécuter `node backend/tests/run_worker_compliance_missions.cjs`. Le runner exige une racine temporaire hors dépôt, lance un processus isolé par kind, génère ses consignes depuis le contrat runtime, vérifie l'artefact et sa référence de fixture, et contrôle les refus d'un artefact mal typé, d'une promotion interdite et d'une identité altérée. Le rapport conserve les durées de préparation du prompt, d'inférence, de parsing et de validation ; `GENOS_COMPLIANCE_LATENCY_MS` borne le délai d'inférence (défaut 180 000 ms, plafond runtime 900 000 ms).
 
 ---
 
@@ -1242,12 +1242,14 @@ le premier décrit une position dans une composition, le second définit un
 contrat d'exécution et un artefact. La matrice de référence se trouve dans
 [Topologies & contrat de capacités](../02-orchestration/topologies-et-capacites.md#31-matrice-des-types-de-workers).
 
-Le composeur doit porter le résultat de cette matrice dans `member.workerKind`.
-À l'incarnation, le backend appelle `resolveWorkerKind()` puis
-`buildWorkerContract()` et persiste le type canonique avec le contrat reconstruit.
-Une valeur explicite inconnue est refusée. Un repli de rôle vers
-`bounded_worker` reste réservé aux chemins génériques qui ne sont associés à
-aucune topologie.
+Le composeur porte le résultat de cette matrice dans `member.workerKind`. À la
+frontière de composition, un type absent est complété depuis l'entrée
+topologie-rôle. Un type fourni qui est inconnu ou incompatible, ou un rôle sans
+entrée dans la matrice, fait échouer la composition; aucun repli topologique
+vers `bounded_worker` n'est appliqué. À l'incarnation, le backend appelle
+`resolveWorkerKind()` puis `buildWorkerContract()` et persiste le type canonique
+avec le contrat reconstruit. Le repli de rôle vers `bounded_worker` reste
+réservé aux chemins génériques qui n'ont aucune règle topologique dédiée.
 
 L'affectation de type ne remplace pas les règles propres aux topologies :
 
@@ -1262,14 +1264,17 @@ L'affectation de type ne remplace pas les règles propres aux topologies :
 
 ### Écart d'implémentation
 
-Les composeurs des huit topologies renseignent désormais `member.workerKind`.
-A-Team et Trinity propagent ce type au worker lancé et reconstruisent son
-contrat au dispatch. Les six modes biologiques produisent des membres typés dans
-leur composition/session, mais ne lancent pas automatiquement ces workers.
-La vérification bout en bout de chaque type et de son artefact reste à établir
-pour chaque runtime qui consomme ces membres.
+Les huit topologies renseignent `member.workerKind` directement ou à partir de
+leur entrée explicite dans la matrice. A-Team et Trinity propagent ce type au
+worker lancé et reconstruisent son contrat au dispatch. Les six modes
+biologiques produisent des membres typés dans leur composition/session, mais ne
+lancent pas automatiquement ces workers. Le test ciblé vérifie la propagation
+jusqu'à la persistance, l'identité du contrat, l'artefact requis et les
+autorisations effectives pour chaque branche de la matrice.
 
-Avant lancement A-Team ou Trinity, le validateur exige un type explicite connu
-et compatible avec le rôle topologique; une absence, un identifiant inconnu ou
-un conflit bloque le dispatch. Le plan inclut `role`, `workerKind` et `reason`
-pour rendre l'affectation vérifiable par l'appelant.
+Avant lancement A-Team ou Trinity, le validateur exige un type canonique connu
+et compatible avec le rôle topologique; un identifiant inconnu ou un conflit
+bloque le dispatch. Si le composeur n'a pas fourni le type, l'entrée explicite
+de la matrice le complète; un rôle sans mapping bloque la composition. Le plan
+inclut `role`, `workerKind` et `reason` pour rendre l'affectation vérifiable par
+l'appelant.

@@ -187,7 +187,6 @@ function formatDnaPromptBlock(dnaSelection) {
 
 function buildWorkerPrompt(details) {
   const { identity, conscience, assignment, context, dnaSelection, workerSelfBlock } = details;
-  const creative = assignment.artifact === 'creative' || /author|literary|dramaturg/i.test(assignment.role || '');
   const cognitivePhenotype = require('./cognitivePhenotypeService');
   const phenotypeBlock = cognitivePhenotype.formatPhenotypePrompt(assignment.cognitiveRecipe);
   const dnaPrompt = formatDnaPromptBlock(dnaSelection);
@@ -203,7 +202,6 @@ function buildWorkerPrompt(details) {
     `Worker kind: ${assignment.workerKind}. ${workerKinds.promptRule(assignment.workerKind)}`,
     workerKinds.evidenceRule(workerKinds.buildWorkerContract(assignment.workerKind, { prompt: context.mission.prompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id })),
     phenotypeBlock,
-    creative ? 'Creative evidence must include artifact="creative", artifactText, and creativeEvaluation with a 0..1 rubric for craft, coherence, originality, emotionalImpact, and constraintCoverage; include revisions and criticEvidence when available.' : null,
     context.plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${context.perWorkerTokens} tokens.` : `Budget allocation: ${context.perWorkerTokens} tokens.`
   ].filter(Boolean).join('\n');
 }
