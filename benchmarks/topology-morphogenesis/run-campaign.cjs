@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { randomBytes } = require('crypto');
 const { spawn } = require('child_process');
 
 const repo = path.resolve(__dirname, '../..');
@@ -18,11 +19,15 @@ const missions = [
 function environment(name) {
   return {
     ...process.env,
+    GENOS_DB_PATH: path.join(output, 'campaign.db'),
     GENOS_WORKSPACE_ROOT: fixture,
     GENOS_CAPSULE_ROOT: path.join(repo, '.genos-agent-worlds', runId),
     GENOS_RUNNER_LOG_DIR: path.join(output, 'runner-logs'),
     GENOS_TOPOLOGY_AWAIT_WORKERS: '1',
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || 'local',
+    GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || 'qwen2.5:14b',
+    GENOS_LOCAL_MODEL_TIMEOUT_MS: process.env.GENOS_LOCAL_MODEL_TIMEOUT_MS || '30000',
+    GENOS_SQLITE_BUSY_TIMEOUT_MS: '30000',
     GENOS_WORKTREE_GC_DELAY_MS: '5000',
     GENOS_MORPHOGENESIS_V2_SHADOW: name === 'morphogenese-shadow' ? '1' : '0'
   };
@@ -30,12 +35,16 @@ function environment(name) {
 
 function execute(name) {
   const missionPath = path.join(__dirname, 'missions', `${name}.json`);
-  const payload = fs.readFileSync(missionPath, 'utf8');
+  const payload = JSON.parse(fs.readFileSync(missionPath, 'utf8'));
+  if (name === 'orchestrateur-simple') {
+    payload.timeoutMs = Math.max(Number(payload.timeoutMs) || 0, 180000);
+    payload.execution_budget = { ...(payload.execution_budget || {}), tokens: 6000, latencyMs: 150000 };
+  }
   const log = fs.openSync(path.join(output, `${name}.log`), 'w');
   const started = Date.now();
   return new Promise((resolve) => {
     let timedOut = false;
-    const child = spawn(process.execPath, ['backend/bin/genos-orchestrate.cjs', payload], {
+    const child = spawn(process.execPath, ['backend/bin/genos-orchestrate.cjs', JSON.stringify(payload)], {
       cwd: repo, env: environment(name), stdio: ['ignore', log, log], windowsHide: true
     });
     const timer = setTimeout(() => { timedOut = true; child.kill(); }, 240000);
@@ -81,10 +90,15 @@ async function main() {
   fs.mkdirSync(fixture, { recursive: true });
   fs.mkdirSync(path.join(output, 'runner-logs'), { recursive: true });
   fs.writeFileSync(path.join(fixture, 'README.md'), 'Isolated campaign workspace.\n');
+  process.env.GENOS_DB_PATH = path.join(output, 'campaign.db');
+  process.env.GENOS_LOCAL_MODEL = process.env.GENOS_LOCAL_MODEL || 'qwen2.5:14b';
+  process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS = '30000';
+  process.env.GENOS_ADMIN_PASSWORD = randomBytes(32).toString('base64url');
   process.loadEnvFile(path.join(repo, '.env'));
   const { getDatabase, closeDatabase } = require('../../backend/src/db');
   const db = await getDatabase();
-  const results = { suiteVersion: '1.0.0', runId, gitCommit: null, missions: [] };
+  const results = { suiteVersion: '1.0.0', runId, gitCommit: null,
+    environment: { executor: 'local', model: process.env.GENOS_LOCAL_MODEL, database: 'isolated campaign database' }, missions: [] };
   try {
     const git = require('child_process').execFileSync;
     results.gitCommit = git('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();

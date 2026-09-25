@@ -15,7 +15,7 @@ node benchmarks/topology-morphogenesis/run-campaign.cjs
 node benchmarks/topology-morphogenesis/session-probes.cjs artifacts/topology-morphogenesis/<dossier-du-run>
 ```
 
-Le premier programme affiche le dossier créé. Il utilise un espace de travail témoin isolé et attend la fin des workers biologiques, par paires, afin d'observer leurs états sans saturer les copies de capsules. Le second exerce les sessions persistées Biome, Syncytium et Rhizome et écrit `session-probes.json`. `campaign-results.json` contient les états finaux et garde la qualification `experimental` tant que les critères de passage ne sont pas réunis. Les journaux bruts restent dans le dossier du run; un `exitCode` nul pour un dispatch indique seulement que la requête a été traitée.
+Le premier programme affiche le dossier créé. Il utilise une base SQLite et un espace de travail témoin isolés, sélectionne `qwen2.5:14b` si aucun modèle local n'est configuré, et attend la fin des workers biologiques par paires afin d'observer leurs états sans saturer les copies de capsules. Le second exerce les sessions persistées Biome, Syncytium et Rhizome et écrit `session-probes.json`. `campaign-results.json` contient les états finaux et garde la qualification `experimental` tant que les critères de passage ne sont pas réunis. Les journaux bruts restent dans le dossier du run; un `exitCode` nul pour un dispatch indique seulement que la requête a été traitée.
 
 Depuis la racine du dépôt, PowerShell :
 
