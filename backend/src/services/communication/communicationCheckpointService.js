@@ -12,6 +12,7 @@
 const { decideCommunication, getMode } = require('./communicationPolicyEngine');
 const { buildManifest } = require('./communicationManifestService');
 const { publishSignal } = require('../signalingTransportService');
+const stigmergyBridge = require('../epistemic/stigmergyInterProcessBridge');
 
 const CHECKPOINTS = Object.freeze([
   'NEW_EVIDENCE',
@@ -58,8 +59,8 @@ const URGENCY_MAP = Object.freeze({
   HANDOFF_REQUESTED: 0.8,
   TOPOLOGY_TRANSITION: 0.5,
   MISSION_COMPLETED: 0.4,
-  FINDING_CREATED: 0.5,
-  NEW_EVIDENCE: 0.5
+  FINDING_CREATED: 0.2,
+  NEW_EVIDENCE: 0.2
 });
 
 const ACTION_MAP = Object.freeze({
@@ -100,18 +101,23 @@ function buildPolicyInput(ctx, intent, manifest) {
     db: ctx.db,
     intent,
     trigger: ctx.checkpoint,
-    receptorTopic: manifest.subscriptions[0] || '',
+    receptorTopic: receptorTopicFor(intent, manifest),
     allowGlobal: ctx.checkpoint === 'BLOCKER_DETECTED',
     maxCandidates: 10,
     independenceThreshold: 0.5,
     maxCost: 50,
     weights: { novelty: 1, relevance: 1, actionability: 1, capability: 1 },
-    stigmergyAvailable: false,
+    stigmergyAvailable: true,
     dialectAvailable: false,
     ttlMs: 60000,
     humanRequired: intent.risk === 'critical',
     coefficients: { baseCost: 0.1, perRecipient: 0.05, encodingFactor: 1, groundingFactor: 1 }
   };
+}
+
+function receptorTopicFor(intent, manifest) {
+  const prefersStigmergy = intent.purpose === 'inform' && intent.risk === 'low' && intent.urgency < 0.3;
+  return prefersStigmergy ? '' : manifest.subscriptions[0] || '';
 }
 
 function validateCtx(ctx) {
@@ -152,7 +158,7 @@ async function executeSignal(decision, ctx) {
     return { executed: false, reason: 'SILENCE_DECISION' };
   }
   if (decision.action === 'STIGMERGY') {
-    return { executed: false, channel: 'STIGMERGY', reason: 'CHANNEL_EXECUTION_NOT_CONNECTED' };
+    return await executeStigmergy(decision, ctx);
   }
   if (decision.action !== 'SIGNAL') {
     return { executed: false, channel: decision.action, reason: 'CHANNEL_EXECUTION_NOT_CONNECTED' };
@@ -162,6 +168,35 @@ async function executeSignal(decision, ctx) {
     return { executed: false, reason: 'NO_RECIPIENTS' };
   }
   return await publishAndWrap(decision, ctx, recipients);
+}
+
+async function executeStigmergy(decision, ctx) {
+  const ttlMs = decision.ttlMs || 60000;
+  const signal = buildStigmergySignal(decision, ctx, ttlMs);
+  const result = await stigmergyBridge.depositPheromone(signal, { db: ctx.db });
+  return {
+    executed: !result.localOnly, channel: 'STIGMERGY', signalId: result.signalId || null,
+    published: !result.localOnly, reason: result.localOnly ? 'LOCAL_ONLY' : null
+  };
+}
+
+function buildStigmergySignal(decision, ctx, ttlMs) {
+  const data = buildSignalData(ctx, decision);
+  const domain = ctx.evidence?.domain || 'general';
+  const isRepellent = ['BLOCKER_DETECTED', 'CONTRADICTION_FOUND'].includes(ctx.checkpoint);
+  return {
+    type: stigmergyBridge.SIGNAL_TYPES.CHECKPOINT_STIGMERGY,
+    payload: data, locus: `checkpoint/${domain}`, locusHash: ctx.evidence?.artifactId || domain,
+    intensity: Math.max(0.01, Math.min(1, Number(decision.meta?.utility || 0.01))),
+    isRepellent, senderAgentId: ctx.agentId, channel: 'communication_checkpoint',
+    semanticRefs: ctx.evidence?.semanticRefs || [], artifactRefs: ctx.evidence?.artifactId ? [ctx.evidence.artifactId] : [],
+    scope: scopeOf(ctx.scope), groundingRequired: decision.grounding || 'none', ttlMs,
+    expiresAt: new Date(Date.now() + ttlMs).toISOString()
+  };
+}
+
+function scopeOf(scope) {
+  return scope && typeof scope === 'object' && !Array.isArray(scope) ? scope : null;
 }
 
 function buildSignalData(ctx, decision) {

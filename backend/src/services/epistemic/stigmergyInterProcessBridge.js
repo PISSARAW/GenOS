@@ -18,6 +18,7 @@
  * - EPISTEMIC_DOMAIN_GAP
  * - EPISTEMIC_KNOWN_FAILURE
  * - EPISTEMIC_HIGH_RISK
+ * - CHECKPOINT_STIGMERGY
  */
 
 const SIGNAL_TYPES = Object.freeze({
@@ -27,7 +28,9 @@ const SIGNAL_TYPES = Object.freeze({
   EPISTEMIC_DOMAIN_GAP: 'epistemic_domain_gap',
   EPISTEMIC_KNOWN_FAILURE: 'epistemic_known_failure',
   EPISTEMIC_HIGH_RISK: 'epistemic_high_risk',
+  CHECKPOINT_STIGMERGY: 'checkpoint_stigmergy',
 });
+const { createEnvelope, verifyEnvelopePayload } = require('../communication/communicationEnvelopeService');
 
 function isSupportedType(type) {
   return Object.values(SIGNAL_TYPES).includes(type);
@@ -51,14 +54,14 @@ function packPheromone(bus, signal) {
     locusHash: signal.locusHash,
     intensity: signal.intensity,
     isRepellent: signal.isRepellent,
+    communicationEnvelope: signal.communicationEnvelope,
   });
 }
 
 async function persistPheromone(db, blob, signal) {
-  const crypto = require('node:crypto');
-  const signalId = signal.signalId || `pher_${crypto.randomUUID()}`;
-  await db.run(
-    `INSERT OR REPLACE INTO signal_blobs
+  const signalId = signal.signalId;
+  const result = await db.run(
+    `INSERT OR IGNORE INTO signal_blobs
      (signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at, expires_at)
      VALUES (?, 'pheromone', ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
     signalId,
@@ -68,6 +71,7 @@ async function persistPheromone(db, blob, signal) {
     signal.senderAgentId || null,
     signal.expiresAt || null
   );
+  if (!result?.changes) throw Object.assign(new Error('Pheromone signal ID already exists.'), { code: 'PHEROMONE_ID_CONFLICT' });
   return signalId;
 }
 
@@ -80,18 +84,20 @@ async function depositPheromone(signal, opts = {}) {
     throw new Error(`Unsupported pheromone type: ${signal && signal.type}`);
   }
   const bus = opts.bus || require('../biomimeticSignalingBus');
-  const blob = packPheromone(bus, signal);
+  const preparedSignal = preparePheromone(signal);
+  const blob = packPheromone(bus, preparedSignal);
   const db = await optionalDb(opts.db);
   if (!db) {
     return {
       localOnly: true,
+      signalId: preparedSignal.signalId,
       signalType: bus.SIGNAL_TYPES.PHEROMONE,
       signalBlob: blob,
       content: '',
       depositedAt: new Date().toISOString(),
     };
   }
-  const signalId = await persistPheromone(db, blob, signal);
+  const signalId = await persistPheromone(db, blob, preparedSignal);
   return {
     localOnly: false,
     signalId,
@@ -102,9 +108,31 @@ async function depositPheromone(signal, opts = {}) {
   };
 }
 
+function preparePheromone(signal) {
+  const crypto = require('node:crypto');
+  const signalId = signal.signalId || `pher_${crypto.randomUUID()}`;
+  const payload = {
+    type: signal.type, payload: signal.payload, locus: signal.locus,
+    locusHash: signal.locusHash, intensity: signal.intensity, isRepellent: signal.isRepellent
+  };
+  const communicationEnvelope = createEnvelope({
+    messageId: signalId, kind: 'signal', senderAgentId: signal.senderAgentId,
+    recipientAgentIds: [], channel: signal.channel || 'stigmergy', modality: 'pheromone',
+    semanticRefs: signal.semanticRefs || [], artifactRefs: signal.artifactRefs || [],
+    scope: scopeOf(signal.scope), groundingRequired: signal.groundingRequired || 'none',
+    ttlMs: signal.ttlMs, payload
+  });
+  return { ...signal, signalId, communicationEnvelope };
+}
+
+function scopeOf(scope) {
+  return scope && typeof scope === 'object' && !Array.isArray(scope) ? scope : null;
+}
+
 function decodePheromoneBlob(bus, blob, fallbackJson) {
   const unpacked = bus.unpackSignalPayload(blob, bus.SIGNAL_TYPES.PHEROMONE, fallbackJson);
-  return Array.isArray(unpacked) ? unpacked : [unpacked];
+  const items = Array.isArray(unpacked) ? unpacked : [unpacked];
+  return items.filter((item) => validPheromoneEnvelope(item, null));
 }
 
 function pheromoneLimit(opts) {
@@ -112,7 +140,7 @@ function pheromoneLimit(opts) {
 }
 
 async function fetchPheromoneRows(db, opts, limit) {
-  const base = `SELECT signal_blob FROM signal_blobs WHERE signal_type = 'pheromone'`;
+  const base = `SELECT signal_id, signal_blob, sender_agent_id FROM signal_blobs WHERE signal_type = 'pheromone'`;
   const expiry = `AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) ORDER BY created_at DESC LIMIT ?`;
   if (opts.locus) return db.all(`${base} AND topic = ? ${expiry}`, String(opts.locus), limit);
   return db.all(`${base} ${expiry}`, limit);
@@ -123,11 +151,20 @@ function decodePheromoneRows(bus, rows, fallbackJson) {
   for (const row of rows || []) {
     try {
       const unpacked = bus.unpackSignalPayload(row.signal_blob, bus.SIGNAL_TYPES.PHEROMONE, fallbackJson);
-      if (Array.isArray(unpacked)) out.push(...unpacked);
-      else if (unpacked) out.push(unpacked);
+      const items = Array.isArray(unpacked) ? unpacked : [unpacked];
+      out.push(...items.filter((item) => validPheromoneEnvelope(item, row)));
     } catch (_) {}
   }
   return out;
+}
+
+function validPheromoneEnvelope(item, row) {
+  const envelope = item?.communicationEnvelope;
+  if (!envelope) return true;
+  const { communicationEnvelope, ...payload } = item;
+  const boundToRow = !row || (envelope.messageId === row.signal_id
+    && envelope.senderAgentId === (row.sender_agent_id || null));
+  return boundToRow && verifyEnvelopePayload(communicationEnvelope, payload).valid;
 }
 
 /**
