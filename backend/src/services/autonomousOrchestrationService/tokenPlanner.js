@@ -31,12 +31,16 @@ function buildTokenPlan(budget, flags, workers) {
   const effectiveWorkerShare = Math.max(workerShare, minimumViableWorkerShare);
   const affordableWorkers = Math.max(0, Math.floor((totalTokens * effectiveWorkerShare) / minimumWorkerTokens));
   const dispatchWorkers = workers.slice(0, Math.min(workers.length, affordableWorkers));
+  const effectiveOrchestratorReserve = dispatchWorkers.length
+    ? Math.min(orchestratorReserve, 1 - effectiveWorkerShare)
+    : 1;
   const allocation = flags.complex || flags.uncertain ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted';
   const rounds = buildAllocation({
     totalTokens, workerShare: dispatchWorkers.length ? effectiveWorkerShare : 0, workerCount: dispatchWorkers.length,
     minimumWorkerTokens, mode: allocation
   });
-  return { totalTokens, minimumWorkerTokens, effectiveWorkerShare, orchestratorReserve, dispatchWorkers, allocation, rounds };
+  return { totalTokens, minimumWorkerTokens, effectiveWorkerShare,
+    orchestratorReserve: effectiveOrchestratorReserve, dispatchWorkers, allocation, rounds };
 }
 
 module.exports = { buildTokenPlan, resolveTotalTokens, resolveMinimumWorkerTokens };

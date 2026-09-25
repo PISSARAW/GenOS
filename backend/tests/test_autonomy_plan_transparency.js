@@ -9,6 +9,8 @@ const contract = {
 const plan = buildAutonomyPlan(contract, { tokens: 10000, minimumWorkerTokens: 8000 });
 assert.equal(plan.exploration.available, false);
 assert.equal(plan.exploration.selectedBranches, 1);
+assert.equal(plan.tokenPolicy.workerShare + plan.tokenPolicy.orchestratorReserve, 1);
+assert.ok(Math.abs(plan.tokenPolicy.orchestratorReserve - 0.2) < 0.01);
 assert.match(plan.dispatchDecision.reason, /budget/);
 assert(plan.omittedPhases.some((phase) => phase.key === 'counterfactual_forks'));
 console.log('Autonomy plans expose exploration and omitted-phase decisions.');

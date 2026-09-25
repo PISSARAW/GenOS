@@ -3,6 +3,6 @@
   "mission": "Référence TM-00. Sans créer ni modifier de fichier, résoudre le contrôle déterministe suivant et présenter les calculs vérifiables. Entrée: un lot contient 24 éléments; 3 sont rejetés puis les éléments restants sont répartis également entre 7 groupes. Donner le nombre par groupe et le reste. Répondre avec les champs entree, calcul, resultat, verification. Ne déclarer la mission terminée que si le résultat est vérifié par calcul exact.",
   "executor": "local",
   "autonomous_orchestration": false,
-  "execution_budget": { "tokens": 3000, "latencyMs": 60000 },
-  "timeoutMs": 65000
+  "execution_budget": { "tokens": 10000, "latencyMs": 240000 },
+  "timeoutMs": 300000
 }

@@ -87,19 +87,17 @@ async function getDatabase(dbFilePath) {
     } catch (err) {
       console.warn('[DB] sqlite-vec extension could not be loaded:', err.message);
     }
+    const skipBootstrap = process.env.GENOS_DB_BOOTSTRAP_SKIP === '1';
     // Reduce SQLITE_BUSY under concurrent writers (bridge + spawned runtime,
     // multiple agents): wait longer instead of failing immediately, and prefer WAL.
     try {
-      await db.exec('PRAGMA busy_timeout = 15000;');
-      await db.exec('PRAGMA journal_mode = WAL;');
-      await db.exec('PRAGMA synchronous = NORMAL;');
+      await configureConnectionPragmas(db, skipBootstrap);
     } catch (pragmaError) {
       console.warn('[DB] Could not apply SQLite pragmas:', pragmaError.message);
     }
     // Best-effort pre-migration backup — must never block boot or starve a
     // concurrent writer (e.g. a freshly spawned worker that needs its own
     // connection). A failure is logged once and the boot continues.
-    const skipBootstrap = process.env.GENOS_DB_BOOTSTRAP_SKIP === '1';
     if (!skipBootstrap && process.env.GENOS_DB_BACKUP_SKIP !== '1') {
       try {
         backupDatabaseFile(filename);
@@ -133,6 +131,16 @@ async function getDatabase(dbFilePath) {
     throw error;
   }
 }
+
+async function configureConnectionPragmas(db, skipBootstrap) {
+  const busyTimeout = Math.max(1000, Number(process.env.GENOS_SQLITE_BUSY_TIMEOUT_MS) || 30000);
+  await db.exec(`PRAGMA busy_timeout = ${busyTimeout};`);
+  // The parent initializes the journal mode. Reapplying it from each worker
+  // can contend during startup; workers only need a per-connection timeout.
+  if (!skipBootstrap) await db.exec('PRAGMA journal_mode = WAL;');
+  await db.exec('PRAGMA synchronous = NORMAL;');
+}
+
 async function closeDatabase() {
   if (dbInitialization) {
     try { await dbInitialization; } catch (_) {}

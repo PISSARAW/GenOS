@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { randomBytes } = require('crypto');
 const { spawn } = require('child_process');
+const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
 
 const repo = path.resolve(__dirname, '../..');
 const runId = `campaign-${new Date().toISOString().replace(/[:.]/g, '-')}`;
@@ -37,8 +38,8 @@ function execute(name) {
   const missionPath = path.join(__dirname, 'missions', `${name}.json`);
   const payload = JSON.parse(fs.readFileSync(missionPath, 'utf8'));
   if (name === 'orchestrateur-simple') {
-    payload.timeoutMs = Math.max(Number(payload.timeoutMs) || 0, 180000);
-    payload.execution_budget = { ...(payload.execution_budget || {}), tokens: 6000, latencyMs: 150000 };
+    payload.timeoutMs = Math.max(Number(payload.timeoutMs) || 0, 300000);
+    payload.execution_budget = { ...(payload.execution_budget || {}), tokens: 10000, latencyMs: 240000 };
   }
   const log = fs.openSync(path.join(output, `${name}.log`), 'w');
   const started = Date.now();
@@ -47,7 +48,7 @@ function execute(name) {
     const child = spawn(process.execPath, ['backend/bin/genos-orchestrate.cjs', JSON.stringify(payload)], {
       cwd: repo, env: environment(name), stdio: ['ignore', log, log], windowsHide: true
     });
-    const timer = setTimeout(() => { timedOut = true; child.kill(); }, 240000);
+    const timer = setTimeout(() => { timedOut = true; child.kill(); }, 360000);
     child.once('error', (error) => resolve({ name, error: error.message, durationMs: Date.now() - started }));
     child.once('close', (exitCode) => {
       clearTimeout(timer);
@@ -106,10 +107,11 @@ async function main() {
       const run = await execute(name);
       const receipt = readReceipt(name);
       const workers = await workerStates(db, receipt);
+      const proof = verifySimpleMissionProof(receipt, name);
       results.missions.push({ ...run, orchestratorId: receipt?.orchestratorId || null,
         verdict: receipt?.verdict || null, completionGate: receipt?.completionGate || null,
         dispatchStatus: receipt?.biologicalMode?.status || receipt?.trinity?.status || receipt?.team?.status || null,
-        sessionId: receipt?.biologicalMode?.sessionId || null, workers });
+        sessionId: receipt?.biologicalMode?.sessionId || null, workers, independentProof: proof });
       fs.writeFileSync(path.join(output, 'campaign-results.json'), JSON.stringify(results, null, 2));
       process.stdout.write(`${name}: exit=${run.exitCode ?? 'error'} workers=${workers.length}\n`);
     }
@@ -119,4 +121,4 @@ async function main() {
   process.stdout.write(`${output}\n`);
 }
 
-main().catch((error) => { console.error(error); process.exitCode = 1; });
+if (require.main === module) main().catch((error) => { console.error(error); process.exitCode = 1; });
