@@ -87,6 +87,7 @@ async function getDatabase(dbFilePath) {
       filename,
       driver: sqlite3.Database
     });
+    installBusyRetry(db);
     initializingDb = db;
     try {
       sqliteVec.load(db.db);
@@ -145,6 +146,11 @@ async function configureConnectionPragmas(db, skipBootstrap) {
   // can contend during startup; workers only need a per-connection timeout.
   if (!skipBootstrap) await db.exec('PRAGMA journal_mode = WAL;');
   await db.exec('PRAGMA synchronous = NORMAL;');
+}
+
+function installBusyRetry(db) {
+  const originalRun = db.run.bind(db);
+  db.run = (...args) => withWriteRetry(() => originalRun(...args));
 }
 
 async function closeDatabase() {
@@ -221,5 +227,6 @@ module.exports = {
   closeDatabase,
   withTransaction,
   withWriteRetry,
+  installBusyRetry,
   backupDatabaseFile
 };

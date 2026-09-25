@@ -55,8 +55,9 @@ function environment(name) {
     GENOS_TOPOLOGY_AWAIT_WORKERS: '1',
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || 'local',
     GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || 'qwen2.5:14b',
-    GENOS_LOCAL_MODEL_TIMEOUT_MS: process.env.GENOS_LOCAL_MODEL_TIMEOUT_MS || '30000',
-    GENOS_SQLITE_BUSY_TIMEOUT_MS: '30000',
+    GENOS_LOCAL_MODEL_TIMEOUT_MS: process.env.GENOS_LOCAL_MODEL_TIMEOUT_MS || '120000',
+    GENOS_SQLITE_BUSY_TIMEOUT_MS: '10000',
+    GENOS_SQLITE_MAX_RETRIES: '8',
     GENOS_WORKTREE_GC_DELAY_MS: '5000',
     GENOS_MORPHOGENESIS_V2_SHADOW: name === 'morphogenese-shadow' ? '1' : '0',
     ...(name === 'topologie-syncytium' && mission.session_options?.schema
