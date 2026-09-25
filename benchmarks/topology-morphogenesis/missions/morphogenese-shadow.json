@@ -1,0 +1,7 @@
+{
+  "action": "orchestrate",
+  "mission": "TM-M02. Évaluer en prévol consultatif une proposition Morphogenèse qui ajoute une validation de schéma avant intégration d'un rapport JSON. Rapporter proposition, statut shadow, validations et raisons. Distinguer tout événement du chemin historique post-mission; vérifier qu'aucun commit V2 ni reçu d'autorisation n'est émis. Si le runtime V2 n'est pas activé ou disponible, rapporter la preuve manquante sans la remplacer par un succès historique.",
+  "executor": "local",
+  "autonomous_orchestration": false,
+  "timeoutMs": 120000
+}

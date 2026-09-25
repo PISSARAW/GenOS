@@ -1,0 +1,8 @@
+{
+  "action": "dispatch_biological",
+  "mode": "biocenose",
+  "agent_count": 3,
+  "mission": "TM-T04. Une boîte contient 12 jetons; 4 sont retirés et les autres répartis en 2 lots égaux. Construire une réponse communautaire où les contributions sont traçables et où l'accord est évalué par le mécanisme Biocénose/consensus ou quorum effectivement câblé. Vérifier indépendamment que chaque lot contient 4 jetons. Si les dossiers ne démontrent pas l'accord ou si une contribution contredit le calcul, s'abstenir de promouvoir et consigner le désaccord. Rapporter les contributions, la décision de consensus/quorum, les preuves et le verdict de vérification.",
+  "executor": "local",
+  "timeoutMs": 120000
+}

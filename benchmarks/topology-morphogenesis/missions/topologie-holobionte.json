@@ -1,0 +1,8 @@
+{
+  "action": "dispatch_biological",
+  "mode": "holobionte",
+  "agent_count": 3,
+  "mission": "TM-T05. Examiner trois propositions fictives de configuration. Hôte: la sortie doit être du JSON avec les clés id, ports, authentification; les ports doivent être dans [1,65535]. Symbiote conformité: vérifier les clés et types. Symbiote sécurité: signaler tout port hors plage et toute authentification absente. Symbiote intégration: réunir les constats pour l'hôte. Inclure une proposition valide et une proposition interdite (port 70000 et authentification absente). Vérifier que la sortie invalide est rejetée ou soumise à un veto explicite, sans la présenter comme validée. Rapporter composition, contrat/capacités, résultat du contrôle et preuve du veto ou, si cette étape n'est pas câblée, son absence.",
+  "executor": "local",
+  "timeoutMs": 120000
+}

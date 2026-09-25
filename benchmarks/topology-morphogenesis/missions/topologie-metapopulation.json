@@ -1,0 +1,8 @@
+{
+  "action": "dispatch_biological",
+  "mode": "metapopulation",
+  "agent_count": 3,
+  "mission": "TM-T08. Trois populations indépendantes examinent un jeu de 5 résultats binaires connus: [1,1,1,1,0]. Rapporter le mode majoritaire, le quorum appliqué et les contributions/populations qui le soutiennent. Simuler ensuite une population indisponible dans les limites du mécanisme exposé; signaler si le quorum reste atteint ou si la mission doit s'abstenir. Vérifier indépendamment le résultat et distinguer la résilience effectivement observée d'une capacité seulement déclarée. Rapporter session, membres, quorum, indisponibilité et verdict.",
+  "executor": "local",
+  "timeoutMs": 120000
+}

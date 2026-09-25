@@ -1,0 +1,6 @@
+{
+  "action": "dispatch_trinity",
+  "mission": "TM-T01. Comparer indépendamment trois solutions au problème jouet: calculer le nombre de triplets d'entiers positifs (a,b,c) tels que a+b+c=12 et a<b<c. Chaque monde doit calculer sa solution et donner une preuve vérifiable. Garder les travaux séparés jusqu'à la comparaison finale. La synthèse doit comparer les preuves, signaler les désaccords et ne promouvoir que si les comptes concordent avec une énumération exhaustive indépendante. Rapporter les identifiants des trois mondes, leur état terminal, la preuve d'empreinte de départ identique, le résultat comparatif et la décision de promotion.",
+  "executor": "local",
+  "timeoutMs": 120000
+}

@@ -1,0 +1,146 @@
+# Campagne de qualification — topologies, Morphogenèse et orchestrateur
+
+- **Version** : 1.0.0
+- **Statut** : protocole à exécuter ; aucun résultat de campagne n'est présumé
+- **Périmètre** : huit topologies canoniques, préparateur Morphogenèse, prévol V2 en shadow et chemin simple de l'orchestrateur backend
+
+Cette campagne fait progresser la preuve du contrat jusqu'à l'exécution observable. Un dispatch accepté ou une mission terminée ne suffit pas à qualifier une topologie d'opérationnelle. Il faut des opérations spécifiques observables, des livrables vérifiés, des répétitions et des contrôles négatifs réussis.
+
+## Lancement d'une mission
+
+Depuis la racine du dépôt, PowerShell :
+
+```powershell
+$mission = Get-Content -Raw benchmarks/topology-morphogenesis/missions/orchestrateur-simple.json
+node backend/bin/genos-orchestrate.cjs $mission
+```
+
+Remplacer le nom de fichier par l'identifiant voulu dans la matrice ci-dessous. Chaque fichier est un payload JSON accepté par le CLI. Lancer une mission à la fois et conserver l'objet JSON retourné, les événements `GENOS_STREAM` s'ils sont activés, ainsi que les identifiants et dossiers des workers. Pour capter les événements :
+
+```powershell
+$env:GENOS_STREAM_TELEMETRY = '1'
+$mission = Get-Content -Raw benchmarks/topology-morphogenesis/missions/orchestrateur-simple.json
+node backend/bin/genos-orchestrate.cjs $mission 2>&1 | Tee-Object -FilePath artifacts/topology-morphogenesis/orchestrateur-simple.log
+```
+
+Créer le répertoire de sortie avant le lancement. Les missions d'orchestration et de topologie peuvent appeler des modèles configurés dans l'environnement et consommer leur budget. Les missions de dispatch démarrent des workers en arrière-plan ; leur sortie initiale `accepted` est un accusé de réception, pas un résultat.
+
+Pour le prévol Morphogenèse V2, exécuter le cas dans un processus où le shadow est activé :
+
+```powershell
+$env:GENOS_MORPHOGENESIS_V2_SHADOW = '1'
+$mission = Get-Content -Raw benchmarks/topology-morphogenesis/missions/morphogenese-shadow.json
+node backend/bin/genos-orchestrate.cjs $mission
+Remove-Item Env:GENOS_MORPHOGENESIS_V2_SHADOW
+```
+
+## Paliers de difficulté
+
+| Palier | Campagne | Preuve attendue | Ce que le palier établit |
+|---|---|---|---|
+| 0 — référence | `orchestrateur-simple` | mission achevée, critères déterministes vérifiés et barrière de preuve satisfaite | le chemin simple peut terminer une mission contrôlée |
+| 1 — couverture | huit missions `topologie-*` | mode demandé, composition et rôles retournés, workers concordants, états terminaux et provenance | le dispatch dédié de chaque topologie est adressable et observable |
+| 2 — mécanismes | les mêmes huit missions | traces ou reçus des opérations spécifiques indiquées dans chaque mission, puis vérification indépendante de l'artefact | les mécanismes exercés fonctionnent pour ce scénario précis |
+| 3 — plan morphologique | `morphogenese-plan` | plan et candidats enregistrés, contraintes et raisons de sélection consultables | le planner propose une morphologie pour cette entrée |
+| 4 — prévol | `morphogenese-shadow` | résultat V2 `SHADOWED`, proposition validée, aucun reçu d'autorisation ni transition appliquée | le prévol peut évaluer une proposition sans la committer |
+| 5 — répétition et réfutation | reprendre les cas réussis avec seeds et budgets figés, puis `garde-preuve-negative` | répétitions conformes et contrôle négatif bloqué avec motif explicite | les résultats sont reproductibles et les gates refusent une preuve insuffisante |
+
+Les missions des paliers 1 et 2 sont réunies dans un payload par topologie : le même lancement doit d'abord démontrer la composition, puis satisfaire les critères spécifiques du palier 2. Si la session, l'opération, la preuve ou la métrique spécifique n'est pas réellement observée, classer le mécanisme comme **non démontré** même si les workers terminent.
+
+Le dispatch biologique ne fournit pas nécessairement le `session_id` aux workers ni dans son accusé de réception. Pour Syncytium, Rhizome et Biome, si le worker ne peut pas joindre la session, compléter le palier avec l'interface MCP en deux temps : appeler `genos_biological_mode` pour composer le mode avec l'identifiant de mission, puis reprendre le `session_id` renvoyé et exécuter `genos_topology_session` avec l'opération propre au cas. Conserver les deux reçus. Cette séquence vérifie les sessions et leurs opérations; elle ne prouve pas à elle seule le branchement de ces opérations au dispatch d'une mission backend.
+
+## Matrice des missions
+
+| Fichier | Voie demandée | Mécanisme propre à vérifier |
+|---|---|---|
+| `missions/orchestrateur-simple.json` | `orchestrate` | solution bornée, oracle déterministe, aucune dépendance à une topologie biologique |
+| `missions/topologie-trinity.json` | `dispatch_trinity` | exactement trois mondes isolés, empreinte de départ commune, comparaison après clôture et décision étayée |
+| `missions/topologie-a-team.json` | `dispatch_team` + `domains` et critères d'acceptation explicites | au moins deux domaines distincts, dépendances entre étapes et intégration par responsable identifié |
+| `missions/topologie-biome.json` | `dispatch_biological`, `mode=biome` | niches/populations, allocation des ressources, foraging et état du biofilm observables |
+| `missions/topologie-biocenose.json` | `dispatch_biological`, `mode=biocenose` | contributions distinctes, règle de consensus/quorum et abstention si les preuves divergent |
+| `missions/topologie-holobionte.json` | `dispatch_biological`, `mode=holobionte` | capacités hôte/symbiotes, sortie contractuelle et décision de veto explicitement vérifiées |
+| `missions/topologie-syncytium.json` | `dispatch_biological`, `mode=syncytium` | session persistée, deux mises à jour compatibles, snapshot convergent et invariants maintenus |
+| `missions/topologie-rhizome.json` | `dispatch_biological`, `mode=rhizome` | graphe de capacités, dépôt stigmergique et sélection/routage vers un membre admissible |
+| `missions/topologie-metapopulation.json` | `dispatch_biological`, `mode=metapopulation` | populations séparées, agrégation/quorum et comportement documenté face à un membre indisponible |
+| `missions/morphogenese-plan.json` | `orchestrate` | hypothèses, contraintes, candidats topologiques et justification du choix / refus |
+| `missions/morphogenese-shadow.json` | `orchestrate` avec `GENOS_MORPHOGENESIS_V2_SHADOW=1` | proposition V2 validée en shadow sans changement d'état |
+| `missions/garde-preuve-negative.json` | `orchestrate` | demande de conclusion sans preuve; doit rester non vérifiée, bloquée ou escaladée |
+
+## Critères de passage
+
+### Référence simple
+
+Le palier 0 passe si le résultat inclut la réponse attendue, si le vérificateur déterministe la confirme, si la mission atteint une clôture autorisée et si aucune preuve n'est remplacée par une affirmation de worker. Refaire trois fois avec le même commit, la même entrée et les mêmes budgets. Conserver aussi le coût, la durée, les tokens, la route d'exécution et les états des workers.
+
+### Topologies
+
+Pour chaque topologie, exiger les éléments suivants dans le dossier :
+
+1. le mode demandé et le mode composé correspondent ;
+2. les rôles/membres créés concordent avec le dispatch et leur nombre ;
+3. tous les workers atteignent un état terminal explicite, sans dispatch différé ni écart inexpliqué ;
+4. une trace, un reçu ou un état persistant atteste le mécanisme spécifique de la matrice ;
+5. un vérificateur indépendant valide le livrable et les invariants de mission ;
+6. le coût et la durée restent dans les budgets figés.
+
+Un test d'intégration qui valide seulement le composeur, l'existence d'un outil ou l'acceptation du dispatch reste une preuve de composant/câblage. Il ne valide pas le mécanisme en exécution de bout en bout. Les missions Biome, Syncytium et Rhizome exigent une session identifiable et une mutation/lecture effectivement persistée; la seule capacité déclarée n'est pas suffisante. Pour Trinity, trois workers acceptés ne prouvent ni l'isolation ni la comparaison.
+
+### Morphogenèse
+
+Le palier 3 passe lorsque le plan enregistré expose candidats, contraintes dures, coûts/risques utilisés et motif de sélection, ou un refus fermé si les entrées sont insuffisantes. Le palier 4 passe seulement lorsque la trace montre l'évaluation V2 en shadow et l'absence de transition appliquée. Une exécution historique `prepareMorphology` seule valide uniquement le préparateur historique et doit être rapportée séparément du planner Morphogenèse et du runtime V2.
+
+Ne pas demander une transition avec commit pour cette campagne. Le commit Morphogenèse V2 dépend des adaptateurs d'adjudication du noyau et de gouvernance; une proposition shadow n'autorise aucune modification. Toute qualification ultérieure d'une transition opérationnelle doit utiliser une campagne séparée, isolée, avec reçu d'adjudication, approbation et vérification de rollback.
+
+### De « experimental » à « operationnel »
+
+Attribuer la maturité **opérationnelle pour le périmètre testé** uniquement si, pour le même commit et la même configuration :
+
+- chaque cas requis passe trois fois de suite avec seeds et budgets consignés ;
+- toutes les preuves du tableau sont issues des traces/états runtime, et les livrables passent un oracle indépendant ;
+- le contrôle négatif échoue fermé comme attendu et une défaillance d'un worker n'est pas comptée comme succès ;
+- les incidents, échecs, reprises et métriques sont conservés ;
+- aucune capacité partielle ou proposée n'est présentée comme opérationnelle.
+
+Sinon, garder le statut **expérimental** ou **partiel**, en nommant le palier réellement atteint et les preuves manquantes. Cette qualification porte sur les mécanismes et scénarios exécutés; elle ne prouve ni performance générale, ni disponibilité de production, ni comparaison favorable entre topologies.
+
+## Fiche de campagne à remplir
+
+Pour chaque mission, archiver : `suite_version`, `git_commit`, `mission_id`, `seed`, `mode/action`, version/configuration du runtime, modèle/provider demandé et servi, budgets prévus/réels, durée, identifiants des workers et états terminaux, traces et reçus spécifiques, vérifications indépendantes, verdict de clôture, incidents et verdict du palier. Utiliser `null` pour une mesure absente, jamais zéro. Un résultat sans provenance est **inconclusif**.
+
+| Mission | Répétition 1 | Répétition 2 | Répétition 3 | Contrôle négatif | Verdict / preuves manquantes |
+|---|---|---|---|---|---|
+| Orchestrateur simple | | | | | |
+| Trinity | | | | | |
+| A-Team | | | | | |
+| Biome | | | | | |
+| Biocénose | | | | | |
+| Holobionte | | | | | |
+| Syncytium | | | | | |
+| Rhizome | | | | | |
+| Métapopulation | | | | | |
+| Morphogenèse planner / V2 | | | | | |
+
+## Limites connues à garder dans le rapport
+
+Les huit composeurs canoniques sont adressables par des dispatchs dédiés, mais le chemin principal `orchestrate` n'exécute pas uniformément les huit topologies. Le planner qui joint des candidats morphologiques, le préparateur historique et le prévol V2 sont trois preuves différentes. Les six modes biologiques acceptent leur payload via `dispatch_biological`; Trinity et A-Team utilisent des dispatchs dédiés. Les variants marqués partiels restent partiels même si une mission de composition passe.
+
+## Compte rendu — 2026-09-25
+
+Cette première exécution est **partielle** et ne fait passer aucune topologie à l'état opérationnel.
+
+| Voie | Résultat observé | Verdict |
+|---|---|---|
+| Orchestrateur simple | le worker local s'est arrêté sur `deadlock_collapse`; clôture refusée, invariant `mission_outcome_success` non satisfait | échec palier 0 |
+| Trinity | trois mondes acceptés, mais les trois restent `queued`; aucun agent worker correspondant | composition acceptée, exécution non démontrée |
+| Six modes biologiques | Biocénose, Biome, Holobionte, Métapopulation, Rhizome et Syncytium ont chacun retourné quatre membres `accepted`; aucun de leurs workers n'apparaît dans `agents` | composition acceptée, exécution non démontrée |
+| A-Team | payload initial refusé sans domaines et critères explicites; payload corrigé accepté, run toujours `RUNNING`, membres `PLANNED`, sans identifiants worker persistés | contrat exercé, dispatch non terminé |
+| Sessions Biome, Syncytium, Rhizome | allocation Biome puis foraging réussi après retrait d'un identifiant de population inconnu; application/snapshot/historique Syncytium réussis avec avertissement de champ non typé; dépôt Rhizome réussi, routage `unreachable` | opérations partielles; reçus dans `artifacts/topology-morphogenesis/session-operations-1.json` |
+| Planner historique | mission arrêtée par deadlock; événement `MORPHOGENESIS_COMPLETED` indique `parallel_forks`, `commitId: null`; candidats du planner non établis | palier 3 non passé |
+| V2 shadow | décision `SHADOWED`, `committed: false`, erreurs vides, autorité noyau/gouvernance en attente; mission entière bloquée par `evidence_report` manquant | preuve shadow réussie; mission incomplète |
+| Contrôle négatif | gate de clôture bloqué avec `evidence_missing`; runtime également arrêté sur deadlock | refus observé, scénario incomplet |
+
+Les dispatchs ont produit 30 identifiants worker dans les reçus examinés, mais aucune ligne `agents` correspondante; les mondes Trinity restent en attente et le run A-Team reste en cours. La campagne a rencontré `ENOSPC` pendant les copies concurrentes de workspaces. J'ai supprimé uniquement la première racine de capsules de cette campagne pour récupérer de l'espace; les runs suivants ont recréé des capsules, conservées pour le GC différé du runtime. Journaux et reçus restent sous `artifacts/topology-morphogenesis/`.
+
+Les répétitions ne sont pas engagées : aucun scénario complet n'a passé sa barrière de mission. Le seul passage spécifique confirmé est l'évaluation non committante V2 shadow. Aucun statut opérationnel global ne peut être attribué sur cette exécution.
+
+Voir aussi [Topologies et contrat de capacités](../../docs/02-orchestration/topologies-et-capacites.md), [Orchestration](../../docs/02-orchestration/orchestration.md) et [Catalogue des variants morphologiques](../../docs/02-orchestration/topologies/variants-morphologiques.md).

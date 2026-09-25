@@ -1,0 +1,8 @@
+{
+  "action": "orchestrate",
+  "mission": "TM-M01. Deux sources indépendantes fournissent des inventaires JSON à normaliser, comparer et vérifier. Préserver les provenances, séparer les sources pendant l'analyse, budget maximal 3 workers. Rapporter le plan morphologique réellement retenu, candidats, coûts/risques/contraintes et raison de sélection ou refus. Distinguer le préparateur historique du planner Morphogenèse; ne pas prétendre qu'un graphe candidat a été dispatché sans événement runtime correspondant.",
+  "executor": "local",
+  "autonomous_orchestration": false,
+  "fork_count": 3,
+  "timeoutMs": 120000
+}

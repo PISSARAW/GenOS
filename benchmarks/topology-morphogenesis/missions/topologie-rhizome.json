@@ -1,0 +1,8 @@
+{
+  "action": "dispatch_biological",
+  "mode": "rhizome",
+  "agent_count": 3,
+  "mission": "TM-T07. Construire un graphe de capacités pour une demande de validation JSON: un membre sait parser le JSON, un autre vérifier le schéma, un troisième expliquer les erreurs. Déposer un signal stigmergique lié à la capacité de schéma, sélectionner ou router un membre admissible pour vérifier {\"ok\":true}, puis consigner le résultat. Vérifier que le membre choisi possède la capacité requise et que l'arête/trace du dépôt est observable dans la session Rhizome. Rapporter session_id, membres/capacités, dépôt, route et preuve d'admissibilité.",
+  "executor": "local",
+  "timeoutMs": 120000
+}

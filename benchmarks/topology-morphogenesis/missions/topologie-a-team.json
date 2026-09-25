@@ -1,0 +1,12 @@
+{
+  "action": "dispatch_team",
+  "domains": ["backend", "security", "operations"],
+  "success_criteria": [
+    "Le plan couvre backend, sécurité et opérations et les domaines sont portés par des membres distincts.",
+    "La validation des permissions précède l'exposition publique; les métriques sont définies avant la bascule.",
+    "Un responsable d'intégration réconcilie les trois dossiers et marque chaque critère satisfait ou non vérifié."
+  ],
+  "mission": "TM-T02. Produire un plan de migration fictif d'un service HTTP vers un service de file de messages. Le plan doit couvrir au moins deux domaines détectables: architecture back-end API, sécurité/authentification et opérations de déploiement CI/CD avec observabilité. Assigner les étapes à des responsables de domaine, expliciter les dépendances (authentification avant exposition, métriques avant bascule) et faire intégrer les livrables par un responsable. Aucun changement de fichier ni déploiement. Vérifier chaque exigence par une liste de contrôle séparée et rapporter domaines, dépendances, handoffs, responsable d'intégration et preuves.",
+  "executor": "local",
+  "timeoutMs": 120000
+}

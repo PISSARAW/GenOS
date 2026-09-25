@@ -1,0 +1,8 @@
+{
+  "action": "dispatch_biological",
+  "mode": "biome",
+  "agent_count": 3,
+  "mission": "TM-T03. Dans une simulation de recherche documentaire sans accès réseau, trouver une réponse à: combien de lettres distinctes apparaissent dans les mots français « biome », « niche » et « espèce » (accents comptés comme lettres distinctes)? Décrire des niches de recherche séparées, allouer explicitement un budget de 6 unités entre elles, exécuter une étape de foraging/allocation Biome et vérifier l'état ou la matrice biofilm après dépôt. Produire la liste des lettres et le compte avec un calcul indépendant. Rapporter l'identifiant de session, les opérations et versions observées, les résultats d'allocation/foraging et les vérifications.",
+  "executor": "local",
+  "timeoutMs": 120000
+}
