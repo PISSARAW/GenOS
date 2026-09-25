@@ -346,6 +346,37 @@ function localSignalsSince(sinceTs) {
   return results;
 }
 
+async function recordSignalGrounding(delivery) {
+  if (!delivery?.signalId || !delivery?.subscriberAgentId) return { recorded: false, reason: 'invalid_delivery' };
+  const db = await getDatabase();
+  const row = await findSignalForGrounding(db, delivery.signalId);
+  if (!row) return { recorded: false, reason: 'signal_not_found' };
+  const integrity = verifySignalForGrounding(row, delivery.signalId);
+  if (!integrity.valid) return { recorded: false, reason: integrity.reason };
+  if (!groundingMeetsRequirement(delivery.groundingLevel, integrity.envelope.groundingRequired)) return { recorded: false, reason: 'grounding_below_required' };
+  return signalDelivery.recordGrounding(db, delivery);
+}
+function findSignalForGrounding(db, signalId) {
+  return db.get('SELECT signal_type, signal_blob, sender_agent_id FROM signal_blobs WHERE signal_id = ?', [signalId]);
+}
+function verifySignalForGrounding(row, signalId) {
+  const signal = unpackSignalPayload(row.signal_blob, row.signal_type);
+  const envelope = signal?.communicationEnvelope;
+  if (!envelope) return { valid: false, reason: 'envelope_missing' };
+  const { communicationEnvelope, ...payload } = signal;
+  const verification = verifyEnvelopePayload(communicationEnvelope, payload);
+  const boundToRow = communicationEnvelope.messageId === signalId
+    && communicationEnvelope.senderAgentId === (row.sender_agent_id || null)
+    && communicationEnvelope.modality === row.signal_type;
+  return { valid: verification.valid && boundToRow, reason: 'signal_integrity_rejected', envelope: communicationEnvelope };
+}
+function groundingMeetsRequirement(requested, required) {
+  return (GROUNDING_RANKS[requested] || 0) >= (GROUNDING_RANKS[required] || 0);
+}
+const GROUNDING_RANKS = Object.freeze({
+  none: 0, transport_ack: 1, semantic_ack: 2, action_ack: 3, verified_ack: 4, human_confirmation: 5
+});
+
 module.exports = {
   publishSignal,
   readSignalsForAgent,
@@ -361,6 +392,7 @@ module.exports = {
   recordPendingDelivery: signalDelivery.recordPendingDelivery,
   markDelivered: signalDelivery.markDelivered,
   ackDelivery: signalDelivery.ackDelivery,
+  recordSignalGrounding,
   getPendingDeliveries: signalDelivery.getPendingDeliveries,
   DEFAULT_SIGNAL_TTL_MS,
   LOCAL_BROADCAST_LOG,

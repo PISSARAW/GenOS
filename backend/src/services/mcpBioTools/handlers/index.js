@@ -50,6 +50,7 @@ const { handleConjoinedTwinBind, handleConjoinedTwinBindError } = require('./con
 const { handleParasiticGraft, handleParasiticGraftError } = require('./parasiticGraft');
 const { handleSignalPublish, handleSignalPublishError } = require('./signalTransport');
 const { handleSignalRead, handleSignalReadError } = require('./signalTransport');
+const { handleSignalGround, handleSignalGroundError } = require('./signalTransport');
 const { handleSignalPurge, handleSignalPurgeError } = require('./signalTransport');
 const { handleSignalElectrocyteVote, handleSignalElectrocyteVoteError } = require('./signalTransport');
 const { handleSignalChemotacticFollow, handleSignalChemotacticFollowError } = require('./signalTransport');
@@ -153,6 +154,7 @@ const TOOL_HANDLERS = {
   genos_biomimicry_parasitic_graft: { handle: handleParasiticGraft, error: handleParasiticGraftError },
   genos_signal_publish: { handle: handleSignalPublish, error: handleSignalPublishError },
   genos_signal_read: { handle: handleSignalRead, error: handleSignalReadError },
+  genos_signal_ground: { handle: handleSignalGround, error: handleSignalGroundError },
   genos_signal_purge: { handle: handleSignalPurge, error: handleSignalPurgeError },
   genos_signal_electrocyte_vote: { handle: handleSignalElectrocyteVote, error: handleSignalElectrocyteVoteError },
   genos_signal_chemotactic_follow: { handle: handleSignalChemotacticFollow, error: handleSignalChemotacticFollowError },
@@ -219,6 +221,7 @@ const HANDLER_REQUIRED = {
   genos_biomimicry_agrobacterium_tdna_hijack: ['host_id'],
   genos_signal_publish: ['signal_type'],
   genos_signal_read: ['agent_id'],
+  genos_signal_ground: ['signal_id', 'agent_id', 'grounding_level'],
   genos_signal_chemotactic_follow: ['agent_id'],
 };
 

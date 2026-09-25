@@ -28,10 +28,8 @@ async function migrateSignalGrounding(db) {
       await db.exec(`ALTER TABLE signal_deliveries ADD COLUMN ${name} ${type}`);
     }
   }
-  await db.exec(`UPDATE signal_deliveries SET grounding_level = CASE status
-    WHEN 'delivered' THEN 'transport_ack'
-    WHEN 'seen' THEN 'semantic_ack'
-    WHEN 'acked' THEN 'action_ack'
+  await db.exec(`UPDATE signal_deliveries SET grounding_level = CASE
+    WHEN status IN ('delivered', 'seen', 'acked') THEN 'transport_ack'
     ELSE 'none' END
     WHERE grounding_level = 'none'`);
   await db.exec('CREATE INDEX IF NOT EXISTS idx_signal_grounding_level ON signal_deliveries(signal_id, grounding_level)');

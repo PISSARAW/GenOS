@@ -893,6 +893,26 @@
       }
     },
     {
+      "name": "genos_signal_ground",
+      "category": "Swarm Biomimicry",
+      "risk": "Medium",
+      "description": "Enregistre un accusé de grounding typé pour un signal reçu, avec empreintes et version de contrat plutôt qu'un prompt libre.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "signal_id": { "type": "string" },
+          "agent_id": { "type": "string" },
+          "grounding_level": {
+            "type": "string",
+            "enum": ["transport_ack", "semantic_ack"]
+          },
+          "semantic_hash": { "type": "string" },
+          "contract_version": { "type": "string" }
+        },
+        "required": ["signal_id", "agent_id", "grounding_level"]
+      }
+    },
+    {
       "name": "genos_signal_electrocyte_vote",
       "category": "Swarm Biomimicry",
       "risk": "Low",

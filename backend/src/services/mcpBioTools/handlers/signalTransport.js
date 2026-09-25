@@ -5,7 +5,7 @@
  * Chaque handler publie/lit/consomme les signaux via le transport persistant.
  */
 
-const { publishSignal, readSignalsForAgent, markSignalsSeen, purgeExpiredSignals } = require('../../signalingTransportService');
+const { publishSignal, readSignalsForAgent, markSignalsSeen, purgeExpiredSignals, recordSignalGrounding } = require('../../signalingTransportService');
 const {
   electocyteDecision,
   chemotacticFollow,
@@ -90,6 +90,25 @@ function handleSignalReadError(e) {
     error: e.message,
     transport: 'zero_text',
   };
+}
+
+async function handleSignalGround(args) {
+  const { signal_id, agent_id, grounding_level, semantic_hash, contract_version } = args || {};
+  if (!signal_id || !agent_id || !grounding_level) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'signal_id, agent_id and grounding_level are required.', transport: 'zero_text' };
+  }
+  const result = await recordSignalGrounding({
+    signalId: signal_id, subscriberAgentId: agent_id, groundingLevel: grounding_level,
+    semanticHash: semantic_hash, contractVersion: contract_version
+  });
+  return {
+    configured: true, success: result.recorded, status: result.recorded ? 'grounding_recorded' : 'grounding_rejected',
+    reason: result.reason || null, transport: 'zero_text'
+  };
+}
+
+function handleSignalGroundError(e) {
+  return { configured: true, success: false, status: 'tool_error', error: e.message, transport: 'zero_text' };
 }
 
 // ── genos_signal_purge ───────────────────────────────────────────────────────
@@ -243,6 +262,8 @@ module.exports = {
   handleSignalPublishError,
   handleSignalRead,
   handleSignalReadError,
+  handleSignalGround,
+  handleSignalGroundError,
   handleSignalPurge,
   handleSignalPurgeError,
   handleSignalElectrocyteVote,
