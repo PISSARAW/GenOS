@@ -1,29 +1,25 @@
 /**
  * GenOS SQLite Database Connection Singleton
  */
-
 const path = require('path');
 const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { initializeSchema } = require('./schema');
 const { seedDatabase } = require('./seed');
-
 const sqliteVec = require('sqlite-vec');
 const { AsyncLocalStorage } = require('async_hooks');
-
 let dbInstance = null;
 let currentDbPath = null;
 let dbInitialization = null;
+let initializingDb = null;
 const transactionTails = new WeakMap();
 const transactionStorage = new AsyncLocalStorage();
 const MAX_DATABASE_BACKUPS = 3;
-
 function configureEpistemicStores(db) {
   require('../services/epistemic/revisionSurface').configureRevisionStore(db);
   require('../services/epistemic/contradictionBus').configureEventStore(db);
 }
-
 // N14: best-effort copy of the database file before destructive migrations.
 // Never throws: a backup failure must never block the boot sequence.
 function backupDatabaseFile(dbPath) {
@@ -46,7 +42,6 @@ function backupDatabaseFile(dbPath) {
     return null;
   }
 }
-
 function pruneDatabaseBackups(resolvedDbPath) {
   try {
     const directory = path.dirname(resolvedDbPath);
@@ -62,7 +57,6 @@ function pruneDatabaseBackups(resolvedDbPath) {
     console.warn('[DB] Backup pruning failed (continuing boot):', error.message);
   }
 }
-
 async function getDatabase(dbFilePath) {
   if (dbFilePath) {
     const targetPath = path.resolve(dbFilePath);
@@ -76,58 +70,69 @@ async function getDatabase(dbFilePath) {
   } else if (dbInstance) {
     return dbInstance;
   }
-
   const defaultPath = process.env.GENOS_DB_PATH || path.resolve(__dirname, '../../genos.db');
   const filename = dbFilePath ? path.resolve(dbFilePath) : path.resolve(defaultPath);
-
   // Requests may reach the backend while it is still bootstrapping.  Reuse the
   // same connection/bootstrap promise instead of running two seed passes in
   // parallel inside one Node process.
   if (dbInitialization) return dbInitialization;
-
   dbInitialization = (async () => {
     const db = await open({
       filename,
       driver: sqlite3.Database
     });
+    initializingDb = db;
     try {
       sqliteVec.load(db.db);
     } catch (err) {
       console.warn('[DB] sqlite-vec extension could not be loaded:', err.message);
     }
-
     // Reduce SQLITE_BUSY under concurrent writers (bridge + spawned runtime,
-    // multiple agents): wait instead of failing immediately, and prefer WAL.
+    // multiple agents): wait longer instead of failing immediately, and prefer WAL.
     try {
-      await db.exec('PRAGMA busy_timeout = 5000;');
+      await db.exec('PRAGMA busy_timeout = 15000;');
       await db.exec('PRAGMA journal_mode = WAL;');
       await db.exec('PRAGMA synchronous = NORMAL;');
     } catch (pragmaError) {
       console.warn('[DB] Could not apply SQLite pragmas:', pragmaError.message);
     }
-
-    try {
-      backupDatabaseFile(filename);
+    // Best-effort pre-migration backup — must never block boot or starve a
+    // concurrent writer (e.g. a freshly spawned worker that needs its own
+    // connection). A failure is logged once and the boot continues.
+    const skipBootstrap = process.env.GENOS_DB_BOOTSTRAP_SKIP === '1';
+    if (!skipBootstrap && process.env.GENOS_DB_BACKUP_SKIP !== '1') {
+      try {
+        backupDatabaseFile(filename);
+      } catch (backupError) {
+        console.warn('[DB] Pre-migration backup skipped:', backupError.message);
+      }
+    }
+    if (!skipBootstrap) {
       await initializeSchema(db);
       await seedDatabase(db);
-      configureEpistemicStores(db);
-      // Initialisation best-effort du persister d'état adaptatif hors-process
-      // (Q-values, attractions, stigmergie, registres MCP) : ne jamais bloquer le boot.
-      try { await require('./adaptiveStateBootstrap').ensureAdaptivePersister(); } catch (_) {}
-      dbInstance = db;
-      currentDbPath = filename;
-      return dbInstance;
-    } catch (error) {
-      await db.close();
-      throw error;
-    } finally {
-      dbInitialization = null;
     }
+    configureEpistemicStores(db);
+    // Initialisation best-effort du persister d'état adaptatif hors-process
+    // (Q-values, attractions, stigmergie, registres MCP) : ne jamais bloquer le boot.
+    if (!skipBootstrap) {
+      try { await require('./adaptiveStateBootstrap').ensureAdaptivePersister(); } catch (_) {}
+    }
+    dbInstance = db;
+    currentDbPath = filename;
+    initializingDb = null;
+    return dbInstance;
   })();
-
-  return dbInitialization;
+  try {
+    return await dbInitialization;
+  } catch (error) {
+    dbInitialization = null;
+    if (initializingDb) {
+      await initializingDb.close().catch(() => {});
+      initializingDb = null;
+    }
+    throw error;
+  }
 }
-
 async function closeDatabase() {
   if (dbInitialization) {
     try { await dbInitialization; } catch (_) {}
@@ -138,16 +143,13 @@ async function closeDatabase() {
     currentDbPath = null;
   }
 }
-
 function isLockError(err) {
   if (err?.code === 'SQLITE_BUSY') return true;
   return /busy|locked/i.test(err?.message || '');
 }
-
 function retryDelayMs(attempt, baseDelay) {
   return Math.min(1000, baseDelay * Math.pow(2, attempt)) + Math.floor(Math.random() * 50);
 }
-
 async function withWriteRetry(fn, options = {}) {
   const maxRetries = Number(process.env.GENOS_SQLITE_MAX_RETRIES) || options.maxRetries || 5;
   const baseDelay = options.baseDelayMs || 50;
@@ -162,7 +164,6 @@ async function withWriteRetry(fn, options = {}) {
     }
   }
 }
-
 async function withTransaction(db, callback) {
   const activeTxDb = transactionStorage.getStore();
   if (activeTxDb === db) {
@@ -173,14 +174,12 @@ async function withTransaction(db, callback) {
   if (typeof db.exec !== 'function') {
     return await callback(db);
   }
-
   const currentTail = transactionTails.get(db) || Promise.resolve();
   let release;
   const nextTail = new Promise(resolve => {
     release = resolve;
   });
   transactionTails.set(db, currentTail.then(() => nextTail, () => nextTail));
-
   await currentTail;
   try {
     await withWriteRetry(() => db.exec('BEGIN IMMEDIATE;'));
@@ -203,7 +202,6 @@ async function withTransaction(db, callback) {
     release();
   }
 }
-
 module.exports = {
   getDatabase,
   closeDatabase,

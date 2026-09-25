@@ -12,9 +12,19 @@ const path = require('path');
 
 const FILE_THRESHOLD = 15000;
 
-function payloadFile(text) {
+function runtimeDirectory() {
+  const configured = process.env.GENOS_RUNNER_LOG_DIR;
+  if (process.platform !== 'win32') {
+    return configured || path.join(os.tmpdir(), 'genos-runner-logs');
+  }
+  if (configured && path.win32.isAbsolute(configured)) return configured;
+  return path.join(process.cwd(), '.genos-runner-logs');
+}
+
+function payloadFile(text, directory = runtimeDirectory()) {
   const name = `genos-payload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
-  const file = path.join(os.tmpdir(), name);
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, name);
   fs.writeFileSync(file, String(text), 'utf8');
   return file;
 }
@@ -39,4 +49,19 @@ function loadArgv(argv) {
   return body;
 }
 
-module.exports = { payloadFile, toSpawnArgs, loadArgv, FILE_THRESHOLD };
+function openRunnerStdio(processId) {
+  const directory = runtimeDirectory();
+  fs.mkdirSync(directory, { recursive: true });
+  const safeId = String(processId).replace(/[^a-zA-Z0-9_.-]/g, '_');
+  const fd = fs.openSync(path.join(directory, `${safeId}.log`), 'a');
+  return { stdio: ['ignore', fd, fd], close: () => fs.closeSync(fd) };
+}
+
+function waitForSpawn(child) {
+  return new Promise((resolve, reject) => {
+    child.once('spawn', resolve);
+    child.once('error', reject);
+  });
+}
+
+module.exports = { payloadFile, toSpawnArgs, loadArgv, openRunnerStdio, waitForSpawn, runtimeDirectory, FILE_THRESHOLD };

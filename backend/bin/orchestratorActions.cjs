@@ -65,12 +65,9 @@ function buildRunnerEnv() {
 function spawnDetachedRunner(context, runnerRequest, runnerEnv) {
   const helper = require('./detachedSpawn.cjs');
   const args = [context.bridgePath, ...helper.toSpawnArgs(JSON.stringify(runnerRequest))];
-  if (process.platform === 'win32') {
-    const runner = spawn(process.execPath, args, { cwd: context.repoRoot, detached: true, windowsHide: true, stdio: 'ignore', env: runnerEnv });
-    runner.unref();
-    return runner;
-  }
-  const runner = spawn(process.execPath, args, { cwd: context.repoRoot, detached: true, shell: true, stdio: 'ignore', env: runnerEnv });
+  const log = helper.openRunnerStdio(runnerRequest.detachedProcessId);
+  const runner = spawn(process.execPath, args, { cwd: context.repoRoot, detached: true, windowsHide: true, shell: false, stdio: log.stdio, env: runnerEnv });
+  runner.once('spawn', log.close); runner.once('error', log.close);
   runner.unref();
   return runner;
 }
@@ -106,6 +103,7 @@ async function handleBackground(context) {
   };
   const runnerEnv = buildRunnerEnv();
   const runner = spawnDetachedRunner(context, runnerRequest, runnerEnv);
+  await require('./detachedSpawn.cjs').waitForSpawn(runner);
   await trackDetachedProcess(context, detachedProcessId, runner);
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, detachedProcessId, runnerPid: runner.pid, ...(context.action === 'dispatch_worker' ? { workerId: context.id, reusedWorker: Boolean(reusableWorker), ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {}) } : {}), status: 'accepted', acceptedAt: new Date().toISOString(), task: context.task }));
 }

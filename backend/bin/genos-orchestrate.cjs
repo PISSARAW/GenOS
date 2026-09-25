@@ -7,7 +7,7 @@ try {
 } catch (error) {
   if (error.code !== 'ENOENT') throw error;
 }
-const { getDatabase, closeDatabase } = require('../src/db');
+const { getDatabase, closeDatabase, withWriteRetry } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
 const telemetry = require('../src/services/telemetryObserver');
@@ -72,12 +72,27 @@ if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' &&
 const SCRIPT_START_TIME = Date.now();
 
 async function waitForCompletion(db) {
-  const baseTimeout = Number(policyRequest.timeoutMs ?? request.timeoutMs ?? 14 * 60 * 1000);
+  const baseTimeout = Number(policyRequest.timeoutMs ?? request.timeoutMs ?? 600000);
   const deadline = Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
   let pulseTick = 0;
+  let busyRetries = 0;
   while (Date.now() < deadline) {
-    const agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
-    if (agents.length && agents.every((agent) => ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'].includes(agent.status))) return agents;
+    let agents, trinityWorlds;
+    try {
+      agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
+      trinityWorlds = await db.all("SELECT agent_id, status FROM trinity_worlds WHERE mission LIKE ? ORDER BY world_number", `%${id.slice(0, 24)}%`);
+    } catch (err) {
+      if (err?.code === 'SQLITE_BUSY' || /busy|locked/i.test(err?.message || '')) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(3000, 300 * Math.pow(1.5, busyRetries))));
+        busyRetries += 1;
+        continue;
+      }
+      throw err;
+    }
+    busyRetries = 0;
+    const allTerminal = agents.length && agents.every((agent) => ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'].includes(agent.status));
+    const trinityTerminal = trinityWorlds.length >= 3 && trinityWorlds.every((w) => ['blocked', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(w.status));
+    if (allTerminal || trinityTerminal) return agents;
     pulseTick += 1;
     if (pulseTick % 10 === 0) {
       try { await missionContinuity.observeMissionPulses(db, id); } catch (_) {}
@@ -185,22 +200,7 @@ async function executeMission(db, state) {
   const missionSuccess = completionGate.allowed === true;
   let finalVerdict = missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
 
-  // Execute morphology (fork agents, topology transitions)
-  if (morphology?.agents?.length > 0) {
-    const morphoRuntime = require('../src/services/morphogenesis/morphogenesisRuntime').getMorphogenesisRuntime();
-    const morphoResult = await morphoRuntime.executeMorphology(morphology, { orchestratorId: id, evidence: outcome.evidence, reason: `post-mission morphogenesis (verdict=${finalVerdict})` });
-    const committed = Boolean(morphoResult.commitId);
-    telemetry.emitEvent({
-      eventType: committed ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED',
-      agentId: id,
-      action: committed ? 'MORPHO_COMMITTED' : 'MORPHO_PROPOSED',
-      detail: committed
-        ? `Committed ${morphoResult.topology} morphology with ${morphoResult.agents?.length || 0} agents`
-        : `Morphology ${morphoResult.topology || 'unresolved'} evaluated without a commit receipt`,
-      payload: { topology: morphoResult.topology || null, committed, commitId: morphoResult.commitId || null },
-      severity: committed ? 'info' : 'warning'
-    });
-  }
+  await executeMorphology({ morphology, outcome, finalVerdict, orchestratorId: id });
 
   const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity });
   continuity = contResult.continuity;
@@ -213,6 +213,26 @@ async function executeMission(db, state) {
   await persistMissionChampion(db, outcome);
   emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalSuccess, finalVerdict, continuity, completionGate, id });
   if (!finalSuccess) process.exitCode = 2;
+}
+
+async function executeMorphology({ morphology, outcome, finalVerdict, orchestratorId }) {
+  if (!morphology?.agents?.length) return;
+  const morphoRuntime = require('../src/services/morphogenesis/morphogenesisRuntime').getMorphogenesisRuntime();
+  const result = await morphoRuntime.executeMorphology(morphology, {
+    orchestratorId, evidence: outcome.evidence,
+    reason: `post-mission morphogenesis (verdict=${finalVerdict})`
+  });
+  const committed = Boolean(result.commitId);
+  telemetry.emitEvent({
+    eventType: committed ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED',
+    agentId: orchestratorId,
+    action: committed ? 'MORPHO_COMMITTED' : 'MORPHO_PROPOSED',
+    detail: committed
+      ? `Committed ${result.topology} morphology with ${result.agents?.length || 0} agents`
+      : `Morphology ${result.topology || 'unresolved'} evaluated without a commit receipt`,
+    payload: { topology: result.topology || null, committed, commitId: result.commitId || null },
+    severity: committed ? 'info' : 'warning'
+  });
 }
 
 async function checkMinimalShortcut(db) {
@@ -257,7 +277,7 @@ async function executeForeground(db) {
 }
 
 async function main() {
-  const initDb = await getDatabase();
+  const initDb = await withWriteRetry(() => getDatabase(), { maxRetries: 10, baseDelayMs: 200 });
   await prepareRuntime(initDb);
   if (request.background === true) {
     await handleBackground({ request, action, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, getDatabase, closeDatabase });

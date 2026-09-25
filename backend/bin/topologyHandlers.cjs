@@ -9,7 +9,7 @@ const { randomUUID } = require('crypto');
 const { workerLaunchPayload } = require('./workerLaunchPayload.cjs');
 const { buildLaunchCapabilities } = require('../src/services/agents/agentIncarnationPayloadService');
 const { ensureTopologyWorker } = require('../src/services/topologyWorkerPersistenceService');
-const { toSpawnArgs } = require('./detachedSpawn.cjs');
+const detachedSpawn = require('./detachedSpawn.cjs');
 
 function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
@@ -47,17 +47,7 @@ function buildBiologicalOutput({ context, mode, mission, members, accepted, topo
 }
 
 function getRunnerStdio(workerId) {
-  const logDir = process.env.GENOS_RUNNER_LOG_DIR;
-  if (!logDir) return 'ignore';
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    fs.mkdirSync(logDir, { recursive: true });
-    const fd = fs.openSync(path.join(logDir, `${workerId}.log`), 'a');
-    return ['ignore', fd, fd];
-  } catch {
-    return 'ignore';
-  }
+  return detachedSpawn.openRunnerStdio(workerId);
 }
 
 function launchCapabilities(context, member) {
@@ -100,20 +90,23 @@ function runnerEnvironment() {
     GENOS_LOCAL_MODEL: process.env.GENOS_LOCAL_MODEL || '',
     GENOS_AGENT_EXECUTOR: process.env.GENOS_AGENT_EXECUTOR || '',
     GENOS_DEFAULT_MODEL: process.env.GENOS_DEFAULT_MODEL || '',
-    GENOS_RUNNER_LOG_DIR: process.env.GENOS_RUNNER_LOG_DIR || '',
+    GENOS_RUNNER_LOG_DIR: detachedSpawn.runtimeDirectory(),
     GENOS_EXECUTION_MODE: 'orchestrator'
   };
 }
 
 async function spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps }) {
   const awaitWorker = process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
-  // shell:false — with shell:true the exec path is concatenated unquoted and breaks
-  // on Windows when node lives under "C:\Program Files" (workers never start).
-  const runner = require('child_process').spawn(
-    process.execPath,
-    [context.bridgePath, ...toSpawnArgs(JSON.stringify(workerLaunchPayload({ context, member, workerId, parent, capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest, toolLease: launchCaps.toolLease })))],
-    { cwd: context.repoRoot, detached: !awaitWorker, shell: false, stdio: getRunnerStdio(workerId), env: runnerEnvironment() }
-  );
+  const payload = workerLaunchPayload({ context, member, workerId, parent,
+    capabilities: launchCaps.capabilities, capabilityManifest: launchCaps.capabilityManifest,
+    toolLease: launchCaps.toolLease });
+  const args = [context.bridgePath, ...detachedSpawn.toSpawnArgs(JSON.stringify(payload))];
+  const log = getRunnerStdio(workerId);
+  const runner = require('child_process').spawn(process.execPath, args,
+    { cwd: context.repoRoot, detached: !awaitWorker, shell: false, windowsHide: true,
+      stdio: log.stdio, env: runnerEnvironment() });
+  runner.once('spawn', log.close);
+  runner.once('error', log.close);
   try {
     await new Promise((resolve, reject) => {
       runner.once('spawn', resolve);
@@ -127,7 +120,9 @@ async function spawnTopologyWorker({ db, context, member, parent, workerId, laun
   const exitCode = await new Promise((resolve) => runner.once('close', resolve));
   if (exitCode !== 0) {
     await db.run("UPDATE agents SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'idle'", workerId);
-    throw new Error(`Topology worker '${workerId}' exited with code ${exitCode}; inspect its runner log.`);
+    throw new Error(
+      'Topology worker ' + workerId + ' exited with code ' + exitCode + '; inspect its runner log.'
+    );
   }
 }
 

@@ -25,9 +25,10 @@ async function resolveWorkerIdentity(normalizedMission, dispatchedAgent) {
   }
   normalizedMission.workerKind = dispatchedAgent.workerKind || requestedKind;
   const persistedContract = persistedWorkerContract(dispatchedAgent);
-  if (normalizedMission.workerKind === 'sub_orchestrator' && persistedContract) {
+  if (persistedContract) {
     if (persistedContract.identity?.parentId !== dispatchedAgent.parent_agent_id) {
-      throw Object.assign(new Error('Persisted sub-orchestrator contract has a different parent.'), { code: 'INVALID_SUBORCHESTRATOR_CONTRACT' });
+      const code = normalizedMission.workerKind === 'sub_orchestrator' ? 'INVALID_SUBORCHESTRATOR_CONTRACT' : 'INVALID_WORKER_CONTRACT';
+      throw Object.assign(new Error('Persisted worker contract has a different parent.'), { code });
     }
     normalizedMission.workerContract = persistedContract;
   } else {
@@ -163,6 +164,7 @@ async function enableMissionMonitoring(ctx) {
 
 module.exports = {
   assertMissionNotCancelled,
+  resolveWorkerIdentity,
   initializeMissionContext,
   resolveMissionContract,
   provisionWorkspaceAndModel,
