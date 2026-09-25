@@ -3,6 +3,7 @@
 const rhizomeTick = require('./rhizomeTick');
 const homeostasisController = require('./homeostasisController');
 const rhizome = require('../../rhizomeCoordinationService');
+const variantPolicies = require('../variants/variantPolicyService');
 
 async function run(input) {
   if (!Array.isArray(input.needs)) {
@@ -11,15 +12,22 @@ async function run(input) {
   const maximum = Math.max(1, Math.min(100, Number(input.maxTicks) || input.needs.length || 1));
   const results = [];
   const homeostasis = homeostasisController.create();
-  let activeVariant = input.variant || null;
+  const storedPolicy = await rhizome.getVariantPolicy(input.sessionId, input.options || {});
+  let activeVariant = input.variant || storedPolicy.name;
   for (const need of input.needs.slice(0, maximum)) {
     const result = await rhizomeTick.tick({ ...input, need });
     result.homeostasis = homeostasis.observe(result, input);
     activeVariant = await applyVariant(input, activeVariant, result.homeostasis);
     results.push(result);
     if (await stopRequested(input.stopWhen, result)) return { results, stopReason: 'STOP_CONDITION' };
+    if (homeostasisReached(result, activeVariant)) return { results, stopReason: 'STABLE_TICKS' };
   }
   return { results, stopReason: input.needs.length > maximum ? 'MAX_TICKS' : 'NEEDS_EXHAUSTED' };
+}
+
+function homeostasisReached(result, variant) {
+  const threshold = variantPolicies.resolve(variant).stop.stableTicks;
+  return result.homeostasis.stableTicks >= threshold;
 }
 
 async function applyVariant(input, activeVariant, homeostasis) {

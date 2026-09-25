@@ -41,6 +41,7 @@ function create(input) {
         return { sessionId, variant: policy.name };
       }
     }),
+    getVariantPolicy: async (sessionId, options = {}) => (await input.getSession(sessionId, options.db)).variantPolicy,
     maintainTick: (sessionId, options = {}) => input.mutateSession(sessionId, options, {
       type: 'TICK_HOMEOSTASIS',
       payload: { tickId: options.tickId || null },
@@ -56,7 +57,7 @@ function create(input) {
 
 function maintainTick(input) {
   const { session, options } = input;
-  const working = { nodes: [...session.nodes], edges: [...session.edges], graphVersion: session.graphVersion, activeNeeds: session.activeNeeds, coordinationLoci: session.coordinationLoci };
+  const working = { ...session, nodes: [...session.nodes], edges: [...session.edges] };
   const conductivity = input.conductivityService.step({
     session: working, alpha: options.alpha, beta: options.beta, decay: options.decay
   });
