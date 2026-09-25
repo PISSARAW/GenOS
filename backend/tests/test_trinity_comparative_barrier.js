@@ -32,10 +32,13 @@ assert.equal(barrier.latestReport({ events: [{ failure: { category: 'runtime_fai
   const autonomyPlan = { trinity: { activated: true, domain: 'software_engineering', members, threshold: 0.7 } };
   const result = await barrier.applyTrinityComparison({ db: null, agentId: 'orch-test', workers, usable: dossiers, autonomyPlan });
   assert.ok(result && typeof result.canMerge === 'boolean');
-  assert.equal(result.canMerge, true);
-  assert.equal(result.selectedWorld, 1);
+  assert.equal(result.canMerge, false);
+  assert.equal(result.selectedWorld, null);
+  assert.equal(result.outcome, 'ESCALATE_EXPERIMENT');
   assert.ok(result.comparativeAnalysis.scoredWorlds.length === 3);
-  assert.equal(autonomyPlan.trinity.comparison.selectedWorld, 1);
+  assert.equal(autonomyPlan.trinity.comparison.promotion.promoted, false);
+  assert.equal(autonomyPlan.trinity.comparison.promotion.reason, 'database_unavailable');
+  assert.equal(autonomyPlan.trinity.comparison.selectedWorld, null);
 
   const skipped = await barrier.applyTrinityComparison({ db: null, agentId: 'orch-test', workers, usable: dossiers, autonomyPlan: { trinity: { activated: false } } });
   assert.equal(skipped, null);

@@ -61,7 +61,7 @@ const TECHNICAL_DOMAIN_RULES = [
   },
   {
     domain: 'integration', role: 'integration_observer', modelTier: 'standard', priority: 100,
-    signals: [/\b(?:integration|intégration|integrate|intégrer|interop)\w*\b/i, /\b(?:fusionner|merge)\b/i]
+    signals: [/\b(?:integration|intégration|integrate|intégrer|integrer|interop)\w*\b/i, /\b(?:fusionner|merge)\b/i]
   }
 ];
 

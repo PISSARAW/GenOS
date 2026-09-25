@@ -38,7 +38,7 @@ async function run() {
     assert.equal(calm.evaluated, false);
     assert.equal(calm.reason, 'below_threshold');
 
-    // 4. Regret forcé (100% d'échecs) : lifecycle contrefactuel + plan + gate.
+    // 4. Regret forcé : le plan est préparé et reste en attente d'approbation.
     const failedEvidence = [];
     for (let i = 0; i < 5; i++) failedEvidence.push({ status: 'failed', outcome: 'failure' });
     const t0 = Date.now();
@@ -52,12 +52,10 @@ async function run() {
     console.log(`triggered: ${JSON.stringify({ executed: triggered.executed, reason: triggered.reason, errors: triggered.errors, durationMs, hasPlan: Boolean(triggered.plan), worlds: triggered.counterfactualReceipt && triggered.counterfactualReceipt.worldsCreated })}`);
     assert.equal(triggered.executed, false);
     // Plan incomplet (aucun spawn à proposer) : le gate refuse, sans appliquer ni committer.
-    assert.equal(triggered.reason, 'validation_failed');
+    assert.equal(triggered.reason, 'pending_approval');
     assert.ok(triggered.plan, 'a morphogenesis plan must be produced');
-    assert.ok(
-      triggered.errors && triggered.errors.includes('no spawn agents planned'),
-      'gate must reject spawn-less plans'
-    );
+    assert.equal(triggered.validation.valid, true, 'the plan must pass validation before approval');
+    assert.equal(triggered.receipt, undefined, 'an unapproved plan must not produce a transition receipt');
     assert.ok(triggered.counterfactualReceipt && triggered.counterfactualReceipt.executed, 'counterfactual lifecycle must run');
     assert.ok(triggered.counterfactualReceipt.worldsCreated > 0, 'worlds must be forked');
     assert.ok(durationMs < 60000, 'bounded experiment must stay under 60s');

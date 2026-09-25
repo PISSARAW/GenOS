@@ -119,6 +119,7 @@ async function recordComparison(ctx, trinity, result) {
 }
 
 async function experimentLatencySla(db, missionId) {
+  if (!db || typeof db.get !== 'function') return null;
   const row = await db.get('SELECT budget_policy_json FROM trinity_experiments WHERE mission_id = ?', missionId);
   let budget = {};
   try { budget = JSON.parse(row?.budget_policy_json || '{}'); } catch (_) {}
@@ -215,6 +216,9 @@ async function createMergeArtifact(db, params) {
 }
 
 async function promoteWinner(db, input = {}) {
+  if (!db || typeof db.get !== 'function' || typeof db.run !== 'function') {
+    return { promoted: false, reason: 'database_unavailable' };
+  }
   const { missionId, orchestratorId, result } = input;
   const previous = await previousPromotion({ db, missionId });
   if (previous) return previous;
