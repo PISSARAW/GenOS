@@ -92,13 +92,55 @@ async function runWithRetry({ model, prompt, seed, timeoutMs, maxRetries }) {
         stream: false,
         timeoutMs
       });
-      return { text: result.text || '', inputTokens: result.inputTokens || 0, outputTokens: result.outputTokens || 0, attempts: attempt + 1 };
+      return { text: result.text || '', servedModel: result.servedModel || result.model || null, inputTokens: result.inputTokens || 0, outputTokens: result.outputTokens || 0, attempts: attempt + 1 };
     } catch (e) {
       lastError = e;
       if (attempt < maxRetries) continue;
     }
   }
   throw lastError;
+}
+
+async function collectSamples(cfg, testCase) {
+  const totals = { samples: [], servedModels: new Set(), inputTokens: 0, outputTokens: 0, attempts: 0 };
+  for (let index = 0; index < cfg.n; index += 1) {
+    const result = await runWithRetry({ model: cfg.model, prompt: testCase.prompt,
+      seed: cfg.seed + index, timeoutMs: cfg.timeoutMs, maxRetries: 1 });
+    totals.samples.push(extractAnswer(result.text));
+    if (result.servedModel) totals.servedModels.add(result.servedModel);
+    totals.inputTokens += result.inputTokens;
+    totals.outputTokens += result.outputTokens;
+    totals.attempts += result.attempts;
+  }
+  return totals;
+}
+
+async function runCase(cfg, testCase) {
+  const startedAt = Date.now();
+  process.stderr.write(`Running ${cfg.model} x${cfg.n} on ${testCase.id}... `);
+  try {
+    const totals = await collectSamples(cfg, testCase);
+    const vote = majorityVote(totals.samples);
+    const passed = scoreCase(vote.answer, testCase.expected, testCase.pattern);
+    process.stderr.write(`${passed ? 'PASS' : 'FAIL'} (${vote.votes}/${vote.total} votes)\n`);
+    return resultForCase({ cfg, testCase, totals, vote, passed, startedAt });
+  } catch (error) {
+    process.stderr.write(`ERROR: ${error.message}\n`);
+    return { model: cfg.model, requestedModel: cfg.model, servedModel: null, case_id: testCase.id,
+      domain: testCase.domain, mode: 'compute_control', passed: false, error: error.message, seed: cfg.seed };
+  }
+}
+
+function resultForCase(input) {
+  const { cfg, testCase, totals, vote, passed, startedAt } = input;
+  return { model: cfg.model, requestedModel: cfg.model,
+    servedModel: totals.servedModels.size === 1 ? [...totals.servedModels][0] : null,
+    servedModels: [...totals.servedModels], case_id: testCase.id, domain: testCase.domain,
+    mode: 'compute_control', samples: totals.samples.slice(0, 10), answer: vote.answer,
+    expected: testCase.expected, passed, votes: vote.votes, total: vote.total,
+    distribution: vote.distribution, inputTokens: totals.inputTokens,
+    outputTokens: totals.outputTokens, totalAttempts: totals.attempts,
+    latencyMs: Date.now() - startedAt, costUsd: null, seed: cfg.seed };
 }
 
 async function main() {
@@ -109,47 +151,7 @@ async function main() {
   }
   const cases = JSON.parse(fs.readFileSync(path.resolve(cfg.cases), 'utf8'));
   const results = [];
-  for (const c of cases.cases) {
-    process.stderr.write(`Running ${cfg.model} x${cfg.n} on ${c.id}... `);
-    try {
-      const samples = [];
-      let totalInputTokens = 0;
-      let totalOutputTokens = 0;
-      let totalAttempts = 0;
-      for (let i = 0; i < cfg.n; i++) {
-        const r = await runWithRetry({ model: cfg.model, prompt: c.prompt, seed: cfg.seed + i, timeoutMs: cfg.timeoutMs, maxRetries: 1 });
-        samples.push(extractAnswer(r.text));
-        totalInputTokens += r.inputTokens;
-        totalOutputTokens += r.outputTokens;
-        totalAttempts += r.attempts;
-      }
-      const vote = majorityVote(samples);
-      const passed = scoreCase(vote.answer, c.expected, c.pattern);
-      results.push({
-        model: cfg.model,
-        case_id: c.id,
-        domain: c.domain,
-        mode: 'compute_control',
-        samples: samples.slice(0, 10),
-        answer: vote.answer,
-        expected: c.expected,
-        passed,
-        votes: vote.votes,
-        total: vote.total,
-        distribution: vote.distribution,
-        inputTokens: totalInputTokens,
-        outputTokens: totalOutputTokens,
-        totalAttempts,
-        latencyMs: 0,
-        costUsd: 0,
-        seed: cfg.seed
-      });
-      process.stderr.write(`${passed ? 'PASS' : 'FAIL'} (${vote.votes}/${vote.total} votes)\n`);
-    } catch (e) {
-      results.push({ model: cfg.model, case_id: c.id, domain: c.domain, mode: 'compute_control', passed: false, error: e.message, seed: cfg.seed });
-      process.stderr.write(`ERROR: ${e.message}\n`);
-    }
-  }
+  for (const testCase of cases.cases) results.push(await runCase(cfg, testCase));
   const outPath = path.resolve(cfg.out);
   fs.writeFileSync(outPath, JSON.stringify(results, null, 2));
   const passed = results.filter(r => r.passed).length;
