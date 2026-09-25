@@ -89,7 +89,10 @@ async function applyAteamIntegration(ctx) {
   const workers = ctx.workers || [];
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, workers);
   const evidenceFailures = coverageFailures(aTeam, workers, dossiers);
-  const integration = continuousIntegration.runContinuousIntegration({ aTeam, workers, dossiers, failures: evidenceFailures });
+  const integration = await continuousIntegration.runContinuousIntegration({
+    db: ctx.db, aTeam, workers, dossiers, failures: evidenceFailures,
+    findExperts: ctx.findAteamExperts, freshness: ctx.knowledgeFreshness
+  });
   const observation = integration.observation;
   const failures = integration.blockingFailures;
   const canMerge = integration.readyToIntegrate;

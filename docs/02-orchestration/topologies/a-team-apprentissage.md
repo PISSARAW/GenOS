@@ -24,3 +24,10 @@ réutilisables et les taux de réussite par worker dont les résultats sont sour
 planificateur de formation et les planificateurs RECRUIT/REPLACE peuvent recevoir ces
 `candidatePriors`; ils les injectent dans le facteur historique du score candidat. Sans
 échantillon vérifié, le score historique conserve son prior neutre.
+
+Lorsqu'une CI prépare une réparation et reçoit l'adaptateur `findAteamExperts`, elle
+interroge d'abord la mémoire transactive pour le premier gap. Un expert frais déjà dans
+l'équipe laisse le plan normal de réparation s'appliquer. Un expert frais externe produit
+un plan `CONSULT` avec le routage et les références de connaissance ; aucun recrutement
+n'est lancé par cette décision. Sans expert frais, le plan REASSIGN/RECRUIT/REPLACE suit
+son chemin normal. Sans adaptateur, le comportement historique reste disponible.

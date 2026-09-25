@@ -3,7 +3,7 @@
 const { observeAteamIntegration } = require('../../aTeamIntegrationObserver');
 const { evaluateQualityGate } = require('../../aTeamQualityGateService');
 const { validateWorkGraph } = require('../workGraph/graphValidation');
-const { planRepair } = require('../adaptation/teamRepairService');
+const { planRepairWithMemory } = require('../adaptation/teamRepairService');
 
 function graphHealth(graph) {
   if (!graph) return { available: false, valid: null, errors: [] };
@@ -41,13 +41,14 @@ function integrationFailures(observation, health) {
   return [...observation.failures, ...health.errors.map((message) => ({ code: 'WORK_GRAPH_INVALID', message }))];
 }
 
-function runContinuousIntegration(input = {}) {
+async function runContinuousIntegration(input = {}) {
   const aTeam = input.aTeam || {};
   const observation = observeAteamIntegration({ members: aTeam.members, workers: input.workers, dossiers: input.dossiers });
   const health = graphHealth(aTeam.workGraph);
   const failures = [...(Array.isArray(input.failures) ? input.failures : []), ...integrationFailures(observation, health), ...capabilityFailures(aTeam)];
   const contracts = unresolvedContracts(aTeam, observation);
-  const repairPlan = planRepair({
+  const repairPlan = await planRepairWithMemory({
+    db: input.db, findExperts: input.findExperts, freshness: input.freshness,
     gaps: aTeam.capabilityGaps || aTeam.capabilityCoverage?.uncovered?.map((capability) => ({ capability })) || [],
     members: aTeam.members,
     candidates: aTeam.recruitmentCandidates,

@@ -5,6 +5,7 @@ const { planReplacement } = require('./memberReplacementService');
 const { planReassignment } = require('./responsibilityReassignmentService');
 const { planRecruitment } = require('./recruitmentService');
 const { planTeamMorphogenesis } = require('../learning/aTeamMorphogenesisBridge');
+const { routeKnowledgeNeed } = require('../memory/knowledgeRoutingService');
 
 function planForGap(input, gap, failedMember) {
   const reassignment = planReassignment({ gap, members: input.members, failedMemberId: failedMember?.agentId || failedMember?.memberId });
@@ -29,6 +30,24 @@ function planRepair(input = {}) {
   return attachMorphogenesis(input, repair);
 }
 
+async function planRepairWithMemory(input = {}) {
+  const gap = (input.gaps || [])[0];
+  if (!gap || typeof input.findExperts !== 'function') return planRepair(input);
+  const route = await routeKnowledgeNeed({
+    db: input.db, findExperts: input.findExperts,
+    capability: gap.capability || gap.name, need: gap.reason || gap.capability || gap.name,
+    members: input.members, freshness: input.freshness
+  });
+  if (route.status === 'ROUTED' && !isTeamMember(input.members, route.expert.agentId)) {
+    return { status: 'CONSULT', workGraphNeedsRecompile: false, knowledgeRoute: route };
+  }
+  return { ...planRepair(input), knowledgeRoute: route };
+}
+
+function isTeamMember(members, agentId) {
+  return (Array.isArray(members) ? members : []).some((member) => (member.agentId || member.memberId) === agentId);
+}
+
 function attachMorphogenesis(input, decision) {
   if (!decision.workGraphNeedsRecompile) return decision;
   const morphogenesis = planTeamMorphogenesis({
@@ -40,4 +59,4 @@ function attachMorphogenesis(input, decision) {
   return { ...decision, morphogenesis };
 }
 
-module.exports = { planRepair };
+module.exports = { planRepair, planRepairWithMemory };
