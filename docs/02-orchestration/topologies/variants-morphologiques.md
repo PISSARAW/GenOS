@@ -16,16 +16,16 @@ uniforme.
 | --- | ---: | --- | --- |
 | A-Team | 11 | `aTeam/variants/variantRegistry` | Implémentés |
 | Biocénose | 12 | `biocenose/variants/variantPolicyRouter` | Implémentés ou partiels selon la politique |
-| Holobionte | 5 | `holobionte/variants` | Partiels |
-| Syncytium | 12 | `syncytium/variants/variantPolicyRegistry` | Implémentés |
+| Holobionte | 12 | `holobionte/variants` | Partiels; douze politiques sélectionnables et projetées dans le contrat de composition |
+| Syncytium | 13 | `syncytium/variants/variantPolicyRegistry` | Implémentés |
 | Rhizome | 12 | `rhizome/variants/variantPolicyService` | Implémentés |
-| Métapopulation | 4 | `metapopulation/policy/metapopulationPolicyService` | Implémentés |
-| Trinity | Aucun; seul `default` | — | Baseline |
-| Biome | Aucun; seul `default` | — | Baseline |
+| Métapopulation | 16 (12 documentés + 4 alias historiques) | `metapopulation/policy/metapopulationPolicyService` | Partiels; sélection, quorum, migration et topologie des corridors |
+| Biome | 11 | `biome/variants/variantPolicyService` | Partiels; sélection et politiques reliées au runtime |
+| Trinity | 12 | `trinityVariantService` | Implémentés ou partiels selon la variante |
 
-`default` est enregistré pour chacune des huit topologies. Les lignes Trinity et Biome
-indiquent uniquement la couverture du catalogue Morphogenèse central; elles ne décrivent
-pas l'ensemble de leurs configurations locales ou possibilités documentées.
+Les nombres du tableau comptent les variants nommés spécifiques et excluent `default`,
+enregistré séparément pour les huit topologies. Un variant catalogué n'implique pas que
+toutes ses garanties ou tous ses mécanismes conceptuels disposent d'un adaptateur complet.
 
 ## Contrat et résolution
 
@@ -46,8 +46,19 @@ une copie défensive de l'entrée. Un variant inconnu renvoie `null`.
 - La planification Morphogenèse compare encore les topologies; elle ne choisit pas encore
   systématiquement un variant par profil de problème.
 - Les paramètres spécifiques restent interprétés par le runtime local correspondant.
+- Holobionte expose désormais des contrats de placement, mémoire, compétition, outils et
+  synchronisation pour les variants correspondants. Ce sont des exigences déclaratives de
+  composition; elles ne prouvent pas à elles seules le placement distribué, l'exécution d'outils,
+  la réplication, ni les mécanismes complets de fitness, d'acquisition ou de régénération.
 - Les variants Biocénose marqués `PARTIAL` et les variants Holobionte sont exposés avec une
   maturité partielle; leur présence dans le catalogue ne les promeut pas au statut complet.
+- Trinity choisit parmi les variantes avec adaptateur actif; Factorial, Recursive et Oracular
+  sont marqués conceptuels et exclus de l'auto-sélection. Jury, Adaptive, Counterfactual et
+  Heterogeneous restent partiels et signalent leurs limites dans le reçu.
+- Métapopulation garde quatre noms historiques (`balanced`, `resilient`, `exploratory`,
+  `conservative`) en plus des douze identifiants de sa fiche; la sélection règle le quorum,
+  la migration, le scope persistant et le graphe de corridors, sans activer tous les mécanismes
+  propres aux variants tels que l'évolution ou la cryptobiose.
 - Le catalogue ne normalise pas encore pour tous les variants le profil de problème, les
   modèles d'autorité, d'état, de communication et de preuve, ni les forces et modes d'échec.
 

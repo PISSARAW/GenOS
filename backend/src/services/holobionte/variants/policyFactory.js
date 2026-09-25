@@ -33,7 +33,12 @@ function createPolicy(policy) {
     configureImmunePolicy: () => copy(policy.immune),
     configureTransmission: () => copy(policy.transmission),
     configureSuccession: () => copy(policy.succession),
-    configureStopConditions: () => copy(policy.stopConditions)
+    configureStopConditions: () => copy(policy.stopConditions),
+    configurePlacement: () => copy(policy.placement || {}),
+    configureMemory: () => copy(policy.memory || {}),
+    configureCompetition: () => copy(policy.competition || {}),
+    configureTool: () => copy(policy.tool || {}),
+    configureSynchronization: () => copy(policy.synchronization || {})
   });
 }
 

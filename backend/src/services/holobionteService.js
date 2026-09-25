@@ -7,6 +7,7 @@
  */
 
 const biologicalModeService = require('./biologicalModeService');
+const variants = require('./holobionte/variants');
 
 function composeHolobionte(mission, options = {}) {
   const goal = String(mission || '').trim();
@@ -15,12 +16,30 @@ function composeHolobionte(mission, options = {}) {
       code: 'HOLOBIONTE_MISSION_REQUIRED'
     });
   }
+  const fitContext = {
+    immunePlaneAvailable: true,
+    successionAvailable: true,
+    ...(options.variantCapabilities || {}),
+    ...options
+  };
+  const selected = variants.selectForMission(goal, fitContext);
+  const policy = selected.policy;
   const members = biologicalModeService.compose('holobionte', goal);
   return {
     mode: 'holobionte',
     mission: goal,
     hostAuthority: options.hostAuthority || 'host_orchestrator',
-    members
+    members,
+    variant: policy.name,
+    variantPolicy: {
+      host: policy.configureHost(), admission: policy.configureAdmission(),
+      resources: policy.configureResources(), immune: policy.configureImmunePolicy(),
+      transmission: policy.configureTransmission(), succession: policy.configureSuccession(),
+      stopConditions: policy.configureStopConditions(), placement: policy.configurePlacement(),
+      memory: policy.configureMemory(), competition: policy.configureCompetition(),
+      tool: policy.configureTool(), synchronization: policy.configureSynchronization()
+    },
+    variantSelection: selected.receipt
   };
 }
 

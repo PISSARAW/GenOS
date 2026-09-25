@@ -5,13 +5,15 @@ const variants = require('../src/services/holobionte/variants');
 
 function testVariantSurface() {
   assert.deepStrictEqual(variants.names, [
-    'organelle', 'adaptiveMicrobiome', 'immuneCritical', 'localFirst', 'regenerative'
+    'organelle', 'adaptiveMicrobiome', 'immuneCritical', 'localFirst', 'regenerative',
+    'cloudCoreEdge', 'edgeCoreCloud', 'memoryRich', 'competitivePartner', 'procedural', 'tool', 'cloudCoreEdgeSync'
   ]);
   for (const name of variants.names) {
     const policy = variants.getVariant(name);
     for (const method of [
       'configureHost', 'configureAdmission', 'configureResources',
-      'configureImmunePolicy', 'configureTransmission', 'configureSuccession', 'configureStopConditions'
+      'configureImmunePolicy', 'configureTransmission', 'configureSuccession', 'configureStopConditions',
+      'configurePlacement', 'configureMemory', 'configureCompetition', 'configureTool', 'configureSynchronization'
     ]) {
       assert.ok(policy[method]());
     }
@@ -20,6 +22,16 @@ function testVariantSurface() {
     assert.strictEqual(fit.compatible, true);
     assert.strictEqual(fit.score, 1);
   }
+}
+
+function testExtendedVariantContracts() {
+  assert.equal(variants.getVariant('cloud-core/edge-symbionts').configureAdmission().requireEdgeLease, true);
+  assert.equal(variants.getVariant('edge-core/cloud-symbionts').configureAdmission().redactRemoteInputs, true);
+  assert.deepEqual(variants.getVariant('memory-rich').configureMemory().stores, ['semantic', 'episodic', 'procedural']);
+  assert.equal(variants.getVariant('competitive-partner').configureCompetition().trialMode, 'same-budget');
+  assert.equal(variants.getVariant('procedural').configureHost().capabilityGapResponse, 'contracted-recruitment');
+  assert.equal(variants.getVariant('tool').configureTool().sandbox, 'contract-bound');
+  assert.equal(variants.getVariant('cloud-core/edge-sync').configureSynchronization().staleState, 'reject');
 }
 
 function testFitAndIsolation() {
@@ -33,4 +45,5 @@ function testFitAndIsolation() {
 
 testVariantSurface();
 testFitAndIsolation();
+testExtendedVariantContracts();
 console.log('✅ Holobiont variant policy tests passed.');
