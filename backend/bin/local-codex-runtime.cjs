@@ -39,6 +39,7 @@ async function main(rawInput) {
   const agentConscience = require('../src/services/agentConscienceService');
   const identity = resolveAgentIdentity(mission, agentIdentity);
   const conscienceBlock = await loadConscienceBlock(mission, agentConscience);
+  const unified = await require('../src/services/agentSelfBlocks').loadUnifiedSelfBlocks(null, mission.agentId, { wantWorker: mission.executionMode === 'worker' });
 
   const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');
   const agentMemory = require('../src/services/agentMemoryContext');
@@ -61,9 +62,10 @@ async function main(rawInput) {
     eventCount: 0,
     primaryStrategy: '',
     strategyContext: '',
-    memoryBlock: '',
+    memoryBlock: '', agentSelfBlock: '', workerSelfBlock: '',
     framedPrompt: ''
   };
+  Object.assign(state, unified);
   state.allowFileEdits = state.executionPolicy.allowFileEdits === true;
   state.primaryStrategy = state.strategyContract.selected_strategy?.primary || 'deterministic_direct_path';
 
@@ -321,6 +323,10 @@ Si l'utilisateur te demande d'"explorer" ou d'"analyser" le site, réponds IMMÉ
 
 ${state.conscienceBlock}
 
+${state.agentSelfBlock || ''}
+
+${state.workerSelfBlock || ''}
+
 ${state.memoryBlock}${state.strategyContext}${localArtifactInstruction(state.allowFileEdits)}
 PLANS D'ACTION: Lorsque tu proposes un plan d'action, tu dois SYSTÉMATIQUEMENT utiliser des listes de tâches Markdown (\`- [ ]\`).
 
@@ -344,15 +350,8 @@ function resolveAgentIdentity(mission, agentIdentity) {
 }
 
 async function loadConscienceBlock(mission, agentConscience) {
-  let conscienceState = agentConscience.createConscienceState();
-  let db = null;
-  try {
-    const { getDatabase } = require('../src/db');
-    db = await getDatabase();
-    if (mission.agentId) conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
-  } catch (_) {}
-  if (db) await require('../src/db').closeDatabase().catch(() => {});
-  return agentConscience.formatConsciencePrompt(conscienceState);
+  const helper = require('../src/services/agentSelfBlocks');
+  return helper.loadConscienceText(null, mission.agentId, agentConscience);
 }
 
 function buildWorkspaceContext() {

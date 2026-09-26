@@ -72,11 +72,17 @@ async function fallbackAfterProgress(db, progress, agentId) {
   }
 }
 
+async function calibrateSelfModel(db, runId) {
+  try {
+    await selfModel.calibrate(db, runId);
+  } catch (_) {}
+}
+
 async function recordExecutionEvent(db, agentId, event) {
   const saved = await progress.recordExecutionEvent(db, agentId, event);
   if (!saved) return null;
   const fallback = await fallbackAfterProgress(db, saved, agentId);
-  if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) await selfModel.calibrate(db, saved.run.id);
+  if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) await calibrateSelfModel(db, saved.run.id);
   const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival };
 }

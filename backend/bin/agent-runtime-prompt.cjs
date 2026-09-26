@@ -138,6 +138,7 @@ function buildAgentRuntimePrompt(ctx) {
     selfIntro: ctx.selfIntro,
     mission: ctx.mission,
     conscienceBlock: ctx.conscienceBlock,
+    agentSelfBlock: ctx.agentSelfBlock || '',
     memoryBlock: ctx.memoryBlock,
     workerSelfBlock: ctx.workerSelfBlock || '',
     authorityInstruction: ctx.authorityInstruction,
@@ -167,6 +168,7 @@ function buildAgentRuntimePrompt(ctx) {
   return [
     `${params.selfIntro}`,
     `Agent role: ${params.mission.role || 'Autonomous implementation agent'}.`,
+    params.agentSelfBlock || '',
     params.workerSelfBlock || '',
     `${params.conscienceBlock}`,
     params.memoryBlock ? `${params.memoryBlock}` : '',
