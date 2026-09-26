@@ -1,6 +1,6 @@
 # GenOS Wiring Matrix — Sense → Reuse
 
-- **Statut** : référence de câblage causal, revue 2026-09-26, HEAD `e2b8e49`.
+- **Statut** : référence de câblage causal, revue 2026-09-26, HEAD `e2b8e49` (implémentations suivantes : relations, docking, philosophie, foraging, plasmide et promotion génomique).
 - **Règle** : `YES` = liaison prouvée par appel de production + test ; `PARTIAL` = présent mais non causal ou consultatif ; `NO` = absent.
 - **Lecture** : chaque cellule donne le fichier/fonction précis qui constitue la liaison, ou `—` si absente.
 
@@ -13,7 +13,7 @@
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `crossAgentRelationalService.js:listRelations` lit `agent_relations` |
-| Select | PARTIAL | `morphogenesis/relationResolverService.js:selectVerifier/selectPartner` existent, sans appelant runtime hors tests |
+| Select | PARTIAL | `morphogenesis/relationResolverService.js:selectVerifier/selectPartner` ; bridge filtre le lignage des candidats vérificateurs, sélection de partenaires pas encore branchée à la formation des workers |
 | Invoke | PARTIAL | `relationAuthorityBridge.js:resolveControlByRelation` consulté en fallback par `agentAuthorityService.js:authorizeAgentControl` (`manager/guardian/mentor/parent` forward → contrôle délégué, reçu `relationControl`) |
 | Affect decision | PARTIAL | `relationAuthorityBridge.js:filterVerifierCandidates` exclut le lignage ; `assessIndependence` branché dans `communicationPolicyEngine.js:finalizeDecision` |
 | Act | NO | `manager/guardian` ne modifient ni autorité ni budget |
@@ -44,8 +44,8 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 |---|---|---|
 | Sense | YES | `philosophyRouter.js` + `philosophyAnalysisContract.js` retournent `status/evidence/uncertainty/provenance/promotionEligible=false` |
 | Select | PARTIAL | `cognitivePostureService.js:detectPosture` classifie le prompt au `buildWorkerMission` (heuristique documentée) |
-| Invoke | PARTIAL | `orchestratorDispatchService.js:applyCognitivePosture` joint `philosophyRuntimeEffectService:previewRuntimeEffect` à chaque dispatch |
-| Affect decision | PARTIAL | directive de posture ajoutée au prompt worker + reçu `mission.cognitivePosture` ; `applied=false` (preview, aucune télémétrie émise) |
+| Invoke | PARTIAL | `orchestratorDispatchService.js:applyCognitivePosture` sélectionne et joint une posture cognitive à chaque dispatch worker |
+| Affect decision | PARTIAL | directive de posture ajoutée au prompt worker + reçu `mission.cognitivePosture` ; l'analyse philosophique reste consultative et ne gouverne pas les gates de décision |
 | Act | NO | — |
 | Observe | PARTIAL | `philosophyAnalysisPersistenceService.js` persiste l'analyse |
 | Learn | NO | — |
@@ -57,42 +57,42 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | PARTIAL | `browserScoutService.js` lit HTTP/HTML ; `fovealVisionService.js` = ROI/hash/manifeste sans pixels |
-| Select | PARTIAL | `genos_optimal_foraging` calcule rendement/saut/budget |
-| Invoke | NO | `PATCH_DEPARTURE` ne navigue pas ; aucun contrôleur ne relie la sortie à `browser_act` |
-| Affect decision | NO | vision ↛ décision foraging |
+| Select | PARTIAL | `genos_optimal_foraging` calcule rendement/saut/budget et `foragingLoopService.js` traduit les actions de foraging en navigation |
+| Invoke | PARTIAL | `foragingLoopService.js` relie `PATCH_DEPARTURE` à la navigation browser et `EXPLOIT` à une observation via `forage_step` ; boucle bornée aux actions prises en charge |
+| Affect decision | PARTIAL | décision de foraging modifie la prochaine navigation ; aucune perception pixel fovéale n'est intégrée |
 | Act | PARTIAL | `browser_act:fill/select_option/submit` = état local simulé ; `Computer Use` séparé sans état partagé |
-| Observe | PARTIAL | sessions browser persistées |
+| Observe | PARTIAL | `forage_step` rend une observation à l'itération de foraging ; sessions browser persistées |
 | Learn | NO | — |
 | Persist | PARTIAL | sessions + manifestes |
-| Reuse | NO | — |
+| Reuse | PARTIAL | observation retournée au caller de la boucle ; apprentissage durable des politiques de foraging non établi |
 
 ## 5. Plasmide → installation vérifiée de capacité
 
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `capabilityPlasmidService.js:createPlasmid/assimilate` vérifie hash + tests requis |
-| Select | PARTIAL | `morphogenesis/plasmidGateService.js` + `plasmidResolverService.js` |
-| Invoke | PARTIAL | `crossAgentRelationalService.js:recordPlasmid` = double écriture atomique relation + `plasmid_bindings` |
-| Affect decision | NO | payload = blob, pas de validation sandbox/compatibilité générale |
-| Act | NO | pas de chaîne `artifact → validation → sandbox → install → phenotype → evidence → rollback` |
-| Observe | NO | — |
+| Select | PARTIAL | `morphogenesis/plasmidGateService.js` + `plasmidResolverService.js` sélectionnent les candidats ; validation d'installation via gates dédiés |
+| Invoke | YES | `plasmidInstallService.js` exécute le contrat d'installation et les cinq gates avant activation |
+| Affect decision | YES | compatibilité, autorisation, provenance, validation et preuve déterminent l'éligibilité à l'installation |
+| Act | PARTIAL | cycle install/activation/désactivation/rollback implémenté ; expression reste limitée aux capacités prises en charge par l'installateur |
+| Observe | PARTIAL | reçus de validation et d'installation disponibles ; pas de suivi universel de phénotype en production |
 | Learn | NO | — |
 | Persist | YES | `plasmid_bindings (active/disabled/superseded)` |
-| Reuse | PARTIAL | lecteurs `agentGitService`, sans activation vérifiée générale |
+| Reuse | PARTIAL | bindings et lifecycle réutilisables ; activation automatique depuis la morphogenèse non universelle |
 
 ## 6. Génome : évaluation → promotion → déploiement
 
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `detectNovelConcepts → GraftSpec → graft/speciate → candidate genome + provenance` |
-| Select | PARTIAL | `maturité partial` pour `speciate/graft` (`speciation-graft-autonome.md`) |
-| Invoke | PARTIAL | promotion = décision explicite opérateur |
-| Affect decision | NO | boucle darwinienne complète non fermée universellement |
-| Act | PARTIAL | candidat exprimé, déploiement non systématique |
-| Observe | PARTIAL | preuves part institutionnelles |
-| Learn | NO | fitness multiobjectif + sélection non universels |
+| Select | PARTIAL | `genomePromotionService.js` classe les candidats avec fitness multiobjectif et gate de promotion ; maturation `speciate/graft` reste partielle |
+| Invoke | PARTIAL | promotion soumise à un gate explicite et à ses preuves ; l'opérateur garde l'autorité finale |
+| Affect decision | PARTIAL | fitness et preuves de promotion gouvernent l'éligibilité, sans sélection darwinienne autonome globale |
+| Act | PARTIAL | candidat promu déployable par le service ; déploiement automatique universel non revendiqué |
+| Observe | PARTIAL | reçu de promotion/deployment et evidence references ; surveillance continue variable selon le caller |
+| Learn | PARTIAL | fitness multiobjectif calculé et persisté ; boucle universelle d'apprentissage des poids non établie |
 | Persist | YES | génome candidat + provenance |
-| Reuse | NO | surveillance/rollback non systématiques |
+| Reuse | PARTIAL | reçu et provenance permettent audit/réutilisation ; surveillance et rollback automatiques non systématiques |
 
 ## 7. Organisme : régénération / dormance / succession
 
