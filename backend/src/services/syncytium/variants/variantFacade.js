@@ -6,6 +6,13 @@ const { createEpistemicVariantService } = require('./epistemic/epistemicVariantS
 const { createBlackboardVariantService } = require('./blackboard/blackboardVariantService');
 const { createHierarchicalVariantService } = require('./hierarchical/hierarchicalVariantService');
 const { createHumanAiVariantService } = require('./humanAi/humanAiVariantService');
+const { createHardVariantService } = require('./hard/hardVariantService');
+const { createDocumentVariantService } = require('./document/documentVariantService');
+const { createSoftVariantService } = require('./soft/softVariantService');
+const { createLocalFirstVariantService } = require('./localFirst/localFirstVariantService');
+const { createSpeculativeVariantService } = require('./speculative/speculativeVariantService');
+const { createAntiEntropyService } = require('../sync/antiEntropyService');
+const { createRealtimeControlVariantService } = require('./realtime/realtimeControlVariantService');
 const { createRoleServiceDirectory } = require('../runtime/roleServiceDirectory');
 const { createVariantPolicyService } = require('./variantPolicyRegistry');
 const { createNestedTopologyService } = require('../runtime/nestedTopologyService');
@@ -20,6 +27,13 @@ function createVariantFacade(syncytium) {
     ...createBlackboardVariantService(syncytium),
     ...createHierarchicalVariantService(syncytium),
     ...createHumanAiVariantService(syncytium),
+    ...createHardVariantService(syncytium),
+    ...createDocumentVariantService(syncytium),
+    ...createSoftVariantService(syncytium),
+    ...createLocalFirstVariantService(syncytium),
+    ...createSpeculativeVariantService(syncytium),
+    ...createAntiEntropyService(syncytium),
+    ...createRealtimeControlVariantService(syncytium),
     ...createRoleServiceDirectory(syncytium),
     ...createVariantPolicyService(syncytium),
     ...createNestedTopologyService(syncytium),

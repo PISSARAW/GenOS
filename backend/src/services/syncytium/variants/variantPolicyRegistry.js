@@ -9,11 +9,25 @@ const FIELD_SETS = Object.freeze({
   transactional: { budget: 'ESCROW_COUNTER', inventory: 'ESCROW_COUNTER', capacity: 'ESCROW_COUNTER', reservations: 'MAP' },
   epistemic: { claims: 'ADD_WINS_SET', evidence: 'ADD_WINS_SET', refutations: 'ADD_WINS_SET', uncertainty: 'ADD_WINS_SET' },
   blackboard: { events: 'ADD_WINS_SET' },
-  document: { sections: 'SEQUENCE', comments: 'ADD_WINS_SET' },
+  document: { sections: 'SEQUENCE', comments: 'ADD_WINS_SET', document_undo: 'ADD_WINS_SET' },
   realtimeControl: { controls: 'STATE_MACHINE' },
   humanAi: {
     'human.presence': 'MAP', 'human.leases': 'MAP', 'human.comments': 'ADD_WINS_SET',
-    'human.approvals': 'MAP', 'critical.actions': 'MAP'
+    'human.approvals': 'MAP', 'human.control': 'MAP', 'human.consent': 'MAP',
+    'human.audit': 'ADD_WINS_SET', 'critical.actions': 'MAP'
+  },
+  soft: {
+    metrics: 'G_COUNTER', deltas: 'ADD_WINS_SET', antiEntropyLog: 'ADD_WINS_SET',
+    stalenessBudget: 'LWW_REGISTER'
+  },
+  localFirst: {
+    logicalClock: 'G_COUNTER', physicalClockOffset: 'LWW_REGISTER',
+    offlineQueue: 'ADD_WINS_SET', syncState: 'MAP', deviceReplicas: 'MAP',
+    encryptedLocalStoreKey: 'LWW_REGISTER'
+  },
+  speculative: {
+    branchRegistry: 'MAP', branchSnapshots: 'MAP', executionBudget: 'LWW_REGISTER',
+    promotionLog: 'ADD_WINS_SET', discardLog: 'ADD_WINS_SET'
   }
 });
 const DEFINITIONS = Object.freeze([
@@ -83,16 +97,31 @@ function configureSchema(definitionItem, context = {}) {
   });
 }
 
-function fieldZone(definitionItem, path) {
-  if (definitionItem.id === 'transactional' && ['budget', 'inventory', 'capacity'].includes(path)) return 'INVARIANT_PRESERVING';
-  if (['epistemic', 'blackboard'].includes(definitionItem.id)) return 'APPEND_ONLY';
-  if (definitionItem.id === 'humanAi') return path === 'human.comments' ? 'APPEND_ONLY' : 'SERIALIZABLE';
-  return definitionItem.zone;
+const ZONE_OVERRIDES = Object.freeze({
+  transactional: (p) => ['budget', 'inventory', 'capacity'].includes(p) ? 'INVARIANT_PRESERVING' : null,
+  epistemic: () => 'APPEND_ONLY',
+  blackboard: () => 'APPEND_ONLY',
+  humanAi: (p) => ['human.comments', 'human.audit'].includes(p) ? 'APPEND_ONLY' : 'SERIALIZABLE',
+  soft: (p) => p === 'antiEntropyLog' ? 'APPEND_ONLY' : 'EVENTUAL',
+  localFirst: (p, d) => p === 'offlineQueue' ? 'APPEND_ONLY' : null,
+  speculative: (p) => ['promotionLog', 'discardLog'].includes(p) ? 'APPEND_ONLY' : 'CAUSAL'
+});
+
+function overrideZone(definitionItem, path) {
+  const rule = ZONE_OVERRIDES[definitionItem.id];
+  return rule ? rule(path) : null;
 }
 
-function humanFieldOwnership(path) {
-  return { visibility: 'GLOBAL', ownerDomain: path === 'human.approvals' ? 'human-authority' : 'organism' };
+function fieldZone(definitionItem, path) {
+  return overrideZone(definitionItem, path) || definitionItem.zone;
 }
+
+
+function humanFieldOwnership(path) {
+  return { visibility: 'GLOBAL', ownerDomain: HUMAN_AUTHORITY_FIELDS.includes(path) ? 'human-authority' : 'organism' };
+}
+
+const HUMAN_AUTHORITY_FIELDS = Object.freeze(['human.approvals', 'human.control', 'human.consent', 'human.audit']);
 
 function normalizeFields(fields = {}) {
   return Object.fromEntries(Object.entries(fields).map(([path, definitionItem]) => [path, {
@@ -117,10 +146,10 @@ function humanAiDomains(nuclei) {
   }
   const humans = nuclei.filter((nucleus) => nucleus.kind === 'human').map((nucleus) => nucleus.principalId);
   const members = nuclei.map((nucleus) => nucleus.principalId);
-  const sharedPaths = Object.keys(FIELD_SETS.humanAi).filter((path) => path !== 'human.approvals');
+  const sharedPaths = Object.keys(FIELD_SETS.humanAi).filter((path) => !HUMAN_AUTHORITY_FIELDS.includes(path));
   return [
     { domainId: 'organism', members, owns: sharedPaths },
-    { domainId: 'human-authority', members: humans, owns: ['human.approvals'], mayRead: ['*'] },
+    { domainId: 'human-authority', members: humans, owns: HUMAN_AUTHORITY_FIELDS, mayRead: ['*'], mayWrite: ['critical.actions'] },
     ...nuclei.map((nucleus) => ({
       domainId: nucleus.nucleusId, members: [nucleus.principalId], mayWrite: sharedPaths,
       mayRead: ['*'], subscriptions: ['*']
@@ -150,8 +179,20 @@ function configureInvariants(definitionItem, context = {}) {
   return { ...schema.invariants };
 }
 
+const POLICY_ALIASES = Object.freeze({
+  human_ai: 'humanAi', local_first: 'localFirst',
+  realtime_control: 'realtimeControl', real_time_control: 'realtimeControl'
+});
+
+function canonicalPolicyId(variantId) {
+  const raw = String(variantId || '').trim();
+  if (POLICIES[raw]) return raw;
+  const normalized = raw.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  return POLICY_ALIASES[normalized] || normalized;
+}
+
 function getPolicy(variantId) {
-  const policy = POLICIES[String(variantId || '').trim()];
+  const policy = POLICIES[canonicalPolicyId(variantId)];
   if (!policy) throw Object.assign(new Error(`Unknown Syncytium variant '${variantId}'.`), { code: 'SYNCYTIUM_VARIANT_POLICY_UNKNOWN' });
   return policy;
 }
