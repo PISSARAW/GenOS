@@ -1056,6 +1056,7 @@ La topologie est partiellement intégrée. Les services ci-dessous décrivent le
 - Le chemin historique `biologicalModeService` / `holobionteService` compose quatre rôles et produit une activation déclarative. Il ne faut pas le confondre avec le cycle persistant par capacité.
 - `holobiontStore` et les contrats de session conservent l’état d’un hôte et de ses symbiotes. Les services d’admission, de choix de partenaire, de planification et d’exécution sélectionnent un résident pour une capacité demandée.
 - `holobiontRuntime.runCycle(db, input)` planifie la capacité, exécute le résident retenu, puis renvoie le rapport de santé et l’action suggérée. Un écart de capacité est renvoyé comme `CAPABILITY_GAP` ; une exécution rejetée reste distincte d’une exécution vérifiée.
+- `holobionteService.variantRuntime` expose les plans des douze variants ainsi que `selectPersistentVariant` et `evaluatePersistentVariant`. La sélection et les reçus d'évaluation sont persistés dans le journal d'événements de session, avec contrôle de révision, transition de variant approuvée et références de preuve validées indépendamment. Les reçus sont bornés et gardent les 100 évaluations les plus récentes dans l'état matérialisé.
 - Les adaptateurs connectent certains symbiotes existants (A-Team, daemon résident, Rhizome, Syncytium et Trinity). Leur présence ne signifie pas que tous les points d’entrée des topologies utilisent le runtime Holobionte.
 
 ### Santé, contribution et transmission

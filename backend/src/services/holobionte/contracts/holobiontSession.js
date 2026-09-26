@@ -47,6 +47,7 @@ function createHolobiontSession(input = {}) {
     transmissionState: objectValue(input.transmissionState, {}),
     phenotype: objectValue(input.phenotype, { capabilities: [] }),
     dependencyGraph: objectValue(input.dependencyGraph, { edges: [] }),
+    variantState: objectValue(input.variantState, { variantId: null, policy: null, selectionReceipt: null, evaluations: [] }),
     status,
     revision: 0
   };

@@ -51,8 +51,24 @@ const eventReducers = {
   IMMUNE_REJECTION: (session, payload) => recordImmuneEvent(session, payload, 'rejections'),
   IMMUNE_OVERRIDE: (session, payload) => recordImmuneEvent(session, payload, 'overrides'),
   VERTICAL_TRANSMISSION: (session, payload) => recordTransmission(session, payload, 'VERTICAL_TRANSMISSION'),
-  HORIZONTAL_ACQUISITION: recordHorizontalAcquisition
+  HORIZONTAL_ACQUISITION: recordHorizontalAcquisition,
+  VARIANT_SELECTED: recordVariantSelection,
+  VARIANT_RUNTIME_EVALUATED: recordVariantEvaluation
 };
+
+function recordVariantSelection(session, payload) {
+  session.variantState = { variantId: payload.variantId, policy: payload.policy,
+    selectionReceipt: payload.selectionReceipt, selectedAt: payload.selectedAt,
+    evaluations: session.variantState?.evaluations || [] };
+  return session;
+}
+
+function recordVariantEvaluation(session, payload) {
+  const state = session.variantState || { evaluations: [] };
+  const evaluations = [...(state.evaluations || []), payload].slice(-100);
+  session.variantState = { ...state, evaluations, latestEvaluation: payload };
+  return session;
+}
 
 function updateConstitution(session, payload) {
   session.constitutionId = payload.constitutionId || session.constitutionId;

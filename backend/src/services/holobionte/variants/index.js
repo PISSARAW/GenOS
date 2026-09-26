@@ -7,18 +7,22 @@ const policies = Object.freeze({
   localFirst: require('./localFirst'),
   regenerative: require('./regenerative'),
   cloudCoreEdge: define('cloud-core/edge-symbionts', {
+    fit: { requiredCapabilities: ['cloud-core', 'edge-symbionts'] },
     host: { preferredEngine: 'cloud' }, placement: { host: 'cloud', symbionts: 'edge' },
     admission: { requireEdgeLease: true, requireProvenance: true }, resources: { allocationMode: 'edge-bounded' }
   }),
   edgeCoreCloud: define('edge-core/cloud-symbionts', {
+    fit: { localEngine: true, requiredCapabilities: ['cloud-proxy'] },
     host: { preferredEngine: 'local' }, placement: { host: 'local', remoteCapabilities: 'proxy-only' },
     admission: { minimizeRemoteData: true, redactRemoteInputs: true }, resources: { allocationMode: 'cloud-burst' }
   }),
   memoryRich: define('memory-rich', {
+    fit: { requiredCapabilities: ['persistent-memory'] },
     host: { identity: 'persistent' }, memory: { stores: ['semantic', 'episodic', 'procedural'], requireProvenance: true },
     resources: { memoryRetention: 'verified' }
   }),
   competitivePartner: define('competitive-partner', {
+    fit: { requiredCapabilities: ['verified-trials'] },
     host: { partnerSelection: 'competitive' }, competition: { trialMode: 'same-budget', requireVerifiedWinner: true },
     admission: { requireEvidence: true, trialRequired: true }
   }),
@@ -27,10 +31,12 @@ const policies = Object.freeze({
     admission: { requireContract: true, requireEvidence: true, trialRequired: true }
   }),
   tool: define('tool', {
+    fit: { requiredCapabilities: ['tool-sandbox'] },
     host: { executionStyle: 'tool-specialist' }, tool: { requireManifest: true, sandbox: 'contract-bound', validateSchema: true },
     admission: { requireContract: true, requireEvidence: true, trialRequired: true }
   }),
   cloudCoreEdgeSync: define('cloud-core/edge-sync', {
+    fit: { requiredCapabilities: ['edge-sync', 'provenance-verification'] },
     host: { preferredEngine: 'cloud' }, synchronization: { mode: 'asynchronous', requireProvenance: true, staleState: 'reject' },
     resources: { synchronization: 'verified-edge-state' }
   })
@@ -75,25 +81,29 @@ function getVariant(name) {
 
 function selectForMission(mission, options = {}) {
   const explicit = options.variantId || options.variant;
-  if (explicit) return selection(getVariant(explicit), 'explicit', 'operator_selection', mission, options);
+  if (explicit) return selection(getVariant(explicit), { source: 'explicit', reason: 'operator_selection', mission, options });
   const intent = INTENTS.find((item) => item.pattern.test(String(mission || '')));
   const candidate = intent && policies[intent.variant];
-  if (candidate && candidate.analyzeFit(options).compatible) {
-    return selection(candidate, 'mission_fit', intent.reason, mission, options);
+  const fit = candidate?.analyzeFit(options);
+  if (candidate && fit.compatible) {
+    return selection(candidate, { source: 'mission_fit', reason: intent.reason, mission, options });
   }
   const baseline = policies.organelle.analyzeFit(options).compatible ? policies.organelle : policies.procedural;
-  return selection(baseline, 'safe_baseline', 'no_compatible_specialization', mission, options);
+  const result = selection(baseline, { source: 'safe_baseline', reason: 'no_compatible_specialization', mission, options });
+  if (fit) result.receipt.rejected = [{ variant: fit.variant, missing: fit.reasons }];
+  return result;
 }
 
-function selection(policy, source, reason, mission, options) {
-  const fit = policy.analyzeFit(options);
+function selection(policy, context) {
+  const fit = policy.analyzeFit(context.options);
   if (!fit.compatible) throw Object.assign(new Error(`Holobiont variant requires: ${fit.reasons.join(', ')}.`), {
     code: 'HOLOBIONT_VARIANT_INCOMPATIBLE', details: fit
   });
   return {
     policy,
-    receipt: { topology: 'holobionte', variantId: policy.name, source, reason, fitScore: fit.score,
-      missionFingerprint: String(mission || '').trim().toLowerCase().slice(0, 160) }
+    receipt: { topology: 'holobionte', variantId: policy.name, source: context.source,
+      reason: context.reason, fitScore: fit.score,
+      missionFingerprint: String(context.mission || '').trim().toLowerCase().slice(0, 160) }
   };
 }
 

@@ -21,6 +21,9 @@ pas de fonctions communes pour valider leurs entrées, preuves et décisions.
   distincte de la planification.
 - Exposer ces opérations depuis le service Holobionte pour que les adaptateurs puissent les
   appeler sans prétendre que la planification lance un fournisseur ou un exécuteur distant.
+- Persister la sélection du variant et les évaluations sous forme d'événements versionnés de la
+  session. Chaque évaluation exige une preuve vérifiée par un callback indépendant et conserve
+  un reçu borné avec empreinte du résultat, références de preuve et historique limité.
 - Conserver les variants au statut partiel tant que les fournisseurs cloud/edge, le transport
   chiffré, les magasins spécialisés et les expériences de fitness/récupération ne sont pas reliés
   et vérifiés de bout en bout.
