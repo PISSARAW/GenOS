@@ -260,6 +260,14 @@ async function attachReconstructions(ctx, dossiers) {
   } catch (_) {}
 }
 
+async function attachTruthGraph(ctx) {
+  try {
+    const compiler = require('./reportCompilerService');
+    const graph = await compiler.buildTruthGraph(ctx.db, ctx.agentId, {});
+    if (ctx.autonomyPlan && graph.status === 'measured') ctx.autonomyPlan.missionTruthGraph = compiler.compileReport(graph);
+  } catch (_) {}
+}
+
 async function finishSatisfiedBarrier(ctx) {
   const dossiers = loadDossiers({ agentId: ctx.agentId, workers: ctx.workers });
   validateWorkerDossiers(dossiers, ctx.workers, { contract: readContract({ contractRecord: ctx.contractRecord }) });
@@ -267,6 +275,7 @@ async function finishSatisfiedBarrier(ctx) {
   await attachCounterfactualScores(ctx, dossiers);
   await attachProbeVerdicts(ctx, dossiers);
   await attachReconstructions(ctx, dossiers);
+  await attachTruthGraph(ctx);
   await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({

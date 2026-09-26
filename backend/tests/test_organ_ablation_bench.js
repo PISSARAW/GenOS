@@ -141,13 +141,14 @@ async function testAblationHurts() {
   const rows = [];
   for (let b = 0; b < 32; b += 2) {
     const stamp = `2026-09-26 10:${pad(Math.floor(b / 2))}:${pad((b % 2) * 30)}`;
-    rows.push({ agent_id: 'a1', eventType: 'X', created_at: stamp });
-    rows.push({ agent_id: 'a2', eventType: 'X', created_at: stamp });
+    rows.push({ agent_id: 'a1', event_type: 'X', created_at: stamp });
+    rows.push({ agent_id: 'a2', event_type: 'X', created_at: stamp });
+    rows.push({ agent_id: 'o', event_type: 'AGENT_COMPLETED', created_at: stamp });
   }
   const db = stubDb();
   db.all = async (sql) => {
     if (sql.includes('WHERE parent_agent_id')) return [{ id: 'a1' }, { id: 'a2' }];
-    if (sql.includes('FROM telemetry_events')) return rows;
+    if (sql.includes('FROM telemetry_events')) return rows.map((row) => ({ ...row, eventType: row.event_type }));
     return [];
   };
   const realNow = Date.now;
@@ -158,6 +159,7 @@ async function testAblationHurts() {
   assert.strictEqual(full.nodeAblations.length, 3);
   const byNode = Object.fromEntries(full.nodeAblations.map((entry) => [entry.node, entry.dIntegration]));
   assert.ok(byNode.o >= byNode.a1 && byNode.o >= byNode.a2, 'le noeud muet devrait etre le maillon faible: ' + JSON.stringify(byNode));
+  assert.strictEqual(full.outcomeSignal, true, 'outcome snake_case non detecte');
   console.log('ok - ablation revele le maillon faible (noeud muet)');
 }
 

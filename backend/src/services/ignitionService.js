@@ -79,4 +79,39 @@ async function charge(db, agentId, input) {
   }
 }
 
-module.exports = { charge, BURST_FACTOR, LOCAL_FACTOR, REFRACTORY_FACTOR, DEFAULT_THRESHOLD };
+function driveInput(candidate, weights) {
+  const drives = candidate.drives || {};
+  let total = 0;
+  for (const key of Object.keys(drives)) {
+    const weight = Number(weights[key]);
+    total += (Number.isFinite(weight) ? weight : 1) * Math.max(0, Math.min(1, Number(drives[key]) || 0));
+  }
+  return total;
+}
+
+function competeWinners(candidates, options) {
+  const settings = options || {};
+  const rounds = Math.max(1, Math.min(5, Math.floor(Number(settings.rounds) || 3)));
+  const inhibition = Math.max(0, Math.min(1, Number(settings.inhibition ?? 0.2)));
+  const margin = Math.max(0, Number(settings.margin ?? 0.15));
+  const list = Array.isArray(candidates) ? candidates : [];
+  if (!list.length) return { winners: [], activations: {}, rounds: 0 };
+  const weights = settings.weights && typeof settings.weights === 'object' ? settings.weights : {};
+  let activations = Object.fromEntries(list.map((candidate) => [candidate.id, driveInput(candidate, weights)]));
+  for (let round = 0; round < rounds; round++) {
+    const total = Object.values(activations).reduce((sum, value) => sum + value, 0);
+    const next = {};
+    for (const candidate of list) {
+      next[candidate.id] = Math.max(0, activations[candidate.id] + driveInput(candidate, weights) - inhibition * (total - activations[candidate.id]));
+    }
+    activations = next;
+  }
+  const ranked = [...list].sort((a, b) => activations[b.id] - activations[a.id]);
+  const top = activations[ranked[0].id];
+  const winners = ranked.filter((candidate) => top - activations[candidate.id] <= margin).map((candidate) => candidate.id);
+  const rounded = {};
+  for (const id of Object.keys(activations)) rounded[id] = Math.round(activations[id] * 1000) / 1000;
+  return { winners, activations: rounded, rounds };
+}
+
+module.exports = { charge, competeWinners, BURST_FACTOR, LOCAL_FACTOR, REFRACTORY_FACTOR, DEFAULT_THRESHOLD };

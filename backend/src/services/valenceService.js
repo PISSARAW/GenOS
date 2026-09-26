@@ -81,4 +81,27 @@ function rankDrives(variables, weights) {
     .sort((a, b) => b.drive - a.drive);
 }
 
-module.exports = { driveOf, actionValue, rankDrives, DEFAULT_WEIGHTS };
+const VALENCE_POSTURE_AT = 0.7;
+
+function applyValencePosture(mission, drives) {
+  const applied = [];
+  if (!mission || !Array.isArray(drives)) return applied;
+  const top = (name) => drives.find((drive) => drive.action === name);
+  const avoid = top('avoid_risky_exploration');
+  if (avoid && avoid.drive >= VALENCE_POSTURE_AT) {
+    mission.executionPolicy = mission.executionPolicy || {};
+    mission.executionPolicy.allowFileEdits = false;
+    mission.requiresEvidenceBeforePromotion = true;
+    applied.push('avoid_risky_exploration:probe_posture');
+  }
+  const fanout = top('reduce_costly_fanout');
+  if (fanout && fanout.drive >= VALENCE_POSTURE_AT) {
+    mission.executionPolicy = mission.executionPolicy || {};
+    const current = Number(mission.executionPolicy.workerFanoutLimit);
+    mission.executionPolicy.workerFanoutLimit = Number.isFinite(current) ? Math.min(current, 2) : 2;
+    applied.push('reduce_costly_fanout:fanout_capped');
+  }
+  return applied;
+}
+
+module.exports = { driveOf, actionValue, rankDrives, applyValencePosture, DEFAULT_WEIGHTS };

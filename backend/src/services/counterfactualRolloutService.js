@@ -22,9 +22,7 @@ const MAX_ROLLOUTS = 10;
 function validCandidates(candidates) {
   if (!Array.isArray(candidates)) return false;
   if (candidates.length < MIN_CANDIDATES || candidates.length > MAX_CANDIDATES) return false;
-  const actions = candidates.map((candidate) => candidate && String(candidate.action || '').trim());
-  if (actions.some((action) => !action)) return false;
-  return new Set(actions).size === actions.length;
+  return candidates.every((candidate) => candidate && String(candidate.action || '').trim());
 }
 
 function branchOf(candidate, index) {
@@ -33,6 +31,7 @@ function branchOf(candidate, index) {
     actionId: candidate.actionId ? String(candidate.actionId) : null,
     action: String(candidate.action).trim().slice(0, 120),
     hypothesis: typeof candidate.hypothesis === 'string' ? candidate.hypothesis.slice(0, 200) : null,
+    expectedState: candidate.expectedState && typeof candidate.expectedState === 'object' ? candidate.expectedState : null,
     tagged: false
   };
 }
@@ -41,7 +40,7 @@ async function tagBranch(db, orchestratorId, branch) {
   try {
     const worldModel = require('./worldModelService');
     const chain = await worldModel.predictTrajectory(db || null, orchestratorId, {
-      actions: [{ actionId: branch.actionId || branch.branchId, action: branch.action }]
+      actions: [{ actionId: branch.actionId || branch.branchId, action: branch.action, expectedState: branch.expectedState }]
     });
     branch.tagged = true;
     branch.trajectoryId = chain.chainId;
@@ -159,22 +158,64 @@ async function scoreBranches(input) {
       action: worker.role || worker.name || 'world',
       outcome,
       surprise,
+      evidenceClaims: countClaims(dossier),
       score: outcome === 'success' ? 0.5 + 0.5 * (1 - surprise) : 0
     });
   }
-  scored.sort((a, b) => b.score - a.score);
-  const winner = scored.length && scored[0].score > 0 ? scored[0] : null;
+  const competition = competeBranches(scored);
+  const winner = competition.winner;
   return {
     rolloutId: options.rolloutId || null,
-    method: 'vte-evidence-surprise',
+    method: 'vte-evidence-surprise-lca',
     advisoryOnly: true,
     winner,
+    runnersUp: competition.runnersUp,
     scores: scored,
+    replicates: replicateSpread(scored),
     preservedLosers: scored.filter((entry) => entry !== winner).map((entry) => ({
       branchId: entry.branchId, action: entry.action, score: entry.score, reason: loserReason(entry.outcome, entry.surprise)
     })),
     limitation: 'Avis seulement : ne remplace ni jury ni gate de promotion.'
   };
+}
+
+function countClaims(dossier) {
+  const events = dossier && Array.isArray(dossier.events) ? dossier.events : [];
+  let count = 0;
+  for (const event of events) {
+    const payload = event.payload || {};
+    const report = payload.evidenceReport || payload.report || {};
+    if (Array.isArray(report.claims)) count += report.claims.length;
+  }
+  return count;
+}
+
+function competeBranches(scored) {
+  try {
+    const ignition = require('./ignitionService');
+    const ranked = ignition.competeWinners(scored.map((entry) => ({
+      id: entry.branchId,
+      drives: { score: entry.score, predictability: 1 - entry.surprise, evidence: Math.min(1, entry.evidenceClaims / 5) }
+    })));
+    const byId = new Map(scored.map((entry) => [entry.branchId, entry]));
+    const ordered = ranked.winners.map((id) => byId.get(id)).filter(Boolean).filter((entry) => entry.score > 0);
+    if (!ordered.length) return { winner: null, runnersUp: [] };
+    return { winner: ordered[0], runnersUp: ordered.slice(1) };
+  } catch (_) {
+    const positive = [...scored].sort((a, b) => b.score - a.score).filter((entry) => entry.score > 0);
+    return { winner: positive[0] || null, runnersUp: positive.slice(1) };
+  }
+}
+
+function replicateSpread(scored) {
+  const groups = {};
+  for (const entry of scored) {
+    groups[entry.action] = groups[entry.action] || [];
+    groups[entry.action].push(entry.score);
+  }
+  return Object.entries(groups)
+    .filter(([, scores]) => scores.length > 1)
+    .map(([action, scores]) => ({ action, n: scores.length, spread: Math.max(...scores) - Math.min(...scores) }));
 }
 
 module.exports = { planRollout, scoreBranches };

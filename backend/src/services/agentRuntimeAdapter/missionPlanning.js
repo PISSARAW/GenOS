@@ -99,6 +99,14 @@ function applyRegulatedPosture(normalizedMission, arbitration) {
   normalizedMission.executionPolicy.humanReviewRequired = arbitration.humanReviewRequired;
 }
 
+function applyValencePosture(ctx) {
+  try {
+    const drives = ctx.autonomyPlan?.valenceDrives?.drives;
+    if (!Array.isArray(drives)) return;
+    require('../valenceService').applyValencePosture(ctx.normalizedMission, drives);
+  } catch (_) {}
+}
+
 function applyExecutionPolicy(ctx) {
   const { normalizedMission, dispatchedAgent } = ctx;
   const arbitration = ctx.autonomyPlan?.controlRegulation?.arbitration;
@@ -117,6 +125,7 @@ function applyExecutionPolicy(ctx) {
     silentUpdates
   };
   applyRegulatedPosture(normalizedMission, arbitration);
+  applyValencePosture(ctx);
   normalizedMission.userReporting = userProgress.reportingPolicy(task, silentUpdates);
   applyOrchestratorToolLease(dispatchedAgent, normalizedMission, ctx.autonomyPlan);
   ctx.silentUpdates = silentUpdates;

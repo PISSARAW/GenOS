@@ -39,16 +39,46 @@ function normalizePrediction(prediction, now) {
     action: prediction.action.trim().slice(0, 120),
     predicted: {
       expectSuccess: prediction.expectSuccess !== false,
-      expectedDetail: typeof prediction.expectedDetail === 'string' ? prediction.expectedDetail.slice(0, 160) : null
+      expectedDetail: typeof prediction.expectedDetail === 'string' ? prediction.expectedDetail.slice(0, 160) : null,
+      expectedState: trimState(prediction.expectedState)
     },
     status: 'pending',
     createdAt: now
   };
 }
 
+function trimState(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (Object.keys(out).length >= 8) break;
+    out[String(key).slice(0, 64)] = val;
+    if (JSON.stringify(out).length > 2000) {
+      delete out[String(key).slice(0, 64)];
+      break;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function stateMatchRatio(expected, observed) {
+  if (!expected || typeof expected !== 'object' || Array.isArray(expected)) return null;
+  const keys = Object.keys(expected);
+  if (!keys.length) return null;
+  const actual = observed && typeof observed === 'object' && !Array.isArray(observed) ? observed : {};
+  let matched = 0;
+  for (const key of keys) {
+    if (JSON.stringify(actual[key]) === JSON.stringify(expected[key])) matched += 1;
+  }
+  return matched / keys.length;
+}
+
 function scoreSurprise(predicted, observation) {
   if (observation.success !== true) return 1;
-  if (predicted.expectedDetail && !String(observation.detail || '').includes(predicted.expectedDetail)) return 0.25;
+  const data = observation || {};
+  const ratio = stateMatchRatio(predicted.expectedState, data.observedState);
+  if (ratio !== null) return Math.round((1 - ratio) * 100) / 100;
+  if (predicted.expectedDetail && !String(data.detail || '').includes(predicted.expectedDetail)) return 0.25;
   return 0;
 }
 
@@ -139,7 +169,7 @@ async function predictTrajectory(db, agentId, input) {
     const chainId = String(options.chainId || `traj_${now}_${Math.floor(Math.random() * 0xffff).toString(16)}`);
     const { store, all } = await loadTransitions(opened.db, agentId);
     const steps = options.actions.map((action, step) => ({
-      ...normalizePrediction({ actionId: action.actionId || `${chainId}#${step}`, action: action.action, expectedDetail: action.expectedDetail }, now),
+      ...normalizePrediction({ actionId: action.actionId || `${chainId}#${step}`, action: action.action, expectedDetail: action.expectedDetail, expectedState: action.expectedState }, now),
       chainId,
       step,
       uncertainty: trajectoryUncertainty(base, step)
@@ -170,7 +200,7 @@ async function observeTrajectory(db, agentId, input) {
     for (let step = 0; step < pending.length && step < outcomes.length; step++) {
       const entry = pending[step];
       const data = outcomes[step] || {};
-      const surprise = scoreSurprise(entry.predicted || {}, { success: data.success === true, detail: data.detail });
+      const surprise = scoreSurprise(entry.predicted || {}, { success: data.success === true, detail: data.detail, observedState: data.observedState });
       surprises.push(surprise);
       entry.status = 'resolved';
       entry.success = data.success === true;

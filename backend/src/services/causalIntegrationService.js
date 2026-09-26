@@ -62,7 +62,7 @@ async function analyzeCircuit(db, agentId, options) {
     const spec = { bins: BINS, startMs: now - WINDOW_MS, binMs: WINDOW_MS / BINS };
     const placeholders = agents.map(() => '?').join(',');
     const rows = await db.all(
-      `SELECT agent_id, event_type, created_at FROM telemetry_events WHERE agent_id IN (${placeholders}) AND created_at >= ?`,
+      `SELECT agent_id, event_type AS eventType, created_at FROM telemetry_events WHERE agent_id IN (${placeholders}) AND created_at >= ?`,
       ...agents, sqliteUtc(spec.startMs)
     );
     const matrix = proxy.binMatrix(rows, agents, spec);
