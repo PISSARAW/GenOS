@@ -27,7 +27,7 @@ const PROFILES = Object.freeze({
   }),
   resilient: Object.freeze({
     conductivity: { alpha: 0.3, beta: 0.2, tau: 0.4, decay: 0.02 },
-    routing: { maxHops: 12, alternatives: 4, edgeDisjointAlternatives: true, objectiveWeights: { latency: 0.15, cost: 0.1, risk: 0.45, trust: 0.2, freshness: 0.1 } },
+    routing: { maxHops: 12, alternatives: 4, edgeDisjointAlternatives: true, failureDomainDisjoint: true, objectiveWeights: { latency: 0.15, cost: 0.1, risk: 0.45, trust: 0.2, freshness: 0.1 } },
     growth: { threshold: 0.15 },
     pruning: { enabled: true },
     resilience: { alternatives: 4, minRedundantPaths: 2, recoveryReserveRatio: 0.4 },
