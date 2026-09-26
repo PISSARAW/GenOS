@@ -6,7 +6,25 @@ const alternatives = require('./alternativePathService');
 function repair(input) {
   const failedEdgeIds = failureDetector.failedEdges(input.session, input.receipt, input.trustedVerifierDigests || []);
   const policy = input.session.variantPolicy?.routing || {};
-  const result = searchWithReconfiguration(input, failedEdgeIds, policy);
+  const maxRounds = Number.isInteger(policy.maxSelfRepairRounds) ? Math.max(1, policy.maxSelfRepairRounds)
+    : (input.session.variantPolicy?.resilience?.maxSelfRepairRounds != null
+        ? Math.max(1, input.session.variantPolicy.resilience.maxSelfRepairRounds)
+        : 1);
+  let excluded = new Set(failedEdgeIds);
+  let lastResult = null;
+  for (let round = 1; round <= maxRounds; round++) {
+    const result = alternatives.find({
+      session: input.session, need: input.need, failedEdgeIds: [...excluded],
+      policy
+    });
+    lastResult = result;
+    if (result.selected) {
+      excluded = new Set([...excluded, ...result.route.edgeIds]);
+      continue;
+    }
+    break;
+  }
+  const result = lastResult || { selected: false, route: null, alternatives: [] };
   return {
     repaired: result.selected,
     reason: result.selected ? 'ALTERNATIVE_ROUTE_FOUND' : 'CAPABILITY_GAP_REMAINS',
@@ -14,20 +32,6 @@ function repair(input) {
     route: result.route,
     alternatives: result.alternatives
   };
-}
-
-function searchWithReconfiguration(input, failedEdgeIds, policy) {
-  const configuredRounds = input.session.variantPolicy?.resilience?.maxSelfRepairRounds;
-  const maxRounds = Number.isInteger(configuredRounds) ? Math.max(1, configuredRounds) : 1;
-  const baseHops = Number(policy.maxHops) || input.session.nodes.length;
-  for (let round = 0; round < maxRounds; round += 1) {
-    const result = alternatives.find({
-      session: input.session, need: input.need, failedEdgeIds,
-      policy: { ...policy, maxHops: baseHops + round }
-    });
-    if (result.selected) return result;
-  }
-  return { selected: false, route: null, alternatives: [] };
 }
 
 module.exports = { repair };
