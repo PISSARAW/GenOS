@@ -35,10 +35,11 @@ async function buildAgentSelf(db, agentId, options = {}) {
   }
 
   const context = options.context || {};
-  const [selfModel, cognitiveRegulation, agentRow] = await Promise.all([
+  const [selfModel, cognitiveRegulation, agentRow, core] = await Promise.all([
     safeLoadSelfModel(db, agentId, context),
     safeLoadCognitiveRegulation(db, agentId),
-    db.get('SELECT * FROM agents WHERE id = ?', agentId).catch(() => null)
+    db.get('SELECT * FROM agents WHERE id = ?', agentId).catch(() => null),
+    safeLoadCore(db, agentId)
   ]);
 
   if (!agentRow && !selfModel) {
@@ -56,6 +57,7 @@ async function buildAgentSelf(db, agentId, options = {}) {
     operational: buildOperationalSelf(selfModel, options),
     regulatory: buildRegulatorySelf(selfModel, cognitiveRegulation),
     narrative: null,
+    core,
     builtAt: new Date().toISOString()
   };
 }
@@ -195,6 +197,14 @@ async function safeLoadCognitiveRegulation(db, agentId) {
   }
 }
 
+async function safeLoadCore(db, agentId) {
+  try {
+    return await require('./coreSelfService').loadCoreSelf(db, agentId);
+  } catch (_) {
+    return null;
+  }
+}
+
 function extractActiveConstraints(agentSelf) {
   return {
     confidence: agentSelf.operational.competence.confidence,
@@ -249,6 +259,12 @@ function formatAgentSelfPrompt(agentSelf) {
 
   if (agentSelf.operational.limitations.knownWeaknesses.length > 0) {
     lines.push(`- Faiblesses : ${agentSelf.operational.limitations.knownWeaknesses.join(', ')}`);
+  }
+  if (agentSelf.core) {
+    const calibration = Number.isFinite(agentSelf.core.agencyCalibration)
+      ? `${(agentSelf.core.agencyCalibration * 100).toFixed(0)}%`
+      : 'n/a';
+    lines.push(`- Agency : ${calibration} (${agentSelf.core.lastAttributions.length} attributions)`);
   }
   if (agentSelf.regulatory.isApoptotic) {
     lines.push(`⚠️  ÉTAT APOTOSIQUE`);

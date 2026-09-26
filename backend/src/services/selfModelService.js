@@ -160,6 +160,21 @@ async function appendCalibrationEvent(db, row, calibration) {
     SCOPE, row.agent_id, 'self_model_calibrated', JSON.stringify({ runId: row.id, status: row.status, calibration }));
 }
 
+async function recordRunAttribution(db, learned, row) {
+  try {
+    const expected = clamp(learned.expectedSuccess, DEFAULTS.confidence);
+    const actual = row.status === 'completed' ? 1 : 0;
+    const metrics = parseJson(row.metrics_json);
+    const delegated = Number(metrics.workersSpawned || metrics.workersActive || 0) > 0;
+    const coreSelf = require('./coreSelfService');
+    await coreSelf.recordAttribution(db, row.agent_id, {
+      actionId: row.id,
+      attributedToSelf: !delegated,
+      predictionError: Math.abs(expected - actual)
+    });
+  } catch (_) {}
+}
+
 async function calibrate(db, runId) {
   await ensureStorage(db);
   const row = await db.get('SELECT id, agent_id, status, budget_json, metrics_json FROM strategy_execution_runs WHERE id = ?', runId);
@@ -170,6 +185,7 @@ async function calibrate(db, runId) {
   const next = calibrationUpdate(learned, row);
   await stateStore(db).persistObject(SCOPE, row.agent_id, next, next.calibration.observations);
   await appendCalibrationEvent(db, row, next.calibration);
+  await recordRunAttribution(db, learned, row);
   return next.calibration;
 }
 

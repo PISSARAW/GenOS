@@ -39,6 +39,10 @@ function applyAdjustments(autonomyPlan, adjustments) {
     autonomyPlan.selfModel.limits.riskTolerance = policy.riskTolerance;
     autonomyPlan.selfModel.limits.evidenceStrictness = policy.evidenceStrictness;
   }
+  const state = autonomyPlan.selfModel.state;
+  if (state && Number.isFinite(state.confidence)) {
+    state.confidence = clamp(state.confidence + (adjustments.confidenceBoost || 0), 0, 1);
+  }
 }
 
 function emitRecall({ agentId, eventType, detail, payload, severity = 'info' }) {

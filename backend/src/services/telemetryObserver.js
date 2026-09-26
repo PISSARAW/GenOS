@@ -91,6 +91,7 @@ class TelemetryObserver extends EventEmitter {
     const event = telemetryContract.buildEvent(eventData || {}, payload, trace);
 
     this.pushToBuffer(event);
+    this.emit('telemetry', event);
     this.appendProcessStream(event);
     this.broadcastSSE(event);
     this.persistAsync(event);
