@@ -78,11 +78,20 @@ async function calibrateSelfModel(db, runId) {
   } catch (_) {}
 }
 
+async function sustainReverberation(db, agentId, event) {
+  try {
+    await require('./reverberationService').updateFromEvent(db, agentId, event);
+  } catch (_) {}
+}
+
 async function recordExecutionEvent(db, agentId, event) {
   const saved = await progress.recordExecutionEvent(db, agentId, event);
   if (!saved) return null;
   const fallback = await fallbackAfterProgress(db, saved, agentId);
-  if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) await calibrateSelfModel(db, saved.run.id);
+  if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) {
+    await calibrateSelfModel(db, saved.run.id);
+    await sustainReverberation(db, agentId, event);
+  }
   const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
   return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival };
 }

@@ -70,11 +70,21 @@ async function loadUnifiedSelfBlocks(db, agentId, context) {
     const workerSelfBlock = options.wantWorker === false
       ? ''
       : await buildWorkerBlock(opened.db, agentId, options);
-    return { agentSelfBlock, workerSelfBlock };
+    const trace = await safeTraceBlock(opened.db, agentId);
+    return { agentSelfBlock: agentSelfBlock + trace, workerSelfBlock };
   } catch (_) {
     return { agentSelfBlock: '', workerSelfBlock: '' };
   } finally {
     if (opened && opened.close) await opened.close();
+  }
+}
+
+async function safeTraceBlock(db, agentId) {
+  try {
+    const block = await require('./reverberationService').loadTraceBlock(db, agentId);
+    return block ? `\n\n${block}` : '';
+  } catch (_) {
+    return '';
   }
 }
 
@@ -103,5 +113,6 @@ module.exports = {
   loadAgentSelfBlock,
   loadWorkerSelfBlock,
   loadUnifiedSelfBlocks,
-  loadConscienceText
+  loadConscienceText,
+  loadTraceBlock: safeTraceBlock
 };
