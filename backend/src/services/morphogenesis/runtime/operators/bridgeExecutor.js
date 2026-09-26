@@ -11,20 +11,24 @@ class BridgeExecutor extends BaseExecutor {
     const [sourceNode, targetNode] = children;
     const adapter = node.adapter || { transform: 'passthrough' };
 
-    const sourceExecutor = this.runtime.getExecutor(sourceNode.kind);
+    const sourceExecutor = this.runtime.getExecutorForNode(sourceNode);
     if (!sourceExecutor) throw new Error(`No executor for source kind: ${sourceNode.kind}`);
 
     const sourceResult = await sourceExecutor.execute(sourceNode, graph, context);
+    context.receipts.push(...sourceResult.context.receipts);
     context.evidence.push(...sourceResult.context.receipts);
+    context.evidence.push(...sourceResult.context.evidence);
 
     const translated = await this.applyAdapter(sourceResult.output, adapter, context);
 
-    const targetExecutor = this.runtime.getExecutor(targetNode.kind);
+    const targetExecutor = this.runtime.getExecutorForNode(targetNode);
     if (!targetExecutor) throw new Error(`No executor for target kind: ${targetNode.kind}`);
 
     const targetContext = { ...context, input: translated };
     const targetResult = await targetExecutor.execute(targetNode, graph, targetContext);
+    context.receipts.push(...targetResult.context.receipts);
     context.evidence.push(...targetResult.context.receipts);
+    context.evidence.push(...targetResult.context.evidence);
 
     const receipt = this.createReceipt(node, {
       sourceOutput: sourceResult.output,

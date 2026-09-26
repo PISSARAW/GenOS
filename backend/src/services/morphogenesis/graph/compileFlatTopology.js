@@ -49,19 +49,8 @@ function compileFlatTopology(input = {}) {
 }
 
 function compileMorphologyExpression(expression, options = {}) {
-  const { missionId, graphId, version = 1, status = 'proposed', globalBudget = {}, globalInvariants = [], mission = null, scope = 'mission' } = options;
-  const annotated = annotateWithDefaults(expression, { mission, scope, budget: globalBudget });
-  const { nodes, edges } = flattenExpression(annotated);
-  return createMorphologyGraph({
-    graphId,
-    missionId,
-    version,
-    status,
-    globalBudget,
-    globalInvariants,
-    nodes,
-    edges
-  });
+  const { compileExpression } = require('./morphologyCompiler');
+  return compileExpression(expression, options);
 }
 
 module.exports = { compileFlatTopology, compileMorphologyExpression };

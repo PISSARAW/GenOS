@@ -10,22 +10,26 @@ class GateExecutor extends BaseExecutor {
 
     const [conditionNode, thenNode, elseNode] = children;
 
-    const conditionExecutor = this.runtime.getExecutor(conditionNode.kind);
+    const conditionExecutor = this.runtime.getExecutorForNode(conditionNode);
     if (!conditionExecutor) throw new Error(`No executor for condition kind: ${conditionNode.kind}`);
 
     const conditionResult = await conditionExecutor.execute(conditionNode, graph, context);
+    context.receipts.push(...conditionResult.context.receipts);
     context.evidence.push(...conditionResult.context.receipts);
+    context.evidence.push(...conditionResult.context.evidence);
 
     const conditionMet = this.evaluateCondition(conditionResult.output, node);
     const branchNode = conditionMet ? thenNode : elseNode;
     const branchName = conditionMet ? 'then' : 'else';
 
-    const branchExecutor = this.runtime.getExecutor(branchNode.kind);
+    const branchExecutor = this.runtime.getExecutorForNode(branchNode);
     if (!branchExecutor) throw new Error(`No executor for branch kind: ${branchNode.kind}`);
 
     const branchContext = { ...context, input: conditionResult.output };
     const branchResult = await branchExecutor.execute(branchNode, graph, branchContext);
+    context.receipts.push(...branchResult.context.receipts);
     context.evidence.push(...branchResult.context.receipts);
+    context.evidence.push(...branchResult.context.evidence);
 
     const receipt = this.createReceipt(node, {
       condition: conditionResult.output,

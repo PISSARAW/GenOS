@@ -25,7 +25,10 @@ class TopologyExecutor extends BaseExecutor {
       throw new Error(`Topology not registered: ${topology}`);
     }
 
-    return topologyImpl.run({ variant, workers }, context);
+    const raw = await topologyImpl.run({ variant, workers }, context);
+    const output = raw && raw.output !== undefined ? raw.output : raw;
+    const state = raw && raw.state !== undefined ? raw.state : context.state;
+    return { output, receipt: null, state };
   }
 }
 

@@ -24,11 +24,13 @@ class SequenceExecutor extends BaseExecutor {
         }
       }
 
-      const executor = this.runtime.getExecutor(child.kind);
+      const executor = this.runtime.getExecutorForNode(child);
       if (!executor) throw new Error(`No executor for child kind: ${child.kind}`);
 
       const result = await executor.execute(child, graph, currentContext);
+      currentContext.receipts.push(...result.context.receipts);
       currentContext.evidence.push(...result.context.receipts);
+      currentContext.evidence.push(...result.context.evidence);
       results.push(result);
 
       currentContext.input = result.output;

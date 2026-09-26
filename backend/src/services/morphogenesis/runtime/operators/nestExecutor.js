@@ -11,11 +11,13 @@ class NestExecutor extends BaseExecutor {
     const host = children[0];
     const inner = children.slice(1);
 
-    const hostExecutor = this.runtime.getExecutor(host.kind);
+    const hostExecutor = this.runtime.getExecutorForNode(host);
     if (!hostExecutor) throw new Error(`No executor for host kind: ${host.kind}`);
 
     const hostResult = await hostExecutor.execute(host, graph, context);
+    context.receipts.push(...hostResult.context.receipts);
     context.evidence.push(...hostResult.context.receipts);
+    context.evidence.push(...hostResult.context.evidence);
 
     const innerContext = {
       ...context,

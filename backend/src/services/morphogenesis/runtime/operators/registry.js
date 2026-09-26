@@ -43,15 +43,24 @@ class ExecutorRegistry {
     }
   }
 
-  getExecutor(kind) {
-    const executor = this.executors.get(kind);
-    if (executor) return executor;
+  getExecutor(kind, operator = null) {
+    const direct = this.executors.get(kind);
+    if (direct) return direct;
+    if (operator && this.executors.get(operator)) return this.executors.get(operator);
 
     if (kind === 'TOPOLOGY') {
       return this.executors.get('TOPOLOGY');
     }
 
     throw new Error(`No executor registered for kind: ${kind}`);
+  }
+
+  getExecutorForNode(node) {
+    if (!node) throw new Error('getExecutorForNode requires a node');
+    if (node.operator && this.executors.get(node.operator)) {
+      return this.executors.get(node.operator);
+    }
+    return this.getExecutor(node.kind, node.operator);
   }
 
   registerTopology(topology, impl) {

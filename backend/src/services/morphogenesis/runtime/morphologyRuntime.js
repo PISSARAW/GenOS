@@ -3,6 +3,12 @@
 const { ExecutorRegistry } = require('./operators/registry');
 const { createExecutionContext } = require('./operators/executionContext');
 
+function mergeChildEvidence(parent, child) {
+  if (!child) return;
+  if (Array.isArray(child.receipts)) parent.receipts.push(...child.receipts);
+  if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
+}
+
 class MorphologyRuntime {
   constructor(options = {}) {
     this.topologyRegistry = options.topologyRegistry || {};
@@ -30,7 +36,7 @@ class MorphologyRuntime {
     context.status = 'running';
 
     try {
-      const executor = this.executorRegistry.getExecutor(rootNode.kind);
+      const executor = this.executorRegistry.getExecutorForNode(rootNode);
       if (!executor) throw new Error(`No executor for root kind: ${rootNode.kind}`);
 
       const result = await executor.execute(rootNode, graph, context);
@@ -38,10 +44,11 @@ class MorphologyRuntime {
       context.status = 'completed';
       context.output = result.output;
       context.completedAt = new Date().toISOString();
+      mergeChildEvidence(context, result.context);
 
       this.emit('complete', { graph, result, context });
 
-      return { output: result.output, receipts: context.receipts, evidence: context.evidence, state: context.state };
+      return { output: result.output, receipts: context.receipts, evidence: context.evidence, state: result.context.state || context.state };
     } catch (error) {
       context.status = 'failed';
       context.error = error.message;
@@ -56,10 +63,18 @@ class MorphologyRuntime {
     const node = graph.nodes.find(n => n.nodeId === nodeId);
     if (!node) throw new Error(`Node not found: ${nodeId}`);
 
-    const executor = this.executorRegistry.getExecutor(node.kind);
+    const executor = this.executorRegistry.getExecutorForNode(node);
     if (!executor) throw new Error(`No executor for kind: ${node.kind}`);
 
     return executor.execute(node, graph, parentContext);
+  }
+
+  getExecutor(kind, operator = null) {
+    return this.executorRegistry.getExecutor(kind, operator);
+  }
+
+  getExecutorForNode(node) {
+    return this.executorRegistry.getExecutorForNode(node);
   }
 
   registerTopology(topology, impl) {

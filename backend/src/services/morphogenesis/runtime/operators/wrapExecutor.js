@@ -11,7 +11,7 @@ class WrapExecutor extends BaseExecutor {
     const [innerNode] = children;
     const environment = node.environment || {};
 
-    const innerExecutor = this.runtime.getExecutor(innerNode.kind);
+    const innerExecutor = this.runtime.getExecutorForNode(innerNode);
     if (!innerExecutor) throw new Error(`No executor for inner kind: ${innerNode.kind}`);
 
     const executeInner = () => innerExecutor.execute(innerNode, graph, context);
@@ -23,7 +23,9 @@ class WrapExecutor extends BaseExecutor {
       result = await executeInner();
     }
 
-    context.evidence.push(...result.context.receipts);
+    context.receipts.push(...result.context.receipts);
+      context.evidence.push(...result.context.receipts);
+      context.evidence.push(...result.context.evidence);
 
     const receipt = this.createReceipt(node, {
       environment: environment.name || 'custom',

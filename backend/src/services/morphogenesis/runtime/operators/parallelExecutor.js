@@ -1,7 +1,12 @@
 'use strict';
 
 const { BaseExecutor } = require('./baseExecutor');
-const { runParallel, divideBudget } = require('../../composition/compositionRuntime');
+const { allocateBudget } = require('./executionContext');
+
+function divideBudget(budget, count) {
+  if (!count || count <= 1) return [budget];
+  return Array.from({ length: count }, () => allocateBudget(budget, 1 / count));
+}
 
 class ParallelExecutor extends BaseExecutor {
   async executeNode(node, graph, context) {
@@ -15,14 +20,18 @@ class ParallelExecutor extends BaseExecutor {
       const childContext = {
         ...context,
         budget: budgets[index],
-        state: { ...context.state }
+        state: { ...context.state },
+        evidence: [],
+        receipts: []
       };
 
-      const executor = this.runtime.getExecutor(child.kind);
+      const executor = this.runtime.getExecutorForNode(child);
       if (!executor) throw new Error(`No executor for child kind: ${child.kind}`);
 
       const result = await executor.execute(child, graph, childContext);
+      context.receipts.push(...result.context.receipts);
       context.evidence.push(...result.context.receipts);
+      context.evidence.push(...result.context.evidence);
       results.push(result);
     }));
 

@@ -18,11 +18,13 @@ class CompeteExecutor extends BaseExecutor {
         state: { ...context.state }
       };
 
-      const executor = this.runtime.getExecutor(child.kind);
+      const executor = this.runtime.getExecutorForNode(child);
       if (!executor) throw new Error(`No executor for candidate kind: ${child.kind}`);
 
       const result = await executor.execute(child, graph, childContext);
+      context.receipts.push(...result.context.receipts);
       context.evidence.push(...result.context.receipts);
+      context.evidence.push(...result.context.evidence);
       results.push({ candidate: child, ...result });
     }));
 

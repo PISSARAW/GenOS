@@ -20,11 +20,13 @@ class FederateExecutor extends BaseExecutor {
         authority: this.intersectAuthority(context.authority, child.authorityBoundary)
       };
 
-      const executor = this.runtime.getExecutor(child.kind);
+      const executor = this.runtime.getExecutorForNode(child);
       if (!executor) throw new Error(`No executor for member kind: ${child.kind}`);
 
       const result = await executor.execute(child, graph, childContext);
+      context.receipts.push(...result.context.receipts);
       context.evidence.push(...result.context.receipts);
+      context.evidence.push(...result.context.evidence);
       results.push({ member: child, ...result });
     }));
 
