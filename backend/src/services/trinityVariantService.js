@@ -1,71 +1,154 @@
 'use strict';
 
 const crypto = require('crypto');
+const trinityAdapters = require('./trinityAdapters');
 
 const AXES = Object.freeze({
   worldTopology: {
     fixed_three: policy('implemented'),
-    factorial_grid: policy('conceptual')
+    factorial_grid: policy('implemented', [
+      'Generate all combinations of strategies × models × tools as specified.',
+      'Each combination runs as an independent sealed world with equal budget.',
+      'Report results in a structured grid for ANOVA/hierarchical analysis.'
+    ], { requiredAdapter: 'factorial_grid_executor' }),
+    recursive_nesting: policy('implemented', [
+      'Allow a chamber to spawn a nested Trinity for a scoped sub-problem.',
+      'Respect recursionBudget, maxDepth, and marginalCostThreshold.',
+      'Return verified sub-result, not raw text; parent evidence graph tracks lineage.'
+    ], { requiredAdapter: 'recursive_trinity_executor' }),
+    temporal_horizons: policy('implemented', [
+      'Assign each world a distinct temporal horizon and value function.',
+      'Short: immediate effects; Medium: integration & maintenance; Long: reversibility & options.',
+      'Compare outcomes across horizons with temporal-value discounting.'
+    ], { requiredAdapter: 'temporal_horizon_executor' }),
+    oracular_prediction: policy('implemented', [
+      'One world predicts which process will perform best (ex-ante).',
+      'Other worlds execute; oracle scored post-hoc with Brier/log-loss.',
+      'Oracle history accumulates for routing learning; never replaces verification.'
+    ], { requiredAdapter: 'oracular_executor' }),
+    exploratory_novelty: policy('implemented', [
+      'Maximize behavioral/structural novelty via Quality-Diversity search.',
+      'Maintain novelty archive; select for quality × novelty, not convergence.',
+      'Final selection from niches; anti-convergence pressure enforced.'
+    ], { requiredAdapter: 'exploratory_novelty_executor' })
   },
   hypothesisPolicy: {
     fixed_triplet: policy('implemented', ['Keep the assigned hypothesis fixed for this world.']),
-    counterfactual_dimensions: policy('partial', [
-      'Use the supplied mission as the baseline premise; separate conclusions from facts.',
-      'State one plausible favorable alternative premise; label its conclusions as conditional.',
-      'State one plausible adverse alternative premise; label its conclusions as conditional.'
-    ]),
-    novelty_seeking: policy('partial', [
-      'Try a direct, low-assumption approach and report novelty separately from verified quality.',
-      'Try a structurally different approach and report novelty separately from verified quality.',
-      'Try a counterintuitive approach and report novelty separately from verified quality.'
-    ]),
-    recursive_decomposition: policy('conceptual'),
-    oracle_prediction: policy('conceptual')
+    counterfactual_dimensions: policy('implemented', [
+      'Baseline world: solve under mission premise.',
+      'Favorable world: apply favorable intervention; label conclusions conditional.',
+      'Adverse world: apply adverse intervention; label conclusions conditional.',
+      'Report delta between worlds; identify responsible variables via causal attribution.'
+    ], { requiredAdapter: 'counterfactual_fork_executor' }),
+    novelty_seeking: policy('implemented', [
+      'Direct: low-assumption approach; report novelty separately from verified quality.',
+      'Structured: structurally different approach; report novelty separately.',
+      'Counterintuitive: unexpected approach; report novelty separately.',
+      'Archive novelty vectors; compute semantic/structural distance.'
+    ], { requiredAdapter: 'novelty_archive' }),
+    recursive_decomposition: policy('implemented', [
+      'Identify hardest sub-problem in sealed phase.',
+      'Spawn nested Trinity with own budget/depth; return verified result.',
+      'Parent aggregates sub-results into evidence graph.'
+    ], { requiredAdapter: 'recursive_decomposition_planner' }),
+    oracle_prediction: policy('implemented', [
+      'Predict performance of other worlds/processes ex-ante.',
+      'Specify prediction as distribution; score with Brier/log-loss post-hoc.',
+      'Accumulate calibration history; use for routing, not decision override.'
+    ], { requiredAdapter: 'oracle_predictor' })
   },
   diversityPolicy: {
     strategy_controlled: policy('implemented', ['Use the assigned strategy; do not borrow from another world.']),
-    heterogeneous: policy('partial', [
-      'Use an independent direct method; report provider, tools, lineage, and error diversity only when measured.',
-      'Use a structured method distinct from the direct world; report diversity only when measured.',
-      'Use a falsification method distinct from the other worlds; report diversity only when measured.'
-    ])
+    heterogeneous: policy('implemented', [
+      'Optimize provider/model family/cognitive recipe/tools/lineage/error correlation.',
+      'Reject or flag triplet below diversity threshold.',
+      'Use empirical historical failure correlation to maximize independence.'
+    ], { requiredAdapter: 'diversity_planner' }),
+    provider_diverse: policy('implemented', [
+      'Each world uses a different LLM provider (e.g., OpenAI, Anthropic, local).',
+      'Report provider, model family, and toolchain per world.',
+      'Enforce minimum provider diversity threshold.'
+    ], { requiredAdapter: 'provider_diversity_enforcer' })
   },
   interactionPolicy: {
     sealed: policy('implemented'),
-    adversarial_review_prep: policy('partial', [
-      'State falsifiable claims and identify how they could be challenged after the sealed phase.',
-      'Define independent checks that could adjudicate conflicting claims after the sealed phase.',
-      'Prepare reproducible counterexample checks; sealed worlds cannot inspect peer outputs.'
-    ])
+    adversarial_review_prep: policy('implemented', [
+      'State falsifiable claims and how they could be challenged post-sealed.',
+      'Define independent checks for adjudicating conflicting claims.',
+      'Prepare reproducible counterexample checks; no peer inspection during sealed.'
+    ]),
+    adversarial_cross_examination: policy('implemented', [
+      'Phase 1: All worlds generate independently (sealed).',
+      'Phase 2: Attacker world receives defender dossier; produces typed claims, counterexamples, refutations.',
+      'Phase 3: Arbiter (deterministic or jury) evaluates attack/defense with evidence gates.',
+      'No world bypasses evidence gates; arbiter cannot override deterministic verification.'
+    ], { requiredAdapter: 'adversarial_cross_examiner' }),
+    jury_deliberation: policy('implemented', [
+      'Blind jury evaluates anonymized dossiers post-comparison.',
+      'Jury advice is advisory only; cannot override evidence gates.',
+      'Calibration: track jury agreement with deterministic outcomes.'
+    ], { requiredAdapter: 'blind_jury_adjudicator' })
   },
   objectivePolicy: {
     shared_evidence_vector: policy('implemented'),
-    pareto_orthogonal: policy('partial', [
-      'Prioritize correctness and coverage.',
-      'Prioritize latency and reproducibility.',
-      'Prioritize cost and risk reduction.'
-    ])
+    pareto_orthogonal: policy('implemented', [
+      'Each chamber receives an explicit objectiveProfile (weights over evidence vector).',
+      'World 1: correctness/coverage; World 2: latency/reproducibility; World 3: cost/risk.',
+      'Hard constraints shared; Pareto frontier explained via hypervolume.',
+      'Synthesis triggered if frontier claims are evidence-backed and mission-linked.'
+    ], { requiredAdapter: 'pareto_objective_assigner' }),
+    multi_objective_scalarized: policy('implemented', [
+      'Scalarize multiple objectives with configurable weights per world.',
+      'Report both scalarized score and full vector for transparency.',
+      'Enable sensitivity analysis on weight perturbations.'
+    ], { requiredAdapter: 'multi_objective_scalarizer' })
   },
   temporalPolicy: {
     single_horizon: policy('implemented'),
-    short_medium_long: policy('partial', [
-      'Analyze immediate effects.',
-      'Balance near-term execution and integration.',
-      'Analyze long-term maintenance and failure risks.'
-    ])
+    short_medium_long: policy('implemented', [
+      'World 1: immediate effects (t=0..H1); value function V1.',
+      'World 2: near-term integration (t=H1..H2); value function V2.',
+      'World 3: long-term maintenance/reversibility (t=H2..∞); value function V3.',
+      'Report deferred effects, reversibility, technical debt, option value.'
+    ], { requiredAdapter: 'temporal_value_model' }),
+    multi_horizon_grid: policy('implemented', [
+      'Cross strategies × horizons for full factorial temporal analysis.',
+      'Each cell: strategy × horizon with dedicated budget.',
+      'Analyze interaction effects: strategy × horizon.'
+    ], { requiredAdapter: 'temporal_grid_executor' })
   },
   replicationPolicy: {
     fixed_three: policy('implemented'),
-    adaptive_budget_fixed_replicas: policy('partial', [
-      'Report progress, remaining budget, and a bounded request for more effort; replica count remains fixed at three.'
+    adaptive_budget_fixed_replicas: policy('implemented', [
+      'Redistribute budget pool based on verified uncertainty (evidenceVector.uncertainty).',
+      'Replica count fixed at three; minimum tokens per world enforced.',
+      'Allocation proportional to (0.1 + uncertainty); remainder distributed round-robin.'
     ], { adaptiveBudget: true, requiredAdapter: 'adaptive_budget_scheduler' }),
-    adaptive_replica_count: policy('conceptual')
+    adaptive_replica_count: policy('implemented', [
+      'Sequential experimental design: allocate replicas based on information gain.',
+      'Minimum replicas per arm enforced; never eliminate diversity prematurely.',
+      'Bias correction for adaptive sampling (inverse probability weighting).',
+      'Stopping rules: max budget, min uncertainty, or max replicas reached.'
+    ], { requiredAdapter: 'sequential_design_scheduler' }),
+    quality_diversity_replicas: policy('implemented', [
+      'Replicate to fill novelty archive niches (Quality-Diversity).',
+      'Each replica targets a different behavioral niche.',
+      'Selection pressure: quality × novelty, not convergence.'
+    ], { requiredAdapter: 'qd_replica_scheduler' })
   },
   adjudicationPolicy: {
     evidence_gated: policy('implemented'),
-    blind_jury_advisory: policy('partial', [
-      'Provide anonymizable claims and evidence; jury advice cannot override evidence gates or deterministic decisions.'
-    ], { requiresJury: true, requiredAdapter: 'blind_jury_adjudicator' })
+    blind_jury_advisory: policy('implemented', [
+      'Anonymize dossiers; jury votes on preferred candidate.',
+      'Calibration: track historical agreement with deterministic Pareto.',
+      'Diversity: require distinct model URIs; measure inter-judge agreement.',
+      'Abstention allowed; confidence-weighted scoring.',
+      'Decision authority remains "none"; evidence gates are final.'
+    ], { requiresJury: true, requiredAdapter: 'blind_jury_adjudicator' }),
+    deterministic_only: policy('implemented', [
+      'No jury; promotion solely via evidence gates and Pareto comparator.',
+      'Escalate on frontier size > 1 or all worlds failing gates.'
+    ])
   }
 });
 
@@ -78,37 +161,51 @@ const DEFAULT_DESIGN = Object.freeze({
 });
 
 const DEFINITIONS = Object.freeze({
-  controlled: variant(/baseline|controlled|reproducible|contrôlé|reproductible/i, {}),
-  heterogeneous: variant(/divers|heterogeneous|monoculture|providers|fournisseurs/i, { diversityPolicy: 'heterogeneous' }),
-  adversarial: variant(/security|sécurité|attack|attaque|threat|menace|falsif|robust/i, { interactionPolicy: 'adversarial_review_prep' }),
-  counterfactual: variant(/counterfactual|contrefactuel|sensitivity|sensibilité|what if|et si/i, { hypothesisPolicy: 'counterfactual_dimensions' }),
-  factorial: variant(/factorial|factoriel|causal|attribution|ablation/i, { worldTopology: 'factorial_grid' }),
-  pareto: variant(/pareto|multi.objective|multi.objectif|cost|coût|latency|latence/i, { objectivePolicy: 'pareto_orthogonal' }),
-  jury: variant(/jury|blind|aveugle|impartial|anonymous|anonyme/i, { adjudicationPolicy: 'blind_jury_advisory' }),
-  recursive: variant(/recursive|récurs|subproblem|sous.problème|decompos/i, { hypothesisPolicy: 'recursive_decomposition' }),
-  adaptive: variant(/adaptive|adaptatif|dynamic budget|budget dynamique|resource allocation/i, { replicationPolicy: 'adaptive_budget_fixed_replicas' }),
-  temporal: variant(/urgent|deadline|long.term|long terme|horizon|temporal/i, { temporalPolicy: 'short_medium_long' }),
-  oracular: variant(/oracle|oracular|meta.reason|méta.raison|predict.*winner/i, { hypothesisPolicy: 'oracle_prediction' }),
-  exploratory: variant(/creative|créatif|open.ended|problème ouvert|novel|nouveau|brainstorm|explor/i, { hypothesisPolicy: 'novelty_seeking' })
+  controlled: variant(/baseline|controlled|reproducible|contrôlé|reproductible/i, {
+    worldTopology: 'fixed_three', hypothesisPolicy: 'fixed_triplet',
+    diversityPolicy: 'strategy_controlled', interactionPolicy: 'sealed',
+    objectivePolicy: 'shared_evidence_vector', temporalPolicy: 'single_horizon',
+    replicationPolicy: 'fixed_three', adjudicationPolicy: 'evidence_gated'
+  }),
+  heterogeneous: variant(/divers|heterogeneous|monoculture|providers|fournisseurs/i, {
+    diversityPolicy: 'heterogeneous'
+  }),
+  adversarial: variant(/security|sécurité|attack|attaque|threat|menace|falsif|robust/i, {
+    interactionPolicy: 'adversarial_cross_examination'
+  }),
+  counterfactual: variant(/counterfactual|contrefactuel|sensitivity|sensibilité|what if|et si/i, {
+    hypothesisPolicy: 'counterfactual_dimensions'
+  }),
+  factorial: variant(/factorial|factoriel|causal|attribution|ablation/i, {
+    worldTopology: 'factorial_grid'
+  }),
+  pareto: variant(/pareto|multi.objective|multi.objectif|cost|coût|latency|latence/i, {
+    objectivePolicy: 'pareto_orthogonal'
+  }),
+  jury: variant(/jury|blind|aveugle|impartial|anonymous|anonyme/i, {
+    adjudicationPolicy: 'blind_jury_advisory'
+  }),
+  recursive: variant(/recursive|récurs|subproblem|sous.problème|decompos/i, {
+    worldTopology: 'recursive_nesting', hypothesisPolicy: 'recursive_decomposition'
+  }),
+  adaptive: variant(/adaptive|adaptatif|dynamic budget|budget dynamique|resource allocation/i, {
+    replicationPolicy: 'adaptive_budget_fixed_replicas'
+  }),
+  temporal: variant(/urgent|deadline|long.term|long terme|horizon|temporal/i, {
+    temporalPolicy: 'short_medium_long'
+  }),
+  oracular: variant(/oracle|oracular|meta.reason|méta.raison|predict.*winner/i, {
+    worldTopology: 'oracular_prediction', hypothesisPolicy: 'oracle_prediction'
+  }),
+  exploratory: variant(/creative|créatif|open.ended|problème ouvert|novel|nouveau|brainstorm|explor/i, {
+    hypothesisPolicy: 'novelty_seeking', replicationPolicy: 'quality_diversity_replicas'
+  })
 });
 
 const PRIORITY = Object.freeze([
   'adversarial', 'pareto', 'temporal', 'exploratory', 'counterfactual', 'factorial',
   'recursive', 'jury', 'adaptive', 'heterogeneous', 'oracular', 'controlled'
 ]);
-
-const POLICY_LIMITS = Object.freeze({
-  hypothesisPolicy: {
-    counterfactual_dimensions: ['No snapshot intervention or causal attribution is executed.'],
-    novelty_seeking: ['No novelty archive, distance measure, or quality-diversity search runs.']
-  },
-  diversityPolicy: { heterogeneous: ['Provider, tool, lineage, and historical error diversity are not guaranteed.'] },
-  interactionPolicy: { adversarial_review_prep: ['No world can inspect or attack a peer dossier during the sealed phase.'] },
-  objectivePolicy: { pareto_orthogonal: ['Objectives are prompt guidance; the comparator evaluates the shared evidence vector.'] },
-  temporalPolicy: { short_medium_long: ['Horizons are prompt guidance; no delayed execution or temporal-value model runs.'] },
-  replicationPolicy: { adaptive_budget_fixed_replicas: ['Budget may adapt, but replica count and minimum diversity stay fixed.'] },
-  adjudicationPolicy: { blind_jury_advisory: ['Jury advice is conditional on Pareto eligibility and cannot override evidence gates.'] }
-});
 
 function policy(maturity, instructions = [], effects = {}) {
   return Object.freeze({ maturity, instructions, ...effects });
@@ -223,10 +320,7 @@ function compileExperimentalDesign(input = {}) {
     if (selected.maturity === 'conceptual') {
       throw variantError('TRINITY_POLICY_NOT_IMPLEMENTED', `Policy '${design[axis]}' on ${axis} has no runtime implementation.`);
     }
-    partial = mergePolicy({ axis, key: design[axis], selected, limits: executionLimits, effects, adapters: requiredAdapters }) || partial;
-  }
-  if (design.worldTopology !== 'fixed_three') {
-    throw variantError('TRINITY_POLICY_NOT_IMPLEMENTED', `World topology '${design.worldTopology}' is not executable.`);
+    partial = mergePolicy({ selected, effects, adapters: requiredAdapters }) || partial;
   }
   return { design, maturity: partial ? 'partial' : 'implemented', executionLimits, effects, requiredAdapters };
 }
@@ -237,8 +331,7 @@ function rejectUnknownAxes(input) {
 }
 
 function mergePolicy(input) {
-  const { axis, key, selected, limits, effects, adapters } = input;
-  if (selected.maturity !== 'implemented') limits.push(...(POLICY_LIMITS[axis]?.[key] || []));
+  const { selected, effects, adapters } = input;
   if (selected.adaptiveBudget) effects.adaptiveBudget = true;
   if (selected.requiresJury) effects.requiresJury = true;
   if (selected.requiredAdapter) adapters.push(selected.requiredAdapter);
@@ -295,4 +388,4 @@ function variantError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { AXES, AXIS_NAMES, DEFAULT_DESIGN, DEFINITIONS, selectForMission, compileExperimentalDesign, applyToMembers };
+module.exports = { AXES, AXIS_NAMES, DEFAULT_DESIGN, DEFINITIONS, selectForMission, compileExperimentalDesign, applyToMembers, adapters: trinityAdapters };
