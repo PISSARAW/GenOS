@@ -11,9 +11,9 @@ machine (consortium adverse Cogitate, *Nature* 2025 : aucune théorie victorieus
 PCI validé en clinique mais inapplicable au silicium ; batteries comportementales
 limitées à la fonction). Ce document ne détecte donc pas la conscience : il
 recense les indicateurs fonctionnels que GenOS couvre, avec pour chacun ce qui
-est mesuré, où, et ce qui manquerait pour aller plus loin. 12 familles sur 15
-sont couvertes partiellement ou totalement ; le versant phénoménal ne l'est par
-principe dans aucun laboratoire.
+est mesuré, où, et ce qui manquerait pour aller plus loin. 15 familles sur 15
+sont touchées, dont 9 pleinement fonctionnelles ; le versant phénoménal ne
+l'est par principe dans aucun laboratoire.
 
 ## 2. Modèle de lecture
 
@@ -35,21 +35,21 @@ l'enregistre colonne par colonne.
 
 | Famille (littérature) | Implémentation GenOS | Statut | Ce qui manque |
 |---|---|---|---|
-| Diffusion globale (GWT) | bus de télémétrie, barrière d'evidence, influence des dossiers obligatoire | Partiel | ignition neurale |
-| Ignition non-linéaire | `ignitionService` : seuil 1,0, burst ×1,5, réfractaire 5 s, fuite | Partiel | dynamique biophysique |
-| Attention sélective | fovéation, active sensing, pont thalamique, leases | Implémenté (fonctionnel) | schéma testé causalement en live |
-| Récurrence entretenue | `reverberationService` (5 passes, convergence, demi-vie 30 min) + `idleTickService` (ticks gardés, scheduler adaptatif) | Partiel | boucle auto-entretenue sans déclencheur |
+| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs (livraison `signal_deliveries`, désensibilisation), burst d'ignition → propagation lignée + boost de saillance → épisodes → rappel → plan | Implémenté (fonctionnel) | compétition entre candidats absente |
+| Ignition non-linéaire | `ignitionService` : seuil, burst ×1,5, réfractaire, fuite, propagation réelle | Partiel | dynamique compétitive |
+| Attention sélective | fovéation, active sensing, pont thalamique, leases + bancs causaux et sondes | Implémenté (fonctionnel) | steering live |
+| Récurrence entretenue | `reverberationService` + `idleTickService` + scheduler endogène | Implémenté (fonctionnel) | boucle sans déclencheur externe |
 | Modèle de soi | `agentSelfService` (5 strates + CoreSelf), `workerSelfService` (9 questions) | Implémenté (fonctionnel) | schéma corporel simulé |
-| Métacognition | dissonance/apoptose, `abstentionService`, `metacognitionBenchService` (ECE, Brier, AUC type-2) | Implémenté (fonctionnel) | validation sur benchmarks externes (SAD/MIRROR) |
-| Inférence prédictive | RPE, `worldModelService` (surprise 1/0,25/0), hiérarchie Mission>Stratégie>Action | Partiel | hiérarchie générative descendante |
+| Métacognition | dissonance/apoptose, `abstentionService`, `metacognitionBenchService` bouclé sur l'opt-out | Implémenté (fonctionnel) | benchmarks externes (SAD/MIRROR) |
+| Inférence prédictive | RPE, `worldModelService` (transitions + trajectoires + surprise), hiérarchie Mission>Stratégie>Action avec propagation | Implémenté (fonctionnel) | hiérarchie générative descendante |
 | Distinction soi/monde | `efferenceCopyService` (réafférence ×0,5), immunité soi/non-soi | Implémenté (fonctionnel) | copie couvrant tous les effecteurs |
-| Modèle du monde | transitions action→état, rollout Trinity action-conditionné (avis) | Partiel | modèle génératif type JEPA |
-| Agency flexible | contrats de stratégie, fallbacks, recovery, calibration d'agency | Partiel | plasticité profonde |
-| Intégration (IIT) | `integrationProxyService` (répertoire + NMI min, garde-fous) | Indicateur seulement | Φ non calculable à l'échelle |
-| Valence / intéroception | `machineInteroceptionService` (7 variables mesurées, jamais décisionnelles) | Partiel | valence réelle |
-| Consolidation offline | `sleepCycle` (sur demande) + `sleepConsolidationService` (auto SHY) | Implémenté (fonctionnel) | phases type sommeil paradoxal |
-| Rapport / accès | rapports d'evidence, audit chaperone, directive `[ABSTENTION]` | Partiel | vulnérable à la confabulation |
-| Discipline no-report | gates : auto-déclaration jamais acceptée comme preuve | Implémenté | — |
+| Modèle du monde | transitions, trajectoires incertaines, rollout Trinity action-conditionné (avis) | Partiel | modèle génératif, rollout libre |
+| Agency flexible | contrats, recovery, calibration d'agency, bandit LinUCB qui décide en canari 5 % | Partiel | contrôle complet, options HRL |
+| Intégration (IIT) | proxy (répertoire + NMI) + moteur causal (ablations, PID-lite, recommandations morphogenèse) | Indicateur seulement | causalité prouvée, Φ |
+| Valence / intéroception | drives homéostatiques classés joints au plan (`valenceService`) | Partiel | planification allostatique consommatrice |
+| Consolidation offline | `sleepCycle` + `sleepConsolidationService` auto + ticks | Implémenté (fonctionnel) | phases type sommeil paradoxal |
+| Rapport / accès | evidence reports + reconstruction déterministe jointe (`factualReports`) + abstention | Partiel | synthèse finale encore rédigée par LLM |
+| Discipline no-report | gates + banc adversarial (`test_organ_ablation_bench`) | Implémenté | — |
 
 ## 5. Exemple : lecture d'un cas
 
