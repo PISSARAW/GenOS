@@ -122,6 +122,16 @@ function twinSplit(genome, seedA, seedB) {
   ];
 }
 
+function chimeraCross(a, b) {
+  const chimera = require('./chimeraService');
+  const shared = (a.ontology || []).filter((gene) => (b.ontology || []).includes(gene));
+  return chimera.weaveChimera(
+    [...(a.causalAssumptions || []), ...(a.ontology || [])],
+    [...(b.causalAssumptions || []), ...(b.ontology || [])],
+    shared
+  );
+}
+
 function parseJsonArray(text) {
   try {
     const parsed = JSON.parse(text || '[]');
@@ -164,4 +174,4 @@ async function resurrectCandidate(db, agentId) {
   }
 }
 
-module.exports = { createGenome, crossover, mutate, graft, twinSplit, fossilToHypothesis, resurrectCandidate, GENOME_FIELDS };
+module.exports = { createGenome, crossover, mutate, graft, twinSplit, chimeraCross, fossilToHypothesis, resurrectCandidate, GENOME_FIELDS };
