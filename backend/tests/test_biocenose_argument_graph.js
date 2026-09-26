@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const store = require('../src/services/biocenose/communityStore');
+const protocolHandlers = require('../src/services/biocenose/runtime/protocolHandlers');
 const { prepareCommunity, commitJudgment, revealJudgments, publishClaim, publishArgument, argumentGraphSnapshot } = require('../src/services/biocenoseService');
 
 async function run() {
@@ -35,6 +36,17 @@ async function run() {
     assert.equal(graph.arguments.length, 1);
     assert.equal(graph.arguments[0].argumentId, edge.argumentId);
     assert.equal(graph.arguments[0].argument.targetClaimId, target.claimId);
+
+    const built = await protocolHandlers.createHandlers().build_argument_graph({
+      db, communityId: community.communityId, priorResults: [
+        {}, {}, { reviews: [{ claimId: source.claimId, reviewerId: members[0], review: { arguments: [
+          { relation: 'ATTACK', argument: { statement: 'Targets the second claim.', targetClaimId: target.claimId } }
+        ] } }] }
+      ]
+    });
+    assert.equal(built.arguments[0].claimId, source.claimId);
+    assert.equal(built.arguments[0].createdBy, members[0]);
+    assert.equal(built.arguments[0].argument.targetClaimId, target.claimId);
   } finally {
     await db.close();
   }

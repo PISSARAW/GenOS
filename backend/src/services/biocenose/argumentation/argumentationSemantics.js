@@ -7,16 +7,21 @@ function evaluate(input) {
   const argumentsList = input.arguments || [];
   const byClaim = new Map(claims.map((claim) => [claim.claimId, []]));
   for (const item of argumentsList) {
-    if (!byClaim.has(item.claimId)) continue;
-    byClaim.get(item.claimId).push(item);
+    const targetClaimId = attackTarget(item);
+    if (byClaim.has(targetClaimId)) byClaim.get(targetClaimId).push(item);
   }
-  return claims.map((claim) => labelClaim(claim, byClaim.get(claim.claimId) || [], input));
+  const verified = new Set(input.verifiedClaimIds || []);
+  return claims.map((claim) => labelClaim(claim, byClaim.get(claim.claimId) || [], verified));
 }
 
-function labelClaim(claim, argumentsList, input) {
+function attackTarget(item) {
+  if (!ATTACKS.has(item.relation)) return item.claimId;
+  return item.argument?.targetClaimId || item.targetClaimId || item.claimId;
+}
+
+function labelClaim(claim, argumentsList, verified) {
   const support = argumentsList.filter((item) => item.relation === 'SUPPORT');
   const attacks = argumentsList.filter((item) => ATTACKS.has(item.relation));
-  const verified = new Set((input.verifiedClaimIds || []));
   const supported = support.length > 0 || verified.has(claim.claimId);
   const attacked = attacks.length > 0;
   const status = supported && !attacked ? 'ACCEPTED'

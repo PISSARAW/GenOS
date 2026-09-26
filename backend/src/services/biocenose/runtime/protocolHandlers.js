@@ -21,7 +21,8 @@ const DECISION_CHECKS = Object.freeze({
   DESIGN_OPTIONS_REVIEW: (item) => item.options?.length > 0,
   PLURALISM_PRESERVED: () => true,
   CLAIM_MAP: claimMapReady,
-  ARGUMENTS_ACCEPTED: (item) => item.unresolvedClaimIds?.length === 0
+  ARGUMENTS_ACCEPTED: (item) => item.argumentation?.labels?.length > 0
+    && item.unresolvedClaimIds?.length === 0
 });
 
 const STEP_HANDLERS = Object.freeze({
@@ -140,7 +141,11 @@ async function buildArgumentGraph(context) {
         claimId: argument.claimId || item.claimId,
         relation: argument.relation, argument: argument.argument || argument
       });
-      published.push(record);
+      published.push({
+        ...record, claimId: argument.claimId || item.claimId,
+        createdBy: item.reviewerId, relation: argument.relation,
+        argument: argument.argument || argument
+      });
     }
   }
   return { arguments: published };

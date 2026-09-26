@@ -21,6 +21,7 @@ function aggregate(input) {
 
 function withDelphiDistribution(result, input) {
   const positions = (input.judgments || []).map((item) => Number(item.judgment?.position))
+    .filter((value, index) => hasNumericPosition(input.judgments[index].judgment?.position))
     .filter(Number.isFinite).sort((left, right) => left - right);
   return {
     ...result,
@@ -32,6 +33,11 @@ function withDelphiDistribution(result, input) {
       median: positions.length ? quantile(positions, 0.5) : null
     }
   };
+}
+
+function hasNumericPosition(value) {
+  return (typeof value === 'number' || (typeof value === 'string' && value.trim() !== ''))
+    && Number.isFinite(Number(value));
 }
 
 function positionCounts(judgments) {
@@ -57,9 +63,10 @@ function argumentation(input, route) {
     verifiedClaimIds: (input.verificationReceipts || []).filter((item) => item.status === 'VERIFIED').map((item) => item.claimId)
   });
   const unresolvedClaimIds = labels.filter((item) => item.status !== 'ACCEPTED').map((item) => item.claimId);
+  const hasClaims = (input.claims || []).length > 0;
   return {
     policy: route.policy, questionType: route.questionType,
-    outcome: unresolvedClaimIds.length ? 'ARGUMENTS_UNRESOLVED' : 'ARGUMENTS_ACCEPTED', unresolvedClaimIds,
+    outcome: unresolvedClaimIds.length || !hasClaims ? 'ARGUMENTS_UNRESOLVED' : 'ARGUMENTS_ACCEPTED', unresolvedClaimIds,
     argumentation: { semantics: 'grounded_single_step', labels, unresolvedClaimIds,
       contradictions: labels.filter((item) => item.contradiction).map((item) => item.claimId) }
   };
