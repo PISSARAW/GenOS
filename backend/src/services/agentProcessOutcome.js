@@ -157,6 +157,12 @@ async function consolidateOffline(db, agentId) {
   } catch (_) {}
 }
 
+async function idleRecurrence(db, agentId) {
+  try {
+    await require('./idleTickService').tick(db, agentId, {});
+  } catch (_) {}
+}
+
 function runtimeExitOutcome(...args) {
   const termination = args[0];
   const code = args[1];
@@ -204,6 +210,7 @@ async function finalizeChildClose({
   await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
   await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
   await consolidateOffline(db, agentId);
+  await idleRecurrence(db, agentId);
   const operatorStop = resolveOperatorStop(child);
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
   const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
