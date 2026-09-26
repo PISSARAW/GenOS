@@ -6,52 +6,14 @@ const policies = Object.freeze({
   immuneCritical: require('./immuneCritical'),
   localFirst: require('./localFirst'),
   regenerative: require('./regenerative'),
-  cloudCoreEdge: define('cloud-core/edge-symbionts', {
-    fit: { requiredCapabilities: ['cloud-core', 'edge-symbionts'] },
-    host: { preferredEngine: 'cloud' }, placement: { host: 'cloud', symbionts: 'edge' },
-    admission: { requireEdgeLease: true, requireProvenance: true }, resources: { allocationMode: 'edge-bounded' }
-  }),
-  edgeCoreCloud: define('edge-core/cloud-symbionts', {
-    fit: { localEngine: true, requiredCapabilities: ['cloud-proxy'] },
-    host: { preferredEngine: 'local' }, placement: { host: 'local', remoteCapabilities: 'proxy-only' },
-    admission: { minimizeRemoteData: true, redactRemoteInputs: true }, resources: { allocationMode: 'cloud-burst' }
-  }),
-  memoryRich: define('memory-rich', {
-    fit: { requiredCapabilities: ['persistent-memory'] },
-    host: { identity: 'persistent' }, memory: { stores: ['semantic', 'episodic', 'procedural'], requireProvenance: true },
-    resources: { memoryRetention: 'verified' }
-  }),
-  competitivePartner: define('competitive-partner', {
-    fit: { requiredCapabilities: ['verified-trials'] },
-    host: { partnerSelection: 'competitive' }, competition: { trialMode: 'same-budget', requireVerifiedWinner: true },
-    admission: { requireEvidence: true, trialRequired: true }
-  }),
-  procedural: define('procedural', {
-    host: { executionStyle: 'procedural', capabilityGapResponse: 'contracted-recruitment' },
-    admission: { requireContract: true, requireEvidence: true, trialRequired: true }
-  }),
-  tool: define('tool', {
-    fit: { requiredCapabilities: ['tool-sandbox'] },
-    host: { executionStyle: 'tool-specialist' }, tool: { requireManifest: true, sandbox: 'contract-bound', validateSchema: true },
-    admission: { requireContract: true, requireEvidence: true, trialRequired: true }
-  }),
-  cloudCoreEdgeSync: define('cloud-core/edge-sync', {
-    fit: { requiredCapabilities: ['edge-sync', 'provenance-verification'] },
-    host: { preferredEngine: 'cloud' }, synchronization: { mode: 'asynchronous', requireProvenance: true, staleState: 'reject' },
-    resources: { synchronization: 'verified-edge-state' }
-  })
+  cloudCoreEdge: require('./cloudCoreEdge'),
+  edgeCoreCloud: require('./edgeCoreCloud'),
+  memoryRich: require('./memoryRich'),
+  competitivePartner: require('./competitivePartner'),
+  procedural: require('./procedural'),
+  tool: require('./tool'),
+  cloudCoreEdgeSync: require('./cloudCoreEdgeSync')
 });
-
-function define(name, overrides) {
-  const { createPolicy } = require('./policyFactory');
-  return createPolicy({
-    name, fit: {},
-    host: { identity: 'mission-scoped' }, admission: { requireContract: true, requireEvidence: true },
-    resources: { allocationMode: 'bounded' }, immune: { mode: 'strict', rejectUnverified: true },
-    transmission: { core: 'NONE', peripheral: 'NONE' }, succession: { enabled: false },
-    stopConditions: { closeAfterMission: true }, ...overrides
-  });
-}
 
 const INTENTS = Object.freeze([
   { variant: 'immuneCritical', pattern: /\b(secur|critical|auth|privacy|risk|menace|security)\w*/i, reason: 'mission_security' },
