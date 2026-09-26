@@ -2,10 +2,10 @@ use crate::director::{Director, Step};
 use crate::planner::{Concept, WorldState};
 
 pub(crate) struct BeamState<'a> {
-    initial: &'a WorldState,
-    goal: &'a crate::planner::Goal,
-    applicable: &'a [Concept],
-    width: usize,
+    pub(crate) initial: &'a WorldState,
+    pub(crate) goal: &'a crate::planner::Goal,
+    pub(crate) applicable: &'a [Concept],
+    pub(crate) width: usize,
 }
 
 impl Director {
@@ -91,6 +91,7 @@ struct ExpandConceptInput<'a> {
     ctx: &'a BeamState<'a>,
 }
 
+impl Director {
     fn update_best_from_candidates(&self, candidates: &[(WorldState, Vec<Step>, f64)], ctx: &BeamState<'_>, current_best: Option<(Vec<Step>, f64)>) -> Option<(Vec<Step>, f64)> {
         let mut best = current_best;
         for (state, steps, score) in candidates {

@@ -4,7 +4,7 @@ use crate::organization::{
 };
 use crate::planner::{ActionStats, Concept, Goal, WorldState};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// Stratégies d'équipe, façon organisation biologique.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -162,7 +162,7 @@ impl Director {
         if let Some(halt) = self.check_applicable_concepts(state, &applicable) {
             return halt;
         }
-        let scored = self.score_strategies(state, goal);
+        let mut scored = self.score_strategies(state, goal);
         if scored.is_empty() {
             return Self::halt(Strategy::Solo, "aucun progres possible : moyens inutiles au but");
         }
@@ -252,7 +252,12 @@ impl Director {
     }
 
     fn build_decision(&self, input: BuildDecisionInput<'_>) -> Decision {
-        let DecisionInput { organization, superorganism, rationale } = self.prepare_decision(input);
+        let DecisionInput { organization, superorganism, rationale } = self.prepare_decision(PrepareDecisionInput {
+            strategy: input.strategy,
+            steps: &input.steps,
+            state: input.state,
+            goal: input.goal,
+        });
         Decision {
             strategy: input.strategy,
             organization,
@@ -261,6 +266,20 @@ impl Director {
             rationale,
             halt: None,
         }
+    }
+
+    fn prepare_decision(&self, input: PrepareDecisionInput<'_>) -> DecisionInput {
+        DecisionInput {
+            organization: *select_organization(input.state, input.goal),
+            superorganism: select_superorganism(input.state, input.goal),
+            rationale: format!(
+                "strategie {:?} retenue ({} etapes, cout {:.1})",
+                input.strategy,
+                input.steps.len(),
+                input.steps.iter().map(|step| step.concept.cost()).sum::<f64>()
+            ),
+        }
+    }
 }
 
 struct BuildDecisionInput<'a> {

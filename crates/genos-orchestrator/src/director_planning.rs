@@ -2,6 +2,14 @@ use crate::director::{Director, PlanForInput, Step, Strategy};
 use crate::planner::{Concept, WorldState};
 use std::collections::BTreeSet;
 
+struct CollectivePreambleInput<'a> {
+    strategy: Strategy,
+    state: &'a mut WorldState,
+    steps: &'a mut Vec<Step>,
+    applied: &'a mut BTreeSet<Concept>,
+    applicable: &'a [Concept],
+}
+
 impl Director {
     pub fn plan_strategy(&self, strategy: Strategy, state: &WorldState, goal: &crate::planner::Goal) -> Vec<Step> {
         self.plan_for(PlanForInput { strategy, initial: state, goal })
@@ -18,7 +26,9 @@ impl Director {
             .filter(|c| state.applicable(*c) && state.budget >= c.cost())
             .collect();
 
-        self.apply_biome_preamble(&mut state, &mut steps, &mut applied);
+        if strategy == Strategy::Biome {
+            self.apply_biome_preamble(&mut state, &mut steps, &mut applied);
+        }
         self.apply_communicate_preamble(&mut state, &mut steps, &mut applied);
         self.apply_collective_preamble(&mut CollectivePreambleInput {
             strategy,
@@ -58,14 +68,6 @@ impl Director {
             steps.push(Step { concept: Concept::Communicate, utility: u });
             applied.insert(Concept::Communicate);
         }
-    }
-
-    struct CollectivePreambleInput<'a> {
-        strategy: Strategy,
-        state: &'a mut WorldState,
-        steps: &'a mut Vec<Step>,
-        applied: &'a mut BTreeSet<Concept>,
-        applicable: &'a [Concept],
     }
 
     fn apply_collective_preamble(&self, input: &mut CollectivePreambleInput<'_>) {
