@@ -12,7 +12,9 @@
  */
 
 const { migrateDaemonFindings } = require('../../../db/migrations/migrateDaemonFindings');
+const { withTransaction } = require('../../../db');
 const lifecycle = require('./findingLifecycleService');
+const evidenceGate = require('./findingEvidenceGateService');
 const territoryService = require('../daemonTerritoryService');
 
 const ID_PATTERN = /^finding\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -136,16 +138,31 @@ async function transitionFinding(db, change) {
   await migrateDaemonFindings(db);
   const current = await db.get('SELECT status, territory_id FROM daemon_findings WHERE id = ?', change.id);
   if (!current) return { transitioned: false, errors: ['not-found'] };
-  const revalidationError = await validateStaleRevalidation(db, change, current);
-  if (revalidationError) return { transitioned: false, errors: [revalidationError] };
-  if (!lifecycle.canTransition(current.status, change.toStatus)) {
-    return { transitioned: false, errors: [`forbidden-transition:${current.status}->${change.toStatus}`] };
-  }
-  await applyTransition(db, change, current.status);
-  const updated = await getFinding(db, { id: change.id });
+  const validationError = await transitionValidationError(db, change, current);
+  if (validationError) return { transitioned: false, errors: [validationError] };
   try {
-    await lifecycle.onPostTransition(db, updated.finding, change.toStatus);
-  } catch (_) {}
+    return await withTransaction(db, () => applyAndFollowUp(db, change, current.status));
+  } catch (error) {
+    return { transitioned: false, errors: [error.code || 'transition-follow-up-failed'] };
+  }
+}
+
+async function transitionValidationError(db, change, current) {
+  const revalidationError = await validateStaleRevalidation(db, change, current);
+  if (revalidationError) return revalidationError;
+  if (!lifecycle.canTransition(current.status, change.toStatus)) {
+    return `forbidden-transition:${current.status}->${change.toStatus}`;
+  }
+  return evidenceGate.transitionError(db, change);
+}
+
+async function applyAndFollowUp(db, change, fromStatus) {
+  await applyTransition(db, change, fromStatus);
+  const updated = await getFinding(db, { id: change.id });
+  const followUp = await lifecycle.onPostTransition(db, updated.finding, change.toStatus);
+  if (change.toStatus === 'REPAIRABLE' && !followUp?.opened) {
+    throw Object.assign(new Error('A repair episode was not opened.'), { code: 'repair-episode-open-failed' });
+  }
   return updated;
 }
 

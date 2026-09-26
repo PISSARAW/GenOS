@@ -114,9 +114,9 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 |---|---|---|
 | Sense | YES | `ResidentDaemon` : territoire/événements/findings/handoffs/réconciliation/phénotypes/pression/évaluation |
 | Select | PARTIAL | `daemonSupervisorService.js` = vue liveness read-only ; redémarrage = host/process manager |
-| Invoke | PARTIAL | `finding → repair episode → claim → worker → verify` préparé, certains daemons sans exécuteur ni FS |
-| Affect decision | NO | reproduction causale (snapshot + contrôle) différée (ADR 0034/D9) ; v1 = ré-observation indépendante |
-| Act | NO | daemon seul ≠ circuit fermé (volontaire pour l'autorité) |
+| Invoke | PARTIAL | `findingLifecycleService.js:onPostTransition` ouvre idempotemment un épisode sur `REPAIRABLE` ; `findingService.js` rend transition + ouverture atomiques ; claim et capsule worker restent explicites |
+| Affect decision | PARTIAL | `findingEvidenceGateService.js` bloque `REPRODUCED` sans réplication, puis `CAUSALLY_SUPPORTED/REPAIRABLE` sans reçus et snapshots contrôlés (ADR 0135) ; le Verifier ne produit pas encore ce reçu causal |
+| Act | PARTIAL | lease et épisode délégués au worker ; daemon ne modifie pas le dépôt et certains territoires n'ont pas d'exécuteur actif |
 | Observe | YES | findings persistés |
 | Learn | PARTIAL | pression/évaluation |
 | Persist | YES | findings + episodes |
