@@ -106,8 +106,7 @@ impl RecruitmentPlanner {
         candidate.trust() * 10.0 - candidate.cost * 0.001
     }
 
-    /// Décide la composition de l'équipe pour une demande donnée.
-    pub fn plan(&self, demand: &Demand, candidates: &[Candidate]) -> RecruitmentDecision {
+    fn collect_keys(&self, demand: &Demand) -> Vec<String> {
         let mut keys: Vec<String> = Vec::new();
         for key in demand.roles.iter().chain(demand.capabilities.iter()) {
             if !keys.contains(key) {
@@ -115,6 +114,94 @@ impl RecruitmentPlanner {
             }
         }
         keys.sort();
+        keys
+    }
+
+    fn mark_impostors(&self, candidates: &[Candidate], keys: &[String], rejected: &mut Vec<(String, String)>) {
+        for candidate in candidates {
+            if candidate.is_impostor(self.min_trust) && keys.iter().any(|key| candidate.covers(key)) {
+                rejected.push((
+                    candidate.id.clone(),
+                    format!(
+                        "imposteur: capacite non prouvee (trust {:.2})",
+                        candidate.trust()
+                    ),
+                ));
+            }
+        }
+    }
+
+    fn is_key_covered(&self, key: &str, chosen: &[String], candidates: &[Candidate]) -> bool {
+        chosen.iter().any(|id| candidates.iter().any(|c| &c.id == id && c.covers(key)))
+    }
+
+    fn check_max_agents(&self, chosen: &[String], key: &str, decision: &mut RecruitmentDecision) -> bool {
+        if chosen.len() >= self.max_agents {
+            decision.rejected.push((String::new(), format!("capacite max atteinte pour '{key}'")));
+            decision.feasible = false;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn find_eligible(&self, candidates: &[Candidate], chosen: &[String], key: &str) -> Vec<&Candidate> {
+        candidates
+            .iter()
+            .filter(|c| !c.is_impostor(self.min_trust) && !chosen.contains(&c.id) && c.covers(key))
+            .collect()
+    }
+
+    fn check_eligible(&self, eligible: &[&Candidate], key: &str, decision: &mut RecruitmentDecision) -> bool {
+        if eligible.is_empty() {
+            decision.rejected.push((String::new(), format!("aucun candidat pour '{key}'")));
+            decision.feasible = false;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn find_affordable(&self, eligible: &[&Candidate], demand: &Demand, spent: f64) -> Vec<&Candidate> {
+        eligible
+            .iter()
+            .copied()
+            .filter(|c| spent + c.cost <= demand.budget)
+            .collect()
+    }
+
+    fn check_affordable(&self, affordable: &[&Candidate], key: &str, decision: &mut RecruitmentDecision) -> bool {
+        if affordable.is_empty() {
+            decision.rejected.push((String::new(), format!("budget insuffisant pour '{key}'")));
+            decision.feasible = false;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn select_best(&self, affordable: &[&Candidate]) -> &Candidate {
+        let mut best = affordable[0];
+        for candidate in &affordable[1..] {
+            let better = self.score(candidate) > self.score(best)
+                || (self.score(candidate) == self.score(best) && candidate.id < best.id);
+            if better {
+                best = candidate;
+            }
+        }
+best
+    }
+}
+
+struct AddSelectionInput<'a> {
+    decision: &'a mut RecruitmentDecision,
+    key: String,
+    best: &'a Candidate,
+    chosen: &'a mut Vec<String>,
+}
+
+pub fn plan(&self, demand: &Demand, candidates: &[Candidate]) -> RecruitmentDecision {
+        let keys = self.collect_keys(demand);
 
         let mut decision = RecruitmentDecision {
             selected: Vec::new(),
@@ -124,81 +211,33 @@ impl RecruitmentPlanner {
         };
         let mut chosen: Vec<String> = Vec::new();
 
-        // Signaler les imposteurs pertinents pour la demande.
-        for candidate in candidates {
-            if candidate.is_impostor(self.min_trust)
-                && keys.iter().any(|key| candidate.covers(key))
-            {
-                decision.rejected.push((
-                    candidate.id.clone(),
-                    format!("imposteur: capacite non prouvee (trust {:.2})", candidate.trust()),
-                ));
-            }
-        }
+        self.mark_impostors(candidates, &keys, &mut decision.rejected);
 
         for key in &keys {
-            if chosen.iter().any(|id| {
-                candidates
-                    .iter()
-                    .any(|c| &c.id == id && c.covers(key))
-            }) {
+            if self.is_key_covered(key, &chosen, candidates) {
                 continue;
             }
-            if chosen.len() >= self.max_agents {
-                decision
-                    .rejected
-                    .push((String::new(), format!("capacite max atteinte pour '{key}'")));
-                decision.feasible = false;
+            if self.check_max_agents(&chosen, key, &mut decision) {
                 continue;
             }
 
-            let eligible: Vec<&Candidate> = candidates
-                .iter()
-                .filter(|c| {
-                    !c.is_impostor(self.min_trust)
-                        && !chosen.contains(&c.id)
-                        && c.covers(key)
-                })
-                .collect();
-            if eligible.is_empty() {
-                decision
-                    .rejected
-                    .push((String::new(), format!("aucun candidat pour '{key}'")));
-                decision.feasible = false;
+            let eligible = self.find_eligible(candidates, &chosen, key);
+            if self.check_eligible(&eligible, key, &mut decision) {
                 continue;
             }
 
-            let affordable: Vec<&Candidate> = eligible
-                .iter()
-                .copied()
-                .filter(|c| decision.spent + c.cost <= demand.budget)
-                .collect();
-            if affordable.is_empty() {
-                decision.rejected.push((
-                    String::new(),
-                    format!("budget insuffisant pour '{key}'"),
-                ));
-                decision.feasible = false;
+            let affordable = self.find_affordable(&eligible, demand, decision.spent);
+            if self.check_affordable(&affordable, key, &mut decision) {
                 continue;
             }
 
-            let mut best = affordable[0];
-            for candidate in &affordable[1..] {
-                let better = self.score(candidate) > self.score(best)
-                    || (self.score(candidate) == self.score(best) && candidate.id < best.id);
-                if better {
-                    best = candidate;
-                }
-            }
-            decision.spent += best.cost;
-            decision.selected.push(Selection {
+            let best = self.select_best(&affordable);
+            self.add_selection(AddSelectionInput {
+                decision: &mut decision,
                 key: key.clone(),
-                candidate: best.id.clone(),
-                role: best.role.clone(),
-                score: self.score(best),
-                cost: best.cost,
+                best,
+                chosen: &mut chosen,
             });
-            chosen.push(best.id.clone());
         }
 
         decision
@@ -206,7 +245,6 @@ impl RecruitmentPlanner {
 }
 
 impl GenosEcosystem {
-    /// Décide puis, si faisable, exécute le recrutement dans un tissu.
     pub fn recruit(
         &mut self,
         tissue: &str,
@@ -220,7 +258,6 @@ impl GenosEcosystem {
         decision
     }
 
-    /// Exécute une décision : crée le tissu si besoin, intègre et délègue.
     pub fn execute_recruitment(
         &mut self,
         tissue: &str,
@@ -242,8 +279,7 @@ impl GenosEcosystem {
                 candidate.role.clone(),
             );
             let id = self.orchestrator.add_worker(tissue, cell)?;
-            self.orchestrator
-                .delegate_task(tissue, (id, "mission"))?;
+            self.orchestrator.delegate_task(tissue, (id, "mission"))?;
             ids.push(id);
         }
         Ok(ids)

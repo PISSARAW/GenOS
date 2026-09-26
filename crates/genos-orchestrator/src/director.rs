@@ -1,8 +1,11 @@
 use crate::learning::Learner;
-use crate::organization::{Organization, Superorganism, by_name, select_organization, select_superorganism};
+use crate::organization::{
+    Organization, Superorganism, by_name, select_organization, select_superorganism,
+};
 use crate::planner::{ActionStats, Concept, Goal, WorldState};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+
 /// Stratégies d'équipe, façon organisation biologique.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Strategy {
@@ -30,11 +33,11 @@ pub struct Decision {
     pub halt: Option<String>,
 }
 /// Index du niveau de stress dans le vecteur de contexte (`context_from_state`).
-const STRESS_CONTEXT_INDEX: usize = 3;
+pub(crate) const STRESS_CONTEXT_INDEX: usize = 3;
 /// Vitesse d'adaptation des paramètres organisationnels (plasticité).
-const PLASTICITY_RATE: f64 = 0.02;
+pub(crate) const PLASTICITY_RATE: f64 = 0.02;
 /// Coût à partir duquel un concept est considéré « coûteux » pour la plasticité.
-const COSTLY_CONCEPT_THRESHOLD: f64 = 4.0;
+pub(crate) const COSTLY_CONCEPT_THRESHOLD: f64 = 4.0;
 
 /// Le directeur : politique de décision, avec mémoire d'expérience.
 #[derive(Clone, Debug)]
@@ -64,6 +67,7 @@ impl Default for Director {
         }
     }
 }
+
 /// Expérience apprise du directeur, sérialisable.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DirectorState {
@@ -107,22 +111,31 @@ impl Director {
         }
     }
 
-    fn utility(&self, c: Concept, stress: f64) -> f64 {
-        // Récompense attendue apprise (contextuelle) ; repli sur le taux global.
-        let predicted = if self.last_context.is_empty() {
+    pub(crate) fn utility(&self, c: Concept, stress: f64) -> f64 {
+        let predicted = self.predicted_reward(c);
+        let explore = self.exploration_bonus(c);
+        predicted + explore - self.stress_cost_penalty(c, stress)
+    }
+
+    fn predicted_reward(&self, c: Concept) -> f64 {
+        if self.last_context.is_empty() {
             self.stats.get(&c).map(ActionStats::rate).unwrap_or(0.5)
         } else {
             self.learner.predict(c, &self.last_context)
-        };
+        }
+    }
+
+    fn exploration_bonus(&self, c: Concept) -> f64 {
         let updates = self.learner.updates(c);
-        let explore = if updates == 0 {
+        if updates == 0 {
             self.exploration_weight
         } else {
             1.0 / (1.0 + updates as f64).sqrt()
-        };
-        // Sous stress, le coût pèse davantage (économie d'énergie).
-        predicted + explore
-            - c.cost() * 0.01 * (1.0 + self.stress_cost_weight * stress.clamp(0.0, 1.0))
+        }
+    }
+
+    fn stress_cost_penalty(&self, c: Concept, stress: f64) -> f64 {
+        c.cost() * 0.01 * (1.0 + self.stress_cost_weight * stress.clamp(0.0, 1.0))
     }
 
     /// Fixe le contexte courant (appelé par la boucle avant de décider).
@@ -130,7 +143,7 @@ impl Director {
         self.last_context = context;
     }
 
-    fn halt(strategy: Strategy, reason: &str) -> Decision {
+    pub(crate) fn halt(strategy: Strategy, reason: &str) -> Decision {
         Decision {
             strategy,
             organization: *by_name("network_silence").expect("organisation du catalogue"),
@@ -142,57 +155,90 @@ impl Director {
     }
 
     pub fn decide(&self, state: &WorldState, goal: &Goal) -> Decision {
-        if state.goal_reached(goal) {
-            return Self::halt(Strategy::Solo, "objectif atteint");
+        if let Some(halt) = self.check_halt_conditions(state, goal) {
+            return halt;
         }
-        if state.budget <= 0.0 {
-            return Self::halt(Strategy::Solo, "budget epuise");
+        let applicable = self.applicable_concepts(state);
+        if let Some(halt) = self.check_applicable_concepts(state, &applicable) {
+            return halt;
         }
-        if state.unsolvable {
-            return Self::halt(Strategy::Solo, "probleme declare insoluble");
-        }
-        let applicable: Vec<Concept> = Concept::all()
-            .into_iter()
-            .filter(|c| state.applicable(*c) && state.budget >= c.cost())
-            .collect();
-        if applicable.is_empty() {
-            // Vraie famine (un moyen s'appliquerait sans la contrainte de cout)
-            // vs arsenal vide pour des raisons de precondition.
-            let famine = Concept::all().into_iter().any(|c| state.applicable(c));
-            return Self::halt(
-                Strategy::Solo,
-                if famine { "budget insuffisant : famine" } else { "arsenal epuise : aucun moyen applicable" },
-            );
-        }
-        if applicable.iter().all(|c| !c.is_effectful()) {
-            return Self::halt(
-                Strategy::Solo,
-                "moyens restants sans effet : probleme insoluble dans l'etat actuel",
-            );
-        }
-
-        let bases = [Strategy::Solo, Strategy::ATeam, Strategy::Biocenose, Strategy::Biome];
-        let mut scored: Vec<(Strategy, Vec<Step>, f64)> = bases
-            .iter()
-            .map(|s| {
-                let steps = self.plan_for(*s, state, goal, &applicable);
-                let score = self.estimate(&steps, state, goal);
-                (*s, steps, score)
-            })
-            .collect();
-        scored.retain(|(_, steps, _)| !steps.is_empty());
+        let scored = self.score_strategies(state, goal);
         if scored.is_empty() {
             return Self::halt(Strategy::Solo, "aucun progres possible : moyens inutiles au but");
         }
         scored.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
-
-        // Aucun plan ne fait progresser l'état -> arrêt (moyens inutiles au but).
         if scored[0].2 <= state.progress(goal) + 1e-9 {
             return Self::halt(Strategy::Solo, "aucun progres possible : moyens inutiles au but");
         }
+        let (strategy, steps) = self.select_best_strategy(&scored);
+        self.build_decision(BuildDecisionInput { strategy, steps, state, goal })
+    }
 
-        let (strategy, steps) = if scored.len() >= 2 && (scored[0].2 - scored[1].2).abs() < 0.1 {
-            // Deux stratégies se valent : on les explore en parallèle (Trinity).
+    fn check_halt_conditions(&self, state: &WorldState, goal: &Goal) -> Option<Decision> {
+        if state.goal_reached(goal) {
+            return Some(Self::halt(Strategy::Solo, "objectif atteint"));
+        }
+        if state.budget <= 0.0 {
+            return Some(Self::halt(Strategy::Solo, "budget epuise"));
+        }
+        if state.unsolvable {
+            return Some(Self::halt(Strategy::Solo, "probleme declare insoluble"));
+        }
+        None
+    }
+
+    fn applicable_concepts(&self, state: &WorldState) -> Vec<Concept> {
+        Concept::all()
+            .into_iter()
+            .filter(|c| state.applicable(*c) && state.budget >= c.cost())
+            .collect()
+    }
+
+    fn check_applicable_concepts(&self, state: &WorldState, applicable: &[Concept]) -> Option<Decision> {
+        if applicable.is_empty() {
+            let famine = Concept::all().into_iter().any(|c| state.applicable(c));
+            return Some(Self::halt(
+                Strategy::Solo,
+                if famine {
+                    "budget insuffisant : famine"
+                } else {
+                    "arsenal epuise : aucun moyen applicable"
+                },
+            ));
+        }
+        if applicable.iter().all(|c| !c.is_effectful()) {
+            return Some(Self::halt(
+                Strategy::Solo,
+                "moyens restants sans effet : probleme insoluble dans l'etat actuel",
+            ));
+        }
+        None
+    }
+
+    fn score_strategies(&self, state: &WorldState, goal: &Goal) -> Vec<(Strategy, Vec<Step>, f64)> {
+        let bases = [
+            Strategy::Solo,
+            Strategy::ATeam,
+            Strategy::Biocenose,
+            Strategy::Biome,
+        ];
+        bases
+            .iter()
+            .map(|s| {
+                let steps = self.plan_for(PlanForInput {
+                    strategy: *s,
+                    initial: state,
+                    goal,
+                });
+                let score = self.estimate(&steps, state, goal);
+                (*s, steps, score)
+            })
+            .filter(|(_, steps, _)| !steps.is_empty())
+            .collect()
+    }
+
+    fn select_best_strategy(&self, scored: &[(Strategy, Vec<Step>, f64)]) -> (Strategy, Vec<Step>) {
+        if scored.len() >= 2 && (scored[0].2 - scored[1].2).abs() < 0.1 {
             let mut merged = scored[0].1.clone();
             for step in &scored[1].1 {
                 if !merged.iter().any(|s| s.concept == step.concept) {
@@ -202,191 +248,44 @@ impl Director {
             (Strategy::Trinity, merged)
         } else {
             (scored[0].0, scored[0].1.clone())
-        };
+        }
+    }
 
-        let rationale = format!(
-            "strategie {:?} retenue ({} etapes, cout {:.1})",
-            strategy,
-            steps.len(),
-            steps.iter().map(|s| s.concept.cost()).sum::<f64>()
-        );
+    fn build_decision(&self, input: BuildDecisionInput<'_>) -> Decision {
+        let DecisionInput { organization, superorganism, rationale } = self.prepare_decision(input);
         Decision {
-            strategy,
-            organization: *select_organization(state, goal),
-            superorganism: select_superorganism(state, goal),
-            steps,
+            strategy: input.strategy,
+            organization,
+            superorganism,
+            steps: input.steps,
             rationale,
             halt: None,
         }
-    }
+}
 
-    /// Planifie explicitement selon une stratégie donnée (utilisé par les mondes).
-    pub fn plan_strategy(&self, strategy: Strategy, state: &WorldState, goal: &Goal) -> Vec<Step> {
-        let applicable: Vec<Concept> = Concept::all()
-            .into_iter()
-            .filter(|c| state.applicable(*c) && state.budget >= c.cost())
-            .collect();
-        self.plan_for(strategy, state, goal, &applicable)
-    }
+struct BuildDecisionInput<'a> {
+    strategy: Strategy,
+    steps: Vec<Step>,
+    state: &'a WorldState,
+    goal: &'a Goal,
+}
 
-    /// Construit un plan pour une stratégie donnée (préambule + beam search).
-    fn plan_for(
-        &self,
-        strategy: Strategy,
-        initial: &WorldState,
-        goal: &Goal,
-        applicable: &[Concept],
-    ) -> Vec<Step> {
-        let mut state = initial.clone();
-        let mut steps = Vec::new();
-        let mut applied = std::collections::BTreeSet::new();
-        if strategy == Strategy::Biome && state.applicable(Concept::Observe) {
-            let u = self.utility(Concept::Observe, state.stress);
-            state.apply(Concept::Observe);
-            steps.push(Step { concept: Concept::Observe, utility: u });
-            applied.insert(Concept::Observe);
-        }
-        if state.uncertain && state.applicable(Concept::Communicate) && !state.failed.contains(&Concept::Communicate) {
-            let u = self.utility(Concept::Communicate, state.stress);
-            state.apply(Concept::Communicate);
-            steps.push(Step { concept: Concept::Communicate, utility: u });
-            applied.insert(Concept::Communicate);
-        }
-        if matches!(strategy, Strategy::ATeam | Strategy::Biocenose) {
-            let mut seen = BTreeSet::new();
-            for &c in applicable {
-                if c.is_effectful() && seen.insert(c.tag()) && state.applicable(c) && !state.failed.contains(&c) && !applied.contains(&c) {
-                    let u = self.utility(c, state.stress);
-                    state.apply(c);
-                    steps.push(Step { concept: c, utility: u });
-                    applied.insert(c);
-                }
-            }
-        }
-        let applicable_after = applicable.iter().copied().filter(|c| state.applicable(*c) && !state.failed.contains(c) && !applied.contains(c)).collect::<Vec<_>>();
-        let width = match strategy { Strategy::Solo | Strategy::Trinity => 1, Strategy::ATeam => 2, Strategy::Biocenose => 3, Strategy::Biome => 4 };
-        steps.extend(self.beam_plan(&state, goal, &applicable_after, width));
-        steps
-    }
+struct PrepareDecisionInput<'a> {
+    strategy: Strategy,
+    steps: &'a [Step],
+    state: &'a WorldState,
+    goal: &'a Goal,
+}
 
-    /// Recherche en faisceau (beam search) sur `max_steps` pas.
-    fn beam_plan(
-        &self,
-        initial: &WorldState,
-        goal: &Goal,
-        applicable: &[Concept],
-        width: usize,
-    ) -> Vec<Step> {
-        let mut beam: Vec<(WorldState, Vec<Step>, f64)> = vec![(initial.clone(), Vec::new(), 0.0)];
-        let mut best: Option<(Vec<Step>, f64)> = None;
-        for _ in 0..self.max_steps {
-            let mut candidates: Vec<(WorldState, Vec<Step>, f64)> = Vec::new();
-            for (state, steps, _) in &beam {
-                if state.goal_reached(goal) {
-                    let score = self.estimate(steps, initial, goal);
-                    if best.as_ref().map(|(_, b)| score > *b).unwrap_or(true) {
-                        best = Some((steps.clone(), score));
-                    }
-                    continue;
-                }
-                for &c in applicable {
-                    if state.failed.contains(&c) || !state.applicable(c) || !c.is_effectful() {
-                        continue;
-                    }
-                    let before = state.progress(goal);
-                    let mut next_state = state.clone();
-                    next_state.apply(c);
-                    let after = next_state.progress(goal);
-                    if (after - before).abs() < 1e-9 && !next_state.goal_reached(goal) {
-                        continue;
-                    }
-                    let mut next_steps = steps.clone();
-                    next_steps.push(Step {
-                        concept: c,
-                        utility: self.utility(c, state.stress),
-                    });
-                    let cost: f64 = next_steps.iter().map(|s| s.concept.cost()).sum();
-                    let score = self.estimate(&next_steps, initial, goal) - cost * 0.001;
-                    candidates.push((next_state, next_steps, score));
-                }
-            }
-            if candidates.is_empty() {
-                break;
-            }
-            candidates.sort_by(|a, b| {
-                b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal)
-            });
-            candidates.truncate(width.max(1));
-            beam = candidates;
-            for (state, steps, score) in &beam {
-                if state.goal_reached(goal)
-                    && best.as_ref().map(|(_, b)| *score > *b).unwrap_or(true)
-                {
-                    best = Some((steps.clone(), *score));
-                }
-            }
-        }
-        match best {
-            Some((steps, _)) => steps,
-            None => beam
-                .into_iter()
-                .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
-                .map(|(_, steps, _)| steps)
-                .unwrap_or_default(),
-        }
-    }
+struct DecisionInput {
+    organization: Organization,
+    superorganism: Superorganism,
+    rationale: String,
+}
 
-    /// Estime la qualité d'un plan en le rejouant sur une copie de l'état.
-    pub(crate) fn estimate(&self, steps: &[Step], initial: &WorldState, goal: &Goal) -> f64 {
-        let mut state = initial.clone();
-        for step in steps {
-            state.apply(step.concept);
-        }
-        let reached = if state.goal_reached(goal) { 2.0 } else { 0.0 };
-        reached + state.progress(goal)
-    }
-
-    /// Apprentissage : enregistre l'issue réelle d'un concept.
-    pub fn record(&mut self, concept: Concept, success: bool) {
-        let entry = self.stats.entry(concept).or_default();
-        entry.attempts += 1;
-        if success {
-            entry.successes += 1;
-        }
-        if !self.last_context.is_empty() {
-            let context = self.last_context.clone();
-            self.learner
-                .update(concept, &context, if success { 1.0 } else { 0.0 });
-        }
-        self.adapt_regulation(concept, success);
-    }
-
-    /// Plasticité organisationnelle selon l'issue sous stress.
-    fn adapt_regulation(&mut self, concept: Concept, success: bool) {
-        let stress = self
-            .last_context
-            .get(STRESS_CONTEXT_INDEX)
-            .copied()
-            .unwrap_or(0.0);
-        if stress > 0.3 && concept.cost() >= COSTLY_CONCEPT_THRESHOLD {
-            let direction = if success { -1.0 } else { 1.0 };
-            self.stress_cost_weight =
-                (self.stress_cost_weight + PLASTICITY_RATE * direction * stress).clamp(0.0, 4.0);
-        }
-    }
-
-    /// Assignation de crédit : propage la récompense d'épisode au plan exécuté.
-    pub fn assign_credit(&mut self, plan: &[Concept], reward: f64) {
-        if self.last_context.is_empty() {
-            return;
-        }
-        let context = self.last_context.clone();
-        self.learner.assign_credit(plan, &context, reward);
-    }
-
-    /// Change de décision : marque un concept comme défaillant pour l'exclure.
-    pub fn note_failure(&mut self, concept: Concept, state: &mut WorldState) {
-        self.record(concept, false);
-        state.failed.insert(concept);
-    }
+#[derive(Clone)]
+pub struct PlanForInput<'a> {
+    pub strategy: Strategy,
+    pub initial: &'a WorldState,
+    pub goal: &'a Goal,
 }

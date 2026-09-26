@@ -38,7 +38,8 @@ function computeCoveredCapabilities(members) {
   return caps;
 }
 
-function buildStaffingConfig(mission, gaps, required, covered) {
+function buildStaffingConfig(mission, coverageData) {
+  const { gaps, required, covered } = coverageData;
   return {
     enabled: true,
     gapDetectionInterval: mission.gapDetectionInterval || 300000,
