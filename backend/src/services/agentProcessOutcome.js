@@ -151,6 +151,12 @@ function processExitOutcome({ code, signal, stderr, extra }) {
   return failedExitOutcome({ code, signal, stderr, executionStatus });
 }
 
+async function consolidateOffline(db, agentId) {
+  try {
+    await require('./sleepConsolidationService').consolidateAgent(db, agentId, {});
+  } catch (_) {}
+}
+
 function runtimeExitOutcome(...args) {
   const termination = args[0];
   const code = args[1];
@@ -197,6 +203,7 @@ async function finalizeChildClose({
 }) {
   await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', agentId);
   await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
+  await consolidateOffline(db, agentId);
   const operatorStop = resolveOperatorStop(child);
   const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
   const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
