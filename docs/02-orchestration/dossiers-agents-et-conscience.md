@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : dossiers de workers, barrière d’évidence, synthèse et transitions de conscience du control plane Node.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-09-26
 
 ## 1. Définition
 
@@ -67,6 +67,13 @@ C_{t+1}=f(C_t,E_t,B_t,\Delta_t)
 
 Une hausse de la dissonance ou l’épuisement du budget peut conduire à `blocked` ou
 `apoptosis`, selon la politique de supervision.
+
+Les prompts embarquent le même matériau des deux runtimes (Codex supervisé et
+local) via `agentSelfBlocks` : `selfIntro`, `agentSelfBlock` (AgentSelf),
+`workerSelfBlock` (9 questions, contraintes héritées, leçons) et
+`conscienceBlock`, plus la trace de réverbération entretenue. Les verdicts des
+sondes attentionnelles (`attentionProbes`) sont attachés au plan en barrière.
+Tout chargement est best-effort : bloc vide plutôt que mission bloquée.
 
 ## 5. Contrats exposés
 

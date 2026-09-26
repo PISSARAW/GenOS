@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : modèle de soi et calibration de l'orchestrator dans le control plane Node.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-09-26
 
 ## Statut d'implémentation
 
@@ -30,6 +30,7 @@ mission + état du monde + historique de l'orchestrator
 | Identité stable | rôle, mode d'exécution, workspace | enregistrement `agents` |
 | État courant | énergie, stress, confiance, incertitude, fatigue, intégrité | budget, profil de mission et historique récent |
 | Histoire apprise | calibration, biais, forces et faiblesses | `strategy_execution_runs` et état persistant |
+| Frontière soi/monde (CoreSelf) | calibration d'agency, dernières attributions, ratio d'origine | historique d'attributions, claims épistémiques (optionnel) |
 
 Le modèle produit aussi les capacités et leases visibles, les topologies
 disponibles et les limites de budget/fan-out. Les champs dérivés sont bornés
@@ -50,7 +51,26 @@ $$
 
 La calibration conserve le nombre d'observations, l'erreur absolue moyenne et
 le dernier run traité. Elle ajuste la confiance de façon graduelle; elle ne
-rend jamais une promotion plus permissive.
+rend jamais une promotion plus permissive. Chaque run terminal enregistre
+aussi une attribution d'agency (`coreSelfService`, scope `core_self`) :
+erreur de prédiction = |succès attendu − succès observé|, soi = exécution
+sans délégation. L'agency calibrée vaut 1 − erreur moyenne (20 dernières
+attributions) ; le ratio d'origine soi est omis sans données au lieu d'être
+inventé. `mergeLearned` fusionne des correctifs (faiblesses mesurées) dans
+l'état appris sans écraser la calibration.
+
+## Banc métacognitif et opt-out
+
+`metacognitionBenchService` mesure la calibration sur l'historique réel
+d'attributions (≥ 10 essais) : ECE, Brier, AUC type-2, surconfiance. Les
+faiblesses mesurées (max 3) persistent via `mergeLearned` et ressurgissent dans
+les prompts ; la surconfiance resserre le plancher d'opt-out
+(`abstentionService.floorFor`, plafond 0,8). La règle d'abstention
+(`abstentionService.evaluateAbstention` : intégrité < 0,6, incertitude ≥ 0,8,
+confiance < plancher avec incertitude ≥ 0,5) impose `requiresEvidenceBeforePromotion`,
+resserre `requireIndependentEvidence` (gate automatique) et ajoute une directive
+`[ABSTENTION]` au prompt. C'est une mesure du rapport de confiance, pas une
+preuve de métacognition consciente.
 
 ## Biais mesurés et garde-fous
 

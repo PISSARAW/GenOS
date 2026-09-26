@@ -293,6 +293,18 @@ $$
 
 Le résultat contient les revues réussies et les échecs dans `route.reviews` et `route.attempts`.
 
+### 7.3 Bandit contextuel LinUCB (apprentissage seul)
+
+Parallèlement à l'ordonnancement par politique (inchangé),
+[backend/src/services/routingBanditService.js](../../backend/src/services/routingBanditService.js)
+apprend une régression ridge incrémentale par route URI (inverse exacte 6×6 par
+Sherman-Morrison, contexte à 6 dimensions, récompense succès/(1 + 10·coût +
+latence/30 s), 16 bras max avec éviction du moins tiré). Chaque tentative
+finalisée entraîne (`observe` best-effort dans `finalizeAttempt`, sans throw sur
+le chemin monétaire) ; `recommend`/`report` servent l'audit. L'ordonnancement
+effectif reste à la politique jusqu'à un audit de désaccord routeur-vs-bandit :
+apprendre n'est pas encore agir.
+
 ---
 
 ## 8. Réponses structurées et streaming

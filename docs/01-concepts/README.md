@@ -20,6 +20,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [physique-computationnelle.md](physique-computationnelle.md) — l'inerte : inertie, friction, entropie, seuils, matériaux, gating de décision.
 - [imagination-et-simulation.md](imagination-et-simulation.md) — recombinaison de fragments, simulation interne, contrôle et preuve.
 - [conscience-esprit-mental.md](conscience-esprit-mental.md) — taxonomie de la conscience, de l'esprit et du mental.
+- [indicateurs-fonctionnels.md](indicateurs-fonctionnels.md) — suivi des indicateurs fonctionnels de type conscience : table implémentation/limite, doctrine best-effort/borné/avis-seulement.
 - [adaptive-epistemic-immune-system.md](adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif (antigène, immunité innée/adaptative, sélection clonale, mémoire, inflammation, biocénose, métapopulation, stigmergie, holobionte, challenge). **v2.1 : FormalResult-first, receipts bindés, gate injectée, `npm run test:aeis` vert.**
 - [organes-vitaux-agents.md](organes-vitaux-agents.md) — systèmes 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux ; boucle morphogénétique unifiée.
 

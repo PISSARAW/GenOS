@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel — archétype `ResidentDaemon` implémenté (runtime, territoires, findings, handoffs, réconciliation, évaluation) ; maturité `EXPERIMENTAL` ; preuve live trop petite pour conclure.
 - **Portée** : `backend/src/services/daemon/*`, `backend/bin/genos-daemon.cjs`, génomes `agents/daemons/*`, specs `spec/daemon-*.schema.json` et `spec/resident-daemon.schema.json`.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-09-26
 
 Ce document est le catalogue de référence des daemons. Il suit le même niveau
 d'exigence que la fiche [Morphogenèse](../02-orchestration/topologies/morphogenese.md) :
@@ -1004,6 +1004,7 @@ d'une preuve là où seul un signal d'attention est fourni.
 | SentinelDaemonKeeper | superviseur read-only reclassé | mesurer séparément des findings métier |
 | WorkspaceGitDaemon | compatibilité historique | autofix déprécié ; réparations via épisode + worker |
 | Candidat Holobionte `DAEMON` | adaptateur + gates d'admission | découverte ≠ autorité ; exécution sous runtime daemon |
+| Ticks idle endogènes | scheduler à période adaptative + ticks gardés (`idleTickService.js`) | boucle auto-entretenue sans déclencheur non implémentée |
 
 Sources du dépôt (liens relatifs) :
 
@@ -1020,5 +1021,12 @@ Sources du dépôt (liens relatifs) :
 - `../../backend/src/services/daemon/specialization/phenotypeService.js` — 10 familles, seuils, profils.
 - `../../backend/src/services/daemon/repair/repairEpisodeService.js` — lease 24 h, branches `genos-repair/*`.
 - `../../backend/bin/genos-daemon.cjs` — host minimal CLI.
+- `../../backend/src/services/idleTickService.js` — ticks idle : passe réverbérante
+  + audit des prédictions, gardes (idle vérifié, budget cognitif, anti-rebond
+  60 s, wall-clock 2 s), divergence après 3 engorgements, balayage borné à
+  5 agents, scheduler endogène à période adaptative (`base/(1+pression)`,
+  [30 s, 1 h], mono-vol, `unref`). Démarre avec le backend sous `GENOS_JOB_WORKER`,
+  opt-out `GENOS_IDLE_TICK_AUTONOMOUS=0`, intervalles surchargeables
+  (`GENOS_IDLE_TICK_INTERVAL_MS/_MIN_MS/_MAX_MS`).
 - [ADR 0034](../adr/0034-resident-daemon-ecology.md), [ADR 0079](../adr/0079-daemons-symbiontes-residents.md),
   [maturité](../04-exploitation/etat-maturite-daemons.md), [workers](types-de-workers.md).

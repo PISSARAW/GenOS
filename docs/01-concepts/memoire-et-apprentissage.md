@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté — mémoire épisodique, vectorielle, scoring, consolidation/pruning, mémoire de négative knowledge, Golden Path et provenance sont disponibles dans le runtime.
 - **Portée** : `backend/src/services/episodicMemoryService.js`, `vectorMemoryService.js`, `memoryScoring.js`, `sleepCycle.js`, `primitiveHandlers/memoryDeadEnds.js`, `trajectoryService.js`, `provenanceResolver.js`.
-- **Dernière revue** : 2026-09-17.
+- **Dernière revue** : 2026-09-26.
 
 ## 1. Objet et périmètre
 
@@ -186,6 +186,13 @@ Le service [backend/src/services/sleepCycle.js](../../backend/src/services/sleep
   - ou `(c3_opsonization > 0.5 AND cd47_expression < 0.5)`.
 
 Cela ressemble à un mécanisme d’oubli, de consolidation et de nettoyage immunitaire. Le but n’est pas d’effacer brutalement la connaissance : c’est d’assigner une valeur de pertinence dynamique et d’éliminer ce qui est devenu faible, non utile, ou potentiellement contaminé.
+
+Le cycle global sur demande est complété par une renormalisation SHY
+autobiographique automatique par agent
+([backend/src/services/sleepConsolidationService.js](../../backend/src/services/sleepConsolidationService.js)) :
+`saillance × 0,9` (ordre relatif préservé), oubli sous epsilon 0,05, déclenchée
+best-effort à chaque fin de mission. Les leçons ne décroissent jamais
+silencieusement.
 
 ---
 

@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté — contrat claim/evidence, services preuve, falsification et promotion sont disponibles dans le runtime.
 - **Portée** : `backend/src/services/agentEvidenceService.js`, superviseur de runtime, primitive handlers et policy de promotion.
-- **Dernière revue** : 2026-09-17.
+- **Dernière revue** : 2026-09-26.
 
 ## Definition
 
@@ -178,7 +178,52 @@ Un hash garantit l'integrite de la chaine enregistree, pas la verite du payload 
 
 Une seule violation rend `eligible: false`. Apres une promotion eligible, `applyPostPromotionPolicies()` peut conserver les branches rejetee et appliquer un merge three-way de workspace. Un conflit ou echec de merge rend le resultat post-promotion non reussi.
 
-Important : certains statuts de replay acceptes par la gate incluent `reconstructed`. Une reconstruction ou une chaine de hash valide n'est pas une re-execution deterministe de dependances externes. Pour une promotion a risque, exiger `replayVerified === true`, les artefacts de test et une approbation humaine liee au hash.
+Important : les statuts de replay acceptés par la gate sont `replayVerified === true`,
+`diffAndReplayPassed === true` ou un reçu `verified` / `completed` / `reproduced` /
+`success`. Une reconstruction ou une chaine de hash valide n'est pas une re-execution deterministe de dependances externes. Pour une promotion a risque, exiger `replayVerified === true`, les artefacts de test et une approbation humaine liee au hash.
+
+### Gate du modèle de soi (automatique et différée)
+
+Au-delà du contrat, la politique du modèle de soi s'applique deux fois.
+À la planification, `applySelfModel` peut exiger replay et preuve indépendante
+(`requireReplayBeforePromotion`, `requireIndependentEvidence`) selon l'état
+calibré. À la complétion automatique (sans approbation humaine),
+`selfModelCompletionBlock` rejoue `assertPromotionConstraints` et bloque en
+`blocked` plutôt qu'en `completed` si l'exigence n'est pas satisfaite
+(`SELF_MODEL_REPLAY_REQUIRED`, `SELF_MODEL_EVIDENCE_REQUIRED`). La calibration
+après run terminal est best-effort : son échec ne casse jamais le pipeline
+d'événements. Le modèle ne peut qu'ajouter des exigences, jamais lever celles
+du contrat.
+
+### Opt-out calibré et banc métacognitif
+
+[backend/src/services/abstentionService.js](../../backend/src/services/abstentionService.js)
+définit une règle d'abstention explicite : intégrité < 0,6, incertitude ≥ 0,8,
+ou confiance < plancher (0,5 + surconfiance mesurée, plafond 0,8) avec
+incertitude ≥ 0,5. Un verdict d'abstention impose `requiresEvidenceBeforePromotion`,
+resserre `requireIndependentEvidence` et ajoute une directive `[ABSTENTION]`
+au prompt (retourner `no_answer` plutôt que confabuler).
+
+[backend/src/services/metacognitionBenchService.js](../../backend/src/services/metacognitionBenchService.js)
+mesure la calibration sur l'historique réel d'attributions CoreSelf (≥ 10 essais,
+sinon `insufficient_data`, jamais de faux nombre) : ECE, Brier, AUC type-2,
+surconfiance. Les faiblesses mesurées (max 3) persistent dans le self-model
+appris et ressurgissent dans les prompts ; la surconfiance resserre le plancher
+d'opt-out. C'est une mesure du rapport de confiance, pas une preuve de
+métacognition consciente.
+
+### Audit du champ attentionnel et sondes
+
+[backend/src/services/attentionSchemaBenchService.js](../../backend/src/services/attentionSchemaBenchService.js)
+ne croit jamais le self-model textuel : depuis `telemetry_events`, il mesure la
+validité du champ attentionnel (exécutions dans le lease vs hors lease, succès
+conditionnels) et la fidélité des rapports (outils cités vs réellement
+exécutés, matching documenté comme heuristique).
+[backend/src/services/attentionProbeService.js](../../backend/src/services/attentionProbeService.js)
+ajoute l'intervention : focus contraint forcé au démarrage mission (intersection
+de lease, une fois), fausse copie jugée (`tracks_reality` / `confabulates` /
+`mixed` / `inconclusive`), biais steering avec directive et vérification
+pré/post. L'injection live par vésicule reste une étape suivante documentée.
 
 ### Mémoire des meilleurs résultats (ADR 0046)
 

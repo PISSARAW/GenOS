@@ -229,7 +229,12 @@ Les mappings doivent rester explicitement qualifiés :
 | Substance esprit/corps | `consciousnessService.mindBodyInteraction`, `cartesianService` | Implémenté comme comparaison de modèles |
 | Esprit étendu | workspace, mémoire et outils | Cadre conceptuel |
 | ToM et empathie | modèles d'agents et tests cognitifs | Planifié |
-| IIT | métriques d'intégration à définir | Cadre conceptuel |
+| IIT | `integrationProxyService` : répertoire normalisé + NMI minimale sur coupes mono-nœud (≤ 8 agents), `insufficient_data`/`unavailable` plutôt que faux nombre | Indicateur seulement, ni Phi ni preuve |
+| Agency | `coreSelfService` : 1 − erreur moyenne de prédiction, 20 attributions bornées | Calibration comportementale, pas sentiment d'agir |
+| Ignition | `ignitionService` : seuil, burst ×1,5, réfractaire, fuite | Non-linéarité logicielle, pas d'ignition neurale |
+| Réafférence | `efferenceCopyService` : réafférence ×0,5, exafférence pleine | Distinction causale heuristique |
+| Attention | `attentionSchemaBenchService` + `attentionProbeService` : validité du champ, fidélité des rapports, sondes jugées | Corrélation observée, pas preuve introspective |
+| Calibration | `metacognitionBenchService` : ECE, Brier, AUC type-2, surconfiance | Mesure du rapport de confiance |
 
 Un mapping opérationnel ne signifie pas que l'analogie philosophique est résolue.
 Il indique seulement qu'une structure ou une expérience logicielle peut être

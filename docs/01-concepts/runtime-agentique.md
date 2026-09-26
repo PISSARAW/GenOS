@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté — runtime agentique (superviseur Node.js, processus enfants, SQLite, portes d'evidence) est disponible et opérationnel.
 - **Portée** : `backend/src/services/agentRuntimeAdapter/index.js`, `agentProcessSupervisor.js`, `backend/bin/genos-agent-runtime.cjs`.
-- **Dernière revue** : 2026-09-17.
+- **Dernière revue** : 2026-09-26.
 
 ## Definition
 
@@ -148,7 +148,45 @@ $$
 ATP_{t+1} = ATP_t - 1
 $$
 
-Quand $ATP \le 0$ ou que la dissonance atteint le seuil, l'etat devient apoptotique et le superviseur peut arreter le runtime. Un evenement de succes/evidence peut declencher une "Eureka" : la dissonance est divisee par deux et le budget est restaure jusqu'au plafond de base. Ce sont des heuristiques de controle, non une mesure biologique de conscience.
+Quand $ATP \le 0$ ou que la dissonance atteint le seuil, l'etat devient apoptotique et le superviseur peut arreter le runtime. Un evenement de succes/evidence peut declencher une "Eureka" : la dissonance est divisee par deux et le budget est restaure jusqu'au plafond de base. L'Eureka exige une preuve réelle (`hasEurekaEvidence` : source `genos-evidence-gate`, artefact typé avec contenu et provenance, claim étayé) et est limitée à 3 par minute : sans évidence, no-op. Ce sont des heuristiques de controle, non une mesure biologique de conscience.
+
+### Blocs de soi unifiés
+
+Les deux runtimes (Codex supervisé et local) injectent désormais le même
+matériau réflexif via
+[backend/src/services/agentSelfBlocks.js](../../backend/src/services/agentSelfBlocks.js) :
+`selfIntro` (identité), `agentSelfBlock` (état AgentSelf : énergie, harmonie,
+confiance calibrée, agency), `workerSelfBlock` (projection worker : 9 questions,
+contraintes héritées, leçons) et `conscienceBlock` (régulation cognitive).
+Tout chargement est best-effort : en cas d'échec, bloc vide, jamais de mission
+bloquée. Le contenu décrit un état de contrôle, pas une conscience subjective.
+
+### Copie d'efférence
+
+Chaque action orchestrée enregistre une prédiction de ses conséquences
+([backend/src/services/efferenceCopyService.js](../../backend/src/services/efferenceCopyService.js),
+registre borné de 20 copies, TTL 10 min). À l'arrivée d'un événement, la
+décharge corollaire distingue réafférence (auto-causée, saillance × 0,5) et
+exafférence (cause externe, poids plein), et nourrit la calibration d'agency
+(erreur = 1 − force du match). Voir la capture autobiographique pour
+l'application à la saillance.
+
+### Réverbération entretenue et ticks idle
+
+[backend/src/services/reverberationService.js](../../backend/src/services/reverberationService.js)
+maintient une trace compacte par agent sans nouvel input : jusqu'à 5 passes de
+fusion des clauses quasi-dupliquées (Jaccard ≥ 0,6) jusqu'à convergence, état
+borné (9 clauses de 160 caractères), décroissance temporelle (demi-vie
+30 min), fonctions pures sans appel LLM. La trace rejoint le bloc AgentSelf.
+[backend/src/services/idleTickService.js](../../backend/src/services/idleTickService.js)
+exécute ces passes hors mission sous gardes (agent idle vérifié en DB, budget
+cognitif > 0, anti-rebond 60 s, wall-clock 2 s) : divergence après 3
+engorgements (≥ 15 prédictions en attente), balayage borné à 5 agents.
+Un scheduler endogène à période adaptative (pression = ticks + 2×divergences,
+[30 s, 1 h], mono-vol, `unref`) démarre avec le backend sous `GENOS_JOB_WORKER`,
+opt-out par `GENOS_IDLE_TICK_AUTONOMOUS=0`. Pas de boucle auto-entretenue sans
+déclencheur : un scheduler dédié avec préemption reste une étape suivante
+documentée.
 
 ## Timeouts, retries et récupération
 

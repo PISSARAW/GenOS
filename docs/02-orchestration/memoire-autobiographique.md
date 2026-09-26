@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : capture, consolidation, rappel et oubli des épisodes du control plane Node.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-09-26
 
 Une mémoire d'expériences vécues, transformées en règles de décision conditionnelles,
 prouvées, réutilisables et oubliables. Elle relie mission, perception, décision, action,
@@ -81,8 +81,12 @@ L'intégration runtime est effectuée par
 `backend/src/services/autobiographicalMemory/orchestratorRecall.js`, appelé depuis
 `buildAutonomyPlanForMission` dans `backend/src/services/agentAutonomyPlanService.js`,
 après le chargement du modèle de soi et avant la régulation du plan. Les ajustements sont
-bornés, copiés dans `autobiographicalAdjustments`, propagés à la politique de décision et
-tracés par les événements `AUTOBIOGRAPHICAL_RECALL_*`. Ils ne peuvent ni accorder une
+bornés (`riskDelta` ±0,5, `evidenceStrictnessDelta` +0,5 max, `confidenceBoost` +0,25 max),
+copiés dans `autobiographicalAdjustments`, propagés à la politique de décision —
+y compris `confidence` de l'état — et tracés par les événements `AUTOBIOGRAPHICAL_RECALL_*`.
+Le rappel attache aussi deux instantanés d'audit : `integrationProxy` (proxy
+d'intégration du circuit de lignée) et `attentionAudit` (validité du champ
+attentionnel et fidélité des rapports). Ils ne peuvent ni accorder une
 permission d'outil ni contourner les portes de preuve.
 
 L'ajustement du rappel est un signal de planification, pas une décision autonome.
@@ -97,6 +101,36 @@ courante.
 (> 90 jours par défaut) et peu saillants (`salience < 0.5`) : la ligne reste (piste
 d'audit), mais elle cesse d'alimenter le rappel ou la consolidation. On oublie le détail
 brut, pas la structure causale déjà condensée en leçon.
+
+## Capture : réafférence, ignition, télémétrie
+
+Depuis que `telemetryObserver.emitEvent` émet aussi sur le bus `telemetry`, la
+capture souscrite (`attachAutobiographicalCapture`, branchée dans `server.js`)
+tourne réellement en production : tout événement typé est évalué, seuls les
+saillants (≥ 0,3) deviennent épisodes.
+
+La saillance de capture est modulée multiplicativement, dans l'ordre :
+
+1. saillance de base (`computeSalience`, 7 signaux) ;
+2. décharge corollaire (`efferenceCopyService.discharge`) : événement auto-causé
+   (prédiction d'action correspondante) × 0,5, cause externe × 1 ;
+3. ignition (`ignitionService.charge`, integrate-and-fire par agent) : sous le
+   seuil (1,0) × 0,9, burst × 1,5 avec remise à zéro et réfractaire 5 s (× 0,8),
+   fuite de 1,0 par minute ; résultat clampé dans $[0,1]$.
+
+Un événement auto-causé et sous-seuil a donc quatre fois moins de chances de
+devenir épisode qu'une surprise externe en burst. Tous les modules sont
+best-effort : leur échec rend la saillance non modulée, jamais d'événement perdu.
+
+## Consolidation offline par agent (SHY)
+
+Le cycle synaptique global (`sleepCycle.runSleepCycle`, sur demande) est complété
+par [backend/src/services/sleepConsolidationService.js](../../backend/src/services/sleepConsolidationService.js) :
+renormalisation proportionnelle `salience × 0,9` par agent (ordre relatif
+préservé, signature SHY), oubli sous epsilon 0,05, rapport
+`{renormalized, forgotten, meanBefore, meanAfter}`. Déclenché best-effort à
+chaque fin de mission (`finalizeChildClose`, fenêtre idle). Les leçons
+(règles falsifiables) ne décroissent jamais silencieusement.
 
 ## Relation avec le modèle de soi
 

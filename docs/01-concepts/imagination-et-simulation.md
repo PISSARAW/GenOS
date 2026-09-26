@@ -45,6 +45,8 @@ idée simulée n'est donc jamais confondue avec un résultat démontré.
 | exploration | sélection aléatoire et biais de nouveauté |
 | évaluation | issue validée, falsifiée ou erreur + erreur de prédiction mesurée |
 | apprentissage | signal dopaminergique et consolidation |
+| prédiction d'issue d'action | `worldModelService` : chaque action prédit son succès, surprise 1/0,25/0, flag `surprise` ≥ 0,5 |
+| rollout contrefactuel | `counterfactualRolloutService` : 2-4 branches prédites (VTE), effondrement evidence+surprise, avis seulement |
 
 ## Limites honnêtes
 

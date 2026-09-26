@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel ; le contrat opérationnel v1 décrit le runtime implémenté et ses limites. La génération de candidates est disponible sur demande avec budget ; l'adaptation statistique et plusieurs politiques avancées restent différées.
 - **Portée v1** : exactement trois mondes logiciels indépendants, composés par huit axes de politique, comparaison de leurs preuves, décision comparative et promotion d'un artefact candidat. Les axes partiels exposent leurs limites dans le reçu.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-09-26
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
@@ -113,6 +113,17 @@ Règles d'agrégation, dans cet ordre :
 7. Si aucun monde ne passe les gardes ou si des preuves requises manquent, retourner `ESCALATE_EXPERIMENT`.
 
 Une égalité de score scalaire ne départage jamais les mondes. Un juge ne peut pas annuler un échec de test, une contradiction avec une preuve externe ou un échec de contrainte dure.
+
+### Rollout contrefactuel action-conditionné (avis seulement)
+
+Protocole VTE : au lancement, chaque monde reçoit une prédiction d'issue
+(`counterfactualRolloutService.planRollout`, 2 à 4 candidats à actions
+distinctes, rollouts bornés à 10). À la barrière, `scoreBranches` effondre par
+`0,5 + 0,5 × (1 − surprise)` sur succès, 0 sinon (responsabilité MOSAIC : la
+branche dont le modèle prédisait juste gagne en fiabilité), perdants préservés
+avec motif (`branch_failed`, `surprising_outcome`, `lower_score`). Le résultat
+(`autonomyPlan.trinity.counterfactual`, `advisoryOnly: true`) ne remplace ni le
+jury ni les gates : la sélection reste inchangée.
 
 ### Fusion des revendications
 

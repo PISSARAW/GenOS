@@ -51,6 +51,18 @@ La première version garde un périmètre volontairement borné : elle rend les 
 | `evidence` | dette de preuve | bloque la promotion si les phases d'évidence/replay sont absentes |
 | `attention` | saillance | amplifie les diagnostics quand l'incertitude est forte |
 | `immune` | blast radius | exige des preuves avant mutation en contexte risqué ou sécurité |
+| `hierarchy` | erreur de prédiction par niveau | demande révision Stratégie après 3 erreurs Action, réexamen Mission après 3 révisions (avis seulement) |
+
+Ces boucles lisent l'état déjà calculé par le plan : profil de problème, survie, budget, phases omises, workers demandés et workers sélectionnés. Elles n'inventent pas un second état parallèle.
+
+La boucle `hierarchy`
+([backend/src/services/predictiveHierarchyService.js](../../backend/src/services/predictiveHierarchyService.js),
+Mission > Stratégie > Action + niveau local MMN) classe chaque événement,
+décroît la précision du niveau avec ses erreurs (`1/(1+n)`) et ne propage que
+l'erreur brute ≥ 0,5 : le niveau local (artefact/diff/schema) est absorbé sans
+remonter, un succès de primitive stratégie ne compte jamais comme erreur. Les
+événements `STRATEGY_REVISION_REQUESTED` / `MISSION_REASSESS_REQUESTED` sont
+des avis dans le pipeline, jamais une mutation de plan.
 
 Ces boucles lisent l'état déjà calculé par le plan : profil de problème, survie, budget, phases omises, workers demandés et workers sélectionnés. Elles n'inventent pas un second état parallèle.
 
@@ -126,7 +138,7 @@ opérationnelle observée, pas une personnalité, une émotion ou une conscience
 ## 8. Pont régulateur unique et boucle causale (implémenté)
 
 - **Statut** : Implémenté (périmètre : snapshot, modulation, feedback RPE).
-- **Dernière revue** : 2026-09-23.
+- **Dernière revue** : 2026-09-26.
 
 Les bridges ad hoc (`curiosity_hint`, `dopamine_bridge`, …) sont remplacés par
 un contrat unique : `RegulatorySnapshot`
