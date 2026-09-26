@@ -263,8 +263,21 @@ async function attachReconstructions(ctx, dossiers) {
 async function attachTruthGraph(ctx) {
   try {
     const compiler = require('./reportCompilerService');
-    const graph = await compiler.buildTruthGraph(ctx.db, ctx.agentId, {});
+    const graph = await compiler.buildTruthGraph(ctx.db, ctx.agentId, { missionId: ctx.autonomyPlan?.trinity?.missionId || null });
     if (ctx.autonomyPlan && graph.status === 'measured') ctx.autonomyPlan.missionTruthGraph = compiler.compileReport(graph);
+  } catch (_) {}
+}
+
+async function enforceReportGate(ctx) {
+  try {
+    const compiled = ctx.autonomyPlan?.missionTruthGraph;
+    if (!compiled || !Array.isArray(compiled.claims)) return;
+    const violations = compiled.claims.filter((claim) => claim.outcome === 'success' && claim.confidence !== 'supported');
+    if (!violations.length) return;
+    emit(ctx.agentId, 'REPORT_GATE_VIOLATION', 'EVIDENCE_GATE',
+      `${violations.length} success claim(s) without supporting source in the mission truth graph.`,
+      { claimIds: violations.map((claim) => claim.id), count: violations.length }, 'warning');
+    ctx.autonomyPlan.reportGateViolations = violations.map((claim) => claim.id);
   } catch (_) {}
 }
 
@@ -276,6 +289,7 @@ async function finishSatisfiedBarrier(ctx) {
   await attachProbeVerdicts(ctx, dossiers);
   await attachReconstructions(ctx, dossiers);
   await attachTruthGraph(ctx);
+  await enforceReportGate(ctx);
   await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({

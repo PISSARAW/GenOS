@@ -150,7 +150,8 @@ function registerAutonomousRound(ctx, autonomousWorkers) {
 
 async function orchestrateAutonomousWorkers(ctx) {
   if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return [];
-  const assignments = Array.isArray(ctx.autonomyPlan?.dispatchWorkers) ? ctx.autonomyPlan.dispatchWorkers : [];
+  const requested = Array.isArray(ctx.autonomyPlan?.dispatchWorkers) ? ctx.autonomyPlan.dispatchWorkers : [];
+  const assignments = capAssignments(requested, ctx);
   if (ctx.normalizedMission.autonomousOrchestration === false) {
     emitDispatchDeferred(ctx, assignments);
     return [];
@@ -159,6 +160,18 @@ async function orchestrateAutonomousWorkers(ctx) {
   emitDispatchReconciled(ctx, assignments, autonomousWorkers);
   await activateCreatedWorkers(ctx, autonomousWorkers);
   return autonomousWorkers;
+}
+
+function capAssignments(requested, ctx) {
+  const limit = Number(ctx.normalizedMission?.executionPolicy?.workerFanoutLimit);
+  if (!Number.isFinite(limit) || limit < 0) return requested;
+  const capped = requested.slice(0, Math.floor(limit));
+  if (capped.length < requested.length) {
+    emit(ctx.agentId, capped.length ? 'WORKER_FANOUT_CAPPED' : 'WORKER_FANOUT_BLOCKED', 'FANOUT_CAP',
+      `Worker fan-out capped to ${capped.length} of ${requested.length} requested (valence posture).`,
+      { requested: requested.length, dispatched: capped.length }, 'warning');
+  }
+  return capped;
 }
 
 function emitDispatchSelected(ctx, assignments) {

@@ -44,6 +44,9 @@ async function tagBranch(db, orchestratorId, branch) {
     });
     branch.tagged = true;
     branch.trajectoryId = chain.chainId;
+    try {
+      branch.predictedDelta = await worldModel.predictState(db || null, orchestratorId, { action: branch.action });
+    } catch (_) {}
   } catch (_) {}
   return branch;
 }

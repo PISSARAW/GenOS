@@ -94,9 +94,10 @@ async function loadTransitions(db, agentId) {
   return { store, all: Array.isArray(stored.transitions) ? stored.transitions : [] };
 }
 
-async function saveTransitions(store, agentId, all) {
+async function saveTransitions(store, agentId, all, extra) {
+  const current = (await store.restoreObject(SCOPE, agentId)) || {};
   const bounded = pruneTransitions(all);
-  await store.persistObject(SCOPE, agentId, { transitions: bounded }, bounded.length);
+  await store.persistObject(SCOPE, agentId, { ...current, ...extra, transitions: bounded }, bounded.length);
   return bounded;
 }
 
@@ -145,6 +146,104 @@ async function observeTransition(db, agentId, observation) {
 
 const TRAJECTORY_STEPS_MAX = 5;
 const UNCERTAINTY_GROWTH = 0.15;
+const SAMPLE_LIMIT = 50;
+const ROLLOUT_NODES_MAX = 13;
+
+const STATE_KEYS = ['filesChanged', 'testsPassed', 'testsFailed', 'costUsd', 'latencyMs', 'agentsActive', 'evidenceCount'];
+
+function encodeWorldState(input) {
+  const data = input && typeof input === 'object' ? input : null;
+  if (!data) return null;
+  const descriptor = {};
+  for (const key of STATE_KEYS) {
+    const value = Number(data[key]);
+    if (Number.isFinite(value)) descriptor[key] = value;
+  }
+  if (typeof data.success === 'boolean') descriptor.success = data.success;
+  return Object.keys(descriptor).length ? descriptor : null;
+}
+
+function deltaKey(delta) {
+  return JSON.stringify(delta);
+}
+
+async function recordSample(db, agentId, sample) {
+  const data = sample || {};
+  if (!agentId || typeof data.action !== 'string' || !data.action) return null;
+  const delta = encodeWorldState(data.delta);
+  if (!delta) return null;
+  let opened = null;
+  try {
+    opened = await openDb(db);
+    const store = new AdaptiveStateService(opened.db);
+    const stored = (await store.restoreObject(SCOPE, agentId)) || {};
+    const samples = Array.isArray(stored.samples) ? stored.samples : [];
+    const bounded = [...samples, { action: data.action.slice(0, 120), delta, at: new Date().toISOString() }].slice(-SAMPLE_LIMIT);
+    await store.persistObject(SCOPE, agentId, { ...stored, samples: bounded }, bounded.length);
+    return { action: data.action.slice(0, 120), samples: bounded.length };
+  } catch (_) {
+    return null;
+  } finally {
+    if (opened && opened.close) await opened.close();
+  }
+}
+
+async function predictState(db, agentId, input) {
+  const data = input || {};
+  if (!agentId || typeof data.action !== 'string' || !data.action) return null;
+  let opened = null;
+  try {
+    opened = await openDb(db);
+    const stored = (await new AdaptiveStateService(opened.db).restoreObject(SCOPE, agentId)) || {};
+    const samples = (Array.isArray(stored.samples) ? stored.samples : []).filter((entry) => entry.action === data.action);
+    if (!samples.length) return null;
+    const counts = {};
+    for (const entry of samples) {
+      const key = deltaKey(entry.delta);
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    const distribution = Object.entries(counts)
+      .map(([key, count]) => ({ delta: JSON.parse(key), p: count / samples.length }))
+      .sort((a, b) => b.p - a.p)
+      .slice(0, 3);
+    return {
+      action: data.action,
+      distribution,
+      uncertainty: 1 - distribution[0].p,
+      n: samples.length
+    };
+  } catch (_) {
+    return null;
+  } finally {
+    if (opened && opened.close) await opened.close();
+  }
+}
+
+async function rolloutFree(db, agentId, input) {
+  const data = input || {};
+  const actions = Array.isArray(data.actions) ? data.actions.filter((action) => typeof action === 'string') : [];
+  const depth = Math.max(1, Math.min(3, Math.floor(Number(data.depth) || 2)));
+  if (!agentId || !actions.length) return null;
+  const root = { action: null, children: [], depth: 0 };
+  let total = 0;
+  const frontier = [{ node: root, level: 0 }];
+  while (frontier.length && total < ROLLOUT_NODES_MAX) {
+    const { node, level } = frontier.shift();
+    if (level >= depth) continue;
+    for (const action of actions) {
+      if (total >= ROLLOUT_NODES_MAX) break;
+      total += 1;
+      let predicted = null;
+      try {
+        predicted = await predictState(db, agentId, { action });
+      } catch (_) {}
+      const child = { action, predicted, children: [], depth: level + 1 };
+      node.children.push(child);
+      frontier.push({ node: child, level: level + 1 });
+    }
+  }
+  return root;
+}
 
 function trajectoryUncertainty(base, step) {
   return Math.min(0.95, Math.max(0, base) + step * UNCERTAINTY_GROWTH);
@@ -226,4 +325,4 @@ async function observeTrajectory(db, agentId, input) {
   }
 }
 
-module.exports = { predictTransition, observeTransition, predictTrajectory, observeTrajectory, SURPRISE_FLAG_AT };
+module.exports = { predictTransition, observeTransition, predictTrajectory, observeTrajectory, encodeWorldState, recordSample, predictState, rolloutFree, SURPRISE_FLAG_AT };

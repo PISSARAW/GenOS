@@ -188,11 +188,17 @@ async function runAction(context, args) {
 
 async function observeOutcome(context, result, detail) {
   try {
-    return await require('./worldModelService').observeTransition(null, context.orchestratorId, {
+    const worldModel = require('./worldModelService');
+    const observed = await worldModel.observeTransition(null, context.orchestratorId, {
       actionId: context.sourceEventId || context.decision.action,
       success: result.success === true,
       detail
     });
+    await worldModel.recordSample(null, context.orchestratorId, {
+      action: context.decision.tool || context.decision.action,
+      delta: { success: result.success === true, costUsd: result.costUsd, latencyMs: result.latencyMs }
+    });
+    return observed;
   } catch (_) {
     return { matched: false, surprise: 0 };
   }

@@ -49,13 +49,16 @@ async function buildTruthGraph(db, agentId, options) {
   if (!db || !agentId) return { nodes: [], edges: [], status: 'insufficient_data' };
   try {
     const since = sqliteUtc(Number(settings.sinceMs || (Date.now() - 24 * 3600 * 1000)));
+    const mission = typeof settings.missionId === 'string' && settings.missionId ? settings.missionId : null;
+    const missionClause = mission ? ` AND json_extract(payload_json, '$.executionRunId') = ?` : '';
+    const missionParams = mission ? [mission] : [];
     const actionRows = await db.all(
-      `SELECT id, event_type, payload_json, created_at FROM telemetry_events WHERE agent_id = ? AND event_type IN ('ORCHESTRATION_ACTION_EXECUTED', 'ORCHESTRATION_ACTION_FAILED') AND created_at >= ? ORDER BY created_at DESC LIMIT ${EVENT_LIMIT}`,
-      agentId, since
+      `SELECT id, event_type, payload_json, created_at FROM telemetry_events WHERE agent_id = ? AND event_type IN ('ORCHESTRATION_ACTION_EXECUTED', 'ORCHESTRATION_ACTION_FAILED') AND created_at >= ?${missionClause} ORDER BY created_at DESC LIMIT ${EVENT_LIMIT}`,
+      agentId, since, ...missionParams
     );
     const reportRows = await db.all(
-      `SELECT id, payload_json, created_at FROM telemetry_events WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' AND created_at >= ? ORDER BY created_at DESC LIMIT ${EVENT_LIMIT}`,
-      agentId, since
+      `SELECT id, payload_json, created_at FROM telemetry_events WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' AND created_at >= ?${missionClause} ORDER BY created_at DESC LIMIT ${EVENT_LIMIT}`,
+      agentId, since, ...missionParams
     );
     const nodes = [];
     const edges = [];
@@ -92,6 +95,7 @@ async function buildTruthGraph(db, agentId, options) {
           kind: 'claim',
           proposition: String(claim.statement || '').slice(0, 200),
           outcome: report.outcome || 'unknown',
+          reportEventId: row.id,
           sources: sources.flatMap((tool) => toolNodeOf[tool]),
           evidence: Array.isArray(claim.evidence) ? claim.evidence.length : 0
         });
