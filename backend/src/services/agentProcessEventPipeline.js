@@ -212,6 +212,21 @@ function isFinalEvent(eventType, event) {
   return ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType) || event.action === 'VERIFY';
 }
 
+async function routeHierarchyEvent(ctx, event) {
+  try {
+    const hierarchy = require('./predictiveHierarchyService');
+    const routing = await hierarchy.routeEvent(ctx.db, ctx.agentId, event);
+    if (!routing || !routing.propagate) return null;
+    const target = routing.propagate === 'mission' ? 'MISSION_REASSESS_REQUESTED' : 'STRATEGY_REVISION_REQUESTED';
+    emit(ctx.agentId, target, 'HIERARCHY', `Repeated ${routing.level} errors request ${routing.propagate} revision.`, {
+      level: routing.level, precision: routing.precision, counters: routing.counters
+    }, 'warning');
+    return routing;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function processEventQueueImpl(ctx) {
   const { db, agentId, normalizedMission, state } = ctx;
   if (state.isProcessingEvents) return;
@@ -229,6 +244,7 @@ async function processEventQueueImpl(ctx) {
       if (checkSwarmSentinel(ctx, currentEvent, finalEvent)) continue;
       if (checkInteractionDeadlock(ctx, currentEvent, finalEvent)) continue;
       if (await runConscienceCheck(ctx, currentEvent, observation)) continue;
+      await routeHierarchyEvent(ctx, currentEvent);
       if (await checkNaturalSearchControl(ctx, currentEvent, finalEvent)) continue;
       await advanceAutonomousRound(normalizedMission, currentEvent);
     } catch (err) {
@@ -369,7 +385,7 @@ async function handleChildClose(ctx, code, signal) {
 module.exports = {
   applyDomainStateFromEvent, checkDossierInfluence, checkHallucination, checkStrategyGuardrail,
   checkSwarmSentinel, checkInteractionDeadlock, classifyConscienceEvent, buildCognitiveHealth,
-  runConscienceCheck, isFinalEvent, rejectedWorkerCompletion, resolveWorkerTerminalStatus, processEventQueueImpl, handleDecodedEvent, handleStdoutData,
+  runConscienceCheck, routeHierarchyEvent, isFinalEvent, rejectedWorkerCompletion, resolveWorkerTerminalStatus, processEventQueueImpl, handleDecodedEvent, handleStdoutData,
   handleStderrData, handleStdinError, handleChildError, handleChildClose, checkNaturalSearchControl,
   clearSearchState
 };
