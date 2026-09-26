@@ -186,7 +186,22 @@ async function finalizeAttempt(ctx, outcome, result) {
   if (ctx.maxCostUsd != null && ctx.spent > Number(ctx.maxCostUsd)) throw Object.assign(new Error(`Actual model cost ${ctx.spent} exceeds budget ${ctx.maxCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
   const enriched = Object.assign({}, result, { model: outcome.uri, requestedModel: outcome.uri, servedModel: result.servedModel || result.model || outcome.prepared.modelName, latencyMs: Date.now() - outcome.startedAt, costUsd });
   await recordModelUsage(ctx.db, { organizationId: ctx.organizationId, projectId: ctx.projectId }, enriched);
+  await observeRoutingBandit(ctx, outcome, result, costUsd);
   return enriched;
+}
+
+async function observeRoutingBandit(ctx, outcome, result, costUsd) {
+  try {
+    await require('./routingBanditService').observe(ctx.db, {
+      routeUri: outcome.uri,
+      success: result.success !== false,
+      costUsd,
+      latencyMs: Date.now() - outcome.startedAt,
+      promptTokens: Math.ceil(Buffer.byteLength(String(ctx.prompt || ''), 'utf8') / 4),
+      isWorker: ctx.executionMode === 'worker',
+      local: isLocalUri(outcome.uri)
+    });
+  } catch (_) {}
 }
 
 async function attemptRoute(ctx, uri) {
