@@ -1,262 +1,159 @@
 # Panorama concurrentiel GenOS
 
+- **Statut** : référence maintenue ; les statuts GenOS suivent la règle `matrice-cohérence` (code + contrat + nominal + refus + preuve + limite).
+- **Dernière revue** : 2026-09-26
+- **Sources code** : inventaire `docs/03-reference/inventaire-technique.md` du 2026-09-22 (172 outils runtime, 91 handlers bio), matrice `docs/06-qualite-preuves/matrice-coherence-code-docs.md` du 2026-09-19, audit `docs/06-qualite-preuves/audit-affirmations-operationnelles.md` du 2026-09-19, contrat mission `docs/02-orchestration/orchestration.md` (`Partiel`, revue 2026-09-25).
+
 ## 1. Objet et méthode
 
-Ce document positionne GenOS face aux principales familles de solutions qui recouvrent ses domaines fonctionnels. Il ne prétend pas recenser chaque éditeur, intégrateur ou projet open source du marché : un tel inventaire serait immédiatement obsolète. Il compare les solutions directement substituables, les briques complémentaires et les références les plus visibles au moment de sa rédaction (septembre 2026).
+Positionne GenOS face aux familles substituables ou complémentaires, sur capacités publiquement documentées. Ni benchmark de performance, ni attestation de conformité, ni recommandation d'achat. Toute capacité concurrente se revalide dans le déploiement concerné.
 
-Les comparaisons portent sur les capacités publiquement documentées des produits. Elles ne constituent ni un benchmark de performance, ni une attestation de conformité, ni une recommandation d'achat. Une capacité annoncée par un concurrent doit être validée dans le contexte de déploiement concerné.
-
-Pour GenOS, les statuts suivants évitent de confondre le modèle cible avec le comportement vérifié du dépôt :
-
-| Statut | Signification |
+| Statut GenOS | Signification |
 | --- | --- |
-| Opérationnel | Comportement présent et couvert par le runtime ou ses tests ciblés. |
-| Partiel | Surface présente, mais avec des limites, dépendances ou cas non couverts. |
-| Expérimental | Disponible sous opt-in, prototype, ou sans garantie de production. |
-| Conceptuel | Modèle architectural ou biomimétique ; pas une promesse de capacité produit. |
+| Opérationnel | Code + contrat + exemple + nominal + refus + preuve reproductible + limite connue. |
+| Partiel | Surface présente avec limites, dépendances ou cas non couverts. |
+| Expérimental | Opt-in, prototype, sans garantie de production. |
+| Conceptuel | Modèle d'organisation ; pas une promesse produit. |
 
-GenOS n'est pas un remplacement monolithique de toutes les solutions citées. Son différenciateur est la réunion, autour d'une même décision agentique, de l'état, de la provenance, des budgets, de l'isolation, de la preuve et de la promotion.
+Différenciateur : réunir autour d'une même décision agentique l'état, la provenance, les budgets, l'isolation, la preuve et la promotion. GenOS n'est pas un remplacement monolithique.
 
 ## 2. Lecture rapide
 
 | Domaine | Alternatives les plus proches | Position GenOS |
 | --- | --- | --- |
-| Runtime et orchestration agentique | LangGraph, CrewAI, AutoGen, Semantic Kernel, OpenAI Agents SDK | Runtime contrôlé avec état, preuves et politiques de promotion. |
-| Agentic coding et IDE | GitHub Copilot, Cursor, Windsurf, Cline, Aider | Couche de contrôle et de validation au-dessus des outils de code, pas un IDE concurrent direct. |
-| Workflows et jobs | Temporal, Airflow, Prefect, Dagster, n8n | Workflows orientés décisions d'agents, avec garde-fous ; moins mature comme ordonnanceur généraliste. |
-| Workspaces et Git | Git, GitHub/GitLab, DVC, LakeFS, Pachyderm | Branches d'état agentique et contre-factuels, complémentaires du contrôle de version de fichiers. |
-| Mémoire et retrieval | LangChain/LlamaIndex, Mem0, Zep, Pinecone, Weaviate, Qdrant | Mémoire rattachée à l'identité, à la provenance et aux politiques ; pas une base vectorielle spécialisée. |
-| Modèles et routage | LiteLLM, OpenRouter, Portkey, Kong AI Gateway, Ollama, vLLM | Routage local/cloud et identité du modèle servi, intégré au contrôle d'exécution. |
-| MCP et intégrations | MCP SDK/serveurs, Claude Desktop, Cursor, VS Code, JetBrains | Surface REST, gRPC, MCP, CLI et IDE gouvernée par leases et permissions. |
-| Sécurité et identité | Auth0, Keycloak, OPA, HashiCorp Vault, Wiz, Lakera | Autorité, scopes et evidence gates proches de l'action ; pas un SIEM, IdP ou coffre-fort complet. |
-| Observabilité et évaluation | Langfuse, LangSmith, Arize Phoenix, Braintrust, W&B Weave | Trace, audit et preuves de promotion ; écosystème d'analyse plus restreint. |
-| Déploiement et sandbox | Docker, Kubernetes, Modal, E2B, Daytona, Firecracker | Contrôle de politiques d'exécution ; isolation dépendante des adaptateurs et de l'environnement. |
+| Runtime agentique | LangGraph, CrewAI, AutoGen/AG2, Microsoft Agent Framework, Semantic Kernel, OpenAI Agents SDK, LlamaIndex Workflows, Haystack | Runtime contrôlé avec état, preuves et promotion ; moins large en SDK/écosystème. |
+| Workflows durables | Temporal, Airflow 3.x, Prefect 3.x (rapprochement Dagster 2026), Dagster, Argo, Flyte, n8n, Camunda 8, Step Functions, Azure Durable | Décisions d'agents avec garde-fous ; moins mature comme ordonnanceur généraliste. |
+| Mémoire et retrieval | Mem0, Letta, Zep/Graphiti, LangChain/LlamaIndex, Pinecone, Weaviate, Qdrant, Milvus, pgvector, Neo4j | Mémoire liée à identité/provenance/politiques ; pas une base vectorielle spécialisée. |
+| Modèles et routage | LiteLLM, OpenRouter, Portkey, Kong/Cloudflare AI Gateway, Helicone (maintenance), Ollama, vLLM, NVIDIA NIM | Routage local/cloud avec identité du modèle servi, intégré au contrôle d'exécution. |
+| Optimisation | DSPy, Optuna, Ray Tune, EvoAgentX | Sélection sous budget + gate ; pas une plateforme AutoML. |
+| MCP et IDE | MCP SDK/serveurs, Claude Desktop/Code, Cursor, VS Code, JetBrains | Surface REST/gRPC/MCP/CLI/IDE gouvernée par leases ; pas un IDE. |
+| Sécurité et identité | Keycloak, Auth0/Okta, OPA, Cedar, Vault, Lakera | Autorité/scopes/gates près de l'action ; pas IdP, coffre ou SIEM complet. |
+| Observabilité et éval | Langfuse, LangSmith, Phoenix, Braintrust, Weave, OpenTelemetry, Datadog | Trace liée à promotion ; écosystème d'analyse plus restreint. |
+| Sandbox | Docker, Kubernetes, gVisor, Firecracker, E2B, Daytona, Modal | Politiques d'exécution ; isolation réelle = adaptateur + image + réseau. |
 
-## 3. Comparaison par domaine
+## 3. Comparaison par concept GenOS
 
-### 3.1 Runtime agentique, orchestration et primitives
+Chaque ligne GenOS est justifiée par code + test + doc. `Partiel/Expérimental` quand un adaptateur, un mode ou une boucle reste à vérifier.
 
-Références : LangGraph, CrewAI, Microsoft AutoGen, Semantic Kernel, OpenAI Agents SDK, Haystack et LlamaIndex Workflows.
+### 3.1 Topologies (8) et organisations (19)
 
-| Critère | GenOS | Marché |
-| --- | --- | --- |
-| Unité principale | Agent avec identité, budget, mémoire et état | Graphe, équipe, conversation, fonction ou workflow selon le framework |
-| Pilotage | Primitives déclarées, politiques et gates d'évidence | Contrôle de flux, outils, handoffs et hooks applicatifs |
-| Décision de promotion | Validation explicite de la provenance, des tests et du contexte | Généralement laissée à l'application ou à la CI |
-| Portabilité | REST, gRPC, MCP, CLI et backend Node/Rust | Forte variété de SDK, surtout Python/TypeScript/.NET/Java |
-| Maturité GenOS | Opérationnel/partiel selon la primitive | Écosystèmes de frameworks plus larges et plus documentés |
+Code : `trinityService.js`, `aTeamService.js`, `biocenoseService.js`, `holobionteService.js`, `syncytiumCrdtService.js`, `rhizomeCoordinationService.js`, `biomeCoordinationService.js`, `metapopulationCoordinationService.js`, `dynamicOrganizationService.js`, `topologySessionStore.js`, `topologyCapabilityService.js`. Tests : `test_trinity_*`, `test_a_team*.js`, `test_biocenose_*`, `test_holobionte_*`, `test_syncytium_*`, `test_rhizome_*`, `test_biome_*`, `test_metapopulation_*`, `test_dynamic_organization.js`. Docs : `docs/02-orchestration/topologies-et-capacites.md`, `docs/02-orchestration/orchestration.md`.
 
-GenOS se différencie lorsque l'enjeu est le contrôle d'une décision et de ses effets. LangGraph ou Semantic Kernel sont souvent plus adaptés pour construire rapidement un agent applicatif ; GenOS peut superviser les actions à risque, l'état durable et leur promotion.
+| Concept GenOS | Statut | Concurrents : ce qu'ils font | Écart |
+| --- | --- | --- | --- |
+| Trinity (3 mondes scellés, barrière comparative, `merge_trinity`) | Opérationnel | LangGraph `interrupt`/time-travel ; CrewAI hiérarchique ; AutoGen GroupChat/Magentic-One ; Agent Framework patterns sequential/concurrent/handoff | Aucun n'impose 3 chambres scellées + empreintes snapshot identiques + promotion du gagnant comme invariant. |
+| A-Team (domaines, handoffs, arbitrage) | Opérationnel | Mêmes + MetaGPT/ChatDev (rôles) | Handoffs GenOS liés à dossiers de preuve ; ailleurs coordination conversationnelle. |
+| Biocénose (quorum, Brier, byzantin) | Opérationnel | Ray, quorum applicatif ad hoc | Brier pondéré + abstention + veto minoritaire câblés ; ailleurs à construire. |
+| Holobionte (hôte + symbiotes, veto) | Opérationnel/Partiel selon primitive | Pas d'équivalent direct | Veto immunitaire et inférence locale disponibles comme primitives, appel non garanti sur chaque chemin. |
+| Syncytium (CRDT, sessions persistées) | Opérationnel | CRDT génériques (Yjs/Automerge), acteurs distribués | Sessions `topology_sessions` + snapshot/CRDT exposés via `genos_topology_session` ; pas de consensus distribué global. |
+| Rhizome/Biome (sessions, stigmergie, foraging, allocation) | Opérationnel, boucle auto proposée | Algorithmes essaim (boids, physarum, grey-wolf) en libs | Opérations explicites (`snapshot/deposit/route/slime`, `allocate/forage/health`) ; routage multi-hop auto et boucle fermée restent proposés. |
+| Métapopulation (quorum pondéré, lignage, recovery) | Opérationnel | Partitionnement applicatif | Quorum + régénération exposés, déclenchés explicitement. |
+| 19 organisations dynamiques | Opérationnel | Patterns codés à la main | `flockingBoids/fishSchool/slimeMould/greyWolf` déterministes locaux, une étape par décision, pas de boucle haute fréquence. |
 
-### 3.2 Biologie computationnelle, génome, épigénétique et reproduction
+Limite transverse (`orchestration.md`) : le préparateur historique (`single_agent/parallel_forks/trinity`) reste le plan physique principal ; Morphogenèse V2 est en shadow opt-in (`GENOS_MORPHOGENESIS_V2_SHADOW`) sans commit ; transition inter-topologies en échec fermé sans adaptateur testé (seul Trinity→A-Team couvert).
 
-Références adjacentes : EvoAgentX, OpenAI Evals/optimisation de prompts, DSPy, Optuna, Ray Tune, Nevergrad, genetic programming et plateformes AutoML.
+### 3.2 Preuve, falsification, promotion
 
-Les notions de génome, chromatine, synapse, apoptose, mitose et sélection constituent un modèle de contrôle propre à GenOS. Les outils d'optimisation recherchent des paramètres ou programmes performants ; ils ne fournissent pas nécessairement une identité d'agent, une provenance de décision et une politique de sécurité intégrées. Inversement, GenOS ne doit pas être présenté comme une plateforme AutoML, un simulateur biologique, ni un moteur d'évolution scientifique.
+Code : `agentEvidenceService.js`, `strategyPromotionGate.js`, `strategyPromotionPolicyService.js`, `epistemic/aeisPromotionBridge.js`, `hallucinationMonitoringService.js`. Tests : `test_promotion_gate.js`, `test_collective_decision_evidence_gate.js`, `test_worker_dossiers_suite.js`, `test_no_answer_proof_remediation.js`, `test_conclusion_provenance_integrity.js`, `test_counterexamples_falsification.js`. Doc : `docs/01-concepts/epistemologie-et-evidence.md`.
 
-| Besoin | GenOS | Alternative de référence |
-| --- | --- | --- |
-| Variation contrôlée d'agents | Génome, mutations et politiques de sélection | EvoAgentX, DSPy, frameworks de recherche |
-| Optimisation numérique à grande échelle | Partiel | Optuna, Ray Tune, Nevergrad |
-| Biologie ou évolution scientifique | Non-objectif | DEAP, ECJ, bibliothèques de calcul scientifique |
-| Reproduction de runtime | Partiel ; à vérifier par mode et adaptateur | Kubernetes, Ray, Temporal pour le scale-out |
+| Concept GenOS | Statut | Concurrents | Écart |
+| --- | --- | --- | --- |
+| Claims/evidence, dossiers, influence citée, `no_answer` borné, provenance Merkle | Opérationnel | LangSmith/Phoenix/Langfuse (traces, scores, datasets) ; Braintrust (scorers, CI) | Eux observent ce qui s'est passé ; GenOS bloque la promotion sans claims étayés (`success + 0 claim = failed`), exige `usedClaims` réels et approbation liée au hash SHA-256. |
+| Hypothèses falsifiables, contre-exemples, `beliefGate` seuil 0.6 | Opérationnel/Partiel | DSPy (`compile` sur métrique + trainset) ; Evals ; garde-fous Azure AI Foundry ; Lakera (détection probabiliste) | GenOS privilégie liens explicites + heuristiques lexicales, pas une preuve logique générale ; score `evidenceScore` = priorisation, pas vérité ; DSPy optimise qualité moyenne, GenOS refuse promotion sans preuve même si métrique haute. |
+| Gates `require_replay/independent_verification/human_approval`, `preserve_rejected_branches` | Opérationnel | OPA/Cedar (policy), GitHub protections de branche, LaunchDarkly (flags) | Gates GenOS liées au payload et au replay ; une violation rend `eligible:false` ; `reconstructed` accepté par défaut — exiger `replayVerified===true` + artefacts + approbation pour risque élevé. |
 
-### 3.3 Mémoire, apprentissage et neuroplasticité
+### 3.3 Workspaces, snapshots, forks, replay, lineage
 
-Références : Mem0, Zep, Letta, LangChain, LlamaIndex, Pinecone, Weaviate, Qdrant, Milvus, pgvector et Elasticsearch.
+Code : `workspaceSnapshotStore.js`, `workspaceSnapshot*.js`, `agentWorkspaceLifecycleService.js`, `trajectoryService.js`, `forkIdentityService.js`, `agentGitController/`, `rustBridgeService.js`. Tests : `test_snapshot_limits.js`, `test_agent_state_snapshot_contract.js`, `test_replay_truthfulness.js`, `test_agent_branch/diff/commit_contract.js`. Docs : `docs/02-orchestration/workspaces-contrefactuel.md`, `docs/02-orchestration/git-agents.md`.
 
-GenOS associe mémoire épisodique/sémantique, liaisons de provenance, synapses et mécanismes de consolidation. Les produits de mémoire agentique ont souvent une meilleure ergonomie de SDK ou des stores vectoriels plus scalables ; les bases vectorielles offrent indexation, filtrage et opérations distribuées plus riches.
+| Concept GenOS | Statut | Concurrents | Écart |
+| --- | --- | --- | --- |
+| Snapshots/forks/diffs/replay, capsules isolées, lineage | Opérationnel | Git/GitHub/GitLab (fichiers) ; DVC/LakeFS/Pachyderm (données) ; MLflow/W&B (expériences) ; Temporal/Dagster (replay workflows) | GenOS versionne contexte/budgets/preuves/états, pas seulement fichiers ; merge auto soumis à politique, conflit = échec post-promotion. Rejeu total non garanti si dépendances externes non capturées — même limite générale. |
 
-| Critère | GenOS | Marché |
-| --- | --- | --- |
-| Mémoire liée à la décision | Oui, avec provenance et politiques | Variable ; forte chez Letta, Mem0 et Zep |
-| Retrieval vectoriel spécialisé | Partiel | Pinecone, Weaviate, Qdrant, Milvus |
-| Graphes et relations | Synapses et état applicatif | Neo4j, Memgraph, graph-RAG spécialisés |
-| Plasticité de type STDP | Opérationnel dans le runtime | Rare ; habituellement hors du périmètre des memory stores |
-| Gouvernance de rétention | Intégrée aux politiques GenOS | Souvent configurée dans la couche de données |
+### 3.4 Budgets, fan-out, recovery bornée, équité
 
-### 3.4 Swarm, consensus et organisation collective
+Code : `tokenAllocationService.js`, `agentFleetService.js`, `agentRoundService.js`, `workerFailureRecoveryService.js`, `agentRecoveryService.js`, `inferenceGatewayService.js`, `orchestrationActionExecutor.js`. Tests : `test_token_allocation.js`, `test_orchestration_evidence_barrier.js`, `test_worker_failure_recovery.js`, `test_mission_decomposition_invariants.js`.
 
-Références : CrewAI, AutoGen, LangGraph, Swarm (OpenAI, historique), CAMEL, MetaGPT, ChatDev et Ray.
+| Concept GenOS | Statut | Concurrents | Écart |
+| --- | --- | --- | --- |
+| Split 60/40, `MAX_AUTONOMOUS_WORKERS=3` (configurable 100+ en tissus), successive halving, quiescence, dédup, `MAX_RECOVERY=3`, fairness tenant | Opérationnel | Temporal (retries/dedup/visibility) ; Airflow/Prefect (retries, files) ; LiteLLM/proxy (budgets clés) | GenOS ajoute budget cognitif par branche + sélection survivants Pareto + reprise causée (`mutate/fork/bisect/replace/escalate`) + équité `organizationId:projectId`. Pas de `exactly-once` sur effets externes ; capacité 100 = paramètre, pas benchmark. |
 
-GenOS traite le collectif comme un problème de décision : proposition, quorum, signal, evidence gate et survivants. Les frameworks multi-agents concurrents accélèrent la définition des rôles, du dialogue et de la délégation. Ils n'apportent pas automatiquement une autorité commune, une preuve vérifiée ni des mécanismes de sécurité tenant compte de la divergence d'état.
+### 3.5 Mémoire, plasticité, retrieval
 
-Le bon critère n'est donc pas le nombre d'agents simultanés, mais la capacité à empêcher une décision collective non étayée d'être promue. Pour une simulation de rôles ou une équipe de recherche, CrewAI/AutoGen peuvent suffire ; pour une action persistante ou destructrice, GenOS vise une couche de gouvernance complémentaire.
+Code : `vectorMemoryService.js` (768D, blob, RRF), `embeddingProvider.js` (Xenova/Ollama/OpenAI, rejet zéro-vecteur), `synapticPlasticityService.js`, `sleepCycle.js`, `memoryController.js`. Tests : `test_vector_memory_contracts.js`, `test_fts_vec_integrity.js`, `test_stdp_*`, `test_memory_invariants.js`. Docs : `docs/01-concepts/memoire-et-apprentissage.md`, `docs/01-concepts/neurobiologie-et-plasticite.md`.
 
-### 3.5 Workspaces, snapshots, contre-factuel, Git et lineage
+| Concept GenOS | Statut | Concurrents | Écart |
+| --- | --- | --- | --- |
+| Épisodique/sémantique + provenance + hybride dense/BM25 + consolidation sommeil | Opérationnel | Mem0 (faits ADD/UPDATE/DELETE) ; Letta (RAM/blocs + archival) ; Zep/Graphiti (graphe temporel `valid_at/invalid_at`) ; Pinecone/Weaviate/Qdrant/Milvus/pgvector ; Neo4j | Stores spécialisés plus scalables en index/filtrage ; GenOS lie mémoire à décision/politique/rétention, avec STDP. |
+| STDP 3-facteurs, pruning C3/CD47 | Partiel | Rare hors labo | Présent runtime, couverture et généralisation limitées ; ne pas présenter comme mémoire biologique validée. |
 
-Références : Git, GitHub, GitLab, Bitbucket, DVC, LakeFS, Pachyderm, Dolt, MLflow, Weights & Biases et experiment trackers.
+### 3.6 Modèles, routage, inférence
 
-| Critère | GenOS | Alternatives |
-| --- | --- | --- |
-| Versionnage de fichiers | S'appuie sur Git et worktrees | Git/GitHub/GitLab sont la référence |
-| Branches d'état agentique | Snapshots, forks, lineage et capsules | DVC/LakeFS/Pachyderm pour les données ; MLflow/W&B pour les expériences |
-| Comparaison d'hypothèses | Orientation contre-factuelle et evidence gates | Expériment tracking, feature flags, CI et revues humaines |
-| Merge automatique | Soumis à politique et validation ; vérifier l'adaptateur actif | Git fournit le merge de contenu et les protections de branche |
-| Rejeu déterministe total | Non garanti si dépendances externes non capturées | Même limite générale ; Temporal/Dagster peuvent rejouer des workflows, pas l'ensemble du monde externe |
+Code : `modelRouter.js`, `modelRoutingPolicy.js`, `modelRouteRunner.js`, `localModelDiscovery.js`. Tests : `test_model_router_policy_order.js`, `test_model_auto_route.js`, `test_prefer_local_strict.js`. Docs : `docs/03-reference/modeles-et-providers.md`.
 
-GenOS ne remplace pas Git. Il cherche à versionner ce que Git ne sait pas représenter seul : contexte d'agent, budgets, preuves, états de travail et décisions candidates.
+| Concept GenOS | Statut | Concurrents | Écart |
+| --- | --- | --- | --- |
+| Multi-provider cloud/local/OpenAI-compatible, fallback ordonné, parallèle sous coût explicite, identité demandée/servie + ledger | Opérationnel | LiteLLM (100+ providers, fallback YAML) ; OpenRouter (300-400 modèles, routage coût/latence, Fusion) ; Portkey (fallback multi-niveaux, caches, guardrails) ; Ollama/vLLM/NIM (moteurs) | Gateways plus larges en catalogue/cache/audit ; GenOS = arbitre intégré au contrôle d'exécution (droit de partir, budget de branche, preuve au retour). Consommateur, pas fournisseur de fondation. |
 
-### 3.6 Workflows, jobs, exécution et planification
+### 3.7 MCP, leases, CLI, IDE
 
-Références : Temporal, Apache Airflow, Prefect, Dagster, Argo Workflows, Flyte, n8n, Camunda, AWS Step Functions et Azure Durable Functions.
+Code : `mcpToolRegistry.js`, `toolLeasePolicy.js` (fail-closed), `mcpArgumentValidation.js`, `circuitBreaker.js`, `mcp/index.js`, `shared/toolDefinitions.json` (27 entrées) vs 172 runtime. Tests : `test_mcp_*`, `test_tool_lease_restriction.js`, `test_capability_lease.js`, `test_ide_contract.js`. Docs : `docs/03-reference/outils-mcp.md`, `docs/03-reference/api-et-contrats.md`.
 
-Temporal et les orchestrateurs de données disposent d'une maturité supérieure en planification distribuée, SLA, reprise de workers et opérations à très grande échelle. GenOS privilégie les transitions décisionnelles, les budgets cognitifs et la sélection après évaluation. Il convient de l'intégrer à un ordonnanceur éprouvé pour les charges critiques de longue durée, plutôt que d'en déduire une équivalence.
+| Concept GenOS | Statut | Concurrents | Écart |
+| --- | --- | --- | --- |
+| Registre déclarations, leases par capacités, allowlist, `genos_orchestrate` jamais réintroduit, circuit breaker, contrat `genos.ide/v1` | Opérationnel | MCP SDK/serveurs, Copilot/Cursor/Windsurf/Cline, Continue, JetBrains AI | IDE/assistants meilleurs en édition/complétion ; GenOS gouverne outils appelés et promotion des effets. 172 outils runtime sans preuve nominale/refus unitaire chacun ; aucune extension VS Code/JetBrains livrée ; définition ≠ handler câblé. |
 
-### 3.7 Modèles, providers, routage et inférence locale
+### 3.8 Workflows et jobs généralistes
 
-Références : LiteLLM, OpenRouter, Portkey, Kong AI Gateway, Cloudflare AI Gateway, Helicone, Ollama, vLLM, LM Studio, NVIDIA NIM, OpenAI, Anthropic, Gemini, Mistral et Groq.
+Références : Temporal, Airflow, Prefect, Dagster, Argo, Flyte, n8n, Camunda, Step Functions, Azure Durable.
 
-| Critère | GenOS | Marché |
-| --- | --- | --- |
-| Multi-provider | Oui, fournisseurs cloud, locaux et compatibles OpenAI | LiteLLM/OpenRouter/Portkey ont un catalogue et une compatibilité plus étendus |
-| Politique local/cloud | Oui, capacités, coût, délai et préférence locale | Disponible chez les gateways ; dépend de leur connecteur |
-| Identité demandée/servie | Oui, portée dans le résultat et le ledger | Variable selon le gateway |
-| Inférence | Consomme Ollama, vLLM, LM Studio ou API | vLLM, NIM et fournisseurs cloud sont les moteurs d'inférence spécialisés |
-| Gouvernance d'action | Reliée aux gates GenOS | Généralement hors du routeur de modèles |
+Temporal et orchestrateurs données supérieurs en planification distribuée, SLA, reprise workers, très grande échelle. GenOS privilégie transitions décisionnelles, budgets cognitifs, sélection après évaluation. Intégrer un ordonnanceur éprouvé pour charges critiques longue durée, pas d'équivalence. Détail : Temporal = event-sourcing + retries/dedup ; Airflow = DAG batch schedulé ; Prefect/Dagster (rapprochement 2026) = flows/assets event-driven ; Argo/Flyte = K8s/ML ; n8n = visuel 400+ intégrations sans durable execution sémantique ; Camunda = BPMN/DMN régulé ; Step Functions/Durable = state machines cloud-locked.
 
-GenOS est un consommateur et arbitre de modèles, non un fournisseur de modèles de fondation. LiteLLM ou un AI gateway peut rester la couche d'accès standardisée lorsque le parc de fournisseurs devient très large.
+### 3.9 Sécurité, identité, sandbox, persistance, observabilité
 
-### 3.8 API, MCP, CLI et intégrations IDE
+Code : `middleware/auth.js`, `controllers/authController.js`, `secretVault.js`, `pathSafety.js`, `vfsSandboxService.js`, `db/schema*.js`, `migrations/*`, `telemetryObserver.js`, `telemetryPersist.js`. Tests : `test_auth_bootstrap.js`, `test_tenancy.js`, `test_path_traversal.js`, `test_telemetry_contract.js`, `test_db.js`, `test_schema_drift.js`.
 
-Références : Model Context Protocol SDK et serveurs MCP, GitHub Copilot, Claude Code/Claude Desktop, Cursor, Windsurf, Cline, Continue, JetBrains AI Assistant et VS Code.
-
-GenOS expose REST, gRPC, MCP et CLI, avec une intégration IDE centrée sur les contrats, les permissions et la traçabilité. Les assistants IDE offrent une expérience d'édition, d'indexation et de complétion plus aboutie. GenOS se place derrière ou à côté de ces clients afin de contrôler les outils qu'ils appellent et la promotion de leurs effets.
-
-Les commandes ou intégrations déclarées sans handler exécutif ne doivent pas être assimilées à une intégration opérationnelle. La compatibilité MCP dépend aussi du client, de la version du protocole et des politiques de tools appliquées au déploiement.
-
-### 3.9 Sécurité, identité, autorité et conformité
-
-Références : Keycloak, Auth0, Okta, Microsoft Entra ID, Open Policy Agent, Cedar, HashiCorp Vault, 1Password Secrets Automation, Wiz, Snyk, Lakera, Protect AI et Palo Alto AI Security.
-
-| Sous-domaine | GenOS | Produits spécialisés |
-| --- | --- | --- |
-| Authentification et scopes | Identités, rôles, tenants et leases | Keycloak, Auth0, Okta, Entra ID |
-| Décision de politique | Gates, contraintes de domaine, evidence | OPA/Cedar pour moteur de policy généralisé |
-| Secrets | Ne remplace pas un coffre-fort | Vault, cloud secret managers, 1Password |
-| Sécurité IA | Validation des outils, provenance, budget, sandbox | Lakera, Protect AI, gateways de sécurité IA |
-| Conformité et audit | Journalisation, approbations et traçabilité | GRC/SIEM/EDR offrent couverture organisationnelle plus large |
-
-GenOS doit être déployé avec un IdP, un gestionnaire de secrets, des politiques réseau et la supervision de sécurité de l'organisation. Les evidence gates renforcent la sécurité décisionnelle ; ils ne remplacent ni la détection d'intrusion ni les contrôles réglementaires.
-
-### 3.10 Sandbox, exécution de code et isolation
-
-Références : Docker, Kubernetes, gVisor, Kata Containers, Firecracker, E2B, Daytona, Modal, GitHub Actions, GitLab CI et Deno.
-
-GenOS gouverne l'autorisation, les budgets et la traçabilité de l'exécution. Les produits de sandbox assurent l'isolation noyau/processus, le cycle de vie des environnements et l'élasticité. La barrière de sécurité réelle dépend du sandbox adapter, de l'image, des permissions, du réseau egress et des secrets effectivement injectés. Pour du code non fiable, utiliser Firecracker, gVisor, Kata ou un service tel que E2B reste la référence d'isolation.
-
-### 3.11 Observabilité, évaluation, traces et qualité
-
-Références : Langfuse, LangSmith, Arize Phoenix, Braintrust, Weights & Biases Weave, Honeycomb, Datadog, OpenTelemetry, Grafana, Prometheus et Sentry.
-
-| Critère | GenOS | Marché |
-| --- | --- | --- |
-| Trace d'agent | Liée à l'état, à la provenance et à la décision | Langfuse, LangSmith, Phoenix, Weave |
-| Évaluation | Evidence gates, tests et règles de promotion | Braintrust, LangSmith, W&B : datasets, annotation et analyses plus riches |
-| Télémétrie opérationnelle | Logs, métriques et diagnostics GenOS | OpenTelemetry, Datadog, Grafana et Honeycomb à privilégier pour l'observabilité globale |
-| Replay | Validation et structure selon le contexte ; exécution externe non garantie | Les trace tools rejouent rarement le monde externe de façon complète |
-
-L'avantage recherché par GenOS est la relation entre observation et droit de promotion. Pour les dashboards, alertes et analyses transverses, exporter vers OpenTelemetry et une plateforme d'observabilité demeure la stratégie la plus robuste.
-
-### 3.12 Résilience, reprise, déploiement et exploitation
-
-Références : Kubernetes, Nomad, Docker Compose, Temporal, systemd, Supervisor, AWS ECS, Azure Container Apps, Google Cloud Run et plateformes SRE.
-
-GenOS propose persistance, reprise de jobs, circuit breakers, chaperones, cryptobiose et procédures opérateur. Kubernetes/Nomad/cloud managed services restent supérieurs pour l'ordonnancement, l'auto-réparation de l'infrastructure, les multi-zones et le capacity management. GenOS ajoute une reprise de contexte agentique et de décision ; il ne remplace pas un plan de continuité, des sauvegardes testées ni une architecture haute disponibilité.
-
-### 3.13 Données, persistance, multi-tenancy et gouvernance de projet
-
-Références : PostgreSQL, SQLite, Supabase, PlanetScale, CockroachDB, Hasura, Auth0 Organizations, Jira, Linear, GitHub Projects, ServiceNow et plateformes SaaS multi-tenant.
-
-GenOS utilise une persistance applicative et des frontières tenant/projet pour porter agents, lineages, mémoire et décisions. Les SGBD et plateformes SaaS cités apportent réplication, gouvernance du schéma, analytics, administration et garanties d'exploitation plus complètes. GenOS est la couche de domaine qui relie ces données au runtime agentique ; il ne doit pas être comparé à un SGBD distribué ou à un outil de gestion de projet généraliste.
-
-### 3.14 Évaluation, CI/CD, promotion et delivery
-
-Références : GitHub Actions, GitLab CI/CD, Jenkins, Buildkite, Argo CD, Flux, Harness, LaunchDarkly, Unleash, SonarQube, Snyk et policy-as-code.
-
-GenOS apporte la promotion conditionnée par preuves, le blast radius, les décisions candidates et l'approbation. Les plateformes CI/CD sont plus riches pour le build, les runners, les déploiements, les environnements et les rollback applicatifs. Le schéma recommandé est de faire produire à GenOS une décision explicable et vérifiée, puis d'exécuter le déploiement via une chaîne CI/CD avec protections de branche, signatures, approbations et rollback réels.
+| Concept GenOS | Statut | Concurrents | Écart |
+| --- | --- | --- | --- |
+| Identités/rôles/tenants/leases, approbation explicite, VFS sandboxé, SQLite WAL + sqlite-vec + FTS5, télémétrie redactée + SSE | Opérationnel | Keycloak/Auth0 (IdP), Vault (secrets), OPA/Cedar (policy), Lakera (guardrails probabilistes) ; Docker/K8s/gVisor/Firecracker/E2B/Daytona/Modal ; Langfuse/LangSmith/Phoenix/Braintrust/Weave/OTel/Datadog ; Postgres/SQLite/Supabase | GenOS n'est ni IdP ni coffre ni SIEM ; barrière réelle = adaptateur + image + egress + secrets ; SQLite = couche domaine, pas SGBD distribué ; trace GenOS liée à promotion, dashboards = OTel/Datadog/Langfuse. Daytona ≥0.186 requis (CVE-2026-54319/54321) ; Helicone en maintenance, éviter en greenfield. |
 
 ## 4. Matrice de choix
 
 | Situation | Choisir GenOS | Conserver ou ajouter |
 | --- | --- | --- |
-| Agent qui modifie un dépôt ou une configuration | Oui, pour état, isolation, preuve et promotion | GitHub/GitLab, CI/CD, sandbox et revue humaine |
-| Assistant de code individuel dans un IDE | Comme gouverneur de tools et d'effets | Copilot, Cursor, Windsurf, Cline ou Continue pour l'expérience IDE |
-| Workflow de données planifié et massif | Pour les décisions agentiques dans certaines étapes | Temporal, Airflow, Dagster, Prefect, Argo ou Flyte |
-| RAG à très grande échelle | Pour la provenance et les règles d'usage | Qdrant, Weaviate, Pinecone, Milvus ou Elasticsearch |
-| Multi-agent de recherche peu risqué | Possible, mais parfois surdimensionné | LangGraph, CrewAI ou AutoGen pour itérer vite |
-| Action autonome à impact élevé | Oui, si evidence gates, identité et sandbox sont effectivement configurés | IdP, OPA/Cedar, Vault, SIEM, CI/CD et approbation humaine |
-| Hébergement de modèles local | Pour router et auditer | vLLM, Ollama, LM Studio, NIM ou infrastructure GPU |
-| Observabilité de production | Pour relier la trace à la promotion | OpenTelemetry, Datadog, Grafana, Honeycomb, Langfuse ou LangSmith |
+| Agent modifiant dépôt/config | Oui, état/isolation/preuve/promotion | GitHub/GitLab, CI/CD, sandbox durci, revue humaine |
+| Assistant de code en IDE | Comme gouverneur de tools/effets | Copilot, Cursor, Windsurf, Cline, Continue |
+| Workflow données planifié/massif | Pour décisions agentiques dans étapes | Temporal, Airflow, Prefect, Dagster, Argo, Flyte |
+| RAG très grande échelle | Pour provenance et règles d'usage | Qdrant, Weaviate, Pinecone, Milvus, Elasticsearch, Neo4j |
+| Multi-agent de recherche peu risqué | Possible, souvent surdimensionné | LangGraph, CrewAI, AutoGen, Agent Framework |
+| Action autonome à impact élevé | Oui si gates/identité/sandbox configurés | IdP, OPA/Cedar, Vault, SIEM, CI/CD, approbation humaine |
+| Parc fournisseurs large | Pour router/auditer sous budget | LiteLLM, Portkey, OpenRouter + Ollama/vLLM/NIM |
+| Optimisation prompts/params | Sous contrainte budget + gate | DSPy, Optuna, Ray Tune ; EvoAgentX en recherche seule |
+| Observabilité prod | Pour relier trace à promotion | OTel, Datadog, Langfuse, LangSmith, Phoenix |
 
 ## 5. Limites et critères d'évaluation
 
-Avant tout choix, évaluer les concurrents et GenOS sur le même scénario reproductible :
+Scénario reproductible commun : action avec outil externe en permission minimale ; preuve fonctionnelle attendue ; panne modèle/réseau/worker ; fork concurrent + promotion/rejet ; audit identité/modèle servi/outil/entrées/sorties/coûts/approbations ; restauration montrant limites du rejeu externe.
 
-1. une action agentique avec outil externe et permission minimale ;
-2. une preuve fonctionnelle attendue, pas seulement un code de succès ;
-3. une défaillance du modèle, du réseau ou du worker ;
-4. un fork concurrent puis une décision de promotion ou de rejet ;
-5. un audit montrant identité, modèle réellement servi, outil, entrée, sortie, coûts et approbations ;
-6. une restauration qui démontre les limites du rejeu lorsque des dépendances externes ne sont pas capturées.
-
-Les points à vérifier particulièrement pour GenOS sont la maturité effective de chaque primitive, la présence de l'adaptateur de sandbox/déploiement attendu, l'activation des stratégies expérimentales et la couverture d'intégration du flux ciblé. Les analogies biologiques décrivent des invariants de conception ; elles ne valent pas preuve de sécurité, de disponibilité ou de comportement émergent.
-
-## 6. Sources à maintenir
-
-Cette page doit être révisée à chaque évolution majeure des contrats ou du catalogue de providers. Les sources primaires à consulter sont :
-
-- [Documentation GenOS](../README.md) et les documents de domaine liés dans cet index ;
-- [Model Context Protocol](https://modelcontextprotocol.io/) ;
-- [LangGraph](https://langchain-ai.github.io/langgraph/), [CrewAI](https://docs.crewai.com/), [AutoGen](https://microsoft.github.io/autogen/) et [Semantic Kernel](https://learn.microsoft.com/semantic-kernel/) ;
-- [Temporal](https://docs.temporal.io/), [Dagster](https://docs.dagster.io/), [Prefect](https://docs.prefect.io/) et [Apache Airflow](https://airflow.apache.org/docs/) ;
-- [LiteLLM](https://docs.litellm.ai/), [Ollama](https://github.com/ollama/ollama), [vLLM](https://docs.vllm.ai/) et [OpenRouter](https://openrouter.ai/docs) ;
-- [Langfuse](https://langfuse.com/docs), [LangSmith](https://docs.smith.langchain.com/), [OpenTelemetry](https://opentelemetry.io/docs/) et [Arize Phoenix](https://docs.arize.com/phoenix) ;
-- [Open Policy Agent](https://www.openpolicyagent.org/docs/), [Keycloak](https://www.keycloak.org/documentation) et [HashiCorp Vault](https://developer.hashicorp.com/vault/docs) ;
-- [Qdrant](https://qdrant.tech/documentation/), [Weaviate](https://weaviate.io/developers/weaviate) et [Pinecone](https://docs.pinecone.io/).
-
-Les liens externes sont des points d'entrée, pas des preuves exhaustives. Toute allégation commerciale ou toute comparaison de coût, de sécurité ou de performance doit être revalidée sur les versions et offres effectivement utilisées.
-
-
----
-
-## Schémas Comparatifs et Différenciation Architecturale
-
-### 1. Positionnement Différentiel de GenOS face à l'État de l'Art
-
-```mermaid
-quadrantChart
-    title Positionnement Marché des Frameworks Agentiques
-    x-axis "Faible Rigueur Formelle" --> "Preuves & Vérité Formelle"
-    y-axis "Orchestration Standard" --> "Biomimétisme & Nosologie Systémique"
-    quadrant-1 "GenOS (Domaine Exclusif)"
-    quadrant-2 "Systèmes Biomimétiques Expérimentaux"
-    quadrant-3 "Frameworks LLM Classiques (LangChain, AutoGen)"
-    quadrant-4 "Moteurs d'Exécution de Code (Devin, SWE-Agent)"
-    "LangGraph": [0.35, 0.45]
-    "CrewAI": [0.25, 0.55]
-    "AutoGen": [0.30, 0.40]
-    "Devin": [0.70, 0.30]
-    "GenOS": [0.92, 0.95]
-```
-
-### 2. Matrice Comparative des Capacités Clés
+Points GenOS à vérifier : maturité effective par primitive, adaptateur sandbox/déploiement, opt-in expérimentaux, couverture du flux. Rappel audit 2026-09-19 : 341 déclarations de routes dont 110 à correspondance littérale en tests (pas de matrice route→contrat→test), 41 services proto ≠ RPC démontrés, `test:security` et `test:grpc` en échec au moment de l'audit (`CORS/ETIMEDOUT`, `AgentService.StartMission`), 172 outils runtime vs 27 définitions partagées, SSE sans garantie `evidence_barrier/complete`, job ≠ `exactly-once`, fixture blob 103→88 octets (14,56 %) non généralisable. Analogies biologiques = invariants de conception, pas preuves de sécurité/disponibilité/émergence.
 
 ```mermaid
 flowchart TD
-    subgraph Comparison["Différenciateurs Clés de GenOS"]
-        subgraph StandardFrameworks["Frameworks Classiques (LangGraph, CrewAI)"]
-            F1["Orchestration par Prompts & Heuristiques"]
-            F2["Absence de Théorie Nosologique"]
-            F3["Validation 'Succès Technique' (Exit Code 0)"]
-        end
-        subgraph GenOSAdvantages["Innovations Fondamentales GenOS"]
-            G1["Nosologie Computationnelle (28 pathologies modélisées)"]
-            G2["Épistémologie & Falsifiabilité des Preuves"]
-            G3["Workspaces Contrefactuels & Snapshots Déterministes"]
-            G4["Symbiose & Système Glial de Nettoyage Automatique"]
-        end
+    subgraph STD["Frameworks et plateformes standard"]
+        F1["Orchestration de flux et retries"]
+        F2["Mémoire et retrieval spécialisés"]
+        F3["Succès technique = fin sans erreur"]
     end
-
-    StandardFrameworks -.->|Évolution vers la rigueur formelle| GenOSAdvantages
+    subgraph GENOS["Apport GenOS vérifiable"]
+        G1["Branches isolées, budgets, quiescence"]
+        G2["Dossiers, falsification, provenance"]
+        G3["Gates avant promotion et merge"]
+    end
+    STD -.->|Complété par contrôle de décision| GENOS
 ```
+
+Positions relatives illustratives, non mesurées. Aucun score, aucun benchmark joint.
+
+## 6. Sources à maintenir
+
+Réviser à chaque évolution majeure des contrats ou du catalogue providers. Sources : documentation GenOS et index lié ; Model Context Protocol ; LangGraph, CrewAI, AutoGen/AG2, Microsoft Agent Framework, Semantic Kernel, OpenAI Agents SDK, LlamaIndex, Haystack ; Temporal, Airflow, Prefect, Dagster, Argo, Flyte, n8n, Camunda, Step Functions, Azure Durable ; Mem0, Letta, Zep/Graphiti, Pinecone, Weaviate, Qdrant, Milvus, pgvector, Neo4j ; LiteLLM, OpenRouter, Portkey, Ollama, vLLM, NIM ; DSPy, Optuna, Ray Tune ; Langfuse, LangSmith, Phoenix, Braintrust, Weave, OpenTelemetry, Datadog ; Keycloak, Auth0, OPA, Cedar, Vault, Lakera ; Docker, Kubernetes, gVisor, Firecracker, E2B, Daytona, Modal. Liens = points d'entrée, pas preuves. Toute allégation de coût/sécurité/performance se revalide sur versions et offres utilisées.
