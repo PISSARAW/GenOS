@@ -329,11 +329,24 @@ async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) 
   selfModel.applyToMission(normalizedMission, model, autonomyPlan);
   applySurvivalConstraints(autonomyPlan);
   autonomyPlan.selfModel = model;
+  const abstention = applyAbstentionToMission(normalizedMission, model);
   emit(agentId, 'SELF_MODEL_ASSESSED', 'SELF_REGULATE', model.selfAssessment.join(' '), {
     state: model.state,
     decisionPolicy: model.decisionPolicy,
-    knownWeaknesses: model.habits.knownWeaknesses
+    knownWeaknesses: model.habits.knownWeaknesses,
+    abstention
   }, 'info');
+}
+
+function applyAbstentionToMission(mission, model) {
+  try {
+    const abstention = require('./abstentionService');
+    const verdict = abstention.evaluateAbstention(model.state || {});
+    if (verdict.abstain && model.decisionPolicy) model.decisionPolicy.requireIndependentEvidence = true;
+    return abstention.applyAbstention(mission, verdict);
+  } catch (_) {
+    return { abstain: false, reason: 'unassessed' };
+  }
 }
 
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {

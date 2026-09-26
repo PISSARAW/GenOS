@@ -102,6 +102,11 @@ function buildLeaseHint(isWorker, effectiveLease) {
   return isWorker && effectiveLease.length ? `[LEASE] Tools: ${effectiveLease.join(', ')}.` : '';
 }
 
+function buildAbstentionHint(mission) {
+  if (!mission || !mission.abstentionRecommended) return '';
+  return `[ABSTENTION]\nCalibration requires abstention over confabulation (${mission.abstentionRecommended.reason}). If evidence is insufficient, return no_answer with method and examined states instead of an unverified claim.`;
+}
+
 function buildNonInteractiveHint(executionPolicy) {
   if (!executionPolicy || executionPolicy.nonInteractive !== true) return '';
   return `[NON-INTERACTIVE]\nNON-INTERACTIVE MODE: Do not ask for user confirmation. Execute autonomously using the available tools and report progress via genos_report_progress.`;
@@ -181,6 +186,7 @@ function buildAgentRuntimePrompt(ctx) {
     buildParasitismHint(params.isWorker, params.autonomyPlan),
     buildSilenceBlock(params.isWorker, params.executionPolicy),
     buildLeaseHint(params.isWorker, effectiveLease),
+    buildAbstentionHint(params.mission),
     buildNonInteractiveHint(params.executionPolicy),
     buildFileEditHint(params.isWorker, params.allowFileEdits),
     buildCommandHint(params.isWorker, params.allowedCommands),
