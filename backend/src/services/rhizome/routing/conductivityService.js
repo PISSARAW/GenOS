@@ -2,6 +2,13 @@
 
 const MAX_CONDUCTIVITY = 1;
 
+function edgeCongestion(edge) {
+  const flow = Math.min(1, edge.trailState.verifiedFlow / 100);
+  const repellent = Math.min(1, edge.trailState.negative / 100);
+  const traffic = flow + repellent;
+  return Number(Math.min(1, traffic).toFixed(4));
+}
+
 function nextConductivity(edge, settings) {
   const flow = Math.min(1, edge.trailState.verifiedFlow / 100);
   const repellent = Math.min(1, edge.trailState.negative / 100);
@@ -9,13 +16,10 @@ function nextConductivity(edge, settings) {
   return Number(Math.max(0, Math.min(MAX_CONDUCTIVITY, value)).toFixed(4));
 }
 
-function updateEdge(edge, settings) {
+function buildEdgeUpdate(edge, settings) {
   const conductivity = nextConductivity(edge, settings);
-  return {
-    ...edge,
-    conductivity,
-    trailState: { ...edge.trailState, verifiedFlow: 0 }
-  };
+  const congestion = edgeCongestion(edge);
+  return { edgeId: edge.edgeId, conductivity, congestion, verifiedFlow: edge.trailState.verifiedFlow };
 }
 
 function resolveSettings(input) {
@@ -40,10 +44,19 @@ function resolveSettings(input) {
 
 function step(input) {
   const settings = resolveSettings(input);
-  const edges = input.session.edges.map((edge) => updateEdge(edge, settings));
+  const updates = input.session.edges.map((edge) => buildEdgeUpdate(edge, settings));
+  const congestion = updates.map((update) => ({ edgeId: update.edgeId, congestion: update.congestion }));
+  input.session.edges = input.session.edges.map((prev) => {
+    const update = updates.find((u) => u.edgeId === prev.edgeId);
+    return update ? { ...prev, conductivity: update.conductivity, trailState: { ...prev.trailState, verifiedFlow: 0 } } : prev;
+  });
   input.session.graphVersion += 1;
-  input.session.edges = edges;
-  return { graphVersion: input.session.graphVersion, edges: edges.map((edge) => ({ edgeId: edge.edgeId, conductivity: edge.conductivity })), settings };
+  return {
+    graphVersion: input.session.graphVersion,
+    edges: updates.map((update) => ({ edgeId: update.edgeId, conductivity: update.conductivity })),
+    congestion,
+    settings
+  };
 }
 
 module.exports = { step, nextConductivity, resolveSettings };

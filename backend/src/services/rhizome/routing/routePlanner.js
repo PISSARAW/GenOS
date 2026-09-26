@@ -45,12 +45,22 @@ function buildAlternatives(input) {
   const { paths, nodes, need, policy } = input;
   const byId = new Map(nodes.map((node) => [node.nodeId, node]));
   const topology = topologyStats(input.session, nodes, policy);
-  return paths.map((path) => routeCandidate({ path, byId, need, policy, topology }))
+  const lineageEdgeIds = lineageEdgeSet(input.session);
+  return paths.map((path) => routeCandidate({ path, byId, need, policy, topology, lineageEdgeIds }))
     .filter(Boolean).sort((left, right) => right.utility - left.utility || left.routeId.localeCompare(right.routeId));
 }
 
+function lineageEdgeSet(session) {
+  if (!session.routeLineage || !session.routeLineage.length) return null;
+  const set = new Set();
+  for (const entry of session.routeLineage) {
+    if (Array.isArray(entry.edgeIds)) entry.edgeIds.forEach((id) => set.add(id));
+  }
+  return set.size ? set : null;
+}
+
 function routeCandidate(input) {
-  const { path, byId, need, policy, topology } = input;
+  const { path, byId, need, policy, topology, lineageEdgeIds } = input;
   const provider = byId.get(path.nodeIds[path.nodeIds.length - 1]);
   if (!provider || !pathAllowed({ path, byId, need, policy, provider })) return null;
   const bonus = (policy.preferShortPaths ? 1 / (1 + path.edges.length) : 0) + hubBonus(path, topology);
@@ -58,7 +68,7 @@ function routeCandidate(input) {
     routeId: `route:${need.needId}:${path.edges.map((edge) => edge.edgeId).join('/') || provider.nodeId}`,
     needId: need.needId, capability: need.capability, nodeIds: path.nodeIds,
     edgeIds: path.edges.map((edge) => edge.edgeId), failureDomains: routeFailureDomains(path, byId),
-    utility: routeUtility({ path, provider, policy, bonus }),
+    utility: routeUtility({ path, provider, policy, bonus, lineageEdgeIds }),
     cost: path.edges.reduce((sum, edge) => sum + edge.cost, provider.cost),
     latency: path.edges.reduce((sum, edge) => sum + edge.latency, provider.latency),
     reliability: path.edges.reduce((value, edge) => value * edge.reliability, provider.reliability),
@@ -74,9 +84,9 @@ function pathAllowed(input) {
 }
 
 function routeUtility(input) {
-  const { path, provider, policy, bonus } = input;
+  const { path, provider, policy, bonus, lineageEdgeIds } = input;
   const utility = policy.objectiveWeights || policy.curiosityWeight
-    ? scoring.objectiveScore(path, provider, { weights: { ...(policy.objectiveWeights || {}), curiosity: policy.curiosityWeight }, now: policy.now })
+    ? scoring.objectiveScore(path, provider, { weights: { ...(policy.objectiveWeights || {}), curiosity: policy.curiosityWeight }, now: policy.now, lineageEdgeIds })
     : scoring.routeScore(path, provider);
   return utility + bonus;
 }

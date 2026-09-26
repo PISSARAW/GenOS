@@ -12,8 +12,8 @@ function routeScore(route, provider) {
 }
 
 function objectiveScore(route, provider, options = {}) {
-  const { weights = {}, now = Date.now() } = options;
-  const metrics = routeMetrics(route, provider, now);
+  const { weights = {}, now = Date.now(), lineageEdgeIds } = options;
+  const metrics = routeMetrics(route, provider, { now, lineageEdgeIds });
   return (weights.latency || 0) / (1 + metrics.latency / 10000)
     + (weights.cost || 0) / (1 + metrics.cost / 100)
     + (weights.risk || 0) * metrics.reliability + (weights.trust || 0) * metrics.trust
@@ -21,14 +21,16 @@ function objectiveScore(route, provider, options = {}) {
     + (weights.congestion || 0) * metrics.congestion;
 }
 
-function routeMetrics(route, provider, now) {
+function routeMetrics(route, provider, options) {
+  const { now = Date.now(), lineageEdgeIds } = options || {};
+  const lineageSet = lineageEdgeIds instanceof Set ? lineageEdgeIds : null;
   return {
     reliability: route.edges.reduce((value, edge) => value * edge.reliability, provider.reliability),
     cost: route.edges.reduce((sum, edge) => sum + edge.cost, provider.cost),
     latency: route.edges.reduce((sum, edge) => sum + edge.latency, provider.latency),
     trust: average(route.edges, (edge) => edge.evidenceQuality),
     freshness: average(route.edges, (edge) => freshnessScore(edge, now)),
-    novelty: average(route.edges, noveltyScore),
+    novelty: average(route.edges, (edge) => noveltyScore(edge, lineageSet)),
     congestion: average(route.edges, (edge) => 1 / (1 + edge.trailState.verifiedFlow))
   };
 }
