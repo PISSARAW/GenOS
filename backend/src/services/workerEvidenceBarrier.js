@@ -247,12 +247,26 @@ async function attachProbeVerdicts(ctx, dossiers) {
   } catch (_) {}
 }
 
+async function attachReconstructions(ctx, dossiers) {
+  try {
+    const reconstruction = require('./reportReconstructionService');
+    const factual = {};
+    for (const dossier of dossiers || []) {
+      const workerId = dossier && (dossier.workerId || dossier.agentId);
+      if (!workerId) continue;
+      factual[workerId] = await reconstruction.reconstruct(ctx.db, workerId, {});
+    }
+    if (ctx.autonomyPlan && Object.keys(factual).length) ctx.autonomyPlan.factualReports = factual;
+  } catch (_) {}
+}
+
 async function finishSatisfiedBarrier(ctx) {
   const dossiers = loadDossiers({ agentId: ctx.agentId, workers: ctx.workers });
   validateWorkerDossiers(dossiers, ctx.workers, { contract: readContract({ contractRecord: ctx.contractRecord }) });
   await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await attachCounterfactualScores(ctx, dossiers);
   await attachProbeVerdicts(ctx, dossiers);
+  await attachReconstructions(ctx, dossiers);
   await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({
