@@ -225,10 +225,25 @@ async function finishPartialBarrier(ctx) {
   });
 }
 
+async function attachCounterfactualScores(ctx, dossiers) {
+  try {
+    const rollout = require('./counterfactualRolloutService');
+    const scored = await rollout.scoreBranches({
+      db: ctx.db,
+      orchestratorId: ctx.agentId,
+      rolloutId: ctx.autonomyPlan?.trinity?.missionId || null,
+      workers: ctx.workers || [],
+      dossiers
+    });
+    if (ctx.autonomyPlan && ctx.autonomyPlan.trinity) ctx.autonomyPlan.trinity.counterfactual = scored;
+  } catch (_) {}
+}
+
 async function finishSatisfiedBarrier(ctx) {
   const dossiers = loadDossiers({ agentId: ctx.agentId, workers: ctx.workers });
   validateWorkerDossiers(dossiers, ctx.workers, { contract: readContract({ contractRecord: ctx.contractRecord }) });
   await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
+  await attachCounterfactualScores(ctx, dossiers);
   await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({

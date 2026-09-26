@@ -73,6 +73,26 @@ async function persistTrinityExperiment(db, input) {
   });
 }
 
+async function tagCounterfactualBranches(db, orchestratorId, missionId, workers, members) {
+  try {
+    const rollout = require('../counterfactualRolloutService');
+    await rollout.planRollout({
+      db,
+      orchestratorId,
+      missionId,
+      candidates: workers.map((worker, index) => {
+        const member = (members || [])[index] || {};
+        return {
+          branchId: `${missionId}_world_${index + 1}`,
+          actionId: worker.agentId,
+          action: member.role || worker.role || 'world',
+          hypothesis: member.strategy || member.chamber || null
+        };
+      })
+    });
+  } catch (_) {}
+}
+
 async function launchTrinityWorlds(ctx, autonomousWorkers) {
   const { db, agentId, normalizedMission, autonomyPlan } = ctx;
   if (!(autonomyPlan.trinity?.activated && autonomousWorkers.length)) return;
@@ -85,6 +105,7 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
   const trinityMissionId = `trinity_${agentId}_${executionRunId}`;
   autonomyPlan.trinity.missionId = trinityMissionId;
   autonomyPlan.trinity.experimentId = trinityMissionId;
+  await tagCounterfactualBranches(db, agentId, trinityMissionId, autonomousWorkers, autonomyPlan.trinity.members);
   await persistTrinityExperiment(db, {
     trinityMissionId, snapshotHashes, autonomyPlan, normalizedMission, autonomousWorkers,
     budgetPolicy: trinityBudgetPolicy(autonomyPlan, normalizedMission)
