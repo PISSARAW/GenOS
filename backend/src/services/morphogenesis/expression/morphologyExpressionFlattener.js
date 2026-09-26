@@ -86,7 +86,8 @@ function childCountFor(expr) {
   if (expr.kind === 'GATE') return 3;
   if (expr.kind === 'WRAP') return 1;
   if (expr.kind === 'BRIDGE') return 2;
-  if (Array.isArray(expr.children)) return expr.children.length;
+  if (expr.kind === 'FEDERATE' && Array.isArray(expr.members)) return expr.members.length;
+  if (Array.isArray(expr.children) && expr.children.length > 0) return expr.children.length;
   if (Array.isArray(expr.members)) return expr.members.length;
   return 0;
 }

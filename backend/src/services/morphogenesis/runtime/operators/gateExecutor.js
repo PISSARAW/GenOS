@@ -1,7 +1,35 @@
 'use strict';
 
 const { BaseExecutor } = require('./baseExecutor');
-const { runGate } = require('../../composition/compositionRuntime');
+
+function confidenceOf(output) {
+  if (typeof output === 'boolean') return output ? 1 : 0;
+  if (output && typeof output.confidence === 'number') return output.confidence;
+  if (output && typeof output.score === 'number') return output.score;
+  return 0.5;
+}
+
+function observationsOf(output) {
+  if (!output || typeof output !== 'object') return { value: output };
+  return { keys: Object.keys(output), confidence: confidenceOf(output) };
+}
+
+function decideBranch(conditionMet, thenNode, elseNode) {
+  return conditionMet
+    ? { selected: thenNode, rejected: elseNode, name: 'then' }
+    : { selected: elseNode, rejected: thenNode, name: 'else' };
+}
+
+function reasonOf(node, branchName) {
+  if (node.condition && node.condition.reason) return node.condition.reason;
+  return `condition evaluated, selected ${branchName} branch`;
+}
+
+function collectResult(parent, child) {
+  parent.receipts.push(...child.receipts);
+  parent.evidence.push(...child.receipts);
+  parent.evidence.push(...child.evidence);
+}
 
 class GateExecutor extends BaseExecutor {
   async executeNode(node, graph, context) {
@@ -13,28 +41,28 @@ class GateExecutor extends BaseExecutor {
     const conditionExecutor = this.runtime.getExecutorForNode(conditionNode);
     if (!conditionExecutor) throw new Error(`No executor for condition kind: ${conditionNode.kind}`);
 
-    const conditionResult = await conditionExecutor.execute(conditionNode, graph, context);
-    context.receipts.push(...conditionResult.context.receipts);
-    context.evidence.push(...conditionResult.context.receipts);
-    context.evidence.push(...conditionResult.context.evidence);
+    const conditionContext = { ...context, evidence: [], receipts: [] };
+    const conditionResult = await conditionExecutor.execute(conditionNode, graph, conditionContext);
+    collectResult(context, conditionResult.context);
 
     const conditionMet = this.evaluateCondition(conditionResult.output, node);
-    const branchNode = conditionMet ? thenNode : elseNode;
-    const branchName = conditionMet ? 'then' : 'else';
+    const decision = decideBranch(conditionMet, thenNode, elseNode);
 
-    const branchExecutor = this.runtime.getExecutorForNode(branchNode);
-    if (!branchExecutor) throw new Error(`No executor for branch kind: ${branchNode.kind}`);
+    const branchExecutor = this.runtime.getExecutorForNode(decision.selected);
+    if (!branchExecutor) throw new Error(`No executor for branch kind: ${decision.selected.kind}`);
 
-    const branchContext = { ...context, input: conditionResult.output };
-    const branchResult = await branchExecutor.execute(branchNode, graph, branchContext);
-    context.receipts.push(...branchResult.context.receipts);
-    context.evidence.push(...branchResult.context.receipts);
-    context.evidence.push(...branchResult.context.evidence);
+    const branchContext = { ...context, input: conditionResult.output, evidence: [], receipts: [] };
+    const branchResult = await branchExecutor.execute(decision.selected, graph, branchContext);
+    collectResult(context, branchResult.context);
 
     const receipt = this.createReceipt(node, {
       condition: conditionResult.output,
-      conditionMet,
-      selectedBranch: branchName,
+      observations: observationsOf(conditionResult.output),
+      confidence: confidenceOf(conditionResult.output),
+      selectedBranch: decision.name,
+      selectedNodeId: decision.selected.nodeId,
+      rejectedNodeId: decision.rejected.nodeId,
+      reason: reasonOf(node, decision.name),
       branchOutput: branchResult.output
     });
 

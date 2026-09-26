@@ -1,65 +1,76 @@
 'use strict';
 
 const { BaseExecutor } = require('./baseExecutor');
-const { runSequence } = require('../../composition/compositionRuntime');
+
+function stepReceipt(step, child, result) {
+  return { nodeId: child.nodeId, topology: child.topology, status: result.context.status, receipt: result.receipt };
+}
+
+function blockedReceipt(step, child, reason) {
+  return { nodeId: child.nodeId, topology: child.topology, status: 'blocked', reason };
+}
+
+function gateBlocked(output, policy) {
+  if (!output) return true;
+  if (policy.minConfidence && output.confidence < policy.minConfidence) return true;
+  if (policy.requiredClaims && !hasClaims(output, policy)) return true;
+  return false;
+}
+
+function hasClaims(output, policy) {
+  return policy.requiredClaims.every((claim) => output.claims && output.claims.includes(claim));
+}
+
+function collectStep(parent, child) {
+  parent.receipts.push(...child.receipts);
+  parent.evidence.push(...child.receipts);
+  parent.evidence.push(...child.evidence);
+}
+
+function advanceStep(parent, result) {
+  parent.input = result.output;
+  parent.state = { ...parent.state, ...result.context.state };
+  parent.budget = result.context.budget;
+}
+
+function collectInto(parent, child) {
+  parent.receipts.push(...child.receipts);
+  parent.evidence.push(...child.evidence);
+}
 
 class SequenceExecutor extends BaseExecutor {
   async executeNode(node, graph, context) {
     const children = this.getChildren(node, graph);
     if (children.length === 0) throw new Error('SEQUENCE requires at least 1 child');
 
-    const gates = children.map(child => child.evidencePolicy ? this.createGateFn(child.evidencePolicy) : null);
+    const currentContext = { ...context, evidence: [], receipts: [] };
+    const steps = [];
 
-    const currentContext = { ...context };
-    const results = [];
-
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
-
-      if (gates[i]) {
-        const gateResult = await gates[i](currentContext, results);
-        if (!gateResult) {
-          results.push({ skipped: true, reason: 'gate rejected' });
-          continue;
-        }
-      }
-
-      const executor = this.runtime.getExecutorForNode(child);
-      if (!executor) throw new Error(`No executor for child kind: ${child.kind}`);
-
-      const result = await executor.execute(child, graph, currentContext);
-      currentContext.receipts.push(...result.context.receipts);
-      currentContext.evidence.push(...result.context.receipts);
-      currentContext.evidence.push(...result.context.evidence);
-      results.push(result);
-
-      currentContext.input = result.output;
-      currentContext.state = { ...currentContext.state, ...result.context.state };
-      currentContext.budget = result.context.budget;
+    for (let index = 0; index < children.length; index += 1) {
+      const child = children[index];
+      const step = await this.runStep(child, graph, currentContext, index);
+      steps.push(step.receipt);
+      if (step.blocked) break;
     }
 
-    const lastResult = results[results.length - 1];
-    const receipt = this.createReceipt(node, { steps: results.map(r => r.receipt) });
+    const lastResult = steps.length > 0 ? steps[steps.length - 1] : null;
+    const receipt = this.createReceipt(node, { steps, blocked: steps.some((step) => step.status === 'blocked') });
+    collectInto(context, currentContext);
 
-    return { output: lastResult?.output, receipt, state: currentContext.state };
+    return { output: lastResult && lastResult.output, receipt, state: currentContext.state };
   }
 
-  createGateFn(policy) {
-    return async (context, results) => {
-      if (!policy.required) return true;
-      const lastResult = results[results.length - 1];
-      if (!lastResult) return false;
-      return this.evaluateEvidence(lastResult.output, policy);
-    };
-  }
-
-  evaluateEvidence(output, policy) {
-    if (!output) return false;
-    if (policy.minConfidence && output.confidence < policy.minConfidence) return false;
-    if (policy.requiredClaims) {
-      return policy.requiredClaims.every(claim => output.claims?.includes(claim));
+  async runStep(child, graph, currentContext, index) {
+    const executor = this.runtime.getExecutorForNode(child);
+    if (!executor) throw new Error(`No executor for child kind: ${child.kind}`);
+    const result = await executor.execute(child, graph, currentContext);
+    collectStep(currentContext, result.context);
+    const policy = child.evidencePolicy;
+    if (policy && policy.required && gateBlocked(result.output, policy)) {
+      return { receipt: blockedReceipt(index, child, 'evidence gate rejected'), blocked: true };
     }
-    return true;
+    advanceStep(currentContext, result);
+    return { receipt: { ...stepReceipt(index, child, result), output: result.output }, blocked: false, output: result.output };
   }
 }
 

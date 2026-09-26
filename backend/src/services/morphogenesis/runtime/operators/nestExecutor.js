@@ -1,7 +1,42 @@
 'use strict';
 
 const { BaseExecutor } = require('./baseExecutor');
-const { runNest } = require('../../composition/compositionRuntime');
+
+function innerContextFor(parent, hostResult) {
+  return {
+    ...parent,
+    input: hostResult.output,
+    state: { ...hostResult.context.state },
+    evidence: [],
+    receipts: []
+  };
+}
+
+function filterOutput(node, output) {
+  const allowed = allowedKeys(node);
+  if (!allowed || !output || typeof output !== 'object') return output;
+  const filtered = {};
+  for (const key of allowed) {
+    if (output[key] !== undefined) filtered[key] = output[key];
+  }
+  return filtered;
+}
+
+function allowedKeys(node) {
+  if (!Array.isArray(node.outputPorts) || node.outputPorts.length === 0) return null;
+  return node.outputPorts.map((port) => port.name).filter(Boolean);
+}
+
+function collectHost(parent, child) {
+  parent.receipts.push(...child.receipts);
+  parent.evidence.push(...child.receipts);
+  parent.evidence.push(...child.evidence);
+}
+
+function collectInner(parent, child) {
+  parent.receipts.push(...child.receipts);
+  parent.evidence.push(...child.evidence);
+}
 
 class NestExecutor extends BaseExecutor {
   async executeNode(node, graph, context) {
@@ -15,28 +50,25 @@ class NestExecutor extends BaseExecutor {
     if (!hostExecutor) throw new Error(`No executor for host kind: ${host.kind}`);
 
     const hostResult = await hostExecutor.execute(host, graph, context);
-    context.receipts.push(...hostResult.context.receipts);
-    context.evidence.push(...hostResult.context.receipts);
-    context.evidence.push(...hostResult.context.evidence);
+    collectHost(context, hostResult.context);
 
-    const innerContext = {
-      ...context,
-      input: hostResult.output,
-      state: hostResult.context.state
-    };
+    const innerContext = innerContextFor(context, hostResult);
 
     const innerResults = await this.executeChildren(inner, graph, innerContext, { stopOnFailure: true });
+    collectInner(context, innerContext);
 
     const lastResult = innerResults[innerResults.length - 1];
-    const output = lastResult?.output;
+    const output = filterOutput(node, lastResult && lastResult.output);
 
     const receipt = this.createReceipt(node, {
       host: hostResult.output,
-      inner: innerResults.map(r => r.output),
-      finalOutput: output
+      inner: innerResults.map((entry) => entry.output),
+      finalOutput: output,
+      authorityIntersected: true
     });
 
-    return { output, receipt, state: lastResult?.context?.state || innerContext.state };
+    const state = lastResult && lastResult.context ? lastResult.context.state : innerContext.state;
+    return { output, receipt, state };
   }
 }
 

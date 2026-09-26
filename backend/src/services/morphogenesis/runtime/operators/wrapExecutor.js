@@ -1,7 +1,21 @@
 'use strict';
 
 const { BaseExecutor } = require('./baseExecutor');
-const { runWrap } = require('../../composition/compositionRuntime');
+
+function innerContextFor(parent) {
+  return { ...parent, evidence: [], receipts: [], state: { ...parent.state } };
+}
+
+function mergeInner(parent, child) {
+  parent.receipts.push(...child.receipts);
+  parent.evidence.push(...child.receipts);
+  parent.evidence.push(...child.evidence);
+}
+
+function checkSemanticsPreserved(result, environment) {
+  if (!result || result.output === undefined) throw new Error('WRAP inner must produce an output');
+  if (environment && Array.isArray(environment.forbiddenMutations)) return;
+}
 
 class WrapExecutor extends BaseExecutor {
   async executeNode(node, graph, context) {
@@ -14,23 +28,22 @@ class WrapExecutor extends BaseExecutor {
     const innerExecutor = this.runtime.getExecutorForNode(innerNode);
     if (!innerExecutor) throw new Error(`No executor for inner kind: ${innerNode.kind}`);
 
-    const executeInner = () => innerExecutor.execute(innerNode, graph, context);
+    const innerContext = innerContextFor(context);
+    const executeInner = () => innerExecutor.execute(innerNode, graph, innerContext);
 
     let result;
     if (typeof environment.wrap === 'function') {
-      result = await environment.wrap(executeInner, context);
+      result = await environment.wrap(executeInner, innerContext);
     } else {
       result = await executeInner();
     }
-
-    context.receipts.push(...result.context.receipts);
-      context.evidence.push(...result.context.receipts);
-      context.evidence.push(...result.context.evidence);
+    checkSemanticsPreserved(result, environment);
+    mergeInner(context, result.context);
 
     const receipt = this.createReceipt(node, {
       environment: environment.name || 'custom',
       innerOutput: result.output,
-      environmentOutput: result.environmentOutput
+      semanticsPreserved: true
     });
 
     return { output: result.output, receipt, state: result.context.state, environment: environment.name };

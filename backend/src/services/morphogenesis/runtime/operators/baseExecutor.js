@@ -15,6 +15,20 @@ function collectChildOutputs(parent, child) {
   if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
 }
 
+function capBudgetToNode(childContext, node) {
+  const cap = node && node.budget;
+  if (!cap || typeof cap !== 'object') return;
+  for (const key of Object.keys(cap)) {
+    const limit = cap[key];
+    const current = childContext.budget && childContext.budget[key];
+    if (Number.isFinite(limit) && Number.isFinite(current)) {
+      childContext.budget[key] = Math.min(current, limit);
+    } else if (Number.isFinite(limit) && current === undefined) {
+      childContext.budget[key] = limit;
+    }
+  }
+}
+
 class BaseExecutor {
   constructor(runtime) {
     this.runtime = runtime;
@@ -26,6 +40,7 @@ class BaseExecutor {
     }
 
     const childContext = createChildContext(context, node);
+    capBudgetToNode(childContext, node);
     childContext.status = 'running';
 
     try {

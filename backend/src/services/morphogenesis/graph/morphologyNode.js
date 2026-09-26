@@ -59,7 +59,13 @@ function createMorphologyNode(input = {}) {
     lifecycle: valueOr(input.lifecycle, 'proposed'),
     observables: Array.isArray(input.observables) ? [...input.observables] : [],
     localProfile: valueOr(input.localProfile, null),
-    health: valueOr(input.health, null)
+    health: valueOr(input.health, null),
+    environment: valueOr(input.environment, null),
+    adapter: valueOr(input.adapter, null),
+    condition: valueOr(input.condition, null),
+    quorum: valueOr(input.quorum, null),
+    selector: valueOr(input.selector, null),
+    mergeStrategy: valueOr(input.mergeStrategy, null)
   };
   if (!NODE_KINDS.includes(node.kind)) throw new Error(`Unsupported morphology node kind: ${node.kind}`);
   return node;

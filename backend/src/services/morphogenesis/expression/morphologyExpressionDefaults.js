@@ -39,8 +39,9 @@ function siblingCount(node) {
   if (node.kind === 'GATE') return 3;
   if (node.kind === 'WRAP') return 1;
   if (node.kind === 'BRIDGE') return 2;
-  if (Array.isArray(node.children)) return node.children.length;
-  if (Array.isArray(node.members)) return node.members.length;
+  if (node.kind === 'FEDERATE' && Array.isArray(node.members)) return node.members.length;
+  if (Array.isArray(node.children) && node.children.length > 0) return node.children.length;
+  if (Array.isArray(node.members) && node.members.length > 0) return node.members.length;
   return 0;
 }
 

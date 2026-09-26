@@ -14,36 +14,66 @@ class ParallelExecutor extends BaseExecutor {
     if (children.length === 0) throw new Error('PARALLEL requires at least 1 child');
 
     const budgets = divideBudget(context.budget, children.length);
-    const results = [];
+    const settled = await Promise.allSettled(children.map((child, index) => this.runBranch(child, graph, context, budgets[index])));
+    const joined = joinBranches(children, settled);
+    if (joined.failed.length > 0) throw branchFailure(joined.failed);
+    mergeJoined(context, settled);
+    const output = settled.map((entry) => entry.value.output);
+    const receipt = this.createReceipt(node, { barrier: 'join-all', branches: joined.branches });
 
-    await Promise.all(children.map(async (child, index) => {
-      const childContext = {
-        ...context,
-        budget: budgets[index],
-        state: { ...context.state },
-        evidence: [],
-        receipts: []
-      };
-
-      const executor = this.runtime.getExecutorForNode(child);
-      if (!executor) throw new Error(`No executor for child kind: ${child.kind}`);
-
-      const result = await executor.execute(child, graph, childContext);
-      context.receipts.push(...result.context.receipts);
-      context.evidence.push(...result.context.receipts);
-      context.evidence.push(...result.context.evidence);
-      results.push(result);
-    }));
-
-    const output = results.map(r => r.output);
-    const receipt = this.createReceipt(node, { branches: results.map(r => r.receipt) });
-
-    return { output, receipt, state: mergeStates(results.map(r => r.context.state)) };
+    return { output, receipt, state: mergeStates(settled.map((entry) => entry.value.context.state)) };
   }
+
+  async runBranch(child, graph, context, budget) {
+    const executor = this.runtime.getExecutorForNode(child);
+    if (!executor) throw new Error(`No executor for child kind: ${child.kind}`);
+    return executor.execute(child, graph, branchContext(context, budget));
+  }
+}
+
+function branchContext(context, budget) {
+  return {
+    ...context,
+    budget,
+    state: { ...context.state },
+    evidence: [],
+    receipts: [],
+    sharedResources: context.sharedResources || {}
+  };
 }
 
 function mergeStates(states) {
   return Object.assign({}, ...states.filter(Boolean));
+}
+
+function joinBranches(children, settled) {
+  const branches = settled.map((entry, index) => branchReceipt(children[index], entry));
+  const failed = branches.filter((branch) => branch.status !== 'completed');
+  return { branches, failed };
+}
+
+function branchReceipt(child, entry) {
+  if (entry.status === 'rejected') {
+    return { nodeId: child.nodeId, topology: child.topology, status: 'failed', error: errorMessage(entry.reason) };
+  }
+  return { nodeId: child.nodeId, topology: child.topology, status: 'completed', receipt: entry.value.receipt };
+}
+
+function errorMessage(reason) {
+  return reason && reason.message ? reason.message : String(reason);
+}
+
+function branchFailure(failed) {
+  return new Error(`PARALLEL join barrier failed: ${failed.map((branch) => branch.nodeId).join(', ')}`);
+}
+
+function mergeJoined(parent, settled) {
+  for (const entry of settled) {
+    if (entry.status !== 'fulfilled') continue;
+    parent.receipts.push(...entry.value.context.receipts);
+    parent.evidence.push(...entry.value.context.receipts);
+    parent.evidence.push(...entry.value.context.evidence);
+  }
 }
 
 module.exports = { ParallelExecutor };
