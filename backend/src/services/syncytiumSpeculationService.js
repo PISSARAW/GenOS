@@ -11,29 +11,60 @@ const router = require('./syncytium/consistency/coordinationRouter');
 
 function createSyncytiumSpeculationService(dependencies) {
   return {
-    create: (sessionId, request) => createBranch(sessionId, request, dependencies),
-    apply: (sessionId, request) => applyBranch(sessionId, request, dependencies),
-    compare: (sessionId, request) => compareBranch(sessionId, request, dependencies),
-    promote: (sessionId, request) => promoteBranch(sessionId, request, dependencies)
+    create: delegateCreate,
+    apply: delegateApply,
+    compare: delegateCompare,
+    promote: delegatePromote
   };
+
+  function delegateCreate(sessionId, request) { return createBranch(sessionId, request, dependencies); }
+  function delegateApply(sessionId, request) { return applyBranch(sessionId, request, dependencies); }
+  function delegateCompare(sessionId, request) { return compareBranch(sessionId, request, dependencies); }
+  function delegatePromote(sessionId, request) { return promoteBranch(sessionId, request, dependencies); }
 }
 
 async function createBranch(sessionId, request, dependencies) {
   return router.run({ coordinationRequired: true }, sessionId, async () => {
     const session = await dependencies.getSession(sessionId, request.options?.db);
     const branchId = String(request.branchId || '').trim();
-    if (!branchId) throw speculationError('SYNCYTIUM_BRANCH_INVALID', 'Speculative branch requires a branchId.');
-    if (session.speculativeBranches[branchId]) throw speculationError('SYNCYTIUM_BRANCH_EXISTS', `Branch '${branchId}' already exists.`);
-    const branch = {
-      branchId, status: 'OPEN', baseStateVersion: session.crdt.getSnapshot().totalOps,
-      baseFrontier: session.crdt.getCausalFrontier(), crdtState: session.crdt.serialize(), operations: [],
-      createdAtMs: Date.now()
-    };
+    assertValidBranchId(branchId);
+    assertBranchNotExists(session, branchId);
+    const maxOpenBranches = boundedLimit(request.maxOpenBranches, { fallback: 8, maximum: 64, name: 'maxOpenBranches' });
+    const maxOperations = boundedLimit(request.maxOperations, { fallback: 500, maximum: 10000, name: 'maxOperations' });
+    assertOpenBranchBudget(session, maxOpenBranches);
+    const parent = request.parentBranchId ? requireOpenBranch(session, request.parentBranchId) : null;
+    const baseRuntime = parent ? restoreBranch(parent) : session.crdt;
+    const branch = buildBranchRecord({ branchId, parent, session, maxOperations });
     session.speculativeBranches[branchId] = branch;
     session.pendingReplicaEvent = { type: 'SPECULATION_CREATED', branchId };
     await persistBranchChange({ session, options: request.options || {}, dependencies, rollback: () => delete session.speculativeBranches[branchId] });
     return branch;
   });
+}
+
+function assertValidBranchId(branchId) {
+  if (!branchId) throw speculationError('SYNCYTIUM_BRANCH_INVALID', 'Speculative branch requires a branchId.');
+}
+
+function assertBranchNotExists(session, branchId) {
+  if (session.speculativeBranches[branchId]) throw speculationError('SYNCYTIUM_BRANCH_EXISTS', `Branch '${branchId}' already exists.`);
+}
+
+function assertOpenBranchBudget(session, maxOpenBranches) {
+  const openBranches = Object.values(session.speculativeBranches).filter((item) => item.status === 'OPEN').length;
+  if (openBranches >= maxOpenBranches) throw speculationError('SYNCYTIUM_BRANCH_BUDGET_EXCEEDED', 'Open speculative branch budget is exhausted.');
+}
+
+function buildBranchRecord(config) {
+  const { branchId, parent, session, maxOperations } = config;
+  return {
+    branchId, status: 'OPEN', baseStateVersion: session.crdt.getSnapshot().totalOps,
+    parentBranchId: parent?.branchId || null, maxOperations,
+    baseFrontier: parent?.baseFrontier || session.crdt.getCausalFrontier(),
+    crdtState: parent ? parent.crdtState : session.crdt.serialize(),
+    operations: parent ? structuredClone(parent.operations) : [], ownOperationCount: 0,
+    createdAtMs: Date.now()
+  };
 }
 
 async function applyBranch(sessionId, request, dependencies) {
@@ -46,14 +77,24 @@ async function applyBranch(sessionId, request, dependencies) {
     const candidate = restoreBranch(branch);
     const admitted = schemaService.admitOperation(session.schema, operation).operation;
     if (candidate.hasOpId(admitted.opId)) return { branchId, duplicate: true, snapshot: candidate.getSnapshot() };
+    assertOperationBudget(branch);
     validateBranchOperation(session, candidate, admitted);
-    candidate.applyOp(admitted);
-    branch.crdtState = candidate.serialize();
-    branch.operations = [...branch.operations, candidate.getHistory().at(-1)];
+    applyAdmittedToCandidate(candidate, branch, admitted);
     session.pendingReplicaEvent = { type: 'SPECULATION_UPDATED', branchId, opId: admitted.opId };
     await persistBranchChange({ session, options, dependencies, rollback: () => Object.assign(branch, previous) });
     return { branchId, snapshot: candidate.getSnapshot(), operation: candidate.getHistory().at(-1) };
   });
+}
+
+function assertOperationBudget(branch) {
+  if ((branch.ownOperationCount || 0) >= (branch.maxOperations || 500)) throw speculationError('SYNCYTIUM_BRANCH_BUDGET_EXCEEDED', 'Speculative branch operation budget is exhausted.');
+}
+
+function applyAdmittedToCandidate(candidate, branch, admitted) {
+  candidate.applyOp(admitted);
+  branch.crdtState = candidate.serialize();
+  branch.operations = [...branch.operations, candidate.getHistory().at(-1)];
+  branch.ownOperationCount = (branch.ownOperationCount || 0) + 1;
 }
 
 async function compareBranch(sessionId, request, dependencies) {
@@ -62,7 +103,12 @@ async function compareBranch(sessionId, request, dependencies) {
   const branch = requireBranch(session, branchId);
   const simulated = restoreBranch(branch).getSnapshot();
   const current = session.crdt.getSnapshot();
-  return { branchId, baseStateVersion: branch.baseStateVersion, current, simulated, changedFields: changedFields(current.sharedFields, simulated.sharedFields) };
+  const changed = changedFields(current.sharedFields, simulated.sharedFields);
+  return { branchId, parentBranchId: branch.parentBranchId || null, baseStateVersion: branch.baseStateVersion,
+    operationCount: branch.operations.length, ownOperationCount: branch.ownOperationCount || branch.operations.length,
+    maxOperations: branch.maxOperations || 500,
+    current, simulated, changedFields: changed,
+    differential: { divergent: current.totalOps !== branch.baseStateVersion, changedFields: changed } };
 }
 
 async function promoteBranch(sessionId, request, dependencies) {
@@ -83,14 +129,19 @@ async function promoteBranch(sessionId, request, dependencies) {
     try {
       await dependencies.persist(options.db, session);
     } catch (error) {
-      session.crdt = previousCrdt;
-      Object.assign(branch, previousBranch);
-      session.pendingOperations = null;
-      session.pendingReplicaEvent = null;
+      rollbackPromotion(session, branch, { previousCrdt, previousBranch });
       throw error;
     }
     return { branchId, status: branch.status, operationIds: accepted.map((item) => item.opId), snapshot: candidate.getSnapshot() };
   });
+}
+
+function rollbackPromotion(session, branch, context) {
+  const { previousCrdt, previousBranch } = context;
+  session.crdt = previousCrdt;
+  Object.assign(branch, previousBranch);
+  session.pendingOperations = null;
+  session.pendingReplicaEvent = null;
 }
 
 function promoteOperations(session, candidate, operations) {
@@ -160,6 +211,15 @@ async function persistBranchChange(context) {
 function changedFields(left, right) {
   const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
   return [...keys].filter((key) => JSON.stringify(left[key]) !== JSON.stringify(right[key]));
+}
+
+function boundedLimit(value, config) {
+  const { fallback, maximum, name } = config;
+  const limit = value === undefined ? fallback : value;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > maximum) {
+    throw speculationError('SYNCYTIUM_BRANCH_INVALID', `${name} must be between 1 and ${maximum}.`);
+  }
+  return limit;
 }
 
 function speculationError(code, message) {

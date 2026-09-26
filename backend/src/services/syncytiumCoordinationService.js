@@ -1,11 +1,6 @@
 'use strict';
 
-/**
- * @file syncytiumCoordinationService.js
- * @description Syncytium coordination: a live CRDT shared state plus a
- * cytoplasm whose ionic fluxes drive the collective membrane potential.
- * Sessions are persisted so workers (separate processes) can apply operations.
- */
+// Syncytium coordination: live CRDT shared state + cytoplasm ionic fluxes.
 const syncytiumService = require('./syncytiumService');
 const { createSyncytiumCrdt } = require('./syncytiumCrdtService');
 const { createCytoplasm } = require('./syncytiumCytoplasmService');
@@ -26,10 +21,10 @@ const adaptiveSync = require('./syncytium/sync/adaptiveSyncService');
 const reflexSignals = require('./syncytium/reflex/reflexSignalService');
 const { createSessionHistoryService } = require('./syncytium/history/sessionHistoryService');
 const offlineMutation = require('./syncytium/replicas/offlineMutationService');
+const replicaRegistry = require('./syncytium/replicas/replicaRegistryService');
 const { createSyncytiumDiagnosticsService } = require('./syncytiumDiagnosticsService');
 const { createSyncytiumSpeculationService } = require('./syncytiumSpeculationService');
-const { createCodeVariantService } = require('./syncytium/variants/code/codeVariantService');
-const { createVariantFacade } = require('./syncytium/variants/variantFacade');
+const { createSyncytiumCodeFacade } = require('./syncytiumCodeFacade');
 
 const sessions = new Map();
 const DEFAULT_ORGANIZATION = 'memory_compilation';
@@ -41,6 +36,9 @@ function serialize(session) {
   return {
     mission: session.mission,
     recommended: session.recommended,
+    variantPolicy: session.variantPolicy,
+    variantSelection: session.variantSelection,
+    offlineAuthority: session.offlineAuthority,
     members: session.members,
     organization: session.organization,
     schema: session.schema,
@@ -70,6 +68,9 @@ function createRestoredSession(record, state, organization) {
     persisted: true,
     mission: state.mission || '',
     recommended: state.recommended === true,
+    variantPolicy: state.variantPolicy || null,
+    variantSelection: state.variantSelection || null,
+    offlineAuthority: replicaRegistry.normalizeOfflineAuthority(state.offlineAuthority),
     members: Array.isArray(state.members) ? state.members : [],
     organization,
     schema: schemaService.compile(state.schema),
@@ -148,6 +149,9 @@ async function createSession(mission, options = {}) {
     sessionId,
     mission: String(mission || ''),
     recommended: syncytiumService.analyzeMission(mission).recommended,
+    variantPolicy: options.variantPolicy || null,
+    variantSelection: options.variantSelection || null,
+    offlineAuthority: replicaRegistry.normalizeOfflineAuthority(options.offlineAuthority),
     members: syncytiumService.compose(mission),
     organization,
     domains: nuclearDomains.compile(options.nuclearDomains || options.domains),
@@ -365,16 +369,12 @@ const createSpeculativeBranch = (sessionId, request = {}) => speculation.create(
 const applySpeculativeOperation = (sessionId, request = {}) => speculation.apply(sessionId, request);
 const compareSpeculativeBranch = (sessionId, request = {}) => speculation.compare(sessionId, request);
 const promoteSpeculativeBranch = (sessionId, request = {}) => speculation.promote(sessionId, request);
-const codeVariant = createCodeVariantService({ createSession, applyOperation, snapshot });
-const createCodeSession = (mission, options = {}) => codeVariant.createSession(mission, options);
-const applyCodeChange = (sessionId, change, options = {}) => codeVariant.applyChange(sessionId, change, options);
-const recordCodeTestResult = (sessionId, result, options = {}) => codeVariant.recordTestResult(sessionId, result, options);
-const recordCodeBuildState = (sessionId, build, options = {}) => codeVariant.recordBuildState(sessionId, build, options);
-const codeSnapshot = (sessionId, options = {}) => codeVariant.snapshot(sessionId, options);
-const variantFacade = createVariantFacade({
-  createSession, applyOperation, applyTransaction, snapshot, createSnapshot, listSnapshots,
-  compactHistory, explain, localizeFaults, chooseRepairCandidates, repairInvariant,
-  inspectHistory: sessionHistory.inspectHistory, inspectConflicts: diagnostics.inspectConflicts
+const codeFacade = createSyncytiumCodeFacade({
+  createSession, applyOperation, snapshot, applyTransaction,
+  createSnapshot, listSnapshots, compactHistory,
+  explain, localizeFaults, chooseRepairCandidates, repairInvariant,
+  inspectHistory: sessionHistory.inspectHistory,
+  inspectConflicts: diagnostics.inspectConflicts
 });
 
 async function closeSession(sessionId, options = {}) {
@@ -383,16 +383,6 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-module.exports = {
-  createSession, applyOperation, applyTransaction, publishReflexSignal,
-  snapshot, createSnapshot, listSnapshots, compactHistory,
-  joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas,
-  partitionReplica, reconcileReplica,
-  explain, simulateWithout, simulateReplacing, localizeFaults,
-  repairInvariant,
-  chooseRepairCandidates,
-  createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch,
-  createCodeSession, applyCodeChange, recordCodeTestResult, recordCodeBuildState, codeSnapshot,
-  ...variantFacade,
-  assessConsistency, closeSession, isIonicFlux, rehydrate
-};
+const exported = { createSession, applyOperation, applyTransaction, publishReflexSignal, snapshot, createSnapshot, listSnapshots, compactHistory, joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas, partitionReplica, reconcileReplica, explain, simulateWithout, simulateReplacing, localizeFaults, repairInvariant, chooseRepairCandidates, createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch, ...codeFacade, assessConsistency, closeSession, isIonicFlux, rehydrate };
+Object.keys(exported).forEach((key) => { if (!exported[key]) delete exported[key]; });
+module.exports = exported;
