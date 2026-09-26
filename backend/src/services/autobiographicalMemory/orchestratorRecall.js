@@ -92,6 +92,15 @@ async function snapshotStagnation(db, agentId) {
   }
 }
 
+async function snapshotResurrection(db, agentId, stagnation) {
+  try {
+    if (!stagnation || stagnation.stagnant !== true) return null;
+    return await require('../hypothesisGenomeService').resurrectCandidate(db, agentId);
+  } catch (_) {
+    return null;
+  }
+}
+
 async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPlan }) {
   emitRecall({ agentId, eventType: 'AUTOBIOGRAPHICAL_RECALL_STARTED', detail: 'Autobiographical recall started before plan regulation.', payload: { missionId: buildSituation({ agentId, normalizedMission }).missionId } });
   try {
@@ -105,6 +114,7 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
     autonomyPlan.valenceDrives = await snapshotValence(db, agentId);
     autonomyPlan.causalIntegration = await snapshotCausal(db, agentId);
     autonomyPlan.stagnationSignal = await snapshotStagnation(db, agentId);
+    autonomyPlan.fossilResurrection = await snapshotResurrection(db, agentId, autonomyPlan.stagnationSignal);
     applyAdjustments(autonomyPlan, adjustments);
     normalizedMission.selfModelPolicy = autonomyPlan.selfModel?.decisionPolicy || normalizedMission.selfModelPolicy;
     const eventType = recall.episodes.length || recall.lessons.length
