@@ -211,7 +211,9 @@ async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
   return {
     ...composition, communityId: session.communityId, sessionRevision: constitution.committed.sessionRevision,
     questionClassification: classification, constitutionId: constitution.committed.constitutionId,
-    constitutionVersion: constitution.committed.version
+    constitutionVersion: constitution.committed.version,
+    variant: constitution.constitution.variant,
+    variantSelection: constitution.variantSelection
   };
 }
 
@@ -255,6 +257,7 @@ module.exports = {
   filterLocalEvidence: localEvidenceFilter.filter,
   setMemberQuarantine: quarantine.setStatus,
   selectBiocenoseVariant: variantPolicies.select,
+  recommendBiocenoseVariant: variantPolicies.recommend,
   recommendBiocenoseTransition: biocenoseMorphogenesisAdapter.recommend,
   runBiocenoseRound: biocenoseRuntime.runRound,
   summarizeBiocenoseBenchmark: benchmarkMetrics.summarize,

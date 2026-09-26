@@ -23,7 +23,11 @@ function buildConstitution(input) {
   });
   const semantics = semanticsFor(classification.questionType);
   const route = routeAggregationPolicy(classification.questionType);
-  const variant = variantPolicies.select(input.variant || input.overrides?.variant);
+  const selectedVariant = input.variant || input.overrides?.variant;
+  const recommendation = selectedVariant
+    ? { ...variantPolicies.select(selectedVariant), selection: { variant: selectedVariant, method: 'explicit', confidence: 1, reasons: ['EXPLICIT_VARIANT'] } }
+    : variantPolicies.recommend(input.question, classification.questionType);
+  const variant = recommendation;
   variantPolicies.assertCompatible(variant, classification.questionType);
   const base = defaultConstitution({ questionType: classification.questionType, roles: input.roles || [], semantics, route });
   const constitution = { ...base, ...(input.overrides || {}), questionType: classification.questionType, variant: variant.name };
@@ -31,7 +35,7 @@ function buildConstitution(input) {
     constitutionId: 'draft', communityId: input.communityId, version: 1,
     constitution, constitutionHash: 'draft'
   });
-  return { classification, semantics, route, constitution };
+  return { classification, semantics, route, constitution, variantSelection: recommendation.selection };
 }
 
 function defaultConstitution({ questionType, roles, semantics, route }) {

@@ -57,6 +57,23 @@ async function verifyConstitutionLifecycle() {
       'CONSTITUTION_COMMITTED', 'CONSTITUTION_VERSIONED'
     ]);
     assert.equal((await store.loadSession(db, prepared.communityId)).constitutionId, revised.constitutionId);
+    const automaticForecast = constitutionService.buildConstitution({
+      communityId: 'auto-forecast-community', question: 'Forecast the probability of next quarter demand.',
+      roles: ['forecaster']
+    });
+    assert.equal(automaticForecast.constitution.variant, 'forecasting_crowd');
+    assert.equal(automaticForecast.variantSelection.method, 'mission_signals');
+    const automaticSecurity = constitutionService.buildConstitution({
+      communityId: 'auto-security-community', question: 'Audit security threats and try to falsify this design.',
+      roles: ['reviewer']
+    });
+    assert.equal(automaticSecurity.constitution.variant, 'adversarial_assembly');
+    const partialExplicit = constitutionService.buildConstitution({
+      communityId: 'partial-community', question: 'Draft an argument graph.',
+      roles: ['reviewer'], variant: 'argumentation_community'
+    });
+    assert.equal(partialExplicit.constitution.variant, 'argumentation_community');
+    assert.equal(partialExplicit.variantSelection.method, 'explicit');
     const forecasting = constitutionService.buildConstitution({
       communityId: 'forecast-community', question: 'Estimate the probability of this failure.',
       roles: ['forecaster'], variant: 'forecasting_crowd'
