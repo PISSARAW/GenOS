@@ -59,6 +59,61 @@ async function run() {
     ]
   });
   assert.equal((await rhizome.routeToCapability(bridged.sessionId, { needId: 'bridge', capability: 'formal_proof' })).selected, true);
+
+  const exploratoryPolicy = variants.resolve('exploratory');
+  assert.equal(exploratoryPolicy.routing.curiosityWeight, 0.25);
+  assert.equal(exploratoryPolicy.pruning.enabled, false);
+  assert.equal(exploratoryPolicy.routing.maxHops, 6);
+
+  const growthPolicy = variants.resolve('growth');
+  assert.equal(growthPolicy.growth.threshold, 0);
+  assert.equal(growthPolicy.growth.growthReserveRatio, 0.5);
+  assert.equal(growthPolicy.pruning.enabled, false);
+
+  const diamond = {
+    nodes: [node('d-source', []), node('d-left', []), node('d-right', []), node('d-answer', ['deep_answer'])],
+    edges: [
+      { edgeId: 'd1', from: 'd-source', to: 'd-left', relation: 'ROUTES_TO', status: 'ACTIVE' },
+      { edgeId: 'd2', from: 'd-left', to: 'd-answer', relation: 'ROUTES_TO', status: 'ACTIVE' },
+      { edgeId: 'd3', from: 'd-source', to: 'd-right', relation: 'ROUTES_TO', status: 'ACTIVE' },
+      { edgeId: 'd4', from: 'd-right', to: 'd-answer', relation: 'ROUTES_TO', status: 'ACTIVE' }
+    ]
+  };
+  const resilient = await rhizome.composeRhizome('Tolerate route failures.', { ...diamond, variant: 'resilient' });
+  const resilientPolicy = variants.resolve('resilient');
+  assert.equal(resilientPolicy.resilience.alternatives, 4);
+  assert.equal(resilientPolicy.routing.edgeDisjointAlternatives, true);
+  const resilientRoute = await rhizome.routeToCapability(resilient.sessionId, { needId: 'deep', capability: 'deep_answer' });
+  assert.equal(resilientRoute.selected, true);
+  assert.ok(resilientRoute.alternatives.length >= 2);
+
+  const smallWorld = await rhizome.composeRhizome('Prefer short paths.', { ...diamond, variant: 'small_world' });
+  assert.equal(variants.resolve('small_world').routing.preferShortPaths, true);
+  assert.deepEqual(await rhizome.planSmallWorldShortcuts(smallWorld.sessionId), []);
+
+  const persistentLease = await rhizome.composeRhizome('Durable cross-mission network.', { ...diamond, variant: 'persistent' });
+  const lease = await rhizome.manageBranchLease(persistentLease.sessionId,
+    { action: 'acquire', leaseId: 'lease-1', branchId: 'branch-1', ownerId: 'owner-1', ttlMs: 60000 });
+  assert.equal(lease.lease.leaseId, 'lease-1');
+  assert.equal(lease.renewed, false);
+  const released = await rhizome.manageBranchLease(persistentLease.sessionId,
+    { action: 'release', leaseId: 'lease-1', branchId: 'branch-1', ownerId: 'owner-1' });
+  assert.equal(released.released, true);
+
+  const shortLived = await rhizome.composeRhizome('One-off disposable run.', { ...diamond, variant: 'ephemeral' });
+  assert.equal(await rhizome.getSessionFossil(shortLived.sessionId), null);
+  await rhizome.closeSession(shortLived.sessionId);
+  assert.equal((await rhizome.getSessionFossil(shortLived.sessionId)).contract, 'RhizomeEphemeralFossil/v1');
+
+  const proceduralPolicy = variants.resolve('procedural');
+  assert.equal(proceduralPolicy.propagation.requireLocalEvidence, true);
+  assert.equal(proceduralPolicy.propagation.requireCompatibilityTrials, true);
+  assert.equal(proceduralPolicy.propagation.requireCausalValidation, true);
+
+  const healingPolicy = variants.resolve('self_healing');
+  assert.equal(healingPolicy.resilience.automaticRepair, true);
+  assert.equal(healingPolicy.resilience.maxSelfRepairRounds, 5);
+  assert.equal(healingPolicy.resilience.alternatives, 4);
 }
 
 run().then(() => console.log('Rhizome variant checks: PASS')).catch((error) => {

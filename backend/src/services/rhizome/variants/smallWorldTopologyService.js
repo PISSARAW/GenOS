@@ -5,7 +5,7 @@ const graph = require('../graph/capabilityGraphService');
 const verifierReceipts = require('../../epistemicVerifierReceiptService');
 const connectivity = require('../analytics/connectivityService');
 const articulationPoints = require('../analytics/articulationPointService');
-const approximateBetweenness = require('../analytics/approximateBetweennessService');
+const { approximateBetweenness } = require('../analytics/approximateBetweennessService');
 
 const MONOCULTURE = {
   maxHubDegree: 4,

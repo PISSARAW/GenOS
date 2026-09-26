@@ -10,27 +10,24 @@ function repair(input) {
     : (input.session.variantPolicy?.resilience?.maxSelfRepairRounds != null
         ? Math.max(1, input.session.variantPolicy.resilience.maxSelfRepairRounds)
         : 1);
-  let excluded = new Set(failedEdgeIds);
-  let lastResult = null;
+  const excluded = new Set(failedEdgeIds);
+  const collected = [];
   for (let round = 1; round <= maxRounds; round++) {
     const result = alternatives.find({
       session: input.session, need: input.need, failedEdgeIds: [...excluded],
       policy
     });
-    lastResult = result;
-    if (result.selected) {
-      excluded = new Set([...excluded, ...result.route.edgeIds]);
-      continue;
-    }
-    break;
+    if (!result.selected) break;
+    collected.push(result.route);
+    result.route.edgeIds.forEach((edgeId) => excluded.add(edgeId));
   }
-  const result = lastResult || { selected: false, route: null, alternatives: [] };
+  const route = collected[0] || null;
   return {
-    repaired: result.selected,
-    reason: result.selected ? 'ALTERNATIVE_ROUTE_FOUND' : 'CAPABILITY_GAP_REMAINS',
-    excludedEdgeIds: [...excluded],
-    route: result.route,
-    alternatives: result.alternatives
+    repaired: Boolean(route),
+    reason: route ? 'ALTERNATIVE_ROUTE_FOUND' : 'CAPABILITY_GAP_REMAINS',
+    excludedEdgeIds: [...failedEdgeIds],
+    route,
+    alternatives: collected
   };
 }
 

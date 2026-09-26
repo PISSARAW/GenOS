@@ -5,10 +5,11 @@ const { normalizeCapabilityNode } = require('../contracts/capabilityNode');
 const verifierReceipts = require('../../epistemicVerifierReceiptService');
 
 function evidenceDigest(node, proof) {
+  const context = node.localContext || {};
   const subject = [node.nodeId, [...node.capabilities].sort(), proof.candidateId, proof.capability,
     [...(proof.evidenceRefs || [])].sort(), proof.independent === true,
-    node.localContext.classification || node.localContext.confidentiality || null,
-    node.localContext.trustDomain || null, node.localContext.boundaryProof || null];
+    context.classification || context.confidentiality || null,
+    context.trustDomain || null, context.boundaryProof || null];
   return `sha256:${createHash('sha256').update(JSON.stringify(subject)).digest('hex')}`;
 }
 

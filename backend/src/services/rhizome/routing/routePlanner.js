@@ -69,9 +69,9 @@ function routeCandidate(input) {
     needId: need.needId, capability: need.capability, nodeIds: path.nodeIds,
     edgeIds: path.edges.map((edge) => edge.edgeId), failureDomains: routeFailureDomains(path, byId),
     utility: routeUtility({ path, provider, policy, bonus, lineageEdgeIds }),
-    cost: path.edges.reduce((sum, edge) => sum + edge.cost, provider.cost),
-    latency: path.edges.reduce((sum, edge) => sum + edge.latency, provider.latency),
-    reliability: path.edges.reduce((value, edge) => value * edge.reliability, provider.reliability),
+    cost: path.edges.reduce((sum, edge) => sum + (edge.cost ?? 0), provider.cost ?? 0),
+    latency: path.edges.reduce((sum, edge) => sum + (edge.latency ?? 0), provider.latency ?? 0),
+    reliability: path.edges.reduce((value, edge) => value * (edge.reliability ?? 1), provider.reliability ?? 1),
     evidenceRequirements: [...need.evidenceRequirements]
   };
 }
@@ -115,23 +115,24 @@ function privacySatisfied(input) {
   const nodes = path.nodeIds.map((nodeId) => byId.get(nodeId));
   const required = { ANY: 0, PUBLIC: 0, INTERNAL: 1, RESTRICTED: 2 }[need.constraints.privacy] || 0;
   if (nodes.some((node) => classification(node) < required)) return false;
-  if (need.constraints.locality !== 'ANY' && nodes.some((node) => node.localContext.locality !== need.constraints.locality)) return false;
-  if (need.constraints.tools.length && !nodes.some((node) => node.providers.some((provider) => need.constraints.tools.includes(provider.providerId)))) return false;
+  if (need.constraints.locality !== 'ANY' && nodes.some((node) => node?.localContext?.locality !== need.constraints.locality)) return false;
+  if (need.constraints.tools.length && !nodes.some((node) => node?.providers?.some((provider) => need.constraints.tools.includes(provider.providerId)))) return false;
   return !policy.enforceTrustDomains || validTrustBoundary(nodes);
 }
 
 function classification(node) {
-  const value = String(node.localContext.classification || node.localContext.confidentiality || 'PUBLIC').toUpperCase();
+  const context = node?.localContext || {};
+  const value = String(context.classification || context.confidentiality || 'PUBLIC').toUpperCase();
   return { PUBLIC: 0, INTERNAL: 1, RESTRICTED: 2, PRIVATE: 3 }[value] ?? 0;
 }
 
 function validTrustBoundary(nodes) {
-  const domains = new Set(nodes.map((node) => node.localContext.trustDomain).filter(Boolean));
-  if (domains.size <= 1) return nodes.length === 1 || nodes.every((node) => node.localContext.trustDomain);
+  const domains = new Set(nodes.map((node) => node?.localContext?.trustDomain).filter(Boolean));
+  if (domains.size <= 1) return nodes.length === 1 || nodes.every((node) => node?.localContext?.trustDomain);
   return nodes.every((node) => {
-    const evidenceId = node.localContext.boundaryProof?.evidenceId;
-    return node.localContext.boundaryProof?.verified === true && evidenceId
-      && node.provenance.includes(`admission:${evidenceId}`);
+    const evidenceId = node?.localContext?.boundaryProof?.evidenceId;
+    return node?.localContext?.boundaryProof?.verified === true && evidenceId
+      && (node?.provenance || []).includes(`admission:${evidenceId}`);
   });
 }
 
@@ -155,7 +156,7 @@ function chooseAlternatives(candidates, policy, limit) {
 function routeFailureDomains(path, byId) {
   return path.nodeIds.slice(1, -1).map((nodeId) => {
     const node = byId.get(nodeId);
-    return node.localContext.failureDomain || node.nodeId;
+    return node?.localContext?.failureDomain || node?.nodeId || nodeId;
   });
 }
 
@@ -165,7 +166,7 @@ function plan(session, value, policy = {}) {
   const activeIds = new Set(nodes.map((node) => node.nodeId));
   const configuredHops = Number(policy.maxHops) || activeIds.size;
   const paths = findPaths({ session, starts: startNodeIds(session, nodes), activeIds, maxHops: configuredHops, onWork: policy.onWork });
-  const candidates = buildAlternatives({ paths, nodes, need, policy });
+  const candidates = buildAlternatives({ paths, nodes, need, policy, session });
   const limit = Number.isInteger(policy.alternatives) ? Math.max(1, policy.alternatives) : candidates.length;
   const alternatives = chooseAlternatives(candidates, policy, limit);
   if (!alternatives.length) return { needId: need.needId, capability: need.capability, selected: false, verdict: 'unreachable', alternatives: [] };
