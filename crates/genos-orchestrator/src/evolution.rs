@@ -64,7 +64,6 @@ pub struct Population {
     last_quality_counts: Option<(usize, usize)>,
 }
 
-impl Population {
     pub struct NewConfig {
         pub names: Vec<String>,
         pub per_island: usize,
@@ -72,8 +71,10 @@ impl Population {
         pub seed: u64,
     }
 
+impl Population {
     /// Crée une population initiale (génotypes aléatoires déterministes).
     pub fn new(config: NewConfig) -> Self {
+        let NewConfig { names, per_island, gene_count, seed } = config;
         let mut population = Self {
             islands: Vec::new(),
             novelty: HashSet::new(),

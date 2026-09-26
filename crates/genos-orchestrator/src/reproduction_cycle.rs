@@ -18,6 +18,13 @@ use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
+struct IntegrateDaughterInput {
+    mother_id: Uuid,
+    mother: AgentCell,
+    daughter: AgentCell,
+    genome: Genome,
+}
+
 /// Coût ATP réel d'une division cellulaire (cohérent avec le coût `REPLICATE`
 /// documenté : `docs/01-concepts/nosologie/01-auto-immunes.md`).
 pub const REPRODUCTION_ATP_COST: f64 = 20.0;
@@ -91,13 +98,6 @@ impl GenosEcosystem {
     /// Intègre la fille née de `mother_id` dans le même tissu que sa mère
     /// (ou directement comme cellule active si la mère n'appartient à aucun
     /// tissu), et enregistre son génome pour que la lignée persiste.
-    struct IntegrateDaughterInput {
-        mother_id: Uuid,
-        mother: AgentCell,
-        daughter: AgentCell,
-        genome: Genome,
-    }
-
     fn integrate_daughter(&mut self, input: IntegrateDaughterInput) -> Uuid {
         let IntegrateDaughterInput { mother_id, mother, daughter, genome } = input;
         let daughter_id = daughter.cell_id;

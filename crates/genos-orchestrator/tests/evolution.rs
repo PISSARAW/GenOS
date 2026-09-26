@@ -6,7 +6,7 @@ fn toward_zero(genes: &[f64]) -> f64 {
 
 #[test]
 fn l_evolution_ameliore_la_fitness() {
-    let mut pop = Population::new(&["A", "B"], 8, 4, 42);
+    let mut pop = Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["A", "B"].into_iter().map(String::from).collect(), per_island: 8, gene_count: 4, seed: 42 });
     pop.evaluate(&toward_zero);
     let initial_best = pop.best().unwrap().fitness;
     for _ in 0..30 {
@@ -22,7 +22,7 @@ fn l_evolution_ameliore_la_fitness() {
 
 #[test]
 fn la_nouveaute_s_accumule_et_la_population_reste_stable() {
-    let mut pop = Population::new(&["A", "B", "C"], 6, 3, 7);
+    let mut pop = Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["A", "B", "C"].into_iter().map(String::from).collect(), per_island: 6, gene_count: 3, seed: 7 });
     pop.evaluate(&toward_zero);
     for _ in 0..10 {
         pop.generation();
@@ -35,8 +35,8 @@ fn la_nouveaute_s_accumule_et_la_population_reste_stable() {
 
 #[test]
 fn l_evolution_est_deterministe_a_seed_egal() {
-    let mut a = Population::new(&["X", "Y"], 6, 4, 1234);
-    let mut b = Population::new(&["X", "Y"], 6, 4, 1234);
+    let mut a = Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["X", "Y"].into_iter().map(String::from).collect(), per_island: 6, gene_count: 4, seed: 1234 });
+    let mut b = Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["X", "Y"].into_iter().map(String::from).collect(), per_island: 6, gene_count: 4, seed: 1234 });
     a.evaluate(&toward_zero);
     b.evaluate(&toward_zero);
     for _ in 0..20 {
@@ -50,7 +50,7 @@ fn l_evolution_est_deterministe_a_seed_egal() {
 
 #[test]
 fn la_boucle_innovation_selectionne_les_variantes_prouvees() {
-    let mut pop = Population::new(&["A"], 12, 2, 99);
+    let mut pop = Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["A"].into_iter().map(String::from).collect(), per_island: 12, gene_count: 2, seed: 99 });
     let evaluator = |genes: &[f64]| QualityProof {
         fitness: -genes.iter().map(|gene| gene * gene).sum::<f64>(),
         quality: if genes[0] >= 0.0 { 0.9 } else { 0.1 },
@@ -68,7 +68,7 @@ fn la_boucle_innovation_selectionne_les_variantes_prouvees() {
 
 #[test]
 fn la_boucle_innovation_s_arrete_sans_preuve() {
-    let mut pop = Population::new(&["A"], 4, 2, 5);
+    let mut pop = Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["A"].into_iter().map(String::from).collect(), per_island: 4, gene_count: 2, seed: 5 });
     let result = pop.innovation_step(
         &|_| QualityProof {
             fitness: 1.0,
@@ -88,7 +88,7 @@ fn la_boucle_innovation_s_arrete_sans_preuve() {
 
 #[test]
 fn un_cycle_evolutif_evalue_puis_reproduit() {
-    let mut pop = Population::new(&["A"], 6, 2, 11);
+    let mut pop = Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["A"].into_iter().map(String::from).collect(), per_island: 6, gene_count: 2, seed: 11 });
     let report = pop.evolve(&toward_zero);
 
     assert_eq!(report.generation, 1);

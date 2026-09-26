@@ -27,13 +27,13 @@ fn main() {
         .unwrap();
 
     for _ in 0..3 {
-        eco.record_action(loop_agent, "retry", Outcome::Success);
+        eco.record_action(loop_agent, ("retry", Outcome::Success));
     }
     for _ in 0..3 {
-        eco.record_action(waste, "spam", Outcome::Wasted);
+        eco.record_action(waste, ("spam", Outcome::Wasted));
     }
     for _ in 0..3 {
-        eco.record_action(bad, "crash", Outcome::Failure);
+        eco.record_action(bad, ("crash", Outcome::Failure));
     }
     let genome = genos_orchestrator::genos_genome::Genome::new("BASE");
     let dna = genos_orchestrator::dna_ops::from_genome(&genome, "seed");

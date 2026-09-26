@@ -86,7 +86,7 @@ mod tests {
         assert!(!state.is_apoptotic);
 
         // Erreurs en boucle
-        conscience.evaluate_branch(&mut state, BranchMetrics { errors_in_loop: 10, ..Default::default() });
+        conscience.evaluate_branch(&mut state, BranchMetrics { errors_in_loop: 10, health_score: 1.0, ..Default::default() });
         assert_eq!(state.dissonance_level, 25.0);
         assert_eq!(state.revision, 1);
         assert!(!state.is_apoptotic);
@@ -104,7 +104,7 @@ mod tests {
         assert_eq!(state.revision, 3);
 
         // Dépasser le seuil
-        conscience.evaluate_branch(&mut state, BranchMetrics { errors_in_loop: 20, ..Default::default() });
+        conscience.evaluate_branch(&mut state, BranchMetrics { errors_in_loop: 20, health_score: 1.0, ..Default::default() });
         assert!(state.dissonance_level >= 50.0);
         assert!(state.is_apoptotic);
         assert_eq!(state.current_budget, 0.0);

@@ -58,7 +58,7 @@ fn run_organism_survit_plusieurs_cycles() {
 #[test]
 fn evolution_est_executee_dans_la_boucle() {
     let mut eco = GenosEcosystem::new("Overmind");
-    eco.attach_population(Population::new(&["organisme"], 4, 2, 7));
+    eco.attach_population(Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["organisme"].into_iter().map(String::from).collect(), per_island: 4, gene_count: 2, seed: 7 }));
     let config = OrganismConfig {
         evolve_every: 1,
         ..OrganismConfig::default()

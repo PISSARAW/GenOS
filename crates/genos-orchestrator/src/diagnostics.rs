@@ -20,7 +20,9 @@ impl GenosEcosystem {
     pub fn record_action(&mut self, agent: Uuid, event: (&str, Outcome)) {
         let (action, outcome) = event;
         let tick = self.events.count() as u64;
-        self.traces.record(agent, tick, action, outcome);
+        self.traces.record(crate::trace::RecordEvent {
+            agent, tick, action: action.to_string(), outcome,
+        });
         self.events.append(
             "AGENT_ACTION",
             serde_json::json!({

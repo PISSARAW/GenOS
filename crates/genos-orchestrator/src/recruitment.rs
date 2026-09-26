@@ -145,7 +145,7 @@ impl RecruitmentPlanner {
         }
     }
 
-    fn find_eligible(&self, candidates: &[Candidate], chosen: &[String], key: &str) -> Vec<&Candidate> {
+    fn find_eligible<'a>(&self, candidates: &'a [Candidate], chosen: &[String], key: &str) -> Vec<&'a Candidate> {
         candidates
             .iter()
             .filter(|c| !c.is_impostor(self.min_trust) && !chosen.contains(&c.id) && c.covers(key))
@@ -162,7 +162,7 @@ impl RecruitmentPlanner {
         }
     }
 
-    fn find_affordable(&self, eligible: &[&Candidate], demand: &Demand, spent: f64) -> Vec<&Candidate> {
+    fn find_affordable<'a>(&self, eligible: &[&'a Candidate], demand: &Demand, spent: f64) -> Vec<&'a Candidate> {
         eligible
             .iter()
             .copied()
@@ -180,7 +180,7 @@ impl RecruitmentPlanner {
         }
     }
 
-    fn select_best(&self, affordable: &[&Candidate]) -> &Candidate {
+    fn select_best<'a>(&self, affordable: &[&'a Candidate]) -> &'a Candidate {
         let mut best = affordable[0];
         for candidate in &affordable[1..] {
             let better = self.score(candidate) > self.score(best)
@@ -200,7 +200,20 @@ struct AddSelectionInput<'a> {
     chosen: &'a mut Vec<String>,
 }
 
-pub fn plan(&self, demand: &Demand, candidates: &[Candidate]) -> RecruitmentDecision {
+impl RecruitmentPlanner {
+    fn add_selection(&self, input: AddSelectionInput<'_>) {
+        input.decision.spent += input.best.cost;
+        input.chosen.push(input.best.id.clone());
+        input.decision.selected.push(Selection {
+            key: input.key,
+            candidate: input.best.id.clone(),
+            role: input.best.role.clone(),
+            score: self.score(input.best),
+            cost: input.best.cost,
+        });
+    }
+
+    pub fn plan(&self, demand: &Demand, candidates: &[Candidate]) -> RecruitmentDecision {
         let keys = self.collect_keys(demand);
 
         let mut decision = RecruitmentDecision {

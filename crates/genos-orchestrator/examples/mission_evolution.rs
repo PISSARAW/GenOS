@@ -9,7 +9,7 @@ use genos_orchestrator::Population;
 fn main() {
     println!("=== MISSION EVOLUTION OUVERTE : population multi-ilots ===\n");
 
-    let mut pop = Population::new(&["Ile_A", "Ile_B", "Ile_C"], 10, 6, 2024);
+    let mut pop = Population::new(genos_orchestrator::evolution::NewConfig { names: vec!["Ile_A", "Ile_B", "Ile_C"].into_iter().map(String::from).collect(), per_island: 10, gene_count: 6, seed: 2024 });
     // Environnement : minimiser la distance à l'origine (fitness = -||g||²).
     let fitness = |genes: &[f64]| -genes.iter().map(|g| g * g).sum::<f64>();
 

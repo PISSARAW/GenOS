@@ -163,7 +163,7 @@ impl TraceStore {
         self.traces
             .entry(event.agent)
             .or_default()
-            .record(event.tick, event.action, event.outcome);
+            .record(event.tick, &event.action, event.outcome);
     }
 
     pub fn replay(&self, agent: Uuid) -> ReplayReport {

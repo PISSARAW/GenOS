@@ -66,14 +66,14 @@ fn l_orchestrateur_agit_selon_le_verdict() {
         .add_worker("A", AgentCell::new("needy", "n", "W"))
         .unwrap();
 
-    eco.record_action(good, "compile", Outcome::Success);
-    eco.record_action(good, "test", Outcome::Success);
-    eco.record_action(lazy, "spin", Outcome::Wasted);
-    eco.record_action(lazy, "spin", Outcome::Wasted);
+    eco.record_action(good, ("compile", Outcome::Success));
+    eco.record_action(good, ("test", Outcome::Success));
+    eco.record_action(lazy, ("spin", Outcome::Wasted));
+    eco.record_action(lazy, ("spin", Outcome::Wasted));
     for _ in 0..3 {
-        eco.record_action(bad, "crash", Outcome::Failure);
+        eco.record_action(bad, ("crash", Outcome::Failure));
     }
-    eco.record_action(needy, "use missing skill", Outcome::Failure);
+    eco.record_action(needy, ("use missing skill", Outcome::Failure));
 
     // Le replay produit des verdicts distincts.
     assert_eq!(eco.review_agents().len(), 4);
@@ -136,15 +136,15 @@ fn mutation_et_croisement_sont_executes_sur_l_adn() {
     eco.register_dna(b, dna);
 
     // Mutation : majorité d'échecs.
-    eco.record_action(a, "crash", Outcome::Failure);
-    eco.record_action(a, "crash", Outcome::Failure);
+    eco.record_action(a, ("crash", Outcome::Failure));
+    eco.record_action(a, ("crash", Outcome::Failure));
     assert_eq!(eco.diagnose_agent(a), Verdict::NeedsMutation);
     let (_, note) = eco.act_on_verdict(a);
     assert!(note.contains("mutation"), "note = {note}");
 
     // Croisement : succès partiel.
-    eco.record_action(b, "ok", Outcome::Success);
-    eco.record_action(b, "ko", Outcome::Failure);
+    eco.record_action(b, ("ok", Outcome::Success));
+    eco.record_action(b, ("ko", Outcome::Failure));
     assert_eq!(eco.diagnose_agent(b), Verdict::NeedsCrossover);
     let (_, note2) = eco.act_on_verdict(b);
     assert!(note2.contains("croisement"), "note = {note2}");

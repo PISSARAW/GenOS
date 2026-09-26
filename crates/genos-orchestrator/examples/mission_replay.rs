@@ -45,18 +45,18 @@ fn main() {
     }
 
     // Traces d'actions simulées (ce que les agents ont réellement fait).
-    eco.record_action(artisan, "build", Outcome::Success);
-    eco.record_action(artisan, "test", Outcome::Success);
+    eco.record_action(artisan, ("build", Outcome::Success));
+    eco.record_action(artisan, ("test", Outcome::Success));
     for _ in 0..3 {
-        eco.record_action(boucleur, "retry", Outcome::Success); // boucle
+        eco.record_action(boucleur, ("retry", Outcome::Success)); // boucle
     }
     for _ in 0..3 {
-        eco.record_action(gaspill, "spam", Outcome::Wasted); // gaspillage
+        eco.record_action(gaspill, ("spam", Outcome::Wasted)); // gaspillage
     }
     for _ in 0..3 {
-        eco.record_action(casse, "crash", Outcome::Failure); // incompétent
+        eco.record_action(casse, ("crash", Outcome::Failure)); // incompétent
     }
-    eco.record_action(novice, "use missing skill", Outcome::Failure); // compétence absente
+    eco.record_action(novice, ("use missing skill", Outcome::Failure)); // compétence absente
 
     println!("[1] Replay + diagnostic :");
     for (id, verdict) in eco.review_agents() {

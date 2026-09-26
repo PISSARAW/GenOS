@@ -26,5 +26,11 @@ Les dépendances backend ont été restaurées sans changement du lockfile ; apr
 
 | Point | Objet | Critère de sortie | État |
 |---|---|---|---|
-| 01b-R | Achever les refactorisations Rust connexes (évolution/recrutement) | Compilation et tests du crate, puis workspace | À faire |
+| 01b-R | Achever les refactorisations Rust connexes (évolution/recrutement, reproduction et appels de traces) | Compilation et tests du crate, puis workspace | En cours |
 | 01b-Q | Mesurer la dette qualité du code versionné | Rapport reproductible distinguant violations existantes et fichiers locaux | À faire |
+
+### Résultats 01b-R
+
+Les tests du crate compilent désormais (`cargo test -p genos-orchestrator --tests --no-run`). Les 40 tests unitaires passent ; les six suites ciblées évolution, organisation, planner, recrutement, reproduction et traces passent : **28 tests**. Les modifications portent sur les portées Rust, durées de vie, appels des contrats déjà refactorisés et la sélection manquante du recrutement. Deux fixtures de régulation précisent `health_score: 1.0` pour isoler la pénalité d'erreur, comme les appels de production ; les assertions restent inchangées.
+
+La suite complète s'arrête encore sur `drives::boucle_autonome_sans_but_externe` : elle attend une halte mais la boucle atteint sa borne sans halte décisionnelle. Cette divergence comportementale est à diagnostiquer séparément ; elle n'est pas masquée par les réussites ciblées. Le lot 01 reste ouvert et aucune campagne réservée n'est autorisée par cette baseline.
