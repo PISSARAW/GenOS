@@ -18,6 +18,23 @@ function runStatement(state, sql, params) {
   if (statement.includes('SYNCYTIUM')) return runSyncytiumStatement(state, statement, params);
   if (statement.startsWith('INSERT INTO TOPOLOGY_SESSION_EVENTS')) return insertEvent(state.events, statement, params);
   if (statement.startsWith('DELETE')) return deleteSession(state.rows, params);
+  if (statement.includes('PERSISTENT_BIOME_ENVIRONMENTS')) return persistentEnvironment(state, statement, params);
+  return { changes: 0 };
+}
+
+function persistentEnvironment(state, statement, params) {
+  if (!state.persistentEnvs) state.persistentEnvs = new Map();
+  if (statement.startsWith('INSERT INTO PERSISTENT_BIOME_ENVIRONMENTS')) {
+    if (state.persistentEnvs.has(params[0])) return { changes: 0 };
+    state.persistentEnvs.set(params[0], { state_json: params[1], revision: 1 });
+    return { changes: 1 };
+  }
+  if (statement.startsWith('UPDATE PERSISTENT_BIOME_ENVIRONMENTS')) {
+    const current = state.persistentEnvs.get(params[1]);
+    if (!current || current.revision !== params[2]) return { changes: 0 };
+    state.persistentEnvs.set(params[1], { state_json: params[0], revision: current.revision + 1 });
+    return { changes: 1 };
+  }
   return { changes: 0 };
 }
 
@@ -107,6 +124,10 @@ function readRecord(state, sql, params) {
   const statement = String(sql).toUpperCase();
   if (statement.includes('SYNCYTIUM_SESSION_REVISIONS')) return { revision: state.syncytiumRevisions.get(params[0]) };
   if (statement.includes('SYNCYTIUM_APPLIED_OPS')) return state.syncytiumOps.has(`${params[0]}:${params[1]}`) ? { op_id: params[1] } : null;
+  if (statement.includes('PERSISTENT_BIOME_ENVIRONMENTS')) {
+    const record = state.persistentEnvs ? state.persistentEnvs.get(params[0]) : null;
+    return record ? { state_json: record.state_json, revision: record.revision } : null;
+  }
   return state.rows.get(params[0]);
 }
 

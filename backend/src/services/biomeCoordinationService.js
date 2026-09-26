@@ -358,5 +358,5 @@ module.exports = {
   updateSessionPopulation,
   manageSessionResources,
   assessSessionCapacity,
-  rehydrate
+  rehydrate: sessionPersistence.rehydrate
 };

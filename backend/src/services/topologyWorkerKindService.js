@@ -30,9 +30,9 @@ const ROLE_REQUIREMENTS = Object.freeze({
 
 const ROLE_PREFERENCES = Object.freeze({
   observe: ['scout_cell', 'resident_daemon'], coordinate: ['liaison_worker', 'sub_orchestrator'],
-  scoped_execution: ['bounded_worker', 'specialist', 'procedural_executor'],
-  domain_specialization: ['specialist', 'bounded_worker'], adaptive_strategy: ['adaptive_worker'],
-  verify: ['verifier_worker', 'formal_worker'], adversarial_review: ['red_worker', 'forensic_worker'],
+  scoped_execution: ['bounded_worker', 'procedural_executor'],
+  domain_specialization: ['specialist'], adaptive_strategy: ['adaptive_worker'],
+  verify: ['verifier_worker'], adversarial_review: ['red_worker'],
   synthesize: ['synthesis_worker'], preserve_provenance: ['synthesis_worker'], create_candidate: ['creative_worker'],
   recover: ['recovery_worker'], handoff: ['liaison_worker'], host_bound: ['symbiotic_worker'],
   deterministic_procedure: ['procedural_executor'], formal_proof: ['formal_worker'],
