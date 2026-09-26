@@ -65,8 +65,15 @@ pub struct Population {
 }
 
 impl Population {
+    pub struct NewConfig {
+        pub names: Vec<String>,
+        pub per_island: usize,
+        pub gene_count: usize,
+        pub seed: u64,
+    }
+
     /// Crée une population initiale (génotypes aléatoires déterministes).
-    pub fn new(names: &[&str], per_island: usize, gene_count: usize, seed: u64) -> Self {
+    pub fn new(config: NewConfig) -> Self {
         let mut population = Self {
             islands: Vec::new(),
             novelty: HashSet::new(),
@@ -120,7 +127,11 @@ impl Population {
                 let rate = self.mutation_rate;
                 (0..gene_count)
                     .map(|i| {
-                        let base = if self.next_f64() < 0.5 { a.genes[i] } else { b.genes[i] };
+                        let base = if self.next_f64() < 0.5 {
+                            a.genes[i]
+                        } else {
+                            b.genes[i]
+                        };
                         if self.next_f64() < rate {
                             base + self.gaussian() * 0.2
                         } else {
@@ -199,11 +210,7 @@ impl Population {
             .iter()
             .map(|g| (g * 100.0).round().clamp(-30000.0, 30000.0) as i16)
             .collect();
-        if self.novelty.insert(key) {
-            1.0
-        } else {
-            0.0
-        }
+        if self.novelty.insert(key) { 1.0 } else { 0.0 }
     }
 
     /// Une génération : nouveauté + sélection par tournoi + reproduction.
@@ -228,9 +235,11 @@ impl Population {
                 .first()
                 .map(|i| i.genes.len())
                 .unwrap_or(0);
-            self.islands[island_index]
-                .individuals
-                .sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(std::cmp::Ordering::Equal));
+            self.islands[island_index].individuals.sort_by(|a, b| {
+                b.fitness
+                    .partial_cmp(&a.fitness)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
             let mut next: Vec<Individual> = self.islands[island_index]
                 .individuals
                 .first()
@@ -291,7 +300,11 @@ impl Population {
                 self.islands[i]
                     .individuals
                     .iter()
-                    .max_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap_or(std::cmp::Ordering::Equal))
+                    .max_by(|a, b| {
+                        a.fitness
+                            .partial_cmp(&b.fitness)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
                     .cloned()
                     .expect("ile non vide")
             })
@@ -299,10 +312,11 @@ impl Population {
         for (i, migrant) in migrants.into_iter().enumerate() {
             let target = (i + 1) % n;
             let individuals = &mut self.islands[target].individuals;
-            if let Some(worst) = individuals
-                .iter_mut()
-                .min_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap_or(std::cmp::Ordering::Equal))
-            {
+            if let Some(worst) = individuals.iter_mut().min_by(|a, b| {
+                a.fitness
+                    .partial_cmp(&b.fitness)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }) {
                 *worst = migrant;
             }
         }
@@ -312,7 +326,11 @@ impl Population {
         self.islands
             .iter()
             .flat_map(|island| island.individuals.iter())
-            .max_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap_or(std::cmp::Ordering::Equal))
+            .max_by(|a, b| {
+                a.fitness
+                    .partial_cmp(&b.fitness)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     pub fn report(&self) -> EvolutionReport {
@@ -328,9 +346,7 @@ impl Population {
         } else {
             all.iter().sum::<f64>() / population as f64
         };
-        let (verified_count, rejected_count) = self
-            .last_quality_counts
-            .unwrap_or((population, 0));
+        let (verified_count, rejected_count) = self.last_quality_counts.unwrap_or((population, 0));
         EvolutionReport {
             generation: self.generation,
             best_fitness,

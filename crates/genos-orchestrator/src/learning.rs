@@ -89,7 +89,10 @@ impl Learner {
     }
 
     pub fn updates(&self, concept: Concept) -> u64 {
-        self.bands.get(&concept).map(|band| band.updates).unwrap_or(0)
+        self.bands
+            .get(&concept)
+            .map(|band| band.updates)
+            .unwrap_or(0)
     }
 
     pub fn update(&mut self, concept: Concept, ctx: &[f64], reward: f64) {

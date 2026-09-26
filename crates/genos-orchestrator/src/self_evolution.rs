@@ -201,7 +201,12 @@ pub struct SelfEvolutionReport {
 /// (activation initiale faible, la sélection décide). Les gènes sont
 /// bornés [0,1] : ce sont des activations, pas des amplitudes.
 pub fn evolvable_population(seed: u64) -> Population {
-    let mut pop = Population::new(&["niche_a", "niche_b"], 12, SELF_GENES.len(), seed);
+    let mut pop = Population::new(Population::NewConfig {
+        names: vec!["niche_a".to_string(), "niche_b".to_string()],
+        per_island: 12,
+        gene_count: SELF_GENES.len(),
+        seed,
+    });
     // Départ minimal : activation aléatoire faible [0, 0.3].
     for island in &mut pop.islands {
         for individual in &mut island.individuals {
@@ -215,7 +220,12 @@ pub fn evolvable_population(seed: u64) -> Population {
 
 /// Population A : toutes strates prescrites à 1.0 (référence).
 pub fn prescribed_population(seed: u64) -> Population {
-    let mut pop = Population::new(&["prescribed"], 8, SELF_GENES.len(), seed);
+    let mut pop = Population::new(Population::NewConfig {
+        names: vec!["prescribed".to_string()],
+        per_island: 8,
+        gene_count: SELF_GENES.len(),
+        seed,
+    });
     for island in &mut pop.islands {
         for individual in &mut island.individuals {
             for gene in &mut individual.genes {

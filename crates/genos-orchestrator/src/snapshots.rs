@@ -28,7 +28,12 @@ impl SnapshotVault {
         self.store.is_some()
     }
 
-    pub fn save(&mut self, agent_id: &str, branch_id: &str, payload: Value) -> Result<Uuid, String> {
+    pub fn save(
+        &mut self,
+        agent_id: &str,
+        branch_id: &str,
+        payload: Value,
+    ) -> Result<Uuid, String> {
         let store = self
             .store
             .as_mut()

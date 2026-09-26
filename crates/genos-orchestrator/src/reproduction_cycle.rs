@@ -13,8 +13,8 @@ use genos_cell::AgentCell;
 use genos_genome::Genome;
 use genos_reproduction::CellDivision;
 use rand::SeedableRng;
-use serde::Serialize;
 use rand::rngs::StdRng;
+use serde::Serialize;
 use serde_json::json;
 use uuid::Uuid;
 
@@ -49,11 +49,13 @@ pub enum ReproductionBlocked {
 }
 
 impl GenosEcosystem {
-/// Tente une division autonome sauf si l'organisme est déjà mort
+    /// Tente une division autonome sauf si l'organisme est déjà mort
     /// (membrane rompue) : appelé par `tick` à chaque cycle, sans opérateur.
     /// Retourne `Ok(outcome)` si division réussie, `Err(ReproductionBlocked)` si bloquée,
     /// `None` si organisme mort.
-    pub(crate) fn attempt_autonomous_reproduction_if_alive(&mut self) -> Option<Result<ReproductionOutcome, ReproductionBlocked>> {
+    pub(crate) fn attempt_autonomous_reproduction_if_alive(
+        &mut self,
+    ) -> Option<Result<ReproductionOutcome, ReproductionBlocked>> {
         if !self.orchestrator.membrane.is_alive() {
             return None;
         }
@@ -89,13 +91,15 @@ impl GenosEcosystem {
     /// Intègre la fille née de `mother_id` dans le même tissu que sa mère
     /// (ou directement comme cellule active si la mère n'appartient à aucun
     /// tissu), et enregistre son génome pour que la lignée persiste.
-    fn integrate_daughter(
-        &mut self,
+    struct IntegrateDaughterInput {
         mother_id: Uuid,
         mother: AgentCell,
         daughter: AgentCell,
         genome: Genome,
-    ) -> Uuid {
+    }
+
+    fn integrate_daughter(&mut self, input: IntegrateDaughterInput) -> Uuid {
+        let IntegrateDaughterInput { mother_id, mother, daughter, genome } = input;
         let daughter_id = daughter.cell_id;
         self.orchestrator.active_cells.insert(mother_id, mother);
         self.orchestrator.genomes.insert(genome.genome_id(), genome);
@@ -114,7 +118,9 @@ impl GenosEcosystem {
     /// mère éligible qui échoue réellement à l'immersion biophysique (ATP,
     /// membrane, génome fille invalide) n'engendre aucune fille : la
     /// viabilité est vérifiée, jamais supposée.
-    pub fn autonomous_reproduction_cycle(&mut self) -> Result<ReproductionOutcome, ReproductionBlocked> {
+    pub fn autonomous_reproduction_cycle(
+        &mut self,
+    ) -> Result<ReproductionOutcome, ReproductionBlocked> {
         let (mother_id, mother_genome) = self
             .find_eligible_mother()
             .ok_or(ReproductionBlocked::NoEligibleMother)?;
@@ -147,7 +153,9 @@ impl GenosEcosystem {
             .mitosis()
             .map_err(ReproductionBlocked::HayflickLimitReached)?;
 
-        self.orchestrator.genomes.insert(division.parent.genome_id(), division.parent);
+        self.orchestrator
+            .genomes
+            .insert(division.parent.genome_id(), division.parent);
 
         parent_cell.genome_id = Some(mother_genome.genome_id());
         daughter_cell.name = format!("Fille_G{}", daughter_genome.generation);
@@ -156,19 +164,24 @@ impl GenosEcosystem {
 
         let generation = daughter_genome.generation;
         let lineage_id = daughter_genome.lineage_id();
-        let daughter_id = self.integrate_daughter(
+        let daughter_id = self.integrate_daughter(IntegrateDaughterInput {
             mother_id,
-            parent_cell,
-            daughter_cell,
-            daughter_genome,
-        );
+            mother: parent_cell,
+            daughter: daughter_cell,
+            genome: daughter_genome,
+        });
 
         self.record_event(
             "AUTONOMOUS_REPRODUCTION",
             json!({ "mother": mother_id.to_string(), "daughter": daughter_id.to_string(), "generation": generation }),
         );
 
-        Ok(ReproductionOutcome { mother_id, daughter_id, generation, lineage_id })
+        Ok(ReproductionOutcome {
+            mother_id,
+            daughter_id,
+            generation,
+            lineage_id,
+        })
     }
 
     /// Fait entrer une cellule déjà active dans la lignée reproductive

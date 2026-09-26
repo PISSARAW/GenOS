@@ -6,7 +6,7 @@
 //! franchissant la barrière de preuve est promu, sinon on escalade.
 
 use crate::director::{Director, Strategy};
-use crate::organization::{select_organization, select_superorganism, Superorganism};
+use crate::organization::{Superorganism, select_organization, select_superorganism};
 use crate::planner::{Concept, Goal, WorldState};
 
 /// Hypothèses comparées, façon Trinity.
@@ -24,7 +24,11 @@ pub enum Hypothesis {
 
 impl Hypothesis {
     pub fn trinity() -> [Hypothesis; 3] {
-        [Hypothesis::Basic, Hypothesis::Planned, Hypothesis::SelfCorrecting]
+        [
+            Hypothesis::Basic,
+            Hypothesis::Planned,
+            Hypothesis::SelfCorrecting,
+        ]
     }
 
     pub fn name(self) -> &'static str {
@@ -73,7 +77,7 @@ impl Multiverse {
         let director = Director::new();
         let worlds: Vec<WorldOutcome> = hypotheses
             .iter()
-            .map(|h| run_world(&director, *h, goal, initial))
+            .map(|h| run_world(RunWorldInput { director: &director, hypothesis: *h, goal, initial }))
             .collect();
         finish(worlds)
     }
@@ -92,9 +96,9 @@ impl Multiverse {
                     let hypothesis = *hypothesis;
                     scope.spawn(move || {
                         let mut eco = build(hypothesis);
-                        let planned = eco
-                            .director
-                            .plan_strategy(hypothesis.strategy(), &eco.observe(), goal);
+                        let planned =
+                            eco.director
+                                .plan_strategy(hypothesis.strategy(), &eco.observe(), goal);
                         let concepts: Vec<Concept> =
                             planned.into_iter().map(|s| s.concept).collect();
                         let executed = eco.execute_concepts(&concepts);
@@ -176,13 +180,15 @@ fn score(world: &WorldOutcome) -> f64 {
     let reached = if world.reached { 2.0 } else { 0.0 };
     reached + world.progress - world.cost * 0.001
 }
-
-fn run_world(
-    director: &Director,
+struct RunWorldInput<'a> {
+    director: &'a Director,
     hypothesis: Hypothesis,
-    goal: &Goal,
-    initial: &WorldState,
-) -> WorldOutcome {
+    goal: &'a Goal,
+    initial: &'a WorldState,
+}
+
+fn run_world(input: RunWorldInput<'_>) -> WorldOutcome {
+    let RunWorldInput { director, hypothesis, goal, initial } = input;
     let state = initial.clone();
     let mut steps: Vec<Concept> = director
         .plan_strategy(hypothesis.strategy(), &state, goal)

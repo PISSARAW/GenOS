@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_BUCKET_CAPACITY: f64 = 100.0;
 pub const DEFAULT_REFILL_RATE: f64 = 10.0;
@@ -17,7 +17,11 @@ fn is_finite(value: f64) -> bool {
 
 /// Safe default for public entry points that cannot return `Err`.
 fn sanitize_non_negative(value: f64, fallback: f64) -> f64 {
-    if is_finite(value) && value >= 0.0 { value } else { fallback }
+    if is_finite(value) && value >= 0.0 {
+        value
+    } else {
+        fallback
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -30,9 +34,18 @@ pub enum BucketState {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum SchedulingDecision {
-    Allowed { allocated_tokens: f64, time_slice_ms: u64, remaining_tokens: f64 },
-    Suspended { sleep_ms: u64, reason: String },
-    Terminated { reason: String },
+    Allowed {
+        allocated_tokens: f64,
+        time_slice_ms: u64,
+        remaining_tokens: f64,
+    },
+    Suspended {
+        sleep_ms: u64,
+        reason: String,
+    },
+    Terminated {
+        reason: String,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -107,7 +120,10 @@ impl AgentComputeBucket {
     /// Invariants numériques : jetons finis, positifs et bornés par la capacité.
     pub fn check_invariants(&self) -> Result<(), String> {
         if !self.tokens.is_finite() || !self.capacity.is_finite() {
-            return Err(format!("bucket '{}' avec valeurs non finies", self.agent_id));
+            return Err(format!(
+                "bucket '{}' avec valeurs non finies",
+                self.agent_id
+            ));
         }
         if self.tokens < 0.0 || self.tokens > self.capacity {
             return Err(format!(
@@ -124,7 +140,9 @@ impl AgentComputeBucket {
         }
         // Saturating clock read: never panics if time moves backwards.
         // Refill is driven by `schedule_step`; reward/penalty do not refill.
-        let elapsed = now.saturating_duration_since(self.last_refill).as_secs_f64();
+        let elapsed = now
+            .saturating_duration_since(self.last_refill)
+            .as_secs_f64();
         if elapsed > 0.0 {
             self.tokens = (self.tokens + elapsed * self.refill_rate).min(self.capacity);
             self.last_refill = now;
@@ -149,7 +167,9 @@ pub struct TokenBucketScheduler {
 
 impl TokenBucketScheduler {
     pub fn new() -> Self {
-        Self { buckets: HashMap::new() }
+        Self {
+            buckets: HashMap::new(),
+        }
     }
 
     /// Registers an agent exactly once. Re-registering is idempotent so it can
@@ -169,22 +189,31 @@ impl TokenBucketScheduler {
         let now = Instant::now();
         let bucket = match self.buckets.get_mut(agent_id) {
             Some(b) => b,
-            None => return SchedulingDecision::Terminated { reason: format!("Agent '{agent_id}' is not registered.") },
+            None => {
+                return SchedulingDecision::Terminated {
+                    reason: format!("Agent '{agent_id}' is not registered."),
+                };
+            }
         };
 
         bucket.refill(now);
         match bucket.state {
-            BucketState::Apoptotic | BucketState::Starved => {
-                SchedulingDecision::Terminated { reason: "Agent is dead from compute starvation.".to_string() }
-            }
-            BucketState::Throttled { sleep_ms } => {
-                SchedulingDecision::Suspended { sleep_ms, reason: "Agent is currently throttled.".to_string() }
-            }
+            BucketState::Apoptotic | BucketState::Starved => SchedulingDecision::Terminated {
+                reason: "Agent is dead from compute starvation.".to_string(),
+            },
+            BucketState::Throttled { sleep_ms } => SchedulingDecision::Suspended {
+                sleep_ms,
+                reason: "Agent is currently throttled.".to_string(),
+            },
             BucketState::Active => self.evaluate_active_allocation(agent_id, token_cost),
         }
     }
 
-    fn evaluate_active_allocation(&mut self, agent_id: &str, token_cost: f64) -> SchedulingDecision {
+    fn evaluate_active_allocation(
+        &mut self,
+        agent_id: &str,
+        token_cost: f64,
+    ) -> SchedulingDecision {
         let bucket = self.buckets.get_mut(agent_id).unwrap();
         if bucket.tokens >= token_cost {
             // The slice bonus is derived from the balance BEFORE the quantum
@@ -193,7 +222,11 @@ impl TokenBucketScheduler {
             bucket.tokens -= token_cost;
             let capacity = bucket.capacity.max(f64::MIN_POSITIVE);
             let time_slice = BASELINE_CPU_QUANTUM_MS + (balance_before / capacity * 100.0) as u64;
-            SchedulingDecision::Allowed { allocated_tokens: token_cost, time_slice_ms: time_slice, remaining_tokens: bucket.tokens }
+            SchedulingDecision::Allowed {
+                allocated_tokens: token_cost,
+                time_slice_ms: time_slice,
+                remaining_tokens: bucket.tokens,
+            }
         } else {
             Self::record_starvation(bucket)
         }
@@ -205,23 +238,36 @@ impl TokenBucketScheduler {
         bucket.starvation_count += 1;
         if bucket.starvation_count >= MAX_STARVATION_ATTEMPTS {
             bucket.state = BucketState::Starved;
-            SchedulingDecision::Terminated { reason: "Compute starvation limit exceeded.".to_string() }
+            SchedulingDecision::Terminated {
+                reason: "Compute starvation limit exceeded.".to_string(),
+            }
         } else {
             let sleep_ms = 200 * bucket.starvation_count as u64;
             bucket.state = BucketState::Throttled { sleep_ms };
             bucket.throttled_until = Some(Instant::now() + Duration::from_millis(sleep_ms));
-            SchedulingDecision::Suspended { sleep_ms, reason: "Insufficient tokens for quantum.".to_string() }
+            SchedulingDecision::Suspended {
+                sleep_ms,
+                reason: "Insufficient tokens for quantum.".to_string(),
+            }
         }
     }
 
     /// Rewards good evidence submission with fresh compute tokens and burst headroom.
-    pub fn reward_proof(&mut self, agent_id: &str, evidence_score: f64) -> Result<RewardReport, String> {
-        let bucket = self.buckets.get_mut(agent_id)
+    pub fn reward_proof(
+        &mut self,
+        agent_id: &str,
+        evidence_score: f64,
+    ) -> Result<RewardReport, String> {
+        let bucket = self
+            .buckets
+            .get_mut(agent_id)
             .ok_or_else(|| format!("Agent '{agent_id}' not found"))?;
 
         // NaN/Infinity is not a score: reject before it poisons the balance.
         if !is_finite(evidence_score) {
-            return Err(format!("Agent '{agent_id}' received a non-finite evidence score."));
+            return Err(format!(
+                "Agent '{agent_id}' received a non-finite evidence score."
+            ));
         }
 
         // Death from compute starvation is terminal: a dead agent cannot be
@@ -257,13 +303,21 @@ impl TokenBucketScheduler {
     /// Penalizes waste with token drain and sleep. Does not touch
     /// `starvation_count` (owned by `record_starvation`); severe waste
     /// (`>= 0.9`) triggers apoptosis directly.
-    pub fn penalize_waste(&mut self, agent_id: &str, waste_score: f64) -> Result<PenaltyReport, String> {
-        let bucket = self.buckets.get_mut(agent_id)
+    pub fn penalize_waste(
+        &mut self,
+        agent_id: &str,
+        waste_score: f64,
+    ) -> Result<PenaltyReport, String> {
+        let bucket = self
+            .buckets
+            .get_mut(agent_id)
             .ok_or_else(|| format!("Agent '{agent_id}' not found"))?;
 
         // Reject non-finite waste before it can poison the deduction/balance.
         if !is_finite(waste_score) {
-            return Err(format!("Agent '{agent_id}' received a non-finite waste score."));
+            return Err(format!(
+                "Agent '{agent_id}' received a non-finite waste score."
+            ));
         }
 
         // Death is terminal: penalizing must not revive a Starved/Apoptotic agent.

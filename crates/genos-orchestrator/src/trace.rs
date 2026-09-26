@@ -9,6 +9,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RecordEvent {
+    pub agent: Uuid,
+    pub tick: u64,
+    pub action: String,
+    pub outcome: Outcome,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Outcome {
     Success,
@@ -151,8 +159,11 @@ pub struct TraceStore {
 }
 
 impl TraceStore {
-    pub fn record(&mut self, agent: Uuid, tick: u64, action: &str, outcome: Outcome) {
-        self.traces.entry(agent).or_default().record(tick, action, outcome);
+    pub fn record(&mut self, event: RecordEvent) {
+        self.traces
+            .entry(event.agent)
+            .or_default()
+            .record(event.tick, event.action, event.outcome);
     }
 
     pub fn replay(&self, agent: Uuid) -> ReplayReport {
