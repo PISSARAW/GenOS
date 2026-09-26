@@ -3,12 +3,14 @@
 const schemaService = require('../../../syncytiumSchemaService');
 const projections = require('../../sync/projectionMaterializer');
 const domainsService = require('../../domains/nuclearDomainService');
+const { randomUUID } = require('node:crypto');
 
 function createHierarchicalVariantService(syncytium) {
   return {
     createHierarchicalSession: (mission, configuration) => createSession(mission, configuration, syncytium),
     applyRegionalOperation: (sessionId, request) => applyRegionalOperation({ sessionId, ...request, syncytium }),
     applyRegionalTransaction: (sessionId, request) => applyRegionalTransaction({ sessionId, ...request, syncytium }),
+    setRegionalFirebreak: (sessionId, request) => setFirebreak({ sessionId, ...request, syncytium }),
     regionalSnapshot: (sessionId, request) => regionalSnapshot({ sessionId, ...request, syncytium })
   };
 }
@@ -18,7 +20,9 @@ function createSession(mission, configuration = {}, syncytium) {
   const contracts = normalizeContracts(configuration.sharedContracts);
   const fieldEntries = [...localFields(regions), ...contractFields(contracts)];
   const schema = schemaService.compile({
-    schemaId: 'syncytium-hierarchical-v1', fields: Object.fromEntries(fieldEntries),
+    schemaId: 'syncytium-hierarchical-v1', fields: Object.fromEntries([...fieldEntries, ['hierarchy.firebreaks', {
+      dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING', ownerDomain: 'organism', visibility: 'GLOBAL'
+    }]]),
     invariants: configuration.invariants || []
   });
   return syncytium.createSession(mission, {
@@ -65,7 +69,7 @@ function buildDomains(regions, contracts) {
   const contractPaths = contracts.map((contract) => contract.path);
   const members = [...new Set(regions.flatMap((region) => region.members))];
   return [
-    { domainId: 'organism', members, owns: contractPaths },
+    { domainId: 'organism', members, owns: [...contractPaths, 'hierarchy.firebreaks'] },
     ...regions.map((region) => ({
       domainId: region.regionId, members: region.members,
       owns: (region.localFields || []).map((field) => typeof field === 'string' ? field : field.path),
@@ -75,6 +79,7 @@ function buildDomains(regions, contracts) {
 }
 
 async function applyRegionalOperation(context) {
+  await assertRegionOpen(context);
   const operation = { ...context.operation, domainId: context.regionId };
   return context.syncytium.applyOperation(context.sessionId, operation, {
     ...(context.options || {}), domainId: context.regionId
@@ -83,6 +88,7 @@ async function applyRegionalOperation(context) {
 
 async function applyRegionalTransaction(context) {
   if (!Array.isArray(context.transaction?.operations)) throw hierarchyError('A regional transaction requires operations.');
+  await assertRegionOpen(context);
   const transaction = {
     ...context.transaction,
     operations: context.transaction.operations.map((operation) => ({ ...operation, domainId: context.regionId }))
@@ -92,21 +98,44 @@ async function applyRegionalTransaction(context) {
   });
 }
 
+async function setFirebreak(context) {
+  if (!context.regionId || typeof context.active !== 'boolean' || !context.actorId) {
+    throw hierarchyError('A firebreak update requires regionId, actorId and active.');
+  }
+  const snapshot = await context.syncytium.snapshot(context.sessionId, context.options || {});
+  if (!snapshot.domains[context.regionId] || context.regionId === 'organism') throw hierarchyError(`Unknown region '${context.regionId}'.`);
+  return context.syncytium.applyOperation(context.sessionId, {
+    opId: context.opId || randomUUID(), actorId: context.actorId, domainId: 'organism',
+    kind: { type: 'typed_field', key: 'hierarchy.firebreaks', action: 'set', entryKey: context.regionId,
+      value: { regionId: context.regionId, active: context.active, reason: context.reason || null, updatedAt: Date.now() } }
+  }, { ...(context.options || {}), domainId: 'organism' });
+}
+
+async function assertRegionOpen(context) {
+  const snapshot = await context.syncytium.snapshot(context.sessionId, context.options || {});
+  if (!snapshot.domains[context.regionId] || context.regionId === 'organism') throw hierarchyError(`Unknown region '${context.regionId}'.`);
+  if (snapshot.shared.sharedFields['hierarchy.firebreaks']?.[context.regionId]?.active) {
+    throw Object.assign(new Error(`Region '${context.regionId}' is isolated by an active firebreak.`), { code: 'SYNCYTIUM_REGION_FIREBREAK_ACTIVE' });
+  }
+}
+
 async function regionalSnapshot(context) {
   const snapshot = await context.syncytium.snapshot(context.sessionId, context.options || {});
   const region = snapshot.domains[context.regionId];
   if (!region || context.regionId === 'organism') throw hierarchyError(`Unknown region '${context.regionId}'.`);
   const projected = projections.projectSnapshot({ snapshot: snapshot.shared, schema: snapshot.schema, domain: region });
   const projectedSchema = projections.projectSchema(snapshot.schema, region);
-  const boundaryPaths = Object.keys(projectedSchema.fields).filter((path) => snapshot.schema.fields[path].visibility === 'GLOBAL');
+  const boundaryPaths = Object.keys(projectedSchema.fields).filter((path) => path !== 'hierarchy.firebreaks'
+    && snapshot.schema.fields[path].visibility === 'GLOBAL');
   const boundaryState = Object.fromEntries(boundaryPaths.filter((path) => Object.hasOwn(projected.sharedFields, path))
     .map((path) => [path, projected.sharedFields[path]]));
+  const visiblePathCount = projected.visiblePaths.filter((path) => path !== 'hierarchy.firebreaks').length;
   return {
     ...snapshot,
     shared: projected,
     schema: projectedSchema,
     domains: { [context.regionId]: region },
-    hierarchy: { regionId: context.regionId, boundaryPaths, boundaryState, localPathCount: projected.visiblePaths.length - boundaryPaths.length }
+    hierarchy: { regionId: context.regionId, boundaryPaths, boundaryState, localPathCount: visiblePathCount - boundaryPaths.length }
   };
 }
 

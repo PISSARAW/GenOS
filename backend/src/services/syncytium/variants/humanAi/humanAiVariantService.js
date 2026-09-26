@@ -4,7 +4,8 @@ const schemaService = require('../../../syncytiumSchemaService');
 const { randomUUID } = require('node:crypto');
 
 const NUCLEUS_KINDS = new Set(['human', 'llm_worker', 'test_daemon', 'security_verifier']);
-const SHARED_FIELDS = ['human.presence', 'human.leases', 'human.comments', 'human.approvals', 'critical.actions'];
+const AUTHORITY_FIELDS = ['human.approvals', 'human.control', 'human.consent', 'human.audit'];
+const SHARED_FIELDS = ['human.presence', 'human.leases', 'human.comments', ...AUTHORITY_FIELDS, 'critical.actions'];
 
 function createHumanAiVariantService(syncytium) {
   return {
@@ -14,6 +15,9 @@ function createHumanAiVariantService(syncytium) {
     releaseHumanLease: (sessionId, request) => releaseLease(sessionId, request, syncytium),
     addHumanComment: (sessionId, request) => addComment(sessionId, request, syncytium),
     submitHumanApproval: (sessionId, request) => submitApproval(sessionId, request, syncytium),
+    setHumanConsent: (sessionId, request) => setConsent(sessionId, request, syncytium),
+    setHumanPause: (sessionId, request) => setPause(sessionId, request, syncytium),
+    undoHumanAction: (sessionId, request) => undoAction(sessionId, request, syncytium),
     executeApprovedAction: (sessionId, request) => executeApproved(sessionId, request, syncytium),
     humanAiSnapshot: (sessionId, options) => syncytium.snapshot(sessionId, options || {})
   };
@@ -29,10 +33,10 @@ function createSession(mission, configuration = {}, syncytium) {
     if (SHARED_FIELDS.includes(path)) throw humanError(`Shared field '${path}' is reserved by the human-AI contract.`);
     fields[path] = { ...definition, ownerDomain: 'organism', visibility: 'GLOBAL' };
   }
-  const sharedPaths = Object.keys(fields).filter((path) => path !== 'human.approvals');
+  const sharedPaths = Object.keys(fields).filter((path) => !AUTHORITY_FIELDS.includes(path));
   const domains = [
     { domainId: 'organism', members, owns: sharedPaths },
-    { domainId: 'human-authority', members: humans, owns: ['human.approvals'], mayRead: ['*'] },
+    { domainId: 'human-authority', members: humans, owns: AUTHORITY_FIELDS, mayRead: ['*'], mayWrite: ['critical.actions'] },
     ...nuclei.map((nucleus) => ({
       domainId: nucleus.nucleusId, members: [nucleus.principalId], mayWrite: sharedPaths,
       mayRead: ['*'], subscriptions: ['*']
@@ -68,11 +72,37 @@ function normalizeNucleus(nucleus, ids, principals) {
 }
 
 function fieldDefinition(path) {
-  const dataType = path === 'human.comments' ? 'ADD_WINS_SET' : 'MAP';
+  const dataType = ['human.comments', 'human.audit'].includes(path) ? 'ADD_WINS_SET' : 'MAP';
   return {
     dataType, consistencyZone: dataType === 'ADD_WINS_SET' ? 'APPEND_ONLY' : 'SERIALIZABLE',
-    visibility: 'GLOBAL', ownerDomain: path === 'human.approvals' ? 'human-authority' : 'organism'
+    visibility: 'GLOBAL', ownerDomain: AUTHORITY_FIELDS.includes(path) ? 'human-authority' : 'organism'
   };
+}
+
+async function setConsent(sessionId, request = {}, syncytium) {
+  requireIdentity(request);
+  if (!request.agentId || typeof request.granted !== 'boolean') throw humanError('Consent requires agentId and a boolean granted value.');
+  const snapshot = await syncytium.snapshot(sessionId, request.options || {});
+  assertHuman(snapshot, request.actorId);
+  const current = snapshot.shared.sharedFields['human.consent']?.[request.agentId];
+  if (current?.granted === request.granted && current?.scope === (request.scope || 'session')) return { duplicate: true, snapshot };
+  return applyMap({ sessionId, request: { ...request, nucleusId: 'human-authority' }, field: 'human.consent', key: request.agentId,
+    value: { agentId: request.agentId, granted: request.granted, scope: request.scope || 'session', actorId: request.actorId, reason: request.reason || null, updatedAt: Date.now() },
+    action: 'set', syncytium, stateVersion: snapshot.shared.totalOps });
+}
+
+async function setPause(sessionId, request = {}, syncytium) {
+  requireIdentity(request);
+  if (typeof request.paused !== 'boolean') throw humanError('Pause requires a boolean paused value.');
+  const snapshot = await syncytium.snapshot(sessionId, request.options || {});
+  assertHuman(snapshot, request.actorId);
+  return applyMap({ sessionId, request: { ...request, nucleusId: 'human-authority' }, field: 'human.control', key: 'session',
+    value: { paused: request.paused, actorId: request.actorId, reason: request.reason || null, updatedAt: Date.now() },
+    action: 'set', syncytium, stateVersion: snapshot.shared.totalOps });
+}
+
+function assertHuman(snapshot, actorId) {
+  if (!snapshot.domains['human-authority']?.members.includes(actorId)) throw humanError('Only a human principal may change consent or pause state.');
 }
 
 async function updatePresence(sessionId, request = {}, syncytium) {
@@ -164,11 +194,12 @@ async function executeApproved(sessionId, request = {}, syncytium) {
   requireIdentity(request);
   validateCriticalAction(request);
   const snapshot = await syncytium.snapshot(sessionId, request.options || {});
+  enforceHumanControls(snapshot, request.actorId);
   const approval = findMatchingApproval(snapshot, request);
   ensureUnusedApproval(snapshot.shared.sharedFields['critical.actions'], request.approvalId);
   const record = {
     actionId: request.actionId, approvalId: request.approvalId, actorId: request.actorId,
-    action: request.action, executedAt: Date.now()
+    action: request.action, intent: request.intent || null, status: 'executed', executedAt: Date.now()
   };
   const operation = mapOperation({ request, field: 'critical.actions', key: request.actionId, action: 'set', value: record });
   const result = await syncytium.applyTransaction(sessionId, {
@@ -176,6 +207,50 @@ async function executeApproved(sessionId, request = {}, syncytium) {
     preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
   }, { ...(request.options || {}), domainId: request.nucleusId });
   return { ...result, approval, action: record };
+}
+
+function enforceHumanControls(snapshot, agentId) {
+  if (snapshot.shared.sharedFields['human.control']?.session?.paused) {
+    throw Object.assign(new Error('Human authority has paused this Syncytium session.'), { code: 'SYNCYTIUM_HUMAN_PAUSED' });
+  }
+  const consent = snapshot.shared.sharedFields['human.consent']?.[agentId];
+  if (consent && !consent.granted) {
+    throw Object.assign(new Error('Human consent for this agent has been withdrawn.'), { code: 'SYNCYTIUM_HUMAN_CONSENT_WITHDRAWN' });
+  }
+}
+
+async function undoAction(sessionId, request = {}, syncytium) {
+  requireIdentity(request);
+  validateUndoRequest(request);
+  const snapshot = await syncytium.snapshot(sessionId, request.options || {});
+  assertHuman(snapshot, request.actorId);
+  const actions = snapshot.shared.sharedFields['critical.actions'] || {};
+  const undo = createUndoRecord(actions, request);
+  const operations = [
+    { opId: request.opId || randomUUID(), actorId: request.actorId, domainId: 'human-authority', kind: {
+      type: 'typed_field', key: 'critical.actions', action: 'set', entryKey: `undo:${request.actionId}`, value: undo
+    } },
+    { opId: request.auditOpId || randomUUID(), actorId: request.actorId, domainId: 'human-authority', kind: {
+      type: 'typed_field', key: 'human.audit', action: 'add', value: { eventType: 'undo_requested', ...undo }
+    } }
+  ];
+  return syncytium.applyTransaction(sessionId, {
+    txId: request.txId || randomUUID(), operations,
+    preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
+  }, { ...(request.options || {}), domainId: 'human-authority' });
+}
+
+function validateUndoRequest(request) {
+  if (!request.actionId || !request.undoId || !isRecord(request.compensation)) throw humanError('Undo requires actionId, undoId and a compensation object.');
+}
+
+function createUndoRecord(actions, request) {
+  const original = actions[request.actionId];
+  if (!original) throw Object.assign(new Error('The action to undo does not exist.'), { code: 'SYNCYTIUM_UNDO_ACTION_UNKNOWN' });
+  if (actions[`undo:${request.actionId}`]) throw Object.assign(new Error('This action already has an undo record.'), { code: 'SYNCYTIUM_UNDO_EXISTS' });
+  return { actionId: request.undoId, undoOf: request.actionId, actorId: request.actorId,
+    intent: request.intent || 'human_requested_compensation', compensation: request.compensation,
+    originalIntent: original.intent || null, status: 'compensation_pending', createdAt: Date.now() };
 }
 
 function validateCriticalAction(request) {
