@@ -346,7 +346,7 @@ Seule mutation post-création connue, hors service : `communicationLearningServi
 |---|---|---|
 | Lignage et corrélation d'erreurs | `parent, child, twin, sibling, ancestor, descendant, chimera, plasmid, graft` | **PROUVÉ (écriture seule).** Handlers bio + `recordPlasmid` écrivent ; lecture vérifiée uniquement dans les tests. Déduire `errorCorrelation` pour interdire le double-comptage : non câblé. |
 | Vérification indépendante | `verifier, reviewer` | **Non câblé.** `selectVerifier()` existe mais sans appelant runtime hors tests. |
-| Revue contradictoire | `rival, adversary` | **Non câblé.** Presets sans consommateur ; `TYPE_OVERRIDES` dort dans `relationshipCommunicationProfileService.js`. |
+| Revue contradictoire | `rival, adversary` | **Partiel.** Les profils relationnels sont consommés par le routage de communication pour filtrer l'audience selon divulgation/indépendance, choisir le dialecte si tous les destinataires le supportent et retenir le grounding le plus exigeant. Cela ne crée pas de gate de vérification ni de promotion causale. |
 | Tutelle / délégation | `guardian, dependent, manager, subordinate, mentor` | **Non câblé.** Stockage seul. |
 | Échange contractuel | `client, supplier, partner, collaborator, colleague, coworker` | **Semi-prouvé (écriture seule).** `recordDecisionRelation` / `relateVoter` créent des `collaborator`, sans appelant runtime détecté. |
 | Baseline d'inconnu | `stranger, neighbor, temporary_ally, friend, bonded_partner` | **PROUVÉ (repli de lecture).** `deriveProfile()` et `getRelationProfile()` retournent `stranger` par défaut, sans appelant runtime hors tests. |
@@ -365,8 +365,8 @@ Règle transversale (recommandation de lecture humaine, pas contrôle exécuté)
 | `commonGroundEstimate` | `0..1`, défaut `0` | Terrain d'entente estimé | **Potentiel-non-câblé.** |
 | `epistemicIndependence` | `0..1`, défaut `1` (`twin 0.1`, `verifier 0.9`, `stranger/adversary 1.0`) | Indépendance supposée | **PROUVÉ (lecture étroite).** Lu par `communication/epistemicIndependenceService.js:assessIndependence()` (seuil défaut `0.5`), `measuredOf()` + `pickPrimary()`, `epistemicFirewall()` (`hide-conclusions`), branché dans `communicationPolicyEngine.js:finalizeDecision()`. Bout-en-bout : **partiel**. Ne pas confondre avec `epistemics/epistemicIndependenceService.js` et `typedEvidenceAlgebraService.js`, qui calculent sans lire `agent_relations`. |
 | `errorCorrelation` | `0..1`, défaut `0` (`twin 0.9`, `rival 0.1`) | Corrélation supposée | **Potentiel-non-câblé.** Lu seulement par fonctions dormantes. L'`errorCorrelation()` de `biocenose/formation/effectiveCommunitySizeService.js` est homonyme et indépendante. |
-| `disclosureLevel` | `0..1`, défaut `1` (`adversary 0.1`, `reviewer 0.8`) | Plafond **envisagé**, pas appliqué | **Potentiel-non-câblé.** Aucun filtre branché dessus. |
-| `preferredDialect` / `lastInteraction` | `null` | Dialecte / horodatage | **Potentiel-non-câblé.** Persistés, jamais lus. |
+| `disclosureLevel` | `0..1`, défaut `1` (`adversary 0.1`, `reviewer 0.8`) | Plafond de divulgation | **Partiel.** Le routage relationnel filtre les destinataires selon leur profil; cela ne constitue pas un contrôle général de confidentialité. |
+| `preferredDialect` / `lastInteraction` | `null` | Dialecte / horodatage | **Partiel.** Le routage peut sélectionner un dialecte préféré si tous les destinataires retenus le supportent; `lastInteraction` reste sans effet runtime connu. |
 | `organizationId` / `projectId` / `provenanceHash` | nullables | Scoping + traçabilité | **PROUVÉ.** `listRelations()` filtre `IS ?` ; testé dans `test_agent_relation_profiles.js`. |
 
 ### 9.3 Exemples concrets (code véridique)
@@ -389,7 +389,7 @@ const profile = await getRelationProfile('agent-core-A', 'agent-core-B', { organ
 // Sans arête : { relationType: 'stranger', relationClass: 'social', direction: 'none' }. Fonction réelle, sans appelant runtime hors tests.
 ```
 
-**Scénario 1 — Revue `verifier` (Cadre conceptuel, non câblé).** Créer `verifier` (`independence 0.9`), consulter `getRelationProfile()`, appliquer `epistemicFirewall()` en `hide-conclusions`. Aujourd'hui ces fonctions existent et sont testées mais ne sont appelées par aucune topologie ni barrière : sans invocation manuelle, deux agents `parent/child` peuvent se « vérifier » sans alerte.
+**Scénario 1 — Revue `verifier` (partiel).** Les décisions de communication utilisent les profils d'indépendance et de divulgation pour construire une audience et limiter le contexte partagé. Aucune topologie ni barrière de preuve n'utilise ces profils pour valider des vérificateurs ou promouvoir une conclusion : deux agents `parent/child` peuvent encore participer à une revue sans gate d'indépendance.
 
 **Scénario 2 — Transfert plasmid (Partiel-prouvé).** `promoteMutantPlasmid()` appelle `recordPlasmid(...)` : `agent_relations` (`plasmid`/`lineage`) + upsert `plasmid_bindings` (`active`) dans la même transaction. Effet réel et requêtable, mais contenu non validé : succès du transfert ≠ validité du mutant.
 
@@ -397,7 +397,7 @@ const profile = await getRelationProfile('agent-core-A', 'agent-core-B', { organ
 
 ## 10. Composition avec les topologies et handoffs
 
-Vérification honnête (grep `backend/`, `crates/`, `mcp/`, `shared/`) : **aucune** des 8 topologies n'importe `crossAgentRelationalService`, `relationResolverService` ni `relationshipCommunicationProfileService`. `signalingTransportService.js` et `signalEventBus.js` transportent sans lire les relations. Tout ce qui suit est **analogie de conception**, sauf mention `PROUVÉ`.
+Vérification honnête (grep `backend/`, `crates/`, `mcp/`, `shared/`) : les topologies ne consomment pas directement le registre relationnel; le service `relationshipCommunicationRoutingService` est toutefois branché dans `communicationPolicyEngine` pour filtrer l'audience et annoter la décision. `signalingTransportService.js` et `signalEventBus.js` restent aveugles aux relations. Les compositions de topologie ci-dessous demeurent des analogies, sauf mention `PROUVÉ`.
 
 | Topologie | Composition plausible | Statut |
 |---|---|---|
@@ -705,9 +705,9 @@ flowchart LR
 | Classe validée | `assertRelationClass()` ; inférence sinon | `crossAgentRelationalService.js:97-113, 186-190` |
 | Anti-réécriture | `stableRelationId` + `checkEdgeOwner()` → `throw already assigned` | `crossAgentRelationalService.js:115-144` |
 | Scoping tenant | `listRelations` filtre strictement le scope | `crossAgentRelationalService.js:192-220` |
-| Contamination épistémique | **Partiel.** `selectVerifier()` exclut la lignée ; `pickPrimary()` choisit l'arête la moins indépendante ; `epistemicFirewall()` masque tout sauf `problem` + `evidence`. Aucun branché à un gate : ne pas promouvoir deux `twin` comme indépendants reste manuel. | `relationResolverService.js:42-53`, `relationshipCommunicationProfileService.js:74-84`, `communication/epistemicIndependenceService.js:46-62` |
+| Contamination épistémique | **Partiel.** Le routage filtre les destinataires selon leurs profils relationnels; `selectVerifier()` exclut la lignée, `pickPrimary()` choisit l'arête la moins indépendante, et `epistemicFirewall()` masque tout sauf `problem` + `evidence`. Aucun n'est branché à un gate de preuve : ne pas promouvoir deux `twin` comme indépendants reste manuel. | `relationshipCommunicationRoutingService.js`, `relationResolverService.js:42-53`, `relationshipCommunicationProfileService.js:74-84`, `communication/epistemicIndependenceService.js:46-62` |
 
-Limites : pas de suppression/révocation prouvée (seul `sever_conjoined_bind` réécrit `twin` avec `status: severed`), pas de contrôle d'accès par `disclosureLevel`, pas de détection de cycle, pas d'outil MCP `relation.*` (`mcp/`, `shared/toolDefinitions.json` : aucun ; seules les bio-poignées écrivent en sous-main).
+Limites : pas de suppression/révocation générale prouvée (seul `sever_conjoined_bind` réécrit `twin` avec `status: severed`), le filtre de divulgation relationnel ne remplace pas un contrôle d'accès général, pas de détection de cycle, pas d'outil MCP `relation.*` (`mcp/`, `shared/toolDefinitions.json` : aucun ; seules les bio-poignées écrivent en sous-main).
 
 ---
 
@@ -755,7 +755,7 @@ Limites : pas de suppression/révocation prouvée (seul `sever_conjoined_bind` r
 | Transfert / héritage | Partage d'état explicite | Partage via tâches | Messages, pas de lignage | Skills versionnées, pas de lignage | `recordPlasmid` : arête + upsert propriétaire — **fait**, sans historique |
 | Ce que GenOS ne fait pas | Exécution du graphe (le type ne route rien) ; pas de moteur de transitions | Hiérarchie exécutée (`manager` = étiquette, pas un droit) | Routage dynamique (pas de `speaker selection`) | Harnais d'évaluation (aucune mesure d'efficacité des relations) | — |
 
-Lecture : GenOS apporte un **registre relationnel typé, scopé et persistant** là où les cadres apportent des **moteurs d'exécution ou de dialogue**. Le registre n'exécute rien : `manager`, `verifier`, `adversary` ne modifient ni autorité, ni routage, ni gates. Inversement, aucun cadre cité ne fournit 29 types avec presets épistémiques scopés.
+Lecture : GenOS apporte un **registre relationnel typé, scopé et persistant** là où les cadres apportent des **moteurs d'exécution ou de dialogue**. Les profils influencent maintenant le routage de communication; `manager`, `verifier`, `adversary` ne modifient toujours ni autorité, ni gates de preuve, ni promotion. Inversement, aucun cadre cité ne fournit 29 types avec presets épistémiques scopés.
 
 ---
 

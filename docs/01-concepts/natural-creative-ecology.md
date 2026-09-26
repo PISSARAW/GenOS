@@ -150,7 +150,7 @@ plasmid_divergent_optimization
 | 12 | **Coévolution env/agent/rep** | `Env ↔ Agent ↔ PR` | `environmentGeneratorService` + `representationalMutationEngine` |
 | 13 | **Stepping stones** | Préserver les « échecs prometteurs » | `cryptobiosisSporeService` + `fossilizationService` |
 | 14 | **Transmission culturelle intentionnelle** | Imitation, démonstration, enseignement | `culturalTransmissionService` |
-| 15 | **Sélection culturelle** | Utilité, preuve, prestige, fiabilité (somme pondérée) | `culturalSelectionService` |
+| 15 | **Sélection culturelle** | Sélection de propagules culturelles versionnées sur fronts de Pareto (nouveauté, fitness source) | `culturalSelectionService` |
 | 16 | **Traditions et lignées** | Artefacts avec variants, lignée | `culturalSelectionService` (createTradition) + `culturalTransmissionService` (mutateArtifact) |
 | 17 | **Apprentissage culturel avec benchmark Δ** | `testBeforeTransmission()` → `testAfterTransmission()` avec relevance × fidelity × quality × skillGap | `culturalLearningService` |
 | 18 | **Intégration orchestrateur natif** | `enhanceMissionWithNCE()` + `topologyHandlers` (TOPOLOGY_SIGNALS) + `dispatch_worker` enrichi | `nceIntegrationService` + `genos-orchestrate.cjs` + `topologyHandlers.cjs` + `orchestratorActions.cjs` |
@@ -593,8 +593,8 @@ Appliqué dans `ncePromptService.js:enhancePromptWithNCE()` : si `signals.X === 
 
 1. **Pas de créativité générale** : les moteurs optimisent des métriques locales sans compréhension sémantique profonde. Le vecteur de phénotype créatif [N,Q,S,D,T,E,O,H] est documenté mais pas encore implémenté comme structure de données.
 2. **Pas de conscience** : la « simulation mentale » est un calcul de faisabilité sur des structures JSON.
-3. **Pas d'open-endedness prouvée** : la génération automatique de questions reste à développer. Le champ `open_ended` dans environmentGenerator est un placeholder.
-4. **Sélection culturelle** : utilise actuellement une somme pondérée scalaire, pas encore un front Pareto non dominé. L'apprentissage culturel (`culturalLearningService`) corrige partiellement avec un benchmark Δ avant/après.
+3. **Open-endedness bornée, pas générale** : le générateur produit des environnements bornés et l'orchestrateur les évalue selon utilité, nouveauté et preuve. Cela ne démontre ni génération automatique de questions ouvertes, ni chaîne bout-en-bout POET → changement de phénotype.
+4. **Sélection culturelle partielle** : la métapopulation sélectionne des propagules culturelles versionnées par fronts de Pareto sur nouveauté et fitness de la source. Le benchmark avant/après de `culturalLearningService` existe, mais le transfert culturel n'est pas encore prouvé comme cause d'un changement de phénotype.
 5. **Coût computationnel** : l'évaluation de 7 moteurs augmente la latence.
 6. **Tests d'ablation** : prototype (`nce_ablation_tests.js` explicitement marqué "pas scientifiquement valides"). Seuls les tests contractuels (`nce_contract_tests.js`) sont fiables.
 7. **Documentation-code sync** : certaines fonctions documentées (représentations riches, coévolution réelle, traditions actives) sont des scaffolds, pas des implémentations complètes. La liste des 22 mécanismes ci-dessus fait foi.

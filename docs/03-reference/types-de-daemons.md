@@ -556,7 +556,7 @@ stateDiagram-v2
 - `STALE` = sortie commit-aware : tout finding vivant dont `head_sha ≠ nouveau HEAD`
   passe `STALE`. Retour unique `STALE → HYPOTHESIZED` avec `headSha` valide et égal
   au HEAD courant, sinon `revalidation-head-required` / `revalidation-head-not-current`.
-- Auto-chaînage : sur `→ REPAIRABLE`, `openEpisode` via `repair.openEpisode`, erreurs ignorées.
+- Admission réparation : la transition vers `REPAIRABLE` et l'ouverture de `RepairEpisode` sont atomiques. Une erreur d'ouverture fait échouer la transition et annule ses écritures; aucun finding ne reste `REPAIRABLE` sans épisode associé.
 - Evidence : `side ∈ {supporting, contradicting}`, 6 natures, chaque item exige
   `findingId, side, evidenceType, description, provenanceRecordId`. Vue
   `v_daemon_evidence_balance(finding_id, supporting, contradicting, total)`.
@@ -601,9 +601,7 @@ Reproduction = nouvel événement `TEST_FAILED|BUILD_FAILED` strictement postér
 à `createdAt` sur même scope `file|test`, pas une relecture. Causale complète
 (snapshot + contrôle + intervention) explicitement différée.
 
-**Écart réel** : aucun code backend n'émet aujourd'hui
-`SUPPORTED → REPRODUCED → CAUSALLY_SUPPORTED → REPAIRABLE`. Ces arêtes existent
-dans `TRANSITIONS` mais seul `SUPPORTED` est produit par le Verifier.
+**Écart réel** : le Verifier produit `SUPPORTED` à partir des événements et preuves typés. Les transitions supérieures sont protégées par des reçus de contrôle causal et d'intervention; aucun runner de production ne produit encore ces reçus. Elles ne sont donc pas atteintes automatiquement aujourd'hui. Les événements de reproduction seuls ne constituent pas une preuve causale.
 
 Source : `backend/src/services/daemon/verification/verifierService.js:23-190`,
 `reproductionService.js:9-60`.
@@ -949,8 +947,7 @@ pas un succès LLM bout en bout.
 ## 15. Limites, garde-fous, non-objectifs
 
 1. Maturité `EXPERIMENTAL` ; preuve live trop petite (2 triples, 1 fixture, 1 modèle local).
-2. `SUPPORTED → REPRODUCED → CAUSALLY_SUPPORTED → REPAIRABLE` non émis par le backend
-   à ce jour ; seul `SUPPORTED` est produit par le Verifier.
+2. Le Verifier produit `SUPPORTED`; les transitions supérieures exigent des reçus de contrôle causal/intervention que le runner de production ne produit pas encore.
 3. Causale complète différée (snapshot + contrôle + intervention).
 4. Aucun exécuteur worker / vérification post-`SUCCEEDED` / gouvernance push-merge
    câblé dans `repair/` ; seuls expiration et fichage `abandoned-branch`.
@@ -984,7 +981,7 @@ d'une preuve là où seul un signal d'attention est fourni.
 | 5 | transitions findings fermées ; `REFUTED` terminal ; init `OBSERVED/HYPOTHESIZED` seuls | Élevé |
 | 6 | `limitations ≥ 1`, `claim ≥ 10 chars`, `scope.type + value` requis | Élevé |
 | 7 | evidence `2 sides × 6 types` + `provenanceRecordId` vers `provenance_records` | Élevé |
-| 8 | `repair` : finding `REPAIRABLE` + `finding_id UNIQUE` + lease 24 h + `OPEN → CLAIMED → SUCCEEDED\|FAILED` | Élevé |
+| 8 | `repair` : admission atomique finding `REPAIRABLE` + épisode unique + lease 24 h + `OPEN → CLAIMED → SUCCEEDED\|FAILED` | Élevé |
 | 9 | phénotype : seuils `0.6 / 0.3` + hystérésis + `budded_at` conservé | Modéré |
 | 10 | wake : cooldown 5 s + `10 / 60 s` + `low` jamais réveillé | Modéré |
 | 11 | handoff : zero-texte `{briefId, territoryId, headSha, relevanceClass}` + `READY → CONSUMED\|EXPIRED` | Modéré |
@@ -999,7 +996,7 @@ d'une preuve là où seul un signal d'attention est fourni.
 |---|---|---|
 | ResidentDaemon | runtime, événements, findings, handoffs, réconciliation, évaluation implémentés | `EXPERIMENTAL` ; preuve live directionnelle seule |
 | 10 phénotypes | pressions toutes mesurées, `ACTIVE/DORMANT` persistés | gains/coûts par famille à établir |
-| 8 organelles | modules implémentés, jamais des processus | causale complète et `REPRODUCED+` non émis |
+| 8 organelles | modules implémentés, jamais des processus | causal runner de production et reçus de contrôle/intervention absents; `REPRODUCED+` non atteint automatiquement |
 | ScoutCells | bornées, TTL 5 min, lecture seule | pas des daemons ; contribution à évaluer |
 | SentinelDaemonKeeper | superviseur read-only reclassé | mesurer séparément des findings métier |
 | WorkspaceGitDaemon | compatibilité historique | autofix déprécié ; réparations via épisode + worker |
