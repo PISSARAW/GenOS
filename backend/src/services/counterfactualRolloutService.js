@@ -40,11 +40,11 @@ function branchOf(candidate, index) {
 async function tagBranch(db, orchestratorId, branch) {
   try {
     const worldModel = require('./worldModelService');
-    await worldModel.predictTransition(db || null, orchestratorId, {
-      actionId: branch.actionId || branch.branchId,
-      action: branch.action
+    const chain = await worldModel.predictTrajectory(db || null, orchestratorId, {
+      actions: [{ actionId: branch.actionId || branch.branchId, action: branch.action }]
     });
     branch.tagged = true;
+    branch.trajectoryId = chain.chainId;
   } catch (_) {}
   return branch;
 }
@@ -71,7 +71,7 @@ async function planRollout(input) {
   const rolloutId = `rollout_${Date.now()}_${branches.length}`;
   try {
     await persistRollout(options.db || null, {
-      key: String(options.missionId || options.orchestratorId),
+      key: rolloutId,
       record: { rolloutId, missionId: options.missionId || null, branches, status: 'suspended', createdAt: new Date().toISOString() }
     });
   } catch (_) {}
@@ -116,6 +116,20 @@ function loserReason(outcome, surprise) {
   return 'lower_score';
 }
 
+async function trajectoryOf(input, worker) {
+  try {
+    if (!input.db || !input.rolloutId) return null;
+    const { AdaptiveStateService } = require('./adaptiveStateService');
+    const stored = (await new AdaptiveStateService(input.db).restoreObject(SCOPE, input.rolloutId)) || {};
+    const rollouts = Array.isArray(stored.rollouts) ? stored.rollouts : [];
+    for (const rollout of rollouts) {
+      const branch = (rollout.branches || []).find((entry) => entry.actionId === worker.agentId || entry.branchId === worker.agentId);
+      if (branch?.trajectoryId) return branch.trajectoryId;
+    }
+  } catch (_) {}
+  return null;
+}
+
 async function scoreBranches(input) {
   const options = input || {};
   const workers = Array.isArray(options.workers) ? options.workers : [];
@@ -127,10 +141,18 @@ async function scoreBranches(input) {
     let surprise = outcome === 'success' ? 0 : 1;
     try {
       const worldModel = require('./worldModelService');
-      const observed = await worldModel.observeTransition(options.db || null, options.orchestratorId, {
-        actionId: worker.agentId, success: outcome === 'success'
-      });
-      surprise = observed.surprise;
+      const trajectoryId = await trajectoryOf(options, worker);
+      if (trajectoryId) {
+        const observed = await worldModel.observeTrajectory(options.db || null, options.orchestratorId, {
+          chainId: trajectoryId, outcomes: [{ success: outcome === 'success' }]
+        });
+        if (observed.matched) surprise = observed.meanSurprise;
+      } else {
+        const observed = await worldModel.observeTransition(options.db || null, options.orchestratorId, {
+          actionId: worker.agentId, success: outcome === 'success'
+        });
+        surprise = observed.surprise;
+      }
     } catch (_) {}
     scored.push({
       branchId: worker.agentId || `branch_${index + 1}`,

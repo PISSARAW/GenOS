@@ -58,6 +58,18 @@ function pruneTransitions(all) {
   return [...pending, ...resolved].slice(-LEDGER_LIMIT);
 }
 
+async function loadTransitions(db, agentId) {
+  const store = new AdaptiveStateService(db);
+  const stored = (await store.restoreObject(SCOPE, agentId)) || {};
+  return { store, all: Array.isArray(stored.transitions) ? stored.transitions : [] };
+}
+
+async function saveTransitions(store, agentId, all) {
+  const bounded = pruneTransitions(all);
+  await store.persistObject(SCOPE, agentId, { transitions: bounded }, bounded.length);
+  return bounded;
+}
+
 async function predictTransition(db, agentId, prediction) {
   if (!agentId || !validPrediction(prediction)) {
     throw new Error('predictTransition requires agentId and a valid prediction');
@@ -65,11 +77,8 @@ async function predictTransition(db, agentId, prediction) {
   let opened = null;
   try {
     opened = await openDb(db);
-    const store = new AdaptiveStateService(opened.db);
-    const stored = (await store.restoreObject(SCOPE, agentId)) || {};
-    const all = Array.isArray(stored.transitions) ? stored.transitions : [];
-    const bounded = [...pruneTransitions(all), normalizePrediction(prediction, Date.now())].slice(-LEDGER_LIMIT);
-    await store.persistObject(SCOPE, agentId, { transitions: bounded }, bounded.length);
+    const { store, all } = await loadTransitions(opened.db, agentId);
+    const bounded = await saveTransitions(store, agentId, [...all, normalizePrediction(prediction, Date.now())]);
     return bounded[bounded.length - 1];
   } finally {
     if (opened && opened.close) await opened.close();
@@ -77,12 +86,12 @@ async function predictTransition(db, agentId, prediction) {
 }
 
 function findPending(all, observation) {
+  const solo = all.filter((entry) => entry.status === 'pending' && !entry.chainId);
   if (observation.actionId) {
-    const exact = all.find((entry) => entry.status === 'pending' && entry.actionId === observation.actionId);
+    const exact = solo.find((entry) => entry.actionId === observation.actionId);
     if (exact) return exact;
   }
-  const pending = all.filter((entry) => entry.status === 'pending');
-  return pending.length ? pending[pending.length - 1] : null;
+  return solo.length ? solo[solo.length - 1] : null;
 }
 
 async function observeTransition(db, agentId, observation) {
@@ -92,19 +101,99 @@ async function observeTransition(db, agentId, observation) {
   let opened = null;
   try {
     opened = await openDb(db);
-    const store = new AdaptiveStateService(opened.db);
-    const stored = (await store.restoreObject(SCOPE, agentId)) || {};
-    const all = Array.isArray(stored.transitions) ? stored.transitions : [];
+    const { store, all } = await loadTransitions(opened.db, agentId);
     const hit = findPending(all, data);
     if (!hit) return fallback;
     const surprise = scoreSurprise(hit.predicted || {}, data);
     const resolved = { ...hit, status: 'resolved', success: data.success === true, surprise, observedAt: new Date().toISOString() };
-    const bounded = pruneTransitions(all.map((entry) => (entry.id === hit.id ? resolved : entry)));
-    await store.persistObject(SCOPE, agentId, { transitions: bounded }, bounded.length);
+    await saveTransitions(store, agentId, all.map((entry) => (entry.id === hit.id ? resolved : entry)));
     return { matched: true, transitionId: hit.id, surprise };
   } catch (_) {
     return fallback;
   }
 }
 
-module.exports = { predictTransition, observeTransition, SURPRISE_FLAG_AT };
+const TRAJECTORY_STEPS_MAX = 5;
+const UNCERTAINTY_GROWTH = 0.15;
+
+function trajectoryUncertainty(base, step) {
+  return Math.min(0.95, Math.max(0, base) + step * UNCERTAINTY_GROWTH);
+}
+
+function validTrajectory(input) {
+  const actions = input && Array.isArray(input.actions) ? input.actions : [];
+  if (!actions.length || actions.length > TRAJECTORY_STEPS_MAX) return false;
+  return actions.every((action) => action && typeof action.action === 'string' && !!action.action.trim());
+}
+
+async function predictTrajectory(db, agentId, input) {
+  const options = input || {};
+  if (!agentId || !validTrajectory(options)) {
+    throw new Error('predictTrajectory requires agentId and 1-5 actions');
+  }
+  let opened = null;
+  try {
+    opened = await openDb(db);
+    const now = Date.now();
+    const base = Number.isFinite(Number(options.baseUncertainty)) ? Math.max(0, Math.min(1, Number(options.baseUncertainty))) : 0.3;
+    const chainId = String(options.chainId || `traj_${now}_${Math.floor(Math.random() * 0xffff).toString(16)}`);
+    const { store, all } = await loadTransitions(opened.db, agentId);
+    const steps = options.actions.map((action, step) => ({
+      ...normalizePrediction({ actionId: action.actionId || `${chainId}#${step}`, action: action.action, expectedDetail: action.expectedDetail }, now),
+      chainId,
+      step,
+      uncertainty: trajectoryUncertainty(base, step)
+    }));
+    const bounded = await saveTransitions(store, agentId, [...all, ...steps]);
+    void bounded;
+    return { chainId, steps: steps.map((entry) => ({ transitionId: entry.id, action: entry.action, uncertainty: entry.uncertainty })) };
+  } finally {
+    if (opened && opened.close) await opened.close();
+  }
+}
+
+async function observeTrajectory(db, agentId, input) {
+  const options = input || {};
+  const fallback = { matched: false, surprises: [], meanSurprise: 1, uncertaintyMiscalibration: null };
+  if (!agentId || typeof options.chainId !== 'string') return fallback;
+  const outcomes = Array.isArray(options.outcomes) ? options.outcomes : [];
+  let opened = null;
+  try {
+    opened = await openDb(db);
+    const { store, all } = await loadTransitions(opened.db, agentId);
+    const pending = all
+      .filter((entry) => entry.status === 'pending' && entry.chainId === options.chainId)
+      .sort((a, b) => a.step - b.step);
+    if (!pending.length) return fallback;
+    const surprises = [];
+    const resolvedIds = new Set();
+    for (let step = 0; step < pending.length && step < outcomes.length; step++) {
+      const entry = pending[step];
+      const data = outcomes[step] || {};
+      const surprise = scoreSurprise(entry.predicted || {}, { success: data.success === true, detail: data.detail });
+      surprises.push(surprise);
+      entry.status = 'resolved';
+      entry.success = data.success === true;
+      entry.surprise = surprise;
+      entry.observedAt = new Date().toISOString();
+      resolvedIds.add(entry.id);
+    }
+    if (!resolvedIds.size) return fallback;
+    await saveTransitions(store, agentId, all);
+    const errors = pending
+      .filter((entry) => resolvedIds.has(entry.id))
+      .map((entry) => Math.abs(entry.uncertainty - (entry.surprise >= 0.5 ? 1 : 0)));
+    const mean = (list) => list.reduce((total, value) => total + value, 0) / list.length;
+    return {
+      matched: true,
+      chainId: options.chainId,
+      surprises,
+      meanSurprise: mean(surprises),
+      uncertaintyMiscalibration: mean(errors)
+    };
+  } catch (_) {
+    return fallback;
+  }
+}
+
+module.exports = { predictTransition, observeTransition, predictTrajectory, observeTrajectory, SURPRISE_FLAG_AT };
