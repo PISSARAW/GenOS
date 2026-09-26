@@ -94,12 +94,29 @@ async function reafferenceWeight(event) {
   return 1;
 }
 
+async function propagateIgnition(event, weight) {
+  try {
+    await require('../selectiveSignalService').dispatch(null, {
+      modality: 'arousal',
+      origin: event.agentId,
+      intensity: weight,
+      signature: String(event.eventType || 'ignition'),
+      scope: 'lineage',
+      agentId: event.agentId,
+      topic: 'arousal'
+    });
+  } catch (_) {}
+}
+
 async function ignitionFactor(event, weight) {
   try {
     if (!event.agentId) return 1;
     const service = require('../ignitionService');
     const result = await service.charge(null, event.agentId, { weight });
-    if (result.ignited) return service.BURST_FACTOR;
+    if (result.ignited) {
+      await propagateIgnition(event, weight);
+      return service.BURST_FACTOR;
+    }
     if (result.suppressed) return service.REFRACTORY_FACTOR;
     return service.LOCAL_FACTOR;
   } catch (_) {

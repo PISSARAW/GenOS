@@ -182,4 +182,4 @@ async function measure(db, agentId, options) {
   }
 }
 
-module.exports = { measure, normalizedMI, differentiationOf, minCutIntegration, LIMITATION };
+module.exports = { measure, normalizedMI, differentiationOf, minCutIntegration, lineageCircuit, LIMITATION };
