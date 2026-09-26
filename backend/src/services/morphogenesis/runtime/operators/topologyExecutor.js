@@ -10,11 +10,13 @@ class TopologyExecutor extends BaseExecutor {
 
     const executor = this.runtime.topologyExecutors?.[topology];
     if (!executor) {
-      return this.executeDefaultTopology(topology, variant, workers, context);
+      const fallback = await this.executeDefaultTopology(topology, variant, workers, context);
+      if (!fallback.receipt) fallback.receipt = this.createReceipt(node, leafSummary(topology, variant, workers, fallback.output));
+      return fallback;
     }
 
     const result = await executor.execute({ topology, variant, workers }, context);
-    const receipt = this.createReceipt(node, { topology, variant, workers: workers.length });
+    const receipt = this.createReceipt(node, leafSummary(topology, variant, workers, result));
 
     return { output: result, receipt, state: result?.state };
   }
@@ -30,6 +32,17 @@ class TopologyExecutor extends BaseExecutor {
     const state = raw && raw.state !== undefined ? raw.state : context.state;
     return { output, receipt: null, state };
   }
+}
+
+function leafSummary(topology, variant, workers, output) {
+  return { topology, variant: variant || null, workers: Array.isArray(workers) ? workers.length : 0, outputSummary: summarizeOutput(output) };
+}
+
+function summarizeOutput(output) {
+  if (!output || typeof output !== 'object') return { value: output };
+  const summary = {};
+  for (const key of Object.keys(output)) summary[key] = Array.isArray(output[key]) ? `array(${output[key].length})` : typeof output[key];
+  return summary;
 }
 
 module.exports = { TopologyExecutor };

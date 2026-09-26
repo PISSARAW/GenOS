@@ -17,10 +17,10 @@ class BiocenoseController extends TopologyController {
   }
 
   async execute(input) {
-    const { claims = [], evidence = [], artifacts = [] } = input;
+    const { claims = [], evidence = [], artifacts = [], ballots = {} } = input;
 
     for (const juror of this.jury) {
-      const vote = await this.jurorVote(juror, { claims, evidence, artifacts });
+      const vote = await this.jurorVote(juror, { claims, evidence, artifacts, ballots });
       this.votes[juror.role] = vote;
     }
 

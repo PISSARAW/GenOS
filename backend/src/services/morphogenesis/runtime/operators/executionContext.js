@@ -100,7 +100,7 @@ function createChildContext(parentContext, node, options = {}) {
     authority: applyAuthorityBoundary(parentContext, node.authorityBoundary),
     state: isolated ? { ...parentContext.state } : parentContext.state,
     evidence: [...parentContext.evidence],
-    input: parentContext.output
+    input: parentContext.output !== null && parentContext.output !== undefined ? parentContext.output : parentContext.input
   });
 }
 
