@@ -146,4 +146,41 @@ async function report(db) {
   }
 }
 
-module.exports = { observe, recommend, report, DIM, MAX_ARMS };
+function hashBucket(key) {
+  const crypto = require('crypto');
+  const digest = crypto.createHash('sha256').update(String(key)).digest();
+  return digest.readUInt32BE(0) % 100;
+}
+
+function clampRate(value, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(0, Math.min(1, number));
+}
+
+async function chooseWithGuardrails(db, candidates, policy) {
+  const list = Array.isArray(candidates) ? candidates.filter((uri) => typeof uri === 'string') : [];
+  const settings = policy || {};
+  if (!list.length) return { choice: null, mode: 'empty', ordering: [] };
+  if (typeof settings.explicitRoute === 'string' && list.includes(settings.explicitRoute)) {
+    return { choice: settings.explicitRoute, mode: 'explicit', ordering: [settings.explicitRoute, ...list.filter((uri) => uri !== settings.explicitRoute)] };
+  }
+  const rate = clampRate(settings.canaryRate, 0.05);
+  if (hashBucket(settings.canaryKey || 'default') >= rate * 100) {
+    return { choice: list[0], mode: 'policy', ordering: list };
+  }
+  try {
+    const context = settings.context && typeof settings.context === 'object' ? settings.context : {};
+    const rec = await recommend(db, { ...context, routes: list });
+    const top = rec.ordering[0];
+    const minPulls = Math.max(1, Math.floor(Number(settings.minPulls) || 5));
+    if (!top || top.pulls < minPulls) return { choice: list[0], mode: 'policy', reason: 'cold', ordering: list };
+    const ordering = [top.uri, ...list.filter((uri) => uri !== top.uri)];
+    const disagreement = top.uri !== list[0];
+    return { choice: top.uri, mode: 'bandit', reason: disagreement ? 'disagreement' : 'agree', disagreement, ordering };
+  } catch (_) {
+    return { choice: list[0], mode: 'policy', ordering: list };
+  }
+}
+
+module.exports = { observe, recommend, report, chooseWithGuardrails, DIM, MAX_ARMS };

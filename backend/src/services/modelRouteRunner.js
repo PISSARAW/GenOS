@@ -245,16 +245,42 @@ function summarizeFailures(attempts) {
 async function runFallback(candidates, ctx) {
   const attempts = [];
   let discoveryRefreshed = false;
-  for (const uri of candidates) {
+  const planned = await applyBanditCanary(candidates, ctx);
+  for (const uri of planned.candidates) {
     try {
       const result = await attemptRoute(ctx, uri);
       await emitBufferedTokens(result.bufferedTokens || [], ctx.onToken, uri);
-      return Object.assign({}, withoutBufferedTokens(result), { route: { mode: 'fallback', selectedModel: uri, attempts } });
+      const route = { mode: 'fallback', selectedModel: uri, attempts };
+      if (planned.bandit) route.bandit = planned.bandit;
+      return Object.assign({}, withoutBufferedTokens(result), { route });
     } catch (error) {
       discoveryRefreshed = await noteFailure(ctx, { uri, error, attempts }, discoveryRefreshed);
     }
   }
   throw summarizeFailures(attempts);
+}
+
+function banditCanaryRate() {
+  const rate = Number(process.env.GENOS_BANDIT_CANARY);
+  if (!Number.isFinite(rate)) return 0.05;
+  return Math.max(0, Math.min(1, rate));
+}
+
+async function applyBanditCanary(candidates, ctx) {
+  try {
+    const bandit = require('./routingBanditService');
+    const decided = await bandit.chooseWithGuardrails(ctx.db, candidates, {
+      canaryKey: ctx.executionRunId || ctx.agentId || 'default',
+      canaryRate: banditCanaryRate(),
+      minPulls: 5,
+      explicitRoute: ctx.explicitRoute || null,
+      context: { promptTokens: Math.ceil(Buffer.byteLength(String(ctx.prompt || ''), 'utf8') / 4) }
+    });
+    const info = decided.mode === 'bandit' ? { choice: decided.choice, reason: decided.reason } : null;
+    return { candidates: decided.ordering, bandit: info };
+  } catch (_) {
+    return { candidates, bandit: null };
+  }
 }
 
 function requireParallelBudget(maxCostUsd) {
