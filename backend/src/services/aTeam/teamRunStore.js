@@ -32,6 +32,7 @@ function memberRecord(source = {}) {
     outputs: asList(choose([source.outputs, source.provides], [])),
     requiredArtifacts: asList(source.requiredArtifacts),
     acceptanceCriteria: asList(source.acceptanceCriteria),
+    inputSchema: source.inputSchema || null,
     outputSchema: source.outputSchema || null,
     expertise: asList(choose([source.expertise, source.capabilities], [])),
     ownedResponsibilities: asList(choose([source.ownedResponsibilities, source.responsibilities], [])),

@@ -27,3 +27,15 @@ Le dispatch A-Team générique ne fournit pas encore cet adaptateur : la variant
 compose et persiste le graphe/conseil, tandis que le runner ci-dessus est disponible pour
 une intégration qui dispose d'un exécuteur de sous-run vérifié. Les champs d'autorité
 orientent les responsabilités données aux workers et ne modifient pas les ACL du backend.
+
+## Opérations des contrats de variante
+
+[`variants/variantExecutionService.js`](../../../backend/src/services/aTeam/variants/variantExecutionService.js)
+fournit les opérations appelables par les runners : exécution Pipeline avec schémas,
+retries locaux, cache, reprise et flux séquentiel; calcul du quorum Expert Committee;
+contrôle CAS Matrix; intégrité et accusé/rollback Relay; transitions d'une période ICS;
+garde de mandat Tiger; validation d'une proposition de staffing Adaptive; et évaluation
+des jointures DAG. Ces fonctions vérifient les contrats lorsqu'elles sont appelées, mais
+les politiques de dispatch ne les invoquent pas toutes automatiquement. Les runners
+doivent persister les états transactionnels, fournir l'identité des acteurs et relier les
+événements d'audit aux barrières de preuve avant de présenter ces garanties comme actives.

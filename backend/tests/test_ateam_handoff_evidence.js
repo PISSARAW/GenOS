@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const handoff = require('../src/services/aTeamHandoffEvidenceService');
 
-const producer = { agentId: 'worker-a', subSystem: 'frontend', outputSchema: { type: 'module' } };
+const producer = { agentId: 'worker-a', subSystem: 'frontend', outputSchema: { type: 'object' } };
 const consumer = { agentId: 'worker-b', subSystem: 'integration', dependsOn: ['frontend'], requiredArtifacts: ['dist/ui.js'], acceptanceCriteria: ['loads'] };
 const plan = { members: [producer, consumer] };
 const report = {

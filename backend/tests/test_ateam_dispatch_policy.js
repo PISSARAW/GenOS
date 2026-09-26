@@ -2,6 +2,8 @@
 
 const assert = require('node:assert/strict');
 const { prepareDispatchPolicy } = require('../src/services/aTeam/dispatchPolicyService');
+const { projectDagPolicy } = require('../src/services/aTeam/variants/projectDagPolicy');
+const { incidentStructure, tigerMandate, relayPackage } = require('../src/services/aTeam/variants/teamVariantPolicies');
 
 const members = [
   { subSystem: 'api', label: 'api', role: 'backend', capabilities: ['api'], outputs: ['api-contract'], ownedResponsibilities: ['api'], criticality: 'critical' },
@@ -45,10 +47,31 @@ function run() {
   assert.equal(committee.policy.expertiseMatrix.length, members.length);
   const tiger = prepareDispatchPolicy({ mission: { variant: 'tiger_team', urgentMandate: { scope: 'restore API', timeboxMinutes: 60, stopCriteria: ['service restored'] } }, members: members.slice(0, 2) });
   assert.equal(tiger.policy.urgentMandate.postMortemRequired, true);
-  const interfaceContracts = [{ fromDomain: 'api', toDomain: 'web', semanticSchema: { type: 'object' } }, { fromDomain: 'api', toDomain: 'security', semanticSchema: { type: 'object' } }];
+  assert.deepEqual(tiger.policy.urgentMandate.stopCriteria[0], { criterionId: 'stop_1', description: 'service restored', evaluated: false, evidenceRequired: true });
+  assert.throws(() => relayPackage({ handoffSummary: 'long summary', summaryMaxLength: 3, evidenceRefs: ['e'] }, [{ memberId: 'a' }, { memberId: 'b' }]), { code: 'ATEAM_RELAY_SUMMARY_TOO_LONG' });
+  assert.throws(() => incidentStructure({ incidentRoles: { commander: 'a', operations: 'b', planning: 'c', logistics: 'd' }, sitrepIntervalMinutes: 5, operationalObjectives: ['restore'], spanOfControl: 2 }, [
+    { memberId: 'a' }, { memberId: 'b' }, { memberId: 'c' }, { memberId: 'd' }, { memberId: 'e' }, { memberId: 'f' }, { memberId: 'g' }
+  ]), { code: 'ATEAM_ICS_SPAN_EXCEEDED' });
+  const interfaceContracts = [
+    { contractId: 'api-web-v1', version: 1, fromDomain: 'api', toDomain: 'web', semanticSchema: { type: 'object' }, provenance: { sourceRefs: ['api-spec-v1'] } },
+    { contractId: 'api-security-v1', version: 1, fromDomain: 'api', toDomain: 'security', semanticSchema: { type: 'object' }, provenance: { sourceRefs: ['security-spec-v1'] } }
+  ];
   const boundary = prepareDispatchPolicy({ mission: { variant: 'boundary_spanner', interfaceContracts }, members });
   assert.ok(boundary.policy.interfaceContracts.every((contract) => contract.dualValidationRequired));
   assert.throws(() => prepareDispatchPolicy({ mission: { variant: 'boundary_spanner' }, members }), { code: 'ATEAM_INTERFACE_CONTRACT_REQUIRED' });
+  const dag = projectDagPolicy({
+    dagNodes: [
+      { nodeId: 'a', memberId: 'api', dependencies: [], duration: 3, resources: { cpu: 1 }, inputSchema: { type: 'object' }, outputSchema: { type: 'object' } },
+      { nodeId: 'b', memberId: 'security', dependencies: [], duration: 2, resources: { cpu: 1 }, inputSchema: { type: 'object' }, outputSchema: { type: 'object' } },
+      { nodeId: 'c', memberId: 'web', dependencies: ['a', 'b'], duration: 1, resources: { cpu: 1 }, inputSchema: { type: 'object' }, outputSchema: { type: 'object' } }
+    ],
+    resourceLimits: { cpu: 1 }, joinConditions: { c: { type: 'N_OF', count: 1 } }, changedNodeIds: ['a']
+  }, members);
+  assert.deepEqual(dag.executionModel.criticalPathScheduler.path, ['a', 'c']);
+  assert.equal(dag.executionModel.resourceScheduling.schedule[1].startTime, 3);
+  assert.deepEqual(dag.executionModel.resourceScheduling.conflicts, []);
+  assert.deepEqual(dag.executionModel.conditionalJoins[0].predecessors, ['a', 'b']);
+  assert.deepEqual(dag.executionModel.incrementalInvalidation.invalidatedNodes.sort(), ['a', 'c']);
 }
 
 run();

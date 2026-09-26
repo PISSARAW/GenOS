@@ -11,7 +11,9 @@ async function createProgramRun(input = {}) {
     status: 'READY',
     graph: composition.graph,
     council: composition.council,
-    teams: composition.teams.map((team) => ({ teamId: team.teamId, definition: team, status: 'PENDING', receipt: null })),
+    objectives: composition.objectives,
+    budget: composition.budget,
+    teams: composition.teams.map((team) => ({ teamId: team.teamId, definition: team, budget: composition.budget.local[team.teamId] || null, status: 'PENDING', receipt: null })),
     contracts: composition.contracts
   };
   if (!state.programId) throw coded('A programId is required.', 'ATEAM_MTS_PROGRAM_ID_REQUIRED');
@@ -44,7 +46,8 @@ async function runReadyTeam(input) {
   const result = await input.executeTeam({
     teamId, definition, contracts,
     idempotencyKey: `${record.state.programId}:${teamId}`,
-    parentTeamRunId: record.state.parentTeamRunId
+    parentTeamRunId: record.state.parentTeamRunId,
+    budget: team.budget
   });
   await persistOutcome({ db: input.db, record, teamId, result, contracts });
 }
@@ -55,12 +58,13 @@ function dependenciesSucceeded(state, teamId) {
 }
 
 async function persistOutcome(input) {
-  const verified = input.result?.status === 'SUCCEEDED' && verifiedContracts(input.contracts, input.result);
-  const status = verified ? 'SUCCEEDED' : input.result?.status === 'FAILED' ? 'FAILED' : 'WAITING';
+  const budget = budgetAllows(input.record.state, input.teamId, input.result);
+  const verified = input.result?.status === 'SUCCEEDED' && verifiedContracts(input.contracts, input.result) && budget.allowed;
+  const status = !budget.allowed || input.result?.status === 'FAILED' ? 'FAILED' : verified ? 'SUCCEEDED' : 'WAITING';
   const state = structuredClone(input.record.state);
   const team = state.teams.find((entry) => entry.teamId === input.teamId);
   team.status = status;
-  team.receipt = safeReceipt(input.result, verified);
+  team.receipt = { ...safeReceipt(input.result, verified), budgetViolation: budget.allowed ? null : budget.reason };
   state.status = deriveStatus(state.teams);
   await sessions.save(input.db, { id: state.programId, topology: 'a_team_program', revision: input.record.revision, state });
 }
@@ -76,8 +80,25 @@ function safeReceipt(result, verified) {
   return {
     status: result?.status || 'UNKNOWN', verified,
     childRunId: result?.childRunId || null,
-    evidenceRefs: Array.isArray(result?.evidenceRefs) ? result.evidenceRefs.filter((item) => typeof item === 'string') : []
+    evidenceRefs: Array.isArray(result?.evidenceRefs) ? result.evidenceRefs.filter((item) => typeof item === 'string') : [],
+    usage: normalizeUsage(result?.usage)
   };
+}
+
+function budgetAllows(state, teamId, result) {
+  if (!state.budget?.enforced) return { allowed: true, reason: null };
+  const local = state.teams.find((team) => team.teamId === teamId)?.budget || {};
+  const usage = normalizeUsage(result?.usage);
+  for (const dimension of ['tokens', 'compute', 'time']) {
+    if (Number.isFinite(local[dimension]) && usage[dimension] > local[dimension]) return { allowed: false, reason: `local_${dimension}_limit` };
+    const previous = state.teams.reduce((sum, team) => sum + (Number(team.receipt?.usage?.[dimension]) || 0), 0);
+    if (Number.isFinite(state.budget.global?.[dimension]) && previous + usage[dimension] > state.budget.global[dimension]) return { allowed: false, reason: `global_${dimension}_limit` };
+  }
+  return { allowed: true, reason: null };
+}
+
+function normalizeUsage(value) {
+  return Object.fromEntries(['tokens', 'compute', 'time'].map((dimension) => [dimension, Math.max(0, Number(value?.[dimension]) || 0)]));
 }
 
 function deriveStatus(teams) {

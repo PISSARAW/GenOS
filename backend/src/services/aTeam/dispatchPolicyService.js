@@ -15,7 +15,7 @@ function prepareDispatchPolicy(input = {}) {
   const memberCount = declaredMemberCount(mission, plan, input.members);
   if (mission.variant && memberCount < plan.minMembers) throw coded(`Variant '${plan.variant}' requires at least ${plan.minMembers} members.`, 'ATEAM_VARIANT_TEAM_TOO_SMALL');
   if (plan.variant === 'multiteam' && !Array.isArray(mission.teams)) throw coded('Multiteam dispatch requires explicit subteam definitions.', 'ATEAM_MULTITEAM_INPUT_REQUIRED');
-  const members = applyMemberPolicy(input.members || [], plan);
+  const members = applyMemberPolicy(attachStageContracts(input.members || [], mission), plan);
   const graph = compileWorkGraph({ teamRunId: input.teamRunId, members });
   const boundaries = assessBoundaries(graph, members);
   const budget = allocateBudget(input.totalBudget, members, graph);
@@ -31,6 +31,15 @@ function prepareDispatchPolicy(input = {}) {
 function declaredMemberCount(mission, plan, members) {
   if (plan.variant !== 'multiteam' || !Array.isArray(mission.teams)) return members?.length || 0;
   return mission.teams.reduce((count, team) => count + (Array.isArray(team.members) ? team.members.length : 0), 0);
+}
+
+function attachStageContracts(members, mission) {
+  const contracts = mission.stageContracts || {};
+  return members.map((member) => {
+    const key = memberDomain(member);
+    const contract = Array.isArray(contracts) ? contracts.find((item) => item.memberId === memberKey(member) || item.domain === key) : contracts[key];
+    return contract ? { ...member, inputSchema: contract.inputSchema || member.inputSchema, outputSchema: contract.outputSchema || member.outputSchema } : member;
+  });
 }
 
 function variantRuntime({ mission, plan, members, boundaries }) {
@@ -73,6 +82,9 @@ function attachVariantInstructions(members, policy) {
 }
 
 function instructionFor(member, policy) {
+  if (['pipeline', 'project_dag'].includes(policy.variant) && (member.inputSchema || member.outputSchema)) {
+    return `Satisfy stage schemas exactly. Input: ${JSON.stringify(member.inputSchema || {})}. Output: ${JSON.stringify(member.outputSchema || {})}.`;
+  }
   const ownedInterfaces = policy.boundarySpanners.filter((entry) => entry.ownerMemberId === memberKey(member));
   if (ownedInterfaces.length) return `Own and validate these interfaces only: ${ownedInterfaces.map((entry) => entry.boundaryId).join(', ')}.`;
   if (memberKey(member) === policy.commanderMemberId) return 'Coordinate the incident response within the declared team scope and escalate decisions outside your authority.';

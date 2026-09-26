@@ -2,6 +2,7 @@
 
 const { latestReport } = require('./trinityComparativeBarrier');
 const handoffService = require('./aTeam/handoff/handoffService');
+const { validateArtifact } = require('./aTeam/variants/variantExecutionService');
 
 function records(value) {
   return Array.isArray(value) ? value.filter((item) => item && typeof item === 'object') : [];
@@ -49,7 +50,17 @@ function reportArray(report, field) {
 
 function handoffForDossier({ producer, consumer, dossier }) {
   const report = latestReport(dossier);
-  if (!reportIsUsable(report, consumer.requiredArtifacts || consumer.outputs || [])) return null;
+  if (!canBuildHandoff(report, producer, consumer)) return null;
+  return validateHandoff(createHandoff(report, producer, consumer), consumer);
+}
+
+function canBuildHandoff(report, producer, consumer) {
+  if (!reportIsUsable(report, consumer.requiredArtifacts || consumer.outputs || [])) return false;
+  const payload = report.output ?? report.result ?? report;
+  return !producer.outputSchema || validateArtifact(payload, producer.outputSchema).length === 0;
+}
+
+function createHandoff(report, producer, consumer) {
   const handoff = {
     handoffId: `${producer.agentId}->${consumer.agentId}:${Date.now()}`,
     type: 'DELIVERY',
@@ -71,6 +82,11 @@ function handoffForDossier({ producer, consumer, dossier }) {
     blocking: true,
     outcome: report.outcome
   };
+  return handoff;
+}
+
+function validateHandoff(handoff, consumer) {
+  if (consumer.inputSchema && validateArtifact(handoff, consumer.inputSchema).length) return null;
   return handoffService.validate(handoff).valid ? handoff : null;
 }
 

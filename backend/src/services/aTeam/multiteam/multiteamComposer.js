@@ -13,7 +13,43 @@ function composeMultiteam(input = {}) {
   const contracts = Array.isArray(input.contracts) ? input.contracts : [];
   const validation = validateInterTeamContracts(teams, contracts);
   if (!validation.valid) throw Object.assign(new Error(validation.errors.join(' ')), { code: 'ATEAM_MTS_CONTRACT_INVALID', errors: validation.errors });
-  return { teams, contracts, graph: compileProgramWorkGraph(teams, contracts), council: buildCoordinationCouncil(teams, input.council) };
+  const objectives = programObjectives(input);
+  const budget = allocateProgramBudgets(teams, input.globalBudget || input.budget);
+  return { teams, contracts, graph: compileProgramWorkGraph(teams, contracts), council: buildCoordinationCouncil(teams, input.council), objectives, budget };
+}
+
+function programObjectives(input) {
+  const local = (Array.isArray(input.teams) ? input.teams : []).map((team) => ({ teamId: team.teamId, objective: team.objective || team.goal || null }));
+  return { system: input.systemObjective || null, local, complete: Boolean(input.systemObjective) && local.every((entry) => entry.objective) };
+}
+
+function allocateProgramBudgets(teams, source) {
+  if (!source) return { global: null, local: {}, enforced: false };
+  const global = typeof source === 'number' ? { tokens: source } : { ...source };
+  const dimensions = ['tokens', 'compute', 'time'];
+  const explicit = Object.fromEntries(teams.map((team) => [team.teamId, typeof team.budget === 'number' ? { tokens: team.budget } : team.budget || {}]));
+  const local = {};
+  for (const dimension of dimensions) {
+    allocateBudgetDimension({ dimension, teams, explicit, global, local });
+  }
+  return { global, local, enforced: true, allocation: 'hard_limit' };
+}
+
+function allocateBudgetDimension(input) {
+  const { dimension, teams, explicit, global, local } = input;
+  const assigned = teams.filter((team) => Number.isFinite(Number(explicit[team.teamId][dimension])));
+  const unassigned = teams.filter((team) => !assigned.includes(team));
+  const assignedTotal = assigned.reduce((sum, team) => sum + Number(explicit[team.teamId][dimension]), 0);
+  if (Number.isFinite(global[dimension]) && assignedTotal > global[dimension]) throw Object.assign(new Error(`Subteam ${dimension} budgets exceed the global limit.`), { code: 'ATEAM_MTS_BUDGET_EXCEEDED' });
+  for (const team of teams) local[team.teamId] = local[team.teamId] || {};
+  for (const team of assigned) local[team.teamId][dimension] = Number(explicit[team.teamId][dimension]);
+  const remainder = Number.isFinite(global[dimension]) ? global[dimension] - assignedTotal : null;
+  const weight = unassigned.reduce((sum, team) => sum + teamWeight(team), 0);
+  for (const team of unassigned) if (remainder !== null && weight) local[team.teamId][dimension] = Math.floor(remainder * teamWeight(team) / weight);
+}
+
+function teamWeight(team) {
+  return Math.max(1, Number(team.weight) || (team.members || []).length || 1);
 }
 
 function validateCaps(teams, limits, depth) {
