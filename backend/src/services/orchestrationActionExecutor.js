@@ -86,7 +86,19 @@ async function execute({ orchestratorId, sourceAgentId, decision, event, workspa
   }
   const args = actionArguments(decision, event, workspaceRoot);
   if (!args) return deferAction(context);
+  await recordEfference(context);
   return runAction(context, args);
+}
+
+async function recordEfference(context) {
+  try {
+    await require('./efferenceCopyService').predict(null, context.orchestratorId, {
+      actionId: context.sourceEventId || context.decision.action,
+      action: context.decision.action,
+      tool: context.decision.tool,
+      expectedTypes: ['ORCHESTRATION_ACTION_EXECUTED', 'ORCHESTRATION_ACTION_FAILED', 'AGENT_STEP', 'EVIDENCE_REPORT']
+    });
+  } catch (_) {}
 }
 
 async function claimReceipt(context) {

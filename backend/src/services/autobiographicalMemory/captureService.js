@@ -85,12 +85,22 @@ function episodeFromEvent(event, kind, salienceResult) {
   };
 }
 
+async function reafferenceWeight(event) {
+  try {
+    const service = require('../efferenceCopyService');
+    const result = await service.discharge(null, event.agentId, event);
+    if (result.matched) return service.REAFFERENCE_WEIGHT;
+  } catch (_) {}
+  return 1;
+}
+
 async function captureTelemetryEvent(event = {}, dbOverride = null) {
   const kind = resolveKind(event.eventType);
   if (!kind) return null;
   const salienceResult = computeSalience(event);
-  if (salienceResult.salience < salienceThreshold) return null;
-  return episodeStore.recordEpisode(episodeFromEvent(event, kind, salienceResult), dbOverride);
+  const attenuated = { ...salienceResult, salience: salienceResult.salience * await reafferenceWeight(event) };
+  if (attenuated.salience < salienceThreshold) return null;
+  return episodeStore.recordEpisode(episodeFromEvent(event, kind, attenuated), dbOverride);
 }
 
 function handleEvent(event) {
