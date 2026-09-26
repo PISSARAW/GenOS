@@ -11,7 +11,7 @@ const { getDatabase } = require('../../db');
 const { decideCommunication, logShadowDecision } = require('./communicationPolicyEngine');
 const { learnFromOutcome } = require('./communicationLearningService');
 const { assessAgency } = require('./agencyDriver');
-const { recordDecision, recordUsefulAction, recordRedundant } = require('./communicationMetricsService');
+const { recordDecision, recordTokens, recordUsefulAction, recordRedundant } = require('./communicationMetricsService');
 
 async function resolveDb(inputDb) {
   if (inputDb) return inputDb;
@@ -39,27 +39,45 @@ function estimateTokens(decision) {
   return 200;
 }
 
-function buildExecutionResult(decision) {
+function tokenAccounting(decision, usageReceipt) {
+  if (!isVerbal(decision.action)) return { tokensUsed: 0, tokensProjected: 0, tokensMeasured: false };
+  const receipt = normalizeUsageReceipt(usageReceipt);
+  if (receipt) return { tokensUsed: receipt.inputTokens + receipt.outputTokens,
+    tokensProjected: 0, tokensMeasured: true, usageReceiptId: receipt.responseId };
+  return { tokensUsed: 0, tokensProjected: estimateTokens(decision), tokensMeasured: false };
+}
+
+function normalizeUsageReceipt(receipt) {
+  if (receipt === undefined || receipt === null) return null;
+  const valid = receipt.apiVersion === 'genos.communication-usage/v1'
+    && receipt.source === 'model-provider' && typeof receipt.responseId === 'string'
+    && Number.isSafeInteger(receipt.inputTokens) && receipt.inputTokens >= 0
+    && Number.isSafeInteger(receipt.outputTokens) && receipt.outputTokens >= 0;
+  if (!valid) throw Object.assign(new Error('Invalid provider token-usage receipt.'), { code: 'COMMUNICATION_USAGE_RECEIPT_INVALID' });
+  return receipt;
+}
+
+function buildExecutionResult(decision, usageReceipt) {
   const recipients = decision.recipients || [];
-  const tokensUsed = isVerbal(decision.action) ? estimateTokens(decision) : 0;
+  const usage = tokenAccounting(decision, usageReceipt);
   return {
     executed: true,
     simulatedOutcome: {
       actionTaken: decision.action === 'SIGNAL' && recipients.length > 0,
       recipientKnew: recipients.length > 0 && Math.random() > 0.3,
       interpretationCorrect: true,
-      tokensUsed,
+      ...usage,
       channel: decision.encoding,
       recipients: recipients.length
     }
   };
 }
 
-async function simulateExecution(decision) {
+async function simulateExecution(decision, usageReceipt) {
   if (!decision || decision.action === 'SILENCE') {
     return buildSilenceResult(decision && decision.encoding);
   }
-  return buildExecutionResult(decision);
+  return buildExecutionResult(decision, usageReceipt);
 }
 
 async function tryLogShadow(input) {
@@ -77,7 +95,8 @@ function buildLearnQuery(ctx, receiverId) {
     channel: ctx.decision.action, actionTaken: ctx.outcome.actionTaken,
     recipientKnew: ctx.outcome.recipientKnew,
     interpretationCorrect: ctx.outcome.interpretationCorrect,
-    tokensUsed: ctx.outcome.tokensUsed
+    tokensUsed: ctx.outcome.tokensUsed,
+    tokensMeasured: ctx.outcome.tokensMeasured
   };
 }
 
@@ -96,20 +115,27 @@ function updateMetrics(outcome) {
 }
 
 function buildReceipt(ctx) {
-  const recipients = ctx.decision.recipients || [];
   return {
     decision: ctx.decision,
-    outcome: {
-      executed: ctx.outcome.actionTaken !== undefined,
-      actionTaken: ctx.outcome.actionTaken || false,
-      recipientKnew: ctx.outcome.recipientKnew || false,
-      tokensUsed: ctx.outcome.tokensUsed || 0,
-      channel: ctx.decision.encoding, recipientCount: recipients.length
-    },
+    outcome: receiptOutcome(ctx),
     agency: { autonomous: ctx.agency.autonomous, reason: ctx.agency.reason },
     shadow: ctx.shadow,
     utility: (ctx.decision.meta && ctx.decision.meta.utility) || 0,
     cost: (ctx.decision.meta && ctx.decision.meta.cost) || 0
+  };
+}
+
+function receiptOutcome(ctx) {
+  const recipients = ctx.decision.recipients || [];
+  return {
+    executed: ctx.outcome.actionTaken !== undefined,
+    actionTaken: ctx.outcome.actionTaken || false,
+    recipientKnew: ctx.outcome.recipientKnew || false,
+    tokensUsed: ctx.outcome.tokensUsed || 0,
+    tokensProjected: ctx.outcome.tokensProjected || 0,
+    tokensMeasured: ctx.outcome.tokensMeasured === true,
+    usageReceiptId: ctx.outcome.usageReceiptId || null,
+    channel: ctx.decision.encoding, recipientCount: recipients.length
   };
 }
 
@@ -137,9 +163,15 @@ async function runCycle(params) {
 
   const shadowReceipt = await tryLogShadow(input);
 
-  const sim = await simulateExecution(decision);
+  const sim = await simulateExecution(decision, opts.usageReceipt);
   const executed = sim.executed;
   const simulatedOutcome = sim.simulatedOutcome;
+  if (isVerbal(decision.action)) recordTokens({
+    measured: simulatedOutcome.tokensMeasured,
+    tokensInput: opts.usageReceipt?.inputTokens,
+    tokensOutput: opts.usageReceipt?.outputTokens,
+    tokensProjected: simulatedOutcome.tokensProjected
+  });
 
   let learnResult = null;
   if (executed && decision.recipients && decision.recipients.length > 0) {

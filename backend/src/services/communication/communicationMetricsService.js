@@ -17,7 +17,7 @@ const counters = {
   micro: 0, dialogue: 0, human: 0, stigmergy: 0,
   verbalWakeups: 0, verbalUseful: 0,
   tokensInput: 0, tokensOutput: 0, tokensAvoided: 0,
-  tokensMeasured: 0, tokensProjected: 0,
+  tokensMeasured: 0, tokensProjected: 0, projectedTokenCycles: 0,
   fanoutTransport: 0, fanoutCognitive: 0, variants: 0,
   usefulActions: 0, redundant: 0, groundHits: 0, groundChecks: 0,
   groundingFailures: 0, semanticMismatch: 0, dialectDecodeFailures: 0,
@@ -36,10 +36,14 @@ function recordDecision(decision) {
 }
 
 function recordTokens(input) {
+  if (input.measured === false) {
+    counters.tokensProjected += Number(input.tokensProjected || 0);
+    counters.projectedTokenCycles += 1;
+    return;
+  }
   counters.tokensInput += Number(input.tokensInput || 0);
   counters.tokensOutput += Number(input.tokensOutput || 0);
-  if (input.measured === false) counters.tokensProjected += 1;
-  else counters.tokensMeasured += 1;
+  counters.tokensMeasured += 1;
 }
 
 function recordAvoided(tokens) {

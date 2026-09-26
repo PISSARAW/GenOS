@@ -141,11 +141,11 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | chaîne `silence → stigmergie → zero-text → structuré → dialecte → micro-utterance → dialogue → humain`, `communicationPolicyEngine.js` |
-| Select | PARTIAL | checkpoint en shadow par défaut ; `tokensProjected` par coefficients, `tokens ≈ cost × 500` par endroits, sans tokenizer réel |
-| Invoke | PARTIAL | dialecte implémenté, `confidence` stockée sans décisions adaptatives complètes |
-| Affect decision | NO | relations ne gouvernent pas qui parle / quel vérificateur / quelle autorité / quelle confidentialité |
+| Select | PARTIAL | audience filtrée par `relationshipCommunicationRoutingService.js` selon indépendance et divulgation ; dialecte désactivé si un destinataire n'a pas de profil qui le recommande avec confiance élevée |
+| Invoke | PARTIAL | `runCycleDriver.js` enregistre un reçu fournisseur `genos.communication-usage/v1` comme mesuré ; sans reçu, `cost × 500` reste projection séparée et tokens utilisés vaut zéro (ADR 0137) |
+| Affect decision | PARTIAL | profil relationnel détermine l'éligibilité audience, le dialecte et le niveau d'accusé maximal ; la confidentialité du payload n'est pas filtrée champ par champ |
 | Act | PARTIAL | enveloppe de communication réelle |
-| Observe | NO | mesure causale d'économie tokens à 100/1000 agents non démontrée |
+| Observe | PARTIAL | compteurs distinguent consommations reçues et projections ; mesure causale d'économie à 100/1000 agents non démontrée |
 | Learn | PARTIAL | `communicationLearningService.js` |
 | Persist | YES | profils + outbox |
 | Reuse | PARTIAL | `relation graph → communication ecology` naissante |

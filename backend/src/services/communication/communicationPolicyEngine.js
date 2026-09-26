@@ -14,6 +14,7 @@ const { firewallOf } = require('./epistemicIndependenceService');
 const { selectEncoding } = require('./selectiveEncodingService');
 const { estimateCost } = require('./communicationCostService');
 const { logShadowDecision } = require('./communicationShadowLogService');
+const relationshipRouting = require('./relationshipCommunicationRoutingService');
 
 const INTENT_PURPOSES = new Set([
   'inform', 'request', 'delegate', 'clarify', 'challenge', 'verify', 'warn',
@@ -193,7 +194,7 @@ function gainPartsOf(intent, novelty, capability) {
 function selectionOf(ctx) {
   const human = ctx.intent.risk === 'critical' && ctx.input.humanRequired !== false;
   return selectEncoding({ novelty: ctx.novelty, purpose: ctx.intent.purpose, commonGround: ctx.ground,
-    dialectAvailable: Boolean(ctx.input.dialectAvailable), riskLevel: riskLevelOf(ctx.intent.risk),
+    dialectAvailable: Boolean(ctx.input.dialectAvailable) && relationshipRouting.dialectAllowed(ctx.informed), riskLevel: riskLevelOf(ctx.intent.risk),
     trigger: ctx.input.trigger, negotiation: Boolean(ctx.input.negotiation), humanRequired: human });
 }
 
@@ -226,7 +227,8 @@ function finalizeDecision(ctx) {
     encoding: ctx.selection.encoding, grounding: ctx.grounding, ttlMs: ctx.input.ttlMs || 60000,
     reasonCodes: reasonCodesFor(ctx.selection, ctx.capability, Boolean(ctx.intent.independenceRequired)),
     meta: { utility: ctx.utility, gain: ctx.gain, cost: ctx.cost.total, breakdown: ctx.cost.breakdown, novelty: ctx.novelty,
-      groups: ctx.groups, escalation: escalationMetaOf(ctx.selection.action, ctx.input), firewall: firewallOf(ctx.intent) }
+      groups: ctx.groups, escalation: escalationMetaOf(ctx.selection.action, ctx.input), firewall: firewallOf(ctx.intent),
+      relationshipRouting: relationshipRouting.summariesOf(ctx.informed) }
   };
 }
 
@@ -327,18 +329,19 @@ async function decideCommunication(input) {
   if (prescoped) return logAndDecide(input, prescoped);
   const requested = intent.requestedAudience || [];
   const audience = await selectAudience(audienceQueryOf(intent, refs, input));
-  const informed = restrictAudience(withoutSender(audience.candidates, intent.senderAgentId), requested);
+  const requestedCandidates = restrictAudience(withoutSender(audience.candidates, intent.senderAgentId), requested);
+  const informed = await relationshipRouting.profileAudience({ db: input.db, intent, candidates: requestedCandidates });
   if (informed.length === 0) {
     return logAndDecide(input, silenceDecision('COMMON_GROUND_HIGH', { stage: 'novelty', utility: 0, gain: 0, cost: 0 }));
   }
   const novelty = noveltyOf(unionUnknown(informed).length, refs.length);
   const capability = topCapability(informed);
   const gain = computeGain(gainPartsOf(intent, novelty, capability));
-  const selection = selectionOf({ intent, input, novelty, ground: groundEstimateOf(informed[0], refs.length) });
+  const selection = selectionOf({ intent, input, novelty, informed, ground: groundEstimateOf(informed[0], refs.length) });
   if (selection.action === 'SILENCE') {
     return logAndDecide(input, silenceDecision('NOVELTY_LOW', { stage: 'encoding', utility: 0, gain, cost: 0 }));
   }
-  const grounding = groundingFor(intent.risk, intent.requiresAction);
+  const grounding = relationshipRouting.groundingForAudience(intent, informed);
   const cost = costOf({ intent, input, selection, grounding, count: informed.length });
   const utility = gain - cost.total;
   if (utility <= 0) {
