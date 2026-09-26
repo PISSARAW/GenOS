@@ -119,9 +119,10 @@ const PRIORITY = Object.freeze([
 ]);
 
 function resolve(name = 'routing') {
-  const profile = PROFILES[String(name).toLowerCase()];
+  const canonical = String(name).trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+  const profile = PROFILES[canonical];
   if (!profile) throw Object.assign(new Error(`Unknown Rhizome variant '${name}'.`), { code: 'RHIZOME_VARIANT_UNKNOWN' });
-  return { name: String(name).toLowerCase(), ...structuredClone(profile) };
+  return { name: canonical, ...structuredClone(profile) };
 }
 
 function list() {
@@ -151,7 +152,7 @@ function automaticSelection(mission, scope) {
 }
 
 function selectMissionVariant(matches) {
-  return matches.sort((left, right) => PRIORITY.indexOf(left) - PRIORITY.indexOf(right))[0] || 'routing';
+  return [...matches].sort((left, right) => PRIORITY.indexOf(left) - PRIORITY.indexOf(right))[0] || 'routing';
 }
 
 function missionMatches(mission) {

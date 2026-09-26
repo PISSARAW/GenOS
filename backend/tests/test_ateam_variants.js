@@ -48,22 +48,25 @@ function run() {
     assert(Array.isArray(variant.preconditions), `Variant ${variant.id} missing preconditions`);
   }
 
-  // Test scoring
-  assert.equal(scoreVariant('tiger_team', { goal: 'urgent zero-day incident' }), 1);
+  // Test scoring (counts signal hits; most hits wins selection)
+  assert.ok(scoreVariant('tiger_team', { goal: 'urgent zero-day incident' }) >= 1);
   assert.equal(scoreVariant('tiger_team', { goal: 'routine maintenance' }), 0);
-  assert.equal(scoreVariant('pipeline', { goal: 'extract transform publish' }), 1);
-  assert.equal(scoreVariant('project_dag', { parallelWorkstreams: 3 }), 1);
-  assert.equal(scoreVariant('cross_functional_pod', { goal: 'build feature end to end' }), 1);
-  assert.equal(scoreVariant('boundary_spanner', { interfaceCount: 3 }), 1);
-  assert.equal(scoreVariant('matrix_team', { functionalAndProductOwners: true }), 1);
-  assert.equal(scoreVariant('multiteam', { teamCount: 3 }), 1);
-  assert.equal(scoreVariant('adaptive', { uncertainty: 0.8 }), 1);
-  assert.equal(scoreVariant('relay_team', { singleContextOwner: true }), 1);
-  assert.equal(scoreVariant('incident_command', { goal: 'incident multi-team outage' }), 1);
+  assert.ok(scoreVariant('pipeline', { goal: 'extract transform publish' }) >= 1);
+  assert.ok(scoreVariant('project_dag', { parallelWorkstreams: 3 }) >= 1);
+  assert.ok(scoreVariant('cross_functional_pod', { goal: 'build feature end to end' }) >= 1);
+  assert.ok(scoreVariant('boundary_spanner', { interfaceCount: 3 }) >= 1);
+  assert.ok(scoreVariant('matrix_team', { functionalAndProductOwners: true }) >= 1);
+  assert.ok(scoreVariant('multiteam', { teamCount: 3 }) >= 1);
+  assert.ok(scoreVariant('adaptive', { uncertainty: 0.8 }) >= 1);
+  assert.ok(scoreVariant('relay_team', { singleContextOwner: true }) >= 1);
+  assert.ok(scoreVariant('incident_command', { goal: 'incident multi-team outage' }) >= 1);
+  assert.equal(scoreVariant('tiger_team', { goal: 'logistics review' }), 0);
+  assert.equal(scoreVariant('incident_command', { goal: 'logistics review' }), 0);
 
-  // Test selectVariant
+  // Test selectVariant (best score wins; ties keep registry order; baseline otherwise)
   assert.equal(selectVariant({ variant: 'pipeline' }), 'pipeline');
   assert.equal(selectVariant({ goal: 'urgent incident' }), 'tiger_team');
+  assert.equal(selectVariant({ goal: 'incident multi-team outage' }), 'incident_command');
   assert.equal(selectVariant({ teamCount: 2 }), 'multiteam');
   assert.equal(selectVariant({}), 'expert_committee');
 

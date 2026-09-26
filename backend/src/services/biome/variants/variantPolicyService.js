@@ -32,7 +32,8 @@ function list() {
 }
 
 function resolve(name) {
-  const id = String(name || '').trim().toLowerCase().replaceAll('-', '_');
+  const requested = String(name || '').trim().toLowerCase().replaceAll('-', '_');
+  const id = requested === 'succession' ? 'successional' : requested;
   if (!DEFINITIONS[id]) throw variantError('Unknown Biome variant.', 'BIOME_VARIANT_UNKNOWN');
   return { variant: id, ...structuredClone(DEFINITIONS[id]) };
 }

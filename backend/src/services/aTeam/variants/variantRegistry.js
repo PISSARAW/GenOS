@@ -201,22 +201,38 @@ const VARIANTS = Object.freeze({
   }
 });
 
+function countMatches(pattern, text) {
+  return (text.match(pattern) || []).length;
+}
+
+const TEXT_PATTERNS = Object.freeze({
+  tiger_team: /\burgent\b|\bcritical\b|zero-day|incident|\burgence\b|timebox/gi,
+  incident_command: /\boutage\b|\bpanne\b|incident multi|\bcrise\b|\bics\b|incident\.command/gi,
+  pipeline: /\bcollect\b|\bextract\b|summari|publish|séquence|sequence|pipeline|linear/gi,
+  cross_functional_pod: /feature|end\.to\.end|bout en bout|\bproduct\b|autonomous|full\.lifecycle/gi
+});
+
 function scoreVariant(name, mission = {}) {
   const text = String(mission.goal || mission.mission || '').toLowerCase();
-  const rules = {
-    tiger_team: /urgent|critical|zero.day|incident|urgence|timebox/.test(text),
-    incident_command: /outage|panne|incident multi|crise|ics|incident.command/.test(text),
-    pipeline: /collect|extract|summari|publish|séquence|sequence|pipeline|linear/.test(text),
-    cross_functional_pod: /feature|end.to.end|bout en bout|product|autonomous|full.lifecycle/.test(text),
+  return textHits(name, text) + structuredHits(name, mission);
+}
+
+function textHits(name, text) {
+  const pattern = TEXT_PATTERNS[name];
+  if (!pattern) return 0;
+  return countMatches(pattern, text);
+}
+
+function structuredHits(name, mission) {
+  const hits = {
     multiteam: Number(mission.teamCount) > 1 || Boolean(mission.subTeams?.length),
     boundary_spanner: Number(mission.interfaceCount) > 1 || Boolean(mission.boundaries?.interfaces?.length),
     matrix_team: Boolean(mission.functionalAndProductOwners) || Boolean(mission.decisionAuthorities?.length),
     relay_team: Boolean(mission.singleContextOwner) || Boolean(mission.sequentialContext),
     adaptive: Number(mission.uncertainty) >= 0.7 || Boolean(mission.evolvingRequirements),
-    expert_committee: true,
     project_dag: Number(mission.parallelWorkstreams) > 1 || Boolean(mission.dagNodes?.length)
   };
-  return rules[name] ? 1 : 0;
+  return hits[name] ? 1 : 0;
 }
 
 function selectVariant(mission = {}) {
@@ -226,8 +242,10 @@ function selectVariant(mission = {}) {
     return requested;
   }
   const candidates = Object.keys(VARIANTS).filter((name) => name !== 'expert_committee');
-  const selected = candidates.find((name) => scoreVariant(name, mission) > 0);
-  return selected || 'expert_committee';
+  const scored = candidates.map((name) => ({ name, score: scoreVariant(name, mission) }));
+  scored.sort((left, right) => right.score - left.score);
+  const best = scored[0];
+  return best && best.score > 0 ? best.name : 'expert_committee';
 }
 
 function buildVariantPlan(mission = {}) {

@@ -23,7 +23,9 @@ function testVariantSurface() {
     assert.ok(definition.signals, `${id} signals`);
     const compiled = variants.compileExperimentalDesign(definition.design);
     assert.equal(compiled.maturity, 'implemented', `${id} maturity`);
-    assert.match(compiled.design.experimentalDesignId || 'trinity-design-v1-x', /trinity-design-v1-/);
+    for (const [axis, value] of Object.entries(definition.design)) {
+      assert.equal(compiled.design[axis], value, `${id} axis ${axis} preserved`);
+    }
   }
 }
 

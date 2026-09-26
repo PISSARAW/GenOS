@@ -82,7 +82,7 @@ function baselineSelection() {
 function variantPriority(variant) {
   const ordered = ['conservative', 'rescue_network', 'resilient', 'federated', 'source_sink', 'anti_synchrony',
     'ephemeral_patch', 'evolutionary', 'heterogeneous_islands', 'stepping_stone', 'island_search',
-    'persistent', 'cultural', 'classic_patch', 'exploratory'];
+    'persistent', 'cultural', 'classic_patch', 'exploratory', 'balanced'];
   return ordered.indexOf(variant);
 }
 

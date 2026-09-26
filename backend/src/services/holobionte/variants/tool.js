@@ -4,7 +4,7 @@ const { createPolicy } = require('./policyFactory');
 
 module.exports = createPolicy({
   name: 'tool',
-  fit: { immunePlane: true },
+  fit: { immunePlane: true, requiredCapabilities: ['tool-sandbox'] },
   host: { identity: 'persistent', executionStyle: 'tool-specialist' },
   admission: { requireContract: true, requireEvidence: true, trialRequired: true },
   resources: { reserveForCore: true, allocationMode: 'bounded' },

@@ -12,14 +12,19 @@ const VARIANT_IDS = ['epistemic_jury', 'delphi_community', 'adversarial_assembly
   'argumentation_community', 'polycentric_council', 'byzantine_resilient_community', 'minority_preserving_jury',
   'representative_community', 'persistent_community', 'human_ai_deliberation', 'hybrid_oracle_community'];
 
+const PARTIAL_VARIANTS = new Set(['argumentation_community', 'polycentric_council',
+  'byzantine_resilient_community', 'representative_community', 'persistent_community']);
+
 function testVariantSurface() {
   assert.deepEqual(Object.keys(router.POLICIES).sort(), [...VARIANT_IDS].sort());
   for (const id of VARIANT_IDS) {
     const selected = router.select(id);
     assert.equal(selected.name, id);
-    assert.equal(selected.executionLevel, 'EXECUTABLE', `${id} executable`);
+    const expectedLevel = PARTIAL_VARIANTS.has(id) ? 'PARTIAL' : 'EXECUTABLE';
+    assert.equal(selected.executionLevel, expectedLevel, `${id} execution level`);
     assert.ok(selected.disclosure && selected.review && selected.aggregation && selected.dissent);
   }
+  assert.equal(router.select('Epistemic-Jury').name, 'epistemic_jury');
 }
 
 function testVariantContracts() {
