@@ -37,9 +37,13 @@ function average(edges, score) {
   return edges.length ? edges.reduce((sum, edge) => sum + score(edge), 0) / edges.length : 1;
 }
 
-function noveltyScore(edge) {
+function noveltyScore(edge, lineageEdgeIds = null) {
   const usage = edge.trailState.positive + edge.trailState.negative + edge.trailState.verifiedFlow;
-  return 1 - Math.min(1, usage / 300);
+  const rarity = 1 - Math.min(1, usage / 300);
+  if (lineageEdgeIds != null && !lineageEdgeIds.has(edge.edgeId)) {
+    return Math.min(1, rarity + 0.25);
+  }
+  return rarity;
 }
 
 function freshnessScore(edge, now) {
