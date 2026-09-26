@@ -268,6 +268,13 @@ async function attachTruthGraph(ctx) {
   } catch (_) {}
 }
 
+function attachSemanticReport(ctx, dossiers) {
+  try {
+    const semantic = require('./semanticReportService');
+    if (ctx.autonomyPlan) ctx.autonomyPlan.semanticReport = semantic.buildSemanticReport(dossiers, {});
+  } catch (_) {}
+}
+
 async function enforceReportGate(ctx) {
   try {
     const compiled = ctx.autonomyPlan?.missionTruthGraph;
@@ -290,6 +297,7 @@ async function finishSatisfiedBarrier(ctx) {
   await attachReconstructions(ctx, dossiers);
   await attachTruthGraph(ctx);
   await enforceReportGate(ctx);
+  attachSemanticReport(ctx, dossiers);
   await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({
