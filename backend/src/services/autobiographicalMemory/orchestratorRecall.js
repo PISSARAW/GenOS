@@ -76,6 +76,14 @@ async function snapshotValence(db, agentId) {
   }
 }
 
+async function snapshotCausal(db, agentId) {
+  try {
+    return await require('../causalIntegrationService').analyzeCircuit(db, agentId, {});
+  } catch (_) {
+    return { status: 'unavailable' };
+  }
+}
+
 async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPlan }) {
   emitRecall({ agentId, eventType: 'AUTOBIOGRAPHICAL_RECALL_STARTED', detail: 'Autobiographical recall started before plan regulation.', payload: { missionId: buildSituation({ agentId, normalizedMission }).missionId } });
   try {
@@ -87,6 +95,7 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
     autonomyPlan.integrationProxy = await snapshotIntegration(db, agentId);
     autonomyPlan.attentionAudit = await snapshotAttention(db, agentId);
     autonomyPlan.valenceDrives = await snapshotValence(db, agentId);
+    autonomyPlan.causalIntegration = await snapshotCausal(db, agentId);
     applyAdjustments(autonomyPlan, adjustments);
     normalizedMission.selfModelPolicy = autonomyPlan.selfModel?.decisionPolicy || normalizedMission.selfModelPolicy;
     const eventType = recall.episodes.length || recall.lessons.length
