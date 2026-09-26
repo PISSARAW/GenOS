@@ -16,7 +16,7 @@ function join(session, input) {
     lastSeenVersion: snapshot.stateVersion,
     causalFrontier: { ...snapshot.causalFrontier },
     subscriptions: normalizeSubscriptions(input.subscriptions),
-    authority: input.authority || {},
+    authority: authorityForActor(session, actorId),
     offlineOperations: [],
     offlineCrdtState: null,
     status: 'ACTIVE',
@@ -24,6 +24,41 @@ function join(session, input) {
   };
   session.replicas[replicaId] = replica;
   return { replica, snapshot, duplicate: false };
+}
+
+function authorityForActor(session, actorId) {
+  const authority = session.offlineAuthority?.[actorId] || {};
+  validateAuthorityObject(authority);
+  validateAuthorityBudget(authority);
+  validateAuthorityFields(authority);
+  return { ...authority, allowedFields: authority.allowedFields ? [...authority.allowedFields] : null, spentOperations: 0 };
+}
+
+function validateAuthorityObject(authority) {
+  if (!authority || typeof authority !== 'object' || Array.isArray(authority)) throw replicaError('SYNCYTIUM_OFFLINE_AUTHORITY_INVALID', 'Replica offline authority must be an object.');
+}
+
+function validateAuthorityBudget(authority) {
+  const maxOperations = authority.maxOperations;
+  if (maxOperations !== undefined && (!Number.isSafeInteger(maxOperations) || maxOperations < 0)) {
+    throw replicaError('SYNCYTIUM_OFFLINE_AUTHORITY_INVALID', 'Offline maxOperations must be a non-negative integer.');
+  }
+  if (authority.validUntilMs !== undefined && (!Number.isSafeInteger(authority.validUntilMs) || authority.validUntilMs < 0)) {
+    throw replicaError('SYNCYTIUM_OFFLINE_AUTHORITY_INVALID', 'Offline validUntilMs must be a non-negative integer.');
+  }
+}
+
+function validateAuthorityFields(authority) {
+  if (authority.allowedFields !== undefined && (!Array.isArray(authority.allowedFields) || authority.allowedFields.some((path) => typeof path !== 'string' || !path))) {
+    throw replicaError('SYNCYTIUM_OFFLINE_AUTHORITY_INVALID', 'Offline allowedFields must be a list of field paths.');
+  }
+}
+
+function normalizeOfflineAuthority(input = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw replicaError('SYNCYTIUM_OFFLINE_AUTHORITY_INVALID', 'Offline authority must map actor IDs to budget policies.');
+  }
+  return structuredClone(input);
 }
 
 function acknowledge(session, replicaId, frontier) {
@@ -68,4 +103,4 @@ function replicaError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { join, acknowledge, leave, partition };
+module.exports = { join, acknowledge, leave, partition, normalizeOfflineAuthority };
