@@ -49,6 +49,14 @@ function emitRecall({ agentId, eventType, detail, payload, severity = 'info' }) 
   emit(agentId, eventType, 'AUTOBIOGRAPHICAL_RECALL', detail, payload, severity);
 }
 
+async function snapshotIntegration(db, agentId) {
+  try {
+    return await require('../integrationProxyService').measure(db, agentId, {});
+  } catch (_) {
+    return { status: 'unavailable' };
+  }
+}
+
 async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPlan }) {
   emitRecall({ agentId, eventType: 'AUTOBIOGRAPHICAL_RECALL_STARTED', detail: 'Autobiographical recall started before plan regulation.', payload: { missionId: buildSituation({ agentId, normalizedMission }).missionId } });
   try {
@@ -57,6 +65,7 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
     recall.recalled = true;
     autonomyPlan.autobiographicalRecall = recall;
     autonomyPlan.autobiographicalAdjustments = adjustments;
+    autonomyPlan.integrationProxy = await snapshotIntegration(db, agentId);
     applyAdjustments(autonomyPlan, adjustments);
     normalizedMission.selfModelPolicy = autonomyPlan.selfModel?.decisionPolicy || normalizedMission.selfModelPolicy;
     const eventType = recall.episodes.length || recall.lessons.length
@@ -65,7 +74,8 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
     emitRecall({ agentId, eventType, detail: 'Autobiographical recall was applied before plan regulation.', payload: {
       episodeCount: recall.episodes.length,
       lessonCount: recall.lessons.length,
-      adjustments
+      adjustments,
+      integration: autonomyPlan.integrationProxy?.status || 'unavailable'
     } });
     emitRecall({ agentId, eventType: 'AUTOBIOGRAPHICAL_ADJUSTMENTS_APPLIED', detail: 'Bounded autobiographical adjustments were applied to the decision policy.', payload: { adjustments } });
     return recall;
