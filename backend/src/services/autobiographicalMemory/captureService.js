@@ -94,11 +94,27 @@ async function reafferenceWeight(event) {
   return 1;
 }
 
+async function ignitionFactor(event, weight) {
+  try {
+    if (!event.agentId) return 1;
+    const service = require('../ignitionService');
+    const result = await service.charge(null, event.agentId, { weight });
+    if (result.ignited) return service.BURST_FACTOR;
+    if (result.suppressed) return service.REFRACTORY_FACTOR;
+    return service.LOCAL_FACTOR;
+  } catch (_) {
+    return 1;
+  }
+}
+
 async function captureTelemetryEvent(event = {}, dbOverride = null) {
   const kind = resolveKind(event.eventType);
   if (!kind) return null;
   const salienceResult = computeSalience(event);
-  const attenuated = { ...salienceResult, salience: salienceResult.salience * await reafferenceWeight(event) };
+  const gated = salienceResult.salience
+    * await reafferenceWeight(event)
+    * await ignitionFactor(event, salienceResult.salience);
+  const attenuated = { ...salienceResult, salience: Math.min(1, gated) };
   if (attenuated.salience < salienceThreshold) return null;
   return episodeStore.recordEpisode(episodeFromEvent(event, kind, attenuated), dbOverride);
 }
