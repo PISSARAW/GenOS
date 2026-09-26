@@ -35,7 +35,8 @@ class RhizomeController extends TopologyController {
   }
 
   async explore(node) {
-    return [{ from: node, to: `path_${Date.now()}`, depth: 1 }];
+    this.pathCounter = (this.pathCounter || 0) + 1;
+    return [{ from: node, to: `path_${this.pathCounter}`, depth: 1 }];
   }
 
   async observe() {

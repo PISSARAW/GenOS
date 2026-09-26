@@ -22,6 +22,7 @@ const SIMPLE_OPS = {
   CHANGE_TOPOLOGY: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) { n.topology = op.newTopology; n.variant = op.newVariant || n.variant; n.kind = 'TOPOLOGY'; } },
   CHANGE_VARIANT: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) n.variant = op.newVariant; },
   CHANGE_BUDGET: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) n.budget = { ...n.budget, ...op.budgetDelta }; },
+  RESIZE_POPULATION: (op) => (g) => { const n = findNode(g, op.nodeId); if (!n) return; if (!Number.isInteger(op.size) || op.size < 0) throw new Error('RESIZE_POPULATION requires a non-negative integer size'); n.workers = (n.workers || []).slice(0, op.size); },
   CHANGE_COMMUNICATION_POLICY: (op) => (g) => setNodePolicy(findNode(g, op.nodeId), 'communicationPolicy', op.newPolicy),
   CHANGE_EVIDENCE_POLICY: (op) => (g) => setNodePolicy(findNode(g, op.nodeId), 'evidencePolicy', op.newPolicy),
   FREEZE: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) setNodeLifecycle(n, 'frozen', 'frozenAt'); },
@@ -37,8 +38,8 @@ const STRUCTURAL_OPS = {
   SPLIT: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) { const [l, r] = op.splitResult; g.nodes.push(l, r); filterNodes(g, n => n.nodeId !== op.nodeId); } },
   MERGE: (op) => (g) => { const ns = op.nodeIds.map(id => findNode(g, id)).filter(Boolean); if (ns.length >= 2) { const m = { ...ns[0], nodeId: randomUUID(), children: ns.flatMap(n => n.children || []) }; g.nodes.push(m); filterNodes(g, n => !op.nodeIds.includes(n.nodeId)); } },
   MOVE_SUBTREE: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) n.parentNodeId = op.newParentId; },
-  ADD_BRIDGE: (op) => (g) => pushEdge(g, { type: 'BRIDGE', fromNodeId: op.fromNodeId, toNodeId: op.toNodeId, properties: { adapter: op.adapter } }),
-  REMOVE_BRIDGE: (op) => (g) => filterEdges(g, e => !(e.type === 'BRIDGE' && e.fromNodeId === op.fromNodeId && e.toNodeId === op.toNodeId)),
+  ADD_BRIDGE: (op) => (g) => pushEdge(g, { type: 'COMMUNICATES', fromNodeId: op.fromNodeId, toNodeId: op.toNodeId, properties: { adapter: op.adapter, bridge: true } }),
+  REMOVE_BRIDGE: (op) => (g) => filterEdges(g, e => !(e.fromNodeId === op.fromNodeId && e.toNodeId === op.toNodeId && e.properties && e.properties.bridge === true)),
   MIGRATE_WORKER: (op) => (g) => { const n = findNode(g, op.nodeId); if (n) { n.workers = n.workers?.filter(w => w.id !== op.workerId) || []; const t = findNode(g, op.targetNodeId); if (t) t.workers = [...(t.workers || []), { id: op.workerId, ...op.workerData }]; } },
   MIGRATE_STATE: (op) => (g) => { const s = findNode(g, op.fromNodeId); const t = findNode(g, op.toNodeId); if (s && t) t.state = { ...t.state, ...op.stateData }; }
 };
@@ -46,8 +47,10 @@ const STRUCTURAL_OPS = {
 const ALL_HANDLERS = { ...SIMPLE_OPS, ...STRUCTURAL_OPS };
 
 function applyOperation(graph, op) {
-  const handler = ALL_HANDLERS[op.type];
-  if (handler) handler(graph, op);
+  const make = ALL_HANDLERS[op.type];
+  if (!make) throw new Error(`Unsupported patch operation: ${op.type}`);
+  const apply = make(op);
+  if (typeof apply === 'function') apply(graph, op);
 }
 
 module.exports = { applyOperation };

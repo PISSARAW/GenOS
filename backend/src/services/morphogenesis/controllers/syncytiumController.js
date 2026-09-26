@@ -41,7 +41,7 @@ class SyncytiumController extends TopologyController {
   }
 
   checkConvergence() {
-    return this.proposals.length === 0 || Math.random() > 0.3;
+    return this.proposals.length === 0;
   }
 
   extractConsensus() {

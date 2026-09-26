@@ -1,6 +1,6 @@
 'use strict';
 
-const { MUTATION_TYPES, createMorphogenContext, computeMutationProbabilities, applyMutations, generateCandidates, MORPHOGEN_SIGNALS } = require('./developmentalGenerator');
+const { MUTATION_TYPES, createMorphogenContext, computeMutationProbabilities, applyMutations, generateCandidates, generateMutationParams, MORPHOGEN_SIGNALS } = require('./developmentalGenerator');
 const { MorphogenService } = require('./morphogenService');
 const { StructuralPressureService } = require('./structuralPressureService');
 const { CandidateEvaluator, CandidatePruner } = require('./candidateEvaluator');
@@ -8,7 +8,7 @@ const { CounterfactualSearch, MorphologySynthesizer } = require('./morphologySyn
 const { MORPHOLOGY_LEVELS, selectMinimumMorphology } = require('./minimalMorphologyPolicy');
 const { generateMorphologyCandidates } = require('./morphologyCandidateGenerator');
 const { MUTATION_TYPES: LOCAL_MUTATION_TYPES, generateLocalMutations } = require('./morphologyMutationGenerator');
-const { MUTATION_TYPES: GRAMMAR_MUTATION_TYPES, generateMutations } = require('./morphologyGrammar');
+const { COMPOSITIONS, TERMINALS, LIMIT_DEFAULTS, analyzeMorphology } = require('./morphologyGrammar');
 const { morphologyPatterns } = require('./morphologyPatterns');
 const { morphologyPatternLibrary } = require('./morphologyPatternLibrary');
 
@@ -20,7 +20,7 @@ module.exports = {
     computeMutationProbabilities,
     applyMutations,
     generateCandidates,
-    generateMutationParams: developmentalGenerator.generateMutationParams
+    generateMutationParams
   },
   MorphogenService,
   StructuralPressureService,
@@ -36,8 +36,10 @@ module.exports = {
     generateLocalMutations
   },
   morphologyGrammar: {
-    MUTATION_TYPES: GRAMMAR_MUTATION_TYPES,
-    generateMutations
+    COMPOSITIONS,
+    TERMINALS,
+    LIMIT_DEFAULTS,
+    analyzeMorphology
   },
   morphologyPatterns,
   morphologyPatternLibrary

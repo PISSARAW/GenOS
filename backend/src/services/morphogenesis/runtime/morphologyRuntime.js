@@ -9,6 +9,38 @@ function mergeChildEvidence(parent, child) {
   if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
 }
 
+function recordExperience(store, graph, rootNode, result) {
+  if (!store || typeof store.add !== 'function') return;
+  try {
+    store.add({
+      missionSignature: graph.missionId || graph.graphId,
+      problemProfile: {},
+      initialMorphology: { topology: rootNode.topology, variant: rootNode.variant, operator: rootNode.operator },
+      morphologyHistory: [{ version: graph.version, rootKind: rootNode.operator || rootNode.kind }],
+      budget: graph.globalBudget || {},
+      quality: 0,
+      evidenceQuality: 0,
+      finalOutcome: 'completed',
+      failures: 0
+    });
+  } catch (_) { /* learning must never break execution */ }
+}
+
+function variantPatch(input) {
+  const { createMorphologyPatch, createOperation } = require('../transitions/morphologyPatch');
+  return createMorphologyPatch({
+    baseGraphVersion: input.graph.version,
+    operations: [createOperation('CHANGE_VARIANT', { nodeId: input.nodeId, newVariant: input.newVariant })],
+    reason: input.reason || `Variant change to ${input.newVariant}`,
+    evidence: input.evidence || [],
+    expectedGain: {},
+    expectedCost: {},
+    rollbackPlan: { restoreDomains: ['graph', 'workers', 'leases', 'state', 'budgets'] },
+    authority: null,
+    lease: null
+  });
+}
+
 class MorphologyRuntime {
   constructor(options = {}) {
     this.topologyRegistry = options.topologyRegistry || {};
@@ -17,6 +49,7 @@ class MorphologyRuntime {
     this.globalBudget = options.globalBudget || {};
     this.globalInvariants = options.globalInvariants || [];
     this.eventHandlers = options.eventHandlers || {};
+    this.experienceStore = options.experienceStore || null;
   }
 
   async execute(graph, input = {}) {
@@ -47,6 +80,7 @@ class MorphologyRuntime {
       mergeChildEvidence(context, result.context);
 
       this.emit('complete', { graph, result, context });
+      recordExperience(this.experienceStore, graph, rootNode, result);
 
       return { output: result.output, receipts: context.receipts, evidence: context.evidence, state: result.context.state || context.state };
     } catch (error) {
@@ -99,6 +133,39 @@ class MorphologyRuntime {
 
   getExecutorRegistry() {
     return this.executorRegistry;
+  }
+
+  async applyPatch(patch, graph, execContext = {}) {
+    const { PatchExecutor } = require('../transitions/patchExecutor');
+    const { validateMorphologyGraph } = require('../graph/morphologyGraphValidator');
+    const { checkGraph } = require('../graph/morphologyTypeChecker');
+    const { checkBudgets } = require('../graph/morphologyBudgetChecker');
+    const executor = new PatchExecutor({
+      runtime: this,
+      verifier: { verify: verifyPatched }
+    });
+    return executor.execute(patch, graph, execContext);
+
+    async function verifyPatched(input) {
+      const errors = [];
+      pushErrors(errors, validateMorphologyGraph(input.graph));
+      pushErrors(errors, checkGraph({ graph: input.graph }));
+      pushErrors(errors, checkBudgets({ graph: input.graph }));
+      return { valid: errors.length === 0, errors };
+    }
+
+    function pushErrors(errors, result) {
+      if (!result.valid) errors.push(...result.errors);
+    }
+  }
+
+  async changeVariant(nodeId, graph, newVariant, execContext = {}) {
+    const node = graph.nodes.find((entry) => entry.nodeId === nodeId);
+    if (!node) throw new Error(`Node not found: ${nodeId}`);
+    if (node.variant === newVariant) return { success: true, changed: false };
+    const patch = variantPatch({ graph, nodeId, newVariant, evidence: execContext.evidence || [] });
+    const result = await this.applyPatch(patch, graph, execContext);
+    return { success: result.success, changed: result.success, execution: result.execution };
   }
 }
 

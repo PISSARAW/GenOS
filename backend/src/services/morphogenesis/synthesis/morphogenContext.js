@@ -111,11 +111,4 @@ const MUTATION_TYPES = [
   'FREEZE', 'THAW', 'QUIESCE', 'PROMOTE', 'DEMOTE'
 ];
 
-const MORPHOGEN_SIGNALS = [
-  'uncertainty', 'contradiction', 'novelty', 'evidence_gap',
-  'coupling', 'contention', 'staleness', 'stall',
-  'failure', 'diversity_loss', 'coordination_cost',
-  'resource_pressure', 'adversarial_pressure'
-];
-
 module.exports = { createMorphogenContext, computeMutationProbabilities, getBaseMutationProbabilities, generateMutationParams, sampleMutations, mutationProbability, MUTATION_TYPES, MORPHOGEN_SIGNALS };

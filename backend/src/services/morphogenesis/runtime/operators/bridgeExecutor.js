@@ -1,6 +1,8 @@
 'use strict';
 
 const { BaseExecutor } = require('./baseExecutor');
+const { createTransferBundle, bundleToSummary } = require('../../transitions/morphologyTransferBundle');
+const { createMigrationValidator } = require('../../transitions/migrationValidator');
 
 function checkContract(translated, adapter) {
   const contract = adapter && adapter.contract;
@@ -20,6 +22,57 @@ function lossOf(adapter, source, translated) {
 
 function provenanceOf(node, adapter, sourceNode, targetNode) {
   return { bridgeNodeId: node.nodeId, adapter: adapter.name || 'custom', from: sourceNode.nodeId, to: targetNode.nodeId, at: new Date().toISOString() };
+}
+
+function bundleFromOutput(output, sourceNode, context) {
+  const receipts = context.receipts || [];
+  return createTransferBundle({
+    mission: context.missionId || sourceNode.mission || 'unknown',
+    scope: sourceNode.scope || 'mission',
+    artifacts: output && output.artifacts ? output.artifacts : [],
+    claims: output && output.claims ? output.claims : [],
+    evidence: output && output.evidence ? output.evidence : context.evidence || [],
+    uncertainties: output && output.uncertainties ? output.uncertainties : [],
+    decisions: output && output.decisions ? output.decisions : [],
+    unresolvedQuestions: output && output.unresolvedQuestions ? output.unresolvedQuestions : [],
+    stateCapsules: [],
+    workerCapabilities: [],
+    resources: context.budget || {},
+    provenance: { topology: sourceNode.topology, variant: sourceNode.variant, executionId: context.executionId },
+    sourceReceipt: receipts[receipts.length - 1] || { pending: true, nodeId: sourceNode.nodeId },
+    topologyId: sourceNode.topology,
+    variant: sourceNode.variant
+  });
+}
+
+function inputFromBundle(bundle) {
+  return {
+    artifacts: bundle.artifacts,
+    claims: bundle.claims,
+    evidence: bundle.evidence,
+    uncertainties: bundle.uncertainties,
+    decisions: bundle.decisions,
+    unresolvedQuestions: bundle.unresolvedQuestions
+  };
+}
+
+function checkPreservation(sourceOutput, targetOutput, adapter) {
+  if (!adapter.contract) return { passed: true };
+  const validator = createMigrationValidator({});
+  const result = validator.checkSemanticPreservation(sourceOutput, targetOutput, adapter);
+  if (!result.passed) throw new Error(`BRIDGE semantic preservation failed: ${JSON.stringify(result.details)}`);
+  return result;
+}
+
+function bundleSummary(bundle) {
+  return bundleToSummary(bundle);
+}
+
+function extractNamed(output, adapter) {
+  if (adapter.transform === 'extract_value') return output && output.value !== undefined ? output.value : output;
+  if (adapter.transform === 'extract_claims') return output && output.claims ? output.claims : [];
+  if (adapter.transform === 'extract_evidence') return output && output.evidence ? output.evidence : [];
+  return output;
 }
 
 function collectSource(parent, child) {
@@ -49,7 +102,7 @@ class BridgeExecutor extends BaseExecutor {
     const sourceResult = await sourceExecutor.execute(sourceNode, graph, sourceContext);
     collectSource(context, sourceResult.context);
 
-    const translated = await this.applyAdapter(sourceResult.output, adapter, context);
+    const translated = await this.applyAdapter(sourceResult.output, adapter, sourceNode, sourceResult.context);
     checkContract(translated, adapter);
 
     const targetExecutor = this.runtime.getExecutorForNode(targetNode);
@@ -58,49 +111,30 @@ class BridgeExecutor extends BaseExecutor {
     const targetContext = { ...context, input: translated, evidence: [], receipts: [] };
     const targetResult = await targetExecutor.execute(targetNode, graph, targetContext);
     collectTarget(context, targetResult.context);
+    const preservation = checkPreservation(sourceResult.output, targetResult.output, adapter);
 
     const receipt = this.createReceipt(node, {
       sourceOutput: sourceResult.output,
       translated,
       adapter: adapter.name || 'custom',
       lossEstimate: lossOf(adapter, sourceResult.output, translated),
-      provenance: provenanceOf(node, adapter, sourceNode, targetNode)
+      provenance: provenanceOf(node, adapter, sourceNode, targetNode),
+      preservation
     });
 
     return { output: targetResult.output, receipt, state: targetResult.context.state, translated };
   }
 
-  async applyAdapter(output, adapter, context) {
+  async applyAdapter(output, adapter, sourceNode, sourceContext) {
     if (typeof adapter.transform === 'function') {
-      return adapter.transform(output, context);
+      return adapter.transform(output, sourceContext);
     }
-    switch (adapter.transform) {
-      case 'passthrough':
-        return output;
-      case 'extract_value':
-        return output?.value ?? output;
-      case 'extract_claims':
-        return output?.claims ?? [];
-      case 'extract_evidence':
-        return output?.evidence ?? [];
-      case 'to_transfer_bundle':
-        return this.toTransferBundle(output, context);
-      default:
-        return output;
+    if (adapter.transform === 'to_transfer_bundle') {
+      const bundle = bundleFromOutput(output, sourceNode, sourceContext);
+      bundleSummary(bundle);
+      return inputFromBundle(bundle);
     }
-  }
-
-  toTransferBundle(output, context) {
-    return {
-      mission: context && context.missionId,
-      artifacts: output?.artifacts || [],
-      claims: output?.claims || [],
-      evidence: output?.evidence || [],
-      uncertainties: output?.uncertainties || [],
-      decisions: output?.decisions || [],
-      stateCapsules: output?.stateCapsules || [],
-      provenance: output?.provenance || []
-    };
+    return extractNamed(output, adapter);
   }
 }
 

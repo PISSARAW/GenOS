@@ -33,7 +33,11 @@ class BiocenoseController extends TopologyController {
   }
 
   async jurorVote(juror, context) {
-    return { role: juror.role, vote: Math.random() > 0.3 ? 'approve' : 'reject', confidence: Math.random() };
+    const ballot = context && context.ballots && context.ballots[juror.role];
+    if (!ballot || (ballot.vote !== 'approve' && ballot.vote !== 'reject')) {
+      throw new Error(`Biocenose juror ${juror.role} requires an explicit ballot (approve/reject)`);
+    }
+    return { role: juror.role, vote: ballot.vote, confidence: ballot.confidence ?? 0.5 };
   }
 
   computeVerdict() {
