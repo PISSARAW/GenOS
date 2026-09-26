@@ -20,7 +20,8 @@ const DECISION_CHECKS = Object.freeze({
   PARETO_FRONT: (item) => item.options?.length > 0,
   DESIGN_OPTIONS_REVIEW: (item) => item.options?.length > 0,
   PLURALISM_PRESERVED: () => true,
-  CLAIM_MAP: claimMapReady
+  CLAIM_MAP: claimMapReady,
+  ARGUMENTS_ACCEPTED: (item) => item.unresolvedClaimIds?.length === 0
 });
 
 const STEP_HANDLERS = Object.freeze({
@@ -192,8 +193,10 @@ async function aggregateByQuestionType(context) {
   const options = context.aggregationContext || {};
   return aggregationService.aggregate({
     ...options, questionType: session.questionType, claims, judgments,
+    arguments: prior(context, 3).arguments,
     forecasts: options.forecasts || judgments.flatMap((item) => item.judgment.probabilities || []),
-    verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy
+    verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy,
+    isTrustedReceipt: context.isTrustedReceipt
   });
 }
 

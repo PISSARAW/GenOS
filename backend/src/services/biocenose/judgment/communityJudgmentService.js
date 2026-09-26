@@ -68,7 +68,7 @@ function judgmentRecord(input, context) {
 }
 
 function hasUnresolvedOutcome(aggregation) {
-  if (['UNRESOLVED', 'INSUFFICIENT_FORECASTS', 'NO_COMPARABLE_OPTIONS', 'REVIEW_REQUIRED']
+  if (['UNRESOLVED', 'INSUFFICIENT_FORECASTS', 'NO_COMPARABLE_OPTIONS', 'REVIEW_REQUIRED', 'ARGUMENTS_UNRESOLVED']
     .includes(aggregation.outcome)) return true;
   if (['PARETO_FRONT', 'DESIGN_OPTIONS_REVIEW'].includes(aggregation.outcome)) {
     return !(aggregation.options || []).length;

@@ -4,6 +4,8 @@ const { routeAggregationPolicy } = require('./aggregationPolicyRouter');
 
 function aggregate(input) {
   const route = routeAggregationPolicy(input.questionType);
+  if (input.variantPolicy?.name === 'argumentation_community') return argumentation(input, route);
+  if (input.variantPolicy?.name === 'polycentric_council') return polycentric(input, route);
   const handlers = {
     verified_evidence: factual,
     calibrated_probability_pooling: probability,
@@ -13,7 +15,65 @@ function aggregate(input) {
     claim_map: exploratory,
     type_specific_plural_judgment: mixed
   };
-  return { policy: route.policy, questionType: route.questionType, ...handlers[route.policy](input) };
+  const result = { policy: route.policy, questionType: route.questionType, ...handlers[route.policy](input) };
+  return input.variantPolicy?.name === 'delphi_community' ? withDelphiDistribution(result, input) : result;
+}
+
+function withDelphiDistribution(result, input) {
+  const positions = (input.judgments || []).map((item) => Number(item.judgment?.position))
+    .filter(Number.isFinite).sort((left, right) => left - right);
+  return {
+    ...result,
+    delphi: {
+      anonymous: true, participantCount: (input.judgments || []).length,
+      distribution: positionCounts(input.judgments || []),
+      numeric: positions.length > 0,
+      interquartileRange: positions.length ? quantile(positions, 0.75) - quantile(positions, 0.25) : null,
+      median: positions.length ? quantile(positions, 0.5) : null
+    }
+  };
+}
+
+function positionCounts(judgments) {
+  const counts = new Map();
+  for (const item of judgments) {
+    const position = String(item.judgment?.position ?? 'ABSTAIN');
+    counts.set(position, (counts.get(position) || 0) + 1);
+  }
+  return [...counts].map(([position, count]) => ({ position, count }));
+}
+
+function quantile(values, probability) {
+  const index = (values.length - 1) * probability;
+  const lower = Math.floor(index);
+  const fraction = index - lower;
+  return values[lower] + (values[Math.ceil(index)] - values[lower]) * fraction;
+}
+
+function argumentation(input, route) {
+  const semantics = require('../argumentation/argumentationSemantics');
+  const labels = semantics.evaluate({
+    claims: input.claims, arguments: input.arguments,
+    verifiedClaimIds: (input.verificationReceipts || []).filter((item) => item.status === 'VERIFIED').map((item) => item.claimId)
+  });
+  const unresolvedClaimIds = labels.filter((item) => item.status !== 'ACCEPTED').map((item) => item.claimId);
+  return {
+    policy: route.policy, questionType: route.questionType,
+    outcome: unresolvedClaimIds.length ? 'ARGUMENTS_UNRESOLVED' : 'ARGUMENTS_ACCEPTED', unresolvedClaimIds,
+    argumentation: { semantics: 'grounded_single_step', labels, unresolvedClaimIds,
+      contradictions: labels.filter((item) => item.contradiction).map((item) => item.claimId) }
+  };
+}
+
+function polycentric(input, route) {
+  const clusters = Array.isArray(input.clusters) ? input.clusters : [];
+  const hierarchical = require('../deliberation/hierarchicalDeliberationService');
+  const judgment = hierarchical.aggregateAtParent({ clusters, isTrustedReceipt: input.isTrustedReceipt });
+  const unresolved = clusters.length === 0 || judgment.parentMustReview;
+  return {
+    policy: route.policy, questionType: route.questionType,
+    outcome: unresolved ? 'REVIEW_REQUIRED' : 'POLYCENTRIC_JUDGMENT', polycentric: judgment
+  };
 }
 
 function factual(input) {
