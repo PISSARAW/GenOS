@@ -30,16 +30,17 @@ class ATeamController extends TopologyController {
       architecture: archResult,
       security: secResult,
       integration: intResult,
-      verified_claims: [...verified_claims, ...archResult.claims, ...secResult.claims]
+      verified_claims: [...verified_claims, ...(archResult.claims || []), ...(secResult.claims || [])]
     };
   }
 
   async runSubsystem(name, input) {
-    const controller = this.runtime.controllerRegistry.get(name.toLowerCase());
-    if (controller) {
-      return controller.execute(input);
+    const registry = this.runtime && this.runtime.controllerRegistry;
+    if (registry && typeof registry.get === 'function') {
+      const controller = registry.get(name.toLowerCase());
+      if (controller) return controller.execute(input);
     }
-    return { subsystem: name, processed: true, input };
+    return { subsystem: name, processed: true, claims: [], input };
   }
 
   async observe() {
