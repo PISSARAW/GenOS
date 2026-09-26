@@ -48,6 +48,27 @@ function accumulateMetrics(previous, delta, startedAt) {
   };
 }
 
+async function selfModelCompletionBlock(db, agentId, payload) {
+  try {
+    const data = payload || {};
+    const selfModel = require('./selfModelService');
+    const model = await selfModel.load(db, agentId, {});
+    selfModel.assertPromotionConstraints(model, {
+      replayVerified: data.replayVerified,
+      diffAndReplayPassed: data.diffAndReplayPassed,
+      replayReceipt: data.replayReceipt,
+      evidenceVerified: data.evidenceVerified,
+      independentVerification: data.independentVerification,
+      report: data.evidenceReport || data.report
+    });
+  } catch (error) {
+    if (error && error.code === 'SELF_MODEL_REPLAY_REQUIRED') return 'Self-model requires replay verification before promotion.';
+    if (error && error.code === 'SELF_MODEL_EVIDENCE_REQUIRED') return 'Self-model requires independent evidence before promotion.';
+    return null;
+  }
+  return null;
+}
+
 async function resolveRunOutcome(db, row, context) {
   const event = context.event;
   const delta = events.metricDelta(event.payload);
@@ -58,8 +79,8 @@ async function resolveRunOutcome(db, row, context) {
   let guardrailReason = events.policyViolation(event) || blockedReason(event, flags.blocked) || events.exceededGuardrail(metrics, budget);
   const contract = await completionContract(db, row);
   if (flags.completed && !guardrailReason) {
-    const reason = promotionGate.completionGuardrail(contract, event.payload, row.agent_id);
-    if (reason) guardrailReason = reason;
+    guardrailReason = promotionGate.completionGuardrail(contract, event.payload, row.agent_id)
+      || await selfModelCompletionBlock(db, row.agent_id, event.payload);
   }
   const approvalRequired = flags.completed && !guardrailReason && requiresHumanApproval(contract);
   return {

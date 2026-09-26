@@ -9,7 +9,6 @@ const agentIdentity = require('../src/services/agentIdentityService');
 const agentConscience = require('../src/services/agentConscienceService');
 const strategyAdapter = require('../src/services/strategyExecutionAdapter');
 const agentMemory = require('../src/services/agentMemoryContext');
-const workerSelfService = require('../src/services/workerSelfService');
 const trajectoryService = require('../src/services/trajectoryService');
 const { getDatabase } = require('../src/db');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
@@ -143,6 +142,7 @@ function createState(mission, data) {
     selfIntro: identity.selfIntro,
     conscienceState: agentConscience.createConscienceState(),
     conscienceBlock: '',
+    agentSelfBlock: '',
     memoryBlock: '',
     workerSelfBlock: '',
     prompt: '',
@@ -185,16 +185,15 @@ async function loadMemoryBlock(state) {
   } catch (_) {}
 }
 
-async function loadWorkerSelfBlock(state) {
+async function loadSelfBlocks(state) {
   try {
-    if (!state.isWorker) return;
-    if (!state.mission.agentId) return;
-    const ws = await workerSelfService.buildWorkerSelf(state.db, {
-      agentId: state.mission.agentId,
-      workerRole: state.mission.role || 'worker',
+    const selfBlocks = require('../src/services/agentSelfBlocks');
+    const blocks = await selfBlocks.loadUnifiedSelfBlocks(state.db, state.mission.agentId, {
+      wantWorker: state.isWorker, workerRole: state.mission.role || 'worker',
       workerContext: { mission: state.mission.prompt, hypothesis: state.mission.hypothesis, capabilities: state.mission.capabilities }
     });
-    state.workerSelfBlock = workerSelfService.formatWorkerSelfPrompt(ws);
+    state.agentSelfBlock = blocks.agentSelfBlock;
+    state.workerSelfBlock = blocks.workerSelfBlock;
   } catch (_) {}
 }
 
@@ -203,6 +202,7 @@ function buildPrompt(state) {
     selfIntro: state.selfIntro,
     mission: state.mission,
     conscienceBlock: state.conscienceBlock,
+    agentSelfBlock: state.agentSelfBlock,
     memoryBlock: state.memoryBlock,
     workerSelfBlock: state.workerSelfBlock,
     authorityInstruction: state.authorityInstruction,
@@ -228,7 +228,7 @@ async function buildState(mission, data) {
   await loadConscienceState(state);
   state.conscienceBlock = agentConscience.formatConsciencePrompt(state.conscienceState);
   await loadMemoryBlock(state);
-  await loadWorkerSelfBlock(state);
+  await loadSelfBlocks(state);
   state.prompt = buildPrompt(state);
   state.estimatedTokens = Math.ceil(Buffer.byteLength(state.prompt, 'utf8') / 4);
   return state;
