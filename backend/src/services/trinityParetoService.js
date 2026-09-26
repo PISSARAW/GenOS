@@ -8,13 +8,19 @@ const THRESHOLDS = {
   risk: 0.30, uncertainty: 0.50, constraintCoverage: 0.90
 };
 
+const DEFAULT_OBJECTIVE_PROFILES = {
+  world1: { name: 'quality_focus', weights: { correctness: 0.35, coverage: 0.30, robustness: 0.20, reproducibility: 0.15 } },
+  world2: { name: 'efficiency_focus', weights: { latency: 0.40, reproducibility: 0.30, cost: 0.30 } },
+  world3: { name: 'risk_focus', weights: { risk: 0.40, uncertainty: 0.30, constraintCoverage: 0.30 } }
+};
+
 function reportedEvidenceIds(report) {
   const evidence = Array.isArray(report.evidence) ? report.evidence : [];
   return new Set(evidence.map((item) => { return defaultIfMissing(item?.id, item); }).filter(Boolean));
 }
 
 function defaultIfMissing(value, fallback) {
-  return value === null || value === undefined ? fallback : value;
+  return value === null || value === undefined || value === '' ? fallback : value;
 }
 
 function normalizeWorld(entry, index, options = {}) {
@@ -24,12 +30,16 @@ function normalizeWorld(entry, index, options = {}) {
   const evidenceIds = reportedEvidenceIds(report);
   const missing = REQUIRED.filter((key) => { return !validMeasuredDimension(values[key], refs[key], evidenceIds); });
   const vector = Object.fromEntries([...MAXIMIZE, ...MINIMIZE].map((key) => { return [key, finiteMetric(values[key])]; }));
+  const objectiveProfile = options.objectiveProfiles?.[index] || DEFAULT_OBJECTIVE_PROFILES[`world${index + 1}`];
+  const scalarized = scalarizeVector(vector, objectiveProfile.weights);
   return {
     worldNumber: defaultIfMissing(entry?.worldNumber, index + 1),
     agentId: defaultIfMissing(entry?.agentId, null),
     role: defaultIfMissing(entry?.role, defaultIfMissing(entry?.strategy, null)),
     report,
     vector,
+    scalarized,
+    objectiveProfile: objectiveProfile.name,
     missing,
     hardConstraintsPassed: report.hardConstraintsPassed === true,
     budgetStatus: defaultIfMissing(report.budgetStatus, null),
@@ -55,6 +65,20 @@ function hasEvidenceReferences(refs, evidenceIds) {
   if (!Array.isArray(refs)) return false;
   if (refs.length === 0) return false;
   return refs.every((id) => evidenceIds.has(id));
+}
+
+function scalarizeVector(vector, weights) {
+  let score = 0;
+  let totalWeight = 0;
+  for (const [dim, weight] of Object.entries(weights)) {
+    const val = vector[dim];
+    if (val !== null) {
+      const normalized = MAXIMIZE.includes(dim) ? val : (1 - val);
+      score += normalized * weight;
+      totalWeight += weight;
+    }
+  }
+  return totalWeight > 0 ? Number((score / totalWeight).toFixed(4)) : null;
 }
 
 function gateFailures(world) {
@@ -122,10 +146,29 @@ function dominates(left, right, dimensions) {
   return strictlyBetter;
 }
 
+function hypervolume(frontier, referencePoint = null) {
+  if (!frontier.length) return 0;
+  const dims = [...MAXIMIZE, ...MINIMIZE].filter(d => frontier.every(w => w.vector[d] !== null));
+  if (!dims.length) return 0;
+  const ref = referencePoint || Object.fromEntries(dims.map(d => [d, MAXIMIZE.includes(d) ? 0 : 1]));
+  let hv = 0;
+  for (const world of frontier) {
+    let vol = 1;
+    for (const dim of dims) {
+      const val = world.vector[dim];
+      const r = ref[dim];
+      vol *= MAXIMIZE.includes(dim) ? Math.max(0, val - r) : Math.max(0, r - val);
+    }
+    hv += vol;
+  }
+  return Number(hv.toFixed(6));
+}
+
 function compare(worldReports, options = {}) {
   const thresholds = tightenedThresholds(options.dimensionThresholds);
+  const objectiveProfiles = options.objectiveProfiles || [DEFAULT_OBJECTIVE_PROFILES.world1, DEFAULT_OBJECTIVE_PROFILES.world2, DEFAULT_OBJECTIVE_PROFILES.world3];
   const worlds = (Array.isArray(worldReports) ? worldReports : []).map((entry, index) => ({
-    ...normalizeWorld(entry, index, options), thresholds
+    ...normalizeWorld(entry, index, { ...options, objectiveProfiles }), thresholds
   }));
   if (worlds.length !== 3) return escalation(worlds, 'exactly_three_worlds_required', thresholds);
   if (worlds.some((world) => world.missing.length)) return escalation(worlds, 'required_evidence_vector_or_provenance_missing', thresholds);
@@ -136,12 +179,16 @@ function compare(worldReports, options = {}) {
   const frontier = candidates.filter((world) => {
     return !candidates.some((other) => { return other !== world && dominates(other, world, dimensions); });
   });
-  if (frontier.length !== 1) return { ...escalation(gated, 'pareto_frontier_requires_human_or_synthesis', thresholds), outcome: 'KEEP_PARETO_SET', frontier, dimensions };
-  return { outcome: 'PROMOTE_WORLD', selectedWorld: frontier[0].worldNumber, frontier, worlds: gated, dimensions, thresholds, missing: [] };
+  const hv = hypervolume(frontier, options.referencePoint);
+  if (frontier.length !== 1) {
+    const synthesis = options.enableSynthesis && frontier.length > 1;
+    return { ...escalation(gated, 'pareto_frontier_requires_human_or_synthesis', thresholds), outcome: synthesis ? 'SYNTHESIZE_CLAIMS' : 'KEEP_PARETO_SET', frontier, dimensions, hypervolume: hv, objectiveProfiles: candidates.map(w => ({ worldNumber: w.worldNumber, profile: w.objectiveProfile, scalarized: w.scalarized })) };
+  }
+  return { outcome: 'PROMOTE_WORLD', selectedWorld: frontier[0].worldNumber, frontier, worlds: gated, dimensions, thresholds, missing: [], hypervolume: hv, objectiveProfiles: candidates.map(w => ({ worldNumber: w.worldNumber, profile: w.objectiveProfile, scalarized: w.scalarized })) };
 }
 
 function escalation(worlds, reason, thresholds = THRESHOLDS) {
-  return { outcome: 'ESCALATE_EXPERIMENT', reason, worlds, frontier: [], dimensions: [], thresholds, missing: worlds.flatMap((world) => { return world.missing || []; }) };
+  return { outcome: 'ESCALATE_EXPERIMENT', reason, worlds, frontier: [], dimensions: [], thresholds, missing: worlds.flatMap((world) => { return world.missing || []; }), hypervolume: 0 };
 }
 
-module.exports = { compare, normalizeWorld, REQUIRED, THRESHOLDS };
+module.exports = { compare, normalizeWorld, REQUIRED, THRESHOLDS, DEFAULT_OBJECTIVE_PROFILES, hypervolume, scalarizeVector };
