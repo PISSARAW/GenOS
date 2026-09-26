@@ -34,6 +34,7 @@ function buildWorkerMission(input = {}) {
     autonomousOrchestration: false
   };
   mission.workerContract = workerKinds.buildWorkerContract(workerKind, mission);
+  mission.cognitivePosture = applyCognitivePosture(mission, input);
   mission.prompt = [
     mission.prompt,
     `Worker kind: ${workerKind}. ${workerKinds.promptRule(workerKind)}`,
@@ -41,6 +42,16 @@ function buildWorkerMission(input = {}) {
     workerKinds.evidenceRule(mission.workerContract)
   ].filter(Boolean).join('\n\n');
   return mission;
+}
+
+function applyCognitivePosture(mission, input) {
+  try {
+    const posture = require('./cognitivePostureService').attachPosture({ agentId: input.agentId, prompt: input.prompt });
+    if (posture) mission.prompt = [mission.prompt, posture.directive].filter(Boolean).join('\n\n');
+    return posture ? posture.receipt : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function dispatchWorkerMission(input) {
