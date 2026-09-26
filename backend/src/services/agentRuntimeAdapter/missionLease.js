@@ -89,6 +89,17 @@ function enforceMissionToolLease(ctx) {
   const bounded = leasePolicy.restrictProvidedLease(provided, policy);
   mission.toolLease = mission.workerContract?.authority?.execute === false ? [] : bounded;
   ctx.normalizedMission = mission;
+  return applyFocusProbe(ctx, mission);
+}
+
+async function applyFocusProbe(ctx, mission) {
+  try {
+    const probes = require('../attentionProbeService');
+    const probe = await probes.consumeFocusConstraint(ctx.db, ctx.agentId);
+    if (!probe) return;
+    const narrowed = mission.toolLease.filter((tool) => probe.allowedTools.includes(tool));
+    if (narrowed.length) mission.toolLease = narrowed;
+  } catch (_) {}
 }
 
 module.exports = { attachMissionMemoryContext, isInProcessWorker, enforceMissionToolLease };

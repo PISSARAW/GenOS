@@ -239,11 +239,20 @@ async function attachCounterfactualScores(ctx, dossiers) {
   } catch (_) {}
 }
 
+async function attachProbeVerdicts(ctx, dossiers) {
+  try {
+    const probes = require('./attentionProbeService');
+    const verdicts = await probes.verifyProbesForDossiers(ctx.db, dossiers);
+    if (ctx.autonomyPlan && Object.keys(verdicts).length) ctx.autonomyPlan.attentionProbes = verdicts;
+  } catch (_) {}
+}
+
 async function finishSatisfiedBarrier(ctx) {
   const dossiers = loadDossiers({ agentId: ctx.agentId, workers: ctx.workers });
   validateWorkerDossiers(dossiers, ctx.workers, { contract: readContract({ contractRecord: ctx.contractRecord }) });
   await applyTrinityComparison({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await attachCounterfactualScores(ctx, dossiers);
+  await attachProbeVerdicts(ctx, dossiers);
   await applyAteamIntegration({ db: ctx.db, agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await applyCognitiveSynthesis({ agentId: ctx.agentId, workers: ctx.workers, autonomyPlan: ctx.autonomyPlan, usable: dossiers }).catch(() => {});
   await finalizeSatisfied({

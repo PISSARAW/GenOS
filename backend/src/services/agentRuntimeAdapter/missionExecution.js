@@ -39,7 +39,7 @@ async function bootstrapMission(mission) {
   await require('./missionLease').attachMissionMemoryContext(ctx.normalizedMission, ctx.agentId);
   assertMissionNotCancelled(ctx.agentId);
   applyExecutionPolicy(ctx);
-  enforceMissionToolLease(ctx);
+  await enforceMissionToolLease(ctx);
   computeRuntimeBudget(ctx);
   await createMissionExecutionRun(ctx);
   reportOrchestratorStart(ctx);
