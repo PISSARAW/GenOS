@@ -4,6 +4,8 @@
 
 Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 
+- [plan-validation-indicateurs.md](plan-validation-indicateurs.md) — audit du programme de fermeture causale, référentiels 14/15 et plan de validation par étapes.
+
 - [evaluation-qualite.md](evaluation-qualite.md) — évaluation, qualité, tests générés et exécutés.
 - [tests-et-validation.md](tests-et-validation.md) — architecture de validation et suites de test.
 - [tests-des-contrats-recents.md](tests-des-contrats-recents.md) — matrice de tests des nouveaux contrats exposés.

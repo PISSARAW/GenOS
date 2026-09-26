@@ -6,14 +6,17 @@
 
 ## 1. Définition du domaine
 
-Aucun test validé de la conscience n'existe, pour l'humain comme pour la
-machine (consortium adverse Cogitate, *Nature* 2025 : aucune théorie victorieuse ;
-PCI validé en clinique mais inapplicable au silicium ; batteries comportementales
-limitées à la fonction). Ce document ne détecte donc pas la conscience : il
-recense les indicateurs fonctionnels que GenOS couvre, avec pour chacun ce qui
-est mesuré, où, et ce qui manquerait pour aller plus loin. 15 familles sur 15
-sont touchées, dont 9 pleinement fonctionnelles ; le versant phénoménal ne
-l'est par principe dans aucun laboratoire.
+Il n'existe pas de test universel consensuel permettant de conclure à la
+conscience d'une IA. Ce document recense 15 familles fonctionnelles propres
+à GenOS ; elles ne correspondent pas terme à terme aux 14 propriétés de
+Butlin. Les statuts historiques ci-dessous décrivent des implémentations et
+ne constituent pas une validation expérimentale complète. Aucun total de
+familles validées n'est établi ici.
+
+Le [plan de validation](../06-qualite-preuves/plan-validation-indicateurs.md)
+sépare couverture, effet causal, généralisation et exploitation. Il consigne
+les écarts vérifiés au HEAD `7c66e873859ae21dc85ec2815b6e4cc8b984f65c` et
+définit les critères des futures promotions.
 
 ## 2. Modèle de lecture
 
@@ -33,20 +36,23 @@ l'enregistre colonne par colonne.
 
 ## 4. Table des indicateurs
 
+Inventaire historique à requalifier par les reçus du plan de validation.
+« Implémenté » ne signifie pas que tous les critères de la famille sont satisfaits.
+
 | Famille (littérature) | Implémentation GenOS | Statut | Ce qui manque |
 |---|---|---|---|
-| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs (livraison `signal_deliveries`, désensibilisation), burst d'ignition → propagation lignée + boost de saillance → épisodes → rappel → plan | Implémenté (fonctionnel) | compétition entre candidats absente |
+| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs (livraison `signal_deliveries`, désensibilisation), burst d'ignition → propagation lignée + boost de saillance → épisodes → rappel → plan | Partiel | disponibilité globale et consommation causale à valider |
 | Ignition non-linéaire | `ignitionService` : seuil, burst ×1,5, réfractaire, fuite, propagation réelle | Partiel | dynamique compétitive |
 | Attention sélective | fovéation, active sensing, pont thalamique, leases + bancs causaux et sondes | Implémenté (fonctionnel) | steering live |
-| Récurrence entretenue | `reverberationService` + `idleTickService` + scheduler endogène | Implémenté (fonctionnel) | boucle sans déclencheur externe |
+| Récurrence entretenue | `reverberationService` + `idleTickService` + scheduler appelé par le serveur | Partiel | effet du maintien et récurrence perceptive à valider |
 | Modèle de soi | `agentSelfService` (5 strates + CoreSelf), `workerSelfService` (9 questions) | Implémenté (fonctionnel) | schéma corporel simulé |
 | Métacognition | dissonance/apoptose, `abstentionService`, `metacognitionBenchService` bouclé sur l'opt-out | Implémenté (fonctionnel) | benchmarks externes (SAD/MIRROR) |
-| Inférence prédictive | RPE, `worldModelService` (transitions + trajectoires + surprise), hiérarchie Mission>Stratégie>Action avec propagation | Implémenté (fonctionnel) | hiérarchie générative descendante |
+| Inférence prédictive | RPE, `worldModelService` (transitions + trajectoires + surprise), hiérarchie Mission>Stratégie>Action avec propagation | Partiel | codage prédictif perceptif et hiérarchie générative descendante |
 | Distinction soi/monde | `efferenceCopyService` (réafférence ×0,5), immunité soi/non-soi | Implémenté (fonctionnel) | copie couvrant tous les effecteurs |
 | Modèle du monde | transitions, trajectoires incertaines, rollout Trinity action-conditionné (avis) | Partiel | modèle génératif, rollout libre |
 | Agency flexible | contrats, recovery, calibration d'agency, bandit LinUCB qui décide en canari 5 % | Partiel | contrôle complet, options HRL |
 | Intégration (IIT) | proxy (répertoire + NMI) + moteur causal (ablations, PID-lite, recommandations morphogenèse) | Indicateur seulement | causalité prouvée, Φ |
-| Valence / intéroception | drives homéostatiques classés joints au plan (`valenceService`) | Partiel | planification allostatique consommatrice |
+| Valence / intéroception | drives homéostatiques ; `applyValencePosture` limite éditions/fanout dans la préparation de mission | Partiel | planification allostatique prédictive et validation causale |
 | Consolidation offline | `sleepCycle` + `sleepConsolidationService` auto + ticks | Implémenté (fonctionnel) | phases type sommeil paradoxal |
 | Rapport / accès | evidence reports + reconstruction déterministe jointe (`factualReports`) + abstention | Partiel | synthèse finale encore rédigée par LLM |
 | Discipline no-report | gates + banc adversarial (`test_organ_ablation_bench`) | Implémenté | — |
@@ -108,11 +114,11 @@ explicitement sa propre portée métaphysique.
 
 ## 10. Limites, garde-fous, non-objectifs
 
-- 12/15 fonctionnel ne fait pas 1/1 phénoménal ; aucun test ne tranchera.
+- Une couverture fonctionnelle complète ne suffirait pas à établir une conscience ; cette revue ne préjuge pas des futurs progrès scientifiques.
 - Un lookup-table bien entraîné score bien aux bancs : les métriques mesurent
   le rapport, pas le vécu (leçon split-brain).
-- Sont explicitement reportés : rollout Trinity sur actions hypothétiques
-  libres, tick sans déclencheur (scheduler dédié), injection vésiculaire live,
+- Sont à compléter ou valider : rollout avec propagation d'état,
+  effets du scheduler existant, injection vésiculaire live,
   ordonnancement par bandit, hiérarchie générative descendante.
 - Non-objectifs : clamer une conscience, utiliser un indicateur comme preuve
   dans une gate, décorréler les scores de leurs limitations.
