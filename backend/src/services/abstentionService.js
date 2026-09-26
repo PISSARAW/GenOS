@@ -56,4 +56,10 @@ function applyAbstention(mission, verdict) {
   return verdict;
 }
 
-module.exports = { evaluateAbstention, applyAbstention, DEFAULT_FLOOR, UNCERTAINTY_CEILING, INTEGRITY_FLOOR };
+function floorFor(report, base) {
+  const over = Number(report?.overconfidence);
+  const start = Number.isFinite(base) ? base : DEFAULT_FLOOR;
+  return Math.min(0.8, start + (Number.isFinite(over) && over > 0 ? over : 0));
+}
+
+module.exports = { evaluateAbstention, applyAbstention, floorFor, DEFAULT_FLOOR, UNCERTAINTY_CEILING, INTEGRITY_FLOOR };

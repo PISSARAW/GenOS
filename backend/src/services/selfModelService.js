@@ -98,6 +98,13 @@ function habitsFrom(biases) {
   return { preferredStrategies: { unknown_cause_bug: 'falsification_forks', security: 'red_blue_coevolution', implementation: 'n_way_counterfactual_fork' }, knownWeaknesses: knownWeaknesses(biases), knownStrengths: ['phase-gated evidence', 'isolating worker failures'], biases };
 }
 
+async function mergeLearned(db, agentId, patch) {
+  const learned = await stateStore(db).restoreObject(SCOPE, agentId) || {};
+  const next = { ...learned, ...(patch || {}) };
+  await stateStore(db).persistObject(SCOPE, agentId, next, Number(learned.calibration?.observations) || 0);
+  return next;
+}
+
 function identityFrom(agent) {
   return { role: agent.role || 'Project Orchestrator', executionMode: agent.execution_mode || 'orchestrator', workspaceId: agent.workspace_id || null };
 }
@@ -117,6 +124,9 @@ function buildModel(input) {
   const policy = decisionPolicy(state, biases);
   const plan = context.plan || {};
   const habits = habitsFrom(biases);
+  if (Array.isArray(learned.extraWeaknesses)) {
+    habits.knownWeaknesses = [...habits.knownWeaknesses, ...learned.extraWeaknesses.slice(0, 3)];
+  }
   return {
     schema: 'genos.orchestrator-self-model/v1alpha1', agentId: agent.id,
     identity: identityFrom(agent), capabilities: capabilitiesFrom(context, plan), limits: limitsFrom(context, plan, policy),
@@ -221,4 +231,4 @@ function assertPromotionConstraints(model, context) {
   }
 }
 
-module.exports = { SCOPE, load, calibrate, applyToMission, assertPromotionConstraints, biasMetrics };
+module.exports = { SCOPE, load, calibrate, applyToMission, assertPromotionConstraints, biasMetrics, mergeLearned };

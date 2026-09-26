@@ -329,7 +329,9 @@ async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) 
   selfModel.applyToMission(normalizedMission, model, autonomyPlan);
   applySurvivalConstraints(autonomyPlan);
   autonomyPlan.selfModel = model;
-  const abstention = applyAbstentionToMission(normalizedMission, model);
+  const bench = await require('./metacognitionBenchService').runBenchSafe(db, agentId);
+  if (bench?.status === 'measured') autonomyPlan.metacognitionBench = bench;
+  const abstention = applyAbstentionToMission(normalizedMission, model, bench);
   emit(agentId, 'SELF_MODEL_ASSESSED', 'SELF_REGULATE', model.selfAssessment.join(' '), {
     state: model.state,
     decisionPolicy: model.decisionPolicy,
@@ -338,10 +340,11 @@ async function applySelfModel({ db, agentId, normalizedMission, autonomyPlan }) 
   }, 'info');
 }
 
-function applyAbstentionToMission(mission, model) {
+function applyAbstentionToMission(mission, model, bench) {
   try {
     const abstention = require('./abstentionService');
-    const verdict = abstention.evaluateAbstention(model.state || {});
+    const floor = bench?.status === 'measured' ? abstention.floorFor(bench, 0.5) : 0.5;
+    const verdict = abstention.evaluateAbstention({ ...(model.state || {}), floor });
     if (verdict.abstain && model.decisionPolicy) model.decisionPolicy.requireIndependentEvidence = true;
     return abstention.applyAbstention(mission, verdict);
   } catch (_) {
