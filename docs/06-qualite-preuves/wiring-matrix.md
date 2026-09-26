@@ -14,8 +14,8 @@
 |---|---|---|
 | Sense | YES | `crossAgentRelationalService.js:listRelations` lit `agent_relations` |
 | Select | PARTIAL | `morphogenesis/relationResolverService.js:selectVerifier/selectPartner` existent, sans appelant runtime hors tests |
-| Invoke | NO | aucune des 8 topologies n'importe le resolver |
-| Affect decision | PARTIAL | `communication/epistemicIndependenceService.js:assessIndependence` lit `epistemicIndependence`, branché dans `communicationPolicyEngine.js:finalizeDecision` |
+| Invoke | PARTIAL | `relationAuthorityBridge.js:resolveControlByRelation` consulté en fallback par `agentAuthorityService.js:authorizeAgentControl` (`manager/guardian/mentor/parent` forward → contrôle délégué, reçu `relationControl`) |
+| Affect decision | PARTIAL | `relationAuthorityBridge.js:filterVerifierCandidates` exclut le lignage ; `assessIndependence` branché dans `communicationPolicyEngine.js:finalizeDecision` |
 | Act | NO | `manager/guardian` ne modifient ni autorité ni budget |
 | Observe | PARTIAL | `communicationLearningService.js` incrémente `interaction_count/familiarity` |
 | Learn | NO | presets non calibrés |
@@ -27,11 +27,11 @@
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `mcpLigandReceptorService.js:dockLigandToReceptor` + `checkCnidocyteReflex` |
-| Select | NO | `mcpExecutor/dispatch.js:preValidateTool` n'appelait pas `validateStericOrSchema` |
-| Invoke | PARTIAL | `mcpContract.js:validateStericOrSchema` exposé et testé, sans appel production |
-| Affect decision | NO | dispatch réel = `validateToolArguments` + leases + registre |
-| Act | NO | aucun rejet/block issu du docking dans le dispatch |
-| Observe | NO | pas de reçu de docking persisté |
+| Select | YES | `mcpExecutor/dispatch.js:preValidateTool` appelle `mcpContract.js:validateStericOrSchema` après registre + lease |
+| Invoke | YES | réflexe cnidocyte = rejet dur `reflex_discharged/MCP_STERIC_REFLEX` ; `docked` = reçu joint au contexte puis au résultat via `withDocking` |
+| Affect decision | PARTIAL | le réflexe bloque ; le docking n'outrepasse ni leases ni registre ni schema (pas d'affaiblissement) |
+| Act | PARTIAL | blocage réflexe prouvé ; validation schema conservée |
+| Observe | YES | reçu `docking` retourné dans le résultat de `executeConfiguredTransport` et dans le rejet réflexe |
 | Learn | NO | seuils `ΔG` fixes |
 | Persist | NO | — |
 | Reuse | NO | — |
@@ -43,9 +43,9 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `philosophyRouter.js` + `philosophyAnalysisContract.js` retournent `status/evidence/uncertainty/provenance/promotionEligible=false` |
-| Select | NO | `orchestratorDispatchService.js:dispatchWorkerMission` ne consulte aucun diagnostic cognitif |
-| Invoke | PARTIAL | `genos_philosophy` exécutable, `philosophyRuntimeEffectService.js:previewRuntimeEffect/applyRuntimeEffect` en preview sauf `apply:true` |
-| Affect decision | NO | `savoir-et-epistemologie.md` : aucune action runtime déclenchée |
+| Select | PARTIAL | `cognitivePostureService.js:detectPosture` classifie le prompt au `buildWorkerMission` (heuristique documentée) |
+| Invoke | PARTIAL | `orchestratorDispatchService.js:applyCognitivePosture` joint `philosophyRuntimeEffectService:previewRuntimeEffect` à chaque dispatch |
+| Affect decision | PARTIAL | directive de posture ajoutée au prompt worker + reçu `mission.cognitivePosture` ; `applied=false` (preview, aucune télémétrie émise) |
 | Act | NO | — |
 | Observe | PARTIAL | `philosophyAnalysisPersistenceService.js` persiste l'analyse |
 | Learn | NO | — |
