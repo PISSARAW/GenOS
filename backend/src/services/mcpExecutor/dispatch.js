@@ -63,10 +63,31 @@ function invalidConfigResult(transport) {
   return { configured: false, success: false, status: 'invalid_config', error: transport.error };
 }
 
+function withDocking(result, docking) {
+  if (!docking || !result || typeof result !== 'object') return result;
+  return { ...result, docking };
+}
+
+function stericCheck(toolName, args) {
+  try {
+    const { validateStericOrSchema } = require('../mcpContract');
+    return validateStericOrSchema(toolName, args);
+  } catch (_) {
+    return null;
+  }
+}
+
+function reflexDischargedResult(toolName, executionKind, steric) {
+  return { configured: false, success: false, status: 'reflex_discharged', error: steric.error, code: 'MCP_STERIC_REFLEX', executionKind, docking: steric.docking };
+}
+
 function preValidateTool(context) {
   const { registry, toolName, args, executionKind } = context;
   if (!registry.isSupportedTool(toolName)) return unsupportedResult(toolName, executionKind);
   if (!directToolLeaseAllows(toolName)) return leaseDeniedResult(toolName, executionKind);
+  const steric = stericCheck(toolName, args);
+  if (steric && steric.reflexDischarged) return reflexDischargedResult(toolName, executionKind, steric);
+  if (steric) context.docking = steric.docking || { mode: steric.mode };
   const argumentError = validateToolArguments(toolName, args);
   if (argumentError) return invalidArgsResult(argumentError);
   try {
@@ -129,16 +150,23 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
   if (!normalizedToolName) return invalidToolResult();
+  let stericDocking = null;
   if (!preValidated) {
-    const rejection = preValidateTool({ registry, toolName: normalizedToolName, args, executionKind });
+    const validationContext = { registry, toolName: normalizedToolName, args, executionKind };
+    const rejection = preValidateTool(validationContext);
     if (rejection) return rejection;
+    stericDocking = validationContext.docking || null;
   }
   if (normalizedToolName === 'genos_delegate_worker') {
-    return executeToolLogic(normalizedToolName, args, { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, db: await require('../../db').getDatabase() });
+    const result = await executeToolLogic(normalizedToolName, args, { runLocal: createLocalRunner(timeoutMs), timeoutMs, agentId, db: await require('../../db').getDatabase() });
+    return withDocking(result, stericDocking);
   }
-  if (hasConfiguredEndpoint()) return executeRemoteTransport(normalizedToolName, args, timeoutMs);
+  if (hasConfiguredEndpoint()) {
+    const result = await executeRemoteTransport(normalizedToolName, args, timeoutMs);
+    return withDocking(result, stericDocking);
+  }
   const runLocal = createLocalRunner(timeoutMs);
-  return executeToolLogic(toolName, args, { runLocal, timeoutMs, agentId });
+  return withDocking(await executeToolLogic(toolName, args, { runLocal, timeoutMs, agentId }), stericDocking);
 }
 
 async function listTools() {
@@ -154,6 +182,7 @@ module.exports = {
   runWithTimeout,
   resolveMcpOutputPath,
   validateMcpInputPaths,
+  preValidateTool,
   executeConfiguredTransport,
   listTools
 };
