@@ -17,7 +17,10 @@ function testVariantSurface() {
     ]) {
       assert.ok(policy[method]());
     }
-    const fit = policy.analyzeFit({ capabilities: ['stable-core', 'diversity'],
+    const fit = policy.analyzeFit({ capabilities: [
+      'stable-core', 'diversity', 'cloud-core', 'edge-symbionts', 'cloud-proxy',
+      'persistent-memory', 'verified-trials', 'tool-sandbox', 'edge-sync', 'provenance-verification'
+    ],
       localEngineAvailable: true, immunePlaneAvailable: true, successionAvailable: true });
     assert.strictEqual(fit.compatible, true);
     assert.strictEqual(fit.score, 1);
