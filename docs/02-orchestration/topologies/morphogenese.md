@@ -2,7 +2,7 @@
 
 - **Statut** : Cadre opérationnel du noyau GenOS
 - **Portée** : construction, composition, séparation, fusion, transformation et destruction dynamique des organisations cognitives
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-09-26
 
 ---
 
@@ -2199,10 +2199,65 @@ sélectionnée et inscrite comme racine du graphe. Les tests de câblage dédié
 couvrent les composeurs Biome, Biocénose, Holobionte, Syncytium, Rhizome et
 Métapopulation; Trinity et A-Team ont aussi un test du dispatch commun.
 
-Une seule conversion inter-topologies est actuellement enregistrée et
-testée : Trinity vers A-Team, à partir des affirmations vérifiées. Le service
-de transition refuse les autres changements de topologie tant qu'un
+Une seule conversion inter-topologies spécialisée était enregistrée et
+testée au 2026-09-25 : Trinity vers A-Team, à partir des affirmations vérifiées
+(plus un adaptateur Syncytium vers Trinity). Depuis 2026-09-26, l'opérateur
+BRIDGE transporte en outre un `MorphologyTransferBundle` canonique
+(artefacts, affirmations, preuves, incertitudes, décisions, questions ouvertes,
+capsules d'état, capacités, ressources, provenance, reçu source), vérifié par
+`migrationValidator` (contrat `requiredOutputs`, préservation sémantique,
+estimation de perte, provenance) avec refus fermé en cas de violation. Le
+service de transition refuse les autres changements de topologie tant qu'un
 adaptateur n'existe pas. Les huit plans ne démontrent donc pas que les huit
 runtimes peuvent se convertir les uns vers les autres. Le classement traite
 maintenant les coûts comme des pénalités directes et préserve les valeurs
 numériques nulles, notamment zéro. Voir [ADR 0108](../../adr/0108-branchement-topologies-fail-closed.md).
+
+## 47. Graphe exécutable et topologies câblées (2026-09-26)
+
+Le `MorphologyGraph` n'est plus seulement descriptif : une expression
+(`TOPOLOGY`, `NEST`, `PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`,
+`BRIDGE`, `FEDERATE`) est validée, normalisée, annotée (budgets subdivisés
+top-down), aplatie vers un graphe typé, puis contrôlée
+(structure/containment, arité des opérateurs, ports, frontières, budgets
+enfants ≤ parent, refus fermé). Voir
+[morphologyCompiler.js](../../../backend/src/services/morphogenesis/graph/morphologyCompiler.js),
+[morphologyTypeChecker.js](../../../backend/src/services/morphogenesis/graph/morphologyTypeChecker.js),
+[morphologyBudgetChecker.js](../../../backend/src/services/morphogenesis/graph/morphologyBudgetChecker.js).
+
+Les huit opérateurs ont une sémantique d'exécution réelle dans
+`MorphologyRuntime` : `PARALLEL` avec barrière de jointure
+(`allSettled`, branches isolées, fusion déterministe), `SEQUENCE` avec gate
+de preuve post-étape (étape bloquée, pas sautée silencieusement), `NEST`
+avec état inner isolé et sorties filtrées par `outputPorts`, `GATE` avec
+reçu complet (condition, observations, confiance, branches sélectionnée et
+rejetée, raison), `COMPETE` avec budgets comparables et protocole de
+sélection, `WRAP` sans mutation du parent, `BRIDGE` avec contrat et
+provenance, `FEDERATE` avec quorum, détection de dispute et autorités
+intersectées. Chaque feuille `TOPOLOGY` et chaque opérateur émet un reçu ;
+l'input mission traverse jusqu'aux feuilles (pass-through quand le parent
+n'a pas encore produit de sortie).
+
+Les huit topologies sont câblées via des plugins explicites
+(`installTopologyPlugins`, voir la
+[référence des plugins](../../03-reference/plugins-topologies-morphogenese.md)) :
+cinq contrôleurs en processus (Trinity, A-Team, Rhizome, Syncytium,
+Biocénose), Biome sur écologie in-memory réelle, Holobionte et
+Métapopulation sur leurs runtimes réels persistés (SQLite natif, sinon
+repli `node:sqlite` explicite dans le reçu). Chaque feuille impose son
+contrat d'entrée (ballots Biocénose, `capability`+exécuteur+allocation
+Holobionte, mission Métapopulation) avec refus fermé sinon.
+
+Le runtime expose en outre `applyPatch` (pipeline
+validation→contrefactuel→adjudication→transaction→vérification→commit/rollback)
+et `changeVariant` (changement de variant pas cher, sans reconstruction),
+et enregistre chaque exécution réussie dans le magasin d'expérience
+(best-effort, sans jamais casser l'exécution). Les contrôleurs sont
+déterministes (plus de `Math.random` ni `Date.now` dans les décisions).
+
+Limites maintenues : le planificateur historique sélectionne encore une
+topologie unique (le graphe composite vient du compilateur, pas du
+`morphogenesisPlannerService`) ; les boucles rapide/structurelle/évolutive
+ne sont pas tickées par le runtime ; les constantes du résolveur restent
+des priors non calibrés ; le benchmark non stationnaire reste un protocole
+sans campagne publiée. Voir [ADR 0133](../../adr/0133-graphe-morphologique-executable-et-plugins-topologies.md).

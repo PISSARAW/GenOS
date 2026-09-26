@@ -10,6 +10,7 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 - [matrice-coherence-code-docs.md](matrice-coherence-code-docs.md) — capacités opérationnelles, contrats, scénarios et preuves reproductibles.
 - [releases-maturite.md](releases-maturite.md) — états de maturité et règles de promotion du registre complet.
 - [matrice-coherence-code-docs.md](matrice-coherence-code-docs.md) — registre de cohérence entre code, contrats, exemples et preuves.
+- [morphogenese-gates-2026-09-26.md](morphogenese-gates-2026-09-26.md) — gates d'exécution morphogenèse : protocole, résultats, limites.
 - [benchmarks/](benchmarks/README.md) — résultats LoCoMo et SWE-bench Lite.
 
 ## Voir aussi

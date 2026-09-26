@@ -110,6 +110,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0130](0130-runtime-comportemental-des-variants-rhizome.md) | Contrats comportementaux des variants Rhizome | Accepté | 2026-09-26 | Rhizome, routage, persistance, sûreté, morphogenèse |
 | [0131](0131-mecanismes-runtime-des-variants-syncytium.md) | Mécanismes runtime des variants Syncytium | Accepté | 2026-09-26 | Syncytium, cohérence, coédition, réplication, autorité humaine |
 | [0132](0132-runtime-des-variants-biome.md) | Runtime comportemental des variants Biome | Accepté | 2026-09-26 | Biome, ressources, recherche, persistance, preuves |
+| [0133](0133-graphe-morphologique-executable-et-plugins-topologies.md) | Graphe morphologique exécutable et plugins de topologies | Accepté | 2026-09-26 | Morphogenèse, runtime, opérateurs, preuve, sûreté |
 
 ## Cycle de vie d'un ADR
 

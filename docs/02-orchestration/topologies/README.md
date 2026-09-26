@@ -19,4 +19,5 @@ ces organisations ; elle n'est pas un neuvième mode.
 ## Voir aussi
 
 - [../README.md](../README.md) — orchestration et exécution.
+- [../../03-reference/plugins-topologies-morphogenese.md](../../03-reference/plugins-topologies-morphogenese.md) — câblage runtime des 8 topologies.
 - [../../03-reference/outils-mcp.md](../../03-reference/outils-mcp.md) — leases et outils par capacité.

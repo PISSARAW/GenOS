@@ -142,6 +142,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [preuves-produit-et-safe-debugging.md](03-reference/preuves-produit-et-safe-debugging.md) — preuves backend et safe debugging.
 - [contrat-produit-et-completude.md](03-reference/contrat-produit-et-completude.md) — périmètre livré, statuts de maturité, critères de preuve et environnements supportés.
 - [pont-rust-et-hallucinations.md](03-reference/pont-rust-et-hallucinations.md) — bridge REST vers `genos-cli`.
+- [plugins-topologies-morphogenese.md](03-reference/plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique.
 - Spécifications normatives : [`../spec/AGENT_DNA_SPEC.md`](../spec/AGENT_DNA_SPEC.md), [`../spec/GENOME_SPEC.md`](../spec/GENOME_SPEC.md).
 
 ### 6. Exploitation et opérations
@@ -179,6 +180,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [benchmark-ateam.md](06-benchmarks/benchmark-ateam.md) — protocole apparié A-Team, ablations et limites des résultats.
 - [benchmark-longitudinal-holobionte.md](06-benchmarks/benchmark-longitudinal-holobionte.md) — protocole apparié Holobionte à douze bras, sans campagne réelle exécutée.
 - [matrice-coherence-code-docs.md](06-qualite-preuves/matrice-coherence-code-docs.md) — registre de cohérence code↔documentation.
+- [morphogenese-gates-2026-09-26.md](06-qualite-preuves/morphogenese-gates-2026-09-26.md) — gates d'exécution morphogenèse, protocole et limites.
 - [locomo.md](06-qualite-preuves/benchmarks/locomo.md) — résultats officiels LoCoMo.
 - [swe-bench-lite.md](06-qualite-preuves/benchmarks/swe-bench-lite.md) — résultats officiels SWE-bench Lite.
 - [panorama-concurrentiel.md](07-positionnement/panorama-concurrentiel.md) — comparaison avec le marché.
@@ -226,6 +228,7 @@ Index : [adr/README.md](adr/README.md)
 - [0089-gates-decision-biocenose.md](adr/0089-gates-decision-biocenose.md) — gates de preuve, veto minoritaire et quarantaine au point de finalisation Biocénose.
 - [0090-variants-executables-biocenose.md](adr/0090-variants-executables-biocenose.md) — politiques de variant liées à la constitution et appliquées par le runtime.
 - [0132-runtime-des-variants-biome.md](adr/0132-runtime-des-variants-biome.md) — contrôleurs comportementaux des onze variants Biome.
+- [0133-graphe-morphologique-executable-et-plugins-topologies.md](adr/0133-graphe-morphologique-executable-et-plugins-topologies.md) — graphe exécutable, opérateurs réels et plugins des 8 topologies.
 - [0100-controle-ecologique-biocenose.md](adr/0100-controle-ecologique-biocenose.md) — observation du tour et décisions écologiques append-only, reliées aux handoffs Morphogenèse.
 - [0128-mecanismes-argumentatifs-et-polycentriques-biocenose.md](adr/0128-mecanismes-argumentatifs-et-polycentriques-biocenose.md) — évaluation explicite des arguments, clusters polycentriques et statistiques Delphi.
 - [0130-runtime-comportemental-des-variants-rhizome.md](adr/0130-runtime-comportemental-des-variants-rhizome.md) — comportements vérifiables, persistance, confidentialité et preuve des variants Rhizome.
