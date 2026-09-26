@@ -88,6 +88,9 @@ async function authorizeAgentControl(db, targetOrOptions, ...legacyArgs) {
   const actor = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ?', actorId || '');
   if (!actor || actor.workspace_id !== target.workspace_id) throw authorityError('AGENT_CONTROL_FORBIDDEN', 'The acting agent cannot control this target.');
   if (actor.id !== target.id && actor.execution_mode !== 'orchestrator' && actor.id !== target.parent_agent_id) {
+    const bridge = require('./relationAuthorityBridge');
+    const verdict = await bridge.resolveControlByRelation(actor.id, target.id, { db });
+    if (verdict.granted) return { ...target, relationControl: verdict.profile.relationType };
     throw authorityError('AGENT_CONTROL_FORBIDDEN', 'Only the target or its orchestrator may control this agent.');
   }
   return target;
