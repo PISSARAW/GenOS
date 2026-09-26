@@ -4,6 +4,7 @@ const { SESSION_SCOPES, SESSION_STATES } = require('../constants');
 const { normalizeCapabilityNode } = require('./capabilityNode');
 const { normalizeCapabilityEdge } = require('./capabilityEdge');
 const { normalizeCapabilityNeed } = require('./capabilityNeed');
+const { normalizeLease } = require('../coordination/branchLeaseService');
 const { invalid, objectValue, textValue, enumValue, numberValue, objectOrEmpty } = require('./validation');
 
 function normalizeUnique(items, definition) {
@@ -56,6 +57,9 @@ function normalizeRhizomeSession(value) {
     activeNeeds: normalizeUnique(session.activeNeeds || [], { contract: normalizeCapabilityNeed, key: 'needId', field: 'activeNeeds' }),
     openGaps: normalizeOpenGaps(session.openGaps),
     coordinationLoci: normalizeLoci(session.coordinationLoci),
+    leases: normalizeUnique(session.leases || [], { contract: normalizeLease, key: 'leaseId', field: 'leases' }),
+    repairScars: Array.isArray(session.repairScars) ? session.repairScars.map((scar) => objectValue(scar, 'repairScars[]')) : [],
+    routeLineage: Array.isArray(session.routeLineage) ? session.routeLineage.map((entry) => objectValue(entry, 'routeLineage[]')) : [],
     budgets: normalizeBudgets(session.budgets),
     status: enumValue(session.status, { allowed: SESSION_STATES, field: 'status', fallback: 'ACTIVE' })
   };

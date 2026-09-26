@@ -17,6 +17,8 @@ const bridgeService = require('./rhizome/bridges/bridgeService');
 const ligandService = require('./rhizome/signaling/capabilityLigandService');
 const propagationService = require('./rhizome/propagation/proceduralPropagationService');
 const locusService = require('./rhizome/coordination/coordinationLocusService');
+const branchLeaseService = require('./rhizome/coordination/branchLeaseService');
+const smallWorldTopologyService = require('./rhizome/variants/smallWorldTopologyService');
 const routeRepairService = require('./rhizome/resilience/routeRepairService');
 const graphAnalytics = require('./rhizome/analytics/graphAnalyticsService');
 const pruningService = require('./rhizome/pruning/pruningService');
@@ -37,6 +39,7 @@ const ROLE_CAPABILITIES = Object.freeze({
   boundary_scout: ['observation', 'capability_discovery']
 });
 const sessions = new Map();
+const closedSessionFossils = new Map();
 
 function normalizeMembers(members) {
   const roles = new Set();
@@ -66,6 +69,7 @@ function serialize(session) {
     organization: session.organization,
     members: session.members,
     variant: session.variant,
+    variantSelection: session.variantSelection,
     trails: [...session.matrix.trails.entries()],
     oscillators: [...session.matrix.oscillators.entries()]
   };
@@ -82,8 +86,12 @@ function canonicalSession(state, id) {
     activeNeeds: state.activeNeeds,
     openGaps: state.openGaps,
     coordinationLoci: state.coordinationLoci,
+    leases: state.leases,
+    repairScars: state.repairScars,
+    routeLineage: state.routeLineage,
     budgets: state.budgets,
-    status: state.status
+    status: state.status,
+    variantSelection: state.variantSelection
   });
 }
 
@@ -112,6 +120,7 @@ function rehydrate(record, graph = {}) {
     organization,
     variant: variant.name,
     variantPolicy: variant,
+    variantSelection: state.variantSelection || null,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix: restoreMatrix(state),
     members: normalizeMembers(Array.isArray(state.members) ? state.members : [])
@@ -124,7 +133,7 @@ async function composeRhizome(mission, options = {}) {
     throw Object.assign(new Error('Rhizome mission is required.'), { code: 'RHIZOME_MISSION_REQUIRED' });
   }
   const organization = options.organization || DEFAULT_ORGANIZATION;
-  const variant = variantPolicyService.resolve(options.variant);
+  const variant = variantPolicyService.selectForMission(goal, options);
   const sessionId = options.rhizomeId || `rhizome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const session = {
     ...normalizeRhizomeSession({
@@ -137,6 +146,9 @@ async function composeRhizome(mission, options = {}) {
       activeNeeds: options.activeNeeds,
       openGaps: options.openGaps,
       coordinationLoci: options.coordinationLoci,
+      leases: options.leases,
+      repairScars: options.repairScars,
+      routeLineage: options.routeLineage,
       budgets: options.budgets,
       status: options.status
     }),
@@ -145,6 +157,7 @@ async function composeRhizome(mission, options = {}) {
     organization,
     variant: variant.name,
     variantPolicy: variant,
+    variantSelection: variant.selection,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'rhizome', organization }),
     matrix: createSwarmMatrix(),
     members: normalizeMembers(Array.isArray(options.members) ? options.members : biologicalModeService.compose('rhizome', goal))
@@ -270,18 +283,6 @@ async function evaporateTrails(sessionId, options = {}) {
   });
 }
 
-async function recordRouteOutcome(sessionId, receipt, options = {}) {
-  const succeeded = receipt?.outcome === 'SUCCESS';
-  return mutateSession(sessionId, options, {
-    type: succeeded ? 'ROUTE_SUCCEEDED' : 'ROUTE_FAILED',
-    payload: { routeId: receipt?.routeId, outcome: receipt?.outcome, verificationId: receipt?.verification?.verificationId },
-    apply: (session) => routeOutcomeService.applyOutcome({
-      session, receipt, now: options.now, gamma: options.gamma, amount: options.amount,
-      trustedVerifierDigests: options.trustedVerifierDigests
-    })
-  });
-}
-
 async function runConductivityStep(sessionId, options = {}) {
   return mutateSession(sessionId, options, {
     type: 'CONDUCTIVITY_UPDATED',
@@ -311,7 +312,11 @@ async function signalCapability(sessionId, ligand, options = {}) {
 }
 
 function propagateProcedure(input) {
-  return propagationService.propagate(input);
+  const policy = input.variant ? variantPolicyService.resolve(input.variant).propagation : null;
+  return propagationService.propagate({
+    ...input, requireCausalValidation: policy?.requireCausalValidation === true,
+    requireCompatibilityTrials: policy?.requireCompatibilityTrials === true
+  });
 }
 
 async function manageCoordinationLocus(sessionId, input, options = {}) {
@@ -319,13 +324,6 @@ async function manageCoordinationLocus(sessionId, input, options = {}) {
     type: `LOCUS_${String(input.action || '').toUpperCase()}`,
     payload: { locusId: input.locus?.locusId || input.locusId || null, action: input.action },
     apply: (session) => locusService.apply({ ...input, session })
-  });
-}
-
-async function repairRoute(sessionId, input, options = {}) {
-  return routeRepairService.repair({
-    session: await getSession(sessionId, options.db), need: input.need, receipt: input.receipt,
-    trustedVerifierDigests: options.trustedVerifierDigests
   });
 }
 
@@ -380,16 +378,11 @@ async function runSlimeMouldStep(sessionId, edges, options = {}) {
   });
 }
 
-async function closeSession(sessionId, options = {}) {
-  if (options.db) await store.closeRhizome(options.db, sessionId);
-  sessions.delete(sessionId);
-  return true;
-}
-
 const restoredOperations = rhizomeServiceOperations.create({
-  mutateSession, getSession, trailService, directMemberRouter, capabilityGraph,
-  graphProjector, graphAnalytics, pruningService,
+  mutateSession, getSession, trailService, branchLeaseService, directMemberRouter, capabilityGraph,
+  graphProjector, graphAnalytics, pruningService, routeOutcomeService, routeRepairService,
+  smallWorldTopologyService, store, sessions, closedSessionFossils,
   pruningExecutor: pruningExecutorService, variantPolicyService, nestedTopologyService, conductivityService
 });
 
-module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, recordRouteOutcome, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, repairRoute, quarantineRoute, coherence, runSlimeMouldStep, closeSession, rehydrate };
+module.exports = { composeRhizome, ...restoredOperations, routeToCapability, addCapabilityNode, addCapabilityEdge, admitCapabilityNode, proposeNestedTopology, inspectCapabilityNeed, planGrowth, admitGrowthCandidate, evaporateTrails, runConductivityStep, integrateBridge, signalCapability, propagateProcedure, manageCoordinationLocus, quarantineRoute, coherence, runSlimeMouldStep, rehydrate };

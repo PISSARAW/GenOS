@@ -18,13 +18,32 @@ function updateEdge(edge, settings) {
   };
 }
 
-function step(input) {
-  const { session, alpha = 0.5, beta = 0.5, decay = 0.02 } = input;
-  const settings = { alpha, beta, decay };
-  const edges = session.edges.map((edge) => updateEdge(edge, settings));
-  session.graphVersion += 1;
-  session.edges = edges;
-  return { graphVersion: session.graphVersion, edges: edges.map((edge) => ({ edgeId: edge.edgeId, conductivity: edge.conductivity })) };
+function resolveSettings(input) {
+  const variantPolicy = input.session?.variantPolicy?.conductivity;
+  if (variantPolicy) {
+    return {
+      alpha: Number.isFinite(variantPolicy.alpha) ? variantPolicy.alpha : 0.5,
+      beta: Number.isFinite(variantPolicy.beta) ? variantPolicy.beta : 0.5,
+      tau: Number.isFinite(variantPolicy.tau) ? variantPolicy.tau : 0.5,
+      decay: Number.isFinite(variantPolicy.decay) ? variantPolicy.decay : 0.02,
+      scoutPriority: variantPolicy.scoutPriority
+    };
+  }
+  return {
+    alpha: Number.isFinite(input.alpha) ? input.alpha : 0.5,
+    beta: Number.isFinite(input.beta) ? input.beta : 0.5,
+    tau: Number.isFinite(input.tau) ? input.tau : 0.5,
+    decay: Number.isFinite(input.decay) ? input.decay : 0.02,
+    scoutPriority: input.scoutPriority
+  };
 }
 
-module.exports = { step, nextConductivity };
+function step(input) {
+  const settings = resolveSettings(input);
+  const edges = input.session.edges.map((edge) => updateEdge(edge, settings));
+  input.session.graphVersion += 1;
+  input.session.edges = edges;
+  return { graphVersion: input.session.graphVersion, edges: edges.map((edge) => ({ edgeId: edge.edgeId, conductivity: edge.conductivity })), settings };
+}
+
+module.exports = { step, nextConductivity, resolveSettings };

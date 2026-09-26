@@ -1,7 +1,7 @@
 'use strict';
 
 const { EDGE_RELATIONS, EDGE_STATES } = require('../constants');
-const { objectValue, textValue, enumValue, numberValue, objectOrEmpty, isoDateOrNull } = require('./validation');
+const { objectValue, textValue, enumValue, numberValue, objectOrEmpty, isoDateOrNull, listValue } = require('./validation');
 
 function normalizeTrailState(value) {
   const trail = objectOrEmpty(value, 'trailState');
@@ -45,7 +45,9 @@ function normalizeCapabilityEdge(value) {
     trailState: normalizeTrailState(edge.trailState),
     lastUsed: isoDateOrNull(edge.lastUsed, 'lastUsed'),
     status: enumValue(edge.status, { allowed: EDGE_STATES, field: 'status', fallback: 'ACTIVE' }),
-    quarantine: normalizeQuarantine(edge.quarantine)
+    quarantine: normalizeQuarantine(edge.quarantine),
+    ...(edge.evidenceRefs === undefined ? {} : { evidenceRefs: listValue(edge.evidenceRefs, 'evidenceRefs') }),
+    ...(edge.admissionReceiptId === undefined ? {} : { admissionReceiptId: textValue(edge.admissionReceiptId, 'admissionReceiptId') })
   };
 }
 

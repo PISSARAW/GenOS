@@ -1,6 +1,6 @@
 'use strict';
 
-const { objectValue, textValue, enumValue, listValue } = require('./validation');
+const { objectValue, textValue, enumValue, listValue, numberValue } = require('./validation');
 
 const BRIDGE_TYPES = Object.freeze([
   'SCHEMA_ADAPTER', 'LANGUAGE_TRANSLATOR', 'PROTOCOL_ADAPTER', 'REPRESENTATION_CONVERTER',
@@ -19,8 +19,16 @@ function normalizeBridge(value) {
     inputContract: textValue(bridge.inputContract, 'inputContract'),
     outputContract: textValue(bridge.outputContract, 'outputContract'),
     invariants: listValue(bridge.invariants, 'invariants'),
+    sourceRepresentation: optionalText(bridge.sourceRepresentation),
+    targetRepresentation: optionalText(bridge.targetRepresentation),
+    roundTripRequired: bridge.roundTripRequired === true,
+    maxInformationLoss: numberValue(bridge.maxInformationLoss, 'maxInformationLoss', { maximum: 1, fallback: 0.1 }),
     ephemeral: bridge.ephemeral !== false
   };
+}
+
+function optionalText(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 module.exports = { BRIDGE_TYPES, normalizeBridge };

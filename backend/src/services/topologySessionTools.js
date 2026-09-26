@@ -124,6 +124,15 @@ async function integrateRhizomeBridge(db, sessionId, args) {
   return rhizome.integrateBridge(sessionId, { bridge: args.bridge || {}, proof: args.proof || {} }, { db, trustedVerifierDigests });
 }
 
+async function propagateRhizomeProcedure(db, sessionId, args) {
+  const policy = await rhizome.getVariantPolicy(sessionId, { db });
+  return rhizome.propagateProcedure({
+    variant: policy.name, fragment: args.fragment || {}, target: args.target,
+    targets: args.targets, localValidation: args.local_validation,
+    causalValidation: args.causal_validation, compatibilityTrials: args.compatibility_trials
+  });
+}
+
 async function publishRhizomeSignal(db, sessionId, args) {
   return rhizome.signalCapability(sessionId, args.signal || {}, { db });
 }
@@ -132,6 +141,28 @@ async function manageRhizomeLocus(db, sessionId, args) {
   return rhizome.manageCoordinationLocus(sessionId, {
     action: args.action, locus: args.locus, locusId: args.locus_id
   }, { db });
+}
+
+async function manageRhizomeLease(db, sessionId, args) {
+  return rhizome.manageBranchLease(sessionId, {
+    action: args.lease_action, leaseId: args.lease_id, branchId: args.branch_id,
+    ownerId: args.owner_id, ttlMs: args.ttl_ms, now: args.now
+  }, { db });
+}
+
+async function readRhizomeFossil(db, sessionId) {
+  const fossil = await rhizome.getSessionFossil(sessionId, { db });
+  if (!fossil) throw Object.assign(new Error(`No Rhizome closure fossil exists for '${sessionId}'.`), { code: 'RHIZOME_FOSSIL_UNKNOWN' });
+  return { sessionId, fossil };
+}
+
+async function planRhizomeShortcuts(db, sessionId, args) {
+  return { sessionId, candidates: await rhizome.planSmallWorldShortcuts(sessionId, { db, maximum: args.maximum }) };
+}
+
+async function admitRhizomeShortcut(db, sessionId, args) {
+  const trustedVerifierDigests = String(process.env.GENOS_RHIZOME_TRUSTED_VERIFIER_DIGESTS || '').split(',').map((item) => item.trim()).filter(Boolean);
+  return rhizome.admitSmallWorldShortcut(sessionId, { candidate: args.candidate || {}, proof: args.proof || {} }, { db, trustedVerifierDigests });
 }
 
 async function repairRhizomeRoute(db, sessionId, args) {
@@ -181,6 +212,10 @@ async function assessBiome(db, sessionId, args) {
   return biome.assessSessionHealth(sessionId, args.observations || [], { db });
 }
 
+async function advanceBiomeVariant(db, sessionId, args) {
+  return biome.advanceSessionVariant(sessionId, args.variant_input || {}, { db, evidenceRefs: args.evidence_refs || [] });
+}
+
 const OPERATIONS = {
   syncytium: {
     snapshot: (db, id) => syncytium.snapshot(id, { db }), apply: applySyncytium,
@@ -190,8 +225,9 @@ const OPERATIONS = {
     replicas: replicasSyncytium, health: healthSyncytium,
     morphogenesis: morphogenesisSyncytium
   },
-  rhizome: { snapshot: rhizomeSnapshot, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, signal: publishRhizomeSignal, locus: manageRhizomeLocus, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
-  biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome, health: assessBiome }
+  rhizome: { snapshot: rhizomeSnapshot, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, propagate: propagateRhizomeProcedure, signal: publishRhizomeSignal, locus: manageRhizomeLocus, branch_lease: manageRhizomeLease, fossil: readRhizomeFossil, plan_shortcuts: planRhizomeShortcuts, admit_shortcut: admitRhizomeShortcut, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
+  biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome,
+    health: assessBiome, advance_variant: advanceBiomeVariant }
 };
 
 function operationHandler(topology, operation) {
@@ -202,6 +238,7 @@ async function applyTopologyOperation(db, args = {}) {
   const sessionId = String(args.session_id || args.sessionId || '').trim();
   const operation = String(args.operation || '').trim().toLowerCase();
   if (!sessionId) throw new Error('session_id is required.');
+  if (operation === 'fossil') return readRhizomeFossil(db, sessionId);
   const record = await store.load(db, sessionId);
   if (!record) throw new Error(`Unknown topology session '${sessionId}'.`);
   const handler = operationHandler(record.topology, operation);

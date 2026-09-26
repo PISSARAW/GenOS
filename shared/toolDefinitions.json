@@ -544,6 +544,22 @@
             "type": "string",
             "description": "Mission shared by the collective."
           },
+          "variant_id": {
+            "type": "string",
+            "description": "Optional variant identifier for the selected topology; unknown or incompatible variants are rejected."
+          },
+          "scope": {
+            "type": "string",
+            "description": "Optional topology session scope."
+          },
+          "persistence_key": {
+            "type": "string",
+            "description": "Stable workspace or project key used to carry a persistent Biome environment across missions."
+          },
+          "configuration": {
+            "type": "object",
+            "description": "Optional topology-specific runtime configuration."
+          },
           "worker_assignments": {
             "type": "object",
             "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
@@ -564,7 +580,7 @@
       "name": "genos_topology_session",
       "category": "Swarm Biomimicry",
       "risk": "Amber",
-      "description": "Inspect or update a persisted Syncytium, Rhizome, or Biome topology session.",
+      "description": "Inspect or update a persisted Syncytium, Rhizome, or Biome topology session, including Biome variant cycles.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -599,12 +615,18 @@
               "record_outcome",
               "conductivity",
               "bridge",
+              "propagate",
               "signal",
               "locus",
+              "branch_lease",
+              "fossil",
+              "plan_shortcuts",
+              "admit_shortcut",
               "repair",
               "prune",
               "allocate",
               "forage",
+              "advance_variant",
               "health"
             ]
           },
@@ -621,6 +643,9 @@
             "type": "object"
           },
           "transaction": {
+            "type": "object"
+          },
+          "variant_input": {
             "type": "object"
           },
           "branch": {
@@ -728,6 +753,47 @@
           },
           "locus_id": {
             "type": "string"
+          },
+          "lease_action": {
+            "type": "string",
+            "enum": ["acquire", "renew", "release"]
+          },
+          "lease_id": {
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "ttl_ms": {
+            "type": "number"
+          },
+          "fragment": {
+            "type": "object"
+          },
+          "target": {
+            "type": "object"
+          },
+          "targets": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "local_validation": {
+            "type": "object"
+          },
+          "causal_validation": {
+            "type": "object"
+          },
+          "compatibility_trials": {
+            "type": "array",
+            "items": { "type": "object" }
+          },
+          "maximum": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "candidate": {
+            "type": "object"
           },
           "now": {
             "type": "number"

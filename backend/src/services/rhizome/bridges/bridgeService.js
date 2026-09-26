@@ -18,7 +18,14 @@ function bridgeNode(bridge, proof) {
     outputs: [bridge.targetCapability],
     state: 'ACTIVE',
     availability: { status: 'AVAILABLE' },
-    localContext: { bridgeId: bridge.bridgeId, inputContract: bridge.inputContract, outputContract: bridge.outputContract, ephemeral: bridge.ephemeral },
+    localContext: {
+      bridgeId: bridge.bridgeId, bridgeType: bridge.type, inputContract: bridge.inputContract,
+      outputContract: bridge.outputContract, sourceRepresentation: bridge.sourceRepresentation,
+      targetRepresentation: bridge.targetRepresentation, roundTripRequired: bridge.roundTripRequired,
+      informationLoss: bridge.roundTripRequired ? proof.informationLoss : null,
+      semanticEquivalenceVerified: bridge.roundTripRequired ? proof.semanticEquivalence === true : null,
+      ephemeral: bridge.ephemeral
+    },
     provenance: proof.evidenceRefs
   };
 }

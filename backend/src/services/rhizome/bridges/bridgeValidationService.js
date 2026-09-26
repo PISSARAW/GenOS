@@ -8,7 +8,11 @@ function proofDigest(bridge, proof) {
   const fields = [bridge.bridgeId, bridge.type, bridge.fromNodeId, bridge.toNodeId, bridge.sourceCapability,
     bridge.targetCapability, bridge.inputContract, bridge.outputContract, bridge.invariants.join('/')];
   const checks = ['inputAccepted', 'outputValid', 'invariantsPreserved', 'evidencePreserved'].map((key) => proof[key] === true);
+  if (bridge.roundTripRequired) checks.push(proof.roundTripValidated === true,
+    proof.semanticEquivalence === true, Number.isFinite(proof.informationLoss)
+      && proof.informationLoss >= 0 && proof.informationLoss <= bridge.maxInformationLoss);
   fields.push(...checks.map(String), listValue(proof.evidenceRefs, 'evidenceRefs').join('/'));
+  if (bridge.roundTripRequired) fields.push(String(proof.roundTripValidated), String(proof.semanticEquivalence), String(proof.informationLoss));
   return `sha256:${createHash('sha256').update(fields.join('\u0000')).digest('hex')}`;
 }
 

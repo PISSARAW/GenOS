@@ -11,19 +11,35 @@ function routeScore(route, provider) {
   return Number((utility + provider.reliability - route.edges.length * 0.1).toFixed(4));
 }
 
-function objectiveScore(route, provider, weights = {}, now = Date.now()) {
-  const reliability = route.edges.reduce((value, edge) => value * edge.reliability, provider.reliability);
-  const cost = route.edges.reduce((sum, edge) => sum + edge.cost, provider.cost);
-  const latency = route.edges.reduce((sum, edge) => sum + edge.latency, provider.latency);
-  const trust = route.edges.length
-    ? route.edges.reduce((sum, edge) => sum + edge.evidenceQuality, 0) / route.edges.length : 1;
-  const freshness = route.edges.length
-    ? route.edges.reduce((sum, edge) => sum + freshnessScore(edge, now), 0) / route.edges.length : 1;
-  return (weights.latency || 0) / (1 + latency)
-    + (weights.cost || 0) / (1 + cost)
-    + (weights.risk || 0) * reliability
-    + (weights.trust || 0) * trust
-    + (weights.freshness || 0) * freshness;
+function objectiveScore(route, provider, options = {}) {
+  const { weights = {}, now = Date.now() } = options;
+  const metrics = routeMetrics(route, provider, now);
+  return (weights.latency || 0) / (1 + metrics.latency / 10000)
+    + (weights.cost || 0) / (1 + metrics.cost / 100)
+    + (weights.risk || 0) * metrics.reliability + (weights.trust || 0) * metrics.trust
+    + (weights.freshness || 0) * metrics.freshness + (weights.curiosity || 0) * metrics.novelty
+    + (weights.congestion || 0) * metrics.congestion;
+}
+
+function routeMetrics(route, provider, now) {
+  return {
+    reliability: route.edges.reduce((value, edge) => value * edge.reliability, provider.reliability),
+    cost: route.edges.reduce((sum, edge) => sum + edge.cost, provider.cost),
+    latency: route.edges.reduce((sum, edge) => sum + edge.latency, provider.latency),
+    trust: average(route.edges, (edge) => edge.evidenceQuality),
+    freshness: average(route.edges, (edge) => freshnessScore(edge, now)),
+    novelty: average(route.edges, noveltyScore),
+    congestion: average(route.edges, (edge) => 1 / (1 + edge.trailState.verifiedFlow))
+  };
+}
+
+function average(edges, score) {
+  return edges.length ? edges.reduce((sum, edge) => sum + score(edge), 0) / edges.length : 1;
+}
+
+function noveltyScore(edge) {
+  const usage = edge.trailState.positive + edge.trailState.negative + edge.trailState.verifiedFlow;
+  return 1 - Math.min(1, usage / 300);
 }
 
 function freshnessScore(edge, now) {

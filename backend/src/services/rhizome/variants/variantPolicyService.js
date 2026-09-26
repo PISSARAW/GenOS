@@ -1,18 +1,104 @@
 'use strict';
 
 const PROFILES = Object.freeze({
-  exploratory: Object.freeze({ routing: { maxHops: 6 }, growth: { threshold: 0 }, pruning: { enabled: false }, resilience: { alternatives: 2 }, stop: { stableTicks: 3 } }),
-  routing: Object.freeze({ routing: { maxHops: 12, objectiveWeights: { latency: 0.2, cost: 0.2, risk: 0.25, trust: 0.2, freshness: 0.15 } }, growth: { threshold: 0.2 }, pruning: { enabled: true }, resilience: { alternatives: 2 }, stop: { stableTicks: 2 } }),
-  growth: Object.freeze({ routing: { maxHops: 8 }, growth: { threshold: 0 }, pruning: { enabled: false }, resilience: { alternatives: 2 }, stop: { stableTicks: 4 } }),
-  resilient: Object.freeze({ routing: { maxHops: 12, alternatives: 4, edgeDisjointAlternatives: true, objectiveWeights: { latency: 0.15, cost: 0.1, risk: 0.45, trust: 0.2, freshness: 0.1 } }, growth: { threshold: 0.15 }, pruning: { enabled: true }, resilience: { alternatives: 4 }, stop: { stableTicks: 3 } }),
-  sparse: Object.freeze({ routing: { maxHops: 5, alternatives: 1 }, growth: { threshold: 0.5 }, pruning: { enabled: true }, resilience: { alternatives: 1 }, stop: { stableTicks: 2 } }),
-  persistent: Object.freeze({ session: { scope: 'persistent', persistence: true }, routing: { maxHops: 12 }, growth: { threshold: 0.2 }, pruning: { enabled: true }, resilience: { automaticRepair: true }, stop: { stableTicks: 2 } }),
-  ephemeral: Object.freeze({ session: { scope: 'mission', persistence: false }, routing: { maxHops: 6 }, growth: { threshold: 0 }, pruning: { enabled: false }, resilience: { automaticRepair: false }, stop: { stableTicks: 2 } }),
-  small_world: Object.freeze({ routing: { maxHops: 3, preferShortPaths: true, objectiveWeights: { latency: 0.4, cost: 0.1, risk: 0.2, trust: 0.2, freshness: 0.1 } }, growth: { threshold: 0.1 }, pruning: { enabled: true }, resilience: { alternatives: 2 }, stop: { stableTicks: 2 } }),
-  private: Object.freeze({ routing: { maxHops: 8, privateOnly: true }, growth: { threshold: 0.25 }, pruning: { enabled: false }, resilience: { automaticRepair: true }, stop: { stableTicks: 2 } }),
-  cross_representation: Object.freeze({ routing: { maxHops: 12, requireBridge: true }, growth: { threshold: 0.2 }, pruning: { enabled: true }, bridges: { enabled: true, requireVerified: true }, stop: { stableTicks: 2 } }),
-  procedural: Object.freeze({ routing: { maxHops: 8 }, growth: { threshold: 0 }, propagation: { enabled: true, requireLocalEvidence: true }, pruning: { enabled: false }, stop: { stableTicks: 3 } }),
-  self_healing: Object.freeze({ routing: { maxHops: 12, alternatives: 4, edgeDisjointAlternatives: true }, growth: { threshold: 0.1 }, pruning: { enabled: true }, resilience: { automaticRepair: true, alternatives: 4 }, stop: { stableTicks: 3 } })
+  exploratory: Object.freeze({
+    conductivity: { alpha: 0.3, beta: 0.1, tau: 1.5, decay: 0.05, scoutPriority: 'max' },
+    routing: { maxHops: 6, curiosityWeight: 0.25 },
+    growth: { threshold: 0 },
+    pruning: { enabled: false },
+    resilience: { alternatives: 2 },
+    stop: { stableTicks: 3 }
+  }),
+  routing: Object.freeze({
+    conductivity: { alpha: 0.4, beta: 0.2, tau: 0.2, decay: 0.02 },
+    routing: { maxHops: 12, objectiveWeights: { latency: 0.2, cost: 0.2, risk: 0.25, trust: 0.2, freshness: 0.15 } },
+    growth: { threshold: 0.2 },
+    pruning: { enabled: true },
+    resilience: { alternatives: 2 },
+    stop: { stableTicks: 2 }
+  }),
+  growth: Object.freeze({
+    conductivity: { alpha: 0.35, beta: 0.15, tau: 0.5, decay: 0.03 },
+    routing: { maxHops: 8 },
+    growth: { threshold: 0, growthReserveRatio: 0.5 },
+    pruning: { enabled: false },
+    resilience: { alternatives: 2 },
+    stop: { stableTicks: 4 }
+  }),
+  resilient: Object.freeze({
+    conductivity: { alpha: 0.3, beta: 0.2, tau: 0.4, decay: 0.02 },
+    routing: { maxHops: 12, alternatives: 4, edgeDisjointAlternatives: true, objectiveWeights: { latency: 0.15, cost: 0.1, risk: 0.45, trust: 0.2, freshness: 0.1 } },
+    growth: { threshold: 0.15 },
+    pruning: { enabled: true },
+    resilience: { alternatives: 4, minRedundantPaths: 2, recoveryReserveRatio: 0.4 },
+    stop: { stableTicks: 3 }
+  }),
+  sparse: Object.freeze({
+    conductivity: { alpha: 0.2, beta: 0.3, tau: 0.3, decay: 0.05 },
+    routing: { maxHops: 5, alternatives: 1 },
+    growth: { threshold: 0.5 },
+    pruning: { enabled: true, maxDensity: 0.3, budgetAware: true },
+    resilience: { alternatives: 1 },
+    stop: { stableTicks: 2 }
+  }),
+  persistent: Object.freeze({
+    conductivity: { alpha: 0.2, beta: 0.05, tau: 0.3, decay: 0.01 },
+    session: { scope: 'persistent', persistence: true },
+    routing: { maxHops: 12 },
+    growth: { threshold: 0.2 },
+    pruning: { enabled: true },
+    resilience: { automaticRepair: true },
+    stop: { stableTicks: 2 }
+  }),
+  ephemeral: Object.freeze({
+    conductivity: { alpha: 0.5, beta: 0.3, tau: 0.8, decay: 0.25 },
+    session: { scope: 'mission', persistence: false },
+    routing: { maxHops: 6 },
+    growth: { threshold: 0 },
+    pruning: { enabled: false },
+    resilience: { automaticRepair: false },
+    stop: { stableTicks: 2 }
+  }),
+  small_world: Object.freeze({
+    conductivity: { alpha: 0.4, beta: 0.1, tau: 0.15, decay: 0.02 },
+    routing: { maxHops: 3, preferShortPaths: true, hubWeight: 0.15, penalizeArticulationHubs: true, objectiveWeights: { latency: 0.4, cost: 0.1, risk: 0.2, trust: 0.2, freshness: 0.1 } },
+    growth: { threshold: 0.1, hubCount: 2, hubConnectivity: 0.8 },
+    pruning: { enabled: true },
+    resilience: { alternatives: 2 },
+    stop: { stableTicks: 2 }
+  }),
+  private: Object.freeze({
+    conductivity: { alpha: 0.3, beta: 0.2, tau: 0.4, decay: 0.02 },
+    routing: { maxHops: 8, privateOnly: true, enforceTrustDomains: true },
+    growth: { threshold: 0.25 },
+    pruning: { enabled: false },
+    resilience: { automaticRepair: true, trustBound: 0.7, quarantineDuration: 600000 },
+    stop: { stableTicks: 2 }
+  }),
+  cross_representation: Object.freeze({
+    conductivity: { alpha: 0.35, beta: 0.15, tau: 0.3, decay: 0.02 },
+    routing: { maxHops: 12, requireBridge: true },
+    growth: { threshold: 0.2 },
+    pruning: { enabled: true },
+    bridges: { enabled: true, requireVerified: true, heteroBridgeCompat: 0.6 },
+    stop: { stableTicks: 2 }
+  }),
+  procedural: Object.freeze({
+    conductivity: { alpha: 0.4, beta: 0.1, tau: 0.2, decay: 0.02 },
+    routing: { maxHops: 8 },
+    growth: { threshold: 0 },
+    propagation: { enabled: true, requireLocalEvidence: true, requireCompatibilityTrials: true, requireCausalValidation: true, algorithmSeed: 'deterministic', pipelineDepth: 6 },
+    pruning: { enabled: false },
+    stop: { stableTicks: 3 }
+  }),
+  self_healing: Object.freeze({
+    conductivity: { alpha: 0.3, beta: 0.2, tau: 0.3, decay: 0.02 },
+    routing: { maxHops: 12, alternatives: 4, edgeDisjointAlternatives: true },
+    growth: { threshold: 0.1 },
+    pruning: { enabled: true },
+    resilience: { automaticRepair: true, alternatives: 4, autoReconfigure: true, maxSelfRepairRounds: 5 },
+    stop: { stableTicks: 3 }
+  })
 });
 const MISSION_SIGNALS = Object.freeze({
   private: /private|confidential|sensitive|secret|air.gapped|local.only|privé|confidentiel|sensible/i,

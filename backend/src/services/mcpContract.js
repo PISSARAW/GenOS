@@ -20,14 +20,12 @@ const REQUIRED_STRINGS = {
   genos_bisect_agent: ['agent_id', 'predicate'],
   genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source']
 };
-
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions']);
 const INTEGER_FIELDS = new Set(['after_id', 'limit', 'budget_steps', 'exact_match', 'stagnation', 'injection_step', 'iteration', 'tokens']);
 const NUMBER_FIELDS = new Set(['similarity', 'expected', 'observed', 'tolerance', 'elapsed', 'uncertainty', 'confidence']);
 const MCP_CONTRACT_VERSION = 'genos.mcp/v1';
 const { workerAssignmentsSchema } = require('./workerAssignmentsSchema');
 const { trinityDesignSchema } = require('./trinityDesignSchema');
-
 function applyToolSpecificOverrides(toolName, schema) {
   if (toolName === 'genos_replay') {
     schema.anyOf = [{ required: ['snapshot'] }, { required: ['snapshot_id'] }];
@@ -57,7 +55,6 @@ function applyToolSpecificOverrides(toolName, schema) {
     };
   }
 }
-
 function applyRequiredStrings(toolName, schema) {
   const req = REQUIRED_STRINGS[toolName];
   if (!req) return;
@@ -254,6 +251,7 @@ const TOOL_BASE_SCHEMAS = {
         mission: { type: 'string', description: 'Mission shared by the collective.' },
         variant_id: { type: 'string', description: 'Optional variant identifier for the selected topology; unknown or incompatible variants are rejected.' },
         scope: { type: 'string', description: 'Optional session scope such as mission, workspace, project, or persistent.' },
+        persistence_key: { type: 'string', description: 'Stable project key for carrying a persistent Biome environment across missions.' },
         configuration: { type: 'object', description: 'Optional topology-specific runtime configuration.' },
         worker_assignments: workerAssignmentsSchema(),
         orchestrator_id: { type: 'string', description: 'Orchestrator whose organization should be changed.' },
@@ -264,13 +262,18 @@ const TOOL_BASE_SCHEMAS = {
     type: 'object',
     properties: {
       session_id: { type: 'string' },
-      operation: { type: 'string', enum: ['snapshot', 'apply', 'schema', 'domains', 'history', 'explain', 'branch', 'promote', 'invariants', 'conflicts', 'replicas', 'health', 'morphogenesis', 'add_node', 'add_edge', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'signal', 'locus', 'repair', 'prune', 'allocate', 'forage'] },
+      operation: { type: 'string', enum: ['snapshot', 'apply', 'schema', 'domains', 'history', 'explain', 'branch', 'promote', 'invariants', 'conflicts', 'replicas', 'health', 'morphogenesis', 'add_node', 'add_edge', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'propagate', 'signal', 'locus', 'branch_lease', 'fossil', 'plan_shortcuts', 'admit_shortcut', 'repair', 'prune', 'allocate', 'forage', 'advance_variant'] },
       op: { type: 'object' }, transaction: { type: 'object' }, branch: { type: 'object' },
       node: { type: 'object' }, edge: { type: 'object' },
+      variant_input: { type: 'object' },
+      evidence_refs: { type: 'array', items: { type: 'string' } },
       signals: { type: 'object' },
       branch_id: { type: 'string' }, domain_id: { type: 'string' }, path: { type: 'string' },
       version: { type: ['string', 'number', 'object'] }, marker: { type: 'string' }, amount: { type: 'number' },
       is_repellent: { type: 'boolean' }, need: { type: ['string', 'object'] }, edges: { type: 'array', items: { type: 'object' } },
+      lease_action: { type: 'string', enum: ['acquire', 'renew', 'release'] }, lease_id: { type: 'string' }, owner_id: { type: 'string' }, ttl_ms: { type: 'number' },
+      fragment: { type: 'object' }, target: { type: 'object' }, targets: { type: 'array', items: { type: 'object' } }, local_validation: { type: 'object' }, causal_validation: { type: 'object' }, compatibility_trials: { type: 'array', items: { type: 'object' } },
+      maximum: { type: 'integer', minimum: 1, maximum: 100 }, candidate: { type: 'object' },
       gap_id: { type: 'string' }, candidates: { type: 'array', items: { type: 'object' } }, threshold: { type: 'number' },
       trail_kind: { type: 'string' }, capability: { type: 'string' }, source: { type: 'string' },
       evidence_refs: { type: 'array', items: { type: 'string' } }, confidence: { type: 'number' }, half_life_ms: { type: 'number' },

@@ -134,10 +134,11 @@ async function mutate(options) {
   });
 }
 
-async function closeRhizome(db, id) {
+async function closeRhizome(db, id, fossil = null) {
   return withTransaction(db, async () => {
     const record = await load(db, id);
-    if (!record || record.topology !== 'rhizome') return false;
+    if (fossil) await saveRhizomeFossil(db, id, fossil);
+    if (!record || record.topology !== 'rhizome') return Boolean(fossil);
     await appendEvent(db, { sessionId: id, revision: record.revision + 1, type: 'SESSION_CLOSED', payload: {} });
     const removed = await db.run('DELETE FROM topology_sessions WHERE id = ? AND revision = ?', id, record.revision);
     if (removed.changes !== 1) {
@@ -146,6 +147,22 @@ async function closeRhizome(db, id) {
     await rhizomeStore.deleteGraph(db, id);
     return true;
   });
+}
+
+async function saveRhizomeFossil(db, id, fossil) {
+  await db.run(`CREATE TABLE IF NOT EXISTS rhizome_session_fossils (
+    session_id TEXT PRIMARY KEY, fossil_json TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  await db.run('INSERT OR REPLACE INTO rhizome_session_fossils (session_id, fossil_json) VALUES (?, ?)', id, JSON.stringify(fossil));
+}
+
+async function loadRhizomeFossil(db, id) {
+  await db.run(`CREATE TABLE IF NOT EXISTS rhizome_session_fossils (
+    session_id TEXT PRIMARY KEY, fossil_json TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  const row = await db.get('SELECT fossil_json FROM rhizome_session_fossils WHERE session_id = ?', id);
+  if (!row) return null;
+  try { return JSON.parse(row.fossil_json); } catch (_) { return null; }
 }
 
 async function events(db, sessionId) {
@@ -175,4 +192,4 @@ async function remove(db, id) {
   return db.run('DELETE FROM topology_sessions WHERE id = ?', id);
 }
 
-module.exports = { save, load, remove, ensureTable, createRhizome, mutateRhizome, mutate, closeRhizome, events, loadRhizomeGraph: rhizomeStore.loadGraph };
+module.exports = { save, load, remove, ensureTable, createRhizome, mutateRhizome, mutate, closeRhizome, loadRhizomeFossil, events, loadRhizomeGraph: rhizomeStore.loadGraph };

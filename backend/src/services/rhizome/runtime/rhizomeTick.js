@@ -33,6 +33,11 @@ async function runRoute(context) {
 
 async function recoverFailedRoute(context) {
   const { input, options, snapshot, route, action, execution, outcome } = context;
+  const policy = await rhizome.getVariantPolicy(input.sessionId, options);
+  if (policy.resilience?.automaticRepair === false) {
+    const fallback = await inspectGap({ input, options, snapshot, route, action });
+    return { ...fallback, status: growthFallback(fallback) ? fallback.status : 'ROUTE_FAILED_NO_ALTERNATIVE', execution, outcome, repair: { repaired: false, reason: 'AUTOMATIC_REPAIR_DISABLED' } };
+  }
   const repair = await rhizome.repairRoute(input.sessionId, {
     need: input.need, receipt: execution.receipt
   }, { ...options, trustedVerifierDigests: input.trustedVerifierDigests });
