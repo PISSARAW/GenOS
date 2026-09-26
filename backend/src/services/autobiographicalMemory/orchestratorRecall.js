@@ -84,6 +84,14 @@ async function snapshotCausal(db, agentId) {
   }
 }
 
+async function snapshotStagnation(db, agentId) {
+  try {
+    return await require('../stagnationService').detectStagnation(db, agentId, {});
+  } catch (_) {
+    return { stagnant: false, reasons: ['unavailable'], signals: {} };
+  }
+}
+
 async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPlan }) {
   emitRecall({ agentId, eventType: 'AUTOBIOGRAPHICAL_RECALL_STARTED', detail: 'Autobiographical recall started before plan regulation.', payload: { missionId: buildSituation({ agentId, normalizedMission }).missionId } });
   try {
@@ -96,6 +104,7 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
     autonomyPlan.attentionAudit = await snapshotAttention(db, agentId);
     autonomyPlan.valenceDrives = await snapshotValence(db, agentId);
     autonomyPlan.causalIntegration = await snapshotCausal(db, agentId);
+    autonomyPlan.stagnationSignal = await snapshotStagnation(db, agentId);
     applyAdjustments(autonomyPlan, adjustments);
     normalizedMission.selfModelPolicy = autonomyPlan.selfModel?.decisionPolicy || normalizedMission.selfModelPolicy;
     const eventType = recall.episodes.length || recall.lessons.length
