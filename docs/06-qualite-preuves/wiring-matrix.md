@@ -98,15 +98,15 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 
 | Étape | Statut | Liaison |
 |---|---|---|
-| Sense | YES | gate de complétion, feedback continuation, bornage/idempotence, preuves runtime, immunité câblés et testés |
-| Select | NO | régénération runtime non reliée |
-| Invoke | NO | dormance durable non persistée complètement |
-| Affect decision | NO | succession non fermée |
-| Act | NO | `agent mort → diagnostic → réserve/lignée → régénération → restauration → preuve` non systématique |
-| Observe | PARTIAL | findings/hand offs daemon |
+| Sense | YES | `regenerationService.js:assessDamage/applyCellDeath` évalue les rôles perdus ; `survivalStateService.js:observe` persiste l'état et ses pressions |
+| Select | PARTIAL | `axolotlStrategyHandlers.js:planRegeneration` et `regenerationRuntimeService.js:planRegeneration` produisent des plans ; aucun déclencheur général depuis une panne d'agent |
+| Invoke | PARTIAL | `axolotlStrategyHandlers.js:executeRegeneration` exécute une régénération demandée ; `survivalStateService.js:suspend/wake` ferme le flux de dormance par snapshot et condition de réveil |
+| Affect decision | PARTIAL | `regenerationRuntimeService.js` exige reçu de restauration, validation de lignée et preuve avant remplacement/apoptose ; `symbiontSuccessionService.js` sélectionne résidents à garder/dormir/réveiller selon les capacités de phase |
+| Act | PARTIAL | `regenerationService.js:regenerateCell`, exécution de topologie axolotl et `symbiontSuccessionService.js:applySuccession/resumeDormantSymbiont` agissent, sans orchestration générale commune |
+| Observe | YES | cicatrices, signaux vitaux, reçus d'action et `survival_state_events` enregistrent les transitions et récupérations |
 | Learn | NO | — |
-| Persist | PARTIAL | persistance organisme incomplète |
-| Reuse | NO | — |
+| Persist | PARTIAL | dormance, snapshot gelé, conditions de réveil et reçus sont persistés ; état complet de l'organisme/régénération pas restauré par un même agrégat durable |
+| Reuse | PARTIAL | `wake` restaure le snapshot vérifié et la succession peut reprendre un symbionte dormant ; sélection de ces mécanismes par un contrôleur de mission reste absente |
 
 ## 8. Daemons : reproduction causale + réparation déléguée
 
