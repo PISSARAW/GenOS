@@ -183,6 +183,16 @@ function startAutobiographicalMemoryIfDesignated() {
   }
 }
 
+// Endogenous idle-tick oscillator: one scheduler per process pool, lowest
+// priority by construction (ticks skip non-idle agents), preempted by work.
+function startIdleTickSchedulerIfDesignated() {
+  if (process.env.GENOS_JOB_WORKER === '1' && process.env.GENOS_IDLE_TICK_AUTONOMOUS !== '0') {
+    try {
+      require('./src/services/idleTickService').startScheduler(getDatabase, {});
+    } catch (_) {}
+  }
+}
+
 function registerWorkerShutdown(server, grpcServer, db) {
   let shuttingDown = false;
   const shutdown = async (signal) => {
@@ -222,6 +232,7 @@ async function runWorkerProcess() {
     const grpcServer = await createGrpcServerIfDesignated();
     startTrinityMonitorIfEnabled();
     startAutobiographicalMemoryIfDesignated();
+    startIdleTickSchedulerIfDesignated();
     signalPlaneSubscriber.startSignalPlaneSubscriber();
 
     server.listen(PORT, () => {

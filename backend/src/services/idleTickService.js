@@ -22,6 +22,7 @@ const DEFAULT_BUDGET_MS = 2000;
 const MAX_BUDGET_MS = 5000;
 const DEFAULT_MIN_INTERVAL_MS = 60000;
 const DEFAULT_SWEEP_LIMIT = 5;
+const DEFAULT_SWEEP_BUDGET_MS = 30000;
 const CLOG_THRESHOLD = 15;
 const DIVERGENT_STREAK = 3;
 
@@ -118,6 +119,7 @@ async function tick(db, agentId, options) {
 async function sweepIdleAgents(db, options) {
   const settings = options || {};
   const limit = Math.max(1, Math.min(20, Math.floor(Number(settings.limit) || DEFAULT_SWEEP_LIMIT)));
+  const deadline = Date.now() + Math.max(1000, Math.min(120000, Number(settings.sweepBudgetMs) || DEFAULT_SWEEP_BUDGET_MS));
   const report = { ticked: 0, skipped: 0, divergent: 0, details: [] };
   try {
     const rows = await db.all(
@@ -125,6 +127,7 @@ async function sweepIdleAgents(db, options) {
       limit
     );
     for (const row of rows || []) {
+      if (Date.now() > deadline) break;
       try {
         const result = await tick(db, row.id, settings);
         report.details.push({ agentId: row.id, status: result.status, reason: result.reason || null });
@@ -140,4 +143,73 @@ async function sweepIdleAgents(db, options) {
   return report;
 }
 
-module.exports = { tick, shouldTick, sweepIdleAgents, SCOPE };
+const DEFAULT_BASE_INTERVAL_MS = 10 * 60 * 1000;
+const MIN_INTERVAL_FLOOR_MS = 30 * 1000;
+const MAX_INTERVAL_CEILING_MS = 60 * 60 * 1000;
+
+function schedulerSettings(options) {
+  const settings = options || {};
+  const env = (name, fallback) => {
+    const value = Number(process.env[name]);
+    return Number.isFinite(value) && value > 0 ? value : fallback;
+  };
+  return {
+    baseMs: env('GENOS_IDLE_TICK_INTERVAL_MS', numOr(settings.baseMs, DEFAULT_BASE_INTERVAL_MS)),
+    minMs: env('GENOS_IDLE_TICK_MIN_MS', numOr(settings.minMs, MIN_INTERVAL_FLOOR_MS)),
+    maxMs: env('GENOS_IDLE_TICK_MAX_MS', numOr(settings.maxMs, MAX_INTERVAL_CEILING_MS)),
+    sweepLimit: Math.max(1, Math.min(20, Math.floor(numOr(settings.limit, DEFAULT_SWEEP_LIMIT)))),
+    sweepBudgetMs: numOr(settings.sweepBudgetMs, DEFAULT_SWEEP_BUDGET_MS),
+    tickBudgetMs: numOr(settings.budgetMs, DEFAULT_BUDGET_MS)
+  };
+}
+
+function nextDelay(outcome, settings, current) {
+  const result = outcome || {};
+  const pressure = (Number(result.ticked) || 0) + 2 * (Number(result.divergent) || 0);
+  if (pressure > 0) return Math.max(settings.minMs, Math.floor((current || settings.baseMs) / (1 + pressure)));
+  return Math.min(settings.maxMs, Math.floor((current || settings.baseMs) * 1.5));
+}
+
+async function runSchedulerCycle(getDb, state, settings) {
+  const db = await getDb();
+  const outcome = await sweepIdleAgents(db, {
+    limit: settings.sweepLimit,
+    sweepBudgetMs: settings.sweepBudgetMs,
+    budgetMs: settings.tickBudgetMs
+  });
+  state.cycles += 1;
+  state.lastOutcome = { ticked: outcome.ticked, divergent: outcome.divergent, skipped: outcome.skipped };
+  state.delayMs = nextDelay(state.lastOutcome, settings, state.delayMs);
+}
+
+function startScheduler(getDb, options) {
+  const settings = schedulerSettings(options);
+  const state = { running: true, sweeping: false, cycles: 0, lastOutcome: null, delayMs: settings.baseMs, timer: null };
+  const loop = () => {
+    if (!state.running) return;
+    if (state.sweeping) {
+      state.timer = setTimeout(loop, settings.minMs);
+      if (state.timer.unref) state.timer.unref();
+      return;
+    }
+    state.sweeping = true;
+    runSchedulerCycle(getDb, state, settings).catch(() => {}).finally(() => {
+      state.sweeping = false;
+      if (state.running) {
+        state.timer = setTimeout(loop, state.delayMs);
+        if (state.timer.unref) state.timer.unref();
+      }
+    });
+  };
+  state.timer = setTimeout(loop, settings.baseMs);
+  if (state.timer.unref) state.timer.unref();
+  return {
+    state,
+    stop: () => {
+      state.running = false;
+      if (state.timer) clearTimeout(state.timer);
+    }
+  };
+}
+
+module.exports = { tick, shouldTick, sweepIdleAgents, startScheduler, nextDelay, SCOPE };
