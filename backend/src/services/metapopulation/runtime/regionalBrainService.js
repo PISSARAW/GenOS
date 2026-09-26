@@ -6,16 +6,20 @@ const { analyzeContribution } = require('../observability/regionalContributionSe
 const { planAntiSynchrony } = require('../observability/antiSynchronyService');
 const { evaluateRegionalUtility } = require('../observability/regionalUtilityService');
 const { transitionDeme } = require('../demes/demeLifecycleService');
+const { transitionPatch } = require('../patches/patchLifecycleService');
+const recolonizationService = require('../patches/recolonizationService');
 const corridorStore = require('../migration/corridorStore');
 const migrationStore = require('../migration/migrationStore');
 const regionalMigrationLoop = require('./regionalMigrationLoopService');
 const { runRegionalRuntime } = require('./regionalRuntimeService');
+const variantController = require('./variantRegionalController');
+const classicPatchRuntime = require('./classicPatchRuntimeService');
 
 function createRegionalBrain(options = {}) {
   return {
     observe: (input) => observeRegion(input, options),
     diagnose: (observed, input) => diagnoseRegion(observed, input),
-    plan: (diagnosis, observed, input) => planRegionalActions(diagnosis, observed, input),
+    plan: (diagnosis, observed, input) => planRegionalRuntimeActions({ diagnosis, observed, input, options }),
     execute: (...args) => executeRegionalActions({ plan: args[0], diagnosis: args[1], observed: args[2], input: args[3], options }),
     verify: (...args) => verifyRegionalActions({ execution: args[0], plan: args[1], diagnosis: args[2], observed: args[3], input: args[4], options })
   };
@@ -38,9 +42,21 @@ async function observeRegion(input, options) {
   const contribution = analyzeContribution(demes, corridors, input.contributionOptions || {});
   const synchrony = planAntiSynchrony({ demes, observations: errorVectors, threshold: input.synchronyThreshold });
   const utility = evaluateRegionalUtility({ demes, corridors, migrations: input.migrationCandidates || [] });
+  const variantResolution = resolveSessionVariant(session);
   return { metapopulationId: input.metapopulationId, revision: session.revision, status: session.status,
-    variant: session.variant, variantPolicy: session.variantPolicy || {},
+    variant: variantResolution.variant, variantPolicy: variantResolution.policy,
+    variantSelection: variantResolution.selection,
     demes, patches: session.patches, corridors, liveness, contribution, synchrony, utility, rescueAttempts };
+}
+
+function resolveSessionVariant(session) {
+  if (session.variant) {
+    return { variant: session.variant, policy: session.variantPolicy || {},
+      selection: session.variantSelection || { method: 'persisted', confidence: 1, reasons: ['SESSION_VARIANT_PERSISTED'] } };
+  }
+  const { resolveMetapopulationVariant } = require('../policy/metapopulationPolicyService');
+  const resolved = resolveMetapopulationVariant({ mission: session.mission, scope: session.scope });
+  return { variant: resolved.variant, policy: resolved.policy, selection: { ...resolved.selection, method: 'legacy_mission_signals' } };
 }
 
 function diagnoseRegion(observed, input = {}) {
@@ -60,19 +76,35 @@ function planRegionalActions(diagnosis, observed, input = {}) {
   const actions = diagnosis.atRisk.filter((item) => canMarkAtRisk(observed.demes, item.demeId))
     .map((item) => ({ type: 'MARK_DEME_AT_RISK', demeId: item.demeId, reasons: item.reasons }));
   const pairs = updatablePairs(observed, diagnosis.synchronyPairs, input);
-  if (pairs.length) actions.push({ type: 'REGULATE_CORRIDORS', pairs, freeze: input.freezeCorrelatedCorridors === true });
+  if (pairs.length) actions.push({ type: 'REGULATE_CORRIDORS', pairs,
+    freeze: input.freezeCorrelatedCorridors === true || observed.variantPolicy?.firebreaks === true });
   const migration = regionalMigrationLoop.planMigrationAction({ input, observed });
   if (migration.action) actions.push(migration.action);
-  return { actions, recommendations: buildRecommendations(diagnosis, observed), migrationAssessments: migration.assessments,
+  return { actions, recommendations: buildRecommendations(diagnosis, observed, input), migrationAssessments: migration.assessments,
     observedRevision: observed.revision,
     diagnosis: diagnosis.status };
 }
 
-function buildRecommendations(diagnosis, observed) {
+async function planRegionalRuntimeActions(context) {
+  const { diagnosis, observed, input, options } = context;
+  const plan = planRegionalActions(diagnosis, observed, input);
+  const classicResult = await classicPatchRuntime.runClassicPatchCycle(observed, { ...input, now: input.now }, options);
+  if (classicResult.cycled) plan.actions.push({ type: 'COLLAPSE_DETECTED_POPULATE_VACANCY', results: classicResult.results });
+  return variantController.planVariantActions({ ...context, plan });
+}
+
+function buildRecommendations(diagnosis, observed, input = {}) {
   const recommendations = [];
+  const now = input.now ? Date.parse(input.now) : Date.now();
   for (const deme of diagnosis.atRisk) {
     recommendations.push({ type: 'ASSESS_RESCUE', demeId: deme.demeId,
       protectedFromCull: deme.protectedFromCull, sourceCandidates: observed.demes.filter((item) => item.demeId !== deme.demeId && item.status === 'ACTIVE').map((item) => item.demeId) });
+    const resident = observed.demes.find((item) => item.demeId === deme.demeId);
+    const sla = observed.variantPolicy?.recoverySlaMs;
+    const updated = Date.parse(resident?.updatedAt || '');
+    if (Number.isFinite(sla) && Number.isFinite(updated) && now - updated > sla) {
+      recommendations.push({ type: 'RECOVERY_SLA_BREACH', demeId: deme.demeId, slaMs: sla, atRiskSince: resident.updatedAt });
+    }
   }
   for (const patchId of diagnosis.vacantPatches) recommendations.push({ type: 'ASSESS_RECOLONIZATION', patchId });
   if (diagnosis.missingCapabilities.length) recommendations.push({ type: 'REGIONAL_CAPABILITY_GAP', capabilities: diagnosis.missingCapabilities });
@@ -95,6 +127,8 @@ async function executeAction(action, context) {
   }
   if (action.type === 'REGULATE_CORRIDORS') return regulateCorridors(action, context);
   if (action.type === 'MIGRATE_PROPAGULE') return regionalMigrationLoop.executeMigrationAction(action, context);
+  const variantResult = await variantController.executeVariantAction(action, context);
+  if (variantResult) return variantResult;
   throw brainError('REGIONAL_ACTION_UNSUPPORTED', `Unsupported regional action: ${action.type}`);
 }
 
@@ -108,11 +142,12 @@ async function regulateCorridors(action, context) {
     updatedCorridors: stored.filter((corridor) => action.pairs.some((pair) => pairMatches(pair, corridor))).length };
 }
 
+
 function adjustCorridor(corridor, action, input) {
   const pair = action.pairs.find((item) => pairMatches(item, corridor));
   if (!pair) return corridor;
   const risk = Math.max(corridor.homogenizationRisk, pair.risk);
-  const freezeAt = bounded(input.freezeRiskThreshold, 0.95);
+  const freezeAt = bounded(input.freezeRiskThreshold, input.freezeCorrelatedCorridors === true ? 0.95 : 0.75);
   const freeze = action.freeze && risk >= freezeAt;
   const weight = pair.risk > corridor.homogenizationRisk
     ? corridor.weight * bounded(input.corridorReductionFactor, 0.5) : corridor.weight;
@@ -120,11 +155,15 @@ function adjustCorridor(corridor, action, input) {
     weight: Number(weight.toFixed(3)), homogenizationRisk: risk };
 }
 
+
 async function verifyRegionalActions(context) {
   const demesValid = await verifyDemeActions(context);
   const corridorsValid = await verifyCorridorActions(context);
   const migrationsValid = await regionalMigrationLoop.verifyMigrationActions(context);
-  return { valid: context.execution.completed === true && demesValid && corridorsValid && migrationsValid,
+  const variantValid = await variantController.verifyVariantActions(context);
+  const topologyValid = await variantController.verifyTopologyActions(context);
+  const firebreakValid = await variantController.verifyFirebreakActions(context);
+  return { valid: context.execution.completed === true && demesValid && corridorsValid && migrationsValid && variantValid && topologyValid && firebreakValid,
     diagnosis: context.diagnosis.status, actionCount: context.plan.actions.length,
     regionalRevisionBefore: context.observed.revision, regionalTopologyUnchanged: true };
 }
@@ -137,17 +176,24 @@ async function verifyDemeActions(context) {
 
 async function verifyCorridorActions(context) {
   const actions = context.plan.actions.filter((action) => action.type === 'REGULATE_CORRIDORS');
-  if (!actions.length) return true;
+  const recoverActions = context.plan.actions.filter((action) => action.type === 'RECOVER_FIREBREAKS');
+  if (!actions.length && !recoverActions.length) return true;
   const corridors = await corridorStore.listGraph(context.options.db, context.input.metapopulationId);
-  return actions.every((action) => action.pairs.every((pair) => corridors.some((edge) =>
+  const regulated = actions.every((action) => action.pairs.every((pair) => corridors.some((edge) =>
     pairMatches(pair, edge) && edge.homogenizationRisk >= pair.risk)));
+  const recovered = recoverActions.every((action) => action.pairs.every((pair) => corridors.some((edge) =>
+      pairMatches(pair, edge) && edge.enabled && edge.homogenizationRisk <= pair.risk)));
+  return regulated && recovered;
 }
 
 function updatablePairs(observed, pairs, input) {
   const byKey = new Map(observed.corridors.map((edge) => [edgeKey(edge), edge]));
   return pairs.flatMap((pair) => [pair, { ...pair, sourceDemeId: pair.targetDemeId, targetDemeId: pair.sourceDemeId }]).filter((pair) => {
     const edge = byKey.get(`${pair.sourceDemeId}->${pair.targetDemeId}`);
-    return edge && (pair.risk > edge.homogenizationRisk || input.freezeCorrelatedCorridors === true && edge.enabled);
+    const firebreaks = input.freezeCorrelatedCorridors === true || observed.variantPolicy?.firebreaks === true;
+    const coverageProtected = (input.freezeCorrelatedCorridors === true || observed.variantPolicy?.firebreaks === true) && (observed.contribution?.demes || [])
+      .some((deme) => deme.uniqueCapabilities?.length && [pair.sourceDemeId, pair.targetDemeId].includes(deme.demeId));
+    return edge && !coverageProtected && (pair.risk > edge.homogenizationRisk || firebreaks && edge.enabled);
   });
 }
 
@@ -213,4 +259,4 @@ function requireDb(options) { if (!options.db) throw brainError('METAPOPULATION_
 function brainError(code, message) { return Object.assign(new Error(message), { code }); }
 
 module.exports = { createRegionalBrain, runAutonomousRegionalRuntime, observeRegion,
-  diagnoseRegion, planRegionalActions, executeRegionalActions, verifyRegionalActions };
+  diagnoseRegion, planRegionalActions, planRegionalRuntimeActions, executeRegionalActions, verifyRegionalActions };

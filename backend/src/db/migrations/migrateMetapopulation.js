@@ -133,6 +133,25 @@ async function migrateMetapopulation(db) {
       CHECK (json_valid(provenance_json)),
       CHECK (json_valid(evidence_json))
     );
+    CREATE TABLE IF NOT EXISTS metapopulation_colonizations (
+      colonization_id TEXT PRIMARY KEY,
+      metapopulation_id TEXT NOT NULL,
+      patch_id TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('IN_TRIAL', 'COMPLETING', 'ACCEPTED', 'FAILED')),
+      founder_lineages_json TEXT NOT NULL DEFAULT '[]',
+      deme_id TEXT,
+      evidence_json TEXT NOT NULL DEFAULT '{}',
+      provenance_json TEXT NOT NULL DEFAULT '{}',
+      actor TEXT NOT NULL DEFAULT '',
+      started_at TEXT NOT NULL,
+      completed_at TEXT,
+      FOREIGN KEY (metapopulation_id) REFERENCES metapopulation_sessions(id) ON DELETE CASCADE,
+      FOREIGN KEY (patch_id) REFERENCES metapopulation_patches(patch_id) ON DELETE CASCADE,
+      CHECK (json_valid(founder_lineages_json)),
+      CHECK (json_valid(evidence_json)),
+      CHECK (json_valid(provenance_json))
+    );
+    CREATE INDEX IF NOT EXISTS idx_metapopulation_colonizations_patch ON metapopulation_colonizations(metapopulation_id, patch_id, status);
     CREATE INDEX IF NOT EXISTS idx_metapopulation_demes_metapopulation ON metapopulation_demes(metapopulation_id);
     CREATE INDEX IF NOT EXISTS idx_metapopulation_corridors_source ON metapopulation_corridors(source_deme_id);
     CREATE INDEX IF NOT EXISTS idx_metapopulation_corridors_target ON metapopulation_corridors(target_deme_id);
@@ -142,6 +161,9 @@ async function migrateMetapopulation(db) {
   `);
   // Add missing columns from legacy schemas
   await ensureColumn(db, { table: 'metapopulation_sessions', column: 'organization', declaration: "TEXT NOT NULL DEFAULT 'quorum_with_abstention'" });
+  await ensureColumn(db, { table: 'metapopulation_sessions', column: 'variant', declaration: 'TEXT' });
+  await ensureColumn(db, { table: 'metapopulation_sessions', column: 'variant_policy_json', declaration: "TEXT NOT NULL DEFAULT '{}'" });
+  await ensureColumn(db, { table: 'metapopulation_sessions', column: 'variant_selection_json', declaration: "TEXT NOT NULL DEFAULT '{}'" });
   await ensureColumn(db, { table: 'metapopulation_demes', column: 'fitness_json', declaration: "TEXT NOT NULL DEFAULT '{}'" });
   await ensureColumn(db, { table: 'metapopulation_demes', column: 'diversity', declaration: 'REAL NOT NULL DEFAULT 0' });
   await ensureColumn(db, { table: 'metapopulation_demes', column: 'last_heartbeat_at', declaration: 'TEXT' });

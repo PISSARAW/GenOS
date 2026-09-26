@@ -3,6 +3,8 @@ const { migrateMetapopulation } = require('./migrateMetapopulation');
 
 async function migrateMetapopulationRuntime(db) {
   await migrateMetapopulation(db);
+  const { migrateMetapopulationVariantRuntime } = require('./migrateMetapopulationVariantRuntime');
+  await migrateMetapopulationVariantRuntime(db);
   await ensureColumn(db, { table: 'metapopulation_demes', column: 'workspace_path', declaration: 'TEXT' });
   await ensureColumn(db, { table: 'metapopulation_demes', column: 'workspace_owner_id', declaration: 'TEXT' });
   await ensureColumn(db, { table: 'metapopulation_demes', column: 'local_boundary_json', declaration: "TEXT NOT NULL DEFAULT '[]'" });

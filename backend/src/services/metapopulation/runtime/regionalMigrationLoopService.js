@@ -1,6 +1,6 @@
 'use strict';
 
-const { evaluateTrigger } = require('../migration/adaptiveMigrationTriggerService');
+const { evaluateTrigger, calculateAdaptiveInterval } = require('../migration/adaptiveMigrationTriggerService');
 const { selectCandidates } = require('../migration/migrationPolicyService');
 const { evaluateMigrationValue } = require('../observability/regionalUtilityService');
 const { validatePropagule } = require('../contracts/propaguleContract');
@@ -15,43 +15,80 @@ function planMigrationAction(context) {
   if (context.input.enableMigration !== true) return { action: null, assessments: [] };
   const assessments = [];
   for (const request of requests(context.input)) {
-    const policy = context.observed.variantPolicy || {};
-    const trigger = evaluateTrigger({
-      ...(request.trigger || {}),
-      generationInterval: request.trigger?.generationInterval || frequencyInterval(policy.migrationFrequency),
-      generation: request.trigger?.generation ?? context.input.generation
-    });
-    if (!trigger.triggered) {
-      assessments.push({ targetDemeId: request.targetDemeId, reason: trigger.blockedBy[0] || 'TRIGGER_NOT_MET' });
-      continue;
-    }
-    const action = selectEligibleAction(request, context.observed);
-    if (action) return { action, assessments };
-    assessments.push({ targetDemeId: request.targetDemeId, reason: 'NO_VERIFIED_CANDIDATE' });
+    const assessment = assessMigrationRequest(request, context);
+    if (assessment.action) return { action: assessment.action, assessments };
+    if (assessment.reason) assessments.push(assessment);
   }
   return { action: null, assessments };
 }
 
+function assessMigrationRequest(request, context) {
+  const policy = context.observed.variantPolicy || {};
+  const variant = context.observed.variant || 'balanced';
+  const adaptiveInterval = calculateAdaptiveInterval({ variant, ...request.trigger,
+    generation: request.trigger?.generation ?? context.input.generation,
+    baseInterval: frequencyInterval(policy.migrationFrequency, request.trigger) });
+  const trigger = evaluateTrigger({ ...(request.trigger || {}), variant,
+    generationInterval: request.trigger?.generationInterval || adaptiveInterval,
+    generation: request.trigger?.generation ?? context.input.generation });
+  if (!trigger.triggered) return { targetDemeId: request.targetDemeId,
+    reason: trigger.blockedBy[0] || 'TRIGGER_NOT_MET', adaptiveInterval };
+  const action = selectEligibleAction(request, context.observed);
+  if (!action) return { targetDemeId: request.targetDemeId, reason: 'NO_VERIFIED_CANDIDATE' };
+  return { action };
+}
+
 function selectEligibleAction(request, observed) {
   const variantPolicy = observed.variantPolicy || {};
-  const candidates = selectCandidates(request.candidates, {
-    policy: request.policy || variantPolicy.migration || 'novelty',
-    diversityMode: variantPolicy.diversityMode,
-    targetDemeId: request.targetDemeId,
-    sourceDemeId: request.sourceDemeId, limit: request.limit || 1,
-    minFitness: request.minFitness, minNovelty: request.minNovelty
-  });
+  const variant = observed.variant || 'balanced';
+  let candidates;
+
+  if (variant === 'island_search') {
+    candidates = selectIslandSearchCandidates(request, variantPolicy, observed);
+  } else {
+    candidates = selectCandidates(request.candidates, {
+      policy: request.policy || variantPolicy.migration || 'novelty',
+      diversityMode: variantPolicy.diversityMode,
+      requireVersionedCulture: variantPolicy.artifactsOnly === true,
+      targetDemeId: request.targetDemeId,
+      sourceDemeId: request.sourceDemeId, limit: request.limit || 1,
+      minFitness: request.minFitness, minNovelty: request.minNovelty
+    });
+  }
+
   for (const candidate of candidates) {
     if (!federationEligible(candidate, request, variantPolicy)) continue;
-    const action = candidateAction(candidate, request, observed);
+    const action = candidateAction(candidate, { ...request, sourceReserveRatio: variantPolicy.sourceReserveRatio }, observed);
     if (action) return action;
   }
   return null;
 }
 
+function selectIslandSearchCandidates(request, variantPolicy, observed) {
+  const eliteCandidates = selectCandidates(request.candidates, {
+    policy: 'elite',
+    targetDemeId: request.targetDemeId,
+    sourceDemeId: request.sourceDemeId,
+    limit: Math.max(1, Math.floor((request.limit || 2) / 2)),
+    minFitness: request.minFitness
+  });
+
+  const counterexampleCandidates = selectCandidates(request.candidates, {
+    policy: 'counterexample',
+    targetDemeId: request.targetDemeId,
+    sourceDemeId: request.sourceDemeId,
+    limit: Math.max(1, Math.floor((request.limit || 2) / 2)),
+    minNovelty: request.minNovelty
+  });
+
+  return [...eliteCandidates, ...counterexampleCandidates];
+}
+
 function federationEligible(candidate, request, policy) {
   if (!policy.sovereign) return true;
-  if (policy.verifiedPropagulesOnly && candidate.transferProof?.verified !== true) return false;
+  if (policy.verifiedPropagulesOnly && (candidate.transferProof?.verified !== true
+    || candidate.transferProof?.dataMinimized !== true || candidate.transferProof?.redacted !== true
+    || request.receiverAttestation?.verified !== true)) return false;
   return authorizeFederationTransfer({
     classification: candidate.dataClassification,
     sourceRegion: request.sourceRegion,
@@ -61,10 +98,10 @@ function federationEligible(candidate, request, policy) {
   }).allowed;
 }
 
-function frequencyInterval(frequency) {
-  if (frequency === 'rare') return 10;
-  if (frequency === 'periodic') return 5;
-  return undefined;
+function frequencyInterval(frequency, trigger = {}) {
+  const base = frequency === 'rare' ? 10 : frequency === 'periodic' ? 5 : 0;
+  if (!base) return undefined;
+  return calculateAdaptiveInterval({ ...trigger, baseInterval: base });
 }
 
 function candidateAction(candidate, request, observed) {
@@ -82,8 +119,20 @@ function candidateAction(candidate, request, observed) {
 
 function isActionEligible(context) {
   return Boolean(context.corridor && context.adapter && isReceiver(context.request.receiver) &&
+    sourceCapacityAvailable(context.candidate, context.request, context.observed) &&
     context.utility.worthwhile && rescueAttemptsAvailable(context.candidate, context.request, context.observed) &&
     rescueAdapterReady(context.candidate, context.request, context.adapter));
+}
+
+function sourceCapacityAvailable(candidate, request, observed) {
+  if (!Number.isFinite(request.sourceReserveRatio)) return true;
+  const source = observed.demes.find((deme) => deme.demeId === candidate.sourceDemeId);
+  const patch = observed.patches.find((item) => item.patchId === source?.patchId);
+  const capacity = Number(source?.availableMigrationCapacity ?? source?.migrationCapacity
+    ?? patch?.resources?.migrationCapacity);
+  if (!Number.isFinite(capacity)) return true;
+  const demand = Number.isFinite(candidate.capacityDemand) ? candidate.capacityDemand : 1;
+  return capacity - demand >= capacity * request.sourceReserveRatio;
 }
 
 async function executeMigrationAction(action, context) {

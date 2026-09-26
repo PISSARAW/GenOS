@@ -17,6 +17,8 @@ function selectCandidates(candidates, options = {}) {
   if (!POLICIES.includes(policy)) throw Object.assign(new Error('Unsupported migration selection policy.'), { code: 'METAPOPULATION_MIGRATION_POLICY_INVALID' });
   const ranked = (Array.isArray(candidates) ? candidates : [])
     .filter((candidate) => matchesRequest(candidate, options))
+    .filter((candidate) => options.requireVersionedCulture !== true || isVersionedCulture(candidate))
+    .filter((candidate) => !options.antiHomogenization || passesAntiHomogenization(candidate, options))
     .map((candidate) => ({ candidate, score: SCORERS[policy](candidate) }))
     .filter((entry) => entry.score >= 0)
     .sort((left, right) => right.score - left.score || left.candidate.propaguleId.localeCompare(right.candidate.propaguleId));
@@ -31,7 +33,7 @@ function selectDiverse(ranked, limit) {
   const selectedEntries = [];
   const dimensions = { providers: new Set(), algorithms: new Set(), lineages: new Set() };
   while (remaining.length && selectedEntries.length < limit) {
-    remaining.sort((left, right) => diversityScore(right, dimensions) - diversityScore(left, dimensions));
+    remaining.sort((left, right) => compareDiversity(left, right, dimensions));
     const next = remaining.shift();
     selectedEntries.push(selected(next, 'complementary', diversityScore(next, dimensions)));
     recordDiversity(next.candidate, dimensions);
@@ -39,19 +41,56 @@ function selectDiverse(ranked, limit) {
   return selectedEntries;
 }
 
+function compareDiversity(left, right, dimensions) {
+  const gain = (entry) => {
+    const item = entry.candidate;
+    const provider = item.providerId || item.provider;
+    const algorithm = item.algorithmId || item.solverId;
+    return Number(Boolean(provider) && !dimensions.providers.has(provider))
+      + Number(Boolean(algorithm) && !dimensions.algorithms.has(algorithm))
+      + Number((item.lineageRefs || []).some((ref) => !dimensions.lineages.has(ref)));
+  };
+  return gain(right) - gain(left) || right.score - left.score;
+}
+
 function diversityScore(entry, dimensions) {
   const candidate = entry.candidate;
+  const provider = candidate.providerId || candidate.provider;
+  const algorithm = candidate.algorithmId || candidate.solverId;
   const refs = Array.isArray(candidate.lineageRefs) ? candidate.lineageRefs : [];
-  const novelty = Number(!dimensions.providers.has(candidate.providerId))
-    + Number(!dimensions.algorithms.has(candidate.algorithmId))
+  const novelty = Number(Boolean(provider) && !dimensions.providers.has(provider))
+    + Number(Boolean(algorithm) && !dimensions.algorithms.has(algorithm))
     + Number(refs.some((ref) => !dimensions.lineages.has(ref)));
   return entry.score + novelty * 0.25;
 }
 
 function recordDiversity(candidate, dimensions) {
-  if (candidate.providerId) dimensions.providers.add(candidate.providerId);
-  if (candidate.algorithmId) dimensions.algorithms.add(candidate.algorithmId);
+  const provider = candidate.providerId || candidate.provider;
+  const algorithm = candidate.algorithmId || candidate.solverId;
+  if (provider) dimensions.providers.add(provider);
+  if (algorithm) dimensions.algorithms.add(algorithm);
   for (const ref of candidate.lineageRefs || []) dimensions.lineages.add(ref);
+}
+
+function passesAntiHomogenization(candidate, options) {
+  if (!options.targetDemeId || !options.sourceDemeId) return true;
+  return distinctProvider(candidate, options) && distinctAlgorithm(candidate, options)
+    && distinctLineages(candidate, options);
+}
+
+function distinctProvider(candidate, options) {
+  const provider = candidate.providerId || candidate.provider;
+  return !(options.targetProvider && provider && options.targetProvider === provider);
+}
+
+function distinctAlgorithm(candidate, options) {
+  const algorithm = candidate.algorithmId || candidate.solverId;
+  return !(options.targetAlgorithm && algorithm && options.targetAlgorithm === algorithm);
+}
+
+function distinctLineages(candidate, options) {
+  const target = options.targetLineages || [];
+  return !target.length || !(candidate.lineageRefs || []).some((lineage) => target.includes(lineage));
 }
 
 function selectFounderSet(ranked, limit) {
@@ -140,6 +179,13 @@ function isCultural(candidate) {
   return ['COGNITIVE_RECIPE', 'PROCEDURE', 'MEMORY_FRAGMENT', 'STRATEGY'].includes(candidate.type);
 }
 
+function isVersionedCulture(candidate) {
+  const culture = candidate.culture;
+  return isCultural(candidate) && typeof culture?.id === 'string' && culture.id.length > 0
+    && Number.isSafeInteger(culture.version) && culture.version > 0
+    && Array.isArray(culture.parentRefs) && candidate.provenance?.source;
+}
+
 function normalizeLimit(value) {
   return Number.isSafeInteger(value) && value >= 0 ? value : Number.MAX_SAFE_INTEGER;
 }
@@ -148,4 +194,4 @@ function metric(value) {
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
 }
 
-module.exports = { selectCandidates, planPush, queryPull, POLICIES };
+module.exports = { selectCandidates, planPush, queryPull, POLICIES, isCultural, isVersionedCulture };

@@ -826,9 +826,15 @@ $$
 
 Seul `EXTINCT` peut être enregistré comme extinction. Cette décision requiert
 les états des workers et la viabilité des fonctions ; elle n'est pas obtenue
-par le seuil de santé hypothétique présenté dans les anciennes équations. Le
-contrôleur régional autonome ne lance pas encore automatiquement la boucle
-d'extinction puis de recolonisation.
+par le seuil de santé hypothétique présenté dans les anciennes équations. Pour
+le variant `classic_patch`, le contrôleur régional planifie automatiquement la
+boucle d'extinction puis de recolonisation : un patch `OCCUPIED` dont le dème
+est `COLLAPSED` est d'abord libéré (`VACATE_COLLAPSED_PATCH` → `VACANT`), puis
+un trial de recolonisation multi-lignée est démarré
+(`START_RECOLONIZATION_TRIAL`) dès qu'au moins deux lignées compatibles sont
+disponibles et qu'aucun trial n'est déjà en cours sur le patch. Chaque étape
+est vérifiée (statut du patch, ligne `IN_TRIAL` en base) avant validation du
+cycle.
 
 ## 17. Speciation computationnelle
 

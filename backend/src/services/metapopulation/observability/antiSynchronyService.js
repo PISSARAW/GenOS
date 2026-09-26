@@ -6,9 +6,10 @@ function planAntiSynchrony(input = {}) {
   const demes = Array.isArray(input.demes) ? input.demes : [];
   const observations = input.observations || {};
   const threshold = bounded(input.threshold, 0.7);
-  const pairs = pairMetrics(demes, observations).filter((pair) => pair.risk >= threshold);
+  const allPairs = pairMetrics(demes, observations);
+  const pairs = allPairs.filter((pair) => pair.risk >= threshold);
   const uniqueCapabilities = uniqueCapabilityOwners(demes);
-  return { threshold, affectedPairs: pairs,
+  return { threshold, affectedPairs: pairs, allPairs,
     protectedDemeIds: demes.filter((deme) => uniqueCapabilities.has(deme.demeId)).map((deme) => deme.demeId),
     policy: { action: input.freeze === true ? 'FREEZE' : 'REDUCE', reductionFactor: bounded(input.reductionFactor, 0.5) } };
 }

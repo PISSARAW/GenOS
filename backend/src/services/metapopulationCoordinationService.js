@@ -36,8 +36,10 @@ const regionalUtilityService = require('./metapopulation/observability/regionalU
 const evolutionBridge = require('./metapopulation/evolution/metapopulationEvolutionBridge');
 const metapopulationPolicyService = require('./metapopulation/policy/metapopulationPolicyService');
 const nestedTopologyService = require('./metapopulation/evolution/nestedTopologyService');
+const islandSearchBridge = require('./metapopulation/evolution/islandSearchBridge');
 const regionalRuntimeService = require('./metapopulation/runtime/regionalRuntimeService');
 const regionalBrainService = require('./metapopulation/runtime/regionalBrainService');
+const variantServices = require('./metapopulation/metapopulationVariantServices');
 
 const DEFAULT_ORGANIZATION = 'quorum_with_abstention';
 const DEFAULT_QUORUM_RATIO = 0.5;
@@ -48,11 +50,20 @@ function composeMetapopulation(mission, options = {}) {
   if (!goal) {
     throw Object.assign(new Error('Metapopulation mission is required.'), { code: 'METAPOPULATION_MISSION_REQUIRED' });
   }
-  const members = biologicalModeService.compose('metapopulation', goal);
+  const variantSelection = metapopulationPolicyService.resolveMetapopulationVariant({
+    mission: goal, variant: options.variant || options.variantId, scope: options.scope
+  });
+  const members = biologicalModeService.compose('metapopulation', goal, {
+    workerAssignments: options.workerAssignments
+  });
   const organization = options.organization || DEFAULT_ORGANIZATION;
   return {
     mode: 'metapopulation',
     mission: goal,
+    variant: variantSelection.variant,
+    variantPolicy: variantSelection.policy,
+    variantSelection: variantSelection.selection,
+    scope: variantSelection.scope,
     organization,
     mechanisms: members[0]?.mechanisms || [],
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'metapopulation', organization }),
@@ -69,10 +80,13 @@ async function createMetapopulationSession(mission, options = {}) {
     missionId: options.missionId || id,
     mission: composition.mission,
     organization: composition.organization,
-    scope: options.scope || 'mission',
+    scope: options.scope || composition.scope || 'mission',
     patches: [],
     demes: [],
     migrationGraph: { corridors: [] },
+    variant: composition.variant,
+    variantPolicy: composition.variantPolicy,
+    variantSelection: composition.variantSelection,
     regionalMemory: {},
     status: 'FORMING',
     generation: 0,
@@ -99,7 +113,9 @@ async function getMetapopulationSession(metapopulationId, options = {}) {
   if (!session) {
     throw Object.assign(new Error('Unknown metapopulation session.'), { code: 'METAPOPULATION_SESSION_UNKNOWN' });
   }
-  const composition = composeMetapopulation(session.mission, { organization: session.organization });
+  const composition = composeMetapopulation(session.mission, {
+    organization: session.organization, variant: session.variant, scope: session.scope
+  });
   const hydrated = { ...composition, ...session, sessionId: session.metapopulationId || session.sessionId };
   sessions.set(hydrated.sessionId, hydrated);
   return hydrated;
@@ -135,7 +151,7 @@ async function listMetapopulationEvents(metapopulationId, options = {}) {
 function senseQuorum(members, options = {}) {
   const list = Array.isArray(members) ? members : [];
   const threshold = Number.isFinite(options.evidenceThreshold) ? options.evidenceThreshold : 0.5;
-  const quorumRatio = Number.isFinite(options.quorumRatio) ? options.quorumRatio : DEFAULT_QUORUM_RATIO;
+  const quorumRatio = quorumRatioFor(options);
   let totalWeight = 0;
   let supportWeight = 0;
   for (const member of list) {
@@ -146,6 +162,20 @@ function senseQuorum(members, options = {}) {
   }
   const support = totalWeight > 0 ? Number((supportWeight / totalWeight).toFixed(3)) : 0;
   return { reached: support >= quorumRatio, support, quorumRatio, threshold, responders: list.length };
+}
+
+function quorumRatioFor(options) {
+  if (Number.isFinite(options.quorumRatio)) return options.quorumRatio;
+  const policy = variantPolicyFor(options);
+  if (Number.isFinite(policy?.quorumRatio)) return policy.quorumRatio;
+  return DEFAULT_QUORUM_RATIO;
+}
+
+function variantPolicyFor(options) {
+  if (options.variantPolicy) return options.variantPolicy;
+  const variant = options.variant || options.variantId;
+  if (!variant) return null;
+  return metapopulationPolicyService.resolveMetapopulationVariant({ variant }).policy;
 }
 
 function regenerationPlan(lostRoles, options = {}) {
@@ -227,7 +257,11 @@ async function consumeDemeBudget(input, options = {}) {
 }
 
 function buildMigrationGraph(demes, options = {}) {
-  return buildCorridors(demes, options);
+  const policy = variantPolicyFor(options);
+  return buildCorridors(demes, {
+    ...options,
+    policy: options.policy || policy?.corridorTopology
+  });
 }
 
 async function planMigrationTopology(metapopulationId, options = {}) {
@@ -259,7 +293,15 @@ function registerMigrationAdapter(type, adapter) {
 }
 
 function selectMigrationCandidates(candidates, options = {}) {
-  return migrationPolicyService.selectCandidates(candidates, options);
+  return migrationPolicyService.selectCandidates(candidates, migrationOptions(options));
+}
+
+function migrationOptions(options) {
+  const variantPolicy = variantPolicyFor(options);
+  return {
+    ...options,
+    policy: options.policy || variantPolicy?.migration
+  };
 }
 
 function planPushMigration(input) {
@@ -332,10 +374,12 @@ module.exports = {
   ...antiSynchronyService,
   ...regionalUtilityService,
   ...evolutionBridge,
+  ...islandSearchBridge,
   ...metapopulationPolicyService,
   ...nestedTopologyService,
   ...regionalRuntimeService,
   ...regionalBrainService,
+  ...variantServices,
   senseQuorum,
   regenerationPlan,
   connectionWeights

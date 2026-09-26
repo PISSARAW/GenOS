@@ -12,10 +12,11 @@ async function createSession(db, session, event) {
   return withTransaction(db, async () => {
     await db.run(
       `INSERT INTO metapopulation_sessions
-       (id, mission_id, mission, organization, scope, status, generation, revision, migration_graph_json, regional_memory_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+       (id, mission_id, mission, organization, scope, status, generation, revision, migration_graph_json, regional_memory_json, variant, variant_policy_json, variant_selection_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
       session.metapopulationId, session.missionId, session.mission, session.organization, session.scope, session.status,
       session.generation, JSON.stringify(session.migrationGraph), JSON.stringify(session.regionalMemory),
+      session.variant || null, JSON.stringify(session.variantPolicy || {}), JSON.stringify(session.variantSelection || {}),
       session.createdAt, session.updatedAt
     );
     await insertEvent(db, session.metapopulationId, { ...event, sequence: 1, revision: 1 });
@@ -42,6 +43,9 @@ async function loadSession(db, metapopulationId) {
     status: row.status,
     generation: row.generation,
     revision: row.revision,
+    variant: row.variant || null,
+    variantPolicy: parseJson(row.variant_policy_json),
+    variantSelection: parseJson(row.variant_selection_json),
     patches: patchRows.map(toPatch),
     demes: demeRows.map(toDeme),
     migrationGraph: { ...parseJson(row.migration_graph_json), corridors: corridorRows.map(toCorridor) },
@@ -129,8 +133,8 @@ async function transitionPatch(db, input) {
   await withTransaction(db, async () => {
     await requireSession(db, metapopulationId);
     const result = await db.run(
-      'UPDATE metapopulation_patches SET status = ?, updated_at = ? WHERE metapopulation_id = ? AND patch_id = ?',
-      status, new Date().toISOString(), metapopulationId, patchId
+      'UPDATE metapopulation_patches SET status = ?, current_deme_id = CASE WHEN ? = \'VACANT\' THEN NULL ELSE current_deme_id END, updated_at = ? WHERE metapopulation_id = ? AND patch_id = ?',
+      status, status, new Date().toISOString(), metapopulationId, patchId
     );
     if (result.changes !== 1) throw storeError('METAPOPULATION_PATCH_UNKNOWN', 'Unknown patch.');
     await commitEvent(db, metapopulationId, { type: 'PATCH_STATUS_CHANGED', payload: { patchId, status } });
@@ -195,7 +199,7 @@ async function updateDemeProfile(db, input) {
   await migrateMetapopulation(db);
   const { metapopulationId, demeId } = input;
   const changes = input.changes || {};
-  const mutableFields = ['localStrategies', 'localProcedures', 'fitness', 'diversity'];
+  const mutableFields = ['localStrategies', 'localProcedures', 'lineage', 'fitness', 'diversity', 'localMemoryRef'];
   if (Object.keys(changes).some((field) => !mutableFields.includes(field))) {
     throw storeError('METAPOPULATION_DEME_PROFILE_FIELD_INVALID', 'Deme profile contains a protected field.');
   }
@@ -206,9 +210,9 @@ async function updateDemeProfile(db, input) {
     const updated = validateDeme({ ...toDeme(currentRow), ...changes });
     const now = new Date().toISOString();
     await db.run(
-      'UPDATE metapopulation_demes SET local_strategies_json = ?, local_procedures_json = ?, fitness_json = ?, diversity = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?',
-      JSON.stringify(updated.localStrategies), JSON.stringify(updated.localProcedures),
-      JSON.stringify(updated.fitness), updated.diversity, now, metapopulationId, demeId
+      'UPDATE metapopulation_demes SET local_strategies_json = ?, local_procedures_json = ?, lineage_json = ?, fitness_json = ?, diversity = ?, local_memory_ref = ?, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ?',
+      JSON.stringify(updated.localStrategies), JSON.stringify(updated.localProcedures), JSON.stringify(updated.lineage || {}),
+      JSON.stringify(updated.fitness), updated.diversity, updated.localMemoryRef || null, now, metapopulationId, demeId
     );
     await commitEvent(db, metapopulationId, { type: 'DEME_PROFILE_UPDATED', payload: { demeId, fields: Object.keys(changes) } });
   });
