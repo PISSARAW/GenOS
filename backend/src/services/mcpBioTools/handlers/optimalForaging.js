@@ -1,7 +1,26 @@
 const { defaultForaging } = require('../../foragingScoutHarvesterService');
+const { forageStep } = require('../../foragingLoopService');
 
 async function handleOptimalForaging(args) {
   const action = args.action || 'evaluate_patch';
+
+  if (action === 'forage_step' || action === 'closed_loop' || action === 'closed_loop_step') {
+    const step = await forageStep({
+      sessionId: args.session_id || args.sessionId,
+      patchHistory: args.patch_history || args.history,
+      elapsedTimeSec: args.elapsed_time_sec,
+      iteration: args.iteration,
+      nextUrl: args.next_url || args.nextUrl,
+      htmlContent: args.html_content || args.html
+    });
+    return {
+      configured: true,
+      success: true,
+      status: 'completed',
+      transport: 'local_service',
+      output: JSON.stringify(step, null, 2)
+    };
+  }
 
   if (action === 'evaluate_patch' || action === 'evaluate') {
     const history = Array.isArray(args.history) ? args.history : [{ infoGain: Number(args.info_gain || 0.5) }];
