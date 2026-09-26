@@ -176,6 +176,7 @@ async function runAction(context, args) {
   }
   await markReceipt(context, result.success ? 'completed' : 'failed');
   await emitExecution(context, args, result);
+  await linkCausality(context, result);
   if (result.success && context.decision.tool === 'genos_record_experience') await compileMemory(context, args);
   try {
     await require('./swarmTopologyRuntimeService').applyStepForOrchestrator(context.orchestratorId, { db: context.db || undefined });
@@ -195,6 +196,17 @@ async function observeOutcome(context, result, detail) {
   } catch (_) {
     return { matched: false, surprise: 0 };
   }
+}
+
+async function linkCausality(context, result) {
+  try {
+    await require('./causalLedgerService').link(context.db, {
+      agentId: context.orchestratorId,
+      kind: result.success ? 'action_executed' : 'action_failed',
+      causeIds: [context.sourceEventId, context.event.id].filter(Boolean),
+      summary: `${context.decision.action}:${context.decision.tool}`
+    });
+  } catch (_) {}
 }
 
 async function emitExecution(context, args, result) {
