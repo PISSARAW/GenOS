@@ -1,5 +1,9 @@
 # Biome — Écologie Adaptative de GenOS
 
+- **Statut** : Partiel
+- **Portée** : onze contrôleurs de variant accessibles sur session; la boucle autonome complète et les connecteurs fournisseurs restent hors portée.
+- **Dernière revue** : 2026-09-26
+
 > *Biome est le protocole de GenOS pour maintenir et faire évoluer un ensemble de populations spécialisées dans un environnement dynamique, sous ressources limitées, lorsque la structure optimale du travail n'est pas connue à l'avance et doit émerger de l'interaction entre niches, populations, ressources et résultats.*
 
 ---
@@ -44,11 +48,11 @@ Le dépôt possède déjà des briques réelles et opérationnelles :
 | Curiosité par progrès | ✓ | `curiosityService.js` |
 | Organismes procéduraux | ✓ | `proceduralOrganismService.js` |
 
-La matière première est là. Mais le moteur écologique n'est pas encore assemblé.
+La matière première est là. Les contrôleurs des onze variants sont maintenant branchés aux sessions, mais le moteur écologique autonome complet n'est pas encore assemblé.
 
-### 1.3 Le problème central : aucune boucle écologique fermée
+### 1.3 Le problème central : pas encore de boucle écologique autonome
 
-Actuellement, un opérateur externe doit explicitement invoquer `allocate()`, `forage()`, `health()`. Il n'existe aucune boucle autonome d'autorégulation.
+Un opérateur ou ordonnanceur doit encore invoquer explicitement `allocate()`, `forage()`, `health()` ou `advance_variant`. L'opération variante observe, décide et applique des changements bornés, mais ne relance pas seule un nouveau tour.
 
 L'implémentation ultime doit **être la boucle écologique** :
 
@@ -578,6 +582,25 @@ Et inversement : POET creates new environment → Biome decides which population
 | **Multi-scale Biome** | individus→populations→communautés | très grandes missions |
 
 Les plus importants pour la V1 ultime : **Exploration, Resource, Resilience, Persistent, Quality-Diversity**.
+
+### 4.1.1 Effets runtime livrés et frontières
+
+`genos_topology_session` accepte `operation: "advance_variant"` et `variant_input`. Chaque
+cycle est journalisé, incrémente le tick écologique et laisse son état dans le snapshot.
+
+| Variant | Effet appliqué par le cycle | Frontière actuelle |
+| --- | --- | --- |
+| Resource | Alloue le vecteur tokens/coût/quota/CPU/GPU/RAM/énergie; calcule starvation depuis les minima de niche; réserve des ressources; marché facultatif avec paiements; expose le rendement pour l'allocation suivante. | Pas d'apprentissage automatique de productivité entre missions. |
+| Exploration | Pondère l'information par curiosité et stagnation, foraging, pas de Lévy, archive des patches avec preuves et transfert vers un patch cible. | L'exécution d'un patch reste une requête au worker. |
+| Quality-Diversity | Descripteurs continus, cellules grille ou CVT, élite par cellule, compétition locale, nouveauté et file d'enfants issus du croisement/mutation. | Les descripteurs et opérateurs de mutation sont fournis par l'appelant; le fitness reste externe. |
+| Successional | Phases pioneer → specialist → stabilizer; exige preuve, niche colonisée et productivité, puis stabilité pour stabiliser; journalise ressources et références mémoire héritées. | Les mesures de stabilité doivent être fournies ou rester bloquantes. |
+| Resilience | Mesure la redondance par niche et le score de keystone; conserve les refuges; n'éteint une population que sur confirmation explicite avec preuve; finance la recolonisation depuis le refuge via la réserve. | Le benchmark perturbation/récupération est à produire. |
+| Persistent | Persiste saisons, mémoire, populations, niches, ressources et biofilm; la même `persistence_key` relie des missions; applique la rétention/decay configurée. | Sans clé partagée, la session est persistée isolément; aucun daemon saisonnier. |
+| Open-Ended | Génère des environnements enfants bornés, les garde en archive, applique un critère nouveauté/utilité/coût et ouvre une niche sur preuve; suspend la pression après cinq cycles stériles. | Un résultat de vérificateur doit fournir utilité, coût et preuves; pas d'évaluation auto-déclarée. |
+| Adversarial | Lie des populations attaquante/défenseuse, compte défis/mitigations, archive les références d'exploits et rejette les payloads/exécutions. | Coévolution sûre de scénarios abstraits; aucun test d'attaque réel. |
+| Knowledge | Évalue crédibilité, fraîcheur, duplication, contradiction, épuisement et provenance; forme des niches de sources et pollinise entre sources d'un même thème. | La collecte et la vérification des sources restent externes. |
+| Compute | Choisit le fournisseur faisable au coût/latence/énergie les plus faibles, en considérant quotas, CPU/GPU/RAM et coût de migration/localité. | Produit une recommandation; ne déplace pas le worker et n'appelle pas le fournisseur. |
+| Multi-scale | Remonte les mesures individu/population et communauté; applique des politiques autorisées à quatre niveaux; détecte la formation de communautés et renvoie les contraintes vers le bas. | Pas de génération automatique de topologies imbriquées. |
 
 ### 4.2 Cas d'usage typiques
 

@@ -10,13 +10,17 @@ function publicComposition(result) {
 }
 
 function compositionOptions(args) {
-  return {
-    ...(args.options || {}),
-    variantId: args.variant_id || args.variantId || args.variant || args.options?.variantId || args.options?.variant,
-    scope: args.scope || args.options?.scope,
-    configuration: args.configuration || args.options?.configuration,
-    workerAssignments: args.worker_assignments || args.workerAssignments || args.options?.workerAssignments
-  };
+  const options = { ...(args.options || {}) };
+  const aliases = { variantId: ['variant_id', 'variantId', 'variant'], scope: ['scope'],
+    persistenceKey: ['persistence_key', 'persistenceKey'], configuration: ['configuration'],
+    workerAssignments: ['worker_assignments', 'workerAssignments'] };
+  for (const [key, names] of Object.entries(aliases)) options[key] = firstValue(args, names, options[key]);
+  return options;
+}
+
+function firstValue(args, names, fallback) {
+  for (const name of names) if (args[name]) return args[name];
+  return fallback;
 }
 
 async function composeBiologicalMode(args = {}) {

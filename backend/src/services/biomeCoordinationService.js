@@ -1,5 +1,4 @@
 'use strict';
-
 /**
  * @file biomeCoordinationService.js
  * @description Biome coordination: an operating environment of specialized
@@ -8,10 +7,9 @@
  */
 const biologicalModeService = require('./biologicalModeService');
 const topologyCapabilityService = require('./topologyCapabilityService');
-const swarmMetricsService = require('./swarmMetricsService');
-const { defaultForaging } = require('./foragingScoutHarvesterService');
 const biofilmMatrix = require('./biofilmMatrixService');
 const biomeSessionStore = require('./biome/biomeSessionStore');
+const sessionPersistence = require('./biome/biomeSessionPersistence');
 const biomeStore = require('./biome/biomeStore');
 const { createEcologicalEvent } = require('./biome/contracts/ecologicalEvent');
 const environmentModelService = require('./biome/environment/environmentModelService');
@@ -22,99 +20,90 @@ const agentNicheService = require('./biome/niches/agentNicheService');
 const populationRuntimeService = require('./biome/populations/populationRuntimeService');
 const ecologicalForagingController = require('./biome/foraging/ecologicalForagingController');
 const foragingActionExecutor = require('./biome/foraging/foragingActionExecutor');
+const biomeVariantPolicy = require('./biome/variants/variantPolicyService');
+const biomeVariantRuntime = require('./biome/variants/variantRuntimeService');
+const biomeVariantOperations = require('./biome/variants/variantSessionOperations');
+const { sourceOpportunities, advanceSuccessionPhase, healthAssessment, allocationOptions,
+  allocateResources, forageStep, ecosystemHealth } = biomeVariantOperations;
 const crypto = require('crypto');
-
 const DEFAULT_ORGANIZATION = 'energy_huddle';
 const MECHANISMS = ['resource_allocation', 'optimal_foraging', 'quorum_sensing'];
 const sessions = new Map();
-
-function serialize(session) {
-  return {
-    mission: session.mission,
-    biomeId: session.biomeId,
-    ecology: session.ecology,
-    revision: session.revision,
-    organization: session.organization,
-    mechanisms: session.mechanisms,
-    capabilityContract: session.capabilityContract,
-    members: session.members,
-    matrix: {
-      matrixId: session.matrix.matrixId,
-      version: session.matrix.version,
-      maxEntries: session.matrix.maxEntries,
-      entries: [...session.matrix.entries.entries()],
-      history: session.matrix.history
-    }
-  };
-}
-
-function rehydrate(record) {
-  const state = record.state || {};
-  const matrix = biofilmMatrix.createMatrix(state.matrix?.matrixId || record.id, { maxEntries: state.matrix?.maxEntries });
-  matrix.version = Number(state.matrix?.version) || 0;
-  for (const [key, entry] of state.matrix?.entries || []) matrix.entries.set(key, entry);
-  matrix.history = Array.isArray(state.matrix?.history) ? state.matrix.history : [];
-  return {
-    sessionId: record.id,
-    biomeId: state.biomeId || record.id,
-    revision: record.revision,
-    ...state,
-    ecology: state.ecology || biomeStore.createBiomeState({ biomeId: state.biomeId || record.id, missionId: record.id }),
-    matrix
-  };
-}
-
-async function persist(session, db) {
-  if (db) {
-    const saved = await biomeSessionStore.create(db, { id: session.sessionId, state: serialize(session) });
-    session.revision = saved.revision;
-  }
-}
-
 async function composeBiome(mission, options = {}) {
-  const goal = String(mission || '').trim();
-  if (!goal) {
-    throw Object.assign(new Error('Biome mission is required.'), { code: 'BIOME_MISSION_REQUIRED' });
-  }
+  const goal = requiredMission(mission);
+  const variant = biomeVariantPolicy.select(goal, options);
   const organization = options.organization || DEFAULT_ORGANIZATION;
+  const scope = options.scope || variant.scope;
   const sessionId = `biome-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const persistenceKey = persistentKey(scope, options, sessionId);
+  const session = createSession({ goal, variant, organization, scope, sessionId, persistenceKey, options });
+  initializeSuccession(session);
+  await restorePersistent(session, options.db);
+  sessions.set(session.sessionId, session);
+  await sessionPersistence.persist(session, options.db);
+  return session;
+}
+
+function requiredMission(mission) {
+  const goal = String(mission || '').trim();
+  if (!goal) throw Object.assign(new Error('Biome mission is required.'), { code: 'BIOME_MISSION_REQUIRED' });
+  return goal;
+}
+
+function persistentKey(scope, options, sessionId) {
+  if (scope !== 'persistent') return null;
+  return String(options.persistenceKey || options.environment?.environmentId || sessionId);
+}
+
+function createSession(context) {
+  const { goal, variant, organization, scope, sessionId, persistenceKey, options } = context;
   const environmentModel = environmentModelService.createEnvironmentModel({
-    environmentId: `${sessionId}:environment`, mission: goal, scope: options.scope, environment: options.environment
+    environmentId: persistenceKey || `${sessionId}:environment`, mission: goal, scope, environment: options.environment
   });
-  const session = {
+  return {
     sessionId,
     biomeId: sessionId,
     revision: null,
     ecology: biomeStore.createBiomeState({
-      biomeId: sessionId, missionId: sessionId, scope: options.scope,
+      biomeId: sessionId, missionId: sessionId, scope,
       environment: environmentModel.environment
     }),
     mode: 'biome',
     mission: goal,
+    variant: variant.variant,
+    variantPolicy: variant,
+    variantSelection: variant.selection,
+    variantState: {},
+    persistenceKey,
     organization,
     mechanisms: MECHANISMS,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biome', organization }),
     matrix: biofilmMatrix.createMatrix(`biome-${Date.now()}`, options),
-    members: biologicalModeService.compose('biome', goal).map((member) => ({
-      ...member,
-      runtimeContext: {
-        biomeId: sessionId,
-        sessionId,
-        populationId: `population-${member.role}`,
-        nicheId: `niche-${member.role}`
-      }
-    }))
+    members: createMembers(goal, variant, sessionId)
   };
-  sessions.set(session.sessionId, session);
-  await persist(session, options.db);
-  return session;
+}
+
+function createMembers(goal, variant, sessionId) {
+  return biologicalModeService.compose('biome', goal).map((member) => ({ ...member, variant: variant.variant,
+    mission: `${member.mission}\n\nBIOME VARIANT ${variant.variant}: ${variant.focus}`,
+    runtimeContext: { biomeId: sessionId, sessionId, populationId: `population-${member.role}`, nicheId: `niche-${member.role}` } }));
+}
+
+function initializeSuccession(session) {
+  if (session.variant === 'successional') session.ecology.ecologicalState.successionPhase = 'pioneer';
+}
+
+async function restorePersistent(session, db) {
+  if (!session.persistenceKey || !db) return;
+  const stored = await biomeSessionStore.loadPersistentEnvironment(db, session.persistenceKey);
+  sessionPersistence.restorePersistentEnvironment(session, stored);
 }
 
 async function getSession(sessionId, db) {
   if (db) {
     const record = await biomeSessionStore.load(db, sessionId);
     if (record) {
-      const session = rehydrate(record);
+      const session = sessionPersistence.rehydrate(record);
       sessions.set(sessionId, session);
       return session;
     }
@@ -127,7 +116,8 @@ async function getSession(sessionId, db) {
 async function sessionSnapshot(sessionId, options = {}) {
   const session = await getSession(sessionId, options.db);
   return {
-    sessionId, mode: 'biome', version: session.matrix.version,
+    sessionId, mode: 'biome', version: session.matrix.version, variant: session.variant,
+    variantState: session.variantState || {},
     environment: session.ecology.environment,
     environmentConstraints: session.ecology.environmentConstraints,
     ecologicalState: session.ecology.ecologicalState,
@@ -137,6 +127,19 @@ async function sessionSnapshot(sessionId, options = {}) {
     populations: session.ecology.populations,
     entries: biofilmMatrix.read(session.matrix)
   };
+}
+
+async function advanceSessionVariant(sessionId, input = {}, options = {}) {
+  const operationOptions = { ...options, evidenceRefs: options.evidenceRefs || input.evidenceRefs || [] };
+  return applyOperation({ sessionId, options: operationOptions, operation: 'variant_advance', input,
+    apply: (session) => {
+      const result = biomeVariantRuntime.advance({ ecology: session.ecology, variant: session.variant, state: session.variantState, input, matrix: session.matrix });
+      session.variantState = result.state;
+      biofilmMatrix.deposit(session.matrix, { key: `variant:${session.matrix.version + 1}`, kind: 'variant_decision',
+        variant: result.variant, decision: result.decision });
+      return { ...result, matrixVersion: session.matrix.version };
+    }
+  });
 }
 
 async function updateSessionEnvironment(sessionId, patch, options = {}) {
@@ -156,16 +159,18 @@ async function updateSessionEnvironment(sessionId, patch, options = {}) {
 
 async function discoverSessionNiches(sessionId, failureClusters = [], options = {}) {
   return applyOperation({
-    sessionId, options, operation: 'niche_discovery', input: { failureClusters },
+    sessionId, options, operation: 'niche_discovery', input: { failureClusters, knowledgeSources: options.knowledgeSources },
     apply: (session) => {
       const candidates = nicheDiscoveryService.discoverNiches({
-        opportunityMap: session.ecology.opportunityMap,
+        opportunityMap: [...session.ecology.opportunityMap, ...sourceOpportunities(session, options.knowledgeSources)],
         failureClusters,
         existingNiches: session.ecology.niches
       });
       for (const candidate of candidates) session.ecology.niches = nicheStore.upsertNiche(session.ecology.niches, candidate);
+      const successionPhase = advanceSuccessionPhase(session.ecology, session.variantPolicy);
       return {
         candidates,
+        successionPhase,
         action: { type: 'NICHE_CANDIDATES_RECORDED', status: 'applied', candidateCount: candidates.length }
       };
     }
@@ -178,9 +183,14 @@ async function updateNicheLifecycle({ sessionId, nicheId, measurements = {}, opt
     apply: (session) => {
       const niche = session.ecology.niches.find((item) => item.nicheId === nicheId);
       if (!niche) throw Object.assign(new Error(`Unknown biome niche '${nicheId}'.`), { code: 'BIOME_NICHE_UNKNOWN' });
-      const updated = nicheLifecycleService.advanceNiche(niche, measurements, options);
+      const lifecycleOptions = {
+        ...options,
+        minimumOpportunityScore: options.minimumOpportunityScore ?? session.variantPolicy?.growthThreshold
+      };
+      const updated = nicheLifecycleService.advanceNiche(niche, measurements, lifecycleOptions);
       session.ecology.niches = nicheStore.upsertNiche(session.ecology.niches, updated);
-      return { niche: updated, action: { type: 'NICHE_STATUS_CHANGED', status: updated.status, nicheId } };
+      const successionPhase = advanceSuccessionPhase(session.ecology, session.variantPolicy, measurements);
+      return { niche: updated, successionPhase, action: { type: 'NICHE_STATUS_CHANGED', status: updated.status, nicheId } };
     }
   });
 }
@@ -201,7 +211,11 @@ async function assessSessionIndividuals(sessionId, individuals, options = {}) {
 async function updateSessionPopulation({ sessionId, command, options = {} }) {
   return applyOperation({
     sessionId, options, operation: `population_${command.type}`, input: command,
-    apply: (session) => populationRuntimeService.execute(session.ecology, command, options)
+    apply: (session) => {
+      const result = populationRuntimeService.execute(session.ecology, command, options);
+      const successionPhase = advanceSuccessionPhase(session.ecology, session.variantPolicy, command.measurements);
+      return { ...result, successionPhase };
+    }
   });
 }
 
@@ -221,12 +235,26 @@ async function assessSessionCapacity({ sessionId, measurements = {}, thresholds 
 }
 
 async function allocateSessionResources(sessionId, populations, options = {}) {
-  const result = allocateResources(populations, options);
+  const session = await getSession(sessionId, options.db);
+  const settings = allocationOptions(session, options, populations.length);
+  const allocation = allocateResources(populations, settings);
+  const result = {
+    ...allocation,
+    totalBudget: settings.requestedBudget,
+    spendableBudget: settings.totalBudget,
+    recoveryReserveBudget: settings.recoveryReserveBudget
+  };
   return applyOperation({ sessionId, options, operation: 'allocate', input: { populations, totalBudget: options.totalBudget, minimumPerPopulation: options.minimumPerPopulation }, apply: (session) => {
+    session.ecology.ecologicalState.recoveryBudgetReserve = (session.ecology.ecologicalState.recoveryBudgetReserve || 0)
+      + result.recoveryReserveBudget;
     for (const allocation of result.allocations) {
       biofilmMatrix.deposit(session.matrix, { key: `resource:${allocation.id}`, kind: 'resource_allocation', ...allocation });
     }
-    return { ...result, matrixVersion: session.matrix.version };
+    if (result.recoveryReserveBudget > 0) biofilmMatrix.deposit(session.matrix, {
+      key: `recovery-reserve:${session.matrix.version + 1}`, kind: 'recovery_budget_reserve', budget: result.recoveryReserveBudget
+    });
+    return { ...result, matrixVersion: session.matrix.version,
+      action: { type: 'BIOME_BUDGET_ALLOCATED', status: 'applied', allocations: result.allocations, recoveryReserveBudget: result.recoveryReserveBudget } };
   } });
 }
 
@@ -243,7 +271,7 @@ async function forageSession(sessionId, patchHistory, options = {}) {
       currentDescriptor: options.currentDescriptor, currentMarginalReturn: options.currentMarginalReturn,
       currentSpace: options.currentSpace, stepsWithoutProgress: options.stepsWithoutProgress, iteration: options.iteration,
       alternatives, switchCost: options.switchCost, elapsedTimeSec: options.elapsedTimeSec,
-      environmentThreshold: options.environmentThreshold
+      environmentThreshold: options.environmentThreshold ?? session.variantPolicy?.environmentThreshold
     });
     persistPatchHistory(session.ecology, currentPatch(options), patchHistory);
     const executed = foragingActionExecutor.execute(session.ecology, decision, options);
@@ -269,8 +297,8 @@ function persistPatchHistory(ecology, patchId, patchHistory) {
 }
 
 async function assessSessionHealth(sessionId, observations, options = {}) {
-  const result = ecosystemHealth(observations);
   return applyOperation({ sessionId, options, operation: 'health', input: { observations }, apply: (session) => {
+    const result = healthAssessment(session, observations);
     biofilmMatrix.deposit(session.matrix, { key: `health:${session.matrix.version + 1}`, kind: 'ecosystem_health', ...result });
     return { ...result, matrixVersion: session.matrix.version };
   } });
@@ -284,11 +312,12 @@ async function applyOperation({ sessionId, options, operation, input, apply }) {
 async function applyPersistedOperation(context) {
   const { sessionId, options, operation, input, apply, operationId, timestamp, actorId } = context;
   return biomeSessionStore.mutate({ db: options.db, id: sessionId, actorId, operation, mutator: async (record) => {
-    const session = rehydrate(record);
+    const session = sessionPersistence.rehydrate(record);
     const output = await apply(session);
+    session.ecology.tick += 1;
     const resultingRevision = record.revision + 1;
     const receipt = makeReceipt({ ...context, output, previousRevision: record.revision, resultingRevision });
-    return { state: serialize(session), event: { ...receipt }, result: { sessionId, ...output, receipt } };
+    return { state: sessionPersistence.serialize(session), event: { ...receipt }, result: { sessionId, ...output, receipt } };
   } });
 }
 
@@ -296,6 +325,7 @@ async function applyMemoryOperation(context) {
   const session = await getSession(context.sessionId);
   const previousRevision = session.revision || 0;
   const output = await context.apply(session);
+  session.ecology.tick += 1;
   session.revision = previousRevision + 1;
   const receipt = makeReceipt({ ...context, output, previousRevision, resultingRevision: session.revision });
   return { sessionId: context.sessionId, ...output, receipt };
@@ -310,75 +340,14 @@ function makeReceipt(context) {
     evidenceRefs: options.evidenceRefs || [], timestamp });
 }
 
-function allocateResources(populations, options = {}) {
-  const list = Array.isArray(populations) ? populations : [];
-  const totalBudget = options.totalBudget === undefined ? list.length * 1000 : options.totalBudget;
-  const floor = options.minimumPerPopulation === undefined ? 0 : options.minimumPerPopulation;
-  validateBudget(totalBudget, floor, list.length);
-  const weights = populationWeights(list);
-  return distributeBudget(weights, totalBudget, floor);
-}
-
-function validateBudget(totalBudget, floor, populationCount) {
-  if (!Number.isSafeInteger(totalBudget) || totalBudget < 0) throw allocationError('totalBudget must be a non-negative safe integer.');
-  if (!Number.isSafeInteger(floor) || floor < 0) throw allocationError('minimumPerPopulation must be a non-negative safe integer.');
-  if (floor * populationCount > totalBudget) throw allocationError('Population minimums exceed the available budget.');
-  if (totalBudget > 0 && populationCount === 0) throw allocationError('At least one population is required for a non-zero budget.');
-}
-
-function populationWeights(list) {
-  const ids = new Set();
-  return list.map((population, index) => {
-    const id = String(population?.id || `population_${index + 1}`).trim();
-    const demand = population?.demand;
-    const priority = population?.priority;
-    if (!id || ids.has(id)) throw allocationError(`Population id is empty or duplicated: '${id}'.`);
-    if (!Number.isFinite(demand) || demand < 0) throw allocationError(`Population '${id}' has an invalid demand.`);
-    if (!Number.isFinite(priority) || priority < 0) throw allocationError(`Population '${id}' has an invalid priority.`);
-    ids.add(id);
-    return { id, weight: demand * priority };
-  });
-}
-
-function distributeBudget(weights, totalBudget, floor) {
-  const weightSum = weights.reduce((sum, entry) => sum + entry.weight, 0);
-  if (weights.length && (!Number.isFinite(weightSum) || weightSum <= 0)) throw allocationError('Population demand and priority must produce a positive finite weight.');
-  const distributable = totalBudget - floor * weights.length;
-  const exact = weights.map((entry) => distributable * entry.weight / weightSum);
-  const base = exact.map((share) => Math.floor(share));
-  let remaining = distributable - base.reduce((sum, value) => sum + value, 0);
-  const order = exact.map((share, index) => ({ index, remainder: share - base[index], id: weights[index].id }))
-    .sort((left, right) => right.remainder - left.remainder || left.id.localeCompare(right.id));
-  for (let index = 0; index < remaining; index += 1) base[order[index].index] += 1;
-  const allocations = weights.map((entry, index) => ({ id: entry.id, budget: floor + base[index] }));
-  return { totalBudget, floor, allocations, conserved: allocations.reduce((sum, entry) => sum + entry.budget, 0) === totalBudget };
-}
-
-function allocationError(message) { return Object.assign(new Error(message), { code: 'BIOME_ALLOCATION_INVALID' }); }
-
-function forageStep(patchHistory, options = {}) {
-  const iteration = Number.isFinite(options.iteration) ? options.iteration : 1;
-  const elapsedTimeSec = Number.isFinite(options.elapsedTimeSec) ? options.elapsedTimeSec : 1;
-  const patchYield = defaultForaging.evaluatePatchYield(Array.isArray(patchHistory) ? patchHistory : [], elapsedTimeSec);
-  return {
-    patchYield,
-    levyStep: defaultForaging.computeLevyFlightStep(iteration)
-  };
-}
-
-function ecosystemHealth(observations) {
-  const labels = (Array.isArray(observations) ? observations : []).map((observation) => (typeof observation === 'string' ? observation : observation?.label)).filter(Boolean);
-  if (!labels.length) return { behavioralDiversity: null, ecosystemHealth: 'unknown', verdict: 'unknown' };
-  const entropy = swarmMetricsService.calculateShannonEntropy(labels);
-  return { behavioralDiversity: entropy.normalizedEntropy, ecosystemHealth: 'unknown', verdict: 'unknown' };
-}
-
 module.exports = {
   composeBiome,
   allocateResources,
   forageStep,
   ecosystemHealth,
+  selectBiomeVariant: biomeVariantPolicy.select,
   sessionSnapshot,
+  advanceSessionVariant,
   allocateSessionResources,
   forageSession,
   assessSessionHealth,
