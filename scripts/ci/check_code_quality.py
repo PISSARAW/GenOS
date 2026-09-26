@@ -128,19 +128,35 @@ def python_functions(source: str) -> list[tuple[int, int, str]]:
 
 
 def rust_functions(source: str) -> list[tuple[int, int, str]]:
-    # NB: '//[^\n]*' et non '//' + DOTALL — avec DOTALL, '.' traverse les
-    # retours à la ligne et le premier // du fichier masquait TOUT le reste
-    # (aucune fonction détectée → violations de params invisibles).
     masked = re.sub(r'//[^\n]*|/\*.*?\*/', ' ', source, flags=re.DOTALL)
     functions = []
-    for match in re.finditer(r'\bfn\s+\w+\s*\(', masked):
+    for match in re.finditer(r'\bfn\s+(\w+)\s*\(', masked):
+        name = match.group(1)
+        if name in ('struct', 'enum', 'union', 'type', 'const', 'static', 'mod', 'use', 'impl', 'trait', 'where'):
+            continue
         open_paren = masked.find('(', match.start())
         end = matching(masked, open_paren, ('(', ')'))
         body_start = masked.find('{', end)
         body_end = matching(masked, body_start, ('{', '}')) if body_start >= 0 else -1
         if end >= 0 and body_end >= 0:
-            functions.append((line_number(source, match.start()), top_level_count(masked[open_paren + 1:end]), masked[body_start:body_end + 1]))
+            params_text = masked[open_paren + 1:end]
+            param_count = _count_rust_params(params_text)
+            functions.append((line_number(source, match.start()), param_count, masked[body_start:body_end + 1]))
     return functions
+
+
+def _count_rust_params(params_text: str) -> int:
+    if not params_text.strip():
+        return 0
+    count = 0
+    for part in re.split(r',(?![^()]*\))', params_text):
+        part = part.strip()
+        if not part:
+            continue
+        if re.match(r'^(&|&mut\s+)?self(\s*:\s*\w+)?$', part):
+            continue
+        count += 1
+    return count
 
 
 def check_file(path: Path, lines_only: bool = False) -> list[str]:
