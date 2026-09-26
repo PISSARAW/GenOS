@@ -7,11 +7,11 @@ const FIXTURE_IDS = Object.freeze(['level-1', 'level-2', 'level-3', 'level-4', '
 const FIXTURE_ROOT = path.resolve(__dirname, '../../fixtures/comparative-missions');
 const SUBMISSION_GUIDANCE = Object.freeze({
   'two-machine-scheduling': 'submission: provide task assignments, durations and reported makespan; include a readable answer string for independent recomputation.',
-  'constraint-checklist': 'submission.environments[populationId]: checks keyed by required criteria and evidenceRefs; return only the local environment design.',
-  'parser-contract': 'submission.parserSource: include the proposed implementation and test matrix. This fixture remains unverified until an isolated code runner is available.',
-  'bin-packing': 'submission.bins: array of {id, items:[{id,weight}]}; include every fixture item exactly once.',
-  'synthetic-finding-validation': 'submission.findings: array of {id,evidenceRef}; evidenceRef must quote a passage from the supplied pseudo-system.',
-  'collapse-recolonization': 'submission.collapse: {populationId,initialSelection}; submission.recolonization: {founderLineages,projects,neighborProjects}; submission.continuingPopulations: viable portfolios for every surviving population.'
+  'constraint-checklist': 'Return a JSON object in your first claim statement with submission.environments.<your population id> = {checks:{list:true,add:true,complete:true,offline:true,persistence:true,local-fitness:true},evidenceRefs:["design:<specific local decision>"]}. Describe a design only; do not claim an implementation test.',
+  'parser-contract': 'Return a JSON object in your first claim statement with submission.parserSource and submission.testMatrix. This fixture remains unverified until an isolated code runner is available.',
+  'bin-packing': 'Return a JSON object in your first claim statement with submission.bins as an array of {id,items:[{id,weight}]}; include every fixture item exactly once and stay within capacity.',
+  'synthetic-finding-validation': 'Return a JSON object in your first claim statement with submission.findings as an array of {id,evidenceRef}; use the known finding ids and quote the matching passage verbatim from the supplied pseudo-system.',
+  'collapse-recolonization': 'Return a JSON object in your first claim statement with submission.collapse={populationId:"greedy",initialSelection:["A"]}, submission.recolonization={founderLineages:[two distinct supplied lineage names],projects:[a viable project],neighborProjects:[a different viable project]}, and submission.continuingPopulations=[{populationId,projects}] for each of the three survivors.'
 });
 
 function loadFixture(id) {

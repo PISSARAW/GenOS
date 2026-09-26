@@ -47,8 +47,9 @@ async function composeMode(input = {}) {
   );
 }
 
-function composeTrinity({ mission }) {
-  return { members: trinityService.compose(mission) };
+function composeTrinity({ mission, options = {} }) {
+  const members = trinityService.compose(mission, options);
+  return { members, variant: members[0]?.variant, variantSelection: members[0]?.variantSelection };
 }
 
 function composeATeam({ mission }) {
@@ -76,8 +77,16 @@ function composeBiocenose({ db, orchestratorId, mission, options = {} }) {
 
 async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
   const schema = options.sessionOptions?.schema || readSyncytiumSchema();
-  const session = await syncytiumCoordinationService.createSession(mission, {
-    db, schema
+  const configuration = options.configuration || (schema ? {
+    fields: schema.fields, invariants: schema.invariants
+  } : {});
+  const session = await syncytiumCoordinationService.createPolicySession(mission, {
+    variantId: options.variantId || options.variant,
+    configuration,
+    sessionOptions: {
+      ...(options.sessionOptions || {}), db,
+      nuclearDomains: options.sessionOptions?.nuclearDomains
+    }
   });
   await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Syncytium mode activation' });
   return session;
@@ -88,8 +97,8 @@ function readSyncytiumSchema() {
   return serialized ? JSON.parse(serialized) : undefined;
 }
 
-async function composeHolobionte({ db, orchestratorId, mission }) {
-  const composition = holobionteCoordinationService.composeHolobiont(mission);
+async function composeHolobionte({ db, orchestratorId, mission, options = {} }) {
+  const composition = holobionteCoordinationService.composeHolobiont(mission, options);
   await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Holobionte mode activation' });
   return composition;
 }
@@ -102,8 +111,8 @@ async function composeMetapopulation({ db, orchestratorId, mission, options = {}
   return composition;
 }
 
-async function composeRhizome({ db, orchestratorId, mission }) {
-  const session = await rhizomeCoordinationService.composeRhizome(mission, { db });
+async function composeRhizome({ db, orchestratorId, mission, options = {} }) {
+  const session = await rhizomeCoordinationService.composeRhizome(mission, { ...options, db });
   await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Rhizome mode activation' });
   return session;
 }

@@ -13,6 +13,7 @@ function main() {
   const request = {
     strategy: 'metapopulation',
     mode: 'metapopulation',
+    background: process.env.GENOS_COMPARATIVE_BACKGROUND === '1',
     mission: renderFixtureMission(fixture),
     timeoutMs,
     execution_budget: { tokens: fixture.reproducibility.maxTokens },

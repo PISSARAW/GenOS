@@ -159,6 +159,7 @@ function selectLocalVariant(topology, ctx) {
 }
 
 const LOCAL_SELECTORS = Object.freeze({
+  trinity: (_ctx, mission) => trinitySelection(mission),
   a_team: (ctx, mission) => aTeamSelection(ctx, mission),
   biocenose: (ctx, mission) => biocenoseSelection(ctx, mission),
   syncytium: (_ctx, mission) => syncytiumSelection(mission),
@@ -167,6 +168,11 @@ const LOCAL_SELECTORS = Object.freeze({
   biome: (ctx, mission) => biomeSelection(ctx, mission),
   holobionte: (ctx, mission) => holobionteSelection(ctx, mission)
 });
+
+function trinitySelection(mission) {
+  const selection = require('../../trinityVariantService').selectForMission(mission);
+  return { ...selection, variantId: selection.variant };
+}
 
 function defaultSelection(reason) {
   return { variantId: 'default', method: 'safe_baseline', confidence: 0.5, reasons: [reason] };

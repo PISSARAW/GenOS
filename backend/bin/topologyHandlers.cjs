@@ -343,9 +343,11 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
 function composeBiologicalMode({ db, context, mode, mission }) {
   const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;
   const workerAssignments = context.request.worker_assignments || context.request.workerAssignments;
+  const variantId = context.request.variant_id || context.request.variantId || context.request.variant;
   return biologicalTopology.composeMode({
     db, orchestratorId: context.orchestratorId, mode, mission,
-    options: { agentCount, clusterSize, fanout, organization, workerAssignments }
+    options: { agentCount, clusterSize, fanout, organization, workerAssignments, variantId,
+      scope: context.request.scope, configuration: context.request.configuration }
   });
 }
 

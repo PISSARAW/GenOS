@@ -23,8 +23,8 @@ function topologyVariants(topology) {
   if (topology === 'a_team') return projectEntries({ source: 'aTeam/variants/variantRegistry', definitions: aTeam.VARIANTS, createParameters: (_id, policy) => policy });
   if (topology === 'trinity') return projectEntries({
     source: 'trinityVariantService', definitions: trinity.DEFINITIONS,
-    createParameters: (_id, definition) => ({ maturity: definition.maturity }),
-    maturityFor: (definition) => definition.maturity
+    createParameters: (_id, definition) => definition.design,
+    maturityFor: trinityVariantMaturity
   });
   if (topology === 'biocenose') return projectEntries({
     source: 'biocenose/variants/variantPolicyRouter', definitions: biocenose.POLICIES,
@@ -38,7 +38,8 @@ function topologyVariants(topology) {
   }));
   if (topology === 'metapopulation') return projectEntries({
     source: 'metapopulation/policy/metapopulationPolicyService',
-    definitions: metapopulation.VARIANTS, createParameters: (_id, policy) => policy
+    definitions: metapopulation.VARIANTS, createParameters: (_id, policy) => policy,
+    maturityFor: () => 'partial'
   });
   if (topology === 'biome') return projectEntries({
     source: 'biome/variants/variantPolicyService', definitions: biome.DEFINITIONS,
@@ -46,6 +47,15 @@ function topologyVariants(topology) {
     maturityFor: () => 'partial'
   });
   return [];
+}
+
+function trinityVariantMaturity(definition) {
+  try {
+    return trinity.compileExperimentalDesign(definition.design).maturity;
+  } catch (error) {
+    if (error.code === 'TRINITY_POLICY_NOT_IMPLEMENTED') return 'conceptual';
+    throw error;
+  }
 }
 
 function holobionteVariants() {
