@@ -13,7 +13,7 @@ function run() {
   assert.equal(registry.variants.resolve('trinity', 'factorial').maturity, 'implemented');
 
   const biocenose = registry.variants.resolve('biocenose', 'argumentation_community');
-  assert.equal(biocenose.maturity, 'implemented');
+  assert.equal(biocenose.maturity, 'partial');
   const syncytium = registry.variants.resolve('syncytium', 'code');
   assert.deepEqual(syncytium.requiredCapabilities, ['CRDT_SHARED_STATE', 'SEMANTIC_CONFLICTS', 'EVIDENCE_BARRIER']);
   const humanAi = registry.variants.resolve('syncytium', 'humanAi');

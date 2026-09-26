@@ -86,15 +86,24 @@ class MorphogenesisRuntime {
       return this._executeSimple(morphology, options);
     }
 
+    const planId = `morpho_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const plan = {
-      id: `morpho_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: planId,
       targetOrganization: morphology.topology || 'single_agent',
-      actions: (morphology.agents || []).map((a, i) => ({ action: 'incarnate', role: a.role || `agent_${i}`, modelTier: a.modelTier || 'standard' })),
+      actions: (morphology.agents || []).map((a, i) => ({
+        type: 'spawn',
+        agentId: a.agentId || `${planId}-agent-${i}`,
+        role: a.role || `agent_${i}`,
+        phenotype: a.phenotype || {},
+        workspace: a.workspace
+      })),
     };
 
     const transitionSpec = {
       transitionId: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       plan,
+      collectiveState: currentCollectiveState(),
+      db: this._db || null,
       targetTopology: morphology.topology,
       agents: morphology.agents,
       reason: options.reason || `morphogenesis strategy=${morphology.strategy}`,
@@ -113,12 +122,12 @@ class MorphogenesisRuntime {
     const result = await this._transitionEngine.executeTransition(transitionSpec);
 
     return {
-      applied: result?.applied || false,
+      applied: result?.committed || false,
       agents: morphology.agents,
       topology: morphology.topology,
       commitId: result?.commitId || null,
       transitionId: result?.transitionId || transitionSpec.transitionId,
-      receipt: result?.receipt || null,
+      receipt: result || null,
     };
   }
 
@@ -129,6 +138,14 @@ class MorphogenesisRuntime {
       agents: morphology.agents,
       topology: morphology.topology,
     };
+  }
+}
+
+function currentCollectiveState() {
+  try {
+    return require('../collectiveStateService').getState();
+  } catch (_) {
+    return null;
   }
 }
 

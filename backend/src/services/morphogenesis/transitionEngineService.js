@@ -109,7 +109,7 @@ function migrateState(ctx) {
 // ---------------------------------------------------------------------------
 
 async function execSpawn(action, ctx) {
-  const { db, parent } = ctx;
+  const { db, parent, collectiveState } = ctx;
   const request = {
     role: action.role,
     mission: action.mission || { prompt: action.prompt || 'morphogenesis-spawned' },
@@ -120,26 +120,36 @@ async function execSpawn(action, ctx) {
     workspace: action.workspace
   };
   const descriptor = await incarnateAgent({ request, ctx: { db } });
+  if (collectiveState) {
+    collectiveState.agents.set(descriptor.agentId, {
+      id: descriptor.agentId,
+      topology: action.topology || 'unknown',
+      role: descriptor.role,
+      status: 'active',
+      capabilities: descriptor.capabilities || [],
+      parent: parent?.id
+    });
+  }
   return { agentId: descriptor.agentId, role: descriptor.role, descriptor };
 }
 
-async function execRetire(action) {
+async function execRetire(action, collectiveState) {
   const { agentId } = action;
   const child = activeProcesses.get(agentId);
   if (child) {
     terminateChild(child);
     activeProcesses.delete(agentId);
   }
-  const collectiveState = getState();
-  collectiveState.agents.delete(agentId);
-  collectiveState.relationGraph.delete(agentId);
+  const state = collectiveState || getState();
+  state.agents.delete(agentId);
+  state.relationGraph?.delete(agentId);
   return { agentId, runtime: Boolean(child) };
 }
 
-async function execRebind(action) {
+async function execRebind(action, collectiveState) {
   const { agentId, targetRole, targetParent } = action;
-  const collectiveState = getState();
-  const agent = collectiveState.agents.get(agentId);
+  const state = collectiveState || getState();
+  const agent = state.agents.get(agentId);
   if (!agent) throw new Error(`rebind: agent ${agentId} not found`);
   const previous = { role: agent.role, parent: agent.parent };
   agent.role = targetRole || agent.role;
@@ -149,7 +159,7 @@ async function execRebind(action) {
     for (const c of action.addCapabilities) caps.add(c);
     agent.capabilities = Array.from(caps);
   }
-  collectiveState.agents.set(agentId, agent);
+  state.agents.set(agentId, agent);
   return { agentId, previous, next: { role: agent.role, parent: agent.parent } };
 }
 
@@ -158,8 +168,8 @@ async function runAction(action, ctx) {
   try {
     let detail;
     if (action.type === 'spawn') detail = await execSpawn(action, ctx);
-    else if (action.type === 'retire') detail = await execRetire(action);
-    else if (action.type === 'rebind') detail = await execRebind(action);
+    else if (action.type === 'retire') detail = await execRetire(action, ctx.collectiveState);
+    else if (action.type === 'rebind') detail = await execRebind(action, ctx.collectiveState);
     else throw new Error(`unknown action type: ${action.type}`);
     return { type: action.type, status: 'success', startedAt, finishedAt: nowIso(), detail };
   } catch (err) {
@@ -248,89 +258,75 @@ async function executeTransition(ctx) {
   let preSnapshot = null;
   let postSnapshot = null;
   let rollbackReceipt = null;
-  let committed = false;
+
+  const validation = validateAndCheckConflict({ plan, collectiveState, transitionId });
+  if (!validation.valid) return buildReceipt({ transitionId, plan, preSnapshot: null, postSnapshot: null, actionsTaken: [], rollbackReceipt: null, committed: false });
+
+  preSnapshot = createStateSnapshot(collectiveState);
+  const morphCtx = { db, parent: ctx.parent, transitionId, collectiveState: collectiveState || getState() };
+  emitTransitionStart({ transitionId, plan });
 
   try {
-    // VALIDATE
-    const errors = validatePlan(plan);
-    if (errors.length > 0) {
-      return buildReceipt({
-        transitionId, plan,
-        preSnapshot: null, postSnapshot: null,
-        actionsTaken: [], rollbackReceipt: null, committed: false
-      });
-    }
-    if (!hasNoActiveConflict(plan, collectiveState)) {
-      throw new Error('active_conflict: retiring agent already terminating');
-    }
-
-    // SNAPSHOT
-    preSnapshot = createStateSnapshot(collectiveState);
-
-    // PREPARE
-    const morphCtx = { db, parent: ctx.parent, transitionId };
-    emit('system', 'MORPHOGENESIS_TRANSITION_START', 'TRANSITION',
-      `Transition ${transitionId} started for plan ${plan.id}`,
-      { transitionId, planId: plan.id, actionCount: plan.actions.length }, 'info');
-
-    // SPAWN / RETIRE / REBIND
-    for (const action of plan.actions) {
-      const result = await runAction(action, morphCtx);
-      actionsTaken.push(result);
-      if (result.status === 'failed' && !action.continueOnFailure) {
-        throw new Error(`action ${action.type} failed: ${result.error}`);
-      }
-    }
-
-    // MIGRATE STATE
+    await executeActions({ plan, morphCtx, actionsTaken });
     const migrationLog = migrateState({ fromState: collectiveState, toState: collectiveState, plan });
-    if (migrationLog.length > 0) {
-      emit('system', 'MORPHOGENESIS_STATE_MIGRATED', 'MIGRATE',
-        `State migration applied: ${migrationLog.length} change(s)`,
-        { transitionId, log: migrationLog }, 'info');
-    }
-
-    // VERIFY
-    // Note : verifyTransition consomme l'état collectif muté (agents: Map,
-    // topologyState), pas les snapshots sérialisés (agentIds: [], sans Map).
-    postSnapshot = createStateSnapshot(collectiveState);
-    const verification = verifyTransition({ plan, preState: preSnapshot, postState: collectiveState });
-    if (!verification.verified) {
-      throw new Error(`verification failed: ${verification.failures.join('; ')}`);
-    }
-
-    // COMMIT
-    committed = true;
-    emit('system', 'MORPHOGENESIS_TRANSITION_COMMIT', 'COMMIT',
-      `Transition ${transitionId} committed`,
-      { transitionId, planId: plan.id }, 'info');
-
-    return buildReceipt({
-      transitionId, plan, preSnapshot, postSnapshot,
-      actionsTaken, rollbackReceipt: null, committed: true
-    });
-
+    if (migrationLog.length) emitMigration({ transitionId, migrationLog });
+    await verifyAndCommit({ plan, collectiveState, preSnapshot, transitionId });
+    return buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: createStateSnapshot(collectiveState), actionsTaken, rollbackReceipt: null, committed: true });
   } catch (err) {
-    emit('system', 'MORPHOGENESIS_TRANSITION_ROLLBACK', 'ROLLBACK',
-      `Transition ${transitionId} rolling back: ${err.message}`,
-      { transitionId, error: err.message }, 'error');
-
-    // ROLLBACK
-    if (preSnapshot) {
-      const rolledBack = rollbackSnapshot(preSnapshot.snapshotId);
-      rollbackReceipt = {
-        rolledBack,
-        targetSnapshotId: preSnapshot.snapshotId,
-        triggeredBy: err.message,
-        timestamp: nowIso()
-      };
-    }
-
-    return buildReceipt({
-      transitionId, plan, preSnapshot, postSnapshot,
-      actionsTaken, rollbackReceipt, committed: false
-    });
+    return handleRollback({ err, preSnapshot, transitionId, plan, actionsTaken });
   }
+}
+
+function validateAndCheckConflict(input) {
+  const { plan, collectiveState, transitionId } = input;
+  const errors = validatePlan(plan);
+  if (errors.length > 0) return { valid: false };
+  if (!hasNoActiveConflict(plan, collectiveState)) throw new Error('active_conflict: retiring agent already terminating');
+  return { valid: true };
+}
+
+function emitTransitionStart(input) {
+  const { transitionId, plan } = input;
+  const morphCtx = { db: null, parent: null, transitionId, collectiveState: null };
+  emit('system', 'MORPHOGENESIS_TRANSITION_START', 'TRANSITION',
+    `Transition ${transitionId} started for plan ${plan.id}`,
+    { transitionId, planId: plan.id, actionCount: plan.actions.length }, 'info');
+}
+
+async function executeActions(input) {
+  const { plan, morphCtx, actionsTaken } = input;
+  for (const action of plan.actions) {
+    const result = await runAction(action, morphCtx);
+    actionsTaken.push(result);
+    if (result.status === 'failed' && !action.continueOnFailure) throw new Error(`action ${action.type} failed: ${result.error}`);
+  }
+}
+
+function emitMigration(input) {
+  const { transitionId, migrationLog } = input;
+  emit('system', 'MORPHOGENESIS_STATE_MIGRATED', 'MIGRATE',
+    `State migration applied: ${migrationLog.length} change(s)`,
+    { transitionId, log: migrationLog }, 'info');
+}
+
+async function verifyAndCommit(input) {
+  const { plan, collectiveState, preSnapshot, transitionId } = input;
+  const verification = verifyTransition({ plan, preState: preSnapshot, postState: collectiveState });
+  if (!verification.verified) throw new Error(`verification failed: ${verification.failures.join('; ')}`);
+  emit('system', 'MORPHOGENESIS_TRANSITION_COMMIT', 'COMMIT',
+    `Transition ${transitionId} committed`, { transitionId, planId: plan.id }, 'info');
+}
+
+function handleRollback(input) {
+  const { err, preSnapshot, transitionId, plan, actionsTaken } = input;
+  emit('system', 'MORPHOGENESIS_TRANSITION_ROLLBACK', 'ROLLBACK',
+    `Transition ${transitionId} rolling back: ${err.message}`, { transitionId, error: err.message }, 'error');
+  let rollbackReceipt = null;
+  if (preSnapshot) {
+    const rolledBack = rollbackSnapshot(preSnapshot.snapshotId);
+    rollbackReceipt = { rolledBack, targetSnapshotId: preSnapshot.snapshotId, triggeredBy: err.message, timestamp: nowIso() };
+  }
+  return buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: null, actionsTaken, rollbackReceipt, committed: false });
 }
 
 // ---------------------------------------------------------------------------
