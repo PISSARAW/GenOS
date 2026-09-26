@@ -946,6 +946,36 @@ Cette section distingue les responsabilités de l'architecture cible des capacit
 
 ### Capacités raccordées au runtime
 
+Les variants disposent désormais de services métier dédiés, raccordés à la façade Syncytium :
+
+- **Hard** : leases avec fencing tokens monotones et transactions sérialisables vérifiant
+  le détenteur, l'expiration et la version d'état.
+- **Soft** : réconciliation des réplicas, routage sélectif, mesure de fraîcheur et bundles
+  d'anti-entropie compressés avec taille et empreinte bornées.
+- **Document** : sections séquencées, blocs typés, marques de texte, attribution,
+  commentaires et édition compensatoire avec audit.
+- **Blackboard** : objets typés append-only, priorités, expiration en lecture et suivi
+  des questions ouvertes.
+- **Graph** : projection bornée par profondeur et types d'arêtes, en plus des contrôles
+  d'intégrité existants.
+- **Epistemic** : claims datés, provenance, contradictions déclarées, mises à jour de
+  confiance et vérifications indépendantes.
+- **Local-First** : horloges hybrides logiques et autorité hors ligne limitée par champs,
+  nombre d'opérations et échéance.
+- **Speculative** : lignées de branches, plafonds d'exécution et comparaison différentielle.
+- **Hierarchical** : coupe-circuits régionaux qui isolent opérations et transactions.
+- **Real-Time Control** : ordonnanceur logiciel EDF, contrôle de watchdog, reçus WCET
+  déclaratifs et sortie fail-safe `STOP_AND_REPAIR`.
+- **Human–AI** : zones d'autorité humaine, consentement, pause, attribution, approbation
+  et édition compensatoire.
+
+Ces services restent des mécanismes locaux du runtime GenOS. La compression d'anti-entropie
+ne fournit pas de transport, les reçus WCET sont déclarés et non mesurés par un banc certifié,
+et une édition compensatoire ou un undo ne renverse pas un effet externe déjà exécuté.
+Les capacités suivantes ne sont donc pas revendiquées comme acquises : CRDT AST/texte riche
+complet, stockage local chiffré, escrow distribué, transactions cross-région atomiques,
+stockage Kuzu/Ladybug, copie spéculative copy-on-write et garanties temps réel certifiées.
+
 Une intégration partielle permet désormais de demander un **conseil de transition morphogénétique** depuis une session Syncytium persistée, via l'opération `morphogenesis` de `genos_topology_session`. Cette analyse lit l'instantané de la session (domaines actifs, invariants et cohérence), combine ces données avec les signaux de transition fournis par l'appelant, puis peut construire un plan avec le planificateur Morphogenèse.
 
 Les signaux de couplage acceptent soit une valeur normalisée entre 0 et 1, soit un couple de compteurs pour la densité d'écritures partagées, la densité de dépendances, la fréquence de mises à jour et le coût des lectures périmées. Si un signal de couplage requis manque, le score reste indéterminé et le conseiller ne propose pas A-Team sur la seule base d'un couplage faible ; les données absentes ne sont pas assimilées à zéro. Les autres signaux explicites peuvent toutefois guider une recommandation différente. Les signaux explicites de conflit sémantique, d'expérimentabilité, de centralité des désaccords et d'autonomie régionale peuvent aussi orienter la recommandation.

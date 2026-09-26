@@ -949,14 +949,14 @@ Chaque service possède son dème résident avec mémoire locale, agents, procé
 
 Les événements ci-dessous sont des scénarios de diagnostic souhaités ; les noms
 entre crochets ne sont pas des codes d'erreur émis par le Regional Brain. Celui-ci
-calcule actuellement des lacunes de capacités, des dèmes à risque et des paires
-de corridors à réguler. Il propose le rescue et la recolonisation comme
-recommandations et ne lance pas automatiquement extinction, fossilisation ou
-recolonisation.
+calcule les lacunes de capacités, les dèmes à risque et les paires de corridors
+à réguler. Le variant `classic_patch` peut démarrer un trial local multi-lignée
+pour un patch vacant après collapse. Le rescue, la fossilisation et la décision
+de viabilité du trial gardent leurs preuves et adaptateurs propres.
 
 | Scénario à détecter | Preuve requise | Réponse actuellement disponible |
 |---|---|---|
-| Perte de couverture d'une capacité critique | Registre explicite des capacités requises et couverture observée | Le cerveau régional peut signaler une lacune si l'appelant fournit `requiredCapabilities`; le déclenchement automatique d'une recolonisation n'est pas branché. |
+| Perte de couverture d'une capacité critique | Registre explicite des capacités requises et couverture observée | Le cerveau régional signale la lacune si `requiredCapabilities` est fourni; le variant `classic_patch` lance un trial si un patch est vacant et qu'au moins deux lignées compatibles sont disponibles. |
 | Risque d'échec corrélé | Vecteurs d'erreur synchronisés ou chevauchement des stratégies | Calculer des paires à risque et réduire/geler leurs corridors selon les paramètres d'exécution. |
 | Fragmentation du graphe | Graphe orienté sans corridor actif compatible | Les migrations sont bloquées faute de corridor admissible; aucun contrôleur global de connectivité n'ajoute seul des routes. |
 | Dème sink sans source compatible | Connectivité et candidats compatibles observés | Le plan peut produire une recommandation de rescue; une offre requiert l'activation explicite du flux de migration et ses preuves. |
@@ -1500,7 +1500,7 @@ Cette section décrit l'architecture visée et l'ordre proposé des travaux. Les
 
 Mission / région → registre de patches → dèmes locaux → corridors de migration dirigés → observateur régional → contrôleur régional → persistance régionale.
 
-L'observateur régional lit la liveness persistée, les corridors et les erreurs récentes ; les mesures de contribution et de capacité dépendent des attributs fournis. Le contrôleur peut appliquer les actions bornées qui disposent d'une vérification : signaler un dème à risque, réguler des corridors, exécuter une migration explicitement demandée et passer une transition locale par Morphogenèse. Le rescue requiert un adaptateur de fitness et de rollback. L'extinction et la recolonisation sont exposées comme services explicites, pas comme décisions automatiques de cette boucle.
+L'observateur régional lit la liveness persistée, les corridors et les erreurs récentes ; les mesures de contribution et de capacité dépendent des attributs fournis. Le contrôleur initialise le graphe selon le variant, recalcule les topologies source-sink et éphémères lorsque leurs entrées changent, régule les corridors corrélés, exécute les migrations configurées et peut démarrer les trials de recolonisation `classic_patch`. Le rescue requiert un adaptateur de fitness et de rollback. La viabilité d'une colonie reste décidée par un évaluateur local avec preuve.
 
 L'ontologie sépare explicitement :
 
@@ -1595,5 +1595,7 @@ L'appelant fournit encore les candidats, les signaux et le contexte local du
 receveur. Une erreur pendant la revue laisse la migration en quarantaine pour
 reprise idempotente. Le rescue est piloté avec mesures de fitness avant/après
 et rollback lorsqu'une capacité unique protégée régresse ; il requiert un
-adaptateur receveur dédié et garde un nombre d'essais borné. L'extinction et la
-recolonisation ne sont pas encore automatisées par cette boucle.
+adaptateur receveur dédié et garde un nombre d'essais borné. `classic_patch`
+automatise la sélection des fondateurs et l'ouverture du trial après collapse;
+un évaluateur local doit encore fournir la preuve de viabilité avant que la
+recolonisation soit terminée.

@@ -34,8 +34,8 @@ Chaque entrée centrale expose :
 - `topology` et `variantId`, qui identifient sans ambiguïté le couple morphologique ;
 - `parameters`, projetés du registre local ;
 - `requiredCapabilities`, lorsque la source locale les déclare ;
-- `maturity` (`implemented` ou `partial`) et `source`, pour rendre visibles le niveau de
-  réalité et la provenance.
+- `maturity` (`implemented`, `partial` ou `conceptual`) et `source`, pour rendre visibles
+  le niveau de réalité et la provenance.
 
 Le registre est accessible via `createTopologyRegistry()`. `registry.variants.list(topology)`
 renvoie les identifiants connus, et `registry.variants.resolve(topology, variantId)` renvoie
@@ -50,6 +50,18 @@ une copie défensive de l'entrée. Un variant inconnu renvoie `null`.
   synchronisation pour les variants correspondants. Ce sont des exigences déclaratives de
   composition; elles ne prouvent pas à elles seules le placement distribué, l'exécution d'outils,
   la réplication, ni les mécanismes complets de fitness, d'acquisition ou de régénération.
+- Le runtime Holobionte fournit des plans vérifiables pour dépendances keystone et rollback,
+  fitness longitudinale et dysbiose, placement soumis aux disponibilités/leases/confidentialité,
+  consolidation mémoire avec provenance/conflits, essais compétitifs à budget égal, recrutement
+  contractuel de capacités manquantes, validation de manifestes d'outils, réconciliation causale
+  d'événements edge et régénération soumise à preuves. Il refuse l'assimilation automatique,
+  l'écrasement de conflits et le remplacement sans preuve. Ces fonctions préparent et contrôlent
+  les actions; elles ne fournissent pas elles-mêmes les moteurs cloud/edge, le chiffrement de
+  transport, les magasins mémoire spécialisés ni les exécuteurs de procédures/outils. Les gates
+  attendent un vérificateur indépendant injecté pour les snapshots et approvals, leases, essais
+  comparatifs, provenance, santé d'outil, fallback local et tests de restauration; un booléen fourni par le candidat ne
+  suffit pas. L'évaluation immunitaire utilise les menaces déclarées, la mémoire adaptative et
+  peut inclure la calibration des faux positifs et la détection d'auto-immunité.
 - Les variants Biocénose marqués `PARTIAL` et les variants Holobionte sont exposés avec une
   maturité partielle; leur présence dans le catalogue ne les promeut pas au statut complet.
 - Trinity choisit parmi les variantes avec adaptateur actif; Factorial, Recursive et Oracular

@@ -873,6 +873,13 @@ const variants = {
 
 ---
 
+Le bloc ci-dessus est un ancien exemple conceptuel; il ne représente pas les paramètres
+exécutés par le runtime. Les politiques réelles sont définies dans
+`backend/src/services/rhizome/variants/variantPolicyService.js`. Leur couverture actuelle
+est décrite par [ADR 0130](../../adr/0130-runtime-comportemental-des-variants-rhizome.md).
+En particulier, Small-World sélectionne des hubs observés et protège les points
+d'articulation, mais ne crée pas de raccourcis sans preuve d'admission.
+
 ## 17. Machine à états d'un nœud Rhizome
 
 ```mermaid

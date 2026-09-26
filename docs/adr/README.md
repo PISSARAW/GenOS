@@ -103,6 +103,13 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0122](0122-evaluation-comparative-intertopologies-et-recolonisation.md) | Évaluation comparative inter-topologies et preuve de recolonisation | Accepté | 2026-09-25 | Topologies, évaluateurs, Métapopulation, lignées |
 | [0123](0123-separer-profil-worker-et-contrat-de-methode.md) | Séparer le profil worker du contrat de méthode | Accepté | 2026-09-25 | Sélection des workers, contrats de mission, topologies |
 | [0125](0125-profils-morphologiques-composables.md) | Profils morphologiques composables | Accepté | 2026-09-25 | Morphogenèse, catalogue de variants, graphes d'exécution |
+| [0126](0126-dsl-de-plan-experimental-trinity.md) | DSL de plan expérimental Trinity | Accepté | 2026-09-25 | Trinity, plans expérimentaux, preuves et orchestration |
+| [0126](0126-lier-les-politiques-de-metapopulation-au-runtime-regional.md) | Lier les politiques de métapopulation au runtime régional | Accepté | 2026-09-25 | Orchestration, métapopulation |
+| [0129](0129-runtime-des-variants-holobionte.md) | Runtime contractuel des variants Holobionte | Accepté | 2026-09-26 | Orchestration, Holobionte |
+| [0128](0128-mecanismes-argumentatifs-et-polycentriques-biocenose.md) | Mécanismes argumentatifs et polycentriques Biocénose | Accepté | 2026-09-26 | Biocénose, agrégation, argumentation |
+| [0130](0130-runtime-comportemental-des-variants-rhizome.md) | Contrats comportementaux des variants Rhizome | Accepté | 2026-09-26 | Rhizome, routage, persistance, sûreté, morphogenèse |
+| [0131](0131-mecanismes-runtime-des-variants-syncytium.md) | Mécanismes runtime des variants Syncytium | Accepté | 2026-09-26 | Syncytium, cohérence, coédition, réplication, autorité humaine |
+| [0132](0132-runtime-des-variants-biome.md) | Runtime comportemental des variants Biome | Accepté | 2026-09-26 | Biome, ressources, recherche, persistance, preuves |
 
 ## Cycle de vie d'un ADR
 
