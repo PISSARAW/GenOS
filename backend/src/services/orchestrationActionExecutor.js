@@ -98,6 +98,10 @@ async function recordEfference(context) {
       tool: context.decision.tool,
       expectedTypes: ['ORCHESTRATION_ACTION_EXECUTED', 'ORCHESTRATION_ACTION_FAILED', 'AGENT_STEP', 'EVIDENCE_REPORT']
     });
+    await require('./worldModelService').predictTransition(null, context.orchestratorId, {
+      actionId: context.sourceEventId || context.decision.action,
+      action: context.decision.action
+    });
   } catch (_) {}
 }
 
@@ -167,11 +171,11 @@ async function runAction(context, args) {
   } catch (error) {
     result = { success: false, status: 'failed', error: error.message || String(error) };
     await markReceipt(context, 'failed');
-    emitExecution(context, args, result);
+    await emitExecution(context, args, result);
     throw error;
   }
   await markReceipt(context, result.success ? 'completed' : 'failed');
-  emitExecution(context, args, result);
+  await emitExecution(context, args, result);
   if (result.success && context.decision.tool === 'genos_record_experience') await compileMemory(context, args);
   try {
     await require('./swarmTopologyRuntimeService').applyStepForOrchestrator(context.orchestratorId, { db: context.db || undefined });
@@ -181,10 +185,23 @@ async function runAction(context, args) {
   return { executed: result.success, result };
 }
 
-function emitExecution(context, args, result) {
+async function observeOutcome(context, result, detail) {
+  try {
+    return await require('./worldModelService').observeTransition(null, context.orchestratorId, {
+      actionId: context.sourceEventId || context.decision.action,
+      success: result.success === true,
+      detail
+    });
+  } catch (_) {
+    return { matched: false, surprise: 0 };
+  }
+}
+
+async function emitExecution(context, args, result) {
   const success = result.success;
   const detail = success ? `Executed ${context.decision.tool}.` : `Could not execute ${context.decision.tool}: ${result.error || result.status}`;
-  telemetry.emitEvent({ eventType: success ? 'ORCHESTRATION_ACTION_EXECUTED' : 'ORCHESTRATION_ACTION_FAILED', agentId: context.orchestratorId, action: context.decision.action, detail, severity: success ? 'info' : 'warning', payload: { sourceAgentId: context.sourceAgentId, tool: context.decision.tool, args, result, eventId: context.event.id } });
+  const outcome = await observeOutcome(context, result, detail);
+  telemetry.emitEvent({ eventType: success ? 'ORCHESTRATION_ACTION_EXECUTED' : 'ORCHESTRATION_ACTION_FAILED', agentId: context.orchestratorId, action: context.decision.action, detail, severity: success ? 'info' : 'warning', payload: { sourceAgentId: context.sourceAgentId, tool: context.decision.tool, args, result, eventId: context.event.id, surprise: outcome.surprise >= 0.5, worldSurprise: outcome.surprise } });
 }
 
 async function compileMemory(context, args) {
