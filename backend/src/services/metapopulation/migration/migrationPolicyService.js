@@ -15,17 +15,65 @@ const SCORERS = {
 function selectCandidates(candidates, options = {}) {
   const policy = options.policy || 'elite';
   if (!POLICIES.includes(policy)) throw Object.assign(new Error('Unsupported migration selection policy.'), { code: 'METAPOPULATION_MIGRATION_POLICY_INVALID' });
-  const ranked = (Array.isArray(candidates) ? candidates : [])
-    .filter((candidate) => matchesRequest(candidate, options))
-    .filter((candidate) => options.requireVersionedCulture !== true || isVersionedCulture(candidate))
-    .filter((candidate) => !options.antiHomogenization || passesAntiHomogenization(candidate, options))
+  const ranked = rankCandidates({ candidates, options, policy });
+  const limit = normalizeLimit(options.limit);
+  if (policy === 'founder') return selectFounderSet(ranked, limit);
+  if (policy === 'cultural') return selectCulturalPareto(ranked, limit);
+  if (options.diversityMode === 'provider-algorithm-lineage') return selectDiverse(ranked, limit);
+  return ranked.slice(0, limit).map((entry) => selected(entry, policy, entry.score));
+}
+
+function rankCandidates(context) {
+  const { candidates, options, policy } = context;
+  return (Array.isArray(candidates) ? candidates : [])
+    .filter((candidate) => candidateEligible(candidate, options, policy))
     .map((candidate) => ({ candidate, score: SCORERS[policy](candidate) }))
     .filter((entry) => entry.score >= 0)
     .sort((left, right) => right.score - left.score || left.candidate.propaguleId.localeCompare(right.candidate.propaguleId));
-  const limit = normalizeLimit(options.limit);
-  if (policy === 'founder') return selectFounderSet(ranked, limit);
-  if (options.diversityMode === 'provider-algorithm-lineage') return selectDiverse(ranked, limit);
-  return ranked.slice(0, limit).map((entry) => selected(entry, policy, entry.score));
+}
+
+function candidateEligible(candidate, options, policy) {
+  const versionedRequired = policy === 'cultural' || options.requireVersionedCulture === true;
+  const antiHomogenizationPassed = !options.antiHomogenization || passesAntiHomogenization(candidate, options);
+  return matchesRequest(candidate, options) && (!versionedRequired || isVersionedCulture(candidate))
+    && antiHomogenizationPassed;
+}
+
+function selectCulturalPareto(ranked, limit) {
+  const fronts = culturalParetoFronts(ranked);
+  const ordered = fronts.flatMap((front, index) => front
+    .sort((left, right) => left.candidate.propaguleId.localeCompare(right.candidate.propaguleId))
+    .map((entry) => ({ ...entry, front: index + 1 })));
+  return ordered.slice(0, limit).map((entry) => ({
+    ...selected(entry, 'cultural', metric(entry.candidate.novelty) + metric(entry.candidate.sourceFitness)),
+    selectionFront: entry.front,
+    selectionObjectives: { novelty: metric(entry.candidate.novelty), fitness: metric(entry.candidate.sourceFitness) }
+  }));
+}
+
+function culturalParetoFronts(entries) {
+  const remaining = [...entries];
+  const fronts = [];
+  while (remaining.length) {
+    const front = remaining.filter((candidate) => !remaining.some((other) => (
+      other !== candidate && dominatesCulture(other.candidate, candidate.candidate)
+    )));
+    if (!front.length) break;
+    fronts.push(front);
+    const selectedIds = new Set(front.map((entry) => entry.candidate.propaguleId));
+    for (let index = remaining.length - 1; index >= 0; index -= 1) {
+      if (selectedIds.has(remaining[index].candidate.propaguleId)) remaining.splice(index, 1);
+    }
+  }
+  return fronts;
+}
+
+function dominatesCulture(left, right) {
+  const noveltyAtLeast = metric(left.novelty) >= metric(right.novelty);
+  const fitnessAtLeast = metric(left.sourceFitness) >= metric(right.sourceFitness);
+  const improves = metric(left.novelty) > metric(right.novelty)
+    || metric(left.sourceFitness) > metric(right.sourceFitness);
+  return noveltyAtLeast && fitnessAtLeast && improves;
 }
 
 function selectDiverse(ranked, limit) {

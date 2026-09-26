@@ -127,11 +127,11 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | curiosité Node → Rust, `Goal::Explore`, `nceMetadata`, `TOPOLOGY_SIGNALS`, `dispatch_worker`, POET avec artifact réel |
-| Select | PARTIAL | `open_ended` de l'environment generator = placeholder |
-| Invoke | PARTIAL | sélection culturelle = somme pondérée scalaire, pas de front de Pareto/niches/drift |
-| Affect decision | NO | validation causale E2E `play/phenotype/culture/POET` encore demandée |
-| Act | PARTIAL | metadata différente sans preuve de comportement différent |
-| Observe | PARTIAL | artifacts POET réels |
+| Select | PARTIAL | `openEndedController.js:generateChildren/selectCandidates` mute des environnements bornés et exige utility/evidence ; `migrationPolicyService.js` sélectionne les cultures versionnées par fronts de Pareto nouveauté × fitness source (ADR 0136) |
+| Invoke | PARTIAL | résultats NCE et migration culturelle atteignent respectivement le contrôleur biome et les actions de migration ; pas de cycle unifié entre POET, culture et exécution du phénotype |
+| Affect decision | PARTIAL | le rang de front détermine les propagules culturelles admissibles ; gain comportemental du phénotype receveur non inféré |
+| Act | PARTIAL | contrôleur open-ended applique les environnements admis ; le transfert culturel est exécuté par le runtime metapopulation après compatibilité |
+| Observe | PARTIAL | POET vérifie un artifact en snapshot ; la preuve d'effet culturel sur le phénotype cible reste à relier |
 | Learn | NO | — |
 | Persist | PARTIAL | — |
 | Reuse | NO | — |
