@@ -6,11 +6,27 @@ const { validateSchedulingResult } = require('../src/services/metapopulation/sch
 
 const composition = metapopulation.composeMetapopulation('Partition the mission into semi-independent populations with quorum and regeneration.');
 assert.equal(composition.members.length, 4);
+assert.equal(composition.variant, 'balanced');
+assert.equal(composition.variantSelection.method, 'safe_baseline');
 assert.equal(composition.organization, 'quorum_with_abstention');
 assert.ok(composition.capabilityContract.required.includes('QUORUM'));
 assert.ok(composition.capabilityContract.required.includes('SYNAPTIC_PLASTICITY'));
 assert.ok(composition.capabilityContract.required.includes('RESILIENCE_RECOVERY'));
 assert.deepEqual(composition.mechanisms, ['quorum_sensing', 'synaptic_plasticity', 'regeneration']);
+
+const resilienceMission = metapopulation.composeMetapopulation('Recover from population collapse and recolonize failed regions.');
+assert.equal(resilienceMission.variant, 'resilient');
+assert.equal(resilienceMission.variantPolicy.migration, 'rescue');
+assert.ok(resilienceMission.variantSelection.reasons.includes('MISSION_SIGNAL:collapse'));
+const explorationMission = metapopulation.composeMetapopulation('Explore unknown hypotheses and discover novel approaches.');
+assert.equal(explorationMission.variant, 'exploratory');
+assert.equal(explorationMission.variantPolicy.migration, 'novelty');
+const conservativeMission = metapopulation.composeMetapopulation('Run a security audit and verify compliance risks.');
+assert.equal(conservativeMission.variant, 'conservative');
+assert.equal(conservativeMission.variantPolicy.quorumRatio, 0.7);
+assert.equal(metapopulation.composeMetapopulation('Explore novel options after a regional outage.', { variant: 'balanced' }).variant, 'balanced');
+assert.throws(() => metapopulation.composeMetapopulation('Check recovery.', { variant: 'missing' }),
+  (error) => error.code === 'METAPOPULATION_VARIANT_UNKNOWN');
 
 const parserMembers = biologicalMode.compose('metapopulation',
   'parseur commun : performance, lisibilité, tolérance aux entrées invalides et faible mémoire');
@@ -70,6 +86,11 @@ assert.equal(reached.support, 0.75);
 
 const notReached = metapopulation.senseQuorum([{ agentId: 'a', evidenceScore: 0.1 }], { quorumRatio: 0.5 });
 assert.equal(notReached.reached, false);
+const conservativeQuorum = metapopulation.senseQuorum([
+  { agentId: 'a', evidenceScore: 0.9 }, { agentId: 'b', evidenceScore: 0.1 }
+], { variant: 'conservative' });
+assert.equal(conservativeQuorum.quorumRatio, 0.7);
+assert.equal(conservativeQuorum.reached, false);
 
 const plan = metapopulation.regenerationPlan(['population_isolator', 'quorum_sensor', 'synaptic_adaptor'], { maxRespawn: 2 });
 assert.deepEqual(plan.respawn, ['population_isolator', 'quorum_sensor']);
