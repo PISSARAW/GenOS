@@ -3,14 +3,38 @@
 const { createHash } = require('node:crypto');
 const graph = require('../graph/capabilityGraphService');
 const verifierReceipts = require('../../epistemicVerifierReceiptService');
+const connectivity = require('../analytics/connectivityService');
+const articulationPoints = require('../analytics/articulationPointService');
+const approximateBetweenness = require('../analytics/approximateBetweennessService');
+
+const MONOCULTURE = {
+  maxHubDegree: 4,
+  betweennessWeight: 1.25,
+  articulationPenalty: 0.5,
+  fallbackTrafficWeight: 1
+};
 
 function plan(session, maximum = 4) {
   if (session.variant !== 'small_world') return [];
+
   const edgeById = new Map(session.edges.map((edge) => [edge.edgeId, edge]));
   const candidates = new Map();
   (session.routeLineage || []).forEach((lineage) => addLineageCandidates({ session, lineage, edgeById, candidates }));
-  return [...candidates.values()].sort((left, right) => right.traffic - left.traffic
-    || left.candidateId.localeCompare(right.candidateId)).slice(0, Math.max(1, maximum));
+
+  const byTraffic = [...candidates.values()].sort((left, right) => right.traffic - left.traffic
+    || left.candidateId.localeCompare(right.candidateId));
+
+  const betweenness = approximateBetweenness(session);
+  if (!betweenness || byTraffic.length <= 1) return byTraffic.slice(0, Math.max(1, maximum));
+
+  const degree = degreeMap(session);
+  const articulation = articulationPoints.articulationPoints(session);
+  const scored = byTraffic.map((candidate) => scoredCandidate({ candidate, degree, betweenness, articulation }));
+  scored.sort((left, right) => right.score - left.score
+    || left.traffic - right.traffic
+    || left.candidateId.localeCompare(right.candidateId));
+
+  return scored.slice(0, Math.max(1, maximum));
 }
 
 function addLineageCandidates(input) {
@@ -86,6 +110,32 @@ function composeEdge(candidate, path, proof) {
     status: 'ACTIVE', evidenceRefs: candidate.evidenceRefs,
     admissionReceiptId: proof.signedReceipt.resultId
   };
+}
+
+function degreeMap(session) {
+  const degree = new Map();
+  for (const node of session.nodes || []) degree.set(node.nodeId, 0);
+  for (const edge of (session.edges || []).filter((edge) => edge.status === 'ACTIVE')) {
+    degree.set(edge.from, (degree.get(edge.from) || 0) + 1);
+    degree.set(edge.to, (degree.get(edge.to) || 0) + 1);
+  }
+  return degree;
+}
+
+function scoredCandidate(input) {
+  const { candidate, degree, betweenness, articulation } = input;
+  const sourceDegree = degree.get(candidate.from) || 0;
+  const targetDegree = degree.get(candidate.to) || 0;
+  const maxDegree = Math.max(1, sourceDegree, targetDegree);
+  const sourceCentrality = (betweenness.get(candidate.from) || 0) / maxDegree;
+  const targetCentrality = (betweenness.get(candidate.to) || 0) / maxDegree;
+  const rawScore = (sourceCentrality + targetCentrality) * MONOCULTURE.betweennessWeight
+    / (1 + (sourceDegree + targetDegree) / maxDegree);
+  const articulationPenalty = (MONOCULTURE.articulationPenalty * (
+    articulation.has(candidate.from) || articulation.has(candidate.to) ? 1 : 0));
+  const maxDegreePenalty = (sourceDegree > MONOCULTURE.maxHubDegree || targetDegree > MONOCULTURE.maxHubDegree) ? 0.4 : 0;
+  const score = Math.max(0, rawScore - articulationPenalty - maxDegreePenalty);
+  return { ...candidate, rawScore, score, articulationPenalty, degree: { from: sourceDegree, to: targetDegree } };
 }
 
 module.exports = { plan, admit };
