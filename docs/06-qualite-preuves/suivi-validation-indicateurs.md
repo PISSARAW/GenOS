@@ -137,3 +137,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 18 — fitness, Pareto et destins multiples
 
 `fitnessParetoDestinyService` sépare les candidats inconnus, calcule la frontière de Pareto et conserve les niches; toute inconnue bloque la promotion. Test : `node backend/tests/test_fitness_pareto_destiny.js`.
+
+## Lot 19 — hypothèse promue vers plan et action
+
+`hypothesisActionPlannerService` exige une preuve pour promouvoir une hypothèse, porte sa différence sémantique dans le plan et déclenche le rollback si l’observation diverge. Test : `node backend/tests/test_hypothesis_action_planner.js`.
