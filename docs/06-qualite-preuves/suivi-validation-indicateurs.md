@@ -85,3 +85,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 05 — protocoles et corpus train/dev/réservé
 
 `validationProtocolService` fige une hypothèse, une révision, les critères, les seeds et un manifeste de corpus. Les IDs sont stables et disjoints entre `train`, `dev` et `reserved`; le manifeste reçoit un hash déterministe et devient immuable avant exécution. Le manifeste de référence est [`indicatorValidationProtocol.v1.json`](../../shared/indicatorValidationProtocol.v1.json). Test : `node backend/tests/test_validation_protocol.js`.
+
+## Lot 06 — TruthGraph → SemanticReport → rendu fermé
+
+`truthGraphSemanticPipelineService` compile le graphe de vérité en propositions canoniques, ne conserve une causalité que lorsqu'une arête `caused_by_recorded` existe et impose une citation connue pour chaque phrase factuelle. Les mentions textuelles d'outils ne créent plus de causalité. Test : `node backend/tests/test_truth_graph_semantic_pipeline.js`.
