@@ -5,10 +5,11 @@ L'inventaire couvre chaque fichier JavaScript de `backend/src/services`. Exécut
 par service avec son chemin, `staticReachable` et `literalInbound`. La commande sans `--json`
 résume les résultats et affiche les premiers services à examiner.
 
-Au 27 septembre 2026, la première passe trouve **1 803 services**, dont **1 309**
+Au 27 septembre 2026, la passe courante trouve **1 814 services**, dont **1 310**
 atteignables par des imports relatifs littéraux depuis `backend/server.js`,
-`mcp/index.js` ou les programmes de `backend/bin`. **494** nécessitent une
-revue supplémentaire. Le chiffre change avec les fichiers du dépôt; la commande
+`mcp/index.js` ou les programmes de `backend/bin`. **504** nécessitent une
+revue supplémentaire, dont **308 sans aucun import littéral de production**
+(`literalInbound === 0`). Le chiffre change avec les fichiers du dépôt; la commande
 est la source de vérité pour le checkout courant.
 
 `literalInbound` compte les fichiers de production qui importent directement le
