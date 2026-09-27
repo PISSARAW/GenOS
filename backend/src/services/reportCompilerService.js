@@ -167,4 +167,21 @@ function verifyRendering(graph, sentences) {
   return { unresolved, uncovered, ok: unresolved.length === 0 };
 }
 
-module.exports = { buildTruthGraph, compileReport, verifyRendering };
+function resolveWorkerTags(report, validIds) {
+  const allowed = new Set(Array.isArray(validIds) ? validIds : []);
+  let text = '';
+  try {
+    text = JSON.stringify(report || {});
+  } catch (_) {
+    return [];
+  }
+  const tags = text.match(/\[worker:[^\]]+\]/g) || [];
+  const unresolved = [];
+  for (const tag of tags) {
+    const id = tag.slice(8, -1);
+    if (!allowed.has(id)) unresolved.push(tag);
+  }
+  return [...new Set(unresolved)];
+}
+
+module.exports = { buildTruthGraph, compileReport, verifyRendering, resolveWorkerTags };

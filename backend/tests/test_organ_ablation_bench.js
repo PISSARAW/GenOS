@@ -182,6 +182,54 @@ function testNoConsciousnessClaims() {
   console.log('ok - garde doctrinal (21 services, 0 revendication)');
 }
 
+async function testHoldoutProtocol() {
+  const bandit = HERE('routingBanditService');
+  const validation = HERE('validationProtocolService');
+  const train = [];
+  const dev = [];
+  const holdout = [];
+  for (let i = 0; i < 14; i++) {
+    const small = i % 2 === 0;
+    const item = { id: `q${i}`, arm: small ? 'a://m' : 'b://m', tokens: small ? 400 : 7000, success: true };
+    if (i < 8) train.push(item);
+    else if (i < 10) dev.push(item);
+    else holdout.push(item);
+  }
+  const protocol = validation.createValidationProtocol({
+    protocolId: 'bandit-holdout-v1',
+    revision: '1',
+    hypothesis: 'trained bandit top-1 picks the succeeding arm per context on held-out log',
+    corpus: { train, dev, reserved: holdout },
+    seeds: [11, 22],
+    criteria: { primaryMetric: 'top1-success-rate', direction: 'higher', threshold: 0.75 }
+  });
+  const manifest = protocol.manifestHash;
+  const db = stubDb();
+  for (const item of [...train, ...dev]) {
+    await bandit.observe(db, { routeUri: item.arm, success: true, costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
+    await bandit.observe(db, { routeUri: item.arm === 'a://m' ? 'b://m' : 'a://m', success: false, costUsd: 0.01, latencyMs: 500, promptTokens: item.tokens });
+  }
+  validation.verifyManifest(protocol, manifest);
+  let hits = 0;
+  for (const item of holdout) {
+    const rec = await bandit.recommend(db, { routes: ['a://m', 'b://m'], promptTokens: item.tokens });
+    if (rec.ordering[0].uri === item.arm) hits += 1;
+  }
+  const rate = hits / holdout.length;
+  assert.ok(rate >= 0.75, `holdout top-1 ${rate} < 0.75 (manifest ${manifest.slice(0, 12)})`);
+  console.log(`ok - holdout protocole gele (manifest ${manifest.slice(0, 12)}, top-1 ${rate})`);
+}
+
+async function testWorkerTagGate() {
+  const compiler = HERE('reportCompilerService');
+  assert.deepStrictEqual(compiler.resolveWorkerTags({ claims: [{ statement: 'vu [worker:w1]' }] }, ['w1', 'w2']), []);
+  assert.deepStrictEqual(compiler.resolveWorkerTags({ claims: [{ statement: 'vu [worker:zx]' }] }, ['w1']), ['[worker:zx]']);
+  assert.deepStrictEqual(compiler.resolveWorkerTags(null, null), []);
+  const prompt = fs.readFileSync(path.join(SERVICES, 'agentEvidence', 'workerEvidence.js'), 'utf8');
+  assert.ok(prompt.includes('[worker:<workerId>]'), 'consigne de tags manquante');
+  console.log('ok - gate des tags worker (inconnu rejete)');
+}
+
 async function run() {
   await testGracefulDegradation();
   await testIgnitionAndHierarchy();
@@ -189,6 +237,8 @@ async function run() {
   await testMetacognitionLoop();
   await testLearningChangesBehavior();
   await testAblationHurts();
+  await testHoldoutProtocol();
+  await testWorkerTagGate();
   testNoConsciousnessClaims();
   console.log('BANC ADVERSARIALE VERT');
 }

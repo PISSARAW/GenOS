@@ -262,7 +262,7 @@ async function runFallback(candidates, ctx) {
 
 function banditCanaryRate() {
   const rate = Number(process.env.GENOS_BANDIT_CANARY);
-  if (!Number.isFinite(rate)) return 0.05;
+  if (!Number.isFinite(rate)) return 0.2;
   return Math.max(0, Math.min(1, rate));
 }
 

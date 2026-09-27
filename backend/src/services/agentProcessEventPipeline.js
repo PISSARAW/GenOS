@@ -52,6 +52,11 @@ function checkDossierInfluence(ctx, event, eventType) {
   try {
     const report = extractEvidenceReport(event.payload);
     validateDossierInfluence(report, autonomyPlan.completedWorkerIds || []);
+    const compiler = require('./reportCompilerService');
+    const unknown = compiler.resolveWorkerTags(report, autonomyPlan.completedWorkerIds || []);
+    if (unknown.length) {
+      throw Object.assign(new Error(`Final synthesis cites unknown worker sources: ${unknown.join(', ')}.`), { code: 'UNKNOWN_WORKER_TAG' });
+    }
     return false;
   } catch (error) {
     emit(agentId, 'DOSSIER_INFLUENCE_INVALID', 'EVIDENCE_GATE', error.message, { error: error.code }, 'critical', 'error');

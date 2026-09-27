@@ -133,7 +133,8 @@ function buildWorkerSynthesisPrompt(originalPrompt, dossiers, factualReports) {
     'When a dossier contains philosophicalEvidence, preserve each concept id, provenance version, evidenceStatus, and interpretationStatus in the final report. Mark provisional or contested interpretations explicitly; do not promote them as verified facts.',
     'Worker evidence dossiers:',
     serializedDossiers,
-    factualRecordSection(factualReports)
+    factualRecordSection(factualReports),
+    'Every factual sentence in the synthesis MUST carry source tags [worker:<workerId>] naming the dossier it comes from. Sentences with unknown tags are rejected.'
   ].filter(Boolean).join('\n');
 }
 
