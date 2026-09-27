@@ -16,6 +16,8 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 - [morphogenese-gates-2026-09-26.md](morphogenese-gates-2026-09-26.md) — gates d'exécution morphogenèse : protocole, résultats, limites.
 - [inventaire-atteignabilite-services.md](inventaire-atteignabilite-services.md) — inventaire statique Node : 1 814 services, 504 à revoir dont 308 sans import littéral.
 - [registre-services.md](registre-services.md) — registre complet Node/Rust/MCP/intégrations, fiches, statuts et lots.
+- [lot-morphogenesis-71.md](lot-morphogenesis-71.md) — traçage des 71 sans inbound : legacy `composition/*`, 12 test-only, 6 bibliothèques, 53 orphelins.
+- [lot-racine-113.md](lot-racine-113.md) — dispatch dynamique philosophie/Trinity prouvé, contradiction plasmide/promotion corrigée.
 - [benchmarks/](benchmarks/README.md) — résultats LoCoMo et SWE-bench Lite.
 
 ## Voir aussi

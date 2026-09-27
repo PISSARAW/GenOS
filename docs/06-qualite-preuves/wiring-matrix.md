@@ -1,6 +1,6 @@
 # GenOS Wiring Matrix — Sense → Reuse
 
-- **Statut** : référence de câblage causal, revue 2026-09-26, HEAD `e2b8e49` (implémentations suivantes : relations, docking, philosophie, foraging, plasmide et promotion génomique).
+- **Statut** : référence de câblage causal, revue 2026-09-26, HEAD `e2b8e49` (implémentations suivantes : relations, docking, philosophie, foraging, plasmide et promotion génomique) ; corrections 2026-09-27 : §5 Invoke/Affect et §6 Select rétrogradés après traçage (lots morphogenesis-71 et racine-113 : aucun appelant prod).
 - **Règle** : `YES` = liaison prouvée par appel de production + test ; `PARTIAL` = présent mais non causal ou consultatif ; `NO` = absent.
 - **Lecture** : chaque cellule donne le fichier/fonction précis qui constitue la liaison, ou `—` si absente.
 
@@ -71,9 +71,9 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `capabilityPlasmidService.js:createPlasmid/assimilate` vérifie hash + tests requis |
-| Select | PARTIAL | `morphogenesis/plasmidGateService.js` + `plasmidResolverService.js` sélectionnent les candidats ; validation d'installation via gates dédiés |
-| Invoke | YES | `plasmidInstallService.js` exécute le contrat d'installation et les cinq gates avant activation |
-| Affect decision | YES | compatibilité, autorisation, provenance, validation et preuve déterminent l'éligibilité à l'installation |
+| Select | PARTIAL | `morphogenesis/plasmidGateService.js` + `plasmidResolverService.js` sélectionnent les candidats ; validation d'installation via gates dédiés — réserve 2026-09-27 : `plasmidResolverService.js` sans appelant prod (seul `test_plasmid_lifecycle.js:3`) |
+| Invoke | PARTIAL | `plasmidInstallService.js` isolé et testé (`test_plasmid_install.js:5`) mais sans appelant prod trouvé le 2026-09-27 ; activation réelle non chaînée |
+| Affect decision | PARTIAL | éligibilité déterminée par compatibilité/autorisation/provenance/validation en test isolé ; sans appelant prod, effet non causal (constat 2026-09-27) |
 | Act | PARTIAL | cycle install/activation/désactivation/rollback implémenté ; expression reste limitée aux capacités prises en charge par l'installateur |
 | Observe | PARTIAL | reçus de validation et d'installation disponibles ; pas de suivi universel de phénotype en production |
 | Learn | NO | — |
@@ -85,7 +85,7 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `detectNovelConcepts → GraftSpec → graft/speciate → candidate genome + provenance` |
-| Select | PARTIAL | `genomePromotionService.js` classe les candidats avec fitness multiobjectif et gate de promotion ; maturation `speciate/graft` reste partielle |
+| Select | PARTIAL | `genomePromotionService.js` classe les candidats avec fitness multiobjectif et gate de promotion ; maturation `speciate/graft` reste partielle — réserve 2026-09-27 : sans appelant prod (seul `test_genome_promotion.js:4`) |
 | Invoke | PARTIAL | promotion soumise à un gate explicite et à ses preuves ; l'opérateur garde l'autorité finale |
 | Affect decision | PARTIAL | fitness et preuves de promotion gouvernent l'éligibilité, sans sélection darwinienne autonome globale |
 | Act | PARTIAL | candidat promu déployable par le service ; déploiement automatique universel non revendiqué |
