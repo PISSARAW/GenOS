@@ -109,3 +109,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 11 — hiérarchie générative et espace perceptif
 
 `generativePerceptualService` rend inspectables le prior, l’observation, la précision, l’estimation et l’erreur ascendante, puis mesure les interpolations et dimensions de l’espace perceptif. Test : `node backend/tests/test_generative_perceptual.js`.
+
+## Lot 12 — workspace global et ignition compétitive
+
+`globalWorkspaceService` impose une capacité, une compétition de saillance, des évictions, un seuil d’ignition et une diffusion ciblée vers les modules autorisés. Test : `node backend/tests/test_global_workspace.js`.
