@@ -14,7 +14,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Proposé | 2026-09-14 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
 | [0005](0005-reorganisation-arborescence-documentaire.md) | Réorganisation de l'arborescence documentaire | Accepté | 2026-09-14 | Documentation, provenance, distribution |
-| [0012](0012-volition-autonome-et-preservation.md) | Volition autonome et préservation | Accepté | 2026-09-15 | Orchestration, survie, autonomie |
+| [0012](0012-volition-autonome-et-preservation.md) | Volition autonome et préservation | Accepté (amendé 2026-09-27) | 2026-09-15 / 2026-09-27 | Orchestration, survie, autonomie |
 | [0013](0013-survival-model-control-plane.md) | Modèle de survie dans le control plane | Accepté | 2026-09-16 | Orchestration, budgets, sûreté, biomimétisme |
 | [0014](0014-theorie-du-soi-operationnelle.md) | Théorie du soi opérationnelle de l'orchestrator | Accepté | 2026-09-16 | Orchestration, apprentissage, persistance, sûreté |
 | [0015](0015-convergence-organisme-cognitif-composite.md) | Convergence d'un organisme cognitif composite | Accepté | 2026-09-16 | Orchestration, contrôle, preuve, sûreté |
@@ -112,6 +112,30 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0132](0132-runtime-des-variants-biome.md) | Runtime comportemental des variants Biome | Accepté | 2026-09-26 | Biome, ressources, recherche, persistance, preuves |
 | [0133](0133-graphe-morphologique-executable-et-plugins-topologies.md) | Graphe morphologique exécutable et plugins de topologies | Accepté | 2026-09-26 | Morphogenèse, runtime, opérateurs, preuve, sûreté |
 | [0134](0134-boucles-reflexives-fonctionnelles.md) | Boucles réflexives fonctionnelles (indicateurs, jamais conscience) | Accepté | 2026-09-26 | Réflexivité, métacognition, gates, best-effort |
+| [0065](0065-homeostasie-environnement-hote.md) | Homéostasie de l'environnement hôte | Accepté (test dédié manquant) | 2026-09-27 | Environnement hôte, stockage, homéostasie |
+| [0144](0144-worldstate-conditionnel.md) | WorldState conditionnel | Accepté (portée Node) | 2026-09-27 | Représentation d'état, incertitude, décision |
+| [0145](0145-rollout-controle-et-reversible.md) | Rollout contrôlé et réversible | Accepté (portée Node) | 2026-09-27 | Expérimentation, déploiement, rollback |
+| [0146](0146-substrat-perceptif-binding-recurrence.md) | Substrat perceptif, binding et récurrence | Accepté (portée Node) | 2026-09-27 | Perception, suivi d'objets, binding |
+| [0147](0147-hierarchie-generative-espace-perceptif.md) | Hiérarchie générative et espace perceptif | Accepté (portée Node) | 2026-09-27 | Perception générative, hiérarchie prédictive |
+| [0148](0148-workspace-global-ignition.md) | Workspace global et ignition compétitive | Accepté (portée Node) | 2026-09-27 | Cognition, espace de travail global |
+| [0149](0149-attention-controlee-par-modele.md) | Attention contrôlée par son modèle | Accepté (portée Node) | 2026-09-27 | Attention, allocation, leases |
+| [0150](0150-metacognition-croyance-action.md) | Métacognition, croyance et action | Accepté (portée Node) | 2026-09-27 | Métacognition, calibration, abstention |
+| [0151](0151-modele-de-soi-effecteurs.md) | Modèle de soi et effecteurs | Accepté (portée Node) | 2026-09-27 | Modèle de soi, copie d'efférence |
+| [0152](0152-objectifs-concurrents-allostase.md) | Objectifs concurrents et allostase | Accepté (portée Node) | 2026-09-27 | Objectifs multiples, allostase |
+| [0153](0153-population-morphogenetique-bornee.md) | Population morphogénétique bornée | Accepté (portée Node) | 2026-09-27 | Morphogenèse, variants, provenance |
+| [0154](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
+| [0154](0154-recu-typé-du-pont-rust-snapshot.md) | Reçu typé du pont Rust pour les snapshots | Accepté | 2026-09-27 | Pont Rust/Node, snapshots, provenance |
+| [0155](0155-hypothese-plan-action.md) | Hypothèse promue, plan et action | Accepté (portée Node) | 2026-09-27 | Planification, hypothèses, rollback |
+| [0156](0156-verdict-experimental-planner.md) | Verdict expérimental et planner | Accepté (portée Node) | 2026-09-27 | Expérimentation, verdicts, PID |
+| [0157](0157-apprentissage-inter-missions-consolidation.md) | Apprentissage inter-missions et consolidation | Accepté (portée Node) | 2026-09-27 | Mémoire inter-missions, lignées |
+| [0158](0158-banc-morphogenese-operateurs.md) | Banc morphogenèse et opérateurs comparés | Accepté (portée Node) | 2026-09-27 | Morphogenèse, banc d'opérateurs |
+| [0159](0159-no-report-ablations-croisees.md) | No-report et ablations croisées | Accepté (portée Node) | 2026-09-27 | Évaluation, ablations, plan factoriel |
+| [0160](0160-campagne-reservee-replication.md) | Campagne réservée et réplication indépendante | Accepté (portée Node) | 2026-09-27 | Réplication, campagnes réservées |
+
+> **Collision numérique `0154`** : deux ADR distincts partagent le n° 0154
+> (`0154-fitness-pareto-destins.md` et `0154-recu-typé-du-pont-rust-snapshot.md`).
+> Renumérotation interdite sans migration de provenance (ADR 0005) : les deux
+> fichiers sont conservés tels quels, avec note croisée dans chacun.
 
 ## Cycle de vie d'un ADR
 
