@@ -84,7 +84,8 @@ fn boucle_autonome_sans_but_externe() {
         report.goals
     );
     assert!(report.ticks >= 1);
-    assert!(report.halted, "raison={:?}", report.halt_reason);
+    assert_eq!(report.ticks, 8);
+    assert!(!report.halted, "raison={:?}", report.halt_reason);
 }
 
 #[test]
