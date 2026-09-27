@@ -97,7 +97,8 @@ async function buildTruthGraph(db, agentId, options) {
           outcome: report.outcome || 'unknown',
           reportEventId: row.id,
           sources: sources.flatMap((tool) => toolNodeOf[tool]),
-          evidence: Array.isArray(claim.evidence) ? claim.evidence.length : 0
+          evidence: Array.isArray(claim.evidence) ? claim.evidence.length : 0,
+          evidenceTexts: (Array.isArray(claim.evidence) ? claim.evidence : []).map(String).slice(0, 3).map((text) => text.slice(0, 200))
         });
         for (const tool of sources) {
           for (const nodeId of toolNodeOf[tool]) edges.push({ from: nodeId, to: id, kind: 'supports' });
@@ -132,6 +133,7 @@ function compileReport(graph) {
       sources: node.sources || [],
       causedBy: causedByOf[node.id] || [],
       confidence: (node.evidence || 0) > 0 && sourced ? 'supported' : 'unverified',
+      evidenceTexts: Array.isArray(node.evidenceTexts) ? node.evidenceTexts : [],
       contradictedBy: []
     };
     byNorm[norm].push(claim);
@@ -150,10 +152,41 @@ function compileReport(graph) {
 
 const HEDGE_WORDS = ['maybe', 'possibly', 'might', 'could', 'uncertain', 'unknown', 'perhaps', 'suggests', 'appears', 'peut-etre', 'incertain'];
 
+const NEGATIONS = ['not', 'no', 'never', 'fails', 'failed', 'without', 'ne ', 'pas ', 'jamais', 'sans ', 'aucun'];
+
 function looksFactual(text) {
   const lower = String(text || '').toLowerCase();
   if (HEDGE_WORDS.some((hedge) => lower.includes(hedge))) return false;
   return /\d/.test(lower) || lower.length > 80;
+}
+
+function negationCount(text) {
+  const lower = ` ${String(text || '').toLowerCase()} `;
+  return NEGATIONS.reduce((total, negation) => total + (lower.split(negation).length - 1), 0);
+}
+
+function numbersOf(text) {
+  const matches = String(text || '').match(/-?\d+(?:[.,]\d+)?/g) || [];
+  return matches.map((raw) => raw.replace(',', '.'));
+}
+
+function nliVerdict(claimText, evidenceTexts) {
+  const claim = String(claimText || '');
+  const evidences = (Array.isArray(evidenceTexts) ? evidenceTexts : []).map(String);
+  if (!claim.trim() || !evidences.length) return 'unverifiable';
+  const claimNumbers = numbersOf(claim);
+  const evidenceNumbers = new Set(evidences.flatMap(numbersOf));
+  if (claimNumbers.length && claimNumbers.some((number) => !evidenceNumbers.has(number))) {
+    return 'contradiction';
+  }
+  const claimNegations = negationCount(claim);
+  const mismatch = evidences.some((evidence) => (negationCount(evidence) % 2) !== (claimNegations % 2));
+  if (mismatch && claimNegations > 0) return 'contradiction';
+  const cited = evidences.some((evidence) => {
+    const words = claim.toLowerCase().split(/[^a-z0-9_]+/).filter((word) => word.length > 4);
+    return words.some((word) => evidence.toLowerCase().includes(word));
+  });
+  return cited ? 'entailment' : 'neutral';
 }
 
 function verifyRendering(graph, sentences) {
@@ -200,4 +233,4 @@ function resolveWorkerTags(report, validIds) {
   return [...new Set(unresolved)];
 }
 
-module.exports = { buildTruthGraph, compileReport, verifyRendering, resolveWorkerTags };
+module.exports = { buildTruthGraph, compileReport, verifyRendering, resolveWorkerTags, nliVerdict };

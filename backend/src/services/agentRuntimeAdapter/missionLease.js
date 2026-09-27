@@ -89,7 +89,8 @@ function enforceMissionToolLease(ctx) {
   const bounded = leasePolicy.restrictProvidedLease(provided, policy);
   mission.toolLease = mission.workerContract?.authority?.execute === false ? [] : bounded;
   ctx.normalizedMission = mission;
-  return applyFocusProbe(ctx, mission);
+  await applyFocusProbe(ctx, mission);
+  return applyPolicyMasking(ctx, mission);
 }
 
 async function applyFocusProbe(ctx, mission) {
@@ -99,6 +100,15 @@ async function applyFocusProbe(ctx, mission) {
     if (!probe) return;
     const narrowed = mission.toolLease.filter((tool) => probe.allowedTools.includes(tool));
     if (narrowed.length) mission.toolLease = narrowed;
+  } catch (_) {}
+}
+
+async function applyPolicyMasking(ctx, mission) {
+  try {
+    const masking = require('../policyMaskingService');
+    const result = await masking.maskLease(ctx.db, mission.toolLease, {});
+    mission.toolLease = result.lease;
+    if (result.masked.length) mission.policyMask = { masked: result.masked, reason: result.reason };
   } catch (_) {}
 }
 

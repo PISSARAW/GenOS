@@ -279,7 +279,16 @@ async function enforceReportGate(ctx) {
   try {
     const compiled = ctx.autonomyPlan?.missionTruthGraph;
     if (!compiled || !Array.isArray(compiled.claims)) return;
-    const violations = compiled.claims.filter((claim) => claim.outcome === 'success' && claim.confidence !== 'supported');
+    const compiler = require('./reportCompilerService');
+    const violations = [];
+    for (const claim of compiled.claims) {
+      if (claim.outcome !== 'success') continue;
+      if (claim.confidence !== 'supported') {
+        violations.push(claim.id);
+        continue;
+      }
+      if (compiler.nliVerdict(claim.proposition, claim.evidenceTexts) === 'contradiction') violations.push(claim.id);
+    }
     if (!violations.length) return;
     emit(ctx.agentId, 'REPORT_GATE_VIOLATION', 'EVIDENCE_GATE',
       `${violations.length} success claim(s) without supporting source in the mission truth graph.`,

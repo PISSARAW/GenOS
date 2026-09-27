@@ -187,7 +187,20 @@ async function finalizeAttempt(ctx, outcome, result) {
   const enriched = Object.assign({}, result, { model: outcome.uri, requestedModel: outcome.uri, servedModel: result.servedModel || result.model || outcome.prepared.modelName, latencyMs: Date.now() - outcome.startedAt, costUsd });
   await recordModelUsage(ctx.db, { organizationId: ctx.organizationId, projectId: ctx.projectId }, enriched);
   await observeRoutingBandit(ctx, outcome, result, costUsd);
+  await recordLlmAttempt(ctx, outcome, result, costUsd);
   return enriched;
+}
+
+async function recordLlmAttempt(ctx, outcome, result, costUsd) {
+  try {
+    await require('./shadowReplayService').recordAttempt(ctx.db, {
+      uri: outcome.uri,
+      success: result.success !== false,
+      costUsd,
+      latencyMs: Date.now() - outcome.startedAt,
+      servedModel: result.servedModel || result.model || null
+    });
+  } catch (_) {}
 }
 
 async function observeRoutingBandit(ctx, outcome, result, costUsd) {

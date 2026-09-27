@@ -269,6 +269,56 @@ async function testUncitedFactual() {
   console.log('ok - factual non cite detecte, hedge epargne');
 }
 
+async function testShadowReplay() {
+  const shadow = HERE('shadowReplayService');
+  const fail = { eventType: 'AGENT_FAILED', detail: 'boom', severity: 'error', payload: {} };
+  const info = { eventType: 'AGENT_STEP', detail: 'step', severity: 'info', payload: {} };
+  const events = [fail, info, fail, info, fail];
+  const runA = await shadow.replayControlPlane(events, { agentId: 'r' });
+  const runB = await shadow.replayControlPlane(events, { agentId: 'r' });
+  assert.deepStrictEqual(runA, runB, 'rejeu non deterministe');
+  assert.strictEqual(runA.propagations.strategy, 1, JSON.stringify(runA));
+  const dropFail = await shadow.replayControlPlane(events, { agentId: 'r', dropEventTypes: ['AGENT_FAILED'] });
+  assert.ok(dropFail.propagations.strategy < runA.propagations.strategy, 'ablation sans effet');
+  const dropOther = await shadow.replayControlPlane(events, { agentId: 'r', dropEventTypes: ['NOPE'] });
+  assert.deepStrictEqual({ ...dropOther }, { ...runA }, 'temoin non nul');
+  assert.deepStrictEqual((await shadow.ablateAndCompare(null, null, {})).status, 'insufficient_data');
+  // Ledger d'appels.
+  const db = stubDb();
+  const entry = await shadow.recordAttempt(db, { uri: 'u', success: true, costUsd: 0.1, latencyMs: 100 });
+  assert.strictEqual(entry.uri, 'u');
+  assert.strictEqual(await shadow.recordAttempt(db, {}), null);
+  console.log('ok - shadow deterministe, ablation causale, temoin nul');
+}
+
+async function testNliVerdict() {
+  const compiler = HERE('reportCompilerService');
+  assert.strictEqual(compiler.nliVerdict('Le test passe avec 42 cas.', ['log: 42 cas passes']), 'entailment');
+  assert.strictEqual(compiler.nliVerdict('Le test passe avec 42 cas.', ['log: 7 cas passes']), 'contradiction');
+  assert.strictEqual(compiler.nliVerdict('Le test ne passe pas.', ['log: tous les tests passent']), 'contradiction');
+  assert.strictEqual(compiler.nliVerdict('Quelque chose change.', ['log vide']), 'neutral');
+  assert.strictEqual(compiler.nliVerdict('', []), 'unverifiable');
+  console.log('ok - NLI deterministe (nombres, polarite, citation)');
+}
+
+async function testPolicyMasking() {
+  const masking = HERE('policyMaskingService');
+  const world = HERE('worldModelService');
+  const db = stubDb();
+  for (let i = 0; i < 6; i++) {
+    await world.recordSample(db, 'routing', { action: 'flaky://m', delta: { success: false } });
+    await world.recordSample(db, 'routing', { action: 'solid://m', delta: { success: true } });
+  }
+  const masked = await masking.maskLease(db, ['flaky://m', 'solid://m'], {});
+  assert.deepStrictEqual(masked.lease, ['solid://m'], JSON.stringify(masked));
+  assert.strictEqual(masked.masked[0].tool, 'flaky://m');
+  const single = await masking.maskLease(db, ['flaky://m'], {});
+  assert.deepStrictEqual(single.lease, ['flaky://m'], 'fail-soft viole');
+  const cold = await masking.maskLease(stubDb(), ['a://x', 'b://x'], {});
+  assert.deepStrictEqual(cold.lease, ['a://x', 'b://x'], 'sans historique, intact');
+  console.log('ok - masking borne, fail-soft, froid intact');
+}
+
 async function testWorkerTagGate() {
   const compiler = HERE('reportCompilerService');
   assert.deepStrictEqual(compiler.resolveWorkerTags({ claims: [{ statement: 'vu [worker:w1]' }] }, ['w1', 'w2']), []);
@@ -290,6 +340,9 @@ async function run() {
   await testWorldToRouting();
   await testLoggedHoldout();
   await testUncitedFactual();
+  await testShadowReplay();
+  await testNliVerdict();
+  await testPolicyMasking();
   await testWorkerTagGate();
   testNoConsciousnessClaims();
   console.log('BANC ADVERSARIALE VERT');
