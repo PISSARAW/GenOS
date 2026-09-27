@@ -113,3 +113,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 12 — workspace global et ignition compétitive
 
 `globalWorkspaceService` impose une capacité, une compétition de saillance, des évictions, un seuil d’ignition et une diffusion ciblée vers les modules autorisés. Test : `node backend/tests/test_global_workspace.js`.
+
+## Lot 13 — attention contrôlée par son modèle
+
+`modelControlledAttentionService` prédit les demandes depuis l’état, limite les leases par budget, réalloue les spécialistes et calcule l’accord avec les requêtes observées. Test : `node backend/tests/test_model_controlled_attention.js`.
