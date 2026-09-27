@@ -601,7 +601,7 @@ Reproduction = nouvel événement `TEST_FAILED|BUILD_FAILED` strictement postér
 à `createdAt` sur même scope `file|test`, pas une relecture. Causale complète
 (snapshot + contrôle + intervention) explicitement différée.
 
-**Écart réel** : le Verifier produit `SUPPORTED` à partir des événements et preuves typés. Les transitions supérieures sont protégées par des reçus de contrôle causal et d'intervention; aucun runner de production ne produit encore ces reçus. Elles ne sont donc pas atteintes automatiquement aujourd'hui. Les événements de reproduction seuls ne constituent pas une preuve causale.
+**Écart réel** : le Verifier produit `SUPPORTED` à partir des événements et preuves typés. Le runner contrôlé `runControlledFinding` peut comparer deux snapshots avec quatre exécutions d'une commande de test et persister une preuve liée au finding (ADR 0143). La gate vérifie cette provenance et les hashes avant `CAUSALLY_SUPPORTED` ou `REPAIRABLE`. Le contrôleur de mission doit encore appeler explicitement ce runner; le Verifier n'effectue pas cette expérience automatiquement. Une ré-observation seule ne constitue pas une preuve causale.
 
 Source : `backend/src/services/daemon/verification/verifierService.js:23-190`,
 `reproductionService.js:9-60`.
@@ -947,7 +947,7 @@ pas un succès LLM bout en bout.
 ## 15. Limites, garde-fous, non-objectifs
 
 1. Maturité `EXPERIMENTAL` ; preuve live trop petite (2 triples, 1 fixture, 1 modèle local).
-2. Le Verifier produit `SUPPORTED`; les transitions supérieures exigent des reçus de contrôle causal/intervention que le runner de production ne produit pas encore.
+2. Le Verifier produit `SUPPORTED`; le runner causal isolé est disponible mais son invocation par la boucle daemon/orchestrateur reste explicite.
 3. Causale complète différée (snapshot + contrôle + intervention).
 4. Aucun exécuteur worker / vérification post-`SUCCEEDED` / gouvernance push-merge
    câblé dans `repair/` ; seuls expiration et fichage `abandoned-branch`.

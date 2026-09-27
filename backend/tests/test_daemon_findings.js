@@ -57,12 +57,16 @@ async function main() {
   assert.equal(noLimits.created, false);
   assert.ok(noLimits.errors.includes('limitations-required'));
 
-  // 3. Montée épistémique complète jusqu'à REPAIRABLE
-  const path = ['HYPOTHESIZED', 'SUPPORTED', 'REPRODUCED', 'CAUSALLY_SUPPORTED', 'REPAIRABLE'];
-  for (const toStatus of path) {
-    const moved = await findingService.transitionFinding(db, { id: 'finding.auth-drift-001', toStatus });
-    assert.equal(moved.finding.status, toStatus);
-  }
+  // 3. Les transitions sans preuve typée restent fermées.
+  const hypothesized = await findingService.transitionFinding(db, {
+    id: 'finding.auth-drift-001', toStatus: 'HYPOTHESIZED'
+  });
+  assert.equal(hypothesized.finding.status, 'HYPOTHESIZED');
+  const unsupported = await findingService.transitionFinding(db, {
+    id: 'finding.auth-drift-001', toStatus: 'SUPPORTED'
+  });
+  assert.equal(unsupported.transitioned, false);
+  assert.ok(unsupported.errors.includes('supporting-evidence-required'));
 
   // 4. Saut interdit rejeté
   const jump = await findingService.createFinding(db, baseFinding('finding.jump-001'));

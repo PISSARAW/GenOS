@@ -2,6 +2,7 @@
 
 const REPLICATION_TYPES = ['replicated', 'causal'];
 const SUPPORTED_TYPES = ['observational', 'experimental', 'formal', 'replicated', 'causal', 'adversarial'];
+const { hasVerifiedReceipt } = require('./findingCausalReceiptService');
 
 async function evidenceFor(db, findingId, types) {
   const marks = types.map(() => '?').join(',');
@@ -39,10 +40,15 @@ function validCausalControls(controls) {
   return Boolean(controls.baselineSnapshotId && controls.interventionSnapshotId
     && controls.baselineSnapshotId !== controls.interventionSnapshotId
     && /^[a-f0-9]{64}$/i.test(controls.initialStateHash || '')
-    && controls.interventionApplied === true
-    && controls.sameEnvironment === true
+    && /^[a-f0-9]{64}$/i.test(controls.interventionSnapshotHash || '')
+    && controls.initialStateHash !== controls.interventionSnapshotHash
+    && validExecutionClaims(controls));
+}
+
+function validExecutionClaims(controls) {
+  return controls.interventionApplied === true && controls.sameEnvironment === true
     && Number.isInteger(controls.replicationCount) && controls.replicationCount >= 2
-    && controls.outcomeChanged === true);
+    && controls.outcomeChanged === true;
 }
 
 function hasSupportingEvidence(rows) {
@@ -60,19 +66,31 @@ async function snapshotsMatchWorkspace(db, findingId, controls) {
       controls.baselineSnapshotId,
       controls.interventionSnapshotId
     );
-    return rows.length === 2 && rows.every((row) => row.workspace_id === territory.workspace_id
-      && /^[a-f0-9]{64}$/i.test(row.snapshot_hash || ''));
+    const baseline = rows.find((row) => row.id === controls.baselineSnapshotId);
+    const intervention = rows.find((row) => row.id === controls.interventionSnapshotId);
+    const valid = rows.length === 2 && snapshotsMatch({ baseline, intervention, controls,
+      workspaceId: territory.workspace_id });
+    return valid ? territory.workspace_id : null;
   } catch (_) {
     return false;
   }
+}
+
+function snapshotsMatch(input) {
+  const { baseline, intervention, controls, workspaceId } = input;
+  return Boolean(baseline && intervention) && baseline.workspace_id === workspaceId
+    && intervention.workspace_id === workspaceId
+    && baseline.snapshot_hash === controls.initialStateHash
+    && intervention.snapshot_hash === controls.interventionSnapshotHash;
 }
 
 async function causalEvidenceExists(db, findingId) {
   const rows = await evidenceFor(db, findingId, ['causal']);
   for (const row of rows) {
     const controls = causalControlsOf(row);
-    if (row.provenance_record_id && validCausalControls(controls)
-      && await snapshotsMatchWorkspace(db, findingId, controls)) return true;
+    if (!row.provenance_record_id || !validCausalControls(controls)) continue;
+    const workspaceId = await snapshotsMatchWorkspace(db, findingId, controls);
+    if (workspaceId && await hasVerifiedReceipt(db, { findingId, evidence: row, controls, workspaceId })) return true;
   }
   return false;
 }

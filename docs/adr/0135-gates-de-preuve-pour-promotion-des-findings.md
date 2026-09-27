@@ -29,6 +29,13 @@ d'écrire un statut :
   une intervention appliquée, un environnement identique, deux répétitions et
   un résultat qui diverge.
 
+Le hash d'état initial doit désormais être exactement celui du snapshot de
+référence; le reçu inclut aussi `interventionSnapshotHash`, identique au hash
+du second snapshot et différent du premier. Un identifiant de snapshot valide
+avec un hash sans rapport ne suffit plus. Les booléens d'intervention et de
+résultat sont recoupés avec les résultats persistés par le runner contrôlé
+décrit dans l'ADR 0143.
+
 La mise en statut `REPAIRABLE` et l'ouverture idempotente de son épisode sont
 exécutées dans la même transaction. L'échec d'ouverture annule la transition.
 Un reçu déclaré par le caller n'est pas assimilé à une preuve causale : les
@@ -39,7 +46,8 @@ contrôlé, les promotions causales sans reçu sont refusées.
 ## Conséquences
 
 - Une observation répétée ne peut plus, à elle seule, déclencher une réparation.
-- Le workflow causal est fail-closed et reste en attente du runner contrôlé.
+- Le workflow causal est fail-closed tant que le runner contrôlé n'a pas produit
+  une preuve pour ce finding.
 - Les callers qui promouvaient directement les statuts doivent joindre les
   preuves typées attendues.
 

@@ -33,11 +33,8 @@ async function makeRepairable(db, id) {
     createdBy: 'daemon.resident-1',
     limitations: ['probe']
   });
-  const chain = ['HYPOTHESIZED', 'SUPPORTED', 'REPRODUCED', 'CAUSALLY_SUPPORTED', 'REPAIRABLE'];
-  for (const toStatus of chain) {
-    const moved = await findingService.transitionFinding(db, { id, toStatus });
-    assert.equal(moved.finding.status, toStatus);
-  }
+  // Ce test isole le cycle RepairEpisode; la gate causale est vérifiée séparément.
+  await db.run("UPDATE daemon_findings SET status = 'REPAIRABLE' WHERE id = ?", id);
 }
 
 async function main() {
