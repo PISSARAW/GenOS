@@ -152,4 +152,4 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 
 ## Lot 22 — banc morphogenèse et opérateurs comparés
 
-`morphogenesisBenchmarkService` compare les opérateurs à budget comparable, conserve la variable modératrice et bloque tout résultat ayant touché le corpus réservé. Test : `node backend/tests/test_morphogenesis_benchmark.js`.
+`morphogenesisBenchmarkService` compare les opérateurs à budget comparable, conserve la variable modératrice et bloque tout résultat ayant touché le corpus réservé. Test : `node backend/tests/test_morphogenesis_operator_benchmark.js`.
