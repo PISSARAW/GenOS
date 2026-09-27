@@ -97,3 +97,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 08 — WorldState et modèle conditionnel
 
 `worldStateConditionalService` enregistre les états avant/après avec preuves, calcule delta, support, incertitude et OOD, puis classe les choix par utilité corrigée de l’incertitude. Test : `node backend/tests/test_world_state_conditional.js`.
+
+## Lot 09 — rollout récursif et décision contrôlée
+
+`controlledRolloutDecisionService` compose les deltas, classe les branches sur l’observation, produit un token de rollback et vérifie les policy flips réversibles. Test : `node backend/tests/test_controlled_rollout_decision.js`.
