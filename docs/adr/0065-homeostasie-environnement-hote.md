@@ -1,6 +1,6 @@
 # ADR 0065 — Homéostasie de l'environnement hôte
 
-- **Statut** : Accepté (normalisé 2026-09-27 ; implémentation vérifiée, test dédié manquant — voir Conséquences)
+- **Statut** : Accepté (normalisé 2026-09-27 ; implémentation vérifiée, test dédié `backend/tests/test_host_environment_placement.js`)
 - **Date** : 2026-09-27 (normalisation ; décision antérieure non datée dans le fichier)
 - **Domaine** : Environnement hôte, stockage, homéostasie
 - **Décideurs** : Mainteneurs GenOS (control plane Node)
@@ -8,7 +8,7 @@
   - `../../backend/src/services/hostEnvironment.js` (`readHostEnvironment`, `deriveAdaptivePolicy`)
   - `../../backend/src/storage/storagePlacement.js` (`chooseDataRoot`, `selectCandidate`, `pinDataRoot`)
   - `../../backend/bin/genos-environment.cjs` (diagnostic : profil, politique, stockage)
-  - Tests : aucun test dédié `hostEnvironment` / `storagePlacement` (ticket à part, non bloquant doc)
+  - Tests : `../../backend/tests/test_host_environment_placement.js` (`readHostEnvironment`, `deriveAdaptivePolicy`, `chooseDataRoot`)
 
 ## Contexte
 
@@ -44,7 +44,7 @@ emplacement. Le système n'effectue pas de migration automatique de bases ouvert
 ## Conséquences
 
 - Positives : le nombre de processus est choisi au démarrage ; les conditions de disque et mémoire sont visibles dans le diagnostic ; un pointeur de stockage indisponible bloque le démarrage au lieu de créer une base vide silencieusement.
-- Négatives : le nombre de processus est choisi au démarrage ; le modifier à chaud demandera un superviseur capable de drainer et remplacer les processus. Aucun test dédié `hostEnvironment` / `storagePlacement` n'existe à ce jour : régression possible sur les seuils et la sélection de volume — ticket à part, non bloquant pour la documentation.
+- Négatives : le nombre de processus est choisi au démarrage ; le modifier à chaud demandera un superviseur capable de drainer et remplacer les processus. Le test dédié `backend/tests/test_host_environment_placement.js` couvre les seuils et la sélection de volume.
 - Neutres : l'apprentissage futur des politiques devra comparer les résultats avec cette base déterministe et rester soumis aux mêmes limites de sécurité.
 
 ## Alternatives
