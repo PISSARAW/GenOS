@@ -165,3 +165,12 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 25 — documentation finale et matrice de preuves
 
 La matrice finale est publiée dans [`matrice-preuves-indicateurs.md`](matrice-preuves-indicateurs.md). Elle sépare les lots implémentés et testés des indicateurs expérimentalement validés, conserve les limites et fournit les commandes de reproduction. À ce stade, aucun indicateur n’est promu `passed`; les campagnes réservées et la réplication indépendante restent à exécuter sur les profils déclarés.
+
+## Baseline §11 au 2026-09-27 (commit `5e34f997`)
+
+- `npm test` : **55/55 vert**.
+- `cargo test --workspace` : **vert (EXIT 0)**, dont `drives boucle_autonome_sans_but_externe` qui échoue précédemment et passe désormais.
+- `python scripts/ci/check_code_quality.py --staged` : **vert (0 nouvelle violation)** ; arbre suivi propre.
+- `python scripts/ci/check_code_quality.py` global : **rouge — 147 violations hors baseline sur fichiers suivis** (dette pré-existante, ex. contrôleurs, `worldModelService`, `reportCompilerService`, crates `genos-cli/core/genome`) ; `--update-baseline` refusé car la dette a augmenté depuis le snapshot.
+- `python scripts/ci/audit_indicator_baseline.py` : **local 0 fichier / 0 violation** après suppression des 41 sondes `_probe/scan/debug` non suivies ; **tracked 147 hors baseline**, donc EXIT 1. Les sondes supprimées n'ont jamais été committées.
+- Conclusion : baseline d'exécution Node/Rust rétablie, **baseline qualité globale non verte**. Aucun `passed` indicateur n'est déduit de cette baseline.
