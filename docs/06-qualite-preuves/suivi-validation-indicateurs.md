@@ -92,4 +92,8 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 
 ## Lot 07 — gate de toutes les sorties finales
 
-`finalOutputGateService` bloque avant émission ou completion les phrases factuelles sans citation, les nombres absents des propositions citées, les inversions d'issues et les contradictions non résolues. Il expose les violations et `completionAllowed`. Test : `node backend/tests/test_final_output_gate.js`.
+`finalOutputGateService` bloque avant émission ou completion les phrases factuelles sans citation, les nombres absents des propositions citées, les inversions d’issues et les contradictions non résolues. Il expose les violations et `completionAllowed`. Test : `node backend/tests/test_final_output_gate.js`.
+
+## Lot 08 — WorldState et modèle conditionnel
+
+`worldStateConditionalService` enregistre les états avant/après avec preuves, calcule delta, support, incertitude et OOD, puis classe les choix par utilité corrigée de l’incertitude. Test : `node backend/tests/test_world_state_conditional.js`.
