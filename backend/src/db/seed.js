@@ -1,7 +1,4 @@
-/**
- * Minimal, idempotent database bootstrap for a local Studio installation.
- */
-
+/** Minimal idempotant DB bootstrap for local Studio. */
 const crypto = require('crypto');
 const path = require('path');
 const { seedMcpTools } = require('./seedTools');
@@ -13,36 +10,25 @@ function hashKey(key) {
 }
 
 function workspaceInitializationAlertId(workspaceId) {
-  // A slug is not unique (`foo_bar` and `foo-bar` produce the same one).  Use
-  // a bounded, deterministic hash so every workspace has a collision-resistant
-  // bootstrap key that remains stable across restarts.
   const digest = crypto.createHash('sha256').update(String(workspaceId)).digest('hex').slice(0, 24);
   return `alert-workspace-${digest}-initialized`;
 }
 
 async function ensureConfiguredWorkspace(db) {
-  // A multi-workspace deployment discovers projects under the plural root.
-  // Keep this legacy bootstrap only for single explicit workspace installs.
   if (String(process.env.GENOS_WORKSPACES_ROOT || '').trim()) return;
   const workspaceRoot = String(process.env.GENOS_WORKSPACE_ROOT || '').trim();
   if (!workspaceRoot) return;
-
   let name = String(process.env.GENOS_WORKSPACE_NAME || path.basename(workspaceRoot) || 'workspace').trim();
   try {
     await db.run(
       `INSERT INTO workspaces (id, name, path, visibility, language, description, tags)
        VALUES ('ws-local', ?, ?, 'Private', 'Mixed', ?, '[]')
        ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path`,
-      name,
-      workspaceRoot,
-      'Workspace mounted through GENOS_WORKSPACE_ROOT.'
+      name, workspaceRoot, 'Workspace mounted through GENOS_WORKSPACE_ROOT.'
     );
   } catch (err) {
     if (err.message && err.message.includes('UNIQUE constraint failed')) {
-      await db.run(
-        `UPDATE workspaces SET path = ? WHERE id = 'ws-local'`,
-        workspaceRoot
-      ).catch(() => {});
+      await db.run(`UPDATE workspaces SET path = ? WHERE id = 'ws-local'`, workspaceRoot).catch(() => {});
     } else {
       throw err;
     }
@@ -51,7 +37,6 @@ async function ensureConfiguredWorkspace(db) {
 
 async function ensureWorkspaceDashboardData(db) {
   const workspaces = await db.all('SELECT id, name FROM workspaces ORDER BY created_at ASC');
-
   for (const workspace of workspaces) {
     const alert = await db.get('SELECT id FROM global_alerts WHERE workspace_name = ? LIMIT 1', workspace.name);
     if (!alert) {
@@ -60,38 +45,110 @@ async function ensureWorkspaceDashboardData(db) {
          VALUES (?, ?, 'running', 'workspace_controller', ?, 'low', '100%', ?)
          ON CONFLICT(id) DO NOTHING`,
         workspaceInitializationAlertId(workspace.id),
-        `Workspace ${workspace.name} initialized`,
-        workspace.name,
-        'Workspace dashboard is connected to the GenOS backend.'
+        `Workspace ${workspace.name} initialized`, workspace.name, 'Workspace dashboard is connected to the GenOS backend.'
       );
     }
   }
 }
 
-async function ensureAgentStrategyContracts(db) {
-  const agents = await db.all(`SELECT a.id, a.workspace_id, a.current_task, a.role, a.execution_mode,
+async function fetchAgentsWithContracts(db) {
+  return db.all(`SELECT a.id, a.workspace_id, a.current_task, a.role, a.execution_mode,
       sc.contract_json AS latest_contract_json
     FROM agents a
     LEFT JOIN strategy_contracts sc ON sc.agent_id = a.id
       AND sc.version = (SELECT MAX(latest.version) FROM strategy_contracts latest WHERE latest.agent_id = a.id)`);
+}
+
+async function fetchWorkspaceIdSet(db) {
+  const workspaces = await db.all('SELECT id FROM workspaces');
+  return new Set(workspaces.map((w) => w.id));
+}
+
+async function repairAgentWorkspace(db, agent, workspaceIds) {
+  if (agent.workspace_id && !workspaceIds.has(agent.workspace_id)) {
+    await db.run('UPDATE agents SET workspace_id = NULL WHERE id = ?', agent.id).catch(() => {});
+    agent.workspace_id = null;
+  }
+}
+
+function parseContractSnapshot(raw) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function needsContractUpgrade(latestContract, totalRegistryCount) {
+  if (!latestContract) return true;
+  const summaryOk = latestContract?.strategy_decision_summary?.total_registry === totalRegistryCount;
+  const decisionsOk = latestContract?.strategy_decisions?.length === totalRegistryCount;
+  return !(summaryOk && decisionsOk);
+}
+
+async function upgradeAgentContract(db, agent, upgrade) {
+  if (!needsContractUpgrade(upgrade.latestContract, upgrade.totalRegistryCount)) return;
+  await strategyContracts.saveContract(db, {
+    agentId: agent.id,
+    workspaceId: agent.workspace_id,
+    problem: agent.current_task || `Autonomous task execution for ${agent.role}`,
+    createdBy: upgrade.latestContract ? 'strategy_registry_upgrade' : 'strategy_contract_migration'
+  });
+}
+
+async function ensureAgentStrategyContracts(db) {
+  const agents = await fetchAgentsWithContracts(db);
+  const totalRegistryCount = listStrategies().length;
+  const workspaceIds = await fetchWorkspaceIdSet(db);
   for (const agent of agents) {
     if (agent.execution_mode === 'worker') continue;
-    let latestContract = null;
-    try {
-      latestContract = agent.latest_contract_json ? JSON.parse(agent.latest_contract_json) : null;
-    } catch {
-      // A malformed legacy snapshot is replaced below while remaining in history.
-    }
-    const totalRegistryCount = listStrategies().length;
-    if (latestContract?.strategy_decision_summary?.total_registry === totalRegistryCount
-      && latestContract?.strategy_decisions?.length === totalRegistryCount) continue;
+    await repairAgentWorkspace(db, agent, workspaceIds);
+    const latestContract = parseContractSnapshot(agent.latest_contract_json);
+    await upgradeAgentContract(db, agent, { latestContract, totalRegistryCount });
+  }
+}
 
-    await strategyContracts.saveContract(db, {
-      agentId: agent.id,
-      workspaceId: agent.workspace_id,
-      problem: agent.current_task || `Autonomous task execution for ${agent.role}`,
-      createdBy: latestContract ? 'strategy_registry_upgrade' : 'strategy_contract_migration'
-    });
+async function syncBootstrapKey(db, bootstrap, configured) {
+  if (bootstrap && configured && bootstrap.key_hash !== hashKey(configured)) {
+    await db.run('UPDATE access_keys SET key_hash = ? WHERE id = ?', hashKey(configured), bootstrap.id);
+  }
+}
+
+async function mintBootstrapKeyIfEmpty(db, configured) {
+  const existing = await db.get('SELECT COUNT(*) as count FROM access_keys');
+  if (existing && existing.count > 0) return;
+  const rawKey = configured || `genos_sk_admin_${crypto.randomBytes(24).toString('hex')}`;
+  await db.run(
+    'INSERT INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
+    'key-bootstrap-admin', hashKey(rawKey), 'Bootstrap administrator', 'admin', JSON.stringify(['all'])
+  );
+  if (!configured) {
+    console.warn('[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.');
+  }
+}
+
+async function ensureConfiguredTestKey(db, configured) {
+  if (!configured) return;
+  const match = await db.get('SELECT id FROM access_keys WHERE key_hash = ?', hashKey(configured));
+  if (match) return;
+  await db.run(
+    'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
+    'key-test-admin', hashKey(configured), 'Test admin', 'admin', '[]'
+  );
+}
+
+async function ensureFixtureTestKeys(db) {
+  const fixtures = [
+    ['key-test-operator', process.env.GENOS_TEST_OPERATOR_TOKEN, 'operator'],
+    ['key-test-viewer', process.env.GENOS_TEST_VIEWER_TOKEN, 'viewer']
+  ];
+  for (const [id, rawKey, role] of fixtures) {
+    if (!rawKey) continue;
+    await db.run(
+      'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
+      id, hashKey(rawKey), `Test ${role}`, role, '[]'
+    );
   }
 }
 
@@ -99,70 +156,19 @@ async function ensureAdminKey(db) {
   const configured = String(process.env.GENOS_ADMIN_TOKEN || '').trim();
   const bootstrap = await db.get("SELECT id, key_hash FROM access_keys WHERE id = 'key-bootstrap-admin'");
   if (bootstrap) {
-    // Keep the stored bootstrap credential in sync with the configured
-    // environment token so rotating GENOS_ADMIN_TOKEN takes effect on
-    // existing databases instead of only on first boot.
-    if (configured && bootstrap.key_hash !== hashKey(configured)) {
-      await db.run('UPDATE access_keys SET key_hash = ? WHERE id = ?', hashKey(configured), bootstrap.id);
-    }
+    await syncBootstrapKey(db, bootstrap, configured);
   } else {
-    const existing = await db.get('SELECT COUNT(*) as count FROM access_keys');
-    if (!existing || existing.count === 0) {
-      const rawKey = configured || `genos_sk_admin_${crypto.randomBytes(24).toString('hex')}`;
-      await db.run(
-        'INSERT INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
-        'key-bootstrap-admin',
-        hashKey(rawKey),
-        'Bootstrap administrator',
-        'admin',
-        JSON.stringify(['all'])
-      );
-
-      if (!configured) {
-        console.warn('[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.');
-      }
-    }
+    await mintBootstrapKeyIfEmpty(db, configured);
   }
-
   if (process.env.NODE_ENV === 'test') {
-    // Legacy test databases may predate bootstrap-key tracking entirely. Only
-    // mint a fixture key when nothing authenticates the configured token yet,
-    // so the bootstrap credential above is never displaced by a hash clash.
-    if (configured) {
-      const match = await db.get('SELECT id FROM access_keys WHERE key_hash = ?', hashKey(configured));
-      if (!match) {
-        await db.run(
-          'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
-          'key-test-admin',
-          hashKey(configured),
-          'Test admin',
-          'admin',
-          '[]'
-        );
-      }
-    }
-    const fixtures = [
-      ['key-test-operator', process.env.GENOS_TEST_OPERATOR_TOKEN, 'operator'],
-      ['key-test-viewer', process.env.GENOS_TEST_VIEWER_TOKEN, 'viewer']
-    ];
-    for (const [id, rawKey, role] of fixtures) {
-      if (!rawKey) continue;
-      await db.run(
-        'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
-        id,
-        hashKey(rawKey),
-        `Test ${role}`,
-        role,
-        '[]'
-      );
-    }
+    await ensureConfiguredTestKey(db, configured);
+    await ensureFixtureTestKeys(db);
   }
 }
 
 async function ensureDefaultUser(db) {
   const existing = await db.get('SELECT COUNT(*) as count FROM users');
   if (existing && existing.count > 0) return;
-
   const username = String(process.env.GENOS_ADMIN_USERNAME || 'admin').trim() || 'admin';
   if (!process.env.GENOS_ADMIN_PASSWORD && process.env.NODE_ENV !== 'test') {
     throw new Error('GENOS_ADMIN_PASSWORD must be configured before creating the default administrator.');
@@ -171,10 +177,7 @@ async function ensureDefaultUser(db) {
   const { hashPassword } = require('../controllers/password');
   await db.run(
     'INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)',
-    `user-${Date.now()}`,
-    username,
-    hashPassword(password),
-    'admin'
+    `user-${Date.now()}`, username, hashPassword(password), 'admin'
   );
   console.warn(`[GenOS Bootstrap] Default local user created: ${username} (role: admin).`);
 }
