@@ -141,3 +141,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 19 — hypothèse promue vers plan et action
 
 `hypothesisActionPlannerService` exige une preuve pour promouvoir une hypothèse, porte sa différence sémantique dans le plan et déclenche le rollback si l’observation diverge. Test : `node backend/tests/test_hypothesis_action_planner.js`.
+
+## Lot 20 — verdict expérimental et planner
+
+`experimentalVerdictPlannerService` calcule une recommandation PID, lie la transition au reçu causal et au manifeste du protocole, puis bloque les contextes incomplets. Test : `node backend/tests/test_experimental_verdict_planner.js`.
