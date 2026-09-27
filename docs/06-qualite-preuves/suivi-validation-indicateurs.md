@@ -133,3 +133,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 17 — population et contexte morphogénétique
 
 `morphogeneticPopulationService` génère une population candidate bornée depuis des signaux, avec opérateur et provenance reliés au parent. Test : `node backend/tests/test_morphogenetic_population.js`.
+
+## Lot 18 — fitness, Pareto et destins multiples
+
+`fitnessParetoDestinyService` sépare les candidats inconnus, calcule la frontière de Pareto et conserve les niches; toute inconnue bloque la promotion. Test : `node backend/tests/test_fitness_pareto_destiny.js`.
