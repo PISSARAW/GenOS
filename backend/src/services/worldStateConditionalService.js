@@ -37,7 +37,7 @@ function compareStates(before, after, options = {}) {
   const expectedKeys = Object.keys(expected);
   const matched = expectedKeys.filter((key) => JSON.stringify(delta[key] && delta[key].after) === JSON.stringify(expected[key])).length;
   const uncertainty = expectedKeys.length ? 1 - matched / expectedKeys.length : (keys.length ? 0 : 1);
-  return { delta, changedKeys: observed, support: expectedKeys.length ? matched / expectedKeys.length : 0, uncertainty, outOfDistribution: Boolean(options.outOfDistribution), decisionReady: uncertainty <= 0.5 && !options.outOfDistribution };
+  return { delta, changedKeys: Object.keys(delta).length, support: expectedKeys.length ? matched / expectedKeys.length : 0, uncertainty, outOfDistribution: Boolean(options.outOfDistribution), decisionReady: uncertainty <= 0.5 && !options.outOfDistribution };
 }
 
 function conditionalChoice(input) {
