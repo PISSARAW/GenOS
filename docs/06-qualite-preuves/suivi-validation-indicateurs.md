@@ -77,3 +77,7 @@ Test : `node backend/tests/test_versioned_contract_service.js` passe avec quatre
 La migration `081-versioned-contract-receipts` ajoute une table de reçus avec hash, provenance et contrainte d'unicité. `versionedContractPersistenceService` écrit le reçu et son événement `projection_events` dans une transaction unique ; une répétition est idempotente, un conflit d'identifiant est rejeté et la restauration repasse par le validateur du lot 02.
 
 Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'insertion, l'idempotence, la restauration, la projection d'événement et le rejet d'un conflit de contenu.
+
+## Lot 04 — runner expérimental isolé
+
+`experimentalRunnerService` réutilise `arenaService.runTournament` pour deux bras contrôle/intervention, répétés sur plusieurs seeds. Il vérifie les sorties non vides, borne les runs et rounds, conserve les résultats par bras, calcule l'accord des signatures pour documenter le nondéterminisme et produit un `CausalInterventionReceipt`. Test réel : `node backend/tests/test_experimental_runner.js`.
