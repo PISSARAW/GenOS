@@ -40,8 +40,10 @@ async function resolveDb(inputDb) {
   return getDatabase();
 }
 
-async function pairRelations(db, fromId, toId) {
-  const all = await listRelations({ db, agentId: fromId });
+async function pairRelations(input) {
+  const { db, fromId, toId } = input;
+  const all = await listRelations({ db, agentId: fromId,
+    organizationId: input.organizationId, projectId: input.projectId });
   const matches = [];
   for (const relation of all) {
     const forward = relation.sourceAgentId === fromId && relation.targetAgentId === toId;
@@ -115,7 +117,8 @@ function adjustForDirection(ctx) {
 
 async function deriveProfile(input) {
   const db = await resolveDb(input.db);
-  const matches = await pairRelations(db, input.fromAgentId, input.toAgentId);
+  const matches = await pairRelations({ db, fromId: input.fromAgentId, toId: input.toAgentId,
+    organizationId: input.organizationId, projectId: input.projectId });
   if (matches.length === 0) return Object.assign({}, STRANGER_PROFILE);
   const primary = pickPrimary(matches);
   const roles = await rolesOf(db, input.fromAgentId, input.toAgentId);

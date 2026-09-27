@@ -12,7 +12,8 @@ async function profileAudience(input) {
 
 async function profileCandidate(input, candidate) {
   const communicationProfile = await deriveProfile({
-    db: input.db, fromAgentId: input.intent.senderAgentId, toAgentId: candidate.agentId
+    db: input.db, fromAgentId: input.intent.senderAgentId, toAgentId: candidate.agentId,
+    organizationId: input.organizationId, projectId: input.projectId
   });
   return { ...candidate, communicationProfile };
 }

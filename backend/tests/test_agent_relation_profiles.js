@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const relational = require('../src/services/crossAgentRelationalService');
 const resolver = require('../src/services/morphogenesis/relationResolverService');
+const routing = require('../src/services/communication/relationshipCommunicationRoutingService');
 
 function verifyRelationCatalog() {
   for (const type of ['friend', 'stranger', 'parent', 'child', 'sibling', 'twin', 'colleague', 'neighbor']) {
@@ -49,8 +50,29 @@ async function verifyPersistedProfile() {
   assert.equal(profile.direction, 'forward');
 }
 
+async function verifyScopedCommunicationRouting() {
+  const db = {
+    all: async (sql, args) => {
+      if (sql.includes('agent_relations')) {
+        if (args[2] !== 'org' || args[3] !== 'project') return [];
+        return [{ source_agent_id: 'a', target_agent_id: 'b', relation_type: 'twin',
+          relation_class: 'lineage', metadata_json: '{}', organization_id: 'org', project_id: 'project' }];
+      }
+      return [{ id: 'a', role: 'worker' }, { id: 'b', role: 'worker' }];
+    }
+  };
+  const intent = { senderAgentId: 'a', risk: 'low', independenceRequired: true };
+  const candidates = [{ agentId: 'b' }];
+  const scoped = await routing.profileAudience({ db, intent, candidates,
+    organizationId: 'org', projectId: 'project' });
+  assert.equal(scoped.length, 0);
+  const unscoped = await routing.profileAudience({ db, intent, candidates });
+  assert.equal(unscoped.length, 1);
+}
+
 verifyRelationCatalog();
 verifyVerifierSelection();
 verifyPartnerSelection();
-verifyPersistedProfile().then(() => console.log('Agent relation profile tests passed.'))
+Promise.all([verifyPersistedProfile(), verifyScopedCommunicationRouting()])
+  .then(() => console.log('Agent relation profile tests passed.'))
   .catch((error) => { console.error(error); process.exitCode = 1; });

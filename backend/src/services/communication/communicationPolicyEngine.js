@@ -318,6 +318,11 @@ async function tryPrescoped(input, intent, refs) {
   return null;
 }
 
+function relationScope(input, intent) {
+  return { organizationId: input.organizationId ?? intent.organizationId,
+    projectId: input.projectId ?? intent.projectId };
+}
+
 async function decideCommunication(input) {
   const intent = input.intent || {};
   validateIntent(intent);
@@ -330,7 +335,8 @@ async function decideCommunication(input) {
   const requested = intent.requestedAudience || [];
   const audience = await selectAudience(audienceQueryOf(intent, refs, input));
   const requestedCandidates = restrictAudience(withoutSender(audience.candidates, intent.senderAgentId), requested);
-  const informed = await relationshipRouting.profileAudience({ db: input.db, intent, candidates: requestedCandidates });
+  const informed = await relationshipRouting.profileAudience({ db: input.db, intent, candidates: requestedCandidates,
+    ...relationScope(input, intent) });
   if (informed.length === 0) {
     return logAndDecide(input, silenceDecision('COMMON_GROUND_HIGH', { stage: 'novelty', utility: 0, gain: 0, cost: 0 }));
   }
