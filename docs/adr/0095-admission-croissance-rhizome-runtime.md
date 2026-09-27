@@ -1,10 +1,10 @@
 # ADR 0095 — Admission de croissance dans le runtime Rhizome
 
-- **Statut** : Proposé
-- **Date** : 2026-09-24
+- **Statut** : Accepté
+- **Date** : 2026-09-27 (proposé le 2026-09-24, accepté le 2026-09-27)
 - **Domaine** : Rhizome, croissance, providers, vérification, persistance
 - **Décideurs** : GenOS
-- **Lié à** : ADR 0051, ADR 0086
+- **Lié à** : [ADR 0051](0051-morphology-graph-and-topology-contracts.md), [ADR 0086](0086-branche-rhizome-morphogenese.md), implémentation `backend/src/services/rhizome/runtime/growthExecutor.js`, `providerResolver.js`, `verifierResolver.js`, tests `backend/tests/test_rhizome_growth.js` (PASS rejoué le 2026-09-27), `test_rhizome_growth_runtime.js` (constaté, non rejouable dans cet environnement — binding natif `sqlite3` invalide, à rejouer)
 
 ## Contexte
 

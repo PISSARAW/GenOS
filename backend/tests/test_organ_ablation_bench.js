@@ -319,6 +319,37 @@ async function testPolicyMasking() {
   console.log('ok - masking borne, fail-soft, froid intact');
 }
 
+async function testCanaryExperiment() {
+  const bandit = HERE('routingBanditService');
+  const experiment = HERE('canaryExperimentService');
+  const rows = [];
+  for (let i = 0; i < 40; i++) {
+    const good = i % 2 === 0;
+    rows.push({ id: `u${i}`, metadata_json: JSON.stringify(good ? { model: 'good://m', costUsd: 0.01, latencyMs: 500 } : { model: 'bad://m', costUsd: 0.8, latencyMs: 20000 }) });
+  }
+  const db = stubDb();
+  db.all = async (sql) => (sql.includes('FROM usage_ledger') ? rows : []);
+  const frozen = await experiment.freezeExperiment(db, {});
+  assert.ok(frozen.manifestHash && frozen.manifestHash.length >= 16, 'manifest manquant');
+  const run = await experiment.runExperiment(db, {});
+  assert.strictEqual(run.passed, true, JSON.stringify(run));
+  assert.strictEqual(run.replicated, true);
+  assert.ok(await bandit.canaryAllowed(db), 'gate ouverte attendue');
+  // Seuil impossible -> echec -> gate fermee -> politique forcee.
+  const db2 = stubDb();
+  db2.all = async (sql) => (sql.includes('FROM usage_ledger') ? rows : []);
+  await experiment.freezeExperiment(db2, { threshold: 0 });
+  const failed = await experiment.runExperiment(db2, {});
+  assert.strictEqual(failed.passed, false);
+  assert.strictEqual(await bandit.canaryAllowed(db2), false, 'gate aurait du fermer');
+  const forced = await bandit.chooseWithGuardrails(db2, ['bad://m', 'good://m'], { canaryRate: 1, canaryKey: 'k', minPulls: 1 });
+  assert.strictEqual(forced.mode, 'policy');
+  assert.strictEqual(forced.reason, 'gate-closed');
+  // Sans experience -> gate ouverte par defaut.
+  assert.strictEqual(await bandit.canaryAllowed(stubDb()), true);
+  console.log('ok - experience gelee, replicats, gate ouvre/ferme');
+}
+
 async function testWorkerTagGate() {
   const compiler = HERE('reportCompilerService');
   assert.deepStrictEqual(compiler.resolveWorkerTags({ claims: [{ statement: 'vu [worker:w1]' }] }, ['w1', 'w2']), []);
@@ -343,6 +374,7 @@ async function run() {
   await testShadowReplay();
   await testNliVerdict();
   await testPolicyMasking();
+  await testCanaryExperiment();
   await testWorkerTagGate();
   testNoConsciousnessClaims();
   console.log('BANC ADVERSARIALE VERT');

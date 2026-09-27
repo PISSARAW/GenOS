@@ -1,8 +1,8 @@
-# ADR 0049 — Graphe morphologique et contrats typés de topologie
+# ADR 0051 — Graphe morphologique et contrats typés de topologie
 
 ## Statut
 
-Proposé — migration additive en cours.
+Accepté le 2026-09-27 (proposé le 2026-09-24 ; migration additive tenue).
 
 ## Date
 
@@ -20,6 +20,8 @@ Orchestration, morphogenèse, topologies, preuves, budget.
 
 - [ADR 0040 — Morphogenèse versionnée Git et contrefactuelle](0040-morphogenese-git-contrefactuel.md)
 - [ADR 0045 — Noyau de contrôle morphogénétique de l'orchestrateur Rust](0045-noyau-controle-morphogenetique.md)
+- Implémentation : `backend/src/services/morphogenesis/graph/morphology*.js` (`morphologyGraph.js`, `morphologyNode.js`, `morphologyEdge.js`, `morphologyCompiler.js`, …), `backend/src/services/morphogenesis/registry/topologyRegistry.js`.
+- Tests : `backend/tests/test_morphology_graph_execution.js` (PASS rejoué le 2026-09-27), `test_morphology_transition_adapter.js`, `test_morphology_graph_store_cas.js` (constatés, non rejouables dans cet environnement — binding natif `sqlite3` invalide, à rejouer).
 
 ## Contexte
 

@@ -46,6 +46,7 @@ pour l'inventaire, les vagues d'intégration et les critères de fin.
   profil de score seul ne suffit pas pour déclarer une variante fonctionnelle.
 - Une variante sans preuve de runtime ne peut pas être auto-sélectionnée comme si elle
   était opérationnelle.
+- **Écart constaté le 2026-09-27 (reste Proposé pour implémentation, pas de bascule sans preuve)** : catalogues locaux présents (`backend/src/services/morphogenesis/registry/variantCatalog.js`, `variantRegistry.js`, `backend/src/services/morphogenesis/variants/variantResolver.js`, `variantSchema.js`, `registry/topologyProfileService.js` avec baseline sûre) et tests associés (`test_morphogenesis_variant_catalog.js`, `test_biome_variant_selection.js`, `test_metapopulation_variant_selection.js`, `test_ateam_variant_execution.js`), mais conformité aux points 1–2 de la Décision non auditée au contenu (métadonnées d'adéquation par variant, règles déterministes mission → `{variant, score, motifs, alternatives, confiance}`), point 4 non prouvé (adaptateurs observables par topologie au dispatch), et document `docs/02-orchestration/topologies/plan-implementation-variants.md` introuvable. Ticket code à ouvrir : sélecteur unifié + dispatch + baseline prouvés par test avant acceptation.
 
 ## Alternatives
 

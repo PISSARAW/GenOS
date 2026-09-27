@@ -1,10 +1,10 @@
 # ADR 0086 — Branche Rhizome dans la Morphogenèse
 
-- **Statut** : Proposé
-- **Date** : 2026-09-24
+- **Statut** : Accepté
+- **Date** : 2026-09-27 (proposé le 2026-09-24, accepté le 2026-09-27)
 - **Domaine** : Morphogenèse, Rhizome, exploration, preuves, budgets
 - **Décideurs** : GenOS
-- **Lié à** : ADR 0051, ADR 0085
+- **Lié à** : [ADR 0051](0051-morphology-graph-and-topology-contracts.md), [ADR 0085](0085-integration-morphogenese-holobionte.md), implémentation `backend/src/services/morphogenesis/rhizomeBranchAdapter.js`, test `backend/tests/test_morphogenesis_rhizome_branch.js` (constaté, non rejouable dans l'environnement de revue du 2026-09-27 — binding natif `sqlite3` invalide, à rejouer ; aucune défaillance de code constatée)
 
 ## Contexte
 

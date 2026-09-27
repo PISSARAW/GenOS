@@ -294,6 +294,9 @@ async function applyBanditCanary(candidates, ctx) {
       context: { promptTokens: Math.ceil(Buffer.byteLength(String(ctx.prompt || ''), 'utf8') / 4) }
     });
     const info = decided.mode === 'bandit' ? { choice: decided.choice, reason: decided.reason } : null;
+    if (info) {
+      telemetry.emitEvent({ eventType: 'MODEL_ROUTE_BANDIT_CANARY', agentId: ctx.agentId || 'model-router', action: 'CANARY', detail: `Bandit canary tries ${info.choice} first (${info.reason}).`, severity: 'info', payload: { choice: info.choice, reason: info.reason, candidates } });
+    }
     return { candidates: decided.ordering, bandit: info };
   } catch (_) {
     return { candidates, bandit: null };

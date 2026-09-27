@@ -2,8 +2,27 @@
 
 ## Statut
 
-Proposé — première étape du mode `caller_mcp`. Suivi par l'[ADR 0036](0036-harness-compatibility-layer.md)
+Accepté le 2026-09-27 (proposé le 2026-09-17) — première étape du mode `caller_mcp`. Suivi par l'[ADR 0036](0036-harness-compatibility-layer.md)
 qui généralise la séparation au niveau harness (Harness Compatibility Layer).
+
+## Date
+
+2026-09-27 (proposé le 2026-09-17).
+
+## Domaine
+
+Runtime, MCP, harness, preuve.
+
+## Décideurs
+
+Mainteneurs GenOS.
+
+## Lié à
+
+- [ADR 0036](0036-harness-compatibility-layer.md).
+- `backend/src/services/cognitiveExecutor.js` — exécuteur explicite `caller_mcp`.
+- `backend/src/services/harnessDrivers/callerMcpDriver.js` — driver MCP du mode.
+- `backend/tests/test_cognitive_executor.js` — preuve (PASS rejoué le 2026-09-27).
 
 ## Contexte
 

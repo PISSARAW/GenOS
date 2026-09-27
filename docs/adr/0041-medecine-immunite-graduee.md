@@ -1,7 +1,7 @@
 ---
 title: Medecine graduee et immunite proportionnee
 date: 2026-09-23
-status: proposed
+status: accepted
 authors: GenOS
 decision-id: 0041
 ---
@@ -10,8 +10,8 @@ decision-id: 0041
 
 ## Statut
 
-- **Statut** : Proposé
-- **Date** : 2026-09-23
+- **Statut** : Accepté
+- **Date** : 2026-09-27 (proposé le 2026-09-23, accepté le 2026-09-27)
 - **Domaine** : Santé agentique, immunité, thérapies, quarantaine, iatrogénie
 - **Décideurs** : GenOS
 - **Lié à** : [0040](0040-morphogenese-git-contrefactuel.md), [0039](0039-systemes-vitaux-agents-6-10.md), [0003](0003-fossilization-stratigraphic-archive.md)
@@ -20,13 +20,8 @@ decision-id: 0041
 
 Le médical existe mais n'est pas encore le médecin permanent de l'organisme :
 
-<<<<<<< HEAD
-- Rust : `crates/genos-cell/src/clinical.rs:129` (`ClinicalState` minimal : pathologies, inflammation, quarantaine, dernier traitement, log), `crates/genos-biology/src/pathology.rs` (5 catégories : auto-immune, nosocomiale, iatrogène, dégénérative, infectieuse), `therapy.rs` (`Therapy`, `SystemicTherapy`, `TherapyOutcome{cured, induced_side_effects}` avec début d'iatrogénie `Corticosteroids>0.8 → SteroidInducedComa`), `clinical_therapy.rs` (table `pathology → thérapie`), `immune_cyber.rs` (autotomie/honeypots, circuit breaker, gossip, régénération) ;
-- JS : `backend/src/services/medical/clinicalStateService.js` (état enrichi : vitals, wellnessScore, plasmidLoad, immuneTiter, pathogenBurden, iatrogenicLoad, cellCycleState), `backend/src/services/medical/immuneSurveillanceService.js` (8 définitions `mutation_drift, plasmid_overload, immune_exhaustion, iatrogenic_toxicity, cell_cycle_malignancy, cognitive_metastasis, inflammatory_cytokine_storm, quarantine_breach` avec `detect/severity/evidence/therapy/minConfidence`), `backend/src/services/medical/clinicalTherapyService.js` (table `THERAPIES` : `maxDosage, baseIatrogenicRisk, efficacyCurve, iatrogenicManifestations`) ;
-=======
-- Rust : `crates/genos-cell/src/clinical.rs:129` (`ClinicalState` minimal : pathologies, inflammation, quarantaine, dernier traitement, log), `crates/genos-biology/src/pathology.rs` (5 catégories : auto-immune, nosocomiale, iatrogène, dégénérative, infectieuse), `therapy.rs` (`Therapy`, `SystemicTherapy`, `TherapyOutcome{cured, induced_side_effects}` avec début d'iatrogénie `Corticosteroids>0.8 → SteroidInducedComa`), `crates/genos-orchestrator/src/clinical_therapy.rs` (table `pathology → thérapie`), `crates/genos-orchestrator/src/immune_cyber.rs` (autotomie/honeypots, circuit breaker, gossip, régénération) ;
-- JS : `backend/src/services/clinicalStateService.js` (miroir `backend/src/services/medical/clinicalStateService.js` : état enrichi : vitals, wellnessScore, plasmidLoad, immuneTiter, pathogenBurden, iatrogenicLoad, cellCycleState), `backend/src/services/immuneSurveillanceService.js` (miroir `backend/src/services/medical/immuneSurveillanceService.js` : 8 définitions `mutation_drift, plasmid_overload, immune_exhaustion, iatrogenic_toxicity, cell_cycle_malignancy, cognitive_metastasis, inflammatory_cytokine_storm, quarantine_breach` avec `detect/severity/evidence/therapy/minConfidence`), `backend/src/services/medical/clinicalTherapyService.js` (table `THERAPIES` : `maxDosage, baseIatrogenicRisk, efficacyCurve, iatrogenicManifestations`) ;
->>>>>>> 00205b1d9 ([DOC] Corrige chemins docs vers code reel (AEIS, search, crates, ADR))
+- Rust : `crates/genos-cell/src/clinical.rs` (`ClinicalState` minimal : pathologies, inflammation, quarantaine, dernier traitement, log), `crates/genos-biology/src/pathology.rs` (5 catégories : auto-immune, nosocomiale, iatrogène, dégénérative, infectieuse), `crates/genos-biology/src/therapy.rs` (`Therapy`, `SystemicTherapy`, `TherapyOutcome{cured, induced_side_effects}` avec début d'iatrogénie `Corticosteroids>0.8 → SteroidInducedComa`), `crates/genos-orchestrator/src/clinical_therapy.rs` (table `pathology → thérapie`), `crates/genos-orchestrator/src/immune_cyber.rs` (autotomie/honeypots, circuit breaker, gossip, régénération) ;
+- JS : `backend/src/services/medical/clinicalStateService.js` (canonique : état enrichi : vitals, wellnessScore, plasmidLoad, immuneTiter, pathogenBurden, iatrogenicLoad, cellCycleState), doublon miroir constaté `backend/src/services/clinicalStateService.js` (à dédupliquer ou sceller comme façade), `backend/src/services/medical/immuneSurveillanceService.js` (8 définitions `mutation_drift, plasmid_overload, immune_exhaustion, iatrogenic_toxicity, cell_cycle_malignancy, cognitive_metastasis, inflammatory_cytokine_storm, quarantine_breach` avec `detect/severity/evidence/therapy/minConfidence`, sans miroir racine), `backend/src/services/medical/clinicalTherapyService.js` (table `THERAPIES` : `maxDosage, baseIatrogenicRisk, efficacyCurve, iatrogenicManifestations`) ;
 - docs : `docs/01-concepts/nosologie/` (auto-immunes, dégénératives, infectieuses, génétiques, cancers, métaboliques, cardiovasculaires, psychiatriques, environnementales) ;
 - ADR 0039 : médecine (réparer) ≠ résilience (continuer malgré la panne).
 
@@ -53,6 +48,7 @@ Négatives :
 - latence diagnostique (quarantaine + biopsy + forks) même sous pression ; prévoir une voie `homeostatic correction` rapide sans fork pour les dysfonctions mineures ;
 - le `ClinicalState` Rust enrichi (santé, intégrité, états immunitaire/métabolique, fardeau mutationnel, santés communication/mémoire/cognitive, historique, risques) reste à implémenter en petites PRs (gate ≤400 lignes, ≤3 params, CC ≤10) ;
 - `therapy_extended.rs` est un stub (`safety_block`, `apply_extended_therapy` vides) : à brancher ou supprimer.
+- Preuve rejouée le 2026-09-27 : code Rust et JS constatés aux chemins ci-dessus ; couverture par tests indirects (`test_immune_*`, `test_quarantine_*`, dont `test_immune_system.js`, `test_quarantine_runtime.js`, `test_quarantine_release.js`) non rejouables dans cet environnement (binding natif `sqlite3` invalide, `ERR_DLOPEN_FAILED`), à rejouer sur environnement sain — aucune défaillance de code constatée.
 
 ## Alternatives
 

@@ -1,7 +1,7 @@
 # ADR 0003 — Fossilisation stratigraphique : archive terminale des lignées
 
-- **Statut** : Proposé
-- **Date** : 2026-09-14
+- **Statut** : Accepté
+- **Date** : 2026-09-27 (proposé le 2026-09-14, accepté le 2026-09-27)
 - **Domaine** : Persistance, mémoire, orchestration, preuve, biomimétique
 - **Décideurs** : Mainteneurs GenOS
 - **Lié à** : [docs/01-concepts/fossilisation.md](../01-concepts/fossilisation.md), [docs/01-concepts/memoire-et-apprentissage.md](../01-concepts/memoire-et-apprentissage.md), [docs/04-exploitation/resilience-et-reprise.md](../04-exploitation/resilience-et-reprise.md), [docs/01-concepts/epistemologie-et-evidence.md](../01-concepts/epistemologie-et-evidence.md), [adr/0002-agentdna-innovation-loop.md](0002-agentdna-innovation-loop.md), [.genos.md](../../.genos.md) (règle 5)
@@ -58,7 +58,7 @@ Règles structurantes :
 
 **Positives** : archive terminale probante et falsifiable (hash), datation par strates, reclassification possible via mélanosomes, séparation nette avec les mécanismes réversibles, réutilisation des primitives de persistance, aucune rupture des flux existants (auto-fossilisation déjà en place).
 
-**Négatives** : nouvelles tables/colonnes (`fossils`, `fossil_strata`), extension du crate `genos-store`, nouvelle surface CLI/REST/MCP à maintenir, risque de dérive « entrepôt de blobs » si le mode moule est mal utilisé.
+**Négatives** : nouvelles tables/colonnes (`fossils`, `fossil_strata`), extension du crate `genos-store`, nouvelle surface CLI/REST/MCP à maintenir, risque de dérive « entrepôt de blobs » si le mode moule est mal utilisé. Preuve rejouée le 2026-09-27 : implémentation et tests constatés (`crates/genos-orchestrator/tests/fossilization.rs`, `backend/tests/test_fossilization_service.js`, `test_fossilization_mcp.js`, `test_orchestrator_fossilization.js`) ; exécution bloquée dans cet environnement (binding natif `sqlite3` invalide, `ERR_DLOPEN_FAILED`), à rejouer sur environnement sain — aucune défaillance de code constatée.
 
 **Risques et garde-fous** : réécriture post-hoc → `payload_hash` vérifié à l'excavation ; surinterprétation d'un échantillon biaisé → `conservation_quality` et `θ` journalisés ; confusion avec la reprise → documentation et tests qui interdisent toute promotion ; secrets/contenu sensible → mode `ExternalMold`/`InternalMold` privilégié ; canonicalisation → ordre ASCII des sections aligné Rust/Node comme `AgentDNA`.
 

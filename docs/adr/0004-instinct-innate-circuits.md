@@ -57,6 +57,8 @@ Règles structurantes :
 
 **Négatives** : nouveau module et nouvelle surface CLI/MCP à maintenir ; risque de multiplication de loci `LOCUS_INSTINCT_*` mal documentés ; nécessité de définir des seuils et des bornes propres à chaque instinct.
 
+**Écart constaté le 2026-09-27 (reste Proposé, pas de bascule sans preuve)** : module Rust présent et conforme aux points 1–4 de la Décision (`crates/genos-biology/src/instinct/` : `mod.rs`, `sign_stimulus.rs`, `innate_releasing.rs`, `paf.rs`, `tests.rs` ; `crates/genos-orchestrator/src/instincts.rs` et son test), mais câblage du point 5 introuvable côté backend — seul `backend/src/services/agents/instinctRuntimeService.js` retrouvé ; feature `instinct` dans `handle_bio_feature`, tool MCP `genos_biomimicry` et télémétrie `INSTINCT_TRIGGER/COMPLETE/INTERRUPT` non retrouvés. Ticket code à ouvrir : brancher CLI + MCP + télémétrie et prouver par test avant acceptation.
+
 **Risques et garde-fous** : déclenchements en boucle → seuil, gain dopaminergique et fréquence bornés + télémétrie ; confusion avec un contournement de sécurité → interdiction stricte d'élargir `tool_policy`, passage obligé par l'arbitre de réalité ; « apprentissage » implicite → la dopamine ne modifie que le gain, jamais la topologie ; dérive de format → l'ajout d'une section `INST` fera l'objet d'un ADR séparé.
 
 ## Suivi

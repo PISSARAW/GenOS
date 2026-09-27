@@ -197,6 +197,32 @@ function parseUsageRow(row) {
   }
 }
 
+function scoreCalibration(train, holdout) {
+  const arms = {};
+  for (const item of train) {
+    const x = featurize(item);
+    const reward = rewardOf({ success: true, costUsd: item.costUsd, latencyMs: item.latencyMs });
+    if (!arms[item.route]) arms[item.route] = newArm();
+    arms[item.route].Ainv = shermanMorrison(arms[item.route].Ainv, x);
+    arms[item.route].b = arms[item.route].b.map((value, i) => value + reward * x[i]);
+    arms[item.route].pulls += 1;
+  }
+  let absolute = 0;
+  let rewards = 0;
+  let evaluated = 0;
+  for (const item of holdout) {
+    const arm = arms[item.route];
+    if (!arm) continue;
+    const predicted = Math.max(0, Math.min(1.5, dot(matVec(arm.Ainv, arm.b), featurize(item))));
+    const actual = rewardOf({ success: true, costUsd: item.costUsd, latencyMs: item.latencyMs });
+    absolute += Math.abs(predicted - actual);
+    rewards += actual;
+    evaluated += 1;
+  }
+  if (!evaluated) return null;
+  return { mae: absolute / evaluated, meanReward: rewards / evaluated, evaluated };
+}
+
 async function evaluateLoggedHoldout(db, options) {
   const settings = options || {};
   if (!db) return { status: 'insufficient_data', reason: 'missing db' };
@@ -209,30 +235,22 @@ async function evaluateLoggedHoldout(db, options) {
     const log = (Array.isArray(rows) ? rows : []).map(parseUsageRow).filter(Boolean).reverse();
     if (log.length < 20) return { status: 'insufficient_data', reason: 'too few logged decisions', n: log.length };
     const cut = Math.floor(log.length * 0.7);
-    const train = log.slice(0, cut);
-    const holdout = log.slice(cut);
-    const arms = {};
-    for (const item of train) {
-      const x = featurize(item);
-      const reward = rewardOf({ success: true, costUsd: item.costUsd, latencyMs: item.latencyMs });
-      if (!arms[item.route]) arms[item.route] = newArm();
-      arms[item.route].Ainv = shermanMorrison(arms[item.route].Ainv, x);
-      arms[item.route].b = arms[item.route].b.map((value, i) => value + reward * x[i]);
-      arms[item.route].pulls += 1;
-    }
-    let absolute = 0;
-    for (const item of holdout) {
-      const arm = arms[item.route];
-      if (!arm) continue;
-      const predicted = Math.max(0, Math.min(1.5, dot(matVec(arm.Ainv, arm.b), featurize(item))));
-      const actual = rewardOf({ success: true, costUsd: item.costUsd, latencyMs: item.latencyMs });
-      absolute += Math.abs(predicted - actual);
-    }
-    const evaluated = holdout.filter((item) => arms[item.route]).length;
-    if (!evaluated) return { status: 'insufficient_data', reason: 'no overlapping arms' };
-    return { status: 'measured', n: log.length, train: train.length, holdout: holdout.length, mae: absolute / evaluated, meanReward: holdout.reduce((t, i) => t + rewardOf({ success: true, costUsd: i.costUsd, latencyMs: i.latencyMs }), 0) / holdout.length };
+    const scored = scoreCalibration(log.slice(0, cut), log.slice(cut));
+    if (!scored) return { status: 'insufficient_data', reason: 'no overlapping arms' };
+    return { status: 'measured', n: log.length, train: cut, holdout: log.length - cut, mae: scored.mae, meanReward: scored.meanReward };
   } catch (_) {
     return { status: 'unavailable' };
+  }
+}
+
+async function canaryAllowed(db) {
+  try {
+    if (!db) return true;
+    const stored = await new AdaptiveStateService(db).restoreObject('canary_experiment', 'current');
+    if (stored?.lastResult?.passed === false) return false;
+    return true;
+  } catch (_) {
+    return true;
   }
 }
 
@@ -248,6 +266,7 @@ async function chooseWithGuardrails(db, candidates, policy) {
     return { choice: list[0], mode: 'policy', ordering: list };
   }
   try {
+    if (!(await canaryAllowed(db))) return { choice: list[0], mode: 'policy', reason: 'gate-closed', ordering: list };
     const context = settings.context && typeof settings.context === 'object' ? settings.context : {};
     const rec = await recommend(db, { ...context, routes: list });
     const top = rec.ordering[0];
@@ -261,4 +280,4 @@ async function chooseWithGuardrails(db, candidates, policy) {
   }
 }
 
-module.exports = { observe, recommend, report, chooseWithGuardrails, evaluateLoggedHoldout, DIM, MAX_ARMS };
+module.exports = { observe, recommend, report, chooseWithGuardrails, evaluateLoggedHoldout, scoreCalibration, parseUsageRow, canaryAllowed, DIM, MAX_ARMS };

@@ -68,6 +68,7 @@ Négatives :
 - surcoût systématique (snapshot + forks + comparaison) même pour les petites transitions ; prévoir un mode `single-world` avec justification `counterfactualRef: null` ;
 - `MemoryRouter/StrategyRouter` et le scoring GPU massif restent partiellement en stubs ; pas d'apprentissage inter-missions des poids dans cet ADR ;
 - aucun QPU réel ni extension `ClinicalState` dans cet ADR (voir ADR suivantes : clinique/immunité, QPU-organe).
+- **Écart constaté le 2026-09-27 (reste Proposé, pas de bascule sans preuve)** : toutes les briques du cycle existent (`backend/src/services/morphogenesis/morphogenesisGitService.js`, `transitionEngineService.js`, `counterfactualComparison.js`, `counterfactualExperiments.js`, `counterfactualInterventions.js`, `counterfactualPlannerService.js`, `backend/src/services/counterfactual/`, `workspaceSnapshotStore.js`, `agentGitService/`) mais le caractère « seul chemin officiel » n'est pas prouvé comme enforcement — aucune preuve qu'une transition hors cycle (sans parent Git, sans fork borné, `discardSiblings` sans gate) est rejetée. Ticket code à ouvrir : test d'enforcement (transition hors cycle rejetée, `counterfactualRef: null` justifié) avant acceptation.
 
 ## Alternatives
 

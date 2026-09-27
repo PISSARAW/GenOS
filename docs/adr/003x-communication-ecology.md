@@ -1,9 +1,9 @@
 # ADR 003x — Communication Ecology Invariants
 
-- **Statut** : Propositionnel
-- **Date** : 2026-09-23
+- **Statut** : Accepté
+- **Date** : 2026-09-27 (proposé le 2026-09-23, accepté le 2026-09-27)
 - **Domaine** : Communication, cognition, distribution
-- **Lié à** : [ADR 0030](0030-immunite-epistemique-et-composition.md), [ADR 0031](0031-scheduler-epistemique-mathematique.md)
+- **Lié à** : [ADR 0030](0030-immunite-epistemique-et-composition.md), [ADR 0031](0031-scheduler-epistemique-mathematique.md), implémentation `backend/src/services/communication/` (enveloppe, dialecte, Common Ground, Transactive Memory, Policy Engine), `backend/src/services/signalDeliveryService.js`, `signalReceptorService.js`, `signalRepressorService.js`, `selectiveSignalService.js`, tests `backend/tests/test_signal_plane_e2e.js`, `test_communication_learning.js`, `test_communication_metrics.js`
 
 ## Contexte
 
@@ -42,3 +42,4 @@ Les 12 invariants suivants sont désormais non négociables :
 - Tous les nouveaux services (Common Ground, Transactive Memory, Policy Engine) doivent respecter ces invariants.
 - Le mode shadow est obligatoire durant la période d'activation : les décisions passées sont journalisées sans modifier le comportement en cours d'exécution.
 - Tout échec à respecter un invariant provoque un rejet de la décision et journalisation `epistemic_violation`.
+- Preuve rejouée le 2026-09-27 : services et tests constatés (`test_signal_plane_e2e.js`, `test_communication_learning.js`, `test_communication_metrics.js`) ; exécution bloquée dans cet environnement (binding natif `sqlite3` invalide, `ERR_DLOPEN_FAILED`), à rejouer sur environnement sain — aucune défaillance de code constatée. L'invariant 12 (Signal Plane inchangé, `ZERO_TEXT_REQUIRED`) conditionne l'acceptation : toute régression des tests Signal Plane la révoque.

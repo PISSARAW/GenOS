@@ -1,7 +1,7 @@
 ---
 title: Noyau de contrôle morphogénétique de l'orchestrateur Rust
 date: 2026-09-24
-status: proposed
+status: accepted
 authors: GenOS
 decision-id: 0045
 ---
@@ -10,8 +10,8 @@ decision-id: 0045
 
 ## Statut
 
-- **Statut** : Proposé
-- **Date** : 2026-09-24
+- **Statut** : Accepté
+- **Date** : 2026-09-27 (proposé le 2026-09-24, accepté le 2026-09-27)
 - **Domaine** : Orchestration, morphogenèse, gouvernance, incarnation, santé collective
 - **Décideurs** : GenOS
 - **Lié à** : [0038](0038-boucle-controle-cognitif-morphogenese.md), [0040](0040-morphogenese-git-contrefactuel.md), [0043](0043-runtime-worker-phenotypes.md), [0044](0044-matrice-autorite-gates-double-runtime.md), [../02-orchestration/noyau-controle-morphogenetique.md](../02-orchestration/noyau-controle-morphogenetique.md)
@@ -62,7 +62,7 @@ Positives :
 - aucun worker bricolé hors du point d'incarnation unique ;
 - aucun changement de topologie sans diagnostic puis gouvernance ;
 - le gate qualité tient : 0 violation sur les nouveaux fichiers,
-  6/6 tests `kernel_control` OK.
+  6/6 tests `kernel_control` OK (revendiqué par l'implémentation ; `cargo` indisponible dans l'environnement de revue du 2026-09-27, à rejouer via `cargo test -p genos-orchestrator`).
 
 Négatives :
 

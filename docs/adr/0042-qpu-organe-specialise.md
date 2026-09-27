@@ -1,7 +1,7 @@
 ---
 title: QPU comme organe specialise et selection quantum-inspired
 date: 2026-09-23
-status: proposed
+status: rejected
 authors: GenOS
 decision-id: 0042
 ---
@@ -10,8 +10,8 @@ decision-id: 0042
 
 ## Statut
 
-- **Statut** : Proposé
-- **Date** : 2026-09-23
+- **Statut** : Rejeté
+- **Date** : 2026-09-27 (proposé le 2026-09-23, rejeté le 2026-09-27 — passage en Accepté interdit en l'état : aucun calcul quantique réel, aucun exécuteur, zéro test dédié)
 - **Domaine** : Substrat de calcul, quantum-inspired, QPU, GPU, VFS
 - **Décideurs** : GenOS
 - **Lié à** : [0040](0040-morphogenese-git-contrefactuel.md), [0041](0041-medecine-immunite-graduee.md)
@@ -38,6 +38,7 @@ Négatives :
 
 - pas de QPU réel dans cet ADR : `qpu` reste un type routable sans exécuteur, toute tentative d'exécution doit échouer explicitement plutôt que simuler silencieusement ;
 - surcoût de revue : chaque usage du mot `quantique` dans docs/code doit passer le filtre (analogie nommée vs backend prouvé).
+- **Scission actée le 2026-09-27** : (a) `quantum-inspired` = cadre conceptuel classique, couvert par les briques de l'[ADR 0040](0040-morphogenese-git-contrefactuel.md) (`CounterfactualVFS`, `compareEffects/promoteWinner`) — aucune prétention quantique ; (b) QPU physique (simulateur ou matériel via Qiskit/Cirq/PennyLane) = non-objectif, **rejeté** jusqu'à backend explicite prouvé par test (routage `computeSubstrateResolver` vers `qpu` sans exécuteur constaté : `backend/src/storage/compute/computeSubstrateResolver.js` ; migrations `migrateComputeSubstrates.js` ; aucun `*qpu*`/`*quantum*`/`*substrate*` dans `backend/tests/`). Rouvrir uniquement par nouvel ADR avec backend + receipt + tests dédiés.
 
 ## Alternatives
 

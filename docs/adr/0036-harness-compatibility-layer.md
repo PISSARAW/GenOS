@@ -1,7 +1,7 @@
 ---
 title: Harness Compatibility Layer — rendre le harness remplaçable
 date: 2026-09-23
-status: proposed
+status: accepted
 authors: GenOS
 decision-id: 0036
 ---
@@ -10,7 +10,7 @@ decision-id: 0036
 
 ## Statut
 
-Proposé.
+Accepté le 2026-09-27 (proposé le 2026-09-23).
 
 ## Date
 
@@ -28,6 +28,10 @@ GenOS.
 
 - ADR 0018 — Exécution cognitive via le client MCP (`0018-execution-cognitive-via-client-mcp.md`).
 - `backend/src/services/cognitiveExecutor.js` — ensemble fermé `caller_mcp, codex, local, solar-direct`.
+- `backend/src/services/harnessRegistry.js` — registre nom → driver + capacités.
+- `backend/src/services/harnessCatalog.js` — catalogue des harnesses.
+- `backend/src/services/harnessDrivers/` (`callerMcpDriver.js`, `localDriver.js`, `codexDriver.js`, `solarDriver.js`).
+- Pas de `test_harness*` dédié : couverture indirecte via `backend/tests/test_cognitive_executor.js` (PASS rejoué le 2026-09-27).
 - `backend/src/services/agentRuntimeExecutable.js` — dispatch `configuredExecutable`.
 - `backend/src/services/agentRuntimeAdapter/missionBootstrap.js` — bootstrap mission.
 - `crates/genos-store/src/snapshot.rs`, `crates/genos-genome/src/fork.rs`, `crates/genos-genome/src/replay.rs` — primitives fork/replay.

@@ -11,7 +11,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | --- | --- | --- | --- | --- |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
-| [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Proposé | 2026-09-14 | Persistance, mémoire, orchestration, preuve |
+| [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
 | [0005](0005-reorganisation-arborescence-documentaire.md) | Réorganisation de l'arborescence documentaire | Accepté | 2026-09-14 | Documentation, provenance, distribution |
 | [0012](0012-volition-autonome-et-preservation.md) | Volition autonome et préservation | Accepté (amendé 2026-09-27) | 2026-09-15 / 2026-09-27 | Orchestration, survie, autonomie |
@@ -21,7 +21,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0016](0016-effets-runtime-philosophiques-controles.md) | Effets runtime philosophiques contrôlés | Accepté | 2026-09-17 | Philosophie, runtime, sûreté |
 | [0017](0017-philosophie-politique-et-gouvernance.md) | Philosophie politique et gouvernance contrôlée | Accepté | 2026-09-17 | Philosophie, gouvernance, preuve, sûreté |
 | [0018](0018-gouvernance-registre-philosophique.md) | Gouvernance du registre philosophique | Accepté | 2026-09-17 | Philosophie, registre, relations, preuve |
-| [0018b](0018-execution-cognitive-via-client-mcp.md) | Exécution cognitive via le client MCP (`caller_mcp`) | Proposé | 2026-09-17 | Runtime, MCP, harness, preuve |
+| [0018b](0018-execution-cognitive-via-client-mcp.md) | Exécution cognitive via le client MCP (`caller_mcp`) | Accepté | 2026-09-27 | Runtime, MCP, harness, preuve |
 | [0019](0019-socle-epistemique-du-savoir.md) | Socle épistémique du savoir | Accepté | 2026-09-17 | Philosophie, épistémologie, preuves, inférence |
 | [0020a](0020-moteurs-logiques-bornes-et-semantique.md) | Moteurs logiques bornés et sémantiques explicites | Accepté | 2026-09-17 | Philosophie, inférence, épistémologie |
 | [0020b](0020-persistance-analyses-philosophiques.md) | Persistance explicite des analyses philosophiques | Accepté | 2026-09-17 | Philosophie, analyses, provenance, persistance |
@@ -41,24 +41,23 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0032](0032-natural-search-control-plane.md) | Natural Search Control Plane | Accepté | 2026-09-21 | Recherche naturelle, contrôle, ledger, pression |
 | [0033](0033-cognitive-key-system.md) | Cognitive Key System | Accepté | 2026-09-22 | Cognition, philosophie, orchestration, phénotype |
 | [0034](0034-resident-daemon-ecology.md) | Écologie de daemons résidents : territoire, evidence, stigmergie, handoff | Accepté | 2026-09-23 | Daemons, territoires, evidence, stigmergie, handoff |
-| [0035](0035-model-uplift-benchmark.md) | GMUB / GCAB — Model Uplift longitudinal et ablations | Proposé | 2026-09-23 | Évaluation, preuve, ladder, ablations |
-| [0036](0036-harness-compatibility-layer.md) | Harness Compatibility Layer — rendre le harness remplaçable | Proposé | 2026-09-23 | Orchestration, runtime, exécution, preuve |
+| [0035](0035-model-uplift-benchmark.md) | GMUB / GCAB — Model Uplift longitudinal et ablations | Accepté | 2026-09-23 | Évaluation, preuve, ladder, ablations |
+| [0036](0036-harness-compatibility-layer.md) | Harness Compatibility Layer — rendre le harness remplaçable | Accepté | 2026-09-27 | Orchestration, runtime, exécution, preuve |
 | [0037](0037-ecosysteme-agentique-11-15.md) | Écosystème agentique 11-15 : environnement, substrat, physiologie, gouvernance, interoception | Accepté | 2026-09-23 | Environnement, cognition, collectif, gouvernance, santé |
-| [003x](003x-communication-ecology.md) | Communication Ecology Invariants (verbal = ressource rare, Signal Plane zero-text) | Propositionnel | 2026-09-23 | Communication, cognition, distribution |
+| [003x](003x-communication-ecology.md) | Communication Ecology Invariants (verbal = ressource rare, Signal Plane zero-text) | Accepté | 2026-09-27 | Communication, cognition, distribution |
 | [0039](0039-systemes-vitaux-agents-6-10.md) | Systèmes vitaux des agents 6-10 : sensorium, métabolisme, résilience, développement, symbiontes | Accepté | 2026-09-23 | Perception, métabolisme, résilience, développement, procédures |
 
 | [0038](0038-boucle-controle-cognitif-morphogenese.md) | Boucle de controle cognitif de la morphogenese | Accepte | 2026-09-23 | Orchestration, epistemologie, memoire, cognition, strategie, regulation |
 | [0040](0040-morphogenese-git-contrefactuel.md) | Morphogenèse versionnée Git et contrefactuelle | Proposé | 2026-09-23 | Orchestration, morphogenèse, Git agentique, contrefactuel, substrat |
-| [0041](0041-medecine-immunite-graduee.md) | Médecine graduée et immunité proportionnée | Proposé | 2026-09-23 | Santé agentique, immunité, thérapies, quarantaine, iatrogénie |
-| [0042](0042-qpu-organe-specialise.md) | QPU comme organe spécialisé et sélection quantum-inspired | Proposé | 2026-09-23 | Substrat de calcul, quantum-inspired, QPU, GPU, VFS |
+| [0041](0041-medecine-immunite-graduee.md) | Médecine graduée et immunité proportionnée | Accepté | 2026-09-27 | Santé agentique, immunité, thérapies, quarantaine, iatrogénie |
+| [0042](0042-qpu-organe-specialise.md) | QPU comme organe spécialisé et sélection quantum-inspired | Rejeté | 2026-09-27 | Substrat de calcul, quantum-inspired, QPU, GPU, VFS |
 | [0043](0043-runtime-worker-phenotypes.md) | Runtime worker commun et phenotypes composables | Accepté | 2026-09-24 | Workers, phenotypes, autorité, cycle de vie |
-| [0044](0044-matrice-autorite-gates-double-runtime.md) | Matrice d'autorité unifiée, gates de provenance et d'observabilité, double runtime | Proposé | 2026-09-24 | Autorité, gouvernance, provenance, observabilité, runtime |
-| [0045](0045-noyau-controle-morphogenetique.md) | Noyau de contrôle morphogénétique de l'orchestrateur Rust | Proposé | 2026-09-24 | Orchestration, morphogenèse, gouvernance, incarnation, santé |
+| [0044](0044-matrice-autorite-gates-double-runtime.md) | Matrice d'autorité unifiée, gates de provenance et d'observabilité, double runtime | Accepté | 2026-09-27 | Autorité, gouvernance, provenance, observabilité, runtime |
+| [0045](0045-noyau-controle-morphogenetique.md) | Noyau de contrôle morphogénétique de l'orchestrateur Rust | Accepté | 2026-09-27 | Orchestration, morphogenèse, gouvernance, incarnation, santé |
 | [0046](0046-routage-minimal-memoire-resultats.md) | Routage minimal suffisant et mémoire des meilleurs résultats | Accepté | 2026-09-24 | Orchestration, routage, mémoire, preuve, persistance |
 | [0047](0047-sessions-persistantes-metapopulation.md) | Sessions persistantes de Métapopulation | Accepté | 2026-09-24 | Orchestration, Métapopulation, persistance, lignées, provenance |
-| [0051](0051-morphology-graph-and-topology-contracts.md) | Graphe morphologique et contrats typés de topologie | Proposé | 2026-09-24 | Orchestration, morphogenèse, topologies, preuves, budget |
+| [0051](0051-morphology-graph-and-topology-contracts.md) | Graphe morphologique et contrats typés de topologie | Accepté | 2026-09-27 | Orchestration, morphogenèse, topologies, preuves, budget |
 | [0052](0052-contrat-symbiotique-holobionte.md) | Contrat symbiotique Holobionte | Accepté | 2026-09-24 | Holobionte, autorité, capacités, confidentialité, persistance |
-| [0086](0086-branche-rhizome-morphogenese.md) | Branche Rhizome dans la Morphogenèse | Proposé | 2026-09-24 | Morphogenèse, Rhizome, exploration, preuves, budgets |
 | [0088](0088-conditions-arret-holobionte.md) | Conditions d'arrêt du Holobionte | Accepté | 2026-09-24 | Holobionte, cycle de vie, missions, gouvernance |
 | [0053](0053-admission-sandbox-symbiontes-holobionte.md) | Admission sandbox des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, admission, sandbox, permissions, preuves |
 | [0054](0054-classement-partenaires-holobionte.md) | Classement des partenaires Holobionte | Accepté | 2026-09-24 | Holobionte, sélection, capacités, risques, dépendance |
@@ -79,12 +78,13 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0089](0089-gates-decision-biocenose.md) | Gates de promotion au jugement Biocénose | Accepté | 2026-09-24 | Biocénose, épistémologie, gouvernance, audit |
 | [0090](0090-variants-executables-biocenose.md) | Variants exécutables de Biocénose | Accepté | 2026-09-24 | Biocénose, protocoles, décisions |
 | [0093](0093-controleur-regional-autonome-metapopulation.md) | Contrôleur régional autonome de Métapopulation | Accepté | 2026-09-24 | Métapopulation, runtime, observabilité, Morphogenèse |
+| [0095](0095-admission-croissance-rhizome-runtime.md) | Admission de croissance dans le runtime Rhizome | Accepté | 2026-09-27 | Rhizome, croissance, providers, vérification, persistance |
 | [0097](0097-calibration-immunitaire-holobionte.md) | Calibration immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, épistémologie |
 | [0098](0098-detection-surreaction-immunitaire-holobionte.md) | Détection de sur-réaction immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, gouvernance |
 | [0099](0099-impact-keystone-holobionte.md) | Impact des symbiontes keystone | Accepté | 2026-09-25 | Holobionte, résilience, mesure de contribution |
 | [0100](0100-controle-ecologique-biocenose.md) | Contrôle écologique de Biocénose | Accepté | 2026-09-25 | Biocénose, runtime, observabilité, Morphogenèse |
 | [0102](0102-boucle-migration-regionale-verifiee.md) | Boucle de migration régionale vérifiée | Accepté | 2026-09-25 | Métapopulation, migration, corridors, runtime |
-| [0086](0086-branche-rhizome-morphogenese.md) | Branche Rhizome dans la Morphogenèse | Proposé | 2026-09-24 | Morphogenèse, Rhizome, exploration, preuves, budgets |
+| [0086](0086-branche-rhizome-morphogenese.md) | Branche Rhizome dans la Morphogenèse | Accepté | 2026-09-27 | Morphogenèse, Rhizome, exploration, preuves, budgets |
 | [0087](0087-branche-trinity-morphogenese.md) | Branche Trinity dans la Morphogenèse | Accepté | 2026-09-24 | Morphogenèse, Trinity, comparaison, preuves, budgets |
 
 | [0103](0103-vecteur-fitness-holobionte.md) | Vecteur de fitness Holobionte | Accepté | 2026-09-25 | Holobionte, fitness, observabilité |
@@ -102,6 +102,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0121](0121-contrat-mission-comparative-et-frontieres.md) | Contrat de mission comparative et frontières de responsabilité | Accepté | 2026-09-25 | Contrats, orchestration, Métapopulation, évaluation |
 | [0122](0122-evaluation-comparative-intertopologies-et-recolonisation.md) | Évaluation comparative inter-topologies et preuve de recolonisation | Accepté | 2026-09-25 | Topologies, évaluateurs, Métapopulation, lignées |
 | [0123](0123-separer-profil-worker-et-contrat-de-methode.md) | Séparer le profil worker du contrat de méthode | Accepté | 2026-09-25 | Sélection des workers, contrats de mission, topologies |
+| [0124](0124-selection-automatique-des-variants.md) | Sélection automatique et exécution des variants de topologie | Proposé | 2026-09-25 | Morphogenèse, orchestration, topologies |
 | [0125](0125-profils-morphologiques-composables.md) | Profils morphologiques composables | Accepté | 2026-09-25 | Morphogenèse, catalogue de variants, graphes d'exécution |
 | [0126](0126-dsl-de-plan-experimental-trinity.md) | DSL de plan expérimental Trinity | Accepté | 2026-09-25 | Trinity, plans expérimentaux, preuves et orchestration |
 | [0126](0126-lier-les-politiques-de-metapopulation-au-runtime-regional.md) | Lier les politiques de métapopulation au runtime régional | Accepté | 2026-09-25 | Orchestration, métapopulation |

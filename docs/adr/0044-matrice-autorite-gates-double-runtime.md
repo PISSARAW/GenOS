@@ -1,7 +1,7 @@
 ---
 title: Matrice d'autorité unifiée, gates de provenance et d'observabilité, double runtime
 date: 2026-09-24
-status: proposed
+status: accepted
 authors: GenOS
 decision-id: 0044
 ---
@@ -10,8 +10,8 @@ decision-id: 0044
 
 ## Statut
 
-- **Statut** : Proposé
-- **Date** : 2026-09-24
+- **Statut** : Accepté
+- **Date** : 2026-09-27 (proposé le 2026-09-24, accepté le 2026-09-27)
 - **Domaine** : Autorité, gouvernance, provenance, observabilité, runtime
 - **Décideurs** : GenOS
 - **Lié à** : [0040](0040-morphogenese-git-contrefactuel.md), [0042](0042-qpu-organe-specialise.md), [0043](0043-runtime-worker-phenotypes.md)
@@ -105,6 +105,7 @@ Positives :
 - aucun changement à fort impact ne passe sans provenance ou revue humaine ;
 - la télémétrie manquante augmente l'incertitude au lieu d'être silencieuse ;
 - la documentation reflète deux runtimes réels au lieu d'une boucle fictive.
+- Preuve rejouée le 2026-09-27 : `backend/tests/test_adr_0044_gates.js` PASS ; code constaté (`authorityMatrixService.js`, `highImpactProvenanceGateService.js`, `crates/genos-orchestrator/src/tick.rs`, `kernel_cycle.rs`).
 
 Négatives :
 
