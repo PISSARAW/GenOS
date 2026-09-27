@@ -2,7 +2,7 @@
 
 L'inventaire couvre chaque fichier JavaScript de `backend/src/services`. Exécuter
 `node scripts/ci/audit_service_reachability.js --json` pour obtenir une ligne
-par service avec son chemin et `staticReachable`. La commande sans `--json`
+par service avec son chemin, `staticReachable` et `literalInbound`. La commande sans `--json`
 résume les résultats et affiche les premiers services à examiner.
 
 Au 27 septembre 2026, la première passe trouve **1 803 services**, dont **1 309**
@@ -10,6 +10,14 @@ atteignables par des imports relatifs littéraux depuis `backend/server.js`,
 `mcp/index.js` ou les programmes de `backend/bin`. **494** nécessitent une
 revue supplémentaire. Le chiffre change avec les fichiers du dépôt; la commande
 est la source de vérité pour le checkout courant.
+
+`literalInbound` compte les fichiers de production qui importent directement le
+service par un chemin relatif littéral, même quand ces fichiers ne sont pas
+eux-mêmes atteignables depuis une entrée. La valeur zéro isole les candidats
+sans import littéral à examiner en priorité ; elle ne prouve pas une absence
+d'utilisation dynamique. La commande fournit aussi `withoutLiteralInbound` dans
+son résumé JSON. Cette mesure rend explicite le stock de services orphelins
+potentiels sans les connecter artificiellement pour satisfaire un compteur.
 
 `staticReachable` signifie seulement qu'une chaîne d'imports existe. Elle ne
 prouve ni sélection pendant une mission, ni effet sur une décision, ni action,

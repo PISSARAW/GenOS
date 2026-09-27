@@ -42,6 +42,22 @@ function entryPoints() {
     ...sourceFiles(path.join(root, 'backend/bin'))].filter(fs.existsSync);
 }
 
+function productionFiles() {
+  return [path.join(root, 'backend/server.js'), path.join(root, 'mcp/index.js'),
+    ...sourceFiles(path.join(root, 'backend/src')),
+    ...sourceFiles(path.join(root, 'backend/bin'))].filter(fs.existsSync);
+}
+
+function literalInboundCounts(files) {
+  const counts = new Map();
+  for (const file of files) {
+    for (const imported of new Set(literalImports(file))) {
+      counts.set(imported, (counts.get(imported) || 0) + 1);
+    }
+  }
+  return counts;
+}
+
 function reachableFrom(roots) {
   const visited = new Set();
   const queue = [...roots];
@@ -62,12 +78,15 @@ function audit() {
   const files = sourceFiles(servicesRoot).sort();
   const roots = entryPoints();
   const reachable = reachableFrom(roots);
+  const inbound = literalInboundCounts(productionFiles());
   const rows = files.map((file) => ({ service: relative(file),
-    staticReachable: reachable.has(file) }));
+    staticReachable: reachable.has(file), literalInbound: inbound.get(file) || 0 }));
   const connected = rows.filter((row) => row.staticReachable).length;
+  const withoutInbound = rows.filter((row) => row.literalInbound === 0).length;
   return { method: 'literal-relative-imports', caveat: 'Dynamic imports, registration and runtime effects require separate review.',
     entryPoints: roots.map(relative), total: rows.length, staticReachable: connected,
-    notStaticallyReachable: rows.length - connected, services: rows };
+    notStaticallyReachable: rows.length - connected, withoutLiteralInbound: withoutInbound,
+    services: rows };
 }
 
 if (require.main === module) {
@@ -75,7 +94,8 @@ if (require.main === module) {
   if (process.argv.includes('--json')) process.stdout.write(JSON.stringify(result, null, 2) + '\n');
   else {
     process.stdout.write(`${result.total} services; ${result.staticReachable} reachable by literal imports; `
-      + `${result.notStaticallyReachable} require dynamic-path or causal review.\n`);
+      + `${result.notStaticallyReachable} require dynamic-path or causal review; `
+      + `${result.withoutLiteralInbound} have no literal inbound import.\n`);
     for (const row of result.services.filter((item) => !item.staticReachable).slice(0, 40)) {
       process.stdout.write(`${row.service}\n`);
     }
