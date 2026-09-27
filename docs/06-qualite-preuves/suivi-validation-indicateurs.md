@@ -63,3 +63,11 @@ Reprise :
 4. Poursuivre le **lot 02 : contrats versionnés et reçus**, puis raccorder leur stockage au lot 03. Le registre ne doit accepter aucun futur `passed` à partir de la seule présence d'un nom de service.
 
 Sur cette machine, Python est disponible à `C:\Users\Shadow\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe` mais n'était pas dans le PATH initial. Le hook de commit exige Python et un bloc `Receipt:` listant exactement les fichiers indexés pour `[FEAT]`/`[FIX]`.
+
+## Lot 02 — contrats versionnés et reçus
+
+Le service [`versionedContractService.js`](../../backend/src/services/versionedContractService.js) fournit une enveloppe commune `genos.<Type>.receipt/v1` pour `MorphogeneticCandidate`, `WorldTransition`, `VerifiedRendering` et `CausalInterventionReceipt`. Il impose les champs requis, refuse les champs inconnus, vérifie les références, les listes, les statuts, les timestamps ISO et l'égalité `replicates = seeds.length`. L'identifiant par défaut est déterministe sur le type et le payload ; `runId`, `sourceRefs` et `issuedAt` sont portés par l'enveloppe.
+
+`readReceipt()` revalide l'enveloppe et son payload. Un reçu invalide ou dont le schéma ne correspond pas au type est rejeté ; aucune fonction de ce lot ne promeut ou ne persiste une décision. La compatibilité future devra ajouter une migration explicite par version, sans accepter silencieusement un schéma inconnu.
+
+Test : `node backend/tests/test_versioned_contract_service.js` passe avec quatre contrats valides, champs inconnus, schémas incohérents, profil inconnu et réplication invalide. Le contrôle qualité ciblé sur les deux fichiers JavaScript ne signale aucune violation. Le lot 02 est livré au niveau contrat pur ; le branchement des reçus dans SQLite et les projections d'événements reste le lot 03.
