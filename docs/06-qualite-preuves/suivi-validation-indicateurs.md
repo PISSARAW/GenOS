@@ -129,3 +129,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 16 — objectifs concurrents et allostase
 
 `allostaticObjectiveService` compare des politiques multi-objectifs sous pression, conserve les invariants violés et met à jour l’allostase sur l’erreur observée. Test : `node backend/tests/test_allostatic_objectives.js`.
+
+## Lot 17 — population et contexte morphogénétique
+
+`morphogeneticPopulationService` génère une population candidate bornée depuis des signaux, avec opérateur et provenance reliés au parent. Test : `node backend/tests/test_morphogenetic_population.js`.
