@@ -105,3 +105,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 10 — substrat perceptif inspectable
 
 `perceptiveBindingService` conserve objets, traits et relations sous occlusion, applique une mise à jour récurrente et fournit une permutation de binding pour le contrôle causal. Test : `node backend/tests/test_perceptive_binding.js`.
+
+## Lot 11 — hiérarchie générative et espace perceptif
+
+`generativePerceptualService` rend inspectables le prior, l’observation, la précision, l’estimation et l’erreur ascendante, puis mesure les interpolations et dimensions de l’espace perceptif. Test : `node backend/tests/test_generative_perceptual.js`.
