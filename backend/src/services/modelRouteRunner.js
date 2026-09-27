@@ -201,6 +201,10 @@ async function observeRoutingBandit(ctx, outcome, result, costUsd) {
       isWorker: ctx.executionMode === 'worker',
       local: isLocalUri(outcome.uri)
     });
+    await require('./worldModelService').recordSample(ctx.db, 'routing', {
+      action: outcome.uri,
+      delta: { success: result.success !== false, costUsd, latencyMs: Date.now() - outcome.startedAt }
+    });
   } catch (_) {}
 }
 

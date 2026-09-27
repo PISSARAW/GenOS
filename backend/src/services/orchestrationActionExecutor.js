@@ -194,10 +194,11 @@ async function observeOutcome(context, result, detail) {
       success: result.success === true,
       detail
     });
-    await worldModel.recordSample(null, context.orchestratorId, {
-      action: context.decision.tool || context.decision.action,
-      delta: { success: result.success === true, costUsd: result.costUsd, latencyMs: result.latencyMs }
-    });
+    const delta = { success: result.success === true, costUsd: result.costUsd, latencyMs: result.latencyMs };
+    const keys = [...new Set([context.decision.tool, context.decision.action, result.servedModel || result.model].filter((key) => typeof key === 'string' && !!key))];
+    for (const key of keys) {
+      await worldModel.recordSample(null, context.orchestratorId, { action: key, delta });
+    }
     return observed;
   } catch (_) {
     return { matched: false, surprise: 0 };

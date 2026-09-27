@@ -146,7 +146,7 @@ async function observeTransition(db, agentId, observation) {
 
 const TRAJECTORY_STEPS_MAX = 5;
 const UNCERTAINTY_GROWTH = 0.15;
-const SAMPLE_LIMIT = 50;
+const SAMPLE_LIMIT = 150;
 const ROLLOUT_NODES_MAX = 13;
 
 const STATE_KEYS = ['filesChanged', 'testsPassed', 'testsFailed', 'costUsd', 'latencyMs', 'agentsActive', 'evidenceCount'];
@@ -206,10 +206,12 @@ async function predictState(db, agentId, input) {
       .map(([key, count]) => ({ delta: JSON.parse(key), p: count / samples.length }))
       .sort((a, b) => b.p - a.p)
       .slice(0, 3);
+    const withSuccess = samples.filter((entry) => typeof entry.delta.success === 'boolean');
     return {
       action: data.action,
       distribution,
       uncertainty: 1 - distribution[0].p,
+      successRate: withSuccess.length ? withSuccess.filter((entry) => entry.delta.success).length / withSuccess.length : null,
       n: samples.length
     };
   } catch (_) {

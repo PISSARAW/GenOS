@@ -17,7 +17,7 @@
 const { AdaptiveStateService } = require('./adaptiveStateService');
 
 const SCOPE = 'routing_bandit';
-const DIM = 6;
+const DIM = 7;
 const MAX_ARMS = 16;
 const ALPHA = 1.0;
 
@@ -42,13 +42,15 @@ function matVec(matrix, vector) {
 function featurize(input) {
   const data = input || {};
   const promptTokens = Math.max(0, Number(data.promptTokens) || 0);
+  const reliability = Number(data.predictedReliability);
   return [
     1,
     Math.min(1, promptTokens / 8000),
     data.isWorker === true ? 1 : 0,
     Math.min(1, Number(data.costUsd) || 0),
     Math.min(1, (Number(data.latencyMs) || 0) / 60000),
-    data.local === true ? 1 : 0
+    data.local === true ? 1 : 0,
+    Number.isFinite(reliability) ? Math.max(0, Math.min(1, reliability)) : 0.5
   ];
 }
 
@@ -85,18 +87,36 @@ function armScore(arm, x) {
   return dot(theta, x) + ALPHA * Math.sqrt(Math.max(0, dot(x, Aix)));
 }
 
+async function loadArms(store) {
+  const stored = (await store.restoreObject(SCOPE, 'linucb')) || {};
+  const arms = stored.arms && typeof stored.arms === 'object' ? stored.arms : {};
+  const probe = arms[Object.keys(arms)[0]];
+  if (probe && (!Array.isArray(probe.b) || probe.b.length !== DIM)) return {};
+  return arms;
+}
+
+async function routeReliability(db, uri) {
+  try {
+    const worldModel = require('./worldModelService');
+    const predicted = await worldModel.predictState(db, 'routing', { action: uri });
+    if (!predicted || !predicted.distribution.length || predicted.successRate === null) return 0.5;
+    return Math.max(0, Math.min(1, predicted.successRate));
+  } catch (_) {
+    return 0.5;
+  }
+}
+
 async function observe(db, input) {
   try {
     const data = input || {};
     if (!db || typeof data.routeUri !== 'string' || !data.routeUri) return null;
     const store = new AdaptiveStateService(db);
-    const stored = (await store.restoreObject(SCOPE, 'linucb')) || {};
-    const arms = stored.arms && typeof stored.arms === 'object' ? stored.arms : {};
+    const arms = await loadArms(store);
     if (!arms[data.routeUri]) arms[data.routeUri] = newArm();
     evictIfNeeded(arms);
     const arm = arms[data.routeUri];
     if (!arm) return null;
-    const x = featurize(data);
+    const x = featurize({ ...data, predictedReliability: await routeReliability(db, data.routeUri) });
     const reward = rewardOf(data);
     arm.Ainv = shermanMorrison(arm.Ainv, x);
     arm.b = arm.b.map((value, i) => value + reward * x[i]);
@@ -115,13 +135,14 @@ async function recommend(db, input) {
   if (!db || !routes.length) return { ordering: [], explored: false };
   try {
     const store = new AdaptiveStateService(db);
-    const stored = (await store.restoreObject(SCOPE, 'linucb')) || {};
-    const arms = stored.arms && typeof stored.arms === 'object' ? stored.arms : {};
+    const arms = await loadArms(store);
     const x = featurize(data);
-    const scored = routes.map((uri) => {
+    const scored = [];
+    for (const uri of routes) {
       const arm = arms[uri] || newArm();
-      return { uri, score: armScore(arm, x), pulls: arm.pulls || 0 };
-    });
+      const features = [...x.slice(0, 6), await routeReliability(db, uri)];
+      scored.push({ uri, score: armScore(arm, features), pulls: arm.pulls || 0 });
+    }
     scored.sort((a, b) => b.score - a.score);
     return { ordering: scored, explored: scored.some((entry) => entry.pulls === 0) };
   } catch (_) {
@@ -158,6 +179,63 @@ function clampRate(value, fallback) {
   return Math.max(0, Math.min(1, number));
 }
 
+function parseUsageRow(row) {
+  try {
+    const meta = JSON.parse(row.metadata_json || '{}');
+    const model = meta.model || meta.requestedModel || meta.servedModel;
+    if (typeof model !== 'string' || !model) return null;
+    return {
+      id: `ledger:${row.id}`,
+      route: model,
+      success: true,
+      costUsd: Number(meta.costUsd) || 0,
+      latencyMs: Number(meta.latencyMs) || 0,
+      promptTokens: Number(meta.promptTokens) || 0
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+async function evaluateLoggedHoldout(db, options) {
+  const settings = options || {};
+  if (!db) return { status: 'insufficient_data', reason: 'missing db' };
+  try {
+    const limit = Math.max(20, Math.min(500, Math.floor(Number(settings.limit) || 200)));
+    const rows = await db.all(
+      `SELECT id, metadata_json, cost_usd FROM usage_ledger ORDER BY rowid DESC LIMIT ?`,
+      limit
+    );
+    const log = (Array.isArray(rows) ? rows : []).map(parseUsageRow).filter(Boolean).reverse();
+    if (log.length < 20) return { status: 'insufficient_data', reason: 'too few logged decisions', n: log.length };
+    const cut = Math.floor(log.length * 0.7);
+    const train = log.slice(0, cut);
+    const holdout = log.slice(cut);
+    const arms = {};
+    for (const item of train) {
+      const x = featurize(item);
+      const reward = rewardOf({ success: true, costUsd: item.costUsd, latencyMs: item.latencyMs });
+      if (!arms[item.route]) arms[item.route] = newArm();
+      arms[item.route].Ainv = shermanMorrison(arms[item.route].Ainv, x);
+      arms[item.route].b = arms[item.route].b.map((value, i) => value + reward * x[i]);
+      arms[item.route].pulls += 1;
+    }
+    let absolute = 0;
+    for (const item of holdout) {
+      const arm = arms[item.route];
+      if (!arm) continue;
+      const predicted = Math.max(0, Math.min(1.5, dot(matVec(arm.Ainv, arm.b), featurize(item))));
+      const actual = rewardOf({ success: true, costUsd: item.costUsd, latencyMs: item.latencyMs });
+      absolute += Math.abs(predicted - actual);
+    }
+    const evaluated = holdout.filter((item) => arms[item.route]).length;
+    if (!evaluated) return { status: 'insufficient_data', reason: 'no overlapping arms' };
+    return { status: 'measured', n: log.length, train: train.length, holdout: holdout.length, mae: absolute / evaluated, meanReward: holdout.reduce((t, i) => t + rewardOf({ success: true, costUsd: i.costUsd, latencyMs: i.latencyMs }), 0) / holdout.length };
+  } catch (_) {
+    return { status: 'unavailable' };
+  }
+}
+
 async function chooseWithGuardrails(db, candidates, policy) {
   const list = Array.isArray(candidates) ? candidates.filter((uri) => typeof uri === 'string') : [];
   const settings = policy || {};
@@ -183,4 +261,4 @@ async function chooseWithGuardrails(db, candidates, policy) {
   }
 }
 
-module.exports = { observe, recommend, report, chooseWithGuardrails, DIM, MAX_ARMS };
+module.exports = { observe, recommend, report, chooseWithGuardrails, evaluateLoggedHoldout, DIM, MAX_ARMS };

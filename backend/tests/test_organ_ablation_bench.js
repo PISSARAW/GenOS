@@ -220,6 +220,55 @@ async function testHoldoutProtocol() {
   console.log(`ok - holdout protocole gele (manifest ${manifest.slice(0, 12)}, top-1 ${rate})`);
 }
 
+async function testWorldToRouting() {
+  const bandit = HERE('routingBanditService');
+  const world = HERE('worldModelService');
+  const db = stubDb();
+  for (let i = 0; i < 6; i++) {
+    await world.recordSample(db, 'routing', { action: 'good://m', delta: { success: true, costUsd: 0.01, latencyMs: 500 } });
+    await world.recordSample(db, 'routing', { action: 'bad://m', delta: { success: false, costUsd: 0.5, latencyMs: 20000 } });
+  }
+  const rec = await bandit.recommend(db, { routes: ['bad://m', 'good://m'] });
+  assert.strictEqual(rec.ordering[0].uri, 'good://m', 'monde non consomme: ' + JSON.stringify(rec.ordering));
+  console.log('ok - monde -> routage (froid mais informe)');
+}
+
+async function testLoggedHoldout() {
+  const bandit = HERE('routingBanditService');
+  const rows = [];
+  for (let i = 0; i < 30; i++) {
+    const good = i % 2 === 0;
+    rows.push({
+      id: `u${i}`,
+      metadata_json: JSON.stringify(good
+        ? { model: 'good://m', costUsd: 0.01, latencyMs: 500 }
+        : { model: 'bad://m', costUsd: 0.8, latencyMs: 20000 })
+    });
+  }
+  const db = stubDb();
+  db.all = async (sql) => (sql.includes('FROM usage_ledger') ? rows : []);
+  const rep = await bandit.evaluateLoggedHoldout(db, {});
+  assert.strictEqual(rep.status, 'measured', JSON.stringify(rep));
+  assert.ok(Number.isFinite(rep.mae) && rep.mae >= 0 && rep.mae <= 1.5, 'mae=' + rep.mae);
+  assert.strictEqual(rep.n, 30);
+  assert.deepStrictEqual((await bandit.evaluateLoggedHoldout(stubDb(), {})).status, 'insufficient_data');
+  console.log(`ok - holdout logge (n=${rep.n}, mae=${rep.mae.toFixed(3)})`);
+}
+
+async function testUncitedFactual() {
+  const compiler = HERE('reportCompilerService');
+  const graph = { nodes: [{ id: 'claim_1', kind: 'claim' }] };
+  const clean = compiler.verifyRendering(graph, [{ text: 'Voir [claim:claim_1] svp.' }]);
+  assert.deepStrictEqual(clean.uncitedFactual, []);
+  assert.strictEqual(clean.ok, true);
+  const dirty = compiler.verifyRendering(graph, [{ text: 'Le test passe avec 42 cas verifies.' }]);
+  assert.strictEqual(dirty.uncitedFactual.length, 1);
+  assert.strictEqual(dirty.ok, false);
+  const hedged = compiler.verifyRendering(graph, [{ text: 'Peut-etre que cela pourrait marcher.' }]);
+  assert.deepStrictEqual(hedged.uncitedFactual, []);
+  console.log('ok - factual non cite detecte, hedge epargne');
+}
+
 async function testWorkerTagGate() {
   const compiler = HERE('reportCompilerService');
   assert.deepStrictEqual(compiler.resolveWorkerTags({ claims: [{ statement: 'vu [worker:w1]' }] }, ['w1', 'w2']), []);
@@ -238,6 +287,9 @@ async function run() {
   await testLearningChangesBehavior();
   await testAblationHurts();
   await testHoldoutProtocol();
+  await testWorldToRouting();
+  await testLoggedHoldout();
+  await testUncitedFactual();
   await testWorkerTagGate();
   testNoConsciousnessClaims();
   console.log('BANC ADVERSARIALE VERT');

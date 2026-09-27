@@ -124,13 +124,14 @@ function compileReport(graph) {
   const claims = nodes.filter((node) => node.kind === 'claim').map((node) => {
     const norm = normalizeStatement(node.proposition);
     byNorm[norm] = byNorm[norm] || [];
+    const sourced = Array.isArray(node.sources) && node.sources.length > 0;
     const claim = {
       id: node.id,
       proposition: node.proposition,
       outcome: node.outcome || 'unknown',
       sources: node.sources || [],
       causedBy: causedByOf[node.id] || [],
-      confidence: (node.evidence || 0) > 0 ? 'supported' : 'unverified',
+      confidence: (node.evidence || 0) > 0 && sourced ? 'supported' : 'unverified',
       contradictedBy: []
     };
     byNorm[norm].push(claim);
@@ -145,6 +146,14 @@ function compileReport(graph) {
     }
   }
   return { claims, warnings: claims.filter((claim) => claim.confidence !== 'supported').map((claim) => claim.id) };
+}
+
+const HEDGE_WORDS = ['maybe', 'possibly', 'might', 'could', 'uncertain', 'unknown', 'perhaps', 'suggests', 'appears', 'peut-etre', 'incertain'];
+
+function looksFactual(text) {
+  const lower = String(text || '').toLowerCase();
+  if (HEDGE_WORDS.some((hedge) => lower.includes(hedge))) return false;
+  return /\d/.test(lower) || lower.length > 80;
 }
 
 function verifyRendering(graph, sentences) {
@@ -164,7 +173,14 @@ function verifyRendering(graph, sentences) {
     }
   }
   const uncovered = (graph.nodes || []).filter((node) => node.kind === 'claim' && !cited.has(node.id)).map((node) => node.id);
-  return { unresolved, uncovered, ok: unresolved.length === 0 };
+  const uncitedFactual = [];
+  for (const sentence of Array.isArray(sentences) ? sentences : []) {
+    const text = String(sentence.text || '');
+    if (!text.match(/\[claim:[^\]]+\]/g) && !(sentence.claimIds || []).length && looksFactual(text)) {
+      uncitedFactual.push(text.slice(0, 120));
+    }
+  }
+  return { unresolved, uncovered, uncitedFactual, ok: unresolved.length === 0 && uncitedFactual.length === 0 };
 }
 
 function resolveWorkerTags(report, validIds) {
