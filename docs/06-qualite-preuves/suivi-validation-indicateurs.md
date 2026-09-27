@@ -121,3 +121,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 14 — métacognition vers croyances et action
 
 `metacognitiveBeliefActionService` compare confiance et exactitude, révise les croyances avec un taux borné et abstient l’action quand l’erreur dépasse le seuil. Test : `node backend/tests/test_metacognitive_belief_action.js`.
+
+## Lot 15 — modèle de soi et effecteurs
+
+`selfEffectorModelService` enregistre gains et délais des effecteurs, prédit leur conséquence et attribue l’écart observé au soi ou au monde. Test : `node backend/tests/test_self_effector_model.js`.
