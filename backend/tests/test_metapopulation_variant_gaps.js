@@ -61,7 +61,8 @@ function eliteMigrantChecks() {
 
 function federatedProofChecks() {
   federated.registerRegionalKey('region-a', { material: 'key-a' });
-  const contract = federated.createCrossRegionContract('region-a', 'region-b', ['PUBLIC', 'REGIONAL'], { redact: true, maxFields: 1 });
+  const contract = federated.createCrossRegionContract({ sourceRegion: 'region-a', targetRegion: 'region-b',
+    allowedClassifications: ['PUBLIC', 'REGIONAL'], dataMinimization: { redact: true, maxFields: 1 } });
   const planned = federated.planFederatedProofActions(
     [{ propaguleId: 'prop-g1', sourceRegion: 'region-a', targetRegion: 'region-b', fields: ['a', 'b', 'c'] }],
     [contract]);
@@ -99,10 +100,13 @@ async function runtimeWiringChecks() {
 async function islandEliteWiring() {
   const state = islands.getSolverState('wire-solver', 'deme-wire', 2);
   islands.updateSolverState(state, { incumbentRef: 'inc-wire', lowerBound: 1, upperBound: 9, iterations: 5 });
-  const observed = { variant: 'island_search', variantPolicy: { eliteMigration: true }, demes: [], patches: [], corridors: [] };
-  const actions = await variantRuntime.executeVariantActions('island_search', observed,
-    { islandElites: [{ solverId: 'wire-solver', demeId: 'deme-wire', generation: 2, targetDemeId: 'deme-remote', counterexample: true }] }, {});
-  const elite = actions.find((action) => action.type === 'MIGRATE_ISLAND_ELITE');
+  const observed = { variant: 'island_search', variantPolicy: { eliteMigration: true }, demes: [], patches: [],
+    corridors: [{ corridorId: 'corridor-wire', enabled: true, capacity: 1,
+      sourceDemeId: 'deme-wire', targetDemeId: 'deme-remote' }] };
+  const actions = await variantRuntime.executeVariantActions({ variant: 'island_search', observed,
+    input: { islandElites: [{ solverId: 'wire-solver', demeId: 'deme-wire', generation: 2, targetDemeId: 'deme-remote', counterexample: true }],
+      receiver: { agentId: 'receiver-wire' } }, options: {} });
+  const elite = actions.find((action) => action.type === 'MIGRATE_PROPAGULE');
   assert.ok(elite);
   assert.equal(elite.propagule.migrationReason, 'counterexample');
 }
@@ -116,7 +120,7 @@ async function temporalRoleWiring() {
     { demeId: 'deme-t1', sourceCapacity: 0.9 },
     { demeId: 'deme-t1', sourceCapacity: 0.05 }
   ] };
-  const actions = await variantRuntime.executeVariantActions('source_sink', observed, input, {});
+  const actions = await variantRuntime.executeVariantActions({ variant: 'source_sink', observed, input, options: {} });
   const rotation = actions.find((action) => action.type === 'ROTATE_SOURCE_SINK_ROLES');
   assert.ok(rotation);
   assert.equal(rotation.changes[0].to, 'SINK');
@@ -124,14 +128,15 @@ async function temporalRoleWiring() {
 
 async function federatedProofWiring() {
   federated.registerRegionalKey('region-w1', { material: 'key-w1' });
-  const contract = federated.createCrossRegionContract('region-w1', 'region-w2', ['REGIONAL'], { redact: true, maxFields: 2 });
+  const contract = federated.createCrossRegionContract({ sourceRegion: 'region-w1', targetRegion: 'region-w2',
+    allowedClassifications: ['REGIONAL'], dataMinimization: { redact: true, maxFields: 2 } });
   const observed = { variant: 'federated',
     variantPolicy: { requireDataMinimizationProof: true, requireReceiverAttestation: true },
     demes: [], patches: [], corridors: [] };
   const input = { migrationCandidates: [
     { propaguleId: 'prop-w1', sourceRegion: 'region-w1', targetRegion: 'region-w2', fields: ['a', 'b', 'c'] }
   ], crossRegionContracts: [contract] };
-  const actions = await variantRuntime.executeVariantActions('federated', observed, input, {});
+  const actions = await variantRuntime.executeVariantActions({ variant: 'federated', observed, input, options: {} });
   assert.ok(actions.some((action) => action.type === 'PROOF_OF_DATA_MINIMIZATION'));
   assert.ok(actions.some((action) => action.type === 'REQUIRE_RECEIVER_ATTESTATION'));
 }
@@ -139,8 +144,8 @@ async function federatedProofWiring() {
 async function founderReserveWiring() {
   const observed = { variant: 'rescue_network', variantPolicy: { founderReserveSize: 2 },
     demes: [{ demeId: 'deme-fr', status: 'AT_RISK' }], patches: [], corridors: [] };
-  const actions = await variantRuntime.executeVariantActions('rescue_network', observed,
-    { stagedFounders: [{ lineageId: 'only-one' }] }, {});
+  const actions = await variantRuntime.executeVariantActions({ variant: 'rescue_network', observed,
+    input: { stagedFounders: [{ lineageId: 'only-one' }] }, options: {} });
   const staging = actions.find((action) => action.type === 'STAGE_FOUNDER_RESERVE');
   assert.ok(staging);
   assert.equal(staging.deficit, 1);
@@ -156,7 +161,7 @@ async function markerExecutionChecks() {
   assert.equal(elite.migrated, true);
   const proof = await controller.executeVariantAction(
     { type: 'PROOF_OF_DATA_MINIMIZATION', propaguleId: 'p1', proofId: 'pdm-p1-1' }, context);
-  assert.equal(proof.proven, true);
+  assert.equal(proof.recorded, true);
   const attestation = await controller.executeVariantAction(
     { type: 'REQUIRE_RECEIVER_ATTESTATION', propaguleId: 'p1', targetRegion: 'region-b' }, context);
   assert.equal(attestation.required, true);

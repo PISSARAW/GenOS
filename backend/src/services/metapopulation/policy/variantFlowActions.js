@@ -6,6 +6,7 @@ const { evaluateMigrationValue } = require('../observability/regionalUtilityServ
 const antiSynchronyService = require('../observability/antiSynchronyService');
 const corridorGraphService = require('../migration/corridorGraphService');
 const federatedRuntime = require('./federatedRuntimeService');
+const sourceSinkRuntime = require('../migration/sourceSinkRuntimeService');
 
 function routableMigrationAction(context) {
   const { candidate, observed, input, reason } = context;
@@ -74,6 +75,10 @@ async function heterogeneousCultureActions(observed, input) {
 async function sourceSinkActions(observed, input, options) {
   const actions = [];
   const variantPolicy = observed.variantPolicy || {};
+  if (variantPolicy.temporalRoles === true) {
+    const rotation = sourceSinkRuntime.reassignTemporalRoles(observed.demes, input.roleHistory);
+    if (rotation.rotated > 0) actions.push({ type: 'ROTATE_SOURCE_SINK_ROLES', ...rotation });
+  }
   if (variantPolicy.directedMigration !== true) return actions;
   const reserveRatio = Number(variantPolicy.sourceReserveRatio ?? 0.2);
   const sources = observed.demes.filter((d) => sourceCapacity(d) > 0.7 && d.status === 'ACTIVE');

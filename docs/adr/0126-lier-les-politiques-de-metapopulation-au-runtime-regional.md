@@ -24,6 +24,9 @@ disponibles.
   fournisseurs, algorithmes et lignées.
 - Le variant `federated` exige une preuve de vérification et applique l'autorisation de
   transfert selon la classification, les régions et l'accord de fédération.
+- Le variant `source_sink` demande la réévaluation des rôles temporels lorsque
+  `temporalRoles` est actif et produit `ROTATE_SOURCE_SINK_ROLES` pour chaque
+  changement observé dans l'historique des capacités.
 
 Ces règles compilent des politiques existantes dans le runtime. Elles ne rendent pas
 automatiques les boucles de recolonisation, les migrations inter-missions, ni les
