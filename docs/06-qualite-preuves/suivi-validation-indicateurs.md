@@ -149,3 +149,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 21 — apprentissage inter-missions et consolidation
 
 `interMissionConsolidationService` conserve lignée et preuves, sépare niches et fossiles et revalide les références avant réutilisation après redémarrage. Test : `node backend/tests/test_intermissions_consolidation.js`.
+
+## Lot 22 — banc morphogenèse et opérateurs comparés
+
+`morphogenesisBenchmarkService` compare les opérateurs à budget comparable, conserve la variable modératrice et bloque tout résultat ayant touché le corpus réservé. Test : `node backend/tests/test_morphogenesis_benchmark.js`.
