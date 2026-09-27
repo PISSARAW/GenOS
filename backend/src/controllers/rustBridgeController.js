@@ -11,8 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const cli = require('../services/genosCli');
 const { validateSpec } = require('../services/specValidator');
-
-const SNAPSHOT_SCHEMA = 'snapshot.schema.json';
+const { buildSnapshotReceipt, persistSnapshotReceipt } = require('../services/rustBridgeEvidenceService');
 
 function tenantBridgeRoot(req) {
   const scope = req.tenant;
@@ -95,13 +94,23 @@ async function createSnapshot(req, res) {
   if (snapshot.ok && written && fs.existsSync(written)) {
     try {
       const snapshotObject = JSON.parse(fs.readFileSync(written, 'utf8'));
+      const built = buildSnapshotReceipt(snapshotObject, snapshot, req.tenant);
+      if (!built.eligible) return res.status(502).json({ operation: 'snapshot_create',
+        error: { code: 'RUST_SNAPSHOT_INVALID', message: 'Rust snapshot failed its schema or CLI exit gate.' },
+        specValidation: built.validation });
+      const { getDatabase } = require('../db');
+      const evidence = await persistSnapshotReceipt(await getDatabase(), built);
       return res.json({
         operation: 'snapshot_create',
         exitCode: snapshot.exitCode,
         result: { reference: snapshotFile, snapshot: snapshotObject },
-        specValidation: validateSpec(SNAPSHOT_SCHEMA, snapshotObject)
+        specValidation: evidence.validation,
+        rustReceipt: evidence.receipt
       });
-    } catch {}
+    } catch (error) {
+      return res.status(503).json({ operation: 'snapshot_create',
+        error: { code: 'RUST_SNAPSHOT_RECEIPT_FAILED', message: error.message } });
+    }
   }
 
   return sendResult({ res, operation: 'snapshot_create', run: snapshot });

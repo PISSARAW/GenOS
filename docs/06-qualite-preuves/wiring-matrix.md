@@ -155,13 +155,13 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | crates Rust riches (`genos-creativity`, fossilisation, instinct `tick/run_autonomous` → FAP) |
-| Select | NO | `biologicalModeService.js:rustGuaranteesImported=false` : concepts Rust ≠ preuve Node sans reçu typé ou journal de primitives |
-| Invoke | PARTIAL | bridges ponctuels, pas de reçus typés systématiques |
-| Affect decision | NO | sophistication Rust ⇏ comportement orchestrateur Node sans bridge causal explicite |
+| Select | PARTIAL | `rustBridgeEvidenceService.js` valide les snapshots CLI; `biologicalModeService.js:rustGuaranteesImported=false` reste vrai pour les autres concepts Rust |
+| Invoke | PARTIAL | `rustBridgeController.js:createSnapshot` exige code de sortie nul et schéma valide avant l'import; autres bridges ponctuels sans reçus systématiques |
+| Affect decision | PARTIAL | un snapshot Rust invalide ou sans provenance persistée est refusé par la route; les autres mécanismes Rust n'influencent pas automatiquement la décision Node |
 | Act | PARTIAL | FAP dispatch hôte réel, stimuli dérivés de `WorldState`, pas de sensorium externe général |
-| Observe | PARTIAL | journaux de primitives part instrumentées |
+| Observe | PARTIAL | reçu `genos.rust-bridge-snapshot/v1` avec hash et scope tenant pour le snapshot; journaux de primitives part instrumentées ailleurs |
 | Learn | NO | constantes de physique non apprises par classe de mission |
-| Persist | PARTIAL | fossilisation Rust + SQLite + API + MCP + excavation read-only, isolée du cycle évolutif |
+| Persist | PARTIAL | reçu de snapshot Rust dans `provenance_records`; fossilisation Rust + SQLite + API + MCP + excavation read-only, isolée du cycle évolutif |
 | Reuse | NO | `fossils → pattern mining → genome design → priors` non bouclé |
 
 ## Règle d'avancement
