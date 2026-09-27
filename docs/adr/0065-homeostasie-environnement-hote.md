@@ -1,5 +1,15 @@
 # ADR 0065 — Homéostasie de l'environnement hôte
 
+- **Statut** : Accepté (normalisé 2026-09-27 ; implémentation vérifiée, test dédié manquant — voir Conséquences)
+- **Date** : 2026-09-27 (normalisation ; décision antérieure non datée dans le fichier)
+- **Domaine** : Environnement hôte, stockage, homéostasie
+- **Décideurs** : Mainteneurs GenOS (control plane Node)
+- **Lié à** :
+  - `../../backend/src/services/hostEnvironment.js` (`readHostEnvironment`, `deriveAdaptivePolicy`)
+  - `../../backend/src/storage/storagePlacement.js` (`chooseDataRoot`, `selectCandidate`, `pinDataRoot`)
+  - `../../backend/bin/genos-environment.cjs` (diagnostic : profil, politique, stockage)
+  - Tests : aucun test dédié `hostEnvironment` / `storagePlacement` (ticket à part, non bloquant doc)
+
 ## Contexte
 
 Les ressources visibles par GenOS changent selon la machine et la charge. Le backend
@@ -33,13 +43,15 @@ emplacement. Le système n'effectue pas de migration automatique de bases ouvert
 
 ## Conséquences
 
-- Le nombre de processus est choisi au démarrage ; le modifier à chaud demandera un
-  superviseur capable de drainer et remplacer les processus.
-- Les conditions de disque et mémoire sont visibles dans le diagnostic.
-- Un pointeur de stockage indisponible bloque le démarrage au lieu de créer une base
-  vide silencieusement.
-- L'apprentissage futur des politiques devra comparer les résultats avec cette base
-  déterministe et rester soumis aux mêmes limites de sécurité.
+- Positives : le nombre de processus est choisi au démarrage ; les conditions de disque et mémoire sont visibles dans le diagnostic ; un pointeur de stockage indisponible bloque le démarrage au lieu de créer une base vide silencieusement.
+- Négatives : le nombre de processus est choisi au démarrage ; le modifier à chaud demandera un superviseur capable de drainer et remplacer les processus. Aucun test dédié `hostEnvironment` / `storagePlacement` n'existe à ce jour : régression possible sur les seuils et la sélection de volume — ticket à part, non bloquant pour la documentation.
+- Neutres : l'apprentissage futur des politiques devra comparer les résultats avec cette base déterministe et rester soumis aux mêmes limites de sécurité.
+
+## Alternatives
+
+- **Seuils adaptatifs appris en ligne** : rejetée pour cette tranche — exige une base de comparaison et des preuves ; la politique reste déterministe et conservatrice.
+- **Migration automatique des bases ouvertes** : rejetée — risque de corruption ; le système refuse de démarrer sur pointeur invalide plutôt que de déplacer des données.
+- **Chemin de données fixe** : rejetée — ne survit pas à l'hétérogénéité des hôtes (volumes Windows, montages Linux, quotas cgroup).
 
 ## Sources
 
