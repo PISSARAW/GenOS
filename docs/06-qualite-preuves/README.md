@@ -18,6 +18,7 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 - [registre-services.md](registre-services.md) — registre complet Node/Rust/MCP/intégrations, fiches, statuts et lots.
 - [lot-morphogenesis-71.md](lot-morphogenesis-71.md) — traçage des 71 sans inbound : legacy `composition/*`, 12 test-only, 6 bibliothèques, 53 orphelins.
 - [lot-racine-113.md](lot-racine-113.md) — dispatch dynamique philosophie/Trinity prouvé, contradiction plasmide/promotion corrigée.
+- [lot-suites-racine.md](lot-suites-racine.md) — procéduraux ×14, 6 orphelins stricts, 10 bibliothèques : tests verts et statuts proposés.
 - [benchmarks/](benchmarks/README.md) — résultats LoCoMo et SWE-bench Lite.
 
 ## Voir aussi

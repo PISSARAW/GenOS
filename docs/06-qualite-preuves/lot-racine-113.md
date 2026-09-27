@@ -42,9 +42,10 @@ Même statut : `controlledRolloutDecisionService`, `experimentalRunnerService`, 
 
 ## 4. Orphelins stricts et bibliothèques
 
-Orphelins stricts (zéro prod, zéro dynamique, zéro test dédié) : `proceduralNicheScoringService`,
-`orchestrationAuditService`, `topologyFinalizationService`, `authorityMatrixService` (racine — l'homonyme actif est
-`aTeam/responsibility/boundaryPolicyService.js`), `conceptRegistryService`, `poetBridgeService`, `phenotypicPersistence`.
+Orphelins stricts (zéro prod, zéro dynamique, zéro test dédié — détail et statuts dans
+[lot-suites-racine.md](lot-suites-racine.md), qui corrige aussi `authorityMatrixService` racine en test-only) :
+`proceduralNicheScoringService`, `orchestrationAuditService`, `topologyFinalizationService`,
+`conceptRegistryService`, `poetBridgeService`, `phenotypicPersistence`.
 Bibliothèques (testées, sans effet, à garder comme telles) : `boundedGossip`, `gapJunction`, `globalWorkspace`,
 `perceptiveBinding`, `validationProtocol`, `fitnessParetoDestiny`, `conceptRegistry`, `morphogenesisBenchmark`,
 `morphogeneticPopulation`, `interMissionConsolidation`, `metacognitiveBeliefAction`.
