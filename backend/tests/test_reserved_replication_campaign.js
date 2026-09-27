@@ -1,0 +1,10 @@
+'use strict';
+const assert = require('assert');
+const { buildManifest, finalizeCampaign } = require('../src/services/reservedReplicationCampaignService');
+const manifest = buildManifest({ campaignId: 'c24', protocolId: 'p', manifestHash: 'hash', seeds: [1, 2] });
+const result = finalizeCampaign(manifest, [{ status: 'success' }, { status: 'failed' }]);
+assert.strictEqual(result.replayable, true);
+assert.strictEqual(result.summary.negatives, 1);
+assert.ok(result.summary.interval95.high > 0);
+assert.strictEqual(result.artifactHash.length, 64);
+console.log('✅ reserved replication campaign tests passed');

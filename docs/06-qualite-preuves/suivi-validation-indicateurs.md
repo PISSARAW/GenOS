@@ -157,3 +157,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 23 — no-report et ablations croisées
 
 `noReportAblationService` préenregistre les facteurs, score le comportement indépendamment du texte et calcule les effets par facteur ainsi que la présence d’interactions. Test : `node backend/tests/test_no_report_ablation.js`.
+
+## Lot 24 — campagne réservée et réplication indépendante
+
+`reservedReplicationCampaignService` exige le manifeste et les seeds, bloque toute contamination du corpus réservé, conserve les résultats négatifs, calcule un intervalle à 95 % et hash l’artefact rejouable. Test : `node backend/tests/test_reserved_replication_campaign.js`.
