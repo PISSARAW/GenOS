@@ -101,3 +101,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 09 — rollout récursif et décision contrôlée
 
 `controlledRolloutDecisionService` compose les deltas, classe les branches sur l’observation, produit un token de rollback et vérifie les policy flips réversibles. Test : `node backend/tests/test_controlled_rollout_decision.js`.
+
+## Lot 10 — substrat perceptif inspectable
+
+`perceptiveBindingService` conserve objets, traits et relations sous occlusion, applique une mise à jour récurrente et fournit une permutation de binding pour le contrôle causal. Test : `node backend/tests/test_perceptive_binding.js`.
