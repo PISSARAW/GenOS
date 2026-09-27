@@ -145,3 +145,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 20 — verdict expérimental et planner
 
 `experimentalVerdictPlannerService` calcule une recommandation PID, lie la transition au reçu causal et au manifeste du protocole, puis bloque les contextes incomplets. Test : `node backend/tests/test_experimental_verdict_planner.js`.
+
+## Lot 21 — apprentissage inter-missions et consolidation
+
+`interMissionConsolidationService` conserve lignée et preuves, sépare niches et fossiles et revalide les références avant réutilisation après redémarrage. Test : `node backend/tests/test_intermissions_consolidation.js`.
