@@ -153,3 +153,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 22 — banc morphogenèse et opérateurs comparés
 
 `morphogenesisBenchmarkService` compare les opérateurs à budget comparable, conserve la variable modératrice et bloque tout résultat ayant touché le corpus réservé. Test : `node backend/tests/test_morphogenesis_operator_benchmark.js`.
+
+## Lot 23 — no-report et ablations croisées
+
+`noReportAblationService` préenregistre les facteurs, score le comportement indépendamment du texte et calcule les effets par facteur ainsi que la présence d’interactions. Test : `node backend/tests/test_no_report_ablation.js`.
