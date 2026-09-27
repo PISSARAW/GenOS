@@ -10,7 +10,7 @@
 |---|---|---|---|
 | 01a | Restaurer la construction des décisions du directeur Rust | Compilation du crate puis tests existants pertinents ; signaler séparément les autres erreurs | Correctifs syntaxiques faits ; validation du crate bloquée par les erreurs décrites ci-dessous |
 | 01b | Restaurer l'environnement et mesurer la baseline versionnée | Résultats backend/Rust/qualité traçables, fichiers locaux exclus du diagnostic versionné | À faire |
-| 01c | Registres des 14 propriétés et 15 familles, profils et évaluations | IDs stables, états inconnus explicites, aucune promotion sans reçu valide | À faire |
+| 01c | Registres des 14 propriétés et 15 familles, profils et évaluations | IDs stables, états inconnus explicites, aucune promotion sans reçu valide | Livré : catalogue et états initiaux ; évaluations probantes à partir du lot 02 |
 
 Les lots suivants conservent l'ordre du plan. Toute décomposition supplémentaire sera inscrite avant son implémentation. Les résultats expérimentaux ne sont pas déduits du nombre de commits.
 
@@ -42,3 +42,24 @@ Le script `python scripts/ci/audit_indicator_baseline.py` produit un JSON sépar
 Au commit `e2bb374064121ff30199f5ef577a5b6301c21f88`, avec aucun fichier suivi modifié : **3 732 sources suivies, 368 violations dont 147 hors baseline**, aucun fichier manquant. Les 22 sources locales examinées ont 5 violations. Les nouveaux fichiers de cette livraison n'étaient pas encore indexés lors de cette mesure. Ces nombres décrivent la dette existante ; ils ne sont pas un score d'indicateurs.
 
 `cargo test --workspace` compile désormais puis échoue également sur l'assertion `drives::boucle_autonome_sans_but_externe`. Les tests situés après cet arrêt ne sont pas déclarés exécutés. Une relance ciblée reproduit l'échec. La baseline backend reste **55/55** ; la baseline Rust et le gate global ne sont pas verts.
+
+## Résultats 01c — registre et reprise
+
+- Catalogue versionné : [`shared/indicatorRegistry.json`](../../shared/indicatorRegistry.json), 14 propriétés Butlin et 15 familles GenOS, sans addition des deux dénominateurs.
+- Profils : `node-runtime`, `rust-runtime`, `composed-api`, `composed-perceptual`. Le dernier est planifié, pas déployé. L'opacité des modèles API reste explicite.
+- Service : `indicatorRegistryService`, validation des IDs et mappings, copie du catalogue pour éviter les mutations par les consommateurs.
+- Commande : `node backend/bin/genos-indicators.cjs node-runtime`. Elle produit uniquement un état initial, avec les cinq étapes à `not_run` et aucune preuve. Elle ne lit pas encore de reçus et n'est pas un moteur de validation.
+- Tests : `node backend/tests/test_indicator_registry.js` passe ; dénominateurs, références de fichiers, IDs dupliqués, mappings invalides, profils inconnus, isolation du catalogue et CLI sont contrôlés.
+
+### Transmission demandée par l'utilisateur
+
+Arrêt après livraison de 01c ; les lots 02–25 ne sont pas implémentés. Le lot 01 n'est pas déclaré entièrement validé : il reste l'échec Rust et la dette qualité globale. Aucun indicateur n'a été promu.
+
+Reprise :
+
+1. Diagnostiquer `cargo test -p genos-orchestrator --test drives boucle_autonome_sans_but_externe -- --nocapture`. Distinguer une halte décisionnelle d'une borne de ticks atteinte avant de modifier le contrat ou le scénario.
+2. Examiner `python scripts/ci/audit_indicator_baseline.py` et résorber la dette suivie sans élargir la baseline du gate. Les fichiers locaux de diagnostic ne font pas partie des commits de cette livraison.
+3. Après remise en état, relancer `npm test`, `cargo test --workspace` et `python scripts/ci/check_code_quality.py` ; ne pas déduire le succès des suites non exécutées.
+4. Poursuivre le **lot 02 : contrats versionnés et reçus**, puis raccorder leur stockage au lot 03. Le registre ne doit accepter aucun futur `passed` à partir de la seule présence d'un nom de service.
+
+Sur cette machine, Python est disponible à `C:\Users\Shadow\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe` mais n'était pas dans le PATH initial. Le hook de commit exige Python et un bloc `Receipt:` listant exactement les fichiers indexés pour `[FEAT]`/`[FIX]`.

@@ -1,0 +1,46 @@
+{
+  "schema": "genos.indicator-registry/v1",
+  "reference": "https://arxiv.org/html/2308.08708v3",
+  "stages": ["specified", "implemented", "causal", "generalized", "operational"],
+  "statuses": ["passed", "failed", "inconclusive", "not_run", "unavailable"],
+  "profiles": [
+    {"id": "node-runtime", "boundary": "Node orchestration and tool execution", "inspectable": true},
+    {"id": "rust-runtime", "boundary": "Rust organism and orchestration", "inspectable": true},
+    {"id": "composed-api", "boundary": "Runtime plus opaque external model", "inspectable": false},
+    {"id": "composed-perceptual", "boundary": "Runtime plus instrumented perceptual substrate", "inspectable": true, "availability": "planned"}
+  ],
+  "properties": [
+    {"id": "RPT-1", "label": "Récurrence des entrées", "probe": "Ablation du feedback perceptif à calcul comparable"},
+    {"id": "RPT-2", "label": "Perception organisée et intégrée", "probe": "Occlusion et permutation des liaisons objet-relation"},
+    {"id": "GWT-1", "label": "Spécialistes parallèles", "probe": "Traces de concurrence et contrôle sériel"},
+    {"id": "GWT-2", "label": "Workspace limité et sélectif", "probe": "Surcharge, admissions et évictions"},
+    {"id": "GWT-3", "label": "Diffusion globale", "probe": "Livraison puis usage ; coupure des canaux"},
+    {"id": "GWT-4", "label": "Attention dépendante de l'état", "probe": "Requêtes successives gouvernées par l'état"},
+    {"id": "HOT-1", "label": "Perception descendante ou bruitée", "probe": "Manipulation indépendante du prior et du bruit"},
+    {"id": "HOT-2", "label": "Monitoring de fiabilité", "probe": "Discrimination des erreurs à difficulté contrôlée"},
+    {"id": "HOT-3", "label": "Révision des croyances et actions", "probe": "Intervention sur le monitoring puis mesure du choix"},
+    {"id": "HOT-4", "label": "Codage parcimonieux et lisse", "probe": "Inspection des activations, interpolations et discrimination"},
+    {"id": "AST-1", "label": "Modèle prédictif de l'attention", "probe": "Ablation du modèle avec leases inchangés"},
+    {"id": "PP-1", "label": "Codage prédictif perceptif", "probe": "Interventions sur précision, prior et erreur ascendante"},
+    {"id": "AE-1", "label": "Apprentissage et objectifs concurrents", "probe": "Inversion de récompense et transfert"},
+    {"id": "AE-2", "label": "Contingences action-perception", "probe": "Perturbation d'effecteur et compensation"}
+  ],
+  "families": [
+    {"id": "GENOS-WORKSPACE", "label": "Diffusion globale", "propertyIds": ["GWT-1", "GWT-3"], "sourceRefs": ["backend/src/services/selectiveSignalService.js"]},
+    {"id": "GENOS-IGNITION", "label": "Goulot et ignition", "propertyIds": ["GWT-2"], "sourceRefs": ["backend/src/services/ignitionService.js"]},
+    {"id": "GENOS-ATTENTION", "label": "Attention sélective", "propertyIds": ["GWT-4", "AST-1"], "sourceRefs": ["backend/src/services/attentionSchemaBenchService.js"]},
+    {"id": "GENOS-RECURRENCE", "label": "Récurrence entretenue", "propertyIds": ["RPT-1"], "sourceRefs": ["backend/src/services/reverberationService.js", "backend/src/services/idleTickService.js"]},
+    {"id": "GENOS-SELF", "label": "Modèle de soi", "propertyIds": [], "sourceRefs": ["backend/src/services/selfModelService.js"]},
+    {"id": "GENOS-METACOGNITION", "label": "Monitoring métacognitif", "propertyIds": ["HOT-2", "HOT-3"], "sourceRefs": ["backend/src/services/metacognitionBenchService.js"]},
+    {"id": "GENOS-PREDICTION", "label": "Inférence prédictive", "propertyIds": ["HOT-1", "PP-1"], "sourceRefs": ["backend/src/services/predictiveHierarchyService.js"]},
+    {"id": "GENOS-SELF-WORLD", "label": "Distinction soi-monde", "propertyIds": ["AE-2"], "sourceRefs": ["backend/src/services/efferenceCopyService.js"]},
+    {"id": "GENOS-WORLD", "label": "Modèle du monde", "propertyIds": [], "sourceRefs": ["backend/src/services/worldModelService.js"]},
+    {"id": "GENOS-AGENCY", "label": "Agency flexible", "propertyIds": ["AE-1"], "sourceRefs": ["backend/src/services/routingBanditService.js"]},
+    {"id": "GENOS-INTEGRATION", "label": "Intégration causale", "propertyIds": [], "sourceRefs": ["backend/src/services/causalIntegrationService.js"]},
+    {"id": "GENOS-INTEROCEPTION", "label": "États valués et intéroception", "propertyIds": [], "sourceRefs": ["backend/src/services/valenceService.js"]},
+    {"id": "GENOS-CONSOLIDATION", "label": "Consolidation offline", "propertyIds": [], "sourceRefs": ["backend/src/services/sleepConsolidationService.js"]},
+    {"id": "GENOS-REPORT", "label": "Accès et rapport", "propertyIds": [], "sourceRefs": ["backend/src/services/semanticReportService.js"]},
+    {"id": "GENOS-NO-REPORT", "label": "Discipline no-report", "propertyIds": [], "sourceRefs": ["backend/tests/test_organ_ablation_bench.js"]}
+  ],
+  "limitation": "Mappings are research links, not equivalences or passed evaluations. Runtime evidence does not establish model-internal properties."
+}

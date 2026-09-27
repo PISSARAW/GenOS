@@ -18,6 +18,13 @@ sépare couverture, effet causal, généralisation et exploitation. Il consigne
 les écarts vérifiés au HEAD `7c66e873859ae21dc85ec2815b6e4cc8b984f65c` et
 définit les critères des futures promotions.
 
+Le registre machine [`indicatorRegistry.json`](../../shared/indicatorRegistry.json)
+déclare désormais les deux dénominateurs et quatre profils. La commande
+`node backend/bin/genos-indicators.cjs node-runtime` rend un état initial
+`not_run`, sans lire de reçus ni attribuer de réussite. Les résultats de
+baseline et la reprise figurent dans le
+[suivi d'exécution](../06-qualite-preuves/suivi-validation-indicateurs.md).
+
 ## 2. Modèle de lecture
 
 Chaque indicateur suit le même contrat, hérité de
