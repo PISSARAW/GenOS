@@ -125,3 +125,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 15 — modèle de soi et effecteurs
 
 `selfEffectorModelService` enregistre gains et délais des effecteurs, prédit leur conséquence et attribue l’écart observé au soi ou au monde. Test : `node backend/tests/test_self_effector_model.js`.
+
+## Lot 16 — objectifs concurrents et allostase
+
+`allostaticObjectiveService` compare des politiques multi-objectifs sous pression, conserve les invariants violés et met à jour l’allostase sur l’erreur observée. Test : `node backend/tests/test_allostatic_objectives.js`.
