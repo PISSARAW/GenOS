@@ -71,3 +71,9 @@ Le service [`versionedContractService.js`](../../backend/src/services/versionedC
 `readReceipt()` revalide l'enveloppe et son payload. Un reçu invalide ou dont le schéma ne correspond pas au type est rejeté ; aucune fonction de ce lot ne promeut ou ne persiste une décision. La compatibilité future devra ajouter une migration explicite par version, sans accepter silencieusement un schéma inconnu.
 
 Test : `node backend/tests/test_versioned_contract_service.js` passe avec quatre contrats valides, champs inconnus, schémas incohérents, profil inconnu et réplication invalide. Le contrôle qualité ciblé sur les deux fichiers JavaScript ne signale aucune violation. Le lot 02 est livré au niveau contrat pur ; le branchement des reçus dans SQLite et les projections d'événements reste le lot 03.
+
+## Lot 03 — stockage transactionnel et événements
+
+La migration `081-versioned-contract-receipts` ajoute une table de reçus avec hash, provenance et contrainte d'unicité. `versionedContractPersistenceService` écrit le reçu et son événement `projection_events` dans une transaction unique ; une répétition est idempotente, un conflit d'identifiant est rejeté et la restauration repasse par le validateur du lot 02.
+
+Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'insertion, l'idempotence, la restauration, la projection d'événement et le rejet d'un conflit de contenu.

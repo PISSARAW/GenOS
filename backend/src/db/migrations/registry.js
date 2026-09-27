@@ -288,6 +288,10 @@ const migrationRunners = [
     const { migrateHolobiontMemory } = require('./migrateHolobiontMemory');
     await migrateHolobiontMemory(db);
   }),
+  createMigrationRunner('081-versioned-contract-receipts', 'Persist validated versioned contract receipts and idempotency hashes', async (db) => {
+    const { migrateVersionedContractReceipts } = require('./migrateVersionedContractReceipts');
+    await migrateVersionedContractReceipts(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
