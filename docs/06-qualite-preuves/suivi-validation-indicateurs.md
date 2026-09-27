@@ -89,3 +89,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 06 — TruthGraph → SemanticReport → rendu fermé
 
 `truthGraphSemanticPipelineService` compile le graphe de vérité en propositions canoniques, ne conserve une causalité que lorsqu'une arête `caused_by_recorded` existe et impose une citation connue pour chaque phrase factuelle. Les mentions textuelles d'outils ne créent plus de causalité. Test : `node backend/tests/test_truth_graph_semantic_pipeline.js`.
+
+## Lot 07 — gate de toutes les sorties finales
+
+`finalOutputGateService` bloque avant émission ou completion les phrases factuelles sans citation, les nombres absents des propositions citées, les inversions d'issues et les contradictions non résolues. Il expose les violations et `completionAllowed`. Test : `node backend/tests/test_final_output_gate.js`.
