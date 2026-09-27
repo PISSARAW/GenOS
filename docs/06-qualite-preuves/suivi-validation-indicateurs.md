@@ -81,3 +81,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 04 — runner expérimental isolé
 
 `experimentalRunnerService` réutilise `arenaService.runTournament` pour deux bras contrôle/intervention, répétés sur plusieurs seeds. Il vérifie les sorties non vides, borne les runs et rounds, conserve les résultats par bras, calcule l'accord des signatures pour documenter le nondéterminisme et produit un `CausalInterventionReceipt`. Test réel : `node backend/tests/test_experimental_runner.js`.
+
+## Lot 05 — protocoles et corpus train/dev/réservé
+
+`validationProtocolService` fige une hypothèse, une révision, les critères, les seeds et un manifeste de corpus. Les IDs sont stables et disjoints entre `train`, `dev` et `reserved`; le manifeste reçoit un hash déterministe et devient immuable avant exécution. Le manifeste de référence est [`indicatorValidationProtocol.v1.json`](../../shared/indicatorValidationProtocol.v1.json). Test : `node backend/tests/test_validation_protocol.js`.

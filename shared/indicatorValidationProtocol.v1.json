@@ -1,0 +1,16 @@
+{
+  "protocolId": "indicator-families-v1",
+  "revision": "v1",
+  "hypothesis": "Les preuves causales restent calibrées lorsque les corpus réservés ne sont jamais utilisés pour régler le protocole.",
+  "criteria": {
+    "primaryMetric": "calibration_error",
+    "direction": "lower",
+    "threshold": 0.2
+  },
+  "seeds": [101, 211, 307],
+  "corpus": {
+    "train": [{ "id": "train-baseline-01", "source": "synthetic" }],
+    "dev": [{ "id": "dev-occlusion-01", "source": "synthetic" }],
+    "reserved": [{ "id": "reserved-adversarial-01", "source": "held-out" }]
+  }
+}
