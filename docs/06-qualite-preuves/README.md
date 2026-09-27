@@ -14,6 +14,8 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 - [releases-maturite.md](releases-maturite.md) — états de maturité et règles de promotion du registre complet.
 - [matrice-coherence-code-docs.md](matrice-coherence-code-docs.md) — registre de cohérence entre code, contrats, exemples et preuves.
 - [morphogenese-gates-2026-09-26.md](morphogenese-gates-2026-09-26.md) — gates d'exécution morphogenèse : protocole, résultats, limites.
+- [inventaire-atteignabilite-services.md](inventaire-atteignabilite-services.md) — inventaire statique Node : 1 814 services, 504 à revoir dont 308 sans import littéral.
+- [registre-services.md](registre-services.md) — registre complet Node/Rust/MCP/intégrations, fiches, statuts et lots.
 - [benchmarks/](benchmarks/README.md) — résultats LoCoMo et SWE-bench Lite.
 
 ## Voir aussi
