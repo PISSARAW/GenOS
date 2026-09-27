@@ -117,3 +117,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 13 — attention contrôlée par son modèle
 
 `modelControlledAttentionService` prédit les demandes depuis l’état, limite les leases par budget, réalloue les spécialistes et calcule l’accord avec les requêtes observées. Test : `node backend/tests/test_model_controlled_attention.js`.
+
+## Lot 14 — métacognition vers croyances et action
+
+`metacognitiveBeliefActionService` compare confiance et exactitude, révise les croyances avec un taux borné et abstient l’action quand l’erreur dépasse le seuil. Test : `node backend/tests/test_metacognitive_belief_action.js`.
