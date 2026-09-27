@@ -112,6 +112,7 @@ async function consumeSse(ctx, chunk) {
     const payload = parseSseLine(line);
     if (!payload) continue;
     if (payload.model) ctx.state.servedModel = payload.model;
+    if (payload.id) ctx.state.responseId = payload.id;
     const delta = sseDelta(payload);
     if (delta) { ctx.state.text += delta; await ctx.onToken(delta); }
     if (payload.usage) ctx.state.usage = payload.usage;
@@ -158,7 +159,8 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
   const consume = async (chunk) => { await consumeSse(ctx, chunk); };
   await pumpStream(reader, consume, idleTimeoutMs);
   if (ctx.state.buffer.startsWith('data:')) await consume(new TextEncoder().encode(`${ctx.state.buffer}\n`));
-  return { text: ctx.state.text, usage: ctx.state.usage, servedModel: ctx.state.servedModel };
+  return { text: ctx.state.text, usage: ctx.state.usage, servedModel: ctx.state.servedModel,
+    responseId: ctx.state.responseId };
 }
 
 async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
@@ -188,13 +190,25 @@ function resolveResponseContent(provider, payload, nativeOllama) {
 }
 
 function buildStreamResponse(streamed, context) {
+  const usageReceipt = providerUsageReceipt(streamed.responseId, streamed.usage);
   return {
     text: streamed.text,
     inputTokens: firstNonNull(streamed.usage && streamed.usage.prompt_tokens, estimateTokenCount(promptText(context.options.prompt))),
     outputTokens: firstNonNull(streamed.usage && streamed.usage.completion_tokens, estimateTokenCount(streamed.text)),
     provider: context.provider,
-    servedModel: firstTruthy(streamed.servedModel, context.modelName)
+    servedModel: firstTruthy(streamed.servedModel, context.modelName),
+    ...(usageReceipt ? { usageReceipt } : {})
   };
+}
+
+function providerUsageReceipt(responseId, usage) {
+  const inputTokens = firstNonNull(usage?.input_tokens, usage?.prompt_tokens, usage?.promptTokenCount);
+  const outputTokens = firstNonNull(usage?.output_tokens, usage?.completion_tokens, usage?.candidatesTokenCount);
+  if (typeof responseId !== 'string' || !responseId.trim()
+    || !Number.isSafeInteger(inputTokens) || inputTokens < 0
+    || !Number.isSafeInteger(outputTokens) || outputTokens < 0) return null;
+  return { apiVersion: 'genos.communication-usage/v1', source: 'model-provider',
+    responseId, inputTokens, outputTokens };
 }
 
 /**
@@ -222,15 +236,17 @@ function attachSchemaValidation(result, text) {
 }
 
 function buildFinalResponse(info) {
-  const usage = info.payload.usage || {};
+  const usage = info.payload.usage || info.payload.usageMetadata || {};
+  const usageReceipt = providerUsageReceipt(firstNonNull(info.payload.id, info.payload.responseId), usage);
   return {
     text: info.text,
     toolCalls: info.toolCalls,
     structured: parseStructuredResponse(info.text, info.responseFormat),
-    inputTokens: firstNonNull(usage.input_tokens, usage.prompt_tokens, estimateTokenCount(promptText(info.prompt))),
-    outputTokens: firstNonNull(usage.output_tokens, usage.completion_tokens, estimateTokenCount(info.text)),
+    inputTokens: firstNonNull(usage.input_tokens, usage.prompt_tokens, usage.promptTokenCount, estimateTokenCount(promptText(info.prompt))),
+    outputTokens: firstNonNull(usage.output_tokens, usage.completion_tokens, usage.candidatesTokenCount, estimateTokenCount(info.text)),
     provider: info.provider,
-    servedModel: firstTruthy(info.payload.model, info.modelName)
+    servedModel: firstTruthy(info.payload.model, info.modelName),
+    ...(usageReceipt ? { usageReceipt } : {})
   };
 }
 
@@ -250,6 +266,7 @@ module.exports = {
   buildStreamResponse,
   attachSchemaValidation,
   buildFinalResponse,
+  providerUsageReceipt,
   readStreamingResponse,
   readOllamaStream,
   isStreamable

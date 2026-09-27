@@ -35,7 +35,13 @@ enregistrait ce nombre comme des tokens dépensés et l'envoyait à l'apprentiss
 - Les profils de relation modifient l'éligibilité et l'encodage de l'audience.
 - Une estimation ne peut plus gonfler le total des tokens mesurés.
 - Le driver local étant simulé, il ne produit pas lui-même de reçu fournisseur ;
-  la mesure réelle dépend du bridge appelant qui transmet ce reçu.
+  `modelProviderRequest` attache désormais un reçu aux réponses OpenAI, Anthropic
+  et Gemini lorsque le fournisseur fournit un identifiant de réponse et les deux
+  compteurs entiers. Pour le streaming SSE, le reçu exige aussi ces trois champs.
+  Les estimations de repli ne deviennent jamais des reçus. Le bridge appelant
+  doit encore transmettre explicitement le reçu au driver du même cycle ; aucun
+  lien causal entre un appel modèle et une décision de communication n'est
+  actuellement imposé par cette interface.
 
 ## Alternatives
 
