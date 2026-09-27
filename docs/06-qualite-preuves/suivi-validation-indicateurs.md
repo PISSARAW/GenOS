@@ -161,3 +161,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 ## Lot 24 — campagne réservée et réplication indépendante
 
 `reservedReplicationCampaignService` exige le manifeste et les seeds, bloque toute contamination du corpus réservé, conserve les résultats négatifs, calcule un intervalle à 95 % et hash l’artefact rejouable. Test : `node backend/tests/test_reserved_replication_campaign.js`.
+
+## Lot 25 — documentation finale et matrice de preuves
+
+La matrice finale est publiée dans [`matrice-preuves-indicateurs.md`](matrice-preuves-indicateurs.md). Elle sépare les lots implémentés et testés des indicateurs expérimentalement validés, conserve les limites et fournit les commandes de reproduction. À ce stade, aucun indicateur n’est promu `passed`; les campagnes réservées et la réplication indépendante restent à exécuter sur les profils déclarés.
