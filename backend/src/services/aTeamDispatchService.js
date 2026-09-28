@@ -99,7 +99,7 @@ async function prepareDispatch({ db, context }) {
     available: garage.available
   });
   const workerAssignments = workerAssignmentsFor(request);
-  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', team.members, workerAssignments);
+  team.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', inferTeamRoles(team.members), workerAssignments);
   const policy = prepareDispatchPolicy({
     mission: { ...request, goal: projectGoal }, members: team.members,
     totalBudget: requestedTokenBudget(request)
@@ -109,6 +109,15 @@ async function prepareDispatch({ db, context }) {
   team.executionPolicy = policy.policy;
   requireReadyTeam(team.readiness);
   return { db, request, garage, projectGoal, team, context };
+}
+
+function inferTeamRoles(members) {
+  return members.map((member) => member.role ? member : {
+    ...member,
+    role: member.subSystem || member.domain || member.label
+      ? `${member.subSystem || member.domain || member.label}_specialist`
+      : 'independent_solver'
+  });
 }
 
 function workerAssignmentsFor(request) {
@@ -144,7 +153,7 @@ function shouldReturnExisting(canonical) {
 async function launchDispatch({ setup, activeRun, runnerToken, context, parent, launchWorker }) {
   const { team, garage, projectGoal } = setup;
   const plan = aTeamStageScheduler.stagePlanFor({ orchestratorId: context.orchestratorId, members: activeRun.members, planId: activeRun.teamRunId });
-  plan.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', plan.members);
+  plan.members = topologyWorkerKinds.applyTopologyWorkerKinds('a_team', inferTeamRoles(plan.members));
   await persistPlannedWorkers({ db: setup.db, context, parent, members: plan.members });
   const existingWorkerIds = await workersAlreadyPresent(setup.db, plan.members);
   // Independent producers start now; the detached runner waits for them before
