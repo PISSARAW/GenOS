@@ -10,6 +10,7 @@ const store = require('./topologySessionStore');
 const syncytium = require('./syncytiumCoordinationService');
 const rhizome = require('./rhizomeCoordinationService');
 const biome = require('./biomeCoordinationService');
+const rhizomeMergePolicy = require('./rhizome/bridges/mergePolicyEvaluationService');
 
 async function syncytiumEvents(db, sessionId, args) {
   const after = Number.isSafeInteger(Number(args.after_revision)) ? Number(args.after_revision) : -1;
@@ -18,8 +19,20 @@ async function syncytiumEvents(db, sessionId, args) {
 }
 
 async function rhizomeSnapshot(db, sessionId) {
-  const graph = await rhizome.graphSnapshot(sessionId, { db });
+  const graph = await store.loadRhizomeGraph(db, sessionId);
   return { sessionId, graph, ...(await rhizome.coherence(sessionId, { db })) };
+}
+
+async function evaluateRhizomeMerge(db, sessionId, args) {
+  const graph = await store.loadRhizomeGraph(db, sessionId);
+  const input = args.merge_evaluation || {};
+  return rhizomeMergePolicy.evaluateMerge({
+    ...input,
+    graphRevision: String(graph.graphVersion),
+    expectedGraphRevision: input.expected_graph_revision,
+    latencySamplesMs: input.latency_samples_ms,
+    evidenceRefs: input.evidence_refs,
+  });
 }
 
 async function applySyncytium(db, sessionId, args) {
@@ -231,7 +244,7 @@ const OPERATIONS = {
     replicas: replicasSyncytium, health: healthSyncytium,
     morphogenesis: morphogenesisSyncytium, events: syncytiumEvents
   },
-  rhizome: { snapshot: rhizomeSnapshot, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, propagate: propagateRhizomeProcedure, signal: publishRhizomeSignal, locus: manageRhizomeLocus, branch_lease: manageRhizomeLease, fossil: readRhizomeFossil, plan_shortcuts: planRhizomeShortcuts, admit_shortcut: admitRhizomeShortcut, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
+  rhizome: { snapshot: rhizomeSnapshot, evaluate_merge: evaluateRhizomeMerge, add_node: addRhizomeNode, add_edge: addRhizomeEdge, deposit: depositRhizome, direct_member: selectRhizomeMember, route: routeRhizomeNeed, slime: stepRhizome, gap: inspectRhizomeGap, grow: planRhizomeGrowth, evaporate: evaporateRhizomeTrails, record_outcome: recordRhizomeOutcome, conductivity: updateRhizomeConductivity, bridge: integrateRhizomeBridge, propagate: propagateRhizomeProcedure, signal: publishRhizomeSignal, locus: manageRhizomeLocus, branch_lease: manageRhizomeLease, fossil: readRhizomeFossil, plan_shortcuts: planRhizomeShortcuts, admit_shortcut: admitRhizomeShortcut, repair: repairRhizomeRoute, health: assessRhizomeHealth, prune: inspectRhizomePruning },
   biome: { snapshot: (db, id) => biome.sessionSnapshot(id, { db }), allocate: allocateBiome, forage: forageBiome,
     health: assessBiome, advance_variant: advanceBiomeVariant }
 };

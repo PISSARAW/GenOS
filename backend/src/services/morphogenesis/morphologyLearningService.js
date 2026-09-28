@@ -3,6 +3,10 @@
 const MAX_EXPERIENCES = 500;
 const DECAY_HALF_LIFE_MS = 7 * 24 * 60 * 60 * 1000;
 const FEATURE_KEYS = ['complexity', 'domain', 'urgency', 'scale', 'interdependency'];
+const topologyPolicy = require('./learning/topologyPolicyService');
+const ADMISSIBLE_EVIDENCE_KINDS = new Set([
+  'oracle', 'benchmark', 'deterministic_verifier', 'human_approval', 'external_metric'
+]);
 
 let experiences = [];
 
@@ -109,7 +113,7 @@ const FIELD_DEFAULTS = [
 function buildExperienceRecord(ctx) {
   const record = {
     problemFeatures: normalizeFeatures(ctx.problemFeatures),
-    evidenceQuality: Number(ctx.evidenceQuality) || 0.5,
+    evidenceQuality: Number.isFinite(Number(ctx.evidenceQuality)) ? Number(ctx.evidenceQuality) : 0.5,
     tokenCost: Number(ctx.tokenCost) || 0,
     latency: Number(ctx.latency) || 0,
     morphologyKey: getMorphologyKey(ctx.morphology),
@@ -122,11 +126,35 @@ function buildExperienceRecord(ctx) {
 }
 
 function recordExperience(ctx) {
-  if (!ctx || !ctx.problemFeatures) return null;
+  if (!ctx || !ctx.problemFeatures || !isAdmissibleOutcomeEvidence(ctx.outcomeEvidence)) return null;
+  ctx = {
+    ...ctx,
+    outcome: {
+      ...ctx.outcome,
+      success: ctx.outcomeEvidence.success,
+      quality: ctx.outcomeEvidence.value
+    }
+  };
   const exp = buildExperienceRecord(ctx);
   experiences.push(exp);
   if (experiences.length > MAX_EXPERIENCES) experiences = experiences.slice(-MAX_EXPERIENCES);
+  topologyPolicy.recordVerifiedOutcome({
+    topology: ctx.morphology?.topology,
+    profile: ctx.problemFeatures,
+    score: ctx.outcomeEvidence.success ? ctx.outcomeEvidence.value : 0,
+    cost: ctx.tokenCost,
+    latency: ctx.latency
+  });
   return exp;
+}
+
+function isAdmissibleOutcomeEvidence(evidence) {
+  if (!evidence || evidence.status !== 'VERIFIED') return false;
+  if (!ADMISSIBLE_EVIDENCE_KINDS.has(evidence.kind)) return false;
+  if (!String(evidence.receiptId || '').trim()) return false;
+  if (typeof evidence.success !== 'boolean') return false;
+  const value = Number(evidence.value);
+  return Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
 function predictOutcome(ctx) {
@@ -197,5 +225,5 @@ function getStats() {
 module.exports = {
   recordExperience, predictOutcome, getOptimalMorphology,
   pruneOldExperiences, getStats, FEATURE_KEYS,
-  _internals: { experiences, normalizeFeatures, cosineSimilarity, decayWeight },
+  _internals: { experiences, normalizeFeatures, cosineSimilarity, decayWeight, isAdmissibleOutcomeEvidence },
 };

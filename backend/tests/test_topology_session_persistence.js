@@ -177,6 +177,27 @@ function readRecord(state, sql, params) {
   assert.equal(route.selected, true);
   assert.deepEqual(route.route.nodeIds, ['parser', 'validator']);
   assert.deepEqual(route.route.edgeIds, ['parser-validator']);
+  const graph = await store.loadRhizomeGraph(db, rhiz.sessionId);
+  const mergeInput = {
+    expected_graph_revision: String(graph.graphVersion),
+    policy: {
+      version: 'test-v1', minFitness: 0.5, minCoverage: 0.95, minProvenance: 0.8,
+      minTransferReliability: 0.8, maxLatencyVariance: 10, minLeaseMs: 100, maxLeaseMs: 1000
+    },
+    metrics: { bridgeFitness: 0.9, coverage: 1, provenanceScore: 0.9, transferReliability: 0.9, stability: 0.8 },
+    latency_samples_ms: [10, 12], evidence_refs: ['benchmark:rhizome:1']
+  };
+  const mergeEvaluation = await tools.applyTopologyOperation(db, {
+    session_id: rhiz.sessionId, operation: 'evaluate_merge',
+    merge_evaluation: mergeInput
+  });
+  assert.equal(mergeEvaluation.schema, 'genos.rhizome-merge-evaluation/v1');
+  assert.equal(mergeEvaluation.graphRevision, String(graph.graphVersion));
+  assert.equal(mergeEvaluation.decision.canMerge, true);
+  await assert.rejects(() => tools.applyTopologyOperation(db, {
+    session_id: rhiz.sessionId, operation: 'evaluate_merge',
+    merge_evaluation: { ...mergeInput, expected_graph_revision: 'stale' }
+  }), (error) => error.code === 'RHIZOME_GRAPH_STALE');
 
   const snap = await tools.applyTopologyOperation(db, { session_id: syn.sessionId, operation: 'snapshot' });
   assert.equal(snap.shared.textContent, 'shared');

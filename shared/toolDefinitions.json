@@ -2630,6 +2630,7 @@
               "admit_shortcut",
               "repair",
               "prune",
+              "evaluate_merge",
               "allocate",
               "forage",
               "advance_variant"
@@ -2759,6 +2760,42 @@
           },
           "threshold": {
             "type": "number"
+          },
+          "merge_evaluation": {
+            "type": "object",
+            "properties": {
+              "expected_graph_revision": {
+                "type": "string"
+              },
+              "policy": {
+                "type": "object"
+              },
+              "metrics": {
+                "type": "object"
+              },
+              "latency_samples_ms": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "evidence_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": [
+              "expected_graph_revision",
+              "policy",
+              "metrics",
+              "latency_samples_ms",
+              "evidence_refs"
+            ],
+            "additionalProperties": false
           },
           "trail_kind": {
             "type": "string"

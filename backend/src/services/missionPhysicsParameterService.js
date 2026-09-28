@@ -30,6 +30,16 @@ function verifySources(samples) {
   return refs;
 }
 
+async function verifyStoredEvidence(db, sourceRefs) {
+  for (const receiptId of sourceRefs) {
+    const receipt = await loadReceipt(db, receiptId);
+    if (!receipt) fail('PHYSICS_INSUFFICIENT_DATA', `Evidence receipt '${receiptId}' is missing.`);
+    const hasProvenance = receipt.sourceRefs.length > 0
+      || (Array.isArray(receipt.payload.evidenceRefs) && receipt.payload.evidenceRefs.some((ref) => typeof ref === 'string' && ref.trim()));
+    if (!hasProvenance) fail('PHYSICS_INSUFFICIENT_DATA', `Evidence receipt '${receiptId}' has no source provenance.`);
+  }
+}
+
 async function latestVersion(db, missionClass, parameterId) {
   const rows = await db.all('SELECT payload_json FROM versioned_contract_receipts WHERE contract_type = ?', ['MissionPhysicsParameterSet']);
   return rows.map((row) => JSON.parse(row.payload_json))
@@ -70,6 +80,7 @@ async function proposeParameter(db, input) {
   if (!input.missionClass || !input.parameterId || !input.unit) fail('PHYSICS_INSUFFICIENT_DATA', 'Mission class, parameter ID and unit are required.');
   const version = await latestVersion(db, input.missionClass, input.parameterId) + 1;
   const payload = buildCandidate(input, version);
+  await verifyStoredEvidence(db, payload.sourceRefs);
   const receipt = createReceipt('MissionPhysicsParameterSet', payload, { runId: input.runId, sourceRefs: payload.sourceRefs });
   const persisted = await persistReceipt(db, receipt, { eventType: 'MISSION_PHYSICS_PARAMETER_CANDIDATE' });
   return { ...persisted, receipt };

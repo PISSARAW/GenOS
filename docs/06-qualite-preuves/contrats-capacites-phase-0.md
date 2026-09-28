@@ -36,9 +36,9 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 3. Mécanismes Rhizome (phase 3)
 
-- **Avancement** : `mergePolicyEvaluationService.evaluateMerge` calcule une décision bornée depuis des métriques explicites, refuse les révisions de graphe périmées et produit un hash de reçu. Cette fonction reste isolée : elle n'est pas encore branchée aux opérations de fusion, de pruning, de transfert ni au bail runtime.
+- **Avancement** : `mergePolicyEvaluationService.evaluateMerge` calcule une décision bornée depuis des métriques explicites, refuse les révisions de graphe périmées et produit un hash de reçu. L'opération MCP `genos_topology_session` / `evaluate_merge` la relie au graphe Rhizome persistant et lie le reçu à sa révision. L'évaluation est consultative : elle ne déclenche ni fusion, ni pruning, ni transfert, ni bail runtime.
 
-- **Interface** : fonctions déterministes isolées puis raccordées au graphe (`rhizomeCoordinationService`, politiques de fusion, pruning, transfert, bail).
+- **Interface** : évaluateur déterministe exposé par `genos_topology_session` (`operation: evaluate_merge`), avec politique et métriques explicites ; mutations de fusion, pruning, transfert et bail restent séparées.
 - **Entrées** : fitness de pont, variance de latence, score de provenance, couverture globale `C_min`, fitness minimale `F_min`, seuil de fiabilité du transfert, bail fondé sur la stabilité — chacun avec unité, source de données et politique d'usage.
 - **Sorties** : valeurs dérivées + décision reproductible (`canMerge` et équivalents) + reçu (entrées, valeurs, seuils, décision, données manquantes).
 - **Erreurs** : `RHIZOME_DATA_MISSING`, `RHIZOME_GRAPH_STALE`, `RHIZOME_POLICY_UNDEFINED`. Valeur absente ou sous-documentée = `unknown`, jamais une estimation silencieuse.

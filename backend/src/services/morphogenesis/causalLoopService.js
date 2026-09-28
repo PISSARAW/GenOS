@@ -100,12 +100,17 @@ function recordMorphologyExperience(ctx) {
   const exp = morphologyLearningService.recordExperience({
     problemFeatures: ctx.problemFeatures || {},
     outcome: ctx.outcome || {},
+    outcomeEvidence: ctx.outcomeEvidence || null,
     morphology: ctx.morphology || {},
-    evidenceQuality: ctx.evidenceQuality || 0.5,
+    evidenceQuality: ctx.evidenceQuality ?? 0,
     tokenCost: ctx.tokenCost || 0,
     latency: ctx.latency || 0,
   });
-  return { recorded: exp !== null, experienceId: exp ? exp.morphologyKey : null };
+  return {
+    recorded: exp !== null,
+    experienceId: exp ? exp.morphologyKey : null,
+    reason: exp ? null : 'admissible_verified_outcome_evidence_required'
+  };
 }
 
 function buildNextActionHints(outcome, rpe) {
@@ -142,11 +147,13 @@ function logLoopReceipt(receipt) {
 function morphologyInputOf(actionReceipt, expressionContext) {
   const expression = expressionContext || {};
   const outcome = actionReceipt.outcome || {};
+  const outcomeEvidence = actionReceipt.qualityEvidence || null;
   return {
     problemFeatures: expression.problemFeatures || {},
     outcome,
     morphology: expression.morphology || {},
-    evidenceQuality: outcome.quality || 0.5,
+    outcomeEvidence,
+    evidenceQuality: outcomeEvidence ? 1 : 0,
     tokenCost: actionReceipt.tokenCost || 0,
     latency: actionReceipt.latency || 0
   };
