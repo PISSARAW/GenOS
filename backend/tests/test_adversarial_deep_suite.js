@@ -6,6 +6,9 @@
 
 const http = require('http');
 const path = require('path'); const fs = require('fs');
+const testWorkspacesRoot = path.join(__dirname, `.tmp-adversarial-workspaces-${process.pid}`);
+process.env.GENOS_WORKSPACES_ROOT = testWorkspacesRoot;
+process.env.GENOS_WORKSPACE_ROOT = testWorkspacesRoot;
 const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN, TEST_VIEWER_TOKEN } = require('../testAuth');
 const { createApp } = require('../src/app');
 const { getDatabase, closeDatabase } = require('../src/db');
@@ -71,7 +74,7 @@ async function runRbacMatrixTests() {
   const militaryKill = await sendReq({
     method: 'POST',
     path: '/api/security/kill-switch',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { reason: 'Adversarial Drill Verification' });
   const militaryKillAccepted = militaryKill.status === 200 && militaryKill.body.success === true;
   if (!militaryKillAccepted) {
@@ -83,7 +86,7 @@ async function runRbacMatrixTests() {
   const militaryReset = await sendReq({
     method: 'POST',
     path: '/api/security/kill-switch/reset',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, {});
   assert(militaryReset.status === 200 && militaryReset.body.success === true, 'Level 5 Military Override Token successfully resets kill switch');
 
@@ -211,7 +214,8 @@ async function runCircuitBreakerTests() {
     path: `/api/platform/approvals/${opDestructive.body.approvalId}/decision`,
     headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { decision: 'approve', reason: 'Adversarial approval flow test' });
-  assert(approved.status === 200 && approved.body.status === 'approved' && approved.body.execution, 'Approved destructive action consumed and execution attempted');
+  assert(approved.status === 200 && approved.body.status === 'approved' && approved.body.execution,
+    `Approved destructive action consumed and execution attempted (${approved.status}: ${JSON.stringify(approved.body)})`);
 
   const replayApproval = await sendReq({
     method: 'POST',
@@ -281,20 +285,24 @@ async function runFuzzingStressTests() {
   console.log('\n--- 5. FUZZING, PROTOTYPE POLLUTION & PAYLOAD RESILIENCE ---');
 
   // 5.1 Prototype pollution payload in JSON body
-  const protoPayload = JSON.parse('{"__proto__": {"polluted": "yes"}, "name": "SafeName"}');
+  const protoPayload = JSON.parse(JSON.stringify({ name: `SafeName-${process.pid}-${Date.now()}` }));
+  Object.defineProperty(protoPayload, '__proto__', {
+    value: { polluted: 'yes' }, enumerable: true, configurable: true, writable: true
+  });
   const protoRes = await sendReq({
     method: 'POST',
     path: '/api/workspaces',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, protoPayload);
-  assert(protoRes.status === 201 || protoRes.status === 200, 'Server processed workspace request with __proto__ key');
+  assert(protoRes.status === 201 || protoRes.status === 200,
+    `Server processed workspace request with __proto__ key (${protoRes.status}: ${JSON.stringify(protoRes.body)})`);
   assert(Object.prototype.polluted === undefined, 'Prototype pollution defense verified: Object.prototype NOT polluted');
 
   // 5.2 Malformed JSON body handling
   const badJsonRes = await sendReq({
     method: 'POST',
     path: '/api/workspaces',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, '{"invalid_json: 123');
   assert(badJsonRes.status === 400 || badJsonRes.status === 500, 'Malformed JSON payload handled gracefully with error status');
 
@@ -372,6 +380,7 @@ async function runAllAdversarialSuites() {
     server.close();
     await closeDatabase();
     if (fs.existsSync(testDbPath)) try { fs.unlinkSync(testDbPath); } catch (e) {}
+    if (fs.existsSync(testWorkspacesRoot)) try { fs.rmSync(testWorkspacesRoot, { recursive: true, force: true }); } catch (e) {}
   }
 }
 

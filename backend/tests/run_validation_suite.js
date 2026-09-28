@@ -10,6 +10,7 @@ const suites = {
     ['Rhizome merge policy evaluation', 'test_rhizome_merge_policy_evaluation.js'],
     ['mission physics parameter service', 'test_mission_physics_parameter_service.js'],
     ['replicated causal validation', 'test_replicated_causal_validation_service.js'],
+    ['biological semantic response validation', 'test_biological_semantic_validation.js'],
     ['Antigravity MCP configuration', 'test_antigravity_mcp_config.js'],
     ['philosophy registry contracts', 'test_philosophy_registry_contracts.js'],
     ['mathematical philosophy registry', 'test_mathematical_philosophy_registry.js'],
