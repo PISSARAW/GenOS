@@ -1,7 +1,6 @@
 'use strict';
 
 const { createExpression } = require('./morphologyExpression');
-const { parseExpression } = require('./morphologyExpressionParser');
 
 const PREFIXES = {
   NEST: 'NEST(',
@@ -38,48 +37,52 @@ function parseTopologyShorthand(str) {
   return createExpression({ kind: 'TOPOLOGY', topology: parts[0].trim(), variant: parts[1]?.trim() || null, nodeKind: 'TOPOLOGY' });
 }
 
+function parseNestedExpression(input) {
+  return require('./morphologyExpressionParser').parseExpression(input);
+}
+
 function parseNestShorthand(str) {
   const content = extractParenContent(str, 'NEST(');
   const [hostStr, innerStr] = splitTopLevel(content, 2);
-  return createExpression({ kind: 'NEST', host: parseExpression(hostStr.trim()), inner: parseExpression(innerStr.trim()), nodeKind: 'OPERATOR' });
+  return createExpression({ kind: 'NEST', host: parseNestedExpression(hostStr.trim()), inner: parseNestedExpression(innerStr.trim()), nodeKind: 'OPERATOR' });
 }
 
 function parseParallelShorthand(str) {
   const content = extractParenContent(str, 'PARALLEL(');
-  return createExpression({ kind: 'PARALLEL', children: splitTopLevel(content).map(s => parseExpression(s.trim())), nodeKind: 'OPERATOR' });
+  return createExpression({ kind: 'PARALLEL', children: splitTopLevel(content).map(s => parseNestedExpression(s.trim())), nodeKind: 'OPERATOR' });
 }
 
 function parseSequenceShorthand(str) {
   const content = extractParenContent(str, 'SEQUENCE(');
-  return createExpression({ kind: 'SEQUENCE', children: splitTopLevel(content).map(s => parseExpression(s.trim())), nodeKind: 'OPERATOR' });
+  return createExpression({ kind: 'SEQUENCE', children: splitTopLevel(content).map(s => parseNestedExpression(s.trim())), nodeKind: 'OPERATOR' });
 }
 
 function parseGateShorthand(str) {
   const content = extractParenContent(str, 'GATE(');
   const [condStr, thenStr, elseStr] = splitTopLevel(content, 3);
-  return createExpression({ kind: 'GATE', condition: parseExpression(condStr.trim()), thenBranch: parseExpression(thenStr.trim()), elseBranch: parseExpression(elseStr.trim()), nodeKind: 'GATE' });
+  return createExpression({ kind: 'GATE', condition: parseNestedExpression(condStr.trim()), thenBranch: parseNestedExpression(thenStr.trim()), elseBranch: parseNestedExpression(elseStr.trim()), nodeKind: 'GATE' });
 }
 
 function parseCompeteShorthand(str) {
   const content = extractParenContent(str, 'COMPETE(');
-  return createExpression({ kind: 'COMPETE', children: splitTopLevel(content).map(s => parseExpression(s.trim())), nodeKind: 'OPERATOR' });
+  return createExpression({ kind: 'COMPETE', children: splitTopLevel(content).map(s => parseNestedExpression(s.trim())), nodeKind: 'OPERATOR' });
 }
 
 function parseWrapShorthand(str) {
   const content = extractParenContent(str, 'WRAP(');
   const [innerStr, envStr] = splitTopLevel(content, 2);
-  return createExpression({ kind: 'WRAP', inner: parseExpression(innerStr.trim()), environment: parseEnvironment(envStr.trim()), nodeKind: 'ENVIRONMENT' });
+  return createExpression({ kind: 'WRAP', inner: parseNestedExpression(innerStr.trim()), environment: parseEnvironment(envStr.trim()), nodeKind: 'ENVIRONMENT' });
 }
 
 function parseBridgeShorthand(str) {
   const content = extractParenContent(str, 'BRIDGE(');
   const [srcStr, tgtStr, adpStr] = splitTopLevel(content, 3);
-  return createExpression({ kind: 'BRIDGE', source: parseExpression(srcStr.trim()), target: parseExpression(tgtStr.trim()), adapter: parseAdapter(adpStr.trim()), nodeKind: 'ADAPTER' });
+  return createExpression({ kind: 'BRIDGE', source: parseNestedExpression(srcStr.trim()), target: parseNestedExpression(tgtStr.trim()), adapter: parseAdapter(adpStr.trim()), nodeKind: 'ADAPTER' });
 }
 
 function parseFederateShorthand(str) {
   const content = extractParenContent(str, 'FEDERATE(');
-  return createExpression({ kind: 'FEDERATE', members: splitTopLevel(content).map(s => parseExpression(s.trim())), nodeKind: 'OPERATOR' });
+  return createExpression({ kind: 'FEDERATE', members: splitTopLevel(content).map(s => parseNestedExpression(s.trim())), nodeKind: 'OPERATOR' });
 }
 
 function parseEnvironment(str) {
@@ -92,9 +95,8 @@ function parseAdapter(str) {
 
 function extractParenContent(str, prefix) {
   if (!str.startsWith(prefix)) throw new Error(`Expected ${prefix}`);
-  const content = str.slice(prefix.length, -1);
-  if (!content.endsWith(')')) throw new Error('Unclosed parenthesis');
-  return content.slice(0, -1);
+  if (!str.endsWith(')')) throw new Error('Unclosed parenthesis');
+  return str.slice(prefix.length, -1);
 }
 
 function splitTopLevel(str, expectedCount = null) {

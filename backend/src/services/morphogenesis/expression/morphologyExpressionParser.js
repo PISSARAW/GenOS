@@ -5,9 +5,9 @@ const { validateExpression } = require('./morphologyExpressionSchema');
 const { parseShorthand } = require('./morphologyExpressionShorthand');
 
 function parseExpression(input) {
+  if (typeof input === 'string') return parseShorthand(input);
   if (!input || typeof input !== 'object') throw new Error('Expression input must be an object');
   if (input.expressionId && input.kind) return validateAndReturn(input);
-  if (typeof input === 'string') return parseShorthand(input);
   return parseStructured(input);
 }
 
