@@ -11,6 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { chooseRuntimeRoot } = require('./agentWorkspaceLifecycle/placement');
 
 const SAFE_AGENT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
@@ -32,18 +33,20 @@ function assertContained(candidate, base, what) {
 
 function capsuleBaseDir(context) {
   if (context.capsuleRoot) return context.capsuleRoot;
-  return path.dirname(context.workspaceRoot);
+  if (process.env.GENOS_CAPSULE_ROOT) return path.resolve(process.env.GENOS_CAPSULE_ROOT);
+  return chooseRuntimeRoot();
 }
 
 function resolveCapsulePaths(context) {
   const ctx = context || {};
   const agentId = assertSafeAgentId(ctx.agentId);
-  const base = assertContained(path.join(capsuleBaseDir(ctx), '.genos-runtime'), capsuleBaseDir(ctx), 'base');
-  const root = assertContained(path.join(capsuleBaseDir(ctx), '.genos-runtime', agentId), base, 'root');
+  const capsuleRoot = capsuleBaseDir(ctx);
+  const base = assertContained(path.join(capsuleRoot, '.genos-runtime'), capsuleRoot, 'base');
+  const root = assertContained(path.join(base, agentId), base, 'root');
   const bootstrap = assertContained(path.join(root, 'bootstrap', agentId), base, 'bootstrap');
   const genomePath = assertContained(path.join(bootstrap, 'genome.json'), base, 'genome');
   const snapshotPath = assertContained(path.join(bootstrap, 'snapshot.json'), base, 'snapshot');
-  return { capsuleRoot: capsuleBaseDir(ctx), root, bootstrap, genomePath, snapshotPath, agentId };
+  return { capsuleRoot, root, bootstrap, genomePath, snapshotPath, agentId };
 }
 
 function assertExistingAbsolute(cmd) {

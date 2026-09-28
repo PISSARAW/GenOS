@@ -2,13 +2,15 @@
 
 const assert = require('node:assert/strict');
 const path = require('node:path');
-const { chooseCapsuleRoot } = require('../src/services/agentWorkspaceLifecycle/placement');
+const { chooseCapsuleRoot, chooseRuntimeRoot } = require('../src/services/agentWorkspaceLifecycle/placement');
 
-const selected = chooseCapsuleRoot(1024, [
+const volumes = [
   { path: 'C:\\', availableBytes: 2 * 1024 ** 3, freeRatio: 0.2 },
   { path: 'D:\\', availableBytes: 80 * 1024 ** 3, freeRatio: 0.1 }
-]);
+];
+const selected = chooseCapsuleRoot(1024, volumes);
 assert.equal(selected, path.join('D:\\', 'GenOS', '.genos-agent-worlds'));
+assert.equal(chooseRuntimeRoot(volumes), path.join('D:\\', 'GenOS'));
 assert.throws(() => chooseCapsuleRoot(10 * 1024 ** 3, [
   { path: 'C:\\', availableBytes: 2 * 1024 ** 3, freeRatio: 0.2 }
 ]), { code: 'WORKSPACE_DISK_SPACE_INSUFFICIENT' });

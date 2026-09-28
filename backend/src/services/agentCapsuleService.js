@@ -90,6 +90,7 @@ async function provision(context = {}) {
   try {
     executable = capsuleGate.resolveExecutable(ctx.executable);
   } catch (err) {
+    if (err.code === 'CAPSULE_EXECUTABLE_INVALID') throw err;
     return provisionSynthetic(ctx);
   }
   const name = ctx.name || 'worker';

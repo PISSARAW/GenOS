@@ -25,4 +25,8 @@ function chooseCapsuleRoot(requiredBytes, availableVolumes) {
   return path.join(candidates[0].path, 'GenOS', '.genos-agent-worlds');
 }
 
-module.exports = { chooseCapsuleRoot, headroomBytes };
+function chooseRuntimeRoot(availableVolumes) {
+  return path.dirname(chooseCapsuleRoot(0, availableVolumes));
+}
+
+module.exports = { chooseCapsuleRoot, chooseRuntimeRoot, headroomBytes };
