@@ -209,6 +209,21 @@ async function persistentLoopChecks(db) {
   assert.ok(budget.remaining >= 0);
 }
 
+async function sourceSinkRolePersistenceChecks(db) {
+  const session = await metapopulation.createMetapopulationSession('Rotate depleted source roles.', { db, variant: 'source_sink' });
+  const sessionId = session.metapopulationId;
+  await metapopulation.createPatch(sessionId, { patchId: 'patch-role', environment: {}, requirements: [],
+    resources: {}, carryingCapacity: 2, quality: 0.7, accessibility: 0.8 }, { db });
+  await metapopulation.createDeme(sessionId, { demeId: 'deme-role', patchId: 'patch-role', fitness: { score: 0.8 } }, { db });
+  const store = require('../src/services/metapopulation/metapopulationStore');
+  await store.recordSourceSinkRoleChanges(db, { metapopulationId: sessionId,
+    changes: [{ demeId: 'deme-role', from: 'SOURCE', to: 'SINK', reason: 'SOURCE_DEPLETED' }] });
+  const observed = await metapopulation.observeRegion({ metapopulationId: sessionId }, { db });
+  assert.equal(observed.demes.find((deme) => deme.demeId === 'deme-role').role, 'SINK');
+  const events = await metapopulation.listMetapopulationEvents(sessionId, { db });
+  assert.ok(events.some((event) => event.type === 'SOURCE_SINK_ROLES_ROTATED'));
+}
+
 function evolutionaryUnitChecks() {
   const evolution = require('../src/services/metapopulation/evolution/evolutionaryRuntimeService');
   const genome = evolution.registerGenomeLineage('deme-evo', 'hash-abc', { solver: 'ga' });
@@ -355,6 +370,7 @@ async function run() {
     await ephemeralLoopChecks(db);
     await heterogeneousLoopChecks(db);
     await persistentLoopChecks(db);
+    await sourceSinkRolePersistenceChecks(db);
   } finally {
     try {
       await database.closeDatabase();

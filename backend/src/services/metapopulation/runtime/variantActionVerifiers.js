@@ -10,6 +10,7 @@ async function verifyVariantActions(context) {
   const session = await store.loadSession(options.db, input.metapopulationId);
   const results = context.execution.results || [];
   return verifyPatchActions(plan.actions, session) && verifySearchAndEvolution(plan.actions, results)
+    && verifySourceSinkRoles(plan.actions, session)
     && verifyTrials({ actions: plan.actions, results, db: options.db, metapopulationId: input.metapopulationId })
     && verifyMarkerReceipts(plan.actions, results) && await verifyCultureOffers({ plan, results, db: options.db, metapopulationId: input.metapopulationId });
 }
@@ -37,7 +38,7 @@ const MARKER_RECEIPTS = Object.freeze({
   DEPLOY_FOUNDER: (item) => typeof item.deployed === 'boolean' && (item.deployed ? typeof item.colonizationId === 'string' : typeof item.reason === 'string'),
   PROTECT_SOURCE: (item) => item.protected === true && typeof item.demeId === 'string',
   RECOVERY_SLA_BREACH: (item) => item.breached === true && typeof item.demeId === 'string',
-  ROTATE_SOURCE_SINK_ROLES: (item) => Number.isInteger(item.rotated) && Array.isArray(item.changes),
+  ROTATE_SOURCE_SINK_ROLES: (item) => item.persisted === true && Number.isInteger(item.rotated) && Array.isArray(item.changes),
   MIGRATE_ISLAND_ELITE: (item) => item.migrated === true && typeof item.propaguleId === 'string',
   PROOF_OF_DATA_MINIMIZATION: (item) => item.proven === true && typeof item.proofId === 'string',
   REQUIRE_RECEIVER_ATTESTATION: (item) => item.required === true && typeof item.propaguleId === 'string',
@@ -67,6 +68,12 @@ const MARKER_RECEIPTS = Object.freeze({
   PROOF_OF_DATA_MINIMIZATION: (item) => item.recorded === true && typeof item.proofId === 'string',
   REQUIRE_RECEIVER_ATTESTATION: (item) => item.required === true && typeof item.propaguleId === 'string',
 });
+
+function verifySourceSinkRoles(actions, session) {
+  const rotations = actions.filter((action) => action.type === 'ROTATE_SOURCE_SINK_ROLES');
+  const roles = session.regionalMemory?.sourceSinkRoles || {};
+  return rotations.every((action) => action.changes.every((change) => roles[change.demeId]?.role === change.to));
+}
 
 async function verifyCultureOffers(context) {
   const { plan, results, db, metapopulationId } = context;

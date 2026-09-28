@@ -8,6 +8,7 @@ const federated = require('../src/services/metapopulation/policy/federatedRuntim
 const rescue = require('../src/services/metapopulation/runtime/rescueNetworkRuntimeService');
 const variantRuntime = require('../src/services/metapopulation/policy/variantRuntimeService');
 const controller = require('../src/services/metapopulation/runtime/variantRegionalController');
+const migrationPolicy = require('../src/services/metapopulation/migration/migrationPolicyService');
 
 function qdArchiveChecks() {
   const archive = evolution.createQualityDiversityArchive(['novelty', 'fitness']);
@@ -24,6 +25,22 @@ function qdArchiveChecks() {
   assert.equal(coverage.insertions, 3);
   assert.equal(coverage.displacements, 1);
   assert.ok(coverage.ratio > 0 && coverage.ratio < 1);
+}
+
+function culturalParetoChecks() {
+  const candidates = [
+    culturalCandidate('culture-novel', 0.9, 0.3),
+    culturalCandidate('culture-fit', 0.3, 0.9),
+    culturalCandidate('culture-dominated', 0.2, 0.2)
+  ];
+  const selected = migrationPolicy.selectCandidates(candidates, { policy: 'cultural' });
+  assert.deepEqual(selected.map((item) => item.selectionFront), [1, 1, 2]);
+  assert.equal(selected.length, 3);
+}
+
+function culturalCandidate(propaguleId, novelty, sourceFitness) {
+  return { propaguleId, type: 'PROCEDURE', novelty, sourceFitness,
+    culture: { id: propaguleId, version: 1, parentRefs: [] }, provenance: { source: 'test' } };
 }
 
 function temporalRoleChecks() {
@@ -155,7 +172,8 @@ async function markerExecutionChecks() {
   const context = { input: {}, options: {}, observed: {} };
   const rotated = await controller.executeVariantAction(
     { type: 'ROTATE_SOURCE_SINK_ROLES', changes: [{ demeId: 'd', from: 'SOURCE', to: 'SINK' }] }, context);
-  assert.equal(rotated.rotated, 1);
+  assert.equal(rotated.persisted, false);
+  assert.equal(rotated.rotated, 0);
   const elite = await controller.executeVariantAction(
     { type: 'MIGRATE_ISLAND_ELITE', propagule: { propaguleId: 'island-elite-a-b-1' } }, context);
   assert.equal(elite.migrated, true);
@@ -172,6 +190,7 @@ async function markerExecutionChecks() {
 
 async function run() {
   qdArchiveChecks();
+  culturalParetoChecks();
   temporalRoleChecks();
   eliteMigrantChecks();
   federatedProofChecks();
