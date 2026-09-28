@@ -61,6 +61,9 @@ for (const kind of Object.keys(workerKinds.KINDS)) {
   assert.match(mission.prompt, new RegExp(scenario.prompt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   enforcement.assertRuntimeContract(contract, kind);
   assert.throws(() => enforcement.assertWorkerToolAllowed(contract, 'genos_topology_session'), { code: 'WORKER_CONTRACT_DENIED' });
+  assert.equal(enforcement.assertWorkerToolAllowed(contract, 'genos_topology_session', {
+    operation: 'events', session_id: 'session-capability'
+  }), true);
   assert.doesNotThrow(() => validateWorkerDossiers([dossier(kind, contract)], [{ agentId: kind, workerContract: contract }]));
   assert.throws(
     () => validateWorkerDossiers([dossier(kind, contract, wrongType)], [{ agentId: kind, workerContract: contract }]),

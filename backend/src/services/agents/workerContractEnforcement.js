@@ -16,23 +16,29 @@ function contractError(kind, action) {
   return error;
 }
 
-function toolAction(toolName) {
+function toolAction(toolName, args = {}) {
   const name = String(toolName || '').trim().toLowerCase();
+  if (name === 'genos_topology_session' && args.operation === 'events') return 'topology_read';
   for (const [action, tools] of Object.entries(AUTHORITY_TOOLS)) {
     if (tools.includes(name)) return action;
   }
   return 'execute';
 }
 
-function assertWorkerToolAllowed(contract, toolName) {
+function assertWorkerToolAllowed(contract, toolName, args = {}) {
   const kind = contract?.identity?.workerKind;
-  const action = toolAction(toolName);
+  const action = toolAction(toolName, args);
   if (!kind || !workerKinds.KINDS[kind]) throw contractError(kind || 'unknown', action);
+  if (action === 'topology_read') {
+    if (!contract.authority?.read) throw contractError(kind, action);
+    return true;
+  }
   if (!contract.authority?.[action]) throw contractError(kind, action);
   return true;
 }
 
-async function enforcePersistedWorkerTool(db, agentId, toolName) {
+async function enforcePersistedWorkerTool(db, agentId, toolCall) {
+  const { toolName, args } = toolCall || {};
   const agent = await db.get('SELECT execution_mode, metadata_json, role FROM agents WHERE id = ?', agentId);
   if (!agent || agent.execution_mode !== 'worker') return true;
   let metadata = {};
@@ -41,7 +47,7 @@ async function enforcePersistedWorkerTool(db, agentId, toolName) {
   const kind = workerKinds.resolveWorkerKind(metadata.workerKind, agent.role);
   const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, {});
   if (contract.identity?.workerKind !== kind) throw contractError('unknown', toolAction(toolName));
-  return assertWorkerToolAllowed(contract, toolName);
+  return assertWorkerToolAllowed(contract, toolName, args);
 }
 
 function assertRuntimeContract(contract, kind) {

@@ -144,7 +144,7 @@ async function resolveToolAuthorization(input) {
   if (identity.error) return { error: identity.error };
   const permissionRow = await loadPermissionRow(db, req, identity.agentId);
   try {
-    await enforcePersistedWorkerTool(db, identity.agentId, toolName);
+    await enforcePersistedWorkerTool(db, identity.agentId, { toolName, args });
   } catch (error) {
     return { error: { status: 403, code: error.code || 'WORKER_CONTRACT_DENIED', message: error.message } };
   }
