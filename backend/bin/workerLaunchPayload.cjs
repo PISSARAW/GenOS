@@ -28,7 +28,7 @@ function migrationInstructions(mission) {
 
 function topologyInstructions(mission, session) {
   if (!session?.sessionId) return mission;
-  return `${mission}\n\nSYNCYTIUM RE-GROUNDING: session_id=${session.sessionId}, initial_revision=${session.revision}. Before committing shared work and before each major decision, call genos_topology_session with operation "events", session_id, and after_revision equal to your last acknowledged revision. Incorporate every newer event into your reasoning, then continue from the highest revision received. Record the revision used in your result.`;
+  return `${mission}\n\nSYNCYTIUM RE-GROUNDING: session_id=${session.sessionId}, initial_revision=${session.revision}. Before committing shared work and before each major decision, call genos_topology_session with operation "events", session_id, and after_revision equal to your last acknowledged revision. Incorporate every newer event into your reasoning, then continue from the highest revision received. Record the revision used in your result.\n\nSEMANTIC CROSS-VALIDATION: include top-level semanticClaims in your evidence report. Each claim must be {"subject":"stable concept", "predicate":"property", "value":string|number|boolean, "evidence":["source or observation"]}. State only claims you can support; use an empty array when you have none.`;
 }
 
 function selectedExecutor(context) {

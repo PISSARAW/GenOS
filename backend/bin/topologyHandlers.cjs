@@ -230,10 +230,24 @@ async function handleBiological(db, context) {
   }
   const members = composition.members || [];
   const accepted = await dispatchAndCollectResults({ db, context, mode, parent, members });
+  const semanticValidation = await validateBiologicalResponses({ db, context, mode, accepted });
   const topology = topologyDetails(composition);
   const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
+  if (semanticValidation) applySemanticValidation(out.biologicalMode, semanticValidation);
   await applyRhizomeResults({ db, context, mode, topology, accepted, parent, output: out });
   process.stdout.write(JSON.stringify(out));
+}
+
+async function validateBiologicalResponses({ db, context, mode, accepted }) {
+  if (mode !== 'syncytium') return null;
+  await waitForMetapopulationWorkers(db, accepted, context.request.timeoutMs);
+  return require('../src/services/biologicalSemanticValidationService').validate(db, accepted);
+}
+
+function applySemanticValidation(output, validation) {
+  output.semanticValidation = validation;
+  output.complete = validation.status === 'complete';
+  if (!output.complete) output.status = 'partial';
 }
 
 async function dispatchAndCollectResults({ db, context, mode, parent, members }) {
