@@ -23,8 +23,10 @@ const fakeDb = { all: async (sql, ...params) => (/FROM trinity_worlds/.test(sql)
   assert.equal(reports[2].outcome, 'no_evidence');
 
   const merged = trinityService.mergeTrinityEvidence(reports, { domain: 'software_engineering', threshold: 0.7 });
-  assert.equal(merged.canMerge, true);
-  assert.equal(merged.selectedWorld, 1);
+  assert.equal(merged.canMerge, false);
+  assert.equal(merged.outcome, 'ESCALATE_EXPERIMENT');
+  assert.equal(merged.selectedWorld, null);
+  assert.match(merged.reason, /required_evidence_vector_or_provenance_missing/);
   console.log('Trinity direct merge dossier build: PASS');
 })().catch((error) => {
   console.error('Trinity direct merge test failed:', error);

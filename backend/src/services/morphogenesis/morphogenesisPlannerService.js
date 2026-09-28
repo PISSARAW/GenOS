@@ -288,7 +288,13 @@ function planMorphogenesis(ctx) {
 }
 
 function compileTopologyCandidate(ctx, topology) {
-  const candidateCtx = { ...ctx, proposedTopology: topology };
+  const proposedLabel = classifyMorphologyLabel(ctx.proposedTopology);
+  const candidateCtx = {
+    ...ctx,
+    proposedTopology: topology,
+    proposedOrganization: ctx.proposedOrganization
+      || (proposedLabel.kind === 'organization' ? proposedLabel.id : null)
+  };
   const profileResolution = resolveRequestedProfile(ctx, topology, topologyRegistry.variants);
   const contracts = buildContracts(candidateCtx);
   const components = buildPlanComponents(candidateCtx, contracts);

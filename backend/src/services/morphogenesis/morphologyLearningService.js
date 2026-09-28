@@ -4,9 +4,7 @@ const MAX_EXPERIENCES = 500;
 const DECAY_HALF_LIFE_MS = 7 * 24 * 60 * 60 * 1000;
 const FEATURE_KEYS = ['complexity', 'domain', 'urgency', 'scale', 'interdependency'];
 const topologyPolicy = require('./learning/topologyPolicyService');
-const ADMISSIBLE_EVIDENCE_KINDS = new Set([
-  'oracle', 'benchmark', 'deterministic_verifier', 'human_approval', 'external_metric'
-]);
+const outcomeEvidenceValidation = require('./learning/outcomeEvidenceValidation');
 
 let experiences = [];
 
@@ -143,18 +141,16 @@ function recordExperience(ctx) {
     profile: ctx.problemFeatures,
     score: ctx.outcomeEvidence.success ? ctx.outcomeEvidence.value : 0,
     cost: ctx.tokenCost,
-    latency: ctx.latency
+    latency: ctx.latency,
+    receiptId: ctx.outcomeEvidence.receiptId,
+    evidenceKind: ctx.outcomeEvidence.kind,
+    outcomeEvidence: ctx.outcomeEvidence
   });
   return exp;
 }
 
 function isAdmissibleOutcomeEvidence(evidence) {
-  if (!evidence || evidence.status !== 'VERIFIED') return false;
-  if (!ADMISSIBLE_EVIDENCE_KINDS.has(evidence.kind)) return false;
-  if (!String(evidence.receiptId || '').trim()) return false;
-  if (typeof evidence.success !== 'boolean') return false;
-  const value = Number(evidence.value);
-  return Number.isFinite(value) && value >= 0 && value <= 1;
+  return outcomeEvidenceValidation.validate(evidence);
 }
 
 function predictOutcome(ctx) {

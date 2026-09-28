@@ -19,6 +19,7 @@ function compileFlatTopology(input = {}) {
 
   const annotated = annotateWithDefaults(expr, { mission, scope, budget });
   const { nodes, edges } = flattenExpression(annotated);
+  if (organization && nodes.length) nodes[0] = { ...nodes[0], organization };
 
   const graph = createMorphologyGraph({
     graphId,

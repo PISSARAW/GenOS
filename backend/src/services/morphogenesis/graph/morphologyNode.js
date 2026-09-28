@@ -34,6 +34,7 @@ function createMorphologyNode(input = {}) {
   const node = {
     nodeId: valueOr(input.nodeId, randomUUID()),
     kind: valueOr(input.kind, input.topology ? 'TOPOLOGY' : 'DIRECT_WORKER'),
+    organization: valueOr(input.organization, null),
     topology: valueOr(input.topology, null),
     variant: valueOr(input.variant, null),
     operator: valueOr(input.operator, null),

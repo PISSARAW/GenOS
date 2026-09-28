@@ -243,19 +243,52 @@ async function runLevel(level) {
   const store = require(path.resolve(__dirname, 'backend/src/services/topologySessionStore'));
   const record = await store.load(db, session.sessionId);
 
-  console.error(`[Syncytium] N${level.id} terminé en ${duration}ms — session: ${session.sessionId} — ops: ${results.filter(r=>r.status==='applied').length}/${level.ops.length} appliquées`);
+  const applied = countResults(results, 'applied');
+  const rejected = countResults(results, 'rejected');
+  console.error(`[Syncytium] N${level.id} terminé en ${duration}ms — session: ${session.sessionId} — ops: ${applied}/${level.ops.length} appliquées`);
 
+  const sf = snapshot.sharedFields || {};
   return {
     niveau: level.id,
     sessionId: session.sessionId,
     mission: level.mission,
-    applied: results.filter(r => r.status === 'applied').length,
-    rejected: results.filter(r => r.status === 'rejected').length,
+    applied,
+    rejected,
     consistency: snapshot.consistency,
-    fields: Object.keys(snapshot.sharedFields || {}),
+    fields: Object.keys(sf),
     duration_ms: duration,
     dbRevision: record ? record.revision : -1,
-    error: results.find(r => r.status === 'rejected')?.error || null
+    error: firstRejectedError(results)
+  };
+}
+
+function countResults(results, status) {
+  return results.filter((result) => result.status === status).length;
+}
+
+function firstRejectedError(results) {
+  return results.find((result) => result.status === 'rejected')?.error || null;
+}
+
+function consistencyVerdict(consistency) {
+  return consistency?.verdict || 'N/A';
+}
+
+function resultError(result) {
+  return result.erreur || result.error || null;
+}
+
+function buildNiveauEntry(r) {
+  return {
+    niveau: r.niveau,
+    sessionId: r.sessionId || 'ERREUR',
+    opsAppliquees: r.applied ?? 0,
+    opsRejetees: r.rejected ?? 0,
+    consistencyVerdict: consistencyVerdict(r.consistency),
+    fieldsCRDT: (r.fields || []).length,
+    dureeMs: r.duration_ms || 0,
+    revisionDB: r.dbRevision ?? -1,
+    erreur: resultError(r)
   };
 }
 
@@ -277,17 +310,7 @@ async function main() {
     orchestrator: 'GenOS Syncytium V3',
     heure: new Date().toISOString(),
     total: LEVELS.length,
-    niveaux: results.map(r => ({
-      niveau: r.niveau,
-      sessionId: r.sessionId || 'ERREUR',
-      opsAppliquees: r.applied ?? 0,
-      opsRejetees: r.rejected ?? 0,
-      consistencyVerdict: (r.consistency && r.consistency.verdict) || 'N/A',
-      fieldsCRDT: (r.fields || []).length,
-      dureeMs: r.duration_ms || 0,
-      revisionDB: r.dbRevision ?? -1,
-      erreur: r.erreur || null
-    }))
+    niveaux: results.map(buildNiveauEntry)
   };
 
   process.stdout.write(JSON.stringify(resume, null, 2));

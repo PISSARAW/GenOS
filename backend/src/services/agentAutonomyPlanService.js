@@ -1,5 +1,5 @@
 const { buildAutonomyPlan, applySurvivalConstraints } = require('./autonomousOrchestrationService');
-const { buildAllocation } = require('./tokenAllocationService');
+const aTeamDispatchBudget = require('./aTeamDispatchBudgetService');
 const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
 const trinityVariants = require('./trinityVariantService');
@@ -58,20 +58,6 @@ function resolveEffectiveOrchestratorReserve(autonomyPlan, configuredReserve) {
     return policy.orchestratorReserve;
   }
   return configuredReserve;
-}
-
-function affordableWorkerCount(tokenPolicy, workerShare) {
-  return Math.floor((tokenPolicy.total * workerShare) / tokenPolicy.minimumWorkerTokens);
-}
-
-function buildRoundAllocation(tokenPolicy, workerShare, workerCount) {
-  return buildAllocation({
-    totalTokens: tokenPolicy.total,
-    workerShare,
-    workerCount,
-    minimumWorkerTokens: tokenPolicy.minimumWorkerTokens,
-    mode: tokenPolicy.allocation
-  });
 }
 
 function missionText(normalizedMission) {
@@ -209,29 +195,39 @@ function activateATeam({ autonomyPlan, agentId, effectiveWorkerShare, effectiveO
   autonomyPlan.dispatchWorkers = autonomyPlan.aTeam.members;
   autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
   autonomyPlan.tokenPolicy.orchestratorReserve = effectiveOrchestratorReserve;
-  autonomyPlan.tokenPolicy.rounds = buildRoundAllocation(autonomyPlan.tokenPolicy, effectiveWorkerShare, aTeamWorkerCount);
+  autonomyPlan.tokenPolicy.rounds = aTeamDispatchBudget.buildRoundAllocation(autonomyPlan.tokenPolicy, effectiveWorkerShare, aTeamWorkerCount);
   emit(agentId, 'A_TEAM_PLANNED', 'COMPOSE_TEAM', `Detected multidisciplinary mission across ${autonomyPlan.aTeam.detectedDomains.join(', ')}.`, autonomyPlan.aTeam, 'info');
 }
 
-function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve }) {
-  autonomyPlan.aTeam = aTeamService.analyzeMission(missionText(normalizedMission));
-  const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
-  const affordableAteamMembers = affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
-  autonomyPlan.aTeam.activated = !autonomyPlan.trinity.activated
-    && autonomyPlan.aTeam.recommended
-    && affordableAteamMembers >= aTeamWorkerCount;
-  if (autonomyPlan.aTeam.activated) {
-    attachAteamCoordination({ aTeam: autonomyPlan.aTeam, agentId, normalizedMission });
-  }
+function reportATeamDecision({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount, affordableAteamMembers }) {
   if (autonomyPlan.aTeam.activated) {
     activateATeam({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount });
-  } else if (autonomyPlan.aTeam.recommended && autonomyPlan.trinity.recommended) {
+    return;
+  }
+  if (autonomyPlan.aTeam.recommended && autonomyPlan.trinity.recommended) {
     autonomyPlan.aTeam.reason = 'A-Team dispatch was deferred so the orchestrator can decide whether Trinity is the better mission shape.';
     emit(agentId, 'A_TEAM_DEFERRED', 'TRINITY_DECISION_GATE', autonomyPlan.aTeam.reason, autonomyPlan.aTeam, 'info');
   } else if (autonomyPlan.aTeam.recommended) {
     autonomyPlan.aTeam.reason = `The mission needs ${aTeamWorkerCount} specialists, but the token budget funds only ${affordableAteamMembers}.`;
     emit(agentId, 'A_TEAM_SKIPPED', 'BUDGET_GUARD', autonomyPlan.aTeam.reason, autonomyPlan.aTeam, 'warning');
   }
+}
+
+function applyATeamPlan({ autonomyPlan, normalizedMission, agentId, effectiveWorkerShare, effectiveOrchestratorReserve }) {
+  autonomyPlan.aTeam = aTeamService.analyzeMission(missionText(normalizedMission), {
+    workGraph: normalizedMission.workGraph || normalizedMission.work_graph,
+    capabilityRequirements: normalizedMission.capabilityRequirements || normalizedMission.capability_requirements,
+    availableSpecialists: normalizedMission.availableSpecialists || normalizedMission.available_specialists
+  });
+  const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
+  const affordableAteamMembers = aTeamDispatchBudget.affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
+  autonomyPlan.aTeam.activated = !autonomyPlan.trinity.activated
+    && autonomyPlan.aTeam.recommended
+    && affordableAteamMembers >= aTeamWorkerCount;
+  if (autonomyPlan.aTeam.activated) {
+    attachAteamCoordination({ aTeam: autonomyPlan.aTeam, agentId, normalizedMission });
+  }
+  reportATeamDecision({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, aTeamWorkerCount, affordableAteamMembers });
 }
 
 async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan }) {

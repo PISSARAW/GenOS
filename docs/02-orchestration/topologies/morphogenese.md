@@ -2258,6 +2258,10 @@ déterministes (plus de `Math.random` ni `Date.now` dans les décisions).
 Limites maintenues : le planificateur historique sélectionne encore une
 topologie unique (le graphe composite vient du compilateur, pas du
 `morphogenesisPlannerService`) ; les boucles rapide/structurelle/évolutive
-ne sont pas tickées par le runtime ; les constantes du résolveur restent
-des priors non calibrés ; le benchmark non stationnaire reste un protocole
-sans campagne publiée. Voir [ADR 0133](../../adr/0133-graphe-morphologique-executable-et-plugins-topologies.md).
+ne sont pas tickées par le runtime. Le résolveur mélange maintenant son score
+heuristique de cold-start avec des issues morphologiques persistées seulement
+après validation d'un reçu signé, indépendant et lié au hash de
+`{ success, value, kind }`. Le poids du prior heuristique décroît avec le
+nombre d'observations vérifiées pour ce profil. Cette boucle d'apprentissage
+ne constitue pas une preuve de gain causal, et le benchmark comparatif reste
+sans campagne exécutée. Voir [ADR 0133](../../adr/0133-graphe-morphologique-executable-et-plugins-topologies.md).

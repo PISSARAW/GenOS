@@ -1,7 +1,19 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'morphology-test-secret';
 const learning = require('../src/services/morphogenesis/morphologyLearningService');
+
+function signedEvidence({ receiptId, kind, success, value }) {
+  const evidenceDigest = crypto.createHash('sha256')
+    .update(JSON.stringify({ success, value, kind })).digest('hex');
+  const verifierDigest = require('../src/services/verifierTrustRegistry').listVerifierDigests()[0];
+  const receipt = require('../src/services/epistemicVerifierReceiptService').issueReceipt({
+    resultId: receiptId, evidenceDigest, verifierDigest, independent: true, status: 'verified'
+  });
+  return { status: 'VERIFIED', kind, receiptId, success, value, receipt };
+}
 
 function main() {
   learning._internals.experiences.length = 0;
@@ -16,7 +28,7 @@ function main() {
     status: 'VERIFIED', kind: 'llm_self_report', receiptId: 'untrusted', success: true, value: 1,
   } }), null, 'self-reported evidence cannot enter learning');
   const result = learning.recordExperience({ ...base, outcomeEvidence: {
-    status: 'VERIFIED', kind: 'deterministic_verifier', receiptId: 'receipt:test:1', success: false, value: 0.2,
+    ...signedEvidence({ receiptId: 'receipt:test:1', kind: 'deterministic_verifier', success: false, value: 0.2 })
   } });
   assert.ok(result);
   assert.equal(result.outcome.success, false);

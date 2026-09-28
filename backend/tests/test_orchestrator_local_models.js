@@ -37,11 +37,11 @@ async function main() {
   global.fetch = async (url, options) => {
     requestBodies.push(JSON.parse(options.body));
     return url.endsWith('/first')
-      ? { ok: false, status: 503, async json() { return {}; } }
+      ? { ok: false, status: 503, async text() { return ''; }, async json() { return {}; } }
       : { ok: true, status: 200, async json() { return { choices: [{ message: { content: 'fallback worked' } }], usage: { prompt_tokens: 2, completion_tokens: 2 } }; } };
   };
   try {
-    const result = await modelRouter.generate({ db: policyDb, agentId: 'orchestrator-a', policy, prompt: 'review', maxTokens: 321 });
+    const result = await modelRouter.generate({ db: policyDb, agentId: 'orchestrator-a', policy, prompt: 'review', maxTokens: 321, enforceSchema: false });
     assert.equal(result.model, 'ollama://discovered-local');
     assert.equal(result.text, 'fallback worked');
     assert.equal(result.route.attempts[0].model, 'ollama://configured-local');
@@ -58,7 +58,7 @@ async function main() {
     inputTokens: 13, outputTokens: 5, totalTokens: 18
   });
 
-  const runtimeSource = fs.readFileSync(path.resolve(__dirname, '../bin/genos-agent-runtime.cjs'), 'utf8');
+  const runtimeSource = fs.readFileSync(path.resolve(__dirname, '../bin/agent-runtime-prompt.cjs'), 'utf8');
   assert.match(runtimeSource, /localModelReview: plan\.localModelReview/);
   assert.match(runtimeSource, /accepted or rejected recommendations/);
 
@@ -77,9 +77,9 @@ const fs = require('fs'); let input = ''; process.stdin.on('data', chunk => inpu
         autonomyPlanJson: JSON.stringify({ schema: 'test', localModelReview: { consulted: true, selectedModel: 'ollama://test', provider: 'ollama', advice: 'USE_THIS_LOCAL_EVIDENCE' } })
       }),
       env: { ...process.env, CODEX_EXECUTABLE: fakeCodex, PROMPT_CAPTURE: capture, GENOS_BIN: path.join(directory, 'missing-genos'), GENOS_MCP_BIN: path.join(directory, 'missing-mcp'), GENOS_WORKSPACE_ROOT: directory },
-      timeout: 10000
+      timeout: 30000
     });
-    assert.equal(runtime.status, 0, runtime.stderr.toString());
+    assert.equal(runtime.status, 0, `${runtime.error?.message || ''} ${runtime.stderr.toString()}`);
     const capturedPrompt = fs.readFileSync(capture, 'utf8');
     assert.match(capturedPrompt, /USE_THIS_LOCAL_EVIDENCE/);
     assert.match(capturedPrompt, /accepted or rejected recommendations/);

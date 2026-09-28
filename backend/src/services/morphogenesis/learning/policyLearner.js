@@ -96,7 +96,8 @@ class PolicyLearner {
   }
 
   recordOutcome(action, context, reward, cost = 0, latency = 0) {
-    const key = `${action}:${this.contextKey(context)}`;
+    const actionContext = { ...(context || {}), topology: action };
+    const key = this.priorService.contextToKey(actionContext);
     this.priorService.update(key, reward, 'outcome');
     this.priorService.update(key, cost, 'cost');
     this.priorService.update(key, latency, 'latency');

@@ -46,6 +46,22 @@ const failingWorld = {
   claims: [],
   tests: []
 };
+const lowEvidenceWorld = {
+  outcome: 'success',
+  claims: [{ statement: 'A verified implementation claim with provenance.', evidence: ['e-low'], sourceRefs: ['test:low'] }],
+  evidence: [{ id: 'e-low', source: 'test:low' }],
+  evidenceVector: {
+    correctness: 0.1, coverage: 0.1, robustness: 0.1, reproducibility: 0.1,
+    novelty: 0.1, cost: 0.9, latency: 0.9, risk: 0.9, uncertainty: 0.9,
+    constraintCoverage: 0.1
+  },
+  evidenceVectorEvidence: Object.fromEntries([
+    'correctness', 'coverage', 'robustness', 'reproducibility', 'novelty',
+    'cost', 'latency', 'risk', 'uncertainty', 'constraintCoverage'
+  ].map((dimension) => [dimension, ['e-low']])),
+  hardConstraintsPassed: true,
+  budgetStatus: 'within'
+};
 const scoreFailing = trinity.scoreWorldEvidence(failingWorld, 'software_engineering');
 assert(scoreFailing.totalScore < 0.5, 'Failing world must have low score');
 
@@ -68,22 +84,21 @@ const mergeSuccess = trinity.mergeTrinityEvidence([
   { worldNumber: 3, role: 'self_correcting_implementation', report: failingWorld }
 ], { domain: 'software_engineering', threshold: 0.70 });
 
-assert.equal(mergeSuccess.canMerge, true);
-assert.equal(mergeSuccess.selectedWorld, 2);
-assert.equal(mergeSuccess.mergedEvidence.author.selectedWorld, 2);
-// Ensure cross-perspective claims from other worlds are synthesized
-assert(mergeSuccess.mergedEvidence.claims.some((c) => c.statement.includes('[World 1 cross-perspective]')));
+assert.equal(mergeSuccess.canMerge, false);
+assert.equal(mergeSuccess.outcome, 'ESCALATE_EXPERIMENT');
+assert.equal(mergeSuccess.selectedWorld, null);
+assert.match(mergeSuccess.reason, /required_evidence_vector_or_provenance_missing/);
 
 // 5. Test rejection when threshold not met
 const mergeFailure = trinity.mergeTrinityEvidence([
-  { worldNumber: 1, role: 'basic_implementation', report: failingWorld },
-  { worldNumber: 2, role: 'interview_plan_implementation', report: failingWorld },
-  { worldNumber: 3, role: 'self_correcting_implementation', report: failingWorld }
+  { worldNumber: 1, role: 'basic_implementation', report: lowEvidenceWorld },
+  { worldNumber: 2, role: 'interview_plan_implementation', report: lowEvidenceWorld },
+  { worldNumber: 3, role: 'self_correcting_implementation', report: lowEvidenceWorld }
 ], { domain: 'software_engineering', threshold: 0.70 });
 
 assert.equal(mergeFailure.canMerge, false);
 assert.equal(mergeFailure.selectedWorld, null);
-assert.match(mergeFailure.reason, /failed to meet the evidence threshold/i);
+assert.match(mergeFailure.reason, /all_worlds_failed_verification_gates/i);
 assert.match(mergeFailure.recommendation, /Escalate to human review/i);
 
 // 6. Record world comparison telemetry
@@ -103,7 +118,8 @@ trinity.recordWorldComparison(null, {
 assert(emittedEvent, 'Telemetry event must be emitted');
 assert.equal(emittedEvent.eventType, 'TRINITY_WORLD_COMPARISON_RECORDED');
 assert.equal(emittedEvent.action, 'COMPARE');
-assert.equal(emittedEvent.payload.bestWorldNumber, 2);
+assert.equal(emittedEvent.payload.bestScore, comparison.bestScore);
+assert.equal(emittedEvent.payload.comparisonMatrix.length, comparison.comparisonMatrix.length);
 telemetry.emitEvent = origEmit;
 
 console.log('✅ PASS: test_trinity_comparative_merge succeeded.');

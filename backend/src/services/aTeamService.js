@@ -1,5 +1,6 @@
 const config = require('../config/orchestratorConfig');
 const { analyzeMissionCapabilities } = require('./aTeam/capabilities/missionCapabilityAnalyzer');
+const workGraphRequirements = require('./aTeam/capabilities/workGraphRequirements');
 const { findCapabilityGaps } = require('./aTeam/capabilities/capabilityGapService');
 const { measureCapabilityCoverage } = require('./aTeam/capabilities/capabilityCoverageService');
 const teamFormationOptimizer = require('./aTeam/teamFormation/teamFormationOptimizer');
@@ -143,7 +144,8 @@ function isObserverRole(role) {
 
 function buildMember(candidate, selected) {
   const { domain, role, modelTier, score } = candidate;
-  const dependsOn = isObserverRole(role)
+  const dependsOn = Array.isArray(candidate.dependsOn) ? candidate.dependsOn
+    : isObserverRole(role)
     ? selected.filter((item) => !isObserverRole(item.role)).map((item) => item.domain)
     : [];
   return {
@@ -204,7 +206,44 @@ function technicalAnalysis(domains, analysis) {
   });
 }
 
-function analyzeMission(mission) {
+function structuredMembers(staffing, requirements) {
+  const selected = staffing.selected.map((item) => ({
+    domain: item.capability,
+    role: item.candidate.role || `${item.capability}_specialist`,
+    modelTier: item.candidate.modelTier || 'standard',
+    score: item.score,
+    dependsOn: requirements.find((entry) => entry.name === item.capability)?.dependsOn || [],
+    candidate: item.candidate
+  }));
+  const members = selected.map((item) => ({
+    ...buildMember(item, selected),
+    agentId: item.candidate.agentId || item.candidate.id,
+    candidateId: item.candidate.agentId || item.candidate.id
+  }));
+  return { selected, members };
+}
+
+function analyzeStructuredRequirements(input) {
+  const extracted = workGraphRequirements.extract(input);
+  if (!extracted.validation?.valid && input.workGraph) return { recommended: false, workGraph: input.workGraph, workGraphValidation: extracted.validation, reason: 'invalid_work_graph' };
+  const requirements = extracted.requirements;
+  if (!requirements.length) return null;
+  const candidates = workGraphRequirements.specialistsFor(input);
+  const staffing = teamFormationOptimizer.optimizeTeam({ requirements, candidates, capacity: maxMembers() });
+  const { selected, members } = structuredMembers(staffing, requirements);
+  const result = technicalResult(selected, members, { requiredCapabilities: requirements, totalDetected: requirements.length, missionCoverage: 1 });
+  result.staffing = staffing.decision;
+  result.workGraph = input.workGraph || null;
+  result.workGraphValidation = extracted.validation;
+  result.analysisSource = input.workGraph ? 'validated_work_graph' : 'explicit_capability_requirements';
+  result.capabilityGaps = staffing.gaps;
+  result.recommended = requirements.length >= 2 && staffing.selected.length >= 2;
+  return result;
+}
+
+function analyzeMission(mission, planningInput = {}) {
+  const structured = analyzeStructuredRequirements(planningInput);
+  if (structured) return structured;
   const text = (typeof mission === 'string' ? mission : '').normalize('NFD').replace(/\p{M}/gu, '');
   if (FICTION_ARTIFACT.test(text) && CREATIVE_ACTION.test(text)) return fictionAnalysis();
   const domains = detectTechnicalDomains(text);
@@ -328,6 +367,7 @@ module.exports = {
   },
   maxMembers,
   analyzeMission,
+  analyzeStructuredRequirements,
   optimizeFormation: teamFormationOptimizer.optimizeTeam,
   routeKnowledgeNeed: knowledgeRouting.routeKnowledgeNeed,
   compose,

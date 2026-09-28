@@ -193,6 +193,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0168](0168-validation-semantique-des-reponses-biologiques.md) | Validation sémantique des réponses biologiques | Acceptée | 2026-09-28 | Syncytium, sémantique, preuve, orchestration |
 | [0169](0169-benchmark-biologique-apparie.md) | Benchmark biologique apparié | Acceptée | -- | -- |
 | [0170](0170-specialisation-workers-variants-syncytium.md) | Spécialisation des workers par variant Syncytium | Acceptée | 2026-09-28 | Syncytium, orchestration, workers, capacités |
+| [0171](0171-workgraph-staffing-et-apprentissage-topologies.md) | Staffing A-Team depuis WorkGraph et apprentissage des topologies | Accepté | 2026-09-28 | WorkGraph, A-Team, apprentissage, topologies |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

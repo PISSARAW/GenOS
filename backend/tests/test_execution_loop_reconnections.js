@@ -1,58 +1,100 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const testRoot = path.join(__dirname, `.tmp-trinity-profiling-${process.pid}`);
+const previousDbPath = process.env.GENOS_DB_PATH;
+const previousNodeEnv = process.env.NODE_ENV;
+process.env.GENOS_DB_PATH = path.join(testRoot, 'test.db');
+process.env.NODE_ENV = 'test';
 const trinityDeployService = require('../src/services/deploy/trinityDeploy.service');
 const synapticTransmission = require('../src/services/synapticTransmissionService');
 const vectorMemory = require('../src/services/vectorMemoryService');
 const agentMemory = require('../src/services/agentMemoryContext');
 const immune = require('../src/services/immuneSystem');
 const { studioBridgeRoot } = require('../src/services/genosCli');
-const { getDatabase } = require('../src/db');
+const { getDatabase, closeDatabase } = require('../src/db');
+const workspaceLifecycle = require('../src/services/agentWorkspaceLifecycleService');
+const runtimeAdapter = require('../src/services/agentRuntimeAdapter');
 
 async function testTrinityDomainProfiling() {
   console.log('--- 1. Testing Trinity Domain Profiling in trinityDeployService ---');
+  fs.mkdirSync(testRoot, { recursive: true });
   const db = await getDatabase();
+  const sourceRoot = path.join(testRoot, 'source');
+  const capsuleRoot = path.join(testRoot, 'capsules');
+  const previousCapsuleRoot = process.env.GENOS_CAPSULE_ROOT;
+  const workspaceRoots = [];
+  const createWorkspace = workspaceLifecycle.createIsolatedWorkspace;
+  const startMission = runtimeAdapter.startMission;
+  fs.mkdirSync(sourceRoot, { recursive: true });
+  fs.writeFileSync(path.join(sourceRoot, 'fixture.txt'), 'small Trinity source fixture\n');
+  process.env.GENOS_CAPSULE_ROOT = capsuleRoot;
+  workspaceLifecycle.createIsolatedWorkspace = async (_source, workerId) => {
+    const root = path.join(capsuleRoot, workerId);
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(path.join(root, 'fixture.txt'), 'identical isolated Trinity snapshot\n');
+    return root;
+  };
+  runtimeAdapter.startMission = async () => ({ status: 'mocked_for_topology_test' });
   await db.run(
     "INSERT OR IGNORE INTO workspaces (id, name, path) VALUES ('ws-test-trinity', 'Test Workspace', '.')"
   );
 
-  // Test Security Domain
-  const secResult = await trinityDeployService.deployTrinity({
-    prompt: 'Use Trinity to secure OAuth permissions against token exploits.',
-    resolvedAgentType: 'codex',
-    workspaceId: 'ws-test-trinity',
-    workspace: { path: '.' }
+  try {
+    const secResult = await deployForFixture('Use Trinity to secure OAuth permissions against token exploits.');
+    workspaceRoots.push(...secResult.persistedWorlds.map((world) => world.workspaceRoot));
+
+    assert.equal(secResult.domain, 'security', 'Security domain must be detected');
+    assert.equal(secResult.persistedWorlds.length, 3, 'Must deploy 3 worlds');
+    const secRoles = secResult.persistedWorlds.map(w => w.strategy);
+    assert.deepEqual(secRoles, [
+      'baseline_security_engineer',
+      'threat_model_engineer',
+      'adversarial_security_engineer'
+    ], 'Security domain roles must match trinity profiling');
+
+    const creativeResult = await deployForFixture('Lance Trinity pour écrire une nouvelle littéraire dramatique.');
+    workspaceRoots.push(...creativeResult.persistedWorlds.map((world) => world.workspaceRoot));
+
+    assert.equal(creativeResult.domain, 'creative_writing', 'Creative writing domain must be detected');
+    const creativeRoles = creativeResult.persistedWorlds.map(w => w.strategy);
+    assert.deepEqual(creativeRoles, [
+      'direct_author',
+      'planned_author',
+      'self_correcting_literary_author'
+    ], 'Creative domain roles must match trinity profiling');
+
+    console.log('  ✅ PASS: Trinity deployment uses dynamic domain profiling and specialized worker roles.');
+  } finally {
+    await Promise.all(workspaceRoots.map((root) => workspaceLifecycle.cleanupWorkspace(root).catch(() => {})));
+    workspaceLifecycle.createIsolatedWorkspace = createWorkspace;
+    runtimeAdapter.startMission = startMission;
+    if (previousCapsuleRoot === undefined) delete process.env.GENOS_CAPSULE_ROOT;
+    else process.env.GENOS_CAPSULE_ROOT = previousCapsuleRoot;
+  }
+}
+
+function deployForFixture(prompt) {
+  return trinityDeployService.deployTrinity({
+    prompt, resolvedAgentType: 'codex', workspaceId: 'ws-test-trinity',
+    workspace: { path: path.join(__dirname, `.tmp-trinity-profiling-${process.pid}`, 'source') }
   });
-
-  assert.equal(secResult.domain, 'security', 'Security domain must be detected');
-  assert.equal(secResult.persistedWorlds.length, 3, 'Must deploy 3 worlds');
-  const secRoles = secResult.persistedWorlds.map(w => w.strategy);
-  assert.deepEqual(secRoles, [
-    'baseline_security_engineer',
-    'threat_model_engineer',
-    'adversarial_security_engineer'
-  ], 'Security domain roles must match trinity profiling');
-
-  // Test Creative Writing Domain
-  const creativeResult = await trinityDeployService.deployTrinity({
-    prompt: 'Lance Trinity pour écrire une nouvelle littéraire dramatique.',
-    resolvedAgentType: 'codex',
-    workspaceId: 'ws-test-trinity',
-    workspace: { path: '.' }
-  });
-
-  assert.equal(creativeResult.domain, 'creative_writing', 'Creative writing domain must be detected');
-  const creativeRoles = creativeResult.persistedWorlds.map(w => w.strategy);
-  assert.deepEqual(creativeRoles, [
-    'direct_author',
-    'planned_author',
-    'self_correcting_literary_author'
-  ], 'Creative domain roles must match trinity profiling');
-
-  console.log('  ✅ PASS: Trinity deployment uses dynamic domain profiling and specialized worker roles.');
 }
 
 async function testSynapticVesiclesAndExosomes() {
+  const previousStudioRoot = process.env.GENOS_STUDIO_ROOT;
+  const isolatedStudioRoot = path.join(__dirname, `.tmp-studio-bridge-${process.pid}`);
+  process.env.GENOS_STUDIO_ROOT = isolatedStudioRoot;
+  try {
+    await runSynapticVesiclesAndExosomes();
+  } finally {
+    if (previousStudioRoot === undefined) delete process.env.GENOS_STUDIO_ROOT;
+    else process.env.GENOS_STUDIO_ROOT = previousStudioRoot;
+    fs.rmSync(isolatedStudioRoot, { recursive: true, force: true });
+  }
+}
+
+async function runSynapticVesiclesAndExosomes() {
   console.log('--- 2. Testing Synaptic Vesicles & Exosomes Epigenetic Loop ---');
   const cleftDir = path.join(studioBridgeRoot(), 'synaptic_cleft');
   const exoDir = path.join(studioBridgeRoot(), 'extracellular_matrix');
@@ -132,10 +174,16 @@ async function run() {
     console.log('\n========================================');
     console.log('ALL EXECUTION LOOP RECONNECTION TESTS PASSED!');
     console.log('========================================\n');
-    process.exit(0);
   } catch (err) {
     console.error('Test failed:', err);
-    process.exit(1);
+    process.exitCode = 1;
+  } finally {
+    await closeDatabase().catch(() => {});
+    fs.rmSync(testRoot, { recursive: true, force: true });
+    if (previousDbPath === undefined) delete process.env.GENOS_DB_PATH;
+    else process.env.GENOS_DB_PATH = previousDbPath;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
   }
 }
 

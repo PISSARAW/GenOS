@@ -3,6 +3,7 @@
 const { capabilitiesForMode, capabilitiesForOrganization } = require('../topologyCapabilityService');
 
 const { DEFINITIONS } = require('./registry/topologyRegistry');
+const topologyPolicy = require('./learning/topologyPolicyService');
 
 const TOPOLOGIES = Object.freeze({
   trinity: { independence: 0.95, diversity: 0.7, coordination_overhead: 0.6, communication_overhead: 0.6, latency: 0.4, risk: 0.4, state_preservation: 0.7, token_cost: 0.5, daemon_support: 0.7 },
@@ -127,12 +128,8 @@ function relationFit(id, relations) {
   return compat / relations.length;
 }
 
-function historicalSuccess(id, history) {
-  if (!history || history.length === 0) return 0.5;
-  const entries = history.filter(h => h && h.topology === id);
-  if (entries.length === 0) return 0.5;
-  const successes = entries.filter(h => h.success).length;
-  return successes / entries.length;
+function historicalSuccess(id, profile) {
+  return topologyPolicy.priorFor(id, profile).expectedOutcome;
 }
 
 function computeFactors(id, ctx) {
@@ -157,7 +154,7 @@ function computeFactors(id, ctx) {
     risk: t ? t.risk : 0,
     daemon_support: t ? t.daemon_support : 0,
     relation_fit: relationFit(id, relations),
-    historical_success: historicalSuccess(id, history)
+    historical_success: historicalSuccess(id, profile)
   };
 }
 
@@ -208,9 +205,17 @@ function getTransitionCost(from, to) {
 }
 
 function compareTopologies(ctx) {
-  return ALL_IDS.map(id => {
+  const scored = ALL_IDS.map(id => {
     const r = scoreTopology(id, ctx);
     return { topology: id, score: r.score, reasons: r.reasons, risks: r.risks };
+  });
+  const scores = scored.map((item) => item.score);
+  const range = [Math.min(...scores), Math.max(...scores)];
+  return scored.map((item) => {
+    const learned = topologyPolicy.blendScore({
+      topology: item.topology, profile: ctx?.problemProfile || {}, heuristicScore: item.score, range
+    });
+    return { ...item, heuristicScore: item.score, score: learned.score, learnedSamples: learned.samples, learnedWeight: learned.learnedWeight };
   }).sort((a, b) => b.score - a.score).map((item, i) => ({ ...item, rank: i + 1 }));
 }
 
