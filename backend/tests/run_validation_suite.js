@@ -12,6 +12,7 @@ const suites = {
     ['mission physics parameter service', 'test_mission_physics_parameter_service.js'],
     ['morphology learning evidence gate', 'test_morphology_learning_evidence.js'],
     ['replicated causal validation', 'test_replicated_causal_validation_service.js'],
+    ['replicated causal runtime integration', 'test_replicated_causal_runtime_integration.js'],
     ['biological semantic response validation', 'test_biological_semantic_validation.js'],
     ['syncytium benchmark metrics', 'test_syncytium_benchmark_metrics.js'],
     ['biological benchmark runner', 'test_biological_benchmark_runner.js'],

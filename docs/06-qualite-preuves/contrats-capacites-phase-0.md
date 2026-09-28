@@ -48,7 +48,7 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 4. Validation causale étendue (phase 4)
 
-- **Avancement** : `replicatedCausalValidationService.runReplicatedExperiment` exécute des bras appariés sur au moins trois seeds, clone le même état initial pour chaque bras, vérifie l'empreinte de l'environnement et produit un reçu causal ; la persistance est optionnelle. Le runner fourni par l'appelant n'est pas encore relié à un parcours de mission ou au registre de causalité.
+- **Avancement** : `replicatedCausalValidationService.runReplicatedExperiment` exécute des bras appariés sur au moins trois seeds, clone le même état initial pour chaque bras, vérifie l'empreinte de l'environnement et persiste un reçu causal versionné lorsque l'appel passe par la primitive `procedural_replicated_causal_check` du registre. Le test d'intégration couvre le registre d'environnements, les snapshots, les runners appariés et le reçu SQLite. Ce parcours reste séparé de l'exécution générale des missions et du registre causal métier.
 
 - **Interface** : `proceduralCausalValidationService` étendu + registre des runs + `causalDiff` persistant.
 - **Entrées** : intervention (variable manipulée, groupe témoin, environnement, budget, état initial, résultat observé), snapshot initial sérialisé, seeds.

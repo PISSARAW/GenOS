@@ -11,6 +11,7 @@ const persistence = require('../proceduralPersistenceService');
 const identity = require('../proceduralIdentityService');
 const causal = require('../proceduralCausalValidationService');
 const registry = require('../proceduralRegistryService');
+const replicatedCausal = require('../replicatedCausalValidationService');
 
 function requireDb(context) {
   if (!context.db) {
@@ -133,6 +134,29 @@ async function causalCheck(context = {}) {
   return { success: true, ...result };
 }
 
+async function replicatedCausalCheck(context = {}) {
+  const db = requireDb(context);
+  if (!context.runnerId || !context.snapshotId || !context.environmentId) {
+    throw Object.assign(new Error('runnerId, snapshotId and environmentId are required.'), { code: 'CAUSAL_PROTOCOL_INSUFFICIENT' });
+  }
+  const environmentManifest = registry.resolveEnvironment(context.environmentId);
+  const spec = {
+    experimentId: context.experimentId,
+    snapshotId: context.snapshotId,
+    initialState: registry.resolveSnapshot(context.snapshotId),
+    environmentManifest,
+    environmentHash: context.environmentHash || replicatedCausal.digest(environmentManifest),
+    seeds: context.seeds,
+    budget: context.budget,
+    control: context.control,
+    intervention: context.intervention,
+    evidenceRefs: context.evidenceRefs || context.evidence_refs,
+    runner: registry.resolveRunner(context.runnerId),
+    runId: context.runId,
+  };
+  return replicatedCausal.runReplicatedExperiment(spec, { db });
+}
+
 module.exports = {
   HANDLERS: {
     procedural_evolve: evolveOrganism,
@@ -145,10 +169,13 @@ module.exports = {
     organism_seal: sealOrganism,
     procedural_causal_check: causalCheck,
     organism_causal_check: causalCheck,
+    procedural_replicated_causal_check: replicatedCausalCheck,
+    organism_replicated_causal_check: replicatedCausalCheck,
   },
   evolveOrganism,
   loadOrganism,
   phylogenyOrganism,
   sealOrganism,
   causalCheck,
+  replicatedCausalCheck,
 };
