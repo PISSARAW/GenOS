@@ -159,13 +159,20 @@ function runExecutable({ cmd, args, cwd = workingDir, timeoutMs = toolTimeoutMs(
   });
 }
 
+function isMissingExecutable(error) {
+  if (!error) return false;
+  if (error.code === 'ENOENT') return true;
+  return String(error.message || '').includes('ENOENT');
+}
+
 async function runGenosCli(args, toolArgs = {}) {
   const genosBin = resolveGenosBin();
   if (genosBin) {
     try {
       return await runExecutable({ cmd: genosBin, args, cwd: workingDir });
     } catch (binErr) {
-      console.error(`[GENOS_FALLBACK] Binary execution failed (${binErr.message}); falling back to Node bridge.`);
+      if (!isMissingExecutable(binErr)) throw binErr;
+      console.error(`[GENOS_FALLBACK] Binary missing (${binErr.message}); trying cargo, then Node bridge.`);
     }
   }
   const cargoPath = process.platform === "win32" ? "cargo.exe" : "cargo";
@@ -177,7 +184,10 @@ async function runGenosCli(args, toolArgs = {}) {
         args: ["run", "-q", "--manifest-path", manifest, "-p", "genos-cli", "--", ...args],
         cwd: workingDir
       });
-    } catch (_) {}
+    } catch (cargoErr) {
+      if (!isMissingExecutable(cargoErr)) throw cargoErr;
+      console.error(`[GENOS_FALLBACK] Cargo missing (${cargoErr.message}); using Node bridge.`);
+    }
   }
   return executeNodeFallback(args, toolArgs, { repoRoot: workingDir });
 }
