@@ -104,7 +104,9 @@ const suites = {
     ['seed concurrency', 'test_seed_concurrency.js']
   ],
   workers: [
-    ['Rust and Node worker kind parity', 'test_worker_kind_registry.js']
+    ['Rust and Node worker kind parity', 'test_worker_kind_registry.js'],
+    ['worker kind matrix across eight topologies', 'test_topology_worker_kind_matrix.js'],
+    ['worker contract adequacy across roles and methods', 'test_topology_worker_adequacy.js']
   ],
   epistemicScheduler: [
     ['active task fingerprints', 'test_epistemic_scheduler_active_registry.js'],
