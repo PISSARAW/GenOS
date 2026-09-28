@@ -1,6 +1,6 @@
 /**
  * Idempotency Middleware
- * 
+ *
  * Ensures idempotent execution of external calls (LLM, tools, MCP) by using
  * idempotency keys. The key is derived from mission_id + step + attempt.
  * Deduplicates requests at the backend level to prevent double-billing and
@@ -8,7 +8,7 @@
  */
 
 const crypto = require('crypto');
-const database = require('../db');
+const { getDatabase } = require('../db');
 
 const IDEMPOTENCY_HEADER = 'x-idempotency-key';
 const IDEMPOTENCY_TTL_DAYS = 30;
@@ -19,23 +19,29 @@ function generateIdempotencyKey({ missionId, step, attempt, toolName } = {}) {
 }
 
 async function checkIdempotency(key) {
-  const row = database.prepare(
-    'SELECT response_payload, created_at FROM idempotency_keys WHERE key = ?'
-  ).get(key);
-  return row;
+  const db = await getDatabase();
+  const row = await db.get(
+    'SELECT key, response_payload, status_code, created_at FROM idempotency_keys WHERE key = ?',
+    key
+  );
+  return row || null;
 }
 
 async function storeIdempotency(key, responsePayload, statusCode) {
-  database.prepare(
+  const db = await getDatabase();
+  await db.run(
     `INSERT OR REPLACE INTO idempotency_keys (key, response_payload, status_code, created_at)
-     VALUES (?, ?, ?, datetime('now'))`
-  ).run(key, JSON.stringify(responsePayload), statusCode);
+     VALUES (?, ?, ?, datetime('now'))`,
+    key, JSON.stringify(responsePayload), statusCode
+  );
 }
 
-function cleanupOldKeys() {
-  database.prepare(
-    `DELETE FROM idempotency_keys WHERE created_at < datetime('now', ?)`
-  ).run(`-${IDEMPOTENCY_TTL_DAYS} days`);
+async function cleanupOldKeys() {
+  const db = await getDatabase();
+  await db.run(
+    `DELETE FROM idempotency_keys WHERE created_at < datetime('now', ?)`,
+    `-${IDEMPOTENCY_TTL_DAYS} days`
+  );
 }
 
 function shouldSkip(path, skipPaths) {
@@ -70,15 +76,24 @@ function handleMissingKey(res, required) {
   });
 }
 
+function parseStoredPayload(existing) {
+  try {
+    return JSON.parse(existing.response_payload);
+  } catch (_) {
+    return existing.response_payload;
+  }
+}
+
 function handleReplay(res, existing) {
   res.setHeader('X-Idempotency-Replay', 'true');
   res.setHeader('X-Idempotency-Key', existing.key);
-  return res.status(existing.status_code).json(existing.response_payload);
+  return res.status(existing.status_code).json(parseStoredPayload(existing));
 }
 
-function patchResponse(res, idempotencyKey, statusCode) {
+function patchResponse(res, idempotencyKey) {
   const originalJson = res.json.bind(res);
   res.json = (payload) => {
+    const statusCode = res.statusCode;
     if (statusCode >= 200 && statusCode < 300) {
       storeIdempotency(idempotencyKey, payload, statusCode).catch(err => {
         console.error('Failed to store idempotency key:', err);
@@ -97,12 +112,12 @@ function idempotencyMiddleware(options = {}) {
     const ctx = buildRequestContext(req);
     const idempotencyKey = await resolveIdempotencyKey(req, ctx, keyGenerator);
 
-    if (!idempotencyKey) return handleMissingKey(res, required);
+    if (!idempotencyKey) return handleMissingKey(res, required) || next();
 
     const existing = await checkIdempotency(idempotencyKey);
     if (existing) return handleReplay(res, existing);
 
-    patchResponse(res, idempotencyKey, res.statusCode);
+    patchResponse(res, idempotencyKey);
     res.setHeader('X-Idempotency-Key', idempotencyKey);
     next();
   };

@@ -29,7 +29,16 @@ function mcpError(res, options) {
 }
 
 function parseArray(raw) {
-  return JSON.parse(raw || '[]');
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function tenantScope(req) {
+  return req.tenant || null;
 }
 
 function hasSafePermission(user) {
@@ -50,7 +59,9 @@ function deniedToolList(permissionRow) {
 }
 
 async function loadPermissionRow(db, req, agentId) {
-  return db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId);
+  const scope = tenantScope(req);
+  if (!scope) return null;
+  return db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, scope.organizationId, scope.projectId);
 }
 
 function isForbiddenAgentId(requestedId, authenticatedId, user) {
@@ -153,13 +164,15 @@ async function resolveToolAuthorization(input) {
 
 async function auditToolCall(input) {
   const { db, req, agentId, toolName, zeroTrust } = input;
-  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', actorName(req), agentId, 'TOOL_CALL', toolName, zeroTrust.decision, zeroTrust.reason, JSON.stringify(zeroTrust), req.tenant.organizationId, req.tenant.projectId);
+  const scope = tenantScope(req);
+  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', actorName(req), agentId, 'TOOL_CALL', toolName, zeroTrust.decision, zeroTrust.reason, JSON.stringify(zeroTrust), scope?.organizationId || null, scope?.projectId || null);
 }
 
 async function requestApproval(input) {
   const { db, req, agentId, toolName, args, deniedTools } = input;
+  const scope = tenantScope(req);
   const approvalId = `approval-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, organization_id, project_id, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, requestUser(req).username || agentId, req.tenant.organizationId, req.tenant.projectId, JSON.stringify({ toolName, args, taints: req.body.taints || [], deniedTools }));
+  await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, organization_id, project_id, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, requestUser(req).username || agentId, scope?.organizationId || null, scope?.projectId || null, JSON.stringify({ toolName, args, taints: req.body.taints || [], deniedTools }));
   return approvalId;
 }
 
@@ -186,7 +199,9 @@ function toolOutcomeEvent(input) {
 
 function scopedToolArgs(req, toolName, args) {
   if (!toolName.startsWith('genos_fossil_')) return args;
-  return { ...args, organization_id: req.tenant.organizationId, project_id: req.tenant.projectId };
+  const scope = tenantScope(req);
+  if (!scope) return args;
+  return { ...args, organization_id: scope.organizationId, project_id: scope.projectId };
 }
 
 async function executeToolTransport(input) {

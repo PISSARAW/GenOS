@@ -179,7 +179,7 @@ async function runGenosCli(args, toolArgs = {}) {
       });
     } catch (_) {}
   }
-  return executeNodeFallback(args, toolArgs);
+  return executeNodeFallback(args, toolArgs, { repoRoot: workingDir });
 }
 
 function resolveOrchestratorBridge() {

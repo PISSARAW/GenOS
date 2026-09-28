@@ -18,13 +18,16 @@ if not lines:
     sys.exit(0)
     
 title = lines[0]
-match = re.match(r'^(?:feat|fix|docs|chore|refactor|test|style|perf|build|ci)(?:\([^)]+\))?:\s*(.*)', title, re.IGNORECASE)
-
-if match:
-    new_title = match.group(1).strip()
-    new_title = translate(new_title)
-    if new_title:
-        new_title = new_title[0].upper() + new_title[1:]
-    lines[0] = new_title
+bracket = re.match(r'^\[([A-Za-z]+)\]\s*(.*)$', title)
+if bracket:
+    tag = bracket.group(1).upper()
+    rest = translate(bracket.group(2).strip())
+    lines[0] = f'[{tag}] {rest}' if rest else f'[{tag}]'
+else:
+    match = re.match(r'^(?:feat|fix|docs|chore|refactor|test|style|perf|build|ci)(?:\([^)]+\))?:\s*(.*)', title, re.IGNORECASE)
+    if match:
+        kind = re.match(r'^([A-Za-z]+)', title).group(1).upper()
+        new_title = translate(match.group(1).strip())
+        lines[0] = f'[{kind}] {new_title}' if new_title else f'[{kind}]'
     
 sys.stdout.write('\n'.join(lines))

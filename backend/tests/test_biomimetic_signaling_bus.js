@@ -144,7 +144,11 @@ async function testDynamicOrganizationIntegration(db) {
   const msg = inboxResult.messages[0];
   assert.strictEqual(msg.signalType, 'ligand');
   assert.strictEqual(msg.hasBiomimeticSignal, true);
-  assert.deepStrictEqual(msg.signal, signalData);
+  assert.deepStrictEqual(
+    { ligand: msg.signal.ligand, concentration: msg.signal.concentration, locus: msg.signal.locus },
+    signalData
+  );
+  assert.ok(msg.signal.communicationEnvelope, 'the delivered signal carries its provenance envelope');
   assert.strictEqual(msg.content, '');
 
   // 3. Text is forbidden on the inter-agent channel.

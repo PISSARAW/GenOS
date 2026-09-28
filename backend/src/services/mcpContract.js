@@ -37,8 +37,9 @@ function applyToolSpecificOverrides(toolName, schema) {
     schema.properties.args = { type: 'object' };
     schema.required.push('primitive_name');
   } else if (toolName === 'genos_execute_strategy_pipeline') {
-    schema.properties.primitives = { type: 'array', items: { type: 'string' } };
-    schema.properties.context = { type: 'object' };
+    schema.properties.primitives = schema.properties.primitives || { type: 'array', items: { type: 'string' } };
+    schema.properties.context = schema.properties.context || { type: 'object' };
+    if (!schema.required.includes('primitives')) schema.required.push('primitives');
   } else if (toolName === 'genos_synaptic_stdp_update') {
     schema.additionalProperties = false;
     schema.properties = {
@@ -90,7 +91,7 @@ const TOOL_BASE_SCHEMAS = {
       mission: { type: 'string', description: 'Goal or user request to achieve.' },
       worker_assignments: workerAssignmentsSchema(),
       strategy: { type: 'string', description: 'Optional strategy hint from the available strategies.' },
-      background: { type: 'boolean', description: 'Defaults to true: return a launch receipt and run detached. False waits within the MCP timeout.' },
+      background: { type: 'boolean', description: 'Defaults to false: wait for the mission and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor: Codex, Hermes/Nous, Antigravity host, or all discovered local models.' },
       provider: { type: 'string', description: 'Optional provider identity recorded for caller_mcp provenance.' },
     },
@@ -116,7 +117,7 @@ const TOOL_BASE_SCHEMAS = {
     properties: {
       mission: { type: 'string', description: 'Sub-task for the delegated worker.' },
       role: { type: 'string', description: 'Specialized role of the worker.' },
-      background: { type: 'boolean', description: 'Defaults to true. False waits within the MCP timeout.' },
+      background: { type: 'boolean', description: 'Defaults to false: wait for the worker and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor inherited by the worker.' },
       provider: { type: 'string', description: 'Optional provider identity for the worker.' },
     },
@@ -163,6 +164,12 @@ const TOOL_BASE_SCHEMAS = {
     },
     required: ['primitive_name'],
   },
+  genos_execute_strategy_pipeline: {
+    type: 'object',
+    properties: {
+      primitives: { type: 'array', items: { type: 'string' }, description: 'Ordered primitive names to run as a pipeline.' },
+      context: { type: 'object', description: 'Shared pipeline context threaded through each primitive.' } },
+    required: ['primitives'] },
   genos_procedural_registry_list: {
     type: 'object',
     properties: {
@@ -263,11 +270,8 @@ const TOOL_BASE_SCHEMAS = {
     properties: {
       session_id: { type: 'string' },
       operation: { type: 'string', enum: ['snapshot', 'apply', 'schema', 'domains', 'history', 'explain', 'branch', 'promote', 'invariants', 'conflicts', 'replicas', 'health', 'morphogenesis', 'add_node', 'add_edge', 'deposit', 'direct_member', 'route', 'slime', 'gap', 'grow', 'evaporate', 'record_outcome', 'conductivity', 'bridge', 'propagate', 'signal', 'locus', 'branch_lease', 'fossil', 'plan_shortcuts', 'admit_shortcut', 'repair', 'prune', 'allocate', 'forage', 'advance_variant'] },
-      op: { type: 'object' }, transaction: { type: 'object' }, branch: { type: 'object' },
-      node: { type: 'object' }, edge: { type: 'object' },
-      variant_input: { type: 'object' },
-      evidence_refs: { type: 'array', items: { type: 'string' } },
-      signals: { type: 'object' },
+      op: { type: 'object' }, transaction: { type: 'object' }, branch: { type: 'object' }, node: { type: 'object' }, edge: { type: 'object' }, variant_input: { type: 'object' },
+      evidence_refs: { type: 'array', items: { type: 'string' } }, signals: { type: 'object' }, receipt: { type: 'object' }, signal: { type: 'object' },
       branch_id: { type: 'string' }, domain_id: { type: 'string' }, path: { type: 'string' },
       version: { type: ['string', 'number', 'object'] }, marker: { type: 'string' }, amount: { type: 'number' },
       is_repellent: { type: 'boolean' }, need: { type: ['string', 'object'] }, edges: { type: 'array', items: { type: 'object' } },
@@ -275,17 +279,12 @@ const TOOL_BASE_SCHEMAS = {
       fragment: { type: 'object' }, target: { type: 'object' }, targets: { type: 'array', items: { type: 'object' } }, local_validation: { type: 'object' }, causal_validation: { type: 'object' }, compatibility_trials: { type: 'array', items: { type: 'object' } },
       maximum: { type: 'integer', minimum: 1, maximum: 100 }, candidate: { type: 'object' },
       gap_id: { type: 'string' }, candidates: { type: 'array', items: { type: 'object' } }, threshold: { type: 'number' },
-      trail_kind: { type: 'string' }, capability: { type: 'string' }, source: { type: 'string' },
-      evidence_refs: { type: 'array', items: { type: 'string' } }, confidence: { type: 'number' }, half_life_ms: { type: 'number' },
+      trail_kind: { type: 'string' }, capability: { type: 'string' }, source: { type: 'string' }, confidence: { type: 'number' }, half_life_ms: { type: 'number' },
       scope: { type: 'string', enum: ['mission', 'workspace', 'persistent'] },
-      receipt: { type: 'object' },
-      alpha: { type: 'number' }, beta: { type: 'number' }, decay: { type: 'number' },
-      bridge: { type: 'object' }, proof: { type: 'object' },
-      signal: { type: 'object' },
+      alpha: { type: 'number' }, beta: { type: 'number' }, decay: { type: 'number' }, bridge: { type: 'object' }, proof: { type: 'object' },
       action: { type: 'string', enum: ['assign', 'transfer', 'drop'] }, locus: { type: 'object' }, locus_id: { type: 'string' },
       now: { type: 'number' }, max_idle_ms: { type: 'number' }, utility_threshold: { type: 'number' },
-      populations: { type: 'array', items: { type: 'object' } }, total_budget: { type: 'number' },
-      minimum_per_population: { type: 'number' }, patch_history: { type: 'array', items: { type: 'object' } },
+      populations: { type: 'array', items: { type: 'object' } }, total_budget: { type: 'number' }, minimum_per_population: { type: 'number' }, patch_history: { type: 'array', items: { type: 'object' } },
       iteration: { type: 'number' }, elapsed_time_sec: { type: 'number' }, observations: { type: 'array' },
       current_patch_id: { type: 'string' }, current_descriptor: { type: 'string' }, current_marginal_return: { type: 'number' },
       alternative_patch: { type: 'string' }, alternative_patches: { type: 'array', items: { type: 'object' } },

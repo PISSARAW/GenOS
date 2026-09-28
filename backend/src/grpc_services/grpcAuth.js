@@ -42,8 +42,17 @@ function hasCredentials(call) {
     || metadataValues(call, 'authorization').some((value) => /^Bearer\s+/i.test(value));
 }
 
-function guardHandler(handler) {
+// Liveness/readiness probes must stay reachable without the shared secret:
+// guarding them turns every orchestrator healthcheck into UNAUTHENTICATED
+// and the supervisor into a kill/restart loop when the secret is missing.
+function isHealthcheckMethod(methodName) {
+  if (/^ping$/i.test(methodName)) return true;
+  return /health/i.test(methodName || '');
+}
+
+function guardHandler(handler, methodName) {
   if (typeof handler !== 'function') return handler;
+  if (isHealthcheckMethod(methodName)) return handler;
   return function guardedGrpcHandler(call, callback) {
     if (!isAuthorized(call)) {
       callback({
@@ -57,7 +66,7 @@ function guardHandler(handler) {
 }
 
 function guardService(service) {
-  return Object.fromEntries(Object.entries(service || {}).map(([name, handler]) => [name, guardHandler(handler)]));
+  return Object.fromEntries(Object.entries(service || {}).map(([name, handler]) => [name, guardHandler(handler, name)]));
 }
 
 module.exports = { configuredSecret, isAuthorized, hasCredentials, guardHandler, guardService };

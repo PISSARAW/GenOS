@@ -127,6 +127,11 @@ fn json_headers() -> Vec<(String, String)> {
     vec![("Content-Type".into(), "application/json".into())]
 }
 
+struct ReadOutcome {
+    bytes: Vec<u8>,
+    oversized: bool,
+}
+
 fn handle_connection(
     mut stream: TcpStream,
     auth: Arc<TenantAuth>,
@@ -134,42 +139,69 @@ fn handle_connection(
 ) {
     let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(15)));
     let _ = stream.set_write_timeout(Some(std::time::Duration::from_secs(15)));
-    if let Some(bytes) = read_http_request(&mut stream) {
-        let request = String::from_utf8_lossy(&bytes);
-        let response = handle_http_request(&request, &auth, &limiter);
+    if let Some(outcome) = read_http_request(&mut stream) {
+        let response = if outcome.oversized {
+            error_response(
+                413,
+                "Request body exceeds the 10 MiB limit.",
+                "payload_too_large",
+            )
+        } else {
+            let request = String::from_utf8_lossy(&outcome.bytes);
+            handle_http_request(&request, &auth, &limiter)
+        };
         let _ = stream.write_all(&serialize_http_response(response).as_bytes());
         let _ = stream.flush();
     }
 }
 
-fn read_http_request(stream: &mut TcpStream) -> Option<Vec<u8>> {
+struct RequestBounds {
+    header_end: Option<usize>,
+    content_length: Option<usize>,
+    oversized: bool,
+}
+
+fn read_http_request(stream: &mut TcpStream) -> Option<ReadOutcome> {
     let mut bytes = Vec::new();
     let mut buffer = [0; 8192];
-    let mut header_end = None;
-    let mut content_length = None;
+    let mut bounds = RequestBounds {
+        header_end: None,
+        content_length: None,
+        oversized: false,
+    };
     loop {
         let count = match stream.read(&mut buffer) {
             Ok(count) if count > 0 => count,
             _ => break,
         };
         bytes.extend_from_slice(&buffer[..count]);
-        update_request_bounds(&bytes, &mut header_end, &mut content_length);
-        if request_complete(bytes.len(), header_end, content_length)
+        update_request_bounds(&bytes, &mut bounds);
+        if bounds.oversized
+            || request_complete(bytes.len(), bounds.header_end, bounds.content_length)
             || bytes.len() >= MAX_REQUEST_BYTES
         {
             break;
         }
     }
-    if bytes.is_empty() { None } else { Some(bytes) }
+    if bytes.is_empty() {
+        return None;
+    }
+    // The byte-cap break above must never yield a truncated body treated as
+    // complete: anything that did not finish within the cap is rejected.
+    if !bounds.oversized
+        && !request_complete(bytes.len(), bounds.header_end, bounds.content_length)
+    {
+        bounds.oversized = true;
+    }
+    Some(ReadOutcome {
+        bytes,
+        oversized: bounds.oversized,
+    })
 }
 
-fn update_request_bounds(
-    bytes: &[u8],
-    header_end: &mut Option<usize>,
-    content_length: &mut Option<usize>,
-) {
-    if header_end.is_none() {
-        *header_end = bytes
+fn update_request_bounds(bytes: &[u8], bounds: &mut RequestBounds) {
+    if bounds.header_end.is_none() {
+        bounds.header_end = bytes
             .windows(4)
             .position(|window| window == b"\r\n\r\n")
             .map(|position| position + 4)
@@ -179,23 +211,31 @@ fn update_request_bounds(
                     .position(|window| window == b"\n\n")
                     .map(|position| position + 2)
             });
-        if let Some(end) = *header_end {
-            *content_length = parse_content_length(&bytes[..end]);
+        if let Some(end) = bounds.header_end {
+            match parse_content_length(&bytes[..end]) {
+                Some(Ok(length)) => bounds.content_length = Some(length),
+                Some(Err(())) => bounds.oversized = true,
+                None => {}
+            }
         }
     }
 }
 
-fn parse_content_length(headers: &[u8]) -> Option<usize> {
+/// Declared body size, uncapped. `Some(Err(()))` means the peer announced
+/// more than `MAX_REQUEST_BYTES`: the caller must answer 413 instead of
+/// silently truncating the body and processing it as if it were complete.
+fn parse_content_length(headers: &[u8]) -> Option<Result<usize, ()>> {
     String::from_utf8_lossy(headers).lines().find_map(|line| {
         let (name, value) = line.split_once(':')?;
         if !name.trim().eq_ignore_ascii_case("content-length") {
             return None;
         }
-        value
-            .trim()
-            .parse::<usize>()
-            .ok()
-            .map(|length| length.min(MAX_REQUEST_BYTES))
+        let length = value.trim().parse::<usize>().ok()?;
+        if length > MAX_REQUEST_BYTES {
+            Some(Err(()))
+        } else {
+            Some(Ok(length))
+        }
     })
 }
 
@@ -218,6 +258,7 @@ fn serialize_http_response(response: HttpResponse) -> String {
         400 => "HTTP/1.1 400 BAD REQUEST",
         401 => "HTTP/1.1 401 UNAUTHORIZED",
         404 => "HTTP/1.1 404 NOT FOUND",
+        413 => "HTTP/1.1 413 PAYLOAD TOO LARGE",
         429 => "HTTP/1.1 429 TOO MANY REQUESTS",
         502 => "HTTP/1.1 502 BAD GATEWAY",
         503 => "HTTP/1.1 503 SERVICE UNAVAILABLE",

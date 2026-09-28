@@ -1,10 +1,12 @@
 import { validateCliArguments } from "./argumentValidation.js";
 
-function primitiveCall({ args, executeStrategyTool }) {
-  const primitiveArgs = { ...args, primitive: args.primitive || args.primitive_name || args.name || (Array.isArray(args.primitives) ? 'pipeline' : '') };
-  return executeStrategyTool('genos_execute_primitive', primitiveArgs).then((execution) => {
+function strategyCall({ name, args, executeStrategyTool }) {
+  const strategyArgs = name === 'genos_execute_primitive'
+    ? { ...args, primitive: args.primitive || args.primitive_name || args.name || (Array.isArray(args.primitives) ? 'pipeline' : '') }
+    : args;
+  return executeStrategyTool(name, strategyArgs).then((execution) => {
     if (!execution) throw new Error('Strategy tool is unavailable.');
-    if (!execution.success) throw new Error(execution.output?.error || 'Primitive execution failed.');
+    if (!execution.success) throw new Error(execution.output?.error || 'Strategy tool execution failed.');
     return JSON.stringify(execution.output);
   });
 }
@@ -49,6 +51,9 @@ function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
     genos_biological_mode: { action: 'dispatch_biological' },
     genos_philosophy: { action: 'philosophy' }
   };
+  // Tools without a dedicated bridge action (fossil, signal, topology, v2)
+  // fall through to a plain orchestrate mission: the bridge defaults a
+  // missing action to 'orchestrate' and carries the tool args as context.
   const request = { ...actions[name], ...args };
   if (name === 'genos_orchestrate' && request.background === undefined) request.background = false;
   return runOrchestrator(request, { onTelemetry });
@@ -70,7 +75,7 @@ export function createToolCallHandler({ runOrchestrator, runGenosCli, executeStr
         }
       });
     try {
-      if (name === 'genos_execute_primitive') return { content: [{ type: 'text', text: await primitiveCall({ args, executeStrategyTool }) }] };
+      if (name === 'genos_execute_primitive' || name === 'genos_execute_strategy_pipeline') return { content: [{ type: 'text', text: await strategyCall({ name, args, executeStrategyTool }) }] };
       if (name.startsWith('genos_v2_') || ['genos_snapshot', 'genos_replay', 'genos_capsule_create', 'genos_merge', 'genos_audit', 'genos_biomimicry'].includes(name)) {
         const argumentError = validateCliArguments(name, args);
         if (argumentError) return { content: [{ type: 'text', text: argumentError }], isError: true };

@@ -18,4 +18,4 @@ case "${1:-}" in
     ;;
 esac
 
-exec "${SCRIPT_DIR}/validate-reproducibility.sh" "$MODE"
+exec "${SCRIPT_DIR}/ci/validate-reproducibility.sh" "$MODE"

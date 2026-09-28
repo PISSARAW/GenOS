@@ -1,8 +1,18 @@
 import fs from 'fs';
 import path from 'path';
 
+function baseDir(options) {
+  const root = options?.repoRoot || process.env.GENOS_REPO_ROOT;
+  if (root && fs.existsSync(root)) return path.resolve(root);
+  return process.cwd();
+}
+
+function resolveIn(base, file) {
+  return path.isAbsolute(file) ? file : path.resolve(base, file);
+}
+
 function writeJson(file, value) {
-  fs.writeFileSync(path.resolve(file), JSON.stringify(value, null, 2));
+  fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
 function completed(data) {
@@ -20,19 +30,22 @@ function unavailable(operation, reason) {
   };
 }
 
-function snapshotFallback(toolArgs) {
+function snapshotFallback(toolArgs, options) {
+  const base = baseDir(options);
   const result = completed({
     snapshotId: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
     agent: toolArgs.agent || 'default',
     createdAt: new Date().toISOString(),
+    events: [],
     fallback: 'node_bridge'
   });
-  writeJson(toolArgs.out || path.resolve('snapshot.json'), result);
+  writeJson(resolveIn(base, toolArgs.out || 'snapshot.json'), result);
   return result;
 }
 
-function replayFallback(toolArgs) {
-  const snapshot = path.resolve(toolArgs.snapshot || 'snapshot.json');
+function replayFallback(toolArgs, options) {
+  const base = baseDir(options);
+  const snapshot = resolveIn(base, toolArgs.snapshot || 'snapshot.json');
   if (!fs.existsSync(snapshot)) return unavailable('replay', `Snapshot '${snapshot}' does not exist.`);
   const parsed = JSON.parse(fs.readFileSync(snapshot, 'utf8'));
   const events = Array.isArray(parsed.events) ? parsed.events : [];
@@ -74,8 +87,8 @@ function genericFallback(args) {
 }
 
 const HANDLERS = {
-  snapshot: (_args, toolArgs) => snapshotFallback(toolArgs),
-  replay: (_args, toolArgs) => replayFallback(toolArgs),
+  snapshot: (args, toolArgs, options) => snapshotFallback(toolArgs, options),
+  replay: (args, toolArgs, options) => replayFallback(toolArgs, options),
   capsule: (_args, toolArgs) => capsuleFallback(toolArgs),
   merge: mergeFallback,
   audit: auditFallback,
@@ -84,9 +97,9 @@ const HANDLERS = {
   agent: agentFallback
 };
 
-export async function executeNodeFallback(args, toolArgs = {}) {
+export async function executeNodeFallback(args, toolArgs = {}, options = {}) {
   const verb = args[0];
   console.error(`[GENOS_FALLBACK] Rust binary 'genos' not found; executing '${verb}' via Node bridge fallback.`);
   const handler = HANDLERS[verb] || (() => genericFallback(args));
-  return JSON.stringify(handler(args, toolArgs));
+  return JSON.stringify(handler(args, toolArgs, options));
 }

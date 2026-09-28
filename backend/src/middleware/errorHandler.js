@@ -68,9 +68,16 @@ function handleError({ error, request, response, next }) {
   });
 }
 
-function errorHandler(...args) {
-  return handleError({ error: args[0], request: args[1], response: args[2], next: args[3] });
+// NOTE: Express only routes errors to middleware whose `length` is four.
+// Declaring a fourth parameter just for arity would breach the project's
+// 3-parameter limit, so the arity is set explicitly: `next` is forwarded
+// positionally. Previously this wrapper used rest-args (arity 0) and Express
+// silently skipped it, surfacing every thrown error as an HTML page instead
+// of the JSON error envelope below.
+function errorHandler(error, request, response) {
+  return handleError({ error, request, response, next: arguments[3] });
 }
+Object.defineProperty(errorHandler, 'length', { value: 4 });
 
 function notFoundHandler(req, res, next) {
   res.status(404).json({

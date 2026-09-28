@@ -35,7 +35,12 @@ try {
   assert(supervisorSource.includes("currentEvent.action === 'VERIFY'") || pipelineSource.includes("event.action === 'VERIFY'"), 'a completed Codex turn must not be killed after reporting aggregate usage');
   assert(missionLeaseSource.includes('normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable))'), 'local workers must be explicit rather than inferred from model discovery');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE: executionMode'), 'runtime children must receive their authority mode');
-  assert(runtimeSource.includes('GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)}'), 'the leased MCP server must receive the same authority mode');
+  const mcpEnvConfig = require('../src/services/agentRuntimeMcpConfiguration');
+  const leasedEnv = mcpEnvConfig.buildMcpServerEnvironment({
+    state: { executionMode: 'worker', mission: { agentId: 'agent-under-test' }, orchestratorAgentId: 'orchestrator-under-test', allowedCommands: [], allowFileEdits: false, executionPolicy: {}, toolLease: ['genos_snapshot'] },
+    binaries: { workspace: '/tmp/genos-test-workspace', genosBinary: '', orchestratorBridge: '' }
+  });
+  assert.strictEqual(leasedEnv.GENOS_EXECUTION_MODE, 'worker', 'the leased MCP server must receive the same authority mode');
   assert(runtimeSource.includes('autonomyPlan.synthesisOnly'), 'the official root turn must use synthesis-only authority');
   const orchestratorBridgeSource = fs.readFileSync(path.resolve(__dirname, '../bin/genos-orchestrate.cjs'), 'utf8');
   assert(orchestratorBridgeSource.includes("GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker'"), 'the root orchestration bridge must reject worker recursion');

@@ -74,7 +74,7 @@ function missionCapabilities(mission, plan) {
   return requiredOf(contract);
 }
 
-function enforceMissionToolLease(ctx) {
+async function enforceMissionToolLease(ctx) {
   const dispatched = ctx.dispatchedAgent || {};
   const mission = ctx.normalizedMission || {};
   const role = mission.role || dispatched.role;

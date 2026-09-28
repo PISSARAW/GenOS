@@ -119,9 +119,13 @@ impl Multiverse {
                     })
                 })
                 .collect();
-            handles
-                .into_iter()
-                .map(|handle| handle.join().expect("monde isole"))
+            hypotheses
+                .iter()
+                .zip(handles.into_iter())
+                .map(|(hypothesis, handle)| match handle.join() {
+                    Ok(outcome) => outcome,
+                    Err(_) => crashed_world(*hypothesis, goal),
+                })
                 .collect()
         });
         finish(worlds)
@@ -147,6 +151,22 @@ impl Multiverse {
             }
         }
         out
+    }
+}
+
+/// Un monde qui panique ne doit jamais tuer le multivers : il est converti en
+/// preuve vide non promouvable, avec un cout infini pour perdre tout comparatif.
+fn crashed_world(hypothesis: Hypothesis, goal: &Goal) -> WorldOutcome {
+    let empty = WorldState::default();
+    WorldOutcome {
+        hypothesis,
+        steps: Vec::new(),
+        reached: false,
+        progress: 0.0,
+        cost: f64::INFINITY,
+        organization: select_organization(&empty, goal).name,
+        superorganism: select_superorganism(&empty, goal),
+        promotable: false,
     }
 }
 

@@ -13,6 +13,7 @@ let dbInstance = null;
 let currentDbPath = null;
 let dbInitialization = null;
 let initializingDb = null;
+let pendingDbPath = null;
 const transactionTails = new WeakMap();
 const transactionStorage = new AsyncLocalStorage();
 const MAX_DATABASE_BACKUPS = 3;
@@ -80,8 +81,15 @@ async function getDatabase(dbFilePath) {
   const filename = dbFilePath ? path.resolve(dbFilePath) : path.resolve(defaultPath);
   // Requests may reach the backend while it is still bootstrapping.  Reuse the
   // same connection/bootstrap promise instead of running two seed passes in
-  // parallel inside one Node process.
-  if (dbInitialization) return dbInitialization;
+  // parallel inside one Node process.  A pending init for a *different* path
+  // must not be reused: wait for it, close it, then bootstrap the requested
+  // file instead of handing the caller the wrong database.
+  if (dbInitialization) {
+    if (pendingDbPath === filename) return dbInitialization;
+    try { await dbInitialization; } catch (_) {}
+    await closeDatabase();
+  }
+  pendingDbPath = filename;
   dbInitialization = (async () => {
     const db = await open({
       filename,
@@ -131,6 +139,7 @@ async function getDatabase(dbFilePath) {
     return await dbInitialization;
   } catch (error) {
     dbInitialization = null;
+    pendingDbPath = null;
     if (initializingDb) {
       await initializingDb.close().catch(() => {});
       initializingDb = null;
@@ -151,6 +160,10 @@ async function configureConnectionPragmas(db, skipBootstrap) {
 function installBusyRetry(db) {
   const originalRun = db.run.bind(db);
   db.run = (...args) => withWriteRetry(() => originalRun(...args));
+  if (typeof db.exec === 'function') {
+    const originalExec = db.exec.bind(db);
+    db.exec = (...args) => withWriteRetry(() => originalExec(...args));
+  }
 }
 
 async function closeDatabase() {
@@ -162,6 +175,8 @@ async function closeDatabase() {
     dbInstance = null;
     currentDbPath = null;
   }
+  dbInitialization = null;
+  pendingDbPath = null;
 }
 function isLockError(err) {
   if (err?.code === 'SQLITE_BUSY') return true;

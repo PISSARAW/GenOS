@@ -30,6 +30,41 @@ function vaultReference(req, name) {
   return `${req.tenant.organizationId}/${req.tenant.projectId}/${name}`;
 }
 
+function isConflictError(error) {
+  if (!error) return false;
+  if (error.code === 'SQLITE_CONSTRAINT') return true;
+  return /UNIQUE constraint|already exists/i.test(error.message || '');
+}
+
+async function insertSecretRow(input) {
+  const { db, id, name, values, scope, provider, externalRef } = input;
+  // Insert the DB row first so a concurrent duplicate or a later failure
+  // can never leave an orphaned external secret behind.
+  try {
+    await db.run(
+      `INSERT INTO secrets (id, name, scope, ciphertext, iv, tag, organization_id, project_id, provider, external_ref)
+       VALUES (?, ?, 'project', ?, ?, ?, ?, ?, ?, ?)`,
+      id, name, values?.ciphertext || '', values?.iv || '', values?.tag || '', ...scope.params, provider, externalRef
+    );
+  } catch (error) {
+    if (isConflictError(error)) throw new Error('SECRET_ALREADY_EXISTS');
+    throw error;
+  }
+}
+
+async function writeExternalOrRollback(input) {
+  const { db, id, externalRef, value } = input;
+  if (!externalRef) return;
+  try {
+    await vault.writeExternalSecret(externalRef, value);
+  } catch (error) {
+    // Compensate: the external write failed, remove the row we just
+    // created instead of leaving a dangling reference.
+    try { await db.run('DELETE FROM secrets WHERE id = ?', id); } catch (_) {}
+    throw error;
+  }
+}
+
 async function storeSecret(input) {
   const { db, req, name, value } = input;
   const provider = vault.getProvider();
@@ -39,12 +74,8 @@ async function storeSecret(input) {
   if (existing) throw new Error('SECRET_ALREADY_EXISTS');
   const values = provider === 'local' ? vault.encrypt(value) : null;
   const externalRef = provider === 'hashicorp-vault' ? vaultReference(req, name) : null;
-  if (externalRef) await vault.writeExternalSecret(externalRef, value);
-  await db.run(
-    `INSERT INTO secrets (id, name, scope, ciphertext, iv, tag, organization_id, project_id, provider, external_ref)
-     VALUES (?, ?, 'project', ?, ?, ?, ?, ?, ?, ?)`,
-    id, name, values?.ciphertext || '', values?.iv || '', values?.tag || '', ...scope.params, provider, externalRef
-  );
+  await insertSecretRow({ db, id, name, values, scope, provider, externalRef });
+  await writeExternalOrRollback({ db, id, externalRef, value });
   telemetry.emitEvent({
     eventType: 'IAM_SECRET_STORED', agentId: req.user.keyId || req.user.username, action: 'SECRET_STORE',
     detail: `Secret stored using ${provider}.`, severity: 'info', payload: { secretId: id, provider }

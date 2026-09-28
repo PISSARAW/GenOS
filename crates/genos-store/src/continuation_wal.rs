@@ -67,6 +67,7 @@ pub struct ContinuationWal {
     current_seq: u64,
     entries: HashMap<u64, ContinuationEntry>,
     writer: BufWriter<fs::File>,
+    corrupt_lines: usize,
 }
 
 impl ContinuationWal {
@@ -77,18 +78,29 @@ impl ContinuationWal {
         let wal_path = store_dir.join("continuations.wal");
         let mut entries = HashMap::new();
         let mut current_seq = 0;
+        let mut corrupt_lines = 0;
 
         if wal_path.exists() {
             let file = fs::File::open(&wal_path)?;
             let reader = BufReader::new(file);
-            for line in std::io::BufRead::lines(reader) {
+            for (line_no, line) in std::io::BufRead::lines(reader).enumerate() {
                 let line = line?;
                 if line.trim().is_empty() {
                     continue;
                 }
-                if let Ok(entry) = serde_json::from_str::<ContinuationEntry>(&line) {
-                    current_seq = current_seq.max(entry.seq_id);
-                    entries.insert(entry.seq_id, entry);
+                match serde_json::from_str::<ContinuationEntry>(&line) {
+                    Ok(entry) => {
+                        current_seq = current_seq.max(entry.seq_id);
+                        entries.insert(entry.seq_id, entry);
+                    }
+                    Err(error) => {
+                        corrupt_lines += 1;
+                        eprintln!(
+                            "[genos-store] ignoring corrupt WAL line {} ({}); replay continues without it",
+                            line_no + 1,
+                            error
+                        );
+                    }
                 }
             }
         }
@@ -104,7 +116,14 @@ impl ContinuationWal {
             current_seq,
             entries,
             writer,
+            corrupt_lines,
         })
+    }
+
+    /// Number of corrupt WAL lines skipped at load. Non-zero means the replay
+    /// history is incomplete and must be treated as suspect, never silent.
+    pub fn corrupt_lines(&self) -> usize {
+        self.corrupt_lines
     }
 
     pub fn append(&mut self, config: ContinuationAppend) -> std::io::Result<u64> {
@@ -130,10 +149,13 @@ impl ContinuationWal {
     }
 
     pub fn read_from(&self, from_seq: u64) -> Vec<&ContinuationEntry> {
-        self.entries
+        let mut entries: Vec<_> = self
+            .entries
             .values()
             .filter(|e| e.seq_id >= from_seq)
-            .collect()
+            .collect();
+        entries.sort_by_key(|e| e.seq_id);
+        entries
     }
 
     pub fn read_all(&self) -> Vec<&ContinuationEntry> {

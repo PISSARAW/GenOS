@@ -19,7 +19,7 @@ async function runLocalBenchmarks() {
     engines: {},
   };
 
-  results.engines.sqlite = benchmarkSQLite(db);
+  results.engines.sqlite = await benchmarkSQLite(db);
 
   try {
     results.engines.duckdb = benchmarkDuckDB();
@@ -36,38 +36,48 @@ async function runLocalBenchmarks() {
   return results;
 }
 
-function benchmarkSQLite(db) {
+async function benchmarkSQLite(db) {
   const samples = 5000;
+  const suffix = `${process.pid}_${Date.now()}`;
+  const oltpTable = `__bench_oltp_${suffix}`;
+  const olapTable = `__bench_olap_${suffix}`;
+  const edgesTable = `__bench_edges_${suffix}`;
 
-  db.exec('CREATE TABLE IF NOT EXISTS __bench_oltp (id TEXT PRIMARY KEY, name TEXT, status TEXT, val REAL)');
-  const t0 = performance.now();
-  for (let i = 0; i < samples; i++) {
-    db.run('INSERT OR REPLACE INTO __bench_oltp VALUES (?, ?, ?, ?)', `a${i}`, 'test', 'active', i * 100);
+  try {
+    await db.exec(`CREATE TEMP TABLE ${oltpTable} (id TEXT PRIMARY KEY, name TEXT, status TEXT, val REAL)`);
+    const t0 = performance.now();
+    for (let i = 0; i < samples; i++) {
+      await db.run(`INSERT OR REPLACE INTO ${oltpTable} VALUES (?, ?, ?, ?)`, `a${i}`, 'test', 'active', i * 100);
+    }
+    const insertMs = Math.max(performance.now() - t0, 0.001);
+
+    await db.exec(`CREATE TEMP TABLE ${olapTable} (agent_id TEXT, tokens REAL, cost REAL)`);
+    for (let i = 0; i < samples; i++) {
+      await db.run(`INSERT INTO ${olapTable} VALUES (?, ?, ?)`, `agent_${i % 100}`, i, i * 0.01);
+    }
+    const t1 = performance.now();
+    await db.all(`SELECT agent_id, SUM(tokens), AVG(cost) FROM ${olapTable} GROUP BY agent_id`);
+    const aggMs = performance.now() - t1;
+
+    await db.exec(`CREATE TEMP TABLE ${edgesTable} (src TEXT, dst TEXT)`);
+    for (let i = 0; i < 500; i++) {
+      await db.run(`INSERT INTO ${edgesTable} VALUES (?, ?)`, `n${i}`, `n${i+1}`);
+    }
+    const t2 = performance.now();
+    await db.get(`WITH RECURSIVE walk(n, d) AS (SELECT 'n0', 1 UNION ALL SELECT e.dst, w.d + 1 FROM ${edgesTable} e JOIN walk w ON e.src = w.n WHERE d < 5) SELECT COUNT(*) as cnt FROM walk`);
+    const cteMs = performance.now() - t2;
+
+    return {
+      available: true,
+      oltp_ops_per_ms: Math.round((samples / insertMs) * 100) / 100,
+      olap_ms: Math.round(aggMs * 100) / 100,
+      cte_ms: Math.round(cteMs * 100) / 100,
+    };
+  } finally {
+    for (const table of [oltpTable, olapTable, edgesTable]) {
+      try { await db.exec(`DROP TABLE IF EXISTS ${table}`); } catch (_) {}
+    }
   }
-  const insertMs = performance.now() - t0;
-
-  db.exec('CREATE TABLE IF NOT EXISTS __bench_olap (agent_id TEXT, tokens REAL, cost REAL)');
-  for (let i = 0; i < samples; i++) {
-    db.run('INSERT INTO __bench_olap VALUES (?, ?, ?)', `agent_${i % 100}`, i, i * 0.01);
-  }
-  const t1 = performance.now();
-  db.all('SELECT agent_id, SUM(tokens), AVG(cost) FROM __bench_olap GROUP BY agent_id');
-  const aggMs = performance.now() - t1;
-
-  db.exec('CREATE TABLE IF NOT EXISTS __bench_edges (src TEXT, dst TEXT)');
-  for (let i = 0; i < 500; i++) {
-    db.run('INSERT INTO __bench_edges VALUES (?, ?)', `n${i}`, `n${i+1}`);
-  }
-  const t2 = performance.now();
-  db.get("WITH RECURSIVE walk(n, d) AS (SELECT 'n0', 1 UNION ALL SELECT e.dst, w.d + 1 FROM __bench_edges e JOIN walk w ON e.src = w.n WHERE d < 5) SELECT COUNT(*) as cnt FROM walk");
-  const cteMs = performance.now() - t2;
-
-  return {
-    available: true,
-    oltp_ops_per_ms: Math.round(samples / insertMs),
-    olap_ms: Math.round(aggMs * 100) / 100,
-    cte_ms: Math.round(cteMs * 100) / 100,
-  };
 }
 
 function benchmarkDuckDB() {
@@ -116,6 +126,23 @@ function benchmarkLadybug() {
   };
 }
 
+function graphRecommendation(engines) {
+  if (!engines.sqlite?.available || !engines.ladybug?.available) return null;
+  const sqliteOps = Number(engines.sqlite.oltp_ops_per_ms) || 0;
+  const ladybugOps = Number(engines.ladybug.oltp_ops_per_ms) || 0;
+  if (sqliteOps <= 0 || ladybugOps <= 0) return null;
+  const ratio = ladybugOps / sqliteOps;
+  if (ratio <= 2) return null;
+  return {
+    capability: 'graph',
+    current: 'sqlite',
+    recommended: 'ladybug',
+    reason: `Ladybug ${ratio.toFixed(1)}x higher write throughput (${ladybugOps} vs ${sqliteOps} ops/ms)`,
+    confidence: 'medium',
+    requires_validation: true,
+  };
+}
+
 function evaluateBenchmarks(results) {
   const recommendations = [];
   const engines = results.engines;
@@ -138,19 +165,8 @@ function evaluateBenchmarks(results) {
     }
   }
 
-  if (engines.sqlite?.available && engines.ladybug?.available) {
-    const ratio = engines.sqlite.cte_ms / Math.max(1, engines.ladybug.oltp_ops_per_ms);
-    if (ratio > 2) {
-      recommendations.push({
-        capability: 'graph',
-        current: 'sqlite',
-        recommended: 'ladybug',
-        reason: 'Ladybug faster for graph traversals',
-        confidence: 'medium',
-        requires_validation: true,
-      });
-    }
-  }
+  const graphAdvice = graphRecommendation(engines);
+  if (graphAdvice) recommendations.push(graphAdvice);
 
   return {
     timestamp: results.timestamp,

@@ -30,16 +30,25 @@ async function resolveTenant(req) {
   const project = await db.get('SELECT id, organization_id, status FROM projects WHERE id = ?', projectId);
   if (!project || project.organization_id !== organizationId) return null;
   if (user.permissions?.includes('all')) return { organizationId, projectId, principalId: principalId(user), status: project.status || 'active', user };
-  const membership = await db.get(
-    `SELECT COALESCE(pm.role, om.role) AS role
-       FROM organization_memberships om
-       LEFT JOIN project_memberships pm ON pm.project_id = ? AND pm.principal_id = om.principal_id
-      WHERE om.principal_id = ? AND om.organization_id = ?
-        AND pm.project_id IS NOT NULL`,
-    projectId, principalId(user), organizationId
+  const principal = principalId(user);
+  // Project membership is the gate for a project scope: organization
+  // membership alone never grants access to a project (least privilege), but
+  // unlike the previous INNER-JOIN-in-disguise it is not required to hold an
+  // organization row either — a direct project member resolves without one.
+  const projectMembership = await db.get(
+    `SELECT role FROM project_memberships
+      WHERE project_id = ? AND principal_id = ?`,
+    projectId, principal
   );
-  if (!membership) return null;
-  return { organizationId, projectId, principalId: principalId(user), role: membership.role, status: project.status || 'active', user };
+  if (!projectMembership) return null;
+  const orgMembership = await db.get(
+    `SELECT role FROM organization_memberships
+      WHERE principal_id = ? AND organization_id = ?`,
+    principal, organizationId
+  );
+  const role = projectMembership.role || orgMembership?.role;
+  if (!role) return null;
+  return { organizationId, projectId, principalId: principal, role, status: project.status || 'active', user };
 }
 
 function requireTenantScope({ write = false } = {}) {

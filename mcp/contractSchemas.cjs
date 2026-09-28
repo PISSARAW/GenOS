@@ -36,8 +36,9 @@ function applyToolSpecificOverrides(toolName, schema) {
     schema.properties.args = { type: 'object' };
     schema.required.push('primitive_name');
   } else if (toolName === 'genos_execute_strategy_pipeline') {
-    schema.properties.primitives = { type: 'array', items: { type: 'string' } };
-    schema.properties.context = { type: 'object' };
+    schema.properties.primitives = schema.properties.primitives || { type: 'array', items: { type: 'string' } };
+    schema.properties.context = schema.properties.context || { type: 'object' };
+    if (!schema.required.includes('primitives')) schema.required.push('primitives');
   } else if (toolName === 'genos_synaptic_stdp_update') {
     schema.additionalProperties = false;
     schema.properties = {

@@ -15,7 +15,11 @@ const AUTH_WINDOW_MS = 60 * 1000;
 const AUTH_LIMITS = { verify: 20, login: 10 };
 
 function clientIp(req) {
-  return String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+  // Never trust the raw X-Forwarded-For header: without `trust proxy` it is
+  // client-controlled and would let anyone rotate identities to bypass the
+  // login/verify rate limits. Express resolves `req.ip` through the
+  // configured trust-proxy chain, so it is the only spoof-safe source here.
+  return String(req.ip || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
 }
 
 function pruneAuthAttempts(now) {

@@ -292,6 +292,14 @@ const migrationRunners = [
     const { migrateVersionedContractReceipts } = require('./migrateVersionedContractReceipts');
     await migrateVersionedContractReceipts(db);
   }),
+  createMigrationRunner('082-idempotency-keys', 'Persist idempotency keyed responses for the idempotency middleware', async (db) => {
+    const { migrateIdempotencyKeys } = require('./migrateIdempotencyKeys');
+    await migrateIdempotencyKeys(db);
+  }),
+  createMigrationRunner('083-secret-scope-unique', 'Enforce unique secret names per organization and project scope', async (db) => {
+    const { migrateSecretScopeUnique } = require('./migrateSecretScopeUnique');
+    await migrateSecretScopeUnique(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

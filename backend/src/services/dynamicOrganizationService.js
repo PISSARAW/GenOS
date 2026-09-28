@@ -7,6 +7,7 @@ function withTransactionDb(db, callback) {
   return require('../db').withTransaction(db, callback);
 }
 const { formatSignalForTransport, unpackSignalPayload } = require('./biomimeticSignalingBus');
+const { refreshFlushedRow } = require('./communication/flushEnvelopeRefresh');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const swarmTopologyAlgorithms = require('./swarmTopologyAlgorithms');
 const { routeMessage, assertRoutingAuthority } = require('./organizationRouting');
@@ -188,10 +189,14 @@ async function flushBufferedMessages(tx, ctx) {
   const { orchestratorId, organization, version, profile } = ctx;
   if (organization === 'network_silence') return;
   const flushRoute = routeMessage({ state: { policy: profile, orchestratorId }, sender: {}, recipientAgentId: null, kind: 'evidence' });
+  const pending = await tx.all("SELECT id, content, payload_json, signal_type, signal_blob FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'buffered'", orchestratorId);
   await tx.run(
     "UPDATE agent_organization_messages SET delivery = ?, organization = ?, organization_version = ?, channel = ?, recipient_agent_id = ? WHERE orchestrator_id = ? AND delivery = 'buffered'",
     flushRoute.delivery, organization, version, flushRoute.channel, flushRoute.recipientAgentId, orchestratorId
   );
+  for (const row of pending) {
+    await refreshFlushedRow(tx, { row, channel: flushRoute.channel, version });
+  }
 }
 
 function buildUnchangedState(orchestratorId, current, reason) {

@@ -15,6 +15,13 @@ const { hashKey } = require('../src/middleware/auth');
 const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4501;
+// Section 2.4 proves a safe tool still reaches its transport while the
+// circuit is OPEN. The transport itself enforces the MCP lease, so scope
+// this run to genos_inspect; destructive tools stay blocked upstream by the
+// zero-trust policy and the OPEN circuit regardless of the lease.
+if (!process.env.GENOS_MCP_LEASE && !process.env.GENOS_MCP_EXPOSE_ALL) {
+  process.env.GENOS_MCP_LEASE = 'genos_inspect';
+}
 let server = null;
 let db = null;
 let totalTests = 0;

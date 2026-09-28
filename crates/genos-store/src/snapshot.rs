@@ -75,6 +75,7 @@ impl SnapshotManifest {
 pub struct SnapshotStore {
     snapshots: HashMap<Uuid, SnapshotManifest>,
     store_dir: std::path::PathBuf,
+    load_errors: usize,
 }
 
 impl SnapshotStore {
@@ -82,29 +83,55 @@ impl SnapshotStore {
         Self::with_dir(".genos/snapshots")
     }
 
+    /// Never panics: when the directory cannot be prepared, the store keeps
+    /// working in memory (nothing is persisted) instead of crashing the process.
     pub fn with_dir(store_dir: impl Into<std::path::PathBuf>) -> Self {
-        Self::try_with_dir(store_dir).expect("failed to initialize snapshot store directory")
+        match Self::try_with_dir(store_dir) {
+            Ok(store) => store,
+            Err(error) => {
+                eprintln!("[genos-store] snapshot dir unavailable, running in memory: {error}");
+                Self {
+                    snapshots: HashMap::new(),
+                    store_dir: std::path::PathBuf::new(),
+                    load_errors: 0,
+                }
+            }
+        }
     }
 
     pub fn try_with_dir(store_dir: impl Into<std::path::PathBuf>) -> std::io::Result<Self> {
         let store_dir = store_dir.into();
         std::fs::create_dir_all(&store_dir)?;
-        
+
         let mut snapshots = HashMap::new();
+        let mut load_errors = 0;
         if let Ok(entries) = std::fs::read_dir(&store_dir) {
             for entry in entries.flatten() {
-                if let Ok(content) = std::fs::read_to_string(entry.path()) {
-                    if let Ok(manifest) = serde_json::from_str::<SnapshotManifest>(&content) {
+                match std::fs::read_to_string(entry.path())
+                    .ok()
+                    .and_then(|content| serde_json::from_str::<SnapshotManifest>(&content).ok())
+                {
+                    Some(manifest) => {
                         snapshots.insert(manifest.storage_id, manifest);
+                    }
+                    None => {
+                        load_errors += 1;
+                        eprintln!("[genos-store] skipping unreadable snapshot file: {}", entry.path().display());
                     }
                 }
             }
         }
-        
+
         Ok(Self {
             snapshots,
             store_dir,
+            load_errors,
         })
+    }
+
+    /// Number of snapshot files skipped as unreadable or corrupt at load.
+    pub fn load_errors(&self) -> usize {
+        self.load_errors
     }
 
     pub fn save(&mut self, mut manifest: SnapshotManifest) -> Result<Uuid, String> {
@@ -118,10 +145,15 @@ impl SnapshotStore {
             manifest.snapshot_id = format!("snap-{}", id.simple());
         }
         
-        let file_path = self.store_dir.join(format!("{}.json", manifest.snapshot_id));
-        let json = serde_json::to_string_pretty(&manifest).map_err(|error| error.to_string())?;
-        std::fs::write(file_path, json).map_err(|error| error.to_string())?;
-        
+        // Files are keyed by storage id, not snapshot id: two manifests may
+        // legitimately share a snapshot id, and must never overwrite each other.
+        // An empty store dir means the in-memory fallback: skip persistence.
+        if !self.store_dir.as_os_str().is_empty() {
+            let file_path = self.store_dir.join(format!("{}.json", id.simple()));
+            let json = serde_json::to_string_pretty(&manifest).map_err(|error| error.to_string())?;
+            std::fs::write(file_path, json).map_err(|error| error.to_string())?;
+        }
+
         self.snapshots.insert(id, manifest);
         Ok(id)
     }

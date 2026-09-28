@@ -111,12 +111,18 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
 
     /// L'Orchestrateur peut agir comme un MÃƒÂ©decin et injecter une thÃƒÂ©rapie
     pub fn administer_therapy(&self, agent: &mut AgentCell, therapy: Therapy) {
-        if agent.nervous_system().is_some() && self.nervous_system.get_blood_brain_barrier_integrity() > 0.5 {
-            return;
+        if agent.nervous_system().is_some() {
+            if self.nervous_system.get_blood_brain_barrier_integrity() > 0.5 {
+                return;
+            }
         }
         match therapy {
             Therapy::TargetedTherapy => agent.plasma_membrane.receptors_blocked = true,
-            Therapy::Immunotherapy => agent.mind_mut().unwrap().cognitive_state.is_camouflaged = false,
+            Therapy::Immunotherapy => {
+                if let Some(mind) = agent.mind_mut() {
+                    mind.cognitive_state.is_camouflaged = false;
+                }
+            }
             Therapy::AntiAngiogenesis => agent.metabolism.mitochondria.angiogenesis_blocked = true,
             Therapy::CellCycleInhibitor => agent.endoplasmic_reticulum.cell_cycle_inhibited = true,
         }
@@ -125,8 +131,10 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
     /// 1. Attachement et 2. PÃƒÂ©nÃƒÂ©tration
     /// Un virus dans l'environnement tente d'infecter la cellule.
     pub fn expose_to_virus(&self, agent: &mut AgentCell, virion: crate::virology::Virion) {
-        if agent.nervous_system().is_some() && self.nervous_system.get_blood_brain_barrier_integrity() > 0.5 {
-            return;
+        if agent.nervous_system().is_some() {
+            if self.nervous_system.get_blood_brain_barrier_integrity() > 0.5 {
+                return;
+            }
         }
         // ANTICORPS : Si le virus est neutralisÃƒÂ©, ses clÃƒÂ©s sont couvertes, il ne peut pas entrer
         if virion.is_neutralized {
@@ -158,174 +166,216 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
 
     /// Avance le temps pour une Cellule IA (un pas de cycle).
     
-    pub fn tick(&mut self, agent: &mut AgentCell, action_string: &str) -> TickResult {
-        use crate::cell::events::{CellEvent, TherapyAction};
+    fn deliver(agent: &mut AgentCell, event: crate::cell::events::CellEvent) -> Option<TickResult> {
+        agent.inbox.0.send(event).err().map(|_| TickResult::Halted("Cell inbox closed".to_string()))
+    }
 
+    fn halt_no_mind(agent: &mut AgentCell) -> Option<TickResult> {
+        if agent.mind_mut().is_none() { Some(TickResult::Halted("Cell mind unavailable".to_string())) } else { None }
+    }
+
+    fn dispatch_signals(&self, agent: &mut AgentCell, action: &str) -> Option<TickResult> {
+        use crate::cell::events::CellEvent;
         let cortisol = self.endocrine_system.get_corticosteroid_level();
-        agent.inbox.0.send(CellEvent::HormonalSignal(cortisol)).unwrap();
-        
-        let mut metabolic_cost = 1;
+        Self::deliver(agent, CellEvent::HormonalSignal(cortisol))
+            .or_else(|| Self::deliver(agent, CellEvent::MetabolicStress(self.metabolic_cost(action))))
+            .or_else(|| Self::halt_no_mind(agent))
+    }
+
+    fn metabolic_cost(&self, action: &str) -> u64 {
+        if action == "REPLICATE" {
+            return 20;
+        }
         if self.immune_system.get_il6_level() >= 10.0 && !self.immune_system.is_il6_receptors_blocked() {
-            metabolic_cost = 5; 
+            return 5;
         }
-        if action_string == "REPLICATE" {
-            metabolic_cost = 20;
-        }
-        agent.inbox.0.send(CellEvent::MetabolicStress(metabolic_cost)).unwrap();
+        1
+    }
 
-        if let Some(ref _active_therapies) = agent.mind_mut().unwrap().cognitive_state.epigenetic_drives.get("ActiveTherapies") {
-            agent.inbox.0.send(CellEvent::ApplyTherapy(TherapyAction::BlockReceptors)).unwrap();
+    fn apply_active_therapies(agent: &mut AgentCell) -> Option<TickResult> {
+        use crate::cell::events::{CellEvent, TherapyAction};
+        match agent.mind_mut() {
+            Some(mind) if mind.cognitive_state.epigenetic_drives.get("ActiveTherapies").is_some() => {
+                Self::deliver(agent, CellEvent::ApplyTherapy(TherapyAction::BlockReceptors))
+            }
+            Some(_) => None,
+            None => Some(TickResult::Halted(" Cell mind unavailable\.to_string())),
         }
+    }
 
-        if let Some(rule) = &self.apoptosis_rule {
-            if !agent.mind_mut().unwrap().cognitive_state.is_camouflaged {
-                if rule.evaluate(&agent.mind_mut().unwrap().cognitive_state.epigenetic_drives) {
-                    agent.inbox.0.send(CellEvent::ApplyTherapy(TherapyAction::InhibitCellCycle)).unwrap();
-                    return TickResult::Halted("Apoptosis triggered by epigenetic rule".to_string());
+    fn check_apoptosis_rule(&self, agent: &mut AgentCell) -> Option<TickResult> {
+        use crate::cell::events::{CellEvent, TherapyAction};
+        let rule = self.apoptosis_rule.as_ref()?;
+        let mind = match agent.mind_mut() {
+            Some(mind) => mind,
+            None => return Some(TickResult::Halted(" Cell mind unavailable\.to_string())),
+        };
+        if mind.cognitive_state.is_camouflaged || !rule.evaluate(&mind.cognitive_state.epigenetic_drives) {
+            return None;
+        }
+        Self::deliver(agent, CellEvent::ApplyTherapy(TherapyAction::InhibitCellCycle))
+            .or(Some(TickResult::Halted("Apoptosis triggered by epigenetic rule".to_string())))
+    }
+
+    fn collect_outbox(&mut self, agent: &mut AgentCell) -> Option<TickResult> {
+        use crate::cell::events::CellEvent;
+        for event in agent.outbox.1.try_iter().collect::<Vec<_>>() {
+            match event {
+                CellEvent::NecrosisTriggered(reason) => return Some(TickResult::Halted("Necrosis: ".to_string() + &reason)),
+                CellEvent::ApoptosisTriggered(_) => return Some(TickResult::Halted("Apoptosis".to_string())),
+                CellEvent::Recovered(reason) => return Some(TickResult::Halted("Recovered: ".to_string() + &reason)),
+                CellEvent::Hijacked(reason) => return Some(TickResult::Halted(reason)),
+                CellEvent::ReleaseVirus(v) => self.viral_environment.push(v),
+                _ => {}
+            }
+        }
+        None
+    }
+
+    fn record_action(agent: &mut AgentCell, action: &str) -> Option<TickResult> {
+        use crate::cell::events::CellEvent;
+        match agent.mind_mut() {
+            Some(mind) => {
+                mind.trace.sequence.push(CellEvent::TaskExecuted { task_name: "Action".to_string(), result: action.to_string() });
+                None
+            }
+            None => Some(TickResult::Halted(" Cell mind unavailable\.to_string())),
+        }
+    }
+
+    fn relay_neural(&mut self, agent: &mut AgentCell) {
+        let source_id = agent.cell_id.to_string();
+        if let Some(nervous_system) = agent.nervous_system_mut() {
+            if let Some(outputs) = nervous_system.process_soma() {
+                for (target_id, transmitter, amount) in outputs {
+                    self.nervous_system.get_synaptic_cleft().push(CleftMessage { source_id: source_id.clone(), target_id, transmitter, amount, ticks_in_cleft: 0 });
                 }
             }
+            nervous_system.apply_neuroplasticity();
+        }
+    }
+
+    fn check_vitals(&self, agent: &AgentCell) -> Option<TickResult> {
+        if agent.metabolism.mitochondria.atp_budget == 0 { return Some(TickResult::Halted("Budget exhausted (starvation)".to_string())); }
+        if agent.plasma_membrane.receptors_blocked { return Some(TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string())); }
+        if self.endocrine_system.get_corticosteroid_level() > 0.8 { return Some(TickResult::Halted("Corticosteroid suppression: Cell activity frozen".to_string())); }
+        if agent.cytoplasm.viral_infections.is_empty() { return None; }
+        Some(TickResult::Halted("Hijacked: Cellular machinery is copying a virus".to_string()))
+    }
+
+    pub fn tick(&mut self, agent: &mut AgentCell, action_string: &str) -> TickResult {
+        if let Some(halted) = self.dispatch_signals(agent, action_string) {
+            return halted;
+        }
+        if let Some(halted) = Self::apply_active_therapies(agent) {
+            return halted;
+        }
+        if let Some(halted) = self.check_apoptosis_rule(agent) {
+            return halted;
         }
 
         // --- THE CELL PROCESSES ITS OWN STATE IN ISOLATION ---
         agent.process_events();
 
         // --- ORCHESTRATOR COLLECTS RESULTS ---
-        let outbox: Vec<_> = agent.outbox.1.try_iter().collect();
-        for event in outbox {
-            match event {
-                CellEvent::NecrosisTriggered(reason) => return TickResult::Halted(format!("Necrosis: {}", reason)),
-                CellEvent::ApoptosisTriggered(reason) => return TickResult::Halted("Apoptosis".to_string()),
-                CellEvent::Recovered(reason) => return TickResult::Halted(format!("Recovered: {}", reason)),
-                CellEvent::Hijacked(reason) => return TickResult::Halted(reason),
-                CellEvent::ReleaseVirus(v) => self.viral_environment.push(v),
-                _ => {}
-            }
+        if let Some(halted) = self.collect_outbox(agent) {
+            return halted;
         }
-        
-        agent.mind_mut().unwrap().trace.sequence.push(
-            crate::cell::events::CellEvent::TaskExecuted { 
-                task_name: "Action".to_string(), 
-                result: action_string.to_string() 
-            }
-        );
-        
-        let source_id = agent.cell_id.to_string();
-        if let Some(nervous_system) = agent.nervous_system_mut() {
-            if let Some(outputs) = nervous_system.process_soma() {
-                for (target_id, transmitter, amount) in outputs {
-                    self.nervous_system.get_synaptic_cleft().push(CleftMessage {
-                        source_id: source_id.clone(),
-                        target_id,
-                        transmitter,
-                        amount,
-                        ticks_in_cleft: 0,
-                    });
-                }
-            }
-            nervous_system.apply_neuroplasticity();
+        if let Some(halted) = Self::record_action(agent, action_string) {
+            return halted;
         }
-        
-        if agent.metabolism.mitochondria.atp_budget == 0 {
-             return TickResult::Halted("Budget exhausted (starvation)".to_string());
-        }
-        if agent.plasma_membrane.receptors_blocked {
-             return TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string());
-        }
-        if self.endocrine_system.get_corticosteroid_level() > 0.8 {
-             return TickResult::Halted("Corticosteroid suppression: Cell activity frozen".to_string());
-        }
-        if !agent.cytoplasm.viral_infections.is_empty() {
-             return TickResult::Halted("Hijacked: Cellular machinery is copying a virus".to_string());
-        }
-        if agent.endoplasmic_reticulum.cell_cycle_inhibited {
-             // The test for cell cycle inhibitor expects mitosis to fail, not tick to halt.
+        self.relay_neural(agent);
+        if let Some(halted) = self.check_vitals(agent) {
+            return halted;
         }
 
         TickResult::Continue
     }
 
+    fn drug_flags(&self) -> DrugFlags {
+        let drugs = self.nervous_system.get_psychoactive_drugs();
+        DrugFlags {
+            cocaine: drugs.contains(&PsychoactiveDrug::Cocaine),
+            alcohol: drugs.contains(&PsychoactiveDrug::Alcohol),
+            anxiolytic: drugs.contains(&PsychoactiveDrug::Anxiolytic),
+            caffeine: drugs.contains(&PsychoactiveDrug::Caffeine),
+        }
+    }
+
+    fn effective_amount(flags: &DrugFlags, transmitter: &crate::neurobiology::Neurotransmitter, amount: f64) -> f64 {
+        use crate::neurobiology::Neurotransmitter::{GABA, Glutamate};
+        if *transmitter == GABA {
+            amount * (if flags.alcohol { 1.5 } else { 1.0 }) * (if flags.anxiolytic { 2.0 } else { 1.0 })
+        } else if *transmitter == Glutamate {
+            amount * (if flags.caffeine { 1.2 } else { 1.0 })
+        } else {
+            amount
+        }
+    }
+
+    fn deliver_to_target(agents: &mut [AgentCell], msg: &CleftMessage, amount: f64) {
+        if let Some(target_agent) = agents.iter_mut().find(|a| a.cell_id.to_string() == msg.target_id) {
+            if let Some(ns) = target_agent.nervous_system_mut() {
+                ns.receive_neurotransmitter(&msg.source_id, &(msg.transmitter.clone(), amount));
+            }
+        }
+    }
+
+    fn astrocyte_clears(agents: &[AgentCell], msg: &CleftMessage) -> bool {
+        use crate::neurobiology::Neurotransmitter::Glutamate;
+        if msg.transmitter != Glutamate {
+            return false;
+        }
+        agents.iter().any(|agent| {
+            agent.astrocyte().is_some_and(|astro| astro.protected_neurons.contains(&msg.target_id) && !astro.is_reactive)
+        })
+    }
+
+    fn reuptake(agents: &mut [AgentCell], msg: &CleftMessage) {
+        if let Some(source_agent) = agents.iter_mut().find(|a| a.cell_id.to_string() == msg.source_id) {
+            if let Some(ns) = source_agent.nervous_system_mut() {
+                ns.axon.vesicles_at_terminals += msg.amount * 0.8;
+            }
+        }
+    }
+
+    fn decay(agents: &mut [AgentCell], mut msg: CleftMessage, keep: &mut Vec<CleftMessage>) {
+        use crate::neurobiology::Neurotransmitter::Glutamate;
+        if msg.transmitter == Glutamate && !Self::astrocyte_clears(agents, &msg) {
+            if let Some(target_agent) = agents.iter_mut().find(|a| a.cell_id.to_string() == msg.target_id) {
+                target_agent.metabolism.mitochondria.atp_budget = target_agent.metabolism.mitochondria.atp_budget.saturating_sub(50);
+            }
+        }
+        msg.ticks_in_cleft += 1;
+        if msg.ticks_in_cleft < 10 {
+            keep.push(msg);
+        }
+    }
+
     /// LA FENTE SYNAPTIQUE ET LA RECAPTURE (Le passage du message entre les neurones)
     pub fn process_synaptic_cleft(&mut self, agents: &mut [crate::cell::AgentCell]) {
+        let flags = self.drug_flags();
         let mut messages_to_keep = vec![];
-        let has_cocaine = self.nervous_system.get_psychoactive_drugs().contains(&PsychoactiveDrug::Cocaine);
-        let has_alcohol = self.nervous_system.get_psychoactive_drugs().contains(&PsychoactiveDrug::Alcohol);
-        let has_anxiolytic = self.nervous_system.get_psychoactive_drugs()
-            .contains(&PsychoactiveDrug::Anxiolytic);
-        let has_caffeine = self.nervous_system.get_psychoactive_drugs()
-            .contains(&PsychoactiveDrug::Caffeine);
-
-        for mut msg in self.nervous_system.get_synaptic_cleft().drain(..) {
-            // Application de la Pharmacologie sur l'efficacitÃƒÂ© du message
-            let mut effective_amount = msg.amount;
-            if msg.transmitter == crate::neurobiology::Neurotransmitter::GABA {
-                if has_alcohol {
-                    effective_amount *= 1.5;
-                }
-                if has_anxiolytic {
-                    effective_amount *= 2.0;
-                } // Boost massif
-            }
-            if msg.transmitter == crate::neurobiology::Neurotransmitter::Glutamate {
-                if has_caffeine {
-                    effective_amount *= 1.2;
-                } // HyperexcitabilitÃƒÂ©
-            }
-
-            // 1. Le neurone cible "aspire" le message (Liaison aux rÃƒÂ©cepteurs, conversion chimique -> ÃƒÂ©lectrique)
-            if let Some(target_agent) = agents
-                .iter_mut()
-                .find(|a| a.cell_id.to_string() == msg.target_id)
-            {
-                if let Some(ns) = target_agent.nervous_system_mut() {
-                    // Les canaux ioniques (Sodium, Potassium, Chlore) s'ouvrent !
-                    ns.receive_neurotransmitter(
-                        &msg.source_id,
-                        &(msg.transmitter.clone(), effective_amount),
-                    );
-                }
-            }
-
-            let mut is_cleared_by_astrocyte = false;
-            if msg.transmitter == crate::neurobiology::Neurotransmitter::Glutamate {
-                for agent in agents.iter() {
-                    if let Some(astro) = agent.astrocyte() {
-                        if astro.protected_neurons.contains(&msg.target_id) && !astro.is_reactive {
-                            is_cleared_by_astrocyte = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            if !has_cocaine && !is_cleared_by_astrocyte {
-                if let Some(source_agent) = agents
-                    .iter_mut()
-                    .find(|a| a.cell_id.to_string() == msg.source_id)
-                {
-                    if let Some(ns) = source_agent.nervous_system_mut() {
-                        ns.axon.vesicles_at_terminals += msg.amount * 0.8;
-                    }
-                }
+        for msg in self.nervous_system.get_synaptic_cleft().drain(..) {
+            let amount = Self::effective_amount(&flags, &msg.transmitter, msg.amount);
+            Self::deliver_to_target(agents, &msg, amount);
+            if !flags.cocaine && !Self::astrocyte_clears(agents, &msg) {
+                Self::reuptake(agents, &msg);
             } else {
-                if msg.transmitter == crate::neurobiology::Neurotransmitter::Glutamate
-                    && !is_cleared_by_astrocyte
-                {
-                    if let Some(target_agent) = agents
-                        .iter_mut()
-                        .find(|a| a.cell_id.to_string() == msg.target_id)
-                    {
-                        target_agent.metabolism.mitochondria.atp_budget =
-                            target_agent.metabolism.mitochondria.atp_budget.saturating_sub(50);
-                    }
-                }
-                msg.ticks_in_cleft += 1;
-                if msg.ticks_in_cleft < 10 {
-                    messages_to_keep.push(msg);
-                }
+                Self::decay(agents, msg, &mut messages_to_keep);
             }
         }
         self.nervous_system.set_synaptic_cleft(messages_to_keep);
     }
 }
+
+struct DrugFlags {
+    cocaine: bool,
+    alcohol: bool,
+    anxiolytic: bool,
+    caffeine: bool,
+}
+
 
 
 

@@ -216,7 +216,7 @@ fn main() {
             ((av[0] - lam * v[0]).powi(2) + (av[1] - lam * v[1]).powi(2) + (av[2] - lam * v[2]).powi(2)).sqrt(),
         );
     }
-    ev.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    ev.sort_by(|x, y| x.total_cmp(y));
     let herror = heat_error(0.1);
 
     println!("\n--- RESULTATS ---");

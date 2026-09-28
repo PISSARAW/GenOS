@@ -19,15 +19,18 @@ const translate = (text) => {
 
 let lines = msg.split('\n');
 let title = lines[0] || '';
-let match = title.match(/^(?:feat|fix|docs|chore|refactor|test|style|perf|build|ci)(?:\([^)]+\))?:\s*(.*)/i);
-
-if (match) {
-    let new_title = match[1].trim();
-    new_title = translate(new_title);
-    if (new_title.length > 0) {
-        new_title = new_title.charAt(0).toUpperCase() + new_title.slice(1);
+let bracket = title.match(/^\[([A-Za-z]+)\]\s*(.*)$/);
+if (bracket) {
+    let tag = bracket[1].toUpperCase();
+    let rest = translate((bracket[2] || '').trim());
+    lines[0] = rest ? `[${tag}] ${rest}` : `[${tag}]`;
+} else {
+    let match = title.match(/^(feat|fix|docs|chore|refactor|test|style|perf|build|ci)(?:\([^)]+\))?:\s*(.*)/i);
+    if (match) {
+        let kind = match[1].toUpperCase();
+        let new_title = translate((match[2] || '').trim());
+        lines[0] = new_title ? `[${kind}] ${new_title}` : `[${kind}]`;
     }
-    lines[0] = new_title;
 }
 
 process.stdout.write(lines.join('\n'));

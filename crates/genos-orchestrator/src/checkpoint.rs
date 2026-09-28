@@ -15,6 +15,10 @@ pub struct OrchestratorCheckpointState {
     pub dormant_spores: Vec<serde_json::Value>,
     pub genomes: HashMap<Uuid, serde_json::Value>,
     pub spore_tissue_map: HashMap<Uuid, String>,
+    /// Full-fidelity orchestrator snapshot (serde round-trip). Present for
+    /// checkpoints taken after the fix; absent (`None`) for legacy ones.
+    #[serde(default)]
+    pub orchestrator: Option<serde_json::Value>,
     pub timestamp: String,
 }
 
@@ -28,6 +32,7 @@ impl OrchestratorCheckpointState {
             dormant_spores: Vec::new(),
             genomes: HashMap::new(),
             spore_tissue_map: HashMap::new(),
+            orchestrator: None,
             timestamp: chrono::Utc::now().to_rfc3339(),
         }
     }
@@ -81,14 +86,30 @@ impl OrchestratorCheckpointState {
             dormant_spores,
             genomes,
             spore_tissue_map: orch.spore_tissue_map.clone(),
+            orchestrator: serde_json::to_value(orch).ok(),
             timestamp: chrono::Utc::now().to_rfc3339(),
         }
     }
 
-    pub fn apply_to_orchestrator(&self, orch: &mut crate::orchestrator::BiomimeticOrchestrator, director: &mut Director) {
+    /// Restores a checkpoint into a live orchestrator. Returns `Ok(true)` on
+    /// full-fidelity restore, `Ok(false)` for legacy checkpoints that only
+    /// carry summaries (director state + spore map are restored, the rest is
+    /// left untouched instead of being silently dropped). Hard failures
+    /// (corrupt snapshot) return `Err`.
+    pub fn apply_to_orchestrator(&self, orch: &mut crate::orchestrator::BiomimeticOrchestrator, director: &mut Director) -> Result<bool, String> {
         director.import_state(self.director_state.clone());
-        // Note: Full state restoration would require deserializing the complex types
-        // This is a scaffold for the checkpoint data structure
+        match &self.orchestrator {
+            Some(snapshot) => {
+                let restored: crate::orchestrator::BiomimeticOrchestrator =
+                    serde_json::from_value(snapshot.clone()).map_err(|e| e.to_string())?;
+                *orch = restored;
+                Ok(true)
+            }
+            None => {
+                orch.spore_tissue_map = self.spore_tissue_map.clone();
+                Ok(false)
+            }
+        }
     }
 }
 
