@@ -298,6 +298,8 @@ function createReceipt(input) {
     experimentalDesignVersion: 1,
     maturity: result.maturity, experimentalDesign: result.design,
     executionLimits: result.executionLimits,
+    requiredAdapters: result.requiredAdapters,
+    adapterContracts: trinityAdapters.describeRequiredAdapters(result.requiredAdapters),
     experimentalDesignId: designId(mission, result.design, options)
   };
   if (Object.keys(result.effects).length) receipt.effects = result.effects;
@@ -339,17 +341,9 @@ function mergePolicy(input) {
 }
 
 function validatePreconditions(compiled, options) {
-  validateAvailableAdapters(compiled.requiredAdapters, options.availableAdapters);
+  trinityAdapters.validateRequiredAdapters(compiled.requiredAdapters, options.availableAdapters);
   if (compiled.effects.requiresJury && !juryReady(options.trinityJury || options.jury)) {
     throw variantError('TRINITY_VARIANT_PRECONDITION_MISSING', 'Blind jury requires enabled=true, at least two distinct model URIs, and a positive maxCostUsd.');
-  }
-}
-
-function validateAvailableAdapters(requiredAdapters, availableAdapters) {
-  if (!Array.isArray(availableAdapters)) return;
-  const missing = requiredAdapters.filter((adapter) => !availableAdapters.includes(adapter));
-  if (missing.length) {
-    throw variantError('TRINITY_DESIGN_ADAPTER_MISSING', `Experimental design requires unavailable adapters: ${missing.join(', ')}.`);
   }
 }
 

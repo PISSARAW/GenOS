@@ -80,8 +80,24 @@ function isInstalled(name) {
   }
 }
 
+function validateRequiredAdapters(names, availableNames) {
+  const missing = names.filter((name) => !isInstalled(name) || unavailable(name, availableNames));
+  if (missing.length) {
+    throw adapterError('TRINITY_DESIGN_ADAPTER_MISSING', `Experimental design requires unavailable adapters: ${missing.join(', ')}.`);
+  }
+}
+
+function unavailable(name, availableNames) {
+  return Array.isArray(availableNames) && !availableNames.includes(name);
+}
+
+function describeRequiredAdapters(names) {
+  return names.map(describeAdapter);
+}
+
 function installedAdapterNames() {
   return adapterNames().filter(isInstalled);
 }
 
-module.exports = { ADAPTERS, adapterNames, describeAdapter, resolveAdapter, isInstalled, installedAdapterNames };
+module.exports = { ADAPTERS, adapterNames, describeAdapter, describeRequiredAdapters,
+  resolveAdapter, isInstalled, installedAdapterNames, validateRequiredAdapters };

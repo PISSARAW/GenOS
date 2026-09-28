@@ -36,6 +36,19 @@ function testControlledBaseline() {
   assert.equal(receipt.maturity, 'implemented');
   assert.match(receipt.experimentalDesignId, /^trinity-design-v1-[0-9a-f]{16}$/);
   assert.deepEqual(receipt.experimentalDesign, variants.DEFAULT_DESIGN);
+  assert.deepEqual(receipt.requiredAdapters, []);
+  assert.deepEqual(receipt.adapterContracts, []);
+}
+
+function testRuntimeAdapterContracts() {
+  const receipt = variants.selectForMission('Run a factorial experiment.', { variantId: 'factorial' });
+  assert.deepEqual(receipt.requiredAdapters, ['factorial_grid_executor']);
+  assert.deepEqual(receipt.adapterContracts, [{
+    name: 'factorial_grid_executor',
+    module: './trinityFactorialGrid',
+    serves: 'worldTopology:factorial_grid',
+    functions: ['generateFactorialGrid', 'anovaAnalysis', 'hierarchicalModel', 'varianceCorrection']
+  }]);
 }
 
 function testExplicitReceipts() {
@@ -248,6 +261,7 @@ function testJuryParetoAdaptersResolve() {
 async function main() {
   testVariantSurface();
   testControlledBaseline();
+  testRuntimeAdapterContracts();
   testExplicitReceipts();
   testAdapterGating();
   testAdapterRegistry();
