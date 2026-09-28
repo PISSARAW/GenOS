@@ -328,7 +328,7 @@ fn lease_expired_at(raw: Option<&str>, now_ms: i64) -> bool {
     };
     let raw = raw.trim();
     if raw.is_empty() {
-        return false;
+        return true;
     }
     let expires_at: i64 = match raw.parse() {
         Ok(value) => value,
@@ -355,7 +355,7 @@ mod lease_tests {
         assert!(!lease_expired_at(Some("1001"), 1000));
         assert!(lease_expired_at(Some("invalid"), 1000));
         assert!(!lease_expired_at(None, 1000));
-        assert!(!lease_expired_at(Some("  "), 1000));
+        assert!(lease_expired_at(Some("  "), 1000));
     }
 
     #[test]
