@@ -51,6 +51,15 @@ function testRuntimeAdapterContracts() {
   }]);
 }
 
+function testAutomaticSelectionWithInstalledAdapters() {
+  const availableAdapters = adapters.installedAdapterNames();
+  const receipt = variants.selectForMission('Run a factorial experiment.', { availableAdapters });
+  assert.equal(receipt.method, 'mission_signals');
+  assert.equal(receipt.experimentalDesign.worldTopology, 'factorial_grid');
+  assert.equal(receipt.variant, 'composed');
+  assert.equal(receipt.adapterContracts[0].name, 'factorial_grid_executor');
+}
+
 function testExplicitReceipts() {
   for (const id of VARIANT_IDS) {
     const options = id === 'jury'
@@ -262,6 +271,7 @@ async function main() {
   testVariantSurface();
   testControlledBaseline();
   testRuntimeAdapterContracts();
+  testAutomaticSelectionWithInstalledAdapters();
   testExplicitReceipts();
   testAdapterGating();
   testAdapterRegistry();

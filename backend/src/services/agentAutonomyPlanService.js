@@ -161,7 +161,7 @@ async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, 
     variantId: requestedVariant,
     experimentalDesign: normalizedMission.trinityExperimentalDesign || normalizedMission.experimentalDesign,
     trinityJury: normalizedMission.trinityJury,
-    availableAdapters: ['adaptive_budget_scheduler', 'blind_jury_adjudicator']
+    availableAdapters: trinityVariants.adapters.installedAdapterNames()
   });
   autonomyPlan.trinity.members = trinityVariants.applyToMembers(
     autonomyPlan.trinity.members, autonomyPlan.trinity.variantSelection
