@@ -25,7 +25,11 @@ const ROLE_REQUIREMENTS = Object.freeze({
   threat_model_engineer: ['domain_specialization'], adversarial_security_engineer: ['adversarial_review'],
   baseline_data_engineer: ['scoped_execution'], planned_data_engineer: ['domain_specialization'],
   data_validation_engineer: ['verify'], baseline_product_designer: ['scoped_execution'],
-  planned_product_designer: ['domain_specialization'], usability_critic: ['verify']
+  planned_product_designer: ['domain_specialization'], usability_critic: ['verify'],
+  graph_analyzer: ['analyze', 'domain_specialization'],
+  causal_reconstructor: ['analyze', 'causal_analysis'],
+  transactional_validator: ['verify'],
+  code_semantic_reviewer: ['verify', 'adversarial_review']
 });
 
 const ROLE_PREFERENCES = Object.freeze({

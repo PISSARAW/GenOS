@@ -10,6 +10,7 @@ const biomeCoordinationService = require('./biomeCoordinationService');
 const trinityService = require('./trinityService');
 const aTeamService = require('./aTeamService');
 const topologyWorkerKindService = require('./topologyWorkerKindService');
+const syncytiumVariantWorkerService = require('./syncytiumVariantWorkerService');
 
 const MODE_ALIASES = Object.freeze({ ateam: 'a_team', holobiont: 'holobionte' });
 
@@ -37,6 +38,9 @@ async function applyOrganization({ db, orchestratorId, organization, reason }) {
 
 async function composeMode(input = {}) {
   const context = { ...input, key: normalizeMode(input.mode) };
+  if (context.key === 'isolated_baseline') {
+    return require('./isolatedBaselineTopologyService').compose(context);
+  }
   if (context.key === 'axolotl' || context.key === 'plastique') return composeAxolotl(context);
   const composer = COMPOSERS[context.key];
   const composition = composer
@@ -88,6 +92,7 @@ async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
       nuclearDomains: options.sessionOptions?.nuclearDomains
     }
   });
+  session.members = [...session.members, ...syncytiumVariantWorkerService.membersForSession(session)];
   await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Syncytium mode activation' });
   return session;
 }

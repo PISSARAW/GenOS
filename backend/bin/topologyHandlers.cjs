@@ -360,6 +360,9 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
 function composeBiologicalMode({ db, context, mode, mission }) {
   const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;
   const workerAssignments = context.request.worker_assignments || context.request.workerAssignments;
+  if (mode === 'isolated_baseline') {
+    return require('../src/services/isolatedBaselineTopologyService').compose({ mission, options: { workerAssignments } });
+  }
   const variantId = context.request.variant_id || context.request.variantId || context.request.variant;
   return biologicalTopology.composeMode({
     db, orchestratorId: context.orchestratorId, mode, mission,

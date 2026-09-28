@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { composeMode, normalizeMode } = require('../src/services/biologicalTopologyService');
+const isolatedBaseline = require('../src/services/isolatedBaselineTopologyService');
 
 async function verifyTrinityDispatch() {
   const result = await composeMode({ mode: 'trinity', mission: 'Compare three independent hypotheses using Pareto quality and cost.' });
@@ -37,6 +38,16 @@ async function verifySyncytiumVariantDispatch() {
   assert.equal(explicit.variantPolicy.id, 'graph');
   assert.equal(explicit.variantSelection.method, 'explicit');
   assert.deepEqual(Object.keys(explicit.schema.fields), ['graph_nodes', 'graph_edges']);
+}
+
+async function verifyIsolatedBaseline() {
+  const result = isolatedBaseline.compose({ mission: 'Compare the API contract.', options: { variantId: 'graph' } });
+  assert.equal(result.baseline, 'isolated');
+  assert.equal(result.sharedState, false);
+  assert.equal(result.members.length, 5);
+  assert.equal(result.members.at(-1).role, 'graph_analyzer');
+  assert.ok(result.members.every((member) => member.executionMode === 'worker'));
+  assert.ok(result.members.every((member) => !member.mission.includes('SYNCYTIUM RE-GROUNDING')));
 }
 
 async function verifyRhizomeVariantDispatch() {
@@ -97,6 +108,7 @@ async function run() {
   await verifyTrinityDispatch();
   await verifyATeamDispatch();
   await verifySyncytiumVariantDispatch();
+  await verifyIsolatedBaseline();
   await verifyRhizomeVariantDispatch();
   await verifyHolobionteVariantDispatch();
   console.log('Biological topology dispatch checks: PASS');

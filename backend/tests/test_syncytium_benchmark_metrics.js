@@ -2,6 +2,17 @@
 
 const assert = require('node:assert/strict');
 const benchmark = require('../src/services/syncytium/benchmark/syncytiumBenchmarkService');
+
+const unmeasured = benchmark.compareRuns([{
+  variant: 'baseline', task: 't', budget: { tokens: 10 }, counts: {
+    semanticConflictsMissed: 1, realSemanticConflicts: 2,
+    safeOperationsWithoutCoordination: null, safeOperationsEligible: null,
+    violationsPromotedOutsideSyncytium: null, invariantViolations: null,
+    relevantUpdatesDelivered: null, allUpdatesDelivered: null
+  }
+}]);
+assert.equal(unmeasured.variants.baseline.metrics.coordinationAvoidanceRatio.measured, false);
+assert.equal(unmeasured.variants.baseline.metrics.invariantViolationEscapeRate.value, null);
 const syncytium = require('../src/services/syncytiumCoordinationService');
 
 function main() {

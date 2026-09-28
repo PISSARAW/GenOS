@@ -14,8 +14,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
 | [0005](0005-reorganisation-arborescence-documentaire.md) | Réorganisation de l'arborescence documentaire | Accepté | 2026-09-14 | Documentation, provenance, distribution |
-| [0012](0012-volition-autonome-et-preservation.md) | Volition autonome et préservation | Accepté (amendé 2026-09-27) | 2026-09-15 / 2026-09-27 | Orchestration, survie, autonomie |
-| [0012b](0012-re-grounding-topologies-biologiques.md) | Re-grounding durable des workers biologiques | Acceptée | 2026-09-28 | Topologie, orchestration, workers, preuve |
+| [0012a](0012-re-grounding-topologies-biologiques.md) | Re-grounding durable des workers biologiques | Acceptée | 2026-09-28 | Topologie, orchestration, workers, preuve |
+| [0012b](0012-volition-autonome-et-preservation.md) | Volition autonome et préservation | Accepté (amendé 2026-09-27) | 2026-09-15 / 2026-09-27 | Orchestration, survie, autonomie |
 | [0013](0013-survival-model-control-plane.md) | Modèle de survie dans le control plane | Accepté | 2026-09-16 | Orchestration, budgets, sûreté, biomimétisme |
 | [0014](0014-theorie-du-soi-operationnelle.md) | Théorie du soi opérationnelle de l'orchestrator | Accepté | 2026-09-16 | Orchestration, apprentissage, persistance, sûreté |
 | [0015](0015-convergence-organisme-cognitif-composite.md) | Convergence d'un organisme cognitif composite | Accepté | 2026-09-16 | Orchestration, contrôle, preuve, sûreté |
@@ -190,6 +190,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0163](0163-contrats-transversaux-operation-receipt-preuve.md) | Contrats transversaux d'opération : événement, reçu et preuve | Accepté | 2026-09-28 | Contrats, provenance, budgets, orchestration, preuve |
 | [0164](0164-racine-runtime-volume-optimal.md) | Placement de la racine runtime selon l'espace disponible | Accepté | 2026-09-28 | -- |
 | [0166](0166-livraison-durable-signaux.md) | Livraison durable des signaux entre processus | Accepté | 2026-09-28 | Signal Plane, persistance, concurrence, reprise |
+| [0168](0168-validation-semantique-des-reponses-biologiques.md) | Validation sémantique des réponses biologiques | Acceptée | 2026-09-28 | Syncytium, sémantique, preuve, orchestration |
+| [0169](0169-benchmark-biologique-apparie.md) | Benchmark biologique apparié | Acceptée | -- | -- |
+| [0170](0170-specialisation-workers-variants-syncytium.md) | Spécialisation des workers par variant Syncytium | Acceptée | 2026-09-28 | Syncytium, orchestration, workers, capacités |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

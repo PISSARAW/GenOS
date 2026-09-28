@@ -47,7 +47,10 @@ function validateRun(run) {
   const variant = String(run?.variant || '').trim();
   const task = String(run?.task || '').trim();
   if (!variant || !task || !run.budget || !run.counts) throw invalidCount('Each run needs variant, task, budget, and counts.');
-  for (const field of Object.values(METRICS).flat()) countValue(run.counts[field], field);
+  for (const field of Object.values(METRICS).flat()) {
+    if (!Object.hasOwn(run.counts, field)) throw invalidCount(`${field} is required; use null when it was not measured.`);
+    optionalCount(run.counts[field], field);
+  }
   return { variant, task, signature: JSON.stringify(sortObject(run.budget)) };
 }
 
@@ -62,7 +65,10 @@ function ensureAggregate(grouped, variant) {
 }
 
 function addCounts(total, counts) {
-  for (const field of Object.values(METRICS).flat()) total[field] += countValue(counts[field], field);
+  for (const field of Object.values(METRICS).flat()) {
+    const value = optionalCount(counts[field], field);
+    total[field] = value === null || total[field] === null ? null : total[field] + value;
+  }
 }
 
 function emptyCounts() {
@@ -71,9 +77,8 @@ function emptyCounts() {
 
 function countValue(value, field) {
   if (value === undefined || value === null) throw invalidCount(`${field} is required.`);
-  const count = Number(value);
-  if (!Number.isSafeInteger(count) || count < 0) throw invalidCount(`${field} must be a non-negative integer.`);
-  return count;
+  if (!Number.isSafeInteger(value) || value < 0) throw invalidCount(`${field} must be a non-negative integer.`);
+  return value;
 }
 
 function optionalCount(value, field) {
