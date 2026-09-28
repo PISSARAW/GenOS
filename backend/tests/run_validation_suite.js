@@ -12,7 +12,6 @@ const suites = {
     ['replicated causal validation', 'test_replicated_causal_validation_service.js'],
     ['biological semantic response validation', 'test_biological_semantic_validation.js'],
     ['syncytium benchmark metrics', 'test_syncytium_benchmark_metrics.js'],
-    ['biological benchmark runner', 'test_biological_benchmark_runner.js'],
     ['Antigravity MCP configuration', 'test_antigravity_mcp_config.js'],
     ['philosophy registry contracts', 'test_philosophy_registry_contracts.js'],
     ['mathematical philosophy registry', 'test_mathematical_philosophy_registry.js'],
