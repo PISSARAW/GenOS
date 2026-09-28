@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "operationContracts",
+  "description": "Socle transversal GenOS etape 0 : etats terminaux, correlation, enveloppe d'operation, recu d'execution et preuve consommable par les gates. Le transport reussi ne vaut pas preuve.",
+  "schema_version": "1.0.0",
+  "terminalStates": ["complete", "partial", "unavailable", "failed"],
+  "allowedTransitions": {
+    "pending": ["running", "failed", "unavailable"],
+    "running": ["complete", "partial", "unavailable", "failed"],
+    "partial": ["running", "complete", "failed"],
+    "unavailable": ["running", "failed"],
+    "failed": ["running"],
+    "complete": []
+  },
+  "operationKinds": ["signal", "workflow", "perception", "topology", "trinity"],
+  "origins": ["simulated", "local", "external"],
+  "definitions": {
+    "correlation": {
+      "type": "object",
+      "required": ["missionId", "runId", "operationId", "eventId"],
+      "properties": {
+        "missionId": { "type": "string", "minLength": 1 },
+        "runId": { "type": "string", "minLength": 1 },
+        "branchId": { "type": "string", "minLength": 1 },
+        "agentId": { "type": "string", "minLength": 1 },
+        "operationId": { "type": "string", "minLength": 1 },
+        "eventId": { "type": "string", "minLength": 1 },
+        "proofId": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "required": ["durationMs", "maxCost", "maxSteps"],
+      "properties": {
+        "durationMs": { "type": "number", "minimum": 1 },
+        "maxCost": { "type": "number", "minimum": 0 },
+        "maxSteps": { "type": "integer", "minimum": 1 },
+        "dataScope": { "type": "string", "minLength": 1 },
+        "allowedTools": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "stopConditions": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      },
+      "additionalProperties": false
+    },
+    "operation": {
+      "type": "object",
+      "required": ["schemaVersion", "operationKind", "correlation", "idempotencyKey", "budget", "authority"],
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "operationKind": { "enum": ["signal", "workflow", "perception", "topology", "trinity"] },
+        "correlation": { "$ref": "#/definitions/correlation" },
+        "idempotencyKey": { "type": "string", "minLength": 1 },
+        "budget": { "$ref": "#/definitions/budget" },
+        "authority": {
+          "type": "object",
+          "required": ["requester", "leases"],
+          "properties": {
+            "requester": { "type": "string", "minLength": 1 },
+            "leases": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          },
+          "additionalProperties": false
+        },
+        "retryPolicy": {
+          "type": "object",
+          "required": ["maxRetries", "retryable"],
+          "properties": {
+            "maxRetries": { "type": "integer", "minimum": 0 },
+            "retryable": { "type": "boolean" },
+            "compensation": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "required": ["schemaVersion", "correlation", "idempotencyKey", "status", "origin", "observed", "requested", "result"],
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "correlation": { "$ref": "#/definitions/correlation" },
+        "idempotencyKey": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["complete", "partial", "unavailable", "failed"] },
+        "reason": { "type": "string", "minLength": 1 },
+        "origin": { "enum": ["simulated", "local", "external"] },
+        "observed": { "type": "object" },
+        "requested": { "type": "object" },
+        "result": { "type": "object" },
+        "proofIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "issuedAt": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["schemaVersion", "proofId", "correlation", "dimensions"],
+      "properties": {
+        "schemaVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "proofId": { "type": "string", "minLength": 1 },
+        "correlation": { "$ref": "#/definitions/correlation" },
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "value", "direction", "provenance"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "value": { "type": ["number", "string", "null"] },
+              "unknown": { "type": "boolean" },
+              "direction": { "enum": ["higher", "lower", "target"] },
+              "threshold": { "type": "number" },
+              "uncertainty": { "type": "number", "minimum": 0 },
+              "provenance": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
