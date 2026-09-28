@@ -2,7 +2,7 @@
 
 - **Statut** : référence maintenue ; les statuts GenOS suivent la règle `matrice-cohérence` (code + contrat + nominal + refus + preuve + limite).
 - **Dernière revue** : 2026-09-26
-- **Sources code** : inventaire `docs/03-reference/inventaire-technique.md` du 2026-09-22 (172 outils runtime, 91 handlers bio), matrice `docs/06-qualite-preuves/matrice-coherence-code-docs.md` du 2026-09-19, audit `docs/06-qualite-preuves/audit-affirmations-operationnelles.md` du 2026-09-19, contrat mission `docs/02-orchestration/orchestration.md` (`Partiel`, revue 2026-09-25).
+- **Sources code** : inventaire `docs/03-reference/inventaire-technique.md` du 2026-09-28 (176 outils déclarés, 101 handlers bio enregistrés / 89 fichiers), matrice `docs/06-qualite-preuves/matrice-coherence-code-docs.md` revue le 2026-09-28, audit `docs/06-qualite-preuves/audit-affirmations-operationnelles.md` revu le 2026-09-28, contrat mission `docs/02-orchestration/orchestration.md` (`Partiel`, revue 2026-09-25).
 
 ## 1. Objet et méthode
 
@@ -97,11 +97,11 @@ Code : `modelRouter.js`, `modelRoutingPolicy.js`, `modelRouteRunner.js`, `localM
 
 ### 3.7 MCP, leases, CLI, IDE
 
-Code : `mcpToolRegistry.js`, `toolLeasePolicy.js` (fail-closed), `mcpArgumentValidation.js`, `circuitBreaker.js`, `mcp/index.js`, `shared/toolDefinitions.json` (27 entrées) vs 172 runtime. Tests : `test_mcp_*`, `test_tool_lease_restriction.js`, `test_capability_lease.js`, `test_ide_contract.js`. Docs : `docs/03-reference/outils-mcp.md`, `docs/03-reference/api-et-contrats.md`.
+Code : `mcpToolRegistry.js`, `toolLeasePolicy.js` (fail-closed), `mcpArgumentValidation.js`, `circuitBreaker.js`, `mcp/index.js`, `shared/toolDefinitions.json` (36 définitions) vs 176 outils déclarés backend (`MCP_TOOLS_LIST`). Tests : `test_mcp_*`, `test_tool_lease_restriction.js`, `test_capability_lease.js`, `test_ide_contract.js`. Docs : `docs/03-reference/outils-mcp.md`, `docs/03-reference/api-et-contrats.md`.
 
 | Concept GenOS | Statut | Concurrents | Écart |
 | --- | --- | --- | --- |
-| Registre déclarations, leases par capacités, allowlist, `genos_orchestrate` jamais réintroduit, circuit breaker, contrat `genos.ide/v1` | Opérationnel | MCP SDK/serveurs, Copilot/Cursor/Windsurf/Cline, Continue, JetBrains AI | IDE/assistants meilleurs en édition/complétion ; GenOS gouverne outils appelés et promotion des effets. 172 outils runtime sans preuve nominale/refus unitaire chacun ; aucune extension VS Code/JetBrains livrée ; définition ≠ handler câblé. |
+| Registre déclarations, leases par capacités, allowlist, `genos_orchestrate` jamais réintroduit, circuit breaker, contrat `genos.ide/v1` | Opérationnel | MCP SDK/serveurs, Copilot/Cursor/Windsurf/Cline, Continue, JetBrains AI | IDE/assistants meilleurs en édition/complétion ; GenOS gouverne outils appelés et promotion des effets. 176 outils déclarés sans preuve nominale/refus unitaire chacun ; aucune extension VS Code/JetBrains livrée ; définition ≠ handler câblé. |
 
 ### 3.8 Workflows et jobs généralistes
 
@@ -135,7 +135,7 @@ Code : `middleware/auth.js`, `controllers/authController.js`, `secretVault.js`, 
 
 Scénario reproductible commun : action avec outil externe en permission minimale ; preuve fonctionnelle attendue ; panne modèle/réseau/worker ; fork concurrent + promotion/rejet ; audit identité/modèle servi/outil/entrées/sorties/coûts/approbations ; restauration montrant limites du rejeu externe.
 
-Points GenOS à vérifier : maturité effective par primitive, adaptateur sandbox/déploiement, opt-in expérimentaux, couverture du flux. Rappel audit 2026-09-19 : 341 déclarations de routes dont 110 à correspondance littérale en tests (pas de matrice route→contrat→test), 41 services proto ≠ RPC démontrés, `test:security` et `test:grpc` en échec au moment de l'audit (`CORS/ETIMEDOUT`, `AgentService.StartMission`), 172 outils runtime vs 27 définitions partagées, SSE sans garantie `evidence_barrier/complete`, job ≠ `exactly-once`, fixture blob 103→88 octets (14,56 %) non généralisable. Analogies biologiques = invariants de conception, pas preuves de sécurité/disponibilité/émergence.
+Points GenOS à vérifier : maturité effective par primitive, adaptateur sandbox/déploiement, opt-in expérimentaux, couverture du flux. Rappel de l'audit révisé le 2026-09-28 : 341 déclarations de routes dont 110 à correspondance littérale en tests (pas de matrice route→contrat→test), 41 services proto ≠ RPC démontrés, 176 outils déclarés vs 36 définitions partagées, SSE sans garantie `evidence_barrier/complete`, job ≠ `exactly-once`, fixture blob 103→88 octets (14,56 %) non généralisable. Observations historiques de septembre conservées comme telles (non revalidées dans cette revue) : `test:security` et `test:grpc` en échec au moment de l'audit de septembre (`CORS/ETIMEDOUT`, `AgentService.StartMission`) ; le compte « 172 outils runtime » de septembre n'est pas reproductible (aucun test actuel n'assert 172). Analogies biologiques = invariants de conception, pas preuves de sécurité/disponibilité/émergence.
 
 ```mermaid
 flowchart TD
