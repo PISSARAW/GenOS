@@ -4,6 +4,7 @@ const path = require('node:path');
 const suites = {
   smoke: [
     ['philosophy registry health', 'test_philosophy_registry_health.js'],
+    ['indicator receipt validation', 'test_indicator_receipt_service.js'],
     ['philosophy registry contracts', 'test_philosophy_registry_contracts.js'],
     ['mathematical philosophy registry', 'test_mathematical_philosophy_registry.js'],
     ['mathematical philosophy safety', 'test_mathematical_philosophy_safety.js'],
@@ -20,6 +21,7 @@ const suites = {
     ['philosophy mcp integration', 'test_philosophy_mcp_integration.js'],
     ['political philosophy service', 'test_political_philosophy_service.js'],
     ['social cognition service', 'test_social_cognition_service.js'],
+    ['topology MCP lease enforcement', 'test_mcp_topology_lease.js'],
     ['advanced IAM', 'test_advanced_iam.js'],
     ['mathematical promotion integration', 'test_mathematical_promotion_integration.js'],
     ['procedural organism foundations', 'test_procedural_organism_foundations.js'],

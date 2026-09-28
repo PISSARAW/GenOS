@@ -1,6 +1,13 @@
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::env;
+mod base_specs;
 mod catalog_tools;
+
+struct ToolVisibility {
+    lease: Option<Vec<String>>,
+    disabled: Vec<String>,
+    expose_all: bool,
+}
 
 fn configured_tool_set(variable: &str) -> Option<Vec<String>> {
     env::var(variable).ok().map(|value| {
@@ -29,279 +36,50 @@ pub fn public_tool_specs() -> Vec<Value> {
     let expose_requested = env_flag("GENOS_MCP_EXPOSE_ALL");
     let unsafe_production_exposure = env_flag("GENOS_MCP_ALLOW_UNSAFE_EXPOSE_ALL");
     let node_env = env::var("NODE_ENV").ok();
-    let expose_all = expose_all_allowed(expose_requested, node_env.as_deref(), unsafe_production_exposure);
+    let expose_all = expose_all_allowed(
+        expose_requested,
+        node_env.as_deref(),
+        unsafe_production_exposure,
+    );
 
-    let mut all_tools = vec![
-        json!({
-            "name": "genos_orchestrate",
-            "description": "Launch or continue an autonomous GenOS mission. Decomposes tasks, coordinates workers, and produces verified claims.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "mission": { "type": "string", "description": "Goal or user request to achieve." },
-                    "strategy": { "type": "string", "description": "Optional strategy hint (catalog counts: see docs/03-reference/inventaire-technique.md)." },
-                    "background": { "type": "boolean", "description": "Defaults to true: return a launch receipt and run detached. False waits within the MCP timeout." }
-                },
-                "required": ["mission"]
-            }
-        }),
-        json!({
-            "name": "genos_delegate_worker",
-            "description": "Delegate an isolated bounded sub-task to a GenOS worker inside a dedicated capsule.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "mission": { "type": "string", "description": "Sub-task for the delegated worker." },
-                    "role": { "type": "string", "description": "Specialized role of the worker." },
-                    "background": { "type": "boolean", "description": "Defaults to true. False waits within the MCP timeout." }
-                },
-                "required": ["mission"]
-            }
-        }),
-        json!({
-            "name": "genos_snapshot",
-            "description": "Create an immutable content-addressed checkpoint of the workspace.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "agent": { "type": "string", "description": "Path to the agent genome input." },
-                    "out": { "type": "string", "description": "Output path for the snapshot JSON." }
-                },
-                "required": ["agent", "out"]
-            }
-        }),
-        json!({
-            "name": "genos_replay",
-            "description": "Replay a validated snapshot and return its reproduction receipt.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "snapshot": { "type": "string", "description": "Snapshot path relative to the workspace root." },
-                    "snapshot_id": { "type": "string", "description": "Snapshot identifier." }
-                },
-                "anyOf": [
-                    { "required": ["snapshot"] },
-                    { "required": ["snapshot_id"] }
-                ]
-            }
-        }),
-        json!({
-            "name": "genos_execute_primitive",
-            "description": "Execute one registered GenOS strategy primitive.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "primitive_name": { "type": "string", "description": "Primitive identifier." },
-                    "args": { "type": "object", "description": "Primitive context." }
-                },
-                "required": ["primitive_name"]
-            }
-        }),
-        json!({
-            "name": "genos_capsule_create",
-            "description": "Provision an isolated copy-on-write execution capsule from a snapshot.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "snapshot_id": { "type": "string", "description": "Source snapshot ID." },
-                    "seed": { "type": "string", "description": "Optional seed identifier." }
-                },
-                "required": ["snapshot_id"]
-            }
-        }),
-        json!({
-            "name": "genos_change_strategy",
-            "description": "Switch active strategy portfolio at any runtime decision gate based on empirical evidence.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "strategy": { "type": "string", "description": "Target strategy identifier." },
-                    "reason": { "type": "string", "description": "Evidence justifying the transition." }
-                },
-                "required": ["strategy", "reason"]
-            }
-        }),
-        json!({
-            "name": "genos_report_progress",
-            "description": "Report concise milestone progress or blocker update to the orchestrator and user.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "phase": { "type": "string", "description": "Current phase name." },
-                    "message": { "type": "string", "description": "Outcome and next steps." },
-                    "progress_percent": { "type": "number", "minimum": 0, "maximum": 100 }
-                },
-                "required": ["phase", "message"]
-            }
-        }),
-        json!({
-            "name": "genos_change_organization",
-            "description": "Modify the communication and routing topology of the agent collective.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "organization": { "type": "string", "description": "Target organization topology." },
-                    "reason": { "type": "string", "description": "Justification for topology change." }
-                },
-                "required": ["organization", "reason"]
-            }
-        }),
-        json!({
-            "name": "genos_organization_state",
-            "description": "Read the active organization topology, permissions, and visible communication links.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {}
-            }
-        }),
-        json!({
-            "name": "genos_worker_publish",
-            "description": "Publish evidence, hypotheses, or signals to peer workers through enforced routing.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "kind": { "type": "string", "description": "Type of publication (evidence, challenge, vote, trace)." },
-                    "content": { "type": "string", "description": "Message payload." },
-                    "signal_type": { "type": "string", "enum": ["ligand", "voltage", "pheromone", "plasmid", "tensor", "text"], "description": "Biomimetic non-textual signal type." },
-                    "signal_data": { "type": "object", "description": "Physico-chemical signal data (0 LLM tokens)." }
-                },
-                "required": ["kind"]
-            }
-        }),
-        json!({
-            "name": "genos_worker_inbox",
-            "description": "Retrieve messages and evidence visible to this worker under the current topology.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "after_id": { "type": "integer", "description": "Cursor offset." },
-                    "limit": { "type": "integer", "description": "Max messages to return." }
-                }
-            }
-        }),
-        json!({
-            "name": "genos_trinity_launch",
-            "description": "Deploy Trinity worlds (thesis, antithesis, synthesis) for deep comparative exploration.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "mission": { "type": "string", "description": "Mission to analyze via dialectic tension." }
-                },
-                "required": ["mission"]
-            }
-        }),
-        json!({
-            "name": "genos_a_team_preview",
-            "description": "Compose an A-Team of 2 to 3 multidisciplinary specialists for multi-competency missions.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "project_goal": { "type": "string", "description": "Overarching project goal." },
-                    "sub_systems": { "type": "array", "items": { "type": "string" }, "description": "2 or 3 distinct subsystems." }
-                },
-                "required": ["project_goal", "sub_systems"]
-            }
-        }),
-        json!({
-            "name": "genos_merge",
-            "description": "Merge changes from an isolated worker branch into the root workspace under invariants.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "branch_id": { "type": "string", "description": "Branch ID to merge." },
-                    "conditions": { "type": "string", "description": "Conditions or checks to satisfy." }
-                },
-                "required": ["branch_id"]
-            }
-        }),
-        json!({
-            "name": "genos_audit",
-            "description": "Audit a snapshot or lineage trace for security, compliance, and deterministic reproducibility.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "snapshot_id": { "type": "string", "description": "Snapshot ID to audit." },
-                    "output": { "type": "string", "description": "Output path for audit report." }
-                },
-                "required": ["snapshot_id"]
-            }
-        }),
-        json!({
-            "name": "genos_biomimicry",
-            "description": "Invoke native biomimetic features (allostatic, active sensing, endocrine, instinct, mycelium, apoptosis).",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "feature": { "type": "string", "description": "Biomimetic feature name." },
-                    "action": { "type": "string", "description": "Action within feature." },
-                    "params": { "type": "object", "description": "Optional parameters." }
-                },
-                "required": ["feature", "action"]
-            }
-        }),
-        json!({
-            "name": "genos_biological_mode",
-            "description": "Deploy a Biome, Syncytium, Holobiont, Biocenosis, Rhizome, or Metapopulation collective for a mission.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "mode": {
-                        "type": "string",
-                        "enum": ["biome", "syncytium", "holobionte", "biocenose", "rhizome", "metapopulation"],
-                        "description": "Biological organization mode."
-                    },
-                    "mission": { "type": "string", "description": "Mission shared by the collective." }
-                },
-                "required": ["mode", "mission"]
-            }
-        }),
-        json!({
-            "name": "genos_v2_init",
-            "description": "Initialize GenOS workspace state and directories.",
-            "inputSchema": { "type": "object", "properties": {} }
-        }),
-        json!({
-            "name": "genos_v2_fork",
-            "description": "Fork workspace state into an isolated branch.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "parent_id": { "type": "string", "description": "Parent snapshot or branch ID." }
-                }
-            }
-        }),
-        json!({
-            "name": "genos_philosophy",
-            "description": "Read-only philosophical concept registry and bounded evaluations.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "operation": { "type": "string", "description": "Philosophy operation." },
-                    "arguments": { "type": "object", "description": "Operation arguments." }
-                },
-                "required": ["operation"]
-            }
-        }),
-    ];
-
+    let mut all_tools = base_specs::base_tool_specs();
     all_tools.extend(catalog_tools::bridged_catalog_specs());
+    filter_visible_tools(
+        all_tools,
+        ToolVisibility {
+            lease,
+            disabled,
+            expose_all,
+        },
+    )
+}
 
-    let filter_disabled = |tool: &Value| {
-        let name = tool.get("name").and_then(Value::as_str).unwrap_or("");
-        !disabled.iter().any(|entry| entry == name)
-    };
-
-    if let Some(ref leased) = lease {
-        all_tools
+fn filter_visible_tools(all_tools: Vec<Value>, visibility: ToolVisibility) -> Vec<Value> {
+    match visibility.lease {
+        Some(leased) => all_tools
             .into_iter()
-            .filter(|t| {
-                let name = t.get("name").and_then(Value::as_str).unwrap_or("");
-                filter_disabled(t) && leased.iter().any(|l| l == name)
-            })
-            .collect()
-    } else if expose_all {
-        all_tools.into_iter().filter(filter_disabled).collect()
-    } else { Vec::new() }
+            .filter(|tool| visible_under_lease(tool, &leased, &visibility.disabled))
+            .collect(),
+        None if visibility.expose_all => all_tools
+            .into_iter()
+            .filter(|tool| !is_disabled(tool, &visibility.disabled))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn visible_under_lease(tool: &Value, leased: &[String], disabled: &[String]) -> bool {
+    let name = tool_name(tool);
+    !disabled.iter().any(|entry| entry == name) && leased.iter().any(|item| item == name)
+}
+
+fn is_disabled(tool: &Value, disabled: &[String]) -> bool {
+    let name = tool_name(tool);
+    disabled.iter().any(|entry| entry == name)
+}
+
+fn tool_name(tool: &Value) -> &str {
+    tool.get("name").and_then(Value::as_str).unwrap_or("")
 }
 
 pub fn is_tool_allowed(name: &str) -> bool {
@@ -341,11 +119,18 @@ fn lease_expired_at(raw: Option<&str>, now_ms: i64) -> bool {
 }
 
 fn env_flag(name: &str) -> bool {
-    env::var(name).is_ok_and(|value| matches!(value.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes"))
+    env::var(name).is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes"
+        )
+    })
 }
 
 fn expose_all_allowed(requested: bool, node_env: Option<&str>, unsafe_production: bool) -> bool {
-    requested && (!node_env.is_some_and(|value| value.eq_ignore_ascii_case("production")) || unsafe_production)
+    requested
+        && (!node_env.is_some_and(|value| value.eq_ignore_ascii_case("production"))
+            || unsafe_production)
 }
 
 #[cfg(test)]
@@ -355,7 +140,7 @@ mod lease_tests {
     #[test]
     fn backend_bridged_tools_come_from_canonical_catalog() {
         let tools = bridged_catalog_specs();
-        assert_eq!(tools.len(), 15);
+        assert_eq!(tools.len(), 16);
         assert!(tools.iter().all(|tool| tool.get("inputSchema").is_some()));
     }
 

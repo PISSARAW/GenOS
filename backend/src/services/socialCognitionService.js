@@ -51,13 +51,12 @@ function indexSources(sources) {
     }
     const id = source.id.trim();
     if (sourceMap.has(id)) fail('SOCIAL_PROVENANCE_MISSING', `Duplicate source '${id}'.`);
-    sourceMap.set(id, { ...source, id });
+    sourceMap.set(id, {
+      id, provenance: source.provenance.trim(),
+      method: typeof source.method === 'string' && source.method.trim() ? source.method.trim() : null
+    });
   }
   return sourceMap;
-}
-
-function normalizeTopic(topic) {
-  return typeof topic === 'string' ? topic.trim().toLocaleLowerCase().replace(/\s+/g, ' ') : '';
 }
 
 function normalizeClaim(input) {
@@ -69,7 +68,7 @@ function normalizeClaim(input) {
   assertClaimSource({ sourceId, sources, index });
   assertConfidence({ confidence: claim.confidence, index });
   return {
-    id: claim.id || `claim-${index + 1}`,
+    id: normalizeClaimId(claim, index),
     actorId,
     statement: claim.statement.trim(),
     topic: typeof claim.topic === 'string' ? claim.topic.trim() : null,
@@ -77,6 +76,14 @@ function normalizeClaim(input) {
     confidence: claim.confidence ?? null,
     uncertainty: claim.uncertainty ?? null,
   };
+}
+
+function normalizeClaimId(claim, index) {
+  if (claim.id === undefined || claim.id === null || claim.id === '') return `claim-${index + 1}`;
+  if (typeof claim.id !== 'string' || !claim.id.trim()) {
+    fail('SOCIAL_CONTEXT_INSUFFICIENT', `Claim ${index} id must be a non-empty string.`);
+  }
+  return claim.id.trim();
 }
 
 function assertClaimActor({ claim, actorId, actors, index }) {
@@ -111,19 +118,25 @@ function mapPositions(actors, claims) {
   }));
 }
 
-function findDisagreements(claims) {
-  const topics = new Map();
-  for (const claim of claims) {
-    const topic = normalizeTopic(claim.topic);
-    if (!topic) continue;
-    const entries = topics.get(topic) || [];
-    entries.push(claim);
-    topics.set(topic, entries);
-  }
-  return [...topics.entries()].flatMap(([topic, entries]) => {
-    const statements = new Set(entries.map((entry) => entry.statement.toLocaleLowerCase()));
-    return statements.size > 1 ? [{ topic, positions: entries }] : [];
+function normalizeRelations(input) {
+  const endpoints = new Set([
+    ...input.actors.keys(), ...input.claims.map((claim) => claim.id)
+  ]);
+  return input.relations.map((relation, index) => {
+    const from = typeof relation?.from === 'string' ? relation.from.trim() : '';
+    const to = typeof relation?.to === 'string' ? relation.to.trim() : '';
+    const type = typeof relation?.type === 'string' ? relation.type.trim().toLocaleLowerCase() : '';
+    if (!from || !to || !type) fail('SOCIAL_CONTEXT_INSUFFICIENT', `Relation ${index} requires from, to and type.`);
+    if (!endpoints.has(from) || !endpoints.has(to)) {
+      fail('SOCIAL_ACTOR_UNKNOWN', `Relation ${index} references an undeclared actor or claim.`);
+    }
+    return { from, to, type };
   });
+}
+
+function findDisagreements(relations) {
+  const explicitTypes = new Set(['disagrees-with', 'contradicts', 'opposes']);
+  return relations.filter((relation) => explicitTypes.has(relation.type));
 }
 
 function compareSources(claims) {
@@ -137,10 +150,13 @@ function analyzeSocialContext(input = {}) {
   const actors = indexActors(requireList(input.actors, 'actors'));
   const sources = indexSources(requireList(input.sources, 'sources'));
   const claims = prepareClaims(requireList(input.claims, 'claims'), actors, sources);
-  const relations = requireList(input.relations || [], 'relations');
+  assertUniqueClaimIds(claims);
+  const relations = normalizeRelations({
+    relations: requireList(input.relations || [], 'relations'), actors, claims
+  });
   const uncertainties = requireList(input.uncertainties || [], 'uncertainties');
   const unknowns = uncertainties.filter((entry) => typeof entry === 'string' && entry.trim());
-  const disagreements = findDisagreements(claims);
+  const disagreements = findDisagreements(relations);
   const result = boundedAnalysis({
     kind: 'social-cognition-map',
     status: claims.length ? 'descriptive-analysis' : 'no-claims',
@@ -158,6 +174,13 @@ function analyzeSocialContext(input = {}) {
     executable: false,
   });
   return { ...result, promotionEligible: false, authority: 'descriptive-only' };
+}
+
+function assertUniqueClaimIds(claims) {
+  const ids = new Set(claims.map((claim) => claim.id));
+  if (ids.size !== claims.length || claims.some((claim) => !claim.id)) {
+    fail('SOCIAL_CONTEXT_INSUFFICIENT', 'Claim ids must be non-empty and unique.');
+  }
 }
 
 module.exports = { analyzeSocialContext };

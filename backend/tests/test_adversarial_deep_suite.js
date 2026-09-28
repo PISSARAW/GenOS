@@ -73,7 +73,11 @@ async function runRbacMatrixTests() {
     path: '/api/security/kill-switch',
     headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
   }, { reason: 'Adversarial Drill Verification' });
-  assert(militaryKill.status === 200 && militaryKill.body.success === true, 'Level 5 Military Override Token authorized on /api/security/kill-switch');
+  const militaryKillAccepted = militaryKill.status === 200 && militaryKill.body.success === true;
+  if (!militaryKillAccepted) {
+    throw new Error(`Admin token rejected by /api/security/kill-switch (${militaryKill.status}: ${JSON.stringify(militaryKill.body)})`);
+  }
+  assert(militaryKillAccepted, 'Level 5 Military Override Token authorized on /api/security/kill-switch');
 
   // 1.8 Level 5 Military Override Token on Reset -> 200
   const militaryReset = await sendReq({
@@ -191,7 +195,7 @@ async function runCircuitBreakerTests() {
     method: 'POST',
     path: '/api/mcp/execute',
     headers: { Authorization: `Bearer ${TEST_VIEWER_TOKEN}` }
-  }, { toolName: 'genos_inspect', args: {} });
+  }, { toolName: 'genos_run', args: {} });
   assert(viewerExec.status === 403, 'Viewer blocked from MCP tool execution with 403 FORBIDDEN');
 
   // 4.2 High-impact actions enter a one-shot admin approval workflow.
@@ -221,7 +225,7 @@ async function runCircuitBreakerTests() {
     method: 'POST',
     path: '/api/mcp/circuit-breaker',
     headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
-  }, { toolName: 'genos_inspect', locked: true, reason: 'Quarantined for forensic audit' });
+  }, { toolName: 'genos_run', locked: true, reason: 'Quarantined for forensic audit' });
   assert(lockTool.status === 200 && lockTool.body.isLocked === true, 'Admin locked tool genos_inspect in quarantine');
 
   // 4.4 Admin trying to execute quarantined tool -> 503 TOOL_LOCKED
@@ -229,7 +233,7 @@ async function runCircuitBreakerTests() {
     method: 'POST',
     path: '/api/mcp/execute',
     headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
-  }, { toolName: 'genos_inspect', args: {} });
+  }, { toolName: 'genos_run', args: {} });
   assert(lockedExec.status === 503 && lockedExec.body.error.code === 'TOOL_LOCKED', 'Quarantined tool blocked from execution with 503 TOOL_LOCKED');
 
   // Unlock tool
@@ -237,7 +241,7 @@ async function runCircuitBreakerTests() {
     method: 'POST',
     path: '/api/mcp/circuit-breaker',
     headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
-  }, { toolName: 'genos_inspect', locked: false });
+  }, { toolName: 'genos_run', locked: false });
 
   // 4.5 Trigger 3 consecutive tool failures -> trip breaker to OPEN
   circuitBreaker.resetHalt('test_runner');
@@ -262,7 +266,7 @@ async function runCircuitBreakerTests() {
     method: 'POST',
     path: '/api/mcp/execute',
     headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
-  }, { toolName: 'genos_inspect', args: {} });
+  }, { toolName: 'genos_run', args: {} });
   assert(haltedExec.status === 503 && haltedExec.body.error.code === 'SYSTEM_HALTED', `All tool executions blocked with 503 SYSTEM_HALTED during global halt (${haltedExec.status}: ${JSON.stringify(haltedExec.body)})`);
 
   // Disarm kill switch

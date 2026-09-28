@@ -18,6 +18,7 @@ const CATEGORY_KIND_MAP = {
   'Knowledge & Experience': 'cli',
   'Orchestration': 'cli',
   'Fossilisation': 'cli',
+  'Topology Sessions': 'topology',
 };
 
 function normalizeToolName(toolName) {
@@ -87,10 +88,17 @@ async function runCliTool(normalized, args) {
   return result;
 }
 
+async function runTopologyTool(normalized, args) {
+  const result = await require('./topologyMcpTools').operateTopologySession(args || {});
+  recordCircuitOutcome(normalized, result, 'MCP topology session operation failed.');
+  return result;
+}
+
 async function executeRegisteredTool(kind, normalized, args) {
   if (kind === 'strategy') return { handled: true, result: await runStrategyTool(normalized, args) };
   if (kind === 'bio') return { handled: true, result: await runBioTool(normalized, args) };
   if (kind === 'cli') return { handled: true, result: await runCliTool(normalized, args) };
+  if (kind === 'topology') return { handled: true, result: await runTopologyTool(normalized, args) };
   return { handled: false };
 }
 
@@ -110,6 +118,18 @@ async function dispatchTool(toolName, args = {}) {
   const normalized = normalizeToolName(toolName);
   const kind = detectExecutionKind(normalized);
   if (!isSupportedTool(normalized)) return { kind: 'unsupported', result: unsupportedResult(normalized) };
+  if (kind === 'topology' && !require('./mcpExecutor/config').directToolLeaseAllows(normalized)) {
+    return {
+      kind,
+      result: {
+        configured: false,
+        success: false,
+        status: 'lease_denied',
+        error: `Tool '${normalized}' is outside the active MCP lease.`,
+        code: 'MCP_TOOL_LEASE_DENIED',
+      },
+    };
+  }
   const argumentError = validateToolArguments(normalized, args);
   if (argumentError) return { kind, result: invalidArgsResult(argumentError) };
   const circuit = circuitBreaker.canExecute(normalized, 'operator');

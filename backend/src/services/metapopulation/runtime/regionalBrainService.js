@@ -218,7 +218,9 @@ function canMarkAtRisk(demes, demeId) {
 
 function enrichDemes(session) {
   const patches = new Map(session.patches.map((patch) => [patch.patchId, patch]));
-  return session.demes.map((deme) => ({ ...deme, patchQuality: patches.get(deme.patchId)?.quality || 0,
+  const roles = session.regionalMemory?.sourceSinkRoles || {};
+  return session.demes.map((deme) => ({ ...deme, role: roles[deme.demeId]?.role || null,
+    patchQuality: patches.get(deme.patchId)?.quality || 0,
     capabilities: capabilitiesOf(deme), localStrategies: deme.localStrategies }));
 }
 

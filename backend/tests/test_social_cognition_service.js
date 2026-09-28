@@ -24,6 +24,7 @@ async function main() {
   assert.equal(result.kind, 'social-cognition-map');
   assert.equal(result.positions.length, 2);
   assert.equal(result.disagreements.length, 1);
+  assert.deepEqual(result.disagreements[0], { from: 'a', to: 'b', type: 'disagrees-with' });
   assert.equal(result.sources.length, 2);
   assert.deepEqual(result.unknowns, ['Échantillon incomplet']);
   assert.equal(result.promotionEligible, false);
@@ -43,6 +44,10 @@ async function main() {
   assert.throws(() => analyzeSocialContext({ ...input, context: '' }), { code: 'SOCIAL_CONTEXT_INSUFFICIENT' });
   assert.throws(() => analyzeSocialContext({ ...input, runtimeAuthority: 'granted' }), { code: 'SOCIAL_AUTHORITY_REFUSED' });
   assert.throws(() => analyzeSocialContext({ ...input, apply: true }), { code: 'SOCIAL_AUTHORITY_REFUSED' });
+  assert.equal(analyzeSocialContext({ ...input, relations: [] }).disagreements.length, 0);
+  assert.throws(() => analyzeSocialContext({ ...input, relations: [{ from: 'a', to: 'unknown', type: 'disagrees-with' }] }), { code: 'SOCIAL_ACTOR_UNKNOWN' });
+  assert.throws(() => analyzeSocialContext({ ...input, relations: [{ from: 'a', type: 'disagrees-with' }] }), { code: 'SOCIAL_CONTEXT_INSUFFICIENT' });
+  assert.throws(() => analyzeSocialContext({ ...input, claims: [input.claims[0], { ...input.claims[1], id: 'c1' }] }), { code: 'SOCIAL_CONTEXT_INSUFFICIENT' });
   console.log('Social cognition service: structured positions, provenance, refusals passed.');
 }
 

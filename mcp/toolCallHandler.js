@@ -1,11 +1,22 @@
 import { validateCliArguments } from "./argumentValidation.js";
 import { resolveRepoRoot } from "./repoRoot.js";
+import { loadToolCatalog } from "./catalog.js";
+import { toolIsLeased } from "./lease.js";
 import { createRequire } from "node:module";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const CATALOG_TOOLS = new Set(require('../shared/toolDefinitions.json').tools.map((tool) => tool.name));
-const { MCP_TOOLS_LIST } = require('../backend/src/db/seedTools.js');
-const REGISTERED_TOOL_NAMES = new Set(MCP_TOOLS_LIST.map((tool) => tool.name));
+const REPO_ROOT = resolveRepoRoot();
+const HAS_BACKEND_RUNTIME = Boolean(REPO_ROOT
+  && existsSync(path.join(REPO_ROOT, 'backend/src/db/seedTools.js'))
+  && existsSync(path.join(REPO_ROOT, 'backend/src/services/mcpToolRegistry.js')));
+const REPO_REQUIRE = HAS_BACKEND_RUNTIME ? createRequire(path.join(REPO_ROOT, 'package.json')) : null;
+const CATALOG_TOOLS = new Set(loadToolCatalog(REPO_ROOT).map((tool) => tool.name));
+const CATALOG = loadToolCatalog(REPO_ROOT);
+const REGISTERED_TOOL_NAMES = REPO_REQUIRE
+  ? new Set(REPO_REQUIRE('./backend/src/db/seedTools.js').MCP_TOOLS_LIST.map((tool) => tool.name))
+  : new Set();
 const BACKEND_BRIDGED_TOOL_NAMES = new Set([
   'genos_fossil_record', 'genos_fossil_list', 'genos_fossil_strata', 'genos_fossil_excavate',
   'genos_fossil_decode', 'genos_fossil_candidate', 'genos_topology_session', 'genos_signal_publish',
@@ -18,7 +29,6 @@ const CLI_TOOL_NAMES = new Set([
   'genos_audit', 'genos_biomimicry', 'genos_v2_init', 'genos_v2_fork'
 ]);
 const STRATEGY_TOOL_NAMES = new Set(['genos_execute_primitive', 'genos_execute_strategy_pipeline']);
-const HAS_BACKEND_RUNTIME = Boolean(resolveRepoRoot());
 const ORCHESTRATOR_ACTIONS = Object.freeze({
   genos_orchestrate: 'orchestrate',
   genos_delegate_worker: 'dispatch_worker',
@@ -57,7 +67,7 @@ function strategyCall({ name, args, executeStrategyTool }) {
 }
 
 async function registeredToolCall({ name, args }) {
-  const { kind, result } = await require('../backend/src/services/mcpToolRegistry.js').dispatchTool(name, args);
+  const { kind, result } = await REPO_REQUIRE('./backend/src/services/mcpToolRegistry.js').dispatchTool(name, args);
   if (kind === 'unsupported' || !result?.success) {
     throw new Error(result?.error || `MCP tool '${name}' failed.`);
   }
@@ -119,6 +129,9 @@ export function createToolCallHandler({ runOrchestrator, runGenosCli, executeStr
 async function handleToolRequest(input) {
   const { request, extra, runOrchestrator, runGenosCli, executeStrategyTool } = input;
   const { name, arguments: args = {} } = request.params;
+  if (CATALOG_TOOLS.has(name) && !toolIsLeased(name, CATALOG)) {
+    return { content: [{ type: 'text', text: `Tool '${name}' is outside the active GenOS MCP lease.` }], isError: true };
+  }
   const onTelemetry = telemetryHandler(request, extra);
   try {
     const text = await dispatchTool({ name, args, onTelemetry, runOrchestrator, runGenosCli, executeStrategyTool });

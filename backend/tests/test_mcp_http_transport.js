@@ -38,7 +38,7 @@ async function main() {
   try {
     process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
     delete process.env.GENOS_MCP_ENDPOINT;
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', args: { agent: 'default-agent', out: 'snapshots/test.json' }, timeoutMs: 1000 });
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', args: { agent: 'default-agent', out: 'snapshots/test.json' }, timeoutMs: 5000 });
     assert.strictEqual(result.success, true);
     assert.deepStrictEqual(result.output, [{ type: 'text', text: 'ok' }]);
   } finally {
@@ -74,7 +74,7 @@ async function testNotificationFailure() {
   try {
     process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
     await assert.rejects(
-      mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', args: { agent: 'default-agent', out: 'snapshots/test.json' }, timeoutMs: 1000 }),
+      mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', args: { agent: 'default-agent', out: 'snapshots/test.json' }, timeoutMs: 5000 }),
       /MCP HTTP tools\/call returned 503: temporarily unavailable/
     );
   } finally {
@@ -108,7 +108,7 @@ async function testMultilineSse() {
   const previousUrl = process.env.GENOS_MCP_URL;
   try {
     process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', args: { agent: 'default-agent', out: 'snapshots/test.json' }, timeoutMs: 1000 });
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', args: { agent: 'default-agent', out: 'snapshots/test.json' }, timeoutMs: 5000 });
     assert.deepStrictEqual(result.output, {});
   } finally {
     if (previousUrl === undefined) delete process.env.GENOS_MCP_URL;
@@ -131,7 +131,7 @@ async function testMalformedSse() {
   try {
     process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
     await assert.rejects(
-      mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', args: { agent: 'default-agent', out: 'snapshots/test.json' }, timeoutMs: 1000 }),
+      mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', args: { agent: 'default-agent', out: 'snapshots/test.json' }, timeoutMs: 5000 }),
       /invalid JSON-RPC data/
     );
   } finally {

@@ -112,17 +112,14 @@ async function provision(context = {}) {
   }
 }
 
-function snapshotOf(capsule) {
-  if (capsule && capsule.agent_snapshot) return capsule.agent_snapshot;
-  return {};
+async function snapshotOf(capsule, paths) {
+  const snapshot = capsule?.agent_snapshot || {};
+  if (snapshot.agent_id && snapshot.genome) return snapshot;
+  const onDisk = await readJsonSafe(paths.snapshotPath);
+  return onDisk ? { ...onDisk, ...snapshot } : snapshot;
 }
 
-async function buildProvisionResult(capsule, paths) {
-  let snapshot = snapshotOf(capsule || {});
-  if (!snapshot.agent_id || !snapshot.genome) {
-    const onDisk = await readJsonSafe(paths.snapshotPath);
-    if (onDisk) snapshot = { ...onDisk, ...snapshot };
-  }
+function resultIds(capsule, snapshot, paths) {
   const genome = snapshot.genome || {};
   return {
     id: capsule.capsule_id || capsule.id,
@@ -130,7 +127,15 @@ async function buildProvisionResult(capsule, paths) {
     genomeId: genome.id || genome.cell_id,
     snapshotId: snapshot.snapshot_id,
     branchId: capsule.branch_id || snapshot.branch_id,
-    worldId: capsule.live_world_id || 'world-main',
+  };
+}
+
+async function buildProvisionResult(capsule, paths) {
+  const safeCapsule = capsule || {};
+  const snapshot = await snapshotOf(safeCapsule, paths);
+  return {
+    ...resultIds(safeCapsule, snapshot, paths),
+    worldId: safeCapsule.live_world_id || 'world-main',
     root: paths.root,
     genomePath: paths.genomePath,
     snapshotPath: paths.snapshotPath

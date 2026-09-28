@@ -76,13 +76,16 @@ async function sourceSinkActions(observed, input, options) {
   const actions = [];
   const variantPolicy = observed.variantPolicy || {};
   if (variantPolicy.temporalRoles === true) {
-    const rotation = sourceSinkRuntime.reassignTemporalRoles(observed.demes, input.roleHistory);
+    const demes = withContributionRoles(observed);
+    const rotation = sourceSinkRuntime.reassignTemporalRoles(demes, input.roleHistory);
     if (rotation.rotated > 0) actions.push({ type: 'ROTATE_SOURCE_SINK_ROLES', ...rotation });
+    if (rotation.rotated > 0) return actions;
   }
   if (variantPolicy.directedMigration !== true) return actions;
   const reserveRatio = Number(variantPolicy.sourceReserveRatio ?? 0.2);
-  const sources = observed.demes.filter((d) => sourceCapacity(d) > 0.7 && d.status === 'ACTIVE');
-  const sinks = observed.demes.filter((d) => sourceCapacity(d) < 0.4 && ['ACTIVE', 'STRESSED'].includes(d.status));
+  const demes = withContributionRoles(observed);
+  const sources = demes.filter((deme) => deme.role === 'SOURCE' && deme.status === 'ACTIVE');
+  const sinks = demes.filter((deme) => deme.role === 'SINK' && ['ACTIVE', 'STRESSED'].includes(deme.status));
   for (const source of sources) {
     planSourceFlows({ actions, observed, input, source, sinks, reserveRatio });
   }
@@ -110,7 +113,12 @@ function planSinkFlow(context) {
 }
 
 function sourceCapacity(deme) {
-  return Number(deme.contribution?.capacity ?? deme.capacity ?? 0.5);
+  return Number(deme.contribution?.capacity ?? deme.capacity ?? deme.fitness?.score ?? deme.fitness?.local ?? deme.patchQuality ?? 0.5);
+}
+
+function withContributionRoles(observed) {
+  const roles = new Map((observed.contribution?.demes || []).map((deme) => [deme.demeId, deme.type]));
+  return observed.demes.map((deme) => ({ ...deme, role: deme.role || roles.get(deme.demeId) }));
 }
 
 function sourceUtilization(source, input) {

@@ -267,6 +267,36 @@ async function consumeDemeBudget(db, input) {
   });
 }
 
+async function recordSourceSinkRoleChanges(db, input) {
+  await migrateMetapopulation(db);
+  const changes = validRoleChanges(input.changes);
+  if (!changes.length) return { changes: [], roles: {} };
+  return withTransaction(db, async () => {
+    await requireSession(db, input.metapopulationId);
+    const row = await db.get('SELECT regional_memory_json FROM metapopulation_sessions WHERE id = ?', input.metapopulationId);
+    const memory = parseJson(row.regional_memory_json);
+    const roles = { ...(memory.sourceSinkRoles || {}) };
+    for (const change of changes) {
+      const deme = await db.get('SELECT deme_id FROM metapopulation_demes WHERE metapopulation_id = ? AND deme_id = ?',
+        input.metapopulationId, change.demeId);
+      if (!deme) throw storeError('METAPOPULATION_DEME_UNKNOWN', 'Unknown deme in source-sink role update.');
+      roles[change.demeId] = { role: change.to, reason: change.reason, updatedAt: new Date().toISOString() };
+    }
+    memory.sourceSinkRoles = roles;
+    await db.run('UPDATE metapopulation_sessions SET regional_memory_json = ?, updated_at = ? WHERE id = ?',
+      JSON.stringify(memory), new Date().toISOString(), input.metapopulationId);
+    await commitEvent(db, input.metapopulationId, { type: 'SOURCE_SINK_ROLES_ROTATED', payload: { changes } });
+    return { changes, roles };
+  });
+}
+
+function validRoleChanges(changes) {
+  const valid = Array.isArray(changes) && changes.every((item) => item?.demeId && ['SOURCE', 'SINK'].includes(item.to)
+    && ['SOURCE', 'SINK', null].includes(item.from) && typeof item.reason === 'string');
+  if (!valid) throw storeError('METAPOPULATION_ROLE_CHANGES_INVALID', 'Source-sink role changes are invalid.');
+  return changes;
+}
+
 async function requireSession(db, metapopulationId) {
   const found = await db.get('SELECT id FROM metapopulation_sessions WHERE id = ?', metapopulationId);
   if (!found) throw storeError('METAPOPULATION_SESSION_UNKNOWN', 'Unknown metapopulation session.');
@@ -333,4 +363,4 @@ function storeError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { createSession, loadSession, appendEvent, listEvents, createPatch, getPatch, listPatches, transitionPatch, createDeme, getDeme, listDemes, transitionDeme, updateDemeProfile, attachDemeWorkspace, quarantineDemeForBoundaryViolation, consumeDemeBudget };
+module.exports = { createSession, loadSession, appendEvent, listEvents, createPatch, getPatch, listPatches, transitionPatch, createDeme, getDeme, listDemes, transitionDeme, updateDemeProfile, attachDemeWorkspace, quarantineDemeForBoundaryViolation, consumeDemeBudget, recordSourceSinkRoleChanges };

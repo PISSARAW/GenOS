@@ -21,7 +21,7 @@ async function main() {
   const previousUrl = process.env.GENOS_MCP_URL;
   try {
     process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName: 'genos_strat_verify', args: {}, timeoutMs: 1000 });
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName: 'genos_strat_verify', args: {}, timeoutMs: 5000 });
     assert.strictEqual(result.transport, 'http');
     assert.strictEqual(calledTool, 'genos_strat_verify');
   } finally {

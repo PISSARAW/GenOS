@@ -18,6 +18,7 @@ function catalogShapes() {
   const bundledNames = lib.toolNames(bundled);
   const tools = canonical.tools || canonical;
   return { canonical: names.length, bundled: bundledNames.length,
+    canonicalNames: names,
     onlyCanonical: names.filter((n) => !bundledNames.includes(n)),
     onlyBundled: bundledNames.filter((n) => !names.includes(n)),
     withoutSchema: tools.filter((t) => !t.inputSchema).map((t) => t.name).sort() };
@@ -47,9 +48,17 @@ function leaseRule() {
 function rustServer() {
   const dir = path.join(lib.root, 'crates/genos-mcp/src');
   const tools = path.join(dir, 'tools.rs');
+  const catalogTools = path.join(dir, 'tools/catalog_tools.rs');
+  const baseSpecs = path.join(dir, 'tools/base_specs.rs');
   const main = path.join(dir, 'main.rs');
   const src = fs.existsSync(tools) ? fs.readFileSync(tools, 'utf8') : '';
-  const names = [...new Set([...src.matchAll(/"((?:genos|mcp)[^"]*)"/g)].map((m) => m[1]))].sort();
+  const catalogSrc = fs.existsSync(catalogTools) ? fs.readFileSync(catalogTools, 'utf8') : '';
+  const baseSrc = fs.existsSync(baseSpecs) ? fs.readFileSync(baseSpecs, 'utf8') : '';
+  const names = [...new Set([
+    ...[...src.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)].map((m) => m[1]),
+    ...[...catalogSrc.matchAll(/"(genos_[^"]+)"/g)].map((m) => m[1]),
+    ...[...baseSrc.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)].map((m) => m[1])
+  ])].sort();
   return { entry: 'crates/genos-mcp/src/main.rs',
     leaseEnv: src.includes('GENOS_MCP_LEASE') && src.includes('GENOS_MCP_DISABLED_TOOLS'),
     outsideLeaseRefusal: fs.existsSync(main) && fs.readFileSync(main, 'utf8').includes('outside the active GenOS MCP lease'),

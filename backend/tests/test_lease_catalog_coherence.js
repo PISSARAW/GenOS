@@ -16,7 +16,10 @@ const mcpCatalog = JSON.parse(fs.readFileSync(path.join(repoRoot, 'mcp', 'toolDe
 const catalogNames = new Set(sharedCatalog.tools.map((tool) => tool.name));
 const mcpNames = new Set(mcpCatalog.tools.map((tool) => tool.name));
 const handlerSource = fs.readFileSync(path.join(repoRoot, 'mcp', 'toolCallHandler.js'), 'utf8');
-const rustSource = fs.readFileSync(path.join(repoRoot, 'crates', 'genos-mcp', 'src', 'tools.rs'), 'utf8');
+const rustToolSourceFiles = ['tools.rs', 'tools/base_specs.rs', 'tools/catalog_tools.rs'];
+const rustSource = rustToolSourceFiles.map((file) => fs.readFileSync(
+  path.join(repoRoot, 'crates', 'genos-mcp', 'src', file), 'utf8'
+)).join('\n');
 const daemonGenome = JSON.parse(fs.readFileSync(path.join(repoRoot, 'agents', 'daemons', 'resident_daemon.agent.json'), 'utf8'));
 
 function leasedTools() {

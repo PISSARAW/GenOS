@@ -87,6 +87,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_signal_chemotactic_follow', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Suit le gradient chimiotactique d\'un locus stigmergique' },
   { name: 'genos_signal_plasmid_transfer', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Transfert horizontal de décision binaire via plasmide HGT' },
   { name: 'genos_signal_collective_decision', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Orchestrateur de décision collective multi-topologie (electrocyte/stigmergic/plasmid)' },
+  { name: 'genos_topology_session', cat: 'Topology Sessions', risk: 'Amber', desc: 'Inspect and update a persisted topology session under its operation contract' },
   { name: 'genos_biomimicry_mirror_twin_fork', cat: 'Workspace Control', risk: 'Low', desc: 'Symmetric counterfactual fork creating constructive and adversarial twin pairs' },
   { name: 'genos_biomimicry_somatic_resonance', cat: 'Resilience & Security', risk: 'Low', desc: 'Syncytial stress telemetry and collective entropy shockwave propagation' },
   { name: 'genos_biomimicry_chimeric_merge', cat: 'Genetics', risk: 'Low', desc: 'Tetragametic mosaic merge combining tool genome and immune memory' },

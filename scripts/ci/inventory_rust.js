@@ -44,8 +44,16 @@ function cliCommands() {
 function rustMcpTools() {
   const file = path.join(lib.root, 'crates/genos-mcp/src/tools.rs');
   if (!fs.existsSync(file)) return [];
-  const names = [...fs.readFileSync(file, 'utf8').matchAll(/"((?:genos|mcp)[^"]*)"/g)]
-    .map((m) => m[1]);
+  const catalogFile = path.join(lib.root, 'crates/genos-mcp/src/tools/catalog_tools.rs');
+  const baseFile = path.join(lib.root, 'crates/genos-mcp/src/tools/base_specs.rs');
+  const src = fs.readFileSync(file, 'utf8');
+  const catalogSrc = fs.existsSync(catalogFile) ? fs.readFileSync(catalogFile, 'utf8') : '';
+  const baseSrc = fs.existsSync(baseFile) ? fs.readFileSync(baseFile, 'utf8') : '';
+  const names = [
+    ...[...src.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)].map((m) => m[1]),
+    ...[...catalogSrc.matchAll(/"(genos_[^"]+)"/g)].map((m) => m[1]),
+    ...[...baseSrc.matchAll(/"name"\s*:\s*"(genos_[^"]+)"/g)].map((m) => m[1])
+  ];
   return [...new Set(names)].sort();
 }
 

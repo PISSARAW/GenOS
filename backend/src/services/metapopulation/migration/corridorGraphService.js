@@ -23,11 +23,15 @@ async function planTopology(metapopulationId, options = {}) {
 function sourceSinkNodes(session, options) {
   if (Array.isArray(options.sources) && Array.isArray(options.sinks)) return { sources: options.sources, sinks: options.sinks };
   const report = analyzeContribution(session.demes, options.candidateEdges || session.migrationGraph.corridors, options.contributionOptions);
-  const sources = report.demes.filter((deme) => deme.type === 'SOURCE').map((deme) => deme.demeId);
-  const sinks = report.demes.filter((deme) => deme.type === 'SINK').map((deme) => deme.demeId);
+  const sources = report.demes.filter((deme) => roleFor(session, deme) === 'SOURCE').map((deme) => deme.demeId);
+  const sinks = report.demes.filter((deme) => roleFor(session, deme) === 'SINK').map((deme) => deme.demeId);
   if (!sources.length) sources.push(...rankDemes(session.demes, true).slice(0, 1).map((deme) => deme.demeId));
   if (!sinks.length) sinks.push(...rankDemes(session.demes, false).filter((deme) => !sources.includes(deme.demeId)).slice(0, 1).map((deme) => deme.demeId));
   return { sources, sinks };
+}
+
+function roleFor(session, deme) {
+  return session.regionalMemory?.sourceSinkRoles?.[deme.demeId]?.role || deme.type;
 }
 
 function rankDemes(demes, descending) {

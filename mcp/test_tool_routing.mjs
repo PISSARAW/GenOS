@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { createToolCallHandler, filterRoutableTools } from './toolCallHandler.js';
+import { createToolCallHandler, filterRoutableTools, isToolCallRoutable } from './toolCallHandler.js';
 import { loadToolCatalog } from './catalog.js';
 import { resolveRepoRoot } from './repoRoot.js';
 
@@ -34,9 +34,14 @@ const handler = createToolCallHandler({
   runGenosCli: async () => { throw new Error('unexpected CLI call'); },
   executeStrategyTool: async () => { throw new Error('unexpected strategy call'); }
 });
-const rejected = await handler({ params: { name: 'genos_not_catalogued', arguments: {} } });
-assert.equal(rejected.isError, true);
-assert.match(rejected.content[0].text, /no verified MCP route/);
+assert.equal(isToolCallRoutable('genos_not_catalogued'), false);
+const previousLease = process.env.GENOS_MCP_LEASE;
+process.env.GENOS_MCP_LEASE = '';
+const leaseDenied = await handler({ params: { name: 'genos_signal_publish', arguments: { signal_type: 'ligand' } } });
+if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE;
+else process.env.GENOS_MCP_LEASE = previousLease;
+assert.equal(leaseDenied.isError, true);
+assert.match(leaseDenied.content[0].text, /outside the active GenOS MCP lease/);
 
 for (const tool of routable) {
   const resolved = contract.getToolInputSchema(tool.name, tool.inputSchema);

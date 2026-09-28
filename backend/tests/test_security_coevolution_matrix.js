@@ -7,21 +7,22 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
+const crypto = require('crypto');
 const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN } = require('../testAuth');
+// Keep this process independent from MCP leases supplied by the caller.
+process.env.GENOS_MCP_LEASE = 'genos_signal_read';
+delete process.env.GENOS_MCP_DISABLED_TOOLS;
+delete process.env.GENOS_MCP_LEASE_EXPIRES_AT;
 const { createApp } = require('../src/app');
 const { getDatabase, closeDatabase } = require('../src/db');
 const circuitBreaker = require('../src/services/circuitBreaker');
 const { hashKey } = require('../src/middleware/auth');
 const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
-const TEST_PORT = 4501;
-// Section 2.4 proves a safe tool still reaches its transport while the
-// circuit is OPEN. The transport itself enforces the MCP lease, so scope
-// this run to genos_inspect; destructive tools stay blocked upstream by the
-// zero-trust policy and the OPEN circuit regardless of the lease.
-if (!process.env.GENOS_MCP_LEASE && !process.env.GENOS_MCP_EXPOSE_ALL) {
-  process.env.GENOS_MCP_LEASE = 'genos_inspect';
-}
+let testPort;
+// Section 2.4 verifies that a leased, routable read tool reaches its transport
+// while the circuit is OPEN; destructive tools remain blocked upstream.
 let server = null;
 let db = null;
 let totalTests = 0;
@@ -41,7 +42,7 @@ function sendReq(options, body = null) {
   return new Promise((resolve, reject) => {
     const reqOpts = {
       hostname: 'localhost',
-      port: TEST_PORT,
+      port: testPort,
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -107,64 +108,50 @@ async function runSqliTests() {
 // ---------------------------------------------------------
 // 2. Destructive 9-Tool Arsenal Quarantine Matrix
 // ---------------------------------------------------------
-async function runDestructiveArsenalTests() {
-  console.log('\n--- 2. DESTRUCTIVE 9-TOOL ARSENAL QUARANTINE MATRIX ---');
+const DESTRUCTIVE_TOOLS = [
+  'genos_run', 'genos_merge', 'genos_restore', 'genos_resilience_apoptosis',
+  'genos_resilience_circuit_breaker', 'genos_resilience_cryptobiosis',
+  'genos_resilience_hypermutation', 'genos_invalidate_assumption', 'genos_security_coevolution'
+];
 
-  const DESTRUCTIVE_TOOLS = [
-    'genos_run',
-    'genos_merge',
-    'genos_restore',
-    'genos_resilience_apoptosis',
-    'genos_resilience_circuit_breaker',
-    'genos_resilience_cryptobiosis',
-    'genos_resilience_hypermutation',
-    'genos_invalidate_assumption',
-    'genos_security_coevolution'
-  ];
+async function assertOperatorCannotExecute(tool) {
+  const response = await sendReq({
+    method: 'POST', path: '/api/mcp/execute',
+    headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
+  }, { toolName: tool, args: {} });
+  const denied = response.status === 503 && response.body.error.code === 'INSUFFICIENT_ROLE';
+  const tenantBlocked = response.status === 403 && response.body.error.code === 'TENANT_SCOPE_REQUIRED';
+  assert(denied || tenantBlocked, `Operator blocked from executing destructive tool '${tool}'.`);
+}
 
-  // 2.1 Verify isDestructive classification
-  for (const tool of DESTRUCTIVE_TOOLS) {
-    assert(circuitBreaker.isDestructive(tool) === true, `Tool '${tool}' correctly classified as DESTRUCTIVE`);
-  }
+async function assertOpenCircuitBlocks(tool) {
+  const response = await sendReq({
+    method: 'POST', path: '/api/mcp/execute',
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+  }, { toolName: tool, args: {} });
+  const blocked = response.status === 503 && response.body.error.code === 'CIRCUIT_OPEN';
+  const deferred = response.status === 202 && response.body.approvalRequired === true;
+  assert(blocked || deferred, `Admin blocked or deferred destructive tool '${tool}' while circuit is OPEN.`);
+}
 
-  // 2.2 Operator attempting to execute any destructive tool -> 503
-  for (const tool of DESTRUCTIVE_TOOLS) {
-    const res = await sendReq({
-      method: 'POST',
-      path: '/api/mcp/execute',
-      headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
-    }, { toolName: tool, args: {} });
-    assert(
-      (res.status === 503 && res.body.error.code === 'INSUFFICIENT_ROLE')
-        || (res.status === 403 && res.body.error.code === 'TENANT_SCOPE_REQUIRED'),
-      `Operator blocked from executing destructive tool '${tool}' (${res.status} ${res.body.error.code})`
-    );
-  }
-
-  // 2.3 Trip Circuit Breaker to OPEN -> Admin blocked on all 9 destructive tools
-  circuitBreaker.state = 'OPEN';
-  circuitBreaker.lastFailureTime = Date.now();
-  circuitBreaker.lastStateChange = Date.now();
-  for (const tool of DESTRUCTIVE_TOOLS) {
-    const res = await sendReq({
-      method: 'POST',
-      path: '/api/mcp/execute',
-      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
-    }, { toolName: tool, args: {} });
-    assert(
-      (res.status === 503 && res.body.error.code === 'CIRCUIT_OPEN')
-        || (res.status === 202 && res.body.approvalRequired === true),
-      `Admin blocked or deferred destructive tool '${tool}' while circuit is OPEN (${res.status} ${res.body?.error?.code || 'no_error_code'})`
-    );
-  }
-
-  // 2.4 Safe tools still allowed for Admin while circuit is OPEN
-  const safeRes = await sendReq({
+async function assertReadToolRemainsAvailable() {
+  const response = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
     headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
-  }, { toolName: 'genos_inspect', args: {} });
-  assert((safeRes.status === 200) || (safeRes.status === 502 && safeRes.body?.status === 'tool_error'), 'Safe tool genos_inspect was not blocked by the OPEN circuit');
+  }, { toolName: 'genos_signal_read', args: { agent_id: 'barrier-agent' } });
+  assert(response.status === 200, 'Leased read tool reaches its transport while the circuit is OPEN.');
+}
+
+async function runDestructiveArsenalTests() {
+  console.log('\n--- 2. DESTRUCTIVE 9-TOOL ARSENAL QUARANTINE MATRIX ---');
+  for (const tool of DESTRUCTIVE_TOOLS) assert(circuitBreaker.isDestructive(tool), `Tool '${tool}' must be destructive.`);
+  for (const tool of DESTRUCTIVE_TOOLS) await assertOperatorCannotExecute(tool);
+  circuitBreaker.state = 'OPEN';
+  circuitBreaker.lastFailureTime = Date.now();
+  circuitBreaker.lastStateChange = Date.now();
+  for (const tool of DESTRUCTIVE_TOOLS) await assertOpenCircuitBlocks(tool);
+  await assertReadToolRemainsAvailable();
 
   // Reset breaker to CLOSED
   circuitBreaker.resetHalt('test_runner');
@@ -200,8 +187,7 @@ async function runMatrix() {
   console.log('  GENOS SECURITY CO-EVOLUTION & INJECTION BARRIER MATRIX        ');
   console.log('================================================================');
 
-  const testDbPath = path.resolve(__dirname, 'barrier_test.db');
-  if (fs.existsSync(testDbPath)) try { fs.unlinkSync(testDbPath); } catch (e) {}
+  const testDbPath = path.join(os.tmpdir(), `genos-barrier-${process.pid}-${crypto.randomUUID()}.db`);
 
   db = await getDatabase(testDbPath);
   await db.run("INSERT OR IGNORE INTO organizations (id, name) VALUES ('barrier-org', 'Barrier Organization')");
@@ -212,7 +198,8 @@ async function runMatrix() {
   );
   const app = createApp();
   server = http.createServer(app);
-  await new Promise(resolve => server.listen(TEST_PORT, resolve));
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  testPort = server.address().port;
 
   const startTime = Date.now();
 
@@ -226,9 +213,12 @@ async function runMatrix() {
     console.log(`  ALL BARRIER TESTS PASSED: ${passedTests}/${totalTests} assertions in ${duration}ms`);
     console.log('================================================================\n');
   } finally {
-    server.close();
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await closeDatabase();
-    if (fs.existsSync(testDbPath)) try { fs.unlinkSync(testDbPath); } catch (e) {}
+    for (const suffix of ['', '-wal', '-shm']) {
+      const file = `${testDbPath}${suffix}`;
+      if (fs.existsSync(file)) try { fs.unlinkSync(file); } catch (error) {}
+    }
   }
 }
 

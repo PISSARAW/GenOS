@@ -19,7 +19,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write(JSON.stringify(result.output) + '\n');
+  process.stdout.write(JSON.stringify(result.output ?? result) + '\n');
 }
 
 main().catch((error) => {

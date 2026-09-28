@@ -47,7 +47,10 @@ function runAllSecurityChallenges() {
   console.log(`  Total Suites Executed: ${SUITES.length}`);
   console.log(`  Passed Suites:         ${passedSuites}/${SUITES.length}`);
   console.log(`  Total Execution Time:  ${duration}ms`);
-  console.log(`  Final Verdict:         ${passedSuites === SUITES.length ? 'SYSTEM PROVEN INVULNERABLE — ALL CHALLENGES PASSED' : 'SECURITY VULNERABILITY DETECTED'}`);
+  const verdict = passedSuites === SUITES.length
+    ? 'ALL CONFIGURED CHECKS PASSED; UNTESTED RISKS REMAIN'
+    : 'AT LEAST ONE CHECK FAILED; REVIEW THE FAILURE BEFORE DRAWING A SECURITY CONCLUSION';
+  console.log(`  Final Verdict:         ${verdict}`);
   console.log('======================================================================\n');
 
   if (passedSuites !== SUITES.length) {

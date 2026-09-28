@@ -8,6 +8,8 @@ const {
 assert.strictEqual(isRegisteredTool('genos_snapshot'), true);
 assert.strictEqual(isSupportedTool('genos_snapshot'), true);
 assert.strictEqual(detectExecutionKind('genos_snapshot'), 'cli');
+assert.strictEqual(isRegisteredTool('genos_topology_session'), true);
+assert.strictEqual(detectExecutionKind('genos_topology_session'), 'topology');
 
 assert.strictEqual(isRegisteredTool('genos_nonexistent'), false);
 assert.strictEqual(isSupportedTool('genos_nonexistent'), false);

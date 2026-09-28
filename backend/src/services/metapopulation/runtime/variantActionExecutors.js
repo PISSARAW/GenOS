@@ -30,7 +30,7 @@ const RUNTIME_MARKERS = Object.freeze({
   DEPLOY_FOUNDER: deployFounder,
   PROTECT_SOURCE: async (action) => ({ type: action.type, demeId: action.demeId, reason: action.reason, protected: true }),
   RECOVERY_SLA_BREACH: async (action) => ({ type: action.type, demeId: action.demeId, slaMs: action.slaMs, breached: true }),
-  ROTATE_SOURCE_SINK_ROLES: async (action) => ({ type: action.type, rotated: action.changes.length, changes: action.changes }),
+  ROTATE_SOURCE_SINK_ROLES: persistSourceSinkRoles,
   MIGRATE_ISLAND_ELITE: async (action) => ({ type: action.type, propaguleId: action.propagule.propaguleId, migrated: true }),
   PROOF_OF_DATA_MINIMIZATION: async (action) => ({ type: action.type, propaguleId: action.propaguleId, proofId: action.proofId, proven: true }),
   REQUIRE_RECEIVER_ATTESTATION: async (action) => ({ type: action.type, propaguleId: action.propaguleId, targetRegion: action.targetRegion, required: true }),
@@ -133,12 +133,21 @@ async function maintainResidentDaemonDb(action, context) {
   if (!deme || deme.status !== 'ACTIVE') {
     return { type: action.type, demeId, maintained: false, reason: 'DEME_NOT_ACTIVE' };
   }
-  const activeLease = await persistentLeaseService.loadDaemonLease(db, input.metapopulationId, demeId);
+  const activeLease = await persistentDaemonLeaseService.loadDaemonLease(db, input.metapopulationId, demeId);
   if (!activeLease || activeLease.expiresAt < Date.now()) {
     return { type: action.type, demeId, maintained: false, reason: 'LEASE_EXPIRED' };
   }
-  const extended = await persistentLeaseService.extendDaemonLease({ db, metapopulationId: input.metapopulationId, demeId, ttlMs: 600000 });
+  const extended = await persistentDaemonLeaseService.extendDaemonLease({ db, metapopulationId: input.metapopulationId, demeId, ttlMs: 600000 });
   return { type: action.type, demeId, maintained: true, expiresAt: extended.expiresAt, leaseId: extended.leaseId };
+}
+
+async function persistSourceSinkRoles(action, context) {
+  const db = context.options.db;
+  if (!db) return { type: action.type, rotated: 0, changes: [], persisted: false, reason: 'NO_DB' };
+  const result = await store.recordSourceSinkRoleChanges(db, {
+    metapopulationId: context.input.metapopulationId, changes: action.changes
+  });
+  return { type: action.type, rotated: result.changes.length, changes: result.changes, persisted: true };
 }
 
 async function updateDemeMemory(action, context) {
