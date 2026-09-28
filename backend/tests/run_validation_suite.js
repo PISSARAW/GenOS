@@ -5,6 +5,9 @@ const suites = {
   smoke: [
     ['philosophy registry health', 'test_philosophy_registry_health.js'],
     ['indicator receipt validation', 'test_indicator_receipt_service.js'],
+    ['indicator evaluation persistence', 'test_indicator_evaluation_persistence.js'],
+    ['PostgreSQL storage adapter contract', 'test_postgres_storage_backend.js'],
+    ['Rhizome merge policy evaluation', 'test_rhizome_merge_policy_evaluation.js'],
     ['philosophy registry contracts', 'test_philosophy_registry_contracts.js'],
     ['mathematical philosophy registry', 'test_mathematical_philosophy_registry.js'],
     ['mathematical philosophy safety', 'test_mathematical_philosophy_safety.js'],

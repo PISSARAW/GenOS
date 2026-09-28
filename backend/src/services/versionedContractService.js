@@ -8,6 +8,7 @@ const SCHEMAS = Object.freeze({
   WorldTransition: ['stateBefore', 'action', 'delta', 'stateAfter', 'context', 'evidenceRefs', 'observedAt'],
   VerifiedRendering: ['sentences', 'verification'],
   CausalInterventionReceipt: ['experimentId', 'snapshotId', 'control', 'intervention', 'seeds', 'replicates', 'metricsBefore', 'metricsAfter', 'pairedEffects', 'verdict', 'evidenceRefs'],
+  IndicatorEvaluation: ['evaluationSchema', 'receiptCount', 'propertyCount', 'assessment', 'reportHash', 'report'],
 });
 
 const STATUSES = new Set(['candidate', 'niche', 'promoted', 'dormant', 'fossilized', 'extinct']);
@@ -88,6 +89,51 @@ function validateCausal(payload, errors) {
   if (!stringList(payload.evidenceRefs)) errors.push(error('INVALID_LIST', 'evidenceRefs must be a string list', 'evidenceRefs'));
 }
 
+function validateIndicatorEvaluation(payload, errors) {
+  validateEvaluationSchema(payload, errors);
+  validateEvaluationCounts(payload, errors);
+  validateEvaluationAssessment(payload, errors);
+  validateEvaluationHash(payload, errors);
+  validateIndicatorReport(payload, errors);
+}
+
+function validateEvaluationSchema(payload, errors) {
+  if (!nonEmpty(payload.evaluationSchema) || !payload.evaluationSchema.startsWith('genos.indicator-evaluation')) {
+    errors.push(error('INVALID_EVALUATION', 'evaluationSchema must identify an indicator evaluation', 'evaluationSchema'));
+  }
+}
+
+function validateEvaluationCounts(payload, errors) {
+  if (!Number.isInteger(payload.receiptCount) || payload.receiptCount < 1) errors.push(error('INVALID_COUNT', 'receiptCount must be positive', 'receiptCount'));
+  if (!Number.isInteger(payload.propertyCount) || payload.propertyCount < 1) errors.push(error('INVALID_COUNT', 'propertyCount must be positive', 'propertyCount'));
+}
+
+function validateEvaluationAssessment(payload, errors) {
+  if (!nonEmpty(payload.assessment) || payload.assessment.includes('promotion')) {
+    errors.push(error('INVALID_ASSESSMENT', 'assessment must describe a non-promoting evaluation', 'assessment'));
+  }
+}
+
+function validateEvaluationHash(payload, errors) {
+  if (!/^[a-f0-9]{64}$/.test(payload.reportHash || '')) {
+    errors.push(error('INVALID_HASH', 'reportHash must be a SHA-256 digest', 'reportHash'));
+  }
+}
+
+function validateIndicatorReport(payload, errors) {
+  const report = payload.report;
+  if (!isRecord(report) || report.promotionEligible !== false || !Array.isArray(report.properties)) {
+    errors.push(error('INVALID_REPORT', 'report must be a non-promoting evaluation with properties', 'report'));
+    return;
+  }
+  if (report.schema !== payload.evaluationSchema || report.receiptCount !== payload.receiptCount
+    || report.properties.length !== payload.propertyCount || report.assessment !== payload.assessment) {
+    errors.push(error('INVALID_REPORT', 'report summary fields do not match the receipt fields', 'report'));
+  }
+  const digest = crypto.createHash('sha256').update(JSON.stringify(report)).digest('hex');
+  if (payload.reportHash !== digest) errors.push(error('INVALID_HASH', 'reportHash does not match report content', 'reportHash'));
+}
+
 function requireCausalReferences(payload, errors) {
   if (!nonEmpty(payload.experimentId) || !nonEmpty(payload.snapshotId)) errors.push(error('INVALID_REFERENCE', 'experimentId and snapshotId are required', 'references'));
 }
@@ -107,7 +153,7 @@ function validateObjectField(payload, field, errors) {
   if (!isRecord(payload[field])) errors.push(error('INVALID_METRICS', `${field} must be an object`, field));
 }
 
-const validators = { MorphogeneticCandidate: validateMorphogenetic, WorldTransition: validateWorld, VerifiedRendering: validateRendering, CausalInterventionReceipt: validateCausal };
+const validators = { MorphogeneticCandidate: validateMorphogenetic, WorldTransition: validateWorld, VerifiedRendering: validateRendering, CausalInterventionReceipt: validateCausal, IndicatorEvaluation: validateIndicatorEvaluation };
 
 function validateContract(type, payload) {
   const errors = [];

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const crypto = require('node:crypto');
-const { RECEIPT_SCHEMA, evaluateReceipt } = require('../src/services/indicatorReceiptService');
+const { RECEIPT_SCHEMA, evaluateReceipt, evaluateReceiptSet } = require('../src/services/indicatorReceiptService');
 
 function receiptFixture() {
   const content = 'Observed behavior and trace';
@@ -33,11 +33,28 @@ assert.equal(valid.stages.causal.status, 'not_run');
 assert.equal(valid.assessment, 'receipt-consistency-only');
 assert.equal(valid.promotionEligible, false);
 
+const receiptTwo = receiptFixture();
+receiptTwo.id = 'receipt-2';
+receiptTwo.provenance.runId = 'run-2';
+receiptTwo.stages.implemented.status = 'failed';
+const set = evaluateReceiptSet([receiptFixture(), receiptTwo]);
+assert.equal(set.receiptCount, 2);
+assert.equal(set.properties[0].stages.implemented.status, 'failed');
+assert.equal(set.properties[0].stages.causal.status, 'not_run');
+assert.equal(set.promotionEligible, false);
+assert.throws(() => evaluateReceiptSet([receiptFixture(), receiptFixture()]), { code: 'RECEIPT_EVIDENCE_INCOHERENT' });
+
 const cli = spawnSync(process.execPath, [path.join(__dirname, '../bin/genos-indicators.cjs'), 'evaluate'], {
   input: JSON.stringify(receiptFixture()), encoding: 'utf8'
 });
 assert.equal(cli.status, 0, cli.stderr);
-assert.equal(JSON.parse(cli.stdout).schema, 'genos.indicator-evaluation/v1');
+assert.equal(JSON.parse(cli.stdout).schema, 'genos.indicator-evaluation-set/v1');
+
+const cliSet = spawnSync(process.execPath, [path.join(__dirname, '../bin/genos-indicators.cjs'), 'evaluate'], {
+  input: JSON.stringify({ receipts: [receiptFixture(), receiptTwo] }), encoding: 'utf8'
+});
+assert.equal(cliSet.status, 0, cliSet.stderr);
+assert.equal(JSON.parse(cliSet.stdout).receiptCount, 2);
 
 const missing = receiptFixture();
 missing.stages.specified.evidenceRefs = ['absent'];

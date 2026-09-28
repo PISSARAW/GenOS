@@ -6,6 +6,7 @@ const { getRegistry } = require('./indicatorRegistryService');
 const RECEIPT_SCHEMA = 'genos.indicator-receipt/v1';
 const STAGES = Object.freeze(['specified', 'implemented', 'causal', 'generalized', 'operational']);
 const STATUSES = new Set(['passed', 'failed', 'inconclusive', 'not_run', 'unavailable']);
+const STATUS_PRECEDENCE = ['failed', 'inconclusive', 'unavailable', 'not_run', 'passed'];
 
 function reject(code, message) {
   const error = new Error(message);
@@ -130,4 +131,52 @@ function evaluateReceipt(receiptInput) {
   };
 }
 
-module.exports = { RECEIPT_SCHEMA, evaluateReceipt };
+function groupKey(evaluation) {
+  return `${evaluation.profile.id}:${evaluation.property.id}`;
+}
+
+function aggregateStage(evaluations, stage) {
+  const statuses = evaluations.map((entry) => entry.stages[stage].status);
+  return STATUS_PRECEDENCE.find((status) => statuses.includes(status)) || 'not_run';
+}
+
+function aggregateProperty(evaluations) {
+  const first = evaluations[0];
+  return {
+    profile: first.profile,
+    property: first.property,
+    stages: Object.fromEntries(STAGES.map((stage) => [stage, {
+      status: aggregateStage(evaluations, stage),
+      receiptCount: evaluations.length,
+      evidenceRefs: [...new Set(evaluations.flatMap((entry) => entry.stages[stage].evidenceRefs))],
+    }])),
+    receiptIds: evaluations.map((entry) => entry.receiptId).filter(Boolean),
+  };
+}
+
+function evaluateReceiptSet(receipts) {
+  if (!Array.isArray(receipts) || receipts.length === 0) {
+    reject('RECEIPT_EVIDENCE_INCOHERENT', 'At least one receipt is required.');
+  }
+  const evaluations = receipts.map(evaluateReceipt);
+  const uniqueIds = evaluations.map((entry) => entry.receiptId).filter(Boolean);
+  if (new Set(uniqueIds).size !== uniqueIds.length) {
+    reject('RECEIPT_EVIDENCE_INCOHERENT', 'Receipt IDs must be unique in an evaluation set.');
+  }
+  const groups = new Map();
+  for (const evaluation of evaluations) {
+    const key = groupKey(evaluation);
+    groups.set(key, [...(groups.get(key) || []), evaluation]);
+  }
+  return {
+    schema: 'genos.indicator-evaluation-set/v1',
+    registryVersion: getRegistry().schema,
+    receiptCount: evaluations.length,
+    properties: [...groups.values()].map(aggregateProperty),
+    evaluations,
+    assessment: 'conservative-status-aggregation-only',
+    promotionEligible: false,
+  };
+}
+
+module.exports = { RECEIPT_SCHEMA, evaluateReceipt, evaluateReceiptSet };
