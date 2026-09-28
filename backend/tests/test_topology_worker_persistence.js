@@ -24,7 +24,7 @@ async function main() {
   const db = fakeDb();
   const identity = {
     workerId: 'worker_topology_1', parentId: 'orchestrator_1', workspaceId: null,
-    role: 'backend_engineer', mission: 'Inspect the API migration.'
+    role: 'backend_engineer', mission: 'Inspect the API migration.', topologySessionId: 'syncytium-session-1'
   };
   assert.deepEqual(await ensureTopologyWorker(db, identity), { workerId: identity.workerId, created: true });
   const row = db.agents.get(identity.workerId);
@@ -32,6 +32,7 @@ async function main() {
   assert.equal(row.execution_mode, 'worker');
   assert.equal(row.about, `Worker scope: ${identity.mission}`);
   assert.equal(JSON.parse(row.metadata_json).workerKind, 'bounded_worker');
+  assert.equal(JSON.parse(row.metadata_json).topologySessionId, identity.topologySessionId);
   assert.deepEqual(await ensureTopologyWorker(db, identity), { workerId: identity.workerId, created: false });
   await assert.rejects(
     () => ensureTopologyWorker(db, { ...identity, parentId: 'other_parent' }),

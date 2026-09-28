@@ -154,7 +154,10 @@ function buildWorkerContract(kind, mission = {}) {
   return {
     version: 1,
     identity: { workerKind: definition.kind, parentId: mission.orchestratorAgentId || mission.parentAgentId || null },
-    mission: { objective: mission.prompt || mission.currentTask || '', scope: mission.scope || mission.workspaceRoot || '', methodContract: mission.methodContract },
+    mission: {
+      objective: mission.prompt || mission.currentTask || '', scope: mission.scope || mission.workspaceRoot || '',
+      methodContract: mission.methodContract, topologySessionId: mission.topologySessionId
+    },
     assignment: mission.workerAssignment,
     authority: {
       read: Boolean(authorities.read), analyze: Boolean(authorities.analyze),

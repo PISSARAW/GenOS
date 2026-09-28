@@ -323,7 +323,8 @@ async function incarnateAgent(opts) {
     ...request.mission, orchestratorAgentId: request.parentAgentId,
     scope: request.mission?.scope || request.workspace?.root || request.workspace?.projectId,
     methodContract: request.methodContract,
-    workerAssignment: request.workerAssignment
+    workerAssignment: request.workerAssignment,
+    topologySessionId: request.topologySessionId
   });
   const c = opts.ctx || {};
   const db = c.db;

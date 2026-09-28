@@ -12,7 +12,7 @@ const context = buildActionContext({
 assert.equal(context.bridgePath, path.resolve(__dirname, '../bin/genos-orchestrate.cjs'));
 
 const worker = workerLaunchPayload({
-  context,
+  context: { ...context, topologySession: { sessionId: 'syncytium:assignment:1', revision: 2 } },
   member: { role: 'validator', mission: 'Validate JSON', engine: 'local' },
   workerId: 'worker-1', parent: { workspace_root: '/workspace' }
 });
@@ -22,6 +22,7 @@ assert.equal(worker.reuseWorkerId, 'worker-1');
 assert.equal(worker.reuseChecked, true);
 assert.equal(worker.executor, 'local');
 assert.equal(worker.localRuntime, true);
+assert.equal(worker.topologySessionId, 'syncytium:assignment:1');
 
 const populationContext = {
   ...context,

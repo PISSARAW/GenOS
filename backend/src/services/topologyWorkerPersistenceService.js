@@ -8,7 +8,8 @@ async function ensureTopologyWorker(db, input) {
     prompt: input.mission,
     orchestratorAgentId: input.parentId,
     methodContract: input.methodContract,
-    workerAssignment: input.workerAssignment
+    workerAssignment: input.workerAssignment,
+    topologySessionId: input.topologySessionId
   });
   const existing = await db.get('SELECT id, parent_agent_id, execution_mode, role, metadata_json FROM agents WHERE id = ?', input.workerId);
   if (existing) return validateExistingWorker({ db, existing, input, workerKind, workerContract });
@@ -26,7 +27,8 @@ async function validateExistingWorker({ db, existing, input, workerKind, workerC
   }
   await db.run('UPDATE agents SET metadata_json = ? WHERE id = ?', JSON.stringify({
     ...metadata, workerKind, workerContract,
-    workerAssignment: input.workerAssignment || null, methodContract: input.methodContract || null
+    workerAssignment: input.workerAssignment || null, methodContract: input.methodContract || null,
+    ...(input.topologySessionId ? { topologySessionId: input.topologySessionId } : {})
   }), input.workerId);
   return { workerId: input.workerId, created: false };
 }
@@ -42,7 +44,10 @@ async function insertTopologyWorker({ db, input, workerKind, workerContract }) {
   input.workerId, input.name || input.role, input.role || 'worker', input.workspaceId || null,
   input.modelTier || 'standard', input.isolationMode || 'Branch', input.parentId,
   `Worker scope: ${input.mission || ''}`,
-  input.mission || '', JSON.stringify({ workerKind, workerContract, workerAssignment: input.workerAssignment || null, methodContract: input.methodContract || null }));
+  input.mission || '', JSON.stringify({
+    workerKind, workerContract, workerAssignment: input.workerAssignment || null,
+    methodContract: input.methodContract || null, topologySessionId: input.topologySessionId || null
+  }));
   return { workerId: input.workerId, created: true };
 }
 
