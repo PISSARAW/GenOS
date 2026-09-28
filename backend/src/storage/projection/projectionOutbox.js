@@ -147,24 +147,27 @@ async function recordProjectionFailure(eventId, consumerName, error) {
 }
 
 /**
- * Get unresolved failures for retry.
+ * Get unresolved failures for retry, scoped to one consumer.
+ * A projector must only retry and resolve its own failures.
  */
-async function getUnresolvedFailures(limit = 50) {
+async function getUnresolvedFailures(consumerName, limit = 50) {
   const db = await getDatabase();
+  if (!consumerName || typeof consumerName !== 'string') return [];
   return db.all(
-    `SELECT * FROM projection_failures WHERE resolved_at IS NULL ORDER BY created_at ASC LIMIT ?`,
-    [limit]
+    `SELECT * FROM projection_failures WHERE resolved_at IS NULL AND consumer_name = ? ORDER BY created_at ASC LIMIT ?`,
+    [consumerName, limit]
   );
 }
 
 /**
- * Mark a failure as resolved.
+ * Mark a failure as resolved, only if it belongs to the consumer.
  */
-async function resolveFailure(failureId) {
+async function resolveFailure(failureId, consumerName) {
   const db = await getDatabase();
+  if (!consumerName || typeof consumerName !== 'string') return;
   await db.run(
-    `UPDATE projection_failures SET resolved_at = ? WHERE id = ?`,
-    [new Date().toISOString(), failureId]
+    `UPDATE projection_failures SET resolved_at = ? WHERE id = ? AND consumer_name = ? AND resolved_at IS NULL`,
+    [new Date().toISOString(), failureId, consumerName]
   );
 }
 

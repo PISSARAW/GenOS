@@ -10,6 +10,7 @@ const crypto = require('crypto');
 // Security & Error Middlewares
 const { securityHeaders, originCheck, csrfCheck, xssSanitizer, ALLOWED_ORIGINS } = require('./middleware/security');
 const { requireAuthentication } = require('./middleware/auth');
+const { idempotencyMiddleware } = require('./middleware/idempotency');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 // Route Modules
@@ -122,6 +123,12 @@ function createApp() {
   // login/SSO/CSRF-issuance endpoints. Per-route permission checks apply on
   // top of this gate.
   app.use(requireAuthentication);
+
+  // 3b. Idempotency: dedupes retries sharing a key and replays the stored
+  // response. Opt-in per request (header or mission identity); required=false
+  // preserves existing clients. The middleware claims the key atomically
+  // before the handler runs so concurrent duplicates get 409 or a replay.
+  app.use(idempotencyMiddleware());
 
   // 3. Mount Modular API Routes
   app.use('/api/auth', authRoutes);

@@ -284,7 +284,7 @@ class GraphProjector {
   }
 
   async retryFailures() {
-    const failures = await getUnresolvedFailures(50);
+    const failures = await getUnresolvedFailures(CONSUMER_NAME, 50);
     let retried = 0;
     for (const failure of failures) {
       try {
@@ -292,7 +292,7 @@ class GraphProjector {
         if (event) {
           await this._projectEvent(event);
           await markProjected(event.event_id, 'graph');
-          await resolveFailure(failure.id);
+          await resolveFailure(failure.id, CONSUMER_NAME);
           retried++;
         }
       } catch (_) {

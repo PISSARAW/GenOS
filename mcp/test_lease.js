@@ -19,4 +19,7 @@ assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "snapshot"
 assert.equal(toolIsLeased("genos_orchestrate", tools, { GENOS_MCP_EXPOSE_ALL: "true", GENOS_MCP_DISABLED_TOOLS: "genos_orchestrate" }), false);
 assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: String(Date.now() - 1000) }), false);
 assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: String(Date.now() + 60000) }), true);
+assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: "not-a-date" }), false);
+assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: "Infinity" }), false);
+assert.deepEqual(filterLeasedTools(tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: "invalid" }).map((tool) => tool.name), []);
 console.log("MCP lease checks passed.");

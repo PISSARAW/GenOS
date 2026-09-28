@@ -19,6 +19,9 @@ fn configured_tool_set(variable: &str) -> Option<Vec<String>> {
 }
 
 pub fn public_tool_specs() -> Vec<Value> {
+    if lease_expired() {
+        return Vec::new();
+    }
     let lease = configured_tool_set("GENOS_MCP_LEASE");
     let disabled = configured_tool_set("GENOS_MCP_DISABLED_TOOLS").unwrap_or_default();
 
@@ -293,7 +296,29 @@ pub fn public_tool_specs() -> Vec<Value> {
 }
 
 pub fn is_tool_allowed(name: &str) -> bool {
+    if lease_expired() {
+        return false;
+    }
     public_tool_specs()
         .iter()
         .any(|tool| tool.get("name").and_then(Value::as_str) == Some(name))
+}
+
+fn lease_expired() -> bool {
+    let raw = match env::var("GENOS_MCP_LEASE_EXPIRES_AT") {
+        Ok(value) => value,
+        Err(_) => return false,
+    };
+    if raw.trim().is_empty() {
+        return false;
+    }
+    let expires_at: i64 = match raw.trim().parse() {
+        Ok(value) => value,
+        Err(_) => return true,
+    };
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis() as i64)
+        .unwrap_or(0);
+    now_ms > expires_at
 }

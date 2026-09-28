@@ -29,9 +29,10 @@ function exposeAllEnabled(environment) {
 }
 
 export function toolIsLeased(toolName, allTools, environment = process.env) {
-  if (environment.GENOS_MCP_LEASE_EXPIRES_AT) {
+  if (environment.GENOS_MCP_LEASE_EXPIRES_AT !== undefined && environment.GENOS_MCP_LEASE_EXPIRES_AT !== null && String(environment.GENOS_MCP_LEASE_EXPIRES_AT).trim() !== '') {
     const expiresAt = Number(environment.GENOS_MCP_LEASE_EXPIRES_AT);
-    if (!Number.isNaN(expiresAt) && Date.now() > expiresAt) return false;
+    if (!Number.isFinite(expiresAt)) return false;
+    if (Date.now() > expiresAt) return false;
   }
   const lease = parseLease(environment.GENOS_MCP_LEASE);
   const disabled = parseToolSet(environment.GENOS_MCP_DISABLED_TOOLS);

@@ -12,6 +12,8 @@ const { getDatabase } = require('../db');
 
 const IDEMPOTENCY_HEADER = 'x-idempotency-key';
 const IDEMPOTENCY_TTL_DAYS = 30;
+const IN_FLIGHT_MARKER = '__IN_FLIGHT__';
+const IN_FLIGHT_TTL_MS = 5 * 60 * 1000;
 
 function generateIdempotencyKey({ missionId, step, attempt, toolName } = {}) {
   const payload = `${missionId}:${step}:${attempt}:${toolName || ''}`;
@@ -42,6 +44,61 @@ async function cleanupOldKeys() {
     `DELETE FROM idempotency_keys WHERE created_at < datetime('now', ?)`,
     `-${IDEMPOTENCY_TTL_DAYS} days`
   );
+  await db.run(
+    `DELETE FROM idempotency_keys WHERE response_payload = ? AND created_at < datetime('now', '-1 hour')`,
+    IN_FLIGHT_MARKER
+  );
+}
+
+async function removeIdempotencyKey(key) {
+  const db = await getDatabase();
+  await db.run('DELETE FROM idempotency_keys WHERE key = ? AND response_payload = ?', key, IN_FLIGHT_MARKER);
+}
+
+function isInFlight(row) {
+  return !!row && row.response_payload === IN_FLIGHT_MARKER;
+}
+
+function isStaleInFlight(row) {
+  if (!isInFlight(row)) return false;
+  const created = new Date(row.created_at).getTime();
+  if (!Number.isFinite(created)) return false;
+  return Date.now() - created > IN_FLIGHT_TTL_MS;
+}
+
+async function claimIdempotencyKey(key) {
+  const db = await getDatabase();
+  const result = await db.run(
+    `INSERT OR IGNORE INTO idempotency_keys (key, response_payload, status_code, created_at)
+     VALUES (?, ?, ?, datetime('now'))`,
+    key, IN_FLIGHT_MARKER, 202
+  );
+  return result && typeof result.changes === 'number' ? result.changes > 0 : true;
+}
+
+function handleConflict(res, key) {
+  res.setHeader('X-Idempotency-Key', key);
+  return res.status(409).json({
+    error: 'Idempotent request already in progress',
+    code: 'IDEMPOTENCY_IN_PROGRESS',
+    hint: 'Retry with the same key after the in-flight request completes',
+  });
+}
+
+async function replayOrConflict(res, key) {
+  const existing = await checkIdempotency(key);
+  if (!existing) return null;
+  if (!isInFlight(existing)) return handleReplay(res, existing);
+  if (!isStaleInFlight(existing)) return handleConflict(res, key);
+  await removeIdempotencyKey(key);
+  return null;
+}
+
+async function claimOrConflict(res, key) {
+  if (await claimIdempotencyKey(key)) return null;
+  const raced = await checkIdempotency(key);
+  if (raced && !isInFlight(raced)) return handleReplay(res, raced);
+  return handleConflict(res, key);
 }
 
 function shouldSkip(path, skipPaths) {
@@ -98,6 +155,10 @@ function patchResponse(res, idempotencyKey) {
       storeIdempotency(idempotencyKey, payload, statusCode).catch(err => {
         console.error('Failed to store idempotency key:', err);
       });
+    } else {
+      removeIdempotencyKey(idempotencyKey).catch(err => {
+        console.error('Failed to release idempotency key:', err);
+      });
     }
     return originalJson(payload);
   };
@@ -113,9 +174,8 @@ function idempotencyMiddleware(options = {}) {
     const idempotencyKey = await resolveIdempotencyKey(req, ctx, keyGenerator);
 
     if (!idempotencyKey) return handleMissingKey(res, required) || next();
-
-    const existing = await checkIdempotency(idempotencyKey);
-    if (existing) return handleReplay(res, existing);
+    if (await replayOrConflict(res, idempotencyKey)) return;
+    if (await claimOrConflict(res, idempotencyKey)) return;
 
     patchResponse(res, idempotencyKey);
     res.setHeader('X-Idempotency-Key', idempotencyKey);
@@ -134,5 +194,6 @@ module.exports = {
   storeIdempotency,
   cleanupOldKeys,
   withIdempotency,
+  removeIdempotencyKey,
   IDEMPOTENCY_HEADER,
 };

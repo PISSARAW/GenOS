@@ -23,7 +23,7 @@ function withBiomimicryParams(command, args) {
 function cliCall({ args, runGenosCli }) {
   const commands = {
     genos_snapshot: ['snapshot', 'create', '--agent', args.agent, '--out', args.out, '--force'],
-    genos_replay: ['replay', 'basic', '--snapshot', args.snapshot],
+    genos_replay: ['replay', 'basic', '--snapshot', args.snapshot || args.snapshot_id],
     genos_capsule_create: ['capsule', 'create', '--snapshot', args.snapshot_id || 'ROOT', ...(args.seed ? ['--seed', args.seed] : [])],
     genos_merge: ['merge', args.branch_id, ...(args.conditions ? ['--conditions', args.conditions] : [])],
     genos_audit: ['audit', args.snapshot_id, '--output', args.output || 'audit.log'],
