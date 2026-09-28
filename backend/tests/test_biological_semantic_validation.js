@@ -22,7 +22,7 @@ async function main() {
   assert.equal(partial.coveredWorkers, 1);
 
   const unsupportedDb = { get: async () => ({ payload_json: JSON.stringify({
-    semanticClaims: [{ subject: 'avatar', predicate: 'required', value: true }],
+    semanticClaims: [null, { subject: 'avatar', predicate: 'required', value: true }],
   }) }) };
   const unsupported = await validation.validate(unsupportedDb, [{ workerId: 'a' }]);
   assert.equal(unsupported.status, 'incomplete');

@@ -30,7 +30,7 @@ function normalizeClaim(claim, workerId) {
   const subject = clean(claim?.subject);
   const predicate = clean(claim?.predicate);
   const value = canonical(claim?.value);
-  const evidence = strings(claim.evidence || claim.evidenceRefs);
+  const evidence = strings(claim?.evidence || claim?.evidenceRefs);
   if (!subject || !predicate || value === null || evidence.length === 0) return null;
   return { subject, predicate, value, workerId, evidence };
 }
