@@ -6,10 +6,14 @@ async function validate(db, members) {
   const conflicts = findConflicts(claims);
   const coveredWorkers = new Set(claims.map((claim) => claim.workerId)).size;
   return {
-    status: conflicts.length ? 'conflicts_detected' : coveredWorkers === members.length ? 'complete' : 'incomplete',
+    status: conflicts.length ? 'conflicts_detected' : hasFullCoverage(members.length, coveredWorkers) ? 'complete' : 'incomplete',
     workerCount: members.length, coveredWorkers, claims, conflicts,
     unresolvedConflictCount: conflicts.length
   };
+}
+
+function hasFullCoverage(workerCount, coveredWorkers) {
+  return workerCount > 0 && coveredWorkers === workerCount;
 }
 
 async function readReport(db, member) {
@@ -26,8 +30,9 @@ function normalizeClaim(claim, workerId) {
   const subject = clean(claim?.subject);
   const predicate = clean(claim?.predicate);
   const value = canonical(claim?.value);
-  if (!subject || !predicate || value === null) return null;
-  return { subject, predicate, value, workerId, evidence: strings(claim.evidence || claim.evidenceRefs) };
+  const evidence = strings(claim.evidence || claim.evidenceRefs);
+  if (!subject || !predicate || value === null || evidence.length === 0) return null;
+  return { subject, predicate, value, workerId, evidence };
 }
 
 function findConflicts(claims) {

@@ -20,6 +20,15 @@ async function main() {
   const partial = await validation.validate(partialDb, [{ workerId: 'a' }, { workerId: 'b' }]);
   assert.equal(partial.status, 'incomplete');
   assert.equal(partial.coveredWorkers, 1);
+
+  const unsupportedDb = { get: async () => ({ payload_json: JSON.stringify({
+    semanticClaims: [{ subject: 'avatar', predicate: 'required', value: true }],
+  }) }) };
+  const unsupported = await validation.validate(unsupportedDb, [{ workerId: 'a' }]);
+  assert.equal(unsupported.status, 'incomplete');
+  assert.equal(unsupported.coveredWorkers, 0);
+  const empty = await validation.validate(db, []);
+  assert.equal(empty.status, 'incomplete');
 }
 
 main().catch((error) => {
