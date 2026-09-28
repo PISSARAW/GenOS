@@ -1,23 +1,26 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { executeNodeFallback } from './nodeCliFallback.js';
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-fallback-'));
-const snapshot = path.join(root, 'snapshot.json');
-const created = JSON.parse(await executeNodeFallback(['snapshot'], { agent: 'test', out: snapshot }));
-assert.equal(created.success, true);
+const created = JSON.parse(await executeNodeFallback(['snapshot'], { agent: 'test', out: 'snapshot.json' }));
+assert.equal(created.success, false);
+assert.equal(created.status, 'capability_unavailable');
 assert.equal(created.fallbackUsed, true);
-assert.equal(fs.existsSync(snapshot), true);
 
-const replay = JSON.parse(await executeNodeFallback(['replay'], { snapshot }));
-assert.equal(replay.success, true);
-assert.equal(replay.eventsReplayed, 0);
+const replay = JSON.parse(await executeNodeFallback(['replay'], { snapshot: 'snapshot.json' }));
+assert.equal(replay.success, false);
+assert.equal(replay.status, 'simulated');
+assert.equal(replay.simulated, true);
+
+const capsule = JSON.parse(await executeNodeFallback(['capsule'], { snapshot_id: 'snap_123' }));
+assert.equal(capsule.success, false);
+assert.equal(capsule.status, 'capability_unavailable');
+
+const init = JSON.parse(await executeNodeFallback(['init'], {}));
+assert.equal(init.success, false);
+assert.equal(init.status, 'capability_unavailable');
 
 const merge = JSON.parse(await executeNodeFallback(['merge', 'branch-a'], { branch_id: 'branch-a' }));
 assert.equal(merge.success, false);
 assert.equal(merge.status, 'capability_unavailable');
 
-fs.rmSync(root, { recursive: true, force: true });
 console.log('Node fallback reports only verified operations as successful.');

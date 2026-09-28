@@ -7,14 +7,6 @@ function baseDir(options) {
   return process.cwd();
 }
 
-function resolveIn(base, file) {
-  return path.isAbsolute(file) ? file : path.resolve(base, file);
-}
-
-function writeJson(file, value) {
-  fs.writeFileSync(file, JSON.stringify(value, null, 2));
-}
-
 export const RESULT_STATUSES = Object.freeze({
   COMPLETED: 'completed',
   SIMULATED: 'simulated',
@@ -65,36 +57,19 @@ export function isBinaryMissing(error) {
   return !!error && (error.code === 'ENOENT' || String(error.message || '').includes('ENOENT'));
 }
 
-function snapshotFallback(toolArgs, options) {
-  const base = baseDir(options);
-  const result = completed({
-    snapshotId: `snap_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    agent: toolArgs.agent || 'default',
-    createdAt: new Date().toISOString(),
-    events: [],
-    fallback: 'node_bridge'
-  });
-  writeJson(resolveIn(base, toolArgs.out || 'snapshot.json'), result);
-  return result;
+function snapshotFallback(toolArgs) {
+  return unavailable('snapshot', 'Snapshot creation requires the Rust CLI; no snapshot was written by the Node fallback.');
 }
 
 function replayFallback(toolArgs, options) {
   const base = baseDir(options);
-  const snapshot = resolveIn(base, toolArgs.snapshot || 'snapshot.json');
-  if (!fs.existsSync(snapshot)) return unavailable('replay', `Snapshot '${snapshot}' does not exist.`);
-  const parsed = JSON.parse(fs.readFileSync(snapshot, 'utf8'));
-  const events = Array.isArray(parsed.events) ? parsed.events : [];
-  return completed({ replay: 'completed', snapshot, eventsReplayed: events.length, fallback: 'node_bridge' });
+  const ref = toolArgs.snapshot || toolArgs.snapshot_id || 'snapshot.json';
+  return simulated('replay', `Replay preview only; snapshot '${ref}' in '${base}' was not executed.`, { ref });
 }
 
 function capsuleFallback(toolArgs) {
   if (!toolArgs.snapshot_id) return unavailable('capsule', 'snapshot_id is required by the Node fallback.');
-  return completed({
-    capsuleId: `capsule_${Date.now()}`,
-    snapshotId: toolArgs.snapshot_id,
-    status: 'provisioned',
-    fallback: 'node_bridge'
-  });
+  return unavailable('capsule', `Capsule for snapshot '${toolArgs.snapshot_id}' was not provisioned; Rust CLI required.`);
 }
 
 function mergeFallback(args, toolArgs) {
@@ -110,7 +85,7 @@ function biomimicryFallback(toolArgs) {
 }
 
 function initFallback() {
-  return completed({ status: 'initialized', version: '3.0.0', fallback: 'node_bridge' });
+  return unavailable('init', 'Workspace initialization requires the Rust CLI; no state was created by the Node fallback.');
 }
 
 function agentFallback(args, toolArgs) {
