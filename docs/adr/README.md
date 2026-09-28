@@ -184,6 +184,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0158](0158-banc-morphogenese-operateurs.md) | Banc morphogenèse et opérateurs comparés | Accepté (portée Node) | 2026-09-27 | Morphogenèse, banc d'opérateurs |
 | [0159](0159-no-report-ablations-croisees.md) | No-report et ablations croisées | Accepté (portée Node) | 2026-09-27 | Évaluation, ablations, plan factoriel |
 | [0160](0160-campagne-reservee-replication.md) | Campagne réservée et réplication indépendante | Accepté (portée Node) | 2026-09-27 | Réplication, campagnes réservées |
+| [0161](0161-contrats-communs-runtime-biologique.md) | Contrats communs du runtime biologique | Accepté | 2026-09-28 | Biomimétisme, runtime, Rust/Node, preuve |
+| [0162](0162-niveaux-preuve-maturite-et-contrats-phase-0.md) | Niveaux de preuve de maturité et gel des contrats Phase 0 | Proposé | 2026-09-28 | Maturité, contrats, preuves, gouvernance documentaire |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
@@ -192,7 +194,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 > fichiers sont conservés tels quels (renommage interdit sans migration
 > de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,
 > `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.
-
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
