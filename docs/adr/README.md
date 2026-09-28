@@ -15,6 +15,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
 | [0005](0005-reorganisation-arborescence-documentaire.md) | Réorganisation de l'arborescence documentaire | Accepté | 2026-09-14 | Documentation, provenance, distribution |
 | [0012](0012-volition-autonome-et-preservation.md) | Volition autonome et préservation | Accepté (amendé 2026-09-27) | 2026-09-15 / 2026-09-27 | Orchestration, survie, autonomie |
+| [0012b](0012-re-grounding-topologies-biologiques.md) | Re-grounding durable des workers biologiques | Acceptée | 2026-09-28 | Topologie, orchestration, workers, preuve |
 | [0013](0013-survival-model-control-plane.md) | Modèle de survie dans le control plane | Accepté | 2026-09-16 | Orchestration, budgets, sûreté, biomimétisme |
 | [0014](0014-theorie-du-soi-operationnelle.md) | Théorie du soi opérationnelle de l'orchestrator | Accepté | 2026-09-16 | Orchestration, apprentissage, persistance, sûreté |
 | [0015](0015-convergence-organisme-cognitif-composite.md) | Convergence d'un organisme cognitif composite | Accepté | 2026-09-16 | Orchestration, contrôle, preuve, sûreté |
@@ -188,7 +189,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0162](0162-niveaux-preuve-maturite-et-contrats-phase-0.md) | Niveaux de preuve de maturité et gel des contrats Phase 0 | Proposé | 2026-09-28 | Maturité, contrats, preuves, gouvernance documentaire |
 | [0163](0163-contrats-transversaux-operation-receipt-preuve.md) | Contrats transversaux d'opération : événement, reçu et preuve | Accepté | 2026-09-28 | Contrats, provenance, budgets, orchestration, preuve |
 | [0164](0164-racine-runtime-volume-optimal.md) | Placement de la racine runtime selon l'espace disponible | Accepté | 2026-09-28 | -- |
-| [0165](0165-stockage-postgresql-et-frontiere-sqlite.md) | PostgreSQL : adapter explicite et frontière SQLite | Accepté, migration progressive en cours | 2026-09-28 | Backend, persistance, migrations, multi-tenant |
 | [0166](0166-livraison-durable-signaux.md) | Livraison durable des signaux entre processus | Accepté | 2026-09-28 | Signal Plane, persistance, concurrence, reprise |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
