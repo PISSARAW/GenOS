@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "bioRuntimeContracts",
+  "description": "Contrats communs du runtime biologique GenOS. Toute execution indique organisme, agent, genome, episode, etat initial, budget, permissions, effet, preuve et origine (simule/local/externe).",
+  "schema_version": "1.0.0",
+  "definitions": {
+    "organism": {
+      "type": "object",
+      "required": ["organism_id", "mission_id", "schema_version"],
+      "properties": {
+        "organism_id": { "type": "string", "minLength": 1 },
+        "mission_id": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" }
+      }
+    },
+    "cell": {
+      "type": "object",
+      "required": ["cell_id", "lineage_id", "schema_version"],
+      "properties": {
+        "cell_id": { "type": "string", "minLength": 1 },
+        "lineage_id": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "string" }
+      }
+    },
+    "genome": {
+      "type": "object",
+      "required": ["genome_id", "phenotype_hash", "schema_version"],
+      "properties": {
+        "genome_id": { "type": "string", "minLength": 1 },
+        "phenotype_hash": { "type": "string", "minLength": 1 },
+        "schema_version": { "type": "string" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "required": ["resource", "reserved", "consumed", "ceiling"],
+      "properties": {
+        "resource": { "enum": ["tokens", "time_ms", "memory_mb", "tool_calls", "external_cost"] },
+        "reserved": { "type": "number", "minimum": 0 },
+        "consumed": { "type": "number", "minimum": 0 },
+        "ceiling": { "type": "number", "minimum": 0 }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "required": ["signal_id", "event_id", "kind", "origin"],
+      "properties": {
+        "signal_id": { "type": "string", "minLength": 1 },
+        "event_id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "origin": { "enum": ["simulated", "local", "external"] }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "required": ["effect_id", "origin", "description"],
+      "properties": {
+        "effect_id": { "type": "string", "minLength": 1 },
+        "origin": { "enum": ["simulated", "local", "external"] },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "required": ["organism_id", "agent_id", "genome_id", "episode_id", "initial_state_hash", "effect_id", "proof", "effect_origin", "schema_version"],
+      "properties": {
+        "organism_id": { "type": "string" },
+        "agent_id": { "type": "string" },
+        "genome_id": { "type": "string" },
+        "episode_id": { "type": "string" },
+        "initial_state_hash": { "type": "string" },
+        "effect_id": { "type": "string" },
+        "proof": { "type": "string" },
+        "effect_origin": { "enum": ["simulated", "local", "external"] },
+        "schema_version": { "type": "string" }
+      }
+    }
+  }
+}

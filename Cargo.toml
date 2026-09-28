@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/genos-common",
+    "crates/genos-bio-contracts",
     "crates/genos-store",
     "crates/genos-signal",
     "crates/genos-genome",
