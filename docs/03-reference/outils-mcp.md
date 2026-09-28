@@ -33,7 +33,7 @@ et non l'ancien terminal interactif `scripts/orchestrator_cli.mjs`.
 
 ## 2. Catalogue des outils
 
-GenOS possede plusieurs representations du catalogue, chacune ayant une responsabilite differente. La source canonique des schemas publics est `shared/toolDefinitions.json` (35 outils) ; `mcp/toolDefinitions.json` en est la copie embarquee de repli, utilisee uniquement quand le serveur JS tourne hors racine du depot (`mcp/catalog.js`). Les deux fichiers doivent rester synchronises :
+GenOS possede plusieurs representations du catalogue, chacune ayant une responsabilite differente. La source canonique des schemas publics est `shared/toolDefinitions.json` (36 outils) ; `mcp/toolDefinitions.json` en est la copie embarquee de repli, utilisee uniquement quand le serveur JS tourne hors racine du depot (`mcp/catalog.js`). Les deux fichiers doivent rester synchronises :
 
 | Surface | Role | Exemples |
 | --- | --- | --- |
@@ -75,14 +75,14 @@ La documentation produit parfois l'expression `enabled_tools`. Dans le code actu
 
 - `enabled_tools` : intention de liste autorisee, materialisee par la lease ;
 - `disabled_tools` : liste de retrait, materialisee par `GENOS_MCP_DISABLED_TOOLS` ;
-- sans lease : exposition minimale par defaut ;
+- sans lease : aucune exposition par defaut (`toolIsLeased()` retourne `false` ; fail-closed) ;
 - hors production, l'exposition complete exige explicitement `GENOS_MCP_EXPOSE_ALL=true` **et** `GENOS_MCP_ALLOW_UNSAFE_EXPOSE_ALL=true`.
 
 En production, cette exposition complete est desactivee par `toolIsLeased()`.
 
 ### 3.2 Decouverte versus enforcement reel
 
-Le filtrage de `tools/list` est necessaire mais insuffisant. Il ne protege que la decouverte. Un client peut deja connaitre le nom d'un outil, ou tenter de l'appeler directement sans l'avoir obtenu par discovery.
+Le filtrage de `tools/list` est necessaire mais insuffisant. Il ne protege que la decouverte : `tools/list` reflete la lease active et la configuration (`GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS`, expiration `GENOS_MCP_LEASE_EXPIRES_AT`, exposition complete hors production), via `filterLeasedTools()`. Un client peut deja connaitre le nom d'un outil, ou tenter de l'appeler directement sans l'avoir obtenu par discovery.
 
 GenOS revalide donc l'autorisation a l'appel :
 
@@ -387,7 +387,7 @@ Les gateways classiques offrent authentification, quotas, rate limiting et obser
 
 La particularite n'est pas de posseder un serveur MCP, ni un catalogue d'outils. C'est d'articuler :
 
-- exposition minimale par defaut ;
+- exposition vide par defaut sans lease (fail-closed) ;
 - retrait explicite des outils ;
 - enforcement sur discovery **et** dispatch direct ;
 - validation runtime avant pont CLI ;

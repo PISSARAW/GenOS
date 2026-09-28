@@ -9,7 +9,7 @@ Règle : un succès de transport n'est pas une décision valide ; le passage à 
 |---|---|---|---|
 | Node | `backend/src/services/**/*.js|.cjs|.mjs` | `backend/server.js`, `mcp/index.js`, `backend/bin/*` | **1 814** services : 1 310 atteignables en import littéral, 504 à revoir, dont 308 sans import littéral (`literalInbound === 0`) |
 | Rust | `crates/*` + `packages/*` du workspace | `genos-cli`, `genos-api` (gRPC/REST), pont `rustBridgeController` | 16 crates + 2 packages : `common, store, signal, genome, dna, cell, biology, immune, reproduction, orchestrator, worker, api, cli, mcp, simple-cli, sensorimotor` + `sqlite-udfs, storage-gate` |
-| MCP | `shared/toolDefinitions.json` vs `mcp/toolDefinitions.json`, `mcp/*.js` | `node mcp/index.js` (stdio), leases `GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS` | 35 outils partagés, 27 exposés côté MCP ; écart à justifier outil par outil |
+| MCP | `shared/toolDefinitions.json` vs `mcp/toolDefinitions.json`, `mcp/*.js` | `node mcp/index.js` (stdio), leases `GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS` | 36 définitions partagées par catalogue (`shared/toolDefinitions.json`, `mcp/toolDefinitions.json`), 176 outils déclarés côté backend (`MCP_TOOLS_LIST`) ; le nombre exposé via `tools/list` varie selon la lease active et la configuration (aucun sans lease, fail-closed) |
 | Intégrations | `integrations/ide`, `examples/`, `scripts/`, `backend/bin` | CLI opérateur, orchestrateur `genos-orchestrate`, démos | 1 contrat IDE (`genos-extension-contract.json`), ~50 programmes `backend/bin`, démos `examples/` |
 
 ## 2. Fiche type (une par service)
@@ -36,7 +36,7 @@ Lots proposés (ordre du plan) : morphogenèse, racine, holobionte, mathematical
 ## 4. Ponts de frontières (étape 5 anticipée)
 
 - Node↔Rust : seul `createSnapshot` exige sortie nulle + schéma valide + reçu `genos.rust-bridge-snapshot/v1` ; autres ponts sans reçus systématiques (cf. matrice §11).
-- backend↔MCP : registre + lease + schéma avant `preValidateTool`/docking ; écart 35 vs 27 outils à documenter.
+- backend↔MCP : registre + lease + schéma avant `preValidateTool`/docking ; l'écart entre les 36 définitions partagées et les 176 outils déclarés backend tient aux surfaces (schémas publics vs registre de dispatch runtime : outils CLI, biologiques et primitives de stratégie) et reste à justifier outil par outil.
 - Intégrations externes : contrat IDE `genos.ide/v1`, providers, budgets ; aucun succès transport compté sans gate.
 
 ## 5. Critère de sortie de l'étape 1
