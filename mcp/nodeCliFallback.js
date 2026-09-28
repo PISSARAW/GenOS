@@ -15,19 +15,54 @@ function writeJson(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2));
 }
 
+export const RESULT_STATUSES = Object.freeze({
+  COMPLETED: 'completed',
+  SIMULATED: 'simulated',
+  UNAVAILABLE: 'capability_unavailable',
+  FAILED: 'failed',
+});
+
 function completed(data) {
-  return { success: true, status: 'completed', simulated: false, fallbackUsed: true, ...data };
+  return { success: true, status: RESULT_STATUSES.COMPLETED, simulated: false, fallbackUsed: true, ...data };
+}
+
+function simulated(operation, reason, data = {}) {
+  return {
+    success: false,
+    status: RESULT_STATUSES.SIMULATED,
+    simulated: true,
+    fallbackUsed: true,
+    operation,
+    error: reason,
+    ...data,
+  };
+}
+
+function failed(operation, reason, data = {}) {
+  return {
+    success: false,
+    status: RESULT_STATUSES.FAILED,
+    simulated: false,
+    fallbackUsed: true,
+    operation,
+    error: reason,
+    ...data,
+  };
 }
 
 function unavailable(operation, reason) {
   return {
     success: false,
-    status: 'capability_unavailable',
+    status: RESULT_STATUSES.UNAVAILABLE,
     simulated: false,
     fallbackUsed: true,
     operation,
     error: reason,
   };
+}
+
+export function isBinaryMissing(error) {
+  return !!error && (error.code === 'ENOENT' || String(error.message || '').includes('ENOENT'));
 }
 
 function snapshotFallback(toolArgs, options) {
