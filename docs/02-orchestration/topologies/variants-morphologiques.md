@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : inventaire central des variants Morphogenèse provenant des registres locaux
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-09-28
 
 Le registre Morphogenèse expose un catalogue commun de variants, tout en conservant les
 registres locaux comme sources de vérité pour leurs politiques. Ce catalogue permet
@@ -64,9 +64,11 @@ une copie défensive de l'entrée. Un variant inconnu renvoie `null`.
   peut inclure la calibration des faux positifs et la détection d'auto-immunité.
 - Les variants Biocénose marqués `PARTIAL` et les variants Holobionte sont exposés avec une
   maturité partielle; leur présence dans le catalogue ne les promeut pas au statut complet.
-- Trinity choisit parmi les variantes avec adaptateur actif; Factorial, Recursive et Oracular
-  sont marqués conceptuels et exclus de l'auto-sélection. Jury, Adaptive, Counterfactual et
-  Heterogeneous restent partiels et signalent leurs limites dans le reçu.
+- Trinity déclare les douze presets et politiques exécutables, dont Factorial, Recursive et
+  Oracular. Le choix automatique est signalé par la mission; le reçu expose les adaptateurs
+  requis et leurs contrats, et refuse un adaptateur non chargeable ou indisponible. Les
+  modules spécialisés existent, mais ce contrat ne prouve pas que chaque adaptateur est
+  invoqué et vérifié dans le cycle complet d'une mission; cette intégration reste à valider.
 - Métapopulation garde quatre noms historiques (`balanced`, `resilient`, `exploratory`,
   `conservative`) en plus des douze identifiants de sa fiche; la sélection règle le quorum,
   la migration, le scope persistant et le graphe de corridors, sans activer tous les mécanismes

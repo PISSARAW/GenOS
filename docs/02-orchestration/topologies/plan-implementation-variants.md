@@ -1,7 +1,7 @@
 # Plan d'implémentation des variants des huit topologies
 
 - **Statut** : Implémentation en cours; couverture initiale branchée sur les huit topologies
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-09-28
 - **Décision d'architecture** : [ADR 0124](../../adr/0124-selection-automatique-des-variants.md)
 
 ## Objectif
@@ -38,9 +38,9 @@ variant dans le registre.
 | Holobionte | Douze identifiants et sélection par mission; préconditions vérifiées | Politique jointe à la composition host/symbiotes | Les modules mémoire, succession, outils et réseau n'appliquent pas tous encore leur politique à leurs opérations |
 | Syncytium | Auto-sélection et choix explicite | Schéma, session, cohérence, réplication et réparation | Human–AI reste conditionné aux capacités d'interface |
 | Rhizome | Douze choix disponibles et sélection par signaux | Routage, croissance, pruning et portée persistante | Les transitions de politique en cours de session restent à mesurer |
-| Métapopulation | Douze variants documentés et quatre alias historiques; sélection explicite/automatique persistée | Quorum, migration, diversité inter-îles, corridors initiaux et source-sink adaptatifs, trials de recolonisation Classic Patch, patches éphémères, contrôleur Anti-Synchrony, gates fédérés/culturels, adaptateurs de recherche et d'évolution | Rescue SLA observé mais secours soumis aux adaptateurs; l'évaluateur de colonie, le solveur et le moteur Rust doivent être fournis; pas encore de réserve persistante de fondateurs, QD/speciation, phylogénie culturelle complète, démons résidents ou rebouclage automatique de la cryptobiose |
+| Métapopulation | Douze variants documentés et quatre alias historiques; sélection explicite/automatique persistée | Quorum, migration, diversité inter-îles, source-sink adaptatif; les rotations temporelles source/sink sont persistées comme événements, relues par l'observateur régional et vérifiées contre les transitions périmées; trials Classic Patch, patches éphémères, Anti-Synchrony, gates fédérés/culturels, adaptateurs de recherche et d'évolution | Rescue SLA observé mais secours soumis aux adaptateurs; l'évaluateur de colonie, le solveur et le moteur Rust doivent être fournis; pas encore de réserve persistante de fondateurs, QD/speciation, phylogénie culturelle complète, démons résidents ou rebouclage automatique de la cryptobiose |
 | Biome | Onze variants; explicite validé et sélection par mission | `advance_variant` persistant; allocation vectorielle/enchères, foraging-curiosité et archive, QD/CVT, succession à preuves, extinction/refuge/recolonisation, saisons inter-missions, génération POET bornée, coévolution adversariale abstraite, écologie des sources, scheduler compute, feedback multi-échelle | Le scheduler ne migre/exécute pas les fournisseurs; POET, attaques et fitness demandent des preuves externes; pas encore de daemon autonome ni benchmarks par variant |
-| Trinity | Douze identifiants classés; variantes exécutables/partielles choisies par signal | Consignes par monde et sélection comparative existante | Factorial, Recursive et Oracular sont conceptuels; Jury, Adaptive, diversité fournisseurs et interventions contrefactuelles restent partiels |
+| Trinity | Douze presets choisis par signal de mission ou explicitement; préconditions contrôlées et adaptateurs requis vérifiés | Consignes distinctes par monde; reçu traçable avec adaptateurs et fonctions attendus; comparateur Pareto et modules spécialisés disponibles | Le cycle de mission n'invoque ni ne vérifie encore systématiquement chaque adaptateur déclaré; valider notamment les sorties Factorial, Recursive, Oracular, Jury, Adaptive, diversité fournisseurs et interventions contrefactuelles avant de considérer ces parcours complets |
 
 Ces branchements rendent le choix traçable et opérant au dispatch, mais ne valident pas encore
 la fin de l'objectif. La maturité centrale reste `partial` quand une politique n'agit pas sur
