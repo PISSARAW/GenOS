@@ -11,9 +11,12 @@ function fail(code, message) {
 }
 
 function validateSamples(samples, minimum) {
-  if (!Array.isArray(samples) || samples.length < minimum || samples.some((sample) => !Number.isFinite(sample.value) || typeof sample.sourceRef !== 'string' || !sample.sourceRef.trim())) {
+  if (!Array.isArray(samples) || samples.length < minimum || samples.some((sample) => !sample
+    || typeof sample !== 'object' || Array.isArray(sample) || !Number.isFinite(sample.value)
+    || typeof sample.sourceRef !== 'string' || !sample.sourceRef.trim())) {
     fail('PHYSICS_INSUFFICIENT_DATA', `At least ${minimum} finite, referenced samples are required.`);
   }
+  return samples.map((sample) => ({ value: sample.value, sourceRef: sample.sourceRef.trim() }));
 }
 
 function mean(samples) {
@@ -30,13 +33,30 @@ function verifySources(samples) {
   return refs;
 }
 
-async function verifyStoredEvidence(db, sourceRefs) {
-  for (const receiptId of sourceRefs) {
+function verifyMeasurementEvidence(receipt, sample, input) {
+  const payload = receipt?.payload || {};
+  const measured = payload.delta?.[input.parameterId];
+  const valid = receipt?.contractType === 'WorldTransition'
+    && payload.context?.missionClass === input.missionClass
+    && Number.isFinite(measured) && valuesMatch(measured, sample.value);
+  if (!valid) fail('PHYSICS_INSUFFICIENT_DATA', `Evidence receipt '${sample.sourceRef}' does not substantiate this mission parameter sample.`);
+  const hasProvenance = receipt.sourceRefs.length > 0
+    || (Array.isArray(payload.evidenceRefs) && payload.evidenceRefs.some((ref) => typeof ref === 'string' && ref.trim()));
+  if (!hasProvenance) fail('PHYSICS_INSUFFICIENT_DATA', `Evidence receipt '${sample.sourceRef}' has no source provenance.`);
+}
+
+function valuesMatch(actual, expected) {
+  const precision = Number.EPSILON * Math.max(1, Math.abs(actual), Math.abs(expected)) * 4;
+  return Math.abs(actual - expected) <= precision;
+}
+
+async function verifyStoredEvidence(db, samples, input) {
+  for (const entry of samples) {
+    const sample = { ...entry, sourceRef: entry.sourceRef.trim() };
+    const receiptId = sample.sourceRef;
     const receipt = await loadReceipt(db, receiptId);
     if (!receipt) fail('PHYSICS_INSUFFICIENT_DATA', `Evidence receipt '${receiptId}' is missing.`);
-    const hasProvenance = receipt.sourceRefs.length > 0
-      || (Array.isArray(receipt.payload.evidenceRefs) && receipt.payload.evidenceRefs.some((ref) => typeof ref === 'string' && ref.trim()));
-    if (!hasProvenance) fail('PHYSICS_INSUFFICIENT_DATA', `Evidence receipt '${receiptId}' has no source provenance.`);
+    verifyMeasurementEvidence(receipt, sample, input);
   }
 }
 
@@ -47,18 +67,38 @@ async function latestVersion(db, missionClass, parameterId) {
     .reduce((version, item) => Math.max(version, item.version), 0);
 }
 
+function validateCandidateBounds(bounds) {
+  const valid = bounds && typeof bounds === 'object' && !Array.isArray(bounds)
+    && Number.isFinite(bounds.min) && Number.isFinite(bounds.max) && bounds.min <= bounds.max;
+  if (!valid) fail('PHYSICS_BOUND_VIOLATION', 'Explicit ordered bounds are required.');
+}
+
+function validateCandidateStatistics(stats) {
+  if (![stats.estimate, stats.holdoutMean, stats.observedDrift].every(Number.isFinite)) {
+    fail('PHYSICS_INSUFFICIENT_DATA', 'Sample arithmetic must remain finite.');
+  }
+  if (stats.estimate < stats.bounds.min || stats.estimate > stats.bounds.max) {
+    fail('PHYSICS_BOUND_VIOLATION', 'Learned value falls outside the declared bounds.');
+  }
+  if (stats.observedDrift > stats.maxValidationDrift) {
+    fail('PHYSICS_VALIDATION_FAILED', 'Holdout observations disagree beyond the declared tolerance.');
+  }
+}
+
 function buildCandidate(input, version) {
-  validateSamples(input.trainingSamples, 3);
-  validateSamples(input.validationSamples, 2);
-  if (!input.bounds || !Number.isFinite(input.bounds.min) || !Number.isFinite(input.bounds.max) || input.bounds.min > input.bounds.max) fail('PHYSICS_BOUND_VIOLATION', 'Explicit ordered bounds are required.');
-  if (!Number.isFinite(input.maxValidationDrift) || input.maxValidationDrift < 0) fail('PHYSICS_VALIDATION_FAILED', 'A non-negative holdout drift threshold is required.');
-  const sourceRefs = verifySources([...input.trainingSamples, ...input.validationSamples]);
-  const estimate = mean(input.trainingSamples);
-  const holdoutMean = mean(input.validationSamples);
+  const trainingSamples = validateSamples(input.trainingSamples, 3);
+  const validationSamples = validateSamples(input.validationSamples, 2);
+  validateCandidateBounds(input.bounds);
+  if (!Number.isFinite(input.maxValidationDrift) || input.maxValidationDrift < 0) {
+    fail('PHYSICS_VALIDATION_FAILED', 'A non-negative holdout drift threshold is required.');
+  }
+  const allSamples = [...trainingSamples, ...validationSamples];
+  const sourceRefs = verifySources(allSamples);
+  const estimate = mean(trainingSamples);
+  const holdoutMean = mean(validationSamples);
   const observedDrift = Math.abs(holdoutMean - estimate);
-  if (estimate < input.bounds.min || estimate > input.bounds.max) fail('PHYSICS_BOUND_VIOLATION', 'Learned value falls outside the declared bounds.');
-  if (observedDrift > input.maxValidationDrift) fail('PHYSICS_VALIDATION_FAILED', 'Holdout observations disagree beyond the declared tolerance.');
-  const samplePayload = { training: input.trainingSamples, validation: input.validationSamples };
+  validateCandidateStatistics({ estimate, holdoutMean, observedDrift, bounds: input.bounds, maxValidationDrift: input.maxValidationDrift });
+  const samplePayload = { training: trainingSamples, validation: validationSamples };
   return {
     missionClass: input.missionClass,
     parameterId: input.parameterId,
@@ -77,10 +117,11 @@ function buildCandidate(input, version) {
 }
 
 async function proposeParameter(db, input) {
-  if (!input.missionClass || !input.parameterId || !input.unit) fail('PHYSICS_INSUFFICIENT_DATA', 'Mission class, parameter ID and unit are required.');
+  if (!input || ['missionClass', 'parameterId', 'unit'].some((key) => typeof input[key] !== 'string' || !input[key].trim())) fail('PHYSICS_INSUFFICIENT_DATA', 'Mission class, parameter ID and unit are required.');
+  input = { ...input, missionClass: input.missionClass.trim(), parameterId: input.parameterId.trim(), unit: input.unit.trim() };
   const version = await latestVersion(db, input.missionClass, input.parameterId) + 1;
   const payload = buildCandidate(input, version);
-  await verifyStoredEvidence(db, payload.sourceRefs);
+  await verifyStoredEvidence(db, [...input.trainingSamples, ...input.validationSamples], input);
   const receipt = createReceipt('MissionPhysicsParameterSet', payload, { runId: input.runId, sourceRefs: payload.sourceRefs });
   const persisted = await persistReceipt(db, receipt, { eventType: 'MISSION_PHYSICS_PARAMETER_CANDIDATE' });
   return { ...persisted, receipt };
