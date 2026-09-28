@@ -10,7 +10,12 @@ async function ensureColumn(ctx) {
   const { db, table, column, sqlType } = ctx;
   const existing = await db.all(`PRAGMA table_info(${table})`);
   if (!existing.some(c => c.name === column)) {
-    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${sqlType}`);
+    try {
+      await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${sqlType}`);
+    } catch (error) {
+      const refreshed = await db.all(`PRAGMA table_info(${table})`);
+      if (!refreshed.some(c => c.name === column)) throw error;
+    }
   }
 }
 
@@ -145,7 +150,7 @@ async function migrateSurvivalWake(db) {
     await db.exec(SURVIVAL_WAKE);
     await db.exec('CREATE INDEX IF NOT EXISTS idx_survival_wake_conditions_agent ON survival_wake_conditions(agent_id, status)');
   } else if (!cols.some(c => c.name === 'snapshot_id')) {
-    await db.exec('ALTER TABLE survival_wake_conditions ADD COLUMN snapshot_id TEXT');
+    await ensureColumn({ db, table: 'survival_wake_conditions', column: 'snapshot_id', sqlType: 'TEXT' });
   }
 }
 
