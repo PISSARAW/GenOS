@@ -18,9 +18,15 @@ async function verifyTrinityDispatch() {
 }
 
 async function verifyATeamDispatch() {
-  const result = await composeMode({ mode: 'a-team', mission: 'Build a React interface and an Express API.' });
+  const result = await composeMode({
+    mode: 'a-team', mission: 'Build a React interface and an Express API.',
+    options: { variantId: 'pipeline' }
+  });
   assert.ok(result.members.length >= 2);
   assert.ok(result.members.every((member) => member.mission.includes('Project goal:')));
+  assert.equal(result.variant, 'pipeline');
+  assert.equal(result.variantSelection.method, 'explicit');
+  assert.equal(result.variantPolicy.communication, 'sequential_handoff');
   await assert.rejects(
     () => composeMode({ mode: 'a_team', mission: 'Solve one simple recurrence.' }),
     { code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED' }

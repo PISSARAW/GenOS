@@ -56,7 +56,7 @@ function composeTrinity({ mission, options = {} }) {
   return { members, variant: members[0]?.variant, variantSelection: members[0]?.variantSelection };
 }
 
-function composeATeam({ mission }) {
+function composeATeam({ mission, options = {} }) {
   const analysis = aTeamService.analyzeMission(mission);
   if (!analysis.recommended) {
     throw Object.assign(new Error('A-Team requires at least two detected competency domains.'), {
@@ -64,14 +64,25 @@ function composeATeam({ mission }) {
     });
   }
   const dependencies = Object.fromEntries(analysis.members.map((member) => [member.label, member.dependsOn]));
+  const members = aTeamService.compose({
+    projectGoal: mission,
+    subSystems: analysis.detectedDomains,
+    assignedRoles: analysis.members.map((member) => member.role),
+    modelTiers: analysis.members.map((member) => member.modelTier),
+    dependencies
+  });
+  const dispatch = require('./aTeam/dispatchPolicyService').prepareDispatchPolicy({
+    mission: { goal: mission, variant: options.variantId || options.variant }, members
+  });
   return {
-    members: aTeamService.compose({
-      projectGoal: mission,
-      subSystems: analysis.detectedDomains,
-      assignedRoles: analysis.members.map((member) => member.role),
-      modelTiers: analysis.members.map((member) => member.modelTier),
-      dependencies
-    })
+    members: dispatch.members,
+    variant: dispatch.policy.variant,
+    variantPolicy: dispatch.policy,
+    variantSelection: {
+      variant: dispatch.policy.variant,
+      method: dispatch.policy.evidence.explicit ? 'explicit' : 'mission_fit',
+      reasons: dispatch.policy.evidence.signals
+    }
   };
 }
 
