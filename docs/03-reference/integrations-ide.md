@@ -339,7 +339,7 @@ Un plugin JetBrains réutilise exactement le même protocole. La différence est
 
 ### 11.3 Antigravity
 
-Antigravity est déclaré dans le contrat et peut utiliser le même cycle HTTP/gRPC. Aucun adaptateur spécifique n'apparaît dans le dépôt ; sa compatibilité dépend donc de sa capacité à implémenter le contrat `genos.ide/v1`, l'authentification et les APIs de workspace.
+Antigravity est déclaré dans le contrat et peut utiliser le même cycle HTTP/gRPC. Le dépôt fournit aussi `integrations/antigravity/configure-mcp.cjs`, qui prépare une configuration MCP stdio du serveur Node avec un bail par défaut limité à `genos_snapshot`. Ce raccordement MCP ne constitue pas un adaptateur du contrat `genos.ide/v1` et ne prouve pas une session réelle ni la compatibilité des API workspace d'Antigravity.
 
 ### 11.4 Supervision d'une tâche longue
 

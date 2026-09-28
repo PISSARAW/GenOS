@@ -35,6 +35,15 @@ async function main() {
       'retry backoff blocks early redelivery');
     assert.equal(await claimPendingDelivery(db, { ...retry, owner: 'attempt-d', now: 3500 }), true,
       'delivery becomes claimable when retry backoff expires');
+
+    await db.run("INSERT INTO signal_deliveries (signal_id, subscriber_agent_id) VALUES ('sig-3', 'agent-1')");
+    const terminal = { signalId: 'sig-3', subscriberAgentId: 'agent-1', owner: 'attempt-e', now: 5000, leaseMs: 1000 };
+    assert.equal(await claimPendingDelivery(db, terminal), true);
+    assert.equal(await releaseDeliveryClaim(db, { ...terminal, error: 'invalid envelope', terminal: true }), true);
+    assert.equal(await claimPendingDelivery(db, { ...terminal, owner: 'attempt-f', now: 100000 }), false,
+      'terminally quarantined deliveries never re-enter the retry queue');
+    const quarantined = await db.get("SELECT dead_lettered_at_ms FROM signal_delivery_claims WHERE signal_id = 'sig-3'");
+    assert.equal(quarantined.dead_lettered_at_ms, 5000);
     console.log('Signal delivery claim tests passed.');
   } finally {
     await db.close();

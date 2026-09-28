@@ -85,7 +85,18 @@ async function dispatchPendingDelivery(input) {
   if (!claimed) return false;
   try {
     const row = await loadSignalForDelivery(db, signalId, recipientId);
-    const signal = decodeSignal(row);
+    if (!row) {
+      await releaseClaim({ db, claimInput,
+        error: 'Signal expired or was removed before delivery.', terminal: true });
+      return false;
+    }
+    let signal;
+    try {
+      signal = decodeSignalRow(row);
+    } catch (error) {
+      await releaseClaim({ db, claimInput, error: error.message, terminal: true });
+      return false;
+    }
     if (!isVerifiedSignal(signal)) {
       await releaseClaim({ db, claimInput, error: 'Signal envelope is missing or invalid.', terminal: true });
       return false;
@@ -107,10 +118,6 @@ async function loadSignalForDelivery(db, signalId, recipientId) {
     FROM signal_blobs s JOIN signal_deliveries d ON d.signal_id = s.signal_id
     WHERE s.signal_id = ? AND d.subscriber_agent_id = ? AND d.status = 'pending'
       AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)`, [signalId, recipientId]);
-}
-
-function decodeSignal(row) {
-  return decodeSignalRow(row);
 }
 
 function isVerifiedSignal(signal) {

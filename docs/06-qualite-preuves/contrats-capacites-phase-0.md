@@ -1,6 +1,6 @@
 # Contrats d'acceptation Phase 0 — sept capacités manquantes
 
-- **Statut** : Spécification opposable ; phases 2 et 5 partiellement implémentées. Les phases 1, 3–4, 6–7 restent ouvertes.
+- **Statut** : phase 1 écartée (SQLite reste la seule base supportée) ; phases 2–7 disposent de parcours ou prototypes partiels, sans validation complète des capacités de bout en bout.
 - **Portée** : figer les contrats des phases 1 à 7 avant tout code.
 - **Dernière revue** : 2026-09-28
 - **Références** : [statuts-maturite.md](statuts-maturite.md), [registre-services.md](registre-services.md), [plan-validation-indicateurs.md](plan-validation-indicateurs.md), ADR 0162.
@@ -16,29 +16,27 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 | `validé` | Parcours nominal + refus + limites couverts par tests, reçu versionné persisté | `expérimental` complet, candidat à `actif` |
 | `annonçable` | Validé + matrice de câblage + documentation et exemples à jour | `actif` |
 
-## 1. Stockage PostgreSQL (phase 1)
+## 1. Portabilité du stockage (phase 1 — PostgreSQL écarté)
 
-- **Interface** : `backend/src/services/storageBackend.js` — `StorageBackend`, `SQLiteBackend`, `PostgreSQLBackend`, `createStorageBackend`.
-- **Entrées** : configuration (`connectionString` ou `host/port/database/user/password`, `poolMax`, `sslMode`, `statementTimeoutMs`, `schema`). Variable `GENOS_STORAGE_BACKEND`.
-- **Sorties** : `open`, `close`, `exec`, `run` (`{changes, lastID}`), `get`, `all`, `withTransaction`, `withWriteRetry`, `backupDatabaseFile`, `isLockError`.
-- **Erreurs** : `STORAGE_BACKEND_UNKNOWN`, `STORAGE_OPEN_FAILED`, `STORAGE_TX_ROLLBACK`, `STORAGE_MIGRATION_MISMATCH`, `STORAGE_UNSUPPORTED_OPTION`. Toute option non prise en charge est refusée, jamais ignorée silencieusement.
-- **Permissions** : chaîne de connexion hors dépôt (`.env`) ; aucun secret en log ; scopes multi-tenant conservés à l'identique de SQLite.
-- **Limites** : mono-instance visée en premier ; la haute disponibilité n'est pas prouvée par le seul support PostgreSQL. FTS, `rowid`, extensions vectorielles et sauvegardes fichier font l'objet d'une matrice de compatibilité explicite.
-- **Preuves** : migrations depuis base vide et depuis version supportée, transaction annulée, erreur de connexion, reprise, scopes multi-tenant ; suites backend vertes sur SQLite **et** PostgreSQL.
+- **Décision de portée** : SQLite reste le stockage portable supporté. Ne pas ajouter de backend PostgreSQL tant que bootstrap, migrations, SQL, fonctionnalités SQLite (FTS, `rowid`, vecteurs, sauvegarde) et suites n'ont pas une parité démontrée. Un adaptateur de connexion seul ne satisfait pas cette exigence.
+- **Statut** : phase fermée comme non retenue dans cette feuille de route ; aucune compatibilité PostgreSQL n'est annoncée. Toute réouverture exige une décision explicite et une preuve de portabilité complète.
+
 
 ## 2. Moteur d'évaluation des indicateurs (phase 2)
 
-- **Avancement** : l'évaluateur de reçus vérifie le schéma, le profil, la provenance, les hashes des artefacts inline, les références de preuve et la progression cumulative des étapes. Le CLI lit un reçu JSON sur stdin. Aucun score agrégé ni promotion automatique n'est produit ; le branchement au stockage persistant et l'évaluation multi-reçus restent ouverts.
+- **Avancement** : l'évaluateur vérifie chaque reçu, agrège plusieurs reçus par propriété avec priorité conservatrice aux statuts négatifs/inconnus, et persiste le rapport comme reçu versionné dans SQLite, avec hash, événement transactionnel et idempotence. `--persist` est explicite. Aucun score agrégé ni promotion automatique n'est produit.
 
-- **Interface** : `backend/bin/genos-indicators.cjs` + `backend/src/services/indicatorReceiptService.js` (évaluation en lecture seule d'un reçu JSON transmis sur stdin).
+- **Interface** : `backend/bin/genos-indicators.cjs evaluate [--persist]` + `indicatorReceiptService` + `indicatorEvaluationPersistenceService` (reçu ou `{receipts: [...]}` JSON sur stdin).
 - **Entrées** : reçu versionné (`propriété`, `profil`, `protocole`, `version`, `résultat`, `artefacts`, `limites`, `provenance`). Profils `node-runtime`, `rust-runtime`, `composed-api` ; `composed-perceptual` reste `planned` sans substrat instrumenté.
 - **Sorties** : état par étape (`specified`, `implemented`, `causal`, `generalized`, `operational`) parmi `passed`, `failed`, `inconclusive`, `not_run`, `unavailable` ; rapport traçable.
 - **Erreurs** : `RECEIPT_SCHEMA_UNKNOWN`, `RECEIPT_REF_MISSING`, `RECEIPT_EVIDENCE_INCOHERENT`, `RECEIPT_PROFILE_MISMATCH`. Schéma inconnu, référence absente ou preuve incohérente = rejet.
 - **Permissions** : lecture seule sur les reçus ; aucune promotion sans reçu valide.
 - **Limites** : une étape non évaluée reste `not_run` ou `unavailable`, jamais un succès par défaut ; l'agrégation ne masque aucune propriété échouée ou inconnue ; les indicateurs sont des propriétés fonctionnelles mesurées, pas un score de conscience.
-- **Preuves** : un reçu valide fait évoluer uniquement les étapes qu'il prouve ; un reçu manquant, invalide ou de profil incompatible ne promeut rien.
+- **Preuves** : tests de cohérence mono/multi-reçus, statuts conservateurs, duplicats, reçus invalides et profils incompatibles ; persistance SQLite, hash de rapport, idempotence et événement. Ces preuves valident le moteur, pas les propriétés mesurées elles-mêmes.
 
-## 3. Mécanismes Rhizome déclarés conceptuels (phase 3)
+## 3. Mécanismes Rhizome (phase 3)
+
+- **Avancement** : `mergePolicyEvaluationService.evaluateMerge` calcule une décision bornée depuis des métriques explicites, refuse les révisions de graphe périmées et produit un hash de reçu. Cette fonction reste isolée : elle n'est pas encore branchée aux opérations de fusion, de pruning, de transfert ni au bail runtime.
 
 - **Interface** : fonctions déterministes isolées puis raccordées au graphe (`rhizomeCoordinationService`, politiques de fusion, pruning, transfert, bail).
 - **Entrées** : fitness de pont, variance de latence, score de provenance, couverture globale `C_min`, fitness minimale `F_min`, seuil de fiabilité du transfert, bail fondé sur la stabilité — chacun avec unité, source de données et politique d'usage.
@@ -50,6 +48,8 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 4. Validation causale étendue (phase 4)
 
+- **Avancement** : `replicatedCausalValidationService.runReplicatedExperiment` exécute des bras appariés sur au moins trois seeds, clone le même état initial pour chaque bras, vérifie l'empreinte de l'environnement et produit un reçu causal ; la persistance est optionnelle. Le runner fourni par l'appelant n'est pas encore relié à un parcours de mission ou au registre de causalité.
+
 - **Interface** : `proceduralCausalValidationService` étendu + registre des runs + `causalDiff` persistant.
 - **Entrées** : intervention (variable manipulée, groupe témoin, environnement, budget, état initial, résultat observé), snapshot initial sérialisé, seeds.
 - **Sorties** : forks isolés baseline/intervention vérifiés (identité avant, indépendance pendant), écarts par intervention avec incertitude quand le protocole le permet, attribution bornée (ce qui est attribuable et ce qui reste indéterminé).
@@ -60,7 +60,7 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 5. Service de cognition sociale (phase 5)
 
-- **Avancement** : `cognitionService` expose `social-cognition.position-map` via le routeur philosophique. La cartographie est descriptive et classée `partial`; elle n’accorde aucune autorité. Les critères complets ci-dessous restent ouverts.
+- **Avancement** : `cognitionService` expose `social-cognition.position-map` via le routeur philosophique. La carte descriptive exige acteurs, sources/provenance, contexte et relations déclarés ; elle retourne inconnues/désaccords explicitement fournis et refuse l'élévation en autorité. Validée dans ce périmètre descriptif, sans prétention à inférer états mentaux ou vérité.
 
 - **Interface** : `cognitionService` + adaptateur au routeur philosophique + définitions au registre de maturité.
 - **Entrées** : schéma structuré — acteurs déclarés, affirmations, sources, contexte, incertitudes, relations. Analyse des seules informations explicitement fournies.
@@ -72,6 +72,8 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 6. Intégration Antigravity (phase 6)
 
+- **Avancement** : `integrations/antigravity/configure-mcp.cjs` prépare une entrée MCP stdio en conservant les autres serveurs et en appliquant un bail par défaut limité à `genos_snapshot`. Cela vérifie la configuration, pas une session réelle ni une certification de l'IDE.
+
 - **Interface** : adaptateur versionné du contrat `genos.ide/v1` (si réalisable), sinon statut de client générique non certifié.
 - **Entrées** : protocole d'extension réellement offert par Antigravity (versions, APIs), authentification, scopes workspace, diagnostics, progression de tâche.
 - **Sorties** : parcours IDE réel, reproductible et versionné ; opérations fichier via primitives VFS et leases.
@@ -81,6 +83,8 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 - **Preuves** : installation propre, session longue, fermeture/réouverture, expiration de progression, refus d'accès.
 
 ## 7. Constantes physiques par type de mission (phase 7)
+
+- **Avancement** : `missionPhysicsParameterService` estime une valeur bornée depuis des échantillons d'entraînement et de validation, persiste un reçu versionné en état `candidate`, exige une activation et permet le rollback vers la version antérieure. `adaptiveParameterService.loadFromDatabase` consomme les seuls reçus actifs dont la valeur respecte encore les bornes runtime pour le `missionClass` correspondant. Cela valide le chargement contrôlé, pas un gain de performance généralisable.
 
 - **Interface** : paramètres persistés par type de mission (version, échantillons, provenance, bornes, incertitude), séparés des valeurs par défaut.
 - **Entrées** : constantes paramétrables identifiées, observations admissibles, résultats de mission utilisés comme signal, conditions minimales d'apprentissage.

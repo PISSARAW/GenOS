@@ -78,6 +78,13 @@ async function persist(key, scope, state) {
 async function load(scope = 'global') {
   try {
     const db = await getDatabase();
+    return await loadFromDatabase(db, scope);
+  } catch (_) { return snapshot(scope); }
+}
+
+async function loadFromDatabase(db, scope = 'global') {
+  for (const key of Object.keys(DEFINITIONS)) cache.delete(cacheKey(scope, key));
+  try {
     const rows = await db.all('SELECT scope, parameter_key, value, sample_count, success_count, last_signal FROM adaptive_parameters WHERE scope = ?', scope);
     for (const row of rows) {
       cache.set(cacheKey(row.scope, row.parameter_key), {
@@ -85,8 +92,23 @@ async function load(scope = 'global') {
         successCount: Number(row.success_count), lastSignal: Number(row.last_signal)
       });
     }
-  } catch (_) {}
+  } catch (_) { /* Older or test databases may not have adaptive parameters. */ }
+  await loadMissionPhysicsParameters(db, scope);
   return snapshot(scope);
+}
+
+async function loadMissionPhysicsParameters(db, scope) {
+  try {
+    const { resolveActiveParameter } = require('./missionPhysicsParameterService');
+    for (const key of Object.keys(DEFINITIONS)) {
+      const receipt = await resolveActiveParameter(db, scope, key);
+      if (!receipt || boundedValue(key, receipt.payload.value) !== receipt.payload.value) continue;
+      cache.set(cacheKey(scope, key), {
+        value: receipt.payload.value, sampleCount: receipt.payload.sampleCount,
+        successCount: 0, lastSignal: receipt.payload.value,
+      });
+    }
+  } catch (_) { /* Versioned parameter receipts may not exist before migration. */ }
 }
 
 function snapshot(scope = 'global') {
@@ -150,5 +172,5 @@ async function observeSurvivalExperience(scope, experience = {}) {
 
 module.exports = {
   currentValue, routeWeights, load, snapshot, observe, observeRoute,
-  observeSurvivalExperience, DEFINITIONS
+  observeSurvivalExperience, DEFINITIONS, loadFromDatabase
 };

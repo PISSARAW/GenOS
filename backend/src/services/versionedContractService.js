@@ -9,6 +9,7 @@ const SCHEMAS = Object.freeze({
   VerifiedRendering: ['sentences', 'verification'],
   CausalInterventionReceipt: ['experimentId', 'snapshotId', 'control', 'intervention', 'seeds', 'replicates', 'metricsBefore', 'metricsAfter', 'pairedEffects', 'verdict', 'evidenceRefs'],
   IndicatorEvaluation: ['evaluationSchema', 'receiptCount', 'propertyCount', 'assessment', 'reportHash', 'report'],
+  MissionPhysicsParameterSet: ['missionClass', 'parameterId', 'version', 'unit', 'value', 'uncertainty', 'bounds', 'sampleCount', 'sourceRefs', 'trainingHash', 'validation', 'state', 'previousReceiptId'],
 });
 
 const STATUSES = new Set(['candidate', 'niche', 'promoted', 'dormant', 'fossilized', 'extinct']);
@@ -97,6 +98,69 @@ function validateIndicatorEvaluation(payload, errors) {
   validateIndicatorReport(payload, errors);
 }
 
+function validateMissionPhysicsParameter(payload, errors) {
+  validatePhysicsIdentity(payload, errors);
+  validatePhysicsEstimate(payload, errors);
+  validatePhysicsBounds(payload, errors);
+  validatePhysicsProvenance(payload, errors);
+  validatePhysicsValidation(payload, errors);
+  validatePhysicsPreviousReceipt(payload, errors);
+}
+
+function validatePhysicsIdentity(payload, errors) {
+  const fields = ['missionClass', 'parameterId', 'unit'];
+  if (fields.some((field) => !nonEmpty(payload[field]))) {
+    errors.push(error('INVALID_PARAMETER', 'missionClass, parameterId and unit are required', 'identity'));
+  }
+  if (!Number.isInteger(payload.version) || payload.version < 1
+    || !Number.isInteger(payload.sampleCount) || payload.sampleCount < 3) {
+    errors.push(error('INVALID_VERSION_OR_COUNT', 'version and sampleCount are invalid', 'version'));
+  }
+}
+
+function validatePhysicsEstimate(payload, errors) {
+  if (!Number.isFinite(payload.value) || !Number.isFinite(payload.uncertainty) || payload.uncertainty < 0) {
+    errors.push(error('INVALID_ESTIMATE', 'value and non-negative uncertainty are required', 'value'));
+  }
+}
+
+function validatePhysicsBounds(payload, errors) {
+  const validBounds = isRecord(payload.bounds) && Number.isFinite(payload.bounds.min)
+    && Number.isFinite(payload.bounds.max) && payload.bounds.min <= payload.bounds.max;
+  if (!validBounds || payload.value < payload.bounds.min || payload.value > payload.bounds.max) {
+    errors.push(error('INVALID_BOUNDS', 'value must remain within explicit bounds', 'bounds'));
+  }
+}
+
+function validatePhysicsProvenance(payload, errors) {
+  const validRefs = stringList(payload.sourceRefs) && payload.sourceRefs.length >= 5
+    && new Set(payload.sourceRefs).size === payload.sourceRefs.length;
+  if (!validRefs) errors.push(error('INVALID_PROVENANCE', 'At least five distinct sample references are required', 'sourceRefs'));
+  if (!/^[a-f0-9]{64}$/.test(payload.trainingHash || '')) {
+    errors.push(error('INVALID_HASH', 'trainingHash must be a SHA-256 digest', 'trainingHash'));
+  }
+}
+
+function validatePhysicsValidation(payload, errors) {
+  const stateValid = ['candidate', 'active', 'rolled_back'].includes(payload.state);
+  if (!stateValid || !validHoldoutReceipt(payload.validation)) {
+    errors.push(error('INVALID_VALIDATION', 'Parameter requires passed holdout validation and known state', 'validation'));
+  }
+}
+
+function validHoldoutReceipt(validation) {
+  return isRecord(validation) && validation.status === 'passed'
+    && Number.isInteger(validation.sampleCount) && validation.sampleCount >= 2
+    && Number.isFinite(validation.observedDrift) && Number.isFinite(validation.maxDrift)
+    && validation.observedDrift <= validation.maxDrift;
+}
+
+function validatePhysicsPreviousReceipt(payload, errors) {
+  if (payload.previousReceiptId !== null && !nonEmpty(payload.previousReceiptId)) {
+    errors.push(error('INVALID_REFERENCE', 'previousReceiptId must be a receipt ID or null', 'previousReceiptId'));
+  }
+}
+
 function validateEvaluationSchema(payload, errors) {
   if (!nonEmpty(payload.evaluationSchema) || !payload.evaluationSchema.startsWith('genos.indicator-evaluation')) {
     errors.push(error('INVALID_EVALUATION', 'evaluationSchema must identify an indicator evaluation', 'evaluationSchema'));
@@ -153,7 +217,7 @@ function validateObjectField(payload, field, errors) {
   if (!isRecord(payload[field])) errors.push(error('INVALID_METRICS', `${field} must be an object`, field));
 }
 
-const validators = { MorphogeneticCandidate: validateMorphogenetic, WorldTransition: validateWorld, VerifiedRendering: validateRendering, CausalInterventionReceipt: validateCausal, IndicatorEvaluation: validateIndicatorEvaluation };
+const validators = { MorphogeneticCandidate: validateMorphogenetic, WorldTransition: validateWorld, VerifiedRendering: validateRendering, CausalInterventionReceipt: validateCausal, IndicatorEvaluation: validateIndicatorEvaluation, MissionPhysicsParameterSet: validateMissionPhysicsParameter };
 
 function validateContract(type, payload) {
   const errors = [];

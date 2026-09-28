@@ -9,6 +9,8 @@ const { initializeSchema } = require('./schema');
 const { seedDatabase } = require('./seed');
 const sqliteVec = require('sqlite-vec');
 const { AsyncLocalStorage } = require('async_hooks');
+
+const { assertControlPlaneBackendSelection } = require('../services/storageBackendSelection');
 let dbInstance = null;
 let currentDbPath = null;
 let dbInitialization = null;
@@ -59,6 +61,7 @@ function pruneDatabaseBackups(resolvedDbPath) {
   }
 }
 async function getDatabase(dbFilePath) {
+  assertControlPlaneBackendSelection();
   if (dbFilePath) {
     const targetPath = path.resolve(dbFilePath);
     process.env.GENOS_DB_PATH = targetPath;
