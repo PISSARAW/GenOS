@@ -1,10 +1,23 @@
 # Biomimétisme Cellulaire Spécialisé Non-Humain dans GenOS
 
-- **Statut** : Implémenté — primitives cnidocyte, électrocytes, choanocytes, iridophores, cellules de garde, trachéides, procaryotes et HGT sont disponibles dans le runtime.
+- **Statut** : Primitives locales testées — cnidocyte, électrocytes, choanocytes, iridophores, cellules de garde, trachéides, procaryotes et HGT sont des calculs locaux sous `crates/genos-biology/src/specialized_cells/`, pas des effets runtime intégrés.
 - **Portée** : `crates/genos-biology/src/specialized_cells/`, `backend/src/services/mcpLigandReceptorService.js`, outils MCP `genos_biomimicry_*`.
-- **Dernière revue** : 2026-09-17.
+- **Dernière revue** : 2026-09-28.
+- **Référence** : [inventaire-biologique.md](inventaire-biologique.md), [maturite-biologique.md](maturite-biologique.md).
 
-Ce document formalise les extensions biomimétiques inspirées des règnes animal, végétal et microbien dans GenOS, dépassant les architectures anthropomorphiques classiques pour introduire des primitives à haute résilience, zéro-latence et haute efficience computationnelle.
+Ce document décrit des primitives bio-inspirées comme vocabulaire d'architecture. Une simulation logicielle n'est pas une fonction biologique réelle : les chiffres physiques (15 MPa, 3 µs, 600 V, 30 Hz) sont des constantes de démonstration, pas des mesures.
+
+## 0. Limites vérifiées (lire avant usage)
+
+- **Cnidocyte** : `intercept_tool_threat` est un filtre par sous-chaînes (`eval_stimulus`) avec `latency_micros` recopiée depuis la constante `eversion_speed_micros: 2`. Ce n'est pas une latence mesurée et ce n'est pas branché à un point d'entrée réel. Aucune garantie « zéro-latence ».
+- **Électrocyte** : l'addition de voltages est un calcul local. Un calcul de tension n'est pas un consensus distribué ; il n'y a ni quorum multi-participants, ni timeouts, ni politique de désaccord prouvés.
+- **Choanocyte** : le tamisage est un filtre local sur un payload fourni. Aucun adaptateur de flux, aucune mesure de débit, pertes ou erreurs.
+- **Iridophore** : le rendu polymorphique est un formatage (ANSI, JSON, Markdown). Le mode `CrypticCamouflage` est un décalage César, pas un chiffrement ; il ne donne aucune propriété cryptographique et le camouflage n'est pas une mesure de sécurité.
+- **Cellule de garde** : le calcul d'ouverture est isolé. Il n'est pas branché sur un registre de ressources et ne fait pas de backpressure réelle.
+- **Trachéide** : `trigger_lignified_apoptosis` ne compile rien. Un identifiant `pipeline_id` ne signifie pas qu'un pipeline est compilé ; les ratios `1.0` et `50.0` sont des constantes, pas des gains mesurés.
+- **Procaryote / HGT** : le transfert est une copie d'objet locale. Aucune validation, lease ou révocation runtime.
+
+Tant qu'un module n'a pas de preuve bout en bout (attaque rejouée dans le chemin réel, artefact compilé exécuté, transfert refusé pour permissions), il reste une simulation explicitement étiquetée.
 
 ---
 
@@ -15,8 +28,8 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 * **Origine biologique :** Cellules explosives des cnidaires (méduses, coraux, anémones) projetant un nématocyste sous pression (15 MPa) en moins de $3\,\mu\text{s}$ pour harponner et neutraliser une menace.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/cnidocyte.rs`](../../../crates/genos-biology/src/specialized_cells/cnidocyte.rs) et [`backend/src/services/mcpLigandReceptorService.js`](../../../backend/src/services/mcpLigandReceptorService.js).
 * **Fonctionnement :**
-  - **Interception de toxines MCP à zéro-latence (< 3 µs) :** La méthode `intercept_tool_threat` identifie instantanément les signatures chimiques nocives (injections de prompts, pollutions de prototype `__proto__`, injections de commandes `; rm -rf`, payloads volumineux) et projette le stylet harponneur avant tout parsing JSON ou délibération LLM.
-  - **Amarrage stérique ligand-récepteur (Gibbs $\Delta G$) :** Les outils MCP sont configurés avec une poche catalytique active ; les arguments d'entrée forment un ligand moléculaire. Si l'affinité $\Delta G \le \Delta G_{\text{seuil}}$, la réaction enzymatique se déclenche sans passer par un validateur JSON Schema verbeux.
+  - **Filtre déterministe local (pas de zéro-latence mesurée) :** La méthode `intercept_tool_threat` identifie des sous-chaînes connues (injections de prompts, pollutions de prototype `__proto__`, injections de commandes `; rm -rf`, payloads volumineux) avant tout parsing JSON ou délibération LLM, enيكalcul local uniquement.
+  - **Amarrage stérique ligand-récepteur (Gibbs $\Delta G$) :** Les outils MCP sont configurés avec une poche catalytique active ; les arguments d'entrée forment un ligand moléculaire. Si l'affinité $\Delta G \le \Delta G_{\text{seuil}}$, la réaction enzymatique se déclenche sans passer par un validateur JSON Schema verbeux. Modèle proposé, non mesuré bout en bout.
   - **Rechargement métabolique :** Réarmement osmotique de la capsule nématocyste sous condition de réserve énergétique ATP (`reload`).
 * **Commandes CLI / MCP :**
   ```bash
@@ -29,9 +42,9 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 * **Origine biologique :** Cellules musculaires/nerveuses spécialisées (anguilles, raies) alignées en colonnes séries-parallèles pour sommer leurs potentiels d'action ($V = \sum V_i$) jusqu'à $600\,\text{V}-800\,\text{V}$.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/electrocyte.rs`](../../../crates/genos-biology/src/specialized_cells/electrocyte.rs)
 * **Fonctionnement :**
-  - **Empilement en série :** Chaque électrocyte génère un gradient transmembranaire de $150\,\text{mV}$.
-  - **Décharge synchrone à haute intensité :** Dépolarisation unifiée de milliers de cellules pour franchir le seuil d'arbitrage de consensus flash en un cycle d'horloge.
-  - **Recharge métabolique $Na^+/K^+$ :** Repolarisation coordonnée via le réservoir énergétique ATP.
+  - **Empilement en série (calcul local) :** Chaque électrocyte porte un gradient de $150\,\text{mV}$ en constante. La somme $V = \sum V_i$ est arithmétique, pas une mesure électrique.
+  - **Décharge synchronisée simulée :** Dépolarisation calculée en un appel de fonction. Aucun quorum, délai ou participant réel.
+  - **Recharge métabolique $Na^+/K^+$ :** Décrément d'un compteur ATP local.
 * **Commandes CLI / MCP :**
   ```bash
   genos biomimicry bio-feature --feature electrocyte --action voltage --param "cell_count=5000" --param "columns=1"
@@ -44,9 +57,9 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 * **Origine biologique :** Cellules à collerette et flagelle des éponges (Porifera) créant un flux d'eau unidirectionnel constant pour filtrer et phagocyter les particules nutritives en rejetant les débris.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/choanocyte.rs`](../../../crates/genos-biology/src/specialized_cells/choanocyte.rs)
 * **Fonctionnement :**
-  - **Aspiration continue sans blocage :** Battement flagellaire ($30\,\text{Hz}$) générant une dépression pour ingérer les flux de télémétrie, logs ou messages MCP.
-  - **Tamisage par maillage de microvillosités :** Capture des signaux à haute densité sémantique ($\ge 0.4$) et rejet automatique du bruit de fond.
-  - **Chambre choanodermique collective :** Agrégation en essaim pour paralléliser l'ingestion de flux massifs.
+  - **Aspiration simulée sans flux réel :** Fréquence $30\,\text{Hz}$ en constante pour calculer un score d'ingestion de flux fournis en entrée.
+  - **Tamisage local :** Capture des signaux à haute densité sémantique ($\ge 0.4$) en calcul local et rejet du bruit fourni.
+  - **Chambre choanodermique simulée :** Agrégation en mémoire, sans mesure de débit.
 * **Commandes CLI / MCP :**
   ```bash
   genos biomimicry bio-feature --feature choanocyte --action flow --param "cell_count=10"
@@ -58,9 +71,9 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 * **Origine biologique :** Cellules cutanées des caméléons et céphalopodes contenant des empilements réguliers de nanocristaux de guanine, modifiant la diffraction structurelle de la lumière par contraction/dilatation sans synthèse de pigment.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/iridophore.rs`](../../../crates/genos-biology/src/specialized_cells/iridophore.rs)
 * **Fonctionnement :**
-  - **Loi de Bragg-Snell computationnelle :** $\lambda = 2d\sqrt{n_{\text{eff}}^2 - \sin^2\theta}$ calculant la bande spectrale en temps réel.
-  - **Morphing d'interface (Generative UI) :** Adaptation dynamique du format de rendu selon l'observateur (`TuiAnsi`, `StructuredJson`, `MarkdownVisual`, `CrypticCamouflage`).
-  - **Camouflage cryptographique :** Obfuscation polymorphique du code et de l'état en transit basée sur le décalage cristallin.
+  - **Loi de Bragg-Snell computationnelle :** $\lambda = 2d\sqrt{n_{\text{eff}}^2 - \sin^2\theta}$ calculée en local.
+  - **Morphing d'interface (formatage) :** Adaptation du format de rendu selon l'observateur (`TuiAnsi`, `StructuredJson`, `MarkdownVisual`, `CrypticCamouflage`).
+  - **Camouflage non cryptographique :** Obfuscation par décalage César. Retirer le camouflage comme mesure de sécurité.
 * **Commandes CLI / MCP :**
   ```bash
   genos biomimicry bio-feature --feature iridophore --action shift --param "spacing_nm=220"
@@ -76,8 +89,8 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 * **Origine biologique :** Paires de cellules réniformes entourant les stomates foliaires. En accumulant des ions $K^+$, l'eau entre par osmose, les cellules gonflent et courbent leurs parois pour ouvrir le pore (absorption de $\text{CO}_2$). En cas de stress hydrique, l'acide abscissique (ABA) provoque la vidange osmotique et la fermeture étanche pour empêcher le flétrissement.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/guard_cell.rs`](../../../crates/genos-biology/src/specialized_cells/guard_cell.rs)
 * **Fonctionnement :**
-  - **Auto-régulation de bande passante (Backpressure) :** Remplacement des rate-limits statiques par une conductance stomatique dynamique ($[0.0, 1.0]$) corrélée à la pression métabolique.
-  - **Protection contre le dessèchement de tokens/mémoire :** Lors d'un stress ABA (saturation API ou dépassement de budget), les stomates se ferment pour protéger l'intégrité systémique.
+  - **Calcul local de conductance (pas de backpressure réelle) :** Conductance stomatique dynamique ($[0.0, 1.0]$) calculée depuis la pression fournie en entrée.
+  - **Protection simulée :** Lors d'un stress ABA fourni en entrée, les stomates calculés se ferment. Aucun branchement au registre de ressources.
 * **Commandes CLI / MCP :**
   ```bash
   genos biomimicry bio-feature --feature guard_cell --action aperture --param "water=0.9" --param "aba=0.05"
@@ -89,9 +102,9 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 * **Origine biologique :** Cellules conductrices du xylème végétal. À maturité, la cellule subit une mort cellulaire programmée (apoptose) complète, se vidant de son contenu protoplasmique pour laisser des parois épaissies et lignifiées (bois). Ce réseau de conduits rigides achemine la sève brute sous forte tension sans dépense énergétique métabolique active.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/tracheid.rs`](../../../crates/genos-biology/src/specialized_cells/tracheid.rs)
 * **Fonctionnement :**
-  - **Ossification logicielle post-résolution :** Une fois qu'un agent cognitif exploratoire a stabilisé un flux ou résolu une tâche, son noyau réflexif est éliminé (apoptose).
-  - **Canal statique compilé :** Remplacement par un pipeline statique natif (Rust/WASM) offrant un débit hydraulique maximal avec **0 token LLM de coût résiduel**.
-  - **Résistance à la cavitation :** Présence de ponctuations aréolées empêchant l'embolie gazeuse lors de pointes de charge.
+  - **Changement d'étiquette locale (pas d'ossification réelle) :** Une fois qu'un flux est stabilisé en entrée, `trigger_lignified_apoptosis` change `state` vers `OssifiedConduit { static_pipeline_id }`. Aucune compilation, aucun binaire produit.
+  - **Canal simulé :** Débit et coût `0 token` en constantes. Aucune comparaison de coût mesurée contre un chemin dynamique.
+  - **Résistance simulée :** Seuil de cavitation en constante.
 * **Commandes CLI / MCP :**
   ```bash
   genos biomimicry bio-feature --feature tracheid --action ossify --param "pipeline_id=fast_payment_flow"
@@ -107,9 +120,9 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 * **Origine biologique :** Bactéries et archées dépourvues d'enveloppe nucléaire (génome circulaire baignant librement dans le cytoplasme). Elles échangent des gènes et des résistances de manière latérale via des plasmides (petites molécules d'ADN extrachromosomique) par conjugaison bactérienne (pilus F) ou transformation naturelle sans reproduction sexuée.
 * **Architecture GenOS :** [`crates/genos-biology/src/specialized_cells/prokaryote.rs`](../../../crates/genos-biology/src/specialized_cells/prokaryote.rs)
 * **Fonctionnement :**
-  - **Démarrage et footprint ultra-légers (< 1 ms) :** Agents acaryotes sans mémoire épisodique lourde, sans conscience introspective complexe, dédiés aux micro-tâches atomiques répétitives.
-  - **Transfert Horizontal de Gènes (HGT) :** Échange pair-à-pair de plasmides de compétences ou de signatures de défense sans remonter à l'orchestrateur central.
-  - **Division binaire instantanée :** Scissiparité accélérée permettant un essaimage massif en cas de pic de charge.
+  - **Démarrage simulé :** Agents sans mémoire lourde en structures locales. Le « < 1 ms » est un objectif, pas une mesure.
+  - **Transfert Horizontal de Gènes (HGT) simulé :** Copie locale de plasmides sans validation, lease ni révocation runtime.
+  - **Division simulée :** Clonage d'objet en mémoire, pas d'essaimage réel.
 * **Commandes CLI / MCP :**
   ```bash
   genos biomimicry bio-feature --feature prokaryote --action conjugate --param "donor_id=ecoli_agent" --param "recipient_id=archaea_agent" --param "plasmid_id=pResist_waf"
@@ -121,15 +134,15 @@ Ce document formalise les extensions biomimétiques inspirées des règnes anima
 
 ## 4. Synthèse Taxonomique Comparative
 
-| Modèle Cellulaire | Règne | Équivalent Humain | Fonction Biomimétique dans GenOS | Gain de Performance |
+| Modèle Cellulaire | Règne | Équivalent Humain | Fonction logicielle (primitive locale) | Preuve exigée avant « intégré » |
 | :--- | :--- | :--- | :--- | :--- |
-| **Cnidocyte** | Animal (Cnidaire) | Aucun | Défense balistique réflexe WAF / Anti-injection | Zéro token, réaction en microsecondes |
-| **Électrocyte** | Animal (Poisson) | Aucun | Sommation de voltage en série & Flash Consensus | Convergence synchrone de décision |
-| **Choanocyte** | Animal (Spongiaire) | Aucun | Courant d'aspiration & Tamisage continu de flux | Débit constant, élimination du bruit |
-| **Iridophore** | Animal (Reptile/Céph.) | Aucun | Diffraction structurelle & Rendu polymorphique | Adaptation optique & Obfuscation |
-| **Cellule de Garde** | Végétal | Aucun | Valve osmotique de turgescence & Backpressure | Régulation adaptative contre la famine |
-| **Trachéide** | Végétal | Aucun | Apoptose structurante & Ossification en pipeline | Réduction de 100% du coût LLM récurrent |
-| **Procaryote** | Micro-organisme | Aucun | Micro-agents acaryotes & Transfert horizontal (HGT) | Boot < 1ms, dissémination peer-to-peer |
+| **Cnidocyte** | Animal (Cnidaire) | Aucun | Filtre par sous-chaînes, calcul local | Attaque rejouée dans le chemin réel + latence mesurée |
+| **Électrocyte** | Animal (Poisson) | Aucun | Somme arithmétique de voltages | Quorum multi-participants, timeouts, rejets |
+| **Choanocyte** | Animal (Spongiaire) | Aucun | Filtre local sur flux fourni | Adaptateur explicite + débit/pertes mesurés |
+| **Iridophore** | Animal (Reptile/Céph.) | Aucun | Formatage ANSI/JSON/Markdown | Contrats de rendu ; aucun statut crypto |
+| **Cellule de Garde** | Végétal | Aucun | Calcul local de conductance | Backpressure branchée au registre de ressources |
+| **Trachéide** | Végétal | Aucun | Changement d'étiquette `OssifiedConduit` | Artefact compilé exécuté + coût comparé |
+| **Procaryote** | Micro-organisme | Aucun | Copie locale de plasmide | Validation + lease + révocation, refus tracés |
 
 ---
 
