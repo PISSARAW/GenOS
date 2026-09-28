@@ -280,6 +280,7 @@ async function recordSourceSinkRoleChanges(db, input) {
       const deme = await db.get('SELECT deme_id FROM metapopulation_demes WHERE metapopulation_id = ? AND deme_id = ?',
         input.metapopulationId, change.demeId);
       if (!deme) throw storeError('METAPOPULATION_DEME_UNKNOWN', 'Unknown deme in source-sink role update.');
+      assertCurrentRole(roles[change.demeId]?.role, change);
       roles[change.demeId] = { role: change.to, reason: change.reason, updatedAt: new Date().toISOString() };
     }
     memory.sourceSinkRoles = roles;
@@ -288,6 +289,12 @@ async function recordSourceSinkRoleChanges(db, input) {
     await commitEvent(db, input.metapopulationId, { type: 'SOURCE_SINK_ROLES_ROTATED', payload: { changes } });
     return { changes, roles };
   });
+}
+
+function assertCurrentRole(currentRole, change) {
+  if (currentRole && currentRole !== change.from) {
+    throw storeError('METAPOPULATION_ROLE_STALE', 'Source-sink role changed since this update was planned.');
+  }
 }
 
 function validRoleChanges(changes) {

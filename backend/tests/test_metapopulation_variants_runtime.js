@@ -218,6 +218,9 @@ async function sourceSinkRolePersistenceChecks(db) {
   const store = require('../src/services/metapopulation/metapopulationStore');
   await store.recordSourceSinkRoleChanges(db, { metapopulationId: sessionId,
     changes: [{ demeId: 'deme-role', from: 'SOURCE', to: 'SINK', reason: 'SOURCE_DEPLETED' }] });
+  await assert.rejects(() => store.recordSourceSinkRoleChanges(db, { metapopulationId: sessionId,
+    changes: [{ demeId: 'deme-role', from: 'SOURCE', to: 'SINK', reason: 'SOURCE_DEPLETED' }] }),
+  { code: 'METAPOPULATION_ROLE_STALE' });
   const observed = await metapopulation.observeRegion({ metapopulationId: sessionId }, { db });
   assert.equal(observed.demes.find((deme) => deme.demeId === 'deme-role').role, 'SINK');
   const events = await metapopulation.listMetapopulationEvents(sessionId, { db });
