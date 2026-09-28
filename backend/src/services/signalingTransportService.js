@@ -1,5 +1,5 @@
 const { getDatabase } = require('../db');
-const { SIGNAL_TYPES, unpackSignalPayload, formatSignalForTransport } = require('./biomimeticSignalingBus');
+const { SIGNAL_TYPES, formatSignalForTransport } = require('./biomimeticSignalingBus');
 const { routeCollectiveSignal } = require('./collectiveSignalOrganizationRouter');
 const signalRepressor = require('./signalRepressorService');
 const receptor = require('./signalReceptorService');
@@ -14,7 +14,8 @@ const { updateAgent: runtimeUpdateAgent } = require('./agentOrchestrationState')
 const dynamicOrg = require('./dynamicOrganizationService');
 const signalDelivery = require('./signalDeliveryService');
 const { recordPendingDeliveries } = require('./signalDeliveryHelpers');
-const { createEnvelope, verifyEnvelopePayload } = require('./communication/communicationEnvelopeService');
+const { createEnvelope } = require('./communication/communicationEnvelopeService');
+const { decodeSignalRow } = require('./signalEnvelopeCodec');
 
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
 const LOCAL_BROADCAST_LOG = new Map();
@@ -289,22 +290,6 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
   }
 }
 
-function decodeSignalRow(row) {
-  const decoded = row.signal_blob ? unpackSignalPayload(row.signal_blob, row.signal_type) : null;
-  const envelope = decoded?.communicationEnvelope;
-  const result = { signalId: row.signal_id, signalType: row.signal_type, signalBlob: row.signal_blob, content: row.content, topic: row.topic, senderAgentId: row.sender_agent_id, createdAt: row.created_at, decoded };
-  if (!envelope) return { ...result, integrity: { status: 'legacy_unverified' } };
-  const { communicationEnvelope, ...payload } = decoded;
-  const verification = verifyEnvelopePayload(communicationEnvelope, payload);
-  const boundToRow = communicationEnvelope.messageId === row.signal_id
-    && communicationEnvelope.senderAgentId === (row.sender_agent_id || null)
-    && communicationEnvelope.modality === row.signal_type;
-  if (!verification.valid || !boundToRow) {
-    return { ...result, decoded: null, integrity: { status: 'rejected', reason: verification.reason || 'metadata_mismatch' } };
-  }
-  return { ...result, integrity: { status: 'verified', messageId: communicationEnvelope.messageId } };
-}
-
 async function markSignalsSeen(subscriberAgentId, signalIds) {
   if (!signalIds || !signalIds.length) return;
   const db = await getDatabase().catch(() => null);
@@ -387,6 +372,7 @@ module.exports = {
   buildRow,
   buildRejectedResult,
   buildSignalFromParams,
+  decodeSignalRow,
   subscribeAgent: signalDelivery.subscribeAgent,
   unsubscribeAgent: signalDelivery.unsubscribeAgent,
   recordPendingDelivery: signalDelivery.recordPendingDelivery,

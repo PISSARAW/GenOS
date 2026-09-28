@@ -24,7 +24,8 @@ async function run() {
   assert(runtime.workerToolLease('implementation').includes('genos_worker_publish'));
   assert(!runtime.workerToolLease('implementation').includes('genos_change_organization'));
 
-  const dbPath = path.resolve(__dirname, 'dynamic-organization-test.db');
+  const dbPath = path.resolve(__dirname, `dynamic-organization-test-${process.pid}.db`);
+  process.env.GENOS_ADMIN_PASSWORD ||= 'dynamic-organization-test-password';
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   const db = await getDatabase(dbPath);
   try {

@@ -10,6 +10,7 @@ const { open } = require('sqlite');
 const sqlite3 = require('sqlite3').verbose();
 
 const dbIndex = require('../src/db');
+const { migrateSignalDeliveryClaims } = require('../src/db/migrations/migrateSignalDeliveryClaims');
 let testDb = null;
 let llmCallCount = 0;
 
@@ -24,7 +25,9 @@ async function setupTestDb() {
     CREATE TABLE signal_blobs (id INTEGER PRIMARY KEY AUTOINCREMENT, signal_id TEXT NOT NULL, signal_type TEXT NOT NULL CHECK (signal_type IN ('ligand','voltage','pheromone','plasmid','tensor','text')), signal_blob BLOB, content TEXT NOT NULL DEFAULT '', topic TEXT NOT NULL DEFAULT '', sender_agent_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, expires_at DATETIME, UNIQUE(signal_id));
     CREATE TABLE signal_subscriptions (subscriber_agent_id TEXT NOT NULL, topic TEXT NOT NULL, filter TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (subscriber_agent_id, topic));
     CREATE TABLE signal_deliveries (signal_id TEXT NOT NULL, subscriber_agent_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','seen','acked')), delivered_at DATETIME DEFAULT CURRENT_TIMESTAMP, seen_at DATETIME, acked_at DATETIME, PRIMARY KEY (signal_id, subscriber_agent_id));
+    CREATE TABLE signal_delivery_claims (signal_id TEXT NOT NULL, subscriber_agent_id TEXT NOT NULL, claim_owner TEXT NOT NULL DEFAULT '', lease_until_ms INTEGER NOT NULL DEFAULT 0, next_attempt_at_ms INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, dead_lettered_at_ms INTEGER, PRIMARY KEY (signal_id, subscriber_agent_id));
   `);
+  await migrateSignalDeliveryClaims(testDb);
   await testDb.run(`INSERT INTO organizations (id, name) VALUES ('org-test', 'Test Org')`);
   await testDb.run(`INSERT INTO projects (id, organization_id, name) VALUES ('proj-test', 'org-test', 'Test Project')`);
   await testDb.run(`INSERT INTO organization_signal_budgets (organization_id, budget_mv, enabled) VALUES ('org-test', 100, 1)`);
@@ -46,6 +49,7 @@ const cognitiveEscalation = require('../src/services/cognitiveEscalationService'
 const subscriber = require('../src/services/signalPlaneSubscriber');
 
 function resetState() {
+  subscriber.stopSignalPlaneSubscriber();
   receptor.listReceptors().forEach((r) => receptor.unregisterReceptor(r.id));
   plasticity.resetWeights();
   signalEventBus.removeAllListeners();
@@ -249,6 +253,30 @@ async function testWakeHandlerPath() {
   console.log('[PASS] testWakeHandlerPath');
 }
 
+async function testDurablePollWakePath() {
+  resetState();
+  let calls = 0;
+  receptor.registerReceptor({
+    id: 'receptor-durable-wake', targetLigand: 'DURABLE_WAKE', threshold: 0.5,
+    action: 'update_agent', actionData: { agentId: 'worker-1', status: 'running' },
+  });
+  const result = await transport.publishSignal({
+    signalType: 'ligand', signalData: { semanticType: 'DURABLE_WAKE', concentration: 0.9 },
+    topic: 'test-durable-wake', senderAgentId: 'orch-1',
+  });
+  subscriber.registerWakeHandler('worker-1', async (signal) => {
+    calls++;
+    assert.equal(signal.integrity.status, 'verified');
+    return { acted: true };
+  });
+  await subscriber.pollPendingDeliveries();
+  await waitForLedger(15);
+  const row = await testDb.get('SELECT status FROM signal_deliveries WHERE signal_id = ? AND subscriber_agent_id = ?', result.signalId, 'worker-1');
+  assert.equal(calls, 1, 'A pending persisted delivery wakes a handler without the local EventBus.');
+  assert.equal(row.status, 'delivered');
+  console.log('[PASS] testDurablePollWakePath');
+}
+
 async function runAllTests() {
   await setupTestDb();
   await testFullReceptorDispatchPath();
@@ -256,6 +284,7 @@ async function runAllTests() {
   testCoalescingPath();
   await testDeliveryAckCycle();
   await testWakeHandlerPath();
+  await testDurablePollWakePath();
   console.log('\n✓ All Signal Plane E2E tests passed');
   await testDb.close();
 }
@@ -272,4 +301,5 @@ module.exports = {
   testCoalescingPath,
   testDeliveryAckCycle,
   testWakeHandlerPath,
+  testDurablePollWakePath,
 };

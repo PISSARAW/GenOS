@@ -209,14 +209,19 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
 | `signalCoalescerService.js` | Anti-spam réfractaire + fenêtre coalescing |
 | `synapticPlasticityService.js` | Poids canaux, reinforce/depress/strongDepress |
 | `collectiveSignalOrganizationRouter.js` | Routage destinataires, scope strict, tri plasticité |
-| `signalPlaneSubscriber.js` | Consumer EventBus, registerWakeHandler, LLM escalation |
+| `signalPlaneSubscriber.js` | Consumer EventBus + reprise durable SQLite, registerWakeHandler, LLM escalation |
+| `signal_delivery_claims` | Lease de consommation, tentatives, backoff et quarantaine terminale |
 | `agentRoundService.js` | Continuation différentielle (buildContinuationContext) |
 
 ## Limites connues
 
-- **EventBus local** : les workers d'autres processus Node ne reçoivent pas
-  les notifications push (EventEmitter en mémoire). Pour le multi-process,
-  un transport distribué (Redis, SQLite triggers + polling) serait nécessaire.
+- **Push local, reprise multi-process** : l'EventBus reste un EventEmitter en
+  mémoire. Le subscriber interroge aussi les livraisons persistées et prend un
+  lease atomique SQLite; le délai nominal de reprise est de 500 ms.
+- **Livraison au moins une fois** : un crash après l'effet métier et avant la
+  validation de livraison peut réexécuter le handler. Celui-ci doit dédupliquer
+  par `signalId`; les erreurs réessaient avec backoff et sont mises en quarantaine
+  après huit tentatives. Les enveloppes absentes ou invalides ne réveillent pas.
 - **Coalescing en mémoire** : les buffers sont perdus au redémarrage.
 - **LLM escalation** : le signal est loggé mais pas encore routé vers un
   service cognitif spécifique (TODO).

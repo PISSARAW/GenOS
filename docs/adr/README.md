@@ -188,6 +188,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0162](0162-niveaux-preuve-maturite-et-contrats-phase-0.md) | Niveaux de preuve de maturité et gel des contrats Phase 0 | Proposé | 2026-09-28 | Maturité, contrats, preuves, gouvernance documentaire |
 | [0163](0163-contrats-transversaux-operation-receipt-preuve.md) | Contrats transversaux d'opération : événement, reçu et preuve | Accepté | 2026-09-28 | Contrats, provenance, budgets, orchestration, preuve |
 | [0164](0164-racine-runtime-volume-optimal.md) | Placement de la racine runtime selon l'espace disponible | Accepté | 2026-09-28 | -- |
+| [0165](0165-stockage-postgresql-et-frontiere-sqlite.md) | PostgreSQL : adapter explicite et frontière SQLite | Accepté, migration progressive en cours | 2026-09-28 | Backend, persistance, migrations, multi-tenant |
+| [0166](0166-livraison-durable-signaux.md) | Livraison durable des signaux entre processus | Accepté | 2026-09-28 | Signal Plane, persistance, concurrence, reprise |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

@@ -112,6 +112,7 @@ const suites = {
     ['plasticity tensor', 'test_plasticity_tensor.js'],
     ['semantic loop detector', 'test_semantic_loop_detector.js'],
     ['signal plane e2e', 'test_signal_plane_e2e.js'],
+    ['durable signal delivery claims', 'test_signal_delivery_claims.js'],
     ['signal metrics', 'test_signal_metrics.js'],
     ['agent output schema', 'test_agent_output_schema.js'],
     ['biomimetic signaling bus', 'test_biomimetic_signaling_bus.js'],

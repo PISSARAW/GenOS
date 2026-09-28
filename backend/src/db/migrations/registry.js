@@ -300,6 +300,10 @@ const migrationRunners = [
     const { migrateSecretScopeUnique } = require('./migrateSecretScopeUnique');
     await migrateSecretScopeUnique(db);
   }),
+  createMigrationRunner('084-signal-delivery-claims', 'Persist cross-process signal delivery leases and retry state', async (db) => {
+    const { migrateSignalDeliveryClaims } = require('./migrateSignalDeliveryClaims');
+    await migrateSignalDeliveryClaims(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
