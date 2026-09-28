@@ -116,3 +116,4 @@ pub fn validate_receipt(receipt: &BioReceipt) -> Result<(), String> {
 mod tests;
 
 pub mod ids;
+pub mod states;
