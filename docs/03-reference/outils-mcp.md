@@ -296,6 +296,24 @@ La coherence pratique repose sur les invariants suivants :
 
 Le bridge CLI est particulier : il transforme des outils MCP en appels `genos ...`, mais seulement apres validation et confinement. La chaine n'est donc pas un simple `exec` de texte fourni par un modele.
 
+### 9.1 Replis Node et statuts reels (2026-09-28)
+
+Le pont Node (`mcp/nodeCliFallback.js`) ne realise aucun effet : il est fail-closed.
+
+| Operation | Statut retourne | Effet |
+| --- | --- | --- |
+| `snapshot` | `capability_unavailable` | aucun fichier ecrit |
+| `replay` | `simulated` (`simulated: true`, `success: false`) | apercu seulement, rien rejoue |
+| `capsule` | `capability_unavailable` | rien provisionne |
+| `init` | `capability_unavailable` | aucun etat cree |
+| `merge`, `audit`, `biomimicry`, `agent`, inconnu | `capability_unavailable` | aucun effet |
+
+Contrat : `completed` = effet realise ; `simulated` = simulation sans effet ;
+`capability_unavailable` = aucun chemin equivalent ; `failed` = echec apres demarrage.
+Le repli n'est pris que si le binaire est absent (`ENOENT`) puis Cargo indisponible ;
+une erreur d'execution, un timeout ou un crash remonte comme echec sans changer de semantique.
+Conformite : `mcp/test_node_cli_fallback.mjs`, `mcp/test_mcp_conformance.mjs`.
+
 ---
 
 ## 10. Processus complet d'un appel
