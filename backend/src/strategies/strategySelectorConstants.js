@@ -38,6 +38,51 @@ const TEMPORAL_TYPES = ['incident', 'architecture_decision'];
 const EVALUABILITY_TERMS = ['test', 'code', 'bug', 'refactor', 'build'];
 const REVERSIBILITY_TERMS = ['deploy', 'production', 'delete'];
 
+// Source de verite : compatibilite trait <-> profil de probleme.
+// weight = bonus ajoute quand le profil courant figure dans profiles.
+// Un trait hors table ne donne jamais de bonus silencieux.
+const TRAIT_COMPATIBILITY = Object.freeze({
+  adaptive: { profiles: ['architecture_decision', 'critical_refactor', 'scientific_research'], weight: 5 },
+  audit: { profiles: ['security', 'incident', 'critical_refactor'], weight: 6 },
+  budget: { profiles: ['implementation', 'critical_refactor'], weight: 4 },
+  calibration: { profiles: ['scientific_research', 'incident'], weight: 5 },
+  causal: { profiles: ['unknown_cause_bug', 'incident', 'architecture_decision', 'scientific_research'], weight: 7 },
+  collective: { profiles: ['architecture_decision', 'scientific_research'], weight: 4 },
+  deep_search: { profiles: ['unknown_cause_bug', 'scientific_research'], weight: 5 },
+  deterministic: { profiles: ['implementation', 'incident', 'critical_refactor'], weight: 6 },
+  distributed_control: { profiles: ['security', 'critical_refactor'], weight: 4 },
+  diversity: { profiles: ['scientific_research', 'architecture_decision'], weight: 4 },
+  entropy: { profiles: ['security', 'incident'], weight: 4 },
+  governance: { profiles: ['security', 'critical_refactor', 'architecture_decision'], weight: 6 },
+  high_compute: { profiles: ['scientific_research', 'security'], weight: 3 },
+  high_impact: { profiles: ['critical_refactor', 'architecture_decision'], weight: 3 },
+  human_gate: { profiles: ['security', 'critical_refactor', 'incident'], weight: 6 },
+  information_gain: { profiles: ['scientific_research', 'unknown_cause_bug'], weight: 6 },
+  low_blast_radius: { profiles: ['implementation', 'security', 'incident'], weight: 6 },
+  low_cost: { profiles: ['implementation'], weight: 4 },
+  low_latency: { profiles: ['implementation', 'incident'], weight: 4 },
+  memory: { profiles: ['scientific_research', 'implementation'], weight: 4 },
+  metabolic_budget: { profiles: ['implementation', 'critical_refactor'], weight: 3 },
+  model_routing: { profiles: ['implementation', 'scientific_research'], weight: 4 },
+  multi_objective: { profiles: ['architecture_decision', 'critical_refactor'], weight: 5 },
+  mutation: { profiles: ['scientific_research', 'critical_refactor'], weight: 4 },
+  observability: { profiles: ['incident', 'security', 'implementation'], weight: 6 },
+  parallel: { profiles: ['scientific_research', 'implementation'], weight: 4 },
+  probe_control: { profiles: ['unknown_cause_bug', 'incident'], weight: 6 },
+  regenerative: { profiles: ['incident', 'critical_refactor'], weight: 5 },
+  reproducible: { profiles: ['incident', 'scientific_research', 'security'], weight: 7 },
+  resilient: { profiles: ['incident', 'security', 'critical_refactor'], weight: 6 },
+  safety: { profiles: ['security', 'incident', 'critical_refactor', 'implementation'], weight: 8 },
+  selection: { profiles: ['architecture_decision', 'scientific_research'], weight: 4 },
+  separation_of_duties: { profiles: ['security', 'critical_refactor'], weight: 5 },
+  spatial_memory: { profiles: ['desktop_control', 'implementation'], weight: 5 },
+  specialization: { profiles: ['implementation', 'critical_refactor'], weight: 4 },
+  system_control: { profiles: ['desktop_control', 'security'], weight: 6 },
+  temporal: { profiles: ['incident', 'architecture_decision'], weight: 5 },
+  verification: { profiles: ['incident', 'unknown_cause_bug', 'security', 'implementation', 'critical_refactor'], weight: 8 },
+  vision: { profiles: ['desktop_control', 'scientific_research'], weight: 5 },
+});
+
 module.exports = {
   PREFERRED_PRIMARY,
   BRANCHES,
@@ -49,4 +94,5 @@ module.exports = {
   TEMPORAL_TYPES,
   EVALUABILITY_TERMS,
   REVERSIBILITY_TERMS,
+  TRAIT_COMPATIBILITY,
 };

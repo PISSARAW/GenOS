@@ -15,6 +15,7 @@ const {
   REVERSIBILITY_TERMS,
   UNCERTAINTY_DEFAULTS,
   BRANCHES,
+  TRAIT_COMPATIBILITY,
 } = require('./strategySelectorConstants');
 
 function includesAny(text, terms) {
@@ -119,15 +120,60 @@ function profileProblem(problem = '', overrides = {}) {
   };
 }
 
-// Stubs pour les fonctions de bonus de traits attendues par
-// strategySelectorEligibility.js (applyTraitBonusesOne..Six). Elles
-// sont appelées mais n'existaient pas dans les réécritures concurrentes.
-function applyTraitBonusesOne(state, traits, profile) { /* no-op */ }
-function applyTraitBonusesTwo(state, traits, profile) { /* no-op */ }
-function applyTraitBonusesThree(state, traits, profile) { /* no-op */ }
-function applyTraitBonusesFour(state, traits, profile) { /* no-op */ }
-function applyTraitBonusesFive(state, traits, profile) { /* no-op */ }
-function applyTraitBonusesSix(state, traits, profile) { /* no-op */ }
+// Table unique trait <-> profil : chaque tranche applique son sous-ensemble.
+// Deterministe : iteration triee, pas de bonus pour trait inconnu.
+function ensureDetail(state) {
+  if (!Array.isArray(state.applied)) state.applied = [];
+  if (!Array.isArray(state.unknown)) state.unknown = [];
+  if (typeof state.bonus !== 'number') state.bonus = 0;
+}
+
+function applySlice(state, context, names) {
+  ensureDetail(state);
+  const traits = context.traits;
+  const type = context.profile && context.profile.type;
+  for (const name of names) {
+    if (!traits.has(name)) continue;
+    const entry = TRAIT_COMPATIBILITY[name];
+    if (!entry) {
+      if (!state.unknown.includes(name)) state.unknown.push(name);
+      continue;
+    }
+    if (entry.profiles.includes(type)) {
+      state.score += entry.weight;
+      state.bonus += entry.weight;
+      state.applied.push({ trait: name, profile: type, weight: entry.weight });
+    }
+  }
+}
+
+function contextFor(traits, profile) {
+  return { traits, profile };
+}
+
+function applyTraitBonusesOne(state, traits, profile) {
+  applySlice(state, contextFor(traits, profile), ['adaptive', 'audit', 'budget', 'calibration', 'causal', 'collective', 'deep_search']);
+}
+function applyTraitBonusesTwo(state, traits, profile) {
+  applySlice(state, contextFor(traits, profile), ['deterministic', 'distributed_control', 'diversity', 'entropy', 'governance', 'high_compute', 'high_impact']);
+}
+function applyTraitBonusesThree(state, traits, profile) {
+  applySlice(state, contextFor(traits, profile), ['human_gate', 'information_gain', 'low_blast_radius', 'low_cost', 'low_latency', 'memory']);
+}
+function applyTraitBonusesFour(state, traits, profile) {
+  applySlice(state, contextFor(traits, profile), ['metabolic_budget', 'model_routing', 'multi_objective', 'mutation', 'observability', 'parallel']);
+}
+function applyTraitBonusesFive(state, traits, profile) {
+  applySlice(state, contextFor(traits, profile), ['probe_control', 'regenerative', 'reproducible', 'resilient', 'safety', 'selection']);
+}
+function applyTraitBonusesSix(state, traits, profile) {
+  applySlice(state, contextFor(traits, profile), ['separation_of_duties', 'spatial_memory', 'specialization', 'system_control', 'temporal', 'verification', 'vision']);
+  for (const trait of [...traits].sort()) {
+    if (!TRAIT_COMPATIBILITY[trait] && !state.unknown.includes(trait)) state.unknown.push(trait);
+  }
+  state.unknown.sort();
+  state.applied.sort((a, b) => String(a.trait).localeCompare(String(b.trait)));
+}
 
 module.exports = {
   includesAny,
