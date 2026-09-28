@@ -145,6 +145,28 @@ function methodContractError() {
   return Object.assign(new Error('Method contract must declare version 1 and a methodId.'), { code: 'WORKER_METHOD_CONTRACT_INVALID' });
 }
 
+function workerMissionContract(mission) {
+  return {
+    objective: mission.prompt || mission.currentTask || '',
+    scope: mission.scope || mission.workspaceRoot || '',
+    methodContract: mission.methodContract,
+    topologySessionId: mission.topologySessionId || null
+  };
+}
+
+function workerAuthorityContract(kind, authorities) {
+  return {
+    read: Boolean(authorities.read), analyze: Boolean(authorities.analyze),
+    execute: Boolean(authorities.execute), write: Boolean(authorities.write),
+    spawn: false, delegate: false, promote: Boolean(authorities.promote), topology: false,
+    strategy: ['adaptive_worker', 'specialist', 'sub_orchestrator'].includes(kind)
+  };
+}
+
+function workerLimits(kind, subOrchestrator) {
+  return { maxIterations: kind === 'scout_cell' ? 1 : (subOrchestrator ? 30 : null) };
+}
+
 function buildWorkerContract(kind, mission = {}) {
   const definition = kindDefinition(kind);
   assertMethodCompatibility(definition.kind, mission.methodContract);
@@ -154,22 +176,13 @@ function buildWorkerContract(kind, mission = {}) {
   return {
     version: 1,
     identity: { workerKind: definition.kind, parentId: mission.orchestratorAgentId || mission.parentAgentId || null },
-    mission: {
-      objective: mission.prompt || mission.currentTask || '', scope: mission.scope || mission.workspaceRoot || '',
-      methodContract: mission.methodContract, topologySessionId: mission.topologySessionId
-    },
+    mission: workerMissionContract(mission),
     assignment: mission.workerAssignment,
-    authority: {
-      read: Boolean(authorities.read), analyze: Boolean(authorities.analyze),
-      execute: Boolean(authorities.execute), write: Boolean(authorities.write),
-      spawn: false,
-      delegate: false, promote: Boolean(authorities.promote),
-      topology: false, strategy: ['adaptive_worker', 'specialist', 'sub_orchestrator'].includes(definition.kind)
-    },
+    authority: workerAuthorityContract(definition.kind, authorities),
     spawnBudget: 0,
     delegationDepth: 0,
     evidence: { requiredArtifacts: [definition.artifact], provenanceRequired: true },
-    limits: { maxIterations: definition.kind === 'scout_cell' ? 1 : (subOrchestrator ? 30 : null) }
+    limits: workerLimits(definition.kind, subOrchestrator)
   };
 }
 
