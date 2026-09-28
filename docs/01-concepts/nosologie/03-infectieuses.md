@@ -227,7 +227,7 @@ où :
 * **Modules & Fichiers Concernés :**
   - [`crates/genos-biology/src/neurobiology/synapse.rs`](../../../crates/genos-biology/src/neurobiology/synapse.rs#L14) : `c3_opsonization`, occlusion synaptique.
   - [`crates/genos-biology/src/neurobiology/system.rs`](../../../crates/genos-biology/src/neurobiology/system.rs#L108-L111) : Élagage et blocage des axones.
-  - [`crates/genos-cell/src/conscience.rs`](../../../crates/genos-cell/src/conscience.rs) : Dissonance cognitive et oscillation budgétaire périodique.
+  - [`crates/genos-cell/src/cognitive_regulation.rs`](../../../crates/genos-cell/src/cognitive_regulation.rs) : Dissonance cognitive et oscillation budgétaire périodique.
 
 #### 3. Traitement / Remède GenOS
 * **Thérapies Existantes Mobilisées :**

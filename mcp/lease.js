@@ -28,12 +28,16 @@ function exposeAllEnabled(environment) {
   return allowsUnsafeExposure(environment);
 }
 
+export function leaseExpired(value, nowMs = Date.now()) {
+  if (value === undefined || value === null) return false;
+  const normalized = String(value).trim();
+  if (!normalized) return true;
+  const expiresAt = Number(normalized);
+  return !Number.isFinite(expiresAt) || nowMs >= expiresAt;
+}
+
 export function toolIsLeased(toolName, allTools, environment = process.env) {
-  if (environment.GENOS_MCP_LEASE_EXPIRES_AT !== undefined && environment.GENOS_MCP_LEASE_EXPIRES_AT !== null && String(environment.GENOS_MCP_LEASE_EXPIRES_AT).trim() !== '') {
-    const expiresAt = Number(environment.GENOS_MCP_LEASE_EXPIRES_AT);
-    if (!Number.isFinite(expiresAt)) return false;
-    if (Date.now() > expiresAt) return false;
-  }
+  if (leaseExpired(environment.GENOS_MCP_LEASE_EXPIRES_AT)) return false;
   const lease = parseLease(environment.GENOS_MCP_LEASE);
   const disabled = parseToolSet(environment.GENOS_MCP_DISABLED_TOOLS);
   if (disabled.has(toolName)) return false;

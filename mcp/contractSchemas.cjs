@@ -34,7 +34,7 @@ function applyToolSpecificOverrides(toolName, schema) {
   } else if (toolName === 'genos_execute_primitive') {
     schema.properties.primitive_name = { type: 'string' };
     schema.properties.args = { type: 'object' };
-    schema.required.push('primitive_name');
+    if (!schema.required.includes('primitive_name')) schema.required.push('primitive_name');
   } else if (toolName === 'genos_execute_strategy_pipeline') {
     schema.properties.primitives = schema.properties.primitives || { type: 'array', items: { type: 'string' } };
     schema.properties.context = schema.properties.context || { type: 'object' };

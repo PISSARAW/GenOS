@@ -9,7 +9,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { createRequire } from "module";
 import { filterLeasedTools, toolIsLeased } from "./lease.js";
-import { createToolCallHandler } from "./toolCallHandler.js";
+import { createToolCallHandler, filterRoutableTools } from "./toolCallHandler.js";
 import { executeNodeFallback } from "./nodeCliFallback.js";
 import { resolveRepoRoot } from "./repoRoot.js";
 import { loadToolCatalog } from "./catalog.js";
@@ -262,7 +262,7 @@ function formatTopologyResult({ result, relay, topology }) {
 for (const tool of ALL_TOOLS) tool.inputSchema = getToolInputSchema(tool.name, tool.inputSchema);
 
 function getFilteredTools() {
-  return filterLeasedTools(ALL_TOOLS);
+  return filterRoutableTools(filterLeasedTools(ALL_TOOLS));
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({

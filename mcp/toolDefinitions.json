@@ -3719,6 +3719,29 @@
         "type": "object",
         "properties": {}
       }
+    },
+    {
+      "name": "genos_philosophy",
+      "category": "Orchestration",
+      "risk": "Low",
+      "description": "Read-only philosophical concept registry and bounded evaluations (fail-closed, no mission authority).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "Philosophy operation: listConcepts, getConcept, evaluateConcept, registryHealth, etc."
+          },
+          "arguments": {
+            "type": "object",
+            "description": "Operation arguments."
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "additionalProperties": true
+      }
     }
   ]
 }

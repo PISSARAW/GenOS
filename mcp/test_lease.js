@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { filterLeasedTools, toolIsLeased } from "./lease.js";
+import { filterLeasedTools, leaseExpired, toolIsLeased } from "./lease.js";
 
 const tools = [{ name: "genos_orchestrate" }, { name: "genos_snapshot" }];
 assert.deepEqual(
@@ -21,5 +21,10 @@ assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_sna
 assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: String(Date.now() + 60000) }), true);
 assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: "not-a-date" }), false);
 assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: "Infinity" }), false);
+assert.equal(leaseExpired("1000", 1000), true);
+assert.equal(leaseExpired("1001", 1000), false);
+assert.equal(leaseExpired("invalid", 1000), true);
+assert.equal(leaseExpired("", 1000), true);
+assert.equal(leaseExpired("  ", 1000), true);
 assert.deepEqual(filterLeasedTools(tools, { GENOS_MCP_LEASE: "genos_snapshot", GENOS_MCP_LEASE_EXPIRES_AT: "invalid" }).map((tool) => tool.name), []);
 console.log("MCP lease checks passed.");

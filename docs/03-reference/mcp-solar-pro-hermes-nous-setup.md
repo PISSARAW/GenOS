@@ -82,7 +82,7 @@ Nous Portal
 Le profil utilisait auparavant `cargo run` via le SDK `@modelcontextprotocol/sdk`,
 ce qui produisait des hangs stdio sur Windows (tampon, détection tardive de la
 fermeture du pipe client). Voir le skill
-[mcp-server-troubleshooting](../skills/infrastructure/mcp-server-troubleshooting/SKILL.md).
+`mcp-server-troubleshooting` (skill local, non versionné dans ce dépôt).
 
 ### 3.2 Configuration actuelle
 

@@ -10,7 +10,7 @@ const GRAPH_TABLES = [
   { table: 'territory_graph_nodes', idColumn: 'id', aggregate: 'daemon' },
   { table: 'trinity_worlds', idColumn: 'id', aggregate: 'experiment' },
   { table: 'collective_decisions', idColumn: 'id', aggregate: 'claim' },
-  { table: 'collective_decision_votes', idExpr: "'vote:' || NEW.decision_id || ':' || NEW.voter_agent_id", aggregate: 'claim' },
+  { table: 'collective_decision_votes', idExpr: "'vote:' || NEW.decision_id || ':' || NEW.voter_agent_id", aggregate: 'vote' },
   { table: 'continuation_queue', idColumn: 'id', aggregate: 'mission' },
   { table: 'survival_wake_conditions', idColumn: 'id', aggregate: 'mission' },
   { table: 'daemon_territory_graph', idColumn: 'id', aggregate: 'daemon' },
@@ -25,6 +25,7 @@ const EVENT_MAP = {
   territory: { INSERT: 'TERRITORY_EDGE_ADDED', UPDATE: 'TERRITORY_EDGE_UPDATED', DELETE: 'TERRITORY_EDGE_REMOVED' },
   experiment: { INSERT: 'TRINITY_WORLD_CREATED', UPDATE: 'TRINITY_WORLD_UPDATED', DELETE: 'TRINITY_WORLD_REMOVED' },
   claim: { INSERT: 'COLLECTIVE_DECISION_CREATED', UPDATE: 'COLLECTIVE_DECISION_UPDATED', DELETE: 'COLLECTIVE_DECISION_REMOVED' },
+  vote: { INSERT: 'VOTE_CAST', UPDATE: 'VOTE_UPDATED', DELETE: 'VOTE_REMOVED' },
   mission: { INSERT: 'CONTINUATION_QUEUED', UPDATE: 'CONTINUATION_UPDATED', DELETE: 'CONTINUATION_REMOVED' },
   daemon: { INSERT: 'DAEMON_TERRITORY_GRAPH_CREATED', UPDATE: 'DAEMON_TERRITORY_GRAPH_UPDATED', DELETE: 'DAEMON_TERRITORY_GRAPH_REMOVED' },
 };
@@ -60,6 +61,8 @@ function buildTrigger(def, operation) {
 }
 
 module.exports = {
+  getEventType,
+  buildTrigger,
   async run(db) {
     await db.exec(`
       CREATE TABLE IF NOT EXISTS daemon_territory_graph (

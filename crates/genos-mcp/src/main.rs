@@ -85,6 +85,7 @@ fn validate_tool_arguments(name: &str, args: &Value) -> Result<(), String> {
         "genos_biomimicry" => &["feature", "action"],
         "genos_biological_mode" => &["mode", "mission"],
         "genos_execute_primitive" => &["primitive_name"],
+        "genos_philosophy" => &["operation"],
         _ => &[],
     };
     for field in required {
@@ -100,7 +101,36 @@ fn validate_tool_arguments(name: &str, args: &Value) -> Result<(), String> {
     if name == "genos_a_team_preview" && !object.get("sub_systems").is_some_and(Value::is_array) {
         return Err("sub_systems must be an array.".into());
     }
+    if name == "genos_philosophy" {
+        validate_philosophy_arguments(object)?;
+    }
     Ok(())
+}
+
+fn validate_philosophy_arguments(
+    object: &serde_json::Map<String, Value>,
+) -> Result<(), String> {
+    let operation = object
+        .get("operation")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "operation must be a non-empty string.".to_string())?;
+    if object.get("arguments").is_some_and(|value| !value.is_object()) {
+        return Err("arguments must be an object.".into());
+    }
+    let applies_runtime_effect = object
+        .get("arguments")
+        .and_then(Value::as_object)
+        .and_then(|args| args.get("apply"))
+        .and_then(Value::as_bool)
+        == Some(true);
+    match (operation, applies_runtime_effect) {
+        ("saveAnalysis", _) | ("applyRuntimeEffect", true) => {
+            Err("genos_philosophy is read-only; runtime effects are preview-only.".into())
+        }
+        _ => Ok(()),
+    }
 }
 
 #[cfg(test)]
@@ -138,6 +168,13 @@ mod tests {
         assert!(validate_tool_arguments("genos_snapshot", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_replay", &json!({})).is_err());
         assert!(validate_tool_arguments("genos_snapshot", &json!({ "agent": "a", "out": "b" })).is_ok());
+        assert!(validate_tool_arguments("genos_philosophy", &json!({})).is_err());
+        assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "listConcepts" })).is_ok());
+        assert!(validate_tool_arguments("genos_philosophy", &json!({ "operation": "saveAnalysis" })).is_err());
+        assert!(validate_tool_arguments("genos_philosophy", &json!({
+            "operation": "applyRuntimeEffect",
+            "arguments": { "apply": true }
+        })).is_err());
     }
 
     #[test]

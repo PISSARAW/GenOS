@@ -1556,6 +1556,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "genos-bio-contracts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "genos-biology"
 version = "0.1.0"
 dependencies = [

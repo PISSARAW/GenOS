@@ -797,11 +797,11 @@ $$\text{timescaleConfig} = \langle \; \text{fastIntervalMs}, \; \text{structural
 | Rhizome | [rhizome.md](rhizome.md) |
 | Métapopulation | [metapopulation.md](metapopulation.md) |
 | Noyau de contrôle morphogénétique | [../noyau-controle-morphogenetique.md](../noyau-controle-morphogenetique.md) |
-| ADR 0045 — noyau morphogénétique | [../adr/0045-noyau-controle-morphogenetique.md](../adr/0045-noyau-controle-morphogenetique.md) |
-| ADR 0040 — morphogenèse Git contrefactuelle | [../adr/0040-morphogenese-git-contrefactuel.md](../adr/0040-morphogenese-git-contrefactuel.md) |
-| ADR 0038 — boucle de contrôle cognitif | [../adr/0038-boucle-controle-cognitif-morphogenese.md](../adr/0038-boucle-controle-cognitif-morphogenese.md) |
-| Épistémologie et évidence | [../01-concepts/epistemologie-et-evidence.md](../01-concepts/epistemologie-et-evidence.md) |
-| Runtime agentique | [../01-concepts/runtime-agentique.md](../01-concepts/runtime-agentique.md) |
+| ADR 0045 — noyau morphogénétique | [../adr/0045-noyau-controle-morphogenetique.md](../../adr/0045-noyau-controle-morphogenetique.md) |
+| ADR 0040 — morphogenèse Git contrefactuelle | [../adr/0040-morphogenese-git-contrefactuel.md](../../adr/0040-morphogenese-git-contrefactuel.md) |
+| ADR 0038 — boucle de contrôle cognitif | [../adr/0038-boucle-controle-cognitif-morphogenese.md](../../adr/0038-boucle-controle-cognitif-morphogenese.md) |
+| Épistémologie et évidence | [../01-concepts/epistemologie-et-evidence.md](../../01-concepts/epistemologie-et-evidence.md) |
+| Runtime agentique | [../01-concepts/runtime-agentique.md](../../01-concepts/runtime-agentique.md) |
 | Index documentation | [../README.md](../README.md) |
 
 ---

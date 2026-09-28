@@ -59,7 +59,8 @@ function audit() {
     entries: ['backend/server.js', 'mcp/index.js', ...cli.map((c) => c.program)],
     services: { total: reach.total, staticReachable: reach.staticReachable,
       notStaticallyReachable: reach.notStaticallyReachable,
-      withoutLiteralInbound: reach.withoutLiteralInbound },
+      withoutLiteralInbound: reach.withoutLiteralInbound,
+      categories: reach.categories || null },
     routes: { total: routes.total, mounted: routes.mounted.length, unmounted: routes.unmounted },
     jobs: daemonJobs(), cli, registries: dynamicRegistries(), mcpCatalogs: catalogCounts() };
 }

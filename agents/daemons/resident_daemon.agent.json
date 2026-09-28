@@ -62,7 +62,14 @@
     "preferred": "default"
   },
   "tool_policy": {
-    "allowed_tools": ["genos_read", "genos_index", "genos_snapshot", "genos_signal", "genos_test_safe"]
+    "allowed_tools": ["genos_snapshot", "genos_signal_publish", "genos_signal_read"],
+    "internal_runtime": {
+      "access": "internal_runtime via ResidentDaemonRuntime (pas de lease MCP d'orchestrator)",
+      "ops": ["observe", "index", "snapshot", "test_safe", "publish_signal", "read_handoff"],
+      "scope_required": ["daemonId", "territoire", "headSha"],
+      "scope_policy": "refuser les scopes manquants ou perimes (HEAD depasse => STALE, revalidation exigee)",
+      "forbidden": ["filesystem_write", "promotion", "mission_decision", "push", "merge", "delegation"]
+    }
   },
   "memory": {
     "type": "cognitive",
@@ -74,7 +81,8 @@
     "preferred": "default"
   },
   "tools": {
-    "allowed_tools": ["genos_read", "genos_index", "genos_snapshot", "genos_signal", "genos_test_safe"]
+    "allowed_tools": ["genos_snapshot", "genos_signal_publish", "genos_signal_read"],
+    "internal_runtime": "observe/index/test_safe/handoff via ResidentDaemonRuntime, scopes daemonId+territoire+headSha, sans ecriture filesystem ni promotion"
   },
   "conscience": {
     "baseline_budget": 100.0,

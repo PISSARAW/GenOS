@@ -23,7 +23,7 @@ Le **Toxicologue Computationnel** a pour rôle de diagnostiquer ces intoxication
 | **Plomb ($Pb^{2+}$) & Saturnisme** | Métal lourd neurotoxique mimant le calcium ($Ca^{2+}$) et le zinc ($Zn^{2+}$) | Faux ligands ou arguments toxiques mimant des messages légitimes, bloquant les récepteurs de signalisation et corrompant les poids synaptiques. | [`cascade.rs`](../../../crates/genos-signal/src/cascade.rs), [`methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs) |
 | **Barrière Hémato-Encéphalique (BHE)** | Endothélium cérébral à jonctions serrées et pieds astrocytaires | Barrière de protection d'orchestration isolant le cortex décisionnel des bruits et injections périphériques. | [`methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L114) |
 | **Plasticité Synaptique & Loi de Hebb** | Modulation des récepteurs NMDA/AMPA par la trace mnésique | Mise à jour des poids `synaptic_weight` et vecteurs d'adjacence dans le connectome GraphRAG. | [`memoryController.js`](../../../backend/src/controllers/memoryController.js#L142) |
-| **Dérive Cognitive & Dissonance** | Encéphalopathie, confusion mentale, perte d'attention | Explosion ou écroulement de l'Entropie de Shannon $H(A)$ et élévation de `dissonance_level`. | [`conscience.rs`](../../../crates/genos-cell/src/conscience.rs), [`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js) |
+| **Dérive Cognitive & Dissonance** | Encéphalopathie, confusion mentale, perte d'attention | Explosion ou écroulement de l'Entropie de Shannon $H(A)$ et élévation de `dissonance_level`. | [`cognitive_regulation.rs`](../../../crates/genos-cell/src/cognitive_regulation.rs), [`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js) |
 | **Chélation & Détoxification** | Capture chimique des métaux bivalents (EDTA/DMSA) et lavage alvéolaire | Thérapies systémiques de purge ([`DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs#L43)) et neutralisation des ligands saturés. | [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs) |
 
 ---
@@ -366,13 +366,13 @@ Dans GenOS, le Saturnisme Computationnel représente l'empoisonnement d'un agent
 4. **Corrosion des Poids Synaptiques Hebbiens dans SQLite :**
    Dans [`backend/src/controllers/memoryController.js`](../../../backend/src/controllers/memoryController.js#L138), les décisions mémorisées dans `genome_decisions` voient leur champ `synaptic_weight` faussé par l'apprentissage sur signaux frelatés. La potentialisation hebbienne amplifie des inférences fausses, déconnectant l'agent de son contexte réel.
 5. **Dyslexie Attentionnelle & Dérive d'Entropie :**
-   Au lieu d'une convergence prévisible, le moniteur cognitif ([`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js)) enregistre une alternance brutale d'hyperexcitabilité (bruit d'action désordonné) et de mutisme (taux de blocage synaptique maximal). L'Entropie de Shannon $H(A)$ fluctue de manière incohérente et le score de dissonance de l'agent ([`agent.conscience.dissonance_level`](../../../crates/genos-cell/src/conscience.rs)) franchit le seuil d'alarme de 0.85.
+   Au lieu d'une convergence prévisible, le moniteur cognitif ([`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js)) enregistre une alternance brutale d'hyperexcitabilité (bruit d'action désordonné) et de mutisme (taux de blocage synaptique maximal). L'Entropie de Shannon $H(A)$ fluctue de manière incohérente et le score de dissonance de l'agent ([`agent.conscience.dissonance_level`](../../../crates/genos-cell/src/cognitive_regulation.rs)) franchit le seuil d'alarme de 0.85.
 
 **Modules & Fichiers Concrets Impactés :**
 - [`crates/genos-biology/src/neurobiology/`](../../../crates/genos-biology/src/neurobiology) : Fichiers `system.rs`, `synapse.rs`, `glia.rs` (dégénérescence astrocytaire).
 - [`crates/genos-signal/src/cascade.rs`](../../../crates/genos-signal/src/cascade.rs) : Saturation compétitive de `Receptor` et `Ligand`.
 - [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs) : Fente synaptique `process_synaptic_cleft` et BHE `blood_brain_barrier_integrity`.
-- [`crates/genos-cell/src/cognitive_regulation.rs`](../../../crates/genos-cell/src/conscience.rs) : Champ `dissonance_level` de `CognitiveRegulationState`.
+- [`crates/genos-cell/src/cognitive_regulation.rs`](../../../crates/genos-cell/src/cognitive_regulation.rs) : Champ `dissonance_level` de `CognitiveRegulationState`.
 - [`backend/src/controllers/memoryController.js`](../../../backend/src/controllers/memoryController.js) : Dégradation des poids `synaptic_weight` dans SQLite.
 
 ---

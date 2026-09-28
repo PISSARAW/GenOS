@@ -3,6 +3,7 @@ const executor = require('../src/services/mcpExecutor');
 
 const previousLease = process.env.GENOS_MCP_LEASE;
 const previousDisabled = process.env.GENOS_MCP_DISABLED_TOOLS;
+const previousExpiry = process.env.GENOS_MCP_LEASE_EXPIRES_AT;
 process.env.GENOS_MCP_LEASE = 'genos_snapshot';
 delete process.env.GENOS_MCP_DISABLED_TOOLS;
 assert.equal(executor.directToolLeaseAllows('genos_snapshot'), true);
@@ -15,8 +16,12 @@ process.env.GENOS_MCP_LEASE_EXPIRES_AT = String(Date.now() - 1000);
 assert.equal(executor.directToolLeaseAllows('genos_snapshot'), false);
 process.env.GENOS_MCP_LEASE_EXPIRES_AT = String(Date.now() + 60000);
 assert.equal(executor.directToolLeaseAllows('genos_snapshot'), true);
-delete process.env.GENOS_MCP_LEASE_EXPIRES_AT;
+for (const invalidExpiry of ['', ' ', 'not-a-date', 'Infinity']) {
+  process.env.GENOS_MCP_LEASE_EXPIRES_AT = invalidExpiry;
+  assert.equal(executor.directToolLeaseAllows('genos_snapshot'), false);
+}
 
 if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE; else process.env.GENOS_MCP_LEASE = previousLease;
 if (previousDisabled === undefined) delete process.env.GENOS_MCP_DISABLED_TOOLS; else process.env.GENOS_MCP_DISABLED_TOOLS = previousDisabled;
+if (previousExpiry === undefined) delete process.env.GENOS_MCP_LEASE_EXPIRES_AT; else process.env.GENOS_MCP_LEASE_EXPIRES_AT = previousExpiry;
 console.log('Direct MCP calls honor lease and disabled-tool policy.');

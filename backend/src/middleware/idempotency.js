@@ -76,8 +76,8 @@ async function claimIdempotencyKey(key) {
   return result && typeof result.changes === 'number' ? result.changes > 0 : true;
 }
 
-function handleConflict(res, key) {
-  res.setHeader('X-Idempotency-Key', key);
+function handleConflict(res, clientKey) {
+  res.setHeader('X-Idempotency-Key', clientKey);
   return res.status(409).json({
     error: 'Idempotent request already in progress',
     code: 'IDEMPOTENCY_IN_PROGRESS',
@@ -85,20 +85,20 @@ function handleConflict(res, key) {
   });
 }
 
-async function replayOrConflict(res, key) {
+async function replayOrConflict(res, key, clientKey) {
   const existing = await checkIdempotency(key);
   if (!existing) return null;
-  if (!isInFlight(existing)) return handleReplay(res, existing);
-  if (!isStaleInFlight(existing)) return handleConflict(res, key);
+  if (!isInFlight(existing)) return handleReplay(res, { ...existing, key: clientKey });
+  if (!isStaleInFlight(existing)) return handleConflict(res, clientKey);
   await removeIdempotencyKey(key);
   return null;
 }
 
-async function claimOrConflict(res, key) {
+async function claimOrConflict(res, key, clientKey) {
   if (await claimIdempotencyKey(key)) return null;
   const raced = await checkIdempotency(key);
-  if (raced && !isInFlight(raced)) return handleReplay(res, raced);
-  return handleConflict(res, key);
+  if (raced && !isInFlight(raced)) return handleReplay(res, { ...raced, key: clientKey });
+  return handleConflict(res, clientKey);
 }
 
 function shouldSkip(path, skipPaths) {
@@ -115,13 +115,31 @@ function buildRequestContext(req) {
   };
 }
 
-async function resolveIdempotencyKey(req, ctx, keyGenerator) {
+function resolveClientKey(req, ctx, keyGenerator) {
   if (ctx.providedKey) return ctx.providedKey;
   if (!ctx.missionId || ctx.step === undefined) return null;
-  const key = keyGenerator({ missionId: ctx.missionId, step: ctx.step, attempt: ctx.attempt, toolName: ctx.toolName });
-  req.idempotencyKey = key;
   req.generatedIdempotencyKey = true;
-  return key;
+  return keyGenerator({ missionId: ctx.missionId, step: ctx.step, attempt: ctx.attempt, toolName: ctx.toolName });
+}
+
+function hashRequestScope(req, clientKey) {
+  const requestScope = {
+    principal: req.user?.keyId || req.user?.username || req.user?.id || 'authenticated',
+    method: req.method,
+    url: req.originalUrl || req.url || req.path,
+    organizationId: req.headers['x-organization-id'] || '',
+    projectId: req.headers['x-project-id'] || '',
+    clientKey,
+  };
+  return crypto.createHash('sha256').update(JSON.stringify(requestScope)).digest('hex');
+}
+
+async function resolveIdempotencyKey(req, ctx, keyGenerator) {
+  const clientKey = resolveClientKey(req, ctx, keyGenerator);
+  if (!clientKey) return null;
+  req.idempotencyKey = clientKey;
+  req.idempotencyClientKey = clientKey;
+  return hashRequestScope(req, clientKey);
 }
 
 function handleMissingKey(res, required) {
@@ -149,7 +167,18 @@ function handleReplay(res, existing) {
 
 function patchResponse(res, idempotencyKey) {
   const originalJson = res.json.bind(res);
+  let jsonResponse = false;
+  res.once('finish', () => {
+    // Streaming, redirect, and plain-text responses do not have a replayable
+    // JSON body. Release their reservation so they do not block retries.
+    if (!jsonResponse || res.statusCode < 200 || res.statusCode >= 300) {
+      removeIdempotencyKey(idempotencyKey).catch(err => {
+        console.error('Failed to release idempotency key:', err);
+      });
+    }
+  });
   res.json = (payload) => {
+    jsonResponse = true;
     const statusCode = res.statusCode;
     if (statusCode >= 200 && statusCode < 300) {
       storeIdempotency(idempotencyKey, payload, statusCode).catch(err => {
@@ -174,11 +203,12 @@ function idempotencyMiddleware(options = {}) {
     const idempotencyKey = await resolveIdempotencyKey(req, ctx, keyGenerator);
 
     if (!idempotencyKey) return handleMissingKey(res, required) || next();
-    if (await replayOrConflict(res, idempotencyKey)) return;
-    if (await claimOrConflict(res, idempotencyKey)) return;
+    const clientKey = req.idempotencyClientKey;
+    if (await replayOrConflict(res, idempotencyKey, clientKey)) return;
+    if (await claimOrConflict(res, idempotencyKey, clientKey)) return;
 
     patchResponse(res, idempotencyKey);
-    res.setHeader('X-Idempotency-Key', idempotencyKey);
+    res.setHeader('X-Idempotency-Key', clientKey);
     next();
   };
 }

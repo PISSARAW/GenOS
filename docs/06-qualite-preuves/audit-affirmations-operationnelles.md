@@ -6,9 +6,12 @@
 
 ## Résultat
 
-Les chemins Markdown relatifs des 136 documents sous `docs/` ont été contrôlés ;
-une cible absente a été corrigée dans `biomimicry-handlers.md`. Le contrôle ne couvre
-pas chaque chemin écrit en code inline ni les liens externes.
+Au contrôle initial du 2026-09-19, les chemins Markdown relatifs de 136 documents
+sous `docs/` ont été vérifiés et une cible absente corrigée dans
+`biomimicry-handlers.md`. Ce résultat historique ne couvrait pas les documents
+ajoutés depuis, les chemins de code écrits en texte inline ni les liens externes.
+Le contrôle des liens Markdown inline relatifs du 2026-09-28 couvre 350 documents et
+2 472 liens après correction ; les 16 liens cassés relevés avant correction sont résolus.
 
 Un rapprochement statique des déclarations de route (`router.get/post/...`) et des
 fichiers de test trouve une chaîne exacte ou un chemin correspondant pour 110 des
@@ -58,7 +61,7 @@ Les nombres sont des résultats d'extraction regex, pas un inventaire normatif.
 - Retrait de la règle de sécurité universelle et clarification que les contrôles
   sont appliqués selon la surface.
 - Reformulation de l'apoptose en termes d'arrêt/nettoyage logiciel vérifiable.
-- Correction d'un lien Markdown local cassé.
+- Correction de 16 liens Markdown relatifs cassés relevés sur les 350 documents.
 
 ## Critères de clôture d'un audit opérationnel
 

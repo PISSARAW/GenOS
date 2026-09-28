@@ -328,6 +328,9 @@ fn with_action(args: &Value, action: &str) -> Value {
 pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String) {
     let bridge = resolve_bridge_path(workspace);
     match name {
+        "genos_philosophy" => {
+            execute_orchestrator(&bridge, &with_action(args, "philosophy"), workspace)
+        }
         "genos_orchestrate" => {
             let mut payload = with_action(args, "orchestrate");
             if let Some(obj) = payload.as_object_mut() {

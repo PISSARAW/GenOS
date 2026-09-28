@@ -6,7 +6,7 @@ Ces mesures comptent les éléments définis dans la colonne « Méthode ». Ell
 
 | Mesure | Valeur | Méthode reproductible |
 | --- | ---: | --- |
-| Fichiers JavaScript de services (directs / récursifs) | 587 / 1801 | Fichiers `.js` directement sous `backend/src/services`, puis sous-arborescence comprise |
+| Fichiers JavaScript de services (directs / récursifs) | 591 / 1806 | Fichiers `.js` directement sous `backend/src/services`, puis sous-arborescence comprise |
 | Fichiers JavaScript de contrôleurs (directs / récursifs) | 55 / 68 | Fichiers `.js` directement sous `backend/src/controllers`, puis sous-arborescence comprise |
 | Stratégies déclarées | 92 | Familles de stratégies importées par le module strategyRegistry.js |
 | Références à des primitives / identifiants distincts | 255 / 226 | Somme des tableaux `primitives` du registre / union de ces tableaux |

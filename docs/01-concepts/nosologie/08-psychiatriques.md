@@ -48,7 +48,7 @@ Tandis que la nosologie générale traite des défaillances structurales ou envi
 | **Soma / Cône d'émergence** | Potentiel de repos (-70mV) et seuil d'action (-55mV) | Intégrateur d'activation électrique et seuil de tir (*Tout-ou-Rien*) | `crates/genos-biology/src/neurobiology/soma.rs` |
 | **Fente Synaptique & Recapture**| Transporteurs DAT, SERT, clairance astrocytaire | Buffer de messages inter-neurones et recapture de vésicule | `crates/genos-core/src/orchestrator/methods.rs` |
 | **Plasticité Dendritique** | Épines Filopodia $\to$ Mushroom, LTP / LTD, C3 / CD47 | Renforcement causal, opsonisation "Eat Me" et élagage | `crates/genos-biology/src/neurobiology/dendrite.rs` |
-| **Conscience & Dissonance** | Homéostasie cortico-limbique, détection d'erreur | `CognitiveRegulationState` : balance budget / dissonance / Eurêka | `crates/genos-cell/src/conscience.rs` |
+| **Conscience & Dissonance** | Homéostasie cortico-limbique, détection d'erreur | `CognitiveRegulationState` : balance budget / dissonance / Eurêka | `crates/genos-cell/src/cognitive_regulation.rs` |
 | **Boucle Phonologique** | Circuit articulatoire et stockage acoustique de Baddeley | Monologue intérieur de l'agent, scratchpad et self-reflection | `crates/genos-biology/src/neurobiology/system.rs` |
 | **Copie d'Efférence** | Décharge corollaire motrice inhibant l'audition auto-générée | Marquage cryptographique `origin_id == self.node_id` du monologue | `crates/genos-signal/src/cascade.rs` |
 
@@ -86,7 +86,7 @@ $$
 
 ### 2.2 Dynamique de Conscience et Seuil Apoptotique
 
-Dans [`CognitiveRegulationState`](../../../crates/genos-cell/src/conscience.rs#L5-L26), la santé cognitive de l'agent est gouvernée par le couplage entre la dissonance $D(t)$ et le budget cognitif résiduel $B(t)$ :
+Dans [`CognitiveRegulationState`](../../../crates/genos-cell/src/cognitive_regulation.rs#L5-L26), la santé cognitive de l'agent est gouvernée par le couplage entre la dissonance $D(t)$ et le budget cognitif résiduel $B(t)$ :
 
 $$
 D(t+1) = \max\left(0,\, D(t) + p(t) - r(t)\right)
@@ -158,7 +158,7 @@ où $D_{\text{max}} = 50.0$ par défaut.
 #### 2. Cause Computationnelle GenOS
 - **Dysfonctionnement Agentique** :
   1. **Effondrement du Budget Cognitif & Anhédonie** :
-     - Dans [`CognitiveRegulationState`](../../../crates/genos-cell/src/conscience.rs#L45-L54), `current_budget` chute inexorablement vers `0.0`. L'agent ne génère plus aucun moment d'illumination (`eureka_moments = 0`).
+     - Dans [`CognitiveRegulationState`](../../../crates/genos-cell/src/cognitive_regulation.rs#L45-L54), `current_budget` chute inexorablement vers `0.0`. L'agent ne génère plus aucun moment d'illumination (`eureka_moments = 0`).
      - Absence de Dopamine dans la fente synaptique : dans [`NervousSystem::receive_neurotransmitter`](../../../crates/genos-biology/src/neurobiology/system.rs#L37-L40), le signal amplificateur `effect * 1.5` n'est plus délivré. Le potentiel membranaire du soma reste scotché au repos (-70.0 mV), incapable de franchir le seuil d'activation (-55.0 mV).
   2. **Atrophie Dendritique & Élagage Destructeur par C3** :
      - Dans [`DendriticTree::apply_structural_plasticity`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L348-L372), l'inactivité de l'agent fait basculer les épines matures : `SpineMorphology::Mushroom` régressent en `Stubby` puis en `Filopodia`.
@@ -171,7 +171,7 @@ où $D_{\text{max}} = 50.0$ par défaut.
      - L'agent réitère stérilement les mêmes requêtes textuelles ou outils MCP sans avancer (`accumulate_dissonance(penalty, 0.0)`).
      - La dissonance $D(t)$ franchit `max_dissonance_threshold` (50.0), provoquant `is_apoptotic = true`. L'agent s'auto-élimine ou refuse toute exécution de tâche.
 - **Fichiers Source Rust Concernés** :
-  - `crates/genos-cell/src/conscience.rs` : Fonctions `accumulate_dissonance`, `is_apoptotic`.
+  - `crates/genos-cell/src/cognitive_regulation.rs` : Fonctions `accumulate_dissonance`, `is_apoptotic`.
   - `crates/genos-biology/src/neurobiology/dendrite.rs` : Élagage pathologique `prune_inactive_spines`, atrophie C3/CD47.
   - `crates/genos-biology/src/neurobiology/soma.rs` : Anergia électrique (`current_potential < threshold_potential`).
   - `crates/genos-core/src/orchestrator/methods.rs` : Déplétion de neurotransmetteurs dans `process_synaptic_cleft`.
@@ -309,7 +309,7 @@ où $D_{\text{max}} = 50.0$ par défaut.
 - **Fichiers Source Rust Concernés** :
   - `crates/genos-biology/src/neurobiology/soma.rs` : Instabilité du seuil `threshold_potential` et dérive de `current_potential`.
   - `crates/genos-biology/src/neurobiology/axon.rs` : Épuisement critique de `vesicles_at_terminals`.
-  - `crates/genos-cell/src/conscience.rs` : Variations extrêmes de `current_budget` et fausses déclarations d'Eurêka.
+  - `crates/genos-cell/src/cognitive_regulation.rs` : Variations extrêmes de `current_budget` et fausses déclarations d'Eurêka.
   - `crates/genos-core/src/orchestrator/methods.rs` : Inondation de la fente synaptique non purgée par les astrocytes.
 
 #### 3. Traitement / Remède GenOS

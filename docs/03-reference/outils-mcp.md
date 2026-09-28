@@ -63,12 +63,12 @@ Une lease est une allow-list temporaire ou contextuelle d'outils. Dans le code, 
 GENOS_MCP_LEASE=genos_snapshot,genos_replay
 ```
 
-`parseLease()` normalise les noms : un nom sans prefixe devient `genos_<nom>`. Une fois une lease presente, seul un outil du catalogue qui appartient a cette lease est visible.
+`parseLease()` normalise les noms : un nom sans prefixe devient `genos_<nom>`. Une fois une lease presente, seul un outil du catalogue qui appartient a cette lease et possède un pont d'exécution connu est visible via le serveur MCP JS.
 
 `GENOS_MCP_DISABLED_TOOLS` est une deny-list prioritaire : elle gagne toujours sur la lease. Les deux reglages sont equivalents au niveau conceptuel a :
 
 $$
-Visible = Catalog \cap Lease \setminus Disabled
+Visible = (Catalog \cap Lease \setminus Disabled) \cap VerifiedRoutes
 $$
 
 La documentation produit parfois l'expression `enabled_tools`. Dans le code actuel, l'equivalent operationnel de cette allow-list est `GENOS_MCP_LEASE` ; il n'existe pas ici une seconde variable `enabled_tools` qui modifierait independamment l'autorisation. Une configuration doit donc etre lue ainsi :
@@ -76,13 +76,13 @@ La documentation produit parfois l'expression `enabled_tools`. Dans le code actu
 - `enabled_tools` : intention de liste autorisee, materialisee par la lease ;
 - `disabled_tools` : liste de retrait, materialisee par `GENOS_MCP_DISABLED_TOOLS` ;
 - sans lease : aucune exposition par defaut (`toolIsLeased()` retourne `false` ; fail-closed) ;
-- hors production, l'exposition complete exige explicitement `GENOS_MCP_EXPOSE_ALL=true` **et** `GENOS_MCP_ALLOW_UNSAFE_EXPOSE_ALL=true`.
+- hors production, `GENOS_MCP_EXPOSE_ALL=true` active explicitement l'exposition complete ; en production, il faut aussi `GENOS_MCP_ALLOW_UNSAFE_EXPOSE_ALL=true`.
 
 En production, cette exposition complete est desactivee par `toolIsLeased()`.
 
 ### 3.2 Decouverte versus enforcement reel
 
-Le filtrage de `tools/list` est necessaire mais insuffisant. Il ne protege que la decouverte : `tools/list` reflete la lease active et la configuration (`GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS`, expiration `GENOS_MCP_LEASE_EXPIRES_AT`, exposition complete hors production), via `filterLeasedTools()`. Un client peut deja connaitre le nom d'un outil, ou tenter de l'appeler directement sans l'avoir obtenu par discovery.
+Le filtrage de `tools/list` est necessaire mais insuffisant. Il ne protege que la decouverte : `tools/list` applique la lease et la configuration (`GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS`, expiration `GENOS_MCP_LEASE_EXPIRES_AT`, exposition complete hors production), puis retire les outils sans pont vérifié (`filterRoutableTools()`). Un client peut deja connaitre le nom d'un outil, ou tenter de l'appeler directement sans l'avoir obtenu par discovery.
 
 GenOS revalide donc l'autorisation a l'appel :
 
@@ -90,6 +90,7 @@ GenOS revalide donc l'autorisation a l'appel :
 tools/list                  appel direct / backend dispatch
     |                                      |
 filterLeasedTools()                 directCallGuard()
+filterRoutableTools()               tool handler / backend dispatch
     |                                      |
 vue client                    registre + lease + args + breaker
 ```
@@ -322,7 +323,7 @@ Conformite : `mcp/test_node_cli_fallback.mjs`, `mcp/test_mcp_conformance.mjs`.
 Client MCP
    |
    v
-tools/list --------------------> catalogue filtre (lease - disabled)
+tools/list --------------------> catalogue filtre (lease - disabled - sans pont)
    |
    v
 tools/call ou appel backend direct

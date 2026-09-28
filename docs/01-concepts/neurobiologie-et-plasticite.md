@@ -1,7 +1,7 @@
 # Neurobiologie et plasticité dans GenOS
 
 - **Statut** : Implémenté — neurobiologie Rust, glial, conscience, mémoire, cycles de sommeil et temporal cognition sont disponibles dans le runtime.
-- **Portée** : `crates/genos-biology/src/neurobiology/`, `crates/genos-biology/src/glial.rs`, `crates/genos-cell/src/conscience.rs`, `backend/src/services/agentConscienceService.js`, `memoryStdp.js`, `sleepCycle.js`, `temporal.js`.
+- **Portée** : `crates/genos-biology/src/neurobiology/`, `crates/genos-biology/src/glial.rs`, `crates/genos-cell/src/cognitive_regulation.rs`, `backend/src/services/agentConscienceService.js`, `memoryStdp.js`, `sleepCycle.js`, `temporal.js`.
 - **Dernière revue** : 2026-09-17.
 
 ## 1. Définition
@@ -12,7 +12,7 @@ Le système réel repose sur des implémentations à la fois dans le runtime Nod
 
 - `crates/genos-biology/src/neurobiology/`
 - `crates/genos-biology/src/glial.rs`
-- `crates/genos-cell/src/conscience.rs`
+- `crates/genos-cell/src/cognitive_regulation.rs`
 - `backend/src/services/agentConscienceService.js`
 - `backend/src/services/primitiveHandlers/memoryStdp.js`
 - `backend/src/services/sleepCycle.js`
@@ -583,7 +583,7 @@ C’est une architecture particulièrement adaptée à :
 ## 13. Fichiers clés du repo
 
 - `crates/genos-biology/src/neurobiology/`
-- `crates/genos-cell/src/conscience.rs`
+- `crates/genos-cell/src/cognitive_regulation.rs`
 - `backend/src/services/mcpBioTools/handlers/thalamicBridge.js`
 - `backend/src/services/agentConscienceService.js`
 - `backend/src/services/sleepCycle.js`

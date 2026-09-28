@@ -218,7 +218,7 @@ Les services associés actuellement sont :
 - [backend/src/services/biocenose/communityStore.js](../../../backend/src/services/biocenose/communityStore.js) : création, rechargement et journalisation versionnée des sessions ;
 - [backend/src/services/biocenose/formation/](../../../backend/src/services/biocenose/formation/communityFormationService.js) : sélection de profils, diversité des niches et taille effective conditionnelle ;
 - [backend/src/services/epistemic/epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : calcul de métriques de diversité ;
-- [backend/src/services/epistemic/epistemicIndependenceService.js](../../../backend/src/services/epistemic/epistemicIndependenceService.js) : service d'indépendance épistémique distinct, dont la présence ne signifie pas qu'il est appelé par le parcours Biocénose ;
+- [backend/src/services/epistemics/epistemicIndependenceService.js](../../../backend/src/services/epistemics/epistemicIndependenceService.js) : service d'indépendance épistémique distinct, dont la présence ne signifie pas qu'il est appelé par le parcours Biocénose ;
 - [backend/src/services/hierarchicalQuorumService.js](../../../backend/src/services/hierarchicalQuorumService.js) : production d'un plan de communication hiérarchique ;
 - [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des rôles.
 
@@ -1101,7 +1101,7 @@ Les paramètres de constitution (quorum, méthode d'agrégation, veto, anonymat)
 - [METAPOPULATION.md](metapopulation.md) : orchestration par populations semi-indépendantes
 - [biocenoseService.js](../../../backend/src/services/biocenoseService.js) : activation de Biocénose
 - [epistemicBiocenoseService.js](../../../backend/src/services/epistemic/epistemicBiocenoseService.js) : diversité épistémique
-- [epistemicIndependenceService.js](../../../backend/src/services/epistemic/epistemicIndependenceService.js) : indépendance épistémique
+- [epistemicIndependenceService.js](../../../backend/src/services/epistemics/epistemicIndependenceService.js) : indépendance épistémique
 - [hierarchicalQuorumService.js](../../../backend/src/services/hierarchicalQuorumService.js) : quorum hiérarchique
 - [biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des modes
 

@@ -758,7 +758,7 @@ par le contrat et les gates d'admission Holobionte habituels ; l'adaptateur ne
 l'admet ni ne l'exécute. Une même identité daemon ne peut pas être enregistrée
 deux fois. Le cycle de vie d'exécution reste sous contrôle du runtime daemon.
 
-Source : [ADR 0079](../adr/0079-daemons-symbiontes-residents.md:15-39).
+Source : [ADR 0079](../adr/0079-daemons-symbiontes-residents.md#L15-L39).
 
 ---
 

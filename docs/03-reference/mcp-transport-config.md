@@ -45,7 +45,7 @@ la lecture de l'entrée standard et ne répond pas, même quand le client a envo
 un message complet et fermé son côté écriture du pipe.
 
 Ce comportement est documenté dans le skill
-[mcp-server-troubleshooting](../skills/infrastructure/mcp-server-troubleshooting/SKILL.md).
+`mcp-server-troubleshooting` (skill local, non versionné dans ce dépôt).
 
 ---
 
