@@ -1,6 +1,6 @@
 # Contrats d'acceptation Phase 0 — sept capacités manquantes
 
-- **Statut** : Spécification opposable ; phase 5 partiellement implémentée (cartographie descriptive uniquement). Les phases 1–4, 6–7 restent ouvertes.
+- **Statut** : Spécification opposable ; phases 2 et 5 partiellement implémentées. Les phases 1, 3–4, 6–7 restent ouvertes.
 - **Portée** : figer les contrats des phases 1 à 7 avant tout code.
 - **Dernière revue** : 2026-09-28
 - **Références** : [statuts-maturite.md](statuts-maturite.md), [registre-services.md](registre-services.md), [plan-validation-indicateurs.md](plan-validation-indicateurs.md), ADR 0162.
@@ -28,7 +28,9 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 2. Moteur d'évaluation des indicateurs (phase 2)
 
-- **Interface** : `backend/bin/genos-indicators.cjs` (client) + moteur de lecture et validation des reçus (à créer).
+- **Avancement** : l'évaluateur de reçus vérifie le schéma, le profil, la provenance, les hashes des artefacts inline, les références de preuve et la progression cumulative des étapes. Le CLI lit un reçu JSON sur stdin. Aucun score agrégé ni promotion automatique n'est produit ; le branchement au stockage persistant et l'évaluation multi-reçus restent ouverts.
+
+- **Interface** : `backend/bin/genos-indicators.cjs` + `backend/src/services/indicatorReceiptService.js` (évaluation en lecture seule d'un reçu JSON transmis sur stdin).
 - **Entrées** : reçu versionné (`propriété`, `profil`, `protocole`, `version`, `résultat`, `artefacts`, `limites`, `provenance`). Profils `node-runtime`, `rust-runtime`, `composed-api` ; `composed-perceptual` reste `planned` sans substrat instrumenté.
 - **Sorties** : état par étape (`specified`, `implemented`, `causal`, `generalized`, `operational`) parmi `passed`, `failed`, `inconclusive`, `not_run`, `unavailable` ; rapport traçable.
 - **Erreurs** : `RECEIPT_SCHEMA_UNKNOWN`, `RECEIPT_REF_MISSING`, `RECEIPT_EVIDENCE_INCOHERENT`, `RECEIPT_PROFILE_MISMATCH`. Schéma inconnu, référence absente ou preuve incohérente = rejet.
