@@ -80,12 +80,20 @@ async function runArm({ spec, arm, seed, initialHash }) {
   if (digest(state) !== initialHash) fail('CAUSAL_SNAPSHOT_MISMATCH', 'Arm did not receive the pinned initial snapshot.');
   let result;
   try {
-    result = await spec.runner(isolatedArm, state, { seed, budget: spec.budget.maxSteps, environmentHash: spec.environmentHash });
+    result = await spec.runner(isolatedArm, state, {
+      seed, budget: spec.budget.maxSteps, environmentHash: spec.environmentHash,
+      signal: spec.signal,
+    });
   } catch (error) {
+    ensureNotAborted(spec.signal);
     fail('CAUSAL_ARM_FAILED', `Arm failed on seed ${seed}: ${error.message}`);
   }
   validateArmResult(result, spec, seed);
   return result;
+}
+
+function ensureNotAborted(signal) {
+  if (signal?.aborted) fail('CAUSAL_EXPERIMENT_ABORTED', 'Replicated causal experiment was cancelled before completion.');
 }
 
 function validateArmResult(result, spec, seed) {
@@ -172,11 +180,16 @@ function buildReceipt({ spec, snapshotHash, pairs, effect, environmentHash }) {
 
 async function runReplicatedExperiment(spec, options = {}) {
   validateProtocol(spec);
+  ensureNotAborted(options.signal);
   const snapshotHash = digest(spec.initialState);
+  const executionSpec = { ...spec, signal: options.signal };
   const pairs = [];
   for (const seed of spec.seeds) {
-    const control = await runArm({ spec, arm: spec.control, seed, initialHash: snapshotHash });
-    const intervention = await runArm({ spec, arm: spec.intervention, seed, initialHash: snapshotHash });
+    ensureNotAborted(options.signal);
+    const control = await runArm({ spec: executionSpec, arm: spec.control, seed, initialHash: snapshotHash });
+    ensureNotAborted(options.signal);
+    const intervention = await runArm({ spec: executionSpec, arm: spec.intervention, seed, initialHash: snapshotHash });
+    ensureNotAborted(options.signal);
     pairs.push(pairSeed(seed, control, intervention));
   }
   const effect = summarizePairs(pairs);

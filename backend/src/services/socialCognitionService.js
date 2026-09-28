@@ -21,7 +21,7 @@ function requireContext(value) {
 }
 
 function assertDescriptiveOnly(input) {
-  const elevated = ['runtimeAuthority', 'executionAuthority', 'authorizeExecution', 'apply'];
+  const elevated = ['runtimeAuthority', 'executionAuthority', 'authorizeExecution', 'apply', 'promote', 'promotionEligible', 'lease'];
   if (elevated.some((key) => input[key] !== undefined && input[key] !== false && input[key] !== null)) {
     fail('SOCIAL_AUTHORITY_REFUSED', 'Social cognition cannot grant runtime or execution authority.');
   }
@@ -144,6 +144,31 @@ function compareSources(claims) {
     .map((source) => ({ id: source.id, provenance: source.provenance, method: source.method || null }));
 }
 
+function compareSourceCoverage(claims) {
+  const topics = new Map();
+  for (const claim of claims) {
+    if (!claim.topic) continue;
+    if (!topics.has(claim.topic)) topics.set(claim.topic, new Map());
+    const topicSources = topics.get(claim.topic);
+    if (!topicSources.has(claim.source.id)) topicSources.set(claim.source.id, []);
+    topicSources.get(claim.source.id).push(claim.id);
+  }
+  return [...topics.entries()].flatMap(([topic, topicSources]) => {
+    if (topicSources.size < 2) return [];
+    return [{
+      topic,
+      sources: [...topicSources.entries()].map(([sourceId, claimIds]) => ({ sourceId, claimIds })),
+    }];
+  });
+}
+
+function normalizeUncertainties(uncertainties) {
+  if (uncertainties.some((entry) => typeof entry !== 'string' || !entry.trim())) {
+    fail('SOCIAL_CONTEXT_INSUFFICIENT', 'uncertainties must contain non-empty declared descriptions.');
+  }
+  return uncertainties.map((entry) => entry.trim());
+}
+
 function analyzeSocialContext(input = {}) {
   assertDescriptiveOnly(input);
   const context = requireContext(input.context);
@@ -154,8 +179,8 @@ function analyzeSocialContext(input = {}) {
   const relations = normalizeRelations({
     relations: requireList(input.relations || [], 'relations'), actors, claims
   });
-  const uncertainties = requireList(input.uncertainties || [], 'uncertainties');
-  const unknowns = uncertainties.filter((entry) => typeof entry === 'string' && entry.trim());
+  const uncertainties = normalizeUncertainties(requireList(input.uncertainties || [], 'uncertainties'));
+  const unknowns = uncertainties;
   const disagreements = findDisagreements(relations);
   const result = boundedAnalysis({
     kind: 'social-cognition-map',
@@ -164,6 +189,7 @@ function analyzeSocialContext(input = {}) {
     positions: mapPositions(actors, claims),
     disagreements,
     sources: compareSources(claims),
+    sourceComparisons: compareSourceCoverage(claims),
     relations,
     uncertainties: unknowns,
     unknowns,

@@ -14,6 +14,7 @@
 const epistemicStateService = require('../epistemics/epistemicStateService');
 const consolidationPolicyService = require('../memory/consolidationPolicyService');
 const morphologyLearningService = require('./morphologyLearningService');
+const outcomeEvidenceValidation = require('./learning/outcomeEvidenceValidation');
 const regulatoryBridge = require('../regulation/regulatoryBridgeService');
 
 const PROVENANCE_SOURCE = 'causalLoopService';
@@ -29,25 +30,42 @@ function recordEvidence(agentId, evidence) {
   return { recorded: Boolean(result.updated), claimId: result.claimId || null };
 }
 
+function verifiedOutcome(qualityEvidence, expectedSuccess, expectedQuality) {
+  const verified = outcomeEvidenceValidation.validate(qualityEvidence);
+  const success = verified ? qualityEvidence.success : null;
+  const quality = verified ? Number(qualityEvidence.value) : null;
+  return {
+    success,
+    qualityVerified: verified,
+    quality: quality === null ? null : Number(quality.toFixed(4)),
+    delta: success === null ? null : (success === expectedSuccess ? 0 : (success ? 1 : -1)),
+    qualityDelta: quality === null ? null : Number((quality - expectedQuality).toFixed(4)),
+  };
+}
+
+function declaredOutcome(actual) {
+  return {
+    declaredSuccess: actual.success !== undefined ? Boolean(actual.success) : actual.status === 'completed',
+    declaredQuality: Number.isFinite(Number(actual.quality)) ? Number(actual.quality) : null,
+  };
+}
+
 function computeOutcome(receipt) {
   const expected = receipt.expectedOutcome || {};
   const actual = receipt.outcome || {};
-  const success = actual.success !== undefined ? Boolean(actual.success) : (actual.status === 'completed');
-  const quality = Number(actual.quality) || 0.5;
   const expectedSuccess = expected.success !== undefined ? Boolean(expected.success) : true;
   const expectedQuality = Number(expected.quality) || 0.5;
   return {
-    success,
-    quality: Number(quality.toFixed(4)),
+    ...verifiedOutcome(receipt.qualityEvidence, expectedSuccess, expectedQuality),
+    ...declaredOutcome(actual),
     expectedSuccess,
     expectedQuality: Number(expectedQuality.toFixed(4)),
-    delta: success === expectedSuccess ? 0 : (success ? 1 : -1),
-    qualityDelta: Number((quality - expectedQuality).toFixed(4)),
   };
 }
 
 function computeRPE(outcome, receipt) {
   const predicted = Number(receipt.predictedReward) || Number(receipt.expectedOutcome && receipt.expectedOutcome.quality) || 0.5;
+  if (!outcome.qualityVerified) return { value: 0, predicted: Number(predicted.toFixed(4)), actual: null, surprise: 0, eligible: false };
   const actual = outcome.quality;
   const rpe = actual - predicted;
   return {
@@ -59,6 +77,7 @@ function computeRPE(outcome, receipt) {
 }
 
 function consolidateMemory(outcome) {
+  if (!outcome.qualityVerified) return { consolidated: false, action: 'skip', reason: 'verified_outcome_required', entry: null };
   const episode = {
     actionType: outcome.actionType || 'unknown',
     actionInput: outcome.actionInput || '',
@@ -77,6 +96,7 @@ function consolidateMemory(outcome) {
 }
 
 function updateStrategyPerformance(outcome, rpe) {
+  if (!outcome.qualityVerified) return { recorded: false, reason: 'verified_outcome_required' };
   return {
     strategyId: outcome.strategyId || 'default',
     success: outcome.success,
@@ -87,6 +107,7 @@ function updateStrategyPerformance(outcome, rpe) {
 }
 
 function updateRecipePerformance(outcome, rpe) {
+  if (!outcome.qualityVerified) return { recorded: false, reason: 'verified_outcome_required' };
   return {
     recipeId: outcome.recipeId || outcome.cognitiveRecipe || 'default',
     success: outcome.success,
@@ -115,6 +136,7 @@ function recordMorphologyExperience(ctx) {
 
 function buildNextActionHints(outcome, rpe) {
   const hints = [];
+  if (!outcome.qualityVerified) return hints;
   if (rpe.value > 0.2) hints.push('positive_surprise_reinforce');
   if (rpe.value < -0.2) hints.push('negative_surprise_reconsider');
   if (outcome.quality < 0.3) hints.push('low_quality_retry');
@@ -123,6 +145,7 @@ function buildNextActionHints(outcome, rpe) {
 }
 
 function applyRegulatoryFeedback(agentId, rpe) {
+  if (!rpe.eligible && rpe.eligible !== undefined) return null;
   try {
     return regulatoryBridge.applyRpe(agentId, rpe);
   } catch (_) {

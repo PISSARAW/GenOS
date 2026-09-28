@@ -72,6 +72,14 @@ async function main() {
     trajectory.self = trajectory;
     return { seed: context.seed, environmentHash: context.environmentHash, metric: 1, trajectory, steps: 0 };
   })), { code: 'CAUSAL_ENV_DRIFT' });
+  const cancellation = new AbortController();
+  const executedArms = [];
+  await assert.rejects(() => runReplicatedExperiment(spec(async (arm, state, context) => {
+    executedArms.push(arm.delta);
+    if (arm.delta === 0) cancellation.abort();
+    return { seed: context.seed, environmentHash: context.environmentHash, metric: state.value, trajectory: [state.value], steps: 0 };
+  }), { signal: cancellation.signal }), { code: 'CAUSAL_EXPERIMENT_ABORTED' });
+  assert.deepEqual(executedArms, [0]);
   await assert.rejects(() => runReplicatedExperiment({ ...spec(runner), seeds: [3, 3, 7] }), { code: 'CAUSAL_SEED_INVALID' });
   await assert.rejects(() => runReplicatedExperiment(spec(async () => ({ seed: 1, environmentHash: 'b'.repeat(64), metric: 0, trajectory: [], steps: 0 }))), { code: 'CAUSAL_ENV_DRIFT' });
   await assert.rejects(() => runReplicatedExperiment(spec(async () => { throw new Error('arm failed'); })), { code: 'CAUSAL_ARM_FAILED' });

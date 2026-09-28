@@ -5,6 +5,13 @@
 
 const assert = require('assert');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const previousDbPath = process.env.GENOS_DB_PATH;
+const previousNodeEnv = process.env.NODE_ENV;
+const testDbPath = path.join(__dirname, `.tmp-grpc-${process.pid}.db`);
+process.env.GENOS_DB_PATH = testDbPath;
+process.env.NODE_ENV = 'test';
 const grpc = require('@grpc/grpc-js');
 const loadAllProtos = require('../proto/index');
 const registerAllServices = require('../src/grpc_services/index');
@@ -13,7 +20,6 @@ const { getDatabase } = require('../src/db');
 const { ensureAgentStrategyContracts } = require('../src/db/seed');
 const swarmMetrics = require('../src/services/swarmMetricsService');
 const workspaceLifecycle = require('../src/services/agentWorkspaceLifecycleService');
-
 const TEST_PORT = 50059;
 const testWorkerId = `worker-sub-${crypto.randomBytes(5).toString('hex')}`;
 const testGrpcSecret = `grpc-test-${crypto.randomBytes(24).toString('hex')}`;
@@ -21,9 +27,6 @@ process.env.GENOS_GRPC_SHARED_SECRET = testGrpcSecret;
 
 async function runGrpcSuite() {
   console.log('=== STARTING GENOS gRPC MICROSERVICES VERIFICATION SUITE ===\n');
-
-  // Clear any leftover DB path from previous tests
-  delete process.env.GENOS_DB_PATH;
 
   // 1. Boot local gRPC test server
   const server = new grpc.Server();
@@ -125,14 +128,14 @@ async function runGrpcSuite() {
     const storeRes = await callRpc(memClient, 'StoreMemory', {
       id: 'grpc-exp-01',
       content: 'Autonomous verification test experience via gRPC',
-      embedding: [0.1, 0.2, 0.3, 0.4]
+      embedding: new Array(768).fill(0.1)
     });
     assert.strictEqual(storeRes.success, true, 'StoreMemory must succeed');
     console.log('  ✅ PASS: MemoryService StoreMemory -> success: true');
 
     const searchRes = await callRpc(memClient, 'SearchMemory', {
       text: 'verification test',
-      vector: [0.1, 0.2, 0.3, 0.4],
+      vector: new Array(768).fill(0.1),
       limit: 3
     });
     assert(Array.isArray(searchRes.results), 'SearchMemory results must be an array');
@@ -372,6 +375,14 @@ async function runGrpcSuite() {
       c.close();
     }
     server.forceShutdown();
+    await require('../src/db').closeDatabase();
+    for (const suffix of ['', '-wal', '-shm']) {
+      fs.rmSync(`${testDbPath}${suffix}`, { force: true });
+    }
+    if (previousDbPath === undefined) delete process.env.GENOS_DB_PATH;
+    else process.env.GENOS_DB_PATH = previousDbPath;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
   }
 }
 

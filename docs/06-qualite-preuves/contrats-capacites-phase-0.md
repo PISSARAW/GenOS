@@ -53,22 +53,22 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 - **Interface** : primitive `procedural_replicated_causal_check` (alias `organism_replicated_causal_check`), `proceduralRegistryService`, `replicatedCausalValidationService` et reçu versionné avec outbox transactionnelle.
 - **Entrées** : intervention (variable manipulée, groupe témoin, environnement, budget, état initial, résultat observé), snapshot initial sérialisé, seeds.
 - **Sorties** : forks isolés baseline/intervention vérifiés (identité avant, indépendance pendant), écarts par intervention avec incertitude quand le protocole le permet, attribution bornée (ce qui est attribuable et ce qui reste indéterminé).
-- **Erreurs** : `CAUSAL_SNAPSHOT_MISMATCH`, `CAUSAL_ARM_FAILED`, `CAUSAL_SEED_INVALID`, `CAUSAL_ENV_DRIFT`, `CAUSAL_PROTOCOL_INSUFFICIENT`. Un effet nul mesuré est conservé comme reçu `inconclusive`, pas comme erreur.
+- **Erreurs** : `CAUSAL_SNAPSHOT_MISMATCH`, `CAUSAL_ARM_FAILED`, `CAUSAL_SEED_INVALID`, `CAUSAL_ENV_DRIFT`, `CAUSAL_PROTOCOL_INSUFFICIENT`, `CAUSAL_EXPERIMENT_ABORTED`. Un effet nul mesuré est conservé comme reçu `inconclusive`, pas comme erreur ; une annulation interrompt la campagne sans reçu partiel.
 - **Permissions** : budgets comparables par paire, clones indépendants du snapshot et des bras JSON, seeds explicites.
 - **Limites** : l'IC t suppose des différences appariées approximativement normales et ne prouve pas une causalité scientifique. Le runner enregistré reste du code de confiance dans le processus appelant ; le runtime n'isole pas ses effets externes. Le reçu borne l'attribution à l'intervention déclarée et au protocole exécuté ; il reste à relier ce parcours à l'exécution générale des missions et au registre causal métier.
-- **Preuves** : reçu SQLite idempotent ; clones indépendants, paires par seed, intervalle incertain et effet nul, seed invalide, entrée/trajectoire non sérialisable, échec d'un bras et dérive d'environnement.
+- **Preuves** : reçu SQLite idempotent ; clones indépendants, paires par seed, intervalle incertain et effet nul, seed invalide, entrée/trajectoire non sérialisable, échec d'un bras, dérive d'environnement et annulation avant la fin de paire.
 
 ## 5. Service de cognition sociale (phase 5)
 
-- **Avancement** : `cognitionService` expose `social-cognition.position-map` via le routeur philosophique. La carte descriptive exige acteurs, sources/provenance, contexte et relations déclarés ; elle retourne inconnues/désaccords explicitement fournis et refuse l'élévation en autorité. Validée dans ce périmètre descriptif, sans prétention à inférer états mentaux ou vérité.
+- **Avancement** : `socialCognitionService.analyzeSocialContext` expose `social-cognition.position-map` via le routeur philosophique. La carte décrit les positions par acteur, relie les revendications à leurs sources, compare la couverture des sources pour les sujets partagés et ne signale les désaccords que s'ils sont explicitement déclarés. Les incertitudes mal formées sont refusées au lieu d'être supprimées silencieusement. Validée dans ce périmètre descriptif, sans prétention à inférer états mentaux ou vérité.
 
 - **Interface** : `cognitionService` + adaptateur au routeur philosophique + définitions au registre de maturité.
 - **Entrées** : schéma structuré — acteurs déclarés, affirmations, sources, contexte, incertitudes, relations. Analyse des seules informations explicitement fournies.
-- **Sorties** : cartographie des positions, désaccords repérés, comparaison des sources, inconnues retournées. Résultats descriptifs et révisables, avec provenance conservée.
+- **Sorties** : cartographie des positions, désaccords explicitement déclarés, couverture des sujets par source, provenance et inconnues déclarées. Résultats descriptifs et révisables ; aucune qualité ni fiabilité d'une source n'est inférée.
 - **Erreurs** : `SOCIAL_ACTOR_UNKNOWN`, `SOCIAL_PROVENANCE_MISSING`, `SOCIAL_CONTEXT_INSUFFICIENT`, `SOCIAL_AUTHORITY_REFUSED`.
 - **Permissions** : aucune déduction de vérité, d'intention ou de permission d'exécution à partir d'un score social ; toute tentative d'usage comme autorité runtime est refusée explicitement.
 - **Limites** : « cognition sociale » désigne l'analyse d'informations sociales fournies, pas la lecture d'états mentaux ; échec explicite quand le contexte ne permet pas de conclure.
-- **Preuves** : entrées invalides, acteurs inconnus, preuves contradictoires, provenance manquante et tentatives d'élévation d'autorité testés.
+- **Preuves** : routage réel, couverture multi-source par sujet, acteurs inconnus, ids dupliqués, provenance et incertitude invalides, désaccord explicitement déclaré ou absent, et tentatives d'élévation d'autorité testés.
 
 ## 6. Intégration Antigravity (phase 6)
 

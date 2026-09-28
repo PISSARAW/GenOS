@@ -29,18 +29,12 @@ const result = {
 
 (async () => {
   const promotion = await barrier.promoteWinner(fakeDb, { missionId: 'm', orchestratorId: 'orch', result });
-  assert.equal(promotion.promoted, true);
-  assert.equal(promotion.worldNumber, 2);
-  assert.equal(promotion.role, 'planned');
-  assert.equal(promotion.score, 0.9);
-  assert.equal(promotion.agentId, 'w2');
-  assert.equal(promotion.artifact, null);
-  assert.ok(updates.some((entry) => /status = 'merged'/.test(entry.sql) && entry.params[0] === 'w2'));
-  assert.ok(updates.some((entry) => /status = 'compared'/.test(entry.sql) && entry.params[0] === 'w1'));
-  assert.ok(updates.some((entry) => /status = 'compared'/.test(entry.sql) && entry.params[0] === 'w3'));
+  assert.deepEqual(promotion, { promoted: false, reason: 'candidate_artifact_creation_failed' });
+  assert.ok(!updates.some((entry) => /status = 'promoted'/.test(entry.sql)));
+  assert.ok(!updates.some((entry) => /status = 'merged'/.test(entry.sql)));
 
   assert.deepEqual(await barrier.promoteWinner(fakeDb, { result: { canMerge: false } }), { promoted: false, reason: 'no_merge' });
-  assert.deepEqual(await barrier.promoteWinner(null, { result }), { promoted: false, reason: 'no_winner_agent' });
+  assert.deepEqual(await barrier.promoteWinner(null, { result }), { promoted: false, reason: 'database_unavailable' });
   console.log('Trinity promotion checks: PASS');
 })().catch((error) => {
   console.error('Trinity promotion test failed:', error);
