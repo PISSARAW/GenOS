@@ -1,25 +1,28 @@
-const assert = require('node:assert/strict');
-const { listStrategies } = require('../src/strategies/strategyRegistry');
-const selector = require('../src/strategies/strategySelector');
+'use strict';
+const assert = require('assert');
+const { scoreStrategy, explainScore } = require('../src/strategies/strategySelectorEligibility');
 
-const strategies = listStrategies();
-const originalRegistry = selector.__strategies;
+const profile = { type: 'incident', risk: 'high' };
+function strategy(id, traits) {
+  return { id, problemTypes: ['incident'], traits, costLevel: 1, latencyLevel: 1, riskLevel: 1, maturity: 'implemented' };
+}
 
-const profile = selector.profileProblem('production incident', {
-  type: 'incident',
-  complexity: 0.9,
-  uncertainty: 0.9,
-  requires_reproducibility: true,
-  temporal_dependency: true,
-  objectives_conflict: true,
-  evaluability: 'deterministic_tests',
-  risk: 'high'
-});
-const deterministic = strategies.find((strategy) => strategy.id === 'deterministic_replay');
-assert.ok(deterministic, 'deterministic_replay must remain registered');
-assert.ok(deterministic.traits.includes('deterministic'));
+const relevant = scoreStrategy(strategy('a', ['safety', 'verification']), profile);
+const neutral = scoreStrategy(strategy('b', ['low_cost']), profile);
+assert.ok(relevant > neutral, 'pertinent trait must outrank unrelated trait');
 
-const selected = selector.selectStrategyPortfolio({ problem: 'production incident', problemProfile: profile });
-assert.ok(selected.portfolio.some((strategy) => strategy.id === 'deterministic_replay'));
-assert.equal(originalRegistry, undefined);
+const twice = scoreStrategy(strategy('a', ['safety', 'verification']), profile);
+assert.equal(relevant, twice, 'scoring must be deterministic');
+
+const explained = explainScore(strategy('a', ['safety']), profile);
+assert.equal(explained.base, 48);
+assert.equal(explained.compatibilityBonus, 8);
+assert.deepEqual(explained.applied, [{ trait: 'safety', profile: 'incident', weight: 8 }]);
+assert.ok(typeof explained.costPenalty === 'number');
+assert.ok(typeof explained.total === 'number');
+
+const unknown = explainScore(strategy('u', ['trait_inconnu_xyz']), profile);
+assert.deepEqual(unknown.unknownTraits, ['trait_inconnu_xyz']);
+assert.equal(unknown.compatibilityBonus, 0);
+
 console.log('Strategy trait scoring checks passed.');

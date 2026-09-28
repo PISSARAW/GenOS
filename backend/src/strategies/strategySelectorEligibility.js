@@ -61,19 +61,34 @@ function baseTraitPoints(strategy, profile) {
 const { PREFERRED_PRIMARY } = require('./strategySelectorConstants');
 const { applyTraitBonusesOne, applyTraitBonusesTwo, applyTraitBonusesThree, applyTraitBonusesFour, applyTraitBonusesFive, applyTraitBonusesSix } = require('./strategySelectorHelpers');
 
+function costPenalty(strategy, profile) {
+  return strategy.costLevel * 1.8 + strategy.latencyLevel * 1.1 + strategy.riskLevel * (profile.risk === 'low' ? 1.4 : 0.4);
+}
+
+function maturityPenalty(strategy) {
+  if (strategy.maturity === 'experimental') return 10;
+  if (strategy.maturity === 'prototype') return 28;
+  return 0;
+}
+
 function scoreStrategy(strategy, profile) {
+  return explainScore(strategy, profile).total;
+}
+
+function explainScore(strategy, profile) {
   const traits = new Set(strategy.traits);
-  const state = { score: baseTraitPoints(strategy, profile) };
+  const base = baseTraitPoints(strategy, profile);
+  const state = { score: base, bonus: 0, applied: [], unknown: [] };
   applyTraitBonusesOne(state, traits, profile);
   applyTraitBonusesTwo(state, traits, profile);
   applyTraitBonusesThree(state, traits, profile);
   applyTraitBonusesFour(state, traits, profile);
   applyTraitBonusesFive(state, traits, profile);
   applyTraitBonusesSix(state, traits, profile);
-  state.score -= strategy.costLevel * 1.8 + strategy.latencyLevel * 1.1 + strategy.riskLevel * (profile.risk === 'low' ? 1.4 : 0.4);
-  if (strategy.maturity === 'experimental') state.score -= 10;
-  if (strategy.maturity === 'prototype') state.score -= 28;
-  return Number(state.score.toFixed(3));
+  const cost = costPenalty(strategy, profile);
+  const maturity = maturityPenalty(strategy);
+  const total = Number((base + state.bonus - cost - maturity).toFixed(3));
+  return { total, base, compatibilityBonus: state.bonus, applied: state.applied, costPenalty: Number(cost.toFixed(3)), maturityPenalty: maturity, unknownTraits: state.unknown };
 }
 
 module.exports = {
@@ -85,4 +100,7 @@ module.exports = {
   eligibility,
   baseTraitPoints,
   scoreStrategy,
+  explainScore,
+  costPenalty,
+  maturityPenalty,
 };
