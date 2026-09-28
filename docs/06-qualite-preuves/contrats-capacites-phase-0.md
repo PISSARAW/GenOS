@@ -84,7 +84,7 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 7. Constantes physiques par type de mission (phase 7)
 
-- **Avancement** : `missionPhysicsParameterService` estime une valeur bornée depuis des échantillons d'entraînement et de validation, persiste un reçu versionné en état `candidate`, exige une activation et permet le rollback vers la version antérieure. `adaptiveParameterService.loadFromDatabase` consomme les seuls reçus actifs dont la valeur respecte encore les bornes runtime pour le `missionClass` correspondant. Cela valide le chargement contrôlé, pas un gain de performance généralisable.
+- **Avancement** : `missionPhysicsParameterService` estime une valeur bornée depuis des échantillons d'entraînement et de validation, persiste un reçu versionné en état `candidate`, exige une activation et permet le rollback vers la version antérieure. Chaque échantillon doit référencer un reçu `WorldTransition` persistant dont la classe de mission et la mesure du paramètre correspondent à l'échantillon, avec provenance. `adaptiveParameterService.loadFromDatabase` consomme les seuls reçus actifs dont la valeur respecte encore les bornes runtime pour le `missionClass` correspondant. Cela valide le chargement contrôlé, pas un gain de performance généralisable.
 
 - **Interface** : paramètres persistés par type de mission (version, échantillons, provenance, bornes, incertitude), séparés des valeurs par défaut.
 - **Entrées** : constantes paramétrables identifiées, observations admissibles, résultats de mission utilisés comme signal, conditions minimales d'apprentissage.

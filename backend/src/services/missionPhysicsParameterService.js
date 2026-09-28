@@ -11,12 +11,15 @@ function fail(code, message) {
 }
 
 function validateSamples(samples, minimum) {
-  if (!Array.isArray(samples) || samples.length < minimum || samples.some((sample) => !sample
-    || typeof sample !== 'object' || Array.isArray(sample) || !Number.isFinite(sample.value)
-    || typeof sample.sourceRef !== 'string' || !sample.sourceRef.trim())) {
+  if (!Array.isArray(samples) || samples.length < minimum || samples.some((sample) => !validSample(sample))) {
     fail('PHYSICS_INSUFFICIENT_DATA', `At least ${minimum} finite, referenced samples are required.`);
   }
   return samples.map((sample) => ({ value: sample.value, sourceRef: sample.sourceRef.trim() }));
+}
+
+function validSample(sample) {
+  return Boolean(sample && typeof sample === 'object' && !Array.isArray(sample)
+    && Number.isFinite(sample.value) && typeof sample.sourceRef === 'string' && sample.sourceRef.trim());
 }
 
 function mean(samples) {
@@ -62,9 +65,12 @@ async function verifyStoredEvidence(db, samples, input) {
 
 async function latestVersion(db, missionClass, parameterId) {
   const rows = await db.all('SELECT payload_json FROM versioned_contract_receipts WHERE contract_type = ?', ['MissionPhysicsParameterSet']);
-  return rows.map((row) => JSON.parse(row.payload_json))
-    .filter((item) => item.missionClass === missionClass && item.parameterId === parameterId)
-    .reduce((version, item) => Math.max(version, item.version), 0);
+  let version = 0;
+  for (const row of rows) {
+    const item = JSON.parse(row.payload_json);
+    if (item.missionClass === missionClass && item.parameterId === parameterId) version = Math.max(version, item.version);
+  }
+  return version;
 }
 
 function validateCandidateBounds(bounds) {
@@ -85,19 +91,21 @@ function validateCandidateStatistics(stats) {
   }
 }
 
-function buildCandidate(input, version) {
-  const trainingSamples = validateSamples(input.trainingSamples, 3);
-  const validationSamples = validateSamples(input.validationSamples, 2);
-  validateCandidateBounds(input.bounds);
-  if (!Number.isFinite(input.maxValidationDrift) || input.maxValidationDrift < 0) {
-    fail('PHYSICS_VALIDATION_FAILED', 'A non-negative holdout drift threshold is required.');
-  }
-  const allSamples = [...trainingSamples, ...validationSamples];
-  const sourceRefs = verifySources(allSamples);
+function computeCandidateStatistics(input, trainingSamples, validationSamples) {
   const estimate = mean(trainingSamples);
   const holdoutMean = mean(validationSamples);
   const observedDrift = Math.abs(holdoutMean - estimate);
   validateCandidateStatistics({ estimate, holdoutMean, observedDrift, bounds: input.bounds, maxValidationDrift: input.maxValidationDrift });
+  return { estimate, observedDrift };
+}
+
+function buildCandidate(input, version) {
+  const trainingSamples = validateSamples(input.trainingSamples, 3);
+  const validationSamples = validateSamples(input.validationSamples, 2);
+  validateCandidateBounds(input.bounds);
+  if (!Number.isFinite(input.maxValidationDrift) || input.maxValidationDrift < 0) fail('PHYSICS_VALIDATION_FAILED', 'A non-negative holdout drift threshold is required.');
+  const sourceRefs = verifySources([...trainingSamples, ...validationSamples]);
+  const { estimate, observedDrift } = computeCandidateStatistics(input, trainingSamples, validationSamples);
   const samplePayload = { training: trainingSamples, validation: validationSamples };
   return {
     missionClass: input.missionClass,
