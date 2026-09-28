@@ -85,6 +85,12 @@ async function verifyConstitutionLifecycle() {
     });
     const forecastingRecord = await store.latestConstitution(db, persistedForecasting.communityId);
     assert.equal(forecastingRecord.constitution.variant, 'forecasting_crowd');
+    const explicitById = await biocenose.prepareCommunity({
+      db, orchestratorId: 'orchestrator-1', mission: 'What is the correct API contract?',
+      options: { variantId: 'adversarial_assembly' }
+    });
+    assert.equal(explicitById.variant, 'adversarial_assembly');
+    assert.equal(explicitById.variantSelection.method, 'explicit');
     assert.throws(() => constitutionService.buildConstitution({
       communityId: 'fact-community', question: 'What is the API contract?', roles: ['reviewer'],
       variant: 'forecasting_crowd'
