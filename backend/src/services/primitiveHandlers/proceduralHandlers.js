@@ -49,6 +49,12 @@ function resolveStateRef(context) {
   return null;
 }
 
+function resolveCausalRef(resolver, id, label) {
+  try { return resolver(id); } catch (_) {
+    throw Object.assign(new Error(`Registered causal ${label} '${id}' was not found.`), { code: 'CAUSAL_PROTOCOL_INSUFFICIENT' });
+  }
+}
+
 function buildEvolutionOptions(context) {
   return {
     variantCount: context.variantCount || context.variant_count || 5,
@@ -139,11 +145,11 @@ async function replicatedCausalCheck(context = {}) {
   if (!context.runnerId || !context.snapshotId || !context.environmentId) {
     throw Object.assign(new Error('runnerId, snapshotId and environmentId are required.'), { code: 'CAUSAL_PROTOCOL_INSUFFICIENT' });
   }
-  const environmentManifest = registry.resolveEnvironment(context.environmentId);
+  const environmentManifest = resolveCausalRef(registry.resolveEnvironment, context.environmentId, 'environment');
   const spec = {
     experimentId: context.experimentId,
     snapshotId: context.snapshotId,
-    initialState: registry.resolveSnapshot(context.snapshotId),
+    initialState: resolveCausalRef(registry.resolveSnapshot, context.snapshotId, 'snapshot'),
     environmentManifest,
     environmentHash: context.environmentHash || replicatedCausal.digest(environmentManifest),
     seeds: context.seeds,
@@ -151,7 +157,7 @@ async function replicatedCausalCheck(context = {}) {
     control: context.control,
     intervention: context.intervention,
     evidenceRefs: context.evidenceRefs || context.evidence_refs,
-    runner: registry.resolveRunner(context.runnerId),
+    runner: resolveCausalRef(registry.resolveRunner, context.runnerId, 'runner'),
     runId: context.runId,
   };
   return replicatedCausal.runReplicatedExperiment(spec, { db });

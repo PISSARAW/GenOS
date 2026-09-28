@@ -25,6 +25,8 @@ async function main() {
   assert.deepEqual(result.pairs.map((pair) => pair.divergenceSteps), [[0], [0], [0]]);
   assert.equal(result.receipt.payload.verdict, 'supported');
   assert.equal(result.receipt.payload.metricsBefore.comparableBudget, true);
+  assert.equal(result.effect.inferenceMethod, 'paired_t_95_assuming_approximately_normal_differences');
+  assert.equal(result.effect.confidenceInterval95.lower, 2);
   const unequalTrajectories = await runReplicatedExperiment(spec(async (arm, state, context) => {
     state.value += arm.delta;
     return {
@@ -50,6 +52,26 @@ async function main() {
   }));
   assert.ok(noisy.pairs.every((pair) => pair.difference > 0));
   assert.equal(noisy.receipt.payload.verdict, 'inconclusive');
+  const unchanged = await runReplicatedExperiment(spec(async (arm, state, context) => ({
+    seed: context.seed,
+    environmentHash: context.environmentHash,
+    metric: state.value,
+    trajectory: [state.value],
+    steps: 0,
+  })));
+  assert.equal(unchanged.receipt.payload.verdict, 'inconclusive');
+  assert.equal(unchanged.effect.confidenceInterval95.lower, 0);
+  const cyclicManifest = {};
+  cyclicManifest.self = cyclicManifest;
+  await assert.rejects(() => runReplicatedExperiment({ ...spec(runner), environmentManifest: cyclicManifest }), { code: 'CAUSAL_ENV_DRIFT' });
+  const cyclicSnapshot = {};
+  cyclicSnapshot.self = cyclicSnapshot;
+  await assert.rejects(() => runReplicatedExperiment({ ...spec(runner), initialState: cyclicSnapshot }), { code: 'CAUSAL_SNAPSHOT_MISMATCH' });
+  await assert.rejects(() => runReplicatedExperiment(spec(async (arm, state, context) => {
+    const trajectory = {};
+    trajectory.self = trajectory;
+    return { seed: context.seed, environmentHash: context.environmentHash, metric: 1, trajectory, steps: 0 };
+  })), { code: 'CAUSAL_ENV_DRIFT' });
   await assert.rejects(() => runReplicatedExperiment({ ...spec(runner), seeds: [3, 3, 7] }), { code: 'CAUSAL_SEED_INVALID' });
   await assert.rejects(() => runReplicatedExperiment(spec(async () => ({ seed: 1, environmentHash: 'b'.repeat(64), metric: 0, trajectory: [], steps: 0 }))), { code: 'CAUSAL_ENV_DRIFT' });
   await assert.rejects(() => runReplicatedExperiment(spec(async () => { throw new Error('arm failed'); })), { code: 'CAUSAL_ARM_FAILED' });

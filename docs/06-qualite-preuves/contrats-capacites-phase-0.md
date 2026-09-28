@@ -48,15 +48,15 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 4. Validation causale étendue (phase 4)
 
-- **Avancement** : `replicatedCausalValidationService.runReplicatedExperiment` exécute des bras appariés sur au moins trois seeds, clone le même état initial pour chaque bras, vérifie l'empreinte de l'environnement et persiste un reçu causal versionné lorsque l'appel passe par la primitive `procedural_replicated_causal_check` du registre. Le test d'intégration couvre le registre d'environnements, les snapshots, les runners appariés et le reçu SQLite. Ce parcours reste séparé de l'exécution générale des missions et du registre causal métier.
+- **Avancement** : `procedural_replicated_causal_check` résout runner, snapshot et manifeste d'environnement par identifiants dans le registre procédural, exécute au moins trois paires seed/contrôle/intervention et persiste un `CausalInterventionReceipt` dans SQLite. Les mesures appariées incluent une IC à 95 % par test t et son hypothèse de normalité ; les intervalles contenant zéro et les effets nuls produisent un reçu `inconclusive`.
 
-- **Interface** : `proceduralCausalValidationService` étendu + registre des runs + `causalDiff` persistant.
+- **Interface** : primitive `procedural_replicated_causal_check` (alias `organism_replicated_causal_check`), `proceduralRegistryService`, `replicatedCausalValidationService` et reçu versionné avec outbox transactionnelle.
 - **Entrées** : intervention (variable manipulée, groupe témoin, environnement, budget, état initial, résultat observé), snapshot initial sérialisé, seeds.
 - **Sorties** : forks isolés baseline/intervention vérifiés (identité avant, indépendance pendant), écarts par intervention avec incertitude quand le protocole le permet, attribution bornée (ce qui est attribuable et ce qui reste indéterminé).
-- **Erreurs** : `CAUSAL_SNAPSHOT_MISMATCH`, `CAUSAL_ARM_FAILED`, `CAUSAL_SEED_INVALID`, `CAUSAL_ENV_DRIFT`, `CAUSAL_NO_MEASURABLE_EFFECT`, `CAUSAL_PROTOCOL_INSUFFICIENT`.
-- **Permissions** : exécution isolée, budgets comparables entre bras, multi-seeds sur états comparables.
-- **Limites** : une différence de résultats ne suffit pas à établir une cause ; une décision causale sans snapshot, intervention, témoin, répétitions et résultats comparables est refusée. Le vocabulaire `causality_fork` / `mutatedUniverses` / `causalDiff` n'est employé que lorsque les mécanismes correspondants sont câblés.
-- **Preuves** : `causalDiff` reliant divergences, étapes et artefacts ; tests d'annulation, échec d'un bras, seed invalide, dérive et divergence sans effet.
+- **Erreurs** : `CAUSAL_SNAPSHOT_MISMATCH`, `CAUSAL_ARM_FAILED`, `CAUSAL_SEED_INVALID`, `CAUSAL_ENV_DRIFT`, `CAUSAL_PROTOCOL_INSUFFICIENT`. Un effet nul mesuré est conservé comme reçu `inconclusive`, pas comme erreur.
+- **Permissions** : budgets comparables par paire, clones indépendants du snapshot et des bras JSON, seeds explicites.
+- **Limites** : l'IC t suppose des différences appariées approximativement normales et ne prouve pas une causalité scientifique. Le runner enregistré reste du code de confiance dans le processus appelant ; le runtime n'isole pas ses effets externes. Le reçu borne l'attribution à l'intervention déclarée et au protocole exécuté ; il reste à relier ce parcours à l'exécution générale des missions et au registre causal métier.
+- **Preuves** : reçu SQLite idempotent ; clones indépendants, paires par seed, intervalle incertain et effet nul, seed invalide, entrée/trajectoire non sérialisable, échec d'un bras et dérive d'environnement.
 
 ## 5. Service de cognition sociale (phase 5)
 

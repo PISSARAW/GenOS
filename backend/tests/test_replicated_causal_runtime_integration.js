@@ -36,7 +36,7 @@ function registerInputs() {
 async function main() {
   const db = await setupDatabase();
   const inputs = registerInputs();
-  const result = await handler({
+  const request = {
     db,
     ...inputs,
     experimentId: 'causal-runtime-integration',
@@ -45,13 +45,17 @@ async function main() {
     control: { delta: 0 },
     intervention: { delta: 2 },
     evidenceRefs: ['protocol:runtime-integration-v1'],
-  });
+  };
+  const result = await handler(request);
   assert.equal(result.receipt.contractType, 'CausalInterventionReceipt');
   assert.equal(result.pairs.length, 3);
   assert.equal(result.effect.meanDifference, 2);
   assert.deepEqual(result.pairs.map((pair) => pair.seed), [5, 13, 29]);
   assert.deepEqual(result.pairs.map((pair) => pair.divergenceSteps), [[0], [0], [0]]);
   assert.equal((await loadReceipt(db, result.receipt.receiptId)).receiptId, result.receipt.receiptId);
+  const replayed = await handler(request);
+  assert.equal(replayed.receipt.receiptId, result.receipt.receiptId);
+  assert.equal((await db.get('SELECT COUNT(*) AS count FROM versioned_contract_receipts')).count, 1);
   assert.deepEqual(registry.resolveSnapshot(inputs.snapshotId), { value: 0 });
   await assert.rejects(() => handler({
     db, ...inputs, experimentId: 'causal-bad-seeds', seeds: [1, 1, 2],
@@ -61,6 +65,10 @@ async function main() {
     db, ...inputs, experimentId: 'causal-bad-environment', environmentHash: '0'.repeat(64),
     seeds: [1, 2, 3], budget: { maxRuns: 6, maxSteps: 2 }, control: {}, intervention: {},
   }), { code: 'CAUSAL_ENV_DRIFT' });
+  await assert.rejects(() => handler({
+    db, ...inputs, runnerId: 'missing-causal-runner', experimentId: 'causal-missing-runner',
+    seeds: [1, 2, 3], budget: { maxRuns: 6, maxSteps: 2 }, control: {}, intervention: {},
+  }), { code: 'CAUSAL_PROTOCOL_INSUFFICIENT' });
   registry.unregisterRunner(inputs.runnerId);
   registry.unregisterEnvironment(inputs.environmentId);
   registry.unregisterSnapshot(inputs.snapshotId);
