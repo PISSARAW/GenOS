@@ -1,10 +1,19 @@
 # Architecture des 5 Super-Sens Animaux dans GenOS
 
-- **Statut** : Implémenté — VNO, mormyrocerebellum, Cluster N, tectum thermique et écholocation hypertrophiée sont intégrés dans le runtime.
+- **Statut** : Primitives locales testées — VNO, mormyrocerebellum, Cluster N, tectum thermique et écholocation sont des calculs locaux sous `crates/genos-biology/src/sensory/`, pas des sens intégrés au runtime.
 - **Portée** : `crates/genos-biology/src/sensory/`, CLI `genos biomimicry`, outils MCP `genos_biomimicry_*`.
-- **Dernière revue** : 2026-09-17.
+- **Dernière revue** : 2026-09-28.
+- **Référence** : [inventaire-biologique.md](inventaire-biologique.md), [maturite-biologique.md](maturite-biologique.md).
 
-Ce document formalise l'intégration des 5 architectures neuro-sensorielles bio-inspirées dans le noyau GenOS (`genos-biology`, `genos-cli`, backend MCP).
+Ce document décrit des primitives de transduction simulée comme vocabulaire d'architecture. Sans adaptateur concret, les entrées sont des signaux synthétiques fournis par l'appelant, pas des observations du système.
+
+## 0. Limites vérifiées et non-objectifs
+
+- Les 5 modules calculent à partir de vecteurs fournis (`concentration`, `samples`, `goal-vector`, `thermal-readings`, `echoes`). Ils ne captent ni processus, ni verrous, ni fichiers, ni CPU réels.
+- Aucune boucle perception-action : `peripheralScan`, `saccadeToFeature`, `discharge_and_analyze` ne pilotent ni navigateur, ni capture d'écran, ni HTML réel.
+- Le calcul de dérive angulaire $\theta$ n'est pas une prévention du drift sémantique ; c'est une distance cosinus locale.
+- La détection « sub-millikelvin » compare des flottants fournis ; elle n'isole aucun module chaud sans parser du code.
+- Tant qu'un adaptateur concret n'existe pas, typer les entrées comme **signaux synthétiques** et conserver leur provenance.
 
 ---
 
@@ -12,10 +21,10 @@ Ce document formalise l'intégration des 5 architectures neuro-sensorielles bio-
 
 Le **Bulbe Olfactif Accessoire (AOB)** et l'**Organe Voméronasal (VNO)** fournissent un canal de **signalisation phéromonale subliminale hors-contexte**.
 
-### Rôle et Mécanisme Bio-inspiré
+### Rôle et Mécanisme Bio-inspiré (simulation locale)
 
-- **Bypass Cortical :** Permet aux agents d'émettre et de capter des signaux chimiques d'urgence (alarme, défense, coopération, territorialité) sans saturer la fenêtre de contexte textuelle du LLM.
-- **Réponse de Flehmen :** Lorsque la concentration dépasse le seuil de sensibilité, une transition d'état réflexe (`autonomic_action`) est immédiatement déclenchée (ex: gel défensif, mobilisation cytotoxique, synchronisation d'essaim).
+- **Canal simulé hors-contexte :** Les agents fournissent `pheromone-type` et `concentration` en entrée. Le module compare à un seuil et renvoie une transition calculée, sans capter de signal réel.
+- **Réponse simulée :** Lorsque la concentration fournie dépasse le seuil fourni, une transition calculée (`autonomic_action`) est renvoyée. Elle ne déclenche aucune action runtime sans chemin PAF autorisé.
 
 ### Primitives & Commandes
 
@@ -32,10 +41,10 @@ Le **Bulbe Olfactif Accessoire (AOB)** et l'**Organe Voméronasal (VNO)** fourni
 
 Inspiré du poisson-éléphant (*Gnathonemus petersii*) et des requins, ce module implémente une **détection de champ et de distorsion d'impédance**.
 
-### Rôle et Mécanisme Bio-inspiré
+### Rôle et Mécanisme Bio-inspiré (simulation locale)
 
-- **Sensing Passif d'Infrastructure :** Analyse le bruit de fond électrosensoriel et détecte les micro-impulsions sans interroger les agents, localisant les processus silencieux, verrous (deadlocks) ou goulots d'étranglement.
-- **Sensing Actif (EOD - Electric Organ Discharge) :** Émission d'ondes de décharge et calcul de la distorsion d'impédance diélectrique ($\Delta Z$), de la réactance capacitive et du contraste spatial de l'infrastructure logicielle.
+- **Calcul local sur échantillons fournis :** Analyse les flottants transmis en entrée et calcule un score de distorsion. Ne localise aucun processus silencieux, verrou ou goulot réel.
+- **Émission simulée (EOD) :** Aucune sonde réelle ; le $\Delta Z$ est dérivé des échantillons fournis.
 
 ### Primitives & Commandes
 
@@ -52,10 +61,10 @@ Inspiré du poisson-éléphant (*Gnathonemus petersii*) et des requins, ce modul
 
 Inspiré des oiseaux migrateurs nocturnes (rouge-gorge familier), le module **Cluster N** implémente une **boussole d'alignement d'intention globale invariante**.
 
-### Rôle et Mécanisme Bio-inspiré
+### Rôle et Mécanisme Bio-inspiré (simulation locale)
 
-- **Boussole Vectorielle Invariante :** Traite l'orientation par rapport à un attracteur global invariant (champ géomagnétique) via des paires de radicaux quantiques de cryptochrome.
-- **Prévention du Drift Sémantique :** Calcule en continu la dérive angulaire ($\theta = \arccos(\frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \|\mathbf{v}\|})$) et la cohérence quantique entre l'intention de départ et la trajectoire des sous-agents, projetant un cap de correction dynamique.
+- **Boussole calculée :** Traite l'orientation entre deux vecteurs fournis via paires de radicaux simulées.
+- **Dérive calculée, pas prévention prouvée :** Calcule la dérive angulaire ($\theta = \arccos(\frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \|\mathbf{v}\|})$) en local. Aucune preuve de prévention du drift sémantique des sous-agents.
 
 ### Primitives & Commandes
 
@@ -72,10 +81,10 @@ Inspiré des oiseaux migrateurs nocturnes (rouge-gorge familier), le module **Cl
 
 Inspiré des serpents solénoglyphes et crotalidés (crotales, vipères, pythons), le **Tectum Optique Modifié** fusionne la vision photonique classique et l'imagerie thermique millikelvin.
 
-### Rôle et Mécanisme Bio-inspiré
+### Rôle et Mécanisme Bio-inspiré (simulation locale)
 
-- **Fusion Synesthésique Multi-Modale :** Superpose dans un même espace topologique (tectum / colliculus supérieur) la télémétrie structurelle/visuelle (ex: graphe AST, arborescence de fichiers) et l'énergie thermique (activité CPU, charge de mémoire, fréquence de modifications, criticité d'erreurs).
-- **Détection de Hotspots & Frappe Ciblée :** Détecte des gradients thermiques sub-millikelvin ($T \ge 3.0\text{ mK}$) pour isoler instantanément les modules chauds sous stress ou en surchauffe opérationnelle sans avoir à parser l'intégralité du code.
+- **Fusion calculée de vecteurs fournis :** Superpose des listes `visual-nodes` et `thermal-readings` fournies par l'appelant. Aucune télémétrie CPU, mémoire ou AST réelle.
+- **Hotspots calculés :** Compare des flottants fournis à un seuil. N'isole aucun module chaud sans parser du code.
 
 ### Primitives & Commandes
 
@@ -92,10 +101,10 @@ Inspiré des serpents solénoglyphes et crotalidés (crotales, vipères, pythons
 
 Inspiré des microchiroptères (chauves-souris) et des odontocètes (dauphins), le **Cortex d'Écholocation** implémente un **sondage actif haute fréquence par échos acoustiques et décalage Doppler**.
 
-### Rôle et Mécanisme Bio-inspiré
+### Rôle et Mécanisme Bio-inspiré (simulation locale)
 
-- **Cartographie Topologique Dynamique en Temps Réel :** Émet des impulsions ultrasonores modulées en fréquence (chirps FM 20-120 kHz) et calcule la distance spatiale ($d = \frac{c \cdot \Delta t}{2}$) à partir du temps de vol (ToF).
-- **Cinématique Doppler & Détection d'Obstacles :** Calcule la vitesse radiale relative ($v = \frac{\Delta f \cdot c}{2 f_0}$) via le décalage Doppler ($\Delta f$) et la densité d'impédance relative via l'atténuation du signal, identifiant immédiatement les obstacles critiques en approche (deadlocks, collisions de branches, blocages I/O) et les corridors navigables dégagés.
+- **Cartographie calculée :** Applique $d = \frac{c \cdot \Delta t}{2}$ aux échos fournis (`branch/auth:10.0:...`). Aucune impulsion réelle, aucun temps de vol mesuré.
+- **Doppler calculé :** Applique $v = \frac{\Delta f \cdot c}{2 f_0}$ aux valeurs fournies. N'identifie aucun deadlock, collision ou blocage I/O réel.
 
 ### Primitives & Commandes
 
