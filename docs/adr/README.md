@@ -20,15 +20,15 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0015](0015-convergence-organisme-cognitif-composite.md) | Convergence d'un organisme cognitif composite | Accepté | 2026-09-16 | Orchestration, contrôle, preuve, sûreté |
 | [0016](0016-effets-runtime-philosophiques-controles.md) | Effets runtime philosophiques contrôlés | Accepté | 2026-09-17 | Philosophie, runtime, sûreté |
 | [0017](0017-philosophie-politique-et-gouvernance.md) | Philosophie politique et gouvernance contrôlée | Accepté | 2026-09-17 | Philosophie, gouvernance, preuve, sûreté |
-| [0018](0018-gouvernance-registre-philosophique.md) | Gouvernance du registre philosophique | Accepté | 2026-09-17 | Philosophie, registre, relations, preuve |
-| [0018b](0018-execution-cognitive-via-client-mcp.md) | Exécution cognitive via le client MCP (`caller_mcp`) | Accepté | 2026-09-27 | Runtime, MCP, harness, preuve |
+| [0018a](0018-execution-cognitive-via-client-mcp.md) | Exécution cognitive via le client MCP (`caller_mcp`) | Accepté | 2026-09-27 | Runtime, MCP, harness, preuve |
+| [0018b](0018-gouvernance-registre-philosophique.md) | Gouvernance du registre philosophique | Accepté | 2026-09-17 | Philosophie, registre, relations, preuve |
 | [0019](0019-socle-epistemique-du-savoir.md) | Socle épistémique du savoir | Accepté | 2026-09-17 | Philosophie, épistémologie, preuves, inférence |
 | [0020a](0020-moteurs-logiques-bornes-et-semantique.md) | Moteurs logiques bornés et sémantiques explicites | Accepté | 2026-09-17 | Philosophie, inférence, épistémologie |
 | [0020b](0020-persistance-analyses-philosophiques.md) | Persistance explicite des analyses philosophiques | Accepté | 2026-09-17 | Philosophie, analyses, provenance, persistance |
-| [0021](0021-promotion-epistemique-des-decisions.md) | Promotion épistémique des décisions | Accepté | 2026-09-17 | Épistémologie, contrats, gates, mémoire |
-| [0021b](0021-ontologie-operationnelle.md) | Ontologie opérationnelle | Acceptée (implémentation en cours) | 2026-09-17 | Philosophie, ontologie, runtime |
-| [0022](0022-resultats-operationnels-et-preuve.md) | Résultats opérationnels et preuve | Accepté | 2026-09-18 | Runtime, MCP, validation, preuves |
-| [0022b](0022-promotions-de-maturite-des-strategies.md) | Promotions de maturité des stratégies | Accepté | 2026-09-18 | Stratégies, maturité, registres |
+| [0021a](0021-ontologie-operationnelle.md) | Ontologie opérationnelle | Acceptée (implémentation en cours) | 2026-09-17 | Philosophie, ontologie, runtime |
+| [0021b](0021-promotion-epistemique-des-decisions.md) | Promotion épistémique des décisions | Accepté | 2026-09-17 | Épistémologie, contrats, gates, mémoire |
+| [0022a](0022-promotions-de-maturite-des-strategies.md) | Promotions de maturité des stratégies | Accepté | 2026-09-18 | Stratégies, maturité, registres |
+| [0022b](0022-resultats-operationnels-et-preuve.md) | Résultats opérationnels et preuve | Accepté | 2026-09-18 | Runtime, MCP, validation, preuves |
 | [0023](0023-pont-causalite-modalite.md) | Pont borné entre causalité et modalité | Accepté | 2026-09-18 | Mondes possibles, causalité, épistémologie |
 | [0024](0024-contexte-epistemique-scientifique.md) | Contexte épistémique des analyses scientifiques | Accepté | 2026-09-18 | Méthode scientifique, vérité, promotion |
 | [0025](0025-fiabilite-cognitive-bornee.md) | Évaluation bornée de la fiabilité cognitive | Accepté | 2026-09-18 | Reliabilisme, épistémologie, promotion |
@@ -44,10 +44,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0035](0035-model-uplift-benchmark.md) | GMUB / GCAB — Model Uplift longitudinal et ablations | Accepté | 2026-09-23 | Évaluation, preuve, ladder, ablations |
 | [0036](0036-harness-compatibility-layer.md) | Harness Compatibility Layer — rendre le harness remplaçable | Accepté | 2026-09-27 | Orchestration, runtime, exécution, preuve |
 | [0037](0037-ecosysteme-agentique-11-15.md) | Écosystème agentique 11-15 : environnement, substrat, physiologie, gouvernance, interoception | Accepté | 2026-09-23 | Environnement, cognition, collectif, gouvernance, santé |
-| [003x](003x-communication-ecology.md) | Communication Ecology Invariants (verbal = ressource rare, Signal Plane zero-text) | Accepté | 2026-09-27 | Communication, cognition, distribution |
-| [0039](0039-systemes-vitaux-agents-6-10.md) | Systèmes vitaux des agents 6-10 : sensorium, métabolisme, résilience, développement, symbiontes | Accepté | 2026-09-23 | Perception, métabolisme, résilience, développement, procédures |
-
 | [0038](0038-boucle-controle-cognitif-morphogenese.md) | Boucle de controle cognitif de la morphogenese | Accepte | 2026-09-23 | Orchestration, epistemologie, memoire, cognition, strategie, regulation |
+| [0039](0039-systemes-vitaux-agents-6-10.md) | Systèmes vitaux des agents 6-10 : sensorium, métabolisme, résilience, développement, symbiontes | Accepté | 2026-09-23 | Perception, métabolisme, résilience, développement, procédures |
+| [003x](003x-communication-ecology.md) | Communication Ecology Invariants (verbal = ressource rare, Signal Plane zero-text) | Accepté | 2026-09-27 | Communication, cognition, distribution |
 | [0040](0040-morphogenese-git-contrefactuel.md) | Morphogenèse versionnée Git et contrefactuelle | Proposé | 2026-09-23 | Orchestration, morphogenèse, Git agentique, contrefactuel, substrat |
 | [0041](0041-medecine-immunite-graduee.md) | Médecine graduée et immunité proportionnée | Accepté | 2026-09-27 | Santé agentique, immunité, thérapies, quarantaine, iatrogénie |
 | [0042](0042-qpu-organe-specialise.md) | QPU comme organe spécialisé et sélection quantum-inspired | Rejeté | 2026-09-27 | Substrat de calcul, quantum-inspired, QPU, GPU, VFS |
@@ -56,9 +55,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0045](0045-noyau-controle-morphogenetique.md) | Noyau de contrôle morphogénétique de l'orchestrateur Rust | Accepté | 2026-09-27 | Orchestration, morphogenèse, gouvernance, incarnation, santé |
 | [0046](0046-routage-minimal-memoire-resultats.md) | Routage minimal suffisant et mémoire des meilleurs résultats | Accepté | 2026-09-24 | Orchestration, routage, mémoire, preuve, persistance |
 | [0047](0047-sessions-persistantes-metapopulation.md) | Sessions persistantes de Métapopulation | Accepté | 2026-09-24 | Orchestration, Métapopulation, persistance, lignées, provenance |
+| [0048](0048-session-holobionte-persistante.md) | Session Holobionte persistante et journal de symbiose | Accepté — première tranche de fondation. | -- | -- |
+| [0049](0049-trinity-sealed-experiments.md) | Expériences Trinity scellées | accepté | 2026-09-24 | -- |
+| [0050](0050-constitution-hote-holobionte.md) | Constitution de l'hôte Holobionte | Accepté — deuxième tranche de fondation. | -- | -- |
 | [0051](0051-morphology-graph-and-topology-contracts.md) | Graphe morphologique et contrats typés de topologie | Accepté | 2026-09-27 | Orchestration, morphogenèse, topologies, preuves, budget |
 | [0052](0052-contrat-symbiotique-holobionte.md) | Contrat symbiotique Holobionte | Accepté | 2026-09-24 | Holobionte, autorité, capacités, confidentialité, persistance |
-| [0088](0088-conditions-arret-holobionte.md) | Conditions d'arrêt du Holobionte | Accepté | 2026-09-24 | Holobionte, cycle de vie, missions, gouvernance |
 | [0053](0053-admission-sandbox-symbiontes-holobionte.md) | Admission sandbox des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, admission, sandbox, permissions, preuves |
 | [0054](0054-classement-partenaires-holobionte.md) | Classement des partenaires Holobionte | Accepté | 2026-09-24 | Holobionte, sélection, capacités, risques, dépendance |
 | [0055](0055-plan-metabolique-ressources-holobionte.md) | Plan métabolique des ressources Holobionte | Accepté | 2026-09-24 | Holobionte, ressources, allocations, contribution, coûts |
@@ -69,51 +70,102 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0060](0060-redundance-et-dependance-holobionte.md) | Redondance fonctionnelle et contrôle de dépendance Holobionte | Accepté | 2026-09-24 | Holobionte, résilience, redondance, dépendance, keystone |
 | [0061](0061-remplacement-et-reprise-symbionte.md) | Remplacement et reprise d'un symbionte | Accepté | 2026-09-24 | Holobionte, reprise, backup, substitution, ressources |
 | [0062](0062-transmission-verticale-holobionte.md) | Transmission verticale Holobionte | Accepté | 2026-09-24 | Holobionte, génération, héritage, AEIS, admission |
-| [0063](0063-contrats-worker-autorite-bornee.md) | Contrats worker avec autorité et délégation bornées | Accepté | 2026-09-24 | Workers, contrats, autorité, délégation, budgets |
-| [0064](0064-registre-workerkind-node-et-dispatch.md) | Registre WorkerKind Node et propagation au dispatch | Accepté | 2026-09-24 | Workers, registre, dispatch, autorité, preuves |
+| [0063a](0063-acquisition-horizontale-holobionte.md) | Acquisition horizontale Holobionte | Accepté — quatorzième lot du plan Holobionte. | -- | -- |
+| [0063b](0063-contrats-worker-autorite-bornee.md) | Contrats worker avec autorité et délégation bornées | Accepté | 2026-09-24 | Workers, contrats, autorité, délégation, budgets |
+| [0064a](0064-registre-workerkind-node-et-dispatch.md) | Registre WorkerKind Node et propagation au dispatch | Accepté | 2026-09-24 | Workers, registre, dispatch, autorité, preuves |
+| [0064b](0064-transmission-mixte-holobionte.md) | Transmission mixte Holobionte | Accepté — quinzième lot du plan Holobionte. | -- | -- |
+| [0065a](0065-homeostasie-environnement-hote.md) | Homéostasie de l'environnement hôte | Accepté (test dédié manquant) | 2026-09-27 | Environnement hôte, stockage, homéostasie |
+| [0065b](0065-transfert-controle-procedures-holobionte.md) | Transfert contrôlé de procédures Holobionte | Accepté — seizième lot du plan Holobionte. | -- | -- |
+| [0066](0066-co-adaptation-holobionte.md) | Co-adaptation Holobionte | Accepté — dix-septième lot du plan Holobionte. | -- | -- |
+| [0067](0067-succession-symbiontes-holobionte.md) | Succession des symbiontes Holobionte | Accepté — dix-huitième lot du plan Holobionte. | -- | -- |
+| [0068](0068-cross-feeding-symbiotique-holobionte.md) | Cross-feeding symbiotique Holobionte | Accepté — dix-neuvième lot du plan Holobionte. | -- | -- |
+| [0069](0069-graphe-interactions-symbiontes-holobionte.md) | Graphe d’interactions des symbiontes Holobionte | Accepté — vingtième lot du plan Holobionte. | -- | -- |
 | [0070](0070-syncytium-variant-code.md) | Variant Code pour Syncytium | Accepté | 2026-09-24 | Syncytium, code partagé, symboles, conflits sémantiques |
-| [0071](0071-morphogenese-fractale-et-controle-local.md) | Morphogenèse fractale et contrôle local | Accepté | 2026-09-24 | Orchestration, morphogenèse, autorités déléguées |
-| [0076](0076-runtime-morphogenese-v2.md) | Runtime morphogénétique v2 | Accepté | 2026-09-24 | Orchestration, contrôle morphogénétique, observabilité |
-| [0078](0078-syncytium-variant-graphe.md) | Variant Graphe pour Syncytium | Accepté | 2026-09-24 | Syncytium, graphes, arêtes, acyclicité |
+| [0071a](0071-morphogenese-fractale-et-controle-local.md) | Morphogenèse fractale et contrôle local | Accepté | 2026-09-24 | Orchestration, morphogenèse, autorités déléguées |
+| [0071b](0071-sanctions-progressives-holobionte.md) | Sanctions progressives des symbiontes Holobionte — identifiant historique 0071 | Remplacé — voir ADR 0073 | 2026-09-24 | Holobionte, gouvernance, contrats, immunité |
+| [0072](0072-classification-defaillances-symbiontes.md) | Classification des défaillances de symbiontes — identifiant historique 0072 | Remplacé — voir ADR 0074 | 2026-09-24 | Holobionte, santé, résilience, gouvernance |
+| [0073a](0073-routage-moteur-contrat-symbionte.md) | Routage du moteur selon le contrat du symbionte — chemin historique 0073 | Remplacé — voir ADR 0075 | 2026-09-24 | Holobionte, runtime, routage, confidentialité |
+| [0073b](0073-sanctions-progressives-holobionte.md) | Sanctions progressives des symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, gouvernance, contrats, immunité |
+| [0074](0074-classification-defaillances-symbiontes.md) | Classification des défaillances de symbiontes | Accepté | 2026-09-24 | Holobionte, santé, résilience, gouvernance |
+| [0075](0075-routage-moteur-contrat-symbionte.md) | Routage du moteur selon le contrat du symbionte | Accepté | 2026-09-24 | Holobionte, runtime, routage, confidentialité |
+| [0076a](0076-kinds-non-agentiques-symbiontes-holobionte.md) | Kinds non agentiques pour les symbiontes Holobionte | Accepté | 2026-09-24 | Holobionte, symbiontes, modèles, outils, runtime |
+| [0076b](0076-runtime-morphogenese-v2.md) | Runtime morphogénétique v2 | Accepté | 2026-09-24 | Orchestration, contrôle morphogénétique, observabilité |
+| [0077](0077-variants-policies-holobionte.md) | Variants du Holobionte comme policies | Accepté | 2026-09-24 | Holobionte, composition, configuration, résilience |
+| [0078a](0078-holobionte-persistant.md) | Host Holobionte persistant entre missions | Accepté | 2026-09-24 | Holobionte, identité, mémoire, continuité, capacités |
+| [0078b](0078-syncytium-variant-graphe.md) | Variant Graphe pour Syncytium | Accepté | 2026-09-24 | Syncytium, graphes, arêtes, acyclicité |
+| [0079a](0079-daemons-symbiontes-residents.md) | Daemons comme symbiontes résidents | Accepté | 2026-09-24 | Holobionte, daemons, continuité, admission |
+| [0079b](0079-syncytium-transactionnel.md) | Variant Transactionnel pour Syncytium | Accepté — lot 20 du plan Syncytium. | -- | -- |
+| [0080](0080-integration-rhizome-holobionte.md) | Intégration de Rhizome au Holobionte | Accepté | 2026-09-24 | Holobionte, Rhizome, découverte, admission |
+| [0081](0081-integration-trinity-holobionte.md) | Intégration de Trinity au Holobionte | Accepté | 2026-09-24 | Holobionte, Trinity, sélection, admission |
+| [0082a](0082-integration-biocenose-holobionte.md) | Intégration de Biocénose au Holobionte | Accepté | 2026-09-24 | Holobionte, Biocénose, jugement, autorité |
+| [0082b](0082-syncytium-epistemique.md) | Variant Épistémique pour Syncytium | Accepté — lot 21 du plan Syncytium. | -- | -- |
+| [0083a](0083-integration-a-team-holobionte.md) | Intégration d'A-Team au Holobionte | Accepté | 2026-09-24 | Holobionte, A-Team, sous-topologies, autorité |
+| [0083b](0083-syncytium-blackboard.md) | Variant Blackboard pour Syncytium | Accepté — lot 22 du plan Syncytium. | -- | -- |
+| [0084](0084-integration-syncytium-holobionte.md) | Intégration de Syncytium au Holobionte | Accepté | 2026-09-24 | Holobionte, Syncytium, cohérence, sous-topologies |
+| [0085a](0085-integration-morphogenese-holobionte.md) | Intégration de Morphogenèse au Holobionte persistant | Accepté | 2026-09-24 | Holobionte, Morphogenèse, identité, capacités résidentes |
+| [0085b](0085-syncytium-hierarchique.md) | Variant Hiérarchique pour Syncytium | Accepté — lot 23 du plan Syncytium. | -- | -- |
+| [0086a](0086-branche-rhizome-morphogenese.md) | Branche Rhizome dans la Morphogenèse | Accepté | 2026-09-27 | Morphogenèse, Rhizome, exploration, preuves, budgets |
+| [0086b](0086-runtime-evenementiel-holobionte.md) | Runtime événementiel Holobionte | Accepté | 2026-09-24 | Holobionte, runtime, contrats, contribution, mémoire |
+| [0087a](0087-branche-trinity-morphogenese.md) | Branche Trinity dans la Morphogenèse | Accepté | 2026-09-24 | Morphogenèse, Trinity, comparaison, preuves, budgets |
+| [0087b](0087-syncytium-humain-ia.md) | Variant Humain-IA pour Syncytium | Accepté — lot 24 du plan Syncytium. | -- | -- |
+| [0088a](0088-conditions-arret-holobionte.md) | Conditions d'arrêt du Holobionte | Accepté | 2026-09-24 | Holobionte, cycle de vie, missions, gouvernance |
+| [0088b](0088-services-runtime-syncytium.md) | Services du Runtime Syncytium | Accepté — lot 25 du plan Syncytium. | -- | -- |
 | [0089](0089-gates-decision-biocenose.md) | Gates de promotion au jugement Biocénose | Accepté | 2026-09-24 | Biocénose, épistémologie, gouvernance, audit |
-| [0090](0090-variants-executables-biocenose.md) | Variants exécutables de Biocénose | Accepté | 2026-09-24 | Biocénose, protocoles, décisions |
-| [0093](0093-controleur-regional-autonome-metapopulation.md) | Contrôleur régional autonome de Métapopulation | Accepté | 2026-09-24 | Métapopulation, runtime, observabilité, Morphogenèse |
-| [0095](0095-admission-croissance-rhizome-runtime.md) | Admission de croissance dans le runtime Rhizome | Accepté | 2026-09-27 | Rhizome, croissance, providers, vérification, persistance |
+| [0090a](0090-contrat-capacites-syncytium.md) | Contrat de Capacités Syncytium | Accepté — lot 26 du plan Syncytium. | -- | -- |
+| [0090b](0090-variants-executables-biocenose.md) | Variants exécutables de Biocénose | Accepté | 2026-09-24 | Biocénose, protocoles, décisions |
+| [0091](0091-variants-syncytium-comme-policies.md) | Variants Syncytium comme Policies | Accepté — lot 27 du plan Syncytium. | -- | -- |
+| [0092](0092-topologies-imbriquees-syncytium.md) | Topologies Imbriquées dans Syncytium | Accepté — lot 28 du plan Syncytium. | -- | -- |
+| [0093a](0093-controleur-regional-autonome-metapopulation.md) | Contrôleur régional autonome de Métapopulation | Accepté | 2026-09-24 | Métapopulation, runtime, observabilité, Morphogenèse |
+| [0093b](0093-morphogenese-topologies-syncytium.md) | Conseiller de Morphogenèse pour Syncytium | Accepté — lot 29 du plan Syncytium. | -- | -- |
+| [0094](0094-ontologie-et-selection-morphogenetiques.md) | Ontologie et sélection morphogénétiques | Accepté — 2026-09-24. | -- | -- |
+| [0095a](0095-admission-croissance-rhizome-runtime.md) | Admission de croissance dans le runtime Rhizome | Accepté | 2026-09-27 | Rhizome, croissance, providers, vérification, persistance |
+| [0095b](0095-runtime-autonome-syncytium.md) | Runtime Autonome Syncytium | Accepté — lot 30 du plan Syncytium. | -- | -- |
 | [0097](0097-calibration-immunitaire-holobionte.md) | Calibration immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, épistémologie |
-| [0098](0098-detection-surreaction-immunitaire-holobionte.md) | Détection de sur-réaction immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, gouvernance |
-| [0099](0099-impact-keystone-holobionte.md) | Impact des symbiontes keystone | Accepté | 2026-09-25 | Holobionte, résilience, mesure de contribution |
 | [0100](0100-controle-ecologique-biocenose.md) | Contrôle écologique de Biocénose | Accepté | 2026-09-25 | Biocénose, runtime, observabilité, Morphogenèse |
+| [0101](0101-prevol-shadow-et-commit-cas-morphogenese-v2.md) | Prévol shadow et commit CAS de Morphogenèse V2 | Accepté | 2026-09-25 | Morphogenèse, persistance, runtime V2 |
 | [0102](0102-boucle-migration-regionale-verifiee.md) | Boucle de migration régionale vérifiée | Accepté | 2026-09-25 | Métapopulation, migration, corridors, runtime |
-| [0086](0086-branche-rhizome-morphogenese.md) | Branche Rhizome dans la Morphogenèse | Accepté | 2026-09-27 | Morphogenèse, Rhizome, exploration, preuves, budgets |
-| [0087](0087-branche-trinity-morphogenese.md) | Branche Trinity dans la Morphogenèse | Accepté | 2026-09-24 | Morphogenèse, Trinity, comparaison, preuves, budgets |
-
-| [0103](0103-vecteur-fitness-holobionte.md) | Vecteur de fitness Holobionte | Accepté | 2026-09-25 | Holobionte, fitness, observabilité |
+| [0103a](0103-routage-fiable-du-thalamus.md) | Routage fiable du thalamus | Accepté | 2026-09-25 | API LLM, routage, cache, filtrage d'outils |
+| [0103b](0103-vecteur-fitness-holobionte.md) | Vecteur de fitness Holobionte | Accepté | 2026-09-25 | Holobionte, fitness, observabilité |
 | [0104](0104-dysbiose-holobionte.md) | Détection de dysbiose Holobionte | Accepté | 2026-09-25 | Holobionte, santé, résilience |
 | [0105](0105-benchmark-longitudinal-holobionte.md) | Benchmark longitudinal Holobionte | Accepté | 2026-09-25 | Holobionte, évaluation, preuves |
 | [0106](0106-detection-surreaction-immunitaire-holobionte.md) | Détection de sur-réaction immunitaire Holobionte | Accepté | 2026-09-25 | Holobionte, immunité, gouvernance |
 | [0107](0107-impact-keystone-holobionte.md) | Impact des symbiontes keystone | Accepté | 2026-09-25 | Holobionte, résilience, mesure de contribution |
-| [0103](0103-routage-fiable-du-thalamus.md) | Routage fiable du thalamus | Accepté | 2026-09-25 | API LLM, routage, cache, filtrage d'outils |
-| [0108](0108-branchement-topologies-fail-closed.md) | Branchement fail-closed des topologies | Accepté | 2026-09-25 | Orchestration, morphogenèse, transitions, preuves |
+| [0108a](0108-branchement-topologies-fail-closed.md) | Branchement fail-closed des topologies | Accepté | 2026-09-25 | Orchestration, morphogenèse, transitions, preuves |
+| [0108b](0108-cycle-de-vie-plasmidique.md) | Cycle de vie et gates plasmidiques | Accepté | 2026-09-25 | génome, capacités, CLI |
+| [0110](0110-catalogue-central-des-variants-morphologiques.md) | Catalogue central des variants morphologiques | Accepté | 2026-09-25 | Morphogenèse, topologies, variants |
+| [0111](0111-regulation-cognitive-bornee-et-eureka.md) | Régulation cognitive bornée et Eurêka fondé sur l’évidence | Accepté | 2026-09-25 | Régulation cognitive, preuves, persistance, runtime |
 | [0113](0113-benchmark-avec-sans-genos.md) | Benchmark apparié avec / sans GenOS (campagne v1) | Accepté | 2026-09-25 | Évaluation, preuve, orchestration |
+| [0114](0114-emission-dossier-worker-runtime-local.md) | Émission du dossier workerArtifact par les runtimes supervisés et timeout de barrière proportionné | Voir le fichier | -- | -- |
+| [0115](0115-reparation-a-team-windows-handoffs-preuves.md) | Réparation A-Team Windows, handoffs créatifs et preuves intégrales | Voir le fichier | -- | -- |
 | [0116](0116-execution-fiable-communication.md) | Exécution fiable des décisions de communication | Accepté | 2026-09-25 | Communication, transport, sécurité |
 | [0117](0117-enveloppe-canonique-communication.md) | Enveloppe canonique de communication | Accepté | 2026-09-25 | Communication, contrats, interopérabilité |
 | [0118](0118-preparer-les-workers-et-operer-le-graphe-rhizome.md) | Préparer les workers de topologie et exposer le graphe Rhizome | Accepté | 2026-09-25 | Topologies, workers, Rhizome, Morphogenèse |
 | [0119](0119-actions-metier-et-detection-de-collapse.md) | Actions métier et détection de collapse | Accepté | 2026-09-25 | Runtime worker, supervision, observabilité |
+| [0120](0120-resultats-de-mission-rhizome-et-croissance-du-graphe.md) | Résultats de mission Rhizome et croissance du graphe | Accepté | 2026-09-25 | Rhizome, workers et provenance |
 | [0121](0121-contrat-mission-comparative-et-frontieres.md) | Contrat de mission comparative et frontières de responsabilité | Accepté | 2026-09-25 | Contrats, orchestration, Métapopulation, évaluation |
-| [0122](0122-evaluation-comparative-intertopologies-et-recolonisation.md) | Évaluation comparative inter-topologies et preuve de recolonisation | Accepté | 2026-09-25 | Topologies, évaluateurs, Métapopulation, lignées |
+| [0122a](0122-evaluation-comparative-intertopologies-et-recolonisation.md) | Évaluation comparative inter-topologies et preuve de recolonisation | Accepté | 2026-09-25 | Topologies, évaluateurs, Métapopulation, lignées |
+| [0122b](0122-partager-le-stockage-avec-les-runtimes-enfants.md) | Partager explicitement le stockage avec les runtimes enfants | Acceptée | -- | -- |
 | [0123](0123-separer-profil-worker-et-contrat-de-methode.md) | Séparer le profil worker du contrat de méthode | Accepté | 2026-09-25 | Sélection des workers, contrats de mission, topologies |
 | [0124](0124-selection-automatique-des-variants.md) | Sélection automatique et exécution des variants de topologie | Proposé | 2026-09-25 | Morphogenèse, orchestration, topologies |
 | [0125](0125-profils-morphologiques-composables.md) | Profils morphologiques composables | Accepté | 2026-09-25 | Morphogenèse, catalogue de variants, graphes d'exécution |
-| [0126](0126-dsl-de-plan-experimental-trinity.md) | DSL de plan expérimental Trinity | Accepté | 2026-09-25 | Trinity, plans expérimentaux, preuves et orchestration |
-| [0126](0126-lier-les-politiques-de-metapopulation-au-runtime-regional.md) | Lier les politiques de métapopulation au runtime régional | Accepté | 2026-09-25 | Orchestration, métapopulation |
-| [0129](0129-runtime-des-variants-holobionte.md) | Runtime contractuel des variants Holobionte | Accepté | 2026-09-26 | Orchestration, Holobionte |
+| [0126a](0126-dsl-de-plan-experimental-trinity.md) | DSL de plan expérimental Trinity | Accepté | 2026-09-25 | Trinity, plans expérimentaux, preuves et orchestration |
+| [0126b](0126-lier-les-politiques-de-metapopulation-au-runtime-regional.md) | Lier les politiques de métapopulation au runtime régional | Accepté | 2026-09-25 | Orchestration, métapopulation |
 | [0128](0128-mecanismes-argumentatifs-et-polycentriques-biocenose.md) | Mécanismes argumentatifs et polycentriques Biocénose | Accepté | 2026-09-26 | Biocénose, agrégation, argumentation |
+| [0129](0129-runtime-des-variants-holobionte.md) | Runtime contractuel des variants Holobionte | Accepté | 2026-09-26 | Orchestration, Holobionte |
 | [0130](0130-runtime-comportemental-des-variants-rhizome.md) | Contrats comportementaux des variants Rhizome | Accepté | 2026-09-26 | Rhizome, routage, persistance, sûreté, morphogenèse |
 | [0131](0131-mecanismes-runtime-des-variants-syncytium.md) | Mécanismes runtime des variants Syncytium | Accepté | 2026-09-26 | Syncytium, cohérence, coédition, réplication, autorité humaine |
 | [0132](0132-runtime-des-variants-biome.md) | Runtime comportemental des variants Biome | Accepté | 2026-09-26 | Biome, ressources, recherche, persistance, preuves |
 | [0133](0133-graphe-morphologique-executable-et-plugins-topologies.md) | Graphe morphologique exécutable et plugins de topologies | Accepté | 2026-09-26 | Morphogenèse, runtime, opérateurs, preuve, sûreté |
 | [0134](0134-boucles-reflexives-fonctionnelles.md) | Boucles réflexives fonctionnelles (indicateurs, jamais conscience) | Accepté | 2026-09-26 | Réflexivité, métacognition, gates, best-effort |
-| [0065](0065-homeostasie-environnement-hote.md) | Homéostasie de l'environnement hôte | Accepté (test dédié manquant) | 2026-09-27 | Environnement hôte, stockage, homéostasie |
+| [0135](0135-gates-de-preuve-pour-promotion-des-findings.md) | gates de preuve pour promouvoir les findings daemon | Voir le fichier | -- | -- |
+| [0136](0136-selection-pareto-des-cultures-verifiees.md) | sélection Pareto des propagules culturelles versionnées | Voir le fichier | -- | -- |
+| [0137](0137-routage-relationnel-et-mesure-des-tokens.md) | routage relationnel et comptabilité des tokens | Voir le fichier | -- | -- |
+| [0138](0138-persistance-recus-contractuels-versionnes.md) | Persistance transactionnelle des reçus contractuels versionnés | Accepté. | -- | -- |
+| [0139](0139-runner-experimental-isole.md) | Runner expérimental isolé | Accepté. | -- | -- |
+| [0140](0140-protocoles-corpus-et-anti-fuite.md) | Protocoles versionnés et corpus anti-fuite | Accepté. | -- | -- |
+| [0141](0141-pipeline-truthgraph-semanticreport-rendu-ferme.md) | Pipeline TruthGraph → SemanticReport → rendu fermé | Accepté. | -- | -- |
+| [0142](0142-gate-sorties-finales.md) | Gate des sorties finales | Accepté. | -- | -- |
+| [0143](0143-reproduction-controlee-des-findings-daemon.md) | reproduction contrôlée avant promotion causale | Voir le fichier | -- | -- |
 | [0144](0144-worldstate-conditionnel.md) | WorldState conditionnel | Accepté (portée Node) | 2026-09-27 | Représentation d'état, incertitude, décision |
 | [0145](0145-rollout-controle-et-reversible.md) | Rollout contrôlé et réversible | Accepté (portée Node) | 2026-09-27 | Expérimentation, déploiement, rollback |
 | [0146](0146-substrat-perceptif-binding-recurrence.md) | Substrat perceptif, binding et récurrence | Accepté (portée Node) | 2026-09-27 | Perception, suivi d'objets, binding |
@@ -124,8 +176,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0151](0151-modele-de-soi-effecteurs.md) | Modèle de soi et effecteurs | Accepté (portée Node) | 2026-09-27 | Modèle de soi, copie d'efférence |
 | [0152](0152-objectifs-concurrents-allostase.md) | Objectifs concurrents et allostase | Accepté (portée Node) | 2026-09-27 | Objectifs multiples, allostase |
 | [0153](0153-population-morphogenetique-bornee.md) | Population morphogénétique bornée | Accepté (portée Node) | 2026-09-27 | Morphogenèse, variants, provenance |
-| [0154](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
-| [0154](0154-recu-typé-du-pont-rust-snapshot.md) | Reçu typé du pont Rust pour les snapshots | Accepté | 2026-09-27 | Pont Rust/Node, snapshots, provenance |
+| [0154a](0154-fitness-pareto-destins.md) | Fitness, Pareto et destins multiples | Accepté (portée Node) | 2026-09-27 | Sélection multi-objectifs, niches |
+| [0154b](0154-recu-typé-du-pont-rust-snapshot.md) | Reçu typé du pont Rust pour les snapshots | Accepté | 2026-09-27 | Pont Rust/Node, snapshots, provenance |
 | [0155](0155-hypothese-plan-action.md) | Hypothèse promue, plan et action | Accepté (portée Node) | 2026-09-27 | Planification, hypothèses, rollback |
 | [0156](0156-verdict-experimental-planner.md) | Verdict expérimental et planner | Accepté (portée Node) | 2026-09-27 | Expérimentation, verdicts, PID |
 | [0157](0157-apprentissage-inter-missions-consolidation.md) | Apprentissage inter-missions et consolidation | Accepté (portée Node) | 2026-09-27 | Mémoire inter-missions, lignées |
@@ -133,10 +185,13 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0159](0159-no-report-ablations-croisees.md) | No-report et ablations croisées | Accepté (portée Node) | 2026-09-27 | Évaluation, ablations, plan factoriel |
 | [0160](0160-campagne-reservee-replication.md) | Campagne réservée et réplication indépendante | Accepté (portée Node) | 2026-09-27 | Réplication, campagnes réservées |
 
-> **Collision numérique `0154`** : deux ADR distincts partagent le n° 0154
-> (`0154-fitness-pareto-destins.md` et `0154-recu-typé-du-pont-rust-snapshot.md`).
-> Renumérotation interdite sans migration de provenance (ADR 0005) : les deux
-> fichiers sont conservés tels quels, avec note croisée dans chacun.
+> **Identifiants numériques partagés** : 26 numéros sont portés par deux
+> fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
+> 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,
+> 0108, 0122, 0126, 0154), plus `003x` (format historique gelé). Les
+> fichiers sont conservés tels quels (renommage interdit sans migration
+> de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,
+> `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.
 
 ## Cycle de vie d'un ADR
 
@@ -147,10 +202,14 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 ## Ajouter un ADR
 
-1. Créer `docs/adr/NNNN-slug.md` (numérotation à 4 chiffres, jamais réutilisée).
+1. Créer `docs/adr/NNNN-slug.md` (numérotation à 4 chiffres, jamais réutilisée ;
+   `003x` est un format historique gelé, ne pas l'imiter).
 2. Reprendre l'en-tête : `Statut`, `Date`, `Domaine`, `Décideurs`, `Lié à`.
 3. Structurer : `Contexte`, `Décision`, `Conséquences` (Positives / Négatives), `Alternatives`.
-4. Mettre à jour ce tableau et la section ADR de [../README.md](../README.md).
+4. Mettre à jour l'index : `python scripts/ci/check_adr_index.py --update`
+   (couvre tous les fichiers, désambiguïse les numéros partagés par suffixe
+   `a`/`b` sans renommer les fichiers — chemins scellés, ADR 0005),
+   puis la section ADR de [../README.md](../README.md).
 
 ## Voir aussi
 

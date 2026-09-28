@@ -25,7 +25,7 @@ For the agent-state Git API, its correspondence with Git, and the boundary betwe
 |  +--------------------------------+  +--------------------------------+  +-------------------------------------+  |
 |  |     Autonomous Orchestrator    |  |     Unified Embeddings (768D)  |  |       STDP Synaptic Connectome      |  |
 |  |  - Autonomous Plan Service     |  |  - Local Xenova Transformers   |  |  - 3-Factor STDP (Dopamine/LTP/LTD) |  |
-|  |  - Strategy Dispatcher (78 str)|  |  - Ollama (nomic-embed-text)   |  |  - Ebbinghaus Forgetting Curve      |  |
+|  |  - Strategy Dispatcher (counts: see inventory) |  |  - Ollama (nomic-embed-text)   |  |  - Ebbinghaus Forgetting Curve      |  |
 |  |  - Budget Coherence (60/40 split) | - OpenAI text-embedding-3-small|  |  - Hippocampal Sleep Consolidation  |  |
 |  |  - Human Approval Promotion Gate  | - Null Vector Rejection        |  |  - C3/CD47 Microglial Pruning       |  |
 |  +--------------------------------+  +--------------------------------+  +-------------------------------------+  |
@@ -208,11 +208,11 @@ genos_sk_admin_...
 | `PORT` | `4000` | HTTP REST API listening port |
 | `GRPC_PORT` | `50051` | gRPC Lineage service listening port |
 | `GRPC_BIND_ADDRESS` | `127.0.0.1` without TLS | gRPC listening interface |
-| `GENOS_DB_PATH` | `backend/genos.db` | Absolute or relative path to SQLite database file |
+| `GENOS_DB_PATH` | `$GENOS_DB_PATH`, else `backend/genos.db` if present, else `.genos/data/operational/genos.db` | SQLite database file; resolution order in `src/db/index.js` + `src/storage/storagePaths.js` |
 | `GENOS_SQLITE_MMAP_SIZE` | `268435456` | SQLite mmap size in bytes; bounded to 1 GiB |
 | `GENOS_SQLITE_SYNCHRONOUS` | `FULL` | SQLite durability mode: `NORMAL`, `FULL`, or `EXTRA` |
 | `GENOS_PROCESS_GRACE_MS` | `5000` | Child-process graceful termination period, bounded to 30 seconds |
-| `GENOS_AGENT_EXECUTOR` | `codex` | Cognitive harness: `codex`, `local`, `caller_mcp` or `solar-direct`. Resolved via the harness catalog (`src/services/harnessCatalog.js` + `src/services/harnessDrivers/`); set `local` in containers to use the bundled runtime |
+| `GENOS_AGENT_EXECUTOR` | `codex` (code default when unset) | Cognitive harness: `codex`, `local`, `caller_mcp` or `solar-direct`. Resolved via the harness catalog (`src/services/harnessCatalog.js` + `src/services/harnessDrivers/`); `.env.example` pins `local` for containers/offline Ollama use |
 | `GENOS_GRPC_TLS_KEY` / `GENOS_GRPC_TLS_CERT` | *None* | Pair of regular files required to expose gRPC beyond loopback |
 | `GENOS_ADMIN_TOKEN` | *Generated* | Administrator API token |
 | `GENOS_ADMIN_PASSWORD` | `genos-admin` | Default password for local `admin` account |

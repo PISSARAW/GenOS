@@ -33,16 +33,17 @@ et non l'ancien terminal interactif `scripts/orchestrator_cli.mjs`.
 
 ## 2. Catalogue des outils
 
-GenOS possede plusieurs representations du catalogue, chacune ayant une responsabilite differente :
+GenOS possede plusieurs representations du catalogue, chacune ayant une responsabilite differente. La source canonique des schemas publics est `shared/toolDefinitions.json` (35 outils) ; `mcp/toolDefinitions.json` en est la copie embarquee de repli, utilisee uniquement quand le serveur JS tourne hors racine du depot (`mcp/catalog.js`). Les deux fichiers doivent rester synchronises :
 
 | Surface | Role | Exemples |
 | --- | --- | --- |
-| `ALL_TOOLS` dans le serveur JS | Outils exposes au client MCP JS | `genos_orchestrate`, `genos_snapshot`, `genos_replay` |
-| `public_tool_specs()` Rust | Outils exposes au serveur Rust | `genos_execute_primitive`, `genos_capsule_create` |
+| `shared/toolDefinitions.json` (canonique) | Schemas publics des outils MCP JS | `genos_orchestrate`, `genos_snapshot`, `genos_replay` |
+| `mcp/toolDefinitions.json` (copie de repli) | Meme contenu, usage hors racine uniquement | identique au canonique |
+| `public_tool_specs()` Rust | Vue sous lease du serveur Rust | `genos_execute_primitive`, `genos_capsule_create` |
 | `MCP_TOOLS_LIST` + strategy tools backend | Registre de dispatch runtime | outils CLI, biologiques et primitives de strategie |
 | schemas de contrat | Enveloppes et schemas complets d'entree | schemas enrichis via `getToolInputSchema()` |
 
-Le catalogue n'est donc pas une source unique de verite universelle. Le serveur MCP JS construit `ALL_TOOLS`, puis remplace chaque schema local par le schema de contrat connu. Le backend decide independamment si l'outil est enregistre et de quel type est son execution :
+Les effectifs (strategies, primitives, outils declares) ne sont pas figes dans les descriptions : la mesure reproductible fait foi, voir [inventaire-technique.md](inventaire-technique.md) (`npm run docs:inventory`). Le serveur MCP JS construit `ALL_TOOLS`, puis remplace chaque schema local par le schema de contrat connu. Le backend decide independamment si l'outil est enregistre et de quel type est son execution :
 
 - `strategy` pour les primitives de strategie ;
 - `bio` pour les outils biomimetiques ;

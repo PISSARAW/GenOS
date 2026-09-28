@@ -99,7 +99,7 @@ node mcp/index.js
 node backend/bin/genos-orchestrate.cjs '{"mission":"..." , "background":true}'
 ```
 
-Prérequis de développement : Rust stable 1.88+, Node.js 20.19+ ou 22.12+, Git et outils de compilation C/C++ pour les dépendances natives SQLite. Python 3 est nécessaire pour lancer le contrôle qualité du dépôt. Après la copie de `.env.example`, adaptez `GENOS_DB_PATH` à un emplacement accessible sur votre machine ; la valeur `/data/genos.db` de l'exemple correspond à un chemin de déploiement.
+Prérequis de développement : Rust stable 1.88+, Node.js 20.19+ ou 22.12+, Git et outils de compilation C/C++ pour les dépendances natives SQLite. Python 3 est nécessaire pour lancer le contrôle qualité du dépôt. Après la copie de `.env.example`, `GENOS_DB_PATH` reste commenté par défaut : le backend réutilise `backend/genos.db` s'il existe, sinon le volume géré `.genos/data/operational/genos.db`. Décommentez-le (ex. `/data/genos.db`) pour figer un emplacement de déploiement.
 
 Pour les missions avec inférence, configurez une route de modèle : le `.env.example` choisit Ollama (`llama3.1:8b`), qui doit être installé, démarré et disposer de ce modèle. Vous pouvez choisir un autre fournisseur avec `GENOS_DEFAULT_MODEL` et définir sa clé API dans l'environnement du backend. Pour les missions utilisant le runtime Codex, installez Codex CLI et rendez-le accessible via `PATH` ou `CODEX_EXECUTABLE`. L'installation et la démo sans token n'exigent pas de clé de fournisseur de modèles.
 

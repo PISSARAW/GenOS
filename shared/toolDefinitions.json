@@ -142,12 +142,70 @@
           },
           "worker_assignments": {
             "type": "object",
-            "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
-            "additionalProperties": { "type": "object", "additionalProperties": true }
+            "description": "Optional per-role runtime and method contracts. Use a registered methodId such as dynamic_programming or evolutionary_search, or declare requiredCapabilities for a custom method.",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "workerKind": {
+                  "type": "string"
+                },
+                "workerRequirements": {
+                  "type": "object",
+                  "properties": {
+                    "requiredCapabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "allowedKinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "methodContract": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "const": 1
+                    },
+                    "methodId": {
+                      "type": "string"
+                    },
+                    "requiredCapabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "parameters": {
+                      "type": "object"
+                    },
+                    "requiredEvidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "evaluator": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "methodId"
+                  ]
+                }
+              }
+            }
           },
           "strategy": {
             "type": "string",
-            "description": "Optional strategy hint from the 78 available."
+            "description": "Optional strategy hint from the available strategies."
           },
           "background": {
             "type": "boolean",
@@ -158,18 +216,123 @@
             "enum": [
               "caller_mcp",
               "codex",
-              "local"
+              "local",
+              "hermes",
+              "antigravity"
             ],
-            "description": "Cognitive executor."
+            "description": "Cognitive executor: Codex, Hermes/Nous, Antigravity host, or all discovered local models."
           },
           "provider": {
             "type": "string",
-            "description": "Provider identity for provenance."
+            "description": "Optional provider identity recorded for caller_mcp provenance."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "mission"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -190,12 +353,130 @@
           },
           "background": {
             "type": "boolean",
-            "description": "Defaults to true. False waits within the MCP timeout."
+            "description": "Defaults to false: wait for the worker and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached."
+          },
+          "executor": {
+            "type": "string",
+            "enum": [
+              "caller_mcp",
+              "codex",
+              "local",
+              "hermes",
+              "antigravity"
+            ],
+            "description": "Cognitive executor inherited by the worker."
+          },
+          "provider": {
+            "type": "string",
+            "description": "Optional provider identity for the worker."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "mission"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -213,12 +494,115 @@
           "out": {
             "type": "string",
             "description": "Output path for the snapshot JSON."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "agent",
           "out"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -230,14 +614,116 @@
         "type": "object",
         "properties": {
           "snapshot": {
-            "type": "string",
-            "description": "Snapshot path relative to the GenOS workspace root."
+            "type": "string"
           },
           "snapshot_id": {
-            "type": "string",
-            "description": "Snapshot identifier."
+            "type": "string"
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
+        "required": [],
+        "additionalProperties": true,
         "anyOf": [
           {
             "required": [
@@ -267,33 +753,366 @@
           "seed": {
             "type": "string",
             "description": "Optional seed identifier."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "snapshot_id"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
       "name": "genos_execute_primitive",
       "category": "Strategy Primitives",
       "risk": "Amber",
-      "description": "Execute one of the 97 GenOS strategic primitives directly with telemetry and verification.",
+      "description": "Execute one registered GenOS strategy primitive directly with telemetry and verification.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "primitive_name": {
-            "type": "string",
-            "description": "Name of the primitive (e.g. mcts_select, stdp_update)."
+            "type": "string"
           },
           "args": {
-            "type": "object",
-            "description": "Input arguments for the primitive."
+            "type": "object"
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
+          "primitive_name",
           "primitive_name"
-        ]
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_execute_strategy_pipeline",
+      "category": "Strategy Primitives",
+      "risk": "Amber",
+      "description": "Execute an ordered pipeline of registered GenOS strategy primitives with shared context and telemetry.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "primitives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ordered primitive names to run as a pipeline."
+          },
+          "context": {
+            "type": "object",
+            "description": "Shared pipeline context threaded through each primitive."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "primitives"
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -311,12 +1130,115 @@
           "reason": {
             "type": "string",
             "description": "Evidence justifying the transition."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "strategy",
           "reason"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -339,12 +1261,115 @@
             "type": "number",
             "minimum": 0,
             "maximum": 100
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "phase",
           "message"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -362,12 +1387,115 @@
           "reason": {
             "type": "string",
             "description": "Justification for topology change."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "organization",
           "reason"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -377,7 +1505,112 @@
       "description": "Read the active organization topology, permissions, and visible communication links.",
       "inputSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": true
       }
     },
     {
@@ -401,18 +1634,128 @@
               "plasmid",
               "tensor"
             ],
-            "description": "Required biomimetic signal type."
+            "description": "Required non-text biomimetic signal type."
           },
           "signal_data": {
-            "type": "object",
-            "description": "Structured physico-chemical signal data (0 LLM tokens)."
+            "type": [
+              "object",
+              "string"
+            ],
+            "description": "Physico-chemical signal payload (0-token) — object or string."
+          },
+          "orchestrator_id": {
+            "type": "string",
+            "description": "Owning orchestrator that may react to the collective signal."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "kind",
           "signal_type",
           "signal_data"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -425,17 +1768,115 @@
         "properties": {
           "after_id": {
             "type": "integer",
-            "description": "Cursor offset."
+            "description": "Cursor offset.",
+            "minimum": 0
           },
           "limit": {
             "type": "integer",
-            "description": "Max messages to return."
+            "description": "Max messages to return.",
+            "minimum": 0
           },
           "orchestrator_id": {
             "type": "string",
             "description": "Owning orchestrator to monitor."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
-        }
+        },
+        "required": [],
+        "additionalProperties": true
       }
     },
     {
@@ -452,41 +1893,276 @@
           },
           "variant_id": {
             "type": "string",
-            "enum": ["controlled", "heterogeneous", "adversarial", "counterfactual", "factorial", "pareto", "jury", "recursive", "adaptive", "temporal", "oracular", "exploratory"],
-            "description": "Optional Trinity variant. Conceptual variants are rejected; partial variants report their limits."
+            "enum": [
+              "controlled",
+              "heterogeneous",
+              "adversarial",
+              "counterfactual",
+              "factorial",
+              "pareto",
+              "jury",
+              "recursive",
+              "adaptive",
+              "temporal",
+              "oracular",
+              "exploratory"
+            ],
+            "description": "Optional Trinity variant; conceptual variants are rejected, and partial variants report their limits."
           },
           "experimental_design": {
             "type": "object",
             "description": "Composable Trinity policy axes. Omitted axes use the controlled three-world baseline.",
             "properties": {
-              "worldTopology": { "type": "string", "enum": ["fixed_three", "factorial_grid"] },
-              "hypothesisPolicy": { "type": "string", "enum": ["fixed_triplet", "counterfactual_dimensions", "novelty_seeking", "recursive_decomposition", "oracle_prediction"] },
-              "diversityPolicy": { "type": "string", "enum": ["strategy_controlled", "heterogeneous"] },
-              "interactionPolicy": { "type": "string", "enum": ["sealed", "adversarial_review_prep"] },
-              "objectivePolicy": { "type": "string", "enum": ["shared_evidence_vector", "pareto_orthogonal"] },
-              "temporalPolicy": { "type": "string", "enum": ["single_horizon", "short_medium_long"] },
-              "replicationPolicy": { "type": "string", "enum": ["fixed_three", "adaptive_budget_fixed_replicas", "adaptive_replica_count"] },
-              "adjudicationPolicy": { "type": "string", "enum": ["evidence_gated", "blind_jury_advisory"] }
+              "worldTopology": {
+                "type": "string",
+                "enum": [
+                  "fixed_three",
+                  "factorial_grid"
+                ]
+              },
+              "hypothesisPolicy": {
+                "type": "string",
+                "enum": [
+                  "fixed_triplet",
+                  "counterfactual_dimensions",
+                  "novelty_seeking",
+                  "recursive_decomposition",
+                  "oracle_prediction"
+                ]
+              },
+              "diversityPolicy": {
+                "type": "string",
+                "enum": [
+                  "strategy_controlled",
+                  "heterogeneous"
+                ]
+              },
+              "interactionPolicy": {
+                "type": "string",
+                "enum": [
+                  "sealed",
+                  "adversarial_review_prep"
+                ]
+              },
+              "objectivePolicy": {
+                "type": "string",
+                "enum": [
+                  "shared_evidence_vector",
+                  "pareto_orthogonal"
+                ]
+              },
+              "temporalPolicy": {
+                "type": "string",
+                "enum": [
+                  "single_horizon",
+                  "short_medium_long"
+                ]
+              },
+              "replicationPolicy": {
+                "type": "string",
+                "enum": [
+                  "fixed_three",
+                  "adaptive_budget_fixed_replicas",
+                  "adaptive_replica_count"
+                ]
+              },
+              "adjudicationPolicy": {
+                "type": "string",
+                "enum": [
+                  "evidence_gated",
+                  "blind_jury_advisory"
+                ]
+              }
             }
           },
           "trinity_jury": {
             "type": "object",
             "description": "Optional advisory jury configuration. Jury variant requires enabled=true and at least two distinct modelUris.",
             "properties": {
-              "enabled": { "type": "boolean" },
-              "modelUris": { "type": "array", "items": { "type": "string" } },
-              "maxCostUsd": { "type": "number" }
+              "enabled": {
+                "type": "boolean"
+              },
+              "modelUris": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "maxCostUsd": {
+                "type": "number"
+              }
             }
           },
           "worker_assignments": {
             "type": "object",
-            "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
-            "additionalProperties": { "type": "object", "additionalProperties": true }
+            "description": "Optional per-role runtime and method contracts. Use a registered methodId such as dynamic_programming or evolutionary_search, or declare requiredCapabilities for a custom method.",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "workerKind": {
+                  "type": "string"
+                },
+                "workerRequirements": {
+                  "type": "object",
+                  "properties": {
+                    "requiredCapabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "allowedKinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "methodContract": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "const": 1
+                    },
+                    "methodId": {
+                      "type": "string"
+                    },
+                    "requiredCapabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "parameters": {
+                      "type": "object"
+                    },
+                    "requiredEvidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "evaluator": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "methodId"
+                  ]
+                }
+              }
+            }
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "mission"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -502,22 +2178,186 @@
             "description": "Overarching project goal."
           },
           "sub_systems": {
-            "type": "array",
+            "type": [
+              "array",
+              "string"
+            ],
             "items": {
               "type": "string"
             },
-            "description": "Distinct subsystems."
+            "description": "Distinct subsystems (array of strings or comma-separated string)."
           },
           "worker_assignments": {
             "type": "object",
-            "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
-            "additionalProperties": { "type": "object", "additionalProperties": true }
+            "description": "Optional per-role runtime and method contracts. Use a registered methodId such as dynamic_programming or evolutionary_search, or declare requiredCapabilities for a custom method.",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "workerKind": {
+                  "type": "string"
+                },
+                "workerRequirements": {
+                  "type": "object",
+                  "properties": {
+                    "requiredCapabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "allowedKinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "methodContract": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "const": 1
+                    },
+                    "methodId": {
+                      "type": "string"
+                    },
+                    "requiredCapabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "parameters": {
+                      "type": "object"
+                    },
+                    "requiredEvidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "evaluator": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "methodId"
+                  ]
+                }
+              }
+            }
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "project_goal",
           "sub_systems"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -550,11 +2390,11 @@
           },
           "scope": {
             "type": "string",
-            "description": "Optional topology session scope."
+            "description": "Optional session scope such as mission, workspace, project, or persistent."
           },
           "persistence_key": {
             "type": "string",
-            "description": "Stable workspace or project key used to carry a persistent Biome environment across missions."
+            "description": "Stable project key for carrying a persistent Biome environment across missions."
           },
           "configuration": {
             "type": "object",
@@ -562,18 +2402,179 @@
           },
           "worker_assignments": {
             "type": "object",
-            "description": "Optional per-role worker and method contracts; method-specific selection requires a registered methodId or explicit requiredCapabilities.",
-            "additionalProperties": { "type": "object", "additionalProperties": true }
+            "description": "Optional per-role runtime and method contracts. Use a registered methodId such as dynamic_programming or evolutionary_search, or declare requiredCapabilities for a custom method.",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "workerKind": {
+                  "type": "string"
+                },
+                "workerRequirements": {
+                  "type": "object",
+                  "properties": {
+                    "requiredCapabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "allowedKinds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                "methodContract": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "integer",
+                      "const": 1
+                    },
+                    "methodId": {
+                      "type": "string"
+                    },
+                    "requiredCapabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "parameters": {
+                      "type": "object"
+                    },
+                    "requiredEvidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "evaluator": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "methodId"
+                  ]
+                }
+              }
+            }
           },
           "orchestrator_id": {
             "type": "string",
             "description": "Orchestrator whose organization should be changed."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "mode",
           "mission"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -626,11 +2627,16 @@
               "prune",
               "allocate",
               "forage",
-              "advance_variant",
-              "health"
+              "advance_variant"
             ]
           },
           "op": {
+            "type": "object"
+          },
+          "transaction": {
+            "type": "object"
+          },
+          "branch": {
             "type": "object"
           },
           "node": {
@@ -639,16 +2645,16 @@
           "edge": {
             "type": "object"
           },
-          "signals": {
-            "type": "object"
-          },
-          "transaction": {
-            "type": "object"
-          },
           "variant_input": {
             "type": "object"
           },
-          "branch": {
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "signals": {
             "type": "object"
           },
           "branch_id": {
@@ -661,7 +2667,11 @@
             "type": "string"
           },
           "version": {
-            "type": ["string", "number", "object"]
+            "type": [
+              "string",
+              "number",
+              "object"
+            ]
           },
           "marker": {
             "type": "string"
@@ -677,6 +2687,61 @@
               "string",
               "object"
             ]
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "lease_action": {
+            "type": "string",
+            "enum": [
+              "acquire",
+              "renew",
+              "release"
+            ]
+          },
+          "lease_id": {
+            "type": "string"
+          },
+          "owner_id": {
+            "type": "string"
+          },
+          "ttl_ms": {
+            "type": "number"
+          },
+          "fragment": {
+            "type": "object"
+          },
+          "target": {
+            "type": "object"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "local_validation": {
+            "type": "object"
+          },
+          "causal_validation": {
+            "type": "object"
+          },
+          "compatibility_trials": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "maximum": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "candidate": {
+            "type": "object"
           },
           "gap_id": {
             "type": "string"
@@ -699,14 +2764,9 @@
           "source": {
             "type": "string"
           },
-          "evidence_refs": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "confidence": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0
           },
           "half_life_ms": {
             "type": "number"
@@ -754,47 +2814,6 @@
           "locus_id": {
             "type": "string"
           },
-          "lease_action": {
-            "type": "string",
-            "enum": ["acquire", "renew", "release"]
-          },
-          "lease_id": {
-            "type": "string"
-          },
-          "owner_id": {
-            "type": "string"
-          },
-          "ttl_ms": {
-            "type": "number"
-          },
-          "fragment": {
-            "type": "object"
-          },
-          "target": {
-            "type": "object"
-          },
-          "targets": {
-            "type": "array",
-            "items": { "type": "object" }
-          },
-          "local_validation": {
-            "type": "object"
-          },
-          "causal_validation": {
-            "type": "object"
-          },
-          "compatibility_trials": {
-            "type": "array",
-            "items": { "type": "object" }
-          },
-          "maximum": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 100
-          },
-          "candidate": {
-            "type": "object"
-          },
           "now": {
             "type": "number"
           },
@@ -803,12 +2822,6 @@
           },
           "utility_threshold": {
             "type": "number"
-          },
-          "edges": {
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
           },
           "populations": {
             "type": "array",
@@ -829,10 +2842,14 @@
             }
           },
           "iteration": {
-            "type": "number"
+            "type": "integer",
+            "minimum": 0
           },
           "elapsed_time_sec": {
             "type": "number"
+          },
+          "observations": {
+            "type": "array"
           },
           "current_patch_id": {
             "type": "string"
@@ -864,20 +2881,112 @@
           "migration_cost": {
             "type": "object"
           },
-          "observations": {
-            "type": "array"
-          },
           "current_space": {
             "type": "object"
           },
           "steps_without_progress": {
             "type": "number"
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "session_id",
           "operation"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -895,11 +3004,114 @@
           "conditions": {
             "type": "string",
             "description": "Conditions to satisfy."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "branch_id"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -917,11 +3129,114 @@
           "output": {
             "type": "string",
             "description": "Audit output path."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "snapshot_id"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -943,12 +3258,115 @@
           "params": {
             "type": "object",
             "description": "Optional feature parameters."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
         },
         "required": [
           "feature",
           "action"
-        ]
+        ],
+        "additionalProperties": true
       }
     },
     {
@@ -958,7 +3376,112 @@
       "description": "Initialize GenOS workspace state.",
       "inputSchema": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": true
       }
     },
     {
@@ -972,8 +3495,112 @@
           "parent_id": {
             "type": "string",
             "description": "Parent snapshot or branch ID."
+          },
+          "scenarios": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "injected_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dag_step": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "patterns_detected": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "preconditions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "after_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "budget_steps": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "exact_match": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stagnation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "injection_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tokens": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "similarity": {
+            "type": "number",
+            "minimum": 0
+          },
+          "expected": {
+            "type": "number",
+            "minimum": 0
+          },
+          "observed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tolerance": {
+            "type": "number",
+            "minimum": 0
+          },
+          "elapsed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "uncertainty": {
+            "type": "number",
+            "minimum": 0
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0
           }
-        }
+        },
+        "required": [],
+        "additionalProperties": true
       }
     },
     {
@@ -1022,16 +3649,31 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "signal_id": { "type": "string" },
-          "agent_id": { "type": "string" },
+          "signal_id": {
+            "type": "string"
+          },
+          "agent_id": {
+            "type": "string"
+          },
           "grounding_level": {
             "type": "string",
-            "enum": ["transport_ack", "semantic_ack"]
+            "enum": [
+              "transport_ack",
+              "semantic_ack"
+            ]
           },
-          "semantic_hash": { "type": "string" },
-          "contract_version": { "type": "string" }
+          "semantic_hash": {
+            "type": "string"
+          },
+          "contract_version": {
+            "type": "string"
+          }
         },
-        "required": ["signal_id", "agent_id", "grounding_level"]
+        "required": [
+          "signal_id",
+          "agent_id",
+          "grounding_level"
+        ]
       }
     },
     {

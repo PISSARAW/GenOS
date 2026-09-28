@@ -41,7 +41,7 @@ pub fn public_tool_specs() -> Vec<Value> {
                 "type": "object",
                 "properties": {
                     "mission": { "type": "string", "description": "Goal or user request to achieve." },
-                    "strategy": { "type": "string", "description": "Optional strategy hint from the 78 available." },
+                    "strategy": { "type": "string", "description": "Optional strategy hint (catalog counts: see docs/03-reference/inventaire-technique.md)." },
                     "background": { "type": "boolean", "description": "Defaults to true: return a launch receipt and run detached. False waits within the MCP timeout." }
                 },
                 "required": ["mission"]

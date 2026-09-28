@@ -64,7 +64,9 @@ and the `.githooks/pre-commit` hook (staged code is checked):
 - Cyclomatic complexity: max **10**.
 - SOLID boundaries; any architectural change requires an ADR in `docs/adr/`.
 
-Violations are rejected. Do **not** add inline annotations or comments to bypass the gate.
+New violations against the debt baseline are rejected (debt must not grow).
+Pass `--strict` to reject every violation, baseline included.
+Do **not** add inline annotations or comments to bypass the gate.
 Documentation files are outside its scope.
 
 ## How to run
@@ -72,10 +74,16 @@ Documentation files are outside its scope.
 - **Backend:** `npm --prefix backend start` → HTTP `http://localhost:4000`, gRPC `127.0.0.1:50051`.
   Health probes: `/healthz`, `/readyz`, `/livez`. Bootstrap admin token is printed on first boot.
 - **Rust CLI:** `cargo run -p genos-cli -- --help`. Operator shim: `.\g.ps1` (PowerShell) / `g.cmd`.
-- **MCP server (stdio):** `node mcp/index.js` from the repository root. It reads
-  `shared/toolDefinitions.json` and `backend/src/services/*`, so it must run from the repo root.
-  Visible tools are controlled by `GENOS_MCP_LEASE` and `GENOS_MCP_DISABLED_TOOLS`
-  (see `docs/03-reference/outils-mcp.md`). A ready-to-use client config is in `.mcp.json`.
+- **MCP servers (stdio, fail-closed lease):** two implementations with minimal parity
+  (`backend/tests/test_mcp_server_parity.js`):
+  - Node: `node mcp/index.js` from the repository root. It reads
+    `shared/toolDefinitions.json` (canonical catalog) and `backend/src/services/*`.
+  - Rust: `cargo run -p genos-mcp` (or `target/release/genos-mcp.exe`).
+  Both honor `GENOS_MCP_LEASE` + `GENOS_MCP_DISABLED_TOOLS`
+  (see `docs/03-reference/outils-mcp.md`). `.mcp.json` is a ready-to-use client
+  config pointing at the Rust binary with a minimal example lease
+  (`genos_snapshot,genos_replay,genos_execute_primitive`); adapt the command/lease
+  to use the Node server instead. With no lease, both servers expose nothing.
 - **Orchestration mission:** `node backend/bin/genos-orchestrate.cjs '{"mission":"...","background":true}'`
 - **Safe parallel debugging demo:** `node examples/safe-debugging-demo/run-demo.mjs target/debug/genos`
 

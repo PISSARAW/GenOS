@@ -14,6 +14,7 @@
     "check:code-quality": "python scripts/ci/check_code_quality.py",
     "check:staged": "python scripts/ci/check_code_quality.py --staged",
     "check:quality:strict": "python scripts/ci/check_code_quality.py --strict",
+    "check:adr": "python scripts/ci/check_adr_index.py",
     "docs:inventory": "node scripts/docs/generate-technical-inventory.js",
     "docs:inventory:check": "node scripts/docs/generate-technical-inventory.js --check"
   },
