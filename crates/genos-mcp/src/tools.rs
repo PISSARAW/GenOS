@@ -1,5 +1,6 @@
 use serde_json::{Value, json};
 use std::env;
+mod catalog_tools;
 
 fn configured_tool_set(variable: &str) -> Option<Vec<String>> {
     env::var(variable).ok().map(|value| {
@@ -30,7 +31,7 @@ pub fn public_tool_specs() -> Vec<Value> {
     let node_env = env::var("NODE_ENV").ok();
     let expose_all = expose_all_allowed(expose_requested, node_env.as_deref(), unsafe_production_exposure);
 
-    let all_tools = vec![
+    let mut all_tools = vec![
         json!({
             "name": "genos_orchestrate",
             "description": "Launch or continue an autonomous GenOS mission. Decomposes tasks, coordinates workers, and produces verified claims.",
@@ -283,6 +284,8 @@ pub fn public_tool_specs() -> Vec<Value> {
         }),
     ];
 
+    all_tools.extend(catalog_tools::bridged_catalog_specs());
+
     let filter_disabled = |tool: &Value| {
         let name = tool.get("name").and_then(Value::as_str).unwrap_or("");
         !disabled.iter().any(|entry| entry == name)
@@ -347,7 +350,14 @@ fn expose_all_allowed(requested: bool, node_env: Option<&str>, unsafe_production
 
 #[cfg(test)]
 mod lease_tests {
-    use super::{expose_all_allowed, lease_expired_at};
+    use super::{catalog_tools::bridged_catalog_specs, expose_all_allowed, lease_expired_at};
+
+    #[test]
+    fn backend_bridged_tools_come_from_canonical_catalog() {
+        let tools = bridged_catalog_specs();
+        assert_eq!(tools.len(), 15);
+        assert!(tools.iter().all(|tool| tool.get("inputSchema").is_some()));
+    }
 
     #[test]
     fn lease_expires_at_the_boundary_and_invalid_values_fail_closed() {

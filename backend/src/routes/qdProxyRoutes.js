@@ -3,15 +3,14 @@ const router = express.Router();
 
 /**
  * GET /api/qd/proxy — Quality-Diversity proxy endpoint.
- * Returns the current QD archive state (occupied/total niches).
+ * Refuses to claim an empty archive until a runtime archive is connected.
  */
 router.get('/proxy', async (req, res) => {
-  res.json({
-    niches: [],
-    occupied: 0,
-    total: 0,
-    coverage: 0,
-    message: 'QD archive empty — no candidates inserted yet'
+  res.status(503).json({
+    error: {
+      code: 'QD_ARCHIVE_NOT_CONNECTED',
+      message: 'Aucune archive QD runtime n’est connectée à ce proxy.'
+    }
   });
 });
 

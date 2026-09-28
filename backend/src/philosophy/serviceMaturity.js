@@ -35,7 +35,7 @@ const SERVICE_MATURITY = Object.freeze({
   causalityService: { level: 'partial', executable: true, evidence: 'tests', note: 'Relations causales et contrefactuelles opérationnelles.' },
   identityService: { level: 'partial', executable: true, evidence: 'tests', note: 'Continuité et critères d’identité calculables.' },
   mindModelsService: { level: 'conceptual', executable: false, evidence: 'documentation', note: 'Comparaison de positions, sans théorie unifiée.' },
-  cognitionService: { level: 'planned', executable: false, evidence: 'none', note: 'Cognition sociale et représentations à spécifier.' },
+  cognitionService: { level: 'partial', executable: true, evidence: 'tests', note: 'Cartographie descriptive des positions fournies avec provenance explicite ; aucune inférence de vérité, d’intention ou d’autorité.' },
   consciousnessMetricsService: { level: 'conceptual', executable: false, evidence: 'none', note: 'Les métriques ne constituent pas une preuve de conscience.' },
   aestheticsService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Évaluations esthétiques bornées, interprétatives et fondées sur des observations fournies.' },
   artTheoryService: { level: 'implemented', executable: true, evidence: 'tests', note: 'Comparaison de théories de l’art à partir de critères déclarés, sans verdict ontologique.' },

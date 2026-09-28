@@ -1,5 +1,17 @@
 import { validateCliArguments } from "./argumentValidation.js";
 import { resolveRepoRoot } from "./repoRoot.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const CATALOG_TOOLS = new Set(require('../shared/toolDefinitions.json').tools.map((tool) => tool.name));
+const { MCP_TOOLS_LIST } = require('../backend/src/db/seedTools.js');
+const REGISTERED_TOOL_NAMES = new Set(MCP_TOOLS_LIST.map((tool) => tool.name));
+const BACKEND_BRIDGED_TOOL_NAMES = new Set([
+  'genos_fossil_record', 'genos_fossil_list', 'genos_fossil_strata', 'genos_fossil_excavate',
+  'genos_fossil_decode', 'genos_fossil_candidate', 'genos_topology_session', 'genos_signal_publish',
+  'genos_signal_read', 'genos_signal_purge', 'genos_signal_ground', 'genos_signal_electrocyte_vote',
+  'genos_signal_chemotactic_follow', 'genos_signal_plasmid_transfer', 'genos_signal_collective_decision'
+]);
 
 const CLI_TOOL_NAMES = new Set([
   'genos_snapshot', 'genos_replay', 'genos_capsule_create', 'genos_merge',
@@ -24,6 +36,8 @@ const ORCHESTRATOR_ACTIONS = Object.freeze({
 
 export function isToolCallRoutable(name) {
   if (name === 'genos_philosophy' && !HAS_BACKEND_RUNTIME) return false;
+  if (HAS_BACKEND_RUNTIME && CATALOG_TOOLS.has(name)
+    && (REGISTERED_TOOL_NAMES.has(name) || BACKEND_BRIDGED_TOOL_NAMES.has(name))) return true;
   return STRATEGY_TOOL_NAMES.has(name) || CLI_TOOL_NAMES.has(name)
     || Object.prototype.hasOwnProperty.call(ORCHESTRATOR_ACTIONS, name);
 }
@@ -40,6 +54,14 @@ function strategyCall({ name, args, executeStrategyTool }) {
     if (!execution.success) throw new Error(execution.output?.error || 'Strategy tool execution failed.');
     return JSON.stringify(execution.output);
   });
+}
+
+async function registeredToolCall({ name, args }) {
+  const { kind, result } = await require('../backend/src/services/mcpToolRegistry.js').dispatchTool(name, args);
+  if (kind === 'unsupported' || !result?.success) {
+    throw new Error(result?.error || `MCP tool '${name}' failed.`);
+  }
+  return JSON.stringify(result.output ?? result);
 }
 
 function withBiomimicryParams(command, args) {
@@ -91,33 +113,47 @@ async function philosophyCall(args) {
 }
 
 export function createToolCallHandler({ runOrchestrator, runGenosCli, executeStrategyTool }) {
-  return async (request, extra = {}) => {
-    const { name, arguments: args = {} } = request.params;
-    const progressToken = request.params?._meta?.progressToken;
-    let progress = 0;
-    const onTelemetry = progressToken === undefined || !extra.sendNotification
-      ? undefined
-      : (event) => extra.sendNotification({
-        method: 'notifications/progress',
-        params: {
-          progress: ++progress,
-          progressToken,
-          message: JSON.stringify({ type: 'telemetry', event })
-        }
-      });
-    try {
-      if (name === 'genos_philosophy') {
-        return { content: [{ type: 'text', text: await philosophyCall(args) }] };
-      }
-      if (STRATEGY_TOOL_NAMES.has(name)) return { content: [{ type: 'text', text: await strategyCall({ name, args, executeStrategyTool }) }] };
-      if (CLI_TOOL_NAMES.has(name)) {
-        const argumentError = validateCliArguments(name, args);
-        if (argumentError) return { content: [{ type: 'text', text: argumentError }], isError: true };
-        return { content: [{ type: 'text', text: await cliCall({ args: { ...args, toolName: name }, runGenosCli }) }] };
-      }
-      return { content: [{ type: 'text', text: await orchestratorCall({ name, args, runOrchestrator, onTelemetry }) }] };
-    } catch (error) {
-      return { content: [{ type: 'text', text: error.message }], isError: true };
+  return (request, extra = {}) => handleToolRequest({ request, extra, runOrchestrator, runGenosCli, executeStrategyTool });
+}
+
+async function handleToolRequest(input) {
+  const { request, extra, runOrchestrator, runGenosCli, executeStrategyTool } = input;
+  const { name, arguments: args = {} } = request.params;
+  const onTelemetry = telemetryHandler(request, extra);
+  try {
+    const text = await dispatchTool({ name, args, onTelemetry, runOrchestrator, runGenosCli, executeStrategyTool });
+    return { content: [{ type: 'text', text }] };
+  } catch (error) {
+    return { content: [{ type: 'text', text: error.message }], isError: true };
+  }
+}
+
+function telemetryHandler(request, extra) {
+  const progressToken = request.params?._meta?.progressToken;
+  if (progressToken === undefined || !extra.sendNotification) return undefined;
+  let progress = 0;
+  return (event) => extra.sendNotification({
+    method: 'notifications/progress',
+    params: {
+      progress: ++progress,
+      progressToken,
+      message: JSON.stringify({ type: 'telemetry', event })
     }
-  };
+  });
+}
+
+async function dispatchTool(input) {
+  const { name, args, onTelemetry, runOrchestrator, runGenosCli, executeStrategyTool } = input;
+  if (name === 'genos_philosophy') return philosophyCall(args);
+  if (STRATEGY_TOOL_NAMES.has(name)) return strategyCall({ name, args, executeStrategyTool });
+  if (CLI_TOOL_NAMES.has(name)) {
+    const argumentError = validateCliArguments(name, args);
+    if (argumentError) throw new Error(argumentError);
+    return cliCall({ args: { ...args, toolName: name }, runGenosCli });
+  }
+  if (Object.prototype.hasOwnProperty.call(ORCHESTRATOR_ACTIONS, name)) {
+    return orchestratorCall({ name, args, runOrchestrator, onTelemetry });
+  }
+  if (HAS_BACKEND_RUNTIME && CATALOG_TOOLS.has(name)) return registeredToolCall({ name, args });
+  return orchestratorCall({ name, args, runOrchestrator, onTelemetry });
 }

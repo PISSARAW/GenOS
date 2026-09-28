@@ -36,13 +36,18 @@ const INTERNAL_REALIZATION = Object.freeze({
   COMPLIANCE: { level: ACCESS_PROPOSED, note: 'contrat de schema sans route MCP ni execution verifiee' }
 });
 
-// Routes mirrored from mcp/toolCallHandler.js and checked by the coherence test.
+// Routes mirrored from the Node/Rust MCP dispatchers and checked by coherence tests.
 const ROUTABLE_TOOLS = Object.freeze([
   'genos_a_team_preview', 'genos_audit', 'genos_biological_mode', 'genos_biomimicry',
   'genos_capsule_create', 'genos_change_organization', 'genos_change_strategy',
   'genos_delegate_worker', 'genos_execute_primitive', 'genos_execute_strategy_pipeline',
-  'genos_merge', 'genos_orchestrate', 'genos_organization_state', 'genos_philosophy',
-  'genos_replay', 'genos_report_progress', 'genos_snapshot', 'genos_trinity_launch',
+  'genos_fossil_candidate', 'genos_fossil_decode', 'genos_fossil_excavate', 'genos_fossil_list',
+  'genos_fossil_record', 'genos_fossil_strata', 'genos_merge', 'genos_orchestrate',
+  'genos_organization_state', 'genos_philosophy', 'genos_replay', 'genos_report_progress',
+  'genos_snapshot', 'genos_topology_session', 'genos_trinity_launch',
+  'genos_signal_publish', 'genos_signal_read', 'genos_signal_purge', 'genos_signal_ground',
+  'genos_signal_electrocyte_vote', 'genos_signal_chemotactic_follow',
+  'genos_signal_plasmid_transfer', 'genos_signal_collective_decision',
   'genos_v2_fork', 'genos_v2_init', 'genos_worker_inbox', 'genos_worker_publish'
 ]);
 const ROUTABLE_TOOL_SET = new Set(ROUTABLE_TOOLS);

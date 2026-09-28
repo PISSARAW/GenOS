@@ -7,6 +7,7 @@ use std::thread;
 
 mod executor_paths;
 mod executor_results;
+mod backend_dispatch;
 use executor_paths::{find_binary, resolve_bridge_path};
 use executor_results::{normalize_cli_result, normalize_primitive_result};
 use std::time::{Duration, Instant};
@@ -393,6 +394,6 @@ pub fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, Str
         | "genos_biological_mode"
         | "genos_v2_init"
         | "genos_v2_fork" => execute_cli(workspace, name, args),
-        _ => (-1, format!("Unsupported MCP tool: {name}")),
+        _ => backend_dispatch::execute(workspace, name, args),
     }
 }

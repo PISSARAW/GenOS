@@ -166,6 +166,7 @@ const ADAPTERS = {
   'social-epistemology.cognitive-labor': ({ args }) => callService('socialEpistemologyService', 'assessCognitiveLabor', args),
   'social-epistemology.feminist': ({ args }) => callService('socialEpistemologyService', 'assessSituatedKnowledge', args),
   'social-epistemology.emancipatory-critique': ({ args }) => callService('socialEpistemologyService', 'assessEmancipatoryCritique', args),
+  'social-cognition.position-map': ({ args }) => callService('socialCognitionService', 'analyzeSocialContext', args),
   'method.hypothetico-deductive': ({ args }) => callService('scientificMethodService', 'assessHypotheticoDeductive', args),
   'science.confirmation': ({ args }) => callService('scientificMethodService', 'assessConfirmation', args),
   'science.falsification-demarcation': ({ args }) => callService('scientificMethodService', 'assessFalsification', args),

@@ -23,10 +23,10 @@ async function main() {
     assert.equal(result.result.evidenceRequired, true, concept.id);
   }
 
-  const planned = await evaluate('ontology.person-other');
-  assert.equal(planned.supported, false);
-  assert.equal(planned.executable, false);
-  assert.equal(planned.status, 'planned');
+  const personOther = await evaluate('ontology.person-other');
+  assert.equal(personOther.supported, false);
+  assert.equal(personOther.executable, false);
+  assert.equal(personOther.status, 'partial');
 
   const health = router.registryHealth();
   assert.equal(health.valid, true, health.errors.join('; '));

@@ -118,6 +118,7 @@ const RAW_CONCEPT_DEFINITIONS = [
   C({ id: 'ontology.stances', label: 'Réalisme / Nominalisme / Conceptualisme', domain: 'ontology', school: 'medieval-modern', status: 'implemented', service: 'ontologyStances' }),
   C({ id: 'ontology.identity-change', label: 'Identité et changement', domain: 'ontology', school: 'locke', status: 'implemented', service: 'temporalIdentityService' }),
   C({ id: 'ontology.person-other', label: 'Personne / Autrui / Altérité', domain: 'ontology', school: 'levinas', status: 'partial', service: 'personOtherService' }),
+  C({ id: 'social-cognition.position-map', label: 'Cartographie descriptive des positions sociales', domain: 'social-epistemology', school: 'genos', status: 'partial', service: 'cognitionService' }),
   C({ id: 'ontology.whole-void-infinite', label: 'Tout / Vide / Infini', domain: 'ontology', school: 'metaphysics', status: 'partial' }),
   C({ id: 'ontology.continuous-discrete', label: 'Continu / Discontinu', domain: 'ontology', school: 'metaphysics', status: 'partial', service: 'continuityService' }),
   C({ id: 'ontology.possible-worlds', label: 'Mondes possibles / Possibilia', domain: 'modality', school: 'leibniz-kripke', status: 'partial', service: 'possibleWorldService' }),

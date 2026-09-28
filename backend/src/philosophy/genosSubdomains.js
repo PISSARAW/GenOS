@@ -20,6 +20,7 @@ const GENOS_SUBDOMAINS_BY_CONCEPT = Object.freeze({
   'ontology.being': ['ontology'],
   'ontology.identity-change': ['ontology', 'identity'],
   'ontology.person-other': ['ontology', 'social-cognition'],
+  'social-cognition.position-map': ['cognition', 'social-cognition', 'epistemics'],
   'ontology.stances': ['ontology', 'epistemics'],
   'metaphysics.dualism': ['ontology', 'consciousness'],
   'metaphysics.material-monism': ['ontology', 'consciousness'],

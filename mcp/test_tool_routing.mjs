@@ -15,9 +15,10 @@ const resolvedCatalog = catalog.map((tool) => ({
 const routable = filterRoutableTools(resolvedCatalog);
 const routableNames = new Set(routable.map((tool) => tool.name));
 assert.ok(routableNames.has('genos_philosophy'));
-assert.ok(!routableNames.has('genos_fossil_record'));
-assert.ok(!routableNames.has('genos_topology_session'));
-assert.ok(!routableNames.has('genos_signal_publish'));
+assert.ok(routableNames.has('genos_fossil_record'));
+assert.ok(routableNames.has('genos_topology_session'));
+assert.ok(routableNames.has('genos_signal_publish'));
+assert.ok(routable.length === catalog.length, 'every canonical tool must have a verified Node route');
 assert.ok(routable.every((tool) => typeof tool.inputSchema === 'object'));
 for (const name of capabilityMatrix.ROUTABLE_TOOLS) {
   assert.ok(routableNames.has(name), `${name} must be present in the MCP router output`);
@@ -33,7 +34,7 @@ const handler = createToolCallHandler({
   runGenosCli: async () => { throw new Error('unexpected CLI call'); },
   executeStrategyTool: async () => { throw new Error('unexpected strategy call'); }
 });
-const rejected = await handler({ params: { name: 'genos_fossil_record', arguments: {} } });
+const rejected = await handler({ params: { name: 'genos_not_catalogued', arguments: {} } });
 assert.equal(rejected.isError, true);
 assert.match(rejected.content[0].text, /no verified MCP route/);
 

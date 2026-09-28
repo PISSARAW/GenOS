@@ -49,11 +49,11 @@ async function main() {
   assert.strictEqual(utilitarian.result.framework, 'act-utilitarianism');
   assert.strictEqual(utilitarian.result.executable, false);
 
-  const planned = await router.handlePhilosophyRequest({
+  const unavailable = await router.handlePhilosophyRequest({
     request: { operation: 'evaluateConcept', arguments: { concept: 'ontology.person-other' } },
   });
-  assert.strictEqual(planned.supported, false);
-  assert.strictEqual(planned.status, 'planned');
+  assert.strictEqual(unavailable.supported, false);
+  assert.strictEqual(unavailable.status, 'partial');
 
   const preview = await router.handlePhilosophyRequest({
     request: { operation: 'applyRuntimeEffect', arguments: { concept: 'school.platonism', agentId: 'a1', effect: 'require_evidence' } },

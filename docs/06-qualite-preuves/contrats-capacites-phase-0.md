@@ -1,6 +1,6 @@
 # Contrats d'acceptation Phase 0 — sept capacités manquantes
 
-- **Statut** : Spécification opposable ; aucune implémentation.
+- **Statut** : Spécification opposable ; phase 5 partiellement implémentée (cartographie descriptive uniquement). Les phases 1–4, 6–7 restent ouvertes.
 - **Portée** : figer les contrats des phases 1 à 7 avant tout code.
 - **Dernière revue** : 2026-09-28
 - **Références** : [statuts-maturite.md](statuts-maturite.md), [registre-services.md](registre-services.md), [plan-validation-indicateurs.md](plan-validation-indicateurs.md), ADR 0162.
@@ -57,6 +57,8 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 - **Preuves** : `causalDiff` reliant divergences, étapes et artefacts ; tests d'annulation, échec d'un bras, seed invalide, dérive et divergence sans effet.
 
 ## 5. Service de cognition sociale (phase 5)
+
+- **Avancement** : `cognitionService` expose `social-cognition.position-map` via le routeur philosophique. La cartographie est descriptive et classée `partial`; elle n’accorde aucune autorité. Les critères complets ci-dessous restent ouverts.
 
 - **Interface** : `cognitionService` + adaptateur au routeur philosophique + définitions au registre de maturité.
 - **Entrées** : schéma structuré — acteurs déclarés, affirmations, sources, contexte, incertitudes, relations. Analyse des seules informations explicitement fournies.

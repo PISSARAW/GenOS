@@ -68,6 +68,7 @@ const RELATION_DEFINITIONS = [
 
   // ─── Legacy ontology ────────────────────────────────────────────────────
   relation('metaphysics.supervenience', 'dependsOn', 'ontology.identity-change'),
+  relation('metaphysics.dualism', 'alternativeTo', 'metaphysics.material-monism'),
   relation('ontology.identity-change', 'dependsOn', 'metaphysics.emergence'),
 
   // ─── Mathématiques : indépendances et fondements ─────────────────────────
