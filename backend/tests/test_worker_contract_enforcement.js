@@ -61,9 +61,16 @@ for (const kind of Object.keys(workerKinds.KINDS)) {
   assert.match(mission.prompt, new RegExp(scenario.prompt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   enforcement.assertRuntimeContract(contract, kind);
   assert.throws(() => enforcement.assertWorkerToolAllowed(contract, 'genos_topology_session'), { code: 'WORKER_CONTRACT_DENIED' });
-  assert.equal(enforcement.assertWorkerToolAllowed(contract, 'genos_topology_session', {
+  assert.throws(() => enforcement.assertWorkerToolAllowed(contract, 'genos_topology_session', {
+    operation: 'events', session_id: 'session-capability'
+  }), { code: 'WORKER_CONTRACT_DENIED' });
+  const scopedContract = { ...contract, mission: { ...contract.mission, topologySessionId: 'session-capability' } };
+  assert.equal(enforcement.assertWorkerToolAllowed(scopedContract, 'genos_topology_session', {
     operation: 'events', session_id: 'session-capability'
   }), true);
+  assert.throws(() => enforcement.assertWorkerToolAllowed(scopedContract, 'genos_topology_session', {
+    operation: 'events', session_id: 'other-session'
+  }), { code: 'WORKER_CONTRACT_DENIED' });
   assert.doesNotThrow(() => validateWorkerDossiers([dossier(kind, contract)], [{ agentId: kind, workerContract: contract }]));
   assert.throws(
     () => validateWorkerDossiers([dossier(kind, contract, wrongType)], [{ agentId: kind, workerContract: contract }]),
@@ -113,6 +120,17 @@ async function verifyPersistedTools() {
   await assert.rejects(() => enforcement.enforcePersistedWorkerTool({
     get: async () => ({ execution_mode: 'worker', role: 'literary_author', metadata_json: JSON.stringify({ workerKind: 'creative_worker' }) })
   }, 'worker-2', 'genos_search_failures'), { code: 'WORKER_CONTRACT_DENIED' });
+  const topologyContract = workerKinds.buildWorkerContract('bounded_worker', { topologySessionId: 'session-owned' });
+  topologyContract.authority.read = true;
+  const topologyWorker = { get: async () => ({ execution_mode: 'worker', role: 'implementation', metadata_json: JSON.stringify({
+    workerKind: 'bounded_worker', topologySessionId: 'session-owned', workerContract: topologyContract
+  }) }) };
+  assert.equal(await enforcement.enforcePersistedWorkerTool(topologyWorker, 'worker-3', {
+    toolName: 'genos_topology_session', args: { operation: 'events', session_id: 'session-owned' }
+  }), true);
+  await assert.rejects(() => enforcement.enforcePersistedWorkerTool(topologyWorker, 'worker-3', {
+    toolName: 'genos_topology_session', args: { operation: 'events', session_id: 'other-session' }
+  }), { code: 'WORKER_CONTRACT_DENIED' });
 }
 
 verifyPersistedTools().then(() => console.log('Worker contracts enforce MCP authority and typed evidence artifacts for all 19 kinds.'));

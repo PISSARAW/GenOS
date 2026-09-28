@@ -30,7 +30,11 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
   const action = toolAction(toolName, args);
   if (!kind || !workerKinds.KINDS[kind]) throw contractError(kind || 'unknown', action);
   if (action === 'topology_read') {
-    if (!contract.authority?.read) throw contractError(kind, action);
+    const authorizedSessionId = contract.mission?.topologySessionId;
+    const requestedSessionId = args.session_id || args.sessionId;
+    if (!authorizedSessionId || requestedSessionId !== authorizedSessionId) {
+      throw contractError(kind, action);
+    }
     return true;
   }
   if (!contract.authority?.[action]) throw contractError(kind, action);
@@ -38,16 +42,28 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
 }
 
 async function enforcePersistedWorkerTool(db, agentId, toolCall) {
-  const { toolName, args } = toolCall || {};
+  const normalizedCall = typeof toolCall === 'string' ? { toolName: toolCall, args: {} } : (toolCall || {});
+  const { toolName, args = {} } = normalizedCall;
   const agent = await db.get('SELECT execution_mode, metadata_json, role FROM agents WHERE id = ?', agentId);
   if (!agent || agent.execution_mode !== 'worker') return true;
   let metadata = {};
   try { metadata = typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {}; }
   catch (_) { throw contractError('unknown', toolAction(toolName)); }
   const kind = workerKinds.resolveWorkerKind(metadata.workerKind, agent.role);
-  const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, {});
+  const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, {
+    topologySessionId: metadata.topologySessionId
+  });
   if (contract.identity?.workerKind !== kind) throw contractError('unknown', toolAction(toolName));
+  assertTopologySessionScope({ toolName, args, metadata, kind });
   return assertWorkerToolAllowed(contract, toolName, args);
+}
+
+function assertTopologySessionScope(input) {
+  const { toolName, args, metadata, kind } = input;
+  if (toolAction(toolName, args) !== 'topology_read') return;
+  if (!metadata.topologySessionId || (args.session_id || args.sessionId) !== metadata.topologySessionId) {
+    throw contractError(kind, 'topology_read');
+  }
 }
 
 function assertRuntimeContract(contract, kind) {
