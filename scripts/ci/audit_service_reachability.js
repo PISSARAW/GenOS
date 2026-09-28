@@ -70,8 +70,47 @@ function reachableFrom(roots) {
   return visited;
 }
 
+function readText(file) {
+  try {
+    return fs.readFileSync(file, 'utf8');
+  } catch (_) {
+    return '';
+  }
+}
+
+function dynamicSignals(content, rel) {
+  const signals = [];
+  if (/register\s*\(|serviceRegistry|toolRegistry|getHandlers\s*\(|container\s*\.\s*(get|resolve)\s*\(/.test(content)) signals.push('registry');
+  if (/import\s*\(|require\s*\(\s*[`'"][^'"`]*\$\{|require\s*\(\s*[a-zA-Z_$]/.test(content)) signals.push('computed-import');
+  if (/registerPlugin|loadPlugin|plugin\s*(register|loader)/i.test(content)) signals.push('plugin');
+  if (/process\.argv|commander|yargs|backend\/bin/.test(content) || rel.includes('bin/') || rel.includes('/cli/')) signals.push('cli-entry');
+  if (/setInterval|node-cron|cron\s*\.\s*schedule|agenda|schedule\s*\(/.test(content)) signals.push('scheduled');
+  if (/GENOS_MCP_LEASE|GENOS_ORCHESTRATOR_BRIDGE|GENOS_MCP_COMMAND/.test(content)) signals.push('config-wiring');
+  return signals;
+}
+
+function testInboundCounts() {
+  const testDirs = [path.join(root, 'backend/tests'), path.join(root, 'backend/test'), path.join(root, 'mcp')];
+  const files = testDirs.flatMap(sourceFiles).filter(fs.existsSync);
+  return literalInboundCounts(files);
+}
+
+function classifyRow(row, context, testInbound) {
+  if (row.staticReachable) return 'static';
+  if (context.signals.length) return 'dynamic-wiring';
+  if (context.rel.includes('backend/bin/') || context.rel.includes('/cli/')) return 'external-entry';
+  if ((testInbound.get(row.file) || 0) > 0) return 'test-only';
+  return 'unresolved';
+}
+
 function relative(file) {
   return path.relative(root, file).replace(/\\/g, '/');
+}
+
+function countBy(rows, key) {
+  const counts = {};
+  for (const row of rows) counts[row[key]] = (counts[row[key]] || 0) + 1;
+  return counts;
 }
 
 function audit() {
@@ -79,14 +118,20 @@ function audit() {
   const roots = entryPoints();
   const reachable = reachableFrom(roots);
   const inbound = literalInboundCounts(productionFiles());
-  const rows = files.map((file) => ({ service: relative(file),
-    staticReachable: reachable.has(file), literalInbound: inbound.get(file) || 0 }));
+  const testInbound = testInboundCounts();
+  const rows = files.map((file) => {
+    const rel = relative(file);
+    const base = { file, service: rel, staticReachable: reachable.has(file), literalInbound: inbound.get(file) || 0 };
+    const signals = dynamicSignals(readText(file), rel);
+    return { ...base, signals, category: classifyRow(base, { rel, signals }, testInbound) };
+  });
   const connected = rows.filter((row) => row.staticReachable).length;
   const withoutInbound = rows.filter((row) => row.literalInbound === 0).length;
-  return { method: 'literal-relative-imports', caveat: 'Dynamic imports, registration and runtime effects require separate review.',
+  const publicRows = rows.map((row) => ({ service: row.service, staticReachable: row.staticReachable, literalInbound: row.literalInbound, category: row.category, signals: row.signals }));
+  return { method: 'literal-relative-imports+dynamic-signals', caveat: 'Static reachability is not proof of use; dynamic signals need causal review before any deletion.',
     entryPoints: roots.map(relative), total: rows.length, staticReachable: connected,
     notStaticallyReachable: rows.length - connected, withoutLiteralInbound: withoutInbound,
-    services: rows };
+    categories: countBy(publicRows, 'category'), services: publicRows };
 }
 
 if (require.main === module) {
@@ -96,8 +141,9 @@ if (require.main === module) {
     process.stdout.write(`${result.total} services; ${result.staticReachable} reachable by literal imports; `
       + `${result.notStaticallyReachable} require dynamic-path or causal review; `
       + `${result.withoutLiteralInbound} have no literal inbound import.\n`);
-    for (const row of result.services.filter((item) => !item.staticReachable).slice(0, 40)) {
-      process.stdout.write(`${row.service}\n`);
+    process.stdout.write(`categories: ${JSON.stringify(result.categories)}\n`);
+    for (const row of result.services.filter((item) => item.category === 'unresolved').slice(0, 40)) {
+      process.stdout.write(`unresolved: ${row.service}\n`);
     }
   }
 }
