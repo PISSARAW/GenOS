@@ -72,15 +72,15 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 6. Intégration Antigravity (phase 6)
 
-- **Avancement** : `integrations/antigravity/configure-mcp.cjs` prépare une entrée MCP stdio en conservant les autres serveurs et en appliquant un bail par défaut limité à `genos_snapshot`. Cela vérifie la configuration, pas une session réelle ni une certification de l'IDE.
+- **Avancement** : `integrations/antigravity/configure-mcp.cjs` génère ou actualise `.agents/mcp_config.json` pour le serveur Node MCP en `stdio`. Il conserve les autres serveurs et variables GenOS, valide la configuration et écrit par remplacement atomique ; le bail par défaut reste limité à `genos_snapshot`. Les vérifications portent sur le fichier et les leases GenOS, pas sur une session Antigravity réelle ni une certification de l'IDE.
 
 - **Interface** : adaptateur versionné du contrat `genos.ide/v1` (si réalisable), sinon statut de client générique non certifié.
 - **Entrées** : protocole d'extension réellement offert par Antigravity (versions, APIs), authentification, scopes workspace, diagnostics, progression de tâche.
 - **Sorties** : parcours IDE réel, reproductible et versionné ; opérations fichier via primitives VFS et leases.
 - **Erreurs** : `IDE_ADAPTER_MISSING`, `IDE_AUTH_FAILED`, `IDE_SCOPE_DENIED`, `IDE_PROGRESS_EXPIRED`, `IDE_VERSION_MISMATCH`.
 - **Permissions** : scopes workspace appliqués ; refus d'accès testés.
-- **Limites** : la seule acceptation du contrat HTTP/gRPC ne suffit pas à annoncer la compatibilité ; version testée et limites publiées.
-- **Preuves** : installation propre, session longue, fermeture/réouverture, expiration de progression, refus d'accès.
+- **Limites** : aucun adaptateur propriétaire `genos.ide/v1`, flux d'authentification Google ou session IDE n'est implémenté ; seule la configuration d'un client MCP générique est supportée. Les permissions d'outils sont limitées par le bail GenOS, mais l'application des scopes Antigravity n'a pas été démontrée.
+- **Preuves** : fusion idempotente de configuration, préservation des serveurs et variables existants, refus de configurations mal formées, écriture atomique et tests de leases. Installation propre, session longue, fermeture/réouverture et expiration de progression restent à vérifier dans l'IDE.
 
 ## 7. Constantes physiques par type de mission (phase 7)
 

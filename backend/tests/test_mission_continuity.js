@@ -216,7 +216,10 @@ test('organism memory persists across restart, tissues refresh live', async () =
   assert.ok(first.organism, 'first evaluation must assemble an organism');
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, parent_agent_id, current_task) VALUES (?, 'w1', 'worker', 'running', 'worker', ?, 'test')`, `${missionId}_w1`, missionId);
   const second = await missionContinuity.evaluateContinuity(db, mission);
-  const liveIds = second.organism.tissues.map((t) => t.identifier);
+  const liveCells = Array.isArray(second.organism.tissues)
+    ? second.organism.tissues
+    : Object.values(second.organism.tissues).flatMap((cells) => Array.isArray(cells) ? cells : []);
+  const liveIds = liveCells.map((t) => t.identifier);
   assert.ok(liveIds.includes(`${missionId}_w1`), 'tissues must refresh from live agents after restart');
   assert.ok(second.organism.memory, 'memory must survive across evaluations');
 });

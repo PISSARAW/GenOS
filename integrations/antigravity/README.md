@@ -11,9 +11,16 @@ node integrations/antigravity/configure-mcp.cjs
 ```
 
 Le script fusionne l'entrée `genos` dans `.agents/mcp_config.json` sans retirer
-les autres serveurs. Ajouter des outils au bail uniquement après revue de leur
-permission et de leurs effets. Pour préparer une configuration sans écrire le
-fichier, utiliser `--print`.
+les autres serveurs ni les variables `env` existantes du serveur GenOS. Il écrit
+le fichier par remplacement atomique. Ajouter des outils au bail uniquement
+après revue de leurs permissions et effets. Pour préparer une configuration
+sans écrire le fichier, utiliser `--print`.
+
+Vérifier le générateur depuis la racine du dépôt avec :
+
+```bash
+node integrations/antigravity/test_configure_mcp.cjs
+```
 
 La configuration compatible prouve le branchement au protocole MCP, pas une
 certification de l'IDE ni la réussite d'une session Antigravity installée. Le
