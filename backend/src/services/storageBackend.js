@@ -105,8 +105,12 @@ class SQLiteBackend extends StorageBackend {
  */
 class PostgreSQLBackend extends StorageBackend {
   async open(_config) {
-    throw new Error('PostgreSQL backend not yet implemented. Use SQLiteBackend for now.');
+    throw failPostgres();
   }
+}
+
+function failPostgres() {
+  return new Error('GENOS_STORAGE_BACKEND=postgresql is not supported: only sqlite is implemented. PostgreSQL requires a dedicated ADR and conformance suite.');
 }
 
 /**
@@ -121,7 +125,7 @@ function createStorageBackend(options = {}) {
       return new SQLiteBackend();
     case 'postgresql':
     case 'postgres':
-      return new PostgreSQLBackend();
+      throw failPostgres();
     default:
       throw new Error(`Unknown storage backend: ${backendName}`);
   }
