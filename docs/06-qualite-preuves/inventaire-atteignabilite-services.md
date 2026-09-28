@@ -24,7 +24,7 @@ potentiels sans les connecter artificiellement pour satisfaire un compteur.
 `staticReachable` signifie seulement qu'une chaîne d'imports existe. Elle ne
 prouve ni sélection pendant une mission, ni effet sur une décision, ni action,
 ni preuve, ni apprentissage. Un service marqué `false` peut être chargé par un
-import dynamique ou un registre. L'étape suivante est donc la vérification
+import dynamique ou un registre (voir [registres dynamiques](registres-dynamiques.md)). L'étape suivante est donc la vérification
 fonctionnelle par le parcours `Sense → Select → Invoke → Affect decision → Act
 → Observe → Learn → Persist → Reuse` de la [matrice de câblage](wiring-matrix.md).
 
