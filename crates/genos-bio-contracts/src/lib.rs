@@ -118,3 +118,4 @@ mod tests;
 pub mod ids;
 pub mod states;
 pub mod lifecycle;
+pub mod lineage_adapters;

@@ -38,9 +38,22 @@ function failure(message) {
   return err;
 }
 
+function linkCellGenome(cellId, genomeId, phenotypeHash) {
+  return { cell_id: cellId, genome_id: genomeId, phenotype_hash: phenotypeHash, schema_version: SCHEMA_VERSION };
+}
+
+function toManifest(link, lineageId) {
+  if (!link.phenotype_hash) {
+    throw failure('phenotype manquant');
+  }
+  return { cell_id: link.cell_id, genome_id: link.genome_id, phenotype_hash: link.phenotype_hash, lineage_id: lineageId, schema_version: SCHEMA_VERSION };
+}
+
 module.exports = {
   SCHEMA_VERSION,
   STAGES,
   newLifecycle,
   transition,
+  linkCellGenome,
+  toManifest,
 };

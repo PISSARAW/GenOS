@@ -18,4 +18,11 @@ describe('bioLineageService cycle de vie', () => {
     const dead = svc.transition(active, 'Apoptose');
     assert.throws(() => svc.transition(dead, 'Activite'), /interdite/);
   });
+
+  it('lien cellule-genome converti en manifeste', () => {
+    const link = svc.linkCellGenome('cell_1', 'genome_1', 'pheno_hash');
+    const manifest = svc.toManifest(link, 'lin_1');
+    assert.equal(manifest.lineage_id, 'lin_1');
+    assert.throws(() => svc.toManifest(svc.linkCellGenome('c', 'g', ''), 'lin_1'), /phenotype/);
+  });
 });
