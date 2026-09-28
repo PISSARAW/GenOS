@@ -2588,6 +2588,10 @@
           "session_id": {
             "type": "string"
           },
+          "after_revision": {
+            "type": "integer",
+            "minimum": -1
+          },
           "operation": {
             "type": "string",
             "enum": [
@@ -2604,6 +2608,7 @@
               "replicas",
               "health",
               "morphogenesis",
+              "events",
               "add_node",
               "add_edge",
               "deposit",

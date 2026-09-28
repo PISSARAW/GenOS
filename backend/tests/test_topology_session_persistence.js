@@ -187,6 +187,11 @@ function readRecord(state, sql, params) {
   await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'apply', op: mcpOperation
   });
+  const deltas = await tools.applyTopologyOperation(db, {
+    session_id: syn.sessionId, operation: 'events', after_revision: 1
+  });
+  assert.equal(deltas.events.length, 1);
+  assert.equal(deltas.events[0].revision, 2);
   assert.ok((await tools.applyTopologyOperation(db, {
     session_id: syn.sessionId, operation: 'schema'
   })).schema);

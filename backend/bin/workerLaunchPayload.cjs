@@ -26,6 +26,11 @@ function migrationInstructions(mission) {
   return `${mission}\n\nMETAPOPULATION MIGRATION CONTRACT: ${contract}`;
 }
 
+function topologyInstructions(mission, session) {
+  if (!session?.sessionId) return mission;
+  return `${mission}\n\nSYNCYTIUM RE-GROUNDING: session_id=${session.sessionId}, initial_revision=${session.revision}. Before committing shared work and before each major decision, call genos_topology_session with operation "events", session_id, and after_revision equal to your last acknowledged revision. Incorporate every newer event into your reasoning, then continue from the highest revision received. Record the revision used in your result.`;
+}
+
 function selectedExecutor(context) {
   return context.request?.executor || process.env.GENOS_AGENT_EXECUTOR;
 }
@@ -37,7 +42,7 @@ function localRuntimeFlag(member) {
 function workerLaunchPayload(args) {
   const { context, member, workerId, parent, capabilities, capabilityManifest, toolLease } = args;
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
-  const mission = enrichMission(context, member.mission || '', member.role);
+  const mission = topologyInstructions(enrichMission(context, member.mission || '', member.role), context.topologySession);
   const budget = context.request?.execution_budget || context.request?.executionBudget;
   const executionBudget = Number.isFinite(member.executionBudgetTokens)
     ? { ...(budget || {}), tokens: member.executionBudgetTokens }

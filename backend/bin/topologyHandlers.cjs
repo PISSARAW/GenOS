@@ -225,6 +225,9 @@ async function handleBiological(db, context) {
   const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
   context.nceEnrichments = await buildNCEEnrichments(context, 'biological');
   const composition = await composeBiologicalMode({ db, context, mode, mission });
+  if (mode === 'syncytium' && composition.sessionId) {
+    context.topologySession = { sessionId: composition.sessionId, revision: composition.revision || 0 };
+  }
   const members = composition.members || [];
   const accepted = await dispatchAndCollectResults({ db, context, mode, parent, members });
   const topology = topologyDetails(composition);
