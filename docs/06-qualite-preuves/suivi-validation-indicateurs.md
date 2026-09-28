@@ -96,7 +96,7 @@ Test : `node backend/tests/test_versioned_contract_persistence.js` vérifie l'in
 
 ## Lot 08 — WorldState et modèle conditionnel
 
-`worldStateConditionalService` enregistre les états avant/après avec preuves, calcule delta, support, incertitude et OOD, puis classe les choix par utilité corrigée de l’incertitude. Test : `node backend/tests/test_world_state_conditional.js`.
+`worldStateConditionalService` persiste les transitions avant/après en reçus `WorldTransition` SQLite, avec delta numérique, sources et contexte de mission. L'évaluation calcule le support des deltas attendus, porte l'incertitude à 1 quand les sources manquent et détecte l'OOD à partir des clés d'état connues. La sélection conditionne les actions sur l'état observé, pénalise l'incertitude et ne déclare la décision prête que si l'état a des références probantes ; elle s'abstient si l'état est explicitement hors distribution ou qu'aucune condition ne correspond. Les scénarios S1/S2 déterministes vérifient que l'obstacle sélectionne le détour et que la voie libre sélectionne le trajet direct ; cela valide le contrat du modèle, pas une amélioration observée sur des missions de production. Test : `node backend/tests/test_world_state_conditional.js` (également inclus dans le profil `smoke`).
 
 ## Lot 09 — rollout récursif et décision contrôlée
 

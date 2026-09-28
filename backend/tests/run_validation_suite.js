@@ -10,6 +10,7 @@ const suites = {
     ['Rhizome merge policy evaluation', 'test_rhizome_merge_policy_evaluation.js'],
     ['topology session persistence and MCP operations', 'test_topology_session_persistence.js'],
     ['mission physics parameter service', 'test_mission_physics_parameter_service.js'],
+    ['WorldState conditional model', 'test_world_state_conditional.js'],
     ['morphology learning evidence gate', 'test_morphology_learning_evidence.js'],
     ['replicated causal validation', 'test_replicated_causal_validation_service.js'],
     ['replicated causal runtime integration', 'test_replicated_causal_runtime_integration.js'],
