@@ -31,6 +31,17 @@ function topologyInstructions(mission, session) {
   return `${mission}\n\nSYNCYTIUM RE-GROUNDING: session_id=${session.sessionId}, initial_revision=${session.revision}. Before committing shared work and before each major decision, call genos_topology_session with operation "events", session_id, and after_revision equal to your last acknowledged revision. Incorporate every newer event into your reasoning, then continue from the highest revision received. Record the revision used in your result.\n\nSEMANTIC CROSS-VALIDATION: include top-level semanticClaims in your evidence report. Each claim must be {"subject":"stable concept", "predicate":"property", "value":string|number|boolean, "evidence":["source or observation"]}. State only claims you can support; use an empty array when you have none.`;
 }
 
+function isolatedBaselineInstructions(mission, context) {
+  if (context.request?.mode !== 'isolated_baseline') return mission;
+  return `${mission}\n\nISOLATED BASELINE: solve this assignment independently. Do not read or write shared topology state. Return evidence and top-level semanticClaims in your evidence report. Each claim must be {"subject":"stable concept", "predicate":"property", "value":string|number|boolean, "evidence":["source or observation"]}. State only supported claims; use an empty array when none apply.`;
+}
+
+function isolatedBaselineLease(context, lease) {
+  if (context.request?.mode !== 'isolated_baseline') return lease || [];
+  const sharedTools = new Set(['genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session', 'genos_change_organization']);
+  return (Array.isArray(lease) ? lease : []).filter((tool) => !sharedTools.has(String(tool).toLowerCase()));
+}
+
 function selectedExecutor(context) {
   return context.request?.executor || process.env.GENOS_AGENT_EXECUTOR;
 }
@@ -42,7 +53,8 @@ function localRuntimeFlag(member) {
 function workerLaunchPayload(args) {
   const { context, member, workerId, parent, capabilities, capabilityManifest, toolLease } = args;
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
-  const mission = topologyInstructions(enrichMission(context, member.mission || '', member.role), context.topologySession);
+  const baseMission = enrichMission(context, member.mission || '', member.role);
+  const mission = topologyInstructions(isolatedBaselineInstructions(baseMission, context), context.topologySession);
   const budget = context.request?.execution_budget || context.request?.executionBudget;
   const executionBudget = Number.isFinite(member.executionBudgetTokens)
     ? { ...(budget || {}), tokens: member.executionBudgetTokens }
@@ -60,7 +72,7 @@ function workerLaunchPayload(args) {
     model_tier: member.modelTier,
     capabilities: capabilities || [],
     capabilityManifest: capabilityManifest || null,
-    toolLease: toolLease || [],
+    toolLease: isolatedBaselineLease(context, toolLease),
     execution_budget: executionBudget,
     timeoutMs: context.request?.timeoutMs,
     workspace_root: context.request?.workspace_root || parent?.workspace_root || process.env.GENOS_WORKSPACE_ROOT,

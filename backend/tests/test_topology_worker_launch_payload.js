@@ -36,4 +36,13 @@ const populationWorker = workerLaunchPayload({
 assert.ok(populationWorker.mission.includes('A=1, B=1. Preserve these exact inputs.'));
 assert.ok(populationWorker.mission.includes('METAPOPULATION MIGRATION CONTRACT'));
 
+const baselineWorker = workerLaunchPayload({
+  context: { ...context, request: { ...context.request, mode: 'isolated_baseline' } },
+  member: { role: 'validator', mission: 'Independent baseline', engine: 'cloud' },
+  workerId: 'baseline-worker', parent: { workspace_root: '/workspace' },
+  toolLease: ['genos_snapshot', 'genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session', 'genos_change_organization']
+});
+assert.ok(baselineWorker.mission.includes('ISOLATED BASELINE'));
+assert.deepEqual(baselineWorker.toolLease, ['genos_snapshot']);
+
 console.log('Topology worker launch payload: PASS');
