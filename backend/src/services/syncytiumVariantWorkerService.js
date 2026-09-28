@@ -13,6 +13,10 @@ const VARIANT_WORKERS = Object.freeze({
     role: 'causal_reconstructor',
     mission: 'Reconstruct the causal order of document edits and comments. Separate observed sequence facts from inferred causality.'
   },
+  epistemic: {
+    role: 'epistemic_specialist',
+    mission: 'Track claims, provenance, supporting evidence, refutations, and uncertainty. Preserve counterevidence and flag claims with missing provenance.'
+  },
   transactional: {
     role: 'transactional_validator',
     mission: 'Validate transaction preconditions, invariants, reservations, and resource bounds. Report unmet conditions explicitly.'
