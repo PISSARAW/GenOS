@@ -77,7 +77,7 @@ function makeAssessResult({ assessFn, orchestratorId, context, assessment }) {
 // ── Plan Regeneration ───────────────────────────────────────────────────────
 
 async function planRegeneration(context = {}) {
-  const { mission, reason, currentTopology, preferredPreservation, orchestratorId } = context;
+  const { mission, reason, currentTopology, preferredPreservation, orchestratorId, scope } = context;
 
   if (!mission && !reason) {
     return { success: false, error: 'mission ou reason est requis pour plan_regeneration' };
@@ -87,7 +87,8 @@ async function planRegeneration(context = {}) {
     mission: mission || 'Régénération axolotl',
     reason: reason || 'Défaillance structurelle détectée',
     currentTopology,
-    preferredPreservation
+    preferredPreservation,
+    scope
   });
 
   return {
