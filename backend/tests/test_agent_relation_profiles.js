@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const relational = require('../src/services/crossAgentRelationalService');
 const resolver = require('../src/services/morphogenesis/relationResolverService');
 const routing = require('../src/services/communication/relationshipCommunicationRoutingService');
+const adaptive = require('../src/services/epistemic/adaptiveEpistemicResponse');
 
 function verifyRelationCatalog() {
   for (const type of ['friend', 'stranger', 'parent', 'child', 'sibling', 'twin', 'colleague', 'neighbor']) {
@@ -24,6 +25,18 @@ function verifyVerifierSelection() {
   ] });
   assert.equal(selected.candidate.agentId, 'independent');
   assert.equal(resolver.selectVerifier({ candidates: [{ agentId: 'sibling', relationType: 'sibling' }] }), null);
+}
+
+function verifyRuntimeVerifierAssignment() {
+  const result = adaptive.adaptiveResponse({ adaptive: { triggered: true,
+    signals: ['autoverification'] } }, {}, { agentId: 'author', verifierCandidates: [
+    { agentId: 'sibling', relationType: 'sibling', domainCompetence: 1,
+      epistemicIndependence: 1, errorCorrelation: 0 },
+    { agentId: 'independent', relationType: 'stranger', domainCompetence: 0.8,
+      epistemicIndependence: 0.95, errorCorrelation: 0.1 }
+  ] });
+  assert.equal(result.verifierAssignments[0].verifier, 'independent');
+  assert.equal(result.verifierAssignments[0].selectionSource, 'independent_relation_selector');
 }
 
 function verifyPartnerSelection() {
@@ -72,6 +85,7 @@ async function verifyScopedCommunicationRouting() {
 
 verifyRelationCatalog();
 verifyVerifierSelection();
+verifyRuntimeVerifierAssignment();
 verifyPartnerSelection();
 Promise.all([verifyPersistedProfile(), verifyScopedCommunicationRouting()])
   .then(() => console.log('Agent relation profile tests passed.'))
