@@ -48,9 +48,13 @@ observée : `threatLevel` doit provenir d'un signal explicite.
 | `stagnation` | stagnation `>= 0,70` | mutation contrôlée, blast radius 1 |
 
 Sous énergie `< 0,08`, `cryptobiosis_suspend` interdit tout nouveau worker et
-marque la mission `dormant`. Le service persiste la condition de réveil avec
-l'identifiant du snapshot gelé ; le réveil vérifie que la condition, l'état
-dormant et le snapshot persistant correspondent avant restauration.
+marque la mission `dormant`. `survivalStateService.suspend()` persiste un
+snapshot gelé dans `cryptobiosis_snapshots`, arme la condition de réveil liée à
+ce snapshot et écrit l'état dans `survival_states`. `wake()` vérifie ces liens,
+restaure le snapshot et passe l'agent par `waking` puis `recovered`. Si le
+snapshot contient un objet `mission` indépendant (avec `prompt`, `objective` ou
+`task`), le service relance cette mission sur l'agent réveillé. Cette reprise
+ne crée pas encore d'identité d'orchestrateur successeur.
 
 ## Contrôles actifs
 
@@ -101,6 +105,8 @@ encore réduire ce nombre.
 - Une action de survie ne contourne ni sandbox, ni lease, ni gate de promotion.
 - La condition de réveil et son lien au snapshot sont persistés et validés,
   mais aucun ordonnanceur n'évalue automatiquement les conditions.
+- La relance après réveil est déclenchée par un appel explicite à `wake()` ; elle
+  ne constitue pas une succession automatique de l'orchestrateur.
 - Les reçus sont stockés et typés, mais l'intégration de tous les exécuteurs
   reste à faire ; la télémétrie ne peut donc pas encore être garantie pour
   chaque action réelle.

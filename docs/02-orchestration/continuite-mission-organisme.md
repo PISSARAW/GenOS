@@ -1,6 +1,6 @@
 # Continuité de mission : l'organisme logiciel
 
-- **Statut** : Partiel (gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable ; régénération runtime, dormance durable et succession restantes)
+- **Statut** : Partiel (gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable ; régénération axolotl et dormance persistante branchées, succession d'orchestrateur non implémentée)
 - **Portée** : control plane Node, services de survie de mission
 - **Dernière revue** : 2026-09-23
 
@@ -256,21 +256,25 @@ viable → QUIESCENCE | starved → CRYPTOBIOSE | irrecoverable → APOPTOSE
 
 ### Modèle implémenté, enforcement non intégré
 
-- **Régénération runtime** : `regenerateCell()` crée la cellule dans
-   l'organisme mais pas un vrai worker (pas d'INSERT agent, pas de workspace,
-   pas de `startMission`). À relier à `agentRecoveryService`.
-- **Cryptobiose/quiescence durables** : `enterCryptobiosis()` construit le
-   payload à persister mais n'écrit pas ; pas encore de pont vers
-   `survivalStateService.suspend()` ni `survival_wake_conditions`.
-- **Organisme persisté, dormance non durable** : l'organisme est persisté
-   (`mission_organism_state`, migration 034) et restauré à chaque évaluation —
-   mémoire et cicatrices survivent au restart, tissus rafraîchis depuis les
-   agents vivants ; l'écriture + réveil de dormance restent à faire.
-- **Mission = agent racine** : `fetchMissionAgents` utilise l'ID de
-  l'orchestrateur comme ID de mission ; la succession d'orchestrateur exigera
-  un objet mission indépendant.
-- **Succession cellulaire** : suggérée par la charge allostatique, pas
-  exécutée.
+- **Régénération axolotl** : après validation de la nouvelle topologie,
+   `executeRegeneration()` crée un agent `worker` enfant et le lance via
+   `agentRuntimeAdapter.startMission()`. L'exécution exige un `db` et un
+   `context.orchestratorId`. Les sessions de régénération sont reliées au
+   persister adaptatif. Cela ne transforme pas `regenerateCell()` du
+   `regenerationService.js` en création de worker : ce flux reste distinct.
+- **Dormance persistante** : `survivalStateService.suspend()` fige un snapshot
+   dans `cryptobiosis_snapshots`, puis arme une condition liée à son identifiant
+   et persiste l'état dans `survival_states`. Le réveil vérifie l'état dormant,
+   la condition armée et le snapshot gelé avant de restaurer et de marquer le
+   snapshot comme réhydraté.
+- **Reprise par mission indépendante** : `suspend()` peut inclure un objet
+   `mission` (avec `prompt`, `objective` ou `task`) dans le payload du snapshot.
+   `wake()` le réutilise pour relancer l'agent réveillé, sans reconstruire le
+   prompt depuis son `current_task`. Ce mécanisme reprend l'agent ; il ne crée
+   pas encore un orchestrateur successeur avec une identité distincte.
+- **Succession cellulaire et d'orchestrateur** : la charge allostatique peut
+   suggérer une succession cellulaire, mais elle n'exécute pas ce transfert.
+   La succession d'orchestrateur reste à concevoir et à valider.
 
 ## Voir aussi
 

@@ -52,6 +52,14 @@ corrompue ou obsolète, restaurer l'identique reintroduce le même problème.
 - `executeRegeneration({ sessionId, db, context })` → exécution de la régénération
 - `listRegenerationSessions()` / `getRegenerationSession(id)` → statut
 
+Après une validation fonctionnelle réussie, `executeRegeneration()` crée un
+agent enfant de rôle `regeneration_worker` et le démarre avec
+`agentRuntimeAdapter.startMission()`. L'appel doit fournir `db` et
+`context.orchestratorId` ; si l'orchestrateur parent est absent, la création du
+worker échoue explicitement. La session conserve l'identifiant du worker et la
+mission indépendante utilisée pour son exécution. Les sessions sont restaurées
+et sauvegardées via le persister adaptatif lorsqu'il est branché.
+
 **Contraste avec recovery existant :**
 | Aspect | Recovery classique | Axolotl |
 |---|---|---|
