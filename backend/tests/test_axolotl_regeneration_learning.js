@@ -2,6 +2,8 @@
 
 const assert = require('node:assert/strict');
 const learning = require('../src/services/axolotlRegenerationLearning');
+const service = require('../src/services/axolotlRegenerationService');
+const handlers = require('../src/services/primitiveHandlers/axolotlStrategyHandlers');
 
 async function main() {
   const record = learning.createLearningRecord({ candidates: [{ id: 'candidate-a', content: { rule: 'x', description: 'Validated routing rule.' } }] });
@@ -24,6 +26,10 @@ async function main() {
   assert.equal(writes.length, 1);
   const unverified = await learning.promoteCandidate({ candidate: evaluated.candidates[0], sessionId: 'regen-test', db: { run: async () => {} } });
   assert.equal(unverified.code, 'COGNITIVE_EVIDENCE_VERIFIER_REQUIRED');
+  const plan = await handlers.plan_regeneration({ mission: 'route requests', currentTopology: { structure: 'centralized' } });
+  await service.prepareCognitiveLearning(plan.sessionId, { candidates: [{ id: 'route-rule', content: 'Prefer the validated route.' }] });
+  await handlers.execute_regeneration({ sessionId: plan.sessionId, evaluateCognitiveCandidate: async () => ({ passed: true, evidenceRefs: ['runtime-proof'] }) });
+  assert.equal(service.getRegenerationSession(plan.sessionId).learning.status, 'evaluated');
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

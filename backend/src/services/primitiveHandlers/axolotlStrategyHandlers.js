@@ -108,7 +108,7 @@ async function planRegeneration(context = {}) {
 // ── Execute Regeneration ────────────────────────────────────────────────────
 
 async function executeRegeneration(context = {}) {
-  const { sessionId, db, orchestratorId } = context;
+  const { sessionId, db, orchestratorId, evaluateCognitiveCandidate, observedCost, executionBudget, workspaceRoot } = context;
 
   if (!sessionId) {
     return { success: false, error: 'sessionId est requis pour execute_regeneration' };
@@ -117,7 +117,13 @@ async function executeRegeneration(context = {}) {
   const result = await regenerationService.executeRegeneration({
     sessionId,
     db,
-    context: { orchestratorId: orchestratorId || context.orchestrator_id }
+    context: {
+      orchestratorId: orchestratorId || context.orchestrator_id,
+      evaluateCognitiveCandidate,
+      observedCost,
+      executionBudget,
+      workspaceRoot
+    }
   });
 
   return {
