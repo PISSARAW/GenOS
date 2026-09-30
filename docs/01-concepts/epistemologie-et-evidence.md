@@ -74,6 +74,15 @@ Les dossiers sont un canal de donnees, non un canal d'autorite : le prompt de sy
 
 ## Claims et evidence
 
+Le noyau [verificationKernel](../../backend/src/services/epistemic/verificationKernel.js)
+classe également un claim à partir de reçus signés, fiables, indépendants et
+liés à son `id` et à son `evidenceDigest`. Il expose des niveaux distincts
+(`PROVEN`, `VERIFIED`, `EMPIRICALLY_VERIFIED`, `SOURCE_SUPPORTED`,
+`CORROBORATED`, `PLAUSIBLE`, `REFUTED`, `UNVERIFIED`) ; il ne transforme pas
+l'absence de vérificateur en réfutation et n'autorise jamais à lui seul une
+promotion. Les profils de vérificateurs de confiance sont une configuration de
+l'appelant, pas une propriété déclarée par le générateur. Voir [ADR 0173](../adr/0173-noyau-routage-et-niveaux-de-verification.md).
+
 `hasDecisionEvidence()` reconnait trois familles qui autorisent une decision de controle :
 
 - au moins un claim avec une evidence non vide (chaine non blanche ou objet non vide) ;

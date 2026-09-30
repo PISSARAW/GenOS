@@ -195,6 +195,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0170](0170-specialisation-workers-variants-syncytium.md) | Spécialisation des workers par variant Syncytium | Acceptée | 2026-09-28 | Syncytium, orchestration, workers, capacités |
 | [0171](0171-workgraph-staffing-et-apprentissage-topologies.md) | Staffing A-Team depuis WorkGraph et apprentissage des topologies | Accepté | 2026-09-28 | WorkGraph, A-Team, apprentissage, topologies |
 | [0172](0172-preuves-pour-apprentissage-causal-et-analyse-sociale.md) | Preuves pour l'apprentissage causal et analyse sociale descriptive | Accepté | 2026-09-28 | preuves, apprentissage, annulation, cognition sociale |
+| [0173](0173-noyau-routage-et-niveaux-de-verification.md) | Noyau de routage et niveaux de vérification des claims | Accepté | 2026-09-30 | épistémologie, vérificateurs, reçus |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

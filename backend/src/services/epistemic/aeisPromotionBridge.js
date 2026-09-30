@@ -17,6 +17,7 @@ const crypto = require('node:crypto');
 const { evaluateEpistemicAssurance } = require('../epistemicAssuranceService');
 const { adaptImmuneResult } = require('./formalResultAdapter');
 const { createFormalResult } = require('../formalResultService');
+const { assessClaim } = require('./verificationKernel');
 
 /**
  * Convertit un résultat immunitaire Holobionte en FormalResult.
@@ -196,14 +197,40 @@ async function evaluateAeisForPromotion(antigens, context = {}) {
 
   const assembly = buildAssuranceAssemblyFromHolobionte(antigens, holobionteResults, context);
   const evaluation = evaluateEpistemicAssurance(assembly);
+  const claimAssessments = assessAntigenClaims(antigens, holobionteResults, context);
 
   return {
     evaluation,
     assembly,
     holobionteResults,
+    claimAssessments,
     allAccepted: holobionteResults.every(r => r.accepted),
     anyBlocked: holobionteResults.some(r => r.immune?.blocked && !r.immune?.regulatorInhibited),
   };
+}
+
+function receiptsForResult(result) {
+  const rows = result?.immune?.verifierResults?.results;
+  return Array.isArray(rows) ? rows.map((row) => row.receipt).filter(Boolean) : [];
+}
+
+function assessAntigenClaims(antigens, results, context) {
+  return antigens.map((antigen, index) => {
+    const formal = antigen.formalResult;
+    const claim = {
+      id: formal?.resultId || antigen.id,
+      evidenceDigest: formal?.evidence?.digest || antigen.epitopes?.evidence?.digest,
+    };
+    return {
+      claimId: claim.id,
+      statement: typeof antigen.claim === 'string' ? antigen.claim : antigen.claim?.text || '',
+      ...assessClaim(claim, {
+        receipts: receiptsForResult(results[index]),
+        trustedVerifierDigests: context.trustedVerifierDigests,
+        verifierProfiles: context.verifierProfiles,
+      }),
+    };
+  });
 }
 
 function statementFromClaim(claim) {
