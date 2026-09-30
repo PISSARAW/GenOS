@@ -14,6 +14,34 @@ complet qu'après un reçu réussi pour chaque action. Ces contrats n'incluent p
 de pilotes concrets pour un capteur ou un fournisseur d'outils donné. Le
 CLI/MCP d'évaluation ne prétend pas dispatcher.
 
+### Branchement des adaptateurs hôte
+
+Le runtime expose deux points d'injection dans `genos-orchestrator` :
+
+- `InstinctSensorAdapter::read()` renvoie des `SignStimulus` mesurés par une
+  source hôte. Chaque lecture doit décrire sa modalité, sa signature et une
+  intensité normalisée entre 0 et 1. Le runtime les ajoute au champ dérivé de
+  `WorldState` avant d'évaluer les mécanismes déclencheurs.
+- `InstinctActionExecutor::execute()` reçoit chaque `MotorStep`. Il doit
+  retourner un `InstinctActionReceipt` avec `execution_id` et `evidence_ref`
+  non vides pour permettre au runtime de compter l'étape comme réussie.
+
+L'hôte branche ces adaptateurs via `set_instinct_sensor_adapter` et
+`set_instinct_action_executor`, puis fournit la liste des outils autorisés via
+`set_instinct_authorized_tools`. La liste sert au contrôle du PAF; l'exécuteur
+doit encore appliquer la politique réelle du fournisseur au moment de l'appel.
+Si la lecture capteur échoue pendant un tick, le runtime ajoute
+`INSTINCT_SENSOR_ERROR` au journal et poursuit avec les seuls signaux
+`WorldState`. Il ne fabrique aucune lecture de remplacement. Une exécution
+d'action sans reçu vérifiable interrompt le PAF; un transport réussi seul ne
+constitue pas une preuve d'action.
+
+`read_instinct_stimuli()` permet aussi à l'hôte de demander explicitement un
+champ fusionné. `stimulus_field()` demeure une vue des seuls signaux
+`WorldState`. Le CLI `biomimicry instinct trigger` évalue un plan à partir des
+paramètres fournis et renvoie `validation_only`; il ne consomme pas de capteur
+ni ne lance d'outil.
+
 ## 1. Définition du domaine
 
 L'**instinct** est, dans GenOS, un **programme comportemental inné, complet et stéréotypé**, encodé dès l'embryogenèse dans le génome de l'agent, et déclenché **sans apprentissage préalable** par un **stimulus signe** précis. Il s'exécute par une **voie sous-corticale rapide** qui court-circuite la délibération du modèle de langage (le « cortex ») et se termine par un **Patron d'Action Fixe (PAF)** : une séquence ordonnée d'actions motrices, relativement rigide, déclenchée par un mécanisme déclencheur inné.
