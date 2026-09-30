@@ -128,7 +128,7 @@ impl GenosEcosystem {
         if self.orchestrator.membrane.total_integrity() < MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE {
             return Err(ReproductionBlocked::MembraneTooWeak);
         }
-        if !self.orchestrator.metabolism.consume(REPRODUCTION_ATP_COST) {
+        if !self.orchestrator.metabolism.consume_for("reproduction.cycle", REPRODUCTION_ATP_COST) {
             return Err(ReproductionBlocked::InsufficientAtp);
         }
 

@@ -122,7 +122,7 @@ impl GenosEcosystem {
             return false;
         }
         let pressure = self.instincts.volition.survival_drive;
-        let spent = self.orchestrator.metabolism.consume(VITAL_REFLEX_ATP_COST);
+        let spent = self.orchestrator.metabolism.consume_for("volition.vital_reflex", VITAL_REFLEX_ATP_COST);
         if !spent {
             return false;
         }
@@ -146,7 +146,7 @@ impl GenosEcosystem {
             return false;
         }
         let intensity = self.instincts.volition.free_desire;
-        let spent = self.orchestrator.metabolism.consume(FREE_DESIRE_ATP_COST);
+        let spent = self.orchestrator.metabolism.consume_for("volition.free_desire", FREE_DESIRE_ATP_COST);
         if !spent {
             return false;
         }

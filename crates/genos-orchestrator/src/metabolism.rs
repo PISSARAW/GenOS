@@ -22,7 +22,18 @@ pub struct Metabolism {
     pub refill_per_sec: f64,
     pub consumed_total: f64,
     pub produced_total: f64,
+    pub consumption_receipts: Vec<MetabolicConsumptionReceipt>,
     last_refill: Instant,
+}
+
+/// Trace en mémoire d'une demande de dépense passée par le registre commun.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MetabolicConsumptionReceipt {
+    pub operation: String,
+    pub requested: f64,
+    pub available_before: f64,
+    pub available_after: f64,
+    pub accepted: bool,
 }
 
 impl Default for Metabolism {
@@ -39,6 +50,7 @@ impl Metabolism {
             refill_per_sec,
             consumed_total: 0.0,
             produced_total: 0.0,
+            consumption_receipts: Vec::new(),
             last_refill: Instant::now(),
         }
     }
@@ -65,17 +77,26 @@ impl Metabolism {
 
     /// Débite un coût ; renvoie `false` si l'ATP est insuffisant (famine).
     pub fn consume(&mut self, cost: f64) -> bool {
+        self.consume_for("unspecified", cost)
+    }
+
+    /// Débite un coût depuis un point d'exécution nommé et conserve son reçu.
+    pub fn consume_for(&mut self, operation: &str, cost: f64) -> bool {
         self.refill();
-        if !cost.is_finite() || cost <= 0.0 {
-            return true;
-        }
-        if self.atp + 1e-9 >= cost {
+        let available_before = self.atp;
+        let accepted = cost.is_finite() && cost >= 0.0 && self.atp + 1e-9 >= cost;
+        if accepted && cost > 0.0 {
             self.atp -= cost;
             self.consumed_total += cost;
-            true
-        } else {
-            false
         }
+        self.consumption_receipts.push(MetabolicConsumptionReceipt {
+            operation: operation.to_string(),
+            requested: cost,
+            available_before,
+            available_after: self.atp,
+            accepted,
+        });
+        accepted
     }
 
     /// Ingestion d'énergie externe (« repas »).
@@ -113,5 +134,25 @@ impl GenosEcosystem {
         let report = run_metabolic_cycle(&mut self.orchestrator.chemistry, glucose_mol);
         self.feed(report.atp_produced_mol * ATP_TOKENS_PER_MOL);
         report
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Metabolism;
+
+    #[test]
+    fn execution_costs_share_auditable_registry_and_fail_closed() {
+        let mut metabolism = Metabolism::new(4.0, 0.0);
+        assert!(metabolism.consume_for("mission.write", 3.0));
+        assert!(!metabolism.consume_for("mission.publish", 2.0));
+        assert!(!metabolism.consume_for("mission.invalid", f64::NAN));
+        assert_eq!(metabolism.consumption_receipts.len(), 3);
+        assert_eq!(metabolism.consumption_receipts[0].operation, "mission.write");
+        assert!(metabolism.consumption_receipts[0].accepted);
+        assert_eq!(metabolism.consumption_receipts[1].available_before, 1.0);
+        assert!(!metabolism.consumption_receipts[1].accepted);
+        assert_eq!(metabolism.consumption_receipts[2].available_after, 1.0);
+        assert!(!metabolism.consumption_receipts[2].accepted);
     }
 }

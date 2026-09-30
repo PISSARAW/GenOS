@@ -26,7 +26,7 @@ impl GenosEcosystem {
         if !self
             .orchestrator
             .metabolism
-            .consume(MEMBRANE_SYNTHESIS_ATP_COST)
+            .consume_for("membrane.synthesis", MEMBRANE_SYNTHESIS_ATP_COST)
         {
             return None;
         }

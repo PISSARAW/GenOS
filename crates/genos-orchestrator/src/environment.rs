@@ -335,7 +335,7 @@ impl GenosEcosystem {
                 path: out_path.to_string(),
                 content: spec.content.clone(),
             };
-            if !self.orchestrator.metabolism.consume(1.0) {
+            if !self.orchestrator.metabolism.consume_for("environment.write_action", 1.0) {
                 return EmbodiedReport {
                     iterations,
                     actions,

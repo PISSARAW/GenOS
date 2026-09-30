@@ -116,7 +116,7 @@ impl GenosEcosystem {
         let mut sim = state.clone();
         for step in &decision.steps {
             // Métabolisme réel : chaque concept consomme de l'ATP.
-            if !self.orchestrator.metabolism.consume(step.concept.cost()) {
+            if !self.orchestrator.metabolism.consume_for("tick.concept", step.concept.cost()) {
                 let receipt = self.execution_receipt(step.concept, false, false);
                 self.record_biological_receipt(&receipt);
                 report.biological_receipts.push(receipt);
