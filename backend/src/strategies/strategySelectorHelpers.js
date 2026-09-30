@@ -105,6 +105,7 @@ function profileProblem(problem = '', overrides = {}) {
   const highRisk = isHighRisk(type, text);
   return {
     type,
+    structuralFailure: overrides.structuralFailure === true,
     complexity: firstDefined(overrides.complexity, computeComplexity(problem, highRisk)),
     uncertainty: firstDefined(overrides.uncertainty,
       firstDefined(UNCERTAINTY_DEFAULTS[type], 0.46)),
@@ -139,7 +140,7 @@ function applySlice(state, context, names) {
       if (!state.unknown.includes(name)) state.unknown.push(name);
       continue;
     }
-    if (entry.profiles.includes(type)) {
+    if (entry.profiles.includes(type) || (name === 'regenerative' && context.profile?.structuralFailure)) {
       state.score += entry.weight;
       state.bonus += entry.weight;
       state.applied.push({ trait: name, profile: type, weight: entry.weight });
