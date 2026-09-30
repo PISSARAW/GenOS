@@ -35,16 +35,28 @@ const TERMINATION_POLL_INTERVAL_MS = 1000;
  * Interroge la table partagée telemetry_events (visible inter-processus).
  * Retourne l'événement terminal le plus récent pour l'agent, ou null.
  */
-async function pollTerminalEvent(agentId) {
+async function readTelemetryCursor(agentId) {
+  try {
+    const { getDatabase } = require('../db');
+    const db = await getDatabase();
+    const row = await db.get('SELECT MAX(id) AS cursor FROM telemetry_events WHERE agent_id = ?', agentId);
+    return Number.isSafeInteger(row?.cursor) ? row.cursor : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function pollTerminalEvent(agentId, afterEventId) {
+  if (!Number.isSafeInteger(afterEventId)) return null;
   try {
     const { getDatabase } = require('../db');
     const db = await getDatabase();
     const placeholders = TERMINAL_EVENT_TYPES.map(() => '?').join(',');
     const row = await db.get(
-      `SELECT event_type, payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN (${placeholders}) ORDER BY id DESC LIMIT 1`,
-      agentId, ...TERMINAL_EVENT_TYPES
+      `SELECT id, event_type, payload_json FROM telemetry_events WHERE agent_id = ? AND id > ? AND event_type IN (${placeholders}) ORDER BY id DESC LIMIT 1`,
+      agentId, afterEventId, ...TERMINAL_EVENT_TYPES
     );
-    if (!row) return null;
+    if (!row || Number(row.id) <= afterEventId) return null;
     let event = null;
     try { event = JSON.parse(row.payload_json || '{}'); } catch (_) { event = {}; }
     return { eventType: row.event_type, event };
@@ -58,7 +70,7 @@ function newTerminationState(deadline) {
 }
 
 function newTerminationTrack(agentId, deadline, resolve) {
-  return { agentId, state: newTerminationState(deadline), handler: null, resolve };
+  return { agentId, state: newTerminationState(deadline), handler: null, resolve, afterEventId: null };
 }
 
 function finishTermination(track, result) {
@@ -83,7 +95,7 @@ function timeoutResult() {
 
 async function checkTerminationDatabase(track) {
   if (track.state.settled) return;
-  const found = await pollTerminalEvent(track.agentId);
+  const found = await pollTerminalEvent(track.agentId, track.afterEventId);
   if (found) {
     finishTermination(track, { terminated: true, eventType: found.eventType, event: found.event, source: 'database' });
     return;
@@ -98,10 +110,11 @@ async function checkTerminationDatabase(track) {
  * Robuste multi-processus: écoute locale EventEmitter (rapide) + sondage DB
  * (termine même si l'événement a été émis par un autre processus), avec timeout.
  */
-function waitForMissionTermination(agentId, timeoutMs) {
+function waitForMissionTermination(agentId, timeoutMs, afterEventId) {
   const deadline = Date.now() + Math.max(1, Number(timeoutMs) || 60000);
   return new Promise((resolve) => {
     const track = newTerminationTrack(agentId, deadline, resolve);
+    track.afterEventId = afterEventId;
     track.handler = (event) => {
       if (!isTerminalFor(event, agentId)) return;
       finishTermination(track, { terminated: true, eventType: event.eventType, event, source: 'telemetry' });
@@ -177,8 +190,9 @@ function normalizePoetOptions(options) {
 
 async function runAgentToTermination(ctx) {
   const { agent, environment, opts, results } = ctx;
+  const afterEventId = await readTelemetryCursor(agent.id);
   const missionPromise = launchAgentMission(agent, environment, opts);
-  const termination = await waitForMissionTermination(agent.id, opts.timeoutMs);
+  const termination = await waitForMissionTermination(agent.id, opts.timeoutMs, afterEventId);
   if (!termination.terminated) {
     results.error = timeoutMessage(opts.timeoutMs, termination.eventType);
     return;
@@ -252,5 +266,6 @@ async function verifySolutionInSnapshot(missionResult, environment) {
 module.exports = {
   executeAgentOnEnvironment,
   buildAgentPrompt,
+  readTelemetryCursor,
   verifySolutionInSnapshot,
 };

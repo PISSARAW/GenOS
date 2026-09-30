@@ -145,6 +145,31 @@ async function testPoetWithRealSnapshotVerification() {
   }
 }
 
+async function testPoetIgnoresStaleTerminalEvent() {
+  const dbPath = require.resolve('../src/db');
+  require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
+    getDatabase: async () => ({
+      get: async (sql) => sql.includes('MAX(id)') ? { cursor: 7 } : {
+        id: 7, event_type: 'AGENT_COMPLETED', payload_json: JSON.stringify({ agentId: 'agent-stale' }),
+      },
+    }),
+  } };
+  const runtimePath = require.resolve('../src/services/agentRuntimeAdapter');
+  require.cache[runtimePath] = { id: runtimePath, filename: runtimePath, loaded: true, exports: {
+    startMission: async () => ({ artifact: { solution: 'stale completion must not verify' } }),
+  } };
+  delete require.cache[require.resolve('../src/services/poetExecutionEngine')];
+  const execution = await require('../src/services/poetExecutionEngine').executeAgentOnEnvironment(
+    { id: 'agent-stale', role: 'solver' },
+    { id: 'env-stale', goals: ['solve grid'] },
+    { timeoutMs: 20 },
+  );
+  assert.equal(execution.success, false);
+  assert.match(execution.error, /TIMEOUT/);
+  assert.equal(execution.verification, undefined, 'stale terminal rows cannot trigger snapshot verification');
+  console.log('POET ignores stale terminal telemetry: PASS');
+}
+
 async function testPlaySandboxFlow() {
   const storePath = require.resolve('../src/services/workspaceSnapshotStore');
   const runPath = require.resolve('../src/services/workspaceSnapshotRun');
@@ -211,6 +236,7 @@ async function main() {
   await testPlayWithRealSnapshotRuntime();
   await testPlaySandboxFlow();
   await testPoetWithRealSnapshotVerification();
+  await testPoetIgnoresStaleTerminalEvent();
   await testPoetExecutionAndBridge();
   console.log('NCE workflow end-to-end: Play sandbox and POET execution bridge passed');
 }

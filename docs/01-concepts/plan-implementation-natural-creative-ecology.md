@@ -79,6 +79,8 @@ Ces observations proviennent du code présent dans `backend/src/services/{nceEng
 
 **Sortie / gate** : reçu POET rejouable, lié à l'exécution terminée et à une vérification indépendante; aucun succès déduit du seul événement de télémétrie.
 
+**État après exécution du plan (2026-09-30)** : la vérification POET utilise maintenant le vrai stockage de snapshots et l'exécution isolée; la lecture du journal DB ignore les événements terminaux antérieurs au début de la mission. L'adaptateur qui démarre l'agent reste simulé dans ce test E2E. Le critère runtime réel ci-dessus reste donc ouvert avant de déclarer le flux POET entièrement validé.
+
 ### Lot 5 — Ablations et protocole expérimental
 
 - Conserver `nceAblationTests.js` étiqueté prototype; interdire qu'il alimente des affirmations de performance, maturité ou supériorité.
