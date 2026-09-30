@@ -178,7 +178,7 @@ function workerSummary(member, index, workerId) {
 async function ensureParent({ db, context }) {
   const contracts = require('../src/services/strategyContractService');
   let parent = await db.get(
-    "SELECT a.id, a.status, a.is_apoptotic, a.workspace_id, a.model_tier, a.isolation_mode, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
+    "SELECT a.id, a.status, a.is_apoptotic, a.workspace_id, a.model_tier, a.isolation_mode, a.organization_id, a.project_id, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
     context.orchestratorId
   );
   if (isUnavailableParent(parent)) parent = await replaceParent(db, context);
@@ -200,7 +200,7 @@ async function replaceParent(db, context) {
     context.orchestratorId, context.task
   );
   return db.get(
-    "SELECT a.id, a.status, a.is_apoptotic, a.workspace_id, a.model_tier, a.isolation_mode, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
+    "SELECT a.id, a.status, a.is_apoptotic, a.workspace_id, a.model_tier, a.isolation_mode, a.organization_id, a.project_id, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'",
     context.orchestratorId
   );
 }
@@ -224,6 +224,7 @@ async function handleBiological(db, context) {
   const parent = await ensureParent({ db, context });
   const mode = String(context.request.mode || '').trim().toLowerCase();
   const mission = context.request.mission || context.request.project_goal || context.request.goal || context.task;
+  await persistBiologicalMissionTick({ db, context, parent, mission });
   context.nceEnrichments = await buildNCEEnrichments(context, 'biological');
   const composition = await composeBiologicalMode({ db, context, mode, mission });
   if (mode === 'syncytium' && composition.sessionId) {
@@ -237,6 +238,15 @@ async function handleBiological(db, context) {
   if (semanticValidation) applySemanticValidation(out.biologicalMode, semanticValidation);
   await applyRhizomeResults({ db, context, mode, topology, accepted, parent, output: out });
   process.stdout.write(JSON.stringify(out));
+}
+
+async function persistBiologicalMissionTick({ db, context, parent, mission }) {
+  if (!context.missionId) return;
+  await require('../src/services/biologicalExecutionReceiptService').runMissionTick(db, {
+    missionId: context.missionId, mission,
+    organizationId: parent.organization_id, projectId: parent.project_id,
+    timeoutMs: context.request.timeoutMs
+  });
 }
 
 async function validateBiologicalResponses({ db, context, mode, accepted }) {

@@ -32,6 +32,7 @@ router.post('/hallucination/simulate', requirePermission('experiment:run'), cont
 router.post('/replay', requirePermission('experiment:run'), controller.replayBranch);
 router.post('/diff', requirePermission('read'), controller.diffSnapshots);
 router.post('/models/generate', requirePermission('read'), controller.generateModel);
+router.post('/biological-receipts', requirePermission('workspace:write'), controller.ingestBiologicalReceipts);
 
 function requireReceiptTenant(req, res, next) {
 	if (!req.tenant) {

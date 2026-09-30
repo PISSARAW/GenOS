@@ -6,6 +6,7 @@
 
 use crate::GenosEcosystem;
 use genos_biology::glycolysis::{MetabolicCycleReport, run_metabolic_cycle};
+use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 /// Combien de tokens de budget ATP correspondent à une mole d'ATP chimique
@@ -27,13 +28,23 @@ pub struct Metabolism {
 }
 
 /// Trace en mémoire d'une demande de dépense passée par le registre commun.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MetabolicConsumptionReceipt {
     pub operation: String,
     pub requested: f64,
     pub available_before: f64,
     pub available_after: f64,
     pub accepted: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MetabolismCheckpoint {
+    pub atp: f64,
+    pub capacity: f64,
+    pub refill_per_sec: f64,
+    pub consumed_total: f64,
+    pub produced_total: f64,
+    pub consumption_receipts: Vec<MetabolicConsumptionReceipt>,
 }
 
 impl Default for Metabolism {
@@ -53,6 +64,42 @@ impl Metabolism {
             consumption_receipts: Vec::new(),
             last_refill: Instant::now(),
         }
+    }
+
+    pub fn checkpoint(&self) -> MetabolismCheckpoint {
+        MetabolismCheckpoint {
+            atp: self.atp,
+            capacity: self.capacity,
+            refill_per_sec: self.refill_per_sec,
+            consumed_total: self.consumed_total,
+            produced_total: self.produced_total,
+            consumption_receipts: self.consumption_receipts.clone(),
+        }
+    }
+
+    pub fn restore_checkpoint(&mut self, state: MetabolismCheckpoint) -> Result<(), String> {
+        let values = [
+            state.atp,
+            state.capacity,
+            state.refill_per_sec,
+            state.consumed_total,
+            state.produced_total,
+        ];
+        if values
+            .iter()
+            .any(|value| !value.is_finite() || *value < 0.0)
+            || state.atp > state.capacity
+        {
+            return Err("invalid persisted metabolism checkpoint".into());
+        }
+        self.atp = state.atp;
+        self.capacity = state.capacity;
+        self.refill_per_sec = state.refill_per_sec;
+        self.consumed_total = state.consumed_total;
+        self.produced_total = state.produced_total;
+        self.consumption_receipts = state.consumption_receipts;
+        self.last_refill = Instant::now();
+        Ok(())
     }
 
     /// Reconstitue l'ATP selon le temps réel écoulé (horloge saturante).
@@ -148,7 +195,10 @@ mod tests {
         assert!(!metabolism.consume_for("mission.publish", 2.0));
         assert!(!metabolism.consume_for("mission.invalid", f64::NAN));
         assert_eq!(metabolism.consumption_receipts.len(), 3);
-        assert_eq!(metabolism.consumption_receipts[0].operation, "mission.write");
+        assert_eq!(
+            metabolism.consumption_receipts[0].operation,
+            "mission.write"
+        );
         assert!(metabolism.consumption_receipts[0].accepted);
         assert_eq!(metabolism.consumption_receipts[1].available_before, 1.0);
         assert!(!metabolism.consumption_receipts[1].accepted);

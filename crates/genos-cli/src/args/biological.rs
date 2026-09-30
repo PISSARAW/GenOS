@@ -14,4 +14,10 @@ pub struct BiologicalCmd {
     /// Port to bind the Rhizome telemetry HTTP/WebSocket server on
     #[arg(long, default_value_t = 4790)]
     pub port: u16,
+    /// Execute and persist one real Rust biological mission tick.
+    #[arg(long, default_value_t = false)]
+    pub tick: bool,
+    /// Stable Rust UUID assigned to the backend mission.
+    #[arg(long)]
+    pub mission_id: Option<uuid::Uuid>,
 }

@@ -51,4 +51,20 @@ impl InMemoryEventStore {
     pub fn count(&self) -> usize {
         self.events.len()
     }
+
+    pub fn snapshot(&self) -> Vec<Event> {
+        self.events.clone()
+    }
+
+    pub fn restore(events: Vec<Event>) -> Result<Self, String> {
+        for (index, event) in events.iter().enumerate() {
+            if event.sequence != index as u64 + 1 {
+                return Err(format!(
+                    "event checkpoint sequence gap at position {}",
+                    index + 1
+                ));
+            }
+        }
+        Ok(Self { events })
+    }
 }
