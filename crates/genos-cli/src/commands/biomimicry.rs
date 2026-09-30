@@ -17,6 +17,7 @@ use crate::args::{BiomimicrySubcommands, EvolutionSubcommands};
 use crate::commands::biomimicry_ops::*;
 
 use crate::commands::biomimicry_neural;
+mod therapy;
 
 fn telomere_state_path(agent_id: &str) -> Result<PathBuf, String> {
     if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
@@ -333,11 +334,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             }));
         }
         BiomimicrySubcommands::Therapy { agent_id, therapy_type } => {
-            print_json(json!({
-                "success": true, "operation": "therapy",
-                "agent_id": agent_id, "therapy_type": therapy_type,
-                "treatment_administered": true
-            }));
+            print_json(therapy::unavailable(&agent_id, &therapy_type));
         }
         BiomimicrySubcommands::Phenotype { agent_id, uv_exposure, temperature } => {
             let factors = EnvironmentalFactors {

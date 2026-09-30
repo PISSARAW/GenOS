@@ -1,5 +1,7 @@
 'use strict';
 
+const { randomUUID } = require('crypto');
+
 function toolOutcomePayload(context, result) {
   return {
     toolName: context.toolName,
@@ -22,7 +24,10 @@ async function recordToolEfference({ db, agentId, toolName, actionId }) {
 }
 
 async function runToolExecution({ context, executeConfiguredTransport, applyDomainVerdict, circuitBreaker, telemetry }) {
+  const actionId = context.actionId || randomUUID();
+  context = { ...context, actionId, sourceActionId: actionId };
   const { agentId, toolName, args, circuitScope } = context;
+  await recordToolEfference({ db: context.db, agentId, toolName, actionId });
   try {
     const result = await executeConfiguredTransport({ toolName, args });
     applyDomainVerdict(toolName, result);

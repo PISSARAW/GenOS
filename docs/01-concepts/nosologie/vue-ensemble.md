@@ -43,8 +43,8 @@ implémentées. Pour chaque famille, distinguer :
 | État cellulaire | `ClinicalState` et marqueurs de `AgentCell` | État logiciel; ne constitue pas un diagnostic médical. |
 | Application Rust | `GenosEcosystem::apply_therapy` appelle explicitement `apply_systemic_therapy_to_cell` | Opérateurs déterministes sur une cellule; détails et gardes aux §§4.1, 4.3–4.7. |
 | Diagnostic → thérapie Rust | Aucun chaînage automatique attesté entre `pathology` et les opérateurs ci-dessus | Sélection et appel restent explicites. |
-| CLI biomimétique | La commande `therapy` retourne actuellement `treatment_administered: true` sans appliquer l'opérateur Rust | Stub de présentation; cette réponse ne prouve pas une mutation ni une administration. |
-| MCP | `genos_biomimicry_therapy` délègue à cette commande CLI | Transport présent, mais le résultat du stub ne vaut pas preuve d'exécution. |
+| CLI biomimétique | La commande `therapy` échoue en mode fermé (`status: not_executed`, `treatment_administered: false`) tant que l'exécuteur et l'état clinique persistant ne sont pas branchés | Aucun succès ni traitement fictif n'est déclaré. |
+| MCP | `genos_biomimicry_therapy` délègue à cette commande CLI | Le transport existe; la demande reste explicitement non exécutée jusqu'au branchement du traitement persistant. |
 | API backend médicale | Services de surveillance et de thérapie distincts présents | Ne pas les confondre avec le chemin Rust; vérifier séparément leur persistance et leurs preuves avant toute affirmation de parcours intégré. |
 
 Le pipeline dessiné en fin de document est une proposition conceptuelle. Il ne

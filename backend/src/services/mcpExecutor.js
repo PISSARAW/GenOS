@@ -16,6 +16,11 @@ const { callHttpFn } = require('./mcpExecutor/transports/http');
 const { callStdioFn } = require('./mcpExecutor/transports/stdio');
 const { executeToolLogic } = require('./mcpExecutor/transports/toolLogic');
 const { executeConfiguredTransport, listTools, resolveMcpOutputPath, validateMcpInputPaths, runSafeSync } = require('./mcpExecutor/dispatch');
+const {
+  recordToolEfference,
+  runToolExecution: runCorrelatedToolExecution,
+  toolOutcomePayload
+} = require('./mcpExecutor/efferenceBridge');
 
 const {
   DEFAULT_MCP_TIMEOUT_MS,
@@ -317,22 +322,6 @@ function applyDomainVerdict(toolName, result) {
   result.domainVerdict = classifyDomainVerdict(String(result.output || '').toLowerCase());
 }
 
-async function runToolExecution(context) {
-  const { agentId, toolName, args, circuitScope } = context;
-  try {
-    const result = await executeConfiguredTransport({ toolName, args });
-    applyDomainVerdict(toolName, result);
-    if (result.success) circuitBreaker.recordSuccess(toolName, circuitScope);
-    else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`, circuitScope);
-    telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: { toolName, args, result } });
-    return result;
-  } catch (error) {
-    circuitBreaker.recordFailure(toolName, error.message, circuitScope);
-    telemetry.emitEvent({ eventType: 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: error.message, severity: 'warning', payload: { toolName, args } });
-    return { success: false, status: 'failed', error: error.message };
-  }
-}
-
 async function execute(executionRequest) {
   const { agentId, organizationId, projectId, toolName, args = {}, taints = [] } = executionRequest;
   const db = await getDatabase();
@@ -349,7 +338,13 @@ async function execute(executionRequest) {
   if (unavailable) return unavailable;
   const circuitFault = checkCircuitBreaker(toolName, circuitScope, args);
   if (circuitFault) return circuitFault;
-  return runToolExecution({ agentId, toolName, args, circuitScope });
+  return runCorrelatedToolExecution({
+    context: { db, agentId, toolName, args, circuitScope },
+    executeConfiguredTransport,
+    applyDomainVerdict,
+    circuitBreaker,
+    telemetry
+  });
 }
 
 function recordCallResult(toolName, result) {
@@ -396,5 +391,7 @@ module.exports = {
   readResponseTextBounded,
   rpcRequest,
   parseArgs,
-  runSafeSync
+  runSafeSync,
+  recordToolEfference,
+  toolOutcomePayload
 };

@@ -29,7 +29,16 @@ function handleBioCall(cmd, timeoutMs) {
     const outputStr = out.toString();
     let parsed = null;
     try { parsed = JSON.parse(outputStr.trim()); } catch (_) {}
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: outputStr, json: parsed, ...(parsed && typeof parsed === 'object' ? parsed : {}) };
+    const accepted = !parsed || typeof parsed !== 'object' || parsed.success !== false;
+    return {
+      configured: true,
+      success: accepted,
+      status: accepted ? 'completed' : (parsed.status || 'tool_error'),
+      transport: 'local',
+      output: outputStr,
+      json: parsed,
+      ...(parsed && typeof parsed === 'object' ? parsed : {})
+    };
   } catch (e) {
     return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
   }
