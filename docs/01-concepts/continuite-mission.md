@@ -1,8 +1,8 @@
 # Continuité de mission — l'organisme logiciel et ses six systèmes de survie
 
-- **Statut** : Partiel — gate de complétion, continuation bornée et idempotente, preuves runtime, immunité, identité durable, suspension/réveil persistés et dispatch de régénération raccordés ; les nouveaux chemins de succession, réveil et remplacement demandent encore une validation d'intégration ciblée.
+- **Statut** : Partiel — gate de complétion, continuation bornée et idempotente, preuves runtime, immunité, identité durable, suspension/réveil persistés et dispatch de régénération raccordés ; le réveil revendique atomiquement sa condition pour prévenir le double dispatch. Les chemins de succession, reprise après échec et remplacement restent soumis à validation d'intégration.
 - **Portée** : control plane Node — `missionIdentityService`, `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `homeostasisContinuationService`, `missionContinuityService`, `missionEvidenceCollector`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalStateService`, `survivalWakeService`, `survivalModesService` ; pont `backend/bin/genos-orchestrate.cjs` + helpers `continuationFeedbackLoop.cjs`, `orchestratorMissionHelpersBuildContext.cjs` ; migrations 033 `homeostasis_states`, 034 `mission_organism_state`, 085 `missions`/`mission_agents`, 027 `continuation_queue`.
-- **Dernière revue** : 2026-09-23.
+- **Dernière revue** : 2026-09-30.
 
 ## 1. Définition du domaine
 

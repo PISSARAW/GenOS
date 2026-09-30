@@ -23,6 +23,7 @@ const vitalSignals = require('../src/services/vitalSignalsService');
 const immuneMemory = require('../src/services/immuneMemoryService');
 const missionOrganism = require('../src/services/missionOrganismService');
 const missionContinuity = require('../src/services/missionContinuityService');
+const regeneration = require('../src/services/regenerationService');
 const { migrateHomeostasisStates } = require('../src/db/migrations/migrateHomeostasisStates');
 
 const TESTS = [];
@@ -234,6 +235,19 @@ test('organism memory persists across restart, tissues refresh live', async () =
   const liveIds = liveCells.map((t) => t.identifier);
   assert.ok(liveIds.includes(`${missionId}_w1`), 'tissues must refresh from live agents after restart');
   assert.ok(second.organism.memory, 'memory must survive across evaluations');
+});
+
+test('replacement cell is admitted only with explicit evidence and restores required role', () => {
+  const organism = { ...missionOrganism.newOrganism({ genome: { objective: 'replacement proof' } }), tissues: { workers: [] } };
+  const result = regeneration.regenerateCell({
+    organism,
+    plan: { kind: 'workers', role: 'verifier', lostIdentifier: 'lost-verifier', replacementId: 'replacement-verifier' },
+    mission: 'replacement-mission',
+    evidenceRef: 'sha256:replacement-proof'
+  });
+  assert.equal(result.replacementId, 'replacement-verifier');
+  assert.equal(regeneration.verifyFunctionalEquivalence(result.organism, ['verifier']).equivalent, true);
+  assert.equal(result.organism.memory.scars.at(-1).evidenceRef, 'sha256:replacement-proof');
 });
 
 async function main() {

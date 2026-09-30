@@ -308,6 +308,10 @@ const migrationRunners = [
     const { migrateMissionIdentities } = require('./085-mission-identities');
     await migrateMissionIdentities(db);
   }),
+  createMigrationRunner('086-biological-execution-receipts', 'Persist idempotent Rust biological execution receipts correlated to mission homeostasis', async (db) => {
+    const { migrateBiologicalExecutionReceipts } = require('./migrateBiologicalExecutionReceipts');
+    await migrateBiologicalExecutionReceipts(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

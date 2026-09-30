@@ -43,15 +43,22 @@ mod tests {
         let path = std::env::temp_dir().join(format!("genos-population-{}.jsonl", uuid::Uuid::new_v4()));
         let store = BiologicalReceiptStore::open(&path);
         let mut ecosystem = GenosEcosystem::new("durable-population");
+        let mission_id = uuid::Uuid::new_v4();
+        ecosystem.set_mission_id(mission_id);
         ecosystem.orchestrator.create_tissue("Arena", "Exec").unwrap();
         let cell = ecosystem
             .orchestrator
             .add_worker("Arena", AgentCell::new("cell", "w", "Soma"))
             .unwrap();
         ecosystem.seed_germline(cell, "DURABLE_POPULATION").unwrap();
+        ecosystem.feed(100.0);
 
-        ecosystem.tick_and_persist(&Goal::Conserve, &store).unwrap();
+        ecosystem.tick_and_persist(&Goal::SecurePerimeter, &store).unwrap();
         let restored = BiologicalReceiptStore::open(&path).read_all().unwrap();
+        let execution = restored.iter().find(|receipt| receipt["schema"] == "genos.biological-execution-receipt/v1").unwrap();
+        assert_eq!(execution["mission_id"], mission_id.to_string());
+        assert!(execution["tick"].is_number());
+        assert_eq!(execution["execution_scope"], "organism");
         assert!(restored.iter().any(|receipt| receipt["schema"] == "genos.population-state/v1"));
         let _ = std::fs::remove_file(path);
     }

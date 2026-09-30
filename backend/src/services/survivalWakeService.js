@@ -52,11 +52,20 @@ async function listArmed(input = {}) {
 async function trigger(input = {}) {
   const db = input.db || await getDatabase();
   await ensureStorage(db);
-  await db.run(
+  const result = await db.run(
     `UPDATE survival_wake_conditions
      SET status = 'triggered', triggered_at = CURRENT_TIMESTAMP
      WHERE id = ? AND status = 'armed'`, input.id
   );
+  return { claimed: result.changes === 1, condition: await get({ id: input.id, db }) };
+}
+
+async function rearm(input = {}) {
+  const db = input.db || await getDatabase();
+  await ensureStorage(db);
+  await db.run(`UPDATE survival_wake_conditions
+    SET status = 'armed', triggered_at = NULL
+    WHERE id = ? AND status = 'triggered'`, input.id);
   return get({ id: input.id, db });
 }
 
@@ -75,4 +84,4 @@ function format(row) {
   };
 }
 
-module.exports = { arm, get, listArmed, trigger, cancel, ensureStorage };
+module.exports = { arm, get, listArmed, trigger, rearm, cancel, ensureStorage };

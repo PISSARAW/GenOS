@@ -203,15 +203,20 @@ async function wake(db, command = {}) {
   const id = ensureAgentId(command.agentId);
   const context = await resolveWakeContext(db, command, id);
   if (!context.success) return context;
+  if (!wakeConditionSatisfied(context.armed, command.event)) return { success: false, code: 'SURVIVAL_WAKE_EVENT_MISMATCH' };
+  const claim = await wakeService.trigger({ db, id: context.armed.id });
+  if (!claim.claimed) return { success: false, code: 'SURVIVAL_WAKE_ALREADY_CLAIMED' };
   return completeWake({ db, command, agentId: id, context });
 }
 
 async function completeWake(input) {
   const { db, command, agentId, context } = input;
   const { armed, current } = context;
-  if (!wakeConditionSatisfied(armed, command.event)) return { success: false, code: 'SURVIVAL_WAKE_EVENT_MISMATCH' };
   const restored = await resilience.thawCryptobiosis(db, current.snapshotId, command.workspaceId);
-  if (!restored.success) return restored;
+  if (!restored.success) {
+    await wakeService.rearm({ db, id: armed.id });
+    return restored;
+  }
   await observe(db, agentId, { forcedState: 'waking', snapshotId: current.snapshotId, wakeConditionId: armed.id });
   const resumed = await resumeMission(db, { command, mission: normalizeIndependentMission(restored.state?.mission), restored, agentId });
   if (!resumed.success) return preserveDormancy({ db, agentId, current, armed, resumed });
@@ -225,12 +230,13 @@ function wakeConditionSatisfied(armed, event) {
 async function preserveDormancy(input) {
   const { db, agentId, current, armed, resumed } = input;
   await observe(db, agentId, { forcedState: 'dormant', snapshotId: current.snapshotId, wakeConditionId: armed.id });
+  await wakeService.rearm({ db, id: armed.id });
+  await db.run("UPDATE cryptobiosis_snapshots SET status = 'frozen', thawed_at = NULL WHERE snapshot_id = ?", current.snapshotId);
   return resumed;
 }
 
 async function finishWake(input) {
   const { db, command, agentId, current, armed, restored, resumed } = input;
-  await wakeService.trigger({ db, id: armed.id });
   await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
   const state = await observe(db, agentId, {
     energy: command.energy ?? 1, forcedState: 'recovered', snapshotId: current.snapshotId, wakeConditionId: armed.id

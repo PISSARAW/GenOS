@@ -25,7 +25,7 @@ const CANONICAL_TABLES = new Set([
   'strategy_execution_steps', 'strategy_portfolio',
   // Biology
   'cryptobiosis_snapshots', 'cryptobiosis_spore_states', 'plasmid_bindings',
-  'conscience_transitions', 'fossils', 'fossil_strata',
+  'conscience_transitions', 'fossils', 'fossil_strata', 'biological_execution_receipts',
   // Security & access
   'access_keys', 'users', 'notification_preferences',
   // Epistemic

@@ -29,6 +29,8 @@ pub struct BiologicalExecutionReceipt {
     pub cell_id: Option<Uuid>,
     pub genome_id: Option<Uuid>,
     pub genome_fingerprint: Option<String>,
+    pub tick: u64,
+    pub execution_scope: String,
     pub operation: String,
     pub metabolic_register: String,
     pub cost: f64,
@@ -133,7 +135,8 @@ impl GenosEcosystem {
         for step in &decision.steps {
             // Métabolisme réel : chaque concept consomme de l'ATP.
             if !self.orchestrator.metabolism.consume_for("tick.concept", step.concept.cost()) {
-                let receipt = self.execution_receipt(step.concept, false, false);
+                let mut receipt = self.execution_receipt(step.concept, false, false);
+                receipt.tick = report.tick;
                 self.record_biological_receipt(&receipt);
                 report.biological_receipts.push(receipt);
                 self.record_event(
@@ -146,7 +149,8 @@ impl GenosEcosystem {
             sim.apply(step.concept);
             let after = sim.progress(goal);
             self.execute_concept(step.concept, &mut report);
-            let receipt = self.execution_receipt(step.concept, true, true);
+            let mut receipt = self.execution_receipt(step.concept, true, true);
+            receipt.tick = report.tick;
             self.record_biological_receipt(&receipt);
             report.biological_receipts.push(receipt);
             self.director
@@ -174,6 +178,8 @@ impl GenosEcosystem {
             cell_id: None,
             genome_id: None,
             genome_fingerprint: None,
+            tick: 0,
+            execution_scope: "organism".to_string(),
             operation: format!("{concept:?}"),
             metabolic_register: "rust_orchestrator_metabolism".to_string(),
             cost: concept.cost(),
@@ -197,6 +203,8 @@ impl GenosEcosystem {
                 "cellId": receipt.cell_id,
                 "genomeId": receipt.genome_id,
                 "genomeFingerprint": receipt.genome_fingerprint,
+                "tick": receipt.tick,
+                "executionScope": receipt.execution_scope,
                 "operation": receipt.operation,
                 "metabolicRegister": receipt.metabolic_register,
                 "cost": receipt.cost,
@@ -299,6 +307,7 @@ mod receipt_tests {
         assert_eq!(receipt.mission_id, Some(mission_id));
         assert_eq!(receipt.cell_id, None);
         assert_eq!(receipt.genome_id, None);
+        assert_eq!(receipt.execution_scope, "organism");
         assert_eq!(receipt.cost_unit, "atp_token");
         assert!(receipt.consumed && receipt.completed);
     }
