@@ -105,7 +105,6 @@ Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des
 | Thérapie Proposée | Famille | Rapport Source |
 |---|---|---|
 | `SystemicTherapy::CartCellInfusion` | Cancers | Nosologie 5 |
-| `SystemicTherapy::LevodopaSupplementation` | Dégénératives | Nosologie 2 |
 | `SystemicTherapy::KetamineRapidInfusion` | Psychiatriques | Nosologie 8 |
 | `SystemicTherapy::MoodStabilizerLithium` | Psychiatriques | Nosologie 8 |
 | `SystemicTherapy::AntipsychoticAtypical` | Psychiatriques | Nosologie 8 |
@@ -115,7 +114,7 @@ Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des
 | `SystemicTherapy::CFTRModulatorTriad` | Génétiques | Nosologie 4 |
 | `SystemicTherapy::ChelationTherapy` | Environnementales | Nosologie 9 |
 
-Les rapports spécialisés proposent également les opérateurs `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`, `FetalCarrierReactivation` (tous NON implémentés — propositions uniquement).
+Les rapports spécialisés proposent également les opérateurs `FetalCarrierReactivation` (tous NON implémentés — propositions uniquement).
 
 ---
 ### 4.3 Opérateurs métaboliques implémentés avec portée limitée
@@ -147,11 +146,22 @@ Ces opérateurs réduisent un marqueur existant de 0,25; ils ne déclarent pas d
 | `BloodBrainBarrierSealant` | `blood_brain_barrier_deficit` | Aucune |
 
 Le résultat distingue les marqueurs modifiés des pathologies guéries (`applied_markers` et `cured_pathologies`).
+
+### 4.5 Opérateurs dégénératifs et musculosquelettiques implémentés avec portée limitée
+
+Ces opérateurs réduisent un marqueur computationnel préexistant de 0,25 dans [0, 1]. Ils ne traitent ni une maladie réelle ni des lésions structurelles; cible manquante ou invalide signifie aucune mutation.
+
+| Opérateur | Marqueur |
+|---|---|
+| `LevodopaSupplementation` | `dopamine_signal_deficit` |
+| `DeepBrainStimulation` | `neural_activity_instability` |
+| `Viscosupplementation` | `joint_friction` |
+| `SenolyticPurge` | `senescent_load` |
 ## 5. État et plan d'implémentation
 
 ### 5.1 État vérifié
 
-Le modèle clinique, les détecteurs, l'intégration au tick et les thérapies du §4.1 sont présents dans le code. Le point d'entrée thérapeutique est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`; son enum `SystemicTherapy` contient les variantes du §4.1 et les cinq variantes métaboliques à portée limitée du §4.3; les autres opérateurs cités ci-dessous restent absents. Les exemples et extraits de code dans les rapports spécialisés sont des spécifications, pas une preuve d'implémentation.
+Le modèle clinique, les détecteurs, l'intégration au tick et les thérapies du §4.1 sont présents dans le code. Le point d'entrée thérapeutique est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`; son enum `SystemicTherapy` contient les variantes du §4.1 et les variantes à portée limitée des §4.3 à 4.5; les autres opérateurs cités ci-dessous restent absents. Les exemples et extraits de code dans les rapports spécialisés sont des spécifications, pas une preuve d'implémentation.
 
 Les scénarios restent des simulations logicielles sur marqueurs GenOS. Ils ne modélisent, ne diagnostiquent et ne valident aucune pathologie réelle ni aucun médicament humain.
 

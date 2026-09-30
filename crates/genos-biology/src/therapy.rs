@@ -74,6 +74,12 @@ pub enum SystemicTherapy {
     AntiNmdReadthrough,
     NeuroprotectiveAstrocyticFlush,
     BloodBrainBarrierSealant,
+
+    // Opérateurs dégénératifs et musculosquelettiques proposés.
+    LevodopaSupplementation,
+    DeepBrainStimulation,
+    Viscosupplementation,
+    SenolyticPurge,
 }
 
 /// Résultat de l'application d'un traitement
@@ -292,7 +298,11 @@ pub fn apply_systemic_therapy_to_cell(
         | SystemicTherapy::AntiAdhesionVasodilator
         | SystemicTherapy::AntiNmdReadthrough
         | SystemicTherapy::NeuroprotectiveAstrocyticFlush
-        | SystemicTherapy::BloodBrainBarrierSealant => unreachable!("géré par therapy_extended"),
+        | SystemicTherapy::BloodBrainBarrierSealant
+        | SystemicTherapy::LevodopaSupplementation
+        | SystemicTherapy::DeepBrainStimulation
+        | SystemicTherapy::Viscosupplementation
+        | SystemicTherapy::SenolyticPurge => unreachable!("géré par therapy_extended"),
         SystemicTherapy::Vaccine(spike) => {
             cell.clinical
                 .clinical_log

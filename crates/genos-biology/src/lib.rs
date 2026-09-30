@@ -176,6 +176,28 @@ mod tests {
         assert_eq!(cell.clinical.markers["vascular_occlusion"], 0.5);
     }
     #[test]
+    fn degenerative_proposed_therapies_target_only_their_markers() {
+        let cases = [
+            (
+                SystemicTherapy::LevodopaSupplementation,
+                "dopamine_signal_deficit",
+            ),
+            (
+                SystemicTherapy::DeepBrainStimulation,
+                "neural_activity_instability",
+            ),
+            (SystemicTherapy::Viscosupplementation, "joint_friction"),
+            (SystemicTherapy::SenolyticPurge, "senescent_load"),
+        ];
+        for (therapy, marker) in cases {
+            let mut cell = AgentCell::new("Neuro", "Simulation", "Worker");
+            cell.clinical.markers.insert(marker.into(), 0.5);
+            let outcome = apply_systemic_therapy_to_cell(&therapy, &mut cell);
+            assert_eq!(outcome.applied_markers, vec![format!("{} réduit", marker)]);
+            assert_eq!(cell.clinical.markers[marker], 0.25);
+        }
+    }
+    #[test]
     fn test_degenerative_stem_cell_cure() {
         let mut cell = AgentCell::new("Griot", "Mémoire", "Historian");
         cell.bud_scars = 50;

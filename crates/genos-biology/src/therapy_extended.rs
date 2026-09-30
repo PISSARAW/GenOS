@@ -40,6 +40,10 @@ pub fn apply_extended_therapy(
         SystemicTherapy::AntiNmdReadthrough => ("nmda_signal_deficit", 0.25),
         SystemicTherapy::NeuroprotectiveAstrocyticFlush => ("astrocytic_waste_load", 0.25),
         SystemicTherapy::BloodBrainBarrierSealant => ("blood_brain_barrier_deficit", 0.25),
+        SystemicTherapy::LevodopaSupplementation => ("dopamine_signal_deficit", 0.25),
+        SystemicTherapy::DeepBrainStimulation => ("neural_activity_instability", 0.25),
+        SystemicTherapy::Viscosupplementation => ("joint_friction", 0.25),
+        SystemicTherapy::SenolyticPurge => ("senescent_load", 0.25),
         _ => return None,
     };
     let Some(value) = cell.clinical.markers.get_mut(marker) else {
