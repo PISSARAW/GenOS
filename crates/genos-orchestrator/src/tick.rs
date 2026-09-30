@@ -215,6 +215,11 @@ impl GenosEcosystem {
             }
         }
         let reached = self.observe().goal_reached(goal);
+        self.director
+            .mission_physics
+            .entry(goal.mission_key())
+            .or_default()
+            .record_episode(reached);
         MissionReport {
             ticks,
             halted,
