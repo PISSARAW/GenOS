@@ -3,7 +3,7 @@
 Ce document écrit ce que le code fait **maintenant**, ce qu'il est en droit de
 dire, et ce qu'il faudrait faire pour tenir le vocabulaire complet GenOS.
 
-## Ce qui est implémenté — prototype comparatif accouplé
+## Comparaison simple et répliquée : état implémenté
 
 Dans `backend/src/services/proceduralCausalValidationService.js` :
 
@@ -18,7 +18,7 @@ causal comparison (baselineScore, candidateScore, scoreDelta, divergenceCount)
 causal verdict    (CAUSAL_IMPROVEMENT / CAUSAL_REGRESSION / NO_CAUSAL_EFFECT)
 ```
 
-Propriétés actuelles :
+Propriétés du chemin simple :
 
 - Les deux forks reçoivent une **copie indépendante** de l'état initial
   (deep clone avant exécution, un par fork ; comparaison
@@ -45,6 +45,15 @@ organismes au protocole répliqué de `replicatedCausalValidationService` :
 - l'attribution est explicitement bornée à l'intervention organisme, au runner,
   snapshot, manifeste, seeds et budget déclarés.
 
+La primitive `procedural_replicated_causal_check` expose ce parcours. Elle
+résout les identifiants `runnerId`, `snapshotId` et `environmentId` du registre,
+et accepte soit des bras génériques `control`/`intervention`, soit les organismes
+`parent`/`candidate`. Dans le second cas, les résultats `outcome` sont convertis
+en métrique binaire (succès = 1, toute autre sortie = 0) et `turns` en
+trajectoire.
+L'expérience et son reçu sont persistés quand elle est appelée par le handler
+avec une base SQLite.
+
 Cette extension permet une affirmation expérimentale plus forte qu'un essai
 unique, mais l'intervalle t suppose des différences appariées approximativement
 normales. Elle n'établit ni une causalité universelle ni l'exactitude du modèle
@@ -66,16 +75,21 @@ causalDiff
 ```
 
 Ces mécanismes ne sont **pas** appelés directement par `proceduralCausalValidationService`.
-Ce qui est réellement utilisé est `temporalHelpers.findDivergences` pour comparer
-deux trajectoires.
+Le chemin simple utilise `temporalHelpers.findDivergences`; le chemin répliqué
+compare les trajectoires appariées par seed via `replicatedCausalValidationService`.
+Ni l'un ni l'autre ne crée encore des univers persistants ni un replay causal
+général.
 
 La différence est importante :
 
-- **Prototype actuel** : comparaison de trajectoires après exécution,
-  couple baseline/candidate, état initial partagé mais cloné.
+- **Chemin simple actuel** : un essai par organisme et un score dérivé de
+  `outcome` ; l'API de promotion conserve ce chemin à essai unique.
+- **Chemin répliqué actuel** : plusieurs paires par seed, score binaire dérivé de
+  `outcome`, reçu et incertitude t ; l'appel répliqué est distinct du cycle
+  général de promotion.
 - **Système causal complet GenOS** : forks explicites d'un snapshot S,
-  replay causal sur univers mutés, diff causal attribué, support stochastique,
-  support async, support de plusieurs essais répétés.
+  replay causal sur univers mutés et diff causal attribué. Les répétitions
+  asynchrones existent dans le protocole expérimental borné, sans replay durable.
 
 ## Choix adoptés pour l'instant
 
@@ -85,8 +99,11 @@ payloads. On ne prétend pas encore que ce soit le système causal complet.
 
 Notes d'intention :
 
-- Le service porte bien une **preuve causale minimale** (diff + verdict +
-  snapshot isolation) suffisante pour rejeter les faux positifs de promotion.
+- Le chemin simple porte une **évidence comparative** (diff + verdict +
+  isolation des snapshots) utilisée comme garde de promotion ; le terme ne
+  signifie pas une preuve causale universelle.
+- Le chemin répliqué porte une évidence expérimentale plus forte, limitée au
+  protocole et à ses hypothèses ; il ne remplace pas le chemin de promotion.
 - Il ne doit pas être décrit dans le README ou la doc comme
   `genos_causality_fork` / `mutatedUniverses` tant que l'appel n'est pas là.
 - La compatibilité ascendante avec les tests existants est préservée :
@@ -97,8 +114,8 @@ Notes d'intention :
 
 Ce qui manque pour tenir le vocabulaire complet :
 
-1. **Fork de snapshot explicite** : snapshot S sérialisé, forkés en deux univers
-   isolés, plutôt que deux appels de runner avec un clone.
+1. **Fork de snapshot explicite** : snapshot S sérialisé et traçable, forké en
+   deux univers isolés, plutôt que des clones en mémoire passés au runner.
 2. **causalDiff / causalReplay** : mécanisme de replay causal avec état de fork
    traçable, divergences durables, attributions.
 3. **Généralisation** : plusieurs snapshots indépendants et protocole de
@@ -118,5 +135,5 @@ Quand ces points seront présents, on pourra remonter le vocabulaire
 - `backend/src/services/replicatedCausalValidationService.js`
 - `backend/tests/test_procedural_causal_validation.js`
 - `backend/tests/test_procedural_e2e_autonome.js` (scénario P0 → causal repair → P1)
-- `backend/src/services/primitiveHandlers/proceduralHandlers.js` (primitive MCP `procedural_causal_check`)
+- `backend/src/services/primitiveHandlers/proceduralHandlers.js` (primitives MCP `procedural_causal_check` et `procedural_replicated_causal_check`)
 - `backend/src/services/proceduralRegistryService.js` (résolution de runnerId / evaluatorId / environmentId / snapshotId, branchée aux handlers et au runtime : `procedural_evolve` accepte ces IDs sans fonctions dans le payload)

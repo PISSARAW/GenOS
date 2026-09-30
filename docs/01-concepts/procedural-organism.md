@@ -1,8 +1,9 @@
 # Organisme Procédural — Système de Circuits Adaptatifs
 
 |- **Statut** : Implémenté — sous-runtime procédural v1 (`backend/src/services/proceduralRuntimeService.js` +
-  les services associés), avec cycle DRAFT → SEALED, validation sémantique, preuve causale (prototype
-  comparatif accouplé), promotion sous preuve, persistance versionnée, lignée, immunité innée +
+  les services associés), avec cycle DRAFT → SEALED, validation sémantique,
+  comparaison simple pour le chemin de promotion et primitive d'expérience
+  causale répliquée séparée, persistance versionnée, lignée, immunité innée +
   adaptative, registre de runners/evaluateurs et primitives MCP. Tests : `npm run test:procedural`
   (13 fichiers).
 |- **Portée** : `backend/src/services/procedural*Service.js`, `backend/src/services/proceduralRegistryService.js`,
@@ -176,7 +177,8 @@ La sélection naturelle procédurale utilise désormais un algorithme Pareto/nic
 - Tous les candidats sont **évalués avant toute promotion** ; le runtime ne promeut jamais le premier acceptable mais le meilleur survivant Pareto/niche.
 - **Aucune promotion sans évaluation spécifique au candidat** : chaque candidat scellé porte un `evaluationReceipt` (candidateId, parentId, evaluatorId, runnerId, environmentId, snapshotId, trials, metrics, provenance, `evaluationHash`) ; sans fitness issue de sa propre évaluation, la fitness parent n'est jamais héritée.
 - **Intégrité du receipt vérifiée, pas seulement sa présence** : `checkReceiptIntegrity()` refuse la promotion si le receipt est rebondé (`parentId`/`candidateId` incohérents), `trials < 1`, sans `evaluatorId`/`runnerId` identifiables, si les métriques ne correspondent pas aux composantes scellées, ou si `evaluationHash` est invalide.
-- **Causalité accouplée prouvée** : les deux forks reçoivent une copie indépendante de l'état initial (deep clone) et le hash snapshot de chaque copie est comparé ; `sameInitialState` est prouvé, pas affirmé.
+- **Comparaison simple** : baseline et candidat reçoivent chacun un clone du même état initial, dont les hashes avant exécution sont comparés ; le score et la divergence gouvernent le verdict utilisé par la promotion. Cette garde à essai unique ne constitue pas une preuve causale universelle.
+- **Comparaison répliquée disponible séparément** : `procedural_replicated_causal_check` exécute au moins trois paires par seed, calcule un intervalle t à 95 %, et persiste un reçu. Pour les organismes, la métrique est binaire (`success` = 1, toute autre sortie = 0) et la trajectoire provient de `turns`. Cette primitive n'est pas le chemin de promotion automatique.
 - **Gates requis dominants** : un gate `required` n'est pas seulement reachable, il domine tout terminal protégé (suppression virtuelle du gate ⇒ aucun terminal protégé atteignable, sinon BYPASS ⇒ INVALID).
 
 ---
@@ -682,7 +684,7 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 | Immunité | rejets **sécurité** mémorisés comme signatures **structurelles** matchables, pas juste un log ; mémoire adaptative branchée au runtime (recall avant, record sécurité-uniquement) ; rejets fitness/evidence exclus |
 | Promotion | `evaluationReceipt` obligatoire **et intègre** par candidat (`evaluationHash` vérifié), fitness parent jamais héritée |
 | Sélection | tous évalués avant promotion, promu = meilleur survivant Pareto/niche lu sur fitness **scellée** |
-| Causalité | forks isolés (deep clone + hash snapshot), `sameInitialState` prouvé |
+| Causalité | comparaison simple accouplée sur clones ; comparaison répliquée par primitive séparée avec reçu et incertitude |
 | Gates requis | dominance vérifiée (bypass ⇒ INVALID), pas simple accessibilité |
 | Niches | fitness calculée dans un environnement délimité, pas globalement ; clé de niche **écologique** (`environmentId`/`niche.id`), jamais le `parentId` de lignée |
 | Apoptose / fossilisation | mort explicite, autopsie, archive reconstituable |
@@ -703,7 +705,8 @@ Chaque mécanisme biologique doit correspondre à un invariant informatique mesu
 - `backend/tests/test_procedural_graph_semantics.js` — validité sémantique, dominance gates requis, détection bypass
 - `backend/tests/test_procedural_runtime_e2e.js` — cycle d'évolution complet (DRAFT → SEALED → PROMOTED), persistence, phylogeny
 - `backend/tests/test_procedural_primitives.js` — intégration handlers/proceduralHandlers.js (procedural_evolve, procedural_load, procedural_seal, procedural_causal_check)
-- `backend/tests/test_procedural_causal_validation.js` — validation causale paired-fork (CAUSAL_IMPROVEMENT / REGRESSION / NO_EFFECT)
+- `backend/tests/test_procedural_causal_validation.js` — validation simple et comparaison répliquée d'organismes
+- `backend/tests/test_replicated_causal_runtime_integration.js` — résolution registre, paires appariées et persistance du reçu procédural SQLite
 - `backend/tests/test_procedural_e2e_autonome.js` — scénario complet P0 → surprise → LTD → consolidation → mutation → causal proof → promotion
 - `backend/tests/test_procedural_learning_cycle.js` — front de Pareto, sélection par niche **écologique**, câblage fitness scellée, intégrité du receipt, rappel adaptatif (sécurité-uniquement), cycle learning (LTP/LTD/consolidation) et intégration runtime Pareto/niche **déterministe** (métriques par opération, gagnant `ADJUST_WEIGHT` asserté — aucun `Math.random()`)
 
