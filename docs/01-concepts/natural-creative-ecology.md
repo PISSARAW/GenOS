@@ -1,8 +1,8 @@
 # Natural Creative Ecology — Créativité Artificielle Multi-Échelle
 
-- **Statut** : Infrastructure opérationnelle — fermeture causale partielle. Le pont curiosité Node→Rust est actif (`WorldState.curiosity_hint` pilote `Goal::Explore`); POET attend la fin réelle de l'agent via télémétrie et vérifie la production d'un artifact; `nceMetadata` persisté dans `metadata_json`; TOPOLOGY_SIGNALS contrôle les moteurs actifs par topologie; dispatch_worker enrichi; tests contractuels 7/7 verts. Play, phénotype, culture et POET nécessitent encore une validation causale E2E. Tests d'ablation en prototype (pas scientifiquement valides).
-- **Portée** : `backend/src/services/{curiosityService,curiosityExplorerService,curiosityBridgeService,nceIntegrationService,ncePromptService,nceEngines,representationalMutationEngine,exaptationEngine,playService,phenotypicDevelopmentService,environmentGeneratorService,culturalTransmissionService,culturalSelectionService,culturalLearningService,poetExecutionEngine}.js`, `backend/bin/{genos-orchestrate.cjs,topologyHandlers.cjs,orchestratorActions.cjs,orchestratorMissionHelpers.cjs}`, `crates/genos-orchestrator/src/{drives,observer,planner}.rs`, `backend/tests/nce_contract_tests.js`, `docs/08-philosophie.md`.
-- **Dernière revue** : 2026-09-22.
+- **Statut** : Infrastructure opérationnelle — fermeture causale partielle. Le pont curiosité Node→Rust est actif (`WorldState.curiosity_hint` pilote `Goal::Explore`); POET attend la terminaison via télémétrie avant la vérification snapshot; `nceMetadata` est persisté dans `metadata_json`; TOPOLOGY_SIGNALS filtre les moteurs par topologie. Depuis le 2026-09-30, les tests ciblés couvrent les flux Play, phénotype, transfert culturel et POET; les adaptateurs runtime/snapshot des tests Play et POET sont simulés. Le transfert culturel a une preuve causale contrôlée sur une tâche fixe. Les ablations restent des prototypes sans validité scientifique.
+- **Portée** : `backend/src/services/{curiosityService,curiosityExplorerService,curiosityBridgeService,nceIntegrationService,ncePromptService,nceEngines,representationalMutationEngine,exaptationEngine,playService,phenotypicDevelopmentService,phenotypeVectorService,environmentGeneratorService,culturalTransmissionService,culturalSelectionService,culturalLearningService,poetExecutionEngine,poetBridgeService}.js`, `backend/bin/{genos-orchestrate.cjs,topologyHandlers.cjs,orchestratorActions.cjs,orchestratorMissionHelpers.cjs}`, `crates/genos-orchestrator/src/{drives,observer,planner}.rs`, `backend/tests/{nce_contract_tests.js,test_nce_workflows_e2e.js,test_play_narrative_service.js}`, `docs/08-philosophie.md`.
+- **Dernière revue** : 2026-09-30.
 - **Dérivé** : [Mathematical Organism](mathematical-organism.md) — implémentation NCE pour la recherche mathématique.
 
 ---
@@ -156,9 +156,9 @@ plasmid_divergent_optimization
 | 18 | **Intégration orchestrateur natif** | `enhanceMissionWithNCE()` + `topologyHandlers` (TOPOLOGY_SIGNALS) + `dispatch_worker` enrichi | `nceIntegrationService` + `genos-orchestrate.cjs` + `topologyHandlers.cjs` + `orchestratorActions.cjs` |
 | 19 | **TOPOLOGY_SIGNALS** | Filtrage conditionnel des moteurs par topologie (worker, team, trinity, biological) | `topologyNCEService` + `ncePromptService` |
 | 20 | **Novelty creates affordances** | `OEV(x) = N(x) × FP(x)` | Principe transversal |
-| 21 | **Tests contractuels** | Contrats : flags .enabled, Play+Phenotype dans boucle, enrichWorkerPromptSync retourne string | `nce_contract_tests.js` |
+| 21 | **Tests contractuels et flux ciblés** | Options NCE, vecteur phénotypique, Play sandbox, mesure de transfert et pont POET | `npm --prefix backend run test:nce` |
 | 22 | **Tests d'ablation** | BASELINE → +moteurs → FULL (prototype, pas scientifiquement valides) | `nce_ablation_tests.js` |
-| 23 | **POET attend l'agent** | `waitForMissionTermination()` via télémétrie avant vérification snapshot | `poetExecutionEngine` |
+| 23 | **POET attend l'agent** | `waitForMissionTermination()` via télémétrie avant vérification snapshot; pont évalué par un test à runtime et snapshot substitués | `poetExecutionEngine` + `poetBridgeService` |
 | 24 | **Pont NCE → Rust** | `curiosity_hint` dans `WorldState` pilote `Goal::Explore` | `drives.rs` + `planner.rs` + `observer.rs` |
 | 25 | **nceMetadata persisté** | `metadata_json.nceMetadata` écrit par `prepareMission` | `orchestratorMissionHelpers.cjs` + `genos-orchestrate.cjs` |
 
@@ -581,6 +581,28 @@ Contrôle quels moteurs NCE sont actifs par topologie :
 
 Appliqué dans `ncePromptService.js:enhancePromptWithNCE()` : si `signals.X === false`, le moteur X est omis du prompt final.
 
+### Vérifications ciblées (2026-09-30)
+
+La commande reproductible est `npm --prefix backend run test:nce`. Elle enchaîne
+`test_play_narrative_service.js`, `nce_contract_tests.js` et
+`test_nce_workflows_e2e.js`.
+
+- **Play** : le test traverse `runPlaySession` et `applyPlay`, vérifie le succès de
+  l'itération sandboxée, le snapshot et une affordance extraite. Le stockage snapshot
+  et l'exécuteur snapshot sont des substituts déterministes dans ce test.
+- **Phénotype** : `applyPhenotype` développe l'état selon les outils et capacités requis
+  et retourne `genos.phenotype.v1`, un vecteur de 23 valeurs. La similarité cosinus vaut
+  1 pour le vecteur avec lui-même et baisse après ajout des branches requises.
+- **Transfert culturel** : le test crée un artefact culturel, mesure la même compétence
+  avant et après son intégration, et observe un score qui passe de 0 à 1 (Δ = 1). C'est
+  une démonstration causale contrôlée avec un benchmark déterministe local; elle ne mesure
+  pas une population d'agents ni une généralisation à d'autres tâches.
+- **POET** : le test suit mission → événement terminal → artifact → capture de snapshot →
+  vérification → score d'environnement. Runtime, télémétrie, stockage et commande de
+  vérification sont substitués; cela valide le câblage du flux, pas une mission réelle.
+- **Ablations** : `nce_ablation_tests.js` demeure explicitement un prototype; aucun
+  résultat d'ablation ni conclusion scientifique n'est revendiqué.
+
 ---
 
 - **Non-blocant** : si un moteur échoue, la mission continue
@@ -591,12 +613,12 @@ Appliqué dans `ncePromptService.js:enhancePromptWithNCE()` : si `signals.X === 
 
 ## 15. Limites honnêtes
 
-1. **Pas de créativité générale** : les moteurs optimisent des métriques locales sans compréhension sémantique profonde. Le vecteur de phénotype créatif [N,Q,S,D,T,E,O,H] est documenté mais pas encore implémenté comme structure de données.
+1. **Pas de créativité générale** : les moteurs optimisent des métriques locales sans compréhension sémantique profonde. `phenotypeVectorService.js` implémente un vecteur opérationnel de 23 valeurs (traits scalaires, branches actives et buckets catégoriels rôle/stratégie); le vecteur créatif conceptuel [N,Q,S,D,T,E,O,H] reste distinct et n'est pas implémenté.
 2. **Pas de conscience** : la « simulation mentale » est un calcul de faisabilité sur des structures JSON.
 3. **Open-endedness bornée, pas générale** : le générateur produit des environnements bornés et l'orchestrateur les évalue selon utilité, nouveauté et preuve. Cela ne démontre ni génération automatique de questions ouvertes, ni chaîne bout-en-bout POET → changement de phénotype.
-4. **Sélection culturelle partielle** : `culturalSelectionService` conserve un score scalaire pour les traits. Le chemin distinct de migration en métapopulation sélectionne des propagules versionnées par fronts de Pareto sur nouveauté et fitness de la source. Le benchmark avant/après de `culturalLearningService` existe, mais le transfert culturel n'est pas encore prouvé comme cause d'un changement de phénotype.
+4. **Sélection culturelle partielle** : `culturalSelectionService` conserve un score scalaire pour les traits. Le chemin distinct de migration en métapopulation sélectionne des propagules versionnées par fronts de Pareto sur nouveauté et fitness de la source. `measureCulturalTransfer` établit un ordre benchmark-avant → intégration → benchmark-après et refuse les scores non finis; le test contrôlé démontre un Δ de tâche après transfert, sans établir une généralisation ni un effet sur un phénotype d'agent persistant.
 5. **Coût computationnel** : l'évaluation de 7 moteurs augmente la latence.
-6. **Tests d'ablation** : prototype (`nce_ablation_tests.js` explicitement marqué "pas scientifiquement valides"). Seuls les tests contractuels (`nce_contract_tests.js`) sont fiables.
+6. **Tests d'ablation** : prototype (`nce_ablation_tests.js` explicitement marqué « pas scientifiquement valides »). Les tests contractuels et de flux (`npm --prefix backend run test:nce`) vérifient uniquement les scénarios décrits plus haut; les composants simulés ne sont pas une preuve d'exécution en production.
 7. **Documentation-code sync** : certaines fonctions documentées (représentations riches, coévolution réelle, traditions actives) sont des scaffolds, pas des implémentations complètes. La liste des 22 mécanismes ci-dessus fait foi.
 
 ---
@@ -651,4 +673,4 @@ Chaque mécanisme biologique doit correspondre à **un invariant computationnel 
 | `a95d1584` | Points 7-8 : parents conservent distance/compatibility/potential/score, countOverlap ratio normalisé |
 | `d3e9ee5b` | Points 5-6 : POET attend l'agent via télémétrie, snapshot contract corrigé, pont NCE→Rust (`curiosity_hint`), `tissue_scheduler` |
 | `2c62dcab` | Points 9-10 : doc ablation correcte, `nceMetadata` persisté dans `metadata_json` |
-| `local` | Fermeture NCE : `buildTopologyOptions` unique, `nceOptions` transmis aux moteurs, `workerLaunchPayload` unique, `dispatch_worker` enrichi, POET collecte l'artifact réel, `measureCulturalTransfer` (Δ benchmark observé), tests 7/7 |
+| `af9afe6b` | Vecteur phénotypique `genos.phenotype.v1`, flux Play/POET testés, Δ culturel sur tâche fixe et vérification des scores finis; ablations laissées prototypes |
