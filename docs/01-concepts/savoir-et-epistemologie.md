@@ -277,10 +277,12 @@ qu’une analyse conditionnelle est disponible, pas que la thèse est prouvée.
 
 Pour les rubriques spécialisées, fournir `criteria: [{ id, supports, evidence }]` en
 reprenant les critères déclarés par `RUBRICS`, avec des éléments probants pertinents
-pour chaque critère évalué. Le service classe le booléen `supports` fourni et conserve
-`evidence` comme élément déclaré : la rubrique ne vérifie ni la pertinence ni la
-validité des critères et des éléments probants. Un critère absent ou sans booléen
-`supports` reste `unknown`; aucune réussite n’est implicite. L’induction, le Dutch book, la
+pour chaque critère évalué. Sans élément probant fourni, le critère reste `unknown`,
+même si `supports` est renseigné. Le service classe le booléen `supports` fourni et
+conserve `evidence` comme élément déclaré : la rubrique ne vérifie ni la pertinence ni
+la validité des critères et des éléments probants. Un critère absent ou sans booléen
+`supports` reste également `unknown`; une rubrique incomplète retourne
+`partially-assessed` et aucune réussite n’est implicite. L’induction, le Dutch book, la
 confirmation bayésienne et le reliabilisme de processus réutilisent respectivement les
 entrées des services d’inférence, probabilité et fiabilité (`observations`,
 `distribution`, paramètres de Bayes, `process`). Pour Gödel, les booléens de portée
