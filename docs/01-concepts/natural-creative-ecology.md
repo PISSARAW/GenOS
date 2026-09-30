@@ -4,6 +4,7 @@
 - **Portée** : `backend/src/services/{curiosityService,curiosityExplorerService,curiosityBridgeService,nceIntegrationService,ncePromptService,nceEngines,representationalMutationEngine,exaptationEngine,playService,phenotypicDevelopmentService,phenotypeVectorService,environmentGeneratorService,culturalTransmissionService,culturalSelectionService,culturalLearningService,poetExecutionEngine,poetBridgeService}.js`, `backend/bin/{genos-orchestrate.cjs,topologyHandlers.cjs,orchestratorActions.cjs,orchestratorMissionHelpers.cjs}`, `crates/genos-orchestrator/src/{drives,observer,planner}.rs`, `backend/tests/{nce_contract_tests.js,test_nce_workflows_e2e.js,test_play_narrative_service.js}`, `docs/08-philosophie.md`.
 - **Dernière revue** : 2026-09-30.
 - **Dérivé** : [Mathematical Organism](mathematical-organism.md) — implémentation NCE pour la recherche mathématique.
+- **Plan de fermeture causale** : [Plan d'implémentation](plan-implementation-natural-creative-ecology.md) — lots, preuves attendues et limites des ablations.
 
 ---
 
