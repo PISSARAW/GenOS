@@ -217,6 +217,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0192](0192-reponse-neuro-gliale-aux-evenements-de-mission.md) | Réponse neuro-gliale corrélée aux événements de mission | Accepté | 2026-09-30 | Runtime, neurobiologie, glie, quorum, preuve |
 | [0193](0193-mesures-du-filtrage-choanocyte.md) | Mesures runtime du filtrage choanocyte | Accepté | 2026-09-30 | Runtime, flux, cellules spécialisées, mesure |
 | [0194](0194-conformite-du-rendu-iridophore.md) | Conformité du rendu iridophore au runtime | Accepté | 2026-09-30 | Runtime, rendu, cellules spécialisées, preuve |
+| [0195](0195-enforcement-metabolique-cellule-de-garde.md) | Enforcement métabolique par la cellule de garde | Accepté | 2026-09-30 | Runtime, métabolisme, flux, cellules spécialisées |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

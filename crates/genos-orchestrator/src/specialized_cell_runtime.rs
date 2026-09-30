@@ -1,10 +1,57 @@
 //! Branche les cellules spécialisées au runtime avec des reçus mesurables.
 
 use crate::GenosEcosystem;
-use genos_biology::{ObserverPerspective, RawSignalPacket, SiftingResult};
+use genos_biology::{ObserverPerspective, RawSignalPacket, SiftingResult, ThrottleResult};
 use serde_json::json;
 
 impl GenosEcosystem {
+    /// Applique le backpressure puis débite le flux admis du registre ATP commun.
+    pub fn throttle_flux(&mut self, requested_flux: f64) -> ThrottleResult {
+        self.orchestrator.metabolism.refill();
+        let capacity = self.orchestrator.metabolism.capacity;
+        let resource_availability = if capacity > 0.0 {
+            (self.orchestrator.metabolism.available() / capacity).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        self.guard_cell.regulate(resource_availability, 1.0 - resource_availability);
+        let valid_request = requested_flux.is_finite() && requested_flux >= 0.0;
+        let mut result = self
+            .guard_cell
+            .throttle_flux(if valid_request { requested_flux } else { 0.0 });
+        let cost = if valid_request {
+            result.admitted_flux.max(0.0) * 0.01
+        } else {
+            f64::NAN
+        };
+        let accepted = self
+            .orchestrator
+            .metabolism
+            .consume_for("guard_cell.admitted_flux", cost);
+        if !accepted {
+            result.admitted_flux = 0.0;
+            result.throttled_flux = requested_flux;
+            result.backpressure_active = true;
+            result.status = "STOMATA_CLOSED_METABOLIC_BUDGET_EXHAUSTED".to_string();
+        }
+        self.record_event(
+            "GUARD_CELL_FLUX_ENFORCED",
+            json!({
+                "schema": "genos.guard-cell-flux-receipt/v1",
+                "missionId": self.mission_id,
+                "poreId": self.guard_cell.pore_id,
+                "requestedFlux": requested_flux,
+                "admittedFlux": result.admitted_flux,
+                "throttledFlux": result.throttled_flux,
+                "metabolicCost": if accepted { cost } else { 0.0 },
+                "resourceAvailability": resource_availability,
+                "accepted": accepted,
+                "status": result.status,
+            }),
+        );
+        result
+    }
+
     /// Filtre le flux et émet les métriques de débit, rétention et perte.
     pub fn filter_stream(&mut self, packets: &[RawSignalPacket]) -> SiftingResult {
         let result = self.choanocyte.sift_stream(packets);

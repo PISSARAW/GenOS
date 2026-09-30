@@ -1,6 +1,6 @@
 # Biomimétisme Cellulaire Spécialisé Non-Humain dans GenOS
 
-- **Statut** : Le cnidocyte, l'électrocyte, le choanocyte et l'iridophore ont des branchements runtime partiels avec reçus/métriques; les cellules de garde, trachéides, procaryotes et HGT restent des primitives locales sous `crates/genos-biology/src/specialized_cells/`.
+- **Statut** : Le cnidocyte, l'électrocyte, le choanocyte, l'iridophore et la cellule de garde ont des branchements runtime partiels avec reçus/métriques; les trachéides, procaryotes et HGT restent des primitives locales sous `crates/genos-biology/src/specialized_cells/`.
 - **Portée** : `crates/genos-biology/src/specialized_cells/`, `backend/src/services/mcpLigandReceptorService.js`, outils MCP `genos_biomimicry_*`.
 - **Dernière revue** : 2026-09-28.
 - **Référence** : [inventaire-biologique.md](inventaire-biologique.md), [maturite-biologique.md](maturite-biologique.md).

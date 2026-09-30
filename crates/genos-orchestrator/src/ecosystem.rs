@@ -302,10 +302,6 @@ impl GenosEcosystem {
         self.cnidocyte.intercept_tool_threat(tool_name, raw_payload)
     }
 
-    pub fn throttle_flux(&self, requested_flux: f64) -> ThrottleResult {
-        self.guard_cell.throttle_flux(requested_flux)
-    }
-
     pub fn discharge_electric(&mut self) -> Result<ElectricShockBurst, String> {
         self.electric_organ.discharge_burst()
     }
