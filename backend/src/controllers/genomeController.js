@@ -129,7 +129,7 @@ async function promoteInnovation(req, res, next) {
   try {
     const db = await getDatabase();
     await assertInnovationScope(db, req);
-    res.json({ success: true, innovation: await innovation.promoteCandidate(db, req.params.id) });
+    res.json({ success: true, innovation: await innovation.promoteCandidate(db, req.params.id, req.user && req.user.id) });
   } catch (error) {
     next(error);
   }
@@ -149,7 +149,10 @@ async function rejectInnovation(req, res, next) {
   try {
     const db = await getDatabase();
     await assertInnovationScope(db, req);
-    res.json({ success: true, innovation: await innovation.rejectCandidate(db, req.params.id, req.body && req.body.reason) });
+    res.json({ success: true, innovation: await innovation.rejectCandidate(db, req.params.id, {
+      reason: req.body && req.body.reason,
+      operatorId: req.user && req.user.id
+    }) });
   } catch (error) {
     next(error);
   }
