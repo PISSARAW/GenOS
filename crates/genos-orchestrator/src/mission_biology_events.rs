@@ -1,7 +1,10 @@
 //! Relie des événements réels de mission aux réponses neurales, gliales et quorum.
 
 use crate::GenosEcosystem;
-use genos_biology::glial::glial_cell::Metabolism;
+use genos_biology::glial::glial_cell::{
+    Axon, Metabolism, Myelinator, NervousSystem, NervousSystemLocation, Synapse,
+};
+use genos_biology::glial::{Astrocyte, EpendymalCell, Microglia, MicrogliaState};
 use genos_biology::neurobiology::Neurotransmitter;
 use genos_biology::{GlialCell, GlialEnvironment};
 use serde_json::{Value, json};
@@ -62,7 +65,9 @@ impl GenosEcosystem {
             "activePhenotypes": self.quorum.active_phenotypes(),
         });
 
-        let (glia, atp_after) = self.run_glial_response(source_event_id, succeeded);
+        let (glia, atp_after, myelination_after) =
+            self.run_glial_response(source_event_id, succeeded);
+        self.neuro.system.axon.myelination_level = myelination_after;
         Some(json!({
             "schema": "genos.mission-neuro-glia-quorum/v1",
             "missionId": mission_id,
@@ -82,15 +87,48 @@ impl GenosEcosystem {
         }))
     }
 
-    fn run_glial_response(&self, source_event_id: Uuid, succeeded: bool) -> (Value, f64) {
+    fn run_glial_response(
+        &self,
+        source_event_id: Uuid,
+        succeeded: bool,
+    ) -> (Value, f64, f64) {
+        let cell_id = format!("mission-glia-{source_event_id}");
         let mut cell = GlialCell {
-            cell_id: format!("mission-glia-{source_event_id}"),
+            cell_id: cell_id.clone(),
             metabolism: Metabolism { atp_budget: 10.0 },
-            astrocyte: None,
-            myelinator: None,
-            microglia: None,
-            ependymal: None,
-            nervous_system: None,
+            astrocyte: Some(Astrocyte {
+                glycogen_reserve: 20.0,
+                is_reactive: !succeeded,
+                protected_neurons: vec![cell_id.clone()],
+            }),
+            myelinator: Some(Myelinator::Oligodendrocyte {
+                connected_axons: vec![cell_id.clone()],
+                is_damaged: false,
+            }),
+            microglia: Some(Microglia {
+                state: MicrogliaState::Sentinel,
+                plaque_accumulation: 0.0,
+                inflammatory_cytokines: 0.0,
+                c4_overexpression: false,
+                is_pro_inflammatory: false,
+            }),
+            ependymal: Some(EpendymalCell {
+                is_producing_csf: true,
+                cilia_beating: true,
+            }),
+            nervous_system: Some(NervousSystem {
+                location: NervousSystemLocation::Central,
+                axon: Axon {
+                    terminals: vec![Synapse {
+                        c3_opsonization: 0.0,
+                        cd47_expression: 1.0,
+                    }],
+                    myelination_level: self.neuro.myelination(),
+                    is_severed: false,
+                    nogo_inhibited: false,
+                },
+                dendritic_tree: None,
+            }),
         };
         let (mut bhe, mut plaques, mut csf, mut pressure) = if succeeded {
             (1.0_f64, 0.0_f64, 1.0_f64, 1.0_f64)
@@ -107,14 +145,32 @@ impl GenosEcosystem {
         };
         self.glial
             .process_all(std::slice::from_mut(&mut cell), environment);
+        let microglial_state = cell
+            .microglia
+            .as_ref()
+            .map(|microglia| format!("{:?}", microglia.state));
+        let astrocyte_reserve = cell
+            .astrocyte
+            .as_ref()
+            .map(|astrocyte| astrocyte.glycogen_reserve);
+        let myelination = cell
+            .nervous_system
+            .as_ref()
+            .map(|system| system.axon.myelination_level)
+            .unwrap_or_default();
         (
             json!({
                 "bloodBrainBarrierIntegrity": bhe,
                 "amyloidPlaques": plaques,
                 "csfVolume": csf,
                 "csfPressure": pressure,
+                "microglialState": microglial_state,
+                "astrocyteGlycogenReserve": astrocyte_reserve,
+                "astrocyteAtpAfterSupport": cell.metabolism.atp_budget,
+                "axonMyelination": myelination,
             }),
             cell.metabolism.atp_budget,
+            myelination,
         )
     }
 }

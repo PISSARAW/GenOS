@@ -18,7 +18,9 @@ pas leur intégration.
 mission est corrélée et que l'événement appartient à la liste des reçus d'exécution,
 actions incarnées, actions instinctives ou reproduction. La réponse applique un
 signal excitateur ou inhibiteur, fait évoluer le quorum à partir des cellules actives,
-exécute le pipeline glial et conserve les mesures dans un événement dédié.
+exécute le pipeline glial sur une cellule mission active; la réponse astrocytaire et la
+myélinisation sont reportées sur le système nerveux utilisé par le runtime. Les mesures
+sont conservées dans un événement dédié.
 
 ## Conséquences
 
