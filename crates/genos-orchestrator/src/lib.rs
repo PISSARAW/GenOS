@@ -9,6 +9,7 @@ pub mod director_beam;
 pub mod director_learning;
 pub mod director_persistence;
 pub mod director_planning;
+pub mod durable_receipts;
 pub mod dna_ops;
 pub mod drives;
 pub mod ecosystem;

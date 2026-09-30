@@ -1,4 +1,5 @@
 pub mod capsule;
+pub mod biological_receipt;
 pub mod cryptobiosis;
 pub mod event;
 pub mod fossil;
@@ -6,6 +7,7 @@ pub mod memory;
 pub mod snapshot;
 
 pub use capsule::{Capsule, CapsuleStore};
+pub use biological_receipt::BiologicalReceiptStore;
 pub use cryptobiosis::{CryptobiosisStore, FrozenAgent, VitrifiedFreeze, VitrifiedThaw};
 pub use event::{Event, InMemoryEventStore};
 pub use fossil::{
