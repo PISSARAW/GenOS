@@ -1,4 +1,5 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// Catégories diagnostiques des pathologies computationnelles dans GenOS
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -32,15 +33,11 @@ pub enum DiseaseCategory {
 pub enum Pathology {
     // --- 1. Pathologies Auto-immunes ---
     /// Orage cytokinique provoquant une explosion du coût métabolique (IL-6)
-    CytokineStorm {
-        il6_level: f64,
-    },
+    CytokineStorm { il6_level: f64 },
     /// Hyperactivation des agents phagocytes éliminant des workers sains
     MacrophageHyperactivation,
     /// Ciblage erroné d'un agent légitime par des anticorps d'audit
-    AutologousTargeting {
-        targeted_agent_role: String,
-    },
+    AutologousTargeting { targeted_agent_role: String },
 
     // --- 2. Pathologies Nosocomiales ---
     /// Contamination croisée attrapée dans une capsule partagée
@@ -49,45 +46,29 @@ pub enum Pathology {
         pathogen_signature: String,
     },
     /// Infection acquise en milieu d'orchestration lors d'une inspection
-    HospitalAcquiredInfection {
-        origin_facility: String,
-    },
+    HospitalAcquiredInfection { origin_facility: String },
 
     // --- 3. Pathologies Iatrogènes ---
     /// Coma provoqué par une surdose de corticostéroïdes (> 0.8)
-    SteroidInducedComa {
-        administered_dose: f64,
-    },
+    SteroidInducedComa { administered_dose: f64 },
     /// Destruction collatérale de workers légitimes lors d'un traitement antibiotique
-    AntibioticCollateralDamage {
-        eliminated_components: Vec<String>,
-    },
+    AntibioticCollateralDamage { eliminated_components: Vec<String> },
     /// Blocage récepteur persistant après une thérapie ciblée non réversible
     PersistentReceptorBlockade,
     /// Dérive cognitive suite à une hypermutation non contrôlée ordonnée par l'Orchestrateur
-    IatrogenicCognitiveDrift {
-        entropy_shift: f64,
-    },
+    IatrogenicCognitiveDrift { entropy_shift: f64 },
 
     // --- 4. Pathologies Dégénératives ---
     /// Épuisement complet de la réserve télomérique (Hayflick limit atteinte)
-    TelomereExhaustion {
-        bud_scars: u32,
-    },
+    TelomereExhaustion { bud_scars: u32 },
     /// Sénescence réplicative avec saturation du contexte
     ReplicativeSenescence,
     /// Agrégation de prions computationnels (incohérences logiques propagées dans la mémoire)
-    PrionAggregation {
-        dissonance_score: f64,
-    },
+    PrionAggregation { dissonance_score: f64 },
     /// Dégradation graduelle du raisonnement par perte d'attention
-    ContextualDecay {
-        age_ticks: u64,
-    },
+    ContextualDecay { age_ticks: u64 },
     /// Infection virale exogène propagée par un virion actif
-    ViralInfection {
-        pathogen_signature: String,
-    },
+    ViralInfection { pathogen_signature: String },
 }
 
 impl Pathology {
@@ -98,8 +79,9 @@ impl Pathology {
             | Pathology::MacrophageHyperactivation
             | Pathology::AutologousTargeting { .. } => DiseaseCategory::Autoimmune,
 
-            Pathology::CrossContamination { .. }
-            | Pathology::HospitalAcquiredInfection { .. } => DiseaseCategory::Nosocomial,
+            Pathology::CrossContamination { .. } | Pathology::HospitalAcquiredInfection { .. } => {
+                DiseaseCategory::Nosocomial
+            }
 
             Pathology::SteroidInducedComa { .. }
             | Pathology::AntibioticCollateralDamage { .. }
@@ -154,6 +136,9 @@ pub struct ClinicalState {
     /// Historique des diagnostics et interventions
     #[serde(default)]
     pub clinical_log: Vec<String>,
+    /// Marqueurs normalisés des états cliniques computationnels.
+    #[serde(default)]
+    pub markers: BTreeMap<String, f64>,
 }
 
 impl ClinicalState {
@@ -177,7 +162,8 @@ impl ClinicalState {
         self.active_pathologies.retain(|p| p.name() != name);
         let cured = self.active_pathologies.len() < before_len;
         if cured {
-            self.clinical_log.push(format!("Rémission confirmée: {}", name));
+            self.clinical_log
+                .push(format!("Rémission confirmée: {}", name));
         }
         cured
     }
@@ -195,12 +181,14 @@ impl ClinicalState {
     /// Place l'agent en quarantaine nosocomiale
     pub fn isolate(&mut self, reason: &str) {
         self.is_quarantined = true;
-        self.clinical_log.push(format!("Mise en quarantaine: {}", reason));
+        self.clinical_log
+            .push(format!("Mise en quarantaine: {}", reason));
     }
 
     /// Lève la quarantaine
     pub fn discharge(&mut self) {
         self.is_quarantined = false;
-        self.clinical_log.push("Levée de quarantaine (Fin de convalescence)".to_string());
+        self.clinical_log
+            .push("Levée de quarantaine (Fin de convalescence)".to_string());
     }
 }

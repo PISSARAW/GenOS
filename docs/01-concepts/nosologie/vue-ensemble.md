@@ -1,4 +1,4 @@
-﻿# Nosologie Computationnelle Complète — GenOS
+# Nosologie Computationnelle Complète — GenOS
 
 > **Synthèse exhaustive des 9 familles nosologiques et de leurs équivalents computationnels dans l'architecture biomimétique GenOS.**
 > Document assemblé à partir des rapports de 9 agents spécialistes travaillant en parallèle.
@@ -93,7 +93,7 @@ Document de référence transversal : [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.m
 | `SystemicTherapy::TelomeraseActivation` | Rallonge la limite de Hayflick | Dégénératives |
 | `SystemicTherapy::StemCellReplacement` | Remplace l'agent par une cellule souche neuve | Dégénératives, Cancers |
 
-### 4.2 Thérapies computationnelles proposées (NON implémentées)
+### 4.2 Thérapies computationnelles proposées (statut détaillé au §4.3)
 
 Les thérapies du tableau ci-dessous sont des opérateurs proposés par les
 rapports de nosologie, NON implémentés dans `therapy.rs` à ce jour. Elles ne
@@ -109,9 +109,6 @@ Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des
 | `SystemicTherapy::KetamineRapidInfusion` | Psychiatriques | Nosologie 8 |
 | `SystemicTherapy::MoodStabilizerLithium` | Psychiatriques | Nosologie 8 |
 | `SystemicTherapy::AntipsychoticAtypical` | Psychiatriques | Nosologie 8 |
-| `SystemicTherapy::InsulinSensitizerMetformin` | Métaboliques | Nosologie 6 |
-| `SystemicTherapy::LevothyroxineHormoneReplacement` | Métaboliques | Nosologie 6 |
-| `SystemicTherapy::ColchicineInhibition` | Métaboliques | Nosologie 6 |
 | `SystemicTherapy::CoronaryReperfusionThrombolysis` | Cardiovasculaires | Nosologie 7 |
 | `SystemicTherapy::VasodilatorFlowControl` | Cardiovasculaires | Nosologie 7 |
 | `SystemicTherapy::AntiretroviralCombination` | Infectieuses | Nosologie 3 |
@@ -120,15 +117,28 @@ Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des
 | `SystemicTherapy::CFTRModulatorTriad` | Génétiques | Nosologie 4 |
 | `SystemicTherapy::ChelationTherapy` | Environnementales | Nosologie 9 |
 
-Les rapports spécialisés proposent également les opérateurs `AllopurinolXanthineInhibitor`, `LysosomalUraturicPurge`, `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`, `FetalCarrierReactivation`, `AntiAdhesionVasodilator`, `AntiNmdReadthrough`, `NeuroprotectiveAstrocyticFlush` et `BloodBrainBarrierSealant` (tous NON implémentés — propositions uniquement).
+Les rapports spécialisés proposent également les opérateurs `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`, `FetalCarrierReactivation`, `AntiAdhesionVasodilator`, `AntiNmdReadthrough`, `NeuroprotectiveAstrocyticFlush` et `BloodBrainBarrierSealant` (tous NON implémentés — propositions uniquement).
 
 ---
+### 4.3 Opérateurs métaboliques implémentés avec portée limitée
+
+Les cinq opérateurs ci-dessous sont présents dans `SystemicTherapy` et routés par `apply_systemic_therapy_to_cell()`. Ils ne guérissent pas une pathologie : ils réduisent un marqueur computationnel existant de 0,25, borné à [0, 1]. Cible absente, non finie ou hors bornes signifie aucune mutation et aucun succès déclaré. Ils restent des simulations GenOS.
+
+| Opérateur | Clé de marqueur | Effet |
+|---|---|---|
+| `InsulinSensitizerMetformin` | `insulin_resistance` | Réduction bornée de 0,25 |
+| `LevothyroxineHormoneReplacement` | `thyroid_signal_deficit` | Réduction bornée de 0,25 |
+| `ColchicineInhibition` | `purine_inflammation` | Réduction bornée de 0,25 |
+| `AllopurinolXanthineInhibitor` | `purine_production` | Réduction bornée de 0,25 |
+| `LysosomalUraturicPurge` | `purine_waste_load` | Réduction bornée de 0,25 |
+
+Voir [ADR 0191](../../adr/0191-marqueurs-cliniques-extensibles.md) pour le contrat du registre de marqueurs.
 
 ## 5. État et plan d'implémentation
 
 ### 5.1 État vérifié
 
-Le modèle clinique, les détecteurs, l'intégration au tick et les thérapies du §4.1 sont présents dans le code. Le point d'entrée thérapeutique est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`; son enum `SystemicTherapy` ne contient pas les opérateurs proposés au §4.2 ni ceux listés ci-dessous. Les exemples et extraits de code dans les rapports spécialisés sont des spécifications, pas une preuve d'implémentation.
+Le modèle clinique, les détecteurs, l'intégration au tick et les thérapies du §4.1 sont présents dans le code. Le point d'entrée thérapeutique est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`; son enum `SystemicTherapy` contient les variantes du §4.1 et les cinq variantes métaboliques à portée limitée du §4.3; les autres opérateurs cités ci-dessous restent absents. Les exemples et extraits de code dans les rapports spécialisés sont des spécifications, pas une preuve d'implémentation.
 
 Les scénarios restent des simulations logicielles sur marqueurs GenOS. Ils ne modélisent, ne diagnostiquent et ne valident aucune pathologie réelle ni aucun médicament humain.
 

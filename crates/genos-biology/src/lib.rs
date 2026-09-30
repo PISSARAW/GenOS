@@ -5,17 +5,17 @@ pub mod bioluminescence;
 pub mod chemistry;
 pub mod ecology;
 pub mod embryology;
+pub mod glial;
 pub mod glycolysis;
 pub mod lipid_membrane;
-pub mod glial;
-pub use glial::{GlialEnvironment, GlialPipeline};
 pub use glial::glial_cell::GlialCell;
+pub use glial::{GlialEnvironment, GlialPipeline};
 pub mod instinct;
 pub use instinct::{
-    ExecutionContext, FixedActionPattern, HormoneState, InnateReleasingMechanism,
-    InstinctLibrary, InstinctOutcome, InstinctProgram, InstinctRunContext, Modality, MotorStep,
-    SignalProvenance, SignStimulus, StimulusField, TriggerEvaluation, INSTINCT_LOCUS_PREFIX,
-    is_instinct_locus,
+    ExecutionContext, FixedActionPattern, HormoneState, INSTINCT_LOCUS_PREFIX,
+    InnateReleasingMechanism, InstinctLibrary, InstinctOutcome, InstinctProgram,
+    InstinctRunContext, Modality, MotorStep, SignStimulus, SignalProvenance, StimulusField,
+    TriggerEvaluation, is_instinct_locus,
 };
 pub mod neurobiology;
 pub mod pathology;
@@ -26,15 +26,22 @@ pub mod redundancy;
 pub mod sensory;
 pub mod signaling;
 pub mod specialized_cells;
+pub use specialized_cells::choanocyte::{
+    Choanocyte, ChoanodermChamber, RawSignalPacket, SiftingResult,
+};
 pub use specialized_cells::cnidocyte::{Cnidocyte, NematocystCapsule, ToxinPayload};
 pub use specialized_cells::electrocyte::{ElectricOrganStack, ElectricShockBurst, Electrocyte};
-pub use specialized_cells::choanocyte::{Choanocyte, ChoanodermChamber, RawSignalPacket, SiftingResult};
-pub use specialized_cells::iridophore::{GuaninePlateletLattice, Iridophore, ObserverPerspective};
 pub use specialized_cells::guard_cell::{GuardCell, StomatalPore, ThrottleResult};
-pub use specialized_cells::tracheid::{LigninPorousPlate, OssificationReport, SapTransportYield, Tracheid, TracheidState};
-pub use specialized_cells::prokaryote::{HgtTransferReport, Plasmid, PlasmidExecutionYield, ProkaryoticAgent};
+pub use specialized_cells::iridophore::{GuaninePlateletLattice, Iridophore, ObserverPerspective};
+pub use specialized_cells::prokaryote::{
+    HgtTransferReport, Plasmid, PlasmidExecutionYield, ProkaryoticAgent,
+};
+pub use specialized_cells::tracheid::{
+    LigninPorousPlate, OssificationReport, SapTransportYield, Tracheid, TracheidState,
+};
 pub mod spore;
 pub mod therapy;
+pub mod therapy_extended;
 pub mod tissue;
 
 #[cfg(test)]
@@ -42,11 +49,14 @@ mod tests {
     use super::*;
     use genos_cell::AgentCell;
     use pathology::{DiseaseCategory, Pathology};
-    use therapy::{apply_systemic_therapy_to_cell, SystemicTherapy};
+    use therapy::{SystemicTherapy, apply_systemic_therapy_to_cell};
 
     #[test]
     fn test_modules_presence() {
-        assert!(matches!(therapy::Therapy::TargetedTherapy, therapy::Therapy::TargetedTherapy));
+        assert!(matches!(
+            therapy::Therapy::TargetedTherapy,
+            therapy::Therapy::TargetedTherapy
+        ));
     }
 
     #[test]
@@ -55,18 +65,35 @@ mod tests {
         assert!(cell.clinical.is_healthy());
 
         // Diagnostic d'un orage cytokinique (Auto-immun)
-        cell.clinical.diagnose(Pathology::CytokineStorm { il6_level: 15.0 });
+        cell.clinical
+            .diagnose(Pathology::CytokineStorm { il6_level: 15.0 });
         assert!(!cell.clinical.is_healthy());
-        assert!(cell.clinical.has_disease_category(DiseaseCategory::Autoimmune));
+        assert!(
+            cell.clinical
+                .has_disease_category(DiseaseCategory::Autoimmune)
+        );
 
         // Traitement par surdose de corticoïdes (> 0.8) -> Guérit l'orage mais induit un Coma Iatrogène
-        let outcome = apply_systemic_therapy_to_cell(&SystemicTherapy::Corticosteroids(1.0), &mut cell);
-        assert!(outcome.cured_pathologies.contains(&"Orage Cytokinique".to_string()));
-        assert!(cell.clinical.has_disease_category(DiseaseCategory::Iatrogenic));
+        let outcome =
+            apply_systemic_therapy_to_cell(&SystemicTherapy::Corticosteroids(1.0), &mut cell);
+        assert!(
+            outcome
+                .cured_pathologies
+                .contains(&"Orage Cytokinique".to_string())
+        );
+        assert!(
+            cell.clinical
+                .has_disease_category(DiseaseCategory::Iatrogenic)
+        );
 
         // Détoxification Iatrogène
-        let detox_outcome = apply_systemic_therapy_to_cell(&SystemicTherapy::DetoxificationWashout, &mut cell);
-        assert!(detox_outcome.cured_pathologies.contains(&"Coma Stéroïdien Iatrogène".to_string()));
+        let detox_outcome =
+            apply_systemic_therapy_to_cell(&SystemicTherapy::DetoxificationWashout, &mut cell);
+        assert!(
+            detox_outcome
+                .cured_pathologies
+                .contains(&"Coma Stéroïdien Iatrogène".to_string())
+        );
         assert!(cell.clinical.is_healthy());
     }
 
@@ -77,26 +104,67 @@ mod tests {
             source_capsule: "capsule_red_zone".to_string(),
             pathogen_signature: "PROMPT_INJECTION_SIG".to_string(),
         });
-        assert!(cell.clinical.has_disease_category(DiseaseCategory::Nosocomial));
+        assert!(
+            cell.clinical
+                .has_disease_category(DiseaseCategory::Nosocomial)
+        );
 
         // Quarantaine
-        apply_systemic_therapy_to_cell(&SystemicTherapy::QuarantineIsolation { capsule_id: "capsule_red_zone".into() }, &mut cell);
+        apply_systemic_therapy_to_cell(
+            &SystemicTherapy::QuarantineIsolation {
+                capsule_id: "capsule_red_zone".into(),
+            },
+            &mut cell,
+        );
         assert!(cell.clinical.is_quarantined);
 
         // Purge antiseptique
-        apply_systemic_therapy_to_cell(&SystemicTherapy::AntisepticPurge { target_signature: "PROMPT_INJECTION_SIG".into() }, &mut cell);
+        apply_systemic_therapy_to_cell(
+            &SystemicTherapy::AntisepticPurge {
+                target_signature: "PROMPT_INJECTION_SIG".into(),
+            },
+            &mut cell,
+        );
         assert!(cell.clinical.is_healthy());
     }
 
+    #[test]
+    fn metabolic_proposed_therapies_only_change_present_bounded_markers() {
+        let mut cell = AgentCell::new("Clinique", "Simulation", "Worker");
+        cell.clinical
+            .markers
+            .insert("insulin_resistance".into(), 0.5);
+        let outcome =
+            apply_systemic_therapy_to_cell(&SystemicTherapy::InsulinSensitizerMetformin, &mut cell);
+        assert_eq!(cell.clinical.markers["insulin_resistance"], 0.25);
+        assert_eq!(outcome.cured_pathologies, vec!["insulin_resistance réduit"]);
+        let absent =
+            apply_systemic_therapy_to_cell(&SystemicTherapy::LysosomalUraturicPurge, &mut cell);
+        assert!(absent.cured_pathologies.is_empty());
+        assert!(absent.message.contains("Aucune cible"));
+        cell.clinical
+            .markers
+            .insert("purine_production".into(), 2.0);
+        let invalid = apply_systemic_therapy_to_cell(
+            &SystemicTherapy::AllopurinolXanthineInhibitor,
+            &mut cell,
+        );
+        assert!(invalid.cured_pathologies.is_empty());
+        assert_eq!(cell.clinical.markers["purine_production"], 2.0);
+    }
     #[test]
     fn test_degenerative_stem_cell_cure() {
         let mut cell = AgentCell::new("Griot", "Mémoire", "Historian");
         cell.bud_scars = 50;
         cell.is_senescent = true;
-        cell.clinical.diagnose(Pathology::TelomereExhaustion { bud_scars: 50 });
+        cell.clinical
+            .diagnose(Pathology::TelomereExhaustion { bud_scars: 50 });
         cell.clinical.diagnose(Pathology::ReplicativeSenescence);
 
-        assert!(cell.clinical.has_disease_category(DiseaseCategory::Degenerative));
+        assert!(
+            cell.clinical
+                .has_disease_category(DiseaseCategory::Degenerative)
+        );
 
         // Cure par cellules souches
         apply_systemic_therapy_to_cell(&SystemicTherapy::StemCellReplacement, &mut cell);
