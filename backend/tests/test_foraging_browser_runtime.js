@@ -33,8 +33,12 @@ async function run() {
     assert.equal(departure.decision, 'PATCH_DEPARTURE');
     assert.equal(departure.action.verified, true);
     assert.equal(departure.observationAfter.currentUrl, `http://127.0.0.1:${port}/next`);
+    const expectedEvidence = ['new', 'patch', 'observed'];
+    const observed = new Set(departure.observationAfter.observationText.split(/\s+/));
+    const evidenceCoverage = expectedEvidence.filter((term) => observed.has(term)).length / expectedEvidence.length;
+    assert.equal(evidenceCoverage, 1, 'controlled task evidence must be present in the next observation');
     assert.ok(departure.receipt.evidenceRef.startsWith('sha256:'));
-    console.log('Browser observation, foveal crop, foraging decision, and next navigation passed.');
+    console.log(`Controlled foraging task: expected-term coverage ${evidenceCoverage.toFixed(2)} (${expectedEvidence.length} terms); browser observation, crop, decision, and navigation passed.`);
   } finally {
     defaultForaging.envMeanReturnRate = priorThreshold;
     adapter.allowedHosts.delete('127.0.0.1');

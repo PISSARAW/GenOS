@@ -58,11 +58,11 @@ function expandNode(leaf, hooks) {
   leaf.children = scored.map(({ c }) => makeNode(hooks.apply(leaf.state, c), leaf.plan.concat([c.action])));
 }
 
-function weightedPick(ranked) {
+function weightedPick(ranked, random) {
   const half = ranked.slice(0, Math.max(2, Math.ceil(ranked.length / 2)));
   const weights = half.map((_, idx) => 1 / (1 + idx));
   const total = weights.reduce((a, b) => a + b, 0);
-  let r = Math.random() * total;
+  let r = random() * total;
   for (let i = 0; i < half.length; i++) {
     r -= weights[i];
     if (r <= 0) return half[i];
@@ -82,7 +82,7 @@ function rolloutCounted(spec) {
     if (cands.length === 0) return { reward: -5, depth: i + 1 };
     const ranked = cands.map(c => ({ c, h: hooks.heuristic(hooks.apply(state, c)) }));
     ranked.sort((a, b) => a.h - b.h);
-    const pick = weightedPick(ranked);
+    const pick = weightedPick(ranked, spec.random);
     state = hooks.apply(state, pick.c);
     if (pick.h < best) best = pick.h;
     depth = i + 1;
@@ -125,6 +125,7 @@ function mctsPolicy(task, budgetLimit, maxDepth) {
   const budget = makeBudget(budgetLimit);
   const hooks = buildHooks(task);
   const root = makeNode(hooks.start(), []);
+  const random = seededTaskRandom(task.id);
   while (budget.used < budget.limit) {
     if (!consume(budget, 1)) break;
     const path = mctsSelect(root);
@@ -134,12 +135,21 @@ function mctsPolicy(task, budgetLimit, maxDepth) {
       break;
     }
     expandNode(leaf, hooks);
-    const { reward, depth } = rolloutCounted({ leaf, hooks, budget, maxDepth });
+    const { reward, depth } = rolloutCounted({ leaf, hooks, budget, maxDepth, random });
     backpropPath(path, reward, depth);
     if (hooks.isGoal(bestDescendant(root))) break;
   }
   const plan = extractBestPlan(root, hooks);
-  return { policy: 'mcts', plan, valid: hooks.verify(plan).valid, expansions: budget.used };
+  return { policy: 'mcts', seed: String(task.id), plan, valid: hooks.verify(plan).valid, expansions: budget.used };
+}
+
+function seededTaskRandom(taskId) {
+  let seed = 2166136261;
+  for (const char of String(taskId || 'planning-gap')) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
+  return () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
 }
 
 module.exports = { mctsPolicy, makeBudget, consume };

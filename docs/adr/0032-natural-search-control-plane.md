@@ -32,7 +32,7 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 | 5.5 | Natural Search Actuator | ✅ intégré | `backend/src/services/search/naturalSearchActuatorService.js` + `backend/src/services/search/naturalSearchActuatorPrimitives.js` |
 | 5.5 | SearchPersistence (SQLite) | ✅ intégré | `backend/src/services/search/searchPersistenceService.js` |
 | 5.5 | Runtime Integration via `checkNaturalSearchControl()` | ✅ intégré | `backend/src/services/agentProcessEventPipeline.js` |
-| 6 | SearchIntegration (CognitiveAffinity + NegativeSearchMemory + SearchCulture) | ✅ intégré | `backend/src/services/search/searchIntegrationService.js` |
+| 6–12 | Modules évolutifs, patch, replay, mémoire négative, population et culture | ✅ runtime et états sérialisables restaurés | `backend/src/services/search/actuatorModules.js`, `moduleStatePersistence.js` |
 
 ### Primitives consommées via `backend/src/services/search/naturalSearchActuatorPrimitives.js`
 
@@ -53,6 +53,7 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 | Composants isolés (LED, Controller, Actuator, Persistence en mémoire) | ✅ | `backend/tests/search/test_natural_search_runtime_e2e.js` |
 | `checkNaturalSearchControl()` avec DB SQLite | ✅ | `backend/tests/search/test_natural_search_e2e_pipeline.js` |
 | Full pipeline (checkNaturalSearchControl + persistence + negative memory + proactive) | ✅ | `backend/tests/search/test_natural_search_full_pipeline_e2e.js` |
+| Round-trip des sept états de module après fermeture/réouverture SQLite | ✅ | `backend/tests/search/test_natural_search_module_restore.js` |
 
 ### Fonctionnalités cross-cutting
 
@@ -69,7 +70,7 @@ Implémenter un **Natural Search Control Plane** en plusieurs phases au-dessus d
 - `STRESS_HYPERMUTATION` et `FORAGE` construisent encore des objets locaux (genome/patch) en plus des appels services.
 - `resolveProvenance` ignore `payload.provenance` / `payload.evidenceProvenance` : autorité runtime uniquement.
 - `STRESS_HYPERMUTATION` et `FORAGE` construisent encore des objets locaux (genome/patch) en plus des appels services.
-- Durabilité inter-redémarrage (rechargement Ledger depuis SQLite au boot) non démontrée : le runtime persiste à chaque step + flush, mais ne recharge pas l'état au démarrage.
+- Les états sérialisables des modules et le ledger sont rechargés depuis SQLite; ce contrat ne rejoue pas le journal complet des événements source et ne reconstitue pas un état externe d'espace de travail.
 
 ## Références
 

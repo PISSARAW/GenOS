@@ -31,6 +31,18 @@ function checkBudget(results) {
   }
 }
 
+function checkMctsRepeatability(tasks) {
+  for (const task of tasks) {
+    const first = Policies.mctsPolicy(task, BUDGET, 6);
+    const second = Policies.mctsPolicy(task, BUDGET, 6);
+    assert.deepEqual(
+      { seed: first.seed, plan: first.plan, valid: first.valid, expansions: first.expansions },
+      { seed: second.seed, plan: second.plan, valid: second.valid, expansions: second.expansions },
+      `${task.id} MCTS must be repeatable with its declared task seed`
+    );
+  }
+}
+
 function checkNoFakeSuccess(results, tasks) {
   for (let i = 0; i < results.length; i += 1) {
     const task = tasks[i];
@@ -105,6 +117,7 @@ function checkMyopiaExists(results) {
 function runPlanningGap() {
   const tasks = Domain.buildTasks();
   assert.ok(tasks.length >= 10, 'benchmark long-horizon >= 10 tâches');
+  checkMctsRepeatability(tasks);
   const sanity = Domain.verifyBlockworld(tasks[0], ['stack X on Y']);
   assert.equal(sanity.valid, false, 'verificateur doit rejeter plan illegal');
   const results = tasks.map((t) => runOne(t));

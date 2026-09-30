@@ -598,6 +598,10 @@ La commande reproductible est `npm --prefix backend run test:nce`. Elle enchaîn
   avant et après son intégration, et observe un score qui passe de 0 à 1 (Δ = 1). C'est
   une démonstration causale contrôlée avec un benchmark déterministe local; elle ne mesure
   pas une population d'agents ni une généralisation à d'autres tâches.
+- `test_cultural_transfer_scope.js` mesure aussi une compétence non ciblée : l'artefact
+  planning change le score planning de 0 à 1, tandis que la compétence analysis reste à 0.
+  La mesure soutient donc un effet limité à la capacité décrite par l'artefact; aucun
+  transfert général n'est démontré.
 - **POET** : le test suit mission → événement terminal → artifact → capture de snapshot →
   vérification → score d'environnement. Runtime, télémétrie, stockage et commande de
   vérification sont substitués; cela valide le câblage du flux, pas une mission réelle.

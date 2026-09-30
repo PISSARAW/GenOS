@@ -1,9 +1,9 @@
 # Natural Search Control Plane
 
-- **Statut au 2026-09-30** : Phases 1–5 : implémentation partielle et expérimentale. Les chemins d'exécution runtime des phases 6–12 sont raccordés, selon la matrice ci-dessous. La reprise des hypothèses, preuves et compteurs de pression est démontrée après fermeture/réouverture SQLite; la durabilité de l'état propre à chacun des sept modules reste incomplète.
+- **Statut au 2026-09-30** : Phases 1–12 raccordées au runtime; l'état des sept modules opérationnels est persisté dans `search_module_state` et restauré après réouverture SQLite. Un E2E vérifie génome, variants, patch, historique de replay, mémoire négative, population évolutionnaire et culture. Cela prouve le round-trip de ces états, pas une reprise d'exécution complète depuis tous les événements de l'agent.
 - **Portée** : `backend/src/services/search/*.js`, `backend/tests/search/test_*.js`, `docs/adr/0032-natural-search-control-plane.md`.
 - **Dernière revue** : 2026-09-30.
-- **Preuve de reprise** : `node backend/tests/search/test_natural_search_full_pipeline_e2e.js` exécute le pipeline contre une base SQLite fichier, la ferme et la rouvre, puis vérifie la restauration du ledger, d'une preuve et des compteurs de pression. Cela valide la reprise de ces données, pas celle de tous les états des modules 6–12.
+- **Preuve de reprise** : `npm --prefix backend run test:natural-search` exécute les E2E SQLite du pipeline et le test `test_natural_search_module_restore.js`, qui ferme/réouvre SQLite et vérifie l'état opérationnel des sept modules.
 
 ## État d'implémentation
 
@@ -17,7 +17,7 @@
 | Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` | ✅ dispatch des primitives runtime + `ActuatorModules` |
 | SearchReceipt | ✅ | `SearchReceipt.js` | ✅ |
 | Runtime Integration | ✅ | `agentProcessEventPipeline.js` | ✅ via `checkNaturalSearchControl()` |
-| Persistance SQLite | ⚠️ partielle | `searchPersistenceService.js` | Écritures ledger, pression, décisions et journaux; reprise opérationnelle limitée au ledger et aux compteurs de pression |
+| Persistance SQLite | ✅ états de modules restaurés | `searchPersistenceService.js`, `moduleStatePersistence.js` | Ledger, preuves, pression et état sérialisable des sept modules rechargés après redémarrage; rejouer les événements source reste hors de ce contrat |
 | E2E — composants isolés | ✅ | `test_natural_search_runtime_e2e.js` | ✅ |
 | E2E — pipeline `checkNaturalSearchControl()` | ✅ | `test_natural_search_e2e_pipeline.js` | ✅ appelle `checkNaturalSearchControl()` avec SQLite |
 | `test_search_evolution.js` | ✅ | `test_search_evolution.js` | ✅ EVOLUTION process + actuator cohérents |
@@ -26,13 +26,13 @@
 
 | Phase | Module | Point d'entrée runtime | Reprise après redémarrage |
 | --- | --- | --- | --- |
-| 6 | Search Genome — `searchGenomeService.js` | Actuator `STRESS_HYPERMUTATION` et `EVOLUTION`; instantanés écrits en SQLite | Instantanés écrits, génome courant/population non rechargés |
-| 7 | Cognitive Affinity — `cognitiveAffinityService.js` | Actuator `CLONAL_AFFINITY_SEARCH`: crée/classe les variants et propose le variant retenu au ledger | Les hypothèses résultantes sont restaurées; variants transitoires non restaurés |
-| 8 | Generalized Foraging — `searchPatchService.js` | Actuator `FORAGE`: crée/actualise un patch et décide du départ | Visites enregistrées; historique et état du patch non rechargés |
-| 9 | Causal Replay — `causalReplayService.js` | Actuator `REPLAY_CAUSAL`: rejoue les événements et écrit un journal | Journal écrit; checkpoints et historique causal non rechargés par Natural Search |
-| 10 | Negative Search Memory — `negativeSearchMemoryService.js` | Runtime: falsification/échec → `recordNegativeOutcome` | Mémoire en processus, non restaurée depuis SQLite |
-| 11 | Search Evolution — `searchEvolutionService.js` | Actuator `EVOLUTION`: fait évoluer la population et écrit un instantané | Instantané écrit, population évoluée non rechargée |
-| 12 | Cultural Transmission — `searchCultureService.js` | Après succès `EVOLUTION`/`CLONAL_AFFINITY_SEARCH`: compile et transmet un plasmide | Culture et transmissions non restaurées par ce chemin SQLite |
+| 6 | Search Genome — `searchGenomeService.js` | Actuator `STRESS_HYPERMUTATION` et `EVOLUTION`; instantanés + état courant écrits en SQLite | Génome courant rechargé; snapshots historiques restent des enregistrements |
+| 7 | Cognitive Affinity — `cognitiveAffinityService.js` | Actuator `CLONAL_AFFINITY_SEARCH`: crée/classe les variants et propose le variant retenu au ledger | Variants transitoires sérialisables restaurés |
+| 8 | Generalized Foraging — `searchPatchService.js` | Actuator `FORAGE`: crée/actualise un patch et décide du départ | Patch, historique et visites restaurés; métrique de rendement reste lexicale |
+| 9 | Causal Replay — `causalReplayService.js` | Actuator `REPLAY_CAUSAL`: rejoue les événements fournis, garde le point de reprise et les checkpoints en mémoire | Historique de replay sérialisable rechargé; les événements source et l'état externe ne sont pas reconstruits |
+| 10 | Negative Search Memory — `negativeSearchMemoryService.js` | Runtime: falsification/échec → `recordNegativeOutcome` | Trails, conditions et TTL restaurés; les trails expirés restent filtrés par leur durée |
+| 11 | Search Evolution — `searchEvolutionService.js` | Actuator `EVOLUTION`: fait évoluer la population et écrit un instantané | Population, génération et historique rechargés |
+| 12 | Cultural Transmission — `searchCultureService.js` | Après succès `EVOLUTION`/`CLONAL_AFFINITY_SEARCH`: compile et transmet un plasmide | Plasmides et transmissions restaurés dans le service d'Actuator |
 
 ## Architecture finale
 
@@ -96,12 +96,23 @@ checkNaturalSearchControl(ctx, event)
 - **`executeProcess` sans agentId** : `searchCtx.agentId` requis, sinon log + retour null.
 - **Path `../../db` vs `../db`** : le chemin relatif correct depuis `services/search/` vers `db/` est `../../db`.
 
+## Planning-gap (mesure du 2026-09-30)
+
+`npm --prefix backend run test:planning-gap` compare 12 tâches au même budget de
+120 expansions et vérifie chaque plan avec le validateur du domaine. Le MCTS est
+maintenant seedé par l'identifiant de tâche et le test contrôle sa répétabilité.
+Une exécution mesurée donne ReAct 8/12, ToT 10/12, MCTS 3/12 et GenOS 9/12.
+GenOS réussit notamment `bw-swap` et `bw-tower-5`, mais échoue `bw-conflict`,
+`bw-table-6` et `trap-far-key`; le planning gap face à ToT reste donc ouvert.
+Ces 12 tâches synthétiques valident le harness et ne mesurent pas des missions
+web ou des tâches de planification de production.
+
 ## Limitations connues
 
-- **Persistance SQLite** : `clearSearchState()` attend le flush avant de supprimer l'état mémoire. À l'initialisation, le runtime recharge les hypothèses, preuves et compteurs de pression. Le test décrit plus haut vérifie ces données après fermeture et réouverture du fichier SQLite. Les artefacts des phases 6–12 ne constituent pas encore une reprise complète: plusieurs sont journalisés sans réhydratation de leur état opérationnel.
+- **Persistance SQLite** : `clearSearchState()` attend le flush avant de supprimer l'état mémoire. Le runtime recharge hypothèses, preuves, compteurs et états sérialisables des phases 6–12 après réouverture. Il ne reconstitue pas encore l'exécution externe à partir du journal événementiel complet de l'agent.
 - **Provenance** : `resolveProvenance()` route selon le type d'événement (EVIDENCE_REPORT→VERIFIED, AGENT_STEP→SELF_REPORTED, TOOL→OBSERVED, autre→INFERRED). Les champs `payload.provenance` / `payload.evidenceProvenance` sont ignorés : l'autorité sur la provenance vient du runtime, pas du producteur de la claim.
 - **Création proactive** : après 5 étapes sans progrès, `proactiveHypothesis()` génère une hypothèse à partir du genome courant.
-- **Encapsulation** : les sept modules sont instanciés par `ActuatorModules`; `SearchIntegration` existe et est utilisé pour la mémoire négative. Le raccordement des chemins d'exécution ne garantit pas que chaque état est durable et restauré.
+- **Encapsulation** : les sept modules sont instanciés par `ActuatorModules`; `SearchIntegration` existe et est utilisé pour la mémoire négative. Le round-trip JSON ne garantit pas la validité à long terme de chaque format de module lors d'une future migration de schéma.
 
 ## Expérience décisive planning-gap (2026-09-23)
 

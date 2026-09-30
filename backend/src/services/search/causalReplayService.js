@@ -36,11 +36,29 @@ class CausalReplayService {
     return checkpoints;
   }
 
+  getHistory(agentId) {
+    return structuredClone(this.replayHistory.get(agentId) || []);
+  }
+
+  recordReplay(agentId, replay) {
+    const history = this.getHistory(agentId);
+    history.push({
+      failedHypothesisId: replay.failedHypothesis.id || null,
+      failedHypothesis: replay.failedHypothesis.statement,
+      restorePoint: `checkpoint_${replay.lastGoodCheckpoint.start}`,
+      checkpoint: replay.lastGoodCheckpoint,
+      checkpointCount: replay.checkpoints.length,
+      recordedAt: Date.now(),
+    });
+    this.replayHistory.set(agentId, history.slice(-50));
+  }
+
   async replay(agentId, failedHypothesis, events, ledger) {
     const checkpoints = this.createCheckpoints(events);
     const lastGoodCheckpoint = checkpoints.length > 1
       ? checkpoints[checkpoints.length - 2]
       : checkpoints[0];
+    this.recordReplay(agentId, { failedHypothesis, lastGoodCheckpoint, checkpoints });
 
     emit(agentId, 'CAUSAL_REPLAY_INITIATED', 'REPLAY',
       `Replay from checkpoint ${lastGoodCheckpoint.start}`, {
