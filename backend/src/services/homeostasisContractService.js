@@ -41,6 +41,10 @@ const VERIFIER_CATALOG = Object.freeze({
   'mission.outcome_success': {
     description: 'Mission outcome reported success (context.missionOutcome === true)',
     build: () => (ctx) => Boolean(ctx && ctx.missionOutcome === true)
+  },
+  'mission.functional_check': {
+    description: 'Named mission functional check is true',
+    build: (spec) => (ctx) => Boolean(ctx?.functionalChecks?.[spec.name] === true)
   }
 });
 

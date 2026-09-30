@@ -3,12 +3,14 @@
 const crypto = require('crypto');
 const {
   buildHomeostasisContract, evaluateContract, homeostasisStatus,
-  serializeContract, HOMEOSTASIS_SCHEMA
+  serializeContract, deserializeContract, HOMEOSTASIS_SCHEMA
 } = require('./homeostasisContractService');
+const { migrateHomeostasisAuthority } = require('../db/migrations/migrateHomeostasisAuthority');
 const { newOrganism, expressPhenotype } = require('./missionOrganismService');
 const telemetry = require('./telemetryObserver');
 
 const HOMEOSTASIS_EVENT_PREFIX = 'HOMEOSTASIS';
+const migratedDatabases = new WeakSet();
 
 function homeostasisId(missionId) {
   return `homeostasis_${missionId || crypto.randomUUID()}`;
@@ -22,37 +24,39 @@ function buildDefaultFunctionalInvariants(mission) {
   const invariants = [];
   const goal = (mission?.objective || '').toLowerCase();
   invariants.push({
+    id: 'mission_outcome_success',
     kind: 'functional',
     label: 'mission_outcome_success',
-    check: (ctx) => ctx?.missionOutcome === true
+    verifier: { type: 'mission.outcome_success' }
   });
   if (goal.includes('auth') || goal.includes('authentifi')) {
     invariants.push({
+      id: 'authentication_works',
       kind: 'functional',
       label: 'authentication_works',
-      check: (ctx) => ctx?.functionalChecks?.authentication === true
+      verifier: { type: 'mission.functional_check', name: 'authentication' }
     });
     invariants.push({
+      id: 'invalid_credentials_rejected',
       kind: 'functional',
       label: 'invalid_credentials_rejected',
-      check: (ctx) => ctx?.functionalChecks?.invalidRejected === true
+      verifier: { type: 'mission.functional_check', name: 'invalidRejected' }
     });
   }
   if (goal.includes('safe') || goal.includes('debug')) {
     invariants.push({
+      id: 'no_forbidden_files_changed',
       kind: 'structural',
       label: 'no_forbidden_files_changed',
-      check: (ctx) => {
-        const changed = ctx?.structuralChecks?.forbiddenFilesChanged || [];
-        return changed.length === 0;
-      }
+      verifier: { type: 'context.list_empty', path: 'structuralChecks.forbiddenFilesChanged' }
     });
   }
   if (goal.includes('test') || goal.includes('valid')) {
     invariants.push({
+      id: 'tests_pass',
       kind: 'structural',
       label: 'tests_pass',
-      check: (ctx) => ctx?.structuralChecks?.testsPassed === true
+      verifier: { type: 'context.path_equals', path: 'structuralChecks.testsPassed', expected: true }
     });
   }
   return invariants;
@@ -75,7 +79,8 @@ function contractInvariants(mission) {
   // heuristics below are a development fallback only, never the contract.
   const contract = mission.completionContract;
   if (contract && Array.isArray(contract.invariants) && contract.invariants.length > 0) {
-    return contract.invariants.map((invariant) => ({
+    return contract.invariants.map((invariant, index) => ({
+      id: invariant.id || invariant.label || `completion_invariant_${index + 1}`,
       kind: invariant.kind,
       label: invariant.label || invariant.id,
       verifier: invariant.verifier,
@@ -115,6 +120,40 @@ function attachHomeostasisToOrganism(organism, mission) {
   };
 }
 
+function contractHash(contract) {
+  const content = serializeContract(contract);
+  delete content.assembledAt;
+  return crypto.createHash('sha256').update(JSON.stringify(content)).digest('hex');
+}
+
+async function persistContractAuthority(db, mission, proposedContract) {
+  if (!migratedDatabases.has(db)) {
+    await migrateHomeostasisAuthority(db);
+    migratedDatabases.add(db);
+  }
+  const contract = serializeContract(proposedContract);
+  const hash = contractHash(proposedContract);
+  let row = await db.get(
+    'SELECT contract_json FROM homeostasis_contract_revisions WHERE mission_id = ? AND contract_hash = ?',
+    [mission.id, hash]
+  );
+  if (!row) {
+    const latest = await db.get(
+      'SELECT MAX(revision) AS revision FROM homeostasis_contract_revisions WHERE mission_id = ?',
+      [mission.id]
+    );
+    const revision = Number(latest?.revision || 0) + 1;
+    await db.run(
+      `INSERT INTO homeostasis_contract_revisions
+       (id, mission_id, revision, contract_hash, contract_json)
+       VALUES (?, ?, ?, ?, ?)`,
+      [`${mission.id}:${revision}`, mission.id, revision, hash, JSON.stringify(contract)]
+    );
+    row = { contract_json: JSON.stringify(contract) };
+  }
+  return deserializeContract(JSON.parse(row.contract_json));
+}
+
 function lastHomeostasisState(db, missionId) {
   return db.get(
     `SELECT * FROM homeostasis_states WHERE mission_id = ? ORDER BY observed_at DESC LIMIT 1`,
@@ -124,7 +163,8 @@ function lastHomeostasisState(db, missionId) {
 
 async function evaluateMissionHomeostasis(db, target) {
   const { organism, mission, context = {} } = target;
-  const contract = organism.homeostasis || buildMissionHomeostasis(mission);
+  const proposedContract = organism.homeostasis || buildMissionHomeostasis(mission);
+  const contract = await persistContractAuthority(db, mission, proposedContract);
   const state = evaluateContract(contract, context);
   const status = homeostasisStatus(state);
   const previous = await lastHomeostasisState(db, mission.id);
