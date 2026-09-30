@@ -383,7 +383,6 @@ function buildMorphogenesisPlan(ctx) {
   }
   return plan;
 }
-
 function validatePlan(ctx) {
   const plan = ctx.plan;
   const errors = [];
@@ -393,8 +392,6 @@ function validatePlan(ctx) {
   return { valid: errors.length === 0, errors };
 }
 
-function estimateCost(plan) {
-  return plan.expectedCost || { tokens: 0, latency: 0, risk: 0 };
-}
+function estimateCost(plan) { return plan.expectedCost || { tokens: 0, latency: 0, risk: 0 }; }
 
 module.exports = { planMorphogenesis, validatePlan, estimateCost, generateRollbackPlan, phenotypeFitnessForTopology, diffTopology, classifyAgents, planSpawns, computeBudgetReallocation, buildTransitionSequence, planGenotypeActions, planEpigeneticChanges, planPlasmidActions, annotatePlanWithSubstrates, computeMorphologyUtility, selectTopology, candidateFor, contractForTopology };

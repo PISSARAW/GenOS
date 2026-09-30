@@ -32,13 +32,14 @@ async function run() {
     ]);
     assert.equal(wakeResults.filter((result) => result.success).length, 1, 'only one concurrent wake may claim the snapshot');
     const woken = wakeResults.find((result) => result.success);
+    const resumedDb = db;
     assert.equal(woken.success, true);
     assert.equal(woken.state.state, 'recovered');
-    const snapshot = await db.get('SELECT status FROM cryptobiosis_snapshots WHERE snapshot_id = ?', suspended.snapshot.snapshotId);
+    const snapshot = await resumedDb.get('SELECT status FROM cryptobiosis_snapshots WHERE snapshot_id = ?', suspended.snapshot.snapshotId);
     assert.equal(snapshot.status, 'thawed');
-    const wake = await db.get('SELECT status FROM survival_wake_conditions WHERE id = ?', suspended.wakeCondition.id);
+    const wake = await resumedDb.get('SELECT status FROM survival_wake_conditions WHERE id = ?', suspended.wakeCondition.id);
     assert.equal(wake.status, 'triggered');
-    console.log('Survival dormancy snapshot and validated wake passed.');
+    console.log('Survival dormancy mismatch, restart persistence and validated wake passed.');
   } finally {
     await closeDatabase();
     for (const suffix of ['', '-shm', '-wal']) if (fs.existsSync(dbPath + suffix)) fs.unlinkSync(dbPath + suffix);
