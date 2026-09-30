@@ -91,6 +91,8 @@ Ces observations proviennent du code présent dans `backend/src/services/{nceEng
 
 **Sortie / gate** : résultats reproductibles avec données/protocole versionnés et revue indépendante. Avant cette gate, parler de « prototype d'ablation » uniquement.
 
+**État après exécution du plan (2026-09-30)** : le harness marque ses sorties `simulation-prototype`, expose l'absence de validité scientifique et ses limites; un test vérifie la répétabilité de la simulation pour débogage. Aucun benchmark réel, calcul de puissance ou campagne factorielle n'est livré. Cette partie demeure un prototype tant qu'un jeu de tâches et un protocole expérimental ne sont pas enregistrés.
+
 ## Ordre de livraison et dépendances
 
 ```text

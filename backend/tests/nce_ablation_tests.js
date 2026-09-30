@@ -84,7 +84,7 @@ async function testAblationMatrix() {
 
 async function main() {
   console.log('=== TESTS D\'ABLATION NCE (PROTOTYPE) ===');
-  console.log('⚠️  Ce fichier est un prototype, pas un test scientifique.\n');
+  console.log('⚠️  simulation-prototype; valeurs synthétiques, pas de benchmark GenOS réel.\n');
   await testBaseline();
   await testCuriosityOnly();
   await testFullNCE();
