@@ -118,14 +118,23 @@ impl TrajectoryReplay {
 
     /// Replays a full trajectory from an ancestor through a sequence of events.
     pub fn replay_trajectory(ancestor: &Genome, events: &[EvolutionEvent]) -> ReplayResult {
+        Self::replay_trajectory_seeded(ancestor, events, 42)
+    }
+
+    /// Replays a trajectory with one explicit seed shared across its events.
+    pub fn replay_trajectory_seeded(
+        ancestor: &Genome,
+        events: &[EvolutionEvent],
+        seed: u64,
+    ) -> ReplayResult {
         let experiment = FitnessExperiment::new();
         let original_hash = ancestor.content_hash();
         let mut genomes = vec![ancestor.clone()];
         let mut fitness_trajectory = vec![experiment.evaluate(ancestor, "replay").score];
-
         let mut current = ancestor.clone();
+        let mut rng = StdRng::seed_from_u64(seed);
         for event in events {
-            current = Self::apply_event(&current, event);
+            current = Self::apply_event_with_rng(&current, event, &mut rng);
             fitness_trajectory.push(experiment.evaluate(&current, "replay").score);
             genomes.push(current.clone());
         }

@@ -35,6 +35,7 @@ pub mod membrane_chemistry;
 pub mod metabolism;
 pub mod mission_receipt;
 pub mod mission_division;
+pub mod mission_lineage;
 pub mod neuro;
 pub mod observer;
 pub mod orchestrator;
