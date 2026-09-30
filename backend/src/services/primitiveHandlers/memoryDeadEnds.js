@@ -46,13 +46,18 @@ async function avoidKnownDeadEnds(context = {}) {
   const queryVec = await resolveQueryVector(query);
   const candidates = await fetchFailureCandidates(db, context);
   const ranked = scoreCandidates(queryVec, candidates, formatAvoidHit);
-  const assessment = { limit: limit, threshold: threshold, agentId: context.agentId || 'strategy_adapter' };
+  const assessment = {
+    limit: limit,
+    threshold: threshold,
+    action: context.action || context.candidate || null,
+    agentId: context.agentId || 'strategy_adapter'
+  };
   return buildAvoidVerdict(ranked, assessment);
 }
 
 async function storeDeadEnd(db, deadEnd, options) {
   const identity = resolveDeadEndIdentity(deadEnd, options);
-  const deadEndId = deadEndDedupHash(identity.agent, identity.detail, identity.step);
+  const deadEndId = deadEndDedupHash(identity);
   const vec = await resolveQueryVector(String(identity.detail));
   const buffer = Buffer.from(new Float32Array(vec).buffer);
   await db.run(

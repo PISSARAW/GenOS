@@ -99,7 +99,23 @@ function formatSearchHit(item, similarity) {
 }
 
 function formatAvoidHit(item, similarity) {
-  return { id: item.id, title: item.title, content: String(item.content || '').slice(0, 300), similarity: Number(similarity.toFixed(4)), createdAt: item.created_at };
+  return {
+    id: item.id,
+    title: item.title,
+    content: String(item.content || '').slice(0, 300),
+    action: extractFailureAction(item.content),
+    similarity: Number(similarity.toFixed(4)),
+    createdAt: item.created_at
+  };
+}
+
+function extractFailureAction(content) {
+  try {
+    const parsed = JSON.parse(String(content || ''));
+    return typeof parsed.action === 'string' ? parsed.action : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function stripBlobs(rows) {
@@ -122,11 +138,28 @@ function emitAvoidTelemetry(assessment, verdict) {
   });
 }
 
+function findExactActionMatch(ranked, action) {
+  const matches = ranked.filter((item) => item.action === action);
+  return matches[0] || null;
+}
+
+function selectBestMatch(ranked, assessment) {
+  const exactActionMatch = findExactActionMatch(ranked, assessment.action);
+  const bestMatch = exactActionMatch || ranked[0] || null;
+  return { exactActionMatch, bestMatch };
+}
+
+function scoreAvoidMatch(match, exactActionMatch, threshold) {
+  if (!match) return 0;
+  if (exactActionMatch) return Math.max(match.similarity, threshold);
+  return match.similarity;
+}
+
 function buildAvoidVerdict(ranked, assessment) {
   const matchingFailures = ranked.slice(0, assessment.limit);
-  const bestMatch = matchingFailures[0] || null;
-  const bestScore = bestMatch ? bestMatch.similarity : 0;
-  const isDeadEndRisk = bestScore >= assessment.threshold;
+  const { exactActionMatch, bestMatch } = selectBestMatch(ranked, assessment);
+  const bestScore = scoreAvoidMatch(bestMatch, exactActionMatch, assessment.threshold);
+  const isDeadEndRisk = Boolean(exactActionMatch) || bestScore >= assessment.threshold;
   let warning = null;
   if (isDeadEndRisk) {
     warning = 'Action or task closely resembles known dead end (' + (bestScore * 100).toFixed(1) + '% match): "' + (bestMatch.title || bestMatch.content) + '". Recommended avoidance.';
