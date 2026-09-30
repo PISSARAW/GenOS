@@ -50,7 +50,7 @@ impl GenosEcosystem {
         let amount = event_signal_amount(event_type, payload);
         let potential_before = self.neuro.current_potential();
         self.neuro
-            .receive(&source_event_id.to_string(), transmitter, amount);
+            .receive(&source_event_id.to_string(), transmitter.clone(), amount);
         let fired = self.neuro.fire().is_some();
         self.neuro.apply_plasticity();
         let potential_after = self.neuro.current_potential();
