@@ -172,7 +172,7 @@ async function selectExplicit(db, assignment, scope) {
 
 async function genomeAllowed(db, id, scope) {
   const row = await db.get('SELECT status, organization_id, project_id FROM agent_genomes WHERE id = ? OR name = ? LIMIT 1', id, id);
-  if (!row || row.status === 'rejected') return false;
+  if (!row || row.status !== 'active') return false;
   const ids = scope || {};
   if (!ids.organizationId || !ids.projectId) return !row.organization_id && !row.project_id;
   return (!row.organization_id && !row.project_id) || (row.organization_id === ids.organizationId && row.project_id === ids.projectId);
@@ -182,6 +182,7 @@ async function selectGenome(db, assignment, scope) {
   if (!assignment) return null;
   const explicit = await selectExplicit(db, assignment, scope);
   if (explicit) return explicit;
+  if (assignment.genomeRef || assignment.preferredName) return null;
   if (!dnaEnabled()) return null;
   await ensureImported(db);
   const id = await bestMatch(db, assignment, scope);
@@ -196,7 +197,7 @@ async function workerGenesForAssignment(db, assignment, scope) {
   const ids = scope || {};
   const innovation = await findPromotion(db, selection.id);
   const selectionId = crypto.randomUUID();
-  await recordSelection(db, selectionId, assignment, selection, innovation, ids);
+  await recordSelection(db, { selectionId, assignment, selection, innovation, scope: ids });
   return {
     genomeRef: selection.id,
     selectionId,
@@ -213,7 +214,8 @@ async function findPromotion(db, genomeRef) {
   }
 }
 
-async function recordSelection(db, selectionId, assignment, selection, innovation, ids) {
+async function recordSelection(db, record) {
+  const { selectionId, assignment, selection, innovation, scope } = record;
   try {
     await db.run(
       'INSERT INTO agent_genome_selections (id, agent_id, genome_ref, innovation_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?)',
@@ -221,8 +223,8 @@ async function recordSelection(db, selectionId, assignment, selection, innovatio
       assignment.agentId || null,
       selection.id,
       innovation && innovation.id,
-      ids.organizationId || null,
-      ids.projectId || null
+      scope.organizationId || null,
+      scope.projectId || null
     );
   } catch (_) {
     // Best effort: selection trace must never block worker recruitment.
