@@ -208,6 +208,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0183b](0183-regeneration-axolotl-bornee.md) | Régénération Axolotl ciblée et fondée sur des preuves | Voir le fichier | -- | -- |
 | [0184](0184-persistance-moteur-creativite.md) | Persistance du moteur de créativité | Accepté | 2026-09-30 | Créativité, runtime Rust, persistance |
 | [0185](0185-navigation-web-et-vision-foveale.md) | Navigation web et vision fovéale par session explicite | Accepté — intégration expérimentale. | 2026-09-30. | Backend, navigation, perception, preuves. |
+| [0186](0186-signaux-sensoriels-animaux-synthetiques.md) | Signaux sensoriels animaux typés comme synthétiques | Accepté | 2026-09-30 | Perception, capteurs, provenance |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
