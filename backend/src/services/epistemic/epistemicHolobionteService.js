@@ -40,6 +40,7 @@ const { regulatoryReview } = require('./epistemicInflammationAndRegulation');
 const { computePressure, tierFromPressure } = require('./epistemicHomeostasisService');
 const { dissonanceFrom, niveauCorpsent } = require('./epistemicApoptosisService');
 const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
+const { verifyAcrossProviders } = require('./crossProviderVerificationService');
 const { expandClone, selectWinningClones } = require('./clonalExpansionService');
 const { matureStrategy } = require('./affinityMaturationService');
 const { depositPheromone } = require('./stigmergyInterProcessBridge');
@@ -156,8 +157,8 @@ async function runClonalSelectionCycle(parent, antigen, ctx) {
 
 async function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
-  const blocked = isImmuneDecisionBlocked(pipeline);
-  const blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
+  let blocked = isImmuneDecisionBlocked(pipeline);
+  let blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
 
   const verifiers = pipeline.decision?.assignedVerifiers?.map((v) => ({
     type: v.verifier,
@@ -165,6 +166,8 @@ async function immuneSymbiontReview(antigen, context = {}) {
     affinity: v.affinity || 0.5,
   })) || [];
   const verifierResults = await executeVerifierWorkers(antigen, verifiers, context);
+  const crossProvider = await crossProviderReview(antigen, context);
+  ({ blocked, blockReason } = applyCrossProviderRequirement({ context, result: crossProvider, blocked, blockReason }));
 
   const bestVerifier = selectBestVerifier(verifiers);
   const clonal = bestVerifier
@@ -188,11 +191,30 @@ async function immuneSymbiontReview(antigen, context = {}) {
     pipeline,
     decision: pipeline.decision?.innate?.decision?.action || pipeline.decision?.decision || 'unknown',
     verifierResults,
+    crossProvider,
     clones: clonal.clones,
     clonalSelection: clonal.selection,
     affinityMaturation: clonal.maturation,
     oracleResolved: clonal.oracleResolved,
   };
+}
+
+async function crossProviderReview(antigen, context) {
+  if (!context.crossProviderRequired) return null;
+  return verifyAcrossProviders({
+    providers: context.crossProviderModels,
+    minimumProviders: context.minimumCrossProviders,
+    claim: antigen.claim,
+    evidence: antigen.epitopes?.evidence,
+    runProvider: context.runCrossProviderVerifier,
+  });
+}
+
+function applyCrossProviderRequirement(input) {
+  if (!input.context.crossProviderRequired || input.result?.independent) {
+    return { blocked: input.blocked, blockReason: input.blockReason };
+  }
+  return { blocked: true, blockReason: 'required independent multi-provider verification unavailable' };
 }
 
 function isImmuneDecisionBlocked(pipeline) {
