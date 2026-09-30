@@ -47,18 +47,14 @@ async function flushSearchState(agentId) {
 
 async function persistHypotheses(persistence, hypotheses) {
   for (const h of hypotheses) {
-    try { await persistence.saveHypothesis(h); } catch (_) {}
+    await persistence.saveHypothesis(h);
   }
 }
 
 async function persistProofs(persistence, ledger, hypotheses) {
   for (const h of hypotheses) {
-    try {
-      const proofs = ledger.proofsByIds(h.proofIds);
-      for (const p of proofs) {
-        try { await persistence.saveProof(p); } catch (_) {}
-      }
-    } catch (_) {}
+    const proofs = ledger.proofsByIds(h.proofIds);
+    for (const p of proofs) await persistence.saveProof(p);
   }
 }
 
@@ -87,15 +83,43 @@ async function getOrCreateSearchState(agentId, ctxDb = null) {
     });
     const causalProgress = new CausalProgressService();
     const integration = new SearchIntegration();
-    agentSearchState.set(agentId, {
+    const searchState = {
       agentId, ledger, controller, actuator, causalProgress, persistence, integration,
       stepCount: 0, lastProgressStep: 0
-    });
+    };
+    agentSearchState.set(agentId, searchState);
     if (db) {
-      await persistence.initTables().catch(() => {});
+      await persistence.initTables();
+      await restoreSearchState(agentId, searchState);
     }
   }
   return agentSearchState.get(agentId);
+}
+
+async function restoreSearchState(agentId, state) {
+  const [rows, proofs, pressure] = await Promise.all([
+    state.persistence.loadHypothesesForAgent(agentId),
+    state.persistence.loadProofsForAgent(agentId),
+    state.persistence.loadPressureState(agentId)
+  ]);
+  state.ledger.load({
+    hypotheses: rows.map((row) => ({
+      ...row, agentId: row.agent_id, parentHypothesisId: row.parent_hypothesis_id,
+      branchId: row.branch_id, falsificationCondition: row.falsification_condition,
+      createdAt: row.created_at, lastTestedAt: row.last_tested_at,
+      lastProgressAt: row.last_progress_at, proofIds: []
+    })),
+    proofs: proofs.map((row) => ({
+      ...row, hypothesisId: row.hypothesis_id, evidenceRef: row.evidence_ref,
+      receiptRef: row.receipt_ref, sourceAgent: row.source_agent,
+      sourceTool: row.source_tool, createdAt: row.created_at,
+      independent: row.independent === 1
+    }))
+  });
+  if (pressure) {
+    state.stepCount = pressure.step_count || 0;
+    state.lastProgressStep = pressure.last_progress_step || 0;
+  }
 }
 
 async function clearSearchState(agentId) {
@@ -270,7 +294,8 @@ async function persistSearchState(agentId, searchState, selection) {
   try {
     const hypotheses = ledger.hypothesesForAgent(agentId);
     for (const h of hypotheses) {
-      try { await persistence.saveHypothesis(h); } catch (_) {}
+      await persistence.saveHypothesis(h);
+      for (const proof of ledger.proofsByIds(h.proofIds)) await persistence.saveProof(proof);
     }
     await persistence.saveDecision(agentId, {
       process: selection.process, classification: selection.classification,
@@ -360,11 +385,6 @@ module.exports = {
 };
 
 async function initializeNaturalSearchRuntime(db) {
-  cachedDb = db;
-  const dbModule = require('../../db');
-  try {
-    if (dbModule.getDatabase && typeof dbModule.getDatabase === 'function') {
-      cachedDb = await dbModule.getDatabase();
-    }
-  } catch (_) {}
+  if (db) cachedDb = db;
+  else cachedDb = await ensureDb();
 }

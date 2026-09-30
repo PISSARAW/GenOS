@@ -186,6 +186,12 @@ class SearchPersistence {
     return this.db.all('SELECT * FROM search_hypotheses WHERE agent_id = ? ORDER BY created_at', agentId);
   }
 
+  async loadProofsForAgent(agentId) {
+    return this.db.all(`SELECT p.* FROM search_proofs p
+      JOIN search_hypotheses h ON h.id = p.hypothesis_id
+      WHERE h.agent_id = ? ORDER BY p.created_at`, agentId);
+  }
+
   async loadProofsForHypothesis(hypothesisId) {
     return this.db.all('SELECT * FROM search_proofs WHERE hypothesis_id = ? ORDER BY created_at', hypothesisId);
   }

@@ -9,9 +9,13 @@
  */
 
 const assert = require('node:assert/strict');
+const os = require('node:os');
+const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
-const { checkNaturalSearchControl, initializeNaturalSearchRuntime } = require('../../src/services/search/naturalSearchRuntime');
+const { checkNaturalSearchControl, initializeNaturalSearchRuntime, getOrCreateSearchState, clearSearchState } = require('../../src/services/search/naturalSearchRuntime');
 const { SearchPersistence } = require('../../src/services/search/searchPersistenceService');
 const { PROVENANCE } = require('../../src/services/search/hypothesisLedgerService');
 const { SEARCH_PROCESS } = require('../../src/services/search/naturalSearchController');
@@ -19,7 +23,8 @@ const { SEARCH_PROCESS } = require('../../src/services/search/naturalSearchContr
 async function runFullPipelineE2E() {
   console.log('=== Natural Search E2E Test (Point 8 — full pipeline) ===\n');
 
-  const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  const dbPath = path.join(os.tmpdir(), `genos-natural-search-${crypto.randomUUID()}.db`);
+  let db = await open({ filename: dbPath, driver: sqlite3.Database });
 
   await db.exec(`
     CREATE TABLE agents (
@@ -134,7 +139,25 @@ async function runFullPipelineE2E() {
   console.log(`[4] Decisions after failure: ${decisionsAfterFailure.length}`);
   assert.ok(decisionsAfterFailure.length >= 4, 'Failure recorded');
 
+  const liveState = await getOrCreateSearchState(agentId, db);
+  liveState.ledger.addEvidence(hyp.id, {
+    id: 'restart-proof', direction: 'for', strength: 0.9,
+    provenance: 'verified', reliability: 1, evidenceRef: 'e2e:restart'
+  });
+  await clearSearchState(agentId);
   await db.close();
+  db = await open({ filename: dbPath, driver: sqlite3.Database });
+  await initializeNaturalSearchRuntime(db);
+  const restoredState = await getOrCreateSearchState(agentId, db);
+  assert.equal(restoredState.ledger.hypotheses.get(hyp.id)?.statement, hyp.statement,
+    'Hypothesis restored after runtime state recreation');
+  assert.ok(restoredState.ledger.proofs.has('restart-proof'),
+    'Proof restored after runtime state recreation');
+  assert.ok(restoredState.stepCount > 0, 'Pressure counters restored after runtime state recreation');
+  console.log('[5] SQLite reopen: hypothesis, proof, and pressure counters restored');
+
+  await db.close();
+  fs.rmSync(dbPath, { force: true });
   console.log('\n=== E2E Test Point 8 (full pipeline) PASSED ===');
 }
 

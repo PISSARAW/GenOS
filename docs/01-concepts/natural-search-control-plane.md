@@ -1,6 +1,6 @@
 # Natural Search Control Plane
 
-- **Statut** : Phases 1–5 : implémentation partielle avec intégration runtime expérimentale. Phases 6–12 : composants prototypes présents, intégration complète aux primitives runtime non démontrée. Persistance SQLite : service implémenté et branché au cycle runtime (save + flush), durabilité inter-redémarrage non démontrée.
+- **Statut** : Phases 1–5 : implémentation partielle avec intégration runtime expérimentale. Phases 6–12 : modules connectés aux primitives de l'actuateur et au traitement runtime (voir matrice ci-dessous). La reprise SQLite du ledger (hypothèses, preuves) et des compteurs de pression est vérifiée après fermeture puis réouverture d'une base fichier; la durabilité de tous les états des modules 6–12 n'est pas encore démontrée.
 - **Portée** : `backend/src/services/search/*.js`, `backend/tests/search/test_*.js`, `docs/adr/0032-natural-search-control-plane.md`.
 - **Dernière revue** : 2026-09-23.
 - **Jeu de tests** : `npm --prefix backend run test:natural-search` lance `test_natural_search_controller.js` (Controller + hystérésis), `test_natural_search_runtime_e2e.js`, `test_natural_search_e2e_pipeline.js` (pipeline réel `checkNaturalSearchControl()` avec DB SQLite) et `test_natural_search_full_pipeline_e2e.js`. Le `run_validation_suite.js profile=smoke` exécute les 5 suites Natural Search.
@@ -93,7 +93,7 @@ checkNaturalSearchControl(ctx, event)
 
 ## Limitations connues
 
-- **Persistence SQLite** : flush garanti via `clearSearchState()` → `flushSearchState()`.
+- **Persistance SQLite** : `clearSearchState()` vide après flush; le runtime recharge hypothèses, preuves et compteurs de pression lors de la recréation de l'état. Le test pipeline ferme puis rouvre une base fichier avant de vérifier la restauration. Les états internes des services culturels/négatifs, des patches, du génome/population et des checkpoints de replay ne sont pas tous restaurés depuis SQLite.
 - **Provenance** : `resolveProvenance()` route selon le type d'événement (EVIDENCE_REPORT→VERIFIED, AGENT_STEP→SELF_REPORTED, TOOL→OBSERVED, autre→INFERRED). Les champs `payload.provenance` / `payload.evidenceProvenance` sont ignorés : l'autorité sur la provenance vient du runtime, pas du producteur de la claim.
 - **Création proactive** : après 5 étapes sans progrès, `proactiveHypothesis()` génère une hypothèse à partir du genome courant.
 - **Encapsulation** : les 7 modules isolés (SearchGenome, CognitiveAffinity, SearchPatch, CausalReplay, NegativeSearchMemory, SearchEvolution, SearchCulture) sont directement instanciés par `ActuatorModules` dans l'Actuator, pas via `SearchIntegration` (service non existant dans ce commit).
