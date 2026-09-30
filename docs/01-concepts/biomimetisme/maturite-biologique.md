@@ -1,7 +1,7 @@
 # Maturité des capacités biologiques
 
 - **Statut** : Référence — grille d'évaluation, pas revendication.
-- **Dernière revue** : 2026-09-28.
+- **Dernière revue** : 2026-09-30.
 - **Règle** : un statut exige le chemin de code et le test cités. Sans les
   deux, le statut est « proposition ».
 
@@ -15,7 +15,7 @@
 - **validée** : résultat mesuré par un test bout en bout ou un benchmark
   reproductible (commande, seed, artefacts conservés).
 
-## 2. Matrice actuelle (revue 2026-09-28)
+## 2. Matrice actuelle (revue 2026-09-30)
 
 | Concept | Statut retenu | Preuve | Ce qui manque pour le niveau suivant |
 | --- | --- | --- | --- |
@@ -23,7 +23,7 @@
 | Génome, mutations, crossover | primitive | `crates/genos-genome`, tests crate | replay de lignée via runtime |
 | Épigénétique | documentée → primitive partielle | `epigenome.rs`, tests crate | lien prouvé avec expression réelle des capacités |
 | Métabolisme `MetabolicPool` | primitive | `autopoiesis.rs`, tick cellulaire | registre commun + enforcement aux points d'exécution |
-| Homéostasie | documentée | seuils dispersés, pas de registre commun | états, seuils configurables, transitions persistées |
+| Homéostasie | primitive → intégrée partielle | `homeostasisService.js` évalue les contrats de mission et écrit les états dans `homeostasis_states`; `migrateHomeostasisStates.js` conserve maintenant l'historique aux redémarrages/migrations | registre commun avec le métabolisme; seuils configurables au-delà de `minimumFunctionalCoverage`; persistance/versionnement du contrat et reçu de transition relié à la mission |
 | Neurobiologie, glie, quorum | primitive | modules biology + tests | lien aux événements réels de mission |
 | Instinct PAF | primitive | `instinct/tests.rs` | chemin stimulus → PAF → action permise → reçu |
 | Sens VNO, électro, Cluster N, tectum, écho | primitive | modules `sensory/*`, tests locaux | adaptateurs concrets ou typage « signal synthétique » |

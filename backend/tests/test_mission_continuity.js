@@ -23,6 +23,7 @@ const vitalSignals = require('../src/services/vitalSignalsService');
 const immuneMemory = require('../src/services/immuneMemoryService');
 const missionOrganism = require('../src/services/missionOrganismService');
 const missionContinuity = require('../src/services/missionContinuityService');
+const { migrateHomeostasisStates } = require('../src/db/migrations/migrateHomeostasisStates');
 
 const TESTS = [];
 function test(name, fn) {
@@ -111,6 +112,17 @@ test('homeostasis history accepts repeated evaluations', async () => {
   const rows = await db.all("SELECT id FROM homeostasis_states WHERE mission_id = 'hist_1'");
   assert.strictEqual(rows.length, 10, 'each evaluation must persist its own row');
   assert.strictEqual(new Set(rows.map((r) => r.id)).size, 10, 'all state ids must be unique');
+});
+
+test('homeostasis migration preserves persisted transitions when rerun', async () => {
+  await db.run(
+    `INSERT INTO homeostasis_states (id, contract_id, mission_id, status, state_json)
+     VALUES (?, ?, ?, ?, ?)`,
+    ['migration_preserve_1', 'contract_1', 'migration_preserve', 'unstable', '{}']
+  );
+  await migrateHomeostasisStates(db);
+  const retained = await db.get('SELECT id FROM homeostasis_states WHERE id = ?', 'migration_preserve_1');
+  assert.ok(retained, 'rerunning an idempotent migration must not erase transition history');
 });
 
 // 5. Contract roundtrip: persisted contract is replayable after restart.
