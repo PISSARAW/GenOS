@@ -61,6 +61,10 @@ function resolveEffectiveOrchestratorReserve(autonomyPlan, configuredReserve) {
 }
 
 function missionText(normalizedMission) {
+  const workspaceContent = normalizedMission.globalWorkspace?.consumers?.planning;
+  if (workspaceContent?.available && workspaceContent.consumed && typeof workspaceContent.content === 'string') {
+    return workspaceContent.content;
+  }
   return normalizedMission.prompt || normalizedMission.currentTask || '';
 }
 
@@ -391,4 +395,4 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   return autonomyPlan;
 }
 
-module.exports = { buildAutonomyPlanForMission, attachAteamCoordination };
+module.exports = { buildAutonomyPlanForMission, attachAteamCoordination, missionText };

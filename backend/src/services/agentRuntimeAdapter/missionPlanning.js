@@ -7,6 +7,7 @@ const orchestratorBody = require('../orchestratorBodyService');
 
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
+  attachGlobalWorkspace(ctx);
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
   await attachMorphogenesisPlan(ctx);
 }
@@ -105,6 +106,37 @@ function applyValencePosture(ctx) {
     if (!Array.isArray(drives)) return;
     require('../valenceService').applyValencePosture(ctx.normalizedMission, drives);
   } catch (_) {}
+}
+
+function attachGlobalWorkspace(ctx) {
+  const task = ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask || '';
+  if (!task.trim()) return;
+  const workspaceService = require('../globalWorkspaceService');
+  const state = workspaceService.compete([
+    { id: `mission:${ctx.agentId}`, salience: 1, content: task }
+  ], { capacity: 3, ignitionThreshold: 1, modules: ['planning', 'execution', 'reporting'] });
+  const contents = new Map(state.admitted.map((item) => [item.id, item.content]));
+  const consumers = {};
+  for (const module of state.globalAccess) {
+    consumers[module] = workspaceService.consume(state, module, (contentId) => contents.get(contentId) || null);
+  }
+  ctx.globalWorkspace = {
+    contentId: state.winner?.id || null,
+    ignited: state.ignited,
+    consumers: Object.fromEntries(Object.entries(consumers).map(([module, result]) => [module, {
+      available: result.available, consumed: result.consumed,
+      contentId: result.contentId, content: result.output
+    }]))
+  };
+  ctx.normalizedMission.globalWorkspace = ctx.globalWorkspace;
+  emit(ctx.agentId, 'GLOBAL_WORKSPACE_CONSUMPTION', 'PLAN_MISSION',
+    'Mission content was admitted and consumed by authorized downstream modules.', {
+      contentId: ctx.globalWorkspace.contentId,
+      ignited: ctx.globalWorkspace.ignited,
+      consumers: Object.fromEntries(Object.entries(consumers).map(([module, result]) => [module, {
+        available: result.available, consumed: result.consumed
+      }]))
+    }, 'info');
 }
 
 function applyExecutionPolicy(ctx) {
@@ -212,6 +244,7 @@ function reportOrchestratorStart(ctx) {
 
 module.exports = {
   planMission,
+  attachGlobalWorkspace,
   assertAutonomyPlanExecutable,
   applyExecutionPolicy,
   computeRuntimeBudget,
