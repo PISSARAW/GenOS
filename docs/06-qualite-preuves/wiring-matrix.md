@@ -13,9 +13,9 @@
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `crossAgentRelationalService.js:listRelations` lit `agent_relations` |
-| Select | PARTIAL | `morphogenesis/relationResolverService.js:selectVerifier/selectPartner` ; bridge filtre le lignage des candidats vérificateurs, sélection de partenaires pas encore branchée à la formation des workers |
+| Select | PARTIAL | `holobionte/runtime/symbiosisPlanner.js:candidatePlan` expose `relationChoice` parmi les partenaires déjà éligibles ; `epistemic/adaptiveEpistemicResponse.js` choisit un vérificateur indépendant si le contexte en fournit. Ces résultats restent conditionnels au catalogue transmis. |
 | Invoke | PARTIAL | `relationAuthorityBridge.js:resolveControlByRelation` consulté en fallback par `agentAuthorityService.js:authorizeAgentControl` (`manager/guardian/mentor/parent` forward → contrôle délégué, reçu `relationControl`) |
-| Affect decision | PARTIAL | `relationAuthorityBridge.js:filterVerifierCandidates` exclut le lignage ; `assessIndependence` branché dans `communicationPolicyEngine.js:finalizeDecision` |
+| Affect decision | PARTIAL | `relationAuthorityBridge.js:filterVerifierCandidates` exclut le lignage ; `adaptiveEpistemicResponse.js` applique la sélection au champ `verifier` ; `assessIndependence` reste branché dans `communicationPolicyEngine.js:finalizeDecision` |
 | Act | NO | `manager/guardian` ne modifient ni autorité ni budget |
 | Observe | PARTIAL | `communicationLearningService.js` incrémente `interaction_count/familiarity` |
 | Learn | NO | presets non calibrés |

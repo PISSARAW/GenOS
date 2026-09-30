@@ -207,9 +207,10 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
 | `signalReceptorService.js` | Registre récepteurs, dispatch actions, matchAndDispatch |
 | `signalEventBus.js` | EventEmitter push (onSignal, onAgent, onRecipient) |
 | `signalCoalescerService.js` | Anti-spam réfractaire + fenêtre coalescing |
-| `synapticPlasticityService.js` | Poids canaux, reinforce/depress/strongDepress |
+| `synapticPlasticityService.js` | Poids canaux, reinforce/depress/strongDepress, cache hydraté depuis SQLite et persistance dans `signal_channel_weights` |
 | `collectiveSignalOrganizationRouter.js` | Routage destinataires, scope strict, tri plasticité |
-| `signalPlaneSubscriber.js` | Consumer EventBus + reprise durable SQLite, registerWakeHandler, LLM escalation |
+| `signalPlaneSubscriber.js` | Consumer EventBus + reprise durable SQLite, registerWakeHandler et routage `llmRequired` via `cognitiveSignalService` |
+| `cognitiveSignalService.js` | Envoie le signal au `modelRouter.generate` avec sa cible cognitive et un prompt borné ; la réponse reste consultative |
 | `signal_delivery_claims` | Lease de consommation, tentatives, backoff et quarantaine terminale |
 | `agentRoundService.js` | Continuation différentielle (buildContinuationContext) |
 
@@ -223,8 +224,9 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
   par `signalId`; les erreurs réessaient avec backoff et sont mises en quarantaine
   après huit tentatives. Les enveloppes absentes ou invalides ne réveillent pas.
 - **Coalescing en mémoire** : les buffers sont perdus au redémarrage.
-- **LLM escalation** : le signal est loggé mais pas encore routé vers un
-  service cognitif spécifique (TODO).
+- **Escalade cognitive** : le gate VoI décide si le signal `llmRequired` est
+  escaladé. Le résultat du modèle est une réponse consultative ; il ne constitue
+  ni une exécution d'action ni une preuve de validité.
 
 ## Tests
 
