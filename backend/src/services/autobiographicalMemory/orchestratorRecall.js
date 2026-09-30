@@ -70,7 +70,12 @@ async function snapshotValence(db, agentId) {
     const interoception = require('../machineInteroceptionService');
     const valence = require('../valenceService');
     const sensing = await interoception.senseAgentRuntime(db, agentId);
-    return { status: 'measured', drives: valence.rankDrives(sensing.variables), distance: valence.driveOf(sensing.variables).distance };
+    return {
+      status: 'measured',
+      variables: sensing.variables,
+      drives: valence.rankDrives(sensing.variables),
+      distance: valence.driveOf(sensing.variables).distance
+    };
   } catch (_) {
     return { status: 'unavailable' };
   }

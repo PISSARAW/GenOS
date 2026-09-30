@@ -103,8 +103,18 @@ function applyRegulatedPosture(normalizedMission, arbitration) {
 function applyValencePosture(ctx) {
   try {
     const drives = ctx.autonomyPlan?.valenceDrives?.drives;
-    if (!Array.isArray(drives)) return;
-    require('../valenceService').applyValencePosture(ctx.normalizedMission, drives);
+    if (Array.isArray(drives)) require('../valenceService').applyValencePosture(ctx.normalizedMission, drives);
+    const report = require('../allostaticPlanningService').applyMeasuredPosture(
+      ctx.normalizedMission, ctx.autonomyPlan.valenceDrives
+    );
+    ctx.autonomyPlan.allostaticPlan = report;
+    emit(ctx.agentId, 'ALLOSTATIC_PLAN_APPLIED', 'PLAN_MISSION',
+      'Measured runtime state was evaluated and its posture was passed into mission execution policy.', {
+        status: report.status,
+        selectedActions: report.selectedActions,
+        violations: report.violations,
+        outcomePrediction: report.outcomePrediction
+      }, report.status === 'measured' ? 'info' : 'warning');
   } catch (_) {}
 }
 
@@ -245,6 +255,7 @@ function reportOrchestratorStart(ctx) {
 module.exports = {
   planMission,
   attachGlobalWorkspace,
+  applyValencePosture,
   assertAutonomyPlanExecutable,
   applyExecutionPolicy,
   computeRuntimeBudget,

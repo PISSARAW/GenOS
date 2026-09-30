@@ -55,11 +55,11 @@ Inventaire historique à requalifier par les reçus du plan de validation.
 | Modèle de soi | `agentSelfService` (5 strates + CoreSelf), `workerSelfService` (9 questions) | Implémenté (fonctionnel) | schéma corporel simulé |
 | Métacognition | dissonance/apoptose, `abstentionService`, `metacognitionBenchService` bouclé sur l'opt-out | Partiel | benchmarks externes SAD/MIRROR non exécutés sur un modèle déclaré |
 | Inférence prédictive | RPE, `worldModelService` (transitions + trajectoires + surprise), hiérarchie Mission>Stratégie>Action avec propagation | Partiel | codage prédictif perceptif et hiérarchie générative descendante |
-| Distinction soi/monde | `efferenceCopyService` (réafférence ×0,5), corrélation par ID d'action ; succès et échec d'orchestration routés vers la capture | Partiel | inventaire exhaustif des effecteurs et perturbations action-perception non validés |
+| Distinction soi/monde | `efferenceCopyService` (réafférence ×0,5), corrélation par ID d'action ; succès et échec d'orchestration routés vers la capture ; registre des effecteurs Node | Partiel | plusieurs voies sont maintenant inventoriées comme non couvertes ; les perturbations action-perception et la couverture exhaustive restent à valider |
 | Modèle du monde | transitions, trajectoires incertaines, rollout Trinity action-conditionné (avis) | Partiel | modèle génératif, rollout libre |
 | Agency flexible | contrats, recovery, calibration d'agency, bandit LinUCB qui décide en canari 5 % | Partiel | contrôle complet, options HRL |
 | Intégration (IIT) | proxy (répertoire + NMI) + moteur causal (ablations, PID-lite, recommandations morphogenèse) | Indicateur seulement | causalité prouvée, Φ |
-| Valence / intéroception | drives homéostatiques ; `applyValencePosture` limite éditions/fanout dans la préparation de mission | Partiel | planification allostatique prédictive et validation causale |
+| Valence / intéroception | drives homéostatiques ; mesures machine transmises au planificateur allostatique qui borne fanout/éditions avant exécution | Partiel | le contraste causal local teste la sélection de posture ; prédiction post-action, amélioration de viabilité et validation réservée restent à faire |
 | Consolidation offline | `sleepCycle` + `sleepConsolidationService` auto + ticks | Implémenté (fonctionnel) | phases type sommeil paradoxal |
 | Rapport / accès | evidence reports + reconstruction déterministe jointe (`factualReports`) + abstention | Partiel | synthèse finale encore rédigée par LLM |
 | Discipline no-report | gates + banc adversarial (`test_organ_ablation_bench`) | Implémenté | — |
@@ -99,6 +99,14 @@ Les services vivent dans `backend/src/services/` : `agentSelfBlocks`,
 Persistance : `adaptive_state` (scopes dédiés), tables épisodiques et
 épistémiques. Tous les chargeurs sont best-effort ; toutes les sélections
 restent aux gates existantes (jury, promotion, approbation).
+
+Le registre [`effectorRegistry.json`](../../shared/effectorRegistry.json)
+décrit les voies d'action du profil `node-runtime`, leur corrélation et leurs
+lacunes connues. L'appel MCP backend et les actions d'orchestration ont une
+prédiction d'efférence ; le processus mission, le dispatch workers, les
+mutations locales hors MCP et le MCP stdio direct ne sont pas couverts par ce
+registre opérationnel. `covered` décrit le raccordement logiciel, pas une
+validation comportementale des attributions soi/monde.
 
 ## 8. Processus d'exécution et de validation
 

@@ -211,6 +211,9 @@ Index : [adr/README.md](adr/README.md)
 - [0103-routage-fiable-du-thalamus.md](adr/0103-routage-fiable-du-thalamus.md) — messages conversationnels préservés, routage fournisseur explicite et cache privé opt-in.
 - [0177-routage-cognitif-plasticite-et-selections-relationnelles.md](adr/0177-routage-cognitif-plasticite-et-selections-relationnelles.md) — routage des signaux cognitifs, poids de plasticité persistés et sélecteurs relationnels runtime.
 - [0178-recus-biologiques-et-autorite-homeostatique.md](adr/0178-recus-biologiques-et-autorite-homeostatique.md) — reçus d'exécution biologique et transitions homéostatiques durables, versionnés et vérifiables.
+- [0180-workspace-global-chemin-mission.md](adr/0180-workspace-global-chemin-mission.md) — consommation du workspace global pendant la planification.
+- [0181-copie-efference-outils-mcp.md](adr/0181-copie-efference-outils-mcp.md) — correlation des effets d outils MCP avec les predictions d efference.
+- [0182-planification-allostatique-mesuree.md](adr/0182-planification-allostatique-mesuree.md) — consommation des mesures interoceptives dans le plan de mission.
 - [0037-ecosysteme-agentique-11-15.md](adr/0037-ecosysteme-agentique-11-15.md) — écosystème agentique : environnement/niches, substrat cognitif natif-first, physiologie collective, plan de gouvernance, interoception collective.
 - [0038-boucle-controle-cognitif-morphogenese.md](adr/0038-boucle-controle-cognitif-morphogenese.md) — boucle de contrôle cognitif de la morphogenèse.
 - [0039-systemes-vitaux-agents-6-10.md](adr/0039-systemes-vitaux-agents-6-10.md) — systèmes vitaux 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux.
