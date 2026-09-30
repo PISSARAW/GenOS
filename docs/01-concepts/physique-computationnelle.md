@@ -1,9 +1,11 @@
 # Physique computationnelle — l'inerte comme couche de réalité contraignante
 
 - **Statut** : Intégré — `tick()` dérive et conserve l'état physique, l'enrichit
-  des mesures disponibles du workspace, de Git et du budget CI, puis appelle
-  `decide_physical`. Les heuristiques restent bornées et leurs proxys ne sont
-  pas des preuves indépendantes.
+  des mesures disponibles du workspace, de Git, du contexte de décision, des
+  dépendances déclarées et d'un rapport LCOV optionnel, puis appelle
+  `decide_physical`. Les heuristiques restent bornées et leurs mesures ne sont
+  pas des preuves indépendantes. Un profil de friction appris par type de but
+  est conservé dans l'état sérialisable du directeur.
 
 Les sorties qui reposent sur des proxys de nommage ou des constantes calibrées
 portent une maturité `heuristic`; elles peuvent guider le contrôle, mais ne sont
@@ -150,7 +152,10 @@ flowchart LR
   matériaux et décision gatée.
 - `crates/genos-orchestrator/src/physical_telemetry.rs` : échantillonnage best
   effort du nombre de fichiers du workspace (hors `.git`, `target`,
-  `node_modules`), fichiers Git modifiés et branches locales. Le budget CI est
+  `node_modules`), taille sérialisée du vecteur de contexte, dépendances directes
+  déclarées dans les manifests Cargo/npm reconnus, et fraction de lignes
+  couvertes de `coverage/lcov.info` si le rapport existe. Les fichiers Git
+  modifiés et branches locales sont également comptés. Le budget CI est
   lu depuis `CI_BUDGET_REMAINING` / `CI_BUDGET_TOTAL` (ou leurs variantes
   `GITHUB_RUN_ATTEMPT_REMAINING` / `GITHUB_RUN_ATTEMPT_TOTAL`). Les sources
   absentes restent `None` et n'affectent pas l'état.
@@ -194,16 +199,22 @@ des budgets contrôlés et des mesures reproductibles.
 ## 10. Limites, garde-fous, non-objectifs
 
 - Les compteurs workspace/Git et le budget CI sont des proxys bornés qui
-  modulent friction, entropie, inertie et pression. La taille de contexte, la
-  dette de preuve réelle, les dépendances/imports et la couverture de tests ne
-  sont pas mesurés. Les erreurs d'accès aux sources optionnelles laissent ces
-  mesures absentes ; l'état dérivé de `WorldState` reste actif.
+  modulent friction, entropie, inertie et pression. Le contexte est mesuré en
+  octets sérialisés du vecteur remis au directeur, pas en tokens du modèle.
+  Les dépendances ne comptent que les déclarations des manifests Cargo et npm
+  reconnus, pas les arêtes d'un graphe d'imports. La couverture est calculée
+  depuis les lignes `DA` de `coverage/lcov.info`; elle ne prouve ni la qualité
+  des tests ni la fraîcheur du rapport. Les sources manquantes laissent leur
+  mesure absente ; l'état dérivé de `WorldState` reste actif.
   `classify_material` est une heuristique de nommage, pas une analyse réelle
   du graphe d'imports/dépendants/couverture de tests.
-- Les constantes (seuils de régime, poids de `derive`) sont des valeurs de
-  départ raisonnables, pas des valeurs apprises par mission — la persistance
-  de constantes apprises par type de mission (dernier point de la feuille de
-  route) n'est pas implémentée.
+- Les constantes (seuils de régime, poids de `derive`) restent des valeurs
+  fixes. Seul le multiplicateur de friction des fichiers est ajusté par type
+  de `Goal`, après trois missions exécutées, depuis le taux de succès observé.
+  Ce profil est sérialisé avec `DirectorState` et donc inclus dans les
+  snapshots du directeur; il n'est durable que si l'appelant sauvegarde cet
+  état via `save_director_state`. Le lissage et les bornes ne constituent pas
+  une calibration empirique.
 - Non-objectif : ceci n'est pas un moteur physique (pas de conservation
   d'énergie stricte, pas d'intégration temporelle) — c'est un ensemble de
   règles de contrôle bornées inspirées de phénomènes physiques.
