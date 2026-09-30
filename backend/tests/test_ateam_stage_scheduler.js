@@ -56,6 +56,16 @@ function fakeDb(statuses) {
   assert.equal(blockedResults.some((entry) => entry.reason === 'dependency_timeout' && entry.status === 'blocked'), true);
 
   // Payload carries the dependency metadata to the worker.
+  const coordinated = scheduler.stagePlanFor({ orchestratorId: 'o', planId: 'coord', members: [
+    { subSystem: 'api', mission: 'api', consults: ['web'], communicationCadence: 'CONTINUOUS_SYNC' },
+    { subSystem: 'web', mission: 'web', contextHandoff: 'EXCLUSIVE_SERIAL_TRANSFER', dependsOn: ['api'] }
+  ] });
+  const coordinationPayload = scheduler.workerLaunchPayload({ plan: coordinated, member: coordinated.members[0], parentWorkspaceRoot: 'C:/ws' });
+  assert.deepEqual(coordinationPayload.coordination_policy, {
+    consults: ['web'], communication_cadence: 'CONTINUOUS_SYNC', context_handoff: null
+  });
+  assert.equal(coordinated.members[1].contextHandoff, 'EXCLUSIVE_SERIAL_TRANSFER');
+
   const payload = scheduler.workerLaunchPayload({ plan, member: plan.members[2], parentWorkspaceRoot: 'C:/ws', request: { timeoutMs: 1000 } });
   assert.equal(payload.action, 'dispatch_worker');
   assert.equal(payload.workerId, 'worker_orch-1_plan-x_2');

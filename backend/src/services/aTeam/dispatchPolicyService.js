@@ -88,10 +88,17 @@ function instructionFor(member, policy) {
   const ownedInterfaces = policy.boundarySpanners.filter((entry) => entry.ownerMemberId === memberKey(member));
   if (ownedInterfaces.length) return `Own and validate these interfaces only: ${ownedInterfaces.map((entry) => entry.boundaryId).join(', ')}.`;
   if (memberKey(member) === policy.commanderMemberId) return 'Coordinate the incident response within the declared team scope and escalate decisions outside your authority.';
-  if (policy.variant === 'matrix_team') return `Consult functional owner ${policy.authorityMatrix.functionalOwnerId || 'TBD'} and product owner ${policy.authorityMatrix.productOwnerId || 'TBD'} for cross-axis decisions.`;
+  const consultation = consultationInstruction(member, policy);
+  if (consultation) return consultation;
   if (policy.variant === 'boundary_spanner') return 'Own only the interfaces assigned to you; validate both sides of each contract.';
   if (policy.variant === 'relay_team') return 'Receive context from the previous owner and pass a typed, evidence-backed handoff to the next owner.';
   return 'Follow the persisted WorkGraph and the team contract for this responsibility.';
+}
+
+function consultationInstruction(member, policy) {
+  if (policy.variant === 'matrix_team') return `Consult functional owner ${policy.authorityMatrix.functionalOwnerId || 'TBD'} and product owner ${policy.authorityMatrix.productOwnerId || 'TBD'} for cross-axis decisions.`;
+  if (policy.variant !== 'cross_functional_pod' || !member.consults?.length) return null;
+  return `Consult peer domains before cross-domain decisions: ${member.consults.join(', ')}. Record whom you consulted and the resulting decision in your evidence report.`;
 }
 
 function countInterfaces(members) {

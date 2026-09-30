@@ -28,6 +28,14 @@ compose et persiste le graphe/conseil, tandis que le runner ci-dessus est dispon
 une intégration qui dispose d'un exécuteur de sous-run vérifié. Les champs d'autorité
 orientent les responsabilités données aux workers et ne modifient pas les ACL du backend.
 
+Le runner détaché conserve maintenant `consults`, `communicationCadence` et
+`contextHandoff` dans son plan et les transmet dans `coordination_policy` à chaque worker.
+Pour `cross_functional_pod`, la mission nomme également les domaines à consulter et
+demande de consigner les consultations dans le rapport de preuves. Cette transmission
+rend la politique disponible pendant l'exécution ; elle ne prouve pas qu'une consultation
+a eu lieu et n'ajoute pas de gate de clôture. Les variantes `pipeline` et `relay_team`
+gardent leur ordonnancement bloquant et leurs handoffs dépendants des preuves.
+
 ## Opérations des contrats de variante
 
 [`variants/variantExecutionService.js`](../../../backend/src/services/aTeam/variants/variantExecutionService.js)

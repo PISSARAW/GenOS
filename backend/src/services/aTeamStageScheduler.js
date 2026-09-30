@@ -48,6 +48,9 @@ function plannedMember({ member, index, orchestratorId, planId }) {
     outputSchema: withDefault(member.outputSchema, null),
     acceptanceCriteria: withDefault(member.acceptanceCriteria, []),
     capabilities: withDefault(member.capabilities, []),
+    consults: [...new Set((Array.isArray(member.consults) ? member.consults : []).map(String))],
+    communicationCadence: member.communicationCadence || null,
+    contextHandoff: member.contextHandoff || null,
     dependsOn: [...new Set((Array.isArray(member.dependsOn) ? member.dependsOn : []).map(String))],
     pipelineStage: Math.max(0, Number(member.pipelineStage) || 0),
     workerId
@@ -222,6 +225,11 @@ function workerLaunchPayload({ plan, member, parentWorkspaceRoot, request = {} }
     workerId: member.workerId,
     mission: member.mission,
     handoffContext: Array.isArray(member.handoffContext) ? member.handoffContext : [],
+    coordination_policy: {
+      consults: member.consults,
+      communication_cadence: member.communicationCadence,
+      context_handoff: member.contextHandoff
+    },
     role: member.role,
     model_tier: member.modelTier,
     ...(member.dependsOn.length ? { depends_on: member.dependsOn } : {}),

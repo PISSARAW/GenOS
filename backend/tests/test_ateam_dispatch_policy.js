@@ -24,6 +24,7 @@ function run() {
     > pipeline.policy.budgetAllocation.allocations.find((allocation) => allocation.id === 'web').amount);
   const pod = prepareDispatchPolicy({ mission: { goal: 'Product feature', variant: 'cross_functional_pod' }, members });
   assert.ok(pod.members.find((member) => member.subSystem === 'api').consults.includes('web'));
+  assert.match(pod.members.find((member) => member.subSystem === 'api').mission, /Consult peer domains before cross-domain decisions: web, security/);
   assert.equal(pod.policy.boundarySpanners[0].ownerMemberId, 'security');
   const incidentMembers = [...members, { subSystem: 'ops', role: 'operations' }];
   const incident = prepareDispatchPolicy({ mission: { variant: 'incident_command', incidentRoles: { commander: 'api', operations: 'ops', planning: 'web', logistics: 'security' }, sitrepIntervalMinutes: 15, operationalObjectives: ['restore service'] }, members: incidentMembers });
