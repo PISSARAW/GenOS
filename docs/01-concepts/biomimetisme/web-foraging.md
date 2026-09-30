@@ -41,14 +41,13 @@ locaux et leurs données de test. `node backend/tests/test_browser_runtime.js`
 exerce Puppeteer contre un serveur local autorisé explicitement, avec capture,
 clic et observation suivante. `node
 backend/tests/test_foraging_browser_runtime.js` enchaîne observation réelle,
-crop Sharp, décision de foraging et navigation suivante sur ce serveur. Le test
-inclut un contrôle de couverture de trois termes attendus sur la page suivante;
-cette métrique mesure uniquement l'extraction d'une cible connue dans un serveur
-local contrôlé, pas la pertinence générale des résultats. L'exécution de
-`test_foraging_browser_runtime.js` le 2026-09-30 a réussi avec les options
-Chromium configurées dans ce test. Ces tests ne valident pas l'accès à des sites externes. Le test GAIA dépend d'un
-checkout et d'un harnais externes; l'exécution du 2026-09-30 a sauté car le
-checkout GAIA est absent. Aucun score GAIA de GenOS n'est établi.
+crop Sharp, décision de foraging et navigation suivante sur ce serveur. Le
+benchmark `web-foraging-linked-runbook-facts/v1` exige les deux réponses
+attendues sur deux pages liées (2/2) et vérifie aussi la présence de trois termes
+de la cible; ces mesures concernent uniquement le serveur local contrôlé, pas la
+pertinence générale sur des sites externes. Ces tests ne valident pas l'accès à
+des sites externes. Le test GAIA dépend d'un checkout et d'un harnais externes;
+aucun score GAIA de GenOS n'est établi.
 
 Pour GAIA, conserver le modèle et sa version, les données, la commande, la
 durée, le scorer et le fichier de résultats provenant de l'exécution effective.

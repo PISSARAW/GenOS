@@ -10,8 +10,8 @@ const { forageStep } = require('../src/services/foragingLoopService');
 async function run() {
   const server = http.createServer((req, res) => {
     const page = req.url === '/next'
-      ? '<title>Next patch</title><h1>New patch observed</h1>'
-      : '<title>Rich patch</title><h1>Alpha beta gamma delta epsilon zeta eta theta</h1><a href="/next">Next patch</a>';
+      ? '<title>Recovery note</title><h1>Rollback token: ORCHID19</h1>'
+      : '<title>Release note</title><h1>Runbook action: KESTREL42</h1><a href="/next">Recovery note</a>';
     res.writeHead(200, { 'content-type': 'text/html' });
     res.end(`<html><body>${page}</body></html>`);
   });
@@ -21,6 +21,8 @@ async function run() {
   const adapter = defaultBrowserScout.browserAdapter;
   adapter.allowedHosts.add('127.0.0.1');
   const priorThreshold = defaultForaging.envMeanReturnRate;
+  const taskAnswers = ['KESTREL42', 'ORCHID19'];
+  const foundAnswers = new Set();
   try {
     await defaultBrowserScout.openBrowserSession(sessionId, {
       launchOptions: { args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--no-zygote', '--no-proxy-server'] }
@@ -29,6 +31,10 @@ async function run() {
     const exploit = await forageStep({ sessionId, elapsedTimeSec: 1, iteration: 1 });
     assert.equal(exploit.decision, 'EXPLOIT_PATCH');
     assert.ok(exploit.fovealArtifact && fs.existsSync(exploit.fovealArtifact.outputPath));
+    for (const answer of taskAnswers) {
+      if (exploit.observation.observationText.includes(answer.toLowerCase())) foundAnswers.add(answer);
+    }
+    assert.ok(foundAnswers.has('KESTREL42'), 'the observed release page must contain its task answer');
 
     defaultForaging.envMeanReturnRate = 2;
     const departure = await forageStep({ sessionId, elapsedTimeSec: 1, iteration: 2 });
@@ -41,6 +47,11 @@ async function run() {
     assert.equal(evidenceCoverage, 1, 'controlled task evidence must be present in the next observation');
     assert.ok(departure.receipt.evidenceRef.startsWith('sha256:'));
     console.log(`Controlled foraging task: expected-term coverage ${evidenceCoverage.toFixed(2)} (${expectedEvidence.length} terms); browser observation, crop, decision, and navigation passed.`);
+    for (const answer of taskAnswers) {
+      if (departure.observationAfter.observationText.includes(answer.toLowerCase())) foundAnswers.add(answer);
+    }
+    assert.deepEqual([...foundAnswers].sort(), [...taskAnswers].sort(), 'the linked-page web task must produce both expected answers');
+    console.log(JSON.stringify({ benchmark: 'web-foraging-linked-runbook-facts/v1', tasks: taskAnswers, found: [...foundAnswers].sort(), score: foundAnswers.size / taskAnswers.length, navigation: departure.action.verified }));
   } finally {
     defaultForaging.envMeanReturnRate = priorThreshold;
     adapter.allowedHosts.delete('127.0.0.1');

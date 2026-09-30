@@ -14,7 +14,14 @@ class BrowserPuppeteerAdapter {
 
   async open(options = {}) {
     fs.mkdirSync(this.artifactsDir, { recursive: true });
-    const browser = await this.puppeteer.launch({ headless: true, ...options.launchOptions });
+    const configuredExecutable = process.env.GENOS_BROWSER_EXECUTABLE_PATH;
+    const launchOptions = { ...options.launchOptions };
+    if (configuredExecutable && !launchOptions.executablePath) launchOptions.executablePath = configuredExecutable;
+    if (process.env.GENOS_BROWSER_NO_SANDBOX === '1') {
+      const args = launchOptions.args || [];
+      if (!args.includes('--no-sandbox')) launchOptions.args = [...args, '--no-sandbox'];
+    }
+    const browser = await this.puppeteer.launch({ headless: true, ...launchOptions });
     const page = await browser.newPage();
     await page.setViewport({ width: options.width || 1280, height: options.height || 900 });
     await page.setRequestInterception(true);
