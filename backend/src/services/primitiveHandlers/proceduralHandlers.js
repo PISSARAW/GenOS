@@ -182,6 +182,41 @@ async function replicatedCausalCheck(context = {}) {
   return replicatedCausal.runReplicatedExperiment(spec, { db });
 }
 
+async function createCausalExperiment(context = {}) {
+  const db = requireDb(context);
+  const spec = context.spec || context;
+  return { success: true, ...await require('../proceduralCausalExperimentService').createExperiment(db, spec) };
+}
+
+async function createCausalFork(context = {}) {
+  const db = requireDb(context);
+  return { success: true, ...await require('../proceduralCausalExperimentService').createFork(db, context) };
+}
+
+async function replayCausalFork(context = {}) {
+  const db = requireDb(context);
+  const runner = resolveCausalRef(registry.resolveRunner, context.runnerId, 'runner');
+  const environmentManifest = resolveCausalRef(registry.resolveEnvironment, context.environmentId, 'environment');
+  const snapshotState = resolveCausalRef(registry.resolveSnapshot, context.snapshotId, 'snapshot');
+  return { success: true, ...await require('../proceduralCausalReplayService').replayFork(db, {
+    ...context, runner, environmentManifest, snapshotState,
+  }) };
+}
+
+async function diffCausalForks(context = {}) {
+  const db = requireDb(context);
+  return { success: true, ...await require('../proceduralCausalReplayService').causalDiff(db, context) };
+}
+
+async function analyzeCausalSnapshots(context = {}) {
+  const db = requireDb(context);
+  return { success: true, ...await require('../proceduralCausalAnalysisService').persistSnapshotAnalysis(db, context) };
+}
+
+async function persistCausalGraph(context = {}) {
+  const db = requireDb(context);
+  return { success: true, ...await require('../proceduralCausalGraphService').persistCausalGraph(db, context) };
+}
 module.exports = {
   HANDLERS: {
     procedural_evolve: evolveOrganism,
@@ -195,6 +230,12 @@ module.exports = {
     procedural_causal_check: causalCheck,
     organism_causal_check: causalCheck,
     procedural_replicated_causal_check: replicatedCausalCheck,
+    procedural_causal_experiment_create: createCausalExperiment,
+    procedural_causal_fork_create: createCausalFork,
+    procedural_causal_replay: replayCausalFork,
+    procedural_causal_diff: diffCausalForks,
+    procedural_causal_analyze_snapshots: analyzeCausalSnapshots,
+    procedural_causal_graph: persistCausalGraph,
     organism_replicated_causal_check: replicatedCausalCheck,
   },
   evolveOrganism,
@@ -203,4 +244,11 @@ module.exports = {
   sealOrganism,
   causalCheck,
   replicatedCausalCheck,
+  createCausalExperiment,
+  createCausalFork,
+  replayCausalFork,
+  diffCausalForks,
+  analyzeCausalSnapshots,
+  persistCausalGraph,
 };
+

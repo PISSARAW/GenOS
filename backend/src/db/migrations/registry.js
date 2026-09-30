@@ -308,7 +308,11 @@ const migrationRunners = [
     const { migrateMissionIdentities } = require('./085-mission-identities');
     await migrateMissionIdentities(db);
   }),
-  createMigrationRunner('086-biological-execution-receipts', 'Persist idempotent Rust biological execution receipts correlated to mission homeostasis', async (db) => {
+  createMigrationRunner('086-procedural-causal-experiments', 'Persist replayable causal forks, arms and checkpoints', async (db) => {
+    const { migrateProceduralCausalExperiments } = require('./migrateProceduralCausalExperiments');
+    await migrateProceduralCausalExperiments(db);
+  }),
+  createMigrationRunner('087-biological-execution-receipts', 'Persist Rust biological receipts against backend missions', async (db) => {
     const { migrateBiologicalExecutionReceipts } = require('./migrateBiologicalExecutionReceipts');
     await migrateBiologicalExecutionReceipts(db);
   }),
@@ -327,3 +331,5 @@ async function runMigration(db, version, description) {
 }
 
 module.exports = { migrationRunners, runMigration };
+
+

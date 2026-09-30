@@ -77,24 +77,35 @@ Ce parcours reste borné aux snapshots, runner, environnement, budget et seeds
 déclarés. Il ne prouve pas la causalité universelle et ne remplace pas le chemin de
 promotion procédurale à essai unique.
 
-## Ce que la documentation suggérait (et ce qui n'est pas encore câblé)
+## Branchement runtime des expériences causales persistantes
 
-La docstring du service et le dossier GenOS parlent de :
+Les handlers de `primitiveHandlers/proceduralHandlers.js` exposent maintenant le
+cycle persistant en plus des deux chemins de validation existants :
 
 ```text
-genos_causality_fork
-mutatedUniverses
-causalReplay
-causalDiff
+procedural_causal_experiment_create
+  → procedural_causal_fork_create
+  → procedural_causal_replay
+  → procedural_causal_diff
+  → procedural_causal_analyze_snapshots
+  → procedural_causal_graph
 ```
 
-Ces mécanismes ne sont **pas** appelés directement par `proceduralCausalValidationService`.
-Le chemin simple utilise `temporalHelpers.findDivergences`; le chemin répliqué
-compare les trajectoires appariées par seed via `replicatedCausalValidationService`.
-Ni l'un ni l'autre ne crée encore des univers persistants ni un replay causal
-général. Le parcours des expériences explicitement persistées passe par le handler
-temporel `causal_diff`; il reste distinct du service de validation et du gate de
-promotion.
+L'expérience lie des bras control/intervention, des snapshots sérialisés,
+l'environnement, le runner et le budget. Chaque fork conserve son état et ses
+événements dans SQLite. Le replay résout les références enregistrées par ID,
+valide les empreintes, prend un lease conditionnel sur la version du checkpoint
+et accepte une reprise après un checkpoint durable. Le diff n'accepte qu'une
+paire terminée du même snapshot, seed et expérience. L'analyse multi-snapshots
+charge uniquement des diffs persistés et des snapshots épinglés. Le graphe exige
+des références persistées et limite explicitement l'attribution aux liens
+observés. La migration `086-procedural-causal-experiments` crée/complète le
+schéma et conserve la compatibilité des expériences précédentes.
+
+Cette voie reste distincte de `procedural_causal_check`, du chemin répliqué et
+du cycle général de promotion. L'exposition est celle du registre de primitives
+et demeure soumise à la lease MCP; aucun résultat d'analyse ne promeut seul un
+organisme.
 
 La différence est importante :
 
@@ -103,15 +114,15 @@ La différence est importante :
 - **Chemin répliqué actuel** : plusieurs paires par seed, score binaire dérivé de
   `outcome`, reçu et incertitude t ; l'appel répliqué est distinct du cycle
   général de promotion.
-- **Système causal complet GenOS** : forks explicites d'un snapshot S,
-  replay causal sur univers mutés et diff causal attribué. Les répétitions
-  asynchrones existent dans le protocole expérimental borné, sans replay durable.
+- **Expériences persistantes branchées** : création de forks et reprise depuis
+  checkpoint sont accessibles aux handlers runtime; elles ne constituent pas
+  une preuve causale universelle.
 
 ## Choix adoptés pour l'instant
 
-On conserve le nom **causal validation** pour le service, la primitive MCP
-`procedural_causal_check`, et les termes `causalRunner` / `initialState` dans les
-payloads. On ne prétend pas encore que ce soit le système causal complet.
+On conserve le nom **causal validation** pour le chemin simple et la primitive
+MCP `procedural_causal_check`. Le replay persistant est nommé explicitement par
+ses handlers et son protocole versionné; il ne remplace pas la gate de promotion.
 
 Notes d'intention :
 
@@ -120,30 +131,26 @@ Notes d'intention :
   signifie pas une preuve causale universelle.
 - Le chemin répliqué porte une évidence expérimentale plus forte, limitée au
   protocole et à ses hypothèses ; il ne remplace pas le chemin de promotion.
-- Il ne doit pas être décrit dans le README ou la doc comme
-  `genos_causality_fork` / `mutatedUniverses` tant que l'appel n'est pas là.
+- Les forks persistants ne doivent pas être décrits comme des univers physiques
+  mutés; ils sont des états logiciels isolés, bornés au snapshot et au runner
+  déclarés.
 - La compatibilité ascendante avec les tests existants est préservée :
   `sameInitialState` reste dans le résultat, mais il est maintenant **prouvé**
   (snapshot hash), pas simplement affirmé.
 
-## Limites restantes avant le système causal complet
+## Limites restantes
 
 Ce qui manque pour tenir le vocabulaire complet :
 
-1. **Fork de snapshot explicite** : snapshot S sérialisé et traçable, forké en
-   deux univers isolés, plutôt que des clones en mémoire passés au runner.
-2. **causalDiff / causalReplay** : mécanisme de replay causal avec état de fork
-   traçable, divergences durables, attributions.
-3. **Généralisation** : plusieurs snapshots indépendants et protocole de
-   rééchantillonnage ou analyse robuste aux différences non normales.
-4. **Exécution durable** : reprise et persistance des états de fork individuels
-   lors d'une interruption longue (le runner async et l'annulation sont déjà
-   supportés, mais pas la reprise).
-5. **Attributabilité** : le reçu localise les pas divergents, mais ne relie pas
-   encore ces changements à un graphe causal interne ni à un mécanisme médiateur.
-
-Quand ces points seront présents, on pourra remonter le vocabulaire
-`causal fork` / `mutatedUniverses` / `causalDiff` depuis la doc vers le code.
+1. Le runner doit appeler le callback checkpoint avec un état compatible au
+   premier checkpoint; les interruptions longues et reprises doivent encore
+   être prouvées par un test qui redémarre réellement le processus.
+2. L'analyse bootstrap hiérarchique a des hypothèses et un périmètre définis;
+   elle ne démontre pas la généralisation au-delà des snapshots épinglés.
+3. Le graphe conserve des relations déclarées et étayées, mais ne découvre pas
+   les médiateurs internes et ne prouve pas à lui seul une causalité universelle.
+4. Le nouveau cycle n'est pas encore une gate du chemin automatique de
+   promotion; un diff positif reste une mesure expérimentale, non une autorité.
 
 ## Référence d'implémentation actuelle
 
@@ -152,4 +159,6 @@ Quand ces points seront présents, on pourra remonter le vocabulaire
 - `backend/tests/test_procedural_causal_validation.js`
 - `backend/tests/test_procedural_e2e_autonome.js` (scénario P0 → causal repair → P1)
 - `backend/src/services/primitiveHandlers/proceduralHandlers.js` (primitives MCP `procedural_causal_check` et `procedural_replicated_causal_check`)
+- `backend/src/services/proceduralCausalExperimentService.js`, `proceduralCausalReplayService.js`, `proceduralCausalAnalysisService.js`, `proceduralCausalGraphService.js`
+- `backend/tests/test_procedural_causal_runtime_handlers.js` (expérience → forks → replay → diff → multi-snapshots → graphe)
 - `backend/src/services/proceduralRegistryService.js` (résolution de runnerId / evaluatorId / environmentId / snapshotId, branchée aux handlers et au runtime : `procedural_evolve` accepte ces IDs sans fonctions dans le payload)
