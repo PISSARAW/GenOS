@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "constraints",
+  "status": "design_required",
+  "comparisonEligible": false,
+  "relatedAssets": ["../../gmub/PROTOCOL.md", "../../gmub/suite.json"],
+  "blockers": ["Align the existing GMUB protocol with paired model-alone and GenOS runs and normalize solver receipts."]
+}

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "formal_math",
+  "status": "design_required",
+  "comparisonEligible": false,
+  "relatedAssets": ["../../../backend/tests/test_math_kernel_e2e.js", "../../../backend/tests/test_proof_artifact.js"],
+  "blockers": ["Select fixed theorem tasks and a proof-checker-backed outcome oracle."]
+}

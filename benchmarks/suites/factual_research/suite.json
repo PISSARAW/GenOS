@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "factual_research",
+  "status": "design_required",
+  "comparisonEligible": false,
+  "relatedAssets": ["../../../backend/src/evaluation/locomo_eval_engine.js", "../../../backend/tests/test_literature_forager.js"],
+  "blockers": ["Choose a versioned question set, source snapshot policy, and source-grounded scoring oracle."]
+}

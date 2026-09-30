@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "agent_recovery",
+  "status": "design_required",
+  "comparisonEligible": false,
+  "relatedAssets": ["../../../examples/safe-debugging-demo/", "../../../backend/tests/test_daemon_repair_episode.js"],
+  "blockers": ["Specify reproducible failure states, target invariants, and an independent recovery oracle."]
+}

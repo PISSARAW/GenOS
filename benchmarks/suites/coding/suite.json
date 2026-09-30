@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "coding",
+  "status": "design_required",
+  "comparisonEligible": false,
+  "relatedAssets": ["../../../backend/src/evaluation/swe_eval_runner.js", "../../../backend/src/evaluation/swe_eval_engine.js"],
+  "blockers": ["Define a fixed task set, independent test oracle, and matched alone/genos execution path."]
+}

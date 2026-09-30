@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "planning",
+  "status": "design_required",
+  "comparisonEligible": false,
+  "relatedAssets": ["../../planning-gap/"],
+  "blockers": ["Define fixed environments, executable constraints, and paired execution controls."]
+}

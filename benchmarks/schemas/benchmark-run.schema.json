@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.dev/schemas/benchmark-run.schema.json",
+  "title": "GenOS paired benchmark run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "runId", "pairId", "replicate", "commitSha",
+    "genosVersion", "model", "harness", "modelParameters", "task",
+    "environmentSnapshot", "controls", "mode", "result", "evidence",
+    "verifierReceipts", "metrics", "finalOutcome"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "minLength": 1 },
+    "pairId": { "type": "string", "minLength": 1 },
+    "replicate": { "type": "integer", "minimum": 1 },
+    "commitSha": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "genosVersion": { "type": "string", "minLength": 1 },
+    "model": {
+      "type": "object",
+      "required": ["provider", "modelId", "servedModelId"],
+      "properties": {
+        "provider": { "type": ["string", "null"] },
+        "modelId": { "type": ["string", "null"] },
+        "servedModelId": { "type": ["string", "null"] },
+        "provenance": { "enum": ["declared", "observed", "verified", "unknown"] }
+      },
+      "additionalProperties": true
+    },
+    "harness": {
+      "type": "object",
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "version": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "modelParameters": { "type": "object" },
+    "task": {
+      "type": "object",
+      "required": ["suiteId", "taskId", "inputDigest"],
+      "properties": {
+        "suiteId": { "type": "string", "minLength": 1 },
+        "taskId": { "type": "string", "minLength": 1 },
+        "inputDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      },
+      "additionalProperties": true
+    },
+    "environmentSnapshot": {
+      "type": "object",
+      "required": ["digest"],
+      "properties": { "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+      "additionalProperties": true
+    },
+    "controls": {
+      "type": "object",
+      "required": ["allowedTools", "budget"],
+      "properties": {
+        "allowedTools": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "budget": {
+          "type": "object",
+          "required": ["tokens", "wallTimeMs"],
+          "properties": {
+            "tokens": { "type": ["integer", "null"], "minimum": 0 },
+            "wallTimeMs": { "type": ["integer", "null"], "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "mode": { "enum": ["alone", "genos"] },
+    "result": {},
+    "evidence": { "type": "array", "items": { "type": "object" } },
+    "verifierReceipts": { "type": "array", "items": { "type": "object" } },
+    "metrics": {
+      "type": "object",
+      "required": ["tokens", "latencyMs", "cost", "toolCalls", "retries", "topologyTransitions", "humanInterventions"],
+      "properties": {
+        "tokens": { "type": ["integer", "null"], "minimum": 0 },
+        "latencyMs": { "type": ["number", "null"], "minimum": 0 },
+        "cost": { "type": ["number", "null"], "minimum": 0 },
+        "toolCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "retries": { "type": ["integer", "null"], "minimum": 0 },
+        "topologyTransitions": { "type": ["integer", "null"], "minimum": 0 },
+        "humanInterventions": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "finalOutcome": { "enum": ["success", "failure", "inconclusive", "error"] }
+  }
+}

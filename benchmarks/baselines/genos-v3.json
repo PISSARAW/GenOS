@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "baselineId": "genos-v3",
+  "status": "blocked",
+  "source": {
+    "commitSha": "f39c7084b0e87d7e546b18cc95d33734f74c64de",
+    "versionDescription": "v3.0.0-2279-gf39c7084",
+    "worktreeClean": false,
+    "capturedAt": "2026-09-30",
+    "blockers": [
+      "Candidate source checkout contains pre-existing local changes; no clean source snapshot can be claimed.",
+      "No paired confirmatory runs have been collected under the common protocol."
+    ]
+  },
+  "protocol": {
+    "runSchema": "../schemas/benchmark-run.schema.json",
+    "modes": ["alone", "genos"],
+    "pairedControls": [
+      "task input digest",
+      "requested and served model identity",
+      "harness and version",
+      "model parameters",
+      "environment snapshot digest",
+      "allowed tools",
+      "token and wall-time budgets"
+    ],
+    "order": "randomized_within_paired_blocks",
+    "confirmatoryReplicatesPerTask": 3
+  },
+  "results": [],
+  "limitations": [
+    "Existing benchmark reports are not imported unless their raw records satisfy this schema and paired-control protocol.",
+    "A baseline claim requires a clean source revision and independently checkable task outcomes."
+  ]
+}

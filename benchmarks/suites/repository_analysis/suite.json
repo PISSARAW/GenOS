@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "repository_analysis",
+  "status": "design_required",
+  "comparisonEligible": false,
+  "relatedAssets": ["../../agent-architecture-comparison/", "../../topology-morphogenesis/"],
+  "blockers": ["Pin repository snapshots, tasks, expected findings, and a blinded scoring rubric."]
+}
