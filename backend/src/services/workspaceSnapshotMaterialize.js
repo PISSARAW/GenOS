@@ -49,6 +49,14 @@ function validateManifestDocument(snapshot, manifest) {
   if (manifestHash(manifest.files || []) !== manifest.hash) throw new Error(`Snapshot ${snapshot.id} has a corrupted manifest.`);
 }
 
+function applySnapshotContext(manifest, snapshot) {
+  const context = parseMetadata(snapshot.metadata).snapshotContext;
+  if (!context || typeof context !== 'object' || Array.isArray(context)) return manifest;
+  const fields = ['snapshot_id', 'agent_id', 'branch_id', 'genome', 'state', 'world_id', 'created_at'];
+  const contextualFields = Object.fromEntries(fields.filter((field) => Object.hasOwn(context, field)).map((field) => [field, context[field]]));
+  return { ...manifest, ...contextualFields };
+}
+
 function assertManifestFileEntry(snapshot, file, paths) {
   if (!file || !isSafeRelative(file.path) || paths.has(file.path) || !/^[a-f0-9]{64}$/.test(file.hash) || !Number.isSafeInteger(file.size) || file.size < 0) {
     throw new Error(`Snapshot ${snapshot.id} contains an invalid file entry.`);
@@ -58,18 +66,19 @@ function assertManifestFileEntry(snapshot, file, paths) {
 
 async function readManifest(snapshot) {
   const loaded = await loadManifestDocument(snapshot);
-  validateManifestDocument(snapshot, loaded.manifest);
+  const manifest = applySnapshotContext(loaded.manifest, snapshot);
+  validateManifestDocument(snapshot, manifest);
   const limits = snapshotLimits();
   const paths = new Set();
   let totalBytes = 0;
-  for (const file of loaded.manifest.files) {
+  for (const file of manifest.files) {
     assertManifestFileEntry(snapshot, file, paths);
     totalBytes += file.size;
-    if (loaded.manifest.files.length > limits.maxFiles || file.size > limits.maxFileBytes || totalBytes > limits.maxBytes) {
+    if (manifest.files.length > limits.maxFiles || file.size > limits.maxFileBytes || totalBytes > limits.maxBytes) {
       throw new Error(`Snapshot ${snapshot.id} exceeds the configured size limits.`);
     }
   }
-  return { ...loaded.manifest, payloadRoot: path.join(path.dirname(loaded.manifestPath), 'files') };
+  return { ...manifest, payloadRoot: path.join(path.dirname(loaded.manifestPath), 'files') };
 }
 
 async function loadSnapshotRow(db, workspaceId, reference) {

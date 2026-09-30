@@ -174,6 +174,7 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
     storagePath: path.join(root, hash),
     fileCount: files.length,
     hashAlgorithm: 'sha256',
+    snapshotContext: manifestData,
     ...(gitCommit ? { gitCommit } : {})
   };
   const inserted = await insertSnapshotRow({ db, id, workspace, hash, label, author, reason, files, metadata, root });

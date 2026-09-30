@@ -101,7 +101,18 @@ Le mécanisme :
 - enregistre une entrée SQLite `workspace_snapshots` ;
 - vérifie à la fin que le snapshot est cohérent.
 
+Le payload de fichiers peut être partagé quand deux snapshots ont le même hash.
+Le contexte propre à chaque snapshot (`snapshot_id`, agent, branche, génome,
+état et monde) est conservé dans les métadonnées de sa ligne SQLite et réappliqué
+à la lecture du manifeste. La déduplication des fichiers ne fait donc pas partager
+à deux snapshots leur identité ou leur état logique.
+
 Le code explicite clairement une contrainte de sécurité : le snapshot ne doit pas refléter des chemins arbitraires ni des fichiers sensibles.
+
+Les snapshots d’état d’agent conservent aussi une référence vers le snapshot de fichiers
+du même workspace. Une restauration ou un checkout réapplique d’abord les fichiers
+avec un snapshot de sécurité préservé, puis les champs d’état de l’agent. Le replay
+appliqué suit le même chemin et vérifie ensuite l’état agent relu en base.
 
 ### 3.3 Capsules isolées, worktrees et VFS (100 agents)
 

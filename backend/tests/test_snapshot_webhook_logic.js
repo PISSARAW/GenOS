@@ -57,6 +57,21 @@ async function main() {
     assert.equal(await fs.readFile(path.join(root, 'source.txt'), 'utf8'), 'version one');
     assert.equal(await fs.readFile(path.join(root, '.env'), 'utf8'), 'TOKEN=must-not-leak');
 
+    const contextA = await snapshots.capture({ db, workspace, agentId: 'agent-a', branchId: 'branch-a', genome: { id: 'genome-a' }, state: { revision: 1 }, worldId: 'world-a' });
+    const contextB = await snapshots.capture({ db, workspace, agentId: 'agent-b', branchId: 'branch-b', genome: { id: 'genome-b' }, state: { revision: 2 }, worldId: 'world-b' });
+    assert.equal(contextA.snapshotHash, contextB.snapshotHash);
+    const manifestA = await snapshots.readManifest(db.rows.find((row) => row.id === contextA.id));
+    const manifestB = await snapshots.readManifest(db.rows.find((row) => row.id === contextB.id));
+    assert.equal(manifestA.snapshot_id, contextA.id);
+    assert.equal(manifestB.snapshot_id, contextB.id);
+    assert.equal(manifestA.agent_id, 'agent-a');
+    assert.equal(manifestB.agent_id, 'agent-b');
+    assert.equal(manifestA.branch_id, 'branch-a');
+    assert.equal(manifestB.branch_id, 'branch-b');
+    assert.deepEqual(manifestA.genome, { id: 'genome-a' });
+    assert.deepEqual(manifestB.state, { revision: 2 });
+    assert.equal(manifestB.world_id, 'world-b');
+
     assert.equal(webhooks.accepts({ events: '["AGENT_COMPLETED"]' }, { eventType: 'AGENT_COMPLETED' }), true);
     assert.equal(webhooks.accepts({ events: '["AGENT_COMPLETED"]' }, { eventType: 'AGENT_FAILED' }), false);
     assert.equal(webhooks.accepts({ events: '["*"]' }, { eventType: 'ANYTHING' }), true);

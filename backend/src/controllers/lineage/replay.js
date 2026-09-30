@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../../db');
 const { workspaceScope, loadAgentForScope, readString, orDefault, nullish } = require('./helpers');
-const { applySnapshotState } = require('./snapshots');
+const { restoreAgentStateSnapshot } = require('./snapshots');
 
 // Projection of a live agent row onto the exact state shape that
 // applySnapshotState writes, with identical defaults. Verification compares
@@ -40,7 +40,7 @@ function stateDigest(state) {
 
 async function maybeApplySnapshot(db, context) {
   if (context.body?.apply !== true) return false;
-  await applySnapshotState(db, context.state, context.agentId);
+  await restoreAgentStateSnapshot({ db, scope: context.scope, agent: context.agent, state: context.state });
   return true;
 }
 
@@ -71,8 +71,8 @@ async function replayAgentState(req, res) {
   const snapshot = await db.get(`SELECT s.* FROM agent_state_snapshots s JOIN agents a ON a.id = s.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE s.id = ? AND s.agent_id = ? AND ${scope.clause}`, snapshotId, agentId, ...scope.params);
   if (!agent || !snapshot) return res.status(404).json({ error: { code: 'AGENT_SNAPSHOT_NOT_FOUND', message: 'Agent or state snapshot is not available.' } });
   const state = JSON.parse(snapshot.state_json);
-  const digest = stateDigest(state);
-  const applied = await maybeApplySnapshot(db, { body: req.body, state, agentId });
+  const digest = stateDigest(projectAgentState(state));
+  const applied = await maybeApplySnapshot(db, { body: req.body, state, agentId, scope, agent });
   const liveAgent = applied
     ? await loadAgentForScope(db, scope, agentId)
     : agent;
