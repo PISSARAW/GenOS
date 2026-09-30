@@ -17,6 +17,7 @@ pub mod consolidation;
 pub mod creativity_engine;
 pub mod dopamine;
 pub mod dreaming;
+pub mod persistent_engine;
 pub mod salience;
 pub mod types;
 
@@ -26,6 +27,7 @@ pub use creativity_engine::{
 };
 pub use dopamine::{CreativityOutcome, DopamineSignal, DopamineTarget};
 pub use dreaming::{DreamingPhase, RawHypothesis, SimulationTrace, StateDelta};
+pub use persistent_engine::{PersistentCreativityEngine, PreTickInput};
 pub use salience::{FocusedTask, SalienceGate};
 pub use types::{Concept, Goal, Metabolism, WorldState};
 
@@ -52,3 +54,9 @@ mod tests {
         let _concept = Concept::Observe;
     }
 }
+
+#[cfg(test)]
+mod persistence_tests;
+
+#[cfg(test)]
+mod persistent_engine_tests;
