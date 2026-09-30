@@ -22,8 +22,7 @@ use genos_biology::specialized_cells::cnidocyte::DischargeImpact;
 use genos_biology::therapy::{SystemicTherapy, TherapyOutcome, apply_systemic_therapy_to_cell};
 use genos_biology::{
     Choanocyte, Cnidocyte, ElectricOrganStack, ElectricShockBurst, GlialCell, GlialEnvironment,
-    GlialPipeline, HgtTransferReport, Iridophore, ObserverPerspective, OssificationReport,
-    ProkaryoticAgent, RawSignalPacket, SiftingResult, StomatalPore, ThrottleResult, Tracheid,
+    GlialPipeline, Iridophore, ProkaryoticAgent, StomatalPore, Tracheid,
 };
 use genos_cell::AgentCell;
 use genos_common::traits::{MemoryEntry, MemoryRepository, SearchQuery};
@@ -304,15 +303,6 @@ impl GenosEcosystem {
 
     pub fn discharge_electric(&mut self) -> Result<ElectricShockBurst, String> {
         self.electric_organ.discharge_burst()
-    }
-
-    pub fn hgt_transfer(
-        &self,
-        recipient: &mut ProkaryoticAgent,
-        plasmid_id: &str,
-    ) -> Result<HgtTransferReport, String> {
-        self.prokaryote
-            .conjugate_transfer_plasmid(recipient, plasmid_id)
     }
 
     // --- Virologie couplée à l'immunité clonale ---
