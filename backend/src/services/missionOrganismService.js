@@ -127,6 +127,7 @@ function scarRecord(input = {}) {
     stateBefore: input.stateBefore || null,
     stateAfter: input.stateAfter || null,
     successful: input.successful !== null ? Boolean(input.successful) : null,
+    evidenceRef: input.evidenceRef || null,
     recordedAt: new Date().toISOString()
   };
 }

@@ -1,7 +1,7 @@
 # Continuité de mission — l'organisme logiciel et ses six systèmes de survie
 
-- **Statut** : Partiel — gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable câblés et testés ; régénération runtime, dormance durable, persistance de l'organisme et succession restantes.
-- **Portée** : control plane Node — `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `homeostasisContinuationService`, `missionContinuityService`, `missionEvidenceCollector`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalModesService` ; pont `backend/bin/genos-orchestrate.cjs` + helpers `continuationFeedbackLoop.cjs`, `orchestratorMissionHelpersBuildContext.cjs` ; migrations 033 `homeostasis_states`, 034 `mission_organism_state`, 027 `continuation_queue`.
+- **Statut** : Partiel — gate de complétion, continuation bornée et idempotente, preuves runtime, immunité, identité durable, suspension/réveil persistés et dispatch de régénération raccordés ; les nouveaux chemins de succession, réveil et remplacement demandent encore une validation d'intégration ciblée.
+- **Portée** : control plane Node — `missionIdentityService`, `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `homeostasisContinuationService`, `missionContinuityService`, `missionEvidenceCollector`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalStateService`, `survivalWakeService`, `survivalModesService` ; pont `backend/bin/genos-orchestrate.cjs` + helpers `continuationFeedbackLoop.cjs`, `orchestratorMissionHelpersBuildContext.cjs` ; migrations 033 `homeostasis_states`, 034 `mission_organism_state`, 085 `missions`/`mission_agents`, 027 `continuation_queue`.
 - **Dernière revue** : 2026-09-23.
 
 ## 1. Définition du domaine
@@ -354,17 +354,24 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
    `backend/tests/test_mission_continuity.js` (13 tests) et
    `backend/tests/test_mission_evidence.js` (10 tests) et
    `backend/tests/test_homeostasis_continuation.js` (18 tests).
-- **Limite** : la régénération crée la cellule dans l'organisme mais pas un
-   vrai worker ; à relier à `agentRecoveryService`.
-- **Limite** : la cryptobiose et la quiescence construisent le payload à
-   persister sans l'écrire ; le pont vers `survivalStateService.suspend()` et
-   `survival_wake_conditions` reste à faire.
-- **Limite** : l'organisme est persisté (`mission_organism_state`, migration
-   034) et restauré à chaque évaluation — mémoire et cicatrices survivent au
-   restart, tissus rafraîchis depuis les agents vivants ; la dormance durable
-   (écriture + réveil) reste à faire.
-- **Limite** : la mission reste identifiée à l'agent orchestrateur racine ; la
-  succession d'orchestrateur exigera un objet mission indépendant.
+- **Implémenté, intégration à valider** : `regenerateWorker()` crée un agent
+  worker rattaché à la mission, réserve un slot et passe par le dispatch
+  runtime ; le rôle et la cicatrice ne sont annoncés réparés qu'après retour
+  terminal exploitable et vérification de couverture. Un refus ou un échec de
+  dispatch ne produit pas de cellule de remplacement vivante.
+- **Implémenté, intégration à valider** : le pont accepte une demande explicite
+  `dormancy` avec mode éligible et condition de réveil. `survivalStateService`
+  écrit le snapshot, l'état dormant et la condition persistée. Le réveil exige
+  un événement correspondant aux conditions typées, conserve la dormance si le
+  redémarrage échoue, puis restaure l'état et réactive la mission.
+- **Implémenté** : la migration 085 crée une identité `missionId` indépendante
+  de l'orchestrateur, rattache les agents et migre les racines historiques.
+  L'identifiant est renvoyé par le pont (y compris en mode détaché) et peut être
+  repris avec l'identité de l'orchestrateur attendu ; une succession met à jour
+  l'orchestrateur courant sans changer l'organisme ni le contrat de mission.
+- **À valider** : ajouter et exécuter des tests d'intégration ciblés pour
+  succession concurrente, réveil après redémarrage, mismatch de condition,
+  succès/échec de dispatch et persistance après remplacement.
 - **Garde-fou** : l'apoptose systémique n'est jamais automatique —
   `apoptosisDecision()` exige `humanAuthorized: true`.
 - **Garde-fou** : un verdict homéostatique insatisfait est rapporté tel quel ;

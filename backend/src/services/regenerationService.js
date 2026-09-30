@@ -135,7 +135,8 @@ function regenerateCell(input = {}) {
     repair: `regenerate:${replacementId}`,
     stateBefore: plan.role,
     stateAfter: plan.role,
-    successful: true
+    successful: true,
+    evidenceRef: input.evidenceRef
   });
   const event = emitTissueRegeneration({
     tissue: plan.kind,
@@ -145,6 +146,109 @@ function regenerateCell(input = {}) {
     method: plan.method || 'regeneration'
   });
   return { organism: scarred, replacementId, event };
+}
+
+async function regenerateWorker(input = {}) {
+  const { db, missionId, plan } = input;
+  if (!db || !missionId || !plan?.role) throw new Error('db, missionId and a regeneration role are required.');
+  const context = await loadRegenerationContext(input);
+  const replacementId = `worker_${crypto.randomUUID()}`;
+  const prompt = input.prompt || `Replace the lost ${plan.role} worker for mission: ${input.objective || context.mission.objective}`;
+  await insertRegenerationWorker(db, { replacementId, orchestratorId: context.orchestratorId, parent: context.parent, role: plan.role, prompt });
+  await require('./missionIdentityService').attachAgent(db, { missionId, agentId: replacementId, role: plan.role });
+  const dispatchFailure = await dispatchRegeneratedWorker({ input, context, replacementId, prompt });
+  if (dispatchFailure) return dispatchFailure;
+  return verifyRegeneratedWorker({ input, context, replacementId });
+}
+
+async function loadRegenerationContext(input) {
+  const { db, missionId } = input;
+  const mission = await require('./missionIdentityService').get(db, missionId);
+  const orchestratorId = input.orchestratorAgentId || mission?.orchestratorAgentId;
+  if (!mission || mission.status !== 'active' || !orchestratorId) {
+    throw Object.assign(new Error('An active mission with a current orchestrator is required for worker regeneration.'), { code: 'MISSION_NOT_ACTIVE' });
+  }
+  const parent = await db.get(`SELECT a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode,
+    w.path AS workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, orchestratorId);
+  if (!parent) throw Object.assign(new Error('Current mission orchestrator was not found.'), { code: 'ORCHESTRATOR_NOT_FOUND' });
+  return { mission, orchestratorId, parent };
+}
+
+async function dispatchRegeneratedWorker(input) {
+  const { input: request, context, replacementId, prompt } = input;
+  const { db, plan } = request;
+  const { orchestratorId, parent } = context;
+  try {
+    await require('./workerGarageService').reserveSlot(db, {
+      orchestratorId, workerId: replacementId, name: `Regenerated ${plan.role}`, role: plan.role, mission: prompt
+    });
+    await require('./orchestratorDispatchService').dispatchWorkerMission({
+      agentId: replacementId,
+      orchestratorAgentId: orchestratorId,
+      prompt,
+      role: plan.role,
+      workspaceId: parent.workspace_id,
+      workspaceRoot: parent.workspace_root,
+      fleetId: parent.fleet_id,
+      modelTier: parent.model_tier,
+      language: parent.language,
+      workspaceIsolation: parent.isolation_mode,
+      executionBudget: request.executionBudget || {},
+      executionPolicy: request.executionPolicy || {},
+      toolLease: request.toolLease,
+      timeoutMs: request.timeoutMs,
+      strategyContract: request.strategyContract
+    });
+  } catch (error) {
+    await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, replacementId);
+    return { success: false, replacementId, status: 'error', error: error.message };
+  }
+  return null;
+}
+
+async function verifyRegeneratedWorker(input) {
+  const { input: request, context, replacementId } = input;
+  const { db, missionId, plan } = request;
+  const receipt = await readRegenerationReceipt(db, replacementId);
+  if (!receipt) {
+    await db.run("UPDATE agents SET status = 'unverified', current_task = 'Missing successful evidence report for regeneration', updated_at = CURRENT_TIMESTAMP WHERE id = ?", replacementId);
+    return { success: false, replacementId, status: 'unverified', reason: 'Worker did not persist a successful evidence report.' };
+  }
+  let agent = await db.get('SELECT status FROM agents WHERE id = ?', replacementId);
+  if (agent?.status === 'completed') {
+    await require('./workerGarageService').enterIdleState(db, replacementId, context.orchestratorId);
+    agent = await db.get('SELECT status FROM agents WHERE id = ?', replacementId);
+  }
+  if (!agent || !['completed', 'idle'].includes(agent.status)) {
+    return { success: false, replacementId, status: agent?.status || 'missing', reason: 'Worker dispatch has no successful terminal result.' };
+  }
+  const regenerated = regenerateCell({ organism: request.organism, plan: { ...plan, replacementId }, mission: missionId, evidenceRef: receipt.evidenceRef });
+  const equivalence = verifyFunctionalEquivalence(regenerated.organism, request.requiredRoles || [plan.role]);
+  return { success: equivalence.equivalent, replacementId, status: agent.status, evidenceRef: receipt.evidenceRef, ...regenerated, equivalence };
+}
+
+async function readRegenerationReceipt(db, agentId) {
+  const rows = await db.all(`SELECT id, payload_json FROM telemetry_events
+    WHERE agent_id = ? AND event_type = 'EVIDENCE_REPORT' ORDER BY id DESC LIMIT 5`, agentId);
+  const evidence = require('./agentEvidenceService');
+  for (const row of rows) {
+    let payload;
+    try { payload = JSON.parse(row.payload_json || '{}'); } catch (_) { continue; }
+    const report = evidence.extractEvidenceReport(payload);
+    if (report.outcome !== 'success' || !evidence.hasDecisionEvidence({ eventType: 'EVIDENCE_REPORT', payload })) continue;
+    const evidenceRef = `sha256:${crypto.createHash('sha256').update(`${row.id}:${row.payload_json}`).digest('hex')}`;
+    return { evidenceRef, report };
+  }
+  return null;
+}
+
+async function insertRegenerationWorker(db, input) {
+  const { replacementId, orchestratorId, parent, role, prompt } = input;
+  await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id,
+    fleet_id, model_tier, language, isolation_mode, parent_agent_id, current_task)
+    VALUES (?, ?, ?, 'idle', 'GenOS', 'worker', ?, ?, ?, ?, ?, ?, ?)`,
+  replacementId, `Regenerated ${role}`, role, parent.workspace_id, parent.fleet_id,
+  parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', orchestratorId, prompt);
 }
 
 function verifyFunctionalEquivalence(organism, requiredRoles) {
@@ -176,6 +280,7 @@ module.exports = {
   regenerationPlanFromAssessment,
   applyCellDeath,
   regenerateCell,
+  regenerateWorker,
   verifyFunctionalEquivalence,
   checkpointBeforeRiskyAction,
   survivingStructure,
