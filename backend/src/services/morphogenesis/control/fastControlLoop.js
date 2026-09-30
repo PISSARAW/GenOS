@@ -17,12 +17,12 @@ class FastControlLoop {
     this.handlers.set(action, handler);
   }
 
-  shouldRun(now = Date.now()) {
-    return loopIsDue('fast', { intervalMs: this.intervalMs, lastRunAt: this.lastRunAt, now });
+  shouldRun(now = Date.now(), force = false) {
+    return force || loopIsDue('fast', { intervalMs: this.intervalMs, lastRunAt: this.lastRunAt, now });
   }
 
-  async run(context) {
-    if (!this.shouldRun()) return { executed: false, reason: 'not_due' };
+  async run(context, options = {}) {
+    if (!this.shouldRun(Date.now(), options.force === true)) return { executed: false, reason: 'not_due' };
 
     this.lastRunAt = Date.now();
     this.runCount++;

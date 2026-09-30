@@ -1,8 +1,11 @@
 'use strict';
 
 const { loopIsDue } = require('./morphogenesisControlLoopService');
+const { validate: validateOutcomeEvidence } = require('../learning/outcomeEvidenceValidation');
 
 const DEFAULT_INTERVAL_MS = 3600000;
+const DEFAULT_MIN_VERIFIED_OUTCOMES = 10;
+const DEFAULT_MIN_COMPARABLE_WORKLOADS = 3;
 
 class EvolutionaryControlLoop {
   constructor(opts = {}) {
@@ -14,43 +17,67 @@ class EvolutionaryControlLoop {
     this.priorService = opts.priorService;
     this.policyLearner = opts.policyLearner;
     this.learningEnabled = opts.learningEnabled !== false;
+    this.minimumVerifiedOutcomes = opts.minimumVerifiedOutcomes || DEFAULT_MIN_VERIFIED_OUTCOMES;
+    this.minimumComparableWorkloads = opts.minimumComparableWorkloads || DEFAULT_MIN_COMPARABLE_WORKLOADS;
     this.history = [];
   }
 
-  shouldRun(now = Date.now()) {
-    return this.learningEnabled && loopIsDue('evolutionary', { intervalMs: this.intervalMs, lastRunAt: this.lastRunAt, now });
+  shouldRun(now = Date.now(), context = {}) {
+    return this.learningEnabled && this.hasSufficientEvidence(context)
+      && loopIsDue('evolutionary', { intervalMs: this.intervalMs, lastRunAt: this.lastRunAt, now });
   }
 
   async run(context) {
-    if (!this.shouldRun()) return { executed: false, reason: this.learningEnabled ? 'not_due' : 'learning_disabled' };
+    if (!this.shouldRun(Date.now(), context)) {
+      return { executed: false, reason: this.disabledReason(context) };
+    }
 
     this.lastRunAt = Date.now();
     this.runCount++;
 
+    const gatedContext = { ...context, verifiedOutcomes: this.validOutcomes(context) };
     const results = [];
 
     if (this.experienceStore) {
-      const learnResult = await this.learnPatterns(context);
+      const learnResult = await this.learnPatterns(gatedContext);
       results.push({ action: 'learn_pattern', ...learnResult });
     }
 
     if (this.priorService) {
-      const priorResult = await this.updatePriors(context);
+      const priorResult = await this.updatePriors(gatedContext);
       results.push({ action: 'mutate_prior', ...priorResult });
     }
 
     if (this.policyLearner) {
-      const policyResult = await this.updatePolicies(context);
+      const policyResult = await this.updatePolicies(gatedContext);
       results.push({ action: 'update_transition_policy', ...policyResult });
     }
 
-    const relationResult = await this.updateRelationPriors(context);
+    const relationResult = await this.updateRelationPriors(gatedContext);
     results.push({ action: 'update_relation_prior', ...relationResult });
 
     this.history.push({ runCount: this.runCount, results, timestamp: new Date().toISOString() });
     if (this.history.length > 100) this.history.shift();
 
     return { executed: true, runCount: this.runCount, results, timestamp: new Date().toISOString() };
+  }
+
+  validOutcomes(context = {}) {
+    return (Array.isArray(context.verifiedOutcomes) ? context.verifiedOutcomes : [])
+      .filter(validateOutcomeEvidence);
+  }
+
+  hasSufficientEvidence(context) {
+    const outcomes = this.validOutcomes(context);
+    const workloads = new Set(outcomes.map((item) => item.problemSignature).filter(Boolean));
+    return outcomes.length >= this.minimumVerifiedOutcomes
+      && workloads.size >= this.minimumComparableWorkloads;
+  }
+
+  disabledReason(context) {
+    if (!this.learningEnabled) return 'learning_disabled';
+    if (!this.hasSufficientEvidence(context)) return 'verified_evidence_insufficient';
+    return 'not_due';
   }
 
   async learnPatterns(context) {
