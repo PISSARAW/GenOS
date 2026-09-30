@@ -68,12 +68,34 @@ async function checkPartialCriteriaStayIndeterminate() {
   assert.match(result.result.uncertainty, /non évalués/);
 }
 
+async function checkDeclaredProvenanceRemainsUnverified() {
+  const result = await evaluate('epistemology.certainty-doubt', {
+    criteria: [{ id: 'grounds', supports: true, evidence: { source: 'caller' } }],
+  });
+  assert.deepStrictEqual(result.result.evidence, [
+    { criterion: 'grounds', evidence: { source: 'caller' } },
+  ]);
+  assert.strictEqual(result.result.provenance.source, 'caller-supplied criteria and evidence');
+  assert.strictEqual(result.result.provenance.verified, false);
+  assert.strictEqual(result.promotionEligible, false);
+}
+
+async function checkFormalLimitsAcrossRegistry() {
+  assert.strictEqual(Object.keys(specialized.RUBRICS).length, 29);
+  const formal = await evaluate('science.godel-incompleteness');
+  assert.strictEqual(formal.result.status, 'undetermined');
+  assert.strictEqual(Object.hasOwn(formal.result, 'proof'), false);
+  assert.strictEqual(formal.result.formalScope.formalSentenceStatus, 'unknown');
+}
+
 async function main() {
   assert.strictEqual(router.registryHealth().valid, true);
   await checkRegistryRoutes();
   await checkBoundedCalculations();
   await checkEvidenceRequiredForCriteria();
   await checkPartialCriteriaStayIndeterminate();
+  await checkDeclaredProvenanceRemainsUnverified();
+  await checkFormalLimitsAcrossRegistry();
   console.log('Specialized epistemology: routes, bounded calculations and formal limits passed');
 }
 
