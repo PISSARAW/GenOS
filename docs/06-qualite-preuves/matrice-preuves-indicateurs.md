@@ -10,11 +10,11 @@ pas protocole, profil, seeds, budget, résultat et réplication.
 
 | Registre | Indicateur | Lots reliés | État au lot 25 | Preuve disponible | Limite restante |
 |---|---|---:|---|---|---|
-| Butlin | RPT-1 Récurrence des entrées | 10 | `implemented_not_validated` | binding récurrent + test | pas de campagne réservée sous occlusion |
+| Butlin | RPT-1 Récurrence des entrées | 10 | `implemented_not_validated` | `test_reverberation_causal_effect.js` : même entrée, trace entretenue ou état récurrent ablaté, puis comparaison du contexte chargé dans le bloc de soi | stockage simulé ; pas de résolution d'ambiguïté sous occlusion, de mesure de tâche ni de généralisation |
 | Butlin | RPT-2 Perception intégrée | 10–11 | `implemented_not_validated` | binding, espace inspectable | pas de permutation causale à grande échelle |
 | Butlin | GWT-1 Spécialistes parallèles | 12 | `implemented_not_validated` | workspace compétitif | concurrence réelle non mesurée |
 | Butlin | GWT-2 Workspace sélectif | 12 | `implemented_not_validated` | capacité, éviction, surcharge | pas de réplication indépendante |
-| Butlin | GWT-3 Diffusion globale | 12 | `implemented_not_validated` | helper de workspace : autorisation par module, consommation et sonde d'ablation | le helper n'est branché à aucun chemin de production ; disponibilité globale effective non validée |
+| Butlin | GWT-3 Diffusion globale | 12 | `implemented_not_validated` | `missionPlanning.attachGlobalWorkspace` est appelé par `planMission` ; `test_global_workspace_runtime.js` vérifie disponibilité/consommation par module et lecture du contenu par `missionText` | contrat local du chemin de planification ; pas de campagne live multi-missions, concurrence ni réplication indépendante |
 | Butlin | GWT-4 Attention dépendante de l’état | 13 | `implemented_not_validated` | prédiction et score d’accord | pas de test reserved |
 | Butlin | HOT-1 Perception générative | 11 | `implemented_not_validated` | prior, précision, erreur | modèle génératif limité |
 | Butlin | HOT-2 Fiabilité monitorée | 14 | `implemented_not_validated` | erreur confiance/exactitude | calibration adversariale absente |
@@ -23,9 +23,15 @@ pas protocole, profil, seeds, budget, résultat et réplication.
 | Butlin | AST-1 Modèle prédictif de l’attention | 13 | `implemented_not_validated` | allocation et réallocation | leases non ablatés causalement |
 | Butlin | PP-1 Codage prédictif | 11 | `implemented_not_validated` | prior/observation/erreur | hiérarchie multi-niveaux non validée |
 | Butlin | AE-1 Objectifs concurrents | 16 | `implemented_not_validated` | utilité, pression, invariants | apprentissage longitudinal absent |
-| Butlin | AE-2 Contingences action-perception | 15 | `implemented_not_validated` | copie d'efférence corrélée à l'ID d'action, échec/succès d'orchestration routés vers capture ; gain, délai, attribution des effecteurs | test causal logiciel ajouté ; inventaire exhaustif des chemins d'action et perturbations réelles non répliqués |
+| Butlin | AE-2 Contingences action-perception | 15 | `implemented_not_validated` | `effectorRegistry.json` inventorie les canaux connus ; `test_effector_inventory.js` vérifie la corrélation des appels MCP autorisés par ID d'action et l'usage unique | canaux hors couverture explicitement listés ; pas de perturbation de gain/délai ni de réplication comportementale |
 
 ## Bancs externes
+
+La planification allostatique est testée séparément des familles Butlin :
+`test_allostatic_mission_planning.js` applique le même état mesuré aux bras
+actif/ablaté et vérifie une différence de posture dans le chemin de planification.
+Le reçu indique `outcomePrediction: unavailable` ; aucune amélioration de
+viabilité ou de réussite de mission n'est démontrée.
 
 SAD (Situational Awareness Dataset) et MIRROR (benchmark hiérarchique de
 métacognition) sont des évaluations externes à exécuter sur un modèle déclaré,
