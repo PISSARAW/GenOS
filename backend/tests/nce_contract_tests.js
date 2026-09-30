@@ -121,17 +121,38 @@ async function testNceOptionsReachEngines() {
 
 async function testMeasuredCulturalTransfer() {
   const { measureCulturalTransfer } = require('../src/services/culturalTransmissionService');
-  let integrated = false;
+  const { createCulturalArtifact } = require('../src/services/culturalTransmissionService');
+  const learner = { skills: new Set() };
+  const artifact = createCulturalArtifact({ agentId: 'teacher', type: 'procedure', content: { skill: 'solve-grid-task' }, quality: 1 });
+  const benchmark = async () => Number(learner.skills.has(artifact.content.skill));
   const result = await measureCulturalTransfer({
-    benchmarkBefore: async () => 0.4,
-    integrateArtifact: async () => { integrated = true; },
-    benchmarkAfter: async () => 0.7,
+    benchmarkBefore: benchmark,
+    integrateArtifact: async () => { learner.skills.add(artifact.content.skill); return { artifactId: artifact.id }; },
+    benchmarkAfter: benchmark,
   });
-  assert.strictEqual(integrated, true, 'l artifact doit être intégré entre les deux benchmarks');
-  assert.strictEqual(result.before, 0.4, 'benchmark avant conservé');
-  assert.strictEqual(result.after, 0.7, 'benchmark après conservé');
-  assert.ok(Math.abs(result.delta - 0.3) < 1e-9, 'le Δ doit être observé, pas synthétique');
-  console.log('✓ test:measuredCulturalTransfer');
+  assert.equal(result.integration.artifactId, artifact.id);
+  assert.equal(result.before, 0, 'la compétence est absente avant le transfert');
+  assert.equal(result.after, 1, 'la même tâche est réussie après intégration');
+  assert.equal(result.delta, 1, 'le gain est mesuré sur la tâche');
+  assert.deepEqual(result.causalOrder, ['before', 'transfer', 'after']);
+  await assert.rejects(() => measureCulturalTransfer({ benchmarkBefore: async () => NaN, integrateArtifact: async () => {}, benchmarkAfter: async () => 1 }), /finite number/);
+  console.log('✓ test:measuredCulturalTransferCausesTaskChange');
+}
+
+async function testPhenotypeVectorChangesWithDevelopment() {
+  const vectorService = require('../src/services/phenotypeVectorService');
+  const nce = require('../src/services/nceEngines');
+  const mission = { requiredTools: ['grid_solver'], requiredCapabilities: ['planning'] };
+  const state = { currentPhenotype: { role: 'solver', strategy: 'tree-search', temp: 0.4, topP: 0.9 }, branches: [], atrophies: [], history: [] };
+  const before = vectorService.phenotypeVector(state.currentPhenotype, state);
+  const result = await nce.applyPhenotype(mission, { phenotype: { enabled: true } }, null);
+  const after = result.vector;
+  assert.equal(after.schema, 'genos.phenotype.v1');
+  assert.equal(after.values.length, 23);
+  assert.ok(result.actions.length > 0);
+  assert.ok(vectorService.cosineSimilarity(before, after) < 1, 'environment-driven development changes the measured vector');
+  assert.equal(vectorService.cosineSimilarity(after, after), 1);
+  console.log('✓ test:phenotypeVectorTracksDevelopment');
 }
 
 async function main() {
@@ -143,6 +164,7 @@ async function main() {
   await testTopologyOptionsCarryFullContext();
   await testNceOptionsReachEngines();
   await testMeasuredCulturalTransfer();
+  await testPhenotypeVectorChangesWithDevelopment();
   console.log('=== ALL NCE CONTRACT TESTS PASSED ===');
 }
 

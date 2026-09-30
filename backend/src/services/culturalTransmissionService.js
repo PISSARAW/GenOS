@@ -118,11 +118,16 @@ async function measureCulturalTransfer(opts) {
   if (typeof benchmarkBefore !== 'function') throw new Error('benchmarkBefore is required.');
   if (typeof integrateArtifact !== 'function') throw new Error('integrateArtifact is required.');
   if (typeof benchmarkAfter !== 'function') throw new Error('benchmarkAfter is required.');
-  const before = await benchmarkBefore();
-  await integrateArtifact();
-  const after = await benchmarkAfter();
-  const delta = Number(after) - Number(before);
-  return { before: Number(before), after: Number(after), delta, measured: true };
+  const before = finiteBenchmark(await benchmarkBefore(), 'benchmarkBefore');
+  const integration = await integrateArtifact();
+  const after = finiteBenchmark(await benchmarkAfter(), 'benchmarkAfter');
+  return { before, after, delta: after - before, integration, measured: true, causalOrder: ['before', 'transfer', 'after'] };
+}
+
+function finiteBenchmark(value, label) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) throw new Error(`${label} must return a finite number.`);
+  return score;
 }
 
 function mutateArtifact(opts) {

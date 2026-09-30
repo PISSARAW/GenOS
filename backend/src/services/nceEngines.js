@@ -102,6 +102,7 @@ async function applyPhenotype(mission, config, db) {
     actions: actions.map((a) => ({ action: a.action, branchType: a.need })),
     branchCount: state.branches.length,
     atrophiedCount: state.atrophies.length,
+    vector: require('./phenotypeVectorService').phenotypeVector(state.currentPhenotype, state),
   };
 }
 
