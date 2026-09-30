@@ -73,10 +73,12 @@ function summarizeCriteria(criteria) {
   const known = criteria.filter((item) => item.status !== 'unknown');
   const supports = known.filter((item) => item.status === 'supports').length;
   const challenges = known.length - supports;
+  const unknown = criteria.length - known.length;
   return {
-    status: known.length === 0 ? 'undetermined' : challenges === 0 ? 'supported-by-declared-criteria'
+    status: known.length === 0 ? 'undetermined' : unknown > 0 ? 'partially-assessed'
+      : challenges === 0 ? 'supported-by-declared-criteria'
       : supports === 0 ? 'challenged-by-declared-criteria' : 'mixed-evidence',
-    counts: { required: criteria.length, assessed: known.length, supports, challenges, unknown: criteria.length - known.length },
+    counts: { required: criteria.length, assessed: known.length, supports, challenges, unknown },
   };
 }
 
@@ -127,7 +129,7 @@ function rubricAnalysis(conceptId, args) {
       .map((item) => ({ criterion: item.id, evidence: item.evidence })),
     ...(formal ? { formalScope: assessment } : { counts: assessment.counts }),
     provenance: { source: 'caller-supplied criteria and evidence', evidenceItems: criteria.filter((item) => item.evidence !== null).length },
-    uncertainty: assessment.status === 'undetermined' || assessment.status === 'mixed-evidence'
+    uncertainty: ['undetermined', 'partially-assessed', 'mixed-evidence'].includes(assessment.status)
       ? 'Les critères non évalués ou contradictoires empêchent une conclusion plus forte.'
       : 'Le résultat dépend des critères, étiquettes et éléments communiqués par l’appelant.',
     promotionEligible: false,
