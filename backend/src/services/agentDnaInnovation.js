@@ -245,24 +245,29 @@ async function captureFromFossil(ctx) {
 }
 
 async function promoteCandidate(db, id) {
-  const row = await safeGet(db, 'SELECT candidate_genome_ref, status, evaluation_json FROM agent_genome_innovations WHERE id = ?', id);
-  if (!row) {
-    throw Object.assign(new Error(`innovation '${id}' not found`), { code: 'INNOVATION_NOT_FOUND' });
+  await db.exec('BEGIN IMMEDIATE');
+  try {
+    const row = await db.get('SELECT candidate_genome_ref, status, evaluation_json FROM agent_genome_innovations WHERE id = ?', id);
+    if (!row) throw Object.assign(new Error(`innovation '${id}' not found`), { code: 'INNOVATION_NOT_FOUND' });
+    if (row.status !== 'evaluated') throw Object.assign(new Error('Only evaluated innovations can be promoted'), { code: 'INNOVATION_NOT_EVALUATED' });
+    const evaluation = parseEvidence(row.evaluation_json);
+    if (evaluation.eligible !== true) throw Object.assign(new Error('Innovation has not passed evaluation and promotion gates'), { code: 'INNOVATION_GATE_BLOCKED' });
+    const genome = await db.run("UPDATE agent_genomes SET status = 'active' WHERE id = ? AND status = 'candidate'", row.candidate_genome_ref);
+    if (genome.changes !== 1) throw Object.assign(new Error('Candidate genome is no longer promotable'), { code: 'INNOVATION_STATE_CHANGED' });
+    const result = await db.run("UPDATE agent_genome_innovations SET status = 'promoted', decision_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'evaluated'", id);
+    if (result.changes !== 1) throw Object.assign(new Error('Innovation changed before promotion'), { code: 'INNOVATION_STATE_CHANGED' });
+    await db.exec('COMMIT');
+    return { id, status: 'promoted', candidateGenomeRef: row.candidate_genome_ref };
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
   }
-  if (row.status !== 'candidate') throw Object.assign(new Error('Only candidate innovations can be promoted'), { code: 'INNOVATION_NOT_CANDIDATE' });
-  let evaluation = null;
-  try { evaluation = JSON.parse(row.evaluation_json || 'null'); } catch (_) { evaluation = null; }
-  if (!evaluation || evaluation.eligible !== true) {
-    throw Object.assign(new Error('Innovation has not passed evaluation and promotion gates'), { code: 'INNOVATION_GATE_BLOCKED' });
-  }
-  await db.run("UPDATE agent_genome_innovations SET status = 'promoted', decision_at = CURRENT_TIMESTAMP WHERE id = ?", id);
-  await db.run("UPDATE agent_genomes SET status = 'active' WHERE id = ?", row.candidate_genome_ref);
-  return { id, status: 'promoted', candidateGenomeRef: row.candidate_genome_ref };
 }
 
 async function evaluateCandidate(db, id) {
   const row = await safeGet(db, 'SELECT * FROM agent_genome_innovations WHERE id = ?', id);
   if (!row) throw Object.assign(new Error(`innovation '${id}' not found`), { code: 'INNOVATION_NOT_FOUND' });
+  if (!['candidate', 'evaluated'].includes(row.status)) throw Object.assign(new Error('Only pending innovations can be evaluated'), { code: 'INNOVATION_NOT_CANDIDATE' });
   const model = await store.loadGenome(db, row.candidate_genome_ref);
 
   // B5: charger le parent pour comparaison
@@ -280,8 +285,10 @@ async function evaluateCandidate(db, id) {
     trustReason: trust.reason
   });
   const evaluation = { evaluatedAt: new Date().toISOString(), checks, eligible: Object.values(checks).every(Boolean) };
-  await db.run('UPDATE agent_genome_innovations SET evaluation_json = ? WHERE id = ?', JSON.stringify(evaluation), id);
-  return { id, status: row.status, evaluation };
+  const status = evaluation.eligible ? 'evaluated' : 'candidate';
+  const saved = await db.run('UPDATE agent_genome_innovations SET evaluation_json = ?, status = ? WHERE id = ? AND status = ?', JSON.stringify(evaluation), status, id, row.status);
+  if (saved.changes !== 1) throw Object.assign(new Error('Innovation changed during evaluation'), { code: 'INNOVATION_STATE_CHANGED' });
+  return { id, status, evaluation };
 }
 
 function parseEvidence(value) {
@@ -348,9 +355,9 @@ function isSuperiorToParent(model, parent) {
 async function rejectCandidate(db, id, reason) {
   const row = await safeGet(db, 'SELECT candidate_genome_ref, status FROM agent_genome_innovations WHERE id = ?', id);
   if (!row) throw Object.assign(new Error(`innovation '${id}' not found`), { code: 'INNOVATION_NOT_FOUND' });
-  if (row.status !== 'candidate') throw Object.assign(new Error('Only candidate innovations can be rejected'), { code: 'INNOVATION_NOT_CANDIDATE' });
+  if (!['candidate', 'evaluated'].includes(row.status)) throw Object.assign(new Error('Only pending innovations can be rejected'), { code: 'INNOVATION_NOT_CANDIDATE' });
   const decision = { decision: 'rejected', reason: String(reason || 'operator_rejected'), decidedAt: new Date().toISOString() };
-  await db.run("UPDATE agent_genome_innovations SET status = 'rejected', evaluation_json = ?, decision_at = CURRENT_TIMESTAMP WHERE id = ?", JSON.stringify(decision), id);
+  await db.run("UPDATE agent_genome_innovations SET status = 'rejected', evaluation_json = ?, decision_at = CURRENT_TIMESTAMP WHERE id = ? AND status IN ('candidate', 'evaluated')", JSON.stringify(decision), id);
   await db.run("UPDATE agent_genomes SET status = 'rejected' WHERE id = ? AND status = 'candidate'", row.candidate_genome_ref);
   return { id, status: 'rejected', candidateGenomeRef: row.candidate_genome_ref, reason: decision.reason };
 }

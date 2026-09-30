@@ -26,9 +26,10 @@ async function run() {
     concepts: novel,
     sourceAgentId: 'agent-innov',
     evidence: {
-      source: 'validated_worker_success',
-      eventType: 'WORKER_TASK_COMPLETED',
-      payload: { evidenceReport: { claims: [{ evidence: ['validated source evidence'] }] } }
+      source: 'stratigraphic_fossil',
+      fossilId: 'fossil-test-innovation',
+      payloadHash: 'verified-payload-hash',
+      integrityVerified: true
     },
     scope: {}
   });
@@ -43,6 +44,7 @@ async function run() {
 
   const evaluation = await innovation.evaluateCandidate(db, captured.id);
   assert.equal(evaluation.evaluation.eligible, true);
+  assert.equal(evaluation.status, 'evaluated');
   const promoted = await innovation.promoteCandidate(db, captured.id);
   assert.equal(promoted.status, 'promoted');
   const deployment = await store.workerGenesForAssignment(db, { genomeRef: captured.candidateGenomeRef }, {});

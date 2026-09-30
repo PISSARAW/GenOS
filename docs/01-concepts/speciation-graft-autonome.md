@@ -1,12 +1,13 @@
 # Spéciation et graft autonomes — flux complet d'innovation
 
-- **Statut** : Flux observable disponible via API backend ; la promotion reste une décision explicite d'opérateur après gate.
+- **Statut** : Capture et évaluation disponibles via API backend ; après gate, la promotion reste une décision explicite d'opérateur.
 - **Portée** : `crates/genos-genome`/`crates/genos-reproduction`, `backend/src/services/agentDnaInnovation.js`, `workerEvidenceBarrierLocal.js`.
 - **Dernière revue** : 2026-09-17.
 
-Le runtime expose la maturité `partial` pour `speciate` et `graft` tant que la
-chaîne évaluation → gate → promotion → déploiement n'est pas reliée dans tous
-les contextes. Un résultat structurel réussi ne vaut donc pas promotion.
+Le flux distingue quatre états persistés : `candidate` (en attente ou gate refusée),
+`evaluated` (gate admissible), `promoted` et `rejected`. L'évaluation admissible
+rend le candidat promouvable ; elle ne déclenche pas elle-même la décision opérateur.
+Un résultat structurel réussi ne vaut donc pas promotion.
 
 ## Position sur les métaphores
 
@@ -119,6 +120,9 @@ Si le gate est franchi :
 - `agent_genome_innovations.status` passe à `'promoted'` ;
 - `agent_genomes.status` du candidat passe à `'active'` ;
 - le candidat devient **sélectionnable automatiquement**.
+
+La transition `evaluated → promoted` et l'activation du génome sont enregistrées
+ensemble. Les états finaux (`promoted`, `rejected`) ne peuvent pas être réévalués.
 
 C'est ce qui est implémenté dans `promoteCandidate(...)` de `backend/src/services/agentDnaInnovation.js`.
 
