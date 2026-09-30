@@ -206,6 +206,19 @@ ambiguïté perceptive, ni gain sur une tâche, ni généralisation. RPT-1 reste
 partiel et non promu ; une validation ultérieure doit comparer le feedback
 perceptif activé/coupé sur des tâches appariées à calcul égal.
 
+## Point 3 — registre des effecteurs — 2026-09-30
+
+`shared/effectorRegistry.json` inventorie les voies d'action connues du profil
+`node-runtime`. `mcpExecutor.execute` prédit maintenant chaque appel MCP autorisé
+avec un `sourceActionId`, que portent ses événements de succès et d'échec.
+`node backend/tests/test_effector_inventory.js` vérifie les références du
+registre et la corrélation à usage unique ; le contrôle passe.
+
+Le registre conserve explicitement comme lacunes le processus de mission, le
+dispatch worker, les mutations locales hors MCP, les appels MCP sans identité
+d'agent et les serveurs MCP stdio. L'inventaire est donc explicite mais pas
+exhaustif à l'échelle composée Node + Rust + modèle externe ; AE-2 reste partiel.
+
 SAD et MIRROR restent `not_run` : il faut déclarer le modèle évalué, sa version
 et le protocole d'accès avant de lancer leurs jeux de tâches. Aucun résultat
 local ni aucune mesure du runtime ne remplace ces bancs externes. Ils ne
