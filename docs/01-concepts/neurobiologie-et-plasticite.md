@@ -675,18 +675,14 @@ stateDiagram-v2
 
 ### 4. Gating Thalamique & Désinhibition Motrice des Ganglions de la Base
 
-Dans le cerveau humain et animal, les effecteurs moteurs et les outils ne sont **jamais activés par défaut**. Un organisme qui maintiendrait ses voies motrices excitées en continu s'épuiserait métaboliquement ou agirait de manière convulsive.
-
-GenOS transpose ces principes neurobiologiques dans le service [`biomimeticToolGatingService.js`](../../backend/src/services/biomimeticToolGatingService.js) :
+Le service [`biomimeticToolGatingService.js`](../../backend/src/services/biomimeticToolGatingService.js) applique un filtrage logiciel heuristique avant l'injection d'outils. Les termes de potentiel membranaire, d'inhibition et de désinhibition nomment ses règles de calcul ; ce service ne modélise ni l'activité biologique ni les effets physiologiques décrits par les analogies.
 
 #### A. Les Ganglions de la Base et le Frein GABAergique
-* **Inhibition Tonique :** Le globus pallidus interne ($GPi$) et la substance noire pars reticulata projettent une inhibition GABAergique tonique permanente sur le thalamus et le tronc cérébral.
-* **Désinhibition Sélective (Voie Directe) :** Pour exécuter une action motrice ou mobiliser un outil, le striatum lève localement ce frein. L'action est donc une **désinhibition ciblée**, non une excitation globale.
-* **Application LLM :** Au lieu d'injecter tous les outils dans le prompt d'un 7B, tous les outils restent inhibés par défaut. Seul le cluster fonctionnel requis (ex: `snapshot_persistence`) est désinhibé et introduit dans la lease.
+* **Règle de filtrage :** Le service classe le texte de la requête par motifs lexicaux et mots-clés de clusters, calcule une valeur heuristique, puis retourne les outils associés aux clusters retenus.
+* **Limite de portée :** Ce filtrage ne prouve pas que tous les outils restent désactivés par défaut dans chaque chemin du runtime, ni qu'une sélection améliore les réponses d'un modèle particulier. La lease et les contrôles d'autorisation restent les mécanismes d'accès effectifs.
 
 #### B. Le Comportement d'Utilisation (Syndrome d'Affordance Toxique)
-En neuropsychologie, les patients atteints de lésions frontales bilatérales développent le **syndrome d'utilisation (Lhermitte)** : la vue d'un objet (un verre, une paire de ciseaux) déclenche spontanément l'action motrice (boire, couper) même sans soif ni besoin.
-Un LLM 7B à qui l'on injecte systématiquement 20 signatures d'outils JSON présente exactement la même pathologie : les têtes d'attention sont polarisées par les signatures et déclenchent des appels d'outils inutiles sur des questions purement conceptuelles. Le gating amont rétablit l'inhibition descendante préfrontale.
+Le « syndrome d'affordance toxique » est ici une analogie pour le risque qu'un grand catalogue d'outils détourne l'attention d'un modèle. Cette fiche ne rapporte pas de mesure démontrant ce phénomène sur un modèle 7B ; les règles lexicales du service ne constituent pas un mécanisme neuronal ni une validation expérimentale de l'analogie.
 
 #### C. Intégration Biophysique : Seuil de Potentiel de Membrane
 * **Équation du Potentiel de Membrane :**
@@ -695,5 +691,5 @@ Un LLM 7B à qui l'on injecte systématiquement 20 signatures d'outils JSON pré
   $$
 * $V_{\text{repos}} = -70.0\text{ mV}$.
 * Seuil critique de dépolarisation : $V_{\text{seuil}} = -55.0\text{ mV}$.
-* Si $V_m < -55.0\text{ mV}$, aucun outil n'est chargé, préservant 100 % des tokens d'attention du 7B pour le raisonnement en langage naturel pur.
+* Les constantes et l'équation ci-dessus sont des paramètres heuristiques du service, exprimés en unités empruntées à la biophysique. Ils ne mesurent pas un potentiel biologique. Un résultat de filtrage n'établit pas non plus un taux d'économie de tokens ou l'absence d'outils dans les autres voies d'exécution.
 
