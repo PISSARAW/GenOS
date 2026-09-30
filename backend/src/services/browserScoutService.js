@@ -54,9 +54,9 @@ class BrowserScoutService {
     return { sessionId: session.id, mode: 'browser', opened: true };
   }
 
-  closeSession(sessionId) {
+  async closeSession(sessionId) {
     const session = this.getSession(sessionId);
-    if (session && session.browser) this.browserAdapter.close({ browser: session.browser }).catch(() => {});
+    if (session && session.browser) await this.browserAdapter.close({ browser: session.browser });
     return this.sessions.delete(sessionId);
   }
 
