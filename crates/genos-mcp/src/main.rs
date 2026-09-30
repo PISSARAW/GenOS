@@ -305,7 +305,7 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
                 }));
             }
 
-            if !tools::is_tool_allowed(name) {
+            if !tools::is_tool_allowed_for_call(name, args) {
                 return Some(json!({
                     "jsonrpc": "2.0",
                     "id": id,

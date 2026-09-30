@@ -87,3 +87,22 @@ fn neural_mission_signal_ignores_non_finite_input() {
         .iter()
         .any(|event| event.event_type == "NEURAL_MISSION_SIGNAL"));
 }
+
+#[test]
+fn mission_tick_applies_guard_cell_backpressure_to_planning_budget() {
+    let mut ecosystem = GenosEcosystem::new("guard-cell-mission-flux-test");
+    ecosystem.orchestrator.metabolism.atp = 50.0;
+
+    let _ = ecosystem.tick(&Goal::Explore);
+
+    let event = ecosystem
+        .events
+        .read_stream(0)
+        .into_iter()
+        .find(|event| event.event_type == "MISSION_FLUX_REGULATED")
+        .expect("mission tick should report guard-cell flux regulation");
+    assert_eq!(event.payload["schema"], "genos.guard-cell-mission-flux/v1");
+    assert!(event.payload["resourceRatio"].as_f64().unwrap() < 1.0);
+    assert!(event.payload["admittedFlux"].as_f64().unwrap() < event.payload["requestedFlux"].as_f64().unwrap());
+    assert_eq!(event.payload["permission"], "planning_budget_only");
+}

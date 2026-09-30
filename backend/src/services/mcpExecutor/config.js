@@ -45,6 +45,32 @@ function directToolLeaseAllows(toolName) {
   return lease.includes(toolName);
 }
 
+const BIOLOGICAL_FEATURE_ALIASES = {
+  electric_organ: 'electrocyte', collar_cell: 'choanocyte',
+  structural_color: 'iridophore', stomata: 'guard_cell',
+  xylem_wood: 'tracheid', plasmid_hgt: 'prokaryote'
+};
+
+function biologicalFeatureLeaseScope(args = {}) {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return null;
+  const feature = String(args.feature || '').trim().toLowerCase();
+  if (!feature) return null;
+  const canonical = BIOLOGICAL_FEATURE_ALIASES[feature] || feature;
+  const action = String(args.action || '').trim().toLowerCase();
+  return `genos_biomimicry::${canonical}::${action}`;
+}
+
+function directBiologicalFeatureLeaseAllows(args = {}) {
+  const scope = biologicalFeatureLeaseScope(args);
+  if (!scope) return true;
+  if (!directToolLeaseAllows('genos_biomimicry')) return false;
+  const disabled = String(process.env.GENOS_MCP_DISABLED_TOOLS || '').split(',').map((name) => name.trim()).filter(Boolean);
+  if (disabled.includes(scope)) return false;
+  if (process.env.GENOS_MCP_LEASE === undefined) return exposeAllEnabled();
+  const scopes = String(process.env.GENOS_MCP_LEASE).split(',').map((name) => name.trim()).filter(Boolean);
+  return scopes.includes(scope);
+}
+
 function getToolRegistry() {
   return require('../mcpToolRegistry');
 }
@@ -146,6 +172,8 @@ module.exports = {
   isSensitiveEnvironmentName,
   normalizeMcpTimeout,
   directToolLeaseAllows,
+  biologicalFeatureLeaseScope,
+  directBiologicalFeatureLeaseAllows,
   getToolRegistry,
   directCallGuard,
   validateMcpUrl,

@@ -1,8 +1,9 @@
 # Biomimétisme Cellulaire Spécialisé Non-Humain dans GenOS
 
 - **Statut** : Le cnidocyte, l'électrocyte, le choanocyte, l'iridophore, la cellule de garde, la trachéide et le transfert procaryote HGT ont des branchements runtime partiels sous lease avec reçus; seules les autres opérations procaryotes restent des primitives locales sous `crates/genos-biology/src/specialized_cells/`.
+- **Statut** : Le cnidocyte est filtré avant transport MCP; les estimations de tension électrocytaire, le choanocyte, l'iridophore, la cellule de garde et la trachéide ont un chemin MCP/CLI sous scope d'action. La décharge électrocytaire quorum-gated reste une primitive Rust non reliée à ce dispatcher.
 - **Portée** : `crates/genos-biology/src/specialized_cells/`, `backend/src/services/mcpLigandReceptorService.js`, outils MCP `genos_biomimicry_*`.
-- **Dernière revue** : 2026-09-28.
+- **Dernière revue** : 2026-10-01.
 - **Référence** : [inventaire-biologique.md](inventaire-biologique.md), [maturite-biologique.md](maturite-biologique.md).
 
 Ce document décrit des primitives bio-inspirées comme vocabulaire d'architecture. Une simulation logicielle n'est pas une fonction biologique réelle : les chiffres physiques (15 MPa, 3 µs, 600 V, 30 Hz) sont des constantes de démonstration, pas des mesures.
@@ -12,12 +13,25 @@ Ce document décrit des primitives bio-inspirées comme vocabulaire d'architectu
 - **Cnidocyte** : le filtre MCP `checkCnidocyteReflex` est appelé dans `mcpExecutor.execute` avant le transport. Il bloque, mesure sa latence avec l'horloge monotone et conserve un audit; `test_mcp_cnidocyte_runtime_gate.js` vérifie cette voie avec base simulée et transport interdit. La latence constante du primitive Rust n'est pas une mesure, le filtre par sous-chaînes n'est pas une protection générale et aucune garantie « zéro-latence » n'est revendiquée.
 - **Électrocyte** : `discharge_electric_under_quorum` exige au moins deux cellules actives distinctes, une majorité de votes favorables et une échéance valide avant la décharge; les refus et mesures sont journalisés. Les identités de vote ne sont pas signées, la collecte n'est pas distribuée et l'event store reste mémoire : ce n'est pas un consensus distribué.
 - **Choanocyte** : le tamisage est un filtre local sur un payload fourni. Aucun adaptateur de flux, aucune mesure de débit, pertes ou erreurs.
+- **Électrocyte** : l'estimation de tension CLI est un calcul théorique sous scope MCP. La primitive Rust `discharge_electric_under_quorum` exige au moins deux cellules actives distinctes, une majorité de votes favorables et une échéance valide avant la décharge; les refus et mesures sont journalisés. Cette primitive n'est pas appelée depuis le dispatcher MCP/CLI; les identités de vote ne sont pas signées, la collecte n'est pas distribuée et l'event store reste mémoire : ce n'est pas un consensus distribué.
+- **Choanocyte** : le tamisage est un filtre local sur un payload fourni. Aucun adaptateur de flux, aucune mesure de débit, pertes ou erreurs.
 - **Iridophore** : le rendu polymorphique est un formatage (ANSI, JSON, Markdown). Le mode `CrypticCamouflage` est un décalage César, pas un chiffrement ; il ne donne aucune propriété cryptographique et le camouflage n'est pas une mesure de sécurité.
 - **Cellule de garde** : le calcul d'ouverture est isolé. Il n'est pas branché sur un registre de ressources et ne fait pas de backpressure réelle.
 - **Trachéide** : `trigger_lignified_apoptosis` ne compile rien. Un identifiant `pipeline_id` ne signifie pas qu'un pipeline est compilé ; les ratios `1.0` et `50.0` sont des constantes, pas des gains mesurés.
 - **Procaryote / HGT** : le transfert est une copie d'objet locale. Aucune validation, lease ou révocation runtime.
 
 Tant qu'un module n'a pas de preuve bout en bout (attaque rejouée dans le chemin réel, artefact compilé exécuté, transfert refusé pour permissions), il reste une simulation explicitement étiquetée.
+
+### Frontière d'autorisation MCP
+
+Les appels à l'outil générique `genos_biomimicry` exigent à la fois la lease de
+cet outil et un scope exact pour toute feature/action, de la forme
+`genos_biomimicry::<feature>::<action>`. Par exemple, le tamisage requiert
+`GENOS_MCP_LEASE=genos_biomimicry,genos_biomimicry::choanocyte::sift`.
+Un scope d'action différent ou désactivé est refusé pour les variantes Rust et
+Node du serveur MCP. Cette lease limite l'appel MCP; elle ne transforme pas les
+votes électrocytaires déclaratifs en identité authentifiée, ni ne prouve une
+exécution durable dans une mission.
 
 ---
 
@@ -140,8 +154,10 @@ Tant qu'un module n'a pas de preuve bout en bout (attaque rejouée dans le chemi
 | **Électrocyte** | Animal (Poisson) | Aucun | Vote local multi-cellules, échéance, puis décharge mesurée | Votants authentifiés, collecte distribuée et reprise après redémarrage |
 | **Choanocyte** | Animal (Spongiaire) | Aucun | Filtre local sur flux fourni | Adaptateur explicite + débit/pertes mesurés |
 | **Iridophore** | Animal (Reptile/Céph.) | Aucun | Formatage ANSI/JSON/Markdown | Contrats de rendu ; aucun statut crypto |
+| **Choanocyte** | Animal (Spongiaire) | Aucun | MCP sous scope d'action; succès persisté avec mission membre, agent autorisé et génome lié | Flux de mission authentifié + débit/pertes mesurés; le reçu d'opération durable n'attribue pas encore de coût ATP |
+| **Iridophore** | Animal (Reptile/Céph.) | Aucun | MCP/CLI sous scope d'action; formatage ANSI/JSON/Markdown | Consommateur mission + contrat de rendu; aucun statut crypto |
 | **Cellule de Garde** | Végétal | Aucun | Calcul local de conductance | Backpressure branchée au registre de ressources |
-| **Trachéide** | Végétal | Aucun | Changement d'étiquette `OssifiedConduit` | Artefact compilé exécuté + coût comparé |
+| **Trachéide** | Végétal | Aucun | MCP sous scope d'action; succès persisté avec mission membre, agent autorisé et génome lié | Artefact compilé exécuté + coût comparé; le reçu d'opération durable n'attribue pas encore de coût ATP |
 | **Procaryote** | Micro-organisme | Aucun | Copie locale de plasmide | Validation + lease + révocation, refus tracés |
 
 ---

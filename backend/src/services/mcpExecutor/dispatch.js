@@ -5,7 +5,7 @@ const { validateToolArguments } = require('../mcpArgumentValidation');
 const { callHttpFn } = require('./transports/http');
 const { callStdioFn } = require('./transports/stdio');
 const { executeToolLogic } = require('./transports/toolLogic');
-const { getToolRegistry, directToolLeaseAllows, configuredTransport } = require('./config');
+const { getToolRegistry, directToolLeaseAllows, directBiologicalFeatureLeaseAllows, configuredTransport } = require('./config');
 
 const WORKSPACE_FALLBACK = path.resolve(__dirname, '../../../..');
 
@@ -55,6 +55,11 @@ function leaseDeniedResult(toolName, executionKind) {
   return { configured: false, success: false, status: 'lease_denied', error: `Tool '${toolName}' is outside the active MCP lease.`, code: 'MCP_TOOL_LEASE_DENIED', executionKind };
 }
 
+function biologicalFeatureLeaseDenial(toolName, args, executionKind) {
+  if (toolName !== 'genos_biomimicry' || directBiologicalFeatureLeaseAllows(args)) return null;
+  return { configured: false, success: false, status: 'lease_denied', error: 'The active MCP lease does not grant this biological feature/action.', code: 'MCP_BIOLOGICAL_CAPABILITY_LEASE_DENIED', executionKind };
+}
+
 function invalidArgsResult(error) {
   return { configured: false, success: false, status: 'invalid_args', error: error.message, code: error.code };
 }
@@ -90,6 +95,8 @@ function preValidateTool(context) {
   if (steric) context.docking = steric.docking || { mode: steric.mode };
   const argumentError = validateToolArguments(toolName, args);
   if (argumentError) return invalidArgsResult(argumentError);
+  const biologicalDenial = biologicalFeatureLeaseDenial(toolName, args, executionKind);
+  if (biologicalDenial) return biologicalDenial;
   try {
     validateMcpInputPaths(args);
   } catch (error) {

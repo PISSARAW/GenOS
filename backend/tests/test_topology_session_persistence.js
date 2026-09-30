@@ -80,6 +80,12 @@ function insertEvent(events, statement, params) {
 }
 
 function updateSession(rows, statement, params) {
+  if (statement.startsWith('UPDATE TOPOLOGY_SESSIONS SET STATE_JSON = ? WHERE ID = ?')) {
+    const current = rows.get(params[1]);
+    if (!current) return { changes: 0 };
+    rows.set(params[1], { ...current, state_json: params[0] });
+    return { changes: 1 };
+  }
   const isSave = statement.includes('SET TOPOLOGY = ?');
   const isSyncytium = statement.includes("TOPOLOGY = 'SYNCYTIUM'");
   const idIndex = isSyncytium ? 1 : isSave ? 3 : 2;

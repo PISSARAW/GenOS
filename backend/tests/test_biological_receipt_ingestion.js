@@ -36,6 +36,23 @@ async function main() {
     assert.equal(stored.cell_id, 'cell-a');
     assert.equal(stored.genome_id, 'genome-a');
 
+    const biologicalAgent = 'bio-operation-agent';
+    const biologicalGenome = 'bio-operation-genome';
+    await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, 'Biological worker', 'worker', 'running', 'worker')", biologicalAgent);
+    await db.run('INSERT INTO mission_agents (mission_id, agent_id, role) VALUES (?, ?, ?)', 'backend-mission-1', biologicalAgent, 'worker');
+    await db.run("INSERT INTO agent_genomes (id, agent_id, name, content_hash, genome_blob) VALUES (?, ?, 'test-genome', 'sha256:test', ?)", biologicalGenome, biologicalAgent, Buffer.from('genome'));
+    const operationReceipt = await receipts.recordSpecializedOperation(db, {
+      toolName: 'genos_biomimicry', agentId: biologicalAgent,
+      args: { feature: 'choanocyte', action: 'sift', mission_id: 'backend-mission-1', genome_id: biologicalGenome }
+    });
+    assert.equal(operationReceipt.measuredCost, false, 'operation receipts must not claim unmeasured ATP expenditure');
+    const operationRow = await db.get('SELECT mission_id, cell_id, genome_id, cost, schema_id FROM biological_execution_receipts WHERE receipt_id = ?', operationReceipt.receiptId);
+    assert.deepEqual(operationRow, { mission_id: 'backend-mission-1', cell_id: biologicalAgent, genome_id: biologicalGenome, cost: 0, schema_id: 'genos.biological-operation-receipt/v1' });
+    await assert.rejects(() => receipts.recordSpecializedOperation(db, {
+      toolName: 'genos_biomimicry', agentId: biologicalAgent,
+      args: { feature: 'choanocyte', action: 'sift', mission_id: 'unrelated-mission', genome_id: biologicalGenome }
+    }), { code: 'BIOLOGICAL_MISSION_AGENT_DENIED' });
+
     await db.run("INSERT INTO missions (mission_id, objective) VALUES ('backend-bridge-mission', 'real rust tick')");
     const runner = async (args) => {
       const rustId = args[args.indexOf('--mission-id') + 1];

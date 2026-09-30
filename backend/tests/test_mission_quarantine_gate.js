@@ -1,7 +1,13 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const sqlite3 = require('sqlite3').verbose();
+const { open } = require('sqlite');
 const { assertMissionDispatchAllowed } = require('../src/services/medical/missionQuarantineGate');
+const { incarnateAgent } = require('../src/services/agents/agentIncarnationService');
 
 function fakeDb(row) {
   const statements = [];
@@ -39,10 +45,53 @@ async function testQuarantinedMissionIsBlocked() {
   assert.ok(db.statements.some(({ sql }) => sql.includes("SET cell_cycle_state = 'arrested'")));
 }
 
+async function testProductionIncarnationGatePersistsQuarantine() {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-incarnation-quarantine-'));
+  const dbPath = path.join(directory, 'quarantine.db');
+  let db = await open({ filename: dbPath, driver: sqlite3.Database });
+  try {
+    await db.exec(`CREATE TABLE agents (id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'running', updated_at TEXT);
+      CREATE TABLE clinical_states (
+        id TEXT PRIMARY KEY, agent_id TEXT NOT NULL UNIQUE, vitals_json TEXT NOT NULL,
+        immune_titer REAL NOT NULL, inflammatory_index REAL NOT NULL, cell_cycle_state TEXT NOT NULL,
+        plasmid_load REAL NOT NULL, pathogen_burden REAL NOT NULL, iatrogenic_load REAL NOT NULL,
+        wellness_score REAL NOT NULL, observed_at TEXT, updated_at TEXT
+      );
+      CREATE TABLE immune_events (
+        id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, clinical_state_id TEXT,
+        event_type TEXT NOT NULL, event_json TEXT NOT NULL, severity TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );`);
+    await db.run('INSERT INTO agents (id, status) VALUES (?, ?)', 'quarantined-parent', 'running');
+    await db.run(`INSERT INTO clinical_states
+      (id, agent_id, vitals_json, immune_titer, inflammatory_index, cell_cycle_state,
+       plasmid_load, pathogen_burden, iatrogenic_load, wellness_score)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    'clinical-quarantined', 'quarantined-parent', JSON.stringify({ cognitiveIntegrity: 0.05, stress: 0, energy: 0.1, budgetRatio: 1, dissonance: 0.9, apoptosisRisk: 0 }),
+    1, 0, 'G0', 0, 0, 0, 0.05);
+
+    await assert.rejects(incarnateAgent({
+      ctx: { db, parent: { id: 'quarantined-parent', cognitive_budget: 100 } },
+      request: { role: 'worker', parentAgentId: 'quarantined-parent', mission: { prompt: 'blocked mission' } },
+    }), error => error.code === 'AGENT_QUARANTINED');
+    assert.equal((await db.get('SELECT status FROM agents WHERE id = ?', 'quarantined-parent')).status, 'blocked');
+    assert.equal((await db.get('SELECT cell_cycle_state FROM clinical_states WHERE agent_id = ?', 'quarantined-parent')).cell_cycle_state, 'arrested');
+    assert.equal((await db.get('SELECT COUNT(*) AS count FROM immune_events WHERE agent_id = ?', 'quarantined-parent')).count >= 2, true);
+    await db.close();
+    db = await open({ filename: dbPath, driver: sqlite3.Database });
+    assert.equal((await db.get('SELECT status FROM agents WHERE id = ?', 'quarantined-parent')).status, 'blocked');
+    assert.equal((await db.get('SELECT cell_cycle_state FROM clinical_states WHERE agent_id = ?', 'quarantined-parent')).cell_cycle_state, 'arrested');
+  } finally {
+    await db.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 async function run() {
   await testHealthyMissionPasses();
   await testQuarantinedMissionIsBlocked();
-  console.log('Mission quarantine gate checks passed.');
+  await testProductionIncarnationGatePersistsQuarantine();
+  console.log('Mission quarantine gate and durable incarnation refusal checks passed.');
 }
 
 run().catch((error) => {

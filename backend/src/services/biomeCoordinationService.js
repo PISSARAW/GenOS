@@ -211,8 +211,8 @@ async function assessSessionIndividuals(sessionId, individuals, options = {}) {
 async function updateSessionPopulation({ sessionId, command, options = {} }) {
   return applyOperation({
     sessionId, options, operation: `population_${command.type}`, input: command,
-    apply: (session) => {
-      const result = populationRuntimeService.execute(session.ecology, command, options);
+    apply: async (session) => {
+      const result = await populationRuntimeService.execute(session.ecology, command, options);
       const successionPhase = advanceSuccessionPhase(session.ecology, session.variantPolicy, command.measurements);
       return { ...result, successionPhase };
     }

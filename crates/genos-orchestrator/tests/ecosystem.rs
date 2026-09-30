@@ -1,3 +1,4 @@
+use genos_orchestrator::GenosEcosystem;
 use genos_orchestrator::dna_ops;
 use genos_orchestrator::genome_ops;
 use genos_orchestrator::genos_biology::glial::glial_cell::Metabolism;
@@ -13,7 +14,6 @@ use genos_orchestrator::genos_genome::{Gene, Genome};
 use genos_orchestrator::genos_immune::AntibodyDetector;
 use genos_orchestrator::genos_signal::SignalingMode;
 use genos_orchestrator::phylogeny::PhylogenyLab;
-use genos_orchestrator::GenosEcosystem;
 use genos_orchestrator::{CrossoverParams, FreezeParams, OscillatorParams, ThawParams};
 use std::collections::HashMap;
 
@@ -27,10 +27,11 @@ fn ecosystem_gives_access_to_every_subsystem() {
         .orchestrator
         .add_worker("Core", AgentCell::new("Kwame", "k", "Worker"))
         .unwrap();
-    assert!(eco
-        .orchestrator
-        .delegate_task("Core", (worker, "tache"))
-        .is_ok());
+    assert!(
+        eco.orchestrator
+            .delegate_task("Core", (worker, "tache"))
+            .is_ok()
+    );
 
     // Signalisation : stigmergie + Kuramoto + quorum
     eco.deposit_trail("OPTIMAL_PATH", 5.0);
@@ -208,9 +209,10 @@ fn ecosystem_exposes_neuro_and_virology() {
 
     // Empaquetage erroné (transduction spécialisée).
     let pidx = eco.virology.engineer_phage("STEAL_GENE");
-    assert!(eco
-        .virology
-        .package_specialized(pidx, Gene::new("LOCUS_A", "PAYLOAD")));
+    assert!(
+        eco.virology
+            .package_specialized(pidx, Gene::new("LOCUS_A", "PAYLOAD"))
+    );
     assert!(eco.virology.phages[pidx].is_specialized);
 }
 
@@ -280,10 +282,11 @@ fn ecosystem_exposes_store_and_reproduction_complements() {
     assert_eq!(eco.read_events(2).len(), 1);
 
     let capsule_id = eco.seal_capsule("b1", serde_json::json!({ "ok": true }));
-    assert!(eco
-        .audit_capsules()
-        .iter()
-        .any(|(id, valid)| *id == capsule_id && *valid));
+    assert!(
+        eco.audit_capsules()
+            .iter()
+            .any(|(id, valid)| *id == capsule_id && *valid)
+    );
 
     eco.fossilize("lin-1", "extinction");
     assert!(!eco.fossil_history().is_empty());
