@@ -88,6 +88,7 @@ async function testTopologyOptionsCarryFullContext() {
   const context = {
     db: { marker: true },
     request: {
+      cultural_transfer: { artifact: { id: 'cultural-test' }, benchmark: async () => 0 },
       problem_domain: 'robotics',
       keywords: ['grasp'],
       execution_budget: { tokens: 5 },
@@ -111,6 +112,7 @@ async function testTopologyOptionsCarryFullContext() {
   assert.deepStrictEqual(opts.requiredTools, ['grid_solver'], 'requiredTools requis');
   assert.deepStrictEqual(opts.requiredCapabilities, ['planning'], 'requiredCapabilities requis');
   assert.strictEqual(opts.genomeId, 'genome-1', 'genomeId requis');
+  assert.equal(opts.culturalTransfer.artifact.id, 'cultural-test', 'cultural transfer context requis');
   assert.deepStrictEqual(opts.nceOptions, { curiosity: false }, 'nceOptions requis');
   assert.strictEqual(opts.db.marker, true, 'db doit être transmis');
   console.log('✓ test:topologyOptionsCarryFullContext');

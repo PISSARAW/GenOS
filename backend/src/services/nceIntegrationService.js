@@ -6,7 +6,7 @@
  * Signature simplifiée : enhanceMissionWithNCE(mission, db)
  */
 
-const { applyCuriosity, applyRepresentationalMutation, applyExaptation, applyEnvCoev, applyCulture, applyPlay, applyPhenotype } = require('./nceEngines');
+const { applyCuriosity, applyRepresentationalMutation, applyExaptation, applyEnvCoev, applyCulture, applyCultureLearning, applyPlay, applyPhenotype } = require('./nceEngines');
 
 function createNCEConfig(options) {
   options = options || {};
@@ -35,6 +35,7 @@ async function enhanceMissionWithNCE(mission, db) {
     exaptations: [],
     environments: [],
     culturalTraits: [],
+    culturalLearning: null,
     play: null,
     phenotype: null,
   };
@@ -45,6 +46,7 @@ async function enhanceMissionWithNCE(mission, db) {
     { fn: () => applyExaptation(mission, config, db), key: 'exaptations' },
     { fn: () => applyEnvCoev(mission, config), key: 'environments' },
     { fn: () => applyCulture(mission, config), key: 'culturalTraits' },
+    { fn: () => applyCultureLearning(mission, config), key: 'culturalLearning' },
     { fn: () => applyPlay(mission, config, db), key: 'play' },
     { fn: () => applyPhenotype(mission, config, db), key: 'phenotype' },
   ];

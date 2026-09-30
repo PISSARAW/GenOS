@@ -70,6 +70,7 @@ function buildExplorationOptions(request) {
     knownConcepts: getField(request, 'knownConcepts', 'known_concepts') || [],
     existingCapabilities: getField(request, 'existingCapabilities', 'existing_capabilities') || [],
     culturalTraits: getField(request, 'culturalTraits', 'cultural_traits') || [],
+    culturalTransfer: request.culturalTransfer || request.cultural_transfer,
     nceOptions: getField(request, 'nceOptions', 'nce_options'),
   };
 }
@@ -97,6 +98,7 @@ async function computeNCEForTopology(task, options) {
       knownConcepts: options.knownConcepts,
       existingCapabilities: options.existingCapabilities,
       culturalTraits: options.culturalTraits,
+      culturalTransfer: options.culturalTransfer,
       requiredTools: options.requiredTools,
       requiredCapabilities: options.requiredCapabilities,
       phenotypeState: options.phenotypeState,
@@ -119,6 +121,7 @@ async function computeNCEForTopology(task, options) {
     representations: enhancements.representations || [],
     exaptations: enhancements.exaptations || [],
     culturalTraits: enhancements.culturalTraits || [],
+    culturalLearning: enhancements.culturalLearning || null,
     environments: enhancements.environments || [],
   };
 }

@@ -65,6 +65,12 @@ async function applyCulture(mission, config) {
   return selectCulturalTraits(mission.culturalTraits || [], {}, 3);
 }
 
+async function applyCultureLearning(mission, config) {
+  if (!config.culture.enabled || !mission.culturalTransfer) return null;
+  const bridge = require('./culturalPhenotypeBridgeService');
+  return bridge.transferCultureToPhenotype(mission.culturalTransfer);
+}
+
 async function applyPlay(mission, config, db) {
   if (!config.playSandbox.enabled) return null;
   if (!mission.workspacePath) return null;
@@ -152,6 +158,7 @@ module.exports = {
   applyExaptation,
   applyEnvCoev,
   applyCulture,
+  applyCultureLearning,
   applyPlay,
   applyPhenotype,
 };
