@@ -33,6 +33,7 @@ pub mod kernel_morphogenesis_lease;
 pub mod kernel_resolvers;
 pub mod kernel_state;
 pub mod learning;
+pub mod lineage_archive;
 pub mod membrane_chemistry;
 pub mod metabolism;
 pub mod mission_receipt;

@@ -56,6 +56,26 @@ fn reproduction_bloquee_si_atp_insuffisant() {
 }
 
 #[test]
+fn reproduction_emit_parent_seed_mutations_and_fingerprints() {
+    let mut eco = GenosEcosystem::new("ReproductionReceipt");
+    eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
+    let founder = eco
+        .orchestrator
+        .add_worker("Arena", AgentCell::new("Fondatrice", "w", "Soma"))
+        .unwrap();
+    eco.seed_germline(founder, "FOUNDER_GENOME").unwrap();
+    eco.feed(100.0);
+
+    assert!(eco.autonomous_reproduction_cycle().is_ok());
+    let event = eco.read_events(0).into_iter().find(|item| item.event_type == "AUTONOMOUS_REPRODUCTION").unwrap();
+    assert_eq!(event.payload["schema"], "genos.reproduction-event/v1");
+    assert!(event.payload["seed"].as_str().unwrap_or("").len() == 64);
+    assert!(event.payload["mutations"].is_number());
+    assert!(event.payload["fingerprints"]["parent"]["content_hash"].is_string());
+    assert!(event.payload["fingerprints"]["daughter"]["content_hash"].is_string());
+}
+
+#[test]
 fn le_tick_trace_les_blocages_de_reproduction() {
     let mut eco = GenosEcosystem::new("Overmind");
     eco.orchestrator.create_tissue("Arena", "Exec").unwrap();

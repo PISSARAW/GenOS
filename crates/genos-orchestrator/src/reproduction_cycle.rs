@@ -90,9 +90,17 @@ impl GenosEcosystem {
     }
 
     fn seeded_rng_for(daughter_id: Uuid) -> StdRng {
+        StdRng::from_seed(Self::seed_bytes_for(daughter_id))
+    }
+
+    fn seed_bytes_for(daughter_id: Uuid) -> [u8; 32] {
         let mut seed = [0u8; 32];
         seed[..16].copy_from_slice(daughter_id.as_bytes());
-        StdRng::from_seed(seed)
+        seed
+    }
+
+    fn seed_hex(seed: &[u8; 32]) -> String {
+        seed.iter().map(|byte| format!("{byte:02x}")).collect()
     }
 
     /// Intègre la fille née de `mother_id` dans le même tissu que sa mère
@@ -124,6 +132,9 @@ impl GenosEcosystem {
         let (mother_id, mother_genome) = self
             .find_eligible_mother()
             .ok_or(ReproductionBlocked::NoEligibleMother)?;
+        let parent_fingerprint = mother_genome
+            .fingerprint()
+            .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
 
         if self.orchestrator.membrane.total_integrity() < MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE {
             return Err(ReproductionBlocked::MembraneTooWeak);
@@ -135,12 +146,17 @@ impl GenosEcosystem {
         let division = CellDivision::mitosis_attested(&mother_genome)
             .map_err(ReproductionBlocked::HayflickLimitReached)?;
         let mut daughter_genome = division.clone;
+        let seed = Self::seed_bytes_for(daughter_genome.genome_id());
+        let seed_hex = Self::seed_hex(&seed);
         let mut rng = Self::seeded_rng_for(daughter_genome.genome_id());
-        daughter_genome.mutate_stochastic(AUTONOMOUS_MUTATION_RATE, &mut rng);
+        let mutations = daughter_genome.mutate_stochastic(AUTONOMOUS_MUTATION_RATE, &mut rng);
         // Immersion biophysique : la fille n'existe que si son génome est
         // structurellement valide dans le milieu courant.
         daughter_genome
             .validate()
+            .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
+        let daughter_fingerprint = daughter_genome
+            .fingerprint()
             .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
 
         let mother_cell = self
@@ -173,7 +189,17 @@ impl GenosEcosystem {
 
         self.record_event(
             "AUTONOMOUS_REPRODUCTION",
-            json!({ "mother": mother_id.to_string(), "daughter": daughter_id.to_string(), "generation": generation }),
+            json!({
+                "schema": "genos.reproduction-event/v1",
+                "parent": { "cell_id": mother_id, "genome_id": parent_fingerprint.genome_id },
+                "daughter": { "cell_id": daughter_id, "genome_id": daughter_fingerprint.genome_id },
+                "generation": generation,
+                "lineage_id": lineage_id,
+                "seed": seed_hex,
+                "mutation_rate": AUTONOMOUS_MUTATION_RATE,
+                "mutations": mutations,
+                "fingerprints": { "parent": parent_fingerprint, "daughter": daughter_fingerprint }
+            }),
         );
 
         Ok(ReproductionOutcome {
