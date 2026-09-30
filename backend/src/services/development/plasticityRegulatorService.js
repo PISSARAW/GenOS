@@ -7,6 +7,14 @@
  */
 
 const STATES = ['NEOTENIC', 'PLASTIC', 'DIFFERENTIATING', 'CONSOLIDATING', 'STABLE', 'EMERGENCY_PLASTIC'];
+const TRANSITIONS = Object.freeze({
+  NEOTENIC: ['PLASTIC', 'DIFFERENTIATING', 'EMERGENCY_PLASTIC'],
+  PLASTIC: ['NEOTENIC', 'DIFFERENTIATING', 'EMERGENCY_PLASTIC'],
+  DIFFERENTIATING: ['PLASTIC', 'CONSOLIDATING', 'EMERGENCY_PLASTIC'],
+  CONSOLIDATING: ['STABLE', 'PLASTIC', 'EMERGENCY_PLASTIC'],
+  STABLE: ['NEOTENIC', 'PLASTIC', 'EMERGENCY_PLASTIC'],
+  EMERGENCY_PLASTIC: ['PLASTIC', 'DIFFERENTIATING']
+});
 
 const store = new Map();
 const COOLDOWN_MS = 30000;
@@ -18,11 +26,13 @@ function getPlasticity(id) {
 
 function requestChange(opts) {
   const o = opts || {};
+  if (!o.id || !STATES.includes(o.to) || !String(o.reason || '').trim()) return { ok: false, reason: 'valid_id_state_and_reason_required' };
   const prev = getPlasticity(o.id);
+  if (!TRANSITIONS[prev.state]?.includes(o.to)) return { ok: false, reason: 'transition_not_allowed', from: prev.state, to: o.to };
   if (prev.budget <= 0) return { ok: false, reason: 'change_budget_exhausted' };
   if (cooldownActive(prev)) return { ok: false, reason: 'cooldown_active' };
-  const next = STATES.includes(o.to) ? o.to : 'PLASTIC';
-  const state = { ...prev, state: next, changes: prev.changes + 1, budget: prev.budget - 1, lastChangeAt: Date.now() };
+  const next = o.to;
+  const state = { ...prev, state: next, changes: prev.changes + 1, budget: prev.budget - 1, lastChangeAt: Date.now(), reason: String(o.reason).trim(), history: [...(prev.history || []), { from: prev.state, to: next, reason: String(o.reason).trim(), at: new Date().toISOString() }] };
   store.set(String(o.id), state);
   syncAxolotl(o.id, next);
   return { ok: true, from: prev.state, to: next, state };
@@ -41,4 +51,4 @@ function syncAxolotl(id, next) {
   } catch (_) {}
 }
 
-module.exports = { getPlasticity, requestChange, STATES };
+module.exports = { getPlasticity, requestChange, STATES, TRANSITIONS };
