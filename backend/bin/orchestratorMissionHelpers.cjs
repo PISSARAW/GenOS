@@ -15,6 +15,7 @@ function buildActionContext(ctx) {
     task: ctx.task,
     orchestratorId: ctx.orchestratorId,
     id: ctx.id,
+    missionId: ctx.missionId,
     repoRoot: path.resolve(__dirname, '../..'),
     bridgePath: path.join(__dirname, 'genos-orchestrate.cjs'),
     waitForCompletion: ctx.waitForCompletion
@@ -227,9 +228,9 @@ async function gatherTelemetryAndCoverage(db, id) {
 }
 
 function emitFinalTelemetry(opts) {
-  const { telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate, id } = opts;
+  const { telemetryRows, runs, coverage, nceEnhancements, missionSuccess, finalVerdict, continuity, completionGate, id, missionId } = opts;
   const nceInfo = buildNceInfo(nceEnhancements);
-  process.stdout.write(JSON.stringify({ orchestratorId: id, success: missionSuccess, verdict: finalVerdict, completionGate, continuity, telemetry: telemetryRows, nce: nceInfo, token_usage: tokenUsage(runs), coverage }));
+  process.stdout.write(JSON.stringify({ missionId: missionId || continuity?.missionId || id, orchestratorId: id, success: missionSuccess, verdict: finalVerdict, completionGate, continuity, telemetry: telemetryRows, nce: nceInfo, token_usage: tokenUsage(runs), coverage }));
 }
 
 function buildNceInfo(nceEnhancements) {

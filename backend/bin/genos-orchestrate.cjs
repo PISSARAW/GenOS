@@ -10,6 +10,7 @@ try {
 const { getDatabase, closeDatabase, withWriteRetry } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const { createOrchestratorId } = require('../src/services/orchestratorIdFactory');
+const missionIdentity = require('../src/services/missionIdentityService');
 const telemetry = require('../src/services/telemetryObserver');
 const missionContinuity = require('../src/services/missionContinuityService');
 const { maybeDispatchContinuation } = require('./homeostasisContinuationHelper.cjs');
@@ -55,6 +56,7 @@ const strategy = String(request.strategy || '').toLowerCase();
 const action = request.action || (biologicalModes.has(strategy) ? 'dispatch_biological' : 'orchestrate');
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
 let orchestratorId = request.orchestratorId;
+let missionId = request.missionId || null;
 let id = action === 'dispatch_worker' ? request.workerId : null;
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
 const allowedCommands = normalizeAllowedCommands(policyRequest.allowed_commands) || [];
@@ -70,6 +72,7 @@ if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' &&
 }
 
 const SCRIPT_START_TIME = Date.now();
+const TOP_LEVEL_MISSION_ACTIONS = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
 
 async function waitForCompletion(db) {
   const baseTimeout = Number(policyRequest.timeoutMs ?? request.timeoutMs ?? 600000);
@@ -82,7 +85,7 @@ async function waitForCompletion(db) {
       agents = await db.all('SELECT id, status, runtime_pid FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
       trinityWorlds = await db.all("SELECT agent_id, status FROM trinity_worlds WHERE mission LIKE ? ORDER BY world_number", `%${id.slice(0, 24)}%`);
     } catch (err) {
-      if (err?.code === 'SQLITE_BUSY' || /busy|locked/i.test(err?.message || '')) {
+      if (isRetryableDatabaseError(err)) {
         await new Promise((resolve) => setTimeout(resolve, Math.min(3000, 300 * Math.pow(1.5, busyRetries))));
         busyRetries += 1;
         continue;
@@ -90,36 +93,52 @@ async function waitForCompletion(db) {
       throw err;
     }
     busyRetries = 0;
-    const allTerminal = agents.length && agents.every((agent) => !agent.runtime_pid && ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'].includes(agent.status));
-    const trinityTerminal = trinityWorlds.length >= 3 && trinityWorlds.every((w) => ['blocked', 'completed', 'terminated', 'error', 'failed', 'unverified', 'quarantined'].includes(w.status));
-    if (allTerminal || trinityTerminal) return agents;
+    if (missionExecutionTerminal(agents, trinityWorlds)) return agents;
     pulseTick += 1;
-    if (pulseTick % 10 === 0) {
-      try { await missionContinuity.observeMissionPulses(db, id); } catch (_) {}
-    }
+    await observeMissionPulse(db, pulseTick);
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
 }
 
+function isRetryableDatabaseError(error) {
+  return error?.code === 'SQLITE_BUSY' || /busy|locked/i.test(error?.message || '');
+}
+
+function missionExecutionTerminal(agents, trinityWorlds) {
+  const terminal = ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'];
+  const allAgentsTerminal = agents.length && agents.every((agent) => !agent.runtime_pid && terminal.includes(agent.status));
+  const allTrinityTerminal = trinityWorlds.length >= 3 && trinityWorlds.every((world) => terminal.includes(world.status));
+  return allAgentsTerminal || allTrinityTerminal;
+}
+
+async function observeMissionPulse(db, pulseTick) {
+  if (pulseTick % 10 !== 0) return;
+  try { await missionContinuity.observeMissionPulses(db, missionId || id); } catch (_) {}
+}
+
 async function prepareRuntime(initDb) {
   await runtime.reconcilePersistedRuntimes(initDb);
-  const topLevelMissionActions = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
-  if (!orchestratorId && !topLevelMissionActions.has(action)) {
-    const requestedRoot = request.workspace_root || request.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT;
-    const resolvedRoot = requestedRoot ? path.resolve(requestedRoot) : null;
-    const active = await initDb.get(
-      `SELECT a.id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
-       WHERE a.execution_mode = 'orchestrator' AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined')
-         AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL)
-         AND (? IS NULL OR w.path IS NULL OR w.path = ?)
-       ORDER BY a.updated_at DESC, a.created_at DESC LIMIT 1`,
-      resolvedRoot, resolvedRoot
-    );
-    if (active) orchestratorId = active.id;
-  }
+  if (!orchestratorId && !TOP_LEVEL_MISSION_ACTIONS.has(action)) orchestratorId = await findActiveOrchestrator(initDb);
   if (!orchestratorId) orchestratorId = createOrchestratorId('mcp_orchestrator');
   if (!id) id = action === 'dispatch_worker' ? createOrchestratorId(`worker_${orchestratorId}`) : orchestratorId;
+  if (TOP_LEVEL_MISSION_ACTIONS.has(action)) await ensureMissionIdentity(initDb);
+}
+
+async function findActiveOrchestrator(db) {
+  const requestedRoot = request.workspace_root || request.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT;
+  const resolvedRoot = requestedRoot ? path.resolve(requestedRoot) : null;
+  const active = await db.get(`SELECT a.id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
+    WHERE a.execution_mode = 'orchestrator' AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined')
+      AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL)
+      AND (? IS NULL OR w.path IS NULL OR w.path = ?)
+    ORDER BY a.updated_at DESC, a.created_at DESC LIMIT 1`, resolvedRoot, resolvedRoot);
+  return active?.id || null;
+}
+
+async function ensureMissionIdentity(db) {
+  missionId = missionId || missionIdentity.newMissionId();
+  await missionIdentity.create(db, { missionId, objective: task });
 }
 
 async function evaluateMissionContinuity(opts) {
@@ -131,17 +150,19 @@ async function evaluateMissionContinuity(opts) {
   let organism = null;
   try {
     const context = await buildMissionContext({ outcome, policyRequest, request, db, missionId: id, agents });
-    mission = missionContinuity.buildMissionInput(id, task, {
+    mission = missionContinuity.buildMissionInput(missionId || id, task, {
+      orchestratorAgentId: id,
       completionContract: context.completionContract,
       invariants: context.invariants,
       safetyConstraints: context.safetyConstraints,
       context: context.context
     });
-    const evalResult = await missionContinuity.evaluateContinuity(db, mission);
+    const evalResult = await evaluateAndRepairMission({ db, id, task, outcome, agents, mission });
     evaluation = evalResult;
     organism = evalResult.organism;
-    continuity = buildContinuity(evalResult);
+    continuity = { ...buildContinuity(evalResult), missionId: mission.id };
     const gate = await missionContinuity.transitionMissionToComplete(db, { organism: evalResult.organism, mission, context: context.context });
+    if (gate.allowed && missionId) await missionIdentity.setStatus(db, missionId, 'completed');
     completionGate = { allowed: gate.allowed, reason: gate.reason || null };
     emitCompletionEvent({ id, gateAllowed: gate.allowed, evaluation: evalResult, continuity, completionGate });
   } catch (continuityError) {
@@ -149,6 +170,29 @@ async function evaluateMissionContinuity(opts) {
     completionGate = { allowed: false, reason: continuityError.message };
   }
   return { continuity, completionGate, evaluation, organism, mission };
+}
+
+async function evaluateAndRepairMission(input) {
+  let evaluation = await missionContinuity.evaluateContinuity(input.db, input.mission);
+  if (evaluation.status === 'homeostasis_satisfied') return evaluation;
+  const replacements = await regenerateUncoveredWorkers(input, evaluation);
+  if (!replacements.some((replacement) => replacement.success)) return evaluation;
+  const agents = await missionContinuity.fetchMissionAgents(input.db, input.mission.id);
+  const context = await buildMissionContext({ outcome: input.outcome, policyRequest, request, db: input.db, missionId: input.id, agents });
+  input.mission.context = context.context;
+  evaluation = await missionContinuity.evaluateContinuity(input.db, input.mission);
+  return evaluation;
+}
+
+function regenerateUncoveredWorkers(input, evaluation) {
+  return missionContinuity.regenerateMissingWorkers(input.db, {
+    missionId: input.mission.id, orchestratorAgentId: input.id, organism: evaluation.organism,
+    objective: input.task,
+    executionBudget: policyRequest.executionBudget || policyRequest.execution_budget,
+    executionPolicy: policyRequest.executionPolicy || policyRequest.execution_policy,
+    toolLease: policyRequest.toolLease || policyRequest.tool_lease,
+    strategyContract: policyRequest.strategyContract, timeoutMs: policyRequest.timeoutMs
+  });
 }
 
 async function handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity }) {
@@ -171,49 +215,80 @@ async function handleHomeostasisContinuation({ db, id, task, request, mission, c
 }
 
 async function executeMission(db, state) {
-  const minimal = await checkMinimalShortcut(db);
-  if (minimal) return;
+  if (await checkMinimalShortcut(db)) return;
   await initializeMission({ db, action, orchestratorId, task });
-  const actionContext = buildActionContext({ db, action, request, task, orchestratorId, id, waitForCompletion });
-  const handled = await runActionWithCleanup(actionContext, handleAction, state);
-  if (handled) {
-    emitTopologyEvent(actionContext.orchestratorId, actionContext.action);
-    return;
-  }
+  if (await executeRequestedAction({ db, state })) return;
+  await runOrchestratedMission(db);
+}
 
+async function executeRequestedAction(input) {
+  const { db, state } = input;
+  if (missionId) {
+    await missionIdentity.attachOrchestrator(db, {
+      missionId, agentId: orchestratorId, expectedOrchestratorId: request.expectedOrchestratorId
+    });
+  }
+  const actionContext = buildActionContext({ db, action, request, task, orchestratorId, id, missionId, waitForCompletion });
+  const handled = await runActionWithCleanup(actionContext, handleAction, state);
+  if (!handled) return false;
+  emitTopologyEvent(actionContext.orchestratorId, actionContext.action);
+  return true;
+}
+
+async function runOrchestratedMission(db) {
   const nceEnhancements = await applyNceEnhancements(buildNceInput(request), db, orchestratorId);
   const { enhancedPrompt, nceMetadata } = buildEnhancedPrompt(nceEnhancements, task);
   const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
   await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology });
+  if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
   const agents = await waitForCompletion(db);
   const { summarizeAgents } = require('../src/services/orchestratorOutcome');
   const outcome = summarizeAgents(agents);
-  const result = await evaluateMissionContinuity({ db, id, task, outcome, agents });
-  let continuity = result.continuity;
-  let completionGate = result.completionGate;
-  let evaluation = result.evaluation;
-  let organism = result.organism;
-  const mission = result.mission;
+  const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
+  await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, nceEnhancements });
+}
+
+async function finalizeOrchestratedMission(input) {
+  const { db, outcome, evaluation, morphology, nceEnhancements } = input;
+  let { continuity, completionGate, evaluation: homeostasis, organism, mission } = evaluation;
   const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
   const missionSuccess = completionGate.allowed === true;
   let finalVerdict = missionSuccess ? outcome.verdict : (completionGate.allowed === false && outcome.success === true ? 'homeostasis_blocked' : outcome.verdict);
 
   await executeMorphology({ morphology, outcome, finalVerdict, orchestratorId: id });
 
-  const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation, organism, finalVerdict, continuity });
+  const contResult = await handleHomeostasisContinuation({ db, id, task, request, mission, completionGate, evaluation: homeostasis, organism, finalVerdict, continuity });
   continuity = contResult.continuity;
   completionGate = contResult.completionGate;
-  evaluation = contResult.evaluation;
+  homeostasis = contResult.evaluation;
   organism = contResult.organism;
   finalVerdict = contResult.finalVerdict;
   const finalStatus = resolveFinalMissionStatus(outcome, completionGate, finalVerdict);
   finalVerdict = finalStatus.verdict;
+  const dormant = await suspendUnsuccessfulMission({ db, mission, homeostasis, organism, finalStatus, continuity });
+  if (dormant) finalVerdict = 'mission_dormant';
+  if (completionGate.allowed && missionId) await missionIdentity.setStatus(db, missionId, 'completed');
 
   await persistMissionChampion(db, outcome);
-  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id });
-  if (!finalStatus.success) process.exitCode = 2;
+  emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
+  if (!finalStatus.success && !dormant) process.exitCode = 2;
+}
+
+function suspendUnsuccessfulMission(input) {
+  const { db, mission, homeostasis, organism, finalStatus, continuity } = input;
+  if (finalStatus.success || !request.dormancy || !missionId) return false;
+  return missionContinuity.suspendMission(db, {
+    missionId, orchestratorAgentId: id, organism, objective: task,
+    invariants: mission?.invariants, completionContract: mission?.completionContract,
+    homeostasis: homeostasis?.state,
+    workspaceId: request.workspaceId || request.workspace_id,
+    workspaceRoot: request.workspaceRoot || request.workspace_root,
+    reason: request.dormancy.reason, wakeCondition: request.dormancy.wakeCondition,
+    evidence: continuity?.evidence || [], remainingWork: request.dormancy.remainingWork,
+    eligibility: request.dormancy.eligibility || {}
+  }).then((result) => result.entered === true);
 }
 
 function resolveFinalMissionStatus(outcome, completionGate, verdict) {

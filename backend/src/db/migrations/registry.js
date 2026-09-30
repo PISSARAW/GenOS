@@ -304,6 +304,10 @@ const migrationRunners = [
     const { migrateSignalDeliveryClaims } = require('./migrateSignalDeliveryClaims');
     await migrateSignalDeliveryClaims(db);
   }),
+  createMigrationRunner('085-mission-identities', 'Give missions durable identities independent of orchestrator agents', async (db) => {
+    const { migrateMissionIdentities } = require('./085-mission-identities');
+    await migrateMissionIdentities(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

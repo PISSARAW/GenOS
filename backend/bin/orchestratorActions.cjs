@@ -98,6 +98,7 @@ async function handleBackground(context) {
   const runnerRequest = {
     ...context.request, background: false, detachedProcessId,
     orchestratorId: context.orchestratorId,
+    missionId: context.missionId,
     workerId: context.action === 'dispatch_worker' ? context.id : context.request.workerId,
     ...(context.action === 'dispatch_worker' ? { reuseChecked: true, reuseWorkerId: reusableWorker?.id || null } : {})
   };
@@ -105,10 +106,10 @@ async function handleBackground(context) {
   const runner = spawnDetachedRunner(context, runnerRequest, runnerEnv);
   await require('./detachedSpawn.cjs').waitForSpawn(runner);
   await trackDetachedProcess(context, detachedProcessId, runner);
-  process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, detachedProcessId, runnerPid: runner.pid, ...(context.action === 'dispatch_worker' ? { workerId: context.id, reusedWorker: Boolean(reusableWorker), ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {}) } : {}), status: 'accepted', acceptedAt: new Date().toISOString(), task: context.task }));
+  process.stdout.write(JSON.stringify({ missionId: context.missionId, orchestratorId: context.orchestratorId, detachedProcessId, runnerPid: runner.pid, ...(context.action === 'dispatch_worker' ? { workerId: context.id, reusedWorker: Boolean(reusableWorker), ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {}) } : {}), status: 'accepted', acceptedAt: new Date().toISOString(), task: context.task }));
 }
 async function initializeMission({ db, action, orchestratorId, task }) {
-  const actions = ['dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological'];
+  const actions = ['dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological', 'orchestrate'];
   if (!actions.includes(action)) return;
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
     VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
@@ -219,7 +220,6 @@ async function handleOrganizationRead({ db, request, action, orchestratorId }) {
     : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
   process.stdout.write(JSON.stringify(result || { orchestratorId, organization: 'specialist_expert_committee', version: 0 }));
 }
-
 
 async function handleTeam(opts) {
   const handlers = require('../bin/topologyHandlers.cjs');
