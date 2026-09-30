@@ -216,7 +216,9 @@ async function verifySolutionInSnapshot(missionResult, environment) {
   }
 
   // Prépare le snapshot
+  const db = environment.db || await require('../db').getDatabase();
   const snapshot = await capture({
+    db,
     workspace: { path: environment.workspacePath, id: environment.workspaceId },
     label: 'POET verification',
     reason: 'Verify solution',
