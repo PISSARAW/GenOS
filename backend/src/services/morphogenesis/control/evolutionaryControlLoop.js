@@ -1,7 +1,7 @@
 'use strict';
 
 const { loopIsDue } = require('./morphogenesisControlLoopService');
-const { validateLearningEvidence } = require('../learning/outcomeEvidenceValidation');
+const { createMorphologyOutcome } = require('../learning/morphologyOutcomeService');
 const { MorphologyExperienceStore } = require('../learning/morphologyExperienceStore');
 
 const DEFAULT_INTERVAL_MS = 3600000;
@@ -56,12 +56,12 @@ class EvolutionaryControlLoop {
 
   validOutcomes(context = {}) {
     return (Array.isArray(context.verifiedOutcomes) ? context.verifiedOutcomes : [])
-      .filter(validateLearningEvidence);
+      .map(toMorphologyOutcome).filter(Boolean);
   }
 
   hasSufficientEvidence(context) {
     const outcomes = this.validOutcomes(context);
-    const workloads = new Set(outcomes.map((item) => item.learningContext.problemSignature));
+    const workloads = new Set(outcomes.map((item) => item.problemSignature));
     return outcomes.length >= this.minimumVerifiedOutcomes
       && workloads.size >= this.minimumComparableWorkloads;
   }
@@ -86,20 +86,21 @@ class EvolutionaryControlLoop {
   }
 
   extractSignatures(context) {
-    return context.verifiedOutcomes.map((evidence) => experienceFromEvidence(evidence, context));
+    return context.verifiedOutcomes.map(experienceFromOutcome);
   }
 
   async updatePolicies(context) {
     if (!this.policyLearner) return { updated: 0 };
     try {
       let updated = 0;
-      for (const outcomeEvidence of context.verifiedOutcomes) {
+      for (const outcome of context.verifiedOutcomes) {
+        const evidence = outcome.sourceEvidence;
         const accepted = this.policyLearner.recordVerifiedOutcome({
-          topology: outcomeEvidence.learningContext.initialMorphology.topology,
-          profile: outcomeEvidence.learningContext.problemProfile || context.problemProfile || {},
-          cost: outcomeEvidence.learningContext.cost?.total || 0,
-          latency: outcomeEvidence.learningContext.latency || 0,
-          outcomeEvidence,
+          topology: outcome.initialMorphology.topology,
+          profile: evidence.learningContext.problemProfile || context.problemProfile || {},
+          cost: Number(outcome.cost.total) || 0,
+          latency: outcome.latency,
+          outcomeEvidence: evidence,
         });
         if (accepted) updated++;
       }
@@ -123,32 +124,32 @@ async function recordExperience(store, experience) {
   throw new TypeError('Morphology experience store must expose add or record.');
 }
 
-function experienceFromEvidence(evidence, context) {
-  const learning = evidence.learningContext;
+function toMorphologyOutcome(evidence) {
+  try { return createMorphologyOutcome(evidence); } catch (_) { return null; }
+}
+
+function experienceFromOutcome(outcome) {
   return {
-    ...experienceIdentity(learning, context),
-    ...experienceMorphology(learning),
-    ...experienceResources(learning),
-    ...experienceResult(evidence),
+    missionSignature: outcome.problemSignature,
+    problemProfile: outcome.sourceEvidence.learningContext.problemProfile || {},
+    modelProvider: outcome.model,
+    harness: outcome.harness,
+    environment: outcome.environment,
+    verificationStrength: outcome.verificationStrength,
+    availableCapabilities: outcome.sourceEvidence.learningContext.availableCapabilities || [],
+    initialMorphology: outcome.initialMorphology,
+    morphologyHistory: outcome.morphologyTransitions,
+    variants: outcome.sourceEvidence.learningContext.variants || {},
+    budget: outcome.budget,
+    transitions: outcome.morphologyTransitions,
+    costs: outcome.cost,
+    latency: outcome.latency,
+    tokens: outcome.tokens,
+    failures: outcome.failures.length,
+    quality: outcome.outcome.score,
+    evidenceQuality: outcome.outcome.score,
+    finalOutcome: outcome.outcome.status.toLowerCase(),
   };
-}
-
-function experienceIdentity(learning, context) {
-  return { missionSignature: learning.problemSignature, problemProfile: learning.problemProfile || context.problemProfile || {}, modelProvider: learning.model };
-}
-
-function experienceMorphology(learning) {
-  const transitions = learning.morphologyTransitions || [];
-  return { availableCapabilities: learning.availableCapabilities || [], initialMorphology: learning.initialMorphology, morphologyHistory: transitions, variants: learning.variants || {}, transitions };
-}
-
-function experienceResources(learning) {
-  return { budget: learning.budget, costs: learning.cost || {}, latency: Number(learning.latency) || 0, tokens: Number(learning.tokens) || 0 };
-}
-
-function experienceResult(evidence) {
-  const quality = Number(evidence.value);
-  return { failures: evidence.success ? 0 : 1, quality, evidenceQuality: quality, finalOutcome: evidence.success ? 'success' : 'failure' };
 }
 
 module.exports = { EvolutionaryControlLoop };

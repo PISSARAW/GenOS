@@ -4,6 +4,7 @@ const { randomUUID } = require('crypto');
 
 const EXPERIENCE_FIELDS = [
   'missionSignature', 'problemProfile', 'modelProvider', 'availableCapabilities',
+  'harness', 'environment', 'verificationStrength',
   'initialMorphology', 'morphologyHistory', 'variants', 'budget',
   'transitions', 'costs', 'latency', 'tokens', 'failures',
   'quality', 'evidenceQuality', 'finalOutcome', 'counterfactuals'
@@ -21,6 +22,7 @@ function buildExperienceObject(input) {
   return {
     experienceId: input.experienceId || randomUUID(),
     ...coreFields(input),
+    ...verificationFields(input),
     ...morphologyFields(input),
     ...resourceFields(input),
     ...outcomeFields(input),
@@ -33,6 +35,14 @@ function coreFields(input) {
     missionSignature: input.missionSignature || null,
     problemProfile: input.problemProfile || {},
     modelProvider: input.modelProvider || null
+  };
+}
+
+function verificationFields(input) {
+  return {
+    harness: input.harness || null,
+    environment: input.environment || {},
+    verificationStrength: input.verificationStrength || null
   };
 }
 
