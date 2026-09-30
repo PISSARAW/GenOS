@@ -8,7 +8,9 @@ function createContext(mission, emit) {
   const isWorker = mission.executionMode === 'worker';
   const agentName = mission.name || mission.agentId;
   const nameMeaning = mission.nameMeaning || mission.role;
+  const hostExecutionContext = parseHostExecutionContext(mission.hostExecutionContextJson, mission);
   const state = { mission, strategyContract, autonomyPlan, isWorker, agentName, nameMeaning,
+    hostExecutionContext,
     toolLease: JSON.parse(mission.toolLeaseJson || '[]'), executionBudget: JSON.parse(mission.executionBudgetJson || '{}'),
     observedTools: new Set(), recordedTurns: [], code: 0, eventCount: 0, estimatedTokens: 0,
     exactTokens: 0, observedCostUsd: 0, conscienceState: conscience.createConscienceState(), emit };
@@ -21,6 +23,35 @@ function createContext(mission, emit) {
     genosCapsule: JSON.parse(mission.genosCapsuleJson || '{}'), allowFileEdits: false, allowedCommands: []
   });
   return state;
+}
+
+function parseHostExecutionContext(serialized, mission) {
+  try {
+    const context = JSON.parse(serialized || '{}');
+    if (context && context.schemaVersion === 1) return context;
+    return fallbackHostExecutionContext(mission);
+  } catch (_) {
+    return fallbackHostExecutionContext(mission);
+  }
+}
+
+function fallbackHostExecutionContext(mission) {
+  return {
+    schemaVersion: 1,
+    harnessId: 'mcp-host',
+    harnessVersion: null,
+    providerId: mission.provider || 'unknown',
+    modelId: mission.modelId || 'unknown',
+    samplingAvailable: false,
+    toolsAvailable: [],
+    structuredOutput: false,
+    checkpoint: false,
+    restore: false,
+    cancellation: false,
+    streaming: false,
+    humanInput: false,
+    provenanceConfidence: 'unknown',
+  };
 }
 
 async function finishContext(state, text) {

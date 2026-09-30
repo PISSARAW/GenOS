@@ -93,7 +93,8 @@ const TOOL_BASE_SCHEMAS = {
       strategy: { type: 'string', description: 'Optional strategy hint from the available strategies.' },
       background: { type: 'boolean', description: 'Defaults to false: wait for the mission and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor: Codex, Hermes/Nous, Antigravity host, or all discovered local models.' },
-      provider: { type: 'string', description: 'Optional provider identity recorded for caller_mcp provenance.' },
+      provider: { type: 'string', description: 'Optional declared provider identity; GenOS does not infer it from the harness.' },
+      modelId: { type: 'string', description: 'Optional declared model identity. Leave unspecified when the host does not disclose it.' },
     },
     required: ['mission'],
   },
@@ -119,7 +120,8 @@ const TOOL_BASE_SCHEMAS = {
       role: { type: 'string', description: 'Specialized role of the worker.' },
       background: { type: 'boolean', description: 'Defaults to false: wait for the worker and stream telemetry through MCP progress notifications. Set true to return a launch receipt and run detached.' },
       executor: { type: 'string', enum: ['caller_mcp', 'codex', 'local', 'hermes', 'antigravity'], description: 'Cognitive executor inherited by the worker.' },
-      provider: { type: 'string', description: 'Optional provider identity for the worker.' },
+      provider: { type: 'string', description: 'Optional declared provider identity for the worker; GenOS does not infer it from the harness.' },
+      modelId: { type: 'string', description: 'Optional declared model identity. Leave unspecified when the host does not disclose it.' },
     },
     required: ['mission'],
   },
@@ -355,7 +357,6 @@ function validateStericOrSchema(toolName, args) {
   }
   return { valid: true, mode: 'fallback_json_schema', docking };
 }
-
 const BIOMIMETIC_GATING_POLICY = {
   restingPotentialMv: -70.0,
   depolarizationThresholdMv: -55.0,

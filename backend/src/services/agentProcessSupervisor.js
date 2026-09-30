@@ -192,6 +192,9 @@ function buildMissionEnvelope(ctx, identity, runtimeStrategyContract) {
   return {
     ...identity,
     modelTier: normalizedMission.modelTier || '',
+    provider: normalizedMission.provider || '',
+    modelId: normalizedMission.modelId || '',
+    hostExecutionContextJson: JSON.stringify(normalizedMission.hostExecutionContext || {}),
     workspaceRoot,
     workspaceIsolation: normalizedMission.workspaceIsolation || '',
     agentType: normalizedMission.agentType || '',

@@ -41,6 +41,10 @@ message AgentMission {
   string capability_manifest_json = 28;
   string worker_kind = 29;
   string worker_contract_json = 30;
+  // Host/model identity is explicit provenance; unknown values stay empty.
+  string provider = 31;
+  string model_id = 32;
+  string host_execution_context_json = 33;
 }
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }

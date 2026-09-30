@@ -36,7 +36,7 @@ const transport = new StdioClientTransport({
   args: [path.join(root, 'mcp/index.js')],
   cwd: root,
   stderr: 'pipe',
-  env: { ...process.env, GENOS_REPO_ROOT: root, GENOS_MCP_PROVIDER: 'codex-caller',
+  env: { ...process.env, GENOS_REPO_ROOT: root,
     GENOS_WORKSPACE_ROOT: briefPath ? path.dirname(path.resolve(briefPath)) : root,
     GENOS_MCP_LEASE: 'genos_orchestrate', GENOS_MCP_TOOL_TIMEOUT_MS: '1200000',
     GENOS_STREAM_TELEMETRY: '1' }

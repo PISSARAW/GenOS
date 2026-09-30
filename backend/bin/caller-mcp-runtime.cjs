@@ -12,7 +12,12 @@ async function run(raw) {
   const mission = decodeMissionInput(raw);
   const state = createContext(mission, (event) => process.stdout.write(encodeEvent({ ...event, agentId: mission.agentId })));
   const prompt = state.prompt;
-  state.emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Caller MCP cognitive runtime accepted the mission.', payload: { executor: 'caller_mcp', provider: mission.provider || process.env.GENOS_MCP_PROVIDER || 'mcp-host' }, status: 'running' });
+  state.emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Caller MCP cognitive runtime accepted the mission.', payload: {
+    executor: 'caller_mcp',
+    provider: mission.provider || process.env.GENOS_MCP_PROVIDER || 'unknown',
+    modelId: mission.modelId || process.env.GENOS_MCP_MODEL_ID || 'unknown',
+    hostExecutionContext: state.hostExecutionContext
+  }, status: 'running' });
   const response = await sampleWithTools({
     messages: [{ role: 'user', content: { type: 'text', text: prompt } }],
     maxTokens: Math.max(1, Number(state.executionBudget.tokens || 2048) - Math.ceil(Buffer.byteLength(prompt) / 4)),

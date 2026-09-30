@@ -19,7 +19,9 @@ function createRequest(mission) {
     harness: 'caller_mcp',
     mission: source.mission || source.prompt || '',
     agentId: source.agentId || source.id || '',
-    provider: source.provider || 'mcp-host',
+    provider: source.provider || 'unknown',
+    modelId: source.modelId || 'unknown',
+    hostExecutionContext: source.hostExecutionContext || null,
   };
 }
 

@@ -23,11 +23,14 @@ class ControlLoopOrchestrator {
     }
   }
 
-  consumeEvent(event, evidenceContext = {}) {
+  async consumeEvent(event, evidenceContext = {}) {
     const decision = decideEventAction(event, evidenceContext);
     const pending = this.context.pendingMorphogenesisDecisions || [];
     this.context.pendingMorphogenesisDecisions = [...pending, decision].slice(-100);
-    return decision;
+    const fastContext = { ...this.context, latestEvent: event };
+    const fast = await this.fastLoop.run(fastContext, { force: true });
+    if (fast.executed) this.context.lastFastResult = fast;
+    return { ...decision, fastLoop: fast };
   }
 
   async start() {

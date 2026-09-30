@@ -83,6 +83,12 @@ Règles :
 - Le routage est par capacités, pas par nom : la mission déclare des besoins,
   le registre sélectionne le phénotype d'exécution
   (`harness + modèle + topologie + politiques mémoire/communication`).
+- Pour `caller_mcp`, chaque mission transporte un `HostExecutionContext` : identité
+  du harness annoncée par la négociation MCP, version si fournie, provider et modèle
+  déclarés ou `unknown`, sampling observé, puis outils bornés par le lease GenOS.
+  L'absence d'identité de modèle reste explicitement inconnue; elle n'est jamais
+  déduite du nom du client. Les workers héritent du même contexte et d'un lease
+  d'outils restreint. Sampling indisponible bloque `caller_mcp`, sans fallback.
 - La migration est progressive et mesurée : routage partiel (5/95, 25/75),
   fork + replay d'un même snapshot sur deux harnesses, comparaison sur
   succès, erreurs outils, latence, tokens, coût, interventions humaines,

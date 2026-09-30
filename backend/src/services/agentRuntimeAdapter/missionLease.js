@@ -88,6 +88,10 @@ async function enforceMissionToolLease(ctx) {
   const policy = leasePolicy.derivePolicyLease({ executionMode: dispatched.execution_mode, role, plan: ctx.autonomyPlan, capabilities });
   const bounded = leasePolicy.restrictProvidedLease(provided, policy);
   mission.toolLease = mission.workerContract?.authority?.execute === false ? [] : bounded;
+  if (mission.executor === 'caller_mcp') {
+    const contexts = require('../hostExecutionContext');
+    mission.hostExecutionContext = contexts.bindHostToolLease(mission.hostExecutionContext, mission.toolLease);
+  }
   ctx.normalizedMission = mission;
   await applyFocusProbe(ctx, mission);
   return applyPolicyMasking(ctx, mission);

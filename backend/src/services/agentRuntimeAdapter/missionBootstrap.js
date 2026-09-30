@@ -52,7 +52,9 @@ async function initializeMissionContext(mission) {
   const agentId = mission.agentId || mission.id;
   assertMissionNotCancelled(agentId);
   const normalizedMission = { ...mission, agentId };
+  normalizeRequestedExecutor(normalizedMission);
   assertCallerMcpConfiguration(normalizedMission);
+  attachHostExecutionContext(normalizedMission);
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const executable = configuredExecutable(normalizedMission);
   // Workers freshly spawned by a parent orchestrator contend on the same SQLite
@@ -68,6 +70,26 @@ async function initializeMissionContext(mission) {
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
   normalizedMission.nameMeaning = normalizedMission.nameMeaning || dispatchedAgent.name_meaning;
   return { mission, agentId, normalizedMission, executable, db, dispatchedAgent };
+}
+
+function normalizeRequestedExecutor(mission) {
+  if (!(mission.executor || mission.runtime || process.env.GENOS_AGENT_EXECUTOR)) return;
+  mission.executor = require('../cognitiveExecutor').resolveExecutor(mission);
+}
+
+function attachHostExecutionContext(mission) {
+  if (mission.executor !== 'caller_mcp') return;
+  const hostContext = require('../hostExecutionContext').normalizeHostExecutionContext(mission.hostExecutionContext, {
+    provider: mission.provider,
+    modelId: mission.modelId,
+    toolLease: mission.toolLease,
+  });
+  if (!hostContext.samplingAvailable) {
+    throw Object.assign(new Error('caller_mcp host context does not confirm an available sampling channel.'), { code: 'MCP_SAMPLING_UNAVAILABLE' });
+  }
+  mission.hostExecutionContext = hostContext;
+  mission.provider = hostContext.providerId;
+  mission.modelId = hostContext.modelId;
 }
 
 async function resolveMissionContract(ctx) {

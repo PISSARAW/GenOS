@@ -215,7 +215,7 @@ async function handleOrganizationPublish({ db, request, orchestratorId }) {
 }
 async function handleOrganizationRead({ db, request, action, orchestratorId }) {
   const requesterAgentId = process.env.GENOS_AGENT_ID || request.requesterAgentId || orchestratorId;
-  const result = action === 'organization_state'
+  const result = action === 'organization_state' || action === 'worker_inbox'
     ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
     : await dynamicOrganization.inbox(db, { orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit });
   process.stdout.write(JSON.stringify(result || { orchestratorId, organization: 'specialist_expert_committee', version: 0 }));

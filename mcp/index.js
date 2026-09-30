@@ -16,6 +16,7 @@ import { loadToolCatalog } from "./catalog.js";
 import { loadToolSchemaResolver } from "./contract.js";
 import { loadStrategyBridge } from "./strategyBridge.js";
 import { createSamplingBroker } from "./samplingBroker.js";
+import { createHostExecutionContext } from "./hostExecutionContext.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -203,20 +204,40 @@ function resolveOrchestratorBridge() {
 }
 
 async function runOrchestrator(payload, { onTelemetry } = {}) {
-  const executor = String(payload.executor || '').trim().toLowerCase() || 'caller_mcp';
-  if (payload.action === 'orchestrate' && executor === 'caller_mcp' && !server.getClientCapabilities()?.sampling) {
+  const executor = normalizeRequestedExecutor(payload.executor);
+  if (requiresCallerSampling(payload.action) && executor === 'caller_mcp' && !server.getClientCapabilities()?.sampling) {
     throw new Error('MCP_SAMPLING_UNAVAILABLE: the connected MCP client does not provide sampling. Use a sampling-capable host or callerSession.mjs.');
   }
+  const hostExecutionContext = executor === 'caller_mcp'
+    ? createHostExecutionContext({ payload, clientVersion: server.getClientVersion(), clientCapabilities: server.getClientCapabilities() })
+    : null;
+  const executionPayload = hostExecutionContext ? {
+    ...payload,
+    provider: hostExecutionContext.providerId,
+    modelId: hostExecutionContext.modelId,
+    hostExecutionContext
+  } : payload;
   const bridge = resolveOrchestratorBridge();
   if (!bridge) {
     throw new Error("GenOS orchestrator bridge not found. Set GENOS_ORCHESTRATOR_BRIDGE or install the GenOS repository.");
   }
   const topology = isTopologyAction(payload.action);
   const relay = createTelemetryRelay({ topology, onTelemetry });
-  const execution = await executeBridge({ payload, bridge, executor, relay });
+  const execution = await executeBridge({ payload: executionPayload, bridge, executor, relay });
   if (topology) await finishTopologyRelay({ payload, relay });
   if (execution.error) throw execution.error;
   return formatTopologyResult({ result: execution.result, relay, topology });
+}
+
+function requiresCallerSampling(action) {
+  return new Set(['orchestrate', 'dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']).has(action);
+}
+
+function normalizeRequestedExecutor(value) {
+  const requested = String(value || '').trim().toLowerCase();
+  if (requested === 'antigravity') return 'caller_mcp';
+  if (['hermes', 'nous', 'nous-portal'].includes(requested)) return 'solar-direct';
+  return requested || 'caller_mcp';
 }
 
 function isTopologyAction(action) { return ['dispatch_team', 'dispatch_trinity', 'dispatch_biological'].includes(action); }
@@ -239,7 +260,7 @@ async function executeBridge({ payload, bridge, executor, relay }) {
   try {
     const result = await runExecutable({
       cmd: process.execPath,
-      args: [bridge, JSON.stringify({ ...payload, executor, provider: payload.provider || process.env.GENOS_MCP_PROVIDER || 'mcp-host' })],
+      args: [bridge, JSON.stringify({ ...payload, executor })],
       cwd: workingDir,
       env: { ...process.env, GENOS_STREAM_TELEMETRY: '1', ...(relay.streamFile ? { GENOS_MCP_TELEMETRY_FILE: relay.streamFile } : {}), GENOS_MCP_SAMPLING_URL: samplingBroker.url, GENOS_MCP_TOOL_URL: samplingBroker.toolUrl, GENOS_MCP_SAMPLING_TOKEN: samplingBroker.token },
       onStdout: relay.deliver

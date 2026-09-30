@@ -224,7 +224,11 @@
           },
           "provider": {
             "type": "string",
-            "description": "Optional provider identity recorded for caller_mcp provenance."
+            "description": "Optional declared provider identity for caller_mcp provenance; GenOS does not infer it from the harness."
+          },
+          "modelId": {
+            "type": "string",
+            "description": "Optional declared model identity. Leave unspecified when the host does not disclose it."
           },
           "scenarios": {
             "type": "array",
@@ -368,7 +372,11 @@
           },
           "provider": {
             "type": "string",
-            "description": "Optional provider identity for the worker."
+            "description": "Optional declared provider identity for the worker; GenOS does not infer it from the harness."
+          },
+          "modelId": {
+            "type": "string",
+            "description": "Optional declared model identity. Leave unspecified when the host does not disclose it."
           },
           "scenarios": {
             "type": "array",
