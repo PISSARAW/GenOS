@@ -46,7 +46,11 @@ impl ClusterN {
     }
 
     /// Calcule la similarité cosinus et l'angle de dérive entre l'intention globale et la trajectoire actuelle
-    pub fn compute_intent_heading(&mut self, goal_vec: &[f64], current_vec: &[f64]) -> IntentAlignmentReport {
+    pub fn compute_intent_heading(
+        &mut self,
+        goal_vec: &[f64],
+        current_vec: &[f64],
+    ) -> IntentAlignmentReport {
         self.alignment_history_count += 1;
 
         if goal_vec.is_empty() || current_vec.is_empty() || goal_vec.len() != current_vec.len() {
@@ -61,7 +65,11 @@ impl ClusterN {
             };
         }
 
-        let dot_product: f64 = goal_vec.iter().zip(current_vec.iter()).map(|(a, b)| a * b).sum();
+        let dot_product: f64 = goal_vec
+            .iter()
+            .zip(current_vec.iter())
+            .map(|(a, b)| a * b)
+            .sum();
         let norm_goal = (goal_vec.iter().map(|x| x * x).sum::<f64>()).sqrt();
         let norm_curr = (current_vec.iter().map(|x| x * x).sum::<f64>()).sqrt();
 
@@ -83,14 +91,25 @@ impl ClusterN {
             correction_vec.push(((g * 2.0 - c) * 1000.0).round() / 1000.0);
         }
 
-        let coherence = ((cosine.max(0.0).powi(2) * (1.0 - self.inclination_sensitivity)) * 1000.0).round() / 1000.0;
+        let coherence = ((cosine.max(0.0).powi(2) * (1.0 - self.inclination_sensitivity)) * 1000.0)
+            .round()
+            / 1000.0;
 
         let (nav_state, radical_state) = if angle_deg < 5.0 {
-            ("AXIAL_MAGNETIC_LOCK".to_string(), CryptochromeRadicalState::EntangledActive)
+            (
+                "AXIAL_MAGNETIC_LOCK".to_string(),
+                CryptochromeRadicalState::EntangledActive,
+            )
         } else if is_aligned {
-            ("MIGRATION_CORRECT_COURSE".to_string(), CryptochromeRadicalState::SingletCoherent)
+            (
+                "MIGRATION_CORRECT_COURSE".to_string(),
+                CryptochromeRadicalState::SingletCoherent,
+            )
         } else {
-            ("SEVERE_DRIFT_COMPASS_REALIGNING".to_string(), CryptochromeRadicalState::TripletRecombined)
+            (
+                "SEVERE_DRIFT_COMPASS_REALIGNING".to_string(),
+                CryptochromeRadicalState::TripletRecombined,
+            )
         };
 
         IntentAlignmentReport {

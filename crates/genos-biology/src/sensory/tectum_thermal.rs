@@ -100,7 +100,11 @@ impl TectumOpticum {
         }
 
         // Tri par score d'énergie décroissant pour établir le rang de priorité
-        fused.sort_by(|a, b| b.composite_energy_score.partial_cmp(&a.composite_energy_score).unwrap_or(std::cmp::Ordering::Equal));
+        fused.sort_by(|a, b| {
+            b.composite_energy_score
+                .partial_cmp(&a.composite_energy_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         for (idx, target) in fused.iter_mut().enumerate() {
             target.priority_rank = idx + 1;
         }

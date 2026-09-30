@@ -71,11 +71,15 @@ impl Tracheid {
     }
 
     /// Déclenche l'apoptose structurante et l'ossification en conduit passif déterministe
-    pub fn trigger_lignified_apoptosis(&mut self, pipeline_id: &str) -> Result<OssificationReport, String> {
+    pub fn trigger_lignified_apoptosis(
+        &mut self,
+        pipeline_id: &str,
+    ) -> Result<OssificationReport, String> {
         match self.state {
-            TracheidState::OssifiedConduit { .. } => {
-                Err("La trachéide est déjà entièrement ossifiée et vidée de son protoplaste.".to_string())
-            }
+            TracheidState::OssifiedConduit { .. } => Err(
+                "La trachéide est déjà entièrement ossifiée et vidée de son protoplaste."
+                    .to_string(),
+            ),
             _ => {
                 let prev = format!("{:?}", self.state);
                 self.state = TracheidState::OssifiedConduit {
@@ -97,7 +101,11 @@ impl Tracheid {
     }
 
     /// Transporte le flux de données/sève à travers le conduit
-    pub fn transport_sap_stream(&self, volume: f64, negative_tension_mpa: f64) -> Result<SapTransportYield, String> {
+    pub fn transport_sap_stream(
+        &self,
+        volume: f64,
+        negative_tension_mpa: f64,
+    ) -> Result<SapTransportYield, String> {
         let is_cavitated = negative_tension_mpa < self.plate.cavitation_resistance_mpa;
 
         match &self.state {
@@ -108,7 +116,9 @@ impl Tracheid {
                 token_cost: 15.0, // Coût token actif d'un agent vivant exploratoire
                 conduit_state: "LIVING_PROTOPLAST_SLOW_THROUGHPUT".to_string(),
             }),
-            TracheidState::ApoptoticLignification => Err("Trachéide en cours d'autolyse cellulaire.".to_string()),
+            TracheidState::ApoptoticLignification => {
+                Err("Trachéide en cours d'autolyse cellulaire.".to_string())
+            }
             TracheidState::OssifiedConduit { static_pipeline_id } => {
                 if is_cavitated {
                     Ok(SapTransportYield {
@@ -124,7 +134,10 @@ impl Tracheid {
                         tension_applied_mpa: negative_tension_mpa,
                         cavitation_detected: false,
                         token_cost: 0.0, // Conduit rigide : 0 token
-                        conduit_state: format!("OSSIFIED_STATIC_PASS_THROUGH_{}", static_pipeline_id),
+                        conduit_state: format!(
+                            "OSSIFIED_STATIC_PASS_THROUGH_{}",
+                            static_pipeline_id
+                        ),
                     })
                 }
             }
@@ -142,23 +155,31 @@ mod tests {
         assert_eq!(tracheid.state, TracheidState::LivingProtoplast);
 
         // Débit exploratoire avec coût token
-        let initial_yield = tracheid.transport_sap_stream(100.0, -2.0).expect("Transport ok");
+        let initial_yield = tracheid
+            .transport_sap_stream(100.0, -2.0)
+            .expect("Transport ok");
         assert_eq!(initial_yield.token_cost, 15.0);
         assert_eq!(initial_yield.transported_volume, 20.0);
 
         // Apoptose et ossification
-        let report = tracheid.trigger_lignified_apoptosis("compiled_rust_pipeline_v1").expect("Ossification ok");
+        let report = tracheid
+            .trigger_lignified_apoptosis("compiled_rust_pipeline_v1")
+            .expect("Ossification ok");
         assert_eq!(report.token_cost_reduction_ratio, 1.0);
         assert_eq!(report.status, "APOPTOSIS_COMPLETE_LIGNIFIED_CONDUIT_FORMED");
 
         // Transport à haute vitesse sans aucun coût de token
-        let ossified_yield = tracheid.transport_sap_stream(100.0, -4.5).expect("High speed pass");
+        let ossified_yield = tracheid
+            .transport_sap_stream(100.0, -4.5)
+            .expect("High speed pass");
         assert_eq!(ossified_yield.token_cost, 0.0);
         assert_eq!(ossified_yield.transported_volume, 100.0);
         assert!(!ossified_yield.cavitation_detected);
 
         // Surtension extrême -> Cavitation
-        let cavitated_yield = tracheid.transport_sap_stream(100.0, -9.0).expect("Cavitation pass");
+        let cavitated_yield = tracheid
+            .transport_sap_stream(100.0, -9.0)
+            .expect("Cavitation pass");
         assert!(cavitated_yield.cavitation_detected);
         assert_eq!(cavitated_yield.transported_volume, 0.0);
     }

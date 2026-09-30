@@ -99,9 +99,15 @@ impl ElectricOrganStack {
 
     /// Décharge synchrone instantanée de tout l'empilement
     pub fn discharge_burst(&mut self) -> Result<ElectricShockBurst, String> {
-        let ready_count = self.electrocytes.iter().filter(|c| !c.is_depolarized).count();
+        let ready_count = self
+            .electrocytes
+            .iter()
+            .filter(|c| !c.is_depolarized)
+            .count();
         if ready_count == 0 {
-            return Err("Organe électrique épuisé. Toutes les cellules sont dépolarisées.".to_string());
+            return Err(
+                "Organe électrique épuisé. Toutes les cellules sont dépolarisées.".to_string(),
+            );
         }
 
         let _cells_per_column = (ready_count / self.parallel_columns).max(1);
@@ -172,7 +178,9 @@ mod tests {
         assert_eq!(remaining_atp, 500.0);
 
         // Décharge à nouveau fonctionnelle
-        let reloaded_burst = electric_organ.discharge_burst().expect("Burst success after recharge");
+        let reloaded_burst = electric_organ
+            .discharge_burst()
+            .expect("Burst success after recharge");
         assert_eq!(reloaded_burst.total_voltage_v, 750.0);
     }
 

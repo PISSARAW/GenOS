@@ -90,12 +90,16 @@ impl Choanocyte {
         for p in packets {
             // Le tamisage retient les particules dont la taille est compatible avec le maillage
             // et dont la densité sémantique justifie l'ingestion (non-bruit)
-            if p.size_nm >= self.collar_microvilli_spacing_nm && !p.is_noise && p.semantic_density >= 0.4 {
+            if p.size_nm >= self.collar_microvilli_spacing_nm
+                && !p.is_noise
+                && p.semantic_density >= 0.4
+            {
                 let nutrient = CapturedNutrientPacket {
                     packet_id: p.id.clone(),
                     ingested_content: p.content.clone(),
                     atp_yield: (p.semantic_density * 10.0).round(),
-                    filtration_efficiency: ((p.size_nm / (p.size_nm + 10.0)) * 100.0).round() / 100.0,
+                    filtration_efficiency: ((p.size_nm / (p.size_nm + 10.0)) * 100.0).round()
+                        / 100.0,
                 };
                 self.phagocytosed_nutrients.push(nutrient.clone());
                 retained.push(nutrient);
@@ -133,7 +137,8 @@ impl ChoanodermChamber {
     }
 
     pub fn total_pumping_rate_ml_s(&self) -> f64 {
-        self.choanocytes.iter()
+        self.choanocytes
+            .iter()
             .map(|c| c.generate_water_current().pumping_rate_ml_s)
             .sum()
     }
@@ -171,7 +176,8 @@ impl ChoanodermChamber {
         let total_flow = HydrodynamicVector {
             flow_velocity_mm_s: base_flow.flow_velocity_mm_s,
             pumping_rate_ml_s: self.total_pumping_rate_ml_s(),
-            suction_pressure_pa: base_flow.suction_pressure_pa * (self.choanocytes.len() as f64).sqrt(),
+            suction_pressure_pa: base_flow.suction_pressure_pa
+                * (self.choanocytes.len() as f64).sqrt(),
             flagellar_beat_hz: base_flow.flagellar_beat_hz,
         };
 

@@ -6,9 +6,15 @@ pub enum ToxinPayload {
     /// Hypnotoxine paralysante (gèle l'agent ou le process ciblé)
     HypnotoxinParalysis { potency: f64, duration_secs: u64 },
     /// Cytolysine perforatrice de membrane (détruit le canal de socket / session de l'attaquant)
-    MembraneCytolysin { pore_size_nm: f64, target_session: String },
+    MembraneCytolysin {
+        pore_size_nm: f64,
+        target_session: String,
+    },
     /// Antidote / Filtre neutralisant actif (quarantaine instantanée de prompt injection)
-    ActiveNeutralizerWaf { rule_id: String, quarantine_tag: String },
+    ActiveNeutralizerWaf {
+        rule_id: String,
+        quarantine_tag: String,
+    },
     /// Neurotoxine sur mesure
     Custom(String),
 }
@@ -136,7 +142,11 @@ impl Cnidocyte {
     }
 
     /// Décharge explosive du nématocyste (projection du harpon et injection du venin)
-    pub fn discharge(&mut self, mechanical_force: f64, chemical_signature: Option<&str>) -> Result<DischargeImpact, String> {
+    pub fn discharge(
+        &mut self,
+        mechanical_force: f64,
+        chemical_signature: Option<&str>,
+    ) -> Result<DischargeImpact, String> {
         if self.is_discharged {
             return Err("Cnidocyte déjà déchargé. Recharge ATP nécessaire.".to_string());
         }
@@ -181,9 +191,17 @@ impl Cnidocyte {
     }
 
     /// Interception balistique réflexe de menaces et toxines sur les appels d'outils MCP (< 3 µs)
-    pub fn intercept_tool_threat(&mut self, tool_name: &str, raw_payload: &str) -> Option<DischargeImpact> {
+    pub fn intercept_tool_threat(
+        &mut self,
+        tool_name: &str,
+        raw_payload: &str,
+    ) -> Option<DischargeImpact> {
         let combined = format!("{}:{}", tool_name, raw_payload);
-        let mechanical_force = if raw_payload.len() > 10_000 { 0.85 } else { 0.0 };
+        let mechanical_force = if raw_payload.len() > 10_000 {
+            0.85
+        } else {
+            0.0
+        };
         if self.eval_stimulus(mechanical_force, Some(&combined)) {
             self.discharge(mechanical_force, Some(&combined)).ok()
         } else {
@@ -256,7 +274,11 @@ mod tests {
     fn test_cnidocyte_tool_payload_interception() {
         let mut cnidocyte = Cnidocyte::new("mcp_sentinel");
         // Safe tool call
-        assert!(cnidocyte.intercept_tool_threat("genos_snapshot", "{\"agent\": \"griot\"}").is_none());
+        assert!(
+            cnidocyte
+                .intercept_tool_threat("genos_snapshot", "{\"agent\": \"griot\"}")
+                .is_none()
+        );
         assert!(!cnidocyte.is_discharged);
 
         // Toxic tool call injection

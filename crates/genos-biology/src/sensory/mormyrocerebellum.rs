@@ -59,7 +59,7 @@ impl MormyroCerebellum {
     /// Analyse active du champ : Décharge EOD et mesure de la distorsion d'impédance
     pub fn discharge_and_analyze(&mut self, env_impedance_samples: &[f64]) -> DistortionAnalysis {
         self.electro_receptive_history_count += 1;
-        
+
         if env_impedance_samples.is_empty() {
             return DistortionAnalysis {
                 eod_frequency_hz: self.baseline_frequency_hz,
@@ -73,7 +73,8 @@ impl MormyroCerebellum {
             };
         }
 
-        let mean_impedance: f64 = env_impedance_samples.iter().sum::<f64>() / (env_impedance_samples.len() as f64);
+        let mean_impedance: f64 =
+            env_impedance_samples.iter().sum::<f64>() / (env_impedance_samples.len() as f64);
         let mut variance = 0.0;
         let mut anomalies = 0usize;
 
@@ -87,7 +88,12 @@ impl MormyroCerebellum {
 
         let std_dev = (variance / env_impedance_samples.len() as f64).sqrt();
         let distortion_factor = ((std_dev / mean_impedance.max(0.001)) * 1000.0).round() / 1000.0;
-        let capacitive_reactance = 1.0 / (2.0 * std::f64::consts::PI * self.baseline_frequency_hz * mean_impedance.max(0.001) * 1e-6);
+        let capacitive_reactance = 1.0
+            / (2.0
+                * std::f64::consts::PI
+                * self.baseline_frequency_hz
+                * mean_impedance.max(0.001)
+                * 1e-6);
         let spatial_contrast = (1.0 - (distortion_factor * 0.5)).clamp(0.0, 1.0);
         let clarity = (1.0 / (1.0 + distortion_factor)).clamp(0.0, 1.0);
 
@@ -98,7 +104,8 @@ impl MormyroCerebellum {
             capacitive_reactance: (capacitive_reactance * 100.0).round() / 100.0,
             detected_anomalies_count: anomalies,
             spatial_contrast_score: (spatial_contrast * 100.0).round() / 100.0,
-            hidden_obstacles_detected: anomalies > 0 || distortion_factor >= self.distortion_threshold,
+            hidden_obstacles_detected: anomalies > 0
+                || distortion_factor >= self.distortion_threshold,
             environment_clarity_score: (clarity * 100.0).round() / 100.0,
         }
     }
@@ -106,7 +113,7 @@ impl MormyroCerebellum {
     /// Analyse passive du champ : Détecte les micro-impulsions sans émettre
     pub fn passive_scan(&mut self, ambient_signals_uv: &[f64]) -> PassiveElectrosenseResult {
         self.electro_receptive_history_count += 1;
-        
+
         if ambient_signals_uv.is_empty() {
             return PassiveElectrosenseResult {
                 detected_micro_impulses: 0,
@@ -152,7 +159,7 @@ mod tests {
     #[test]
     fn test_mormyrocerebellum_active_eod_analysis() {
         let mut mormyro = MormyroCerebellum::new(1000.0, 0.01, 0.15);
-        
+
         // Échantillons d'impédance avec un obstacle perturbateur à l'indice 3
         let samples = vec![100.0, 102.0, 99.0, 280.0, 101.0, 98.0];
         let analysis = mormyro.discharge_and_analyze(&samples);

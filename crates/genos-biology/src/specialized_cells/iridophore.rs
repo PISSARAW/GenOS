@@ -102,17 +102,19 @@ impl Iridophore {
                     "RUBY_RED" => "\x1b[31m",
                     _ => "\x1b[35m",
                 };
-                format!("{}[IRIDOPHORE: {} ({:.1}nm)]\x1b[0m {}", ansi_code, hue, wavelength, raw_data)
+                format!(
+                    "{}[IRIDOPHORE: {} ({:.1}nm)]\x1b[0m {}",
+                    ansi_code, hue, wavelength, raw_data
+                )
             }
-            ObserverPerspective::StructuredJson => {
-                serde_json::json!({
-                    "iridophore_id": self.id,
-                    "spectral_band_nm": wavelength,
-                    "color_hue": hue,
-                    "lattice_spacing_nm": self.lattice.spacing_d_nm,
-                    "payload": raw_data
-                }).to_string()
-            }
+            ObserverPerspective::StructuredJson => serde_json::json!({
+                "iridophore_id": self.id,
+                "spectral_band_nm": wavelength,
+                "color_hue": hue,
+                "lattice_spacing_nm": self.lattice.spacing_d_nm,
+                "payload": raw_data
+            })
+            .to_string(),
             ObserverPerspective::MarkdownVisual => {
                 format!("**[{}]** (`{:.1} nm`) — *{}*", hue, wavelength, raw_data)
             }
@@ -175,7 +177,8 @@ mod tests {
         let json_view = iridophore.render_polymorphic(data, &ObserverPerspective::StructuredJson);
         assert!(json_view.contains("\"color_hue\":\"EMERALD_GREEN\""));
 
-        let cloak_view = iridophore.render_polymorphic(data, &ObserverPerspective::CrypticCamouflage);
+        let cloak_view =
+            iridophore.render_polymorphic(data, &ObserverPerspective::CrypticCamouflage);
         assert!(cloak_view.starts_with("CLOAKED_POLYMORPHIC_"));
     }
 }
