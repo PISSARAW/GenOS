@@ -45,5 +45,38 @@ async function assertConcurrentDispatch() {
   assert.equal(results.filter((result) => result.ok).length, workers.length);
 }
 
-Promise.all([assertConcurrentDispatch(), assertPersistedPartialWorkersAreTracked()])
+async function assertReservationRollback() {
+  const pipeline = require('../src/services/workerEvidenceBarrierPipeline');
+  const garage = require('../src/services/workerGarageService');
+  const originalReserve = garage.reserveSlot;
+  const originalRelease = garage.releaseSlot;
+  const released = [];
+  let reservations = 0;
+  const failure = Object.assign(new Error('garage full'), { code: 'WORKER_GARAGE_FULL' });
+  garage.reserveSlot = async () => {
+    reservations += 1;
+    if (reservations === 2) throw failure;
+  };
+  garage.releaseSlot = async (_db, slot) => {
+    released.push(slot.workerId);
+    return true;
+  };
+  try {
+    await assert.rejects(() => pipeline.executeWorkerPipeline({
+      db: {},
+      orchestratorId: 'root',
+      workers: [
+        { agentId: 'worker-one', label: 'one', name: 'Worker One', role: 'reviewer' },
+        { agentId: 'worker-two', label: 'two', name: 'Worker Two', role: 'reviewer' }
+      ],
+      barrier: { cancelled: false }
+    }), (error) => error === failure);
+  } finally {
+    garage.reserveSlot = originalReserve;
+    garage.releaseSlot = originalRelease;
+  }
+  assert.deepEqual(released, ['worker-one'], 'a failed partial reservation must release earlier slots');
+}
+
+Promise.all([assertConcurrentDispatch(), assertPersistedPartialWorkersAreTracked(), assertReservationRollback()])
   .then(() => console.log('Worker dispatch counts reconcile, persisted partial workers are tracked, and same-stage workers run concurrently.'));

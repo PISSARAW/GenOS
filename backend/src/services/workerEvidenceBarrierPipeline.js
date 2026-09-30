@@ -212,14 +212,35 @@ function emitStageReconciliation(ctx, outcome) {
 }
 
 async function reserveStageSlots(ctx) {
-  for (const worker of ctx.stageWorkers) {
-    await workerGarage.reserveSlot(ctx.db, {
-      orchestratorId: ctx.orchestratorId,
-      workerId: worker.agentId,
-      name: worker.name,
-      role: worker.role,
-      mission: worker.prompt
-    });
+  const reserved = [];
+  try {
+    for (const worker of ctx.stageWorkers) {
+      await workerGarage.reserveSlot(ctx.db, {
+        orchestratorId: ctx.orchestratorId,
+        workerId: worker.agentId,
+        name: worker.name,
+        role: worker.role,
+        mission: worker.prompt
+      });
+      reserved.push(worker);
+    }
+  } catch (error) {
+    await rollbackStageReservations(ctx, reserved);
+    throw error;
+  }
+}
+
+async function rollbackStageReservations(ctx, workers) {
+  const results = await Promise.allSettled(workers.map((worker) => workerGarage.releaseSlot(ctx.db, {
+    orchestratorId: ctx.orchestratorId,
+    workerId: worker.agentId
+  })));
+  const failed = results.flatMap((result, index) => result.status === 'rejected' || !result.value ? [workers[index].agentId] : []);
+  if (failed.length) {
+    emit(ctx.orchestratorId, 'WORKER_STAGE_RESERVATION_ROLLBACK_FAILED', 'GARAGE', 'Could not release every slot after stage reservation failed.', {
+      stage: ctx.stage,
+      workerIds: failed
+    }, 'error');
   }
 }
 
