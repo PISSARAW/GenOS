@@ -40,6 +40,7 @@ pub mod metabolism;
 pub mod mission_receipt;
 pub mod mission_division;
 pub mod mission_lineage;
+pub mod mission_biology_events;
 pub mod neuro;
 pub mod observer;
 pub mod orchestrator;

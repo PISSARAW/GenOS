@@ -25,7 +25,7 @@
 | Métabolisme `MetabolicPool` | primitive | `autopoiesis.rs`, tick cellulaire | registre commun + enforcement aux points d'exécution |
 | Reçu d'exécution du tick Rust | intégrée partielle | `GenosEcosystem::tick` émet `genos.biological-execution-receipt/v1` dans `TickReport` et l'event store mémoire; test `tick::receipt_tests` | identité cellule/génome réellement exécutante et persistance après redémarrage |
 | Homéostasie de mission | intégrée partielle | `homeostasisService.js`, `homeostasis_contract_revisions`, `homeostasis_transition_receipts`; `node backend/tests/test_homeostasis_authority_receipts.js` vérifie révisions, empreintes, seuils et issues autorisées/refusées | corrélation avec reçu Rust et registre métabolique; persistance d'une identité cellule/génome de bout en bout |
-| Neurobiologie, glie, quorum | primitive | modules biology + tests | lien aux événements réels de mission |
+| Neurobiologie, glie, quorum | intégrée partielle | `GenosEcosystem::record_event` → événements mission (`BIOLOGICAL_EXECUTION_RECEIPT`, action instinctive, reproduction) → `MISSION_NEURO_GLIA_QUORUM_RESPONSE`; latence mesurée dans le reçu | événements en mémoire, modèle glial événementiel simplifié, pas de preuve distribuée ni d'artefacts E2E persistés |
 | Instinct PAF | primitive | `instinct/tests.rs` | chemin stimulus → PAF → action permise → reçu |
 | Sens VNO, électro, Cluster N, tectum, écho | primitive | modules `sensory/*`, tests locaux | adaptateurs concrets ou typage « signal synthétique » |
 | Immunité, pathologie, thérapie | primitive | tests cliniques `genos-biology/src/lib.rs` | application à des points réels + quarantaine bloquante |

@@ -216,10 +216,6 @@ impl GenosEcosystem {
 
     // --- Stockage ---
 
-    pub fn record_event(&mut self, event_type: &str, payload: Value) -> Uuid {
-        self.events.append(event_type, payload).id
-    }
-
     pub fn seal_capsule(&mut self, boundary_id: &str, data: Value) -> Uuid {
         self.capsules.store(Capsule::create(boundary_id, data))
     }
