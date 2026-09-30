@@ -32,6 +32,7 @@ pub mod kernel_state;
 pub mod learning;
 pub mod membrane_chemistry;
 pub mod metabolism;
+pub mod mission_receipt;
 pub mod neuro;
 pub mod observer;
 pub mod orchestrator;

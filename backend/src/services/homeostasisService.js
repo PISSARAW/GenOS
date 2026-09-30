@@ -134,7 +134,7 @@ async function persistContractAuthority(db, mission, proposedContract) {
   const contract = serializeContract(proposedContract);
   const hash = contractHash(proposedContract);
   let row = await db.get(
-    'SELECT contract_json FROM homeostasis_contract_revisions WHERE mission_id = ? AND contract_hash = ?',
+    'SELECT revision, contract_hash, contract_json FROM homeostasis_contract_revisions WHERE mission_id = ? AND contract_hash = ?',
     [mission.id, hash]
   );
   if (!row) {
@@ -149,9 +149,48 @@ async function persistContractAuthority(db, mission, proposedContract) {
        VALUES (?, ?, ?, ?, ?)`,
       [`${mission.id}:${revision}`, mission.id, revision, hash, JSON.stringify(contract)]
     );
-    row = { contract_json: JSON.stringify(contract) };
+    row = { revision, contract_hash: hash, contract_json: JSON.stringify(contract) };
   }
-  return deserializeContract(JSON.parse(row.contract_json));
+  const authority = deserializeContract(JSON.parse(row.contract_json));
+  authority.revision = row.revision;
+  authority.contractHash = row.contract_hash;
+  return authority;
+}
+
+function evidenceReferences(context) {
+  if (Array.isArray(context.evidence)) return context.evidence;
+  if (context.evidence instanceof Set) return [...context.evidence];
+  if (context.evidence && typeof context.evidence === 'object') {
+    return Object.keys(context.evidence).filter((key) => context.evidence[key] === true);
+  }
+  return [];
+}
+
+async function persistTransitionReceipt(db, input) {
+  const receipt = {
+    schema: 'genos.homeostasis-transition-receipt/v1',
+    missionId: input.mission.id,
+    contractId: input.contract.id,
+    contractRevision: input.contract.revision,
+    contractHash: input.contract.contractHash,
+    policyVersion: input.contract.policyVersion,
+    allowed: input.allowed,
+    status: input.status,
+    state: input.state,
+    evidenceReferences: evidenceReferences(input.context),
+    createdAt: new Date().toISOString()
+  };
+  const serialized = JSON.stringify(receipt);
+  const receiptHash = crypto.createHash('sha256').update(serialized).digest('hex');
+  await db.run(
+    `INSERT INTO homeostasis_transition_receipts
+     (id, mission_id, contract_id, contract_revision, contract_hash, allowed, status, receipt_hash, receipt_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [`homeostasis_transition_${crypto.randomUUID()}`, receipt.missionId, receipt.contractId,
+      receipt.contractRevision, receipt.contractHash, Number(receipt.allowed), receipt.status,
+      receiptHash, serialized]
+  );
+  return { ...receipt, receiptHash };
 }
 
 function lastHomeostasisState(db, missionId) {
@@ -212,16 +251,23 @@ async function transitionMissionToComplete(db, target) {
   const evaluation = await evaluateMissionHomeostasis(db, { organism, mission, context });
   const { state, status } = evaluation;
   if (status !== 'homeostasis_satisfied') {
+    const receipt = await persistTransitionReceipt(db, {
+      mission, context, contract: evaluation.contract, state, status, allowed: false
+    });
     return {
       allowed: false,
       reason: status === 'evidence_missing'
         ? `Required evidence missing: ${(state.evidence.missing || []).join(', ')}`
         : 'Mission homeostasis not satisfied',
       status,
-      state
+      state,
+      receipt
     };
   }
-  return { allowed: true, state };
+  const receipt = await persistTransitionReceipt(db, {
+    mission, context, contract: evaluation.contract, state, status, allowed: true
+  });
+  return { allowed: true, state, receipt };
 }
 
 module.exports = {

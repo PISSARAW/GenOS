@@ -48,6 +48,8 @@ use uuid::Uuid;
 
 /// Point d'entrée unique donnant accès à toutes les capacités GenOS.
 pub struct GenosEcosystem {
+    /// Identifiant de corrélation fourni par l'appelant du runtime.
+    pub mission_id: Option<Uuid>,
     /// L'orchestrateur biomimétique (tissus, cellules, conscience, immunité).
     pub orchestrator: BiomimeticOrchestrator,
     /// Signalisation stigmergique (pistes / répulsifs).
@@ -128,6 +130,7 @@ impl GenosEcosystem {
     /// Construit un écosystème complet autour d'un nouvel orchestrateur.
     pub fn new(name: &str) -> Self {
         Self {
+            mission_id: None,
             orchestrator: BiomimeticOrchestrator::new(name, 50.0, 100.0),
             stigmergy: StigmergyField::new(0.1),
             matrix: ExtracellularMatrix::new(),

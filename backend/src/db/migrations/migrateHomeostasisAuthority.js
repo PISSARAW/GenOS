@@ -14,6 +14,21 @@ async function migrateHomeostasisAuthority(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_homeostasis_contract_mission
     ON homeostasis_contract_revisions(mission_id, revision);
+  CREATE TABLE IF NOT EXISTS homeostasis_transition_receipts (
+    id TEXT PRIMARY KEY,
+    mission_id TEXT NOT NULL,
+    contract_id TEXT NOT NULL,
+    contract_revision INTEGER NOT NULL,
+    contract_hash TEXT NOT NULL,
+    allowed INTEGER NOT NULL CHECK (allowed IN (0, 1)),
+    status TEXT NOT NULL,
+    receipt_hash TEXT NOT NULL UNIQUE,
+    receipt_json TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (json_valid(receipt_json))
+  );
+  CREATE INDEX IF NOT EXISTS idx_homeostasis_transition_mission
+    ON homeostasis_transition_receipts(mission_id, created_at);
   `);
   await db.run(
     'INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)',

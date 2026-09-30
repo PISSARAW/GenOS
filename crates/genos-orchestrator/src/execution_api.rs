@@ -15,6 +15,7 @@ impl GenosEcosystem {
             executed: Vec::new(),
             halt: None,
             verdicts: Vec::new(),
+            biological_receipts: Vec::new(),
         };
         for concept in concepts {
             self.execute_concept(*concept, &mut report);
