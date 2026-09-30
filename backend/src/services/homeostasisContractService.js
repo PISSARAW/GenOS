@@ -100,17 +100,19 @@ function buildInvariant(input = {}) {
 }
 
 function buildHomeostasisContract(input = {}) {
+  const { resolveHomeostasisPolicy } = require('./homeostasisPolicyService');
+  const policy = resolveHomeostasisPolicy({
+    minimumFunctionalCoverage: input.minimumFunctionalCoverage
+  });
   const invariants = (input.invariants || []).map(i => buildInvariant(i));
   const requiredEvidence = Array.isArray(input.requiredEvidence) ? input.requiredEvidence.slice() : [];
-  const minimumFunctionalCoverage = Number.isFinite(input.minimumFunctionalCoverage)
-    ? input.minimumFunctionalCoverage
-    : 1;
   return {
     id: input.id || `homeostasis_${crypto.randomUUID()}`,
     missionId: input.missionId || null,
     invariants,
     requiredEvidence,
-    minimumFunctionalCoverage,
+    minimumFunctionalCoverage: policy.minimumFunctionalCoverage,
+    policyVersion: policy.version,
     assembledAt: new Date().toISOString()
   };
 }
@@ -131,6 +133,7 @@ function serializeContract(contract) {
     invariants: contract.invariants.map(serializeInvariant),
     requiredEvidence: contract.requiredEvidence,
     minimumFunctionalCoverage: contract.minimumFunctionalCoverage,
+    policyVersion: contract.policyVersion,
     assembledAt: contract.assembledAt
   };
 }
@@ -142,6 +145,7 @@ function deserializeContract(payload = {}) {
     invariants: (payload.invariants || []).map(i => ({ ...i, check: resolveVerifier(i) })),
     requiredEvidence: payload.requiredEvidence,
     minimumFunctionalCoverage: payload.minimumFunctionalCoverage,
+    policyVersion: payload.policyVersion,
     assembledAt: payload.assembledAt
   });
 }
@@ -182,6 +186,7 @@ function evaluateContract(contract, context) {
   const invariantsSatisfied = results.length > 0 && totalSatisfied === results.length;
   return {
     schema: HOMEOSTASIS_SCHEMA,
+    policyVersion: contract.policyVersion,
     missionId: contract.missionId,
     evaluatedAt: new Date().toISOString(),
     totalInvariants: results.length,
