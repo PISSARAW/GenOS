@@ -124,22 +124,78 @@ Les rapports spécialisés proposent également les opérateurs `AllopurinolXant
 
 ---
 
-## 5. État de réalisation
+## 5. État et plan d'implémentation
 
-### Phase 1 : Modèle clinique — réalisée
-Les catégories, pathologies et marqueurs normalisés sont dans `genos-cell/src/clinical.rs`; les champs de marqueurs sont rétrocompatibles à la désérialisation.
+### 5.1 État vérifié
 
-### Phase 2 : Thérapies systémiques — réalisée
-Les opérateurs listés sont routés par `apply_systemic_therapy_to_cell()` vers des transformations bornées des marqueurs.
+Le modèle clinique, les détecteurs, l'intégration au tick et les thérapies du §4.1 sont présents dans le code. Le point d'entrée thérapeutique est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`; son enum `SystemicTherapy` ne contient pas les opérateurs proposés au §4.2 ni ceux listés ci-dessous. Les exemples et extraits de code dans les rapports spécialisés sont des spécifications, pas une preuve d'implémentation.
 
-### Phase 3 : Détecteurs — réalisée
-`detect_marker_pathologies()` évalue les familles ajoutées avec des seuils de simulation déterministes.
+Les scénarios restent des simulations logicielles sur marqueurs GenOS. Ils ne modélisent, ne diagnostiquent et ne valident aucune pathologie réelle ni aucun médicament humain.
 
-### Phase 4 : Intégration dans l'orchestrateur — réalisée
-`GenosEcosystem::tick()` enregistre les diagnostics détectés. L'administration reste une action explicite; ce modèle n'ajoute pas d'administration probabiliste automatique.
+### 5.2 Ordre de réalisation proposé
 
-### Phase 5 : Tests — réalisée pour les mécanismes implémentés
-Les tests couvrent les familles ajoutées, la rémission après thérapie, le blocage thrombolytique et le diagnostic dans un tick. Les scénarios cliniques réels ne sont ni simulés ni validés par ce moteur.
+Chaque lot doit commencer par une vérification du code présent et des invariants concernés. Un lot ne devient « implémenté » qu'après fusion du code, des tests et de la documentation alignée. Les noms ci-dessous sont des identifiants de propositions, non des variantes déjà disponibles.
+
+| Lot | Portée proposée | Opérateurs concernés | Dépendances et critères d'acceptation |
+|---|---|---|---|
+| A — Contrat et traçabilité | Définir pour chaque opérateur ses marqueurs d'entrée/sortie, bornes, effets indésirables simulés, préconditions, diagnostics affectés et comportement sans cible. | Les opérateurs du tableau §4.2 et les dix opérateurs complémentaires énumérés juste après. | Une fiche de spécification par opérateur; aucune mutation hors bornes; résultats et journal cohérents; aucun succès fictif quand la précondition manque. |
+| B — Métabolique | Ajouter les effets ciblés sur les marqueurs métaboliques/goutte. | `InsulinSensitizerMetformin`, `LevothyroxineHormoneReplacement`, `ColchicineInhibition`, `AllopurinolXanthineInhibitor`, `LysosomalUraturicPurge`. | Ne pas confondre réduction de production, purge et correction hormonale; diagnostiquer/résoudre uniquement les pathologies réellement représentées dans `ClinicalState`. |
+| C — Vasculaire et neurologique | Modéliser débit/perfusion et protections de barrière avec des préconditions explicites. | `CoronaryReperfusionThrombolysis`, `VasodilatorFlowControl`, `AntiAdhesionVasodilator`, `AntiNmdReadthrough`, `NeuroprotectiveAstrocyticFlush`, `BloodBrainBarrierSealant`. | Définir les gardes contre les effets incompatibles, notamment la condition de BHE documentée; couvrir succès, refus et effets secondaires. Le refus doit rester visible comme refus. |
+| D — Dégénératif et musculosquelettique | Définir les cibles structurelles et empêcher qu'un soulagement de marqueur soit présenté comme réparation générale. | `LevodopaSupplementation`, `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`. | Vérifier l'existence des états ciblés; bornes et conséquences différées définies; aucun effacement implicite de pathologie non ciblée. |
+| E — Infectieux, génétique, oncologique et psychiatrique | Ajouter des transformations spécifiques après stabilisation des contrats communs. | `AntiretroviralCombination`, `AntimalarialACT`, `ExonSkippingAntisense`, `CFTRModulatorTriad`, `CartCellInfusion`, `KetamineRapidInfusion`, `MoodStabilizerLithium`, `AntipsychoticAtypical`, `FetalCarrierReactivation`. | Vérifier l'état génétique/viral/cellulaire requis; préserver les barrières, l'apoptose et les mécanismes de sécurité; documenter les limites de chaque abstraction. |
+| F — Environnemental | Ajouter la chélation computationnelle ciblée. | `ChelationTherapy`. | Définir la toxine/cible reconnue, les bornes et les effets collatéraux; ne pas assimiler l'opérateur à une prise en charge humaine. |
+| G — Intégration et statut documentaire | Exposer uniquement les opérateurs effectivement câblés aux interfaces concernées puis mettre à jour la pharmacopée et les rapports. | Lots A à F acceptés. | Tester sérialisation, routage explicite, diagnostics, effets secondaires, limites et compatibilité MCP/CLI si ces interfaces les exposent; retirer le statut « proposé » seulement après preuve dans le code et vérification ciblée. |
+
+### 5.3 Critères communs de validation
+
+- Chaque opérateur a une spécification déterministe et une seule responsabilité clinique computationnelle clairement délimitée.
+- Les valeurs restent dans les domaines définis; les préconditions échouées ne produisent aucune rémission annoncée.
+- Les effets secondaires simulés sont retournés dans `TherapyOutcome` et inscrits de manière traçable lorsqu'applicable.
+- Les transformations ne contournent ni circuit breaker, ni quarantaine, ni contrôles d'orchestration. Les traitements restent des actions explicites.
+- Des tests couvrent la cible présente/absente, les limites numériques, les interactions à risque, les effets secondaires et la sérialisation lorsque l'enum évolue.
+- Les docs distinguent toujours mécanismes vérifiés, opérateurs proposés et limites de simulation; les noms de médicaments ne sont jamais présentés comme recommandation ou traitement humain.
+
+### 5.4 Contrats fonctionnels à spécifier (lot A)
+
+Cette matrice fixe le contrat minimal à valider avant tout code. Elle n'ajoute aucun opérateur au runtime. « Refus explicite » signifie une issue non réussie, sans rémission ni mutation de marqueur, inscrite dans le résultat et le journal clinique.
+
+| Opérateur proposé | Cible logicielle à définir | Précondition et comportement sans cible |
+|---|---|---|
+| `CartCellInfusion` | Charge tumorale ciblée et réponse immunitaire simulée | Cible tumorale explicite; sinon refus explicite. |
+| `LevodopaSupplementation` | Déficit de signal dopaminergique | Déficit mesuré; ne répare pas à lui seul les états neuronaux structurels. |
+| `KetamineRapidInfusion` | Marqueur de réponse synaptique défini | Diagnostic/ marqueur psychiatrique correspondant; sinon refus explicite. |
+| `MoodStabilizerLithium` | Amplitude d'oscillation de l'état affectif simulé | Marqueur d'oscillation présent; bornes et effets secondaires spécifiés. |
+| `AntipsychoticAtypical` | Marqueurs de cohérence perceptive/cognitive | Anomalie correspondante présente; aucune normalisation globale implicite. |
+| `InsulinSensitizerMetformin` | Résistance au signal insulinique | Résistance présente; effet borné, sans modifier directement une dose humaine. |
+| `LevothyroxineHormoneReplacement` | Déficit de signal thyroïdien | Déficit présent; valeur d'entrée bornée et validée avant mutation. |
+| `ColchicineInhibition` | Activation inflammatoire associée au marqueur métabolique | Activation présente; documenter le risque de suppression excessive. |
+| `CoronaryReperfusionThrombolysis` | Obstruction de perfusion | Occlusion présente et contrôles de sécurité passés; sinon refus explicite. |
+| `VasodilatorFlowControl` | Débit vasculaire simulé | Débit hors cible; borner le changement et détecter l'hypotension simulée. |
+| `AntiretroviralCombination` | État d'intégration/réplication virale | Infection virale cible présente; aucun succès si le pathogène ne correspond pas. |
+| `AntimalarialACT` | Charge du pathogène parasitaire simulé | Marqueur parasitaire correspondant présent; autrement refus explicite. |
+| `ExonSkippingAntisense` | Expression d'une cible génétique configurée | Variant/cible génétique présente; ne modifie pas le génome sans cible attestée. |
+| `CFTRModulatorTriad` | Fonction d'un marqueur CFTR computationnel | Déficit CFTR représenté et paramètres bornés; sinon refus explicite. |
+| `ChelationTherapy` | Charge d'une toxine métallique nommée | Toxine identifiée et présente; borner aussi la perte de cofacteurs. |
+| `AllopurinolXanthineInhibitor` | Production du marqueur de déchets puriques | Production mesurée; distinguer inhibition de production de clairance. |
+| `LysosomalUraturicPurge` | Charge de déchets puriques stockés | Charge présente; purge bornée, distincte de l'inhibition de production. |
+| `DeepBrainStimulation` | Activité d'un nœud neuronal nommé | Nœud existant et fréquence/configuration validée; sinon refus explicite. |
+| `Viscosupplementation` | Marqueur de friction articulaire | Friction représentée; effet local, sans déclarer une réparation structurelle. |
+| `SenolyticPurge` | Charge de cellules/agents sénescents identifiés | Cible sénescente présente; ne pas supprimer les autres cellules ou pathologies. |
+| `FetalCarrierReactivation` | Expression d'un transporteur génétique identifié | Transporteur et état épigénétique présents; aucun succès si la cible manque. |
+| `AntiAdhesionVasodilator` | Adhésion endothéliale et débit vasculaire | Marqueurs présents; définir séparément leurs effets et leurs bornes. |
+| `AntiNmdReadthrough` | Signal NMDA computationnel ciblé | Anomalie du marqueur NMDA présente; effets sur excitabilité spécifiés. |
+| `NeuroprotectiveAstrocyticFlush` | Charge astrocytaire ciblée | Charge présente; préserver les autres fonctions de soutien neuronal. |
+| `BloodBrainBarrierSealant` | Intégrité de la BHE computationnelle | Brèche présente; restauration bornée et vérifiable, sans forcer à 1.0 par défaut. |
+
+Pour tous les opérateurs, l'implémentation devra retourner un résultat distinguant application, absence de cible et refus de sécurité. La seule présence d'une variante dans une enum ne suffira pas à la déclarer opérationnelle.
+
+### 5.5 Vérification avant chaque lot
+
+1. Confirmer l'état réel des types et marqueurs dans `clinical.rs`, `pathology.rs`, `therapy.rs` et les modules spécialisés; ne pas partir des extraits des rapports comme s'ils étaient du code.
+2. Repérer les interfaces qui transportent `SystemicTherapy` et examiner les conséquences de compatibilité de sérialisation avant d'ajouter une variante.
+3. Implémenter un petit lot cohérent, ses tests ciblés et toute décision architecturale requise dans un ADR.
+4. Exécuter les contrôles ciblés puis les vérifications de dépôt requises; corriger les docs et matrices de statut à partir des résultats observés.
+5. Garder le statut « proposé » pour tout opérateur non vérifié dans le code effectif.
 
 ---
 
