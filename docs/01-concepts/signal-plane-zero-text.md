@@ -207,7 +207,7 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
 | `signalReceptorService.js` | Registre récepteurs, dispatch actions, matchAndDispatch |
 | `signalEventBus.js` | EventEmitter push (onSignal, onAgent, onRecipient) |
 | `signalCoalescerService.js` | Anti-spam réfractaire + fenêtre coalescing |
-| `synapticPlasticityService.js` | Poids canaux, reinforce/depress/strongDepress, cache hydraté depuis SQLite et persistance dans `signal_channel_weights` |
+| `synapticPlasticityService.js` | Poids canaux, reinforce/depress/strongDepress, cache hydraté depuis SQLite, écritures ordonnées dans `signal_channel_weights` et `flushPendingWrites()` |
 | `collectiveSignalOrganizationRouter.js` | Routage destinataires, scope strict, tri plasticité |
 | `signalPlaneSubscriber.js` | Consumer EventBus + reprise durable SQLite, registerWakeHandler et routage `llmRequired` via `cognitiveSignalService` |
 | `cognitiveSignalService.js` | Envoie le signal au `modelRouter.generate` avec sa cible cognitive et un prompt borné ; la réponse reste consultative |
@@ -238,5 +238,7 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
 | `test_signal_actionneurs.js` | startMission/updateAgent/changeOrganization via ctx |
 | `test_plasticity_tensor.js` | Poids, renforcement, compatibilité tenseurs |
 | `test_semantic_loop_detector.js` | Détection boucles sémantiques |
+| `test_signal_plane_e2e.js` | Escalade cognitive avec fixture SQLite alignée sur le schéma de production |
+| `test_plasticity_tensor.js` | Vidage explicite des écritures de plasticité |
 
 Inclus dans `npm run test:validation` (profile `signalPlane`).
