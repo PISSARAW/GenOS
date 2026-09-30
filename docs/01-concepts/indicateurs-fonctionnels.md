@@ -34,6 +34,17 @@ jamais une preuve, une absence de données donne `insufficient_data` ou
 en clair. Un indicateur qui ne peut pas être mesuré n'augmente ni la confiance
 ni la qualité de preuve.
 
+### Lecture rapide
+
+Cette fiche est un inventaire de spécifications et de limites, pas un tableau
+de bord de résultats. Pour décider si une capacité est utilisable, lire dans
+cet ordre : le statut de la famille ci-dessous, son critère et sa preuve dans
+le [plan de validation](../06-qualite-preuves/plan-validation-indicateurs.md),
+puis le résultat effectivement produit dans le
+[suivi d'exécution](../06-qualite-preuves/suivi-validation-indicateurs.md).
+Le registre machine fournit les dénominateurs et profils exécutables; son état
+initial `not_run` n'est pas une preuve de succès.
+
 ## 3. Analogies biologiques et limites réelles
 
 Les noms biologiques (ignition, réverbération, apoptose, consolidation SHY)
@@ -143,6 +154,15 @@ explicitement sa propre portée métaphysique.
   ordonnancement par bandit, hiérarchie générative descendante.
 - Non-objectifs : clamer une conscience, utiliser un indicateur comme preuve
   dans une gate, décorréler les scores de leurs limitations.
+
+### Résumé de maturité
+
+À la revue du 2026-09-30, les éléments marqués « implémenté » attestent une
+fonction logicielle ou un contrat de test limité. Les autres familles restent
+partielles ou indicatives; leurs critères causaux, leur généralisation ou leur
+usage de bout en bout ne sont pas établis par cette fiche. Le statut doit être
+promu uniquement à partir des reçus et seuils du plan de validation. Aucun
+résultat de cette grille, isolément ou agrégé, ne démontre une conscience.
 
 ## Voir aussi
 

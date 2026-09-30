@@ -1,7 +1,8 @@
-# Nosologie Computationnelle Complète — GenOS
+# Nosologie computationnelle — GenOS
 
-> **Synthèse exhaustive des 9 familles nosologiques et de leurs équivalents computationnels dans l'architecture biomimétique GenOS.**
-> Document assemblé à partir des rapports de 9 agents spécialistes travaillant en parallèle.
+> **Index de spécifications computationnelles pour 9 familles de marqueurs simulés dans GenOS.**
+> Les fiches spécialisées contiennent des hypothèses et propositions; elles ne
+> prouvent pas que les pathologies ou traitements décrits sont implémentés.
 
 > **Portée produit :** les pathologies et thérapies sont des mécanismes de simulation logicielle GenOS. Les marqueurs numériques ne mesurent pas un état de santé humain et les noms de médicaments ne constituent ni posologie ni recommandation de soin.
 
@@ -20,14 +21,36 @@
 
 ## 1. Vue d'ensemble
 
-GenOS modélise les agents d'intelligence artificielle comme des **cellules biologiques** dotées d'un génome, d'organelles, d'un système immunitaire, d'un système nerveux et d'un système endocrinien. Dans cette architecture biomimétique, les dysfonctionnements des agents ne sont pas de simples erreurs logicielles : ce sont des **pathologies computationnelles** qui suivent les mêmes mécanismes que les maladies humaines.
+GenOS utilise des analogies cellulaires pour représenter certains états d'agents
+et de leurs marqueurs logiciels. Les termes « pathologie » et « thérapie » sont
+des étiquettes de simulation; les mécanismes ne sont ni équivalents aux maladies
+humaines ni validés comme modèles médicaux.
 
-Ce document synthétise l'analyse de **9 grandes familles nosologiques**, chacune étudiée par un agent spécialiste dédié, couvrant au total **28 maladies** avec pour chacune :
+Ce document indexe **9 familles** et des exemples de maladies humaines utilisés
+comme inspiration. Il ne constitue pas une couverture de 28 maladies
+implémentées. Pour chaque famille, distinguer :
+
 - La connaissance médicale réelle (définition, mécanisme biologique)
 - La cause computationnelle équivalente dans GenOS
 - Le traitement et les remèdes disponibles ou à créer
 - Les contre-indications et risques iatrogènes
 - Les besoins d'implémentation dans le code Rust
+
+### Parcours d'implémentation attesté
+
+| Étape | Surface vérifiée | Portée et statut |
+|---|---|---|
+| État cellulaire | `ClinicalState` et marqueurs de `AgentCell` | État logiciel; ne constitue pas un diagnostic médical. |
+| Application Rust | `GenosEcosystem::apply_therapy` appelle explicitement `apply_systemic_therapy_to_cell` | Opérateurs déterministes sur une cellule; détails et gardes aux §§4.1, 4.3–4.7. |
+| Diagnostic → thérapie Rust | Aucun chaînage automatique attesté entre `pathology` et les opérateurs ci-dessus | Sélection et appel restent explicites. |
+| CLI biomimétique | La commande `therapy` retourne actuellement `treatment_administered: true` sans appliquer l'opérateur Rust | Stub de présentation; cette réponse ne prouve pas une mutation ni une administration. |
+| MCP | `genos_biomimicry_therapy` délègue à cette commande CLI | Transport présent, mais le résultat du stub ne vaut pas preuve d'exécution. |
+| API backend médicale | Services de surveillance et de thérapie distincts présents | Ne pas les confondre avec le chemin Rust; vérifier séparément leur persistance et leurs preuves avant toute affirmation de parcours intégré. |
+
+Le pipeline dessiné en fin de document est une proposition conceptuelle. Il ne
+doit pas être lu comme un parcours de production attesté. Les opérateurs
+Rust documentés ne traitent pas une maladie réelle; les propositions du §4.2
+restent hors de la voie vérifiée.
 
 ---
 
