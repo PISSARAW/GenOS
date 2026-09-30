@@ -56,14 +56,32 @@ function buildTopologyOptions(context, topology) {
     domain: getField(request, 'domain', 'problem_domain'),
     keywords: request.keywords || [],
     budget: request.execution_budget || request.executionBudget || {},
+    ...buildExplorationOptions(request),
+    ...buildPhenotypeOptions(request),
+    workspacePath: resolveWorkspacePath(request, context),
+    workspaceId: resolveWorkspaceId(request, context),
+    agentId: resolveAgentId(request, context),
+  };
+}
+
+function buildExplorationOptions(request) {
+  return {
     explorationDomains: getField(request, 'explorationDomains', 'exploration_domains') || [],
     knownConcepts: getField(request, 'knownConcepts', 'known_concepts') || [],
     existingCapabilities: getField(request, 'existingCapabilities', 'existing_capabilities') || [],
     culturalTraits: getField(request, 'culturalTraits', 'cultural_traits') || [],
+    culturalTransfer: request.culturalTransfer || request.cultural_transfer,
     nceOptions: getField(request, 'nceOptions', 'nce_options'),
-    workspacePath: resolveWorkspacePath(request, context),
-    workspaceId: resolveWorkspaceId(request, context),
-    agentId: resolveAgentId(request, context),
+  };
+}
+
+function buildPhenotypeOptions(request) {
+  return {
+    requiredTools: getField(request, 'requiredTools', 'required_tools') || [],
+    requiredCapabilities: getField(request, 'requiredCapabilities', 'required_capabilities') || [],
+    phenotypeState: request.phenotypeState || request.phenotype_state,
+    initialPhenotype: request.initialPhenotype || request.initial_phenotype,
+    genomeId: getField(request, 'genomeId', 'genome_id'),
   };
 }
 
@@ -80,6 +98,12 @@ async function computeNCEForTopology(task, options) {
       knownConcepts: options.knownConcepts,
       existingCapabilities: options.existingCapabilities,
       culturalTraits: options.culturalTraits,
+      culturalTransfer: options.culturalTransfer,
+      requiredTools: options.requiredTools,
+      requiredCapabilities: options.requiredCapabilities,
+      phenotypeState: options.phenotypeState,
+      initialPhenotype: options.initialPhenotype,
+      genomeId: options.genomeId,
       nceOptions: options.nceOptions,
       workspacePath: options.workspacePath,
       workspaceId: options.workspaceId,
@@ -97,6 +121,7 @@ async function computeNCEForTopology(task, options) {
     representations: enhancements.representations || [],
     exaptations: enhancements.exaptations || [],
     culturalTraits: enhancements.culturalTraits || [],
+    culturalLearning: enhancements.culturalLearning || null,
     environments: enhancements.environments || [],
   };
 }

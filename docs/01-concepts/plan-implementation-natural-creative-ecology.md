@@ -79,6 +79,8 @@ Ces observations proviennent du code présent dans `backend/src/services/{nceEng
 
 **Sortie / gate** : reçu POET rejouable, lié à l'exécution terminée et à une vérification indépendante; aucun succès déduit du seul événement de télémétrie.
 
+**État après exécution du plan (2026-09-30)** : la vérification POET utilise maintenant le vrai stockage de snapshots et l'exécution isolée; la lecture du journal DB ignore les événements terminaux antérieurs au début de la mission. L'adaptateur qui démarre l'agent reste simulé dans ce test E2E. Le critère runtime réel ci-dessus reste donc ouvert avant de déclarer le flux POET entièrement validé.
+
 ### Lot 5 — Ablations et protocole expérimental
 
 - Conserver `nceAblationTests.js` étiqueté prototype; interdire qu'il alimente des affirmations de performance, maturité ou supériorité.
@@ -88,6 +90,8 @@ Ces observations proviennent du code présent dans `backend/src/services/{nceEng
 - Répéter sur plusieurs tâches/environnements et vérifier que les tâches d'évaluation ne sont pas celles ayant servi à régler les mécanismes.
 
 **Sortie / gate** : résultats reproductibles avec données/protocole versionnés et revue indépendante. Avant cette gate, parler de « prototype d'ablation » uniquement.
+
+**État après exécution du plan (2026-09-30)** : le harness marque ses sorties `simulation-prototype`, expose l'absence de validité scientifique et ses limites; un test vérifie la répétabilité de la simulation pour débogage. Aucun benchmark réel, calcul de puissance ou campagne factorielle n'est livré. Cette partie demeure un prototype tant qu'un jeu de tâches et un protocole expérimental ne sont pas enregistrés.
 
 ## Ordre de livraison et dépendances
 

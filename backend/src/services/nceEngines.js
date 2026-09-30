@@ -65,6 +65,12 @@ async function applyCulture(mission, config) {
   return selectCulturalTraits(mission.culturalTraits || [], {}, 3);
 }
 
+async function applyCultureLearning(mission, config) {
+  if (!config.culture.enabled || !mission.culturalTransfer) return null;
+  const bridge = require('./culturalPhenotypeBridgeService');
+  return bridge.transferCultureToPhenotype(mission.culturalTransfer);
+}
+
 async function applyPlay(mission, config, db) {
   if (!config.playSandbox.enabled) return null;
   if (!mission.workspacePath) return null;
@@ -89,21 +95,61 @@ async function applyPlay(mission, config, db) {
 
 async function applyPhenotype(mission, config, db) {
   if (!config.phenotype.enabled) return null;
-  const { developFromEnvironment } = require('./phenotypicDevelopmentService');
-  const state = (mission.phenotypeState && typeof mission.phenotypeState === 'object')
-    ? mission.phenotypeState
-    : { branches: [], atrophies: [], history: [] };
+  const phenotypeService = require('./phenotypicDevelopmentService');
+  const state = await resolvePhenotypeState(mission, phenotypeService, db);
   const environment = {
     requiredTools: mission.requiredTools || [],
     requiredCapabilities: mission.requiredCapabilities || [],
   };
-  const actions = developFromEnvironment(state, environment);
+  const actions = phenotypeService.developFromEnvironment(state, environment);
+  if (db && mission.agentId) await phenotypeService.savePhenotypeState(state, db);
   return {
     actions: actions.map((a) => ({ action: a.action, branchType: a.need })),
     branchCount: state.branches.length,
     atrophiedCount: state.atrophies.length,
     vector: require('./phenotypeVectorService').phenotypeVector(state.currentPhenotype, state),
+    stateId: state.id || null,
   };
+}
+
+async function resolvePhenotypeState(mission, service, db) {
+  if (mission.phenotypeState && typeof mission.phenotypeState === 'object') {
+    return normalizePhenotypeState(mission.phenotypeState, mission.agentId);
+  }
+  const persisted = await loadPersistedPhenotype(mission, service, db);
+  if (persisted) return normalizePhenotypeState(persisted, mission.agentId);
+  return createEmptyPhenotypeState(mission);
+}
+
+async function loadPersistedPhenotype(mission, service, db) {
+  if (!db || !mission.agentId) return null;
+  const genomeId = mission.genomeId || `agent:${mission.agentId}`;
+  return service.loadPhenotypeState(genomeId, db, mission.agentId);
+}
+
+function createEmptyPhenotypeState(mission) {
+  const agentId = mission.agentId || null;
+  return {
+    id: agentId ? `pheno_agent_${agentId}` : null,
+    agentId,
+    genomeId: mission.genomeId || (agentId ? `agent:${agentId}` : null),
+    currentPhenotype: mission.initialPhenotype || {},
+    branches: [],
+    atrophies: [],
+    history: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function normalizePhenotypeState(state, agentId) {
+  state.agentId = state.agentId || agentId || null;
+  state.genomeId = state.genomeId || (state.agentId ? `agent:${state.agentId}` : null);
+  state.branches = Array.isArray(state.branches) ? state.branches : [];
+  state.atrophies = Array.isArray(state.atrophies) ? state.atrophies : [];
+  state.history = Array.isArray(state.history) ? state.history : [];
+  state.currentPhenotype = state.currentPhenotype || {};
+  return state;
 }
 
 module.exports = {
@@ -112,6 +158,7 @@ module.exports = {
   applyExaptation,
   applyEnvCoev,
   applyCulture,
+  applyCultureLearning,
   applyPlay,
   applyPhenotype,
 };

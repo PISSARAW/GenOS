@@ -38,6 +38,9 @@ async function runAblationExperiment(config, repetitions = 5) {
   }
 
   return {
+    evidenceClass: 'simulation-prototype',
+    scientificValidity: false,
+    limitations: ['synthetic success sampling', 'signal-count heuristic', 'no real task benchmark'],
     config,
     engines: Object.keys(engines),
     results,
