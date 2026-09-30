@@ -83,16 +83,22 @@ async function planRegeneration({ mission, reason, currentTopology, preferredPre
 async function executeRegeneration({ sessionId, db, context = {} }) {
   const session = regenerationSessions.get(sessionId);
   if (!session) return { success: false, error: `Session ${sessionId} introuvable` };
+  if (session.status !== 'planned') return { success: false, code: 'REGENERATION_SESSION_NOT_PLANNED', status: session.status };
+  const startedAt = Date.now();
   session.status = 'in_progress';
   session.startedAt = new Date().toISOString();
   await persistSessions();
   const preserved = await preserveCriticalState(session, db);
   const newTopology = buildScopedTopology(session, preserved);
-  session.cost = costService.accumulate(session.cost, context.observedCost);
   session.learning = await learning.evaluateCandidates(
     session.learning || learning.createLearningRecord(), context.evaluateCognitiveCandidate
   );
   const validation = validateFunctionalEquivalence(newTopology, session.mission);
+  session.cost = costService.accumulate(session.cost, {
+    ...costService.changes(session.currentTopology, newTopology),
+    durationMs: Date.now() - startedAt,
+    ...(context.observedCost || {})
+  });
   session.status = validation.passed ? 'completed' : 'degraded';
   session.completedAt = new Date().toISOString();
   const worker = await runRegenerationWorker({ db, session, context, validation });
