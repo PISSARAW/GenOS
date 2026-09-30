@@ -211,6 +211,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0186](0186-signaux-sensoriels-animaux-synthetiques.md) | Signaux sensoriels animaux typés comme synthétiques | Accepté | 2026-09-30 | Perception, capteurs, provenance |
 | [0187](0187-quarantaine-avant-dispatch-mission.md) | Quarantaine avant dispatch de mission | Accepté | 2026-09-30 | Immunité, dispatch de workers, sécurité |
 | [0188](0188-provenance-reproduction-fossilisation.md) | Provenance versionnée de reproduction et fossilisation | Accepté | 2026-09-30 | Lignées, reproduction, fossilisation |
+| [0189](0189-snapshots-durables-de-population.md) | Snapshots durables de population | Accepté | 2026-09-30 | Écologie, tissus, spores, persistance |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
