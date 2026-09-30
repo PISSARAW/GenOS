@@ -138,6 +138,16 @@ async function prepareCognitiveLearning(context = {}) {
   return regenerationService.prepareCognitiveLearning(sessionId, { candidates });
 }
 
+async function promoteCognitiveCandidate(context = {}) {
+  return regenerationService.promoteCognitiveCandidate({
+    sessionId: context.sessionId,
+    candidateId: context.candidateId || context.candidate_id,
+    db: context.db,
+    sourceAgentId: context.orchestratorId || context.orchestrator_id,
+    evidenceVerifier: context.evidenceVerifier
+  });
+}
+
 // ── Validate Equivalence ────────────────────────────────────────────────────
 
 async function validateEquivalence(context = {}) {
@@ -252,5 +262,6 @@ module.exports = {
   plan_regeneration: planRegeneration,
   execute_regeneration: executeRegeneration,
   prepare_cognitive_learning: prepareCognitiveLearning,
+  promote_cognitive_candidate: promoteCognitiveCandidate,
   validate_equivalence: validateEquivalence
 };

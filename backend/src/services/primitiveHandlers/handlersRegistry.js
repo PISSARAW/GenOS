@@ -19,7 +19,6 @@ const structuralHandlers = require('./structuralPlasticityHandlers');
 const animalControl = require('./animalControl');
 const cognitiveMerge = require('./cognitiveMerge');
 const procedural = require('./proceduralHandlers');
-
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
   if (!snapshotResult.success) return snapshotResult;
@@ -339,7 +338,6 @@ const HANDLERS = {
     const { defaultForaging } = require('../foragingScoutHarvesterService');
     return defaultForaging.harvestEvidence(ctx.tokenId || ctx.token_id, ctx.harvesterId || ctx.harvester_id);
   },
-
   // Lot 12 — Axolotl Stratégie Régénération
   assess_regeneration: async (ctx = {}) => {
     const { assess_regeneration } = require('./axolotlStrategyHandlers');
@@ -361,6 +359,7 @@ const HANDLERS = {
     const { prepare_cognitive_learning } = require('./axolotlStrategyHandlers');
     return prepare_cognitive_learning(ctx);
   },
+  promote_cognitive_candidate: async (ctx = {}) => require('./axolotlStrategyHandlers').promote_cognitive_candidate(ctx),
   // Lot 13 — Plasticité Structurelle (STDP + Lamarckien + Sommeil)
   causal_weighting: (ctx = {}) => require('./structuralPlasticity').causalWeighting(ctx),
   infer_traits: (ctx = {}) => require('./structuralPlasticity').inferTraits(ctx),

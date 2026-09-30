@@ -95,22 +95,7 @@ async function executeRegeneration({ sessionId, db, context = {} }) {
   const validation = validateFunctionalEquivalence(newTopology, session.mission);
   session.status = validation.passed ? 'completed' : 'degraded';
   session.completedAt = new Date().toISOString();
-  let worker = null;
-  if (validation.passed && db) {
-    try {
-      if (!context.orchestratorId) {
-        throw Object.assign(new Error('A parent orchestrator is required to create the regenerated worker.'), { code: 'REGENERATION_ORCHESTRATOR_REQUIRED' });
-      }
-      worker = await createRegeneratedWorker({ db, session, context });
-      session.workerId = worker.agentId;
-      session.mission = worker.mission;
-    } catch (error) {
-      session.status = 'failed';
-      session.error = { code: error.code || 'REGENERATION_WORKER_FAILED', message: error.message };
-      await persistSessions();
-      throw error;
-    }
-  }
+  const worker = await runRegenerationWorker({ db, session, context, validation });
   await persistSessions();
   return {
     success: validation.passed,
@@ -126,12 +111,42 @@ async function executeRegeneration({ sessionId, db, context = {} }) {
   };
 }
 
+async function runRegenerationWorker({ db, session, context, validation }) {
+  if (!validation.passed || !db) return null;
+  try {
+    if (!context.orchestratorId) throw regenerationError('REGENERATION_ORCHESTRATOR_REQUIRED', 'Un orchestrateur parent est requis.');
+    const worker = await createRegeneratedWorker({ db, session, context });
+    session.workerId = worker.agentId;
+    session.mission = worker.mission;
+    return worker;
+  } catch (error) {
+    session.status = 'failed';
+    session.error = { code: error.code || 'REGENERATION_WORKER_FAILED', message: error.message };
+    await persistSessions();
+    throw error;
+  }
+}
+
 async function prepareCognitiveLearning(sessionId, input) {
   const session = regenerationSessions.get(sessionId);
   if (!session) return { success: false, error: `Session ${sessionId} introuvable` };
   session.learning = learning.createLearningRecord(input);
   await persistSessions();
   return { success: true, sessionId, learning: session.learning };
+}
+
+async function promoteCognitiveCandidate({ sessionId, candidateId, db, evidenceVerifier, sourceAgentId }) {
+  const session = regenerationSessions.get(sessionId);
+  const candidate = session?.learning?.candidates?.find((item) => item.id === candidateId);
+  if (!candidate) return { success: false, code: 'COGNITIVE_CANDIDATE_NOT_FOUND' };
+  const result = await learning.promoteCandidate({ candidate, sessionId, sourceAgentId, db, evidenceVerifier });
+  if (!result.success) return result;
+  candidate.status = 'promoted';
+  candidate.traitId = result.traitId;
+  candidate.promotionLevel = result.promotionLevel;
+  candidate.verificationReceipt = result.receiptId;
+  await persistSessions();
+  return result;
 }
 
 function normalizeScope(scope, topology) {
@@ -280,5 +295,6 @@ module.exports = {
   listRegenerationSessions,
   getRegenerationSession,
   prepareCognitiveLearning,
+  promoteCognitiveCandidate,
   setAdaptivePersister
 };
