@@ -15,6 +15,7 @@
 
 const { createFormalResult } = require('./formalResultService');
 const { adaptHolobionteResult, adaptImmuneResult } = require('./epistemic/formalResultAdapter');
+const { validateReceipt } = require('./epistemicVerifierReceiptService');
 const PASSED_STATUSES = new Set(['passed', 'verified', 'proved']);
 
 function isReceiptObject(receipt) { return Boolean(receipt && typeof receipt === 'object'); }
@@ -34,29 +35,7 @@ function buildCompliantReceipt(receipt, verifierDigest, trustedDigests) {
   if (!isPassedStatus(receipt)) return null;
   if (!hasReceiptIdentity(receipt)) return null;
   if (!receipt.signature) return null; // Pas de signature auto → rejeté
-
-  const compliant = {
-    resultId: receipt.resultId,
-    evidenceDigest: receipt.evidenceDigest,
-    verifierDigest,
-    checkedAt: receipt.checkedAt || receipt.createdAt || new Date().toISOString(),
-    nonce: receipt.nonce || randomUuid(),
-    status: 'verified',
-    independent: receipt.independent === true,
-    signature: receipt.signature,
-    independenceDescriptor: receipt.independenceDescriptor || null,
-    independenceDistance: receipt.independenceDistance || null,
-  };
-  return compliant;
-}
-
-function randomUuid() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
-    const r = Math.random() * 16 | 0;
-    const v = char === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
+  return validateReceipt(receipt, trustedDigests) ? receipt : null;
 }
 
 function genResultId(prefix) { return `${prefix || 'result'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
@@ -143,33 +122,34 @@ function actorFromVerification(receipt) {
   return receipt.actorId || receipt.verifierDigest || 'unknown';
 }
 
-function buildConstraintAttestations(verifications, obligationIds) {
+function buildConstraintAttestations(spec) {
+  const { verifications, obligationIds, trustedDigests, resultsById } = spec;
   // Vrai census indépendant : chaque verifier porte les obligations qu'il a
   // réellement couvertes (coveredObligations), pas la liste complète.
   // Le census ne passe que si l'union couvre toutes les obligations.
-  const sorted = [...obligationIds].sort();
-  const seen = new Set();
-  const attestations = [];
-  
+  const required = new Set(obligationIds);
+  const byActor = new Map();
   for (const receipt of verifications) {
-    if (receipt.independent !== true) continue;
-    const actorId = actorFromVerification(receipt);
-    if (seen.has(actorId)) continue;
-    seen.add(actorId);
-    
-    // Les obligations couvertes par CE verifier spécifique.
-    const covered = receipt.coveredObligations
-      ? [...receipt.coveredObligations].sort()
-      : (receipt.evidenceDigest ? sorted : []);
-    
-    attestations.push({
-      actorId,
-      obligationIds: covered,
-      independent: true,
-    });
+    recordValidVerification({ receipt, trustedDigests, required, resultsById, byActor });
   }
-  
-  return attestations;
+  return [...byActor].map(([actorId, covered]) => ({ actorId, obligationIds: [...covered].sort(), independent: true }));
+}
+
+function recordValidVerification(spec) {
+  const { receipt, trustedDigests, required, resultsById, byActor } = spec;
+  if (!isValidVerification({ receipt, trustedDigests, required, resultsById })) return;
+  const actorId = actorFromVerification(receipt);
+  if (!byActor.has(actorId)) byActor.set(actorId, new Set());
+  byActor.get(actorId).add(receipt.resultId);
+}
+
+function isValidVerification(spec) {
+  const { receipt, trustedDigests, required, resultsById } = spec;
+  if (receipt.independent !== true || receipt.status !== 'verified') return false;
+  if (!Array.isArray(receipt.coveredObligations) || !validateReceipt(receipt, trustedDigests)) return false;
+  const result = resultsById.get(receipt.resultId);
+  return Boolean(result) && receipt.evidenceDigest === result.evidence.digest
+    && required.has(receipt.resultId) && receipt.coveredObligations.includes(receipt.resultId);
 }
 
 function assemblyFromContext(formalResults, verifierResults, context) {
@@ -188,7 +168,7 @@ function assemblyFromContext(formalResults, verifierResults, context) {
     verifications,
     obligations: buildObligationList(obligationIds),
     coverage: buildCoverageMap(results),
-    constraintAttestations: buildConstraintAttestations(verifications, obligationIds),
+    constraintAttestations: buildConstraintAttestations({ verifications, obligationIds, trustedDigests, resultsById }),
     equivalences: [],
     relations: [],
     contradictionResolutions: [],

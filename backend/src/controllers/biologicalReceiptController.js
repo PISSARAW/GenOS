@@ -23,7 +23,7 @@ async function ingest(req, res, next) {
     const db = await getDatabase();
     const mission = await missionBelongsToTenant(db, normalized.mission_id, req.tenant);
     if (!mission) return res.status(404).json({ error: { code: 'MISSION_NOT_FOUND', message: 'Mission is not available in this project.' } });
-    const result = await ingestBiologicalReceipt(db, normalized);
+    const result = await ingestBiologicalReceipt(db, normalized, req.biologicalReceiptOrigin);
     return res.status(result.duplicate ? 200 : 201).json(result);
   } catch (error) {
     if (clientError(error)) {

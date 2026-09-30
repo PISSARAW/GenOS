@@ -50,7 +50,7 @@ async function initClinicalState(db, agentId) {
   const id = `clinical_${agentId}_${Date.now()}`;
   const vitals = JSON.stringify({ cognitiveIntegrity: 1.0, stress: 0, energy: 1.0, budgetRatio: 1.0, dissonance: 0, apoptosisRisk: 0 });
   await db.run(
-    `INSERT INTO clinical_states (id, agent_id, vitals_json, cell_cycle_state, wellness_score)
+    `INSERT OR IGNORE INTO clinical_states (id, agent_id, vitals_json, cell_cycle_state, wellness_score)
      VALUES (?, ?, ?, 'G0', 1.0)`,
     id, agentId, vitals
   );

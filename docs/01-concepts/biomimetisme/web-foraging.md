@@ -40,10 +40,9 @@ backend/tests/test_foraging_browser_runtime.js` enchaîne observation réelle,
 crop Sharp, décision de foraging et navigation suivante sur ce serveur. Le test
 inclut un contrôle de couverture de trois termes attendus sur la page suivante;
 cette métrique mesure uniquement l'extraction d'une cible connue dans un serveur
-local contrôlé, pas la pertinence générale des résultats. Une exécution de cette
-commande dans l'environnement de revue a expiré au timeout Puppeteer de 30 s avant
-de produire un résultat, donc la nouvelle assertion n'est pas vérifiée ici. Ces
-tests ne valident pas l'accès à des sites externes. Le test GAIA dépend d'un
+local contrôlé, pas la pertinence générale des résultats. L'exécution de
+`test_foraging_browser_runtime.js` le 2026-09-30 a réussi avec les options
+Chromium configurées dans ce test. Ces tests ne valident pas l'accès à des sites externes. Le test GAIA dépend d'un
 checkout et d'un harnais externes; l'exécution du 2026-09-30 a sauté car le
 checkout GAIA est absent. Aucun score GAIA de GenOS n'est établi.
 

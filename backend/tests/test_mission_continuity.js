@@ -23,6 +23,7 @@ const vitalSignals = require('../src/services/vitalSignalsService');
 const immuneMemory = require('../src/services/immuneMemoryService');
 const missionOrganism = require('../src/services/missionOrganismService');
 const missionContinuity = require('../src/services/missionContinuityService');
+const missionIdentity = require('../src/services/missionIdentityService');
 const regeneration = require('../src/services/regenerationService');
 const { migrateHomeostasisStates } = require('../src/db/migrations/migrateHomeostasisStates');
 
@@ -248,6 +249,29 @@ test('replacement cell is admitted only with explicit evidence and restores requ
   assert.equal(result.replacementId, 'replacement-verifier');
   assert.equal(regeneration.verifyFunctionalEquivalence(result.organism, ['verifier']).equivalent, true);
   assert.equal(result.organism.memory.scars.at(-1).evidenceRef, 'sha256:replacement-proof');
+});
+
+test('orchestrator succession is single-winner, atomic, and survives database reopen', async () => {
+  const missionId = `succession_${Date.now()}`;
+  for (const agentId of ['orchestrator_old', 'orchestrator_next_a', 'orchestrator_next_b']) {
+    await db.run(`INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, ?, 'orchestrator', 'idle', 'orchestrator')`, agentId, agentId);
+  }
+  await missionIdentity.create(db, { missionId, objective: 'durable orchestrator succession', orchestratorAgentId: 'orchestrator_old' });
+  const candidates = ['orchestrator_next_a', 'orchestrator_next_b'];
+  const outcomes = await Promise.allSettled(candidates.map((agentId) => missionIdentity.attachOrchestrator(db, {
+    missionId, agentId, expectedOrchestratorId: 'orchestrator_old'
+  })));
+  assert.equal(outcomes.filter((outcome) => outcome.status === 'fulfilled').length, 1, 'exactly one successor wins');
+  assert.equal(outcomes.filter((outcome) => outcome.status === 'rejected').length, 1, 'stale succession contender is rejected');
+
+  const winner = (await missionIdentity.get(db, missionId)).orchestratorAgentId;
+  await closeDatabase();
+  db = await getDatabase(TMP_DB);
+  const restoredMission = await missionIdentity.get(db, missionId);
+  assert.equal(restoredMission.orchestratorAgentId, winner, 'mission authority survives process restart');
+  const members = await missionIdentity.members(db, missionId);
+  assert.ok(members.some((member) => member.id === winner), 'winning successor remains linked to the mission after restart');
+  assert.equal(members.filter((member) => member.role === 'orchestrator').length, 2, 'lineage retains prior and current orchestrators');
 });
 
 async function main() {

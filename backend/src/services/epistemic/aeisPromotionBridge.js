@@ -19,6 +19,7 @@ const { adaptImmuneResult } = require('./formalResultAdapter');
 const { createFormalResult } = require('../formalResultService');
 const { assessClaim } = require('./verificationKernel');
 const verificationFabric = require('./verificationFabric');
+const { validateReceipt } = require('../epistemicVerifierReceiptService');
 
 /**
  * Convertit un résultat immunitaire Holobionte en FormalResult.
@@ -42,34 +43,36 @@ function actorFromReceipt(receipt) {
   return receipt.actorId || receipt.verifierDigest || 'unknown';
 }
 
-function buildConstraintAttestations(verifications, obligations) {
+function buildConstraintAttestations(spec) {
+  const { verifications, obligations, trustedDigests, results } = spec;
   // Vrai census : chaque attestation est indépendante. On ne donne PAS
   // la liste complète des obligations à chaque acteur. Chaque receipt
   // porte ce que ce verifier a réellement validé (coveredObligations),
   // et le census ne passe que si l'union couvre toutes les obligations.
-  const sorted = [...obligations].sort();
-  const seen = new Set();
-  const attestations = [];
-  
+  const obligationSet = new Set(obligations);
+  const resultById = new Map(results.map((result) => [result.resultId, result]));
+  const byActor = new Map();
   for (const receipt of verifications) {
-    if (receipt.independent !== true) continue;
-    const actorId = actorFromReceipt(receipt);
-    if (seen.has(actorId)) continue;
-    seen.add(actorId);
-    
-    // Les obligations couvertes par CE verifier spécifique.
-    const covered = receipt.coveredObligations
-      ? [...receipt.coveredObligations].sort()
-      : (receipt.evidenceDigest ? sorted : []);
-    
-    attestations.push({
-      actorId,
-      obligationIds: covered,
-      independent: true,
-    });
+    recordValidAttestation({ receipt, trustedDigests, obligationSet, resultById, byActor });
   }
-  
-  return attestations;
+  return [...byActor].map(([actorId, covered]) => ({ actorId, obligationIds: [...covered].sort(), independent: true }));
+}
+
+function recordValidAttestation(spec) {
+  const { receipt, trustedDigests, obligationSet, resultById, byActor } = spec;
+  if (!isValidAttestation({ receipt, trustedDigests, obligationSet, resultById })) return;
+  const actorId = actorFromReceipt(receipt);
+  if (!byActor.has(actorId)) byActor.set(actorId, new Set());
+  byActor.get(actorId).add(receipt.resultId);
+}
+
+function isValidAttestation(spec) {
+  const { receipt, trustedDigests, obligationSet, resultById } = spec;
+  if (receipt.independent !== true || receipt.status !== 'verified') return false;
+  if (!Array.isArray(receipt.coveredObligations) || !validateReceipt(receipt, trustedDigests)) return false;
+  const boundResult = resultById.get(receipt.resultId);
+  return Boolean(boundResult) && receipt.evidenceDigest === boundResult.evidence.digest
+    && obligationSet.has(receipt.resultId) && receipt.coveredObligations.includes(receipt.resultId);
 }
 
 function candidateAssumptions(antigen) {
@@ -158,7 +161,9 @@ function buildAssuranceAssemblyFromHolobionte(antigens, holobionteResults, conte
     verifications,
     obligations: results.map(r => ({ id: r.resultId, required: true, description: `Validation of claim: ${r.canonicalStatement}` })),
     coverage: results.map(r => ({ resultId: r.resultId, obligationId: r.resultId, evidenceDigest: r.evidence.digest })),
-    constraintAttestations: buildConstraintAttestations(verifications, obligationIds),
+    constraintAttestations: buildConstraintAttestations({
+      verifications, obligations: obligationIds, trustedDigests: context.trustedVerifierDigests || [], results,
+    }),
     equivalences: [],
     relations: [],
     contradictionResolutions: [],
@@ -302,7 +307,8 @@ async function evaluateReportWithAeis(report, context = {}) {
   const providerProfiles = context.multiProviderEnabled === true
     ? await loadProviderProfiles(context.db)
     : [];
-  return evaluateAeisForPromotion(antigens, { ...context, providerProfiles });
+  const trustedVerifierDigests = require('../verifierTrustRegistry').listVerifierDigests();
+  return evaluateAeisForPromotion(antigens, { ...context, providerProfiles, trustedVerifierDigests });
 }
 
 async function loadProviderProfiles(db) {

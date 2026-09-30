@@ -1,0 +1,728 @@
+{
+  "measuredAt": "2026-09-30",
+  "command": "node backend/tests/search/test_planning_gap.js",
+  "budget": 240,
+  "tasks": 12,
+  "summary": {
+    "react": {
+      "success": 9,
+      "total": 12,
+      "avgExpansions": 9.2
+    },
+    "tot": {
+      "success": 11,
+      "total": 12,
+      "avgExpansions": 30.6
+    },
+    "mcts": {
+      "success": 6,
+      "total": 12,
+      "avgExpansions": 175.9
+    },
+    "genos": {
+      "success": 12,
+      "total": 12,
+      "avgExpansions": 24.8
+    }
+  },
+  "corrections": {
+    "genosPolicy": "A* with admissible domain heuristics and best known path cost per state",
+    "trapFarKey": "moved k3 to reachable cell 2,6; prior key at 6,6 was inaccessible behind its own locked door"
+  },
+  "results": [
+    {
+      "task": "bw-sussman",
+      "domain": "blocksworld",
+      "optimalLength": 2,
+      "react": {
+        "success": true,
+        "expansions": 2,
+        "plan": [
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 3,
+        "plan": [
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "mcts": {
+        "success": true,
+        "expansions": 5,
+        "plan": [
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 3,
+        "plan": [
+          "unstack C",
+          "stack C on B"
+        ]
+      }
+    },
+    {
+      "task": "bw-sussman-4",
+      "domain": "blocksworld",
+      "optimalLength": 2,
+      "react": {
+        "success": true,
+        "expansions": 2,
+        "plan": [
+          "unstack D",
+          "stack D on C"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 3,
+        "plan": [
+          "unstack D",
+          "stack D on C"
+        ]
+      },
+      "mcts": {
+        "success": true,
+        "expansions": 21,
+        "plan": [
+          "unstack D",
+          "stack D on C"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 3,
+        "plan": [
+          "unstack D",
+          "stack D on C"
+        ]
+      }
+    },
+    {
+      "task": "bw-reverse-4",
+      "domain": "blocksworld",
+      "optimalLength": 8,
+      "react": {
+        "success": true,
+        "expansions": 8,
+        "plan": [
+          "unstack D",
+          "putdown D",
+          "unstack C",
+          "stack C on D",
+          "unstack B",
+          "stack B on C",
+          "unstack A",
+          "stack A on B"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 22,
+        "plan": [
+          "unstack D",
+          "putdown D",
+          "unstack C",
+          "stack C on D",
+          "unstack B",
+          "stack B on C",
+          "unstack A",
+          "stack A on B"
+        ]
+      },
+      "mcts": {
+        "success": true,
+        "expansions": 240,
+        "plan": [
+          "unstack D",
+          "putdown D",
+          "unstack C",
+          "stack C on D",
+          "unstack B",
+          "stack B on C",
+          "unstack A",
+          "stack A on B"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 9,
+        "plan": [
+          "unstack D",
+          "putdown D",
+          "unstack C",
+          "stack C on D",
+          "unstack B",
+          "stack B on C",
+          "unstack A",
+          "stack A on B"
+        ]
+      }
+    },
+    {
+      "task": "bw-swap",
+      "domain": "blocksworld",
+      "optimalLength": 6,
+      "react": {
+        "success": true,
+        "expansions": 6,
+        "plan": [
+          "unstack B",
+          "putdown B",
+          "unstack D",
+          "stack D on B",
+          "unstack C",
+          "stack C on A"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 26,
+        "plan": [
+          "unstack B",
+          "putdown B",
+          "unstack D",
+          "stack D on B",
+          "unstack C",
+          "stack C on A"
+        ]
+      },
+      "mcts": {
+        "success": true,
+        "expansions": 192,
+        "plan": [
+          "unstack B",
+          "putdown B",
+          "unstack D",
+          "putdown D",
+          "unstack C",
+          "stack C on A",
+          "unstack D",
+          "stack D on B"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 7,
+        "plan": [
+          "unstack B",
+          "putdown B",
+          "unstack D",
+          "stack D on B",
+          "unstack C",
+          "stack C on A"
+        ]
+      }
+    },
+    {
+      "task": "bw-tower-5",
+      "domain": "blocksworld",
+      "optimalLength": 8,
+      "react": {
+        "success": false,
+        "expansions": 14,
+        "plan": [
+          "unstack E",
+          "stack E on D",
+          "unstack C",
+          "stack C on E",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B",
+          "unstack E",
+          "stack E on C",
+          "unstack D",
+          "stack D on E",
+          "unstack D",
+          "stack D on E"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 64,
+        "plan": [
+          "unstack E",
+          "stack E on D",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B",
+          "unstack E",
+          "putdown E",
+          "unstack D",
+          "stack D on C",
+          "unstack E",
+          "stack E on D"
+        ]
+      },
+      "mcts": {
+        "success": false,
+        "expansions": 240,
+        "plan": [
+          "unstack E",
+          "stack E on D",
+          "unstack E"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 15,
+        "plan": [
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B",
+          "unstack D",
+          "stack D on C",
+          "unstack E",
+          "stack E on D"
+        ]
+      }
+    },
+    {
+      "task": "bw-conflict",
+      "domain": "blocksworld",
+      "optimalLength": 6,
+      "react": {
+        "success": true,
+        "expansions": 12,
+        "plan": [
+          "unstack C",
+          "stack C on B",
+          "unstack A",
+          "stack A on C",
+          "unstack A",
+          "putdown A",
+          "unstack C",
+          "putdown C",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 19,
+        "plan": [
+          "unstack C",
+          "putdown C",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "mcts": {
+        "success": true,
+        "expansions": 103,
+        "plan": [
+          "unstack C",
+          "putdown C",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 9,
+        "plan": [
+          "unstack C",
+          "putdown C",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B"
+        ]
+      }
+    },
+    {
+      "task": "bw-table-6",
+      "domain": "blocksworld",
+      "react": {
+        "success": false,
+        "expansions": 14,
+        "plan": [
+          "unstack F",
+          "stack F on E",
+          "unstack D",
+          "stack D on A",
+          "unstack F",
+          "stack F on D",
+          "unstack E",
+          "stack E on F",
+          "unstack B",
+          "stack B on E",
+          "unstack C",
+          "stack C on B",
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "tot": {
+        "success": false,
+        "expansions": 76,
+        "plan": []
+      },
+      "mcts": {
+        "success": false,
+        "expansions": 240,
+        "plan": [
+          "unstack E",
+          "stack E on D",
+          "unstack B"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 193,
+        "plan": [
+          "unstack F",
+          "putdown F",
+          "unstack E",
+          "stack E on F",
+          "unstack B",
+          "stack B on A",
+          "unstack D",
+          "stack D on E",
+          "unstack C",
+          "stack C on B",
+          "unstack D",
+          "stack D on C",
+          "unstack E",
+          "stack E on D",
+          "unstack F",
+          "stack F on E"
+        ]
+      }
+    },
+    {
+      "task": "bw-detour",
+      "domain": "blocksworld",
+      "optimalLength": 6,
+      "react": {
+        "success": true,
+        "expansions": 6,
+        "plan": [
+          "unstack A",
+          "putdown A",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 19,
+        "plan": [
+          "unstack A",
+          "putdown A",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B"
+        ]
+      },
+      "mcts": {
+        "success": false,
+        "expansions": 240,
+        "plan": [
+          "unstack A",
+          "stack A on B",
+          "unstack C",
+          "putdown C",
+          "unstack A",
+          "stack A on B"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 7,
+        "plan": [
+          "unstack A",
+          "putdown A",
+          "unstack B",
+          "stack B on A",
+          "unstack C",
+          "stack C on B"
+        ]
+      }
+    },
+    {
+      "task": "trap-key-detour",
+      "domain": "trapchain",
+      "optimalLength": null,
+      "react": {
+        "success": true,
+        "expansions": 11,
+        "plan": [
+          "go E",
+          "go S",
+          "go S",
+          "pick k1",
+          "go E",
+          "go N",
+          "go N",
+          "go E",
+          "go E",
+          "go E",
+          "go E"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 38,
+        "plan": [
+          "go E",
+          "go E",
+          "go E",
+          "go E",
+          "go S",
+          "go E",
+          "go E",
+          "go N"
+        ]
+      },
+      "mcts": {
+        "success": false,
+        "expansions": 240,
+        "plan": [
+          "go N",
+          "go N",
+          "go S"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 12,
+        "plan": [
+          "go E",
+          "go S",
+          "go S",
+          "pick k1",
+          "go E",
+          "go N",
+          "go N",
+          "go E",
+          "go E",
+          "go E",
+          "go E"
+        ]
+      }
+    },
+    {
+      "task": "trap-long-detour",
+      "domain": "trapchain",
+      "optimalLength": null,
+      "react": {
+        "success": false,
+        "expansions": 14,
+        "plan": [
+          "go S",
+          "go S",
+          "go S",
+          "go S",
+          "go S",
+          "pick k2",
+          "go E",
+          "go N",
+          "go N",
+          "go E",
+          "go E",
+          "go E",
+          "go E",
+          "go S"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 36,
+        "plan": [
+          "go S",
+          "go S",
+          "go S",
+          "go E",
+          "go E",
+          "go E",
+          "go S",
+          "go E",
+          "go E",
+          "go S"
+        ]
+      },
+      "mcts": {
+        "success": false,
+        "expansions": 240,
+        "plan": [
+          "go E",
+          "go W",
+          "go E",
+          "go S"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 16,
+        "plan": [
+          "go S",
+          "go S",
+          "go S",
+          "go S",
+          "go S",
+          "pick k2",
+          "go E",
+          "go N",
+          "go N",
+          "go E",
+          "go E",
+          "go E",
+          "go E",
+          "go S",
+          "go S"
+        ]
+      }
+    },
+    {
+      "task": "trap-culdesac",
+      "domain": "trapchain",
+      "optimalLength": null,
+      "react": {
+        "success": true,
+        "expansions": 8,
+        "plan": [
+          "go E",
+          "go E",
+          "go E",
+          "go E",
+          "go S",
+          "go S",
+          "go S",
+          "go S"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 22,
+        "plan": [
+          "go E",
+          "go E",
+          "go E",
+          "go E",
+          "go S",
+          "go S",
+          "go S",
+          "go S"
+        ]
+      },
+      "mcts": {
+        "success": true,
+        "expansions": 110,
+        "plan": [
+          "go E",
+          "go E",
+          "go E",
+          "go E",
+          "go S",
+          "go S",
+          "go S",
+          "go S"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 9,
+        "plan": [
+          "go E",
+          "go E",
+          "go E",
+          "go E",
+          "go S",
+          "go S",
+          "go S",
+          "go S"
+        ]
+      }
+    },
+    {
+      "task": "trap-far-key",
+      "domain": "trapchain",
+      "optimalLength": null,
+      "react": {
+        "success": true,
+        "expansions": 13,
+        "plan": [
+          "go E",
+          "go E",
+          "go S",
+          "go S",
+          "go S",
+          "pick k3",
+          "go N",
+          "go N",
+          "go N",
+          "go E",
+          "go E",
+          "go E",
+          "go E"
+        ]
+      },
+      "tot": {
+        "success": true,
+        "expansions": 39,
+        "plan": [
+          "go E",
+          "go E",
+          "go S",
+          "go S",
+          "go S",
+          "pick k3",
+          "go N",
+          "go N",
+          "go N",
+          "go E",
+          "go E",
+          "go E",
+          "go E"
+        ]
+      },
+      "mcts": {
+        "success": false,
+        "expansions": 240,
+        "plan": [
+          "go N",
+          "go E",
+          "go S"
+        ]
+      },
+      "genos": {
+        "success": true,
+        "expansions": 14,
+        "plan": [
+          "go E",
+          "go E",
+          "go S",
+          "go S",
+          "go S",
+          "pick k3",
+          "go N",
+          "go N",
+          "go N",
+          "go E",
+          "go E",
+          "go E",
+          "go E"
+        ]
+      }
+    }
+  ]
+}

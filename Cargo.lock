@@ -1700,8 +1700,10 @@ dependencies = [
  "genos-store",
  "genos-worker",
  "rand 0.10.2",
+ "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "uuid",
 ]

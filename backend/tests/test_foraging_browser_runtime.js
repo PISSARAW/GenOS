@@ -22,7 +22,9 @@ async function run() {
   adapter.allowedHosts.add('127.0.0.1');
   const priorThreshold = defaultForaging.envMeanReturnRate;
   try {
-    await defaultBrowserScout.openBrowserSession(sessionId);
+    await defaultBrowserScout.openBrowserSession(sessionId, {
+      launchOptions: { args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-extensions', '--no-zygote', '--no-proxy-server'] }
+    });
     await defaultBrowserScout.navigate(sessionId, `http://127.0.0.1:${port}/`);
     const exploit = await forageStep({ sessionId, elapsedTimeSec: 1, iteration: 1 });
     assert.equal(exploit.decision, 'EXPLOIT_PATCH');

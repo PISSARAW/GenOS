@@ -99,15 +99,20 @@ checkNaturalSearchControl(ctx, event)
 ## Planning-gap (mesure du 2026-09-30)
 
 `npm --prefix backend run test:planning-gap` compare 12 tâches au même budget de
-120 expansions et vérifie chaque plan avec le validateur du domaine. Le MCTS est
-maintenant seedé par l'identifiant de tâche et le test contrôle sa répétabilité.
-Une exécution mesurée avec élargissement du faisceau après stagnation donne
-ReAct 8/12, ToT 10/12, MCTS 3/12 et GenOS 10/12. GenOS résout désormais
-`bw-conflict`; les deux recherches échouent encore sur `bw-table-6` et
-`trap-far-key`. GenOS trouve des solutions plus longues que l'optimum sur
-`bw-swap` (8 contre 6) et `bw-tower-5` (14 contre 8), donc le taux de réussite
-rejoint ToT, mais la qualité optimale reste à améliorer. Résultats détaillés :
-`benchmarks/planning-gap/results/2026-09-30-adaptive-beam.json`.
+240 expansions et vérifie chaque plan avec le validateur du domaine. GenOS trie
+sa frontière par coût cumulé + heuristique admissible, enregistre le meilleur
+coût par état et utilise le contrôleur/ledger pour tracer l'exploration. Les
+heuristiques Blocksworld comptent les blocs hors préfixe de support; TrapChain
+utilise une distance de grille relâchée qui inclut le détour obligatoire par la
+clé. `trap-far-key` place désormais la clé du côté accessible du mur : elle
+était auparavant derrière la porte qu'elle seule pouvait ouvrir, donc la tâche
+était impossible. Résultats mesurés : ReAct 9/12, ToT 11/12, MCTS 6/12, GenOS
+12/12. Les plans GenOS sont optimaux pour les sept tâches Blocksworld; les plans
+de `bw-swap` (6) et `bw-tower-5` (8) atteignent la longueur BFS optimale. Le
+budget est passé de 120 à 240 pour couvrir le cas `bw-table-6` (193 expansions).
+ToT laisse encore une tâche irrésolue. Ces tâches restent synthétiques.
+Résultats bruts par tâche et plans vérifiés :
+`benchmarks/planning-gap/results/2026-09-30-a-star-240.json`.
 Ces 12 tâches synthétiques valident le harness et ne mesurent pas des missions
 web ou des tâches de planification de production.
 

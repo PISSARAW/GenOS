@@ -24,18 +24,26 @@ async function attachAgent(db, input = {}) {
 
 async function attachOrchestrator(db, input = {}) {
   const { missionId, agentId, expectedOrchestratorId } = input;
-  const current = await get(db, missionId);
-  if (!current) throw new Error(`Mission '${missionId}' was not found.`);
-  if (current.orchestratorAgentId && current.orchestratorAgentId !== agentId
-    && current.orchestratorAgentId !== expectedOrchestratorId) {
-    throw Object.assign(new Error('Mission succession requires the current orchestrator identity.'), { code: 'MISSION_SUCCESSION_CONFLICT' });
+  await db.exec('BEGIN IMMEDIATE');
+  try {
+    const current = await get(db, missionId);
+    if (!current) throw new Error(`Mission '${missionId}' was not found.`);
+    if (current.orchestratorAgentId && current.orchestratorAgentId !== agentId
+      && current.orchestratorAgentId !== expectedOrchestratorId) {
+      throw Object.assign(new Error('Mission succession requires the current orchestrator identity.'), { code: 'MISSION_SUCCESSION_CONFLICT' });
+    }
+    const changed = await db.run(`UPDATE missions SET orchestrator_agent_id = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE mission_id = ? AND orchestrator_agent_id IS ?`, agentId, missionId, current.orchestratorAgentId);
+    if (!changed.changes) {
+      throw Object.assign(new Error('Mission orchestrator changed during succession.'), { code: 'MISSION_SUCCESSION_CONFLICT' });
+    }
+    await attachAgent(db, { missionId, agentId, role: 'orchestrator' });
+    await db.exec('COMMIT');
+    return get(db, missionId);
+  } catch (error) {
+    await db.exec('ROLLBACK').catch(() => {});
+    throw error;
   }
-  const changed = await db.run(`UPDATE missions SET orchestrator_agent_id = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE mission_id = ? AND orchestrator_agent_id IS ?`, agentId, missionId, current.orchestratorAgentId);
-  if (!changed.changes) {
-    throw Object.assign(new Error('Mission orchestrator changed during succession.'), { code: 'MISSION_SUCCESSION_CONFLICT' });
-  }
-  return attachAgent(db, { missionId, agentId, role: 'orchestrator' });
 }
 
 async function get(db, missionId) {

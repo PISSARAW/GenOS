@@ -5,7 +5,7 @@ const { migrateBiologicalExecutionReceipts } = require('../db/migrations/migrate
 
 const RECEIPT_SCHEMA = 'genos.biological-execution-receipt/v1';
 
-async function ingestBiologicalReceipt(db, receipt) {
+async function ingestBiologicalReceipt(db, receipt, origin = null) {
   const normalized = validateReceipt(receipt);
   await migrateBiologicalExecutionReceipts(db);
   const encoded = stableJson(normalized);
@@ -16,7 +16,7 @@ async function ingestBiologicalReceipt(db, receipt) {
     throw receiptError('BIOLOGICAL_RECEIPT_MISSION_NOT_FOUND');
   }
   const homeostasis = await latestHomeostasis(db, normalized.mission_id);
-  const inserted = await insertReceipt(db, { normalized, encoded, payloadHash, homeostasis });
+  const inserted = await insertReceipt(db, { normalized, encoded, payloadHash, homeostasis, origin });
   if (inserted.changes !== 1) {
     const concurrent = await db.get('SELECT payload_hash FROM biological_execution_receipts WHERE receipt_id = ?', normalized.receipt_id);
     return existingReceipt(concurrent, payloadHash, normalized.receipt_id);
@@ -75,15 +75,17 @@ async function latestHomeostasis(db, missionId) {
 }
 
 async function insertReceipt(db, input) {
-  const { normalized: receipt, encoded, payloadHash, homeostasis } = input;
+  const { normalized: receipt, encoded, payloadHash, homeostasis, origin } = input;
   const hasIdentity = Boolean(receipt.cell_id && receipt.genome_id);
   return db.run(`INSERT OR IGNORE INTO biological_execution_receipts
     (receipt_id, mission_id, receipt_schema, tick, operation, cost, cost_unit, cell_id, genome_id,
-     identity_status, payload_hash, receipt_json, homeostasis_state_id, homeostasis_status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
+     identity_status, payload_hash, receipt_json, homeostasis_state_id, homeostasis_status,
+     receipt_origin, origin_signature, origin_nonce)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
     receipt.receipt_id, receipt.mission_id, receipt.schema, receipt.tick, receipt.operation,
     receipt.cost, receipt.cost_unit, receipt.cell_id || null, receipt.genome_id || null,
-    hasIdentity ? 'resolved' : 'organism_scope', payloadHash, encoded, homeostasis?.id || null, homeostasis?.status || null
+    hasIdentity ? 'resolved' : 'organism_scope', payloadHash, encoded, homeostasis?.id || null, homeostasis?.status || null,
+    origin?.origin || null, origin?.signature || null, origin?.nonce || null
   ]);
 }
 

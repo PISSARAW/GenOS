@@ -141,6 +141,16 @@ async function testPoetWithRealSnapshotVerification() {
     assert.equal(environment.stats.solvedCount, 1);
     assert.equal(await fs.readFile(path.join(workspacePath, 'proof.txt'), 'utf8'), 'original');
     assert.ok(await sqlite.adapter.get('SELECT snapshot_hash FROM workspace_snapshots WHERE workspace_id = ?', 'ws-poet-real'));
+    const generalization = await bridge.evaluateGeneralization(
+      [{ id: 'agent-poet-real', role: 'solver' }],
+      { training: [environment], heldOut: [{ ...environment, id: 'env-poet-heldout' }] },
+      { timeoutMs: 10000 },
+    );
+    assert.equal(generalization.measured, true, 'held-out environments are actually executed');
+    assert.equal(generalization.training.successRate, 1);
+    assert.equal(generalization.heldOut.successRate, 1);
+    assert.notEqual(generalization.split.trainingIds[0], generalization.split.heldOutIds[0]);
+    assert.match(generalization.evidenceRef, /^[a-f0-9]{64}$/);
     console.log('POET with real snapshot capture and verification: PASS');
   } finally {
     await new Promise((resolve, reject) => sqlite.database.close((error) => error ? reject(error) : resolve()));
@@ -170,6 +180,13 @@ async function testPoetIgnoresStaleTerminalEvent() {
   assert.equal(execution.success, false);
   assert.match(execution.error, /TIMEOUT/);
   assert.equal(execution.verification, undefined, 'stale terminal rows cannot trigger snapshot verification');
+
+  require.cache[runtimePath].exports.startMission = async () => { throw new Error('runtime startup rejected'); };
+  delete require.cache[require.resolve('../src/services/poetExecutionEngine')];
+  const failedRuntime = await require('../src/services/poetExecutionEngine').executeAgentOnEnvironment(
+    { id: 'agent-runtime-failure', role: 'solver' }, { id: 'env-runtime-failure', goals: ['solve grid'] }, { timeoutMs: 5000 },
+  );
+  assert.match(failedRuntime.error, /runtime startup rejected/, 'startup errors propagate without waiting for timeout');
   console.log('POET ignores stale terminal telemetry: PASS');
 }
 

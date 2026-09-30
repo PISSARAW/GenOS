@@ -10,6 +10,7 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/rustBridgeController');
 const biologicalReceiptController = require('../controllers/biologicalReceiptController');
+const { requireBiologicalReceiptOrigin } = require('../middleware/biologicalReceiptOrigin');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 
@@ -23,7 +24,7 @@ async function requireBridgeTenant(req, res, next) {
 router.use(requireBridgeTenant);
 
 router.get('/status', requirePermission('read'), controller.getStatus);
-router.post('/biological-receipts', requirePermission('experiment:run'), requireReceiptTenant, biologicalReceiptController.ingest);
+router.post('/biological-receipts', requirePermission('experiment:run'), requireReceiptTenant, requireBiologicalReceiptOrigin, biologicalReceiptController.ingest);
 router.get('/snapshots', requirePermission('read'), controller.listSnapshots);
 router.post('/snapshots', requirePermission('workspace:write'), controller.createSnapshot);
 router.post('/hallucination/:op(detect|analyze|extract)', requirePermission('read'), controller.runHallucination);

@@ -112,8 +112,10 @@ async function checkTerminationDatabase(track) {
  */
 function waitForMissionTermination(agentId, timeoutMs, afterEventId) {
   const deadline = Date.now() + Math.max(1, Number(timeoutMs) || 60000);
-  return new Promise((resolve) => {
+  let activeTrack = null;
+  const promise = new Promise((resolve) => {
     const track = newTerminationTrack(agentId, deadline, resolve);
+    activeTrack = track;
     track.afterEventId = afterEventId;
     track.handler = (event) => {
       if (!isTerminalFor(event, agentId)) return;
@@ -124,6 +126,10 @@ function waitForMissionTermination(agentId, timeoutMs, afterEventId) {
     track.state.timer = setTimeout(() => finishTermination(track, timeoutResult()), Math.max(1, deadline - Date.now()));
     checkTerminationDatabase(track);
   });
+  promise.cancel = () => {
+    if (activeTrack) finishTermination(activeTrack, { terminated: false, eventType: 'RUNTIME_FAILED' });
+  };
+  return promise;
 }
 
 function baseResults(agent, environment) {
@@ -192,7 +198,16 @@ async function runAgentToTermination(ctx) {
   const { agent, environment, opts, results } = ctx;
   const afterEventId = await readTelemetryCursor(agent.id);
   const missionPromise = launchAgentMission(agent, environment, opts);
-  const termination = await waitForMissionTermination(agent.id, opts.timeoutMs, afterEventId);
+  const terminationPromise = waitForMissionTermination(agent.id, opts.timeoutMs, afterEventId);
+  const outcome = await Promise.race([
+    terminationPromise.then((termination) => ({ termination })),
+    missionPromise.then(() => new Promise(() => {}), (error) => ({ error }))
+  ]);
+  if (outcome.error) {
+    terminationPromise.cancel();
+    throw outcome.error;
+  }
+  const termination = outcome.termination;
   if (!termination.terminated) {
     results.error = timeoutMessage(opts.timeoutMs, termination.eventType);
     return;

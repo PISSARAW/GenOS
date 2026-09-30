@@ -82,17 +82,17 @@ function isGoalBlockworld(state, task) {
 }
 
 function heuristicBlockworld(state, task) {
-  let bad = 0;
-  for (const gStack of task.goal) {
-    for (let i = 0; i < gStack.length; i += 1) {
-      const b = gStack[i];
-      const pos = findBlock(state, b);
-      if (!pos || pos.where === 'hand') bad += 2;
-      else if (pos.index !== i) bad += 1;
+  let misplaced = 0;
+  for (const goalStack of task.goal) {
+    for (let i = 0; i < goalStack.length; i += 1) {
+      const position = findBlock(state, goalStack[i]);
+      if (!position || position.where === 'hand') { misplaced += 1; continue; }
+      const actualStack = state.stacks[position.stack];
+      const prefix = goalStack.slice(0, i + 1);
+      if (JSON.stringify(actualStack.slice(0, position.index + 1)) !== JSON.stringify(prefix)) misplaced += 1;
     }
   }
-  if (state.hand) bad += 1;
-  return bad;
+  return misplaced * 2 - (state.hand ? 1 : 0);
 }
 
 function verifyBlockworld(task, plan) {
@@ -180,7 +180,41 @@ function isGoalTrap(state, task) {
 }
 
 function heuristicTrap(state, task) {
-  return Math.abs(state.x - task.goal.x) + Math.abs(state.y - task.goal.y);
+  const position = { x: state.x, y: state.y };
+  const missingKeys = [...task.doors.values()].filter((key) => !state.keys.has(key));
+  if (missingKeys.length === 0) return gridDistance(task, position, task.goal);
+  const key = [...task.keysOn.entries()].find((entry) => missingKeys.includes(entry[1]));
+  if (!key) return gridDistance(task, position, task.goal);
+  const keyPosition = parseCell(key[0]);
+  return gridDistance(task, position, keyPosition) + 1 + gridDistance(task, keyPosition, task.goal);
+}
+
+function parseCell(cell) {
+  const [x, y] = cell.split(',').map(Number);
+  return { x, y };
+}
+
+function gridDistance(task, start, goal) {
+  const queue = [{ ...start, distance: 0 }];
+  const seen = new Set([`${start.x},${start.y}`]);
+  while (queue.length) {
+    const current = queue.shift();
+    if (current.x === goal.x && current.y === goal.y) return current.distance;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const x = current.x + dx;
+      const y = current.y + dy;
+      const cell = `${x},${y}`;
+      if (!isTraversable({ task, x, y, cell, seen })) continue;
+      seen.add(cell);
+      queue.push({ x, y, distance: current.distance + 1 });
+    }
+  }
+  return task.w * task.h;
+}
+
+function isTraversable(spec) {
+  if (spec.x < 0 || spec.y < 0 || spec.x >= spec.task.w || spec.y >= spec.task.h) return false;
+  return !spec.task.walls.has(spec.cell) && !spec.seen.has(spec.cell);
 }
 
 function verifyTrap(task, plan) {
@@ -219,7 +253,8 @@ function buildTasks() {
   tasks.push(makeTrapTask({ id: 'trap-long-detour', base: trap2, family: 'key-detour' }));
   const trap3 = { w: 5, h: 5, walls: new Set(['1,1', '2,1', '3,1']), doors: new Map(), keysOn: new Map(), start: { x: 0, y: 0 }, goal: { x: 4, y: 4 } };
   tasks.push(makeTrapTask({ id: 'trap-culdesac', base: trap3, family: 'decoy' }));
-  const trap4 = { w: 7, h: 7, walls: new Set(['3,0', '3,1', '3,2', '3,4', '3,5', '3,6']), doors: new Map([['3,3', 'k3']]), keysOn: new Map([['6,6', 'k3']]), start: { x: 0, y: 3 }, goal: { x: 6, y: 3 } };
+  // Keep the far key reachable: placing it beyond its own locked door creates an impossible task.
+  const trap4 = { w: 7, h: 7, walls: new Set(['3,0', '3,1', '3,2', '3,4', '3,5', '3,6']), doors: new Map([['3,3', 'k3']]), keysOn: new Map([['2,6', 'k3']]), start: { x: 0, y: 3 }, goal: { x: 6, y: 3 } };
   tasks.push(makeTrapTask({ id: 'trap-far-key', base: trap4, family: 'key-detour' }));
   return tasks;
 }

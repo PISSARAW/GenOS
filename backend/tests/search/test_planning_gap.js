@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const Domain = require('../../src/services/search/planningGapDomain');
 const Policies = require('../../src/services/search/planningGapPolicies');
 
-const BUDGET = 120;
+const BUDGET = 240;
 const MAX_STEPS = 14;
 
 function runOne(task) {
@@ -51,6 +51,16 @@ function checkNoFakeSuccess(results, tasks) {
       const v = verifyIndependently(task, r[key].plan);
       assert.equal(r[key].valid, v.valid, `${r.task}/${key} verifier`);
     }
+  }
+}
+
+function checkGenosQuality(results, tasks) {
+  for (let index = 0; index < results.length; index += 1) {
+    const task = tasks[index];
+    const result = results[index].genos;
+    assert.equal(result.valid, true, `${task.id} must be solved by GenOS`);
+    const optimum = optimalLength(task);
+    if (optimum !== null) assert.equal(result.plan.length, optimum, `${task.id} GenOS plan must be optimal`);
   }
 }
 
@@ -123,6 +133,7 @@ function runPlanningGap() {
   const results = tasks.map((t) => runOne(t));
   checkBudget(results);
   checkNoFakeSuccess(results, tasks);
+  checkGenosQuality(results, tasks);
   checkGenosInstrumentation(results);
   const stats = summarize(results);
   printTable(results, stats);

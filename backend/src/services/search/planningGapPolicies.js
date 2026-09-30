@@ -119,15 +119,7 @@ function totResult(hooks, frontier, budget) {
   return { policy: 'tot', plan, valid: v.valid, expansions: budget.used };
 }
 
-// --- GenOS : contrôleur réel + ledger + mémoire négative ---
-function radiusWidth(radius) {
-  if (radius === 'minimal') return 1;
-  if (radius === 'local') return 2;
-  if (radius === 'medium') return 3;
-  if (radius === 'structural') return 4;
-  return 5;
-}
-
+// --- GenOS : coût de chemin, heuristique admissible, contrôleur et ledger ---
 function genosPolicy(task, budgetLimit, agentTag) {
   const budget = makeBudget(budgetLimit);
   const hooks = domainHooks(task);
@@ -135,48 +127,40 @@ function genosPolicy(task, budgetLimit, agentTag) {
   const memory = new NegativeSearchMemory();
   const controller = new NaturalSearchController({ ledger, pressure: { stagnationWindow: 2, inertia: 0.3, lowYieldThreshold: 0.12 } });
   const agentId = `${agentTag}-${task.id}`;
-  const rootState = hooks.start();
-  const beams = [{ state: rootState, plan: [] }];
-  const seen = new Set([hooks.key(rootState)]);
+  const initial = { state: hooks.start(), plan: [], cost: 0 };
+  initial.h = hooks.heuristic(initial.state);
+  const frontier = [initial];
+  const bestCost = new Map([[hooks.key(initial.state), 0]]);
   let falsified = 0;
   let stepsNoProgress = 0;
-  let bestH = hooks.heuristic(rootState);
+  let bestH = initial.h;
   let pressure = 0;
-  let improvedLast = false;
-  const track = { checkpoint: beams[0], checkpointH: bestH };
-  for (let depth = 0; depth < 14; depth += 1) {
-    if (beams.length === 0) break;
-    const stagnated = Math.min(2, Math.max(0, stepsNoProgress - 2));
-    const ctx = buildGenosCtx({ agentId, stepsNoProgress, falsified: falsified + stagnated, budget, yield: Number(improvedLast) * 0.5 });
+  while (frontier.length > 0 && consume(budget, 1)) {
+    const ctx = buildGenosCtx({ agentId, stepsNoProgress, falsified, budget, yield: stepsNoProgress === 0 ? 0.5 : 0 });
     const sel = controller.selectProcess(ctx);
     pressure = sel.pressure;
-    const baseWidth = radiusWidth(sel.recommendedRadius);
-    // Once progress stalls, widen the frontier so pressure can explore
-    // alternatives the short-horizon heuristic ranked just below the beam.
-    const width = stepsNoProgress > 0 ? Math.max(4, baseWidth) : baseWidth;
-    const expanded = expandBeams({ beams, hooks, width, budget, seen, memory, agentId });
-    if (expanded.goal) {
-      const v = hooks.verify(expanded.goal.plan);
-      ledgerRecord({ ledger, agentId, plan: expanded.goal.plan, supported: true });
-      return genosResult({ plan: expanded.goal.plan, valid: v.valid, budget, ledger, memory, pressure, process: sel.process });
+    frontier.sort((a, b) => a.cost + a.h - b.cost - b.h || a.h - b.h || a.cost - b.cost);
+    const node = frontier.shift();
+    if (hooks.isGoal(node.state)) {
+      const verification = hooks.verify(node.plan);
+      ledgerRecord({ ledger, agentId, plan: node.plan, supported: verification.valid });
+      return genosResult({ plan: node.plan, valid: verification.valid, budget, ledger, memory, pressure, process: sel.process });
     }
-    if (expanded.next.length === 0) {
-      falsified += 1;
-      stepsNoProgress += 1;
-      const stop = rewindBeams({ ledger, memory, agentId, beams, checkpoint: track.checkpoint, pressure, falsified });
-      if (stop) break;
-      continue;
-    }
-    const improved = trackProgress({ next: expanded.next, bestH, steps: stepsNoProgress, falsified });
-    bestH = improved.best;
-    stepsNoProgress = improved.steps;
-    falsified = improved.falsified;
-    improvedLast = improved.steps === 0;
-    trackCheckpoint(track, expanded.next);
-    refillBeams({ beams, next: expanded.next, width, ledger, agentId });
+    hooks._s = node.state;
+    for (const move of hooks.successors(node.state)) enqueueSearchNode({ move, node, hooks, frontier, bestCost });
+    if (node.h < bestH) { bestH = node.h; stepsNoProgress = 0; }
+    else { stepsNoProgress += 1; falsified += 1; }
   }
-  const v = hooks.verify([]);
-  return genosResult({ plan: [], valid: v.valid, budget, ledger, memory, pressure, process: 'none' });
+  return genosResult({ plan: [], valid: hooks.verify([]).valid, budget, ledger, memory, pressure, process: 'none' });
+}
+
+function enqueueSearchNode(spec) {
+  const state = spec.hooks.apply(spec.node.state, spec.move);
+  const key = spec.hooks.key(state);
+  const cost = spec.node.cost + 1;
+  if (spec.bestCost.has(key) && spec.bestCost.get(key) <= cost) return;
+  spec.bestCost.set(key, cost);
+  spec.frontier.push({ state, plan: spec.node.plan.concat([spec.move.action]), cost, h: spec.hooks.heuristic(state) });
 }
 
 function buildGenosCtx(spec) {
@@ -192,118 +176,6 @@ function buildGenosCtx(spec) {
   };
 }
 
-function expandBeams(spec) {
-  const next = [];
-  for (const node of spec.beams) {
-    if (spec.hooks.isGoal(node.state)) return { goal: node, next };
-    if (!consume(spec.budget, 1)) continue;
-    spec.hooks._s = node.state;
-    const cands = spec.hooks.successors(node.state);
-    spec.hooks._s = node.state;
-    const ranked = rankByHeuristic(cands, spec.hooks);
-    for (const r of ranked.slice(0, spec.width)) {
-      const ns = spec.hooks.apply(node.state, r.move);
-      const key = spec.hooks.key(ns);
-      const candPlan = node.plan.concat([r.move.action]);
-      if (spec.seen.has(key)) continue;
-      if (node.plan.length < 2 && isPrefixBlocked({ memory: spec.memory, agentId: spec.agentId, plan: candPlan })) continue;
-      spec.seen.add(key);
-      next.push({ state: ns, plan: candPlan, h: r.h });
-    }
-  }
-  next.sort((a, b) => a.h - b.h);
-  const goal = next.find((n) => spec.hooks.isGoal(n.state)) || null;
-  return { goal, next };
-}
-
-function prefixOf(plan) {
-  return plan.slice(0, 2).join('>');
-}
-
-function isPrefixBlocked(spec) {
-  const pref = prefixOf(spec.plan);
-  if (!pref || pref === '>') return false;
-  const trails = spec.memory.getActiveTrails(spec.agentId);
-  for (const t of trails) {
-    const tp = prefixOf(String(t.statement || '').split('>'));
-    if (tp && tp === pref) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function recordPrefixFailure(spec) {
-  const pref = prefixOf(spec.plan);
-  if (!pref || pref === '>') return;
-  const hDelta = spec.prevH !== undefined ? spec.prevH - spec.currentH : 0;
-  const sig = `prefix:${pref}|dh=${hDelta.toFixed(2)}`;
-  const h = spec.ledger.propose({ agentId: spec.agentId, statement: sig, confidence: 0.4 });
-  spec.ledger.startTest(h.id);
-  spec.memory.recordFailure(spec.agentId, h,
-    { ref: 'prefix-dead-end', strength: 0.7, reliability: 0.8 },
-    { signature: 'planning-gap', conditions: [`prefix=${pref}`, `dh=${hDelta.toFixed(2)}`], scope: 'agent' }
-  );
-}
-
-function selectDiverse(sorted, width) {
-  if (width <= 1 || sorted.length <= width) return sorted.slice(0, Math.max(1, width));
-  const head = sorted.slice(0, width - 1);
-  const tail = sorted.slice(width - 1);
-  if (tail.length === 0) return head;
-  // Novelty pick: candidate with largest mean h-distance from head picks
-  const headH = head.map(n => n.h);
-  let bestNovel = tail[0];
-  let bestDist = -1;
-  for (const cand of tail) {
-    const meanDist = headH.reduce((sum, h) => sum + Math.abs(cand.h - h), 0) / headH.length;
-    if (meanDist > bestDist) {
-      bestDist = meanDist;
-      bestNovel = cand;
-    }
-  }
-  head.push(bestNovel);
-  return head;
-}
-
-function trackProgress(spec) {
-  let best = spec.bestH;
-  let improved = false;
-  for (const n of spec.next) {
-    if (n.h < best) {
-      best = n.h;
-      improved = true;
-    }
-  }
-  if (improved) return { best, steps: 0, falsified: 0 };
-  return { best, steps: spec.steps + 1, falsified: spec.falsified };
-}
-
-function rewindBeams(spec) {
-  // True rewind: record ALL beam prefixes as negative knowledge with delta-h
-  for (const b of spec.beams) {
-    recordPrefixFailure({ ledger: spec.ledger, memory: spec.memory, agentId: spec.agentId,
-      plan: b.plan, prevH: b.h !== undefined ? b.h : spec.bestH, currentH: spec.bestH });
-  }
-  spec.beams.length = 0;
-  spec.beams.push(spec.checkpoint);
-  if (spec.pressure > 0.8 && spec.falsified >= 2) return true;
-  return false;
-}
-
-function trackCheckpoint(track, next) {
-  if (next[0].h < track.checkpointH) {
-    track.checkpointH = next[0].h;
-    track.checkpoint = next[0];
-  }
-}
-function refillBeams(spec) {
-  const diverse = selectDiverse(spec.next, Math.max(spec.width, 2));
-  spec.beams.length = 0;
-  for (const b of diverse.slice(0, 6)) spec.beams.push(b);
-  ledgerRecord({ ledger: spec.ledger, agentId: spec.agentId, plan: spec.beams[0].plan, supported: false });
-}
-
 function ledgerRecord(spec) {
   const h = spec.ledger.propose({ agentId: spec.agentId, statement: spec.plan.join('>') || 'empty', confidence: 0.5 });
   spec.ledger.startTest(h.id);
@@ -315,14 +187,6 @@ function ledgerRecord(spec) {
     independent: true,
     evidenceRef: spec.supported ? 'goal-verified' : 'search-step',
   });
-}
-
-function recordBlocked(spec) {
-  for (const b of spec.beams.slice(0, 1)) {
-    const h = spec.ledger.propose({ agentId: spec.agentId, statement: b.plan.join('>'), confidence: 0.4 });
-    spec.ledger.startTest(h.id);
-    spec.memory.recordFailure(spec.agentId, h, { ref: 'dead-end', strength: 0.7, reliability: 0.8 }, { signature: 'planning-gap', conditions: [], scope: 'agent' });
-  }
 }
 
 function genosResult(spec) {

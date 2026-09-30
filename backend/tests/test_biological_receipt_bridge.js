@@ -13,6 +13,7 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const { ingestBiologicalReceipt } = require('../src/services/biologicalExecutionReceiptService');
 const missionContinuity = require('../src/services/missionContinuityService');
 const biologicalReceiptController = require('../src/controllers/biologicalReceiptController');
+const receiptOrigin = require('../src/middleware/biologicalReceiptOrigin');
 
 function sampleReceipt(missionId, receiptId) {
   return {
@@ -66,14 +67,34 @@ async function run() {
     const scope = { organizationId: 'receipt-org', projectId: 'receipt-project' };
     const scopedMissionId = randomUUID();
     const scopedReceipt = sampleReceipt(scopedMissionId, randomUUID());
+    const origin = 'genos-rust-orchestrator';
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const nonce = randomUUID();
+    const signingSecret = 'test-rust-receipt-origin-secret';
+    process.env.GENOS_RUST_RECEIPT_SECRET = signingSecret;
+    const signature = receiptOrigin.signReceipt({ receipt: scopedReceipt, metadata: { origin, timestamp, nonce }, secret: signingSecret });
+    const headers = { origin, timestamp, nonce, signature };
+    assert.equal(receiptOrigin.validSignature({ receipt: scopedReceipt, headers, secret: signingSecret }), true);
+    assert.equal(receiptOrigin.validSignature({ receipt: { ...scopedReceipt, cost: 2 }, headers, secret: signingSecret }), false,
+      'changing signed receipt content must invalidate origin authentication');
+    assert.equal(await receiptOrigin.claimNonce(db, origin, nonce), true);
+    assert.equal(await receiptOrigin.claimNonce(db, origin, nonce), false, 'origin nonce cannot be replayed');
     await db.run('INSERT INTO organizations (id, name) VALUES (?, ?)', scope.organizationId, 'Receipt Org');
     await db.run('INSERT INTO projects (id, organization_id, name) VALUES (?, ?, ?)', scope.projectId, scope.organizationId, 'Receipt Project');
     await db.run('INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, ?, ?)', 'receipt-workspace', 'Receipt Workspace', path.dirname(dbPath), scope.organizationId, scope.projectId);
     await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES (?, 'Receipt Agent', 'orchestrator', 'running', 'orchestrator', ?)", 'receipt-agent', 'receipt-workspace');
     await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)', scopedMissionId, 'tenant receipt ingestion');
     await db.run('INSERT INTO mission_agents (mission_id, agent_id, role) VALUES (?, ?, ?)', scopedMissionId, 'receipt-agent', 'orchestrator');
-    const accepted = await callReceiptController(scopedReceipt, scope);
+    const authenticated = await authenticateOrigin(scopedReceipt, { origin, timestamp, nonce: randomUUID() }, signingSecret);
+    assert.equal(authenticated.calledNext, true, 'valid signed receipt passes origin middleware');
+    const accepted = await callReceiptController(scopedReceipt, scope, authenticated.origin);
     assert.equal(accepted.statusCode, 201);
+    const replay = await authenticateOrigin(scopedReceipt, authenticated.metadata, signingSecret);
+    assert.equal(replay.statusCode, 409, 'middleware rejects a replayed signed nonce');
+    const persistedOrigin = await db.get('SELECT receipt_origin, origin_signature, origin_nonce FROM biological_execution_receipts WHERE receipt_id = ?', scopedReceipt.receipt_id);
+    assert.deepEqual(persistedOrigin, {
+      receipt_origin: origin, origin_signature: authenticated.origin.signature, origin_nonce: authenticated.origin.nonce,
+    });
     const refused = await callReceiptController(scopedReceipt, { organizationId: 'other-org', projectId: 'other-project' });
     assert.equal(refused.statusCode, 404, 'receipts cannot be ingested across project scopes');
     console.log('Biological Rust/backend receipt persistence and idempotency passed.');
@@ -83,13 +104,35 @@ async function run() {
   }
 }
 
-async function callReceiptController(receipt, tenant) {
+async function authenticateOrigin(receipt, metadata, secret) {
+  const signature = receiptOrigin.signReceipt({ receipt, metadata, secret });
+  const headers = {
+    'x-genos-receipt-origin': metadata.origin,
+    'x-genos-receipt-timestamp': metadata.timestamp,
+    'x-genos-receipt-nonce': metadata.nonce,
+    'x-genos-receipt-signature': signature,
+  };
+  const req = { body: { receipt }, get: (name) => headers[name.toLowerCase()] };
+  const result = { statusCode: 200, body: null, calledNext: false, origin: null, metadata };
+  const res = {
+    status(code) { result.statusCode = code; return this; },
+    json(body) { result.body = body; return this; },
+  };
+  await receiptOrigin.requireBiologicalReceiptOrigin(req, res, (error) => {
+    if (error) throw error;
+    result.calledNext = true;
+    result.origin = req.biologicalReceiptOrigin;
+  });
+  return result;
+}
+
+async function callReceiptController(receipt, tenant, biologicalReceiptOrigin = null) {
   const result = { statusCode: 200, body: null };
   const res = {
     status(code) { result.statusCode = code; return this; },
     json(body) { result.body = body; return this; }
   };
-  await biologicalReceiptController.ingest({ body: receipt, tenant }, res, (error) => { throw error; });
+  await biologicalReceiptController.ingest({ body: receipt, tenant, biologicalReceiptOrigin }, res, (error) => { throw error; });
   return result;
 }
 
