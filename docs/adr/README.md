@@ -226,6 +226,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0201](0201-outcomes-de-morphogenese-verifies.md) | Outcomes de morphogenèse vérifiés | Accepté | 2026-09-30 | Morphogenèse, apprentissage, provenance |
 | [0202](0202-handoff-daemon-actualise-au-demarrage.md) | Handoff daemon actualisé au démarrage d'une mission | Accepté | 2026-09-30 | Daemons résidents, cartographie, orchestration |
 | [0203](0203-parcours-cli-init-doctor-run.md) | Parcours CLI `init`, `doctor`, `run` | Accepté | 2026-09-30 | CLI, expérience opérateur, orchestration |
+| [0204](0204-recu-biologique-durable-rust-backend.md) | Reçu biologique durable Rust/backend | Accepté | 2026-09-30 | Biologie computationnelle, persistance, homéostasie |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
