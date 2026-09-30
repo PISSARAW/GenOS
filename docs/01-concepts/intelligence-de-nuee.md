@@ -1,6 +1,6 @@
 # Intelligence de nuée (Swarm Intelligence) GenOS
 
-- **Statut** : Implémenté — dépôt de traces, votes, quorum, consensus et télémétrie de topologie sont disponibles dans le runtime.
+- **Statut** : Partiel — des primitives de stigmergie, de vote et de coordination sont présentes dans le dépôt. Leur présence ne démontre pas une intelligence collective émergente ni l'exécution réelle de tous les mécanismes décrits plus loin.
 - **Portée** : bus de signaux, coordination de flotte, primitives stigmergiques et services associés.
 - **Dernière revue** : 2026-09-17.
 
@@ -582,7 +582,7 @@ stateDiagram-v2
 
 ### 4. Superfécondation Hétéropaternelle et Diversité Multi-Providers
 
-Le mécanisme `genos_biomimicry_heteropaternal_superfecundation` déploie des jumeaux demi-frères au sein du même espace utérin (workspace commun). Chaque agent est animé par un fournisseur de modèle distinct (ex: Anthropic, Google, OpenAI), garantissant une diversité cognitive maximale ($D = 1.0$) et supprimant les corrélations de biais d'inférence propres à une famille de LLM unique.
+Les handlers biomimétiques cités ici sont des adaptateurs de démonstration, pas des mécanismes d'orchestration garantis. `genos_biomimicry_heteropaternal_superfecundation` fabrique et enregistre des descripteurs de jumeaux à partir des fournisseurs déclarés. Il ne lance pas les fournisseurs, ne mesure pas la diversité cognitive et ne démontre pas l'indépendance de leurs erreurs. Le score calculé reflète uniquement la proportion de fournisseurs distincts dans les arguments.
 
 ```mermaid
 flowchart LR
@@ -599,33 +599,29 @@ flowchart LR
 
 ### 5. Polyembryonie Obligatoire et Quorum Isogénique Déterministe
 
-Grâce à `genos_biomimicry_obligate_polyembryony`, l'essaim peut générer des sous-groupes de $N=4$ ou $N=8$ répliques isogéniques strictes évaluant une hypothèse critique en parallèle. Le vote à quorum $\ge 75\%$ protège la nuée contre les hallucinations locales tout en garantissant un coût d'inférence strictement borné.
+`genos_biomimicry_obligate_polyembryony` crée des enregistrements de clones partageant un hash du prompt et une allocation budgétaire calculée. Le handler ne démarre pas quatre ou huit agents. Son évaluation de quorum compte les sorties fournies par l'appelant et ne vérifie ni leur provenance ni leur indépendance. Le seuil arithmétique de 75 % n'est donc pas une garantie contre les erreurs ni de coût d'inférence.
 
 ### 6. Transfert Horizontal par Translocation Chromosomique (`genos_biomimicry_chromosomal_translocation`)
 
-Pour reconfigurer dynamiquement une nuée face à un blocage cognitif inattendu, la nuée effectue une translocation chromosomique horizontale : un agent transloque son sous-module d'analyse vers un autre agent sans nécessiter la destruction ou le redémarrage des instances.
+Le handler `genos_biomimicry_chromosomal_translocation` manipule des enregistrements de modules et de lignées. Cette opération ne déplace pas de code actif ni de processus d'analyse entre agents.
 
 ### 7. Résilience Multi-Couches par Polyploïdie Génomique (`genos_biomimicry_polyploidy`)
 
-En mode mission critique, la nuée entière multiplie sa ploïdie ($2n \to 6n$), instanciant des plans d'exécution étagés (AST nominal, sécurité stricte, validation formelle) qui co-évoluent et se contre-vérifient en temps réel.
+`genos_biomimicry_polyploidy` gère un état descriptif de ploïdie. Il ne crée pas plusieurs plans d'exécution, ne les fait pas co-évoluer et ne les contre-vérifie pas.
 
 ### 8. Régulation Épigénétique Transgénérationnelle (`genos_biomimicry_epigenetic_methylation`)
 
-Lorsque la nuée traverse une zone de contrainte réseau ou de budget tokens réduit, des étiquettes de méthylation mettent collectivement en sommeil les agents et outils les plus coûteux. Cette mémoire environnementale est transmise aux nouvelles générations d'agents et s'annule par déméthylation réversible dès le retour à la normale.
+`genos_biomimicry_epigenetic_methylation` ajoute, retire et hérite de marques dans son registre. Aucune adaptation automatique aux contraintes de réseau ou de budget, mise en sommeil d'agents, ni déméthylation déclenchée par le retour à la normale n'est établie par ce handler.
 
 ### 9. Diffusion Horizontale de Plasmides & Xéno-Absorption (`genos_biomimicry_horizontal_gene_transfer`)
 
-Pour propager instantanément une immunité à un nouveau type d'erreur API ou intégrer des snippets découverts dans l'environnement, la nuée utilise le transfert horizontal : conjugaison de plasmides de pair à pair et xéno-absorption bdelloïde.
+`genos_biomimicry_horizontal_gene_transfer` modifie des listes de plasmides et de snippets dans un registre. Le handler ne vérifie pas leur contenu comme du code, ne les exécute pas et ne propage pas à lui seul une immunité à un type d'erreur.
 
 ### 10. Communication Sub-Symbolique Zéro-Texte par Bus de Signalisation Biomimétique
 
-Au sein de la nuée, le bavardage textuel et les requêtes JSON sont abolis pour les échanges inter-agents opérationnels (`backend/src/services/biomimeticSignalingBus.js`) :
+Le transport zéro-texte est un format de signalisation borné entre composants. Il ne supprime pas tous les messages textuels ou JSON du runtime et ne constitue pas, à lui seul, un mécanisme d'intelligence collective. Les seuils de phase ou de tension mentionnés dans des modèles conceptuels ne doivent pas être interprétés comme des mesures biologiques ou des garanties de consensus sans calcul actif et validation dédiée.
 
-- **Ligands Paracrines** : Diffusion moléculaire de signal localisé (`ligand`, `concentration`) déclenchant des cascades réactionnelles d'agents sans formulation textuelle.
-- **Potentiels Électrocytes & Synchronisation de Phase (Kuramoto)** : Sommation additive des décharges ($\sum V_i \ge 300\,\text{mV}$) et cohérence d'ordre de phase $r \ge 0.70$ pour un consensus immédiat sans délibération verbeuse.
-- **Phéromones Chimiotactiques** : Vectorisation des gradients attractants ($+I$) et répulsifs ($-I$) sur des empreintes binaires de locus (`BLOB`).
-- **Transfert Horizontal de Plasmides** : Diffusion de code compilé ou de capacités génétiques via `BioPolymer` compact.
-- **Frontière d'Incompressibilité** : Le langage naturel est strictement réservé au dialogue avec l'opérateur humain et à la synthèse de code source requise par le LLM.
+Les handlers biomimétiques cités dans cette fiche ne prouvent ni le lancement d'agents, ni l'exécution distribuée, ni l'indépendance épistémique, ni l'amélioration des résultats. Toute promotion ou décision doit dépendre des reçus et portes de preuve propres au runtime, et non du vocabulaire biologique ou du succès du transport.
 
 
 
