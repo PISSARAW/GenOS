@@ -348,7 +348,7 @@ node backend/tests/test_counterexamples_falsification.js
 node backend/tests/test_cryptophasia.js
 ```
 
-Au 8 septembre 2026, les points 1 et 2 de `test_counterexamples_falsification.js` passent, mais son point 3 echoue sur l'assertion que la memoire initiale reste visible dans les experiences scorees. Cette regression est independante des checks de falsification executes avant elle et doit etre corrigee avant de traiter cette suite comme une validation complete. Un test reussi confirme les scenarios couverts. Il ne certifie ni la verite des claims d'un fournisseur externe, ni la completude de l'oracle metier.
+Le 30 septembre 2026, `node backend/tests/test_counterexamples_falsification.js` passe ses trois points : falsification, persistance des impasses/rejeu contrefactuel, et inhibition GABAergique. La vérification a révélé puis corrigé une collision de déduplication entre actions distinctes partageant le même pas et la même erreur, ainsi qu'une perte du marqueur d'inhibition lors de la fusion GraphRAG. Cette suite valide uniquement les scénarios qu'elle couvre ; elle ne certifie ni la vérité des claims d'un fournisseur externe, ni la complétude de l'oracle métier.
 
 
 ---
