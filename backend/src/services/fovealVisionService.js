@@ -2,14 +2,15 @@
  * Foveal Vision Service — Active Vision & Multi-Scale Inspection.
  *
  * Implémente le biomimétisme de la rétine humaine :
- * - Vision périphérique (vue d'ensemble basse résolution, détection de saillance)
+ * - Vision périphérique (candidats ROI heuristiques)
  * - Saccade oculaire (ciblage des régions d'intérêt : axes 3D, légendes, tableaux)
- * - Fovéation (découpage sans perte de résolution, zoom adaptatif, contraste élevé).
+ * - Fovéation (crop réel des pixels source; aucune résolution n'est inventée).
  */
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const sharp = require('sharp');
 
 class FovealVisionService {
   constructor(options = {}) {
@@ -83,35 +84,43 @@ class FovealVisionService {
   /**
    * Fovéation : découpe et extrait la région d'intérêt à pleine résolution
    */
-  fovealCrop(inputPath, bbox = [0, 0, 1000, 1000], options = {}) {
+  async fovealCrop(inputPath, bbox = [0, 0, 1000, 1000], options = {}) {
     const zoomFactor = Math.max(1.0, Number(options.zoomFactor) || 2.0);
     const [ymin, xmin, ymax, xmax] = bbox;
+    const metadata = await sharp(inputPath).metadata();
+    if (!metadata.width || !metadata.height) throw new Error('Source image has no readable dimensions.');
+    const normalized = options.coordinateSpace === 'pixels' ? null : true;
+    const left = normalized ? Math.floor((xmin / 1000) * metadata.width) : Math.floor(xmin);
+    const top = normalized ? Math.floor((ymin / 1000) * metadata.height) : Math.floor(ymin);
+    const right = normalized ? Math.ceil((xmax / 1000) * metadata.width) : Math.ceil(xmax);
+    const bottom = normalized ? Math.ceil((ymax / 1000) * metadata.height) : Math.ceil(ymax);
+    if (left < 0 || top < 0 || right > metadata.width || bottom > metadata.height || right <= left || bottom <= top) {
+      throw new Error('ROI must be a non-empty box inside the source image.');
+    }
 
     const cropId = `fovea_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const outputFilename = `${cropId}.png`;
     const outputPath = path.join(this.artifactsDir, outputFilename);
 
-    // Calcul de la résolution effective fovéale
-    const normWidth = Math.max(10, xmax - xmin);
-    const normHeight = Math.max(10, ymax - ymin);
-    const effectiveResolutionDpi = Math.round(300 * zoomFactor);
+    const cropBuffer = await sharp(inputPath).extract({ left, top, width: right - left, height: bottom - top }).png().toBuffer();
+    fs.writeFileSync(outputPath, cropBuffer);
+    const hash = crypto.createHash('sha256').update(cropBuffer).digest('hex');
 
     // En environnement simulé ou réel, on écrit un descripteur d'artefact fovéal
     const fovealManifest = {
       cropId,
       sourceImage: inputPath,
       normalizedBbox: [ymin, xmin, ymax, xmax],
-      relativeAreaFraction: ((normWidth * normHeight) / 1000000).toFixed(4),
+      sourceWidth: metadata.width,
+      sourceHeight: metadata.height,
+      pixelBounds: { left, top, right, bottom },
+      outputWidth: right - left,
+      outputHeight: bottom - top,
+      relativeAreaFraction: (((right - left) * (bottom - top)) / (metadata.width * metadata.height)).toFixed(4),
       zoomFactor,
-      effectiveResolutionDpi,
-      sharpnessIndex: (0.85 + Math.random() * 0.12).toFixed(3),
-      extractedDetails: options.focusNotes || 'Tiny text along 3D axes resolved with zero subsampling'
+      focusNotes: options.focusNotes || null,
+      resampled: false
     };
-
-    const headerContent = Buffer.from(JSON.stringify(fovealManifest, null, 2));
-    fs.writeFileSync(outputPath, headerContent);
-
-    const hash = crypto.createHash('sha256').update(headerContent).digest('hex');
 
     return {
       success: true,
@@ -119,7 +128,7 @@ class FovealVisionService {
       outputPath,
       bbox: [ymin, xmin, ymax, xmax],
       zoomFactor,
-      effectiveResolutionDpi,
+      pixelDimensions: { width: right - left, height: bottom - top },
       sha256: hash,
       fovealManifest
     };
@@ -128,7 +137,7 @@ class FovealVisionService {
   /**
    * Saccade ciblée vers un point d'attention spécifique (ex: label 'egalitarian' ou 'Figure 1')
    */
-  saccadeToFeature(inputPath, featureKeyword, contextMeta = {}) {
+  async saccadeToFeature(inputPath, featureKeyword, contextMeta = {}) {
     const scan = this.peripheralScan(contextMeta);
     let targetRoi = scan.candidateRegions[0];
 
@@ -139,7 +148,7 @@ class FovealVisionService {
       targetRoi = scan.candidateRegions.find(r => r.id === 'roi_legend') || targetRoi;
     }
 
-    const cropResult = this.fovealCrop(inputPath, targetRoi.bbox, {
+    const cropResult = await this.fovealCrop(inputPath, targetRoi.bbox, {
       zoomFactor: targetRoi.suggestedZoom || 3.0,
       focusNotes: `Saccade locked on '${featureKeyword}' within ${targetRoi.label}`
     });

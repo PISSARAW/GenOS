@@ -20,7 +20,7 @@ async function handleFovealVision(args) {
   }
 
   if (action === 'saccade') {
-    const saccade = defaultFovealVision.saccadeToFeature(imagePath, args.keyword || args.feature || 'axis_label', {
+    const saccade = await defaultFovealVision.saccadeToFeature(imagePath, args.keyword || args.feature || 'axis_label', {
       targetType: args.target_type || 'scientific_plot'
     });
     return {
@@ -34,7 +34,7 @@ async function handleFovealVision(args) {
 
   // Action par défaut : crop fovéal haute résolution
   const bbox = Array.isArray(args.bbox) ? args.bbox : [150, 100, 800, 900];
-  const crop = defaultFovealVision.fovealCrop(imagePath, bbox, {
+  const crop = await defaultFovealVision.fovealCrop(imagePath, bbox, {
     zoomFactor: args.zoom_factor || args.zoomFactor || 2.5,
     focusNotes: args.notes || args.focus
   });
