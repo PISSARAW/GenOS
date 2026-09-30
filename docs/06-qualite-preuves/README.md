@@ -14,6 +14,7 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 - [releases-maturite.md](releases-maturite.md) — états de maturité et règles de promotion du registre complet.
 - [morphogenese-gates-2026-09-26.md](morphogenese-gates-2026-09-26.md) — gates d'exécution morphogenèse : protocole, résultats, limites.
 - [inventaire-atteignabilite-services.md](inventaire-atteignabilite-services.md) — inventaire statique Node ; relancer la commande indiquée dans le document pour les mesures du checkout courant.
+- [baseline-2026-10-01.md](baseline-2026-10-01.md) — HEAD audité, contrôles exécutés, mesures d'atteignabilité et limites d'environnement de la phase 0.
 - [registre-services.md](registre-services.md) — registre complet Node/Rust/MCP/intégrations, fiches, statuts et lots.
 - [statuts-maturite.md](statuts-maturite.md) — statuts opposables et preuves exigées pour chaque entrée.
 - [contrats-capacites-phase-0.md](contrats-capacites-phase-0.md) — contrats d'acceptation gelés des sept capacités (phases 1 à 7), frontières et réconciliations Trinity et conformité.

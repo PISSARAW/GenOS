@@ -1,15 +1,15 @@
 # Registre complet des services
 
-Statut : squelette d'étape 1, réconcilié 2026-09-28 (baseline `1ebb3589`, HEAD `2321a946`). Source de vérité : `node scripts/ci/audit_service_reachability.js --json`.
+Statut : squelette d'étape 1, mesures statiques actualisées le 2026-10-01 (HEAD audité `93b73be0`). Source de vérité : `node scripts/ci/audit_service_reachability.js --json`.
 Règle : un succès de transport n'est pas une décision valide ; le passage à `actif` exige un parcours `Sense → Reuse` prouvé dans la [matrice de câblage](wiring-matrix.md).
 
 ## 1. Surfaces
 
-| Surface | Périmètre | Entrées de production | Compte au 2026-09-28 |
+| Surface | Périmètre | Entrées de production | Compte au 2026-10-01 |
 |---|---|---|---|
-| Node | `backend/src/services/**/*.js|.cjs|.mjs` | `backend/server.js`, `mcp/index.js`, `backend/bin/*` | **1 819** services : 1 313 atteignables en import littéral, 506 à revoir, dont 309 sans import littéral (`literalInbound === 0`) |
+| Node | `backend/src/services/**/*.js|.cjs|.mjs` | `backend/server.js`, `mcp/index.js`, `backend/bin/*` | **1 872** services : 1 359 atteignables en import littéral, 513 à revoir, dont 315 sans import littéral (`literalInbound === 0`) |
 | Rust | `crates/*` + `packages/*` du workspace | `genos-cli`, `genos-api` (gRPC/REST), pont `rustBridgeController` | 16 crates + 2 packages : `common, store, signal, genome, dna, cell, biology, immune, reproduction, orchestrator, worker, api, cli, mcp, simple-cli, sensorimotor` + `sqlite-udfs, storage-gate` |
-| MCP | `shared/toolDefinitions.json` vs `mcp/toolDefinitions.json`, `mcp/*.js` | `node mcp/index.js` (stdio), leases `GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS` | 37 définitions partagées par catalogue (`shared/toolDefinitions.json`, `mcp/toolDefinitions.json`), 176 outils déclarés côté backend (`MCP_TOOLS_LIST`) ; `tools/list` n'expose que l'intersection catalogue/lease moins les outils désactivés et sans route vérifiée ; aucune exposition sans lease par défaut |
+| MCP | `shared/toolDefinitions.json` vs `mcp/toolDefinitions.json`, `mcp/*.js` | `node mcp/index.js` (stdio), leases `GENOS_MCP_LEASE`, `GENOS_MCP_DISABLED_TOOLS` | 36 définitions publiques partagées (`shared/toolDefinitions.json`, `mcp/toolDefinitions.json`), 177 outils déclarés côté backend (`MCP_TOOLS_LIST`) ; `tools/list` n'expose que l'intersection catalogue/lease moins les outils désactivés et sans route vérifiée ; aucune exposition sans lease par défaut |
 | Intégrations | `integrations/ide`, `examples/`, `scripts/`, `backend/bin` | CLI opérateur, orchestrateur `genos-orchestrate`, démos | 1 contrat IDE (`genos-extension-contract.json`), ~50 programmes `backend/bin`, démos `examples/` |
 
 ## 2. Fiche type (une par service)
@@ -21,22 +21,22 @@ Statuts :
 - `expérimental` : branché mais sans gate passé ; ne gouverne aucune décision.
 - `bibliothèque` : utilitaire volontairement passif (helpers, stratégies, définitions) ; à marquer, pas à câbler artificiellement.
 - `obsolète` : remplaçable/supprimable ; preuve d'absence d'appel avant retrait.
-- `à classer` : défaut tant que l'enquête n'est pas close. Les 506/309 restent `à classer`, pas `inutiles`.
+- `à classer` : défaut tant que l'enquête n'est pas close. Les 513/315 restent `à classer`, pas `inutiles`.
 
-## 3. Premier tri des 309 sans import littéral
+## 3. Premier tri des 315 sans import littéral
 
 Méthode : `literalInbound === 0` depuis `backend/src + backend/bin + mcp/index.js`. Heuristique complémentaire par mention nominale du basename (piste, pas verdict) :
-relevé 2026-09-27 sur base 308 — **75** avec mention en production (registre, chargement dynamique ou définitions философия/paramètres probables), **125** visibles seulement en tests, **108** orphelins stricts (ni prod ni test par nom) ; à relancer sur base 309 (le script cité est un chemin temporaire local, non rejouable tel quel).
+relevé 2026-09-27 sur base 308 — **75** avec mention en production (registre, chargement dynamique ou définitions философия/paramètres probables), **125** visibles seulement en tests, **108** orphelins stricts (ni prod ni test par nom). Ce tri par basename est historique et ne classe pas les 315 actuels ; refaire la revue depuis les chemins canoniques et les signaux dynamiques.
 
-Top familles sans inbound (2026-09-28, reproductible) : `(racine) 114`, `morphogenesis 71`, `holobionte 20`, `daemon 11`, `epistemic 9`.
-Top familles non atteignables (2026-09-28, reproductible) : `morphogenesis 138`, `(racine) 136`, `holobionte 42`, `mathematical 34`, `communication 22`.
+Top familles sans inbound (2026-09-28, mesure historique) : `(racine) 114`, `morphogenesis 71`, `holobionte 20`, `daemon 11`, `epistemic 9`.
+Top familles non atteignables (2026-09-28, mesure historique) : `morphogenesis 138`, `(racine) 136`, `holobionte 42`, `mathematical 34`, `communication 22`.
 
 Lots proposés (ordre du plan) : morphogenèse, racine, holobionte, mathematical, communication. Chaque lot : entrée → sélection → appel → effet décision → action → observation → persistance → réutilisation, avec test de parcours + cas de refus + reçu vérifié.
 
 ## 4. Ponts de frontières (étape 5 anticipée)
 
 - Node↔Rust : seul `createSnapshot` exige sortie nulle + schéma valide + reçu `genos.rust-bridge-snapshot/v1` ; autres ponts sans reçus systématiques (cf. matrice §11).
-- backend↔MCP : registre + lease + schéma avant `preValidateTool`/docking ; l'écart entre les 36 définitions partagées et les 176 outils déclarés backend tient aux surfaces (schémas publics vs registre de dispatch runtime : outils CLI, biologiques et primitives de stratégie) et reste à justifier outil par outil.
+- backend↔MCP : registre + lease + schéma avant `preValidateTool`/docking ; l'écart entre les 36 définitions partagées et les 177 outils déclarés backend au HEAD audité tient aux surfaces (schémas publics vs registre de dispatch runtime : outils CLI, biologiques et primitives de stratégie) et reste à justifier outil par outil.
 - Intégrations externes : contrat IDE `genos.ide/v1`, providers, budgets ; aucun succès transport compté sans gate.
 
 ## 5. Critère de sortie de l'étape 1
