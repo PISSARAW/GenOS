@@ -5,6 +5,7 @@
 const { getDatabase } = require('../../db');
 const telemetry = require('../../services/telemetryObserver');
 const { workspaceScope } = require('./helpers');
+const { persistDecision } = require('../../services/decisionEvidenceService');
 
 async function getLineage(req, res) {
   const db = await getDatabase();
@@ -119,14 +120,18 @@ async function synthesizeGenome(req, res) {
 async function recordDecision(req, res) {
   const { title, content, category = 'Architecture', createdBy = 'operator' } = req.body || {};
   const db = await getDatabase();
-  const id = `dec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-  await db.run(
-    `INSERT INTO genome_decisions (id, title, content, created_by, category, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    id, title || 'Architectural Decision', content || '', createdBy, category, req.tenant?.organizationId || null, req.tenant?.projectId || null
-  );
-
-  res.status(201).json({ success: true, id });
+  try {
+    const decision = await persistDecision({
+      db, title, content, category, createdBy, evidenceRefs: req.body?.evidenceRefs,
+      scope: { organizationId: req.tenant?.organizationId, projectId: req.tenant?.projectId }
+    });
+    return res.status(201).json({ success: true, ...decision });
+  } catch (error) {
+    if (error.code?.startsWith('DECISION_')) {
+      return res.status(400).json({ error: { code: error.code, message: error.message } });
+    }
+    throw error;
+  }
 }
 
 module.exports = {

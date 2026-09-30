@@ -228,6 +228,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0203](0203-parcours-cli-init-doctor-run.md) | Parcours CLI `init`, `doctor`, `run` | Accepté | 2026-09-30 | CLI, expérience opérateur, orchestration |
 | [0204](0204-recu-biologique-durable-rust-backend.md) | Reçu biologique durable Rust/backend | Accepté | 2026-09-30 | Biologie computationnelle, persistance, homéostasie |
 | [0205](0205-parcours-aeis-et-causalite-procedurale.md) | Brancher les parcours AEIS et causalité procédurale | Accepté | 2026-09-30 | Backend, assurance épistémique, causalité |
+| [0206](0206-decision-evidence-binding.md) | Lier les décisions persistées à leurs preuves | Accepté | 2026-10-01 | Décisions, provenance, preuves, isolation tenant |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

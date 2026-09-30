@@ -87,9 +87,11 @@ async function runSuite() {
   check(memId !== null, 'compileExecutionMemory succeeded and created memory ID');
   const storedDecision = await db.get('SELECT * FROM genome_decisions WHERE id = ?', memId);
   check(storedDecision && storedDecision.content.includes('Claims: [JWT signature verified'), 'Decision content preserves structured claims and evidence');
+  check(storedDecision?.evidence_status === 'linked' && JSON.parse(storedDecision.evidence_refs_json).includes(synthProv.payloadHash), 'Memory decision stores its evidence binding and linked status');
 
   const decisionProv = await db.get('SELECT * FROM provenance_records WHERE subject_id = ?', memId);
   check(decisionProv && decisionProv.parent_hash === synthProv.payloadHash, 'Decision is cryptographically linked to conclusion parent hash');
+  check(storedDecision?.provenance_record_id === decisionProv?.id && storedDecision?.provenance_hash === decisionProv?.payload_hash, 'Decision row points to its immutable provenance receipt');
 
   // Clean up test decisions and provs
   await db.run('DELETE FROM genome_decisions WHERE id = ?', memId);

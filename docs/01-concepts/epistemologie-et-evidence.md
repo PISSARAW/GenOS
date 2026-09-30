@@ -173,6 +173,13 @@ $$
 
 Un hash garantit l'integrite de la chaine enregistree, pas la verite du payload original ni l'identite d'un fournisseur externe. La chaine doit conserver les commandes, sorties, versions et artefacts necessaires a un audit humain.
 
+L'endpoint `POST /api/genome/decision` persiste maintenant chaque décision avec un
+reçu Merkle qui contient son titre, son raisonnement et ses références de preuve.
+Les références (`evidenceRefs`) doivent désigner des hashes de provenance présents
+dans le même scope tenant. L'état `linked` signifie que le lien traçable existe ;
+sans références, la décision reste `provisional`. Ni ce statut ni le reçu ne
+certifient la vérité métier de la décision.
+
 ## Gates de promotion
 
 `evaluatePromotionGate()` applique les politiques du contrat :

@@ -312,6 +312,10 @@ const migrationRunners = [
     const { migrateBiologicalExecutionReceipts } = require('./migrateBiologicalExecutionReceipts');
     await migrateBiologicalExecutionReceipts(db);
   }),
+  createMigrationRunner('087-decision-evidence-binding', 'Bind persisted decisions to scoped evidence references and immutable provenance hashes', async (db) => {
+    const { migrateDecisionEvidenceBinding } = require('./migrateDecisionEvidenceBinding');
+    await migrateDecisionEvidenceBinding(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

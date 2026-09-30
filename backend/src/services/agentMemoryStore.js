@@ -17,6 +17,7 @@
  */
 
 const crypto = require('crypto');
+const { getDatabase } = require('../db');
 const { storeFailed } = require('./agentMemoryTelemetry');
 
 const depositedExosomes = new Set();
@@ -148,7 +149,7 @@ async function recordMemoryProvenance(job, record, memId) {
   if (!options.provenanceHash || !memId) return;
   try {
     const { recordProvenance } = require('./evaluationObservabilityService');
-    await recordProvenance('decision', memId, {
+    const provenance = await recordProvenance('decision', memId, {
       decisionId: memId,
       agentId: job.agentId,
       task: job.task,
@@ -156,6 +157,13 @@ async function recordMemoryProvenance(job, record, memId) {
       claims: record.rawClaims,
       epistemicContext: record.epistemicContext
     }, options.provenanceHash, { organizationId: options.organizationId, projectId: options.projectId });
+    const db = await getDatabase();
+    await db.run(
+      `UPDATE genome_decisions SET evidence_refs_json = ?, evidence_status = 'linked',
+        provenance_record_id = ?, provenance_hash = ? WHERE id = ? AND organization_id IS ? AND project_id IS ?`,
+      JSON.stringify([options.provenanceHash]), provenance.id, provenance.payloadHash, memId,
+      options.organizationId || null, options.projectId || null
+    );
   } catch (error) {
     storeFailed(job.agentId, error, 'memory-provenance');
   }
