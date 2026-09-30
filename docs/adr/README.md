@@ -200,6 +200,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0175](0175-checkpoints-interprocessus-persistes.md) | Checkpoints interprocessus persistés | Accepté | 2026-09-30 | Communication, persistance |
 | [0176](0176-boucles-biologiques-mesurees.md) | Boucles biomimétiques runtime mesurées | Accepté — intégration par tranches | 2026-09-30 | Perception, action, signalisation, cellules spécialisées, preuves |
 | [0177](0177-routage-cognitif-plasticite-et-selections-relationnelles.md) | Routage cognitif, plasticité persistée et sélection relationnelle | Accepté | 2026-09-30 | Signalisation, cognition, relations inter-agents, persistance |
+| [0178](0178-recus-biologiques-et-autorite-homeostatique.md) | Reçus biologiques versionnés et autorité homéostatique | Proposé | 2026-09-30 | Exécution biologique, homéostasie, preuves, persistance |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
