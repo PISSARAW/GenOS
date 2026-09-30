@@ -192,6 +192,20 @@ couvre pas encore l'inventaire exhaustif des effecteurs ni les perturbations
 réelles de délai/gain exigées pour AE-2. GWT-3 et AE-2 restent
 `implemented_not_validated` dans la matrice.
 
+## Point 2 — effet local de la récurrence — 2026-09-30
+
+`node backend/tests/test_reverberation_causal_effect.js` compare un agent dont
+la trace est entretenue à un agent dont l'état récurrent est ablaté après une
+entrée identique. Le test vérifie que la trace persiste et atteint le bloc
+chargé par `agentSelfBlocks`, tandis que le bras ablaté ne la reçoit pas. Le
+contrôle ciblé passe.
+
+Portée : preuve causale logicielle locale de disponibilité/consommation dans
+le bloc de soi, sur stockage simulé. Ce test ne mesure ni résolution d'une
+ambiguïté perceptive, ni gain sur une tâche, ni généralisation. RPT-1 reste
+partiel et non promu ; une validation ultérieure doit comparer le feedback
+perceptif activé/coupé sur des tâches appariées à calcul égal.
+
 SAD et MIRROR restent `not_run` : il faut déclarer le modèle évalué, sa version
 et le protocole d'accès avant de lancer leurs jeux de tâches. Aucun résultat
 local ni aucune mesure du runtime ne remplace ces bancs externes. Ils ne
