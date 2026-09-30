@@ -138,4 +138,9 @@ async function loadFork(db, forkId) {
   return { ...fork, state, events: events.map((event) => ({ ...event, payload: JSON.parse(event.payload_json) })) };
 }
 
-module.exports = { ensureSchema, digest, createExperiment, createFork, checkpointFork, loadFork };
+async function loadExperiment(db, experimentId) {
+  await ensureSchema(db);
+  return db.get('SELECT * FROM procedural_causal_experiments WHERE experiment_id = ?', [experimentId]);
+}
+
+module.exports = { ensureSchema, digest, createExperiment, createFork, checkpointFork, loadFork, loadExperiment };

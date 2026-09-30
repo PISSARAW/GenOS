@@ -28,7 +28,7 @@ function runPopulation(population) {
       if (code !== 0) return reject(Object.assign(new Error(stderr || 'Population worker failed.'), { code: 'AEIS_POPULATION_WORKER_FAILED' }));
       try { resolve(JSON.parse(stdout)); } catch (error) { reject(Object.assign(error, { code: 'AEIS_POPULATION_RESULT_INVALID' })); }
     });
-    child.stdin.end(JSON.stringify({ provider: population.provider, model: population.model, prompt: population.prompt, timeoutMs: population.timeoutMs, maxTokens: population.maxTokens }));
+    child.stdin.end(JSON.stringify({ provider: population.provider, model: population.model, endpoint: population.endpoint, prompt: population.prompt, timeoutMs: population.timeoutMs, maxTokens: population.maxTokens }));
   });
 }
 

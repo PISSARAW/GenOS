@@ -43,6 +43,8 @@ const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
 const { expandClone, selectWinningClones } = require('./clonalExpansionService');
 const { matureStrategy } = require('./affinityMaturationService');
 const { depositPheromone } = require('./stigmergyInterProcessBridge');
+const { applyHomeostaticFeedback, recruitNicheVerifier } = require('./epistemicHomeostaticRearbitration');
+const { runProviderMetapopulation } = require('./epistemicProviderMetapopulation');
 
 function hostDecision(reports, opts = {}) {
   const specialistOutput = reports.specialistOutput || reports.specialist;
@@ -254,11 +256,18 @@ function homeostasisInputFrom(antigen) {
 async function epistemicHolobionte(antigen, context = {}) {
   const specialist = specialistSymbioteSolve(antigen, context);
   const memory = memorySymbiontLookup(antigen, { ...context, domain: context.domain });
-  const immune = await immuneSymbiontReview(antigen, {
+  let immune = await immuneSymbiontReview(antigen, {
     ...context,
     immuneMemory: context.immuneMemory,
     knownSubject: memory.hasMemory,
   });
+  const recruitment = await recruitNicheVerifier(antigen, immune, context);
+  immune = recruitment.immune;
+  const feedbackResult = await applyHomeostaticFeedback(antigen, immune, context);
+  immune = feedbackResult.immune;
+  const providerReview = context.providerProfiles?.length
+    ? await runProviderMetapopulation(antigen, context.providerProfiles)
+    : null;
   const host = hostDecision(
     { specialist, immune, memory },
     { stakes: context.stakes, hostVeto: context.hostVeto },
@@ -290,7 +299,8 @@ async function epistemicHolobionte(antigen, context = {}) {
     accepted: host.accepted,
     reason: host.reason,
     finalAuthority: 'host',
-    specialist, immune, memory, biocenose,
+    specialist, immune, memory, biocenose: { ...biocenose, ...recruitment.diversity },
+    homeostasisFeedback: feedbackResult.feedback, providerReview,
     homeostasis: { pressure, tier },
     epistemicDissonance: dissonance,
     statusLevel,

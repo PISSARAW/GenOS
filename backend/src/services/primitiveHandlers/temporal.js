@@ -17,6 +17,8 @@ function scopedInputPath(inputFile, workspaceRoot) {
 }
 
 const temporalHelpers = require('./temporalHelpers');
+const proceduralCausalReplay = require('../proceduralCausalReplayService');
+const proceduralCausalAnalysis = require('../proceduralCausalAnalysisService');
 
 async function causalReplay(context) {
   // Rejoue une séquence d'événements passés avec une intervention pour observer la divergence causale.
@@ -177,6 +179,8 @@ async function stateFold(context = {}) {
 }
 
 async function causalDiff(context = {}) {
+  if (context.baselineForkId && context.interventionForkId) return persistedForkDiff(context);
+  if (context.experimentId && Array.isArray(context.groups)) return persistedSnapshotAnalysis(context);
   // Différenciation causale entre trajectoire réelle et alternative
   const { baseSteps, candSteps } = temporalHelpers.pickSteps(context);
   const divergences = temporalHelpers.findDivergences(baseSteps, candSteps);
@@ -187,6 +191,18 @@ async function causalDiff(context = {}) {
     firstDivergenceStep: divergences.length > 0 ? divergences[0].stepIndex : null,
     divergences
   };
+}
+
+async function persistedForkDiff(context) {
+  const db = context.db || await getDatabase();
+  const diff = await proceduralCausalReplay.causalDiff(db, context);
+  return { success: true, ...diff };
+}
+
+async function persistedSnapshotAnalysis(context) {
+  const db = context.db || await getDatabase();
+  const analysis = await proceduralCausalAnalysis.persistSnapshotAnalysis(db, context);
+  return { success: true, ...analysis };
 }
 
 async function replayDependencies(context = {}) {

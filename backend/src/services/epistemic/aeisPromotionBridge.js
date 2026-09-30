@@ -299,7 +299,18 @@ async function evaluateReportWithAeis(report, context = {}) {
       anyBlocked: false,
     };
   }
-  return evaluateAeisForPromotion(antigens, context);
+  const providerProfiles = context.multiProviderEnabled === true
+    ? await loadProviderProfiles(context.db)
+    : [];
+  return evaluateAeisForPromotion(antigens, { ...context, providerProfiles });
+}
+
+async function loadProviderProfiles(db) {
+  if (!db) return [];
+  const rows = await db.all('SELECT provider, model, endpoint FROM provider_configs WHERE enabled = 1 ORDER BY provider, model');
+  return rows.filter((row) => row.provider && row.model).map((row) => ({
+    provider: row.provider, model: `${row.provider}://${row.model}`, endpoint: row.endpoint,
+  }));
 }
 
 module.exports = {

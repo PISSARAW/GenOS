@@ -63,6 +63,20 @@ restent à essai unique ; il ne faut pas les présenter comme répliqués.
 Ce prototype est **correct et défendable**, tant qu'on ne l'appelle pas encore
 le système causal complet de GenOS.
 
+## Parcours produit des expériences causales persistées
+
+La primitive de production `causal_diff` / `diff` du registre temporel accepte
+maintenant les identifiants `baselineForkId` et `interventionForkId`. Elle charge
+les deux forks terminés, vérifie leur paire (expérience, snapshot, seed, bras),
+valide les hashes des résultats et persiste le diff. Avec `experimentId` et des
+groupes `snapshotId` / `diffIds`, le même handler calcule et persiste ensuite
+l'analyse bootstrap hiérarchique des différences appariées. Les snapshots doivent
+être épinglés dans l'expérience et les diffs doivent déjà exister.
+
+Ce parcours reste borné aux snapshots, runner, environnement, budget et seeds
+déclarés. Il ne prouve pas la causalité universelle et ne remplace pas le chemin de
+promotion procédurale à essai unique.
+
 ## Ce que la documentation suggérait (et ce qui n'est pas encore câblé)
 
 La docstring du service et le dossier GenOS parlent de :
@@ -78,7 +92,9 @@ Ces mécanismes ne sont **pas** appelés directement par `proceduralCausalValida
 Le chemin simple utilise `temporalHelpers.findDivergences`; le chemin répliqué
 compare les trajectoires appariées par seed via `replicatedCausalValidationService`.
 Ni l'un ni l'autre ne crée encore des univers persistants ni un replay causal
-général.
+général. Le parcours des expériences explicitement persistées passe par le handler
+temporel `causal_diff`; il reste distinct du service de validation et du gate de
+promotion.
 
 La différence est importante :
 

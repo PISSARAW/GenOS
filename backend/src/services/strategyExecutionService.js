@@ -132,6 +132,8 @@ async function approveRun(db, id, options) {
       domain: promotion.contract?.problem_profile?.domain || 'general',
       trustedVerifierDigests: listVerifierDigests(),
       immuneMemory,
+      db,
+      multiProviderEnabled: promotion.contract?.problem_profile?.multi_provider_verification === true,
     });
   } catch (_) {
     // AEIS ne doit pas bloquer la promotion — le gate évaluera l'absence

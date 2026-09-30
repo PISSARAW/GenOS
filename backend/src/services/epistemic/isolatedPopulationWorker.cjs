@@ -6,7 +6,7 @@ const { generate } = require('../modelProvider');
 async function run() {
   const input = await readRequest();
   try {
-    const result = await generate({ model: input.model, prompt: input.prompt, timeoutMs: input.timeoutMs, maxTokens: input.maxTokens, stream: false, enforceSchema: false });
+    const result = await generate({ model: input.model, endpoint: input.endpoint, prompt: input.prompt, timeoutMs: input.timeoutMs, maxTokens: input.maxTokens, stream: false, enforceSchema: false });
     process.stdout.write(JSON.stringify({ provider: input.provider, model: input.model, text: result.text || '', usage: result.usage || {} }));
   } catch (error) {
     process.stdout.write(JSON.stringify({ provider: input.provider, model: input.model, error: error.message }));

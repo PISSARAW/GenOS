@@ -517,9 +517,13 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
   lexical lorsque le gold est `undefined`.
 
 **Partiel** :
-- vérification indépendante forte (receipts signés et comparés au producer, mais pas de vérification croisée multi-provider)
-- recrutement réel de niches (top-up falsification prioritaire, mais biocénose sans recrutement dynamique)
-- isolation réelle des métapopulations (isolation logique, pas processuelle)
-- feedback homéostatique runtime intégré à la ré-arbitration de la boucle de
-  contrôle à partir de la pression d'assurance et du delta de preuve
+- les profils multi-provider activés par politique du contrat exécutent des revues
+  dans des processus séparés; leurs sorties restent consultatives, non signées et
+  exclues des reçus utilisés pour la promotion
+- la biocénose recrute un vérificateur de niche libre quand la diversité est faible;
+  une rétroaction de pression et de delta de preuve peut déclencher un vérificateur
+  supplémentaire, mais aucun quorum multi-provider ne constitue une preuve
+- les métapopulations sont isolées par processus pour ces revues; la persistance
+  durable de populations et des preuves de généralisation restent à établir
+- `approveRun()` complet avec DB non couvert par un test E2E bon/bloqué (gate testée via buildGateContext + policy)
 - `approveRun()` complet avec DB non couvert par un test E2E bon/bloqué (gate testée via buildGateContext + policy)

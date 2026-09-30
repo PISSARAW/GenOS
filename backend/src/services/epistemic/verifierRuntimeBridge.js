@@ -174,6 +174,17 @@ function errorVerifierResult(verifier, err) {
 
 async function runSingleVerifier(antigen, verifier, ctx) {
   const worker = buildVerifierWorker(antigen, verifier);
+  const enriched = enrichVerifier(antigen, verifier);
+  const outcome = await executeVerifierWithAdapter(
+    antigen,
+    enriched,
+    { worker, timeoutMs: ctx.opts.timeoutMs || 30000, testConfig: enriched.test, artifactConfig: enriched.artifact }
+  );
+  const independence = evaluateVerifierIndependence(verifier, antigen, ctx.executedVerifiers);
+  return signVerifierResult(antigen, verifier, { outcome, independence });
+}
+
+function enrichVerifier(antigen, verifier) {
   // Injecter le contrat de vérification complet (test + artifact) pour que
   // l'adapter puisse réellement exécuter via sandbox avec expectOutput.
   const enriched = { ...verifier };
@@ -191,13 +202,7 @@ async function runSingleVerifier(antigen, verifier, ctx) {
       enriched.test = { command: antigen.reproCommand };
     }
   }
-  const outcome = await executeVerifierWithAdapter(
-    antigen,
-    enriched,
-    { worker, timeoutMs: ctx.opts.timeoutMs || 30000, testConfig: enriched.test, artifactConfig: enriched.artifact }
-  );
-  const independence = evaluateVerifierIndependence(verifier, antigen, ctx.executedVerifiers);
-  return signVerifierResult(antigen, verifier, { outcome, independence });
+  return enriched;
 }
 
 /**
@@ -210,7 +215,7 @@ async function executeVerifierWorkers(antigen, verifiers, opts = {}) {
   }
 
   const results = [];
-  const executedVerifiers = [];
+  const executedVerifiers = [...(opts.priorVerifiers || [])];
 
   for (const verifier of verifiers) {
     try {
