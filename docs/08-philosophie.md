@@ -1137,7 +1137,9 @@ autoimmune rate.
 L'intégration benchmark (`epistemicBenchmarkIntegrationService`) sépare
 `solverAnswer`, `groundTruth`, `answerCorrect` et `aeisDecision` ; le taux de
 faux positifs vaut (`answerCorrect` = false AND `aeisDecision` = PROMOTE).
-Ce n'est pas un benchmark EAB complet : aucun dataset externe n'est branché.
+Le runner [EAB](../benchmarks/eab/README.md) évalue maintenant les 446 pièges
+LoCoMo catégorie 5 à partir du dataset et des prédictions fournis par
+l'opérateur. Le corpus officiel n'est pas redistribué avec GenOS.
 
 ### 29.15. Règle de biométisme
 

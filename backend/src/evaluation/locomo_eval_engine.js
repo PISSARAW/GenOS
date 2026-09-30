@@ -264,4 +264,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { runLoCoMoEvaluation, ingestConversationIntoConnectome };
+module.exports = { runLoCoMoEvaluation, ingestConversationIntoConnectome, computeF1 };

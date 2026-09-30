@@ -464,10 +464,10 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
   (pas persistante entre sessions). Pour une persistance, il faudrait une table
   SQLite dédiée.
 
-- **Pas de benchmark EAB complet** : l'intégration sépare `solverAnswer`,
-  `groundTruth`, `answerCorrect` et `aeisDecision`, avec
-  FAR = (`answerCorrect` = false AND `aeisDecision` = PROMOTE). Un vrai dataset
-  benchmark branché reste à faire.
+- **Évaluation EAB** : `benchmarks/eab/run-eab.cjs` extrait les 446 questions
+  de catégorie 5 LoCoMo depuis le corpus et les apparie aux prédictions. Il
+  mesure abstention, couverture, taux de réponse erronée, F1 lexical et écart
+  métrique. Le corpus officiel n'est pas redistribué avec GenOS.
 
 ### Garde-fous
 
@@ -485,8 +485,8 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
 - **Pas de remplacement de l'orchestrateur** : l'AEIS est un sous-système de
   vérification, pas un remplacement de `genos-orchestrate.cjs`.
 
-- **Pas de benchmark EAB complet** : le challenge immunitaire est un prototype.
-  L'intégration avec le benchmark EAB complet reste à faire.
+- **Portée EAB** : le runner de catégorie 5 exige le corpus LoCoMo et un fichier
+  de prédictions complet; un sous-ensemble est explicitement marqué `partial`.
 
 ### Statut
 
@@ -512,11 +512,14 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
 - stigmergie inter-process (stigmergyInterProcessBridge via biomimeticSignalingBus)
 - apoptose intégrée à l'autorité runtime (epistemicApoptosisAuthorityBridge)
 - AEIS → promotion gate (require_epistemic_assurance = true)
-- Intégration benchmark partielle (epistemicBenchmarkIntegrationService : cas → EpistemicAntigen avec solverAnswer/groundTruth séparés, FAR = answerCorrect=false AND aeisDecision=PROMOTE) — pas de benchmark EAB complet
+- Intégration AEIS et runner EAB LoCoMo catégorie 5 disponibles; le rapport
+  compare l'abstention observable aux 446 pièges et expose l'artéfact du F1
+  lexical lorsque le gold est `undefined`.
 
 **Partiel** :
 - vérification indépendante forte (receipts signés et comparés au producer, mais pas de vérification croisée multi-provider)
 - recrutement réel de niches (top-up falsification prioritaire, mais biocénose sans recrutement dynamique)
 - isolation réelle des métapopulations (isolation logique, pas processuelle)
-- feedback homéostatique runtime (feedbackEffect implémenté mais pas encore dans la boucle de contrôle)
+- feedback homéostatique runtime intégré à la ré-arbitration de la boucle de
+  contrôle à partir de la pression d'assurance et du delta de preuve
 - `approveRun()` complet avec DB non couvert par un test E2E bon/bloqué (gate testée via buildGateContext + policy)

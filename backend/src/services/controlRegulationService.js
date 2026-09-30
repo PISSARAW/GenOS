@@ -1,5 +1,6 @@
 const DIRECTIONS = Object.freeze(['allow', 'inhibit', 'amplify', 'delay', 'block', 'require_evidence']);
 const MAX_FEEDBACK_CYCLES = 3;
+const epistemicHomeostasis = require('./epistemic/epistemicHomeostasisService');
 
 function clampUnit(value) {
   const resolved = Number(value);
@@ -69,17 +70,31 @@ function reflexSignals(state) {
 function homeostasisSignals(state) {
   const reservePressure = state.minimumWorkerTokens > 0 && state.tokens < state.minimumWorkerTokens ? 0.9 : 0;
   const survivalPressure = state.pressures.includes('starvation') ? 0.75 : 0;
-  const strength = Math.max(reservePressure, survivalPressure);
+  const epistemicPressure = epistemicPressureFor(state);
+  const strength = Math.max(reservePressure, survivalPressure, epistemicPressure);
   if (strength === 0) {
     return [controlSignal({
       source: 'homeostasis', target: 'worker_fanout', direction: 'allow', strength: 0.55,
-      reason: 'token reserve can fund the selected plan', evidence: [`tokens=${state.tokens}`], ttl: 1
+      reason: 'homeostatic pressure is within the execution range', evidence: [`tokens=${state.tokens}`, `epistemicPressure=${epistemicPressure}`], ttl: 1
     })];
   }
   return [controlSignal({
     source: 'homeostasis', target: 'worker_fanout', direction: 'inhibit', strength,
-    reason: 'budget pressure requires a lower worker fan-out', evidence: [`tokens=${state.tokens}`, `minimumWorkerTokens=${state.minimumWorkerTokens}`], ttl: 1
+    reason: 'homeostatic pressure requires reduced execution intensity', evidence: [`tokens=${state.tokens}`, `minimumWorkerTokens=${state.minimumWorkerTokens}`, `epistemicPressure=${epistemicPressure}`], ttl: 1
   })];
+}
+
+function epistemicPressureFor(state) {
+  const profile = state.profile || {};
+  const uncertainty = clampUnit(profile.uncertainty);
+  return epistemicHomeostasis.computePressure({
+    risk: profile.riskScore ?? (profile.risk === 'high' ? 0.8 : 0.2),
+    validityDomain: profile.validityDomain || { coverage: 1 - uncertainty, constraints: 1 },
+    contradictions: profile.contradictions || [],
+    novelty: profile.novelty,
+    evidence: state.evidence || (Number.isFinite(profile.evidenceQuality) ? [{ quality: profile.evidenceQuality }] : []),
+    budgetRemaining: state.tokens
+  });
 }
 
 function evidenceSignals(state) {
@@ -269,7 +284,8 @@ function applyControlFeedback(regulation, rawFeedback = {}) {
   const feedback = normalizeControlFeedback(rawFeedback);
   const previous = regulation || {};
   const worldState = previous.worldState || { profile: {}, tokens: 0, pressures: [] };
-  const signals = [...(previous.signals || []), ...feedbackSignals(feedback, worldState)];
+  const homeostasis = applyHomeostaticFeedback(previous, feedback, worldState);
+  const signals = [...(previous.signals || []), ...feedbackSignals(feedback, worldState), ...homeostasis.signals];
   const priorCycles = Number(previous.feedbackCycles || 0);
   if (priorCycles >= MAX_FEEDBACK_CYCLES) {
     signals.push(controlSignal({
@@ -281,10 +297,28 @@ function applyControlFeedback(regulation, rawFeedback = {}) {
     ...previous,
     signals,
     feedback,
+    homeostasis: homeostasis.state,
     feedbackCycles: Math.min(MAX_FEEDBACK_CYCLES, priorCycles + 1),
     arbitration: arbitrate(signals, worldState),
     expectedFeedback: previous.expectedFeedback || ['exitCode', 'evidenceScore', 'replayVerified', 'durationMs', 'tokensUsed']
   };
+}
+
+function applyHomeostaticFeedback(previous, feedback, worldState) {
+  const initial = previous.homeostasis || { pressure: epistemicPressureFor(worldState), evidenceScore: null };
+  const measured = feedback.evidenceScore === null ? initial.pressure : 1 - feedback.evidenceScore;
+  const pressure = epistemicHomeostasis.feedbackEffect(measured, initial.pressure, evidenceDelta(initial, feedback));
+  const bounded = Math.max(0, Math.min(1, pressure));
+  const signal = bounded >= 0.7 ? controlSignal({
+    source: 'homeostasis', target: 'worker_fanout', direction: 'inhibit', strength: bounded,
+    reason: 'epistemic assurance pressure remains above the adaptive threshold', evidence: [`pressure=${bounded}`, `evidenceScore=${feedback.evidenceScore}`], ttl: 1
+  }) : null;
+  return { state: { pressure: bounded, evidenceScore: feedback.evidenceScore }, signals: signal ? [signal] : [] };
+}
+
+function evidenceDelta(previous, feedback) {
+  if (feedback.evidenceScore === null || previous.evidenceScore === null) return 0;
+  return feedback.evidenceScore - previous.evidenceScore;
 }
 
 function regulateAutonomyPlan(contract, budget, plan) {
