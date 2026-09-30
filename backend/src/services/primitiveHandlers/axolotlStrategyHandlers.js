@@ -132,6 +132,12 @@ async function executeRegeneration(context = {}) {
   };
 }
 
+async function prepareCognitiveLearning(context = {}) {
+  const { sessionId, candidates } = context;
+  if (!sessionId) return { success: false, error: 'sessionId est requis pour prepare_cognitive_learning' };
+  return regenerationService.prepareCognitiveLearning(sessionId, { candidates });
+}
+
 // ── Validate Equivalence ────────────────────────────────────────────────────
 
 async function validateEquivalence(context = {}) {
@@ -245,5 +251,6 @@ module.exports = {
   assess_regeneration: assessRegeneration,
   plan_regeneration: planRegeneration,
   execute_regeneration: executeRegeneration,
+  prepare_cognitive_learning: prepareCognitiveLearning,
   validate_equivalence: validateEquivalence
 };

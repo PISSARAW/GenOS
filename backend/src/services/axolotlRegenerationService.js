@@ -117,6 +117,7 @@ async function executeRegeneration({ sessionId, db, context = {} }) {
     newTopology,
     validation,
     preserved: preserved.length,
+    cost: session.cost,
     worker,
     note: validation.passed
       ? 'Régénération fonctionnelle terminée'

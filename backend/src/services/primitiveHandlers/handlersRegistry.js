@@ -357,7 +357,10 @@ const HANDLERS = {
     const { validate_equivalence } = require('./axolotlStrategyHandlers');
     return validate_equivalence(ctx);
   },
-
+  prepare_cognitive_learning: async (ctx = {}) => {
+    const { prepare_cognitive_learning } = require('./axolotlStrategyHandlers');
+    return prepare_cognitive_learning(ctx);
+  },
   // Lot 13 — Plasticité Structurelle (STDP + Lamarckien + Sommeil)
   causal_weighting: (ctx = {}) => require('./structuralPlasticity').causalWeighting(ctx),
   infer_traits: (ctx = {}) => require('./structuralPlasticity').inferTraits(ctx),
