@@ -323,10 +323,6 @@ impl GenosEcosystem {
         self.tracheid.trigger_lignified_apoptosis(pipeline_id)
     }
 
-    pub fn filter_stream(&mut self, packets: &[RawSignalPacket]) -> SiftingResult {
-        self.choanocyte.sift_stream(packets)
-    }
-
     pub fn render_polymorphic(&self, raw_data: &str, perspective: &ObserverPerspective) -> String {
         self.iridophore.render_polymorphic(raw_data, perspective)
     }

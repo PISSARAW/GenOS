@@ -41,6 +41,7 @@ pub mod mission_receipt;
 pub mod mission_division;
 pub mod mission_lineage;
 pub mod mission_biology_events;
+pub mod specialized_cell_runtime;
 pub mod neuro;
 pub mod observer;
 pub mod orchestrator;

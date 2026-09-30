@@ -33,7 +33,7 @@
 | Reproduction, fossilisation | primitive | `genos-reproduction`, `fossil.rs` | événement versionné parent/seed/mutations/empreintes |
 | Cnidocyte | intégrée partielle | `mcpExecutor.execute` → `screenCnidocyteThreat`; `node backend/tests/test_mcp_cnidocyte_runtime_gate.js` | attaques au travers d'un transport configuré et artefacts de benchmark conservés |
 | Électrocyte | intégrée partielle | `GenosEcosystem::discharge_electric_under_quorum`; tests quorum actif/expiré | identité authentifiée des votants et timeout mesuré sur collecte distribuée |
-| Choanocyte | primitive | `choanocyte.rs`, tests locaux | adaptateur de flux + débit/pertes mesurés |
+| Choanocyte | intégrée partielle | `GenosEcosystem::filter_stream` émet `CHOANOCYTE_STREAM_FILTERED` avec scans, rétention, pertes et débit calculé | flux mission E2E et artefacts persistés/benchmarkés |
 | Iridophore | primitive | `iridophore.rs`, tests locaux | rendus conformes ; camouflage non cryptographique |
 | Cellule de garde | primitive | `guard_cell.rs`, tests locaux | branchement sur registre de ressources |
 | Trachéide | primitive | `tracheid.rs`, tests locaux | artefact compilé réel + comparaison de coût |
