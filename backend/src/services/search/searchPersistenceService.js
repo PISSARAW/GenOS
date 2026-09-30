@@ -108,6 +108,14 @@ class SearchPersistence {
         replayed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
       );
+      CREATE TABLE IF NOT EXISTS search_module_state (
+        agent_id TEXT NOT NULL,
+        module TEXT NOT NULL,
+        state_json TEXT NOT NULL,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (agent_id, module),
+        FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+      );
     `);
   }
 
@@ -184,6 +192,19 @@ class SearchPersistence {
 
   async loadHypothesesForAgent(agentId) {
     return this.db.all('SELECT * FROM search_hypotheses WHERE agent_id = ? ORDER BY created_at', agentId);
+  }
+
+  async saveModuleState(agentId, module, state) {
+    await this.db.run(`INSERT INTO search_module_state (agent_id, module, state_json, updated_at)
+      VALUES (?, ?, ?, datetime('now')) ON CONFLICT(agent_id, module) DO UPDATE SET
+      state_json = excluded.state_json, updated_at = excluded.updated_at`,
+    [agentId, module, JSON.stringify(state)]);
+  }
+
+  async loadModuleState(agentId, module) {
+    const row = await this.db.get('SELECT state_json FROM search_module_state WHERE agent_id = ? AND module = ?', [agentId, module]);
+    if (!row) return null;
+    try { return JSON.parse(row.state_json); } catch (_) { return null; }
   }
 
   async loadProofsForAgent(agentId) {
