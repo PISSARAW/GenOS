@@ -21,7 +21,7 @@ impl Default for MissionPhysicsProfile {
 impl MissionPhysicsProfile {
     pub fn record_episode(&mut self, success: bool) {
         self.episodes = self.episodes.saturating_add(1);
-        self.successes = self.successes.saturating_add(u64::from(success));
+        self.successes = self.successes.saturating_add(if success { 1 } else { 0 });
         if self.episodes >= 3 {
             let rate = self.successes as f64 / self.episodes as f64;
             self.friction_scale = (1.1 - rate * 0.2).clamp(0.8, 1.2);
@@ -152,7 +152,9 @@ fn read_lcov_coverage(root: &Path) -> Option<f64> {
     for line in report.lines() {
         if let Some((_, hits)) = line.strip_prefix("DA:").and_then(|value| value.split_once(',')) {
             found += 1;
-            covered += usize::from(hits.parse::<usize>().ok()? > 0);
+            if hits.parse::<usize>().ok()? > 0 {
+                covered += 1;
+            }
         }
     }
     (found > 0).then_some(covered as f64 / found as f64)
