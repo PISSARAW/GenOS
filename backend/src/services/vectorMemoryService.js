@@ -186,10 +186,9 @@ class VectorMemoryService {
       organizationId: options.organizationId,
       projectId: options.projectId
     });
-    let mergedPool = [...scoredItems, ...connectedItems];
-    if (!options.includeInhibited && inhibitedIds.size > 0) {
-      mergedPool = mergedPool.filter(item => !inhibitedIds.has(item.id));
-    }
+    // Scored corpus entries carry current inhibition markers. If GraphRAG
+    // returns the same id, keep that authoritative entry over its unmarked hop.
+    const mergedPool = [...connectedItems, ...scoredItems];
     const allScored = [...new Map(mergedPool.map((item) => [item.id, item])).values()];
 
     // Reconsolidation par le rappel (Active Retrieval Potentiation), bornée :

@@ -161,10 +161,8 @@ function decisionHydrateQuery(rowIds, scope) {
   const params = [...rowIds];
   let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob
                  FROM genome_decisions t WHERE rowid IN (${placeholders})`;
-  if (scope.ownerId) {
-    sql += ' AND t.created_by = ?';
-    params.push(scope.ownerId);
-  }
+  // genome_decisions is shared memory within the tenant; ownerId scopes
+  // trajectories, while organization/project enforce decision privacy.
   if (scope.orgId) {
     const clause = tenantScopeClause(scope, 't', 'organization_id');
     sql += clause.sql;
@@ -283,10 +281,9 @@ function scopedEquality(scope, column) {
 function decisionFallbackQuery(scope) {
   const conditions = [];
   const params = [];
-  if (scope.ownerId) {
-    conditions.push('created_by = ?');
-    params.push(scope.ownerId);
-  }
+  // Decision memory is shared across agents in the same tenant. Do not
+  // restrict retrieval to the writing agent; tenant predicates below are
+  // the privacy boundary.
   if (scope.orgId) {
     conditions.push(scopedEquality(scope, 'organization_id'));
     params.push(scope.orgId);
