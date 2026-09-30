@@ -26,6 +26,7 @@ async function setupTestDb() {
     CREATE TABLE signal_subscriptions (subscriber_agent_id TEXT NOT NULL, topic TEXT NOT NULL, filter TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (subscriber_agent_id, topic));
     CREATE TABLE signal_deliveries (signal_id TEXT NOT NULL, subscriber_agent_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','seen','acked')), delivered_at DATETIME DEFAULT CURRENT_TIMESTAMP, seen_at DATETIME, acked_at DATETIME, PRIMARY KEY (signal_id, subscriber_agent_id));
     CREATE TABLE signal_delivery_claims (signal_id TEXT NOT NULL, subscriber_agent_id TEXT NOT NULL, claim_owner TEXT NOT NULL DEFAULT '', lease_until_ms INTEGER NOT NULL DEFAULT 0, next_attempt_at_ms INTEGER NOT NULL DEFAULT 0, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, dead_lettered_at_ms INTEGER, PRIMARY KEY (signal_id, subscriber_agent_id));
+    CREATE TABLE signal_channel_weights (channel TEXT PRIMARY KEY, weight REAL NOT NULL, last_updated INTEGER NOT NULL, hits INTEGER NOT NULL DEFAULT 0, misses INTEGER NOT NULL DEFAULT 0, last_signal_type TEXT);
   `);
   await migrateSignalDeliveryClaims(testDb);
   await testDb.run(`INSERT INTO organizations (id, name) VALUES ('org-test', 'Test Org')`);
