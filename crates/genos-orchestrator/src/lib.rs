@@ -97,7 +97,7 @@ pub use organism::{OrganismConfig, OrganismReport};
 pub use organization::{
     Organization, Superorganism, catalog, select_organization, select_superorganism,
 };
-pub use physical_telemetry::PhysicalTelemetry;
+pub use physical_telemetry::{MissionPhysicsProfile, PhysicalTelemetry};
 pub use physics::{
     ActionProfile, DecisionContext, Material, PhysicalState, Regime, UtilityInputs, action_profile,
     classify_material, classify_material_explicit, determine_regime, inertia_threshold,
