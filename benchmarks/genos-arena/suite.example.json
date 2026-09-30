@@ -1,0 +1,13 @@
+{
+  "suiteId": "replace-with-domain-suite-v1",
+  "repetitions": 3,
+  "budget": { "tokens": 12000, "wallTimeMs": 180000 },
+  "allowedTools": [],
+  "cases": [
+    {
+      "id": "replace-with-task-id",
+      "family": "coding",
+      "input": { "prompt": "Replace with a task that has an independent verifier." }
+    }
+  ]
+}
