@@ -323,10 +323,6 @@ impl GenosEcosystem {
         self.tracheid.trigger_lignified_apoptosis(pipeline_id)
     }
 
-    pub fn render_polymorphic(&self, raw_data: &str, perspective: &ObserverPerspective) -> String {
-        self.iridophore.render_polymorphic(raw_data, perspective)
-    }
-
     // --- Virologie couplée à l'immunité clonale ---
 
     /// Neutralise le virion `index` si l'immunité clonale reconnaît son spike.
