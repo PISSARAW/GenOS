@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use genos_genome::{Gene, Genome};
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default)]
 pub struct EnvironmentalFactors {
@@ -47,8 +47,8 @@ pub trait PhenotypeExpression: Send + Sync {
     fn express(&self, ctx: &ExpressionContext, phenotype: &mut Phenotype);
 }
 
-/// Le Registry centralise les règles d'expression. 
-/// Il est ouvert à l'extension (on peut enregistrer de nouvelles règles) 
+/// Le Registry centralise les règles d'expression.
+/// Il est ouvert à l'extension (on peut enregistrer de nouvelles règles)
 /// mais fermé à la modification (plus de hardcodage dans la fonction `compute`).
 #[derive(Default)]
 pub struct PhenotypeRegistry {
@@ -62,7 +62,8 @@ impl PhenotypeRegistry {
     }
 
     pub fn register_epigenetic(&mut self, rule: Box<dyn EpigeneticRegulator>) {
-        self.epigenetic_rules.insert(rule.gene_key().to_string(), rule);
+        self.epigenetic_rules
+            .insert(rule.gene_key().to_string(), rule);
     }
 
     pub fn register_phenotypic(&mut self, rule: Box<dyn PhenotypeExpression>) {
@@ -127,7 +128,9 @@ impl PhenotypeRegistry {
 // -- 1. Abeilles --
 struct BeeEpigenetics;
 impl EpigeneticRegulator for BeeEpigenetics {
-    fn gene_key(&self) -> &str { "BEE_CASTE" }
+    fn gene_key(&self) -> &str {
+        "BEE_CASTE"
+    }
     fn regulate(&self, gene: &mut Gene, env: &EnvironmentalFactors) {
         gene.is_methylated = !env.royal_jelly_diet;
     }
@@ -138,9 +141,13 @@ impl PhenotypeExpression for BeePhenotype {
     fn express(&self, ctx: &ExpressionContext, phenotype: &mut Phenotype) {
         if ctx.gene_keys.iter().any(|k| k == "BEE_CASTE") {
             if ctx.protein_names.contains(&"QUEEN_TRAITS".to_string()) {
-                phenotype.macroscopic_traits.push("Caste: Queen Bee (Fertile, Large)".to_string());
+                phenotype
+                    .macroscopic_traits
+                    .push("Caste: Queen Bee (Fertile, Large)".to_string());
             } else {
-                phenotype.macroscopic_traits.push("Caste: Worker Bee (Sterile)".to_string());
+                phenotype
+                    .macroscopic_traits
+                    .push("Caste: Worker Bee (Sterile)".to_string());
             }
         }
     }
@@ -150,10 +157,20 @@ impl PhenotypeExpression for BeePhenotype {
 struct HeightPhenotype;
 impl PhenotypeExpression for HeightPhenotype {
     fn express(&self, ctx: &ExpressionContext, phenotype: &mut Phenotype) {
-        if ctx.gene_keys.iter().any(|k| k == "TALL_GENE" || k == "HEIGHT_GENE" || k == "HEIGHT") {
-            let base_height = if ctx.protein_names.contains(&"TALL_GENE".to_string()) { 190.0 } else { 170.0 };
+        if ctx
+            .gene_keys
+            .iter()
+            .any(|k| k == "TALL_GENE" || k == "HEIGHT_GENE" || k == "HEIGHT")
+        {
+            let base_height = if ctx.protein_names.contains(&"TALL_GENE".to_string()) {
+                190.0
+            } else {
+                170.0
+            };
             let final_height = base_height * (0.5 + 0.5 * ctx.env.nutrition_quality);
-            phenotype.macroscopic_traits.push(format!("Height: {}cm", final_height as u32));
+            phenotype
+                .macroscopic_traits
+                .push(format!("Height: {}cm", final_height as u32));
         }
     }
 }
@@ -161,7 +178,9 @@ impl PhenotypeExpression for HeightPhenotype {
 // -- 3. Fourrure (Fur Color) --
 struct FurEpigenetics;
 impl EpigeneticRegulator for FurEpigenetics {
-    fn gene_key(&self) -> &str { "FUR_COLOR" }
+    fn gene_key(&self) -> &str {
+        "FUR_COLOR"
+    }
     fn regulate(&self, gene: &mut Gene, env: &EnvironmentalFactors) {
         gene.expression_volume = if env.temperature <= 0.0 { 0.0 } else { 1.0 };
     }
@@ -172,9 +191,13 @@ impl PhenotypeExpression for FurPhenotype {
     fn express(&self, ctx: &ExpressionContext, phenotype: &mut Phenotype) {
         if ctx.gene_keys.iter().any(|k| k == "FUR_COLOR") {
             if ctx.protein_names.contains(&"BROWN_COLORS".to_string()) {
-                phenotype.macroscopic_traits.push("Fur: Brown (Summer)".to_string());
+                phenotype
+                    .macroscopic_traits
+                    .push("Fur: Brown (Summer)".to_string());
             } else {
-                phenotype.macroscopic_traits.push("Fur: White (Winter Camouflage)".to_string());
+                phenotype
+                    .macroscopic_traits
+                    .push("Fur: White (Winter Camouflage)".to_string());
             }
         }
     }
@@ -183,16 +206,16 @@ impl PhenotypeExpression for FurPhenotype {
 /// Fonction d'initialisation du registry (qui pourrait être chargée dynamiquement)
 pub fn create_default_registry() -> PhenotypeRegistry {
     let mut registry = PhenotypeRegistry::new();
-    
+
     // Enregistrement des règles épigénétiques
     registry.register_epigenetic(Box::new(BeeEpigenetics));
     registry.register_epigenetic(Box::new(FurEpigenetics));
-    
+
     // Enregistrement des règles phénotypiques
     registry.register_phenotypic(Box::new(HeightPhenotype));
     registry.register_phenotypic(Box::new(BeePhenotype));
     registry.register_phenotypic(Box::new(FurPhenotype));
-    
+
     registry
 }
 
@@ -207,21 +230,42 @@ mod tests {
         // 1. Organisme sans gène de fourrure -> pas de trait de fourrure
         let empty_genome = Genome::new("NO_FUR_ORGANISM");
         let pheno_empty = registry.compute(&empty_genome, &EnvironmentalFactors::default());
-        assert!(!pheno_empty.macroscopic_traits.iter().any(|t| t.contains("Fur:")));
+        assert!(
+            !pheno_empty
+                .macroscopic_traits
+                .iter()
+                .any(|t| t.contains("Fur:"))
+        );
 
         // 2. Organisme avec FUR_COLOR en été (temp > 0)
         let mut summer_genome = Genome::new("HARE");
         summer_genome.insert_gene(Gene::new("FUR_COLOR", "BROWN_COLORS"));
-        let summer_env = EnvironmentalFactors { temperature: 22.0, ..Default::default() };
+        let summer_env = EnvironmentalFactors {
+            temperature: 22.0,
+            ..Default::default()
+        };
         let pheno_summer = registry.compute(&summer_genome, &summer_env);
-        assert!(pheno_summer.macroscopic_traits.iter().any(|t| t == "Fur: Brown (Summer)"));
+        assert!(
+            pheno_summer
+                .macroscopic_traits
+                .iter()
+                .any(|t| t == "Fur: Brown (Summer)")
+        );
 
         // 3. Organisme avec FUR_COLOR en hiver (temp <= 0)
         let mut winter_genome = Genome::new("HARE");
         winter_genome.insert_gene(Gene::new("FUR_COLOR", "BROWN_COLORS"));
-        let winter_env = EnvironmentalFactors { temperature: -10.0, ..Default::default() };
+        let winter_env = EnvironmentalFactors {
+            temperature: -10.0,
+            ..Default::default()
+        };
         let pheno_winter = registry.compute(&winter_genome, &winter_env);
-        assert!(pheno_winter.macroscopic_traits.iter().any(|t| t == "Fur: White (Winter Camouflage)"));
+        assert!(
+            pheno_winter
+                .macroscopic_traits
+                .iter()
+                .any(|t| t == "Fur: White (Winter Camouflage)")
+        );
     }
 
     #[test]
@@ -231,13 +275,29 @@ mod tests {
         bee_genome.insert_gene(Gene::new("BEE_CASTE", "QUEEN_TRAITS"));
 
         // Royal jelly -> Queen
-        let queen_env = EnvironmentalFactors { royal_jelly_diet: true, ..Default::default() };
+        let queen_env = EnvironmentalFactors {
+            royal_jelly_diet: true,
+            ..Default::default()
+        };
         let pheno_queen = registry.compute(&bee_genome, &queen_env);
-        assert!(pheno_queen.macroscopic_traits.iter().any(|t| t.contains("Queen Bee")));
+        assert!(
+            pheno_queen
+                .macroscopic_traits
+                .iter()
+                .any(|t| t.contains("Queen Bee"))
+        );
 
         // No royal jelly -> Worker (methylated gene represses expression)
-        let worker_env = EnvironmentalFactors { royal_jelly_diet: false, ..Default::default() };
+        let worker_env = EnvironmentalFactors {
+            royal_jelly_diet: false,
+            ..Default::default()
+        };
         let pheno_worker = registry.compute(&bee_genome, &worker_env);
-        assert!(pheno_worker.macroscopic_traits.iter().any(|t| t.contains("Worker Bee")));
+        assert!(
+            pheno_worker
+                .macroscopic_traits
+                .iter()
+                .any(|t| t.contains("Worker Bee"))
+        );
     }
 }

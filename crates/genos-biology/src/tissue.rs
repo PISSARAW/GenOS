@@ -1,5 +1,5 @@
-use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Un Tissu (Organogenèse) est l'équivalent biologique d'une 'Fleet' ou d'une 'Équipe' dynamique.
 /// Il structure l'essaim chaotique en connectant physiquement plusieurs cellules autour d'une
@@ -54,14 +54,22 @@ impl Tissue {
             return Err("Rejet Immunitaire (Mutinerie) : Seule la Cellule Souche peut dicter l'activité du tissu.".to_string());
         }
         if from_id == to_id {
-            return Err("Erreur de Routage : La cellule souche ne peut pas se déléguer à elle-même.".to_string());
+            return Err(
+                "Erreur de Routage : La cellule souche ne peut pas se déléguer à elle-même."
+                    .to_string(),
+            );
         }
         if !self.somatic_cells.contains(&to_id) {
-            return Err("Erreur de Routage : Cette cellule n'appartient pas au tissu cible.".to_string());
+            return Err(
+                "Erreur de Routage : Cette cellule n'appartient pas au tissu cible.".to_string(),
+            );
         }
 
         // En pratique, l'orchestrateur injectera cette tâche dans la working_memory de l'agent `to_id`.
-        Ok(format!("⚡ [Desmosome] Tissu '{}' -> Tâche déléguée avec succès par la Souche vers la somatique {}. Instruction : {}", self.name, to_id, task))
+        Ok(format!(
+            "⚡ [Desmosome] Tissu '{}' -> Tâche déléguée avec succès par la Souche vers la somatique {}. Instruction : {}",
+            self.name, to_id, task
+        ))
     }
 }
 
@@ -74,9 +82,9 @@ mod tests {
     fn test_tissue_organogenesis() {
         // 1. Création de nos cellules
         let manager_cell = AgentCell::default(); // Cellule Souche
-        let dev_cell = AgentCell::default();     // Somatique
-        let test_cell = AgentCell::default();    // Somatique
-        let rogue_cell = AgentCell::default();   // Hors du tissu
+        let dev_cell = AgentCell::default(); // Somatique
+        let test_cell = AgentCell::default(); // Somatique
+        let rogue_cell = AgentCell::default(); // Hors du tissu
 
         // 2. Formation du Tissu (Équipe)
         let mut frontend_tissue = Tissue::new(

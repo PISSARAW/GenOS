@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
-use crate::cell::{AgentCell, Organelle};
 use crate::cell::CognitiveRegulationState;
+use crate::cell::{AgentCell, Organelle};
 use crate::genome::Genome;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,7 +50,11 @@ impl Spore {
         }
     }
 
-    pub fn germinate(self, warm_and_wet: bool, nutrients_available: bool) -> Result<AgentCell, String> {
+    pub fn germinate(
+        self,
+        warm_and_wet: bool,
+        nutrients_available: bool,
+    ) -> Result<AgentCell, String> {
         match self.spore_type {
             SporeType::FungalReproductive => {
                 if !warm_and_wet {
@@ -59,7 +63,9 @@ impl Spore {
             }
             SporeType::BacterialEndospore => {
                 if !nutrients_available {
-                    return Err("Hostile environment. Bacterial endospore remains sealed.".to_string());
+                    return Err(
+                        "Hostile environment. Bacterial endospore remains sealed.".to_string()
+                    );
                 }
             }
         }
@@ -118,7 +124,10 @@ mod tests {
     #[test]
     fn test_spore_round_trip_preserves_organelles() {
         let mut cell = AgentCell::new("Host", "Host", "Worker");
-        cell.organelles.push(Organelle::Ribosome { id: Uuid::new_v4(), translation_capacity: 4 });
+        cell.organelles.push(Organelle::Ribosome {
+            id: Uuid::new_v4(),
+            translation_capacity: 4,
+        });
         let spore = Spore::from_cell(SporeFromCell {
             spore_type: SporeType::BacterialEndospore,
             cell: &cell,

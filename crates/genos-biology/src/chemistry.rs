@@ -55,7 +55,10 @@ impl Molecule {
 
     /// Masse molaire (g/mol) calculée depuis la composition atomique réelle.
     pub fn molar_mass(&self) -> f64 {
-        self.formula.iter().map(|(el, n)| el.atomic_mass() * (*n as f64)).sum()
+        self.formula
+            .iter()
+            .map(|(el, n)| el.atomic_mass() * (*n as f64))
+            .sum()
     }
 
     fn atom_count(&self, element: Element) -> u32 {
@@ -93,7 +96,11 @@ impl Reaction {
 pub enum ChemError {
     UnknownSpecies(String),
     UnknownReaction(String),
-    MassImbalance { element: String, left: u32, right: u32 },
+    MassImbalance {
+        element: String,
+        left: u32,
+        right: u32,
+    },
     InsufficientSubstrate(String),
 }
 
@@ -176,7 +183,9 @@ impl MetabolicNetwork {
     fn side_mass_g(&self, side: &[Term], extent: f64) -> f64 {
         side.iter()
             .filter_map(|(id, coeff)| {
-                self.species.get(*id).map(|m| m.molar_mass() * (*coeff as f64) * extent)
+                self.species
+                    .get(*id)
+                    .map(|m| m.molar_mass() * (*coeff as f64) * extent)
             })
             .sum()
     }
@@ -184,7 +193,9 @@ impl MetabolicNetwork {
     fn side_enthalpy_kj(&self, side: &[Term], extent: f64) -> f64 {
         side.iter()
             .filter_map(|(id, coeff)| {
-                self.species.get(*id).map(|m| m.enthalpy_kj_per_mol * (*coeff as f64) * extent)
+                self.species
+                    .get(*id)
+                    .map(|m| m.enthalpy_kj_per_mol * (*coeff as f64) * extent)
             })
             .sum()
     }
@@ -220,13 +231,17 @@ impl MetabolicNetwork {
 
     /// Exécute une réaction jusqu'à l'extent limité par le réactif limitant réel,
     /// débite/crédite les bassins de matière et renvoie le bilan mesuré.
-    pub fn run_reaction(&mut self, name: &str, requested_extent_mol: f64) -> Result<ReactionYield, ChemError> {
+    pub fn run_reaction(
+        &mut self,
+        name: &str,
+        requested_extent_mol: f64,
+    ) -> Result<ReactionYield, ChemError> {
         let reaction = self.find_reaction(name)?;
         let extent = self.limiting_extent(&reaction, requested_extent_mol)?;
         let mass_in = self.side_mass_g(&reaction.reactants, extent);
         let mass_out = self.side_mass_g(&reaction.products, extent);
-        let energy_released =
-            self.side_enthalpy_kj(&reaction.reactants, extent) - self.side_enthalpy_kj(&reaction.products, extent);
+        let energy_released = self.side_enthalpy_kj(&reaction.reactants, extent)
+            - self.side_enthalpy_kj(&reaction.products, extent);
         self.apply_extent(&reaction, extent);
         Ok(ReactionYield {
             reaction: reaction.name.clone(),
@@ -252,7 +267,11 @@ mod tests {
     use super::*;
 
     fn glucose() -> Molecule {
-        Molecule::new("Glucose", &[(Element::C, 6), (Element::H, 12), (Element::O, 6)], -1273.3)
+        Molecule::new(
+            "Glucose",
+            &[(Element::C, 6), (Element::H, 12), (Element::O, 6)],
+            -1273.3,
+        )
     }
 
     fn water() -> Molecule {

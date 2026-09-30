@@ -143,7 +143,10 @@ mod tests {
         let mut qs = QuorumSensingSystem::new(
             AutoinducerType::AHL,
             5.0,
-            vec![QuorumPhenotype::Bioluminescence, QuorumPhenotype::BiofilmFormation],
+            vec![
+                QuorumPhenotype::Bioluminescence,
+                QuorumPhenotype::BiofilmFormation,
+            ],
         );
 
         assert!(!qs.is_quorum_reached());
@@ -155,14 +158,20 @@ mod tests {
             qs.step(1.0);
         }
         // Equilibrium concentration ~ 2 * 0.1 / 0.05 = 4.0 < 5.0
-        assert!(!qs.is_quorum_reached(), "Should not reach quorum at low density");
+        assert!(
+            !qs.is_quorum_reached(),
+            "Should not reach quorum at low density"
+        );
 
         // High density: 20 cells
         qs.set_cell_count(20);
         for _ in 0..10 {
             qs.step(1.0);
         }
-        assert!(qs.is_quorum_reached(), "Should reach quorum at high cell density");
+        assert!(
+            qs.is_quorum_reached(),
+            "Should reach quorum at high cell density"
+        );
         let phenotypes = qs.active_phenotypes();
         assert_eq!(phenotypes.len(), 2);
         assert!(phenotypes.contains(&QuorumPhenotype::Bioluminescence));
@@ -182,7 +191,10 @@ mod tests {
         // Enzymatic quenching removes 90% of autoinducers
         qs.apply_quorum_quenching(0.9);
         assert_eq!(qs.autoinducer_concentration, 1.0);
-        assert!(!qs.is_quorum_reached(), "Quorum should be quenched below threshold");
+        assert!(
+            !qs.is_quorum_reached(),
+            "Quorum should be quenched below threshold"
+        );
         assert!(qs.active_phenotypes().is_empty());
     }
 }

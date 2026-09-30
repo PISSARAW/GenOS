@@ -1,6 +1,6 @@
-﻿use serde::{Deserialize, Serialize};
-pub use genos_cell::clinical::{ClinicalState, DiseaseCategory, Pathology};
 use genos_cell::AgentCell;
+pub use genos_cell::clinical::{ClinicalState, DiseaseCategory, Pathology};
+use serde::{Deserialize, Serialize};
 
 /// Rapport de statut clinique d'un agent
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -18,7 +18,9 @@ pub struct ClinicalStatusReport {
 pub fn assess_agent_clinical_status(agent: &AgentCell) -> ClinicalStatusReport {
     let mut active_pathologies = agent.clinical.active_pathologies.clone();
     if let Some(pathology) = check_degenerative_state(agent)
-        && !active_pathologies.iter().any(|item| item.name() == pathology.name())
+        && !active_pathologies
+            .iter()
+            .any(|item| item.name() == pathology.name())
     {
         active_pathologies.push(pathology);
     }
@@ -28,15 +30,30 @@ pub fn assess_agent_clinical_status(agent: &AgentCell) -> ClinicalStatusReport {
         .first()
         .map(|p| p.category());
 
-    let recommended_treatment = if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Autoimmune) {
+    let recommended_treatment = if active_pathologies
+        .iter()
+        .any(|p| p.category() == DiseaseCategory::Autoimmune)
+    {
         Some("SystemicTherapy::Tocilizumab ou ImmunosuppressiveWash".to_string())
-    } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Nosocomial) {
+    } else if active_pathologies
+        .iter()
+        .any(|p| p.category() == DiseaseCategory::Nosocomial)
+    {
         Some("SystemicTherapy::QuarantineIsolation & Vaccine".to_string())
-    } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Iatrogenic) {
+    } else if active_pathologies
+        .iter()
+        .any(|p| p.category() == DiseaseCategory::Iatrogenic)
+    {
         Some("SystemicTherapy::DetoxificationWashout ou Antidote".to_string())
-    } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Degenerative) {
+    } else if active_pathologies
+        .iter()
+        .any(|p| p.category() == DiseaseCategory::Degenerative)
+    {
         Some("SystemicTherapy::StemCellReplacement ou ApoptoticPruning".to_string())
-    } else if active_pathologies.iter().any(|p| p.category() == DiseaseCategory::Infectious) {
+    } else if active_pathologies
+        .iter()
+        .any(|p| p.category() == DiseaseCategory::Infectious)
+    {
         Some("SystemicTherapy::Antiviral".to_string())
     } else {
         None
@@ -56,7 +73,9 @@ pub fn assess_agent_clinical_status(agent: &AgentCell) -> ClinicalStatusReport {
 /// Évalue le risque iatrogène d'un traitement administré par l'Orchestrateur (déclenchement probabiliste / déterministe)
 pub fn check_iatrogenic_complication(treatment_name: &str, dose: f64) -> Option<Pathology> {
     if treatment_name == "Corticosteroids" && dose > 0.8 {
-        Some(Pathology::SteroidInducedComa { administered_dose: dose })
+        Some(Pathology::SteroidInducedComa {
+            administered_dose: dose,
+        })
     } else if treatment_name == "Antibiotic" && dose > 1.5 {
         Some(Pathology::AntibioticCollateralDamage {
             eliminated_components: vec!["BeneficialWorkerNode".to_string()],
@@ -69,7 +88,9 @@ pub fn check_iatrogenic_complication(treatment_name: &str, dose: f64) -> Option<
 /// Évalue le risque de sénescence dégénérative d'un agent
 pub fn check_degenerative_state(agent: &AgentCell) -> Option<Pathology> {
     if agent.bud_scars >= agent.hayflick_limit {
-        Some(Pathology::TelomereExhaustion { bud_scars: agent.bud_scars })
+        Some(Pathology::TelomereExhaustion {
+            bud_scars: agent.bud_scars,
+        })
     } else if agent.is_senescent {
         Some(Pathology::ReplicativeSenescence)
     } else if (agent.conscience.dissonance_level as f64) > 0.85 {
@@ -82,7 +103,10 @@ pub fn check_degenerative_state(agent: &AgentCell) -> Option<Pathology> {
 }
 
 /// Évalue l'exposition nosocomiale dans une capsule contaminée
-pub fn check_nosocomial_exposure(capsule_id: &str, pathogen_signatures: &[String]) -> Option<Pathology> {
+pub fn check_nosocomial_exposure(
+    capsule_id: &str,
+    pathogen_signatures: &[String],
+) -> Option<Pathology> {
     if let Some(first_sig) = pathogen_signatures.first() {
         Some(Pathology::CrossContamination {
             source_capsule: capsule_id.to_string(),

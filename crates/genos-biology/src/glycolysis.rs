@@ -23,15 +23,44 @@ const PROTON: &str = "proton";
 
 fn register_species(net: &mut MetabolicNetwork) {
     use Element::{C, H, N, O, P};
-    net.register_species(GLUCOSE, Molecule::new("Glucose", &[(C, 6), (H, 12), (O, 6)], -1273.3));
-    net.register_species(PYRUVATE, Molecule::new("Pyruvate", &[(C, 3), (H, 4), (O, 3)], -607.0));
-    net.register_species(LACTATE, Molecule::new("Lactate", &[(C, 3), (H, 6), (O, 3)], -687.0));
-    net.register_species(ADP, Molecule::new("ADP", &[(C, 10), (H, 15), (N, 5), (O, 10), (P, 2)], -2626.0));
-    net.register_species(ATP, Molecule::new("ATP", &[(C, 10), (H, 16), (N, 5), (O, 13), (P, 3)], -3619.0));
+    net.register_species(
+        GLUCOSE,
+        Molecule::new("Glucose", &[(C, 6), (H, 12), (O, 6)], -1273.3),
+    );
+    net.register_species(
+        PYRUVATE,
+        Molecule::new("Pyruvate", &[(C, 3), (H, 4), (O, 3)], -607.0),
+    );
+    net.register_species(
+        LACTATE,
+        Molecule::new("Lactate", &[(C, 3), (H, 6), (O, 3)], -687.0),
+    );
+    net.register_species(
+        ADP,
+        Molecule::new("ADP", &[(C, 10), (H, 15), (N, 5), (O, 10), (P, 2)], -2626.0),
+    );
+    net.register_species(
+        ATP,
+        Molecule::new("ATP", &[(C, 10), (H, 16), (N, 5), (O, 13), (P, 3)], -3619.0),
+    );
     net.register_species(PI, Molecule::new("Pi", &[(H, 3), (O, 4), (P, 1)], -1288.0));
     net.register_species(WATER, Molecule::new("Water", &[(H, 2), (O, 1)], -285.8));
-    net.register_species(NAD_OX, Molecule::new("NAD+", &[(C, 21), (H, 27), (N, 7), (O, 14), (P, 2)], -1540.0));
-    net.register_species(NAD_RED, Molecule::new("NADH", &[(C, 21), (H, 28), (N, 7), (O, 14), (P, 2)], -1601.0));
+    net.register_species(
+        NAD_OX,
+        Molecule::new(
+            "NAD+",
+            &[(C, 21), (H, 27), (N, 7), (O, 14), (P, 2)],
+            -1540.0,
+        ),
+    );
+    net.register_species(
+        NAD_RED,
+        Molecule::new(
+            "NADH",
+            &[(C, 21), (H, 28), (N, 7), (O, 14), (P, 2)],
+            -1601.0,
+        ),
+    );
     net.register_species(PROTON, Molecule::new("H+", &[(H, 1)], 0.0));
 }
 
@@ -42,7 +71,13 @@ fn glycolysis_net_reaction() -> Reaction {
     Reaction::new(
         "glycolysis_net",
         &[(GLUCOSE, 1), (ADP, 2), (PI, 2), (NAD_OX, 2)],
-        &[(PYRUVATE, 2), (ATP, 2), (NAD_RED, 2), (PROTON, 2), (WATER, 2)],
+        &[
+            (PYRUVATE, 2),
+            (ATP, 2),
+            (NAD_RED, 2),
+            (PROTON, 2),
+            (WATER, 2),
+        ],
     )
 }
 
@@ -59,7 +94,11 @@ fn fermentation_regeneration_reaction() -> Reaction {
 /// Hydrolyse de l'ATP (travail cellulaire) : régénère l'ADP + Pi consommés
 /// par la glycolyse, fermant la boucle du cofacteur énergétique.
 fn atp_hydrolysis_reaction() -> Reaction {
-    Reaction::new("atp_hydrolysis", &[(ATP, 1), (WATER, 1)], &[(ADP, 1), (PI, 1)])
+    Reaction::new(
+        "atp_hydrolysis",
+        &[(ATP, 1), (WATER, 1)],
+        &[(ADP, 1), (PI, 1)],
+    )
 }
 
 /// Construit le réseau métabolique glycolytique complet, avec ses trois
@@ -67,9 +106,12 @@ fn atp_hydrolysis_reaction() -> Reaction {
 pub fn build_glycolysis_network() -> MetabolicNetwork {
     let mut net = MetabolicNetwork::new();
     register_species(&mut net);
-    net.add_reaction(glycolysis_net_reaction()).expect("glycolysis_net doit être équilibrée");
-    net.add_reaction(fermentation_regeneration_reaction()).expect("fermentation doit être équilibrée");
-    net.add_reaction(atp_hydrolysis_reaction()).expect("hydrolyse ATP doit être équilibrée");
+    net.add_reaction(glycolysis_net_reaction())
+        .expect("glycolysis_net doit être équilibrée");
+    net.add_reaction(fermentation_regeneration_reaction())
+        .expect("fermentation doit être équilibrée");
+    net.add_reaction(atp_hydrolysis_reaction())
+        .expect("hydrolyse ATP doit être équilibrée");
     // Cofacteurs et substrats de départ (quantités catalytiques réutilisées en boucle).
     net.deposit(ADP, 4.0);
     net.deposit(PI, 4.0);
@@ -107,7 +149,8 @@ pub fn run_metabolic_cycle(net: &mut MetabolicNetwork, glucose_mol: f64) -> Meta
 
 fn run_one_turn(net: &mut MetabolicNetwork) -> Result<[ReactionYield; 3], ChemError> {
     let glycolysis = net.run_reaction("glycolysis_net", net.quantity_mol(GLUCOSE))?;
-    let regeneration = net.run_reaction("fermentation_regeneration", glycolysis.extent_mol * 2.0)?;
+    let regeneration =
+        net.run_reaction("fermentation_regeneration", glycolysis.extent_mol * 2.0)?;
     // Le travail cellulaire consomme l'ATP produit, régénérant ADP + Pi :
     // c'est ce recyclage réel des cofacteurs qui rend le cycle continu.
     let hydrolysis = net.run_reaction("atp_hydrolysis", net.quantity_mol(ATP))?;

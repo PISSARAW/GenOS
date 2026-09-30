@@ -1,5 +1,5 @@
-pub use genos_signal::{ExtracellularMatrix, Ligand, Receptor, SignalingMode, TerritoryClaim};
 use crate::cell::AgentCell;
+pub use genos_signal::{ExtracellularMatrix, Ligand, Receptor, SignalingMode, TerritoryClaim};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -44,27 +44,30 @@ mod tests {
         let mut ecm = ExtracellularMatrix::new();
         let cell_a = AgentCell::default();
         let cell_b = AgentCell::default();
-        assert!(ecm
-            .claim_territory(TerritoryClaim {
+        assert!(
+            ecm.claim_territory(TerritoryClaim {
                 cell_id: cell_a.cell_id,
                 filepath: "genome.rs",
                 position: 0,
             })
-            .is_ok());
-        assert!(ecm
-            .claim_territory(TerritoryClaim {
+            .is_ok()
+        );
+        assert!(
+            ecm.claim_territory(TerritoryClaim {
                 cell_id: cell_b.cell_id,
                 filepath: "genome.rs",
                 position: 1,
             })
-            .is_err());
+            .is_err()
+        );
         assert!(ecm.release_territory(cell_a.cell_id, "genome.rs"));
-        assert!(ecm
-            .claim_territory(TerritoryClaim {
+        assert!(
+            ecm.claim_territory(TerritoryClaim {
                 cell_id: cell_b.cell_id,
                 filepath: "genome.rs",
                 position: 1,
             })
-            .is_ok());
+            .is_ok()
+        );
     }
 }
