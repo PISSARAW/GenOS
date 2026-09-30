@@ -137,7 +137,7 @@ mod tests {
         let outcome =
             apply_systemic_therapy_to_cell(&SystemicTherapy::InsulinSensitizerMetformin, &mut cell);
         assert_eq!(cell.clinical.markers["insulin_resistance"], 0.25);
-        assert_eq!(outcome.cured_pathologies, vec!["insulin_resistance réduit"]);
+        assert_eq!(outcome.applied_markers, vec!["insulin_resistance réduit"]);
         let absent =
             apply_systemic_therapy_to_cell(&SystemicTherapy::LysosomalUraturicPurge, &mut cell);
         assert!(absent.cured_pathologies.is_empty());
@@ -151,6 +151,29 @@ mod tests {
         );
         assert!(invalid.cured_pathologies.is_empty());
         assert_eq!(cell.clinical.markers["purine_production"], 2.0);
+    }
+    #[test]
+    fn vascular_proposed_therapy_requires_safe_bbb_and_target() {
+        let mut cell = AgentCell::new("Vasculaire", "Simulation", "Worker");
+        cell.clinical
+            .markers
+            .insert("vascular_occlusion".into(), 0.75);
+        let blocked = apply_systemic_therapy_to_cell(
+            &SystemicTherapy::CoronaryReperfusionThrombolysis,
+            &mut cell,
+        );
+        assert!(blocked.message.contains("refusé"));
+        assert!(blocked.cured_pathologies.is_empty());
+        assert_eq!(cell.clinical.markers["vascular_occlusion"], 0.75);
+        cell.clinical
+            .markers
+            .insert("blood_brain_barrier_integrity".into(), 0.6);
+        let applied = apply_systemic_therapy_to_cell(
+            &SystemicTherapy::CoronaryReperfusionThrombolysis,
+            &mut cell,
+        );
+        assert_eq!(applied.applied_markers, vec!["vascular_occlusion réduit"]);
+        assert_eq!(cell.clinical.markers["vascular_occlusion"], 0.5);
     }
     #[test]
     fn test_degenerative_stem_cell_cure() {

@@ -5,7 +5,15 @@ use genos_cell::AgentCell;
 const LOWER: f64 = 0.0;
 const UPPER: f64 = 1.0;
 
-pub fn safety_block(_therapy: &SystemicTherapy, _cell: &AgentCell) -> Option<String> {
+pub fn safety_block(therapy: &SystemicTherapy, cell: &AgentCell) -> Option<String> {
+    if matches!(therapy, SystemicTherapy::CoronaryReperfusionThrombolysis) {
+        let Some(bbb) = cell.clinical.markers.get("blood_brain_barrier_integrity") else {
+            return Some("intégrité de la BHE non renseignée".to_string());
+        };
+        if !bbb.is_finite() || !(0.0..=1.0).contains(bbb) || *bbb <= 0.5 {
+            return Some("intégrité de la BHE absente, invalide ou ≤ 0.5".to_string());
+        }
+    }
     None
 }
 
@@ -26,6 +34,12 @@ pub fn apply_extended_therapy(
         SystemicTherapy::ColchicineInhibition => ("purine_inflammation", 0.25),
         SystemicTherapy::AllopurinolXanthineInhibitor => ("purine_production", 0.25),
         SystemicTherapy::LysosomalUraturicPurge => ("purine_waste_load", 0.25),
+        SystemicTherapy::CoronaryReperfusionThrombolysis => ("vascular_occlusion", 0.25),
+        SystemicTherapy::VasodilatorFlowControl => ("vascular_resistance", 0.25),
+        SystemicTherapy::AntiAdhesionVasodilator => ("vascular_adhesion", 0.25),
+        SystemicTherapy::AntiNmdReadthrough => ("nmda_signal_deficit", 0.25),
+        SystemicTherapy::NeuroprotectiveAstrocyticFlush => ("astrocytic_waste_load", 0.25),
+        SystemicTherapy::BloodBrainBarrierSealant => ("blood_brain_barrier_deficit", 0.25),
         _ => return None,
     };
     let Some(value) = cell.clinical.markers.get_mut(marker) else {

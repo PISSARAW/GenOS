@@ -109,15 +109,13 @@ Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des
 | `SystemicTherapy::KetamineRapidInfusion` | Psychiatriques | Nosologie 8 |
 | `SystemicTherapy::MoodStabilizerLithium` | Psychiatriques | Nosologie 8 |
 | `SystemicTherapy::AntipsychoticAtypical` | Psychiatriques | Nosologie 8 |
-| `SystemicTherapy::CoronaryReperfusionThrombolysis` | Cardiovasculaires | Nosologie 7 |
-| `SystemicTherapy::VasodilatorFlowControl` | Cardiovasculaires | Nosologie 7 |
 | `SystemicTherapy::AntiretroviralCombination` | Infectieuses | Nosologie 3 |
 | `SystemicTherapy::AntimalarialACT` | Infectieuses | Nosologie 3 |
 | `SystemicTherapy::ExonSkippingAntisense` | Génétiques | Nosologie 4 |
 | `SystemicTherapy::CFTRModulatorTriad` | Génétiques | Nosologie 4 |
 | `SystemicTherapy::ChelationTherapy` | Environnementales | Nosologie 9 |
 
-Les rapports spécialisés proposent également les opérateurs `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`, `FetalCarrierReactivation`, `AntiAdhesionVasodilator`, `AntiNmdReadthrough`, `NeuroprotectiveAstrocyticFlush` et `BloodBrainBarrierSealant` (tous NON implémentés — propositions uniquement).
+Les rapports spécialisés proposent également les opérateurs `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`, `FetalCarrierReactivation` (tous NON implémentés — propositions uniquement).
 
 ---
 ### 4.3 Opérateurs métaboliques implémentés avec portée limitée
@@ -134,6 +132,21 @@ Les cinq opérateurs ci-dessous sont présents dans `SystemicTherapy` et routés
 
 Voir [ADR 0191](../../adr/0191-marqueurs-cliniques-extensibles.md) pour le contrat du registre de marqueurs.
 
+
+### 4.4 Opérateurs vasculaires et neurologiques implémentés avec portée limitée
+
+Ces opérateurs réduisent un marqueur existant de 0,25; ils ne déclarent pas de guérison. `CoronaryReperfusionThrombolysis` est refusé si le marqueur `blood_brain_barrier_integrity` est absent, invalide ou inférieur ou égal à 0,5. Les transformations ne simulent pas une prise en charge médicale.
+
+| Opérateur | Marqueur | Garde supplémentaire |
+|---|---|---|
+| `CoronaryReperfusionThrombolysis` | `vascular_occlusion` | Intégrité BHE renseignée et > 0,5 |
+| `VasodilatorFlowControl` | `vascular_resistance` | Aucune |
+| `AntiAdhesionVasodilator` | `vascular_adhesion` | Aucune |
+| `AntiNmdReadthrough` | `nmda_signal_deficit` | Aucune |
+| `NeuroprotectiveAstrocyticFlush` | `astrocytic_waste_load` | Aucune |
+| `BloodBrainBarrierSealant` | `blood_brain_barrier_deficit` | Aucune |
+
+Le résultat distingue les marqueurs modifiés des pathologies guéries (`applied_markers` et `cured_pathologies`).
 ## 5. État et plan d'implémentation
 
 ### 5.1 État vérifié

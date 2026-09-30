@@ -66,6 +66,14 @@ pub enum SystemicTherapy {
     ColchicineInhibition,
     AllopurinolXanthineInhibitor,
     LysosomalUraturicPurge,
+
+    // Opérateurs vasculaires et neurologiques proposés.
+    CoronaryReperfusionThrombolysis,
+    VasodilatorFlowControl,
+    AntiAdhesionVasodilator,
+    AntiNmdReadthrough,
+    NeuroprotectiveAstrocyticFlush,
+    BloodBrainBarrierSealant,
 }
 
 /// Résultat de l'application d'un traitement
@@ -73,6 +81,8 @@ pub enum SystemicTherapy {
 pub struct TherapyOutcome {
     pub therapy_name: String,
     pub cured_pathologies: Vec<String>,
+    #[serde(default)]
+    pub applied_markers: Vec<String>,
     pub induced_side_effects: Vec<Pathology>,
     pub message: String,
 }
@@ -86,6 +96,19 @@ pub fn apply_systemic_therapy_to_cell(
     let mut side_effects = Vec::new();
     let therapy_name = format!("{:?}", therapy);
 
+    if let Some(reason) = crate::therapy_extended::safety_block(therapy, cell) {
+        cell.clinical.last_treatment_applied = Some(therapy_name.clone());
+        cell.clinical
+            .clinical_log
+            .push(format!("Refus de traitement {}: {}", therapy_name, reason));
+        return TherapyOutcome {
+            therapy_name,
+            cured_pathologies: Vec::new(),
+            applied_markers: Vec::new(),
+            induced_side_effects: Vec::new(),
+            message: format!("Traitement refusé: {}", reason),
+        };
+    }
     if let Some((cured_pathologies, induced_side_effects)) =
         crate::therapy_extended::apply_extended_therapy(therapy, cell)
     {
@@ -100,7 +123,8 @@ pub fn apply_systemic_therapy_to_cell(
         };
         return TherapyOutcome {
             therapy_name,
-            cured_pathologies,
+            cured_pathologies: Vec::new(),
+            applied_markers: cured_pathologies,
             induced_side_effects,
             message,
         };
@@ -262,7 +286,13 @@ pub fn apply_systemic_therapy_to_cell(
         | SystemicTherapy::LevothyroxineHormoneReplacement
         | SystemicTherapy::ColchicineInhibition
         | SystemicTherapy::AllopurinolXanthineInhibitor
-        | SystemicTherapy::LysosomalUraturicPurge => unreachable!("géré par therapy_extended"),
+        | SystemicTherapy::LysosomalUraturicPurge
+        | SystemicTherapy::CoronaryReperfusionThrombolysis
+        | SystemicTherapy::VasodilatorFlowControl
+        | SystemicTherapy::AntiAdhesionVasodilator
+        | SystemicTherapy::AntiNmdReadthrough
+        | SystemicTherapy::NeuroprotectiveAstrocyticFlush
+        | SystemicTherapy::BloodBrainBarrierSealant => unreachable!("géré par therapy_extended"),
         SystemicTherapy::Vaccine(spike) => {
             cell.clinical
                 .clinical_log
@@ -273,6 +303,7 @@ pub fn apply_systemic_therapy_to_cell(
     TherapyOutcome {
         therapy_name,
         cured_pathologies: cured,
+        applied_markers: Vec::new(),
         induced_side_effects: side_effects,
         message: format!("Traitement complété pour l'agent {}", cell.name),
     }
