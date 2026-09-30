@@ -1,33 +1,38 @@
 # Natural Search Control Plane
 
-- **Statut** : Phases 1–5 : implémentation partielle avec intégration runtime expérimentale. Phases 6–12 : modules connectés aux primitives de l'actuateur et au traitement runtime (voir matrice ci-dessous). La reprise SQLite du ledger (hypothèses, preuves) et des compteurs de pression est vérifiée après fermeture puis réouverture d'une base fichier; la durabilité de tous les états des modules 6–12 n'est pas encore démontrée.
+- **Statut au 2026-09-30** : Phases 1–5 : implémentation partielle et expérimentale. Les chemins d'exécution runtime des phases 6–12 sont raccordés, selon la matrice ci-dessous. La reprise des hypothèses, preuves et compteurs de pression est démontrée après fermeture/réouverture SQLite; la durabilité de l'état propre à chacun des sept modules reste incomplète.
 - **Portée** : `backend/src/services/search/*.js`, `backend/tests/search/test_*.js`, `docs/adr/0032-natural-search-control-plane.md`.
-- **Dernière revue** : 2026-09-23.
-- **Jeu de tests** : `npm --prefix backend run test:natural-search` lance `test_natural_search_controller.js` (Controller + hystérésis), `test_natural_search_runtime_e2e.js`, `test_natural_search_e2e_pipeline.js` (pipeline réel `checkNaturalSearchControl()` avec DB SQLite) et `test_natural_search_full_pipeline_e2e.js`. Le `run_validation_suite.js profile=smoke` exécute les 5 suites Natural Search.
+- **Dernière revue** : 2026-09-30.
+- **Preuve de reprise** : `node backend/tests/search/test_natural_search_full_pipeline_e2e.js` exécute le pipeline contre une base SQLite fichier, la ferme et la rouvre, puis vérifie la restauration du ledger, d'une preuve et des compteurs de pression. Cela valide la reprise de ces données, pas celle de tous les états des modules 6–12.
 
 ## État d'implémentation
 
 | Composant | Statut | Fichier | Intégration pipeline |
 | --- | --- | --- | --- |
-|| Causal Progress Sensor | ✅ | `causalProgressService.js` | ✅ via `checkNaturalSearchControl()` |
-|| Entropy×Progression Classifier | ✅ | `entropyProgressClassifier.js` | ✅ |
-|| Hypothesis Ledger | ✅ | `hypothesisLedgerService.js` | ✅ |
-|| Search Pressure Model | ✅ | `searchPressureService.js` | ✅ |
-|| Natural Search Controller | ✅ | `naturalSearchController.js` | ✅ hystérésis + PROCESS_LEVEL |
-|| Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` | ✅ primitives GenOS réelles + persistance via `SearchPersistence` + encapsulation des 7 modules isolés via `ActuatorModules` |
-|| SearchReceipt | ✅ | `SearchReceipt.js` | ✅ |
-|| Runtime Integration | ✅ | `agentProcessEventPipeline.js` | ✅ via `checkNaturalSearchControl()` |
-|| Persistance SQLite | ✅ | `searchPersistenceService.js` | ✅ `saveHypothesis`/`saveProof`/`savePressure`/`saveDecision`/`savePatchVisit`/`saveGenomeSnapshot`/`saveReplayLog` + flush garanti dans `clearSearchState` |
-|| E2E — composants isolés | ✅ | `test_natural_search_runtime_e2e.js` | ✅ |
-|| E2E — pipeline `checkNaturalSearchControl()` | ✅ | `test_natural_search_e2e_pipeline.js` | ✅ appelle `checkNaturalSearchControl()` avec DB SQLite réelle |
-|| `test_search_evolution.js` | ✅ | `test_search_evolution.js` | ✅ EVOLUTION process + actuator cohérents |
-|| SearchGenome | ✅ intégré | `searchGenomeService.js` | ✅ via Actuator (FORAGE/STRESS_HYPERMUTATION/EVOLUTION) |
-|| Cognitive Affinity | ✅ intégré | `cognitiveAffinityService.js` | ✅ via Actuator (CLONAL_AFFINITY_SEARCH → createVariants + selectBestVariant) |
-|| Generalized Foraging | ✅ intégré | `searchPatchService.js` | ✅ via Actuator (FORAGE → patch lifecycle) |
-|| Causal Replay Service | ✅ intégré | `causalReplayService.js` | ✅ via Actuator (REPLAY_CAUSAL → checkpoints + replay) |
-|| Negative Search Memory | ✅ intégré | `negativeSearchMemoryService.js` | ✅ via runtime (falsification → recordNegativeOutcome) |
-|| Search Evolution | ✅ intégré | `searchEvolutionService.js` | ✅ via Actuator (EVOLUTION → evolveSearchPopulation) |
-|| Cultural Transmission | ✅ intégré | `searchCultureService.js` | ✅ via runtime (succès EVOLUTION/CLONAL → compilePlasmid + transmit) |
+| Causal Progress Sensor | ✅ | `causalProgressService.js` | ✅ via `checkNaturalSearchControl()` |
+| Entropy×Progression Classifier | ✅ | `entropyProgressClassifier.js` | ✅ |
+| Hypothesis Ledger | ✅ | `hypothesisLedgerService.js` | ✅ |
+| Search Pressure Model | ✅ | `searchPressureService.js` | ✅ |
+| Natural Search Controller | ✅ | `naturalSearchController.js` | ✅ hystérésis + PROCESS_LEVEL |
+| Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` | ✅ dispatch des primitives runtime + `ActuatorModules` |
+| SearchReceipt | ✅ | `SearchReceipt.js` | ✅ |
+| Runtime Integration | ✅ | `agentProcessEventPipeline.js` | ✅ via `checkNaturalSearchControl()` |
+| Persistance SQLite | ⚠️ partielle | `searchPersistenceService.js` | Écritures ledger, pression, décisions et journaux; reprise opérationnelle limitée au ledger et aux compteurs de pression |
+| E2E — composants isolés | ✅ | `test_natural_search_runtime_e2e.js` | ✅ |
+| E2E — pipeline `checkNaturalSearchControl()` | ✅ | `test_natural_search_e2e_pipeline.js` | ✅ appelle `checkNaturalSearchControl()` avec SQLite |
+| `test_search_evolution.js` | ✅ | `test_search_evolution.js` | ✅ EVOLUTION process + actuator cohérents |
+
+### Phases 6–12 : raccordement runtime et reprise
+
+| Phase | Module | Point d'entrée runtime | Reprise après redémarrage |
+| --- | --- | --- | --- |
+| 6 | Search Genome — `searchGenomeService.js` | Actuator `STRESS_HYPERMUTATION` et `EVOLUTION`; instantanés écrits en SQLite | Instantanés écrits, génome courant/population non rechargés |
+| 7 | Cognitive Affinity — `cognitiveAffinityService.js` | Actuator `CLONAL_AFFINITY_SEARCH`: crée/classe les variants et propose le variant retenu au ledger | Les hypothèses résultantes sont restaurées; variants transitoires non restaurés |
+| 8 | Generalized Foraging — `searchPatchService.js` | Actuator `FORAGE`: crée/actualise un patch et décide du départ | Visites enregistrées; historique et état du patch non rechargés |
+| 9 | Causal Replay — `causalReplayService.js` | Actuator `REPLAY_CAUSAL`: rejoue les événements et écrit un journal | Journal écrit; checkpoints et historique causal non rechargés par Natural Search |
+| 10 | Negative Search Memory — `negativeSearchMemoryService.js` | Runtime: falsification/échec → `recordNegativeOutcome` | Mémoire en processus, non restaurée depuis SQLite |
+| 11 | Search Evolution — `searchEvolutionService.js` | Actuator `EVOLUTION`: fait évoluer la population et écrit un instantané | Instantané écrit, population évoluée non rechargée |
+| 12 | Cultural Transmission — `searchCultureService.js` | Après succès `EVOLUTION`/`CLONAL_AFFINITY_SEARCH`: compile et transmet un plasmide | Culture et transmissions non restaurées par ce chemin SQLite |
 
 ## Architecture finale
 
@@ -93,10 +98,10 @@ checkNaturalSearchControl(ctx, event)
 
 ## Limitations connues
 
-- **Persistance SQLite** : `clearSearchState()` vide après flush; le runtime recharge hypothèses, preuves et compteurs de pression lors de la recréation de l'état. Le test pipeline ferme puis rouvre une base fichier avant de vérifier la restauration. Les états internes des services culturels/négatifs, des patches, du génome/population et des checkpoints de replay ne sont pas tous restaurés depuis SQLite.
+- **Persistance SQLite** : `clearSearchState()` attend le flush avant de supprimer l'état mémoire. À l'initialisation, le runtime recharge les hypothèses, preuves et compteurs de pression. Le test décrit plus haut vérifie ces données après fermeture et réouverture du fichier SQLite. Les artefacts des phases 6–12 ne constituent pas encore une reprise complète: plusieurs sont journalisés sans réhydratation de leur état opérationnel.
 - **Provenance** : `resolveProvenance()` route selon le type d'événement (EVIDENCE_REPORT→VERIFIED, AGENT_STEP→SELF_REPORTED, TOOL→OBSERVED, autre→INFERRED). Les champs `payload.provenance` / `payload.evidenceProvenance` sont ignorés : l'autorité sur la provenance vient du runtime, pas du producteur de la claim.
 - **Création proactive** : après 5 étapes sans progrès, `proactiveHypothesis()` génère une hypothèse à partir du genome courant.
-- **Encapsulation** : les 7 modules isolés (SearchGenome, CognitiveAffinity, SearchPatch, CausalReplay, NegativeSearchMemory, SearchEvolution, SearchCulture) sont directement instanciés par `ActuatorModules` dans l'Actuator, pas via `SearchIntegration` (service non existant dans ce commit).
+- **Encapsulation** : les sept modules sont instanciés par `ActuatorModules`; `SearchIntegration` existe et est utilisé pour la mémoire négative. Le raccordement des chemins d'exécution ne garantit pas que chaque état est durable et restauré.
 
 ## Expérience décisive planning-gap (2026-09-23)
 
