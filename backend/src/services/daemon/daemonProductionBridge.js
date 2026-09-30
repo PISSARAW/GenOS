@@ -20,6 +20,45 @@
 
 const bridgeService = require('./daemonEventBridgeService');
 const { migrateDaemonTerritory } = require('../../db/migrations/migrateDaemonTerritory');
+const { spawnSync } = require('node:child_process');
+
+const MAX_CHANGED_FILES = 200;
+const SAFE_REPO_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_.@/-]{1,240}$/;
+
+function readWorkspaceHead(rootPath) {
+  const result = spawnSync('git', ['-C', rootPath, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8', timeout: 3000, windowsHide: true
+  });
+  const headSha = (result.stdout || '').trim().toLowerCase();
+  return result.status === 0 && /^[a-f0-9]{40}$/.test(headSha) ? headSha : null;
+}
+
+async function changedFilesBetween(rootPath, oldHead, newHead) {
+  if (!/^[a-f0-9]{40}$/.test(oldHead || '') || !/^[a-f0-9]{40}$/.test(newHead || '')) return null;
+  const result = spawnSync('git', ['-C', rootPath, 'diff', '--name-only', '--no-renames', `${oldHead}..${newHead}`], {
+    encoding: 'utf8', timeout: 5000, windowsHide: true, maxBuffer: 1024 * 1024
+  });
+  if (result.status !== 0) return null;
+  const paths = (result.stdout || '').split(/\r?\n/).filter(Boolean);
+  if (paths.length > MAX_CHANGED_FILES || paths.some((path) => !SAFE_REPO_PATH.test(path))) return null;
+  return paths;
+}
+
+async function synchronizeTerritory(db, rootPath, territoryId) {
+  const row = await db.get('SELECT head_sha FROM daemon_territories WHERE id = ?', territoryId);
+  const workspaceHead = readWorkspaceHead(rootPath);
+  if (!row || !workspaceHead) return { synchronized: false, reason: 'head-unavailable' };
+  if (row.head_sha === workspaceHead) return { synchronized: true, headSha: workspaceHead, changedFiles: [] };
+  const changedFiles = await changedFilesBetween(rootPath, row.head_sha, workspaceHead);
+  if (!changedFiles) return { synchronized: false, reason: 'refresh-unavailable', daemonHead: row.head_sha, workspaceHead };
+  const updated = await emitTerritoryEvent(db, {
+    rootPath, type: 'TERRITORY_COMMIT', headSha: workspaceHead,
+    payload: { changedFiles },
+  });
+  return updated.emitted
+    ? { synchronized: true, headSha: workspaceHead, changedFiles }
+    : { synchronized: false, reason: updated.reason || 'refresh-failed' };
+}
 
 async function resolveTerritoryByRoot(db, rootPath) {
   try {
@@ -41,6 +80,7 @@ async function emitTerritoryEvent(db, event) {
       type: event.type,
       territoryId,
       headSha: event.headSha,
+      rootPath: event.rootPath,
       payload: event.payload || {}
     });
     return { emitted: ingested.ingested === true, territoryId, ...ingested };
@@ -63,12 +103,18 @@ async function announceMissionStart(input) {
   try {
     if (!input || !input.db) return { announced: false, reason: 'args-required' };
     for (const root of candidateRoots(input)) {
+      const territoryId = await resolveTerritoryByRoot(input.db, root);
+      if (!territoryId) continue;
+      const synchronization = await synchronizeTerritory(input.db, root, territoryId);
       const emitted = await emitTerritoryEvent(input.db, {
         rootPath: root,
         type: 'ORCHESTRATOR_ENTERED',
         payload: missionPayload(input.request)
       });
-      if (emitted.emitted) return { announced: true, territoryId: emitted.territoryId, rootPath: root };
+      if (emitted.emitted) return {
+        announced: true, territoryId: emitted.territoryId, rootPath: root,
+        synchronization
+      };
     }
     return { announced: false, reason: 'no-territory-registered' };
   } catch (_) {
@@ -106,7 +152,7 @@ async function recordCommit(db, outcome) {
     rootPath: outcome.rootPath,
     type: 'TERRITORY_COMMIT',
     headSha: outcome.headSha,
-    payload: {}
+    payload: { changedFiles: Array.isArray(outcome.changedFiles) ? outcome.changedFiles : [] }
   });
 }
 

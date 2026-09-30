@@ -224,6 +224,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0199](0199-resolution-et-boucle-evenementielle-de-morphogenese.md) | Résolution morphologique et boucle événementielle | Accepté | 2026-09-30 | Morphogenèse, planification, adaptation runtime |
 | [0200](0200-activation-des-boucles-de-morphogenese.md) | Activation des boucles de morphogenèse | Accepté | 2026-09-30 | Morphogenèse, contrôle runtime, apprentissage |
 | [0201](0201-outcomes-de-morphogenese-verifies.md) | Outcomes de morphogenèse vérifiés | Accepté | 2026-09-30 | Morphogenèse, apprentissage, provenance |
+| [0202](0202-handoff-daemon-actualise-au-demarrage.md) | Handoff daemon actualisé au démarrage d'une mission | Accepté | 2026-09-30 | Daemons résidents, cartographie, orchestration |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

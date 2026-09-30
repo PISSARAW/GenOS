@@ -23,6 +23,7 @@ const relevance = require('./handoffRelevanceService');
 const MAX_BRIEF_FINDINGS = 20;
 const MAX_DEAD_ENDS = 10;
 const MAX_TESTS = 50;
+const MAX_ARCHITECTURE_REFS = 20;
 
 function briefIdFor(territoryId, headSha, mission) {
   const hash = crypto.createHash('sha256').update(`${territoryId}|${headSha}|${mission || ''}|${Date.now()}`).digest('hex').slice(0, 12);
@@ -62,6 +63,30 @@ async function graphSummary(db, territoryId) {
   const nodes = await graphStore.listNodes(db, { territoryId });
   const symbols = (nodes || []).filter((n) => n.kind === 'symbol').length;
   return { files: counts.nodes - symbols, symbols, edges: counts.edges };
+}
+
+async function architectureRefs(db, territoryId) {
+  const nodes = await graphStore.listNodes(db, { territoryId });
+  return (nodes || []).filter((node) => node.kind === 'file' && isArchitecturePath(node.path))
+    .slice(0, MAX_ARCHITECTURE_REFS)
+    .map((node) => ({ path: node.path, headSha: node.head_sha || null }));
+}
+
+function isArchitecturePath(path) {
+  return typeof path === 'string' && (
+    /(^|\/)(AGENTS\.md|README(?:\.[^/]*)?|package\.json|Cargo\.toml)$/i.test(path)
+    || /^docs\/(?:adr|01-concepts)\//i.test(path)
+  );
+}
+
+function regressionFindings(ranked) {
+  return ranked.filter((item) => ['REPAIRABLE', 'REPRODUCED', 'CAUSALLY_SUPPORTED'].includes(item.finding.status))
+    .slice(0, 10).map(toBriefFinding);
+}
+
+function contradictionFindings(ranked) {
+  return ranked.filter((item) => Number(item.finding.contradicting) > 0)
+    .slice(0, 10).map(toBriefFinding);
 }
 
 function stalenessWarnings(territory, findings) {
@@ -115,6 +140,13 @@ async function buildBrief(db, job) {
   const briefId = briefIdFor(args.territoryId, territory.headSha, args.mission);
   const attention = await stigmergyService.readAttention(db, { territoryId: args.territoryId, limit: 5 });
   const phenotypes = await activePhenotypeSection(db, args.territoryId);
+  const refs = await architectureRefs(db, args.territoryId);
+  const tests = await testPaths(db, args.territoryId);
+  const deadEndRows = await deadEnds(db, args.territoryId);
+  const findingRows = top.map(toBriefFinding);
+  const staleSections = [];
+  if (territory.state === 'STALE') staleSections.push('territory-index');
+  if (ranked.some((item) => item.finding.status === 'STALE')) staleSections.push('findings');
   return {
     briefId,
     territoryId: args.territoryId,
@@ -128,13 +160,25 @@ async function buildBrief(db, job) {
       openFindings: ranked.length,
       deadEnds: (await deadEnds(db, args.territoryId)).length
     },
-    findings: top.map(toBriefFinding),
-    deadEnds: await deadEnds(db, args.territoryId),
-    tests: await testPaths(db, args.territoryId),
+    findings: findingRows,
+    deadEnds: deadEndRows,
+    knownDeadEnds: deadEndRows,
+    tests,
+    relevantTests: tests,
+    relevantArchitectureRefs: refs,
+    recentRegressions: regressionFindings(ranked),
+    unresolvedContradictions: contradictionFindings(ranked),
+    staleSections,
+    recommendedInspectionTargets: inspectionTargets(findingRows, refs),
     attention,
     stalenessWarnings: stalenessWarnings(territory, ranked.map((r) => r.finding)),
     generatedAt: new Date().toISOString()
   };
+}
+
+function inspectionTargets(findings, refs) {
+  const targets = [...findings.map((finding) => finding.scope && finding.scope.value), ...refs.map((ref) => ref.path)];
+  return [...new Set(targets.filter((target) => typeof target === 'string' && target.length > 0))].slice(0, 20);
 }
 
 /**

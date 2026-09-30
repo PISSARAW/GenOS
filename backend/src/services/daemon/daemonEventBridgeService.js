@@ -20,6 +20,8 @@ const wakePolicyService = require('./daemonWakePolicyService');
 const territoryService = require('./daemonTerritoryService');
 const daemonRuntime = require('./residentDaemonRuntime');
 const handoffCompiler = require('./handoff/handoffCompilerService');
+const cartographer = require('./cartography/cartographerService');
+const findingService = require('./findings/findingService');
 const signalEventBus = require('../signalEventBus');
 const { migrateDaemonEvents } = require('../../db/migrations/migrateDaemonEvents');
 const { migrateDaemonEventPayload } = require('../../db/migrations/migrateDaemonEventPayload');
@@ -51,10 +53,35 @@ async function applyCheapUpdate(bridge, event, receptor) {
 async function applyHeadUpdate(bridge, event) {
   if (event.headSha) {
     const res = await territoryService.updateHead(bridge.db, { id: event.territoryId, headSha: event.headSha });
-    return { applied: true, kind: 'head', ...res };
+    const findings = await findingService.markStaleOnHead(bridge.db, {
+      territoryId: event.territoryId, headSha: event.headSha
+    });
+    const changedFiles = safeChangedFiles(event.payload && event.payload.changedFiles);
+    let refresh = { refreshed: false, reason: 'root-unavailable' };
+    if (changedFiles && event.rootPath && changedFiles.length) {
+      try {
+        const result = await cartographer.updateFiles(bridge.db, {
+          territoryId: event.territoryId, rootPath: event.rootPath, files: changedFiles
+        });
+        refresh = { refreshed: true, ...result };
+      } catch (_) {
+        refresh = { refreshed: false, reason: 'refresh-failed' };
+      }
+    } else if (changedFiles && changedFiles.length === 0) {
+      refresh = { refreshed: true, invalidated: 0, reindexed: 0 };
+    } else if (!changedFiles) {
+      refresh = { refreshed: false, reason: 'changed-files-unavailable' };
+    }
+    return { applied: true, kind: 'head', ...res, findings, refresh };
   }
   await territoryService.touchObserved(bridge.db, { id: event.territoryId });
   return { applied: true, kind: 'touch' };
+}
+
+function safeChangedFiles(files) {
+  if (!Array.isArray(files) || files.length > 200) return null;
+  const safe = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_.@/-]{1,240}$/;
+  return files.every((path) => typeof path === 'string' && safe.test(path)) ? files : null;
 }
 
 async function maybeWakeRuntime(bridge, event, receptor) {
