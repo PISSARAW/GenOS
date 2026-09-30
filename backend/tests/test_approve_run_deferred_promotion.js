@@ -26,6 +26,8 @@ async function run() {
 
     const contract = contractRecord.contract;
     contract.promotion.require_human_approval = true;
+    contract.promotion.require_independent_verification = false;
+    contract.promotion.require_epistemic_assurance = false;
     const hash = strategyContracts.hashContract(contract);
     await db.run('UPDATE strategy_contracts SET contract_json = ?, contract_hash = ? WHERE id = ?', JSON.stringify(contract), hash, contractRecord.id);
 
@@ -64,6 +66,29 @@ async function run() {
     assert(finalizedEvent, 'STRATEGY_PROMOTION_FINALIZED event should be emitted');
     assert.equal(finalizedEvent.payload.runId, run.id);
     assert.equal(finalizedEvent.payload.approvedBy, 'security_auditor');
+
+    const gatedRecord = await strategyContracts.saveContract(db, {
+      agentId: 'agent-promo-test',
+      problem: 'AEIS-gated promotion requires a complete assurance assembly'
+    });
+    const gatedContract = gatedRecord.contract;
+    gatedContract.promotion.require_epistemic_assurance = true;
+    gatedContract.promotion.require_independent_verification = false;
+    gatedContract.promotion.epistemic_verifier_digests = ['sha256:' + 'a'.repeat(64)];
+    const gatedHash = strategyContracts.hashContract(gatedContract);
+    await db.run('UPDATE strategy_contracts SET contract_json = ?, contract_hash = ? WHERE id = ?', JSON.stringify(gatedContract), gatedHash, gatedRecord.id);
+    const blockedRun = await strategyService.createExecutionRun(db, {
+      agentId: 'agent-promo-test',
+      contractRecord: { ...gatedRecord, contract: gatedContract },
+      budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 }
+    });
+    await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", blockedRun.id);
+    await assert.rejects(strategyService.approveRun(db, blockedRun.id, {
+      report: { outcome: 'success', claims: [{ statement: 'unsupported claim', evidence: [] }] },
+      approvedBy: 'security_auditor'
+    }), /Promotion gate refused.*require_epistemic_assurance/);
+    assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', blockedRun.id)).status, 'awaiting_approval');
+    assert.equal(emittedEvents.some((event) => event.payload?.runId === blockedRun.id && event.eventType === 'STRATEGY_PROMOTION_FINALIZED'), false);
 
     telemetry.off('telemetry', onTelemetry);
     console.log('✅ approveRun successfully executes deferred promotion pipeline and telemetry.');
