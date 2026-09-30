@@ -1,13 +1,18 @@
 # Instinct — Comportements innés pré-câblés et Patterns d'Action Fixes
 
-- **Statut** : Implémentation runtime partielle — `tick` et `run_autonomous` appellent le dispatch hôte du PAF avec permissions explicites et reçus par action. Les stimuli restent dérivés de `WorldState`; aucun capteur physique ni adaptateur d'outil de production n'est fourni. Le CLI `trigger` est une validation seule.
+- **Statut** : Implémentation runtime partielle — `tick` et `run_autonomous` appellent le dispatch hôte du PAF avec permissions explicites et reçus par action. `InstinctSensorAdapter` permet de raccorder des lectures hôte typées aux stimuli `WorldState`; aucun pilote de capteur physique n'est fourni. `InstinctActionExecutor` est le contrat de dispatch hôte, pas une intégration universelle d'outils de production. Le CLI `trigger` reste une validation seule.
 - **Portée** : `crates/genos-biology/src/specialized_cells/cnidocyte.rs`, `sensory/vomeronasal.rs`, `InstinctProgram` + `FixedActionPattern`.
 - **Dernière revue** : 2026-09-17.
 
-Le circuit est branché à `tick` et `run_autonomous`. L'hôte fournit un
-`InstinctActionExecutor` et les outils que sa politique a déjà autorisés. Sans
-exécuteur ou permission, le PAF est bloqué; il n'est complet qu'après un reçu
-réussi pour chaque action. Le CLI/MCP d'évaluation ne prétend pas dispatcher.
+Le circuit est branché à `tick` et `run_autonomous`. L'hôte peut fournir un
+`InstinctSensorAdapter` qui retourne des mesures avec modalité, signature et
+intensité; elles sont fusionnées avec les signaux dérivés de `WorldState`. Une
+erreur de lecture est journalisée et n'est jamais transformée en signal positif.
+L'hôte fournit aussi un `InstinctActionExecutor` et les outils que sa politique
+a déjà autorisés. Sans exécuteur ou permission, le PAF est bloqué; il n'est
+complet qu'après un reçu réussi pour chaque action. Ces contrats n'incluent pas
+de pilotes concrets pour un capteur ou un fournisseur d'outils donné. Le
+CLI/MCP d'évaluation ne prétend pas dispatcher.
 
 ## 1. Définition du domaine
 

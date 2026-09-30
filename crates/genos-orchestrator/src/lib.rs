@@ -85,7 +85,10 @@ pub use evolution::{
 pub use global_workspace::{
     BroadcastEffect, GlobalWorkspaceReport, WorkspaceConsumer, WorkspaceEvent, WorkspaceSignal,
 };
-pub use instincts::{InstinctActivation, InstinctState};
+pub use instincts::{
+    InstinctActionExecutor, InstinctActionReceipt, InstinctActivation, InstinctSensorAdapter,
+    InstinctState,
+};
 pub use learning::{Learner, LinearBandit, context_from_state};
 pub use metabolism::Metabolism;
 pub use orchestrator::BiomimeticOrchestrator;

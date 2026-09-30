@@ -21,6 +21,12 @@ pub trait InstinctActionExecutor: Send {
     fn execute(&mut self, step: &MotorStep) -> Result<InstinctActionReceipt, String>;
 }
 
+/// Adaptateur d'entrée hôte. Chaque lecture porte une modalité, une signature
+/// et une intensité mesurée par le système source (capteur, métrique ou alerte).
+pub trait InstinctSensorAdapter: Send {
+    fn read(&mut self) -> Result<Vec<SignStimulus>, String>;
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InstinctActionReceipt {
     pub execution_id: String,
@@ -46,6 +52,7 @@ pub struct InstinctState {
     pub last_reflex: Option<String>,
     pub last_desire_expression: Option<String>,
     pub action_executor: Option<Box<dyn InstinctActionExecutor>>,
+    pub sensor_adapter: Option<Box<dyn InstinctSensorAdapter>>,
     pub authorized_tools: Vec<String>,
 }
 
@@ -58,6 +65,7 @@ impl Default for InstinctState {
             last_reflex: None,
             last_desire_expression: None,
             action_executor: None,
+            sensor_adapter: None,
             authorized_tools: Vec::new(),
         }
     }
@@ -122,6 +130,12 @@ impl GenosEcosystem {
         self.instincts.action_executor = Some(executor);
     }
 
+    /// Branche l'adaptateur de capteurs fourni par l'hôte. Une erreur de lecture
+    /// n'est jamais convertie en stimulus positif.
+    pub fn set_instinct_sensor_adapter(&mut self, adapter: Box<dyn InstinctSensorAdapter>) {
+        self.instincts.sensor_adapter = Some(adapter);
+    }
+
     /// Définit les outils déjà autorisés par la politique de l'agent/hôte.
     pub fn set_instinct_authorized_tools(&mut self, tools: Vec<String>) {
         self.instincts.authorized_tools = tools;
@@ -142,6 +156,22 @@ impl GenosEcosystem {
         stimulus_field_from(&self.observe())
     }
 
+    /// Lit le capteur hôte et fusionne ses lectures avec les signaux WorldState.
+    /// En cas d'erreur, les signaux WorldState restent disponibles et l'erreur
+    /// est renvoyée à l'appelant pour qu'il puisse la journaliser.
+    pub fn read_instinct_stimuli(&mut self) -> Result<StimulusField, String> {
+        let mut field = stimulus_field_from(&self.observe());
+        self.append_sensor_readings(&mut field)?;
+        Ok(field)
+    }
+
+    fn append_sensor_readings(&mut self, field: &mut StimulusField) -> Result<(), String> {
+        if let Some(adapter) = self.instincts.sensor_adapter.as_deref_mut() {
+            field.readings.extend(adapter.read()?);
+        }
+        Ok(())
+    }
+
     /// État hormonal dérivé de l'état observable courant.
     pub fn hormone_state(&self) -> HormoneState {
         hormone_state_from(&self.observe())
@@ -149,7 +179,10 @@ impl GenosEcosystem {
 
     /// Évalue et exécute les instincts déclenchés pour l'état donné.
     pub(crate) fn run_instincts(&mut self, state: &WorldState) {
-        let field = stimulus_field_from(state);
+        let mut field = stimulus_field_from(state);
+        if let Err(error) = self.append_sensor_readings(&mut field) {
+            self.record_event("INSTINCT_SENSOR_ERROR", json!({ "error": error }));
+        }
         let hormones = hormone_state_from(state);
         let execution = execution_context(&self.instincts.authorized_tools);
         let programs = self.instincts.library.programs.clone();
