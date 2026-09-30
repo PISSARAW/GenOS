@@ -41,8 +41,22 @@ async function runTests() {
 
   const immuneReview = await H.immuneSymbiontReview(antigen, {});
   assert.ok(immuneReview.pipeline);
+  assert.equal(typeof immuneReview.homeostaticFeedback.pressure, 'number');
+  assert.ok(['baseline', 'lean', 'adaptive', 'inflamed', 'systemic'].includes(immuneReview.homeostaticFeedback.tier));
+  assert.ok(Array.isArray(immuneReview.homeostaticFeedback.addedVerifiers));
   assert.ok(typeof immuneReview.blocked === 'boolean');
   assert.ok(typeof immuneReview.regulatorInhibited === 'boolean');
+  const multiProviderReview = await H.immuneSymbiontReview(antigen, {
+    crossProvider: {
+      providers: [{ provider: 'provider-a' }, { provider: 'provider-b' }],
+      runProvider: async ({ provider }) => ({ assessment: `reviewed by ${provider}` }),
+    },
+    requireCrossProvider: true,
+  });
+  assert.equal(multiProviderReview.crossProvider.status, 'completed');
+  assert.equal(multiProviderReview.blocked, false);
+  assert.ok(multiProviderReview.nicheRecruitment);
+  assert.equal(multiProviderReview.isolatedPopulations, null);
 
   // ---- memorySymbiontLookup ----
 
@@ -159,3 +173,4 @@ runTests().catch(err => {
   console.error('FAIL:', err.message);
   process.exit(1);
 });
+

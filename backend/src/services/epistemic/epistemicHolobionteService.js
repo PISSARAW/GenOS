@@ -37,6 +37,7 @@ const { runAdaptivePipeline } = require('./adaptiveImmuneResponse');
 const { cognitiveBiocenose, isMonoculture } = require('./epistemicBiocenoseService');
 const { recall, fuzzyRecall, recordOutcome } = require('./immuneMemoryService');
 const { regulatoryReview } = require('./epistemicInflammationAndRegulation');
+const { reArbitrateFromHomeostasis, verifierAssignments } = require('./epistemicHomeostaticArbitration');
 const { computePressure, tierFromPressure } = require('./epistemicHomeostasisService');
 const { dissonanceFrom, niveauCorpsent } = require('./epistemicApoptosisService');
 const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
@@ -45,6 +46,9 @@ const { matureStrategy } = require('./affinityMaturationService');
 const { depositPheromone } = require('./stigmergyInterProcessBridge');
 const { applyHomeostaticFeedback, recruitNicheVerifier } = require('./epistemicHomeostaticRearbitration');
 const { runProviderMetapopulation } = require('./epistemicProviderMetapopulation');
+const { verifyAcrossProviders } = require('./crossProviderVerificationService');
+const { recruitAndExecute } = require('./epistemicNicheRecruitmentService');
+const { runIsolatedPopulations } = require('./processIsolatedMetapopulationRunner');
 
 function hostDecision(reports, opts = {}) {
   const specialistOutput = reports.specialistOutput || reports.specialist;
@@ -156,17 +160,42 @@ async function runClonalSelectionCycle(parent, antigen, ctx) {
   return { clones, cloneResults, selection, maturation, oracleResolved: Boolean(oracleTruth) };
 }
 
+async function runReviewIntegrations(antigen, verifiers, context) {
+  const crossProvider = context.crossProvider
+    ? await verifyAcrossProviders({ ...context.crossProvider, claim: antigen.claim, evidence: antigen.epitopes?.evidence })
+    : null;
+  const nicheRecruitment = await recruitAndExecute({
+    reviewers: verifiers,
+    execute: async (candidate) => {
+      const execution = await executeVerifierWorkers(antigen, [{ ...candidate, verifier: candidate.type }], context);
+      return execution.results?.[0] || null;
+    },
+  });
+  const isolatedPopulations = Array.isArray(context.isolatedPopulations)
+    ? await runIsolatedPopulations(context.isolatedPopulations)
+    : null;
+  return { crossProvider, nicheRecruitment, isolatedPopulations };
+}
+
+function reviewBlockState(pipeline, context, integrations) {
+  const innateBlocked = isImmuneDecisionBlocked(pipeline);
+  const crossProviderBlocked = context.requireCrossProvider === true && integrations.crossProvider?.independent !== true;
+  const isolationBlocked = context.requireProcessIsolation === true
+    && (!integrations.isolatedPopulations?.length || integrations.isolatedPopulations.some((item) => item.status === 'error'));
+  const reason = innateBlocked
+    ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}`
+    : crossProviderBlocked ? 'independent provider quorum unavailable'
+      : isolationBlocked ? 'process-isolated verifier unavailable' : null;
+  return { blocked: innateBlocked || crossProviderBlocked || isolationBlocked, blockReason: reason };
+}
 async function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
-  const blocked = isImmuneDecisionBlocked(pipeline);
-  const blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
-
-  const verifiers = pipeline.decision?.assignedVerifiers?.map((v) => ({
-    type: v.verifier,
-    strategy: v.strategy || [],
-    affinity: v.affinity || 0.5,
-  })) || [];
-  const verifierResults = await executeVerifierWorkers(antigen, verifiers, context);
+  const initialVerifiers = verifierAssignments(pipeline);
+  const initialResults = await executeVerifierWorkers(antigen, initialVerifiers, context);
+  const reviewed = await reArbitrateFromHomeostasis({ antigen, context, pipeline, initialVerifiers, firstResults: initialResults });
+  const { verifierResults, verifiers } = reviewed;
+  const integrations = await runReviewIntegrations(antigen, verifiers, context);
+  const { blocked, blockReason } = reviewBlockState(reviewed.pipeline, context, integrations);
 
   const bestVerifier = selectBestVerifier(verifiers);
   const clonal = bestVerifier
@@ -187,9 +216,11 @@ async function immuneSymbiontReview(antigen, context = {}) {
     blockReason,
     regulatorInhibited: regulator.inhibit,
     regulatorReason: regulator.reason,
-    pipeline,
+    pipeline: reviewed.pipeline,
+    homeostaticFeedback: reviewed.feedback,
     decision: pipeline.decision?.innate?.decision?.action || pipeline.decision?.decision || 'unknown',
     verifierResults,
+    ...integrations,
     clones: clonal.clones,
     clonalSelection: clonal.selection,
     affinityMaturation: clonal.maturation,
@@ -318,3 +349,7 @@ module.exports = {
   matureStrategy,
   depositPheromone,
 };
+
+
+
+

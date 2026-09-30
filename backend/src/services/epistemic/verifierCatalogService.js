@@ -150,7 +150,7 @@ function epitopeHint(antigen) {
 }
 
 function allVerifiers(catalog) {
-  return VERIFIER_KINDS.filter((k) => catalog[k]);
+  return VERIFIER_KINDS.filter((kind) => catalog[kind]).map((kind) => catalog[kind]);
 }
 
 function matchingVerifiers(catalog, antigen) {

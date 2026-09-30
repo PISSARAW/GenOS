@@ -530,3 +530,9 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
   vérification signés, indépendants et couvrant le census des obligations. Il
   reste à produire un E2E accepté avec deux acteurs indépendants, en plus des
   cas de refus déjà couverts par les gates.
+- vérification multi-provider désormais branchable depuis `immuneSymbiontReview`; l’adaptateur et la politique `requireCrossProvider` restent à fournir par l’appelant avant promotion sensible
+- recrutement de niche désormais dynamique depuis `immuneSymbiontReview` quand le recensement détecte une monoculture; les tests d’intégration sur providers/runtime réel restent à compléter
+- worker AEIS isolé dans un processus séparé disponible et appelé lorsque `isolatedPopulations` est fourni; la configuration et la preuve E2E de séparation des populations restent à couvrir
+- feedback homéostatique runtime intégré à la ré-arbitration de la boucle de
+  contrôle à partir de la pression d'assurance et du delta de preuve
+- `approveRun()` complet avec DB non couvert par un test E2E bon/bloqué (gate testée via buildGateContext + policy)
