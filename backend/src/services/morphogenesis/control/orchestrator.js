@@ -3,7 +3,7 @@
 const { FastControlLoop } = require('./fastControlLoop');
 const { StructuralControlLoop } = require('./structuralControlLoop');
 const { EvolutionaryControlLoop } = require('./evolutionaryControlLoop');
-const { decideEventAction } = require('./morphogenesisControlLoopService');
+const { decideEventAction, classifyAction } = require('./morphogenesisControlLoopService');
 
 class ControlLoopOrchestrator {
   constructor(opts = {}) {
@@ -27,10 +27,17 @@ class ControlLoopOrchestrator {
     const decision = decideEventAction(event, evidenceContext);
     const pending = this.context.pendingMorphogenesisDecisions || [];
     this.context.pendingMorphogenesisDecisions = [...pending, decision].slice(-100);
+    this.routeStructuralDecision(decision);
     const fastContext = { ...this.context, latestEvent: event };
     const fast = await this.fastLoop.run(fastContext, { force: true });
     if (fast.executed) this.context.lastFastResult = fast;
     return { ...decision, fastLoop: fast };
+  }
+
+  routeStructuralDecision(decision) {
+    if (classifyAction(decision.action) === 'structural') {
+      this.context.structuralLoopRequested = true;
+    }
   }
 
   async start() {
@@ -54,7 +61,8 @@ class ControlLoopOrchestrator {
     const fastResult = await this.fastLoop.run(this.context);
     if (fastResult.executed) this.context.lastFastResult = fastResult;
 
-    if (this.tickCount % 10 === 0) {
+    if (this.tickCount % 10 === 0 || this.context.structuralLoopRequested) {
+      this.context.structuralLoopRequested = false;
       const structuralResult = await this.structuralLoop.run(this.context);
       if (structuralResult.executed) this.context.lastStructuralResult = structuralResult;
     }

@@ -34,7 +34,35 @@ function validReceiptFields(receipt, receiptId) {
 
 function evidenceDigest(evidence) {
   const payload = { success: evidence.success, value: Number(evidence.value), kind: evidence.kind };
+  if (evidence.learningContext) payload.learningContext = evidence.learningContext;
   return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+function validateLearningEvidence(evidence) {
+  if (!validate(evidence)) return false;
+  return validLearningContext(evidence.learningContext);
+}
+
+function validLearningContext(context) {
+  return validProblemSignature(context) && validInitialMorphology(context)
+    && validLearningEnvironment(context) && validLearningBudget(context);
+}
+
+function validProblemSignature(context) {
+  return Boolean(context && typeof context.problemSignature === 'string' && context.problemSignature.trim());
+}
+
+function validInitialMorphology(context) {
+  return Boolean(context?.initialMorphology && typeof context.initialMorphology === 'object'
+    && typeof context.initialMorphology.topology === 'string');
+}
+
+function validLearningEnvironment(context) {
+  return Boolean(context?.environment && context.model && context.harness);
+}
+
+function validLearningBudget(context) {
+  return Boolean(context?.budget && typeof context.budget === 'object');
 }
 
 function trustedReceipt(receipt) {
@@ -47,4 +75,4 @@ function trustedReceipt(receipt) {
   }
 }
 
-module.exports = { validate, ADMISSIBLE_EVIDENCE_KINDS };
+module.exports = { validate, validateLearningEvidence, evidenceDigest, ADMISSIBLE_EVIDENCE_KINDS };
