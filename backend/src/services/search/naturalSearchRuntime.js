@@ -11,6 +11,7 @@ const { getDatabase } = require('../../db');
 
 const { ActuatorModules } = require('./actuatorModules');
 const { handleHypothesisProtocol } = require('./hypothesisEventProtocol');
+const { restoreModuleStates, persistModuleStates } = require('./moduleStatePersistence');
 
 const agentSearchState = new Map();
 let cachedDb = null;
@@ -40,6 +41,7 @@ async function flushSearchState(agentId) {
     await persistHypotheses(persistence, hypotheses);
     await persistProofs(persistence, ledger, hypotheses);
     await persistPressure(searchState, causalProgress, persistence);
+    await persistModuleStates(agentId, searchState);
   } catch (err) {
     console.warn(`[Natural Search] Flush error for ${agentId}:`, err.message);
   }
@@ -76,11 +78,13 @@ async function getOrCreateSearchState(agentId, ctxDb = null) {
     const persistence = new SearchPersistence(db);
     const ledger = new HypothesisLedger({ budgetRatioThreshold: 0.8 });
     const controller = new NaturalSearchController({ ledger });
+    const modules = new ActuatorModules({ ledger });
     const actuator = new NaturalSearchActuator({
       db, persistence, ledger,
       searchGenome: { patches: new Map(), population: null, genome: null },
-      modules: new ActuatorModules({ ledger })
+      modules
     });
+    modules.searchGenome = actuator.searchGenome;
     const causalProgress = new CausalProgressService();
     const integration = new SearchIntegration();
     const searchState = {
@@ -120,6 +124,7 @@ async function restoreSearchState(agentId, state) {
     state.stepCount = pressure.step_count || 0;
     state.lastProgressStep = pressure.last_progress_step || 0;
   }
+  await restoreModuleStates(agentId, state);
 }
 
 async function clearSearchState(agentId) {
@@ -311,6 +316,7 @@ async function persistSearchState(agentId, searchState, selection) {
       recommendedRadius: report.diagnostics.diminishingReturns ? 'local' : 'medium',
       stepCount: searchState.stepCount, lastProgressStep: searchState.lastProgressStep
     });
+    await persistModuleStates(agentId, searchState);
   } catch (err) {
     console.warn(`[Natural Search] Persistence error: ${err.message}`);
   }

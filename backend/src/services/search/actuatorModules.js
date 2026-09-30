@@ -46,7 +46,9 @@ class ActuatorModules {
 
   // === CLONAL AFFINITY — cognitiveAffinityService ===
   createAffinityVariants(baseGenome, count, radius) {
-    return createVariants(baseGenome || this.searchGenome.genome, count || 4, radius || 'minimal');
+    const variants = createVariants(baseGenome || this.searchGenome.genome, count || 4, radius || 'minimal');
+    this.affinityVariants = variants;
+    return variants;
   }
 
   selectAffinityVariant(variants, agentId) {
