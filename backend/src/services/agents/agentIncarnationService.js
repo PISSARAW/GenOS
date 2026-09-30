@@ -118,6 +118,13 @@ function restrictByTools(dnaSelection, base) {
   return base;
 }
 
+function expressedCapabilities(dnaSelection, requested) {
+  const expressed = dnaSelection?.genes?.capabilities;
+  if (!Array.isArray(expressed)) return requested;
+  const allowed = new Set(expressed.map((capability) => String(capability)));
+  return requested.filter((capability) => allowed.has(String(capability)));
+}
+
 function restrictByPhenotype(request, base) {
   if (request.phenotype?.tools?.length) return intersectLease(request.phenotype.tools, base);
   return base;
@@ -126,7 +133,7 @@ function restrictByPhenotype(request, base) {
 function computeLease(ctx) {
   const { request, dnaSelection, providedLease } = ctx;
   const caps = safeArray(request.capabilityManifest?.owned);
-  const base = workerToolLeaseForCapabilities(request.role, caps);
+  const base = workerToolLeaseForCapabilities(request.role, expressedCapabilities(dnaSelection, caps));
   const afterDna = restrictByTools(dnaSelection, base);
   const afterPheno = restrictByPhenotype(request, afterDna);
   const final = providedLease ? restrictProvidedLease(providedLease, afterPheno) : afterPheno;

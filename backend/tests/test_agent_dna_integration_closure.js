@@ -5,6 +5,7 @@ const { express } = require('../src/services/agentDna/express');
 const { computeActiveTfs, propagateGrn } = require('../src/services/agentDna/grn');
 const { isSilenced } = require('../src/services/agentDna/silencing');
 const { applyEpigenomeMarks } = require('../src/services/agentDna/epigenome');
+const { computeLease } = require('../src/services/agents/agentIncarnationService');
 
 function baseModel() {
   return {
@@ -74,6 +75,21 @@ function testEpigenomeMarks() {
   console.log('epigenome marks ok');
 }
 
+function testEpigeneticCapabilityEnforcement() {
+  const model = baseModel();
+  model.genes.CAP_COMPUTER_USE = { locus: 'CAP_COMPUTER_USE', instruction: 'COMPUTER_USE', chromatin: 0, methylated: false, volume: 1, locked: false, requiredActivator: null, boundRepressor: null };
+  model.genes.TOOL_COMPUTER_USE = { locus: 'TOOL_COMPUTER_USE', instruction: 'genos_computer_use', chromatin: 0, methylated: false, volume: 1, locked: false, requiredActivator: null, boundRepressor: null };
+  const request = { role: 'worker', capabilityManifest: { owned: ['COMPUTER_USE'] }, workerContract: { authority: { execute: true } } };
+  const active = express(model);
+  const activeLease = computeLease({ request, dnaSelection: { genes: active } });
+  assert.ok(activeLease.includes('genos_computer_use'));
+  model.epigenome = { marks: { CAP_COMPUTER_USE: { kind: 'Methylation', level: 1 } } };
+  const silenced = express(model);
+  const restrictedLease = computeLease({ request, dnaSelection: { genes: silenced } });
+  assert.ok(!restrictedLease.includes('genos_computer_use'), 'methylation must remove capability tools from the mission lease');
+  console.log('epigenetic capability enforcement ok');
+}
+
 function attestationValid(cached, current) {
   return JSON.stringify(cached) === JSON.stringify(current);
 }
@@ -119,6 +135,7 @@ async function run() {
   testGrnEdgesCausal();
   testDevelopmentCausal();
   testEpigenomeMarks();
+  testEpigeneticCapabilityEnforcement();
   testFullAttestation();
   testE2EMutationExpressionFitnessSelection();
   testToolLeaseIntersection();
