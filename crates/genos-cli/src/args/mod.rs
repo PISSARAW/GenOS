@@ -37,6 +37,8 @@ pub enum Commands {
     Init,
     /// Check which local GenOS capabilities are available
     Doctor,
+    /// Explain persisted evidence and morphology for a mission
+    Explain { mission_id: String },
     /// Agent genome lifecycle operations
     Agent(AgentCmd),
     /// Binary AgentDNA genome operations

@@ -92,6 +92,17 @@ fn execute_mission(mission: &str) -> Result<(), String> {
     if status.success() { Ok(()) } else { Err(format!("GenOS mission ended with status {status}.")) }
 }
 
+fn execute_explain(mission_id: &str) -> Result<(), String> {
+    let root = orchestrator_root()?;
+    let status = std::process::Command::new("node")
+        .current_dir(root)
+        .arg("backend/bin/genos-explain.cjs")
+        .arg(mission_id)
+        .status()
+        .map_err(|error| format!("Cannot start mission explanation: {error}"))?;
+    if status.success() { Ok(()) } else { Err(format!("Mission explanation ended with status {status}.")) }
+}
+
 fn initialize_workspace() -> Result<(), String> {
     ["snapshots", "capsules", ".genos"]
         .into_iter()
@@ -123,6 +134,7 @@ fn real_main() {
     let result: Result<(), String> = (|| match cli.command {
         Some(Commands::Init) => initialize_workspace(),
         Some(Commands::Doctor) => commands::doctor::execute(),
+        Some(Commands::Explain { mission_id }) => execute_explain(&mission_id),
         None => {
             let mut command = args::Cli::command();
             match command.print_help() {
