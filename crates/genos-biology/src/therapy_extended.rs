@@ -53,6 +53,7 @@ pub fn apply_extended_therapy(
         SystemicTherapy::MoodStabilizerLithium => ("affective_instability", 0.25),
         SystemicTherapy::AntipsychoticAtypical => ("cognitive_signal_disorder", 0.25),
         SystemicTherapy::FetalCarrierReactivation => ("fetal_carrier_silencing", 0.25),
+        SystemicTherapy::ChelationTherapy => ("metal_toxin_load", 0.25),
         _ => return None,
     };
     let Some(value) = cell.clinical.markers.get_mut(marker) else {

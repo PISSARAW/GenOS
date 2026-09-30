@@ -198,6 +198,31 @@ mod tests {
         }
     }
     #[test]
+    fn chelation_only_reduces_a_valid_present_toxin_marker() {
+        let mut cell = AgentCell::new("Exposition", "Simulation", "Worker");
+        cell.clinical
+            .markers
+            .insert("metal_toxin_load".into(), 0.75);
+        let applied = apply_systemic_therapy_to_cell(&SystemicTherapy::ChelationTherapy, &mut cell);
+        assert_eq!(applied.applied_markers, vec!["metal_toxin_load réduit"]);
+        assert!(applied.cured_pathologies.is_empty());
+        assert_eq!(cell.clinical.markers["metal_toxin_load"], 0.5);
+
+        let mut absent_cell = AgentCell::new("Sans exposition", "Simulation", "Worker");
+        let absent =
+            apply_systemic_therapy_to_cell(&SystemicTherapy::ChelationTherapy, &mut absent_cell);
+        assert!(absent.applied_markers.is_empty());
+        assert!(absent.message.contains("Aucune cible"));
+        absent_cell
+            .clinical
+            .markers
+            .insert("metal_toxin_load".into(), f64::NAN);
+        let invalid =
+            apply_systemic_therapy_to_cell(&SystemicTherapy::ChelationTherapy, &mut absent_cell);
+        assert!(invalid.applied_markers.is_empty());
+        assert!(absent_cell.clinical.markers["metal_toxin_load"].is_nan());
+    }
+    #[test]
     fn emerging_proposed_therapies_require_and_only_modify_their_target_markers() {
         let cases = [
             (

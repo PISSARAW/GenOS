@@ -104,7 +104,6 @@ Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des
 
 | Thérapie Proposée | Famille | Rapport Source |
 |---|---|---|
-| `SystemicTherapy::ChelationTherapy` | Environnementales | Nosologie 9 |
 
 
 ---
@@ -164,11 +163,15 @@ Les variantes ci-dessous diminuent uniquement le marqueur nommé, de 0,25 borné
 | `MoodStabilizerLithium` | `affective_instability` |
 | `AntipsychoticAtypical` | `cognitive_signal_disorder` |
 | `FetalCarrierReactivation` | `fetal_carrier_silencing` |
+
+### 4.7 Opérateur environnemental implémenté avec portée limitée
+
+`ChelationTherapy` réduit de 0,25 le marqueur `metal_toxin_load`, uniquement si la cible est présente, finie et dans [0, 1]. La mutation est rapportée dans `applied_markers`; aucune pathologie n'est déclarée guérie. Il s'agit d'une abstraction logicielle, pas d'une chélation ni d'un traitement humain.
 ## 5. État et plan d'implémentation
 
 ### 5.1 État vérifié
 
-Le modèle clinique, les détecteurs, l'intégration au tick et les thérapies du §4.1 sont présents dans le code. Le point d'entrée thérapeutique est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`; son enum `SystemicTherapy` contient les variantes du §4.1 et les variantes à portée limitée des §4.3 à 4.6; `ChelationTherapy` reste proposée. Les exemples et extraits de code dans les rapports spécialisés sont des spécifications, pas une preuve d'implémentation.
+Le modèle clinique, les détecteurs, l'intégration au tick et les thérapies du §4.1 sont présents dans le code. Le point d'entrée thérapeutique est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`; son enum `SystemicTherapy` contient les variantes du §4.1 et les variantes à portée limitée des §4.3 à 4.7. Les exemples et extraits de code dans les rapports spécialisés sont des spécifications, pas une preuve d'implémentation.
 
 Les scénarios restent des simulations logicielles sur marqueurs GenOS. Ils ne modélisent, ne diagnostiquent et ne valident aucune pathologie réelle ni aucun médicament humain.
 

@@ -91,6 +91,9 @@ pub enum SystemicTherapy {
     MoodStabilizerLithium,
     AntipsychoticAtypical,
     FetalCarrierReactivation,
+
+    // Opérateur environnemental proposé.
+    ChelationTherapy,
 }
 
 /// Résultat de l'application d'un traitement
@@ -322,7 +325,8 @@ pub fn apply_systemic_therapy_to_cell(
         | SystemicTherapy::KetamineRapidInfusion
         | SystemicTherapy::MoodStabilizerLithium
         | SystemicTherapy::AntipsychoticAtypical
-        | SystemicTherapy::FetalCarrierReactivation => unreachable!("géré par therapy_extended"),
+        | SystemicTherapy::FetalCarrierReactivation
+        | SystemicTherapy::ChelationTherapy => unreachable!("géré par therapy_extended"),
         SystemicTherapy::Vaccine(spike) => {
             cell.clinical
                 .clinical_log
