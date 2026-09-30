@@ -68,10 +68,10 @@ function agentToCell(agent) {
 }
 
 async function fetchMissionAgents(db, missionId) {
-  return db.all(
-    'SELECT id, role, status, execution_mode FROM agents WHERE id = ? OR parent_agent_id = ?',
-    missionId, missionId
-  );
+  const identities = require('./missionIdentityService');
+  const mission = await identities.get(db, missionId);
+  if (mission) return identities.members(db, missionId);
+  return db.all('SELECT id, role, status, execution_mode FROM agents WHERE id = ? OR parent_agent_id = ?', missionId, missionId);
 }
 
 function buildGenome(mission, existingState = null) {
@@ -275,6 +275,42 @@ async function evaluateContinuity(db, mission) {
   return { organism: enrolledOrganism, immune: safety, ...evaluation };
 }
 
+async function regenerateMissingWorkers(db, input = {}) {
+  const missionId = input.missionId;
+  const agents = await fetchMissionAgents(db, missionId);
+  const liveRoles = new Set(agents.filter((agent) => ['running', 'idle'].includes(agent.status)).map((agent) => agent.role));
+  const lost = agents.filter((agent) => agent.execution_mode === 'worker'
+    && ['error', 'failed', 'terminated', 'apoptosis'].includes(agent.status)
+    && agent.role && !liveRoles.has(agent.role));
+  const results = [];
+  const attemptedRoles = new Set();
+  for (const agent of lost) {
+    if (results.length >= 3) break;
+    if (attemptedRoles.has(agent.role)) continue;
+    attemptedRoles.add(agent.role);
+    const result = await regeneration.regenerateWorker({
+      db,
+      missionId,
+      orchestratorAgentId: input.orchestratorAgentId,
+      organism: input.organism,
+      objective: input.objective,
+      plan: { lostIdentifier: agent.id, kind: 'workers', role: agent.role, method: 'replace_worker' },
+      requiredRoles: [agent.role],
+      executionBudget: input.executionBudget,
+      executionPolicy: input.executionPolicy,
+      toolLease: input.toolLease,
+      strategyContract: input.strategyContract,
+      timeoutMs: input.timeoutMs
+    });
+    results.push(result);
+    if (result.success) {
+      liveRoles.add(agent.role);
+      await persistOrganismState(db, result.organism);
+    }
+  }
+  return results;
+}
+
 async function transitionMissionToComplete(db, target) {
   const { transitionMissionToComplete: transition } = require('./homeostasisService');
   return transition(db, target);
@@ -290,6 +326,43 @@ function survivalModeFor(input = {}) {
   });
 }
 
+async function suspendMission(db, input = {}) {
+  const mode = resolveDurableDormancyMode(input.eligibility);
+  if (!mode) return { entered: false, mode: survivalModeFor(input.eligibility), reason: 'This survival mode does not use durable dormancy.' };
+  assertDormancyRequest(input);
+  const suspended = await require('./survivalStateService').suspend(db, buildDormancyCommand(input, mode));
+  return { entered: true, mode, ...suspended };
+}
+
+function resolveDurableDormancyMode(eligibility) {
+  const mode = survivalModeFor(eligibility);
+  const allowed = [survivalModes.SURVIVAL_MODES.QUIESCENT, survivalModes.SURVIVAL_MODES.CRYPTOBIOSIS];
+  return allowed.includes(mode) ? mode : null;
+}
+
+function assertDormancyRequest(input) {
+  if (input.wakeCondition && input.missionId && input.orchestratorAgentId) return;
+  throw new Error('missionId, orchestratorAgentId and wakeCondition are required for durable dormancy.');
+}
+
+function buildDormancyCommand(input, mode) {
+  const mission = {
+    missionId: input.missionId, prompt: input.objective, objective: input.objective,
+    invariants: input.invariants || [], completionContract: input.completionContract || null,
+    orchestratorAgentId: input.orchestratorAgentId, workspaceId: input.workspaceId || null,
+    workspaceRoot: input.workspaceRoot || null, autonomousOrchestration: true
+  };
+  return {
+    agentId: input.orchestratorAgentId, missionId: input.missionId, workspaceId: input.workspaceId,
+    reason: input.reason || `Mission entered ${mode}`, wakeCondition: input.wakeCondition, mission,
+    statePayload: {
+      missionId: input.missionId, mode, evidence: input.evidence || [],
+      remainingWork: input.remainingWork || null, organism: input.organism || null,
+      homeostasis: input.homeostasis || null
+    }
+  };
+}
+
 module.exports = {
   TISSUE_KINDS,
   AGENT_STATUS_TO_CELL,
@@ -303,6 +376,8 @@ module.exports = {
   observeMissionPulses,
   deriveHomeostasisContext,
   evaluateContinuity,
+  regenerateMissingWorkers,
   transitionMissionToComplete,
-  survivalModeFor
+  survivalModeFor,
+  suspendMission
 };
