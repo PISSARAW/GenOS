@@ -220,6 +220,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0195](0195-enforcement-metabolique-cellule-de-garde.md) | Enforcement métabolique par la cellule de garde | Accepté | 2026-09-30 | Runtime, métabolisme, flux, cellules spécialisées |
 | [0196](0196-plan-runtime-tracheide-et-mesure-de-cout.md) | Plan runtime et mesure de coût de la trachéide | Accepté | 2026-09-30 | Runtime, compilation de plan, cellules spécialisées, mesure |
 | [0197](0197-transfert-hgt-sous-lease-et-revocation.md) | Transfert HGT sous lease et révocation | Accepté | 2026-09-30 | Runtime, transfert horizontal, autorisation, audit |
+| [0198](0198-contrat-canonique-de-verification-epistemique.md) | Contrat canonique de vérification épistémique | Accepté | 2026-09-30 | Épistémologie, vérification, promotion |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

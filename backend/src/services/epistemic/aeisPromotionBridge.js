@@ -18,6 +18,7 @@ const { evaluateEpistemicAssurance } = require('../epistemicAssuranceService');
 const { adaptImmuneResult } = require('./formalResultAdapter');
 const { createFormalResult } = require('../formalResultService');
 const { assessClaim } = require('./verificationKernel');
+const verificationFabric = require('./verificationFabric');
 
 /**
  * Convertit un résultat immunitaire Holobionte en FormalResult.
@@ -310,4 +311,5 @@ module.exports = {
   claimToAntigen,
   extractAntigensFromReport,
   evaluateReportWithAeis,
+  verificationFabric,
 };

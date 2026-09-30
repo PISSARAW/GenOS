@@ -35,6 +35,9 @@ function payloadText(receipt) {
   if (Array.isArray(receipt.coveredObligations)) {
     fields.push([...receipt.coveredObligations].sort().join(','));
   }
+  if (Array.isArray(receipt.evidenceTypes)) {
+    fields.push([...receipt.evidenceTypes].sort().join(','));
+  }
   return fields.join('\u0000');
 }
 
@@ -56,6 +59,9 @@ function issueReceipt(input = {}) {
   };
   if (Array.isArray(input.coveredObligations)) {
     receipt.coveredObligations = [...input.coveredObligations];
+  }
+  if (Array.isArray(input.evidenceTypes)) {
+    receipt.evidenceTypes = [...new Set(input.evidenceTypes)].sort();
   }
   return { ...receipt, signature: signatureFor(receipt) };
 }
