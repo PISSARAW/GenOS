@@ -47,13 +47,13 @@ La première version garde un périmètre volontairement borné : elle rend les 
 | Boucle | Variable régulée | Effet principal |
 | --- | --- | --- |
 | `reflex` | veto de survie | bloque le fan-out si la dormance vitale est active |
-| `homeostasis` | budget/tokens | inhibe le fan-out si la réserve ne finance pas les workers |
+| `homeostasis` | réserve et pression d'assurance | réduit le fan-out selon la pression de budget, survie et assurance épistémique |
 | `evidence` | dette de preuve | bloque la promotion si les phases d'évidence/replay sont absentes |
 | `attention` | saillance | amplifie les diagnostics quand l'incertitude est forte |
 | `immune` | blast radius | exige des preuves avant mutation en contexte risqué ou sécurité |
 | `hierarchy` | erreur de prédiction par niveau | demande révision Stratégie après 3 erreurs Action, réexamen Mission après 3 révisions (avis seulement) |
 
-Ces boucles lisent l'état déjà calculé par le plan : profil de problème, survie, budget, phases omises, workers demandés et workers sélectionnés. Elles n'inventent pas un second état parallèle.
+Ces boucles lisent l'état déjà calculé par le plan : profil de problème, survie, budget, phases omises, workers demandés et workers sélectionnés. La boucle homéostatique transmet également au service d'assurance épistémique le risque, l'incertitude, les contradictions, la nouveauté, les preuves et le budget restant. Elle n'invente pas un second état parallèle.
 
 La boucle `hierarchy`
 ([backend/src/services/predictiveHierarchyService.js](../../backend/src/services/predictiveHierarchyService.js),
@@ -115,10 +115,15 @@ Quand le plan de mission est assemblé, [backend/src/services/agentAutonomyPlanS
 
 Cette trace remplace les explications opaques par une preuve exploitable : pourquoi une action est amplifiée, freinée, bloquée, ou rendue dépendante d'une preuve supplémentaire.
 
-Le feedback d'exécution peut déclencher une nouvelle arbitration de la trace. Cette
-opération ajoute des signaux de feedback à l'arbitrage courant ; elle ne met pas à
-jour les poids des régulateurs et ne constitue pas un apprentissage entre missions.
-Les cycles de ré-arbitrage sont bornés à trois.
+Le feedback d'exécution peut déclencher une nouvelle arbitration de la trace. Le
+score de preuve observé est converti en pression mesurée (`1 - evidenceScore`),
+puis ajusté avec `feedbackEffect` et la variation du score depuis le cycle
+précédent. La pression résultante est conservée dans `controlRegulation.homeostasis`.
+À partir de `0.7`, la boucle ajoute un signal `inhibit` sur `worker_fanout`; ce
+signal passe ensuite par l'arbitre normal et la politique runtime. Les erreurs,
+les dépassements de tokens et l'absence de replay gardent leurs signaux propres.
+Les cycles de ré-arbitrage restent bornés à trois. Cela régule la mission courante
+et ne met pas à jour les poids des régulateurs entre missions.
 
 ## 7. Limites
 

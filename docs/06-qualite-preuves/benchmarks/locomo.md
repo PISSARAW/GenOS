@@ -71,6 +71,24 @@ La Catégorie 5 est conçue pour piéger les IA avec des questions absurdes ou i
 * **L'impact mathématique sur le F1 :** La formule de calcul du F1 en NLP compte strictement les mots partagés (*token overlap*). Entre une phrase complète de refus et le mot unique `"undefined"`, il y a **0 mot commun**, ce qui attribue mathématiquement **0 %** à des réponses qui sont cognitivement irréprochables.
 * **Score factuel corrigé :** Si l'on évalue GenOS sur les **1 540 questions factuelles répondables** (Catégories 1, 2, 3 et 4), la moyenne s'élève à **23.68 % de F1**.
 
+### 4.3. Évaluation EAB de l'abstention
+
+Le runner [EAB](../../../benchmarks/eab/README.md) isole les 446 questions de
+cette catégorie dans le dataset LoCoMo et les apparie aux réponses du fichier
+produit par `locomo_eval_engine.js`. Il rapporte `trapAbstentionRecall`,
+`falseAnswerRate`, `coverage`, `lexicalF1` et `metricArtifactGap`, avec le détail
+des décisions par question. `trapAbstentionRecall` est la proportion des
+questions pièges reconnues comme abstentions; `coverage` mesure celles pour
+lesquelles le modèle a produit une réponse. Ces métriques rendent visible le
+compromis entre abstention et réponse.
+
+Le runner ne télécharge pas le dataset et ne relance pas l'inférence. Il exige
+le corpus LoCoMo local et le JSON de prédictions. Il refuse le statut complet si
+les 446 cas ne sont pas présents; `--allow-partial true` produit uniquement un
+rapport diagnostique explicitement partiel. Le rapport décrit les réponses et
+leur classification sans prétendre certifier leur vérité au-delà de la
+catégorie gold du dataset.
+
 ---
 
 ## 5. Comparaison avec l'État de l'Art (Papier Officiel ACL 2024)
