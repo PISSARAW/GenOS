@@ -16,26 +16,47 @@ const TRANSITIONS = Object.freeze({
   EMERGENCY_PLASTIC: ['PLASTIC', 'DIFFERENTIATING']
 });
 
-const store = new Map();
+let store = new Map();
 const COOLDOWN_MS = 30000;
+let adaptivePersister = null;
+
+function setStateStore(nextStore) {
+  if (nextStore instanceof Map) store = nextStore;
+}
+
+function setAdaptivePersister(persister) {
+  adaptivePersister = persister;
+}
 
 function getPlasticity(id) {
   if (!id) return null;
   return store.get(String(id)) || { id: String(id), state: 'NEOTENIC', changes: 0, budget: 10, lastChangeAt: null };
 }
 
-function requestChange(opts) {
+async function requestChange(opts) {
   const o = opts || {};
-  if (!o.id || !STATES.includes(o.to) || !String(o.reason || '').trim()) return { ok: false, reason: 'valid_id_state_and_reason_required' };
   const prev = getPlasticity(o.id);
-  if (!TRANSITIONS[prev.state]?.includes(o.to)) return { ok: false, reason: 'transition_not_allowed', from: prev.state, to: o.to };
-  if (prev.budget <= 0) return { ok: false, reason: 'change_budget_exhausted' };
-  if (cooldownActive(prev)) return { ok: false, reason: 'cooldown_active' };
+  const rejection = rejectChange({ request: o, previous: prev });
+  if (rejection) return rejection;
   const next = o.to;
   const state = { ...prev, state: next, changes: prev.changes + 1, budget: prev.budget - 1, lastChangeAt: Date.now(), reason: String(o.reason).trim(), history: [...(prev.history || []), { from: prev.state, to: next, reason: String(o.reason).trim(), at: new Date().toISOString() }] };
   store.set(String(o.id), state);
-  syncAxolotl(o.id, next);
+  try {
+    await adaptivePersister?.persistMap('axolotl_plasticity', 'states', store);
+    syncAxolotl(o.id, next);
+  } catch (error) {
+    store.set(String(o.id), prev);
+    return { ok: false, reason: 'persistence_failed', error: error.message };
+  }
   return { ok: true, from: prev.state, to: next, state };
+}
+
+function rejectChange({ request, previous }) {
+  if (!request.id || !STATES.includes(request.to) || !String(request.reason || '').trim()) return { ok: false, reason: 'valid_id_state_and_reason_required' };
+  if (!TRANSITIONS[previous.state]?.includes(request.to)) return { ok: false, reason: 'transition_not_allowed', from: previous.state, to: request.to };
+  if (previous.budget <= 0) return { ok: false, reason: 'change_budget_exhausted' };
+  if (cooldownActive(previous)) return { ok: false, reason: 'cooldown_active' };
+  return null;
 }
 
 function cooldownActive(prev) {
@@ -51,4 +72,4 @@ function syncAxolotl(id, next) {
   } catch (_) {}
 }
 
-module.exports = { getPlasticity, requestChange, STATES, TRANSITIONS };
+module.exports = { getPlasticity, requestChange, setStateStore, setAdaptivePersister, STATES, TRANSITIONS };

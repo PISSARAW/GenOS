@@ -6,6 +6,7 @@ const gangliaBasals = require('./mcpBioTools/handlers/gangliaBasals');
 const foraging = require('./foragingScoutHarvesterService');
 const axolotlTopology = require('./axolotlTopologyService');
 const axolotlRegeneration = require('./axolotlRegenerationService');
+const plasticityRegulator = require('./development/plasticityRegulatorService');
 const mcpBioHandlers = require('./mcpBioTools/handlers');
 
 let adaptivePersister = null;
@@ -34,6 +35,7 @@ async function getAdaptivePersister() {
 
       // Réhydrate et branche axolotl regeneration
       await bindAxolotlRegeneration(adaptivePersister);
+      await bindPlasticityRegulator(adaptivePersister);
 
       // Réhydrate et branche MCP biomimétiques
       await bindMcpBiomimicryRegistries(adaptivePersister);
@@ -78,6 +80,16 @@ async function bindAxolotlRegeneration(persister) {
     }
     axolotlRegeneration.setAdaptivePersister(persister);
   } catch (_) {}
+}
+
+async function bindPlasticityRegulator(persister) {
+  try {
+    const stored = await persister.restoreMap('axolotl_plasticity', 'states');
+    plasticityRegulator.setStateStore(stored);
+    plasticityRegulator.setAdaptivePersister(persister);
+  } catch (_) {
+    plasticityRegulator.setAdaptivePersister(persister);
+  }
 }
 
 async function bindMcpBiomimicryRegistries(persister) {
@@ -127,6 +139,7 @@ module.exports = {
     gangliaBasals,
     foraging,
     axolotlTopology,
-    axolotlRegeneration
+    axolotlRegeneration,
+    plasticityRegulator
   }
 };
