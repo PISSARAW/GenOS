@@ -3,6 +3,8 @@ const state = require('../src/services/agentOrchestrationState');
 state.emit = () => undefined;
 
 const { assertWorkerDispatchMatches } = require('../src/services/agentRuntimeAdapter/missionWorkers');
+const missionMorphogenesis = require('../src/services/agentRuntimeAdapter/missionMorphogenesis');
+const { bindDispatchAssignments } = require('../src/services/morphogenesis/morphogenesisMissionBinding');
 const { includePersistedWorkers } = require('../src/services/agentFleetWorkers');
 const { dispatchStageWorkers } = require('../src/services/workerEvidenceBarrierPipeline');
 
@@ -78,5 +80,51 @@ async function assertReservationRollback() {
   assert.deepEqual(released, ['worker-one'], 'a failed partial reservation must release earlier slots');
 }
 
+function assertMissionMorphogenesisBinding() {
+  const assignment = { label: 'review', role: 'independent_reviewer' };
+  const context = {
+    agentId: 'mission-1',
+    db: {},
+    normalizedMission: { prompt: 'Review the deployment plan.' },
+    contractRecord: { contract: { problem_profile: { domain: 'engineering' } } },
+    autonomyPlan: {
+      profile: { uncertainty: 0.7 },
+      organization: 'specialist_expert_committee',
+      dispatchWorkers: [assignment],
+      tokenPolicy: { total: 2400 }
+    }
+  };
+  const input = missionMorphogenesis.buildMissionMorphogenesisInput(context);
+  assert.equal(input.missionId, 'mission-1');
+  assert.equal(input.problem, 'Review the deployment plan.');
+  assert.equal(input.problemProfile.domain, 'engineering');
+  assert.equal(input.currentState.organization, 'specialist_expert_committee');
+  assert.equal(input.budget.tokens, 2400);
+  assert.deepEqual(input.missionAssignments, [assignment]);
+
+  const { planMorphogenesis } = require('../src/services/morphogenesis/morphogenesisPlannerService');
+  const morphologyPlan = planMorphogenesis(input);
+  const morphologyGraph = morphologyPlan.morphologyPatch.graph;
+  const morphologyRoot = morphologyGraph.nodes.find((node) => node.nodeId === morphologyGraph.rootNodeId);
+  assert.equal(morphologyGraph.missionId, 'mission-1');
+  assert.equal(morphologyRoot.mission, 'Review the deployment plan.');
+  assert.deepEqual(morphologyRoot.workers, [assignment], 'the planned morphology must carry the actual mission assignments');
+
+  const autonomyPlan = {
+    dispatchWorkers: [assignment, { label: 'deferred', role: 'reviewer' }],
+    tokenPolicy: {
+      total: 2400, workerShare: 0.6, orchestratorReserve: 0.4,
+      minimumWorkerTokens: 1, allocation: 'fixed'
+    },
+    morphogenesisPlan: morphologyPlan
+  };
+  const bound = bindDispatchAssignments(autonomyPlan, [assignment]);
+  assert.equal(bound.binding.graphId, morphologyGraph.graphId);
+  assert.deepEqual(morphologyRoot.workers, [assignment]);
+  assert.deepEqual(autonomyPlan.dispatchWorkers, bound.assignments, 'dispatch reads assignments from the bound morphology root');
+  assert.equal(autonomyPlan.tokenPolicy.rounds.initial.workerTokens.length, 1, 'capped assignments receive a matching token allocation');
+}
+
 Promise.all([assertConcurrentDispatch(), assertPersistedPartialWorkersAreTracked(), assertReservationRollback()])
-  .then(() => console.log('Worker dispatch counts reconcile, persisted partial workers are tracked, and same-stage workers run concurrently.'));
+  .then(() => assertMissionMorphogenesisBinding())
+  .then(() => console.log('Worker dispatch reconciles, rolls back reservations, and binds live assignments to mission Morphogenesis.'));

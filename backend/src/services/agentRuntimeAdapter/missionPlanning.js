@@ -4,6 +4,7 @@ const userProgress = require('../userProgressService');
 const { orchestratorToolLease, emit } = require('../agentOrchestrationState');
 const { validateBudgetCoherence } = require('../budgetCoherenceService');
 const orchestratorBody = require('../orchestratorBodyService');
+const missionMorphogenesis = require('./missionMorphogenesis');
 
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
@@ -13,22 +14,20 @@ async function planMission(ctx) {
 }
 
 async function attachMorphogenesisPlan(ctx) {
+  if (!ctx.autonomyPlan || ctx.dispatchedAgent.execution_mode !== 'orchestrator') return;
   try {
     const { planMorphogenesis } = require('../morphogenesis/morphogenesisPlannerService');
-    const plan = planMorphogenesis({
-      db: ctx.db,
-      currentState: { agents: new Map(), topology: ctx.autonomyPlan?.organization || 'specialist_expert_committee', currentMorphologyVersion: 0 },
-      proposedTopology: ctx.autonomyPlan?.organization || 'specialist_expert_committee',
-      reason: 'orchestrator_plan',
-      budget: ctx.autonomyPlan?.tokenPolicy?.total || 10000,
-      expression: {},
-      pressure: 0.5
-    });
+    const input = missionMorphogenesis.buildMissionMorphogenesisInput(ctx);
+    input.reason = 'mission_execution_plan';
+    const plan = planMorphogenesis(input);
     ctx.morphogenesisPlan = plan;
     ctx.autonomyPlan.morphogenesisPlan = plan;
     if (shadowMorphogenesisEnabled()) await attachMorphogenesisShadow(ctx, plan);
-  } catch (_) {
+  } catch (error) {
     ctx.morphogenesisPlan = null;
+    emit(ctx.agentId, 'MORPHOGENESIS_MISSION_PLAN_FAILED', 'PLAN_MISSION', error.message, {
+      code: error.code || 'MORPHOGENESIS_PLAN_FAILED'
+    }, 'warning');
   }
 }
 

@@ -22,8 +22,9 @@ function verifyFullCandidatePlans() {
   assert.equal(plan.selectedOrganization, 'red_blue_coevolution');
   assert.ok(ALL_IDS.includes(plan.selectedTopology));
   assert.deepEqual(plan.candidateMorphologies.map((candidate) => candidate.topology), ALL_IDS);
-  const root = plan.morphologyPatch.graph.nodes.find((node) => node.nodeId === plan.morphologyPatch.graph.rootNodeId);
-  assert.equal(root.topology, plan.selectedTopology);
+  const graph = plan.morphologyPatch.graph;
+  const root = graph.nodes.find((node) => node.nodeId === graph.rootNodeId);
+  assert.ok(graph.nodes.some((node) => node.topology === plan.selectedTopology), 'the selected topology is present in the composed graph');
   assert.equal(root.organization, 'red_blue_coevolution');
 }
 

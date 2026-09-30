@@ -312,6 +312,7 @@ function compileTopologyCandidate(ctx, topology) {
     mission: ctx.problem || ctx.mission,
     budget: ctx.budget,
   });
+  require('./morphogenesisMissionBinding').bindGraphMission(morphology.graph, { organization: candidateCtx.proposedOrganization, assignments: ctx.missionAssignments });
   return { topology, contracts, components, targetAgents, plan, graph: morphology.graph, expression: morphology.expression, profileResolution };
 }
 

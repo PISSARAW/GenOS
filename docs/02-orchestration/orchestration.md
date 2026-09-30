@@ -19,7 +19,9 @@ locale de son écosystème. Le crate Rust ne lance pas à lui seul les workers b
 crée pas leurs workspaces et ne certifie pas le livrable d'une mission Node.
 
 Le chemin central de mission utilise encore le préparateur morphologique historique. Le
-planner Morphogenèse enrichit ensuite le plan d'autonomie. Le runtime Morphogenèse V2 est
+planner Morphogenèse reçoit le contexte réel de la mission et son graphe est lié aux
+affectations bornées que le dispatcher lance. Cette liaison ne transforme pas une
+topologie proposée en transition appliquée. Le runtime Morphogenèse V2 est
 disponible en **shadow** opt-in (`GENOS_MORPHOGENESIS_V2_SHADOW=1|true|on`) ; ce chemin
 évalue une proposition sans transition ni commit. Son chemin de commit exige des
 adaptateurs d'adjudication Rust et de gouvernance et n'est pas le chemin de production
@@ -101,7 +103,7 @@ frontières et compensations.
 | --- | --- | --- |
 | `single_agent`, `parallel_forks`, `trinity` du runtime historique | sélectionnés par le préparateur à partir du contrat et de la stratégie | que les autres topologies soient sélectionnées par cette voie |
 | Huit composeurs de `biologicalTopologyService.composeMode` | dispatch explicite vers un composeur dédié | que le sélecteur général de mission choisisse automatiquement les huit |
-| Planner Morphogenèse | peut scorer/planifier les topologies canoniques et compiler un candidat choisi en graphe | que son graphe soit le plan physique transmis à tous les runtimes |
+| Planner Morphogenèse | reçoit le texte, le profil, le budget et les affectations de la mission; sa racine est liée aux affectations retenues au dispatch | que la topologie proposée soit appliquée ou choisie par tous les runtimes |
 | Catalogue central de variants | découvre les variants projetés de six registres locaux et expose leur maturité | qu'un variant soit automatiquement élu ou interprété uniformément |
 | Composition `NEST`, `PARALLEL`, `SEQUENCE`, `GATE`, `COMPETE`, `WRAP`, `BRIDGE`, `FEDERATE` | contrats et éléments de runtime existent selon les opérateurs | qu'une expression composite arbitraire soit compilée puis exécutée de bout en bout |
 | Transition Morphogenèse inter-topologies | adaptateur testé Trinity → A-Team pour les revendications vérifiées | qu'une transition sans adaptateur soit permise ; elle échoue fermé |
@@ -109,8 +111,10 @@ frontières et compensations.
 
 Les transitions de topologie sont limitées aux adaptateurs enregistrés. Pour l'état et les
 preuves actuels des topologies, voir [la référence morphogénétique](topologies/morphogenese.md),
-[les adaptateurs de topologie](../adr/0108-branchement-topologies-fail-closed.md) et
-[le catalogue des variants](topologies/variants-morphologiques.md).
+[les adaptateurs de topologie](../adr/0108-branchement-topologies-fail-closed.md),
+[le catalogue des variants](topologies/variants-morphologiques.md) et
+[ADR 0200](../adr/0200-lier-la-morphogenese-au-dispatch-de-mission.md) sur la liaison du
+graphe au dispatch réel.
 
 ### Limites de capacité et garanties de charge
 

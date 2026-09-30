@@ -8,6 +8,7 @@ const trinityService = require('../trinityService');
 const aTeamRuntime = require('../aTeam/aTeamRuntime');
 const teamRunStore = require('../aTeam/teamRunStore');
 const trinityHistoricalMemory = require('../trinityHistoricalMemoryService');
+const { bindDispatchAssignments } = require('../morphogenesis/morphogenesisMissionBinding');
 
 function emitTeamComposition(ctx, autonomousWorkers) {
   const { agentId, autonomyPlan } = ctx;
@@ -73,7 +74,8 @@ async function persistTrinityExperiment(db, input) {
   });
 }
 
-async function tagCounterfactualBranches(db, orchestratorId, missionId, workers, members) {
+async function tagCounterfactualBranches(input) {
+  const { db, orchestratorId, missionId, workers, members } = input;
   try {
     const rollout = require('../counterfactualRolloutService');
     await rollout.planRollout({
@@ -105,7 +107,7 @@ async function launchTrinityWorlds(ctx, autonomousWorkers) {
   const trinityMissionId = `trinity_${agentId}_${executionRunId}`;
   autonomyPlan.trinity.missionId = trinityMissionId;
   autonomyPlan.trinity.experimentId = trinityMissionId;
-  await tagCounterfactualBranches(db, agentId, trinityMissionId, autonomousWorkers, autonomyPlan.trinity.members);
+  await tagCounterfactualBranches({ db, orchestratorId: agentId, missionId: trinityMissionId, workers: autonomousWorkers, members: autonomyPlan.trinity.members });
   await persistTrinityExperiment(db, {
     trinityMissionId, snapshotHashes, autonomyPlan, normalizedMission, autonomousWorkers,
     budgetPolicy: trinityBudgetPolicy(autonomyPlan, normalizedMission)
@@ -151,10 +153,16 @@ function registerAutonomousRound(ctx, autonomousWorkers) {
 async function orchestrateAutonomousWorkers(ctx) {
   if (ctx.dispatchedAgent.execution_mode !== 'orchestrator') return [];
   const requested = Array.isArray(ctx.autonomyPlan?.dispatchWorkers) ? ctx.autonomyPlan.dispatchWorkers : [];
-  const assignments = capAssignments(requested, ctx);
+  let assignments = capAssignments(requested, ctx);
   if (ctx.normalizedMission.autonomousOrchestration === false) {
     emitDispatchDeferred(ctx, assignments);
     return [];
+  }
+  const bound = bindDispatchAssignments(ctx.autonomyPlan, assignments);
+  assignments = bound.assignments;
+  if (bound.binding) {
+    emit(ctx.agentId, 'MORPHOGENESIS_MISSION_DISPATCH_BOUND', 'DISPATCH_WORKERS',
+      'Worker assignments were bound to the validated mission MorphologyGraph before dispatch.', bound.binding, 'info');
   }
   const autonomousWorkers = await dispatchSelectedWorkers(ctx, assignments);
   emitDispatchReconciled(ctx, assignments, autonomousWorkers);
