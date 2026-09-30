@@ -55,9 +55,12 @@ async function runGaiaTestSuite() {
   const gaiaDir = path.resolve(__dirname, '../../../GAIA');
   if (!fs.existsSync(gaiaDir)) {
     console.log('[GAIA] GAIA repository directory not found, skipping evaluation.');
+    if (process.env.GENOS_GAIA_REQUIRED === '1') throw new Error('GAIA is required but the external checkout is absent.');
     return;
   }
 
+  const resultsPath = path.join(gaiaDir, 'gaia_results.json');
+  const previousMtime = fs.existsSync(resultsPath) ? fs.statSync(resultsPath).mtimeMs : null;
   try {
     const stdout = runGaiaEvaluation(gaiaDir);
     if (stdout) console.log(stdout);
@@ -70,6 +73,8 @@ async function runGaiaTestSuite() {
 
   const results = getGaiaResults(gaiaDir);
   assert.ok(results, 'GAIA results file not found');
+  const resultsMtime = fs.statSync(resultsPath).mtimeMs;
+  assert.ok(previousMtime === null || resultsMtime > previousMtime, 'GAIA results must be refreshed by this execution, not read from a stale artifact');
   assert.ok(results.summary, 'Summary block missing in results');
 
   console.log('\n--- Verification of GAIA Quality Thresholds ---');
@@ -86,7 +91,7 @@ async function runGaiaTestSuite() {
   verifyLevelAccuracy(results.by_level, 2, 86);
   verifyLevelAccuracy(results.by_level, 3, 26);
 
-  console.log('\n[PASS] GenOS V3 achieved 100% on GAIA General AI Assistant Benchmark!');
+  console.log('\n[PASS] GAIA thresholds met for this recorded execution.');
   console.log('===============================================================\n');
 }
 

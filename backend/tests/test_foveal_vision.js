@@ -7,6 +7,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const sharp = require('sharp');
 const { FovealVisionService, defaultFovealVision } = require('../src/services/fovealVisionService');
 const { handleFovealVision } = require('../src/services/mcpBioTools/handlers/fovealVision');
 
@@ -16,6 +17,9 @@ async function runTests() {
   console.log('====================================================');
 
   const testArtifactsDir = path.resolve(__dirname, '../scratch/test_fovea');
+  fs.mkdirSync(testArtifactsDir, { recursive: true });
+  const sourceImage = path.join(testArtifactsDir, 'source.png');
+  await sharp({ create: { width: 1400, height: 1800, channels: 3, background: '#336699' } }).png().toFile(sourceImage);
   const fovea = new FovealVisionService({ artifactsDir: testArtifactsDir });
 
   // 1. Test Peripheral Scan (Low-res saliency map)
@@ -33,22 +37,26 @@ async function runTests() {
 
   // 2. Test Foveal High-Resolution Crop
   console.log('[2/4] Testing lossless foveal crop...');
-  const cropRes = fovea.fovealCrop('mock_arxiv_paper_fig1.png', axesRoi.bbox, {
+  const cropRes = await fovea.fovealCrop(sourceImage, axesRoi.bbox, {
     zoomFactor: 3.5,
     focusNotes: '6 small words at ends of 3D axes: egalitarian, hierarchical, individualist, etc.'
   });
 
   assert.strictEqual(cropRes.success, true);
   assert.strictEqual(cropRes.zoomFactor, 3.5);
-  assert.ok(cropRes.effectiveResolutionDpi >= 1000);
+  assert.ok(cropRes.pixelDimensions.width > 0);
   assert.ok(cropRes.sha256, 'Must compute SHA-256 hash');
   assert.ok(fs.existsSync(cropRes.outputPath), 'Artifact must be written to disk');
+  const outputMetadata = await sharp(cropRes.outputPath).metadata();
+  assert.equal(outputMetadata.width, cropRes.pixelDimensions.width);
+  assert.equal(outputMetadata.height, cropRes.pixelDimensions.height);
+  await assert.rejects(fovea.fovealCrop(sourceImage, [-1, 0, 1000, 1000]), /inside the source image/);
   console.log('  -> Foveal crop written to:', cropRes.outputPath);
-  console.log('  -> Effective DPI:', cropRes.effectiveResolutionDpi);
+  console.log('  -> Crop dimensions:', cropRes.pixelDimensions);
 
   // 3. Test Saccade to Feature
   console.log('[3/4] Testing saccade attention lock on keyword feature...');
-  const saccadeRes = fovea.saccadeToFeature('mock_arxiv_paper_fig1.png', '3d_axis_label', {
+  const saccadeRes = await fovea.saccadeToFeature(sourceImage, '3d_axis_label', {
     targetType: 'scientific_plot'
   });
 
@@ -68,7 +76,7 @@ async function runTests() {
 
   const mcpCrop = await handleFovealVision({
     action: 'crop',
-    image_path: 'arxiv_2206_12345_fig1.png',
+    image_path: sourceImage,
     bbox: [200, 120, 450, 400],
     zoom_factor: 4.0
   });

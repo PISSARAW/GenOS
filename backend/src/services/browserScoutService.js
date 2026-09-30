@@ -7,10 +7,12 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { BrowserPuppeteerAdapter } = require('./browserPuppeteerAdapter');
 
 class BrowserScoutService {
   constructor(options = {}) {
     this.sessions = new Map();
+    this.browserAdapter = options.browserAdapter || new BrowserPuppeteerAdapter({ artifactsDir: options.screenshotDir });
     this.downloadDir = options.downloadDir || path.resolve(process.cwd(), '.genos', 'workspace', 'downloads');
     try {
       if (!fs.existsSync(this.downloadDir)) fs.mkdirSync(this.downloadDir, { recursive: true });
@@ -27,6 +29,9 @@ class BrowserScoutService {
       formState: {},
       axTree: [],
       lastDownloadedFile: null,
+      browser: null,
+      browserPage: null,
+      screenshotPath: null,
       config: {
         timeoutMs: initialConfig.timeoutMs || 30000,
         interceptDownloads: initialConfig.interceptDownloads !== false,
@@ -41,7 +46,17 @@ class BrowserScoutService {
     return sessionId ? this.sessions.get(sessionId) || null : null;
   }
 
-  closeSession(sessionId) {
+  async openBrowserSession(sessionId, options = {}) {
+    const session = this.createSession(sessionId, options);
+    const browserState = await this.browserAdapter.open(options);
+    session.browser = browserState.browser;
+    session.browserPage = browserState.page;
+    return { sessionId: session.id, mode: 'browser', opened: true };
+  }
+
+  async closeSession(sessionId) {
+    const session = this.getSession(sessionId);
+    if (session && session.browser) await this.browserAdapter.close({ browser: session.browser });
     return this.sessions.delete(sessionId);
   }
 
@@ -114,8 +129,45 @@ class BrowserScoutService {
     return { title, axNodes };
   }
 
+  _updateObservation(session, html) {
+    const text = String(html || '').replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style\b[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;|&amp;|&lt;|&gt;/g, ' ').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+    const previous = new Set(session.observationTokens || []);
+    const unique = [...new Set(text)];
+    const novel = unique.filter(token => !previous.has(token));
+    session.infoGain = unique.length ? novel.length / unique.length : 0;
+    if (session.browserPage) {
+      session.patchInfoHistory ||= [];
+      session.patchInfoHistory.push({ infoGain: session.infoGain, observedAt: new Date().toISOString() });
+    }
+    session.observationTokens = [...new Set([...previous, ...unique])];
+    session.observationText = text.join(' ').slice(0, 12000);
+  }
+
   async navigate(sessionId, url, options = {}) {
     let session = this.getSession(sessionId) || this.createSession(sessionId);
+
+    if (session.browserPage) {
+      try {
+        const result = await this.browserAdapter.navigate(session.browserPage, url, session.config);
+        if (!result.success) return { ...result, sessionId: session.id };
+        const parsed = this.buildAXTree(result.html, result.url);
+        Object.assign(session, {
+          currentUrl: result.url, title: result.title, axTree: parsed.axNodes,
+          screenshotPath: result.screenshotPath
+        });
+        this._updateObservation(session, result.html);
+        session.history.push({ url: result.url, title: result.title, timestamp: new Date().toISOString() });
+        return {
+          success: true, sessionId: session.id, url: result.url,
+          statusCode: result.statusCode, title: result.title,
+          screenshotPath: result.screenshotPath, interactiveNodesCount: parsed.axNodes.length
+        };
+      } catch (err) {
+        return { success: false, sessionId: session.id, error: err.message };
+      }
+    }
 
     if (this._isDownloadable(url) && session.config.interceptDownloads) {
       const dl = await this.interceptDownload(session, url, options.contentBuffer);
@@ -150,6 +202,7 @@ class BrowserScoutService {
     session.currentUrl = url;
     session.title = title;
     session.axTree = axNodes;
+    this._updateObservation(session, html);
     session.history.push({ url, title, timestamp: new Date().toISOString() });
 
     return {
@@ -167,6 +220,30 @@ class BrowserScoutService {
     const session = this.getSession(sessionId);
     if (!session) return { success: false, error: `Session not found: ${sessionId}` };
     const { type, selectorId, value } = action;
+
+    if (session.browserPage) {
+      const node = session.axTree.find(item => item.selectorId === selectorId);
+      if (!node) return { success: false, verified: false, error: `Selector not found: ${selectorId}` };
+      const selector = node.role === 'link'
+        ? `a[href="${String(node.href).replace(/"/g, '\\"')}"]`
+        : null;
+      try {
+        const result = await this.browserAdapter.act(session.browserPage, {
+          type, selectorId, selector, value,
+          navigationExpected: node.role === 'link' || node.action === 'submit'
+        });
+        const html = await session.browserPage.content();
+        const parsed = this.buildAXTree(html, session.browserPage.url());
+        Object.assign(session, {
+          currentUrl: session.browserPage.url(), title: parsed.title,
+          axTree: parsed.axNodes, screenshotPath: result.screenshotPath
+        });
+        this._updateObservation(session, html);
+        return { ...result, verified: true, observation: this.snapshotSession(sessionId) };
+      } catch (err) {
+        return { success: false, verified: false, error: err.message };
+      }
+    }
 
     if (type === 'fill') {
       const node = session.axTree.find(n => n.selectorId === selectorId);
@@ -228,6 +305,9 @@ class BrowserScoutService {
       id: session.id,
       currentUrl: session.currentUrl,
       title: session.title,
+      screenshotPath: session.screenshotPath,
+      infoGain: session.infoGain ?? null,
+      observationText: session.observationText || '',
       formState: { ...session.formState },
       lastDownloadedFile: session.lastDownloadedFile ? { ...session.lastDownloadedFile } : null,
       timestamp: new Date().toISOString()

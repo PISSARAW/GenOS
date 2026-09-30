@@ -39,7 +39,7 @@
 | Trachéide | primitive | `tracheid.rs`, tests locaux | artefact compilé réel + comparaison de coût |
 | Procaryote / HGT | primitive | `prokaryote.rs`, tests locaux | transfert validé sous lease + révocation |
 | Organisme de mission | documentée → intégrée partielle | orchestrateur + store, snapshots | continuité après redémarrage prouvée |
-| Foraging web, fovéation | primitive (simulation) | services backend, tests isolés | boucle perception-action, voir `web-foraging.md` |
+| Foraging web, fovéation | intégrée expérimentale | session Puppeteer MCP, crop Sharp, `foragingLoopService`; E2E validé sur serveur local contrôlé | tâches web réelles contrôlées, mesure de qualité sémantique et évaluation GAIA, voir `web-foraging.md` |
 
 Aucune capacité ci-dessus n'est « validée » au sens bout en bout avec
 artefacts conservés. Les tests du reçu Rust sont unitaires et son event store
