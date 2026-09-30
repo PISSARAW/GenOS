@@ -284,7 +284,14 @@ async function evaluateCandidate(db, id) {
     signature: trust.trusted,
     trustReason: trust.reason
   });
-  const evaluation = { evaluatedAt: new Date().toISOString(), checks, eligible: Object.values(checks).every(Boolean) };
+  const failures = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);
+  const evaluation = {
+    evaluatedAt: new Date().toISOString(),
+    checks,
+    failures,
+    trustReason: trust.reason,
+    eligible: failures.length === 0
+  };
   const status = evaluation.eligible ? 'evaluated' : 'candidate';
   const saved = await db.run('UPDATE agent_genome_innovations SET evaluation_json = ?, status = ? WHERE id = ? AND status = ?', JSON.stringify(evaluation), status, id, row.status);
   if (saved.changes !== 1) throw Object.assign(new Error('Innovation changed during evaluation'), { code: 'INNOVATION_STATE_CHANGED' });

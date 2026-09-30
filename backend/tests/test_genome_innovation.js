@@ -44,6 +44,8 @@ async function run() {
 
   const evaluation = await innovation.evaluateCandidate(db, captured.id);
   assert.equal(evaluation.evaluation.eligible, true);
+  assert.deepEqual(evaluation.evaluation.failures, []);
+  assert.equal(evaluation.evaluation.trustReason, 'signature_not_required');
   assert.equal(evaluation.status, 'evaluated');
   const promoted = await innovation.promoteCandidate(db, captured.id);
   assert.equal(promoted.status, 'promoted');
