@@ -94,7 +94,10 @@ async function testTopologyOptionsCarryFullContext() {
       exploration_domains: ['d1'],
       known_concepts: ['c1', 'c2'],
       existing_capabilities: ['cap1'],
-      cultural_traits: ['t1'],
+    cultural_traits: ['t1'],
+    required_tools: ['grid_solver'],
+    required_capabilities: ['planning'],
+    genome_id: 'genome-1',
       nce_options: { curiosity: false },
     },
   };
@@ -105,6 +108,9 @@ async function testTopologyOptionsCarryFullContext() {
   assert.deepStrictEqual(opts.knownConcepts, ['c1', 'c2'], 'knownConcepts requis');
   assert.deepStrictEqual(opts.existingCapabilities, ['cap1'], 'existingCapabilities requis');
   assert.deepStrictEqual(opts.culturalTraits, ['t1'], 'culturalTraits requis');
+  assert.deepStrictEqual(opts.requiredTools, ['grid_solver'], 'requiredTools requis');
+  assert.deepStrictEqual(opts.requiredCapabilities, ['planning'], 'requiredCapabilities requis');
+  assert.strictEqual(opts.genomeId, 'genome-1', 'genomeId requis');
   assert.deepStrictEqual(opts.nceOptions, { curiosity: false }, 'nceOptions requis');
   assert.strictEqual(opts.db.marker, true, 'db doit être transmis');
   console.log('✓ test:topologyOptionsCarryFullContext');
