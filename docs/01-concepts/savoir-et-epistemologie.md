@@ -276,15 +276,18 @@ qu’une analyse conditionnelle est disponible, pas que la thèse est prouvée.
    Gödel sera limité aux énoncés formels et conditions d’application fournis.
 
 Pour les rubriques spécialisées, fournir `criteria: [{ id, supports, evidence }]` en
-reprenant les critères déclarés par `RUBRICS`. L’induction, le Dutch book, la
+reprenant les critères déclarés par `RUBRICS`, avec des éléments probants pertinents
+pour chaque critère évalué. Le service classe le booléen `supports` fourni et conserve
+`evidence` comme élément déclaré : la rubrique ne vérifie ni la pertinence ni la
+validité des critères et des éléments probants. Un critère absent ou sans booléen
+`supports` reste `unknown`; aucune réussite n’est implicite. L’induction, le Dutch book, la
 confirmation bayésienne et le reliabilisme de processus réutilisent respectivement les
 entrées des services d’inférence, probabilité et fiabilité (`observations`,
-`distribution`, paramètres de Bayes, `process`). Un critère absent ou sans booléen
-`supports` reste `unknown`; aucune réussite n’est implicite. Gödel accepte seulement
-les booléens de portée formelle (`effectiveAxiomatization`, `consistentSystem`,
-`arithmeticExpressivity`) et le statut déclaré d’une phrase (`provable`, `refutable`,
-`neither`). Le service ne construit pas de preuve et laisse le résultat indéterminé
-si les hypothèses formelles manquent.
+`distribution`, paramètres de Bayes, `process`). Pour Gödel, les booléens de portée
+formelle (`effectiveAxiomatization`, `consistentSystem`, `arithmeticExpressivity`) et le
+statut déclaré d’une phrase (`provable`, `refutable`, `neither`) sont des entrées de
+l’analyse conditionnelle, pas des résultats vérifiés. Aucune rubrique ne construit de
+preuve formelle; le résultat reste indéterminé si les hypothèses formelles manquent.
 
 Les tests du registre et du routeur se trouvent dans
 [`backend/tests/test_philosophy_router.js`](../../backend/tests/test_philosophy_router.js).
