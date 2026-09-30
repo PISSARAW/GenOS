@@ -35,4 +35,6 @@ pub mod trinity_tui;
 pub mod rhizome_telemetry;
 pub mod syncytium_crdt;
 pub mod chaos;
+pub mod doctor;
+pub mod operator_commands;
 pub mod output_guard;

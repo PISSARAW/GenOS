@@ -6,6 +6,9 @@ use clap::Args;
 /// the ratatui split-screen.
 #[derive(Args, Debug)]
 pub struct RunCmd {
+    /// Mission text; routes to the backend orchestrator when provided.
+    #[arg(value_name = "MISSION")]
+    pub mission: Option<String>,
     /// Execution mode to run. Currently supports: trinity
     #[arg(long, default_value = "trinity")]
     pub mode: String,

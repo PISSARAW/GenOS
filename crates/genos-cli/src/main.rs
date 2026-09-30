@@ -12,7 +12,7 @@ use args::{
 use commands::{
     agent, api_server, biomimicry, biological, capsule, experiments, hallucination, platform, replay, snapshot, store_ops, desktop,
 };
-use genos_immune::{AntibodyDetector, Antigen, ClonalSelection};
+use genos_immune::ClonalSelection;
 use std::path::PathBuf;
 
 fn immune_memory_path(agent_id: &str) -> Result<PathBuf, String> {
@@ -23,7 +23,7 @@ fn immune_memory_path(agent_id: &str) -> Result<PathBuf, String> {
     Ok(root.join("immune").join(format!("{}.json", agent_id)))
 }
 
-fn load_immune_selection(agent_id: &str) -> Result<(ClonalSelection, PathBuf), String> {
+pub(crate) fn load_immune_selection(agent_id: &str) -> Result<(ClonalSelection, PathBuf), String> {
     let path = immune_memory_path(agent_id)?;
     let selection = if path.exists() {
         ClonalSelection::load(&path).map_err(|error| format!("Failed to load immune memory: {}", error))?
@@ -54,6 +54,9 @@ fn handle_trinity_cmd(subcommand: TrinitySubcommands) -> Result<(), String> {
 }
 
 fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
+    if let Some(mission) = cmd.mission {
+        return execute_mission(&mission);
+    }
     match cmd.mode.as_str() {
         "trinity" => {
             if cmd.monitor || !cmd.simulation {
@@ -66,6 +69,42 @@ fn handle_run_cmd(cmd: args::RunCmd) -> Result<(), String> {
         }
         other => Err(format!("Unsupported run mode '{}'. Supported modes: trinity.", other)),
     }
+}
+
+fn orchestrator_root() -> Result<PathBuf, String> {
+    let current = std::env::current_dir().map_err(|error| format!("Cannot resolve current directory: {error}"))?;
+    current.ancestors()
+        .find(|path| path.join("backend/bin/genos-orchestrate.cjs").is_file())
+        .map(PathBuf::from)
+        .ok_or_else(|| "Run `genos` from inside a GenOS repository containing backend/bin/genos-orchestrate.cjs.".to_string())
+}
+
+fn execute_mission(mission: &str) -> Result<(), String> {
+    if mission.trim().is_empty() { return Err("Mission text cannot be empty.".to_string()); }
+    let root = orchestrator_root()?;
+    let payload = serde_json::json!({ "mission": mission });
+    let status = std::process::Command::new("node")
+        .current_dir(root)
+        .arg("backend/bin/genos-orchestrate.cjs")
+        .arg(payload.to_string())
+        .status()
+        .map_err(|error| format!("Cannot start the GenOS backend orchestrator: {error}"))?;
+    if status.success() { Ok(()) } else { Err(format!("GenOS mission ended with status {status}.")) }
+}
+
+fn initialize_workspace() -> Result<(), String> {
+    ["snapshots", "capsules", ".genos"]
+        .into_iter()
+        .try_for_each(|directory| {
+            std::fs::create_dir_all(directory)
+                .map_err(|error| format!("Failed to initialize '{}': {}", directory, error))
+        })?;
+    println!("{}", serde_json::json!({
+        "success": true,
+        "operation": "init",
+        "directories": ["snapshots", "capsules", ".genos"]
+    }));
+    Ok(())
 }
 
 fn main() {
@@ -82,21 +121,8 @@ fn real_main() {
     let cli = Cli::parse();
 
     let result: Result<(), String> = (|| match cli.command {
-        Some(Commands::Init) => {
-            let initialized = ["snapshots", "capsules"]
-                .into_iter()
-                .try_for_each(|directory| {
-                    std::fs::create_dir_all(directory)
-                        .map_err(|error| format!("Failed to initialize '{}': {}", directory, error))
-                });
-            initialized.map(|()| {
-                println!("{}", serde_json::json!({
-                    "success": true,
-                    "operation": "init",
-                    "directories": ["snapshots", "capsules"]
-                }));
-            })
-        }
+        Some(Commands::Init) => initialize_workspace(),
+        Some(Commands::Doctor) => commands::doctor::execute(),
         None => {
             let mut command = args::Cli::command();
             match command.print_help() {
@@ -172,127 +198,8 @@ fn real_main() {
         Some(Commands::Resilience(cmd)) => match cmd.subcommand {
             args::ResilienceSubcommands::Cryptobiosis { agent_id, .. } => store_ops::handle_cryptobiosis(&agent_id, None, None),
         },
-        Some(Commands::Ais(cmd)) => match cmd.subcommand {
-            args::AisSubcommands::DangerTelemetry { agent_id, severity, threat_context } => {
-                let antigen = Antigen { id: agent_id.clone(), epitope: threat_context.clone(), danger_level: if severity == "high" { 0.9 } else { 0.5 } };
-                let (mut selection, memory_path) = load_immune_selection(&agent_id)?;
-                selection.detectors.push(AntibodyDetector::new("danger-telemetry", &threat_context, 1.0));
-                let recognized = selection.recognize(&antigen);
-                selection.save(memory_path).map_err(|error| format!("Failed to save immune memory: {}", error))?;
-                println!("{}", serde_json::json!({ "success": recognized, "operation": "danger_telemetry", "agent_id": agent_id, "severity": severity, "threat_context": threat_context, "recognized": recognized, "memory_pool_size": selection.memory_pool.len() }));
-                Ok(())
-            }
-            args::AisSubcommands::ClonalHypermutate { agent_id, mutation_rate, clone_count } => {
-                let antigen = Antigen { id: agent_id.clone(), epitope: "CLONAL_SIGNAL".to_string(), danger_level: 0.9 };
-                let (mut selection, memory_path) = load_immune_selection(&agent_id)?;
-                let expansion = selection.clonal_expansion_and_hypermutate(&antigen, clone_count as usize, mutation_rate);
-                let recognized = selection.recognize(&antigen);
-                selection.save(memory_path).map_err(|error| format!("Failed to save immune memory: {}", error))?;
-                println!("{}", serde_json::json!({
-                    "success": true,
-                    "operation": "clonal_hypermutate",
-                    "agent_id": agent_id,
-                    "mutation_rate": mutation_rate,
-                    "clones_generated": expansion.clones_generated,
-                    "best_affinity": expansion.best_affinity,
-                    "detectors_count": selection.detectors.len(),
-                    "recognized": recognized,
-                    "memory_pool_size": selection.memory_pool.len()
-                }));
-                Ok(())
-            }
-            args::AisSubcommands::PrrScan { agent_id, patterns } => {
-                let detector_patterns: Vec<String> = patterns.split(',').map(str::trim).filter(|pattern| !pattern.is_empty()).map(str::to_string).collect();
-                let antigen = Antigen { id: agent_id.clone(), epitope: patterns.clone(), danger_level: 0.8 };
-                let (mut selection, memory_path) = load_immune_selection(&agent_id)?;
-                for pattern in &detector_patterns {
-                    selection.detectors.push(AntibodyDetector::new(pattern, pattern, 1.0));
-                }
-                let recognized = selection.recognize(&antigen);
-                selection.save(memory_path).map_err(|error| format!("Failed to save immune memory: {}", error))?;
-                println!("{}", serde_json::json!({ "success": recognized, "operation": "prr_scan", "agent_id": agent_id, "patterns": detector_patterns, "recognized": recognized }));
-                Ok(())
-            }
-        },
-        Some(Commands::Synaptic(cmd)) => match cmd.subcommand {
-            args::SynapticSubcommands::PruneScale { agent_id, scale } => {
-                let api_url = std::env::var("GENOS_API_URL")
-                    .unwrap_or_else(|_| format!("http://127.0.0.1:{}", std::env::var("GENOS_PORT").unwrap_or_else(|_| "4000".to_string())));
-                let client = reqwest::blocking::Client::builder()
-                    .timeout(std::time::Duration::from_millis(2000))
-                    .build()
-                    .unwrap_or_default();
-                let body = serde_json::json!({
-                    "agentId": agent_id,
-                    "threshold": 0.5,
-                    "scale": scale
-                });
-                let (pruned_count, live_synced) = match client.post(format!("{}/api/memory/prune", api_url)).json(&body).send() {
-                    Ok(res) if res.status().is_success() => {
-                        if let Ok(data) = res.json::<serde_json::Value>() {
-                            (data.get("pruned_synapses").and_then(|v| v.as_u64()).unwrap_or(0) as usize, true)
-                        } else {
-                            (0, false)
-                        }
-                    }
-                    _ => (0, false)
-                };
-                println!("{}", serde_json::json!({
-                    "success": true,
-                    "operation": "prune_scale",
-                    "agent_id": agent_id,
-                    "scale": scale,
-                    "pruned_synapses": pruned_count,
-                    "live_synced": live_synced
-                }));
-                Ok(())
-            }
-            args::SynapticSubcommands::PathEvaluate { agent_id, pre_node, post_node } => {
-                let prompt = format!("Evaluate the cognitive path from node '{}' to node '{}' for agent '{}'. What is the logical deduction?", pre_node, post_node, agent_id);
-                
-                let llm_url = std::env::var("GENOS_LLM_URL").unwrap_or_else(|_| {
-                    let host = std::env::var("GENOS_API_HOST").or_else(|_| std::env::var("GENOS_HOST")).unwrap_or_else(|_| "127.0.0.1".to_string());
-                    let port = std::env::var("GENOS_API_PORT").or_else(|_| std::env::var("GENOS_PORT")).unwrap_or_else(|_| "8085".to_string());
-                    format!("http://{host}:{port}/v1/chat/completions")
-                });
-                let client = reqwest::blocking::Client::builder()
-                    .timeout(std::time::Duration::from_millis(1500))
-                    .build()
-                    .unwrap_or_default();
-                let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "genos-core-v3".to_string());
-                let body = serde_json::json!({
-                    "model": model_name,
-                    "messages": [
-                        { "role": "user", "content": prompt }
-                    ]
-                });
-                
-                let evaluation = match client.post(&llm_url).json(&body).send() {
-                    Ok(res) if res.status().is_success() => {
-                        if let Ok(json_resp) = res.json::<serde_json::Value>() {
-                            if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
-                                text.to_string()
-                            } else {
-                                format!("Valid path evaluated between '{}' and '{}'", pre_node, post_node)
-                            }
-                        } else {
-                            format!("Synaptic traversal confirmed between '{}' and '{}'", pre_node, post_node)
-                        }
-                    },
-                    _ => format!("Direct synaptic path heuristic: connection between '{}' and '{}' evaluated for agent '{}'", pre_node, post_node, agent_id)
-                };
-
-                println!("{}", serde_json::json!({ 
-                    "success": true, 
-                    "operation": "path_evaluate", 
-                    "agent_id": agent_id, 
-                    "pre_node": pre_node, 
-                    "post_node": post_node,
-                    "evaluation": evaluation.trim()
-                }));
-                Ok(())
-            }
-        },
+        Some(Commands::Ais(cmd)) => commands::operator_commands::execute_ais(cmd.subcommand),
+        Some(Commands::Synaptic(cmd)) => commands::operator_commands::execute_synaptic(cmd.subcommand),
         Some(Commands::Fossil(cmd)) => match cmd.subcommand {
             FossilSubcommands::Record { lineage_id, reason, mode } => {
                 store_ops::handle_fossil_record(&lineage_id, &reason, mode.as_deref())

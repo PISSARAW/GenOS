@@ -35,6 +35,8 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize the GenOS workspace directories
     Init,
+    /// Check which local GenOS capabilities are available
+    Doctor,
     /// Agent genome lifecycle operations
     Agent(AgentCmd),
     /// Binary AgentDNA genome operations
