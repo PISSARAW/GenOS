@@ -336,6 +336,7 @@ async function incarnateAgent(opts) {
   const c = opts.ctx || {};
   const db = c.db;
   const parent = safeParent(c, request);
+  await require('../medical/missionQuarantineGate').assertMissionDispatchAllowed(db, parent.id);
   const agentId = agentIdFor(parent, request);
   const dnaSelection = await buildDna({ db, parent, request });
   let evolution = dnaAuthority(dnaSelection);
