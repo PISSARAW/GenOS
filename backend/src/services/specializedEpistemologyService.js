@@ -41,7 +41,15 @@ function criteriaFor(conceptId, criteria) {
     .map((item) => [item.id, item]));
   return required.map((id) => {
     const item = supplied.get(id);
-    return { id, status: typeof item?.supports === 'boolean' ? (item.supports ? 'supports' : 'challenges') : 'unknown', evidence: item?.evidence ?? null };
+    const evidence = item?.evidence ?? null;
+    const hasEvidence = evidence !== null && evidence !== ''
+      && (!Array.isArray(evidence) || evidence.length > 0);
+    return {
+      id,
+      status: typeof item?.supports === 'boolean' && hasEvidence
+        ? (item.supports ? 'supports' : 'challenges') : 'unknown',
+      evidence,
+    };
   });
 }
 
