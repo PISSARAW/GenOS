@@ -19,6 +19,7 @@ const {
   checkConnectivity
 } = require('./axolotlRegenerationHelpers');
 const learning = require('./axolotlRegenerationLearning');
+const costService = require('./axolotlRegenerationCostService');
 
 const regenerationSessions = new Map();
 let adaptivePersister = null;
@@ -87,7 +88,7 @@ async function executeRegeneration({ sessionId, db, context = {} }) {
   await persistSessions();
   const preserved = await preserveCriticalState(session, db);
   const newTopology = buildScopedTopology(session, preserved);
-  session.cost = mergeObservedCost(session.cost, context.observedCost);
+  session.cost = costService.accumulate(session.cost, context.observedCost);
   session.learning = await learning.evaluateCandidates(
     session.learning || learning.createLearningRecord(), context.evaluateCognitiveCandidate
   );
@@ -195,15 +196,6 @@ function regenerationError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-function mergeObservedCost(previous, observed) {
-  const next = { ...(previous || {}), source: 'runtime_observation' };
-  const units = ['tokens', 'events', 'durationMs', 'costUsd', 'componentsChanged', 'connectionsChanged'];
-  for (const unit of units) {
-    const value = Number(observed?.[unit]);
-    if (Number.isFinite(value) && value >= 0) next[unit] = (Number(next[unit]) || 0) + value;
-  }
-  return next;
-}
 
 async function createRegeneratedWorker({ db, session, context }) {
   const crypto = require('crypto');
