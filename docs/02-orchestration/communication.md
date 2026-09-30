@@ -423,10 +423,10 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
 
 ### 8.2 Décider, journaliser shadow, apprendre
 
-- **Policy** : `decideCommunication` (voir §2.1) ; mode par défaut `shadow` (`communicationPolicyEngine.js:29-38`), `logAndDecide` ne publie jamais lui-même en shadow (`:352-355`).
-- **Shadow** : table `communication_shadow_log(intent_json, decision_json, current_behavior_json, utility, gain, cost)` + `shadowReceipt{reduction = 1 − cost/naive}` (`communicationShadowLogService.js:13-66`). **Écart** : `communicationCheckpointService.evaluateCheckpoint` appelle `decideCommunication` puis `executeSignal` sans tester `getMode()` (`:203-219`) — le flag shadow n'empêche pas cette voie de publication.
+- **Policy** : `decideCommunication` (voir §2.1) ; mode par défaut `active` (`communicationPolicyEngine.js`), sauf `GENOS_COMMUNICATION_MODE` défini à une valeur autre que `active`. `logAndDecide` journalise la décision en shadow sans publier.
+- **Shadow** : table `communication_shadow_log(intent_json, decision_json, current_behavior_json, utility, gain, cost)` + `shadowReceipt{reduction = 1 − cost/naive}` (`communicationShadowLogService.js:13-66`). `evaluateCheckpoint` vérifie le mode avant tout effet : en shadow, il retourne un reçu `SHADOW_MODE` sans exécuter le signal.
 - **Apprentissage** : `learnFromOutcome` (`communicationLearningService.js:122-134`) — `mapOutcome` (`dialectError→error`, `actionTaken ∧ interpretationCorrect→action_taken`, `recipientKnew→no_effect`, sinon `ignored`, `:32-37`), journal `communication_outcomes` (`:19-30, 39-49`), puis `learnExpertise → recordOutcome` (skip si `recipientKnew`), `learnCommonGround → recordGrounding confidence 0.6`, `learnDialect → recordUsage/observePhrase`, `learnRelation → familiarity ± 0.05`, `learnChannel → plasticité + signalMetrics`. Les seuils et coefficients de coût ne sont pas auto-ajustés (partiel).
-- **Checkpoints** : 8 points (`CHECKPOINTS :16-25`), `buildIntent/buildPolicyInput` (`ttlMs:60 s, maxCandidates:10`), `executeSignal` (`SILENCE→false`, `STIGMERGY→true/signalId:null` non persisté, sinon `publishSignal topic checkpoint|global`, `:150-162`), historique mémoire capé à 100 (`:143-148`).
+- **Checkpoints** : 8 points (`CHECKPOINTS :16-25`), `buildIntent/buildPolicyInput` (`ttlMs:60 s, maxCandidates:10`), exécution : `SILENCE` ne publie pas ; `STIGMERGY` écrit durablement dans SQLite (`signal_blobs`) ; `SIGNAL` appelle `publishSignal` avec audience vérifiée. L'historique mémoire est capé à 100 (`communicationCheckpointService.js`). Les autres canaux non raccordés restent sans exécution.
 - **Drivers** : `assessAgency` (`autonomous = expertise ≥ 0.7 ∧ wasteRate < 0.3`, `agencyDriver.js:61-82`, seuils en dur) ; `recommendActions` (`wasteRate > 0.5 → SILENCE`, `actionRate > 0.6 → SIGNAL`, sinon `STIGMERGY`, + `HUMAN` si `urgency > 0.7`, fenêtre 1 h, `:88-127`, non branché au policy engine — partiel) ; `runCycle` (`decide → recordDecision → tryLogShadow → simulateExecution → learnFromReceivers → assessAgency`, `:127-163`) reste un harness simulé : `recipientKnew` est stochastique. L’appelant peut fournir un reçu d’usage fournisseur validé; en son absence, les tokens sont projetés séparément et `tokensUsed` vaut zéro. Ce n’est pas une exécution réelle du message ou du modèle.
 
 ---
@@ -470,7 +470,7 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
   Les signaux ligand restent soumis à la vérification d'audience. La simulation
   applique des règles déterministes bornées ; elle ne modélise ni imagination,
   ni propriété biologique.
-- Pas de `STIGMERGY` persistant via `executeSignal` (`signalId:null`).
+- La persistance garantit la lecture interprocessus des dépôts STIGMERGY via la base partagée, pas un push instantané aux workers : le consommateur doit relire les signaux. Sans base, le checkpoint retourne `PERSISTENCE_REQUIRED` et ne revendique aucun partage.
 - Pas de bouclage `recommendActions → policy engine`.
 - Pas de preuve qu'un `transport_ack` vaut décision valide (la beard épistémique reste entière : seul `verified_ack/human_confirmation` + gate de preuve autorise une promotion).
 
