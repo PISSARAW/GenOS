@@ -12,8 +12,11 @@ pub mod paf;
 pub mod sign_stimulus;
 
 pub use innate_releasing::{HormoneState, InnateReleasingMechanism, TriggerEvaluation};
-pub use paf::{ExecutionContext, FixedActionPattern, InstinctOutcome, MotorStep, is_supported_action, MAX_CHAIN_DEPTH};
-pub use sign_stimulus::{Modality, SignalProvenance, SignStimulus, StimulusField};
+pub use paf::{
+    ExecutionContext, FixedActionPattern, InstinctOutcome, MAX_CHAIN_DEPTH, MotorStep,
+    is_supported_action,
+};
+pub use sign_stimulus::{Modality, SignStimulus, SignalProvenance, StimulusField};
 
 use genos_genome::Gene;
 pub use genos_genome::INSTINCT_LOCUS_PREFIX;
@@ -111,7 +114,10 @@ impl InstinctProgram {
             if !is_supported_action(&step.action, &step.tool) {
                 return InstinctOutcome::Interrupt {
                     at_step: index,
-                    reason: format!("Unsupported action/tool pair: {}::{}", step.tool, step.action),
+                    reason: format!(
+                        "Unsupported action/tool pair: {}::{}",
+                        step.tool, step.action
+                    ),
                 };
             }
             if !is_authorized {

@@ -78,7 +78,10 @@ fn chain_depth_overflow_is_blocked() {
     // Anti-boucle : une chaîne de redéclenchements trop profonde est bloquée.
     let mut execution = capable_execution();
     execution.chain_depth = MAX_CHAIN_DEPTH;
-    assert!(matches!(run_forage(&execution), InstinctOutcome::Blocked { .. }));
+    assert!(matches!(
+        run_forage(&execution),
+        InstinctOutcome::Blocked { .. }
+    ));
 }
 
 #[test]

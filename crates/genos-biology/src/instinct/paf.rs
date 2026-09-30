@@ -133,12 +133,26 @@ impl ExecutionContext {
 /// Verdict terminal d'un instinct déclenché.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum InstinctOutcome {
-    NotTriggered { salience: f64, threshold: f64 },
-    Blocked { reason: String },
+    NotTriggered {
+        salience: f64,
+        threshold: f64,
+    },
+    Blocked {
+        reason: String,
+    },
     /// Plan validé mais NON exécuté : l'exécution réelle passe par
     /// l'executor externe qui émet un receipt par pas. Seul l'executor
     /// peut convertir Pending en Complete.
-    Pending { steps_ready: usize, gain: f64 },
-    Complete { steps_executed: usize, gain: f64 },
-    Interrupt { at_step: usize, reason: String },
+    Pending {
+        steps_ready: usize,
+        gain: f64,
+    },
+    Complete {
+        steps_executed: usize,
+        gain: f64,
+    },
+    Interrupt {
+        at_step: usize,
+        reason: String,
+    },
 }

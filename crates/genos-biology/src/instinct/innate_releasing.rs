@@ -26,8 +26,7 @@ impl HormoneState {
     /// testostérone/cortisol le relèvent. Borné dans [0.1, 1.5].
     pub fn threshold_modifier(&self) -> f64 {
         let lowering = 0.5 * self.oxytocin.clamp(0.0, 1.0) + 0.35 * self.prolactin.clamp(0.0, 1.0);
-        let raising =
-            0.4 * self.testosterone.clamp(0.0, 1.0) + 0.4 * self.cortisol.clamp(0.0, 1.0);
+        let raising = 0.4 * self.testosterone.clamp(0.0, 1.0) + 0.4 * self.cortisol.clamp(0.0, 1.0);
         (1.0 - lowering + raising).clamp(0.1, 1.5)
     }
 
