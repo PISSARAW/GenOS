@@ -52,6 +52,7 @@ pub struct Director {
     pub exploration_weight: f64,
     pub stress_cost_weight: f64,
     pub physical_memory: Option<(crate::physics::PhysicalState, Strategy)>,
+    pub mission_physics: BTreeMap<String, crate::physical_telemetry::MissionPhysicsProfile>,
 }
 
 impl Default for Director {
@@ -64,6 +65,7 @@ impl Default for Director {
             exploration_weight: 1.5,
             stress_cost_weight: 2.0,
             physical_memory: None,
+            mission_physics: BTreeMap::new(),
         }
     }
 }
@@ -75,6 +77,8 @@ pub struct DirectorState {
     pub learner: Learner,
     pub exploration_weight: f64,
     pub stress_cost_weight: f64,
+    #[serde(default)]
+    pub mission_physics: BTreeMap<String, crate::physical_telemetry::MissionPhysicsProfile>,
 }
 
 impl Director {
@@ -90,6 +94,7 @@ impl Director {
             learner: self.learner.clone(),
             exploration_weight: self.exploration_weight,
             stress_cost_weight: self.stress_cost_weight,
+            mission_physics: self.mission_physics.clone(),
         }
     }
 
@@ -99,6 +104,7 @@ impl Director {
         self.learner = state.learner;
         self.exploration_weight = state.exploration_weight;
         self.stress_cost_weight = state.stress_cost_weight;
+        self.mission_physics = state.mission_physics;
     }
 
     /// Applique les gènes du candidat.

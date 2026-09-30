@@ -137,6 +137,19 @@ pub enum Goal {
     Conserve,
 }
 
+impl Goal {
+    /// Identifiant stable utilisé pour indexer les paramètres physiques appris.
+    pub fn mission_key(&self) -> String {
+        match self {
+            Self::SecurePerimeter => "secure-perimeter",
+            Self::RecoverAgent => "recover-agent",
+            Self::RepairModule => "repair-module",
+            Self::Explore => "explore",
+            Self::Conserve => "conserve",
+        }.to_string()
+    }
+}
+
 /// État du monde observable (extrait de l'écosystème ou simulé).
 #[derive(Clone, Debug)]
 pub struct WorldState {
