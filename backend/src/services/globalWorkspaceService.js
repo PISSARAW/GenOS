@@ -17,7 +17,33 @@ function compete(contents, options = {}) {
 function diffuse(workspace, modules) {
   const target = Array.isArray(modules) ? modules : [];
   const winner = workspace?.winner;
-  return target.map((module) => ({ module, contentId: winner?.id || null, available: Boolean(winner) }));
+  const allowed = new Set(Array.isArray(workspace?.globalAccess) ? workspace.globalAccess : []);
+  return target.map((module) => {
+    const available = Boolean(winner && allowed.has(module));
+    return { module, contentId: available ? winner.id : null, available };
+  });
 }
 
-module.exports = { admit, compete, diffuse };
+function consume(workspace, module, handler) {
+  const delivery = diffuse(workspace, [module])[0];
+  if (!delivery.available || typeof handler !== 'function') {
+    return { ...delivery, consumed: false, output: null };
+  }
+  return { ...delivery, consumed: true, output: handler(delivery.contentId) };
+}
+
+function causalEffect(workspace, module, handler) {
+  if (typeof handler !== 'function') return { measured: false, changed: false };
+  const delivery = diffuse(workspace, [module])[0];
+  if (!delivery.available) return { measured: false, changed: false };
+  const delivered = handler(delivery.contentId);
+  const ablated = handler(null);
+  return {
+    measured: true,
+    changed: delivered !== ablated,
+    delivered,
+    ablated
+  };
+}
+
+module.exports = { admit, compete, diffuse, consume, causalEffect };

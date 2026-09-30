@@ -11,6 +11,8 @@ const EVENT_KIND_MAP = {
   AGENT_PLAN_CREATED: 'strategy_change',
   WORKER_CAPABILITY_LEASED: 'worker_created',
   AGENT_STEP: 'step',
+  ORCHESTRATION_ACTION_EXECUTED: 'step',
+  ORCHESTRATION_ACTION_FAILED: 'primitive_failure',
   EVIDENCE_REPORT: 'evidence_validated',
   STRATEGY_PRIMITIVE_EXEC: 'strategy_change',
   STRATEGY_FEEDBACK_LOOP_TRIGGERED: 'strategy_change',

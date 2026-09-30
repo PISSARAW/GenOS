@@ -14,7 +14,7 @@ pas protocole, profil, seeds, budget, résultat et réplication.
 | Butlin | RPT-2 Perception intégrée | 10–11 | `implemented_not_validated` | binding, espace inspectable | pas de permutation causale à grande échelle |
 | Butlin | GWT-1 Spécialistes parallèles | 12 | `implemented_not_validated` | workspace compétitif | concurrence réelle non mesurée |
 | Butlin | GWT-2 Workspace sélectif | 12 | `implemented_not_validated` | capacité, éviction, surcharge | pas de réplication indépendante |
-| Butlin | GWT-3 Diffusion globale | 12 | `implemented_not_validated` | diffusion par module autorisé | usage aval non validé causalement |
+| Butlin | GWT-3 Diffusion globale | 12 | `implemented_not_validated` | helper de workspace : autorisation par module, consommation et sonde d'ablation | le helper n'est branché à aucun chemin de production ; disponibilité globale effective non validée |
 | Butlin | GWT-4 Attention dépendante de l’état | 13 | `implemented_not_validated` | prédiction et score d’accord | pas de test reserved |
 | Butlin | HOT-1 Perception générative | 11 | `implemented_not_validated` | prior, précision, erreur | modèle génératif limité |
 | Butlin | HOT-2 Fiabilité monitorée | 14 | `implemented_not_validated` | erreur confiance/exactitude | calibration adversariale absente |
@@ -23,7 +23,16 @@ pas protocole, profil, seeds, budget, résultat et réplication.
 | Butlin | AST-1 Modèle prédictif de l’attention | 13 | `implemented_not_validated` | allocation et réallocation | leases non ablatés causalement |
 | Butlin | PP-1 Codage prédictif | 11 | `implemented_not_validated` | prior/observation/erreur | hiérarchie multi-niveaux non validée |
 | Butlin | AE-1 Objectifs concurrents | 16 | `implemented_not_validated` | utilité, pression, invariants | apprentissage longitudinal absent |
-| Butlin | AE-2 Contingences action-perception | 15 | `implemented_not_validated` | gain, délai, attribution | perturbation réelle non répliquée |
+| Butlin | AE-2 Contingences action-perception | 15 | `implemented_not_validated` | copie d'efférence corrélée à l'ID d'action, échec/succès d'orchestration routés vers capture ; gain, délai, attribution des effecteurs | test causal logiciel ajouté ; inventaire exhaustif des chemins d'action et perturbations réelles non répliqués |
+
+## Bancs externes
+
+SAD (Situational Awareness Dataset) et MIRROR (benchmark hiérarchique de
+métacognition) sont des évaluations externes à exécuter sur un modèle déclaré,
+avec son identifiant/version, son protocole d'inférence et les contraintes de
+licence/corpus. Ils restent `not_run` : aucun résultat du runtime, test local
+ou score synthétique ne les remplace. Ils évaluent des capacités déclaratives
+ou métacognitives du système testé et ne sont pas des tests de conscience.
 
 ## État des lots
 

@@ -33,7 +33,8 @@ function stubDb() {
   return {
     get: async (sql, s, k) => (tables.has(`${s}|${k}`) ? { payload_json: tables.get(`${s}|${k}`) } : null),
     all: async () => [],
-    run: async (sql, s, k, p) => {
+    run: async (...args) => {
+      const [sql, s, k, p] = args;
       if (s && !String(sql).includes('adaptive_state_events')) tables.set(`${s}|${k}`, p);
     },
     seed: (scope, key, value) => tables.set(`${scope}|${key}`, JSON.stringify(value))
@@ -93,8 +94,14 @@ async function testEfferenceAndWorld() {
   const world = HERE('worldModelService');
   const db = stubDb();
   await efference.predict(db, 'a', { action: 'go', expectedTypes: ['DID'] });
-  const hit = await efference.discharge(db, 'a', { eventType: 'DID', detail: 'd', payload: {} });
+  const hit = await efference.discharge(db, 'a', { eventType: 'DID', detail: 'd', payload: { eventId: 'unrelated' } });
   assert.strictEqual(hit.matched, true);
+  await efference.predict(db, 'a', { action: 'bound action', actionId: 'source-7', expectedTypes: ['ORCHESTRATION_ACTION_EXECUTED'] });
+  const bound = await efference.discharge(db, 'a', {
+    eventType: 'ORCHESTRATION_ACTION_EXECUTED', payload: { eventId: 'source-7' }
+  });
+  assert.strictEqual(bound.matched, true, 'action receipt must consume only its correlated efference copy');
+  assert.strictEqual(bound.strength, 1);
   assert.strictEqual((await efference.discharge(db, 'a', { eventType: 'DID', detail: 'd', payload: {} })).matched, false);
   const chain = await world.predictTrajectory(db, 'a', { actions: [{ action: 'x' }, { action: 'y' }] });
   const observed = await world.observeTrajectory(db, 'a', { chainId: chain.chainId, outcomes: [{ success: true }, { success: false }] });

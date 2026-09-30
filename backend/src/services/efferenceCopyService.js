@@ -63,7 +63,8 @@ function copyLive(copy, now) {
 function matchStrength(copy, event) {
   const payload = event.payload || {};
   const detail = String(event.detail || '');
-  if (copy.actionId && (payload.sourceActionId === copy.actionId || payload.sourceEventId === copy.actionId)) return 1;
+  if (copy.actionId && (payload.sourceActionId === copy.actionId
+    || payload.sourceEventId === copy.actionId || payload.eventId === copy.actionId)) return 1;
   if (copy.expectedDetail && detail.includes(copy.expectedDetail)) return 1;
   if (copy.expectedTypes.includes(event.eventType)) return 0.7;
   return 0;
@@ -71,6 +72,29 @@ function matchStrength(copy, event) {
 
 function pruneCopies(copies, now) {
   return copies.filter((copy) => copyLive(copy, now)).slice(-LEDGER_LIMIT);
+}
+
+function bestMatch(copies, event, now) {
+  let hit = null;
+  let strength = 0;
+  for (const copy of copies) {
+    if (!copyLive(copy, now)) continue;
+    const score = matchStrength(copy, event);
+    if (score > strength) ({ hit, strength } = { hit: copy, strength: score });
+    if (strength >= 1) break;
+  }
+  return { hit, strength };
+}
+
+async function persistDischarge(input) {
+  const { store, db, agentId, copies, match, now } = input;
+  const { hit, strength } = match;
+  if (!hit) return { matched: false };
+  const marked = copies.map((copy) => (copy.id === hit.id ? { ...copy, consumed: true } : copy));
+  const remaining = pruneCopies(marked, now);
+  await store.persistObject(SCOPE, agentId, { copies: remaining }, remaining.length);
+  await recordDischargeAttribution({ db, agentId, copy: hit, strength });
+  return { matched: true, copyId: hit.id, attenuation: REAFFERENCE_WEIGHT, strength };
 }
 
 async function recordDischargeAttribution(input) {
@@ -112,22 +136,10 @@ async function discharge(db, agentId, event) {
     const store = new AdaptiveStateService(opened.db);
     const stored = (await store.restoreObject(SCOPE, agentId)) || {};
     const copies = Array.isArray(stored.copies) ? stored.copies : [];
-    let hit = null;
-    let strength = 0;
-    for (const copy of copies) {
-      if (!copyLive(copy, now)) continue;
-      const score = matchStrength(copy, event);
-      if (score > strength) {
-        strength = score;
-        hit = copy;
-      }
-      if (strength >= 1) break;
-    }
-    if (!hit) return { matched: false };
-    const remaining = pruneCopies(copies.map((copy) => (copy.id === hit.id ? { ...copy, consumed: true } : copy)), now);
-    await store.persistObject(SCOPE, agentId, { copies: remaining }, remaining.length);
-    await recordDischargeAttribution({ db: opened.db, agentId, copy: hit, strength });
-    return { matched: true, copyId: hit.id, attenuation: REAFFERENCE_WEIGHT, strength };
+    return await persistDischarge({
+      store, db: opened.db, agentId, copies,
+      match: bestMatch(copies, event, now), now
+    });
   } catch (_) {
     return { matched: false };
   } finally {
