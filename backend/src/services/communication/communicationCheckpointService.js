@@ -174,9 +174,13 @@ async function executeStigmergy(decision, ctx) {
   const ttlMs = decision.ttlMs || 60000;
   const signal = buildStigmergySignal(decision, ctx, ttlMs);
   const result = await stigmergyBridge.depositPheromone(signal, { db: ctx.db });
+  if (result.localOnly) {
+    return { executed: false, channel: 'STIGMERGY', signalId: result.signalId || null,
+      published: false, reason: 'PERSISTENCE_REQUIRED' };
+  }
   return {
-    executed: !result.localOnly, channel: 'STIGMERGY', signalId: result.signalId || null,
-    published: !result.localOnly, reason: result.localOnly ? 'LOCAL_ONLY' : null
+    executed: true, channel: 'STIGMERGY', signalId: result.signalId,
+    published: true, reason: null
   };
 }
 

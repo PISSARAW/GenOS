@@ -197,6 +197,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0172](0172-preuves-pour-apprentissage-causal-et-analyse-sociale.md) | Preuves pour l'apprentissage causal et analyse sociale descriptive | Accepté | 2026-09-28 | preuves, apprentissage, annulation, cognition sociale |
 | [0173](0173-noyau-routage-et-niveaux-de-verification.md) | Noyau de routage et niveaux de vérification des claims | Accepté | 2026-09-30 | épistémologie, vérificateurs, reçus |
 | [0174](0174-feedback-homeostatique-et-benchmark-eab.md) | Feedback homéostatique en contrôle et runner EAB | Accepté | 2026-09-30 | contrôle runtime, évaluation épistémique |
+| [0175](0175-checkpoints-interprocessus-persistes.md) | Checkpoints interprocessus persistés | Accepté | 2026-09-30 | Communication, persistance |
+| [0176](0176-boucles-biologiques-mesurees.md) | Boucles biomimétiques runtime mesurées | Accepté — intégration par tranches | 2026-09-30 | Perception, action, signalisation, cellules spécialisées, preuves |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

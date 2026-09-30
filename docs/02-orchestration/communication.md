@@ -1,6 +1,6 @@
 # Types de communication : Écologie communicationnelle GenOS
 
-- **Statut** : Partiel (enveloppe versionnée branchée au Signal Plane et aux messages d'organisation ; checkpoint en shadow par défaut ; mesure réelle des tokens et adaptateurs généraux non branchés)
+- **Statut** : Partiel (enveloppe versionnée branchée au Signal Plane et aux messages d'organisation ; checkpoints persistés actifs par défaut, mode shadow disponible ; mesure réelle des tokens et adaptateurs généraux non branchés)
 - **Portée** : les 7 types de communication inter-agents, leurs déclencheurs, leurs garanties et leur gouvernance (coût, métriques, shadow, apprentissage)
 - **Dernière revue** : 2026-09-25
 
@@ -463,9 +463,13 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
 ### 10.3 Non-objectifs
 
 - Pas de mesure réelle de tokens (`chars/4` déjà banni, compteur réel non branché — invariant 11 non tenu).
-- Le policy engine reste en shadow par défaut. Le pont checkpoint refuse maintenant
-  tout effet en shadow; en mode active il n'exécute que les signaux ligand dont
-  l'audience a été vérifiée. Les autres encodages attendent un adaptateur réel.
+- Le policy engine checkpoint est actif par défaut (`GENOS_COMMUNICATION_MODE=shadow`
+  permet une simulation sans publication). Les dépôts STIGMERGY de checkpoint
+  exigent une écriture SQLite persistée ; sans base, le reçu signale
+  `PERSISTENCE_REQUIRED` et ne prétend pas à une communication interprocessus.
+  Les signaux ligand restent soumis à la vérification d'audience. La simulation
+  applique des règles déterministes bornées ; elle ne modélise ni imagination,
+  ni propriété biologique.
 - Pas de `STIGMERGY` persistant via `executeSignal` (`signalId:null`).
 - Pas de bouclage `recommendActions → policy engine`.
 - Pas de preuve qu'un `transport_ack` vaut décision valide (la beard épistémique reste entière : seul `verified_ack/human_confirmation` + gate de preuve autorise une promotion).
@@ -476,7 +480,7 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
 
 | Paramètre (code) | Défaut | Effet |
 |---|---|---|
-| `currentMode` (`communicationPolicyEngine.js:29-38`) | `shadow` | journalise sans publier (voie `logAndDecide` uniquement) |
+| `currentMode` (`communicationPolicyEngine.js:29-38`) | `active` | exécute les checkpoints ; `GENOS_COMMUNICATION_MODE=shadow` désactive les publications |
 | `MICRO = {maxTurns:1, tokenBudget:200}` (`:208-212`) | 1 tour / 200 | borne micro-utterance |
 | `DIALOGUE = {maxTurns:8, tokenBudget:2000}` (`:213-217`) | 8 tours / 2000 | borne dialogue |
 | `DIALOGUE_DIRECT` (`dialogueSessionService.js:8`) | `{COMMITMENT_NEGOTIATION, HUMAN_EXPLANATION_REQUIRED}` | bypass `MICRO_FIRST` |

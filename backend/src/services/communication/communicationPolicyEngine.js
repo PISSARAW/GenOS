@@ -27,7 +27,10 @@ const RISK_LEVEL = Object.freeze({ low: 0, medium: 1, high: 2, critical: 3 });
 
 const RISK_DISCLOSURE = Object.freeze({ low: 0, medium: 0.2, high: 0.5, critical: 0.8 });
 
-let currentMode = 'shadow';
+// Checkpoint communication is active by default; operators can still select
+// shadow explicitly through setMode() for a dry run.
+const configuredMode = process.env.GENOS_COMMUNICATION_MODE;
+let currentMode = configuredMode === undefined || configuredMode === 'active' ? 'active' : 'shadow';
 
 function setMode(mode) {
   if (mode !== 'active' && mode !== 'shadow') throw new Error("Mode must be 'active' or 'shadow'.");
