@@ -66,10 +66,13 @@ async function testCulturePhenotypeWithSQLite() {
       agentId: state.agentId, genomeId: state.genomeId, requiredCapabilities: ['analysis'],
     }, { phenotype: { enabled: true } }, sqlite.adapter);
     const restored = await phenotype.loadPhenotypeState(state.genomeId, sqlite.adapter, state.agentId);
+    const indexedState = await sqlite.adapter.get('SELECT branches_json, history_json FROM agent_phenotype_states WHERE id = ?', state.id);
     assert.equal(transfer.transfer.delta, 1);
     assert.equal(nextEnvironment.branchCount, 2, 'next mission loads the culturally changed phenotype');
     assert.equal(restored.history[0].culturalArtifactId, artifact.id);
     assert.equal(restored.branches.length, 2);
+    assert.equal(JSON.parse(indexedState.branches_json).length, 2, 'denormalized branch index stays synchronized');
+    assert.equal(JSON.parse(indexedState.history_json)[0].culturalArtifactId, artifact.id);
     console.log('Culture to phenotype persistence with SQLite: PASS');
   } finally {
     await new Promise((resolve, reject) => sqlite.database.close((error) => error ? reject(error) : resolve()));

@@ -259,7 +259,9 @@ async function savePhenotypeState(state, database) {
   await db.run(
     `INSERT INTO agent_phenotype_states (id, agent_id, genome_id, state_json, phenotype_json, branches_json, atrophies_json, history_json, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at`,
+     ON CONFLICT(id) DO UPDATE SET state_json = excluded.state_json, phenotype_json = excluded.phenotype_json,
+       branches_json = excluded.branches_json, atrophies_json = excluded.atrophies_json,
+       history_json = excluded.history_json, updated_at = excluded.updated_at`,
     id,
     state.agentId || null,
     state.genomeId,
