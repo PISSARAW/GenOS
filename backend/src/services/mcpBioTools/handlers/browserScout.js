@@ -4,6 +4,14 @@ async function handleBrowserScout(args) {
   const action = args.action || 'navigate';
   const sessionId = args.session_id || args.sessionId || 'scout-main';
 
+  if (action === 'open_browser_session') {
+    const res = await defaultBrowserScout.openBrowserSession(sessionId, {
+      timeoutMs: args.timeout_ms || args.timeoutMs,
+      width: args.width, height: args.height
+    });
+    return { configured: true, success: res.opened, status: 'completed', transport: 'local_service', output: JSON.stringify(res, null, 2) };
+  }
+
   if (action === 'navigate') {
     const res = await defaultBrowserScout.navigate(sessionId, args.url || 'https://google.com', {
       htmlContent: args.html_content || args.html
