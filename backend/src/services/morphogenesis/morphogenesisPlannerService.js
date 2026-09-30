@@ -8,7 +8,7 @@ const { buildIdentityExtensions } = require('./morphogenesisPlanIdentity');
 const { annotatePlanWithSubstrates } = require('../../storage/compute/computeSubstrateResolver');
 const { extendPlan } = require('./morphogenesisPlanExtensions');
 const controlLoop = require('./cognitiveControlLoopService');
-const { compileFlatTopology } = require('./graph/compileFlatTopology');
+const { resolveMorphology } = require('./morphologyResolverService');
 const biocenoseMorphogenesisAdapter = require('../biocenose/integration/biocenoseMorphogenesisAdapter');
 const topologyResolver = require('./topologyResolverService');
 const { selectMinimumMorphology } = require('./synthesis/minimalMorphologyPolicy');
@@ -303,18 +303,16 @@ function compileTopologyCandidate(ctx, topology) {
     capabilities: (getPhenotype(agent.phenotype) || {}).capabilities || []
   }));
   const plan = assemblePlan(components);
-  const graph = compileFlatTopology({
+  const morphology = resolveMorphology({
+    expression: ctx.expression,
     selectedTopology: topology,
-    organization: ctx.proposedOrganization || (classifyMorphologyLabel(ctx.proposedTopology).kind === 'organization' ? ctx.proposedTopology : null),
+    problemProfile: ctx.problemProfile || {},
+    topologyProfile: profileForGraph(profileResolution),
     missionId: ctx.missionId || ctx.problemId,
     mission: ctx.problem || ctx.mission,
     budget: ctx.budget,
-    workers: targetAgents,
-    rhizomeBranch: ctx.rhizomeBranch === true,
-    trinityBranch: ctx.trinityBranch === true,
-    topologyProfile: profileForGraph(profileResolution)
   });
-  return { topology, contracts, components, targetAgents, plan, graph, profileResolution };
+  return { topology, contracts, components, targetAgents, plan, graph: morphology.graph, expression: morphology.expression, profileResolution };
 }
 
 function buildTopologyCandidates(ctx) {
@@ -343,7 +341,7 @@ function buildMorphogenesisPlan(ctx) {
   const candidates = buildTopologyCandidates(ctx);
   const selection = selectTopology(ctx, candidates);
   const chosen = selection.candidate;
-  const { contracts, components, targetAgents, graph } = chosen;
+  const { contracts, components, targetAgents, graph, expression } = chosen;
   const plan = chosen.plan;
   plan.genotypeActions = planGenotypeActions({ requiredCapabilities: contracts.pc.required || [], availableGenomes: ctx.availableGenomes || [], targetAgents, db: ctx.db });
   plan.epigeneticChanges = planEpigeneticChanges({ agentStates: ctx.currentState && ctx.currentState.agents ? Array.from(ctx.currentState.agents.values()) : [], pressure: ctx.pressure || 0, evidence: ctx.evidence || [] });
@@ -362,6 +360,7 @@ function buildMorphogenesisPlan(ctx) {
   }));
   plan.morphologyGraphRef = { graphId: graph.graphId, version: graph.version };
   plan.morphologyPatch = { operation: 'replace_root', graph };
+  plan.morphologyExpression = expression;
   plan.controlReceipt = selection.receipt;
   const utilityCtx = {
     morphology: { requiredCapabilities: contracts.pc.required || [], topology: chosen.topology, tokenCost: plan.expectedCost ? plan.expectedCost.tokens : 0, latency: plan.expectedCost ? plan.expectedCost.latency : 0, transitionCost: plan.expectedCost ? plan.expectedCost.risk : 0, coordinationCost: 0, risk: plan.expectedCost ? plan.expectedCost.risk : 0 },

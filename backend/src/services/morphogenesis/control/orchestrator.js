@@ -3,6 +3,7 @@
 const { FastControlLoop } = require('./fastControlLoop');
 const { StructuralControlLoop } = require('./structuralControlLoop');
 const { EvolutionaryControlLoop } = require('./evolutionaryControlLoop');
+const { decideEventAction } = require('./morphogenesisControlLoopService');
 
 class ControlLoopOrchestrator {
   constructor(opts = {}) {
@@ -20,6 +21,13 @@ class ControlLoopOrchestrator {
     if (this.structuralLoop.patchExecutor) {
       this.structuralLoop.patchExecutor.runtime = this.context.runtime;
     }
+  }
+
+  consumeEvent(event, evidenceContext = {}) {
+    const decision = decideEventAction(event, evidenceContext);
+    const pending = this.context.pendingMorphogenesisDecisions || [];
+    this.context.pendingMorphogenesisDecisions = [...pending, decision].slice(-100);
+    return decision;
   }
 
   async start() {

@@ -4,7 +4,7 @@ const { FastControlLoop } = require('./fastControlLoop');
 const { StructuralControlLoop, FlapDetector } = require('./structuralControlLoop');
 const { EvolutionaryControlLoop } = require('./evolutionaryControlLoop');
 const { ControlLoopOrchestrator } = require('./orchestrator');
-const { LOOP_ACTIONS, classifyAction, loopIsDue } = require('./morphogenesisControlLoopService');
+const { LOOP_ACTIONS, EVENT_ACTIONS, classifyAction, loopIsDue, decideEventAction } = require('./morphogenesisControlLoopService');
 
 module.exports = {
   FastControlLoop,
@@ -13,6 +13,8 @@ module.exports = {
   EvolutionaryControlLoop,
   ControlLoopOrchestrator,
   LOOP_ACTIONS,
+  EVENT_ACTIONS,
   classifyAction,
-  loopIsDue
+  loopIsDue,
+  decideEventAction
 };
