@@ -1,6 +1,6 @@
 # Biologie computationnelle dans GenOS
 
-- **Statut** : Partiel — les primitives cellulaires, génomiques et métaboliques existent; leur raccord complet aux exécutions réelles de mission avec reçus communs n'est pas établi.
+- **Statut** : Partiel — le tick Rust émet maintenant un reçu local versionné et l'homéostasie backend conserve contrats et transitions; le raccord durable mission-cellule-génome-coût-résultat entre les deux runtimes reste incomplet.
 - **Portée** : `crates/genos-cell/src/lib.rs` (`AgentCell`, `Organelle`), `crates/genos-biology/src/embryology.rs` (`seed_hox_genome`), `crates/genos-genome/*`, `crates/genos-reproduction/*`, `backend/src/services/missionOrganismService.js`.
 - **Dernière revue** : 2026-09-30.
 
@@ -39,7 +39,7 @@ Le backend démarre une mission par `agentRuntimeAdapter/missionExecution.js` : 
 
 `missionContinuityService.js` reconstruit un organisme à partir des agents persistés : les agents deviennent des cellules/tissus, l'objectif et le contrat deviennent le génome déclaratif de l'organisme, puis `homeostasisService.js` évalue ses invariants. `mission_organism_state` conserve cet état agrégé; ce génome déclaratif n'est pas le `Genome` Rust et les deux registres ne sont pas synchronisés.
 
-Dans `GenosEcosystem::tick` (`crates/genos-orchestrator/src/tick.rs`), chaque concept planifié est débité de `Metabolism` avant son application; l'ATP insuffisant bloque l'étape et trace `STARVATION`. Les cellules portent un `genome_id` et l'orchestrateur garde les génomes associés. Ce chemin Rust démontre un débit de budget au point d'exécution, mais n'émet pas encore de reçu versionné réunissant identifiant de mission, cellule, empreinte du génome, coût débité et preuve de résultat.
+Dans `GenosEcosystem::tick` (`crates/genos-orchestrator/src/tick.rs`), chaque concept planifié est débité de `Metabolism` avant son application; l'ATP insuffisant bloque l'étape et trace `STARVATION`. Le tick place un reçu `genos.biological-execution-receipt/v1` dans `TickReport.biological_receipts` et dans l'event store local. Il porte l'opération, le coût en `atp_token`, le registre métabolique, l'issue, et l'identifiant de mission si l'appelant l'a fourni avec `set_mission_id`. Il ne désigne pas de cellule exécutante ni de génome : ces champs sont explicitement absents, car l'application des concepts est au niveau organisme. Cet event store est en mémoire; le reçu n'est donc pas durable après redémarrage.
 
 `embryology::seed_hox_genome` assigne gènes et rôles selon ses règles de différenciation; ce n'est pas une simulation d'un gradient embryonnaire mesuré. `CellDivision::mitosis_attested` (`crates/genos-reproduction/src/division.rs`) applique les contrôles logiciels de division configurés; l'analogie avec une limite de Hayflick reste métaphorique.
 
@@ -48,15 +48,16 @@ Dans `GenosEcosystem::tick` (`crates/genos-orchestrator/src/tick.rs`), chaque co
 ```mermaid
 flowchart LR
     G[Genome Rust] -->|genome_id| C[AgentCell]
-    C -->|steps du tick| M[Metabolism ATP]
+    T[GenosEcosystem tick] -->|concept + coût ATP| M[Metabolism ATP]
     C --> S[Sandbox membrane]
     C --> L[Lignage mitose/budding]
-    M --> R[Trace STARVATION si budget insuffisant]
-    L --> A[Issue selon contrôles du composant]
+    M --> R[Reçu v1 dans TickReport et event store mémoire]
+    L --> LT[Issue selon contrôles du composant]
     B[Backend mission: executionBudget] --> X[Runtime supervise]
     X --> O[Organisme de continuité: agents + génome déclaratif]
     O --> H[homeostasis_states: évaluations persistées]
-    C -. reçu biologique partagé manquant .-> O
+    H --> HC[Contrats immuables versionnés + reçus de transition]
+    R -. corrélation durable cellule/génome manquante .-> HC
 ```
 
 ## 7. Architecture technique
@@ -68,7 +69,7 @@ flowchart LR
 
 Les budgets de mission backend, le registre métabolique Node (`metabolicStateService.js`), les réservations (`resourceReservationService.js`), le résumé métabolique de `missionOrganismService.js` et l'ATP de `GenosEcosystem` sont des états distincts. Le budget du runtime est normalisé et appliqué par ses gardes; le débit ATP Rust s'applique au tick. Il n'existe pas de registre commun garantissant qu'une allocation ou dépense dans un de ces plans est reflétée dans les autres.
 
-L'homéostasie de mission construit un contrat depuis `completionContract`, accepte `minimumFunctionalCoverage` configurable et écrit chaque évaluation dans `homeostasis_states`; les événements de télémétrie signalent les changements de statut. La migration est idempotente et conserve cet historique. Le contrat versionné lui-même n'est pas durable comme autorité partagée, les autres seuils ne forment pas encore une politique centrale, et aucun reçu de transition ne relie actuellement la décision aux dépenses cellule/génome/métabolisme.
+L'homéostasie de mission écrit les évaluations dans `homeostasis_states` et conserve les révisions d'autorité dans `homeostasis_contract_revisions`. Leur empreinte exclut les métadonnées d'assemblage volatiles; un changement de contrat crée une nouvelle révision. `homeostasisPolicyService.js` centralise et borne `minimumFunctionalCoverage` dans la politique `genos.homeostasis-policy/v1`. Chaque appel à `transitionMissionToComplete` écrit un reçu `genos.homeostasis-transition-receipt/v1` dans `homeostasis_transition_receipts`, qu'il autorise ou refuse la transition; il référence la révision, son empreinte, la politique, l'état et les types de preuves présents. Les reçus Rust et backend restent deux registres séparés : aucun coût n'est converti et aucun reçu backend ne prétend connaître la cellule ou le génome du tick.
 
 Le chemin embryogenèse HOX → `AgentCell` → `Metabolism` → consolidation/apoptose ou fossilisation décrit des composants de l'orchestrateur Rust. Il ne doit pas être présenté comme une séquence universellement exécutée par chaque mission backend.
 

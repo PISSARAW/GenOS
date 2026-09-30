@@ -23,7 +23,8 @@
 | Génome, mutations, crossover | primitive | `crates/genos-genome`, tests crate | replay de lignée via runtime |
 | Épigénétique | documentée → primitive partielle | `epigenome.rs`, tests crate | lien prouvé avec expression réelle des capacités |
 | Métabolisme `MetabolicPool` | primitive | `autopoiesis.rs`, tick cellulaire | registre commun + enforcement aux points d'exécution |
-| Homéostasie | primitive → intégrée partielle | `homeostasisService.js` évalue les contrats de mission et écrit les états dans `homeostasis_states`; `migrateHomeostasisStates.js` conserve maintenant l'historique aux redémarrages/migrations | registre commun avec le métabolisme; seuils configurables au-delà de `minimumFunctionalCoverage`; persistance/versionnement du contrat et reçu de transition relié à la mission |
+| Reçu d'exécution du tick Rust | intégrée partielle | `GenosEcosystem::tick` émet `genos.biological-execution-receipt/v1` dans `TickReport` et l'event store mémoire; test `tick::receipt_tests` | identité cellule/génome réellement exécutante et persistance après redémarrage |
+| Homéostasie de mission | intégrée partielle | `homeostasisService.js`, `homeostasis_contract_revisions`, `homeostasis_transition_receipts`; `node backend/tests/test_homeostasis_authority_receipts.js` vérifie révisions, empreintes, seuils et issues autorisées/refusées | corrélation avec reçu Rust et registre métabolique; persistance d'une identité cellule/génome de bout en bout |
 | Neurobiologie, glie, quorum | primitive | modules biology + tests | lien aux événements réels de mission |
 | Instinct PAF | primitive | `instinct/tests.rs` | chemin stimulus → PAF → action permise → reçu |
 | Sens VNO, électro, Cluster N, tectum, écho | primitive | modules `sensory/*`, tests locaux | adaptateurs concrets ou typage « signal synthétique » |
@@ -41,8 +42,9 @@
 | Foraging web, fovéation | primitive (simulation) | services backend, tests isolés | boucle perception-action, voir `web-foraging.md` |
 
 Aucune capacité ci-dessus n'est « validée » au sens bout en bout avec
-artefacts conservés, à l'exception des primitives locales déjà couvertes par
-`cargo test`. Les documents qui annonçaient « Implémenté » pour les
+artefacts conservés. Les tests du reçu Rust sont unitaires et son event store
+est en mémoire; le test backend couvre la durabilité de l'autorité et des
+transitions sans prouver le pont Rust/backend. Les documents qui annonçaient « Implémenté » pour les
 cellules spécialisées et les super-sens sont corrigés en « primitive ».
 
 ## 3. Règle anti-surpromesse
