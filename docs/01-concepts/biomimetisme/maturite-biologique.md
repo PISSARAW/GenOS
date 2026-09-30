@@ -31,7 +31,7 @@
 | Immunité, pathologie, thérapie | primitive | tests cliniques `genos-biology/src/lib.rs` | application à des points réels + quarantaine bloquante |
 | Écologie, tissus, spores | primitive | modules biology | registre de population durable + provenance |
 | Reproduction, fossilisation | primitive | `genos-reproduction`, `fossil.rs` | événement versionné parent/seed/mutations/empreintes |
-| Cnidocyte | primitive | `cnidocyte.rs`, tests locaux | filtre branché à un point d'entrée réel + latence mesurée |
+| Cnidocyte | intégrée partielle | `mcpExecutor.execute` → `screenCnidocyteThreat`; `node backend/tests/test_mcp_cnidocyte_runtime_gate.js` | attaques au travers d'un transport configuré et artefacts de benchmark conservés |
 | Électrocyte | primitive | `electrocyte.rs`, tests locaux | quorum multi-participants avec timeouts |
 | Choanocyte | primitive | `choanocyte.rs`, tests locaux | adaptateur de flux + débit/pertes mesurés |
 | Iridophore | primitive | `iridophore.rs`, tests locaux | rendus conformes ; camouflage non cryptographique |

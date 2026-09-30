@@ -339,6 +339,8 @@ async function execute(executionRequest) {
   const request = { agentId, organizationId, projectId, toolName, args, taints };
   const { circuitScope, policy } = await resolveExecutionPolicy(db, request);
   if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
+  const cnidocyteFault = await require('./mcpExecutor/cnidocyteRuntimeGate').screenCnidocyteThreat(db, request);
+  if (cnidocyteFault) return cnidocyteFault;
   const immuneFault = await screenImmuneThreats(db, request);
   if (immuneFault) return immuneFault;
   const chromatinFault = await screenChromatinLock(db, request);

@@ -1,6 +1,6 @@
 # Biomimétisme Cellulaire Spécialisé Non-Humain dans GenOS
 
-- **Statut** : Primitives locales testées — cnidocyte, électrocytes, choanocytes, iridophores, cellules de garde, trachéides, procaryotes et HGT sont des calculs locaux sous `crates/genos-biology/src/specialized_cells/`, pas des effets runtime intégrés.
+- **Statut** : Le cnidocyte possède un filtre MCP intégré partiellement; les électrocytes, choanocytes, iridophores, cellules de garde, trachéides, procaryotes et HGT restent des primitives locales sous `crates/genos-biology/src/specialized_cells/`.
 - **Portée** : `crates/genos-biology/src/specialized_cells/`, `backend/src/services/mcpLigandReceptorService.js`, outils MCP `genos_biomimicry_*`.
 - **Dernière revue** : 2026-09-28.
 - **Référence** : [inventaire-biologique.md](inventaire-biologique.md), [maturite-biologique.md](maturite-biologique.md).
@@ -9,7 +9,7 @@ Ce document décrit des primitives bio-inspirées comme vocabulaire d'architectu
 
 ## 0. Limites vérifiées (lire avant usage)
 
-- **Cnidocyte** : `intercept_tool_threat` est un filtre par sous-chaînes (`eval_stimulus`) avec `latency_micros` recopiée depuis la constante `eversion_speed_micros: 2`. Ce n'est pas une latence mesurée et ce n'est pas branché à un point d'entrée réel. Aucune garantie « zéro-latence ».
+- **Cnidocyte** : le filtre MCP `checkCnidocyteReflex` est appelé dans `mcpExecutor.execute` avant le transport. Il bloque, mesure sa latence avec l'horloge monotone et conserve un audit; `test_mcp_cnidocyte_runtime_gate.js` vérifie cette voie avec base simulée et transport interdit. La latence constante du primitive Rust n'est pas une mesure, le filtre par sous-chaînes n'est pas une protection générale et aucune garantie « zéro-latence » n'est revendiquée.
 - **Électrocyte** : l'addition de voltages est un calcul local. Un calcul de tension n'est pas un consensus distribué ; il n'y a ni quorum multi-participants, ni timeouts, ni politique de désaccord prouvés.
 - **Choanocyte** : le tamisage est un filtre local sur un payload fourni. Aucun adaptateur de flux, aucune mesure de débit, pertes ou erreurs.
 - **Iridophore** : le rendu polymorphique est un formatage (ANSI, JSON, Markdown). Le mode `CrypticCamouflage` est un décalage César, pas un chiffrement ; il ne donne aucune propriété cryptographique et le camouflage n'est pas une mesure de sécurité.
@@ -136,7 +136,7 @@ Tant qu'un module n'a pas de preuve bout en bout (attaque rejouée dans le chemi
 
 | Modèle Cellulaire | Règne | Équivalent Humain | Fonction logicielle (primitive locale) | Preuve exigée avant « intégré » |
 | :--- | :--- | :--- | :--- | :--- |
-| **Cnidocyte** | Animal (Cnidaire) | Aucun | Filtre par sous-chaînes, calcul local | Attaque rejouée dans le chemin réel + latence mesurée |
+| **Cnidocyte** | Animal (Cnidaire) | Aucun | Filtre MCP par sous-chaînes; latence observée au dispatch | Attaques traversant un transport configuré + artefacts de benchmark conservés |
 | **Électrocyte** | Animal (Poisson) | Aucun | Somme arithmétique de voltages | Quorum multi-participants, timeouts, rejets |
 | **Choanocyte** | Animal (Spongiaire) | Aucun | Filtre local sur flux fourni | Adaptateur explicite + débit/pertes mesurés |
 | **Iridophore** | Animal (Reptile/Céph.) | Aucun | Formatage ANSI/JSON/Markdown | Contrats de rendu ; aucun statut crypto |
