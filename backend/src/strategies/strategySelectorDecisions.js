@@ -29,9 +29,18 @@ function buildDecisions(profile, options) {
   });
 }
 
+function resolveSelectionProfile(input, problem) {
+  const overrides = { ...(input.problemProfile || {}) };
+  const failure = input.failureContext || input.failure_context || input.regenerationAssessment || {};
+  if (overrides.structuralFailure === undefined) {
+    overrides.structuralFailure = failure.structural === true || failure.structuralFailure === true;
+  }
+  return profileProblem(problem, overrides);
+}
+
 function selectStrategyPortfolio(input = {}) {
   const problem = resolveProblem(input);
-  const profile = profileProblem(problem, input.problemProfile || {});
+  const profile = resolveSelectionProfile(input, problem);
   const options = resolveOptions(input);
   const decisions = buildDecisions(profile, options);
   const portfolio = choosePortfolio(decisions, profile, options);
