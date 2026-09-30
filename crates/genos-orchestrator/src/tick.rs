@@ -69,6 +69,15 @@ pub struct MissionReport {
 fn pre_deliberation(eco: &mut GenosEcosystem, state: &WorldState) -> Option<TickReport> {
     eco.maintain_autopoiesis();
     diagnose_active_virions(eco);
+    if let Some(report) = early_survival_gate(eco, state) {
+        return Some(report);
+    }
+    eco.express_free_desire(state);
+    eco.run_instincts(state);
+    None
+}
+
+fn early_survival_gate(eco: &mut GenosEcosystem, state: &WorldState) -> Option<TickReport> {
     if state.apoptotic {
         return Some(eco.halted_report("etat apoptotique: volition inhibee"));
     }
@@ -76,24 +85,31 @@ fn pre_deliberation(eco: &mut GenosEcosystem, state: &WorldState) -> Option<Tick
     if eco.vital_reflex() {
         return Some(eco.reflex_report());
     }
-    eco.express_free_desire(state);
-    eco.run_instincts(state);
+    None
+}
+
+fn lifecycle_halt(eco: &mut GenosEcosystem) -> Option<TickReport> {
+    eco.orchestrator.membrane.update();
+    if !eco.orchestrator.membrane.is_alive() {
+        return Some(eco.halted_report("organisme mort: membrane rompue"));
+    }
+    if eco.orchestrator.metabolism.is_starved() {
+        return Some(eco.halted_report("budget epuise: atp insuffisant"));
+    }
     None
 }
 
 impl GenosEcosystem {
     pub fn tick(&mut self, goal: &Goal) -> TickReport {
-        // Autopoïèse : la frontière se dégrade ; rompue, l'organisme meurt.
-        self.orchestrator.membrane.update();
-        if !self.orchestrator.membrane.is_alive() {
-            return self.halted_report("organisme mort: membrane rompue");
-        }
-        if self.orchestrator.metabolism.is_starved() {
-            return self.halted_report("budget epuise: atp insuffisant");
+        if let Some(report) = lifecycle_halt(self) {
+            return report;
         }
         let state = self.observe();
         if let Some(report) = pre_deliberation(self, &state) {
             return report;
+        }
+        if let Err(error) = run_creative_simulation(self, &state, goal) {
+            return self.halted_report(&format!("checkpoint creatif invalide: {error}"));
         }
         self.director.set_context(context_from_state(&state));
         let (decision, physical) = crate::physical_telemetry::decide(&self.director, &state, goal);
@@ -233,6 +249,38 @@ impl GenosEcosystem {
             goals: vec![format!("{:?}", goal)],
         }
     }
+}
+
+fn run_creative_simulation(
+    eco: &mut GenosEcosystem,
+    state: &WorldState,
+    goal: &Goal,
+) -> std::io::Result<()> {
+    let Some(engine) = eco.creativity.as_mut() else {
+        return Ok(());
+    };
+    let focused = engine.pre_tick(state, goal, &mut eco.orchestrator.metabolism)?;
+    record_creative_hypotheses(eco, &focused);
+    Ok(())
+}
+
+fn record_creative_hypotheses(eco: &mut GenosEcosystem, tasks: &[crate::creativity::FocusedTask]) {
+    if tasks.is_empty() {
+        return;
+    }
+    let candidates: Vec<_> = tasks
+        .iter()
+        .map(|task| {
+            json!({
+                "hypothesisId": task.hypothesis_id,
+                "concept": format!("{:?}", task.concept),
+                "priority": task.priority,
+                "expectedEvidence": task.expected_evidence,
+                "simulation": task.refined_payload
+            })
+        })
+        .collect();
+    eco.record_event("CREATIVE_SIMULATION", json!({ "candidates": candidates }));
 }
 
 #[cfg(test)]

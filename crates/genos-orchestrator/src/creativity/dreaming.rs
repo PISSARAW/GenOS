@@ -34,7 +34,7 @@ impl Default for RawHypothesis {
 }
 
 /// Phase de rêve : exploration non contrainte (équivalent DMN)
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DreamingPhase {
     config: CreativityConfig,
     history: Vec<RawHypothesis>,

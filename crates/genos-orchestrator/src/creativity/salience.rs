@@ -17,7 +17,22 @@ pub struct FocusedTask {
     pub metadata: HashMap<String, Value>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
+pub struct SalienceWeights {
+    pub goal: f64,
+    pub novelty: f64,
+    pub feasibility: f64,
+    pub surprise: f64,
+}
+
+struct ExecutiveRefinement<'a> {
+    hypothesis: &'a RawHypothesis,
+    world: &'a WorldState,
+    goal: &'a Goal,
+    score: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SalienceGate {
     threshold: f64,
     min_novelty: f64,
@@ -41,11 +56,11 @@ impl SalienceGate {
         }
     }
 
-    pub fn with_weights(mut self, goal: f64, novelty: f64, feasibility: f64, surprise: f64) -> Self {
-        self.goal_weight = goal;
-        self.novelty_weight = novelty;
-        self.feasibility_weight = feasibility;
-        self.surprise_weight = surprise;
+    pub fn with_weights(mut self, weights: SalienceWeights) -> Self {
+        self.goal_weight = weights.goal;
+        self.novelty_weight = weights.novelty;
+        self.feasibility_weight = weights.feasibility;
+        self.surprise_weight = weights.surprise;
         self
     }
 
@@ -60,7 +75,12 @@ impl SalienceGate {
             .filter_map(|h| {
                 let score = self.salience_score(h, world, goal);
                 if score >= self.threshold {
-                    Some(self.refine_for_executive(h, world, goal, score))
+                    Some(self.refine_for_executive(ExecutiveRefinement {
+                        hypothesis: h,
+                        world,
+                        goal,
+                        score,
+                    }))
                 } else {
                     None
                 }
@@ -104,7 +124,8 @@ impl SalienceGate {
         (threat_surprise + novelty_surprise) / 2.0
     }
 
-    fn refine_for_executive(&self, h: &RawHypothesis, world: &WorldState, goal: &Goal, score: f64) -> FocusedTask {
+    fn refine_for_executive(&self, input: ExecutiveRefinement<'_>) -> FocusedTask {
+        let ExecutiveRefinement { hypothesis: h, world, goal, score } = input;
         let mut refined = h.payload.clone();
 
         if let Value::Object(ref mut map) = refined {

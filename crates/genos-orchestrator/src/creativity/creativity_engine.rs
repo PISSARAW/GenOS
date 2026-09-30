@@ -1,5 +1,8 @@
 use crate::{WorldState, planner::Goal, director::Director, metabolism::Metabolism, planner::Concept};
-use crate::creativity::{DreamingPhase, SalienceGate, DopamineSignal, CrossConsolidation, RawHypothesis, FocusedTask, CreativityOutcome};
+use crate::creativity::{
+    ConsolidationInput, CrossConsolidation, CreativityOutcome, DopamineSignal, DreamingPhase,
+    FocusedTask, PolicyContext, RawHypothesis, SalienceGate,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
@@ -40,7 +43,7 @@ pub struct CreativityMetrics {
     pub avg_salience_score: f64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreativityEngine {
     config: CreativityConfig,
     dreaming: DreamingPhase,
@@ -79,7 +82,7 @@ impl CreativityEngine {
 
     /// Appelé au DÉBUT de chaque tick (avant Director::decide)
     pub fn pre_tick(&mut self, world: &WorldState, goal: &Goal,
-                    director: &mut Director, metabolism: &mut Metabolism) -> Vec<FocusedTask> {
+                    metabolism: &mut Metabolism) -> Vec<FocusedTask> {
         if !self.config.enabled {
             return Vec::new();
         }
@@ -137,7 +140,13 @@ impl CreativityEngine {
 
                     self.metrics.exploration_weight_delta += director.exploration_weight - self.dopamine.baseline_exploration;
 
-                    self.consolidation.consolidate(director, hyp, &task, outcome, self.current_tick);
+                    self.consolidation.consolidate(ConsolidationInput {
+                        director,
+                        hypothesis: hyp,
+                        task: &task,
+                        outcome,
+                        current_tick: self.current_tick,
+                    });
 
                     if outcome.is_success() {
                         self.metrics.validated_hypotheses += 1;
@@ -147,13 +156,15 @@ impl CreativityEngine {
             }
         }
 
-        self.metrics.policies_active = self.consolidation.policies().len();
-        self.metrics.novel_concepts_promoted = self.consolidation.policies().len() as u64;
+        self.metrics.policies_active = self.consolidation.policies.len();
+        self.metrics.novel_concepts_promoted = self.consolidation.policies.len() as u64;
     }
 
     /// Vérifie si une politique émergente s'applique
     pub fn check_emergent_policy(&self, director: &Director, world: &WorldState) -> Option<crate::creativity::consolidation::EmergentPolicy> {
-        self.consolidation.applicable_policy(director, world).cloned()
+        self.consolidation
+            .applicable_policy(PolicyContext { director, world })
+            .cloned()
     }
 
     pub fn config(&self) -> &CreativityConfig {
@@ -164,12 +175,37 @@ impl CreativityEngine {
         &self.metrics
     }
 
+    pub fn save_checkpoint(
+        &self,
+        store: &genos_store::capsule::CreativeMemoryStore,
+    ) -> std::io::Result<()> {
+        let payload = serde_json::to_value(self)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+        store.save(&payload)
+    }
+
+    pub fn restore_checkpoint(
+        &mut self,
+        store: &genos_store::capsule::CreativeMemoryStore,
+    ) -> std::io::Result<()> {
+        let Some(payload) = store.load()? else {
+            return Ok(());
+        };
+        *self = serde_json::from_value(payload)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
+        Ok(())
+    }
+
     pub fn dreaming_history(&self) -> &[RawHypothesis] {
         self.dreaming.history()
     }
 
     pub fn pending_count(&self) -> usize {
         self.pending_focused.len()
+    }
+
+    pub fn clear_pending_tasks(&mut self) {
+        self.pending_focused.clear();
     }
 
     pub fn executing_count(&self) -> usize {

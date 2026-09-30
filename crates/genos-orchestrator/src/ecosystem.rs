@@ -1,11 +1,6 @@
-//! Façade d'accès unifié à l'écosystème GenOS.
-//!
-//! `GenosEcosystem` compose l'orchestrateur biomimétique avec les sous-systèmes
-//! auparavant inaccessibles depuis l'orchestrateur : signalisation (stigmergie,
-//! Kuramoto), stockage (événements, capsules, cryptobiose, mémoire, fossiles),
-//! reproduction (mitose, méiose, croisement), phénotype/quorum, sensorimoteur,
-//! thérapies et ADN compilé. Tous les crates GenOS sont en outre ré-exportés à la
-//! racine du crate orchestrateur (`genos_orchestrator::genos_store`, etc.).
+//! Façade unifiée de l'écosystème GenOS et de ses sous-systèmes biologiques,
+//! cognitifs, sensorimoteurs et persistants. Les crates restent accessibles via
+//! `genos_orchestrator::genos_store`, etc.
 
 use crate::BiomimeticOrchestrator;
 use crate::director::Director;
@@ -20,7 +15,6 @@ use crate::signaling::SignalingCascade;
 use crate::snapshots::SnapshotVault;
 use crate::trace::TraceStore;
 use crate::virology::VirologyLab;
-use genos_biology::pathology::{ClinicalStatusReport, assess_agent_clinical_status};
 use genos_biology::phenotype::{PhenotypeRegistry, create_default_registry};
 use genos_biology::quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
 use genos_biology::sensory::{AccessoryOlfactoryBulb, EcholocationCortex};
@@ -39,12 +33,14 @@ use genos_reproduction::{CellDivision, MeioticCrossover};
 use genos_signal::{ExtracellularMatrix, KuramotoOscillator, KuramotoStep, StigmergyField};
 use genos_store::{
     BurialContext, Capsule, CapsuleStore, CryptobiosisStore, FossilRecord, FossilRegistry,
-    FossilSpecimen, InMemoryEventStore, InMemoryVectorRepository, SedimentStratum, VitrifiedFreeze,
-    VitrifiedThaw,
+    FossilSpecimen, InMemoryEventStore, InMemoryVectorRepository, SedimentStratum,
 };
 use serde_json::Value;
 use std::collections::HashMap;
 use uuid::Uuid;
+
+#[path = "ecosystem_creativity.rs"]
+mod creativity_config;
 
 /// Point d'entrée unique donnant accès à toutes les capacités GenOS.
 pub struct GenosEcosystem {
@@ -122,9 +118,11 @@ pub struct GenosEcosystem {
     /// metacognitive_confidence).
     pub workspace_broadcasts: u64,
     pub population: Option<Population>,
+    /// Simulation créative persistante, activée explicitement par l'appelant.
+    pub creativity: Option<crate::creativity::PersistentCreativityEngine>,
 }
 
-use crate::ecosystem_params::{CrossoverParams, FreezeParams, OscillatorParams, ThawParams};
+use crate::ecosystem_params::{CrossoverParams, OscillatorParams};
 
 impl GenosEcosystem {
     /// Construit un écosystème complet autour d'un nouvel orchestrateur.
@@ -173,6 +171,7 @@ impl GenosEcosystem {
             instincts: InstinctState::default(),
             workspace_broadcasts: 0,
             population: None,
+            creativity: None,
         }
     }
 

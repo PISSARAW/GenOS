@@ -7,7 +7,7 @@ Elle désigne une simulation computationnelle bornée, pas une équivalence avec
 l'imagination biologique ni une conscience.
 
 La persistance interprocessus est disponible via `PersistentCreativityEngine`;
-le runtime historique de `genos-orchestrator` ne l'utilise pas encore.
+le runtime historique peut l'activer avec `GenosEcosystem::enable_creativity_checkpoint`.
 
 ## Boucle réalisée
 
@@ -67,12 +67,13 @@ signifie un démarrage vierge. Un JSON invalide, un schéma inconnu ou un checks
 incorrect retourne une erreur et n'est pas importé.
 
 `PersistentCreativityEngine::open(config, checkpoint_path)` restaure l'état au
-démarrage et sauvegarde après chaque phase `pre_tick`, `post_tick` et `tick`.
-Chaque appel retourne une erreur si la persistance échoue. Le crate
-`genos-creativity` est désormais membre du workspace; le runtime historique de
-`genos-orchestrator` utilise toutefois des types séparés et n'appelle pas encore
-ce wrapper. Son intégration reste explicite pour tout hôte qui choisit ce moteur.
-La restauration ne reprend pas l'état du générateur aléatoire; les hypothèses
+démarrage et sauvegarde à chaque `pre_tick`. `GenosEcosystem::enable_creativity_checkpoint`
+branche cette persistance sur le tick historique; le chemin est choisi par
+l'appelant. Les candidats sont consignés dans l'événement `CREATIVE_SIMULATION`.
+Ils restent des simulations et n'ajoutent pas d'étapes au plan d'exécution.
+Une erreur de checkpoint arrête le tick. Un checkpoint absent démarre une
+mémoire vierge; un checkpoint invalide provoque une erreur de démarrage. La
+restauration ne reprend pas l'état du générateur aléatoire; les hypothèses
 existantes et métriques sont conservées, mais la génération suivante n'est pas
 reproductible à l'identique.
 
