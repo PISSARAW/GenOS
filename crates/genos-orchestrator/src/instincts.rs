@@ -306,6 +306,21 @@ impl GenosEcosystem {
 mod tests {
     use super::*;
 
+    struct RecordingExecutor {
+        calls: usize,
+    }
+
+    impl InstinctActionExecutor for RecordingExecutor {
+        fn execute(&mut self, step: &MotorStep) -> Result<InstinctActionReceipt, String> {
+            self.calls += 1;
+            Ok(InstinctActionReceipt {
+                execution_id: format!("exec-{}", self.calls),
+                evidence_ref: format!("evidence:{}", step.action),
+                result: json!({ "action": step.action, "accepted": true }),
+            })
+        }
+    }
+
     #[test]
     fn threat_state_emits_sign_stimulus() {
         let state = WorldState {
@@ -349,6 +364,20 @@ mod tests {
             eco.last_instincts()[0].outcome,
             InstinctOutcome::Interrupt { .. }
         ));
+    }
+
+    #[test]
+    fn mission_threat_runs_authorized_paf_and_records_action_evidence() {
+        let mut eco = GenosEcosystem::new("PAF_Runtime");
+        eco.set_instinct_authorized_tools(vec!["genos_biomimicry".to_string()]);
+        eco.set_instinct_action_executor(Box::new(RecordingExecutor { calls: 0 }));
+        eco.run_instincts(&WorldState { threat: 0.9, ..WorldState::default() });
+
+        assert!(matches!(eco.last_instincts()[0].outcome, InstinctOutcome::Complete { steps_executed: 2, .. }));
+        let events = eco.events.read_stream(1);
+        assert!(events.iter().any(|event| event.event_type == "INSTINCT_TRIGGER"));
+        assert_eq!(events.iter().filter(|event| event.event_type == "INSTINCT_ACTION_EXECUTED").count(), 2);
+        assert!(events.iter().any(|event| event.payload["result"]["evidence_ref"].as_str().unwrap_or("").starts_with("evidence:")));
     }
 
     #[test]
