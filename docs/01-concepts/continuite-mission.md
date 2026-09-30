@@ -369,9 +369,12 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
   L'identifiant est renvoyé par le pont (y compris en mode détaché) et peut être
   repris avec l'identité de l'orchestrateur attendu ; une succession met à jour
   l'orchestrateur courant sans changer l'organisme ni le contrat de mission.
-- **À valider** : ajouter et exécuter des tests d'intégration ciblés pour
-  succession concurrente, réveil après redémarrage, mismatch de condition,
-  succès/échec de dispatch et persistance après remplacement.
+- **Vérifié par tests ciblés** : le réveil refuse un mauvais événement, deux
+  réveils concurrents ne revendiquent qu'une fois le snapshot, un dispatch
+  échoué restaure la dormance et peut être retenté, et le remplacement restaure
+  le rôle requis (`npm --prefix backend run test:biological-bridge`). La
+  succession concurrente de l'identité d'orchestrateur et le contrôle après
+  redémarrage restent à couvrir.
 - **Garde-fou** : l'apoptose systémique n'est jamais automatique —
   `apoptosisDecision()` exige `humanAuthorized: true`.
 - **Garde-fou** : un verdict homéostatique insatisfait est rapporté tel quel ;

@@ -24,6 +24,15 @@ async function ingestBiologicalReceipt(db, receipt) {
   return { receiptId: normalized.receipt_id, duplicate: false, payloadHash, homeostasis };
 }
 
+async function attachOrphanedReceiptsToHomeostasis(db, missionId, homeostasis) {
+  await migrateBiologicalExecutionReceipts(db);
+  if (!homeostasis?.id || !homeostasis.status) return { changes: 0 };
+  return db.run(`UPDATE biological_execution_receipts
+    SET homeostasis_state_id = ?, homeostasis_status = ?
+    WHERE mission_id = ? AND homeostasis_state_id IS NULL`,
+  homeostasis.id, homeostasis.status, missionId);
+}
+
 function validateReceipt(receipt) {
   validateEnvelope(receipt);
   validateOperation(receipt);
@@ -95,4 +104,4 @@ function receiptError(code) {
   return Object.assign(new Error(code), { code });
 }
 
-module.exports = { RECEIPT_SCHEMA, ingestBiologicalReceipt, validateReceipt };
+module.exports = { RECEIPT_SCHEMA, ingestBiologicalReceipt, attachOrphanedReceiptsToHomeostasis, validateReceipt };

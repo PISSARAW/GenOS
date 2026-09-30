@@ -1,8 +1,8 @@
 # Pont REST vers le cœur Rust et analyse des hallucinations
 
-- **Statut** : Implémenté
-- **Portée** : snapshots, diff, replay et opérations d’analyse exposés par le backend.
-- **Dernière revue** : 2026-09-18
+- **Statut** : intégré, avec ingestion biologique tenant-scoped
+- **Portée** : snapshots, diff, replay, opérations d’analyse et reçus biologiques via backend.
+- **Dernière revue** : 2026-09-30
 
 ## 1. Architecture
 
@@ -24,6 +24,7 @@ permissions backend ni le confinement tenant.
 | Méthode | Route | Fonction |
 | --- | --- | --- |
 | `GET` | `/api/rust/status` | état du bridge |
+| `POST` | `/api/rust/biological-receipts` | ingère un reçu Rust après authentification, permission `experiment:run` et vérification que la mission appartient au projet courant |
 | `GET` | `/api/rust/snapshots` | liste des snapshots |
 | `POST` | `/api/rust/snapshots` | crée un snapshot |
 | `POST` | `/api/rust/hallucination/detect` | détecte |
@@ -32,6 +33,12 @@ permissions backend ni le confinement tenant.
 | `POST` | `/api/rust/hallucination/simulate` | simule |
 | `POST` | `/api/rust/replay` | rejoue une branche |
 | `POST` | `/api/rust/diff` | compare deux snapshots |
+
+Le reçu est dans `body.receipt` (ou directement dans le corps JSON). Une
+nouvelle ingestion répond `201`; un doublon identique répond `200`. Le contrôle
+de tenant exige une appartenance projet en écriture pour l'agent rattaché à la
+mission. Cette route ne prouve pas encore l'origine Rust du contenu et aucun
+expéditeur Rust automatique n'est branché.
 
 ## 3. Modèle d’analyse
 

@@ -525,5 +525,8 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
   supplémentaire, mais aucun quorum multi-provider ne constitue une preuve
 - les métapopulations sont isolées par processus pour ces revues; la persistance
   durable de populations et des preuves de généralisation restent à établir
-- `approveRun()` complet avec DB non couvert par un test E2E bon/bloqué (gate testée via buildGateContext + policy)
-- `approveRun()` complet avec DB non couvert par un test E2E bon/bloqué (gate testée via buildGateContext + policy)
+- Les tests actuels de `approveRun()` avec DB n'atteignent pas le chemin positif
+  avec preuves valides : ils sont refusés comme prévu faute de reçus de
+  vérification signés, indépendants et couvrant le census des obligations. Il
+  reste à produire un E2E accepté avec deux acteurs indépendants, en plus des
+  cas de refus déjà couverts par les gates.

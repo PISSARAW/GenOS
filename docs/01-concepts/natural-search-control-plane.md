@@ -101,9 +101,13 @@ checkNaturalSearchControl(ctx, event)
 `npm --prefix backend run test:planning-gap` compare 12 tâches au même budget de
 120 expansions et vérifie chaque plan avec le validateur du domaine. Le MCTS est
 maintenant seedé par l'identifiant de tâche et le test contrôle sa répétabilité.
-Une exécution mesurée donne ReAct 8/12, ToT 10/12, MCTS 3/12 et GenOS 9/12.
-GenOS réussit notamment `bw-swap` et `bw-tower-5`, mais échoue `bw-conflict`,
-`bw-table-6` et `trap-far-key`; le planning gap face à ToT reste donc ouvert.
+Une exécution mesurée avec élargissement du faisceau après stagnation donne
+ReAct 8/12, ToT 10/12, MCTS 3/12 et GenOS 10/12. GenOS résout désormais
+`bw-conflict`; les deux recherches échouent encore sur `bw-table-6` et
+`trap-far-key`. GenOS trouve des solutions plus longues que l'optimum sur
+`bw-swap` (8 contre 6) et `bw-tower-5` (14 contre 8), donc le taux de réussite
+rejoint ToT, mais la qualité optimale reste à améliorer. Résultats détaillés :
+`benchmarks/planning-gap/results/2026-09-30-adaptive-beam.json`.
 Ces 12 tâches synthétiques valident le harness et ne mesurent pas des missions
 web ou des tâches de planification de production.
 
@@ -114,7 +118,7 @@ web ou des tâches de planification de production.
 - **Création proactive** : après 5 étapes sans progrès, `proactiveHypothesis()` génère une hypothèse à partir du genome courant.
 - **Encapsulation** : les sept modules sont instanciés par `ActuatorModules`; `SearchIntegration` existe et est utilisé pour la mémoire négative. Le round-trip JSON ne garantit pas la validité à long terme de chaque format de module lors d'une future migration de schéma.
 
-## Expérience décisive planning-gap (2026-09-23)
+## Expérience initiale planning-gap (2026-09-23)
 
 - **Protocole** : même modèle du monde (successeurs + heuristique partagés), même budget (120 expansions), vérificateur indépendant qui rejoue chaque plan. 12 tâches long-horizon (Blocksworld type Sussman + TrapChain à clés/détours). Commande : `npm --prefix backend run test:planning-gap`. Résultats bruts : `benchmarks/planning-gap/results/2026-09-23-baseline.json`.
 - **Résultat** : ReAct 8/12, ToT 10/12, MCTS 3/12, GenOS 6/12. La myopie est démontrée (`bw-swap` piège le glouton pendant que ToT réussit), mais **le planning gap n'est pas fermé** : à budget égal, ToT fait mieux que le contrôleur actuel.

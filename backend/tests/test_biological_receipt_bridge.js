@@ -11,6 +11,8 @@ process.env.GENOS_DB_PATH = dbPath;
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'biological-bridge-test';
 const { getDatabase, closeDatabase } = require('../src/db');
 const { ingestBiologicalReceipt } = require('../src/services/biologicalExecutionReceiptService');
+const missionContinuity = require('../src/services/missionContinuityService');
+const biologicalReceiptController = require('../src/controllers/biologicalReceiptController');
 
 function sampleReceipt(missionId, receiptId) {
   return {
@@ -50,11 +52,45 @@ async function run() {
     db = await getDatabase(dbPath);
     const reopened = await db.get('SELECT receipt_json FROM biological_execution_receipts WHERE receipt_id = ?', receiptId);
     assert.equal(JSON.parse(reopened.receipt_json).mission_id, missionId);
+
+    const lateMissionId = randomUUID();
+    const lateReceiptId = randomUUID();
+    await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)', lateMissionId, 'late homeostasis correlation');
+    await ingestBiologicalReceipt(db, sampleReceipt(lateMissionId, lateReceiptId));
+    assert.equal((await db.get('SELECT homeostasis_state_id FROM biological_execution_receipts WHERE receipt_id = ?', lateReceiptId)).homeostasis_state_id, null);
+    await missionContinuity.evaluateContinuity(db, { id: lateMissionId, objective: 'late homeostasis correlation', context: {} });
+    const correlated = await db.get('SELECT homeostasis_state_id, homeostasis_status FROM biological_execution_receipts WHERE receipt_id = ?', lateReceiptId);
+    assert.ok(correlated.homeostasis_state_id, 'later homeostasis evaluation must correlate earlier receipts');
+    assert.ok(correlated.homeostasis_status);
+
+    const scope = { organizationId: 'receipt-org', projectId: 'receipt-project' };
+    const scopedMissionId = randomUUID();
+    const scopedReceipt = sampleReceipt(scopedMissionId, randomUUID());
+    await db.run('INSERT INTO organizations (id, name) VALUES (?, ?)', scope.organizationId, 'Receipt Org');
+    await db.run('INSERT INTO projects (id, organization_id, name) VALUES (?, ?, ?)', scope.projectId, scope.organizationId, 'Receipt Project');
+    await db.run('INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, ?, ?)', 'receipt-workspace', 'Receipt Workspace', path.dirname(dbPath), scope.organizationId, scope.projectId);
+    await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES (?, 'Receipt Agent', 'orchestrator', 'running', 'orchestrator', ?)", 'receipt-agent', 'receipt-workspace');
+    await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)', scopedMissionId, 'tenant receipt ingestion');
+    await db.run('INSERT INTO mission_agents (mission_id, agent_id, role) VALUES (?, ?, ?)', scopedMissionId, 'receipt-agent', 'orchestrator');
+    const accepted = await callReceiptController(scopedReceipt, scope);
+    assert.equal(accepted.statusCode, 201);
+    const refused = await callReceiptController(scopedReceipt, { organizationId: 'other-org', projectId: 'other-project' });
+    assert.equal(refused.statusCode, 404, 'receipts cannot be ingested across project scopes');
     console.log('Biological Rust/backend receipt persistence and idempotency passed.');
   } finally {
     await closeDatabase();
     for (const suffix of ['', '-shm', '-wal']) if (fs.existsSync(dbPath + suffix)) fs.unlinkSync(dbPath + suffix);
   }
+}
+
+async function callReceiptController(receipt, tenant) {
+  const result = { statusCode: 200, body: null };
+  const res = {
+    status(code) { result.statusCode = code; return this; },
+    json(body) { result.body = body; return this; }
+  };
+  await biologicalReceiptController.ingest({ body: receipt, tenant }, res, (error) => { throw error; });
+  return result;
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; });

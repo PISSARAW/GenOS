@@ -209,10 +209,14 @@ async function evaluateMissionHomeostasis(db, target) {
   const previous = await lastHomeostasisState(db, mission.id);
   const changed = !previous || previous.status !== status;
   const contractId = contract.id || homeostasisId(mission.id);
+  const stateId = homeostasisStateId(mission.id);
   await db.run(
     `INSERT INTO homeostasis_states (id, contract_id, mission_id, status, state_json, observed_at)
      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-    [homeostasisStateId(mission.id), contractId, mission.id, status, JSON.stringify(state)]
+    [stateId, contractId, mission.id, status, JSON.stringify(state)]
+  );
+  await require('./biologicalExecutionReceiptService').attachOrphanedReceiptsToHomeostasis(
+    db, mission.id, { id: stateId, status }
   );
   if (changed) {
     telemetry.emitEvent({
@@ -228,6 +232,7 @@ async function evaluateMissionHomeostasis(db, target) {
   }
   return { contract, state, status, changed };
 }
+
 
 async function reconcileHomeostasis(db, target) {
   const { organism, mission, context = {} } = target;

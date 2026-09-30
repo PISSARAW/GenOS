@@ -91,14 +91,14 @@ async function gateSuite(db) {
   );
 
   // Receipt valide + preuves → la gate et le pipeline de promotion passent.
-  const third = await setupRun(db, { agentId: 'agent-gate-3', workspaceId: 'workspace-gate-1', promotionPatch: { require_human_approval: true } });
+  const third = await setupRun(db, { agentId: 'agent-gate-3', workspaceId: 'workspace-gate-1', promotionPatch: { require_human_approval: true, require_independent_verification: false, require_epistemic_assurance: false } });
   const promoted = await strategyService.approveRun(db, third.run.id, {
     report: evidenceReport(), humanApprovalReceipt: validReceipt()
   });
   assert.equal(promoted.status, 'completed');
 
   // Replay exigé sans receipt → gate refusée sur require_replay.
-  const fourth = await setupRun(db, { agentId: 'agent-gate-4', workspaceId: 'workspace-gate-1', promotionPatch: { require_replay: true, require_human_approval: false, require_independent_verification: false } });
+  const fourth = await setupRun(db, { agentId: 'agent-gate-4', workspaceId: 'workspace-gate-1', promotionPatch: { require_replay: true, require_human_approval: false, require_independent_verification: false, require_epistemic_assurance: false } });
   await assert.rejects(
     strategyService.approveRun(db, fourth.run.id, { report: evidenceReport(), approvedBy: 'auditor' }),
     /Promotion gate refused.*require_replay/
@@ -116,11 +116,11 @@ async function containmentSuite(db) {
   await db.run('INSERT OR REPLACE INTO workspaces (id, name, path) VALUES (?, ?, ?)', 'workspace-capsule', 'Capsule', capsule);
   const options = { report: evidenceReport(), approvedBy: 'auditor', winnerWorkspaceRoot: winner, targetWorkspaceRoot: outside };
 
-  const blocked = await setupRun(db, { agentId: 'agent-capsule-1', workspaceId: 'workspace-capsule', promotionPatch: { require_human_approval: false, require_independent_verification: false } });
+  const blocked = await setupRun(db, { agentId: 'agent-capsule-1', workspaceId: 'workspace-capsule', promotionPatch: { require_human_approval: false, require_independent_verification: false, require_epistemic_assurance: false } });
   await assert.rejects(strategyService.approveRun(db, blocked.run.id, options), /confinement refused/);
   assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', blocked.run.id)).status, 'awaiting_approval');
 
-  const inside = await setupRun(db, { agentId: 'agent-capsule-2', workspaceId: 'workspace-capsule', promotionPatch: { require_human_approval: false, require_independent_verification: false } });
+  const inside = await setupRun(db, { agentId: 'agent-capsule-2', workspaceId: 'workspace-capsule', promotionPatch: { require_human_approval: false, require_independent_verification: false, require_epistemic_assurance: false } });
   const promoted = await strategyService.approveRun(db, inside.run.id, { ...options, targetWorkspaceRoot: target });
   assert.equal(promoted.status, 'completed');
   fs.rmSync(capsule, { recursive: true, force: true });

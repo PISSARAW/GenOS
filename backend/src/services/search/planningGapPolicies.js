@@ -150,7 +150,10 @@ function genosPolicy(task, budgetLimit, agentTag) {
     const ctx = buildGenosCtx({ agentId, stepsNoProgress, falsified: falsified + stagnated, budget, yield: Number(improvedLast) * 0.5 });
     const sel = controller.selectProcess(ctx);
     pressure = sel.pressure;
-    const width = radiusWidth(sel.recommendedRadius);
+    const baseWidth = radiusWidth(sel.recommendedRadius);
+    // Once progress stalls, widen the frontier so pressure can explore
+    // alternatives the short-horizon heuristic ranked just below the beam.
+    const width = stepsNoProgress > 0 ? Math.max(4, baseWidth) : baseWidth;
     const expanded = expandBeams({ beams, hooks, width, budget, seen, memory, agentId });
     if (expanded.goal) {
       const v = hooks.verify(expanded.goal.plan);

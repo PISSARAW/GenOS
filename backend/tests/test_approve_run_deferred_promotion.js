@@ -5,8 +5,17 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const strategyContracts = require('../src/services/strategyContractService');
 const strategyService = require('../src/services/strategyExecutionService');
 const telemetry = require('../src/services/telemetryObserver');
+const { buildGateContext } = require('../src/services/promotionGateContext');
+
+process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-admin-password-approve-run';
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || 'test-epistemic-receipt-approve-run';
 
 async function run() {
+  const reportOnlyContext = buildGateContext({
+    promotion: { report: { epistemicAssembly: { trustedVerifierDigests: ['caller-controlled'] } } },
+    options: {}, receipt: null, aeisEvaluation: { assembly: null }
+  });
+  assert.equal(reportOnlyContext.epistemicAssembly, null, 'caller reports cannot supply the trusted AEIS assembly');
   const dbPath = path.resolve(__dirname, 'test-approve-run-promotion.db');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   const db = await getDatabase(dbPath);
@@ -44,7 +53,7 @@ async function run() {
     );
     assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', run.id)).status, 'awaiting_approval');
 
-    const approvedRun = await strategyService.approveRun(db, run.id, {
+    await assert.rejects(() => strategyService.approveRun(db, run.id, {
       approvedBy: 'security_auditor',
       summary: 'Promotion audited and approved for production readiness.',
       report: { outcome: 'success', claims: [{ statement: 'Promotion audited', evidence: ['security-review'] }] },
@@ -55,18 +64,12 @@ async function run() {
         approvedAt: new Date().toISOString(),
         payloadHash: contractRecord.contract_hash || '0'.repeat(64)
       }
-    });
-
-    assert.equal(approvedRun.status, 'completed', 'Run status should be completed after approval');
-    assert.equal(approvedRun.steps.find((s) => s.stageKey === 'conditional_promotion')?.status, 'completed');
-
-    const finalizedEvent = emittedEvents.find((e) => e.eventType === 'STRATEGY_PROMOTION_FINALIZED');
-    assert(finalizedEvent, 'STRATEGY_PROMOTION_FINALIZED event should be emitted');
-    assert.equal(finalizedEvent.payload.runId, run.id);
-    assert.equal(finalizedEvent.payload.approvedBy, 'security_auditor');
+    }), /independent verification|epistemic assurance|proof_verification/i);
+    assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', run.id)).status, 'awaiting_approval', 'unsigned evidence must not finalize promotion');
+    assert.equal(emittedEvents.some((event) => event.eventType === 'STRATEGY_PROMOTION_FINALIZED'), false);
 
     telemetry.off('telemetry', onTelemetry);
-    console.log('✅ approveRun successfully executes deferred promotion pipeline and telemetry.');
+    console.log('✅ approveRun rejects unsupported evidence and leaves the run awaiting approval.');
   } finally {
     await closeDatabase();
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
