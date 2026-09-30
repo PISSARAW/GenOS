@@ -1,8 +1,8 @@
 'use strict';
 
 const LOOP_ACTIONS = Object.freeze({
-  fast: ['worker_rebind', 'budget_shift', 'communication_adjustment', 'spawn_verifier', 'pause_branch'],
-  structural: ['nest', 'split', 'merge', 'topology_change', 'variant_change'],
+  fast: ['worker_rebind', 'worker_migration', 'budget_shift', 'parametric_patch', 'communication_adjustment', 'spawn_verifier', 'pause_branch'],
+  structural: ['nest', 'split', 'merge', 'topology_change', 'variant_change', 'subgraph_replace', 'compete', 'retire', 'spawn'],
   evolutionary: ['learn_pattern', 'mutate_prior', 'update_transition_policy', 'update_relation_prior']
 });
 
@@ -27,8 +27,9 @@ const EVIDENCE_REQUIRED = new Set([
 ]);
 
 function classifyAction(action) {
+  const normalized = String(action).toLowerCase();
   for (const [loop, actions] of Object.entries(LOOP_ACTIONS)) {
-    if (actions.includes(String(action).toLowerCase())) return loop;
+    if (actions.includes(normalized)) return loop;
   }
   return 'unknown';
 }
