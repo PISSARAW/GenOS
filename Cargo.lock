@@ -1620,6 +1620,20 @@ name = "genos-common"
 version = "0.1.0"
 
 [[package]]
+name = "genos-creativity"
+version = "0.1.0"
+dependencies = [
+ "genos-common",
+ "genos-orchestrator",
+ "genos-store",
+ "rand 0.10.2",
+ "serde",
+ "serde_json",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "genos-dna"
 version = "0.1.0"
 dependencies = [
@@ -1765,6 +1779,7 @@ dependencies = [
  "chrono",
  "criterion",
  "genos-common",
+ "hex",
  "serde",
  "serde_json",
  "sha2",
