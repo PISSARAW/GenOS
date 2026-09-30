@@ -94,3 +94,26 @@ Attribution:           <attributable | motif de refus>   Provenance: <hash>
 
 `kind: metric`, `qualityGuarantee: false` : la carte informe la policy,
 elle n'autorise rien à elle seule.
+
+## Highest model tier beaten — métriques opérationnelles
+
+Le rapport ajoute `operationalMetrics.byMode` pour le modèle candidat en solo
+et avec GenOS : correction mesurée, couverture des reçus validés à l'ingestion, false promotion rate,
+succès vérifiés par token/dollar/seconde, coûts, latence, appels et échecs
+d'outils, retries, transitions de topologie, interventions humaines et
+reproductibilité. Les observations doivent être portées par chaque run; une
+absence reste `null`.
+
+Le false promotion rate utilise uniquement les décisions explicites
+`promotionDecision.status: "PROMOTE"` (ou `promotion_status: "PROMOTE"`). Une
+promotion n'est considérée vérifiée que si chaque reçu est `VERIFIED`, comporte
+un identifiant de vérificateur et a été validé à l'ingestion avec
+`validation.valid: true`. Aucun résultat de mission ni score seul ne crée une
+décision de promotion. Les succès par budget exigent un `finalOutcome` explicite
+`success` et des reçus vérifiés; leurs dénominateurs sont les ressources
+mesurées et absentes.
+
+`card.highestBeaten` et `card.tierUplift` restent soumis à la borne basse de
+l'intervalle de confiance apparié au-dessus de la marge configurée. Ils
+demeurent `null`/`inconclusive` sans preuve statistique; cette carte ne prétend
+pas à des résultats tant qu'aucune campagne complète et vérifiée n'est fournie.

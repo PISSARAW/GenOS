@@ -10,6 +10,7 @@ const { weakestCrossover } = require('../../backend/src/services/uplift/wmcServi
 const { attributionVerdict } = require('../../backend/src/services/uplift/capabilityAttribution');
 const { ablationTable } = require('../../backend/src/services/uplift/ablationService');
 const { biomimeticVerdict } = require('../../backend/src/services/uplift/biomimicryTest');
+const { summarizeTierMetrics } = require('../../backend/src/services/uplift/tierMetrics');
 
 function loadJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -26,25 +27,29 @@ function pairsFor(runs, base) {
   }
   const pairs = [];
   for (const [key, s] of solos) {
-    if (genos.has(key)) pairs.push({ solo: s.score, genos: genos.get(key).score, case_id: s.case_id, soloId: s.id, genosId: genos.get(key).id });
+    if (genos.has(key)) pairs.push({ solo: s.score, genos: genos.get(key).score, case_id: s.case_id,
+      replicate: s.replicate || 0, soloId: s.id, genosId: genos.get(key).id });
   }
   return pairs;
 }
 
 function runReport(input) {
-  const runs = input.runs || [];
+  const runs = (input.runs || []).filter((run) => run.suite === input.suite);
+  const scopedInput = { ...input, runs };
   const ladder = buildLadder(runs.map((r) => ({ model: r.model, score: r.score, mode: r.mode })));
-  const pairs = pairsFor(runs, input);
+  const pairs = pairsFor(runs, scopedInput);
   const stats = summarizePaired(pairs, input.stats || {});
+  const integrity = campaignIntegrity(scopedInput, ladder, pairs);
   const card = upliftCard({ baseModel: input.model, genosScore: stats.delta !== null ? meanSolo(runs, input) + stats.delta : null }, ladder);
-  const cost = summarizeCost(costInput(input));
-  const abc = summarizeABC(triplesFor(runs, input), input.stats || {});
-  const modelComparisons = compareLadder(runs, input, ladder);
-  setEvidenceBasedCard({ card, comparisons: modelComparisons, ladder, baseModel: input.model });
-  const wmc = weakestWmc(input, ladder);
+  const cost = summarizeCost(costInput(scopedInput));
+  const abc = summarizeABC(triplesFor(runs, scopedInput), input.stats || {});
+  const modelComparisons = compareLadder(runs, scopedInput, ladder);
+  setEvidenceBasedCard({ card, comparisons: modelComparisons, ladder, baseModel: input.model,
+    campaignReady: integrity.status === 'ready_for_review' });
+  const wmc = weakestWmc(scopedInput, ladder);
   const gcab = gcabSection(input);
-  const integrity = campaignIntegrity(input, ladder, pairs);
-  return { suite: input.suite, model: input.model, ladder, stats, card, modelComparisons, cost, abc, wmc, gcab, integrity, pairedRuns: pairs, kind: 'metric', qualityGuarantee: false };
+  const operationalMetrics = summarizeTierMetrics(runs, input.model);
+  return { suite: input.suite, model: input.model, ladder, stats, card, modelComparisons, cost, abc, wmc, gcab, operationalMetrics, integrity, pairedRuns: pairs, kind: 'metric', qualityGuarantee: false };
 }
 
 function campaignIntegrity(input, ladder, pairs) {
@@ -61,10 +66,17 @@ function checkCoverage(context) {
   if (ladder.length < 3) errors.push('La ladder solo doit contenir au moins trois modèles.');
   if (!ladder.some((step) => step.model === input.model)) errors.push('Le modèle de base doit être mesuré en solo.');
   if (!runs.length || runs.some((run) => !isMeasured(run.score))) errors.push('Des scores mesurés manquent.');
-  if (pairs.length < 2) errors.push('Au moins deux paires solo/GenOS sont nécessaires pour un intervalle de confiance.');
+  if (pairs.length < 3) errors.push('Au moins trois paires solo/GenOS sont nécessaires pour un intervalle de confiance.');
   const triples = triplesFor(runs, input);
-  if (triples.length < 2) errors.push('Au moins deux triplets solo/contrôle/GenOS sont nécessaires.');
+  if (triples.length < 3) errors.push('Au moins trois triplets solo/contrôle/GenOS sont nécessaires.');
   if (triples.length !== baseSoloRuns(runs, input).length) errors.push('Les trois bras ne couvrent pas les mêmes cas et répétitions.');
+  checkPairReplicates(pairs, errors);
+}
+
+function checkPairReplicates(pairs, errors) {
+  const counts = new Map();
+  for (const pair of pairs) counts.set(pair.case_id, (counts.get(pair.case_id) || 0) + 1);
+  if ([...counts.values()].some((count) => count < 3)) errors.push('Chaque tâche doit avoir au moins trois répétitions appariées.');
 }
 
 function checkProvenance(context) {
@@ -128,7 +140,14 @@ function indexedMode(runs, model, mode) {
 }
 
 function setEvidenceBasedCard(context) {
-  const { card, comparisons, ladder, baseModel } = context;
+  const { card, comparisons, ladder, baseModel, campaignReady } = context;
+  if (!campaignReady) {
+    card.highestBeaten = null;
+    card.tierUplift = null;
+    card.beatenVerdict = 'inconclusive';
+    card.beatenReason = 'La campagne est incomplète ou ne satisfait pas les contrôles de provenance et de répétition.';
+    return;
+  }
   const baseRank = ladder.findIndex((item) => item.model === baseModel);
   const beaten = comparisons.filter((item) => item.stats.beaten === true)
     .map((item) => ladder.find((step) => step.model === item.model)).filter(Boolean)

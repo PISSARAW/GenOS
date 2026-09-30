@@ -75,6 +75,24 @@
     "result": {},
     "evidence": { "type": "array", "items": { "type": "object" } },
     "verifierReceipts": { "type": "array", "items": { "type": "object" } },
+    "promotionDecision": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["PROMOTE", "REJECT", "REVISE", "ESCALATE"] },
+        "decisionRule": { "type": ["string", "null"] },
+        "llmWasJudge": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "reproducibility": {
+      "type": "object",
+      "properties": {
+        "reproduced": { "type": "boolean" },
+        "replayDigest": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
     "metrics": {
       "type": "object",
       "required": ["tokens", "latencyMs", "cost", "toolCalls", "retries", "topologyTransitions", "humanInterventions"],
@@ -83,6 +101,7 @@
         "latencyMs": { "type": ["number", "null"], "minimum": 0 },
         "cost": { "type": ["number", "null"], "minimum": 0 },
         "toolCalls": { "type": ["integer", "null"], "minimum": 0 },
+        "toolFailures": { "type": ["integer", "null"], "minimum": 0 },
         "retries": { "type": ["integer", "null"], "minimum": 0 },
         "topologyTransitions": { "type": ["integer", "null"], "minimum": 0 },
         "humanInterventions": { "type": ["integer", "null"], "minimum": 0 }
