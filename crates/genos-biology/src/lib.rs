@@ -198,6 +198,50 @@ mod tests {
         }
     }
     #[test]
+    fn emerging_proposed_therapies_require_and_only_modify_their_target_markers() {
+        let cases = [
+            (
+                SystemicTherapy::AntiretroviralCombination,
+                "viral_replication_load",
+            ),
+            (SystemicTherapy::AntimalarialACT, "parasite_load"),
+            (
+                SystemicTherapy::ExonSkippingAntisense,
+                "exon_expression_deficit",
+            ),
+            (SystemicTherapy::CFTRModulatorTriad, "cftr_function_deficit"),
+            (SystemicTherapy::CartCellInfusion, "tumor_load"),
+            (
+                SystemicTherapy::KetamineRapidInfusion,
+                "synaptic_response_deficit",
+            ),
+            (
+                SystemicTherapy::MoodStabilizerLithium,
+                "affective_instability",
+            ),
+            (
+                SystemicTherapy::AntipsychoticAtypical,
+                "cognitive_signal_disorder",
+            ),
+            (
+                SystemicTherapy::FetalCarrierReactivation,
+                "fetal_carrier_silencing",
+            ),
+        ];
+        for (therapy, marker) in cases {
+            let mut cell = AgentCell::new("Clinical", "Simulation", "Worker");
+            cell.clinical.markers.insert(marker.into(), 0.75);
+            let applied = apply_systemic_therapy_to_cell(&therapy, &mut cell);
+            assert_eq!(applied.applied_markers, vec![format!("{} réduit", marker)]);
+            assert!(applied.cured_pathologies.is_empty());
+            assert_eq!(cell.clinical.markers[marker], 0.5);
+            let mut absent_cell = AgentCell::new("Sans cible", "Simulation", "Worker");
+            let absent = apply_systemic_therapy_to_cell(&therapy, &mut absent_cell);
+            assert!(absent.applied_markers.is_empty());
+            assert!(absent.message.contains("Aucune cible"));
+        }
+    }
+    #[test]
     fn test_degenerative_stem_cell_cure() {
         let mut cell = AgentCell::new("Griot", "Mémoire", "Historian");
         cell.bud_scars = 50;

@@ -80,6 +80,17 @@ pub enum SystemicTherapy {
     DeepBrainStimulation,
     Viscosupplementation,
     SenolyticPurge,
+
+    // Opérateurs infectieux, génétiques, oncologiques et psychiatriques proposés.
+    AntiretroviralCombination,
+    AntimalarialACT,
+    ExonSkippingAntisense,
+    CFTRModulatorTriad,
+    CartCellInfusion,
+    KetamineRapidInfusion,
+    MoodStabilizerLithium,
+    AntipsychoticAtypical,
+    FetalCarrierReactivation,
 }
 
 /// Résultat de l'application d'un traitement
@@ -302,7 +313,16 @@ pub fn apply_systemic_therapy_to_cell(
         | SystemicTherapy::LevodopaSupplementation
         | SystemicTherapy::DeepBrainStimulation
         | SystemicTherapy::Viscosupplementation
-        | SystemicTherapy::SenolyticPurge => unreachable!("géré par therapy_extended"),
+        | SystemicTherapy::SenolyticPurge
+        | SystemicTherapy::AntiretroviralCombination
+        | SystemicTherapy::AntimalarialACT
+        | SystemicTherapy::ExonSkippingAntisense
+        | SystemicTherapy::CFTRModulatorTriad
+        | SystemicTherapy::CartCellInfusion
+        | SystemicTherapy::KetamineRapidInfusion
+        | SystemicTherapy::MoodStabilizerLithium
+        | SystemicTherapy::AntipsychoticAtypical
+        | SystemicTherapy::FetalCarrierReactivation => unreachable!("géré par therapy_extended"),
         SystemicTherapy::Vaccine(spike) => {
             cell.clinical
                 .clinical_log

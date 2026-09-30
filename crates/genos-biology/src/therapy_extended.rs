@@ -44,6 +44,15 @@ pub fn apply_extended_therapy(
         SystemicTherapy::DeepBrainStimulation => ("neural_activity_instability", 0.25),
         SystemicTherapy::Viscosupplementation => ("joint_friction", 0.25),
         SystemicTherapy::SenolyticPurge => ("senescent_load", 0.25),
+        SystemicTherapy::AntiretroviralCombination => ("viral_replication_load", 0.25),
+        SystemicTherapy::AntimalarialACT => ("parasite_load", 0.25),
+        SystemicTherapy::ExonSkippingAntisense => ("exon_expression_deficit", 0.25),
+        SystemicTherapy::CFTRModulatorTriad => ("cftr_function_deficit", 0.25),
+        SystemicTherapy::CartCellInfusion => ("tumor_load", 0.25),
+        SystemicTherapy::KetamineRapidInfusion => ("synaptic_response_deficit", 0.25),
+        SystemicTherapy::MoodStabilizerLithium => ("affective_instability", 0.25),
+        SystemicTherapy::AntipsychoticAtypical => ("cognitive_signal_disorder", 0.25),
+        SystemicTherapy::FetalCarrierReactivation => ("fetal_carrier_silencing", 0.25),
         _ => return None,
     };
     let Some(value) = cell.clinical.markers.get_mut(marker) else {
