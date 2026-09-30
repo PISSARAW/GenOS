@@ -20,6 +20,17 @@ const {
 } = require('./axolotlRegenerationHelpers');
 
 const regenerationSessions = new Map();
+let adaptivePersister = null;
+
+function setAdaptivePersister(persister) {
+  adaptivePersister = persister;
+}
+
+async function persistSessions() {
+  if (adaptivePersister?.setRegenerationSessions) {
+    await adaptivePersister.setRegenerationSessions(regenerationSessions);
+  }
+}
 
 async function assessRegenerationNeed({ failureContext, lastSnapshot }) {
   if (!failureContext) return null;
@@ -49,6 +60,7 @@ async function planRegeneration({ mission, reason, currentTopology, preferredPre
     regenerationPath: null
   };
   regenerationSessions.set(ctxId, session);
+  await persistSessions();
   const alternatives = compareTopologyAlternatives(currentTopology);
   const target = selectTargetStructure(currentTopology, alternatives);
   session.targetStructure = target;
@@ -63,27 +75,66 @@ async function planRegeneration({ mission, reason, currentTopology, preferredPre
   };
 }
 
-async function executeRegeneration({ sessionId, db }) {
+async function executeRegeneration({ sessionId, db, context = {} }) {
   const session = regenerationSessions.get(sessionId);
   if (!session) return { success: false, error: `Session ${sessionId} introuvable` };
   session.status = 'in_progress';
   session.startedAt = new Date().toISOString();
+  await persistSessions();
   const preserved = await preserveCriticalState(session, db);
   const newTopology = buildNewTopology(session.targetStructure, preserved);
   const validation = validateFunctionalEquivalence(newTopology, session.mission);
   session.status = validation.passed ? 'completed' : 'degraded';
   session.completedAt = new Date().toISOString();
-  regenerationSessions.delete(sessionId);
+  let worker = null;
+  if (validation.passed && db) {
+    if (!context.orchestratorId) {
+      throw Object.assign(new Error('A parent orchestrator is required to create the regenerated worker.'), { code: 'REGENERATION_ORCHESTRATOR_REQUIRED' });
+    }
+    worker = await createRegeneratedWorker({ db, session, context });
+    session.workerId = worker.agentId;
+    session.mission = worker.mission;
+  }
+  await persistSessions();
   return {
     success: validation.passed,
     sessionId,
     newTopology,
     validation,
     preserved: preserved.length,
+    worker,
     note: validation.passed
       ? 'Régénération fonctionnelle terminée'
       : 'Régénération partielle — mode dégradé'
   };
+}
+
+async function createRegeneratedWorker({ db, session, context }) {
+  const crypto = require('crypto');
+  const agentId = `worker_regen_${crypto.randomUUID()}`;
+  const mission = {
+    id: `mission_regen_${session.id}`,
+    task: `Operate regenerated ${session.targetStructure.id} topology`,
+    objective: session.mission,
+    prompt: `Continue the independent mission: ${session.mission}. Use regenerated topology ${session.targetStructure.signature}; report evidence for functional-equivalence checks.`,
+    workspaceRoot: context.workspaceRoot,
+    executionBudget: context.executionBudget || { tokens: 4000, events: 5, costUsd: 0.25 },
+    autonomousOrchestration: false
+  };
+  const parent = await db.get('SELECT workspace_id, fleet_id, model_tier, language, isolation_mode FROM agents WHERE id = ?', context.orchestratorId);
+  if (!parent) throw Object.assign(new Error('Regeneration orchestrator not found.'), { code: 'REGENERATION_ORCHESTRATOR_NOT_FOUND' });
+  await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id,
+    model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
+    VALUES (?, ?, 'regeneration_worker', 'idle', 'GenOS', 'worker', ?, ?, ?, ?, ?, ?, 'regeneration', ?, ?)` ,
+    agentId, `Regenerate · ${session.targetStructure.id}`, parent.workspace_id, parent.fleet_id,
+    parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch',
+    context.orchestratorId, mission.prompt, mission.prompt);
+  await require('./agentRuntimeAdapter').startMission({
+    ...mission, agentId, orchestratorAgentId: context.orchestratorId,
+    workspaceId: parent.workspace_id, fleetId: parent.fleet_id, modelTier: parent.model_tier,
+    role: 'regeneration_worker', workerAssignment: { role: 'regeneration_worker', label: session.targetStructure.id }
+  });
+  return { agentId, mission };
 }
 
 function listRegenerationSessions() {
@@ -139,5 +190,6 @@ module.exports = {
   planRegeneration,
   executeRegeneration,
   listRegenerationSessions,
-  getRegenerationSession
+  getRegenerationSession,
+  setAdaptivePersister
 };

@@ -112,13 +112,21 @@ async function transition(db, command = {}) {
 async function suspend(db, command = {}) {
   const id = ensureAgentId(command.agentId);
   const snapshot = await resilience.freezeCryptobiosis(db, command.workspaceId || null, command.reason || 'survival dormancy', {
-    agentId: id, workspaceId: command.workspaceId || null, survivalState: await get(db, id), ...(command.statePayload || {})
+    agentId: id, workspaceId: command.workspaceId || null, survivalState: await get(db, id),
+    ...(command.statePayload || {}), mission: normalizeIndependentMission(command.mission)
   });
   const savedSnapshot = await db.get("SELECT snapshot_id FROM cryptobiosis_snapshots WHERE snapshot_id = ? AND status = 'frozen'", snapshot.snapshotId);
   if (!savedSnapshot) throw Object.assign(new Error('A persisted frozen snapshot is required before arming wake.'), { code: 'SURVIVAL_SNAPSHOT_REQUIRED' });
   const wake = await wakeService.arm({ db, agentId: id, condition: command.wakeCondition || { type: 'operator_or_signal' }, snapshotId: savedSnapshot.snapshot_id, organizationId: command.organizationId, projectId: command.projectId });
   const state = await observe(db, id, { energy: 0, forcedState: 'dormant', snapshotId: snapshot.snapshotId, wakeConditionId: wake.id });
   return { success: true, state, snapshot, wakeCondition: wake };
+}
+
+function normalizeIndependentMission(mission) {
+  if (!mission || typeof mission !== 'object' || Array.isArray(mission)) return null;
+  const prompt = mission.prompt || mission.objective || mission.task;
+  if (typeof prompt !== 'string' || !prompt.trim()) return null;
+  return { ...mission, prompt: prompt.trim() };
 }
 
 const RECEIPT_TYPES = Object.freeze({
@@ -170,7 +178,17 @@ async function wake(db, command = {}) {
   await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
   await observe(db, id, { forcedState: 'waking', snapshotId: current.snapshotId, wakeConditionId: armed.id });
   const state = await observe(db, id, { energy: command.energy ?? 1, forcedState: 'recovered', snapshotId: current.snapshotId, wakeConditionId: armed.id });
-  return { success: true, restored, state };
+  const mission = normalizeIndependentMission(restored.state?.mission);
+  let resumed = null;
+  if (mission) {
+    resumed = await require('./agentRuntimeAdapter').startMission({
+      ...mission,
+      agentId: id,
+      workspaceId: command.workspaceId || restored.workspaceId,
+      autonomousOrchestration: mission.autonomousOrchestration === true
+    });
+  }
+  return { success: true, restored, state, resumed };
 }
 
 module.exports = { STATES, get, observe, transition, suspend, wake, recoveryPlan, recordActionReceipt, RECEIPT_TYPES, ensureStorage };
