@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel (suivi d'indicateurs, pas de détection de conscience)
 - **Portée** : lecture transversale des boucles réflexives GenOS face aux indicateurs de la littérature (Butlin et al. 2023/2025) ; chaque indicateur pointe son implémentation et sa limite explicite.
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-09-30
 
 ## 1. Définition du domaine
 
@@ -48,14 +48,14 @@ Inventaire historique à requalifier par les reçus du plan de validation.
 
 | Famille (littérature) | Implémentation GenOS | Statut | Ce qui manque |
 |---|---|---|---|
-| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs (livraison `signal_deliveries`, désensibilisation), burst d'ignition → propagation lignée + boost de saillance → épisodes → rappel → plan | Partiel | disponibilité globale et consommation causale à valider |
+| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs ; helper `globalWorkspaceService` avec contrôle d'autorisation, consommation et sonde par ablation | Partiel | helper de workspace non branché au chemin de production ; disponibilité globale réelle et usage aval restent à valider |
 | Ignition non-linéaire | `ignitionService` : seuil, burst ×1,5, réfractaire, fuite, propagation réelle | Partiel | dynamique compétitive |
 | Attention sélective | fovéation, active sensing, pont thalamique, leases + bancs causaux et sondes | Implémenté (fonctionnel) | steering live |
 | Récurrence entretenue | `reverberationService` + `idleTickService` + scheduler appelé par le serveur | Partiel | effet du maintien et récurrence perceptive à valider |
 | Modèle de soi | `agentSelfService` (5 strates + CoreSelf), `workerSelfService` (9 questions) | Implémenté (fonctionnel) | schéma corporel simulé |
-| Métacognition | dissonance/apoptose, `abstentionService`, `metacognitionBenchService` bouclé sur l'opt-out | Implémenté (fonctionnel) | benchmarks externes (SAD/MIRROR) |
+| Métacognition | dissonance/apoptose, `abstentionService`, `metacognitionBenchService` bouclé sur l'opt-out | Partiel | benchmarks externes SAD/MIRROR non exécutés sur un modèle déclaré |
 | Inférence prédictive | RPE, `worldModelService` (transitions + trajectoires + surprise), hiérarchie Mission>Stratégie>Action avec propagation | Partiel | codage prédictif perceptif et hiérarchie générative descendante |
-| Distinction soi/monde | `efferenceCopyService` (réafférence ×0,5), immunité soi/non-soi | Implémenté (fonctionnel) | copie couvrant tous les effecteurs |
+| Distinction soi/monde | `efferenceCopyService` (réafférence ×0,5), corrélation par ID d'action ; succès et échec d'orchestration routés vers la capture | Partiel | inventaire exhaustif des effecteurs et perturbations action-perception non validés |
 | Modèle du monde | transitions, trajectoires incertaines, rollout Trinity action-conditionné (avis) | Partiel | modèle génératif, rollout libre |
 | Agency flexible | contrats, recovery, calibration d'agency, bandit LinUCB qui décide en canari 5 % | Partiel | contrôle complet, options HRL |
 | Intégration (IIT) | proxy (répertoire + NMI) + moteur causal (ablations, PID-lite, recommandations morphogenèse) | Indicateur seulement | causalité prouvée, Φ |
@@ -105,7 +105,13 @@ restent aux gates existantes (jury, promotion, approbation).
 Par mission : rappel (ajustements + instantanés d'audit) → plan (self-model +
 opt-out + banc) → runtime (prédictions, surprise, ignition, hiérarchie) →
 barrière (dossiers, rollout, sondes) → fin (calibration, attribution,
-consolidation, tick). Validation : `node --check`, suites backend ciblées
+consolidation, tick). Tests ciblés du suivi signaux/effecteurs :
+`node backend/tests/test_global_workspace.js`,
+`node backend/tests/test_self_effector_model.js` et
+`node backend/tests/test_organ_ablation_bench.js` (passés le 2026-09-30).
+Ils vérifient des contrats logiciels et la corrélation locale, pas le câblage
+de production du workspace global ni une validation expérimentale généralisée.
+Validation historique : `node --check`, suites backend ciblées
 (`test_self_model_service`, `test_self_ablation_p1`,
 `test_approve_run_deferred_promotion`), gate qualité
 (`scripts/ci/check_code_quality.py`). Les suites exigent une base SQLite

@@ -174,3 +174,25 @@ La matrice finale est publiée dans [`matrice-preuves-indicateurs.md`](matrice-p
 - `python scripts/ci/check_code_quality.py` global : **rouge — 147 violations hors baseline sur fichiers suivis** (dette pré-existante, ex. contrôleurs, `worldModelService`, `reportCompilerService`, crates `genos-cli/core/genome`) ; `--update-baseline` refusé car la dette a augmenté depuis le snapshot.
 - `python scripts/ci/audit_indicator_baseline.py` : **local 0 fichier / 0 violation** après suppression des 41 sondes `_probe/scan/debug` non suivies ; **tracked 147 hors baseline**, donc EXIT 1. Les sondes supprimées n'ont jamais été committées.
 - Conclusion : baseline d'exécution Node/Rust rétablie, **baseline qualité globale non verte**. Aucun `passed` indicateur n'est déduit de cette baseline.
+
+## Addendum signaux et copie d'efférence — 2026-09-30
+
+Le commit `8eb07e45` ajoute une vérification locale de l'accès par module au
+workspace, une consommation de contenu et une sonde d'ablation qui compare le
+résultat du consommateur avec et sans contenu. Les tests
+`test_global_workspace.js`, `test_self_effector_model.js` et
+`test_organ_ablation_bench.js` passent. Cette preuve porte sur les contrats
+logiciels testés : `globalWorkspaceService` n'étant appelé par aucun chemin de
+production, elle ne valide pas la disponibilité globale effective.
+
+La capture autobiographique reconnaît maintenant les événements de réussite
+et d'échec des actions d'orchestration. La copie d'efférence peut corréler
+l'événement à l'ID de l'action et sa décharge reste à usage unique. Cela ne
+couvre pas encore l'inventaire exhaustif des effecteurs ni les perturbations
+réelles de délai/gain exigées pour AE-2. GWT-3 et AE-2 restent
+`implemented_not_validated` dans la matrice.
+
+SAD et MIRROR restent `not_run` : il faut déclarer le modèle évalué, sa version
+et le protocole d'accès avant de lancer leurs jeux de tâches. Aucun résultat
+local ni aucune mesure du runtime ne remplace ces bancs externes. Ils ne
+constituent pas une détection de conscience.
