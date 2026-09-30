@@ -12,8 +12,8 @@ const signalEventBus = require('./signalEventBus');
 const { getDatabase } = require('../db');
 const { randomUUID } = require('node:crypto');
 const plasticity = require('./synapticPlasticityService');
-const runtimeMissionExecution = require('./agentRuntimeAdapter/missionExecution');
 const escalation = require('./cognitiveEscalationService');
+const cognitiveSignalService = require('./cognitiveSignalService');
 const signalDelivery = require('./signalDeliveryService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 const signalMetrics = require('./signalMetricsService');
@@ -189,16 +189,8 @@ function handleLlmEscalation(signal) {
     signalMetrics.recordLlmEscalation();
 
     try {
-      await runtimeMissionExecution.startMission({
-        agentId: target,
-        prompt: '',
-        role: 'llm-escalation',
-        signalTriggered: true,
-        triggerSignalId: signal.signalId,
-        triggerSignalType: signal.signalType,
-        triggerSignalTopic: signal.topic,
-        escalationContext: context,
-      });
+      await cognitiveSignalService.handleSignal({ db: await getDatabase(), agentId: target,
+        signal, context });
       signalMetrics.recordLlmWakeupOutcome({ useful: true });
       signalMetrics.recordOutcome('llm_success');
       escalation.recordEscalationOutcome(signal.signalId, 'dispatched', 1);

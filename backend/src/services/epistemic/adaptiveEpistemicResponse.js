@@ -218,7 +218,7 @@ function adaptiveCheck(antigen, context = {}) {
   };
 }
 
-function selectVerifierAssignments(signals) {
+function selectVerifierAssignments(signals, context = {}) {
   const assignments = [];
   if (signals.includes('autoverification') || signals.includes('source_externe_non_vérifiée')) {
     assignments.push({ type: 'contre_vérification', verifier: 'indépendant' });
@@ -235,6 +235,17 @@ function selectVerifierAssignments(signals) {
   if (assignments.length === 0) {
     assignments.push({ type: 'vérification_générale', verifier: 'général' });
   }
+  return attachIndependentVerifier(assignments, context);
+}
+
+function attachIndependentVerifier(assignments, context) {
+  const resolver = require('../morphogenesis/relationResolverService');
+  const selected = resolver.selectVerifier({ candidates: context.verifierCandidates || [],
+    excludeIds: [context.agentId, ...(context.excludeVerifierIds || [])].filter(Boolean) });
+  if (selected?.candidate?.agentId) {
+    return assignments.map((assignment) => ({ ...assignment, verifier: selected.candidate.agentId,
+      selectionSource: 'independent_relation_selector', verifierScore: selected.score }));
+  }
   return assignments;
 }
 
@@ -245,7 +256,9 @@ function adaptiveResponse(evaluation, verifierCatalog = {}, context = {}) {
   const signals = evaluation.adaptive.signals || [];
   return {
     status: 'adaptation_demanding',
-    verifierAssignments: selectVerifierAssignments(signals),
+    verifierAssignments: selectVerifierAssignments(signals, {
+      ...context, verifierCandidates: context.verifierCandidates || verifierCatalog.verifierCandidates || []
+    }),
     next: 'adaptive_quarantine',
   };
 }

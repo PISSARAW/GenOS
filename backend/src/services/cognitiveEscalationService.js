@@ -120,6 +120,7 @@ async function fetchWorkerIdsForOrchestrator(orchestratorId) {
  * or fallback to the sender's parent orchestrator.
  */
 async function selectCognitiveTarget(signal) {
+  await plasticity.loadWeights();
   const senderId = signal.senderAgentId;
   const parentId = await fetchParentOrchestrator(senderId);
   const candidates = await fetchWorkerIdsForOrchestrator(parentId);

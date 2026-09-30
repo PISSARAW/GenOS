@@ -3,6 +3,7 @@
  */
 
 const channelWeights = new Map();
+let hydration = null;
 
 const DEFAULT_WEIGHT = 0.5;
 const REINFORCEMENT = 0.1;
@@ -13,6 +14,32 @@ const MAX_WEIGHT = 1.0;
 
 function channelKey(senderId, receiverId) {
   return `${senderId || 'system'}→${receiverId || 'broadcast'}`;
+}
+
+async function loadWeights(db) {
+  if (!hydration) hydration = (async () => {
+    const database = db || await require('../db').getDatabase();
+    const rows = await database.all('SELECT channel, weight, last_updated, hits, misses, last_signal_type FROM signal_channel_weights');
+    for (const row of rows) channelWeights.set(row.channel, {
+      weight: Number(row.weight), lastUpdated: Number(row.last_updated), hits: Number(row.hits),
+      misses: Number(row.misses), lastSignalType: row.last_signal_type || undefined
+    });
+  })().catch((error) => { hydration = null; throw error; });
+  return hydration;
+}
+
+function persistChannel(senderId, receiverId) {
+  const key = channelKey(senderId, receiverId);
+  const channel = channelWeights.get(key);
+  if (!channel) return;
+  Promise.resolve().then(async () => {
+    const db = await require('../db').getDatabase();
+    await db.run(`INSERT INTO signal_channel_weights
+      (channel, weight, last_updated, hits, misses, last_signal_type) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(channel) DO UPDATE SET weight=excluded.weight, last_updated=excluded.last_updated,
+      hits=excluded.hits, misses=excluded.misses, last_signal_type=excluded.last_signal_type`,
+    [key, channel.weight, channel.lastUpdated, channel.hits, channel.misses, channel.lastSignalType || null]);
+  }).catch((error) => console.warn(`[Plasticity] Weight persistence failed: ${error.message}`));
 }
 
 function getChannelWeight(senderId, receiverId) {
@@ -51,20 +78,23 @@ function strongDepress(senderId, receiverId, signalType) {
 }
 
 function recordSignalOutcome({ senderId, receiverId, outcome, signalType }) {
+  let result;
   switch (outcome) {
     case 'useful':
     case 'action_taken':
     case 'receptor_triggered':
-      return reinforce(senderId, receiverId, signalType);
+      result = reinforce(senderId, receiverId, signalType); break;
     case 'error':
     case 'noise':
     case 'suppressed':
-      return strongDepress(senderId, receiverId, signalType);
+      result = strongDepress(senderId, receiverId, signalType); break;
     case 'no_effect':
     case 'ignored':
     default:
-      return depress(senderId, receiverId, signalType);
+      result = depress(senderId, receiverId, signalType);
   }
+  persistChannel(senderId, receiverId);
+  return result;
 }
 
 function getTopChannels(limit = 10) {
@@ -114,6 +144,7 @@ module.exports = {
   pruneWeakChannels,
   getAllWeights,
   resetWeights,
+  loadWeights,
   DEFAULT_WEIGHT,
   REINFORCEMENT,
   DEPRESSION,

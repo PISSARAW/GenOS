@@ -40,6 +40,11 @@ async function initializeSchema(db) {
   await db.exec('PRAGMA temp_store = MEMORY;'); // Use RAM for temp tables and indices
   await migrateLegacySchema(db);
   await db.exec(CREATE_TABLES_SQL);
+  await db.exec(`CREATE TABLE IF NOT EXISTS signal_channel_weights (
+    channel TEXT PRIMARY KEY, weight REAL NOT NULL, last_updated INTEGER NOT NULL,
+    hits INTEGER NOT NULL DEFAULT 0, misses INTEGER NOT NULL DEFAULT 0,
+    last_signal_type TEXT
+  )`);
   await addOptionalColumns(db, OPTIONAL_COLUMN_STATEMENTS);
   await applyVersionedMigrations(db);
   await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');

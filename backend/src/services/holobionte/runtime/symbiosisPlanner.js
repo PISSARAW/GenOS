@@ -3,6 +3,7 @@
 const store = require('../holobiontStore');
 const contracts = require('../contracts/symbiosisContractService');
 const partnerChoice = require('../selection/partnerChoiceService');
+const relationResolver = require('../../morphogenesis/relationResolverService');
 
 async function residentForCapability(db, session, capability) {
   for (const resident of session.residentSymbionts) {
@@ -19,7 +20,12 @@ function candidatePlan(input, session, capability) {
   const ranked = partnerChoice.rankCandidates({
     constitution: session.constitution, gap: { requiredCapabilities: [capability] }, candidates
   });
-  return { candidates, ranked };
+  const eligibleIds = new Set(ranked.filter((item) => item.eligible).map((item) => item.symbiontId));
+  const relationType = input.relationType || 'partner';
+  const relationCandidates = candidates.filter((candidate) => eligibleIds.has(String(candidate.id || '')))
+    .map((candidate) => ({ ...candidate, agentId: String(candidate.id), relationType: candidate.relationType || relationType }));
+  const relationChoice = relationResolver.selectPartner({ relationType, candidates: relationCandidates });
+  return { candidates, ranked, relationChoice };
 }
 
 async function planCapability(db, input = {}) {

@@ -11,7 +11,8 @@ async function runCycle(db, input = {}, dependencies = {}) {
   const plan = await planCapability(db, input);
   if (plan.status !== 'READY') return {
     status: 'CAPABILITY_GAP', capability: plan.capability,
-    rankedCandidates: plan.ranked || [], discoveryRequired: true
+    rankedCandidates: plan.ranked || [], relationChoice: plan.relationChoice || null,
+    discoveryRequired: true
   };
   const execution = await executeCapability(db, plan, { ...input, executeCapability: input.executeCapability });
   if (!execution.accepted) return { status: 'EXECUTION_REJECTED', execution };
