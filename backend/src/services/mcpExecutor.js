@@ -7,7 +7,6 @@ const { spawn } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const { runGenosSync } = require('./genosCli');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 const { resolveContainedPathNoSymlinkSync } = require('./pathSafety');
@@ -17,7 +16,6 @@ const { callHttpFn } = require('./mcpExecutor/transports/http');
 const { callStdioFn } = require('./mcpExecutor/transports/stdio');
 const { executeToolLogic } = require('./mcpExecutor/transports/toolLogic');
 const { executeConfiguredTransport, listTools, resolveMcpOutputPath, validateMcpInputPaths, runSafeSync } = require('./mcpExecutor/dispatch');
-const efferenceBridge = require('./mcpExecutor/efferenceBridge');
 
 const {
   DEFAULT_MCP_TIMEOUT_MS,
@@ -319,6 +317,22 @@ function applyDomainVerdict(toolName, result) {
   result.domainVerdict = classifyDomainVerdict(String(result.output || '').toLowerCase());
 }
 
+async function runToolExecution(context) {
+  const { agentId, toolName, args, circuitScope } = context;
+  try {
+    const result = await executeConfiguredTransport({ toolName, args });
+    applyDomainVerdict(toolName, result);
+    if (result.success) circuitBreaker.recordSuccess(toolName, circuitScope);
+    else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`, circuitScope);
+    telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: { toolName, args, result } });
+    return result;
+  } catch (error) {
+    circuitBreaker.recordFailure(toolName, error.message, circuitScope);
+    telemetry.emitEvent({ eventType: 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: error.message, severity: 'warning', payload: { toolName, args } });
+    return { success: false, status: 'failed', error: error.message };
+  }
+}
+
 async function execute(executionRequest) {
   const { agentId, organizationId, projectId, toolName, args = {}, taints = [] } = executionRequest;
   const db = await getDatabase();
@@ -333,15 +347,7 @@ async function execute(executionRequest) {
   if (unavailable) return unavailable;
   const circuitFault = checkCircuitBreaker(toolName, circuitScope, args);
   if (circuitFault) return circuitFault;
-  const sourceActionId = executionRequest.actionId || `mcp_${crypto.randomUUID()}`;
-  await efferenceBridge.recordToolEfference({ db, agentId, toolName, actionId: sourceActionId });
-  return efferenceBridge.runToolExecution({
-    context: { agentId, toolName, args, circuitScope, sourceActionId },
-    executeConfiguredTransport,
-    applyDomainVerdict,
-    circuitBreaker,
-    telemetry
-  });
+  return runToolExecution({ agentId, toolName, args, circuitScope });
 }
 
 function recordCallResult(toolName, result) {
@@ -370,8 +376,6 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
 
 module.exports = {
   execute,
-  recordToolEfference: efferenceBridge.recordToolEfference,
-  toolOutcomePayload: efferenceBridge.toolOutcomePayload,
   executeConfiguredTransport,
   configuredTransport,
   checkChromatinLock,

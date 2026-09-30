@@ -29,8 +29,6 @@ function createPhenotypeState(genome) {
   const basePhenotype = express(genome);
 
   return {
-    id: `pheno_${genome.meta.name}`,
-    agentId: genome.meta.agentId || null,
     genomeId: genome.meta.name,
     basePhenotype: basePhenotype,
     currentPhenotype: { ...basePhenotype },
@@ -251,23 +249,17 @@ function getDevelopmentMetrics(state) {
 
 // ─── Persistance ────────────────────────────────────────────────────
 
-async function savePhenotypeState(state, database) {
-  const db = database || await getDatabase();
-  const id = state.id || `pheno_${state.agentId || state.genomeId}`;
-  state.id = id;
+async function savePhenotypeState(state) {
+  const db = await getDatabase();
+  const id = `pheno_${state.genomeId}_${Date.now()}`;
 
   await db.run(
-    `INSERT INTO agent_phenotype_states (id, agent_id, genome_id, state_json, phenotype_json, branches_json, atrophies_json, history_json, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO agent_phenotype_states (id, genome_id, state_json, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET state_json = excluded.state_json, updated_at = excluded.updated_at`,
     id,
-    state.agentId || null,
     state.genomeId,
     JSON.stringify(state),
-    JSON.stringify(state.currentPhenotype || {}),
-    JSON.stringify(state.branches || []),
-    JSON.stringify(state.atrophies || []),
-    JSON.stringify(state.history || []),
     state.createdAt,
     state.updatedAt
   );
@@ -275,12 +267,10 @@ async function savePhenotypeState(state, database) {
   return id;
 }
 
-async function loadPhenotypeState(genomeId, database, agentId) {
-  const db = database || await getDatabase();
+async function loadPhenotypeState(genomeId) {
+  const db = await getDatabase();
   const row = await db.get(
-    'SELECT state_json FROM agent_phenotype_states WHERE (? IS NOT NULL AND agent_id = ?) OR genome_id = ? ORDER BY updated_at DESC LIMIT 1',
-    agentId || null,
-    agentId || null,
+    'SELECT state_json FROM agent_phenotype_states WHERE genome_id = ? ORDER BY updated_at DESC LIMIT 1',
     genomeId
   );
 

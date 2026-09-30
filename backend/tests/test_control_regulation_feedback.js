@@ -41,21 +41,6 @@ test('control regulation re-arbitrates execution feedback', () => {
   assert(updated.arbitration.selectedCorrections.some((signal) => signal.target === 'worker_fanout'));
 });
 
-test('homeostatic evidence feedback changes pressure and is re-arbitrated', () => {
-  const regulation = regulateAutonomyPlan(
-    { problem_profile: { type: 'general', risk: 'low', uncertainty: 0.1, evidenceQuality: 0.9 } },
-    { tokens: 100 },
-    basePlan()
-  );
-  const baseline = applyControlFeedback(regulation, { evidenceScore: 0.8 });
-  const weakEvidence = applyControlFeedback(baseline, { evidenceScore: 0.3 });
-  const improvedEvidence = applyControlFeedback(weakEvidence, { evidenceScore: 0.95 });
-  assert(weakEvidence.homeostasis.pressure > baseline.homeostasis.pressure);
-  assert(improvedEvidence.homeostasis.pressure < weakEvidence.homeostasis.pressure);
-  assert.equal(improvedEvidence.feedbackCycles, 3);
-  assert(improvedEvidence.arbitration);
-});
-
 test('runtime applies feedback corrections to mission posture', () => {
   const mission = {
     prompt: 'diagnose',

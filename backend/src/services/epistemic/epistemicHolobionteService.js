@@ -40,8 +40,6 @@ const { regulatoryReview } = require('./epistemicInflammationAndRegulation');
 const { computePressure, tierFromPressure } = require('./epistemicHomeostasisService');
 const { dissonanceFrom, niveauCorpsent } = require('./epistemicApoptosisService');
 const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
-const { verifyAcrossProviders } = require('./crossProviderVerificationService');
-const { recruitAndExecute } = require('./epistemicNicheRecruitmentService');
 const { expandClone, selectWinningClones } = require('./clonalExpansionService');
 const { matureStrategy } = require('./affinityMaturationService');
 const { depositPheromone } = require('./stigmergyInterProcessBridge');
@@ -158,15 +156,15 @@ async function runClonalSelectionCycle(parent, antigen, ctx) {
 
 async function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
-  let blocked = isImmuneDecisionBlocked(pipeline);
-  let blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
+  const blocked = isImmuneDecisionBlocked(pipeline);
+  const blockReason = blocked ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` : null;
 
-  const verifiers = verifierListFromPipeline(pipeline);
-  const initialVerifierResults = await executeVerifierWorkers(antigen, verifiers, context);
-  const nicheRecruitment = await recruitMissingVerifierNiche(antigen, verifiers, context);
-  const verifierResults = mergeVerifierResults(initialVerifierResults, nicheRecruitment.result);
-  const crossProvider = await crossProviderReview(antigen, context);
-  ({ blocked, blockReason } = applyCrossProviderRequirement({ context, result: crossProvider, blocked, blockReason }));
+  const verifiers = pipeline.decision?.assignedVerifiers?.map((v) => ({
+    type: v.verifier,
+    strategy: v.strategy || [],
+    affinity: v.affinity || 0.5,
+  })) || [];
+  const verifierResults = await executeVerifierWorkers(antigen, verifiers, context);
 
   const bestVerifier = selectBestVerifier(verifiers);
   const clonal = bestVerifier
@@ -190,58 +188,11 @@ async function immuneSymbiontReview(antigen, context = {}) {
     pipeline,
     decision: pipeline.decision?.innate?.decision?.action || pipeline.decision?.decision || 'unknown',
     verifierResults,
-    crossProvider,
-    nicheRecruitment: { niche: nicheRecruitment.candidate?.type || null, diversity: nicheRecruitment.census.effectiveDiversity },
     clones: clonal.clones,
     clonalSelection: clonal.selection,
     affinityMaturation: clonal.maturation,
     oracleResolved: clonal.oracleResolved,
   };
-}
-
-function verifierListFromPipeline(pipeline) {
-  return pipeline.decision?.assignedVerifiers?.map((verifier) => ({
-    type: verifier.verifier,
-    strategy: verifier.strategy || [],
-    affinity: verifier.affinity || 0.5,
-  })) || [];
-}
-
-async function recruitMissingVerifierNiche(antigen, verifiers, context) {
-  return recruitAndExecute({
-    reviewers: verifiers.map((verifier) => ({ ...verifier, niche: verifier.type, provider: verifier.provider || verifier.model })),
-    catalog: context.catalog,
-    threshold: context.nicheDiversityThreshold,
-    execute: async (candidate) => {
-      const execution = await executeVerifierWorkers(antigen, [candidate], context);
-      verifiers.push(candidate);
-      return execution;
-    },
-  });
-}
-
-function mergeVerifierResults(initial, recruited) {
-  if (!recruited?.results?.length) return initial;
-  const results = [...(initial.results || []), ...(recruited.results || [])];
-  return { ...initial, results, summary: { ...(initial.summary || {}), recruited: recruited.results?.length || 0 } };
-}
-
-async function crossProviderReview(antigen, context) {
-  if (!context.crossProviderRequired) return null;
-  return verifyAcrossProviders({
-    providers: context.crossProviderModels,
-    minimumProviders: context.minimumCrossProviders,
-    claim: antigen.claim,
-    evidence: antigen.epitopes?.evidence,
-    runProvider: context.runCrossProviderVerifier,
-  });
-}
-
-function applyCrossProviderRequirement(input) {
-  if (!input.context.crossProviderRequired || input.result?.independent) {
-    return { blocked: input.blocked, blockReason: input.blockReason };
-  }
-  return { blocked: true, blockReason: 'required independent multi-provider verification unavailable' };
 }
 
 function isImmuneDecisionBlocked(pipeline) {
