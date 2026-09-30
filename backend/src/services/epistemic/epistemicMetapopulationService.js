@@ -1,5 +1,7 @@
 'use strict';
 
+const processRunner = require('./processIsolatedMetapopulationRunner');
+
 /**
  * Métapopulation épistémique.
  *
@@ -126,4 +128,5 @@ module.exports = {
   crossContamination,
   migrationPlan,
   metapopulationReport,
+  runIsolatedPopulations: processRunner.runIsolatedPopulations,
 };
