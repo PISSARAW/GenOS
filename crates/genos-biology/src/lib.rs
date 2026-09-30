@@ -14,7 +14,8 @@ pub mod instinct;
 pub use instinct::{
     ExecutionContext, FixedActionPattern, HormoneState, InnateReleasingMechanism,
     InstinctLibrary, InstinctOutcome, InstinctProgram, InstinctRunContext, Modality, MotorStep,
-    SignStimulus, StimulusField, TriggerEvaluation, INSTINCT_LOCUS_PREFIX, is_instinct_locus,
+    SignalProvenance, SignStimulus, StimulusField, TriggerEvaluation, INSTINCT_LOCUS_PREFIX,
+    is_instinct_locus,
 };
 pub mod neurobiology;
 pub mod pathology;

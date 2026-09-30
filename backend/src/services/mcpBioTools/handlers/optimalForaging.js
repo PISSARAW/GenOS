@@ -13,10 +13,13 @@ async function handleOptimalForaging(args) {
       nextUrl: args.next_url || args.nextUrl,
       htmlContent: args.html_content || args.html
     });
+    const actionStatus = step.action.status;
     return {
       configured: true,
-      success: true,
-      status: 'completed',
+      success: actionStatus !== 'not_executed' && actionStatus !== 'failed',
+      status: actionStatus === 'executed' ? 'completed'
+        : actionStatus === 'failed' ? 'action_failed'
+          : actionStatus === 'not_executed' ? 'decision_only' : 'observed',
       transport: 'local_service',
       output: JSON.stringify(step, null, 2)
     };

@@ -16,6 +16,15 @@ pub enum Modality {
     Error,
 }
 
+/// Origine auditable d'une valeur sensorielle. Les entrées fournies par un
+/// appelant restent synthétiques jusqu'à leur rattachement à une source runtime.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum SignalProvenance {
+    Synthetic,
+    Runtime { source: String, observed_at: String },
+}
+
 impl Modality {
     pub fn as_str(self) -> &'static str {
         match self {
@@ -49,6 +58,12 @@ pub struct SignStimulus {
     pub signature: String,
     pub intensity: f64,
     pub weight: f64,
+    #[serde(default = "synthetic_provenance")]
+    pub provenance: SignalProvenance,
+}
+
+fn synthetic_provenance() -> SignalProvenance {
+    SignalProvenance::Synthetic
 }
 
 impl SignStimulus {
@@ -58,7 +73,17 @@ impl SignStimulus {
             signature: signature.to_string(),
             intensity,
             weight: 1.0,
+            provenance: SignalProvenance::Synthetic,
         }
+    }
+
+    /// Marque explicitement une lecture produite par un adaptateur runtime.
+    pub fn from_runtime(mut self, source: &str, observed_at: &str) -> Self {
+        self.provenance = SignalProvenance::Runtime {
+            source: source.to_string(),
+            observed_at: observed_at.to_string(),
+        };
+        self
     }
 
     pub fn with_weight(mut self, weight: f64) -> Self {

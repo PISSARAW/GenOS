@@ -13,7 +13,7 @@ pub mod sign_stimulus;
 
 pub use innate_releasing::{HormoneState, InnateReleasingMechanism, TriggerEvaluation};
 pub use paf::{ExecutionContext, FixedActionPattern, InstinctOutcome, MotorStep, is_supported_action, MAX_CHAIN_DEPTH};
-pub use sign_stimulus::{Modality, SignStimulus, StimulusField};
+pub use sign_stimulus::{Modality, SignalProvenance, SignStimulus, StimulusField};
 
 use genos_genome::Gene;
 pub use genos_genome::INSTINCT_LOCUS_PREFIX;
