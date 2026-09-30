@@ -4,6 +4,8 @@
 
 const channelWeights = new Map();
 let hydration = null;
+let persistenceQueue = Promise.resolve();
+const persistenceErrors = [];
 
 const DEFAULT_WEIGHT = 0.5;
 const REINFORCEMENT = 0.1;
@@ -32,14 +34,24 @@ function persistChannel(senderId, receiverId) {
   const key = channelKey(senderId, receiverId);
   const channel = channelWeights.get(key);
   if (!channel) return;
-  Promise.resolve().then(async () => {
+  const snapshot = { ...channel };
+  persistenceQueue = persistenceQueue.then(async () => {
     const db = await require('../db').getDatabase();
     await db.run(`INSERT INTO signal_channel_weights
       (channel, weight, last_updated, hits, misses, last_signal_type) VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(channel) DO UPDATE SET weight=excluded.weight, last_updated=excluded.last_updated,
       hits=excluded.hits, misses=excluded.misses, last_signal_type=excluded.last_signal_type`,
-    [key, channel.weight, channel.lastUpdated, channel.hits, channel.misses, channel.lastSignalType || null]);
-  }).catch((error) => console.warn(`[Plasticity] Weight persistence failed: ${error.message}`));
+    [key, snapshot.weight, snapshot.lastUpdated, snapshot.hits, snapshot.misses, snapshot.lastSignalType || null]);
+  }).catch((error) => {
+    persistenceErrors.push(error);
+    console.warn(`[Plasticity] Weight persistence failed: ${error.message}`);
+  });
+}
+
+async function flushPendingWrites() {
+  await persistenceQueue;
+  const error = persistenceErrors.shift();
+  if (error) throw error;
 }
 
 function getChannelWeight(senderId, receiverId) {
@@ -145,6 +157,7 @@ module.exports = {
   getAllWeights,
   resetWeights,
   loadWeights,
+  flushPendingWrites,
   DEFAULT_WEIGHT,
   REINFORCEMENT,
   DEPRESSION,

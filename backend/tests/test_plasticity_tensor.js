@@ -234,6 +234,9 @@ async function run() {
   testResetClearsAll();
   console.log('[PASS] resetWeights clears all state');
 
+  await testPersistenceCanBeFlushed();
+  console.log('[PASS] plasticity persistence can be awaited');
+
   // Tensor
   testValidateValidContract();
   console.log('[PASS] validateTensorContract accepts valid contract');
@@ -269,6 +272,24 @@ async function run() {
   console.log('[PASS] wrapTensorSignal throws on invalid contract');
 
   console.log('\nAll Synaptic Plasticity and Tensor Compatibility tests passed.');
+}
+
+async function testPersistenceCanBeFlushed() {
+  resetAll();
+  const dbIndex = require('../src/db');
+  const originalGetDatabase = dbIndex.getDatabase;
+  const writes = [];
+  dbIndex.getDatabase = async () => ({ run: async (_sql, values) => writes.push(values) });
+  try {
+    plasticity.recordSignalOutcome({ senderId: 'persist-a', receiverId: 'persist-b',
+      outcome: 'useful', signalType: 'ligand' });
+    await plasticity.flushPendingWrites();
+    const saved = writes.find((values) => values[0] === 'persist-a→persist-b');
+    assert.ok(saved, 'the selected channel was written before flush returned');
+    assert.equal(saved[1], plasticity.getChannelWeight('persist-a', 'persist-b').weight);
+  } finally {
+    dbIndex.getDatabase = originalGetDatabase;
+  }
 }
 
 run().catch((err) => {
