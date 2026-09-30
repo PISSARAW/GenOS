@@ -44,7 +44,7 @@ Dans les deux cas, la provenance est obligatoire : `parents`, `selection = conce
 Un candidat issu de spéciation/graft autonome est enregistré avec `status = 'candidate'` :
 
 - il est **exclu de la sélection automatique** (`selectGenome`, `bestMatch`) tant qu'il n'est pas promu ;
-- il reste **chargeable explicitement** et observable dans l'audit ;
+- il reste inspectable par référence via le registre, mais il n'est pas applicable à un worker tant qu'il n'est pas promu ;
 - il porte l'évidence source (`agent_genome_innovations.evidence_json`) et le concept distillé.
 
 Voir aussi `spec/AGENT_DNA_SPEC.md` §Opérations normatives et `docs/adr/0002-agentdna-innovation-loop.md`.
@@ -111,18 +111,22 @@ L'évaluation peut être :
 - pilotée par un agent/juge dédié (par exemple un agent de sécurité, de qualité, ou un juge comparatif) ;
 - soumise à un gate humain selon la politique du tenant.
 
-L'évaluation et l'enregistrement du résultat sont accessibles via l'API. L'appel explicite à `promote` ou `reject` constitue la décision opérateur ; les juges spécialisés de risque/coût restent externes.
+Les captures issues d'un succès validé ou d'un fossile vérifié déclenchent aussi cette évaluation automatiquement. Les contrôles, les motifs d'échec et le résultat de confiance sont conservés dans `evaluation_json`. Les juges spécialisés de risque/coût restent externes ; leur résultat n'est pas simulé par la gate structurelle.
 
 ### 3.6 Étape 5 — Promotion (gate)
 
 Si le gate est franchi :
 
-- `agent_genome_innovations.status` passe à `'promoted'` ;
+- `agent_genome_innovations.status` passe à `'evaluated'` ;
+- le candidat est admissible à une décision opérateur, mais n'est pas encore sélectionnable ;
+- l'opérateur appelle explicitement `promote` ou `reject` ;
+- `agent_genome_innovations.status` passe à `'promoted'` après approbation ;
 - `agent_genomes.status` du candidat passe à `'active'` ;
 - le candidat devient **sélectionnable automatiquement**.
 
-La transition `evaluated → promoted` et l'activation du génome sont enregistrées
-ensemble. Les états finaux (`promoted`, `rejected`) ne peuvent pas être réévalués.
+La transition `evaluated → promoted`, l'activation du génome et son reçu d'audit
+sont enregistrés ensemble. Les états finaux (`promoted`, `rejected`) ne peuvent
+pas être réévalués.
 
 C'est ce qui est implémenté dans `promoteCandidate(...)` de `backend/src/services/agentDnaInnovation.js`.
 
@@ -140,9 +144,10 @@ Le déploiement n'est pas automatique au sens "tous les agents se mettent à jou
 
 - **Opérations normatives** : `speciate`, `graft` (Rust `genos-dna::operations`), `validate`, `express`.
 - **Détection** : `detectNovelConcepts` (backend `agentDnaInnovation.js`).
-- **Capture candidat** : `captureCandidate`, `captureFromSuccess` (backend `agentDnaInnovation.js`) et `POST /genomes/innovations`.
+- **Capture candidat et évaluation automatique** : `captureFromSuccess`, `captureFromFossil` et `captureAndEvaluate` (backend `agentDnaInnovation.js`). L'API `POST /genomes/innovations` permet aussi une capture explicite.
 - **Hook de succès** : `publishLocalSuccess` → `agentDnaInnovation.captureFromSuccess` (backend `workerEvidenceBarrierLocal.js`).
 - **Évaluation, gate, promotion et rejet** : `evaluateCandidate`, `promoteCandidate`, `rejectCandidate` (backend `agentDnaInnovation.js`).
+- **Audit opérateur** : chaque promotion enregistre l'identité de l'opérateur et une entrée `GENOME_INNOVATION_PROMOTED` dans `audit_logs` dans la même transaction que l'activation.
 - **Statut candidate** : `agent_genomes.status`, `agent_genome_innovations`.
 
 Voir aussi :
@@ -162,7 +167,8 @@ Le registre d'innovations expose maintenant la chaîne opérable suivante (sous 
 - `POST /genomes/innovations` reçoit le besoin identifié (`baseGenomeRef`, `concept`, `concepts`, `evidence`) et crée un génome dérivé en statut `candidate` ; la capture automatique après succès vérifié et la capture depuis fossile utilisent le même stockage.
 - `GET /genomes/innovations` montre les candidats, preuves, évaluations et décisions dans le périmètre tenant/projet.
 - `POST /genomes/innovations/:id/evaluate` conserve un résultat de gate vérifiable : validité du génome décodé, preuve de décision substantivée et conformité à la politique de signature du tenant.
-- `POST /genomes/innovations/:id/promote` est refusé tant que la dernière évaluation n'est pas admissible. L'opérateur qui appelle cette route tranche la promotion ; le candidat devient `active`.
+- Les captures de succès/fossile exécutent la même évaluation automatiquement ; une évaluation admissible donne le statut `evaluated`, un échec reste `candidate` avec ses contrôles et ses motifs.
+- `POST /genomes/innovations/:id/promote` est refusé tant que la dernière évaluation n'est pas admissible. L'identité de l'opérateur est requise et auditée avec la promotion ; le candidat devient `active` dans la même transaction.
 - `POST /genomes/innovations/:id/reject` conserve la décision et sa raison, puis marque le génome `rejected`.
 - Après promotion, la sélection normale de génome peut le choisir au spawn. Chaque application de gènes AgentDNA écrit aussi une ligne consultable dans `GET /genomes/selections`, liée à l'innovation promue si applicable. Cela ne met pas à jour les agents déjà en cours d'exécution.
 
@@ -172,7 +178,7 @@ Donc : la capacité existe, les primitives existent, le hook existe, mais le flu
 
 ## 6. Contraintes et garde-fous
 
-- Un génome `candidate` n'est **jamais recruté automatiquement** avant promotion.
+- Un génome `candidate` ou `evaluated` n'est **jamais appliqué à un worker** avant promotion, même si son identifiant est fourni explicitement.
 - La preuve source est enregistrée, mais la promotion reste gated (preuve falsifiable, coût réel, approbation/signature selon politique).
 - Un génome issu de spéciation/graft autonome est traité comme **entrée non fiable** jusqu'à preuve/passage du gate.
 - L'autonomie est un pouvoir du runtime ; le cas d'usage principal documenté reste piloté (orchestrateur/opérateur/agent juge), pas l'autonomie totale non supervisée.
