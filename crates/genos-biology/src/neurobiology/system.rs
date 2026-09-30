@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::*;
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NervousSystem {
@@ -71,8 +70,10 @@ impl NervousSystem {
             if synapse.activity_history > 0 {
                 // LTP : Renforcement de la Synapse
                 synapse.weight += 0.05 * (synapse.activity_history as f64);
-                if synapse.weight > 1.0 { synapse.weight = 1.0; }
-                
+                if synapse.weight > 1.0 {
+                    synapse.weight = 1.0;
+                }
+
                 // Augmentation des rÃ©cepteurs AMPA et protection par CD47
                 synapse.ampa_receptors = (synapse.ampa_receptors + 0.1).min(2.0);
                 synapse.cd47_expression = (synapse.cd47_expression + 0.2).min(2.0);
@@ -85,7 +86,7 @@ impl NervousSystem {
                 synapse.weight -= 0.02;
                 synapse.ampa_receptors = (synapse.ampa_receptors - 0.1).max(0.0);
                 synapse.cd47_expression = (synapse.cd47_expression - 0.1).max(0.0);
-                
+
                 // Marquage "Eat Me" (ComplÃ©ment C3)
                 synapse.c3_opsonization += 0.1;
             }
@@ -107,6 +108,10 @@ impl NervousSystem {
 
         // 4. Nettoyage : On détruit définitivement les synapses mortes (weight <= 0)
         // ou phagocytées suite au marquage opsonisant ("Eat Me" C3 > 0.5 et "Don't Eat Me" CD47 < 0.5)
-        self.axon.terminals.retain(|s| s.weight > 0.0 && !(s.c3_opsonization > C3_PRUNING_THRESHOLD && s.cd47_expression < CD47_PROTECTION_THRESHOLD));
+        self.axon.terminals.retain(|s| {
+            s.weight > 0.0
+                && !(s.c3_opsonization > C3_PRUNING_THRESHOLD
+                    && s.cd47_expression < CD47_PROTECTION_THRESHOLD)
+        });
     }
 }

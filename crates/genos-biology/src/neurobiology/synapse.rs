@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::*;
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Synapse {
@@ -8,7 +7,7 @@ pub struct Synapse {
     pub weight: f64, // Plasticité : Force de la connexion.
     pub transmitter_type: Neurotransmitter,
     pub activity_history: u32, // Trace de l'utilisation récente
-    
+
     // Neurobiologie de l'élagage (Pruning) et Plasticité
     pub ampa_receptors: f64,  // Densité (LTP)
     pub c3_opsonization: f64, // Signal "Eat Me" (Complément)
@@ -18,8 +17,13 @@ pub struct Synapse {
 impl Synapse {
     pub fn new(target_id: String, weight: f64, transmitter_type: Neurotransmitter) -> Self {
         Self {
-            target_id, weight, transmitter_type, activity_history: 0,
-            ampa_receptors: 1.0, c3_opsonization: 0.0, cd47_expression: 1.0,
+            target_id,
+            weight,
+            transmitter_type,
+            activity_history: 0,
+            ampa_receptors: 1.0,
+            c3_opsonization: 0.0,
+            cd47_expression: 1.0,
         }
     }
 }

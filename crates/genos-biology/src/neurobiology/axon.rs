@@ -1,13 +1,11 @@
-use serde::{Deserialize, Serialize};
 use super::*;
-
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AxonalCargo {
     pub amount: f64,
     pub ticks_remaining: u32,
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Axon {
@@ -64,7 +62,9 @@ impl Axon {
 
     /// DÃƒÆ’Ã‚Â©clenchement de la dÃƒÆ’Ã‚Â©charge !
     pub fn trigger_action_potential(&mut self) -> Option<Vec<(String, Neurotransmitter, f64)>> {
-        if self.is_severed { return None; }
+        if self.is_severed {
+            return None;
+        }
         let cost_per_spike = 10.0;
 
         // Loi du "Tout ou Rien" : l'intensitÃƒÆ’Ã‚Â© ÃƒÆ’Ã‚Â©lectrique initiale est constante,

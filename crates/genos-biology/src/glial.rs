@@ -197,7 +197,10 @@ mod tests {
             nervous_system: Some(glial_cell::NervousSystem {
                 location: NervousSystemLocation::Central,
                 axon: glial_cell::Axon {
-                    terminals: vec![glial_cell::Synapse { c3_opsonization: 0.0, cd47_expression: 1.0 }],
+                    terminals: vec![glial_cell::Synapse {
+                        c3_opsonization: 0.0,
+                        cd47_expression: 1.0,
+                    }],
                     myelination_level: 0.5,
                     is_severed: false,
                     nogo_inhibited: false,
@@ -220,21 +223,36 @@ mod tests {
         let mut volume = 0.0;
         let mut pressure = 10.0;
         let mut agents = vec![agent];
-        GlialPipeline::new().process_all(&mut agents, GlialEnvironment {
-            bhe_integrity: &mut bhe,
-            amyloid_plaques: &mut plaques,
-            csf_volume: &mut volume,
-            csf_pressure: &mut pressure,
-            is_sleeping: false,
-            drainage_blocked: false,
-        });
-        assert_eq!(agents[0].nervous_system.as_ref().unwrap().axon.terminals.len(), 1);
+        GlialPipeline::new().process_all(
+            &mut agents,
+            GlialEnvironment {
+                bhe_integrity: &mut bhe,
+                amyloid_plaques: &mut plaques,
+                csf_volume: &mut volume,
+                csf_pressure: &mut pressure,
+                is_sleeping: false,
+                drainage_blocked: false,
+            },
+        );
+        assert_eq!(
+            agents[0]
+                .nervous_system
+                .as_ref()
+                .unwrap()
+                .axon
+                .terminals
+                .len(),
+            1
+        );
     }
 
     #[test]
     fn ependymal_pressure_and_microglial_inflammation_remain_bounded() {
         let mut agent = neuron("neuron-2", 100.0);
-        agent.ependymal = Some(EpendymalCell { is_producing_csf: true, cilia_beating: false });
+        agent.ependymal = Some(EpendymalCell {
+            is_producing_csf: true,
+            cilia_beating: false,
+        });
         agent.microglia = Some(Microglia {
             state: MicrogliaState::Amoeboid,
             plaque_accumulation: 20.0,
@@ -246,14 +264,17 @@ mod tests {
         let mut volume = 0.0;
         let mut pressure = 19.9;
         let mut agents = vec![agent];
-        GlialPipeline::new().process_all(&mut agents, GlialEnvironment {
-            bhe_integrity: &mut 1.0,
-            amyloid_plaques: &mut plaques,
-            csf_volume: &mut volume,
-            csf_pressure: &mut pressure,
-            is_sleeping: false,
-            drainage_blocked: true,
-        });
+        GlialPipeline::new().process_all(
+            &mut agents,
+            GlialEnvironment {
+                bhe_integrity: &mut 1.0,
+                amyloid_plaques: &mut plaques,
+                csf_volume: &mut volume,
+                csf_pressure: &mut pressure,
+                is_sleeping: false,
+                drainage_blocked: true,
+            },
+        );
         assert!(pressure <= 20.0);
         assert!(agents[0].microglia.as_ref().unwrap().inflammatory_cytokines <= 100.0);
     }
@@ -273,14 +294,17 @@ mod tests {
         let mut pressure = 10.0;
         let mut agents = vec![neuron_without_astrocyte, neuron_with_empty_reserve];
 
-        GlialPipeline::new().process_all(&mut agents, GlialEnvironment {
-            bhe_integrity: &mut bhe,
-            amyloid_plaques: &mut plaques,
-            csf_volume: &mut volume,
-            csf_pressure: &mut pressure,
-            is_sleeping: false,
-            drainage_blocked: false,
-        });
+        GlialPipeline::new().process_all(
+            &mut agents,
+            GlialEnvironment {
+                bhe_integrity: &mut bhe,
+                amyloid_plaques: &mut plaques,
+                csf_volume: &mut volume,
+                csf_pressure: &mut pressure,
+                is_sleeping: false,
+                drainage_blocked: false,
+            },
+        );
 
         assert_eq!(agents[0].metabolism.atp_budget, 10.0);
         assert_eq!(agents[1].metabolism.atp_budget, 10.0);
