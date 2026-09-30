@@ -315,10 +315,6 @@ impl GenosEcosystem {
             .conjugate_transfer_plasmid(recipient, plasmid_id)
     }
 
-    pub fn ossify_pipeline(&mut self, pipeline_id: &str) -> Result<OssificationReport, String> {
-        self.tracheid.trigger_lignified_apoptosis(pipeline_id)
-    }
-
     // --- Virologie couplée à l'immunité clonale ---
 
     /// Neutralise le virion `index` si l'immunité clonale reconnaît son spike.

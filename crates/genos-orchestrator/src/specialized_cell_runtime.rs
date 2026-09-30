@@ -1,10 +1,45 @@
 //! Branche les cellules spécialisées au runtime avec des reçus mesurables.
 
 use crate::GenosEcosystem;
-use genos_biology::{ObserverPerspective, RawSignalPacket, SiftingResult, ThrottleResult};
+use genos_biology::{
+    ObserverPerspective, OssificationReport, RawSignalPacket, SiftingResult, ThrottleResult,
+};
 use serde_json::json;
+use std::time::Instant;
 
 impl GenosEcosystem {
+    /// Ossifie le pipeline, mesure son coût et enregistre son plan exécutable versionné.
+    pub fn ossify_pipeline(&mut self, pipeline_id: &str) -> Result<OssificationReport, String> {
+        let started = Instant::now();
+        let before = self.tracheid.transport_sap_stream(1.0, 0.0)?;
+        let report = self.tracheid.trigger_lignified_apoptosis(pipeline_id)?;
+        let after = self.tracheid.transport_sap_stream(1.0, 0.0)?;
+        let artifact = json!({
+            "schema": "genos.tracheid-execution-plan/v1",
+            "artifactKind": "runtime_plan",
+            "pipelineId": pipeline_id,
+            "operations": ["check_cavitation", "pass_through_or_block"],
+            "cavitationResistanceMpa": self.tracheid.plate.cavitation_resistance_mpa,
+        });
+        self.record_event(
+            "TRACHEID_PIPELINE_OSSIFIED",
+            json!({
+                "schema": "genos.tracheid-ossification-receipt/v1",
+                "missionId": self.mission_id,
+                "tracheidId": self.tracheid.id,
+                "report": report,
+                "compiledPlan": artifact,
+                "comparisonInputVolume": 1.0,
+                "livingCost": before.token_cost,
+                "ossifiedCost": after.token_cost,
+                "livingThroughput": before.transported_volume,
+                "ossifiedThroughput": after.transported_volume,
+                "measuredLatencyMicros": started.elapsed().as_micros(),
+            }),
+        );
+        Ok(report)
+    }
+
     /// Applique le backpressure puis débite le flux admis du registre ATP commun.
     pub fn throttle_flux(&mut self, requested_flux: f64) -> ThrottleResult {
         self.orchestrator.metabolism.refill();
