@@ -16,6 +16,7 @@ pub mod dna_ops;
 pub mod drives;
 pub mod ecosystem;
 pub mod ecosystem_params;
+pub mod electric_quorum_runtime;
 pub mod environment;
 pub mod evolution;
 pub mod evolution_types;

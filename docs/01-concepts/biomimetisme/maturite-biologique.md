@@ -32,7 +32,7 @@
 | Écologie, tissus, spores | primitive | modules biology | registre de population durable + provenance |
 | Reproduction, fossilisation | primitive | `genos-reproduction`, `fossil.rs` | événement versionné parent/seed/mutations/empreintes |
 | Cnidocyte | intégrée partielle | `mcpExecutor.execute` → `screenCnidocyteThreat`; `node backend/tests/test_mcp_cnidocyte_runtime_gate.js` | attaques au travers d'un transport configuré et artefacts de benchmark conservés |
-| Électrocyte | primitive | `electrocyte.rs`, tests locaux | quorum multi-participants avec timeouts |
+| Électrocyte | intégrée partielle | `GenosEcosystem::discharge_electric_under_quorum`; tests quorum actif/expiré | identité authentifiée des votants et timeout mesuré sur collecte distribuée |
 | Choanocyte | primitive | `choanocyte.rs`, tests locaux | adaptateur de flux + débit/pertes mesurés |
 | Iridophore | primitive | `iridophore.rs`, tests locaux | rendus conformes ; camouflage non cryptographique |
 | Cellule de garde | primitive | `guard_cell.rs`, tests locaux | branchement sur registre de ressources |

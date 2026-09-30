@@ -213,6 +213,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0188](0188-provenance-reproduction-fossilisation.md) | Provenance versionnée de reproduction et fossilisation | Accepté | 2026-09-30 | Lignées, reproduction, fossilisation |
 | [0189](0189-snapshots-durables-de-population.md) | Snapshots durables de population | Accepté | 2026-09-30 | Écologie, tissus, spores, persistance |
 | [0190](0190-filtre-cnidocyte-au-dispatch-mcp.md) | Filtre cnidocyte au dispatch MCP | Accepté | 2026-09-30 | MCP, filtrage, audit, mesures |
+| [0191](0191-quorum-electrocyte-lie-a-la-mission.md) | Quorum d'électrocyte lié à la mission | Accepté | 2026-09-30 | Cellules, votes, délai, mesure |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
