@@ -146,18 +146,37 @@ async function replicatedCausalCheck(context = {}) {
     throw Object.assign(new Error('runnerId, snapshotId and environmentId are required.'), { code: 'CAUSAL_PROTOCOL_INSUFFICIENT' });
   }
   const environmentManifest = resolveCausalRef(registry.resolveEnvironment, context.environmentId, 'environment');
+  const initialState = resolveCausalRef(registry.resolveSnapshot, context.snapshotId, 'snapshot');
+  const runner = resolveCausalRef(registry.resolveRunner, context.runnerId, 'runner');
+  const environmentHash = context.environmentHash || replicatedCausal.digest(environmentManifest);
+  if (context.parent && context.candidate) {
+    return causal.validateReplicatedCausally({
+      experimentId: context.experimentId,
+      snapshotId: context.snapshotId,
+      initialState,
+      environmentManifest,
+      environmentHash,
+      seeds: context.seeds,
+      budget: context.budget,
+      parent: context.parent,
+      candidate: context.candidate,
+      evidenceRefs: context.evidenceRefs || context.evidence_refs,
+      runner,
+      runId: context.runId,
+    }, { db });
+  }
   const spec = {
     experimentId: context.experimentId,
     snapshotId: context.snapshotId,
-    initialState: resolveCausalRef(registry.resolveSnapshot, context.snapshotId, 'snapshot'),
+    initialState,
     environmentManifest,
-    environmentHash: context.environmentHash || replicatedCausal.digest(environmentManifest),
+    environmentHash,
     seeds: context.seeds,
     budget: context.budget,
     control: context.control,
     intervention: context.intervention,
     evidenceRefs: context.evidenceRefs || context.evidence_refs,
-    runner: resolveCausalRef(registry.resolveRunner, context.runnerId, 'runner'),
+    runner,
     runId: context.runId,
   };
   return replicatedCausal.runReplicatedExperiment(spec, { db });

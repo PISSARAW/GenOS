@@ -17,6 +17,7 @@
 // from the SAME initial state.
 
 const temporalHelpers = require('./primitiveHandlers/temporalHelpers');
+const replicatedCausal = require('./replicatedCausalValidationService');
 const crypto = require('crypto');
 
 function cloneState(state) {
@@ -114,8 +115,70 @@ function validateCausally({ runner, parent, candidate, initialState }) {
   };
 }
 
+// Repeated paired comparison for procedural organisms. Each seed runs both
+// organisms from an independent clone of the same pinned snapshot. The
+// conclusion is bounded to the declared runner, manifest, seeds and metric.
+function requireReplicatedOrganisms(spec) {
+  if (!spec || !spec.parent || !spec.candidate) throw new Error('replicated causal validation requires parent and candidate organisms');
+  if (typeof spec.runner !== 'function') throw new Error('causal validation requires a runner function');
+}
+
+async function runOrganismArm(organism, state, context) {
+  const result = await context.runner(organism, state, context);
+  const turns = Array.isArray(result && result.turns) ? result.turns : [];
+  return {
+    seed: context.seed,
+    environmentHash: context.environmentHash,
+    metric: scoreFromOutcome(result && result.outcome),
+    trajectory: turns,
+    steps: turns.length,
+  };
+}
+
+function replicatedExperimentSpec(spec, environmentHash) {
+  return {
+    experimentId: spec.experimentId,
+    snapshotId: spec.snapshotId,
+    initialState: spec.initialState,
+    environmentManifest: spec.environmentManifest,
+    environmentHash,
+    seeds: spec.seeds,
+    budget: spec.budget,
+    control: spec.parent,
+    intervention: spec.candidate,
+    evidenceRefs: spec.evidenceRefs,
+    runner: (organism, state, context) => runOrganismArm(organism, state, {
+      ...context, runner: spec.runner,
+    }),
+    runId: spec.runId,
+  };
+}
+
+function replicatedVerdict(experiment) {
+  const { verdict } = experiment.receipt.payload;
+  if (verdict !== 'supported') return 'INCONCLUSIVE';
+  return experiment.effect.meanDifference > 0 ? 'CAUSAL_IMPROVEMENT' : 'CAUSAL_REGRESSION';
+}
+
+async function validateReplicatedCausally(spec, options = {}) {
+  requireReplicatedOrganisms(spec);
+  const environmentHash = spec.environmentHash || replicatedCausal.digest(spec.environmentManifest);
+  const experiment = await replicatedCausal.runReplicatedExperiment(
+    replicatedExperimentSpec(spec, environmentHash), options,
+  );
+  const verdict = replicatedVerdict(experiment);
+  return {
+    ...experiment,
+    verdict,
+    improvement: verdict === 'CAUSAL_IMPROVEMENT',
+    causalEvidence: verdict !== 'INCONCLUSIVE',
+    causalAttribution: 'bounded-to-candidate-organism-under-declared-runner-snapshot-environment-seeds-and-budget',
+  };
+}
+
 module.exports = {
   validateCausally,
+  validateReplicatedCausally,
   compareForks,
   causalVerdict,
   runOrganism,

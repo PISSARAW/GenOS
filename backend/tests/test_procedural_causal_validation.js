@@ -4,6 +4,7 @@ const assert = require('assert');
 const causal = require('../src/services/proceduralCausalValidationService');
 const identity = require('../src/services/proceduralIdentityService');
 const mutation = require('../src/services/proceduralMutationSelectionService');
+const { digest } = require('../src/services/replicatedCausalValidationService');
 
 // Deterministic procedure runner: walks the graph from the entrypoint,
 // executing each node whose incoming synapses are all satisfied by the state.
@@ -160,3 +161,24 @@ assert.throws(
 );
 
 console.log('=== procedural causal validation: all passed ===');
+
+async function verifyReplicatedComparison() {
+  const environmentManifest = { runtime: 'test', runnerVersion: 1 };
+  const repeated = await causal.validateReplicatedCausally({
+    experimentId: 'procedural-paired-test', snapshotId: 'snapshot-test',
+    parent, candidate: repaired, initialState,
+    environmentManifest, environmentHash: digest(environmentManifest),
+    seeds: [2, 5, 9], budget: { maxRuns: 6, maxSteps: 10 },
+    runner: async (organism, state) => {
+      const run = runner(organism, state);
+      return run;
+    },
+  });
+  assert.equal(repeated.pairs.length, 3);
+  assert.equal(repeated.effect.meanDifference, 1);
+  assert.equal(repeated.verdict, 'CAUSAL_IMPROVEMENT');
+  assert.equal(repeated.receipt.payload.replicates, 3);
+  assert.equal(repeated.causalAttribution, 'bounded-to-candidate-organism-under-declared-runner-snapshot-environment-seeds-and-budget');
+}
+
+verifyReplicatedComparison().catch((error) => { console.error(error); process.exitCode = 1; });

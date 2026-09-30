@@ -28,6 +28,29 @@ Propriétés actuelles :
 - La preuve est attachée au candidat (`causal` dans l'assessment, visible dans
   `test_procedural_e2e_autonome.js`).
 
+### Comparaison procédurale répliquée
+
+`proceduralCausalValidationService.validateReplicatedCausally` adapte aussi les
+organismes au protocole répliqué de `replicatedCausalValidationService` :
+
+- chaque seed exécute baseline et candidat sur des clones indépendants du même
+  snapshot sérialisé ; les exécutions sont appariées par seed ;
+- l'environnement est engagé par le hash SHA-256 du manifeste et chaque résultat
+  doit confirmer seed, environnement, métrique finie, trajectoire et budget ;
+- au moins trois seeds distincts sont obligatoires ; le delta moyen apparié, son
+  erreur standard et son intervalle t à 95 % sont consignés dans un reçu ;
+- le verdict d'amélioration n'est rendu que si la borne basse de l'intervalle est
+  strictement positive. Une expérience inconclusive ne constitue pas une preuve
+  positive ;
+- l'attribution est explicitement bornée à l'intervention organisme, au runner,
+  snapshot, manifeste, seeds et budget déclarés.
+
+Cette extension permet une affirmation expérimentale plus forte qu'un essai
+unique, mais l'intervalle t suppose des différences appariées approximativement
+normales. Elle n'établit ni une causalité universelle ni l'exactitude du modèle
+de l'environnement. Le chemin simple `validateCausally` et la promotion actuelle
+restent à essai unique ; il ne faut pas les présenter comme répliqués.
+
 Ce prototype est **correct et défendable**, tant qu'on ne l'appelle pas encore
 le système causal complet de GenOS.
 
@@ -70,7 +93,7 @@ Notes d'intention :
   `sameInitialState` reste dans le résultat, mais il est maintenant **prouvé**
   (snapshot hash), pas simplement affirmé.
 
-## Vers le système causal complet (non encore réalisé)
+## Limites restantes avant le système causal complet
 
 Ce qui manque pour tenir le vocabulaire complet :
 
@@ -78,11 +101,13 @@ Ce qui manque pour tenir le vocabulaire complet :
    isolés, plutôt que deux appels de runner avec un clone.
 2. **causalDiff / causalReplay** : mécanisme de replay causal avec état de fork
    traçable, divergences durables, attributions.
-3. **Support stochastique** : plusieurs essais (seeds / snapshots comparables),
-   moyenne des deltas, intervalle de confiance ou posterior.
-4. **Support async** : le runner peut être asynchrone, le fork peut être long.
-5. **Attributabilité** : la preuve doit pouvoir dire pourquoi le candidat diffère
-   du baseline (pas seulement que les trajectoires diffèrent).
+3. **Généralisation** : plusieurs snapshots indépendants et protocole de
+   rééchantillonnage ou analyse robuste aux différences non normales.
+4. **Exécution durable** : reprise et persistance des états de fork individuels
+   lors d'une interruption longue (le runner async et l'annulation sont déjà
+   supportés, mais pas la reprise).
+5. **Attributabilité** : le reçu localise les pas divergents, mais ne relie pas
+   encore ces changements à un graphe causal interne ni à un mécanisme médiateur.
 
 Quand ces points seront présents, on pourra remonter le vocabulaire
 `causal fork` / `mutatedUniverses` / `causalDiff` depuis la doc vers le code.
@@ -90,6 +115,7 @@ Quand ces points seront présents, on pourra remonter le vocabulaire
 ## Référence d'implémentation actuelle
 
 - `backend/src/services/proceduralCausalValidationService.js`
+- `backend/src/services/replicatedCausalValidationService.js`
 - `backend/tests/test_procedural_causal_validation.js`
 - `backend/tests/test_procedural_e2e_autonome.js` (scénario P0 → causal repair → P1)
 - `backend/src/services/primitiveHandlers/proceduralHandlers.js` (primitive MCP `procedural_causal_check`)

@@ -21,6 +21,10 @@ function registerInputs() {
   registry.registerEnvironment(environmentId, { runtime: 'node', revision: 'fixture-1' });
   registry.registerSnapshot(snapshotId, { value: 0 });
   registry.registerRunner(runnerId, async (arm, state, context) => {
+    if (arm && arm.procedure) {
+      const repaired = arm.procedure === 'repaired';
+      return { outcome: repaired ? 'success' : 'failure', turns: [{ node: repaired ? 'end' : 'dead-end' }] };
+    }
     state.value += arm.delta;
     return {
       seed: context.seed,
@@ -57,6 +61,15 @@ async function main() {
   assert.equal(replayed.receipt.receiptId, result.receipt.receiptId);
   assert.equal((await db.get('SELECT COUNT(*) AS count FROM versioned_contract_receipts')).count, 1);
   assert.deepEqual(registry.resolveSnapshot(inputs.snapshotId), { value: 0 });
+  const procedural = await handler({
+    db, ...inputs, experimentId: 'procedural-causal-runtime-integration',
+    seeds: [2, 7, 19], budget: { maxRuns: 6, maxSteps: 2 },
+    parent: { procedure: 'broken' }, candidate: { procedure: 'repaired' },
+    evidenceRefs: ['protocol:procedural-paired-v1'],
+  });
+  assert.equal(procedural.verdict, 'CAUSAL_IMPROVEMENT');
+  assert.equal(procedural.effect.meanDifference, 1);
+  assert.equal(procedural.receipt.payload.replicates, 3);
   await assert.rejects(() => handler({
     db, ...inputs, experimentId: 'causal-bad-seeds', seeds: [1, 1, 2],
     budget: { maxRuns: 6, maxSteps: 2 }, control: {}, intervention: {},
