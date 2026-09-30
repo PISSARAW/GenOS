@@ -201,6 +201,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0176](0176-boucles-biologiques-mesurees.md) | Boucles biomimétiques runtime mesurées | Accepté — intégration par tranches | 2026-09-30 | Perception, action, signalisation, cellules spécialisées, preuves |
 | [0177](0177-routage-cognitif-plasticite-et-selections-relationnelles.md) | Routage cognitif, plasticité persistée et sélection relationnelle | Accepté | 2026-09-30 | Signalisation, cognition, relations inter-agents, persistance |
 | [0178](0178-recus-biologiques-et-autorite-homeostatique.md) | Reçus biologiques versionnés et autorité homéostatique | Proposé | 2026-09-30 | Exécution biologique, homéostasie, preuves, persistance |
+| [0179](0179-causalite-procedurale-durable.md) | Exécutions causales procédurales durables | Acceptée | -- | -- |
+| [0180](0180-workspace-global-chemin-mission.md) | Consommer le workspace global dans le chemin de mission | Accepté | 2026-09-30 | Runtime Node, planification de mission |
+| [0181a](0181-copie-efference-outils-mcp.md) | Corréler les outils MCP du backend à la copie d'efférence | Accepté | 2026-09-30 | Runtime Node, exécution MCP et attribution soi/monde |
+| [0181b](0181-identite-durable-de-mission.md) | Identité durable de mission et succession d’orchestrateur | Accepté | 2026-09-30 | Continuité, orchestration, persistance |
+| [0182](0182-navigation-web-et-vision-foveale.md) | Navigation web et vision fovéale par session explicite | Proposé — intégration expérimentale | 2026-09-30 | Backend, navigation, perception, preuves |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
