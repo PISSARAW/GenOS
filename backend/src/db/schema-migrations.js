@@ -16,6 +16,7 @@ const { migratePriorityColumns } = require('./migrations/migratePriorityColumns'
 const { migrateEventIdIndex } = require('./migrations/migrateEventIdIndex');
 const { migrateSynapseIndexes } = require('./migrations/migrateSynapseIndexes');
 const { migrateAutobiographicalMemory } = require('./migrations/migrateAutobiographicalMemory');
+require('./migrations/migrateEpistemicImmuneMemory');
 
 async function applyVersionedMigrations(db) {
   await createFoundationTables(db);

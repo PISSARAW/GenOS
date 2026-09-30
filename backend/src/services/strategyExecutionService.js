@@ -16,6 +16,7 @@ const selfModel = require('./selfModelService');
 const survivalState = require('./survivalStateService');
 const { evaluateReportWithAeis } = require('./epistemic/aeisPromotionBridge');
 const { listVerifierDigests } = require('./verifierTrustRegistry');
+const immuneMemoryRepository = require('./epistemic/immuneMemoryRepository');
 
 function normalizedBudget(input) {
   const source = input || {};
@@ -125,15 +126,17 @@ async function approveRun(db, id, options) {
 
   // AEIS : évaluation épistémique du rapport via le Holobionte
   let aeisEvaluation = null;
+  const immuneMemory = await immuneMemoryRepository.load(db);
   try {
     aeisEvaluation = await evaluateReportWithAeis(promotion.report, {
       domain: promotion.contract?.problem_profile?.domain || 'general',
       trustedVerifierDigests: listVerifierDigests(),
-      immuneMemory: [],
+      immuneMemory,
     });
   } catch (_) {
     // AEIS ne doit pas bloquer la promotion — le gate évaluera l'absence
   }
+  await immuneMemoryRepository.save(db, immuneMemory);
 
   const gateContext = promotionGate.buildGateContext({ promotion, options: settings, receipt, aeisEvaluation });
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
