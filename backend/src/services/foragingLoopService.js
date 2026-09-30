@@ -18,21 +18,22 @@ async function performForagingAction({ evaluation, source, sessionId, observatio
   if (evaluation.shouldDepart) {
     const nextUrl = source.nextUrl || source.next_url || null;
     if (!nextUrl) {
-      return { action: { status: 'not_executed', executed: false, reason: 'No next URL supplied.' }, observation };
+      return { action: { status: 'not_executed', executed: false, verified: false, reason: 'No next URL supplied.' }, observation };
     }
     const navigation = await defaultBrowserScout.navigate(sessionId, nextUrl, { htmlContent: source.htmlContent });
     return {
       action: {
         status: navigation && navigation.success ? 'executed' : 'failed',
         executed: Boolean(navigation && navigation.success),
+        verified: Boolean(navigation && navigation.success),
         navigation
       },
       observation: defaultBrowserScout.snapshotSession(sessionId)
     };
   }
   const action = observation
-    ? { status: 'observation_only', executed: false }
-    : { status: 'not_executed', executed: false, reason: 'Browser session has no observation.' };
+    ? { status: 'observation_only', executed: false, verified: false }
+    : { status: 'not_executed', executed: false, verified: false, reason: 'Browser session has no observation.' };
   return { action, observation };
 }
 
@@ -41,6 +42,8 @@ function createForagingReceipt({ sessionId, decision, action, observation, measu
     sessionId,
     decision,
     actionStatus: action.status,
+    actionExecuted: Boolean(action.executed),
+    actionVerified: Boolean(action.verified),
     measuredMs,
     observedUrl: observation && observation.currentUrl,
     navigationSuccess: Boolean(action.navigation && action.navigation.success)
@@ -68,7 +71,10 @@ async function forageStep(input) {
     evaluation,
     levy,
     observation,
+    observationBefore: before,
+    observationAfter: observation,
     action,
+    navigation: action.navigation || null,
     measurement: { decisionActionMs: measuredMs },
     receipt,
     ...(evaluation.shouldDepart ? {} : { suggestedFovea: { action: 'scan' } })

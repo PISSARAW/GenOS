@@ -16,6 +16,10 @@ async function verifyDepartureNavigates() {
   assert.equal(step.decision, 'PATCH_DEPARTURE');
   assert.equal(step.navigated, true);
   assert.ok(step.navigation, 'departure must carry the navigation receipt');
+  assert.equal(step.action.executed, true);
+  assert.equal(step.action.verified, true);
+  assert.equal(step.observationAfter.currentUrl, 'https://example.com/next');
+  assert.ok(step.receipt.evidenceRef.startsWith('sha256:'));
 }
 
 async function verifyExploitObserves() {
@@ -38,6 +42,8 @@ async function verifyDepartureWithoutUrl() {
   });
   assert.equal(step.decision, 'PATCH_DEPARTURE');
   assert.equal(step.navigated, false);
+  assert.equal(step.action.status, 'not_executed');
+  assert.equal(step.action.verified, false);
 }
 
 async function verifyHandlerWiring() {
