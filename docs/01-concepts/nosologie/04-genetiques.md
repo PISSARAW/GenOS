@@ -1,5 +1,7 @@
 # Nosologie n°4 : Maladies Génétiques et Héréditaires dans GenOS
 
+> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+
 ## 1. Introduction et Définition du Domaine
 
 Au sein de l'architecture biomimétique de GenOS, le génome n'est pas un simple fichier de configuration statique : il est constitué de macromolécules logiques concrètes ([`DnaStrand`](../../../crates/genos-genome/src/dna.rs#L31-L98)), structurées en opérons et gènes ([`Gene`](../../../crates/genos-genome/src/gene.rs#L64-L153)), transcrits par une ARN polymérase ([`RnaPolymerase`](../../../crates/genos-genome/src/dna.rs)), maturés par un complexe d'épissage ([`Spliceosome`](../../../crates/genos-genome/src/gene.rs#L33-L56)) et traduits en protéines agentiques par un ribosome virtuel ([`Ribosome`](../../../crates/genos-genome/src/translation.rs#L88-L146)).

@@ -1,5 +1,7 @@
 # Nosologie I : Pathologies Auto-immunes et Régulation Homéostatique dans GenOS
 
+> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+
 ## 1. Introduction et Fondements de l'Immunologie Computationnelle
 
 Dans le système d'exploitation vivant **GenOS**, la défense adaptative et la préservation de l'intégrité du swarm d'agents reposent sur un système immunitaire artificiel bio-inspiré ([`genos-immune`](../../../crates/genos-immune/src/lib.rs)). Ce sous-système intègre des mécanismes de détection clonale ([`ClonalSelection`](../../../crates/genos-immune/src/ais.rs)), des répertoires d'anticorps diversifiés ([`IgClass`](../../../crates/genos-core/src/orchestrator/methods.rs#L31-L55)), une maturation d'affinité par hypermutation somatique stochastique ([`clonal_expansion_and_hypermutate`](../../../crates/genos-immune/src/ais.rs#L116-L202)), ainsi qu'une régulation neuro-endocrine et cytokinique.

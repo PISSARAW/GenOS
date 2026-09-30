@@ -1,5 +1,7 @@
 # Nosologie Médicale GenOS — Volume II : Pathologies Dégénératives et Vieillissement Computationnel
 
+> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+
 ## 1. Cadre Nosologique & Homéostatique du Vieillissement Computationnel
 
 Dans l'architecture biomimétique de **GenOS**, la dégradation progressive d'un essaim d'agents (*swarm*) n'est pas réductible à de simples pannes matérielles ou des exceptions de pile logicielle. Elle résulte d'un **vieillissement biologique intrinsèque** couplé à une **usure mécanique et cognitive** au fil des cycles d'exécution (*ticks*).

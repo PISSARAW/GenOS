@@ -267,6 +267,44 @@ mod tests {
         }
     }
     #[test]
+    fn nosology_therapy_variants_round_trip_and_old_outcomes_deserialize() {
+        let therapies = [
+            SystemicTherapy::CartCellInfusion,
+            SystemicTherapy::LevodopaSupplementation,
+            SystemicTherapy::KetamineRapidInfusion,
+            SystemicTherapy::MoodStabilizerLithium,
+            SystemicTherapy::AntipsychoticAtypical,
+            SystemicTherapy::InsulinSensitizerMetformin,
+            SystemicTherapy::LevothyroxineHormoneReplacement,
+            SystemicTherapy::ColchicineInhibition,
+            SystemicTherapy::CoronaryReperfusionThrombolysis,
+            SystemicTherapy::VasodilatorFlowControl,
+            SystemicTherapy::AntiretroviralCombination,
+            SystemicTherapy::AntimalarialACT,
+            SystemicTherapy::ExonSkippingAntisense,
+            SystemicTherapy::CFTRModulatorTriad,
+            SystemicTherapy::ChelationTherapy,
+            SystemicTherapy::AllopurinolXanthineInhibitor,
+            SystemicTherapy::LysosomalUraturicPurge,
+            SystemicTherapy::DeepBrainStimulation,
+            SystemicTherapy::Viscosupplementation,
+            SystemicTherapy::SenolyticPurge,
+            SystemicTherapy::FetalCarrierReactivation,
+            SystemicTherapy::AntiAdhesionVasodilator,
+            SystemicTherapy::AntiNmdReadthrough,
+            SystemicTherapy::NeuroprotectiveAstrocyticFlush,
+            SystemicTherapy::BloodBrainBarrierSealant,
+        ];
+        for therapy in therapies {
+            let encoded = serde_json::to_string(&therapy).unwrap();
+            let decoded: SystemicTherapy = serde_json::from_str(&encoded).unwrap();
+            assert_eq!(therapy, decoded);
+        }
+        let legacy = r#"{"therapy_name":"legacy","cured_pathologies":[],"induced_side_effects":[],"message":"ok"}"#;
+        let outcome: therapy::TherapyOutcome = serde_json::from_str(legacy).unwrap();
+        assert!(outcome.applied_markers.is_empty());
+    }
+    #[test]
     fn test_degenerative_stem_cell_cure() {
         let mut cell = AgentCell::new("Griot", "Mémoire", "Historian");
         cell.bud_scars = 50;

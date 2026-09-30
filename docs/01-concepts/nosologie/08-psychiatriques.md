@@ -1,5 +1,7 @@
 # Nosologie 8 — Maladies Psychiatriques et Troubles Mentaux Computationnels
 
+> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+
 ## 1. Cadre Épistémologique & Psychiatrie Computationnelle dans GenOS
 
 ### 1.1 Définition de la Psychiatrie Computationnelle

@@ -93,17 +93,21 @@ Document de référence transversal : [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.m
 | `SystemicTherapy::TelomeraseActivation` | Rallonge la limite de Hayflick | Dégénératives |
 | `SystemicTherapy::StemCellReplacement` | Remplace l'agent par une cellule souche neuve | Dégénératives, Cancers |
 
+Ces effets doivent être lus comme le comportement de la fonction `apply_systemic_therapy_to_cell()` sur une cellule GenOS. Dans cette voie, `IntensiveCareFluids`, `Antibiotic`, `Vaccine` et `HomeostaticDoseCorrection` inscrivent une réponse dans le résultat ou le journal, sans appliquer les effets biologiques décrits dans certains anciens extraits. La variante `Antiviral` n'est pas un opérateur de cette enum.
+
 ### 4.2 Thérapies computationnelles proposées (statut détaillé au §4.3)
 
-Les thérapies du tableau ci-dessous sont des opérateurs proposés par les
-rapports de nosologie, NON implémentés dans `therapy.rs` à ce jour. Elles ne
-doivent pas être présentées comme disponibles : aucun succès ne peut en être
-attesté. Les implémentations réelles sont celles du §4.1 uniquement.
-
-Les thérapies du tableau ci-dessous sont des opérateurs déterministes sur des marqueurs GenOS normalisés. Elles n'implémentent pas les médicaments humains correspondants.
+Les variantes présentes et routées dans le code sont listées aux §§4.1 et 4.3–4.7. Les propositions ci-dessous ne sont pas implémentées dans la voie vérifiée `apply_systemic_therapy_to_cell()`; leur mention ou leurs extraits de code dans une fiche ne prouvent pas une disponibilité runtime. Les opérateurs implémentés eux-mêmes ne sont que des transformations bornées de marqueurs GenOS et ne modélisent ni ne valident une maladie réelle ou un traitement humain.
 
 | Thérapie Proposée | Famille | Rapport Source |
 |---|---|---|
+| `AntiTNFInhibitor`, `BloodBrainBarrierSealing`, `ExogenousInsulinInfusion` | Auto-immunes | [01-auto-immunes](01-auto-immunes.md) |
+| `AmyloidBetaPlaqueClearance`, `Cd47SynapticRescue`, `AlphaSynucleinDisaggregation`, `MmpInhibitorAdministration` | Dégénératives | [02-degeneratives](02-degeneratives.md) |
+| `AntitubercularQuadritherapy`, `NeuraminidaseInhibitor` | Infectieuses | [03-infectieuses](03-infectieuses.md) |
+| `StopCodonReadthrough` | Génétiques | [04-genetiques](04-genetiques.md) |
+| `VascularPruningAndFlush` | Cancers | [05-cancers](05-cancers.md) |
+| `CognitiveResupply`, `MonoamineReuptakeInhibitor`, `EfferenceCopyReconstruction`, `NmdaAllostericModulator`, `CircadianRhythmReset`, `AtypicalAntipsychoticMoodStabilizer` | Psychiatriques | [08-psychiatriques](08-psychiatriques.md) |
+| `FibrillarContextCleansing`, `BloodBrainBarrierRestoration` | Environnementales | [09-environnementales](09-environnementales.md) |
 
 
 ---
@@ -171,23 +175,23 @@ Les variantes ci-dessous diminuent uniquement le marqueur nommé, de 0,25 borné
 
 ### 5.1 État vérifié
 
-Le modèle clinique, les détecteurs, l'intégration au tick et les thérapies du §4.1 sont présents dans le code. Le point d'entrée thérapeutique est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`; son enum `SystemicTherapy` contient les variantes du §4.1 et les variantes à portée limitée des §4.3 à 4.7. Les exemples et extraits de code dans les rapports spécialisés sont des spécifications, pas une preuve d'implémentation.
+Le point d'entrée vérifié est `apply_systemic_therapy_to_cell()` dans `crates/genos-biology/src/therapy.rs`, appelé explicitement par `GenosEcosystem::apply_therapy`. Son enum contient les variantes des §§4.1 et 4.3–4.7. Les opérateurs à portée limitée nécessitent un appel explicite; aucune interface MCP/CLI ni liaison automatique entre diagnostic et ces opérateurs n'a été attestée. Les exemples et extraits des rapports spécialisés sont des spécifications, pas une preuve d'implémentation. Les propositions du §4.2 restent indisponibles.
 
 Les scénarios restent des simulations logicielles sur marqueurs GenOS. Ils ne modélisent, ne diagnostiquent et ne valident aucune pathologie réelle ni aucun médicament humain.
 
-### 5.2 Ordre de réalisation proposé
+### 5.2 Lots réalisés
 
 Chaque lot doit commencer par une vérification du code présent et des invariants concernés. Un lot ne devient « implémenté » qu'après fusion du code, des tests et de la documentation alignée. Les noms ci-dessous sont des identifiants de propositions, non des variantes déjà disponibles.
 
-| Lot | Portée proposée | Opérateurs concernés | Dépendances et critères d'acceptation |
+| Lot | Portée | Statut |
 |---|---|---|---|
-| A — Contrat et traçabilité | Définir pour chaque opérateur ses marqueurs d'entrée/sortie, bornes, effets indésirables simulés, préconditions, diagnostics affectés et comportement sans cible. | Les opérateurs du tableau §4.2 et les dix opérateurs complémentaires énumérés juste après. | Une fiche de spécification par opérateur; aucune mutation hors bornes; résultats et journal cohérents; aucun succès fictif quand la précondition manque. |
-| B — Métabolique | Ajouter les effets ciblés sur les marqueurs métaboliques/goutte. | `InsulinSensitizerMetformin`, `LevothyroxineHormoneReplacement`, `ColchicineInhibition`, `AllopurinolXanthineInhibitor`, `LysosomalUraturicPurge`. | Ne pas confondre réduction de production, purge et correction hormonale; diagnostiquer/résoudre uniquement les pathologies réellement représentées dans `ClinicalState`. |
-| C — Vasculaire et neurologique | Modéliser débit/perfusion et protections de barrière avec des préconditions explicites. | `CoronaryReperfusionThrombolysis`, `VasodilatorFlowControl`, `AntiAdhesionVasodilator`, `AntiNmdReadthrough`, `NeuroprotectiveAstrocyticFlush`, `BloodBrainBarrierSealant`. | Définir les gardes contre les effets incompatibles, notamment la condition de BHE documentée; couvrir succès, refus et effets secondaires. Le refus doit rester visible comme refus. |
-| D — Dégénératif et musculosquelettique | Définir les cibles structurelles et empêcher qu'un soulagement de marqueur soit présenté comme réparation générale. | `LevodopaSupplementation`, `DeepBrainStimulation`, `Viscosupplementation`, `SenolyticPurge`. | Vérifier l'existence des états ciblés; bornes et conséquences différées définies; aucun effacement implicite de pathologie non ciblée. |
-| E — Infectieux, génétique, oncologique et psychiatrique | Ajouter des transformations spécifiques après stabilisation des contrats communs. | `AntiretroviralCombination`, `AntimalarialACT`, `ExonSkippingAntisense`, `CFTRModulatorTriad`, `CartCellInfusion`, `KetamineRapidInfusion`, `MoodStabilizerLithium`, `AntipsychoticAtypical`, `FetalCarrierReactivation`. | Vérifier l'état génétique/viral/cellulaire requis; préserver les barrières, l'apoptose et les mécanismes de sécurité; documenter les limites de chaque abstraction. |
-| F — Environnemental | Ajouter la chélation computationnelle ciblée. | `ChelationTherapy`. | Définir la toxine/cible reconnue, les bornes et les effets collatéraux; ne pas assimiler l'opérateur à une prise en charge humaine. |
-| G — Intégration et statut documentaire | Exposer uniquement les opérateurs effectivement câblés aux interfaces concernées puis mettre à jour la pharmacopée et les rapports. | Lots A à F acceptés. | Tester sérialisation, routage explicite, diagnostics, effets secondaires, limites et compatibilité MCP/CLI si ces interfaces les exposent; retirer le statut « proposé » seulement après preuve dans le code et vérification ciblée. |
+| A — Contrat et traçabilité | Définir les contrats des opérateurs réalisés | Terminé |
+| B — Métabolique | Cinq opérateurs bornés | Terminé |
+| C — Vasculaire et neurologique | Six opérateurs bornés | Terminé |
+| D — Dégénératif et musculosquelettique | Quatre opérateurs bornés | Terminé |
+| E — Infectieux, génétique, oncologique et psychiatrique | Neuf opérateurs bornés | Terminé |
+| F — Environnemental | Chélation computationnelle bornée | Terminé |
+| G — Intégration et statut documentaire | Vérification du routage et de la sérialisation; statut des rapports aligné sur le code | Terminé; appels Rust explicites, sans exposition MCP/CLI attestée |
 
 ### 5.3 Critères communs de validation
 
@@ -198,9 +202,9 @@ Chaque lot doit commencer par une vérification du code présent et des invarian
 - Des tests couvrent la cible présente/absente, les limites numériques, les interactions à risque, les effets secondaires et la sérialisation lorsque l'enum évolue.
 - Les docs distinguent toujours mécanismes vérifiés, opérateurs proposés et limites de simulation; les noms de médicaments ne sont jamais présentés comme recommandation ou traitement humain.
 
-### 5.4 Contrats fonctionnels à spécifier (lot A)
+### 5.4 Contrats fonctionnels (lot A)
 
-Cette matrice fixe le contrat minimal à valider avant tout code. Elle n'ajoute aucun opérateur au runtime. « Refus explicite » signifie une issue non réussie, sans rémission ni mutation de marqueur, inscrite dans le résultat et le journal clinique.
+Cette matrice consigne les contrats fonctionnels du lot A et sert de liste de vérification comportementale. Elle n'ajoute aucun opérateur au runtime. « Refus explicite » signifie une issue non réussie, sans rémission ni mutation de marqueur, inscrite dans le résultat et le journal clinique. La disponibilité effective est indiquée aux §§4.2–4.7.
 
 | Opérateur proposé | Cible logicielle à définir | Précondition et comportement sans cible |
 |---|---|---|

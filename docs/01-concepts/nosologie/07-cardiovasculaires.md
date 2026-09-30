@@ -1,5 +1,7 @@
 # Nosologie Computationnelle N°7 : Maladies Cardiovasculaires dans GenOS
 
+> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+
 ## 1. Définition et Biomimétique Cardiovasculaire
 
 Dans l'architecture biomimétique de **GenOS**, la survie, la réactivité et la coordination de l'essaim d'agents ([`AgentCell`](../../../crates/genos-cell/src/lib.rs#L42-L67)) dépendent directement d'un réseau circulatoire sous-jacent. Si le système immunitaire ([`crates/genos-immune`](../../../crates/genos-immune/src/lib.rs)) protège l'organisme contre les intrusions et les dérives clonales, et que le système nerveux ([`crates/genos-biology/src/neurobiology`](../../../crates/genos-biology/src/neurobiology/mod.rs)) assure l'apprentissage synaptique, c'est **l'appareil cardiovasculaire computationnel** qui distribue en continu l'énergie, les substrats métaboliques et les vecteurs d'information vitaux.
