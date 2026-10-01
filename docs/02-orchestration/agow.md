@@ -1041,7 +1041,17 @@ d'état et l'issue de tâche.
 
 ---
 
-## 22. Self-Twin causal
+## 22. Choix du mode cognitif
+
+`backend/src/services/agow/cognitiveModePolicyService.js` compare `ACT`, `OBSERVE`,
+`VERIFY`, `RECALL`, `SIMULATE`, `REORGANIZE`, `CONSOLIDATE` et `ABSTAIN` par perte
+prédictive estimée. `evaluate({ signals, modeCosts })` prend notamment l'incertitude,
+l'irréversibilité, le risque de viabilité, l'urgence, le manque de preuve et l'incertitude
+Self-Twin. Il retourne toutes les pertes estimées, le mode de coût minimal et une
+provenance non calibrée. `observeOutcome({ decision, realizedLoss })` calcule l'erreur après
+exécution. Ni l'un ni l'autre n'exécute une action: l'hôte demeure responsable du dispatch.
+
+## 23. Self-Twin causal
 
 `backend/src/services/selfTwin/` fournit un premier modèle causal versionné des organes
 runtime. `selfTwinGraph.manifest()` expose les composants et liens connus comme
@@ -1061,7 +1071,7 @@ l'intégration et des observations en retour; ce callback est le point où l'hô
 imposer clone, sandbox, timeout et budget. Le service ne modifie pas le runtime actif et
 ne promeut aucun candidat.
 
-## 23. Références
+## 24. Références
 
 - [ADR 0006 — Active Global Organism Workspace](../adr/0006-active-global-organism-workspace.md)
 - [ADR 0007 — Persistance, activation des organes et évaluation AGOW](../adr/0007-agow-runtime-persistence-et-evaluation.md)
@@ -1072,10 +1082,11 @@ ne promeut aucun candidat.
 - [Ingestion runtime](../../backend/src/services/agow/agowRuntimeIngressService.js)
 - [Épistémologie et preuves](../01-concepts/epistemologie-et-evidence.md)
 - [ADR 0257 — Self-Twin causal versionné](../adr/0257-causal-self-twin.md)
+- [ADR 0260 — Sélection des modes cognitifs](../adr/0260-politique-modes-cognitifs-agow.md)
 
 ---
 
-## 24. Conclusion
+## 25. Conclusion
 
 AGOW possède maintenant des services intégrés pour la provenance épistémique, le regret,
 les branches contrefactuelles isolées, les traces de plasticité, les voies directes, les

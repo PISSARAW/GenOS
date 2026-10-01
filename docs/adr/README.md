@@ -274,6 +274,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0256](0256-gvx-experimentation-and-ledger-integrity.md) | Protocoles GVX adaptatifs et intégrité du ledger | Accepté | 2026-10-01 | GVX, expériences, preuves, intégrité |
 | [0257](0257-causal-self-twin.md) | Self-Twin causal versionné et écarts prédictifs | Accepté | 2026-10-01 | Self-Twin, causalité, GVX, AGOW |
 | [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
+| [0260](0260-politique-modes-cognitifs-agow.md) | Sélection des modes cognitifs par regret prédictif | Accepté | 2026-10-01 | AGOW, regret prédictif, contrôle cognitif |
 | [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
