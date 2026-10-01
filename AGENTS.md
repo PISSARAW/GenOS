@@ -100,6 +100,17 @@ Documentation files are outside its scope.
 - **Security:** paths and MCP arguments are validated at runtime; do not bypass the sandbox,
   path confinement, leases or the circuit breaker.
 
+## Codex development through GenOS
+
+When GenOS MCP is connected, use the `genos-development` workflow for coding:
+retrieve failure memories before choosing an approach, checkpoint risky edits,
+and preserve decisions and executable test evidence before reporting completion.
+Use the schemas actually discovered by the client; never invent a GenOS call.
+The Codex plugin and explicit development lease are maintained under
+`integrations/codex/` (see its README). Missing MCP access must be reported,
+not presented as verified GenOS execution. This workflow does not replace the
+sandbox or evidence/promotion gates.
+
 ## Where to look first
 
 - Product overview: `README.md`

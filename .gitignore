@@ -109,6 +109,8 @@ htmlcov/
 .genos_agent_state.json
 .codex-*
 **/.codex*
+!integrations/codex/plugin/.codex-plugin/
+!integrations/codex/plugin/.codex-plugin/plugin.json
 capsules/
 **/capsules/
 fossils/

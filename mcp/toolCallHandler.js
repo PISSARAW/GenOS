@@ -12,6 +12,7 @@ const HAS_BACKEND_RUNTIME = Boolean(REPO_ROOT
   && existsSync(path.join(REPO_ROOT, 'backend/src/db/seedTools.js'))
   && existsSync(path.join(REPO_ROOT, 'backend/src/services/mcpToolRegistry.js')));
 const REPO_REQUIRE = HAS_BACKEND_RUNTIME ? createRequire(path.join(REPO_ROOT, 'package.json')) : null;
+const DEVELOPMENT = REPO_REQUIRE ? REPO_REQUIRE('./backend/src/services/mcpDevelopmentTools.js') : null;
 const CATALOG_TOOLS = new Set(loadToolCatalog(REPO_ROOT).map((tool) => tool.name));
 const CATALOG = loadToolCatalog(REPO_ROOT);
 const REGISTERED_TOOL_NAMES = REPO_REQUIRE
@@ -83,7 +84,7 @@ function withBiomimicryParams(command, args) {
   );
 }
 
-function cliCall({ args, runGenosCli }) {
+async function cliCall({ args, runGenosCli }) {
   const commands = {
     genos_snapshot: ['snapshot', 'create', '--agent', args.agent, '--out', args.out, '--force'],
     genos_replay: ['replay', 'basic', '--snapshot', args.snapshot || args.snapshot_id],
@@ -96,7 +97,14 @@ function cliCall({ args, runGenosCli }) {
   };
   const command = commands[args.toolName];
   if (!command) throw new Error(`Unsupported CLI tool '${args.toolName}'.`);
-  return runGenosCli(withBiomimicryParams(command, args), args);
+  const text = await runGenosCli(withBiomimicryParams(command, args), args);
+  const result = parseCliOutput(text);
+  if (result?.success === false) throw new Error(result.error || 'CLI operation was not completed.');
+  return text;
+}
+
+function parseCliOutput(text) {
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 function orchestratorCall({ name, args, runOrchestrator, onTelemetry }) {
@@ -157,6 +165,9 @@ function telemetryHandler(request, extra) {
 
 async function dispatchTool(input) {
   const { name, args, onTelemetry, runOrchestrator, runGenosCli, executeStrategyTool } = input;
+  if (DEVELOPMENT?.isDevelopmentTool(name) && CATALOG_TOOLS.has(name)) {
+    return JSON.stringify(await DEVELOPMENT.executeDevelopmentTool(name, args));
+  }
   if (name === 'genos_philosophy') return philosophyCall(args);
   if (STRATEGY_TOOL_NAMES.has(name)) return strategyCall({ name, args, executeStrategyTool });
   if (CLI_TOOL_NAMES.has(name)) {

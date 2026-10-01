@@ -1,0 +1,20 @@
+{
+  "tools": [
+    "genos_snapshot",
+    "genos_replay",
+    "genos_capsule_create",
+    "genos_execute_primitive",
+    "genos_execute_strategy_pipeline",
+    "genos_search_failures",
+    "genos_diagnose",
+    "genos_analyze_trajectory",
+    "genos_record_decision",
+    "genos_record_experience",
+    "genos_compile_memory",
+    "genos_blame",
+    "genos_orchestrate",
+    "genos_organization_state",
+    "genos_report_progress",
+    "genos_audit"
+  ]
+}

@@ -10,6 +10,8 @@
   },
   "files": [
     "index.js",
+    "argumentValidation.js",
+    "hostExecutionContext.mjs",
     "lease.js",
     "toolCallHandler.js",
     "nodeCliFallback.js",
@@ -46,8 +48,9 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node test_lease.js && node test_identity_lease.js && node test_contract_parity.mjs && node test_tool_routing.mjs && node test_sampling_broker.mjs && node test_node_cli_fallback.mjs",
-    "test:smoke": "node test_smoke.mjs"
+    "test": "node test_lease.js && node test_identity_lease.js && node test_contract_parity.mjs && node test_tool_routing.mjs && node test_sampling_broker.mjs && node test_node_cli_fallback.mjs && node test_development.mjs",
+    "test:smoke": "node test_smoke.mjs",
+    "test:checkpoint": "node test_checkpoint.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0"

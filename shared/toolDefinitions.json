@@ -3784,6 +3784,304 @@
         ],
         "additionalProperties": true
       }
+    },
+    {
+      "name": "genos_search_failures",
+      "category": "Development",
+      "risk": "Low",
+      "description": "Search persisted failure memories. An empty result is not evidence that an approach is safe.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_diagnose",
+      "category": "Development",
+      "risk": "Low",
+      "description": "Register caller-supplied falsifiable hypotheses and emit diagnosis telemetry. Does not execute probes or generate hypotheses with another model.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "task": {
+            "type": "string",
+            "minLength": 1
+          },
+          "error": {
+            "type": "string"
+          },
+          "hypotheses": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "task",
+          "hypotheses"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_analyze_trajectory",
+      "category": "Development",
+      "risk": "Low",
+      "description": "Measure repetition in supplied action history. Does not restore or bisect runtime state.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actionHistory": {
+            "type": "array",
+            "items": {},
+            "minItems": 1
+          }
+        },
+        "required": [
+          "actionHistory"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_record_decision",
+      "category": "Development",
+      "risk": "Low",
+      "description": "Persist a decision with evidence references. Persistence does not verify the evidence or authorize promotion.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "decision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "alternatives": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "agentId",
+          "title",
+          "decision",
+          "evidence"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_record_experience",
+      "category": "Development",
+      "risk": "Low",
+      "description": "Persist an episodic experience with observations, outcome and provenance. Does not certify code correctness.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "actionInput": {
+            "type": "string",
+            "minLength": 1
+          },
+          "observationOutput": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contextState": {
+            "type": "object"
+          },
+          "rewardScore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "agentId",
+          "actionInput",
+          "observationOutput"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_compile_memory",
+      "category": "Development",
+      "risk": "Low",
+      "description": "Persist supplied facts, decisions and failures as memory entries; preserve source references. Does not validate the supplied facts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "facts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "source_refs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "agentId"
+        ],
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_blame",
+      "category": "Development",
+      "risk": "Low",
+      "description": "Read persisted telemetry provenance for an agent. Requires existing evidence; does not infer Git blame.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "organizationId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "target_id"
+        ],
+        "additionalProperties": true
+      }
     }
   ]
 }

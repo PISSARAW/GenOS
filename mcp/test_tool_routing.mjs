@@ -56,3 +56,18 @@ for (const tool of routable) {
 }
 
 console.log(`MCP routing checks passed (${routable.length}/${catalog.length} tools routable).`);
+
+const failedCli = createToolCallHandler({
+  runOrchestrator: async () => '',
+  runGenosCli: async () => JSON.stringify({ success: false, status: 'capability_unavailable', error: 'No verified snapshot.' }),
+  executeStrategyTool: async () => null
+});
+process.env.GENOS_MCP_LEASE = 'genos_snapshot';
+try {
+  const response = await failedCli({ params: { name: 'genos_snapshot', arguments: { agent: 'agent.json', out: 'snapshot.json' } } });
+  assert.equal(response.isError, true);
+  assert.match(response.content[0].text, /No verified snapshot/);
+} finally {
+  if (previousLease === undefined) delete process.env.GENOS_MCP_LEASE;
+  else process.env.GENOS_MCP_LEASE = previousLease;
+}
