@@ -72,12 +72,12 @@ async function submitCandidate(options) {
       signalData: { semanticType: 'cognitive_candidate', candidateRef: candidate.candidateId, modality: candidate.source.modality }
     });
     if (signal?.published !== true) {
-      pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId });
+      if (!accepted.merged) pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId });
       return { accepted: false, reason: 'signal_plane_rejected', signal };
     }
     return { ...accepted, signal };
   } catch (error) {
-    pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId });
+    if (!accepted.merged) pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId });
     return { accepted: false, reason: 'signal_plane_failed', message: error.message };
   }
 }
