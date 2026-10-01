@@ -135,7 +135,8 @@ function activationFor(condition, prepared) {
 }
 
 function broadcastCount(condition, deliveredCorrect) {
-  if (condition === 'broadcast_suppressed' || condition === 'broadcast_ablated') return 0;
+  if (condition === 'workspace_ablated' || condition === 'broadcast_suppressed'
+    || condition === 'broadcast_ablated') return 0;
   return deliveredCorrect ? 1 : 0;
 }
 
