@@ -1,0 +1,50 @@
+{
+  "protocolVersion": "1.0.0",
+  "status": "preregistered_exploratory_synthetic_holdout",
+  "createdAt": "2026-10-01",
+  "executor": "benchmarks/agow/run-local-campaign.cjs",
+  "model": {
+    "provider": "ollama-local",
+    "modelId": "qwen2.5-coder:7b",
+    "temperature": 0,
+    "endpoint": "http://127.0.0.1:11434"
+  },
+  "toolLease": [],
+  "corpus": {
+    "generator": "sha256-seeded exact-value lookup cases",
+    "ablationCases": 12,
+    "mediationCases": 12,
+    "replicationCasesPerRun": 8,
+    "replicationCount": 3,
+    "distractorsPerCase": 12,
+    "seeds": {
+      "ablation": "agow-ablation-holdout-2026-10-a",
+      "mediation": "agow-mediation-holdout-2026-10-a",
+      "replications": ["agow-replication-holdout-2026-10-a", "agow-replication-holdout-2026-10-b", "agow-replication-holdout-2026-10-c"]
+    }
+  },
+  "ablation": {
+    "hypothesis": "Le Global Workspace transmet le fait saillant avec une exactitude au moins égale au bypass qui expose tous les candidats, tout en réduisant le contexte consommé.",
+    "primaryMetric": "successRate",
+    "conditions": ["full", "workspace_ablated", "broadcast_ablated"],
+    "analysisPlan": "Comparer les réponses exactes appariées par cas pour full, bypass du workspace et suppression de diffusion; rapporter taux de réussite, tokens d'entrée/sortie et latence. Analyse descriptive, sans inférence confirmatoire."
+  },
+  "mediation": {
+    "hypothesis": "La diffusion du gagnant du Global Workspace augmente les réponses exactes par rapport à la suppression de la diffusion après sélection identique.",
+    "primaryMetric": "successRate",
+    "conditions": ["broadcast_delivered", "broadcast_suppressed"],
+    "analysisPlan": "Comparer les paires par cas en maintenant identiques la question et la compétition; mesurer l'accès au fait sélectionné, l'exactitude, les tokens et la latence. Analyse descriptive."
+  },
+  "replication": {
+    "hypothesis": "Le contraste de diffusion observé se reproduit sur trois corpus synthétiques disjoints avec le même modèle, snapshot, environnement et protocole.",
+    "primaryMetric": "successRate",
+    "conditions": ["broadcast_delivered", "broadcast_suppressed"],
+    "analysisPlan": "Exécuter trois graines explicites sur des cas et réponses distincts; rapporter le contraste apparié de chaque réplication et l'agrégat descriptif. Aucune promotion automatique."
+  },
+  "limits": [
+    "Les cas et réponses sont générés synthétiquement pour cette campagne; ils ne constituent pas un corpus métier indépendant.",
+    "Le modèle local est un seul modèle et ne dispose d'aucun outil externe; le bail est vide.",
+    "Les interventions portent sur la sélection et la diffusion du Global Workspace, pas sur toutes les ablations AGOW.",
+    "Les métriques sont descriptives; aucune conclusion de généralisation ni de significativité n'est autorisée."
+  ]
+}
