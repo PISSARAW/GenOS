@@ -29,7 +29,10 @@ async function listPendingInbox(db, projectId) {
   );
 }
 
+const INBOX_STATUSES = ['pending', 'applied', 'rejected'];
+
 async function markInbox(db, id, status) {
+  if (!INBOX_STATUSES.includes(status)) throw new Error('inbox-statut-inconnu');
   await db.run('UPDATE ontogenesis_inbox SET status = ? WHERE id = ?', [status, id]);
 }
 
@@ -55,4 +58,4 @@ async function consumeEvent(db, id) {
   await db.run('UPDATE ontogenesis_events SET consumed = 1 WHERE id = ?', [id]);
 }
 
-module.exports = { postInbox, listPendingInbox, markInbox, postEvent, listPendingEvents, consumeEvent };
+module.exports = { INBOX_STATUSES, postInbox, listPendingInbox, markInbox, postEvent, listPendingEvents, consumeEvent };

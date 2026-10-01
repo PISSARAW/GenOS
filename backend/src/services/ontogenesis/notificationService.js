@@ -28,7 +28,10 @@ async function listPendingNotifications(db, projectId) {
   );
 }
 
+const NOTIFICATION_STATUSES = ['pending', 'sent', 'acked'];
+
 async function markNotified(db, id, status) {
+  if (!NOTIFICATION_STATUSES.includes(status)) throw new Error('notification-statut-inconnu');
   await db.run('UPDATE ontogenesis_notifications SET status = ? WHERE id = ?', [status, id]);
 }
 
@@ -42,4 +45,4 @@ async function requestApproval(db, request) {
   return id;
 }
 
-module.exports = { NOTIFICATION_KINDS, notify, listPendingNotifications, markNotified, requestApproval };
+module.exports = { NOTIFICATION_KINDS, NOTIFICATION_STATUSES, notify, listPendingNotifications, markNotified, requestApproval };
