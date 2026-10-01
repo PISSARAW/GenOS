@@ -1,6 +1,7 @@
 'use strict';
 
 const { competeWinners } = require('../ignitionService');
+const predictiveRegret = require('./predictiveRegretService');
 
 const CONSTRAINT_ORDER = ['safety', 'integrity', 'viability', 'userPolicy'];
 function priority(candidate) {
@@ -14,6 +15,7 @@ function priority(candidate) {
 
 function drives(candidate) {
   const measures = candidate.measures;
+  const regret = candidate.agowRegret?.regret || {};
   return {
     information: measures.expectedInformationGain,
     relevance: measures.goalRelevance,
@@ -23,12 +25,37 @@ function drives(candidate) {
     actionability: measures.actionability,
     confidence: measures.causalConfidence,
     novelty: measures.novelty,
-    cost: 1 / (1 + measures.estimatedCost)
+    cost: 1 / (1 + measures.estimatedCost),
+    goalRegret: regret.goal || 0, epistemicRegret: regret.epistemic || 0,
+    viabilityRegret: regret.viability || 0, integrityRegret: regret.integrity || 0,
+    opportunityRegret: regret.opportunity || 0,
+    irreversibility: candidate.epistemicContext?.irreversibility || 0
   };
 }
 
+function attachRegret(candidates, context) {
+  return candidates.map((candidate) => ({
+    ...candidate, agowRegret: predictiveRegret.evaluate(candidate, context)
+  }));
+}
+
+function selectPreemptive(candidates) {
+  const preemptive = candidates.filter((candidate) => candidate.agowRegret.preempt);
+  return preemptive.length ? preemptive : candidates;
+}
+
+function selectPriority(candidates) {
+  if (!candidates.length) return { rank: null, candidates: [] };
+  const rank = Math.min(...candidates.map(priority));
+  return { rank, candidates: candidates.filter((candidate) => priority(candidate) === rank) };
+}
+
+function paretoFront(candidates) {
+  return candidates.filter((candidate) => !dominated(candidate, candidates.filter((peer) => peer !== candidate)));
+}
+
 function dominated(candidate, peers) {
-  const keys = ['information', 'relevance', 'urgency', 'error', 'evidenceDebt', 'actionability', 'confidence', 'novelty', 'cost'];
+  const keys = ['information', 'relevance', 'urgency', 'error', 'evidenceDebt', 'actionability', 'confidence', 'novelty', 'cost', 'goalRegret', 'epistemicRegret', 'viabilityRegret', 'integrityRegret', 'opportunityRegret', 'irreversibility'];
   const candidateDrives = drives(candidate);
   return peers.some((peer) => {
     const peerDrives = drives(peer);
@@ -39,18 +66,18 @@ function dominated(candidate, peers) {
 }
 
 function arbitrate(options) {
-  const input = Array.isArray(options?.candidates) ? options.candidates : [];
+  const input = attachRegret(Array.isArray(options?.candidates) ? options.candidates : [], options?.regretContext || {});
   if (!input.length) return { candidates: [], competition: { winners: [], activations: {}, rounds: 0 }, selected: [] };
-  const safe = input.filter((candidate) => Number.isFinite(priority(candidate)));
+  const safe = selectPreemptive(input.filter((candidate) => Number.isFinite(priority(candidate))));
   if (!safe.length) return { candidates: [], competition: { winners: [], activations: {}, rounds: 0 }, selected: [], rejected: input.map((candidate) => candidate.candidateId) };
-  const rankedPriority = Math.min(...safe.map(priority));
-  const eligible = safe.filter((candidate) => priority(candidate) === rankedPriority);
-  const pareto = eligible.filter((candidate) => !dominated(candidate, eligible.filter((peer) => peer !== candidate)));
+  const { rank: rankedPriority, candidates: eligible } = selectPriority(safe);
+  const pareto = paretoFront(eligible);
   const competition = competeWinners(pareto.map((candidate) => ({ id: candidate.candidateId, drives: drives(candidate) })), options?.competition);
   const capacity = Math.max(1, Math.floor(Number(options?.capacity) || 3));
   const winners = new Set(competition.winners);
   const selected = pareto.filter((candidate) => winners.has(candidate.candidateId)).slice(0, capacity);
-  return { priority: rankedPriority, candidates: pareto, competition, selected };
+  return { priority: rankedPriority, candidates: pareto, competition, selected,
+    regretEstimates: input.map((candidate) => candidate.agowRegret) };
 }
 
 module.exports = { arbitrate, priority, drives };

@@ -20,6 +20,7 @@ const ORIGIN_BY_MODULE = Object.freeze({
   metacognition: ['model_inferred', 'unknown'],
   morphogenesis: ['model_inferred', 'unknown']
 });
+const ALLOSTATIC_VARIABLES = new Set(['energy', 'memoryPressure', 'socialState', 'modelDrift', 'contextPressure', 'integrity', 'stress']);
 
 function unit(value, fallback = 0) {
   const number = Number(value);
@@ -66,14 +67,31 @@ function epistemicOrigin(module, observation) {
   return { origin, realityMode: 'real', agency, simulationId: null, parentRealityFrameId: null };
 }
 
+function epistemicContext(observation) {
+  const source = observation.epistemicContext;
+  if (!source || typeof source !== 'object') return undefined;
+  const result = {};
+  if (source.beliefImportance != null) result.beliefImportance = unit(source.beliefImportance);
+  if (source.causalDescendantCount != null) result.causalDescendantCount = Math.max(0, Math.floor(Number(source.causalDescendantCount) || 0));
+  if (source.irreversibility != null) result.irreversibility = unit(source.irreversibility);
+  if (source.expectedAllostaticState && typeof source.expectedAllostaticState === 'object') {
+    result.expectedAllostaticState = Object.fromEntries(Object.entries(source.expectedAllostaticState)
+      .filter(([key, value]) => ALLOSTATIC_VARIABLES.has(key) && Number.isFinite(Number(value)))
+      .map(([key, value]) => [key, unit(value)]));
+  }
+  return result;
+}
+
 function build(options) {
   const { observation, agentId, module, now = Date.now() } = options;
   const evidenceRefs = Array.isArray(observation.evidenceRefs) ? observation.evidenceRefs.filter((value) => typeof value === 'string') : [];
+  const context = epistemicContext(observation);
   return {
     candidateId: String(observation.candidateId || `${module}:${agentId}:${now}`), agentId,
     source: { module, instanceId: observation.instanceId || null, modality: ADAPTERS[module] || 'organ_observation' },
     content: buildContent(observation, module),
     epistemicOrigin: epistemicOrigin(module, observation),
+    ...(context ? { epistemicContext: context } : {}),
     evidenceRefs, causalParents: Array.isArray(observation.causalParents) ? observation.causalParents.filter((value) => typeof value === 'string') : [],
     measures: buildMeasures(observation), constraints: buildConstraints(observation),
     redundancyKey: observation.redundancyKey || null, producedAt: now,
@@ -90,4 +108,4 @@ async function submit(options) {
     activeGoal: options.activeGoal, unresolvedQuestions: options.unresolvedQuestions, triggerCycle: options.triggerCycle });
 }
 
-module.exports = { submit, build, epistemicOrigin, ADAPTERS, ORIGIN_BY_MODULE };
+module.exports = { submit, build, epistemicOrigin, epistemicContext, ADAPTERS, ORIGIN_BY_MODULE };

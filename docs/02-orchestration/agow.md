@@ -6,6 +6,7 @@
 - **Autorité de référence** : [ADR 0006](../adr/0006-active-global-organism-workspace.md)
 - **Persistance et évaluation** : [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md)
 - **Provenance réel/simulé** : [ADR 0239](../adr/0239-agow-provenance-epistemique.md)
+- **Arbitrage par regret** : [ADR 0240](../adr/0240-agow-regret-predictif.md)
 
 ---
 
@@ -157,6 +158,7 @@ impose les propriétés suivantes :
 | Identité | `candidateId`, `agentId` | Identifie le candidat et l'agent propriétaire. |
 | Provenance producteur | `source.module`, `source.modality`, `source.instanceId` | Attribue le producteur et la modalité. |
 | Provenance épistémique | `epistemicOrigin.origin`, `realityMode`, `agency`, `simulationId`, `parentRealityFrameId` | Distingue observation, inférence, action, mémoire et simulation; `unknown` reste explicite lorsque la source ne suffit pas. |
+| Contexte épistémique | importance du belief, descendants causaux, irréversibilité, état allostatique attendu optionnel | Contexte facultatif; l'état attendu est une prédiction du producteur. |
 | Contenu | `content.semanticType`, `artifactRef`, `compactPreview` | Référence un artefact; le preview reste court. |
 | Preuve et causalité | `evidenceRefs`, `causalParents` | Références uniques aux preuves et aux parents. |
 | Mesures | erreur, incertitude, pertinence, gain attendu, urgence, nouveauté, actionnabilité, confiance causale, dette de preuve, coût | Mesures bornées entre 0 et 1, sauf coût non négatif. |
@@ -280,9 +282,24 @@ dans le même arbitrage.
 
 ### 7.2 Drives et filtre Pareto
 
+Avant le Pareto, `predictiveRegretService` calcule deux profils de pertes :
+`attend` et `ignore`. Il estime les regrets de but, épistémique, viabilité, intégrité
+et opportunité. Le regret épistémique augmente avec l'incertitude, l'erreur prédictive,
+la dette de preuve et la faiblesse de confiance causale; l'importance du belief et ses
+descendants causaux amplifient ce risque. Il s'agit d'une heuristique explicitement
+non calibrée, conservée avec provenance dans le résultat d'arbitrage.
+
+`allostaticRegretAdapter` réutilise le calcul de drives de `valenceService`. Il compare
+la distance allostatique machine courante à un état attendu déclaré par le candidat.
+Une préemption n'intervient que si la pression courante dépasse le seuil de catastrophe
+et si l'état attendu la réduit suffisamment avec une confiance causale minimale. Sans
+mesure courante ou état attendu, la composante de viabilité est indisponible et vaut
+zéro. Une contrainte `blocked` continue d'exclure le candidat avant ce calcul.
+
 Le service construit des drives d'information, pertinence, urgence, erreur de
 prédiction, dette de preuve, actionnabilité, confiance causale, nouveauté et coût
-inverse `1 / (1 + estimatedCost)`. Il écarte les candidats dominés sur toutes ces
+inverse `1 / (1 + estimatedCost)`, ainsi que les composantes de regret et
+d'irréversibilité. Il écarte les candidats dominés sur toutes ces
 dimensions par un pair strictement meilleur sur au moins l'une d'elles. Les candidats
 non dominés entrent dans `ignitionService.competeWinners`.
 
@@ -765,6 +782,9 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `globalWorkspaceService.js` | Façade, modes, admission + transport, cycle, query et compatibilité historique. |
 | `candidateAdapterService.js` | Adaptation des observations en candidats contractuels. |
 | `candidateValidationService.js` | Validation de candidat. |
+| `epistemicRegretService.js` | Risque d'erreur de belief, importance et descendants causaux. |
+| `allostaticRegretAdapter.js` | Comparaison allostatique via `valenceService`. |
+| `predictiveRegretService.js` | Comparaison attend/ignore et attribution de regrets. |
 | `candidatePoolService.js` | Persistance, fraîcheur, déduplication et liens de contradiction. |
 | `workspaceArbitrationService.js` | Priorité, drives, Pareto et sélection par compétition. |
 | `workspaceCycleService.js` | Cycle, ignition, frame, broadcast et requête déclenchée. |
@@ -787,9 +807,7 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 Les suites AGOW ciblées du backend sont :
 
 ```powershell
-node backend/tests/test_global_workspace.js
-node backend/tests/test_global_workspace_runtime.js
-node backend/tests/test_controlled_causal_experiment.js
+npm --prefix backend run test:agow
 ```
 
 La validation de dépôt suit `AGENTS.md` :

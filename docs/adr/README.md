@@ -253,11 +253,12 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0238](0238-execution-et-integration-ontogenese.md) | Exécution persistante et intégration vérifiée d’Ontogenèse | Voir le fichier | -- | -- |
 | [0239a](0239-agow-provenance-epistemique.md) | Provenance épistémique des candidats AGOW | Accepté | 2026-10-01 | AGOW, épistémologie, contrefactuels |
 | [0239b](0239-socle-genos-verified-evo-devo.md) | Socle de développement évolutif vérifié (GVX) | Accepté | 2026-10-01 | Ontogenèse, morphogenèse, persistance, expériences, AgentDNA, preuve |
+| [0240](0240-agow-regret-predictif.md) | Arbitrage AGOW par regret prédictif | Accepté | 2026-10-01 | AGOW, décision, allostase, épistémologie |
 
-> **Identifiants numériques partagés** : 27 numéros sont portés par deux
+> **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
 > 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,
-> 0108, 0122, 0126, 0154, 0239), plus `003x` (format historique gelé). Les
+> 0108, 0122, 0126, 0154), plus `003x` (format historique gelé). Les
 > fichiers sont conservés tels quels (renommage interdit sans migration
 > de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,
 > `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.

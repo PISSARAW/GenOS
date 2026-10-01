@@ -52,7 +52,7 @@ async function cycle(options) {
   const now = Number(options.now) || Date.now();
   const candidates = await poolService.list({ agentId: options.agentId, now, db: options.db });
   const previousFrame = await frameStore.current({ agentId: options.agentId, db: options.db });
-  const result = arbitrationService.arbitrate({ candidates, previousFrame, capacity: (options.primaryCapacity || 1) + (options.secondaryCapacity ?? 2), competition: options.competition });
+  const result = await arbitrateCycle(options, candidates, previousFrame);
   const ignition = await ignite({ candidates: result.selected, agentId: options.agentId, db: options.db, threshold: options.ignitionThreshold, now });
   const firedIds = new Set(ignition.filter((entry) => entry.ignited).map((entry) => entry.candidateId));
   const ignited = result.selected.filter((candidate) => firedIds.has(candidate.candidateId));
@@ -62,6 +62,21 @@ async function cycle(options) {
   const broadcast = ignited.length ? await broadcastService.publish({ frame, modules: options.receivers, recipientAgentIds: options.recipientAgentIds, db: options.db }) : null;
   const activeQuery = await runActiveQuery({ frame, candidates: result.selected, db: options.db, maxCost: options.maxQueryCost });
   return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result, ignition, broadcast, activeQuery };
+}
+
+async function arbitrateCycle(options, candidates, previousFrame) {
+  const storedPolicy = await require('./agowStatePersistenceService').load({
+    scope: 'agow_attention_policy', agentId: options.agentId, db: options.db
+  });
+  const regretContext = {
+    ...(options.regretContext || {}),
+    currentInteroception: options.regretContext?.currentInteroception || storedPolicy.state.variables
+  };
+  return arbitrationService.arbitrate({
+    candidates, previousFrame,
+    capacity: (options.primaryCapacity || 1) + (options.secondaryCapacity ?? 2),
+    competition: options.competition, regretContext
+  });
 }
 
 module.exports = { cycle };
