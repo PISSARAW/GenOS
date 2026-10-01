@@ -45,6 +45,14 @@ function applyAdjustments(autonomyPlan, adjustments) {
   }
 }
 
+function attachRecallContext(normalizedMission, recall) {
+  if (!recall.episodes.length && !recall.lessons.length) return;
+  const marker = 'GENOS AUTOBIOGRAPHICAL RECALL';
+  const prompt = normalizedMission.prompt || normalizedMission.currentTask || '';
+  if (prompt.includes(marker)) return;
+  normalizedMission.prompt = `${prompt}\n\n${marker}\n${recall.summary}`.trim();
+}
+
 function emitRecall({ agentId, eventType, detail, payload, severity = 'info' }) {
   emit(agentId, eventType, 'AUTOBIOGRAPHICAL_RECALL', detail, payload, severity);
 }
@@ -121,6 +129,7 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
     const adjustments = boundedAdjustments(recall.adjustments);
     recall.recalled = true;
     autonomyPlan.autobiographicalRecall = recall;
+    attachRecallContext(normalizedMission, recall);
     autonomyPlan.autobiographicalAdjustments = adjustments;
     autonomyPlan.integrationProxy = await snapshotIntegration(db, agentId);
     autonomyPlan.attentionAudit = await snapshotAttention(db, agentId);
@@ -151,4 +160,4 @@ async function recallBeforePlanning({ db, agentId, normalizedMission, autonomyPl
   }
 }
 
-module.exports = { recallBeforePlanning, buildSituation, boundedAdjustments, applyAdjustments };
+module.exports = { recallBeforePlanning, buildSituation, boundedAdjustments, applyAdjustments, attachRecallContext };

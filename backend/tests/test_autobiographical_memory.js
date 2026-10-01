@@ -8,6 +8,7 @@ const { captureTelemetryEvent, resolveKind } = require('../src/services/autobiog
 const episodeStore = require('../src/services/autobiographicalMemory/episodeStore');
 const lessonService = require('../src/services/autobiographicalMemory/lessonService');
 const recallService = require('../src/services/autobiographicalMemory/recallService');
+const orchestratorRecall = require('../src/services/autobiographicalMemory/orchestratorRecall');
 const sensorium = require('../src/services/perception/sensoriumService');
 const { runToolExecution } = require('../src/services/mcpExecutor/efferenceBridge');
 
@@ -43,6 +44,10 @@ async function testPerceptionMemoryLoop(db) {
     { agentId: 'perception-agent', goal: 'inspect service dashboard' }, {}, db
   );
   assert.match(recalled.summary, /service healthy 200/);
+  const mission = { prompt: 'Inspect service dashboard' };
+  orchestratorRecall.attachRecallContext(mission, recalled);
+  assert.match(mission.prompt, /GENOS AUTOBIOGRAPHICAL RECALL/);
+  assert.match(mission.prompt, /service healthy 200/);
   assert.equal((await lessonService.consolidateLessons({ agentId: 'perception-agent' }, db))
     .some((lesson) => lesson.scope === 'perception'), false,
   'observations without an evaluated outcome must not become learned success or failure lessons');

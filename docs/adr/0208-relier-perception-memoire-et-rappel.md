@@ -19,8 +19,9 @@ Après le succès d'un outil navigateur, fovéation, foraging ou contrôle burea
 crée une observation canonique bornée, l'inscrit dans le sensorium de l'agent et émet un
 événement `PERCEPTION_OBSERVED`. La capture autobiographique enregistre les observations
 dont le gain d'information atteint le seuil de saillance. Le rappel inclut un résumé
-échappé de ces observations, de sorte que les plans ultérieurs puissent réutiliser cette
-expérience avec sa provenance.
+échappé de ces observations et l'injecte dans le prompt des workers sous un bloc marqué
+comme historique non fiable, de sorte que les missions ultérieures puissent réutiliser
+cette expérience avec sa provenance.
 
 Une perception porte l'issue `observed`, jamais `success` par défaut. Seuls des résultats
 d'action évalués par leurs propres événements et preuves peuvent soutenir une leçon de
