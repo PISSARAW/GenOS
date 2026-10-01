@@ -53,8 +53,14 @@ function ensureSensorium(agentId) {
   return existing || sensorium.createSensorium({ agentId });
 }
 
+function sessionFamily(toolName) {
+  if (toolName === 'genos_computer_use') return 'desktop';
+  if (toolName === 'genos_browser_act' || toolName === 'genos_foveal_crop') return 'browser';
+  return 'none';
+}
+
 function makePercept({ agentId, actionId, toolName, args, body }) {
-  const data = observationData(body);
+  const data = { ...observationData(body), sessionFamily: sessionFamily(toolName), sharedSession: false };
   return observationService.makeObservation({
     id: actionId ? `perception_${crypto.createHash('sha256').update(`${agentId}:${actionId}`).digest('hex').slice(0, 32)}` : undefined,
     sensorId: toolName,
