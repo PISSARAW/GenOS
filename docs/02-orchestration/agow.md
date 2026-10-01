@@ -644,7 +644,7 @@ valident pas la vérité d'une perception externe.
 | --- | --- | --- | --- |
 | Mission | `agentRuntimeAdapter/missionPlanning.js` | Adapte le plan en candidat morphogenèse, soumet et expose `ctx.agow`. | Seulement si mode non `off`; `bounded` donne l'autorité à AGOW à ce point. |
 | Perception | `agowRuntimeIngressService` | Met à jour la boucle récurrente et produit éventuellement `prediction_error`. | Événement `PERCEPTION_OBSERVED`; mode non `off`. |
-| Résultat worker final | Même ingress | Produit `worker_outcome` sur les événements finaux répertoriés. | Le succès est lu depuis type d'événement ou payload; la qualité n'est pas vérifiée par cet adaptateur. |
+| Résultat worker final | Même ingress | Produit `worker_outcome`, met à jour la plasticité et capture une trajectoire liée à un frame réel. Un `pathwayId` explicite passe aussi par la décompilation. | Le succès est lu depuis type d'événement ou payload; la qualité n'est pas vérifiée par cet adaptateur. Sans frame réel, aucune trajectoire autobiographique n'est créée. |
 | Efférence | `efferenceCopyService` | Envoie les conséquences d'action observées comme candidats. | Mode non `off`; l'artefact d'action doit être résolu côté récepteurs. |
 | Tick idle | `idleTickService` | Demande un cycle du workspace existant. | Mode non `off`; cadence du scheduler idle hôte. |
 | Daemon | Récepteur de broadcast | Actualise la politique de pression d'un territoire lié. | Frame diffusé, territoire trouvé, mesures d'interoception disponibles. |
@@ -968,7 +968,7 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `attentionCreditService.js` | Enregistrement des résultats déclarés par query handler. |
 | `workspaceMediationService.js` / `broadcastReceiptService.js` | Reçus de médiation et de livraison. |
 | `perception/perceptualLoopService.js` | Binding et prédiction perceptive récurrents. |
-| `agowRuntimeIngressService.js` | Entrée événementielle perception et outcomes worker. |
+| `agowRuntimeIngressService.js` | Entrée perception, outcome worker, capture de trajectoire et mise à jour plasticité/décompilation. |
 | `agowStatePersistenceService.js` | Accès aux scopes `adaptive_state`. |
 | `agowExperimentService.js` | Ablation, médiation contrôlée, holdout, résumé et reçus. |
 | `agowMechanismPolicyService.js` | Politique persistée des modes regret, contrefactuel, plasticité, voies directes et marchés. |
