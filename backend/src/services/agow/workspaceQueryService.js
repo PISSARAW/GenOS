@@ -44,10 +44,21 @@ function eligibleModules(capability, modules) {
 }
 
 function queryBudget(options, policy) {
+  const requestedCost = nonNegative(options.maxCost, 1);
+  const policyCost = nonNegative(policy.maxCost, 1);
   return {
-    maxCost: Math.min(Math.max(0, Number(options.maxCost) || 1), Number(policy.maxCost) || 1),
+    maxCost: Math.min(requestedCost, policyCost),
     moduleBudget: Math.max(1, Math.floor(Number(options.moduleBudget) || Number(policy.moduleBudget) || 1))
   };
+}
+
+function nonNegative(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
+function evidenceFloor(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
 }
 
 function buildModules(capability, modules) {
@@ -74,7 +85,8 @@ async function plan(options) {
     queryId: randomUUID(), frameId: frame.frameId,
     need: { questionType: need.questionType, capability: need.capability, expectedInformationGain },
     budget: { maxCost: budget.maxCost, deadlineAt: Number(options.deadlineAt) || Date.now() + 30000 },
-    minimumEvidenceRefs: Math.max(Number(metaPolicy.state.minimumEvidenceRefs) || 0, Number(policy.minimumEvidenceRefs) || 0),
+    minimumEvidenceRefs: Math.max(evidenceFloor(metaPolicy.state.minimumEvidenceRefs),
+      evidenceFloor(attentionPolicy.state.minimumEvidenceRefs)),
     candidateModules: selected.selected.map((item) => item.id), createdAt: Date.now()
   };
   await require('./agowStatePersistenceService').save({ scope: QUERY_POLICY_SCOPE, agentId: frame.agentId, db: queryPolicy.db,
