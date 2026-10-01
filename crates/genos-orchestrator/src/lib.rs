@@ -112,7 +112,10 @@ pub use organism::{OrganismConfig, OrganismReport};
 pub use organization::{
     Organization, Superorganism, catalog, select_organization, select_superorganism,
 };
-pub use organization_step::{adversarial_needs_recipient, authority_for, follower_may_address, step_family};
+pub use organization_step::{
+    adversarial_needs_recipient, aligned_heading, authority_for, follower_may_address,
+    slime_conductivity, step_family, volitive_step, weighted_barycenter, wolf_role,
+};
 pub use physical_telemetry::{MissionPhysicsProfile, PhysicalTelemetry};
 pub use physics::{
     ActionProfile, DecisionContext, Material, PhysicalState, Regime, UtilityInputs, action_profile,

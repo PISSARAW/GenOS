@@ -76,3 +76,47 @@ pub fn adversarial_needs_recipient(is_orchestrator: bool, has_recipient: bool) -
     }
     !has_recipient
 }
+
+/// Barycentre pondéré (miroir de `fishSchoolSearch`).
+pub fn weighted_barycenter(values: &[f64], weights: &[f64]) -> f64 {
+    let mut total = 0.0;
+    let mut weighted = 0.0;
+    for (index, value) in values.iter().enumerate() {
+        let weight = weights.get(index).copied().unwrap_or(1.0).max(0.0);
+        total += weight;
+        weighted += value * weight;
+    }
+    if total <= 0.0 {
+        return 0.0;
+    }
+    weighted / total
+}
+
+/// Cap aligné (miroir de `flockingBoids`).
+pub fn aligned_heading(own: f64, average: f64, alignment: f64) -> f64 {
+    own + alignment * (average - own)
+}
+
+/// Conductivité physarum (miroir de `slimeMouldNetwork` : 1.1 / 0.9).
+pub fn slime_conductivity(current: f64, flow: f64) -> f64 {
+    if flow > 0.0 {
+        (current * 1.1).max(0.0)
+    } else {
+        (current * 0.9).max(0.0)
+    }
+}
+
+/// Rang de meute (miroir de `greyWolfOptimizer`).
+pub fn wolf_role(rank: usize) -> &'static str {
+    match rank {
+        0 => "alpha",
+        1 => "beta",
+        2 => "delta",
+        _ => "omega",
+    }
+}
+
+/// Pas volitif vers le barycentre (miroir de `fishSchoolSearch`).
+pub fn volitive_step(own: f64, barycenter: f64, step: f64) -> f64 {
+    step * (barycenter - own)
+}

@@ -1,5 +1,6 @@
 use genos_orchestrator::organization_step::{
-    adversarial_needs_recipient, authority_for, follower_may_address, step_family,
+    adversarial_needs_recipient, aligned_heading, authority_for, follower_may_address,
+    slime_conductivity, step_family, volitive_step, weighted_barycenter, wolf_role,
 };
 
 #[test]
@@ -21,6 +22,17 @@ fn routage_ranked_et_adversarial() {
     assert!(adversarial_needs_recipient(false, false));
     assert!(!adversarial_needs_recipient(false, true));
     assert!(!adversarial_needs_recipient(true, false));
+}
+
+#[test]
+fn execution_miroir_des_algorithmes_essaim() {
+    assert!((weighted_barycenter(&[0.0, 10.0], &[1.0, 9.0]) - 9.0).abs() < 1e-9);
+    assert!(aligned_heading(0.0, 1.0, 0.05) > 0.0);
+    assert!((slime_conductivity(0.5, 1.0) - 0.55).abs() < 1e-9);
+    assert!((slime_conductivity(0.5, 0.0) - 0.45).abs() < 1e-9);
+    assert_eq!(wolf_role(0), "alpha");
+    assert_eq!(wolf_role(3), "omega");
+    assert!(volitive_step(0.0, 9.0, 0.1) > 0.0);
 }
 
 #[test]
