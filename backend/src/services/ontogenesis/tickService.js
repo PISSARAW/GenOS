@@ -18,6 +18,8 @@ const { notify } = require('./notificationService');
 const { recordMemory } = require('./memoryService');
 const { postEvent, listPendingEvents, consumeEvent } = require('./inboxService');
 const { expireDue } = require('./questionService');
+const { reviewAction } = require('./reviewPolicy');
+const { ensureDispatchRitual } = require('./ritualService');
 const { dueSchedules, markScheduleRan } = require('./scheduleService');
 
 const NO_WAKE = ['STOPPING', 'STOPPED', 'EXECUTING', 'VERIFYING', 'INTEGRATING', 'INITIALIZING', 'PLANNING'];
@@ -81,9 +83,29 @@ async function applyEffect(db, ctx, effect) {
   }
 }
 
+function configOf(project) {
+  try {
+    return JSON.parse(project.config_json || '{}');
+  } catch (_) {
+    return {};
+  }
+}
+
+async function dispatchReviewed(db, ctx) {
+  const task = (ctx.selection && ctx.selection.task) || null;
+  if (!task) return { state: ctx.project.state, note: 'selection-vide' };
+  const action = { scope: 'edit', branch: ctx.project.branch };
+  const review = reviewAction(configOf(ctx.project), action);
+  if (review.verdict === 'proceed') return { state: ctx.project.state, note: 'dispatch-requiert-harnais' };
+  const settled = await ensureDispatchRitual(db, {
+    projectId: ctx.project.id, taskId: task.id, action, review, budgetsOk: true
+  });
+  return { state: ctx.project.state, ...settled };
+}
+
 async function applyDecision(db, ctx, decision) {
   if (decision.hold || !decision.event) return { state: ctx.project.state, note: decision.reason || 'maintien' };
-  if (decision.event === 'dispatch') return { state: ctx.project.state, note: 'dispatch-requiert-harnais' };
+  if (decision.event === 'dispatch') return dispatchReviewed(db, ctx);
   const next = nextState(ctx.project.state, decision.event);
   if (!next) {
     await notify(db, { projectId: ctx.project.id, kind: 'blocked', payload: { reason: 'transition-impossible' } });

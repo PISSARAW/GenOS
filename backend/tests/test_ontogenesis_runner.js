@@ -32,7 +32,8 @@ async function memoryDb() {
   assert.throws(() => schedules.nextRunAfter('once', {}, base), /echeance-invalide/);
 
   const db = await memoryDb();
-  const pid = await store.createProject(db, { rootPath: 'C:/proj', branch: 'codex/ontogenesis', objective: 'run' });
+  const { defaultConfig } = require('../src/services/ontogenesis/configSchema');
+  const pid = await store.createProject(db, { rootPath: 'C:/proj', branch: 'codex/ontogenesis', objective: 'run', config: defaultConfig() });
 
   // Échéance due → événement au tick ; intervalle replanifié, once terminé.
   const past = new Date(Date.now() - 60000).toISOString();
