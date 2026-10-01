@@ -336,6 +336,10 @@ const migrationRunners = [
     const { migrateOntogenesisSummaries } = require('./migrateOntogenesisSummaries');
     await migrateOntogenesisSummaries(db);
   }),
+  createMigrationRunner('093-ontogenesis-ledger', 'Persist Ontogenese append-only ledger and cumulative spend (roadmap P5)', async (db) => {
+    const { migrateOntogenesisLedger } = require('./migrateOntogenesisLedger');
+    await migrateOntogenesisLedger(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
