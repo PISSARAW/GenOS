@@ -54,7 +54,7 @@ async function runGaiaTestSuite() {
 
   const gaiaDir = path.resolve(__dirname, '../../../GAIA');
   if (!fs.existsSync(gaiaDir)) {
-    console.log('[GAIA] GAIA repository directory not found, skipping evaluation.');
+    console.log(JSON.stringify({ status: 'SKIPPED', reason: 'external_checkout_absent', score: null }));
     if (process.env.GENOS_GAIA_REQUIRED === '1') throw new Error('GAIA is required but the external checkout is absent.');
     return;
   }
