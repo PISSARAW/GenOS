@@ -45,26 +45,27 @@ function resolveBundled(repositoryRoot, name) {
   return isWin ? `${fallback}.exe` : fallback;
 }
 
+function useConfiguredRuntime(configured, bundled) {
+  if (!configured) return bundled;
+  const isWin = process.platform === 'win32';
+  const configuredExists = fsSync.existsSync(configured) || (isWin && fsSync.existsSync(`${configured}.exe`));
+  if (configuredExists && !/program files/i.test(configured)) {
+    return isWin && !configured.endsWith('.exe') && fsSync.existsSync(`${configured}.exe`)
+      ? `${configured}.exe`
+      : configured;
+  }
+  return bundled;
+}
+
 function bundledRuntimeEnvironment() {
   const repositoryRoot = path.resolve(__dirname, '../../..');
   const bundledGenos = resolveBundled(repositoryRoot, 'genos');
   const bundledMcp = resolveBundled(repositoryRoot, 'genos-mcp');
   const configuredGenos = String(process.env.GENOS_BIN || '').trim();
   const configuredMcp = String(process.env.GENOS_MCP_BIN || '').trim();
-  const useConfigured = (configured, bundled) => {
-    if (!configured) return bundled;
-    const isWin = process.platform === 'win32';
-    const configuredExists = fsSync.existsSync(configured) || (isWin && fsSync.existsSync(`${configured}.exe`));
-    if (configuredExists && !/program files/i.test(configured)) {
-      return isWin && !configured.endsWith('.exe') && fsSync.existsSync(`${configured}.exe`)
-        ? `${configured}.exe`
-        : configured;
-    }
-    return bundled;
-  };
   return {
-    GENOS_BIN: useConfigured(configuredGenos, bundledGenos),
-    GENOS_MCP_BIN: useConfigured(configuredMcp, bundledMcp),
+    GENOS_BIN: useConfiguredRuntime(configuredGenos, bundledGenos),
+    GENOS_MCP_BIN: useConfiguredRuntime(configuredMcp, bundledMcp),
     GENOS_ORCHESTRATOR_BRIDGE: process.env.GENOS_ORCHESTRATOR_BRIDGE || path.join(repositoryRoot, 'backend/bin/genos-orchestrate.cjs')
   };
 }

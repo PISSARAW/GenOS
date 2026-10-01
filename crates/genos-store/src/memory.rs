@@ -24,6 +24,26 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     dot / (norm_a.sqrt() * norm_b.sqrt())
 }
 
+fn entry_score(entry: &MemoryEntry, query: &SearchQuery) -> f32 {
+    let mut score = 0.0f32;
+    if let (Some(q_vec), Some(e_vec)) = (&query.vector, &entry.embedding) {
+        score = score.max(cosine_similarity(q_vec, e_vec));
+    }
+    if let Some(text) = &query.text {
+        let q_lower = text.to_lowercase();
+        let e_lower = entry.content.to_lowercase();
+        if e_lower.contains(&q_lower) {
+            score += 0.3;
+        }
+        for token in q_lower.split_whitespace() {
+            if e_lower.contains(token) {
+                score += 0.1;
+            }
+        }
+    }
+    score
+}
+
 /// Dépôt mémoire vectoriel en mémoire pour les agents cellulaires
 pub struct InMemoryVectorRepository {
     entries: RwLock<HashMap<String, MemoryEntry>>,
@@ -61,27 +81,7 @@ impl MemoryRepository for InMemoryVectorRepository {
         let mut scored: Vec<(f32, MemoryEntry)> = Vec::new();
 
         for entry in map.values() {
-            let mut score = 0.0f32;
-
-            // Similarité vectorielle si vecteur de requête et d'entrée présents
-            if let (Some(q_vec), Some(e_vec)) = (&query.vector, &entry.embedding) {
-                let cos = cosine_similarity(q_vec, e_vec);
-                score = score.max(cos);
-            }
-
-            // Correspondance textuelle lexicale
-            if let Some(text) = &query.text {
-                let q_lower = text.to_lowercase();
-                let e_lower = entry.content.to_lowercase();
-                if e_lower.contains(&q_lower) {
-                    score += 0.3;
-                }
-                for token in q_lower.split_whitespace() {
-                    if e_lower.contains(token) {
-                        score += 0.1;
-                    }
-                }
-            }
+            let score = entry_score(entry, &query);
 
             if score > 0.0 || (query.vector.is_none() && query.text.is_none()) {
                 scored.push((score, entry.clone()));

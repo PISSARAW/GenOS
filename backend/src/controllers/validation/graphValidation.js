@@ -17,22 +17,27 @@ function validateNodeIds(nodes, errors) {
   return { validNodes, ids };
 }
 
-function validateEdges(edges, ids, errors) {
-  const edgeIds = new Set();
-  const edgeKeys = new Set();
-  edges.forEach((edge) => {
+function validateEdgeId(edge, edgeIds, errors) {
+  if (edge.id === undefined) return;
+  if (typeof edge.id !== 'string' || !edge.id.trim()) errors.push('Workflow edge ids must be non-empty strings.');
+  else if (edgeIds.has(edge.id)) errors.push(`Edge id '${edge.id}' must be unique.`);
+  else edgeIds.add(edge.id);
+}
+
+function validateEdge(edge, state, errors) {
+    const { ids, edgeIds, edgeKeys } = state;
     if (!edge || typeof edge !== 'object') { errors.push('Every workflow edge must be an object.'); return; }
-    if (edge.id !== undefined) {
-      if (typeof edge.id !== 'string' || !edge.id.trim()) errors.push('Workflow edge ids must be non-empty strings.');
-      else if (edgeIds.has(edge.id)) errors.push(`Edge id '${edge.id}' must be unique.`);
-      else edgeIds.add(edge.id);
-    }
+    validateEdgeId(edge, edgeIds, errors);
     if (!ids.has(edge.source) || !ids.has(edge.target)) errors.push(`Edge ${edge.id || '(unnamed)'} references an unknown node.`);
     if (edge.source === edge.target && ids.has(edge.source)) errors.push(`Edge ${edge.id || '(unnamed)'} cannot point to its own node.`);
     const edgeKey = `${String(edge.source)}\u0000${String(edge.target)}`;
     if (edgeKeys.has(edgeKey)) errors.push(`Duplicate edge from '${edge.source}' to '${edge.target}'.`);
     else edgeKeys.add(edgeKey);
-  });
+}
+
+function validateEdges(edges, ids, errors) {
+  const state = { ids, edgeIds: new Set(), edgeKeys: new Set() };
+  edges.forEach((edge) => validateEdge(edge, state, errors));
 }
 
 function detectCycleInGraph(validNodes, edges) {

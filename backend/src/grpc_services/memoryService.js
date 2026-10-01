@@ -1,5 +1,13 @@
 const vectorMemory = require('../services/vectorMemoryService');
 
+function searchResult(entry) {
+  return {
+    id: entry.id || 'mem-1',
+    content: entry.content || entry.title || '',
+    embedding: entry.vector || []
+  };
+}
+
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Memory is alive via gRPC!" }),
 
@@ -21,11 +29,7 @@ module.exports = {
       const { text, vector, limit } = call.request || {};
       const query = (vector && vector.length > 0) ? vector : (text || '');
       const searchRes = await vectorMemory.searchMemory('grpc-client', query, limit || 5);
-      const results = (searchRes.allScoredExperiences || []).map((e) => ({
-        id: e.id || 'mem-1',
-        content: e.content || e.title || '',
-        embedding: e.vector || []
-      }));
+      const results = (searchRes.allScoredExperiences || []).map(searchResult);
       callback(null, { results });
     } catch (err) {
       callback(null, { results: [] });

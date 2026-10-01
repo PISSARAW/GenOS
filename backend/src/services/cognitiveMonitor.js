@@ -15,6 +15,14 @@ function countFrequencies(words) {
     return freqs;
 }
 
+function matchedTermRatio(textLower, terms, fallback) {
+    let matched = 0;
+    for (const term of terms) {
+        if (textLower.includes(term.toLowerCase())) matched++;
+    }
+    return terms.length > 0 ? matched / terms.length : fallback;
+}
+
 function calculateScores(textLower, expectedTerms, forbiddenTerms) {
     const words = textLower.match(/\b[\wàâäéèêëîïôöùûüç-]+\b/g) || [];
     const freqs = countFrequencies(words);
@@ -28,17 +36,8 @@ function calculateScores(textLower, expectedTerms, forbiddenTerms) {
     
     const repetition = (total >= 10 && maxCount > 1) ? (maxCount / total) : 0;
     
-    let expectedCount = 0;
-    for (let t of expectedTerms) {
-        if (textLower.includes(t.toLowerCase())) expectedCount++;
-    }
-    const topic = expectedTerms.length > 0 ? (expectedCount / expectedTerms.length) : 1.0;
-    
-    let driftCount = 0;
-    for (let t of forbiddenTerms) {
-        if (textLower.includes(t.toLowerCase())) driftCount++;
-    }
-    const drift = forbiddenTerms.length > 0 ? (driftCount / forbiddenTerms.length) : 0;
+    const topic = matchedTermRatio(textLower, expectedTerms, 1.0);
+    const drift = matchedTermRatio(textLower, forbiddenTerms, 0);
     
     return { repetition, topic, drift };
 }

@@ -92,6 +92,18 @@ function formatClaimsText(raw) {
   return `\nClaims: ` + raw.map(formatSingleClaim).join('; ');
 }
 
+function philosophyContextText(philosophy) {
+  return philosophy?.references?.length
+    ? `\n[PHILOSOPHICAL_CONTEXT] concepts=${philosophy.references.map((item) => `${item.conceptId}@${item.provenanceVersion || 'unversioned'}:${item.interpretationStatus}`).join(',')} interpretation=${philosophy.interpretationStatus} provenance=${philosophy.provenanceHash || 'none'}`
+    : '';
+}
+
+function ethicalComparisonText(ethicalComparison) {
+  return ethicalComparison
+    ? `\n[ETHICAL_COMPARISON] status=${ethicalComparison.decisionStatus} interpretation=${ethicalComparison.interpretationStatus} evidence=${ethicalComparison.evidenceStatus} provenance=${ethicalComparison.promotion?.provenanceHash || ethicalComparison.provenance?.provenanceHash || 'none'} frameworks=${(ethicalComparison.promotion?.frameworkConcepts || ethicalComparison.provenance?.frameworkConcepts || []).join(',')}`
+    : '';
+}
+
 function memoryContent(job, inputs, unproven) {
   const claimsText = inputs.raw.length > 0 ? formatClaimsText(inputs.raw) : '';
   const tag = unproven ? '[UNVERIFIED_EVIDENCE][unverified/]' : '[VERIFIED_SYSTEM_FACT]';
@@ -100,12 +112,8 @@ function memoryContent(job, inputs, unproven) {
   const ethicalComparison = job.options?.ethicalComparison || job.options?.ethical_comparison;
   const interpretive = philosophy?.interpretationStatus === 'interpretive';
   const memoryTag = interpretive && !unproven ? '[INTERPRETIVE_CONTEXT][provenance-required]' : tag;
-  const philosophyText = philosophy?.references?.length
-    ? `\n[PHILOSOPHICAL_CONTEXT] concepts=${philosophy.references.map((item) => `${item.conceptId}@${item.provenanceVersion || 'unversioned'}:${item.interpretationStatus}`).join(',')} interpretation=${philosophy.interpretationStatus} provenance=${philosophy.provenanceHash || 'none'}`
-    : '';
-  const comparisonText = ethicalComparison
-    ? `\n[ETHICAL_COMPARISON] status=${ethicalComparison.decisionStatus} interpretation=${ethicalComparison.interpretationStatus} evidence=${ethicalComparison.evidenceStatus} provenance=${ethicalComparison.promotion?.provenanceHash || ethicalComparison.provenance?.provenanceHash || 'none'} frameworks=${(ethicalComparison.promotion?.frameworkConcepts || ethicalComparison.provenance?.frameworkConcepts || []).join(',')}`
-    : '';
+  const philosophyText = philosophyContextText(philosophy);
+  const comparisonText = ethicalComparisonText(ethicalComparison);
   const epistemicText = epistemicContext?.analyses?.length
     ? `\n[EPISTEMIC_ANALYSIS] ids=${(epistemicContext.analysisIds || []).join(',')} interpretation=${epistemicContext.interpretive ? 'interpretive' : 'descriptive'} provenance=${epistemicContext.provenanceComplete ? 'complete' : 'incomplete'} promotion=${epistemicContext.promotion?.holdPromotion ? 'held' : 'eligible'}`
     : '';

@@ -53,6 +53,22 @@ async function countersOf(db, agentId) {
   };
 }
 
+function advanceCounters(counters, level) {
+  if (level === 'action') counters.actionErrors += 1;
+  else counters.strategyRevisions += 1;
+  let propagate = null;
+  if (counters.actionErrors >= PROMOTE_AFTER) {
+    counters.actionErrors = 0;
+    counters.strategyRevisions += 1;
+    propagate = 'strategy';
+  }
+  if (counters.strategyRevisions >= PROMOTE_AFTER) {
+    counters.strategyRevisions = 0;
+    propagate = 'mission';
+  }
+  return propagate;
+}
+
 async function routeEvent(db, agentId, event) {
   const level = classifyLevel(event || {});
   if (!level) return null;
@@ -64,18 +80,7 @@ async function routeEvent(db, agentId, event) {
     const counters = await countersOf(db, agentId);
     const precision = precisionOf(counters, level);
     if (surprise < 0.5) return { level, precision, surprise, propagate: null };
-    if (level === 'action') counters.actionErrors += 1;
-    else counters.strategyRevisions += 1;
-    let propagate = null;
-    if (counters.actionErrors >= PROMOTE_AFTER) {
-      counters.actionErrors = 0;
-      counters.strategyRevisions += 1;
-      propagate = 'strategy';
-    }
-    if (counters.strategyRevisions >= PROMOTE_AFTER) {
-      counters.strategyRevisions = 0;
-      propagate = 'mission';
-    }
+    const propagate = advanceCounters(counters, level);
     const store = new AdaptiveStateService(db);
     await store.persistObject(SCOPE, agentId, counters, counters.actionErrors + counters.strategyRevisions);
     return { level, precision, surprise, propagate, counters };

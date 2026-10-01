@@ -22,6 +22,11 @@ function floorOf(input) {
   return Number.isFinite(floor) ? floor : DEFAULT_FLOOR;
 }
 
+function lowConfidenceWithHighUncertainty(confidence, uncertainty, threshold) {
+  return Number.isFinite(confidence) && Number.isFinite(uncertainty)
+    && confidence < threshold && uncertainty >= HIGH_UNCERTAINTY;
+}
+
 function evaluateAbstention(input) {
   const data = input || {};
   const confidence = Number(data.confidence);
@@ -34,8 +39,7 @@ function evaluateAbstention(input) {
   if (Number.isFinite(uncertainty) && uncertainty >= UNCERTAINTY_CEILING) {
     return { ...base, abstain: true, reason: 'uncertainty_ceiling' };
   }
-  if (Number.isFinite(confidence) && Number.isFinite(uncertainty)
-    && confidence < base.threshold && uncertainty >= HIGH_UNCERTAINTY) {
+  if (lowConfidenceWithHighUncertainty(confidence, uncertainty, base.threshold)) {
     return { ...base, abstain: true, reason: 'low_confidence_high_uncertainty' };
   }
   if (!Number.isFinite(confidence) || !Number.isFinite(uncertainty)) return { ...base, reason: 'unassessed' };
