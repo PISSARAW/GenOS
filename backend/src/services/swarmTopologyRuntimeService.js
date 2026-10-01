@@ -93,4 +93,28 @@ function preferredSurvivorsFor(orchestratorId) {
   return lastPreferred.get(orchestratorId) || [];
 }
 
-module.exports = { stateFromOrchestrator, applyStepForOrchestrator, preferredSurvivorsFor };
+function samePreferred(first, second) {
+  if (first.length !== second.length) return false;
+  for (let index = 0; index < first.length; index += 1) {
+    if (first[index] !== second[index]) return false;
+  }
+  return true;
+}
+
+async function applyStepsForOrchestrator(orchestratorId, options = {}) {
+  const steps = Math.min(5, Math.max(1, Number(options.steps || 3)));
+  let last = null;
+  let stable = false;
+  for (let index = 0; index < steps; index += 1) {
+    const before = preferredSurvivorsFor(orchestratorId);
+    last = await applyStepForOrchestrator(orchestratorId, options);
+    if (last === null) break;
+    if (index > 0 && samePreferred(before, preferredSurvivorsFor(orchestratorId))) {
+      stable = true;
+      break;
+    }
+  }
+  return { step: last, stable };
+}
+
+module.exports = { stateFromOrchestrator, applyStepForOrchestrator, applyStepsForOrchestrator, preferredSurvivorsFor };
