@@ -16,7 +16,7 @@ uuid = { version = "1.10", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
 genos-cell = { path = "../genos-cell" }
-genos-orchestrator = { path = "../genos-orchestrator" }
+genos-orchestrator = { path = "../genos-orchestrator", features = ["api"] }
 genos-biology = { path = "../genos-biology" }
 genos-genome = { path = "../genos-genome" }
 genos-dna = { path = "../genos-dna" }

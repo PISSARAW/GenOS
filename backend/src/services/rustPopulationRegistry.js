@@ -37,7 +37,7 @@ async function persistPopulation(db, receipt) {
         cell_state_json=excluded.cell_state_json, genome_state_json=excluded.genome_state_json,
         source_receipt_id=excluded.source_receipt_id, tick=excluded.tick
       WHERE excluded.tick >= rust_cell_registry.tick`, [receipt.mission_id, cell.cell_id, cell.genome_id,
-      cell.genome_fingerprint, JSON.stringify(cell.cell_state), JSON.stringify(cell.genome_state), receipt.receipt_id, snapshot.tick]);
+      cell.genome_fingerprint, cell.cell_state_json || JSON.stringify(cell.cell_state), JSON.stringify(cell.genome_state), receipt.receipt_id, snapshot.tick]);
   }
 }
 module.exports = { populationFromReceipt, persistPopulation };

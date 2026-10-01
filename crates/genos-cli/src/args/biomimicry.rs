@@ -207,6 +207,10 @@ pub enum BiomimicrySubcommands {
         agent_id: String,
         #[arg(long)]
         therapy_type: String,
+        #[arg(long)]
+        journal: Option<String>,
+        #[arg(long)]
+        authorization_file: Option<String>,
     },
     Phenotype {
         #[arg(long)]

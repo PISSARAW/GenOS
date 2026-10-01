@@ -333,8 +333,8 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "surviving_cells": swarm.len(), "roles": roles
             }));
         }
-        BiomimicrySubcommands::Therapy { agent_id, therapy_type } => {
-            print_json(therapy::unavailable(&agent_id, &therapy_type));
+        BiomimicrySubcommands::Therapy { agent_id, therapy_type, journal, authorization_file } => {
+            print_json(therapy::execute((&agent_id, &therapy_type), (journal, authorization_file))?);
         }
         BiomimicrySubcommands::Phenotype { agent_id, uv_exposure, temperature } => {
             let factors = EnvironmentalFactors {

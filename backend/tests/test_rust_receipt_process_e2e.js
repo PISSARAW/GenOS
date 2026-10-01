@@ -19,7 +19,9 @@ async function backend(env) {
   return { child, port: ready.port };
 }
 async function rust(input) {
-  const child = spawn(input.binary, [input.journal, input.mission, input.mode || 'tick'], { env: input.env, stdio: ['ignore','pipe','pipe'] });
+  const args = [input.journal, input.mission, input.mode || 'tick'];
+  if (input.authFile) args.push(input.authFile);
+  const child = spawn(input.binary, args, { env: input.env, stdio: ['ignore','pipe','pipe'] });
   let output = ''; let error = '';
   child.stdout.on('data', data => { output += data; });
   child.stderr.on('data', data => { error += data; });
@@ -38,7 +40,7 @@ async function main() {
   const mission = randomUUID(); const journal = path.join(dir, 'receipts.jsonl');
   const env = { ...process.env, NODE_ENV: 'test', GENOS_DB_PATH: path.join(dir,'backend.db'),
     GENOS_ADMIN_TOKEN: randomUUID(), GENOS_ADMIN_PASSWORD: 'receipt-e2e',
-    GENOS_RUST_RECEIPT_SECRET: randomUUID(), TEST_MISSION_ID: mission, TEST_WORKSPACE: dir };
+    GENOS_RUST_RECEIPT_SECRET: randomUUID(), GENOS_THERAPY_AUTH_SECRET: randomUUID(), TEST_MISSION_ID: mission, TEST_WORKSPACE: dir };
   let active;
   try {
     active = await backend(env);
@@ -68,10 +70,47 @@ async function main() {
       assert.equal(population.mission_id, mission);
       assert.ok(population.active_cells.every(cell => cell.cell_state.cell_id === cell.cell_id));
     }
+    await verifyClinical({ binary,journal,mission,env:rustEnv,port:active.port,cell:first.active_cells.find(cell => cell.genome_id && cell.genome_fingerprint),dir });
     console.log('Rust tick -> authenticated backend HTTP -> SQLite, restart, population identity and retry: PASS');
   } finally {
     if (active) await stop(active.child);
     await fs.rm(dir, { recursive: true, force: true });
   }
 }
+async function verifyClinical(input) {
+  const headers = { authorization: `Bearer ${input.env.GENOS_ADMIN_TOKEN}`, 'content-type':'application/json',
+    'x-organization-id':'receipt-org','x-project-id':'receipt-project' };
+  const response = await fetch(`http://127.0.0.1:${input.port}/api/rust/clinical-authorizations`, {
+    method:'POST',headers,body:JSON.stringify({ missionId:input.mission,cellId:input.cell.cell_id,therapy:'IntensiveCareFluids',approved:true })
+  });
+  assert.equal(response.status,201,await response.clone().text());
+  const { authorization } = await response.json();
+  const authFile = path.join(input.dir,'authorization.json');
+  await fs.writeFile(authFile,JSON.stringify({ ...authorization,signature:'0'.repeat(64) }));
+  await rust({ ...input,mode:'therapy',authFile,failure:true });
+  const signer = require('../src/services/medical/therapyAuthorizationService');
+  const priorSecret = process.env.GENOS_THERAPY_AUTH_SECRET;
+  process.env.GENOS_THERAPY_AUTH_SECRET = input.env.GENOS_THERAPY_AUTH_SECRET;
+  const expired = { ...authorization,expires_at_unix_ms:0 };
+  expired.signature = signer.signAuthorization(expired);
+  await fs.writeFile(authFile,JSON.stringify(expired));
+  await rust({ ...input,mode:'therapy',authFile,failure:true });
+  const absent = { ...authorization,cell_id:randomUUID() };
+  absent.signature = signer.signAuthorization(absent);
+  await fs.writeFile(authFile,JSON.stringify(absent));
+  await rust({ ...input,mode:'therapy',authFile,failure:true });
+  if (priorSecret === undefined) delete process.env.GENOS_THERAPY_AUTH_SECRET;
+  else process.env.GENOS_THERAPY_AUTH_SECRET = priorSecret;
+  await fs.writeFile(authFile,JSON.stringify(authorization));
+  const treated = await rust({ ...input,mode:'therapy',authFile });
+  const patient = treated.active_cells.find(cell => cell.cell_id === authorization.cell_id);
+  assert.equal(patient.cell_state.clinical.last_treatment_applied,'IntensiveCareFluids');
+  const before = await fs.readFile(input.journal,'utf8');
+  const duplicate = await rust({ ...input,mode:'therapy',authFile });
+  assert.equal(await fs.readFile(input.journal,'utf8'),before,'authorization replay cannot reapply therapy');
+  assert.deepEqual(duplicate.active_cells.find(cell => cell.cell_id === authorization.cell_id).cell_state,patient.cell_state);
+  assert.ok(before.includes('genos.clinical-application/v1'),'application receipt is durable');
+  console.log('Explicit HTTP authorization -> Rust clinical mutation -> durable receipt -> process reopen and idempotence: PASS');
+}
+
 main().catch(error => { console.error(error); process.exitCode = 1; });

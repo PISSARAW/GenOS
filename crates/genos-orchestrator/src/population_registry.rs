@@ -14,6 +14,7 @@ impl GenosEcosystem {
                 Ok(json!({
                     "cell_id": cell_id,
                     "cell_state": cell,
+                    "cell_state_json": serde_json::to_value(cell).map_err(|e| e.to_string())?.to_string(),
                     "genome_state": genome,
                     "genome_id": cell.genome_id,
                     "lineage_id": genome.map(|entry| entry.lineage_id()),

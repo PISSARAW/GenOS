@@ -156,12 +156,13 @@ async function persistTreatment(db, params) {
   return treatmentId;
 }
 
-async function applyTherapy(db, agentId, options) {
-  const { diagnosis } = options || {};
+async function mutateClinicalState(db, agentId, options) {
+  const { diagnosis } = options;
   const state = await getClinicalState(db, agentId);
   if (!state) return { ok: false, error: 'no_clinical_state' };
 
   const { therapyType, dosage, therapy } = selectTherapy(diagnosis.pathologyType, diagnosis.severity);
+  if (options.authorization.therapyType !== therapyType) throw new Error('Therapy is outside the approved scope');
   const contraindications = checkContraindications(state, therapyType);
 
   if (isContraindicated(contraindications)) {
@@ -213,6 +214,24 @@ async function applyTherapy(db, agentId, options) {
   });
 
   return { ok: true, treatmentId, therapyType, dosage: adjustedDosage, iatrogenicRisk, manifestations, efficacy, wellnessAfter, contraindications };
+}
+
+async function applyTherapy(db, agentId, options) {
+  require('./therapyAuthorizationService').authorizeClinicalMutation(agentId,options);
+  await db.exec(`CREATE TABLE IF NOT EXISTS clinical_treatment_authorizations (
+    authorization_id TEXT PRIMARY KEY, signature TEXT NOT NULL, result_json TEXT NOT NULL
+  )`);
+  return require('../../db').withTransaction(db, async () => {
+    const auth = options.authorization;
+    const previous = await db.get('SELECT * FROM clinical_treatment_authorizations WHERE authorization_id=?',auth.authorizationId);
+    if (previous) {
+      if (previous.signature !== auth.signature) throw new Error('Clinical authorization id conflict');
+      return { ...JSON.parse(previous.result_json),duplicate:true };
+    }
+    const result = await mutateClinicalState(db,agentId,options);
+    await db.run('INSERT INTO clinical_treatment_authorizations VALUES (?,?,?)',auth.authorizationId,auth.signature,JSON.stringify(result));
+    return result;
+  });
 }
 
 function computeNewWellness(state) {

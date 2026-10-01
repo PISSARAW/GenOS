@@ -2,6 +2,8 @@ pub mod autopoiesis;
 pub mod animal_sensory_runtime;
 pub mod behaviors;
 pub mod clinical_therapy;
+#[cfg(feature = "api")]
+pub mod authorized_therapy;
 pub mod conscience;
 pub mod creativity;
 pub mod core_self;

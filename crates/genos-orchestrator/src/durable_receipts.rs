@@ -152,7 +152,7 @@ fn cost_bits(receipt: &Value) -> Result<String, String> {
 }
 
 #[cfg(feature = "api")]
-fn hmac_sha256(secret: &[u8], message: &[u8]) -> String {
+pub(crate) fn hmac_sha256(secret: &[u8], message: &[u8]) -> String {
     let mut key = if secret.len() > 64 { Sha256::digest(secret).to_vec() } else { secret.to_vec() };
     key.resize(64, 0);
     let mut inner = Vec::with_capacity(64 + message.len());
