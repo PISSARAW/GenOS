@@ -187,10 +187,12 @@ async fn export_api(State(state): State<AppState>) -> impl IntoResponse {
 }
 
 async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Query(params): Query<HashMap<String, String>>,
+    (ws, State(state), headers, Query(params)): (
+        WebSocketUpgrade,
+        State<AppState>,
+        HeaderMap,
+        Query<HashMap<String, String>>,
+    ),
 ) -> Response {
     let query_token = params.get("token").map(String::as_str);
     if !state.authorize(&headers, query_token) {

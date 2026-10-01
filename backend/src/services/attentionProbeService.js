@@ -177,7 +177,8 @@ function judgeProbe(probe, blob) {
   return 'inconclusive';
 }
 
-async function settleProbe(db, agentId, probes, probe, verdict) {
+async function settleProbe({ db, agentId }, probeState, probe) {
+  const { probes, verdict } = probeState;
   probe.status = 'checked';
   probe.verdict = verdict;
   probe.checkedAt = nowIso();
@@ -196,7 +197,7 @@ async function checkReport(db, agentId, claims) {
     for (const probe of [...probes.armed]) {
       if (probe.type !== 'false_copy' && probe.type !== 'focus_constraint') continue;
       if (!liveProbe(probe)) continue;
-      verdicts.push(await settleProbe(db, agentId, probes, probe, judgeProbe(probe, blob)));
+      verdicts.push(await settleProbe({ db, agentId }, { probes, verdict: judgeProbe(probe, blob) }, probe));
     }
     return verdicts;
   } catch (_) {
@@ -234,11 +235,22 @@ async function verifySteering(db, agentId, probeId) {
       probe.sqliteAt, agentId
     );
     const rates = toolRates(rows || [], probe.tool);
-    const settled = await settleProbe(db, agentId, probes, probe, rates.nPost > 0 && rates.post > rates.pre ? 'shifted' : 'unshifted');
+    const settled = await settleProbe({ db, agentId }, { probes, verdict: rates.nPost > 0 && rates.post > rates.pre ? 'shifted' : 'unshifted' }, probe);
     return { ...settled, tool: probe.tool, ...rates };
   } catch (_) {
     return null;
   }
+}
+
+function claimsForDossier(dossier) {
+  const events = Array.isArray(dossier.events) ? dossier.events : [];
+  const claims = [];
+  for (const event of events) {
+    const payload = event.payload || {};
+    const report = payload.evidenceReport || payload.report || {};
+    if (Array.isArray(report.claims)) claims.push(...report.claims);
+  }
+  return claims;
 }
 
 async function verifyProbesForDossiers(db, dossiers) {
@@ -247,14 +259,7 @@ async function verifyProbesForDossiers(db, dossiers) {
     const workerId = dossier && (dossier.workerId || dossier.agentId);
     if (!workerId) continue;
     try {
-      const events = Array.isArray(dossier.events) ? dossier.events : [];
-      const claims = [];
-      for (const event of events) {
-        const payload = event.payload || {};
-        const report = payload.evidenceReport || payload.report || {};
-        if (Array.isArray(report.claims)) claims.push(...report.claims);
-      }
-      verdicts[workerId] = await checkReport(db, workerId, claims);
+      verdicts[workerId] = await checkReport(db, workerId, claimsForDossier(dossier));
     } catch (_) {
       verdicts[workerId] = [];
     }

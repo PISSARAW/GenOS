@@ -71,6 +71,24 @@ def function_record(source: str, item: tuple[int, str, str]) -> tuple[int, int, 
     return line_number(source, start), top_level_count(params), body
 
 
+def arrow_expression(masked: str, start: int) -> str:
+    depth = 0
+    closing = {')': '(', ']': '[', '}': '{'}
+    stack = []
+    for index in range(start, len(masked)):
+        char = masked[index]
+        if char in '([{':
+            stack.append(char)
+        elif char in closing:
+            if not stack:
+                return masked[start:index]
+            if stack[-1] == closing[char]:
+                stack.pop()
+        elif char in ',;' and not stack:
+            return masked[start:index]
+    return masked[start:]
+
+
 def arrow_functions(source: str, masked: str) -> list[tuple[int, int, str]]:
     records = []
     for match in re.finditer(r'=>', masked):
@@ -79,10 +97,15 @@ def arrow_functions(source: str, masked: str) -> list[tuple[int, int, str]]:
             end -= 1
         open_paren = masked.rfind('(', 0, end) if end and masked[end - 1] == ')' else -1
         params = masked[open_paren + 1:end - 1] if open_paren >= 0 else masked.rsplit('\n', 1)[-1][:end].split(';')[-1].strip()
-        body_start = masked.find('{', match.end())
-        body_end = matching(masked, body_start, ('{', '}')) if body_start >= 0 else -1
-        if body_end >= 0:
-            records.append(function_record(source, (match.start(), params, masked[body_start:body_end + 1])))
+        body_start = match.end()
+        while body_start < len(masked) and masked[body_start].isspace():
+            body_start += 1
+        if body_start < len(masked) and masked[body_start] == '{':
+            body_end = matching(masked, body_start, ('{', '}'))
+            body = masked[body_start:body_end + 1] if body_end >= 0 else '{}'
+        else:
+            body = arrow_expression(masked, body_start)
+        records.append(function_record(source, (match.start(), params, body)))
     return records
 
 
@@ -148,15 +171,28 @@ def rust_functions(source: str) -> list[tuple[int, int, str]]:
 def _count_rust_params(params_text: str) -> int:
     if not params_text.strip():
         return 0
-    count = 0
-    for part in re.split(r',(?![^()]*\))', params_text):
-        part = part.strip()
-        if not part:
-            continue
-        if re.match(r'^(&|&mut\s+)?self(\s*:\s*\w+)?$', part):
-            continue
-        count += 1
-    return count
+    return sum(1 for part in _split_rust_params(params_text) if part.strip() and not _is_rust_self_param(part))
+
+
+def _split_rust_params(params_text: str) -> list[str]:
+    parts = []
+    start = 0
+    depths = {'(': 0, '[': 0, '{': 0, '<': 0}
+    closing = {')': '(', ']': '[', '}': '{', '>': '<'}
+    for index, char in enumerate(params_text):
+        if char in depths:
+            depths[char] += 1
+        elif char in closing:
+            depths[closing[char]] = max(0, depths[closing[char]] - 1)
+        elif char == ',' and not any(depths.values()):
+            parts.append(params_text[start:index])
+            start = index + 1
+    parts.append(params_text[start:])
+    return parts
+
+
+def _is_rust_self_param(part: str) -> bool:
+    return re.match(r"^(?:&(?:'[\w]+)?\s*(?:mut\s*)?)?self(?:\s*:\s*.+)?$", part.strip()) is not None
 
 
 def check_file(path: Path, lines_only: bool = False) -> list[str]:

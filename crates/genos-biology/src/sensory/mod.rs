@@ -6,7 +6,7 @@ pub mod vomeronasal;
 
 pub use cluster_n::{ClusterN, CryptochromeRadicalState, IntentAlignmentReport};
 pub use echolocation::{
-    EchoReturn, EcholocationCortex, EcholocationMap, SpatialEchoNode, UltrasonicPulse,
+    EchoReturn, EcholocationConfig, EcholocationCortex, EcholocationMap, SpatialEchoNode, UltrasonicPulse,
 };
 pub use mormyrocerebellum::{
     DistortionAnalysis, EodWaveform, MormyroCerebellum, PassiveElectrosenseResult,

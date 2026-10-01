@@ -69,7 +69,11 @@ fn state_mut(value: &mut Value) -> Result<&mut Value, String> {
 }
 
 fn push_step(value: &mut Value, req: &RecordRequest, payload: &Value) -> Result<(u64, String), String> {
-    let genesis = replay_chain::genesis_hash(&str_copy(value, "snapshot_id"), &str_copy(value, "agent_id"), &str_copy(value, "branch_id"), &str_copy(value, "world_id"));
+    let snapshot_id = str_copy(value, "snapshot_id");
+    let agent_id = str_copy(value, "agent_id");
+    let branch_id = str_copy(value, "branch_id");
+    let world_id = str_copy(value, "world_id");
+    let genesis = replay_chain::genesis_hash((&snapshot_id, &agent_id, &branch_id, &world_id));
     let state = match state_mut(value) {
         Ok(valid) => valid,
         Err(reason) => return Err(reason),
@@ -80,7 +84,7 @@ fn push_step(value: &mut Value, req: &RecordRequest, payload: &Value) -> Result<
     };
     let prev = previous_hash(memory, &genesis);
     let step = memory.len() as u64 + 1;
-    let hash = replay_chain::step_hash(&prev, step, req.action, req.delta_entropy, req.delta_dissonance, payload);
+    let hash = replay_chain::step_hash((&prev, step, req.action, req.delta_entropy, req.delta_dissonance, payload));
     memory.push(json!({
         "step": step,
         "action": req.action,

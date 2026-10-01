@@ -25,7 +25,7 @@ impl FitnessExperiment {
     pub fn evaluate(&self, genome: &Genome, task: &str) -> FitnessRecord {
         let profile = task_profile(task);
         let expressed = expressed_loci(genome);
-        let score = behavioral_score(genome, &profile, &expressed, task);
+        let score = behavioral_score(genome, (&profile, &expressed, task));
         FitnessRecord { score, task_id: task.to_string(), replication: 0 }
     }
 
@@ -33,7 +33,7 @@ impl FitnessExperiment {
         let key = format!("{task}::instance{instance}");
         let profile = task_profile(&key);
         let expressed = expressed_loci(genome);
-        let score = behavioral_score(genome, &profile, &expressed, &key);
+        let score = behavioral_score(genome, (&profile, &expressed, &key));
         FitnessRecord { score, task_id: task.to_string(), replication: instance }
     }
 }
@@ -109,9 +109,10 @@ fn expressed_loci(genome: &Genome) -> Vec<String> {
         .collect()
 }
 
-fn behavioral_score(genome: &Genome, profile: &TaskProfile, expressed: &[String], key: &str) -> f64 {
-    let tool_outcomes = mean_outcome(genome, &profile.required_tools, expressed, key, "tool");
-    let cap_outcomes = mean_outcome(genome, &profile.required_caps, expressed, key, "cap");
+fn behavioral_score(genome: &Genome, context: (&TaskProfile, &[String], &str)) -> f64 {
+    let (profile, expressed, key) = context;
+    let tool_outcomes = mean_outcome(genome, (&profile.required_tools, expressed, key, "tool"));
+    let cap_outcomes = mean_outcome(genome, (&profile.required_caps, expressed, key, "cap"));
     let strategy_bonus = strategy_bonus(genome, expressed);
     let viability = viability_baseline(expressed);
     let cost = execution_cost(genome);
@@ -122,17 +123,19 @@ fn viability_baseline(expressed: &[String]) -> f64 {
     (expressed.len() as f64).min(5.0)
 }
 
-fn mean_outcome(genome: &Genome, required: &[String], expressed: &[String], key: &str, kind: &str) -> f64 {
+fn mean_outcome(genome: &Genome, context: (&[String], &[String], &str, &str)) -> f64 {
+    let (required, expressed, key, kind) = context;
     if required.is_empty() {
         return 1.0;
     }
-    let total: f64 = required.iter().map(|item| trial_outcome(genome, item, expressed, key, kind)).sum();
+    let total: f64 = required.iter().map(|item| trial_outcome(genome, (item, expressed, key, kind))).sum();
     total / required.len() as f64
 }
 
-fn trial_outcome(genome: &Genome, item: &str, expressed: &[String], key: &str, kind: &str) -> f64 {
+fn trial_outcome(genome: &Genome, context: (&str, &[String], &str, &str)) -> f64 {
+    let (item, expressed, key, kind) = context;
     let present = expressed.iter().any(|locus| locus.contains(item) || item.contains(locus.as_str()));
-    let draw = hash_draw(genome, key, item, kind);
+    let draw = hash_draw(genome, (key, item, kind));
     if present {
         if draw < 0.85 { 1.0 } else { 0.0 }
     } else if draw < 0.05 {
@@ -142,7 +145,8 @@ fn trial_outcome(genome: &Genome, item: &str, expressed: &[String], key: &str, k
     }
 }
 
-fn hash_draw(genome: &Genome, key: &str, item: &str, kind: &str) -> f64 {
+fn hash_draw(genome: &Genome, key: (&str, &str, &str)) -> f64 {
+    let (key, item, kind) = key;
     let mut hasher = DefaultHasher::new();
     genome.genome_id().hash(&mut hasher);
     key.hash(&mut hasher);

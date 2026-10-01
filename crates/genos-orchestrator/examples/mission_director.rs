@@ -11,7 +11,8 @@ use genos_orchestrator::genos_cell::AgentCell;
 use genos_orchestrator::genos_immune::{AntibodyDetector, Antigen};
 use genos_orchestrator::{Concept, Director, GenosEcosystem, Goal, WorldState};
 
-fn mirror(eco: &mut GenosEcosystem, concept: Concept, tick: &mut usize, armed: &mut bool) {
+fn mirror(eco: &mut GenosEcosystem, state: (Concept, &mut usize, &mut bool)) {
+    let (concept, tick, armed) = state;
     match concept {
         Concept::Organize => {
             if !eco.orchestrator.tissues.contains_key("Arena") {
@@ -93,7 +94,7 @@ fn run_autonomous() {
             let before = state.progress(&goal);
             state.apply(step.concept);
             let after = state.progress(&goal);
-            mirror(&mut eco, step.concept, &mut tick, &mut armed);
+            mirror(&mut eco, (step.concept, &mut tick, &mut armed));
             director.record(step.concept, after > before || state.goal_reached(&goal));
         }
         println!(

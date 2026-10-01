@@ -9,7 +9,7 @@ function mergeChildEvidence(parent, child) {
   if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
 }
 
-function recordExperience(store, graph, rootNode, result) {
+function recordExperience(store, graph, rootNode) {
   if (!store || typeof store.add !== 'function') return;
   try {
     store.add({
@@ -80,7 +80,7 @@ class MorphologyRuntime {
       mergeChildEvidence(context, result.context);
 
       this.emit('complete', { graph, result, context });
-      recordExperience(this.experienceStore, graph, rootNode, result);
+      recordExperience(this.experienceStore, graph, rootNode);
 
       return { output: result.output, receipts: context.receipts, evidence: context.evidence, state: result.context.state || context.state };
     } catch (error) {

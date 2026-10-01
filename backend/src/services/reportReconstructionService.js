@@ -55,7 +55,7 @@ async function evidenceOutcomes(db, agentId, since) {
   return { reports: success + failed, success, failed, claims };
 }
 
-async function scopeList(db, agentId, scope, key) {
+async function scopeList(db, agentId, { scope, key }) {
   try {
     const stored = (await new AdaptiveStateService(db).restoreObject(scope, agentId)) || {};
     const list = stored[key];
@@ -69,19 +69,32 @@ function sqliteUtc(ms) {
   return new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
 }
 
+async function reconstructionFacts(db, agentId, since) {
+    const toolsUsed = await toolExecutions(db, agentId, since);
+    const evidence = await evidenceOutcomes(db, agentId, since);
+    const transitions = await scopeList(db, agentId, { scope: 'world_model', key: 'transitions' });
+    const resolved = transitions.filter((entry) => entry.status === 'resolved');
+    const surprises = resolved.map((entry) => Number(entry.surprise) || 0);
+    const copies = await scopeList(db, agentId, { scope: 'efference', key: 'copies' });
+    const discharged = copies.filter((entry) => entry.consumed === true).length;
+    const edges = await scopeList(db, agentId, { scope: 'causal_ledger', key: 'edges' });
+    return { toolsUsed, evidence, resolved, surprises, copies, discharged, edges };
+}
+
+function reconstructionRates({ surprises, copies, discharged }) {
+  return {
+    meanSurprise: surprises.length ? surprises.reduce((t, v) => t + v, 0) / surprises.length : null,
+    reafferenceRate: copies.length ? discharged / copies.length : null
+  };
+}
+
 async function reconstruct(db, agentId, options) {
   const settings = options || {};
   if (!db || !agentId) return { status: 'insufficient_data', reason: 'missing agent' };
   try {
     const since = sqliteUtc(Number(settings.sinceMs || (Date.now() - 24 * 3600 * 1000)));
-    const toolsUsed = await toolExecutions(db, agentId, since);
-    const evidence = await evidenceOutcomes(db, agentId, since);
-    const transitions = await scopeList(db, agentId, 'world_model', 'transitions');
-    const resolved = transitions.filter((entry) => entry.status === 'resolved');
-    const surprises = resolved.map((entry) => Number(entry.surprise) || 0);
-    const copies = await scopeList(db, agentId, 'efference', 'copies');
-    const discharged = copies.filter((entry) => entry.consumed === true).length;
-    const edges = await scopeList(db, agentId, 'causal_ledger', 'edges');
+    const { toolsUsed, evidence, resolved, surprises, copies, discharged, edges } = await reconstructionFacts(db, agentId, since);
+    const rates = reconstructionRates({ surprises, copies, discharged });
     if (!toolsUsed.length && !evidence.reports && !resolved.length && !edges.length) {
       return { status: 'insufficient_data', reason: 'no activity', agentId };
     }
@@ -91,9 +104,9 @@ async function reconstruct(db, agentId, options) {
       since,
       toolsUsed,
       evidence,
-      meanSurprise: surprises.length ? surprises.reduce((t, v) => t + v, 0) / surprises.length : null,
+      meanSurprise: rates.meanSurprise,
       resolvedTransitions: resolved.length,
-      reafferenceRate: copies.length ? discharged / copies.length : null,
+      reafferenceRate: rates.reafferenceRate,
       causalEdges: edges.length,
       renderHint: 'Verbalize ONLY these facts. Do not invent tools, numbers, causes or quotes. Beyond these facts, return no_answer with method.'
     };

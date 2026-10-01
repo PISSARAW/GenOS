@@ -34,10 +34,9 @@ impl BioluminescenceMicroscope {
     pub fn emit_fluorescence(
         cell_id: Uuid,
         color: FluorophoreColor,
-        organelle: &str,
-        event_type: &str,
-        details: &str,
+        event: (&str, &str, &str),
     ) {
+        let (organelle, event_type, details) = event;
         let signal = FluorescentSignal {
             timestamp: Utc::now().to_rfc3339(),
             cell_id,
@@ -67,18 +66,14 @@ mod tests {
         BioluminescenceMicroscope::emit_fluorescence(
             dummy_id,
             FluorophoreColor::Red,
-            "Mitochondria",
-            "ATP_DEPLETION",
-            "La cellule n'a plus d'énergie et déclenche l'apoptose.",
+            ("Mitochondria", "ATP_DEPLETION", "La cellule n'a plus d'énergie et déclenche l'apoptose."),
         );
 
         // Simule une communication réussie
         BioluminescenceMicroscope::emit_fluorescence(
             dummy_id,
             FluorophoreColor::Blue,
-            "Cilia",
-            "MCP_TOOL_CALLED",
-            "L'enzyme fetch_github_issue a été activée.",
+            ("Cilia", "MCP_TOOL_CALLED", "L'enzyme fetch_github_issue a été activée."),
         );
     }
 }

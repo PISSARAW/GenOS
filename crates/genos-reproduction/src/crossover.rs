@@ -93,13 +93,14 @@ impl MeioticCrossover {
     }
 
     pub fn uniform_crossover(parent_a: &Genome, parent_b: &Genome, swap_prob: f64) -> Genome {
-        Self::uniform_crossover_with_seed(parent_a, parent_b, swap_prob, &default_seed(
+        Self::uniform_crossover_with_seed(parent_a, parent_b, (swap_prob, &default_seed(
             &parent_a.genome_id().to_string(),
             &parent_b.genome_id().to_string(),
-        ))
+        )))
     }
 
-    pub fn uniform_crossover_with_seed(parent_a: &Genome, parent_b: &Genome, swap_prob: f64, seed: &str) -> Genome {
+    pub fn uniform_crossover_with_seed(parent_a: &Genome, parent_b: &Genome, config: (f64, &str)) -> Genome {
+        let (swap_prob, seed) = config;
         let mut child = parent_a.derive_reproductive_child();
         child.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
         let swap_prob = swap_prob.clamp(0.0, 1.0);
@@ -137,11 +138,7 @@ impl MeioticCrossover {
         }
         child.genes = recombined_genes;
 
-        for chromosome in &parent_b.extra_chromosomes {
-            if !child.extra_chromosomes.iter().any(|existing| existing == chromosome) {
-                child.extra_chromosomes.push(chromosome.clone());
-            }
-        }
+        Self::inherit_extra_chromosomes(&mut child, parent_b);
 
         for plasmid in &parent_b.plasmids {
             if rng.random_bool(swap_prob) && !child.plasmids.iter().any(|existing| existing.instruction == plasmid.instruction) {
@@ -154,6 +151,14 @@ impl MeioticCrossover {
             }
         }
         child
+    }
+
+    fn inherit_extra_chromosomes(child: &mut Genome, parent: &Genome) {
+        for chromosome in &parent.extra_chromosomes {
+            if !child.extra_chromosomes.iter().any(|existing| existing == chromosome) {
+                child.extra_chromosomes.push(chromosome.clone());
+            }
+        }
     }
 
     fn recombine_gamete_uniform<R: rand::Rng>(parent: &Genome, swap_prob: f64, rng: &mut R) -> Vec<genos_genome::DnaNucleotide> {
@@ -186,10 +191,9 @@ impl MeioticCrossover {
     pub fn crossover_with_speciation(
         parent_a: &Genome,
         parent_b: &Genome,
-        swap_prob: f64,
-        speciation_threshold: Option<f64>,
-        seed: &str,
+        config: (f64, Option<f64>, &str),
     ) -> Result<Genome, String> {
+        let (swap_prob, speciation_threshold, seed) = config;
         let threshold = speciation_threshold.unwrap_or(crate::phylogeny::MAX_DIVERGENCE_INTROGRESSION);
         let divergence = crate::phylogeny::PhylogeneticTree::estimate_divergence_time(parent_a, parent_b);
 
@@ -200,7 +204,7 @@ impl MeioticCrossover {
             ));
         }
 
-        Ok(Self::uniform_crossover_with_seed(parent_a, parent_b, swap_prob, seed))
+        Ok(Self::uniform_crossover_with_seed(parent_a, parent_b, (swap_prob, seed)))
     }
 
 }
@@ -216,7 +220,7 @@ mod tests {
         let mut parent_b = Genome::new("PARENT_B");
         parent_b.insert_gene(Gene::new("only_b", "B_GENE"));
 
-        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 0.0, "unilateral-loci");
+        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, (0.0, "unilateral-loci"));
 
         assert!(child.genes.contains_key("only_a"));
         assert!(child.genes.contains_key("only_b"));
@@ -229,7 +233,7 @@ mod tests {
         let mut parent_b = Genome::new("PARENT_B");
         parent_b.extra_chromosomes.push(genos_genome::DnaStrand::synthesize("EXTRA_B"));
 
-        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 0.5, "extra-chromosomes");
+        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, (0.5, "extra-chromosomes"));
 
         assert_eq!(child.extra_chromosomes.len(), 2);
     }
@@ -241,7 +245,7 @@ mod tests {
         let mut parent_b = Genome::new("PARENT_B");
         parent_b.plasmids.push(genos_genome::Plasmid::new("shared-instruction"));
 
-        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 1.0, "plasmid-dedup");
+        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, (1.0, "plasmid-dedup"));
 
         assert_eq!(child.plasmids.iter().filter(|plasmid| plasmid.instruction == "shared-instruction").count(), 1);
     }

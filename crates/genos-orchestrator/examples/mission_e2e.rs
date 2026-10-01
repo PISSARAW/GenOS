@@ -8,7 +8,8 @@
 use genos_orchestrator::genos_cell::{AgentCell, Pathology};
 use genos_orchestrator::{GenosEcosystem, Goal, Hypothesis, Multiverse};
 
-fn build_scenario(name: &str, diseased: usize, virions: usize, uncertain: bool) -> GenosEcosystem {
+fn build_scenario(name: &str, simulation: (usize, usize, bool)) -> GenosEcosystem {
+    let (diseased, virions, uncertain) = simulation;
     let mut eco = GenosEcosystem::new(name);
     eco.orchestrator.create_tissue("Arena", "Exec").unwrap();
     let genome = genos_orchestrator::genos_genome::Genome::new("BASE");
@@ -40,7 +41,7 @@ fn main() {
     println!("=== MISSION de bout en bout : feinte + glie + thalamus ===\n");
 
     // --- Partie A : boucle complète sur un écosystème ---
-    let mut eco = build_scenario("Griot_Prime", 3, 2, true);
+    let mut eco = build_scenario("Griot_Prime", (3, 2, true));
     let report = eco.run(&Goal::SecurePerimeter, 8);
     println!("[RUN] ticks={} halted={} atteint={}", report.ticks, report.halted, report.reached);
     println!("      concepts execs : {:?}", report.executed);
@@ -59,9 +60,9 @@ fn main() {
     // --- Partie B : trois mondes isolés réels en parallèle ---
     println!("\n[MONDES ISOLES] Trinity (un écosystème par monde) :");
     let build = |hypothesis: Hypothesis| match hypothesis {
-        Hypothesis::Basic => build_scenario("Basic", 0, 0, false),
-        Hypothesis::Planned => build_scenario("Planned", 1, 1, false),
-        _ => build_scenario("SelfCorrecting", 2, 2, true),
+        Hypothesis::Basic => build_scenario("Basic", (0, 0, false)),
+        Hypothesis::Planned => build_scenario("Planned", (1, 1, false)),
+        _ => build_scenario("SelfCorrecting", (2, 2, true)),
     };
     let result = Multiverse::run_isolated(&Goal::SecurePerimeter, &Hypothesis::trinity(), build);
     for world in &result.worlds {

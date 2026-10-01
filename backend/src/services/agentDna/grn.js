@@ -55,7 +55,7 @@ function nodeSignal(development, locus) {
   return morphogenSignal(development, locus) + stageSignal(development) + differentiationSignal(development, locus);
 }
 
-function iterateLevels(grn, basals, levels, development) {
+function iterateLevels(grn, { basals, levels, development }) {
   const next = {};
   for (const locus of Object.keys(basals)) {
     const basal = basals[locus] || 0;
@@ -68,7 +68,7 @@ function isTfLocus(locus) {
   return locus.startsWith('TF_') || locus.startsWith('PIONEER_');
 }
 
-function isActiveTf(locus, level, grn, genes) {
+function isActiveTf(locus, level, { grn, genes }) {
   if (!(level > 0.5)) return false;
   const gene = genes[locus];
   if (!gene || gene.methylated || gene.chromatin === 1) return false;
@@ -81,7 +81,7 @@ function propagateGrn(grn, genes, development) {
   const basals = basalLevels(grn, genes, development);
   let levels = { ...basals };
   for (let i = 0; i < GRN_ITERATIONS; i += 1) {
-    levels = iterateLevels(grn, basals, levels, development);
+    levels = iterateLevels(grn, { basals, levels, development });
   }
   return levels;
 }
@@ -89,7 +89,7 @@ function propagateGrn(grn, genes, development) {
 function computeActiveTfs(grn, genes, development) {
   const levels = propagateGrn(grn, genes, development);
   return Object.entries(levels)
-    .filter(([locus, level]) => isActiveTf(locus, level, grn, genes))
+    .filter(([locus, level]) => isActiveTf(locus, level, { grn, genes }))
     .map(([locus]) => locus)
     .sort();
 }

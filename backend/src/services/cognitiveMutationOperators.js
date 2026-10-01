@@ -26,60 +26,60 @@ function normalizeClaim(input) {
   };
 }
 
-function variant(operator, claim, statement, extra) {
+function variant(operator, claim, { statement, extra }) {
   return { operator, statement: String(statement).slice(0, 500), entities: claim.entities, note: extra || null };
 }
 
 function humeDoubt(claim) {
   return [
-    variant('hume-doubt', claim, `${claim.statement} — ou simple régularité observée ?`, 'regularity'),
-    variant('hume-doubt', claim, `${claim.statement} — cause commune cachée possible ?`, 'common-cause')
+    variant('hume-doubt', claim, { statement: `${claim.statement} — ou simple régularité observée ?`, extra: 'regularity' }),
+    variant('hume-doubt', claim, { statement: `${claim.statement} — cause commune cachée possible ?`, extra: 'common-cause' })
   ];
 }
 
 function counterfactualRemove(claim) {
   return claim.entities.map((entity) => variant('counterfactual-remove', claim,
-    `Monde sans ${entity} : ${claim.statement}`, `removed:${entity}`));
+    { statement: `Monde sans ${entity} : ${claim.statement}`, extra: `removed:${entity}` }));
 }
 
 function mergeEntities(claim) {
   if (claim.entities.length < 2) return [];
   const fused = `${claim.entities[0]}+${claim.entities[1]}`;
-  return [variant('merge-entities', claim, claim.statement.replace(claim.entities[0], fused).replace(claim.entities[1], fused), `fused:${fused}`)];
+  return [variant('merge-entities', claim, { statement: claim.statement.replace(claim.entities[0], fused).replace(claim.entities[1], fused), extra: `fused:${fused}` })];
 }
 
 function mereologicalShift(claim) {
   return claim.entities.map((entity) => variant('mereological-shift', claim,
-    `${entity} comme partie du système : ${claim.statement}`, `part:${entity}`));
+    { statement: `${entity} comme partie du système : ${claim.statement}`, extra: `part:${entity}` }));
 }
 
 function hypostatize(claim) {
   return claim.properties.map((property) => variant('hypostatize', claim,
-    `${property} traitée comme entité autonome dans : ${claim.statement}`, `entity:${property}`));
+    { statement: `${property} traitée comme entité autonome dans : ${claim.statement}`, extra: `entity:${property}` }));
 }
 
 function categoryShift(claim) {
   return claim.entities.map((entity) => {
     const shifted = CLASSES[entity.length % CLASSES.length];
-    return variant('category-shift', claim, `${entity} reclassé comme ${shifted} : ${claim.statement}`, `class:${shifted}`);
+    return variant('category-shift', claim, { statement: `${entity} reclassé comme ${shifted} : ${claim.statement}`, extra: `class:${shifted}` });
   });
 }
 
 function identityShift(claim) {
   return claim.entities.map((entity) => variant('identity-shift', claim,
-    `${entity}@t0 ≠ ${entity}@t1 : ${claim.statement}`, `sliced:${entity}`));
+    { statement: `${entity}@t0 ≠ ${entity}@t1 : ${claim.statement}`, extra: `sliced:${entity}` }));
 }
 
 function causalInvert(claim) {
   if (!claim.relations.length) {
-    return [variant('causal-invert', claim, `Et si la causalité était inversée : ${claim.statement}`, 'inverted')];
+    return [variant('causal-invert', claim, { statement: `Et si la causalité était inversée : ${claim.statement}`, extra: 'inverted' })];
   }
   return claim.relations.map((rel) => variant('causal-invert', claim,
-    `${rel.to} → ${rel.from} (au lieu de ${rel.from} → ${rel.to})`, `inverted:${rel.from}>${rel.to}`));
+    { statement: `${rel.to} → ${rel.from} (au lieu de ${rel.from} → ${rel.to})`, extra: `inverted:${rel.from}>${rel.to}` }));
 }
 
 function temporalInvert(claim) {
-  return [variant('temporal-invert', claim, `Effet avant cause apparente : ${claim.statement}`, 'time-reversed')];
+  return [variant('temporal-invert', claim, { statement: `Effet avant cause apparente : ${claim.statement}`, extra: 'time-reversed' })];
 }
 
 function chimericHold(claim) {

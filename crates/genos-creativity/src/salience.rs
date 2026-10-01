@@ -78,7 +78,7 @@ impl SalienceGate {
         if score < self.threshold {
             return None;
         }
-        let task = self.refine_for_executive(h, world, goal, score);
+        let task = self.refine_for_executive(h, score);
         Some((0, task))
     }
 
@@ -97,13 +97,7 @@ impl SalienceGate {
             + 0.15 * h.simulation.feasibility
     }
 
-    fn refine_for_executive(
-        &self,
-        h: &RawHypothesis,
-        _world: &WorldState,
-        _goal: &Goal,
-        score: f64,
-    ) -> FocusedTask {
+    fn refine_for_executive(&self, h: &RawHypothesis, score: f64) -> FocusedTask {
         let priority = score.clamp(0.0, 1.0);
         let allocated_atp = (h.energy_cost_estimate * 1.5).max(concept_cost(h.concept));
         FocusedTask {

@@ -20,8 +20,25 @@ function lossOf(adapter, source, translated) {
   return 1 - kept / sourceKeys;
 }
 
-function provenanceOf(node, adapter, sourceNode, targetNode) {
+function provenanceOf(node, adapter, { sourceNode, targetNode }) {
   return { bridgeNodeId: node.nodeId, adapter: adapter.name || 'custom', from: sourceNode.nodeId, to: targetNode.nodeId, at: new Date().toISOString() };
+}
+
+function bundleContent(output, context) {
+  return {
+    artifacts: output && output.artifacts ? output.artifacts : [],
+    claims: output && output.claims ? output.claims : [],
+    evidence: output && output.evidence ? output.evidence : context.evidence || [],
+    ...bundleDecisionContent(output)
+  };
+}
+
+function bundleDecisionContent(output) {
+  return {
+    uncertainties: output && output.uncertainties ? output.uncertainties : [],
+    decisions: output && output.decisions ? output.decisions : [],
+    unresolvedQuestions: output && output.unresolvedQuestions ? output.unresolvedQuestions : [],
+  };
 }
 
 function bundleFromOutput(output, sourceNode, context) {
@@ -29,12 +46,7 @@ function bundleFromOutput(output, sourceNode, context) {
   return createTransferBundle({
     mission: context.missionId || sourceNode.mission || 'unknown',
     scope: sourceNode.scope || 'mission',
-    artifacts: output && output.artifacts ? output.artifacts : [],
-    claims: output && output.claims ? output.claims : [],
-    evidence: output && output.evidence ? output.evidence : context.evidence || [],
-    uncertainties: output && output.uncertainties ? output.uncertainties : [],
-    decisions: output && output.decisions ? output.decisions : [],
-    unresolvedQuestions: output && output.unresolvedQuestions ? output.unresolvedQuestions : [],
+    ...bundleContent(output, context),
     stateCapsules: [],
     workerCapabilities: [],
     resources: context.budget || {},
@@ -118,7 +130,7 @@ class BridgeExecutor extends BaseExecutor {
       translated,
       adapter: adapter.name || 'custom',
       lossEstimate: lossOf(adapter, sourceResult.output, translated),
-      provenance: provenanceOf(node, adapter, sourceNode, targetNode),
+      provenance: provenanceOf(node, adapter, { sourceNode, targetNode }),
       preservation
     });
 

@@ -17,7 +17,7 @@ use crate::trace::TraceStore;
 use crate::virology::VirologyLab;
 use genos_biology::phenotype::{PhenotypeRegistry, create_default_registry};
 use genos_biology::quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
-use genos_biology::sensory::{AccessoryOlfactoryBulb, EcholocationCortex};
+use genos_biology::sensory::{AccessoryOlfactoryBulb, EcholocationConfig, EcholocationCortex};
 use genos_biology::specialized_cells::cnidocyte::DischargeImpact;
 use genos_biology::therapy::{SystemicTherapy, TherapyOutcome, apply_systemic_therapy_to_cell};
 use genos_biology::{
@@ -151,7 +151,12 @@ impl GenosEcosystem {
             ),
             phenotype: create_default_registry(),
             olfaction: AccessoryOlfactoryBulb::new(0.5),
-            echolocation: EcholocationCortex::new(80.0, 10.0, 343.0, 5.0),
+            echolocation: EcholocationCortex::new(EcholocationConfig {
+                base_frequency_khz: 80.0,
+                chirp_rate_hz: 10.0,
+                speed_of_sound_mps: 343.0,
+                obstacle_distance_threshold_m: 5.0,
+            }),
             glial: GlialPipeline::new(),
             cnidocyte: Cnidocyte::new("orchestrator_cnidocyte"),
             guard_cell: StomatalPore::new("orchestrator_pore"),

@@ -26,7 +26,7 @@ function childNodes(graph, node) {
 
 function checkSumWithinParent(node, children, errors) {
   const keys = numericKeys(node, children);
-  for (const key of keys) checkKeyWithinParent(node, children, key, errors);
+  for (const key of keys) checkKeyWithinParent(node, children, { key, errors });
 }
 
 function numericKeys(node, children) {
@@ -37,7 +37,7 @@ function numericKeys(node, children) {
   return Array.from(keys);
 }
 
-function checkKeyWithinParent(node, children, key, errors) {
+function checkKeyWithinParent(node, children, { key, errors }) {
   const parentValue = node.budget && node.budget[key];
   if (!Number.isFinite(parentValue)) return;
   const sum = sumChildren(children, key);

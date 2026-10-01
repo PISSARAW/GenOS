@@ -297,7 +297,7 @@ mod tests {
         con_gene.is_methylated = true;
         parent_b.insert_gene(con_gene);
 
-        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 0.5, "crossover-seed-999");
+        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, (0.5, "crossover-seed-999"));
         
         if let Some(fac) = child.genes.get("somatic_tool") {
             assert_eq!(fac.chromatin_state, genos_genome::ChromatinState::Euchromatin);
@@ -371,6 +371,5 @@ mod tests {
         assert!(molecular_clock(&g1, &g2, 1.5).is_err());
     }
 }
-
 
 

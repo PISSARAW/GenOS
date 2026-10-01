@@ -9,7 +9,8 @@ fn to_hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
-pub fn genesis_hash(snapshot_id: &str, agent_id: &str, branch_id: &str, world_id: &str) -> String {
+pub fn genesis_hash(identity: (&str, &str, &str, &str)) -> String {
+    let (snapshot_id, agent_id, branch_id, world_id) = identity;
     let mut hasher = Sha256::new();
     hasher.update(b"genesis|");
     hasher.update(snapshot_id.as_bytes());
@@ -22,7 +23,8 @@ pub fn genesis_hash(snapshot_id: &str, agent_id: &str, branch_id: &str, world_id
     to_hex(&hasher.finalize())
 }
 
-pub fn step_hash(prev_hash: &str, step: u64, action: &str, delta_entropy: f64, delta_dissonance: f64, payload: &Value) -> String {
+pub fn step_hash(step_data: (&str, u64, &str, f64, f64, &Value)) -> String {
+    let (prev_hash, step, action, delta_entropy, delta_dissonance, payload) = step_data;
     let mut hasher = Sha256::new();
     hasher.update(prev_hash.as_bytes());
     hasher.update(b"|");

@@ -64,7 +64,7 @@ fn build_snapshot_payload(agent_path: &str) -> Value {
     let branch_id = format!("branch-{}", &snapshot_id[5..13]);
     let created_at = Utc::now().to_rfc3339();
     let world_id = "world-matrix-0";
-    let genesis_hash = replay_chain::genesis_hash(&snapshot_id, &agent_id, &branch_id, world_id);
+    let genesis_hash = replay_chain::genesis_hash((&snapshot_id, &agent_id, &branch_id, world_id));
     json!({
         "snapshot_id": snapshot_id,
         "agent_id": agent_id,

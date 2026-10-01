@@ -94,7 +94,7 @@ pub fn cross(parent_a: &AgentDna, parent_b: &AgentDna, options: &CrossOptions) -
     }
     let child = match options.point {
         Some(point) => MeioticCrossover::single_point_crossover(&genome_a, &genome_b, point).0,
-        None => MeioticCrossover::uniform_crossover_with_seed(&genome_a, &genome_b, options.swap_prob, &seed),
+        None => MeioticCrossover::uniform_crossover_with_seed(&genome_a, &genome_b, (options.swap_prob, &seed)),
     };
     let strategy = crossover_strategy(options);
     let provenance = Provenance {
@@ -105,7 +105,7 @@ pub fn cross(parent_a: &AgentDna, parent_b: &AgentDna, options: &CrossOptions) -
         ..Provenance::default()
     };
     let name = format!("{}x{}", parent_a.meta.name, parent_b.meta.name);
-    Ok(rebuild_cross(&child, parent_a, parent_b, &name, provenance))
+    Ok(rebuild_cross(&child, (parent_a, parent_b), (&name, provenance)))
 }
 
 pub fn mutate(dna: &AgentDna, options: &MutateOptions) -> Result<AgentDna, String> {
@@ -136,7 +136,7 @@ pub fn mutate(dna: &AgentDna, options: &MutateOptions) -> Result<AgentDna, Strin
         to: String::new(),
     });
     let name = format!("{}_mut{}", dna.meta.name, provenance.mutations.len());
-    Ok(rebuild_inheriting(&genome, dna, &name, provenance))
+    Ok(rebuild_inheriting(&genome, dna, (&name, provenance)))
 }
 
 pub struct ClonePair {
@@ -150,11 +150,11 @@ pub fn clone_dna_pair(dna: &AgentDna, options: &CloneOptions) -> Result<ClonePai
     if options.mode.as_str() == "budding" {
         let limits = (0, genome.hayflick_limit, options.mutation_rate);
         let result = CellDivision::budding_with_limit_and_mutation(&genome, options.daughter_volume, limits)?;
-        let mother = rebuild_inheriting(&result.mother, dna, &dna.meta.name, mother_provenance(dna));
+        let mother = rebuild_inheriting(&result.mother, dna, (&dna.meta.name, mother_provenance(dna)));
         let mut daughter_prov = daughter_provenance(dna, &options.mode);
         daughter_prov.mutations.push(mother_scar_mutation(&result.mother));
         let daughter_name = format!("{}_clone_{}", dna.meta.name, options.mode);
-        let daughter = rebuild_inheriting(&result.daughter, dna, &daughter_name, daughter_prov);
+        let daughter = rebuild_inheriting(&result.daughter, dna, (&daughter_name, daughter_prov));
         return Ok(ClonePair { mother, daughter });
     }
     Ok(ClonePair { mother: dna.clone(), daughter: clone_dna(dna, options)? })
@@ -210,7 +210,7 @@ pub fn clone_dna(dna: &AgentDna, options: &CloneOptions) -> Result<AgentDna, Str
         ..Provenance::default()
     };
     let name = format!("{}_clone_{}", dna.meta.name, options.mode);
-    Ok(rebuild_inheriting(&child, dna, &name, provenance))
+    Ok(rebuild_inheriting(&child, dna, (&name, provenance)))
 }
 
 pub fn decoy(dna: &AgentDna, options: &DecoyOptions) -> Result<AgentDna, String> {
@@ -230,7 +230,7 @@ pub fn graft(dna: &AgentDna, spec: &GraftSpec) -> Result<AgentDna, String> {
     let mut provenance = dna.provenance.clone();
     provenance.parents = vec![dna.meta.genome_id];
     provenance.mutations.push(graft_mutation(spec, "graft"));
-    Ok(rebuild_inheriting(&genome, dna, &dna.meta.name, provenance))
+    Ok(rebuild_inheriting(&genome, dna, (&dna.meta.name, provenance)))
 }
 
 /// Derives a new genome from a parent and distills acquired concepts into it.
@@ -256,7 +256,7 @@ pub fn speciate(dna: &AgentDna, options: &SpeciateOptions) -> Result<AgentDna, S
     for spec in &options.grafts {
         provenance.mutations.push(graft_mutation(spec, "speciation"));
     }
-    Ok(rebuild_inheriting(&child, dna, &options.name, provenance))
+    Ok(rebuild_inheriting(&child, dna, (&options.name, provenance)))
 }
 
 fn apply_graft(genome: &mut Genome, spec: &GraftSpec) -> Result<(), String> {
@@ -329,7 +329,9 @@ fn rebuild(genome: &Genome, name: &str, provenance: Provenance) -> AgentDna {
     dna
 }
 
-fn rebuild_cross(genome: &Genome, parent_a: &AgentDna, parent_b: &AgentDna, name: &str, provenance: Provenance) -> AgentDna {
+fn rebuild_cross(genome: &Genome, parents: (&AgentDna, &AgentDna), metadata: (&str, Provenance)) -> AgentDna {
+    let (parent_a, parent_b) = parents;
+    let (name, provenance) = metadata;
     let mut dna = AgentDna::from_genome(genome, name, provenance);
     dna.epigenome = parent_a.epigenome.clone();
     dna.epigenome.generation = u64::from(genome.generation);
@@ -353,7 +355,8 @@ fn merge_parent_grn(dna: &mut AgentDna, parent: &AgentDna) {
     }
 }
 
-fn rebuild_inheriting(genome: &Genome, parent: &AgentDna, name: &str, provenance: Provenance) -> AgentDna {
+fn rebuild_inheriting(genome: &Genome, parent: &AgentDna, metadata: (&str, Provenance)) -> AgentDna {
+    let (name, provenance) = metadata;
     let mut dna = AgentDna::from_genome(genome, name, provenance);
     dna.epigenome = parent.epigenome.clone();
     dna.epigenome.generation = u64::from(genome.generation);

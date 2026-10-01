@@ -15,11 +15,15 @@ def check(source: str, suffix: str = '.js') -> list[str]:
 
 
 assert not check('const run = value => { return value ? value : 0; };')
+assert not check('const pick = value => value;\nfunction next() { if (ok) return true; }')
+assert any('PARAMETERS 4>3' in item for item in check('const pick = (a, b, c, d) => a;'))
 assert not check('function run(value) { return value?.nested ?? 0; }')
 assert any('PARAMETERS 4>3' in item for item in check('function run(a, b, c, d) { return d; }'))
 assert any('COMPLEXITY 12>10' in item for item in check('function run() { if (a) {} if (b) {} if (c) {} if (d) {} if (e) {} if (f) {} if (g) {} if (h) {} if (i) {} if (j) {} if (k) {} }'))
 assert not check('def run(value):\n    return value\n', '.py')
 assert any('PARAMETERS 4>3' in item for item in check('fn run(a: i32, b: i32, c: i32, d: i32) {}', '.rs'))
+assert not check('fn run(a: Vec<(i32, i32)>, b: HashMap<String, Vec<u8>>, c: i32) {}', '.rs')
+assert not check("fn run(&'a mut self, value: Option<Result<u8, String>>) {}", '.rs')
 
 report = strict_report({'sample.js': ['COMPLEXITY 11>10 at line 4', 'PARAMETERS 4>3 at line 7']})
 assert report['violation_count'] == 2

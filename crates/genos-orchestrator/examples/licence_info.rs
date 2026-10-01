@@ -5,7 +5,8 @@ use genos_orchestrator::{BiomimeticOrchestrator, BucketState, TokenBucketSchedul
 // --- Licence informatique : algorithmique fondamentale ----------------------
 
 fn quicksort(v: &mut [i32]) -> usize {
-    fn part(v: &mut [i32], lo: isize, hi: isize, cmp: &mut usize) -> isize {
+    fn part(v: &mut [i32], bounds: (isize, isize), cmp: &mut usize) -> isize {
+        let (lo, hi) = bounds;
         let pivot = v[hi as usize];
         let mut i = lo - 1;
         for j in lo..hi {
@@ -18,17 +19,18 @@ fn quicksort(v: &mut [i32]) -> usize {
         v.swap((i + 1) as usize, hi as usize);
         i + 1
     }
-    fn rec(v: &mut [i32], lo: isize, hi: isize, cmp: &mut usize) {
+    fn rec(v: &mut [i32], bounds: (isize, isize), cmp: &mut usize) {
+        let (lo, hi) = bounds;
         if lo < hi {
-            let p = part(v, lo, hi, cmp);
-            rec(v, lo, p - 1, cmp);
-            rec(v, p + 1, hi, cmp);
+            let p = part(v, (lo, hi), cmp);
+            rec(v, (lo, p - 1), cmp);
+            rec(v, (p + 1, hi), cmp);
         }
     }
     let mut cmp = 0;
     let n = v.len();
     if n > 1 {
-        rec(v, 0, n as isize - 1, &mut cmp);
+        rec(v, (0, n as isize - 1), &mut cmp);
     }
     cmp
 }

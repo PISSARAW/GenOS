@@ -25,7 +25,8 @@ pub struct PheromoneSignal {
 }
 
 impl PheromoneSignal {
-    pub fn new(source_agent: &str, locus: &str, ptype: PheromoneType, concentration: f64) -> Self {
+    pub fn new(source_agent: &str, signal: ( &str, PheromoneType, f64)) -> Self {
+        let (locus, ptype, concentration) = signal;
         Self {
             source_agent: source_agent.to_string(),
             locus: locus.to_string(),
@@ -176,7 +177,7 @@ mod tests {
     fn test_vomeronasal_detection_and_flehmen() {
         let mut aob = AccessoryOlfactoryBulb::new(0.2);
         
-        let alarm = PheromoneSignal::new("agent-alpha", "workspace/src", PheromoneType::Alarm, 0.9)
+        let alarm = PheromoneSignal::new("agent-alpha", ("workspace/src", PheromoneType::Alarm, 0.9))
             .with_payload("threat", "toxin_injection");
         let resp = aob.receive_signal(alarm);
 
@@ -186,7 +187,7 @@ mod tests {
         assert_eq!(aob.flehmen_history_count, 1);
         assert_eq!(aob.active_signals.len(), 1);
 
-        let weak_trail = PheromoneSignal::new("agent-beta", "workspace/db", PheromoneType::Trail, 0.05);
+        let weak_trail = PheromoneSignal::new("agent-beta", ("workspace/db", PheromoneType::Trail, 0.05));
         let resp_weak = aob.receive_signal(weak_trail);
         assert!(!resp_weak.triggered);
         assert_eq!(resp_weak.autonomic_action, "SUBLIMINAL_UNDETECTED");
@@ -195,7 +196,7 @@ mod tests {
     #[test]
     fn test_pheromone_decay() {
         let mut aob = AccessoryOlfactoryBulb::new(0.1);
-        let trail = PheromoneSignal::new("agent-alpha", "workspace/cache", PheromoneType::Trail, 0.5);
+        let trail = PheromoneSignal::new("agent-alpha", ("workspace/cache", PheromoneType::Trail, 0.5));
         aob.receive_signal(trail);
         assert_eq!(aob.active_signals.len(), 1);
 

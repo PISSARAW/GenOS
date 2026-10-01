@@ -261,7 +261,7 @@ fn handle_crossover(args: CrossoverArgs) {
     } else {
         let resolved_seed = seed.unwrap_or("genos-default-crossover");
         let res =
-            MeioticCrossover::uniform_crossover_with_seed(&g_a, &g_b, swap_prob, resolved_seed);
+            MeioticCrossover::uniform_crossover_with_seed(&g_a, &g_b, (swap_prob, resolved_seed));
         (res, format!("uniform_p{:.2}", swap_prob))
     };
 

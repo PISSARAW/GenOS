@@ -94,10 +94,10 @@ async function loadTransitions(db, agentId) {
   return { store, all: Array.isArray(stored.transitions) ? stored.transitions : [] };
 }
 
-async function saveTransitions(store, agentId, all, extra) {
+async function saveTransitions(store, agentId, all) {
   const current = (await store.restoreObject(SCOPE, agentId)) || {};
   const bounded = pruneTransitions(all);
-  await store.persistObject(SCOPE, agentId, { ...current, ...extra, transitions: bounded }, bounded.length);
+  await store.persistObject(SCOPE, agentId, { ...current, transitions: bounded }, bounded.length);
   return bounded;
 }
 
@@ -167,9 +167,13 @@ function deltaKey(delta) {
   return JSON.stringify(delta);
 }
 
+function validSample(agentId, data) {
+  return !!agentId && typeof data.action === 'string' && !!data.action;
+}
+
 async function recordSample(db, agentId, sample) {
   const data = sample || {};
-  if (!agentId || typeof data.action !== 'string' || !data.action) return null;
+  if (!validSample(agentId, data)) return null;
   const delta = encodeWorldState(data.delta);
   if (!delta) return null;
   let opened = null;
@@ -188,24 +192,28 @@ async function recordSample(db, agentId, sample) {
   }
 }
 
+function sampleDistribution(samples) {
+  const counts = {};
+  for (const entry of samples) {
+    const key = deltaKey(entry.delta);
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .map(([key, count]) => ({ delta: JSON.parse(key), p: count / samples.length }))
+    .sort((a, b) => b.p - a.p)
+    .slice(0, 3);
+}
+
 async function predictState(db, agentId, input) {
   const data = input || {};
-  if (!agentId || typeof data.action !== 'string' || !data.action) return null;
+  if (!validSample(agentId, data)) return null;
   let opened = null;
   try {
     opened = await openDb(db);
     const stored = (await new AdaptiveStateService(opened.db).restoreObject(SCOPE, agentId)) || {};
     const samples = (Array.isArray(stored.samples) ? stored.samples : []).filter((entry) => entry.action === data.action);
     if (!samples.length) return null;
-    const counts = {};
-    for (const entry of samples) {
-      const key = deltaKey(entry.delta);
-      counts[key] = (counts[key] || 0) + 1;
-    }
-    const distribution = Object.entries(counts)
-      .map(([key, count]) => ({ delta: JSON.parse(key), p: count / samples.length }))
-      .sort((a, b) => b.p - a.p)
-      .slice(0, 3);
+    const distribution = sampleDistribution(samples);
     const withSuccess = samples.filter((entry) => typeof entry.delta.success === 'boolean');
     return {
       action: data.action,
@@ -221,28 +229,36 @@ async function predictState(db, agentId, input) {
   }
 }
 
+async function rolloutChildren(db, agentId, state) {
+  const { node, level, actions, frontier } = state;
+  for (const action of actions) {
+    if (state.total >= ROLLOUT_NODES_MAX) break;
+    state.total += 1;
+    let predicted = null;
+    try {
+      predicted = await predictState(db, agentId, { action });
+    } catch (_) {}
+    const child = { action, predicted, children: [], depth: level + 1 };
+    node.children.push(child);
+    frontier.push({ node: child, level: level + 1 });
+  }
+}
+
 async function rolloutFree(db, agentId, input) {
   const data = input || {};
   const actions = Array.isArray(data.actions) ? data.actions.filter((action) => typeof action === 'string') : [];
   const depth = Math.max(1, Math.min(3, Math.floor(Number(data.depth) || 2)));
   if (!agentId || !actions.length) return null;
   const root = { action: null, children: [], depth: 0 };
-  let total = 0;
+  const state = { total: 0, actions, frontier: null, node: null, level: 0 };
   const frontier = [{ node: root, level: 0 }];
-  while (frontier.length && total < ROLLOUT_NODES_MAX) {
+  state.frontier = frontier;
+  while (frontier.length && state.total < ROLLOUT_NODES_MAX) {
     const { node, level } = frontier.shift();
     if (level >= depth) continue;
-    for (const action of actions) {
-      if (total >= ROLLOUT_NODES_MAX) break;
-      total += 1;
-      let predicted = null;
-      try {
-        predicted = await predictState(db, agentId, { action });
-      } catch (_) {}
-      const child = { action, predicted, children: [], depth: level + 1 };
-      node.children.push(child);
-      frontier.push({ node: child, level: level + 1 });
-    }
+    state.node = node;
+    state.level = level;
+    await rolloutChildren(db, agentId, state);
   }
   return root;
 }
@@ -283,6 +299,23 @@ async function predictTrajectory(db, agentId, input) {
   }
 }
 
+function resolveTrajectorySteps(pending, outcomes) {
+  const surprises = [];
+  const resolvedIds = new Set();
+  for (let step = 0; step < pending.length && step < outcomes.length; step++) {
+    const entry = pending[step];
+    const data = outcomes[step] || {};
+    const surprise = scoreSurprise(entry.predicted || {}, { success: data.success === true, detail: data.detail, observedState: data.observedState });
+    surprises.push(surprise);
+    entry.status = 'resolved';
+    entry.success = data.success === true;
+    entry.surprise = surprise;
+    entry.observedAt = new Date().toISOString();
+    resolvedIds.add(entry.id);
+  }
+  return { surprises, resolvedIds };
+}
+
 async function observeTrajectory(db, agentId, input) {
   const options = input || {};
   const fallback = { matched: false, surprises: [], meanSurprise: 1, uncertaintyMiscalibration: null };
@@ -296,19 +329,7 @@ async function observeTrajectory(db, agentId, input) {
       .filter((entry) => entry.status === 'pending' && entry.chainId === options.chainId)
       .sort((a, b) => a.step - b.step);
     if (!pending.length) return fallback;
-    const surprises = [];
-    const resolvedIds = new Set();
-    for (let step = 0; step < pending.length && step < outcomes.length; step++) {
-      const entry = pending[step];
-      const data = outcomes[step] || {};
-      const surprise = scoreSurprise(entry.predicted || {}, { success: data.success === true, detail: data.detail, observedState: data.observedState });
-      surprises.push(surprise);
-      entry.status = 'resolved';
-      entry.success = data.success === true;
-      entry.surprise = surprise;
-      entry.observedAt = new Date().toISOString();
-      resolvedIds.add(entry.id);
-    }
+    const { surprises, resolvedIds } = resolveTrajectorySteps(pending, outcomes);
     if (!resolvedIds.size) return fallback;
     await saveTransitions(store, agentId, all);
     const errors = pending

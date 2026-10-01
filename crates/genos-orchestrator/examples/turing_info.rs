@@ -105,7 +105,8 @@ fn tape_string(tape: &HashMap<isize, char>) -> String {
 }
 
 /// Execute la MT ; None si rejet, blocage ou depassement de la limite d'etapes.
-fn run_tm(tm: &Tm, tape: &mut HashMap<isize, char>, start: usize, head: isize, limit: usize) -> Option<String> {
+fn run_tm(tm: &Tm, tape: &mut HashMap<isize, char>, initial: (usize, isize, usize)) -> Option<String> {
+    let (start, head, limit) = initial;
     let mut state = start;
     let mut head = head;
     for _ in 0..limit {
@@ -207,15 +208,15 @@ fn main() {
     for input in ["0", "1011", "111"] {
         let mut tape = build_tape(input);
         let head = input.len() as isize - 1;
-        let out = run_tm(&tm, &mut tape, 0, head, 10_000);
+        let out = run_tm(&tm, &mut tape, (0, head, 10_000));
         println!("{input} -> {out:?}");
     }
     let mut t0 = build_tape("0");
-    assert_eq!(run_tm(&tm, &mut t0, 0, 0, 10_000).as_deref(), Some("1"));
+    assert_eq!(run_tm(&tm, &mut t0, (0, 0, 10_000)).as_deref(), Some("1"));
     let mut t1 = build_tape("1011");
-    assert_eq!(run_tm(&tm, &mut t1, 0, 3, 10_000).as_deref(), Some("1100"));
+    assert_eq!(run_tm(&tm, &mut t1, (0, 3, 10_000)).as_deref(), Some("1100"));
     let mut t2 = build_tape("111");
-    assert_eq!(run_tm(&tm, &mut t2, 0, 2, 10_000).as_deref(), Some("1000"));
+    assert_eq!(run_tm(&tm, &mut t2, (0, 2, 10_000)).as_deref(), Some("1000"));
 
     // Machine qui ne s'arrete jamais (boucle a droite) : indecidabilite illustree.
     let mut boucle = HashMap::new();
@@ -223,7 +224,7 @@ fn main() {
     boucle.insert((0, '_'), (0, '_', 1));
     let non_halting = Tm { trans: boucle, accept: 99 };
     let mut tape_boucle = build_tape("0000");
-    let res = run_tm(&non_halting, &mut tape_boucle, 0, 0, 1000);
+    let res = run_tm(&non_halting, &mut tape_boucle, (0, 0, 1000));
     println!("machine non-halting (limite 1000) = {res:?}");
     assert!(res.is_none());
 

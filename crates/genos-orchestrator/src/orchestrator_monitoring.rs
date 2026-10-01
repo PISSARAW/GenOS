@@ -95,9 +95,7 @@ impl BiomimeticOrchestrator {
         BioluminescenceMicroscope::emit_fluorescence(
             self.orchestrator_id,
             color,
-            organelle,
-            event_type,
-            details,
+            (organelle, event_type, details),
         );
     }
 }

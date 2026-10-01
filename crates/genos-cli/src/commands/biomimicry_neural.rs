@@ -190,9 +190,7 @@ pub fn handle_glial_cleanup(agent_id: &str, intensity: Option<&str>) -> Result<(
     BioluminescenceMicroscope::emit_fluorescence(
         cell_id,
         FluorophoreColor::Yellow,
-        "Microglia",
-        "GLIAL_PHAGOCYTOSIS",
-        &format!("Nettoyage synaptique intensité {}", mode),
+        ("Microglia", "GLIAL_PHAGOCYTOSIS", &format!("Nettoyage synaptique intensité {}", mode)),
     );
     let severity = match mode {
         "high" | "aggressive" => 0.9,
@@ -289,16 +287,53 @@ pub fn handle_gene_regulatory_network(agent_id: &str, condition: &str, action_sc
     Ok(())
 }
 
+fn sync_chromatin_permissions(agent_id: &str, locus: &str, developmentally_locked: bool) -> bool {
+    let api_url = std::env::var("GENOS_API_URL")
+        .unwrap_or_else(|_| format!("http://127.0.0.1:{}", std::env::var("GENOS_PORT").unwrap_or_else(|_| "4000".to_string())));
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_millis(1500))
+        .build()
+        .unwrap_or_default();
+    let mut req = client.post(format!("{}/api/platform/permissions", api_url));
+    if let Ok(token) = std::env::var("GENOS_API_TOKEN").or_else(|_| std::env::var("GENOS_ACCESS_KEY")) {
+        req = req.header("Authorization", format!("Bearer {}", token));
+    }
+    let denied_tools = if developmentally_locked { vec![locus.to_string()] } else { vec![] };
+    let permissions = if developmentally_locked { vec![] } else { vec![locus.to_string()] };
+    match req.json(&json!({
+        "agentId": agent_id,
+        "permissions": permissions,
+        "deniedTools": denied_tools,
+        "taintPolicy": "block_external"
+    })).send() {
+        Ok(res) => res.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+fn load_chromatin_genome(agent_id: &str, state_path: &PathBuf) -> Result<Genome, String> {
+    if !state_path.exists() {
+        return Ok(Genome::new(agent_id));
+    }
+    serde_json::from_str(&fs::read_to_string(state_path)
+        .map_err(|e| format!("Failed to read chromatin state: {}", e))?)
+        .map_err(|e| format!("Invalid persisted chromatin state: {}", e))
+}
+
+fn save_chromatin_genome(state_path: &PathBuf, genome: &Genome) -> Result<(), String> {
+    if let Some(parent) = state_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create chromatin store: {}", e))?;
+    }
+    fs::write(state_path, serde_json::to_string_pretty(genome)
+        .map_err(|e| format!("Failed to serialize chromatin state: {}", e))?)
+        .map_err(|e| format!("Failed to persist chromatin state: {}", e))
+}
+
 pub fn handle_epigenetic_chromatin(agent_id: &str, locus: &str, opts: (&str, bool)) -> Result<(), String> {
     let (state, pioneer_factor) = opts;
     let chromatin_state = parse_chromatin_state(state)?;
     let state_path = chromatin_state_path(agent_id)?;
-    let mut genome = if state_path.exists() {
-        serde_json::from_str(&fs::read_to_string(&state_path).map_err(|e| format!("Failed to read chromatin state: {}", e))?)
-            .map_err(|e| format!("Invalid persisted chromatin state: {}", e))?
-    } else {
-        Genome::new(agent_id)
-    };
+    let mut genome = load_chromatin_genome(agent_id, &state_path)?;
 
     if let Some(existing_gene) = genome.genes.get(locus) {
         if existing_gene.chromatin_state == ChromatinState::HeterochromatinConstitutive
@@ -319,31 +354,9 @@ pub fn handle_epigenetic_chromatin(agent_id: &str, locus: &str, opts: (&str, boo
         gene.is_methylated = chromatin_state != ChromatinState::Euchromatin;
         (gene.is_methylated, gene.developmentally_locked)
     };
-    if let Some(parent) = state_path.parent() { fs::create_dir_all(parent).map_err(|e| format!("Failed to create chromatin store: {}", e))?; }
-    fs::write(&state_path, serde_json::to_string_pretty(&genome).map_err(|e| format!("Failed to serialize chromatin state: {}", e))?)
-        .map_err(|e| format!("Failed to persist chromatin state: {}", e))?;
+    save_chromatin_genome(&state_path, &genome)?;
 
-    let mut synced_with_platform = false;
-    let api_url = std::env::var("GENOS_API_URL")
-        .unwrap_or_else(|_| format!("http://127.0.0.1:{}", std::env::var("GENOS_PORT").unwrap_or_else(|_| "4000".to_string())));
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(1500))
-        .build()
-        .unwrap_or_default();
-    let mut req = client.post(format!("{}/api/platform/permissions", api_url));
-    if let Ok(token) = std::env::var("GENOS_API_TOKEN").or_else(|_| std::env::var("GENOS_ACCESS_KEY")) {
-        req = req.header("Authorization", format!("Bearer {}", token));
-    }
-    let denied_tools = if developmentally_locked { vec![locus.to_string()] } else { vec![] };
-    let permissions = if developmentally_locked { vec![] } else { vec![locus.to_string()] };
-    if let Ok(res) = req.json(&json!({
-        "agentId": agent_id,
-        "permissions": permissions,
-        "deniedTools": denied_tools,
-        "taintPolicy": "block_external"
-    })).send() {
-        synced_with_platform = res.status().is_success();
-    }
+    let synced_with_platform = sync_chromatin_permissions(agent_id, locus, developmentally_locked);
 
     print_json(json!({
         "success": true, "operation": "epigenetic_chromatin",

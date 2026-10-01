@@ -43,7 +43,7 @@ pub fn execute(cmd: DesktopSubcommands) -> Result<(), String> {
     match cmd {
         DesktopSubcommands::Capture { out, force, parents } => handle_capture(out.as_deref(), force, parents),
         DesktopSubcommands::Action { r#type, x, y, text, button } => {
-            match execute_action(&r#type, x, y, text.as_deref(), button.as_deref()) {
+            match execute_action(&r#type, (x, y, text.as_deref(), button.as_deref())) {
                 Ok(_) => {
                     println!("{}", json!({ "success": true }));
                     Ok(())
@@ -76,4 +76,3 @@ pub fn execute(cmd: DesktopSubcommands) -> Result<(), String> {
         }
     }
 }
-

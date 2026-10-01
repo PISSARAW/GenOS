@@ -35,9 +35,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             BioluminescenceMicroscope::emit_fluorescence(
                 cell_id,
                 FluorophoreColor::Blue,
-                &organelle_name,
-                "ENDOSYMBIOSIS_INTEGRATION",
-                &format!("Intégration du processus '{}'", target_process),
+                (&organelle_name, "ENDOSYMBIOSIS_INTEGRATION", &format!("Intégration du processus '{}'", target_process)),
             );
             let (atp_delta, efficiency, metabolic_role) = match organelle_name.to_lowercase().as_str() {
                 "mitochondria" | "mitochondrie" => (36, 0.94, "oxidative_phosphorylation"),
@@ -58,9 +56,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             BioluminescenceMicroscope::emit_fluorescence(
                 cell_id,
                 FluorophoreColor::Green,
-                "Astrocyte",
-                "BLOOD_BRAIN_BARRIER",
-                &format!("Niveau de filtrage : {}", filter_level),
+                ("Astrocyte", "BLOOD_BRAIN_BARRIER", &format!("Niveau de filtrage : {}", filter_level)),
             );
             print_json(json!({
                 "success": true, "operation": "cellular_bbb",
@@ -235,9 +231,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             BioluminescenceMicroscope::emit_fluorescence(
                 cell.cell_id,
                 FluorophoreColor::Red,
-                "Mitochondria",
-                "CYTOCHROME_C_RELEASE",
-                "Apoptose cellulaire programmée déclenchée",
+                ("Mitochondria", "CYTOCHROME_C_RELEASE", "Apoptose cellulaire programmée déclenchée"),
             );
             print_json(json!({
                 "success": true, "operation": "apoptosis",
@@ -278,7 +272,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "red" => FluorophoreColor::Red,
                 _ => FluorophoreColor::Green,
             };
-            BioluminescenceMicroscope::emit_fluorescence(cell_id, fluorophore.clone(), &organelle, &event_type, &details);
+            BioluminescenceMicroscope::emit_fluorescence(cell_id, fluorophore.clone(), (&organelle, &event_type, &details));
             print_json(json!({
                 "success": true, "operation": "bioluminescence",
                 "agent_id": agent_id, "color": format!("{:?}", fluorophore),

@@ -59,7 +59,7 @@ function pick(rand, list) {
   return list[Math.floor(rand() * list.length)];
 }
 
-function crossoverGenes(left, right, rand, mode) {
+function crossoverGenes(left, right, { rand, mode }) {
   if (mode === 'uniform') return left.map((gene, index) => (rand() < 0.5 ? gene : (right[index % Math.max(right.length, 1)] || gene)));
   const point = 1 + Math.floor(rand() * Math.max(left.length - 1, 1));
   return [...left.slice(0, point), ...right.slice(point)];
@@ -82,7 +82,7 @@ function crossover(a, b, options) {
       const grafted = b[field].filter(() => rand() < 0.5);
       child[field] = [...kept, ...grafted].slice(0, MAX_GENES);
     } else {
-      child[field] = crossoverGenes(a[field] || [], b[field] || [], rand, mode);
+      child[field] = crossoverGenes(a[field] || [], b[field] || [], { rand, mode });
     }
   }
   return child;

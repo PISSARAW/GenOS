@@ -95,7 +95,7 @@ fn handle_vomeronasal(action: &str, params: &[String]) {
     };
 
     let mut aob = genos_biology::sensory::AccessoryOlfactoryBulb::new(sensitivity);
-    let signal = genos_biology::sensory::PheromoneSignal::new(&source_agent, &locus, ptype.clone(), concentration);
+    let signal = genos_biology::sensory::PheromoneSignal::new(&source_agent, (&locus, ptype.clone(), concentration));
     let response = aob.receive_signal(signal);
 
     println!("{}", json!({
@@ -223,7 +223,14 @@ fn handle_echolocation(action: &str, params: &[String]) {
         })
         .collect();
 
-    let mut cortex = genos_biology::sensory::EcholocationCortex::new(base_freq, 150.0, 340.0, threshold_m);
+    let mut cortex = genos_biology::sensory::EcholocationCortex::new(
+        genos_biology::sensory::EcholocationConfig {
+            base_frequency_khz: base_freq,
+            chirp_rate_hz: 150.0,
+            speed_of_sound_mps: 340.0,
+            obstacle_distance_threshold_m: threshold_m,
+        },
+    );
     let pulse = cortex.emit_chirp(25.0, 4.0);
     let map = cortex.process_echoes(&pulse, &echoes);
 
@@ -235,4 +242,3 @@ fn handle_echolocation(action: &str, params: &[String]) {
         "navigable_corridors_count": map.navigable_corridors_count, "echo_nodes": map.echo_nodes
     }));
 }
-

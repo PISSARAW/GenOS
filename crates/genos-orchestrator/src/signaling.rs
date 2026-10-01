@@ -48,10 +48,9 @@ impl SignalingCascade {
     /// Émission d'un signal paracrine dans la matrice extracellulaire.
     pub fn emit_paracrine(
         matrix: &mut ExtracellularMatrix,
-        source_idx: usize,
-        ligand: Ligand,
-        ttl: u32,
+        signal: (usize, Ligand, u32),
     ) {
+        let (source_idx, ligand, ttl) = signal;
         matrix.emit_signal(ParacrineSignal {
             source_idx,
             ligand,

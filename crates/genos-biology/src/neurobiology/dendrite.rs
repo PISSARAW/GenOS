@@ -1,6 +1,17 @@
 use serde::{Deserialize, Serialize};
 use super::*;
 
+fn stdp_delta(delta_t: f64, learning_rate: f64) -> f64 {
+    let magnitude = learning_rate * (-delta_t.abs() / 20.0).exp();
+    if delta_t > 0.0 {
+        magnitude
+    } else if delta_t < 0.0 {
+        -magnitude
+    } else {
+        0.0
+    }
+}
+
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -80,10 +91,9 @@ impl DendriticCompartment {
     pub fn new(
         id: &str,
         compartment_type: CompartmentType,
-        parent_id: Option<String>,
-        electrotonic_distance: f64,
-        length_constant: f64,
+        morphology: (Option<String>, f64, f64),
     ) -> Self {
+        let (parent_id, electrotonic_distance, length_constant) = morphology;
         Self {
             id: id.to_string(),
             compartment_type,
@@ -121,10 +131,10 @@ impl DendriticTree {
     pub fn new() -> Self {
         Self {
             compartments: vec![
-                DendriticCompartment::new("proximal_trunk", CompartmentType::ProximalTrunk, None, 0.15, 1.0),
-                DendriticCompartment::new("apical_oblique", CompartmentType::ApicalDendrite, Some("proximal_trunk".into()), 0.75, 1.0),
-                DendriticCompartment::new("basal_arbor", CompartmentType::BasalDendrite, None, 0.40, 1.0),
-                DendriticCompartment::new("distal_tuft", CompartmentType::DistalTuft, Some("apical_oblique".into()), 1.40, 1.0),
+                DendriticCompartment::new("proximal_trunk", CompartmentType::ProximalTrunk, (None, 0.15, 1.0)),
+                DendriticCompartment::new("apical_oblique", CompartmentType::ApicalDendrite, (Some("proximal_trunk".into()), 0.75, 1.0)),
+                DendriticCompartment::new("basal_arbor", CompartmentType::BasalDendrite, (None, 0.40, 1.0)),
+                DendriticCompartment::new("distal_tuft", CompartmentType::DistalTuft, (Some("apical_oblique".into()), 1.40, 1.0)),
             ],
             max_spines_per_compartment: Self::DEFAULT_MAX_SPINES,
             sprout_atp_cost: Self::DEFAULT_SPROUT_ATP_COST,
@@ -196,11 +206,10 @@ impl DendriticTree {
 
     pub fn process_signal_with_metabolism(
         &mut self,
-        source_id: &str,
-        amount: f64,
-        target_compartment_id: &str,
+        signal: (&str, f64, &str),
         atp_budget: &mut f64,
     ) -> Result<f64, String> {
+        let (source_id, amount, target_compartment_id) = signal;
         // Recherche si une épine existe déjà sur n'importe quel compartiment
         for comp in self.compartments.iter_mut() {
             if let Some(spine) = comp.spines.iter_mut().find(|s| s.source_id == source_id) {
@@ -263,18 +272,9 @@ impl DendriticTree {
 
     /// STDP Postsynaptique : ajuste la morphologie et la conductance de l'épine dendritique
     pub fn apply_postsynaptic_stdp(&mut self, source_id: &str, delta_t: f64, learning_rate: f64) -> Option<f64> {
-        let tau_plus = 20.0;
-        let tau_minus = 20.0;
-
         for comp in self.compartments.iter_mut() {
             if let Some(spine) = comp.spines.iter_mut().find(|s| s.source_id == source_id) {
-                let delta_dw = if delta_t > 0.0 {
-                    learning_rate * (-delta_t.abs() / tau_plus).exp()
-                } else if delta_t < 0.0 {
-                    -learning_rate * (-delta_t.abs() / tau_minus).exp()
-                } else {
-                    0.0
-                };
+                let delta_dw = stdp_delta(delta_t, learning_rate);
 
                 if delta_dw > 0.0 {
                     // LTP postsynaptique : croissance de l'épine et accumulation d'AMPA

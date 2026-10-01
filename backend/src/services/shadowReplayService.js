@@ -25,7 +25,8 @@ function memoryStore() {
   return {
     get: async (sql, scope, key) => (tables.has(`${scope}|${key}`) ? { payload_json: tables.get(`${scope}|${key}`) } : null),
     all: async () => [],
-    run: async (sql, scope, key, payload) => {
+    run: async (sql, ...parameters) => {
+      const [scope, key, payload] = parameters;
       if (scope && !String(sql).includes('adaptive_state_events')) tables.set(`${scope}|${key}`, payload);
     }
   };
@@ -40,6 +41,17 @@ function parsePayload(event) {
   }
 }
 
+function attemptEntry(data) {
+  return {
+      uri: data.uri,
+      success: data.success === true,
+      costUsd: Number(data.costUsd) || 0,
+      latencyMs: Number(data.latencyMs) || 0,
+      servedModel: typeof data.servedModel === 'string' ? data.servedModel : null,
+      at: new Date().toISOString()
+  };
+}
+
 async function recordAttempt(db, record) {
   const data = record || {};
   if (typeof data.uri !== 'string' || !data.uri) return null;
@@ -48,14 +60,7 @@ async function recordAttempt(db, record) {
     if (!db) return null;
     const stored = (await store.restoreObject(LEDGER_SCOPE, 'attempts')) || {};
     const attempts = Array.isArray(stored.attempts) ? stored.attempts : [];
-    const entry = {
-      uri: data.uri,
-      success: data.success === true,
-      costUsd: Number(data.costUsd) || 0,
-      latencyMs: Number(data.latencyMs) || 0,
-      servedModel: typeof data.servedModel === 'string' ? data.servedModel : null,
-      at: new Date().toISOString()
-    };
+    const entry = attemptEntry(data);
     const bounded = [...attempts, entry].slice(-LEDGER_LIMIT);
     await store.persistObject(LEDGER_SCOPE, 'attempts', { attempts: bounded }, bounded.length);
     return entry;
@@ -64,16 +69,8 @@ async function recordAttempt(db, record) {
   }
 }
 
-async function replayControlPlane(events, options) {
-  const settings = options || {};
-  const dropped = new Set(Array.isArray(settings.dropEventTypes) ? settings.dropEventTypes : []);
-  const ignition = require('./ignitionService');
-  const hierarchy = require('./predictiveHierarchyService');
-  const db = memoryStore();
-  const agentId = settings.agentId || 'replay-agent';
-  const state = { events: 0, salienceSum: 0, ignitions: 0, propagations: { strategy: 0, mission: 0 }, counters: { actionErrors: 0, strategyRevisions: 0 } };
-  for (const event of events || []) {
-    if (dropped.has(event.eventType)) continue;
+async function replayEvent(event, context, state) {
+    const { ignition, hierarchy, db, agentId } = context;
     state.events += 1;
     state.salienceSum += computeSalience(event).salience;
     const charged = await ignition.charge(db, agentId, { weight: computeSalience(event).salience });
@@ -82,6 +79,21 @@ async function replayControlPlane(events, options) {
     if (routed?.propagate === 'strategy') state.propagations.strategy += 1;
     if (routed?.propagate === 'mission') state.propagations.mission += 1;
     if (routed?.counters) state.counters = { ...routed.counters };
+}
+
+async function replayControlPlane(events, options) {
+  const settings = options || {};
+  const dropped = new Set(Array.isArray(settings.dropEventTypes) ? settings.dropEventTypes : []);
+  const context = {
+    ignition: require('./ignitionService'),
+    hierarchy: require('./predictiveHierarchyService'),
+    db: memoryStore(),
+    agentId: settings.agentId || 'replay-agent'
+  };
+  const state = { events: 0, salienceSum: 0, ignitions: 0, propagations: { strategy: 0, mission: 0 }, counters: { actionErrors: 0, strategyRevisions: 0 } };
+  for (const event of events || []) {
+    if (dropped.has(event.eventType)) continue;
+    await replayEvent(event, context, state);
   }
   state.salienceSum = Math.round(state.salienceSum * 1000) / 1000;
   return state;

@@ -11,12 +11,12 @@ class TopologyExecutor extends BaseExecutor {
     const executor = this.runtime.topologyExecutors?.[topology];
     if (!executor) {
       const fallback = await this.executeDefaultTopology(topology, variant, workers, context);
-      if (!fallback.receipt) fallback.receipt = this.createReceipt(node, leafSummary(topology, variant, workers, fallback.output));
+      if (!fallback.receipt) fallback.receipt = this.createReceipt(node, leafSummary(topology, { variant, workers, output: fallback.output }));
       return fallback;
     }
 
     const result = await executor.execute({ topology, variant, workers }, context);
-    const receipt = this.createReceipt(node, leafSummary(topology, variant, workers, result));
+    const receipt = this.createReceipt(node, leafSummary(topology, { variant, workers, output: result }));
 
     return { output: result, receipt, state: result?.state };
   }
@@ -34,7 +34,7 @@ class TopologyExecutor extends BaseExecutor {
   }
 }
 
-function leafSummary(topology, variant, workers, output) {
+function leafSummary(topology, { variant, workers, output }) {
   return { topology, variant: variant || null, workers: Array.isArray(workers) ? workers.length : 0, outputSummary: summarizeOutput(output) };
 }
 

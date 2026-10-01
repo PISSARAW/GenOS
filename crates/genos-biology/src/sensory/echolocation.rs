@@ -65,22 +65,22 @@ pub struct EcholocationCortex {
 
 impl Default for EcholocationCortex {
     fn default() -> Self {
-        Self::new(60.0, 150.0, 340.0, 2.5)
+        Self::new(EcholocationConfig {
+            base_frequency_khz: 60.0,
+            chirp_rate_hz: 150.0,
+            speed_of_sound_mps: 340.0,
+            obstacle_distance_threshold_m: 2.5,
+        })
     }
 }
 
 impl EcholocationCortex {
-    pub fn new(
-        base_freq_khz: f64,
-        chirp_rate_hz: f64,
-        speed_of_sound_mps: f64,
-        obstacle_threshold_m: f64,
-    ) -> Self {
+    pub fn new(config: EcholocationConfig) -> Self {
         Self {
-            base_frequency_khz: base_freq_khz.max(20.0),
-            chirp_rate_hz: chirp_rate_hz.max(1.0),
-            speed_of_sound_mps: speed_of_sound_mps.max(100.0),
-            obstacle_distance_threshold_m: obstacle_threshold_m.max(0.1),
+            base_frequency_khz: config.base_frequency_khz.max(20.0),
+            chirp_rate_hz: config.chirp_rate_hz.max(1.0),
+            speed_of_sound_mps: config.speed_of_sound_mps.max(100.0),
+            obstacle_distance_threshold_m: config.obstacle_distance_threshold_m.max(0.1),
             chirps_emitted_count: 0,
         }
     }
@@ -193,13 +193,26 @@ impl EcholocationCortex {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct EcholocationConfig {
+    pub base_frequency_khz: f64,
+    pub chirp_rate_hz: f64,
+    pub speed_of_sound_mps: f64,
+    pub obstacle_distance_threshold_m: f64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_echolocation_doppler_and_distance() {
-        let mut cortex = EcholocationCortex::new(80.0, 200.0, 340.0, 2.0);
+        let mut cortex = EcholocationCortex::new(EcholocationConfig {
+            base_frequency_khz: 80.0,
+            chirp_rate_hz: 200.0,
+            speed_of_sound_mps: 340.0,
+            obstacle_distance_threshold_m: 2.0,
+        });
         let pulse = cortex.emit_chirp(20.0, 3.0);
 
         let echoes = vec![

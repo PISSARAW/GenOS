@@ -177,7 +177,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_replay_is_order_independent() {
-        fn op(id: &str, ts: u64, lamport: u64, text: &str) -> CrdtOp {
+        fn op(input: (&str, u64, u64, &str)) -> CrdtOp {
+            let (id, ts, lamport, text) = input;
             CrdtOp {
                 op_id: id.to_string(),
                 lamport,
@@ -192,12 +193,12 @@ mod tests {
         }
 
         let forward = SyncytiumEngine::new();
-        forward.apply_op(op("a", 1, 1, "A")).await;
-        forward.apply_op(op("b", 2, 2, "B")).await;
+        forward.apply_op(op(("a", 1, 1, "A"))).await;
+        forward.apply_op(op(("b", 2, 2, "B"))).await;
 
         let reversed = SyncytiumEngine::new();
-        reversed.apply_op(op("b", 2, 2, "B")).await;
-        reversed.apply_op(op("a", 1, 1, "A")).await;
+        reversed.apply_op(op(("b", 2, 2, "B"))).await;
+        reversed.apply_op(op(("a", 1, 1, "A"))).await;
 
         assert_eq!(
             forward.snapshot().await.text_content,

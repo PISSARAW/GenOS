@@ -10,7 +10,7 @@ pub fn execute(cmd: ReplaySubcommands) -> Result<(), String> {
     }
 }
 
-fn handle_basic(snapshot: &str) -> Result<(), String> {
+fn load_snapshot(snapshot: &str) -> Result<Value, String> {
     let path = Path::new(snapshot);
     if !path.exists() {
         return Err(format!("Snapshot file not found: {}", snapshot));
@@ -26,6 +26,10 @@ fn handle_basic(snapshot: &str) -> Result<(), String> {
             return Err(format!("Snapshot is missing required string field '{}'", field));
         }
     }
+    Ok(value)
+}
+
+fn verified_genesis(value: &Value) -> Result<String, String> {
     let snapshot_id = value["snapshot_id"].as_str().unwrap();
     let agent_id = value["agent_id"].as_str().unwrap();
     let branch_id = value["branch_id"].as_str().unwrap();
@@ -33,14 +37,14 @@ fn handle_basic(snapshot: &str) -> Result<(), String> {
 
     let state = value.get("state")
         .ok_or_else(|| "Snapshot is missing required field 'state'".to_string())?;
-    let working_memory = state.get("working_memory")
+    state.get("working_memory")
         .and_then(Value::as_array)
         .ok_or_else(|| "Snapshot state.working_memory must be an array".to_string())?;
 
     // Re-derive the causal chain from identity fields and every recorded step,
     // then compare it to what the snapshot claims. Any mismatch means the
     // trace was tampered with or never actually executed as recorded.
-    let expected_genesis = replay_chain::genesis_hash(snapshot_id, agent_id, branch_id, world_id);
+    let expected_genesis = replay_chain::genesis_hash((snapshot_id, agent_id, branch_id, world_id));
     if let Some(recorded_genesis) = state.get("genesis_hash").and_then(Value::as_str) {
         if recorded_genesis != expected_genesis {
             return Err(format!(
@@ -49,35 +53,15 @@ fn handle_basic(snapshot: &str) -> Result<(), String> {
             ));
         }
     }
+    Ok(expected_genesis)
+}
 
-    let mut prev_hash = expected_genesis.clone();
-    let mut replayed_entropy = 0.0_f64;
-    let mut replayed_dissonance = 0.0_f64;
-    let mut verified_steps = Vec::new();
+fn handle_basic(snapshot: &str) -> Result<(), String> {
+    let value = load_snapshot(snapshot)?;
+    let expected_genesis = verified_genesis(&value)?;
+    let working_memory = value["state"]["working_memory"].as_array().unwrap();
 
-    for (index, entry) in working_memory.iter().enumerate() {
-        let step_index = (index as u64) + 1;
-        let action = entry.get("action").and_then(Value::as_str)
-            .ok_or_else(|| format!("Step {} is missing required string field 'action'", step_index))?;
-        let delta_entropy = entry.get("delta_entropy").and_then(Value::as_f64).unwrap_or(0.0);
-        let delta_dissonance = entry.get("delta_dissonance").and_then(Value::as_f64).unwrap_or(0.0);
-        let payload = entry.get("payload").cloned().unwrap_or(json!({}));
-        let recorded_step_hash = entry.get("step_hash").and_then(Value::as_str)
-            .ok_or_else(|| format!("Step {} is missing required field 'step_hash'", step_index))?;
-
-        let recomputed = replay_chain::step_hash(&prev_hash, step_index, action, delta_entropy, delta_dissonance, &payload);
-        if recomputed != recorded_step_hash {
-            return Err(format!(
-                "Replay failed: hash-chain broken at step {} (recorded '{}', recomputed '{}')",
-                step_index, recorded_step_hash, recomputed
-            ));
-        }
-
-        replayed_entropy += delta_entropy;
-        replayed_dissonance += delta_dissonance;
-        prev_hash = recomputed;
-        verified_steps.push(json!({ "step": step_index, "action": action, "step_hash": prev_hash }));
-    }
+    let (prev_hash, replayed_entropy, replayed_dissonance, verified_steps) = verify_steps(working_memory, &expected_genesis)?;
 
     println!("{}", serde_json::to_string_pretty(&json!({
         "success": true,
@@ -98,4 +82,37 @@ fn handle_basic(snapshot: &str) -> Result<(), String> {
         "verified_steps": verified_steps
     })).map_err(|error| error.to_string())?);
     Ok(())
+}
+
+fn verify_steps(working_memory: &[Value], expected_genesis: &str) -> Result<(String, f64, f64, Vec<Value>), String> {
+    let mut prev_hash = expected_genesis.to_string();
+    let mut replayed_entropy = 0.0_f64;
+    let mut replayed_dissonance = 0.0_f64;
+    let mut verified_steps = Vec::new();
+
+    for (index, entry) in working_memory.iter().enumerate() {
+        let step_index = (index as u64) + 1;
+        let action = entry.get("action").and_then(Value::as_str)
+            .ok_or_else(|| format!("Step {} is missing required string field 'action'", step_index))?;
+        let delta_entropy = entry.get("delta_entropy").and_then(Value::as_f64).unwrap_or(0.0);
+        let delta_dissonance = entry.get("delta_dissonance").and_then(Value::as_f64).unwrap_or(0.0);
+        let payload = entry.get("payload").cloned().unwrap_or(json!({}));
+        let recorded_step_hash = entry.get("step_hash").and_then(Value::as_str)
+            .ok_or_else(|| format!("Step {} is missing required field 'step_hash'", step_index))?;
+
+        let recomputed = replay_chain::step_hash((&prev_hash, step_index, action, delta_entropy, delta_dissonance, &payload));
+        if recomputed != recorded_step_hash {
+            return Err(format!(
+                "Replay failed: hash-chain broken at step {} (recorded '{}', recomputed '{}')",
+                step_index, recorded_step_hash, recomputed
+            ));
+        }
+
+        replayed_entropy += delta_entropy;
+        replayed_dissonance += delta_dissonance;
+        prev_hash = recomputed;
+        verified_steps.push(json!({ "step": step_index, "action": action, "step_hash": prev_hash }));
+    }
+
+    Ok((prev_hash, replayed_entropy, replayed_dissonance, verified_steps))
 }

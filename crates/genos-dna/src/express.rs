@@ -182,7 +182,7 @@ fn active_tf_list(
 ) -> Vec<String> {
     let mut out: Vec<String> = levels
         .iter()
-        .filter(|(locus, level)| is_active_tf(dna, genes, locus, **level))
+        .filter(|(locus, level)| is_active_tf(dna, genes, (locus, **level)))
         .map(|(locus, _)| locus.clone())
         .collect();
     out.sort();
@@ -192,9 +192,9 @@ fn active_tf_list(
 fn is_active_tf(
     dna: &AgentDna,
     genes: &BTreeMap<String, Gene>,
-    locus: &str,
-    level: f64,
+    target: (&str, f64),
 ) -> bool {
+    let (locus, level) = target;
     if level <= 0.5 {
         return false;
     }

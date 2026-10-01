@@ -135,19 +135,23 @@ function ingestEvidenceEntry(state, evidence) {
   return { ingested: true, claimId: claim.id };
 }
 
+function completeClaim(evidence) {
+  return {
+    id: evidence.id || `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    type: evidence.type || 'belief',
+    statement: evidence.statement,
+    evidence: Array.isArray(evidence.evidence) ? evidence.evidence : [],
+    provenance: evidence.provenance || null,
+    phase: evidence.phase || null
+  };
+}
+
 function normalizeClaim(evidence) {
   if (evidence && typeof evidence === 'object' && evidence.id && evidence.type) {
     return evidence;
   }
   if (evidence && typeof evidence === 'object' && evidence.statement) {
-    return {
-      id: evidence.id || `claim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      type: evidence.type || 'belief',
-      statement: evidence.statement,
-      evidence: Array.isArray(evidence.evidence) ? evidence.evidence : [],
-      provenance: evidence.provenance || null,
-      phase: evidence.phase || null
-    };
+    return completeClaim(evidence);
   }
   return null;
 }
@@ -156,7 +160,7 @@ function normalizeClaim(evidence) {
 // Uncertainty tracking
 // ---------------------------------------------------------------------------
 
-function trackUncertainty(state, topic, score, note) {
+function trackUncertainty(state, { topic, score, note }) {
   const uncertainty = {
     id: `unc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     topic,

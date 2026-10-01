@@ -12,7 +12,7 @@ pub fn handle_recovery(cmd: &RecoveryCommands, yes: bool) {
             checkpoint_path,
             store_dir,
         } => {
-            handle_recover(
+            handle_recover((
                 *dry_run,
                 *execute,
                 *from_checkpoint,
@@ -20,7 +20,7 @@ pub fn handle_recovery(cmd: &RecoveryCommands, yes: bool) {
                 checkpoint_path,
                 store_dir,
                 yes,
-            );
+            ));
         }
         RecoveryCommands::WalStatus {
             wal_path,
@@ -37,15 +37,19 @@ pub fn handle_recovery(cmd: &RecoveryCommands, yes: bool) {
     }
 }
 
-fn handle_recover(
-    dry_run: bool,
-    execute: bool,
-    from_checkpoint: Option<u64>,
-    wal_path: &str,
-    checkpoint_path: &str,
-    store_dir: &str,
-    yes: bool,
-) {
+fn display_recovery_plan(entries: &[&serde_json::Value]) {
+    println!("📋 Plan de récupération:");
+    for entry in entries {
+        let seq = entry.get("seq_id").and_then(|v| v.as_u64()).unwrap_or(0);
+        let entry_type = entry.get("entry_type").and_then(|v| v.as_str()).unwrap_or("unknown");
+        let timestamp = entry.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown");
+        println!("   [{}] {} @ {}", seq, entry_type, timestamp);
+    }
+    println!();
+}
+
+fn handle_recover(options: (bool, bool, Option<u64>, &str, &str, &str, bool)) {
+    let (dry_run, execute, from_checkpoint, wal_path, checkpoint_path, store_dir, yes) = options;
     println!("🔄 GenOS Orchestration Recovery");
     println!("================================");
     println!("Store directory: {}", store_dir);
@@ -106,14 +110,7 @@ fn handle_recover(
     }
 
     // Show recovery plan
-    println!("📋 Plan de récupération:");
-    for entry in &entries_to_replay {
-        let seq = entry.get("seq_id").and_then(|v| v.as_u64()).unwrap_or(0);
-        let entry_type = entry.get("entry_type").and_then(|v| v.as_str()).unwrap_or("unknown");
-        let timestamp = entry.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown");
-        println!("   [{}] {} @ {}", seq, entry_type, timestamp);
-    }
-    println!();
+    display_recovery_plan(&entries_to_replay);
 
     if dry_run && !execute {
         println!("🔍 Mode DRY-RUN: Aucun changement appliqué.");
