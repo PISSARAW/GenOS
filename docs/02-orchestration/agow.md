@@ -422,6 +422,20 @@ stationnaires. Une route suspendue cesse immédiatement d'être admissible. La r
 directe in-process n'est pas un reçu de réussite ni une livraison durable. Voir [ADR
 0243](../adr/0243-voies-directes-agow.md).
 
+### 8.3 Compilation de trajectoires
+
+`proceduralization/cognitiveTrajectoryService` enregistre, par agent, des références
+compactes aux frames, candidats, requêtes, actions, outcomes et preuves. Il n'enregistre
+pas les payloads complets. Il refuse les frames contrefactuels. Le compilateur réutilise
+`proceduralConsolidationService` pour extraire un sous-chemin répété et son support de
+succès. Il rend une proposition `proposal_only`; il ne crée ni procédure active, ni voie
+consolidée et n'appelle pas de gate de promotion.
+
+Une trajectoire réussie sans référence de preuve bloque la proposition. L'intégrateur
+doit garantir que les identifiants envoyés forment bien une séquence causale complète.
+L'approbation et la validation ultérieures restent dans le runtime procédural déjà
+présent. Voir [ADR 0244](../adr/0244-compilateur-de-trajectoires-agow.md).
+
 ---
 
 ## 9. Signal Plane, diffusion et médiation
@@ -881,6 +895,7 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `agowMechanismPolicyService.js` | Politique persistée des modes regret, contrefactuel, plasticité, voies directes et marchés. |
 | `plasticity/agowPlasticityCoordinator.js` / `plasticity/pathwayEligibilityService.js` | Trace contextuelle rapide, support validé et consolidation lente via LTP procédurale. |
 | `pathways/directPathwayRegistry.js` / `pathways/directPathwayRouter.js` | Registre contextuel, revue globale obligatoire et routage direct sur le Signal Plane existant. |
+| `proceduralization/cognitiveTrajectoryService.js` / `proceduralization/consciousnessCompilerService.js` | Références causales compactes et propositions de sous-chemins répétées, sans promotion. |
 | `counterfactual/counterfactualFrameAdapter.js` / `counterfactual/counterfactualOutcomeService.js` | Construction des branches et admission des outcomes avec provenance. |
 
 ---
