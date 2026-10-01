@@ -250,6 +250,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0235](0235-ontogenese-orchestrateur-resident-projet.md) | Ontogenèse : orchestrateur résident de projet à missions bornées et vérifiées | Accepté (première tranche : contrat et persistance) | 2026-10-01 | Orchestration, persistance, preuve, ressources, Git |
 | [0236](0236-consensus-global-lecture-seule.md) | Consensus global en lecture seule | Voir le fichier | -- | -- |
 | [0237](0237-differenciation-preuve-pluralite-immunite.md) | Différenciation GenOS : preuve, pluralité, immunité (pas la course aux canaux) | Accepté | 2026-10-01 | Stratégie produit, orchestration, épistémologie, sécurité |
+| [0239](0239-socle-genos-verified-evo-devo.md) | Socle de développement évolutif vérifié (GVX) | Accepté | 2026-10-01 | Ontogenèse, morphogenèse, persistance, expériences, AgentDNA, preuve |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
