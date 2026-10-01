@@ -11,7 +11,8 @@ const CAPABILITY_MODULES = Object.freeze({
   causal_discrimination: ['world_model', 'verifier', 'memory'],
   recall: ['memory', 'autobiographical_memory'],
   perception: ['perception', 'predictive_hierarchy'],
-  calibration: ['self_model', 'metacognition']
+  calibration: ['self_model', 'metacognition'],
+  prospective_simulation: ['counterfactual']
 });
 const QUERY_POLICY_SCOPE = 'agow_query_policy';
 const QUERY_COOLDOWN_MS = 5 * 60 * 1000;
@@ -108,7 +109,8 @@ async function execute(options) {
   for (const module of query.candidateModules) {
     const handler = handlers[module] || registered.get(module);
     if (typeof handler !== 'function') continue;
-    const response = await handler({ query, frame: options.frame, db: options.db });
+    const response = await handler({ query, frame: options.frame, db: options.db,
+      counterfactualExecutor: options.counterfactualExecutor });
     const candidateReceipt = response?.candidate ? await submitResponse({ response, query, db: options.db }) : null;
     const creditReceipt = response?.outcome ? await attentionCredit.observe({
       agentId: options.frame.agentId, db: options.db, frameId: query.frameId, capability: query.need.capability, module,

@@ -52,11 +52,39 @@ async function perceptionQuery(input) {
   return { summary: `${state.bindings.length} percept bindings; cycle ${state.cycle}.`, candidate, outcome: { errorReduction: 0.1, evidenceImprovement: evidenceRefs.length ? 0.4 : 0, cost: 0.05, latencyMs: 0 } };
 }
 
+async function counterfactualQuery(input) {
+  const selectedIds = [input.frame.primaryContent, ...input.frame.secondaryContents].filter(Boolean);
+  const pool = await require('./candidatePoolService').list({ agentId: input.frame.agentId, db: input.db, now: Date.now() });
+  const candidates = pool.filter((candidate) => selectedIds.includes(candidate.candidateId));
+  const mechanismPolicy = require('./agowMechanismPolicyService');
+  const policy = await mechanismPolicy.load({ agentId: input.frame.agentId, db: input.db });
+  const result = await require('./counterfactual/shadowWorkspaceService').runTriggered({
+    agentId: input.frame.agentId, db: input.db, frame: input.frame, candidates,
+    explicitCausalDiscrimination: true, execute: input.counterfactualExecutor,
+    maxQueries: 0, maxFrames: 3, maxWorkers: 2, maxCost: input.query.budget.maxCost,
+    publishOutcomes: mechanismPolicy.publishesCounterfactual(policy.counterfactual)
+  });
+  const receipt = result.simulations?.[0];
+  if (!receipt) return { summary: `Prospective simulation: ${result.reason || 'no branch result'}.` };
+  const refs = [receipt.receiptId];
+  const candidate = adapter.build({ module: 'epistemic', agentId: input.frame.agentId, now: Date.now(), observation: {
+    candidateId: `prospective:${input.query.queryId}`, semanticType: 'counterfactual_outcome',
+    compactPreview: `Branch ${receipt.branch.branchId}: ${receipt.outcome.success ? 'success' : 'failure'} (uncertainty ${receipt.outcome.uncertainty.toFixed(2)}).`, evidenceRefs: refs,
+    causalParents: [input.frame.frameId], confidence: 1 - receipt.outcome.uncertainty,
+    evidenceCoverage: refs.length ? 1 : 0, goalMatched: true, causalEvidence: refs.length > 0,
+    epistemicOrigin: { origin: 'counterfactual_simulated', realityMode: 'counterfactual', agency: 'environment',
+      simulationId: receipt.simulationId, parentRealityFrameId: input.frame.frameId }
+  } });
+  return { summary: `Simulated ${result.simulations.length} counterfactual branches; this candidate cites branch ${receipt.branch.branchId}.`, candidate,
+    outcome: { evidenceImprovement: 0.5, cost: receipt.outcome.cost, latencyMs: 0 } };
+}
+
 function ensureRegistered() {
   registry.registerQuery({ module: 'memory', handle: memoryQuery });
   registry.registerQuery({ module: 'autobiographical_memory', handle: memoryQuery });
   registry.registerQuery({ module: 'self_model', handle: selfQuery });
   registry.registerQuery({ module: 'perception', handle: perceptionQuery });
+  registry.registerQuery({ module: 'counterfactual', handle: counterfactualQuery });
 }
 
-module.exports = { ensureRegistered, memoryQuery, selfQuery, perceptionQuery };
+module.exports = { ensureRegistered, memoryQuery, selfQuery, perceptionQuery, counterfactualQuery };

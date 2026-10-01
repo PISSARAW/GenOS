@@ -35,6 +35,9 @@ async function main() {
   assert.equal(result.query.minimumEvidenceRefs, 2);
   assert.equal(result.query.budget.maxCost, 0);
   assert.deepEqual(result.query.candidateModules, ['memory']);
+  const prospective = await queryService.plan({ frame, db, capability: 'prospective_simulation', moduleBudget: 1 });
+  assert.equal(prospective.planned, true);
+  assert.deepEqual(prospective.query.candidateModules, ['counterfactual']);
   receiverRegistry.clear();
   console.log('✅ AGOW active query planning and evidence budget passed');
 }

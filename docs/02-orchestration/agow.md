@@ -581,11 +581,17 @@ et ne déclenche donc pas la planification en aval.
 | `recall` | `memory`, `autobiographical_memory` |
 | `perception` | `perception`, `predictive_hierarchy` |
 | `calibration` | `self_model`, `metacognition` |
+| `prospective_simulation` | `counterfactual` |
 
 Les handlers intégrés enregistrés dans ce dépôt couvrent `memory`,
-`autobiographical_memory`, `self_model` et `perception`. Un identifiant éligible sans
-handler exécutable ne retourne pas de réponse. Les appels personnalisés peuvent
-fournir `handlers` à `execute`.
+`autobiographical_memory`, `self_model`, `perception` et `counterfactual`. Le handler
+`counterfactual` extrait les candidats sélectionnés dans le frame, appelle le runner
+shadow avec un déclencheur causal explicite et interdit les requêtes imbriquées. Il
+retourne un candidat dont la preuve référence le reçu d'une branche et dont la
+provenance reste `counterfactual_simulated`. Le runner doit disposer d'un exécuteur
+d'environnement enregistré; sinon le handler expose le motif `executor_unavailable`
+sans fabriquer de candidat. Un identifiant éligible sans handler exécutable ne retourne
+pas de réponse. Les appels personnalisés peuvent fournir `handlers` à `execute`.
 
 Les besoins causaux choisissent `causal_discrimination`; les autres lacunes utilisent
 par défaut la vérification. Dans un appel direct, le type et la capacité peuvent être
