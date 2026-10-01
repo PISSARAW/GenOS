@@ -344,6 +344,10 @@ const migrationRunners = [
     const { migrateOntogenesisChannels } = require('./migrateOntogenesisChannels');
     await migrateOntogenesisChannels(db);
   }),
+  createMigrationRunner('095-ontogenesis-hosts', 'Persist Ontogenese remote hosts and local pairing (roadmap P8)', async (db) => {
+    const { migrateOntogenesisHosts } = require('./migrateOntogenesisHosts');
+    await migrateOntogenesisHosts(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
