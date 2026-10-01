@@ -165,7 +165,22 @@ const AUTHORITY = Object.freeze({
   grey_wolf_optimizer: (role) => (/alpha|beta|delta/i.test(role) ? 'leader' : 'follower'),
   specialist_expert_committee: (role) => (/orchestrator/i.test(role) ? 'hub' : 'spoke'),
   red_blue_coevolution: (role) => (/red|blue/i.test(role) ? 'adversary' : 'observer'),
-  hierarchical_merge: (role) => (/orchestrator|host/i.test(role) ? 'root' : 'member')
+  hierarchical_merge: (role) => (/orchestrator|host/i.test(role) ? 'root' : 'member'),
+  blind_adversarial_review: (role) => (/critic|review/i.test(role) ? 'critic' : 'member'),
+  brier_weighted_consensus: (role) => (/expert|forecaster/i.test(role) ? 'voter' : 'member'),
+  quorum_with_abstention: (role) => (/voter|member/i.test(role) ? 'voter' : 'member'),
+  stigmergy: (role) => (/forager|scout/i.test(role) ? 'forager' : 'member'),
+  flocking_boids: () => 'member',
+  fish_school_search: () => 'member',
+  slime_mould_network: () => 'member',
+  mycelial_routing: (role) => (/hypha|router/i.test(role) ? 'router' : 'member'),
+  dynamic_polyethism: (role) => (/generalist|specialist/i.test(role) ? 'polyethic' : 'member'),
+  energy_huddle: () => 'member',
+  network_silence: () => 'member',
+  strategy_arena: (role) => (/competitor|champion/i.test(role) ? 'competitor' : 'observer'),
+  competitive_arena: (role) => (/competitor|champion/i.test(role) ? 'competitor' : 'observer'),
+  isolated_recovery: () => 'member',
+  memory_compilation: (role) => (/librarian|compiler/i.test(role) ? 'compiler' : 'member')
 });
 
 function runOrganizationStep(organization, state = {}, options = {}) {

@@ -61,12 +61,29 @@ function routeMessage({ state, sender, recipientAgentId, kind }) {
 
 // A ranked topology (grey wolf) forbids a follower from bypassing the leaders
 // and addressing another follower directly.
-function assertRoutingAuthority({ organization, policy, sender, recipientAgentId, orchestratorId }) {
-  if (!recipientAgentId || !policy || policy.routing !== 'ranked') return;
+function checkRankedAuthority(ctx) {
+  const { organization, sender, recipientAgentId, orchestratorId } = ctx;
   if (sender.id === orchestratorId) return;
   if (authorityFor(organization, sender.role) === 'leader') return;
   if (recipientAgentId !== orchestratorId) {
     throw organizationError('ORGANIZATION_AUTHORITY_VIOLATION', 'Ranked organization: a follower may only address the orchestrator.');
+  }
+}
+
+function checkAdversarialAuthority(sender, recipientAgentId, orchestratorId) {
+  if (sender.id === orchestratorId) return;
+  if (!recipientAgentId) {
+    throw organizationError('ADVERSARIAL_RECIPIENT_REQUIRED', 'Adversarial organization: worker messages require an explicit counterpart recipient.');
+  }
+}
+
+function assertRoutingAuthority({ organization, policy, sender, recipientAgentId, orchestratorId }) {
+  if (!policy) return;
+  if (policy.routing === 'ranked' && recipientAgentId) {
+    checkRankedAuthority({ organization, sender, recipientAgentId, orchestratorId });
+  }
+  if (policy.routing === 'adversarial_pair' && sender.id !== orchestratorId) {
+    checkAdversarialAuthority(sender, recipientAgentId, orchestratorId);
   }
 }
 
