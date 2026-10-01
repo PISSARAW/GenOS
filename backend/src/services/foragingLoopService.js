@@ -5,7 +5,8 @@ const { performance } = require('perf_hooks');
 const { defaultForaging } = require('./foragingScoutHarvesterService');
 const { defaultBrowserScout } = require('./browserScoutService');
 const { defaultFovealVision } = require('./fovealVisionService');
-const sharp = require('sharp');
+const { withDeadline } = require('./operationDeadline');
+const { runImageTask } = require('./foragingImageTask');
 
 function patchDecision(history, elapsed) {
   const patchHistory = Array.isArray(history) ? history : [];
@@ -41,7 +42,7 @@ async function departPatch(input) {
     return { action: { status: 'not_executed', executed: false, verified: false, reason: 'No next URL supplied.' }, observation: input.observation };
   }
   const navigation = await defaultBrowserScout.navigate(input.sessionId, nextUrl, {
-    htmlContent: input.source.htmlContent
+    htmlContent: input.source.htmlContent, signal: input.source.signal
   });
   const executed = Boolean(navigation && navigation.success);
   return {
@@ -80,17 +81,10 @@ function observationHistory(session, source) {
   return [...(source.patchHistory || source.history || [])];
 }
 
-async function createFovealArtifact(session, observation, shouldDepart) {
+async function createFovealArtifact(input) {
+  const { session, observation, shouldDepart, signal } = input;
   if (!session || !session.browserPage || !observation || !observation.screenshotPath || shouldDepart) return null;
-  const image = await sharp(observation.screenshotPath).metadata();
-  const scan = defaultFovealVision.peripheralScan({
-    width: image.width, height: image.height, targetType: 'webpage'
-  });
-  const roi = scan.candidateRegions[0];
-  return defaultFovealVision.fovealCrop(observation.screenshotPath, roi.bbox, {
-    zoomFactor: roi.suggestedZoom,
-    focusNotes: 'Browser page ROI selected from peripheral scan.'
-  });
+  return runImageTask({ signal, data: { screenshotPath: observation.screenshotPath } });
 }
 
 function createForageResponse(input) {
@@ -112,7 +106,7 @@ function createForageResponse(input) {
   };
 }
 
-async function forageStep(input) {
+async function executeForageStep(input) {
   const startedAt = performance.now();
   const source = input || {};
   const sessionId = source.sessionId || source.session_id || 'scout-main';
@@ -122,13 +116,17 @@ async function forageStep(input) {
   const levy = levyGuidance(source.iteration);
   const before = defaultBrowserScout.snapshotSession(sessionId);
   const result = await performForagingAction({ evaluation, source, sessionId, observation: before });
-  const fovealArtifact = await createFovealArtifact(session, result.observation, evaluation.shouldDepart);
+  const fovealArtifact = await createFovealArtifact({ session, observation: result.observation, shouldDepart: evaluation.shouldDepart, signal: source.signal });
   const measuredMs = Number((performance.now() - startedAt).toFixed(3));
   return createForageResponse({
     sessionId, decision, evaluation, levy, before,
     action: result.action, observation: result.observation,
     fovealArtifact, measuredMs
   });
+}
+
+function forageStep(input = {}) {
+  return withDeadline(input, signal => executeForageStep({ ...input, signal }));
 }
 
 module.exports = { patchDecision, levyGuidance, forageStep };

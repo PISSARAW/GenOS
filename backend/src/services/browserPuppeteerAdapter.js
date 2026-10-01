@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const dns = require('dns').promises;
 const net = require('net');
+const { abortable } = require('./operationDeadline');
 
 class BrowserPuppeteerAdapter {
   constructor(options = {}) {
@@ -23,7 +24,13 @@ class BrowserPuppeteerAdapter {
   }
 
   async navigate(page, url, options = {}) {
+    options.signal?.throwIfAborted();
+    return abortable(this._navigate(page, url, options), options.signal, () => page.close());
+  }
+
+  async _navigate(page, url, options = {}) {
     await this._assertPublicHttpUrl(url);
+    options.signal?.throwIfAborted();
     const target = new URL(url);
     const response = await page.goto(target.href, { waitUntil: 'domcontentloaded', timeout: options.timeoutMs || 30000 });
     const screenshotPath = await this.capture(page);

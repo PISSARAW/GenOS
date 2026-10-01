@@ -150,7 +150,8 @@ class BrowserScoutService {
 
     if (session.browserPage) {
       try {
-        const result = await this.browserAdapter.navigate(session.browserPage, url, session.config);
+        const result = await this.browserAdapter.navigate(session.browserPage, url, { ...session.config, signal: options.signal });
+        options.signal?.throwIfAborted();
         if (!result.success) return { ...result, sessionId: session.id };
         const parsed = this.buildAXTree(result.html, result.url);
         Object.assign(session, {
@@ -183,7 +184,7 @@ class BrowserScoutService {
       else return { success: false, error: `File not found: ${fPath}` };
     } else if (!html && typeof fetch !== 'undefined' && (url.startsWith('http://') || url.startsWith('https://'))) {
       try {
-        const res = await fetch(url, { headers: { 'User-Agent': 'GenOS-Scout/3.0' }, signal: AbortSignal.timeout(session.config.timeoutMs) });
+        const res = await fetch(url, { headers: { 'User-Agent': 'GenOS-Scout/3.0' }, signal: navigationSignal(session.config.timeoutMs, options.signal) });
         statusCode = res.status;
         const cType = res.headers.get('content-type') || '';
         if (this._isDownloadable(url) || (!cType.includes('html') && !cType.includes('text'))) {
@@ -198,6 +199,7 @@ class BrowserScoutService {
       html = `<html><head><title>Mock Page</title></head><body><h1>${url}</h1></body></html>`;
     }
 
+    options.signal?.throwIfAborted();
     const { title, axNodes } = this.buildAXTree(html, url);
     session.currentUrl = url;
     session.title = title;
@@ -318,3 +320,8 @@ class BrowserScoutService {
 const defaultBrowserScout = new BrowserScoutService();
 
 module.exports = { BrowserScoutService, defaultBrowserScout };
+
+function navigationSignal(timeoutMs, signal) {
+  const local = AbortSignal.timeout(timeoutMs);
+  return signal ? AbortSignal.any([local, signal]) : local;
+}

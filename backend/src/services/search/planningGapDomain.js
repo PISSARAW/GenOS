@@ -114,7 +114,6 @@ function bfsOptimal(task, limit) {
   while (queue.length > 0) {
     const cur = queue.shift();
     if (isGoalBlockworld(cur.state, task)) return cur.plan;
-    if (cur.plan.length >= 14) continue;
     if (seen.size > limit) break;
     for (const m of successorsBlockworld(cur.state)) {
       const next = applyBlockworld(cur.state, m);
@@ -180,13 +179,8 @@ function isGoalTrap(state, task) {
 }
 
 function heuristicTrap(state, task) {
-  const position = { x: state.x, y: state.y };
-  const missingKeys = [...task.doors.values()].filter((key) => !state.keys.has(key));
-  if (missingKeys.length === 0) return gridDistance(task, position, task.goal);
-  const key = [...task.keysOn.entries()].find((entry) => missingKeys.includes(entry[1]));
-  if (!key) return gridDistance(task, position, task.goal);
-  const keyPosition = parseCell(key[0]);
-  return gridDistance(task, position, keyPosition) + 1 + gridDistance(task, keyPosition, task.goal);
+  // Relax locked doors: a key is not required when the door can be bypassed.
+  return gridDistance(task, { x: state.x, y: state.y }, task.goal);
 }
 
 function parseCell(cell) {

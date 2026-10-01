@@ -4,6 +4,7 @@
  */
 const assert = require('node:assert/strict');
 const Domain = require('../../src/services/search/planningGapDomain');
+const { optimalLength } = require('./planningGapOracle');
 const Policies = require('../../src/services/search/planningGapPolicies');
 
 const BUDGET = 240;
@@ -95,11 +96,6 @@ function checkGenosInstrumentation(results) {
   assert.ok(pressured, 'GenOS doit mesurer une pression');
 }
 
-function optimalLength(task) {
-  if (task.domain !== 'blocksworld') return null;
-  const opt = Domain.bfsOptimal(task, 5000);
-  return opt ? opt.length : null;
-}
 
 function printOptimalRow(id, opt, row) {
   const parts = [id, `opt:${opt}`];
@@ -110,7 +106,7 @@ function printOptimalRow(id, opt, row) {
 }
 
 function reportOptimality(results, tasks) {
-  console.log('\n--- Longueur vs optimal BFS (blocksworld) ---');
+  console.log('\n--- Longueur vs optimal BFS (tous domaines) ---');
   for (let i = 0; i < results.length; i += 1) {
     const opt = optimalLength(tasks[i]);
     if (opt === null) continue;
