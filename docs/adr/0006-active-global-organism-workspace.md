@@ -1,6 +1,6 @@
 # ADR 0006 — Active Global Organism Workspace (AGOW)
 
-- **Statut** : Proposé
+- **Statut** : Accepté
 - **Date** : 2026-10-01
 - **Domaine** : Runtime cognitif, orchestration
 - **Décideurs** : Mainteneurs GenOS
@@ -48,10 +48,15 @@ besoins cognitifs et conserve sa propre gouvernance, ses budgets et ses transiti
   expérimental sans réplication et ablation observables.
 - Les migrations se font par étapes, avec commits indépendants et compatibilité
   transitoire.
+- Le pool, les frames, les reçus, les politiques et les crédits sont persistés dans
+  `adaptive_state` et isolés par agent.
+- Les récepteurs intégrés sont enregistrés au premier broadcast. Le runner
+  expérimental émet des résultats descriptifs sans décision de promotion.
 
 ## Déploiement
 
-La première tranche établit les contrats, le pool, l'arbitrage et la représentation
-des frames. Les étapes suivantes branchent cycle, broadcast, requêtes, organes et
-expériences. Le mode `live` reste conditionné à des reçus causaux et des campagnes
-de réplication; cet ADR ne les affirme pas déjà obtenus.
+Les étapes runtime branchent le cycle, le broadcast, les requêtes déclenchées sur
+lacune informationnelle et les organes disponibles. Le runner expérimental exige un
+snapshot, un manifeste et des corpus holdout fournis par l'appelant; il ne crée pas de
+corpus indépendant et n'établit pas à lui seul une réplication. Le mode `live` reste
+conditionné à des reçus causaux et des campagnes réellement exécutées.

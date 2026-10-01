@@ -65,11 +65,15 @@ const query = workspace.query({ frame, capability: 'verification' });
 ```
 
 `submitCandidate` valide et stocke le candidat avant de publier sa référence via le
-Signal Plane. Un rejet de transport retire le nouveau candidat et retourne un résultat
-explicite. `cycle` renvoie le nombre de candidats, l'arbitrage, les reçus d'ignition, le frame
-et le résultat du broadcast. `query` utilise
+Signal Plane. Sauf `triggerCycle: false`, une admission valide déclenche un cycle. Un
+rejet de transport retire le nouveau candidat et retourne un résultat explicite.
+`cycle` renvoie le nombre de candidats, l'arbitrage, les reçus d'ignition, le frame,
+le broadcast et, si une lacune est détectée, la requête active. `query` utilise
 `modelControlledAttentionService.reallocate`; `execute` appelle les modules fournis
-par l'appelant et renvoie toute réponse candidate au Signal Plane.
+par l'appelant ou les handlers enregistrés par défaut. Les modules intégrés rappellent
+la mémoire autobiographique, calibrent le soi et consultent le sensorium persistant.
+Une réponse vérifie le seuil de preuves et entre dans le pool sans déclencher de cycle
+récursif.
 
 Les récepteurs s'enregistrent avec
 `workspaceReceiverRegistry.register({ module, handle })`. Le handler reçoit une phase
@@ -77,6 +81,13 @@ Les récepteurs s'enregistrent avec
 hashes d'état avant/après et changement déclaré. Si le handler échoue, le reçu indique
 `consumed: false`. La médiation est agrégée par paire source→cible, mais ces reçus ne
 prouvent pas à eux seuls que la transformation a causé un résultat de tâche.
+
+Le premier broadcast enregistre les récepteurs intégrés de mémoire, modèle du monde,
+soi, interoception et métacognition. Les observations `PERCEPTION_OBSERVED`, les
+résultats finaux worker et les conséquences d'action efférentes entrent dans le pool
+quand `GENOS_AGOW_MODE` n'est pas `off`. Les cycles sans ignition ne remplacent pas le
+frame courant. Les requêtes identiques sont limitées par une empreinte de lacune et
+un délai de cinq minutes.
 
 La boucle perceptive prend une observation avec `vector` et `items`. Elle combine le
 posterior précédent, le feedback du frame, le binding récurrent et les prédictions aux
@@ -87,24 +98,32 @@ niveaux mission/situation/objet. Une erreur supérieure au seuil produit un cand
 
 | Domaine | État dans cette tranche |
 | --- | --- |
-| Contrats, validation, pool, déduplication, TTL, contradictions | Implémenté en mémoire de processus |
+| Contrats, validation, pool, déduplication, TTL, contradictions | Implémenté; état dans `adaptive_state`, isolé par agent |
 | Arbitrage, contraintes, Pareto, compétition et ignition temporelle | Implémenté; réutilise l'ignition persistée existante |
-| Frames bornés et causalité entre cycles | Implémenté en mémoire de processus |
-| Broadcast Signal Plane et reçus de récepteurs | Implémenté; aucun récepteur métier n'est enregistré par défaut |
-| Active Query et crédit d'attention | Services appelables; aucune requête n'est déclenchée automatiquement par le cycle |
-| Perception récurrente et erreur hiérarchique | Services connectés et callable; pas branchés à toutes les sources d'observation runtime |
+| Frames, reçus, médiation et crédit | Implémenté et persisté dans `adaptive_state` |
+| Broadcast Signal Plane et récepteurs intégrés | Enregistrés par défaut au premier broadcast; reçus durables |
+| Active Query et crédit d'attention | Déclenchés sur lacune, bornés par politique, délai anti-répétition persistant |
+| Perception récurrente et erreur hiérarchique | Branchées aux événements `PERCEPTION_OBSERVED` |
 | Mission → AGOW | `bounded` prend le contrôle; modes d'observation gardent le chemin historique |
-| Adaptateurs mémoire, soi, méta, interoception, workers et daemons | Normalisation disponible, branchements producteurs à réaliser |
-| Efference, allostase et effets sur les politiques | Non intégrés au cycle AGOW |
-| Morphogenesis, expériences `do()`, ablations et réplications holdout | Non intégrés; indicateurs non promus |
+| Résultats worker et efférence | Candidats runtime; le récepteur efférence met à jour modèle du monde et soi |
+| Interoception, allostase et méta | Récepteurs alimentent les politiques de budget et le seuil de preuve |
+| Daemons et morphogenèse | Adaptateurs disponibles, branchement runtime dédié non implémenté |
+| Ablation et médiation contrôlée | Runner exécutable; requiert un adaptateur d'exécution et entrées fournies |
+| Réplication holdout | Campagne exigeant au moins trois runs, seeds et corpus distincts; aucune promotion automatique |
 | Workspace Rust et stockage partagé multi-processus | Hors de cette tranche; le prototype Rust n'est pas runtime autoritaire |
 
-Le pool, les frames, les reçus de broadcast, les crédits d'attention et les reçus de
-médiation utilisent actuellement des stores mémoire par processus. La rétention après
-redémarrage et la coordination entre processus ne sont donc pas garanties. Les tâches
-expérimentales doivent mesurer les résultats externes (erreurs détectées, récupération,
-calibration, efficacité et ressources), ignorer les déclarations textuelles, contrôler
-les environnements et publier des reçus reproductibles avant toute promotion.
+Les stores relisent et écrivent via `adaptive_state`; l'isolation multi-processus suit
+la base backend configurée. Le runner `agowExperimentService.run` compare les bras
+`full` et ablations ciblées; `runControlledMediation` supprime le broadcast pour le
+bras témoin; `runReplicationCampaign` exige trois corpus et seeds distincts dans un
+même manifeste d'environnement. Chaque reçu conserve les résultats par cas, les
+empreintes et les agrégats de succès, erreurs, coût et latence. L'adaptateur fourni
+par l'appelant doit réellement exécuter chaque condition et garantir le snapshot
+initial. Les sorties restent descriptives (`promotionDecision: null`); aucun holdout
+indépendant n'a encore été exécuté ni validé.
+
+Les récepteurs daemon et morphogenèse, une preuve de réplication scientifique et le
+transfert d'autorité Rust demeurent hors de cette tranche. Voir [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md).
 
 ## Références d'implémentation
 
