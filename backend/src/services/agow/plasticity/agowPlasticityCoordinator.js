@@ -13,10 +13,18 @@ function validInput(input) {
 }
 
 async function recordOutcome(input) {
-  if (!validInput(input)) throw new TypeError('A verified AGOW pathway outcome requires identity, prediction error and evidence references.');
-  const policy = await policyService.load({ agentId: input.agentId, db: input.db });
+  const trusted = trustedOutcome(input);
+  if (!validInput(trusted)) throw new TypeError('An AGOW pathway outcome requires identity, prediction error and evidence references.');
+  const policy = await policyService.load({ agentId: trusted.agentId, db: trusted.db });
   if (policy.plasticity === 'disabled') return { recorded: false, reason: 'plasticity_disabled' };
-  return persistOutcome(input, policy);
+  return persistOutcome(trusted, policy);
+}
+
+function trustedOutcome(input) {
+  if (!input?.signedReceipt) return { ...input, evidenceStatus: 'reported' };
+  const receipt = require('../../developmentalBridge/developmentReceiptVerifier').verifyDevelopmentReceipt(input);
+  return { ...input, receiptId: receipt.receiptId, evidenceStatus: 'verified',
+    evidenceRefs: [receipt.receiptId, ...receipt.evidenceRefs.map((item) => item.artifactHash)] };
 }
 
 async function persistOutcome(input, policy) {
@@ -39,6 +47,10 @@ function preserveWeights(proposal, previous) {
 }
 
 async function consolidatePathway(options) {
+  let receipt;
+  try { receipt = require('../../developmentalBridge/developmentReceiptVerifier').verifyDevelopmentReceipt(options); }
+  catch (_) { return { consolidated: false, reason: 'independent_receipt_required' }; }
+  if (!receipt.success) return { consolidated: false, reason: 'successful_receipt_required' };
   const policy = await policyService.load({ agentId: options.agentId, db: options.db });
   if (!['bounded', 'live'].includes(policy.plasticity)) {
     return { consolidated: false, reason: 'consolidation_policy_requires_bounded_mode' };
@@ -46,7 +58,7 @@ async function consolidatePathway(options) {
   const loaded = await persistence.load({ scope: SCOPE, agentId: options.agentId, db: options.db });
   const pathways = { ...(loaded.state.pathways || {}) };
   const pathway = pathways[options.key];
-  const result = eligibility.consolidate(pathway, options);
+  const result = eligibility.consolidate(pathway, { evidenceStatus: 'verified' });
   if (!result.consolidated) return result;
   pathways[options.key] = result.pathway;
   await persistence.save({ scope: SCOPE, agentId: options.agentId, db: loaded.db,

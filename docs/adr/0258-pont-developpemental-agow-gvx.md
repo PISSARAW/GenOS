@@ -31,9 +31,9 @@ L'interoception machine existante est la source canonique. Le pont transforme le
 mesures disponibles en état GVX et en posture AGOW consultative. Toute dimension sans
 capteur dédié reste explicitement inconnue; elle n'est pas inférée.
 
-Les trajectoires cognitives réelles peuvent publier leurs signaux dans GVX lorsque leur
-appelant fournit explicitement un scope de développement. Le scope n'est pas deviné à
-partir d'un agent ou d'un espace de travail.
+Les trajectoires cognitives réelles publient leurs signaux dans le scope du workspace
+persisté de l'agent. Un scope fourni par l'appelant doit correspondre à ce scope; il ne
+peut pas remplacer ni élargir le rattachement tenant stocké.
 
 ## Conséquences
 
@@ -47,10 +47,9 @@ partir d'un agent ou d'un espace de travail.
 
 ### Négatives
 
-- Les producteurs de trajectoires doivent fournir le scope de développement pour publier
-  des signaux dans GVX.
-- Le déploiement doit fournir un vérificateur de reçus réellement indépendant; le pont
-  refuse les reçus sans cette dépendance.
+- Les agents sans workspace tenant ne publient pas de signaux développementaux GVX.
+- Le déploiement doit configurer le secret des reçus épistémiques et inscrire les
+  vérificateurs approuvés; le pont refuse les reçus non signés ou non liés à leur claim.
 - Les recommandations demandent un consommateur explicite et ne déclenchent pas seules
   les expériences.
 

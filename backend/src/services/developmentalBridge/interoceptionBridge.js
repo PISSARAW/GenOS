@@ -1,16 +1,26 @@
 'use strict';
 
 const { buildInteroceptiveState } = require('../gvxInteroception');
+const { appendEvent } = require('../gvxDevelopmentLedger');
 
 async function sampleCanonicalInteroception(input) {
-  const sample = await require('../machineInteroceptionService').senseAgentRuntime(
-    input.db, input.agentId, { now: input.now }
-  );
+  const sample = input.sample || await require('../machineInteroceptionService').senseAgentRuntime(
+    input.db, input.agentId, { now: input.now });
   return buildInteroceptiveState({
     scope: input.scope, now: sample.sampledAt,
     freshnessPolicy: { now: sample.sampledAt, observedAt: sample.sampledAt },
     measurements: canonicalMeasurements(sample)
   });
+}
+
+async function recordCanonicalInteroception(input) {
+  const state = await sampleCanonicalInteroception(input);
+  await appendEvent(input.db, {
+    id: `machine-interoception:${state.snapshotId}`, ...input.scope, entityId: input.agentId,
+    type: 'evidence_attached', payload: { kind: 'canonical_interoception', sourceSystem: 'machineInteroceptionService',
+      sampledAt: input.sample?.sampledAt || state.createdAt, dimensions: state.dimensions }
+  });
+  return state;
 }
 
 function canonicalMeasurements(sample) {
@@ -45,4 +55,4 @@ function deriveAgowPosture(state) {
 function high(measurement) { return measurement.status === 'measured' && measurement.value >= 0.75; }
 function low(measurement) { return measurement.status === 'measured' && measurement.value <= 0.25; }
 
-module.exports = { sampleCanonicalInteroception, canonicalMeasurements, deriveAgowPosture };
+module.exports = { sampleCanonicalInteroception, recordCanonicalInteroception, canonicalMeasurements, deriveAgowPosture };

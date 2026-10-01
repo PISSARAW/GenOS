@@ -27,9 +27,9 @@ function surpriseFrom(input) {
   return Math.max(...signals);
 }
 
-function validatedReward(input) {
+function validatedReward(input, uniqueReceipt) {
   const verified = input.evidenceStatus === 'verified' && input.evidenceRefs?.length > 0;
-  if (!verified) return 0;
+  if (!verified || (input.receiptId && !uniqueReceipt)) return 0;
   return input.success === true ? clamp(input.reward ?? 0.5) : 0;
 }
 
@@ -40,22 +40,32 @@ function failedValidation(input) {
 function updatePathway(existing, input) {
   const now = Number(input.now) || Date.now();
   const current = existing || initialPathway(input.pathwayId, input.contextHash || 'global', now);
-  const surprise = surpriseFrom(input);
-  const reward = validatedReward(input);
-  const failure = failedValidation(input);
-  const updated = { ...current, predictionError: surprise,
-    eligibilityTrace: clamp(current.eligibilityTrace * DEFAULT_TRACE_DECAY + Math.max(surprise, reward)),
-    fastWeight: clamp(current.fastWeight + (reward ? reward * 0.1 : failure ? -0.1 : 0)),
-    supportCount: current.supportCount + (reward > 0 ? 1 : 0),
-    failureCount: current.failureCount + (failure ? 1 : 0),
-    evidenceRefs: [...new Set([...(current.evidenceRefs || []), ...(input.evidenceRefs || [])])].slice(-50),
-    expiresAt: now + 7 * 24 * 60 * 60 * 1000 };
+  const updated = { ...current, ...pathwayUpdate(current, input, now) };
   updated.status = statusFor(updated, now);
   return updated;
 }
 
+function pathwayUpdate(current, input, now) {
+  const surprise = surpriseFrom(input);
+  const priorReceiptIds = current.verifiedReceiptIds || [];
+  const reward = validatedReward(input, isNewReceipt(input, priorReceiptIds));
+  const failure = failedValidation(input);
+  return { predictionError: surprise,
+    eligibilityTrace: clamp(current.eligibilityTrace * DEFAULT_TRACE_DECAY + Math.max(surprise, reward)),
+    fastWeight: clamp(current.fastWeight + (reward ? reward * 0.1 : failure ? -0.1 : 0)),
+    supportCount: current.supportCount + (reward > 0 ? 1 : 0),
+    failureCount: current.failureCount + (failure ? 1 : 0),
+    verifiedReceiptIds: newReceiptIds(priorReceiptIds, input, reward),
+    evidenceRefs: [...new Set([...(current.evidenceRefs || []), ...(input.evidenceRefs || [])])].slice(-50),
+    expiresAt: now + 7 * 24 * 60 * 60 * 1000 };
+}
+
+function isNewReceipt(input, priorIds) { return Boolean(input.receiptId && !priorIds.includes(input.receiptId)); }
+function newReceiptIds(priorIds, input, reward) { return reward > 0 ? [...priorIds, input.receiptId].slice(-1000) : priorIds; }
+
 function consolidate(existing, input) {
-  if (!existing || existing.supportCount < CONSOLIDATION_SUPPORT || input.evidenceStatus !== 'verified') {
+  if (!existing || (existing.verifiedReceiptIds || []).length < CONSOLIDATION_SUPPORT
+      || input.evidenceStatus !== 'verified') {
     return { consolidated: false, reason: 'insufficient_validated_support', pathway: existing || null };
   }
   const plasticity = require('../../proceduralPlasticityService');

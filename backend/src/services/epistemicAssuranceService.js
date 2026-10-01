@@ -224,4 +224,4 @@ function evaluateEpistemicAssurance(input = {}) {
   };
 }
 
-module.exports = { evaluateEpistemicAssurance };
+module.exports = { evaluateEpistemicAssurance, digest };

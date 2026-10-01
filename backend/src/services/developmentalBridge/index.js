@@ -3,6 +3,8 @@
 const agowSignals = require('./agowToGvxSignalAdapter');
 const gvxReceipts = require('./gvxToAgowReceiptAdapter');
 const interoception = require('./interoceptionBridge');
+const scopes = require('./developmentalScopeResolver');
+const receiptVerifier = require('./developmentReceiptVerifier');
 
 function recommendAction(signalType, repetitionCount = 1) {
   if (!agowSignals.SIGNAL_TYPES.includes(signalType)) return 'ignore';
@@ -15,4 +17,4 @@ function recommendAction(signalType, repetitionCount = 1) {
   return 'observe';
 }
 
-module.exports = { ...agowSignals, ...gvxReceipts, ...interoception, recommendAction };
+module.exports = { ...agowSignals, ...gvxReceipts, ...interoception, ...scopes, ...receiptVerifier, recommendAction };

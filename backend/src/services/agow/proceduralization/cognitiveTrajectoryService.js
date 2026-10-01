@@ -22,6 +22,7 @@ function trajectoryRecord(input) {
 
 async function record(input) {
   if (!validTrajectory(input)) throw new TypeError('A real, evidence-linked cognitive trajectory is required.');
+  const scope = await resolveDevelopmentalScope(input);
   const loaded = await persistence.load({ scope: SCOPE, agentId: input.agentId, db: input.db });
   const trajectories = Array.isArray(loaded.state.trajectories) ? loaded.state.trajectories : [];
   const record = trajectoryRecord(input);
@@ -29,15 +30,19 @@ async function record(input) {
   await persistence.save({ scope: SCOPE, agentId: input.agentId, db: loaded.db,
     state: { trajectories: trajectories.slice(-2000) }, version: trajectories.length });
   const episode = await require('./autobiographicalEpisodeAdapter').capture({ ...input, trajectory: record });
-  const developmentalSignals = input.developmentalScope
-    ? await recordDevelopmentalSignals(input, record) : [];
+  const developmentalSignals = scope ? await recordDevelopmentalSignals(input, record, scope) : [];
   return { ...record, autobiographicalEpisodeId: episode.id, developmentalSignals };
 }
 
-async function recordDevelopmentalSignals(input, record) {
+async function resolveDevelopmentalScope(input) {
+  const { resolveDevelopmentalScope: resolve } = require('../../developmentalBridge/developmentalScopeResolver');
+  return resolve(input.db, input.agentId, input.developmentalScope);
+}
+
+async function recordDevelopmentalSignals(input, record, scope) {
   const { recordOutcomeSignals } = require('../../developmentalBridge/agowToGvxSignalAdapter');
   return recordOutcomeSignals(input.db, {
-    scope: input.developmentalScope, entityId: input.agentId, agentId: input.agentId,
+    scope, entityId: input.agentId, agentId: input.agentId,
     sourceEventId: record.trajectoryId, evidenceRefs: record.evidenceRefs,
     success: record.success, predictionError: input.predictionError, regret: input.regret,
     decompiled: input.decompiled, pathwayId: input.pathwayId,

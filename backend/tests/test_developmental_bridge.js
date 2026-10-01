@@ -8,9 +8,15 @@ const { migrateGvxLedger } = require('../src/db/migrations/migrateGvxLedger');
 const { listEvents } = require('../src/services/gvxDevelopmentLedger');
 const { recordOutcomeSignals } = require('../src/services/developmentalBridge/agowToGvxSignalAdapter');
 const { creditVerifiedReceipt } = require('../src/services/developmentalBridge/gvxToAgowReceiptAdapter');
-const { deriveAgowPosture, canonicalMeasurements } = require('../src/services/developmentalBridge/interoceptionBridge');
+const { receiptClaim } = require('../src/services/developmentalBridge/developmentReceiptVerifier');
+const { digest } = require('../src/services/epistemicAssuranceService');
+const receiptService = require('../src/services/epistemicVerifierReceiptService');
+const verifierTrust = require('../src/services/verifierTrustRegistry');
+const { deriveAgowPosture, canonicalMeasurements, recordCanonicalInteroception } = require('../src/services/developmentalBridge/interoceptionBridge');
 const { recommendAction } = require('../src/services/developmentalBridge');
+const { resolveDevelopmentalScope } = require('../src/services/developmentalBridge/developmentalScopeResolver');
 const { update: updatePolicy } = require('../src/services/agow/agowMechanismPolicyService');
+const plasticityCoordinator = require('../src/services/agow/plasticity/agowPlasticityCoordinator');
 const { buildInteroceptiveState } = require('../src/services/gvxInteroception');
 
 const scope = { organizationId: 'org', projectId: 'project' };
@@ -24,7 +30,9 @@ async function main() {
     await checkAgowSignals(db);
     await checkReceiptCredits(db);
     checkInteroceptionBoundary();
+    await checkCanonicalLedger(db);
     checkRoutingRecommendations();
+    await checkScopeResolution();
   } finally { await db.close(); }
   console.log('Developmental bridge checks passed.');
 }
@@ -45,28 +53,43 @@ async function checkAgowSignals(db) {
 
 async function checkReceiptCredits(db) {
   await updatePolicy({ agentId: 'agent', db, policy: { plasticity: 'bounded' } });
-  const untrusted = { verify: async (request) => ({ receiptId: request.receiptId, verified: false }) };
-  await assert.rejects(creditVerifiedReceipt(db, receiptInput(db, 'bad-1', untrusted)), { code: 'GVX_RECEIPT_UNVERIFIED' });
-  const verified = { verify: async (request) => verifiedReceipt(request.receiptId) };
+  process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'developmental-bridge-test-secret';
+  await plasticityCoordinator.recordOutcome({ db, agentId: 'agent', pathwayId: 'route.alpha',
+    success: true, predictionError: 0.1, reward: 1, evidenceStatus: 'verified', evidenceRefs: ['forged'] });
+  const afterForgedClaim = await plasticityCoordinator.listPathways({ db, agentId: 'agent' });
+  assert.strictEqual(afterForgedClaim.find((item) => item.pathwayId === 'route.alpha').supportCount, 0);
+  const untrusted = receiptInput(db, 'bad-1');
+  untrusted.signedReceipt.independent = false;
+  await assert.rejects(creditVerifiedReceipt(db, untrusted), { code: 'GVX_RECEIPT_UNVERIFIED' });
+  const tampered = receiptInput(db, 'tampered');
+  tampered.success = false;
+  await assert.rejects(creditVerifiedReceipt(db, tampered), { code: 'GVX_RECEIPT_UNVERIFIED' });
   for (let index = 1; index <= 3; index += 1) {
-    const input = receiptInput(db, `receipt-${index}`, verified);
+    const input = receiptInput(db, `receipt-${index}`);
     const result = await creditVerifiedReceipt(db, input);
     assert.strictEqual(result.credited, true);
     if (index === 3) assert.strictEqual(result.consolidation.consolidated, true);
   }
-  const duplicate = await creditVerifiedReceipt(db, receiptInput(db, 'receipt-1', verified));
+  const duplicate = await creditVerifiedReceipt(db, receiptInput(db, 'receipt-1'));
   assert.strictEqual(duplicate.reason, 'receipt-already-claimed');
+  const duplicateDirect = receiptInput(db, 'receipt-1');
+  await plasticityCoordinator.recordOutcome({ ...duplicateDirect, key: undefined });
+  const pathway = (await plasticityCoordinator.listPathways({ db, agentId: 'agent' }))
+    .find((item) => item.pathwayId === 'route.alpha' && item.contextHash === 'b'.repeat(64));
+  assert.strictEqual(pathway.supportCount, 3);
+  assert.strictEqual(pathway.verifiedReceiptIds.length, 3);
   const events = await listEvents(db, { ...scope, entityId: 'agent' });
   assert.strictEqual(events.filter((event) => event.payload.kind === 'developmental_credit_applied').length, 3);
 }
 
-function receiptInput(db, receiptId, receiptVerifier) {
-  return { db, scope, entityId: 'agent', agentId: 'agent', receiptId, receiptVerifier };
-}
-
-function verifiedReceipt(receiptId) {
-  return { verified: true, receiptId, verifierId: 'gvx-proof-gate-v1', pathwayId: 'route.alpha',
-    contextHash: 'b'.repeat(64), success: true, predictionError: 0.1, reward: 0.8, evidenceRefs: evidence };
+function receiptInput(db, receiptId) {
+  const input = { db, scope, entityId: 'agent', agentId: 'agent', receiptId,
+    pathwayId: 'route.alpha', contextHash: 'b'.repeat(64), success: true,
+    predictionError: 0.1, reward: 0.8, evidenceRefs: evidence };
+  input.signedReceipt = receiptService.issueReceipt({ resultId: receiptId,
+    evidenceDigest: digest(receiptClaim(input)), verifierDigest: verifierTrust.getVerifier('proof').digest,
+    status: 'verified', independent: true, independenceDescriptor: { method: 'separate-proof-gate' } });
+  return input;
 }
 
 function checkInteroceptionBoundary() {
@@ -81,11 +104,32 @@ function checkInteroceptionBoundary() {
   assert.strictEqual(posture.status, 'partial');
 }
 
+async function checkCanonicalLedger(db) {
+  const sample = { sampledAt: '2026-10-01T00:00:00.000Z', variables: {
+    energy: 0.6, memory_pressure: 0.3, model_drift: 0.1, integrity: 0.9
+  } };
+  const state = await recordCanonicalInteroception({ db, agentId: 'agent', scope, sample });
+  const events = await listEvents(db, { ...scope, entityId: 'agent' });
+  const event = events.find((item) => item.payload.kind === 'canonical_interoception');
+  assert.ok(event);
+  assert.strictEqual(event.payload.sampledAt, sample.sampledAt);
+  assert.strictEqual(state.dimensions.securityAnomalies.status, 'unknown');
+}
+
 function checkRoutingRecommendations() {
   assert.strictEqual(recommendAction('unknown_signal'), 'ignore');
   assert.strictEqual(recommendAction('prediction_error'), 'observe');
   assert.strictEqual(recommendAction('prediction_error', 3), 'create_hypothesis');
   assert.strictEqual(recommendAction('active_query'), 'schedule_experiment');
+}
+
+async function checkScopeResolution() {
+  const db = { get: async (_query, agentId) => agentId === 'agent'
+    ? { organizationId: scope.organizationId, projectId: scope.projectId } : null };
+  assert.deepStrictEqual(await resolveDevelopmentalScope(db, 'agent'), scope);
+  assert.strictEqual(await resolveDevelopmentalScope(db, 'unknown-agent'), null);
+  await assert.rejects(resolveDevelopmentalScope(db, 'agent', { organizationId: 'other', projectId: 'project' }),
+    { code: 'DEVELOPMENTAL_SCOPE_MISMATCH' });
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

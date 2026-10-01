@@ -51,7 +51,12 @@ async function selfReceiver(input) {
 async function interoceptionReceiver(input) {
   if (input.phase === 'inspect') return { state: await stateFor(input.db, input.frame.agentId, 'agow_attention_policy') };
   const sensing = await require('../machineInteroceptionService').senseAgentRuntime(input.db, input.frame.agentId);
-  if (sensing.status !== 'measured' || !sensing.variables) return ignored('interoception_unavailable');
+  if (!sensing.variables) return ignored('interoception_unavailable');
+  const scope = await require('../developmentalBridge/developmentalScopeResolver')
+    .resolveDevelopmentalScope(input.db, input.frame.agentId);
+  if (scope) await require('../developmentalBridge/interoceptionBridge').recordCanonicalInteroception({
+    db: input.db, agentId: input.frame.agentId, scope, sample: sensing
+  });
   const mission = { executionPolicy: { requestedWorkers: 3, workerFanoutLimit: 3, allowFileEdits: true } };
   const posture = require('../allostaticPlanningService').applyMeasuredPosture(mission, sensing);
   const before = await stateFor(input.db, input.frame.agentId, 'agow_attention_policy');

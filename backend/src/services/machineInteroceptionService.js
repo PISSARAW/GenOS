@@ -199,6 +199,7 @@ async function senseAgentRuntime(db, agentId, options = {}) {
 
   return {
     agentId,
+    status: 'measured',
     variables,
     biologicalAnalogy,
     sources: {

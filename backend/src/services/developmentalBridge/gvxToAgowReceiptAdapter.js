@@ -2,11 +2,11 @@
 
 const crypto = require('node:crypto');
 const { appendEvent, getEvent, listEvents } = require('../gvxDevelopmentLedger');
+const { verifyDevelopmentReceipt } = require('./developmentReceiptVerifier');
 
 async function creditVerifiedReceipt(db, input) {
   validateRequest(input);
-  const receipt = await input.receiptVerifier.verify({ receiptId: input.receiptId, scope: input.scope, entityId: input.entityId });
-  validateVerifiedReceipt(receipt, input);
+  const receipt = verifyDevelopmentReceipt(input);
   const key = creditKey(input, receipt);
   if (await getEvent(db, `gvx-credit-claim:${key}`, ledgerScope(input))) return { credited: false, reason: 'receipt-already-claimed' };
   await appendClaim({ db, input, receipt, key });
@@ -34,7 +34,8 @@ async function recordAgowCredit(input, receipt) {
     db: input.db, agentId: input.agentId, pathwayId: receipt.pathwayId,
     contextHash: receipt.contextHash, success: receipt.success,
     predictionError: receipt.predictionError, reward: receipt.reward,
-    evidenceStatus: 'verified', evidenceRefs: [receipt.receiptId, ...receipt.evidenceRefs.map((item) => item.artifactHash)]
+    evidenceStatus: 'verified', signedReceipt: input.signedReceipt, scope: input.scope,
+    entityId: input.entityId, receiptId: receipt.receiptId, evidenceRefs: receipt.evidenceRefs
   });
 }
 
@@ -58,7 +59,11 @@ async function consolidateAfterSupport(input, receipt, supportCount) {
   if (!receipt.success || supportCount < 3) return { consolidated: false, reason: 'three_distinct_gvx_receipts_required' };
   return require('../agow/plasticity/agowPlasticityCoordinator').consolidatePathway({
     db: input.db, agentId: input.agentId,
-    key: `${receipt.pathwayId}:${receipt.contextHash || 'global'}`, evidenceStatus: 'verified'
+    scope: input.scope, entityId: input.entityId, receiptId: input.receiptId,
+    pathwayId: input.pathwayId, contextHash: input.contextHash, success: input.success,
+    predictionError: input.predictionError, reward: input.reward,
+    evidenceRefs: input.evidenceRefs, signedReceipt: input.signedReceipt,
+    key: `${receipt.pathwayId}:${receipt.contextHash || 'global'}`
   });
 }
 
@@ -73,34 +78,19 @@ async function recordFailure({ db, input, receipt, key, error }) {
 }
 
 function validateRequest(input) {
-  if (!input || !input.scope?.organizationId || !input.scope?.projectId || !input.entityId
-      || !input.agentId || !input.receiptId || !input.db
-      || !input.receiptVerifier || typeof input.receiptVerifier.verify !== 'function') {
-    throw Object.assign(new Error('GVX receipt verification adapter is required.'), { code: 'GVX_RECEIPT_VERIFIER_REQUIRED' });
+  if (!validReceiptRequest(input)) {
+    throw Object.assign(new Error('Signed GVX receipt and claim are required.'), { code: 'GVX_RECEIPT_VERIFIER_REQUIRED' });
   }
 }
 
-function validateVerifiedReceipt(receipt, input) {
-  if (!hasVerifiedIdentity(receipt, input) || !hasVerifiedEvidence(receipt)) {
-    throw Object.assign(new Error('GVX development receipt is not independently verified.'), { code: 'GVX_RECEIPT_UNVERIFIED' });
-  }
+function validReceiptRequest(input) {
+  return Boolean(input && validReceiptScope(input) && input.entityId && input.agentId
+    && input.receiptId && input.db && input.signedReceipt && input.pathwayId
+    && typeof input.success === 'boolean' && Number.isFinite(input.predictionError));
 }
 
-function hasVerifiedIdentity(receipt, input) {
-  return Boolean(receipt && receipt.verified === true && receipt.receiptId === input.receiptId
-    && typeof receipt.verifierId === 'string' && receipt.verifierId.trim()
-    && typeof receipt.pathwayId === 'string' && receipt.pathwayId.trim()
-    && typeof receipt.success === 'boolean' && Number.isFinite(receipt.predictionError));
-}
-
-function hasVerifiedEvidence(receipt) {
-  return Array.isArray(receipt.evidenceRefs) && receipt.evidenceRefs.length > 0
-    && receipt.evidenceRefs.every(validArtifact);
-}
-
-function validArtifact(item) {
-  return Boolean(item && /^[a-f0-9]{64}$/.test(item.artifactHash || '')
-    && typeof item.verifierId === 'string' && item.verifierId.trim());
+function validReceiptScope(input) {
+  return Boolean(input.scope?.organizationId && input.scope?.projectId);
 }
 
 function creditKey(input, receipt) {
@@ -110,4 +100,4 @@ function creditKey(input, receipt) {
 
 function ledgerScope(input) { return { ...input.scope, entityId: input.entityId }; }
 
-module.exports = { creditVerifiedReceipt, validateVerifiedReceipt };
+module.exports = { creditVerifiedReceipt };
