@@ -21,6 +21,8 @@
 
 const runtime = require('./agentRuntimeAdapter');
 const telemetry = require('./telemetryObserver');
+const { withDeadline, abortable } = require('./operationDeadline');
+const evidence = require('./poetExecutionEvidence');
 
 const TERMINAL_EVENTS = new Set([
   'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR',
@@ -40,7 +42,7 @@ async function readTelemetryCursor(agentId) {
     const { getDatabase } = require('../db');
     const db = await getDatabase();
     const row = await db.get('SELECT MAX(id) AS cursor FROM telemetry_events WHERE agent_id = ?', agentId);
-    return Number.isSafeInteger(row?.cursor) ? row.cursor : null;
+    return Number.isSafeInteger(row?.cursor) ? row.cursor : 0;
   } catch (_) {
     return null;
   }
@@ -151,10 +153,14 @@ function launchAgentMission(agent, environment, opts) {
     role: agent.role || 'solver',
     prompt: buildAgentPrompt(agent, environment),
     modelTier: opts.modelTier || 'standard',
-    executionBudget: { latencyMs: opts.timeoutMs },
     executionPolicy: environment.executionPolicy || {},
     workspaceRoot: environment.workspacePath,
     workspaceId: environment.workspaceId,
+    workspaceProvisioned: true,
+    executor: agent.executor,
+    autonomousOrchestration: agent.autonomousOrchestration,
+    toolLease: agent.toolLease,
+    executionBudget: { ...agent.executionBudget, latencyMs: opts.timeoutMs },
   });
 }
 
@@ -180,9 +186,16 @@ async function executeAgentOnEnvironment(agent, environment, options) {
   const opts = normalizePoetOptions(options);
   const results = baseResults(agent, environment);
   try {
-    await runAgentToTermination({ agent, environment, opts, results });
+    const executionAgent = { ...agent, id: agent.executionAgentIds?.[environment.id] || agent.id };
+    results.runtimeAgentId = executionAgent.id;
+    const isolated = await evidence.isolateEnvironment(environment);
+    results.baselineSnapshotHash = isolated.baselineSnapshotHash;
+    results.executionWorkspace = isolated.workspacePath;
+    await withDeadline({ timeoutMs: opts.timeoutMs },
+      (signal) => runAgentToTermination({ agent: executionAgent, environment: isolated, opts, results, signal }));
   } catch (err) {
     results.error = err.message;
+    if (process.env.GENOS_POET_DEBUG === '1') console.error(err.stack);
     results.success = false;
   }
   results.endedAt = new Date().toISOString();
@@ -196,24 +209,43 @@ function normalizePoetOptions(options) {
 
 async function runAgentToTermination(ctx) {
   const { agent, environment, opts, results } = ctx;
+  const before = await evidence.artifactEvidence(environment);
   const afterEventId = await readTelemetryCursor(agent.id);
-  const missionPromise = launchAgentMission(agent, environment, opts);
   const terminationPromise = waitForMissionTermination(agent.id, opts.timeoutMs, afterEventId);
-  const outcome = await Promise.race([
-    terminationPromise.then((termination) => ({ termination })),
-    missionPromise.then(() => new Promise(() => {}), (error) => ({ error }))
-  ]);
-  if (outcome.error) {
+  const cancel = () => {
     terminationPromise.cancel();
-    throw outcome.error;
+    Promise.resolve(runtime.stopMission?.(agent.id)).catch(() => {});
+  };
+  ctx.signal.addEventListener('abort', cancel, { once: true });
+  try {
+    const missionPromise = Promise.resolve().then(() => launchAgentMission(agent, environment, opts));
+    const outcome = await Promise.race([
+      terminationPromise.then((termination) => ({ termination })),
+      missionPromise.then(() => new Promise(() => {}), (error) => ({ error }))
+    ]);
+    if (outcome.error) throw outcome.error;
+    results.termination = outcome.termination;
+    if (outcome.termination.eventType !== 'AGENT_COMPLETED') {
+      if (!outcome.termination.terminated) cancel();
+      throw new Error(terminationFailure(outcome.termination, opts.timeoutMs));
+    }
+    const missionOutcome = await abortable(missionPromise, ctx.signal);
+    if (missionOutcome?.duplicate) throw new Error('POET cannot measure an already running mission');
+    attachOutcome(results, missionOutcome);
+    const artifact = await evidence.artifactEvidence(environment);
+    if (!artifact || artifact.sha256 === before?.sha256) throw new Error('POET requires a new or changed file artifact');
+    results.artifact = artifact;
+    if (ctx.signal.aborted) return;
+    await verifyAndScore(results, environment);
+  } finally {
+    ctx.signal.removeEventListener('abort', cancel);
+    terminationPromise.cancel();
   }
-  const termination = outcome.termination;
-  if (!termination.terminated) {
-    results.error = timeoutMessage(opts.timeoutMs, termination.eventType);
-    return;
-  }
-  attachOutcome(results, await missionPromise.catch(toErrorObject));
-  await verifyAndScore(results, environment);
+}
+
+function terminationFailure(termination, timeoutMs) {
+  if (termination.terminated) return `POET runtime terminated with ${termination.eventType}`;
+  return timeoutMessage(timeoutMs, termination.eventType);
 }
 
 function timeoutMessage(timeoutMs, eventType) {
@@ -227,7 +259,7 @@ function toErrorObject(err) {
 function buildAgentPrompt(agent, environment) {
   const goal = environment.goals?.[0] || 'Solve the problem';
   const constraints = environment.constraints || {};
-  return `${agent.role || 'Agent'}: ${goal}\n\nConstraints: ${JSON.stringify(constraints)}\n\nProvide a solution as structured output.`;
+  return `${agent.role || 'Agent'}: ${goal}\n\nConstraints: ${JSON.stringify(constraints)}\n\nWrite the solution file ${environment.artifactPath || 'solution.json'} in the workspace. Provide a solution as structured output.`;
 }
 
 async function verifySolutionInSnapshot(missionResult, environment) {
@@ -264,17 +296,20 @@ async function verifySolutionInSnapshot(missionResult, environment) {
       output: 'POET verification: capture returned no storagePath',
     };
   }
+  const binding = await evidence.bindSnapshot(snapshot, artifact, environment);
   const result = await runInSnapshot({
     snapshot: { id: snapshot?.id, snapshot_hash: snapshot?.snapshotHash, metadata: snapshot?.metadata },
-    command: 'npm test',
+    command: environment.verifierCommand || 'npm test',
     timeoutMs: 30000,
     workspacePath: environment.workspacePath,
   });
 
   return {
+    ...binding,
     valid: result.exitCode === 0,
     score: result.exitCode === 0 ? 1 : 0,
     output: result.stdout,
+    stderr: result.stderr, exitCode: result.exitCode,
   };
 }
 

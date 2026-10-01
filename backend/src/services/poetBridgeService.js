@@ -59,18 +59,38 @@ async function evaluateGeneralization(agents, split, options) {
   const training = split?.training || [];
   const heldOut = split?.heldOut || [];
   validateGeneralizationInput(agents, training, heldOut);
+  const fingerprints = await validateContentSplit(training, heldOut);
   const trainingResults = await coevolveWithExecution(agents, cloneEnvironments(training), options);
-  const heldOutResults = await coevolveWithExecution(agents, cloneEnvironments(heldOut), options);
-  const trainingMetrics = summarizeResults(trainingResults);
+  const selectedAgent = selectTrainingAgent(agents, trainingResults);
+  const heldOutResults = await coevolveWithExecution([selectedAgent], cloneEnvironments(heldOut), options);
+  const trainingMetrics = summarizeResults(trainingResults.map((entry) => ({ ...entry, bestAgent: selectedAgent })));
   const heldOutMetrics = summarizeResults(heldOutResults);
+  const measured = hasMeasuredExecutions([...trainingResults, ...heldOutResults]);
   return {
-    measured: hasMeasuredExecutions([...trainingResults, ...heldOutResults]),
+    selectedAgentId: selectedAgent.id,
+    fingerprints,
+    measured,
     training: trainingMetrics,
     heldOut: heldOutMetrics,
-    generalizationGap: trainingMetrics.successRate - heldOutMetrics.successRate,
+    generalizationGap: measured ? trainingMetrics.successRate - heldOutMetrics.successRate : null,
     split: { trainingIds: training.map((env) => env.id), heldOutIds: heldOut.map((env) => env.id) },
+    executionEvidence: executionEvidence([...trainingResults, ...heldOutResults]),
     evidenceRef: hashResults([...trainingResults, ...heldOutResults]),
   };
+}
+
+async function validateContentSplit(training, heldOut) {
+  const { environmentFingerprint } = require('./poetExecutionEvidence');
+  const all = await Promise.all([...training, ...heldOut].map(environmentFingerprint));
+  if (new Set(all).size !== all.length) throw new Error('Generalization content must be disjoint');
+  return { training: all.slice(0, training.length), heldOut: all.slice(training.length) };
+}
+
+function selectTrainingAgent(agents, results) {
+  const scores = agents.map((agent) => ({ agent, score: results.reduce((sum, result) =>
+    sum + (result.evaluations.find((item) => item.agent.id === agent.id)?.evaluation.overallScore || 0), 0) }));
+  scores.sort((left, right) => right.score - left.score || left.agent.id.localeCompare(right.agent.id));
+  return scores[0].agent;
 }
 
 function validateGeneralizationInput(agents, training, heldOut) {
@@ -81,6 +101,8 @@ function validateGeneralizationInput(agents, training, heldOut) {
 }
 
 function validateSplitIds(training, heldOut) {
+  const allIds = [...training, ...heldOut].map((env) => env.id);
+  if (new Set(allIds).size !== allIds.length) throw new Error('Generalization IDs must be unique');
   const ids = new Set(training.map((env) => env.id));
   const invalidTraining = [...ids].some((id) => id == null);
   const overlaps = heldOut.some((env) => env.id == null || ids.has(env.id));
@@ -95,7 +117,7 @@ function validateEnvironment(environment) {
 
 function hasMeasuredExecutions(results) {
   return results.every((entry) => entry.bestAgent &&
-    entry.evaluations.some((item) => item.executionResult?.endedAt));
+    entry.evaluations.some((item) => item.executionResult?.termination?.terminated));
 }
 
 function cloneEnvironments(environments) {
@@ -118,6 +140,17 @@ function environmentSolved(result) {
 function selectedScore(result) {
   if (!result.bestAgent) return 0;
   return result.evaluations.find((evaluation) => evaluation.agent.id === result.bestAgent.id)?.evaluation.overallScore || 0;
+}
+
+function executionEvidence(results) {
+  return results.flatMap((entry) => entry.evaluations.map((item) => ({
+    environmentId: entry.environment.id, agentId: item.agent.id,
+    runtimeAgentId: item.executionResult?.runtimeAgentId || null,
+    error: item.executionResult?.error || item.error || null,
+    terminalEvent: item.executionResult?.termination?.eventType || null,
+    baselineSnapshotHash: item.executionResult?.baselineSnapshotHash || null,
+    verification: item.executionResult?.verification || null,
+  })));
 }
 
 function hashResults(results) {

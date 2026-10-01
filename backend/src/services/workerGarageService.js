@@ -1,6 +1,5 @@
 const config = require('../config/orchestratorConfig');
 const { registerWakeHandler, unregisterWakeHandler } = require('./signalPlaneSubscriber');
-const runtimeMissionExecution = require('./agentRuntimeAdapter/missionExecution');
 
 const dynamicCapacities = new Map();
 
@@ -283,7 +282,7 @@ async function enterIdleState(db, agentId, orchestratorId) {
 function armWakeHandler(workerId) {
   registerWakeHandler(workerId, async (signal) => {
     try {
-      await runtimeMissionExecution.startMission({
+      await require('./agentRuntimeAdapter/missionExecution').startMission({
         agentId: workerId,
         prompt: '',
         role: 'signal-wake',

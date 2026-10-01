@@ -58,3 +58,9 @@ Reproduction : `cargo build -p genos-orchestrator --example receipt_bridge
 exécuter `node backend/tests/test_rust_receipt_process_e2e.js`. Sur cet hôte
 Windows, la limite PDB du linker exige `cargo rustc -p genos-orchestrator
 --example receipt_bridge --features api -- -C debuginfo=0 -C link-arg=/DEBUG:NONE`.
+
+## Lots 6 et 7 — preuves exécutées
+
+Le lot 6 lie les digests AEIS au code déployé et signe les preuves des processus réellement exécutés. Le nouveau test utilise les adaptateurs de production pour exécuter deux fois la vraie suite du dépôt, puis relit l’assemblée signée dans un autre processus SQLite et refuse les altérations (ADR 0233, confiance AEIS).
+
+Le lot 7 isole les tentatives POET, impose un fichier lié au snapshot, borne l’attente et fige la sélection avant le split tenu à l’écart. Le harness multi-graines a exécuté le runtime local de production avec Ollama sur six missions : 0/3 entraînement et 0/3 tenu à l’écart. Les échecs sont conservés ; aucun succès de généralisation n’est revendiqué. La famille reste synthétique et le chemin positif Codex n’est pas démontré (ADR 0234).

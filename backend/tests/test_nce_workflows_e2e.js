@@ -121,7 +121,8 @@ async function testPoetWithRealSnapshotVerification() {
     startMission: async (mission) => {
       const telemetry = require('../src/services/telemetryObserver');
       setImmediate(() => telemetry.emit('telemetry', { agentId: mission.agentId, eventType: 'AGENT_COMPLETED' }));
-      return { artifact: { solution: 'verified grid path' } };
+      await fs.writeFile(path.join(mission.workspaceRoot, 'solution.json'), JSON.stringify({ solution: 'verified grid path' }));
+      return { artifact: { path: 'solution.json' } };
     },
   } };
   for (const name of ['workspaceSnapshotStore', 'workspaceSnapshotPayload', 'workspaceSnapshotRun', 'telemetryObserver', 'poetExecutionEngine', 'poetBridgeService']) {
@@ -136,14 +137,14 @@ async function testPoetWithRealSnapshotVerification() {
     };
     const result = await bridge.coevolveWithExecution([{ id: 'agent-poet-real', role: 'solver' }], [environment], { timeoutMs: 10000 });
     const execution = result[0].evaluations[0].executionResult;
-    assert.equal(execution.success, true);
+    assert.equal(execution.success, true, JSON.stringify(execution));
     assert.match(execution.verification.output, /solver supporte maze solving/);
     assert.equal(environment.stats.solvedCount, 1);
     assert.equal(await fs.readFile(path.join(workspacePath, 'proof.txt'), 'utf8'), 'original');
     assert.ok(await sqlite.adapter.get('SELECT snapshot_hash FROM workspace_snapshots WHERE workspace_id = ?', 'ws-poet-real'));
     const generalization = await bridge.evaluateGeneralization(
       [{ id: 'agent-poet-real', role: 'solver' }],
-      { training: [environment], heldOut: [{ ...environment, id: 'env-poet-heldout' }] },
+      { training: [environment], heldOut: [{ ...environment, id: 'env-poet-heldout', goals: ['solve held-out grid'] }] },
       { timeoutMs: 10000 },
     );
     assert.equal(generalization.measured, true, 'held-out environments are actually executed');
@@ -172,13 +173,19 @@ async function testPoetIgnoresStaleTerminalEvent() {
     startMission: async () => ({ artifact: { solution: 'stale completion must not verify' } }),
   } };
   delete require.cache[require.resolve('../src/services/poetExecutionEngine')];
+  const evidenceModule = require('../src/services/poetExecutionEvidence');
+  const originalIsolation = evidenceModule.isolateEnvironment;
+  const originalArtifact = evidenceModule.artifactEvidence;
+  evidenceModule.isolateEnvironment = async (environment) => environment;
+  evidenceModule.artifactEvidence = async () => null;
+  delete require.cache[require.resolve('../src/services/poetExecutionEngine')];
   const execution = await require('../src/services/poetExecutionEngine').executeAgentOnEnvironment(
     { id: 'agent-stale', role: 'solver' },
     { id: 'env-stale', goals: ['solve grid'] },
     { timeoutMs: 20 },
   );
   assert.equal(execution.success, false);
-  assert.match(execution.error, /TIMEOUT/);
+  assert.match(execution.error, /TIMEOUT|deadline/);
   assert.equal(execution.verification, undefined, 'stale terminal rows cannot trigger snapshot verification');
 
   require.cache[runtimePath].exports.startMission = async () => { throw new Error('runtime startup rejected'); };
@@ -187,6 +194,8 @@ async function testPoetIgnoresStaleTerminalEvent() {
     { id: 'agent-runtime-failure', role: 'solver' }, { id: 'env-runtime-failure', goals: ['solve grid'] }, { timeoutMs: 5000 },
   );
   assert.match(failedRuntime.error, /runtime startup rejected/, 'startup errors propagate without waiting for timeout');
+  evidenceModule.isolateEnvironment = originalIsolation;
+  evidenceModule.artifactEvidence = originalArtifact;
   console.log('POET ignores stale terminal telemetry: PASS');
 }
 
@@ -217,38 +226,19 @@ async function testPlaySandboxFlow() {
 }
 
 async function testPoetExecutionAndBridge() {
-  const runtimePath = require.resolve('../src/services/agentRuntimeAdapter');
-  const telemetryPath = require.resolve('../src/services/telemetryObserver');
-  const snapshotPath = require.resolve('../src/services/workspaceSnapshotStore');
-  const runPath = require.resolve('../src/services/workspaceSnapshotRun');
-  const dbPath = require.resolve('../src/db');
-  const EventEmitter = require('node:events');
-  const telemetry = new EventEmitter();
-  require.cache[runtimePath] = { id: runtimePath, filename: runtimePath, loaded: true, exports: {
-    startMission: async (mission) => {
-      setImmediate(() => telemetry.emit('telemetry', { agentId: mission.agentId, eventType: 'AGENT_COMPLETED' }));
-      return { artifact: { solution: 'verified grid path' } };
-    },
-  } };
-  require.cache[telemetryPath] = { id: telemetryPath, filename: telemetryPath, loaded: true, exports: telemetry };
-  require.cache[snapshotPath] = { id: snapshotPath, filename: snapshotPath, loaded: true, exports: {
-    capture: async () => ({ id: 'snap-poet-1', snapshotHash: 'hash', metadata: { storagePath: '/snapshot' } }),
-  } };
-  require.cache[runPath] = { id: runPath, filename: runPath, loaded: true, exports: {
-    runInSnapshot: async (input) => ({ exitCode: input.command === 'npm test' ? 0 : 1, stdout: 'verification passed' }),
-  } };
-  require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
-    getDatabase: async () => ({}),
-  } };
+  const evidenceModule = require('../src/services/poetExecutionEvidence');
+  const original = evidenceModule.isolateEnvironment;
+  evidenceModule.isolateEnvironment = async () => { throw new Error('No durable artifact proof'); };
   delete require.cache[require.resolve('../src/services/poetExecutionEngine')];
   delete require.cache[require.resolve('../src/services/poetBridgeService')];
-  const bridge = require('../src/services/poetBridgeService');
-  const env = { id: 'env-e2e', difficulty: 0.3, workspacePath: '/workspace', workspaceId: 'ws-1', goals: ['solve grid'], stats: { attemptCount: 0, solvedCount: 0, bestScore: 0 } };
-  const result = await bridge.coevolveWithExecution([{ id: 'agent-e2e', role: 'solver' }], [env], { timeoutMs: 1000 });
-  assert.equal(result[0].evaluations[0].executionResult.success, true);
-  assert.equal(result[0].evaluations[0].executionResult.verification.output, 'verification passed');
-  assert.equal(env.stats.solvedCount, 1);
-  assert.equal(env.stats.bestScore, 1);
+  try {
+    const bridge = require('../src/services/poetBridgeService');
+    const env = { id: 'env-e2e', difficulty: 0.3, stats: { attemptCount: 0, solvedCount: 0, bestScore: 0 } };
+    const result = await bridge.coevolveWithExecution([{ id: 'agent-e2e', role: 'solver' }], [env], { timeoutMs: 1000 });
+    assert.equal(result[0].evaluations[0].executionResult.success, false);
+    assert.match(result[0].evaluations[0].executionResult.error, /durable artifact proof/);
+    assert.equal(env.stats.solvedCount, 0);
+  } finally { evidenceModule.isolateEnvironment = original; }
 }
 
 async function main() {
