@@ -5,6 +5,7 @@ const { open } = require('sqlite');
 const sqlite3 = require('sqlite3');
 const { migrateGvxLedger } = require('../src/db/migrations/migrateGvxLedger');
 const nursery = require('../src/services/gvxExperimentalNursery');
+const { createControlPlaneRegistry } = require('../src/services/gvxVerifierRegistry');
 
 async function main() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
@@ -16,14 +17,14 @@ async function main() {
   const result = await nursery.run({ db, scope, entityId: 'agent', snapshotHash: hash, worldBudget: 1,
     controls: { model: 'test', toolsetHash: hash, environmentHash: hash }, verifierRequirements: ['task'],
     experimentDesign: { type: 'paired', arms: [arm('a', 'baseline', 'wa'), arm('b', 'candidate', 'wb')] },
-    verifierRegistry: { trustSource: 'control_plane', verifiers: [{ id: 'verifier-1', requirements: ['task'],
-      verify: async ({ artifact }) => ({ verified: artifact.toString() === 'trusted' }) }] },
+    verifierRegistry: createControlPlaneRegistry([{ id: 'verifier-1', requirements: ['task'],
+      verify: async ({ artifact }) => ({ verified: artifact.toString() === 'trusted' }) }]),
     createIsolatedWorld: async ({ arm: selected }) => ({ worldId: selected.worldId, isolationId: selected.isolationId }),
     runWorld: async () => ({ status: 'completed', evidence: [{ requirement: 'task', verifierId: 'verifier-1', artifactRef: 'artifact' }] }),
     artifactReader: async () => Buffer.from('trusted') });
   assert.equal(result.assessment.status, 'ready_for_independent_review');
   assert.equal(result.promotionAllowed, false);
-  await assert.rejects(nursery.run({ db, verifierRegistry: { trustSource: 'candidate', verifiers: [] } }), /adapters-required/);
+  assert.throws(() => require('../src/services/gvxVerifierRegistry').validateRegistry({ trustSource: 'control_plane', verifiers: [] }), /trusted-control-plane/);
   await db.close();
   console.log('GVX experimental nursery checks passed.');
 }

@@ -1,9 +1,17 @@
 'use strict';
 
 const { createHash } = require('node:crypto');
+const TRUSTED_REGISTRIES = new WeakSet();
+
+function createControlPlaneRegistry(verifiers) {
+  if (!Array.isArray(verifiers)) throw new Error('control-plane-verifiers-required');
+  const registry = Object.freeze({ trustSource: 'control_plane', verifiers: Object.freeze([...verifiers]) });
+  TRUSTED_REGISTRIES.add(registry);
+  return registry;
+}
 
 function validateRegistry(registry) {
-  if (!registry || registry.trustSource !== 'control_plane' || !Array.isArray(registry.verifiers)) {
+  if (!registry || !TRUSTED_REGISTRIES.has(registry) || registry.trustSource !== 'control_plane' || !Array.isArray(registry.verifiers)) {
     throw new Error('trusted-control-plane-verifier-registry-required');
   }
   const ids = new Set(registry.verifiers.map((entry) => entry.id));
@@ -29,4 +37,4 @@ async function verifyEvidence(options) {
     : { verified: false, reason: 'verifier-rejected-artifact', verifierId: verifier.id };
 }
 
-module.exports = { validateRegistry, verifyEvidence, digest };
+module.exports = { createControlPlaneRegistry, validateRegistry, verifyEvidence, digest };
