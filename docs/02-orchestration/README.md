@@ -6,6 +6,7 @@ reproduction, et les 8 modes de composition (topologies).
 ## Exécution
 
 - [orchestration.md](orchestration.md) — branches, preuve avant validation, survivants, fan-out.
+- [ontogenese-boucle.md](ontogenese-boucle.md) — boucle Observer → réévaluer : sélection tâches/topologies, autorisation, réveils, notifications.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
 - [noyau-controle-morphogenetique.md](noyau-controle-morphogenetique.md) — kernel Rust : état global, diagnostic causal, résolveurs, plan morphogénétique, incarnation, gouvernance.
 - [regulation-multi-boucles.md](regulation-multi-boucles.md) — signaux de contrôle, boucles rapides/lentes, arbitrage.

@@ -60,6 +60,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [biologie-computationnelle.md](01-concepts/biologie-computationnelle.md) — biomimétique, embryogenèse, HOX, budgets.
 - [genome-et-epigenetique.md](01-concepts/genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
 - [runtime-agentique.md](01-concepts/runtime-agentique.md) — runtime agentique, états, garde-fous.
+- [ontogenese.md](01-concepts/ontogenese.md) — orchestrateur résident de projet, missions bornées et vérifiées.
 - [epistemologie-et-evidence.md](01-concepts/epistemologie-et-evidence.md) — preuves, croyance, succès ≠ vérité.
 - [natural-search-control-plane.md](01-concepts/natural-search-control-plane.md) — plan de contrôle de recherche naturelle : pression, progression causal, ledger d'hypothèses, contrôleur.
 - [savoir-et-epistemologie.md](01-concepts/savoir-et-epistemologie.md) — savoir, croyance, Gettier, inférence, vérité et épistémologie sociale.
@@ -106,6 +107,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [architecture-survie.md](02-orchestration/architecture-survie.md) — état de survie mesurable et politiques de continuité bornées.
 - [regulation-multi-boucles.md](02-orchestration/regulation-multi-boucles.md) — régulation multi-boucles, signaux et arbitrage.
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.
+- [ontogenese-boucle.md](02-orchestration/ontogenese-boucle.md) — boucle Observer → réévaluer : sélection, autorisation, réveils, notifications.
 - [topologies-et-capacites.md](02-orchestration/topologies-et-capacites.md) — contrat de capacités (8 modes + 19 organisations), leases effectifs.
 - [primitives-executables.md](02-orchestration/primitives-executables.md) — primitives formelles, contrats, budgets, promotion.
 - [workflows-et-jobs.md](02-orchestration/workflows-et-jobs.md) — workflows, jobs, graphes d'états, transitions.
@@ -147,6 +149,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [contrat-produit-et-completude.md](03-reference/contrat-produit-et-completude.md) — périmètre livré, statuts de maturité, critères de preuve et environnements supportés.
 - [pont-rust-et-hallucinations.md](03-reference/pont-rust-et-hallucinations.md) — bridge REST vers `genos-cli`.
 - [plugins-topologies-morphogenese.md](03-reference/plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique.
+- [ontogenese-contrats.md](03-reference/ontogenese-contrats.md) — contrats stables V1 de l'Ontogenèse : tables, config, états, claims, sélecteur, intégrateur, CLI.
 - Spécifications normatives : [`../spec/AGENT_DNA_SPEC.md`](../spec/AGENT_DNA_SPEC.md), [`../spec/GENOME_SPEC.md`](../spec/GENOME_SPEC.md).
 
 ### 6. Exploitation et opérations
@@ -155,6 +158,7 @@ Index : [04-exploitation/README.md](04-exploitation/README.md)
 
 - [deploiement.md](04-exploitation/deploiement.md) — modèles de déploiement, Docker, Windows.
 - [cli-et-experience-operateur.md](04-exploitation/cli-et-experience-operateur.md) — CLI, TUI, parcours opérateur.
+- [ontogenese.md](04-exploitation/ontogenese.md) — ontogenèse : exploitation locale, mémoire, reprise, diagnostic, rollback.
 - [observabilite.md](04-exploitation/observabilite.md) — traces, diagnostics, logs, métriques, audit.
 - [resilience-et-reprise.md](04-exploitation/resilience-et-reprise.md) — reprise sur crash, cohérence, reconstitution.
 - [runbook-recovery.md](04-exploitation/runbook-recovery.md) — runbook d'exploitation et reprise (EN).

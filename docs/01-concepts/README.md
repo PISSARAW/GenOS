@@ -11,6 +11,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 - [biologie-computationnelle.md](biologie-computationnelle.md) — biomimétique GenOS, embryogenèse, HOX, budgets.
 - [genome-et-epigenetique.md](genome-et-epigenetique.md) — génome, chromatine, mutation, stabilité.
 - [runtime-agentique.md](runtime-agentique.md) — runtime agentique, états, garde-fous.
+- [ontogenese.md](ontogenese.md) — orchestrateur résident de projet, missions bornées et vérifiées.
 - [continuite-mission.md](continuite-mission.md) — organisme de mission, homéostasie cible, six systèmes de survie (régénération, immunité, dormance, apoptose contrôlée).
 - [epistemologie-et-evidence.md](epistemologie-et-evidence.md) — preuves, croyance, succès ≠ vérité.
 - [savoir-et-epistemologie.md](savoir-et-epistemologie.md) — savoir, croyance, Gettier, inférence, vérité et épistémologie sociale.
