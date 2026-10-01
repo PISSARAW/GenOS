@@ -14,6 +14,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
 | [0005](0005-reorganisation-arborescence-documentaire.md) | Réorganisation de l'arborescence documentaire | Accepté | 2026-09-14 | Documentation, provenance, distribution |
+| [0006](0006-active-global-organism-workspace.md) | Active Global Organism Workspace (AGOW) | Proposé | 2026-10-01 | Runtime cognitif, orchestration |
 | [0012a](0012-re-grounding-topologies-biologiques.md) | Re-grounding durable des workers biologiques | Acceptée | 2026-09-28 | Topologie, orchestration, workers, preuve |
 | [0012b](0012-volition-autonome-et-preservation.md) | Volition autonome et préservation | Accepté (amendé 2026-09-27) | 2026-09-15 / 2026-09-27 | Orchestration, survie, autonomie |
 | [0013](0013-survival-model-control-plane.md) | Modèle de survie dans le control plane | Accepté | 2026-09-16 | Orchestration, budgets, sûreté, biomimétisme |
