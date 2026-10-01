@@ -1,4 +1,17 @@
-# GenOS — Runtime d'orchestration destiné à survivre à l' hype
+# GenOS Agent Runtime — Reproducible Multi-Agent Orchestration
+
+**GenOS is an open-source AI agent runtime for reproducible, evidence-driven execution.** It provides versioned workspace state, counterfactual branches, deterministic replay, evidence gates, supervised multi-agent orchestration, and an MCP interface.
+
+En français : GenOS est un runtime open source pour agents IA, centré sur l'état versionné, les branches contrefactuelles et l'exécution vérifiable. Le nom canonique du projet est **GenOS Agent Runtime** afin de le distinguer des autres projets appelés GenOS.
+
+🌐 **Site public** : https://genoswork.vercel.app
+🧬 **Code source** : https://github.com/PISSARAW/GenOS
+📖 **Documentation** : [index des docs](docs/README.md)
+🔌 **Serveur MCP** : [serveur MCP GenOS](mcp/README.md) · [métadonnées pour le MCP Registry](server.json)
+
+---
+
+## Runtime d'orchestration destiné à survivre à l'hype
 
 GenOS est un runtime pour agents autonomes où **une exécution réussie n'est pas une preuve, et une erreur n'est pas fatale**.
 
@@ -9,9 +22,6 @@ GenOS est un runtime pour agents autonomes où **une exécution réussie n'est p
 
 Ce n'est pas un framework d'agents. C'est un runtime qui essaie de rendre l'agentic computation moins fertile pour les hallucinations de chaîne.
 
-🌐 **Site public** : https://genoswork.vercel.app  
-🧬 **Repo + code** : https://github.com/PISSARAW/GenOS  
-📖 **Docs** : https://github.com/PISSARAW/GenOS/tree/main/docs
 📊 **Inventaire vérifiable** : [comptages techniques](docs/03-reference/inventaire-technique.md), régénérés par `npm run docs:inventory` et contrôlables par `npm run docs:inventory:check`.
 🏁 **Démo** : `examples/safe-debugging-demo` (zéro token, exécutable)
 

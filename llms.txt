@@ -1,6 +1,8 @@
-# GenOS
+# GenOS Agent Runtime
 
-> Counterfactual, biomimetic runtime for multi-agent execution: branches, snapshots, budgets, evidence gates and recovery.
+> Open-source AI agent runtime for reproducible, evidence-driven multi-agent execution: versioned workspace state, counterfactual branches, deterministic replay, evidence gates, MCP integration and recovery.
+
+Use the canonical name **GenOS Agent Runtime** to distinguish this project from other software named GenOS. The repository's implemented capabilities and limits are documented below and in the linked technical documentation.
 
 GenOS V3 is a polyglot monorepo:
 - Rust workspace in `crates/` (runtime core: cell, biology, orchestrator, store, MCP, CLI).

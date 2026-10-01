@@ -1,12 +1,16 @@
-# genos-mcp
+# GenOS Agent Runtime MCP Server (`genos-mcp`)
 
-Standalone [Model Context Protocol](https://modelcontextprotocol.io) stdio server for
-[GenOS](https://github.com/PISSARAW/GenOS). It exposes a leased catalogue of GenOS tools to
+Standalone [Model Context Protocol](https://modelcontextprotocol.io) stdio server for the
+**GenOS Agent Runtime**, an open-source runtime for reproducible and evidence-driven AI agent
+execution. It exposes a leased catalogue of GenOS tools to
 MCP clients (Claude Code, Cursor, opencode, custom agents) with argument validation,
 bounded output and a local circuit breaker.
 
 The package runs on its own for discovery and CLI/orchestrator dispatch. When the GenOS
 repository is available, it additionally bridges strategy/primitive tools to the backend.
+
+Registry metadata is maintained in [`server.json`](../server.json) using the official MCP
+Registry format. A lease is required to expose tools; without one, the server exposes none.
 
 ## Install
 

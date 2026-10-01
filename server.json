@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.pissaraw/genos",
+  "title": "GenOS Agent Runtime",
+  "description": "Open-source AI agent runtime for reproducible, evidence-driven multi-agent execution, with versioned workspace state, counterfactual branches, deterministic replay and gated MCP tools.",
+  "websiteUrl": "https://genoswork.vercel.app",
+  "repository": {
+    "url": "https://github.com/PISSARAW/GenOS",
+    "source": "github",
+    "subfolder": "mcp"
+  },
+  "version": "3.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "genos-mcp",
+      "version": "3.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "GENOS_MCP_LEASE",
+          "description": "Comma-separated allow-list of GenOS MCP tools. Without a lease the server exposes no tools.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

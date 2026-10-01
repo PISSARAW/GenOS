@@ -1,7 +1,7 @@
 ﻿{
   "name": "genos-mcp",
   "version": "3.0.0",
-  "description": "GenOS stdio MCP server: leased tools, argument validation and dispatch to the GenOS backend/CLI.",
+  "description": "GenOS Agent Runtime MCP server for versioned agent state, reproducible replay and evidence-gated multi-agent orchestration.",
   "license": "Apache-2.0",
   "main": "index.js",
   "type": "module",
@@ -32,7 +32,10 @@
     "mcp",
     "model-context-protocol",
     "agents",
-    "orchestration"
+    "orchestration",
+    "agent-runtime",
+    "reproducibility",
+    "deterministic-replay"
   ],
   "repository": {
     "type": "git",
