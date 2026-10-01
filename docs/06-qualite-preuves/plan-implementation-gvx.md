@@ -13,7 +13,7 @@
 | 3 — Transformations et curriculum | Partiel | `gvxTransformation.js`, test `test_gvx_transformation.js` ; graphe durable de compétences restant à faire |
 | 4 — Nurserie et preuve | Partiel | `gvxExperimentProtocol.js`, test `test_gvx_experiment_protocol.js` ; exécution isolée via Trinity et vérification des artifacts restent à raccorder |
 | 5 — Adaptation somatique | Partiel | `gvxSomaticAssessment.js`, test `test_gvx_somatic_assessment.js` ; application runtime, suivi et rollback restent à raccorder |
-| 6 — Transmission | À faire | — |
+| 6 — Transmission | Partiel | `gvxTransferLifecycle.js`, test `test_gvx_transfer_lifecycle.js` ; promotion germinale, essai de receveur et intégration de la mémoire des fossiles restent à faire |
 | 7 — Méta-développement | À faire | — |
 | 8 — Évaluation | À faire | — |
 
