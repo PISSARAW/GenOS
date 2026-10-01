@@ -769,12 +769,15 @@ protocole.
 
 ### 16.2 Ablations disponibles
 
-La liste par défaut contient `full`, `workspace_ablated`, `broadcast_ablated`,
-`memory_ablated`, `self_ablated` et `interoception_ablated`. Ce sont des étiquettes de
-condition transmises au callback. Le runner ne modifie pas l'application AGOW pour
-désactiver automatiquement un composant : le callback doit réaliser l'ablation et
-fournir les mêmes conditions de base. Des conditions personnalisées peuvent être
-fournies.
+La liste inclut `full`, `workspace_ablated`, `broadcast_ablated`, `memory_ablated`,
+`self_ablated`, `interoception_ablated`, `regret_ablated`, `allostasis_ablated`,
+`counterfactual_ablated`, `active_query_ablated`, `fast_plasticity_ablated`,
+`direct_pathway_ablated`, `proceduralization_ablated`, `decompilation_ablated`,
+`distributed_market_ablated` et `provenance_ablated`. Ce sont des étiquettes transmises
+au callback; celui-ci doit réaliser l'intervention et retourner les mêmes conditions
+de base. Le runner ne prétend pas que l'ablation a été effectuée sans instrumenter le
+callback. Des conditions personnalisées peuvent être fournies. Voir [ADR
+0249](../adr/0249-ablations-et-controles-agow.md).
 
 Le reçu contient les sorties par cas et condition, leur graine, le hash du snapshot,
 ainsi que des résumés de taux de succès, erreurs, coût et latence. Un résultat absent

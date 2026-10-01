@@ -4,7 +4,11 @@ const { createHash, randomUUID } = require('node:crypto');
 const persistence = require('./agowStatePersistenceService');
 
 const SCOPE = 'agow_experiment_receipts';
-const CONDITIONS = Object.freeze(['full', 'workspace_ablated', 'broadcast_ablated', 'memory_ablated', 'self_ablated', 'interoception_ablated']);
+const CONDITIONS = Object.freeze(['full', 'workspace_ablated', 'broadcast_ablated', 'memory_ablated',
+  'self_ablated', 'interoception_ablated', 'regret_ablated', 'allostasis_ablated',
+  'counterfactual_ablated', 'active_query_ablated', 'fast_plasticity_ablated',
+  'direct_pathway_ablated', 'proceduralization_ablated', 'decompilation_ablated',
+  'distributed_market_ablated', 'provenance_ablated']);
 
 function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
