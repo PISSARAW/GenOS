@@ -8,7 +8,7 @@ const missionMorphogenesis = require('./missionMorphogenesis');
 
 async function planMission(ctx) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord } = ctx;
-  attachGlobalWorkspace(ctx);
+  await attachGlobalWorkspace(ctx);
   ctx.autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
   await attachMorphogenesisPlan(ctx);
 }
@@ -117,10 +117,15 @@ function applyValencePosture(ctx) {
   } catch (_) {}
 }
 
-function attachGlobalWorkspace(ctx) {
+async function attachGlobalWorkspace(ctx) {
   const task = ctx.normalizedMission.prompt || ctx.normalizedMission.currentTask || '';
   if (!task.trim()) return;
   const workspaceService = require('../globalWorkspaceService');
+  const mode = workspaceService.getMode();
+  if (mode !== 'off') {
+    const agow = await attachAgowWorkspace({ ctx, task, workspaceService, mode });
+    if (agow.controlsMission) return;
+  }
   const state = workspaceService.compete([
     { id: `mission:${ctx.agentId}`, salience: 1, content: task }
   ], { capacity: 3, ignitionThreshold: 1, modules: ['planning', 'execution', 'reporting'] });
@@ -146,6 +151,38 @@ function attachGlobalWorkspace(ctx) {
         available: result.available, consumed: result.consumed
       }]))
     }, 'info');
+}
+
+function buildMissionCandidate(options) {
+  const { ctx, task, now } = options;
+  const missionId = ctx.normalizedMission.missionId;
+  return {
+    candidateId: `mission:${ctx.agentId}:${now}`,
+    agentId: ctx.agentId,
+    source: { module: 'mission_planning', instanceId: missionId || null, modality: 'mission_text' },
+    content: { semanticType: 'mission_request', artifactRef: null, compactPreview: task.slice(0, 2000) },
+    evidenceRefs: [String(missionId || ctx.agentId)], causalParents: [],
+    measures: { predictionError: 0, uncertainty: 0.1, goalRelevance: 1, expectedInformationGain: 0.5, urgency: 1, novelty: 0.5, actionability: 1, causalConfidence: 0.9, evidenceDebt: 0, estimatedCost: 0 },
+    constraints: { safety: 'clear', integrity: 'clear', viability: 'clear', userPolicy: 'clear' },
+    redundancyKey: null, producedAt: now, expiresAt: now + 300000,
+    stateHash: require('node:crypto').createHash('sha256').update(task).digest('hex')
+  };
+}
+
+async function attachAgowWorkspace(options) {
+  const { ctx, task, workspaceService, mode } = options;
+  const now = Date.now();
+  const candidate = buildMissionCandidate({ ctx, task, now });
+  const admission = await workspaceService.submitCandidate({ candidate, now });
+  const result = admission.accepted ? await workspaceService.cycle({ agentId: ctx.agentId, db: ctx.db, now, activeGoal: String(ctx.normalizedMission.missionId || 'mission'), unresolvedQuestions: [] }) : null;
+  const isShadow = ['shadow', 'advisory', 'experimental'].includes(mode);
+  ctx.agow = { mode, candidateId: candidate.candidateId, accepted: admission.accepted, frame: result?.frame || null, broadcast: result?.broadcast || null };
+  if (isShadow) ctx.globalWorkspaceShadow = ctx.agow;
+  else {
+    ctx.globalWorkspace = { authority: 'agow', frameId: result?.frame?.frameId || null, cycle: result?.frame?.cycle || 0, available: Boolean(result?.frame), broadcast: result?.broadcast || null };
+    ctx.normalizedMission.globalWorkspace = ctx.globalWorkspace;
+  }
+  return { controlsMission: !isShadow };
 }
 
 function applyExecutionPolicy(ctx) {
