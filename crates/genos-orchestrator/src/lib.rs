@@ -56,6 +56,7 @@ pub mod organism;
 pub mod population_registry;
 pub mod population_restore;
 pub mod organization;
+pub mod organization_step;
 pub mod phylogeny;
 pub mod physical_telemetry;
 pub mod physics;
@@ -111,6 +112,7 @@ pub use organism::{OrganismConfig, OrganismReport};
 pub use organization::{
     Organization, Superorganism, catalog, select_organization, select_superorganism,
 };
+pub use organization_step::{adversarial_needs_recipient, authority_for, follower_may_address, step_family};
 pub use physical_telemetry::{MissionPhysicsProfile, PhysicalTelemetry};
 pub use physics::{
     ActionProfile, DecisionContext, Material, PhysicalState, Regime, UtilityInputs, action_profile,
