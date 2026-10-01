@@ -9,7 +9,7 @@
     "queryId": { "type": "string", "minLength": 1 }, "frameId": { "type": "string", "minLength": 1 },
     "need": { "type": "object", "additionalProperties": false, "required": ["questionType", "capability", "expectedInformationGain"], "properties": { "questionType": { "type": "string", "minLength": 1 }, "capability": { "type": "string", "minLength": 1 }, "expectedInformationGain": { "type": "number", "minimum": 0, "maximum": 1 } } },
     "budget": { "type": "object", "additionalProperties": false, "required": ["maxCost", "deadlineAt"], "properties": { "maxCost": { "type": "number", "minimum": 0 }, "deadlineAt": { "type": "integer", "minimum": 0 } } },
-    "minimumEvidenceRefs": { "type": "integer", "minimum": 0 },
+    "minimumEvidenceRefs": { "type": "integer", "minimum": 0 }, "pathwayRef": { "type": "string", "minLength": 1 },
     "candidateModules": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true }, "createdAt": { "type": "integer", "minimum": 0 }
   }
 }

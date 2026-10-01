@@ -80,14 +80,20 @@ async function plan(options) {
   const expectedInformationGain = Math.max(0, Math.min(1, Number(options.expectedInformationGain ?? frame.epistemicState.uncertainty)));
   if (!modules.length) return { planned: false, reason: 'no_eligible_modules' };
   const budget = queryBudget(options, attentionPolicy.state);
-  const selected = attention.reallocate({ candidates: modules.map((id) => ({ id, baseDemand: expectedInformationGain, stateKey: need.capability })), state: options.attentionState, budget: budget.moduleBudget });
+  const pathway = await require('./pathways/directPathwayRouter').resolveQuery({
+    agentId: frame.agentId, db: options.db, capability: need.capability,
+    contextHash: need.fingerprint, targets: modules
+  });
+  const selected = pathway ? { selected: [{ id: pathway.target }], directPathway: pathway }
+    : attention.reallocate({ candidates: modules.map((id) => ({ id, baseDemand: expectedInformationGain, stateKey: need.capability })), state: options.attentionState, budget: budget.moduleBudget });
   const query = {
     queryId: randomUUID(), frameId: frame.frameId,
     need: { questionType: need.questionType, capability: need.capability, expectedInformationGain },
     budget: { maxCost: budget.maxCost, deadlineAt: Number(options.deadlineAt) || Date.now() + 30000 },
     minimumEvidenceRefs: Math.max(evidenceFloor(metaPolicy.state.minimumEvidenceRefs),
       evidenceFloor(attentionPolicy.state.minimumEvidenceRefs)),
-    candidateModules: selected.selected.map((item) => item.id), createdAt: Date.now()
+    candidateModules: selected.selected.map((item) => item.id),
+    ...(pathway ? { pathwayRef: pathway.pathwayId } : {}), createdAt: Date.now()
   };
   await require('./agowStatePersistenceService').save({ scope: QUERY_POLICY_SCOPE, agentId: frame.agentId, db: queryPolicy.db,
     state: { ...queryPolicy.state, [need.fingerprint]: { queryId: query.queryId, createdAt: query.createdAt } }, version: query.createdAt });

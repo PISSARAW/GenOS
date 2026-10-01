@@ -405,6 +405,23 @@ succès supportés; `consolidatePathway` exige ensuite une demande explicite et 
 doit être produit par un intégrateur qui a réellement validé les références; AGOW ne
 vérifie pas cette assertion à lui seul. Voir [ADR 0242](../adr/0242-agow-plasticite-rapide-lente.md).
 
+### 8.2 Voies directes
+
+`pathways/directPathwayRegistry` enregistre des routes persistantes par agent, chacune
+liant source, cible, capacité, sémantique, signature de contexte, confiance et statut.
+Le routeur réutilise `signalEventBus` et les topics `agow:pathway:<target>`; il n'ajoute
+pas un transport parallèle. Les organes intégrateurs peuvent s'abonner avec
+`directPathwayRouter.subscribe`. Active Query consulte le registre avant l'allocation
+par attention et sélectionne le handler direct lorsque la voie est consolidée, adaptée
+au contexte et autorisée par la politique `bounded` ou `live`.
+
+Une voie critique impose `requiresGlobalReview`; le registre en déduit ce garde pour
+les mutations irréversibles, les enjeux élevés, la faible confiance causale, les
+approbations utilisateur, les opérations sensibles à la sécurité et les contextes non
+stationnaires. Une route suspendue cesse immédiatement d'être admissible. La remise
+directe in-process n'est pas un reçu de réussite ni une livraison durable. Voir [ADR
+0243](../adr/0243-voies-directes-agow.md).
+
 ---
 
 ## 9. Signal Plane, diffusion et médiation
@@ -863,6 +880,7 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `counterfactualTriggerPolicyService.js` / `counterfactual/shadowWorkspaceService.js` | Déclencheurs, branches shadow bornées, isolation, snapshots et reçus. |
 | `agowMechanismPolicyService.js` | Politique persistée des modes regret, contrefactuel, plasticité, voies directes et marchés. |
 | `plasticity/agowPlasticityCoordinator.js` / `plasticity/pathwayEligibilityService.js` | Trace contextuelle rapide, support validé et consolidation lente via LTP procédurale. |
+| `pathways/directPathwayRegistry.js` / `pathways/directPathwayRouter.js` | Registre contextuel, revue globale obligatoire et routage direct sur le Signal Plane existant. |
 | `counterfactual/counterfactualFrameAdapter.js` / `counterfactual/counterfactualOutcomeService.js` | Construction des branches et admission des outcomes avec provenance. |
 
 ---
