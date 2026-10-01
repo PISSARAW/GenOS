@@ -351,6 +351,9 @@ const migrationRunners = [
   createMigrationRunner('096-ontogenesis-execution', 'Persist fenced Ontogenese executions and memory recovery', async (db) => {
     await require('./migrateOntogenesisExecution').migrateOntogenesisExecution(db);
   }),
+  createMigrationRunner('097-gvx-development-ledger', 'Persist immutable, scoped developmental provenance events', async (db) => {
+    await require('./migrateGvxLedger').migrateGvxLedger(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
