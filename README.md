@@ -27,9 +27,11 @@ Ce n'est pas un framework d'agents. C'est un runtime qui essaie de rendre l'agen
 
 ---
 
-## Le truc qui divergence GentOS des autres orchestrateurs
+## What distinguishes GenOS from conventional agent runtimes
 
-La plupart des orchestrateurs avancent sur une seule timeline mutable. GenOS fait l'inverse : **l'état est versionné par défaut**.
+La différence principale : l'état est versionné par défaut.
+
+Les orchestrateurs classiques avancent sur une timeline mutable. GenOS versionne l'état pour pouvoir comparer et rejouer des trajectoires.
 
 | Ce que vous faites | Sortie normale | Sortie GenOS |
 | --- | --- | --- |

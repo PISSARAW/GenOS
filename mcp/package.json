@@ -1,6 +1,7 @@
 ﻿{
   "name": "genos-mcp",
   "version": "3.0.0",
+  "mcpName": "io.github.pissaraw/genos",
   "description": "GenOS Agent Runtime MCP server for versioned agent state, reproducible replay and evidence-gated multi-agent orchestration.",
   "license": "Apache-2.0",
   "main": "index.js",
