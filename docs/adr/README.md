@@ -270,6 +270,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0252](0252-gvx-curriculum-competences.md) | Curriculum de compétences GVX sous budget | Accepté | 2026-10-01 | GVX, compétences, budget, apprentissage |
 | [0253](0253-gvx-suivi-somatique.md) | Suivi somatique et rollback GVX | Accepté | 2026-10-01 | GVX, observation, régression, rollback |
 | [0254](0254-ingress-outcomes-trajectoires-agow.md) | Outcomes runtime vers plasticité et trajectoires AGOW | Accepté | 2026-10-01 | AGOW, ingress runtime, apprentissage causal |
+| [0255](0255-active-query-simulation-prospective.md) | Active Query de simulation prospective | Accepté | 2026-10-01 | AGOW, Active Query, contrefactuels |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
