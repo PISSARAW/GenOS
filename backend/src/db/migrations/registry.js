@@ -316,6 +316,14 @@ const migrationRunners = [
     const { migrateDecisionEvidenceBinding } = require('./migrateDecisionEvidenceBinding');
     await migrateDecisionEvidenceBinding(db);
   }),
+  createMigrationRunner('088-ontogenesis-state', 'Persist Ontogenese projects, backlog, runs, decisions, integrations, control and claims (ADR 0235)', async (db) => {
+    const { migrateOntogenesis } = require('./migrateOntogenesis');
+    await migrateOntogenesis(db);
+  }),
+  createMigrationRunner('089-ontogenesis-conversation', 'Persist Ontogenese inbox, events, memory, notifications and approvals (ADR 0235 S7-8)', async (db) => {
+    const { migrateOntogenesisConversation } = require('./migrateOntogenesisConversation');
+    await migrateOntogenesisConversation(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

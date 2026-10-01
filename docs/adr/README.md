@@ -9,8 +9,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
-| [0234a](0234-hooks-session-codex-genos.md) | Gates de session Codex via hooks GenOS | Accepté | 2026-10-01 | Codex, MCP, preuve, sessions |
-| [0233b](0233-profil-developpement-codex-mcp.md) | Profil de développement Codex via MCP | Accepté | 2026-10-01 | Codex, MCP, workflows, persistance |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
@@ -239,6 +237,15 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0207](0207-transmettre-les-politiques-de-coordination-aux-workers.md) | Transmettre les politiques de coordination aux workers | Accepté | 2026-10-01 | Dispatch A-Team, coordination, handoffs |
 | [0208](0208-relier-perception-memoire-et-rappel.md) | Relier perception, mémoire et rappel | Accepté | 2026-10-01 | Perception, mémoire autobiographique, apprentissage |
 | [0209](0209-allowlist-surfaces-publiques.md) | Fermer les surfaces publiques par allowlist | Accepté | 2026-10-01 | API, authentification, sécurité |
+| [0229](0229-deadlines-et-oracles-de-maturite.md) | Deadlines et oracles de maturité | Voir le fichier | -- | -- |
+| [0230](0230-journal-biologique-et-population-signee.md) | Journal biologique et population signée | Voir le fichier | -- | -- |
+| [0231](0231-succession-et-autorite-executable.md) | Succession et autorité executable | Voir le fichier | -- | -- |
+| [0232](0232-therapie-autorisee-sur-cellule-durable.md) | Thérapie autorisée sur cellule durable | Voir le fichier | -- | -- |
+| [0233a](0233-confiance-aeis-sur-implementation-deployee.md) | Confiance AEIS sur l’implémentation déployée | Voir le fichier | -- | -- |
+| [0233b](0233-profil-developpement-codex-mcp.md) | Profil de développement Codex via MCP | Accepté | 2026-10-01 | Codex, MCP, workflows, persistance |
+| [0234a](0234-hooks-session-codex-genos.md) | Gates de session Codex via hooks GenOS | Accepté | 2026-10-01 | Codex, MCP, preuve, sessions |
+| [0234b](0234-preuves-poet-et-benchmark-multi-graines.md) | Preuves POET et benchmark multi-graines | Voir le fichier | -- | -- |
+| [0235](0235-ontogenese-orchestrateur-resident-projet.md) | Ontogenèse : orchestrateur résident de projet à missions bornées et vérifiées | Accepté (première tranche : contrat et persistance) | 2026-10-01 | Orchestration, persistance, preuve, ressources, Git |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
