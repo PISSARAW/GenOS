@@ -175,8 +175,8 @@ async function attachAgowWorkspace(options) {
   const candidate = buildMissionCandidate({ ctx, task, now });
   const admission = await workspaceService.submitCandidate({ candidate, now });
   const result = admission.accepted ? await workspaceService.cycle({ agentId: ctx.agentId, db: ctx.db, now, activeGoal: String(ctx.normalizedMission.missionId || 'mission'), unresolvedQuestions: [] }) : null;
-  const controlsMission = mode === 'bounded';
-  const activation = activationForMode(mode);
+  const controlsMission = mode === 'bounded' && frameContains(result?.frame, candidate.candidateId);
+  const activation = activationForMode({ mode, controlsMission });
   ctx.agow = { mode, activation, candidateId: candidate.candidateId, accepted: admission.accepted, frame: result?.frame || null, broadcast: result?.broadcast || null };
   if (!controlsMission) ctx.globalWorkspaceShadow = ctx.agow;
   else {
@@ -187,8 +187,13 @@ async function attachAgowWorkspace(options) {
 }
 
 function activationForMode(mode) {
-  if (mode === 'live') return 'awaiting_causal_promotion';
-  return mode === 'bounded' ? 'bounded' : 'shadow';
+  if (mode.mode === 'live') return 'awaiting_causal_promotion';
+  if (mode.controlsMission) return 'bounded';
+  return mode.mode === 'bounded' ? 'shadow_waiting_for_ignition' : 'shadow';
+}
+
+function frameContains(frame, candidateId) {
+  return Boolean(frame && (frame.primaryContent === candidateId || frame.secondaryContents?.includes(candidateId)));
 }
 
 function applyExecutionPolicy(ctx) {
