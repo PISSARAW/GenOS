@@ -206,7 +206,7 @@ ne sont pas une estimation calibrée de l'état réel du système. Les frames po
 `realityMode`, `simulationId` et `parentRealityFrameId`; les frames réels ont les deux
 identifiants simulés à `null`.
 
-### 8.1 Politique d'arbitrage contrefactuel
+#### Politique d'arbitrage contrefactuel
 
 `agowMechanismPolicyService` persiste une politique par agent dans `adaptive_state`.
 Les mécanismes disposent des modes `disabled`, `observe`, `shadow`, `advisory`,
@@ -387,6 +387,23 @@ Les receivers reçoivent le frame et le candidat primaire source retrouvé dans 
 Ils ne reçoivent pas automatiquement les corps complets de tous les candidats
 secondaires. Le frame est un pointeur compact : les services métier restent
 responsables de résoudre et d'autoriser leurs propres artefacts.
+
+### 8.1 Plasticité rapide/lente
+
+`plasticity/agowPlasticityCoordinator` stocke des voies contextuelles sous le scope
+persistant `agow_pathway_plasticity`. Chaque voie conserve `fastWeight`, `slowWeight`,
+`eligibilityTrace`, support/échecs, erreur de prédiction, statut, expiration et références
+de preuve. Les erreurs prédictives, surprises, résolutions critiques, améliorations
+allostatiques et réductions de regret proposées par l'appelant augmentent la trace
+d'éligibilité. La trace n'est pas une mesure d'apprentissage validé.
+
+Le mode `observe` retourne une mise à jour proposée sans modifier les poids persistés.
+`shadow` et les modes supérieurs peuvent mettre à jour le poids rapide, uniquement sur
+des outcomes marqués `verified` avec preuve. Le poids lent reste inchangé jusqu'à trois
+succès supportés; `consolidatePathway` exige ensuite une demande explicite et le mode
+`bounded` ou `live`, puis délègue LTP à `proceduralPlasticityService`. Le tag `verified`
+doit être produit par un intégrateur qui a réellement validé les références; AGOW ne
+vérifie pas cette assertion à lui seul. Voir [ADR 0242](../adr/0242-agow-plasticite-rapide-lente.md).
 
 ---
 
@@ -844,6 +861,8 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `agowExperimentService.js` | Ablation, médiation contrôlée, holdout, résumé et reçus. |
 | `agowMechanismPolicyService.js` | Politique persistée des modes regret, contrefactuel, plasticité, voies directes et marchés. |
 | `counterfactualTriggerPolicyService.js` / `counterfactual/shadowWorkspaceService.js` | Déclencheurs, branches shadow bornées, isolation, snapshots et reçus. |
+| `agowMechanismPolicyService.js` | Politique persistée des modes regret, contrefactuel, plasticité, voies directes et marchés. |
+| `plasticity/agowPlasticityCoordinator.js` / `plasticity/pathwayEligibilityService.js` | Trace contextuelle rapide, support validé et consolidation lente via LTP procédurale. |
 | `counterfactual/counterfactualFrameAdapter.js` / `counterfactual/counterfactualOutcomeService.js` | Construction des branches et admission des outcomes avec provenance. |
 
 ---

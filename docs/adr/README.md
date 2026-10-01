@@ -255,6 +255,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0239b](0239-socle-genos-verified-evo-devo.md) | Socle de développement évolutif vérifié (GVX) | Accepté | 2026-10-01 | Ontogenèse, morphogenèse, persistance, expériences, AgentDNA, preuve |
 | [0240](0240-agow-regret-predictif.md) | Arbitrage AGOW par regret prédictif | Accepté | 2026-10-01 | AGOW, décision, allostase, épistémologie |
 | [0241](0241-agow-shadow-contrefactuel-isole.md) | Simulation contrefactuelle AGOW en espace isolé | Accepté | 2026-10-01 | AGOW, expérimentation, isolation des effets |
+| [0242](0242-agow-plasticite-rapide-lente.md) | Plasticité rapide et lente coordonnée par AGOW | Accepté | 2026-10-01 | AGOW, plasticité, Signal Plane, procédures |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
