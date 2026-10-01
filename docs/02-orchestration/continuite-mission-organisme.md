@@ -1,8 +1,8 @@
 # Continuité de mission : l'organisme logiciel
 
-- **Statut** : Partiel (gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable ; régénération axolotl et dormance persistante branchées, succession d'orchestrateur non implémentée)
+- **Statut** : Partiel (gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable ; régénération axolotl et dormance persistante branchées, succession d'identité atomique et persistante ; autorité d'exécution multi-processus non validée)
 - **Portée** : control plane Node, services de survie de mission
-- **Dernière revue** : 2026-09-23
+- **Dernière revue** : 2026-10-01
 
 ## Définition
 
@@ -270,11 +270,14 @@ viable → QUIESCENCE | starved → CRYPTOBIOSE | irrecoverable → APOPTOSE
 - **Reprise par mission indépendante** : `suspend()` peut inclure un objet
    `mission` (avec `prompt`, `objective` ou `task`) dans le payload du snapshot.
    `wake()` le réutilise pour relancer l'agent réveillé, sans reconstruire le
-   prompt depuis son `current_task`. Ce mécanisme reprend l'agent ; il ne crée
-   pas encore un orchestrateur successeur avec une identité distincte.
+   prompt depuis son `current_task`. Ce mécanisme peut reprendre la mission avec `orchestratorAgentId` et rattacher
+   ce successeur à l'identité persistante de mission.
 - **Succession cellulaire et d'orchestrateur** : la charge allostatique peut
    suggérer une succession cellulaire, mais elle n'exécute pas ce transfert.
-   La succession d'orchestrateur reste à concevoir et à valider.
+   `missionIdentityService.attachOrchestrator()` arbitre atomiquement le
+   successeur et persiste son identité. Le test ferme/réouvre SQLite dans le
+   même processus. Le réveil lance encore le runtime avant cet arbitrage :
+   l'absence d'effets du perdant et la reprise multi-processus restent à prouver.
 
 ## Voir aussi
 

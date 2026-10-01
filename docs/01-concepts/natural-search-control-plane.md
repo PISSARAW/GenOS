@@ -100,11 +100,11 @@ checkNaturalSearchControl(ctx, event)
 
 `npm --prefix backend run test:planning-gap` compare 12 tâches au même budget de
 240 expansions et vérifie chaque plan avec le validateur du domaine. GenOS trie
-sa frontière par coût cumulé + heuristique admissible, enregistre le meilleur
+sa frontière par coût cumulé + heuristique (admissibilité TrapChain à corriger), enregistre le meilleur
 coût par état et utilise le contrôleur/ledger pour tracer l'exploration. Les
 heuristiques Blocksworld comptent les blocs hors préfixe de support; TrapChain
-utilise une distance de grille relâchée qui inclut le détour obligatoire par la
-clé. `trap-far-key` place désormais la clé du côté accessible du mur : elle
+utilise une distance de grille relâchée qui inclut le détour par une
+clé même lorsque la porte peut être contournée. `trap-far-key` place désormais la clé du côté accessible du mur : elle
 était auparavant derrière la porte qu'elle seule pouvait ouvrir, donc la tâche
 était impossible. Résultats mesurés : ReAct 9/12, ToT 11/12, MCTS 6/12, GenOS
 12/12. Les plans GenOS sont optimaux pour les sept tâches Blocksworld; les plans
@@ -153,3 +153,16 @@ $$\boxed{
 2. Schwab, Casasa & Moczek 2019 — plasticité développementale
 3. Foster 2007 — mutagenèse de stress
 4. Bowers, Boyle & Damoiseaux 2018 — maturation d'affinité
+
+## Revue contradictoire du 2026-10-01
+
+Le harness contient huit tâches Blocksworld et quatre TrapChain. Son oracle
+Blocksworld actuel couvre sept tâches : la limite de profondeur 14 et la limite
+de 5000 états excluent `bw-table-6`. Une BFS sans cette coupure trouve 16 actions
+(6959 états développés, 7057 découverts), comme le plan GenOS.
+
+Une BFS sur position + clés établit les optimums TrapChain : key-detour 8,
+long-detour 10, culdesac 8, far-key 13. Les deux premiers plans GenOS mesurent
+11 et 15 : l'heuristique surestime le coût en imposant une clé évitable. Le
+succès 12/12 ne prouve donc pas l'optimalité des douze plans. Ces oracles doivent
+être intégrés au test avant de revendiquer l'admissibilité.

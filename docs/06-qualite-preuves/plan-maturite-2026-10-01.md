@@ -1,0 +1,44 @@
+# Référence et plan de maturité — 2026-10-01
+
+- Référence de départ : `052da9ea170103ccb3e0e7a5371bc12b617d967d`.
+- Base du rapport précédent : `f17000e8`; seul le commit documentaire
+  `052da9ea` suit cette révision. Les changements locaux sont distincts.
+- Implémentation : branche `codex/maturite-preuves`, worktree isolé ; les quatre
+  fichiers modifiés et les fichiers non suivis du checkout utilisateur ne sont
+  pas inclus.
+
+## Validation initiale
+
+Sur le checkout utilisateur au début de l'audit : npm test (55 assertions),
+cargo test --workspace, deux tests durable_receipts avec feature api, et tests
+ciblés du pont biologique, mission continuity (17), clinique, promotion AEIS,
+NCE/POET, foraging navigateur et planning-gap passent. Le profil complet
+test:validation n'a pas été relancé lors de cet audit.
+
+Python du runtime Codex a exécuté scripts/ci/check_code_quality.py : 359
+violations, dont 143 au-delà du baseline. Cette observation porte sur l'arbre
+local, pas uniquement sur HEAD. La dette ne sera pas masquée par une hausse du
+baseline. La remise à zéro des dépassements constitue un chantier distinct.
+
+## Sept commits et preuves de sortie
+
+1. Référence et documentation : corriger les revendications, conserver les
+   limites et séparer révision, changements locaux et résultats exécutés.
+2. Défauts bornés : oracles sur les douze tâches, heuristique admissible,
+   deadline globale du foraging et annulation des opérations tardives.
+3. Identité et reçus : journal durable des chemins de tick, livraison
+   récupérable et identité explicite sans attribuer une opération d'organisme
+   à une cellule qui ne l'a pas exécutée. E2E Rust/HTTP/SQLite après restart.
+4. Succession : autorité acquise avant lancement, invalidation de l'ancien
+   détenteur, crashs intermédiaires et concurrence de processus distincts.
+5. Clinique : cible durable, autorisation explicite, reçu d'application et
+   refus sans cible/autorisation ; distinguer état Node et application Rust.
+6. AEIS : confiance versionnée des vérificateurs exécutables, refus des types
+   inconnus, attestations persistées et cas adverses. Les avis fournisseurs
+   restent consultatifs.
+7. POET : corrélation par exécution, arrêt à échéance, contenu du split isolé,
+   artefact lié au snapshot et harness multi-graines de production.
+
+Chaque lot exige ses tests ciblés, les gates du dépôt et une mention explicite
+des preuves non exécutées. Un fournisseur absent ou un benchmark non exécuté
+ne sera jamais remplacé par un résultat synthétique présenté comme réel.
