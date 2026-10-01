@@ -29,3 +29,7 @@ sha2 = { version = "0.10.9", optional = true }
 [features]
 # Accès à la couche serveur/sécurité de GenOS (tokio + reqwest).
 api = ["dep:genos-api", "dep:reqwest", "dep:sha2"]
+
+[[example]]
+name = "receipt_bridge"
+required-features = ["api"]
