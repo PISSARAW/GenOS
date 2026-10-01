@@ -1041,7 +1041,27 @@ d'état et l'issue de tâche.
 
 ---
 
-## 22. Références
+## 22. Self-Twin causal
+
+`backend/src/services/selfTwin/` fournit un premier modèle causal versionné des organes
+runtime. `selfTwinGraph.manifest()` expose les composants et liens connus comme
+`structural_hypothesis`; ces liens décrivent la topologie, pas des effets expérimentalement
+confirmés. `selfTwinGraph.project(repository)` peut les projeter dans LadybugDB. Le fallback
+SQLite ne persiste pas ce graphe arbitraire.
+
+`selfTwinService.predict({ db, scope, input })` produit une prédiction et l'enregistre dans
+le ledger GVX (`evidence_attached`, `kind: self_twin_prediction`). Sans `evidenceRefs`, elle
+est qualifiée `prior_model` avec incertitude initiale de 0,85. Les observations passent par
+`observe({ db, scope, predictionId, observations, evidenceRefs })`; seules les métriques
+avec valeurs numériques prédites et observées contribuent à epsilon.
+
+Un epsilon positif est journalisé et construit un candidat AGOW
+`self_twin_prediction_error` qui demande revue. `intervene` exige un exécuteur fourni par
+l'intégration et des observations en retour; ce callback est le point où l'hôte doit
+imposer clone, sandbox, timeout et budget. Le service ne modifie pas le runtime actif et
+ne promeut aucun candidat.
+
+## 23. Références
 
 - [ADR 0006 — Active Global Organism Workspace](../adr/0006-active-global-organism-workspace.md)
 - [ADR 0007 — Persistance, activation des organes et évaluation AGOW](../adr/0007-agow-runtime-persistence-et-evaluation.md)
@@ -1051,10 +1071,11 @@ d'état et l'issue de tâche.
 - [Adaptateur runtime mission](../../backend/src/services/agentRuntimeAdapter/missionPlanning.js)
 - [Ingestion runtime](../../backend/src/services/agow/agowRuntimeIngressService.js)
 - [Épistémologie et preuves](../01-concepts/epistemologie-et-evidence.md)
+- [ADR 0257 — Self-Twin causal versionné](../adr/0257-causal-self-twin.md)
 
 ---
 
-## 23. Conclusion
+## 24. Conclusion
 
 AGOW possède maintenant des services intégrés pour la provenance épistémique, le regret,
 les branches contrefactuelles isolées, les traces de plasticité, les voies directes, les

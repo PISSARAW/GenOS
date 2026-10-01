@@ -272,6 +272,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0254](0254-ingress-outcomes-trajectoires-agow.md) | Outcomes runtime vers plasticité et trajectoires AGOW | Accepté | 2026-10-01 | AGOW, ingress runtime, apprentissage causal |
 | [0255](0255-active-query-simulation-prospective.md) | Active Query de simulation prospective | Accepté | 2026-10-01 | AGOW, Active Query, contrefactuels |
 | [0256](0256-gvx-experimentation-and-ledger-integrity.md) | Protocoles GVX adaptatifs et intégrité du ledger | Accepté | 2026-10-01 | GVX, expériences, preuves, intégrité |
+| [0257](0257-causal-self-twin.md) | Self-Twin causal versionné et écarts prédictifs | Accepté | 2026-10-01 | Self-Twin, causalité, GVX, AGOW |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
