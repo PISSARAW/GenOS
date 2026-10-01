@@ -31,8 +31,9 @@ async function cycle(options) {
   const ignition = await ignite({ candidates: result.selected, agentId: options.agentId, db: options.db, threshold: options.ignitionThreshold, now });
   const firedIds = new Set(ignition.filter((entry) => entry.ignited).map((entry) => entry.candidateId));
   const ignited = result.selected.filter((candidate) => firedIds.has(candidate.candidateId));
+  const frameCandidates = ignited.length ? result.selected : [];
   const previousFrame = frameStore.current({ agentId: options.agentId });
-  const frame = frameService.create({ agentId: options.agentId, cycle: (previousFrame?.cycle || 0) + 1, selected: ignited, previousFrame, now, settings: options });
+  const frame = frameService.create({ agentId: options.agentId, cycle: (previousFrame?.cycle || 0) + 1, selected: frameCandidates, previousFrame, now, settings: options });
   const stored = frameStore.save({ frame });
   const broadcast = ignited.length ? await broadcastService.publish({ frame, modules: options.receivers, recipientAgentIds: options.recipientAgentIds }) : null;
   return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result, ignition, broadcast };
