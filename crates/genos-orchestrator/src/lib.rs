@@ -114,7 +114,8 @@ pub use organization::{
 };
 pub use organization_step::{
     adversarial_needs_recipient, aligned_heading, authority_for, follower_may_address,
-    slime_conductivity, step_family, volitive_step, weighted_barycenter, wolf_role,
+    global_summary, slime_conductivity, step_family, volitive_step, weighted_barycenter,
+    wolf_role,
 };
 pub use physical_telemetry::{MissionPhysicsProfile, PhysicalTelemetry};
 pub use physics::{

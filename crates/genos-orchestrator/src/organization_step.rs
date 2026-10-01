@@ -120,3 +120,24 @@ pub fn wolf_role(rank: usize) -> &'static str {
 pub fn volitive_step(own: f64, barycenter: f64, step: f64) -> f64 {
     step * (barycenter - own)
 }
+
+/// Résumé global pondéré (miroir de `summarizeSnapshots`, ADR 0236).
+/// Retourne (support, reached, counted).
+pub fn global_summary(supports: &[f64], weights: &[f64], ratio: f64) -> (f64, bool, usize) {
+    let mut active = 0.0;
+    let mut weighted = 0.0;
+    let mut counted = 0;
+    for (index, weight) in weights.iter().enumerate() {
+        if *weight <= 0.0 {
+            continue;
+        }
+        counted += 1;
+        active += weight;
+        weighted += supports.get(index).copied().unwrap_or(0.0) * weight;
+    }
+    if counted == 0 {
+        return (0.0, false, 0);
+    }
+    let support = weighted / active;
+    (support, support >= ratio, counted)
+}

@@ -1,6 +1,7 @@
 use genos_orchestrator::organization_step::{
     adversarial_needs_recipient, aligned_heading, authority_for, follower_may_address,
-    slime_conductivity, step_family, volitive_step, weighted_barycenter, wolf_role,
+    global_summary, slime_conductivity, step_family, volitive_step, weighted_barycenter,
+    wolf_role,
 };
 
 #[test]
@@ -33,6 +34,15 @@ fn execution_miroir_des_algorithmes_essaim() {
     assert_eq!(wolf_role(0), "alpha");
     assert_eq!(wolf_role(3), "omega");
     assert!(volitive_step(0.0, 9.0, 0.1) > 0.0);
+}
+
+#[test]
+fn resume_global_pondere() {
+    let (support, reached, counted) = global_summary(&[1.0, 0.0], &[2.0, 0.0], 0.5);
+    assert!((support - 1.0).abs() < 1e-9);
+    assert!(reached);
+    assert_eq!(counted, 1);
+    assert_eq!(global_summary(&[], &[], 0.5), (0.0, false, 0));
 }
 
 #[test]
