@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.local/schemas/agow/mediationReceipt.schema.json",
+  "title": "AGOW Mediation Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["receiptId", "sourceModule", "sourceCandidateId", "frameId", "targetModule", "beforeStateHash", "afterStateHash", "workspaceTransformation", "downstreamAction", "outcome", "createdAt"],
+  "properties": {
+    "receiptId": { "type": "string", "minLength": 1 }, "sourceModule": { "type": "string", "minLength": 1 }, "sourceCandidateId": { "type": "string", "minLength": 1 }, "frameId": { "type": "string", "minLength": 1 }, "targetModule": { "type": "string", "minLength": 1 },
+    "beforeStateHash": { "type": ["string", "null"] }, "afterStateHash": { "type": ["string", "null"] }, "workspaceTransformation": { "type": "string", "minLength": 1 }, "downstreamAction": { "type": ["string", "null"] }, "outcome": { "type": ["object", "null"] }, "createdAt": { "type": "integer", "minimum": 0 }
+  }
+}

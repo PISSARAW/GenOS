@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.local/schemas/agow/workspaceQuery.schema.json",
+  "title": "AGOW Workspace Query",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["queryId", "frameId", "need", "budget", "candidateModules", "createdAt"],
+  "properties": {
+    "queryId": { "type": "string", "minLength": 1 }, "frameId": { "type": "string", "minLength": 1 },
+    "need": { "type": "object", "additionalProperties": false, "required": ["questionType", "capability", "expectedInformationGain"], "properties": { "questionType": { "type": "string", "minLength": 1 }, "capability": { "type": "string", "minLength": 1 }, "expectedInformationGain": { "type": "number", "minimum": 0, "maximum": 1 } } },
+    "budget": { "type": "object", "additionalProperties": false, "required": ["maxCost", "deadlineAt"], "properties": { "maxCost": { "type": "number", "minimum": 0 }, "deadlineAt": { "type": "integer", "minimum": 0 } } },
+    "candidateModules": { "type": "array", "items": { "type": "string" }, "minItems": 1, "uniqueItems": true }, "createdAt": { "type": "integer", "minimum": 0 }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.local/schemas/agow/cognitiveCandidate.schema.json",
+  "title": "AGOW Cognitive Candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidateId", "agentId", "source", "content", "evidenceRefs", "causalParents", "measures", "constraints", "producedAt", "expiresAt", "stateHash"],
+  "properties": {
+    "candidateId": { "type": "string", "minLength": 1 },
+    "agentId": { "type": "string", "minLength": 1 },
+    "source": { "$ref": "#/$defs/source" },
+    "content": { "$ref": "#/$defs/content" },
+    "evidenceRefs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "causalParents": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "measures": { "$ref": "#/$defs/measures" },
+    "constraints": { "$ref": "#/$defs/constraints" },
+    "redundancyKey": { "type": ["string", "null"] },
+    "producedAt": { "type": "integer", "minimum": 0 },
+    "expiresAt": { "type": "integer", "minimum": 0 },
+    "stateHash": { "type": "string", "minLength": 1 }
+  },
+  "$defs": {
+    "unit": { "type": "number", "minimum": 0, "maximum": 1 },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["module", "modality"],
+      "properties": { "module": { "type": "string", "minLength": 1 }, "instanceId": { "type": ["string", "null"] }, "modality": { "type": "string", "minLength": 1 } }
+    },
+    "content": {
+      "type": "object", "additionalProperties": false,
+      "required": ["semanticType"],
+      "properties": { "semanticType": { "type": "string", "minLength": 1 }, "artifactRef": { "type": ["string", "null"] }, "compactPreview": { "type": ["string", "null"], "maxLength": 2000 } }
+    },
+    "measures": {
+      "type": "object", "additionalProperties": false,
+      "required": ["predictionError", "uncertainty", "goalRelevance", "expectedInformationGain", "urgency", "novelty", "actionability", "causalConfidence", "evidenceDebt", "estimatedCost"],
+      "properties": {
+        "predictionError": { "$ref": "#/$defs/unit" }, "uncertainty": { "$ref": "#/$defs/unit" }, "goalRelevance": { "$ref": "#/$defs/unit" }, "expectedInformationGain": { "$ref": "#/$defs/unit" }, "urgency": { "$ref": "#/$defs/unit" }, "novelty": { "$ref": "#/$defs/unit" }, "actionability": { "$ref": "#/$defs/unit" }, "causalConfidence": { "$ref": "#/$defs/unit" }, "evidenceDebt": { "$ref": "#/$defs/unit" }, "estimatedCost": { "type": "number", "minimum": 0 }
+      }
+    },
+    "constraints": {
+      "type": "object", "additionalProperties": false,
+      "required": ["safety", "integrity", "viability", "userPolicy"],
+      "properties": { "safety": { "enum": ["clear", "review", "blocked"] }, "integrity": { "enum": ["clear", "review", "blocked"] }, "viability": { "enum": ["clear", "review", "blocked"] }, "userPolicy": { "enum": ["clear", "review", "blocked"] } }
+    }
+  }
+}
