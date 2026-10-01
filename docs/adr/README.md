@@ -246,6 +246,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0234a](0234-hooks-session-codex-genos.md) | Gates de session Codex via hooks GenOS | Accepté | 2026-10-01 | Codex, MCP, preuve, sessions |
 | [0234b](0234-preuves-poet-et-benchmark-multi-graines.md) | Preuves POET et benchmark multi-graines | Voir le fichier | -- | -- |
 | [0235](0235-ontogenese-orchestrateur-resident-projet.md) | Ontogenèse : orchestrateur résident de projet à missions bornées et vérifiées | Accepté (première tranche : contrat et persistance) | 2026-10-01 | Orchestration, persistance, preuve, ressources, Git |
+| [0236](0236-consensus-global-lecture-seule.md) | Consensus global en lecture seule | Voir le fichier | -- | -- |
+| [0237](0237-differenciation-preuve-pluralite-immunite.md) | Différenciation GenOS : preuve, pluralité, immunité (pas la course aux canaux) | Accepté | 2026-10-01 | Stratégie produit, orchestration, épistémologie, sécurité |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
