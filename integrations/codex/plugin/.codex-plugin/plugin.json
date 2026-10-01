@@ -1,6 +1,7 @@
 {
   "name": "genos",
-  "version": "0.2.0",
+  "version": "0.3.0",
+  "hooks": "./hooks/hooks.json",
   "description": "Verified GenOS MCP workflows for Codex development",
   "skills": "./skills/",
   "mcpServers": "./.mcp.json"

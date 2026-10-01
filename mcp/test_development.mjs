@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import stateStore from '../integrations/codex/session-state.cjs';
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(import.meta.dirname, '..');
@@ -42,6 +43,9 @@ try {
   const empty = await client.callTool({ name: 'genos_record_decision', arguments: {
     agentId: 'codex-test', title: 'Invalid decision', decision: 'No evidence', evidence: [] } });
   assert.equal(empty.isError, true);
+  const experience = await client.callTool({ name: 'genos_record_experience', arguments: {
+    agentId: 'codex-test', actionInput: 'Run lease and persistence probes', observationOutput: 'Executable integration probes passed', rewardScore: 1 } });
+  assert.ok(stateStore.successfulMcp(experience), `The real experience response must satisfy the session gate: ${JSON.stringify(experience)}`);
   const sqlite = require('../backend/node_modules/sqlite3');
   const db = new sqlite.Database(database, sqlite.OPEN_READONLY);
   const row = await new Promise((resolve, reject) => db.get('SELECT content FROM genome_decisions WHERE id = ?', decision.decisionId,

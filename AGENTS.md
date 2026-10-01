@@ -80,10 +80,10 @@ Documentation files are outside its scope.
     `shared/toolDefinitions.json` (canonical catalog) and `backend/src/services/*`.
   - Rust: `cargo run -p genos-mcp` (or `target/release/genos-mcp.exe`).
   Both honor `GENOS_MCP_LEASE` + `GENOS_MCP_DISABLED_TOOLS`
-  (see `docs/03-reference/outils-mcp.md`). `.mcp.json` is a ready-to-use client
-  config pointing at the Rust binary with a minimal example lease
-  (`genos_snapshot,genos_replay,genos_execute_primitive`); adapt the command/lease
-  to use the Node server instead. With no lease, both servers expose nothing.
+  (see `docs/03-reference/outils-mcp.md`). `.mcp.json` is a Node client example
+  with the explicit Codex development lease. Install the Codex profile through
+  `integrations/codex/configure.cjs`; the example alone does not configure Codex.
+  With no lease, both servers expose nothing.
 - **Orchestration mission:** `node backend/bin/genos-orchestrate.cjs '{"mission":"...","background":true}'`
 - **Safe parallel debugging demo:** `node examples/safe-debugging-demo/run-demo.mjs target/debug/genos`
 

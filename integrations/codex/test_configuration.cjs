@@ -24,6 +24,9 @@ try {
   assert.equal(JSON.parse(fs.readFileSync(path.join(target, '.codex-plugin/plugin.json'))).interface.displayName, 'GenOS');
   assert.equal(JSON.parse(fs.readFileSync(path.join(target, '.mcp.json.before-p0'))).mcpServers.genos.command, 'missing.exe');
   assert.ok(fs.existsSync(path.join(target, 'skills/genos-development/SKILL.md')));
+  const hooks = JSON.parse(fs.readFileSync(path.join(target, 'hooks/hooks.json')));
+  assert.ok(hooks.hooks.PreToolUse[0].hooks[0].command.includes('session-hook.cjs'));
+  assert.ok(hooks.hooks.Stop);
   assert.deepEqual(serverConfig().args, result.mcpServers.genos.args);
 } finally {
   fs.rmSync(target, { recursive: true, force: true });

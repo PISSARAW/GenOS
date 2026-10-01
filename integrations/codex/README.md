@@ -1,6 +1,6 @@
 # GenOS pour Codex
 
-- **Statut** : Connexion et workflows P0 implémentés ; application systématique des gates aux éditions natives à qualifier.
+- **Statut** : Profil P0 et hooks de session P1 implémentés ; activation effective dépendante de la confiance Codex.
 - **Dernière revue** : 2026-10-01.
 
 Le serveur Node évite de dépendre d'un binaire MCP Rust absent. Le CLI Rust
@@ -42,3 +42,39 @@ Vérifier avec `npm --prefix mcp test` et
 `node integrations/codex/test_configuration.cjs` puis
 `npm --prefix mcp run test:checkpoint` après construction du CLI. Le gate global et les tests
 workspace restent obligatoires ; leurs échecs existants doivent être signalés.
+
+## Contrôles P1
+
+L'installateur ajoute `hooks/hooks.json` au plugin existant, avec des chemins absolus
+vers les scripts versionnés du dépôt. Activer `[features] hooks = true` dans Codex,
+recharger le plugin, puis **examiner et approuver ses hooks**. Codex ignore les hooks
+non approuvés ; l'installateur ne modifie jamais cette confiance. Le manifeste source
+est un gabarit d'installation : lancer `configure.cjs` pour produire les commandes.
+Voir la [documentation officielle des hooks](https://learn.chatgpt.com/docs/hooks).
+
+Ces hooks s'appliquent au workspace GenOS configuré, pas aux autres projets. Ils
+créent une identité d'agent par session et fournissent ses chemins à Codex. Avant
+Bash ou apply_patch, un appel MCP `genos_snapshot` doit réussir et produire un
+artefact contenant l'identité attendue. Le snapshot est cognitif, sans sauvegarde
+des fichiers. Les appels MCP restent accessibles pour amorcer ce checkpoint.
+
+Le journal local ignoré `.genos-agent-worlds/codex-sessions/` conserve le checkpoint,
+les empreintes SHA-256 des fichiers Git suivis et non ignorés, les commandes de
+validation et leurs codes de sortie explicites. Stop demande une validation réussie
+et un appel MCP `genos_record_experience` réussi sur l'empreinte courante lorsqu'elle
+diffère du début de session. Une nouvelle modification invalide ces preuves.
+SessionStart et les hooks de compaction réinjectent les chemins et l'état conservé.
+L'expérience persistée ne déclenche aucune promotion.
+
+Les commandes reconnues commencent par `npm test`, `npm run test...`,
+`npm --prefix backend test/run test...`, `cargo test`, `node ...test....js/cjs/mjs`
+ou le contrôle qualité Python. Le résultat doit exposer `exit_code` entier ou une
+ligne exacte `Process exited with code N`. Les formats inconnus ne prouvent rien.
+Ce filtre identifie une commande de validation ; il ne garantit ni sa pertinence
+ni la couverture des tests. Les effets hors Git, fichiers ignorés, outils non couverts
+par les hooks et détournements du journal local restent hors de cette garantie.
+Le serveur MCP est lié au dépôt configuré ; les sous-répertoires et autres workspaces
+nécessitent un profil adapté. Plusieurs appels simultanés d'une même session ne
+sont pas pris en charge. Ne pas annoncer une gouvernance universelle de Codex.
+
+Vérifier les gates avec `node integrations/codex/test_session_hooks.cjs`.

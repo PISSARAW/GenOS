@@ -7,6 +7,12 @@ const root = path.resolve(__dirname, '../..');
 const source = path.join(__dirname, 'plugin');
 const profile = require('./development-profile.json');
 
+function hookConfig() {
+  const command = `"${process.execPath}" "${path.join(root, 'integrations/codex/session-hook.cjs')}" --workspace "${root}"`;
+  const events = ['SessionStart', 'PreToolUse', 'PostToolUse', 'PreCompact', 'PostCompact', 'Stop'];
+  return { description: 'GenOS Codex session checkpoint and evidence gates', hooks: Object.fromEntries(events.map((event) => [event, [{ hooks: [{ type: 'command', command, timeout: 30 }] }]])) };
+}
+
 function serverConfig(existing = {}) {
   return {
     ...existing,
@@ -55,6 +61,11 @@ function installPlugin(target) {
     if (fs.existsSync(path.join(target, 'skills'))) fs.cpSync(path.join(target, 'skills'), path.join(backup, 'skills'), { recursive: true });
   }
   fs.cpSync(path.join(source, 'skills'), path.join(target, 'skills'), { recursive: true });
+  const hooks = path.join(target, 'hooks');
+  fs.mkdirSync(hooks, { recursive: true });
+  const hookPath = path.join(hooks, 'hooks.json');
+  if (fs.existsSync(hookPath) && !fs.existsSync(`${hookPath}.before-p1`)) fs.copyFileSync(hookPath, `${hookPath}.before-p1`);
+  fs.writeFileSync(hookPath, `${JSON.stringify(hookConfig(), null, 2)}\n`);
   fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   fs.writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
   return config;
@@ -78,4 +89,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { serverConfig, validateSkills, installPlugin };
+module.exports = { serverConfig, validateSkills, installPlugin, hookConfig };
