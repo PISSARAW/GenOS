@@ -40,6 +40,49 @@ async function messageCounts(db, orchestratorId) {
   return counts;
 }
 
+function parsePayloadJson(raw) {
+  try {
+    const parsed = JSON.parse(raw || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+async function votesFor(db, orchestratorId) {
+  const rows = await db.all(
+    "SELECT kind, payload_json as payloadJson FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'delivered' AND kind = 'vote' ORDER BY id DESC LIMIT 50",
+    orchestratorId
+  ).catch(() => []);
+  return (rows || []).map((row) => {
+    const payload = parsePayloadJson(row.payloadJson);
+    return { support: payload.support === true, abstain: payload.abstain === true, weight: Number(payload.weight || 1) };
+  });
+}
+
+async function dossiersFor(db, orchestratorId) {
+  const rows = await db.all(
+    "SELECT payload_json as payloadJson FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'delivered' AND kind IN ('evidence','vote') ORDER BY id DESC LIMIT 20",
+    orchestratorId
+  ).catch(() => []);
+  return (rows || []).map((row) => {
+    const payload = parsePayloadJson(row.payloadJson);
+    const report = payload.evidenceReport || { confidence: payload.confidence, resolvedOutcome: payload.resolvedOutcome };
+    return { events: [{ evidenceReport: report }] };
+  });
+}
+
+async function trailsFor(db, orchestratorId) {
+  const rows = await db.all(
+    "SELECT payload_json as payloadJson FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'delivered' AND kind = 'trace' ORDER BY id DESC LIMIT 20",
+    orchestratorId
+  ).catch(() => []);
+  return (rows || []).map((row, index) => {
+    const payload = parsePayloadJson(row.payloadJson);
+    return { path: payload.path || payload.locusHash || `trail-${index}`, intensity: Number(payload.intensity || 0.5) };
+  });
+}
+
 async function stateFromOrchestrator(db, orchestratorId) {
   const agents = await db.all('SELECT id, role, status FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => []);
   const counts = await messageCounts(db, orchestratorId);
@@ -58,7 +101,11 @@ async function stateFromOrchestrator(db, orchestratorId) {
   for (let index = 1; index < pack.length; index += 1) {
     edges.push({ id: `${pack[index - 1].id}->${pack[index].id}`, conductivity: 0.5, flow: pack[index].fitness });
   }
-  return { agents: pack, pack, edges };
+  const votes = await votesFor(db, orchestratorId);
+  const dossiers = await dossiersFor(db, orchestratorId);
+  const trails = await trailsFor(db, orchestratorId);
+  const populations = pack.map((member) => ({ id: member.id, weight: member.fitness }));
+  return { agents: pack, pack, edges, votes, dossiers, trails, populations };
 }
 
 async function applyStepForOrchestrator(orchestratorId, options = {}) {
