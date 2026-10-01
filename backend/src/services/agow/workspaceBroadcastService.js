@@ -16,43 +16,45 @@ function changedState(result, beforeStateHash, afterStateHash) {
   return Boolean(beforeStateHash && afterStateHash && beforeStateHash !== afterStateHash);
 }
 
-function recordMediation(options) {
+async function recordMediation(options) {
   const { source, frame, receiver, result, beforeStateHash, afterStateHash, changed } = options;
   if (!source) return;
-  mediationService.record({
+  await mediationService.record({
     candidate: source, frame, targetModule: receiver.module,
     transformation: result.effectType || 'workspace_receiver', beforeStateHash, afterStateHash,
-    downstreamAction: result.downstreamAction || null, outcome: { changed }
+    downstreamAction: result.downstreamAction || null, outcome: { changed }, db: options.db
   });
 }
 
-function recordDelivery(options) {
+async function recordDelivery(options) {
   const { receiver, frame, source, before, result } = options;
   const beforeStateHash = result.beforeStateHash || hashState(before);
   const afterStateHash = result.afterStateHash || hashState(result.state);
   const changed = changedState(result, beforeStateHash, afterStateHash);
-  const receipt = receiptService.record({
-    frameId: frame.frameId, module: receiver.module, consumed: result.consumed !== false,
+  const receipt = await receiptService.record({
+    agentId: frame.agentId, db: options.db, frameId: frame.frameId, module: receiver.module, consumed: result.consumed !== false,
     beforeStateHash, afterStateHash, effectType: result.effectType || null,
     changed, artifactRefs: Array.isArray(result.artifactRefs) ? result.artifactRefs : []
   });
-  recordMediation({ source, frame, receiver, result, beforeStateHash, afterStateHash, changed });
+  await recordMediation({ source, frame, receiver, result, beforeStateHash, afterStateHash, changed, db: options.db });
   return receipt;
 }
 
 async function deliverReceiver(options) {
-  const { receiver, frame, source } = options;
+  const { receiver, frame, source, db } = options;
   try {
-    const before = await receiver.handler({ phase: 'inspect', frame });
-    const result = await receiver.handler({ phase: 'apply', frame });
-    return recordDelivery({ receiver, frame, source, before, result: result || {} });
+    const context = { frame, candidate: source, db };
+    const before = await receiver.handler({ ...context, phase: 'inspect' });
+    const result = await receiver.handler({ ...context, phase: 'apply' });
+    return await recordDelivery({ receiver, frame, source, before, result: result || {}, db });
   } catch (_) {
-    return receiptService.record({ frameId: frame.frameId, module: receiver.module, consumed: false, beforeStateHash: null, afterStateHash: null, effectType: 'receiver_error', changed: false, artifactRefs: [] });
+    return receiptService.record({ agentId: frame.agentId, db, frameId: frame.frameId, module: receiver.module, consumed: false, beforeStateHash: null, afterStateHash: null, effectType: 'receiver_error', changed: false, artifactRefs: [] });
   }
 }
 
 async function publish(options) {
-  const { frame, modules = [] } = options;
+  const { frame, modules } = options;
+  require('./agowDefaultReceiversService').ensureRegistered();
   const transport = require('../signalingTransportService');
   const { SIGNAL_TYPES } = require('../biomimeticSignalingBus');
   const transportReceipt = await transport.publishSignal({
@@ -63,9 +65,10 @@ async function publish(options) {
     recipientAgentIds: options.recipientAgentIds || []
   });
   const deliveries = [];
-  const source = candidatePool.list({ agentId: frame.agentId }).find((candidate) => candidate.candidateId === frame.primaryContent);
+  const candidates = await candidatePool.list({ agentId: frame.agentId, db: options.db });
+  const source = candidates.find((candidate) => candidate.candidateId === frame.primaryContent);
   for (const receiver of receiverRegistry.list({ modules })) {
-    deliveries.push(await deliverReceiver({ receiver, frame, source }));
+    deliveries.push(await deliverReceiver({ receiver, frame, source, db: options.db }));
   }
   return { published: transportReceipt?.published === true, transportReceipt, deliveries };
 }

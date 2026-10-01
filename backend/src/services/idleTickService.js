@@ -83,17 +83,13 @@ async function tick(db, agentId, options) {
   const started = Date.now();
   const budgetMs = Math.min(MAX_BUDGET_MS, Math.max(1, numOr(settings.budgetMs, DEFAULT_BUDGET_MS)));
   const minInterval = Math.max(0, numOr(settings.minIntervalMs, DEFAULT_MIN_INTERVAL_MS));
-  const guard = await shouldTick(db, agentId);
-  if (!guard.idle) return { status: 'skipped', reason: guard.reason, agentId };
-  if (!await budgetOk(db, agentId)) return { status: 'skipped', reason: 'no_budget', agentId };
   try {
-    const store = new AdaptiveStateService(db);
-    const prior = await tickState(store, agentId);
-    if (started - prior.lastTick < minInterval) {
-      return { status: 'skipped', reason: 'debounce', agentId };
-    }
+    const preflight = await tickPreflight({ db, agentId, started, minInterval });
+    if (preflight.reason) return { status: 'skipped', reason: preflight.reason, agentId };
+    const { store, prior } = preflight;
     const reverberation = require('./reverberationService');
     const maintained = await reverberation.reverberate(db, agentId, {});
+    const agowCycle = await runAgowIdleCycle(db, agentId);
     const pending = await pendingPredictions(db, agentId);
     const clogged = pending >= CLOG_THRESHOLD;
     const divergences = (!maintained.settled || clogged) ? prior.divergences + 1 : 0;
@@ -108,6 +104,7 @@ async function tick(db, agentId, options) {
       settled: maintained.settled,
       passes: maintained.passes,
       activation: Math.round(maintained.activation * 1000) / 1000,
+      agowCycle,
       pendingPredictions: pending,
       elapsedMs: elapsed
     };
@@ -116,31 +113,56 @@ async function tick(db, agentId, options) {
   }
 }
 
+async function tickPreflight(options) {
+  const { db, agentId, started, minInterval } = options;
+  const guard = await shouldTick(db, agentId);
+  if (!guard.idle) return { reason: guard.reason };
+  if (!await budgetOk(db, agentId)) return { reason: 'no_budget' };
+  const store = new AdaptiveStateService(db);
+  const prior = await tickState(store, agentId);
+  if (started - prior.lastTick < minInterval) return { reason: 'debounce' };
+  return { store, prior };
+}
+
+async function runAgowIdleCycle(db, agentId) {
+  const workspace = require('./globalWorkspaceService');
+  if (workspace.getMode() === 'off') return null;
+  return workspace.cycle({ agentId, db, trigger: 'idle_tick' });
+}
+
 async function sweepIdleAgents(db, options) {
   const settings = options || {};
   const limit = Math.max(1, Math.min(20, Math.floor(Number(settings.limit) || DEFAULT_SWEEP_LIMIT)));
   const deadline = Date.now() + Math.max(1000, Math.min(120000, Number(settings.sweepBudgetMs) || DEFAULT_SWEEP_BUDGET_MS));
   const report = { ticked: 0, skipped: 0, divergent: 0, details: [] };
+  const rows = await idleRows(db, limit);
+  for (const row of rows) {
+    if (Date.now() > deadline) break;
+    const result = await safeTick(db, row, settings);
+    recordTickResult(report, row, result);
+  }
+  return report;
+}
+
+async function idleRows(db, limit) {
   try {
     const rows = await db.all(
-      `SELECT id FROM agents WHERE runtime_pid IS NULL AND (status IS NULL OR status != 'running') AND COALESCE(is_apoptotic, 0) = 0 LIMIT ?`,
-      limit
+      `SELECT id FROM agents WHERE runtime_pid IS NULL AND (status IS NULL OR status != 'running') AND COALESCE(is_apoptotic, 0) = 0 LIMIT ?`, limit
     );
-    for (const row of rows || []) {
-      if (Date.now() > deadline) break;
-      try {
-        const result = await tick(db, row.id, settings);
-        report.details.push({ agentId: row.id, status: result.status, reason: result.reason || null });
-        if (result.status === 'ticked') report.ticked += 1;
-        else if (result.status === 'divergent') report.divergent += 1;
-        else report.skipped += 1;
-      } catch (_) {
-        report.details.push({ agentId: row?.id || null, status: 'skipped', reason: 'unavailable' });
-        report.skipped += 1;
-      }
-    }
-  } catch (_) {}
-  return report;
+    return rows || [];
+  } catch (_) { return []; }
+}
+
+async function safeTick(db, row, settings) {
+  try { return await tick(db, row.id, settings); }
+  catch (_) { return { status: 'skipped', reason: 'unavailable' }; }
+}
+
+function recordTickResult(report, row, result) {
+  report.details.push({ agentId: row?.id || null, status: result.status, reason: result.reason || null });
+  if (result.status === 'ticked') report.ticked += 1;
+  else if (result.status === 'divergent') report.divergent += 1;
+  else report.skipped += 1;
 }
 
 const DEFAULT_BASE_INTERVAL_MS = 10 * 60 * 1000;

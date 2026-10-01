@@ -28,19 +28,19 @@ function candidateFor(options) {
 
 async function process(options) {
   const now = Number(options.now) || Date.now();
-  const priorState = stateStore.get({ agentId: options.agentId });
-  const feedback = feedbackService.feedback({ ...options, prior: priorState.posterior });
+  const priorState = await stateStore.get({ agentId: options.agentId, db: options.db });
+  const feedback = await feedbackService.feedback({ ...options, prior: priorState.posterior });
   const prediction = generativeService.predictHierarchy({ prior: feedback.prior, priors: options.priors, observations: options.observation.levels, observation: options.observation.vector, precision: feedback.precision });
   const percepts = bindingService.recurrentUpdate(priorState.bindings, options.observation);
   const error = Math.max(prediction.predictionError, errorMagnitude(prediction.hierarchy.object.error));
   const uncertainty = Math.max(0, Math.min(1, 1 - prediction.hierarchy.object.precision));
   const nextState = { bindings: percepts.bindings, posterior: prediction.posterior, lastFrameId: feedback.frameId, cycle: priorState.cycle + 1, updatedAt: now };
-  stateStore.save({ agentId: options.agentId, state: nextState });
+  await stateStore.save({ agentId: options.agentId, db: options.db, state: nextState });
   const stateHash = createHash('sha256').update(JSON.stringify(nextState)).digest('hex');
   const candidate = error > (Number(options.errorThreshold) || 0.25)
     ? candidateFor({ agentId: options.agentId, now, error, uncertainty, bindings: percepts.bindings, frameId: feedback.frameId, stateHash, goalMatched: options.goalMatched })
     : null;
-  const submission = candidate ? await workspaceService.submitCandidate({ candidate, now }) : null;
+  const submission = candidate ? await workspaceService.submitCandidate({ candidate, now, db: options.db }) : null;
   const errorRoute = candidate ? await predictiveHierarchy.routeEvent(options.db, options.agentId, { eventType: 'PERCEPTUAL_ERROR', severity: error >= 0.75 ? 'critical' : 'warning' }) : null;
   return { prediction, perceptGraph: percepts.graph, predictionError: error, recurrence: percepts.recurrence, stateHash, candidate, submission, errorRoute };
 }

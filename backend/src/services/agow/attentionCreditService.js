@@ -1,6 +1,6 @@
 'use strict';
 
-const credit = new Map();
+const SCOPE = 'agow_attention_credit';
 
 function score(outcome) {
   const bounded = (value) => Math.max(0, Math.min(1, Number(value) || 0));
@@ -10,25 +10,28 @@ function score(outcome) {
   return Math.max(-1, Math.min(1, progress - Math.min(1, (cost + latency) / 2)));
 }
 
-function observe(options) {
+async function observe(options) {
   const { frameId, capability, module, outcome } = options || {};
-  if (!frameId || !capability || !module || !outcome) return { recorded: false, reason: 'missing_attribution' };
+  if (!options.agentId || !frameId || !capability || !module || !outcome) return { recorded: false, reason: 'missing_attribution' };
   const key = `${capability}:${module}`;
-  const prior = credit.get(key) || { observations: 0, meanUtility: 0 };
+  const persistence = require('./agowStatePersistenceService');
+  const loaded = await persistence.load({ scope: SCOPE, agentId: options.agentId, db: options.db });
+  const prior = loaded.state[key] || { observations: 0, meanUtility: 0 };
   const utility = score(outcome);
   const observations = prior.observations + 1;
   const meanUtility = prior.meanUtility + ((utility - prior.meanUtility) / observations);
   const record = { observations, meanUtility, updatedAt: Date.now() };
-  credit.set(key, record);
+  await persistence.save({ scope: SCOPE, agentId: options.agentId, db: loaded.db, state: { ...loaded.state, [key]: record }, version: observations });
   return { recorded: true, frameId, capability, module, utility, policyHint: Math.max(0, Math.min(1, 0.5 + meanUtility / 2)), record };
 }
 
-function get(options) {
-  return credit.get(`${options?.capability}:${options?.module}`) || null;
+async function get(options) {
+  const loaded = await require('./agowStatePersistenceService').load({ scope: SCOPE, agentId: options.agentId, db: options.db });
+  return loaded.state[`${options.capability}:${options.module}`] || null;
 }
 
-function clear() {
-  credit.clear();
+async function clear(options) {
+  if (options?.agentId) await require('./agowStatePersistenceService').save({ scope: SCOPE, agentId: options.agentId, db: options.db, state: {} });
 }
 
 module.exports = { observe, get, clear, score };

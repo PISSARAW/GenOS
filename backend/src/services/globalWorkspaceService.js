@@ -59,7 +59,7 @@ function getCurrentFrame(options) {
 
 async function submitCandidate(options) {
   const pool = require('./agow/candidatePoolService');
-  const accepted = pool.submit(options);
+  const accepted = await pool.submit(options);
   if (!accepted.accepted) return accepted;
   const { candidate } = options;
   try {
@@ -72,12 +72,13 @@ async function submitCandidate(options) {
       signalData: { semanticType: 'cognitive_candidate', candidateRef: candidate.candidateId, modality: candidate.source.modality }
     });
     if (signal?.published !== true) {
-      if (!accepted.merged) pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId });
+      if (!accepted.merged) await pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId, db: options.db });
       return { accepted: false, reason: 'signal_plane_rejected', signal };
     }
-    return { ...accepted, signal };
+    const cycleResult = options.triggerCycle === false ? null : await cycle({ agentId: candidate.agentId, db: options.db, now: options.now, activeGoal: options.activeGoal, unresolvedQuestions: options.unresolvedQuestions });
+    return { ...accepted, signal, cycle: cycleResult };
   } catch (error) {
-    if (!accepted.merged) pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId });
+    if (!accepted.merged) await pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId, db: options.db });
     return { accepted: false, reason: 'signal_plane_failed', message: error.message };
   }
 }

@@ -7,7 +7,7 @@ function priority(candidate) {
   const constraints = candidate.constraints || {};
   if (CONSTRAINT_ORDER.some((key) => constraints[key] === 'blocked')) return Number.POSITIVE_INFINITY;
   if (CONSTRAINT_ORDER.some((key) => constraints[key] === 'review')) return 2;
-  if ((candidate.contradictions || []).length || candidate.measures.uncertainty >= 0.8) return 3;
+  if ((candidate.contradictions || []).length || candidate.measures.uncertainty >= 0.8 || candidate.content.semanticType === 'active_query_response') return 3;
   if (candidate.measures.goalRelevance >= 0.5) return 4;
   return 5;
 }

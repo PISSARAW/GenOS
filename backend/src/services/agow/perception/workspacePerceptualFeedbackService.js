@@ -2,8 +2,8 @@
 
 const frameStore = require('../workspaceFrameStore');
 
-function feedback(options) {
-  const frame = options?.frame || frameStore.current({ agentId: options?.agentId });
+async function feedback(options) {
+  const frame = options?.frame || await frameStore.current({ agentId: options?.agentId, db: options?.db });
   if (!frame) return { precision: 0.5, prior: options?.missionPrior || [], frameId: null };
   const uncertainty = Number(frame.epistemicState?.uncertainty) || 0;
   const contradiction = Number(frame.epistemicState?.contradiction) || 0;

@@ -250,6 +250,7 @@ async function processEventQueueImpl(ctx) {
       if (checkInteractionDeadlock(ctx, currentEvent, finalEvent)) continue;
       if (await runConscienceCheck(ctx, currentEvent, observation)) continue;
       await routeHierarchyEvent(ctx, currentEvent);
+      await require('./agow/agowRuntimeIngressService').process({ ctx, event: currentEvent, finalEvent });
       if (await checkNaturalSearchControl(ctx, currentEvent, finalEvent)) continue;
       await advanceAutonomousRound(normalizedMission, currentEvent);
     } catch (err) {

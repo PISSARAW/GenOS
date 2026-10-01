@@ -173,8 +173,8 @@ async function attachAgowWorkspace(options) {
   const { ctx, task, workspaceService, mode } = options;
   const now = Date.now();
   const candidate = buildMissionCandidate({ ctx, task, now });
-  const admission = await workspaceService.submitCandidate({ candidate, now });
-  const result = admission.accepted ? await workspaceService.cycle({ agentId: ctx.agentId, db: ctx.db, now, activeGoal: String(ctx.normalizedMission.missionId || 'mission'), unresolvedQuestions: [] }) : null;
+  const admission = await workspaceService.submitCandidate({ candidate, now, db: ctx.db, activeGoal: String(ctx.normalizedMission.missionId || 'mission') });
+  const result = admission.cycle || null;
   const controlsMission = mode === 'bounded' && frameContains(result?.frame, candidate.candidateId);
   const activation = activationForMode({ mode, controlsMission });
   ctx.agow = { mode, activation, candidateId: candidate.candidateId, accepted: admission.accepted, frame: result?.frame || null, broadcast: result?.broadcast || null };

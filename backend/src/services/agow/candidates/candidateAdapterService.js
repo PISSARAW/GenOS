@@ -1,5 +1,6 @@
 'use strict';
 
+const { createHash } = require('node:crypto');
 const workspace = require('../../globalWorkspaceService');
 
 const ADAPTERS = Object.freeze({
@@ -53,7 +54,7 @@ function build(options) {
     measures: buildMeasures(observation), constraints: buildConstraints(observation),
     redundancyKey: observation.redundancyKey || null, producedAt: now,
     expiresAt: now + Math.max(1000, Number(observation.ttlMs) || 60000),
-    stateHash: String(observation.stateHash || `${module}:${confidence}:${predictionError}:${now}`)
+    stateHash: String(observation.stateHash || createHash('sha256').update(JSON.stringify(observation)).digest('hex'))
   };
 }
 
@@ -61,7 +62,8 @@ async function submit(options) {
   const module = options?.module;
   if (!Object.hasOwn(ADAPTERS, module)) return { accepted: false, reason: 'unknown_candidate_source' };
   const candidate = build({ ...options, now: Number(options.now) || Date.now() });
-  return workspace.submitCandidate({ candidate, now: candidate.producedAt });
+  return workspace.submitCandidate({ candidate, now: candidate.producedAt, db: options.db,
+    activeGoal: options.activeGoal, unresolvedQuestions: options.unresolvedQuestions, triggerCycle: options.triggerCycle });
 }
 
 module.exports = { submit, build, ADAPTERS };

@@ -94,7 +94,29 @@ async function persistDischarge(input) {
   const remaining = pruneCopies(marked, now);
   await store.persistObject(SCOPE, agentId, { copies: remaining }, remaining.length);
   await recordDischargeAttribution({ db, agentId, copy: hit, strength });
+  await publishAgowConsequence({ db, agentId, event: input.event, copy: hit, strength });
   return { matched: true, copyId: hit.id, attenuation: REAFFERENCE_WEIGHT, strength };
+}
+
+async function publishAgowConsequence(input) {
+  try {
+    const workspace = require('./globalWorkspaceService');
+    if (workspace.getMode() === 'off') return;
+    const event = input.event || {};
+    const id = event.id || event.payload?.eventId || input.copy.id;
+    await require('./agow/candidates/candidateAdapterService').submit({
+      db: input.db, agentId: input.agentId, module: 'efference',
+      observation: {
+        candidateId: `efference:${input.agentId}:${input.copy.id}`, semanticType: 'action_consequence',
+        instanceId: input.copy.id, artifactRef: input.copy.actionId || input.copy.id,
+        compactPreview: String(event.detail || event.eventType || 'Predicted action consequence').slice(0, 500),
+        evidenceRefs: [String(id)], causalParents: [input.copy.id], confidence: input.strength,
+        predictionError: Math.max(0, Math.min(1, 1 - input.strength)), evidenceCoverage: 1,
+        goalMatched: true, actionable: false, causalEvidence: true,
+        redundancyKey: `efference:${input.copy.id}`
+      }
+    });
+  } catch (_) {}
 }
 
 async function recordDischargeAttribution(input) {
@@ -138,7 +160,7 @@ async function discharge(db, agentId, event) {
     const copies = Array.isArray(stored.copies) ? stored.copies : [];
     return await persistDischarge({
       store, db: opened.db, agentId, copies,
-      match: bestMatch(copies, event, now), now
+      match: bestMatch(copies, event, now), now, event
     });
   } catch (_) {
     return { matched: false };
