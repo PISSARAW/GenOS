@@ -15,7 +15,7 @@ function validateDesign(design) {
   if (!design || typeof design !== 'object') return ['benchmark-design-required'];
   return [
     ...identityErrors(design), ...controlErrors(design), ...datasetErrors(design),
-    ...cohortErrors(design), ...experimentErrors(design)
+    ...cohortErrors(design), ...experimentErrors(design), ...analysisErrors(design)
   ];
 }
 
@@ -54,6 +54,32 @@ function experimentErrors(design) {
   return issues;
 }
 
+function analysisErrors(design) {
+  const analysis = design.analysisPlan;
+  const power = design.powerPlan;
+  if (!validAnalysis(analysis)) return ['benchmark-analysis-plan-required'];
+  if (!validPower(power)) return ['benchmark-power-plan-invalid'];
+  return [];
+}
+
+function validAnalysis(analysis) {
+  return Boolean(analysis && METRICS.includes(analysis.primaryMetric)
+    && ['higher', 'lower'].includes(analysis.direction));
+}
+
+function validPower(power) {
+  return Boolean(power && Number.isFinite(power.minimumEffectOfInterest) && power.minimumEffectOfInterest > 0
+    && Number.isFinite(power.assumedStdDev) && power.assumedStdDev > 0
+    && [0.9, 0.95, 0.99].includes(power.confidenceLevel) && [0.8, 0.9, 0.95].includes(power.power));
+}
+
+function requiredReplicates(powerPlan) {
+  const zConfidence = { 0.9: 1.645, 0.95: 1.96, 0.99: 2.576 }[powerPlan.confidenceLevel];
+  const zPower = { 0.8: 0.842, 0.9: 1.282, 0.95: 1.645 }[powerPlan.power];
+  const ratio = powerPlan.assumedStdDev / powerPlan.minimumEffectOfInterest;
+  return Math.ceil(2 * ((zConfidence + zPower) * ratio) ** 2);
+}
+
 function createManifest(input) {
   const errors = validateDesign(input);
   if (errors.length) throw Object.assign(new Error(errors.join(',')), { code: 'GVX_BENCHMARK_INVALID', errors });
@@ -65,6 +91,8 @@ function createManifest(input) {
     toolsetHash: input.toolsetHash,
     budgetPerRun: input.budgetPerRun,
     minSeeds: input.minSeeds,
+    analysisPlan: { ...input.analysisPlan }, powerPlan: { ...input.powerPlan },
+    requiredReplicates: Math.max(input.minSeeds, requiredReplicates(input.powerPlan)),
     variants: [...new Set(input.variants)],
     cohorts: [...input.cohorts],
     metrics: [...new Set(input.metrics)],
@@ -89,7 +117,7 @@ function coverageErrors(manifest, runs) {
       for (const split of ['train', 'held_out']) {
         const group = runs.filter((run) => run.variant === variant && run.cohort === cohort && run.split === split);
         const seeds = new Set(group.map((run) => run.seed));
-        if (seeds.size < manifest.minSeeds) errors.push(`replicates-insufficient:${variant}:${cohort}:${split}`);
+        if (seeds.size < manifest.requiredReplicates) errors.push(`replicates-insufficient:${variant}:${cohort}:${split}`);
       }
     }
   }
@@ -161,4 +189,4 @@ function scoreBenchmark(manifest, runs) {
   return { benchmarkId: manifest.benchmarkId, status: 'measured', comparisonAuthority: 'none', heldOutGroups: groups };
 }
 
-module.exports = { VARIANTS, COHORTS, METRICS, validateDesign, createManifest, validateRuns, scoreBenchmark };
+module.exports = { VARIANTS, COHORTS, METRICS, validateDesign, createManifest, validateRuns, scoreBenchmark, requiredReplicates };
