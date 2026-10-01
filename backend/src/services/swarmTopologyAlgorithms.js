@@ -118,17 +118,61 @@ function magnitude(vector) {
   return vector ? Math.hypot(num(vector.x, 0), num(vector.y, 0)) : 0;
 }
 
+function slimePreferred(step, limit) {
+  const edges = [...(step.edges || [])];
+  edges.sort((a, b) => num(b.conductivity, 0) - num(a.conductivity, 0));
+  return edges.slice(0, limit).map((edge) => edge.id).filter(Boolean);
+}
+
+function flatIds(lists) {
+  const out = [];
+  for (const list of lists) {
+    for (const id of (list || [])) {
+      if (id) out.push(id);
+    }
+  }
+  return out;
+}
+
+function directPreferred(step, limit) {
+  if (Array.isArray(step.spokes)) return step.spokes.slice(0, limit);
+  if (Array.isArray(step.competitors)) return step.competitors.slice(0, limit);
+  if (Array.isArray(step.isolated)) return step.isolated.slice(0, limit);
+  return null;
+}
+
+function shapedPreferred(step, limit) {
+  if (Array.isArray(step.roleGradient)) return step.roleGradient.map((entry) => entry.id).filter(Boolean).slice(0, limit);
+  if (Array.isArray(step.allocations)) return step.allocations.map((entry) => entry.id).filter(Boolean).slice(0, limit);
+  if (Array.isArray(step.children)) return [step.root, ...step.children].filter(Boolean).slice(0, limit);
+  return null;
+}
+
+function relationalPreferred(step, limit) {
+  if (Array.isArray(step.pairs)) return flatIds(step.pairs).slice(0, limit);
+  if (Array.isArray(step.red)) return [...step.red, ...(step.blue || [])].slice(0, limit);
+  if (step.route) return [step.route].slice(0, limit);
+  if (step.hub) return [step.hub].filter(Boolean).slice(0, limit);
+  return null;
+}
+
+function genericPreferred(step, limit) {
+  return directPreferred(step, limit) || shapedPreferred(step, limit) || relationalPreferred(step, limit) || [];
+}
+
 const PREFERRED_ORG_FILTERS = Object.freeze({
   grey_wolf_optimizer: (step, limit) => (step.pack || []).filter((wolf) => wolf.role && wolf.role !== 'omega').slice(0, limit).map((wolf) => wolf.id),
   fish_school_search: (step, limit) => [...(step.individuals || [])].sort((a, b) => magnitude(b.volitive) - magnitude(a.volitive)).slice(0, limit).map((entry) => entry.id),
   flocking_boids: (step, limit) => [...(step.agents || [])].sort((a, b) => magnitude(b.vector) - magnitude(a.vector)).slice(0, limit).map((entry) => entry.id),
+  slime_mould_network: (step, limit) => slimePreferred(step, limit)
 });
 
 function preferredAgents(organization, step, limit = 3) {
   const org = String(organization || '').trim().toLowerCase();
   if (!step || limit <= 0) return [];
   const fn = PREFERRED_ORG_FILTERS[org];
-  return fn ? fn(step, limit) : [];
+  if (fn) return fn(step, limit);
+  return genericPreferred(step, limit);
 }
 
 function runTopologyStep(organization, state = {}, options = {}) {
