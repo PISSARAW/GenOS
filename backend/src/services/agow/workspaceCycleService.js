@@ -5,6 +5,7 @@ const arbitrationService = require('./workspaceArbitrationService');
 const frameService = require('./workspaceFrameService');
 const frameStore = require('./workspaceFrameStore');
 const ignitionService = require('../ignitionService');
+const broadcastService = require('./workspaceBroadcastService');
 
 function ignitionWeight(candidate) {
   const measures = candidate.measures;
@@ -33,7 +34,8 @@ async function cycle(options) {
   const previousFrame = frameStore.current({ agentId: options.agentId });
   const frame = frameService.create({ agentId: options.agentId, cycle: (previousFrame?.cycle || 0) + 1, selected: ignited, previousFrame, now, settings: options });
   const stored = frameStore.save({ frame });
-  return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result, ignition };
+  const broadcast = ignited.length ? await broadcastService.publish({ frame, modules: options.receivers, recipientAgentIds: options.recipientAgentIds }) : null;
+  return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result, ignition, broadcast };
 }
 
 module.exports = { cycle };
