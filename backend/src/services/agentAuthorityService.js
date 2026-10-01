@@ -25,6 +25,7 @@ async function requireOrchestrator(db, agentId, workspaceId = null) {
     throw authorityError('ORCHESTRATOR_REQUIRED', `Agent '${agentId}' is a worker and cannot orchestrate other agents.`);
   }
   if (workspaceId && agent.workspace_id !== workspaceId) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Orchestrator '${agentId}' is outside workspace '${workspaceId}'.`);
+  await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
   return agent;
 }
 
@@ -63,6 +64,7 @@ async function authorizeMission(db, agentOrOptions, ...legacyArgs) {
   const { agentId, orchestratorAgentId, workspaceId } = options;
   const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode, role, metadata_json FROM agents WHERE id = ?', agentId);
   assertMissionAgent(agent, agentId, workspaceId);
+  await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
   if (agent.execution_mode === 'worker') {
     try {
       const metadata = typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {};
@@ -80,6 +82,10 @@ function normalizeControlArgs(targetOrOptions, legacyArgs) {
   return { targetId: targetOrOptions, actorId: legacyArgs[0], workspaceId: legacyArgs[1] || null };
 }
 
+function canDirectlyControl(actor, target) {
+  return actor.id === target.id || actor.execution_mode === 'orchestrator' || actor.id === target.parent_agent_id;
+}
+
 async function authorizeAgentControl(db, targetOrOptions, ...legacyArgs) {
   const { targetId, actorId, workspaceId } = normalizeControlArgs(targetOrOptions, legacyArgs);
   const target = await db.get('SELECT id, parent_agent_id, execution_mode, workspace_id FROM agents WHERE id = ?', targetId);
@@ -87,7 +93,8 @@ async function authorizeAgentControl(db, targetOrOptions, ...legacyArgs) {
   if (workspaceId && target.workspace_id !== workspaceId) throw authorityError('AGENT_WORKSPACE_MISMATCH', `Agent '${targetId}' is outside the requested workspace.`);
   const actor = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ?', actorId || '');
   if (!actor || actor.workspace_id !== target.workspace_id) throw authorityError('AGENT_CONTROL_FORBIDDEN', 'The acting agent cannot control this target.');
-  if (actor.id !== target.id && actor.execution_mode !== 'orchestrator' && actor.id !== target.parent_agent_id) {
+  await require('./missionExecutionAuthority').assertAgentCurrent(db, actor.id);
+  if (!canDirectlyControl(actor, target)) {
     const bridge = require('./relationAuthorityBridge');
     const verdict = await bridge.resolveControlByRelation(actor.id, target.id, { db });
     if (verdict.granted) return { ...target, relationControl: verdict.profile.relationType };

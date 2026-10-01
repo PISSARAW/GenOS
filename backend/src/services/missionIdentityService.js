@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { withTransaction } = require('../db');
 
 function newMissionId() {
   return `mission_${crypto.randomUUID()}`;
@@ -24,8 +25,7 @@ async function attachAgent(db, input = {}) {
 
 async function attachOrchestrator(db, input = {}) {
   const { missionId, agentId, expectedOrchestratorId } = input;
-  await db.exec('BEGIN IMMEDIATE');
-  try {
+  return withTransaction(db, async () => {
     const current = await get(db, missionId);
     if (!current) throw new Error(`Mission '${missionId}' was not found.`);
     if (current.orchestratorAgentId && current.orchestratorAgentId !== agentId
@@ -38,12 +38,9 @@ async function attachOrchestrator(db, input = {}) {
       throw Object.assign(new Error('Mission orchestrator changed during succession.'), { code: 'MISSION_SUCCESSION_CONFLICT' });
     }
     await attachAgent(db, { missionId, agentId, role: 'orchestrator' });
-    await db.exec('COMMIT');
+    await require('./missionExecutionAuthority').rotate(db, { missionId, agentId, previousAgentId: current.orchestratorAgentId });
     return get(db, missionId);
-  } catch (error) {
-    await db.exec('ROLLBACK').catch(() => {});
-    throw error;
-  }
+  });
 }
 
 async function get(db, missionId) {

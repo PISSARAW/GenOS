@@ -249,21 +249,11 @@ async function resumeMission(db, input = {}) {
   if (!mission) return { success: true, resumed: null };
   const successorId = command.orchestratorAgentId || agentId;
   try {
-    const resumed = await require('./agentRuntimeAdapter').startMission({
-      ...mission,
-      agentId: successorId,
-      workspaceId: command.workspaceId || restored.workspaceId,
-      autonomousOrchestration: mission.autonomousOrchestration === true
+    const resumed = await require('./missionSuccessionService').resumeWithAuthority(db, {
+      mission, successorId,
+      expectedOrchestratorId: command.expectedOrchestratorId,
+      workspaceId: command.workspaceId || restored.workspaceId
     });
-    if (mission.missionId) {
-      const identity = require('./missionIdentityService');
-      await identity.attachOrchestrator(db, {
-        missionId: mission.missionId,
-        agentId: successorId,
-        expectedOrchestratorId: command.expectedOrchestratorId
-      });
-      await identity.setStatus(db, mission.missionId, 'active');
-    }
     return { success: true, resumed };
   } catch (error) {
     return { success: false, code: error.code || 'SURVIVAL_RESUME_FAILED', error: error.message };

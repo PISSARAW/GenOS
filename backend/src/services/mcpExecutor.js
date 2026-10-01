@@ -325,6 +325,7 @@ function applyDomainVerdict(toolName, result) {
 async function execute(executionRequest) {
   const { agentId, organizationId, projectId, toolName, args = {}, taints = [] } = executionRequest;
   const db = await getDatabase();
+  await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
   const request = { agentId, organizationId, projectId, toolName, args, taints };
   const { circuitScope, policy } = await resolveExecutionPolicy(db, request);
   if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };

@@ -50,6 +50,8 @@ async function startMissionInternal(mission) {
   const ctx = await bootstrapMission(mission);
   const { agentId, normalizedMission, db, dispatchedAgent, executionRun } = ctx;
   assertMissionNotCancelled(agentId);
+  await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
+  await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
   const inProcessWorker = isInProcessWorker(dispatchedAgent, normalizedMission, ctx.executable);
   if (inProcessWorker) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
@@ -82,6 +84,8 @@ async function startMissionInternal(mission) {
   }
 
   assertMissionNotCancelled(agentId);
+  await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
+  await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
   return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord: ctx.contractRecord, executionRun, autonomyPlan: ctx.autonomyPlan, runtimeBudget: ctx.runtimeBudget, runtimeEnvironment: ctx.runtimeEnvironment, silentUpdates: ctx.silentUpdates, genosCapsule: ctx.genosCapsule, executable: ctx.executable });
 }
 

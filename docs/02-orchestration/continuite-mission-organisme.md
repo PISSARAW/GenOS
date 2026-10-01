@@ -276,8 +276,11 @@ viable → QUIESCENCE | starved → CRYPTOBIOSE | irrecoverable → APOPTOSE
    suggérer une succession cellulaire, mais elle n'exécute pas ce transfert.
    `missionIdentityService.attachOrchestrator()` arbitre atomiquement le
    successeur et persiste son identité. Le test ferme/réouvre SQLite dans le
-   même processus. Le réveil lance encore le runtime avant cet arbitrage :
-   l'absence d'effets du perdant et la reprise multi-processus restent à prouver.
+   même processus. Le réveil réserve maintenant l'autorité avant lancement. Le test
+   `test_mission_succession_processes.js` couvre deux processus sur SQLite WAL
+   local, le refus du perdant/ancien et la reprise d'une réservation après crash.
+   Un crash pendant l'état launching exige une récupération contrôlée ; aucune
+   réexécution aveugle n'est autorisée.
 
 ## Voir aussi
 

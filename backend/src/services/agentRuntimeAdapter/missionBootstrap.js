@@ -65,6 +65,7 @@ async function initializeMissionContext(mission) {
     { maxRetries: 10, baseDelayMs: 200 }
   );
   assertMissionNotCancelled(agentId);
+  await require('../missionExecutionAuthority').assertAuthority(db, normalizedMission.missionExecutionAuthority);
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);
   await resolveWorkerIdentity(normalizedMission, dispatchedAgent);
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
