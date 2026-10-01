@@ -29,7 +29,20 @@ async function record(input) {
   await persistence.save({ scope: SCOPE, agentId: input.agentId, db: loaded.db,
     state: { trajectories: trajectories.slice(-2000) }, version: trajectories.length });
   const episode = await require('./autobiographicalEpisodeAdapter').capture({ ...input, trajectory: record });
-  return { ...record, autobiographicalEpisodeId: episode.id };
+  const developmentalSignals = input.developmentalScope
+    ? await recordDevelopmentalSignals(input, record) : [];
+  return { ...record, autobiographicalEpisodeId: episode.id, developmentalSignals };
+}
+
+async function recordDevelopmentalSignals(input, record) {
+  const { recordOutcomeSignals } = require('../../developmentalBridge/agowToGvxSignalAdapter');
+  return recordOutcomeSignals(input.db, {
+    scope: input.developmentalScope, entityId: input.agentId, agentId: input.agentId,
+    sourceEventId: record.trajectoryId, evidenceRefs: record.evidenceRefs,
+    success: record.success, predictionError: input.predictionError, regret: input.regret,
+    decompiled: input.decompiled, pathwayId: input.pathwayId,
+    context: { frameId: record.frameId, pathwayId: input.pathwayId }
+  });
 }
 
 async function list(options) {
