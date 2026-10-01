@@ -276,6 +276,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
 | [0260](0260-politique-modes-cognitifs-agow.md) | Sélection des modes cognitifs par regret prédictif | Accepté | 2026-10-01 | AGOW, regret prédictif, contrôle cognitif |
 | [0261](0261-detection-lacunes-apprentissage-gvx.md) | Détection des lacunes et buts d'apprentissage bornés | Accepté | 2026-10-01 | GVX, curriculum, curiosité, autorité |
+| [0262](0262-proposition-mutation-recherche-lignees-gvx.md) | Proposition de mutation et recherche de lignées candidates | Accepté | 2026-10-01 | GVX, Self-Twin, AgentGit, expérimentation |
 | [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux

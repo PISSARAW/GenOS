@@ -13,4 +13,16 @@ peuvent ensuite être fournis au curriculum GVX, qui revérifie les prérequis e
 Les pondérations sont des paramètres initiaux non calibrés. Les intégrations doivent
 fournir des signaux issus d'outcomes et d'évaluations fiables.
 
+## De la lacune à une lignée candidate
+
+`backend/src/services/gvxMutationProposer.js` exige un prédicteur Self-Twin et produit un
+événement de transformation GVX validé, avec `causalContext.selfTwinPredictionId` et les
+effets anticipés. Il ne construit ni n'applique de patch.
+
+`backend/src/services/gvxLineageSearch.js` délègue ensuite la création d'une branche
+candidate isolée et l'évaluation à l'hôte. Il borne la recherche à huit candidats et au
+budget déclaré, puis journalise les résultats; toute promotion requiert un gate externe.
+
+Voir [ADR 0262](../adr/0262-proposition-mutation-recherche-lignees-gvx.md).
+
 Voir [ADR 0261](../adr/0261-detection-lacunes-apprentissage-gvx.md).

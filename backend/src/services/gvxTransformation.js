@@ -67,6 +67,7 @@ function normalizedCandidate(input) {
       protocol: input.hypothesis.protocol.trim(),
       heldOutRefs: normalizedList(input.hypothesis.heldOutRefs)
     },
+    causalContext: normalizedCausalContext(input.causalContext),
     skillDelta: input.skillDelta || { adds: [], requires: [] },
     maxCost: input.maxCost,
     maxSeconds: input.maxSeconds,
@@ -74,6 +75,12 @@ function normalizedCandidate(input) {
     verifierProfile: input.verifierProfile,
     rollbackPlan: input.rollbackPlan
   };
+}
+
+function normalizedCausalContext(context) {
+  if (!context || typeof context.selfTwinPredictionId !== 'string') return null;
+  return { selfTwinPredictionId: context.selfTwinPredictionId,
+    predictedEffects: Array.isArray(context.predictedEffects) ? context.predictedEffects.slice(0, 50) : [] };
 }
 
 function normalizedList(value) { return Array.isArray(value) ? [...new Set(value.filter(hasText))] : []; }
