@@ -150,7 +150,8 @@ Le plan ci-dessus câble des opérations observables et explicitement appelées 
   (`spokes`, `competitors`, `roleGradient`, `allocations`, `pairs`, `route`).
 - L'état runtime combine positions stables (`id:role`), fitness issue du
   statut + activité réelle de messages (`agent_organization_messages`), et
-  transmet `options.limit` aux préférés.
+  transmet `options.limit` aux préférés. `orchestrationActionExecutor` utilise
+  la boucle bornée (`applyStepsForOrchestrator`, 3 pas, arrêt sur convergence).
 - Promotions : `trinityComparativeBarrier.promoteWinner` marque le monde gagnant
   `promoted` (événement `TRINITY_WINNER_PROMOTED`) sur les deux chemins.
 - Preuve probabiliste : `biocenoseService.brierConsensus` (Brier pondéré) et
@@ -172,13 +173,19 @@ Le plan ci-dessus câble des opérations observables et explicitement appelées 
 
 ## 9. Ce qui reste ouvert
 
-- Les algorithmes sont déterministes et locaux (pas de consensus distribué
-  global). Le supervisor applique une étape par décision via
-  `applyStepForOrchestrator`, avec une boucle bornée optionnelle
-  `applyStepsForOrchestrator` (max 5 pas, arrêt sur convergence des préférés) —
-  pas une boucle haute fréquence autonome. Le quorum/Brier/trails/populations
-  sont dérivés des messages d'organisation réels (`vote`, `evidence`, `trace`) ;
-  sans messages, le quorum ne conclut pas et le Brier reste sans vérité résolue.
+- Les algorithmes sont déterministes et locaux. Le consensus global est une
+  agrégation en lecture seule (`organizationConsensusService`, ADR 0236) :
+  snapshot par orchestrateur + résumé pondéré avec provenance, sans écriture
+  ni décision contraignante. Le quorum/Brier/trails/populations sont dérivés
+  des messages d'organisation réels (`vote`, `evidence`, `trace`) ; sans
+  messages, le quorum ne conclut pas et le Brier reste sans vérité résolue.
+  Les miroirs Rust (`organization_step.rs` : autorité, exécution essaim,
+  résumé global) sont des briques pures, pas un runtime persistant.
+- Aucune boucle haute fréquence autonome : `applyStepsForOrchestrator` est
+  bornée (max 5 pas, arrêt sur convergence) et appelée par décision.
+- Le foraging sans session navigateur est marqué `simulated` ; `computer_use`
+  reste une session bureau distincte (séparation tracée dans le sensorium).
+  GAIA : sans checkout externe, le test rend `SKIPPED` sans score.
 - La perception/web reste au statut de primitives isolées. Le navigateur
   maintient une session locale et simule les actions de formulaire; la
   fovéation produit des ROI/manifests simulés, et le foraging renvoie un calcul
