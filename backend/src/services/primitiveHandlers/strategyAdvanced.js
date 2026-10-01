@@ -5,6 +5,10 @@ function reportsFrom(context = {}) {
   return Array.isArray(reports) ? reports.filter((report) => report && typeof report === 'object') : [];
 }
 
+function teamReports(primary, alternate) {
+  return reportsFrom({ reports: primary || alternate || [] });
+}
+
 function evidenceCount(report = {}) {
   const evidence = report.evidence || report.receipts || report.findings || [];
   return Array.isArray(evidence) ? evidence.filter(Boolean).length : 0;
@@ -67,8 +71,8 @@ async function synthesizeReports(context = {}) {
 }
 
 async function securityCoevolution(context = {}) {
-  const red = reportsFrom({ reports: context.redTeam || context.red_team || [] });
-  const blue = reportsFrom({ reports: context.blueTeam || context.blue_team || [] });
+  const red = teamReports(context.redTeam, context.red_team);
+  const blue = teamReports(context.blueTeam, context.blue_team);
   if (!red.length || !blue.length) return { success: false, error: 'redTeam and blueTeam reports are required.', code: 'RED_BLUE_REPORTS_REQUIRED' };
   const redFindings = new Set(red.flatMap((report) => report.findings || report.claims || []).map((finding) => JSON.stringify(finding)));
   const blueAddresses = new Set(blue.flatMap((report) => report.addressedFindings || report.mitigations || []).map((finding) => JSON.stringify(finding)));

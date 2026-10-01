@@ -1,11 +1,17 @@
 'use strict';
 
+function readingLists(input) {
+  return {
+    oppositions: Array.isArray(input.oppositions) ? input.oppositions : [],
+    traces: Array.isArray(input.traces) ? input.traces : [],
+    supplements: Array.isArray(input.supplements) ? input.supplements : []
+  };
+}
+
 function analyzeText(input = {}) {
   const text = String(input.text || '').trim();
   if (!text) throw new Error('text must be a non-empty string.');
-  const oppositions = Array.isArray(input.oppositions) ? input.oppositions : [];
-  const traces = Array.isArray(input.traces) ? input.traces : [];
-  const supplements = Array.isArray(input.supplements) ? input.supplements : [];
+  const { oppositions, traces, supplements } = readingLists(input);
   const privileged = oppositions.map((opposition) => opposition.privileged || null).filter(Boolean);
   return {
     kind: 'DeconstructiveReading',

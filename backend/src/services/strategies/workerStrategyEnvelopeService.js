@@ -10,6 +10,10 @@ function normalizeIdList(list) {
   return [...new Set((list || []).filter(Boolean))];
 }
 
+function allowedStrategyIds(allowed, parentDef) {
+  return allowed.length ? allowed : [parentDef.id];
+}
+
 function createEnvelope(ctx) {
   const {
     workerId,
@@ -35,7 +39,7 @@ function createEnvelope(ctx) {
     inheritedObjective,
     parentStrategyId: parentDef.id,
     currentStrategyId: parentDef.id,
-    allowedStrategies: allowed.length ? allowed : [parentDef.id],
+    allowedStrategies: allowedStrategyIds(allowed, parentDef),
     forbiddenStrategies: forbidden,
     maxChanges: Number.isFinite(maxChanges) ? maxChanges : 3,
     changesUsed: 0,
@@ -78,6 +82,15 @@ function canChangeStrategy(workerId, newStrategyId) {
   return true;
 }
 
+function requireChangeAllowed(envelope, strategyDef, workerId) {
+  if (!isStrategyAllowed(envelope, strategyDef.id)) {
+    throw new Error(`Strategy ${strategyDef.id} is not in worker's allowed set`);
+  }
+  if (envelope.changesUsed >= envelope.maxChanges) {
+    throw new Error(`Worker ${workerId} has exhausted its ${envelope.maxChanges} strategy changes`);
+  }
+}
+
 function changeStrategy(ctx) {
   const { workerId, newStrategy, reason } = ctx || {};
   if (!workerId) throw new Error('workerId is required');
@@ -89,12 +102,7 @@ function changeStrategy(ctx) {
   if (envelope.currentStrategyId === strategyDef.id) {
     return { envelope, changed: false, reason: 'already using this strategy' };
   }
-  if (!isStrategyAllowed(envelope, strategyDef.id)) {
-    throw new Error(`Strategy ${strategyDef.id} is not in worker's allowed set`);
-  }
-  if (envelope.changesUsed >= envelope.maxChanges) {
-    throw new Error(`Worker ${workerId} has exhausted its ${envelope.maxChanges} strategy changes`);
-  }
+  requireChangeAllowed(envelope, strategyDef, workerId);
   const previousStrategyId = envelope.currentStrategyId;
   envelope.currentStrategyId = strategyDef.id;
   envelope.changesUsed += 1;

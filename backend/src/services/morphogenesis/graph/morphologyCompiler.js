@@ -21,19 +21,20 @@ function compile(input) {
 function normalizeInput(input) {
   if (!input || !input.expression) throw new Error('compile requires an expression');
   const options = input.options || {};
+  const globalBudget = options.globalBudget || {};
   return {
     expression: input.expression,
     defaults: {
       mission: options.mission || null,
       scope: options.scope || 'mission',
-      budget: options.globalBudget || {}
+      budget: globalBudget
     },
     identity: {
       graphId: options.graphId,
       missionId: options.missionId,
       version: options.version || 1,
       status: options.status || 'proposed',
-      globalBudget: options.globalBudget || {},
+      globalBudget,
       globalInvariants: options.globalInvariants || []
     }
   };

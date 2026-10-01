@@ -35,10 +35,9 @@ function applyBudget(node, parentBudget, defaults) {
 }
 
 function siblingCount(node) {
-  if (node.kind === 'NEST') return 2;
+  if (['NEST', 'BRIDGE'].includes(node.kind)) return 2;
   if (node.kind === 'GATE') return 3;
   if (node.kind === 'WRAP') return 1;
-  if (node.kind === 'BRIDGE') return 2;
   if (node.kind === 'FEDERATE' && Array.isArray(node.members)) return node.members.length;
   if (Array.isArray(node.children) && node.children.length > 0) return node.children.length;
   if (Array.isArray(node.members) && node.members.length > 0) return node.members.length;

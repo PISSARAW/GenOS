@@ -14,6 +14,10 @@ function gateView(plasmid) {
   };
 }
 
+function agentPhenotype(source) {
+  return source.phenotype || source.phenotypeId || 'AdaptiveWorker';
+}
+
 function recipientView(agent) {
   const source = agent || {};
   const installed = Array.isArray(source.capabilities) ? source.capabilities : [];
@@ -21,7 +25,7 @@ function recipientView(agent) {
   const expressibleSet = new Set(expressible);
   return {
     id: source.id || null,
-    phenotype: source.phenotype || source.phenotypeId || 'AdaptiveWorker',
+    phenotype: agentPhenotype(source),
     capabilities: installed,
     canExpress: (capability) => expressibleSet.has(capability),
     authorityProfile: source.authorityProfile || { execute: true },

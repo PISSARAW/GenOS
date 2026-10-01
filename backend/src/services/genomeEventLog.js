@@ -76,9 +76,13 @@ async function latestHash(db, genomeRef) {
   }
 }
 
+function validGenomeEvent(genomeRef, eventType) {
+  return !!genomeRef && !!eventType && EVENT_TYPES.has(eventType);
+}
+
 async function recordEvent(db, event) {
   const { genome_ref, event_type, payload, organization_id, project_id, commit_id } = event;
-  if (!genome_ref || !event_type || !EVENT_TYPES.has(event_type)) {
+  if (!validGenomeEvent(genome_ref, event_type)) {
     throw new Error(`Invalid genome event: ${JSON.stringify(event)}`);
   }
   const id = `evt_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;

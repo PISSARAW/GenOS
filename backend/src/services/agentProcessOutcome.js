@@ -27,20 +27,17 @@ function isAllowedRuntimeEnv(name) {
   return isPropagatableGenosEnv(name);
 }
 
-function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates) {
-  const environment = {};
-  for (const [name, value] of Object.entries(process.env)) {
-    // Bloquer les variables sensibles au profil utilisateur
-    if (BLOCKED_RUNTIME_ENV.has(name)) continue;
-    // Propager uniquement les variables sécurisées (filtre sensible sur GENOS)
-    if (isAllowedRuntimeEnv(name)) {
-      environment[name] = value;
-    }
-  }
-  for (const [name, value] of Object.entries(runtimeEnvironment || {})) {
+function addAllowedEnvironment(environment, source) {
+  for (const [name, value] of Object.entries(source)) {
     if (BLOCKED_RUNTIME_ENV.has(name)) continue;
     if (isAllowedRuntimeEnv(name)) environment[name] = value;
   }
+}
+
+function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates) {
+  const environment = {};
+  addAllowedEnvironment(environment, process.env);
+  addAllowedEnvironment(environment, runtimeEnvironment || {});
   for (const name of ['GENOS_DB_PATH', 'GENOS_SQLITE_BUSY_TIMEOUT_MS', 'GENOS_DB_BACKUP_SKIP', 'GENOS_DB_BOOTSTRAP_SKIP']) {
     if (process.env[name]) environment[name] = process.env[name];
   }

@@ -19,6 +19,21 @@ pub enum ConnectionStatus {
     Disconnected(String),
 }
 
+fn subscription(mission: &str, token: Option<&str>) -> Value {
+    match token {
+        Some(token) => serde_json::json!({ "subscribe": mission, "token": token }),
+        None => serde_json::json!({ "subscribe": mission }),
+    }
+}
+
+fn closed_connection_detail(dropped_lines: u64) -> String {
+    if dropped_lines > 0 {
+        format!("connection closed by monitor server ({dropped_lines} non-JSON line(s) dropped)")
+    } else {
+        "connection closed by monitor server".to_string()
+    }
+}
+
 /// Background TCP client streaming NDJSON Trinity events from the Node.js
 /// runtime (`backend/src/services/trinityMonitorServer.js`) into channels the
 /// ratatui event loop can poll without blocking rendering.
@@ -46,10 +61,7 @@ impl LiveMonitor {
                     Ok(mut stream) => {
                         let _ = stream.set_read_timeout(Some(READ_TIMEOUT));
                         let _ = status_tx.send(ConnectionStatus::Connected);
-                        let subscribe = match auth_token.as_deref() {
-                            Some(token) => serde_json::json!({ "subscribe": &subscribe_mission, "token": token }),
-                            None => serde_json::json!({ "subscribe": &subscribe_mission }),
-                        };
+                        let subscribe = subscription(&subscribe_mission, auth_token.as_deref());
                         if writeln!(stream, "{}", subscribe).is_err() {
                             let _ = status_tx.send(ConnectionStatus::Disconnected("write failed".to_string()));
                             thread::sleep(backoff);
@@ -92,11 +104,7 @@ impl LiveMonitor {
                                 Err(_) => break,
                             }
                         }
-                        let detail = if dropped_lines > 0 {
-                            format!("connection closed by monitor server ({dropped_lines} non-JSON line(s) dropped)")
-                        } else {
-                            "connection closed by monitor server".to_string()
-                        };
+                        let detail = closed_connection_detail(dropped_lines);
                         let _ = status_tx.send(ConnectionStatus::Disconnected(detail));
                     }
                     Err(error) => {

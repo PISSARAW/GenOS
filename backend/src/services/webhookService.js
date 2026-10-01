@@ -81,18 +81,14 @@ function postPinned(target, body, { headers, timeoutMs = 10000 }) {
   });
 }
 
-async function dispatchEvent(event) {
-  try {
-    const db = await getDatabase();
-    const hooks = await db.all('SELECT * FROM webhook_subscriptions WHERE enabled = 1');
-    for (const hook of hooks) {
-      if (!accepts(hook, event) || !matchesScope(hook, event)) continue;
+async function deliverHook(hook, event) {
+      if (!accepts(hook, event) || !matchesScope(hook, event)) return;
       let target;
-      try { target = await resolvePublicWebhookTarget(hook.url); } catch (_) { continue; }
+      try { target = await resolvePublicWebhookTarget(hook.url); } catch (_) { return; }
       // Per-hook secrets always win: the global env secret must never be
       // handed to an endpoint registered by someone else.
       const secret = hook.secret || process.env.GENOS_WEBHOOK_SECRET;
-      if (!secret) continue;
+      if (!secret) return;
       const body = JSON.stringify({ event, sentAt: new Date().toISOString() });
       const signature = crypto.createHmac('sha256', secret).update(body).digest('hex');
       try {
@@ -105,6 +101,14 @@ async function dispatchEvent(event) {
       } catch (_) {
         // A failed delivery must not retain the event or block later events.
       }
+}
+
+async function dispatchEvent(event) {
+  try {
+    const db = await getDatabase();
+    const hooks = await db.all('SELECT * FROM webhook_subscriptions WHERE enabled = 1');
+    for (const hook of hooks) {
+      await deliverHook(hook, event);
     }
   } catch (_) {}
 }

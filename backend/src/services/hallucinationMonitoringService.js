@@ -45,19 +45,21 @@ function evidencePresent(value) {
   return isMeaningfulEvidenceItem(value);
 }
 
+function addUniqueClaim(list, seen, claim) {
+  if (claim && typeof claim === 'object') {
+    const key = `${claim.statement || claim.claim || claim.id || JSON.stringify(claim)}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      list.push(claim);
+    }
+  }
+}
+
 function extractClaims(payload) {
   if (!payload || typeof payload !== 'object') return [];
   const list = [];
   const seen = new Set();
-  const add = (c) => {
-    if (c && typeof c === 'object') {
-      const key = `${c.statement || c.claim || c.id || JSON.stringify(c)}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        list.push(c);
-      }
-    }
-  };
+  const add = (claim) => addUniqueClaim(list, seen, claim);
   if (Array.isArray(payload.claims)) payload.claims.forEach(add);
   if (Array.isArray(payload.evidenceReport?.claims)) payload.evidenceReport.claims.forEach(add);
   if (Array.isArray(payload.report?.claims)) payload.report.claims.forEach(add);

@@ -114,6 +114,12 @@ function memoryContent(job, inputs, unproven) {
   return base;
 }
 
+function memoryCategory({ failed, unproven, interpretive, ethicalInterpretive, epistemicInterpretive }) {
+  if (failed) return 'Failure';
+  if (unproven) return 'UnverifiedExperience';
+  return interpretive || ethicalInterpretive || epistemicInterpretive ? 'InterpretiveExperience' : 'Experience';
+}
+
 function buildMemoryRecord(job) {
   const inputs = claimInputs(job);
   const unproven = hasUnprovenClaims(inputs);
@@ -123,7 +129,7 @@ function buildMemoryRecord(job) {
   const epistemicContext = job.options?.epistemicContext || job.options?.epistemic_context;
   const ethicalInterpretive = Boolean(ethicalComparison && ethicalComparison.promotion?.holdPromotion !== false);
   const epistemicInterpretive = Boolean(epistemicContext?.interpretive || epistemicContext?.promotion?.holdPromotion);
-  const category = failed ? 'Failure' : (unproven ? 'UnverifiedExperience' : interpretive || ethicalInterpretive || epistemicInterpretive ? 'InterpretiveExperience' : 'Experience');
+  const category = memoryCategory({ failed, unproven, interpretive, ethicalInterpretive, epistemicInterpretive });
   const content = memoryContent(job, inputs, unproven);
   return { category, content, unproven, failed, ethicalInterpretive, epistemicInterpretive, philosophy: job.options?.philosophy || null, epistemicContext, ethicalComparison, rawClaims: inputs.raw, taskHash: taskHashFor(job) };
 }

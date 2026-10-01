@@ -19,7 +19,7 @@ function validateWorkerDossierCoherence(workerDossier, contractPortfolio = []) {
     (contractPortfolio || []).flatMap((s) => s.primitives || [])
   );
   const unauthorizedPrimitives = [];
-  for (const event of workerDossier.events || []) {
+  for (const event of workerDossier.events) {
     const executedPrimitive = event.executedPrimitive || event.primitive;
     if (executedPrimitive && !portfolioPrimitives.has(executedPrimitive)) {
       unauthorizedPrimitives.push({ event: event.id, primitive: executedPrimitive });

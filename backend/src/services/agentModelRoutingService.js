@@ -55,7 +55,7 @@ async function consultLocalModels({ db, agentId, mission, plan, tenant = {} }) {
 
 function modelScale(model) {
   const modelName = String(model?.model || model?.uri || '');
-  const billions = modelName.match(/(?:^|[-_:])(\d+(?:\.\d+)?)b(?:$|[-_:])/i);
+  const billions = modelSizeBillions(modelName);
   if (billions) return Number(billions[1]) * 1_000_000_000;
   // Convert quantized byte sizes (e.g. Ollama ~0.6 bytes/param at Q4) to parameter estimates
   const byteSize = Number(model?.size || 0);
@@ -66,6 +66,10 @@ function modelScale(model) {
     return 7_000_000_000;
   }
   return byteSize;
+}
+
+function modelSizeBillions(modelName) {
+  return modelName.match(/(?:^|[-_:])(\d+(?:\.\d+)?)b(?:$|[-_:])/i);
 }
 
 function localPlanTimeoutMs(models, mission = {}) {

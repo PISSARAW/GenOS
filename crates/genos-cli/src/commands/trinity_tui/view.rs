@@ -97,6 +97,18 @@ fn render_columns(frame: &mut Frame, area: Rect, app: &TrinityApp) {
     }
 }
 
+fn log_color(line: &str) -> Color {
+    if line.contains("WARNING") || line.contains("overflow") {
+        Color::LightRed
+    } else if line.contains("WINNER") || line.contains("passed") {
+        Color::LightGreen
+    } else if line.contains("Patch") || line.contains("Zero-copy") {
+        Color::LightCyan
+    } else {
+        Color::Gray
+    }
+}
+
 fn render_single_world(frame: &mut Frame, area: Rect, world: &WorldState) {
     let border_color = match world.id {
         1 => Color::Yellow,
@@ -145,15 +157,7 @@ fn render_single_world(frame: &mut Frame, area: Rect, world: &WorldState) {
     let max_lines = (chunks[1].height as usize).saturating_sub(1);
     let skip_count = world.logs.len().saturating_sub(max_lines);
     for line_str in world.logs.iter().skip(skip_count) {
-        let color = if line_str.contains("WARNING") || line_str.contains("overflow") {
-            Color::LightRed
-        } else if line_str.contains("WINNER") || line_str.contains("passed") {
-            Color::LightGreen
-        } else if line_str.contains("Patch") || line_str.contains("Zero-copy") {
-            Color::LightCyan
-        } else {
-            Color::Gray
-        };
+        let color = log_color(line_str);
         log_lines.push(Line::from(Span::styled(line_str, Style::default().fg(color))));
     }
     let log_para = Paragraph::new(log_lines).wrap(Wrap { trim: false });

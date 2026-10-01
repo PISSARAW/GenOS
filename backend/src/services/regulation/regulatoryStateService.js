@@ -74,18 +74,24 @@ function getState(agentId) {
  * @param {object} patch — partial state patch
  * @returns {object} updated RegulatorySnapshot
  */
+function patchedScalars(prev, p) {
+  return {
+    energy: p.energy !== undefined ? clamp01(p.energy) : prev.energy,
+    integrity: p.integrity !== undefined ? clamp01(p.integrity) : prev.integrity,
+    curiosity: p.curiosity !== undefined ? clamp01(p.curiosity) : prev.curiosity,
+    survival: p.survival !== undefined ? clamp01(p.survival) : prev.survival,
+    stress: p.stress !== undefined ? clamp01(p.stress) : prev.stress,
+    threat: p.threat !== undefined ? clamp01(p.threat) : prev.threat
+  };
+}
+
 function updateState(agentId, patch) {
   if (!agentId) throw new Error('updateState requires agentId');
   const prev = getState(agentId);
   const p = patch || {};
   const next = {
     ...prev,
-    energy: p.energy !== undefined ? clamp01(p.energy) : prev.energy,
-    integrity: p.integrity !== undefined ? clamp01(p.integrity) : prev.integrity,
-    curiosity: p.curiosity !== undefined ? clamp01(p.curiosity) : prev.curiosity,
-    survival: p.survival !== undefined ? clamp01(p.survival) : prev.survival,
-    stress: p.stress !== undefined ? clamp01(p.stress) : prev.stress,
-    threat: p.threat !== undefined ? clamp01(p.threat) : prev.threat,
+    ...patchedScalars(prev, p),
     hormones: p.hormones ? { ...prev.hormones, ...sanitizeHormones(p.hormones) } : prev.hormones,
     cognitive: p.cognitive ? { ...prev.cognitive, ...p.cognitive } : prev.cognitive,
     revision: prev.revision + 1,

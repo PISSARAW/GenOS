@@ -117,6 +117,16 @@ function parseArgs(value) {
   return args;
 }
 
+function bundledTransport(paths) {
+  for (const candidate of paths) {
+    if (fs.existsSync(candidate.file || candidate.command)) {
+      const { file, ...transport } = candidate;
+      return transport;
+    }
+  }
+  return null;
+}
+
 function configuredTransport() {
   const url = process.env.GENOS_MCP_URL || process.env.GENOS_MCP_ENDPOINT;
   const command = process.env.GENOS_MCP_COMMAND;
@@ -126,14 +136,15 @@ function configuredTransport() {
   }
   if (command) return { type: 'stdio', command, args: parseArgs(process.env.GENOS_MCP_ARGS || '') };
   const mcpIndex = path.resolve(__dirname, '../../../../mcp/index.js');
-  if (fs.existsSync(mcpIndex)) return { type: 'stdio', command: process.execPath, args: [mcpIndex], bundled: true };
   const bundledRelease = path.resolve(__dirname, '../../../../target/release/genos-mcp');
-  if (fs.existsSync(bundledRelease)) return { type: 'stdio', command: bundledRelease, args: ['stdio'], bundled: true };
-  if (fs.existsSync(`${bundledRelease}.exe`)) return { type: 'stdio', command: `${bundledRelease}.exe`, args: ['stdio'], bundled: true };
   const bundled = path.resolve(__dirname, '../../../../target/debug/genos-mcp');
-  if (fs.existsSync(bundled)) return { type: 'stdio', command: bundled, args: ['stdio'], bundled: true };
-  if (fs.existsSync(`${bundled}.exe`)) return { type: 'stdio', command: `${bundled}.exe`, args: ['stdio'], bundled: true };
-  return null;
+  return bundledTransport([
+    { type: 'stdio', command: process.execPath, args: [mcpIndex], bundled: true, file: mcpIndex },
+    { type: 'stdio', command: bundledRelease, args: ['stdio'], bundled: true },
+    { type: 'stdio', command: `${bundledRelease}.exe`, args: ['stdio'], bundled: true },
+    { type: 'stdio', command: bundled, args: ['stdio'], bundled: true },
+    { type: 'stdio', command: `${bundled}.exe`, args: ['stdio'], bundled: true }
+  ]);
 }
 
 module.exports = {

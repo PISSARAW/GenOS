@@ -35,6 +35,10 @@ function pressureFromEvidenceDeficit(state) {
   return { value: Number(ratio.toFixed(3)), severity: ratio > 0.5 ? 'high' : ratio > 0.2 ? 'medium' : 'low' };
 }
 
+function independenceClaim(claim) {
+  return { type: claim.type, source: claim.provenance?.origin || claim.id, properties: {} };
+}
+
 function pressureFromIndependence(state) {
   const claims = state.claims || [];
   if (claims.length < 2) return { value: 0.5, severity: 'medium' };
@@ -43,8 +47,8 @@ function pressureFromIndependence(state) {
   for (let i = 0; i < claims.length; i++) {
     for (let j = i + 1; j < claims.length; j++) {
       pairCount++;
-      const a = { type: claims[i].type, source: claims[i].provenance?.origin || claims[i].id, properties: {} };
-      const b = { type: claims[j].type, source: claims[j].provenance?.origin || claims[j].id, properties: {} };
+      const a = independenceClaim(claims[i]);
+      const b = independenceClaim(claims[j]);
       const assessment = assessIndependence(a, b);
       if (assessment.dependencyStatus === 'proven_dependent') dependentCount++;
     }

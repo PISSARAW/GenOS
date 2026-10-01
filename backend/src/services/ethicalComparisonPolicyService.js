@@ -48,6 +48,10 @@ function reviewFrom(context = {}) {
   return context.ethicalReview || context.report?.ethicalReview || {};
 }
 
+function reviewIsIncomplete(review) {
+  return review.status !== REVIEW_STATUS || review.provenanceVerified !== true || review.evidenceVerified !== true;
+}
+
 function evaluatePromotionContext(contract = {}, executionContext = {}) {
   const comparison = contract.ethical_comparison || contract.ethicalComparison;
   const policy = comparison?.promotion || comparison;
@@ -60,7 +64,7 @@ function evaluatePromotionContext(contract = {}, executionContext = {}) {
       message: 'An ethical comparison requires a complete provenance hash and evidence references before promotion.',
     });
   }
-  if (policy.requireEthicalReview && (review.status !== REVIEW_STATUS || review.provenanceVerified !== true || review.evidenceVerified !== true)) {
+  if (policy.requireEthicalReview && reviewIsIncomplete(review)) {
     violations.push({
       policy: 'ethical_comparison_interpretation',
       message: 'An interpretive or conflicting ethical comparison requires an approved review with verified evidence and provenance.',

@@ -297,6 +297,11 @@ async function autoResolveStakeableDebts(claim, stakes) {
 // Consistency checks across claims (point 2 auxiliary)
 // ---------------------------------------------------------------------------
 
+function comparableFactualClaims(a, b) {
+  return a.type === CLAIM_TYPES.FACTUAL && b.type === CLAIM_TYPES.FACTUAL &&
+    a.subject === b.subject && a.probability !== undefined && b.probability !== undefined;
+}
+
 function checkClaimConsistency(claims) {
   // Simple pairwise check: two factual claims with the same subject field and
   // contradictory probability must be flagged.
@@ -305,13 +310,7 @@ function checkClaimConsistency(claims) {
     for (let j = i + 1; j < claims.length; j++) {
       const a = claims[i];
       const b = claims[j];
-      if (
-        a.type === CLAIM_TYPES.FACTUAL &&
-        b.type === CLAIM_TYPES.FACTUAL &&
-        a.subject === b.subject &&
-        a.probability !== undefined &&
-        b.probability !== undefined
-      ) {
+      if (comparableFactualClaims(a, b)) {
         if (Math.abs(a.probability - b.probability) > 0.5) {
           issues.push({
             type: 'contradictory_probability',

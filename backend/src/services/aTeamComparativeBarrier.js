@@ -84,7 +84,7 @@ function buildAteamMetrics({ aTeam, workers, observation, canMerge }) {
 }
 
 async function applyAteamIntegration(ctx) {
-  const aTeam = ctx && ctx.autonomyPlan ? ctx.autonomyPlan.aTeam : null;
+  const aTeam = ctx?.autonomyPlan?.aTeam || null;
   if (!aTeam || aTeam.activated !== true) return null;
   const workers = ctx.workers || [];
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, workers);

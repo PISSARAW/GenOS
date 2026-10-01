@@ -202,6 +202,11 @@ function buildPlanComponents(ctx, contracts) {
   };
 }
 
+function restoreActions(plan) {
+  return { retired: plan.retireAgents ? plan.retireAgents.map((a) => ({ agentId: a.agentId, action: 'reincarnate', phenotype: a.phenotype })) : [],
+    spawned: plan.spawnAgents ? plan.spawnAgents.map((s, i) => ({ idx: i, action: 'terminate', phenotype: s.phenotype })) : [],
+    rebound: plan.rebindAgents ? plan.rebindAgents.map((a) => ({ agentId: a.agentId, action: 'restore_assignment', phenotype: a.phenotype })) : [] };
+}
 function generateRollbackPlan(plan) {
   const rev = [];
   if (plan.retireAgents) {
@@ -215,16 +220,11 @@ function generateRollbackPlan(plan) {
     }
   }
   return {
-    restoreActions: {
-      retired: plan.retireAgents ? plan.retireAgents.map((a) => ({ agentId: a.agentId, action: 'reincarnate', phenotype: a.phenotype })) : [],
-      spawned: plan.spawnAgents ? plan.spawnAgents.map((s, i) => ({ idx: i, action: 'terminate', phenotype: s.phenotype })) : [],
-      rebound: plan.rebindAgents ? plan.rebindAgents.map((a) => ({ agentId: a.agentId, action: 'restore_assignment', phenotype: a.phenotype })) : []
-    },
+    restoreActions: restoreActions(plan),
     estimatedRollbackCost: Math.ceil(plan.expectedCost && plan.expectedCost.tokens * 0.6) || 0,
     rollbackLatency: rev.reduce((sum, x) => sum + (x.estimatedDurationMs || 0), 0)
   };
 }
-
 function scoreCognitiveFit(morphology, cognitivePhenotype) {
   if (!cognitivePhenotype) return 0;
   const requiredCaps = morphology.requiredCapabilities || [];

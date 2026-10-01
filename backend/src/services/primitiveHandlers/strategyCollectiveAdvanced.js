@@ -5,12 +5,18 @@ async function greyWolf(context = {}) {
   return { success: true, alpha: ranked[0], beta: ranked[1], delta: ranked[2], ranked };
 }
 
+function averageAttractors(attractors) {
+  const average = attractors.reduce((sum, item) => ({ x: sum.x + Number(item.x || 0), y: sum.y + Number(item.y || 0) }), { x: 0, y: 0 });
+  average.x /= attractors.length;
+  average.y /= attractors.length;
+  return average;
+}
+
 async function positionUpdate(context = {}) {
   const current = context.current || { x: 0, y: 0 };
   const attractors = Array.isArray(context.attractors) ? context.attractors : [];
   if (!attractors.length) return { success: false, error: 'attractors are required.', code: 'ATTRACTORS_REQUIRED' };
-  const average = attractors.reduce((sum, item) => ({ x: sum.x + Number(item.x || 0), y: sum.y + Number(item.y || 0) }), { x: 0, y: 0 });
-  average.x /= attractors.length; average.y /= attractors.length;
+  const average = averageAttractors(attractors);
   const rate = Math.min(1, Math.max(0, Number(context.rate ?? 0.5)));
   return { success: true, previous: current, position: { x: Number(current.x || 0) + (average.x - Number(current.x || 0)) * rate, y: Number(current.y || 0) + (average.y - Number(current.y || 0)) * rate } };
 }

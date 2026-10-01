@@ -2,6 +2,10 @@
 
 const SIGN_RELATIONS = new Set(['icon', 'index', 'symbol']);
 
+function signContext(input) {
+  return { system: input.system || 'langue', use: input.use || 'parole' };
+}
+
 function analyzeSign(input = {}) {
   const signifier = String(input.signifier || '').trim();
   if (!signifier) throw new Error('signifier must be a non-empty string.');
@@ -14,8 +18,7 @@ function analyzeSign(input = {}) {
     signified,
     relation,
     arbitrary: input.arbitrary === undefined ? relation === 'symbol' : Boolean(input.arbitrary),
-    system: input.system || 'langue',
-    use: input.use || 'parole',
+    ...signContext(input),
     differences: Array.isArray(input.differences) ? input.differences : [],
     status: signified ? 'interpreted' : 'underdetermined'
   };

@@ -2,11 +2,7 @@ use serde_json::json;
 use genos_orchestrator::BiomimeticOrchestrator;
 use genos_cell::AgentCell;
 
-pub fn ask_agent(prompt: &str, role: &str) -> String {
-    let client = reqwest::blocking::Client::new();
-    let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "gpt-4o-mini".to_string());
-    
-    // Inject repository context dynamically
+fn enriched_prompt(prompt: &str) -> String {
     let mut enriched_prompt = prompt.to_string();
     let prompt_lower = prompt.to_lowercase();
     if prompt_lower.contains("code") || prompt_lower.contains("doc") || prompt_lower.contains("trouve") {
@@ -28,6 +24,13 @@ pub fn ask_agent(prompt: &str, role: &str) -> String {
         add_file("crates/genos-cli/src/args/trinity.rs");
         add_file("crates/genos-cli/src/commands/rhizome_telemetry/simulator.rs");
     }
+    enriched_prompt
+}
+
+pub fn ask_agent(prompt: &str, role: &str) -> String {
+    let client = reqwest::blocking::Client::new();
+    let model_name = std::env::var("GENOS_CORE_MODEL").or_else(|_| std::env::var("GENOS_MODEL")).unwrap_or_else(|_| "gpt-4o-mini".to_string());
+    let enriched_prompt = enriched_prompt(prompt);
 
     let body = json!({
         "agentId": role,

@@ -123,12 +123,18 @@ function evaluateTaste(args = {}) {
   };
 }
 
-function evaluateAestheticExperience(args = {}) {
+function experienceFeatures(args) {
   const subject = objectOrEmpty(args.experience || args.subject || args);
-  const continuity = clamp(subject.continuity);
-  const engagement = clamp(subject.engagement || subject.absorption);
-  const consummation = clamp(subject.consummation || subject.completion);
-  const livedContext = subject.livedContext || subject.context || null;
+  return {
+    continuity: clamp(subject.continuity),
+    engagement: clamp(subject.engagement || subject.absorption),
+    consummation: clamp(subject.consummation || subject.completion),
+    livedContext: subject.livedContext || subject.context || null
+  };
+}
+
+function evaluateAestheticExperience(args = {}) {
+  const { continuity, engagement, consummation, livedContext } = experienceFeatures(args);
   const observed = [continuity, engagement, consummation].filter((value) => value !== null).length;
   const confidence = Number((observed / 3).toFixed(2));
   return {

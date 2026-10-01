@@ -57,14 +57,18 @@ async function commonProbes(context = {}) {
   return { success: true, probes: normalized, count: normalized.length, executable: normalized.every((probe) => probe.kind !== 'command' || Boolean(context.workspaceId)) };
 }
 
-async function evidence(context = {}) {
-  const items = context.evidence || context.receipts || context.results;
-  if (!Array.isArray(items) || !items.length) return { success: false, error: 'Non-empty evidence is required.', code: 'EVIDENCE_REQUIRED' };
-  const normalized = items.filter(Boolean).map((item, index) => ({
+function evidenceItem(item, index) {
+  return {
     id: String(item.id || `evidence-${index + 1}`),
     kind: String(item.kind || item.type || 'observation'),
     value: item.value ?? item.output ?? item.detail ?? item
-  }));
+  };
+}
+
+async function evidence(context = {}) {
+  const items = context.evidence || context.receipts || context.results;
+  if (!Array.isArray(items) || !items.length) return { success: false, error: 'Non-empty evidence is required.', code: 'EVIDENCE_REQUIRED' };
+  const normalized = items.filter(Boolean).map(evidenceItem);
   return { success: true, evidence: normalized, evidenceCount: normalized.length };
 }
 

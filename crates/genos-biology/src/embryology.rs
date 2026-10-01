@@ -59,6 +59,10 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
         cell.genome_id = Some(genome.genome_id());
     }
 
+    update_hox_genes(swarm, genome);
+}
+
+fn update_hox_genes(swarm: &[AgentCell], genome: &mut Genome) {
     let active_axes: HashSet<u8> = swarm.iter().filter_map(|cell| hox_axis(&cell.role)).collect();
     for (locus, gene) in genome.genes.iter_mut() {
         if let Some(axis) = hox_axis(locus) {

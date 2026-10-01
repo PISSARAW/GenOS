@@ -14,17 +14,17 @@ function resolveWorkspaceRoot(value, label = 'workspace root') {
   return resolved;
 }
 
+function unsafeAbsolutePath(normalized) {
+  return normalized.startsWith('/') || normalized.startsWith('//') ||
+    /^[A-Za-z]:/.test(normalized) || normalized.startsWith('\\\\');
+}
+
 function normalizeRelativePath(value, label = 'path') {
   if (typeof value !== 'string' || value.length === 0 || value.includes('\0')) {
     throw new Error(`${label} must be a non-empty relative path.`);
   }
   const normalized = value.replace(/\\/g, '/');
-  if (
-    normalized.startsWith('/') ||
-    normalized.startsWith('//') ||
-    /^[A-Za-z]:/.test(normalized) ||
-    normalized.startsWith('\\\\')
-  ) {
+  if (unsafeAbsolutePath(normalized)) {
     throw new Error(`${label} must stay relative to its workspace.`);
   }
   const segments = normalized.split('/');

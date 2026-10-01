@@ -9,14 +9,15 @@ function analyzeImplicature(input = {}) {
   const invalid = flouted.filter((maxim) => !MAXIMS.includes(maxim));
   if (invalid.length) throw new Error(`Unknown Grice maxim '${invalid[0]}'.`);
   const conventional = input.conventionalImplicature || detectConventionalMarker(utterance);
+  const implicature = input.implicature || null;
   return {
     utterance,
     cooperativePrinciple: true,
     maxims: MAXIMS,
     floutedMaxims: flouted,
-    conversationalImplicature: input.implicature || null,
+    conversationalImplicature: implicature,
     conventionalImplicature: conventional,
-    inference: input.implicature || null,
+    inference: implicature,
     status: input.implicature || conventional ? 'proposed' : 'underdetermined',
     evidence: flouted.length ? ['maxim_flouting'] : []
   };

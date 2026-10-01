@@ -6,11 +6,15 @@ function list(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function conceptId(item) {
+  return String(item.id || item.concept || item.conceptId || '').trim();
+}
+
 function normalizeConcept(item) {
   if (typeof item === 'string') return { id: item, status: 'unknown', provenance: null, mapping: null };
   if (!item || typeof item !== 'object') return null;
   return {
-    id: String(item.id || item.concept || item.conceptId || '').trim(),
+    id: conceptId(item),
     status: String(item.status || 'unknown').trim(),
     provenance: item.provenance || null,
     mapping: item.mapping || null,

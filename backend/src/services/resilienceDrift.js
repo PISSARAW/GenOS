@@ -6,7 +6,7 @@ function calculateLevenshtein(strA = '', strB = '') {
   const sB = String(strB || '');
   let m = sA.length;
   let n = sB.length;
-  if (m === 0) return n === 0 ? 0 : 1.0;
+  if (m === 0) return Number(n !== 0);
   if (n === 0) return 1.0;
 
   let a = sA;

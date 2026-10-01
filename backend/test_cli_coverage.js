@@ -58,6 +58,12 @@ function run(...request) {
   });
 }
 
+function coverageClassification(passed, failed, effective) {
+  if (failed === 0 && passed === effective) return '\n🏆 COUVERTURE COMPLÈTE';
+  if (passed >= effective * 0.7) return `\n⚠️  COUVERTURE BONNE (${Math.round(passed/effective*100)}%)`;
+  return `\n💀 DÉGRADÉ (${failed} échecs)`;
+}
+
 async function main() {
   // ── 1. DÉCOUVERTE ──
   await run('CLI-01 [Discovery] cliHelp --help', 'cliHelp.cjs', ['--help'], 10000);
@@ -229,13 +235,7 @@ async function main() {
   console.log(`\nFichier: ${reportPath}`);
 
   const effective = total - skipped;
-  if (failed === 0 && passed === effective) {
-    console.log('\n🏆 COUVERTURE COMPLÈTE');
-  } else if (passed >= effective * 0.7) {
-    console.log(`\n⚠️  COUVERTURE BONNE (${Math.round(passed/effective*100)}%)`);
-  } else {
-    console.log(`\n💀 DÉGRADÉ (${failed} échecs)`);
-  }
+  console.log(coverageClassification(passed, failed, effective));
 }
 
 main().catch(e => { console.error('FATAL:', e.stack || e.message); process.exit(1); });
