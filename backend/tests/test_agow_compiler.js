@@ -3,9 +3,11 @@
 const assert = require('node:assert/strict');
 const compiler = require('../src/services/agow/proceduralization/consciousnessCompilerService');
 const trajectories = require('../src/services/agow/proceduralization/cognitiveTrajectoryService');
+const autobiographical = require('../src/services/agow/proceduralization/autobiographicalEpisodeAdapter');
 
 function successfulTrajectory(id) {
-  return { trajectoryId: id, stepRefs: ['candidate:1', 'frame:1', 'query:memory', 'action:deploy'],
+  return { trajectoryId: id, frameId: `frame:${id}`, queryRefs: ['query:memory'], candidateRefs: ['candidate:1'],
+    stepRefs: ['candidate:1', 'frame:1', 'query:memory', 'action:deploy'],
     success: true, evidenceRefs: [`evidence:${id}`], outcomeRefs: [`outcome:${id}`], context: { signature: 'debug' } };
 }
 
@@ -21,4 +23,10 @@ assert.equal(trajectories.validTrajectory({ agentId: 'a', frame: { frameId: 'f',
 const unsupported = compiler.compileTrajectories({ trajectories: [successfulTrajectory('a'), successfulTrajectory('b')], contextHash: 'debug' });
 assert.equal(unsupported.proposed, false);
 assert.equal(unsupported.reason, 'insufficient_episodes');
+const episode = autobiographical.episodeFromTrajectory({ agentId: 'a', trajectory: successfulTrajectory('causal'),
+  winningCandidateRefs: ['winner-1'], losingCandidateRefs: ['loser-1'], counterfactualRefs: ['cf-1'],
+  marketReceiptRefs: ['market-1'], selfWorldAttribution: { agency: 'self' } });
+assert.deepEqual(episode.situation.frameIds, ['frame:causal']);
+assert.deepEqual(episode.decision.winningCandidates, ['winner-1']);
+assert.deepEqual(episode.lesson.counterfactualRefs, ['cf-1']);
 console.log('✅ AGOW trajectory compiler proposal and evidence gate passed');

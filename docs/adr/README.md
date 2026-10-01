@@ -262,6 +262,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0246](0246-marches-cognitifs-distribues-agow.md) | Marchés cognitifs régionaux AGOW | Accepté | 2026-10-01 | AGOW, compétition, scalabilité |
 | [0247a](0247-gvx-graphe-competences.md) | Graphe de compétences GVX dérivé du registre | Accepté | 2026-10-01 | GVX, compétences, preuves, registre |
 | [0247b](0247-topologies-de-marches-par-morphogenese.md) | Topologies de marché proposées par Morphogenesis | Accepté | 2026-10-01 | Morphogenesis, AGOW, compétition distribuée |
+| [0248a](0248-gvx-application-somatique.md) | Application somatique GVX sous autorisation externe | Accepté | 2026-10-01 | GVX, runtime, autorité, rollback |
+| [0248b](0248-trajectoires-causales-autobiographiques-agow.md) | Trajectoires causales dans la mémoire autobiographique | Accepté | 2026-10-01 | AGOW, mémoire autobiographique, provenance causale |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

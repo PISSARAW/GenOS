@@ -475,6 +475,16 @@ La morphologie choisit donc la partition; les marchés AGOW choisissent leurs ga
 Le reçu d'approbation est une référence d'audit fournie par l'hôte, pas une signature
 vérifiée par le service. Voir [ADR 0247](../adr/0247-topologies-de-marches-par-morphogenese.md).
 
+### 8.6 Trajectoires autobiographiques causales
+
+À l'enregistrement d'une trajectoire réelle, `autobiographicalEpisodeAdapter` crée un
+épisode dans le store autobiographique existant. Il référence frames, candidats
+gagnants/perdants, requêtes actives, action, résultats observés/prédits, preuves,
+attribution soi/monde, simulations comparées, reçus marché et événements de
+procéduralisation/décompilation. Il conserve les références plutôt que les payloads.
+Les identifiants contrefactuels restent sous `counterfactualRefs`, hors de la situation
+observée. Voir [ADR 0248](../adr/0248-trajectoires-causales-autobiographiques-agow.md).
+
 ---
 
 ## 9. Signal Plane, diffusion et médiation
@@ -931,10 +941,10 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `agowExperimentService.js` | Ablation, médiation contrôlée, holdout, résumé et reçus. |
 | `agowMechanismPolicyService.js` | Politique persistée des modes regret, contrefactuel, plasticité, voies directes et marchés. |
 | `counterfactualTriggerPolicyService.js` / `counterfactual/shadowWorkspaceService.js` | Déclencheurs, branches shadow bornées, isolation, snapshots et reçus. |
-| `agowMechanismPolicyService.js` | Politique persistée des modes regret, contrefactuel, plasticité, voies directes et marchés. |
 | `plasticity/agowPlasticityCoordinator.js` / `plasticity/pathwayEligibilityService.js` | Trace contextuelle rapide, support validé et consolidation lente via LTP procédurale. |
 | `pathways/directPathwayRegistry.js` / `pathways/directPathwayRouter.js` | Registre contextuel, revue globale obligatoire et routage direct sur le Signal Plane existant. |
 | `proceduralization/cognitiveTrajectoryService.js` / `proceduralization/consciousnessCompilerService.js` | Références causales compactes et propositions de sous-chemins répétées, sans promotion. |
+| `proceduralization/autobiographicalEpisodeAdapter.js` | Projection par références d'une trajectoire réelle dans le store autobiographique existant. |
 | `proceduralization/decompilationService.js` | Suspension d'une voie sur dérive/outcome inattendu, candidat de retour AGOW et reçu causal. |
 | `markets/marketPartitionService.js` / `markets/cognitiveMarketService.js` | Partitions topologiques, compétition régionale, reçus et gagnants transmis au marché global. |
 | `markets/morphogenesisMarketAdapter.js` | Stockage shadow, validation structurelle sans sélection de contenu et activation avec reçu. |

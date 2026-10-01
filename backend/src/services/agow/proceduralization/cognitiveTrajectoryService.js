@@ -28,7 +28,8 @@ async function record(input) {
   trajectories.push(record);
   await persistence.save({ scope: SCOPE, agentId: input.agentId, db: loaded.db,
     state: { trajectories: trajectories.slice(-2000) }, version: trajectories.length });
-  return record;
+  const episode = await require('./autobiographicalEpisodeAdapter').capture({ ...input, trajectory: record });
+  return { ...record, autobiographicalEpisodeId: episode.id };
 }
 
 async function list(options) {
