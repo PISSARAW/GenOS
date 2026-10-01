@@ -20,9 +20,10 @@ résultat simulé comme un fait observé par les receivers métier.
   `parentRealityFrameId`).
 - Les adaptateurs renseignent des valeurs par défaut conservatrices; la provenance
   reste `unknown` quand le module ne suffit pas à déterminer une origine.
-- Une entrée contrefactuelle doit être marquée `counterfactual_simulated`, fournir un
-  `simulationId` et référencer son frame réel parent. Une entrée réelle ne peut pas
-  porter un identifiant de simulation.
+- Une entrée dans un monde contrefactuel fournit un `simulationId` et référence son
+  frame réel parent. `origin` reste indépendant de `realityMode` : un rappel mémoire
+  exécuté en simulation reste `memory_retrieved` dans un monde `counterfactual`.
+  L'origine `counterfactual_simulated` ne peut jamais être marquée réelle.
 - Les receivers `world_model` et `self_model` ne modifient pas leurs stores canoniques
   lorsqu'ils reçoivent un candidat contrefactuel.
 - Aucun nouveau bus ou moteur de simulation n'est introduit par cette décision.

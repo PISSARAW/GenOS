@@ -33,8 +33,7 @@ function validEvidence(candidate) {
 }
 
 function validCounterfactualOrigin(origin) {
-  return origin.origin === 'counterfactual_simulated'
-    && validString(origin.simulationId) && validString(origin.parentRealityFrameId);
+  return validString(origin.simulationId) && validString(origin.parentRealityFrameId);
 }
 
 function validRealOrigin(origin) {

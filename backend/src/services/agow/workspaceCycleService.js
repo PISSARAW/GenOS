@@ -59,9 +59,25 @@ async function cycle(options) {
   if (!ignited.length) return { frame: previousFrame, candidateCount: candidates.length, arbitration: result, ignition, broadcast: null };
   const frame = frameService.create({ agentId: options.agentId, cycle: (previousFrame?.cycle || 0) + 1, selected: result.selected, previousFrame, now, settings: options });
   const stored = await frameStore.save({ frame, db: options.db });
-  const broadcast = ignited.length ? await broadcastService.publish({ frame, modules: options.receivers, recipientAgentIds: options.recipientAgentIds, db: options.db }) : null;
-  const activeQuery = await runActiveQuery({ frame, candidates: result.selected, db: options.db, maxCost: options.maxQueryCost });
-  return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result, ignition, broadcast, activeQuery };
+  const broadcast = ignited.length ? await broadcastService.publish({ frame, modules: options.receivers, recipientAgentIds: options.recipientAgentIds, db: options.db, skipTransport: options.skipTransport }) : null;
+  const activeQuery = options.allowActiveQuery === false ? null
+    : await runActiveQuery({ frame, candidates: result.selected, db: options.db, maxCost: options.maxQueryCost });
+  const shadow = options.counterfactual === false ? null : await runShadow(options, frame, result);
+  return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result, ignition, broadcast, activeQuery, shadow };
+}
+
+async function runShadow(options, frame, result) {
+  const policyService = require('./agowMechanismPolicyService');
+  const policy = await policyService.load({ agentId: options.agentId, db: options.db });
+  if (policy.counterfactual === 'disabled') return { triggered: false, reason: 'mechanism_disabled' };
+  return require('./counterfactual/shadowWorkspaceService').runTriggered({
+    agentId: options.agentId, db: options.db, frame, candidates: result.selected,
+    regretEstimates: result.regretEstimates, arbitration: result, execute: options.counterfactualExecutor,
+    maxFrames: options.maxCounterfactualFrames, maxQueries: options.maxCounterfactualQueries,
+    maxWorkers: options.maxCounterfactualWorkers, maxCost: options.maxCounterfactualCost,
+    environment: options.counterfactualEnvironment,
+    publishOutcomes: policyService.publishesCounterfactual(policy.counterfactual)
+  });
 }
 
 async function arbitrateCycle(options, candidates, previousFrame) {
@@ -72,6 +88,8 @@ async function arbitrateCycle(options, candidates, previousFrame) {
     ...(options.regretContext || {}),
     currentInteroception: options.regretContext?.currentInteroception || storedPolicy.state.variables
   };
+  const mechanismPolicy = await require('./agowMechanismPolicyService').load({ agentId: options.agentId, db: options.db });
+  regretContext.controlRegret = require('./agowMechanismPolicyService').controlsRegret(mechanismPolicy.regret);
   return arbitrationService.arbitrate({
     candidates, previousFrame,
     capacity: (options.primaryCapacity || 1) + (options.secondaryCapacity ?? 2),

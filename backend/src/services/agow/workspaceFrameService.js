@@ -7,11 +7,23 @@ function average(candidates, key) {
   return candidates.reduce((sum, candidate) => sum + candidate.measures[key], 0) / candidates.length;
 }
 
+function realityFields(settings) {
+  if (settings.realityMode !== 'counterfactual') {
+    return { realityMode: 'real', simulationId: null, parentRealityFrameId: null };
+  }
+  if (!settings.simulationId || !settings.parentRealityFrameId) {
+    throw new TypeError('Counterfactual frames require a simulation id and real parent frame.');
+  }
+  return { realityMode: 'counterfactual', simulationId: settings.simulationId,
+    parentRealityFrameId: settings.parentRealityFrameId };
+}
+
 function create(options) {
   const { agentId, cycle, selected, previousFrame, now = Date.now(), settings = {} } = options;
   const primary = selected[0] || null;
   const secondary = selected.slice(1, 1 + (settings.secondaryCapacity ?? 2));
   const frame = {
+    ...realityFields(settings),
     frameId: randomUUID(), agentId, cycle,
     primaryContent: primary?.candidateId || null,
     secondaryContents: secondary.map((candidate) => candidate.candidateId),

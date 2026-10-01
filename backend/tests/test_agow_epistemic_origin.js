@@ -35,7 +35,7 @@ function testCounterfactualValidation() {
   } });
   assert(validation.validCandidate(simulated));
   assert(!validation.validCandidate({ ...simulated, epistemicOrigin: { ...simulated.epistemicOrigin, simulationId: null } }));
-  assert(!validation.validCandidate({ ...simulated, epistemicOrigin: { ...simulated.epistemicOrigin, origin: 'external_observed' } }));
+  assert(validation.validCandidate({ ...simulated, epistemicOrigin: { ...simulated.epistemicOrigin, origin: 'memory_retrieved' } }));
 }
 
 async function testCanonicalWriteIsolation() {
@@ -50,6 +50,13 @@ async function testCanonicalWriteIsolation() {
     assert.equal(result.consumed, false);
     assert.equal(result.effectType, 'counterfactual_write_isolated');
   }
+  const isolated = require('../src/services/agow/counterfactualCandidateGuard');
+  const namespace = isolated.registerSimulation({ simulationId: 'cf-2', realAgentId: 'epistemic-test', parentRealityFrameId: 'frame-2' });
+  const shadowCandidate = { ...candidate, agentId: namespace.simulationAgentId };
+  const shadowFrame = { agentId: namespace.simulationAgentId, frameId: 'shadow-frame', realityMode: 'counterfactual', simulationId: 'cf-2' };
+  assert.equal(isolated.mayWriteCanonicalWorld(shadowCandidate, shadowFrame), true);
+  assert.equal(isolated.mayWriteCanonicalWorld(candidate, { ...shadowFrame, agentId: 'epistemic-test' }), false);
+  isolated.releaseSimulation('cf-2');
   registry.clear();
 }
 

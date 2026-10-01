@@ -7,6 +7,7 @@
 - **Persistance et évaluation** : [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md)
 - **Provenance réel/simulé** : [ADR 0239](../adr/0239-agow-provenance-epistemique.md)
 - **Arbitrage par regret** : [ADR 0240](../adr/0240-agow-regret-predictif.md)
+- **Simulation contrefactuelle isolée** : [ADR 0241](../adr/0241-agow-shadow-contrefactuel-isole.md)
 
 ---
 
@@ -131,6 +132,10 @@ flowchart TD
     F --> Q{Lacune informationnelle?}
     Q -->|oui| X[Planification et exécution de requête]
     X --> P
+    F --> T{Déclencheur contrefactuel?}
+    T -->|oui| C[Branches shadow isolées et bornées]
+    C --> O[Outcome marqué et reçu persisté]
+    O -->|advisory/bounded/live| P
 ```
 
 L'admission, le cycle et les événements métier peuvent être déclenchés par différents
@@ -169,13 +174,18 @@ Les producteurs ne sont pas les arbitres. Les nombres qu'ils fournissent sont le
 entrées du classement actuel; ils ne constituent pas une preuve indépendante de leur
 propre exactitude.
 
-Les adaptateurs attribuent une valeur conservatrice par famille de source. Le tag est
+Les adaptateurs attribuent une valeur conservatrice par famille de source. `origin`
+décrit d'où vient le contenu; `realityMode` décrit le monde où le candidat a été
+produit. Ils restent indépendants : une réponse de mémoire calculée dans un monde
+simulé garde `memory_retrieved` avec `realityMode: counterfactual`. Le tag est
 une métadonnée fournie par le producteur, pas une attestation cryptographique. Toute
-entrée dont `realityMode` vaut `counterfactual` doit aussi porter une origine
-`counterfactual_simulated`, un identifiant de simulation et le frame réel parent.
+entrée dont `realityMode` vaut `counterfactual` doit porter un identifiant de simulation
+et référencer le frame réel parent.
 Les receivers `world_model` et `self_model` refusent d'écrire dans leurs stores
-canoniques à partir d'un tel candidat. La création d'un workspace simulé isolé reste
-un jalon distinct; cette garde ne prétend pas isoler un environnement de simulation.
+canoniques à partir d'un tel candidat. Le runner shadow crée un namespace d'agent
+simulé enregistré et n'autorise ses écritures que dans ce namespace. Cette isolation
+porte sur les stores AGOW adressés par agent; elle ne clone pas les outils, modèles ou
+services externes.
 
 ### 5.2 `WorkspaceFrame`
 
@@ -192,7 +202,40 @@ sortie du cycle :
 - `createdAt` et `decayAt` bornent la période de validité logique du frame.
 
 Les moyennes et règles de construction sont celles de `workspaceFrameService`; elles
-ne sont pas une estimation calibrée de l'état réel du système.
+ne sont pas une estimation calibrée de l'état réel du système. Les frames portent aussi
+`realityMode`, `simulationId` et `parentRealityFrameId`; les frames réels ont les deux
+identifiants simulés à `null`.
+
+### 8.1 Politique d'arbitrage contrefactuel
+
+`agowMechanismPolicyService` persiste une politique par agent dans `adaptive_state`.
+Les mécanismes disposent des modes `disabled`, `observe`, `shadow`, `advisory`,
+`bounded` et `live`. Le regret prédictif reste calculé pour l'observation; il n'influe
+sur la sélection qu'en modes `bounded` ou `live`. Le contrefactuel est désactivé avec
+`disabled`; les autres modes permettent le runner shadow. Seuls `advisory`, `bounded`
+et `live` réinjectent les outcomes dans le pool canonique, toujours avec une provenance
+contrefactuelle.
+
+`counterfactualTriggerPolicyService` déclenche sur irréversibilité élevée, regret
+prédictif élevé, compétition serrée, incertitude avec enjeu important, ou besoin de
+discrimination causale. Ces seuils sont des heuristiques configurables à l'appel, pas
+des seuils calibrés. En l'absence d'exécuteur environnemental enregistré, le cycle
+retourne `executor_unavailable` et ne fabrique aucun outcome.
+
+Le runner `counterfactual/shadowWorkspaceService` crée jusqu'à trois branches
+(`attend` chaque candidat sélectionné et `ignore` le premier), clone les candidats dans
+un namespace temporaire et exécute le cycle AGOW local sans transport. Les plafonds
+sont trois frames, trois requêtes, deux workers et coût 1. Il persiste le hash et
+l'identifiant du snapshot, les frames, les requêtes, le budget et le résultat de chaque
+branche sous `agow_shadow_receipts` (100 derniers reçus par agent). L'exécuteur est un
+callback fourni par l'hôte via `registerExecutor` ou par le cycle; il reçoit un snapshot
+copié, le namespace et les plafonds, mais pas l'objet DB. Son résultat doit inclure
+`success`, `uncertainty`, `cost`, `workersUsed` et `evidenceRefs` valides.
+
+Le namespace isole les écritures couvertes par les receivers AGOW et est nettoyé après
+la branche. Le callback d'environnement doit lui-même isoler les effets d'outils,
+modèles et services externes. Le registre d'exécuteurs est en mémoire et doit être
+réinstallé à chaque démarrage du processus backend. Voir [ADR 0241](../adr/0241-agow-shadow-contrefactuel-isole.md).
 
 ### 5.3 `WorkspaceQuery`
 
@@ -799,6 +842,9 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `agowRuntimeIngressService.js` | Entrée événementielle perception et outcomes worker. |
 | `agowStatePersistenceService.js` | Accès aux scopes `adaptive_state`. |
 | `agowExperimentService.js` | Ablation, médiation contrôlée, holdout, résumé et reçus. |
+| `agowMechanismPolicyService.js` | Politique persistée des modes regret, contrefactuel, plasticité, voies directes et marchés. |
+| `counterfactualTriggerPolicyService.js` / `counterfactual/shadowWorkspaceService.js` | Déclencheurs, branches shadow bornées, isolation, snapshots et reçus. |
+| `counterfactual/counterfactualFrameAdapter.js` / `counterfactual/counterfactualOutcomeService.js` | Construction des branches et admission des outcomes avec provenance. |
 
 ---
 

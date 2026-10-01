@@ -6,9 +6,13 @@ const adapter = require('./candidates/candidateAdapterService');
 function candidateFrom(options) {
   const { frame, query, observation } = options;
   const now = Date.now();
+  const epistemicOrigin = adapter.epistemicOrigin(observation.module, {});
   return adapter.build({
     module: observation.module, agentId: frame.agentId, now,
-    observation: {
+    observation: { ...observation, epistemicOrigin: frame.realityMode === 'counterfactual' ? {
+      ...epistemicOrigin, realityMode: 'counterfactual', simulationId: frame.simulationId,
+      parentRealityFrameId: frame.parentRealityFrameId
+    } : epistemicOrigin,
       semanticType: 'active_query_response', compactPreview: observation.summary,
       evidenceRefs: observation.evidenceRefs, causalParents: [frame.frameId], artifactRef: observation.artifactRefs[0] || null,
       confidence: observation.confidence, evidenceCoverage: observation.evidenceRefs.length ? 1 : 0,

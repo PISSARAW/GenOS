@@ -15,7 +15,7 @@ function priority(candidate) {
 
 function drives(candidate) {
   const measures = candidate.measures;
-  const regret = candidate.agowRegret?.regret || {};
+  const regret = candidate._agowRegretActive === false ? {} : candidate.agowRegret?.regret || {};
   return {
     information: measures.expectedInformationGain,
     relevance: measures.goalRelevance,
@@ -35,12 +35,13 @@ function drives(candidate) {
 
 function attachRegret(candidates, context) {
   return candidates.map((candidate) => ({
-    ...candidate, agowRegret: predictiveRegret.evaluate(candidate, context)
+    ...candidate, agowRegret: predictiveRegret.evaluate(candidate, context),
+    _agowRegretActive: context.controlRegret !== false
   }));
 }
 
 function selectPreemptive(candidates) {
-  const preemptive = candidates.filter((candidate) => candidate.agowRegret.preempt);
+  const preemptive = candidates.filter((candidate) => candidate._agowRegretActive && candidate.agowRegret.preempt);
   return preemptive.length ? preemptive : candidates;
 }
 

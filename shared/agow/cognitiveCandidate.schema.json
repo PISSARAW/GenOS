@@ -44,7 +44,7 @@
         "parentRealityFrameId": { "type": ["string", "null"] }
       },
       "allOf": [
-        { "if": { "properties": { "realityMode": { "const": "counterfactual" } } }, "then": { "properties": { "origin": { "const": "counterfactual_simulated" }, "simulationId": { "type": "string", "minLength": 1 }, "parentRealityFrameId": { "type": "string", "minLength": 1 } } } },
+        { "if": { "properties": { "realityMode": { "const": "counterfactual" } } }, "then": { "properties": { "simulationId": { "type": "string", "minLength": 1 }, "parentRealityFrameId": { "type": "string", "minLength": 1 } } } },
         { "if": { "properties": { "origin": { "const": "counterfactual_simulated" } } }, "then": { "properties": { "realityMode": { "const": "counterfactual" } } } },
         { "if": { "properties": { "realityMode": { "const": "real" } } }, "then": { "properties": { "simulationId": { "type": "null" } } } }
       ]

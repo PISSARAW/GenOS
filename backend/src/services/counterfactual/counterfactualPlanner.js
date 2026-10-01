@@ -35,6 +35,7 @@ async function snapshotProduction(ctx) {
     timestamp: Date.now(), source: 'counterfactual_planner',
     agentId: agentId || 'collective', reason: reason || 'counterfactual_fork',
     morphologyVersion: ctx.morphologyVersion || 0, topology: ctx.topology || {},
+    stateMetadata: ctx.stateMetadata || {},
   });
   if (db) {
     await db.run(

@@ -4,13 +4,19 @@
   "title": "AGOW Workspace Frame",
   "type": "object",
   "additionalProperties": false,
-  "required": ["frameId", "agentId", "cycle", "primaryContent", "secondaryContents", "activeGoal", "unresolvedQuestions", "attentionTarget", "epistemicState", "causalContext", "createdAt", "decayAt"],
+  "required": ["frameId", "agentId", "cycle", "primaryContent", "secondaryContents", "activeGoal", "unresolvedQuestions", "attentionTarget", "epistemicState", "causalContext", "createdAt", "decayAt", "realityMode", "simulationId", "parentRealityFrameId"],
   "properties": {
     "frameId": { "type": "string", "minLength": 1 }, "agentId": { "type": "string", "minLength": 1 }, "cycle": { "type": "integer", "minimum": 0 },
     "primaryContent": { "type": ["string", "null"] }, "secondaryContents": { "type": "array", "items": { "type": "string" }, "maxItems": 2 },
     "activeGoal": { "type": ["string", "null"] }, "unresolvedQuestions": { "type": "array", "items": { "type": "string" }, "maxItems": 16 }, "attentionTarget": { "type": ["string", "null"] },
     "epistemicState": { "type": "object", "additionalProperties": false, "required": ["confidence", "uncertainty", "contradiction"], "properties": { "confidence": { "type": "number", "minimum": 0, "maximum": 1 }, "uncertainty": { "type": "number", "minimum": 0, "maximum": 1 }, "contradiction": { "type": "number", "minimum": 0, "maximum": 1 } } },
     "causalContext": { "type": "object", "additionalProperties": false, "required": ["previousFrameId", "triggeredBy", "predictionError"], "properties": { "previousFrameId": { "type": ["string", "null"] }, "triggeredBy": { "type": "array", "items": { "type": "string" } }, "predictionError": { "type": "number", "minimum": 0, "maximum": 1 } } },
-    "createdAt": { "type": "integer", "minimum": 0 }, "decayAt": { "type": "integer", "minimum": 0 }
-  }
+    "createdAt": { "type": "integer", "minimum": 0 }, "decayAt": { "type": "integer", "minimum": 0 },
+    "realityMode": { "enum": ["real", "counterfactual"] }, "simulationId": { "type": ["string", "null"] },
+    "parentRealityFrameId": { "type": ["string", "null"] }
+  },
+  "allOf": [
+    { "if": { "properties": { "realityMode": { "const": "counterfactual" } } }, "then": { "properties": { "simulationId": { "type": "string", "minLength": 1 }, "parentRealityFrameId": { "type": "string", "minLength": 1 } } } },
+    { "if": { "properties": { "realityMode": { "const": "real" } } }, "then": { "properties": { "simulationId": { "type": "null" }, "parentRealityFrameId": { "type": "null" } } } }
+  ]
 }
