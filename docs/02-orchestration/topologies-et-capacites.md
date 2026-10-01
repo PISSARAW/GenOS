@@ -173,8 +173,12 @@ Le plan ci-dessus câble des opérations observables et explicitement appelées 
 ## 9. Ce qui reste ouvert
 
 - Les algorithmes sont déterministes et locaux (pas de consensus distribué
-  global) et le supervisor n'applique qu'une étape par décision, pas une boucle
-  haute fréquence.
+  global). Le supervisor applique une étape par décision via
+  `applyStepForOrchestrator`, avec une boucle bornée optionnelle
+  `applyStepsForOrchestrator` (max 5 pas, arrêt sur convergence des préférés) —
+  pas une boucle haute fréquence autonome. Le quorum/Brier/trails/populations
+  sont dérivés des messages d'organisation réels (`vote`, `evidence`, `trace`) ;
+  sans messages, le quorum ne conclut pas et le Brier reste sans vérité résolue.
 - La perception/web reste au statut de primitives isolées. Le navigateur
   maintient une session locale et simule les actions de formulaire; la
   fovéation produit des ROI/manifests simulés, et le foraging renvoie un calcul
