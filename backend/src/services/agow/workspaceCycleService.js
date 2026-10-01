@@ -103,9 +103,13 @@ async function arbitrateCycle(options, candidates, previousFrame) {
 
 async function runMarkets(input) {
   if (input.mode === 'disabled') return null;
+  const topology = await require('./markets/morphogenesisMarketAdapter').topologyForCycle({
+    agentId: input.options.agentId, db: input.options.db,
+    explicitTopology: input.options.marketTopology
+  });
   const market = await require('./markets/cognitiveMarketService').compete({
     agentId: input.options.agentId, db: input.options.db, candidates: input.candidates,
-    topology: input.options.marketTopology, regretContext: input.regretContext,
+    topology, regretContext: input.regretContext,
     capacity: input.options.regionalCapacity || 1, competition: input.options.competition
   });
   if (!market.applied) return market;

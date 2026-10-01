@@ -5,6 +5,8 @@ function candidateDomain(candidate) {
 }
 
 function marketKey(candidate, topology) {
+  const assignedRegion = topology?.partitionByModule?.[candidate.source?.module];
+  if (assignedRegion) return `region:${assignedRegion}`;
   const mode = topology?.marketMode || topology?.name || 'domain';
   if (mode === 'syncytium') return 'shared';
   if (mode === 'trinity') return `world:${candidate.epistemicContext?.worldId || candidateDomain(candidate)}`;

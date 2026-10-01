@@ -7,7 +7,14 @@ function normalize(options = {}) {
   const marketMode = String(source.marketMode || source.name || 'domain').toLowerCase();
   if (!MODES.has(marketMode)) return { supported: false, reason: 'unsupported_market_topology' };
   return { supported: true, topology: { marketMode, morphology: source.morphology || marketMode,
-    version: source.version || null, proposedBy: source.proposedBy || null } };
+    version: source.version || null, proposedBy: source.proposedBy || null,
+    partitionByModule: safePartitionMap(source.partitionByModule) } };
+}
+
+function safePartitionMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(([module, region]) =>
+    typeof module === 'string' && typeof region === 'string' && region.length > 0).slice(0, 100));
 }
 
 function withMarketProvenance(options) {
@@ -17,4 +24,4 @@ function withMarketProvenance(options) {
     marketTopology: options.topology.morphology }));
 }
 
-module.exports = { normalize, withMarketProvenance, MODES };
+module.exports = { normalize, withMarketProvenance, safePartitionMap, MODES };

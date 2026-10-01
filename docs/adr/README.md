@@ -259,8 +259,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0243](0243-voies-directes-agow.md) | Voies cognitives directes via le Signal Plane | Accepté | 2026-10-01 | AGOW, Signal Plane, automatisation |
 | [0244](0244-compilateur-de-trajectoires-agow.md) | Compiler de trajectoires cognitives AGOW | Accepté | 2026-10-01 | AGOW, mémoire de trajectoire, procéduralisation |
 | [0245](0245-decompilation-voie-agow.md) | Décompilation des voies automatiques AGOW | Accepté | 2026-10-01 | AGOW, voies directes, prédiction et sécurité |
-| [0247](0247-gvx-graphe-competences.md) | Graphe de compétences GVX dérivé du registre | Accepté | 2026-10-01 | GVX, compétences, preuves, registre |
 | [0246](0246-marches-cognitifs-distribues-agow.md) | Marchés cognitifs régionaux AGOW | Accepté | 2026-10-01 | AGOW, compétition, scalabilité |
+| [0247a](0247-gvx-graphe-competences.md) | Graphe de compétences GVX dérivé du registre | Accepté | 2026-10-01 | GVX, compétences, preuves, registre |
+| [0247b](0247-topologies-de-marches-par-morphogenese.md) | Topologies de marché proposées par Morphogenesis | Accepté | 2026-10-01 | Morphogenesis, AGOW, compétition distribuée |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

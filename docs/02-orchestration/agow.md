@@ -467,6 +467,14 @@ sélectionnés dans le résultat runtime. La morphologie doit encore être fourn
 domaine/module du candidat. Aucun gain de latence ou de qualité n'est présumé. Voir
 [ADR 0246](../adr/0246-marches-cognitifs-distribues-agow.md).
 
+`morphogenesisMarketAdapter.recordProposal` accepte une topologie et des frontières
+module-vers-région, jamais des gagnants ou identifiants de candidats sélectionnés. Les
+propositions sont enregistrées en shadow. `activate` exige un reçu d'approbation et le
+cycle utilise la topologie active seulement quand aucune topologie explicite n'est fournie.
+La morphologie choisit donc la partition; les marchés AGOW choisissent leurs gagnants.
+Le reçu d'approbation est une référence d'audit fournie par l'hôte, pas une signature
+vérifiée par le service. Voir [ADR 0247](../adr/0247-topologies-de-marches-par-morphogenese.md).
+
 ---
 
 ## 9. Signal Plane, diffusion et médiation
@@ -929,6 +937,7 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `proceduralization/cognitiveTrajectoryService.js` / `proceduralization/consciousnessCompilerService.js` | Références causales compactes et propositions de sous-chemins répétées, sans promotion. |
 | `proceduralization/decompilationService.js` | Suspension d'une voie sur dérive/outcome inattendu, candidat de retour AGOW et reçu causal. |
 | `markets/marketPartitionService.js` / `markets/cognitiveMarketService.js` | Partitions topologiques, compétition régionale, reçus et gagnants transmis au marché global. |
+| `markets/morphogenesisMarketAdapter.js` | Stockage shadow, validation structurelle sans sélection de contenu et activation avec reçu. |
 | `counterfactual/counterfactualFrameAdapter.js` / `counterfactual/counterfactualOutcomeService.js` | Construction des branches et admission des outcomes avec provenance. |
 
 ---
