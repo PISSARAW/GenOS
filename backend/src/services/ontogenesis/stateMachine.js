@@ -22,10 +22,10 @@ const STATES = [
 
 const TRANSITIONS = {
   INITIALIZING: { planned: 'PLANNING', paused: 'PAUSED', stopped: 'STOPPING' },
-  PLANNING: { dispatch: 'EXECUTING', wait: 'WAITING_INPUT', idle: 'IDLE', paused: 'PAUSED', stopped: 'STOPPING' },
+  PLANNING: { dispatch: 'EXECUTING', wait: 'WAITING_INPUT', idle: 'IDLE', resource: 'SLEEPING_RESOURCE', paused: 'PAUSED', stopped: 'STOPPING' },
   EXECUTING: { finished: 'VERIFYING', resource: 'SLEEPING_RESOURCE', paused: 'PAUSED', stopped: 'STOPPING' },
-  VERIFYING: { passed: 'INTEGRATING', failed: 'PLANNING', wait: 'WAITING_INPUT', paused: 'PAUSED', stopped: 'STOPPING' },
-  INTEGRATING: { integrated: 'PLANNING', idle: 'IDLE', wait: 'WAITING_INPUT', paused: 'PAUSED', stopped: 'STOPPING' },
+  VERIFYING: { passed: 'INTEGRATING', failed: 'PLANNING', resource: 'SLEEPING_RESOURCE', wait: 'WAITING_INPUT', paused: 'PAUSED', stopped: 'STOPPING' },
+  INTEGRATING: { integrated: 'PLANNING', idle: 'IDLE', resource: 'SLEEPING_RESOURCE', wait: 'WAITING_INPUT', paused: 'PAUSED', stopped: 'STOPPING' },
   SLEEPING_RESOURCE: { recovered: 'PLANNING', paused: 'PAUSED', stopped: 'STOPPING' },
   WAITING_INPUT: { resumed: 'PLANNING', paused: 'PAUSED', stopped: 'STOPPING' },
   IDLE: { awakened: 'PLANNING', paused: 'PAUSED', stopped: 'STOPPING' },
