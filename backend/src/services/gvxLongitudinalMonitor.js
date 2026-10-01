@@ -20,8 +20,39 @@ function summarize(results, windows, minimumStableWindows) {
   const variance = scores.length ? scores.reduce((sum, value) => sum + (value - mean) ** 2, 0) / scores.length : null;
   const stable = regressions === 0 && positive >= minimumStableWindows;
   return { windows: windows.length, meanEffect: mean, effectVariance: variance,
+    metricConfidenceIntervals: summarizeMetricDeltas(results, 0.95), confidenceLevel: 0.95,
     regressionRate: regressions / windows.length, environmentDiversity: new Set(windows.map((window) => window.contextHash)).size,
     stable, maturity: stable ? 'mature_somatic_eligible' : regressions ? 'rollback_recorded' : 'monitoring' };
+}
+
+function summarizeMetricDeltas(results, confidenceLevel) {
+  const grouped = new Map();
+  for (const result of results) for (const metric of result.assessment.metrics || []) {
+    if (!Number.isFinite(metric.delta)) continue;
+    const values = grouped.get(metric.metric) || [];
+    values.push(metric.delta);
+    grouped.set(metric.metric, values);
+  }
+  return Object.fromEntries([...grouped].map(([metric, values]) => [metric, interval(values, confidenceLevel)]));
+}
+
+function criticalValue(sampleCount, confidenceLevel) {
+  const tables = { 0.9: [6.314, 2.92, 2.353, 2.132, 2.015, 1.943, 1.895, 1.86, 1.833, 1.812],
+    0.95: [12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228],
+    0.99: [63.657, 9.925, 5.841, 4.604, 4.032, 3.707, 3.499, 3.355, 3.25, 3.169] };
+  const table = tables[confidenceLevel];
+  if (!table) throw new Error('unsupported-confidence-level');
+  const df = sampleCount - 1;
+  return df <= table.length ? table[df - 1] : ({ 0.9: 1.645, 0.95: 1.96, 0.99: 2.576 }[confidenceLevel]);
+}
+
+function interval(values, confidenceLevel) {
+  if (values.length < 2) return { samples: values.length, mean: values[0] ?? null, lower: null, upper: null, status: 'insufficient_samples' };
+  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const variance = values.reduce((sum, value) => sum + (value - avg) ** 2, 0) / (values.length - 1);
+  const margin = criticalValue(values.length, confidenceLevel) * Math.sqrt(variance / values.length);
+  return { samples: values.length, mean: avg, standardError: Math.sqrt(variance / values.length),
+    lower: avg - margin, upper: avg + margin, status: 'estimated' };
 }
 
 async function monitor(db, input) {
@@ -39,4 +70,4 @@ async function monitor(db, input) {
   return { ...summary, eventId: event.id, results };
 }
 
-module.exports = { monitor, validate, summarize };
+module.exports = { monitor, validate, summarize, interval, summarizeMetricDeltas };

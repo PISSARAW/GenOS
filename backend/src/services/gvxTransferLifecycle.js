@@ -50,14 +50,42 @@ async function advanceTransfer(db, input) {
   assertTransition(previous, next);
   const evidence = validateTransitionEvidence(input, next);
   if (evidence.length) throw Object.assign(new Error(evidence.join(',')), { code: 'GVX_TRANSFER_EVIDENCE_REQUIRED', errors: evidence });
+  const verifiedEvidence = await verifyTransitionEvidence({ input, next });
   const transfer = { ...previous, state: next, rationale: input.rationale || next,
     trialEvidence: input.trialEvidence || previous.trialEvidence || [],
     recipientOutcome: input.recipientOutcome || previous.recipientOutcome || null,
-    monitoring: input.monitoring || previous.monitoring || null };
+    monitoring: input.monitoring || previous.monitoring || null, verifiedEvidence };
   return appendEvent(db, {
     organizationId: input.organizationId, projectId: input.projectId,
     entityId: input.entityId, type: 'transfer_recorded', payload: { transfer }
   });
+}
+
+async function verifyTransitionEvidence(context) {
+  const { input, next } = context;
+  if (!['review_ready', 'assimilated', 'monitored', 'consolidated'].includes(next)) return [];
+  const artifacts = evidenceForTransition(input, next);
+  if (!artifacts.length || typeof input.artifactReader !== 'function' || !input.verifierRegistry) {
+    throw Object.assign(new Error('trusted-transfer-evidence-verifier-required'), { code: 'GVX_TRANSFER_EVIDENCE_REQUIRED' });
+  }
+  const requirement = next === 'review_ready' ? 'transfer-trial'
+    : next === 'assimilated' ? 'recipient-outcome' : 'transfer-monitoring';
+  const receipts = [];
+  for (const artifact of artifacts) {
+    const receipt = await require('./gvxVerifierRegistry').verifyEvidence({ registry: input.verifierRegistry,
+      artifactReader: input.artifactReader, evidence: artifact, requirement });
+    if (!receipt.verified || receipt.artifactHash !== artifact.artifactHash) {
+      throw Object.assign(new Error('transfer-evidence-integrity-failed'), { code: 'GVX_TRANSFER_EVIDENCE_REQUIRED' });
+    }
+    receipts.push(receipt);
+  }
+  return receipts;
+}
+
+function evidenceForTransition(input, next) {
+  if (next === 'review_ready') return input.trialEvidence || [];
+  if (next === 'assimilated') return input.recipientOutcome ? [input.recipientOutcome] : [];
+  return input.monitoring?.windows || [];
 }
 
 function latestTransfer(events, transferId) {
@@ -103,7 +131,8 @@ function hasImprovement(outcome) {
 function validateMonitoring(monitoring, minimumWindows) {
   if (!monitoring || !Array.isArray(monitoring.windows) || monitoring.windows.length < minimumWindows) return ['transfer-monitoring-windows-required'];
   const contexts = new Set(monitoring.windows.map((window) => window.contextHash).filter(Boolean));
-  const verified = monitoring.windows.every((window) => HASH.test(window.artifactHash || '') && window.verifierId && window.regression === false);
+  const verified = monitoring.windows.every((window) => HASH.test(window.artifactHash || '')
+    && window.verifierId && window.artifactRef && window.regression === false);
   return contexts.size >= minimumWindows && verified ? [] : ['transfer-monitoring-evidence-invalid'];
 }
 

@@ -251,6 +251,7 @@ async function processEventQueueImpl(ctx) {
       if (await runConscienceCheck(ctx, currentEvent, observation)) continue;
       await routeHierarchyEvent(ctx, currentEvent);
       await require('./agow/agowRuntimeIngressService').process({ ctx, event: currentEvent, finalEvent });
+      await require('./runtimePredictiveBridgeService').process(ctx, currentEvent);
       if (await checkNaturalSearchControl(ctx, currentEvent, finalEvent)) continue;
       await advanceAutonomousRound(normalizedMission, currentEvent);
     } catch (err) {

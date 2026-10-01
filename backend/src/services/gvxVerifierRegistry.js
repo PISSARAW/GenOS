@@ -10,6 +10,20 @@ function createControlPlaneRegistry(verifiers) {
   return registry;
 }
 
+function fromTrustedRegistry(bindings) {
+  if (!Array.isArray(bindings) || !bindings.length) throw new Error('trusted-verifier-bindings-required');
+  const trust = require('./verifierTrustRegistry');
+  const entries = bindings.map((binding) => {
+    const registered = trust.getVerifier(binding.id);
+    if (!registered || typeof binding.verify !== 'function' || !Array.isArray(binding.requirements)) {
+      throw new Error('verifier-binding-not-trusted');
+    }
+    return { id: registered.id, version: registered.digest,
+      requirements: binding.requirements, verify: binding.verify };
+  });
+  return createControlPlaneRegistry(entries);
+}
+
 function validateRegistry(registry) {
   if (!registry || !TRUSTED_REGISTRIES.has(registry) || registry.trustSource !== 'control_plane' || !Array.isArray(registry.verifiers)) {
     throw new Error('trusted-control-plane-verifier-registry-required');
@@ -37,4 +51,4 @@ async function verifyEvidence(options) {
     : { verified: false, reason: 'verifier-rejected-artifact', verifierId: verifier.id };
 }
 
-module.exports = { createControlPlaneRegistry, validateRegistry, verifyEvidence, digest };
+module.exports = { fromTrustedRegistry, validateRegistry, verifyEvidence, digest };

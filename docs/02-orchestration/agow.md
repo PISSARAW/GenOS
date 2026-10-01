@@ -1071,6 +1071,13 @@ l'intégration et des observations en retour; ce callback est le point où l'hô
 imposer clone, sandbox, timeout et budget. Le service ne modifie pas le runtime actif et
 ne promeut aucun candidat.
 
+Le pipeline runtime appelle aussi `runtimePredictiveBridgeService` après l'ingress AGOW.
+Les événements perception/action/worker/stratégie/mission qui fournissent des métriques
+numériques prédites et observées alimentent T0–T3. Les preuves sont vérifiées par hash de
+provenance dans le scope de mission avant toute propagation; sans mesure ou provenance
+valide, aucun apprentissage causal n'est crédité. Le feedback Self-Twin exige une
+référence de prédiction explicite.
+
 ## 24. Références
 
 - [ADR 0006 — Active Global Organism Workspace](../adr/0006-active-global-organism-workspace.md)
@@ -1091,12 +1098,13 @@ ne promeut aucun candidat.
 AGOW possède maintenant des services intégrés pour la provenance épistémique, le regret,
 les branches contrefactuelles isolées, les traces de plasticité, les voies directes, les
 propositions de procédure, la décompilation, les marchés et les trajectoires
-autobiographiques. Les points d'entrée d'ingress mission ne déclenchent pas encore tous
-ces mécanismes; plusieurs restent activés explicitement par appelant ou policy. Les
-exécuteurs shadow et expérimentaux doivent être enregistrés par l'hôte.
+autobiographiques. Les événements runtime mesurés sont maintenant reliés à T0–T3 et les
+feedbacks Self-Twin explicites sont ingérés; plusieurs organes et outcomes restent activés
+par appelant ou policy. Les exécuteurs shadow et expérimentaux doivent être enregistrés par
+l'hôte.
 
 Les tests et reçus vérifient les contrats et les conditions exécutées; ils ne fournissent
-aucune preuve d'amélioration. La feuille de route empirique reste ouverte tant que les
-intégrateurs n'ont pas branché les outcomes réels, fourni des modèles/outils/corpus
-holdout, exécuté les campagnes ablation/médiation/replication et publié l'analyse. Le
-mode `live` conserve les gates de promotion séparés.
+aucune preuve générale d'amélioration. Une campagne AGOW locale sur corpus synthétiques
+est conservée sous `benchmarks/agow/results/`; elle ne remplace pas des holdouts métier ni
+les baselines MBH/Lipson des nouveaux protocoles. Le mode `live` conserve les gates de
+promotion séparés.

@@ -26,9 +26,12 @@ propagé peut être converti avec `agowCandidate(route, agentId)` en candidat
 `cross_scale_prediction_error`, avec contrainte de revue.
 
 Les taux, exigences et seuils actuels sont une politique initiale explicite, pas une
-calibration expérimentale. `predictiveHierarchyService` continue de traiter les anciens
-événements Mission/Stratégie/Action; ses événements ne sont pas encore automatiquement
-ingérés dans T0–T6.
+calibration expérimentale. `runtimePredictiveBridgeService`, appelé par le pipeline
+d'événements, alimente T0–T3 dès qu'un événement fournit une paire numérique
+prédiction/observation et des références de provenance validées dans le scope mission. Les
+erreurs dépourvues de preuves restent locales. T4–T6 et les outcomes sans métriques
+explicites ne sont pas ingérés automatiquement. `predictiveHierarchyService` continue en
+parallèle à router les événements historiques Mission/Stratégie/Action.
 
 Voir [ADR 0259](../adr/0259-systeme-predictif-multi-echelles.md) et le
 [Self-Twin causal](../adr/0257-causal-self-twin.md).

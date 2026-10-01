@@ -17,19 +17,20 @@ Un transfert `review_ready` peut devenir `assimilated` avec un outcome receveur 
 une métrique, valeurs de référence et candidate, sens d'amélioration, référence d'artefact,
 vérificateur et absence de régression. `assimilated` exige des fenêtres pour avancer à
 `monitored`; `monitored` exige au moins trois fenêtres et contextes distincts pour devenir
-`consolidated`. Chaque fenêtre fournit une référence d'artefact/vérificateur et marque
-explicitement l'absence de régression. Le rejet reste accessible avant consolidation.
+`consolidated`. Chaque étape de preuve exige un artefact lisible, un vérificateur du
+registre de confiance du control plane et un SHA-256 recalculé sur les octets; les fenêtres
+marquent aussi explicitement l'absence de régression. Le rejet reste accessible avant
+consolidation.
 
-Les champs de vérificateur et hash de ce service représentent des références à des preuves,
-pas une authentification locale indépendante. Le chemin doit être alimenté par reçus du
-control plane et vérifié par l'adaptateur de confiance décrit dans l'ADR 0263.
+La validité sémantique des outcomes reste celle du vérificateur enregistré dans le control
+plane. Un nom et hash fournis par le receveur ne suffisent plus; l'hôte doit fournir le
+lecteur d'artefacts et le registre scellé de l'ADR 0263.
 
 ## Conséquences
 
 - La valeur d'un transfert est observée côté receveur avant sa consolidation.
 - La consolidation exige la stabilité déclarée sur plusieurs contextes.
-- Une évolution future devra lier directement ces reçus au registre de vérification de la
-  nursery plutôt que d'accepter des métadonnées seules.
+- L'hôte doit fournir la même source de confiance pour nursery, transfert et suivi.
 
 ## Alternatives
 

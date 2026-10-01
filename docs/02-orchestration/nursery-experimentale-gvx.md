@@ -2,7 +2,8 @@
 
 `backend/src/services/gvxExperimentalNursery.js` connecte le protocole GVX à quatre
 adaptateurs fournis par l'hôte : monde isolé, exécution de monde, lecture des artefacts et
-registre de vérificateurs de confiance (`trustSource: control_plane`). Les contrôles du
+registre de vérificateurs issus de `verifierTrustRegistry` via
+`gvxVerifierRegistry.fromTrustedRegistry`. Les contrôles du
 plan (snapshot, modèle, outils, environnement, bras et budgets) restent ceux de
 `gvxExperimentProtocol`.
 

@@ -6,9 +6,12 @@ fenêtre dont l'assessment rejette la transformation déclenche le rollback exis
 interrompt la suite.
 
 Le résumé mesure la diversité des contextes, le taux de régression, la moyenne et la
-variance du signal d'éligibilité, puis retourne `monitoring`, `rollback_recorded` ou
-`mature_somatic_eligible`. Cette dernière valeur autorise seulement une revue de maturité;
-elle n'effectue ni transfert germinal ni promotion automatique. L'intervalle de confiance
-sur les métriques demeure à établir par des campagnes longitudinales.
+variance du signal d'éligibilité et calcule un intervalle t de Student à 95 % pour chaque
+métrique ayant au moins deux deltas. Avec moins de deux fenêtres mesurées, les bornes sont
+nulles et le statut reste `insufficient_samples`. Le résumé retourne ensuite `monitoring`,
+`rollback_recorded` ou `mature_somatic_eligible`. Cette dernière valeur autorise seulement
+une revue de maturité; elle n'effectue ni transfert germinal ni promotion automatique. Les
+petits échantillons restent peu précis; les campagnes doivent valider les métriques et les
+fenêtres pertinentes.
 
 Voir [ADR 0264](../adr/0264-monitoring-longitudinal-somatique.md).
