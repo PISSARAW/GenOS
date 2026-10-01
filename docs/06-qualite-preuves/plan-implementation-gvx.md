@@ -15,7 +15,7 @@
 | 5 — Adaptation somatique | Partiel | `gvxSomaticAssessment.js`, test `test_gvx_somatic_assessment.js` ; application runtime, suivi et rollback restent à raccorder |
 | 6 — Transmission | Partiel | `gvxTransferLifecycle.js`, test `test_gvx_transfer_lifecycle.js` ; promotion germinale, essai de receveur et intégration de la mémoire des fossiles restent à faire |
 | 7 — Méta-développement | Partiel | `gvxMetaPolicyGate.js`, test `test_gvx_meta_policy_gate.js` ; sélection des candidates et exécution d’essais longitudinaux restent à raccorder |
-| 8 — Évaluation | À faire | — |
+| 8 — Évaluation | Partiel | `gvxBenchmarkProtocol.js`, test `test_gvx_benchmark_protocol.js` ; seul le protocole de scoring local est créé, aucune campagne ni expérience externe n’a été exécutée |
 
 ## 1. Objectif et invariants
 
