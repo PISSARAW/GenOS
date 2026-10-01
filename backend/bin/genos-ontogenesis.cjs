@@ -94,22 +94,72 @@ async function runPrune(db, options) {
   console.log(`purge:evenements=${result.events} notifications=${result.notifications}`);
 }
 
+async function runTick(db, options) {
+  if (!options.project) throw new Error('--project requis');
+  const { tickOnce } = require('../src/services/ontogenesis/tickService');
+  const outcome = await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}` });
+  console.log(JSON.stringify(outcome));
+}
+
+function sleepMs(duration) {
+  return new Promise((resolve) => { setTimeout(resolve, duration); });
+}
+
+async function runLoop(db, options) {
+  if (!options.project) throw new Error('--project requis');
+  const { tickOnce } = require('../src/services/ontogenesis/tickService');
+  const interval = Number(options['interval-ms'] || 5000);
+  const max = Number(options['max-ticks'] || 0);
+  let count = 0;
+  let stopped = false;
+  process.once('SIGTERM', () => { stopped = true; });
+  while (!stopped && (max === 0 || count < max)) {
+    const outcome = await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}` });
+    count += 1;
+    console.log(`tick:${count} ${JSON.stringify(outcome)}`);
+    if (max !== 0 && count >= max) break;
+    await sleepMs(interval);
+  }
+}
+
+async function runStopTask(db, options) {
+  if (!options.task) throw new Error('--task requis');
+  const { stopTask } = require('../src/services/ontogenesis/scheduleService');
+  const outcome = await stopTask(db, { taskId: options.task, reason: options.reason });
+  console.log(JSON.stringify(outcome));
+}
+
+async function runSchedule(db, options) {
+  if (!options.project) throw new Error('--project requis');
+  const schedules = require('../src/services/ontogenesis/scheduleService');
+  const spec = options.every ? { everyMinutes: Number(options.every) } : { at: options.at };
+  const id = await schedules.createSchedule(db, {
+    projectId: options.project, kind: options.kind || 'interval', spec, timezone: options.tz
+  });
+  console.log(`schedule-cree:${id}`);
+}
+
+const DB_COMMANDS = {
+  init: runInit,
+  prune: runPrune,
+  tick: runTick,
+  run: runLoop,
+  'stop-task': runStopTask,
+  schedule: runSchedule,
+  start: runCommand,
+  status: runCommand,
+  pause: runCommand,
+  resume: runCommand,
+  stop: runCommand
+};
+
 async function runWithDb(name, options) {
+  const handler = DB_COMMANDS[name];
+  if (!handler) throw new Error(`commande-inconnue:${name}`);
   const db = await getDatabase();
   try {
-    if (name === 'init') {
-      await runInit(db, options);
-      return;
-    }
-    if (name === 'prune') {
-      await runPrune(db, options);
-      return;
-    }
-    if (['start', 'status', 'pause', 'resume', 'stop'].includes(name)) {
-      await runCommand(db, name, options);
-      return;
-    }
-    throw new Error(`commande-inconnue:${name}`);
+    if (handler === runCommand) await handler(db, name, options);
+    else await handler(db, options);
   } finally {
     await closeDatabase();
   }
