@@ -16,6 +16,10 @@
 
 Les leases `WEB_FORAGING` et `FOVEAL_PERCEPTION` restent séparées. Une lease
 autorise l'appel, mais ne valide pas la qualité de l'observation ni la décision.
+Les retours réussis du navigateur, du foraging et de la fovéation sont maintenant
+convertis en observations canoniques du sensorium puis en épisodes autobiographiques
+si leur gain d'information dépasse le seuil de saillance. Cette mémorisation ne
+certifie ni le contenu observé ni la qualité de la décision.
 
 ```mermaid
 flowchart LR

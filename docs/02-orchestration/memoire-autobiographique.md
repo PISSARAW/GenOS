@@ -109,6 +109,15 @@ capture souscrite (`attachAutobiographicalCapture`, branchée dans `server.js`)
 tourne réellement en production : tout événement typé est évalué, seuls les
 saillants (≥ 0,3) deviennent épisodes.
 
+Les résultats réussis de `genos_browser_act`, `genos_foveal_crop`,
+`genos_optimal_foraging` et `genos_computer_use` passent également par
+`perceptionMemoryBridgeService`. Le bridge construit une observation canonique,
+l'ajoute au sensorium de l'agent et émet `PERCEPTION_OBSERVED`. Une observation
+assez nouvelle devient un épisode `perception`, rappelable avant une mission
+suivante. Son issue reste `observed` : sans évaluation du résultat d'une action,
+elle n'alimente pas les leçons de réussite ou d'échec. Le texte rappelé reste une
+entrée historique non fiable, à vérifier dans le contexte courant.
+
 La saillance de capture est modulée multiplicativement, dans l'ordre :
 
 1. saillance de base (`computeSalience`, 7 signaux) ;

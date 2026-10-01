@@ -42,7 +42,9 @@ function lessonAppliesToConditions(lesson, kind, goal) {
 function episodeLine(episode) {
   const outcome = episode.outcome?.status || 'unknown';
   const strategy = episode.decision?.selectedStrategy || episode.action?.tool || 'unspecified';
-  return `Similar episode (${safeText(episode.kind)}, ${safeText(outcome)}): <souvenir_non_fiable>${safeText(strategy)}${episode.lesson?.summary ? ` — ${safeText(episode.lesson.summary)}` : ''}</souvenir_non_fiable>`;
+  const perception = episode.situation?.perception?.summary;
+  const observed = perception ? ` — observation: ${safeText(perception)}` : '';
+  return `Similar episode (${safeText(episode.kind)}, ${safeText(outcome)}): <souvenir_non_fiable>${safeText(strategy)}${observed}${episode.lesson?.summary ? ` — ${safeText(episode.lesson.summary)}` : ''}</souvenir_non_fiable>`;
 }
 
 function safeText(value) {

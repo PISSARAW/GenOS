@@ -8,6 +8,8 @@ const { captureTelemetryEvent, resolveKind } = require('../src/services/autobiog
 const episodeStore = require('../src/services/autobiographicalMemory/episodeStore');
 const lessonService = require('../src/services/autobiographicalMemory/lessonService');
 const recallService = require('../src/services/autobiographicalMemory/recallService');
+const sensorium = require('../src/services/perception/sensoriumService');
+const { runToolExecution } = require('../src/services/mcpExecutor/efferenceBridge');
 
 function testSalience() {
   const failure = computeSalience({ eventType: 'AGENT_FAILED', payload: { status: 'failed', cost: { tokens: 6000 } } });
@@ -17,7 +19,34 @@ function testSalience() {
   const highRisk = computeSalience({ eventType: 'AGENT_STEP', payload: { risk: 0.9, cost: { tokens: 6000 } } });
   assert(highRisk.signals.highRisk === 1 && highRisk.signals.highCost === 1, 'risk/cost signals must be detected');
   assert.equal(resolveKind('AGENT_FAILED'), 'primitive_failure');
+  assert.equal(resolveKind('PERCEPTION_OBSERVED'), 'perception');
   assert.equal(resolveKind('UNKNOWN_EVENT_TYPE'), null);
+}
+
+async function testPerceptionMemoryLoop(db) {
+  const events = [];
+  const execution = await runToolExecution({
+    context: { agentId: 'perception-agent', toolName: 'genos_browser_act', actionId: 'action-1', args: { goal: 'inspect service dashboard', url: 'https://example.test/status' } },
+    executeConfiguredTransport: async () => ({ success: true, status: 'completed', output: JSON.stringify({ title: 'Service status', observationText: 'service healthy 200', infoGain: 0.65, currentUrl: 'https://example.test/status' }) }),
+    applyDomainVerdict: () => {},
+    circuitBreaker: { recordSuccess: () => {}, recordFailure: () => {} },
+    telemetry: { emitEvent: (event) => events.push(event) }
+  });
+  assert.equal(execution.success, true);
+  const observationEvent = events.find((event) => event.eventType === 'PERCEPTION_OBSERVED');
+  const observation = observationEvent.payload.observation;
+  assert.equal(sensorium.getSensorium('perception-agent').observations[0].id, observation.id);
+  const episode = await captureTelemetryEvent(observationEvent, db);
+  assert.equal(episode.kind, 'perception');
+  assert.equal(episode.outcome.status, 'observed');
+  const recalled = await recallService.recallForSituation(
+    { agentId: 'perception-agent', goal: 'inspect service dashboard' }, {}, db
+  );
+  assert.match(recalled.summary, /service healthy 200/);
+  assert.equal((await lessonService.consolidateLessons({ agentId: 'perception-agent' }, db))
+    .some((lesson) => lesson.scope === 'perception'), false,
+  'observations without an evaluated outcome must not become learned success or failure lessons');
+  sensorium.clearSensorium('perception-agent');
 }
 
 async function testCaptureAndForget(db) {
@@ -84,6 +113,7 @@ async function run() {
   const db = await getDatabase(dbPath);
   try {
     testSalience();
+    await testPerceptionMemoryLoop(db);
     await testCaptureAndForget(db);
     await testLessonConsolidationAndRecall(db);
     console.log('Autobiographical memory: salience, capture, forgetting, lesson consolidation and recall passed.');

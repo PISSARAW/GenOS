@@ -22,7 +22,8 @@ const EVENT_KIND_MAP = {
   AGENT_FAILED: 'primitive_failure',
   APOPTOSIS_TRIGGERED: 'quarantine',
   ORCHESTRATION_DECISION_BLOCKED: 'primitive_failure',
-  HUMAN_DECISION: 'human_decision'
+  HUMAN_DECISION: 'human_decision',
+  PERCEPTION_OBSERVED: 'perception'
 };
 
 let attached = false;
@@ -58,6 +59,7 @@ function actionFromEvent(event, payload) {
 }
 
 function outcomeFromEvent(event, payload) {
+  if (event.eventType === 'PERCEPTION_OBSERVED') return { status: 'observed', evidence: [], uncertainties: [] };
   return {
     status: event.status || payload.status || 'unknown',
     evidence: payload.evidence || [],
@@ -71,16 +73,22 @@ function firstValue(...values) {
 
 function episodeFromEvent(event, kind, salienceResult) {
   const payload = event.payload || {};
+  const perception = payload.observation || null;
   return {
+    id: perception?.id ? `episode_${perception.id}` : undefined,
     agentId: firstValue(event.agentId, 'orchestrator'),
     missionId: firstValue(payload.missionId, payload.executionRunId, payload.runId),
     organizationId: firstValue(payload.organizationId, payload.organization_id, event.organizationId),
     projectId: firstValue(payload.projectId, payload.project_id, event.projectId),
     kind,
     salience: salienceResult.salience,
-    situation: situationFromEvent(event, payload),
-    decision: decisionFromEvent(payload),
-    action: actionFromEvent(event, payload),
+    situation: {
+      ...situationFromEvent(event, payload),
+      goal: payload.goal || situationFromEvent(event, payload).goal,
+      perception: perception ? { summary: perception.data?.summary || '', sensorId: perception.sensorId, target: perception.target } : null
+    },
+    decision: decisionFromEvent({ ...payload, strategy: payload.toolName || payload.strategy }),
+    action: actionFromEvent(event, { ...payload, tool: payload.toolName || event.action, sourceAgentId: event.agentId }),
     outcome: outcomeFromEvent(event, payload),
     lesson: {},
     timestamp: event.timestamp
@@ -133,9 +141,16 @@ async function captureTelemetryEvent(event = {}, dbOverride = null) {
   const gated = salienceResult.salience
     * await reafferenceWeight(event)
     * await ignitionFactor(event, salienceResult.salience);
-  const attenuated = { ...salienceResult, salience: Math.min(1, gated) };
+  const perceptionGain = event.eventType === 'PERCEPTION_OBSERVED'
+    ? Number(event.payload?.observation?.informationGain) || 0 : 0;
+  const attenuated = { ...salienceResult, salience: Math.min(1, Math.max(gated, perceptionGain)) };
   if (attenuated.salience < salienceThreshold) return null;
-  return episodeStore.recordEpisode(episodeFromEvent(event, kind, attenuated), dbOverride);
+  const episode = episodeFromEvent(event, kind, attenuated);
+  if (episode.id) {
+    const existing = await episodeStore.getEpisodeById(episode.id, dbOverride);
+    if (existing) return existing;
+  }
+  return episodeStore.recordEpisode(episode, dbOverride);
 }
 
 function handleEvent(event) {

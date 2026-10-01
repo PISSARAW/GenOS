@@ -33,6 +33,11 @@ async function runToolExecution({ context, executeConfiguredTransport, applyDoma
     applyDomainVerdict(toolName, result);
     if (result.success) circuitBreaker.recordSuccess(toolName, circuitScope);
     else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`, circuitScope);
+    if (result.success) {
+      require('../perception/perceptionMemoryBridgeService').recordToolObservation({
+        telemetry, agentId, toolName, args, result, actionId
+      });
+    }
     telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: toolOutcomePayload(context, result) });
     return result;
   } catch (error) {
