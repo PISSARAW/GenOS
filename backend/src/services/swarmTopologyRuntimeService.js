@@ -12,23 +12,46 @@ const telemetry = require('./telemetryObserver');
 
 const lastPreferred = new Map();
 
-function charSum(value) {
-  let sum = 0;
-  for (const character of String(value || '')) sum += character.charCodeAt(0);
-  return sum;
+function hashScore(id, role) {
+  const input = `${String(id || '')}:${String(role || '')}`;
+  let hash = 0;
+  for (const character of input) hash = (hash * 31 + character.charCodeAt(0)) % 100000;
+  return hash;
+}
+
+function fitnessFor(status, sentCount) {
+  const base = status === 'completed' ? 1 : (status === 'running' ? 0.5 : 0);
+  const bonus = Math.min(0.5, Number(sentCount || 0) * 0.1);
+  return Math.min(1.5, base + bonus);
+}
+
+function positionFor(id, role) {
+  const score = hashScore(id, role);
+  return { x: score % 100, y: score % 71, heading: score % 360 };
+}
+
+async function messageCounts(db, orchestratorId) {
+  const rows = await db.all(
+    "SELECT sender_agent_id as id, COUNT(*) as n FROM agent_organization_messages WHERE orchestrator_id = ? AND delivery = 'delivered' GROUP BY sender_agent_id",
+    orchestratorId
+  ).catch(() => []);
+  const counts = new Map();
+  for (const row of (rows || [])) counts.set(row.id, Number(row.n || 0));
+  return counts;
 }
 
 async function stateFromOrchestrator(db, orchestratorId) {
   const agents = await db.all('SELECT id, role, status FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => []);
+  const counts = await messageCounts(db, orchestratorId);
   const pack = (Array.isArray(agents) ? agents : []).map((agent) => {
-    const score = charSum(agent.id);
+    const pos = positionFor(agent.id, agent.role);
     return {
       id: agent.id,
       role: agent.role,
-      x: score % 100,
-      y: score % 71,
-      heading: score % 360,
-      fitness: agent.status === 'completed' ? 1 : (agent.status === 'running' ? 0.5 : 0)
+      x: pos.x,
+      y: pos.y,
+      heading: pos.heading,
+      fitness: fitnessFor(agent.status, counts.get(agent.id))
     };
   }).sort((a, b) => a.id.localeCompare(b.id));
   const edges = [];
@@ -53,13 +76,13 @@ async function applyStepForOrchestrator(orchestratorId, options = {}) {
   };
   const step = swarmTopologyAlgorithms.runTopologyStep(current.organization, state, options);
   if (!step) return null;
-  const preferred = swarmTopologyAlgorithms.preferredAgents(current.organization, step);
+  const preferred = swarmTopologyAlgorithms.preferredAgents(current.organization, step, options.limit);
   lastPreferred.set(orchestratorId, preferred);
   telemetry.emitEvent({
     eventType: 'SWARM_TOPOLOGY_STEP',
     agentId: orchestratorId,
     action: 'TOPOLOGY_STEP',
-    detail: `Applied '${current.organization}' swarm step to ${state.agents.length} agents.`,
+    detail: `Applied '${current.organization}' organization step to ${state.agents.length} agents.`,
     severity: 'info',
     payload: { organization: current.organization, preferred, step }
   });
