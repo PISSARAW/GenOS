@@ -31,6 +31,6 @@ manifestes ni les corpus réservés.
 Le backend conserve l'isolation multi-agent au niveau de `adaptive_state`. Le runner
 ne fabrique ni snapshots reproductibles ni corpus indépendants: les appelants doivent
 fournir des entrées réelles et un protocole préenregistré; les campagnes vérifient des
-partitions holdout disjointes. Aucun indicateur AGOW n'est promu par cette implémentation. Les
-receveurs daemon et morphogenèse ne sont pas activés par défaut tant qu'un contrat
-d'effet runtime spécifique n'est pas défini.
+partitions holdout disjointes. Aucun indicateur AGOW n'est promu par cette implémentation.
+Le receiver daemon exige un territoire rattaché au workspace et une mesure machine;
+le receiver morphogenèse exécute seulement le préflight shadow, sans transition.

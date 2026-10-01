@@ -6,7 +6,8 @@ const workspace = require('../../globalWorkspaceService');
 const ADAPTERS = Object.freeze({
   perception: 'observation', world_model: 'world_state', memory: 'memory_retrieval', self: 'self_state',
   metacognition: 'reliability_estimate', interoception: 'resource_state', epistemic: 'belief_state',
-  worker: 'worker_result', daemon: 'daemon_event', efference: 'action_consequence'
+  worker: 'worker_result', daemon: 'daemon_event', efference: 'action_consequence',
+  morphogenesis: 'morphogenesis_proposal'
 });
 
 function unit(value, fallback = 0) {

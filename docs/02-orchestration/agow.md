@@ -107,7 +107,7 @@ niveaux mission/situation/objet. Une erreur supérieure au seuil produit un cand
 | Mission → AGOW | `bounded` prend le contrôle; modes d'observation gardent le chemin historique |
 | Résultats worker et efférence | Candidats runtime; le récepteur efférence met à jour modèle du monde et soi |
 | Interoception, allostase et méta | Récepteurs alimentent les politiques de budget et le seuil de preuve |
-| Daemons et morphogenèse | Adaptateurs disponibles, branchement runtime dédié non implémenté |
+| Daemons et morphogenèse | Le broadcast mesure le territoire lié au workspace et applique un préflight morphogenèse en shadow; aucune transition morphologique n'est commise |
 | Ablation et médiation contrôlée | Runner exécutable; requiert un adaptateur d'exécution et entrées fournies |
 | Réplication holdout | Campagne exigeant au moins trois runs, seeds et corpus distincts; aucune promotion automatique |
 | Workspace Rust et stockage partagé multi-processus | Hors de cette tranche; le prototype Rust n'est pas runtime autoritaire |
@@ -124,8 +124,8 @@ indépendant n'a encore été exécuté ni validé. Chaque runner exige un proto
 préenregistré (hypothèse, métrique primaire, plan d'analyse); une campagne vérifie
 l'unicité des seeds et la disjonction des identifiants de cas.
 
-Les récepteurs daemon et morphogenèse, une preuve de réplication scientifique et le
-transfert d'autorité Rust demeurent hors de cette tranche. Voir [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md).
+Une preuve de réplication scientifique et le transfert d'autorité Rust demeurent hors
+de cette tranche. Voir [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md).
 
 ## Références d'implémentation
 

@@ -79,6 +79,38 @@ async function metacognitionReceiver(input) {
   return { consumed: true, changed: hash(before) !== hash(next), effectType: 'metacognitive_evidence_gate', beforeStateHash: hash(before), afterStateHash: hash(next), artifactRefs: [] };
 }
 
+async function morphogenesisReceiver(input) {
+  const loaded = await require('./agowStatePersistenceService').load({
+    scope: 'agow_morphogenesis_plans', agentId: input.frame.agentId, db: input.db
+  });
+  if (!loaded.state?.morphologyPatch) return ignored('no_morphogenesis_plan');
+  if (input.phase === 'inspect') return { state: { planId: loaded.state.morphologyPatch.graph?.missionId || input.frame.agentId } };
+  const result = await require('../morphogenesis/runtime/morphogenesisShadowAdapter')
+    .runMorphogenesisShadow(loaded.state, { missionId: input.frame.agentId });
+  return { consumed: true, changed: false, effectType: 'morphogenesis_shadow_preflight',
+    artifactRefs: [input.frame.agentId], outcome: { decision: result.decision, committed: result.committed } };
+}
+
+async function resolveTerritory(db, agentId) {
+  const row = await db.get('SELECT t.id FROM daemon_territories t JOIN agents a ON a.workspace_id = t.workspace_id WHERE a.id = ? ORDER BY t.id LIMIT 1', agentId);
+  return row?.id || null;
+}
+
+async function daemonReceiver(input) {
+  const territoryId = await resolveTerritory(input.db, input.frame.agentId);
+  if (!territoryId) return ignored('no_daemon_territory');
+  if (input.phase === 'inspect') return { state: await stateFor(input.db, input.frame.agentId, 'agow_daemon_policy') };
+  const territory = await require('../daemon/daemonTerritoryInteroceptionService').senseTerritory(input.db, territoryId);
+  const machine = await require('../machineInteroceptionService').senseAgentRuntime(input.db, input.frame.agentId);
+  if (machine.status !== 'measured' || !machine.variables) return ignored('machine_interoception_unavailable');
+  const pressures = require('../daemon/daemonTerritoryInteroceptionService').combinePressures(territory.variables, machine.variables);
+  const before = await stateFor(input.db, input.frame.agentId, 'agow_daemon_policy');
+  const next = { territoryId, variables: territory.variables, pressures, sampledAt: territory.sampledAt };
+  await persistFor({ db: input.db, agentId: input.frame.agentId, scope: 'agow_daemon_policy', state: next });
+  return { consumed: true, changed: hash(before) !== hash(next), effectType: 'daemon_territory_homeostasis',
+    beforeStateHash: hash(before), afterStateHash: hash(next), artifactRefs: [territoryId] };
+}
+
 async function stateFor(db, agentId, scope) {
   return (await require('./agowStatePersistenceService').load({ scope, agentId, db })).state;
 }
@@ -93,6 +125,8 @@ function ensureRegistered() {
   registry.register({ module: 'self_model', handle: selfReceiver });
   registry.register({ module: 'interoception', handle: interoceptionReceiver });
   registry.register({ module: 'metacognition', handle: metacognitionReceiver });
+  registry.register({ module: 'morphogenesis', handle: morphogenesisReceiver });
+  registry.register({ module: 'daemon', handle: daemonReceiver });
 }
 
 module.exports = { ensureRegistered };

@@ -22,6 +22,7 @@ async function attachMorphogenesisPlan(ctx) {
     const plan = planMorphogenesis(input);
     ctx.morphogenesisPlan = plan;
     ctx.autonomyPlan.morphogenesisPlan = plan;
+    await publishMorphogenesisCandidate(ctx, plan);
     if (shadowMorphogenesisEnabled()) await attachMorphogenesisShadow(ctx, plan);
   } catch (error) {
     ctx.morphogenesisPlan = null;
@@ -29,6 +30,23 @@ async function attachMorphogenesisPlan(ctx) {
       code: error.code || 'MORPHOGENESIS_PLAN_FAILED'
     }, 'warning');
   }
+}
+
+async function publishMorphogenesisCandidate(ctx, plan) {
+  if (require('../globalWorkspaceService').getMode() === 'off') return;
+  const store = require('../adaptiveStateService').AdaptiveStateService;
+  await new store(ctx.db).persistObject('agow_morphogenesis_plans', ctx.agentId, plan, Date.now());
+  await require('../agow/candidates/candidateAdapterService').submit({
+    db: ctx.db, agentId: ctx.agentId, module: 'morphogenesis', activeGoal: ctx.normalizedMission.missionId || 'mission',
+    observation: {
+      candidateId: `morphogenesis:${ctx.agentId}:${ctx.normalizedMission.missionId || 'mission'}`,
+      semanticType: 'morphogenesis_plan', artifactRef: ctx.agentId,
+      compactPreview: `Topology proposal: ${plan.selectedTopology || 'unselected'}`,
+      evidenceRefs: Array.isArray(plan.evidenceRefs) ? plan.evidenceRefs : [],
+      confidence: Number(plan.utility) || 0.5, evidenceCoverage: 0, goalMatched: true,
+      causalEvidence: false, actionable: false, redundancyKey: `morphogenesis:${ctx.agentId}`
+    }
+  });
 }
 
 function shadowMorphogenesisEnabled() {
