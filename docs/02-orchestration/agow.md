@@ -122,7 +122,8 @@ par l'appelant doit réellement exécuter chaque condition et garantir le snapsh
 initial. Les sorties restent descriptives (`promotionDecision: null`); aucun holdout
 indépendant n'a encore été exécuté ni validé. Chaque runner exige un protocole
 préenregistré (hypothèse, métrique primaire, plan d'analyse); une campagne vérifie
-l'unicité des seeds et la disjonction des identifiants de cas.
+snapshot, environnement, protocole et bras identiques, seeds distincts, ainsi que des
+corpus disjoints par identifiant et contenu.
 
 Une preuve de réplication scientifique et le transfert d'autorité Rust demeurent hors
 de cette tranche. Voir [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md).

@@ -30,6 +30,12 @@ function validateCases(cases) {
   throw new TypeError('Each holdout case requires caseId and input.');
 }
 
+function validateConditions(conditions) {
+  if (Array.isArray(conditions) && conditions.length > 0 && conditions.every((item) => typeof item === 'string')
+    && new Set(conditions).size === conditions.length) return;
+  throw new TypeError('AGOW experiment conditions must be a non-empty unique list.');
+}
+
 function validate(options) {
   validateRequired(options);
   if (typeof options.execute !== 'function') throw new TypeError('AGOW experiment requires an execution adapter.');
@@ -37,6 +43,7 @@ function validate(options) {
   validateProtocol(options.protocol);
   if (options.holdout !== true) throw new TypeError('AGOW experiment corpus must be explicitly marked holdout.');
   validateCases(options.cases);
+  validateConditions(options.conditions || CONDITIONS);
 }
 
 function seededOrder(items, seed) {
@@ -117,27 +124,41 @@ async function runControlledMediation(options) {
 async function runReplicationCampaign(options) {
   const replications = options.replications;
   if (!Array.isArray(replications) || replications.length < 3) throw new TypeError('AGOW holdout replication requires at least three independent runs.');
-  const environmentHashes = new Set(replications.map((entry) => digest(entry.environment)));
-  const corpusHashes = new Set(replications.map((entry) => digest(entry.cases.map(({ caseId, input }) => ({ caseId, input })))));
-  const seeds = new Set(replications.map((entry) => String(entry.seed || '')));
-  const protocolHashes = new Set(replications.map((entry) => digest(entry.protocol)));
-  if (environmentHashes.size !== 1 || protocolHashes.size !== 1 || corpusHashes.size !== replications.length
-    || seeds.size !== replications.length || !disjointCorpora(replications)) {
+  if (!compatibleReplications(replications)) {
     throw new TypeError('Replications require one protocol and environment, disjoint holdout cases and distinct explicit seeds.');
   }
   const receipts = [];
   for (const replication of replications) receipts.push(await run({ ...replication, kind: 'agow_holdout_replication' }));
   return { campaignId: randomUUID(), replications: receipts.map((item) => item.experimentId), count: receipts.length,
-    environmentHash: [...environmentHashes][0], corpusHashes: receipts.map((item) => item.corpusHash),
+    environmentHash: receipts[0].environmentHash, corpusHashes: receipts.map((item) => item.corpusHash),
     status: 'descriptive_replication_complete', promotionDecision: null };
+}
+
+function compatibleReplications(replications) {
+  return sameValue(replications, (entry) => digest(entry.environment))
+    && sameValue(replications, (entry) => digest(entry.protocol))
+    && sameValue(replications, (entry) => digest(entry.snapshot))
+    && sameValue(replications, (entry) => digest([...(entry.conditions || CONDITIONS)].sort()))
+    && uniqueValue(replications, (entry) => digest(entry.cases.map(({ caseId, input }) => ({ caseId, input }))))
+    && uniqueValue(replications, (entry) => String(entry.seed || '')) && disjointCorpora(replications);
+}
+
+function sameValue(items, select) {
+  return new Set(items.map(select)).size === 1;
+}
+
+function uniqueValue(items, select) {
+  return new Set(items.map(select)).size === items.length;
 }
 
 function disjointCorpora(replications) {
   const seen = new Set();
   for (const runOptions of replications) {
     for (const item of runOptions.cases || []) {
-      if (seen.has(item.caseId)) return false;
+      const inputHash = digest(item.input);
+      if (seen.has(item.caseId) || seen.has(inputHash)) return false;
       seen.add(item.caseId);
+      seen.add(inputHash);
     }
   }
   return true;
