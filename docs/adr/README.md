@@ -279,6 +279,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0262](0262-proposition-mutation-recherche-lignees-gvx.md) | Proposition de mutation et recherche de lignées candidates | Accepté | 2026-10-01 | GVX, Self-Twin, AgentGit, expérimentation |
 | [0263](0263-nursery-experimentale-gvx.md) | Nursery expérimentale GVX et vérificateurs de confiance | Accepté | 2026-10-01 | GVX, expériences, isolation, preuve indépendante |
 | [0264](0264-monitoring-longitudinal-somatique.md) | Monitoring longitudinal de transformations somatiques | Accepté | 2026-10-01 | GVX, application somatique, régression, maturité |
+| [0265](0265-cycle-assimilation-transfert-gvx.md) | Cycle d'assimilation et consolidation des transferts GVX | Accepté | 2026-10-01 | GVX, transfert, outcome receveur, maturation |
 | [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux

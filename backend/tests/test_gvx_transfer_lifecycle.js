@@ -37,7 +37,22 @@ async function main() {
     const ready = await advanceTransfer(db, { ...scope, state: 'review_ready', minTrials: 2, trialEvidence: trialEvidence() });
     assert.strictEqual(ready.payload.transfer.state, 'review_ready');
     assert.strictEqual(ready.payload.transfer.rationale, 'review_ready');
-    await assert.rejects(advanceTransfer(db, { ...scope, state: 'assimilated' }), { code: 'GVX_TRANSFER_TRANSITION_INVALID' });
+    await assert.rejects(advanceTransfer(db, { ...scope, state: 'assimilated' }), { code: 'GVX_TRANSFER_EVIDENCE_REQUIRED' });
+    const assimilated = await advanceTransfer(db, { ...scope, state: 'assimilated', recipientOutcome: {
+      artifactHash: 'd'.repeat(64), verifierId: 'recipient-verifier', metric: 'taskSuccess',
+      baseline: 0.5, candidate: 0.8, direction: 'higher', regression: false
+    } });
+    assert.strictEqual(assimilated.payload.transfer.state, 'assimilated');
+    await assert.rejects(advanceTransfer(db, { ...scope, state: 'monitored' }), { code: 'GVX_TRANSFER_EVIDENCE_REQUIRED' });
+    const monitoring = { windows: ['a', 'b'].map((value) => ({ contextHash: value.repeat(64),
+      artifactHash: value.repeat(64), verifierId: `monitor-${value}`, regression: false })) };
+    const monitored = await advanceTransfer(db, { ...scope, state: 'monitored', monitoring });
+    assert.strictEqual(monitored.payload.transfer.state, 'monitored');
+    const consolidated = await advanceTransfer(db, { ...scope, state: 'consolidated', monitoring: {
+      windows: ['a', 'b', 'c'].map((value) => ({ contextHash: value.repeat(64),
+        artifactHash: value.repeat(64), verifierId: `monitor-${value}`, regression: false }))
+    } });
+    assert.strictEqual(consolidated.payload.transfer.state, 'consolidated');
   } finally { await db.close(); }
   console.log('GVX transfer lifecycle checks passed.');
 }

@@ -8,7 +8,10 @@ const TRANSITIONS = Object.freeze({
   quarantined: ['trial'],
   trial: ['rejected', 'review_ready'],
   rejected: [],
-  review_ready: []
+  review_ready: ['rejected', 'assimilated'],
+  assimilated: ['rejected', 'monitored'],
+  monitored: ['rejected', 'consolidated'],
+  consolidated: []
 });
 const HASH = /^[a-f0-9]{64}$/;
 
@@ -45,9 +48,12 @@ async function advanceTransfer(db, input) {
   const previous = latestTransfer(events, input.transferId);
   const next = input.state;
   assertTransition(previous, next);
-  const evidence = validateTrialEvidence(input, next);
+  const evidence = validateTransitionEvidence(input, next);
   if (evidence.length) throw Object.assign(new Error(evidence.join(',')), { code: 'GVX_TRANSFER_EVIDENCE_REQUIRED', errors: evidence });
-  const transfer = { ...previous, state: next, rationale: input.rationale || next, trialEvidence: input.trialEvidence || [] };
+  const transfer = { ...previous, state: next, rationale: input.rationale || next,
+    trialEvidence: input.trialEvidence || previous.trialEvidence || [],
+    recipientOutcome: input.recipientOutcome || previous.recipientOutcome || null,
+    monitoring: input.monitoring || previous.monitoring || null };
   return appendEvent(db, {
     organizationId: input.organizationId, projectId: input.projectId,
     entityId: input.entityId, type: 'transfer_recorded', payload: { transfer }
@@ -67,7 +73,10 @@ function assertTransition(previous, next) {
   }
 }
 
-function validateTrialEvidence(input, next) {
+function validateTransitionEvidence(input, next) {
+  if (next === 'assimilated') return validateRecipientOutcome(input.recipientOutcome);
+  if (next === 'monitored') return validateMonitoring(input.monitoring, 2);
+  if (next === 'consolidated') return validateMonitoring(input.monitoring, 3);
   if (next !== 'review_ready') return [];
   const trials = input.trialEvidence;
   if (!Number.isInteger(input.minTrials) || input.minTrials < 1) return ['minimum-trial-count-required'];
@@ -75,9 +84,32 @@ function validateTrialEvidence(input, next) {
   return trials.every(validTrial) ? [] : ['trial-evidence-invalid'];
 }
 
+function validateRecipientOutcome(outcome) {
+  if (!validRecipientEvidence(outcome)) return ['recipient-outcome-evidence-required'];
+  return hasImprovement(outcome) ? [] : ['recipient-outcome-improvement-required'];
+}
+
+function validRecipientEvidence(outcome) {
+  return Boolean(outcome && HASH.test(outcome.artifactHash || '') && outcome.verifierId
+    && outcome.metric && Number.isFinite(outcome.baseline) && Number.isFinite(outcome.candidate));
+}
+
+function hasImprovement(outcome) {
+  const higher = outcome.direction === 'higher' && outcome.candidate > outcome.baseline;
+  const lower = outcome.direction === 'lower' && outcome.candidate < outcome.baseline;
+  return (higher || lower) && outcome.regression === false;
+}
+
+function validateMonitoring(monitoring, minimumWindows) {
+  if (!monitoring || !Array.isArray(monitoring.windows) || monitoring.windows.length < minimumWindows) return ['transfer-monitoring-windows-required'];
+  const contexts = new Set(monitoring.windows.map((window) => window.contextHash).filter(Boolean));
+  const verified = monitoring.windows.every((window) => HASH.test(window.artifactHash || '') && window.verifierId && window.regression === false);
+  return contexts.size >= minimumWindows && verified ? [] : ['transfer-monitoring-evidence-invalid'];
+}
+
 function validTrial(trial) {
   return Boolean(trial && HASH.test(trial.artifactHash || '')
     && typeof trial.verifierId === 'string' && trial.verifierId.trim());
 }
 
-module.exports = { TRANSITIONS, startTransfer, advanceTransfer, validateStart };
+module.exports = { TRANSITIONS, startTransfer, advanceTransfer, validateStart, validateRecipientOutcome, validateMonitoring };
