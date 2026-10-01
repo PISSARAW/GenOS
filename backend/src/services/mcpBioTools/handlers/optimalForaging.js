@@ -5,8 +5,9 @@ async function handleOptimalForaging(args) {
   const action = args.action || 'evaluate_patch';
 
   if (action === 'forage_step' || action === 'closed_loop' || action === 'closed_loop_step') {
+    const sessionId = args.session_id || args.sessionId || null;
     const step = await forageStep({
-      sessionId: args.session_id || args.sessionId,
+      sessionId,
       patchHistory: args.patch_history || args.history,
       elapsedTimeSec: args.elapsed_time_sec,
       iteration: args.iteration,
@@ -14,6 +15,7 @@ async function handleOptimalForaging(args) {
       htmlContent: args.html_content || args.html
     });
     const actionStatus = step.action.status;
+    const simulated = !sessionId;
     return {
       configured: true,
       success: actionStatus !== 'not_executed' && actionStatus !== 'failed',
@@ -21,7 +23,8 @@ async function handleOptimalForaging(args) {
         : actionStatus === 'failed' ? 'action_failed'
           : actionStatus === 'not_executed' ? 'decision_only' : 'observed',
       transport: 'local_service',
-      output: JSON.stringify(step, null, 2)
+      simulated,
+      output: JSON.stringify({ ...step, simulated }, null, 2)
     };
   }
 
