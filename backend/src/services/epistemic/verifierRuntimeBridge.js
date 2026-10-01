@@ -147,6 +147,7 @@ function signVerifierResult(antigen, verifier, signed) {
   preReceipt.independent = signed.independence.independent;
   preReceipt.independenceDescriptor = signed.independence.descriptor;
   preReceipt.independenceDistance = signed.independence.distance;
+  preReceipt.executionEvidence = signed.outcome.observations.filter((item) => item.detail?.executionId).map((item) => item.detail);
   // Le verifier couvre l'obligation correspondant au claim qu'il valide.
   preReceipt.coveredObligations = [antigen.id];
   const signedReceipt = issueReceipt(preReceipt);
@@ -165,7 +166,7 @@ function signVerifierResult(antigen, verifier, signed) {
 function errorVerifierResult(verifier, err) {
   return {
     status: 'error',
-    verifierDigest: resolveVerifierDigest(verifier),
+    verifierDigest: verifier.verifierDigest || null,
     error: err.message,
     observations: [],
     counterexamples: [],
@@ -173,6 +174,7 @@ function errorVerifierResult(verifier, err) {
 }
 
 async function runSingleVerifier(antigen, verifier, ctx) {
+  resolveVerifierDigest(verifier);
   const worker = buildVerifierWorker(antigen, verifier);
   const enriched = enrichVerifier(antigen, verifier);
   const outcome = await executeVerifierWithAdapter(

@@ -58,6 +58,7 @@ function executionDetail(command, execution) {
   return {
     command,
     commandHash: execution.commandHash,
+    executionId: execution.executionId, processId: execution.processId,
     exitCode: execution.exitCode,
     success: execution.success,
     timedOut: execution.timedOut,

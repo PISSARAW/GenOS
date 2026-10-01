@@ -19,6 +19,8 @@
  */
 
 const crypto = require('node:crypto');
+const { implementationManifest } = require('./verifierImplementationManifest');
+const deploymentManifest = implementationManifest();
 
 const registry = new Map();
 
@@ -29,7 +31,7 @@ function computeVerifierDigest(type, version) {
   const normalizedType = String(type || 'unknown');
   const normalizedVersion = String(version || REGISTRY_VERSION);
   const identity = `genos-verifier:v1:type:${normalizedType}:version:${normalizedVersion}:policy:${REGISTRY_POLICY}`;
-  return `sha256:${crypto.createHash('sha256').update(identity).digest('hex')}`;
+  return `sha256:${crypto.createHash('sha256').update(identity).update(JSON.stringify(deploymentManifest)).digest('hex')}`;
 }
 
 function findByType(type) {
@@ -42,22 +44,19 @@ function findByType(type) {
 function ensureVerifier(type, version) {
   const existing = findByType(type);
   if (existing) return existing;
-  const digest = computeVerifierDigest(type, version);
-  return registerVerifier({
-    id: String(type),
-    type: String(type),
-    digest,
-    description: `Auto-registered verifier ${type}`,
-  });
+  throw new Error(`Unregistered verifier type: ${type}`);
 }
 
 function resolveVerifierDigest(verifier) {
-  if (!verifier || typeof verifier !== 'object') return computeVerifierDigest('unknown', REGISTRY_VERSION);
-  if (verifier.verifierDigest && isTrusted(verifier.verifierDigest)) return verifier.verifierDigest;
-  if (verifier.id && registry.has(verifier.id)) return registry.get(verifier.id).digest;
-  const byType = findByType(verifier.type);
-  if (byType) return byType.digest;
-  return ensureVerifier(verifier.type || 'unknown', verifier.version).digest;
+  if (!verifier || typeof verifier !== 'object') throw new Error('Verifier descriptor is required');
+  if (verifier.verifierDigest) {
+    if (!isTrusted(verifier.verifierDigest)) throw new Error('Untrusted verifier digest');
+    return verifier.verifierDigest;
+  }
+  if (verifier.version && verifier.version !== REGISTRY_VERSION) throw new Error('Unregistered verifier version');
+  const entry = findByType(verifier.type);
+  if (!entry) throw new Error(`Unregistered verifier type: ${verifier.type}`);
+  return entry.digest;
 }
 
 function registerVerifier({ id, type, digest, description = '' }) {
@@ -154,4 +153,5 @@ module.exports = {
   computeVerifierDigest,
   ensureVerifier,
   clear,
+  deploymentManifest,
 };

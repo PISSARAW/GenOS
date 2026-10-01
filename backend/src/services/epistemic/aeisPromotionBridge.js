@@ -308,7 +308,9 @@ async function evaluateReportWithAeis(report, context = {}) {
     ? await loadProviderProfiles(context.db)
     : [];
   const trustedVerifierDigests = require('../verifierTrustRegistry').listVerifierDigests();
-  return evaluateAeisForPromotion(antigens, { ...context, providerProfiles, trustedVerifierDigests });
+  const result = await evaluateAeisForPromotion(antigens, { ...context, providerProfiles, trustedVerifierDigests });
+  if (context.db) result.persistedAssemblyId = await require('../aeisAssemblyStore').saveAssembly(context.db, result);
+  return result;
 }
 
 async function loadProviderProfiles(db) {

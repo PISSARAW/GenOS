@@ -59,6 +59,7 @@ function assertAllowed(command) {
  */
 async function runIsolated({ command, cwd = process.cwd(), timeoutMs = DEFAULT_TIMEOUT_MS, env = {}, stdin = null }) {
   const startedAt = Date.now();
+  const executionId = crypto.randomUUID();
   const cmdHash = `sha256:${crypto.createHash('sha256').update(command).digest('hex')}`;
 
   assertAllowed(command);
@@ -89,6 +90,7 @@ async function runIsolated({ command, cwd = process.cwd(), timeoutMs = DEFAULT_T
       resolve({
         command,
         commandHash: cmdHash,
+        executionId, processId: child.pid || null,
         exitCode: -1,
         stdout: '',
         stderr: error.message,
@@ -102,6 +104,7 @@ async function runIsolated({ command, cwd = process.cwd(), timeoutMs = DEFAULT_T
       resolve({
         command,
         commandHash: cmdHash,
+        executionId, processId: child.pid || null,
         exitCode: code === null && signal ? -1 : (code || 0),
         stdout,
         stderr,
