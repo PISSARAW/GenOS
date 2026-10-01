@@ -869,6 +869,31 @@ contamination. Aucun protocole ne vaut résultat avant une vraie exécution hold
 des réplications distinctes. Voir [ADR 0250](../adr/0250-baseline-ctm-style-agow.md) et
 [ADR 0251](../adr/0251-protocoles-benchmarks-agow.md).
 
+### 16.7 Première campagne locale exploratoire — 2026-10-01
+
+Le protocole [`benchmarks/agow/protocol-local-2026-10.json`](../../benchmarks/agow/protocol-local-2026-10.json)
+a été exécuté sur `qwen2.5-coder:7b` via Ollama 0.35.0, commit runtime
+`572b4548`. La campagne comporte 12 cas d'ablation, 12 cas de médiation et trois
+réplications de huit cas disjoints, soit 108 appels modèle. Les reçus, réponses et
+corpus sont conservés dans le [résultat JSON](../../benchmarks/agow/results/campaign-2026-10-01T20-06-22-520Z.json)
+et le [résumé](../../benchmarks/agow/results/campaign-2026-10-01T20-06-22-520Z.md).
+
+| Contraste | Résultat observé |
+| --- | --- |
+| `full` contre `workspace_ablated` | 11/12 réponses exactes dans chaque condition; 136 contre 623 tokens moyens. |
+| `full` contre `broadcast_ablated` | 11/12 contre 0/12 réponses exactes. |
+| `broadcast_delivered` contre `broadcast_suppressed` | 12/12 contre 0/12 en médiation contrôlée. |
+| Trois réplications, mêmes conditions | chacune 8/8 contre 0/8 sur des cas distincts. |
+
+Cela mesure les primitives locales de compétition, diffusion et consommation avec un
+seul modèle et des valeurs synthétiques générées par graine. Les cas n'ont pas été
+scellés par un tiers; ce n'est pas un holdout métier indépendant. L'ablation indique
+ici une réduction de contexte sans perte mesurée d'exactitude pour le bypass, et un effet
+marqué de la disponibilité de l'évidence sur cette tâche lookup. L'échantillon et la
+tâche ne permettent ni de conclure sur AGOW dans son ensemble, ni de revendiquer une
+généralisation ou une significativité. Les reçus restent descriptifs; aucune promotion
+n'est émise.
+
 ---
 
 ## 17. Télémétrie et diagnostic
