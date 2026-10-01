@@ -9,8 +9,8 @@
 | --- | --- | --- |
 | 0 — Inventaire et décisions | Réalisé | ADR 0239 et inspection des services existants |
 | 1 — Registre durable | Réalisé | Migration `097-gvx-development-ledger`, test `test_gvx_development_ledger.js` |
-| 2 — Interoception et viabilité | En cours | Contrat initial et test `test_gvx_interoception.js` |
-| 3 — Transformations et curriculum | À faire | — |
+| 2 — Interoception et viabilité | Réalisé | `gvxInteroception.js`, test `test_gvx_interoception.js` |
+| 3 — Transformations et curriculum | En cours | `gvxTransformation.js`, test `test_gvx_transformation.js` ; graphe durable de compétences restant à faire |
 | 4 — Nurserie et preuve | À faire | — |
 | 5 — Adaptation somatique | À faire | — |
 | 6 — Transmission | À faire | — |
