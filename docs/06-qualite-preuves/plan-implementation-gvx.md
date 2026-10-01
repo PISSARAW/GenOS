@@ -1,9 +1,21 @@
 # Plan d’implémentation de GenOS Verified Evo-Devo (GVX)
 
-- **Statut** : proposition de réalisation par étapes ; aucune capacité GVX complète n’est revendiquée.
+- **Statut** : exécution en cours, un commit par lot ; aucune capacité GVX complète n’est revendiquée.
 - **Périmètre** : faire converger l’apprentissage, la morphogenèse, les expériences contrefactuelles, la transmission et la promotion vérifiée en un processus développemental traçable.
 - **Principe de livraison** : chaque étape livre une capacité bornée, avec provenance durable et critères de sortie vérifiables. Une preuve de transport ou un score interne ne vaut pas preuve d’amélioration.
 - **Source conceptuelle** : texte fourni par l’utilisateur, « GenOS Verified Evo-Devo — GVX ».
+
+| Lot | État | Preuve disponible |
+| --- | --- | --- |
+| 0 — Inventaire et décisions | Réalisé | ADR 0239 et inspection des services existants |
+| 1 — Registre durable | Réalisé | Migration `097-gvx-development-ledger`, test `test_gvx_development_ledger.js` |
+| 2 — Interoception et viabilité | En cours | Contrat initial et test `test_gvx_interoception.js` |
+| 3 — Transformations et curriculum | À faire | — |
+| 4 — Nurserie et preuve | À faire | — |
+| 5 — Adaptation somatique | À faire | — |
+| 6 — Transmission | À faire | — |
+| 7 — Méta-développement | À faire | — |
+| 8 — Évaluation | À faire | — |
 
 ## 1. Objectif et invariants
 
