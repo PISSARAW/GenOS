@@ -17,6 +17,13 @@ const BRIDGED_TOOLS: &[&str] = &[
     "genos_signal_chemotactic_follow",
     "genos_signal_plasmid_transfer",
     "genos_signal_collective_decision",
+    "genos_search_failures",
+    "genos_diagnose",
+    "genos_analyze_trajectory",
+    "genos_record_decision",
+    "genos_record_experience",
+    "genos_compile_memory",
+    "genos_blame",
 ];
 
 pub(super) fn bridged_catalog_specs() -> Vec<Value> {

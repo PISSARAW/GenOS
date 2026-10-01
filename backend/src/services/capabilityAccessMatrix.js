@@ -38,13 +38,16 @@ const INTERNAL_REALIZATION = Object.freeze({
 
 // Routes mirrored from the Node/Rust MCP dispatchers and checked by coherence tests.
 const ROUTABLE_TOOLS = Object.freeze([
-  'genos_a_team_preview', 'genos_audit', 'genos_biological_mode', 'genos_biomimicry',
+  'genos_a_team_preview', 'genos_analyze_trajectory', 'genos_audit', 'genos_biological_mode',
+  'genos_biomimicry', 'genos_blame',
   'genos_capsule_create', 'genos_change_organization', 'genos_change_strategy',
-  'genos_delegate_worker', 'genos_execute_primitive', 'genos_execute_strategy_pipeline',
+  'genos_compile_memory', 'genos_delegate_worker', 'genos_diagnose',
+  'genos_execute_primitive', 'genos_execute_strategy_pipeline',
   'genos_fossil_candidate', 'genos_fossil_decode', 'genos_fossil_excavate', 'genos_fossil_list',
   'genos_fossil_record', 'genos_fossil_strata', 'genos_merge', 'genos_orchestrate',
-  'genos_organization_state', 'genos_philosophy', 'genos_replay', 'genos_report_progress',
-  'genos_snapshot', 'genos_topology_session', 'genos_trinity_launch',
+  'genos_organization_state', 'genos_philosophy', 'genos_record_decision',
+  'genos_record_experience', 'genos_replay', 'genos_report_progress',
+  'genos_search_failures', 'genos_snapshot', 'genos_topology_session', 'genos_trinity_launch',
   'genos_signal_publish', 'genos_signal_read', 'genos_signal_purge', 'genos_signal_ground',
   'genos_signal_electrocyte_vote', 'genos_signal_chemotactic_follow',
   'genos_signal_plasmid_transfer', 'genos_signal_collective_decision',

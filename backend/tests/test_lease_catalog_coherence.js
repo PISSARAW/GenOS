@@ -58,9 +58,9 @@ assert.deepEqual([...matrix.CATALOGUED_TOOLS].sort(), routedCatalogTools,
 // preuve/memoire/topologie). Ils restent routes cote backend mais doivent
 // rejoindre le catalogue canonique ; tout nouveau gap fait echouer le test.
 const KNOWN_CATALOG_GAPS = new Set([
-  'genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence', 'genos_diff',
-  'genos_evaluate_trajectories', 'genos_record_experience', 'genos_fork', 'genos_create',
-  'genos_solve', 'genos_record_decision', 'genos_adversarial_review', 'genos_compile_memory',
+  'genos_hypothesis_evidence', 'genos_diff',
+  'genos_evaluate_trajectories', 'genos_fork', 'genos_create',
+  'genos_solve', 'genos_adversarial_review',
   'genos_resilience_hypermutation', 'genos_security_coevolution'
 ]);
 const missing = leasedTools().filter((tool) => !catalogNames.has(tool));
