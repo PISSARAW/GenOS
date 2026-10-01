@@ -20,6 +20,11 @@ function validateManifest(environment) {
   throw new TypeError('AGOW experiment requires model, dependency and tool lease manifests.');
 }
 
+function validateProtocol(protocol) {
+  if (protocol?.hypothesis && protocol?.primaryMetric && protocol?.analysisPlan) return;
+  throw new TypeError('AGOW experiment requires a preregistered hypothesis, primary metric and analysis plan.');
+}
+
 function validateCases(cases) {
   if (!cases.some((item) => !item.caseId || item.input === undefined)) return;
   throw new TypeError('Each holdout case requires caseId and input.');
@@ -29,6 +34,7 @@ function validate(options) {
   validateRequired(options);
   if (typeof options.execute !== 'function') throw new TypeError('AGOW experiment requires an execution adapter.');
   validateManifest(options.environment);
+  validateProtocol(options.protocol);
   if (options.holdout !== true) throw new TypeError('AGOW experiment corpus must be explicitly marked holdout.');
   validateCases(options.cases);
 }
@@ -64,11 +70,12 @@ function summarize(results) {
 async function executeCase(options) {
   const { item, condition, seed } = options;
   const snapshot = structuredClone(options.snapshot);
+  const initialSnapshotHash = digest(snapshot);
   const outcome = await options.execute({ caseId: item.caseId, input: structuredClone(item.input), condition, seed, snapshot });
   if (!outcome || typeof outcome !== 'object' || typeof outcome.success !== 'boolean') {
     throw new TypeError(`Experiment adapter returned an invalid outcome for ${item.caseId}/${condition}.`);
   }
-  return { caseId: item.caseId, condition, seed, outcome, initialSnapshotHash: digest(snapshot) };
+  return { caseId: item.caseId, condition, seed, outcome, initialSnapshotHash };
 }
 
 async function persist(options, receipt) {
@@ -85,6 +92,7 @@ async function run(options) {
   const environmentHash = digest(options.environment);
   const corpusHash = digest(options.cases.map(({ caseId, input }) => ({ caseId, input })));
   const snapshotHash = digest(options.snapshot);
+  const protocolHash = digest(options.protocol);
   const results = [];
   for (const item of options.cases) {
     for (const condition of seededOrder(options.conditions || CONDITIONS, `${seed}:${item.caseId}`)) {
@@ -94,7 +102,7 @@ async function run(options) {
   const receipt = {
     experimentId: randomUUID(), kind: options.kind || 'agow_ablation', createdAt: Date.now(), seed,
     holdout: true, caseCount: options.cases.length, conditions: [...new Set(results.map((entry) => entry.condition))],
-    snapshotHash, environmentHash, corpusHash, manifest: options.environment,
+    snapshotHash, environmentHash, corpusHash, protocol: options.protocol, protocolHash, manifest: options.environment,
     results, summary: summarize(results), promotionDecision: null,
     evidenceStatus: 'replication_required', caveat: 'One sealed holdout run is descriptive. No causal promotion or significance claim is emitted.'
   };
@@ -112,14 +120,27 @@ async function runReplicationCampaign(options) {
   const environmentHashes = new Set(replications.map((entry) => digest(entry.environment)));
   const corpusHashes = new Set(replications.map((entry) => digest(entry.cases.map(({ caseId, input }) => ({ caseId, input })))));
   const seeds = new Set(replications.map((entry) => String(entry.seed || '')));
-  if (environmentHashes.size !== 1 || corpusHashes.size !== replications.length || seeds.size !== replications.length) {
-    throw new TypeError('Replications require one environment and distinct holdout corpora and explicit seeds.');
+  const protocolHashes = new Set(replications.map((entry) => digest(entry.protocol)));
+  if (environmentHashes.size !== 1 || protocolHashes.size !== 1 || corpusHashes.size !== replications.length
+    || seeds.size !== replications.length || !disjointCorpora(replications)) {
+    throw new TypeError('Replications require one protocol and environment, disjoint holdout cases and distinct explicit seeds.');
   }
   const receipts = [];
   for (const replication of replications) receipts.push(await run({ ...replication, kind: 'agow_holdout_replication' }));
   return { campaignId: randomUUID(), replications: receipts.map((item) => item.experimentId), count: receipts.length,
     environmentHash: [...environmentHashes][0], corpusHashes: receipts.map((item) => item.corpusHash),
     status: 'descriptive_replication_complete', promotionDecision: null };
+}
+
+function disjointCorpora(replications) {
+  const seen = new Set();
+  for (const runOptions of replications) {
+    for (const item of runOptions.cases || []) {
+      if (seen.has(item.caseId)) return false;
+      seen.add(item.caseId);
+    }
+  }
+  return true;
 }
 
 async function list(options) {

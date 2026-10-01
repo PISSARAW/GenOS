@@ -23,14 +23,14 @@ manifestes ni les corpus réservés.
   réponses sont candidates et soumises au même arbitrage; une empreinte persistée
   applique un délai anti-répétition.
 - Fournir un runner d'ablation, de médiation contrôlée et de réplication qui exige un
-  snapshot, un manifeste d'environnement, des graines et des corpus marqués holdout.
+  snapshot, un protocole préenregistré, un manifeste d'environnement, des graines et des corpus marqués holdout.
   Les résultats sont descriptifs et la décision de promotion reste nulle.
 
 ## Conséquences et limites
 
 Le backend conserve l'isolation multi-agent au niveau de `adaptive_state`. Le runner
 ne fabrique ni snapshots reproductibles ni corpus indépendants: les appelants doivent
-fournir des entrées réelles, et les réplications doivent utiliser des partitions
-holdout disjointes. Aucun indicateur AGOW n'est promu par cette implémentation. Les
+fournir des entrées réelles et un protocole préenregistré; les campagnes vérifient des
+partitions holdout disjointes. Aucun indicateur AGOW n'est promu par cette implémentation. Les
 receveurs daemon et morphogenèse ne sont pas activés par défaut tant qu'un contrat
 d'effet runtime spécifique n'est pas défini.

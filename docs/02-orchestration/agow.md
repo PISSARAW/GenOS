@@ -120,7 +120,9 @@ même manifeste d'environnement. Chaque reçu conserve les résultats par cas, l
 empreintes et les agrégats de succès, erreurs, coût et latence. L'adaptateur fourni
 par l'appelant doit réellement exécuter chaque condition et garantir le snapshot
 initial. Les sorties restent descriptives (`promotionDecision: null`); aucun holdout
-indépendant n'a encore été exécuté ni validé.
+indépendant n'a encore été exécuté ni validé. Chaque runner exige un protocole
+préenregistré (hypothèse, métrique primaire, plan d'analyse); une campagne vérifie
+l'unicité des seeds et la disjonction des identifiants de cas.
 
 Les récepteurs daemon et morphogenèse, une preuve de réplication scientifique et le
 transfert d'autorité Rust demeurent hors de cette tranche. Voir [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md).
