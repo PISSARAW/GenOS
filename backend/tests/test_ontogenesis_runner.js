@@ -9,9 +9,11 @@ async function memoryDb() {
   const { migrateOntogenesis } = require('../src/db/migrations/migrateOntogenesis');
   const { migrateOntogenesisConversation } = require('../src/db/migrations/migrateOntogenesisConversation');
   const { migrateOntogenesisSchedule } = require('../src/db/migrations/migrateOntogenesisSchedule');
+  const { migrateOntogenesisQuestions } = require('../src/db/migrations/migrateOntogenesisQuestions');
   await migrateOntogenesis(db);
   await migrateOntogenesisConversation(db);
   await migrateOntogenesisSchedule(db);
+  await migrateOntogenesisQuestions(db);
   return db;
 }
 
