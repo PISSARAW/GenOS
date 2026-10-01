@@ -113,16 +113,26 @@ function requireRole(allowedRoles) {
   };
 }
 
-// Endpoints reachable without an Authorization header. Everything else
-// requires a valid access key or session; per-route permission checks still
-// apply on top of this global gate.
-const PUBLIC_PATHS = new Set(['/healthz', '/readyz', '/livez']);
-const PUBLIC_PREFIXES = ['/api/auth/', '/api/sso/', '/api/security/csrf'];
+// Public access is an exact method/path allowlist. Keep protocol callbacks
+// public, while requiring authentication for every new route by default.
+const PUBLIC_ROUTES = [
+  { method: 'GET', path: /^\/(?:healthz|readyz|livez)\/?$/ },
+  { method: 'POST', path: /^\/api\/auth\/(?:verify-token|verify-override|login(?:\/password)?)\/?$/ },
+  { method: 'GET', path: /^\/api\/sso\/providers\/?$/ },
+  { method: 'GET', path: /^\/api\/sso\/(?:start|callback)\/[^/]+\/?$/ },
+  { method: 'GET', path: /^\/api\/sso\/saml\/[^/]+\/start\/?$/ },
+  { method: 'POST', path: /^\/api\/sso\/saml\/[^/]+\/acs\/?$/ },
+  { method: 'GET', path: /^\/api\/security\/csrf\/?$/ }
+];
+
+function isPublicRequest(method, path) {
+  const requestMethod = String(method || '').toUpperCase();
+  return PUBLIC_ROUTES.some((route) => route.method === requestMethod && route.path.test(path));
+}
 
 async function requireAuthentication(req, res, next) {
   try {
-    if (req.method === 'OPTIONS' || PUBLIC_PATHS.has(req.path)) return next();
-    if (PUBLIC_PREFIXES.some((prefix) => req.path.startsWith(prefix))) return next();
+    if (req.method === 'OPTIONS' || isPublicRequest(req.method, req.path)) return next();
     const user = await resolveUserFromHeaders(req.headers);
     req.user = user;
     if (!user.isAuthenticated) {
@@ -136,6 +146,7 @@ module.exports = {
   ROLE_PERMISSIONS,
   resolveUserFromHeaders,
   requireAuthentication,
+  isPublicRequest,
   requirePermission,
   requireRole,
   hashKey

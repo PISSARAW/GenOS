@@ -74,6 +74,7 @@ const suites = {
     ['MCP server parity', 'test_mcp_server_parity.js']
   ],
   security: [
+    ['public route allowlist', 'test_auth_public_surface.js'],
     ['adversarial master', 'test_security_adversarial_master_runner.js']
   ],
   tenancy: [

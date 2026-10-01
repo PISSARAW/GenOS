@@ -230,6 +230,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0205](0205-parcours-aeis-et-causalite-procedurale.md) | Brancher les parcours AEIS et causalité procédurale | Accepté | 2026-09-30 | Backend, assurance épistémique, causalité |
 | [0206](0206-decision-evidence-binding.md) | Lier les décisions persistées à leurs preuves | Accepté | 2026-10-01 | Décisions, provenance, preuves, isolation tenant |
 
+| [0207](0207-transmettre-les-politiques-de-coordination-aux-workers.md) | Transmettre les politiques de coordination aux workers | Accepté | 2026-10-01 | Dispatch A-Team, coordination, handoffs |
+| [0208](0208-relier-perception-memoire-et-rappel.md) | Relier perception, mémoire et rappel | Accepté | 2026-10-01 | Perception, mémoire autobiographique, apprentissage |
+| [0209](0209-allowlist-surfaces-publiques.md) | Fermer les surfaces publiques par allowlist | Accepté | 2026-10-01 | API, authentification, sécurité |
+
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
 > 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,

@@ -124,6 +124,12 @@ async function csrfCheck(req, res, next) {
     return next();
   }
 
+  // SAML POST bindings cannot carry GenOS's browser CSRF token. Their
+  // authenticity is instead enforced by the ACS InResponseTo validation.
+  if (req.method === 'POST' && /^\/api\/sso\/saml\/[^/]+\/acs\/?$/.test(req.path)) {
+    return next();
+  }
+
   // Only a request whose credentials actually validate against the access-key
   // store may bypass the CSRF token check. Merely *carrying* an Authorization
   // header proves nothing: browsers do not attach attacker-chosen headers on
