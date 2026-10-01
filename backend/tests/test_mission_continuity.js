@@ -272,18 +272,6 @@ test('orchestrator succession is single-winner, atomic, and survives database re
   const members = await missionIdentity.members(db, missionId);
   assert.ok(members.some((member) => member.id === winner), 'winning successor remains linked to the mission after restart');
   assert.equal(members.filter((member) => member.role === 'orchestrator').length, 2, 'lineage retains prior and current orchestrators');
-test('concurrent mission succession has one durable winner', async () => {
-  await db.run("INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode) VALUES ('succ-orch', 'Succession source', 'orchestrator', 'idle', 'orchestrator')");
-  await db.run("INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode) VALUES ('succ-a', 'Successor A', 'orchestrator', 'idle', 'orchestrator')");
-  await db.run("INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode) VALUES ('succ-b', 'Successor B', 'orchestrator', 'idle', 'orchestrator')");
-  await missionIdentity.create(db, { missionId: 'succession-race', orchestratorAgentId: 'succ-orch' });
-  const results = await Promise.allSettled(['succ-a', 'succ-b'].map((agentId) =>
-    missionIdentity.attachOrchestrator(db, { missionId: 'succession-race', agentId, expectedOrchestratorId: 'succ-orch' })
-  ));
-  assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
-  assert.equal(results.filter((result) => result.status === 'rejected' && result.reason.code === 'MISSION_SUCCESSION_CONFLICT').length, 1);
-  const mission = await missionIdentity.get(db, 'succession-race');
-  assert.ok(['succ-a', 'succ-b'].includes(mission.orchestratorAgentId));
 });
 
 async function main() {

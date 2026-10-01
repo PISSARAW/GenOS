@@ -312,7 +312,7 @@ const migrationRunners = [
     const { migrateProceduralCausalExperiments } = require('./migrateProceduralCausalExperiments');
     await migrateProceduralCausalExperiments(db);
   }),
-  createMigrationRunner('087-biological-execution-receipts', 'Persist Rust biological receipts against backend missions', async (db) => {
+  createMigrationRunner('088-biological-execution-receipts', 'Persist Rust biological receipts against backend missions', async (db) => {
     const { migrateBiologicalExecutionReceipts } = require('./migrateBiologicalExecutionReceipts');
     await migrateBiologicalExecutionReceipts(db);
   }),
@@ -331,5 +331,3 @@ async function runMigration(db, version, description) {
 }
 
 module.exports = { migrationRunners, runMigration };
-
-

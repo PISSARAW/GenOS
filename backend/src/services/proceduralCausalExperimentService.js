@@ -28,6 +28,7 @@ async function ensureSchema(db) {
     snapshot_refs_json TEXT NOT NULL, snapshot_hashes_json TEXT NOT NULL,
     runner_id TEXT NOT NULL, environment_id TEXT NOT NULL,
     environment_hash TEXT NOT NULL, budget_json TEXT NOT NULL,
+    arms_json TEXT NOT NULL DEFAULT '{}',
     analysis_json TEXT NOT NULL, status TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -50,6 +51,10 @@ async function ensureSchema(db) {
     FOREIGN KEY(fork_id) REFERENCES procedural_causal_forks(fork_id)
   );
   CREATE INDEX IF NOT EXISTS idx_causal_forks_status ON procedural_causal_forks(experiment_id, status);`);
+  const columns = await db.all('PRAGMA table_info(procedural_causal_experiments)');
+  if (!columns.some((column) => column.name === 'arms_json')) {
+    await db.exec("ALTER TABLE procedural_causal_experiments ADD COLUMN arms_json TEXT NOT NULL DEFAULT '{}'");
+  }
 }
 
 function serialize(value) {
@@ -63,6 +68,7 @@ function validateExperiment(spec) {
   }
   if (!Array.isArray(spec.snapshots) || !spec.snapshots.length) throw new Error('At least one snapshot is required.');
   if (!spec.budget || !spec.analysis) throw new Error('Budget and analysis declarations are required.');
+  if (!spec.arms?.control || !spec.arms?.intervention) throw new Error('Control and intervention arms are required.');
 }
 
 async function createExperiment(db, spec) {
@@ -73,11 +79,11 @@ async function createExperiment(db, spec) {
   const environmentHash = digest(spec.environmentManifest);
   await db.run(`INSERT INTO procedural_causal_experiments
     (experiment_id, protocol_version, snapshot_refs_json, snapshot_hashes_json,
-     runner_id, environment_id, environment_hash, budget_json, analysis_json, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [
+     runner_id, environment_id, environment_hash, budget_json, arms_json, analysis_json, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [
     experimentId, spec.protocolVersion, serialize(spec.snapshots.map(({ snapshotId }) => snapshotId)),
     serialize(snapshotHashes), spec.runnerId, spec.environmentId, environmentHash,
-    serialize(spec.budget), serialize(spec.analysis),
+    serialize(spec.budget), serialize(spec.arms), serialize(spec.analysis),
   ]);
   return { experimentId, snapshotHashes, environmentHash, status: 'pending' };
 }

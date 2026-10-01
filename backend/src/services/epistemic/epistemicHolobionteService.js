@@ -349,7 +349,3 @@ module.exports = {
   matureStrategy,
   depositPheromone,
 };
-
-
-
-

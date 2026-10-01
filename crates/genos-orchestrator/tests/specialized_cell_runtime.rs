@@ -1,4 +1,5 @@
 use genos_orchestrator::GenosEcosystem;
+use genos_orchestrator::hgt_runtime::{HgtLeaseRequest, HgtTransferLease};
 use genos_orchestrator::genos_biology::{
     ObserverPerspective, Plasmid, ProkaryoticAgent, RawSignalPacket,
 };
@@ -6,8 +7,11 @@ use genos_orchestrator::genos_biology::{
 #[test]
 fn ecosystem_specialized_cells_return_measured_runtime_effects() {
     let mut eco = GenosEcosystem::new("specialized-cell-runtime");
+    let mission_id = uuid::Uuid::new_v4();
+    eco.set_mission_id(mission_id);
 
-    eco.guard_cell.regulate(0.2, 0.95);
+    let depletion = eco.orchestrator.metabolism.capacity * 0.99;
+    assert!(eco.orchestrator.metabolism.consume_for("runtime-test-depletion", depletion));
     let throttled = eco.throttle_flux(100.0);
     assert_eq!(throttled.requested_flux, 100.0);
     assert!(throttled.admitted_flux <= 1.0);
@@ -54,7 +58,19 @@ fn ecosystem_specialized_cells_return_measured_runtime_effects() {
         copy_number: 1,
     });
     let mut recipient = ProkaryoticAgent::new("runtime-recipient");
-    let transfer = eco.hgt_transfer(&mut recipient, "p-runtime").unwrap();
+    let mut lease = HgtTransferLease::grant(HgtLeaseRequest {
+        lease_id: "lease-runtime-test".into(),
+        mission_id,
+        donor_id: "runtime-donor".into(),
+        recipient_id: "runtime-recipient".into(),
+        plasmid_id: "p-runtime".into(),
+        expires_at_unix_ms: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() + 60_000,
+    })
+    .unwrap();
+    let transfer = eco.hgt_transfer_under_lease(&mut recipient, &mut lease).unwrap();
     assert!(transfer.horizontal_transfer_success);
     assert_eq!(recipient.plasmids.len(), 1);
     assert!(

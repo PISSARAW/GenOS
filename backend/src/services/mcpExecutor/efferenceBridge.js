@@ -1,5 +1,4 @@
 'use strict';
-
 const { randomUUID } = require('crypto');
 
 function toolOutcomePayload(context, result) {

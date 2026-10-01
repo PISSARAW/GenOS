@@ -25,6 +25,12 @@ async function migrateBiologicalExecutionReceipts(db) {
     ON biological_execution_receipts(mission_id, tick, created_at);
   CREATE INDEX IF NOT EXISTS idx_biological_receipts_homeostasis
     ON biological_execution_receipts(homeostasis_state_id);
+  CREATE TABLE IF NOT EXISTS biological_execution_missions (
+    mission_id TEXT PRIMARY KEY,
+    rust_mission_id TEXT NOT NULL UNIQUE,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (mission_id) REFERENCES missions(mission_id) ON DELETE CASCADE
+  );
   `);
   await addOriginColumns(db);
 }

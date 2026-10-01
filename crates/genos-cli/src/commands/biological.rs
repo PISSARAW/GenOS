@@ -111,7 +111,7 @@ fn run_and_report(
     let mut ecosystem = GenosEcosystem::new(&cmd.mission);
     ecosystem.set_mission_id(mission_id);
     restore_or_seed(&mut ecosystem, &mut checkpoints, cmd)?;
-    let (report, receipts) = ecosystem
+    let (report, mut receipts) = ecosystem
         .tick_and_persist_with_receipts(&Goal::Explore, &store)
         .map_err(|error| {
             format!(
@@ -119,6 +119,12 @@ fn run_and_report(
                 error.message
             )
         })?;
+    if cmd.divide {
+        let division = ecosystem
+            .divide_for_mission(&store)
+            .map_err(|error| format!("mission division receipt was not persisted: {error:?}"))?;
+        receipts.push(serde_json::to_value(division).map_err(|error| error.to_string())?);
+    }
     let state = OrchestratorCheckpointState::from_ecosystem(&ecosystem);
     checkpoints
         .create_checkpoint(&state)

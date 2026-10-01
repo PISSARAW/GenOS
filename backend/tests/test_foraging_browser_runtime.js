@@ -10,7 +10,7 @@ const { forageStep } = require('../src/services/foragingLoopService');
 async function run() {
   const server = http.createServer((req, res) => {
     const page = req.url === '/next'
-      ? '<title>Recovery note</title><h1>Rollback token: ORCHID19</h1>'
+      ? '<title>Recovery note</title><p>New patch observed</p><h1>Rollback token: ORCHID19</h1>'
       : '<title>Release note</title><h1>Runbook action: KESTREL42</h1><a href="/next">Recovery note</a>';
     res.writeHead(200, { 'content-type': 'text/html' });
     res.end(`<html><body>${page}</body></html>`);
