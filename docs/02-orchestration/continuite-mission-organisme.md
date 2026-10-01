@@ -1,6 +1,6 @@
 # Continuité de mission : l'organisme logiciel
 
-- **Statut** : Partiel (gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable ; régénération axolotl et dormance persistante branchées, succession d'identité atomique et persistante ; autorité d'exécution multi-processus non validée)
+- **Statut** : Partiel (gate de complétion, feedback loop continuation, bornage/idempotence, preuves runtime, immunité enforceable ; régénération axolotl et dormance persistante branchées, succession d'identité atomique et persistante ; autorité d'exécution validée sur deux processus SQLite WAL, déploiement multi-instance non testé)
 - **Portée** : control plane Node, services de survie de mission
 - **Dernière revue** : 2026-10-01
 

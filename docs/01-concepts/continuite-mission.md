@@ -1,6 +1,6 @@
 # Continuité de mission — l'organisme logiciel et ses six systèmes de survie
 
-- **Statut** : Partiel — gate de complétion, continuation bornée et idempotente, preuves runtime, immunité, identité durable, suspension/réveil persistés et dispatch de régénération raccordés ; le réveil revendique atomiquement sa condition pour prévenir le double dispatch. Les chemins de succession, reprise après échec et remplacement restent soumis à validation d'intégration.
+- **Statut** : Partiel — gate de complétion, continuation bornée et idempotente, preuves runtime, immunité, identité durable, suspension/réveil persistés et dispatch de régénération raccordés ; le réveil revendique atomiquement sa condition pour prévenir le double dispatch. La succession multi-processus est validée par `test_mission_succession_processes.js` (deux processus, store WAL partagé, perdant et ancien orchestrateur bloqués, réservation reprise après kill). La reprise après échec et le remplacement restent soumis à validation d'intégration.
 - **Portée** : control plane Node — `missionIdentityService`, `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `homeostasisContinuationService`, `missionContinuityService`, `missionEvidenceCollector`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalStateService`, `survivalWakeService`, `survivalModesService` ; pont `backend/bin/genos-orchestrate.cjs` + helpers `continuationFeedbackLoop.cjs`, `orchestratorMissionHelpersBuildContext.cjs` ; migrations 033 `homeostasis_states`, 034 `mission_organism_state`, 085 `missions`/`mission_agents`, 027 `continuation_queue`.
 - **Dernière revue** : 2026-09-30.
 
@@ -372,9 +372,10 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
 - **Vérifié par tests ciblés** : le réveil refuse un mauvais événement, deux
   réveils concurrents ne revendiquent qu'une fois le snapshot, un dispatch
   échoué restaure la dormance et peut être retenté, et le remplacement restaure
-  le rôle requis (`npm --prefix backend run test:biological-bridge`). La
-  succession concurrente de l'identité d'orchestrateur et le contrôle après
-  redémarrage restent à couvrir.
+   le rôle requis (`npm --prefix backend run test:biological-bridge`). La
+   succession concurrente de l'identité d'orchestrateur est couverte par
+   `test_mission_succession_processes.js`, y compris le contrôle après
+   redémarrage d'un processus réservant.
 - **Garde-fou** : l'apoptose systémique n'est jamais automatique —
   `apoptosisDecision()` exige `humanAuthorized: true`.
 - **Garde-fou** : un verdict homéostatique insatisfait est rapporté tel quel ;

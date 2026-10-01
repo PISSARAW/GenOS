@@ -64,3 +64,38 @@ Windows, la limite PDB du linker exige `cargo rustc -p genos-orchestrator
 Le lot 6 lie les digests AEIS au code déployé et signe les preuves des processus réellement exécutés. Le nouveau test utilise les adaptateurs de production pour exécuter deux fois la vraie suite du dépôt, puis relit l’assemblée signée dans un autre processus SQLite et refuse les altérations (ADR 0233, confiance AEIS).
 
 Le lot 7 isole les tentatives POET, impose un fichier lié au snapshot, borne l’attente et fige la sélection avant le split tenu à l’écart. Le harness multi-graines a exécuté le runtime local de production avec Ollama sur six missions : 0/3 entraînement et 0/3 tenu à l’écart. Les échecs sont conservés ; aucun succès de généralisation n’est revendiqué. La famille reste synthétique et le chemin positif Codex n’est pas démontré (ADR 0234).
+
+## Lots 2, 4 et 5 — preuves exécutées le 2026-10-01
+
+Planification : `node backend/tests/search/test_planning_gap.js` affirme
+l’optimalité GenOS sur les douze tâches via l’oracle BFS
+(`planningGapOracle.js`, sans coupure). Mesuré : Blocksworld 2/2/8/6/8/6/16/6
+(dont `bw-table-6` à 16) et TrapChain 8/10/8/13 ; heuristique TrapChain
+admissible (distance ignorant les portes). Foraging :
+`node backend/tests/test_foraging_deadline.js` impose l’échéance globale —
+navigation annulée (page fermée, aucune observation tardive) et tâche image
+tuée (aucun artefact tardif).
+
+Succession : `node backend/tests/test_mission_succession_processes.js`
+(« Two SQLite-backed processes: single executable successor, stale authority
+blocked, reserved crash recovered ») — autorité réservée avant lancement,
+perdant et ancien orchestrateur bloqués (`MISSION_AUTHORITY_STALE`), un seul
+effet inscrit, réservation reprise après kill d’un processus.
+
+Reçus et clinique :
+`GENOS_RECEIPT_TEST_BINARY=<receipt_bridge.exe --features api>` puis
+`node backend/tests/test_rust_receipt_process_e2e.js` — tick Rust vers HTTP
+authentifié puis SQLite, backend fermé, tick hors ligne en échec explicite,
+nouveau backend, retransmission puis déduplication au second flush, identités
+cellule/empreintes génome conservées ; autorisation clinique explicite vers
+mutation Rust (`last_treatment_applied`), signature forgée/expirée/cellule
+inconnue refusées, rejeu sans réapplication, reçu
+`genos.clinical-application/v1` durable. AEIS :
+`node backend/tests/test_aeis_production_adapters.js` (suite réelle, preuves
+signées multi-processus, refus des altérations) et
+`node backend/tests/test_approve_run_deferred_promotion.js` (rejet sans
+signature, deux reçus indépendants acceptés).
+
+Porte qualité ce jour : 356 violations (140 nouvelles), hors apport de ces
+lots ; la remise à zéro reste un chantier distinct, sans relèvement du
+baseline.
