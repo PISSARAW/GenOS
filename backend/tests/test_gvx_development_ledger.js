@@ -47,13 +47,47 @@ async function verifiesValidation(db) {
   }).includes('parentHash-invalid'));
 }
 
+async function verifiesHashChain(db) {
+  const scope = { organizationId: 'org-a', projectId: 'project-a', entityId: 'organism-a' };
+  const valid = await ledger.verifyLedgerChain(db, scope);
+  assert.strictEqual(valid.valid, true);
+  assert.ok(valid.headHash.match(/^[a-f0-9]{64}$/));
+  await db.exec('DROP TRIGGER gvx_events_no_update');
+  await db.run('UPDATE gvx_development_events SET payload_json = ? WHERE id = (SELECT id FROM gvx_development_events LIMIT 1)', '{}');
+  const tampered = await ledger.verifyLedgerChain(db, scope);
+  assert.strictEqual(tampered.valid, false);
+  assert.strictEqual(tampered.reason, 'event-hash-mismatch');
+  await assert.rejects(ledger.listEvents(db, scope), { code: 'GVX_LEDGER_CHAIN_INVALID' });
+}
+
+async function verifiesLegacyMigration() {
+  const db = await open({ filename: ':memory:', driver: sqlite3.Database });
+  try {
+    await db.exec(`CREATE TABLE gvx_development_events (
+      id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, project_id TEXT NOT NULL, entity_id TEXT NOT NULL,
+      event_type TEXT NOT NULL, parent_hash TEXT, candidate_hash TEXT, payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+    await db.run(`INSERT INTO gvx_development_events
+      (id, organization_id, project_id, entity_id, event_type, payload_json)
+      VALUES ('legacy-event', 'org-a', 'project-a', 'organism-a', 'snapshot_created', '{}')`);
+    await migrateGvxLedger(db);
+    const result = await ledger.verifyLedgerChain(db, {
+      organizationId: 'org-a', projectId: 'project-a', entityId: 'organism-a'
+    });
+    assert.strictEqual(result.valid, true);
+    assert.strictEqual(result.eventCount, 1);
+  } finally { await db.close(); }
+}
+
 async function main() {
   const db = await createDb();
   try {
     await verifiesAppendAndScope(db);
     await verifiesImmutability(db);
     await verifiesValidation(db);
+    await verifiesHashChain(db);
   } finally { await db.close(); }
+  await verifiesLegacyMigration();
   console.log('GVX ledger checks passed.');
 }
 

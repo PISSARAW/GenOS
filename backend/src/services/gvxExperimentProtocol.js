@@ -3,13 +3,14 @@
 const { randomUUID } = require('crypto');
 const { appendEvent } = require('./gvxDevelopmentLedger');
 
-const CHAMBERS = Object.freeze(['direct', 'structured', 'falsification']);
+const TRINITY_ARMS = Object.freeze(['direct', 'structured', 'falsification']);
+const DESIGN_TYPES = Object.freeze(['paired', 'trinity', 'multi_arm', 'ablation']);
 const HASH = /^[a-f0-9]{64}$/;
 
 function validatePlan(plan) {
   if (!plan || typeof plan !== 'object') return ['experiment-object-required'];
   return [
-    ...scopeErrors(plan), ...snapshotErrors(plan), ...chamberErrors(plan),
+    ...scopeErrors(plan), ...snapshotErrors(plan), ...designErrors(plan),
     ...budgetErrors(plan), ...controlErrors(plan)
   ];
 }
@@ -24,16 +25,35 @@ function snapshotErrors(plan) {
   return [];
 }
 
-function chamberErrors(plan) {
-  if (!Array.isArray(plan.worlds) || plan.worlds.length !== 3) return ['three-worlds-required'];
-  const ids = plan.worlds.map((world) => world.chamber);
-  if (new Set(ids).size !== 3 || CHAMBERS.some((chamber) => !ids.includes(chamber))) return ['world-chambers-invalid'];
-  return plan.worlds.flatMap((world) => validateWorld(plan, world));
+function designErrors(plan) {
+  const design = plan.experimentDesign;
+  if (!design || !DESIGN_TYPES.includes(design.type)) return ['experiment-design-type-invalid'];
+  if (!Array.isArray(design.arms) || design.arms.length < 2) return ['experiment-arms-required'];
+  if (design.arms.some((arm) => !arm || typeof arm !== 'object' || Array.isArray(arm))) return ['experiment-arm-object-required'];
+  return [...armRoleErrors(design), ...design.arms.flatMap((arm) => validateArm(plan, arm)),
+    ...duplicateErrors(design.arms)];
 }
 
-function validateWorld(plan, world) {
+function duplicateErrors(arms) {
+  const fields = [['armId', 'experiment-arm-ids-duplicate'], ['worldId', 'experiment-world-ids-duplicate'],
+    ['role', 'experiment-arm-roles-duplicate']];
+  return fields.filter(([field]) => new Set(arms.map((arm) => arm[field])).size !== arms.length)
+    .map(([, error]) => error);
+}
+
+function armRoleErrors(design) {
+  const roles = design.arms.map((arm) => arm.role);
+  const expected = { paired: ['baseline', 'candidate'], trinity: [...TRINITY_ARMS],
+    ablation: ['full', 'mechanism_removed'] }[design.type];
+  if (expected && (roles.length !== expected.length || expected.some((role) => !roles.includes(role)))) {
+    return [`experiment-${design.type}-roles-invalid`];
+  }
+  return roles.every((role) => typeof role === 'string' && role.trim()) ? [] : ['experiment-arm-role-required'];
+}
+
+function validateArm(plan, world) {
   const errors = [];
-  if (!world.worldId || !world.isolationId) errors.push('world-identity-required');
+  if (!world.armId || !world.role || !world.worldId || !world.isolationId) errors.push('world-identity-required');
   if (world.snapshotHash !== plan.snapshotHash) errors.push('world-snapshot-mismatch');
   if (!world.strategyId || !Number.isFinite(world.budget) || world.budget !== plan.worldBudget) errors.push('world-control-mismatch');
   return errors;
@@ -58,7 +78,8 @@ function preparePlan(input) {
     worldBudget: input.worldBudget,
     controls: { ...input.controls },
     verifierRequirements: [...new Set(input.verifierRequirements)],
-    worlds: input.worlds.map((world) => ({ ...world, status: 'pending', outcome: null }))
+    experimentDesign: { type: input.experimentDesign.type,
+      arms: input.experimentDesign.arms.map((arm) => ({ ...arm, status: 'pending', outcome: null })) }
   };
 }
 
@@ -75,7 +96,8 @@ async function recordExperimentPlan(db, input) {
 
 function assessOutcomes(plan, outcomes) {
   const byWorld = new Map((outcomes || []).map((outcome) => [outcome.worldId, outcome]));
-  const results = plan.worlds.map((world) => assessWorld(world, byWorld.get(world.worldId), plan.verifierRequirements));
+  const results = plan.experimentDesign.arms.map((arm) => assessWorld(arm,
+    byWorld.get(arm.worldId), plan.verifierRequirements));
   const blocked = results.some((result) => result.status === 'blocked');
   const incomplete = results.some((result) => result.status !== 'complete');
   return {
@@ -87,13 +109,14 @@ function assessOutcomes(plan, outcomes) {
 }
 
 function assessWorld(world, outcome, requirements) {
-  if (!outcome || outcome.status !== 'completed') return { worldId: world.worldId, status: 'inconclusive', reason: 'world-not-completed' };
-  if (!Array.isArray(outcome.evidence) || !outcome.evidence.length) return { worldId: world.worldId, status: 'blocked', reason: 'evidence-missing' };
+  const identity = { armId: world.armId, role: world.role, worldId: world.worldId };
+  if (!outcome || outcome.status !== 'completed') return { ...identity, status: 'inconclusive', reason: 'world-not-completed' };
+  if (!Array.isArray(outcome.evidence) || !outcome.evidence.length) return { ...identity, status: 'blocked', reason: 'evidence-missing' };
   const refs = outcome.evidence.filter(validEvidence);
   const covered = new Set(refs.map((item) => item.requirement));
   const missing = requirements.filter((item) => !covered.has(item));
-  if (missing.length) return { worldId: world.worldId, status: 'inconclusive', reason: 'verifier-requirements-unmet', missing };
-  return { worldId: world.worldId, status: 'complete', evidence: refs };
+  if (missing.length) return { ...identity, status: 'inconclusive', reason: 'verifier-requirements-unmet', missing };
+  return { ...identity, status: 'complete', evidence: refs };
 }
 
 function validEvidence(item) {
@@ -114,4 +137,4 @@ async function recordExperimentOutcomes(db, context) {
   });
 }
 
-module.exports = { CHAMBERS, validatePlan, recordExperimentPlan, assessOutcomes, recordExperimentOutcomes };
+module.exports = { TRINITY_ARMS, DESIGN_TYPES, validatePlan, recordExperimentPlan, assessOutcomes, recordExperimentOutcomes };

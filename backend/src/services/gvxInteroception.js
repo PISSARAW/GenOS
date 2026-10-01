@@ -7,19 +7,29 @@ const SIGNALS = Object.freeze([
   'securityAnomalies', 'calibrationError', 'coordinationLoad'
 ]);
 const STATUS = Object.freeze(['measured', 'unknown', 'stale', 'invalid']);
+const DEFAULT_MAX_AGE_MS = 5 * 60 * 1000;
 
-function normalizeMeasurement(signal, measurement) {
+function normalizeMeasurement(signal, measurement, policy) {
   if (isMissing(measurement)) {
     return { value: null, status: 'unknown', source: measurement?.source || null, measuredAt: null };
   }
-  const valid = validValue(measurement.value) && validSource(measurement.source) && validTimestamp(measurement.measuredAt);
+  const checked = measurementFreshness(measurement, policy);
   return {
-    value: valid ? measurement.value : null,
-    status: valid ? 'measured' : 'invalid',
+    value: checked.valid ? measurement.value : null,
+    status: checked.status,
     source: typeof measurement.source === 'string' ? measurement.source : null,
-    measuredAt: valid && typeof measurement.measuredAt === 'string' ? measurement.measuredAt : null,
+    measuredAt: checked.valid ? checked.measuredAt : null,
     signal
   };
+}
+
+function measurementFreshness(measurement, policy) {
+  const measuredAt = measurement.measuredAt || policy.observedAt;
+  const timestamp = Date.parse(measuredAt);
+  const age = Date.parse(policy.now) - timestamp;
+  const valid = validValue(measurement.value) && validSource(measurement.source)
+    && validTimestamp(measuredAt) && age >= 0;
+  return { valid, measuredAt, status: !valid ? 'invalid' : age > policy.maxAgeMs ? 'stale' : 'measured' };
 }
 
 function isMissing(measurement) {
@@ -35,9 +45,10 @@ function validTimestamp(value) { return typeof value === 'string' && Number.isFi
 
 function buildInteroceptiveState(input) {
   validateScope(input.scope);
+  const policy = freshnessPolicy(input);
   const measurements = input.measurements || {};
   const dimensions = Object.fromEntries(SIGNALS.map((signal) => [
-    signal, normalizeMeasurement(signal, measurements[signal])
+    signal, normalizeMeasurement(signal, measurements[signal], policy)
   ]));
   return {
     schema: 'genos.gvx.interoception/v1',
@@ -47,6 +58,23 @@ function buildInteroceptiveState(input) {
     dimensions
   };
 }
+
+function freshnessPolicy(input) {
+  const supplied = input.freshnessPolicy || {};
+  const maxAgeMs = Number(supplied.maxAgeMs ?? DEFAULT_MAX_AGE_MS);
+  if (!validMaxAge(maxAgeMs)) throw policyError('gvx-interoception-max-age-invalid');
+  const now = supplied.now ?? input.now ?? new Date().toISOString();
+  const observedAt = supplied.observedAt ?? null;
+  if (!validClock(now, observedAt)) throw policyError('gvx-interoception-clock-invalid');
+  return { maxAgeMs, now: new Date(Date.parse(now)).toISOString(),
+    observedAt: observedAt ? new Date(Date.parse(observedAt)).toISOString() : null };
+}
+
+function validMaxAge(value) { return Number.isFinite(value) && value >= 0; }
+function validClock(now, observedAt) {
+  return Number.isFinite(Date.parse(now)) && (!observedAt || Number.isFinite(Date.parse(observedAt)));
+}
+function policyError(message) { return Object.assign(new Error(message), { code: 'GVX_INTEROCEPTION_POLICY_INVALID' }); }
 
 function validateScope(scope) {
   if (!scope || typeof scope.organizationId !== 'string' || !scope.organizationId.trim()
@@ -107,4 +135,4 @@ function satisfies(value, rule) {
   return value === rule.threshold;
 }
 
-module.exports = { SIGNALS, STATUS, buildInteroceptiveState, evaluateViability };
+module.exports = { SIGNALS, STATUS, DEFAULT_MAX_AGE_MS, buildInteroceptiveState, evaluateViability, normalizeMeasurement };

@@ -18,7 +18,7 @@ function profile() {
 
 function measurements(values) {
   return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, {
-    value, source: `fixture:${key}`, measuredAt: '2026-10-01T00:00:00.000Z'
+    value, source: `fixture:${key}`, measuredAt: new Date().toISOString()
   }]));
 }
 
@@ -49,7 +49,28 @@ function checksInvalidInput() {
   }), undefined);
 }
 
+function checksStaleness() {
+  const measuredAt = '2026-10-01T00:00:00.000Z';
+  const stale = buildInteroceptiveState({ scope: scope(), now: '2026-10-01T00:00:02.000Z',
+    freshnessPolicy: { maxAgeMs: 1000 }, measurements: { evidenceIntegrity: {
+      value: 1, source: 'fixture:stale', measuredAt
+    } } });
+  assert.strictEqual(stale.dimensions.evidenceIntegrity.status, 'stale');
+  assert.strictEqual(stale.dimensions.evidenceIntegrity.value, 1);
+  assert.strictEqual(evaluateViability(stale, profile()).status, 'inconclusive');
+  const future = buildInteroceptiveState({ scope: scope(), now: '2026-10-01T00:00:00.000Z',
+    freshnessPolicy: { maxAgeMs: 1000 }, measurements: { evidenceIntegrity: {
+      value: 1, source: 'fixture:future', measuredAt: '2026-10-01T00:00:01.000Z'
+    } } });
+  assert.strictEqual(future.dimensions.evidenceIntegrity.status, 'invalid');
+  const untimestamped = buildInteroceptiveState({ scope: scope(), freshnessPolicy: {
+    maxAgeMs: 1000, now: '2026-10-01T00:00:00.000Z'
+  }, measurements: { evidenceIntegrity: { value: 1, source: 'fixture:no-time' } } });
+  assert.strictEqual(untimestamped.dimensions.evidenceIntegrity.status, 'invalid');
+}
+
 checksMeasuredState();
 checksUnknownAndFailure();
+checksStaleness();
 assert.throws(checksInvalidInput, { code: 'GVX_RULE_INVALID' });
 console.log('GVX interoception checks passed.');
