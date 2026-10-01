@@ -179,7 +179,7 @@ async function runAction(context, args) {
   await linkCausality(context, result);
   if (result.success && context.decision.tool === 'genos_record_experience') await compileMemory(context, args);
   try {
-    await require('./swarmTopologyRuntimeService').applyStepForOrchestrator(context.orchestratorId, { db: context.db || undefined });
+    await require('./swarmTopologyRuntimeService').applyStepsForOrchestrator(context.orchestratorId, { db: context.db || undefined, steps: 3 });
   } catch (err) {
     console.error(`[OrchestrationActionExecutor] Error applying step for orchestrator ${context.orchestratorId}:`, err.message);
   }
