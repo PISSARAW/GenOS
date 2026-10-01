@@ -332,6 +332,10 @@ const migrationRunners = [
     const { migrateOntogenesisQuestions } = require('./migrateOntogenesisQuestions');
     await migrateOntogenesisQuestions(db);
   }),
+  createMigrationRunner('092-ontogenesis-summaries', 'Persist Ontogenese memory compaction summaries (roadmap P4)', async (db) => {
+    const { migrateOntogenesisSummaries } = require('./migrateOntogenesisSummaries');
+    await migrateOntogenesisSummaries(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
