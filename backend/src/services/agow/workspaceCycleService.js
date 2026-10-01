@@ -27,7 +27,8 @@ async function runActiveQuery(options) {
     expectedInformationGain: Math.max(options.frame.epistemicState.uncertainty, options.frame.causalContext.predictionError)
   });
   if (!planned.planned) return planned;
-  const result = await queryService.execute({ query: planned.query, frame: options.frame, db: options.db });
+  const result = await queryService.execute({ query: planned.query, frame: options.frame, db: options.db,
+    counterfactualExecutor: options.counterfactualExecutor });
   return { ...planned, result };
 }
 
