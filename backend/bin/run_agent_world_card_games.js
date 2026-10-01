@@ -34,8 +34,7 @@ const CODE_ROUTING = { maxTokens: 8000, timeoutMs: 900000 };
 const PLAN_ROUTING = { maxTokens: 8000, timeoutMs: 900000 };
 
 // withImmunity resolves askLocalLLM through module.exports, so the budget is raised there.
-immuneSystem.askLocalLLM = (prompt, complexity, agentId, variantIndex) =>
-  askLocalLLM(prompt, complexity, agentId, variantIndex, PLAN_ROUTING);
+immuneSystem.askLocalLLM = (...request) => askLocalLLM(...request, PLAN_ROUTING);
 
 /* ------------------------------------------------------------------ */
 /* infrastructure                                                      */

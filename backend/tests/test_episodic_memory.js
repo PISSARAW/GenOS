@@ -153,7 +153,7 @@ async function runTests() {
   );
 
   const anchorItem = { id: decAnchorId, createdAt: tAnchor };
-  const temporalPastNeighbors = await graphRagService.fetchTemporalAnchors([anchorItem], db, agentId, { horizonHours: 24 });
+  const temporalPastNeighbors = await graphRagService.fetchTemporalAnchors([anchorItem], db, { ownerId: agentId, horizonHours: 24 });
   
   // The 48-hour-old decision should NOT be pulled because it exceeds the 24h horizon
   const foundOld = temporalPastNeighbors.some(n => n.id === decOldId);

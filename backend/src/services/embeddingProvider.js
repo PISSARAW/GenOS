@@ -24,7 +24,7 @@ function normalizeVector(vec = [], targetDim = 768) {
   return adjusted;
 }
 
-async function embedWithOpenAi(text, apiKey, endpoint, model) {
+async function embedWithOpenAi(text, apiKey, { endpoint, model }) {
   const url = endpoint || 'https://api.openai.com/v1/embeddings';
   validateProviderEndpoint(url);
   const embeddingModel = model || 'text-embedding-3-small';
@@ -120,12 +120,10 @@ async function embed(text) {
   const openAiKey = process.env.GENOS_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY;
   if ((process.env.GENOS_EMBEDDING_PROVIDER === 'openai' || (!process.env.GENOS_EMBEDDING_PROVIDER && openAiKey)) && openAiKey) {
     try {
-      const vec = await embedWithOpenAi(
-        cleanText,
-        openAiKey,
-        process.env.GENOS_EMBEDDING_URL,
-        process.env.GENOS_EMBEDDING_MODEL
-      );
+      const vec = await embedWithOpenAi(cleanText, openAiKey, {
+        endpoint: process.env.GENOS_EMBEDDING_URL,
+        model: process.env.GENOS_EMBEDDING_MODEL
+      });
       if (vec) return vec;
     } catch (_) {}
   }

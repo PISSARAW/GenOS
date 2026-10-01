@@ -13,7 +13,7 @@ async function run(req, res, next) {
     const traceId = crypto.randomUUID().replace(/-/g, '');
     await db.run('INSERT INTO framework_executions(id,organization_id,project_id,framework,trace_id,status,input_json) VALUES(?,?,?,?,?,?,?)', id, ...scope.params, framework, traceId, 'running', JSON.stringify(req.body?.input || {}));
     try {
-      const result = await runner.execute(framework, req.body?.input || {}, req.body?.config || {}, { traceId });
+      const result = await runner.execute(framework, req.body?.input || {}, { config: req.body?.config || {}, options: { traceId } });
       await db.run("UPDATE framework_executions SET status='completed',output_json=?,completed_at=CURRENT_TIMESTAMP WHERE id=?", JSON.stringify(result.output), id);
       res.status(201).json({ id, ...result });
     } catch (error) {

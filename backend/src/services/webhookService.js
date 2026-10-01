@@ -60,7 +60,7 @@ async function assertPublicWebhookUrl(rawUrl) {
 // The connection is pinned to the address that was just validated, so a DNS
 // record cannot be repointed at an internal host between validation and the
 // HTTP request (DNS rebinding / TOCTOU).
-function postPinned(target, body, headers, timeoutMs = 10000) {
+function postPinned(target, body, { headers, timeoutMs = 10000 }) {
   return new Promise((resolve, reject) => {
     const request = https.request({
       hostname: target.hostname,
@@ -96,11 +96,11 @@ async function dispatchEvent(event) {
       const body = JSON.stringify({ event, sentAt: new Date().toISOString() });
       const signature = crypto.createHmac('sha256', secret).update(body).digest('hex');
       try {
-        const response = await postPinned(target, body, {
+        const response = await postPinned(target, body, { headers: {
           'content-type': 'application/json',
           'content-length': Buffer.byteLength(body),
           'x-genos-signature': signature
-        });
+        } });
         if (response.statusCode < 200 || response.statusCode >= 300) throw new Error(`Webhook returned HTTP ${response.statusCode}.`);
       } catch (_) {
         // A failed delivery must not retain the event or block later events.

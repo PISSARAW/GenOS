@@ -14,11 +14,18 @@ function workspaceInitializationAlertId(workspaceId) {
   return `alert-workspace-${digest}-initialized`;
 }
 
-async function ensureConfiguredWorkspace(db) {
+function localWorkspaceConfig() {
   if (String(process.env.GENOS_WORKSPACES_ROOT || '').trim()) return;
   const workspaceRoot = String(process.env.GENOS_WORKSPACE_ROOT || '').trim();
   if (!workspaceRoot) return;
-  let name = String(process.env.GENOS_WORKSPACE_NAME || path.basename(workspaceRoot) || 'workspace').trim();
+  const name = String(process.env.GENOS_WORKSPACE_NAME || path.basename(workspaceRoot) || 'workspace').trim();
+  return { workspaceRoot, name };
+}
+
+async function ensureConfiguredWorkspace(db) {
+  const config = localWorkspaceConfig();
+  if (!config) return;
+  const { workspaceRoot, name } = config;
   try {
     await db.run(
       `INSERT INTO workspaces (id, name, path, visibility, language, description, tags)

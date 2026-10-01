@@ -178,7 +178,7 @@ async function testSandboxedPathTraversal() {
     await runTest(`4.x Block VFS write traversal: ${targetPath}`, async () => {
       let threw = false;
       try {
-        await executeVfsOperation('create', targetPath, 'pwned', 'ws-test');
+        await executeVfsOperation('create', targetPath, { content: 'pwned', workspaceId: 'ws-test' });
       } catch (err) {
         threw = true;
         assert.ok(err.message.includes('Path escapes the workspace'));
@@ -199,7 +199,7 @@ async function testSandboxedPathTraversal() {
   }
 
   await runTest('4.5 Legitimate contained path within workspace succeeds inside VFS', async () => {
-    const res = await executeVfsOperation('create', 'src/safe_module.js', 'console.log("safe");', 'ws-test');
+    const res = await executeVfsOperation('create', 'src/safe_module.js', { content: 'console.log("safe");', workspaceId: 'ws-test' });
     assert.strictEqual(res.success, true);
   });
 }

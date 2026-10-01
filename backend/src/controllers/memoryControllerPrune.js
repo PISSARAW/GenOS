@@ -28,6 +28,10 @@ function getTenantScope(req, prefix = '') {
   };
 }
 
+function scopedAgent(agentId) {
+  return agentId && agentId !== 'global' && agentId !== 'default-agent';
+}
+
 async function pruneSynapses(req, res, next) {
   try {
     const { agentId, threshold = 0.5, scale = 1.0, c3Threshold = 0.5, cd47Threshold = 0.5 } = req.body || {};
@@ -44,7 +48,7 @@ async function pruneSynapses(req, res, next) {
     `;
     const params = [th, c3Th, cd47Th, ...scope.params];
 
-    if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
+    if (scopedAgent(agentId)) {
       sql += ` AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?)
                OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))`;
       params.push(agentId, agentId);

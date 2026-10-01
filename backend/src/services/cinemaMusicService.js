@@ -29,7 +29,7 @@ function base(concept, args, source) {
   };
 }
 
-function assessFeatures(concept, args, features, source) {
+function assessFeatures({ concept, source }, args, features) {
   const subject = subjectOf(args);
   const observations = Object.fromEntries(features.map((feature) => [feature, number(subject[feature])]));
   const observed = Object.values(observations).filter((value) => value !== null).length;
@@ -47,22 +47,22 @@ function assessFeatures(concept, args, features, source) {
 }
 
 function analyzeCinematicSignification(args = {}) {
-  const result = assessFeatures('cinema.cinematic-signification', args, ['imageTrack', 'soundTrack', 'editing', 'syntagmaticStructure'], 'provided_cinematic_signifiers');
+  const result = assessFeatures({ concept: 'cinema.cinematic-signification', source: 'provided_cinematic_signifiers' }, args, ['imageTrack', 'soundTrack', 'editing', 'syntagmaticStructure']);
   return { ...result, theorist: 'Christian Metz', signification: args.signification || null };
 }
 
 function evaluateMovementImage(args = {}) {
-  const result = assessFeatures('cinema.movement-image', args, ['movement', 'perception', 'action', 'sensoryMotorLink'], 'provided_movement_image_features');
+  const result = assessFeatures({ concept: 'cinema.movement-image', source: 'provided_movement_image_features' }, args, ['movement', 'perception', 'action', 'sensoryMotorLink']);
   return { ...result, theorist: 'Gilles Deleuze', imageType: 'movement-image' };
 }
 
 function evaluateTimeImage(args = {}) {
-  const result = assessFeatures('cinema.time-image', args, ['directTime', 'crystalStructure', 'memory', 'duration'], 'provided_time_image_features');
+  const result = assessFeatures({ concept: 'cinema.time-image', source: 'provided_time_image_features' }, args, ['directTime', 'crystalStructure', 'memory', 'duration']);
   return { ...result, theorist: 'Gilles Deleuze', imageType: 'time-image' };
 }
 
 function evaluateCrystalImage(args = {}) {
-  const result = assessFeatures('cinema.crystal-image', args, ['actualVirtualIndiscernibility', 'mirrorRelation', 'coexistingTemporalities'], 'provided_crystal_image_features');
+  const result = assessFeatures({ concept: 'cinema.crystal-image', source: 'provided_crystal_image_features' }, args, ['actualVirtualIndiscernibility', 'mirrorRelation', 'coexistingTemporalities']);
   return { ...result, theorist: 'Gilles Deleuze', imageType: 'crystal-image' };
 }
 
@@ -158,7 +158,7 @@ function analyzeMusicalForm(args = {}) {
 }
 
 function evaluateMusicalExpression(args = {}) {
-  const result = assessFeatures('music.expression', args, ['expressiveContour', 'gesture', 'timbre'], 'provided_musical_expression');
+  const result = assessFeatures({ concept: 'music.expression', source: 'provided_musical_expression' }, args, ['expressiveContour', 'gesture', 'timbre']);
   return { ...result, theorist: 'Roger Scruton' };
 }
 
@@ -179,7 +179,7 @@ function assessMusicalEmotion(args = {}) {
 }
 
 function analyzeTensionExpectation(args = {}) {
-  const result = assessFeatures('music.tension-expectation', args, ['tension', 'expectation', 'resolution'], 'provided_musical_expectation');
+  const result = assessFeatures({ concept: 'music.tension-expectation', source: 'provided_musical_expectation' }, args, ['tension', 'expectation', 'resolution']);
   return { ...result, theorist: 'Leonard Meyer' };
 }
 

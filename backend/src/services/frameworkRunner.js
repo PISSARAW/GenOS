@@ -26,7 +26,7 @@ function resolve(framework) {
   return { endpoint: parsed.toString(), apiKey: process.env[keyVariable(framework)] };
 }
 
-async function execute(framework, input = {}, config = {}, options = {}) {
+async function execute(framework, input = {}, { config = {}, options = {} } = {}) {
   const target = options.target || resolve(framework);
   const traceId = options.traceId || crypto.randomUUID().replace(/-/g, '');
   const timeoutMs = Number.isFinite(Number(options.timeoutMs)) && Number(options.timeoutMs) > 0

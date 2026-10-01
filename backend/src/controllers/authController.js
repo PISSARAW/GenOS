@@ -215,21 +215,25 @@ async function listKeys(req, res, next) {
   }
 }
 
+function keyInputError({ label, role, permissions, expiresAt }) {
+  if (!label) return { code: 'INVALID_LABEL', message: 'Key label is required' };
+  if (!Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS, role)) {
+    return { code: 'INVALID_ROLE', message: 'role must be admin, operator, or viewer' };
+  }
+  if (!Array.isArray(permissions) || permissions.some((permission) => typeof permission !== 'string' || !ASSIGNABLE_PERMISSIONS.has(permission))) {
+    return { code: 'INVALID_PERMISSIONS', message: 'permissions must be known assignable permissions.' };
+  }
+  if (expiresAt != null && Number.isNaN(Date.parse(expiresAt))) {
+    return { code: 'INVALID_EXPIRY', message: 'expiresAt must be a valid date' };
+  }
+  return null;
+}
+
 async function createKey(req, res, next) {
   try {
     const { label, role = 'operator', permissions = ['read'], expiresAt = null } = req.body || {};
-    if (!label) {
-      return res.status(400).json({ error: { code: 'INVALID_LABEL', message: 'Key label is required' } });
-    }
-    if (!Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS, role)) {
-      return res.status(400).json({ error: { code: 'INVALID_ROLE', message: 'role must be admin, operator, or viewer' } });
-    }
-    if (!Array.isArray(permissions) || permissions.some((permission) => typeof permission !== 'string' || !ASSIGNABLE_PERMISSIONS.has(permission))) {
-      return res.status(400).json({ error: { code: 'INVALID_PERMISSIONS', message: 'permissions must be known assignable permissions.' } });
-    }
-    if (expiresAt != null && Number.isNaN(Date.parse(expiresAt))) {
-      return res.status(400).json({ error: { code: 'INVALID_EXPIRY', message: 'expiresAt must be a valid date' } });
-    }
+    const inputError = keyInputError({ label, role, permissions, expiresAt });
+    if (inputError) return res.status(400).json({ error: inputError });
 
     const rawKey = `genos_sk_${role}_${crypto.randomBytes(16).toString('hex')}`;
     const keyHash = hashKey(rawKey);

@@ -105,7 +105,7 @@ async function traverseSynapses(topIds = [], db = null, options = {}) {
  * @param {object} db
  * @returns {Promise<object[]>}
  */
-async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '', options = {}) {
+async function fetchTemporalAnchors(timeAnchors = [], db = null, { ownerId = '', ...options } = {}) {
   if (!db || !timeAnchors.length) return [];
   const temporalItems = [];
   const horizonHours = Number.isFinite(options.horizonHours) ? options.horizonHours : 24;
@@ -218,7 +218,7 @@ async function expandGraphRag(topItems = [], db = null, options = {}) {
   // 2. Temporal Reasoning (Time Cells)
   if (topItems.length > 0 && db) {
     const timeAnchors = topItems.slice(0, 2);
-    const timeNeighbors = await fetchTemporalAnchors(timeAnchors, db, options.ownerId || '', options);
+    const timeNeighbors = await fetchTemporalAnchors(timeAnchors, db, { ...options, ownerId: options.ownerId || '' });
     for (const item of timeNeighbors) {
       if (!topItems.find(t => t.id === item.id) && !connectedItems.find(c => c.id === item.id)) {
         connectedItems.push(item);
@@ -315,7 +315,7 @@ async function ingestDocument(docId, text, options = {}) {
  * @param {object} dbInstance
  * @returns {Promise<{ nodes: object[], synthesis: string }>}
  */
-async function findMatchingDecisions(query, db, scope, limit) {
+async function findMatchingDecisions(query, db, { scope, limit }) {
   const { entities } = await nerService.extractEntities(query);
   const entityTerms = entities.slice(0, 50).map((entity) => entity.text);
   const tenantSql = scope.organizationId
@@ -348,7 +348,7 @@ async function queryKnowledgeGraph(query, options = {}) {
   if (!q) return { nodes: [], synthesis: 'Empty query' };
   if (Buffer.byteLength(q, 'utf8') > MAX_GRAPH_QUERY_BYTES) throw new Error('GraphRAG query exceeds the configured size limit.');
   const boundedLimit = boundedGraphLimit(options.limit);
-  const matchedDecisions = await findMatchingDecisions(q, db, scope, boundedLimit);
+  const matchedDecisions = await findMatchingDecisions(q, db, { scope, limit: boundedLimit });
   const topIds = matchedDecisions.map(d => d.id);
   const synapticNeighbors = await traverseSynapses(topIds, db, scope);
 

@@ -100,7 +100,7 @@ function _extractQualityMetrics(metricsOpts) {
   const tails = metricsOpts.tails;
   const quality = evidenceQuality(claim);
   const calibrated = acceptance.validation ? acceptance.validation.calibratedConfidence : 0;
-  const gap = calibrationGap(claim, effectiveStakes, decayCurve, tails);
+  const gap = calibrationGap(claim, effectiveStakes, { curve: decayCurve, tails });
   return { quality, calibrated, gap, acceptance };
 }
 

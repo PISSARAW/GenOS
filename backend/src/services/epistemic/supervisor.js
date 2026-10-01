@@ -268,8 +268,7 @@ function trendFor(subject, curve = DECAY_CURVES.SHORT) {
   const decayed = confidenceWithStakes(
     { type: last.type, evidence: [] },
     last.stakes,
-    curve,
-    tails + 1,
+    { curve, tails: tails + 1 },
   );
   return {
     subject,

@@ -51,7 +51,7 @@ function contaminationFailure({ worker, member, report, teamDomains }) {
   return null;
 }
 
-function authorityFailures(worker, member, report, members) {
+function authorityFailures({ worker, member }, report, members) {
   const mutations = Array.isArray(report.mutations) ? report.mutations : [];
   return mutations.map((mutation) => assessMutation(mutation, member, members))
     .filter((decision) => !decision.allowed)
@@ -96,7 +96,7 @@ function observeAteamIntegration({ members, workers, dossiers } = {}) {
     const member = memberForWorker(worker, memberList, index);
     const report = latestReport(byWorker.get(worker.agentId));
     if (!report) return;
-    failures.push(...authorityFailures(worker, member, report, memberList));
+    failures.push(...authorityFailures({ worker, member }, report, memberList));
     const contamination = contaminationFailure({ worker, member, report, teamDomains });
     if (contamination) failures.push(contamination);
     const constraints = constraintFailure(worker, member, report);

@@ -49,13 +49,17 @@ function detectCycleInGraph(validNodes, edges) {
   return validNodes.some((node) => hasCycle(node.id));
 }
 
+function invalidIterationCount(iterations) {
+  return iterations != null && (!Number.isInteger(Number(iterations)) || Number(iterations) < 0 || Number(iterations) > 20);
+}
+
 function validateConditionsAndIterations(nodes, errors) {
   nodes.forEach((node) => {
     if (!node || typeof node !== 'object') return;
     const condition = node.when || node.data?.when;
     if (condition && !validateWorkflowCondition(condition)) errors.push(`Node ${node.id} has an unsupported condition.`);
     const iterations = node.max_iterations ?? node.data?.maxIterations;
-    if (iterations != null && (!Number.isInteger(Number(iterations)) || Number(iterations) < 0 || Number(iterations) > 20)) errors.push(`Node ${node.id} maxIterations must be an integer between 0 and 20.`);
+    if (invalidIterationCount(iterations)) errors.push(`Node ${node.id} maxIterations must be an integer between 0 and 20.`);
   });
 }
 

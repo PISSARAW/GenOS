@@ -14,7 +14,8 @@ const T0 = Date.now();
 
 function log(m) { console.log(`[${new Date().toISOString()}] ${m}`); }
 
-function run(name, script, args, ms = 45000) {
+function run(...request) {
+  const [name, script, args, ms = 45000] = request;
   const p = path.join(BIN, script);
   if (!fs.existsSync(p)) {
     RES.push({ name, script, status: 'skip_missing', ok: false, err: 'File missing: ' + script });

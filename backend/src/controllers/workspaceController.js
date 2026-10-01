@@ -259,13 +259,17 @@ async function createSnapshot(req, res) {
   }
 }
 
+function missingSnapshotReference(reference) {
+  return reference == null || String(reference).trim() === '';
+}
+
 async function restoreSnapshot(req, res) {
   try {
     const db = await getDatabase();
     const workspace = await findWorkspace(db, req, req.params.id);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${req.params.id}` } });
     const reference = req.body?.stepNumber ?? req.body?.step ?? req.body?.snapshotId;
-    if (reference == null || String(reference).trim() === '') return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'stepNumber, step, or snapshotId is required.' } });
+    if (missingSnapshotReference(reference)) return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'stepNumber, step, or snapshotId is required.' } });
     const result = await snapshotStore.restore({ db, workspace, reference, author: req.user?.username || 'studio' });
     telemetry.emitEvent({ eventType: 'WORKSPACE_SNAPSHOT_RESTORED', agentId: req.user?.username || 'studio', action: 'RESTORE', detail: `Restored ${workspace.id} from ${result.restoredSnapshot.id}`, payload: { workspaceId: workspace.id, snapshotId: result.restoredSnapshot.id, safetySnapshotId: result.safetySnapshot.id } });
     res.json(result);

@@ -235,7 +235,7 @@ function workspaceVfs(workspaceId = 'legacy') {
   return state;
 }
 
-async function executeVfsOperation(operation, filePath, content = '', workspaceId = 'legacy') {
+async function executeVfsOperation(operation, filePath, { content = '', workspaceId = 'legacy' } = {}) {
   const state = workspaceVfs(workspaceId);
   const virtualFiles = state.files;
   const target = virtualPath(filePath);

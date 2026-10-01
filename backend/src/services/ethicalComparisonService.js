@@ -29,7 +29,7 @@ function defaultArguments(name, scenario) {
   return defaults[name] || { action };
 }
 
-function comparisonProvenance(scenario, evaluations, evidenceRefs, assumptions) {
+function comparisonProvenance(scenario, evaluations, { evidenceRefs, assumptions }) {
   const payload = { scenario, frameworks: evaluations.map((item) => item.framework), evidenceRefs, assumptions };
   const provenanceHash = `sha256:${crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')}`;
   return {
@@ -52,7 +52,7 @@ function compareEthicalFrameworks({ scenario, frameworks = Object.keys(FRAMEWORK
     agreements: uniqueVerdicts.length === 1 ? frameworks : [],
     disagreements: uniqueVerdicts.length > 1 ? evaluations.map((evaluation) => ({ framework: evaluation.framework, verdict: evaluation.result.verdict || evaluation.result.observations?.verdict || null })) : [],
     unresolvedConflicts: uniqueVerdicts.length > 1 ? ['Frameworks use non-equivalent normative criteria.'] : [],
-    provenance: comparisonProvenance(scenario, evaluations, evidenceRefs, assumptions),
+    provenance: comparisonProvenance(scenario, evaluations, { evidenceRefs, assumptions }),
     evidenceStatus: evidenceRefs.length ? 'documented' : 'unverified',
     interpretationStatus: 'interpretive',
     humanReviewRequired: true,

@@ -51,6 +51,10 @@ async function resolveTenant(req) {
   return { organizationId, projectId, principalId: principal, role, status: project.status || 'active', user };
 }
 
+function canWriteScope(write, scope) {
+  return !write || ['owner', 'admin', 'member'].includes(scope.role) || scope.user?.permissions?.includes('all');
+}
+
 function requireTenantScope({ write = false } = {}) {
   return async (req, res, next) => {
     try {
@@ -64,7 +68,7 @@ function requireTenantScope({ write = false } = {}) {
         if (await hasGlobalBypass(req)) { req.tenant = null; return next(); }
         return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required' } });
       }
-      if (write && !['owner', 'admin', 'member'].includes(scope.role) && !scope.user?.permissions?.includes('all')) {
+      if (!canWriteScope(write, scope)) {
         return res.status(403).json({ error: { code: 'TENANT_WRITE_FORBIDDEN', message: 'Project membership is read-only' } });
       }
       if (write && scope.status === 'archived') {

@@ -299,7 +299,7 @@ function maxStakeLevel(levels) {
   return best || STAKE_LEVELS.NORMAL;
 }
 
-function confidenceWithStakes(claim, stakes = STAKE_LEVELS.NORMAL, curve = DECAY_CURVES.SHORT, tails = 0) {
+function confidenceWithStakes(claim, stakes = STAKE_LEVELS.NORMAL, { curve = DECAY_CURVES.SHORT, tails = 0 } = {}) {
   if (!claim || !validateClaim(claim).valid) return 0;
   const base = evidenceQuality(claim);
   if (base === 0) return 0;
@@ -310,8 +310,8 @@ function confidenceWithStakes(claim, stakes = STAKE_LEVELS.NORMAL, curve = DECAY
   return Math.max(0, decayed - stakePenalty);
 }
 
-function calibrationGap(claim, stakes = STAKE_LEVELS.NORMAL, curve = DECAY_CURVES.SHORT, tails = 0) {
-  const calibrated = confidenceWithStakes(claim, stakes, curve, tails);
+function calibrationGap(claim, stakes = STAKE_LEVELS.NORMAL, { curve = DECAY_CURVES.SHORT, tails = 0 } = {}) {
+  const calibrated = confidenceWithStakes(claim, stakes, { curve, tails });
   const raw = evidenceQuality(claim);
   return Number((raw - calibrated).toFixed(3));
 }

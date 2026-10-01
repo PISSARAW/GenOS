@@ -133,7 +133,7 @@ function computeBudgetReallocation(agents, newAgents, totalBudget) {
   return { perAgent, totalAllocated: perAgent * (agents.length + newAgents.length) };
 }
 
-function buildTransitionSequence(preserve, retire, spawn, rebind) {
+function buildTransitionSequence({ preserve, retire, spawn, rebind }) {
   const sequence = [];
   for (const a of retire) sequence.push({ step: 'retire', agentId: a.agentId, action: 'terminate' });
   for (const s of spawn) sequence.push({ step: 'spawn', phenotype: s.phenotype, action: 'incarnate' });
@@ -183,7 +183,7 @@ function buildPlanComponents(ctx, contracts) {
   const classified = classifyAgents(agents, ctx.proposedTopology || 'specialist_expert_committee');
   const spawnList = planSpawns(contracts.missing, ctx.proposedTopology || 'specialist_expert_committee', ctx.budget || 0);
   const budget = computeBudgetReallocation(classified.compatible, spawnList, ctx.budget || 0);
-  const sequence = buildTransitionSequence(classified.compatible, classified.incompatible.map((x) => x.agent), spawnList, []);
+  const sequence = buildTransitionSequence({ preserve: classified.compatible, retire: classified.incompatible.map((x) => x.agent), spawn: spawnList, rebind: [] });
   const fromVersion = ctx.currentState ? ctx.currentState.currentMorphologyVersion || 0 : 0;
   const topologyChanges = diffTopology(ctx.currentState || {}, { mode: ctx.proposedTopology || 'specialist_expert_committee' });
   return {

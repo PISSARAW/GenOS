@@ -135,7 +135,7 @@ async function createCounterProposal(req, res) {
   const db = await getDatabase();
   const parent = await fetchProposalForVote(db, req, parentId);
   if (!parent) return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: `Parent proposal '${parentId}' was not found.` } });
-  if (parent.status === 'rejected' || parent.status === 'expired') {
+  if (['rejected', 'expired'].includes(parent.status)) {
     return res.status(400).json({ error: { code: 'INVALID_PARENT_STATUS', message: `Cannot counter a proposal with status '${parent.status}'.` } });
   }
   const body = req.body || {};

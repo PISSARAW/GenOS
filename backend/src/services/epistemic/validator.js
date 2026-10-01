@@ -166,7 +166,7 @@ function validateClaimAgainstRules(claim, opts = {}) {
   const stakes = opts.stakes || STAKE_LEVELS.NORMAL;
   const curve = opts.decayCurve || DECAY_CURVES.SHORT;
   const tails = opts.tails || 0;
-  const calibrated = confidenceWithStakes(claim, stakes, curve, tails);
+  const calibrated = confidenceWithStakes(claim, stakes, { curve, tails });
 
   let verdict;
   if (evidenceCheck.valid === false || hasMandatoryFailure) {
@@ -185,7 +185,7 @@ function validateClaimAgainstRules(claim, opts = {}) {
     appliedRules: appliedRules.map((r) => ({ ruleId: r.ruleId, level: r.level, passes: r.passes })),
     evidenceQuality: evQuality,
     calibratedConfidence: calibrated,
-    calibrationGap: calibrationGap(claim, stakes, curve, tails),
+    calibrationGap: calibrationGap(claim, stakes, { curve, tails }),
     stakes,
   };
 }

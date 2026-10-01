@@ -142,7 +142,7 @@ module.exports = {
   ExecuteVfsOperation: async (call, callback) => {
     try {
       const { op, file_path, content } = call.request || {};
-      const res = await vfsSandbox.executeVfsOperation(op, file_path, content);
+      const res = await vfsSandbox.executeVfsOperation(op, file_path, { content });
       callback(null, { success: res.success !== false, message: res.message || 'ok' });
     } catch (err) {
       callback(null, { success: false, message: err.message });
