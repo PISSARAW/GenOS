@@ -83,8 +83,23 @@ async function trailsFor(db, orchestratorId) {
   });
 }
 
+async function agentsOf(db, orchestratorId) {
+  const full = await db.all('SELECT id, role, status, cognitive_budget FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => null);
+  if (full) return full;
+  return db.all('SELECT id, role, status FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => []);
+}
+
+function budgetTotal(agents) {
+  let total = 0;
+  for (const agent of (agents || [])) {
+    const value = Number(agent.cognitive_budget);
+    if (Number.isFinite(value) && value > 0) total += value;
+  }
+  return total > 0 ? total : undefined;
+}
+
 async function stateFromOrchestrator(db, orchestratorId) {
-  const agents = await db.all('SELECT id, role, status FROM agents WHERE parent_agent_id = ?', orchestratorId).catch(() => []);
+  const agents = await agentsOf(db, orchestratorId);
   const counts = await messageCounts(db, orchestratorId);
   const pack = (Array.isArray(agents) ? agents : []).map((agent) => {
     const pos = positionFor(agent.id, agent.role);
@@ -105,7 +120,7 @@ async function stateFromOrchestrator(db, orchestratorId) {
   const dossiers = await dossiersFor(db, orchestratorId);
   const trails = await trailsFor(db, orchestratorId);
   const populations = pack.map((member) => ({ id: member.id, weight: member.fitness }));
-  return { agents: pack, pack, edges, votes, dossiers, trails, populations };
+  return { agents: pack, pack, edges, votes, dossiers, trails, populations, budget: budgetTotal(agents) };
 }
 
 async function applyStepForOrchestrator(orchestratorId, options = {}) {
