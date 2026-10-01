@@ -203,7 +203,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0178](0178-recus-biologiques-et-autorite-homeostatique.md) | Reçus biologiques versionnés et autorité homéostatique | Proposé | 2026-09-30 | Exécution biologique, homéostasie, preuves, persistance |
 | [0179](0179-causalite-procedurale-durable.md) | Exécutions causales procédurales durables | Acceptée | -- | -- |
 | [0180](0180-workspace-global-chemin-mission.md) | Consommer le workspace global dans le chemin de mission | Accepte | 2026-09-30 | Runtime Node, planification de mission |
-| [0182](0182-planification-allostatique-mesuree.md) | Planification allostatique depuis les mesures runtime | Accepte | 2026-09-30 | Interoception, planification |
+| [0181a](0181-copie-efference-outils-mcp.md) | Corréler les outils MCP du backend à la copie d'efférence | Accepté | 2026-09-30 | Runtime Node, exécution MCP et attribution soi/monde |
+| [0181b](0181-identite-durable-de-mission.md) | Identité durable de mission et succession d’orchestrateur | Accepté | 2026-09-30 | Continuité, orchestration, persistance |
+| [0182a](0182-navigation-web-et-vision-foveale.md) | Navigation web et vision fovéale par session explicite | Proposé — intégration expérimentale. | 2026-09-30. | Backend, navigation, perception, preuves. |
+| [0182b](0182-planification-allostatique-mesuree.md) | Planification allostatique depuis les mesures runtime | Accepte | 2026-09-30 | Interoception, planification |
 | [0183a](0183-mesures-workspace-physique-computationnelle.md) | Mesures workspace et profils physiques par mission | Accepté — implémentation par lots. | -- | -- |
 | [0183b](0183-regeneration-axolotl-bornee.md) | Régénération Axolotl ciblée et fondée sur des preuves | Voir le fichier | -- | -- |
 | [0184](0184-persistance-moteur-creativite.md) | Persistance du moteur de créativité | Accepté | 2026-09-30 | Créativité, runtime Rust, persistance |
@@ -213,7 +216,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0188](0188-provenance-reproduction-fossilisation.md) | Provenance versionnée de reproduction et fossilisation | Accepté | 2026-09-30 | Lignées, reproduction, fossilisation |
 | [0189](0189-snapshots-durables-de-population.md) | Snapshots durables de population | Accepté | 2026-09-30 | Écologie, tissus, spores, persistance |
 | [0190](0190-filtre-cnidocyte-au-dispatch-mcp.md) | Filtre cnidocyte au dispatch MCP | Accepté | 2026-09-30 | MCP, filtrage, audit, mesures |
-| [0191](0191-quorum-electrocyte-lie-a-la-mission.md) | Quorum d'électrocyte lié à la mission | Accepté | 2026-09-30 | Cellules, votes, délai, mesure |
+| [0191a](0191-marqueurs-cliniques-extensibles.md) | Marqueurs cliniques computationnels extensibles | Voir le fichier | -- | -- |
+| [0191b](0191-quorum-electrocyte-lie-a-la-mission.md) | Quorum d'électrocyte lié à la mission | Accepté | 2026-09-30 | Cellules, votes, délai, mesure |
 | [0192](0192-reponse-neuro-gliale-aux-evenements-de-mission.md) | Réponse neuro-gliale corrélée aux événements de mission | Accepté | 2026-09-30 | Runtime, neurobiologie, glie, quorum, preuve |
 | [0193](0193-mesures-du-filtrage-choanocyte.md) | Mesures runtime du filtrage choanocyte | Accepté | 2026-09-30 | Runtime, flux, cellules spécialisées, mesure |
 | [0194](0194-conformite-du-rendu-iridophore.md) | Conformité du rendu iridophore au runtime | Accepté | 2026-09-30 | Runtime, rendu, cellules spécialisées, preuve |
@@ -222,14 +226,14 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0197](0197-transfert-hgt-sous-lease-et-revocation.md) | Transfert HGT sous lease et révocation | Accepté | 2026-09-30 | Runtime, transfert horizontal, autorisation, audit |
 | [0198](0198-contrat-canonique-de-verification-epistemique.md) | Contrat canonique de vérification épistémique | Accepté | 2026-09-30 | Épistémologie, vérification, promotion |
 | [0199](0199-resolution-et-boucle-evenementielle-de-morphogenese.md) | Résolution morphologique et boucle événementielle | Accepté | 2026-09-30 | Morphogenèse, planification, adaptation runtime |
-| [0200](0200-activation-des-boucles-de-morphogenese.md) | Activation des boucles de morphogenèse | Accepté | 2026-09-30 | Morphogenèse, contrôle runtime, apprentissage |
+| [0200a](0200-activation-des-boucles-de-morphogenese.md) | Activation des boucles de morphogenèse | Accepté | 2026-09-30 | Morphogenèse, contrôle runtime, apprentissage |
+| [0200b](0200-lier-la-morphogenese-au-dispatch-de-mission.md) | Lier Morphogenèse au dispatch réel d’une mission | Accepté | 2026-10-01 | Orchestration, Morphogenèse, exécution des workers |
 | [0201](0201-outcomes-de-morphogenese-verifies.md) | Outcomes de morphogenèse vérifiés | Accepté | 2026-09-30 | Morphogenèse, apprentissage, provenance |
 | [0202](0202-handoff-daemon-actualise-au-demarrage.md) | Handoff daemon actualisé au démarrage d'une mission | Accepté | 2026-09-30 | Daemons résidents, cartographie, orchestration |
 | [0203](0203-parcours-cli-init-doctor-run.md) | Parcours CLI `init`, `doctor`, `run` | Accepté | 2026-09-30 | CLI, expérience opérateur, orchestration |
 | [0204](0204-recu-biologique-durable-rust-backend.md) | Reçu biologique durable Rust/backend | Accepté | 2026-09-30 | Biologie computationnelle, persistance, homéostasie |
 | [0205](0205-parcours-aeis-et-causalite-procedurale.md) | Brancher les parcours AEIS et causalité procédurale | Accepté | 2026-09-30 | Backend, assurance épistémique, causalité |
 | [0206](0206-decision-evidence-binding.md) | Lier les décisions persistées à leurs preuves | Accepté | 2026-10-01 | Décisions, provenance, preuves, isolation tenant |
-
 | [0207](0207-transmettre-les-politiques-de-coordination-aux-workers.md) | Transmettre les politiques de coordination aux workers | Accepté | 2026-10-01 | Dispatch A-Team, coordination, handoffs |
 | [0208](0208-relier-perception-memoire-et-rappel.md) | Relier perception, mémoire et rappel | Accepté | 2026-10-01 | Perception, mémoire autobiographique, apprentissage |
 | [0209](0209-allowlist-surfaces-publiques.md) | Fermer les surfaces publiques par allowlist | Accepté | 2026-10-01 | API, authentification, sécurité |

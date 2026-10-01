@@ -1,12 +1,12 @@
 # Inventaire technique vérifiable
 
-Généré le 2026-09-30 par `node scripts/docs/generate-technical-inventory.js`.
+Généré le 2026-10-01 par `node scripts/docs/generate-technical-inventory.js`.
 
 Ces mesures comptent les éléments définis dans la colonne « Méthode ». Elles décrivent le dépôt au moment de la génération ; elles ne mesurent ni la maturité, ni l'état de santé, ni la disponibilité runtime.
 
 | Mesure | Valeur | Méthode reproductible |
 | --- | ---: | --- |
-| Fichiers JavaScript de services (directs / récursifs) | 618 / 1853 | Fichiers `.js` directement sous `backend/src/services`, puis sous-arborescence comprise |
+| Fichiers JavaScript de services (directs / récursifs) | 619 / 1857 | Fichiers `.js` directement sous `backend/src/services`, puis sous-arborescence comprise |
 | Fichiers JavaScript de contrôleurs (directs / récursifs) | 56 / 69 | Fichiers `.js` directement sous `backend/src/controllers`, puis sous-arborescence comprise |
 | Stratégies déclarées | 92 | Familles de stratégies importées par le module strategyRegistry.js |
 | Références à des primitives / identifiants distincts | 257 / 228 | Somme des tableaux `primitives` du registre / union de ces tableaux |
