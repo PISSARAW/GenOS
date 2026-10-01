@@ -142,9 +142,15 @@ Le plan ci-dessus câble des opérations observables et explicitement appelées 
 ## 7. Actionneurs et boucle
 
 - `swarmTopologyRuntimeService.applyStepForOrchestrator` applique le pas
-  d'essaim à chaque décision orchestrateur (`orchestrationActionExecutor.execute`),
-  mémorise les leaders (`preferredSurvivorsFor`) et `agentRoundService` les
+  d'organisation à chaque décision orchestrateur (`orchestrationActionExecutor.execute`),
+  mémorise les préférés (`preferredSurvivorsFor`) et `agentRoundService` les
   utilise comme survivants préférés pour les continuations.
+- `preferredAgents` couvre les 19 organisations : 4 filtres d'essaim
+  (dont `slime_mould_network` trié par conductivité) + repli générique
+  (`spokes`, `competitors`, `roleGradient`, `allocations`, `pairs`, `route`).
+- L'état runtime combine positions stables (`id:role`), fitness issue du
+  statut + activité réelle de messages (`agent_organization_messages`), et
+  transmet `options.limit` aux préférés.
 - Promotions : `trinityComparativeBarrier.promoteWinner` marque le monde gagnant
   `promoted` (événement `TRINITY_WINNER_PROMOTED`) sur les deux chemins.
 - Preuve probabiliste : `biocenoseService.brierConsensus` (Brier pondéré) et
@@ -154,10 +160,15 @@ Le plan ci-dessus câble des opérations observables et explicitement appelées 
 
 - `organizationAlgorithms.runOrganizationStep` implémente les 15 organisations
   non-essaim ; `runTopologyStep` délègue vers lui lorsque l'organisation n'est
-  pas l'un des quatre algorithmes d'essaim.
+  pas l'un des quatre algorithmes d'essaim. `stigmergy` accepte `state.trails`
+  en repli de matrice, `mycelial_routing` accepte `options.need`.
 - Le routage est extrait dans `organizationRouting.js` et **applique l'autorité**
   (`assertRoutingAuthority`) : en organisation *ranked* (grey wolf), un follower
-  ne peut pas adresser un autre follower (`ORGANIZATION_AUTHORITY_VIOLATION`).
+  ne peut pas adresser un autre follower (`ORGANIZATION_AUTHORITY_VIOLATION`) ;
+  en organisation *adversarial_pair*, un worker doit désigner un destinataire
+  explicite (`ADVERSARIAL_RECIPIENT_REQUIRED`). `AUTHORITY` couvre les 19
+  organisations ; la parité Rust vit dans `genos-orchestrator/src/organization_step.rs`
+  (`authority_for`, `follower_may_address`, `adversarial_needs_recipient`, `step_family`).
 
 ## 9. Ce qui reste ouvert
 
