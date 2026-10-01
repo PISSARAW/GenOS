@@ -54,6 +54,22 @@ impl BiologicalReceiptStore {
         Ok(batches.into_iter().flat_map(|batch| batch.receipts).collect())
     }
 
+    /// Durable acknowledgement is appended only after backend acceptance.
+    pub fn acknowledge(&self, receipt_id: &Value) -> Result<(), String> {
+        self.append_receipts(&[serde_json::json!({
+            "schema": "genos.receipt-ack/v1", "receipt_id": receipt_id
+        })])
+    }
+
+    pub fn pending_execution_receipts(&self) -> Result<Vec<Value>, String> {
+        let receipts = self.read_all()?;
+        let acknowledged: std::collections::HashSet<_> = receipts.iter()
+            .filter(|item| item["schema"] == "genos.receipt-ack/v1")
+            .map(|item| item["receipt_id"].to_string()).collect();
+        Ok(receipts.into_iter().filter(|item| item["schema"] == "genos.biological-execution-receipt/v1"
+            && !acknowledged.contains(&item["receipt_id"].to_string())).collect())
+    }
+
     fn last_position(&self) -> Result<(u64, String), String> {
         let batches = self.read_batches()?;
         match batches.last() {

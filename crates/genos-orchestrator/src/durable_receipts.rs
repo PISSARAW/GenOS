@@ -68,30 +68,39 @@ impl GenosEcosystem {
         goal: &Goal,
         store: &BiologicalReceiptStore,
     ) -> Result<TickReport, TickPersistenceError> {
-        let report = self.tick(goal);
-        let mut receipts = report.biological_receipts.iter()
-            .map(serde_json::to_value)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| TickPersistenceError { report: report.clone(), message: error.to_string() })?;
-        let population = self.population_state_receipt(report.tick)
+        let mut report = self.tick_unpersisted(goal);
+        self.persist_tick_report(&mut report, store)
             .map_err(|message| TickPersistenceError { report: report.clone(), message })?;
-        receipts.push(population);
-        store.append_receipts(&receipts)
-            .map_err(|message| TickPersistenceError { report: report.clone(), message })?;
-        #[cfg(feature = "api")]
-        if let Some(config) = BackendReceiptConfig::from_env()
-            .map_err(|message| TickPersistenceError { report: report.clone(), message })?
-        {
-            flush_receipts_to_backend(store, &config)
-                .map_err(|message| TickPersistenceError { report: report.clone(), message })?;
-        }
         Ok(report)
     }
+
+    pub fn configure_receipt_journal(&mut self, path: impl Into<std::path::PathBuf>) {
+        self.receipt_journal = Some(path.into());
+    }
+
+    pub(crate) fn persist_tick_report(&self, report: &mut TickReport, store: &BiologicalReceiptStore) -> Result<(), String> {
+        let population = self.population_state_receipt(report.tick)?;
+        let population_json = serde_json::to_string(&population).map_err(|error| error.to_string())?;
+        for receipt in &mut report.biological_receipts { receipt.population_json = Some(population_json.clone()); }
+        let mut receipts = report.biological_receipts.iter().map(serde_json::to_value)
+            .collect::<Result<Vec<_>, _>>().map_err(|error| error.to_string())?;
+        receipts.push(population);
+        store.append_receipts(&receipts)?;
+        self.flush_receipt_journal(store)
+    }
+
+    pub fn flush_receipt_journal(&self, store: &BiologicalReceiptStore) -> Result<(), String> {
+        #[cfg(feature = "api")]
+        if let Some(config) = BackendReceiptConfig::from_env()? { flush_receipts_to_backend(store, &config)?; }
+        let _ = store;
+        Ok(())
+    }
+
 }
 
 #[cfg(feature = "api")]
 fn flush_receipts_to_backend(store: &BiologicalReceiptStore, config: &BackendReceiptConfig) -> Result<(), String> {
-    let receipts = store.read_all()?;
+    let receipts = store.pending_execution_receipts()?;
     let client = Client::builder().timeout(Duration::from_secs(15)).build().map_err(|error| error.to_string())?;
     for receipt in receipts.into_iter().filter(|item| item["schema"] == "genos.biological-execution-receipt/v1") {
         let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs().to_string();
@@ -109,6 +118,7 @@ fn flush_receipts_to_backend(store: &BiologicalReceiptStore, config: &BackendRec
             .json(&json!({ "receipt": receipt }))
             .send().map_err(|error| error.to_string())?
             .error_for_status().map_err(|error| error.to_string())?;
+        store.acknowledge(&receipt["receipt_id"])?;
     }
     Ok(())
 }
@@ -124,6 +134,8 @@ fn sign_receipt(receipt: &Value, secret: &str, auth: &ReceiptAuthContext<'_>) ->
     ];
     let mut message = vec!["genos-rust-orchestrator", auth.timestamp, auth.nonce];
     message.extend(fields.iter().map(String::as_str));
+    let population = receipt.get("population_json").and_then(Value::as_str).unwrap_or_default();
+    if !population.is_empty() { message.push(population); }
     Ok(hmac_sha256(secret.as_bytes(), message.join("\0").as_bytes()))
 }
 

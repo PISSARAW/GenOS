@@ -52,6 +52,7 @@ pub mod orchestrator_spores;
 pub mod orchestrator_tissues;
 pub mod organism;
 pub mod population_registry;
+pub mod population_restore;
 pub mod organization;
 pub mod phylogeny;
 pub mod physical_telemetry;

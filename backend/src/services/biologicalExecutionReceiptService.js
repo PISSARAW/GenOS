@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { populationFromReceipt, persistPopulation } = require('./rustPopulationRegistry');
 const { migrateBiologicalExecutionReceipts } = require('../db/migrations/migrateBiologicalExecutionReceipts');
 
 const RECEIPT_SCHEMA = 'genos.biological-execution-receipt/v1';
@@ -11,16 +12,22 @@ async function ingestBiologicalReceipt(db, receipt, origin = null) {
   const encoded = stableJson(normalized);
   const payloadHash = crypto.createHash('sha256').update(encoded).digest('hex');
   const existing = await db.get('SELECT payload_hash FROM biological_execution_receipts WHERE receipt_id = ?', normalized.receipt_id);
-  if (existing) return existingReceipt(existing, payloadHash, normalized.receipt_id);
+  if (existing) {
+    const result = existingReceipt(existing, payloadHash, normalized.receipt_id);
+    await persistPopulation(db, normalized);
+    return result;
+  }
   if (!await db.get('SELECT mission_id FROM missions WHERE mission_id = ?', normalized.mission_id)) {
     throw receiptError('BIOLOGICAL_RECEIPT_MISSION_NOT_FOUND');
   }
+  if (populationFromReceipt(normalized) && !origin?.signature) throw receiptError("BIOLOGICAL_RECEIPT_POPULATION_ORIGIN_REQUIRED");
   const homeostasis = await latestHomeostasis(db, normalized.mission_id);
   const inserted = await insertReceipt(db, { normalized, encoded, payloadHash, homeostasis, origin });
   if (inserted.changes !== 1) {
     const concurrent = await db.get('SELECT payload_hash FROM biological_execution_receipts WHERE receipt_id = ?', normalized.receipt_id);
     return existingReceipt(concurrent, payloadHash, normalized.receipt_id);
   }
+  await persistPopulation(db, normalized);
   return { receiptId: normalized.receipt_id, duplicate: false, payloadHash, homeostasis };
 }
 

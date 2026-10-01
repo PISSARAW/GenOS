@@ -42,3 +42,19 @@ baseline. La remise à zéro des dépassements constitue un chantier distinct.
 Chaque lot exige ses tests ciblés, les gates du dépôt et une mention explicite
 des preuves non exécutées. Un fournisseur absent ou un benchmark non exécuté
 ne sera jamais remplacé par un résultat synthétique présenté comme réel.
+
+## Lot 3 — preuve exécutée
+
+Le driver `receipt_bridge` exécute un tick normal avec journal configuré.
+`test_rust_receipt_process_e2e.js` lance un backend HTTP avec l'application
+réelle et SQLite, ferme ce processus, produit un tick hors ligne (échec de
+livraison explicite), relance un nouveau backend puis flush depuis un nouveau
+processus Rust. Les identités et fingerprints persistent, et un second flush
+ne duplique pas les reçus. Les opérations d'organisme restent sans attribution
+cellulaire : le snapshot signé décrit la population après tick.
+
+Reproduction : `cargo build -p genos-orchestrator --example receipt_bridge
+--features api`, puis définir `GENOS_RECEIPT_TEST_BINARY` sur ce binaire et
+exécuter `node backend/tests/test_rust_receipt_process_e2e.js`. Sur cet hôte
+Windows, la limite PDB du linker exige `cargo rustc -p genos-orchestrator
+--example receipt_bridge --features api -- -C debuginfo=0 -C link-arg=/DEBUG:NONE`.

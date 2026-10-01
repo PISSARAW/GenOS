@@ -13,6 +13,8 @@ impl GenosEcosystem {
                 let fingerprint = genome.map(|entry| entry.fingerprint()).transpose()?;
                 Ok(json!({
                     "cell_id": cell_id,
+                    "cell_state": cell,
+                    "genome_state": genome,
                     "genome_id": cell.genome_id,
                     "lineage_id": genome.map(|entry| entry.lineage_id()),
                     "generation": genome.map(|entry| entry.generation),
@@ -44,6 +46,7 @@ impl GenosEcosystem {
             "schema": "genos.population-state/v1",
             "mission_id": self.mission_id,
             "tick": tick,
+            "phase": "after_tick",
             "active_cells": cells,
             "dormant_spores": spores
         }))

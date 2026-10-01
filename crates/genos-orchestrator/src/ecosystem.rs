@@ -45,6 +45,8 @@ mod creativity_config;
 pub struct GenosEcosystem {
     /// Identifiant de corrélation fourni par l'appelant du runtime.
     pub mission_id: Option<Uuid>,
+    pub receipt_journal: Option<std::path::PathBuf>,
+    pub receipt_tick: u64,
     /// L'orchestrateur biomimétique (tissus, cellules, conscience, immunité).
     pub orchestrator: BiomimeticOrchestrator,
     /// Signalisation stigmergique (pistes / répulsifs).
@@ -128,6 +130,8 @@ impl GenosEcosystem {
     pub fn new(name: &str) -> Self {
         Self {
             mission_id: None,
+            receipt_tick: 0,
+            receipt_journal: std::env::var_os("GENOS_BIOLOGICAL_JOURNAL").map(Into::into),
             orchestrator: BiomimeticOrchestrator::new(name, 50.0, 100.0),
             stigmergy: StigmergyField::new(0.1),
             matrix: ExtracellularMatrix::new(),

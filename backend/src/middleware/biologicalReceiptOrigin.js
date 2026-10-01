@@ -27,6 +27,7 @@ function fieldText(spec) {
 function payloadText(spec) {
   const { receipt, metadata } = spec;
   const fields = RECEIPT_FIELDS.map((field) => fieldText({ receipt, field }));
+  if (receipt.population_json) fields.push(receipt.population_json);
   return [metadata.origin, metadata.timestamp, metadata.nonce, ...fields].join('\u0000');
 }
 

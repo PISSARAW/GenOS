@@ -29,6 +29,8 @@ pub struct BiologicalExecutionReceipt {
     pub cell_id: Option<Uuid>,
     pub genome_id: Option<Uuid>,
     pub genome_fingerprint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub population_json: Option<String>,
     pub tick: u64,
     pub execution_scope: String,
     pub operation: String,
@@ -103,6 +105,21 @@ fn lifecycle_halt(eco: &mut GenosEcosystem) -> Option<TickReport> {
 
 impl GenosEcosystem {
     pub fn tick(&mut self, goal: &Goal) -> TickReport {
+        if self.receipt_journal.is_none() && std::env::var_os("GENOS_BACKEND_URL").is_some() {
+            return self.halted_report("backend receipt delivery requires GENOS_BIOLOGICAL_JOURNAL");
+        }
+        let mut report = self.tick_unpersisted(goal);
+        if let Some(path) = &self.receipt_journal {
+            let store = genos_store::BiologicalReceiptStore::open(path);
+            if let Err(message) = self.persist_tick_report(&mut report, &store) {
+                report.halt = Some(format!("receipt persistence/delivery failed after execution: {message}"));
+            }
+        }
+        report
+    }
+
+    pub(crate) fn tick_unpersisted(&mut self, goal: &Goal) -> TickReport {
+        self.receipt_tick += 1;
         if let Some(report) = lifecycle_halt(self) {
             return report;
         }
@@ -117,7 +134,7 @@ impl GenosEcosystem {
         let (decision, physical) = crate::physical_telemetry::decide(&self.director, &state, goal);
         self.director.physical_memory = Some((physical, decision.strategy));
         let mut report = TickReport {
-            tick: self.events.count() as u64,
+            tick: self.receipt_tick,
             strategy: decision.strategy,
             organization: decision.organization.name,
             superorganism: decision.superorganism.name(),
@@ -178,6 +195,7 @@ impl GenosEcosystem {
             cell_id: None,
             genome_id: None,
             genome_fingerprint: None,
+            population_json: None,
             tick: 0,
             execution_scope: "organism".to_string(),
             operation: format!("{concept:?}"),
