@@ -88,28 +88,29 @@ async function arbitrateCycle(options, candidates, previousFrame) {
     ...(options.regretContext || {}),
     currentInteroception: options.regretContext?.currentInteroception || storedPolicy.state.variables
   };
-  const mechanismPolicy = await require('./agowMechanismPolicyService').load({ agentId: options.agentId, db: options.db });
-  regretContext.controlRegret = require('./agowMechanismPolicyService').controlsRegret(mechanismPolicy.regret);
-  return arbitrationService.arbitrate({
-    candidates, previousFrame,
+  const policyService = require('./agowMechanismPolicyService');
+  const mechanismPolicy = await policyService.load({ agentId: options.agentId, db: options.db });
+  regretContext.controlRegret = policyService.controlsRegret(mechanismPolicy.regret);
+  const market = await runMarkets({ options, candidates, regretContext, mode: mechanismPolicy.markets });
+  const arbitrationCandidates = market?.apply ? market.regionalWinners : candidates;
+  const arbitration = arbitrationService.arbitrate({
+    candidates: arbitrationCandidates, previousFrame,
     capacity: (options.primaryCapacity || 1) + (options.secondaryCapacity ?? 2),
     competition: options.competition, regretContext
   });
+  return { ...arbitration, market };
 }
 
-async function arbitrateCycle(options, candidates, previousFrame) {
-  const storedPolicy = await require('./agowStatePersistenceService').load({
-    scope: 'agow_attention_policy', agentId: options.agentId, db: options.db
+async function runMarkets(input) {
+  if (input.mode === 'disabled') return null;
+  const market = await require('./markets/cognitiveMarketService').compete({
+    agentId: input.options.agentId, db: input.options.db, candidates: input.candidates,
+    topology: input.options.marketTopology, regretContext: input.regretContext,
+    capacity: input.options.regionalCapacity || 1, competition: input.options.competition
   });
-  const regretContext = {
-    ...(options.regretContext || {}),
-    currentInteroception: options.regretContext?.currentInteroception || storedPolicy.state.variables
-  };
-  return arbitrationService.arbitrate({
-    candidates, previousFrame,
-    capacity: (options.primaryCapacity || 1) + (options.secondaryCapacity ?? 2),
-    competition: options.competition, regretContext
-  });
+  if (!market.applied) return market;
+  market.apply = ['advisory', 'bounded', 'live'].includes(input.mode);
+  return market;
 }
 
 module.exports = { cycle };

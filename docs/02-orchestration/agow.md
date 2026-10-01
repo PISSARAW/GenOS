@@ -451,6 +451,22 @@ outcome est présenté au coordinateur de plasticité; seules les preuves reconn
 celui-ci peuvent contribuer au poids durable. Voir [ADR
 0245](../adr/0245-decompilation-voie-agow.md).
 
+### 8.5 Marchés cognitifs régionaux
+
+`markets/cognitiveMarketService` partitionne les candidats selon le mode structurel
+reçu (`domain`, `a_team`, `trinity`, `biome`, `rhizome` ou `syncytium`). Chaque région
+réutilise l'arbitre AGOW et produit un reçu contenant ses compétiteurs et gagnants.
+Seuls les gagnants régionaux peuvent alimenter l'arbitrage global, qui reste suivi
+d'une seule ignition centrale.
+
+Le mode `shadow` mesure les marchés sans filtrer la compétition plate. Les modes
+`advisory`, `bounded` et `live` appliquent les gagnants régionaux. `marketPath`,
+`localCompetitors`, `localWinnerReason` et `regionalReceipt` accompagnent les candidats
+sélectionnés dans le résultat runtime. La morphologie doit encore être fournie à
+`workspaceCycleService` par l'adaptateur métier; sans elle le partitionneur utilise le
+domaine/module du candidat. Aucun gain de latence ou de qualité n'est présumé. Voir
+[ADR 0246](../adr/0246-marches-cognitifs-distribues-agow.md).
+
 ---
 
 ## 9. Signal Plane, diffusion et médiation
@@ -912,6 +928,7 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `pathways/directPathwayRegistry.js` / `pathways/directPathwayRouter.js` | Registre contextuel, revue globale obligatoire et routage direct sur le Signal Plane existant. |
 | `proceduralization/cognitiveTrajectoryService.js` / `proceduralization/consciousnessCompilerService.js` | Références causales compactes et propositions de sous-chemins répétées, sans promotion. |
 | `proceduralization/decompilationService.js` | Suspension d'une voie sur dérive/outcome inattendu, candidat de retour AGOW et reçu causal. |
+| `markets/marketPartitionService.js` / `markets/cognitiveMarketService.js` | Partitions topologiques, compétition régionale, reçus et gagnants transmis au marché global. |
 | `counterfactual/counterfactualFrameAdapter.js` / `counterfactual/counterfactualOutcomeService.js` | Construction des branches et admission des outcomes avec provenance. |
 
 ---
