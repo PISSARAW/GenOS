@@ -46,4 +46,55 @@ function causalEffect(workspace, module, handler) {
   };
 }
 
-module.exports = { admit, compete, diffuse, consume, causalEffect };
+const AGOW_MODES = new Set(['off', 'shadow', 'advisory', 'bounded', 'morphogenesis-shadow', 'live', 'experimental']);
+
+function getMode() {
+  const requested = String(process.env.GENOS_AGOW_MODE || 'off').trim().toLowerCase();
+  return AGOW_MODES.has(requested) ? requested : 'off';
+}
+
+function getCurrentFrame(options) {
+  return require('./agow/workspaceFrameStore').current(options);
+}
+
+async function submitCandidate(options) {
+  const pool = require('./agow/candidatePoolService');
+  const accepted = pool.submit(options);
+  if (!accepted.accepted) return accepted;
+  const { candidate } = options;
+  try {
+    const transport = require('./signalingTransportService');
+    const { SIGNAL_TYPES } = require('./biomimeticSignalingBus');
+    const signal = await transport.publishSignal({
+      signalType: SIGNAL_TYPES.LIGAND,
+      topic: `agow:candidate:${candidate.agentId}`,
+      senderAgentId: candidate.agentId,
+      signalData: { semanticType: 'cognitive_candidate', candidateRef: candidate.candidateId, modality: candidate.source.modality }
+    });
+    if (signal?.published !== true) {
+      pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId });
+      return { accepted: false, reason: 'signal_plane_rejected', signal };
+    }
+    return { ...accepted, signal };
+  } catch (error) {
+    pool.remove({ agentId: candidate.agentId, candidateId: candidate.candidateId });
+    return { accepted: false, reason: 'signal_plane_failed', message: error.message };
+  }
+}
+
+function cycle(options) {
+  return require('./agow/workspaceCycleService').cycle(options);
+}
+
+function query(options) {
+  return require('./agow/workspaceQueryService').plan(options);
+}
+
+function subscribe(options) {
+  const bus = require('./signalEventBus');
+  const topic = `agow:candidate:${options.agentId}`;
+  bus.onTopic(topic, options.listener);
+  return () => bus.removeListener(`topic:${topic}`, options.listener);
+}
+
+module.exports = { admit, compete, diffuse, consume, causalEffect, getMode, getCurrentFrame, submitCandidate, cycle, query, subscribe };
