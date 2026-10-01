@@ -17,6 +17,7 @@ const { sampleMemory, classifyLevel } = require('./memoryPressure');
 const { notify } = require('./notificationService');
 const { recordMemory } = require('./memoryService');
 const { postEvent, listPendingEvents, consumeEvent } = require('./inboxService');
+const { expireDue } = require('./questionService');
 const { dueSchedules, markScheduleRan } = require('./scheduleService');
 
 const NO_WAKE = ['STOPPING', 'STOPPED', 'EXECUTING', 'VERIFYING', 'INTEGRATING', 'INITIALIZING', 'PLANNING'];
@@ -129,6 +130,10 @@ async function tickOnce(db, input) {
   if (!claim.acquired) return { ticked: false, reason: 'claim-actif' };
   try {
     const fired = await fireDue(db, input.projectId, input.nowMs);
+    const expired = await expireDue(db, { projectId: input.projectId });
+    for (const questionId of expired) {
+      await notify(db, { projectId: input.projectId, kind: 'decision_needed', payload: { reason: `question-expiree:${questionId}` } });
+    }
     const ctx = await loadContext(db, input.projectId);
     const wake = await reconcileWake(db, ctx);
     const decision = wake ? { event: wake, effects: [] } : stepLoop(snapshotOf(ctx));

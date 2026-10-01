@@ -328,6 +328,10 @@ const migrationRunners = [
     const { migrateOntogenesisSchedule } = require('./migrateOntogenesisSchedule');
     await migrateOntogenesisSchedule(db);
   }),
+  createMigrationRunner('091-ontogenesis-questions', 'Persist Ontogenese clarification questions with defaults and deadlines (roadmap P3)', async (db) => {
+    const { migrateOntogenesisQuestions } = require('./migrateOntogenesisQuestions');
+    await migrateOntogenesisQuestions(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
