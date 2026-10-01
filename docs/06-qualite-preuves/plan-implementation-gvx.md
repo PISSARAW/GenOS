@@ -10,7 +10,7 @@
 | 0 — Inventaire et décisions | Réalisé | ADR 0239 et inspection des services existants |
 | 1 — Registre durable | Réalisé | Migration `097-gvx-development-ledger`, test `test_gvx_development_ledger.js` |
 | 2 — Interoception et viabilité | Réalisé | `gvxInteroception.js`, test `test_gvx_interoception.js` |
-| 3 — Transformations et curriculum | Partiel | `gvxTransformation.js`, test `test_gvx_transformation.js` ; graphe durable de compétences restant à faire |
+| 3 — Transformations et curriculum | Partiel | `gvxTransformation.js` ; graphe de compétences dérivé du registre (`gvxCompetenceGraph.js`, `test_gvx_competence_graph.js`) ; curriculum adaptatif et suivi longitudinal restant à faire |
 | 4 — Nurserie et preuve | Partiel | `gvxExperimentProtocol.js`, test `test_gvx_experiment_protocol.js` ; exécution isolée via Trinity et vérification des artifacts restent à raccorder |
 | 5 — Adaptation somatique | Partiel | `gvxSomaticAssessment.js`, test `test_gvx_somatic_assessment.js` ; application runtime, suivi et rollback restent à raccorder |
 | 6 — Transmission | Partiel | `gvxTransferLifecycle.js`, test `test_gvx_transfer_lifecycle.js` ; promotion germinale, essai de receveur et intégration de la mémoire des fossiles restent à faire |
