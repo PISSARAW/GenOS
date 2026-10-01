@@ -2,7 +2,8 @@
 
 const { randomUUID } = require('node:crypto');
 const attention = require('../modelControlledAttentionService');
-const candidatePool = require('./candidatePoolService');
+const workspace = require('../globalWorkspaceService');
+const attentionCredit = require('./attentionCreditService');
 
 const CAPABILITY_MODULES = Object.freeze({
   verification: ['verifier', 'memory', 'world_model'],
@@ -43,8 +44,12 @@ async function execute(options) {
     const handler = handlers[module];
     if (typeof handler !== 'function') continue;
     const response = await handler({ query, frame: options.frame });
-    const candidateReceipt = response?.candidate ? candidatePool.submit({ candidate: response.candidate }) : null;
-    results.push({ module, response: response?.summary || null, candidateReceipt });
+    const candidateReceipt = response?.candidate ? await workspace.submitCandidate({ candidate: response.candidate }) : null;
+    const creditReceipt = response?.outcome ? attentionCredit.observe({
+      frameId: query.frameId, capability: query.need.capability, module,
+      outcome: { ...response.outcome, cost: response.outcome.cost ?? query.budget.maxCost }
+    }) : null;
+    results.push({ module, response: response?.summary || null, candidateReceipt, creditReceipt });
   }
   return { queryId: query.queryId, frameId: query.frameId, responses: results, returnedAsCandidates: results.some((result) => result.candidateReceipt?.accepted) };
 }
