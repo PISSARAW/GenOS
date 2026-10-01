@@ -17,7 +17,7 @@ function defaultConfig() {
     memory: { envelopeMb: 2048, reserveMb: 512 },
     allowPush: false,
     allowMerge: false,
-    authority: { allowEdit: true, allowTests: true, allowCommit: true, paths: ['*'], branches: [DEFAULT_BRANCH] }
+    authority: { allowEdit: true, allowTests: true, allowCommit: true, paths: ['*'], branches: [DEFAULT_BRANCH], rules: [] }
   };
 }
 
@@ -46,6 +46,19 @@ function checkAuthority(config, errors) {
   }
   if (!Array.isArray(authority.branches)) errors.push('authority.branches-requises');
   if (!Array.isArray(authority.paths)) errors.push('authority.paths-requis');
+  checkRules(authority, errors);
+}
+
+function checkRules(authority, errors) {
+  if (authority.rules === undefined) return;
+  if (!Array.isArray(authority.rules)) {
+    errors.push('authority.rules-tableau-requis');
+    return;
+  }
+  const policies = ['allow', 'on_request', 'ask_first', 'hand_off'];
+  for (const rule of authority.rules) {
+    if (!rule || !policies.includes(rule.policy)) errors.push('authority.regle-politique-inconnue');
+  }
 }
 
 function validateProjectConfig(input) {
