@@ -222,5 +222,6 @@ Desktop.ini
 # ---------------------------------------------------------------------------
 .idea/
 .vscode/
+.claude/
 *.code-workspace
 .history/
