@@ -39,6 +39,27 @@ function clamp01(value) {
   return Math.max(0, Math.min(1, number));
 }
 
+function restoredChargeState(stored, now) {
+  const elapsed = Math.max(0, now - (Number(stored.updatedAt) || now));
+  return {
+    charge: Math.max(0, (Number(stored.charge) || 0) - elapsed * LEAK_PER_MS),
+    ignitions: Math.max(0, Math.floor(Number(stored.ignitions) || 0)),
+    refractoryUntil: Number(stored.refractoryUntil) || 0,
+    updatedAt: now
+  };
+}
+
+function advanceCharge(state, options, settings) {
+  const { now, threshold, refractory } = settings;
+  if (now < state.refractoryUntil) return { ignited: false, suppressed: true };
+  state.charge += clamp01(options.weight);
+  if (state.charge < threshold) return { ignited: false, suppressed: false };
+  state.charge = 0;
+  state.ignitions += 1;
+  state.refractoryUntil = now + refractory;
+  return { ignited: true, suppressed: false };
+}
+
 async function charge(db, agentId, input) {
   const idle = { ignited: false, suppressed: false, charge: 0, ignitions: 0 };
   if (!agentId) return idle;
@@ -51,27 +72,10 @@ async function charge(db, agentId, input) {
     opened = await openDb(db);
     const store = new AdaptiveStateService(opened.db);
     const stored = (await store.restoreObject(SCOPE, agentId)) || {};
-    const elapsed = Math.max(0, now - (Number(stored.updatedAt) || now));
-    const state = {
-      charge: Math.max(0, (Number(stored.charge) || 0) - elapsed * LEAK_PER_MS),
-      ignitions: Math.max(0, Math.floor(Number(stored.ignitions) || 0)),
-      refractoryUntil: Number(stored.refractoryUntil) || 0,
-      updatedAt: now
-    };
-    if (now < state.refractoryUntil) {
-      await store.persistObject(SCOPE, agentId, state, state.ignitions);
-      return { ...idle, suppressed: true, charge: state.charge, ignitions: state.ignitions };
-    }
-    state.charge += clamp01(options.weight);
-    if (state.charge >= threshold) {
-      state.charge = 0;
-      state.ignitions += 1;
-      state.refractoryUntil = now + refractory;
-      await store.persistObject(SCOPE, agentId, state, state.ignitions);
-      return { ignited: true, suppressed: false, charge: 0, ignitions: state.ignitions };
-    }
+    const state = restoredChargeState(stored, now);
+    const outcome = advanceCharge(state, options, { now, threshold, refractory });
     await store.persistObject(SCOPE, agentId, state, state.ignitions);
-    return { ignited: false, suppressed: false, charge: state.charge, ignitions: state.ignitions };
+    return { ...outcome, charge: state.charge, ignitions: state.ignitions };
   } catch (_) {
     return idle;
   } finally {
@@ -89,14 +93,20 @@ function driveInput(candidate, weights) {
   return total;
 }
 
-function competeWinners(candidates, options) {
+function competitionSettings(options) {
   const settings = options || {};
-  const rounds = Math.max(1, Math.min(5, Math.floor(Number(settings.rounds) || 3)));
-  const inhibition = Math.max(0, Math.min(1, Number(settings.inhibition ?? 0.2)));
-  const margin = Math.max(0, Number(settings.margin ?? 0.15));
+  return {
+    rounds: Math.max(1, Math.min(5, Math.floor(Number(settings.rounds) || 3))),
+    inhibition: Math.max(0, Math.min(1, Number(settings.inhibition ?? 0.2))),
+    margin: Math.max(0, Number(settings.margin ?? 0.15)),
+    weights: settings.weights && typeof settings.weights === 'object' ? settings.weights : {}
+  };
+}
+
+function competeWinners(candidates, options) {
+  const { rounds, inhibition, margin, weights } = competitionSettings(options);
   const list = Array.isArray(candidates) ? candidates : [];
   if (!list.length) return { winners: [], activations: {}, rounds: 0 };
-  const weights = settings.weights && typeof settings.weights === 'object' ? settings.weights : {};
   let activations = Object.fromEntries(list.map((candidate) => [candidate.id, driveInput(candidate, weights)]));
   for (let round = 0; round < rounds; round++) {
     const total = Object.values(activations).reduce((sum, value) => sum + value, 0);

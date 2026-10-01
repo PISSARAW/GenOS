@@ -7,22 +7,27 @@ const crypto = require('crypto');
 
 const CONTRADICTION_FLAG = 'contradicted';
 
+function evidenceContent(entry) {
+  return String(entry.content || entry.observationOutput || '').toLowerCase();
+}
+
+function evidenceOutcome(entry) {
+  return String(entry.status || entry.outcome || '').toLowerCase();
+}
+
 function hasContradiction(memoryEntry, newEvidence) {
   if (!memoryEntry || !newEvidence) return false;
-  const oldContent = String(memoryEntry.content || memoryEntry.observationOutput || '').toLowerCase();
-  const newContent = String(newEvidence.content || newEvidence.observationOutput || '').toLowerCase();
+  const oldContent = evidenceContent(memoryEntry);
+  const newContent = evidenceContent(newEvidence);
   if (!oldContent || !newContent) return false;
   if (oldContent === newContent) return false;
-  const oldOutcome = String(memoryEntry.status || memoryEntry.outcome || '').toLowerCase();
-  const newOutcome = String(newEvidence.status || newEvidence.outcome || '').toLowerCase();
+  const oldOutcome = evidenceOutcome(memoryEntry);
+  const newOutcome = evidenceOutcome(newEvidence);
   if (oldOutcome && newOutcome && oldOutcome !== newOutcome) return true;
   return !oldContent.includes(newContent) && !newContent.includes(oldContent);
 }
 
-function reconsolidate(ctx) {
-  const { agentId, trigger, memoryEntry } = ctx || {};
-  if (!memoryEntry) return { updated: false, reason: 'no_memory_entry' };
-
+function reconsolidatedEntry(agentId, trigger, memoryEntry) {
   const updated = {
     ...memoryEntry,
     lastReconsolidatedAt: new Date().toISOString(),
@@ -30,7 +35,6 @@ function reconsolidate(ctx) {
     reconsolidationTriggers: [...(memoryEntry.reconsolidationTriggers || []), trigger || 'unknown'],
     agentId: agentId || memoryEntry.agentId || null
   };
-
   if (memoryEntry.context) {
     updated.context = {
       ...memoryEntry.context,
@@ -38,6 +42,14 @@ function reconsolidate(ctx) {
       reconsolidatedAt: new Date().toISOString()
     };
   }
+  return updated;
+}
+
+function reconsolidate(ctx) {
+  const { agentId, trigger, memoryEntry } = ctx || {};
+  if (!memoryEntry) return { updated: false, reason: 'no_memory_entry' };
+
+  const updated = reconsolidatedEntry(agentId, trigger, memoryEntry);
 
   return {
     updated: true,

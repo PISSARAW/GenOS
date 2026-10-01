@@ -12,31 +12,36 @@ function clamp01(value, fallback = 0) {
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback;
 }
 
+function contextValue(value, fallback) {
+  return value || fallback;
+}
+
 function normalizeCtx(ctx = {}) {
   return {
-    problemProfile: ctx.problemProfile || {},
-    epistemicState: ctx.epistemicState || {},
-    memoryContext: ctx.memoryContext || {},
-    cognitivePhenotype: ctx.cognitivePhenotype || {},
-    regulatoryState: ctx.regulatoryState || {},
-    capabilities: ctx.capabilities || {},
-    availableTools: ctx.availableTools || [],
-    topology: ctx.topology || {},
-    workers: ctx.workers || [],
-    budget: ctx.budget || {},
-    previousStrategyHistory: ctx.previousStrategyHistory || [],
-    observedFailures: ctx.observedFailures || [],
-    morphologyHistory: ctx.morphologyHistory || [],
+    problemProfile: contextValue(ctx.problemProfile, {}),
+    epistemicState: contextValue(ctx.epistemicState, {}),
+    memoryContext: contextValue(ctx.memoryContext, {}),
+    cognitivePhenotype: contextValue(ctx.cognitivePhenotype, {}),
+    regulatoryState: contextValue(ctx.regulatoryState, {}),
+    capabilities: contextValue(ctx.capabilities, {}),
+    availableTools: contextValue(ctx.availableTools, []),
+    topology: contextValue(ctx.topology, {}),
+    workers: contextValue(ctx.workers, []),
+    budget: contextValue(ctx.budget, {}),
+    previousStrategyHistory: contextValue(ctx.previousStrategyHistory, []),
+    observedFailures: contextValue(ctx.observedFailures, []),
+    morphologyHistory: contextValue(ctx.morphologyHistory, []),
   };
+}
+
+function problemTypeFit(strategy, type) {
+  return strategy.problemTypes.includes('all') || strategy.problemTypes.includes(type) ? 0.5 : 0;
 }
 
 function computeFit(strategy, ctx) {
   const profile = ctx.problemProfile;
   const type = profile.type || 'unknown';
-  let fit = 0;
-  if (strategy.problemTypes.includes('all') || strategy.problemTypes.includes(type)) {
-    fit += 0.5;
-  }
+  let fit = problemTypeFit(strategy, type);
   const traits = new Set(strategy.traits);
   if (traits.has('low_cost') && (ctx.budget?.maxCostLevel || 5) <= 2) fit += 0.15;
   if (traits.has('verification') && (ctx.regulatoryState?.requireVerification)) fit += 0.15;

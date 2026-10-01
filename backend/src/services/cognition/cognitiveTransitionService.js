@@ -30,23 +30,19 @@ function recipeCost(recipe, keyMap) {
   }, 0);
 }
 
-function proposeTransition(ctx) {
-  const currentRecipe = ctx.currentRecipe;
-  const evidence = ctx.evidence || {};
-  const pressure = ctx.pressure || {};
-  if (!currentRecipe || !Array.isArray(currentRecipe.keys)) return null;
-  const keyMap = keyMapOf(COGNITIVE_KEYS);
-  const needs = evidence.needs || [];
-  const currentUtility = getRecipeUtility(currentRecipe, evidence);
-  const coveredNeeds = new Set();
+function uncoveredRecipeNeeds(currentRecipe, needs, keyMap) {
+  const covered = new Set();
   currentRecipe.keys.forEach((keyId) => {
     const key = keyMap.get(keyId);
     if (key) key.usefulWhen.forEach((need) => {
-      if (needs.includes(need)) coveredNeeds.add(need);
+      if (needs.includes(need)) covered.add(need);
     });
   });
-  const uncoveredNeeds = needs.filter((need) => !coveredNeeds.has(need));
-  const candidates = COGNITIVE_KEYS
+  return needs.filter((need) => !covered.has(need));
+}
+
+function transitionCandidates(currentRecipe, uncoveredNeeds) {
+  return COGNITIVE_KEYS
     .filter((key) => !currentRecipe.keys.includes(key.id))
     .map((key) => ({
       key,
@@ -55,21 +51,41 @@ function proposeTransition(ctx) {
     }))
     .filter((entry) => entry.relevance > 0 || uncoveredNeeds.length === 0)
     .sort((a, b) => b.relevance - a.relevance || a.cost - b.cost);
-  const replacementCount = Math.min(
-    pressure.maxReplacements || 1,
-    candidates.length,
-    currentRecipe.keys.length
-  );
-  const replacements = candidates.slice(0, replacementCount);
+}
+
+function replacementKeys(currentRecipe, replacements) {
   const proposedKeys = [...currentRecipe.keys];
   replacements.forEach((replacement, index) => {
     const replaceIndex = proposedKeys.length - 1 - index;
     if (replaceIndex >= 0) proposedKeys[replaceIndex] = replacement.key.id;
   });
+  return proposedKeys;
+}
+
+function replacementLimit(pressure) {
+  return pressure.maxReplacements || 1;
+}
+
+function proposeTransition(ctx) {
+  const currentRecipe = ctx.currentRecipe;
+  const evidence = ctx.evidence || {};
+  const pressure = ctx.pressure || {};
+  if (!currentRecipe || !Array.isArray(currentRecipe.keys)) return null;
+  const keyMap = keyMapOf(COGNITIVE_KEYS);
+  const needs = evidence.needs || [];
+  const currentUtility = getRecipeUtility(currentRecipe, evidence);
+  const uncoveredNeeds = uncoveredRecipeNeeds(currentRecipe, needs, keyMap);
+  const candidates = transitionCandidates(currentRecipe, uncoveredNeeds);
+  const replacementCount = Math.min(
+    replacementLimit(pressure),
+    candidates.length,
+    currentRecipe.keys.length
+  );
+  const replacements = candidates.slice(0, replacementCount);
   const proposed = {
     id: `${currentRecipe.id}-transition`,
     label: 'Proposed transition recipe',
-    keys: proposedKeys,
+    keys: replacementKeys(currentRecipe, replacements),
     ordering: [],
     objective: currentRecipe.objective || null
   };
@@ -91,6 +107,17 @@ function proposeTransition(ctx) {
   };
 }
 
+function validateKeyConstraints(keys, constraints, errors) {
+  if (constraints.requiredKeys) {
+    const missing = constraints.requiredKeys.filter((id) => !keys.includes(id));
+    if (missing.length > 0) errors.push(`missing required: ${missing.join(', ')}`);
+  }
+  if (constraints.forbiddenKeys) {
+    const forbidden = keys.filter((id) => constraints.forbiddenKeys.includes(id));
+    if (forbidden.length > 0) errors.push(`contains forbidden: ${forbidden.join(', ')}`);
+  }
+}
+
 function validateTransition(proposed, constraints) {
   const errors = [];
   if (!proposed || !Array.isArray(proposed.keys)) {
@@ -105,14 +132,7 @@ function validateTransition(proposed, constraints) {
   if (constraints.maxCost && recipeCost(proposed, keyMap) > constraints.maxCost) {
     errors.push('exceeds maxCost');
   }
-  if (constraints.requiredKeys) {
-    const missing = constraints.requiredKeys.filter((id) => !proposed.keys.includes(id));
-    if (missing.length > 0) errors.push(`missing required: ${missing.join(', ')}`);
-  }
-  if (constraints.forbiddenKeys) {
-    const forbidden = proposed.keys.filter((id) => constraints.forbiddenKeys.includes(id));
-    if (forbidden.length > 0) errors.push(`contains forbidden: ${forbidden.join(', ')}`);
-  }
+  validateKeyConstraints(proposed.keys, constraints, errors);
   return { valid: errors.length === 0, errors };
 }
 
