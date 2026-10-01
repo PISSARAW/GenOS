@@ -97,4 +97,19 @@ async function arbitrateCycle(options, candidates, previousFrame) {
   });
 }
 
+async function arbitrateCycle(options, candidates, previousFrame) {
+  const storedPolicy = await require('./agowStatePersistenceService').load({
+    scope: 'agow_attention_policy', agentId: options.agentId, db: options.db
+  });
+  const regretContext = {
+    ...(options.regretContext || {}),
+    currentInteroception: options.regretContext?.currentInteroception || storedPolicy.state.variables
+  };
+  return arbitrationService.arbitrate({
+    candidates, previousFrame,
+    capacity: (options.primaryCapacity || 1) + (options.secondaryCapacity ?? 2),
+    competition: options.competition, regretContext
+  });
+}
+
 module.exports = { cycle };
