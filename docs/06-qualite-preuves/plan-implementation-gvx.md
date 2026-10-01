@@ -12,7 +12,7 @@
 | 2 — Interoception et viabilité | Réalisé | `gvxInteroception.js`, test `test_gvx_interoception.js` |
 | 3 — Transformations et curriculum | Partiel | `gvxTransformation.js` ; graphe de compétences dérivé du registre (`gvxCompetenceGraph.js`, `test_gvx_competence_graph.js`) ; curriculum adaptatif et suivi longitudinal restant à faire |
 | 4 — Nurserie et preuve | Partiel | `gvxExperimentProtocol.js`, test `test_gvx_experiment_protocol.js` ; exécution isolée via Trinity et vérification des artifacts restent à raccorder |
-| 5 — Adaptation somatique | Partiel | `gvxSomaticAssessment.js`, test `test_gvx_somatic_assessment.js` ; application runtime, suivi et rollback restent à raccorder |
+| 5 — Adaptation somatique | Partiel | `gvxSomaticAssessment.js` et orchestration autorisée/idempotente avec compensation (`gvxSomaticApplication.js`, `test_gvx_somatic_application.js`) ; adaptateur d’un runtime concret et observation longitudinale restent à raccorder |
 | 6 — Transmission | Partiel | `gvxTransferLifecycle.js`, test `test_gvx_transfer_lifecycle.js` ; promotion germinale, essai de receveur et intégration de la mémoire des fossiles restent à faire |
 | 7 — Méta-développement | Partiel | `gvxMetaPolicyGate.js`, test `test_gvx_meta_policy_gate.js` ; sélection des candidates et exécution d’essais longitudinaux restent à raccorder |
 | 8 — Évaluation | Partiel | `gvxBenchmarkProtocol.js`, test `test_gvx_benchmark_protocol.js` ; seul le protocole de scoring local est créé, aucune campagne ni expérience externe n’a été exécutée |
