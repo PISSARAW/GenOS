@@ -463,8 +463,9 @@ Le mode `shadow` mesure les marchés sans filtrer la compétition plate. Les mod
 `advisory`, `bounded` et `live` appliquent les gagnants régionaux. `marketPath`,
 `localCompetitors`, `localWinnerReason` et `regionalReceipt` accompagnent les candidats
 sélectionnés dans le résultat runtime. La morphologie doit encore être fournie à
-`workspaceCycleService` par l'adaptateur métier; sans elle le partitionneur utilise le
-domaine/module du candidat. Aucun gain de latence ou de qualité n'est présumé. Voir
+`workspaceCycleService` explicitement ou via la topologie active produite par
+`morphogenesisMarketAdapter`; à défaut, le partitionneur utilise le domaine/module du
+candidat. Aucun gain de latence ou de qualité n'est présumé. Voir
 [ADR 0246](../adr/0246-marches-cognitifs-distribues-agow.md).
 
 `morphogenesisMarketAdapter.recordProposal` accepte une topologie et des frontières
@@ -840,6 +841,28 @@ Ne fournissez pas un corpus d'entraînement sous l'étiquette holdout. Le code n
 pas détecter cette fuite à partir du booléen; la provenance et le gel des données sont
 à documenter hors du callback.
 
+### 16.6 Baseline CTM-style et protocoles comparatifs
+
+`experiments/ctmStyleBaselineService` implémente une baseline locale minimale : scores
+auto-déclarés par processeur, softmax stable, un tour de compétition et un gagnant. Le
+runner `runCtmStyleBaseline` passe le vainqueur calculé au callback et refuse un résultat
+qui déclare avoir exécuté un autre candidat. Cette baseline ne reproduit pas CTM-AI et
+ses auto-scores doivent venir du même budget de processeurs.
+
+`experiments/agowBenchmarkProtocolService` fournit six protocoles : `ctm_compatible`,
+`genos_differential`, `automation_nonstationary`, `predictive_regret`,
+`counterfactual_contamination` et `distributed_market_scale`. Le protocole non
+stationnaire exige 50 cas stables puis un cas de dérive; le marché exige 10, 50, 100,
+500 et 1000 candidats. Les corpus et environnements restent fournis par l'intégrateur.
+
+Les reçus agrègent activations workspace, queries, broadcasts, réveils LLM, hits de
+voies directes/procédurales/reflexes, décompilations, utilité, tokens, ignitions,
+rappel marché et faits contrefactuels. Les dérivés comprennent l'efficacité
+`taskUtility / (1 + globalWorkspaceActivations)`, les requêtes par succès et le taux de
+contamination. Aucun protocole ne vaut résultat avant une vraie exécution holdout, puis
+des réplications distinctes. Voir [ADR 0250](../adr/0250-baseline-ctm-style-agow.md) et
+[ADR 0251](../adr/0251-protocoles-benchmarks-agow.md).
+
 ---
 
 ## 17. Télémétrie et diagnostic
@@ -904,9 +927,15 @@ pas de SLO arbitraire.
 | Déclenchement des requêtes | Automatique après frame si une lacune passe les seuils. | Vérifier coûts, échéances, utilité et absence d'amplification sur des parcours réels. |
 | Organes runtime | Mission, ingress perception/worker, efférence, idle tick, receivers daemon/morphogenèse branchés à des points existants. | Audit exhaustif par producteur et exécution de bout en bout des parcours métier. |
 | Persistance | Scopes `adaptive_state` durables, isolés par agent. | Validation de charge multi-processus, contention, reprise et rétention sur la base configurée. |
-| Ablations | Runner descriptif et callback contrôlé par appelant. | Implémenter des conditions qui désactivent réellement chaque organe et produire les reçus. |
+| Ablations | Conditions versionnées incluant les nouveaux organes et la baseline CTM-style minimale. | Les callbacks doivent appliquer et instrumenter les interventions; corpus, résultats et analyse restent à produire. |
 | Médiation | Comparaison `broadcast_delivered` / `broadcast_suppressed`. | Contrôler les variables confondantes et relier les changements à des résultats aval. |
-| Réplication holdout | Garde logicielle : trois runs minimum, seeds et corpus distincts. | Préparer des holdouts indépendants, exécuter la campagne et publier l'analyse reproductible. |
+| Réplication holdout | Garde logicielle : trois runs minimum, seeds et corpus distincts; protocoles dédiés pour six familles. | Qualifier les holdouts, exécuter les campagnes et publier les analyses indépendantes. |
+| Simulation contrefactuelle | Cycle shadow AGOW namespacé et plafonné, sans exécuteur métier intégré par défaut. | Fournir/registrer un exécuteur qui restaure outils, modèle et environnement de mission isolés; exécuter et vérifier des branches réelles. |
+| Plasticité | Coordinateur avec traces rapides et garde de consolidation lente. | Brancher les outcomes validés des producteurs runtime et mesurer les poids en ligne. |
+| Voies directes | Registre, sélection Active Query, Signal Event Bus, suspension et décompilation. | Enregistrer les abonnés organes, produire des trajets d'apprentissage et tester en contexte métier. |
+| Procéduralisation | Store de trajectoire, compiler proposal-only et lien aux épisodes autobiographiques. | Alimenter les trajectoires depuis des outcomes runtime complets; acheminer les propositions au runtime procedural gate. |
+| Marchés distribués | Partition régionale, arbitrage local/global et topologie Morphogenesis activable; défaut `disabled`. | Benchmarker rappel/latence sur 10 à 1000 candidats et préserver le rappel utile. |
+| Campagnes empiriques | Protocoles CTM-compatible, différentiel, drift, regret, contamination et marché. | Fournir holdouts, modèles, outils, baux et exécuter les campagnes avec réplication. |
 | Autorité `live` | État `awaiting_causal_promotion`; pas de décision automatique. | Revue de preuves, gates de promotion et décision mainteneur séparée. |
 | Autorité Rust | Prototype distinct, non autoritaire et sans store partagé. | Concevoir puis valider explicitement une migration d'autorité. |
 | Robustesse des mesures | Mesures et réponses viennent des producteurs/adaptateurs. | Validation indépendante, calibration, incertitude et provenance. |
@@ -951,6 +980,7 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `proceduralization/decompilationService.js` | Suspension d'une voie sur dérive/outcome inattendu, candidat de retour AGOW et reçu causal. |
 | `markets/marketPartitionService.js` / `markets/cognitiveMarketService.js` | Partitions topologiques, compétition régionale, reçus et gagnants transmis au marché global. |
 | `markets/morphogenesisMarketAdapter.js` | Stockage shadow, validation structurelle sans sélection de contenu et activation avec reçu. |
+| `experiments/ctmStyleBaselineService.js` / `experiments/agowBenchmarkProtocolService.js` | Baseline softmax auto-évaluée et protocoles holdout comparatifs. |
 | `counterfactual/counterfactualFrameAdapter.js` / `counterfactual/counterfactualOutcomeService.js` | Construction des branches et admission des outcomes avec provenance. |
 
 ---
@@ -995,13 +1025,15 @@ d'état et l'issue de tâche.
 
 ## 23. Conclusion
 
-AGOW possède désormais un parcours logiciel documenté de l'observation jusqu'au
-frame, à ses organes destinataires et aux requêtes de suivi. La persistance par agent,
-les receivers par défaut et le démarrage automatique des requêtes rendent ce parcours
-exécutable sur les points d'intégration actuellement branchés. Les reçus exposent les
-étapes et les conditions; ils ne transforment pas ces étapes en preuves causales.
+AGOW possède maintenant des services intégrés pour la provenance épistémique, le regret,
+les branches contrefactuelles isolées, les traces de plasticité, les voies directes, les
+propositions de procédure, la décompilation, les marchés et les trajectoires
+autobiographiques. Les points d'entrée d'ingress mission ne déclenchent pas encore tous
+ces mécanismes; plusieurs restent activés explicitement par appelant ou policy. Les
+exécuteurs shadow et expérimentaux doivent être enregistrés par l'hôte.
 
-Le prochain jalon scientifique n'est pas d'ajouter un score de promotion au runner.
-Il consiste à fournir des exécuteurs d'ablation fidèles, un protocole gelé, des
-holdouts indépendants, des reçus auditables et une réplication analysée avant toute
-revendication d'amélioration ou d'autorité `live`.
+Les tests et reçus vérifient les contrats et les conditions exécutées; ils ne fournissent
+aucune preuve d'amélioration. La feuille de route empirique reste ouverte tant que les
+intégrateurs n'ont pas branché les outcomes réels, fourni des modèles/outils/corpus
+holdout, exécuté les campagnes ablation/médiation/replication et publié l'analyse. Le
+mode `live` conserve les gates de promotion séparés.

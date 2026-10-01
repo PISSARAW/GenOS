@@ -2,6 +2,7 @@
 
 const { createHash, randomUUID } = require('node:crypto');
 const persistence = require('./agowStatePersistenceService');
+const ctmBaseline = require('./experiments/ctmStyleBaselineService');
 
 const SCOPE = 'agow_experiment_receipts';
 const CONDITIONS = Object.freeze(['full', 'workspace_ablated', 'broadcast_ablated', 'memory_ablated',
@@ -9,6 +10,9 @@ const CONDITIONS = Object.freeze(['full', 'workspace_ablated', 'broadcast_ablate
   'counterfactual_ablated', 'active_query_ablated', 'fast_plasticity_ablated',
   'direct_pathway_ablated', 'proceduralization_ablated', 'decompilation_ablated',
   'distributed_market_ablated', 'provenance_ablated']);
+const OUTCOME_METRICS = ['globalWorkspaceActivations', 'activeQueries', 'broadcasts', 'llmWakeups',
+  'directPathHits', 'proceduralHits', 'reflexHits', 'decompilations', 'taskUtility', 'tokens',
+  'globalIgnitions', 'candidateRecall', 'marketCount', 'contaminationCount', 'simulatedFactCount'];
 
 function digest(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -29,9 +33,15 @@ function validateProtocol(protocol) {
   throw new TypeError('AGOW experiment requires a preregistered hypothesis, primary metric and analysis plan.');
 }
 
-function validateCases(cases) {
+function validateCases(cases, conditions) {
   if (!cases.some((item) => !item.caseId || item.input === undefined)) return;
   throw new TypeError('Each holdout case requires caseId and input.');
+}
+
+function validateBaselineCases(cases, conditions) {
+  if (!conditions.includes(ctmBaseline.BASELINE_ID)) return;
+  if (cases.every((item) => Array.isArray(item.input?.candidates) && item.input.candidates.length)) return;
+  throw new TypeError('CTM-style baseline cases require self-rated input.candidates.');
 }
 
 function validateConditions(conditions) {
@@ -46,8 +56,10 @@ function validate(options) {
   validateManifest(options.environment);
   validateProtocol(options.protocol);
   if (options.holdout !== true) throw new TypeError('AGOW experiment corpus must be explicitly marked holdout.');
-  validateCases(options.cases);
-  validateConditions(options.conditions || CONDITIONS);
+  const conditions = options.conditions || CONDITIONS;
+  validateCases(options.cases, conditions);
+  validateConditions(conditions);
+  validateBaselineCases(options.cases, conditions);
 }
 
 function seededOrder(items, seed) {
@@ -64,29 +76,52 @@ function seededOrder(items, seed) {
 function summarize(results) {
   const groups = {};
   for (const result of results) {
-    const group = groups[result.condition] || { runs: 0, successes: 0, errors: 0, cost: 0, latencyMs: 0 };
+    const group = groups[result.condition] || emptySummary();
     group.runs += 1;
     group.successes += result.outcome?.success === true ? 1 : 0;
     group.errors += Math.max(0, Number(result.outcome?.errors) || 0);
     group.cost += Math.max(0, Number(result.outcome?.cost) || 0);
     group.latencyMs += Math.max(0, Number(result.outcome?.latencyMs) || 0);
+    addOutcomeMetrics(group, result.outcome);
     groups[result.condition] = group;
   }
-  return Object.fromEntries(Object.entries(groups).map(([key, value]) => [key, {
-    ...value, successRate: value.successes / value.runs, meanErrors: value.errors / value.runs,
-    meanCost: value.cost / value.runs, meanLatencyMs: value.latencyMs / value.runs
-  }]));
+  return Object.fromEntries(Object.entries(groups).map(([key, value]) => [key, summarizeGroup(value)]));
+}
+
+function emptySummary() {
+  return { runs: 0, successes: 0, errors: 0, cost: 0, latencyMs: 0,
+    ...Object.fromEntries(OUTCOME_METRICS.map((metric) => [metric, 0])) };
+}
+
+function addOutcomeMetrics(group, outcome = {}) {
+  for (const metric of OUTCOME_METRICS) group[metric] += Math.max(0, Number(outcome[metric]) || 0);
+}
+
+function summarizeGroup(value) {
+  const means = Object.fromEntries(OUTCOME_METRICS.map((metric) => [`mean${metric[0].toUpperCase()}${metric.slice(1)}`, value[metric] / value.runs]));
+  const efficiency = value.taskUtility / (1 + value.globalWorkspaceActivations);
+  const contaminationRate = value.simulatedFactCount ? value.contaminationCount / value.simulatedFactCount : null;
+  const queriesPerSuccess = value.successes ? value.activeQueries / value.successes : null;
+  return { ...value, ...means, deliberationEfficiency: efficiency,
+    contaminationRate, queriesPerSuccess,
+    successRate: value.successes / value.runs, meanErrors: value.errors / value.runs,
+    meanCost: value.cost / value.runs, meanLatencyMs: value.latencyMs / value.runs };
 }
 
 async function executeCase(options) {
   const { item, condition, seed } = options;
   const snapshot = structuredClone(options.snapshot);
   const initialSnapshotHash = digest(snapshot);
-  const outcome = await options.execute({ caseId: item.caseId, input: structuredClone(item.input), condition, seed, snapshot });
+  const baseline = condition === ctmBaseline.BASELINE_ID
+    ? ctmBaseline.compete({ candidates: item.input.candidates, temperature: options.baselineTemperature }) : null;
+  const outcome = await options.execute({ caseId: item.caseId, input: structuredClone(item.input), condition, seed, snapshot, baseline });
   if (!outcome || typeof outcome !== 'object' || typeof outcome.success !== 'boolean') {
     throw new TypeError(`Experiment adapter returned an invalid outcome for ${item.caseId}/${condition}.`);
   }
-  return { caseId: item.caseId, condition, seed, outcome, initialSnapshotHash };
+  if (baseline && outcome.selectedCandidateId !== baseline.winner.candidateId) {
+    throw new TypeError('CTM-style baseline adapter must execute the softmax winner.');
+  }
+  return { caseId: item.caseId, condition, seed, outcome, baseline, initialSnapshotHash };
 }
 
 async function persist(options, receipt) {
@@ -123,6 +158,10 @@ async function run(options) {
 
 async function runControlledMediation(options) {
   return run({ ...options, kind: 'agow_controlled_mediation', conditions: ['broadcast_delivered', 'broadcast_suppressed'] });
+}
+
+async function runCtmStyleBaseline(options) {
+  return run({ ...options, kind: 'agow_ctm_style_baseline', conditions: [ctmBaseline.BASELINE_ID] });
 }
 
 async function runReplicationCampaign(options) {
@@ -173,4 +212,4 @@ async function list(options) {
   return Array.isArray(loaded.state.receipts) ? loaded.state.receipts : [];
 }
 
-module.exports = { CONDITIONS, run, runControlledMediation, runReplicationCampaign, list, summarize };
+module.exports = { CONDITIONS, run, runControlledMediation, runCtmStyleBaseline, runReplicationCampaign, list, summarize, OUTCOME_METRICS };

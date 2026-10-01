@@ -265,8 +265,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0248](0248-trajectoires-causales-autobiographiques-agow.md) | Trajectoires causales dans la mémoire autobiographique | Accepté | 2026-10-01 | AGOW, mémoire autobiographique, provenance causale |
 | [0249a](0249-ablations-et-controles-agow.md) | Conditions d'ablation AGOW étendues | Accepté | 2026-10-01 | AGOW, expérimentation, falsification |
 | [0249b](0249-gvx-application-somatique.md) | Application somatique GVX sous autorisation externe | Accepté | 2026-10-01 | GVX, runtime, autorité, rollback |
-| [0252](0252-gvx-curriculum-competences.md) | Curriculum de compétences GVX sous budget | Accepté | 2026-10-01 | GVX, compétences, budget, apprentissage |
-| [0253](0253-gvx-suivi-somatique.md) | Suivi somatique et rollback GVX | Accepté | 2026-10-01 | GVX, observation, régression, rollback |
+| [0250](0250-baseline-ctm-style-agow.md) | Baseline CTM-style pour les expériences AGOW | Accepté | 2026-10-01 | AGOW, compétition, comparaison expérimentale |
+| [0251](0251-protocoles-benchmarks-agow.md) | Protocoles de benchmarks AGOW comparatifs | Accepté | 2026-10-01 | AGOW, expérience, mesure d'efficacité |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
