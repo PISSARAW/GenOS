@@ -340,6 +340,10 @@ const migrationRunners = [
     const { migrateOntogenesisLedger } = require('./migrateOntogenesisLedger');
     await migrateOntogenesisLedger(db);
   }),
+  createMigrationRunner('094-ontogenesis-channels', 'Persist Ontogenese conversation channels and routing (roadmap P6)', async (db) => {
+    const { migrateOntogenesisChannels } = require('./migrateOntogenesisChannels');
+    await migrateOntogenesisChannels(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
