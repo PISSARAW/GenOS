@@ -436,6 +436,21 @@ doit garantir que les identifiants envoyés forment bien une séquence causale c
 L'approbation et la validation ultérieures restent dans le runtime procédural déjà
 présent. Voir [ADR 0244](../adr/0244-compilateur-de-trajectoires-agow.md).
 
+### 8.4 Décompilation sur surprise ou dérive
+
+`proceduralization/decompilationService.recordOutcome` ferme une voie consolidée dès
+que l'intégrateur signale une erreur prédictive d'au moins 0,5, une dérive, un outcome
+inattendu, une contradiction, une exigence de preuve accrue ou un changement de
+contexte de sécurité. Le routeur suspend la voie et soumet un candidat au workspace
+avec `epistemicOrigin.origin: procedural_generated`, réalité réelle et confiance
+explicite. `agow_decompilation_receipts` garde les déclencheurs et références.
+
+L'intégrateur doit émettre ces faits depuis un résultat réellement observé. La réception
+du candidat par AGOW ne garantit pas qu'une nouvelle procédure sera validée. Le même
+outcome est présenté au coordinateur de plasticité; seules les preuves reconnues par
+celui-ci peuvent contribuer au poids durable. Voir [ADR
+0245](../adr/0245-decompilation-voie-agow.md).
+
 ---
 
 ## 9. Signal Plane, diffusion et médiation
@@ -896,6 +911,7 @@ non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-eva
 | `plasticity/agowPlasticityCoordinator.js` / `plasticity/pathwayEligibilityService.js` | Trace contextuelle rapide, support validé et consolidation lente via LTP procédurale. |
 | `pathways/directPathwayRegistry.js` / `pathways/directPathwayRouter.js` | Registre contextuel, revue globale obligatoire et routage direct sur le Signal Plane existant. |
 | `proceduralization/cognitiveTrajectoryService.js` / `proceduralization/consciousnessCompilerService.js` | Références causales compactes et propositions de sous-chemins répétées, sans promotion. |
+| `proceduralization/decompilationService.js` | Suspension d'une voie sur dérive/outcome inattendu, candidat de retour AGOW et reçu causal. |
 | `counterfactual/counterfactualFrameAdapter.js` / `counterfactual/counterfactualOutcomeService.js` | Construction des branches et admission des outcomes avec provenance. |
 
 ---
