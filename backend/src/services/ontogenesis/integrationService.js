@@ -2,6 +2,8 @@
 
 const crypto = require('crypto');
 const { runCommand } = require('../agentWorkspaceLifecycle/git');
+const { pathAllowed, assertContainedFiles } = require('./pathAuthority');
+const { validateProofs } = require('./proofService');
 
 /**
  * Intégrateur unique vers la branche d'Ontogenèse (ADR 0235 §6).
@@ -13,7 +15,7 @@ const { runCommand } = require('../agentWorkspaceLifecycle/git');
  * chemins validés sont stagés explicitement.
  */
 
-const FORBIDDEN = [/\.env$/i, /\.pem$/i, /\.key$/i, /secret/i, /\.db$/i, /\.sqlite/i, /(^|\/)node_modules\//, /(^|\/)target\//, /(^|\/)dist\//, /(^|\/)\.git\//];
+const FORBIDDEN = [/(^|\/)\.env(?:\.|$)/i, /\.pem$/i, /\.key$/i, /secret/i, /\.db$/i, /\.sqlite/i, /(^|\/)node_modules\//, /(^|\/)target\//, /(^|\/)dist\//, /(^|\/)\.git(?:\/|$)/, /(^|\/)\.genos(?:[-/]|$)/];
 
 function newId(prefix) {
   return `${prefix}_${crypto.randomUUID()}`;
@@ -30,15 +32,13 @@ function buildCommitMessage(input) {
 }
 
 function fileAllowed(authority, file) {
-  const paths = (authority && authority.paths) || [];
-  if (paths.includes('*')) return true;
-  return paths.some((prefix) => String(file).startsWith(prefix));
+  return pathAllowed(authority, file);
 }
 
 function checkCandidateFiles(candidate, authority, errors) {
   for (const file of candidate.files || []) {
     if (!fileAllowed(authority, file)) errors.push(`chemin-hors-perimetre:${file}`);
-    if (FORBIDDEN.some((pattern) => pattern.test(file))) errors.push(`fichier-interdit:${file}`);
+    if (FORBIDDEN.some((pattern) => pattern.test(String(file).replace(/\\/g, '/')))) errors.push(`fichier-interdit:${file}`);
   }
 }
 
@@ -60,6 +60,7 @@ function validateCandidate(input) {
   checkCandidateBranch(candidate, authority, errors);
   checkCandidateShape(candidate, errors);
   checkCandidateFiles(candidate, authority, errors);
+  errors.push(...validateProofs(candidate));
   return { ok: errors.length === 0, errors };
 }
 
@@ -92,6 +93,7 @@ async function currentSha(git, worktree) {
 async function commitExists(git, worktree, sha) {
   try {
     await git.run(['cat-file', '-e', `${sha}^{commit}`], worktree);
+    await git.run(['merge-base', '--is-ancestor', sha, 'HEAD'], worktree);
     return true;
   } catch (_) {
     return false;
@@ -100,7 +102,7 @@ async function commitExists(git, worktree, sha) {
 
 async function findCommitByOperation(git, worktree, operationId) {
   try {
-    const result = await git.run(['log', '--all', `--grep=Genos-Operation: ${operationId}`, '--format=%H', '-n', '1'], worktree);
+    const result = await git.run(['log', '--fixed-strings', `--grep=Genos-Operation: ${operationId}`, '--format=%H', '-n', '1', 'HEAD'], worktree);
     const sha = String(result.stdout || '').trim().split('\n')[0] || '';
     return sha || null;
   } catch (_) {
@@ -131,11 +133,14 @@ async function reconcileIntegration(db, git, input) {
 }
 
 async function stageFiles(git, worktree, files) {
-  await git.run(['add', '--', ...files], worktree);
+  assertContainedFiles(worktree, files);
+  await git.run(['--literal-pathspecs', 'add', '--', ...files], worktree);
 }
 
-async function commitStaged(git, worktree, message) {
-  const result = await git.run(['commit', '-m', message], worktree);
+async function commitStaged(git, worktree, input) {
+  if (!input || !Array.isArray(input.files) || !input.files.length) throw new Error('fichiers-commit-requis');
+  assertContainedFiles(worktree, input.files);
+  const result = await git.run(['--literal-pathspecs', 'commit', '--only', '-m', input.message, '--', ...input.files], worktree);
   return String(result.stdout || '');
 }
 

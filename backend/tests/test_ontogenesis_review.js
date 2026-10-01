@@ -11,10 +11,10 @@ assert.strictEqual(review.classifyAction({ scope: 'commit' }), 'irreversible');
 assert.strictEqual(review.classifyAction({ scope: 'push' }), 'external');
 assert.strictEqual(review.classifyAction({ scope: 'merge' }), 'external');
 
-// Défauts sans règle : réversible passe, irréversible demande, externe refuse.
+// Les commits locaux explicitement autorisés passent ; l'externe reste refusé.
 const config = defaultConfig();
 assert.deepStrictEqual(review.reviewAction(config, { scope: 'edit', branch: 'codex/ontogenesis', path: 'a.js' }).verdict, 'proceed');
-assert.deepStrictEqual(review.reviewAction(config, { scope: 'commit', branch: 'codex/ontogenesis' }).verdict, 'ask_first');
+assert.deepStrictEqual(review.reviewAction(config, { scope: 'commit', branch: 'codex/ontogenesis' }).verdict, 'proceed');
 assert.deepStrictEqual(review.reviewAction(config, { scope: 'push', branch: 'codex/ontogenesis' }).verdict, 'denied');
 
 // Hors périmètre → approbation, pas exécution.

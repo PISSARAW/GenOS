@@ -12,6 +12,7 @@ const { validateProjectConfig } = require('../src/services/ontogenesis/configSch
 const { createProject } = require('../src/services/ontogenesis/projectStore');
 const control = require('../src/services/ontogenesis/controlService');
 const autostart = require('../src/services/ontogenesis/autostartService');
+const { createRuntimeHarness } = require('../src/services/ontogenesis/runtimeHarness');
 
 function flags(argv) {
   const values = {};
@@ -36,6 +37,8 @@ function usage() {
   console.log('  autostart --on|--off [--project ID]');
   console.log('  prune --project ID [--days N]');
   console.log('  status [--json]');
+  console.log('  run --project ID [--interval-ms N] [--max-ticks N]');
+  console.log('  tick --project ID');
 }
 
 function printStatus(view, asJson) {
@@ -58,7 +61,8 @@ function printStatus(view, asJson) {
 
 async function runInit(db, options) {
   if (!options.root) throw new Error('--root requis');
-  const requested = options.branch ? { branch: options.branch } : {};
+  const requested = options.config ? JSON.parse(require('fs').readFileSync(options.config, 'utf8')) : {};
+  if (options.branch) requested.branch = options.branch;
   const checked = validateProjectConfig(requested);
   if (!checked.ok) throw new Error(`configuration-invalide:${checked.errors.join(',')}`);
   const id = await createProject(db, {
@@ -78,14 +82,18 @@ async function runCommand(db, name, options) {
   printStatus(view, Boolean(options.json));
 }
 
-async function runAutostart(options) {
-  if (options.on !== undefined) {
+async function runAutostart(options, argv) {
+  if (argv.includes('--on')) {
     const result = autostart.enableAutostart({ projectId: options.project });
     console.log(`autostart-active:${result.batFile}`);
     return;
   }
-  const result = autostart.disableAutostart({});
-  console.log(`autostart-desactive:${result.batFile}`);
+  if (argv.includes('--off')) {
+    const result = autostart.disableAutostart({});
+    console.log(`autostart-desactive:${result.batFile}`);
+    return;
+  }
+  throw new Error('--on-ou---off-requis');
 }
 
 async function runPrune(db, options) {
@@ -97,7 +105,7 @@ async function runPrune(db, options) {
 async function runTick(db, options) {
   if (!options.project) throw new Error('--project requis');
   const { tickOnce } = require('../src/services/ontogenesis/tickService');
-  const outcome = await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}` });
+  const outcome = await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}`, harness: createRuntimeHarness(db) });
   console.log(JSON.stringify(outcome));
 }
 
@@ -112,14 +120,28 @@ async function runLoop(db, options) {
   const max = Number(options['max-ticks'] || 0);
   let count = 0;
   let stopped = false;
-  process.once('SIGTERM', () => { stopped = true; });
-  while (!stopped && (max === 0 || count < max)) {
-    const outcome = await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}` });
+  const harness = createRuntimeHarness(db);
+  const signalStop = () => { stopped = true; };
+  process.once('SIGTERM', signalStop);
+  process.once('SIGINT', signalStop);
+  while (continueLoop(stopped, count, max)) {
+    const outcome = await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}`, harness });
     count += 1;
     console.log(`tick:${count} ${JSON.stringify(outcome)}`);
+    if (outcome.state === 'STOPPED') break;
     if (max !== 0 && count >= max) break;
     await sleepMs(interval);
   }
+  process.removeListener('SIGTERM', signalStop);
+  process.removeListener('SIGINT', signalStop);
+  if (stopped) {
+    await control.stopProject(db, { projectId: options.project, reason: 'signal-operateur' });
+    await tickOnce(db, { projectId: options.project, owner: `cli:${process.pid}`, harness });
+  }
+}
+
+function continueLoop(stopped, count, max) {
+  return !stopped && (max === 0 || count < max);
 }
 
 async function runStopTask(db, options) {
@@ -173,7 +195,7 @@ async function main() {
     return;
   }
   if (name === 'autostart') {
-    await runAutostart({ on: process.argv.includes('--on') ? true : undefined, project: options.project });
+    await runAutostart({ project: options.project }, process.argv);
     return;
   }
   await runWithDb(name, options);

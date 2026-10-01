@@ -3,11 +3,11 @@
 /**
  * Tour résident du contrôleur (roadmap §P1).
  * Un tick = claim → échéances → observation → décision → effets → état.
- * Pur côté décision (stepLoop) ; le dispatch réel exige un harnais
- * d'exécution, le tick s'arrête alors sans effet de bord.
+ * Le CLI injecte le harnais runtime ; les tests de contrat peuvent
+ * omettre ce harnais pour évaluer uniquement la décision.
  */
 
-const { acquireClaim, releaseClaim } = require('./claimService');
+const { acquireClaim, releaseClaim, extendClaim } = require('./claimService');
 const { getControl } = require('./controlService');
 const { getProject, setProjectState, listTasks, addTask, bumpAttempt } = require('./projectStore');
 const { selectNextTask } = require('./taskSelector');
@@ -21,6 +21,11 @@ const { expireDue } = require('./questionService');
 const { reviewAction } = require('./reviewPolicy');
 const { ensureDispatchRitual } = require('./ritualService');
 const { dueSchedules, markScheduleRan } = require('./scheduleService');
+const { ensureTables } = require('./executionStore');
+const { budgetState, memoryState } = require('./resourceGuard');
+const { dispatchTask } = require('./dispatchService');
+const { haltForControl, observeExecution } = require('./executionLifecycle');
+const { processIntegration } = require('./integrationController');
 
 const NO_WAKE = ['STOPPING', 'STOPPED', 'EXECUTING', 'VERIFYING', 'INTEGRATING', 'INITIALIZING', 'PLANNING'];
 
@@ -50,19 +55,22 @@ async function fireDue(db, projectId, nowMs) {
   return due.length;
 }
 
-async function loadContext(db, projectId) {
-  const project = await getProject(db, projectId);
+async function loadContext(db, input) {
+  const project = await getProject(db, input.projectId);
   if (!project) throw new Error('projet-introuvable');
-  const control = await getControl(db, projectId);
-  const tasks = await listTasks(db, projectId);
+  const control = await getControl(db, input.projectId);
+  const tasks = await listTasks(db, input.projectId);
   const memoryLevel = classifyLevel(sampleMemory({ reservationsMb: 0 }), { reserveMb: reserveOf(project) });
-  return { project, control, tasks, selection: selectNextTask(tasks), memoryLevel };
+  const ctx = { project, control, tasks, config: configOf(project), selection: selectNextTask(tasks), memoryLevel, budgetsOk: true, harness: input.harness };
+  if (input.harness) Object.assign(ctx, await budgetState(db, ctx), await memoryState(db, ctx, input.harness));
+  return ctx;
 }
 
 function snapshotOf(ctx) {
   return {
     state: ctx.project.state, controlMode: (ctx.control && ctx.control.mode) || 'running',
-    memoryLevel: ctx.memoryLevel, budgetsOk: true, selection: ctx.selection
+    memoryLevel: ctx.memoryLevel, budgetsOk: ctx.budgetsOk, selection: ctx.selection,
+    workerResult: ctx.workerResult
   };
 }
 
@@ -96,14 +104,22 @@ async function dispatchReviewed(db, ctx) {
   if (!task) return { state: ctx.project.state, note: 'selection-vide' };
   const action = { scope: 'edit', branch: ctx.project.branch };
   const review = reviewAction(configOf(ctx.project), action);
-  if (review.verdict === 'proceed') return { state: ctx.project.state, note: 'dispatch-requiert-harnais' };
+  if (review.verdict === 'proceed') return dispatchWithHarness(db, ctx);
   const settled = await ensureDispatchRitual(db, {
-    projectId: ctx.project.id, taskId: task.id, action, review, budgetsOk: true
+    projectId: ctx.project.id, taskId: task.id, action, review, budgetsOk: ctx.budgetsOk
   });
+  if (settled.note === 'dispatch-requiert-harnais') return dispatchWithHarness(db, ctx);
   return { state: ctx.project.state, ...settled };
 }
 
+async function dispatchWithHarness(db, ctx) {
+  if (!ctx.harness) return { state: ctx.project.state, note: 'dispatch-requiert-harnais' };
+  return dispatchTask(db, ctx, ctx.harness);
+}
+
 async function applyDecision(db, ctx, decision) {
+  const runtimeOutcome = await applyRuntime(db, ctx);
+  if (runtimeOutcome) return runtimeOutcome;
   if (decision.hold || !decision.event) return { state: ctx.project.state, note: decision.reason || 'maintien' };
   if (decision.event === 'dispatch') return dispatchReviewed(db, ctx);
   const next = nextState(ctx.project.state, decision.event);
@@ -113,7 +129,16 @@ async function applyDecision(db, ctx, decision) {
   }
   await setProjectState(db, { projectId: ctx.project.id, state: next });
   for (const effect of decision.effects || []) await applyEffect(db, ctx, effect);
+  if (next === 'STOPPED') await db.run("UPDATE ontogenesis_control SET mode = 'stopped' WHERE project_id = ?", [ctx.project.id]);
   return { state: next, event: decision.event };
+}
+
+async function applyRuntime(db, ctx) {
+  if (!ctx.harness) return null;
+  const halted = await haltForControl(db, ctx, ctx.harness);
+  if (halted) return halted;
+  if (['VERIFYING', 'INTEGRATING'].includes(ctx.project.state)) return processIntegration(db, ctx);
+  return null;
 }
 
 async function consumeFirstOfType(db, projectId, type) {
@@ -124,6 +149,7 @@ async function consumeFirstOfType(db, projectId, type) {
 }
 
 async function sleepingWake(ctx) {
+  if (ctx.harness) return ctx.memoryLevel === 'normal' && ctx.memoryStable ? 'recovered' : null;
   const level = classifyLevel(sampleMemory({ reservationsMb: 0 }), { reserveMb: reserveOf(ctx.project) });
   return level === 'normal' ? 'recovered' : null;
 }
@@ -148,21 +174,30 @@ async function reconcileWake(db, ctx) {
 }
 
 async function tickOnce(db, input) {
+  await ensureTables(db);
   const claim = await acquireClaim(db, { projectId: input.projectId, owner: input.owner, ttlMs: 30000 });
   if (!claim.acquired) return { ticked: false, reason: 'claim-actif' };
+  const lease = { projectId: input.projectId, owner: input.owner, operationId: claim.operationId, ttlMs: 30000 };
+  const fence = () => extendClaim(db, lease);
+  const heartbeat = setInterval(() => { fence().catch(() => {}); }, 10000);
+  heartbeat.unref();
   try {
     const fired = await fireDue(db, input.projectId, input.nowMs);
     const expired = await expireDue(db, { projectId: input.projectId });
     for (const questionId of expired) {
       await notify(db, { projectId: input.projectId, kind: 'decision_needed', payload: { reason: `question-expiree:${questionId}` } });
     }
-    const ctx = await loadContext(db, input.projectId);
+    const ctx = await loadContext(db, input);
+    ctx.fence = fence;
+    await fence();
+    if (ctx.harness && ctx.project.state === 'EXECUTING') Object.assign(ctx, await observeExecution(db, ctx, ctx.harness));
     const wake = await reconcileWake(db, ctx);
     const decision = wake ? { event: wake, effects: [] } : stepLoop(snapshotOf(ctx));
     const outcome = await applyDecision(db, ctx, decision);
     return { ticked: true, fired, decision, ...outcome };
   } finally {
-    await releaseClaim(db, { projectId: input.projectId, owner: input.owner });
+    clearInterval(heartbeat);
+    await releaseClaim(db, { projectId: input.projectId, owner: input.owner, operationId: claim.operationId });
   }
 }
 

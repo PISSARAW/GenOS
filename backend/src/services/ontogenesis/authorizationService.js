@@ -1,5 +1,7 @@
 'use strict';
 
+const { pathAllowed } = require('./pathAuthority');
+
 /**
  * Autorisation préalable contre vérification par gates (ADR 0235 §8).
  * Autoriser n'est pas prouver : hors périmètre → demande d'approbation.
@@ -11,13 +13,7 @@ function isBranchAllowed(authority, branch) {
 }
 
 function isPathAllowed(authority, path) {
-  const paths = (authority && authority.paths) || [];
-  if (paths.includes('*')) return true;
-  return paths.some((prefix) => isPrefix(prefix, path));
-}
-
-function isPrefix(prefix, path) {
-  return String(path).startsWith(prefix);
+  return pathAllowed(authority, path);
 }
 
 function checkPushMerge(action) {

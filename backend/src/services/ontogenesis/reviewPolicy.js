@@ -57,8 +57,9 @@ function verdictForPolicy(policy) {
   return 'ask_first';
 }
 
-function defaultVerdict(reversibility) {
+function defaultVerdict(reversibility, authority) {
   if (reversibility === 'external') return 'denied';
+  if (reversibility === 'irreversible' && authority.allowCommit === true) return 'proceed';
   if (reversibility === 'irreversible') return 'ask_first';
   return 'proceed';
 }
@@ -71,7 +72,7 @@ function reviewAction(config, action) {
   const authority = (config && config.authority) || {};
   const rule = findRule(authority.rules, action);
   if (!rule) {
-    const verdict = defaultVerdict(reversibility);
+    const verdict = defaultVerdict(reversibility, authority);
     return { verdict, reason: `defaut-${reversibility}`, reversibility, rule: null };
   }
   return { verdict: verdictForPolicy(rule.policy), reason: `regle-${rule.policy}`, reversibility, rule: rule.policy };

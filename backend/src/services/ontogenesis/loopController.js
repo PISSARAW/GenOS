@@ -14,6 +14,12 @@ function controlEvent(controlMode) {
   return null;
 }
 
+function stopDecision(snapshot) {
+  if (snapshot.state === 'STOPPED') return { hold: true, reason: 'arrete' };
+  if (snapshot.state === 'STOPPING') return { event: 'done', effects: [] };
+  return { event: 'stopped', effects: [] };
+}
+
 function stepInitializing() {
   return { event: 'planned', effects: [] };
 }
@@ -82,6 +88,8 @@ function stepByState(snapshot) {
 }
 
 function stepLoop(snapshot) {
+  if (['stopping', 'stopped'].includes(snapshot.controlMode)) return stopDecision(snapshot);
+  if (snapshot.state === 'PAUSED' && snapshot.controlMode === 'paused') return { hold: true, reason: 'pause-operateur' };
   const override = controlEvent(snapshot.controlMode);
   if (override) return { event: override, effects: [] };
   if (snapshot.memoryLevel === 'critical') return { event: 'resource', effects: [] };

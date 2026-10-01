@@ -1,5 +1,7 @@
 'use strict';
 
+const { randomUUID } = require('crypto');
+
 /**
  * Claims transactionnels d'Ontogenèse (ADR 0235).
  * Un seul détenteur par projet ; expiration contre les morts ;
@@ -16,7 +18,7 @@ function claimTtl(claim) {
 }
 
 async function insertClaim(db, claim) {
-  const operationId = `${claim.owner}:${Date.now()}`;
+  const operationId = randomUUID();
   await db.run(
     `INSERT INTO ontogenesis_claims (project_id, owner, operation_id, expires_at)
      VALUES (?, ?, ?, ?)`,
@@ -28,7 +30,8 @@ async function insertClaim(db, claim) {
 async function acquireClaim(db, claim) {
   try {
     return await insertClaim(db, claim);
-  } catch (_) {
+  } catch (error) {
+    if (error.code !== 'SQLITE_CONSTRAINT') throw error;
     return renewIfExpired(db, claim);
   }
 }
@@ -39,7 +42,6 @@ async function renewIfExpired(db, claim) {
     [claim.projectId]
   );
   if (!row) return { acquired: false, reason: 'claim-concurrent' };
-  if (row.owner === claim.owner) return refreshClaim(db, claim);
   if (isExpired(row)) return stealExpired(db, claim);
   return { acquired: false, reason: 'claim-actif' };
 }
@@ -48,21 +50,20 @@ function isExpired(row) {
   return String(row.expires_at) <= new Date().toISOString();
 }
 
-async function refreshClaim(db, claim) {
-  const operationId = `renewed:${Date.now()}`;
-  await db.run(
-    `UPDATE ontogenesis_claims SET operation_id = ?, expires_at = ?, updated_at = datetime('now')
-     WHERE project_id = ?`,
-    [operationId, nowIso(claimTtl(claim)), claim.projectId]
+async function extendClaim(db, claim) {
+  const info = await db.run(
+    `UPDATE ontogenesis_claims SET expires_at = ?, updated_at = datetime('now')
+     WHERE project_id = ? AND owner = ? AND operation_id = ? AND julianday(expires_at) > julianday('now')`,
+    [nowIso(claimTtl(claim)), claim.projectId, claim.owner, claim.operationId]
   );
-  return { acquired: true, operationId, renewed: true };
+  if (!wasUpdated(info)) throw new Error('claim-perdu');
 }
 
 async function stealExpired(db, claim) {
-  const operationId = `${claim.owner}:${Date.now()}`;
+  const operationId = randomUUID();
   const info = await db.run(
     `UPDATE ontogenesis_claims SET owner = ?, operation_id = ?, expires_at = ?, updated_at = datetime('now')
-     WHERE project_id = ? AND expires_at <= datetime('now')`,
+     WHERE project_id = ? AND julianday(expires_at) <= julianday('now')`,
     [claim.owner, operationId, nowIso(claimTtl(claim)), claim.projectId]
   );
   if (wasUpdated(info)) return { acquired: true, operationId, stolen: true };
@@ -70,14 +71,19 @@ async function stealExpired(db, claim) {
 }
 
 function wasUpdated(info) {
-  return Boolean(info) && (info.changes === undefined || info.changes > 0);
+  return Boolean(info) && info.changes > 0;
 }
 
 async function releaseClaim(db, claim) {
   await db.run(
-    'DELETE FROM ontogenesis_claims WHERE project_id = ? AND owner = ?',
-    [claim.projectId, claim.owner]
+    'DELETE FROM ontogenesis_claims WHERE project_id = ? AND owner = ? AND operation_id = ?',
+    [claim.projectId, claim.owner, claim.operationId || (await ownedOperation(db, claim))]
   );
 }
 
-module.exports = { acquireClaim, releaseClaim };
+async function ownedOperation(db, claim) {
+  const row = await db.get('SELECT operation_id FROM ontogenesis_claims WHERE project_id = ? AND owner = ?', [claim.projectId, claim.owner]);
+  return row && row.operation_id;
+}
+
+module.exports = { acquireClaim, releaseClaim, extendClaim };

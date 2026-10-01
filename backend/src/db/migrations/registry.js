@@ -348,6 +348,9 @@ const migrationRunners = [
     const { migrateOntogenesisHosts } = require('./migrateOntogenesisHosts');
     await migrateOntogenesisHosts(db);
   }),
+  createMigrationRunner('096-ontogenesis-execution', 'Persist fenced Ontogenese executions and memory recovery', async (db) => {
+    await require('./migrateOntogenesisExecution').migrateOntogenesisExecution(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

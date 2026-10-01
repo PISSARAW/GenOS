@@ -20,8 +20,22 @@ Conventions de marquage utilisées dans cette fiche :
 Le contrôleur de boucle est pur : il décide un événement machine et des effets
 à appliquer, sans E/S. L'appelant persiste, notifie et dispatche
 (**Implémenté** — `backend/src/services/ontogenesis/loopController.js`, lignes 1-9).
-Le dispatch réel vers des workers avec modèle est à brancher : le contrôleur
-émet `dispatch`, il n'exécute rien lui-même (voir §10).
+Le CLI `run` et `tick` injecte désormais `runtimeHarness` : une opération persistée
+précède le lancement du runtime, les budgets sont réservés et une seule opération
+reste active par projet. Les contrats sans harnais restent utilisables en tests.
+L’intégration exécute les vérifications configurées dans la capsule puis dans un
+worktree sur la branche dédiée, avec preuves liées à une empreinte du contenu.
+Référence de ce câblage : [ADR 0238](../adr/0238-execution-et-integration-ontogenese.md).
+
+`init --config fichier.json` accepte les commandes `checks` structurées
+(`program`, `args`) et la configuration du fournisseur. `start` modifie l’intention ;
+`run --project ID` maintient le processus résident. Le script autostart appelle `run`.
+Pause, arrêt et pression critique suspendent les workers détenus ; le réveil requiert
+une mémoire normale pendant `memory.recoveryStableMs` (10 secondes par défaut).
+L’admission mémoire est mesurée, sans garantie physique instantanée de RAM.
+Les budgets terminés débitent conservativement toute leur réservation une seule fois.
+La sélection de topologie transmise au runtime ne prouve pas l’exécution des huit
+topologies. Aucun fournisseur externe n’est exécuté par les tests de parcours.
 
 ## 1. La boucle : phases, entrées/sorties, événements et effets
 
@@ -133,13 +147,12 @@ par le catalogue de morphogenèse, avec repli déclaré.
 ## 4. Autorisation vs vérification
 
 Autoriser n'est pas prouver (**Implémenté** pour l'autorisation préalable —
-`backend/src/services/ontogenesis/authorizationService.js` ; **Cadre conceptuel**
-pour les gates de vérification après coup, portés par l'ADR 0235 §8 et les
-preuves `proofsOk`/`passed`/`failed` de la boucle, sans gate câblé dans ce périmètre) :
+`backend/src/services/ontogenesis/authorizationService.js` ; **Implémenté**
+pour les vérifications indépendantes via `proofService.js` et `integrationController.js`) :
 
 - Périmètre pré-autorisé (`authority` de la configuration versionnée) :
   branches autorisées (`isBranchAllowed`, `*` accepté), chemins autorisés
-  (`isPathAllowed`, `*` ou préfixe via `startsWith`), drapeaux `allowEdit`
+  (`isPathAllowed`, `*` ou préfixe normalisé avec frontière de segment), drapeaux `allowEdit`
   (`edition-non-autorisee`), `allowTests` (`tests-non-autorises`), `allowCommit`
   (`commit-non-autorise`) — `isActionAllowed`.
 - Refus catégoriques : `scope: 'push'` → `push-non-autorise`,
@@ -152,9 +165,8 @@ preuves `proofsOk`/`passed`/`failed` de la boucle, sans gate câblé dans ce pé
   dans `backend/src/services/ontogenesis/notificationService.js` ; la boucle ne
   tranche pas l'approbation elle-même, elle attend en `WAITING_INPUT`).
 - Gates après coup : les résultats sont toujours vérifiés ensuite
-  (**Cadre conceptuel** : `VERIFYING`/`proofsOk`, refus de promotion sans
-  preuves d'après l'ADR ; aucun validateur de preuves câblé dans les fichiers
-  lus pour cette fiche).
+  (**Implémenté** : `VERIFYING`, commandes configurées, empreinte du contenu,
+  nouvelle vérification en intégration ; refus des preuves vides ou en échec).
 
 ## 5. Réveils autonomes
 
@@ -275,13 +287,13 @@ par `backend/tests/test_ontogenesis_loop.js` et
 
 ## 9. Limites et non-objectifs
 
-- Dispatch réel vers workers avec modèle = à brancher (**Partiel**).
+- Dispatch réel raccordé par le CLI à `runtimeHarness` et `ontogenesisMissionRunner.cjs`.
   Le contrôleur décide (`dispatch`, `finished`, `passed`, `failed`,
   `integrated`), il n'exécute pas lui-même : aucune E/S, aucun appel modèle,
   aucun lancement de worker dans `loopController.js`, `taskSelector.js`,
   `topologySelector.js`, `wakeupPolicy.js` (vérifié par lecture).
-  Le passage de `dispatch` à des workers réels, avec budgets métaboliques,
-  snapshots contrefactuels et preuves exécutables, reste à câbler par l'appelant.
+  Le runtime conserve ses propres gates ; le choix des huit topologies n’est
+  pas certifié par les tests de parcours avec worker injecté.
 - Compositions morphogénétiques avancées réutilisées par contrat, pas
   réimplémentées (**Cadre conceptuel** dans ce périmètre). Conformément à
   l'ADR 0235 §2, le contrôleur passe par `morphogenesis/*`, les adaptateurs
@@ -289,10 +301,8 @@ par `backend/tests/test_ontogenesis_loop.js` et
   et les gates de preuves ; cette fiche ne décrit que le contrat utilisé
   (validation des rôles, catalogue de variantes), pas les huit topologies
   branchées de bout en bout — l'ADR prévoit de commencer par une seule topologie.
-- Sont également hors périmètre de cette fiche : mesure mémoire Windows et
-  Job Objects, intégrateur Git unique (SHA, conflits, préservation humaine),
-  transport interprocessus, autostart Windows, hébergement distant — tous
-  **Cadre conceptuel** renvoyés à l'ADR 0235 §6 et §9.
+- Mesure Windows, intégrateur Git, lancement interprocessus et autostart sont
+  raccordés (ADR 0238). Les Job Objects et l’hébergement distant restent hors périmètre.
 - Aucune promotion sans preuves exécutables portant sur le résultat intégré ;
-  un succès de transport ne vaut jamais validation (**Cadre conceptuel**,
+  un succès de transport ne vaut jamais validation (**Implémenté**,
   règle permanente du dépôt).

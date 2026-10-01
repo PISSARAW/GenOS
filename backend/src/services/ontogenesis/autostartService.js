@@ -7,7 +7,7 @@ const path = require('path');
 /**
  * Démarrage automatique Windows de l'Ontogenèse (ADR 0235 §7).
  * Opt-in explicite : désactivé par défaut, même motif que le daemon
- * sentinelle. Relance `start --project` avec l'intention persistée
+ * sentinelle. Relance `run --project` avec l'intention persistée
  * (la pause manuelle reste une pause après redémarrage).
  */
 
@@ -54,7 +54,8 @@ function saveAutostartConfig(values) {
 }
 
 function batContent(projectId) {
-  return `@echo off\r\ncd /d "${repoRoot()}"\r\nstart "" /min node "backend\\bin\\genos-ontogenesis.cjs" start --project ${projectId}\r\n`;
+  if (!/^[A-Za-z0-9_-]+$/.test(projectId)) throw new Error('projectId-invalide');
+  return `@echo off\r\ncd /d "${repoRoot()}"\r\nstart "" /min "${process.execPath}" "backend\\bin\\genos-ontogenesis.cjs" run --project "${projectId}"\r\n`;
 }
 
 function batPath(directory) {

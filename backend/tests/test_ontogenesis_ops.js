@@ -75,6 +75,8 @@ async function memoryDb() {
   assert.strictEqual(enabled.config.enabled, true);
   assert.ok(fs.existsSync(enabled.batFile));
   assert.ok(fs.readFileSync(enabled.batFile, 'utf8').includes(pid));
+  assert.ok(fs.readFileSync(enabled.batFile, 'utf8').includes(' run --project '));
+  assert.ok(!fs.readFileSync(enabled.batFile, 'utf8').includes(' start --project '));
   const disabled = auto.disableAutostart({ startupDir: sandbox });
   assert.strictEqual(disabled.config.enabled, false);
   assert.strictEqual(fs.existsSync(disabled.batFile), false);
