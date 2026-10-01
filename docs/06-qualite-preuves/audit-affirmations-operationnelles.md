@@ -1,6 +1,6 @@
 # Audit des affirmations opérationnelles
 
-- **Revue** : 2026-09-28 pour les parcours décrits ; compteur MCP actualisé le 2026-10-01
+- **Revue** : 2026-09-28 pour les parcours décrits ; compteur MCP actualisé le 2026-10-01 ; re-vérification sécurité/gRPC le 2026-10-01
 - **Portée** : références opérationnelles des familles API, MCP, intégrations, sécurité, persistance et reprise ; vérification structurelle de tous les liens Markdown relatifs.
 - **Nature** : audit de cohérence code/documentation, pas certification de sécurité ni campagne E2E exhaustive.
 
@@ -42,8 +42,8 @@ Les nombres sont des résultats d'extraction regex, pas un inventaire normatif.
 | --- | --- | --- |
 | `npm --prefix backend run test:mcp` | Passe : 6 suites | catalogue, schémas, permission/scope, transports HTTP explicite, parité minimale. |
 | `npm --prefix backend run test:recovery` | Passe : 3 suites | récupération worker, bisection causale et reconnexion d'exécution. |
-| `npm --prefix backend run test:security` | Échec : 3/4 sous-suites ; verdict runner `SECURITY VULNERABILITY DETECTED` | un sous-test CORS/CSRF lève `TypeError` sur `undefined.code`; le probe concurrence termine par `ETIMEDOUT`/`ECONNREFUSED`. Les assertions RBAC, barrière 42/42 et tests adversariaux de base passent. Ce résultat signale un échec de suite, pas une vulnérabilité confirmée sans diagnostic. |
-| `npm --prefix backend run test:grpc` | Échec | 41 descripteurs proto chargés et plusieurs services passent ; l'étape Agent/Orchestrator échoue à `AgentService.StartMission` (`false !== true`, `test_grpc_services.js:301`). Cause non déterminée par cet audit. |
+| `npm --prefix backend run test:security` | Passe le 2026-10-01 : 4/4 (échec 3/4 observé le 2026-09-28 non reproduit : `TypeError` CORS/CSRF et `ETIMEDOUT`/`ECONNREFUSED` concurrence absents sur ce run) | RBAC, barrière 42/42, adversarial baseline et probes 200-batch. Reste un risque flaky réseau à surveiller, pas une vulnérabilité confirmée. |
+| `npm --prefix backend run test:grpc` | Passe le 2026-10-01 : 41/41 services, `DispatchWorker` mocké OK (l'échec `StartMission` du 2026-09-28 correspond à l'ancien placement d'assertion `test_grpc_services.js:301`, couvert depuis par mock `runtimeAdapter.startMission`) | 41 descripteurs proto, Core/Arena/Memory/Swarm/Resilience/RustBridge/Telemetry/Workspace/Agent/Orchestrator/Mcp ciblés + Ping universel. |
 | `node backend/tests/test_ide_contract.js` | Passe | compatibilité de version du contrat IDE. |
 | `node backend/tests/test_biopolymer_blobs_migration.js` | Passe | fixture 103→88 octets (14,56 %), migration/idempotence SQLite en mémoire. Ce seul objet ne justifie pas le taux généralisé précédemment annoncé. |
 | `node backend/tests/test_mcp_direct_call_enforcement.js` | Passe | lease et liste d'outils désactivés sur les cas du test. |
