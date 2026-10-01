@@ -98,9 +98,24 @@ function quorumWithAbstentionOrg(state, options) {
   return { reached: support >= ratio, support: Number(support.toFixed(3)), abstentions };
 }
 
+function dominantFromTrails(trails) {
+  let best = null;
+  let bestIntensity = -1;
+  for (const trail of list(trails)) {
+    const intensity = num(trail && trail.intensity, 0);
+    if (intensity > bestIntensity) {
+      bestIntensity = intensity;
+      best = (trail && trail.path) || (trail && trail.id) || null;
+    }
+  }
+  return best;
+}
+
 function stigmergy(state) {
-  if (!state.matrix || typeof state.matrix.selectDominantPath !== 'function') return { dominant: null };
-  return { dominant: state.matrix.selectDominantPath() };
+  if (state.matrix && typeof state.matrix.selectDominantPath === 'function') {
+    return { dominant: state.matrix.selectDominantPath() };
+  }
+  return { dominant: dominantFromTrails(state.trails) };
 }
 
 function energyHuddle(state) {
@@ -137,10 +152,11 @@ function dynamicPolyethism(state) {
   return { roleGradient: agents.map((agent, index) => ({ id: agent.id, rank: index + 1 })) };
 }
 
-function mycelialRouting(state) {
-  const need = state.need;
+function mycelialRouting(state, options) {
+  const need = state.need || (options && options.need) || null;
+  if (!need) return { need: null, route: null };
   const agent = list(state.agents).find((candidate) => (candidate.capabilities || []).includes(need));
-  return { need: need || null, route: agent ? agent.id : null };
+  return { need, route: agent ? agent.id : null };
 }
 
 const ALGORITHMS = Object.freeze({
