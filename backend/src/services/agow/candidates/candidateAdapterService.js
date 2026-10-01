@@ -10,6 +10,17 @@ const ADAPTERS = Object.freeze({
   morphogenesis: 'morphogenesis_proposal'
 });
 
+const ORIGIN_BY_MODULE = Object.freeze({
+  perception: ['external_observed', 'environment'],
+  memory: ['memory_retrieved', 'unknown'],
+  self: ['model_inferred', 'self'],
+  efference: ['self_action_observed', 'self'],
+  worker: ['unknown', 'unknown'],
+  world_model: ['model_inferred', 'unknown'],
+  metacognition: ['model_inferred', 'unknown'],
+  morphogenesis: ['model_inferred', 'unknown']
+});
+
 function unit(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : fallback;
@@ -44,6 +55,17 @@ function buildConstraints(observation) {
   return { safety: constraint(constraints.safety), integrity: constraint(constraints.integrity), viability: constraint(constraints.viability), userPolicy: constraint(constraints.userPolicy) };
 }
 
+function epistemicOrigin(module, observation) {
+  const supplied = observation.epistemicOrigin;
+  if (supplied && typeof supplied === 'object') return {
+    origin: supplied.origin || 'unknown', realityMode: supplied.realityMode || 'real',
+    agency: supplied.agency || 'unknown', simulationId: supplied.simulationId || null,
+    parentRealityFrameId: supplied.parentRealityFrameId || null
+  };
+  const [origin, agency] = ORIGIN_BY_MODULE[module] || ['unknown', 'unknown'];
+  return { origin, realityMode: 'real', agency, simulationId: null, parentRealityFrameId: null };
+}
+
 function build(options) {
   const { observation, agentId, module, now = Date.now() } = options;
   const evidenceRefs = Array.isArray(observation.evidenceRefs) ? observation.evidenceRefs.filter((value) => typeof value === 'string') : [];
@@ -51,6 +73,7 @@ function build(options) {
     candidateId: String(observation.candidateId || `${module}:${agentId}:${now}`), agentId,
     source: { module, instanceId: observation.instanceId || null, modality: ADAPTERS[module] || 'organ_observation' },
     content: buildContent(observation, module),
+    epistemicOrigin: epistemicOrigin(module, observation),
     evidenceRefs, causalParents: Array.isArray(observation.causalParents) ? observation.causalParents.filter((value) => typeof value === 'string') : [],
     measures: buildMeasures(observation), constraints: buildConstraints(observation),
     redundancyKey: observation.redundancyKey || null, producedAt: now,
@@ -67,4 +90,4 @@ async function submit(options) {
     activeGoal: options.activeGoal, unresolvedQuestions: options.unresolvedQuestions, triggerCycle: options.triggerCycle });
 }
 
-module.exports = { submit, build, ADAPTERS };
+module.exports = { submit, build, epistemicOrigin, ADAPTERS, ORIGIN_BY_MODULE };

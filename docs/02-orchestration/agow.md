@@ -5,6 +5,7 @@
 - **Revue** : 2026-10-01
 - **Autorité de référence** : [ADR 0006](../adr/0006-active-global-organism-workspace.md)
 - **Persistance et évaluation** : [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md)
+- **Provenance réel/simulé** : [ADR 0239](../adr/0239-agow-provenance-epistemique.md)
 
 ---
 
@@ -154,7 +155,8 @@ impose les propriétés suivantes :
 | Groupe | Champs | Rôle opérationnel |
 | --- | --- | --- |
 | Identité | `candidateId`, `agentId` | Identifie le candidat et l'agent propriétaire. |
-| Provenance | `source.module`, `source.modality`, `source.instanceId` | Attribue le producteur et la modalité. |
+| Provenance producteur | `source.module`, `source.modality`, `source.instanceId` | Attribue le producteur et la modalité. |
+| Provenance épistémique | `epistemicOrigin.origin`, `realityMode`, `agency`, `simulationId`, `parentRealityFrameId` | Distingue observation, inférence, action, mémoire et simulation; `unknown` reste explicite lorsque la source ne suffit pas. |
 | Contenu | `content.semanticType`, `artifactRef`, `compactPreview` | Référence un artefact; le preview reste court. |
 | Preuve et causalité | `evidenceRefs`, `causalParents` | Références uniques aux preuves et aux parents. |
 | Mesures | erreur, incertitude, pertinence, gain attendu, urgence, nouveauté, actionnabilité, confiance causale, dette de preuve, coût | Mesures bornées entre 0 et 1, sauf coût non négatif. |
@@ -164,6 +166,14 @@ impose les propriétés suivantes :
 Les producteurs ne sont pas les arbitres. Les nombres qu'ils fournissent sont les
 entrées du classement actuel; ils ne constituent pas une preuve indépendante de leur
 propre exactitude.
+
+Les adaptateurs attribuent une valeur conservatrice par famille de source. Le tag est
+une métadonnée fournie par le producteur, pas une attestation cryptographique. Toute
+entrée dont `realityMode` vaut `counterfactual` doit aussi porter une origine
+`counterfactual_simulated`, un identifiant de simulation et le frame réel parent.
+Les receivers `world_model` et `self_model` refusent d'écrire dans leurs stores
+canoniques à partir d'un tel candidat. La création d'un workspace simulé isolé reste
+un jalon distinct; cette garde ne prétend pas isoler un environnement de simulation.
 
 ### 5.2 `WorkspaceFrame`
 

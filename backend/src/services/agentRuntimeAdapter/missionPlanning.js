@@ -179,6 +179,7 @@ function buildMissionCandidate(options) {
     agentId: ctx.agentId,
     source: { module: 'mission_planning', instanceId: missionId || null, modality: 'mission_text' },
     content: { semanticType: 'mission_request', artifactRef: null, compactPreview: task.slice(0, 2000) },
+    epistemicOrigin: { origin: 'external_observed', realityMode: 'real', agency: 'other', simulationId: null, parentRealityFrameId: null },
     evidenceRefs: [String(missionId || ctx.agentId)], causalParents: [],
     measures: { predictionError: 0, uncertainty: 0.1, goalRelevance: 1, expectedInformationGain: 0.5, urgency: 1, novelty: 0.5, actionability: 1, causalConfidence: 0.9, evidenceDebt: 0, estimatedCost: 0 },
     constraints: { safety: 'clear', integrity: 'clear', viability: 'clear', userPolicy: 'clear' },

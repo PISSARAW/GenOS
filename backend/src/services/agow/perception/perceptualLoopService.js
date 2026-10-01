@@ -19,6 +19,7 @@ function candidateFor(options) {
     candidateId: `perception:${agentId}:${now}`, agentId,
     source: { module: 'perception', instanceId: null, modality: 'observation' },
     content: { semanticType: 'prediction_error', artifactRef: null, compactPreview: `${bindings.length} percept bindings; error=${error.toFixed(3)}` },
+    epistemicOrigin: { origin: 'external_observed', realityMode: 'real', agency: 'environment', simulationId: null, parentRealityFrameId: null },
     evidenceRefs: bindings.map((binding) => binding.id), causalParents: options.frameId ? [options.frameId] : [],
     measures: { predictionError: error, uncertainty, goalRelevance: options.goalMatched ? 0.7 : 0.2, expectedInformationGain: Math.min(1, error + uncertainty * 0.5), urgency: error >= 0.5 ? 0.8 : 0.2, novelty: Math.min(1, bindings.length / 10), actionability: error > 0.25 ? 0.8 : 0.2, causalConfidence: Math.max(0, 1 - uncertainty), evidenceDebt: uncertainty, estimatedCost: 0 },
     constraints: { safety: 'clear', integrity: 'clear', viability: 'clear', userPolicy: 'clear' },

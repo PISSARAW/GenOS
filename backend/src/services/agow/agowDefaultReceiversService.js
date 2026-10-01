@@ -2,6 +2,7 @@
 
 const { createHash } = require('node:crypto');
 const registry = require('./workspaceReceiverRegistry');
+const counterfactualGuard = require('./counterfactualCandidateGuard');
 
 function hash(value) {
   return createHash('sha256').update(JSON.stringify(value ?? null)).digest('hex');
@@ -22,6 +23,7 @@ async function memoryReceiver(input) {
 async function worldModelReceiver(input) {
   if (input.phase === 'inspect') return { state: { frameId: input.frame.frameId, candidateId: input.candidate?.candidateId } };
   const candidate = input.candidate;
+  if (!counterfactualGuard.mayWriteCanonicalWorld(candidate)) return ignored(counterfactualGuard.rejectReason(candidate));
   if (candidate?.content.semanticType !== 'action_consequence' || !candidate.content.artifactRef) return ignored('no_action_consequence');
   const before = await stateFor(input.db, input.frame.agentId, 'world_model');
   const outcome = await require('../worldModelService').observeTransition(input.db, input.frame.agentId, {
@@ -35,6 +37,7 @@ async function worldModelReceiver(input) {
 async function selfReceiver(input) {
   if (input.phase === 'inspect') return { state: await require('../coreSelfService').loadCoreSelf(input.db, input.frame.agentId) };
   const candidate = input.candidate;
+  if (!counterfactualGuard.mayWriteCanonicalWorld(candidate)) return ignored(counterfactualGuard.rejectReason(candidate));
   if (candidate?.content.semanticType !== 'action_consequence' || !candidate.content.artifactRef) return ignored('no_attributable_action');
   const before = await require('../coreSelfService').loadCoreSelf(input.db, input.frame.agentId);
   await require('../coreSelfService').recordAttribution(input.db, input.frame.agentId, {
