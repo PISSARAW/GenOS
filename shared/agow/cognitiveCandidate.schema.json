@@ -11,6 +11,7 @@
     "source": { "$ref": "#/$defs/source" },
     "content": { "$ref": "#/$defs/content" },
     "epistemicOrigin": { "$ref": "#/$defs/epistemicOrigin" },
+    "epistemicContext": { "$ref": "#/$defs/epistemicContext" },
     "evidenceRefs": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "causalParents": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "measures": { "$ref": "#/$defs/measures" },
@@ -47,6 +48,23 @@
         { "if": { "properties": { "origin": { "const": "counterfactual_simulated" } } }, "then": { "properties": { "realityMode": { "const": "counterfactual" } } } },
         { "if": { "properties": { "realityMode": { "const": "real" } } }, "then": { "properties": { "simulationId": { "type": "null" } } } }
       ]
+    },
+    "epistemicContext": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "beliefImportance": { "$ref": "#/$defs/unit" },
+        "causalDescendantCount": { "type": "integer", "minimum": 0 },
+        "irreversibility": { "$ref": "#/$defs/unit" },
+        "expectedAllostaticState": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "energy": { "$ref": "#/$defs/unit" }, "memoryPressure": { "$ref": "#/$defs/unit" },
+            "socialState": { "$ref": "#/$defs/unit" }, "modelDrift": { "$ref": "#/$defs/unit" },
+            "contextPressure": { "$ref": "#/$defs/unit" }, "integrity": { "$ref": "#/$defs/unit" },
+            "stress": { "$ref": "#/$defs/unit" }
+          }
+        }
+      }
     },
     "measures": {
       "type": "object", "additionalProperties": false,

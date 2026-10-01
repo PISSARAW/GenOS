@@ -98,7 +98,7 @@ function coverageErrors(manifest, runs) {
 
 function runErrors(manifest, run) {
   return [
-    ...dimensionErrors(manifest, run), ...datasetErrors(manifest, run),
+    ...dimensionErrors(manifest, run), ...runDatasetErrors(manifest, run),
     ...provenanceErrors(run), ...measurementErrors(manifest, run)
   ];
 }
@@ -108,7 +108,7 @@ function dimensionErrors(manifest, run) {
     && ['train', 'held_out'].includes(run.split) ? [] : ['run-dimension-invalid'];
 }
 
-function datasetErrors(manifest, run) {
+function runDatasetErrors(manifest, run) {
   const expected = run.split === 'train' ? manifest.datasets.trainHash : manifest.datasets.heldOutHash;
   return run.datasetHash === expected ? [] : ['run-dataset-mismatch'];
 }

@@ -7,6 +7,8 @@ const UNIT_MEASURES = [
 const CONSTRAINT_STATES = new Set(['clear', 'review', 'blocked']);
 const ORIGINS = new Set(['external_observed', 'tool_observed', 'other_agent_observed', 'self_action_expected', 'self_action_observed', 'self_generated', 'memory_retrieved', 'model_inferred', 'counterfactual_simulated', 'procedural_generated', 'unknown']);
 const AGENCIES = new Set(['self', 'other', 'environment', 'unknown']);
+const ALLOSTATIC_FIELDS = new Set(['energy', 'memoryPressure', 'socialState', 'modelDrift', 'contextPressure', 'integrity', 'stress']);
+const CONTEXT_FIELDS = new Set(['beliefImportance', 'causalDescendantCount', 'irreversibility', 'expectedAllostaticState']);
 
 function validString(value) {
   return typeof value === 'string' && value.trim().length > 0;
@@ -42,9 +44,45 @@ function validRealOrigin(origin) {
 function validEpistemicOrigin(candidate) {
   const origin = candidate.epistemicOrigin;
   if (!origin || !ORIGINS.has(origin.origin) || !AGENCIES.has(origin.agency)) return false;
+  if (!validOriginReferences(origin)) return false;
   if (origin.realityMode === 'counterfactual') return validCounterfactualOrigin(origin);
   if (origin.realityMode === 'real') return validRealOrigin(origin);
   return false;
+}
+
+function validOriginReferences(origin) {
+  const simulation = origin.simulationId == null || typeof origin.simulationId === 'string';
+  const parent = origin.parentRealityFrameId == null || typeof origin.parentRealityFrameId === 'string';
+  return simulation && parent;
+}
+
+function validEpistemicContext(candidate) {
+  const context = candidate.epistemicContext;
+  if (context == null) return true;
+  if (typeof context !== 'object' || Array.isArray(context)) return false;
+  return validContextKeys(context) && validContextUnits(context)
+    && validDescendantCount(context) && validPredictedState(context.expectedAllostaticState);
+}
+
+function validContextKeys(context) {
+  return Object.keys(context).every((key) => CONTEXT_FIELDS.has(key));
+}
+
+function validContextUnits(context) {
+  return ['beliefImportance', 'irreversibility'].every((key) => context[key] == null
+    || (Number.isFinite(context[key]) && context[key] >= 0 && context[key] <= 1));
+}
+
+function validDescendantCount(context) {
+  const count = context.causalDescendantCount;
+  return count == null || (Number.isInteger(count) && count >= 0);
+}
+
+function validPredictedState(state) {
+  if (state == null) return true;
+  if (typeof state !== 'object' || Array.isArray(state)) return false;
+  return Object.entries(state).every(([key, value]) => ALLOSTATIC_FIELDS.has(key)
+    && Number.isFinite(value) && value >= 0 && value <= 1);
 }
 
 function validConstraints(candidate) {
@@ -59,7 +97,7 @@ function validLifetime(candidate) {
 
 function validCandidate(candidate) {
   return validIdentity(candidate) && validProvenance(candidate) && validEvidence(candidate)
-    && validEpistemicOrigin(candidate) && validUnitMeasures(candidate.measures)
+    && validEpistemicOrigin(candidate) && validEpistemicContext(candidate) && validUnitMeasures(candidate.measures)
     && validConstraints(candidate) && validLifetime(candidate);
 }
 

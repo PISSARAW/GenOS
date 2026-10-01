@@ -67,7 +67,7 @@ function policyFromSensing(variables, executionPolicy, posture) {
     moduleBudget: executionPolicy.workerFanoutLimit < 3 ? 1 : 2,
     maxCost: pressure >= 0.8 ? 0.25 : pressure >= 0.6 ? 0.5 : 1,
     minimumEvidenceRefs: posture.selectedActions.includes('require_evidence_before_mutation') || integrity < 0.5 ? 2 : 0,
-    measuredAt: Date.now(), source: 'machine_interoception'
+    measuredAt: Date.now(), source: 'machine_interoception', variables: { ...variables }
   };
 }
 
