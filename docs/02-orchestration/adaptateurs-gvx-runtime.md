@@ -13,9 +13,13 @@ signés. Le feedback Self-Twin doit citer un `predictionId` déjà présent dans
 correspondre au hash du candidat. Les résultats demeurent des branches candidates et
 n'atteignent jamais `main` automatiquement.
 
-Pour les artefacts d'expérience ou de transfert, construire le registre de vérificateurs
-par `gvxVerifierRegistry.fromTrustedRegistry` depuis les identifiants du
-`verifierTrustRegistry`. Fournir aussi un `artifactReader` qui lit le contenu autorisé;
-GVX recalcule le SHA-256 avant d'accepter le reçu.
+Pour les artefacts d'expérience ou de transfert, enregistrer les implémentations
+autorisées au démarrage avec `gvxVerifierControlPlaneRegistry` avant la première
+résolution, qui scelle ensuite le registre, puis construire le
+registre par `gvxVerifierRegistry.fromTrustedRegistry` avec leurs seuls identifiants
+du `verifierTrustRegistry`. Un binding d'appel ne peut plus injecter la fonction de
+vérification ou les requirements. Sans implémentation enregistrée, la nurserie échoue
+fermée. Fournir aussi un `artifactReader` qui lit le contenu autorisé; GVX recalcule
+le SHA-256 avant d'accepter le reçu.
 
 Voir [ADR 0267](../adr/0267-branchement-runtime-adaptateurs-gvx.md).

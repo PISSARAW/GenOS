@@ -7,6 +7,7 @@ const SOURCES = Object.freeze([
   'epistemic/verifierRuntimeBridge.js', 'epistemic/verifierReceiptBuilder.js',
   'epistemicVerifierReceiptService.js', 'sandboxExecutor.js',
   'sandboxCommandPolicy.js', 'epistemicScheduler/independencePolicy.js',
+  'gvxVerifierRegistry.js', 'gvxVerifierControlPlaneRegistry.js',
 ]);
 function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');

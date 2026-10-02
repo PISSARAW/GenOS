@@ -59,16 +59,22 @@ async function runCycle(db, input) {
   if (assessment.status !== 'recommend_somatic_trial') {
     return { status: 'assessment_complete', action, proposal, experiment, assessment, promotionAllowed: false };
   }
+  const receiptInput = await input.developmentalReceiptInput({
+    signal, candidate: proposal.candidate, experiment, assessmentEvent
+  });
+  const plasticityCredit = await require('./developmentalBridge/gvxToAgowReceiptAdapter')
+    .creditVerifiedReceipt(db, receiptInput);
   const applicationInput = await input.applicationInput({ signal, candidate: proposal.candidate, assessmentEvent });
   const application = await require('./gvxSomaticApplication').applySomaticCandidate(db, applicationInput);
   const monitorInput = await input.monitorInput({ signal, candidate: proposal.candidate, application });
   const monitoring = await require('./gvxLongitudinalMonitor').monitor(db, monitorInput);
   return { status: monitoring.maturity, action, proposal, experiment, assessment,
-    application, monitoring, promotionAllowed: false };
+    plasticityCredit, application, monitoring, promotionAllowed: false };
 }
 
 function validateCycleAdapters(input) {
-  const required = ['hypothesisPlanner', 'experimentInput', 'assessmentInput', 'applicationInput', 'monitorInput'];
+  const required = ['hypothesisPlanner', 'experimentInput', 'assessmentInput',
+    'developmentalReceiptInput', 'applicationInput', 'monitorInput'];
   if (required.some((key) => typeof input[key] !== 'function')
       || typeof input.selfTwinPredictor !== 'function') {
     throw Object.assign(new Error('GVX lifecycle control-plane adapters are required.'), {

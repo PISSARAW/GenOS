@@ -75,7 +75,7 @@ L'adaptateur AGOW exige un scope explicite, une entité, un identifiant source e
 
 Les trajectoires runtime transmettent le scope organisation/projet de la mission ; le résolveur le compare au workspace persistant de l'agent. Sans scope complet ou en cas de désaccord, la trajectoire reste enregistrée et aucune publication GVX n'est tentée (**Implémenté** — `agow/agowRuntimeIngressService.js`, `agow/proceduralization/cognitiveTrajectoryService.js`, `developmentalScopeResolver.js`).
 
-Après chaque signal, `gvxDevelopmentController` compte les événements source distincts de même type et voie, puis persiste une action proposée (`observe`, `create_hypothesis` ou `schedule_experiment`). Les signaux gardent le statut `reported`. `runCycle()` sait enchaîner proposition, nursery, évaluation, application autorisée et monitoring, mais requiert des adapters de planification et de contrôle fournis par l'hôte ; le runtime standard ne fournit pas encore ces adapters (**Partiel** — classification et accumulation raccordées, cycle complet conditionnel).
+Après chaque signal, `gvxDevelopmentController` compte les événements source distincts de même type et voie, puis persiste une action proposée (`observe`, `create_hypothesis` ou `schedule_experiment`). Les signaux gardent le statut `reported`. `runCycle()` sait enchaîner proposition, nursery, évaluation, reçu de développement vérifié, crédit AGOW, application autorisée et monitoring. Il requiert des adapters de planification et de contrôle fournis par l'hôte ; le runtime standard ne les fournit pas encore (**Partiel** — classification et accumulation raccordées, cycle complet conditionnel).
 
 ### 5.2 Trois reçus indépendants pour consolider
 
