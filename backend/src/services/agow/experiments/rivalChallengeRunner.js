@@ -16,7 +16,8 @@ function buildArm(input) {
 }
 
 function strategyFor(challenge, role) {
-  if (role === 'baseline' || role === 'treatment') return challenge[role];
+  if (role === 'baseline') return challenge.baseline;
+  if (role === 'candidate' || role === 'treatment') return challenge.treatment;
   return (challenge.topologyProfile.controls || []).find((entry) => entry.id === role);
 }
 
@@ -25,6 +26,14 @@ function controlsFor(challenge) {
     environmentHash: matcher.digest(challenge.topologyProfile), topologyProfile: challenge.topologyProfile,
     verifierProfile: challenge.verifierProfile, modelLockHash: matcher.digest(challenge.modelLock),
     toolLockHash: matcher.digest(challenge.toolLock), budgetHash: matcher.digest(challenge.budget) };
+}
+
+function matchedControls(options) {
+  const controls = controlsFor(options.challenge);
+  if (!options.datasetManifest) return controls;
+  return { ...controls, datasetId: options.datasetManifest.datasetId,
+    datasetVersion: options.datasetManifest.version, datasetSourceHash: options.datasetManifest.sourceFingerprint,
+    caseCorpusHash: matcher.digest(options.cases.map((item) => ({ caseId: item.caseId, input: item.input }))) };
 }
 
 async function createMatchedWorld(options) {
@@ -44,18 +53,19 @@ async function createMatchedWorld(options) {
 
 async function runSeed(options) {
   const { challenge, seed } = options;
-  const roles = ['baseline', 'treatment', ...(challenge.topologyProfile.controls || []).map((item) => item.id)];
+  const roles = ['baseline', 'candidate', ...(challenge.topologyProfile.controls || []).map((item) => item.id)];
   const arms = roles.map((role) => buildArm({ role, challenge,
     seed, snapshotHash: options.snapshotHash, worldBudget: challenge.budget.world }));
   return nursery.run({ db: options.db, scope: options.scope, entityId: options.entityId,
     snapshotHash: options.snapshotHash, worldBudget: challenge.budget.world,
-    controls: controlsFor(challenge), verifierRequirements: challenge.verifierProfile.requirements,
+    controls: matchedControls(options), verifierRequirements: challenge.verifierProfile.requirements,
     metricAllowlist: challenge.metrics,
     experimentDesign: { type: arms.length === 2 ? 'paired' : 'multi_arm', arms }, verifierRegistry: options.verifierRegistry,
     artifactReader: options.artifactReader,
     createIsolatedWorld: (context) => createMatchedWorld({ context, challenge, createIsolatedWorld: options.createIsolatedWorld }),
     runWorld: (worldContext) => options.runArm({ ...worldContext, seed,
-      challengeId: challenge.challenge, metrics: challenge.metrics, ablations: challenge.ablations }) });
+      challengeId: challenge.challenge, metrics: challenge.metrics, ablations: challenge.ablations,
+      cases: options.cases || [], datasetManifest: options.datasetManifest || null }) });
 }
 
 async function run(options) {
@@ -69,6 +79,7 @@ async function run(options) {
   return { challenge: challenge.challenge, seeds: challenge.seeds, controlMatch: true,
     experiments: results.map((item) => item.experimentId), assessments: results.map((item) => item.assessment),
     outcomes: results.flatMap((item) => item.outcomes || []),
+    datasetManifest: options.datasetManifest || null,
     promotionAllowed: false, status: 'nursery_review_required' };
 }
 
@@ -76,4 +87,4 @@ function locks(challenge) {
   return { modelLock: challenge.modelLock, toolLock: challenge.toolLock, budget: challenge.budget };
 }
 
-module.exports = { run, buildArm, controlsFor, createMatchedWorld, strategyFor };
+module.exports = { run, buildArm, controlsFor, matchedControls, createMatchedWorld, strategyFor };

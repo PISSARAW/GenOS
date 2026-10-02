@@ -1,6 +1,7 @@
 'use strict';
 
 const timescale = require('./predictiveTimescale/predictiveTimescaleService');
+const precisionLearning = require('./predictiveTimescale/precisionLearningService');
 const selfTwin = require('./selfTwin/selfTwinService');
 const candidateAdapter = require('./agow/candidates/candidateAdapterService');
 
@@ -27,10 +28,15 @@ async function recordPredictionErrors(ctx, event) {
   const refs = await trustedEvidenceRefs(ctx, event.payload);
   const results = [];
   for (const pair of pairs) {
+    const calibration = await precisionLearning.record({ db: ctx.db, agentId: ctx.agentId,
+      input: { modelId: event.payload.predictiveModelId || 'legacy_point', timescale: level,
+        contextKey: event.payload.contextSignature || event.eventType, mean: pair.prediction,
+        observed: pair.observation, variance: event.payload.predictedVariances?.[pair.metric] ?? 1 } });
     const result = await timescale.record({ db: ctx.db, agentId: ctx.agentId,
-      input: { ...pair, timescale: level, evidenceRefs: refs, independentRefs: refs, now: new Date().toISOString() } });
+      input: { ...pair, precision: calibration.precision, timescale: level,
+        evidenceRefs: refs, independentRefs: refs, now: new Date().toISOString() } });
     const candidate = result.route ? await submitErrorCandidate({ ctx, event, pair, route: result.route, refs }) : null;
-    results.push({ ...result, agowAdmission: candidate });
+    results.push({ ...result, precisionCalibration: calibration, agowAdmission: candidate });
   }
   return results;
 }
