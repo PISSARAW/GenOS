@@ -14,7 +14,7 @@ function receiptClaim(input) {
     entityId: input.entityId, receiptId: input.receiptId, pathwayId: input.pathwayId,
     contextHash: input.contextHash || 'global', success: input.success,
     predictionError: input.predictionError, reward: Number.isFinite(input.reward) ? input.reward : null,
-    evidenceRefs: input.evidenceRefs.map((item) => item.artifactHash).sort() };
+    evidenceRefs: input.evidenceRefs.map((item) => `${item.artifactHash}\0${item.verifierId}`).sort() };
 }
 
 function validRequest(input) {
@@ -24,8 +24,10 @@ function validRequest(input) {
 }
 
 function validReceipt(receipt, input) {
-  return Boolean(receipt && receipt.resultId === input.receiptId
-    && receipt.status === 'verified' && receipt.independent === true);
+  return Boolean(receipt && receipt.schema === 'genos.gvx.development-receipt/v2'
+    && receipt.resultId === input.receiptId
+    && receipt.status === 'verified' && receipt.independent === true
+    && receipt.evidenceCount === input.evidenceRefs.length);
 }
 
 function validEvidence(evidence) {
@@ -39,9 +41,21 @@ function matchesClaim(receipt, input) {
 }
 
 function trustedSignature(receipt) {
-  const trust = require('../verifierTrustRegistry');
-  const verifier = require('../epistemicVerifierReceiptService');
-  return verifier.validateReceipt(receipt, trust.resolveTrustedVerifierDigests());
+  return trustedRemoteSignature(receipt);
+}
+
+function trustedRemoteSignature(receipt) {
+  try {
+    const crypto = require('node:crypto');
+    const pem = String(process.env.GENOS_GVX_VERIFIER_PUBLIC_KEY || '');
+    if (!pem) return false;
+    const publicKey = crypto.createPublicKey(pem);
+    const keyId = `sha256:${crypto.createHash('sha256')
+      .update(publicKey.export({ type: 'spki', format: 'der' })).digest('hex')}`;
+    const { signature, ...payload } = receipt;
+    return receipt.verifierDigest === keyId && typeof signature === 'string'
+      && crypto.verify(null, Buffer.from(JSON.stringify(payload)), publicKey, Buffer.from(signature, 'base64'));
+  } catch (_) { return false; }
 }
 
 function unverified() {

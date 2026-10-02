@@ -3,11 +3,17 @@
 const crypto = require('node:crypto');
 const { appendEvent, getEvent, listEvents } = require('../gvxDevelopmentLedger');
 const { verifyDevelopmentReceipt } = require('./developmentReceiptVerifier');
+const creditQueues = new WeakMap();
 
 async function creditVerifiedReceipt(db, input) {
   validateRequest(input);
   const receipt = verifyDevelopmentReceipt(input);
   const key = creditKey(input, receipt);
+  return serializePathwayCredit(db, input, () => applyVerifiedCredit({ db, input, receipt, key }));
+}
+
+async function applyVerifiedCredit(options) {
+  const { db, input, receipt, key } = options;
   const scope = ledgerScope(input);
   if (await getEvent(db, `gvx-credit-applied:${key}`, scope)) {
     return { credited: false, reason: 'receipt-already-claimed' };
@@ -23,6 +29,18 @@ async function creditVerifiedReceipt(db, input) {
     await recordFailure({ db, input, receipt, error });
     throw error;
   }
+}
+
+async function serializePathwayCredit(db, input, run) {
+  const queues = creditQueues.get(db) || new Map();
+  const identity = [input.agentId, input.scope.organizationId, input.scope.projectId,
+    input.entityId, input.pathwayId, input.contextHash || 'global'].join('\0');
+  const prior = queues.get(identity) || Promise.resolve();
+  const current = prior.catch(() => {}).then(run);
+  creditQueues.set(db, queues);
+  queues.set(identity, current);
+  try { return await current; }
+  finally { if (queues.get(identity) === current) queues.delete(identity); }
 }
 
 async function appendClaim({ db, input, receipt, key }) {

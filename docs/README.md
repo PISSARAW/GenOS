@@ -180,6 +180,7 @@ Index : [05-securite-gouvernance/README.md](05-securite-gouvernance/README.md)
 - [identite-et-autorite.md](05-securite-gouvernance/identite-et-autorite.md) — identités, autorité, scopes tenants, rôles.
 - [conformite-et-gouvernance.md](05-securite-gouvernance/conformite-et-gouvernance.md) — gouvernance, conformité, supervision.
 - [sandbox-execution-code.md](05-securite-gouvernance/sandbox-execution-code.md) — sandbox, isolation, limites.
+- [service-verificateur-gvx.md](05-securite-gouvernance/service-verificateur-gvx.md) — service séparé, reçus Ed25519 et capteurs GVX alimentés.
 - [gestion-projet-multi-tenant.md](05-securite-gouvernance/gestion-projet-multi-tenant.md) — gestion de projet et multi-tenant.
 - [sso-oidc-saml.md](05-securite-gouvernance/sso-oidc-saml.md) — fédération OIDC/SAML.
 - [approbations-platform.md](05-securite-gouvernance/approbations-platform.md) — approbations et contrôles platform.

@@ -2,6 +2,8 @@
 
 const IMPLEMENTATION_ID = 'artifact-integrity-v1';
 const REQUIREMENT = 'artifact-integrity';
+const SOMATIC_ID = 'gvx-somatic-assessment-v1';
+const SOMATIC_REQUIREMENT = 'gvx-somatic-assessment';
 
 function registerBuiltInVerifiers(registry) {
   const trust = require('./verifierTrustRegistry');
@@ -10,6 +12,11 @@ function registerBuiltInVerifiers(registry) {
     description: 'Confirms artifact bytes match the declared SHA-256; does not assess semantic correctness.' });
   registry.registerVerifierImplementation({ id: IMPLEMENTATION_ID,
     requirements: [REQUIREMENT], verify: verifyArtifactIntegrity });
+  trust.registerVerifier({ id: SOMATIC_ID, type: 'benchmark',
+    digest: trust.computeVerifierDigest(SOMATIC_ID, '1.0'),
+    description: 'Recomputes GVX somatic assessment rules over independently evidenced metrics.' });
+  registry.registerVerifierImplementation({ id: SOMATIC_ID,
+    requirements: [SOMATIC_REQUIREMENT], verify: verifySomaticAssessment });
 }
 
 function verifyArtifactIntegrity(input) {
@@ -18,4 +25,40 @@ function verifyArtifactIntegrity(input) {
     reason: matches ? null : 'declared-artifact-hash-mismatch' };
 }
 
-module.exports = { IMPLEMENTATION_ID, REQUIREMENT, registerBuiltInVerifiers, verifyArtifactIntegrity };
+function parseAssessment(input) {
+  try { return JSON.parse(input.artifact.toString('utf8')); } catch (_) { return null; }
+}
+
+function evidencePairs(items) {
+  return (items || []).map((item) => `${item.artifactHash}\0${item.verifierId}`).sort();
+}
+
+function conservativeSomaticProfile(profile) {
+  const rules = profile?.rules || [];
+  return profile?.id === 'gvx-somatic-conservative-v1' && profile.minSamples >= 3
+    && rules.length >= 2 && rules.every((rule) => rule.maxRegression === 0)
+    && rules.some((rule) => rule.metric === 'safety' && rule.objective === 'maintain')
+    && rules.some((rule) => ['higher', 'lower'].includes(rule.objective) && rule.minImprovement > 0);
+}
+
+function verifySomaticAssessment(input) {
+  const artifact = parseAssessment(input);
+  if (!artifact || artifact.schema !== 'genos.gvx.somatic-assessment/v1'
+      || input.evidence?.artifactHash !== input.artifactHash) return { verified: false };
+  const refs = artifact.assessmentInput?.evidenceRefs;
+  const proofs = input.evidence?.supportingReceipts;
+  if (!conservativeSomaticProfile(artifact.assessmentInput.profile) || !refs?.length
+      || JSON.stringify(evidencePairs(refs)) !== JSON.stringify(evidencePairs(proofs))) {
+    return { verified: false, reason: 'somatic-evidence-receipts-missing' };
+  }
+  try {
+    const expected = require('./gvxSomaticAssessment').assessSomaticCandidate(artifact.assessmentInput);
+    const same = require('./epistemicAssuranceService').digest(expected)
+      === require('./epistemicAssuranceService').digest(artifact.assessment);
+    return { verified: same && artifact.assessment.promotionAllowed === false,
+      evidenceClass: 'gvx_somatic_assessment_semantics' };
+  } catch (_) { return { verified: false, reason: 'somatic-assessment-rules-invalid' }; }
+}
+
+module.exports = { IMPLEMENTATION_ID, REQUIREMENT, SOMATIC_ID, SOMATIC_REQUIREMENT,
+  registerBuiltInVerifiers, verifyArtifactIntegrity, verifySomaticAssessment };

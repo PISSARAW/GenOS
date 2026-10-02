@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('assert');
+const crypto = require('node:crypto');
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3');
 const { migrateAdaptiveState } = require('../src/db/migrations/migrateAdaptiveState');
@@ -10,14 +11,18 @@ const { recordOutcomeSignals } = require('../src/services/developmentalBridge/ag
 const { creditVerifiedReceipt } = require('../src/services/developmentalBridge/gvxToAgowReceiptAdapter');
 const { receiptClaim } = require('../src/services/developmentalBridge/developmentReceiptVerifier');
 const { digest } = require('../src/services/epistemicAssuranceService');
-const receiptService = require('../src/services/epistemicVerifierReceiptService');
-const verifierTrust = require('../src/services/verifierTrustRegistry');
 const { deriveAgowPosture, canonicalMeasurements, recordCanonicalInteroception } = require('../src/services/developmentalBridge/interoceptionBridge');
 const { recommendAction } = require('../src/services/developmentalBridge');
 const { resolveDevelopmentalScope } = require('../src/services/developmentalBridge/developmentalScopeResolver');
 const { update: updatePolicy } = require('../src/services/agow/agowMechanismPolicyService');
 const plasticityCoordinator = require('../src/services/agow/plasticity/agowPlasticityCoordinator');
 const { buildInteroceptiveState } = require('../src/services/gvxInteroception');
+
+const receiptKeys = crypto.generateKeyPairSync('ed25519');
+const receiptPublicKey = receiptKeys.publicKey.export({ type: 'spki', format: 'pem' });
+process.env.GENOS_GVX_VERIFIER_PUBLIC_KEY = receiptPublicKey;
+const receiptKeyId = `sha256:${crypto.createHash('sha256')
+  .update(receiptKeys.publicKey.export({ type: 'spki', format: 'der' })).digest('hex')}`;
 
 const scope = { organizationId: 'org', projectId: 'project' };
 const evidence = [{ artifactHash: 'a'.repeat(64), verifierId: 'independent-test-v1' }];
@@ -86,9 +91,12 @@ function receiptInput(db, receiptId) {
   const input = { db, scope, entityId: 'agent', agentId: 'agent', receiptId,
     pathwayId: 'route.alpha', contextHash: 'b'.repeat(64), success: true,
     predictionError: 0.1, reward: 0.8, evidenceRefs: evidence };
-  input.signedReceipt = receiptService.issueReceipt({ resultId: receiptId,
-    evidenceDigest: digest(receiptClaim(input)), verifierDigest: verifierTrust.getVerifier('proof').digest,
-    status: 'verified', independent: true, independenceDescriptor: { method: 'separate-proof-gate' } });
+  const receipt = { schema: 'genos.gvx.development-receipt/v2', resultId: receiptId,
+    evidenceDigest: digest(receiptClaim(input)), verifierDigest: receiptKeyId,
+    status: 'verified', independent: true, checkedAt: new Date().toISOString(),
+    nonce: crypto.randomUUID(), evidenceCount: input.evidenceRefs.length };
+  input.signedReceipt = { ...receipt,
+    signature: crypto.sign(null, Buffer.from(JSON.stringify(receipt)), receiptKeys.privateKey).toString('base64') };
   return input;
 }
 

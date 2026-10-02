@@ -62,6 +62,14 @@ async function runCycle(db, input) {
   const receiptInput = await input.developmentalReceiptInput({
     signal, candidate: proposal.candidate, experiment, assessmentEvent
   });
+  const verifierRemote = experimentInput.verifierRegistry?.remote;
+  if (verifierRemote) {
+    const verificationReceipts = (experiment.outcomes || []).flatMap((outcome) => outcome.evidence || [])
+      .map((item) => item.signedReceipt).filter(Boolean);
+    receiptInput.signedReceipt = await require('./gvxRemoteVerifierClient').issueDevelopmentReceipt({
+      ...verifierRemote, claim: receiptInput, verificationReceipts
+    });
+  }
   const plasticityCredit = await require('./developmentalBridge/gvxToAgowReceiptAdapter')
     .creditVerifiedReceipt(db, receiptInput);
   const applicationInput = await input.applicationInput({ signal, candidate: proposal.candidate, assessmentEvent });
