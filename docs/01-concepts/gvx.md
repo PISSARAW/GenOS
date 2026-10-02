@@ -73,7 +73,9 @@ Les termes « somatique », « germinal », « compétence », « fitness » et 
 
 L'adaptateur AGOW exige un scope explicite, une entité, un identifiant source et au moins une référence de preuve non vide. Il enregistre `epistemicStatus: reported`. Les types reconnus comprennent erreur de prédiction, regret persistant, voie réussie, voie décompilée, requête active, lacune, discrimination contrefactuelle, motif morphologique et échec de représentation (**Implémenté** — `developmentalBridge/agowToGvxSignalAdapter.js`).
 
-Les trajectoires cognitives ne publient de signaux GVX que si leur appelant fournit un scope organisation/projet explicite, et ce scope doit correspondre au workspace persistant de l'agent. Sans scope explicite, la trajectoire reste enregistrée et aucune publication de signal GVX n'est tentée (**Implémenté** — `agow/proceduralization/cognitiveTrajectoryService.js`, `developmentalScopeResolver.js`).
+Les trajectoires runtime transmettent le scope organisation/projet de la mission ; le résolveur le compare au workspace persistant de l'agent. Sans scope complet ou en cas de désaccord, la trajectoire reste enregistrée et aucune publication GVX n'est tentée (**Implémenté** — `agow/agowRuntimeIngressService.js`, `agow/proceduralization/cognitiveTrajectoryService.js`, `developmentalScopeResolver.js`).
+
+Après chaque signal, `gvxDevelopmentController` compte les événements source distincts de même type et voie, puis persiste une action proposée (`observe`, `create_hypothesis` ou `schedule_experiment`). Les signaux gardent le statut `reported`. `runCycle()` sait enchaîner proposition, nursery, évaluation, application autorisée et monitoring, mais requiert des adapters de planification et de contrôle fournis par l'hôte ; le runtime standard ne fournit pas encore ces adapters (**Partiel** — classification et accumulation raccordées, cycle complet conditionnel).
 
 ### 5.2 Trois reçus indépendants pour consolider
 

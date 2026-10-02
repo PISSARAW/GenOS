@@ -8,15 +8,19 @@ async function creditVerifiedReceipt(db, input) {
   validateRequest(input);
   const receipt = verifyDevelopmentReceipt(input);
   const key = creditKey(input, receipt);
-  if (await getEvent(db, `gvx-credit-claim:${key}`, ledgerScope(input))) return { credited: false, reason: 'receipt-already-claimed' };
-  await appendClaim({ db, input, receipt, key });
+  const scope = ledgerScope(input);
+  if (await getEvent(db, `gvx-credit-applied:${key}`, scope)) {
+    return { credited: false, reason: 'receipt-already-claimed' };
+  }
+  if (!await getEvent(db, `gvx-credit-claim:${key}`, scope)) await appendClaim({ db, input, receipt, key });
   try {
     const plasticity = await recordAgowCredit(input, receipt);
+    if (plasticity?.recorded !== true) throw retryableError(plasticity?.reason || 'agow-credit-not-recorded');
     const supportCount = await recordAppliedCredit({ db, input, receipt, key });
     const consolidation = await consolidateAfterSupport(input, receipt, supportCount);
     return { credited: true, supportCount, plasticity, consolidation };
   } catch (error) {
-    await recordFailure({ db, input, receipt, key, error });
+    await recordFailure({ db, input, receipt, error });
     throw error;
   }
 }
@@ -40,13 +44,16 @@ async function recordAgowCredit(input, receipt) {
 }
 
 async function recordAppliedCredit({ db, input, receipt, key }) {
-  await appendEvent(db, {
-    id: `gvx-credit-applied:${key}`, ...input.scope, entityId: input.entityId,
-    type: 'evidence_attached', payload: { kind: 'developmental_credit_applied',
-      receiptId: receipt.receiptId, pathwayId: receipt.pathwayId,
-      contextHash: receipt.contextHash || 'global', verifierId: receipt.verifierId,
-      success: receipt.success }
-  });
+  const scope = ledgerScope(input);
+  if (!await getEvent(db, `gvx-credit-applied:${key}`, scope)) {
+    await appendEvent(db, {
+      id: `gvx-credit-applied:${key}`, ...input.scope, entityId: input.entityId,
+      type: 'evidence_attached', payload: { kind: 'developmental_credit_applied',
+        receiptId: receipt.receiptId, pathwayId: receipt.pathwayId,
+        contextHash: receipt.contextHash || 'global', verifierId: receipt.verifierId,
+        success: receipt.success }
+    });
+  }
   const events = await listEvents(db, { ...input.scope, entityId: input.entityId });
   const credits = events.filter((event) => event.payload.kind === 'developmental_credit_applied'
     && event.payload.success === true
@@ -67,14 +74,18 @@ async function consolidateAfterSupport(input, receipt, supportCount) {
   });
 }
 
-async function recordFailure({ db, input, receipt, key, error }) {
+async function recordFailure({ db, input, receipt, error }) {
   try {
     await appendEvent(db, {
-      id: `gvx-credit-failed:${key}`, ...input.scope, entityId: input.entityId,
+      ...input.scope, entityId: input.entityId,
       type: 'evidence_attached', payload: { kind: 'developmental_credit_failed',
-        receiptId: receipt.receiptId, reason: error.code || 'credit-failed' }
+        receiptId: receipt.receiptId, retryable: true, reason: error.code || 'credit-failed' }
     });
-  } catch (_) { /* Claim remains durable and prevents duplicate plasticity credit. */ }
+  } catch (_) { /* The immutable claim remains available for an idempotent retry. */ }
+}
+
+function retryableError(reason) {
+  return Object.assign(new Error(`GVX credit can be retried: ${reason}`), { code: 'GVX_CREDIT_RETRYABLE' });
 }
 
 function validateRequest(input) {

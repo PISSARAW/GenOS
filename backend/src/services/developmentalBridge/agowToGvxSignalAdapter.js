@@ -13,8 +13,7 @@ async function recordAgowSignal(db, input) {
   validateSignal(input);
   const id = eventId(input);
   const prior = await getEvent(db, id, ledgerScope(input));
-  if (prior) return { ...prior, replayed: true };
-  return appendEvent(db, {
+  const event = prior || await appendEvent(db, {
     id, ...input.scope, entityId: input.entityId, type: 'evidence_attached',
     payload: { kind: 'developmental_signal', signalId: input.signalId, sourceSystem: 'agow',
       sourceEventId: input.sourceEventId, signalType: input.signalType,
@@ -22,6 +21,16 @@ async function recordAgowSignal(db, input) {
       epistemicStatus: 'reported', evidenceRefs: [...new Set(input.evidenceRefs)],
       context: safeContext(input.context) }
   });
+  const result = prior ? { ...event, replayed: true } : event;
+  try {
+    result.developmentalAction = await require('../gvxDevelopmentController').processSignal(db, {
+      scope: input.scope, entityId: input.entityId, sourceEventId: input.sourceEventId,
+      signalType: input.signalType, evidenceRefs: input.evidenceRefs, context: safeContext(input.context)
+    });
+  } catch (error) {
+    result.developmentalAction = { status: 'deferred', reason: error.code || 'gvx-controller-unavailable' };
+  }
+  return result;
 }
 
 async function recordOutcomeSignals(db, input) {

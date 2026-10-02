@@ -16,10 +16,10 @@ function summarize(results, windows, minimumStableWindows) {
     : item.assessment.status === 'no_measured_gain' ? 0 : null).filter(Number.isFinite);
   const regressions = results.filter((item) => item.assessment.status === 'reject').length;
   const positive = results.filter((item) => item.assessment.status === 'recommend_somatic_trial').length;
-  const mean = scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null;
-  const variance = scores.length ? scores.reduce((sum, value) => sum + (value - mean) ** 2, 0) / scores.length : null;
+  const positiveWindowRate = scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null;
+  const variance = scores.length ? scores.reduce((sum, value) => sum + (value - positiveWindowRate) ** 2, 0) / scores.length : null;
   const stable = regressions === 0 && positive >= minimumStableWindows;
-  return { windows: windows.length, meanEffect: mean, effectVariance: variance,
+  return { windows: windows.length, positiveWindowRate, positiveWindowRateVariance: variance,
     metricConfidenceIntervals: summarizeMetricDeltas(results, 0.95), confidenceLevel: 0.95,
     regressionRate: regressions / windows.length, environmentDiversity: new Set(windows.map((window) => window.contextHash)).size,
     stable, maturity: stable ? 'mature_somatic_eligible' : regressions ? 'rollback_recorded' : 'monitoring' };

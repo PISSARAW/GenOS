@@ -89,19 +89,45 @@ async function recordTrajectory(options) {
 }
 
 function trajectoryInput(options, queryId) {
+  const mission = options.ctx.normalizedMission || {};
+  const pathway = runtimePathway(options);
   return { agentId: options.ctx.agentId, db: options.ctx.db, frame: options.frame,
+    developmentalScope: developmentalScope(mission),
     steps: trajectorySteps(options.frame, options.event, queryId),
-    candidateRefs: options.frame.causalContext?.triggeredBy || [],
+    candidateRefs: candidateReferences(options.frame),
     winningCandidateRefs: primaryRef(options.frame), queryRefs: queryRefs(queryId),
-    actionRef: options.event.payload?.actionId || null, outcomeRefs: options.refs,
+    actionRef: actionReference(options.event), outcomeRefs: options.refs,
     evidenceRefs: options.refs, success: options.success, missionId: options.ctx.normalizedMission?.missionId,
     goal: options.frame.activeGoal, selectedAction: selectedAction(options.event),
-    predictedOutcome: options.event.payload?.expectedOutcome || null,
-    observedOutcome: options.event.payload?.outcome || options.event.eventType,
-    context: { signature: options.ctx.normalizedMission?.taskFamily || 'worker_outcome' },
+    predictedOutcome: predictedOutcome(options.event), observedOutcome: observedOutcome(options.event),
+    pathwayId: pathwayId(options.event, pathway),
+    predictionError: runtimePredictionError(options),
+    regret: options.event.payload?.regret,
+    decompiled: options.event.payload?.decompiled === true,
+    context: { signature: missionSignature(mission) },
     selfWorldAttribution: options.event.payload?.selfWorldAttribution || null,
-    proceduralizationEvent: options.plasticityReceipt?.plasticity?.pathway?.pathwayId
-      || options.plasticityReceipt?.pathway?.pathwayId || null };
+    proceduralizationEvent: pathway?.pathwayId || null };
+}
+
+function candidateReferences(frame) { return frame.causalContext?.triggeredBy || []; }
+function actionReference(event) { return event.payload?.actionId || null; }
+function predictedOutcome(event) { return event.payload?.expectedOutcome || null; }
+function observedOutcome(event) { return event.payload?.outcome || event.eventType; }
+function missionSignature(mission) { return mission.taskFamily || 'worker_outcome'; }
+function runtimePathway(options) {
+  return options.plasticityReceipt?.plasticity?.pathway || options.plasticityReceipt?.pathway;
+}
+function pathwayId(event, pathway) { return event.payload?.pathwayId || pathway?.pathwayId || null; }
+
+function developmentalScope(mission) {
+  if (!mission.organizationId || !mission.projectId) return null;
+  return { organizationId: mission.organizationId, projectId: mission.projectId };
+}
+
+function runtimePredictionError(options) {
+  const supplied = options.event.payload?.predictionError;
+  return supplied === null || supplied === undefined
+    ? workerConfidence(options.success).predictionError : supplied;
 }
 
 function primaryRef(frame) {
