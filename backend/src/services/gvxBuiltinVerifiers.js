@@ -33,12 +33,38 @@ function evidencePairs(items) {
   return (items || []).map((item) => `${item.artifactHash}\0${item.verifierId}`).sort();
 }
 
+function receiptsCoverEvidence(refs, proofs) {
+  const available = new Set(evidencePairs(proofs));
+  return evidencePairs(refs).length > 0 && evidencePairs(refs).every((pair) => available.has(pair));
+}
+
 function conservativeSomaticProfile(profile) {
   const rules = profile?.rules || [];
   return profile?.id === 'gvx-somatic-conservative-v1' && profile.minSamples >= 3
     && rules.length >= 2 && rules.every((rule) => rule.maxRegression === 0)
     && rules.some((rule) => rule.metric === 'safety' && rule.objective === 'maintain')
     && rules.some((rule) => ['higher', 'lower'].includes(rule.objective) && rule.minImprovement > 0);
+}
+
+function matchingMetricProof(proof, input) {
+  const decision = proof.businessDecision;
+  const estimate = input.assessmentInput?.[input.arm]?.metrics?.[input.metric];
+  return proof.requirement === `gvx-somatic-metric:${input.metric}`
+    && decision?.metric === input.metric && decision.arm === input.arm
+    && decision.mean === estimate?.mean && decision.samples === estimate?.samples
+    && input.refPairs.has(`${proof.artifactHash}\0${proof.verifierId}`);
+}
+
+function hasMetricArmProof(input) {
+  const estimate = input.assessmentInput?.[input.arm]?.metrics?.[input.metric];
+  return Number.isFinite(estimate?.mean) && Number.isInteger(estimate.samples)
+    && input.proofs.some((proof) => matchingMetricProof(proof, input));
+}
+
+function everySomaticMetricHasProof(assessmentInput, refs, proofs) {
+  const refPairs = new Set(evidencePairs(refs));
+  return assessmentInput.profile.rules.every((rule) => ['baseline', 'candidate'].every((arm) =>
+    hasMetricArmProof({ assessmentInput, proofs, metric: rule.metric, arm, refPairs })));
 }
 
 function verifySomaticAssessment(input) {
@@ -48,7 +74,8 @@ function verifySomaticAssessment(input) {
   const refs = artifact.assessmentInput?.evidenceRefs;
   const proofs = input.evidence?.supportingReceipts;
   if (!conservativeSomaticProfile(artifact.assessmentInput.profile) || !refs?.length
-      || JSON.stringify(evidencePairs(refs)) !== JSON.stringify(evidencePairs(proofs))) {
+      || !receiptsCoverEvidence(refs, proofs)
+      || !everySomaticMetricHasProof(artifact.assessmentInput, refs, proofs)) {
     return { verified: false, reason: 'somatic-evidence-receipts-missing' };
   }
   try {
@@ -56,7 +83,8 @@ function verifySomaticAssessment(input) {
     const same = require('./epistemicAssuranceService').digest(expected)
       === require('./epistemicAssuranceService').digest(artifact.assessment);
     return { verified: same && artifact.assessment.promotionAllowed === false,
-      evidenceClass: 'gvx_somatic_assessment_semantics' };
+      evidenceClass: 'gvx_somatic_assessment_semantics',
+      businessDecision: { assessmentStatus: artifact.assessment.status } };
   } catch (_) { return { verified: false, reason: 'somatic-assessment-rules-invalid' }; }
 }
 

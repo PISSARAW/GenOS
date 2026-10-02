@@ -11,6 +11,7 @@ const SOURCES = Object.freeze([
   'gvxRemoteVerifierClient.js', 'gvxVerifierServiceServer.js',
   'developmentalBridge/developmentReceiptVerifier.js',
   'developmentalBridge/gvxToAgowReceiptAdapter.js',
+  'developmentalBridge/agowToGvxSignalAdapter.js', 'gvxLifecycleAdapterProvider.js',
   'epistemicAssuranceService.js', 'gvxSomaticAssessment.js', 'gvxDevelopmentController.js',
 ]);
 function digest(value) {

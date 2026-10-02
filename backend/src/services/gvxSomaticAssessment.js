@@ -82,7 +82,9 @@ async function recordSomaticAssessment(db, input) {
     type: 'decision_recorded',
     parentHash: input.parentHash,
     candidateHash: input.candidateHash,
-    payload: { kind: 'somatic_assessment', assessment, profile: input.profile }
+    payload: { kind: 'somatic_assessment', assessment, profile: input.profile,
+      assessmentInput: { baseline: input.baseline, candidate: input.candidate,
+        profile: input.profile, evidenceRefs: input.evidenceRefs } }
   });
 }
 

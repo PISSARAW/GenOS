@@ -104,6 +104,7 @@ async function verifyRequest(body, config) {
     reason: result.reason || null, requirement: input.requirement, verifierId: input.verifierId,
     verifierVersion: result.verifierVersion || null, artifactHash: result.artifactHash || null,
     artifactRef: evidence.artifactRef, evidenceClass: result.evidenceClass || null,
+    businessDecision: result.businessDecision || null,
     checkedAt: new Date().toISOString(), nonce: crypto.randomUUID() };
   const signature = crypto.sign(null, Buffer.from(JSON.stringify(receipt)), config.privateKey).toString('base64');
   return { receipt, signature };
@@ -112,13 +113,6 @@ async function verifyRequest(body, config) {
 function unsignedReceipt(receipt) {
   const { signature, ...unsigned } = receipt || {};
   return { unsigned, signature };
-}
-
-function verifiedEvidencePairs(receipts, publicKey) {
-  if (!Array.isArray(receipts) || !receipts.length) throw serviceError('GVX_VERIFICATION_RECEIPTS_REQUIRED');
-  const proofs = verifiedEvidenceReceipts(receipts, publicKey);
-  if (!proofs.length) throw serviceError('GVX_VERIFICATION_RECEIPTS_REQUIRED');
-  return new Set(proofs.map((item) => `${item.artifactHash}\0${item.verifierId}`));
 }
 
 function validClaimIdentity(claim) { return Boolean(claim?.scope?.organizationId && claim.scope.projectId
@@ -133,15 +127,30 @@ function validClaimEvidence(claim) {
 
 function validDevelopmentClaim(claim) { return validClaimIdentity(claim) && validClaimEvidence(claim); }
 
+function assessmentProof(proofs) {
+  return proofs.find((item) => item.requirement === 'gvx-somatic-assessment'
+    && item.verifierId === 'gvx-somatic-assessment-v1'
+    && item.businessDecision?.assessmentStatus === 'recommend_somatic_trial');
+}
+
+function evidenceBoundToProofs(refs, proofs) {
+  const verified = new Set(proofs.map((item) => `${item.artifactHash}\0${item.verifierId}`));
+  if (!refs.length || !refs.every((item) => verified.has(`${item.artifactHash}\0${item.verifierId}`))) return false;
+  const assessment = assessmentProof(proofs);
+  return !assessment || refs.some((item) => item.artifactHash === assessment.artifactHash
+    && item.verifierId === assessment.verifierId);
+}
+
 function issueDevelopmentReceipt(body, config) {
   const input = parseRequest(body);
-  if (input.kind !== 'development_receipt' || !input.claim) throw serviceError('GVX_DEVELOPMENT_CLAIM_INVALID');
+  if (input.kind !== 'development_receipt' || !validDevelopmentClaim(input.claim)) {
+    throw serviceError('GVX_DEVELOPMENT_CLAIM_INVALID');
+  }
   const claim = input.claim;
-  if (!validDevelopmentClaim(claim)) throw serviceError('GVX_DEVELOPMENT_CLAIM_INVALID');
-  const refs = Array.isArray(claim.evidenceRefs) ? claim.evidenceRefs : [];
-  const verified = verifiedEvidencePairs(input.verificationReceipts, config.publicKey);
-  const bound = refs.length > 0 && refs.every((item) => verified.has(`${item.artifactHash}\0${item.verifierId}`));
-  if (!bound) throw serviceError('GVX_DEVELOPMENT_EVIDENCE_UNBOUND');
+  const refs = claim.evidenceRefs;
+  const proofs = verifiedEvidenceReceipts(input.verificationReceipts, config.publicKey);
+  const bound = evidenceBoundToProofs(refs, proofs);
+  if (!bound || (claim.success && !assessmentProof(proofs))) throw serviceError('GVX_DEVELOPMENT_EVIDENCE_UNBOUND');
   const claimDigest = require('./developmentalBridge/developmentReceiptVerifier').receiptClaim(claim);
   const evidenceDigest = require('./epistemicAssuranceService').digest(claimDigest);
   const receipt = { schema: 'genos.gvx.development-receipt/v2', resultId: claim.receiptId,

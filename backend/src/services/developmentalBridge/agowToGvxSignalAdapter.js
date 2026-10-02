@@ -27,10 +27,24 @@ async function recordAgowSignal(db, input) {
       scope: input.scope, entityId: input.entityId, sourceEventId: input.sourceEventId,
       signalType: input.signalType, evidenceRefs: input.evidenceRefs, context: safeContext(input.context)
     });
+    if (!result.replayed && requiresDevelopmentCycle(result.developmentalAction)) {
+      result.developmentalCycle = await runDevelopmentCycle(db, input);
+    }
   } catch (error) {
     result.developmentalAction = { status: 'deferred', reason: error.code || 'gvx-controller-unavailable' };
   }
   return result;
+}
+
+function requiresDevelopmentCycle(action) {
+  return ['create_hypothesis', 'schedule_experiment'].includes(action?.payload?.action);
+}
+
+async function runDevelopmentCycle(db, input) {
+  const signal = { scope: input.scope, entityId: input.entityId, sourceEventId: input.sourceEventId,
+    signalType: input.signalType, evidenceRefs: input.evidenceRefs, context: safeContext(input.context) };
+  try { return await require('../gvxLifecycleAdapterProvider').runConfiguredCycle(db, signal); }
+  catch (error) { return { status: 'deferred', reason: error.code || 'gvx-lifecycle-adapters-unavailable' }; }
 }
 
 async function recordOutcomeSignals(db, input) {
@@ -85,4 +99,5 @@ function eventId(input) {
   return `agow-signal:${crypto.createHash('sha256').update(identity).digest('hex')}`;
 }
 
-module.exports = { SIGNAL_TYPES, deriveOutcomeSignals, recordAgowSignal, recordOutcomeSignals };
+module.exports = { SIGNAL_TYPES, deriveOutcomeSignals, recordAgowSignal, recordOutcomeSignals,
+  requiresDevelopmentCycle, runDevelopmentCycle };

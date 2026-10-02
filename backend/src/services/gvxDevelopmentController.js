@@ -59,13 +59,20 @@ async function runCycle(db, input) {
   if (assessment.status !== 'recommend_somatic_trial') {
     return { status: 'assessment_complete', action, proposal, experiment, assessment, promotionAllowed: false };
   }
+  const assessmentVerification = await verifySomaticAssessment({ db, assessmentEvent,
+    verifierRegistry: experimentInput.verifierRegistry, verificationReceipts: experimentReceipts(experiment) });
+  if (!assessmentVerification.verified) {
+    return { status: 'assessment_verification_failed', action, proposal, experiment,
+      assessment, promotionAllowed: false };
+  }
   const receiptInput = await input.developmentalReceiptInput({
     signal, candidate: proposal.candidate, experiment, assessmentEvent
   });
   const verifierRemote = experimentInput.verifierRegistry?.remote;
   if (verifierRemote) {
-    const verificationReceipts = (experiment.outcomes || []).flatMap((outcome) => outcome.evidence || [])
-      .map((item) => item.signedReceipt).filter(Boolean);
+    receiptInput.evidenceRefs = mergeEvidenceRefs(receiptInput.evidenceRefs,
+      [assessmentVerification.evidenceRef]);
+    const verificationReceipts = [...experimentReceipts(experiment), assessmentVerification.signedReceipt];
     receiptInput.signedReceipt = await require('./gvxRemoteVerifierClient').issueDevelopmentReceipt({
       ...verifierRemote, claim: receiptInput, verificationReceipts
     });
@@ -78,6 +85,36 @@ async function runCycle(db, input) {
   const monitoring = await require('./gvxLongitudinalMonitor').monitor(db, monitorInput);
   return { status: monitoring.maturity, action, proposal, experiment, assessment,
     plasticityCredit, application, monitoring, promotionAllowed: false };
+}
+
+async function verifySomaticAssessment(options) {
+  if (!options.verifierRegistry?.remote) throw Object.assign(new Error('GVX remote verifier is required for somatic credit.'), {
+    code: 'GVX_REMOTE_VERIFIER_REQUIRED'
+  });
+  const payload = options.assessmentEvent.payload;
+  const artifact = Buffer.from(JSON.stringify({ schema: 'genos.gvx.somatic-assessment/v1',
+    assessmentInput: payload.assessmentInput, assessment: payload.assessment }));
+  const artifactHash = require('./gvxVerifierRegistry').digest(artifact);
+  const evidenceRef = { artifactHash, verifierId: 'gvx-somatic-assessment-v1' };
+  const signedReceipt = await require('./gvxVerifierRegistry').verifyEvidence({
+    registry: options.verifierRegistry,
+    artifactReader: async () => artifact,
+    evidence: { artifactRef: `gvx-assessment:${options.assessmentEvent.id}`, ...evidenceRef,
+      supportingReceipts: options.verificationReceipts },
+    requirement: 'gvx-somatic-assessment'
+  });
+  return { verified: signedReceipt.verified === true, evidenceRef,
+    signedReceipt: signedReceipt.signedReceipt };
+}
+
+function experimentReceipts(experiment) {
+  return (experiment.outcomes || []).flatMap((outcome) => outcome.evidence || [])
+    .map((item) => item.signedReceipt).filter(Boolean);
+}
+
+function mergeEvidenceRefs(current, additions) {
+  const refs = [...(current || []), ...additions];
+  return [...new Map(refs.map((item) => [`${item.artifactHash}\0${item.verifierId}`, item])).values()];
 }
 
 function validateCycleAdapters(input) {
