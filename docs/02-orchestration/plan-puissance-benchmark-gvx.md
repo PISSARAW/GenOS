@@ -46,4 +46,4 @@ hypothèses d'effet et de variance. Les résultats doivent publier les intervall
 exclusions et écarts au protocole; à défaut, l'état reste `not_run`.
 
 Voir [ADR 0266](../adr/0266-plan-puissance-benchmarks-gvx.md) et
-[ADR 0274](../adr/0274-execution-campagne-gvx.md).
+[ADR 0275](../adr/0275-execution-campagne-gvx.md).

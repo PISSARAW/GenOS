@@ -1,4 +1,4 @@
-# ADR 0274 — Exécution vérifiée des campagnes GVX
+# ADR 0275 — Exécution vérifiée des campagnes GVX
 
 - **Statut** : Accepté
 - **Date** : 2026-10-02
