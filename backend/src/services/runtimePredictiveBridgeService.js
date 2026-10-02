@@ -30,8 +30,9 @@ async function recordPredictionErrors(ctx, event) {
   for (const pair of pairs) {
     const calibration = await precisionLearning.record({ db: ctx.db, agentId: ctx.agentId,
       input: { modelId: event.payload.predictiveModelId || 'legacy_point', timescale: level,
-        contextKey: event.payload.contextSignature || event.eventType, mean: pair.prediction,
-        observed: pair.observation, variance: event.payload.predictedVariances?.[pair.metric] ?? 1 } });
+        contextKey: event.payload.contextSignature || event.eventType,
+        mean: pair.prediction, observed: pair.observation,
+        variance: event.payload.predictedVariances?.[pair.metric] ?? 1 } });
     const result = await timescale.record({ db: ctx.db, agentId: ctx.agentId,
       input: { ...pair, precision: calibration.precision, timescale: level,
         evidenceRefs: refs, independentRefs: refs, now: new Date().toISOString() } });
