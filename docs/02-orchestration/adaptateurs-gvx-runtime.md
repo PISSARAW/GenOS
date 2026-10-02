@@ -22,4 +22,11 @@ vérification ou les requirements. Sans implémentation enregistrée, la nurseri
 fermée. Fournir aussi un `artifactReader` qui lit le contenu autorisé; GVX recalcule
 le SHA-256 avant d'accepter le reçu.
 
+Ce registre reste dans le processus Node du backend et ce dépôt ne fournit pas encore
+d'implémentation GVX enregistrée au démarrage. Il retire le callback du binding de
+requête et échoue fermé sans configuration, mais ne constitue pas une isolation contre
+un module arbitraire exécuté dans le même processus. La signature HMAC des reçus a la
+même limite; une frontière forte exige un service de vérification séparé qui détient
+la clé privée et exécute lui-même les vérificateurs.
+
 Voir [ADR 0267](../adr/0267-branchement-runtime-adaptateurs-gvx.md).
