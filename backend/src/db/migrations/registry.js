@@ -354,6 +354,9 @@ const migrationRunners = [
   createMigrationRunner('097-gvx-development-ledger', 'Persist immutable, scoped developmental provenance events', async (db) => {
     await require('./migrateGvxLedger').migrateGvxLedger(db);
   }),
+  createMigrationRunner('098-scientific-evidence-ledger', 'Persist claims, immutable evidence, dissent and verifier assessments for scientific experiments', async (db) => {
+    await require('./migrateScientificEvidenceLedger').migrateScientificEvidenceLedger(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

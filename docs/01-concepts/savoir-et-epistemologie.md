@@ -24,6 +24,26 @@ modèle ; elles ne modifient pas l’état du runtime.
 
 ## 1. Définition du domaine
 
+### Ledger d'expériences scientifiques
+
+Le backend fournit un ledger relationnel append-only pour relier une expérience à
+ses claims, observations sourcées et évaluations. Il conserve le contenu de chaque
+preuve avec son digest SHA-256, sa source, et, lorsqu'ils sont connus, son empreinte
+d'environnement, son type de réplication, son dème et sa topologie. Une expérience
+peut référencer les huit topologies existantes sans les lancer automatiquement.
+
+Les niveaux `L1` à `L5` décrivent une exigence de conservation et de reproduction;
+`L0` est éphémère et n'entre pas dans le ledger. Le statut du vérificateur est gardé
+séparé des avis de consensus. Les éléments contradictoires restent présents et
+peuvent donner `SUPPORTED_WITH_DISSENT`. Aucun statut calculé par ce ledger n'autorise
+la promotion : les gates existantes restent seules décisionnaires.
+
+Cette première intégration expose le service backend et le REST tenant-scoped
+`/api/experiments/:id/evidence-ledger`. Le raccordement automatique aux cycles
+Trinity, Biocénose, A-Team, Rhizome, Biome, Métapopulation, Syncytium et Holobionte
+reste incomplet. Voir
+[ADR 0268](../adr/0268-ledger-preuves-scientifiques.md).
+
 Le savoir concerne les conditions dans lesquelles un agent peut tenir une proposition,
 une capacité ou une personne pour connue. Le registre GenOS distingue le vocabulaire
 philosophique de la garantie opérationnelle : enregistrer un concept ne rend pas ce
