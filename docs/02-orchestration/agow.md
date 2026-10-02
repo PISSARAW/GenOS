@@ -655,10 +655,13 @@ valident pas la vérité d'une perception externe.
 | Tick idle | `idleTickService` | Demande un cycle du workspace existant. | Mode non `off`; cadence du scheduler idle hôte. |
 | Daemon | Récepteur de broadcast | Actualise la politique de pression d'un territoire lié. | Frame diffusé, territoire trouvé, mesures d'interoception disponibles. |
 | Morphogenèse | Récepteur de broadcast | Préflight shadow d'un plan déjà persisté. | Plan enregistré; aucune transition n'est commise par ce chemin. |
+| Outcomes mesurés | `runtimePredictiveBridgeService`, après l'ingress AGOW | Alimente T0–T3 avec l'erreur entre `predictedMetrics` et `metrics`; peut soumettre une erreur persistante à revue AGOW. | L'événement doit fournir les deux mesures numériques. Les références de preuve sont vérifiées dans le scope de mission avant leur propagation. |
 
 Les événements worker non finaux ne sont pas tous convertis en candidats par
-l'ingress. Le support de plusieurs sources de candidats dans l'adaptateur n'implique
-pas qu'elles soient toutes raccordées à un producteur runtime dans chaque parcours.
+l'ingress. Le pont prédictif reçoit les événements du pipeline, mais n'apprend que
+depuis les mesures explicitement fournies; T4–T6 et les métriques absentes ne sont pas
+inférés automatiquement. Le feedback Self-Twin exige l'identifiant d'une prédiction
+déjà persistée.
 
 ---
 
@@ -958,23 +961,25 @@ pas de SLO arbitraire.
 | Déclenchement des requêtes | Automatique après frame si une lacune passe les seuils. | Vérifier coûts, échéances, utilité et absence d'amplification sur des parcours réels. |
 | Organes runtime | Mission, ingress perception/worker, efférence, idle tick, receivers daemon/morphogenèse branchés à des points existants. | Audit exhaustif par producteur et exécution de bout en bout des parcours métier. |
 | Persistance | Scopes `adaptive_state` durables, isolés par agent. | Validation de charge multi-processus, contention, reprise et rétention sur la base configurée. |
-| Ablations | Conditions versionnées incluant les nouveaux organes et la baseline CTM-style minimale. | Les callbacks doivent appliquer et instrumenter les interventions; corpus, résultats et analyse restent à produire. |
+| Intégrité des transferts | Nursery et cycle de transfert relisent les artefacts et recalculent leur SHA-256 via des bindings dont l'identité est dans `verifierTrustRegistry`. | L'hôte fournit le lecteur d'artefacts et le vérificateur de confiance; le hash établit l'intégrité des octets, pas la validité sémantique du résultat. |
+| Ablations | Une campagne exploratoire locale AGOW est archivée; elle compare workspace et broadcast sur un corpus synthétique. | Les callbacks doivent appliquer et instrumenter les interventions; reproduire sur des tâches métier et des corpus externes indépendants. |
 | Médiation | Comparaison `broadcast_delivered` / `broadcast_suppressed`. | Contrôler les variables confondantes et relier les changements à des résultats aval. |
-| Réplication holdout | Garde logicielle : trois runs minimum, seeds et corpus distincts; protocoles dédiés pour six familles. | Qualifier les holdouts, exécuter les campagnes et publier les analyses indépendantes. |
+| Réplication holdout | Garde logicielle : trois runs minimum, seeds et corpus distincts; protocoles dédiés pour six familles. La campagne locale AGOW contient trois réplications synthétiques disjointes. | Qualifier un holdout métier tenu hors des candidats, exécuter avec manifestes d'environnement et publier les analyses indépendantes. |
 | Simulation contrefactuelle | Cycle shadow AGOW namespacé et plafonné, sans exécuteur métier intégré par défaut. | Fournir/registrer un exécuteur qui restaure outils, modèle et environnement de mission isolés; exécuter et vérifier des branches réelles. |
-| Plasticité | Coordinateur avec traces rapides et garde de consolidation lente. | Brancher les outcomes validés des producteurs runtime et mesurer les poids en ligne. |
+| Plasticité | Coordinateur avec traces rapides et garde de consolidation lente; les mesures explicites du pipeline alimentent désormais T0–T3. | Brancher les outcomes métier validés et mesurer les poids en ligne avant toute conclusion sur l'apprentissage. |
 | Voies directes | Registre, sélection Active Query, Signal Event Bus, suspension et décompilation. | Enregistrer les abonnés organes, produire des trajets d'apprentissage et tester en contexte métier. |
 | Procéduralisation | Store de trajectoire, compiler proposal-only et lien aux épisodes autobiographiques. | Alimenter les trajectoires depuis des outcomes runtime complets; acheminer les propositions au runtime procedural gate. |
 | Marchés distribués | Partition régionale, arbitrage local/global et topologie Morphogenesis activable; défaut `disabled`. | Benchmarker rappel/latence sur 10 à 1000 candidats et préserver le rappel utile. |
-| Campagnes empiriques | Protocoles CTM-compatible, différentiel, drift, regret, contamination et marché. | Fournir holdouts, modèles, outils, baux et exécuter les campagnes avec réplication. |
+| Campagnes empiriques | Protocoles CTM-compatible, différentiel, drift, regret, contamination et marché; une campagne locale synthétique est archivée. | Fournir corpus qualifiés et manifestes d'environnement, implémenter/exécuter les baselines MBH-like et Lipson-like, puis répliquer les campagnes holdout. |
 | Autorité `live` | État `awaiting_causal_promotion`; pas de décision automatique. | Revue de preuves, gates de promotion et décision mainteneur séparée. |
 | Autorité Rust | Prototype distinct, non autoritaire et sans store partagé. | Concevoir puis valider explicitement une migration d'autorité. |
 | Robustesse des mesures | Mesures et réponses viennent des producteurs/adaptateurs. | Validation indépendante, calibration, incertitude et provenance. |
 
 Les expériences de la table ne sont pas marquées « terminées » par l'existence de
-leurs services ou tests unitaires. Tant que le callback n'est pas contrôlé, le corpus
-holdout n'est pas qualifié et les reçus ne sont pas publiés, les conclusions restent
-non établies. Voir aussi [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md).
+leurs services ou tests unitaires. La campagne locale synthétique fournit des reçus
+descriptifs, mais aucun holdout métier qualifié ni baseline MBH/Lipson exécutée n'est
+disponible. Les conclusions générales restent donc non établies. Voir aussi
+[ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md).
 
 ---
 
@@ -1103,8 +1108,15 @@ feedbacks Self-Twin explicites sont ingérés; plusieurs organes et outcomes res
 par appelant ou policy. Les exécuteurs shadow et expérimentaux doivent être enregistrés par
 l'hôte.
 
+Le moniteur longitudinal GVX calcule un intervalle à 95 % par métrique dès deux deltas,
+avec des quantiles t tabulés jusqu'à 10 degrés de liberté puis une approximation normale.
+Avec moins de deux mesures, les bornes restent nulles. Cet intervalle décrit les observations
+fournies; il ne corrige ni l'échantillonnage, ni une mesure biaisée, ni la dépendance entre
+fenêtres.
+
 Les tests et reçus vérifient les contrats et les conditions exécutées; ils ne fournissent
 aucune preuve générale d'amélioration. Une campagne AGOW locale sur corpus synthétiques
 est conservée sous `benchmarks/agow/results/`; elle ne remplace pas des holdouts métier ni
-les baselines MBH/Lipson des nouveaux protocoles. Le mode `live` conserve les gates de
-promotion séparés.
+les baselines MBH/Lipson des nouveaux protocoles. Les intervalles longitudinaux sont
+descriptifs et ne constituent pas une campagne de validation. Le mode `live` conserve les
+gates de promotion séparés.

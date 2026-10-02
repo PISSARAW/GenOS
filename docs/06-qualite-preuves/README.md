@@ -1,6 +1,7 @@
 # 06 — Qualité et preuves
 
 - [audit-affirmations-operationnelles.md](audit-affirmations-operationnelles.md) — vérification des contrats publiés, chemins, comportements et limites de couverture.
+- [plan-implementation-gvx.md](plan-implementation-gvx.md) — lots GVX, état d'implémentation et preuves empiriques restantes.
 
 Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 

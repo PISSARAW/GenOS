@@ -11,11 +11,11 @@
 | 1 — Registre durable | Réalisé | Migration `097-gvx-development-ledger`, test `test_gvx_development_ledger.js` |
 | 2 — Interoception et viabilité | Réalisé | `gvxInteroception.js`, test `test_gvx_interoception.js` |
 | 3 — Transformations et curriculum | Partiel | `gvxTransformation.js`, graphe dérivé du registre et curriculum borné, auditable (`gvxCompetenceGraph.js`, `gvxCompetenceCurriculum.js`) ; étiquetage indépendant des compétences et intégration des sources d’outcomes vérifiés restent à faire |
-| 4 — Nurserie et preuve | Partiel | `gvxExperimentProtocol.js`, test `test_gvx_experiment_protocol.js` ; exécution isolée via Trinity et vérification des artifacts restent à raccorder |
-| 5 — Adaptation somatique | Partiel | Évaluation, application autorisée avec compensation et observation par fenêtres avec rollback sur régression (`gvxSomaticAssessment.js`, `gvxSomaticApplication.js`, `gvxSomaticMonitor.js`) ; adaptateur d’un runtime concret et source de mesures longitudinales restent à raccorder |
-| 6 — Transmission | Partiel | `gvxTransferLifecycle.js`, test `test_gvx_transfer_lifecycle.js` ; promotion germinale, essai de receveur et intégration de la mémoire des fossiles restent à faire |
+| 4 — Nurserie et preuve | Partiel | `gvxExperimentalNursery.js` valide l'identité du vérificateur de confiance, relit l'artefact et recalcule son SHA-256 ; l'isolation système reste garantie par l'adaptateur hôte et les campagnes indépendantes restent à exécuter |
+| 5 — Adaptation somatique | Partiel | Évaluation, application autorisée avec compensation, rollback et monitoring longitudinal avec IC à 95 % (quantiles t tabulés jusqu'à 10 degrés de liberté, approximation normale ensuite ; `gvxLongitudinalMonitor.js`) ; seuls les outcomes explicitement mesurés T0–T3 sont reliés au pipeline, les producteurs métier validés et l'étude longitudinale restent à réaliser |
+| 6 — Transmission | Partiel | `gvxTransferLifecycle.js` vérifie l'intégrité cryptographique des artefacts via le registre de confiance ; promotion germinale, essai métier du receveur et intégration de la mémoire des fossiles restent à faire |
 | 7 — Méta-développement | Partiel | `gvxMetaPolicyGate.js`, test `test_gvx_meta_policy_gate.js` ; sélection des candidates et exécution d’essais longitudinaux restent à raccorder |
-| 8 — Évaluation | Partiel | `gvxBenchmarkProtocol.js`, test `test_gvx_benchmark_protocol.js` ; seul le protocole de scoring local est créé, aucune campagne ni expérience externe n’a été exécutée |
+| 8 — Évaluation | Partiel | `gvxBenchmarkProtocol.js`, calcul de puissance et protocole holdout présents ; une campagne AGOW synthétique locale est archivée, mais les baselines MBH/Lipson et les campagnes empiriques GVX holdout restent à exécuter avec données et manifestes qualifiés |
 
 ## 1. Objectif et invariants
 
