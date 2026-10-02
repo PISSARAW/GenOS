@@ -78,3 +78,9 @@ nécessitent un profil adapté. Plusieurs appels simultanés d'une même session
 sont pas pris en charge. Ne pas annoncer une gouvernance universelle de Codex.
 
 Vérifier les gates avec `node integrations/codex/test_session_hooks.cjs`.
+
+Sous Windows, la configuration générée utilise `commandWindows` et lance `node`
+depuis le `PATH`. Après une mise à jour du hook, relancer `configure.cjs` sur le
+plugin installé, recharger le plugin, puis approuver la définition mise à jour dans
+Codex : l'ancienne commande citait `node.exe` comme chemin d'expression, ce qui
+empêchait PowerShell de démarrer le script.

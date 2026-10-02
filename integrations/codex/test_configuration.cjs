@@ -25,7 +25,11 @@ try {
   assert.equal(JSON.parse(fs.readFileSync(path.join(target, '.mcp.json.before-p0'))).mcpServers.genos.command, 'missing.exe');
   assert.ok(fs.existsSync(path.join(target, 'skills/genos-development/SKILL.md')));
   const hooks = JSON.parse(fs.readFileSync(path.join(target, 'hooks/hooks.json')));
-  assert.ok(hooks.hooks.PreToolUse[0].hooks[0].command.includes('session-hook.cjs'));
+  const sessionHook = hooks.hooks.PreToolUse[0].hooks[0];
+  assert.ok(sessionHook.command.includes('session-hook.cjs'));
+  assert.ok(sessionHook.commandWindows.includes('session-hook.cjs'));
+  assert.match(sessionHook.commandWindows, /^node "/);
+  assert.equal(sessionHook.statusMessage, 'Chargement du contexte de session GenOS');
   assert.ok(hooks.hooks.Stop);
   assert.deepEqual(serverConfig().args, result.mcpServers.genos.args);
 } finally {

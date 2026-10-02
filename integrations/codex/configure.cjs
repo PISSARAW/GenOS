@@ -8,9 +8,22 @@ const source = path.join(__dirname, 'plugin');
 const profile = require('./development-profile.json');
 
 function hookConfig() {
-  const command = `"${process.execPath}" "${path.join(root, 'integrations/codex/session-hook.cjs')}" --workspace "${root}"`;
+  const script = path.join(root, 'integrations/codex/session-hook.cjs');
+  const command = `node "${script.replaceAll('\\', '/')}" --workspace "${root.replaceAll('\\', '/')}"`;
+  const commandWindows = `node "${script}" --workspace "${root}"`;
   const events = ['SessionStart', 'PreToolUse', 'PostToolUse', 'PreCompact', 'PostCompact', 'Stop'];
-  return { description: 'GenOS Codex session checkpoint and evidence gates', hooks: Object.fromEntries(events.map((event) => [event, [{ hooks: [{ type: 'command', command, timeout: 30 }] }]])) };
+  const handlers = events.map((event) => [event, [{ hooks: [hookHandler(command, commandWindows)] }]]);
+  return { description: 'GenOS Codex session checkpoint and evidence gates', hooks: Object.fromEntries(handlers) };
+}
+
+function hookHandler(command, commandWindows) {
+  return {
+    type: 'command',
+    command,
+    commandWindows,
+    timeout: 30,
+    statusMessage: 'Chargement du contexte de session GenOS'
+  };
 }
 
 function serverConfig(existing = {}) {
