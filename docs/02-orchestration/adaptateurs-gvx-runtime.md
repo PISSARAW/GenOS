@@ -19,11 +19,13 @@ résolution, qui scelle ensuite le registre, puis construire le
 registre par `gvxVerifierRegistry.fromTrustedRegistry` avec leurs seuls identifiants
 du `verifierTrustRegistry`. Un binding d'appel ne peut plus injecter la fonction de
 vérification ou les requirements. Sans implémentation enregistrée, la nurserie échoue
-fermée. Fournir aussi un `artifactReader` qui lit le contenu autorisé; GVX recalcule
-le SHA-256 avant d'accepter le reçu.
+fermée pour les exigences sémantiques. Le vérificateur intégré `artifact-integrity-v1`
+ne certifie que l'égalité entre les octets lus et le SHA-256 déclaré. Fournir aussi
+un `artifactReader` qui lit le contenu autorisé; GVX recalcule le SHA-256 avant
+d'accepter ce reçu d'intégrité.
 
 Ce registre reste dans le processus Node du backend et ce dépôt ne fournit pas encore
-d'implémentation GVX enregistrée au démarrage. Il retire le callback du binding de
+d'implémentation GVX métier enregistrée au démarrage. Il retire le callback du binding de
 requête et échoue fermé sans configuration, mais ne constitue pas une isolation contre
 un module arbitraire exécuté dans le même processus. La signature HMAC des reçus a la
 même limite; une frontière forte exige un service de vérification séparé qui détient

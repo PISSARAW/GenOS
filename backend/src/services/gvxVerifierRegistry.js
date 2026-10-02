@@ -2,6 +2,8 @@
 
 const { createHash } = require('node:crypto');
 const TRUSTED_REGISTRIES = new WeakSet();
+const verifierControlPlane = require('./gvxVerifierControlPlaneRegistry');
+require('./gvxBuiltinVerifiers').registerBuiltInVerifiers(verifierControlPlane);
 
 function createControlPlaneRegistry(verifiers) {
   if (!Array.isArray(verifiers)) throw new Error('control-plane-verifiers-required');
@@ -16,10 +18,9 @@ function fromTrustedRegistry(verifierIds) {
     throw new Error('trusted-verifier-identifiers-required');
   }
   const trust = require('./verifierTrustRegistry');
-  const controlPlane = require('./gvxVerifierControlPlaneRegistry');
   const entries = verifierIds.map((id) => {
     const registered = trust.getVerifier(id);
-    const implementation = controlPlane.resolveVerifierImplementation(id);
+    const implementation = verifierControlPlane.resolveVerifierImplementation(id);
     if (!registered || !implementation) {
       throw Object.assign(new Error('trusted-verifier-implementation-unavailable'), {
         code: 'GVX_VERIFIER_IMPLEMENTATION_UNAVAILABLE'
@@ -49,13 +50,19 @@ async function verifyEvidence(options) {
   if (typeof artifactReader !== 'function' || !evidence?.artifactRef || !requirement) throw new Error('independent-evidence-input-invalid');
   const verifier = registry.verifiers.find((item) => item.id === evidence.verifierId && item.requirements.includes(requirement));
   if (!verifier) return { verified: false, reason: 'verifier-not-registered' };
+  return executeEvidence({ artifactReader, evidence, requirement, verifier });
+}
+
+async function executeEvidence(input) {
+  const { artifactReader, evidence, requirement, verifier } = input;
   const artifact = await artifactReader({ artifactRef: evidence.artifactRef });
   if (!Buffer.isBuffer(artifact)) return { verified: false, reason: 'artifact-bytes-unavailable' };
   const artifactHash = digest(artifact);
   const result = await verifier.verify({ artifact, artifactHash, requirement,
     artifactRef: evidence.artifactRef, evidence });
   return result?.verified === true ? { verified: true, requirement, verifierId: verifier.id,
-    artifactHash, artifactRef: evidence.artifactRef, verifierVersion: verifier.version || 'unversioned' }
+    artifactHash, artifactRef: evidence.artifactRef, verifierVersion: verifier.version || 'unversioned',
+    evidenceClass: result.evidenceClass || 'independent_requirement_verification' }
     : { verified: false, reason: 'verifier-rejected-artifact', verifierId: verifier.id };
 }
 
