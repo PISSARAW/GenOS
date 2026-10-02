@@ -139,7 +139,8 @@ async function executeEvidence(input) {
     artifactRef: evidence.artifactRef, evidence });
   return result?.verified === true ? { verified: true, requirement, verifierId: verifier.id,
     artifactHash, artifactRef: evidence.artifactRef, verifierVersion: verifier.version || 'unversioned',
-    evidenceClass: result.evidenceClass || 'independent_requirement_verification' }
+    evidenceClass: result.evidenceClass || 'independent_requirement_verification',
+    businessDecision: result.businessDecision || null }
     : { verified: false, reason: 'verifier-rejected-artifact', verifierId: verifier.id };
 }
 
