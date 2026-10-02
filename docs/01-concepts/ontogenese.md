@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : contrôleur d'Ontogenèse (`backend/src/services/ontogenesis/`), machine à états, boucle de pilotage, sélection bornée, politique de réveil, persistance `ontogenesis_*` ; décision tracée par l'ADR 0235.
-- **Dernière revue** : 2026-10-01
+- **Dernière revue** : 2026-10-02
 
 > Convention de lecture de cette fiche : chaque affirmation porte son statut.
 > **Implémenté** = comportement présent dans le dépôt et vérifiable (chemin de fichier cité).
@@ -19,7 +19,7 @@ Deux rôles séparés structurent le domaine (**Cadre conceptuel**, ADR 0235 §1
 - le daemon résident actuel reste un observateur (sensing, cartographie, findings, handoff) : il ne dispatche pas, n'édite pas, ne committe pas ;
 - un contrôleur d'Ontogenèse distinct possède l'autorité explicite de dispatch, d'édition et de commit sur un projet donné.
 
-Ce qui distingue l'Ontogenèse du runtime agentique décrit dans [runtime-agentique.md](runtime-agentique.md) : le runtime exécute une mission autorisée bornée vers une sortie terminale (**Implémenté** — `backend/src/services/agentRuntimeAdapter/index.js`), tandis que le contrôleur d'Ontogenèse possède la responsabilité durable entre les missions : backlog, priorités, mémoire, réveils, intégration (**Partiel** — les briques de pilotage et de persistance existent, voir §7 ; la boucle résidente complète reste à brancher).
+Ce qui distingue l'Ontogenèse du runtime agentique décrit dans [runtime-agentique.md](runtime-agentique.md) : le runtime exécute une mission autorisée bornée vers une sortie terminale (**Implémenté** — `backend/src/services/agentRuntimeAdapter/index.js`), tandis que le contrôleur d'Ontogenèse possède la responsabilité entre les missions : backlog, priorités, mémoire, réveils, intégration (**Partiel** — le tick résident, le runner, la vérification et l'intégrateur sont raccordés dans `tickService.js`, `runtimeHarness.js` et `integrationController.js`; l'exploitation continue, la couverture de reprise et certains contrôles OS demeurent limités, voir §7–§10).
 
 La règle épistémique GenOS s'applique sans exception : un transport réussi n'est pas une preuve de décision valide ; une tâche terminée sans preuves suffisantes reste non vérifiée, jamais promue (**Implémenté** — refus de promotion sans preuves dans `backend/src/services/ontogenesis/loopController.js`, fonction `stepVerifying`).
 
@@ -77,9 +77,9 @@ où `Snapshot = ⟨state, controlMode, memoryLevel, budgetsOk, selection, worker
 
 ### 2.3 Exclusion mutuelle
 
-Un claim transactionnel empêche deux instances de traiter le même projet (**Partiel** — table `ontogenesis_claims` créée par `backend/src/db/migrations/migrateOntogenesis.js`, logique d'acquisition dans `backend/src/services/ontogenesis/claimService.js` ; l'ADR 0235 §4 exige en plus l'expiration des claims morts et la réconciliation au redémarrage, dont la couverture complète reste à démontrer).
+Un claim transactionnel empêche deux instances de traiter le même projet (**Implémenté** au niveau du tick — table `ontogenesis_claims`, acquisition exclusive, expiration, remplacement d'un claim périmé, prolongation périodique et libération dans `backend/src/services/ontogenesis/claimService.js` et `tickService.js`). Le claim comporte un `operationId` fencing : un détenteur qui l'a perdu ne peut plus le prolonger. La réconciliation de tous les états de processus après chaque panne reste une propriété plus large et partielle.
 
-Principe contractuel (**Cadre conceptuel**, ADR 0235 §4) : un crash pendant le dispatch ne crée pas deux workers ; un crash entre création du commit et mise à jour SQLite ne crée pas deux intégrations (le SHA existant est détecté et réconcilié). La réconciliation par SHA après crash simulé fait partie des scénarios de validation obligatoires de l'ADR (voir `backend/tests/test_ontogenesis_integration.js`).
+Principe et mécanismes (**Partiel**) : le dispatch persiste l'exécution avant de lancer le runner et le runner réclame atomiquement la phase `prepared` ; à l'intégration, le contrôleur réconcilie le SHA d'un commit déjà créé avant de recommencer (`backend/src/services/ontogenesis/dispatchService.js`, `backend/bin/ontogenesisMissionRunner.cjs`, `backend/src/services/ontogenesis/integrationController.js`). Cela couvre des fenêtres de panne ciblées, mais ne constitue pas une garantie générale de reprise transparente de tous les processus ou worktrees.
 
 ### 2.4 Persistance de l'intention : PAUSED contre SLEEPING_RESOURCE
 
@@ -240,6 +240,13 @@ Périmètre modulaire, un fichier par responsabilité (**Implémenté** — rép
 | `topologySelector.js` | choix de topologie justifié (matrice 8 topologies, replis, échecs) |
 | `memoryPressure.js` | mesure et admission mémoire (seuils, hystérésis) |
 | `claimService.js` | exclusion mutuelle (`ontogenesis_claims`, expiration, idempotence) |
+| `tickService.js` | tick du contrôleur : claim, échéances, observation, décision, effets et release |
+| `dispatchService.js` | admission, budgets dérivés, choix de topologie, persistance et démarrage d'une exécution |
+| `runtimeHarness.js` | préparation du worktree d'intégration, runner enfant, observation, arrêt et mesure du périmètre processus |
+| `executionStore.js` / `executionLifecycle.js` | phases d'exécution, budgets réservés, contrôle, arrêt, échec et compte de tentative |
+| `integrationController.js` | vérification du candidat, contrôles, intégration unique, réconciliation du commit et clôture |
+| `proofService.js` | hash d'arbre, contrôles prescrits et preuve du candidat |
+| `missionCompletion.js` | attente des agents et gate de complétion de mission avant succès runtime |
 | `projectStore.js` | persistance projets, backlog, runs, transitions d'état |
 | `integrationService.js` | intégrateur Git unique (base SHA, statuts, SHA résultat) |
 | `inboxService.js` | boîte de réception et événements (`ontogenesis_inbox`, `ontogenesis_events`) |
@@ -255,18 +262,33 @@ Tables dédiées `ontogenesis_*` (**Implémenté** — migrations `backend/src/d
 
 Réutilisation des contrats GenOS par leurs interfaces, jamais contournés (**Cadre conceptuel** comme intégration complète, ADR 0235 §2 ; les contrats cibles eux-mêmes sont **Implémentés** indépendamment) : morphogenèse et topologies via `morphogenesis/*` et adaptateurs, workers via `workerKindService.js` et `workerContractEnforcement.js`, snapshots et forks via les stores contrefactuels, budgets via les services métaboliques, preuves et promotion via les gates (ADR 0198, 0206, 0135, 0234), mémoire d'échecs avant choix d'approche. Créer une mission n'élargit jamais les autorisations et ne réinitialise jamais les budgets : les plafonds sont hérités du projet et décroissants (**Cadre conceptuel** — règle d'autorité de l'ADR).
 
+### 7.1 Maturité vérifiable par sous-système
+
+| Capacité | Statut courant | Périmètre réellement couvert |
+| --- | --- | --- |
+| Machine, sélection, budgets et tick | **Implémenté** | `tickOnce` prend un claim, lit les événements, choisit une transition et applique ses effets; budgets dépensés/réservés et mesures de ressources entrent dans le contexte si un harnais est fourni. |
+| Dispatch local | **Implémenté** avec prérequis | branche/worktree géré, contrôle de configuration, estimation mémoire, budgets plafonnés, runner enfant; sans checks configurés, le dispatch est bloqué. |
+| Résultat worker et preuve | **Implémenté** | le runner attend la mission et sa gate de complétion; le contrôleur vérifie le candidat, les chemins autorisés, le hash d'arbre et les checks configurés avant `INTEGRATING`. |
+| Intégration Git et récupération ciblée | **Implémenté** avec limites | intégrateur unique, vérification répétée sur l'arbre intégré, commit contrôlé, SHA enregistré et réconciliation d'un commit présent après crash. |
+| Claim et concurrence | **Implémenté** | unicité, expiration, fencing, heartbeat de 10 secondes et libération dans `finally`. |
+| Conversation, mémoire, notifications et approbation | **Partiel** | schéma et services persistants présents; l'expérience conversationnelle unifiée et tous les canaux d'événements ne sont pas équivalents à une disponibilité permanente. |
+| Réveil planifié et ressources | **Partiel** | échéances traitées par tick; sommeil ressource ne se réveille qu'après récupération stable; l'autostart local est opt-in et ne rend pas le service disponible machine éteinte. |
+| Reprise après arrêt/crash | **Partiel** | certaines phases sont idempotentes ou réconciliées; reprise universelle d'un arbre de processus, garanties Job Objects Windows et réconciliation exhaustive ne sont pas fournies. |
+| Push, fusion et promotion | **Hors autorité** | `authorizationService.js` refuse explicitement push et merge; l'Ontogenèse crée des commits dans le périmètre local autorisé, sans droit implicite de publier ou fusionner. |
+
 ## 8. Processus d'exécution et de validation
 
-Ordre contractuel d'une tâche, de la sélection à la clôture (**Partiel** — chaque étape pure est implémentée et testée ; l'orchestration résidente complète avec dispatch réel, superviseur et intégrateur Git de bout en bout reste à brancher) :
+Ordre d'une tâche dans le chemin local raccordé (**Implémenté sous prérequis** — `tickService.tickOnce` pilote le contrôleur avec `runtimeHarness`; les branches sans harnais peuvent encore ne réaliser que la décision pure) :
 
-1. **Observer** : consommer `ontogenesis_inbox` et `ontogenesis_events`, échantillonner la mémoire, charger budgets et sélection.
-2. **Planifier / sélectionner** : `selectNextTask` (dépendances, priorité, `MAX_ATTEMPTS = 3`) puis `selectTopology` avec justification et mémoire des échecs.
-3. **Exécuter** : dispatch via les contrats workers existants ; `stepExecuting` attend le résultat worker (`attente-worker`) ou bascule `resource`.
-4. **Vérifier** : `stepVerifying` — `proofsOk` conduit à `INTEGRATING`, sinon `failed` + `bump-attempt` + `record-failure`. Les preuves portent sur le résultat intégré, pas sur le transport.
-5. **Intégrer** : un seul intégrateur écrit dans la branche — recevoir le candidat avec preuves, vérifier la compatibilité avec le HEAD courant, intégrer dans un espace de validation, exécuter les contrôles requis, créer un commit conforme aux conventions, enregistrer son SHA et clôturer (**Cadre conceptuel** pour la séquence Git complète, ADR 0235 §6 ; persistance **Implémentée** : `base_sha`, `result_sha`, statuts dans `ontogenesis_integrations` via `backend/src/services/ontogenesis/integrationService.js`).
-6. **Réévaluer** : `integrated` reboucle vers `PLANNING` ; conflit → tâche de résolution bornée ; backlog vide → `IDLE` ; blocage → `WAITING_INPUT` avec raison et notification.
+1. **Observer et verrouiller** : le tick acquiert le claim du projet, renouvelle son fencing, traite les échéances et événements réveillants, lit le backlog, le contrôle, les budgets et les ressources (`tickService.js`).
+2. **Planifier / sélectionner** : `selectNextTask` vérifie dépendances et tentatives; `selectTopology` justifie le choix selon les capacités disponibles, la mémoire et les échecs antérieurs.
+3. **Autoriser / admettre** : `reviewPolicy.js` vérifie le périmètre; `ritualService.js` peut requérir un rituel d'approbation. Le dispatch exige les checks configurés, réserve mémoire et budget, prépare le worktree, puis persiste avant le spawn (`dispatchService.js`).
+4. **Exécuter** : le runner séparé lance une mission dans le worktree candidat sans commit ni push. Le tick observe son PID et son échéance; le worker doit passer la gate de complétion (`runtimeHarness.js`, `ontogenesisMissionRunner.cjs`, `missionCompletion.js`).
+5. **Vérifier** : le contrôleur contrôle le succès runtime, l'autorisation des tests, les fichiers modifiés, le worktree candidat, les checks et le hash du contenu (`integrationController.verifyExecution`). Un résultat sans gate de complétion ou sans preuve passe en échec, jamais en succès.
+6. **Intégrer** : après revue d'action `commit`, l'intégrateur confirme le SHA parent, un index Git propre, l'identité du candidat et les checks sur le worktree d'intégration. Il crée le commit avec le tag requis, vérifie l'arbre, puis persiste son SHA. Un commit créé avant une panne est réconcilié si parent, HEAD et contenu correspondent (`integrationController.js`).
+7. **Clore et réévaluer** : transactionnellement, exécution et tâche sont finalisées puis le projet retourne en planification. Les conflits ou échecs deviennent blocage/notif et les échecs incrémentent une tentative; le claim est libéré dans tous les cas du tick.
 
-Autorisation et vérification sont distinctes (**Partiel** — persistance des demandes d'approbation **Implémentée** : `ontogenesis_approval_requests` dans `backend/src/db/migrations/migrateOntogenesisConversation.js` et `backend/src/services/ontogenesis/notificationService.js` ; application complète de l'enveloppe d'autorité **Cadre conceptuel**) : l'opérateur peut autoriser à l'avance, dans la branche dédiée uniquement, éditions, tests et commits ; les gates vérifient ensuite les résultats, toujours. Toute action hors périmètre crée une demande `pending` au lieu d'être exécutée. Autoriser n'est pas prouver.
+Autorisation et vérification sont distinctes (**Partiel** — `authorizationService.js`, `pathAuthority.js`, `reviewPolicy.js` et les rituels contrôlent une enveloppe locale; persistance des demandes d'approbation présente) : branche et chemins sont vérifiés, édition/test/commit dépendent des drapeaux explicites, push/fusion sont refusés. Les gates vérifient le résultat après autorisation. Une demande d'approbation persistée n'est pas une autorisation tant que la revue n'a pas retourné `proceed`. Autoriser n'est pas prouver.
 
 Validation obligatoire (**Implémenté** pour les suites citées, **Cadre conceptuel** pour les scénarios d'exploitation) : `backend/tests/test_ontogenesis_loop.js` (transitions, pause contre réveil ressource, refus sans preuves), `backend/tests/test_ontogenesis_selection.js` (matrice 8 topologies, replis, seuils mémoire), `backend/tests/test_ontogenesis_integration.js` et `backend/tests/test_ontogenesis_ops.js` (réconciliation, exploitation) ; portes du dépôt `python scripts/ci/check_code_quality.py`, `npm test`, `cargo test --workspace`. Les scénarios ADR (crash à chaque étape critique, double lancement, saturation mémoire, exécution prolongée sans croissance) restent les critères d'acceptation de la V1.
 
@@ -296,7 +318,7 @@ Limites fermes, sans euphémisme :
 - **Garde-fous non négociables** : budgets hérités et décroissants sans élargissement silencieux ; séparation observateur / contrôleur (aucun chemin de dispatch ou de commit via le runtime d'observation) ; intégrateur unique (aucun commit worker direct) ; toute élévation d'autorisation exige une décision explicite, tracée et prouvable (**Cadre conceptuel**, ADR 0235 §2 et §8).
 - **Non-objectifs** : ordonnanceur distribué avec reprise transparente ; garantie de correction d'un modèle ; exécution distante et canaux supplémentaires en V1 ; huit topologies branchées d'emblée (elles viennent ensuite, en commençant par une) ; confiance dans le transport comme preuve.
 
-Exploitation (**Implémenté** pour le CLI, la vue et l'autostart — `backend/bin/genos-ontogenesis.cjs` avec `init|start|status|pause|resume|stop|autostart|prune`, `backend/src/services/ontogenesis/controlService.js`, `backend/src/services/ontogenesis/autostartService.js`, fumés sur base réelle ; **Cadre conceptuel** pour la boucle résidente qui tournera derrière `start` et l'hébergement distant) : transport interprocessus via SQLite WAL — le bus local du daemon ne suffit pas entre processus ; autostart Windows opt-in avec reprise de l'intention persistée ; rétention bornée via `prune` (événements consommés, notifications traitées ; purge des logs, traces et worktrees temporaires **non couverte**).
+Exploitation (**Implémenté** pour le CLI et le tick local — `backend/bin/genos-ontogenesis.cjs` avec `init|start|status|pause|resume|stop|autostart|prune`, runner enfant, vue, contrôles et service d'autostart) : le tick peut piloter un run réel lorsque la configuration contient les checks et adaptateurs nécessaires. La continuité dépend du processus local et de SQLite; autostart Windows est opt-in et ne couvre pas l'extinction de la machine. `prune` rétient une partie des événements/notifications; purge des logs, traces et worktrees temporaires **non couverte**. Les tests d'intégration documentent les cas exécutés, mais cette fiche n'affirme pas qu'une validation de ces suites a été relancée lors de cette mise à jour documentaire.
 
 ## Voir aussi
 
