@@ -35,8 +35,10 @@ async function record(input) {
 }
 
 async function resolveDevelopmentalScope(input) {
+  const requested = input.developmentalScope;
+  if (!requested?.organizationId || !requested?.projectId) return null;
   const { resolveDevelopmentalScope: resolve } = require('../../developmentalBridge/developmentalScopeResolver');
-  return resolve(input.db, input.agentId, input.developmentalScope);
+  return resolve(input.db, input.agentId, requested);
 }
 
 async function recordDevelopmentalSignals(input, record, scope) {
