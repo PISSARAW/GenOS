@@ -74,7 +74,7 @@ async function recordSelfTwinFeedback(ctx, event) {
   const evidenceRefs = await trustedEvidenceRefs(ctx, feedback);
   return selfTwin.observe({ db: ctx.db, scope: { ...scope, entityId: ctx.agentId },
     predictionId: feedback.predictionId, observations: feedback.observations,
-    evidenceRefs });
+    evidenceRefs, candidateSubmitter: candidateAdapter.submit });
 }
 
 async function process(ctx, event) {

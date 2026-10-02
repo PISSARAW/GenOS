@@ -30,17 +30,25 @@ function modeLoss(mode, signals, costs) {
 function evaluate(options = {}) {
   const signals = options.signals || {};
   const costs = options.modeCosts || {};
+  const contextKey = contextSignature(signals);
+  const experiences = (options.experiences || []).filter((item) => item.contextKey === contextKey);
   const estimates = MODES.map((mode) => ({ mode, expectedLoss: calibratedLoss(mode, options) }))
     .sort((left, right) => left.expectedLoss - right.expectedLoss);
   const chosen = estimates[0];
   return { mode: chosen.mode, expectedLoss: chosen.expectedLoss, alternatives: estimates,
     regretByMode: Object.fromEntries(estimates.map((item) => [item.mode, item.expectedLoss - chosen.expectedLoss])),
-    provenance: { method: 'cognitive_mode_regret_v1', calibrated: Boolean(options.experiences?.length), signalsProvided: Object.keys(signals) } };
+    contextKey, provenance: { method: 'cognitive_mode_regret_v1', calibrated: Boolean(experiences.length),
+      signalsProvided: Object.keys(signals) } };
+}
+
+function contextSignature(signals) {
+  return ['uncertainty', 'irreversibility', 'selfTwinUncertainty', 'viabilityRisk', 'goalUrgency', 'evidenceGap']
+    .map((key) => `${key}:${Math.floor(unit(signals[key]) * 4)}`).join('|');
 }
 
 function calibratedLoss(mode, options) {
   const prior = modeLoss(mode, options.signals || {}, options.modeCosts || {});
-  const experiences = options.experiences || [];
+  const experiences = (options.experiences || []).filter((entry) => entry.contextKey === contextSignature(options.signals || {}));
   const matching = experiences.filter((entry) => entry.mode === mode && Number.isFinite(entry.predictionError));
   if (!matching.length) return prior;
   const meanError = matching.reduce((sum, entry) => sum + entry.predictionError, 0) / matching.length;
@@ -60,4 +68,4 @@ function observeOutcome(options = {}) {
     predictionError: Number(realizedLoss) - estimated, decisionMode: decision.mode };
 }
 
-module.exports = { MODES, evaluate, observeOutcome, modeLoss, calibratedLoss };
+module.exports = { MODES, evaluate, observeOutcome, modeLoss, calibratedLoss, contextSignature };

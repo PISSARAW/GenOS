@@ -20,7 +20,8 @@ async function choose(options) {
   const loaded = await experience.load(options);
   const receipts = Array.isArray(loaded.state.receipts) ? loaded.state.receipts : [];
   const experiences = receipts.filter((item) => Number.isFinite(item.predictionError))
-    .slice(-200).map((item) => ({ mode: item.chosenMode, predictionError: item.predictionError }));
+    .slice(-200).map((item) => ({ mode: item.chosenMode, predictionError: item.predictionError,
+      contextKey: item.contextKey }));
   return policy.evaluate({ signals: signalsFor(options.frame, options.candidates), experiences });
 }
 
@@ -52,6 +53,7 @@ async function record(options) {
   return experience.recordDecision({ agentId: options.agentId, db: options.db, receipt: {
     receiptId: randomUUID(), frameId: options.frame.frameId,
     chosenMode: options.decision.mode, alternatives: options.decision.alternatives,
+    contextKey: options.decision.contextKey,
     predictedLoss: options.decision.expectedLoss, realizedLoss: null, predictionError: null,
     decision: options.decision, createdAt: options.now
   } });

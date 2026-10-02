@@ -282,6 +282,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0265](0265-cycle-assimilation-transfert-gvx.md) | Cycle d'assimilation et consolidation des transferts GVX | Accepté | 2026-10-01 | GVX, transfert, outcome receveur, maturation |
 | [0266](0266-plan-puissance-benchmarks-gvx.md) | Plan d'analyse et puissance dérivée des benchmarks GVX | Accepté | 2026-10-01 | GVX, benchmarks, réplication, inférence |
 | [0267](0267-branchement-runtime-adaptateurs-gvx.md) | Branchement des outcomes runtime et adaptateurs GVX de confiance | Accepté | 2026-10-01 | AGOW, T0–T3, AgentGit, preuves GVX |
+| [0268](0268-ledger-preuves-scientifiques.md) | Ledger partagé de preuves scientifiques | Accepté | 2026-10-02 | Épistémologie, expériences, provenance, topologies |
+| [0269](0269-campagnes-rivales-agow-gmw.md) | Protocoles Rivals pour AGOW et signature GMW | Accepté | 2026-10-02 | AGOW, expérimentation, médiation, preuves |
 | [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
@@ -313,4 +315,3 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 
 - [../CONVENTIONS.md](../CONVENTIONS.md) — conventions de rédaction et de nommage.
 - [../GENOME_EPIGENETIQUE.md](../01-concepts/genome-et-epigenetique.md), [../INSTINCT.md](../01-concepts/instinct.md), [../FOSSILISATION.md](../01-concepts/fossilisation.md), [../AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — documents concernés par les ADR ci-dessus.
-| [0268](0268-ledger-preuves-scientifiques.md) | Ledger partagé de preuves scientifiques | Accepté | 2026-10-02 | Épistémologie, expériences, provenance, topologies |

@@ -7,6 +7,12 @@
   "required": ["receiptId", "sourceModule", "sourceCandidateId", "frameId", "targetModule", "beforeStateHash", "afterStateHash", "workspaceTransformation", "downstreamAction", "outcome", "createdAt"],
   "properties": {
     "receiptId": { "type": "string", "minLength": 1 }, "sourceModule": { "type": "string", "minLength": 1 }, "sourceCandidateId": { "type": "string", "minLength": 1 }, "frameId": { "type": "string", "minLength": 1 }, "targetModule": { "type": "string", "minLength": 1 },
-    "beforeStateHash": { "type": ["string", "null"] }, "afterStateHash": { "type": ["string", "null"] }, "workspaceTransformation": { "type": "string", "minLength": 1 }, "downstreamAction": { "type": ["string", "null"] }, "outcome": { "type": ["object", "null"] }, "createdAt": { "type": "integer", "minimum": 0 }
+    "beforeStateHash": { "type": ["string", "null"] }, "afterStateHash": { "type": ["string", "null"] }, "workspaceTransformation": { "type": "string", "minLength": 1 }, "downstreamAction": { "type": ["string", "null"] }, "outcome": { "type": ["object", "null"] },
+    "interventionSample": { "type": "object", "additionalProperties": false, "required": ["condition", "inputVector", "outputDelta"], "properties": {
+      "condition": { "type": "string", "enum": ["observational", "baseline", "intervention", "ablation", "restoration"] },
+      "inputVector": { "type": ["array", "null"], "maxItems": 128, "items": { "type": "number" } },
+      "outputDelta": { "type": ["array", "null"], "maxItems": 128, "items": { "type": "number" } }
+    } },
+    "createdAt": { "type": "integer", "minimum": 0 }
   }
 }

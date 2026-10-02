@@ -20,8 +20,15 @@ async function main() {
     assert.strictEqual(observation.discrepancy.status, 'measured');
     assert.ok(observation.discrepancy.epsilon > 0);
     assert.strictEqual(observation.agowCandidate.content.semanticType, 'self_twin_prediction_error');
+    const routedPrediction = await twin.predict({ db, scope, input: { target: 'agow', intervention: 'disable' } });
+    let submittedCandidate = null;
+    const routed = await twin.observe({ db, scope, predictionId: routedPrediction.predictionId,
+      observations: [{ metric: 'latency', predicted: 10, observed: 15 }], evidenceRefs: [],
+      candidateSubmitter: async (input) => { submittedCandidate = input.candidate; return { accepted: true }; } });
+    assert.equal(submittedCandidate.content.semanticType, 'self_twin_prediction_error');
+    assert.equal(routed.agowCandidate.admission.accepted, true);
     const events = await require('../src/services/gvxDevelopmentLedger').listEvents(db, { ...scope });
-    assert.strictEqual(events.length, 3);
+    assert.strictEqual(events.length, 6);
     assert.deepStrictEqual((await twin.intervene({ db, scope, input: { target: 'agow', intervention: 'sandboxed_change' },
       executor: async () => ({ observations: [{ metric: 'x', predicted: 1, observed: 1 }] }) })).record.discrepancy.epsilon, 0);
   } finally { await db.close(); }

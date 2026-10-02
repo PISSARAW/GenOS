@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.local/schemas/agow/gmwSignature.schema.json",
+  "title": "AGOW GMW Intervention Signature",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["reachability", "observability", "inputOutputAlignment", "mediationCapacity", "effectiveDimensionality", "sourceTargetBreadth", "uncertainty", "sampleCount", "method", "evidenceRefs", "promotionEligible"],
+  "properties": {
+    "reachability": { "type": "number", "minimum": 0, "maximum": 1 },
+    "observability": { "type": "number", "minimum": 0, "maximum": 1 },
+    "inputOutputAlignment": { "type": "number", "minimum": 0, "maximum": 1 },
+    "mediationCapacity": { "type": "number", "minimum": 0, "maximum": 1 },
+    "effectiveDimensionality": { "type": "integer", "minimum": 0 },
+    "sourceTargetBreadth": { "type": "number", "minimum": 0, "maximum": 1 },
+    "uncertainty": { "type": "number", "minimum": 0, "maximum": 1 },
+    "sampleCount": { "type": "integer", "minimum": 0 },
+    "method": { "const": "intervention_vector_proxy_v1" },
+    "evidenceRefs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "promotionEligible": { "const": false }
+  }
+}

@@ -101,9 +101,12 @@ function build(options) {
 }
 
 async function submit(options) {
-  const module = options?.module;
+  const module = options?.candidate?.source?.module || options?.module;
   if (!Object.hasOwn(ADAPTERS, module)) return { accepted: false, reason: 'unknown_candidate_source' };
-  const candidate = build({ ...options, now: Number(options.now) || Date.now() });
+  const candidate = options.candidate || build({ ...options, now: Number(options.now) || Date.now() });
+  if (!require('../candidateValidationService').validCandidate(candidate)) {
+    return { accepted: false, reason: 'candidate_invalid' };
+  }
   return workspace.submitCandidate({ candidate, now: candidate.producedAt, db: options.db,
     activeGoal: options.activeGoal, unresolvedQuestions: options.unresolvedQuestions, triggerCycle: options.triggerCycle });
 }

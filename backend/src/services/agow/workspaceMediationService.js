@@ -13,7 +13,10 @@ async function record(options) {
     receiptId: randomUUID(), sourceModule: candidate.source.module, sourceCandidateId: candidate.candidateId,
     frameId: frame.frameId, targetModule, beforeStateHash: options.beforeStateHash || null,
     afterStateHash: options.afterStateHash || null, workspaceTransformation: transformation,
-    downstreamAction: options.downstreamAction || null, outcome: options.outcome || null, createdAt: Date.now()
+    downstreamAction: options.downstreamAction || null, outcome: options.outcome || null,
+    interventionSample: { condition: validCondition(options.condition),
+      inputVector: numericVector(options.inputVector), outputDelta: numericVector(options.outputDelta) },
+    createdAt: Date.now()
   };
   receipts.push(receipt);
   await persistence.save({ scope: SCOPE, agentId: frame.agentId, db: loaded.db, state: { receipts: receipts.slice(-5000) }, version: receipts.length });
@@ -23,6 +26,16 @@ async function record(options) {
 function validChain(options) {
   const { candidate, frame, targetModule, transformation } = options;
   return Boolean(candidate?.candidateId && frame?.frameId && targetModule && transformation);
+}
+
+function numericVector(value) {
+  if (!Array.isArray(value) || value.length > 128
+    || value.some((item) => !Number.isFinite(Number(item)))) return null;
+  return value.map(Number);
+}
+
+function validCondition(value) {
+  return ['baseline', 'intervention', 'ablation', 'restoration'].includes(value) ? value : 'observational';
 }
 
 async function list(options) {
@@ -45,4 +58,4 @@ async function influenceMatrix(options) {
   return Object.fromEntries(Object.entries(matrix).map(([key, value]) => [key, { ...value, changeRate: value.changed / value.observations }]));
 }
 
-module.exports = { record, list, influenceMatrix };
+module.exports = { record, list, influenceMatrix, numericVector };

@@ -44,7 +44,7 @@ async function observe(options) {
   await ledger.appendEvent(db, { ...scope, type: 'evidence_attached', payload: { kind: 'self_twin_observation', ...record } });
   if (discrepancy.epsilon > 0) {
     await ledger.appendEvent(db, { ...scope, type: 'evidence_attached', payload: { kind: 'self_twin_discrepancy', ...record } });
-    record.agowCandidate = candidateAdapter.build({
+    const candidate = candidateAdapter.build({
       module: 'epistemic', agentId: scope.entityId, now: Date.now(),
       observation: {
         candidateId: `self-twin:${predictionId}:${record.observationId}`,
@@ -56,6 +56,10 @@ async function observe(options) {
         actionable: false, constraints: { integrity: 'review' }
       }
     });
+    const admission = options.candidateSubmitter ? await options.candidateSubmitter({
+      db, candidate, triggerCycle: false
+    }) : null;
+    record.agowCandidate = { ...candidate, admission };
   }
   return record;
 }

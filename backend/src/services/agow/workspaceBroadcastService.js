@@ -22,7 +22,9 @@ async function recordMediation(options) {
   await mediationService.record({
     candidate: source, frame, targetModule: receiver.module,
     transformation: result.effectType || 'workspace_receiver', beforeStateHash, afterStateHash,
-    downstreamAction: result.downstreamAction || null, outcome: { changed }, db: options.db
+    downstreamAction: result.downstreamAction || null, outcome: { changed },
+    condition: result.interventionCondition, inputVector: result.interventionInput,
+    outputDelta: result.interventionOutputDelta, db: options.db
   });
 }
 
