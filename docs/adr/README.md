@@ -284,6 +284,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0267](0267-branchement-runtime-adaptateurs-gvx.md) | Branchement des outcomes runtime et adaptateurs GVX de confiance | Accepté | 2026-10-01 | AGOW, T0–T3, AgentGit, preuves GVX |
 | [0268](0268-ledger-preuves-scientifiques.md) | Ledger partagé de preuves scientifiques | Accepté | 2026-10-02 | Épistémologie, expériences, provenance, topologies |
 | [0269](0269-campagnes-rivales-agow-gmw.md) | Protocoles Rivals pour AGOW et signature GMW | Accepté | 2026-10-02 | AGOW, expérimentation, médiation, preuves |
+| [0275](0275-execution-campagne-gvx.md) | Exécution vérifiée des campagnes GVX | Accepté | 2026-10-02 | GVX, benchmarks, preuves, exécution |
 | [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
