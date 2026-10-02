@@ -7,14 +7,16 @@ const sqlite3 = require('sqlite3');
 const { migrateGvxLedger } = require('../src/db/migrations/migrateGvxLedger');
 const { startTransfer, advanceTransfer } = require('../src/services/gvxTransferLifecycle');
 const { fromTrustedRegistry } = require('../src/services/gvxVerifierRegistry');
+const verifierControlPlane = require('../src/services/gvxVerifierControlPlaneRegistry');
 
 function artifact(id) {
   const artifactRef = `artifact:${id}`;
   return { artifactRef, artifactHash: crypto.createHash('sha256').update(artifactRef).digest('hex'), verifierId: 'artifact' };
 }
 
-const verifierRegistry = fromTrustedRegistry([{ id: 'artifact', requirements: ['transfer-trial', 'recipient-outcome', 'transfer-monitoring'],
+verifierControlPlane.registerVerifierImplementation({ id: 'artifact', requirements: ['transfer-trial', 'recipient-outcome', 'transfer-monitoring'],
   verify: async () => ({ verified: true }) }]);
+const verifierRegistry = fromTrustedRegistry(['artifact']);
 const artifactReader = async ({ artifactRef }) => Buffer.from(artifactRef);
 
 function startInput() {
