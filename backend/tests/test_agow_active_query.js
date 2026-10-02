@@ -38,6 +38,15 @@ async function main() {
   const prospective = await queryService.plan({ frame, db, capability: 'prospective_simulation', moduleBudget: 1 });
   assert.equal(prospective.planned, true);
   assert.deepEqual(prospective.query.candidateModules, ['counterfactual']);
+  const procedure = { pathwayId: 'known', confidence: 0.96 };
+  const direct = queryService.cognitiveDemand({ epistemicState: { uncertainty: 0.1, contradiction: 0 },
+    causalContext: { predictionError: 0 }, unresolvedQuestions: [] }, procedure);
+  assert.equal(direct.route, procedure);
+  assert.equal(direct.reason, 'consolidated_low_risk_procedure');
+  const escalated = queryService.cognitiveDemand({ epistemicState: { uncertainty: 0.6, contradiction: 0 },
+    causalContext: { predictionError: 0 }, unresolvedQuestions: ['uncertain'] }, procedure);
+  assert.equal(escalated.route, null);
+  assert.equal(escalated.reason, 'procedure_requires_deliberation');
   receiverRegistry.clear();
   console.log('✅ AGOW active query planning and evidence budget passed');
 }

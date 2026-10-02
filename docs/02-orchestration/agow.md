@@ -1050,11 +1050,31 @@ d'état et l'issue de tâche.
 
 `backend/src/services/agow/cognitiveModePolicyService.js` compare `ACT`, `OBSERVE`,
 `VERIFY`, `RECALL`, `SIMULATE`, `REORGANIZE`, `CONSOLIDATE` et `ABSTAIN` par perte
-prédictive estimée. `evaluate({ signals, modeCosts })` prend notamment l'incertitude,
-l'irréversibilité, le risque de viabilité, l'urgence, le manque de preuve et l'incertitude
-Self-Twin. Il retourne toutes les pertes estimées, le mode de coût minimal et une
-provenance non calibrée. `observeOutcome({ decision, realizedLoss })` calcule l'erreur après
-exécution. Ni l'un ni l'autre n'exécute une action: l'hôte demeure responsable du dispatch.
+prédictive estimée. `evaluate({ signals, modeCosts, experiences })` prend notamment
+l'incertitude, l'irréversibilité, le risque de viabilité, l'urgence, le manque de preuve et
+l'incertitude Self-Twin. Les expériences persistées par
+`cognitiveModeExperienceService` ajustent modestement la perte des modes ayant un historique
+et leur provenance signale alors la calibration locale.
+
+`cognitiveModeRuntimeService` est appelé par le cycle du workspace après l'ignition. Il
+enregistre la décision, puis route `ACT` vers la diffusion, `OBSERVE`/`VERIFY`/`RECALL` vers
+les requêtes AGOW, `SIMULATE` vers l'espace contrefactuel et les autres modes vers un
+exécuteur explicitement fourni par l'hôte. `ABSTAIN` ferme la route. Le rappel peut lancer
+une requête mémoire même sans lacune épistémique déclarée; les autres requêtes restent
+conditionnées par une lacune et les gates d'évidence/budget habituels. Chaque cycle retourne
+un reçu de mode; un résultat qui fournit `realizedLoss` met à jour son erreur prédictive.
+Les voies directes ne sont retenues qu'après les garde-fous décrits ci-dessous.
+Les valeurs initiales demeurent des priors heuristiques, pas une performance expérimentale.
+
+Le planificateur des requêtes actives applique maintenant une garde « cognition à la
+demande » après la recherche d'une voie directe. Une voie n'est sélectionnée que si la
+politique AGOW l'autorise, si elle est consolidée, adaptée au contexte et à la capacité,
+sans revue globale, avec confiance d'au moins 0,9, incertitude ≤ 0,25, sans contradiction
+et avec une erreur prédictive inférieure à 0,5. Dans les autres cas, la voie est ignorée et
+les modules AGOW éligibles reçoivent la requête selon le budget d'attention. Chaque requête
+planifiée porte `cognition.route`, `cognition.mode`, `cognition.reason` et la provenance
+non calibrée de l'estimation. Cette décision ne lance pas de LLM et ne transforme pas une
+procédure enregistrée en preuve de sa justesse.
 
 ## 23. Self-Twin causal
 
@@ -1095,6 +1115,7 @@ référence de prédiction explicite.
 - [Épistémologie et preuves](../01-concepts/epistemologie-et-evidence.md)
 - [ADR 0257 — Self-Twin causal versionné](../adr/0257-causal-self-twin.md)
 - [ADR 0260 — Sélection des modes cognitifs](../adr/0260-politique-modes-cognitifs-agow.md)
+- [ADR 0261 — Cognition à la demande pour les requêtes AGOW](../adr/0261-cognition-a-la-demande-agow.md)
 
 ---
 

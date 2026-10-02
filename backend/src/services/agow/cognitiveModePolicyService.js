@@ -1,7 +1,7 @@
 'use strict';
 
 const MODES = Object.freeze(['ACT', 'OBSERVE', 'VERIFY', 'RECALL', 'SIMULATE', 'REORGANIZE', 'CONSOLIDATE', 'ABSTAIN']);
-const DEFAULT_COSTS = Object.freeze({ ACT: 0.18, OBSERVE: 0.16, VERIFY: 0.22, RECALL: 0.12,
+const DEFAULT_COSTS = Object.freeze({ ACT: 0.18, OBSERVE: 0.16, VERIFY: 0.22, RECALL: 0.3,
   SIMULATE: 0.3, REORGANIZE: 0.38, CONSOLIDATE: 0.2, ABSTAIN: 0.25 });
 
 function unit(value) { return Math.max(0, Math.min(1, Number(value) || 0)); }
@@ -30,12 +30,22 @@ function modeLoss(mode, signals, costs) {
 function evaluate(options = {}) {
   const signals = options.signals || {};
   const costs = options.modeCosts || {};
-  const estimates = MODES.map((mode) => ({ mode, expectedLoss: modeLoss(mode, signals, costs) }))
+  const estimates = MODES.map((mode) => ({ mode, expectedLoss: calibratedLoss(mode, options) }))
     .sort((left, right) => left.expectedLoss - right.expectedLoss);
   const chosen = estimates[0];
   return { mode: chosen.mode, expectedLoss: chosen.expectedLoss, alternatives: estimates,
     regretByMode: Object.fromEntries(estimates.map((item) => [item.mode, item.expectedLoss - chosen.expectedLoss])),
-    provenance: { method: 'cognitive_mode_regret_v1', calibrated: false, signalsProvided: Object.keys(signals) } };
+    provenance: { method: 'cognitive_mode_regret_v1', calibrated: Boolean(options.experiences?.length), signalsProvided: Object.keys(signals) } };
+}
+
+function calibratedLoss(mode, options) {
+  const prior = modeLoss(mode, options.signals || {}, options.modeCosts || {});
+  const experiences = options.experiences || [];
+  const matching = experiences.filter((entry) => entry.mode === mode && Number.isFinite(entry.predictionError));
+  if (!matching.length) return prior;
+  const meanError = matching.reduce((sum, entry) => sum + entry.predictionError, 0) / matching.length;
+  const weight = Math.min(0.75, matching.length / (matching.length + 4));
+  return Math.max(0, prior + Math.max(-0.5, Math.min(0.5, meanError)) * weight);
 }
 
 function observeOutcome(options = {}) {
@@ -50,4 +60,4 @@ function observeOutcome(options = {}) {
     predictionError: Number(realizedLoss) - estimated, decisionMode: decision.mode };
 }
 
-module.exports = { MODES, evaluate, observeOutcome, modeLoss };
+module.exports = { MODES, evaluate, observeOutcome, modeLoss, calibratedLoss };

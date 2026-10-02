@@ -68,6 +68,21 @@ function buildModules(capability, modules) {
   return known.filter((module) => available.includes(module));
 }
 
+function cognitiveDemand(frame, pathway) {
+  const signals = {
+    uncertainty: frame.epistemicState.uncertainty,
+    irreversibility: frame.epistemicState.contradiction ? 1 : 0,
+    viabilityRisk: frame.causalContext.predictionError,
+    evidenceGap: frame.unresolvedQuestions.length ? 1 : 0,
+    goalUrgency: 0
+  };
+  const decision = require('./cognitiveModePolicyService').evaluate({ signals });
+  const safeForDirect = pathway && signals.uncertainty <= 0.25 && !signals.irreversibility
+    && signals.viabilityRisk < 0.5 && pathway.confidence >= 0.9;
+  return { decision, route: safeForDirect ? pathway : null,
+    reason: safeForDirect ? 'consolidated_low_risk_procedure' : pathway ? 'procedure_requires_deliberation' : 'no_known_procedure' };
+}
+
 async function plan(options) {
   const { frame } = options;
   require('./agowDefaultQueriesService').ensureRegistered();
@@ -85,7 +100,9 @@ async function plan(options) {
     agentId: frame.agentId, db: options.db, capability: need.capability,
     contextHash: need.fingerprint, targets: modules
   });
-  const selected = pathway ? { selected: [{ id: pathway.target }], directPathway: pathway }
+  const demand = cognitiveDemand(frame, pathway);
+  const directPathway = demand.route;
+  const selected = directPathway ? { selected: [{ id: directPathway.target }], directPathway }
     : attention.reallocate({ candidates: modules.map((id) => ({ id, baseDemand: expectedInformationGain, stateKey: need.capability })), state: options.attentionState, budget: budget.moduleBudget });
   const query = {
     queryId: randomUUID(), frameId: frame.frameId,
@@ -94,7 +111,9 @@ async function plan(options) {
     minimumEvidenceRefs: Math.max(evidenceFloor(metaPolicy.state.minimumEvidenceRefs),
       evidenceFloor(attentionPolicy.state.minimumEvidenceRefs)),
     candidateModules: selected.selected.map((item) => item.id),
-    ...(pathway ? { pathwayRef: pathway.pathwayId } : {}), createdAt: Date.now()
+    ...(directPathway ? { pathwayRef: directPathway.pathwayId } : {}),
+    cognition: { route: directPathway ? 'direct' : 'deliberative', mode: demand.decision.mode,
+      reason: demand.reason, policyProvenance: demand.decision.provenance }, createdAt: Date.now()
   };
   await require('./agowStatePersistenceService').save({ scope: QUERY_POLICY_SCOPE, agentId: frame.agentId, db: queryPolicy.db,
     state: { ...queryPolicy.state, [need.fingerprint]: { queryId: query.queryId, createdAt: query.createdAt } }, version: query.createdAt });
@@ -128,4 +147,4 @@ async function submitResponse(options) {
   return workspace.submitCandidate({ candidate, db, triggerCycle: false });
 }
 
-module.exports = { plan, execute, CAPABILITY_MODULES };
+module.exports = { plan, execute, CAPABILITY_MODULES, cognitiveDemand };

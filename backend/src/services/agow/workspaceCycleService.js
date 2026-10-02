@@ -18,12 +18,13 @@ function hasQueryResponse(candidates) {
 }
 
 async function runActiveQuery(options) {
-  if (!hasInformationGap(options.frame) || hasQueryResponse(options.candidates)) return null;
+  const capability = options.capability;
+  if (hasQueryResponse(options.candidates) || (!hasInformationGap(options.frame) && capability !== 'recall')) return null;
   const causal = options.frame.causalContext.predictionError >= 0.5;
   const planned = await queryService.plan({
     frame: options.frame, db: options.db, moduleBudget: 1, maxCost: options.maxCost,
-    questionType: causal ? 'causal_discrimination' : undefined,
-    capability: causal ? 'causal_discrimination' : 'verification',
+    questionType: causal ? 'causal_discrimination' : capability === 'recall' ? 'recall' : undefined,
+    capability: causal ? 'causal_discrimination' : capability || 'verification',
     expectedInformationGain: Math.max(options.frame.epistemicState.uncertainty, options.frame.causalContext.predictionError)
   });
   if (!planned.planned) return planned;
@@ -60,11 +61,32 @@ async function cycle(options) {
   if (!ignited.length) return { frame: previousFrame, candidateCount: candidates.length, arbitration: result, ignition, broadcast: null };
   const frame = frameService.create({ agentId: options.agentId, cycle: (previousFrame?.cycle || 0) + 1, selected: result.selected, previousFrame, now, settings: options });
   const stored = await frameStore.save({ frame, db: options.db });
-  const broadcast = ignited.length ? await broadcastService.publish({ frame, modules: options.receivers, recipientAgentIds: options.recipientAgentIds, db: options.db, skipTransport: options.skipTransport }) : null;
-  const activeQuery = options.allowActiveQuery === false ? null
-    : await runActiveQuery({ frame, candidates: result.selected, db: options.db, maxCost: options.maxQueryCost });
-  const shadow = options.counterfactual === false ? null : await runShadow(options, frame, result);
-  return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result, ignition, broadcast, activeQuery, shadow };
+  const { decision, modeResult, initialModeReceipt } = await runCognitiveMode({ options, frame, result, now });
+  const modeReceipt = modeResult?.outcomeReceipt || initialModeReceipt;
+  return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result,
+    ignition, modeReceipt, modeResult, broadcast: modeResult?.route === 'ACT' ? modeResult : null,
+    activeQuery: ['OBSERVE', 'VERIFY', 'RECALL'].includes(decision.mode) ? modeResult : null,
+    shadow: decision.mode === 'SIMULATE' ? modeResult : null };
+}
+
+async function runCognitiveMode(inputOptions) {
+  const { options, frame, result, now } = inputOptions;
+  const runtime = require('./cognitiveModeRuntimeService');
+  const input = { frame, candidates: result.selected, agentId: options.agentId, db: options.db };
+  const decision = await runtime.choose(input);
+  const receipt = await runtime.record({ ...input, decision, now });
+  const modeResult = await runtime.execute({ ...input, decision, receipt, receivers: options.receivers,
+    recipientAgentIds: options.recipientAgentIds, skipTransport: options.skipTransport,
+    modeExecutors: options.modeExecutors,
+    runQuery: (mode) => options.allowActiveQuery === false ? null : runActiveQuery({ frame,
+      candidates: result.selected, db: options.db, maxCost: options.maxQueryCost,
+      counterfactualExecutor: options.counterfactualExecutor, capability: queryCapability(mode) }),
+    runShadow: () => options.counterfactual === false ? null : runShadow(options, frame, result) });
+  return { decision, modeResult, initialModeReceipt: receipt };
+}
+
+function queryCapability(mode) {
+  return mode === 'OBSERVE' ? 'perception' : mode === 'RECALL' ? 'recall' : 'verification';
 }
 
 async function runShadow(options, frame, result) {
