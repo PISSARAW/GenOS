@@ -21,7 +21,7 @@ async function verifyCandidates(candidates, options) {
   for (const candidate of candidates) {
     const result = await verifier.verifyEvidence({ registry: options.verifierRegistry,
       artifactReader: options.artifactReader, evidence: candidate.evidence,
-      requirement: candidate.verifierRequirement || candidate.kind });
+      requirement: candidate.verifierRequirement || candidate.requirementKind });
     if (!result.verified || result.evidenceClass === 'artifact_integrity_only') continue;
     receipts.push({ ...candidate, kind: candidate.requirementKind, verified: true, independentVerification: true,
       verifierId: result.verifierId, artifactHash: result.artifactHash,
