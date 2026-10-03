@@ -19,6 +19,8 @@ function observe(state, result, input) {
     privateOnly: input.privateOnly,
     privacyRequired: input.privacyRequired,
     trustDomainRestricted: input.trustDomainRestricted,
+    persistentRequired: input.persistentRequired,
+    scope: input.scope,
     routeFailures: state.routeFailures,
     budgetTight: input.budgetTight,
     unknownCapabilities: isOpenGap(result) ? 1 : 0,
