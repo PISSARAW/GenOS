@@ -20,7 +20,7 @@ const CONTENT_TEMPLATES = Object.freeze({
   scout_observation: { observations: ['<observation>'] },
   dossier: { claims: [{ statement: '<claim>', evidence: ['<source-ref>'] }] },
   verification_report: { verdict: 'reject', evidence: ['<reproduction-ref>'] },
-  experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: ['<measurement>'] },
+  experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: [{ metric: '<metric>', value: 0, unit: '<unit>', evidence: ['<measurement-ref>'] }] },
   formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', evidence: ['<receipt-ref>'] } },
   synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'] },
   creative_candidate: { candidate: '<candidate>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
@@ -51,7 +51,20 @@ function claimsAreSubstantiated(content) {
 function contentIsValid(type, content) {
   if (!hasRequiredFields(content, REQUIRED_FIELDS[type] || [])) return false;
   if (type === 'dossier' && !claimsAreSubstantiated(content)) return false;
+  if (type === 'experiment_record' && !hasRecordedMeasurements(content)) return false;
   return specializedContentIsValid(type, content);
+}
+
+function hasRecordedMeasurements(content) {
+  return typeof content.hypothesis === 'string' && content.hypothesis.trim().length > 0
+    && Array.isArray(content.protocol) && content.protocol.length > 0
+    && content.protocol.every((step) => typeof step === 'string' && step.trim().length > 0)
+    && Array.isArray(content.measurements) && content.measurements.length > 0
+    && content.measurements.every((measurement) => typeof measurement?.metric === 'string'
+      && measurement.metric.trim().length > 0
+      && Number.isFinite(measurement.value)
+      && typeof measurement.unit === 'string' && measurement.unit.trim().length > 0
+      && hasEvidenceReferences(measurement.evidence));
 }
 
 function specializedContentIsValid(type, content) {
