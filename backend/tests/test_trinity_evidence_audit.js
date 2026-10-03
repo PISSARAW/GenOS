@@ -20,19 +20,24 @@ function testSelfCitationsWeighZero() {
   assert.equal(audit.refWeight('mission_prompt:N2 — raisonnement', ids), 0);
 }
 
+function verifiedReceipt() {
+  return { status: 'verified', independent: true, evidenceDigest: 'sha256:test', verifierDigest: 'sha256:verifier', independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } };
+}
+
 function testResolvableWeighs() {
   const ids = new Set(['e-low']);
   assert.equal(audit.refWeight('e-low', ids), 2);
-  assert.equal(audit.refWeight('https://nodejs.org/api/assert', ids), 1);
-  assert.equal(audit.refWeight('backend/src/services/trinityService.js', ids), 1);
+  assert.equal(audit.refWeight('https://nodejs.org/api/assert', ids), 0);
+  assert.equal(audit.refWeight('backend/src/services/trinityService.js', ids), 0);
+  assert.equal(audit.auditReport({ evidence: ['fake'], claims: [{ statement: 'A complete fabricated claim with fake evidence', evidence: ['fake'], verificationLevel: 'independent_deterministic' }] }).proven, 0);
 }
 
 function testReceiptedTests() {
-  const withReceipts = { tests: [{ name: 't', passed: true, receipt: 'r' }, { name: 'u', passed: true, commandId: 'c' }] };
+  const withReceipts = { tests: [{ name: 't', passed: true, verificationReceipt: verifiedReceipt() }, { name: 'u', passed: true, verificationReceipt: verifiedReceipt() }] };
   assert.equal(trinity.scoreWorldEvidence(withReceipts, 'software_engineering').testsCoverage, 1.0);
   const declared = { tests: ['suite ok', 'vérifié'] };
   assert.equal(trinity.scoreWorldEvidence(declared, 'software_engineering').testsCoverage, 0);
-  const failed = { tests: [{ name: 't', failed: true, receipt: 'r' }] };
+  const failed = { tests: [{ name: 't', failed: true, verificationReceipt: verifiedReceipt() }] };
   assert.equal(trinity.scoreWorldEvidence(failed, 'software_engineering').testsCoverage, 0);
 }
 
@@ -79,10 +84,10 @@ function testGoodDossierScores() {
     outcome: 'success',
     evidence: [{ id: 'e1' }, { id: 'e2' }],
     claims: [
-      { statement: 'Cold start dominates the first call latency budget', evidence: ['e1'] },
-      { statement: 'SQL cost is excluded by the measured 15 ms span', evidence: ['backend/src/db/index.js'] }
+      { statement: 'Cold start dominates the first call latency budget', evidence: ['e1'], verificationLevel: 'independent_deterministic', verificationReceipts: [{ receipt: verifiedReceipt() }] },
+      { statement: 'SQL cost is excluded by the measured 15 ms span', evidence: ['e2'], verificationLevel: 'independent_deterministic', verificationReceipts: [{ receipt: verifiedReceipt() }] }
     ],
-    tests: [{ name: 'pool-eviction probe', passed: true, receipt: 'sha256:abc' }]
+    tests: [{ name: 'pool-eviction probe', passed: true, verificationReceipt: verifiedReceipt() }]
   };
   const scored = trinity.scoreWorldEvidence(report, 'software_engineering');
   assert.equal(scored.claimsScore, 1.0);

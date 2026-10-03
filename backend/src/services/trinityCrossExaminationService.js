@@ -58,7 +58,7 @@ function attachVerification(world, examination) {
   const sourceClaims = Array.isArray(world.report?.claims) ? world.report.claims : [];
   const claims = sourceClaims.map((claim) => {
     const key = claimKey(claim);
-    if (!verified.has(key)) return claim;
+    if (!verified.has(key)) return { ...claim, verificationLevel: 'unverified', verificationReceipts: [] };
     return { ...claim, verificationLevel: 'independent_deterministic', verificationReceipts: receiptsByClaim.get(key) || [] };
   });
   return { ...world, report: { ...world.report, claims, crossExamination: result } };

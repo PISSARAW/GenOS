@@ -9,8 +9,10 @@ assert.equal(trinity.DOMAIN_WEIGHTS.data.beta, 0.45);
 assert.equal(trinity.DOMAIN_WEIGHTS.product_design.gamma, 0.40);
 assert.equal(trinity.DOMAIN_WEIGHTS.software_engineering.alpha, 0.35);
 
-// 2. Score individual world evidence (ADR 0281: only resolvable refs weigh;
-// bare declarations and self-declared test strings score zero)
+const trustedReceipt = () => ({ status: 'verified', independent: true, evidenceDigest: 'sha256:proof', verifierDigest: 'sha256:verifier', independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } });
+const verifiedClaim = (statement, evidence) => ({ statement, evidence: [evidence], verificationLevel: 'independent_deterministic', verificationReceipts: [{ receipt: trustedReceipt() }] });
+
+// 2. Score individual world evidence only after independent verification.
 const world1Report = {
   outcome: 'success',
   claims: [
@@ -30,12 +32,14 @@ assert.deepEqual(score1.evidenceAudit, { proven: 0, resolvableRefs: 0, placehold
 
 const world2Report = {
   outcome: 'success',
+  evidence: [{ id: 'code-proof' }, { id: 'test-proof' }],
   claims: [
-    { statement: 'Feature implemented', evidence: ['backend/src/services/trinityService.js'] },
-    { statement: 'Invariants checked twice', evidence: ['https://nodejs.org/api/assert'] }
+    verifiedClaim('A feature was implemented and checked in its candidate workspace.', 'code-proof'),
+    verifiedClaim('The invariant suite passed under the independent verifier.', 'test-proof')
   ],
-  tests: [{ name: 'suite 1', passed: true, receipt: 'r1' }, { name: 'suite 2', passed: true, commandId: 'c2' }],
-  coverage: 0.95
+  tests: [{ name: 'suite 1', passed: true, verificationReceipt: trustedReceipt() }, { name: 'suite 2', passed: true, verificationReceipt: trustedReceipt() }],
+  coverage: 0.95,
+  coverageReceipt: trustedReceipt()
 };
 
 const score2 = trinity.scoreWorldEvidence(world2Report, 'software_engineering');
@@ -100,7 +104,7 @@ const mergeFailure = trinity.mergeTrinityEvidence([
 
 assert.equal(mergeFailure.canMerge, false);
 assert.equal(mergeFailure.selectedWorld, null);
-assert.match(mergeFailure.reason, /all_worlds_failed_verification_gates/i);
+assert.match(mergeFailure.reason, /required_evidence_vector_or_provenance_missing/i);
 assert.match(mergeFailure.recommendation, /Escalate to human review/i);
 
 // 6. Record world comparison telemetry

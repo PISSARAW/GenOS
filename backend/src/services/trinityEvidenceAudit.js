@@ -23,14 +23,26 @@ function evidenceIdsOf(report) {
   return ids;
 }
 
+function isVerifiedReceipt(receipt) {
+  return receipt?.status === 'verified' && receipt.independent === true
+    && typeof receipt.evidenceDigest === 'string' && receipt.evidenceDigest.startsWith('sha256:')
+    && typeof receipt.verifierDigest === 'string' && receipt.verifierDigest.length > 0
+    && Boolean(receipt.independenceDescriptor?.actorId && receipt.independenceDescriptor?.workspaceId);
+}
+
+function isIndependentlyVerifiedClaim(claim) {
+  const receipts = Array.isArray(claim?.verificationReceipts) ? claim.verificationReceipts : [];
+  return claim?.verificationLevel === 'independent_deterministic'
+    && receipts.length > 0 && receipts.every((entry) => isVerifiedReceipt(entry.receipt));
+}
+
 function isPlaceholder(text) {
   if (PLACEHOLDER.test(text) || ANGLE.test(text) || EXAMPLE.test(text)) return true;
   return BARE_DOC.test(text) || SELF_CITE.test(text);
 }
 
 function locatorWeight(text) {
-  if (URL.test(text)) return 1;
-  if (REPO_PATH.test(text)) return 1;
+  if (URL.test(text) || REPO_PATH.test(text)) return 0;
   return 0;
 }
 
@@ -68,7 +80,7 @@ function auditReport(report) {
   let placeholderRefs = 0;
   for (const claim of claims) {
     const audited = auditClaim(claim, ids);
-    if (audited.weight >= 1) proven += 1;
+    if (audited.weight >= 1 && isIndependentlyVerifiedClaim(claim)) proven += 1;
     resolvableRefs += audited.resolvable;
     placeholderRefs += audited.total - audited.resolvable;
   }
@@ -80,5 +92,7 @@ module.exports = {
   refWeight,
   claimRefs,
   auditClaim,
-  auditReport
+  auditReport,
+  isVerifiedReceipt,
+  isIndependentlyVerifiedClaim
 };

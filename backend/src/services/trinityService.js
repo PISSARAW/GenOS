@@ -136,16 +136,16 @@ function isSubstantiveClaim(claim) {
 }
 
 function hasExplicitCoverage(report) {
-  if (typeof report.coverage === 'number') return true;
-  if (report.creativeEvaluation && typeof report.creativeEvaluation.constraintCoverage === 'number') return true;
-  return Array.isArray(report.tests) && report.tests.length > 0;
+  if (Array.isArray(report.tests) && report.tests.some(hasTestReceipt)) return true;
+  return audit.isVerifiedReceipt(report.coverageReceipt)
+    && (typeof report.coverage === 'number' || typeof report.creativeEvaluation?.constraintCoverage === 'number');
 }
 
 function hasTestReceipt(entry) {
   if (typeof entry === 'string') return false;
   if (!entry || typeof entry !== 'object') return false;
-  if (entry.failed || entry.error) return false;
-  return Boolean(entry.receipt || entry.commandId || entry.hash || entry.output || entry.exitCode === 0 || typeof entry.durationMs === 'number');
+  if (entry.failed || entry.error || entry.passed !== true) return false;
+  return audit.isVerifiedReceipt(entry.verificationReceipt || entry.receipt);
 }
 
 function passedTests(report) {
@@ -161,15 +161,17 @@ function scoreWorldEvidence(report, domain = 'software_engineering') {
   let provenClaims = 0, substantiveClaims = 0, evidenceWeight = 0;
   for (const c of claims) {
     const w = evidenceWeightOf(c, ids);
-    if (w >= 1) provenClaims++;
-    evidenceWeight += clamp01(w / 3);
+    if (w >= 1 && audit.isIndependentlyVerifiedClaim(c)) {
+      provenClaims++;
+      evidenceWeight += clamp01(w / 3);
+    }
     if (isSubstantiveClaim(c)) substantiveClaims++;
   }
   const hasArtifact = typeof report.artifactText === 'string' && report.artifactText.trim().length > 0;
   const claimsScore = claims.length > 0 ? provenClaims / claims.length : (hasArtifact ? 0.3 : 0);
   let testsCoverage = 0;
-  if (typeof report.coverage === 'number') testsCoverage = clamp01(report.coverage);
-  else if (report.creativeEvaluation && typeof report.creativeEvaluation.constraintCoverage === 'number') testsCoverage = clamp01(report.creativeEvaluation.constraintCoverage);
+  if (audit.isVerifiedReceipt(report.coverageReceipt) && typeof report.coverage === 'number') testsCoverage = clamp01(report.coverage);
+  else if (audit.isVerifiedReceipt(report.coverageReceipt) && typeof report.creativeEvaluation?.constraintCoverage === 'number') testsCoverage = clamp01(report.creativeEvaluation.constraintCoverage);
   else if (Array.isArray(report.tests) && report.tests.length > 0) testsCoverage = passedTests(report) / report.tests.length;
   const uncertainties = Array.isArray(report.uncertainties) ? report.uncertainties.length : 0;
   const unverified = Array.isArray(report.unverifiedClaims) ? report.unverifiedClaims.length : 0;
@@ -250,7 +252,8 @@ async function recordWorldComparison(db, comparisonData) {
 }
 
 function evidenceBackedClaim(claim, evidenceIds) {
-  return Boolean(claim && isSubstantiveClaim(claim) && evidenceWeightOf(claim, evidenceIds) >= 1);
+  return Boolean(claim && isSubstantiveClaim(claim)
+    && audit.isIndependentlyVerifiedClaim(claim) && evidenceWeightOf(claim, evidenceIds) >= 1);
 }
 
 function complementaryClaimsFrom(worlds, winner, claimGraph) {
@@ -290,7 +293,9 @@ function mergeTrinityEvidence(worldEntries, options = {}) {
   if (accepted) {
     const winner = comparison.scoredWorlds.find((world) => world.worldNumber === pareto.selectedWorld);
     const winnerReport = winner.report || {};
-    const winnerClaims = Array.isArray(winnerReport.claims) ? winnerReport.claims.filter(evidenceBackedClaim) : [];
+    const winnerIds = audit.evidenceIdsOf(winnerReport);
+    const winnerClaims = Array.isArray(winnerReport.claims)
+      ? winnerReport.claims.filter((claim) => evidenceBackedClaim(claim, winnerIds)) : [];
     const complementaryClaims = complementaryClaimsFrom(comparison.scoredWorlds, winner, options.claimGraph);
     return { canMerge: true, outcome: pareto.outcome, selectedWorld: winner.worldNumber, selectedRole: winner.role, bestScore: comparison.bestScore, comparativeAnalysis: comparison, mergedEvidence: { ...winnerReport, author: { name: 'Trinity Consolidated Synthesis', selectedWorld: winner.worldNumber, selectedRole: winner.role }, outcome: 'success', claims: [...winnerClaims, ...complementaryClaims], comparativeAnalysis: { winner: winner.worldNumber, winningRole: winner.role, score: comparison.bestScore, matrix: comparison.comparisonMatrix, evidenceVector: winner.vector } } };
   }

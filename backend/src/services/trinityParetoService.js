@@ -2,6 +2,7 @@
 
 const MAXIMIZE = ['correctness', 'coverage', 'robustness', 'reproducibility', 'novelty', 'constraintCoverage'];
 const MINIMIZE = ['cost', 'latency', 'risk', 'uncertainty'];
+const evidenceAudit = require('./trinityEvidenceAudit');
 const REQUIRED = ['correctness', 'coverage', 'robustness', 'reproducibility', 'risk', 'uncertainty', 'constraintCoverage'];
 const THRESHOLDS = {
   correctness: 0.70, coverage: 0.60, robustness: 0.50, reproducibility: 0.80,
@@ -16,7 +17,8 @@ const DEFAULT_OBJECTIVE_PROFILES = {
 
 function reportedEvidenceIds(report) {
   const evidence = Array.isArray(report.evidence) ? report.evidence : [];
-  return new Set(evidence.map((item) => { return defaultIfMissing(item?.id, item); }).filter(Boolean));
+  return new Set(evidence.filter((item) => evidenceAudit.isVerifiedReceipt(item?.verificationReceipt))
+    .map((item) => item.id).filter((id) => typeof id === 'string' && id.trim()));
 }
 
 function defaultIfMissing(value, fallback) {

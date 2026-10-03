@@ -8,6 +8,7 @@ const store = require('../src/services/holobionte/holobiontStore');
 const adapter = require('../src/services/holobionte/symbionts/trinityAdapter');
 
 function report(values, claim, passed = true) {
+  const verificationReceipt = { status: 'verified', independent: true, evidenceDigest: 'sha256:proof', verifierDigest: 'sha256:verifier', independenceDescriptor: { actorId: 'verifier', workspaceId: 'isolated' } };
   const evidenceVector = {
     correctness: values[0], coverage: values[1], robustness: values[2], reproducibility: values[3],
     novelty: values[4], cost: values[5], latency: values[6], risk: values[7], uncertainty: values[8],
@@ -15,8 +16,8 @@ function report(values, claim, passed = true) {
   };
   const evidenceVectorEvidence = Object.fromEntries(Object.keys(evidenceVector).map((key) => [key, ['vector-proof']]));
   return {
-    outcome: 'success', hardConstraintsPassed: passed, budgetStatus: 'within', evidence: [{ id: 'vector-proof' }],
-    evidenceVector, evidenceVectorEvidence, claims: [{ statement: claim, evidence: ['receipt'] }]
+    outcome: 'success', hardConstraintsPassed: passed, budgetStatus: 'within', evidence: [{ id: 'vector-proof', verificationReceipt }],
+    evidenceVector, evidenceVectorEvidence, claims: [{ id: `claim-${claim.length}`, statement: claim, evidence: ['vector-proof'], verificationLevel: 'independent_deterministic', verificationReceipts: [{ receipt: verificationReceipt }] }]
   };
 }
 
@@ -44,7 +45,7 @@ async function run() {
     });
     assert.strictEqual(selected.status, 'CANDIDATE', selected.comparison.reason);
     assert.strictEqual(selected.symbiont.worldNumber, selected.comparison.selectedWorld);
-    assert.ok(selected.symbiont.evidenceRefs.includes('receipt'));
+    assert.ok(selected.symbiont.evidenceRefs.includes('vector-proof'));
     const session = await store.getSession(db, host.holobiontId);
     assert.strictEqual(session.candidateSymbionts[0].origin, 'TRINITY');
     assert.strictEqual(session.candidateSymbionts[0].status, 'CANDIDATE');
