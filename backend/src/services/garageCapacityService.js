@@ -8,7 +8,8 @@ function contractParallelism(contract) {
   return Math.max(1, branches);
 }
 
-function topologyWorkerCount(topology) {
+function topologyWorkerCount(topology, variant = null) {
+  if (topology === 'dispatch_trinity' && factorialVariant(variant)) return 16;
   if (topology === 'dispatch_trinity') return 3;
   if (topology === 'dispatch_team') return 2;
   if (topology === 'dispatch_biological') return 2;
@@ -17,9 +18,9 @@ function topologyWorkerCount(topology) {
 }
 
 function computeRequiredCapacity(input = {}) {
-  const { contract, topology, teamMembers } = input;
+  const { contract, topology, teamMembers, variantId, experimentalDesign } = input;
   const fromBranches = contractParallelism(contract);
-  const fromTopology = topologyWorkerCount(topology);
+  const fromTopology = topologyWorkerCount(topology, experimentalDesign?.worldTopology || variantId);
   const fromTeam = Array.isArray(teamMembers) ? teamMembers.length : 0;
   const required = Math.max(fromBranches, fromTopology, fromTeam);
   const systemMax = config.maxActiveWorkers();
@@ -45,11 +46,21 @@ function decideGarageCapacity(input = {}) {
     adapted = true;
     rationale = `Required ${analysis.required} exceeds system max ${analysis.systemMax}; capped. Increase GENOS_MAX_ACTIVE_WORKERS to avoid adaptation.`;
   }
-  if (input.topology === 'dispatch_trinity' && capacity < 3) {
-    capacity = 3;
-    rationale = 'Trinity requires exactly 3 workers; capacity overridden to 3.';
+  const minimumTrinity = factorialVariant(input.experimentalDesign?.worldTopology || input.variantId) ? 16 : 3;
+  if (input.topology === 'dispatch_trinity' && capacity < minimumTrinity) {
+    if (analysis.systemMax >= minimumTrinity) {
+      capacity = minimumTrinity;
+      rationale = `Trinity design requires ${minimumTrinity} workers; capacity reserved for its execution.`;
+    } else {
+      rationale = `Trinity design requires ${minimumTrinity} workers but system max is ${analysis.systemMax}; dispatch must escalate.`;
+    }
   }
   return { ...analysis, capacity, adapted, rationale };
+}
+
+function factorialVariant(value) {
+  return ['factorial', 'factorial_grid', 'trinity-factorial', 'trinity_factorial']
+    .includes(String(value || '').trim().toLowerCase());
 }
 
 module.exports = { computeRequiredCapacity, decideGarageCapacity, contractParallelism, topologyWorkerCount };
