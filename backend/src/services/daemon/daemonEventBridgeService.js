@@ -88,20 +88,29 @@ async function maybeWakeRuntime(bridge, event, receptor) {
   if (!bridge.runtime || !bridge.daemonId) {
     return { woke: false, reason: 'daemon-runtime-unattached' };
   }
-  const decision = wakePolicyService.shouldWake(bridge.policy, {
+  const ask = {
     territoryId: event.territoryId,
     eventType: event.type,
     priority: receptor.priority,
-    now: event.now
-  });
+    now: event.now || Date.now()
+  };
+  const decision = wakePolicyService.shouldWake(bridge.policy, ask);
   if (!decision.woke) return decision;
-  if (!decision.woke) return decision;
-  const heartbeat = await daemonRuntime.heartbeat(bridge.runtime, {
-    daemonId: bridge.daemonId,
-    activity: receptor.wakeActivity,
-    health: 'HEALTHY'
-  });
-  if (!heartbeat.updated) return { woke: false, reason: 'daemon-runtime-update-failed' };
+  let heartbeat;
+  try {
+    heartbeat = await daemonRuntime.heartbeat(bridge.runtime, {
+      daemonId: bridge.daemonId,
+      activity: receptor.wakeActivity,
+      health: 'HEALTHY'
+    });
+  } catch (error) {
+    wakePolicyService.releaseWake(bridge.policy, ask);
+    throw error;
+  }
+  if (!heartbeat.updated) {
+    wakePolicyService.releaseWake(bridge.policy, ask);
+    return { woke: false, reason: 'daemon-runtime-update-failed' };
+  }
   return decision;
 }
 

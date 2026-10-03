@@ -74,6 +74,20 @@ async function main() {
   const stateAfterWake = await daemonRuntime.getDaemonState(rt, { daemonId: 'daemon.bridge-1' });
   assert.equal(stateAfterWake.activity, 'FOCUSED');
 
+  const retryRuntime = daemonRuntime.createRuntime(db, {});
+  const retryBridge = bridgeService.createBridge({ db, runtime: retryRuntime, daemonId: 'daemon.retry-1',
+    policy: wakePolicy.createWakePolicy({ cooldownMs: 60000 }) });
+  const deferred = await bridgeService.ingestEvent(retryBridge, {
+    type: 'TEST_FAILED', territoryId: 'territory.bridge-test'
+  });
+  assert.equal(deferred.woke, false);
+  await daemonRuntime.registerDaemon(retryRuntime, {
+    daemonId: 'daemon.retry-1', territoryId: 'territory.bridge-test'
+  });
+  const persistedRetry = await db.get('SELECT * FROM daemon_events ORDER BY id DESC LIMIT 1');
+  const retried = await bridgeService.processPersistedEvent(retryBridge, persistedRetry);
+  assert.equal(retried.woke, true, 'failed heartbeat must release the wake budget so the event can retry');
+
   const quiet = await bridgeService.ingestEvent(bridge, { type: 'AGENT_COMPLETED', territoryId: 'territory.bridge-test' });
   assert.equal(quiet.ingested, true);
   assert.equal(quiet.woke, false);

@@ -58,9 +58,22 @@ function shouldWake(policy, ask) {
   return { woke: true, reason: 'policy-allow' };
 }
 
+function releaseWake(policy, ask) {
+  if (!policy || !ask?.territoryId || !ask?.eventType) return false;
+  const now = ask.now || Date.now();
+  const key = policyKey(ask.territoryId, ask.eventType);
+  if (policy.lastWakeByKey.get(key) !== now) return false;
+  policy.lastWakeByKey.delete(key);
+  const stamps = policy.wakeStampsByTerritory.get(ask.territoryId) || [];
+  const index = stamps.lastIndexOf(now);
+  if (index >= 0) stamps.splice(index, 1);
+  return true;
+}
+
 module.exports = {
   createWakePolicy,
   shouldWake,
+  releaseWake,
   DEFAULT_COOLDOWN_MS,
   DEFAULT_MAX_WAKES,
   DEFAULT_WINDOW_MS
