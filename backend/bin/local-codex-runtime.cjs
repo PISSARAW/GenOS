@@ -132,7 +132,7 @@ function createGeneration(state) {
     validatorFn: griotValidator,
     maxRetries: 3,
     agentId: state.agentName,
-    modelRouting: { model: state.mission.localModel || undefined, policy: state.localRoutingPolicy, signal: abort.signal, timeoutMs: perAttemptTimeoutMs, enforceSchema: false },
+    modelRouting: { model: state.mission.localModel || undefined, variantIndex: state.mission.variantIndex, policy: state.localRoutingPolicy, signal: abort.signal, timeoutMs: perAttemptTimeoutMs, enforceSchema: false },
     stemCellFallback: fallback.message,
     onFallback: () => { fallback.used = true; }
   });

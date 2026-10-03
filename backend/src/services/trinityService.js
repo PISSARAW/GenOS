@@ -53,11 +53,9 @@ function compose(mission, options = {}) {
   if (!goal) throw Object.assign(new Error('Trinity mission is required.'), { code: 'TRINITY_MISSION_REQUIRED' });
   const analysis = analyzeMission(goal);
   const variantSelection = trinityVariants.selectForMission(goal, options);
-  const members = analysis.members.map((member, index) => ({
-    ...member,
-    worldNumber: index + 1,
-    mission: `Trinity mission: ${goal}\nDomain: ${analysis.domain}\nSealed chamber: ${member.chamber}\nWorld strategy: ${member.hypothesis}\nDo not request, read, or infer other chamber outputs. Return an artifact, acceptance checks, evidence, uncertainties, and execution limits.`
-  }));
+  const design = variantSelection.experimentalDesign;
+  const members = differentiation.differentiate(analysis.members, { goal, domain: analysis.domain, design });
+  variantSelection.diversity = differentiation.diversityReceipt(members, options.trinityModels);
   return trinityVariants.applyToMembers(members, variantSelection);
 }
 
@@ -115,6 +113,7 @@ const trinityPareto = require('./trinityParetoService');
 const hypothesisDesign = require('./trinityHypothesisDesignService');
 const trinityClaimGraph = require('./trinityClaimGraphService');
 const trinityVariants = require('./trinityVariantService');
+const differentiation = require('./trinityDifferentiationService');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },

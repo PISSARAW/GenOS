@@ -3,6 +3,7 @@
 const trinityService = require('../src/services/trinityService');
 const trinityMissionSupervisor = require('../src/services/trinityMissionSupervisor');
 const topologyWorkerKinds = require('../src/services/topologyWorkerKindService');
+const trinityAdapters = require('../src/services/trinityAdapters');
 
 function workerAssignmentsFrom(context) {
   return context.request.worker_assignments || context.request.workerAssignments || {};
@@ -16,8 +17,27 @@ function trinityOptionsFrom(context) {
   };
 }
 
+function trinityModels() {
+  const raw = process.env.GENOS_TRINITY_MODELS || '';
+  return raw.split(',').map((entry) => entry.trim()).filter(Boolean);
+}
+
+function assignModels(members, models) {
+  if (!models.length) return members;
+  return members.map((member, index) => ({ ...member, localModel: models[index % models.length] }));
+}
+
 function missionFrom(context) {
   return context.request.mission || context.request.project_goal || context.request.goal || 'Trinity comparative mission';
+}
+
+function composeMembers(mission, options, assignments) {
+  const models = trinityModels();
+  const composed = trinityService.compose(mission, {
+    variantId: options.variant, experimentalDesign: options.experimentalDesign, trinityJury: options.jury,
+    availableAdapters: trinityAdapters.installedAdapterNames(), trinityModels: models
+  });
+  return topologyWorkerKinds.applyTopologyWorkerKinds('trinity', assignModels(composed, models), assignments);
 }
 
 async function handle(input) {
@@ -29,9 +49,7 @@ async function handle(input) {
   context.nceEnrichments = await buildNCEEnrichments(context, 'trinity');
   const assignments = workerAssignmentsFrom(context);
   const { variant, jury, experimentalDesign } = trinityOptionsFrom(context);
-  const members = topologyWorkerKinds.applyTopologyWorkerKinds('trinity', trinityService.compose(mission, {
-    variant, experimentalDesign, trinityJury: jury, availableAdapters: []
-  }), assignments);
+  const members = composeMembers(mission, { variant, jury, experimentalDesign }, assignments);
   const missionId = `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
   const accepted = await launchWorlds({ db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId });
   const supervision = trinityMissionSupervisor.launch({ missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot });
