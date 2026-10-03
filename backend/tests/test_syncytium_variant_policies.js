@@ -25,6 +25,7 @@ async function main() {
 
   assert.equal(registry.selectPolicy('code graph dependency refactor').id, 'code');
   assert.equal(registry.selectPolicy('dependency graph with edges').id, 'graph');
+  assert.equal(registry.selectPolicy('Construisez un glossaire unique et sans contradiction pour sept termes.').id, 'document');
   assert.equal(registry.selectPolicy('Human approval required for this agent action.').id, 'humanAi');
   assert.deepEqual(registry.POLICY_PRIORITY, ['humanAi', 'code', 'graph', 'transactional', 'speculative', 'hierarchical']);
   assert.throws(() => registry.getPolicy('missing'), (error) => error.code === 'SYNCYTIUM_VARIANT_POLICY_UNKNOWN');

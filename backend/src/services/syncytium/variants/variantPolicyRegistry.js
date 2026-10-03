@@ -34,7 +34,7 @@ const DEFINITIONS = Object.freeze([
   definition('hard', ['serialized', 'critical', 'transactional'], ['CRDT_SHARED_STATE', 'INVARIANT_GATES'], 'SERIALIZABLE', 'ALL_SUBSCRIBED', ['ROLLBACK', 'COORDINATE'], ['invariant_violation', 'authority_violation']),
   definition('soft', ['eventual', 'offline', 'local-first'], ['CRDT_SHARED_STATE', 'RESILIENCE_RECOVERY'], 'EVENTUAL', 'SELECTIVE', ['MERGE', 'RECONCILE'], ['unrecoverable_conflict']),
   definition('code', ['code', 'refactor', 'source', 'module'], ['CRDT_SHARED_STATE', 'SEMANTIC_CONFLICTS', 'EVIDENCE_BARRIER'], 'INVARIANT_PRESERVING', 'SELECTIVE', ['RESTORE_CHECKPOINT', 'REPLAY_TESTS'], ['build_failure', 'unresolved_import']),
-  definition('document', ['document', 'text', 'draft', 'section'], ['CRDT_SHARED_STATE', 'CAUSAL_STATE'], 'CAUSAL', 'ALL_SUBSCRIBED', ['REPLAY_SEQUENCE'], ['causal_gap']),
+  definition('document', ['document', 'text', 'draft', 'section', 'glossary', 'glossaire', 'terminology'], ['CRDT_SHARED_STATE', 'CAUSAL_STATE'], 'CAUSAL', 'ALL_SUBSCRIBED', ['REPLAY_SEQUENCE'], ['causal_gap']),
   definition('graph', ['graph', 'node', 'edge', 'dependency graph'], ['CRDT_SHARED_STATE', 'SEMANTIC_CONFLICTS', 'INVARIANT_GATES'], 'INVARIANT_PRESERVING', 'SELECTIVE', ['REBUILD_PROJECTION', 'REMOVE_INVALID_EDGE'], ['dangling_edge', 'cycle']),
   definition('transactional', ['budget', 'inventory', 'capacity', 'reservation'], ['TRANSACTIONAL_SHARED_STATE', 'INVARIANT_GATES'], 'SERIALIZABLE', 'SELECTIVE', ['ROLLBACK_TRANSACTION'], ['resource_exhaustion', 'precondition_failed']),
   definition('epistemic', ['claim', 'evidence', 'refutation', 'hypothesis'], ['PROVENANCE', 'EVIDENCE_BARRIER', 'CAUSAL_STATE'], 'APPEND_ONLY', 'SELECTIVE', ['PRESERVE_COUNTEREVIDENCE'], ['missing_provenance']),
