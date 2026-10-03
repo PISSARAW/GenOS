@@ -73,6 +73,10 @@ async function migrateDaemonTerritory(db) {
     CREATE INDEX IF NOT EXISTS idx_daemon_runtime_health
       ON daemon_runtime_state(health, activity);
   `);
+  const runtimeColumns = new Set((await db.all('PRAGMA table_info(daemon_runtime_state)')).map((column) => column.name));
+  if (!runtimeColumns.has('last_event_id')) {
+    await db.exec('ALTER TABLE daemon_runtime_state ADD COLUMN last_event_id INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
 module.exports = { migrateDaemonTerritory };

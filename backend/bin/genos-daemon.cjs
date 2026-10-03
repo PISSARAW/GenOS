@@ -17,6 +17,8 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const territoryService = require('../src/services/daemon/daemonTerritoryService');
 const runtimeService = require('../src/services/daemon/residentDaemonRuntime');
 const eventBridge = require('../src/services/daemon/daemonEventBridgeService');
+const { migrateDaemonEvents } = require('../src/db/migrations/migrateDaemonEvents');
+const daemonReceptors = require('../src/services/daemon/daemonReceptorRegistry');
 const signalEventBus = require('../src/services/signalEventBus');
 
 const SUBSCRIBED_SIGNALS = [
@@ -28,6 +30,8 @@ const SUBSCRIBED_SIGNALS = [
 
 const DEFAULT_FALLBACK_MS = 60000;
 const DEFAULT_HEARTBEAT_MS = 30000;
+const EVENT_POLL_MS = 500;
+let eventPollInProgress = false;
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -79,6 +83,36 @@ function startHeartbeatTimer(runtime, daemonId, intervalMs) {
   return timer;
 }
 
+function startDurableEventPoller(db, runtime, daemonId, territoryId) {
+  const poll = async () => {
+    if (eventPollInProgress) return;
+    eventPollInProgress = true;
+    try {
+      await migrateDaemonEvents(db);
+      const state = await runtimeService.getDaemonState(runtime, { daemonId });
+      const rows = await db.all(
+        'SELECT id, event_type, woke FROM daemon_events WHERE territory_id = ? AND id > ? ORDER BY id ASC LIMIT 100',
+        territoryId, state.lastEventId || 0
+      );
+      for (const row of rows) {
+        const receptor = daemonReceptors.getReceptorFor(row.event_type);
+        const activity = row.woke ? receptor?.wakeActivity : null;
+        await runtimeService.heartbeat(runtime, {
+          daemonId, eventId: Number(row.id), ...(activity ? { activity } : {})
+        });
+      }
+    } catch (error) {
+      console.warn(`[genos-daemon] Durable event poll failed: ${error.message}`);
+    } finally {
+      eventPollInProgress = false;
+    }
+  };
+  const timer = setInterval(() => poll().catch(() => {}), EVENT_POLL_MS);
+  if (timer.unref) timer.unref();
+  poll().catch(() => {});
+  return timer;
+}
+
 async function resolveRegisteredTerritory(db, territoryId) {
   const result = await territoryService.getTerritory(db, { id: territoryId });
   return result.found ? result.territory : null;
@@ -88,6 +122,7 @@ async function shutdown(ctx) {
   if (ctx.unsubscribeSignals) ctx.unsubscribeSignals();
   if (ctx.fallbackTimer) clearInterval(ctx.fallbackTimer);
   if (ctx.heartbeatTimer) clearInterval(ctx.heartbeatTimer);
+  if (ctx.eventPollTimer) clearInterval(ctx.eventPollTimer);
   await closeDatabase().catch(() => {});
   console.log(`[genos-daemon] ${ctx.daemonId} shutdown complete.`);
 }
@@ -114,8 +149,9 @@ async function main() {
   const unsubscribeSignals = subscribeToSignals(bridge, flags.territoryId);
   const fallbackTimer = startFallbackTimer(bridge, flags.territoryId, DEFAULT_FALLBACK_MS);
   const heartbeatTimer = startHeartbeatTimer(runtime, flags.daemonId, DEFAULT_HEARTBEAT_MS);
+  const eventPollTimer = startDurableEventPoller(db, runtime, flags.daemonId, flags.territoryId);
 
-  const ctx = { db, runtime, bridge, unsubscribeSignals, fallbackTimer, heartbeatTimer, daemonId: flags.daemonId };
+  const ctx = { db, runtime, bridge, unsubscribeSignals, fallbackTimer, heartbeatTimer, eventPollTimer, daemonId: flags.daemonId };
   console.log(`[genos-daemon] ${flags.daemonId} active on ${flags.territoryId}. Signals: ${SUBSCRIBED_SIGNALS.join(', ')}. Fallback: ${DEFAULT_FALLBACK_MS}ms.`);
 
   const stop = () => { shutdown(ctx).then(() => process.exit(0)).catch(() => process.exit(1)); };

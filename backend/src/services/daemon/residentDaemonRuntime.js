@@ -124,7 +124,8 @@ function restoreRuntimeState(input, prior) {
     territoryId: input.territoryId,
     activity: isValidActivity(activity) ? activity : 'BOOTSTRAPPING',
     health: isValidHealth(health) ? health : 'HEALTHY',
-    revisions: Number((prior && prior.cognitive_revisions) || 0)
+    revisions: Number((prior && prior.cognitive_revisions) || 0),
+    lastEventId: Number((prior && prior.last_event_id) || 0)
   };
 }
 
@@ -134,7 +135,8 @@ async function heartbeat(runtime, tick) {
   if (!entry) return { updated: false, errors: ['unknown-daemon'] };
   applyTickToEntry(entry, tick);
   await persistHeartbeat(runtime, tick, entry);
-  return { updated: true, activity: entry.activity, health: entry.health, revisions: entry.revisions };
+  return { updated: true, activity: entry.activity, health: entry.health,
+    revisions: entry.revisions, lastEventId: entry.lastEventId };
 }
 
 function applyTickToEntry(entry, tick) {
@@ -144,18 +146,26 @@ function applyTickToEntry(entry, tick) {
 }
 
 async function persistHeartbeat(runtime, tick, entry) {
-  if (!runtime.db) return;
+  const nextEventId = Number.isSafeInteger(tick.eventId)
+    ? Math.max(entry.lastEventId, tick.eventId) : entry.lastEventId;
+  if (!runtime.db) {
+    entry.lastEventId = nextEventId;
+    return;
+  }
   await runtime.db.run(
     `UPDATE daemon_runtime_state
-     SET activity = ?, health = ?,
-         cognitive_revisions = cognitive_revisions + ?,
-         last_heartbeat_at = datetime('now'), updated_at = datetime('now')
+      SET activity = ?, health = ?,
+          cognitive_revisions = cognitive_revisions + ?,
+          last_event_id = MAX(last_event_id, ?),
+          last_heartbeat_at = datetime('now'), updated_at = datetime('now')
      WHERE daemon_id = ?`,
     entry.activity,
     entry.health,
     tick.revision === true ? 1 : 0,
+    nextEventId,
     tick.daemonId
   );
+  entry.lastEventId = nextEventId;
 }
 
 async function getDaemonState(runtime, query) {
@@ -172,7 +182,8 @@ async function getDaemonState(runtime, query) {
     territoryId: row.territory_id,
     activity: row.activity,
     health: row.health,
-    revisions: row.cognitive_revisions
+    revisions: row.cognitive_revisions,
+    lastEventId: Number(row.last_event_id || 0)
   };
 }
 
