@@ -227,12 +227,18 @@ function structuredHits(name, mission) {
   const hits = {
     multiteam: Number(mission.teamCount) > 1 || Boolean(mission.subTeams?.length),
     boundary_spanner: Number(mission.interfaceCount) > 1 || Boolean(mission.boundaries?.interfaces?.length),
-    matrix_team: Boolean(mission.functionalAndProductOwners) || Boolean(mission.decisionAuthorities?.length),
+    matrix_team: hasMatrixAuthorities(mission),
     relay_team: Boolean(mission.singleContextOwner) || Boolean(mission.sequentialContext),
     adaptive: Number(mission.uncertainty) >= 0.7 || Boolean(mission.evolvingRequirements),
     project_dag: Number(mission.parallelWorkstreams) > 1 || Boolean(mission.dagNodes?.length)
   };
   return hits[name] ? 1 : 0;
+}
+
+function hasMatrixAuthorities(mission) {
+  if (mission.functionalAndProductOwners === true) return true;
+  const axes = new Set((mission.decisionAuthorities || []).map((authority) => authority.axis));
+  return axes.has('functional') && axes.has('product');
 }
 
 function selectVariant(mission = {}) {
