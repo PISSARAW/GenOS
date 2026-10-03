@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const evidenceAudit = require('./trinityEvidenceAudit');
 
 const MIN_REPLICAS_PER_ARM = 1;
 const MAX_REPLICAS_PER_ARM = 5;
@@ -189,6 +190,9 @@ function stoppingRule(arms, config) {
 
 async function runAdaptiveSequentialTrinity(input) {
   const { mission, worldConfigs, config = {}, db, orchestratorId } = input;
+  if (typeof input.executeWorld !== 'function') {
+    throw Object.assign(new Error('Adaptive replicas require a real world execution callback.'), { code: 'TRINITY_ADAPTIVE_EXECUTOR_REQUIRED' });
+  }
   const arms = initializeArms(worldConfigs);
   const totalBudget = config.totalBudget || worldConfigs.length;
   let spentBudget = 0;
@@ -202,11 +206,16 @@ async function runAdaptiveSequentialTrinity(input) {
     for (const [armId, count] of Object.entries(allocation.allocations)) {
       const arm = arms.find(a => a.id === armId);
       for (let r = 0; r < count; r++) {
-        const result = await executeWorld(arm.worldConfig, mission, db);
-        const reward = extractReward(result);
+        const result = await input.executeWorld({ worldConfig: arm.worldConfig, mission, db,
+          orchestratorId, replica: arm.pulls + 1, round, allocationReason: allocation.reason });
+        const observation = result?.report || result;
+        if (!validExecutionResult(observation)) {
+          throw Object.assign(new Error('Adaptive replica returned no evidence-backed observation.'), { code: 'TRINITY_ADAPTIVE_EVIDENCE_MISSING' });
+        }
+        const reward = extractReward(observation);
         updateArm(arm, reward);
         spentBudget += 1;
-        results.push({ armId, round, result, reward, allocationReason: allocation.reason });
+        results.push({ armId, round, result: observation, reward, allocationReason: allocation.reason });
       }
     }
   }
@@ -222,13 +231,22 @@ async function runAdaptiveSequentialTrinity(input) {
   };
 }
 
-async function executeWorld(worldConfig, mission, db) {
-  return { evidenceVector: { correctness: 0.7 + Math.random() * 0.2, uncertainty: 0.2 + Math.random() * 0.3 } };
+function validExecutionResult(result) {
+  const vector = result?.evidenceVector || {};
+  const refs = result?.evidenceVectorEvidence || {};
+  const verified = new Set((Array.isArray(result?.evidence) ? result.evidence : [])
+    .filter((entry) => entry && typeof entry === 'object'
+      && evidenceAudit.isVerifiedReceipt(entry.verificationReceipt || entry.receipt))
+    .map((entry) => String(entry.id || '')).filter(Boolean));
+  return ['correctness', 'uncertainty'].every((dimension) => Number.isFinite(vector[dimension])
+    && vector[dimension] >= 0 && vector[dimension] <= 1
+    && Array.isArray(refs[dimension]) && refs[dimension].length > 0
+    && refs[dimension].every((id) => verified.has(String(id))));
 }
 
 function extractReward(result) {
   const vec = result.evidenceVector || {};
-  return Math.max(0, Math.min(1, (vec.correctness || 0.5) * 0.5 + (1 - (vec.uncertainty || 0.5)) * 0.5));
+  return Math.max(0, Math.min(1, (vec.correctness ?? 0.5) * 0.5 + (1 - (vec.uncertainty ?? 0.5)) * 0.5));
 }
 
 module.exports = { runAdaptiveSequentialTrinity, initializeArms, sequentialAllocate, computeBiasCorrectedEstimate, stoppingRule, thompsonSample, inverseProbabilityWeight };
