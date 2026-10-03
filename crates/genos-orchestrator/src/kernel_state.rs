@@ -111,6 +111,7 @@ pub struct GovernanceView {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ResilienceView {
     pub degraded_components: Vec<String>,
+    pub isolated_agents: Vec<String>,
     pub checkpoints: Vec<String>,
     pub dormant_agents: Vec<String>,
     pub degraded_mode: bool,
@@ -136,8 +137,19 @@ pub struct Observations {
     pub resource_usage: HashMap<String, f64>,
     pub model_failures: Vec<String>,
     pub communication_state: String,
-    pub clinical_signals: Vec<String>,
+    pub clinical_signals: Vec<ClinicalSignal>,
     pub resilience_signals: Vec<String>,
+}
+
+/// Signal clinique dont la provenance et la confirmation restent explicites.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ClinicalSignal {
+    pub signal_id: String,
+    pub agent_id: String,
+    pub pathology_type: String,
+    pub confirmed: bool,
+    pub confidence: f64,
+    pub evidence_ref: String,
 }
 
 /// Etat global maintenu par l'orchestrateur.
@@ -154,6 +166,7 @@ pub struct OrchestratorState {
     pub models: ModelView,
     pub governance: GovernanceView,
     pub resilience: ResilienceView,
+    pub clinical_signals: Vec<ClinicalSignal>,
     pub history: HistoryView,
 }
 
@@ -178,6 +191,7 @@ impl OrchestratorState {
         self.apply_environment_changes(obs);
         self.apply_worker_reports(obs);
         self.apply_telemetry(obs);
+        self.apply_clinical_signals(obs);
         self.apply_resilience_signals(obs);
     }
 
@@ -226,9 +240,6 @@ impl OrchestratorState {
     }
 
     fn apply_resilience_signals(&mut self, obs: &Observations) {
-        for signal in obs.clinical_signals.iter() {
-            self.resilience.degraded_components.push(signal.clone());
-        }
         for signal in obs.resilience_signals.iter() {
             self.resilience.degraded_components.push(signal.clone());
         }
@@ -236,6 +247,14 @@ impl OrchestratorState {
             self.history.recent_failures.push(failure.clone());
         }
         self.resilience.degraded_mode = self.resilience.degraded_components.is_empty().eq(&false);
+    }
+
+    fn apply_clinical_signals(&mut self, obs: &Observations) {
+        for signal in &obs.clinical_signals {
+            if self.clinical_signals.iter().all(|known| known.signal_id != signal.signal_id) {
+                self.clinical_signals.push(signal.clone());
+            }
+        }
     }
 
     /// Phase COLLECT EVIDENCE : revise l'etat epistemique.

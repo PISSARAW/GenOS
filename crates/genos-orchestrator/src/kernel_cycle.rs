@@ -146,6 +146,7 @@ impl ControlKernel {
         let spawned = self.spawn_all(plan);
         let mut applied = spawned.is_empty().eq(&false);
         applied |= self.retire_all(plan);
+        applied |= self.isolate_workers(plan);
         applied |= self.apply_cognitive_changes(plan);
         applied |= self.apply_strategy_changes(plan);
         applied |= self.apply_model_assignments(plan);
@@ -164,6 +165,15 @@ impl ControlKernel {
             self.state.resources.allocations.remove(agent);
         }
         true
+    }
+
+    fn isolate_workers(&mut self, plan: &MorphogenesisPlan) -> bool {
+        for agent in &plan.isolate_workers {
+            if !self.state.resilience.isolated_agents.contains(agent) {
+                self.state.resilience.isolated_agents.push(agent.clone());
+            }
+        }
+        plan.isolate_workers.is_empty().eq(&false)
     }
 
     fn apply_cognitive_changes(&mut self, plan: &MorphogenesisPlan) -> bool {

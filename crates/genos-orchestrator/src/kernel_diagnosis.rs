@@ -53,10 +53,23 @@ pub fn diagnose(input: &DiagnosisInput<'_>) -> Diagnosis {
     if let Some(epistemic) = diagnose_epistemic(input) {
         return epistemic;
     }
+    if let Some(clinical) = diagnose_clinical(input) {
+        return clinical;
+    }
     if let Some(structural) = diagnose_structural(input) {
         return structural;
     }
     diagnose_residual(input)
+}
+
+fn diagnose_clinical(input: &DiagnosisInput<'_>) -> Option<Diagnosis> {
+    input.state.clinical_signals.iter().find(|signal| {
+        signal.confirmed && signal.confidence >= 0.7 && !signal.agent_id.is_empty()
+    }).map(|signal| Diagnosis {
+        failure: FailureType::Pathological,
+        confidence: signal.confidence,
+        detail: signal.agent_id.clone(),
+    })
 }
 
 fn diagnose_epistemic(input: &DiagnosisInput<'_>) -> Option<Diagnosis> {
@@ -134,9 +147,9 @@ fn diagnose_residual(input: &DiagnosisInput<'_>) -> Diagnosis {
     }
     if state.resilience.degraded_components.is_empty().eq(&false) {
         return Diagnosis {
-            failure: FailureType::Pathological,
+            failure: FailureType::Procedural,
             confidence: 0.7,
-            detail: String::from("pathologie detectee"),
+            detail: String::from("composant degrade sans diagnostic clinique confirme"),
         };
     }
     if input.no_progress && input.worker_error_rate > 0.5 {

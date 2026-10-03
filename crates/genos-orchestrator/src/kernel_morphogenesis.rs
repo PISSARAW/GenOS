@@ -40,6 +40,7 @@ pub struct MorphogenesisPlan {
     pub spawns: Vec<String>,
     pub preserves: Vec<String>,
     pub retires: Vec<String>,
+    pub isolate_workers: Vec<String>,
     pub cognitive_changes: Vec<CognitiveChange>,
     pub strategy_changes: Vec<CognitiveChange>,
     pub model_assignments: Vec<CognitiveChange>,
@@ -70,6 +71,7 @@ impl MorphogenesisPlan {
         self.topology_changes.is_empty().eq(&false)
             || self.spawns.is_empty().eq(&false)
             || self.retires.is_empty().eq(&false)
+            || self.isolate_workers.is_empty().eq(&false)
             || self.cognitive_changes.is_empty().eq(&false)
             || self.strategy_changes.is_empty().eq(&false)
             || self.model_assignments.is_empty().eq(&false)
@@ -216,6 +218,7 @@ impl MorphogenesisPlanner {
             }),
             open if open == "spawn_verifier" => plan.spawns.push(String::from("verifier")),
             open if open == "spawn_probe" => plan.spawns.push(String::from("probe")),
+            open if open == "isolate_worker" => plan.isolate_workers.push(item.target.clone()),
             open if open == "change_recipe" => plan.cognitive_changes.push(CognitiveChange {
                 agent: item.target.clone(),
                 from: String::from("recette_courante"),

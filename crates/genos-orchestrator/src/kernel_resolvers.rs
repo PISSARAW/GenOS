@@ -170,7 +170,7 @@ fn collect_structural(input: &ResolverInput<'_>, set: &mut ProposalSet) {
         ),
         FailureType::Pathological => emit(
             set,
-            &spec("ClinicalPlanner", "isolate_worker", "worker_pathologique"),
+            &spec("ClinicalPlanner", "isolate_worker", &input.diagnosis.detail),
         ),
         _ => {}
     }
