@@ -1,13 +1,13 @@
 'use strict';
 const metapopulationStore = require('../metapopulationStore');
-const { createDaemonLease } = require('./persistentDaemonLeaseService');
-
-const daemonStore = new Map();
+const daemonLeases = require('./persistentDaemonLeaseService');
 
 async function registerResidentDaemon(context) {
-  const { db, metapopulationId, demeId, daemonId, ownerId, ttlMs, options } = context;
-  const now = Number(options?.now || Date.now());
-  const lease = await createDaemonLease({ db, metapopulationId, demeId, ttlMs: ttlMs || 600000 });
+  const { db, metapopulationId, demeId, daemonId, ownerId, ttlMs } = context;
+  const existing = await daemonLeases.loadDaemonLease(db, metapopulationId, demeId);
+  if (existing) return resumeRegisteredDaemon({ db, existing, daemonId, ttlMs });
+  const deme = await metapopulationStore.getDeme(db, metapopulationId, demeId);
+  if (deme?.workspacePath) throw daemonError('METAPOPULATION_DAEMON_WORKSPACE_CONFLICT');
   await metapopulationStore.attachDemeWorkspace(db, {
     metapopulationId,
     demeId,
@@ -16,43 +16,59 @@ async function registerResidentDaemon(context) {
     localBoundary: [],
     budget: { limits: { maintenance: ttlMs || 600000 }, used: {} },
   });
-  daemonStore.set(demeId, {
-    daemonId,
-    ownerId: ownerId || daemonId,
-    workspacePath: `/demes/${demeId}/workspace`,
-    createdAt: now,
-    expiresAt: new Date(lease.expiresAt).getTime(),
-    leaseId: lease.leaseId,
-    status: 'ACTIVE',
-    heartbeatVersion: 1,
-  });
+  const lease = await daemonLeases.createDaemonLease({ db, metapopulationId, demeId, daemonId, ttlMs: ttlMs || 600000 });
   return { daemonId, demeId, workspacePath: `/demes/${demeId}/workspace`, leaseId: lease.leaseId, expiresAt: new Date(lease.expiresAt).getTime() };
+}
+
+async function resumeRegisteredDaemon(context) {
+  const { db, existing, daemonId, ttlMs } = context;
+  if (existing.daemonId !== daemonId) throw daemonError('METAPOPULATION_DAEMON_IDENTITY_CONFLICT');
+  const lease = await daemonLeases.extendDaemonLease({ db, metapopulationId: existing.metapopulationId,
+    demeId: existing.demeId, daemonId, ttlMs: ttlMs || existing.ttlMs || 600000 });
+  return { daemonId, demeId: existing.demeId, workspacePath: `/demes/${existing.demeId}/workspace`,
+    leaseId: lease.leaseId, expiresAt: lease.expiresAt };
+}
+
+function daemonError(code) {
+  return Object.assign(new Error(code), { code });
 }
 
 async function maintainResidentDaemon(context) {
   const { db, metapopulationId, demeId, options } = context;
-  const daemon = daemonStore.get(demeId);
-  if (!daemon || daemon.status !== 'ACTIVE') {
-    return { maintained: false, demeId, reason: daemon ? 'DAEMON_NOT_ACTIVE' : 'DAEMON_NOT_FOUND' };
-  }
   const now = Number(options?.now || Date.now());
+  const daemon = await daemonLeases.loadDaemonLease(db, metapopulationId, demeId);
+  if (!daemon) return { maintained: false, demeId, reason: 'DAEMON_NOT_FOUND' };
+  const deme = await metapopulationStore.getDeme(db, metapopulationId, demeId);
+  if (!deme || deme.status !== 'ACTIVE') {
+    return { maintained: false, demeId, reason: 'DEME_NOT_ACTIVE' };
+  }
   if (now > daemon.expiresAt) {
-    daemon.status = 'EXPIRED';
     return { maintained: false, demeId, reason: 'LEASE_EXPIRED' };
   }
-  const fitness = options?.fitnessEvaluator?.(demeId) ?? 0.5;
-  const lineage = { founders: [daemon.daemonId], generation: (daemon.lineageGeneration || 0) + 1 };
+  const fitness = maintenanceFitness(options, demeId);
+  const lineage = nextDaemonLineage(deme, daemon.daemonId);
+  await persistDaemonHeartbeat(db, { metapopulationId, demeId, fitness, lineage });
+  const renewed = await daemonLeases.extendDaemonLease({ db, metapopulationId, demeId,
+    daemonId: daemon.daemonId, ttlMs: options?.leaseTtlMs || daemon.ttlMs || 600000 });
+  return { maintained: true, demeId, fitness, lineage, expiresAt: renewed.expiresAt };
+}
+
+function maintenanceFitness(options, demeId) {
+  return options?.fitnessEvaluator?.(demeId) ?? 0.5;
+}
+
+function nextDaemonLineage(deme, daemonId) {
+  const founders = deme.lineage?.founders || [daemonId].filter(Boolean);
+  return { ...deme.lineage, founders, generation: (deme.lineage?.generation || 0) + 1 };
+}
+
+async function persistDaemonHeartbeat(db, context) {
+  const { metapopulationId, demeId, fitness, lineage } = context;
   await metapopulationStore.updateDemeProfile(db, {
-    metapopulationId,
-    demeId,
-    changes: {
-      fitness: { score: fitness, local: fitness },
-      lineage: lineage,
-      localMemoryRef: `memory:${demeId}:v${daemon.heartbeatVersion++}`,
-    },
+    metapopulationId, demeId,
+    changes: { fitness: { score: fitness, local: fitness }, lineage,
+      localMemoryRef: `memory:${demeId}:v${lineage.generation}` },
   });
-  daemon.expiresAt = now + (options?.leaseTtlMs || 600000);
-  return { maintained: true, demeId, fitness, lineage, expiresAt: daemon.expiresAt };
 }
 
 async function trackLongitudinalFitness(context) {

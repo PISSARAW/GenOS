@@ -2,26 +2,30 @@
 const { randomUUID } = require('crypto');
 
 async function createDaemonLease(context) {
-  const { db, metapopulationId, demeId, ttlMs } = context;
-  return createDaemonLeaseRecord({ db, metapopulationId, demeId, ttlMs: ttlMs || 600000 });
+  const { db, metapopulationId, demeId, daemonId, ttlMs } = context;
+  return createDaemonLeaseRecord({ db, metapopulationId, demeId, daemonId, ttlMs: ttlMs || 600000 });
 }
 
 async function createDaemonLeaseRecord(context) {
-  const { db, metapopulationId, demeId, ttlMs } = context;
+  const { db, metapopulationId, demeId, daemonId, ttlMs } = context;
   const leaseId = `daemon-lease-${demeId}-${Date.now()}-${randomUUID().slice(0, 8)}`;
   const createdAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + ttlMs).toISOString();
   await db.run(
-    `INSERT OR REPLACE INTO daemon_leases (lease_id, metapopulation_id, deme_id, ttl_ms, created_at, expires_at, active, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, ?)`,
-    [leaseId, metapopulationId, demeId, ttlMs, createdAt, expiresAt, createdAt]
+    'UPDATE daemon_leases SET active = 0, updated_at = ? WHERE metapopulation_id = ? AND deme_id = ? AND active = 1',
+    [createdAt, metapopulationId, demeId]
   );
-  return { leaseId, demeId, ttlMs, createdAt, expiresAt, active: true };
+  await db.run(
+    `INSERT OR REPLACE INTO daemon_leases (lease_id, metapopulation_id, deme_id, daemon_id, ttl_ms, created_at, expires_at, active, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+    [leaseId, metapopulationId, demeId, daemonId || null, ttlMs, createdAt, expiresAt, createdAt]
+  );
+  return { leaseId, metapopulationId, demeId, daemonId: daemonId || null, ttlMs, createdAt, expiresAt, active: true };
 }
 
 async function loadDaemonLease(db, metapopulationId, demeId) {
   const row = await db.get(
-    `SELECT lease_id, deme_id, ttl_ms, created_at, expires_at, active FROM daemon_leases
+    `SELECT lease_id, metapopulation_id, deme_id, daemon_id, ttl_ms, created_at, expires_at, active FROM daemon_leases
      WHERE metapopulation_id = ? AND deme_id = ? AND active = 1
      ORDER BY expires_at DESC LIMIT 1`,
     [metapopulationId, demeId]
@@ -29,7 +33,9 @@ async function loadDaemonLease(db, metapopulationId, demeId) {
   if (!row) return null;
   return {
     leaseId: row.lease_id,
+    metapopulationId: row.metapopulation_id,
     demeId: row.deme_id,
+    daemonId: row.daemon_id || null,
     ttlMs: row.ttl_ms,
     createdAt: new Date(row.created_at).getTime(),
     expiresAt: new Date(row.expires_at).getTime(),
@@ -38,7 +44,7 @@ async function loadDaemonLease(db, metapopulationId, demeId) {
 }
 
 async function extendDaemonLease(context) {
-  const { db, metapopulationId, demeId, ttlMs } = context;
+  const { db, metapopulationId, demeId, daemonId, ttlMs } = context;
   const duration = ttlMs || 600000;
   const existing = await loadDaemonLease(db, metapopulationId, demeId);
   const now = Date.now();
@@ -50,7 +56,7 @@ async function extendDaemonLease(context) {
     );
     return { leaseId: existing.leaseId, demeId, ttlMs: duration, expiresAt: now + duration, active: true };
   }
-  return createDaemonLease({ db, metapopulationId, demeId, ttlMs: duration });
+  return createDaemonLease({ db, metapopulationId, demeId, daemonId, ttlMs: duration });
 }
 
 async function deactivateDaemonLease(db, metapopulationId, demeId) {

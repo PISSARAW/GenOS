@@ -5,6 +5,15 @@ async function migrateMetapopulationVariantRuntime(db) {
   await migrateMetapopulation(db);
   await ensureTable(db, 'ephemeral_leases');
   await ensureTable(db, 'daemon_leases');
+  await ensureColumn(db, { table: 'daemon_leases', column: 'daemon_id', declaration: 'TEXT' });
+}
+
+async function ensureColumn(db, options) {
+  const { table, column, declaration } = options;
+  const columns = await db.all(`PRAGMA table_info(${table})`);
+  if (!columns.some((entry) => entry.name === column)) {
+    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${declaration}`);
+  }
 }
 
 async function ensureTable(db, table) {
@@ -29,6 +38,7 @@ async function ensureTable(db, table) {
         lease_id TEXT PRIMARY KEY,
         metapopulation_id TEXT NOT NULL,
         deme_id TEXT NOT NULL,
+        daemon_id TEXT,
         ttl_ms INTEGER NOT NULL DEFAULT 600000,
         created_at TEXT NOT NULL,
         expires_at TEXT NOT NULL,

@@ -188,8 +188,17 @@ async function persistentLoopChecks(db) {
   const registered = await persistent.registerResidentDaemon({ db, metapopulationId: sessionId, demeId: 'deme-home', daemonId: 'daemon-1', ownerId: 'daemon-1', ttlMs: 3600000, options: {} });
   assert.equal(registered.daemonId, 'daemon-1');
   assert.ok(registered.expiresAt > Date.now());
+  const savedLease = await require('../src/services/metapopulation/runtime/persistentDaemonLeaseService')
+    .loadDaemonLease(db, sessionId, 'deme-home');
+  assert.equal(savedLease.daemonId, 'daemon-1');
+  const retried = await persistent.registerResidentDaemon({ db, metapopulationId: sessionId, demeId: 'deme-home', daemonId: 'daemon-1', ttlMs: 3600000, options: {} });
+  assert.equal(retried.leaseId, registered.leaseId);
+  await assert.rejects(() => persistent.registerResidentDaemon({ db, metapopulationId: sessionId, demeId: 'deme-home', daemonId: 'daemon-other', ttlMs: 3600000, options: {} }), { code: 'METAPOPULATION_DAEMON_IDENTITY_CONFLICT' });
 
-  const maintained = await persistent.maintainResidentDaemon({ db, metapopulationId: sessionId, demeId: 'deme-home', options: { fitnessEvaluator: () => 0.75 } });
+  const runtimePath = require.resolve('../src/services/metapopulation/runtime/persistentRuntimeService');
+  delete require.cache[runtimePath];
+  const restartedRuntime = require(runtimePath);
+  const maintained = await restartedRuntime.maintainResidentDaemon({ db, metapopulationId: sessionId, demeId: 'deme-home', options: { fitnessEvaluator: () => 0.75 } });
   assert.equal(maintained.maintained, true);
   assert.equal(maintained.fitness, 0.75);
 
@@ -387,7 +396,4 @@ async function run() {
   console.log('Metapopulation variants runtime: PASS');
 }
 
-run().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+run().catch((error) => { console.error(error); process.exitCode = 1; });
