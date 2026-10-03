@@ -18,9 +18,22 @@ function makeCandidate(ecology, archive, input) {
   const descriptor = numericDescriptor(input.descriptor);
   const evidenceRefs = strings(input.evidenceRefs);
   if (!descriptor.length || !evidenceRefs.length) throw variantError('QD elites need a numeric descriptor and evidence.', 'BIOME_VARIANT_EVIDENCE_REQUIRED');
+  validateQuality(input.quality);
+  validateDescriptorDimensions(descriptor, archive, input.centroids);
   const cell = selectCell(descriptor, input.centroids);
-  return { cell, descriptor, quality: finiteNonNegative(input.quality), novelty: localNovelty(descriptor, archive, cell),
+  return { cell, descriptor, quality: input.quality, novelty: localNovelty(descriptor, archive, cell),
     strategy: input.strategy || null, evidenceRefs, tick: ecology.tick };
+}
+
+function validateQuality(quality) {
+  if (!Number.isFinite(quality)) throw variantError('QD quality must be a measured finite number.', 'BIOME_VARIANT_MEASUREMENT_INVALID');
+}
+
+function validateDescriptorDimensions(descriptor, archive, centroids) {
+  const archived = Object.values(archive).map((entry) => entry.descriptor);
+  const centers = Array.isArray(centroids) ? centroids : [];
+  const incompatible = [...archived, ...centers].some((value) => numericDescriptor(value).length !== descriptor.length);
+  if (incompatible) throw variantError('QD descriptors, archive entries and centroids must share one dimension.', 'BIOME_VARIANT_DESCRIPTOR_INVALID');
 }
 
 function makeOffspring(archive, candidate, input) {
@@ -71,7 +84,10 @@ function bestOtherCell(archive, cell) {
 
 function numericDescriptor(value) {
   const values = Array.isArray(value) ? value : value && typeof value === 'object' ? Object.values(value) : [];
-  return values.map(Number).filter(Number.isFinite).map((number) => Math.max(0, Math.min(1, number)));
+  if (values.some((item) => !Number.isFinite(item) || item < 0 || item > 1)) {
+    throw variantError('QD descriptors must contain finite normalized values in [0,1].', 'BIOME_VARIANT_DESCRIPTOR_INVALID');
+  }
+  return values;
 }
 
 function distance(left, right) {
@@ -80,7 +96,6 @@ function distance(left, right) {
 }
 
 function strings(value) { return Array.isArray(value) ? value.filter((item) => typeof item === 'string' && item.trim()) : []; }
-function finiteNonNegative(value) { return Number.isFinite(value) ? Math.max(0, value) : 0; }
 function variantError(message, code) { return Object.assign(new Error(message), { code }); }
 
 module.exports = { advance };
