@@ -9,7 +9,8 @@ assert.equal(trinity.DOMAIN_WEIGHTS.data.beta, 0.45);
 assert.equal(trinity.DOMAIN_WEIGHTS.product_design.gamma, 0.40);
 assert.equal(trinity.DOMAIN_WEIGHTS.software_engineering.alpha, 0.35);
 
-// 2. Score individual world evidence
+// 2. Score individual world evidence (ADR 0281: only resolvable refs weigh;
+// bare declarations and self-declared test strings score zero)
 const world1Report = {
   outcome: 'success',
   claims: [
@@ -22,17 +23,18 @@ const world1Report = {
 
 const score1 = trinity.scoreWorldEvidence(world1Report, 'software_engineering');
 assert(score1.totalScore > 0, 'Score 1 must be positive');
-assert.equal(score1.claimsScore, 0.5); // 1 out of 2 proven
-assert.equal(score1.testsCoverage, 1.0); // 2 of 2 passed
+assert.equal(score1.claimsScore, 0); // no resolvable refs
+assert.equal(score1.testsCoverage, 0); // self-declared strings are not receipts
 assert(score1.robustnessScore < 1.0, 'Robustness must have penalty for uncertainty');
+assert.deepEqual(score1.evidenceAudit, { proven: 0, resolvableRefs: 0, placeholderRefs: 1, claimCount: 2 });
 
 const world2Report = {
   outcome: 'success',
   claims: [
-    { statement: 'Feature implemented', evidence: ['reproduced logs', 'assertion ok'] },
-    { statement: 'Invariants checked', evidence: ['code inspect'] }
+    { statement: 'Feature implemented', evidence: ['backend/src/services/trinityService.js'] },
+    { statement: 'Invariants checked twice', evidence: ['https://nodejs.org/api/assert'] }
   ],
-  tests: ['suite 1', 'suite 2'],
+  tests: [{ name: 'suite 1', passed: true, receipt: 'r1' }, { name: 'suite 2', passed: true, commandId: 'c2' }],
   coverage: 0.95
 };
 

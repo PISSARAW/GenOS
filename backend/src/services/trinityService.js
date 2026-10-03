@@ -114,6 +114,7 @@ const hypothesisDesign = require('./trinityHypothesisDesignService');
 const trinityClaimGraph = require('./trinityClaimGraphService');
 const trinityVariants = require('./trinityVariantService');
 const differentiation = require('./trinityDifferentiationService');
+const audit = require('./trinityEvidenceAudit');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },
@@ -124,11 +125,10 @@ const DOMAIN_WEIGHTS = {
 };
 
 const clamp01 = v => Math.max(0, Math.min(1, v));
-const textItems = v => Array.isArray(v) ? v.filter(i => (typeof i === 'string' ? i.trim().length > 0 : Boolean(i))) : [];
 
-function evidenceWeightOf(claim) {
+function evidenceWeightOf(claim, evidenceIds) {
   if (!claim || typeof claim !== 'object') return 0;
-  return textItems(claim.evidence).length + textItems(claim.receipts).length * 2 + textItems(claim.sourceRefs).length * 1.5;
+  return audit.auditClaim(claim, evidenceIds || new Set()).weight;
 }
 
 function isSubstantiveClaim(claim) {
@@ -141,19 +141,27 @@ function hasExplicitCoverage(report) {
   return Array.isArray(report.tests) && report.tests.length > 0;
 }
 
+function hasTestReceipt(entry) {
+  if (typeof entry === 'string') return false;
+  if (!entry || typeof entry !== 'object') return false;
+  if (entry.failed || entry.error) return false;
+  return Boolean(entry.receipt || entry.commandId || entry.hash || entry.output || entry.exitCode === 0 || typeof entry.durationMs === 'number');
+}
+
 function passedTests(report) {
   const tests = Array.isArray(report.tests) ? report.tests : [];
-  return tests.filter(t => (typeof t === 'string' ? !/fail|error/i.test(t) : !(t && (t.failed || t.error)))).length;
+  return tests.filter(hasTestReceipt).length;
 }
 
 function scoreWorldEvidence(report, domain = 'software_engineering') {
   const weights = adaptive.routeWeights(domain) || DOMAIN_WEIGHTS[domain] || DOMAIN_WEIGHTS.software_engineering;
   if (!report || typeof report !== 'object') return { totalScore: 0, claimsScore: 0, testsCoverage: 0, robustnessScore: 0, provenClaims: 0, substantiveClaims: 0, evidenceWeight: 0, hasDeliverable: false, domain, weights };
   const claims = Array.isArray(report.claims) ? report.claims : [];
+  const ids = audit.evidenceIdsOf(report);
   let provenClaims = 0, substantiveClaims = 0, evidenceWeight = 0;
   for (const c of claims) {
-    const w = evidenceWeightOf(c);
-    if (w > 0) provenClaims++;
+    const w = evidenceWeightOf(c, ids);
+    if (w >= 1) provenClaims++;
     evidenceWeight += clamp01(w / 3);
     if (isSubstantiveClaim(c)) substantiveClaims++;
   }
@@ -178,13 +186,30 @@ function scoreWorldEvidence(report, domain = 'software_engineering') {
   robustnessScore -= (1 - evidenceDensity) * 0.15;
   robustnessScore = clamp01(robustnessScore);
   const totalScore = Number((weights.alpha * claimsScore + weights.beta * testsCoverage + weights.gamma * robustnessScore).toFixed(4));
-  return { totalScore, claimsScore: Number(claimsScore.toFixed(4)), testsCoverage: Number(testsCoverage.toFixed(4)), robustnessScore: Number(robustnessScore.toFixed(4)), provenClaims, substantiveClaims, evidenceWeight: Number(evidenceWeight.toFixed(4)), hasDeliverable, domain, weights };
+  return { totalScore, claimsScore: Number(claimsScore.toFixed(4)), testsCoverage: Number(testsCoverage.toFixed(4)), robustnessScore: Number(robustnessScore.toFixed(4)), provenClaims, substantiveClaims, evidenceWeight: Number(evidenceWeight.toFixed(4)), hasDeliverable, domain, weights, evidenceAudit: audit.auditReport(report) };
 }
 
 function scoreWorld(entry, domain) {
   const r = entry.report || entry.evidenceReport || entry;
   const d = scoreWorldEvidence(r, domain);
   return { worldNumber: entry.worldNumber || 0, role: entry.role || entry.strategy || `world_${entry.worldNumber || 1}`, name: entry.name || `Trinity World ${entry.worldNumber || 1}`, agentId: entry.agentId || entry.id || null, score: d.totalScore, breakdown: d, report: r };
+}
+
+function strengthsOf(breakdown) {
+  const out = [];
+  const report = breakdown.evidenceAudit;
+  if (report && report.claimCount > 0 && report.proven === report.claimCount) out.push('all claims evidence-backed');
+  if (breakdown.hasDeliverable) out.push('deliverable present');
+  return out;
+}
+
+function weaknessesOf(breakdown) {
+  const out = [];
+  const report = breakdown.evidenceAudit;
+  if (report && report.placeholderRefs > 0) out.push(`${report.placeholderRefs} unresolvable evidence refs`);
+  if (breakdown.provenClaims === 0) out.push('no resolvable evidence');
+  if (breakdown.testsCoverage === 0 && !breakdown.hasDeliverable) out.push('no executed tests');
+  return out;
 }
 
 function compareWorlds(worldEntries, domain = 'software_engineering') {
@@ -196,7 +221,7 @@ function compareWorlds(worldEntries, domain = 'software_engineering') {
   const tiedWorlds = scored.filter(w => Math.abs(w.score - bestScore) <= 1e-6).map(w => w.worldNumber);
   const matrix = scored.map(w => ({
     worldNumber: w.worldNumber, role: w.role, score: w.score,
-    strengths: [], weaknesses: []
+    strengths: strengthsOf(w.breakdown), weaknesses: weaknessesOf(w.breakdown)
   }));
   return { domain, scoredWorlds: scored, bestWorld: best, bestScore, tied: tiedWorlds.length > 1, tiedWorlds, comparisonMatrix: matrix, timestamp: new Date().toISOString() };
 }
@@ -224,17 +249,18 @@ async function recordWorldComparison(db, comparisonData) {
   return comparison;
 }
 
-function evidenceBackedClaim(claim) {
-  return Boolean(claim && isSubstantiveClaim(claim) && evidenceWeightOf(claim) > 0);
+function evidenceBackedClaim(claim, evidenceIds) {
+  return Boolean(claim && isSubstantiveClaim(claim) && evidenceWeightOf(claim, evidenceIds) >= 1);
 }
 
 function complementaryClaimsFrom(worlds, winner, claimGraph) {
   const claims = [];
   for (const world of worlds) {
     if (world.worldNumber === winner.worldNumber) continue;
+    const ids = audit.evidenceIdsOf(world.report);
     const worldClaims = Array.isArray(world.report?.claims) ? world.report.claims : [];
     for (const claim of worldClaims) {
-      if (!evidenceBackedClaim(claim) || !hasComplementEdge(claim, winner.report?.claims, claimGraph)) continue;
+      if (!evidenceBackedClaim(claim, ids) || !hasComplementEdge(claim, winner.report?.claims, claimGraph)) continue;
       claims.push({ ...claim, statement: `[World ${world.worldNumber} complementary] ${claim.statement}` });
     }
   }
@@ -294,7 +320,7 @@ function hasValidWorldEvidence(entry) {
   const r = entry && (entry.report || entry.evidenceReport || entry);
   if (!r || typeof r !== 'object') return false;
   if (r.outcome === 'failed') return Boolean(r.failure && String(r.failure.reason || '').trim());
-  return Array.isArray(r.claims) && r.claims.some(c => isSubstantiveClaim(c) && evidenceWeightOf(c) > 0);
+  return Array.isArray(r.claims) && r.claims.some(c => isSubstantiveClaim(c) && evidenceWeightOf(c, audit.evidenceIdsOf(r)) >= 1);
 }
 
 function rejectionReason(validation, comparison, threshold) {
