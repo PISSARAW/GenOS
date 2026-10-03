@@ -22,6 +22,10 @@ async function run() {
   assert.deepEqual(variants.list(), ['exploratory', 'routing', 'growth', 'resilient', 'sparse', 'persistent', 'ephemeral', 'small_world', 'private', 'cross_representation', 'procedural', 'self_healing']);
   assert.equal(variants.analyzeFit({ routeFailures: 1 }).variant, 'resilient');
   assert.equal(variants.analyzeFit({ budgetTight: true }).variant, 'sparse');
+  for (const mission of [
+    'Crée une nouvelle branche quand une dépendance inconnue est découverte.',
+    'Si une capacité non cartographiée apparaît, étends le réseau avec une nouvelle branche.'
+  ]) assert.equal(variants.selectForMission(mission).selection.variant, 'growth');
   assert.throws(() => variants.resolve('unknown'), (error) => error.code === 'RHIZOME_VARIANT_UNKNOWN');
   assert.equal(variants.resolve('persistent').session.scope, 'persistent');
   assert.equal(variants.resolve('ephemeral').session.persistence, false);
