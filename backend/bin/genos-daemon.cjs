@@ -74,19 +74,30 @@ function startHeartbeatTimer(runtime, daemonId, intervalMs) {
 
 function startEventPollTimer(context, intervalMs) {
   let polling = false;
+  let pollHealth = context.runtime.daemons.get(context.daemonId)?.health || 'HEALTHY';
   const timer = setInterval(async () => {
     if (polling) return;
     polling = true;
     try {
       await eventConsumer.pollDaemonEvents(context);
+      if (await updatePollHealth(context, 'HEALTHY', pollHealth)) pollHealth = 'HEALTHY';
     } catch (error) {
       process.stderr.write(`[genos-daemon] Event poll failed: ${error.message}\n`);
+      if (await updatePollHealth(context, 'DEGRADED', pollHealth)) pollHealth = 'DEGRADED';
     } finally {
       polling = false;
     }
   }, intervalMs);
   if (timer.unref) timer.unref();
   return timer;
+}
+
+async function updatePollHealth(context, health, previousHealth) {
+  if (health === previousHealth) return true;
+  try {
+    const result = await runtimeService.heartbeat(context.runtime, { daemonId: context.daemonId, health });
+    return result.updated === true;
+  } catch (_) { return false; /* the next poll retries the health transition */ }
 }
 
 async function resolveRegisteredTerritory(db, territoryId) {
