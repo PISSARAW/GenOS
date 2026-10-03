@@ -27,6 +27,17 @@ l’issue des agents et de la porte d’homéostasie. Une couverture incomplète
 Les reçus réels restent la seule preuve d’exécution; aucune mention dans le prompt
 ou la télémétrie ne remplace un reçu.
 
+Un contrat explicitement marqué `factual_read_only` avec modifications de fichiers
+désactivées requiert le snapshot et la recherche de défaillances exécutés par le
+runtime, puis les portes existantes de dossiers de workers et d’homéostasie. Les
+phases de diagnostic, mutation, replay et promotion de code ne sont pas imposées
+à une réponse factuelle en lecture seule. Le benchmark conserve son oracle de
+citations indépendant et ne qualifie un run que si cet oracle réussit.
+Le sélecteur de stratégie conserve exactement une décision par entrée du registre,
+y compris lorsque la stratégie primaire est une solution de repli. Cette règle
+empêche une migration automatique de reconstruire le contrat et d’effacer son mode
+d’évaluation pendant la mission.
+
 ## Conséquences
 
 - Les tâches simples peuvent suivre le chemin direct choisi par la stratégie.

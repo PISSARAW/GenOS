@@ -53,6 +53,7 @@ function executionStatusOf(realizable, omittedPhases) {
 function buildAutonomyPlan(contract, budget = {}) {
   const profile = contract.problem_profile || {};
   const flags = profileFlags(profile);
+  flags.factualReadOnly = contract.evaluation_mode === 'factual_read_only';
   const modes = modeFlags(contract);
   const survival = evaluateSurvival({
     tokens: budget.tokens ?? 500000,

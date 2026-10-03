@@ -86,6 +86,12 @@ function applySynthesisPlan(ctx) {
   ctx.autonomyPlan.synthesisOnly = true;
   ctx.autonomyPlan.dispatchWorkers = [];
   ctx.autonomyPlan.completedWorkerIds = ctx.usable.map((dossier) => dossier.workerId);
+  ctx.autonomyPlan.completedWorkerDossiers = ctx.usable.map((dossier) => ({
+    workerId: dossier.workerId,
+    events: dossier.events.filter((event) => event.evidenceReport).map((event) => ({
+      evidenceReport: { claims: event.evidenceReport.claims || [] }
+    }))
+  }));
   ctx.autonomyPlan.mandatoryTools = stripDelegationTools(ctx.autonomyPlan.mandatoryTools);
 }
 

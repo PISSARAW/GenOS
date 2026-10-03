@@ -124,7 +124,10 @@ async function prepareMission(opts) {
   const metadataJson = mergeMetadataJson(existing?.metadata_json, { nceMetadata });
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?)`, id, enhancedPrompt, metadataJson);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
-  const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt, createdBy: 'mcp_orchestrate' });
+  const evaluationMode = request.evaluationMode === 'factual_read_only' && policyRequest.allow_file_edits !== true
+    ? 'factual_read_only' : null;
+  const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt,
+    evaluationMode, createdBy: 'mcp_orchestrate' });
 
   // Morphogenesis: determine topology, agents, and substrate requirements
   const morphogenesis = require('../src/services/morphogenesis/morphogenesisRuntime');

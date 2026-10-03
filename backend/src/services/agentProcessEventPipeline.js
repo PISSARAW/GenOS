@@ -51,7 +51,9 @@ function checkDossierInfluence(ctx, event, eventType) {
   if (eventType !== 'EVIDENCE_REPORT' || dispatchedAgent.execution_mode !== 'orchestrator' || !autonomyPlan?.synthesisOnly) return false;
   try {
     const report = extractEvidenceReport(event.payload);
-    validateDossierInfluence(report, autonomyPlan.completedWorkerIds || []);
+    const workerIds = autonomyPlan.completedWorkerIds || [];
+    const dossiers = autonomyPlan.completedWorkerDossiers || [];
+    validateDossierInfluence(report, workerIds, { dossiers });
     const compiler = require('./reportCompilerService');
     const unknown = compiler.resolveWorkerTags(report, autonomyPlan.completedWorkerIds || []);
     if (unknown.length) {

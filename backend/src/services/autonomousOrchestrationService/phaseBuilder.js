@@ -52,6 +52,10 @@ function omitPhases(phases, phaseValidation) {
 }
 
 function buildPhases(flags, modes, branchCount) {
+  if (flags.factualReadOnly) return [
+    runtimePhase('factual_source_baseline', ['genos_snapshot', 'genos_search_failures'],
+      'Preserve the read-only source baseline and retrieve known failure modes before evidence-gated synthesis.')
+  ];
   if (flags.creative) return [
     runtimePhase('creative_baseline', ['genos_snapshot'], 'Preserve the brief and creative baseline.'),
     phase('literary_review', ['genos_adversarial_review'], 'Independently review coherence and constraint coverage.'),

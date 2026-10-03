@@ -5,6 +5,7 @@ console.info = (...args) => process.stderr.write(args.map(String).join(' ') + '\
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 const { localArtifactInstruction } = require('../src/services/localArtifactInstruction');
 const modelRouter = require('../src/services/modelRouter');
+const localSynthesis = require('../src/services/localRuntimeSynthesis');
 const path = require('path');
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
@@ -53,6 +54,7 @@ async function main(rawInput) {
     selfIntro: identity.selfIntro,
     conscienceBlock,
     strategyContract: parseJson(mission.strategyContractJson),
+    autonomyPlan: parseJson(mission.autonomyPlanJson),
     executionPolicy: parseJson(mission.executionPolicyJson),
     executionBudget: parseJson(mission.executionBudgetJson),
     localRoutingPolicy: parseJson(mission.localRoutingPolicyJson),
@@ -113,6 +115,7 @@ function createGeneration(state) {
   const { withTextImmunity } = require('../src/services/immuneSystem.js');
   const griotValidator = (text) => {
     if (text.length < 10) throw new Error('Réponse trop courte ou absente.');
+    localSynthesis.validateSynthesisReply(text, state.autonomyPlan);
   };
   const fallback = {
     used: false,
@@ -121,9 +124,6 @@ function createGeneration(state) {
   const abort = new AbortController();
   const overrideTimeoutMs = Number(process.env.GENOS_LOCAL_MODEL_TIMEOUT_MS) || 0;
   const latencyBudgetMs = budgetLimit(state.executionBudget, 'latencyMs');
-  // 3 essais immunitaires possibles × timeout par essai. Il faut laisser assez
-  // de temps pour que Ollama réponde 3 fois (phagocytose). Budget par essai
-  // = 60% du budget total pour avoir la marge sur 3 tentatives.
   const perAttemptTimeoutMs = overrideTimeoutMs > 0
     ? overrideTimeoutMs
     : (Number.isFinite(latencyBudgetMs) ? Math.max(120000, Math.floor(latencyBudgetMs * 0.6 / 3)) : 300000);
@@ -240,12 +240,14 @@ function emitCompletion(state, reply) {
     ? buildWorkerArtifact(kind, reply, provenance)
     : buildDossierArtifact(reply, provenance);
   if (!workerArtifact) throw new Error(`Local model did not return a valid '${workerKinds.kindDefinition(kind).artifact}' artifact.`);
+  const parsedReply = localSynthesis.parseReply(reply);
   const report = {
     outcome: 'success',
-    claims: [{ statement: reply, evidence: [state.selfIntro] }],
+    claims: localSynthesis.reportClaims(parsedReply, reply, state),
     workerArtifact,
     author: { name: state.agentName, meaning: state.nameMeaning, role: state.mission.role || 'Assistant IA de développement' }
   };
+  localSynthesis.attachInfluence(report, parsedReply);
   emitEvent(state, {
     eventType: 'EVIDENCE_REPORT',
     action: 'VERIFY_CLAIMS',
@@ -311,7 +313,7 @@ function buildFramedPrompt(state) {
   });
   const evidenceRule = workerKinds.evidenceRule(contract);
   const instruction = evidenceRule
-    ? `CONTRAT DE PREUVE OBLIGATOIRE : ${evidenceRule}\nPour un artefact spécialisé, réponds par un objet JSON valide avec les champs requis.\n\n`
+    ? `CONTRAT DE PREUVE OBLIGATOIRE : ${evidenceRule}\nLe format demandé dans la mission concerne la réponse finale de l'orchestrateur. En tant que worker, rends uniquement l'artefact JSON de ton contrat, avec ses champs et références de source.\n\n`
     : '';
   return buildUncontractedPrompt(state, instruction);
 }
@@ -329,7 +331,7 @@ ${state.workerSelfBlock || ''}
 ${state.memoryBlock}${state.strategyContext}${localArtifactInstruction(state.allowFileEdits)}
 PLANS D'ACTION: Lorsque tu proposes un plan d'action, tu dois SYSTÉMATIQUEMENT utiliser des listes de tâches Markdown (\`- [ ]\`).
 
-${state.contextStr}${evidenceInstruction}Requête de l'utilisateur : ${state.prompt}`;
+${state.contextStr}Requête de l'utilisateur : ${state.prompt}\n\n${evidenceInstruction}`;
 }
 
 function resolveAgentIdentity(mission, agentIdentity) {

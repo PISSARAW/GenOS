@@ -120,7 +120,7 @@ function buildWorkerSynthesisPrompt(originalPrompt, dossiers, factualReports) {
     : JSON.stringify(dossiers);
   const influenceInstruction = isLargeFleet
     ? `Your JSON evidence report MUST include dossierInfluence: objects for the key contributing, pivotal, or rejected workers with a non-empty influence string and usedClaims array (covering at least the primary evidence used). The runtime verifies this invariant.`
-    : 'Your JSON evidence report MUST include dossierInfluence: one object per workerId with a non-empty influence string and usedClaims array. A rejected dossier still needs an influence entry explaining what was rejected and why. The runtime verifies this invariant.';
+    : 'Your JSON evidence report MUST include dossierInfluence: one object per workerId with a non-empty influence string and usedClaims as an array of exact claim statement strings from that worker dossier. Never put objects inside usedClaims. A rejected dossier still needs an influence entry explaining what was rejected and why. The runtime verifies this invariant.';
 
   return [
     originalPrompt,

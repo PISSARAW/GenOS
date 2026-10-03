@@ -221,7 +221,8 @@ function applyExecutionPolicy(ctx) {
   const { normalizedMission, dispatchedAgent } = ctx;
   const arbitration = ctx.autonomyPlan?.controlRegulation?.arbitration;
   const task = normalizedMission.prompt || normalizedMission.currentTask || '';
-  const requestedWorkers = Number(normalizedMission.executionPolicy?.requestedWorkers || normalizedMission.workerCount || 0);
+  const requestedWorkers = Number(normalizedMission.executionPolicy?.requestedWorkers
+    || normalizedMission.workerCount || ctx.autonomyPlan?.dispatchWorkers?.length || 0);
   const silentUpdates = userProgress.silenceRequested(
     task,
     normalizedMission.silentUpdates === true || normalizedMission.executionPolicy?.silentUpdates === true

@@ -53,8 +53,9 @@ function selectStrategyPortfolio(input = {}) {
     const fallback = bestByScore(pool, decisions);
     if (!fallback) throw new Error('No strategy available');
     const fallbackObj = { requested: requestedPrimary, selected: fallback.strategy.id, reason: 'primary unavailable' };
-    const fallbackDecision = { ...fallback, id: fallback.strategy.id, status: 'selected', eligible: true, score: fallback.score ?? 0.001 };
-    const decisionsWithFallback = decisions.concat([fallbackDecision]);
+    const decisionsWithFallback = decisions.map((decision) => decision.id === fallback.strategy.id
+      ? { ...decision, status: 'selected', eligible: true, score: decision.score ?? 0.001 }
+      : decision);
     const summary = summarizeDecisions(decisions, [fallback.strategy]);
     const policies = planPolicies(profile);
     return { problem, profile, options, primary: fallback.strategy, requestedPrimary, primaryFallback: fallbackObj, portfolio: [fallback.strategy], policies, branches: BRANCHES[profile.type], decisions: sortDecisions(decisionsWithFallback), summary };

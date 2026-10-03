@@ -21,7 +21,7 @@ function sourceCards(lock) {
 }
 
 function missionPrompt(item, cards) {
-  return `Question ${item.taskId}: ${item.prompt}\n\nOnly these frozen sources are allowed:\n${cards}\n\nAnswer in French. Return only one JSON object with taskId, claims and citations. Claims must contain exactly these keys: ${item.requiredClaimKeys.join(', ')}. Each citation must have sourceId, section and factId copied from a source card. Do not use external knowledge or other files.`;
+  return `Question ${item.taskId}: ${item.prompt}\n\nOnly these frozen sources are allowed:\n${cards}\n\nAnswer in French. Return one JSON object with taskId, claims and citations. Claims must contain exactly these keys: ${item.requiredClaimKeys.join(', ')}. Each citation must have sourceId, section and factId copied from a source card. If worker dossiers are provided, also include dossierInfluence with one entry per worker: workerId, non-empty influence, and usedClaims copied exactly from that worker's claims. Do not use external knowledge or other files.`;
 }
 
 function launch(request, outputFile) {
@@ -31,7 +31,11 @@ function launch(request, outputFile) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.resolve(suite, '../../../../backend/bin/genos-orchestrate.cjs'), '--payload-file', payloadFile], {
       cwd: path.resolve(suite, '../../../..'),
-      env: { ...process.env, GENOS_RUNNER_LOG_DIR: results },
+      env: {
+        ...process.env,
+        GENOS_RUNNER_LOG_DIR: results,
+        GENOS_CAPSULE_ROOT: process.env.GENOS_CAPSULE_ROOT || path.resolve(suite, '../../../../.genos-agent-worlds')
+      },
       windowsHide: true
     });
     let stderr = '';
@@ -49,7 +53,7 @@ function extractPrediction(outcome, item) {
     const raw = payload.claims?.[0]?.statement;
     if (typeof raw !== 'string') continue;
     try {
-      const prediction = JSON.parse(raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, ''));
+      const prediction = JSON.parse(raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, '').replace(/^json\s*\n/i, ''));
       if (prediction.taskId === item.taskId) return prediction;
     } catch (_) { /* retain the raw report for diagnosis */ }
   }
@@ -83,7 +87,12 @@ async function main() {
   const request = {
     mission: missionPrompt(item, sourceCards(sourceState.lock)),
     executor: 'local', provider: 'ollama', modelId: model,
+    evaluationMode: 'factual_read_only',
     workspaceRoot: suite,
+    completionContract: {
+      invariants: [{ id: 'mission_outcome_success', kind: 'functional', verifier: { type: 'mission.outcome_success' } }],
+      requiredEvidence: ['evidence_report']
+    },
     executionBudget: { tokens: 12000, latencyMs: 240000, events: 1000 },
     timeoutMs: 300000
   };

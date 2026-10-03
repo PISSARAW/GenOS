@@ -31,7 +31,8 @@ function buildStrategyContract(input = {}) {
   const philosophy = buildPhilosophyContext(norm);
   const ethicalComparison = buildEthicalContext(norm);
   const epistemicContext = epistemicDecision.buildDecisionContext(norm);
-  return assembleContract({ selection, problemProfile, selected, highRisk, philosophy, epistemicContext, ethicalComparison });
+  return assembleContract({ selection, problemProfile, selected, highRisk, philosophy, epistemicContext, ethicalComparison,
+    evaluationMode: norm.evaluationMode });
 }
 
 function normalizeInput(input) {
@@ -75,6 +76,7 @@ function assembleContract(ctx) {
   const promotion = buildPromotion({ problemProfile, highRisk, philosophy, epistemicContext, ethicalComparison, portfolio: selection.portfolio });
   return {
     schema: CONTRACT_SCHEMA,
+    evaluation_mode: ctx.evaluationMode === 'factual_read_only' ? 'factual_read_only' : null,
     mission: problemProfile.problem || 'Autonomous task execution',
     problem_profile: problemProfile,
     selected_strategy: {
