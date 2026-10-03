@@ -35,6 +35,9 @@ pub enum MutationEffect {
 
 /// Longueur maximale d'un ADN de gène après amplification (anti-emballement).
 pub const MAX_AMPLIFIED_GENE_DNA_LEN: usize = 4096;
+/// Longueur maximale d'un segment muté en un appel (le taux reste une
+/// probabilité de déclenchement, jamais une fraction de longueur).
+pub const MAX_MUTATED_SEGMENT_LEN: usize = 64;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct MutationResult {
@@ -218,20 +221,24 @@ impl MultiScaleMutator {
         if !rate.is_finite() || rate <= 0.0 { return results; }
         let len = strand.len();
         if len < 4 { return results; }
-        let segment_len = (len as f64 * rate.clamp(0.0, 1.0)).max(1.0) as usize;
-        let start = rng.next_u32() as usize % (len - segment_len + 1);
-        let original_segment = strand.as_slice()[start..start + segment_len].to_vec();
+        let segment_len = rng.random_range(1..=len.min(MAX_MUTATED_SEGMENT_LEN));
+        let start = rng.random_range(0..=(len - segment_len));
+        let before: Vec<DnaNucleotide> = strand.as_slice()[start..start + segment_len].to_vec();
         for i in 0..segment_len {
-            let pos = start + i;
             let new_nuc = DnaNucleotide::nucleotide_random(rng);
-            strand.mutate_point(pos, new_nuc);
+            strand.mutate_point(start + i, new_nuc);
         }
+        let changed = strand.as_slice()[start..start + segment_len]
+            .iter()
+            .zip(before.iter())
+            .filter(|(after, old)| after != old)
+            .count();
         results.push(MutationResult {
             scale: MutationScale::Segment,
             effect: MutationEffect::Substitution,
             affected_locus: None,
-            positions_changed: segment_len,
-            successful: true,
+            positions_changed: changed,
+            successful: changed > 0,
             description: format!("Segment mutation at {}-{}", start, start + segment_len),
         });
         results
