@@ -1,4 +1,5 @@
 use crate::dna::DnaStrand;
+use crate::gene::{ChromatinState, Gene};
 use crate::genome::Genome;
 use rand::RngExt;
 use uuid::Uuid;
@@ -70,8 +71,36 @@ pub fn fertilize(parent_a: &Genome, parent_b: &Genome, rng: &mut (impl rand::Rng
     let (b_mat, _b_pat) = strand_crossover(&parent_b.chromosome_maternal, &parent_b.chromosome_paternal, rng);
     child.chromosome_maternal = a_mat;
     child.chromosome_paternal = b_mat;
+    child.genes = inherit_genes(parent_a, parent_b, rng);
     child.extra_chromosomes = build_extra_chromosomes(parent_a, parent_b, rng);
     child
+}
+
+fn inherit_genes(parent_a: &Genome, parent_b: &Genome, rng: &mut (impl rand::Rng + ?Sized)) -> std::collections::BTreeMap<String, Gene> {
+    let mut loci: std::collections::BTreeSet<String> = parent_a.genes.keys().cloned().collect();
+    loci.extend(parent_b.genes.keys().cloned());
+    loci.into_iter().filter_map(|locus| {
+        let inherited = match (parent_a.genes.get(&locus), parent_b.genes.get(&locus)) {
+            (Some(a), Some(b)) => if rng.random_bool(0.5) { b } else { a },
+            (Some(gene), None) | (None, Some(gene)) => gene,
+            (None, None) => return None,
+        };
+        Some((locus, reprogram_inherited_gene(inherited.clone())))
+    }).collect()
+}
+
+fn reprogram_inherited_gene(mut gene: Gene) -> Gene {
+    if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
+        gene.chromatin_state = ChromatinState::Euchromatin;
+        gene.is_methylated = false;
+        gene.developmentally_locked = false;
+        gene.bound_repressor = None;
+        gene.expression_volume = 1.0;
+    } else if gene.chromatin_state == ChromatinState::Euchromatin {
+        gene.is_methylated = false;
+        gene.developmentally_locked = false;
+    }
+    gene
 }
 
 fn build_extra_chromosomes(
@@ -141,6 +170,25 @@ mod tests {
             vec![parent_a.genome_id(), parent_b.genome_id()]
         );
         assert_eq!(child.generation, 1);
+    }
+
+    #[test]
+    fn fertilization_inherits_unique_genes_from_both_parents() {
+        let mut parent_a = Genome::new("PARENT_A");
+        parent_a.insert_gene(Gene::new("ONLY_A", "A"));
+        parent_a.insert_gene(Gene::new("SHARED", "ALLELE_A"));
+        let mut parent_b = Genome::new("PARENT_B");
+        parent_b.insert_gene(Gene::new("ONLY_B", "B"));
+        parent_b.insert_gene(Gene::new("SHARED", "ALLELE_B"));
+        let mut rng = rand::rngs::StdRng::seed_from_u64(314);
+
+        let child = fertilize(&parent_a, &parent_b, &mut rng);
+
+        assert!(child.genes.contains_key("ONLY_A"));
+        assert!(child.genes.contains_key("ONLY_B"));
+        let allele_a = Gene::new("SHARED", "ALLELE_A");
+        let allele_b = Gene::new("SHARED", "ALLELE_B");
+        assert!(child.genes["SHARED"].dna == allele_a.dna || child.genes["SHARED"].dna == allele_b.dna);
     }
 
     #[test]
