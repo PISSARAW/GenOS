@@ -206,7 +206,9 @@ async function aggregateByQuestionType(context) {
     arguments: prior(context, 3).arguments,
     forecasts: options.forecasts || judgments.flatMap((item) => item.judgment.probabilities || []),
     verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy,
-    isTrustedReceipt: context.isTrustedReceipt, history
+    isTrustedReceipt: context.isTrustedReceipt, history,
+    quarantinedMemberIds: session.members.filter((member) => member.status === 'QUARANTINED')
+      .map((member) => member.memberId)
   });
 }
 

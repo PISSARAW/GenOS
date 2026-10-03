@@ -8,6 +8,7 @@ function aggregate(input) {
   if (input.variantPolicy?.name === 'polycentric_council') return polycentric(input, route);
   if (input.variantPolicy?.name === 'representative_community') return representative(input, route);
   if (input.variantPolicy?.name === 'persistent_community') return persistent(input, route);
+  if (input.variantPolicy?.name === 'byzantine_resilient_community') return byzantine(input, route);
   const handlers = {
     verified_evidence: factual,
     calibrated_probability_pooling: probability,
@@ -46,6 +47,30 @@ function countStableOutcomes(aggregations) {
     count += 1;
   }
   return count;
+}
+
+function byzantine(input, route) {
+  const quarantined = new Set(input.quarantinedMemberIds || []);
+  const receipts = (input.verificationReceipts || []).filter((receipt) => receipt.status === 'VERIFIED'
+    && receiptActor(receipt) && !quarantined.has(receiptActor(receipt)) && isTrusted(receipt, input.isTrustedReceipt));
+  const claims = input.claims || [];
+  const compromised = claims.filter((claim) => claim.owners?.some((owner) => quarantined.has(owner))
+    || quarantined.has(claim.createdBy));
+  const eligible = claims.filter((claim) => !compromised.includes(claim));
+  const result = factual({ ...input, claims: eligible, verificationReceipts: receipts });
+  const unresolvedClaimIds = [...new Set([...(result.unresolvedClaimIds || []), ...compromised.map((claim) => claim.claimId)])];
+  return { policy: route.policy, questionType: route.questionType, ...result,
+    outcome: unresolvedClaimIds.length ? 'UNRESOLVED' : result.outcome, unresolvedClaimIds,
+    byzantine: { trustedReceiptCount: receipts.length, quarantinedClaimIds: compromised.map((claim) => claim.claimId) } };
+}
+
+function receiptActor(receipt) {
+  return receipt.reviewerId || receipt.verifierId || receipt.memberId || null;
+}
+
+function isTrusted(receipt, validator) {
+  if (typeof validator !== 'function') return false;
+  try { return validator(receipt) === true; } catch (_) { return false; }
 }
 
 function representative(input, route) {
