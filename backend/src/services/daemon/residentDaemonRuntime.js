@@ -93,13 +93,17 @@ function territoryConflict(prior, territoryId) {
 
 async function persistRegistration(runtime, registration) {
   if (!runtime.db) return;
-  if (registration.resumed) return touchRegistration(runtime.db, registration.daemonId);
+  if (registration.resumed) return touchRegistration(runtime.db, registration.daemonId, registration.state);
   return insertRegistration(runtime.db, registration);
 }
 
-async function touchRegistration(db, daemonId) {
+async function touchRegistration(db, daemonId, state) {
   await db.run(
-    "UPDATE daemon_runtime_state SET last_heartbeat_at = datetime('now'), updated_at = datetime('now') WHERE daemon_id = ?",
+    `UPDATE daemon_runtime_state
+     SET activity = ?, health = ?, last_heartbeat_at = datetime('now'), updated_at = datetime('now')
+     WHERE daemon_id = ?`,
+    state.activity,
+    state.health,
     daemonId
   );
 }
@@ -118,7 +122,7 @@ async function insertRegistration(db, registration) {
 }
 
 function restoreRuntimeState(input, prior) {
-  const activity = prior ? prior.activity : input.activity;
+  const activity = prior ? 'BOOTSTRAPPING' : input.activity;
   const health = prior ? prior.health : input.health;
   return {
     territoryId: input.territoryId,
