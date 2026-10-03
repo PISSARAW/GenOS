@@ -27,7 +27,8 @@ function buildOperationalPolicy(input = {}) {
     adaptive: () => ({ ...teamPolicies.staffingPlan(mission, members),
       ...adaptiveTeamFullPotential(mission, members) }),
     relay_team: () => teamPolicies.relayPackage(mission, members),
-    cross_functional_pod: () => teamPolicies.podOwnership(mission, members),
+    cross_functional_pod: () => ({ ...teamPolicies.podOwnership(mission, members),
+      ...crossFunctionalPodFullPotential(mission, members) }),
     pipeline: () => pipelinePolicy(mission, members),
     project_dag: () => projectDagPolicy(mission, members),
     multiteam: () => multiteamPolicy(mission, members)
