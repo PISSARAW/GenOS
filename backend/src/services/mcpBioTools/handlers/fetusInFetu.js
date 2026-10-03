@@ -9,7 +9,7 @@
 const crypto = require('crypto');
 
 // In-memory registry of encapsulated fetuses
-const FETUS_REGISTRY = new Map();
+let FETUS_REGISTRY = new Map();
 
 function computeChecksum(data) {
   return crypto.createHash('sha256').update(JSON.stringify(data || {})).digest('hex');
@@ -171,11 +171,12 @@ function _ensurefetusInFetuRegistryPersistent() {
     const persister = adaptivePersister.getAdaptivePersister();
     if (!persister) return;
     // Réhydrate depuis DB
-    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::fetus_in_fetu', 'fetusInFetuRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : fetusInFetuRegistry;
-    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::fetus_in_fetu', 'fetusInFetuRegistry', mapToUse) : mapToUse;
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::fetus_in_fetu', 'FETUS_REGISTRY') : null;
+    const mapToUse = stored && stored.size ? stored : FETUS_REGISTRY;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::fetus_in_fetu', 'FETUS_REGISTRY', mapToUse) : mapToUse;
+    FETUS_REGISTRY = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'fetusInFetuRegistry', {
+    Object.defineProperty(module.exports, 'FETUS_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -195,7 +196,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.fetusInFetuRegistry || fetusInFetuRegistry;
+  const map = module.exports.FETUS_REGISTRY || FETUS_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;
