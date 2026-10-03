@@ -31,8 +31,8 @@ async function searchFailures(context = {}) {
   const queryVec = await resolveQueryVector(query);
   const rows = await fetchDecisionFailures(db, context.organizationId || null, 50);
   const ranked = scoreCandidates(queryVec, rows, formatSearchHit);
-  const failures = ranked.slice(0, limit);
-  return { success: true, failureCount: failures.length, failures: failures };
+  const scoped = require('../agentMemoryScope').filterScoped(ranked.slice(0, limit), context.missionScope, query);
+  return { success: true, failureCount: scoped.length, failures: scoped };
 }
 
 async function avoidKnownDeadEnds(context = {}) {

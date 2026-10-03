@@ -226,7 +226,7 @@ async function runPostPipeline(services, state, reply) {
         ]
       }
     );
-    await services.agentMemory.compileExecutionMemory(state.agentName, state.prompt, reply, { outcome: 'success' });
+    await services.agentMemory.compileExecutionMemory(state.agentName, state.prompt, reply, { outcome: 'success', missionScope: state.mission.missionScope });
   } catch (e) {}
 }
 
@@ -284,7 +284,7 @@ async function buildStrategyContext(adapter, state) {
   try {
     const memOutcome = await adapter.executePipelineWithFeedback(
       ['search_memory', 'compile_memory', 'search_failures'],
-      { agentId: state.mission.agentId || state.agentName, orchestratorId: state.mission.orchestratorAgentId || state.mission.agentId || state.agentName, task: state.prompt }
+      { agentId: state.mission.agentId || state.agentName, orchestratorId: state.mission.orchestratorAgentId || state.mission.agentId || state.agentName, task: state.prompt, missionScope: state.mission.missionScope }
     );
     if (memOutcome && memOutcome.results && memOutcome.results.length) {
       state.strategyContext = `[STRATÉGIE GENOS ACTIVE : ${state.primaryStrategy}]\nPrimitives exécutées : ` +
@@ -295,7 +295,7 @@ async function buildStrategyContext(adapter, state) {
 
 async function loadMemoryBlock(agentMemory, state) {
   try {
-    return await agentMemory.formatCognitiveMemoryPrompt(state.agentName, state.prompt);
+    return await agentMemory.formatCognitiveMemoryPrompt(state.agentName, state.prompt, { missionScope: state.mission.missionScope });
   } catch (e) {
     return '';
   }

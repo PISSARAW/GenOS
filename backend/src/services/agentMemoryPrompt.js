@@ -15,6 +15,11 @@ const { readFailed } = require('./agentMemoryTelemetry');
 const vesicles = require('./agentMemoryVesicles');
 const promptGenome = require('./promptGenomeService');
 const microRnaPrompt = require('./microRnaPromptService');
+const scope = require('./agentMemoryScope');
+
+function applyScope(list, task, opts) {
+  return scope.filterScoped(filterUnverified(list), opts.missionScope, task);
+}
 
 function truncateWords(text, maxLen) {
   const str = String(text || '').trim();
@@ -116,10 +121,10 @@ async function retrieveAgentMemories(agentId, task, options) {
   const episodes = await loadEpisodes(agentId, opts);
   const pitfalls = await loadPitfalls(task, opts, search.pitfalls);
   return {
-    experiences: filterUnverified(search.experiences).slice(0, 4),
-    pitfalls: filterUnverified(pitfalls).slice(0, 3),
-    goldenPaths: filterUnverified(search.goldenPaths).slice(0, 2),
-    episodes: filterUnverified(episodes).filter(highReward).slice(0, 4)
+    experiences: applyScope(search.experiences, task, opts).slice(0, 4),
+    pitfalls: applyScope(pitfalls, task, opts).slice(0, 3),
+    goldenPaths: applyScope(search.goldenPaths, task, opts).slice(0, 2),
+    episodes: applyScope(episodes, task, opts).filter(highReward).slice(0, 4)
   };
 }
 

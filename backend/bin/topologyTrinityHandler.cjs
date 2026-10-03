@@ -69,7 +69,7 @@ async function launchWorlds(input) {
     await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
       VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${member.worldNumber}`, mission,
     member.worldNumber, name, member.role, workerId);
-    await launchWorker({ db, context, member: { ...member, name }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
+    await launchWorker({ db, context, member: { ...member, name, missionScope: { missionId, chamber: member.chamber } }, index: member.worldNumber, parent, suppliedWorkerId: workerId });
     accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
   }
   return accepted;

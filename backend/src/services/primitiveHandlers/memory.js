@@ -206,7 +206,9 @@ async function searchMemory(context) {
     };
   });
   results.allScoredExperiences = validatedExperiences;
-  const found = validatedExperiences.length;
+  const scoped = require('../agentMemoryScope').filterScoped(validatedExperiences, context.missionScope, query);
+  results.allScoredExperiences = scoped;
+  const found = scoped.length;
   return { success: found > 0, resultCount: found, results };
 }
 

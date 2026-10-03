@@ -19,6 +19,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { storeFailed } = require('./agentMemoryTelemetry');
+const { tagFor } = require('./agentMemoryScope');
 
 const depositedExosomes = new Set();
 const MAX_DEPOSIT_KEYS = 2000;
@@ -117,7 +118,7 @@ function memoryContent(job, inputs, unproven) {
   const epistemicText = epistemicContext?.analyses?.length
     ? `\n[EPISTEMIC_ANALYSIS] ids=${(epistemicContext.analysisIds || []).join(',')} interpretation=${epistemicContext.interpretive ? 'interpretive' : 'descriptive'} provenance=${epistemicContext.provenanceComplete ? 'complete' : 'incomplete'} promotion=${epistemicContext.promotion?.holdPromotion ? 'held' : 'eligible'}`
     : '';
-  const base = `${memoryTag} Task: ${job.task}\nResult: ${String(job.summary).slice(0, 800)}${claimsText}${philosophyText}${epistemicText}${comparisonText}`;
+  const base = `${memoryTag} Task: ${job.task}\nResult: ${String(job.summary).slice(0, 800)}${claimsText}${philosophyText}${epistemicText}${comparisonText}${tagFor(job.options && job.options.missionScope)}`;
   if (unproven) return `${base}\n[expires: ${unverifiedExpiryIso()}]`;
   return base;
 }

@@ -69,6 +69,7 @@ function workerLaunchPayload(args) {
     workerKind,
     variantIndex: member.variantIndex,
     localModel: member.localModel,
+    missionScope: member.missionScope,
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
     topologySessionId: context.topologySession?.sessionId || null,
