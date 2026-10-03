@@ -1,6 +1,7 @@
 'use strict';
 
 const { hasEvidenceItem } = require('../agentEvidence/evidenceHelpers');
+const { hasEvidenceReferences, provenanceReferences } = require('./workerEvidenceReferenceService');
 
 const REQUIRED_FIELDS = Object.freeze({
   scout_observation: ['observations'],
@@ -44,7 +45,7 @@ function hasRequiredFields(content, required) {
 function claimsAreSubstantiated(content) {
   if (!Array.isArray(content.claims) || !content.claims.length) return false;
   return content.claims.every((claim) => typeof claim?.statement === 'string'
-    && claim.statement.trim() && hasEvidenceItem(claim.evidence));
+    && claim.statement.trim() && hasEvidenceReferences(claim.evidence));
 }
 
 function contentIsValid(type, content) {
@@ -63,12 +64,12 @@ function specializedContentIsValid(type, content) {
 function validVerificationContent(content) {
   const verdict = String(content.verdict).toLowerCase();
   return ['accept', 'reject', 'unresolved'].includes(verdict)
-    && hasEvidenceItem(content.evidence || content.reproductionEvidence);
+    && hasEvidenceReferences(content.evidence || content.reproductionEvidence);
 }
 
 function hasSolverReceipt(receipt) {
   return Boolean(receipt && typeof receipt.id === 'string' && receipt.id.trim()
-    && Array.isArray(receipt.evidence) && receipt.evidence.some(hasEvidenceItem));
+    && hasEvidenceReferences(receipt.evidence));
 }
 
 function isNonDiagnosticClinicalReport(content) {
@@ -78,7 +79,7 @@ function isNonDiagnosticClinicalReport(content) {
 }
 
 function hasProvenance(artifact) {
-  return hasEvidenceItem(artifact.provenance) || hasEvidenceItem(artifact.evidenceRefs);
+  return hasEvidenceReferences(provenanceReferences(artifact));
 }
 
 function artifactInstruction(contract) {
@@ -127,8 +128,7 @@ function artifactError(workerId, expected) {
 }
 
 function artifactEvidenceRefs(provenance) {
-  const refs = [provenance && provenance.model, provenance && provenance.workspaceRoot];
-  return refs.filter((ref) => typeof ref === 'string' && ref.trim());
+  return provenance?.sourceRefs || provenance?.evidenceRefs || [];
 }
 
 function buildDossierArtifact(reply, provenance) {
@@ -191,7 +191,8 @@ function inspectDossier(input) {
   if (!parsed || issues.length) return { artifact: null, issues };
   const content = { claims: parsed.claims };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
-  return { artifact: issues.length ? null : { type: expected, content, provenance: provenance || {} }, issues };
+  const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
+  return { artifact: issues.length ? null : { type: expected, content, provenance: { ...(provenance || {}), sourceRefs } }, issues };
 }
 
 function inspectSpecialized(input) {
@@ -200,10 +201,12 @@ function inspectSpecialized(input) {
   const artifact = parsed.workerArtifact;
   if (!artifact || typeof artifact !== 'object') issues.push('workerArtifact.missing');
   else if (artifact.type !== expected) issues.push('workerArtifact.type.mismatch');
+  const sourceRefs = provenanceReferences(artifact);
+  if (!hasEvidenceReferences(sourceRefs)) issues.push('workerArtifact.provenance.references.invalid');
   const content = artifact && artifact.content;
   inspectRequiredContent(expected, content, issues);
   if (issues.length) return { artifact: null, issues };
-  return { artifact: { type: expected, content, provenance: provenance || {} }, issues };
+  return { artifact: { type: expected, content, provenance: { ...(provenance || {}), sourceRefs } }, issues };
 }
 
 function inspectRequiredContent(expected, content, issues) {
