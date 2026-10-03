@@ -33,7 +33,6 @@ const RUNTIME_MARKERS = Object.freeze({
   RECOVERY_SLA_BREACH: async (action) => ({ type: action.type, demeId: action.demeId, slaMs: action.slaMs, breached: true }),
   ROTATE_SOURCE_SINK_ROLES: persistSourceSinkRoles,
   MIGRATE_ISLAND_ELITE: async (action) => ({ type: action.type, propaguleId: action.propagule.propaguleId, migrated: true }),
-  PROOF_OF_DATA_MINIMIZATION: async (action) => ({ type: action.type, propaguleId: action.propaguleId, proofId: action.proofId, proven: true }),
   REQUIRE_RECEIVER_ATTESTATION: async (action) => ({ type: action.type, propaguleId: action.propaguleId, targetRegion: action.targetRegion, required: true }),
   DIVERSITY_FLOOR_BREACH: async (action) => ({ type: action.type, currentDiversity: action.currentDiversity, floor: action.floor, breached: true }),
   ALLOW_CONTROLLED_EXTINCTION: async (action) => ({ type: action.type, demeId: action.demeId, allowed: true }),
@@ -56,7 +55,9 @@ const RUNTIME_MARKERS = Object.freeze({
     return { type: action.type, ...result };
   },
   STAGE_FOUNDER_RESERVE: stageFounderReserve,
-  PROOF_OF_DATA_MINIMIZATION: async (action) => ({ type: action.type, recorded: true, propaguleId: action.propaguleId, proofId: action.proofId, contractId: action.contractId }),
+  PROOF_OF_DATA_MINIMIZATION: async (action) => ({ type: action.type, recorded: true, proven: action.proof?.withinPolicy === true
+    && action.proof?.proofId === action.proofId && action.proof?.contractId === action.contractId,
+    propaguleId: action.propaguleId, proofId: action.proofId, proof: action.proof, contractId: action.contractId }),
   REQUIRE_RECEIVER_ATTESTATION: async (action) => ({ type: action.type, required: true, propaguleId: action.propaguleId, targetRegion: action.targetRegion }),
   CREATE_EPHEMERAL_PATCH_LEASE: async (action, context) => {
     if (!context.options.db) return { type: action.type, leaseId: null, reason: 'NO_DB' };

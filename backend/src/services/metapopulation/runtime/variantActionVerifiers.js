@@ -42,7 +42,6 @@ const MARKER_RECEIPTS = Object.freeze({
   RECOVERY_SLA_BREACH: (item) => item.breached === true && typeof item.demeId === 'string',
   ROTATE_SOURCE_SINK_ROLES: (item) => item.persisted === true && Number.isInteger(item.rotated) && Array.isArray(item.changes),
   MIGRATE_ISLAND_ELITE: (item) => item.migrated === true && typeof item.propaguleId === 'string',
-  PROOF_OF_DATA_MINIMIZATION: (item) => item.proven === true && typeof item.proofId === 'string',
   REQUIRE_RECEIVER_ATTESTATION: (item) => item.required === true && typeof item.propaguleId === 'string',
   STAGE_FOUNDER_RESERVE: (item) => item.staged === true && Number.isFinite(item.eventRevision) && item.founders.length >= item.deficit,
   DIVERSITY_FLOOR_BREACH: (item) => item.breached === true && Number.isFinite(item.currentDiversity),
@@ -66,7 +65,11 @@ const MARKER_RECEIPTS = Object.freeze({
   REGISTER_RESIDENT_DAEMON: (item) => typeof item.daemonId === 'string' && typeof item.leaseId === 'string',
   MAINTAIN_RESIDENT_DAEMON_CYCLE: (item) => typeof item.maintained === 'boolean' && typeof item.demeId === 'string',
   EXPIRE_RESIDENT_DAEMON: (item) => item.deactivated === true && typeof item.demeId === 'string',
-  PROOF_OF_DATA_MINIMIZATION: (item) => item.recorded === true && typeof item.proofId === 'string',
+  PROOF_OF_DATA_MINIMIZATION: (item) => item.recorded === true && item.proven === true
+    && item.proof?.proofId === item.proofId && item.proof?.contractId === item.contractId
+    && Number.isSafeInteger(item.proof?.originalFieldCount)
+    && Number.isSafeInteger(item.proof?.transferredFieldCount)
+    && item.proof.transferredFieldCount <= item.proof.originalFieldCount,
   REQUIRE_RECEIVER_ATTESTATION: (item) => item.required === true && typeof item.propaguleId === 'string',
 });
 

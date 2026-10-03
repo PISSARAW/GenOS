@@ -1,4 +1,5 @@
 'use strict';
+const crypto = require('node:crypto');
 const CLASSIFICATIONS = ['PUBLIC', 'REGIONAL', 'SENSITIVE', 'LOCAL_ONLY'];
 
 const regionalKeyStore = new Map();
@@ -22,14 +23,20 @@ function createCrossRegionContract(context) {
 }
 
 function proofOfDataMinimization(propagule, contract) {
-  const fields = propagule.fields || [];
-  const redacted = contract?.dataMinimization?.redact ? fields.slice(0, contract.dataMinimization.maxFields) : fields;
+  const fields = Array.isArray(propagule.fields) ? [...new Set(propagule.fields.map(String))].sort() : [];
+  const limit = contract?.dataMinimization?.maxFields;
+  if (!Number.isSafeInteger(limit) || limit < 0) throw Object.assign(new Error('Federation minimization limit is invalid.'), { code: 'METAPOPULATION_FEDERATION_CONTRACT_INVALID' });
+  const redacted = contract.dataMinimization.redact === true ? fields.slice(0, limit) : fields;
+  const proofPayload = { propaguleId: propagule.propaguleId, sourceRegion: propagule.sourceRegion,
+    targetRegion: propagule.targetRegion, contractId: contract.contractId, originalFields: fields, transferredFields: redacted };
+  const proofId = crypto.createHash('sha256').update(JSON.stringify(proofPayload)).digest('hex');
   return {
     originalFieldCount: fields.length,
     transferredFieldCount: redacted.length,
-    redacted: redacted,
-    proofId: `pdm-${propagule.propaguleId}-${Date.now()}`,
+    redacted, proofId,
     minimized: redacted.length < fields.length,
+    withinPolicy: redacted.length <= limit,
+    contractId: contract.contractId
   };
 }
 
@@ -46,8 +53,11 @@ function authorizeFederatedTransfer(context) {
   if (!CLASSIFICATIONS.includes(classification)) return { allowed: false, reason: 'INVALID_CLASSIFICATION' };
   const contract = contracts?.find((c) => c.sourceRegion === sourceRegion && c.targetRegion === targetRegion);
   if (!contract) return { allowed: false, reason: 'NO_CONTRACT' };
+  if (contract.active !== true) return { allowed: false, reason: 'CONTRACT_INACTIVE' };
+  if (!Array.isArray(contract.allowedClassifications)) return { allowed: false, reason: 'CONTRACT_CLASSIFICATIONS_INVALID' };
   if (!contract.allowedClassifications.includes(classification)) return { allowed: false, reason: 'CLASSIFICATION_NOT_ALLOWED' };
   const proof = proofOfDataMinimization(propagule, contract);
+  if (!proof.withinPolicy) return { allowed: false, reason: 'DATA_MINIMIZATION_FAILED' };
   return { allowed: true, classification, contractId: contract.contractId, proof, reason: 'SOVEREIGNTY_SATISFIED' };
 }
 
