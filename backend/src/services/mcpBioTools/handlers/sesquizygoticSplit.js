@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // In-memory registry of sesquizygotic pairs
-const SESQUIZYGOTIC_REGISTRY = new Map();
+let SESQUIZYGOTIC_REGISTRY = new Map();
 
 function hashPayload(payload) {
   return crypto.createHash('sha256').update(JSON.stringify(payload || {})).digest('hex').substring(0, 16);
@@ -158,11 +158,12 @@ function _ensuresesquizygoticRegistryPersistent() {
     const persister = adaptivePersister.getAdaptivePersister();
     if (!persister) return;
     // Réhydrate depuis DB
-    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::sesquizygotic_split', 'sesquizygoticRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : sesquizygoticRegistry;
-    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::sesquizygotic_split', 'sesquizygoticRegistry', mapToUse) : mapToUse;
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::sesquizygotic_split', 'SESQUIZYGOTIC_REGISTRY') : null;
+    const mapToUse = stored && stored.size ? stored : SESQUIZYGOTIC_REGISTRY;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::sesquizygotic_split', 'SESQUIZYGOTIC_REGISTRY', mapToUse) : mapToUse;
+    SESQUIZYGOTIC_REGISTRY = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'sesquizygoticRegistry', {
+    Object.defineProperty(module.exports, 'SESQUIZYGOTIC_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -182,7 +183,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.sesquizygoticRegistry || sesquizygoticRegistry;
+  const map = module.exports.SESQUIZYGOTIC_REGISTRY || SESQUIZYGOTIC_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;
