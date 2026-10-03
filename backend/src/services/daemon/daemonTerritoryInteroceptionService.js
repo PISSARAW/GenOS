@@ -18,6 +18,7 @@
  */
 
 const { migrateDaemonEvents } = require('../../db/migrations/migrateDaemonEvents');
+const { migrateDaemonRepair } = require('../../db/migrations/migrateDaemonRepair');
 
 const DEFAULT_WINDOW_MS = 60 * 60 * 1000;
 const STALE_AFTER_MS = 60 * 60 * 1000;
@@ -62,19 +63,28 @@ async function sampleTerritory(db, territoryId, options) {
   const now = opts.now || Date.now();
   const windowMs = opts.windowMs || DEFAULT_WINDOW_MS;
   await migrateDaemonEvents(db);
+  await migrateDaemonRepair(db);
   const since = new Date(now - windowMs).toISOString();
-  const [territory, counts] = await Promise.all([
+  const [territory, counts, backlog] = await Promise.all([
     db.get('SELECT * FROM daemon_territories WHERE id = ?', territoryId),
     db.all(
       `SELECT event_type, COUNT(*) as n FROM daemon_events
        WHERE territory_id = ? AND datetime(created_at) >= datetime(?)
-       GROUP BY event_type`,
+      GROUP BY event_type`,
       territoryId,
       since
+    ),
+    db.get(
+      `SELECT COUNT(*) AS n FROM daemon_repair_episodes
+       WHERE territory_id = ? AND status IN ('OPEN', 'CLAIMED')
+       AND datetime(expires_at) > datetime(?)`,
+      territoryId,
+      new Date(now).toISOString()
     )
   ]);
   const byType = {};
   (counts || []).forEach((row) => { byType[row.event_type] = Number(row.n) || 0; });
+  byType.REPAIR_EPISODE_OPEN = Number(backlog?.n) || 0;
   return { territory: territory || null, counts: byType, now, windowMs };
 }
 
@@ -105,7 +115,7 @@ function deriveTerritoryVariables(sample) {
     orphan_pressure: clamp01(countOf(counts, 'RESOURCE_ORPHANED') / 3),
     repeated_failure_pressure: repeatedFailureOf(counts),
     integration_pressure: clamp01(countOf(counts, 'AGENT_FAILED') / 3),
-    repair_backlog_pressure: clamp01(countOf(counts, 'FINDING_CREATED') / 5),
+    repair_backlog_pressure: clamp01(countOf(counts, 'REPAIR_EPISODE_OPEN') / 3),
     knowledge_gap_pressure: knowledgeGapOf(counts)
   };
 }
