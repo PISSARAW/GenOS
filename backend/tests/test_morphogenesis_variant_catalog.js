@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { createTopologyRegistry } = require('../src/services/morphogenesis/registry/topologyRegistry');
+const { resolveRequestedProfile } = require('../src/services/morphogenesis/registry/topologyProfileService');
 
 function run() {
   const registry = createTopologyRegistry();
@@ -25,6 +26,18 @@ function run() {
   assert.equal(registry.variants.resolve('metapopulation', 'conservative').parameters.quorumRatio, 0.7);
   assert.equal(registry.variants.resolve('biome', 'resource').maturity, 'partial');
   assert.equal(registry.variants.resolve('biome', 'multi_scale').parameters.levels.length, 3);
+
+  const explicitPartial = registry.profiles.resolve({
+    baseTopology: 'biocenose', structuralVariants: ['argumentation_community']
+  });
+  assert.equal(explicitPartial.valid, true, 'variant maturity must not require allowPartial');
+  assert.equal(explicitPartial.selectedVariant.variantId, 'argumentation_community');
+
+  const automaticPartial = resolveRequestedProfile({
+    mission: { description: 'Allocate ecological resources across species from a resource landscape.' }
+  }, 'biome', registry.variants);
+  assert.equal(automaticPartial.selectedVariant.variantId, 'resource');
+  assert.equal(automaticPartial.variantSelection.method, 'mission_signals');
 
   for (const topology of registry.list()) {
     assert.deepEqual(registry.get(topology).variants, registry.variants.list(topology));

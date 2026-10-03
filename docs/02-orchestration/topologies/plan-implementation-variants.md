@@ -99,7 +99,9 @@ avant de promouvoir leur maturité.
 - Appliquer le variant recommandé automatiquement si confiance suffisante; sinon retenir
   la baseline sûre et exposer l'incertitude dans le reçu.
 - Accepter `variantId` explicite dans API/MCP/CLI, valider la compatibilité et renvoyer une
-  erreur claire si variant inconnu, partiel interdit ou préconditions absentes.
+  erreur claire si le variant est inconnu ou si ses préconditions d'exécution sont absentes.
+  La maturité ne bloque jamais le choix explicite ni automatique; les gardes portent sur la
+  compatibilité et les capacités réellement disponibles.
 - Autoriser une réévaluation en cours de mission uniquement sur nouvel événement ou
   changement de contraintes; tracer et vérifier toute transition.
 

@@ -59,16 +59,9 @@ function resolveReference(input) {
   }
   const variant = variantRegistry.resolve(profile.baseTopology, reference.variantId);
   if (!variant) errors.push(`unknown ${profile.baseTopology} variant: ${reference.variantId}`);
-  if (variant && variant.maturity !== 'implemented' && reference.allowPartial !== true) {
-    errors.push(`${reference.variantId} is ${variant.maturity}; allowPartial must be explicit`);
-  }
-  if (!variant || !isMature(variant, reference)) return null;
+  if (!variant) return null;
   mergeParameters(variant, effectiveParameters, errors);
   return { ...reference, variant };
-}
-
-function isMature(variant, reference) {
-  return variant.maturity === 'implemented' || reference.allowPartial === true;
 }
 
 function mergeParameters(variant, parameters, errors) {
@@ -126,14 +119,14 @@ function automaticProfile(ctx, topology, registry) {
   const selection = selectLocalVariant(topology, ctx);
   const canonicalId = catalogId(topology, selection.variantId, registry);
   const catalogEntry = registry.resolve(topology, canonicalId);
-  const usable = catalogEntry && catalogEntry.maturity === 'implemented';
+  const usable = Boolean(catalogEntry);
   const variantId = usable ? canonicalId : 'default';
   return {
     baseTopology: topology,
     structuralVariants: variantId === 'default' ? [] : [variantId],
     variantSelection: usable ? selection : {
       variantId, method: 'safe_baseline', confidence: selection.confidence || 0.5,
-      reasons: [...(selection.reasons || []), 'SELECTED_VARIANT_NOT_FULLY_IMPLEMENTED']
+      reasons: [...(selection.reasons || []), 'SELECTED_VARIANT_UNAVAILABLE']
     }
   };
 }
