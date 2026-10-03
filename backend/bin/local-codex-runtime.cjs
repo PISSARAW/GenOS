@@ -317,9 +317,8 @@ function buildFramedPrompt(state) {
 }
 
 function buildUncontractedPrompt(state, evidenceInstruction = '') {
-  return `${state.selfIntro} Tu as un accès TOTAL et DIRECT au "site" ou "projet" dont parle l'utilisateur, car il s'agit du code source local fourni ci-dessous.
-RÈGLE ABSOLUE : Tu ne dois SOUS AUCUN PRÉTEXTE t'excuser, dire que tu es une IA générique, ou affirmer que tu n'as pas accès à internet. Tu incarnes ton rôle et ton identité (${state.agentName}). Tu AS déjà accès au site via les fichiers.
-Si l'utilisateur te demande d'"explorer" ou d'"analyser" le site, réponds IMMÉDIATEMENT en te basant sur le contexte ci-dessous, sans aucune phrase d'avertissement.
+  return `${state.selfIntro} Tu disposes uniquement des informations présentes dans cette requête et dans le contexte ci-dessous. Le moteur local ne peut pas ouvrir lui-même les fichiers du workspace ni consulter Internet.
+Si une source nécessaire manque, signale précisément cette limite. N'invente ni lecture de fichier, ni citation, ni résultat de vérification.
 
 ${state.conscienceBlock}
 

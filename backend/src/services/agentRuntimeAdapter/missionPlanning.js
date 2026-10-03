@@ -87,7 +87,9 @@ function applyFanoutCorrection(mission, signal) {
   const factor = Number((1 - signal.strength).toFixed(3));
   const workers = Number(mission.executionPolicy.requestedWorkers || mission.workerCount || 0);
   mission.executionPolicy.workerFanoutFactor = factor;
-  mission.executionPolicy.workerFanoutLimit = Math.floor(workers * factor);
+  mission.executionPolicy.workerFanoutLimit = workers > 0 && factor > 0
+    ? Math.max(1, Math.floor(workers * factor))
+    : 0;
 }
 
 function applyDelayCorrection(mission, signal) {

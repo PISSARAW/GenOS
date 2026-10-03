@@ -12,10 +12,13 @@ const { evaluateSurvival } = require('../survivalModelService');
 const { regulateAutonomyPlan } = require('../controlRegulationService');
 const { maxWorkers } = require('./config');
 
-function computeBranchCount(flags, maxWorkersFn, survival) {
-  const requested = flags.security || flags.complex || flags.uncertain ? maxWorkersFn() : 1;
+function computeBranchCount(flags, survival, portfolio) {
+  const requested = flags.security || flags.complex || flags.uncertain ? maxWorkers() : 1;
   const limit = survival.constraints.maxWorkerFanout;
-  return limit === null ? requested : Math.min(requested, limit);
+  const bounded = limit === null ? requested : Math.min(requested, limit);
+  if (flags.security || bounded <= 1) return bounded;
+  const primitives = new Set(portfolio.flatMap((strategy) => strategy.primitives || []));
+  return primitives.has('fork') && primitives.has('solve') ? bounded : 1;
 }
 
 function applySurvivalConstraints(plan) {
@@ -56,9 +59,9 @@ function buildAutonomyPlan(contract, budget = {}) {
     uncertainty: profile.uncertainty,
     ...(budget.survivalState || {})
   });
-  const branchCount = computeBranchCount(flags, maxWorkers, survival);
-  const phases = buildPhases(flags, modes, branchCount);
   const portfolio = contract.strategy_portfolio || [];
+  const branchCount = computeBranchCount(flags, survival, portfolio);
+  const phases = buildPhases(flags, modes, branchCount);
   const realizable = filterPhasesToPortfolio(phases, portfolio);
   const phaseValidation = validatePhasesVsPortfolio(phases, portfolio);
   const omittedPhases = omitPhases(phases, phaseValidation);

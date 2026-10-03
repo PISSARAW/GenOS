@@ -265,11 +265,11 @@ async function finalizeOrchestratedMission(input) {
   homeostasis = contResult.evaluation;
   organism = contResult.organism;
   finalVerdict = contResult.finalVerdict;
-  const finalStatus = resolveFinalMissionStatus(outcome, completionGate, finalVerdict);
+  const finalStatus = resolveFinalMissionStatus(outcome, completionGate, { verdict: finalVerdict, coverage });
   finalVerdict = finalStatus.verdict;
   const dormant = await suspendUnsuccessfulMission({ db, mission, homeostasis, organism, finalStatus, continuity });
   if (dormant) finalVerdict = 'mission_dormant';
-  if (completionGate.allowed && missionId) await missionIdentity.setStatus(db, missionId, 'completed');
+  if (finalStatus.success && missionId) await missionIdentity.setStatus(db, missionId, 'completed');
 
   await persistMissionChampion(db, outcome);
   emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
@@ -291,7 +291,12 @@ function suspendUnsuccessfulMission(input) {
   }).then((result) => result.entered === true);
 }
 
-function resolveFinalMissionStatus(outcome, completionGate, verdict) {
+function resolveFinalMissionStatus(outcome, completionGate, evidence) {
+  const { verdict, coverage } = evidence;
+  if (outcome.success && completionGate.allowed && verdict === 'completed'
+    && coverage?.verdict !== 'required-coverage-complete') {
+    return { success: false, verdict: 'required_coverage_incomplete' };
+  }
   const success = outcome.success === true
     && completionGate.allowed === true
     && verdict === 'completed';
