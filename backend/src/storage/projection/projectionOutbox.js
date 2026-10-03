@@ -18,6 +18,7 @@
  *   projection_rebuilds    — rebuild audit trail
  */
 
+const { randomUUID } = require('crypto');
 const { getDatabase, withTransaction } = require('../../db');
 
 async function ensureOutboxTables(db) {
@@ -74,15 +75,16 @@ async function ensureOutboxTables(db) {
 
 /**
  * Append a projection event inside the current transaction.
- * Must be called within withTransaction().
+ * Pass the transaction handle as second arg to stay atomic,
+ * otherwise falls back to the shared database handle.
  */
-async function appendProjectionEvent(event) {
-  const db = await getDatabase();
+async function appendProjectionEvent(event, dbHandle) {
+  const db = dbHandle || await getDatabase();
   const {
     aggregate_type, aggregate_id, event_type, payload_json,
     organization_id, project_id,
   } = event;
-  const eventId = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const eventId = `evt_${randomUUID()}`;
   const payload = JSON.stringify(payload_json || {});
   await db.run(
     `INSERT INTO projection_events (event_id, aggregate_type, aggregate_id, event_type, payload_json, organization_id, project_id, created_at)
@@ -125,7 +127,9 @@ async function markConsumed(consumerName, upToSequence) {
 /**
  * Mark a single event as projected by a specific target.
  */
+const PROJECTED_TARGETS = new Set(['graph', 'analytics', 'search']);
 async function markProjected(eventId, target) {
+  if (!PROJECTED_TARGETS.has(target)) throw new Error(`Unknown projection target '${target}'.`);
   const db = await getDatabase();
   const column = `${target}_projected_at`;
   await db.run(
