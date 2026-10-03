@@ -120,7 +120,8 @@ async function compareMission(db, input, reports) {
     db, agentId: input.orchestratorId, outcome: result.outcome,
     mission: input.mission, config: input.juryConfig, reports: worlds,
     required: input.variantSelection?.experimentalDesign?.adjudicationPolicy === 'blind_jury_advisory'
-      || input.variantSelection?.experimentalDesign?.interactionPolicy === 'jury_deliberation'
+      || input.variantSelection?.experimentalDesign?.interactionPolicy === 'jury_deliberation',
+    deterministicWinner: result.selectedWorld
   });
   result.comparativeAnalysis.crossExamination = crossExamination.summary(examined);
   result.comparativeAnalysis.claimGraph = graph;
