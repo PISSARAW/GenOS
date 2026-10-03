@@ -19,11 +19,13 @@
  */
 
 const bridgeService = require('./daemonEventBridgeService');
+const wakePolicyService = require('./daemonWakePolicyService');
 const { migrateDaemonTerritory } = require('../../db/migrations/migrateDaemonTerritory');
 const { spawnSync } = require('node:child_process');
 
 const MAX_CHANGED_FILES = 200;
 const SAFE_REPO_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_.@/-]{1,240}$/;
+const productionWakePolicy = wakePolicyService.createWakePolicy({});
 
 function readWorkspaceHead(rootPath) {
   const result = spawnSync('git', ['-C', rootPath, 'rev-parse', 'HEAD'], {
@@ -75,7 +77,7 @@ async function emitTerritoryEvent(db, event) {
     if (!db || !event || !event.rootPath || !event.type) return { emitted: false, reason: 'args-required' };
     const territoryId = await resolveTerritoryByRoot(db, event.rootPath);
     if (!territoryId) return { emitted: false, reason: 'no-territory-registered' };
-    const bridge = bridgeService.createBridge({ db });
+    const bridge = bridgeService.createBridge({ db, policy: productionWakePolicy });
     const ingested = await bridgeService.ingestEvent(bridge, {
       type: event.type,
       territoryId,
