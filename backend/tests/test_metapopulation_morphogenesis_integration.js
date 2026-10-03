@@ -24,7 +24,9 @@ function transitionInput() {
     graph: { scope: 'deme', demeId: 'deme-a', topology: 'trinity', version: 1 },
     regionalTopology: 'metapopulation',
     patch: { demeId: 'deme-a', targetTopology: 'a_team', baseGraphVersion: 1,
-      operations: [{ type: 'CHANGE_PARAMETERS' }], reason: 'local failure pressure', evidence: [{ verified: true }],
+      operations: [{ type: 'CHANGE_TOPOLOGY', topology: 'a_team' }],
+      stateMigrationPlan: { preserve: [], translate: [], archive: [], discard: [] },
+      reason: 'local failure pressure', evidence: [{ verified: true }],
       topologyTransitionPayload: { verifiedClaims: [{ id: 'claim-1', text: 'local result', status: 'verified' }] },
       rollbackPlan: { restoreDomains: ['graph', 'workers', 'leases', 'state', 'budgets'] } }
   } };
