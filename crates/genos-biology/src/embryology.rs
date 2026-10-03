@@ -17,15 +17,15 @@ pub fn seed_hox_genome(base_instruction: &str) -> Genome {
 pub fn cleave_zygote(zygote: AgentCell, divisions: u32) -> Vec<AgentCell> {
     let mut swarm = vec![zygote];
     for _ in 0..divisions.min(MAX_ZYGOTE_DIVISIONS) {
-        let mut new_generation = Vec::new();
-        for cell in &mut swarm {
-            match cell.clone().mitosis() {
+        let mut new_generation = Vec::with_capacity(swarm.len() * 2);
+        for cell in swarm {
+            match cell.mitosis() {
                 Ok((parent, clone)) => {
                     new_generation.push(parent);
                     new_generation.push(clone);
                 }
                 Err(_) => {
-                    new_generation.push(cell.clone());
+                    new_generation.push(cell);
                 }
             }
         }
