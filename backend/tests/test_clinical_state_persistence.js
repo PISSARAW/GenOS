@@ -46,6 +46,13 @@ async function main() {
     immuneTiter: 0.65, inflammatoryIndex: 0.3, plasmidLoad: 0.2,
     pathogenBurden: 0.45, cellCycleState: 'S', iatrogenicDelta: 0.12,
   });
+  const partial = await clinical.refreshClinicalState(first.adapter, 'clinical-agent', {
+    vitals: { cognitiveIntegrity: 0.5 }, inflammatoryIndex: 0.1,
+  });
+  assert.equal(partial.vitals.cognitiveIntegrity, 0.5, 'nested vital updates are applied');
+  assert.equal(partial.vitals.stress, updated.vitals.stress, 'unspecified vitals are preserved');
+  assert.equal(partial.plasmidLoad, updated.plasmidLoad, 'unspecified pathology loads are preserved');
+  assert.equal(partial.pathogenBurden, updated.pathogenBurden, 'pathogen load is preserved');
   await closeDatabase(first.database);
 
   first = openDatabase(file);

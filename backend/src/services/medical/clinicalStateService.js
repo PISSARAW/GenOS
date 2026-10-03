@@ -63,14 +63,15 @@ async function getClinicalState(db, agentId) {
   return clinicalStateFromRow(row);
 }
 
-function buildVitals(context) {
+function buildVitals(context, existing = {}) {
+  const incoming = context.vitals && typeof context.vitals === 'object' ? context.vitals : {};
   return {
-    cognitiveIntegrity: clamp01(context.cognitiveIntegrity, 0.8),
-    stress: clamp01(context.stress),
-    energy: clamp01(context.energy, 0.8),
-    budgetRatio: clamp01(context.budgetRatio, 1.0),
-    dissonance: clamp01(context.dissonance),
-    apoptosisRisk: clamp01(context.apoptosisRisk),
+    cognitiveIntegrity: clamp01(context.cognitiveIntegrity ?? incoming.cognitiveIntegrity, existing.cognitiveIntegrity ?? 0.8),
+    stress: clamp01(context.stress ?? incoming.stress, existing.stress ?? 0),
+    energy: clamp01(context.energy ?? incoming.energy, existing.energy ?? 0.8),
+    budgetRatio: clamp01(context.budgetRatio ?? incoming.budgetRatio, existing.budgetRatio ?? 1.0),
+    dissonance: clamp01(context.dissonance ?? incoming.dissonance, existing.dissonance ?? 0),
+    apoptosisRisk: clamp01(context.apoptosisRisk ?? incoming.apoptosisRisk, existing.apoptosisRisk ?? 0),
   };
 }
 
@@ -82,11 +83,11 @@ async function refreshClinicalState(db, agentId, context = {}) {
   const existing = await getClinicalState(db, agentId);
   if (!existing) return initClinicalState(db, agentId);
 
-  const vitals = buildVitals(context);
-  const plasmidLoad = clamp01(context.plasmidLoad, 0.0);
-  const pathogenBurden = clamp01(context.pathogenBurden, 0.0);
-  const inflammatoryIndex = clamp01(context.inflammatoryIndex, 0.0);
-  const immuneTiter = clamp01(context.immuneTiter, 1.0);
+  const vitals = buildVitals(context, existing.vitals);
+  const plasmidLoad = clamp01(context.plasmidLoad, existing.plasmidLoad);
+  const pathogenBurden = clamp01(context.pathogenBurden, existing.pathogenBurden);
+  const inflammatoryIndex = clamp01(context.inflammatoryIndex, existing.inflammatoryIndex);
+  const immuneTiter = clamp01(context.immuneTiter, existing.immuneTiter);
   const cellCycleState = resolveCellCycle(context, existing.cellCycleState);
   const iatrogenicLoad = clamp01(existing.iatrogenicLoad + clamp01(context.iatrogenicDelta, 0), 0.0);
 
