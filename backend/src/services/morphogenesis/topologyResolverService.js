@@ -6,14 +6,14 @@ const { DEFINITIONS } = require('./registry/topologyRegistry');
 const topologyPolicy = require('./learning/topologyPolicyService');
 
 const TOPOLOGIES = Object.freeze({
-  trinity: { independence: 0.95, diversity: 0.7, coordination_overhead: 0.6, communication_overhead: 0.6, latency: 0.4, risk: 0.4, state_preservation: 0.7, token_cost: 0.5, daemon_support: 0.7 },
-  a_team: { independence: 0.5, diversity: 0.4, coordination_overhead: 0.5, communication_overhead: 0.5, latency: 0.3, risk: 0.3, state_preservation: 0.7, token_cost: 0.4, daemon_support: 0.5 },
-  syncytium: { independence: 0.2, diversity: 0.2, coordination_overhead: 0.2, communication_overhead: 0.9, latency: 0.8, risk: 0.3, state_preservation: 0.95, token_cost: 0.8, daemon_support: 0.8 },
-  rhizome: { independence: 0.8, diversity: 0.9, coordination_overhead: 0.3, communication_overhead: 0.4, latency: 0.3, risk: 0.4, state_preservation: 0.5, token_cost: 0.3, daemon_support: 0.6 },
-  biome: { independence: 0.4, diversity: 0.7, coordination_overhead: 0.3, communication_overhead: 0.3, latency: 0.2, risk: 0.2, state_preservation: 0.6, token_cost: 0.2, daemon_support: 0.5 },
-  biocenose: { independence: 0.6, diversity: 0.8, coordination_overhead: 0.5, communication_overhead: 0.6, latency: 0.4, risk: 0.3, state_preservation: 0.7, token_cost: 0.5, daemon_support: 0.6 },
-  holobionte: { independence: 0.3, diversity: 0.4, coordination_overhead: 0.6, communication_overhead: 0.7, latency: 0.6, risk: 0.5, state_preservation: 0.9, token_cost: 0.6, daemon_support: 0.7 },
-  metapopulation: { independence: 0.7, diversity: 0.6, coordination_overhead: 0.4, communication_overhead: 0.4, latency: 0.3, risk: 0.3, state_preservation: 0.8, token_cost: 0.4, daemon_support: 0.6 }
+  trinity: { independence: 0.95, diversity: 0.7, coordination_overhead: 0.6, communication_overhead: 0.6, latency: 0.4, risk: 0.4, state_preservation: 0.7, token_cost: 0.5 },
+  a_team: { independence: 0.5, diversity: 0.4, coordination_overhead: 0.5, communication_overhead: 0.5, latency: 0.3, risk: 0.3, state_preservation: 0.7, token_cost: 0.4 },
+  syncytium: { independence: 0.2, diversity: 0.2, coordination_overhead: 0.2, communication_overhead: 0.9, latency: 0.8, risk: 0.3, state_preservation: 0.95, token_cost: 0.8 },
+  rhizome: { independence: 0.8, diversity: 0.9, coordination_overhead: 0.3, communication_overhead: 0.4, latency: 0.3, risk: 0.4, state_preservation: 0.5, token_cost: 0.3 },
+  biome: { independence: 0.4, diversity: 0.7, coordination_overhead: 0.3, communication_overhead: 0.3, latency: 0.2, risk: 0.2, state_preservation: 0.6, token_cost: 0.2 },
+  biocenose: { independence: 0.6, diversity: 0.8, coordination_overhead: 0.5, communication_overhead: 0.6, latency: 0.4, risk: 0.3, state_preservation: 0.7, token_cost: 0.5 },
+  holobionte: { independence: 0.3, diversity: 0.4, coordination_overhead: 0.6, communication_overhead: 0.7, latency: 0.6, risk: 0.5, state_preservation: 0.9, token_cost: 0.6 },
+  metapopulation: { independence: 0.7, diversity: 0.6, coordination_overhead: 0.4, communication_overhead: 0.4, latency: 0.3, risk: 0.3, state_preservation: 0.8, token_cost: 0.4 }
 });
 
 const ALL_IDS = Object.freeze(Object.keys(DEFINITIONS));
@@ -132,6 +132,15 @@ function historicalSuccess(id, profile) {
   return topologyPolicy.priorFor(id, profile).expectedOutcome;
 }
 
+function measuredDaemonSupport(id, context) {
+  const support = context?.daemonSupport?.[id];
+  const territoryId = context?.problemProfile?.territoryId || context?.currentState?.territoryId;
+  const hasEvidence = Boolean(support?.evidenceRef && support?.daemonId && support?.headSha);
+  if (!hasEvidence || support.status !== 'HEALTHY' || !territoryId || support.territoryId !== territoryId) return 0;
+  const score = Number(support.score);
+  return Number.isFinite(score) ? Math.max(0, Math.min(1, score)) : 0;
+}
+
 function computeFactors(id, ctx) {
   const profile = get(ctx, 'problemProfile', {});
   const current = get(ctx, 'currentState', {});
@@ -152,7 +161,7 @@ function computeFactors(id, ctx) {
     token_cost: t ? t.token_cost : 0,
     latency: t ? t.latency : 0,
     risk: t ? t.risk : 0,
-    daemon_support: t ? t.daemon_support : 0,
+    daemon_support: measuredDaemonSupport(id, ctx),
     relation_fit: relationFit(id, relations),
     historical_success: historicalSuccess(id, profile)
   };
