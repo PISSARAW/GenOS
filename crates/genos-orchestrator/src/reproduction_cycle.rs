@@ -78,15 +78,20 @@ impl GenosEcosystem {
     /// Cellule active dont le génome enregistré peut encore se répliquer
     /// (limite de Hayflick non atteinte) : candidate mère de ce tick.
     fn find_eligible_mother(&self) -> Option<(Uuid, Genome)> {
-        self.orchestrator
+        let (best_cell, best_genome_id) = self
+            .orchestrator
             .active_cells
             .iter()
             .filter_map(|(cell_id, cell)| {
                 let genome_id = cell.genome_id?;
                 let genome = self.orchestrator.genomes.get(&genome_id)?;
-                genome.can_replicate().then(|| (*cell_id, genome.clone()))
+                genome
+                    .can_replicate()
+                    .then(|| (*cell_id, genome_id, genome.generation))
             })
-            .max_by_key(|(_, genome)| (genome.generation, genome.genome_id()))
+            .max_by(|a, b| a.2.cmp(&b.2).then_with(|| a.1.as_bytes().cmp(b.1.as_bytes())))?;
+        let genome = self.orchestrator.genomes.get(&best_genome_id)?.clone();
+        Some((best_cell, genome))
     }
 
     fn seeded_rng_for(daughter_id: Uuid) -> StdRng {
@@ -95,7 +100,11 @@ impl GenosEcosystem {
 
     fn seed_bytes_for(daughter_id: Uuid) -> [u8; 32] {
         let mut seed = [0u8; 32];
-        seed[..16].copy_from_slice(daughter_id.as_bytes());
+        let bytes = daughter_id.as_bytes();
+        seed[..16].copy_from_slice(bytes);
+        for (i, byte) in bytes.iter().enumerate() {
+            seed[16 + i] = byte ^ 0x5A;
+        }
         seed
     }
 
@@ -139,12 +148,21 @@ impl GenosEcosystem {
         if self.orchestrator.membrane.total_integrity() < MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE {
             return Err(ReproductionBlocked::MembraneTooWeak);
         }
-        if !self.orchestrator.metabolism.consume_for("reproduction.cycle", REPRODUCTION_ATP_COST) {
-            return Err(ReproductionBlocked::InsufficientAtp);
+        let mother_cell = self
+            .orchestrator
+            .active_cells
+            .get(&mother_id)
+            .cloned()
+            .ok_or(ReproductionBlocked::NoEligibleMother)?;
+        if let Err(reason) = mother_cell.can_divide() {
+            return Err(ReproductionBlocked::HayflickLimitReached(reason));
         }
 
         let division = CellDivision::mitosis_attested(&mother_genome)
             .map_err(ReproductionBlocked::HayflickLimitReached)?;
+        if !self.orchestrator.metabolism.consume_for("reproduction.cycle", REPRODUCTION_ATP_COST) {
+            return Err(ReproductionBlocked::InsufficientAtp);
+        }
         let mut daughter_genome = division.clone;
         let seed = Self::seed_bytes_for(daughter_genome.genome_id());
         let seed_hex = Self::seed_hex(&seed);
@@ -159,12 +177,6 @@ impl GenosEcosystem {
             .fingerprint()
             .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
 
-        let mother_cell = self
-            .orchestrator
-            .active_cells
-            .get(&mother_id)
-            .cloned()
-            .ok_or(ReproductionBlocked::NoEligibleMother)?;
         let (mut parent_cell, mut daughter_cell) = mother_cell
             .mitosis()
             .map_err(ReproductionBlocked::HayflickLimitReached)?;
