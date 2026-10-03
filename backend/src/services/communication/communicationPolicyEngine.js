@@ -263,9 +263,7 @@ async function decideStigmergy(input, intent, refs) {
 }
 
 function broadcastGrounding(risk, requiresAction) {
-  const level = groundingFor(risk, requiresAction);
-  if (level === 'human_confirmation') return 'verified_ack';
-  return level;
+  return groundingFor(risk, requiresAction);
 }
 
 async function decideLocalBroadcast(input, intent, refs) {
@@ -315,6 +313,7 @@ async function decideGlobalBroadcast(input, intent, refs) {
 }
 
 async function tryPrescoped(input, intent, refs) {
+  if (intent.risk === 'critical' && input.humanRequired !== false) return null;
   if (input.receptorTopic) return decideLocalBroadcast(input, intent, refs);
   if (globalEligible(intent, input)) return decideGlobalBroadcast(input, intent, refs);
   if (stigmergyEligible(intent, input)) return decideStigmergy(input, intent, refs);
