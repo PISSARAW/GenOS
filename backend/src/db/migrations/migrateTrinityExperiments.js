@@ -31,6 +31,15 @@ async function migrateTrinityExperiments(db) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_trinity_transitions_experiment ON trinity_experiment_transitions(experiment_id, id);
+    CREATE TABLE IF NOT EXISTS trinity_jury_calibration (
+      experiment_id TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      jury_preferred INTEGER,
+      deterministic_winner INTEGER,
+      agreed INTEGER,
+      inter_judge_agreement REAL
+    );
+    CREATE INDEX IF NOT EXISTS idx_trinity_jury_calibration_experiment ON trinity_jury_calibration(experiment_id, timestamp);
   `);
   await addWorldColumns(db);
   await db.exec(`CREATE INDEX IF NOT EXISTS idx_trinity_worlds_experiment ON trinity_worlds(experiment_id, world_number);`);

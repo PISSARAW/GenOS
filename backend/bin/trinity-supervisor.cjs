@@ -6,6 +6,11 @@ const trinityBarrier = require('../src/services/trinityComparativeBarrier');
 const trinityService = require('../src/services/trinityService');
 const organization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
+const adversarial = require('../src/services/trinityAdversarialCrossExamination');
+const crossExamination = require('../src/services/trinityCrossExaminationService');
+const claimGraph = require('../src/services/trinityClaimGraphService');
+const jury = require('../src/services/trinityBlindJuryService');
+const verifier = require('../src/services/trinityMissionVerifierService');
 
 const TERMINAL = new Set(['blocked', 'completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
 
@@ -46,7 +51,7 @@ async function supervise(input) {
   try {
     await waitForWorkers(db, input.missionId);
     const reports = await trinityBarrier.buildWorldReportsFromMission(db, input.missionId);
-    const result = trinityService.mergeTrinityEvidence(reports, { domain: 'puzzle_design', threshold: 0.70 });
+    const result = await compareMission(db, input, reports);
     await trinityService.recordWorldComparison(db, {
       missionId: input.missionId,
       orchestratorId: input.orchestratorId,
@@ -66,6 +71,31 @@ async function supervise(input) {
   } finally {
     await closeDatabase(db);
   }
+}
+
+async function compareMission(db, input, reports) {
+  const design = { centralProblem: input.mission, variantSelection: input.variantSelection || {} };
+  const examined = await crossExamination.examine(db, reports, { centralProblem: input.mission });
+  const worlds = verifier.verifyMissionReports(examined.reports, input.mission);
+  const review = await adversarial.runVariantReview({ db, agentId: input.orchestratorId, design, worlds });
+  const graph = claimGraph.build(worlds);
+  let result = trinityService.mergeTrinityEvidence(worlds, {
+    domain: trinityService.analyzeMission(input.mission).domain,
+    threshold: 0.70, claimGraph: graph, variantSelection: input.variantSelection
+  });
+  result = adversarial.enforceVariantGate(result, review);
+  if (review) result.comparativeAnalysis.adversarialReview = review;
+  result.jury = await jury.evaluate({
+    db, agentId: input.orchestratorId, outcome: result.outcome,
+    mission: input.mission, config: input.juryConfig, reports: worlds
+  });
+  result.comparativeAnalysis.crossExamination = crossExamination.summary(examined);
+  result.comparativeAnalysis.claimGraph = graph;
+  if (result.jury.status !== 'unavailable') {
+    await jury.recordCalibration({ db, experimentId: input.missionId, juryResult: result.jury,
+      deterministicOutcome: { selectedWorld: result.selectedWorld } });
+  }
+  return result;
 }
 
 let input = {};

@@ -152,6 +152,7 @@ async function applyTrinityComparison(ctx) {
   result = trinityAdversarial.enforceVariantGate(result, adversarialReview);
   if (adversarialReview) result.comparativeAnalysis.adversarialReview = adversarialReview;
   result.jury = await trinityBlindJury.evaluate({ db: ctx.db, agentId: ctx.agentId, outcome: result.outcome, mission: trinity.hypothesisDesign?.centralProblem, config: trinity.hypothesisDesign?.juryConfig, reports: worldReports });
+  if (result.jury.status !== 'unavailable') await trinityBlindJury.recordCalibration({ db: ctx.db, experimentId: trinity.missionId, juryResult: result.jury, deterministicOutcome: { selectedWorld: result.selectedWorld } });
   result.comparativeAnalysis.crossExamination = trinityCrossExamination.summary(crossExamination);
   result.comparativeAnalysis.claimGraph = claimGraph;
   result.comparativeAnalysis.adaptiveBudget = trinity.adaptiveBudgetDecision || null;

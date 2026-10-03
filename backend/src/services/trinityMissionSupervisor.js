@@ -8,6 +8,9 @@ function launch(options = {}) {
   const payload = JSON.stringify({
     missionId: options.missionId,
     orchestratorId: options.orchestratorId,
+    mission: options.mission,
+    variantSelection: options.variantSelection,
+    juryConfig: options.juryConfig,
     repoRoot: options.repoRoot
   });
   const child = spawn(process.execPath, [script, payload], {

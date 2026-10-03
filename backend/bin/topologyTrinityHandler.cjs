@@ -52,7 +52,10 @@ async function handle(input) {
   const members = composeMembers(mission, { variant, jury, experimentalDesign }, assignments);
   const missionId = `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
   const accepted = await launchWorlds({ db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId });
-  const supervision = trinityMissionSupervisor.launch({ missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot });
+  const supervision = trinityMissionSupervisor.launch({
+    missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot,
+    mission, variantSelection: members[0]?.variantSelection, juryConfig: jury
+  });
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: {
     status: 'accepted', mission, missionId, variant: members[0]?.variant,
     variantSelection: members[0]?.variantSelection,
