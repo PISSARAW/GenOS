@@ -54,7 +54,7 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let len = strand.len();
         for pos in 0..len {
             if rng.random_bool(rate.clamp(0.0, 1.0)) {
@@ -83,7 +83,7 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let len = strand.len();
         let codons = len / 3;
         for i in 0..codons {
@@ -122,7 +122,7 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let loci: Vec<String> = genome.genes.keys().cloned().collect();
         for locus in &loci {
             if !rng.random_bool(rate.clamp(0.0, 1.0)) { continue; }
@@ -202,7 +202,7 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let len = strand.len();
         if len < 4 { return results; }
         let segment_len = (len as f64 * rate.clamp(0.0, 1.0)).max(1.0) as usize;
@@ -230,7 +230,7 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let mut rng2 = rng;
         let maternal_results = Self::mutate_nucleotide(&mut genome.chromosome_maternal, rate, &mut rng2);
         let paternal_results = Self::mutate_nucleotide(&mut genome.chromosome_paternal, rate, &mut rng2);
