@@ -1,5 +1,5 @@
 // Registry for Transposons (Jumping Genes)
-const transposonRegistry = new Map(); /* persisterHook: transposonRegistry */
+let transposonRegistry = new Map(); /* persisterHook: transposonRegistry */
 
 function getTransposonRecord(id) {
   if (!transposonRegistry.has(id)) {
@@ -159,6 +159,7 @@ function _ensuretransposonRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::transposon_jump', 'transposonRegistry') : null;
     const mapToUse = stored && stored.size ? stored : transposonRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::transposon_jump', 'transposonRegistry', mapToUse) : mapToUse;
+    transposonRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'transposonRegistry', {
       value: persistentMap,

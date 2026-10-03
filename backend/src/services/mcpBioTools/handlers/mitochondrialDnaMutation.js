@@ -1,5 +1,5 @@
 // Registry for Mitochondrial DNA (mtDNA) & Matrilineal Inheritance
-const mtdnaRegistry = new Map();
+let mtdnaRegistry = new Map();
 
 function getMtdnaRecord(id) {
   if (!mtdnaRegistry.has(id)) {
@@ -116,11 +116,12 @@ function _ensuremitochondrialRegistryPersistent() {
     const persister = adaptivePersister.getAdaptivePersister();
     if (!persister) return;
     // Réhydrate depuis DB
-    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::mitochondrial_dna_mutation', 'mitochondrialRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : mitochondrialRegistry;
-    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::mitochondrial_dna_mutation', 'mitochondrialRegistry', mapToUse) : mapToUse;
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::mitochondrial_dna_mutation', 'mtdnaRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : mtdnaRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::mitochondrial_dna_mutation', 'mtdnaRegistry', mapToUse) : mapToUse;
+    mtdnaRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'mitochondrialRegistry', {
+    Object.defineProperty(module.exports, 'mtdnaRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -140,7 +141,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.mitochondrialRegistry || mitochondrialRegistry;
+  const map = module.exports.mtdnaRegistry || mtdnaRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

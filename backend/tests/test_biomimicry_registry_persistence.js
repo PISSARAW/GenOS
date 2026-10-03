@@ -35,6 +35,14 @@ try {
   const sesquizygotic = require('../src/services/mcpBioTools/handlers/sesquizygoticSplit');
   const superfetation = require('../src/services/mcpBioTools/handlers/superfetationPipeline');
   const fetusInFetu = require('../src/services/mcpBioTools/handlers/fetusInFetu');
+  const aneuploidy = require('../src/services/mcpBioTools/handlers/aneuploidy');
+  const polyploidy = require('../src/services/mcpBioTools/handlers/polyploidy');
+  const deletion = require('../src/services/mcpBioTools/handlers/chromosomalDeletion');
+  const duplication = require('../src/services/mcpBioTools/handlers/chromosomalDuplication');
+  const inversion = require('../src/services/mcpBioTools/handlers/chromosomalInversion');
+  const translocation = require('../src/services/mcpBioTools/handlers/chromosomalTranslocation');
+  const transposon = require('../src/services/mcpBioTools/handlers/transposonJump');
+  const mtdna = require('../src/services/mcpBioTools/handlers/mitochondrialDnaMutation');
   const point = require('../src/services/mcpBioTools/handlers/pointMutation');
   const chimera = require('../src/services/mcpBioTools/handlers/chimericMerge');
   const conjoined = require('../src/services/mcpBioTools/handlers/conjoinedTwinBind');
@@ -52,6 +60,14 @@ try {
   sesquizygotic.SESQUIZYGOTIC_REGISTRY.set('persistent-sesqui', { pairId: 'persistent-sesqui', twins: [] });
   superfetation.SUPERFETATION_REGISTRY.set('persistent-superfetation', { pipelineId: 'persistent-superfetation' });
   fetusInFetu.FETUS_REGISTRY.set('persistent-host', { hostId: 'persistent-host', fetusId: 'persistent-fetus' });
+  aneuploidy.handleAneuploidy({ action: 'induce_trisomy', id: 'persistent-aneuploidy' });
+  polyploidy.handlePolyploidy({ action: 'multiply_genome_ploidy', id: 'persistent-polyploidy' });
+  deletion.handleChromosomalDeletion({ action: 'delete_chromosome_segment', id: 'persistent-deletion' });
+  duplication.handleChromosomalDuplication({ action: 'duplicate_chromosome_segment', id: 'persistent-duplication' });
+  inversion.handleChromosomalInversion({ action: 'invert_chromosome_segment', id: 'persistent-inversion', start_index: 0, end_index: 1 });
+  translocation.handleChromosomalTranslocation({ action: 'translocate_segment', source_agent_id: 'persistent-source', target_agent_id: 'persistent-target' });
+  transposon.handleTransposonJump({ action: 'copy_and_paste_retrojump', id: 'persistent-transposon' });
+  mtdna.handleMitochondrialDnaMutation({ action: 'mutate_mtdna_under_stress', id: 'persistent-mtdna' });
   point.handlePointMutation({ action: 'apply_substitution', id: 'persistent-point' });
   chimera.handleChimericMerge({ action: 'status', mosaic_id: 'persistent-chimera' });
   conjoined.handleConjoinedTwinBind({ action: 'status', pair_id: 'persistent-conjoined' });
@@ -71,6 +87,14 @@ try {
   assert.ok(sesquizygotic.getSnapshot()['persistent-sesqui']);
   assert.ok(superfetation.getSnapshot()['persistent-superfetation']);
   assert.ok(fetusInFetu.getSnapshot()['persistent-host']);
+  assert.ok(aneuploidy.getSnapshot()['persistent-aneuploidy']);
+  assert.ok(polyploidy.getSnapshot()['persistent-polyploidy']);
+  assert.ok(deletion.getSnapshot()['persistent-deletion']);
+  assert.ok(duplication.getSnapshot()['persistent-duplication']);
+  assert.ok(inversion.getSnapshot()['persistent-inversion']);
+  assert.ok(translocation.getSnapshot()['persistent-source']);
+  assert.ok(transposon.getSnapshot()['persistent-transposon']);
+  assert.ok(mtdna.getSnapshot()['persistent-mtdna']);
   assert.ok(point.getSnapshot()['persistent-point']);
   assert.ok(chimera.getSnapshot()['persistent-chimera']);
   assert.ok(conjoined.getSnapshot()['persistent-conjoined']);
@@ -88,6 +112,14 @@ try {
     'SESQUIZYGOTIC_REGISTRY',
     'SUPERFETATION_REGISTRY',
     'FETUS_REGISTRY',
+    'aneuploidyRegistry',
+    'polyploidyRegistry',
+    'chromosomalDeletionRegistry',
+    'chromosomalDuplicationRegistry',
+    'chromosomalInversionRegistry',
+    'chromosomalTranslocationRegistry',
+    'transposonRegistry',
+    'mtdnaRegistry',
     'pointMutationRegistry',
     'chimericRegistry',
     'conjoinedTwinRegistry',

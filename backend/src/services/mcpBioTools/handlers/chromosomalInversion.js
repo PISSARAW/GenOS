@@ -1,5 +1,5 @@
 // Registry for Chromosomal Inversions
-const chromosomalInversionRegistry = new Map(); /* persisterHook: chromosomalInversionRegistry */
+let chromosomalInversionRegistry = new Map(); /* persisterHook: chromosomalInversionRegistry */
 
 function getInversionRecord(id) {
   if (!chromosomalInversionRegistry.has(id)) {
@@ -110,6 +110,7 @@ function _ensurechromosomalInversionRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chromosomal_inversion', 'chromosomalInversionRegistry') : null;
     const mapToUse = stored && stored.size ? stored : chromosomalInversionRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chromosomal_inversion', 'chromosomalInversionRegistry', mapToUse) : mapToUse;
+    chromosomalInversionRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'chromosomalInversionRegistry', {
       value: persistentMap,

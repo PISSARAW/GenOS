@@ -1,5 +1,5 @@
 // Registry for Genomic Aneuploidy
-const aneuploidyRegistry = new Map(); /* persisterHook: aneuploidyRegistry */
+let aneuploidyRegistry = new Map(); /* persisterHook: aneuploidyRegistry */
 const VALID_CHROMOSOMES = new Set(['chrom_analyzer', 'chrom_verifier', 'chrom_executor']);
 
 function getAneuploidyRecord(id) {
@@ -141,6 +141,7 @@ function _ensureaneuploidyRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::aneuploidy', 'aneuploidyRegistry') : null;
     const mapToUse = stored && stored.size ? stored : aneuploidyRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::aneuploidy', 'aneuploidyRegistry', mapToUse) : mapToUse;
+    aneuploidyRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'aneuploidyRegistry', {
       value: persistentMap,
