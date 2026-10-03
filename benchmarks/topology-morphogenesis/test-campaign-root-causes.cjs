@@ -6,6 +6,7 @@ const sessionProbes = require('./session-probes.cjs');
 const { installBusyRetry } = require('../../backend/src/db');
 const { evaluateQualification } = require('./campaignQualification.cjs');
 const { assessTopologyMission, parseWorkerReport } = require('./topologyMissionEvidence.cjs');
+const { assessCampaignCapacity, requiredCampaignBytes } = require('./campaignPreflight.cjs');
 
 function receiptFor(statement) {
   return { telemetry: [{ event_type: 'EVIDENCE_REPORT', payload_json: JSON.stringify({
@@ -22,6 +23,16 @@ async function verifyDatabaseRetry() {
   installBusyRetry(db);
   assert.equal(await db.run('INSERT'), 'saved');
   assert.equal(db.attempts, 2);
+}
+
+function verifyCampaignStopsBeforeDiskExhaustion() {
+  const required = requiredCampaignBytes(3);
+  assert.equal(required, 1024 * 1024 * 1024);
+  assert.equal(assessCampaignCapacity(required, 3).passed, true);
+  const blocked = assessCampaignCapacity(required - 1, 3);
+  assert.equal(blocked.passed, false);
+  assert.equal(blocked.reason, 'insufficient disk headroom for isolated worker workspaces');
+  assert.equal(assessCampaignCapacity(null, 3).passed, false);
 }
 
 function verifyPilotCannotQualifyAsConfirmatory() {
@@ -87,6 +98,7 @@ async function main() {
     edges: [{ edgeId: 'validator-explainer' }]
   });
   await verifyDatabaseRetry();
+  verifyCampaignStopsBeforeDiskExhaustion();
   verifyPilotCannotQualifyAsConfirmatory();
   verifyTopologyNeedsRealDossiersAndOracle();
   await verifySessionProbesAreReadOnly();

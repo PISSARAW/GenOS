@@ -7,6 +7,8 @@ const { spawn } = require('child_process');
 const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
 const { evaluateQualification } = require('./campaignQualification.cjs');
 const topologyMissionEvidence = require('./topologyMissionEvidence.cjs');
+const { assessCampaignCapacity } = require('./campaignPreflight.cjs');
+const { validateCampaignEvidence } = require('./campaignEvidenceGuard.cjs');
 
 const repo = path.resolve(__dirname, '../..');
 const suite = JSON.parse(fs.readFileSync(path.join(__dirname, 'suite.json'), 'utf8'));
@@ -80,42 +82,6 @@ function missionDigest(name) {
   const task = tasksById.get(name);
   const file = path.join(__dirname, task.missionFile);
   return sha256(fs.readFileSync(file));
-}
-
-function campaignIdentityFailures(results) {
-  const failures = [];
-  if (results.schemaVersion !== 1 || !results.suiteId || !/^[a-f0-9]{40}$/i.test(results.gitCommit || '')) failures.push('campaign identity or source commit missing');
-  if (!/^[a-f0-9]{64}$/.test(results.suiteSha256 || '')) failures.push('suite digest missing');
-  if (!results.sourceState || typeof results.sourceState.confirmatoryEligible !== 'boolean') failures.push('source tree state missing');
-  return failures;
-}
-
-function hasMissionProvenance(mission) {
-  return Boolean(mission.missionFile) && /^[a-f0-9]{64}$/.test(mission.missionSha256 || '');
-}
-
-function hasValidReceiptDigest(mission) {
-  return mission.receiptObjectSha256 === null || /^[a-f0-9]{64}$/.test(mission.receiptObjectSha256 || '');
-}
-
-function hasExecutionEvidence(mission) {
-  return Array.isArray(mission.workers) && typeof mission.verification?.passed === 'boolean';
-}
-
-function missionEvidenceFailures(mission) {
-  const failures = [];
-  if (!hasMissionProvenance(mission)) failures.push(`${mission.name}: mission provenance missing`);
-  if (!hasValidReceiptDigest(mission)) failures.push(`${mission.name}: invalid receipt digest`);
-  if (!hasExecutionEvidence(mission)) failures.push(`${mission.name}: execution evidence incomplete`);
-  if (!mission.oracleVerification?.status) failures.push(`${mission.name}: oracle scope missing`);
-  if (!mission.mechanismEvidence?.status) failures.push(`${mission.name}: mechanism evidence scope missing`);
-  return failures;
-}
-
-function validateCampaignEvidence(results) {
-  const failures = campaignIdentityFailures(results);
-  for (const mission of results.missions) failures.push(...missionEvidenceFailures(mission));
-  if (failures.length) throw new Error(`Invalid campaign evidence: ${failures.join('; ')}`);
 }
 
 function prepareMissionPayload(name, payload) {
@@ -233,12 +199,14 @@ function verifyNegativeControl({ receipt }) {
 
 function summarizeVerification(results, probes = null) {
   const failed = results.missions.filter((mission) => mission.verification?.passed !== true);
+  const completed = new Set(results.missions.map((mission) => mission.name));
+  const missingMissions = missions.filter((name) => !completed.has(name));
   const failedProbes = probes
     ? Object.entries(probes).filter(([, probe]) => probe?.verificationEligible === true && probe?.verified !== true).map(([name]) => name)
     : [];
   return {
-    passed: failed.length === 0 && probes !== null && failedProbes.length === 0,
-    failedMissions: failed.map((mission) => mission.name),
+    passed: failed.length === 0 && missingMissions.length === 0 && probes !== null && failedProbes.length === 0,
+    failedMissions: [...failed.map((mission) => mission.name), ...missingMissions],
     failedSessionProbes: failedProbes,
     sessionProbesPending: probes === null
   };
@@ -351,6 +319,21 @@ function runSessionProbes() {
 
 async function main() {
   validateSuiteManifest();
+  const maxWorkers = Math.max(1, ...suite.tasks.map((task) => {
+    const file = path.join(__dirname, task.missionFile);
+    return Number(JSON.parse(fs.readFileSync(file, 'utf8')).agent_count) || 1;
+  }));
+  const stat = fs.statfsSync(repo);
+  const preflight = assessCampaignCapacity(Number(stat.bavail) * Number(stat.bsize), maxWorkers);
+  if (!preflight.passed) {
+    fs.mkdirSync(output, { recursive: true });
+    fs.writeFileSync(path.join(output, 'campaign-preflight.json'), JSON.stringify({
+      runId, checkedAt: new Date().toISOString(), ...preflight
+    }, null, 2));
+    process.stderr.write(`Campaign stopped before dispatch: ${preflight.reason}; available=${preflight.availableBytes} required=${preflight.requiredBytes}\n`);
+    process.exitCode = 1;
+    return;
+  }
   fs.mkdirSync(fixture, { recursive: true });
   fs.mkdirSync(path.join(output, 'runner-logs'), { recursive: true });
   fs.writeFileSync(path.join(fixture, 'README.md'), 'Isolated campaign workspace.\n');
@@ -380,6 +363,13 @@ async function main() {
       changedPathCount: changedPaths.length,
       confirmatoryEligible: false };
     for (const name of missions) {
+      const freshStat = fs.statfsSync(repo);
+      const capacity = assessCampaignCapacity(Number(freshStat.bavail) * Number(freshStat.bsize), maxWorkers);
+      if (!capacity.passed) {
+        results.preflightFailure = { checkedAt: new Date().toISOString(), ...capacity };
+        process.stderr.write(`Campaign stopped before ${name}: ${capacity.reason}; available=${capacity.availableBytes} required=${capacity.requiredBytes}\n`);
+        break;
+      }
       const run = await execute(name);
       await recordMissionResult({ name, run, db, results });
     }
