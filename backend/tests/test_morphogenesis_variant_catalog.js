@@ -41,6 +41,11 @@ function run() {
 
   for (const topology of registry.list()) {
     assert.deepEqual(registry.get(topology).variants, registry.variants.list(topology));
+    for (const variantId of registry.variants.list(topology).filter((id) => id !== 'default')) {
+      const selection = registry.profiles.resolve({ baseTopology: topology, structuralVariants: [variantId] });
+      assert.equal(selection.valid, true, `${topology}/${variantId} must remain explicitly selectable`);
+      assert.equal(selection.selectedVariant.variantId, variantId);
+    }
   }
   assert.equal(registry.get('a_team').variants.includes('red_blue_coevolution'), false);
   assert.equal(registry.variants.resolve('a_team', 'missing'), null);
