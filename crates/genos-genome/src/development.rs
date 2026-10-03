@@ -52,25 +52,31 @@ pub struct Embryogenesis;
 
 impl Embryogenesis {
     pub fn compute_program(
-        _genome: &crate::genome::Genome,
+        genome: &crate::genome::Genome,
         epigenome: &Epigenome,
         ctx: &EmbryogenesisContext,
     ) -> EmbryogenesisProgram {
         let mut program = EmbryogenesisProgram::default_program();
+        let energy_factor = unit_interval(ctx.energy_budget);
+        let time_factor = (ctx.time_step as f64 / 10.0).clamp(0.0, 1.0);
+        for (locus, gene) in &genome.genes {
+            let methylated = gene.is_methylated || epigenome.get_mark(locus).is_some_and(|mark| {
+                matches!(mark.kind, EpigeneticMark::Methylation) && mark.level > 0.7
+            });
+            let expression = if methylated { 0.0 } else { unit_interval(gene.expression_volume) * energy_factor };
+            program.gene_expression_profile.insert(locus.clone(), expression);
+        }
         let morphogen_field: HashMap<String, f64> = ctx
             .morphogens
             .iter()
-            .map(|m| (m.name.clone(), m.concentration))
+            .map(|m| (m.name.clone(), unit_interval(m.concentration)))
             .collect();
         program.expressed_lineage = dominant_morphogen(&morphogen_field);
         for signal in &ctx.signals {
             match signal {
                 DevelopmentalSignal::PathwayActivation { pathway, magnitude } => {
-                    program
-                        .gene_expression_profile
-                        .entry(pathway.clone())
-                        .or_insert(0.0);
-                    *program.gene_expression_profile.get_mut(pathway).unwrap() += magnitude;
+                    let expression = program.gene_expression_profile.entry(pathway.clone()).or_insert(0.0);
+                    *expression = unit_interval(*expression + unit_interval(*magnitude) * energy_factor * time_factor);
                 }
                 DevelopmentalSignal::GeneKnockdown {
                     target_locus,
@@ -80,10 +86,8 @@ impl Embryogenesis {
                         .gene_expression_profile
                         .entry(target_locus.clone())
                         .or_insert(1.0);
-                    *program
-                        .gene_expression_profile
-                        .get_mut(target_locus)
-                        .unwrap() -= reduction;
+                    let expression = program.gene_expression_profile.get_mut(target_locus).unwrap();
+                    *expression = unit_interval(*expression - unit_interval(*reduction) * energy_factor * time_factor);
                 }
             }
         }
@@ -111,19 +115,22 @@ impl Embryogenesis {
                 .gene_expression_profile
                 .entry("STAGE_SPECIFIC".to_string())
                 .or_insert(0.0);
-            *program
-                .gene_expression_profile
-                .get_mut("STAGE_SPECIFIC")
-                .unwrap() += 0.3;
+            let expression = program.gene_expression_profile.get_mut("STAGE_SPECIFIC").unwrap();
+            *expression = unit_interval(*expression + 0.3 * energy_factor * time_factor);
         }
         program
     }
 }
 
+fn unit_interval(value: f64) -> f64 {
+    if value.is_finite() { value.clamp(0.0, 1.0) } else { 0.0 }
+}
+
 fn dominant_morphogen(field: &HashMap<String, f64>) -> Option<String> {
     field
         .iter()
-        .max_by(|a, b| a.1.total_cmp(b.1))
+        .filter(|(_, concentration)| **concentration > 0.0)
+        .max_by(|a, b| a.1.total_cmp(b.1).then_with(|| b.0.cmp(a.0)))
         .map(|(n, _)| n.to_uppercase())
 }
 
