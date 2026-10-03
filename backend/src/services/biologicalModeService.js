@@ -142,6 +142,8 @@ function composeMember({ mode, role, index, definition, goal, options }) {
 function rolesForMission(mode, goal, definition) {
   const limitedPopulation = mode === 'metapopulation'
     && /(?:three populations|three environments|trois populations|trois environnements)/i.test(goal);
+  const recoveryRequired = /(?:indisponible|défaillance|perte|perdu|collapse|extinct|recolon|regenerat|recover|recovery)/i.test(goal);
+  if (limitedPopulation && recoveryRequired) return [...definition.roles.slice(0, 2), definition.roles.at(-1)];
   return limitedPopulation ? definition.roles.slice(0, 3) : definition.roles;
 }
 

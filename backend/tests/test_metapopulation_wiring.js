@@ -39,6 +39,11 @@ const environmentMembers = biologicalMode.compose('metapopulation',
   'trois environnements : navigateur desktop, mobile à faible réseau et terminal très limité');
 assert.equal(environmentMembers.length, 3);
 assert.ok(environmentMembers.every((member) => member.mission.includes('Assigned method: method_unspecified.')));
+const recoveryPopulationMembers = biologicalMode.compose('metapopulation',
+  'Trois populations indépendantes, simuler une population indisponible puis vérifier la recolonisation.');
+assert.deepEqual(recoveryPopulationMembers.map((member) => member.role), [
+  'population_isolator', 'quorum_sensor', 'regeneration_steward'
+]);
 const scheduleMembers = biologicalMode.compose('metapopulation',
   'Trois populations indépendantes : LPT glouton, programmation dynamique subset-sum et recherche locale. Minimiser le makespan.');
 assert.ok(scheduleMembers.every((member) => member.modelTier === 'frontier'));
