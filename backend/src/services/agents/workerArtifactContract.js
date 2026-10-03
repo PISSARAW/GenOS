@@ -17,7 +17,7 @@ const REQUIRED_FIELDS = Object.freeze({
 });
 
 const CONTENT_TEMPLATES = Object.freeze({
-  scout_observation: { observations: ['<observation>'] },
+  scout_observation: { observations: [{ observation: '<observation>', sourceRefs: ['<source-ref>'], confidence: 0.5, uncertainties: [] }] },
   dossier: { claims: [{ statement: '<claim>', evidence: ['<source-ref>'] }] },
   verification_report: { testedClaim: '<claim>', verificationMethod: '<method>', verdict: 'reject', reproductionSteps: ['<step>'], evidence: ['<reproduction-ref>'] },
   experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: [{ metric: '<metric>', value: 0, unit: '<unit>', evidence: ['<measurement-ref>'] }] },
@@ -50,12 +50,21 @@ function claimsAreSubstantiated(content) {
 
 function contentIsValid(type, content) {
   if (!hasRequiredFields(content, REQUIRED_FIELDS[type] || [])) return false;
+  if (type === 'scout_observation' && !hasStructuredObservations(content.observations)) return false;
   if (type === 'dossier' && !claimsAreSubstantiated(content)) return false;
   if (type === 'experiment_record' && !hasRecordedMeasurements(content)) return false;
   if (type === 'training_packet' && !hasValidatedTrainingPacket(content)) return false;
   if (type === 'creative_candidate' && !hasFalsifiableCandidate(content)) return false;
   if (type === 'synthesis_dossier' && !hasPreservedSynthesis(content)) return false;
   return specializedContentIsValid(type, content);
+}
+
+function hasStructuredObservations(items) {
+  return Array.isArray(items) && items.length > 0 && items.every((item) =>
+    isNonEmptyText(item?.observation)
+    && hasEvidenceReferences(item.sourceRefs)
+    && Number.isFinite(item.confidence) && item.confidence >= 0 && item.confidence <= 1
+    && Array.isArray(item.uncertainties) && item.uncertainties.every(isNonEmptyText));
 }
 
 function hasPreservedSynthesis(content) {
