@@ -25,8 +25,16 @@ function runWithController(registry, topology) {
     const node = nodeFrom(args, topology, context);
     const controller = registry.getController(topology, node);
     await controller.compose({ variant: args.variant });
-    return controller.execute(inputFrom(context));
+    const input = inputFrom(context);
+    const workerResults = require('./topologyWorkerResults').collectTopologyWorkerResults(node.workers, input);
+    const output = await controller.execute({ ...input, workers: node.workers, workerResults });
+    return attachWorkerResults(output, workerResults);
   };
+}
+
+function attachWorkerResults(output, workerResults) {
+  if (output && typeof output === 'object' && !Array.isArray(output)) return { ...output, workerResults };
+  return { topologyOutput: output, workerResults };
 }
 
 function installBiome(runtime) {
