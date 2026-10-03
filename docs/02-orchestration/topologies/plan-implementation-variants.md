@@ -1,7 +1,7 @@
 # Plan d'implémentation des variants des huit topologies
 
 - **Statut** : Implémentation en cours; couverture initiale branchée sur les huit topologies
-- **Dernière revue** : 2026-10-03
+- **Dernière revue** : 2026-10-04
 - **Décision d'architecture** : [ADR 0124](../../adr/0124-selection-automatique-des-variants.md)
 
 ## Objectif
@@ -51,6 +51,17 @@ encore toutes les garanties ou tous les mécanismes visés. Elle informe sur la 
 ne constitue ni un score de valeur ni un facteur de classement des variants. La suite doit
 qualifier Trinity avec des missions réussies et compléter les adaptateurs restants des autres
 topologies avant de promouvoir leur maturité.
+
+### Qualification technique — 2026-10-04
+
+- Le catalogue central résout explicitement les 95 variants canoniques des huit topologies;
+  `test_morphogenesis_variant_catalog.js` vérifie leur sélection et la projection de leur identité.
+- Les 158 tests backend nommés pour les topologies passent après correction de l'attente du
+  runtime Biome, du contrat de dispatch Holobionte et de l'injection de branche Rhizome en
+  Morphogenèse. La suite backend générale passe également (55/55).
+- Ces tests prouvent des contrats et parcours codés, pas la réussite des missions par les modèles.
+  Les 48 missions de référence et la vérification d'un effet runtime propre pour chacun des
+  95 variants restent à rejouer; la parité de maturité n'est donc pas encore démontrée.
 
 ## Plan par vagues
 

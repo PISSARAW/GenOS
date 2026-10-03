@@ -1178,7 +1178,13 @@ Rhizome est **partiellement implémenté** dans le backend. Les fonctions vérif
 
 Ne sont pas fournis par le runtime seul : les exécuteurs concrets de tous les types de providers, la preuve qu'un service ou worker externe a démarré, le softmax de routage, le modèle statistique de fitness des ponts, une condition mathématique de promotion de mission ou un benchmark de production.
 
-Le CLI de télémétrie dans `crates/genos-cli/src/commands/rhizome_telemetry/` utilise un simulateur ; ce n'est pas le graphe opérationnel du backend. Les tests `backend/tests/test_rhizome_*.js` et `backend/tests/test_morphogenesis_rhizome_branch.js` valident les scénarios codés, sans valider les analogies biologiques ni les performances de production.
+Le planificateur Morphogenèse peut inclure une branche Rhizome enfant avec `rhizomeBranch: true`;
+il exige un budget `growth` positif et marque sa promotion `verified-only`. Le test
+`backend/tests/test_morphogenesis_rhizome_branch.js` couvre l'ajout, le budget, la politique de
+preuve et le refus sans budget. Le CLI de télémétrie dans
+`crates/genos-cli/src/commands/rhizome_telemetry/` utilise un simulateur ; ce n'est pas le graphe
+opérationnel du backend. Les tests `backend/tests/test_rhizome_*.js` valident les scénarios
+codés, sans valider les analogies biologiques ni les performances de production.
 ## 23. Commandes CLI
 
 ```bash
