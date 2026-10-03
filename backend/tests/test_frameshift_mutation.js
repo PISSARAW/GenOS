@@ -31,6 +31,7 @@ async function runTest() {
     position: 1
   });
   assert.strictEqual(insertRes.success, true);
+  assert.strictEqual(insertRes.runtime_effect_applied, false);
   assert.strictEqual(insertRes.frame_shift_offset, 1);
   assert.strictEqual(insertRes.is_synchronized, false);
   console.log('✅ PASS: Single insertion caused +1 frameshift desynchronization');
@@ -59,6 +60,7 @@ async function runTest() {
     id: 'mut-shift-test-1'
   });
   assert.strictEqual(realignRes.success, true);
+  assert.strictEqual(realignRes.runtime_effect_applied, false);
   assert.strictEqual(realignRes.is_synchronized, true);
   assert.strictEqual(realignRes.pads_inserted, 2);
   console.log('✅ PASS: Compensatory pads restored triplet synchronization');
