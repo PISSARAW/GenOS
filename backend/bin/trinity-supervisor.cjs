@@ -129,7 +129,50 @@ async function compareMission(db, input, reports) {
     await jury.recordCalibration({ db, experimentId: input.missionId, juryResult: result.jury,
       deterministicOutcome: { selectedWorld: result.selectedWorld } });
   }
-  return result;
+  return enforceRequiredVariantGates({ result, input, temporalReview, recursiveReview,
+    adaptiveReview, variantExecution, review });
+}
+
+function enforceRequiredVariantGates(context) {
+  const { result, input } = context;
+  const design = input.variantSelection?.experimentalDesign || {};
+  const required = input.variantSelection?.requiredAdapters || [];
+  const executions = context.variantExecution?.executions || {};
+  const failures = [];
+  addExecutionFailure(failures, required, 'factorial_grid_executor', executions.factorial);
+  addExecutionFailure(failures, required, 'counterfactual_fork_executor', executions.counterfactual);
+  addExecutionFailure(failures, required, 'oracular_executor', executions.oracle);
+  addExecutionFailure(failures, required, 'oracle_predictor', executions.oracle);
+  addExecutionFailure(failures, required, 'exploratory_novelty_executor', executions.qualityDiversity);
+  addExecutionFailure(failures, required, 'novelty_archive', executions.qualityDiversity);
+  addExecutionFailure(failures, required, 'qd_replica_scheduler', executions.qualityDiversity);
+  addExecutionFailure(failures, required, 'multi_objective_scalarizer', executions.scalarizedObjectives);
+  if (required.includes('diversity_planner') && input.variantSelection?.diversity?.passes !== true) failures.push('diversity_plan_incomplete');
+  if (required.includes('pareto_objective_assigner') && !result.comparativeAnalysis?.pareto) failures.push('pareto_comparison_missing');
+  if (temporalRequired(design) && context.temporalReview?.evidenceStatus !== 'verified') failures.push('temporal_evidence_incomplete');
+  if (recursiveRequired(design) && !['verified', 'no_subproblem'].includes(context.recursiveReview?.status)) failures.push('recursive_execution_incomplete');
+  if (design.replicationPolicy === 'adaptive_budget_fixed_replicas' && context.adaptiveReview?.status !== 'executed') failures.push('adaptive_continuation_incomplete');
+  if (juryRequired(design) && context.result.jury?.status !== 'advisory') failures.push('jury_deliberation_incomplete');
+  if (!failures.length) return result;
+  return { ...result, canMerge: false, outcome: 'ESCALATE_EXPERIMENT', selectedWorld: null,
+    mergedEvidence: null, reason: `required_variant_execution_incomplete:${failures.join(',')}` };
+}
+
+function addExecutionFailure(failures, required, adapter, execution) {
+  if (required.includes(adapter) && execution?.status !== 'executed') failures.push(`${adapter}_incomplete`);
+}
+
+function temporalRequired(design) {
+  return ['short_medium_long', 'multi_horizon_grid'].includes(design.temporalPolicy)
+    || design.worldTopology === 'temporal_horizons';
+}
+
+function recursiveRequired(design) {
+  return design.worldTopology === 'recursive_nesting' || design.hypothesisPolicy === 'recursive_decomposition';
+}
+
+function juryRequired(design) {
+  return design.adjudicationPolicy === 'blind_jury_advisory' || design.interactionPolicy === 'jury_deliberation';
 }
 
 async function runAdaptiveReview(context) {
