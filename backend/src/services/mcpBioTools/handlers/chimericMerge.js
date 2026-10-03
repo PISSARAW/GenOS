@@ -91,6 +91,8 @@ async function handleChimericMerge(args = {}, run) {
       configured: true,
       success: true,
       status: 'mosaic_fused',
+      execution_scope: 'metadata_simulation',
+      runtime_agent_created: false,
       transport: 'tetragametic_chimeric_recombinator',
       mosaic_id: mosaicId,
       hybrid_dna_hash: hybridDnaHash,
@@ -98,7 +100,7 @@ async function handleChimericMerge(args = {}, run) {
       functional_tools_count: toolsProvided.length,
       immune_vaccines_count: vaccinesProvided.length,
       coherence_score: mosaic.coherenceScore,
-      output: `Chimeric mosaic agent '${mosaicId}' synthesized. Inherits tools from '${branchGenome}' and immune memory from '${branchEpigenome}'.`
+      output: `Chimeric lineage metadata recorded for '${mosaicId}' from '${branchGenome}' and '${branchEpigenome}'; no runtime agent was synthesized.`
     };
   }
 
