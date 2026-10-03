@@ -97,7 +97,7 @@ function applySynthesisPlan(ctx) {
 function synthesisDossier(dossier) {
   return { workerId: dossier.workerId, events: (dossier.events || [])
     .filter((event) => event.evidenceReport)
-    .map((event) => ({ evidenceReport: event.evidenceReport })) };
+    .map((event) => ({ evidenceReport: { claims: event.evidenceReport.claims || [] } })) };
 }
 
 function topologyWorkerResult(dossier) {
