@@ -98,6 +98,12 @@ function hasBoundedHandoff(handoff) {
     && hasEvidenceReferences(handoff?.deliveredRefs));
 }
 
+function hasTerritoryReport(report) {
+  return Boolean(isNonEmptyText(report?.territoryId)
+    && Number.isFinite(Date.parse(report?.observedAt))
+    && hasEvidenceReferences(report?.sourceRefs));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -197,6 +203,7 @@ function hasProvenance(artifact) {
 function artifactInstruction(contract) {
   const required = contract?.evidence?.requiredArtifacts || [];
   if (!required.length) return '';
+  if (contract.identity?.workerKind === 'resident_daemon') return residentInstruction();
   if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
   if (contract.identity?.workerKind === 'liaison_worker') return liaisonInstruction();
   const rhizome = rhizomeArtifactInstruction(contract, required);
@@ -207,6 +214,12 @@ function artifactInstruction(contract) {
   }
   const artifact = template[0];
   return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance.`;
+}
+
+function residentInstruction() {
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    territoryReport: { territoryId: '<assigned-territory>', observedAt: '<ISO-8601>', sourceRefs: ['<source-ref>'] } };
+  return `Report only observations from the assigned territory, with a timestamp and source references. Schema: ${JSON.stringify(output)}`;
 }
 
 function recoveryInstruction() {
@@ -313,6 +326,9 @@ function validateWorkerKindArtifact(result, kind, type) {
   if (kind === 'liaison_worker' && type === 'dossier' && !hasBoundedHandoff(content.handoff)) {
     return { artifact: null, issues: [...result.issues, 'workerArtifact.content.handoff.invalid'] };
   }
+  if (kind === 'resident_daemon' && type === 'dossier' && !hasTerritoryReport(content.territoryReport)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.territoryReport.invalid'] };
+  }
   return result;
 }
 
@@ -339,7 +355,8 @@ function inspectDossier(input) {
   const content = {
     claims: parsed.claims,
     ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
-    ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {})
+    ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
+    ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {})
   };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
@@ -415,7 +432,8 @@ function validateWorkerArtifact(dossier, worker) {
 function kindArtifactIsInvalid(kind, type, content) {
   if (kind === 'red_worker' && type === 'verification_report') return !hasCounterexamples(content?.counterexamples);
   if (kind === 'recovery_worker' && type === 'dossier') return !hasRecoveryReceipt(content?.recoveryReceipt);
-  return kind === 'liaison_worker' && type === 'dossier' && !hasBoundedHandoff(content?.handoff);
+  if (kind === 'liaison_worker' && type === 'dossier') return !hasBoundedHandoff(content?.handoff);
+  return kind === 'resident_daemon' && type === 'dossier' && !hasTerritoryReport(content?.territoryReport);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
