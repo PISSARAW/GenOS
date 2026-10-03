@@ -76,7 +76,7 @@ function assembleContract(ctx) {
   const promotion = buildPromotion({ problemProfile, highRisk, philosophy, epistemicContext, ethicalComparison, portfolio: selection.portfolio });
   return {
     schema: CONTRACT_SCHEMA,
-    evaluation_mode: ctx.evaluationMode === 'factual_read_only' ? 'factual_read_only' : null,
+    evaluation_mode: ['factual_read_only', 'formal_read_only'].includes(ctx.evaluationMode) ? ctx.evaluationMode : null,
     mission: problemProfile.problem || 'Autonomous task execution',
     problem_profile: problemProfile,
     selected_strategy: {

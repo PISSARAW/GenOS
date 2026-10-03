@@ -94,8 +94,10 @@ même campagne; conserver leurs actifs séparés jusqu’à décision contraire.
   avec environnement et reçus entièrement épinglés. Le rapport historique
   annonce 9/26 sur une cohorte partielle, sans bras `alone` correspondant.
   Garder ce chiffre comme contexte descriptif uniquement.
-- Les suites recherche, math, planification et récupération n’ont pas encore
-  de corpus/oracle versionné pour ce protocole. L’analyse de dépôts doit encore
+- Les suites planification et récupération n’ont pas encore de corpus/oracle
+  versionné pour ce protocole. La recherche factuelle et les mathématiques
+  formelles disposent désormais de pilotes exploratoires, sans campagne
+  appariée confirmatoire. L’analyse de dépôts doit encore
   réparer la porte d’exécution GenOS, ajouter le runner apparié et l’adjudication
   indépendante à l’aveugle.
 - Le modèle commun, les budgets, les images/runtime et les plafonds de coût

@@ -81,7 +81,10 @@ function stripDelegationTools(lease) {
 }
 
 function applySynthesisPlan(ctx) {
-  ctx.normalizedMission.prompt = buildWorkerSynthesisPrompt(ctx.promptBase, ctx.usable, ctx.autonomyPlan.factualReports);
+  ctx.normalizedMission.prompt = buildWorkerSynthesisPrompt(ctx.promptBase, ctx.usable, {
+    factualReports: ctx.autonomyPlan.factualReports,
+    evaluationMode: readContract(ctx)?.evaluation_mode
+  });
   ctx.normalizedMission.toolLease = stripDelegationTools(ctx.normalizedMission.toolLease);
   ctx.autonomyPlan.synthesisOnly = true;
   ctx.autonomyPlan.dispatchWorkers = [];

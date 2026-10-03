@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "toolchain": "4.34.0",
+  "items": [
+    {
+      "taskId": "nat-add-zero-01",
+      "theoremName": "benchmark_target",
+      "naturalStatement": "Pour tout entier naturel n, n + 0 = n.",
+      "formalStatement": "∀ n : Nat, n + 0 = n",
+      "imports": []
+    },
+    {
+      "taskId": "nat-zero-add-02",
+      "theoremName": "benchmark_target",
+      "naturalStatement": "Pour tout entier naturel n, 0 + n = n.",
+      "formalStatement": "∀ n : Nat, 0 + n = n",
+      "imports": []
+    },
+    {
+      "taskId": "and-commutes-03",
+      "theoremName": "benchmark_target",
+      "naturalStatement": "Pour toutes propositions p et q, p et q impliquent q et p.",
+      "formalStatement": "∀ p q : Prop, p ∧ q → q ∧ p",
+      "imports": []
+    }
+  ]
+}

@@ -52,6 +52,10 @@ function omitPhases(phases, phaseValidation) {
 }
 
 function buildPhases(flags, modes, branchCount) {
+  if (flags.formalReadOnly) return [
+    runtimePhase('formal_problem_baseline', ['genos_snapshot', 'genos_search_failures'],
+      'Preserve the fixed theorem statement and retrieve proof failure modes before synthesis.')
+  ];
   if (flags.factualReadOnly) return [
     runtimePhase('factual_source_baseline', ['genos_snapshot', 'genos_search_failures'],
       'Preserve the read-only source baseline and retrieve known failure modes before evidence-gated synthesis.')
