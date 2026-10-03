@@ -20,6 +20,7 @@ const crypto = require('node:crypto');
 const graphStore = require('./graphStore');
 const invalidation = require('./graphInvalidation');
 const jsAdapter = require('./languageAdapters/javascriptAdapter');
+const { migrateDaemonTerritory } = require('../../../db/migrations/migrateDaemonTerritory');
 
 const MAX_FILES = 2000;
 const MAX_FILE_BYTES = 200 * 1024;
@@ -191,6 +192,7 @@ async function scanTerritory(db, args) {
     const res = await indexFile(db, { territoryId: args.territoryId, rootPath: args.rootPath, relPath });
     if (res.indexed) indexed += 1;
   }
+  await markTerritoryIndexed(db, args.territoryId);
   return { scanned: files.length, indexed };
 }
 
@@ -205,7 +207,17 @@ async function updateFiles(db, args) {
       await cleanupDanglingIncoming(db, args, relPath);
     }
   }
+  await markTerritoryIndexed(db, args.territoryId);
   return { invalidated: (args.files || []).length, reindexed };
+}
+
+async function markTerritoryIndexed(db, territoryId) {
+  await migrateDaemonTerritory(db);
+  await db.run(
+    `UPDATE daemon_territories SET last_indexed_at = datetime('now'), indexed_head_sha = head_sha
+     WHERE id = ?`,
+    territoryId
+  );
 }
 
 async function cleanupDanglingIncoming(db, args, relPath) {

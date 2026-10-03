@@ -38,6 +38,8 @@ async function migrateDaemonTerritory(db) {
       metadata_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       last_observed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_indexed_at TEXT,
+      indexed_head_sha TEXT,
       FOREIGN KEY (parent_territory_id)
         REFERENCES daemon_territories(id) ON DELETE SET NULL
     );
@@ -71,8 +73,17 @@ async function migrateDaemonTerritory(db) {
     CREATE INDEX IF NOT EXISTS idx_daemon_runtime_territory
       ON daemon_runtime_state(territory_id);
     CREATE INDEX IF NOT EXISTS idx_daemon_runtime_health
-      ON daemon_runtime_state(health, activity);
+    ON daemon_runtime_state(health, activity);
   `);
+  await ensureTerritoryColumn(db, 'last_indexed_at', 'TEXT');
+  await ensureTerritoryColumn(db, 'indexed_head_sha', 'TEXT');
+}
+
+async function ensureTerritoryColumn(db, name, type) {
+  const columns = await db.all('PRAGMA table_info(daemon_territories)');
+  if (!(columns || []).some((column) => column.name === name)) {
+    await db.exec(`ALTER TABLE daemon_territories ADD COLUMN ${name} ${type}`);
+  }
 }
 
 module.exports = { migrateDaemonTerritory };

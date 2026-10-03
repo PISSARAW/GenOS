@@ -86,7 +86,8 @@ function parseObservedAt(value) {
 
 function stalenessOf(territoryRow, now) {
   if (!territoryRow) return 1;
-  const last = parseObservedAt(territoryRow.last_observed_at);
+  if (!territoryRow.last_indexed_at || territoryRow.indexed_head_sha !== territoryRow.head_sha) return 1;
+  const last = parseObservedAt(territoryRow.last_indexed_at);
   const age = clamp01((now - last) / STALE_AFTER_MS);
   if (territoryRow.state === 'STALE' || territoryRow.state === 'DEGRADED') return Math.max(age, 0.7);
   return age;
