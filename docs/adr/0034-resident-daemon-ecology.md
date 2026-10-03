@@ -350,7 +350,7 @@ Réutiliser existant : `agents`, `telemetry_events`, `provenance_records`, `sign
 
 ### Phase 25 — CLI daemon = host minimal
 
-`backend/bin/genos-daemon.cjs` → parse flags, bootstrap DB, load configured resident daemons, start `ResidentDaemonRuntime`, install signal subscriptions, fallback timers, graceful shutdown.
+`backend/bin/genos-daemon.cjs` → parse les flags, initialise la DB, exige un territoire enregistré, démarre le runtime, souscrit les signaux connus, interroge `daemon_events` avec un curseur persistant et ferme proprement. Heartbeat toutes les 30 s ; aucun timer synthétique `KNOWLEDGE_STALE`.
 
 Architecture services proposée (dont `daemonRegistryService.js` /
 `daemonLifecycleService.js`, non retenus en v1 — voir écart D2 : fonctions
@@ -590,7 +590,7 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 2. ✅ **D0** — Contrat `ResidentDaemon` + modèle `Territory` (schémas + types)
 3. ✅ **D1** — Migration SQLite + tables minimales + migration `daemon_repo_state.json`
 4. ✅ **D2** — `ResidentDaemonRuntime` + `resident_daemon.agent.json` + registration
-5. ✅ **D3** — `EventBridge` + receptors zero-text + fallback timer
+5. ✅ **D3** — `EventBridge` + récepteurs zero-text + livraison SQLite au host résident ; aucun timer synthétique `KNOWLEDGE_STALE`
 6. ✅ **D4** — `TerritoryInteroception` + homéostasie (journal `daemon_events`)
 7. ✅ **D5** — `Cartographer` v1 + graphe incrémental (`rebuild == incremental` testé)
 8. ✅ **D6** — `Finding` + preuve typée + lifecycle fermé
@@ -612,19 +612,19 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 24. ✅ **D22** — pont production (ORCHESTRATOR_ENTERED au bootstrap mission, lookup seule)
 25. ✅ **D23** — single-archetype au génome + legacy reclassés (compat, superviseur)
 
-## État d'implémentation (2026-09-24, D0–D23)
+## État d'implémentation (revue 2026-10-03, D0–D23)
 
 | Sprint | Livraison | Fichiers | Écart au plan |
 | ------ | --------- | -------- | ------------- |
 | D0 | 3 contrats JSON (`genos.daemon/v1`) | `spec/daemon-territory.schema.json`, `spec/daemon-finding.schema.json`, `spec/resident-daemon.schema.json` | — |
 | D1 | migration 037 + `daemonTerritoryService` + migration legacy | `migrateDaemonTerritory.js`, `daemonTerritoryService.js`, `daemonLegacyMigration.js` | — |
 | D2 | runtime + génome `resident_daemon` | `residentDaemonRuntime.js`, `agents/daemons/resident_daemon.agent.json` | pas de `daemonRegistryService`/`daemonLifecycleService` séparés (fonctions dans le runtime v1) |
-| D3 | bridge + registre + wake policy | `daemonEventBridgeService.js`, `daemonReceptorRegistry.js`, `daemonWakePolicyService.js` | réutilise `signalReceptorService` comme transport, pas de doublon |
-| D4 | journal 038 + interoception + `combinePressures` | `migrateDaemonEvents.js`, `daemonTerritoryInteroceptionService.js` | 10 variables mesurées, 10 déclarées `deferred` (D5/D6) — aucune valeur fantôme |
+| D3 | bridge + registre + wake policy + polling host persistant | `daemonEventBridgeService.js`, `daemonReceptorRegistry.js`, `daemonWakePolicyService.js`, `daemonEventConsumerService.js`, `genos-daemon.cjs` | SQLite livre les événements interprocessus ; le heartbeat et le poll sont distincts, sans timer `KNOWLEDGE_STALE` |
+| D4 | journal 038 + interoception + `combinePressures` | `migrateDaemonEvents.js`, `daemonTerritoryInteroceptionService.js` | fraîcheur fondée sur index réussi (`last_indexed_at`, `indexed_head_sha`), pas sur le seul événement observé ; pression de réparation compte les épisodes actifs |
 | D5 | graphe 039 + scan/incrémental + adapter JS | `cartography/` (4 fichiers), `migrateTerritoryGraph.js` | relations CALLS/EXTENDS/etc. différées ; invariant `rebuild == incremental` tenu après correction d'un vrai bug (IMPORTS entrants) |
 | D6 | findings 040 + lifecycle + preuve typée | `findings/` (3 fichiers), `migrateDaemonFindings.js` | `confidence` interdit ; provenance par référence uniquement |
 | D7 | adapter ledger + pression | `daemonNaturalSearchAdapter.js` | testé contre les vraies classes `HypothesisLedger`/`SearchPressureModel` |
-| D8 | payload 041 + journal lecture + 8 détecteurs + investigateur | `daemonEventLog.js`, `investigation/` (2 fichiers), `migrateDaemonEventPayload.js` | noyau v1 (test-regression, flaky-signal, broken-import, missing-sibling-test) + capteurs phénotypiques (secret-exposure, repeated-failure, unintegrated-component, stale-documentation) ; `pickCandidateFile()` non réutilisé (obsolète comme prévu) |
+| D8 | payload 041 + journal lecture + 8 détecteurs + investigateur | `daemonEventLog.js`, `investigation/` (2 fichiers), `migrateDaemonEventPayload.js` | noyau v1 et capteurs phénotypiques ; enquête déterministe bornée appelée après réveil high accepté, findings possibles au statut observé, aucun LLM ; `pickCandidateFile()` non réutilisé |
 | D9 | `detector_id` 042 + verifier + reproduction | `verification/` (2 fichiers), `migrateDaemonFindingDetector.js` | reproduction causale complète (snapshot+contrôle) différée ; v1 = re-observation d'événements indépendants |
 | D10 | marqueurs 043 + decay + pont partagé | `daemonStigmergyService.js`, `migrateDaemonStigmergy.js` | `PERFORMANCE_REGRESSION` sans mapping pont (local-only, honnête) ; `genos-signal` Rust non branché (pont JS utilisé) |
 | D11 | handoffs 044 + brief mission-first + signal zero-text | `handoff/` (3 fichiers), `migrateDaemonHandoffs.js` | brief complet récupéré sur demande uniquement, jamais dans le signal |
@@ -641,7 +641,7 @@ Rejeté : le graphe doit être index dérivé reconstructible, pas cache opaque.
 | D22 | pont production (système nerveux live) | `daemonProductionBridge.js` + annonce au bootstrap mission | `ORCHESTRATOR_ENTERED` émis au démarrage mission si un territoire est enregistré sur le workspace (lookup seule, jamais de création fantôme) ; dégradation gracieuse si aucun daemon |
 | D23 | génome single-archetype + legacy reclassés | `agents/daemons/resident_daemon.agent.json`, `workspace_git_daemon` (legacy-compat), `sentinel_daemon_keeper` (superviseur control-plane) | aucun nouveau `*_daemon.agent.json` ; les fichiers sont conservés (provenance scellée), pas renommés |
 
-Chaque sprint : suite de tests dédiée (`backend/tests/test_daemon_*.js`, 29 suites vertes), quality gate 0 violation sur les fichiers du sprint. Deux bugs réels trouvés par les tests : parsing TZ de `last_observed_at`, comparaison de formats `created_at` mixtes.
+Les tests daemon ciblent les contrats et chemins implémentés ; ils ne démontrent pas un bénéfice en mission réelle. Les mesures de fraîcheur utilisent maintenant les marqueurs d’index réussi et son HEAD, tandis que `last_observed_at` reste un signal d’activité.
 
 ## Maturité du daemon (D20–D21)
 

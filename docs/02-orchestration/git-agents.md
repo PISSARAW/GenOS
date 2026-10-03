@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : versionnage de l'état agentique et promotion des workspaces.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-03
 
 ## 1. Objet et périmètre
 
@@ -107,7 +107,7 @@ Un agent descendant travaille dans un état ou une capsule séparée. `diff`, `r
 
 ### 5.4 Maintenir un dépôt de code avec un agent
 
-Le daemon crée un worktree Git persistant sur une branche `genos-daemon/...`, le resynchronise par rebase sur la branche humaine, applique un correctif vérifié par les tests autorisés, puis pousse la branche et ouvre une pull request si `gh` est disponible.
+Le daemon résident observe un territoire et peut produire une finding ; il ne crée pas de worktree, n'applique pas de patch et ne pousse pas de branche. Une finding admissible ouvre une `RepairEpisode` : un worker peut alors intervenir dans une capsule isolée sous lease. Vérification et gouvernance contrôlent ensuite toute promotion ou opération Git. `WorkspaceGitDaemon` conserve uniquement son rôle de compatibilité historique et son autofix est un no-op.
 
 ## 6. Comparaison directe schématique
 
@@ -152,8 +152,8 @@ flowchart LR
 | `hook` | active `pre-commit`, `pre-push`, `merge-validation` ou signature requise | `agent_git_hooks` | hooks synchrones et politiques GenOS |
 | `fsck` | vérifie JSON, `state_hash`, `tree_hash`, signature et `agent_git_commit_parents` | `fsck()` | intégrité DAG + hashs, pas santé métier complète |
 | `gc` | supprime les vieux objets `stash` et `remote` | `gc()` | déclenchement explicite, commits conservés |
-| `worktree` | crée un environnement fichier isolé pour un worker ou daemon | workspace lifecycle / daemon | hors de `agentGitService` |
-| pull request | ouvre une revue de code après correctif testé | daemon + `gh` CLI | concerne le dépôt Git réel, pas un objet d’état agentique |
+| `worktree` | crée un environnement fichier isolé pour un worker | workspace lifecycle | hors de `agentGitService` ; le ResidentDaemon n'en crée pas |
+| pull request | ouvre une revue après un correctif autorisé | worker/réparation et gouvernance | le ResidentDaemon ne pousse ni branche ni PR |
 
 ### 6.3 Séquence parallèle
 
@@ -193,7 +193,7 @@ Les routes sont montées sous `/api/lineage` et protégées par le scope tenant.
 
 Les tables principales sont `agent_git_objects`, `agent_git_refs`, `agent_git_reflog`, `agent_git_hooks`, `agent_git_notes`, `agent_git_archives`, `agent_git_commit_parents` et `agent_git_indexes`. Le scope `organization_id` / `project_id` empêche les opérations inter-tenants et les merges entre workspaces différents.
 
-Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git. Le daemon ajoute une branche persistante et une automatisation de pull request.
+Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git pour les capsules. Le cycle ResidentDaemon → finding → `RepairEpisode` → worker sous lease sépare l’observation du patch ; aucune branche persistante n’est ajoutée par le daemon.
 
 ## 8. Processus d’exécution et de validation
 

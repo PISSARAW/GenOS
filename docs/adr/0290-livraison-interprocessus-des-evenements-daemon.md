@@ -17,10 +17,12 @@ politique sans réveil effectivement livré au host.
 Le journal `daemon_events` devient la source de livraison interprocessus. Chaque
 host résident initialise puis avance un curseur SQLite attaché à son identité et
 à son territoire, et interroge les événements après ce curseur. Le traitement
-est au moins une fois : le curseur n'avance qu'après le traitement du signal.
-Les événements déjà traités en mémoire ne sont pas réveillés une seconde fois.
-Le champ `woke` signifie désormais qu'un runtime attaché a effectivement accepté
-le heartbeat; un bridge sans runtime enregistre `woke=false`.
+est au moins une fois : le curseur n'avance qu'après le traitement de l'événement.
+Un crash entre l'effet et l'avancement peut donc entraîner un rejeu ; le cooldown
+limite certains réveils répétés, sans fournir une garantie exactly-once. Le champ
+`woke` est une télémétrie par événement indiquant qu'un runtime attaché a accepté
+le heartbeat. Il ne déduplique pas les événements ultérieurs ou d'autres daemons ;
+un bridge sans runtime enregistre `woke=false`.
 
 L'EventEmitter local peut rester une optimisation dans son processus. Il n'est
 pas un transport interprocessus ni une preuve de livraison. Cette décision vise
@@ -31,8 +33,12 @@ elle ne constitue pas une solution de cluster multi-hôte.
 
 - Le host reprend les événements arrivés après son dernier curseur après un
   redémarrage.
-- Une panne pendant le traitement peut rejouer un événement; les effets de wake
-  sont bornés par la politique de cooldown du runtime.
+- À la toute première initialisation, le curseur est placé sur le dernier événement
+  déjà journalisé pour le territoire ; le host ne rejoue donc pas l'historique antérieur
+  à son premier démarrage.
+- Une panne pendant le traitement peut rejouer un événement ; le curseur est propre au
+  daemon et au territoire, et les politiques de cooldown/budget bornent les wakes sans
+  constituer une déduplication durable.
 - Le rapport de santé doit distinguer la présence d'un heartbeat de l'activité
   réellement traitée; ce changement ne confère aucun pouvoir d'écriture au daemon.
 
