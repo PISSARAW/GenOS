@@ -30,6 +30,7 @@ async function runTests() {
   assert.strictEqual(exchangeRes.status, 'germline_chimerism_exchanged');
   assert.strictEqual(exchangeRes.donor_twin, donorId);
   assert.strictEqual(exchangeRes.proxy_twin, proxyId);
+  assert.strictEqual(exchangeRes.payload_transferred_to_runtime, false);
   const exchangeEdges = await listRelations({ db: await getDatabase(), agentId: donorId });
   assert.ok(exchangeEdges.some((edge) => edge.targetAgentId === proxyId && edge.relationType === 'chimera'));
   console.log('✅ PASS: Exchanged germline cells from dying donor A to healthy proxy B');
@@ -43,6 +44,8 @@ async function runTests() {
 
   assert.strictEqual(spawnRes.success, true);
   assert.strictEqual(spawnRes.status, 'proxy_descendant_spawned');
+  assert.strictEqual(spawnRes.runtime_agent_created, false);
+  assert.strictEqual(spawnRes.germline_dna_inherited, false);
   assert.strictEqual(spawnRes.genetic_donor_parent, donorId);
   assert.strictEqual(spawnRes.gestational_proxy_parent, proxyId);
   const parentEdges = await listRelations({ db: await getDatabase(), agentId: spawnRes.child_agent_id });
