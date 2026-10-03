@@ -52,7 +52,8 @@ lui-même mais construit et régule le collectif qui le résout :
   → Gouvernance → Snapshot → Exécution → Reçu ; refus en mode dégradé,
   risque élevé ou autorité insuffisante ;
 - `kernel_cycle` : boucle OBSERVE → REEVALUATE (`ControlKernel::step`),
-  santé collective, diversité, commits AgentGit, `MissionReport`.
+  santé collective, diversité, repères mémoire textuels, `MissionReport`. Le kernel
+  ne produit pas de commit AgentGit; une intégration persistante reste à fournir.
 
 ## Conséquences
 

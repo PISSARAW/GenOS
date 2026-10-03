@@ -46,8 +46,10 @@ biologiques.
 Mission multi-domaines (backend, sécurité, recherche) avec budgets bornés :
 le kernel arbitre les propositions des résolveurs, produit un
 `MorphogenesisPlan` explicable avec rollback, le fait valider par la
-gouvernance, l'applique sous snapshot AgentGit, puis rapporte le
-comportement de l'organisme (`MissionReport`).
+gouvernance et l'applique dans son état mémoire en ajoutant un repère textuel,
+puis
+rapporte le comportement de l'organisme (`MissionReport`). Il ne crée pas
+de commit AgentGit et ne persiste pas à lui seul ces checkpoints.
 
 ## 5. Exemples concrets
 
@@ -64,7 +66,7 @@ comportement de l'organisme (`MissionReport`).
 Observations structurées → OrchestratorState → Diagnosis
   → ProposalSet (résolveurs) → MorphogenesisPlan (+ hystérésis)
   → GovernancePlane → Snapshot → AgentIncarnationService
-  → preuves → révision épistémique → commit AgentGit → MissionReport
+  → observations → révision épistémique → repère mémoire → MissionReport
 ```
 
 ## 7. Architecture technique
@@ -88,7 +90,8 @@ Implémentation : Rust, sans appel LLM, testée par
    planifie, fait valider, exécute si autorisé, révise l'épistémique.
 2. Gate qualité : 0 violation sur ces fichiers (400 lignes, 3 paramètres,
    complexité ≤ 10).
-3. Chaque transition produit un commit AgentGit avec raison et rollback.
+3. Chaque transition ajoute un repère textuel à l'état mémoire; il ne contient
+   pas de snapshot sérialisé. Le rollback du plan n'est pas persisté.
 
 ## 9. Comparaison avec le marché
 

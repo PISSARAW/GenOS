@@ -69,13 +69,19 @@ fn incarnation_refuse_sans_phenotype() {
 }
 
 #[test]
-fn kernel_step_passe_par_gouvernance_et_versionne() {
+fn kernel_step_applique_la_gouvernance_sans_fabriquer_de_commit() {
     let mut kernel = ControlKernel::new("corriger auth");
     kernel.state.epistemics.contradictions.push(String::from("A et non-A"));
     kernel.state.cognition.diversity_score = 0.8;
-    let outcome = kernel.step(&Observations::default(), &StepInput { no_progress: true, worker_error_rate: 0.1, success: false });
+    let observations = Observations {
+        worker_reports: vec![String::from("unverified success claim")],
+        ..Observations::default()
+    };
+    let outcome = kernel.step(&observations, &StepInput { no_progress: true, worker_error_rate: 0.1 });
     assert!(outcome.governance.allowed);
-    assert!(kernel.state.history.agent_git_head.is_some());
+    assert!(kernel.state.history.agent_git_head.is_none());
+    assert_eq!(kernel.state.resilience.checkpoints.len(), 1);
+    assert!(kernel.state.history.recent_successes.is_empty());
     let report = kernel.mission_report(false);
     assert_eq!(report.objective, "corriger auth");
 }
@@ -108,7 +114,6 @@ fn kernel_applique_et_signale_une_reconfiguration_cognitive() {
     let outcome = kernel.step(&Observations::default(), &StepInput {
         no_progress: false,
         worker_error_rate: 0.0,
-        success: false,
     });
     assert!(outcome.plan_applied);
     assert_eq!(kernel.state.cognition.recipes_by_agent.get("worker_cible"), Some(&String::from("recette_cible")));

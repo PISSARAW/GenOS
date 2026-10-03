@@ -207,9 +207,6 @@ impl OrchestratorState {
     }
 
     fn apply_worker_reports(&mut self, obs: &Observations) {
-        for report in obs.worker_reports.iter() {
-            self.history.recent_successes.push(report.clone());
-        }
         for receipt in obs.tool_receipts.iter() {
             self.collective.health_summary.insert(receipt.clone(), 1.0);
         }

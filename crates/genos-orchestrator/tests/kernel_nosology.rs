@@ -3,7 +3,7 @@ use genos_orchestrator::kernel_diagnosis::{diagnose, DiagnosisInput, FailureType
 use genos_orchestrator::kernel_state::{ClinicalSignal, Observations};
 
 fn input(no_progress: bool) -> StepInput {
-    StepInput { no_progress, worker_error_rate: 0.0, success: false }
+    StepInput { no_progress, worker_error_rate: 0.0 }
 }
 
 #[test]
