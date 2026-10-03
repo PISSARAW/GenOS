@@ -98,7 +98,7 @@ impl MultiScaleMutator {
                     };
                 }
                 let mut new_seq = strand.as_slice().to_vec();
-                new_seq[pos] = DnaNucleotide::nucleotide_from_char(new_char);
+                new_seq[pos] = DnaNucleotide::try_nucleotide_from_char(new_char).unwrap_or(DnaNucleotide::A);
                 strand.replace_sequence(new_seq);
                 results.push(MutationResult {
                     scale: MutationScale::Codon,
