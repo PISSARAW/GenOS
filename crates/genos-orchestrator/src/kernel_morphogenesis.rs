@@ -141,6 +141,13 @@ impl MorphogenesisPlanner {
     /// Construit un plan a partir des propositions.
     pub fn plan(&mut self, input: &PlanInput<'_>) -> MorphogenesisPlan {
         let totals = self.sum_proposals(input.proposals);
+        if input.proposals.items.iter().any(|item| item.action == "change_topology") {
+            return MorphogenesisPlan::no_change(
+                "destination de topologie non resolue",
+                totals.gain,
+                totals.cost,
+            );
+        }
         if self.should_hold(&totals) {
             return MorphogenesisPlan::no_change(
                 "gain insuffisant ou cooldown",
