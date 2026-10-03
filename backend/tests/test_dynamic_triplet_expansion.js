@@ -33,6 +33,7 @@ async function runTest() {
     delta_repeats: 15
   });
   assert.strictEqual(gen2Res.success, true);
+  assert.strictEqual(gen2Res.runtime_effect_applied, false);
   assert.strictEqual(gen2Res.generation, 2);
   assert.strictEqual(gen2Res.repeat_count, 30);
   assert.strictEqual(gen2Res.is_pathological, false);

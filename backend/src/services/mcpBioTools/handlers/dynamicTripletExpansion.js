@@ -37,6 +37,8 @@ function handleReplicateGeneration(record, expId, deltaRepeats) {
     configured: true,
     success: true,
     status: 'generation_replicated',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
     transport: 'dynamic_expansion_engine',
     expansion_id: expId,
     generation: record.generation,
@@ -44,7 +46,7 @@ function handleReplicateGeneration(record, expId, deltaRepeats) {
     repeat_count: record.repeatCount,
     is_pathological: record.isPathological,
     severity: record.severity,
-    output: `Generation ${record.generation}: motif '${record.motif}' expanded to ${record.repeatCount} repeats (${record.severity}).`
+    output: `Generation ${record.generation}: simulated motif '${record.motif}' count is ${record.repeatCount} (${record.severity}); runtime genetics is unchanged.`
   };
 }
 
@@ -56,6 +58,8 @@ function handleEvaluateAnticipation(record, expId) {
     configured: true,
     success: true,
     status: 'anticipation_evaluated',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
     transport: 'dynamic_expansion_engine',
     expansion_id: expId,
     generation: record.generation,
@@ -93,6 +97,8 @@ function handleDynamicTripletExpansion(args = {}) {
     configured: true,
     success: true,
     status: 'active',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
     transport: 'dynamic_expansion_engine',
     expansion_id: expId,
     generation: record.generation,
