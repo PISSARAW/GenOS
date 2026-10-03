@@ -39,6 +39,13 @@ function run() {
   assert.equal(automaticPartial.selectedVariant.variantId, 'resource');
   assert.equal(automaticPartial.variantSelection.method, 'mission_signals');
 
+  const automaticTrinity = resolveRequestedProfile({
+    mission: { description: 'Run an adversarial security threat review.' }
+  }, 'trinity', registry.variants);
+  assert.equal(automaticTrinity.selectedVariant.variantId, 'adversarial');
+  assert.equal(automaticTrinity.variantSelection.variant, 'composed');
+  assert.equal(automaticTrinity.variantSelection.selectedPreset, 'adversarial');
+
   for (const topology of registry.list()) {
     assert.deepEqual(registry.get(topology).variants, registry.variants.list(topology));
     for (const variantId of registry.variants.list(topology).filter((id) => id !== 'default')) {

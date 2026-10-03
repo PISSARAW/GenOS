@@ -164,7 +164,7 @@ const LOCAL_SELECTORS = Object.freeze({
 
 function trinitySelection(mission) {
   const selection = require('../../trinityVariantService').selectForMission(mission);
-  return { ...selection, variantId: selection.variant };
+  return { ...selection, variantId: selection.selectedPreset || selection.variant };
 }
 
 function defaultSelection(reason) {

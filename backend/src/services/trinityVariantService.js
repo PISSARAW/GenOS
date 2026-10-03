@@ -269,7 +269,7 @@ function automaticReceiptInput(input) {
 }
 
 function withSuggestedVariant(receipt, recommended, design) {
-  if (recommended && !designSize(design)) receipt.suggestedVariant = recommended;
+  if (recommended) receipt[designSize(design) ? 'selectedPreset' : 'suggestedVariant'] = recommended;
   return receipt;
 }
 
