@@ -74,7 +74,7 @@ fn kernel_step_passe_par_gouvernance_et_versionne() {
     let outcome = kernel.step(&Observations::default(), &StepInput { no_progress: true, worker_error_rate: 0.1, success: false });
     assert!(outcome.governance.allowed);
     assert!(kernel.state.history.agent_git_head.is_some());
-    let report = kernel.mission_report(false);
+    let report = kernel.mission_report();
     assert_eq!(report.objective, "corriger auth");
 }
 

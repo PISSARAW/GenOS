@@ -90,7 +90,7 @@ impl ControlKernel {
         let spawned = self.apply_if_allowed(&plan, &governance);
         self.close_step(input, &plan);
         StepOutcome {
-            plan_applied: spawned.is_empty().eq(&false),
+            plan_applied: governance.allowed && !plan.decision_no_change,
             governance,
             agents_spawned: spawned,
         }
@@ -182,13 +182,6 @@ impl ControlKernel {
     }
 
     fn snapshot(&mut self, plan: &MorphogenesisPlan) {
-        let id = format!(
-            "commit_{}_{}",
-            self.commits.len() + 1,
-            plan.reason.replace(' ', "_")
-        );
-        self.commits.push(id.clone());
-        self.state.history.agent_git_head = Some(id);
         self.state.resilience.checkpoints.push(plan.reason.clone());
     }
 
@@ -233,10 +226,10 @@ impl ControlKernel {
     }
 
     /// Rapport final expliquant le comportement de l'organisme.
-    pub fn mission_report(&self, verified: bool) -> KernelMissionReport {
+    pub fn mission_report(&self) -> KernelMissionReport {
         KernelMissionReport {
             objective: self.state.mission.objective.clone().unwrap_or_default(),
-            verified,
+            verified: false,
             initial_morphology: self.initial_topology.clone(),
             final_morphology: self.current_topology.clone(),
             transitions: self.state.history.morphology_history.clone(),
