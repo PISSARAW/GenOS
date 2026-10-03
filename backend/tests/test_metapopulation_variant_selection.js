@@ -10,6 +10,8 @@ async function run() {
   assertSelection('Explore unknown hypotheses and discover novel options.', 'exploratory', 'novelty');
   assertSelection('Perform a security audit and verify compliance.', 'conservative', 'counterexample');
   assertSelection('Partition this mission across independent populations.', 'balanced', 'complementary');
+  assertSelection('Three independent populations use different algorithms and may transfer validated ideas.', 'heterogeneous_islands', 'complementary');
+  assertSelection('Three different local environments retain local solutions and transfer only successful techniques.', 'heterogeneous_islands', 'complementary');
   assert.equal(metapopulation.composeMetapopulation('Explore after an outage.', { variant: 'balanced' }).variant, 'balanced');
   verifyDocumentedVariants();
   verifyTopologyEffects();
