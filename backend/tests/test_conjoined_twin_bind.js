@@ -20,6 +20,7 @@ async function runTest() {
   assert.strictEqual(bindRes.status, 'twins_conjoined');
   assert.strictEqual(bindRes.shared_token_pool, 60000);
   assert.strictEqual(bindRes.vital_coupling_score, 0.98);
+  assert.strictEqual(bindRes.runtime_coupling_applied, false);
   const twinEdges = await listRelations({ db: await getDatabase(), agentId: 'agent-prover-A' });
   assert.ok(twinEdges.some((edge) => edge.targetAgentId === 'agent-verifier-B' && edge.relationType === 'twin'));
   console.log(`✅ PASS: Conjoined visceral bind active (Coupling: ${bindRes.vital_coupling_score}, Pool: ${bindRes.shared_token_pool})`);
@@ -33,8 +34,18 @@ async function runTest() {
   });
 
   assert.strictEqual(transfuseRes.success, true);
+  assert.strictEqual(transfuseRes.recipient, 'agent-verifier-B');
   assert.strictEqual(transfuseRes.amount_transfused, 5000);
+  assert.strictEqual(transfuseRes.runtime_recipient_credited, false);
   assert.strictEqual(transfuseRes.remaining_shared_pool, 55000);
+
+  const invalidTransfer = await executeBioTool('genos_biomimicry_conjoined_twin_bind', {
+    action: 'transfuse_shared_resource',
+    pair_id: 'pair-siamese-test',
+    amount: -25
+  });
+  assert.strictEqual(invalidTransfer.success, false);
+  assert.strictEqual(invalidTransfer.status, 'invalid_args');
   console.log(`✅ PASS: Transfused 5000 tokens (Remaining pool: ${transfuseRes.remaining_shared_pool})`);
 
   // 3. Status check
