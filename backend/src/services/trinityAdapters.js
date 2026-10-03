@@ -47,7 +47,7 @@ const DISPATCH_ADAPTERS = Object.freeze([
   'pareto_objective_assigner', 'temporal_horizon_executor', 'temporal_value_model',
   'temporal_grid_executor', 'oracular_executor', 'oracle_predictor',
   'exploratory_novelty_executor', 'novelty_archive', 'qd_replica_scheduler',
-  'counterfactual_fork_executor'
+  'counterfactual_fork_executor', 'factorial_grid_executor'
 ]);
 
 function adapter(modulePath, serves, functions) {

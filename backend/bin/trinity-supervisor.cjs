@@ -20,7 +20,7 @@ function pause(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForWorkers(db, missionId, timeoutMs = 180000) {
+async function waitForWorkers(db, missionId, expectedWorlds, timeoutMs = 180000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const rows = await db.all(
@@ -28,7 +28,7 @@ async function waitForWorkers(db, missionId, timeoutMs = 180000) {
        LEFT JOIN agents a ON a.id = w.agent_id WHERE w.id LIKE ? ORDER BY w.world_number`,
       `${missionId}%`
     );
-    if (rows.length >= 3 && rows.every((row) => TERMINAL.has(row.status))) return rows;
+    if (rows.length >= expectedWorlds && rows.every((row) => TERMINAL.has(row.status))) return rows;
     await pause(500);
   }
   throw new Error(`Trinity mission timed out: ${missionId}`);
@@ -51,9 +51,9 @@ async function publish(db, input) {
 async function supervise(input) {
   const db = await getDatabase();
   try {
-    await waitForWorkers(db, input.missionId);
-    const reports = await trinityBarrier.buildWorldReportsFromMission(db, input.missionId);
     const configuration = await loadDispatchConfig(db, input.missionId);
+    await waitForWorkers(db, input.missionId, expectedWorlds(configuration.variantSelection));
+    const reports = await trinityBarrier.buildWorldReportsFromMission(db, input.missionId);
     const result = await compareMission(db, { ...input, ...configuration }, reports);
     await trinityService.recordWorldComparison(db, {
       missionId: input.missionId,
@@ -74,6 +74,10 @@ async function supervise(input) {
   } finally {
     await closeDatabase(db);
   }
+}
+
+function expectedWorlds(selection) {
+  return selection?.experimentalDesign?.worldTopology === 'factorial_grid' ? 16 : 3;
 }
 
 async function loadDispatchConfig(db, missionId) {

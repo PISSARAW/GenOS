@@ -4,6 +4,7 @@ const trinityService = require('../src/services/trinityService');
 const trinityMissionSupervisor = require('../src/services/trinityMissionSupervisor');
 const topologyWorkerKinds = require('../src/services/topologyWorkerKindService');
 const trinityAdapters = require('../src/services/trinityAdapters');
+const factorial = require('../src/services/trinityFactorialGrid');
 
 function workerAssignmentsFrom(context) {
   return context.request.worker_assignments || context.request.workerAssignments || {};
@@ -37,19 +38,36 @@ function composeMembers(mission, options, assignments) {
     variantId: options.variant, experimentalDesign: options.experimentalDesign, trinityJury: options.jury,
     availableAdapters: trinityAdapters.dispatchAdapterNames(), trinityModels: models
   });
-  return topologyWorkerKinds.applyTopologyWorkerKinds('trinity', assignModels(composed, models), assignments);
+  const members = topologyWorkerKinds.applyTopologyWorkerKinds('trinity', assignModels(composed, models), assignments);
+  return members[0]?.variantSelection?.experimentalDesign?.worldTopology === 'factorial_grid'
+    ? expandFactorialMembers(members) : members;
+}
+
+function expandFactorialMembers(members) {
+  const factors = { approach: ['direct', 'planned'], modelTier: ['standard', 'frontier'], validation: ['basic', 'deep'] };
+  const grid = factorial.generateFactorialGrid({ factors, replications: 2, randomize: false });
+  return grid.cells.map((cell, index) => factorialMember({ base: members[index % members.length], cell, worldNumber: index + 1 }));
+}
+
+function factorialMember(input) {
+  const { base, cell, worldNumber } = input;
+  const factors = cell.factors;
+  const directive = `FACTORIAL CELL ${cell.cellId}: approach=${factors.approach}; modelTier=${factors.modelTier}; validation=${factors.validation}. Run this cell as an independent experiment. Return factorialCell {cellId, factors} exactly; cite measured evidence for the result.`;
+  return { ...base, worldNumber, variantIndex: worldNumber - 1, modelTier: factors.modelTier,
+    role: `${base.role}_${factors.approach}_${factors.validation}`,
+    factorialCell: { cellId: cell.cellId, factors }, mission: `${base.mission}\n${directive}` };
 }
 
 async function handle(input) {
   const { db, context, ensureParent, workerGarage, buildNCEEnrichments, createOrchestratorId, launchWorker } = input;
   const parent = await ensureParent({ db, context });
   const garage = await workerGarage.state(db, context.orchestratorId);
-  if (garage.available < 3) throw Object.assign(new Error('Trinity requires 3 free worker slots'), { code: 'WORKER_GARAGE_FULL' });
   const mission = missionFrom(context);
   context.nceEnrichments = await buildNCEEnrichments(context, 'trinity');
   const assignments = workerAssignmentsFrom(context);
   const { variant, jury, experimentalDesign } = trinityOptionsFrom(context);
   const members = composeMembers(mission, { variant, jury, experimentalDesign }, assignments);
+  if (garage.available < members.length) throw Object.assign(new Error(`Trinity design requires ${members.length} free worker slots`), { code: 'WORKER_GARAGE_FULL' });
   const missionId = `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
   await persistDispatchConfig(db, { missionId, mission, variantSelection: members[0]?.variantSelection, juryConfig: jury });
   const accepted = await launchWorlds({ db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId });

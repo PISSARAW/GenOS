@@ -5,6 +5,11 @@ const novelty = require('./trinityNoveltyArchive');
 const evidenceAudit = require('./trinityEvidenceAudit');
 const trinityService = require('./trinityService');
 const counterfactual = require('./trinityCounterfactualFork');
+const factorial = require('./trinityFactorialGrid');
+
+const FACTOR_LEVELS = Object.freeze({
+  approach: ['direct', 'planned'], modelTier: ['standard', 'frontier'], validation: ['basic', 'deep']
+});
 
 function run(input) {
   const design = input.selection?.experimentalDesign || {};
@@ -19,7 +24,32 @@ function run(input) {
   if (design.hypothesisPolicy === 'counterfactual_dimensions') {
     executions.counterfactual = runCounterfactual(input.reports);
   }
+  if (design.worldTopology === 'factorial_grid') executions.factorial = runFactorial(input.reports);
   return { status: Object.values(executions).every((entry) => entry.status === 'executed') ? 'executed' : 'incomplete', executions };
+}
+
+function runFactorial(reports) {
+  const grid = factorial.generateFactorialGrid({ factors: FACTOR_LEVELS, replications: 2, randomize: false });
+  const byCell = new Map((reports || []).map((world) => [world.report?.factorialCell?.cellId, world.report]));
+  const results = [];
+  for (const cell of grid.cells) {
+    const report = byCell.get(cell.cellId);
+    if (!report || !sameFactors(report.factorialCell?.factors, cell.factors)
+      || verifiedEvidenceIds(report).size === 0) {
+      return { status: 'incomplete', expectedCells: grid.totalCells,
+        observedCells: byCell.size, missingCell: cell.cellId };
+    }
+    results.push({ ...cell, score: trinityService.scoreWorldEvidence(report).totalScore });
+  }
+  return { status: 'executed', designId: grid.experimentalDesignId,
+    factors: grid.factors, factorLevels: grid.factorLevels, replications: grid.replications,
+    totalCells: grid.totalCells, anova: factorial.anovaAnalysis(results, FACTOR_LEVELS),
+    hierarchical: factorial.hierarchicalModel(results, FACTOR_LEVELS),
+    variance: factorial.varianceCorrection(results, grid), decisionAuthority: 'none' };
+}
+
+function sameFactors(actual, expected) {
+  return Boolean(actual) && Object.keys(expected).every((key) => actual[key] === expected[key]);
 }
 
 function runCounterfactual(reports) {
@@ -110,4 +140,5 @@ function verifiedEvidenceIds(report) {
     .map((item) => String(item.id || '')).filter(Boolean));
 }
 
-module.exports = { run, runOracle, runQualityDiversity, runCounterfactual, validDistribution, candidateFromReport };
+module.exports = { run, runOracle, runQualityDiversity, runCounterfactual, runFactorial,
+  validDistribution, candidateFromReport };
