@@ -48,7 +48,9 @@ async function applyCheapUpdate(bridge, event, receptor) {
   if (!bridge.db) return { applied: false, reason: 'no-db' };
   const stored = await territoryService.getTerritory(bridge.db, { id: event.territoryId });
   if (!stored.found) return { applied: false, reason: 'unknown-territory' };
-  if (receptor.cheapUpdate === 'head') return applyHeadUpdate(bridge, event);
+  if (receptor.cheapUpdate === 'head') {
+    return applyHeadUpdate(bridge, { ...event, rootPath: event.rootPath || stored.territory.rootPath });
+  }
   await territoryService.touchObserved(bridge.db, { id: event.territoryId });
   return { applied: true, kind: 'touch' };
 }
@@ -71,7 +73,12 @@ async function applyHeadUpdate(bridge, event) {
         refresh = { refreshed: false, reason: 'refresh-failed' };
       }
     } else if (changedFiles && changedFiles.length === 0) {
-      refresh = { refreshed: true, invalidated: 0, reindexed: 0 };
+      try {
+        const result = await cartographer.updateFiles(bridge.db, {
+          territoryId: event.territoryId, rootPath: event.rootPath, files: []
+        });
+        refresh = { refreshed: true, ...result };
+      } catch (_) { refresh = { refreshed: false, reason: 'refresh-failed' }; }
     } else if (!changedFiles) {
       refresh = { refreshed: false, reason: 'changed-files-unavailable' };
     }
