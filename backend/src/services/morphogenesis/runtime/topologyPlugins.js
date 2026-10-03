@@ -168,8 +168,9 @@ function sessionInput(args, input) {
   return { hostId: hostFrom(args, input), missionId: missionFrom(args, input), constitution: null };
 }
 
-function hostFrom(args, input) {
-  return input.hostId || (args.workers[0] && (args.workers[0].id || args.workers[0].individualId)) || 'morphogenesis-host';
+function hostFrom(args = {}, input = {}) {
+  const workers = Array.isArray(args.workers) ? args.workers : [];
+  return input.hostId || (workers[0] && (workers[0].id || workers[0].individualId)) || 'morphogenesis-host';
 }
 
 function missionFrom(args, input) {
@@ -229,7 +230,7 @@ async function executeMetapopulation(args, context) {
 }
 
 function missionTextFrom(args, input, context) {
-  const mission = String(input.mission || input.missionText || args.mission || (context && context.missionId) || '').trim();
+  const mission = String(input.mission || input.missionText || args.mission || '').trim();
   if (!mission) throw new Error('metapopulation requires a mission text (input.mission)');
   return mission;
 }
@@ -271,4 +272,4 @@ function inputFrom(context) {
   return {};
 }
 
-module.exports = { PLUGIN_TOPOLOGIES, UNSUPPORTED_TOPOLOGIES, installTopologyPlugins };
+module.exports = { PLUGIN_TOPOLOGIES, UNSUPPORTED_TOPOLOGIES, installTopologyPlugins, hostFrom, missionTextFrom };
