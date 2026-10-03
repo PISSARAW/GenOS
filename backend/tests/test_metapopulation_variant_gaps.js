@@ -185,7 +185,8 @@ async function markerExecutionChecks() {
   assert.equal(attestation.required, true);
   const staged = await controller.executeVariantAction(
     { type: 'STAGE_FOUNDER_RESERVE', deficit: 2 }, context);
-  assert.equal(staged.staged, true);
+  assert.equal(staged.staged, false);
+  assert.equal(staged.reason, 'FOUNDER_RESERVE_UNAVAILABLE');
 }
 
 async function run() {

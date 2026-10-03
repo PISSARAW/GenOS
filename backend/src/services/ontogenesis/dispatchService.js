@@ -110,12 +110,12 @@ async function dispatchTask(db, ctx, harness) {
   if (await hasSimilarFailures(db, ctx)) return blockDispatch(db, ctx, 'echec-similaire-repete');
   const reservationMb = reservationFor(ctx);
   if (!canAdmit(ctx, reservationMb)) return { state: ctx.project.state, note: 'enveloppe-insuffisante' };
+  await ctx.fence();
   const workspace = await harness.prepare(ctx.project);
   const task = ctx.selection.task;
   const input = { id: `onto_run_${randomUUID()}`, projectId: ctx.project.id, taskId: task.id,
     ...workspace, topology: selection.topology, variant: selection.variant, reservationMb,
     budgets: allocatedBudget(ctx.remaining, ctx.config) };
-  await ctx.fence();
   await persistDispatch(db, input);
   await traceSelection(db, ctx, selection);
   try {

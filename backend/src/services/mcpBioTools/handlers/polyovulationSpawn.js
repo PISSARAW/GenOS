@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active polyovulation spawned fleets
-const dizygoticFleetRegistry = new Map();
+let dizygoticFleetRegistry = new Map();
 
 function getFleet(fleetId) {
   if (!dizygoticFleetRegistry.has(fleetId)) {
@@ -132,11 +132,12 @@ function _ensurepolyovulationRegistryPersistent() {
     const persister = adaptivePersister.getAdaptivePersister();
     if (!persister) return;
     // Réhydrate depuis DB
-    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::polyovulation_spawn', 'polyovulationRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : polyovulationRegistry;
-    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::polyovulation_spawn', 'polyovulationRegistry', mapToUse) : mapToUse;
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::polyovulation_spawn', 'dizygoticFleetRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : dizygoticFleetRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::polyovulation_spawn', 'dizygoticFleetRegistry', mapToUse) : mapToUse;
+    dizygoticFleetRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'polyovulationRegistry', {
+    Object.defineProperty(module.exports, 'dizygoticFleetRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -156,7 +157,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.polyovulationRegistry || polyovulationRegistry;
+  const map = module.exports.dizygoticFleetRegistry || dizygoticFleetRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

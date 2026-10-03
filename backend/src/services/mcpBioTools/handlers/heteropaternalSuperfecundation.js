@@ -8,18 +8,29 @@
 const crypto = require('crypto');
 
 // In-memory registry of heteropaternal twin clusters
-const HETEROPATERNAL_REGISTRY = new Map();
+let HETEROPATERNAL_REGISTRY = new Map();
 
 function generateId(prefix) {
-  return `${prefix}_${Math.random().toString(36).substring(2, 9)}`;
+  return `${prefix}_${crypto.randomUUID()}`;
 }
 
-function handleSpawn(args) {
-  const gestationContext = args.shared_gestation_context || { workspace_id: 'ws_default', task_goal: 'general_objective' };
-  const fathers = args.paternal_inseminators || [
+function handleSpawn(args = {}) {
+  const gestationContext = args.shared_gestation_context === undefined ? { workspace_id: 'ws_default', task_goal: 'general_objective' } : args.shared_gestation_context;
+  const fathers = args.paternal_inseminators === undefined ? [
     { father_id: 'father_anthropic', provider: 'anthropic', model: 'claude-3-7-sonnet', bias_domain: 'formal_proof' },
     { father_id: 'father_google', provider: 'google', model: 'gemini-2.5-pro', bias_domain: 'rapid_context' }
-  ];
+  ] : args.paternal_inseminators;
+  const validText = (value, maxLength) => typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength;
+  if (!gestationContext || typeof gestationContext !== 'object' || Array.isArray(gestationContext) ||
+      !validText(gestationContext.workspace_id, 120) || !validText(gestationContext.task_goal, 2000)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'shared_gestation_context must include a workspace_id (max 120 chars) and task_goal (max 2000 chars).' };
+  }
+  if (!Array.isArray(fathers) || fathers.length < 2 || fathers.length > 16 || fathers.some(father => !father ||
+      !validText(father.father_id, 120) || !validText(father.provider, 80) ||
+      !validText(father.model, 120) || !validText(father.bias_domain, 120)) ||
+      new Set(fathers.map(father => father.father_id)).size !== fathers.length) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'paternal_inseminators must contain 2 to 16 entries with unique father_id and non-empty provider, model, and bias_domain.' };
+  }
 
   const clusterId = generateId('heteropaternal_cluster');
   const twins = fathers.map((father, idx) => {
@@ -52,12 +63,15 @@ function handleSpawn(args) {
   return {
     configured: true,
     success: true,
-    status: 'superfecundated_dizygotic_spawn_complete',
+    status: 'metadata_recorded',
     cluster_id: clusterId,
     diversity_score: diversityScore,
     twin_count: twins.length,
     half_sibling_twins: twins,
-    output: `Spawned ${twins.length} heteropaternal half-sibling twins in workspace [${gestationContext.workspace_id}] (Diversity Score: ${diversityScore}).`
+    offspring_descriptor_count: twins.length,
+    execution_scope: 'metadata_simulation',
+    runtime_agents_created: false,
+    output: `Recorded ${twins.length} paternal lineage descriptors in workspace [${gestationContext.workspace_id}] (provider diversity: ${diversityScore}). No runtime agents were created.`
   };
 }
 
@@ -86,8 +100,9 @@ function handleEvaluateDiversity(args) {
     cluster_id: clusterId,
     diversity_score: record.diversityScore,
     providers_breakdown: providerCounts,
-    paternal_independence_guarantee: record.diversityScore === 1.0,
-    output: `Cluster [${clusterId}] possesses diversity score ${record.diversityScore} with zero shared paternal bias.`
+    paternal_independence_guarantee: false,
+    execution_scope: 'metadata_simulation',
+    output: `Cluster [${clusterId}] metadata has provider diversity score ${record.diversityScore}; paternal independence and bias separation were not tested.`
   };
 }
 
@@ -139,10 +154,11 @@ function _ensureheteropaternalRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::heteropaternal_superfecundation', 'heteropaternalRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : heteropaternalRegistry;
+    const mapToUse = stored && stored.size ? stored : HETEROPATERNAL_REGISTRY;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::heteropaternal_superfecundation', 'heteropaternalRegistry', mapToUse) : mapToUse;
+    HETEROPATERNAL_REGISTRY = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'heteropaternalRegistry', {
+    Object.defineProperty(module.exports, 'HETEROPATERNAL_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -162,7 +178,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.heteropaternalRegistry || heteropaternalRegistry;
+  const map = module.exports.HETEROPATERNAL_REGISTRY || HETEROPATERNAL_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

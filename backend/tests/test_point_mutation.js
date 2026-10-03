@@ -15,6 +15,8 @@ async function runTest() {
 
   assert.strictEqual(silentRes.success, true);
   assert.strictEqual(silentRes.status, 'substitution_applied');
+  assert.strictEqual(silentRes.runtime_effect_applied, false);
+  assert.strictEqual(silentRes.execution_scope, 'metadata_simulation');
   assert.strictEqual(silentRes.execution_halted, false);
   assert.strictEqual(silentRes.divergence_score, 0.02);
   console.log('✅ PASS: Silent substitution preserved execution invariance');
@@ -44,6 +46,7 @@ async function runTest() {
 
   assert.strictEqual(nonsenseRes.success, true);
   assert.strictEqual(nonsenseRes.execution_halted, true);
+  assert.strictEqual(nonsenseRes.runtime_effect_applied, false);
   assert.strictEqual(nonsenseRes.divergence_score, 1.0);
   console.log('✅ PASS: Nonsense substitution triggered early termination circuit-breaker');
 

@@ -81,8 +81,8 @@ Maintains a declaration-driven backend registry for typed execution routing. Its
 
 ### 6. Resident Daemon Ecology (`src/services/daemon/`, ADR 0034)
 Persistent, territory-bound agentic processes maintaining an evidence-grounded model of their environment across missions. The daemon observes and knows; the orchestrator decides; the worker intervenes. No automatic repair: findings escalate to `REPAIRABLE`, mutation requires a lease.
-- **Territory** (`daemonTerritoryService.js`): commit-aware scoping (`repo/ref/path/commit`); knowledge goes `STALE` on HEAD change, never silently carried over.
-- **Event physiology** (`daemonEventBridgeService.js`, `daemonReceptorRegistry.js`, `daemonWakePolicyService.js`): deterministic receptors first, LLM only on pressure; cooldown + wake budget against signal storms.
+- **Territory** (`daemonTerritoryService.js`): commit-aware scoping (`repo/ref/path/commit`); freshness uses successful index time and indexed HEAD, while a changed HEAD marks knowledge stale.
+- **Event physiology** (`daemonEventBridgeService.js`, `daemonReceptorRegistry.js`, `daemonWakePolicyService.js`): deterministic receptors and bounded wake policy; accepted high-priority wakes run a bounded deterministic investigation that may create observed findings, with no LLM call.
 - **Cartographer** (`cartography/`): derived knowledge graph (directories, files, symbols, `CONTAINS`/`IMPORTS`); incremental updates provably equal clean rebuilds.
 - **Findings** (`findings/`): canonical epistemic objects with typed evidence (supporting/contradicting × 6 natures), closed lifecycle (`REFUTED`/`EXPIRED` terminal), provenance by reference.
 - **Investigator** (`investigation/`): deterministic detectors (test-regression, flaky-signal, broken-import, missing-sibling-test) producing observations, wired to the Natural Search ledger via `daemonNaturalSearchAdapter.js` (no duplicated engine).

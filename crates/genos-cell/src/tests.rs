@@ -42,8 +42,9 @@ mod tests {
         });
 
         let (daughter_a, daughter_b) = parent.binary_fission(0.05).expect("fission must succeed");
-        assert_eq!(daughter_a.cell_id, parent.cell_id);
+        assert_ne!(daughter_a.cell_id, parent.cell_id);
         assert_ne!(daughter_b.cell_id, parent.cell_id);
+        assert_ne!(daughter_a.cell_id, daughter_b.cell_id);
 
         // Budget conservation
         assert_eq!(daughter_a.conscience.current_budget, 40.0);
@@ -53,7 +54,7 @@ mod tests {
         // Organelle ID uniqueness
         match (&daughter_a.organelles[0], &daughter_b.organelles[0]) {
             (Organelle::Ribosome { id: id_a, .. }, Organelle::Ribosome { id: id_b, .. }) => {
-                assert_eq!(*id_a, organelle_id);
+                assert_ne!(*id_a, organelle_id);
                 assert_ne!(*id_b, organelle_id);
                 assert_ne!(*id_a, *id_b);
             }

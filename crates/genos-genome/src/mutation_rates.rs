@@ -34,13 +34,17 @@ impl DnaNucleotide {
         }
     }
 
-    pub fn nucleotide_from_char(c: char) -> Self {
+    pub fn try_nucleotide_from_char(c: char) -> Option<Self> {
         match c.to_ascii_uppercase() {
-            'A' => DnaNucleotide::A,
-            'C' => DnaNucleotide::C,
-            'G' => DnaNucleotide::G,
-            'T' | 'U' => DnaNucleotide::T,
-            _ => DnaNucleotide::A,
+            'A' => Some(DnaNucleotide::A),
+            'C' => Some(DnaNucleotide::C),
+            'G' => Some(DnaNucleotide::G),
+            'T' | 'U' => Some(DnaNucleotide::T),
+            _ => None,
         }
+    }
+
+    pub fn nucleotide_from_char(c: char) -> Option<Self> {
+        Self::try_nucleotide_from_char(c)
     }
 }

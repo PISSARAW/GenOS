@@ -207,6 +207,19 @@ impl CellDivision {
         params: (u32, u32, f64)
     ) -> Result<BuddingResult, String> {
         let (current_scars, hayflick_limit, mutation_rate) = params;
+        let seed = default_seed(
+            &mother.genome_id().to_string(),
+            &format!("budding_mutation:{daughter_volume:.6}:{current_scars}:{hayflick_limit}:{mutation_rate:.6}"),
+        );
+        Self::budding_with_limit_and_mutation_seeded(mother, daughter_volume, (current_scars, hayflick_limit, mutation_rate, &seed))
+    }
+
+    pub fn budding_with_limit_and_mutation_seeded(
+        mother: &Genome,
+        daughter_volume: f64,
+        params: (u32, u32, f64, &str)
+    ) -> Result<BuddingResult, String> {
+        let (current_scars, hayflick_limit, mutation_rate, seed) = params;
         if daughter_volume <= 0.0 || daughter_volume >= 1.0 {
             return Err("Daughter volume must be between 0 and 1".to_string());
         }
@@ -232,7 +245,7 @@ impl CellDivision {
         parent.insert_gene(genos_genome::Gene::new("is_senescent", &is_senescent.to_string()));
 
         if mutation_rate > 0.0 {
-            mutate_budding_daughter(&mut daughter, (mother, daughter_volume, current_scars, hayflick_limit, mutation_rate));
+            mutate_budding_daughter(&mut daughter, (mother, daughter_volume, current_scars, hayflick_limit, mutation_rate, seed));
         }
 
         for gene in daughter.genes.values_mut() {
@@ -330,13 +343,9 @@ fn mutate_child_dna<R: rand::Rng + ?Sized>(child: &mut Genome, mutation_rate: f6
 
 fn mutate_budding_daughter(
     daughter: &mut Genome,
-    opts: (&Genome, f64, u32, u32, f64)
+    opts: (&Genome, f64, u32, u32, f64, &str)
 ) {
-    let (mother, daughter_volume, current_scars, hayflick_limit, mutation_rate) = opts;
-    let seed = default_seed(
-        &mother.genome_id().to_string(),
-        &format!("budding_mutation:{daughter_volume:.6}:{current_scars}:{hayflick_limit}:{mutation_rate:.6}"),
-    );
+    let (_, _, _, _, mutation_rate, seed) = opts;
     let mut rng = rng_from_seed(&seed);
     let mut mat = daughter.chromosome_maternal.as_slice().to_vec();
     let mut pat = daughter.chromosome_paternal.as_slice().to_vec();

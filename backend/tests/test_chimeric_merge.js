@@ -19,6 +19,8 @@ async function runTest() {
 
   assert.strictEqual(fuseRes.success, true);
   assert.strictEqual(fuseRes.status, 'mosaic_fused');
+  assert.strictEqual(fuseRes.runtime_agent_created, false);
+  assert.strictEqual(fuseRes.execution_scope, 'metadata_simulation');
   assert.strictEqual(fuseRes.functional_tools_count, 3);
   assert.strictEqual(fuseRes.immune_vaccines_count, 2);
   assert.ok(fuseRes.hybrid_dna_hash);

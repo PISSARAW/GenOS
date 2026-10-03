@@ -66,6 +66,9 @@ Métapopulation (base, runtime, variants).
 
 ## 6. Limites
 
+- Cette exécution des graphes morphologiques est distincte du préparateur de
+  mission historique `morphogenesisRuntime`. Après mission, ce dernier ne fait
+  qu'émettre une proposition; il n'applique pas le graphe ni ne crée de commit.
 - Les contrôleurs sont des modèles in-process simplifiés, pas les runtimes
   lourds (sessions distribuées, CRDT réseau, jury humain).
 - Le cycle Métapopulation sur région vide rend `VERIFIED` avec

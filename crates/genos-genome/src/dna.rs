@@ -108,12 +108,13 @@ impl DnaStrand {
     }
 
     pub fn mutate_stochastic<R: rand::RngExt + ?Sized>(&mut self, rate: f64, rng: &mut R) -> usize {
-        if rate <= 0.0 {
+        if !rate.is_finite() || rate <= 0.0 {
             return 0;
         }
+        let effective = rate.clamp(0.0, 1.0);
         let mut count = 0;
         for nucleotide in &mut self.sequence {
-            if rng.random_bool(rate.clamp(0.0, 1.0)) {
+            if rng.random_bool(effective) {
                 *nucleotide = nucleotide.mutate(rng);
                 count += 1;
             }

@@ -137,7 +137,7 @@ impl Genome {
     }
 
     pub fn mutate_stochastic<R: rand::Rng + ?Sized>(&mut self, rate: f64, rng: &mut R) -> usize {
-        if rate <= 0.0 { return 0; }
+        if !rate.is_finite() || rate <= 0.0 { return 0; }
         let mut count = 0;
         count += self.chromosome_maternal.mutate_stochastic(rate, rng);
         count += self.chromosome_paternal.mutate_stochastic(rate, rng);

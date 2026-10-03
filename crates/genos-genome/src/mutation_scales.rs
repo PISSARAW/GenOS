@@ -1,5 +1,5 @@
 use crate::dna::{DnaNucleotide, DnaStrand};
-use crate::genome::Genome;
+use crate::genome::{Genome, INSTINCT_LOCUS_PREFIX};
 use crate::mutation_rates::MutationRates;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
@@ -33,6 +33,9 @@ pub enum MutationEffect {
     EpigeneticChange,
 }
 
+/// Longueur maximale d'un ADN de gène après amplification (anti-emballement).
+pub const MAX_AMPLIFIED_GENE_DNA_LEN: usize = 4096;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct MutationResult {
     pub scale: MutationScale,
@@ -54,7 +57,7 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let len = strand.len();
         for pos in 0..len {
             if rng.random_bool(rate.clamp(0.0, 1.0)) {
@@ -83,35 +86,33 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let len = strand.len();
         let codons = len / 3;
+        if codons == 0 { return results; }
+        let effective = rate.clamp(0.0, 1.0);
+        let baseline: Vec<DnaNucleotide> = strand.as_slice().to_vec();
+        let mut sequence = baseline.clone();
         for i in 0..codons {
-            if rng.random_bool(rate.clamp(0.0, 1.0)) {
-                let pos = i * 3;
-                let original_chars: Vec<char> = strand.as_str().chars().collect();
-                let old_char = strand.as_str().chars().nth(pos).unwrap_or('A');
-                let mut new_char = old_char;
-                while new_char == old_char {
-                    new_char = match rng.next_u32() % 4 {
-                        0 => 'A', 1 => 'C', 2 => 'G', _ => 'T',
-                    };
-                }
-                let mut new_seq = strand.as_slice().to_vec();
-                new_seq[pos] = DnaNucleotide::nucleotide_from_char(new_char);
-                strand.replace_sequence(new_seq);
+            if rng.random_bool(effective) {
+                let pos = i * 3 + rng.random_range(0..3);
+                let original = baseline[pos].clone();
+                let mutated = original.mutate(rng);
+                sequence[pos] = mutated.clone();
                 results.push(MutationResult {
                     scale: MutationScale::Codon,
                     effect: MutationEffect::Substitution,
                     affected_locus: None,
                     positions_changed: 1,
-                    successful: original_chars[pos] != new_char,
+                    successful: original != mutated,
                     description: format!(
-                        "Codon mutation at codon {}: {:?} -> {:?}",
-                        i, &original_chars[pos..pos + 3], new_char
+                        "Codon mutation at codon {i}: {original:?} -> {mutated:?}"
                     ),
                 });
             }
+        }
+        if !results.is_empty() {
+            strand.replace_sequence(sequence);
         }
         results
     }
@@ -122,15 +123,27 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let loci: Vec<String> = genome.genes.keys().cloned().collect();
         for locus in &loci {
+            if locus.starts_with(INSTINCT_LOCUS_PREFIX) { continue; }
             if !rng.random_bool(rate.clamp(0.0, 1.0)) { continue; }
             let roll: u32 = rng.next_u32() % 4;
             match roll {
                 0 => {
                     if let Some(gene) = genome.genes.get(locus) {
                         let gene_dna_len = gene.dna.len();
+                        if gene_dna_len.saturating_mul(3) > MAX_AMPLIFIED_GENE_DNA_LEN {
+                            results.push(MutationResult {
+                                scale: MutationScale::Gene,
+                                effect: MutationEffect::Amplification { factor: 3 },
+                                affected_locus: Some(locus.clone()),
+                                positions_changed: 0,
+                                successful: false,
+                                description: format!("Gene amplification of {} refused: length cap", locus),
+                            });
+                            continue;
+                        }
                         let original = gene.dna.as_slice();
                         let mut new_dna = Vec::with_capacity(gene_dna_len * 3);
                         new_dna.extend_from_slice(original);
@@ -202,7 +215,7 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let len = strand.len();
         if len < 4 { return results; }
         let segment_len = (len as f64 * rate.clamp(0.0, 1.0)).max(1.0) as usize;
@@ -230,7 +243,7 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        if rate <= 0.0 { return results; }
+        if !rate.is_finite() || rate <= 0.0 { return results; }
         let mut rng2 = rng;
         let maternal_results = Self::mutate_nucleotide(&mut genome.chromosome_maternal, rate, &mut rng2);
         let paternal_results = Self::mutate_nucleotide(&mut genome.chromosome_paternal, rate, &mut rng2);

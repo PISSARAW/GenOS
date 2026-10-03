@@ -1,5 +1,5 @@
 // Registry for Dynamic Triplet Expansion & Anticipation
-const dynamicExpansionRegistry = new Map();
+let dynamicExpansionRegistry = new Map();
 
 const PATHOLOGICAL_THRESHOLD = 40;
 const SEVERE_THRESHOLD = 70;
@@ -37,6 +37,8 @@ function handleReplicateGeneration(record, expId, deltaRepeats) {
     configured: true,
     success: true,
     status: 'generation_replicated',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
     transport: 'dynamic_expansion_engine',
     expansion_id: expId,
     generation: record.generation,
@@ -44,7 +46,7 @@ function handleReplicateGeneration(record, expId, deltaRepeats) {
     repeat_count: record.repeatCount,
     is_pathological: record.isPathological,
     severity: record.severity,
-    output: `Generation ${record.generation}: motif '${record.motif}' expanded to ${record.repeatCount} repeats (${record.severity}).`
+    output: `Generation ${record.generation}: simulated motif '${record.motif}' count is ${record.repeatCount} (${record.severity}); runtime genetics is unchanged.`
   };
 }
 
@@ -56,6 +58,8 @@ function handleEvaluateAnticipation(record, expId) {
     configured: true,
     success: true,
     status: 'anticipation_evaluated',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
     transport: 'dynamic_expansion_engine',
     expansion_id: expId,
     generation: record.generation,
@@ -73,7 +77,17 @@ function handleDynamicTripletExpansion(args = {}) {
   const record = getExpansionRecord(expId);
 
   if (action === 'expand_repeats' || action === 'replicate_generation') {
-    return handleReplicateGeneration(record, expId, args.delta_repeats);
+    const delta = args.delta_repeats === undefined ? 12 : args.delta_repeats;
+    if (!Number.isSafeInteger(delta) || delta < 0 || !Number.isSafeInteger(record.repeatCount + delta)) {
+      return {
+        configured: true,
+        success: false,
+        status: 'invalid_args',
+        expansion_id: expId,
+        error: 'delta_repeats must be a non-negative safe integer and keep repeat_count safe.'
+      };
+    }
+    return handleReplicateGeneration(record, expId, delta);
   }
   if (action === 'evaluate_anticipation_risk') {
     return handleEvaluateAnticipation(record, expId);
@@ -83,6 +97,8 @@ function handleDynamicTripletExpansion(args = {}) {
     configured: true,
     success: true,
     status: 'active',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
     transport: 'dynamic_expansion_engine',
     expansion_id: expId,
     generation: record.generation,
@@ -116,10 +132,11 @@ function _ensuredynamicTripletExpansionRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::dynamic_triplet_expansion', 'dynamicTripletExpansionRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : dynamicTripletExpansionRegistry;
+    const mapToUse = stored && stored.size ? stored : dynamicExpansionRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::dynamic_triplet_expansion', 'dynamicTripletExpansionRegistry', mapToUse) : mapToUse;
+    dynamicExpansionRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'dynamicTripletExpansionRegistry', {
+    Object.defineProperty(module.exports, 'dynamicExpansionRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -139,7 +156,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.dynamicTripletExpansionRegistry || dynamicTripletExpansionRegistry;
+  const map = module.exports.dynamicExpansionRegistry || dynamicExpansionRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel — archétype `ResidentDaemon` implémenté (runtime, territoires, findings, handoffs, réconciliation, évaluation) ; maturité `EXPERIMENTAL` ; preuve live trop petite pour conclure.
 - **Portée** : `backend/src/services/daemon/*`, `backend/bin/genos-daemon.cjs`, génomes `agents/daemons/*`, specs `spec/daemon-*.schema.json` et `spec/resident-daemon.schema.json`.
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-10-03
 
 Ce document est le catalogue de référence des daemons. Il suit le même niveau
 d'exigence que la fiche [Morphogenèse](../02-orchestration/topologies/morphogenese.md) :
@@ -92,7 +92,7 @@ reclassé**. Il n'y a jamais une liste de daemons spécialisés lancés au déma
 | Archétype unique | `ResidentDaemon` | `agents/daemons/resident_daemon.agent.json`, `spec/resident-daemon.schema.json`, `residentDaemonRuntime.js` |
 | Organelles (8) | `cartography`, `interoception`, `natural-search`, `findings`, `verification`, `stigmergy`, `handoff`, `reconciliation` | modules sous `backend/src/services/daemon/*`, jamais des processus séparés |
 | Phénotypes (10) | `security`, `contract`, `dependency`, `documentation`, `historian`, `chaperone`, `metabolic`, `cross_repo`, `repair`, `deep_research` | lignes `daemon_phenotypes` + `PHENOTYPE_PROFILES`, modulent organes/mémoire/rang handoff, jamais l'identité |
-| Auxiliaire borné | `ScoutCells` | `scouting/scoutColonyService.js`, lecture seule, TTL 5 min, 12 cellules max |
+| Auxiliaire borné | `ScoutCells` | `scouting/scoutColonyService.js`, lecture seule, TTL appliqué à la lecture, état en mémoire, 12 cellules par défaut |
 | Superviseur control plane | `SentinelDaemonKeeper` | `agents/integration/sentinel_daemon_keeper.agent.json`, `daemonSupervisorService.js` + `daemonAgentAutostart.js`, vue liveness seule, ne produit pas de findings métier |
 | Compatibilité historique | `WorkspaceGitDaemon` | `agents/orchestration/workspace_git_daemon.agent.json`, `daemonRepoWorkerService.js`, autofix en no-op permanent |
 | Candidat Holobionte | kind `DAEMON` | adaptateur Holobionte (ADR 0079) : découverte ≠ admission, exécution sous runtime daemon |
@@ -277,15 +277,17 @@ Source : `backend/src/services/daemon/residentDaemonRuntime.js:21-173`,
   "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "state": "ACTIVE",
   "createdAt": "2026-09-25T00:00:00.000Z",
-  "lastObservedAt": "2026-09-25T00:00:00.000Z"
+  "lastObservedAt": "2026-09-25T00:00:00.000Z",
+  "lastIndexedAt": "2026-09-25T00:00:00.000Z",
+  "indexedHeadSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }
 ```
 
 Table `daemon_territories` (migration 037) avec `CHECK` sur l'état, index par
 `workspace_id / repo_identity / state`. `daemon_runtime_state` porte
 `(daemon_id, territory_id, activity, health, cognitive_revisions, last_heartbeat_at)`.
-La cartographie renseigne aussi `last_indexed_at` et `indexed_head_sha` ; la fraîcheur
-des connaissances est nulle si le HEAD indexé diffère du HEAD courant.
+La cartographie renseigne aussi `last_indexed_at` et `indexed_head_sha` ; les
+connaissances sont considérées périmées si le HEAD indexé diffère du HEAD courant.
 
 ### 6.2 Éveil et récepteurs — schéma logique
 
@@ -295,12 +297,13 @@ Event → validate(territoryId, knownEvent) → cheapUpdate(head|touch)
 ```
 
 - 16 événements connus (`daemonReceptorRegistry.js:18-35`).
-- `high` = réveil focalisé (`TEST_FAILED, BUILD_FAILED, AGENT_FAILED, FINDING_REFUTED, RESOURCE_ORPHANED`) ; cela ne lance pas automatiquement un LLM.
+- `high` = réveil focalisé (`TEST_FAILED, BUILD_FAILED, AGENT_FAILED, FINDING_REFUTED, RESOURCE_ORPHANED`) ; après un réveil accepté, le bridge lance une enquête déterministe bornée qui peut ouvrir des findings `OBSERVED`. Aucun LLM n'est lancé.
 - `medium` = sensing focalisé (`wakeActivity: FOCUSED`).
 - `low` = persistance seule (`wakeActivity: null`, ex. `TEST_RECOVERED, AGENT_COMPLETED`).
 - Seul `ORCHESTRATOR_ENTERED` demande un handoff (`handoffRequested: true`).
-- Wake policy : `cooldown 5 s` par `(territoire, eventType)`, `10 wakes / 60 s` max,
-  `low-priority-persist-only` ne réveille jamais. Temps injecté, sans LLM.
+- Wake policy : `cooldown 5 s` par `(territoire, eventType)`, budget glissant de 10 wakes/60 s
+  et bonus de 5 pour la priorité haute ; `low-priority-persist-only` ne réveille jamais.
+  Temps injecté, sans LLM.
 - Pas de timer de rattrapage `KNOWLEDGE_STALE` dans l'hôte ; l'interoception dérive la fraîcheur du dernier index réussi et de son HEAD.
 - `ingestEvent` retourne `llmRequired: false` ; le handoff est en `try/catch`
   et ne bloque jamais l'ingestion. Écriture `daemon_events` en best-effort.
@@ -319,7 +322,11 @@ sequenceDiagram
     BRIDGE->>BRIDGE: cheap update (head STALE ? touch)
     BRIDGE->>WAKE: shouldWake(key, priority)
     alt woke
-      WAKE-->>RT: heartbeat(activity, HEALTHY)
+      WAKE-->>RT: heartbeat(activity)
+      opt priorité haute
+        BRIDGE->>BRIDGE: enquête déterministe bornée
+        BRIDGE->>BRIDGE: findings éventuelles (OBSERVED)
+      end
     else persist only
       WAKE-->>BRIDGE: low-priority-persist-only
     end
@@ -515,7 +522,9 @@ Source : `backend/src/services/daemon/cartography/cartographerService.js:24-209`
 - 10 variables `MEASURED`, 10 `DEFERRED` (absence explicite, pas de valeur devinée).
 - Dérivées de `daemon_events` + `daemon_territories` :
   `change_rate = changes / 10`, pressions test/build/orphelin/handoff par comptage,
-  `staleness` via `last_observed_at`.
+  `staleness` depuis `last_indexed_at` et `indexed_head_sha` : index absent, âge dépassé
+  ou HEAD indexé différent du HEAD courant. `last_observed_at` ne prouve pas qu’un index
+  a réussi.
 - `cartographyPressure = 0.5 × change + 0.5 × staleness`,
   `wakeUrgency = max(test, build, orphan)`, `deferReasoning` si machine stressée.
 
@@ -698,7 +707,9 @@ N'est pas une catégorie de daemon. Lecture seule, durée limitée, jamais
 ```
 
 `checkCellPreconditions` refuse si le profil autorise `write || spawn || promote`.
-Leur contribution doit être évaluée séparément.
+Le TTL de colonie est appliqué paresseusement via `getColony` et `listActiveColonies`;
+le registre est en mémoire et n’est pas restauré après redémarrage. `llmRatio` accepte
+`[0,1]` et `0` désactive la part LLM. Leur contribution doit être évaluée séparément.
 
 Source : `backend/src/services/daemon/scouting/scoutColonyService.js:6-235`,
 `backend/src/services/agents/phenotypeRegistryService.js:28-38`.
@@ -759,7 +770,10 @@ L'adaptateur crée, en session persistante uniquement, un candidat symbionte kin
 Cadence basse, exécution locale, portée persistante déclarées. Il passe ensuite
 par le contrat et les gates d'admission Holobionte habituels ; l'adaptateur ne
 l'admet ni ne l'exécute. Une même identité daemon ne peut pas être enregistrée
-deux fois. Le cycle de vie d'exécution reste sous contrôle du runtime daemon.
+deux fois. Le SHA associé doit être un hash Git complet et, si le SHA courant du
+territoire est connu dans le contexte, le candidat ancien est rejeté. Ce contrôle
+de cohérence n'est pas une preuve d'autorité. Le cycle de vie d'exécution reste
+sous contrôle du runtime daemon.
 
 Source : [ADR 0079](../adr/0079-daemons-symbiontes-residents.md#L15-L39).
 
@@ -847,20 +861,21 @@ Fichiers : `backend/src/services/daemon/*` (12 services racine + `cartography/`,
 ### 11.1 Boucle nominale
 
 ```text
-register(territory) → survey(scanTerritory) → dormant
-  → event → cheapUpdate → wake? → focused sensing
+register(territory) → dormant
+  → event → cheapUpdate → wake? → enquête déterministe si priorité haute
   → finding(OBSERVED) → evidence → verifier(SUPPORTED?)
   → handoff(ORCHESTRATOR_ENTERED) → feedback → reconciler(sweep)
 ```
 
 1. Enregistrer le territoire (`createTerritory`, `ON CONFLICT DO NOTHING`).
-2. Démarrer le host avec `--territory` + `--daemon-id` (refus sinon).
-3. Balayer (`scanTerritory`) puis dormir ; le pont de production annonce
-   `ORCHESTRATOR_ENTERED` sans créer de territoire.
-4. Ingérer les événements, mettre à jour `head` ou `last_observed_at`, réveiller
-   sous cooldown/budget, journaliser en best-effort.
-5. Ouvrir des findings `OBSERVED/HYPOTHESIZED` avec claim falsifiable et
-   limitations obligatoires, attacher des preuves typées vers `provenance_records`.
+2. Démarrer le host avec `--territory` + `--daemon-id` (refus sinon) ; il ne lance
+   pas de scan initial. L’indexation initiale relève de l’appelant (`scanTerritory`).
+3. Le pont de production annonce `ORCHESTRATOR_ENTERED` sans créer de territoire.
+4. Ingérer les événements, mettre à jour le HEAD ou toucher `last_observed_at`, puis
+   réveiller sous cooldown/budget et journaliser en best-effort.
+5. Un réveil de priorité haute déclenche une enquête déterministe bornée ; elle peut
+   créer des findings `OBSERVED`, avec claim falsifiable et preuves typées vers
+   `provenance_records`. Ce chemin ne lance pas de LLM.
 6. Vérifier (fraîcheur → existence scope → règle détecteur), sans LLM.
 7. Compiler le brief sur entrée orchestrateur, signaler en zero-texte,
    laisser l'orchestrateur consommer et noter.
@@ -1000,7 +1015,7 @@ d'une preuve là où seul un signal d'attention est fourni.
 | ResidentDaemon | runtime, événements, findings, handoffs, réconciliation, évaluation implémentés | `EXPERIMENTAL` ; preuve live directionnelle seule |
 | 10 phénotypes | pressions toutes mesurées, `ACTIVE/DORMANT` persistés | gains/coûts par famille à établir |
 | 8 organelles | modules implémentés, jamais des processus | causal runner de production et reçus de contrôle/intervention absents; `REPRODUCED+` non atteint automatiquement |
-| ScoutCells | bornées, TTL 5 min, lecture seule | pas des daemons ; contribution à évaluer |
+| ScoutCells | bornées, TTL 5 min vérifié à la lecture, registre en mémoire, lecture seule | pas des daemons ; contribution à évaluer |
 | SentinelDaemonKeeper | superviseur read-only reclassé | mesurer séparément des findings métier |
 | WorkspaceGitDaemon | compatibilité historique | autofix déprécié ; réparations via épisode + worker |
 | Candidat Holobionte `DAEMON` | adaptateur + gates d'admission | découverte ≠ autorité ; exécution sous runtime daemon |

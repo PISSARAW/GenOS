@@ -3,7 +3,7 @@ const { quoteCliArg } = require('../shellQuote');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // State registry for chimeric mosaic agents
-const chimericRegistry = new Map(); /* persisterHook: chimericRegistry */
+let chimericRegistry = new Map(); /* persisterHook: chimericRegistry */
 
 function getMosaic(mosaicId) {
   if (!chimericRegistry.has(mosaicId)) {
@@ -91,6 +91,8 @@ async function handleChimericMerge(args = {}, run) {
       configured: true,
       success: true,
       status: 'mosaic_fused',
+      execution_scope: 'metadata_simulation',
+      runtime_agent_created: false,
       transport: 'tetragametic_chimeric_recombinator',
       mosaic_id: mosaicId,
       hybrid_dna_hash: hybridDnaHash,
@@ -98,7 +100,7 @@ async function handleChimericMerge(args = {}, run) {
       functional_tools_count: toolsProvided.length,
       immune_vaccines_count: vaccinesProvided.length,
       coherence_score: mosaic.coherenceScore,
-      output: `Chimeric mosaic agent '${mosaicId}' synthesized. Inherits tools from '${branchGenome}' and immune memory from '${branchEpigenome}'.`
+      output: `Chimeric lineage metadata recorded for '${mosaicId}' from '${branchGenome}' and '${branchEpigenome}'; no runtime agent was synthesized.`
     };
   }
 
@@ -175,6 +177,7 @@ function _ensurechimericRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chimeric_merge', 'chimericRegistry') : null;
     const mapToUse = stored && stored.size ? stored : chimericRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chimeric_merge', 'chimericRegistry', mapToUse) : mapToUse;
+    chimericRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'chimericRegistry', {
       value: persistentMap,

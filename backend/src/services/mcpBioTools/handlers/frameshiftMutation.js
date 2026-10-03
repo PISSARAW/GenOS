@@ -1,5 +1,5 @@
 // Registry for Frameshift (Indel) mutations
-const frameshiftRegistry = new Map();
+let frameshiftRegistry = new Map();
 
 function getFrameshiftRecord(id) {
   if (!frameshiftRegistry.has(id)) {
@@ -44,32 +44,44 @@ function handleFrameshiftMutation(args = {}) {
   const record = getFrameshiftRecord(shiftId);
 
   if (action === 'insert_token_frameshift') {
+    const position = args.position === undefined ? 0 : args.position;
+    if (!Number.isSafeInteger(position) || position < 0 || position > record.sequenceTokens.length) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'position must be an integer from 0 through sequence length.' };
+    }
     processIndel(record, { isInsert: true, token: args.token, position: args.position });
     return {
       configured: true,
       success: true,
       status: 'insertion_frameshift_applied',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
       transport: 'frameshift_engine',
       shift_id: shiftId,
       frame_shift_offset: record.readingFrameShift,
       is_synchronized: record.isSynchronized,
       codons: computeCodons(record.sequenceTokens),
-      output: `Inserted token: reading frame shifted by +1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}).`
+      output: `Simulation inserted a token and shifted its model frame by +1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}); runtime behavior is unchanged.`
     };
   }
 
   if (action === 'delete_token_frameshift') {
+    const position = args.position === undefined ? 0 : args.position;
+    if (!Number.isSafeInteger(position) || position < 0 || position >= record.sequenceTokens.length) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'position must identify an existing token.' };
+    }
     processIndel(record, { isInsert: false, position: args.position });
     return {
       configured: true,
       success: true,
       status: 'deletion_frameshift_applied',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
       transport: 'frameshift_engine',
       shift_id: shiftId,
       frame_shift_offset: record.readingFrameShift,
       is_synchronized: record.isSynchronized,
       codons: computeCodons(record.sequenceTokens),
-      output: `Deleted token: reading frame shifted by -1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}).`
+      output: `Simulation deleted a token and shifted its model frame by -1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}); runtime behavior is unchanged.`
     };
   }
 
@@ -86,6 +98,8 @@ function handleFrameshiftMutation(args = {}) {
       configured: true,
       success: true,
       status: 'reading_frame_realigned',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
       transport: 'frameshift_engine',
       shift_id: shiftId,
       pads_inserted: padNeeded,
@@ -96,9 +110,11 @@ function handleFrameshiftMutation(args = {}) {
   }
 
   return {
-    configured: true,
-    success: true,
-    status: 'active',
+      configured: true,
+      success: true,
+      status: 'active',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
     transport: 'frameshift_engine',
     shift_id: shiftId,
     frame_shift_offset: record.readingFrameShift,
@@ -131,10 +147,11 @@ function _ensureframeshiftMutationRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::frameshift_mutation', 'frameshiftMutationRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : frameshiftMutationRegistry;
+    const mapToUse = stored && stored.size ? stored : frameshiftRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::frameshift_mutation', 'frameshiftMutationRegistry', mapToUse) : mapToUse;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'frameshiftMutationRegistry', {
+    frameshiftRegistry = persistentMap;
+    Object.defineProperty(module.exports, 'frameshiftRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -154,7 +171,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.frameshiftMutationRegistry || frameshiftMutationRegistry;
+  const map = module.exports.frameshiftRegistry || frameshiftRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

@@ -9,7 +9,7 @@
 const crypto = require('crypto');
 
 // In-memory registry of superfetation pipelines
-const SUPERFETATION_REGISTRY = new Map();
+let SUPERFETATION_REGISTRY = new Map();
 
 function generateId(prefix) {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}`;
@@ -147,11 +147,12 @@ function _ensuresuperfetationRegistryPersistent() {
     const persister = adaptivePersister.getAdaptivePersister();
     if (!persister) return;
     // Réhydrate depuis DB
-    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::superfetation_pipeline', 'superfetationRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : superfetationRegistry;
-    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::superfetation_pipeline', 'superfetationRegistry', mapToUse) : mapToUse;
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::superfetation_pipeline', 'SUPERFETATION_REGISTRY') : null;
+    const mapToUse = stored && stored.size ? stored : SUPERFETATION_REGISTRY;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::superfetation_pipeline', 'SUPERFETATION_REGISTRY', mapToUse) : mapToUse;
+    SUPERFETATION_REGISTRY = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'superfetationRegistry', {
+    Object.defineProperty(module.exports, 'SUPERFETATION_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -171,7 +172,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.superfetationRegistry || superfetationRegistry;
+  const map = module.exports.SUPERFETATION_REGISTRY || SUPERFETATION_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

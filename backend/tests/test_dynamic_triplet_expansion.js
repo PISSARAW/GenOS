@@ -14,6 +14,18 @@ async function runTest() {
   assert.strictEqual(initRes.is_pathological, false);
   console.log('✅ PASS: Normal baseline state verified (15 repeats)');
 
+  for (const invalidDelta of [-1, '5', 1.5, Number.MAX_SAFE_INTEGER]) {
+    const invalidRes = await executeBioTool('genos_biomimicry_dynamic_triplet_expansion', {
+      action: 'replicate_generation',
+      id: `dyn-invalid-${String(invalidDelta)}`,
+      delta_repeats: invalidDelta
+    });
+    assert.strictEqual(invalidRes.success, false);
+    assert.strictEqual(invalidRes.status, 'invalid_args');
+    assert.strictEqual(invalidRes.repeat_count, undefined);
+  }
+  console.log('✅ PASS: Invalid, negative, fractional, and overflowing repeat deltas rejected');
+
   // 2. Generation 2 replication: slippage +15 (total 30 repeats, still pre-mutation)
   const gen2Res = await executeBioTool('genos_biomimicry_dynamic_triplet_expansion', {
     action: 'replicate_generation',
@@ -21,6 +33,7 @@ async function runTest() {
     delta_repeats: 15
   });
   assert.strictEqual(gen2Res.success, true);
+  assert.strictEqual(gen2Res.runtime_effect_applied, false);
   assert.strictEqual(gen2Res.generation, 2);
   assert.strictEqual(gen2Res.repeat_count, 30);
   assert.strictEqual(gen2Res.is_pathological, false);

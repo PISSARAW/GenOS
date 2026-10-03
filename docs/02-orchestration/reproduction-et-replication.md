@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : reproduction gouvernée côté Rust et mécanismes connexes du backend.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-03
 
 ## 1. Définition
 
@@ -17,6 +17,8 @@ Le repo ne prétend pas à une simulation biologique scientifique au sens strict
 - la prévention de la division incontrôlée ou “spawn storm” ;
 - le rejet de l’amitosis, qui est définie comme une division non attestée et non héritée.
 
+**Frontière d'exécution :** les primitives Rust décrites ci-dessous transforment des valeurs `Genome`, `AgentDna` et `AgentCell`; elles ne démarrent pas automatiquement un worker LLM. Les handlers `genos_biomimicry_*` Node présentés plus loin sont des registres de simulation et des descripteurs : ils ne clonent/fécondent pas les agents runtime et ne modifient pas leur AgentDNA. Un ratio ou consensus calculé sur ces descripteurs n'est pas une preuve d'exécution ni une mesure biologique.
+
 Les points d’implémentation principaux sont dans :
 
 - [crates/genos-reproduction/src/division.rs](../../crates/genos-reproduction/src/division.rs)
@@ -28,7 +30,7 @@ Les points d’implémentation principaux sont dans :
 
 ## 2. Ce que le repo fait réellement
 
-Le système GenOS modélise la reproduction comme une primitive de runtime, pas comme un simple “copy paste” d’un prompt ou d’un agent.
+Le crate Rust de reproduction modélise la division et la transmission comme des transformations typées de l'état génomique, pas comme un simple “copy paste” d’un prompt ou d’un agent. L'intégration à un runtime agentique doit encore créer/exécuter le worker explicitement.
 
 Les mécanismes réels sont :
 
@@ -38,6 +40,8 @@ Les mécanismes réels sont :
 4. la conservation du parentage ;
 5. la mutation contrôlée, le crossover ou la spécialisation ;
 6. le rejet d’une division non déterministe ou non attestée.
+
+La fertilisation conserve les loci présents chez un seul parent et choisit l'allèle d'un locus partagé avec le RNG fourni ; les marques épigénétiques facultatives sont reprogrammées sur l'enfant. Le crossover à un point applique la coupure au point de rupture demandé, y compris les bornes de séquence. Le bourgeonnement accepte une graine explicite pour rendre sa mutation reproductible. Les modes de clonage reconnus sont `mitosis`, `fission`, `binary_fission` et `budding`; un mode inconnu est rejeté.
 
 Le cœur du design est qu’un descendant n’est pas seulement une copie de la donnée ; il hérite d’un contexte, d’une génération, d’un budget, de traits de lignée et de règles de sécurité.
 
@@ -569,13 +573,10 @@ Cela transforme la reproduction en mécanisme de gouvernance de l’exécution, 
 
 ## 13.bis Chimérisme Tétragamétique et Fusion Mosaïque
 
-Inspiré du chimérisme humain où deux embryons distincts fusionnent pour former un seul individu mosaïque porteur de deux ADN, la primitive `genos_biomimicry_chimeric_merge` permet de recombiner deux lignées d'agents complémentaires sans écrasement :
-
-- **Lignée Génomique Fonctionnelle (Branche A) :** Transmet le code, les outils spécialisés (`tool_ast_visitor`, `tool_bisection_engine`) et la stratégie de raisonnement.
-- **Lignée Épigénétique & Immunitaire (Branche B) :** Transmet les vaccins anti-régression, l'arbre d'évitement d'erreurs et les poids synaptiques consolidés.
+`genos_biomimicry_chimeric_merge` valide des identifiants et enregistre un descripteur de fusion dans son registre. Il ne fusionne ni les génomes, ni les outils, ni les mémoires de deux agents ; aucune création d'agent ou promotion runtime n'est effectuée. La fusion réelle de structures génomiques doit utiliser les primitives Rust documentées plus haut et une orchestration explicite.
 ## 13.ter Polyovulation et Naissances Multiples Dizygotes
 
-Inspirée de la polyovulation biologique (libération simultanée de plusieurs ovocytes fécondés par des gamètes distincts), la primitive `genos_biomimicry_polyovulation_spawn` orchestre l'éclosion d'une grappe d'agents hétérogènes partageant un utérus de calcul (un même workspace et un même contexte de mission).
+`genos_biomimicry_polyovulation_spawn` enregistre des profils, lignées et un indice descriptif de diversité dans une flotte simulée. Il ne lance pas d'agents, ne partage pas un budget runtime et ne calcule pas de diversité génétique ou cognitive empirique. Le schéma ci-dessous est illustratif.
 
 ```mermaid
 flowchart TD
@@ -593,12 +594,12 @@ flowchart TD
     UTERUS --> DIVERSITY["Indice de Diversité Génétique Maximale (Shannon H=1.0)"]
 ```
 
-- **Génomes distincts :** Chaque embryon porte un `genome_id` et un `lineage_id` propres, éliminant le risque de biais cognitif uniforme.
-- **Cohabitation utérine :** Les embryons dizygotes collaborent dans le même espace virtuel sans duplication d'environnement physique.
+- **Descripteurs :** Les profils reçoivent des identifiants d'enregistrement ; cela ne crée pas d'AgentDNA ni d'agent.
+- **Workspace :** Le workspace est une chaîne de contexte enregistrée, pas un environnement d'exécution partagé par des agents issus de ce handler.
 
 ## 13.quater Scission Monozygote Précoce (Vrais Jumeaux Isogéniques)
 
-La scission monozygote précoce (`genos_biomimicry_monozygotic_split`) modélise la division d'un zygote unique en $N$ blastomères clones strictement isogéniques (100% même ADN, même snapshot de départ) :
+`genos_biomimicry_monozygotic_split` enregistre de 2 à 128 descripteurs portant le même hash calculé à partir des identifiants parent/snapshot. Le hash partagé ne vérifie pas une identité complète de génome, de mémoire ou d'environnement et aucun clone ni branche MCTS n'est créé. La synchronisation enregistre des métriques fixes de simulation, pas un état de branche observé. Le schéma est conceptuel :
 
 ```mermaid
 flowchart TD
@@ -612,8 +613,8 @@ flowchart TD
     TWIN1 & TWIN2 & TWIN3 --> SYNC["Synchronisation d'État & Consensus de Survie"]
 ```
 
-- **Isogénie garantie :** 100% de concordance des hashes de départ, permettant la recherche stochastique arborescente (MCTS).
-- **Zéro overhead d'amorce :** Les jumeaux démarrent directement à la bifurcation sans devoir ré-exécuter le contexte amont.
+- **Hash nominal :** Les descripteurs partagent une empreinte de leurs deux identifiants d'entrée ; aucune comparaison d'AgentDNA n'est réalisée.
+- **Exploration :** Aucun worker n'est démarré, aucun MCTS n'est lancé et aucun coût d'exécution n'est mesuré.
 
 ---
 
@@ -622,9 +623,8 @@ flowchart TD
 ### Points forts
 
 - reproduction variant selon type biologique ;
-- polyovulation pour flottes hétérogènes multi-lignées ;
-- scission monozygote pour dérivation isogénique parallèle ;
-- fusion mosaïque tétragamétique de lignées complémentaires ;
+- primitives Rust de division, fertilisation et crossover sur les structures génomiques ;
+- handlers Node de polyovulation, gémellité et chimérisme pour enregistrer des scénarios de métadonnées ;
 - mécanismes de sécurité explicitement codés ;
 - parentage et lineage tracés ;
 - budget et Hayflick limit intégrés ;
@@ -633,7 +633,8 @@ flowchart TD
 
 ### Limites
 
-- le vocabulaire biologique est métaphorique et fonctionnel ;
+- les handlers de biomimétisme ne sont pas des mécanismes de naissance ou de clonage d'agents runtime ;
+- les registres propres à chaque handler peuvent être persistés, mais cette persistance ne rend pas leurs effets simulés exécutables ;
 - le système ne prétend pas à une biologie réelle ou à une intelligence globale ;
 - les garanties sont des contraintes de runtime et d’intégrité, pas des certitudes biologiques ;
 - la reproduction n’est utile que si le système a une structure de hérédité, d’identité et de validation.
@@ -655,24 +656,25 @@ flowchart TD
 
 ## 16. Conclusion
 
-La reproduction et la réplication dans GenOS sont une couche de gouvernance de la duplication des agents : système des héritages, validation, sécurité, budget, et protège contre la croissance anarchique.
+Les primitives Rust de reproduction transforment et valident des modèles génomiques et cellulaires. L'exécution d'un nouvel agent est une étape d'intégration distincte. Les handlers Node biomimétiques associés enregistrent des états descriptifs et ne doivent pas être comptés comme des clones, naissances, fusions ou exécutions runtime.
 
-Les mécanismes de mitose, fission, bourgeonnement, schizogonie, méiose et fusion chimérique ne sont pas décoratifs. Ils sont des garanties de structure :
+Les opérations Rust de mitose, fission, bourgeonnement, schizogonie et méiose appliquent des règles de structure au modèle génomique :
 
 - chaque descendant a une identité propre ;
 - chaque lignée reste traceable ;
 - chaque division est limitée par le budget et le Hayflick limit ;
-- chaque fusion mosaïque préserve le double héritage fonctionnel et immunitaire ;
 - chaque division non attestée est rejetée ;
-- chaque “spawn storm” est stoppé par construction.
+- les gardes de division limitent les répétitions selon le compteur Hayflick du modèle.
 
-C’est ce qui fait du système une variante biologiquement inspirée d’un runtime agentique sécurisé, plutôt qu’un simple mécanisme de duplication de prompts.
+Ces propriétés ne démontrent pas la qualité des descendants et ne signifient pas qu'un worker est créé ou isolé automatiquement.
 
 
 
 ---
 
 ## Schémas Complémentaires de Dynamique de Reproduction
+
+Les schémas de cette annexe sont des illustrations du vocabulaire biomimétique. En particulier, les entrées sesquizygotique, polyembryonie et chimérisme germinal ci-dessous décrivent le contenu de registres Node, pas des agents ou des génomes runtime. Ils ne constituent pas des procédures exécutables.
 
 ### 1. Modes de Reproduction et Conservation de l'Intégrité
 
@@ -716,9 +718,9 @@ sequenceDiagram
     end
     deactivate ReproManager
 
-### 3. Jumeaux Sesquizygotes et Scission Dispermique
+### 3. Descripteurs sesquizygotiques (simulation)
 
-Le mécanisme `genos_biomimicry_sesquizygotic_split` émule la fertilisation dispermique d'un socle maternel unique par deux vecteurs heuristiques paternels. Il génère une paire de jumeaux partageant 100% du génome maternel (invariants constitutionnels) et 50% de mélange des traits paternels (75% d'identité composite), idéal pour une exploration à haute consonance.
+Le handler `genos_biomimicry_sesquizygotic_split` calcule des empreintes de payload et enregistre deux objets descriptifs avec un ratio nominal de 75%. Il ne réalise pas de fertilisation, de mélange d'allèles, de mesure de similarité ni de création de jumeaux runtime. L'appel relationnel éventuel relie les identifiants descriptifs uniquement.
 
 ```mermaid
 flowchart TD
@@ -734,9 +736,9 @@ flowchart TD
     TriZygote -->|"Résolution & Scission"| Twin2["Jumeau Sesquizygote 2\n(100% Mat + 75% Mix B/A)"]
 ```
 
-### 4. Polyembryonie Obligatoire du Tatou (Quadruplés/Octuplés Isogéniques Déterministes)
+### 4. Descripteurs de polyembryonie (simulation)
 
-Inspiré du tatou à neuf bandes, `genos_biomimicry_obligate_polyembryony` impose une quadri-scission (ou octa-scission) systématique dès l'initialisation du zygote. Les 4 clones isogéniques se partagent à parts égales le budget global ($25\%$ chacun) et explorent des graines stochastiques parallèles, promouvant le résultat final via un quorum isogénique strict ($\ge 75\%$).
+`genos_biomimicry_obligate_polyembryony` enregistre 4 ou 8 descripteurs et des allocations nominales de budget. Les allocations ne réservent ni ne dépensent de tokens. L'évaluateur compte au plus un vote par identifiant de descripteur connu et calcule un quorum de 75% ; il n'exécute pas les clones et ne promeut aucun résultat runtime.
 
 ```mermaid
 flowchart TD
@@ -750,9 +752,9 @@ flowchart TD
     Q1 & Q2 & Q3 & Q4 --> Quorum["Quorum Isogénique (Seuil >= 75%)"]
 ```
 
-### 5. Chimérisme Germinal du Ouistiti (Délégation Héréditaire Fraternelle)
+### 5. Descripteurs de chimérisme germinal (simulation)
 
-Le mécanisme `genos_biomimicry_marmoset_germline_chimerism` implémente le transfert de cellules germinales entre agents jumeaux. Lorsqu'un agent découvreur épuise ses ressources cognitives, son jumeau survivant prend le relais et procrée à sa place, transmettant l'intégralité du génome et des heuristiques du découvreur à la descendance.
+`genos_biomimicry_marmoset_germline_chimerism` conserve des métadonnées d'échange et de descendance. Il ne transfère pas de cellule germinale ou de génome et ne fait pas procréer un agent proxy.
 
 ```mermaid
 flowchart LR

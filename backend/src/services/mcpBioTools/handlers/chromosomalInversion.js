@@ -1,5 +1,5 @@
 // Registry for Chromosomal Inversions
-const chromosomalInversionRegistry = new Map(); /* persisterHook: chromosomalInversionRegistry */
+let chromosomalInversionRegistry = new Map(); /* persisterHook: chromosomalInversionRegistry */
 
 function getInversionRecord(id) {
   if (!chromosomalInversionRegistry.has(id)) {
@@ -16,11 +16,11 @@ function getInversionRecord(id) {
 
 function applyInversion(record, params) {
   const { startIdx, endIdx } = params;
-  const start = Math.max(0, startIdx || 0);
-  const end = Math.min(record.segments.length - 1, endIdx !== undefined ? endIdx : record.segments.length - 1);
-  
-  if (start >= end) {
-    return { success: false, msg: `Invalid inversion range: [${start}, ${end}].` };
+  const start = startIdx === undefined ? 0 : startIdx;
+  const end = endIdx === undefined ? record.segments.length - 1 : endIdx;
+
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end >= record.segments.length || start >= end) {
+    return { success: false, msg: `Invalid inversion range: [${start}, ${end}] for ${record.segments.length} segment(s).` };
   }
 
   const sub = record.segments.slice(start, end + 1);
@@ -43,6 +43,8 @@ function handleInvertAction(record, invId, args) {
     inversion_id: invId,
     segments: record.segments,
     is_inverted: record.isInverted,
+    execution_scope: 'metadata_simulation',
+    runtime_genome_changed: false,
     output: res.msg
   };
 }
@@ -57,6 +59,8 @@ function handleBackwardChainAction(record, invId) {
     inversion_id: invId,
     mode: 'retrograde_backward_reasoning',
     flow: causalFlow,
+    execution_scope: 'metadata_simulation',
+    runtime_chain_executed: false,
     output: `Backward causal chain executed in reverse sequence: ${causalFlow}.`
   };
 }
@@ -110,6 +114,7 @@ function _ensurechromosomalInversionRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chromosomal_inversion', 'chromosomalInversionRegistry') : null;
     const mapToUse = stored && stored.size ? stored : chromosomalInversionRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chromosomal_inversion', 'chromosomalInversionRegistry', mapToUse) : mapToUse;
+    chromosomalInversionRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'chromosomalInversionRegistry', {
       value: persistentMap,

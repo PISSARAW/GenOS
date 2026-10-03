@@ -24,6 +24,11 @@ const { spawnSync } = require('node:child_process');
 
 const MAX_CHANGED_FILES = 200;
 const SAFE_REPO_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_.@/-]{1,240}$/;
+const DAEMON_LIVE_AFTER_MS = 90000;
+
+function normalizeRootPath(rootPath) {
+  return String(rootPath || '').replace(/\\/g, '/').replace(/\/+$/, '') || '/';
+}
 
 function readWorkspaceHead(rootPath) {
   const result = spawnSync('git', ['-C', rootPath, 'rev-parse', 'HEAD'], {
@@ -50,7 +55,7 @@ async function synchronizeTerritory(db, rootPath, territoryId) {
   if (!row || !workspaceHead) return { synchronized: false, reason: 'head-unavailable' };
   if (row.head_sha === workspaceHead) return { synchronized: true, headSha: workspaceHead, changedFiles: [] };
   const changedFiles = await changedFilesBetween(rootPath, row.head_sha, workspaceHead);
-  if (!changedFiles) return { synchronized: false, reason: 'refresh-unavailable', daemonHead: row.head_sha, workspaceHead };
+  if (!changedFiles) return emitHeadOnly(db, { rootPath, workspaceHead, row });
   const updated = await emitTerritoryEvent(db, {
     rootPath, type: 'TERRITORY_COMMIT', headSha: workspaceHead,
     payload: { changedFiles },
@@ -60,11 +65,48 @@ async function synchronizeTerritory(db, rootPath, territoryId) {
     : { synchronized: false, reason: updated.reason || 'refresh-failed' };
 }
 
+async function emitHeadOnly(db, job) {
+  const updated = await emitTerritoryEvent(db, {
+    rootPath: job.rootPath, type: 'TERRITORY_COMMIT', headSha: job.workspaceHead, payload: {}
+  });
+  if (updated.emitted) {
+    return { synchronized: true, headSha: job.workspaceHead, changedFiles: null, refresh: 'head-only' };
+  }
+  return { synchronized: false, reason: updated.reason || 'refresh-failed', workspaceHead: job.workspaceHead };
+}
+
+function parseSqliteUtc(text) {
+  const iso = String(text || '').replace(' ', 'T');
+  const time = Date.parse(iso.endsWith('Z') ? iso : `${iso}Z`);
+  return Number.isNaN(time) ? null : time;
+}
+
+async function daemonLive(db, territoryId) {
+  try {
+    const row = await db.get(
+      `SELECT daemon_id, last_heartbeat_at FROM daemon_runtime_state
+       WHERE territory_id = ? ORDER BY last_heartbeat_at DESC LIMIT 1`,
+      territoryId
+    );
+    if (!row) return { live: false, reason: 'no-daemon-registered' };
+    const beat = parseSqliteUtc(row.last_heartbeat_at);
+    if (beat === null) return { live: false, daemonId: row.daemon_id, reason: 'heartbeat-unparsable' };
+    const ageMs = Date.now() - beat;
+    return { live: ageMs <= DAEMON_LIVE_AFTER_MS, daemonId: row.daemon_id, ageMs };
+  } catch (_) {
+    return { live: false, reason: 'liveness-unavailable' };
+  }
+}
+
 async function resolveTerritoryByRoot(db, rootPath) {
   try {
     await migrateDaemonTerritory(db);
-    const row = await db.get('SELECT id FROM daemon_territories WHERE root_path = ?', rootPath);
-    return (row && row.id) || null;
+    const wanted = normalizeRootPath(rootPath);
+    const direct = await db.get('SELECT id FROM daemon_territories WHERE root_path = ?', rootPath);
+    if (direct && direct.id) return direct.id;
+    const rows = await db.all('SELECT id, root_path FROM daemon_territories');
+    const hit = (rows || []).find((row) => normalizeRootPath(row.root_path) === wanted);
+    return (hit && hit.id) || null;
   } catch (_) {
     return null;
   }
@@ -113,8 +155,27 @@ async function announceMissionStart(input) {
       });
       if (emitted.emitted) return {
         announced: true, territoryId: emitted.territoryId, rootPath: root,
-        synchronization
+        synchronization, daemonLive: await daemonLive(input.db, emitted.territoryId)
       };
+    }
+    return { announced: false, reason: 'no-territory-registered' };
+  } catch (_) {
+    return { announced: false, reason: 'bridge-error' };
+  }
+}
+
+async function announceMissionEnd(input) {
+  try {
+    if (!input || !input.db) return { announced: false, reason: 'args-required' };
+    for (const root of candidateRoots(input)) {
+      const territoryId = await resolveTerritoryByRoot(input.db, root);
+      if (!territoryId) continue;
+      const emitted = await emitTerritoryEvent(input.db, {
+        rootPath: root,
+        type: 'ORCHESTRATOR_LEFT',
+        payload: missionPayload(input.request)
+      });
+      if (emitted.emitted) return { announced: true, territoryId: emitted.territoryId, rootPath: root };
     }
     return { announced: false, reason: 'no-territory-registered' };
   } catch (_) {
@@ -160,6 +221,8 @@ module.exports = {
   resolveTerritoryByRoot,
   emitTerritoryEvent,
   announceMissionStart,
+  announceMissionEnd,
+  daemonLive,
   recordTestOutcome,
   recordBuildFailed,
   recordCommit

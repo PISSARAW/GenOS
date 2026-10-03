@@ -41,6 +41,7 @@ const METHOD_CAPABILITIES = Object.freeze({
   local_search: ['deterministic_procedure'], constraint_programming: ['deterministic_procedure'],
   evolutionary_search: ['adaptive_strategy'], genetic_algorithm: ['adaptive_strategy'],
   formal_proof: ['formal_proof'], theorem_proving: ['formal_proof'],
+  clinical_review: ['clinical_context'],
   experimental_design: ['experiment'], controlled_experiment: ['experiment'],
   adversarial_review: ['adversarial_review'], threat_modeling: ['adversarial_review'],
   causal_analysis: ['causal_analysis'], recovery: ['recover'], recolonization: ['recover'],
@@ -166,7 +167,8 @@ function workerMissionContract(mission, kind) {
     nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
     specialtyNiche,
     hostContractId,
-    hostCapabilities
+    hostCapabilities,
+    hostId: mission.hostId || mission.workerAssignment?.hostId || null
   };
 }
 

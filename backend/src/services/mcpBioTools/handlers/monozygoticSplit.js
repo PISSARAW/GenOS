@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active monozygotic split clusters
-const monozygoticClusterRegistry = new Map();
+let monozygoticClusterRegistry = new Map();
 
 function getCluster(clusterId) {
   if (!monozygoticClusterRegistry.has(clusterId)) {
@@ -25,8 +25,16 @@ function handleMonozygoticSplit(args = {}, run) {
   const clusterId = args.cluster_id || `monozygote-cluster-${Date.now()}`;
   const parentGenomeId = args.parent_genome_id || 'gen-zygote-root';
   const snapshotId = args.snapshot_id || 'snp-cleavage-origin';
-  const cloneCount = Math.max(2, Number(args.clone_count) || 2);
-  const explorationSeeds = Array.isArray(args.seeds) ? args.seeds : [42, 1337];
+  const requestedCloneCount = args.clone_count === undefined ? 2 : Number(args.clone_count);
+  if (!Number.isSafeInteger(requestedCloneCount) || requestedCloneCount < 2 || requestedCloneCount > 128) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'clone_count must be a safe integer from 2 to 128.' };
+  }
+  const cloneCount = requestedCloneCount;
+  const explorationSeeds = args.seeds === undefined ? [42, 1337] : args.seeds;
+  if (!Array.isArray(explorationSeeds) || explorationSeeds.length > 128 ||
+      !explorationSeeds.every(seed => Number.isSafeInteger(seed))) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'seeds must be an array of at most 128 safe integers.' };
+  }
 
   let cliOutput = null;
   let cliFailed = false;
@@ -51,7 +59,7 @@ function handleMonozygoticSplit(args = {}, run) {
     // Generate N identical clones sharing 100% genome DNA and baseline memory snapshot
     cluster.clones = [];
     for (let i = 0; i < cloneCount; i++) {
-      const seed = explorationSeeds[i % explorationSeeds.length] || (i + 1) * 101;
+      const seed = explorationSeeds.length ? explorationSeeds[i % explorationSeeds.length] : (i + 1) * 101;
       const cloneId = `twin-clone-${i + 1}-${crypto.createHash('sha256').update(clusterId + i).digest('hex').slice(0, 6)}`;
       
       cluster.clones.push({
@@ -73,14 +81,16 @@ function handleMonozygoticSplit(args = {}, run) {
     return {
       configured: true,
       success: true,
-      status: 'monozygotic_cleaved',
+      status: 'metadata_recorded',
       transport: 'isogenic_cleavage_plane',
       cluster_id: clusterId,
       clone_count: cluster.clones.length,
       lineage_id: cluster.lineageId,
       clones: cluster.clones,
-      isogenic_guarantee: '100% Shared DNA and Baseline Snapshot',
-      output: `Monozygotic cleavage generated ${cluster.clones.length} identical twin clones from snapshot '${snapshotId}'.`
+      isogenic_guarantee: 'metadata hash only; biological/runtime identity is not verified',
+      execution_scope: 'metadata_simulation',
+      runtime_agents_created: false,
+      output: `Recorded ${cluster.clones.length} clone descriptors from snapshot '${snapshotId}'. No runtime agents or biological clones were created.`
     };
   }
 
@@ -101,7 +111,9 @@ function handleMonozygoticSplit(args = {}, run) {
       transport: 'isogenic_cleavage_plane',
       cluster_id: clusterId,
       divergence_metrics: cluster.divergenceMetrics,
-      output: `Monozygotic cluster '${clusterId}' state synchronized across isogenic twin branches.`
+      execution_scope: 'metadata_simulation',
+      trajectories_evaluated: trajectories.length,
+      output: `Recorded metadata for ${trajectories.length} trajectories in cluster '${clusterId}'; no branches were synchronized or evaluated.`
     };
   }
 
@@ -141,10 +153,11 @@ function _ensuremonozygoticRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::monozygotic_split', 'monozygoticRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : monozygoticRegistry;
+    const mapToUse = stored && stored.size ? stored : monozygoticClusterRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::monozygotic_split', 'monozygoticRegistry', mapToUse) : mapToUse;
+    monozygoticClusterRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'monozygoticRegistry', {
+    Object.defineProperty(module.exports, 'monozygoticClusterRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -164,7 +177,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.monozygoticRegistry || monozygoticRegistry;
+  const map = module.exports.monozygoticClusterRegistry || monozygoticClusterRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

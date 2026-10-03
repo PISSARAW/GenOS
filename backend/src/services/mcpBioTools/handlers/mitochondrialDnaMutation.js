@@ -1,5 +1,5 @@
 // Registry for Mitochondrial DNA (mtDNA) & Matrilineal Inheritance
-const mtdnaRegistry = new Map();
+let mtdnaRegistry = new Map();
 
 function getMtdnaRecord(id) {
   if (!mtdnaRegistry.has(id)) {
@@ -17,7 +17,10 @@ function getMtdnaRecord(id) {
 }
 
 function handleStressMutation(record, mtdnaId, stressLevel) {
-  const stress = Math.max(0.1, Math.min(5.0, stressLevel || 1.0));
+  const stress = stressLevel === undefined ? 1.0 : stressLevel;
+  if (typeof stress !== 'number' || !Number.isFinite(stress) || stress < 0.1 || stress > 5.0) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'stress_level must be a finite number from 0.1 to 5.' };
+  }
   const newMutations = Math.ceil(stress * 2);
   record.oxidativeStressMutations += newMutations;
   
@@ -29,19 +32,24 @@ function handleStressMutation(record, mtdnaId, stressLevel) {
   return {
     configured: true,
     success: true,
-    status: 'mtdna_mutated_under_stress',
+    status: 'metadata_recorded',
     transport: 'mtdna_engine',
     mtdna_id: mtdnaId,
     stress_applied: stress,
     new_mutations: newMutations,
     total_mutations: record.oxidativeStressMutations,
     token_energy_efficiency: record.tokenEnergyEfficiency,
+    execution_scope: 'metadata_simulation',
+    runtime_genome_changed: false,
     output: `mtDNA accumulated ${newMutations} oxidative stress mutations. Energy efficiency now: ${record.tokenEnergyEfficiency}.`
   };
 }
 
 function handleTransmitMaternalLineage(record, mtdnaId, args) {
   const childId = args.child_id || `child-${Date.now()}`;
+  if (typeof childId !== 'string' || !childId.trim() || childId.length > 120 || childId === mtdnaId) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'child_id must be distinct from the parent id and at most 120 characters.' };
+  }
   const childRecord = {
     id: childId,
     maternalHaplogroup: record.maternalHaplogroup, // strictly maternal
@@ -63,14 +71,23 @@ function handleTransmitMaternalLineage(record, mtdnaId, args) {
     child_id: childId,
     maternal_haplogroup: childRecord.maternalHaplogroup,
     generation: childRecord.generation,
-    paternal_mtdna_purged: true,
-    output: `Child '${childId}' strictly inherited maternal haplogroup '${childRecord.maternalHaplogroup}'. Paternal mtDNA purged.`
+    paternal_mtdna_purged: false,
+    execution_scope: 'metadata_simulation',
+    runtime_genome_changed: false,
+    output: `Recorded maternal-lineage metadata for '${childId}' with haplogroup '${childRecord.maternalHaplogroup}'. No runtime inheritance or purge occurred.`
   };
 }
 
 function handleMitochondrialDnaMutation(args = {}) {
   const action = args.action || 'status';
   const mtdnaId = args.id || `mtdna-${Date.now()}`;
+  if (typeof mtdnaId !== 'string' || !mtdnaId.trim() || mtdnaId.length > 120) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'id must be a non-empty string of at most 120 characters.' };
+  }
+  if (action === 'mutate_mtdna_under_stress' && args.stress_level !== undefined &&
+      (typeof args.stress_level !== 'number' || !Number.isFinite(args.stress_level) || args.stress_level < 0.1 || args.stress_level > 5)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'stress_level must be a finite number from 0.1 to 5.' };
+  }
   const record = getMtdnaRecord(mtdnaId);
 
   if (action === 'mutate_mtdna_under_stress') {
@@ -85,6 +102,7 @@ function handleMitochondrialDnaMutation(args = {}) {
     success: true,
     status: 'active',
     transport: 'mtdna_engine',
+    execution_scope: 'metadata_simulation',
     mtdna_id: mtdnaId,
     haplogroup: record.maternalHaplogroup,
     efficiency: record.tokenEnergyEfficiency,
@@ -116,11 +134,12 @@ function _ensuremitochondrialRegistryPersistent() {
     const persister = adaptivePersister.getAdaptivePersister();
     if (!persister) return;
     // Réhydrate depuis DB
-    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::mitochondrial_dna_mutation', 'mitochondrialRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : mitochondrialRegistry;
-    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::mitochondrial_dna_mutation', 'mitochondrialRegistry', mapToUse) : mapToUse;
+    const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::mitochondrial_dna_mutation', 'mtdnaRegistry') : null;
+    const mapToUse = stored && stored.size ? stored : mtdnaRegistry;
+    const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::mitochondrial_dna_mutation', 'mtdnaRegistry', mapToUse) : mapToUse;
+    mtdnaRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'mitochondrialRegistry', {
+    Object.defineProperty(module.exports, 'mtdnaRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -140,7 +159,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.mitochondrialRegistry || mitochondrialRegistry;
+  const map = module.exports.mtdnaRegistry || mtdnaRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

@@ -3,7 +3,7 @@ const { quoteCliArg } = require('../shellQuote');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // Registry for active conjoined twin pairs
-const conjoinedTwinRegistry = new Map(); /* persisterHook: conjoinedTwinRegistry */
+let conjoinedTwinRegistry = new Map(); /* persisterHook: conjoinedTwinRegistry */
 
 function getPair(pairId) {
   if (!conjoinedTwinRegistry.has(pairId)) {
@@ -67,19 +67,27 @@ async function handleConjoinedTwinBind(args = {}, run) {
       configured: true,
       success: true,
       status: 'twins_conjoined',
+      execution_scope: 'metadata_simulation',
+      runtime_coupling_applied: false,
       transport: 'visceral_conjoined_plane',
       pair_id: pairId,
       twins: [twinA, twinB],
       shared_organs: organs,
       shared_token_pool: pair.sharedTokenPool,
       vital_coupling_score: pair.vitalCouplingScore,
-      output: `Conjoined visceral bond established between '${twinA}' and '${twinB}'. Shared organs: ${organs.join(', ')}.`
+      output: `Conjoined-pair metadata recorded for '${twinA}' and '${twinB}'. Shared organs are labels only; no runtime coupling was applied.`
     };
   }
 
   if (action === 'transfuse_shared_resource') {
-    const amount = Number(args.amount) || 1000;
-    const recipient = args.recipient === twinB ? twinB : twinA;
+    const amount = args.amount === undefined ? 1000 : Number(args.amount);
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'amount must be a positive safe integer.' };
+    }
+    const recipient = args.recipient === undefined ? pair.twinA : args.recipient;
+    if (recipient !== pair.twinA && recipient !== pair.twinB) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'recipient must be one of the bound twins.' };
+    }
     
     if (pair.sharedTokenPool < amount) {
       return {
@@ -100,12 +108,14 @@ async function handleConjoinedTwinBind(args = {}, run) {
       configured: true,
       success: true,
       status: 'transfusion_complete',
+      execution_scope: 'metadata_simulation',
+      runtime_recipient_credited: false,
       transport: 'visceral_conjoined_plane',
       pair_id: pairId,
       recipient,
       amount_transfused: amount,
       remaining_shared_pool: pair.sharedTokenPool,
-      output: `Transfused ${amount} tokens to conjoined twin '${recipient}'. Remaining pool: ${pair.sharedTokenPool}.`
+      output: `Recorded a ${amount}-token ledger debit for '${recipient}'. The runtime account was not credited; ${pair.sharedTokenPool} tokens remain in the simulated pool.`
     };
   }
 
@@ -183,6 +193,7 @@ function _ensureconjoinedTwinRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::conjoined_twin', 'conjoinedTwinRegistry') : null;
     const mapToUse = stored && stored.size ? stored : conjoinedTwinRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::conjoined_twin', 'conjoinedTwinRegistry', mapToUse) : mapToUse;
+    conjoinedTwinRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'conjoinedTwinRegistry', {
       value: persistentMap,

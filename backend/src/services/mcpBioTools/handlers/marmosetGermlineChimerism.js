@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // In-memory registry of marmoset germline chimerism records
-const MARMOSET_REGISTRY = new Map();
+let MARMOSET_REGISTRY = new Map();
 
 function generateId(prefix) {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}`;
@@ -56,11 +56,13 @@ async function handleExchange(args) {
     configured: true,
     success: true,
     status: 'germline_chimerism_exchanged',
+    execution_scope: 'metadata_simulation',
+    payload_transferred_to_runtime: false,
     exchange_id: exchangeId,
     donor_twin: donorTwinId,
     proxy_twin: proxyTwinId,
     germline_checksum: payloadChecksum,
-    output: `Proxy twin [${proxyTwinId}] successfully colonized by germline cells from [${donorTwinId}].`
+    output: `Germline payload metadata recorded from [${donorTwinId}] for proxy [${proxyTwinId}]; runtime DNA was not changed.`
   };
 }
 
@@ -108,11 +110,15 @@ async function handleSpawnProxy(args) {
     configured: true,
     success: true,
     status: 'proxy_descendant_spawned',
+    execution_scope: 'metadata_simulation',
+    runtime_agent_created: false,
+    payload_record_created: true,
+    germline_dna_inherited: false,
     child_agent_id: childId,
     genetic_donor_parent: record.donorTwinId,
     gestational_proxy_parent: record.proxyTwinId,
     germline_checksum: record.payloadChecksum,
-    output: `Child [${childId}] spawned by proxy [${record.proxyTwinId}] carrying 100% germline DNA of [${record.donorTwinId}].`
+    output: `Proxy-descendant metadata [${childId}] recorded for [${record.proxyTwinId}] with a copy of [${record.donorTwinId}] payload; no runtime child or inherited DNA was created.`
   };
 }
 
@@ -194,10 +200,11 @@ function _ensuremarmosetGermlineRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::marmoset_germline_chimerism', 'marmosetGermlineRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : marmosetGermlineRegistry;
+    const mapToUse = stored && stored.size ? stored : MARMOSET_REGISTRY;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::marmoset_germline_chimerism', 'marmosetGermlineRegistry', mapToUse) : mapToUse;
+    MARMOSET_REGISTRY = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'marmosetGermlineRegistry', {
+    Object.defineProperty(module.exports, 'MARMOSET_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -217,7 +224,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.marmosetGermlineRegistry || marmosetGermlineRegistry;
+  const map = module.exports.MARMOSET_REGISTRY || MARMOSET_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

@@ -131,6 +131,22 @@ impl GenosEcosystem {
         daughter_id
     }
 
+    fn load_divisible_mother(&mut self, mother_id: Uuid) -> Result<AgentCell, ReproductionBlocked> {
+        if self.orchestrator.membrane.total_integrity() < MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE {
+            return Err(ReproductionBlocked::MembraneTooWeak);
+        }
+        let mother_cell = self
+            .orchestrator
+            .active_cells
+            .get(&mother_id)
+            .cloned()
+            .ok_or(ReproductionBlocked::NoEligibleMother)?;
+        if let Err(reason) = mother_cell.can_divide() {
+            return Err(ReproductionBlocked::HayflickLimitReached(reason));
+        }
+        Ok(mother_cell)
+    }
+
     /// Tente une division cellulaire autonome ce tick, sans opérateur. Une
     /// mère éligible qui échoue réellement à l'immersion biophysique (ATP,
     /// membrane, génome fille invalide) n'engendre aucune fille : la
@@ -145,19 +161,7 @@ impl GenosEcosystem {
             .fingerprint()
             .map_err(ReproductionBlocked::InvalidDaughterGenome)?;
 
-        if self.orchestrator.membrane.total_integrity() < MIN_MEMBRANE_INTEGRITY_TO_REPRODUCE {
-            return Err(ReproductionBlocked::MembraneTooWeak);
-        }
-        let mother_cell = self
-            .orchestrator
-            .active_cells
-            .get(&mother_id)
-            .cloned()
-            .ok_or(ReproductionBlocked::NoEligibleMother)?;
-        if let Err(reason) = mother_cell.can_divide() {
-            return Err(ReproductionBlocked::HayflickLimitReached(reason));
-        }
-
+        let mother_cell = self.load_divisible_mother(mother_id)?;
         let division = CellDivision::mitosis_attested(&mother_genome)
             .map_err(ReproductionBlocked::HayflickLimitReached)?;
         if !self.orchestrator.metabolism.consume_for("reproduction.cycle", REPRODUCTION_ATP_COST) {

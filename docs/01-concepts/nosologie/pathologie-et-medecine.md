@@ -239,3 +239,10 @@ surveillanceScan → biopsy → diagnose → therapy proportionnée → monitor
 ```
 
 Seules les pathologies confirmées à haute confiance (`cognitive_metastasis`, `quarantine_breach`) déclenchent une quarantaine (`status = 'blocked'`, `cell_cycle_state = 'arrested'`). Les thérapies restent proportionnées (correction homéostatique, suppression de plasmide, reset d’expression, inhibition du cycle, apoptose ciblée en dernier ressort) avec traçabilité des événements immunitaires.
+
+Dans le diagnostic JS actuel, `confidence` est un score déterministe calculé à
+partir de la sévérité propre à la pathologie : `clamp(severity) × 0,7 + 0,3`.
+Les autres mesures vitales, historiques de traitements et événements ne sont
+pas combinés dans ce score. Ce nombre n'est pas une probabilité calibrée ni une
+validation indépendante de l'observation initiale; les seuils de confirmation
+restent des règles logicielles.

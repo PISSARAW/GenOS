@@ -66,7 +66,9 @@ a révélé trois divergences :
    d'observabilité, sinon comportement inchangé).
 4. **Double runtime acté.** Pas de fusion : `tick.rs` (boucle agent pas à pas)
    et `genos-orchestrate.cjs` + `morphogenesisRuntime.js` (cycle mission +
-   morphogenèse) sont les deux cycles officiels. Mapping resolvers
+   préparation morphologique) sont les deux cycles distincts. La voie Node
+   historique ne fait qu'une proposition morphologique après mission; elle
+   n'applique pas une transition et ne crée pas de commit AgentGit. Mapping resolvers
    spec→code : `EnvironmentResolver→environmentModelService.js`,
    `NicheResolver→nicheResolverService.js`, `EpistemicResolver→epistemics.js`,
    `MemoryRouter→memory/memoryRouterService.js`,

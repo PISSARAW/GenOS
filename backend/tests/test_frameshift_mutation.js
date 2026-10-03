@@ -14,6 +14,15 @@ async function runTest() {
   assert.strictEqual(initRes.is_synchronized, true);
   console.log('✅ PASS: Initial reading frame is synchronized (offset 0)');
 
+  const invalidDelete = await executeBioTool('genos_biomimicry_frameshift_mutation', {
+    action: 'delete_token_frameshift',
+    id: 'mut-shift-invalid-delete',
+    position: 999
+  });
+  assert.strictEqual(invalidDelete.success, false);
+  assert.strictEqual(invalidDelete.status, 'invalid_args');
+  assert.strictEqual(invalidDelete.frame_shift_offset, undefined);
+
   // 2. Insert token to cause a +1 frameshift desynchronization
   const insertRes = await executeBioTool('genos_biomimicry_frameshift_mutation', {
     action: 'insert_token_frameshift',
@@ -22,6 +31,7 @@ async function runTest() {
     position: 1
   });
   assert.strictEqual(insertRes.success, true);
+  assert.strictEqual(insertRes.runtime_effect_applied, false);
   assert.strictEqual(insertRes.frame_shift_offset, 1);
   assert.strictEqual(insertRes.is_synchronized, false);
   console.log('✅ PASS: Single insertion caused +1 frameshift desynchronization');
@@ -50,6 +60,7 @@ async function runTest() {
     id: 'mut-shift-test-1'
   });
   assert.strictEqual(realignRes.success, true);
+  assert.strictEqual(realignRes.runtime_effect_applied, false);
   assert.strictEqual(realignRes.is_synchronized, true);
   assert.strictEqual(realignRes.pads_inserted, 2);
   console.log('✅ PASS: Compensatory pads restored triplet synchronization');

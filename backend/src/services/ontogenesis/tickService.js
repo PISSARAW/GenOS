@@ -70,7 +70,7 @@ function snapshotOf(ctx) {
   return {
     state: ctx.project.state, controlMode: (ctx.control && ctx.control.mode) || 'running',
     memoryLevel: ctx.memoryLevel, budgetsOk: ctx.budgetsOk, selection: ctx.selection,
-    workerResult: ctx.workerResult
+    workerResult: ctx.workerResult, proofsOk: ctx.proofsOk, integration: ctx.integration
   };
 }
 

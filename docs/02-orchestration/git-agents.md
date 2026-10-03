@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : versionnage de l'état agentique et promotion des workspaces.
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-03
 
 ## 1. Objet et périmètre
 
@@ -107,7 +107,7 @@ Un agent descendant travaille dans un état ou une capsule séparée. `diff`, `r
 
 ### 5.4 Maintenir un dépôt de code avec un agent
 
-Le daemon crée un worktree Git persistant sur une branche `genos-daemon/...`, le resynchronise par rebase sur la branche humaine, applique un correctif vérifié par les tests autorisés, puis pousse la branche et ouvre une pull request si `gh` est disponible.
+Le daemon résident observe un territoire et peut produire une finding ; il ne crée pas de worktree, n'applique pas de patch et ne pousse pas de branche. Une finding admissible ouvre une `RepairEpisode` : un worker peut alors intervenir dans une capsule isolée sous lease. Vérification et gouvernance contrôlent ensuite toute promotion ou opération Git. `WorkspaceGitDaemon` conserve uniquement son rôle de compatibilité historique et son autofix est un no-op.
 
 ## 6. Comparaison directe schématique
 
@@ -152,8 +152,8 @@ flowchart LR
 | `hook` | active `pre-commit`, `pre-push`, `merge-validation` ou signature requise | `agent_git_hooks` | hooks synchrones et politiques GenOS |
 | `fsck` | vérifie JSON, `state_hash`, `tree_hash`, signature et `agent_git_commit_parents` | `fsck()` | intégrité DAG + hashs, pas santé métier complète |
 | `gc` | supprime les vieux objets `stash` et `remote` | `gc()` | déclenchement explicite, commits conservés |
-| `worktree` | crée un environnement fichier isolé pour un worker ou daemon | workspace lifecycle / daemon | hors de `agentGitService` |
-| pull request | ouvre une revue de code après correctif testé | daemon + `gh` CLI | concerne le dépôt Git réel, pas un objet d’état agentique |
+| `worktree` | crée un environnement fichier isolé pour un worker | workspace lifecycle | hors de `agentGitService` ; le ResidentDaemon n'en crée pas |
+| pull request | ouvre une revue après un correctif autorisé | worker/réparation et gouvernance | le ResidentDaemon ne pousse ni branche ni PR |
 
 ### 6.3 Séquence parallèle
 
@@ -193,7 +193,7 @@ Les routes sont montées sous `/api/lineage` et protégées par le scope tenant.
 
 Les tables principales sont `agent_git_objects`, `agent_git_refs`, `agent_git_reflog`, `agent_git_hooks`, `agent_git_notes`, `agent_git_archives`, `agent_git_commit_parents` et `agent_git_indexes`. Le scope `organization_id` / `project_id` empêche les opérations inter-tenants et les merges entre workspaces différents.
 
-Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git. Le daemon ajoute une branche persistante et une automatisation de pull request.
+Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/workspaceSnapshotStore.js) capture des snapshots checksumés et [agentWorkspaceLifecycleService.js](../../backend/src/services/agentWorkspaceLifecycleService.js) crée un worktree Git ou une copie non-Git pour les capsules. Le cycle ResidentDaemon → finding → `RepairEpisode` → worker sous lease sépare l’observation du patch ; aucune branche persistante n’est ajoutée par le daemon.
 
 ## 8. Processus d’exécution et de validation
 
@@ -210,11 +210,13 @@ Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/worksp
 
 ### Commit de morphogenèse
 
-Chaque transition du runtime morphogénétique est versionnée par [morphogenesisGitService.js](../../backend/src/services/morphogenesis/morphogenesisGitService.js) via `executeVersionedTransition` : `VALIDATE → SNAPSHOT → APPLY → VERIFY → COMMIT`, avec `revert` en cas d’échec.
+Le pipeline explicite [morphogenesisGitService.js](../../backend/src/services/morphogenesis/morphogenesisGitService.js) expose `executeVersionedTransition` : il appelle `transitionEngineService.executeTransition`, puis écrit un commit AgentGit si le reçu indique un commit et qu'un agent cible est disponible. Ce wrapper n'est pas appelé par le chemin de mission historique : `morphogenesisRuntime.executeMorphology` retourne une proposition (`applied: false`). Le cycle contrefactuel décrit dans l'ADR 0040 n'est donc pas le chemin par défaut.
+
+`executeTransition` échoue avant mutation si une action `spawn` ou `retire` n'a pas son adaptateur runtime et son compensateur correspondants. Lors d'un échec après ces actions, le reçu sépare la restauration mémoire (`memoryRestored`) de la compensation externe (`externalCompensated`) et rapporte les erreurs éventuelles. Les snapshots du `collectiveStateService` sont un anneau mémoire borné à dix entrées; ils ne constituent pas une sauvegarde durable ni une transaction atomique sur SQLite, workspace et processus. La réussite d'un rollback externe dépend du compensateur fourni par l'hôte.
 
 Le contexte de commit (`buildCommitContext`) enregistre :
 
-- la topologie (`topologyChanges`, `targetOrganization`) ;
+- les changements de topologie (`topologyChanges`) et l'organisation (`targetOrganization`), deux axes distincts ;
 - les agents (`preserve`, `retire`, `spawn`, `rebind`) ;
 - les capacités et baux (`capabilityChanges`, `leaseChanges`) ;
 - les relations (`relationChanges`) ;
