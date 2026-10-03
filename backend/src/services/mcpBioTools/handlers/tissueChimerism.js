@@ -54,12 +54,14 @@ function handleCreate(args) {
   return {
     configured: true,
     success: true,
-    status: 'tissue_chimerism_active',
+    status: 'tissue_chimerism_configured',
+    execution_scope: 'metadata_simulation',
+    runtime_agent_created: false,
     agent_id: agentId,
     compartmentalized_tissues: Object.keys(karyotype),
     distinct_lineages_count: record.distinctLineagesCount,
     karyotype_map: karyotype,
-    output: `Tissue chimeric agent [${agentId}] instantiated with ${record.distinctLineagesCount} distinct DNA lineages across ${Object.keys(karyotype).length} subsystems.`
+    output: `Tissue lineage metadata configured for [${agentId}] across ${Object.keys(karyotype).length} subsystems; no runtime agent was created.`
   };
 }
 
@@ -91,13 +93,15 @@ function handleInvoke(args) {
   return {
     configured: true,
     success: true,
-    status: 'tissue_invocation_success',
+    status: 'tissue_tool_authorized',
+    execution_scope: 'metadata_simulation',
+    runtime_invoked: false,
     agent_id: agentId,
     executed_tissue: tissue,
     active_lineage_dna: tissueConfig.lineage,
     temperature_applied: tissueConfig.temperature,
-    tool_executed: toolName,
-    output: `Tool [${toolName}] executed within [${tissue}] powered by lineage [${tissueConfig.lineage}].`
+    tool_authorized: toolName,
+    output: `Tool [${toolName}] is authorized by [${tissue}] metadata; no runtime tool invocation occurred.`
   };
 }
 

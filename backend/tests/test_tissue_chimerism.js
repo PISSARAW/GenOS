@@ -33,7 +33,8 @@ async function runTests() {
   });
 
   assert.strictEqual(createRes.success, true);
-  assert.strictEqual(createRes.status, 'tissue_chimerism_active');
+  assert.strictEqual(createRes.status, 'tissue_chimerism_configured');
+  assert.strictEqual(createRes.runtime_agent_created, false);
   assert.strictEqual(createRes.distinct_lineages_count, 2);
   assert.strictEqual(createRes.compartmentalized_tissues.length, 2);
   console.log('✅ PASS: Created tissue chimeric agent with 2 distinct DNA lineages');
@@ -47,7 +48,8 @@ async function runTests() {
   });
 
   assert.strictEqual(invokeAllowed.success, true);
-  assert.strictEqual(invokeAllowed.status, 'tissue_invocation_success');
+  assert.strictEqual(invokeAllowed.status, 'tissue_tool_authorized');
+  assert.strictEqual(invokeAllowed.runtime_invoked, false);
   assert.strictEqual(invokeAllowed.active_lineage_dna, 'dna_rapid_dev_beta');
   assert.strictEqual(invokeAllowed.temperature_applied, 0.7);
   console.log('✅ PASS: Invoked ast_transform under filesystem tissue (DNA Beta)');
