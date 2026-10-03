@@ -12,6 +12,7 @@ const claimGraph = require('../src/services/trinityClaimGraphService');
 const jury = require('../src/services/trinityBlindJuryService');
 const verifier = require('../src/services/trinityMissionVerifierService');
 const temporal = require('../src/services/trinityTemporalHorizons');
+const variantRuntime = require('../src/services/trinityVariantRuntime');
 
 const TERMINAL = new Set(['blocked', 'completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
 
@@ -99,6 +100,8 @@ async function compareMission(db, input, reports) {
   result = adversarial.enforceVariantGate(result, review);
   if (review) result.comparativeAnalysis.adversarialReview = review;
   if (temporalReview) result.comparativeAnalysis.temporalReview = temporalReview;
+  const variantExecution = variantRuntime.run({ selection: input.variantSelection, reports: worlds });
+  if (Object.keys(variantExecution.executions).length) result.comparativeAnalysis.variantExecution = variantExecution;
   result.jury = await jury.evaluate({
     db, agentId: input.orchestratorId, outcome: result.outcome,
     mission: input.mission, config: input.juryConfig, reports: worlds,

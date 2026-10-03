@@ -359,10 +359,17 @@ function designId(mission, design, options) {
 }
 
 function worldInstructions(design, index) {
-  return AXIS_NAMES.map((axis) => {
+  const instructions = AXIS_NAMES.map((axis) => {
     const instructions = AXES[axis][design[axis]].instructions;
     return instructions[index] || instructions[0] || null;
   }).filter(Boolean);
+  if (design.worldTopology === 'oracular_prediction' && index === 0) {
+    instructions.push('Return oraclePrediction as a JSON object mapping world_1, world_2, world_3 to probabilities in [0,1] whose sum is exactly 1. Predict before seeing other worlds; cite the data or calibration basis.');
+  }
+  if (design.worldTopology === 'exploratory_novelty' || design.hypothesisPolicy === 'novelty_seeking') {
+    instructions.push('Return behaviorVector as a numeric feature array and behaviorVectorEvidence as evidence IDs supporting those features. Do not invent measurements; use the same evidence[] IDs.');
+  }
+  return instructions;
 }
 
 function applyToMembers(members, receipt) {
