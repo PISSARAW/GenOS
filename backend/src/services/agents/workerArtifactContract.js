@@ -75,6 +75,13 @@ function hasCounterexamples(items) {
     && hasEvidenceReferences(item.evidence));
 }
 
+function hasRecoveryReceipt(receipt) {
+  return Boolean(isNonEmptyText(receipt?.action)
+    && isNonEmptyText(receipt?.restoredState)
+    && isNonEmptyText(receipt?.receiptId)
+    && hasEvidenceReferences(receipt?.evidence));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -174,6 +181,7 @@ function hasProvenance(artifact) {
 function artifactInstruction(contract) {
   const required = contract?.evidence?.requiredArtifacts || [];
   if (!required.length) return '';
+  if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
   const rhizome = rhizomeArtifactInstruction(contract, required);
   if (rhizome) return rhizome;
   const template = required.map((type) => ({ type, content: templateForWorker(contract, type) }));
@@ -182,6 +190,12 @@ function artifactInstruction(contract) {
   }
   const artifact = template[0];
   return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance.`;
+}
+
+function recoveryInstruction() {
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    recoveryReceipt: { action: '<leased-action>', restoredState: '<restored-state>', receiptId: '<receipt-id>', evidence: ['<receipt-ref>'] } };
+  return `Return a dossier plus the executed recovery receipt. Do not claim restoration without a receipt. Schema: ${JSON.stringify(output)}`;
 }
 
 function templateForWorker(contract, type) {
@@ -265,9 +279,15 @@ function inspectWorkerArtifact(kind, reply, provenance) {
 }
 
 function validateWorkerKindArtifact(result, kind, type) {
-  if (kind !== 'red_worker' || type !== 'verification_report' || !result.artifact) return result;
-  if (hasCounterexamples(result.artifact.content.counterexamples)) return result;
-  return { artifact: null, issues: [...result.issues, 'workerArtifact.content.counterexamples.invalid'] };
+  if (!result.artifact) return result;
+  const content = result.artifact.content;
+  if (kind === 'red_worker' && type === 'verification_report' && !hasCounterexamples(content.counterexamples)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.counterexamples.invalid'] };
+  }
+  if (kind === 'recovery_worker' && type === 'dossier' && !hasRecoveryReceipt(content.recoveryReceipt)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.recoveryReceipt.invalid'] };
+  }
+  return result;
 }
 
 function validateMethodEvidence(result, parsed, methodContract) {
@@ -288,9 +308,9 @@ function valueAtPath(value, path) {
 }
 
 function inspectDossier(input) {
-  const { parsed, expected, provenance, issues } = input;
+  const { parsed, expected, kind, provenance, issues } = input;
   if (!parsed || issues.length) return { artifact: null, issues };
-  const content = { claims: parsed.claims };
+  const content = { claims: parsed.claims, ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}) };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
   return { artifact: issues.length ? null : { type: expected, content, provenance: { ...(provenance || {}), sourceRefs } }, issues };
@@ -363,8 +383,8 @@ function validateWorkerArtifact(dossier, worker) {
 }
 
 function kindArtifactIsInvalid(kind, type, content) {
-  return kind === 'red_worker' && type === 'verification_report'
-    && !hasCounterexamples(content?.counterexamples);
+  if (kind === 'red_worker' && type === 'verification_report') return !hasCounterexamples(content?.counterexamples);
+  return kind === 'recovery_worker' && type === 'dossier' && !hasRecoveryReceipt(content?.recoveryReceipt);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
