@@ -94,6 +94,32 @@ fn clone_keeps_lineage_and_new_identity() {
 }
 
 #[test]
+fn clone_rejects_unknown_mode() {
+    let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let options = CloneOptions { mode: "unknown".to_string(), daughter_volume: 0.25, mutation_rate: 0.0, seed: None };
+    assert!(operations::clone_dna(&dna, &options).unwrap_err().contains("unsupported clone mode"));
+}
+
+#[test]
+fn budding_clone_uses_explicit_seed_for_mutation() {
+    let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
+    let clone_with_seed = |seed: &str| {
+        operations::clone_dna(&dna, &CloneOptions {
+            mode: "budding".to_string(),
+            daughter_volume: 0.25,
+            mutation_rate: 1.0,
+            seed: Some(seed.to_string()),
+        }).expect("budding clone").to_genome().expect("genome")
+    };
+    let first = clone_with_seed("explicit-seed-a");
+    let replay = clone_with_seed("explicit-seed-a");
+    let alternate = clone_with_seed("explicit-seed-b");
+
+    assert_eq!(first.chromosome_maternal, replay.chromosome_maternal);
+    assert_ne!(first.chromosome_maternal, alternate.chromosome_maternal);
+}
+
+#[test]
 fn decoy_sets_flag_and_marker() {
     let dna = compile::compile_manifest(&sample_manifest()).expect("compile");
     let options = DecoyOptions { target_selector: "enemy".to_string(), detectability: 0.7, marker: Vec::new() };

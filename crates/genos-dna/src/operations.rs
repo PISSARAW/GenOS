@@ -145,11 +145,16 @@ pub struct ClonePair {
 }
 
 pub fn clone_dna_pair(dna: &AgentDna, options: &CloneOptions) -> Result<ClonePair, String> {
+    validate_clone_mode(&options.mode)?;
     let genome = dna.to_genome()?;
     let seed = resolve_seed(&options.seed, &format!("clone:{}", dna.meta.genome_id));
     if options.mode.as_str() == "budding" {
         let limits = (0, genome.hayflick_limit, options.mutation_rate);
-        let result = CellDivision::budding_with_limit_and_mutation(&genome, options.daughter_volume, limits)?;
+        let result = CellDivision::budding_with_limit_and_mutation_seeded(
+            &genome,
+            options.daughter_volume,
+            (limits.0, limits.1, limits.2, &seed),
+        )?;
         let mother = rebuild_inheriting(&result.mother, dna, (&dna.meta.name, mother_provenance(dna)));
         let mut daughter_prov = daughter_provenance(dna, &options.mode);
         daughter_prov.mutations.push(mother_scar_mutation(&result.mother));
@@ -194,6 +199,7 @@ fn mother_scar_mutation(mother: &genos_genome::Genome) -> Mutation {
 }
 
 pub fn clone_dna(dna: &AgentDna, options: &CloneOptions) -> Result<AgentDna, String> {
+    validate_clone_mode(&options.mode)?;
     if options.mode.as_str() == "budding" {
         return Ok(clone_dna_pair(dna, options)?.daughter);
     }
@@ -211,6 +217,14 @@ pub fn clone_dna(dna: &AgentDna, options: &CloneOptions) -> Result<AgentDna, Str
     };
     let name = format!("{}_clone_{}", dna.meta.name, options.mode);
     Ok(rebuild_inheriting(&child, dna, (&name, provenance)))
+}
+
+fn validate_clone_mode(mode: &str) -> Result<(), String> {
+    if ["mitosis", "fission", "binary_fission", "budding"].contains(&mode) {
+        Ok(())
+    } else {
+        Err(format!("unsupported clone mode '{mode}'"))
+    }
 }
 
 pub fn decoy(dna: &AgentDna, options: &DecoyOptions) -> Result<AgentDna, String> {
