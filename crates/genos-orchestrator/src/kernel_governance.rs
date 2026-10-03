@@ -50,6 +50,13 @@ impl GovernancePlane {
                 required_approvals: Vec::new(),
             };
         }
+        if !input.plan.governance_requirements.is_empty() {
+            return GovernanceDecision {
+                allowed: false,
+                reason: String::from("approbation requise avant execution"),
+                required_approvals: input.plan.governance_requirements.clone(),
+            };
+        }
         self.check_authority(input)
     }
 

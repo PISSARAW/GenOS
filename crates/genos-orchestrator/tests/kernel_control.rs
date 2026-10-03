@@ -1,9 +1,10 @@
 use genos_orchestrator::kernel_cycle::{ControlKernel, StepInput};
 use genos_orchestrator::kernel_diagnosis::{diagnose, DiagnosisInput, FailureType};
 use genos_orchestrator::kernel_incarnation::{AgentIncarnationRequest, AgentIncarnationService, AutonomyLevel};
-use genos_orchestrator::kernel_morphogenesis::{HysteresisPolicy, MorphogenesisPlanner, PlanInput};
+use genos_orchestrator::kernel_morphogenesis::{HysteresisPolicy, MorphogenesisPlan, MorphogenesisPlanner, PlanInput};
 use genos_orchestrator::kernel_resolvers::{resolve_all, ResolverInput};
 use genos_orchestrator::kernel_state::{Observations, OrchestratorState};
+use genos_orchestrator::kernel_governance::{GovernanceInput, GovernancePlane};
 use std::time::Duration;
 
 fn state_with_contradiction() -> OrchestratorState {
@@ -48,6 +49,7 @@ fn planner_hysteresis_retourne_no_change_sur_gain_faible() {
     assert!(plan.decision_no_change);
 }
 
+
 #[test]
 fn incarnation_refuse_sans_phenotype() {
     let mut service = AgentIncarnationService::new();
@@ -83,4 +85,18 @@ fn scout_ne_peut_pas_changer_topologie() {
     assert!(!AutonomyLevel::ScoutCell.can_change_topology());
     assert!(!AutonomyLevel::ScoutCell.can_spawn());
     assert!(AutonomyLevel::PrincipalOrchestrator.can_change_topology());
+}
+
+#[test]
+fn gouvernance_bloque_un_plan_qui_demande_une_approbation() {
+    let plan = MorphogenesisPlan {
+        spawns: vec![String::from("verifier")],
+        governance_requirements: vec![String::from("approbation_humaine")],
+        ..MorphogenesisPlan::default()
+    };
+    let authority = String::from("orchestrator_principal");
+    let input = GovernanceInput { plan: &plan, authority: &authority, risk_level: 0.2, degraded_mode: false };
+    let decision = GovernancePlane::new().validate(&input);
+    assert!(!decision.allowed);
+    assert_eq!(decision.required_approvals, vec![String::from("approbation_humaine")]);
 }
