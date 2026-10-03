@@ -22,6 +22,7 @@ const daemonRuntime = require('./residentDaemonRuntime');
 const handoffCompiler = require('./handoff/handoffCompilerService');
 const cartographer = require('./cartography/cartographerService');
 const findingService = require('./findings/findingService');
+const residentInvestigator = require('./investigation/residentInvestigatorService');
 const signalEventBus = require('../signalEventBus');
 const { migrateDaemonEvents } = require('../../db/migrations/migrateDaemonEvents');
 const { migrateDaemonEventPayload } = require('../../db/migrations/migrateDaemonEventPayload');
@@ -129,7 +130,26 @@ async function processPersistedEvent(bridge, event) {
   if (wake.woke && bridge.db) {
     await bridge.db.run('UPDATE daemon_events SET woke = 1 WHERE id = ?', event.id);
   }
-  return { processed: true, woke: wake.woke, reason: wake.reason };
+  const investigation = await investigateAfterWake(bridge, {
+    territoryId: event.territory_id,
+    type: event.event_type
+  }, receptor, wake);
+  return { processed: true, woke: wake.woke, reason: wake.reason, investigation };
+}
+
+async function investigateAfterWake(bridge, event, receptor, wake) {
+  if (!wake.woke || receptor.priority !== 'high' || !bridge.db) return null;
+  try {
+    const result = await territoryService.getTerritory(bridge.db, { id: event.territoryId });
+    if (!result.found) return { investigated: false, reason: 'unknown-territory' };
+    return await residentInvestigator.investigate(bridge.db, {
+      territoryId: event.territoryId,
+      daemonId: bridge.daemonId,
+      rootPath: result.territory.rootPath
+    });
+  } catch (error) {
+    return { investigated: false, reason: 'investigation-failed', error: error.message };
+  }
 }
 
 function parseEventPayload(raw) {
@@ -171,6 +191,7 @@ async function ingestEvent(bridge, event) {
   }
   const wake = await maybeWakeRuntime(bridge, event, receptor);
   const logged = await logIngestedEvent(bridge, event, { receptor, wake });
+  const investigation = await investigateAfterWake(bridge, event, receptor, wake);
   return {
     ingested: true,
     eventType: event.type,
@@ -183,6 +204,7 @@ async function ingestEvent(bridge, event) {
     handoffRequested: receptor.handoffRequested === true,
     handoffSignal,
     handoffError,
+    investigation,
     logged
   };
 }
