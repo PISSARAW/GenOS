@@ -8,6 +8,7 @@ const POLICIES = Object.freeze({
   specialist: { maxIterations: 20, maxStrategyChanges: 3, maxCognitiveChanges: 2 }
   procedural_executor: { maxIterations: 10, maxTokens: 0 }
   symbiotic_worker: { maxIterations: 10 }
+  verifier_worker: { maxIterations: 5 }
 });
 function workerPolicy(kind) {
   return POLICIES[kind] || {};
