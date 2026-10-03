@@ -375,7 +375,7 @@ stateDiagram-v2
     compiled --> [*]
 ```
 
-Budgets : `MICRO {1 tour, 200}` / `DIALOGUE {8 tours, 2000}` (`communicationPolicyEngine.js:208-219`). `DIALOGUE_DIRECT = {COMMITMENT_NEGOTIATION, HUMAN_EXPLANATION_REQUIRED}` bypass `MICRO_FIRST`. `requiredArtifact` stocké mais non vérifié à la clôture (écart connu). `HUMAN` = escalade sans pupitre opérateur dédié (partiel).
+Budgets : `MICRO {1 tour, 200}` / `DIALOGUE {8 tours, 2000}` (`communicationPolicyEngine.js:208-219`). `DIALOGUE_DIRECT = {COMMITMENT_NEGOTIATION, HUMAN_EXPLANATION_REQUIRED}` bypass `MICRO_FIRST`. `closeSession` vérifie `requiredArtifact` et autorise une clôture explicite `UNRESOLVED`. `HUMAN` = escalade sans pupitre opérateur dédié (partiel).
 
 ---
 

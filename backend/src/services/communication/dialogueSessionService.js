@@ -83,6 +83,12 @@ async function closeSession(input) {
     throw new Error('Only an open dialogue can be closed with an artifact.');
   }
   assertArtifactKind(input.artifactKind);
+  if (session.requiredArtifact && input.artifactKind !== 'UNRESOLVED'
+      && input.artifactKind !== session.requiredArtifact) {
+    throw Object.assign(new Error(`Dialogue requires artifact '${session.requiredArtifact}', not '${input.artifactKind}'.`), {
+      code: 'REQUIRED_ARTIFACT_MISMATCH'
+    });
+  }
   await db.run(
     `INSERT INTO dialogue_artifacts (escalation_id, kind, artifact_json) VALUES (?, ?, ?)`,
     [session.id, input.artifactKind, JSON.stringify(input.artifact || {})]
