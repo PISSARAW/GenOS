@@ -31,14 +31,19 @@ const TERRITORY_STATES = [
 ];
 
 const ID_PATTERN = /^territory\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const SHA_PATTERN = /^[a-f0-9]{40}$/;
+const SHA_PATTERN = /^[a-fA-F0-9]{40}$/;
+
+function normalizeHeadSha(headSha) {
+  return String(headSha || '').trim().toLowerCase();
+}
 
 function normalizeScopePath(scopePath) {
   if (!scopePath) return '/';
   const trimmed = String(scopePath).trim() || '/';
   if (trimmed === '/') return '/';
   const noLeading = trimmed.replace(/^\/+/, '');
-  return noLeading.endsWith('/') ? noLeading : `${noLeading}/`;
+  const withTrailing = noLeading.endsWith('/') ? noLeading : `${noLeading}/`;
+  return `/${withTrailing}`;
 }
 
 function requiredFieldErrors(input) {
@@ -105,6 +110,14 @@ function rowToTerritory(row) {
   };
 }
 
+function territoryContentDiffers(row, candidate) {
+  return (
+    row.head_sha !== candidate.headSha ||
+    row.scope_path !== candidate.scopePath ||
+    row.root_path !== candidate.rootPath
+  );
+}
+
 function safeParse(text) {
   try {
     const parsed = JSON.parse(text || '{}');
@@ -123,8 +136,13 @@ async function createTerritory(db, input) {
   if (!validation.ok) return { created: false, errors: validation.errors };
   await ensureTables(db);
   const scopePath = normalizeScopePath(input.scopePath);
+  const headSha = normalizeHeadSha(input.headSha);
   const state = input.state || 'BOOTSTRAPPING';
   const metadata = JSON.stringify(input.metadata || {});
+  const prior = await db.get('SELECT * FROM daemon_territories WHERE id = ?', input.id);
+  if (prior && territoryContentDiffers(prior, { scopePath, headSha, rootPath: input.rootPath })) {
+    return { created: false, errors: ['territory-conflict'], existing: rowToTerritory(prior) };
+  }
   await db.run(
     `INSERT INTO daemon_territories
       (id, organization_id, project_id, workspace_id, repo_identity,
@@ -140,7 +158,7 @@ async function createTerritory(db, input) {
     input.rootPath,
     scopePath,
     input.ref || 'main',
-    input.headSha,
+    headSha,
     input.parentTerritoryId || null,
     state,
     metadata
@@ -186,20 +204,21 @@ async function listTerritories(db, filter) {
  */
 async function updateHead(db, change) {
   if (!db || !change || !change.id) return { updated: false };
-  if (!SHA_PATTERN.test(change.headSha || '')) return { updated: false, errors: ['invalid-headSha'] };
+  const headSha = normalizeHeadSha(change.headSha);
+  if (!SHA_PATTERN.test(headSha)) return { updated: false, errors: ['invalid-headSha'] };
   await ensureTables(db);
   const current = await db.get('SELECT head_sha FROM daemon_territories WHERE id = ?', change.id);
   if (!current) return { updated: false, errors: ['not-found'] };
-  if (current.head_sha === change.headSha) return { updated: true, changed: false, previousHead: current.head_sha };
+  if (current.head_sha === headSha) return { updated: true, changed: false, previousHead: current.head_sha };
   await db.run(
     `UPDATE daemon_territories
      SET head_sha = ?, last_observed_at = datetime('now'),
-         state = CASE WHEN state = 'ACTIVE' THEN 'STALE' ELSE state END
+         state = CASE WHEN state IN ('ACTIVE', 'DORMANT', 'SURVEYING', 'DEGRADED', 'BOOTSTRAPPING') THEN 'STALE' ELSE state END
      WHERE id = ?`,
-    change.headSha,
+    headSha,
     change.id
   );
-  return { updated: true, changed: true, previousHead: current.head_sha, headSha: change.headSha };
+  return { updated: true, changed: true, previousHead: current.head_sha, headSha };
 }
 
 async function touchObserved(db, query) {
