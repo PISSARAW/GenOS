@@ -6,7 +6,7 @@ const { hasEvidenceReferences, provenanceReferences } = require('./workerEvidenc
 const REQUIRED_FIELDS = Object.freeze({
   scout_observation: ['observations'],
   dossier: ['claims'],
-  verification_report: ['verdict', 'evidence'],
+  verification_report: ['testedClaim', 'verificationMethod', 'verdict', 'reproductionSteps', 'evidence'],
   experiment_record: ['hypothesis', 'protocol', 'measurements'],
   formal_certificate: ['claim', 'solver', 'result', 'solverReceipt'],
   synthesis_dossier: ['synthesis', 'sources'],
@@ -19,7 +19,7 @@ const REQUIRED_FIELDS = Object.freeze({
 const CONTENT_TEMPLATES = Object.freeze({
   scout_observation: { observations: ['<observation>'] },
   dossier: { claims: [{ statement: '<claim>', evidence: ['<source-ref>'] }] },
-  verification_report: { verdict: 'reject', evidence: ['<reproduction-ref>'] },
+  verification_report: { testedClaim: '<claim>', verificationMethod: '<method>', verdict: 'reject', reproductionSteps: ['<step>'], evidence: ['<reproduction-ref>'] },
   experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: [{ metric: '<metric>', value: 0, unit: '<unit>', evidence: ['<measurement-ref>'] }] },
   formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', evidence: ['<receipt-ref>'] } },
   synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'], disagreements: [] },
@@ -117,8 +117,12 @@ function hasCausalChain(chain) {
 
 function validVerificationContent(content) {
   const verdict = String(content.verdict).toLowerCase();
-  return ['accept', 'reject', 'unresolved'].includes(verdict)
-    && hasEvidenceReferences(content.evidence || content.reproductionEvidence);
+  if (!['accept', 'reject', 'unresolved'].includes(verdict)
+    || !hasEvidenceReferences(content.evidence || content.reproductionEvidence)
+    || !isNonEmptyText(content.testedClaim) || !isNonEmptyText(content.verificationMethod)
+    || !Array.isArray(content.reproductionSteps) || !content.reproductionSteps.length
+    || !content.reproductionSteps.every(isNonEmptyText)) return false;
+  return true;
 }
 
 function hasSolverReceipt(receipt) {
@@ -305,9 +309,14 @@ function specializedContentIssue(expected, content) {
   const issues = {
     clinical_report: !isNonDiagnosticClinicalReport(content) && 'caseScope.must_be_synthetic_educational_and_non_diagnostic',
     formal_certificate: !hasSolverReceipt(content.solverReceipt) && 'solverReceipt.invalid',
-    verification_report: !validVerdict(content.verdict) && 'verdict.invalid'
+    verification_report: verificationIssue(content)
   };
   return issues[expected] ? `workerArtifact.content.${issues[expected]}` : null;
+}
+
+function verificationIssue(content) {
+  if (!validVerdict(content.verdict)) return 'verdict.invalid';
+  return validVerificationContent(content) ? null : 'verification_details.invalid';
 }
 
 function validVerdict(verdict) {
