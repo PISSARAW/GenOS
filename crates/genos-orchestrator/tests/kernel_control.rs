@@ -100,3 +100,16 @@ fn gouvernance_bloque_un_plan_qui_demande_une_approbation() {
     assert!(!decision.allowed);
     assert_eq!(decision.required_approvals, vec![String::from("approbation_humaine")]);
 }
+
+#[test]
+fn kernel_applique_et_signale_une_reconfiguration_cognitive() {
+    let mut kernel = ControlKernel::new("diversifier les recettes");
+    kernel.state.cognition.diversity_score = 0.1;
+    let outcome = kernel.step(&Observations::default(), &StepInput {
+        no_progress: false,
+        worker_error_rate: 0.0,
+        success: false,
+    });
+    assert!(outcome.plan_applied);
+    assert_eq!(kernel.state.cognition.recipes_by_agent.get("worker_cible"), Some(&String::from("recette_cible")));
+}

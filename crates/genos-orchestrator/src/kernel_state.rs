@@ -64,14 +64,17 @@ pub struct ResourceView {
     pub gpu_available: bool,
     pub worker_slots_used: usize,
     pub worker_slots_total: usize,
+    pub allocations: HashMap<String, u64>,
 }
 
 /// Diversite cognitive et trajectoires strategiques.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct CognitionView {
     pub active_recipes: Vec<String>,
+    pub recipes_by_agent: HashMap<String, String>,
     pub diversity_score: f64,
     pub strategy_trajectories: Vec<String>,
+    pub strategies_by_agent: HashMap<String, String>,
 }
 
 /// Capacites disponibles, exprimees, manquantes.

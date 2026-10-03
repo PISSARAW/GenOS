@@ -87,10 +87,10 @@ impl ControlKernel {
         self.state.integrate_observations(obs);
         let plan = self.decide(input);
         let governance = self.authorize(&plan);
-        let spawned = self.apply_if_allowed(&plan, &governance);
+        let (plan_applied, spawned) = self.apply_if_allowed(&plan, &governance);
         self.close_step(input, &plan);
         StepOutcome {
-            plan_applied: spawned.is_empty().eq(&false),
+            plan_applied,
             governance,
             agents_spawned: spawned,
         }
@@ -131,21 +131,69 @@ impl ControlKernel {
         &mut self,
         plan: &MorphogenesisPlan,
         decision: &GovernanceDecision,
-    ) -> Vec<String> {
+    ) -> (bool, Vec<String>) {
         match decision.allowed {
             true => self.execute_plan(plan),
-            false => Vec::new(),
+            false => (false, Vec::new()),
         }
     }
 
-    fn execute_plan(&mut self, plan: &MorphogenesisPlan) -> Vec<String> {
-        if plan.decision_no_change {
-            return Vec::new();
+    fn execute_plan(&mut self, plan: &MorphogenesisPlan) -> (bool, Vec<String>) {
+        if !plan.has_meaningful_change() {
+            return (false, Vec::new());
         }
         self.snapshot(plan);
         let spawned = self.spawn_all(plan);
-        self.record_topology(plan);
-        spawned
+        let mut applied = spawned.is_empty().eq(&false);
+        applied |= self.retire_all(plan);
+        applied |= self.apply_cognitive_changes(plan);
+        applied |= self.apply_strategy_changes(plan);
+        applied |= self.apply_model_assignments(plan);
+        applied |= self.apply_resource_allocations(plan);
+        applied |= self.record_topology(plan);
+        (applied, spawned)
+    }
+
+    fn retire_all(&mut self, plan: &MorphogenesisPlan) -> bool {
+        if plan.retires.is_empty() { return false; }
+        self.state.collective.members.retain(|member| !plan.retires.contains(member));
+        for agent in &plan.retires {
+            self.state.models.assignments.remove(agent);
+            self.state.cognition.recipes_by_agent.remove(agent);
+            self.state.cognition.strategies_by_agent.remove(agent);
+            self.state.resources.allocations.remove(agent);
+        }
+        true
+    }
+
+    fn apply_cognitive_changes(&mut self, plan: &MorphogenesisPlan) -> bool {
+        for change in &plan.cognitive_changes {
+            self.state.cognition.recipes_by_agent.insert(change.agent.clone(), change.to.clone());
+            self.state.cognition.active_recipes.push(change.to.clone());
+        }
+        plan.cognitive_changes.is_empty().eq(&false)
+    }
+
+    fn apply_strategy_changes(&mut self, plan: &MorphogenesisPlan) -> bool {
+        for change in &plan.strategy_changes {
+            self.state.cognition.strategies_by_agent.insert(change.agent.clone(), change.to.clone());
+            self.state.cognition.strategy_trajectories.push(change.to.clone());
+        }
+        plan.strategy_changes.is_empty().eq(&false)
+    }
+
+    fn apply_model_assignments(&mut self, plan: &MorphogenesisPlan) -> bool {
+        for assignment in &plan.model_assignments {
+            self.state.models.assignments.insert(assignment.agent.clone(), assignment.to.clone());
+        }
+        plan.model_assignments.is_empty().eq(&false)
+    }
+
+    fn apply_resource_allocations(&mut self, plan: &MorphogenesisPlan) -> bool {
+        for allocation in &plan.resource_allocations {
+            self.state.resources.allocations.insert(allocation.target.clone(), allocation.tokens);
+        }
+        plan.resource_allocations.is_empty().eq(&false)
     }
 
     fn spawn_all(&mut self, plan: &MorphogenesisPlan) -> Vec<String> {
@@ -171,14 +219,17 @@ impl ControlKernel {
         ids
     }
 
-    fn record_topology(&mut self, plan: &MorphogenesisPlan) {
+    fn record_topology(&mut self, plan: &MorphogenesisPlan) -> bool {
         if let Some(change) = plan.topology_changes.first() {
+            if change.to.is_empty() || change.to == "cible" { return false; }
             self.current_topology.clone_from(&change.to);
             self.state
                 .history
                 .morphology_history
                 .push(change.to.clone());
+            return true;
         }
+        false
     }
 
     fn snapshot(&mut self, plan: &MorphogenesisPlan) {

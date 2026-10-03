@@ -69,8 +69,10 @@ impl MorphogenesisPlan {
     fn is_nonempty(&self) -> bool {
         self.topology_changes.is_empty().eq(&false)
             || self.spawns.is_empty().eq(&false)
+            || self.retires.is_empty().eq(&false)
             || self.cognitive_changes.is_empty().eq(&false)
             || self.strategy_changes.is_empty().eq(&false)
+            || self.model_assignments.is_empty().eq(&false)
             || self.resource_allocations.is_empty().eq(&false)
     }
 
