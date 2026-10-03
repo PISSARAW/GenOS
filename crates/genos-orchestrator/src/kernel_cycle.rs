@@ -205,25 +205,76 @@ impl ControlKernel {
 
     fn spawn_all(&mut self, plan: &MorphogenesisPlan) -> Vec<String> {
         let mut ids = Vec::new();
+        let siblings = plan.spawns.len().max(1);
         for phenotype in plan.spawns.iter() {
-            let request = AgentIncarnationRequest {
-                phenotype: phenotype.clone(),
-                mission_scope: String::from("scope_courant"),
-                capabilities: vec![String::from("analyse")],
-                authority_profile: String::from("worker_verifie"),
-                strategy_envelope: vec![String::from("falsification")],
-                cognitive_recipe: vec![String::from("adversarial")],
-                prefer_independent_model: true,
-                budget_tokens: 5000,
-                ttl_minutes: 20,
-                autonomy: AutonomyLevel::AdaptiveWorker,
-            };
+            let request = self.incarnation_request(phenotype, siblings);
             if let Ok(agent) = self.incarnation.incarnate(&request) {
                 ids.push(agent.agent_id.clone());
                 self.state.collective.members.push(agent.agent_id);
             }
         }
         ids
+    }
+
+    /// Derive la requete d'incarnation de l'etat reel (mission, capacites
+    /// manquantes, trajectoires) au lieu de constantes aveugles.
+    fn incarnation_request(
+        &self,
+        phenotype: &str,
+        siblings: usize,
+    ) -> AgentIncarnationRequest {
+        let scope = self
+            .state
+            .mission
+            .objective
+            .clone()
+            .unwrap_or_else(|| String::from("scope_courant"));
+        let capabilities = self.spawn_capabilities();
+        let strategy = self
+            .state
+            .cognition
+            .strategy_trajectories
+            .last()
+            .cloned()
+            .unwrap_or_else(|| String::from("falsification"));
+        let recipe = self
+            .state
+            .cognition
+            .active_recipes
+            .last()
+            .cloned()
+            .unwrap_or_else(|| String::from("adversarial"));
+        AgentIncarnationRequest {
+            phenotype: phenotype.to_string(),
+            mission_scope: scope,
+            capabilities,
+            authority_profile: String::from("worker_verifie"),
+            strategy_envelope: vec![strategy],
+            cognitive_recipe: vec![recipe],
+            prefer_independent_model: true,
+            budget_tokens: self.spawn_budget(siblings),
+            ttl_minutes: 20,
+            autonomy: AutonomyLevel::AdaptiveWorker,
+        }
+    }
+
+    /// Capacites demandees : manques constates, sinon analyse generique.
+    fn spawn_capabilities(&self) -> Vec<String> {
+        if self.state.capabilities.missing.is_empty() {
+            return vec![String::from("analyse")];
+        }
+        self.state.capabilities.missing.clone()
+    }
+
+    /// Budget par agent : reliquat divise par la fratrie, plancher 5000.
+    fn spawn_budget(&self, siblings: usize) -> u64 {
+        let remaining = self
+            .state
+            .resources
+            .tokens_budget
+            .saturating_sub(self.state.resources.tokens_used);
+        let share = remaining / (siblings as u64).max(1);
+        share.max(5000)
     }
 
     fn record_topology(&mut self, plan: &MorphogenesisPlan) -> bool {
