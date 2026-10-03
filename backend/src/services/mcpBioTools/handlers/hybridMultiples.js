@@ -21,10 +21,16 @@ function getCluster(clusterId) {
 function handleHybridMultiples(args = {}, run) {
   const action = args.action || 'status';
   const clusterId = args.cluster_id || `hybrid-cluster-${Date.now()}`;
-  const archetypes = Array.isArray(args.archetypes) ? args.archetypes : [
+  const archetypes = (Array.isArray(args.archetypes) ? args.archetypes : [
     { familyName: 'SymbolicProver', model: 'claude-3-5-sonnet', clonesPerFamily: 2 },
     { familyName: 'EmpiricalFuzzer', model: 'gpt-4o', clonesPerFamily: 2 }
-  ];
+  ]).map(arch => arch && typeof arch === 'object' ? { ...arch, clonesPerFamily: arch.clonesPerFamily ?? 2 } : arch);
+  if (archetypes.length > 16 || archetypes.some(arch => !arch ||
+      typeof arch.familyName !== 'string' || !arch.familyName.trim() || arch.familyName.length > 80 ||
+      typeof arch.model !== 'string' || !arch.model.trim() || arch.model.length > 120 ||
+      !Number.isSafeInteger(arch.clonesPerFamily) || arch.clonesPerFamily < 1 || arch.clonesPerFamily > 128)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'archetypes must contain at most 16 entries with a familyName, model, and clonesPerFamily from 1 to 128.' };
+  }
 
   let cliOutput = null;
   let cliFailed = false;
@@ -47,7 +53,7 @@ function handleHybridMultiples(args = {}, run) {
 
     for (let fIdx = 0; fIdx < archetypes.length; fIdx++) {
       const arch = archetypes[fIdx];
-      const clonesCount = Math.max(1, arch.clonesPerFamily || 2);
+      const clonesCount = arch.clonesPerFamily;
       const familyLineageId = `lin-poly-${fIdx + 1}-${crypto.createHash('md5').update(arch.familyName).digest('hex').slice(0, 6)}`;
       const clones = [];
 
@@ -79,14 +85,16 @@ function handleHybridMultiples(args = {}, run) {
     return {
       configured: true,
       success: true,
-      status: 'hybrid_cluster_generated',
+      status: 'metadata_recorded',
       transport: 'hybrid_embryonic_matrix',
       cluster_id: clusterId,
       families_count: cluster.families.length,
       total_agents_count: cluster.totalAgents,
-      composition: `${cluster.families.length} Dizygotic Families x Clones = ${cluster.totalAgents} Total Active Agents`,
+      composition: `${cluster.families.length} family descriptors x clone descriptors = ${cluster.totalAgents} records`,
       families: cluster.families,
-      output: `Hybrid cluster '${clusterId}' deployed: ${cluster.families.length} polyovular families generating ${cluster.totalAgents} total agents.`
+      execution_scope: 'metadata_simulation',
+      runtime_agents_created: false,
+      output: `Recorded ${cluster.families.length} family descriptors and ${cluster.totalAgents} clone descriptors for cluster '${clusterId}'. No runtime agents were deployed.`
     };
   }
 
@@ -105,7 +113,8 @@ function handleHybridMultiples(args = {}, run) {
       transport: 'hybrid_embryonic_matrix',
       cluster_id: clusterId,
       dispersion_metrics: cluster.dispersionMetrics,
-      output: `Cluster '${clusterId}' dispersion: Inter-Family Diversity = ${cluster.dispersionMetrics.interFamilyDiversity}, Intra-Family Stability = ${cluster.dispersionMetrics.intraFamilyStability}.`
+      execution_scope: 'metadata_simulation',
+      output: `Cluster '${clusterId}' metadata summary: Inter-Family Diversity = ${cluster.dispersionMetrics.interFamilyDiversity}, Intra-Family Stability = ${cluster.dispersionMetrics.intraFamilyIsogenicStability}. No empirical dispersion was evaluated.`
     };
   }
 
