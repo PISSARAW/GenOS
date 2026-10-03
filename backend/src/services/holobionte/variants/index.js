@@ -16,7 +16,7 @@ const policies = Object.freeze({
 });
 
 const INTENTS = Object.freeze([
-  { variant: 'immuneCritical', pattern: /\b(secur|critical|auth|privacy|risk|menace|security)\w*/i, reason: 'mission_security' },
+  { variant: 'immuneCritical', pattern: /\b(secur|critical|critique|auth|privacy|risk|menace|security|vulnerab|faille|secret|clé|clef|key|rollback|invariant)\w*|mot de passe|refresh token|sans perte|no data loss/i, reason: 'mission_security' },
   { variant: 'localFirst', pattern: /\b(local|offline|edge|souverain|on-device)\w*/i, reason: 'locality_required' },
   { variant: 'regenerative', pattern: /\b(recover|resilien|repair|regener|recovery|résilien|restaur)\w*/i, reason: 'recovery_required' },
   { variant: 'memoryRich', pattern: /\b(memory|mémoire|histor|longitudinal|persistent|multi-mission)\w*/i, reason: 'longitudinal_memory' },
