@@ -76,6 +76,7 @@ function assertRuntimeContract(contract, kind) {
   }
   workerKinds.assertMethodCompatibility(kind, contract.mission?.methodContract);
   assertCanonicalContract(contract, kind);
+  assertHostCapabilityBoundary(contract, kind);
   if (contract.assignment?.workerKind && contract.assignment.workerKind !== kind) {
     throw Object.assign(new Error('Worker assignment and runtime contract select different kinds.'), { code: 'INVALID_WORKER_CONTRACT' });
   }
@@ -92,6 +93,8 @@ function assertCanonicalContract(contract, kind) {
     prompt: contract.mission?.objective,
     scope: contract.mission?.scope,
     specialtyNiche: contract.mission?.specialtyNiche,
+    hostContractId: contract.mission?.hostContractId,
+    hostCapabilities: contract.mission?.hostCapabilities,
     methodContract: contract.mission?.methodContract,
     topologySessionId: contract.mission?.topologySessionId,
     workerAssignment: contract.assignment
@@ -100,6 +103,18 @@ function assertCanonicalContract(contract, kind) {
   assertObjectCeilings(contract.resources, canonical.resources, { requireAll: true });
   assertObjectCeilings(contract.limits, canonical.limits, { delegated: kind === 'sub_orchestrator' });
   if (!sameArtifacts(contract.evidence, canonical.evidence)) throw invalidContract();
+}
+
+function assertHostCapabilityBoundary(contract, kind) {
+  if (kind !== 'symbiotic_worker') return;
+  const hostCapabilities = contract.mission?.hostCapabilities;
+  const required = contract.mission?.methodContract?.requiredCapabilities || [];
+  if (!contract.mission?.hostContractId || !Array.isArray(hostCapabilities) || !hostCapabilities.length
+    || required.some((capability) => !hostCapabilities.includes(capability))) {
+    throw Object.assign(new Error('Symbiotic worker exceeds or lacks its host capability contract.'), {
+      code: 'SYMBIOTIC_HOST_CONTRACT_INVALID'
+    });
+  }
 }
 
 function assertAuthorityCeiling(actual, maximum, kind) {

@@ -148,16 +148,32 @@ function methodContractError() {
 
 function workerMissionContract(mission, kind) {
   const specialtyNiche = resolveSpecialtyNiche(mission);
+  const hostContractId = resolveHostContractId(mission);
+  const hostCapabilities = resolveHostCapabilities(mission);
   if (kind === 'specialist' && !specialtyNiche) {
     throw Object.assign(new Error('Specialist workers require an explicit niche.'), { code: 'SPECIALIST_NICHE_REQUIRED' });
+  }
+  if (kind === 'symbiotic_worker' && (!hostContractId || !hostCapabilities.length)) {
+    throw Object.assign(new Error('Symbiotic workers require a host contract and an explicit capability set.'), { code: 'SYMBIOTIC_HOST_CONTRACT_REQUIRED' });
   }
   return {
     objective: mission.prompt || mission.currentTask || '',
     scope: mission.scope || mission.workspaceRoot || '',
     methodContract: mission.methodContract,
     specialtyNiche,
+    hostContractId,
+    hostCapabilities,
     topologySessionId: mission.topologySessionId || null
   };
+}
+
+function resolveHostContractId(mission) {
+  return mission.hostContractId || mission.workerAssignment?.hostContractId || null;
+}
+
+function resolveHostCapabilities(mission) {
+  const capabilities = mission.hostCapabilities || mission.workerAssignment?.hostCapabilities;
+  return Array.isArray(capabilities) ? [...new Set(capabilities.filter((item) => typeof item === 'string' && item.trim()))] : [];
 }
 
 function resolveSpecialtyNiche(mission) {

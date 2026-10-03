@@ -124,6 +124,17 @@ function hasSpecialtyAssessment(value, expectedNiche) {
     && hasEvidenceReferences(value.evidence));
 }
 
+function hasHostContribution(value, contract) {
+  const hostCapabilities = contract?.mission?.hostCapabilities || [];
+  const hostIdMatches = !contract?.mission?.hostContractId
+    || value?.hostContractId === contract.mission.hostContractId;
+  return Boolean(isNonEmptyText(value?.hostContractId)
+    && hostIdMatches
+    && (hostCapabilities.length ? hostCapabilities.includes(value.capability) : isNonEmptyText(value.capability))
+    && value.contractCompliant === true
+    && hasEvidenceReferences(value.evidence));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -227,6 +238,7 @@ function artifactInstruction(contract) {
   if (contract.identity?.workerKind === 'bounded_worker') return boundedWorkerInstruction();
   if (contract.identity?.workerKind === 'adaptive_worker') return adaptiveWorkerInstruction();
   if (contract.identity?.workerKind === 'specialist') return specialistInstruction(contract.mission?.specialtyNiche);
+  if (contract.identity?.workerKind === 'symbiotic_worker') return symbioticInstruction(contract.mission);
   if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
   if (contract.identity?.workerKind === 'liaison_worker') return liaisonInstruction();
   const rhizome = rhizomeArtifactInstruction(contract, required);
@@ -261,6 +273,12 @@ function specialistInstruction(niche) {
   const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
     specialtyAssessment: { niche, inScope: true, evidence: ['<scope-evidence-ref>'] } };
   return `Work only in the declared niche '${niche}'. If the task is outside it, return unresolved. Schema: ${JSON.stringify(output)}`;
+}
+
+function symbioticInstruction(mission) {
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    hostContribution: { hostContractId: mission.hostContractId, capability: '<host-capability>', contractCompliant: true, evidence: ['<receipt-ref>'] } };
+  return `Use only the host contract '${mission.hostContractId}' and its declared capabilities. Schema: ${JSON.stringify(output)}`;
 }
 
 function recoveryInstruction() {
@@ -379,6 +397,9 @@ function validateWorkerKindArtifact(result, kind, type) {
   if (kind === 'specialist' && type === 'dossier' && !hasSpecialtyAssessment(content.specialtyAssessment)) {
     return { artifact: null, issues: [...result.issues, 'workerArtifact.content.specialtyAssessment.invalid'] };
   }
+  if (kind === 'symbiotic_worker' && type === 'dossier' && !hasHostContribution(content.hostContribution)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.hostContribution.invalid'] };
+  }
   return result;
 }
 
@@ -409,7 +430,8 @@ function inspectDossier(input) {
     ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
     ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {}),
     ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {}),
-    ...(kind === 'specialist' ? { specialtyAssessment: parsed.specialtyAssessment } : {})
+    ...(kind === 'specialist' ? { specialtyAssessment: parsed.specialtyAssessment } : {}),
+    ...(kind === 'symbiotic_worker' ? { hostContribution: parsed.hostContribution } : {})
   };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
@@ -489,8 +511,11 @@ function kindArtifactIsInvalid(kind, type, content, contract) {
   if (kind === 'resident_daemon' && type === 'dossier') return !hasTerritoryReport(content?.territoryReport);
   if (kind === 'bounded_worker' && type === 'dossier') return !hasBoundedScope(content?.scopeCompletion);
   if (kind === 'adaptive_worker' && type === 'dossier') return !hasStrategyTrace(content?.strategyTrace);
-  return kind === 'specialist' && type === 'dossier'
-    && !hasSpecialtyAssessment(content?.specialtyAssessment, contract?.mission?.specialtyNiche);
+  if (kind === 'specialist' && type === 'dossier') {
+    return !hasSpecialtyAssessment(content?.specialtyAssessment, contract?.mission?.specialtyNiche);
+  }
+  return kind === 'symbiotic_worker' && type === 'dossier'
+    && !hasHostContribution(content?.hostContribution, contract);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
