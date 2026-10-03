@@ -609,7 +609,9 @@ Si une copie dépasse les seuils, le système refuse explicitement la branche.
 
 Dans [backend/src/services/agentFleetWorkers.js](../../backend/src/services/agentFleetWorkers.js) et [backend/src/services/workerGarageService.js](../../backend/src/services/workerGarageService.js) :
 
-- Par défaut : `MAX_ACTIVE_WORKERS = 3`, `MAX_AUTONOMOUS_WORKERS = 3` et capacité de projet `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT = 12`.
+- Par défaut : `GENOS_MAX_WORKERS = 8` (voir `backend/src/config/orchestratorConfig.js:16`), `MAX_AUTONOMOUS_WORKERS = 3` et capacité de projet `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT = 12` (minimum 12, suit `maxActiveWorkers`).
+- Capacité 100+ = paramètre, pas benchmark : non mesuré bout-à-bout.
+- `GENOS_IN_PROCESS_WORKERS=1` (>12 agents, même boucle Node) casse l'isolation worktree/process : ne pas le présenter comme équivalent au mode isolé.
 - Paramétrable pour les déploiements à grande échelle (jusqu'à 100+ agents) :
   - `GENOS_MAX_ACTIVE_WORKERS` : nombre maximal d'ouvriers actifs par orchestrateur (ex: `100`).
   - `GENOS_MAX_AUTONOMOUS_WORKERS` : limite de fan-out simultané lors de la création d'une flotte autonome.
