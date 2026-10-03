@@ -17,9 +17,17 @@ assert.ok(tied.every((domain) => domain.score === 1));
 const saturated = aTeam.analyzeMission('Développer le frontend React, le backend Express, la data SQL, la sécurité OAuth, les tests QA, les déploiements DevOps, un agent IA, le produit et la recherche scientifique.');
 assert.equal(saturated.recommended, true);
 assert.equal(saturated.members.length, aTeam.MAX_MEMBERS);
-assert.deepEqual(saturated.detectedDomains, saturated.members.map((member) => member.label));
+assert.ok(saturated.detectedDomains.length >= saturated.members.length);
+assert.deepEqual(saturated.overflowDomains,
+  saturated.detectedDomains.filter((domain) => !saturated.members.some((member) => member.label === domain)));
 assert.ok(saturated.capabilityCoverage.ratio > 0 && saturated.capabilityCoverage.ratio <= 1);
 assert.deepEqual(saturated.capabilityCoverage.uncovered, ['science']);
+
+const paraphraseCases = require('../../benchmarks/topology-morphogenesis/ateam-paraphrase-cases.json').pairs;
+for (const testCase of paraphraseCases) {
+  const detected = aTeam.analyzeMission(testCase.paraphrased).detectedDomains;
+  assert.deepEqual(testCase.expectedDomains.filter((domain) => !detected.includes(domain)), [], testCase.id);
+}
 
 const twoDomains = aTeam.analyzeMission('Construire une interface React et une API Express.');
 assert.deepEqual(twoDomains.members.map((member) => member.role), ['frontend_engineer', 'backend_engineer']);

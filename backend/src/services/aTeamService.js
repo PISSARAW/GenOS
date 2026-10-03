@@ -20,33 +20,40 @@ const TECHNICAL_DOMAIN_RULES = [
       /\bmaths?\b/i,
       /\bmath[eé]matiques?\b/i,
       /\b(?:équation|equation|inéquation|inequation)s?\b/i,
-      /\b(?:intégrale|integrale|dérivée|derivee|dérivation|derivation)s?\b/i,
+      /\b(?:dérivée|derivee|dérivation|derivation)s?\b/i,
+      /\b(?:intégrale|integrale)s?\s+(?:de|du|d['’])\b/i,
       /\b(?:algèbre|algebre|calculus|théorème|theoreme|matrice|vecteur|géométrie|geometrie|probabilité|probabilite|polynôme|polynome|limite)s?\b/i
     ]
   },
   {
     domain: 'frontend', role: 'frontend_engineer', modelTier: 'standard', priority: 10,
-    signals: [/\bfront[ -]?end\b/i, /\b(?:react|vue|angular)\b/i, /\b(?:interface|ui|ux|css|design system)\b/i]
+    signals: [/\bfront[ -]?end\b/i, /\b(?:react|vue|angular)\b/i, /\b(?:interface|ui|ux|css|design system)\b/i,
+      /\b(?:clavier|lecteur d[’']?ecran|navigation accessible|parcours utilisateur)\b/i]
   },
   {
     domain: 'backend', role: 'backend_engineer', modelTier: 'standard', priority: 20,
-    signals: [/\bback[ -]?end\b/i, /\bapi\b/i, /\b(?:serveur|server|node|express|microservice)\b/i]
+    signals: [/\bback[ -]?end\b/i, /\bapi\b/i, /\b(?:serveur|server|node|express|microservice)\b/i,
+      /\b(?:commande|reprendre|reprise|rejouer|tentative)\b/i]
   },
   {
     domain: 'data', role: 'data_engineer', modelTier: 'standard', priority: 30,
-    signals: [/\b(?:data|donnee|donnée|database)\b/i, /\b(?:base de donnees|base de données|sql|sqlite|postgres)\b/i, /\b(?:etl|analytics)\b/i]
+    signals: [/\b(?:data|donnee|donnée|database)\b/i, /\b(?:base de donnees|base de données|sql|sqlite|postgres)\b/i,
+      /\b(?:etl|analytics|stock|inventaire|ventes|lignes|lots|consolider)\b/i]
   },
   {
     domain: 'security', role: 'security_reviewer', modelTier: 'frontier', priority: 40,
-    signals: [/\b(?:securite|sécurité|security)\b/i, /\b(?:auth|oauth|permission|tenant)\b/i, /\b(?:vulnerabilit|threat)\w*\b/i]
+    signals: [/\b(?:securite|sécurité|security)\b/i, /\b(?:auth|oauth|permission|tenant)\b/i,
+      /\b(?:vulnerabilit|threat)\w*\b/i, /\b(?:debit|acc[eè]s|authentification)\b/i]
   },
   {
     domain: 'quality', role: 'quality_engineer', modelTier: 'standard', priority: 50,
-    signals: [/\b(?:test|tests|qa)\b/i, /\b(?:quality|qualite|qualité)\b/i, /\b(?:verification|vérification|benchmark|eval)\w*\b/i]
+    signals: [/\b(?:test|tests|qa)\b/i, /\b(?:quality|qualite|qualité)\b/i,
+      /\b(?:verification|vérification|benchmark|eval|regression|bloquer)\w*\b/i]
   },
   {
     domain: 'operations', role: 'operations_engineer', modelTier: 'standard', priority: 60,
-    signals: [/\b(?:devops|deploy|deploiement|déploiement)\w*\b/i, /\b(?:docker|kubernetes|ci\/?cd)\b/i, /\b(?:observabil|telemetr|monitoring)\w*\b/i]
+    signals: [/\b(?:devops|deploy|deploiement|déploiement)\w*\b/i, /\b(?:docker|kubernetes|ci\/?cd)\b/i,
+      /\b(?:observabil|telemetr|monitoring|panne|incident|timeout|r[eé]seau|chaque nuit)\w*\b/i]
   },
   {
     domain: 'ai', role: 'ai_engineer', modelTier: 'frontier', priority: 70,
@@ -54,7 +61,8 @@ const TECHNICAL_DOMAIN_RULES = [
   },
   {
     domain: 'product', role: 'product_specialist', modelTier: 'standard', priority: 80,
-    signals: [/\b(?:product|produit|business|metier|métier)\b/i, /\baccessibilit\w*\b/i, /\b(?:research utilisateur|user research)\b/i]
+    signals: [/\b(?:product|produit|business|metier|métier)\b/i, /\baccessibilit\w*\b/i,
+      /\b(?:research utilisateur|user research|utilisateurs?|usage)\b/i]
   },
   {
     domain: 'science', role: 'research_scientist', modelTier: 'frontier', priority: 90,
@@ -171,6 +179,9 @@ function buildMembers(selected) {
 
 function technicalResult(selectedDomains, members, extra = {}) {
   const required = extra.requiredCapabilities || requiredCapabilities(selectedDomains);
+  const detectedDomains = extra.detectedDomains || selectedDomains;
+  const staffed = new Set(members.map((member) => member.label || member.subSystem));
+  const overflowDomains = extra.overflowDomains || detectedDomains.filter((item) => !staffed.has(item.domain || item.capability));
   const capabilityCoverage = measureCapabilityCoverage({
     requirements: required,
     members,
@@ -182,10 +193,10 @@ function technicalResult(selectedDomains, members, extra = {}) {
     artifact: null,
     primaryDomain: selectedDomains[0]?.domain || null,
     requiredCapabilities: required,
-    detectedDomains: selectedDomains.map(({ domain }) => domain),
+    detectedDomains: detectedDomains.map((item) => item.domain || item.capability),
     // Detected-but-not-staffed domains are surfaced instead of silently dropped:
     // "no domain may be ignored without justification".
-    overflowDomains: [],
+    overflowDomains: overflowDomains.map((item) => item.domain || item.capability),
     capabilityGaps,
     totalDetected: Number.isFinite(extra.totalDetected) ? extra.totalDetected : selectedDomains.length,
     capabilityCoverage,
@@ -202,7 +213,9 @@ function technicalAnalysis(domains, analysis) {
   return technicalResult(selected, buildMembers(selected), {
     requiredCapabilities: requirements,
     missionCoverage: analysis.missionCoverage,
-    totalDetected: domains.length
+    totalDetected: domains.length,
+    detectedDomains: domains,
+    overflowDomains: domains.slice(maxMembers())
   });
 }
 
@@ -231,7 +244,8 @@ function analyzeStructuredRequirements(input) {
   const candidates = workGraphRequirements.specialistsFor(input);
   const staffing = teamFormationOptimizer.optimizeTeam({ requirements, candidates, capacity: maxMembers() });
   const { selected, members } = structuredMembers(staffing, requirements);
-  const result = technicalResult(selected, members, { requiredCapabilities: requirements, totalDetected: requirements.length, missionCoverage: 1 });
+  const result = technicalResult(selected, members, { requiredCapabilities: requirements, totalDetected: requirements.length,
+    missionCoverage: 1, detectedDomains: requirements, overflowDomains: requirements.slice(staffing.selected.length) });
   result.staffing = staffing.decision;
   result.workGraph = input.workGraph || null;
   result.workGraphValidation = extracted.validation;
