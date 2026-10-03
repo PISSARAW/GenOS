@@ -21,34 +21,44 @@
 const bridgeService = require('./daemonEventBridgeService');
 const wakePolicyService = require('./daemonWakePolicyService');
 const { migrateDaemonTerritory } = require('../../db/migrations/migrateDaemonTerritory');
-const { spawnSync } = require('node:child_process');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
 
 const MAX_CHANGED_FILES = 200;
 const SAFE_REPO_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_.@/-]{1,240}$/;
 const productionWakePolicy = wakePolicyService.createWakePolicy({});
 
-function readWorkspaceHead(rootPath) {
-  const result = spawnSync('git', ['-C', rootPath, 'rev-parse', 'HEAD'], {
-    encoding: 'utf8', timeout: 3000, windowsHide: true
-  });
-  const headSha = (result.stdout || '').trim().toLowerCase();
-  return result.status === 0 && /^[a-f0-9]{40}$/.test(headSha) ? headSha : null;
+const execFileAsync = promisify(execFile);
+
+async function readWorkspaceHead(rootPath) {
+  try {
+    const result = await execFileAsync('git', ['-C', rootPath, 'rev-parse', 'HEAD'], {
+      encoding: 'utf8', timeout: 3000, windowsHide: true, maxBuffer: 1024 * 1024
+    });
+    const headSha = (result.stdout || '').trim().toLowerCase();
+    return /^[a-f0-9]{40}$/.test(headSha) ? headSha : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 async function changedFilesBetween(rootPath, oldHead, newHead) {
   if (!/^[a-f0-9]{40}$/.test(oldHead || '') || !/^[a-f0-9]{40}$/.test(newHead || '')) return null;
-  const result = spawnSync('git', ['-C', rootPath, 'diff', '--name-only', '--no-renames', `${oldHead}..${newHead}`], {
-    encoding: 'utf8', timeout: 5000, windowsHide: true, maxBuffer: 1024 * 1024
-  });
-  if (result.status !== 0) return null;
-  const paths = (result.stdout || '').split(/\r?\n/).filter(Boolean);
-  if (paths.length > MAX_CHANGED_FILES || paths.some((path) => !SAFE_REPO_PATH.test(path))) return null;
-  return paths;
+  try {
+    const result = await execFileAsync('git', ['-C', rootPath, 'diff', '--name-only', '--no-renames', `${oldHead}..${newHead}`], {
+      encoding: 'utf8', timeout: 5000, windowsHide: true, maxBuffer: 1024 * 1024
+    });
+    const paths = (result.stdout || '').split(/\r?\n/).filter(Boolean);
+    if (paths.length > MAX_CHANGED_FILES || paths.some((path) => !SAFE_REPO_PATH.test(path))) return null;
+    return paths;
+  } catch (_) {
+    return null;
+  }
 }
 
 async function synchronizeTerritory(db, rootPath, territoryId) {
   const row = await db.get('SELECT head_sha FROM daemon_territories WHERE id = ?', territoryId);
-  const workspaceHead = readWorkspaceHead(rootPath);
+  const workspaceHead = await readWorkspaceHead(rootPath);
   if (!row || !workspaceHead) return { synchronized: false, reason: 'head-unavailable' };
   if (row.head_sha === workspaceHead) return { synchronized: true, headSha: workspaceHead, changedFiles: [] };
   const changedFiles = await changedFilesBetween(rootPath, row.head_sha, workspaceHead);
