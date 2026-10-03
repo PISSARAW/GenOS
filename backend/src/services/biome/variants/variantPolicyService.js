@@ -21,7 +21,7 @@ const RULES = Object.freeze([
   ['multi_scale', /multi.scale|large.scale|grande échelle|many agents|nombreux agents/i],
   ['successional', /phase|succession|long.project|projet long|stages/i],
   ['knowledge', /\bknowledge\b|\bsources?\b|citation|veille|littérature|literature|research/i],
-  ['quality_diversity', /quality.diversity|quality and diversity|diversité|diversity|creative|créativ/i],
+  ['quality_diversity', /quality.diversity|quality and diversity|diversité|diversity|creative|créativ|substantially different|substantiellement diff[eé]rent|distinct solution|solution families|familles de solutions|preserve.*famil|ways to/i],
   ['open_ended', /open.ended|open problem|problème ouvert|novel|nouveau|discover|découvr/i],
   ['exploration', /explor|unknown|inconnu|debug|forag|investigat/i],
   ['resource', /resource|ressource|budget|allocation|scarcity|rareté/i]

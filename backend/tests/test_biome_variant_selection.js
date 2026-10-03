@@ -7,6 +7,7 @@ const MISSIONS = [
   ['Allocate scarce resources under a constrained budget.', 'resource'],
   ['Explore unknown patches and debug an unfamiliar system.', 'exploration'],
   ['Optimize quality and diversity in creative alternatives.', 'quality_diversity'],
+  ['Trouve 20 façons substantiellement différentes et préserve plusieurs familles de solutions.', 'quality_diversity'],
   ['Move a long project through its delivery phases.', 'successional'],
   ['Recover resilience after a regional failure.', 'resilience'],
   ['Maintain a persistent workspace over the long term.', 'persistent'],
