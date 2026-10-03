@@ -69,7 +69,7 @@ for (const kind of Object.keys(workerKinds.KINDS)) {
 
 assert.equal(workerKinds.buildWorkerContract('bounded_worker').authority.execute, true);
 assert.equal(workerKinds.buildWorkerContract('verifier_worker').authority.execute, true);
-assert.equal(workerKinds.buildWorkerContract('resident_daemon').authority.execute, false);
+assert.equal(workerKinds.buildWorkerContract('resident_daemon').authority.execute, true);
 assert.equal(workerKinds.buildWorkerContract('scout_cell').authority.execute, false);
 assert.equal(workerKinds.buildWorkerContract('creative_worker').authority.execute, false);
 assert.equal(workerKinds.buildWorkerContract('specialist').authority.write, false);

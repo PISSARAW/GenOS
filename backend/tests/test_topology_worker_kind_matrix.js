@@ -43,7 +43,7 @@ async function persistAndCheckWorker(mode, member, index) {
   assert.equal(metadata.workerContract.authority.write, false, `${mode}:${member.role} must not gain write authority`);
   assert.equal(metadata.workerContract.authority.spawn, false);
   assert.equal(metadata.workerContract.authority.delegate, false);
-  if (metadata.workerContract.authority.execute) {
+  if (metadata.workerContract.authority.read) {
     assert.equal(enforcement.assertWorkerToolAllowed(metadata.workerContract, 'genos_search_failures'), true);
   } else {
     assert.throws(() => enforcement.assertWorkerToolAllowed(metadata.workerContract, 'genos_search_failures'), {

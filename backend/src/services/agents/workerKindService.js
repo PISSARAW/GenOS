@@ -51,7 +51,7 @@ const ROLE_ALIASES = Object.freeze({
   implementation: 'bounded_worker', frontend_developer: 'bounded_worker',
   independent_reviewer: 'verifier_worker', neutral_observer: 'scout_cell',
   verifier: 'verifier_worker',
-  red_team: 'red_worker', blue_team: 'bounded_worker', analyst: 'bounded_worker',
+  red_team: 'red_worker', blue_team: 'verifier_worker', analyst: 'verifier_worker',
   recovery_specialist: 'recovery_worker', contract_auditor: 'verifier_worker',
   strategist: 'sub_orchestrator', literary_author: 'creative_worker',
   direct_author: 'creative_worker', planned_author: 'creative_worker',
@@ -103,8 +103,10 @@ function resolveWorkerKind(explicitKind, role) {
     return explicit;
   }
   const normalizedRole = normalize(role);
+  if (!normalizedRole) return 'bounded_worker';
   if (KINDS[normalizedRole]) return normalizedRole;
-  return ROLE_ALIASES[normalizedRole] || 'bounded_worker';
+  if (ROLE_ALIASES[normalizedRole]) return ROLE_ALIASES[normalizedRole];
+  throw Object.assign(new Error(`Unknown worker role '${role}'.`), { code: 'UNKNOWN_WORKER_KIND' });
 }
 
 function kindDefinition(kind) {
