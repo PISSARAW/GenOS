@@ -78,7 +78,7 @@ impl GenosEcosystem {
     /// Cellule active dont le génome enregistré peut encore se répliquer
     /// (limite de Hayflick non atteinte) : candidate mère de ce tick.
     fn find_eligible_mother(&self) -> Option<(Uuid, Genome)> {
-        let (best_cell, best_genome_id) = self
+        let (best_cell, best_genome_id, _) = self
             .orchestrator
             .active_cells
             .iter()
