@@ -6,6 +6,7 @@ const evidenceAudit = require('./trinityEvidenceAudit');
 const trinityService = require('./trinityService');
 const counterfactual = require('./trinityCounterfactualFork');
 const factorial = require('./trinityFactorialGrid');
+const pareto = require('./trinityParetoService');
 
 const FACTOR_LEVELS = Object.freeze({
   approach: ['direct', 'planned'], modelTier: ['standard', 'frontier'], validation: ['basic', 'deep']
@@ -25,7 +26,43 @@ function run(input) {
     executions.counterfactual = runCounterfactual(input.reports);
   }
   if (design.worldTopology === 'factorial_grid') executions.factorial = runFactorial(input.reports);
+  if (design.objectivePolicy === 'multi_objective_scalarized') {
+    executions.scalarizedObjectives = runScalarizedObjectives(input.reports);
+  }
   return { status: Object.values(executions).every((entry) => entry.status === 'executed') ? 'executed' : 'incomplete', executions };
+}
+
+function runScalarizedObjectives(reports) {
+  const profiles = Object.values(pareto.DEFAULT_OBJECTIVE_PROFILES);
+  const worlds = (reports || []).map((world, index) => {
+    const report = world.report || {};
+    return { worldNumber: world.worldNumber, vector: report.evidenceVector || {},
+      evidenceVectorEvidence: report.evidenceVectorEvidence || {},
+      evidenceIds: verifiedEvidenceIds(report), profile: profiles[index] };
+  });
+  if (worlds.length !== 3 || worlds.some((world) => !measuredVector(world))) {
+    return { status: 'incomplete', reason: 'three_evidence_linked_vectors_required' };
+  }
+  const scores = worlds.map((world) => ({ worldNumber: world.worldNumber,
+    profile: world.profile.name,
+    score: pareto.scalarizeVector(world.vector, world.profile.weights),
+    sensitivity: weightSensitivity(world.vector, world.profile.weights) }));
+  return { status: 'executed', scores, method: 'weighted_evidence_vector', decisionAuthority: 'none' };
+}
+
+function measuredVector(world) {
+  const dimensions = Object.keys(world.profile.weights);
+  return dimensions.every((dimension) => Number.isFinite(world.vector[dimension])
+    && Array.isArray(world.evidenceVectorEvidence[dimension])
+    && world.evidenceVectorEvidence[dimension].length > 0
+    && world.evidenceVectorEvidence[dimension].every((id) => world.evidenceIds.has(String(id))));
+}
+
+function weightSensitivity(vector, weights) {
+  return Object.keys(weights).map((dimension) => {
+    const perturbed = { ...weights, [dimension]: weights[dimension] * 1.1 };
+    return { dimension, score: pareto.scalarizeVector(vector, perturbed) };
+  });
 }
 
 function runFactorial(reports) {
@@ -140,5 +177,5 @@ function verifiedEvidenceIds(report) {
     .map((item) => String(item.id || '')).filter(Boolean));
 }
 
-module.exports = { run, runOracle, runQualityDiversity, runCounterfactual, runFactorial,
+module.exports = { run, runOracle, runQualityDiversity, runCounterfactual, runFactorial, runScalarizedObjectives,
   validDistribution, candidateFromReport };
