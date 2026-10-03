@@ -7,7 +7,7 @@
  * Bootstraps DB, registers daemon in residentDaemonRuntime,
  * installs signal subscriptions (TERRITORY_FILE_CHANGED,
  * TERRITORY_COMMIT, ORCHESTRATOR_ENTERED, KNOWLEDGE_STALE),
- * starts a 60s fallback timer emitting KNOWLEDGE_STALE,
+ * polls persisted territory events across process boundaries,
  * and shuts down gracefully on SIGINT/SIGTERM.
  *
  * Usage: genos-daemon.cjs --territory <id> --daemon-id <id>
@@ -27,7 +27,6 @@ const SUBSCRIBED_SIGNALS = [
   'KNOWLEDGE_STALE'
 ];
 
-const DEFAULT_FALLBACK_MS = 60000;
 const DEFAULT_HEARTBEAT_MS = 30000;
 const DEFAULT_EVENT_POLL_MS = 1000;
 
@@ -63,14 +62,6 @@ function subscribeToSignals(bridge, territoryId) {
   };
   signalEventBus.onSignal(listener);
   return () => signalEventBus.off('signal', listener);
-}
-
-function startFallbackTimer(bridge, territoryId, intervalMs) {
-  const timer = setInterval(() => {
-    eventBridge.ingestEvent(bridge, { type: 'KNOWLEDGE_STALE', territoryId });
-  }, intervalMs);
-  if (timer.unref) timer.unref();
-  return timer;
 }
 
 function startHeartbeatTimer(runtime, daemonId, intervalMs) {
@@ -114,7 +105,6 @@ async function assertHostDaemonRegistered(runtime, input) {
 
 async function shutdown(ctx) {
   if (ctx.unsubscribeSignals) ctx.unsubscribeSignals();
-  if (ctx.fallbackTimer) clearInterval(ctx.fallbackTimer);
   if (ctx.heartbeatTimer) clearInterval(ctx.heartbeatTimer);
   if (ctx.eventPollTimer) clearInterval(ctx.eventPollTimer);
   await closeDatabase().catch(() => {});
@@ -145,12 +135,11 @@ async function main() {
   };
   await eventConsumer.initializeCursor(eventContext);
   const unsubscribeSignals = subscribeToSignals(bridge, flags.territoryId);
-  const fallbackTimer = startFallbackTimer(bridge, flags.territoryId, DEFAULT_FALLBACK_MS);
   const heartbeatTimer = startHeartbeatTimer(runtime, flags.daemonId, DEFAULT_HEARTBEAT_MS);
   const eventPollTimer = startEventPollTimer(eventContext, DEFAULT_EVENT_POLL_MS);
 
-  const ctx = { db, runtime, bridge, unsubscribeSignals, fallbackTimer, heartbeatTimer, eventPollTimer, daemonId: flags.daemonId };
-  console.log(`[genos-daemon] ${flags.daemonId} active on ${flags.territoryId}. Signals: ${SUBSCRIBED_SIGNALS.join(', ')}. Fallback: ${DEFAULT_FALLBACK_MS}ms.`);
+  const ctx = { db, runtime, bridge, unsubscribeSignals, heartbeatTimer, eventPollTimer, daemonId: flags.daemonId };
+  console.log(`[genos-daemon] ${flags.daemonId} active on ${flags.territoryId}. Signals: ${SUBSCRIBED_SIGNALS.join(', ')}. Event poll: ${DEFAULT_EVENT_POLL_MS}ms.`);
 
   const stop = () => { shutdown(ctx).then(() => process.exit(0)).catch(() => process.exit(1)); };
   process.once('SIGINT', stop);
