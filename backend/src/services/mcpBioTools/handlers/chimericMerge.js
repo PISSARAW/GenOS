@@ -3,7 +3,7 @@ const { quoteCliArg } = require('../shellQuote');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // State registry for chimeric mosaic agents
-const chimericRegistry = new Map(); /* persisterHook: chimericRegistry */
+let chimericRegistry = new Map(); /* persisterHook: chimericRegistry */
 
 function getMosaic(mosaicId) {
   if (!chimericRegistry.has(mosaicId)) {
@@ -177,6 +177,7 @@ function _ensurechimericRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chimeric_merge', 'chimericRegistry') : null;
     const mapToUse = stored && stored.size ? stored : chimericRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chimeric_merge', 'chimericRegistry', mapToUse) : mapToUse;
+    chimericRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'chimericRegistry', {
       value: persistentMap,

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
 // Registry for point mutations
-const pointMutationRegistry = new Map(); /* persisterHook: pointMutationRegistry */
+let pointMutationRegistry = new Map(); /* persisterHook: pointMutationRegistry */
 
 function getMutationRecord(id) {
   if (!pointMutationRegistry.has(id)) {
@@ -133,6 +133,7 @@ function _ensurepointMutationRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::point_mutation', 'pointMutationRegistry') : null;
     const mapToUse = stored && stored.size ? stored : pointMutationRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::point_mutation', 'pointMutationRegistry', mapToUse) : mapToUse;
+    pointMutationRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'pointMutationRegistry', {
       value: persistentMap,

@@ -3,7 +3,7 @@ const { quoteCliArg } = require('../shellQuote');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // Registry for active conjoined twin pairs
-const conjoinedTwinRegistry = new Map(); /* persisterHook: conjoinedTwinRegistry */
+let conjoinedTwinRegistry = new Map(); /* persisterHook: conjoinedTwinRegistry */
 
 function getPair(pairId) {
   if (!conjoinedTwinRegistry.has(pairId)) {
@@ -193,6 +193,7 @@ function _ensureconjoinedTwinRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::conjoined_twin', 'conjoinedTwinRegistry') : null;
     const mapToUse = stored && stored.size ? stored : conjoinedTwinRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::conjoined_twin', 'conjoinedTwinRegistry', mapToUse) : mapToUse;
+    conjoinedTwinRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'conjoinedTwinRegistry', {
       value: persistentMap,
