@@ -1,5 +1,6 @@
 // Registry for Genomic Aneuploidy
 const aneuploidyRegistry = new Map(); /* persisterHook: aneuploidyRegistry */
+const VALID_CHROMOSOMES = new Set(['chrom_analyzer', 'chrom_verifier', 'chrom_executor']);
 
 function getAneuploidyRecord(id) {
   if (!aneuploidyRegistry.has(id)) {
@@ -28,7 +29,9 @@ function handleTrisomyAction(record, aneId, targetChrom) {
     target_chromosome: targetChrom,
     copy_count: 3,
     karyotype: record.karyotype,
-    output: `Induced trisomy (+1 copy) on '${targetChrom}'. 3 instances ready for 2/3 majority arbitration.`
+    execution_scope: 'metadata_simulation',
+    runtime_genome_changed: false,
+    output: `Recorded trisomy metadata (+1 copy) on '${targetChrom}'. No runtime genome was changed.`
   };
 }
 
@@ -44,35 +47,41 @@ function handleMonosomyAction(record, aneId, targetChrom) {
     target_chromosome: targetChrom,
     copy_count: 1,
     karyotype: record.karyotype,
-    output: `Induced monosomy (-1 copy) on '${targetChrom}'. 1 instance active for frugal execution.`
+    execution_scope: 'metadata_simulation',
+    runtime_genome_changed: false,
+    output: `Recorded monosomy metadata (-1 copy) on '${targetChrom}'. No runtime genome was changed.`
   };
 }
 
 function handleConsensusAction(args) {
-  const votes = Array.isArray(args.votes) ? args.votes : ['APPROVE', 'APPROVE', 'REJECT'];
-  const counts = {};
-  for (const v of votes) {
-    counts[v] = (counts[v] || 0) + 1;
+  const votes = args.votes === undefined ? ['APPROVE', 'APPROVE', 'REJECT'] : args.votes;
+  if (!Array.isArray(votes) || votes.length === 0 || votes.length > 128 ||
+      !votes.every(v => typeof v === 'string' && v.trim().length > 0 && v.length <= 128)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'votes must contain 1 to 128 non-empty strings (max 128 chars each).' };
   }
+  const counts = new Map();
+  for (const v of votes) counts.set(v, (counts.get(v) || 0) + 1);
   let winner = null;
   let maxCount = 0;
-  for (const [v, cnt] of Object.entries(counts)) {
+  for (const [v, cnt] of counts) {
     if (cnt > maxCount) {
       maxCount = cnt;
       winner = v;
     }
   }
-  const isSupermajority = maxCount >= Math.ceil((2 / 3) * votes.length);
+  const hasMajority = maxCount > votes.length / 2;
+  const isSupermajority = hasMajority && maxCount >= Math.ceil((2 / 3) * votes.length);
   return {
     configured: true,
     success: true,
     status: 'trisomic_consensus_resolved',
     transport: 'aneuploidy_engine',
     votes,
-    winner,
+    winner: hasMajority ? winner : null,
     majority_count: maxCount,
     supermajority_achieved: isSupermajority,
-    output: `Trisomic consensus resolved: winner='${winner}' with ${maxCount}/${votes.length} votes (Supermajority: ${isSupermajority}).`
+    execution_scope: 'metadata_simulation',
+    output: `Vote tally recorded: winner='${winner}' with ${maxCount}/${votes.length} votes (strict supermajority: ${isSupermajority}). No runtime arbitration occurred.`
   };
 }
 
@@ -80,6 +89,9 @@ function handleAneuploidy(args = {}) {
   const action = args.action || 'status';
   const aneId = args.id || `aneu-${Date.now()}`;
   const targetChrom = args.target_chromosome || 'chrom_verifier';
+  if (typeof aneId !== 'string' || !aneId.trim() || aneId.length > 120 || typeof targetChrom !== 'string' || !VALID_CHROMOSOMES.has(targetChrom)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'id must be a non-empty string (max 120 chars); target_chromosome must be a known karyotype key.' };
+  }
   const record = getAneuploidyRecord(aneId);
 
   if (action === 'induce_trisomy') {
@@ -97,6 +109,7 @@ function handleAneuploidy(args = {}) {
     success: true,
     status: 'active',
     transport: 'aneuploidy_engine',
+    execution_scope: 'metadata_simulation',
     aneuploidy_id: aneId,
     karyotype: record.karyotype,
     output: `Aneuploidy engine '${aneId}' active. Karyotype: ${JSON.stringify(record.karyotype)}.`
