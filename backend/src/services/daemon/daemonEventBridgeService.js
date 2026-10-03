@@ -45,6 +45,8 @@ function validateBridgeEvent(event) {
 
 async function applyCheapUpdate(bridge, event, receptor) {
   if (!bridge.db) return { applied: false, reason: 'no-db' };
+  const stored = await territoryService.getTerritory(bridge.db, { id: event.territoryId });
+  if (!stored.found) return { applied: false, reason: 'unknown-territory' };
   if (receptor.cheapUpdate === 'head') return applyHeadUpdate(bridge, event);
   await territoryService.touchObserved(bridge.db, { id: event.territoryId });
   return { applied: true, kind: 'touch' };
@@ -100,8 +102,7 @@ async function maybeWakeRuntime(bridge, event, receptor) {
   try {
     heartbeat = await daemonRuntime.heartbeat(bridge.runtime, {
       daemonId: bridge.daemonId,
-      activity: receptor.wakeActivity,
-      health: 'HEALTHY'
+      activity: receptor.wakeActivity
     });
   } catch (error) {
     wakePolicyService.releaseWake(bridge.policy, ask);
@@ -116,14 +117,29 @@ async function maybeWakeRuntime(bridge, event, receptor) {
 
 async function processPersistedEvent(bridge, event) {
   const receptor = receptorRegistry.getReceptorFor(event.event_type);
-  if (!receptor) return { processed: true, woke: false };
+  if (!receptor || Number(event.woke) === 1) return { processed: true, woke: false };
   const wake = await maybeWakeRuntime(bridge, {
     territoryId: event.territory_id,
-    type: event.event_type
+    type: event.event_type,
+    priority: event.priority || receptor.priority,
+    headSha: event.head_sha || null,
+    payload: parseEventPayload(event.payload_json),
+    now: Date.now()
   }, receptor);
   if (wake.woke && bridge.db) {
     await bridge.db.run('UPDATE daemon_events SET woke = 1 WHERE id = ?', event.id);
   }
+  return { processed: true, woke: wake.woke, reason: wake.reason };
+}
+
+function parseEventPayload(raw) {
+  try {
+    const parsed = JSON.parse(raw || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
   return { processed: true, woke: wake.woke, reason: wake.reason };
 }
 
@@ -138,6 +154,7 @@ async function ingestEvent(bridge, event) {
   const receptor = receptorRegistry.getReceptorFor(event.type);
   const cheap = await applyCheapUpdate(bridge, event, receptor);
   let handoffSignal = null;
+  let handoffError = null;
   if (receptor.handoffRequested && bridge.db) {
     try {
       const result = await handoffCompiler.compileBrief(bridge.db, {
@@ -147,8 +164,12 @@ async function ingestEvent(bridge, event) {
       if (result.compiled && result.signal) {
         signalEventBus.publish(result.signal);
         handoffSignal = result.signal;
+      } else {
+        handoffError = result.reason || 'brief-not-compiled';
       }
-    } catch (_) { /* handoff failure must not block ingestion */ }
+    } catch (error) {
+      handoffError = (error && error.message) || 'handoff-failed';
+    }
   }
   const wake = await maybeWakeRuntime(bridge, event, receptor);
   const logged = await logIngestedEvent(bridge, event, { receptor, wake });
@@ -163,6 +184,7 @@ async function ingestEvent(bridge, event) {
     llmRequired: false,
     handoffRequested: receptor.handoffRequested === true,
     handoffSignal,
+    handoffError,
     logged
   };
 }
