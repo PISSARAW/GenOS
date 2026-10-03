@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for hybrid multi-tier clusters
-const hybridClusterRegistry = new Map();
+let hybridClusterRegistry = new Map();
 
 function getCluster(clusterId) {
   if (!hybridClusterRegistry.has(clusterId)) {
@@ -145,10 +145,11 @@ function _ensurehybridMultiplesRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::hybrid_multiples', 'hybridMultiplesRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : hybridMultiplesRegistry;
+    const mapToUse = stored && stored.size ? stored : hybridClusterRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::hybrid_multiples', 'hybridMultiplesRegistry', mapToUse) : mapToUse;
+    hybridClusterRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'hybridMultiplesRegistry', {
+    Object.defineProperty(module.exports, 'hybridClusterRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -168,7 +169,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.hybridMultiplesRegistry || hybridMultiplesRegistry;
+  const map = module.exports.hybridClusterRegistry || hybridClusterRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

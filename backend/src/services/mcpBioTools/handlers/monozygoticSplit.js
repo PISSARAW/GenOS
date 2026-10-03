@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active monozygotic split clusters
-const monozygoticClusterRegistry = new Map();
+let monozygoticClusterRegistry = new Map();
 
 function getCluster(clusterId) {
   if (!monozygoticClusterRegistry.has(clusterId)) {
@@ -141,10 +141,11 @@ function _ensuremonozygoticRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::monozygotic_split', 'monozygoticRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : monozygoticRegistry;
+    const mapToUse = stored && stored.size ? stored : monozygoticClusterRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::monozygotic_split', 'monozygoticRegistry', mapToUse) : mapToUse;
+    monozygoticClusterRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'monozygoticRegistry', {
+    Object.defineProperty(module.exports, 'monozygoticClusterRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -164,7 +165,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.monozygoticRegistry || monozygoticRegistry;
+  const map = module.exports.monozygoticClusterRegistry || monozygoticClusterRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

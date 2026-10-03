@@ -8,7 +8,7 @@
 const crypto = require('crypto');
 
 // In-memory registry of heteropaternal twin clusters
-const HETEROPATERNAL_REGISTRY = new Map();
+let HETEROPATERNAL_REGISTRY = new Map();
 
 function generateId(prefix) {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}`;
@@ -139,10 +139,11 @@ function _ensureheteropaternalRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::heteropaternal_superfecundation', 'heteropaternalRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : heteropaternalRegistry;
+    const mapToUse = stored && stored.size ? stored : HETEROPATERNAL_REGISTRY;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::heteropaternal_superfecundation', 'heteropaternalRegistry', mapToUse) : mapToUse;
+    HETEROPATERNAL_REGISTRY = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'heteropaternalRegistry', {
+    Object.defineProperty(module.exports, 'HETEROPATERNAL_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -162,7 +163,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.heteropaternalRegistry || heteropaternalRegistry;
+  const map = module.exports.HETEROPATERNAL_REGISTRY || HETEROPATERNAL_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;
