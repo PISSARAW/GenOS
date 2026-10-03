@@ -45,6 +45,15 @@ La synthèse reçoit une projection des affirmations et références vérifiées
 chaque dossier. Les dossiers complets restent persistés pour l'audit et les
 affirmations utilisées dans `dossierInfluence` doivent leur correspondre exactement.
 
+Une mission locale avec un modèle Ollama demandé explicitement conserve cette
+identité pour la revue du plan, les workers et la synthèse. Le routage refuse un
+modèle indisponible au lieu de choisir silencieusement le modèle par défaut. Le
+pilote factuel compare les identités effectivement inscrites dans les reçus à
+celle demandée et signale tout écart comme un échec du run.
+Le worker local transmet au service de progression le message construit pour
+son événement terminal, afin que l'appel ne soit plus rejeté pour absence de
+message après l'acceptation du rapport de preuve.
+
 ## Conséquences
 
 - Les tâches simples peuvent suivre le chemin direct choisi par la stratégie.

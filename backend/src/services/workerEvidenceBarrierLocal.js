@@ -167,8 +167,7 @@ function reportMilestone(mission, event) {
   }
   let orchestratorId = mission.agentId;
   if (mission.orchestratorAgentId) orchestratorId = mission.orchestratorAgentId;
-  userProgress.report({ orchestratorId: orchestratorId, sourceAgentId: mission.agentId, silent: silent });
-  void milestone;
+  userProgress.report({ ...milestone, orchestratorId: orchestratorId, sourceAgentId: mission.agentId, silent: silent });
 }
 function maybeEmitDecisionBlocked(mission, event) {
   const evidence = require('./agentEvidenceService');

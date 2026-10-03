@@ -237,7 +237,9 @@ async function prepareWorkerAssets(workerContext) {
 
   const prompt = buildWorkerPrompt({ identity, conscience, assignment, context: workerContext, dnaSelection, workerSelfBlock });
   validatePromptBudget({ prompt, assignedTokens, assignment, id });
-  const route = mission.executor === 'caller_mcp' ? {} : await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
+  const route = mission.executor === 'caller_mcp' ? {} : (await require('./agentModelRoutingService').explicitLocalRoute(mission)
+    || await localWorkerRoute({ db, agentId: parent.id, role: assignment.role, modelTier: assignment.modelTier || parent.model_tier,
+      tenant: { organizationId: parent.organization_id, projectId: parent.project_id } }));
   const workspaceRoot = await createWorkerWorkspace(workerContext, id);
   return { ...workerContext, id, identity, conscience, prompt, assignedTokens, route, workspaceRoot, evolution, dnaSelection, mission };
 }

@@ -4,6 +4,8 @@ const path = require('node:path');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 const modelRouter = require('../src/services/modelRouter');
+const modelDiscovery = require('../src/services/localModelDiscovery');
+const { explicitLocalRoute } = require('../src/services/agentModelRoutingService');
 const runtimeAdapter = require('../src/services/agentRuntimeAdapter');
 
 async function main() {
@@ -31,6 +33,16 @@ async function main() {
   assert.equal(policy.primary, 'ollama://configured-local');
   assert.deepEqual(policy.fallbacks, ['ollama://discovered-local']);
   assert.equal(policy.configured, true);
+
+  const originalDiscovery = modelDiscovery.discoverLocalModels;
+  modelDiscovery.discoverLocalModels = async () => [{ uri: 'ollama://qwen2.5:14b', chatCapable: true }];
+  try {
+    const pinned = await explicitLocalRoute({ provider: 'ollama', modelId: 'qwen2.5:14b' });
+    assert.equal(pinned.selectedModel, 'ollama://qwen2.5:14b');
+    assert.deepEqual(pinned.policy.fallbacks, []);
+    await assert.rejects(explicitLocalRoute({ provider: 'ollama', modelId: 'missing:never' }),
+      { code: 'REQUESTED_LOCAL_MODEL_UNAVAILABLE' });
+  } finally { modelDiscovery.discoverLocalModels = originalDiscovery; }
 
   const previousFetch = global.fetch;
   const requestBodies = [];

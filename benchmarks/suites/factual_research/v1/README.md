@@ -42,6 +42,8 @@ reçu séparé, puis applique l’oracle indépendant. Il marque toujours ce pil
 `comparisonEligible: false` : une réussite ponctuelle ne constitue pas une paire
 confirmatoire. Un audit GenOS incomplet ou une prédiction absente donne un code
 de sortie non nul.
+Le reçu relève aussi les modèles réellement observés dans les preuves et refuse
+un run dont l'identité diffère du modèle demandé.
 
 Ce pilote mesure l’extraction factuelle à partir de quatre fiches ciblées. Il ne
 teste pas la recherche libre sur le Web. Il ne devient pas une comparaison

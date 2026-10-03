@@ -168,7 +168,14 @@ function shouldTrackWorkspace(normalizedMission, dispatchedAgent) {
 
 async function applyLocalRouting(ctx) {
   const { db, agentId, normalizedMission, resolvedExecutable } = ctx;
-  if (!(isLocalRuntime(resolvedExecutable) && !normalizedMission.localRoutingPolicy)) return;
+  if (!isLocalRuntime(resolvedExecutable)) return;
+  const explicitRoute = await require('./agentModelRoutingService').explicitLocalRoute(normalizedMission);
+  if (explicitRoute) {
+    normalizedMission.localModel = explicitRoute.selectedModel;
+    normalizedMission.localRoutingPolicy = explicitRoute.policy;
+    return;
+  }
+  if (normalizedMission.localRoutingPolicy) return;
   const workspace = normalizedMission.workspaceId
     ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
     : {};
@@ -176,7 +183,6 @@ async function applyLocalRouting(ctx) {
   normalizedMission.localRoutingPolicy = await modelRouter.localRoutingPolicy(db, { agentId, ...workspace }, discovered);
   normalizedMission.localModel = normalizedMission.localRoutingPolicy.primary;
 }
-
 function buildMissionIdentity(agentId, normalizedMission, dispatchedAgent) {
   return {
     agentId,

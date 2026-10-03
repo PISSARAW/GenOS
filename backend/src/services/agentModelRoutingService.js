@@ -31,19 +31,20 @@ function modelUsage(result = {}) {
 }
 
 async function consultLocalModels({ db, agentId, mission, plan, tenant = {} }) {
+  const explicitRoute = await explicitLocalRoute(mission);
   const discovered = (await localModelDiscovery.discoverLocalModels()).filter((model) => model.chatCapable);
   const capable = competentLocalModels(discovered, { role: 'orchestration_planner', modelTier: 'frontier', purpose: 'planning' });
-  const candidates = capable.map((model) => model.uri);
+  const candidates = explicitRoute ? [explicitRoute.selectedModel] : capable.map((model) => model.uri);
   if (!candidates.length) return {
     consulted: false,
     candidates: discovered.map((model) => model.uri),
     error: discovered.length ? 'Discovered local models did not meet the planning competency floor.' : undefined
   };
   try {
-    const policy = await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, candidates);
+    const policy = explicitRoute?.policy || await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, candidates);
     const planTimeoutMs = localPlanTimeoutMs(capable, mission);
     const result = await modelRouter.generate({
-      db, agentId, ...tenant, timeoutMs: planTimeoutMs, policy,
+      db, agentId, ...tenant, timeoutMs: planTimeoutMs, policy, model: explicitRoute?.selectedModel,
       priority: 'interactive',
       prompt: `You are the local planning model for a GenOS orchestrator. Analyse this mission and return a concise JSON-like recommendation: which hypotheses merit forks, which worker roles are needed, when replay/merge is justified, and what can be delegated locally. Mission: ${mission.prompt || mission.currentTask || ''}. Strategy profile: ${JSON.stringify(plan.profile)}.`
     });
@@ -51,6 +52,21 @@ async function consultLocalModels({ db, agentId, mission, plan, tenant = {} }) {
   } catch (error) {
     return { consulted: false, candidates, error: error.message };
   }
+}
+
+async function explicitLocalRoute(mission = {}) {
+  const modelId = String(mission.modelId || '').trim();
+  if (!modelId || String(mission.provider || '').toLowerCase() !== 'ollama') return null;
+  const uri = modelId.startsWith('ollama://') ? modelId : `ollama://${modelId}`;
+  const models = await localModelDiscovery.discoverLocalModels();
+  if (!models.some((model) => model.uri === uri && model.chatCapable)) {
+    throw Object.assign(new Error(`Requested local model '${uri}' is unavailable or not chat-capable.`), { code: 'REQUESTED_LOCAL_MODEL_UNAVAILABLE' });
+  }
+  return {
+    selectedModel: uri,
+    policy: { primary: uri, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true },
+    criteria: { explicitModelRequest: true, provider: 'ollama' }
+  };
 }
 
 function modelScale(model) {
@@ -134,4 +150,4 @@ async function localWorkerRoute(options = {}) {
   };
 }
 
-module.exports = { modelUsage, consultLocalModels, modelScale, localPlanTimeoutMs, localCompetencyFloor, competentLocalModels, rankLocalModels, localWorkerRoute, machineLoad };
+module.exports = { modelUsage, consultLocalModels, modelScale, localPlanTimeoutMs, localCompetencyFloor, competentLocalModels, rankLocalModels, localWorkerRoute, explicitLocalRoute, machineLoad };

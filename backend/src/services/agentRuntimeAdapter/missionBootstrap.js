@@ -109,11 +109,19 @@ async function resolveMissionContract(ctx) {
 
 async function resolveLocalModel(ctx) {
   const nm = ctx.normalizedMission;
-  if (nm.executor === 'caller_mcp' || ctx.dispatchedAgent.execution_mode !== 'worker' || (nm.localModel && nm.disableLocalModel !== true)) return;
+  if (nm.executor === 'caller_mcp' || ctx.dispatchedAgent.execution_mode !== 'worker') return;
+  const explicitRoute = await require('../agentModelRoutingService').explicitLocalRoute(nm);
+  if (explicitRoute) {
+    nm.localModel = explicitRoute.selectedModel;
+    nm.localRoutingPolicy = explicitRoute.policy;
+    nm.localRoutingCriteria = explicitRoute.criteria;
+    return;
+  }
+  if (nm.localModel && nm.disableLocalModel !== true) return;
   const workerTenant = nm.workspaceId
     ? await ctx.db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', nm.workspaceId)
     : null;
-  const route = await localWorkerRoute(ctx.db, ctx.agentId, nm.role, nm.modelTier, workerTenant || {});
+  const route = await localWorkerRoute({ db: ctx.db, agentId: ctx.agentId, role: nm.role, modelTier: nm.modelTier, tenant: workerTenant || {} });
   nm.localModel = route.selectedModel;
   nm.localRoutingPolicy = route.policy;
   nm.localRoutingCriteria = route.criteria;

@@ -63,11 +63,26 @@ function extractPrediction(outcome, item) {
   return null;
 }
 
+function observedModels(outcome) {
+  const models = [];
+  for (const event of outcome.telemetry || []) {
+    if (!['LOCAL_MODEL_ROUTING', 'EVIDENCE_REPORT'].includes(event.event_type)) continue;
+    const payload = JSON.parse(event.payload_json || '{}');
+    const modelId = event.event_type === 'LOCAL_MODEL_ROUTING'
+      ? payload.selectedModel : payload.workerArtifact?.provenance?.model;
+    if (modelId) models.push(modelId);
+  }
+  return [...new Set(models)];
+}
+
 function buildReceipt(input) {
   const { runId, item, questions, sourceState, startedAt, execution, outcome, prediction, score } = input;
+  const servedModels = observedModels(outcome);
+  const expectedModel = model.startsWith('ollama://') ? model : `ollama://${model}`;
   return {
     schemaVersion: 1, mode: 'genos-pilot', runId, taskId: item.taskId,
-    requestedModel: model, questionSetDigest: hash(questions), sourceLock: sourceState.lock,
+    requestedModel: model, servedModels, modelIdentityVerified: servedModels.length > 0 && servedModels.every((served) => served === expectedModel),
+    questionSetDigest: hash(questions), sourceLock: sourceState.lock,
     oracleDigest: hash(fs.readFileSync(path.join(suite, 'oracle', 'answer-key.json'))),
     startedAt, finishedAt: new Date().toISOString(), processExitCode: execution.code,
     missionId: outcome.missionId || null, orchestratorId: outcome.orchestratorId || null,
@@ -110,7 +125,7 @@ async function main() {
   const receipt = buildReceipt({ runId, item, questions, sourceState, startedAt, execution, outcome, prediction, score });
   fs.writeFileSync(path.join(runDir, 'receipt.json'), `${JSON.stringify(receipt, null, 2)}\n`);
   console.log(JSON.stringify({ runDir, ...receipt }, null, 2));
-  if (!prediction || !outcome.success || execution.code !== 0) process.exitCode = 2;
+  if (!prediction || !outcome.success || execution.code !== 0 || !receipt.modelIdentityVerified) process.exitCode = 2;
 }
 
 main().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });
