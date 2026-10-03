@@ -11,10 +11,15 @@ const MAX_ATTEMPTS = 3;
 function parseDeps(task) {
   try {
     const value = JSON.parse(task.depends_on_json || '[]');
-    return Array.isArray(value) ? value : [];
+    if (!Array.isArray(value)) return { deps: [], corrupt: true };
+    return { deps: value, corrupt: false };
   } catch (_) {
-    return [];
+    return { deps: [], corrupt: true };
   }
+}
+
+function isCorrupt(task) {
+  return task.status === 'todo' && parseDeps(task).corrupt;
 }
 
 function isDepDone(dep, byId) {
@@ -25,7 +30,9 @@ function isDepDone(dep, byId) {
 function isRunnable(task, byId) {
   if (task.status !== 'todo') return false;
   if (task.attempt >= MAX_ATTEMPTS) return false;
-  return parseDeps(task).every((dep) => isDepDone(dep, byId));
+  const parsed = parseDeps(task);
+  if (parsed.corrupt) return false;
+  return parsed.deps.every((dep) => isDepDone(dep, byId));
 }
 
 function topPriority(runnable) {
@@ -40,6 +47,7 @@ function blockedReason(tasks) {
   if (tasks.some((task) => task.status === 'todo' && task.attempt >= MAX_ATTEMPTS)) {
     return 'tentatives-epuisees';
   }
+  if (tasks.some(isCorrupt)) return 'dependances-invalides';
   if (tasks.some((task) => task.status === 'todo')) return 'dependances-manquantes';
   if (tasks.some((task) => task.status === 'doing')) return 'execution-en-cours';
   return 'backlog-vide';

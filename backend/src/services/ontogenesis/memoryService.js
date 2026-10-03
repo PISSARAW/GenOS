@@ -37,8 +37,35 @@ async function listMemories(db, projectId, kind) {
   );
 }
 
+const SIMILARITY_THRESHOLD = 0.5;
+const SIMILARITY_LIMIT = 2;
+
+function tokenize(text) {
+  const tokens = String(text || '').toLowerCase().match(/[a-z0-9\u00e0-\u00ff_-]+/g);
+  return new Set(tokens || []);
+}
+
+function similarity(left, right) {
+  const a = tokenize(left);
+  const b = tokenize(right);
+  const union = new Set([...a, ...b]);
+  if (union.size === 0) return 0;
+  let shared = 0;
+  for (const token of a) if (b.has(token)) shared += 1;
+  return shared / union.size;
+}
+
+function countSimilarFailures(failures, text) {
+  return (failures || []).filter((failure) => similarity(failure.content, text) >= SIMILARITY_THRESHOLD).length;
+}
+
+async function listSimilarFailures(db, query) {
+  const failures = await listMemories(db, query.projectId, 'failure');
+  return failures.filter((failure) => similarity(failure.content, query.text) >= SIMILARITY_THRESHOLD);
+}
+
 async function listFailures(db, projectId) {
   return listMemories(db, projectId, 'failure');
 }
 
-module.exports = { MEMORY_KINDS, isMemoryKind, recordMemory, listMemories, listFailures };
+module.exports = { MEMORY_KINDS, SIMILARITY_THRESHOLD, SIMILARITY_LIMIT, isMemoryKind, recordMemory, listMemories, listFailures, tokenize, similarity, countSimilarFailures, listSimilarFailures };

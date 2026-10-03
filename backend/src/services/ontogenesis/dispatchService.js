@@ -3,7 +3,7 @@
 const { randomUUID } = require('crypto');
 const { withTransaction } = require('../../db');
 const { selectTopology } = require('./topologySelector');
-const { listFailures } = require('./memoryService');
+const { listFailures, listSimilarFailures, SIMILARITY_LIMIT } = require('./memoryService');
 const { createExecution } = require('./executionStore');
 const { reservationFor } = require('./resourceGuard');
 const { notify } = require('./notificationService');
@@ -77,6 +77,15 @@ async function traceSelection(db, ctx, selection) {
     // Traçabilité best-effort : un échec d'audit ne bloque jamais le dispatch.
   }
 }
+
+async function hasSimilarFailures(db, ctx) {
+  const task = (ctx.selection && ctx.selection.task) || {};
+  if (!task.id) return false;
+  const similar = await listSimilarFailures(db, { projectId: ctx.project.id, text: `tache:${task.id}:${task.title || ''}` });
+  return similar.length >= SIMILARITY_LIMIT;
+}
+
+function canAdmit(ctx, reservationMb) {
   if (!ctx.sample) return true;
   const memory = ctx.config.memory;
   return ctx.sample.freeMb - memory.reserveMb - ctx.sample.reservationsMb >= reservationMb
@@ -98,6 +107,7 @@ async function dispatchTask(db, ctx, harness) {
   if (!Array.isArray(ctx.config.checks) || !ctx.config.checks.length) return blockDispatch(db, ctx, 'verifications-requises');
   const selection = await topologyFor(db, ctx);
   if (selection.blocked) return blockDispatch(db, ctx, selection.blocked);
+  if (await hasSimilarFailures(db, ctx)) return blockDispatch(db, ctx, 'echec-similaire-repete');
   const reservationMb = reservationFor(ctx);
   if (!canAdmit(ctx, reservationMb)) return { state: ctx.project.state, note: 'enveloppe-insuffisante' };
   const workspace = await harness.prepare(ctx.project);

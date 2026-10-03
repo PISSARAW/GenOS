@@ -84,7 +84,9 @@ async function applyEffect(db, ctx, effect) {
   const current = doingOf(ctx.tasks);
   if (effect === 'bump-attempt' && current) await bumpAttempt(db, current.id);
   if (effect === 'record-failure') {
-    await recordMemory(db, { projectId: ctx.project.id, kind: 'failure', content: `echec-verification:${ctx.project.state}`, provenance: { state: ctx.project.state } });
+    const failed = doingOf(ctx.tasks);
+    const label = failed ? `${failed.id}:${failed.title || ''}` : 'sans-tache';
+    await recordMemory(db, { projectId: ctx.project.id, kind: 'failure', content: `echec-verification:${label}:${ctx.project.state}`, provenance: { state: ctx.project.state, taskId: failed && failed.id } });
   }
   if (effect === 'create-resolution-task') {
     await addTask(db, { projectId: ctx.project.id, title: 'resoudre-conflit-integration', priority: 100 });
