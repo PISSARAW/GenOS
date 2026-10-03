@@ -48,11 +48,21 @@ impl MeioticCrossover {
         child_b.chromosome_maternal.replace_sequence(a_gamete_2);
         child_b.chromosome_paternal.replace_sequence(b_gamete_2);
 
-        // Recombinaison réciproque des gènes selon le point de coupure avec reprogrammation épigénétique méiotique
+        // Approximate gene-order split using the same breakpoint fraction as the nucleotide crossover.
         let mut all_loci: Vec<String> = parent_a.genes.keys().chain(parent_b.genes.keys()).cloned().collect();
         all_loci.sort();
         all_loci.dedup();
-        let gene_split = all_loci.len() / 2;
+        let reference_length = [
+            parent_a.chromosome_maternal.len(),
+            parent_a.chromosome_paternal.len(),
+            parent_b.chromosome_maternal.len(),
+            parent_b.chromosome_paternal.len(),
+        ].into_iter().min().unwrap_or(0);
+        let gene_split = if reference_length == 0 {
+            0
+        } else {
+            all_loci.len() * crossover_point.min(reference_length) / reference_length
+        };
 
         let mut genes_a = std::collections::BTreeMap::new();
         let mut genes_b = std::collections::BTreeMap::new();
@@ -224,6 +234,20 @@ mod tests {
 
         assert!(child.genes.contains_key("only_a"));
         assert!(child.genes.contains_key("only_b"));
+    }
+
+    #[test]
+    fn single_point_gene_split_tracks_breakpoint_endpoints() {
+        let mut parent_a = Genome::new("PARENT_A");
+        parent_a.insert_gene(Gene::new("shared", "ALLELE_A"));
+        let mut parent_b = Genome::new("PARENT_B");
+        parent_b.insert_gene(Gene::new("shared", "ALLELE_B"));
+
+        let at_start = MeioticCrossover::single_point_crossover(&parent_a, &parent_b, 0).0;
+        let at_end = MeioticCrossover::single_point_crossover(&parent_a, &parent_b, usize::MAX).0;
+
+        assert_eq!(at_start.genes["shared"].dna, Gene::new("shared", "ALLELE_B").dna);
+        assert_eq!(at_end.genes["shared"].dna, Gene::new("shared", "ALLELE_A").dna);
     }
 
     #[test]
