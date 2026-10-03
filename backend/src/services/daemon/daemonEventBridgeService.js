@@ -140,8 +140,6 @@ function parseEventPayload(raw) {
     return {};
   }
 }
-  return { processed: true, woke: wake.woke, reason: wake.reason };
-}
 
 /**
  * Ingère un événement territorial.
