@@ -422,10 +422,7 @@ Les handlers biomimétiques enregistrent des altérations de séquence simulées
 
 ### 1. Mutations Ponctuelles par Substitution (`genos_biomimicry_point_mutation`)
 
-Les mutations ponctuelles touchent les nucléotides et micro-paramètres unitaires d'un agent. Elles se déclinent en trois régimes fonctionnels :
-* **Silencieuse (Silent) :** Substitution synonyme préservant l'invariance sémantique et la signature du contrat d'interface sans dérive d'exécution.
-* **Faux-sens (Missense) :** Altération d'un hyperparamètre (e.g. température, prompt persona, heuristique de recherche) produisant une variation comportementale ciblée.
-* **Non-sens (Nonsense) :** Insertion d'un codon STOP prématuré faisant office de coupe-circuit d'urgence (*circuit-breaker*) pour interrompre immédiatement une chaîne d'inférence corrompue.
+`genos_biomimicry_point_mutation` ajoute une entrée à l'historique d'un registre local. Les catégories `silent`, `missense` et `nonsense` ajustent des champs de simulation (score de divergence et indicateur d'arrêt) ; elles ne remplacent pas un paramètre d'agent et l'indicateur n'interrompt pas l'inférence runtime.
 
 ```mermaid
 flowchart TD
@@ -444,7 +441,7 @@ flowchart TD
 
 ### 2. Mutations Ponctuelles par Indel & Frameshift (`genos_biomimicry_frameshift_mutation`)
 
-Les insertions et délétions ponctuelles (*Indels*) modifient la longueur d'un train de tokens ou d'instructions. Puisque l'évaluation cognitive s'opère par triplets de phases (e.g. `[INIT-ANALYZE-EXEC]`), l'insertion ou la suppression d'un token unitaire décale l'ensemble du cadre de lecture (*frameshift*, $offset \not\equiv 0 \pmod 3$). La synchronisation est rétablie par insertion de tokens compensatoires (*compensatory pads*).
+`genos_biomimicry_frameshift_mutation` insère ou retire un élément dans un tableau de tokens de simulation, calcule les groupes de trois et met à jour un décalage modulo trois. L'action de réalignement ajoute des éléments de remplissage au même tableau ; aucune phase de travail d'un agent n'est décalée ou réparée.
 
 ```mermaid
 flowchart LR
@@ -470,7 +467,7 @@ flowchart LR
 
 ### 3. Délétion Chromosomique (`genos_biomimicry_chromosomal_deletion`)
 
-La délétion chromosomique opère un élagage structurel majeur en retirant des segments entiers de loci ou des sous-modules de pipeline (e.g. parsers obsolètes, fuzzers volumineux). Le moteur vérifie automatiquement que les loci essentiels (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`, `LOCUS_ROUTING`) sont préservés pour garantir la viabilité opérationnelle de l'agent.
+`genos_biomimicry_chromosomal_deletion` retire un segment du registre simulé et refuse les trois loci marqués essentiels (`LOCUS_KERNEL_INTEGRITY`, `LOCUS_AUTH_INVARIANTS`, `LOCUS_ROUTING`). Son contrôle de viabilité porte uniquement sur cette liste en mémoire ; il ne retire aucun module runtime et ne garantit pas la viabilité d'un agent.
 
 ```mermaid
 flowchart TD
@@ -493,7 +490,7 @@ flowchart TD
 
 ### 4. Duplication Chromosomique (`genos_biomimicry_chromosomal_duplication`)
 
-La duplication en tandem recopie un segment chromosomique complet pour amplifier sa capacité de traitement ou permettre une **néo-fonctionnalisation** : pendant que la copie originale conserve la stratégie de référence stable (e.g. déduction formelle stricte), la copie dupliquée mute librement vers une heuristique exploratoire (e.g. simulation Monte Carlo ou fuzzer stochastique).
+`genos_biomimicry_chromosomal_duplication` ajoute au registre une copie descriptive d'un locus (plafond de huit copies) et permet de modifier son champ `heuristic`. Cette néo-fonctionnalisation n'installe ni ne modifie une capacité d'agent.
 
 ```mermaid
 flowchart LR
@@ -517,7 +514,7 @@ flowchart LR
 
 ### 5. Inversion Chromosomique (`genos_biomimicry_chromosomal_inversion`)
 
-L'inversion chromosomique effectue une rotation à 180° d'un bloc de gènes ou de phases de pipeline. Elle permute l'ordre d'évaluation séquentielle, transformant une exécution progressive classique (Hypothèse $\to$ Preuves $\to$ Déduction $\to$ Validation) en un flux de **raisonnement rétrograde** (*backward chaining* / post-conditions $\to$ déduction $\to$ preuves $\to$ hypothèse), idéal pour la recherche de causes racines et le débogage d'invariants.
+`genos_biomimicry_chromosomal_inversion` inverse une plage d'un tableau descriptif après validation des indices et du tableau. L'opération ne réordonne pas un pipeline ou le raisonnement d'un agent ; le diagramme ci-dessous illustre seulement l'analogie.
 
 ```mermaid
 flowchart TD
@@ -542,7 +539,7 @@ flowchart TD
 
 ### 6. Translocation Chromosomique (`genos_biomimicry_chromosomal_translocation`)
 
-La translocation chromosomique détache un locus ou un module spécialisé d'un agent donneur A (non-homologue) pour le greffer directement sur le chromosome d'un agent receveur B. Ce transfert horizontal de compétences permet de créer des profils chimériques hautement spécialisés (e.g. greffe d'un vérificateur formel Coq sur un agent de veille documentaire) sans réécriture de template.
+`genos_biomimicry_chromosomal_translocation` déplace des chaînes de locus entre des entrées de registre identifiées par `agent_id`, ou ajoute des chaînes à une entrée cible. Ces registres ne sont pas les chromosomes des agents correspondants : l'appel ne transfère ni code, ni outil, ni compétence runtime.
 
 ```mermaid
 flowchart LR
@@ -568,9 +565,7 @@ flowchart LR
 
 ### 7. Aneuploïdie Génomique (`genos_biomimicry_aneuploidy`)
 
-L'aneuploïdie modifie le nombre d'exemplaires d'un chromosome spécifique au sein du caryotype de l'organisation :
-* **Trisomie (+1 copie) :** Déploie 3 instances dédiées d'un sous-système critique (e.g. 3 vérificateurs) pour permettre un arbitrage par **consensus majoritaire 2/3** sans risque d'égalité.
-* **Monosomie (-1 copie) :** Réduit à 1 seule instance un composant non critique pour basculer en mode d'inférence ultra-frugale sous contrainte budgétaire.
+`genos_biomimicry_aneuploidy` ajuste une valeur dans un caryotype descriptif à clé connue. La résolution de consensus compte jusqu'à 128 votes textuels associés à des clones connus et ne renvoie pas de gagnant en cas d'égalité ; elle ne déploie pas de vérificateurs et n'arbitre pas des résultats d'inférence.
 
 ```mermaid
 flowchart TD
@@ -600,12 +595,7 @@ flowchart TD
 
 ### 8. Polyploïdie Génomique (`genos_biomimicry_polyploidy`)
 
-Inspirée des génomes végétaux à forte résilience et adaptabilité (comme le blé moderne hexaploïde $6n$), la polyploïdie multiplie l'intégralité du jeu de chromosomes en $N$ couches cognitives spécialisées :
-* **Couche 1 (2n) :** Cœur logique AST et exécution nominale.
-* **Couche 2 (2n) :** Garde-fous de sécurité, permissions et barrières d'invariants.
-* **Couche 3 (2n) :** Preuve formelle, fuzzing stochastique et synthèse explicative.
-
-Cette architecture multi-génomique confère à l'essaim une robustesse combinatoire inégalée et une tolérance totale aux corruptions de contexte locales.
+`genos_biomimicry_polyploidy` enregistre des couches descriptives pour les niveaux autorisés (2, 3, 4, 6 ou 8). Les noms ou exemples de couches ne configurent pas une architecture multi-agent, une redondance de sécurité ou une tolérance aux corruptions.
 
 ```mermaid
 flowchart TB
@@ -632,10 +622,7 @@ flowchart TB
 
 ### 1. Transposons et Gènes Sauteurs (`genos_biomimicry_transposon_jump`)
 
-Les transposons sont des éléments génétiques mobiles capables de se déplacer de manière autonome au sein du génome d'un agent :
-* **Transposons ADN (Cut-and-Paste) :** L'élément est excisé de son locus d'origine et réinséré ailleurs, libérant l'ancien emplacement.
-* **Rétrotransposons (Copy-and-Paste) :** L'élément génère une copie répliquée insérée dans un locus cible sans supprimer l'original, augmentant la densité d'outils mobiles.
-* **Impact fonctionnel :** Lorsqu'un transposon atterrit dans un locus actif, il peut perturber ou reconfigurer la logique d'un module (*disruption* ou modulation adaptative).
+`genos_biomimicry_transposon_jump` déplace ou copie des éléments descriptifs entre loci allowlistés et borne leur nombre à 64. Il ne modifie pas un génome d'agent et n'affecte pas les modules associés aux noms de loci.
 
 ```mermaid
 flowchart TD
@@ -651,10 +638,7 @@ flowchart TD
 
 ### 2. Mutations Dynamiques et Anticipation (`genos_biomimicry_dynamic_triplet_expansion`)
 
-Contrairement aux mutations fixes, les mutations dynamiques (comme le glissement de trinucléotides CAG de la chorée de Huntington) s'aggravent à chaque génération d'agent :
-* **Génération 1 (Baseline) :** 15 répétitions (comportement bénin stable).
-* **Génération 2 (Glissement) :** 30 répétitions (amplification pré-mutatoire).
-* **Génération 3+ (Anticipation Pathologique) :** $\ge 40$ répétitions (détection d'emballement récursif). Au-delà de 70 répétitions, le circuit-breaker interrompt d'urgence la dérivation d'agents.
+`genos_biomimicry_dynamic_triplet_expansion` incrémente un compteur de répétitions dans un registre de simulation et classe ce compteur selon des seuils configurés (40 et 70 dans le modèle). L'évaluation peut conseiller un coupe-circuit ; elle ne modifie pas une génération d'agent et n'interrompt aucune dérivation.
 
 ```mermaid
 flowchart LR
@@ -674,7 +658,7 @@ flowchart LR
 
 ### 3. Mutations Mitochondriales et Transmission Matrilinéaire (`genos_biomimicry_mitochondrial_dna_mutation`)
 
-L'ADN mitochondrial (ADNmt circulaire) gère le métabolisme énergétique et la consommation de tokens de l'agent. Exposé directement au stress d'inférence (taux d'erreurs, saturation de débit), il accumule des mutations métaboliques plus rapidement que le noyau. Sa transmission est **strictement matrilinéaire** : lors d'un crossover/fusion, l'ADNmt paternel est intégralement éliminé pour préserver la cohérence du budget énergétique.
+`genos_biomimicry_mitochondrial_dna_mutation` enregistre des valeurs métaboliques descriptives et valide notamment le stress fourni. Il ne mesure pas la charge d'inférence, ne change pas le budget énergétique et ne définit pas l'héritage mitochondrial du crossover Rust.
 
 ```mermaid
 flowchart TD
