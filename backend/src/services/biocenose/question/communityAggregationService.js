@@ -6,6 +6,7 @@ function aggregate(input) {
   const route = routeAggregationPolicy(input.questionType);
   if (input.variantPolicy?.name === 'argumentation_community') return argumentation(input, route);
   if (input.variantPolicy?.name === 'polycentric_council') return polycentric(input, route);
+  if (input.variantPolicy?.name === 'representative_community') return representative(input, route);
   const handlers = {
     verified_evidence: factual,
     calibrated_probability_pooling: probability,
@@ -17,6 +18,37 @@ function aggregate(input) {
   };
   const result = { policy: route.policy, questionType: route.questionType, ...handlers[route.policy](input) };
   return input.variantPolicy?.name === 'delphi_community' ? withDelphiDistribution(result, input) : result;
+}
+
+function representative(input, route) {
+  const panel = Array.isArray(input.representativePanel) ? input.representativePanel : [];
+  const judgments = new Map((input.judgments || []).map((item) => [item.memberId, item.judgment?.position]));
+  const votes = panel.map((seat) => ({
+    seat, memberId: seat.memberId, position: judgments.get(seat.memberId), weight: Number(seat.weight)
+  }));
+  if (!validRepresentativePanel(votes, input.isTrustedReceipt)) {
+    return { policy: route.policy, questionType: route.questionType, outcome: 'REVIEW_REQUIRED', representative: { votes: [] } };
+  }
+  return representativeDistribution(votes, route);
+}
+
+function validRepresentativePanel(votes, isTrustedReceipt) {
+  return typeof isTrustedReceipt === 'function' && votes.length > 0
+    && votes.every((vote) => isTrustedReceipt(vote.seat) === true)
+    && new Set(votes.map((vote) => vote.memberId)).size === votes.length
+    && votes.every((vote) => vote.memberId && vote.position !== undefined && Number.isFinite(vote.weight) && vote.weight > 0);
+}
+
+function representativeDistribution(votes, route) {
+  const totals = new Map();
+  for (const vote of votes) totals.set(String(vote.position), (totals.get(String(vote.position)) || 0) + vote.weight);
+  const totalWeight = [...totals.values()].reduce((sum, weight) => sum + weight, 0);
+  const distribution = [...totals].map(([position, weight]) => ({ position, weight, share: weight / totalWeight }));
+  const leading = distribution.toSorted((left, right) => right.weight - left.weight)[0];
+  return {
+    policy: route.policy, questionType: route.questionType, outcome: 'REPRESENTATIVE_DISTRIBUTION',
+    representative: { panelCount: votes.length, distribution, dissent: distribution.filter((item) => item !== leading), leadingPosition: leading.position }
+  };
 }
 
 function withDelphiDistribution(result, input) {

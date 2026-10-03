@@ -20,6 +20,8 @@ const DECISION_CHECKS = Object.freeze({
   PARETO_FRONT: (item) => item.options?.length > 0,
   DESIGN_OPTIONS_REVIEW: (item) => item.options?.length > 0,
   PLURALISM_PRESERVED: () => true,
+  REPRESENTATIVE_DISTRIBUTION: (item) => item.representative?.panelCount > 0
+    && item.representative?.distribution?.length > 0,
   CLAIM_MAP: claimMapReady,
   ARGUMENTS_ACCEPTED: (item) => item.argumentation?.labels?.length > 0
     && item.unresolvedClaimIds?.length === 0
