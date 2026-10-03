@@ -59,6 +59,7 @@ const ROLE_ALIASES = Object.freeze({
   ux_designer: 'specialist', backend_architect: 'specialist', security_engineer: 'specialist'
 });
 const { artifactInstruction } = require('./workerArtifactContract');
+const { workerPolicy } = require('./workerPolicyService');
 const PROMPT_RULES = Object.freeze({
   scout_cell: 'Observe only. Return structured observations, references, confidence, and uncertainties; do not execute or modify files.',
   resident_daemon: 'Monitor the assigned territory and report findings with evidence; do not make mission decisions.',
@@ -81,7 +82,7 @@ const PROMPT_RULES = Object.freeze({
   sub_orchestrator: 'Coordinate only this subgraph; do not alter global topology or promote results; honor spawn and depth ceilings.'
 });
 const AUTHORITY_OVERRIDES = Object.freeze({
-  resident_daemon: { execute: true },
+  resident_daemon: { execute: false },
   specialist: { write: false },
   creative_worker: { execute: false },
   synthesis_worker: { execute: false },
@@ -159,12 +160,15 @@ function workerAuthorityContract(kind, authorities) {
     read: Boolean(authorities.read), analyze: Boolean(authorities.analyze),
     execute: Boolean(authorities.execute), write: Boolean(authorities.write),
     spawn: false, delegate: false, promote: Boolean(authorities.promote), topology: false,
-    strategy: ['adaptive_worker', 'specialist', 'sub_orchestrator'].includes(kind)
+    strategy: ['adaptive_worker', 'specialist', 'sub_orchestrator'].includes(kind),
+    communicate: ['resident_daemon', 'adaptive_worker', 'specialist', 'verifier_worker', 'red_worker', 'liaison_worker', 'sub_orchestrator'].includes(kind)
   };
 }
 
 function workerLimits(kind, subOrchestrator) {
-  return { maxIterations: kind === 'scout_cell' ? 1 : (subOrchestrator ? 30 : null) };
+  const policy = workerPolicy(kind);
+  const maxIterations = Object.hasOwn(policy, 'maxIterations') ? policy.maxIterations : 10;
+  return { maxIterations, ...(subOrchestrator ? { maxIterations: 30 } : {}) };
 }
 
 function buildWorkerContract(kind, mission = {}) {
@@ -177,12 +181,22 @@ function buildWorkerContract(kind, mission = {}) {
     version: 1,
     identity: { workerKind: definition.kind, parentId: mission.orchestratorAgentId || mission.parentAgentId || null },
     mission: workerMissionContract(mission),
-    assignment: mission.workerAssignment,
+    assignment: mission.workerAssignment || null,
     authority: workerAuthorityContract(definition.kind, authorities),
     spawnBudget: 0,
     delegationDepth: 0,
     evidence: { requiredArtifacts: [definition.artifact], provenanceRequired: true },
-    limits: workerLimits(definition.kind, subOrchestrator)
+    limits: workerLimits(definition.kind, subOrchestrator),
+    resources: workerResources(definition.kind)
+  };
+}
+
+function workerResources(kind) {
+  const policy = workerPolicy(kind);
+  return {
+    maxTokens: policy.maxTokens ?? 8000,
+    maxTimeMs: Object.hasOwn(policy, 'maxTimeMs') ? policy.maxTimeMs : 300000,
+    maxCpuMs: policy.maxCpuMs ?? 60000
   };
 }
 
@@ -190,6 +204,7 @@ function grantBoundedDelegation(contract) {
   if (contract.identity?.workerKind !== 'sub_orchestrator') return contract;
   contract.authority.spawn = true;
   contract.authority.delegate = true;
+  contract.authority.communicate = true;
   contract.spawnBudget = 5;
   contract.delegationDepth = 1;
   contract.delegationExpiresAt = Date.now() + 3600000;

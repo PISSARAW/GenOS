@@ -72,10 +72,9 @@ function hasSolverReceipt(receipt) {
 }
 
 function isNonDiagnosticClinicalReport(content) {
+  const allowed = new Set(['caseScope', 'differentialConsiderations', 'uncertainty', 'safetyNote', 'evidence']);
   return content.caseScope === 'synthetic_educational'
-    && !Object.hasOwn(content, 'diagnoses')
-    && !Object.hasOwn(content, 'treatment')
-    && !Object.hasOwn(content, 'patientSpecificAdvice');
+    && Object.keys(content).every((key) => allowed.has(key));
 }
 
 function hasProvenance(artifact) {

@@ -7,7 +7,11 @@ const AUTHORITY_TOOLS = Object.freeze({
   promote: ['genos_record_decision', 'genos_merge'],
   topology: ['genos_change_organization', 'genos_topology_session'],
   strategy: ['genos_change_strategy'],
-  write: ['genos_run', 'genos_execute_primitive']
+  write: ['genos_run', 'genos_execute_primitive'],
+  read: ['genos_inspect', 'genos_memory_query', 'genos_search_failures', 'genos_evidence_check', 'genos_validate', 'genos_diff', 'genos_organization_state', 'genos_philosophy', 'genos_lineage', 'genos_blame'],
+  analyze: ['genos_diagnose', 'genos_hypothesis_evidence', 'genos_evaluate_trajectories', 'genos_adversarial_review', 'genos_security_coevolution'],
+  execute: ['genos_snapshot', 'genos_replay', 'genos_test', 'genos_solve', 'genos_browser_act', 'genos_optimal_foraging', 'genos_computer_use', 'genos_execute_strategy_pipeline'],
+  communicate: ['genos_worker_publish', 'genos_worker_inbox']
 });
 
 function contractError(kind, action) {
@@ -22,7 +26,7 @@ function toolAction(toolName, args = {}) {
   for (const [action, tools] of Object.entries(AUTHORITY_TOOLS)) {
     if (tools.includes(name)) return action;
   }
-  return 'execute';
+  return 'unknown';
 }
 
 function assertWorkerToolAllowed(contract, toolName, args = {}) {

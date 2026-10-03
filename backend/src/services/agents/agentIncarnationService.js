@@ -137,7 +137,14 @@ function computeLease(ctx) {
   const afterDna = restrictByTools(dnaSelection, base);
   const afterPheno = restrictByPhenotype(request, afterDna);
   const final = providedLease ? restrictProvidedLease(providedLease, afterPheno) : afterPheno;
-  return request.workerContract?.authority?.execute === false ? [] : stripOrchestrate(final);
+  const authority = request.workerContract?.authority || {};
+  if (authority.execute === false) {
+    const readable = authority.read === true ? ['genos_inspect', 'genos_memory_query', 'genos_search_failures', 'genos_evidence_check', 'genos_validate'] : [];
+    const communicable = authority.communicate === true ? ['genos_worker_publish', 'genos_worker_inbox'] : [];
+    const readOnlyLease = new Set([...readable, ...communicable]);
+    return stripOrchestrate(final).filter((tool) => readOnlyLease.has(tool));
+  }
+  return stripOrchestrate(final);
 }
 
 function promptMissionLines(mission) {

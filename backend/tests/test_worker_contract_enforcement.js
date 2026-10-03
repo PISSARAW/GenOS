@@ -107,12 +107,27 @@ assert.equal(nested.spawnBudget, 0);
 assert.throws(() => enforcement.assertRuntimeContract({ ...nested, authority: { ...nested.authority, spawn: true } }, 'sub_orchestrator'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
 const delegated = workerKinds.grantBoundedDelegation(workerKinds.buildWorkerContract('sub_orchestrator'));
 assert.equal(enforcement.assertRuntimeContract(delegated, 'sub_orchestrator'), true);
+assert.equal(delegated.authority.communicate, true);
 assert.throws(() => enforcement.assertRuntimeContract({ ...delegated, delegationExpiresAt: Date.now() - 1 }, 'sub_orchestrator'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
 assert(leasePolicy.workerLeaseForRole('sub_orchestrator').includes('genos_delegate_worker'));
 assert(!leasePolicy.workerLeaseForRole('bounded_worker').includes('genos_delegate_worker'));
 assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('verifier_worker'), 'genos_merge'), { code: 'WORKER_CONTRACT_DENIED' });
 assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('creative_worker'), 'genos_search_failures'), { code: 'WORKER_CONTRACT_DENIED' });
 assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('bounded_worker'), 'genos_search_failures'), true);
+assert.equal(enforcement.toolAction('genos_inspect'), 'read');
+assert.equal(enforcement.toolAction('genos_test'), 'execute');
+assert.equal(enforcement.toolAction('unregistered_worker_tool'), 'unknown');
+assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('scout_cell'), 'genos_inspect'), true);
+assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('scout_cell'), 'unregistered_worker_tool'), { code: 'WORKER_CONTRACT_DENIED' });
+assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('adaptive_worker'), 'genos_worker_publish'), true);
+assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('bounded_worker'), 'genos_worker_publish'), { code: 'WORKER_CONTRACT_DENIED' });
+const assignedContract = workerKinds.buildWorkerContract('procedural_executor', {
+  prompt: 'solve exactly', scope: '/repo', workerAssignment: { workerKind: 'procedural_executor' },
+  methodContract: { version: 1, methodId: 'dynamic_programming' }
+});
+assert.equal(assignedContract.assignment.workerKind, 'procedural_executor');
+assert.equal(assignedContract.mission.methodContract.methodId, 'dynamic_programming');
+assert.equal(assignedContract.resources.maxTokens, 0);
 async function verifyPersistedTools() {
   assert.equal(await enforcement.enforcePersistedWorkerTool({
     get: async () => ({ execution_mode: 'worker', role: 'implementation', metadata_json: JSON.stringify({ workerKind: 'bounded_worker' }) })

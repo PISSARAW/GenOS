@@ -9,8 +9,12 @@ function mergeChildEvidence(parent, child) {
   if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
 }
 
-function recordExperience(store, graph, rootNode) {
+function recordExperience(store, graph, rootNode, result) {
   if (!store || typeof store.add !== 'function') return;
+  const output = result && result.output;
+  const quality = Number(output?.quality);
+  const evidenceQuality = Number(output?.evidenceQuality);
+  if (!Number.isFinite(quality) || !Number.isFinite(evidenceQuality)) return;
   try {
     store.add({
       missionSignature: graph.missionId || graph.graphId,
@@ -18,10 +22,10 @@ function recordExperience(store, graph, rootNode) {
       initialMorphology: { topology: rootNode.topology, variant: rootNode.variant, operator: rootNode.operator },
       morphologyHistory: [{ version: graph.version, rootKind: rootNode.operator || rootNode.kind }],
       budget: graph.globalBudget || {},
-      quality: 0,
-      evidenceQuality: 0,
-      finalOutcome: 'completed',
-      failures: 0
+      quality: Math.max(0, Math.min(1, quality)),
+      evidenceQuality: Math.max(0, Math.min(1, evidenceQuality)),
+      finalOutcome: output.finalOutcome || 'measured',
+      failures: output.failures || 0
     });
   } catch (_) { /* learning must never break execution */ }
 }
@@ -80,7 +84,7 @@ class MorphologyRuntime {
       mergeChildEvidence(context, result.context);
 
       this.emit('complete', { graph, result, context });
-      recordExperience(this.experienceStore, graph, rootNode);
+      recordExperience(this.experienceStore, graph, rootNode, result);
 
       return { output: result.output, receipts: context.receipts, evidence: context.evidence, state: result.context.state || context.state };
     } catch (error) {

@@ -69,7 +69,7 @@ for (const kind of Object.keys(workerKinds.KINDS)) {
 
 assert.equal(workerKinds.buildWorkerContract('bounded_worker').authority.execute, true);
 assert.equal(workerKinds.buildWorkerContract('verifier_worker').authority.execute, true);
-assert.equal(workerKinds.buildWorkerContract('resident_daemon').authority.execute, true);
+assert.equal(workerKinds.buildWorkerContract('resident_daemon').authority.execute, false);
 assert.equal(workerKinds.buildWorkerContract('scout_cell').authority.execute, false);
 assert.equal(workerKinds.buildWorkerContract('creative_worker').authority.execute, false);
 assert.equal(workerKinds.buildWorkerContract('specialist').authority.write, false);
@@ -91,6 +91,6 @@ assert.equal(delegatedNodeContract.authority.delegate, true);
 assert.equal(delegatedNodeContract.delegationDepth, 1);
 assert.equal(delegatedNodeContract.spawnBudget, 5);
 assert.equal(enforcement.assertRuntimeContract(delegatedNodeContract, 'sub_orchestrator'), true);
-assert.equal('resources' in workerKinds.buildWorkerContract('formal_worker'), false);
+assert.equal(workerKinds.buildWorkerContract('formal_worker').resources.maxTokens, 0);
 assert.match(rustFunctionBody(presetSource, 'procedural_preset'), /resources\.tokens\s*=\s*0/);
 console.log('Rust and Node worker kind identifiers, families, and artifacts match; runtime projections remain distinct.');

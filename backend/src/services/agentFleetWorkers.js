@@ -199,7 +199,10 @@ function buildWorkerPrompt(details) {
     Array.isArray(assignment.capabilities) && assignment.capabilities.length ? `Owned capabilities: ${assignment.capabilities.join(', ')}.` : null,
     `Hypothesis: ${assignment.hypothesis}`,
     `Worker kind: ${assignment.workerKind}. ${workerKinds.promptRule(assignment.workerKind)}`,
-    workerKinds.evidenceRule(workerKinds.buildWorkerContract(assignment.workerKind, { prompt: context.mission.prompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id })),
+    workerKinds.evidenceRule(workerKinds.buildWorkerContract(assignment.workerKind, {
+      prompt: context.mission.prompt, scope: context.mission.workspaceRoot, orchestratorAgentId: context.parent.id,
+      methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
+    })),
     phenotypeBlock,
     context.plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${context.perWorkerTokens} tokens.` : `Budget allocation: ${context.perWorkerTokens} tokens.`
   ].filter(Boolean).join('\n');
@@ -296,7 +299,10 @@ async function persistWorker(db, details) {
 
 function workerInsertValues(details) {
   const { id, identity, assignment, parent, route, conscience, prompt, assignedTokens, mission } = details;
-  const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, { prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id });
+  const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, {
+    prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id,
+    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
+  });
   workerKinds.grantBoundedDelegation(workerContract);
   return [id, identity.name, identity.name_meaning, assignment.role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null, route.selectedModel || assignment.modelTier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id, `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt, conscience.dissonanceLevel, conscience.eurekaMoments, conscience.currentBudget, conscience.isApoptotic ? 1 : 0, JSON.stringify({ workerKind: assignment.workerKind, workerContract })];
 }
@@ -336,7 +342,12 @@ function formatWorker(details) {
 
 function workerIdentity(details) {
   const { id, identity, assignment, parent, plan, prompt, mission } = details;
-  return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerContract: workerKinds.buildWorkerContract(assignment.workerKind, { prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id }), prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, artifact: assignment.artifact || plan.aTeam?.artifact || plan.trinity?.artifact || null, pipelineStage: Math.max(0, Number(assignment.pipelineStage || 0)), dependsOn: Array.isArray(assignment.dependsOn) ? assignment.dependsOn : [], modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, cognitiveRecipe: assignment.cognitiveRecipe || null };
+  const workerContract = workerKinds.buildWorkerContract(assignment.workerKind, {
+    prompt: mission.prompt, scope: mission.workspaceRoot, orchestratorAgentId: parent.id,
+    methodContract: assignment.methodContract, workerAssignment: assignment.workerAssignment || assignment
+  });
+  workerKinds.grantBoundedDelegation(workerContract);
+  return { agentId: id, label: assignment.label || id, name: identity.name, nameMeaning: identity.name_meaning, introduction: identity.introduction, role: assignment.role, workerKind: assignment.workerKind, workerAssignment: assignment.workerAssignment || assignment, methodContract: assignment.methodContract || null, workerContract, prompt, branchAssignment: `${assignment.label}: ${assignment.hypothesis}`, artifact: assignment.artifact || plan.aTeam?.artifact || plan.trinity?.artifact || null, pipelineStage: Math.max(0, Number(assignment.pipelineStage || 0)), dependsOn: Array.isArray(assignment.dependsOn) ? assignment.dependsOn : [], modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type, cognitiveRecipe: assignment.cognitiveRecipe || null };
 }
 
 function inheritedWorkerEngine(mission) {

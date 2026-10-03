@@ -5,6 +5,7 @@ const { compileExpression } = require('../src/services/morphogenesis/graph/morph
 const { validateMorphologyGraph } = require('../src/services/morphogenesis/graph/morphologyGraphValidator');
 const { MorphologyRuntime } = require('../src/services/morphogenesis/runtime/morphologyRuntime');
 const { installTopologyPlugins } = require('../src/services/morphogenesis/runtime/topologyPlugins');
+const { checkAuthority } = require('../src/services/morphogenesis/typing/authorityCompatibility');
 const {
   nestExpression, parallelExpression, sequenceExpression, gateExpression, topologyExpression
 } = require('../src/services/morphogenesis/expression');
@@ -90,10 +91,31 @@ async function gateFailClosed() {
   assert.match(error.message, /not registered/, 'fail-closed message expected');
 }
 
+async function gateAuthorityAndLearning() {
+  const graph = {
+    nodes: [
+      { nodeId: 'root', parentNodeId: null, authorityBoundary: ['read'] },
+      { nodeId: 'child', parentNodeId: 'root', authorityBoundary: ['read', 'write'] }
+    ],
+    edges: [{ edgeId: 'grant', type: 'AUTHORIZES', fromNodeId: 'root', toNodeId: 'child', properties: { grants: ['write'] } }]
+  };
+  const errors = checkAuthority(graph);
+  assert.ok(errors.some((error) => error.includes('parent authority envelope')));
+  assert.ok(errors.some((error) => error.includes('outside target authority')));
+  assert.ok(errors.some((error) => error.includes('exceeds source authority')));
+
+  const experiences = [];
+  const runtime = new MorphologyRuntime({ globalBudget: { ...BUDGET }, experienceStore: { add: (entry) => experiences.push(entry) } });
+  installTopologyPlugins(runtime);
+  await runtime.execute(compileExpression(topo('rhizome'), { mission: MISSION, globalBudget: { ...BUDGET } }), INPUT);
+  assert.equal(experiences.length, 0, 'unmeasured topology output must not become a zero-quality learning sample');
+}
+
 async function run() {
   await gateNest();
   await gateSequence();
   await gateFailClosed();
+  await gateAuthorityAndLearning();
   console.log('Morphology graph execution (no stubs, no sqlite): passed');
 }
 

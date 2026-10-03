@@ -12,8 +12,8 @@ function checkAuthority(graph) {
 
 function nodeAuthorityErrors(node, byId) {
   const parent = byId.get(node.parentNodeId);
-  const parentCeiling = parent && parent.authorityBoundary && parent.authorityBoundary.maxActions;
-  const childActions = node.authorityBoundary && node.authorityBoundary.maxActions;
+  const parentCeiling = parent && parent.authorityBoundary;
+  const childActions = node.authorityBoundary;
   if (!Array.isArray(parentCeiling) || !Array.isArray(childActions)) return [];
   const excess = childActions.filter((action) => !parentCeiling.includes(action));
   return excess.length ? [`node ${node.nodeId} exceeds its parent authority envelope`] : [];
@@ -24,11 +24,16 @@ function authorityEdgeErrors(edge, byId, graph) {
   const source = byId.get(edge.fromNodeId);
   const target = byId.get(edge.toNodeId);
   const requested = edge.properties && edge.properties.grants;
-  const granted = Array.isArray(requested) ? filterActions(graph, edge, requested) : requested;
-  const allowed = target && target.authorityBoundary && target.authorityBoundary.allowedActions;
-  const ceiling = source && source.authorityBoundary && source.authorityBoundary.maxActions;
+  if (!Array.isArray(requested)) return ['authority edge must declare a grants array'];
+  const granted = filterActions(graph, edge, requested);
+  const allowed = target && target.authorityBoundary;
+  const ceiling = source && source.authorityBoundary;
+  if (!Array.isArray(allowed) || !Array.isArray(ceiling)) {
+    return [`authority edge ${edge.edgeId} requires source and target authority boundaries`];
+  }
   return [
-    compareSet(allowed, granted).length ? `authority edge ${edge.edgeId} omits required grants` : null,
+    compareSet(requested, granted).length ? `authority edge ${edge.edgeId} requests a firewall-denied grant` : null,
+    compareSet(granted, allowed).length ? `authority edge ${edge.edgeId} grants an action outside target authority` : null,
     compareSet(granted, ceiling).length ? `authority edge ${edge.edgeId} exceeds source authority` : null
   ].filter(Boolean);
 }
