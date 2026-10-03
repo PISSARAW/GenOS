@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const trinityAdapters = require('./trinityAdapters');
+const adaptiveBudget = require('./trinityAdaptiveBudgetService');
 
 const AXES = Object.freeze({
   worldTopology: {
@@ -302,6 +303,7 @@ function createReceipt(input) {
     adapterContracts: trinityAdapters.describeRequiredAdapters(result.requiredAdapters),
     experimentalDesignId: designId(mission, result.design, options)
   };
+  if (options.adaptiveBudgetConfig) receipt.adaptiveBudgetConfig = options.adaptiveBudgetConfig;
   if (Object.keys(result.effects).length) receipt.effects = result.effects;
   return receipt;
 }
@@ -345,6 +347,7 @@ function validatePreconditions(compiled, options) {
   if (compiled.effects.requiresJury && !juryReady(options.trinityJury || options.jury)) {
     throw variantError('TRINITY_VARIANT_PRECONDITION_MISSING', 'Blind jury requires enabled=true, at least two distinct model URIs, and a positive maxCostUsd.');
   }
+  if (compiled.effects.adaptiveBudget && !adaptiveBudget.configurationReady(options.adaptiveBudgetConfig)) throw variantError('TRINITY_VARIANT_PRECONDITION_MISSING', 'Adaptive Trinity requires an explicit continuation pool and a minimum tranche per world.');
 }
 
 function juryReady(config = {}) {

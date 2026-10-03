@@ -1,12 +1,15 @@
 'use strict';
 
 const { extractEvidenceReport } = require('./agentEvidenceService');
+const evidenceAudit = require('./trinityEvidenceAudit');
 
 function validUncertainty(report) {
   const value = Number(report?.evidenceVector?.uncertainty);
   const references = report?.evidenceVectorEvidence?.uncertainty;
   const evidence = Array.isArray(report?.evidence) ? report.evidence : [];
-  const known = new Set(evidence.map((item) => typeof item === 'string' ? item : item?.id).filter(Boolean).map(String));
+  const known = new Set(evidence.filter((item) => item && typeof item === 'object'
+    && evidenceAudit.isVerifiedReceipt(item.verificationReceipt || item.receipt))
+    .map((item) => item.id).filter(Boolean).map(String));
   if (!Number.isFinite(value) || value < 0 || value > 1 || !Array.isArray(references) || !references.length) return null;
   return references.every((reference) => known.has(String(reference))) ? value : null;
 }
@@ -37,4 +40,9 @@ function allocate(input) {
   return { basis: 'verified_evidence_vector_uncertainty', worlds: distribute({ ...input, worlds }) };
 }
 
-module.exports = { allocate };
+function configurationReady(config = {}) {
+  const pool = Number(config.poolTokens), minimum = Number(config.minimumTokens);
+  return Number.isSafeInteger(pool) && pool > 0 && Number.isSafeInteger(minimum) && minimum > 0 && pool >= minimum * 3;
+}
+
+module.exports = { allocate, configurationReady };

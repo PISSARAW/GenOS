@@ -14,7 +14,8 @@ function trinityOptionsFrom(context) {
   return {
     variant: context.request.variant_id || context.request.variantId || context.request.variant,
     jury: context.request.trinity_jury || context.request.trinityJury,
-    experimentalDesign: context.request.experimental_design || context.request.experimentalDesign
+    experimentalDesign: context.request.experimental_design || context.request.experimentalDesign,
+    adaptiveBudgetConfig: context.request.trinity_adaptive_budget || context.request.trinityAdaptiveBudget
   };
 }
 
@@ -36,6 +37,7 @@ function composeMembers(mission, options, assignments) {
   const models = trinityModels();
   const composed = trinityService.compose(mission, {
     variantId: options.variant, experimentalDesign: options.experimentalDesign, trinityJury: options.jury,
+    adaptiveBudgetConfig: options.adaptiveBudgetConfig,
     availableAdapters: trinityAdapters.dispatchAdapterNames(), trinityModels: models
   });
   const members = topologyWorkerKinds.applyTopologyWorkerKinds('trinity', assignModels(composed, models), assignments);
@@ -65,12 +67,12 @@ async function handle(input) {
   const mission = missionFrom(context);
   context.nceEnrichments = await buildNCEEnrichments(context, 'trinity');
   const assignments = workerAssignmentsFrom(context);
-  const { variant, jury, experimentalDesign } = trinityOptionsFrom(context);
-  const members = composeMembers(mission, { variant, jury, experimentalDesign }, assignments);
+  const { variant, jury, experimentalDesign, adaptiveBudgetConfig } = trinityOptionsFrom(context);
+  const members = composeMembers(mission, { variant, jury, experimentalDesign, adaptiveBudgetConfig }, assignments);
   if (garage.available < members.length) throw Object.assign(new Error(`Trinity design requires ${members.length} free worker slots`), { code: 'WORKER_GARAGE_FULL' });
   const missionId = context.request.trinityMissionId
     || `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
-  const variantSelection = withRecursiveState(members[0]?.variantSelection, context.request);
+  const variantSelection = withDispatchRuntime(members, context.request);
   await persistDispatchConfig(db, { missionId, mission, variantSelection, juryConfig: jury });
   const accepted = await launchWorlds({ db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId });
   const supervision = trinityMissionSupervisor.launch({
@@ -83,12 +85,17 @@ async function handle(input) {
   } }));
 }
 
-function withRecursiveState(selection, request = {}) {
+function withDispatchRuntime(members, request = {}) {
+  const selection = members[0]?.variantSelection;
   if (!selection) return selection;
-  return { ...selection, recursiveState: {
-    depth: Math.max(0, Number(request.recursiveDepth) || 0),
-    spentBudget: Math.max(0, Number(request.recursiveSpentBudget) || 0)
-  } };
+  return { ...selection,
+    recursiveState: { depth: Math.max(0, Number(request.recursiveDepth) || 0),
+      spentBudget: Math.max(0, Number(request.recursiveSpentBudget) || 0) },
+    worldModelAssignments: members.map((member) => ({ worldNumber: member.worldNumber,
+      modelTier: member.modelTier, localModel: member.localModel || null })),
+    adaptiveBudgetConfig: request.trinity_adaptive_budget || request.trinityAdaptiveBudget || null,
+    workerExecutionPolicy: request.executionPolicy || null
+  };
 }
 
 async function persistDispatchConfig(db, config) {

@@ -15,6 +15,7 @@ const temporal = require('../src/services/trinityTemporalHorizons');
 const variantRuntime = require('../src/services/trinityVariantRuntime');
 const recursiveExecutor = require('../src/services/trinityRecursiveExecutor');
 const nestedMissionRunner = require('../src/services/trinityNestedMissionRunner');
+const adaptiveContinuation = require('../src/services/trinityAdaptiveContinuationRunner');
 
 const TERMINAL = new Set(['blocked', 'completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
 
@@ -94,7 +95,9 @@ async function loadDispatchConfig(db, missionId) {
 
 async function compareMission(db, input, reports) {
   const design = { centralProblem: input.mission, variantSelection: input.variantSelection || {} };
-  const examined = await crossExamination.examine(db, reports, { centralProblem: input.mission });
+  const adaptiveReview = await runAdaptiveReview({ db, input, reports });
+  const activeReports = adaptiveReview?.status === 'executed' ? adaptiveReview.reports : reports;
+  const examined = await crossExamination.examine(db, activeReports, { centralProblem: input.mission });
   const worlds = verifier.verifyMissionReports(examined.reports, input.mission);
   const temporalReview = runTemporalReview(input.variantSelection, worlds);
   const recursiveReview = await runRecursiveReview({ db, input, worlds });
@@ -105,10 +108,12 @@ async function compareMission(db, input, reports) {
     threshold: 0.70, claimGraph: graph, variantSelection: input.variantSelection
   });
   result = adversarial.enforceVariantGate(result, review);
+  result = enforceAdaptiveGate(result, adaptiveReview);
   result = enforceRecursiveGate(result, recursiveReview);
   if (review) result.comparativeAnalysis.adversarialReview = review;
   if (temporalReview) result.comparativeAnalysis.temporalReview = temporalReview;
   if (recursiveReview) result.comparativeAnalysis.recursiveExecution = recursiveReview;
+  if (adaptiveReview) result.comparativeAnalysis.adaptiveBudgetExecution = adaptiveReview;
   const variantExecution = variantRuntime.run({ selection: input.variantSelection, reports: worlds });
   if (Object.keys(variantExecution.executions).length) result.comparativeAnalysis.variantExecution = variantExecution;
   result.jury = await jury.evaluate({
@@ -124,6 +129,25 @@ async function compareMission(db, input, reports) {
       deterministicOutcome: { selectedWorld: result.selectedWorld } });
   }
   return result;
+}
+
+async function runAdaptiveReview(context) {
+  const { input, db, reports } = context;
+  if (input.variantSelection?.experimentalDesign?.replicationPolicy !== 'adaptive_budget_fixed_replicas') return null;
+  try {
+    return await adaptiveContinuation.run({ db, reports, selection: input.variantSelection,
+      orchestratorId: input.orchestratorId, missionId: input.missionId,
+      mission: input.mission, repoRoot: input.repoRoot,
+      timeoutMs: 180000, executionPolicy: input.variantSelection.workerExecutionPolicy });
+  } catch (error) {
+    return { status: 'incomplete', reason: error.code || 'adaptive_continuation_failed' };
+  }
+}
+
+function enforceAdaptiveGate(result, review) {
+  if (!review || review.status === 'executed') return result;
+  return { ...result, canMerge: false, outcome: 'ESCALATE_EXPERIMENT', selectedWorld: null,
+    mergedEvidence: null, reason: `adaptive_${review.status}:${review.reason || 'continuation_missing'}` };
 }
 
 async function runRecursiveReview(context) {
