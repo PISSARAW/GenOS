@@ -100,6 +100,12 @@ function migrateState(ctx) {
     log.push({ op: 'set_organization', value: targetOrg });
   }
 
+  const targetTopology = plan.targetTopology;
+  if (targetTopology && toState.topologyState.topology !== targetTopology) {
+    toState.topologyState = { ...toState.topologyState, topology: targetTopology };
+    log.push({ op: 'set_topology', value: targetTopology });
+  }
+
   const newVersion = (fromState.currentMorphologyVersion || 0) + 1;
   if (toState.currentMorphologyVersion !== newVersion) {
     toState.currentMorphologyVersion = newVersion;
@@ -227,7 +233,10 @@ function verifyTransition(ctx) {
   }
 
   if (plan.targetOrganization && postState.topologyState.organization !== plan.targetOrganization) {
-    failures.push(`topology organization mismatch: ${postState.topologyState.organization}`);
+    failures.push(`organization mismatch: ${postState.topologyState.organization}`);
+  }
+  if (plan.targetTopology && postState.topologyState.topology !== plan.targetTopology) {
+    failures.push(`topology mismatch: ${postState.topologyState.topology}`);
   }
 
   return { verified: failures.length === 0, failures };
@@ -242,7 +251,7 @@ function buildReceipt(params) {
   return {
     transitionId,
     timestamp: nowIso(),
-    plan: { id: plan?.id || transitionId, targetOrganization: plan?.targetOrganization || 'unknown', actionCount: plan?.actions?.length || 0 },
+    plan: { id: plan?.id || transitionId, targetTopology: plan?.targetTopology || null, targetOrganization: plan?.targetOrganization || null, actionCount: plan?.actions?.length || 0 },
     preStateSnapshot: preSnapshot,
     postStateSnapshot: postSnapshot,
     actionsTaken,
@@ -253,10 +262,6 @@ function buildReceipt(params) {
       .digest('hex').slice(0, 16)
   };
 }
-
-// ---------------------------------------------------------------------------
-// Main entry point — executeTransition
-// ---------------------------------------------------------------------------
 
 async function executeTransition(ctx) {
   const { plan, collectiveState, db } = ctx;
@@ -365,10 +370,6 @@ async function handleRollback(input) {
   return buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: null, actionsTaken, rollbackReceipt, committed: false });
 }
 
-// ---------------------------------------------------------------------------
-// Public rollback entry point
-// ---------------------------------------------------------------------------
-
 async function rollback(ctx) {
   const { snapshotId, collectiveState } = ctx;
   const rolledBack = rollbackSnapshot(snapshotId);
@@ -379,10 +380,6 @@ async function rollback(ctx) {
     morphologyVersion: collectiveState.currentMorphologyVersion
   };
 }
-
-// ---------------------------------------------------------------------------
-// Exports
-// ---------------------------------------------------------------------------
 
 module.exports = {
   executeTransition,
