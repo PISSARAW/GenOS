@@ -28,14 +28,33 @@ function authorityEdgeErrors(edge, byId, graph) {
   const granted = filterActions(graph, edge, requested);
   const allowed = target && target.authorityBoundary;
   const ceiling = source && source.authorityBoundary;
-  if (!Array.isArray(allowed) || !Array.isArray(ceiling)) {
-    return [`authority edge ${edge.edgeId} requires source and target authority boundaries`];
-  }
-  return [
-    compareSet(requested, granted).length ? `authority edge ${edge.edgeId} requests a firewall-denied grant` : null,
-    compareSet(granted, allowed).length ? `authority edge ${edge.edgeId} grants an action outside target authority` : null,
-    compareSet(granted, ceiling).length ? `authority edge ${edge.edgeId} exceeds source authority` : null
-  ].filter(Boolean);
+  if (!validBoundaries(allowed, ceiling)) return missingBoundaryError(edge.edgeId);
+  return firewallGrantErrors(edge, requested, granted)
+    .concat(targetGrantErrors(edge, granted, allowed))
+    .concat(sourceGrantErrors(edge, granted, ceiling));
+}
+
+function validBoundaries(allowed, ceiling) {
+  return Array.isArray(allowed) && Array.isArray(ceiling);
+}
+
+function missingBoundaryError(edgeId) {
+  return [`authority edge ${edgeId} requires source and target authority boundaries`];
+}
+
+function firewallGrantErrors(edge, requested, granted) {
+  if (!compareSet(requested, granted).length) return [];
+  return [`authority edge ${edge.edgeId} requests a firewall-denied grant`];
+}
+
+function targetGrantErrors(edge, granted, allowed) {
+  if (!compareSet(granted, allowed).length) return [];
+  return [`authority edge ${edge.edgeId} grants an action outside target authority`];
+}
+
+function sourceGrantErrors(edge, granted, ceiling) {
+  if (!compareSet(granted, ceiling).length) return [];
+  return [`authority edge ${edge.edgeId} exceeds source authority`];
 }
 
 module.exports = { checkAuthority };

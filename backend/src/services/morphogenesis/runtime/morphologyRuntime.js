@@ -9,25 +9,44 @@ function mergeChildEvidence(parent, child) {
   if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
 }
 
-function recordExperience(store, graph, rootNode, result) {
-  if (!store || typeof store.add !== 'function') return;
+function recordExperience(input) {
+  const { store, graph, rootNode, result } = input;
+  if (!hasExperienceStore(store)) return;
   const output = result && result.output;
+  const sample = measuredSample(output);
+  if (!sample) return;
+  try {
+    store.add(experienceRecord({ graph, rootNode, output, sample }));
+  } catch (_) { /* learning must never break execution */ }
+}
+
+function hasExperienceStore(store) {
+  return Boolean(store && typeof store.add === 'function');
+}
+
+function experienceRecord(input) {
+  const { graph, rootNode, output, sample } = input;
+  return {
+    missionSignature: graph.missionId || graph.graphId,
+    problemProfile: {},
+    initialMorphology: { topology: rootNode.topology, variant: rootNode.variant, operator: rootNode.operator },
+    morphologyHistory: [{ version: graph.version, rootKind: rootNode.operator || rootNode.kind }],
+    budget: graph.globalBudget || {},
+    quality: sample.quality,
+    evidenceQuality: sample.evidenceQuality,
+    finalOutcome: output.finalOutcome || 'measured',
+    failures: output.failures || 0
+  };
+}
+
+function measuredSample(output) {
   const quality = Number(output?.quality);
   const evidenceQuality = Number(output?.evidenceQuality);
-  if (!Number.isFinite(quality) || !Number.isFinite(evidenceQuality)) return;
-  try {
-    store.add({
-      missionSignature: graph.missionId || graph.graphId,
-      problemProfile: {},
-      initialMorphology: { topology: rootNode.topology, variant: rootNode.variant, operator: rootNode.operator },
-      morphologyHistory: [{ version: graph.version, rootKind: rootNode.operator || rootNode.kind }],
-      budget: graph.globalBudget || {},
-      quality: Math.max(0, Math.min(1, quality)),
-      evidenceQuality: Math.max(0, Math.min(1, evidenceQuality)),
-      finalOutcome: output.finalOutcome || 'measured',
-      failures: output.failures || 0
-    });
-  } catch (_) { /* learning must never break execution */ }
+  if (!Number.isFinite(quality) || !Number.isFinite(evidenceQuality)) return null;
+  return {
+    quality: Math.max(0, Math.min(1, quality)),
+    evidenceQuality: Math.max(0, Math.min(1, evidenceQuality))
+  };
 }
 
 function variantPatch(input) {
@@ -71,7 +90,10 @@ class MorphologyRuntime {
     });
 
     context.status = 'running';
+    return this.executeRoot(graph, rootNode, context);
+  }
 
+  async executeRoot(graph, rootNode, context) {
     try {
       const executor = this.executorRegistry.getExecutorForNode(rootNode);
       if (!executor) throw new Error(`No executor for root kind: ${rootNode.kind}`);
@@ -84,7 +106,7 @@ class MorphologyRuntime {
       mergeChildEvidence(context, result.context);
 
       this.emit('complete', { graph, result, context });
-      recordExperience(this.experienceStore, graph, rootNode, result);
+      recordExperience({ store: this.experienceStore, graph, rootNode, result });
 
       return { output: result.output, receipts: context.receipts, evidence: context.evidence, state: result.context.state || context.state };
     } catch (error) {
