@@ -59,8 +59,28 @@ function federate(input = {}) {
   };
 }
 
+function aggregateSubCouncils(input = {}) {
+  const councils = Array.isArray(input.councils) ? input.councils : [];
+  const judgments = Array.isArray(input.judgments) ? input.judgments : [];
+  return councils.map((council) => summarizeCouncil(council, judgments));
+}
+
+function summarizeCouncil(council, judgments) {
+  const members = new Set(council.memberIds);
+  const positions = judgments.filter((item) => members.has(item.memberId))
+    .map((item) => item.judgment?.position).filter((value) => value !== undefined && value !== null)
+    .map(String);
+  const counts = new Map();
+  for (const position of positions) counts.set(position, (counts.get(position) || 0) + 1);
+  const distribution = [...counts].map(([position, memberCount]) => ({
+    position, memberCount, share: positions.length ? memberCount / positions.length : 0
+  })).sort((left, right) => right.share - left.share || left.position.localeCompare(right.position));
+  return { clusterId: council.councilId, outcome: distribution[0]?.position || 'UNRESOLVED',
+    distribution, dissent: distribution.slice(1).map((item) => ({ ...item, critical: false })) };
+}
+
 function councilError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { composeSubCouncils, federate };
+module.exports = { composeSubCouncils, aggregateSubCouncils, federate };

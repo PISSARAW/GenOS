@@ -178,17 +178,21 @@ function isQuarantinedArgument(item, memberIds) {
 }
 
 function polycentric(input, route) {
-  const clusters = Array.isArray(input.clusters) ? input.clusters : [];
+  const councilService = require('../deliberation/polycentricCouncilService');
+  const members = (input.members || []).filter((member) => member.status !== 'QUARANTINED');
+  const councils = members.length ? councilService.composeSubCouncils({ members,
+    councilCount: input.councilCount, scope: input.councilScope, charter: input.charter }) : [];
+  const clusters = councilService.aggregateSubCouncils({ councils, judgments: input.judgments });
   const hierarchical = require('../deliberation/hierarchicalDeliberationService');
   const judgment = hierarchical.aggregateAtParent({ clusters, isTrustedReceipt: input.isTrustedReceipt });
-  const councilService = require('../deliberation/polycentricCouncilService');
   const federation = clusters.length ? councilService.federate({ clusters: judgment.clusters,
     delegatesPerCluster: input.delegatesPerCluster }) : null;
-  const unresolved = !federation || judgment.parentMustReview || federation.parentMustReview;
+  const unresolved = !federation || clusters.some((cluster) => cluster.outcome === 'UNRESOLVED')
+    || judgment.parentMustReview || federation.parentMustReview;
   return {
     policy: route.policy, questionType: route.questionType,
     outcome: unresolved ? 'REVIEW_REQUIRED' : 'POLYCENTRIC_JUDGMENT',
-    polycentric: { ...judgment, federation }
+    polycentric: { councils, ...judgment, federation }
   };
 }
 
