@@ -1,33 +1,9 @@
 'use strict';
 
 const { hasEvidenceItem } = require('../agentEvidence/evidenceHelpers');
+const { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction } = require('./workerArtifactInstructions');
 const { hasEvidenceReferences, provenanceReferences } = require('./workerEvidenceReferenceService');
-
-const REQUIRED_FIELDS = Object.freeze({
-  scout_observation: ['observations'],
-  dossier: ['claims'],
-  verification_report: ['testedClaim', 'verificationMethod', 'verdict', 'reproductionSteps', 'evidence'],
-  experiment_record: ['hypothesis', 'protocol', 'measurements'],
-  formal_certificate: ['claim', 'solver', 'result', 'solverReceipt'],
-  synthesis_dossier: ['synthesis', 'sources'],
-  creative_candidate: ['candidate', 'assumptions', 'falsificationTest'],
-  clinical_report: ['caseScope', 'differentialConsiderations', 'uncertainty', 'safetyNote'],
-  causal_dossier: ['causalChain', 'evidence'],
-  training_packet: ['prerequisites', 'steps', 'evidence']
-});
-
-const CONTENT_TEMPLATES = Object.freeze({
-  scout_observation: { observations: [{ observation: '<observation>', sourceRefs: ['<source-ref>'], confidence: 0.5, uncertainties: [] }] },
-  dossier: { claims: [{ statement: '<claim>', evidence: ['<source-ref>'] }] },
-  verification_report: { testedClaim: '<claim>', verificationMethod: '<method>', verdict: 'reject', reproductionSteps: ['<step>'], evidence: ['<reproduction-ref>'] },
-  experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: [{ metric: '<metric>', value: 0, unit: '<unit>', evidence: ['<measurement-ref>'] }] },
-  formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', evidence: ['<receipt-ref>'] } },
-  synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'], disagreements: [] },
-  creative_candidate: { candidate: '<candidate>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
-  clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['<general-consideration>'], uncertainty: '<uncertainty>', safetyNote: 'No individual diagnosis or treatment advice.' },
-  causal_dossier: { causalChain: [{ from: '<event-ref>', to: '<event-ref>', relation: '<causal-link>', evidence: ['<receipt-ref>'] }], evidence: ['<receipt-ref>'] },
-  training_packet: { prerequisites: ['<prerequisite>'], steps: ['<step>'], evidence: ['<source-ref>'] }
-});
+const { kindArtifactIsInvalid, validateInspectedKindArtifact } = require('./workerArtifactKindRules');
 
 function reportOf(dossier) {
   const events = [...(dossier.events || [])].reverse();
@@ -74,75 +50,6 @@ function hasPreservedSynthesis(content) {
     && Array.isArray(item.positions) && item.positions.length > 1
     && item.positions.every((position) => isNonEmptyText(position?.source)
       && isNonEmptyText(position?.position)));
-}
-
-function hasCounterexamples(items) {
-  return Array.isArray(items) && items.length > 0 && items.every((item) =>
-    isNonEmptyText(item?.claim) && isNonEmptyText(item?.attack)
-    && Array.isArray(item.reproductionSteps) && item.reproductionSteps.length > 0
-    && item.reproductionSteps.every(isNonEmptyText)
-    && hasEvidenceReferences(item.evidence));
-}
-
-function hasRecoveryReceipt(receipt) {
-  return Boolean(isNonEmptyText(receipt?.action)
-    && isNonEmptyText(receipt?.restoredState)
-    && isNonEmptyText(receipt?.receiptId)
-    && hasEvidenceReferences(receipt?.evidence));
-}
-
-function hasBoundedHandoff(handoff) {
-  return Boolean(isNonEmptyText(handoff?.sourceGroup)
-    && isNonEmptyText(handoff?.targetGroup)
-    && handoff.sourceGroup !== handoff.targetGroup
-    && hasEvidenceReferences(handoff?.deliveredRefs));
-}
-
-function hasTerritoryReport(report) {
-  return Boolean(isNonEmptyText(report?.territoryId)
-    && Number.isFinite(Date.parse(report?.observedAt))
-    && hasEvidenceReferences(report?.sourceRefs));
-}
-
-function hasBoundedScope(report) {
-  return Boolean(isNonEmptyText(report?.scopeRef)
-    && hasEvidenceReferences(report?.completedRefs));
-}
-
-function hasStrategyTrace(trace) {
-  return Array.isArray(trace) && trace.length > 0 && trace.every((entry) =>
-    isNonEmptyText(entry?.strategy)
-    && ['retained', 'changed'].includes(entry.decision)
-    && isNonEmptyText(entry.reason)
-    && hasEvidenceReferences(entry.evidence));
-}
-
-function hasSpecialtyAssessment(value, expectedNiche) {
-  return Boolean(isNonEmptyText(value?.niche)
-    && (!expectedNiche || value.niche === expectedNiche)
-    && value.inScope === true
-    && hasEvidenceReferences(value.evidence));
-}
-
-function hasHostContribution(value, contract) {
-  const hostCapabilities = contract?.mission?.hostCapabilities || [];
-  const hostIdMatches = !contract?.mission?.hostContractId
-    || value?.hostContractId === contract.mission.hostContractId;
-  return Boolean(isNonEmptyText(value?.hostContractId)
-    && hostIdMatches
-    && (hostCapabilities.length ? hostCapabilities.includes(value.capability) : isNonEmptyText(value.capability))
-    && value.contractCompliant === true
-    && hasEvidenceReferences(value.evidence));
-}
-
-function hasBoundedChildSummary(items, contract) {
-  const maximum = contract
-    ? (Number.isSafeInteger(contract.limits?.maxChildren) ? contract.limits.maxChildren : 0)
-    : Number.POSITIVE_INFINITY;
-  if (!Array.isArray(items) || items.length > maximum) return false;
-  return items.every((item) => isNonEmptyText(item?.childId)
-    && ['success', 'failed', 'blocked'].includes(item.outcome)
-    && hasEvidenceReferences(item.evidence));
 }
 
 function hasFalsifiableCandidate(content) {
@@ -241,106 +148,6 @@ function hasProvenance(artifact) {
   return hasEvidenceReferences(provenanceReferences(artifact));
 }
 
-function artifactInstruction(contract) {
-  const required = contract?.evidence?.requiredArtifacts || [];
-  if (!required.length) return '';
-  if (contract.identity?.workerKind === 'resident_daemon') return residentInstruction();
-  if (contract.identity?.workerKind === 'bounded_worker') return boundedWorkerInstruction();
-  if (contract.identity?.workerKind === 'adaptive_worker') return adaptiveWorkerInstruction();
-  if (contract.identity?.workerKind === 'specialist') return specialistInstruction(contract.mission?.specialtyNiche);
-  if (contract.identity?.workerKind === 'symbiotic_worker') return symbioticInstruction(contract.mission);
-  if (contract.identity?.workerKind === 'sub_orchestrator') return subOrchestratorInstruction(contract.limits?.maxChildren);
-  if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
-  if (contract.identity?.workerKind === 'liaison_worker') return liaisonInstruction();
-  const rhizome = rhizomeArtifactInstruction(contract, required);
-  if (rhizome) return rhizome;
-  const template = required.map((type) => ({ type, content: templateForWorker(contract, type) }));
-  if (required.every((type) => type === 'dossier')) {
-    return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims })}. The top-level claims form the dossier; cite source references in evidence.`;
-  }
-  const artifact = template[0];
-  return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance.`;
-}
-
-function residentInstruction() {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    territoryReport: { territoryId: '<assigned-territory>', observedAt: '<ISO-8601>', sourceRefs: ['<source-ref>'] } };
-  return `Report only observations from the assigned territory, with a timestamp and source references. Schema: ${JSON.stringify(output)}`;
-}
-
-function boundedWorkerInstruction() {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    scopeCompletion: { scopeRef: '<assigned-scope-ref>', completedRefs: ['<result-ref>'] } };
-  return `Complete only the assigned scope. Report its scope reference and references to completed outputs. Schema: ${JSON.stringify(output)}`;
-}
-
-function adaptiveWorkerInstruction() {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    strategyTrace: [{ strategy: '<contract-strategy>', decision: 'retained', reason: '<reason>', evidence: ['<evidence-ref>'] }] };
-  return `Use only strategies declared by the contract and record each strategy decision with its reason and evidence. Schema: ${JSON.stringify(output)}`;
-}
-
-function specialistInstruction(niche) {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    specialtyAssessment: { niche, inScope: true, evidence: ['<scope-evidence-ref>'] } };
-  return `Work only in the declared niche '${niche}'. If the task is outside it, return unresolved. Schema: ${JSON.stringify(output)}`;
-}
-
-function symbioticInstruction(mission) {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    hostContribution: { hostContractId: mission.hostContractId, capability: '<host-capability>', contractCompliant: true, evidence: ['<receipt-ref>'] } };
-  return `Use only the host contract '${mission.hostContractId}' and its declared capabilities. Schema: ${JSON.stringify(output)}`;
-}
-
-function subOrchestratorInstruction(maxChildren) {
-  const limit = Number.isSafeInteger(maxChildren) ? maxChildren : 0;
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    childSummaries: [{ childId: '<child-id>', outcome: 'success', evidence: ['<child-receipt-ref>'] }] };
-  return `Coordinate no more than ${limit} children. Report each child outcome with its evidence references. Schema: ${JSON.stringify(output)}`;
-}
-
-function recoveryInstruction() {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    recoveryReceipt: { action: '<leased-action>', restoredState: '<restored-state>', receiptId: '<receipt-id>', evidence: ['<receipt-ref>'] } };
-  return `Return a dossier plus the executed recovery receipt. Do not claim restoration without a receipt. Schema: ${JSON.stringify(output)}`;
-}
-
-function liaisonInstruction() {
-  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    handoff: { sourceGroup: '<source-group>', targetGroup: '<target-group>', deliveredRefs: ['<source-ref>'] } };
-  return `Return the dossier and explicit recipient-bound handoff. Keep the groups distinct and cite every transferred item. Schema: ${JSON.stringify(output)}`;
-}
-
-function templateForWorker(contract, type) {
-  const template = CONTENT_TEMPLATES[type];
-  if (contract.identity?.workerKind !== 'red_worker' || type !== 'verification_report') return template;
-  return { ...template, counterexamples: [{ claim: '<claim>', attack: '<attack>', reproductionSteps: ['<step>'], evidence: ['<receipt-ref>'] }] };
-}
-
-function rhizomeArtifactInstruction(contract, required) {
-  const objective = contract?.mission?.objective || '';
-  if (!/Mission Rhizome|Rhizome discovery branch/i.test(objective)) return '';
-  const output = rhizomeOutputTemplate(required);
-  return `This is a Rhizome capability-mapping branch. Return one JSON object matching this schema: ${JSON.stringify(output)}. Keep the complete capability map at the top level, fill every listed field, and put the required typed worker artifact under workerArtifact. Treat unknownDependencies as hypotheses, cite only real references or label observations, and never invent evidence.`;
-}
-
-function rhizomeOutputTemplate(required) {
-  const output = {
-    outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
-    answer: '<branch answer>', capabilities: [], unknownDependencies: [],
-    interfaces: [], assumptions: [], evidence: []
-  };
-  const artifactType = required[0];
-  if (artifactType && artifactType !== 'dossier') {
-    output.workerArtifact = {
-      type: artifactType,
-      content: CONTENT_TEMPLATES[artifactType],
-      provenance: { sourceRefs: ['<source-ref>'] }
-    };
-  }
-  return output;
-}
-
 function artifactError(workerId, expected) {
   const error = new Error(`Worker '${workerId}' did not provide a valid '${expected}' artifact with provenance.`);
   error.code = 'INVALID_WORKER_ARTIFACT';
@@ -388,40 +195,7 @@ function inspectWorkerArtifact(kind, reply, provenance) {
   if (parsed && !Array.isArray(parsed.claims)) issues.push('claims.missing_or_invalid');
   const input = { parsed, expected, kind, provenance: artifactProvenance, issues };
   const result = expected === 'dossier' ? inspectDossier(input) : inspectSpecialized(input);
-  return validateWorkerKindArtifact(validateMethodEvidence(result, parsed, methodContract), kind, expected);
-}
-
-function validateWorkerKindArtifact(result, kind, type) {
-  if (!result.artifact) return result;
-  const content = result.artifact.content;
-  if (kind === 'red_worker' && type === 'verification_report' && !hasCounterexamples(content.counterexamples)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.counterexamples.invalid'] };
-  }
-  if (kind === 'recovery_worker' && type === 'dossier' && !hasRecoveryReceipt(content.recoveryReceipt)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.recoveryReceipt.invalid'] };
-  }
-  if (kind === 'liaison_worker' && type === 'dossier' && !hasBoundedHandoff(content.handoff)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.handoff.invalid'] };
-  }
-  if (kind === 'resident_daemon' && type === 'dossier' && !hasTerritoryReport(content.territoryReport)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.territoryReport.invalid'] };
-  }
-  if (kind === 'bounded_worker' && type === 'dossier' && !hasBoundedScope(content.scopeCompletion)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.scopeCompletion.invalid'] };
-  }
-  if (kind === 'adaptive_worker' && type === 'dossier' && !hasStrategyTrace(content.strategyTrace)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.strategyTrace.invalid'] };
-  }
-  if (kind === 'specialist' && type === 'dossier' && !hasSpecialtyAssessment(content.specialtyAssessment)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.specialtyAssessment.invalid'] };
-  }
-  if (kind === 'symbiotic_worker' && type === 'dossier' && !hasHostContribution(content.hostContribution)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.hostContribution.invalid'] };
-  }
-  if (kind === 'sub_orchestrator' && type === 'dossier' && !hasBoundedChildSummary(content.childSummaries)) {
-    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.childSummaries.invalid'] };
-  }
-  return result;
+  return validateInspectedKindArtifact(validateMethodEvidence(result, parsed, methodContract), kind, expected);
 }
 
 function validateMethodEvidence(result, parsed, methodContract) {
@@ -519,26 +293,13 @@ function validateWorkerArtifact(dossier, worker) {
     const fields = REQUIRED_FIELDS[expected];
     if (!artifact || artifact.type !== expected || !fields
       || !artifact.content || !contentIsValid(expected, artifact.content)
-      || !hasProvenance(artifact) || kindArtifactIsInvalid(kind, expected, artifact.content, worker.workerContract)) {
+      || !hasProvenance(artifact) || kindArtifactIsInvalid({
+        kind, type: expected, content: artifact.content, contract: worker.workerContract
+      })) {
       throw artifactError(worker.agentId, expected);
     }
   }
   return true;
-}
-
-function kindArtifactIsInvalid(kind, type, content, contract) {
-  if (kind === 'red_worker' && type === 'verification_report') return !hasCounterexamples(content?.counterexamples);
-  if (kind === 'recovery_worker' && type === 'dossier') return !hasRecoveryReceipt(content?.recoveryReceipt);
-  if (kind === 'liaison_worker' && type === 'dossier') return !hasBoundedHandoff(content?.handoff);
-  if (kind === 'resident_daemon' && type === 'dossier') return !hasTerritoryReport(content?.territoryReport);
-  if (kind === 'bounded_worker' && type === 'dossier') return !hasBoundedScope(content?.scopeCompletion);
-  if (kind === 'adaptive_worker' && type === 'dossier') return !hasStrategyTrace(content?.strategyTrace);
-  if (kind === 'specialist' && type === 'dossier') {
-    return !hasSpecialtyAssessment(content?.specialtyAssessment, contract?.mission?.specialtyNiche);
-  }
-  if (kind === 'symbiotic_worker' && type === 'dossier') return !hasHostContribution(content?.hostContribution, contract);
-  return kind === 'sub_orchestrator' && type === 'dossier'
-    && !hasBoundedChildSummary(content?.childSummaries, contract);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
