@@ -25,13 +25,14 @@ function createExecutionContext(input = {}) {
 }
 
 function createReceipt(opts) {
-  const { nodeId, kind, output, evidence, budget } = opts;
+  const { nodeId, kind, output, budget } = opts;
   return {
+    recordType: 'execution_receipt',
+    verificationStatus: 'not_verified',
     receiptId: randomUUID(),
     nodeId,
     kind,
     output,
-    evidence: evidence || [],
     budget: budget || {},
     timestamp: new Date().toISOString()
   };

@@ -77,13 +77,11 @@ function extractNamed(output, adapter) {
 
 function collectSource(parent, child) {
   parent.receipts.push(...child.receipts);
-  parent.evidence.push(...child.receipts);
   parent.evidence.push(...child.evidence);
 }
 
 function collectTarget(parent, child) {
   parent.receipts.push(...child.receipts);
-  parent.evidence.push(...child.receipts);
   parent.evidence.push(...child.evidence);
 }
 

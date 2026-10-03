@@ -23,7 +23,6 @@ function hasClaims(output, policy) {
 
 function collectStep(parent, child) {
   parent.receipts.push(...child.receipts);
-  parent.evidence.push(...child.receipts);
   parent.evidence.push(...child.evidence);
 }
 

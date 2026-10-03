@@ -8,7 +8,6 @@ function innerContextFor(parent) {
 
 function mergeInner(parent, child) {
   parent.receipts.push(...child.receipts);
-  parent.evidence.push(...child.receipts);
   parent.evidence.push(...child.evidence);
 }
 

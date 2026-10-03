@@ -71,7 +71,6 @@ function mergeJoined(parent, settled) {
   for (const entry of settled) {
     if (entry.status !== 'fulfilled') continue;
     parent.receipts.push(...entry.value.context.receipts);
-    parent.evidence.push(...entry.value.context.receipts);
     parent.evidence.push(...entry.value.context.evidence);
   }
 }
