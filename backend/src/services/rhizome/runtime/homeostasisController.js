@@ -16,6 +16,9 @@ function observe(state, result, input) {
   const stable = isVerifiedSuccess(result) && health.componentCount <= 1 && health.isolatedNodeIds.length === 0;
   state.stableTicks = stable ? state.stableTicks + 1 : 0;
   const fit = variants.analyzeFit({
+    privateOnly: input.privateOnly,
+    privacyRequired: input.privacyRequired,
+    trustDomainRestricted: input.trustDomainRestricted,
     routeFailures: state.routeFailures,
     budgetTight: input.budgetTight,
     unknownCapabilities: isOpenGap(result) ? 1 : 0,
