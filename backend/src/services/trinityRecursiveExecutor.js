@@ -74,12 +74,15 @@ function buildRecursiveMission(parentMission, subProblem, parentEvidenceVector) 
 }
 
 async function executeRecursiveTrinity(input) {
-  const { db, mission, parentReport, config = {}, depth = 0, spentBudget = 0, parentProblemIds = [], orchestratorId } = input;
+  const { mission, parentReport, config = {}, depth = 0, spentBudget = 0, parentProblemIds = [] } = input;
   const subProblems = identifySubProblems(parentReport);
   const subProblem = selectSubProblem(subProblems, parentReport.evidenceVector);
   if (!subProblem) return { status: 'no_subproblem', result: null };
   const recursionCheck = shouldRecurse({ subProblem, config, depth, spentBudget });
   if (!recursionCheck.allow) return { status: 'recursion_blocked', reason: recursionCheck.reason, subProblem };
+  if (typeof input.runNestedTrinity !== 'function') {
+    return { status: 'unavailable', reason: 'nested_runtime_unavailable', subProblem };
+  }
   const recursiveMission = buildRecursiveMission(mission, subProblem, parentReport.evidenceVector);
   const variantSelection = trinityVariants.selectForMission(recursiveMission, {
     ...config,
@@ -95,10 +98,13 @@ async function executeRecursiveTrinity(input) {
   const worlds = trinityVariants.applyToMembers(members, variantSelection);
   const newParentIds = [...parentProblemIds, subProblem.id, subProblem.parentClaimId].filter(Boolean);
   const childInput = { ...input, mission: recursiveMission, config: { ...config, parentProblemIds: newParentIds }, depth: depth + 1, spentBudget: spentBudget + recursionCheck.marginalCost };
-  const childResults = await runTrinityWorlds(childInput);
+  const childResults = await input.runNestedTrinity(childInput);
+  if (!validChildResults(childResults)) {
+    return { status: 'escalated', reason: 'nested_runtime_returned_incomplete_worlds', subProblem, childResults };
+  }
   const merged = trinityService.mergeTrinityEvidence(childResults, { domain: analysis.domain, threshold: config.threshold || 0.7 });
   return {
-    status: 'completed',
+    status: merged.canMerge ? 'verified' : 'escalated',
     subProblem,
     depth: depth + 1,
     variant: variantSelection.variant,
@@ -115,25 +121,9 @@ async function executeRecursiveTrinity(input) {
   };
 }
 
-async function runTrinityWorlds(input) {
-  const { worlds, db } = input;
-  const results = [];
-  for (const world of worlds) {
-    const result = await simulateWorldExecution(world, db);
-    results.push({ ...world, report: result });
-  }
-  return results;
-}
-
-async function simulateWorldExecution(world, db) {
-  return {
-    outcome: 'success',
-    evidenceVector: { correctness: 0.8, coverage: 0.7, robustness: 0.75, reproducibility: 0.85, uncertainty: 0.3, risk: 0.2, constraintCoverage: 0.9 },
-    evidenceVectorEvidence: { correctness: ['ev1'], coverage: ['ev2'], robustness: ['ev3'], reproducibility: ['ev4'], uncertainty: ['ev5'], risk: ['ev6'], constraintCoverage: ['ev7'] },
-    claims: [{ id: 'claim1', statement: 'Recursive sub-problem solved', evidence: ['ev1'], verificationLevel: 'independent_deterministic' }],
-    hardConstraintsPassed: true,
-    budgetStatus: 'within'
-  };
+function validChildResults(results) {
+  return Array.isArray(results) && results.length === 3
+    && results.every((world, index) => world?.worldNumber === index + 1 && world.report);
 }
 
 module.exports = { executeRecursiveTrinity, identifySubProblems, selectSubProblem, shouldRecurse, buildRecursiveMission, MAX_DEPTH, DEFAULT_RECURSION_BUDGET, MIN_MARGINAL_COST };
