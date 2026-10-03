@@ -63,7 +63,7 @@ function recommend(question, questionType) {
   const text = String(question || '').normalize('NFD').replace(/\p{Diacritic}/gu, '');
   const detectedType = questionType || require('../question/questionClassifier').classifyQuestion(question).questionType;
   const matches = AUTO_RULES.filter((rule) => (!rule.type || rule.type === detectedType) && rule.signal.test(text));
-  const selected = matches.find((rule) => POLICIES[rule.variant].executionLevel === 'EXECUTABLE');
+  const selected = matches[0];
   return {
     ...select(selected?.variant || 'epistemic_jury'),
     selection: {
