@@ -115,14 +115,14 @@ function selectTopology(input) {
     if (reason) rationale.push(`${entry.id}:elimine:${reason}`);
     else kept.push(entry);
   }
-  if (kept.length === 0) return { blocked: blockedReason(ordered), rationale };
+  if (kept.length === 0) return { blocked: blockedReason(ordered), rationale, ordered, taskKind: input.taskKind };
   const winner = kept[0];
   const invalid = validateRoles(winner);
-  if (invalid) return { blocked: invalid, rationale };
+  if (invalid) return { blocked: invalid, rationale, ordered, taskKind: input.taskKind };
   const resolved = resolveVariant(winner.id, input.variant);
   if (resolved.note) rationale.push(`${winner.id}:repli:${resolved.note}`);
   rationale.push(`${winner.id}:retenu:cout-${winner.cost}`);
-  return { topology: winner.id, variant: resolved.variant, workerRoles: winner.roles.slice(), rationale };
+  return { topology: winner.id, variant: resolved.variant, workerRoles: winner.roles.slice(), rationale, ordered, taskKind: input.taskKind };
 }
 
 module.exports = { CATALOG, PREFERENCES, FAILURE_LIMIT, compatibilityMatrix, selectTopology };

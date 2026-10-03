@@ -46,7 +46,37 @@ async function topologyFor(db, ctx) {
   return selection;
 }
 
-function canAdmit(ctx, reservationMb) {
+async function recordTopologyDecision(db, record) {
+  const selection = record.selection;
+  const evidence = {
+    taskKind: selection.taskKind || null,
+    memoryLevel: record.memoryLevel || null,
+    variant: selection.variant || null,
+    workerRoles: selection.workerRoles || [],
+    failures: (record.failures || []).length
+  };
+  await db.run(
+    `INSERT INTO ontogenesis_decisions (id, project_id, task_id, alternatives_json, rationale, evidence_json)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [`dec_${randomUUID()}`, record.projectId, record.taskId,
+      JSON.stringify(selection.ordered || []),
+      (selection.rationale || []).join('\n'),
+      JSON.stringify(evidence)]
+  );
+}
+
+async function traceSelection(db, ctx, selection) {
+  try {
+    const task = (ctx.selection && ctx.selection.task) || {};
+    const failures = await listFailures(db, ctx.project.id);
+    await recordTopologyDecision(db, {
+      projectId: ctx.project.id, taskId: task.id || null,
+      selection, memoryLevel: ctx.memoryLevel, failures
+    });
+  } catch (_) {
+    // Traçabilité best-effort : un échec d'audit ne bloque jamais le dispatch.
+  }
+}
   if (!ctx.sample) return true;
   const memory = ctx.config.memory;
   return ctx.sample.freeMb - memory.reserveMb - ctx.sample.reservationsMb >= reservationMb
@@ -77,6 +107,7 @@ async function dispatchTask(db, ctx, harness) {
     budgets: allocatedBudget(ctx.remaining, ctx.config) };
   await ctx.fence();
   await persistDispatch(db, input);
+  await traceSelection(db, ctx, selection);
   try {
     const started = await harness.start({ ...input, project: ctx.project, task, selection, config: ctx.config });
     await db.run('UPDATE ontogenesis_execution SET pid = ?, executable = ? WHERE id = ?', [started.pid, started.executable, input.id]);
