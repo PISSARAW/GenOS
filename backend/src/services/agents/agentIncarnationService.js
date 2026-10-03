@@ -44,9 +44,16 @@ function strategyFields(strategy) {
 }
 
 function computeCognitiveBudget(parent, request, workerCount) {
-  const count = Math.max(1, workerCount || 1);
-  const share = request.budget?.cognitiveShare || 0.6;
-  return ((parent.cognitive_budget || 100) * share) / count;
+  const requestedCount = Number(workerCount);
+  const count = Number.isFinite(requestedCount) && requestedCount > 0
+    ? Math.max(1, Math.floor(requestedCount)) : 1;
+  const requestedShare = Number(request.budget?.cognitiveShare ?? 0.6);
+  const share = Number.isFinite(requestedShare)
+    ? Math.max(0, Math.min(1, requestedShare)) : 0.6;
+  const requestedBudget = Number(parent.cognitive_budget ?? 100);
+  const parentBudget = Number.isFinite(requestedBudget) && requestedBudget >= 0
+    ? requestedBudget : 100;
+  return (parentBudget * share) / count;
 }
 
 async function buildDna(ctx) {
