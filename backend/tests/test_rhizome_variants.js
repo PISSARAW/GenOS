@@ -26,6 +26,7 @@ async function run() {
     'Crée une nouvelle branche quand une dépendance inconnue est découverte.',
     'Si une capacité non cartographiée apparaît, étends le réseau avec une nouvelle branche.'
   ]) assert.equal(variants.selectForMission(mission).selection.variant, 'growth');
+  assert.equal(variants.selectForMission('Reroute autour des impasses et des branches en cul-de-sac.').selection.variant, 'resilient');
   assert.throws(() => variants.resolve('unknown'), (error) => error.code === 'RHIZOME_VARIANT_UNKNOWN');
   assert.equal(variants.resolve('persistent').session.scope, 'persistent');
   assert.equal(variants.resolve('ephemeral').session.persistence, false);

@@ -103,7 +103,7 @@ const PROFILES = Object.freeze({
 const MISSION_SIGNALS = Object.freeze({
   private: /private|confidential|sensitive|secret|air.gapped|local.only|privé|confidentiel|sensible/i,
   self_healing: /self.heal|auto.repair|automatic repair|auto.répar|autorépar|self.recover/i,
-  resilient: /resilien|résilien|failure|failover|outage|panne|crash|recovery|récupér/i,
+  resilient: /resilien|résilien|failure|failover|outage|panne|crash|recovery|récupér|cul.de.sac|dead.end|impasse|rerout|route around/i,
   sparse: /low budget|limited budget|budget limité|peu de ressources|resource constrained/i,
   persistent: /persistent|long.term|long.running|workspace|project memory|durable|continu/i,
   ephemeral: /ephemeral|one.off|short.lived|temporary|mission courte|ponctuel/i,
