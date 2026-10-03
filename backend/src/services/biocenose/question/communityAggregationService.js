@@ -7,6 +7,7 @@ function aggregate(input) {
   if (input.variantPolicy?.name === 'argumentation_community') return argumentation(input, route);
   if (input.variantPolicy?.name === 'polycentric_council') return polycentric(input, route);
   if (input.variantPolicy?.name === 'representative_community') return representative(input, route);
+  if (input.variantPolicy?.name === 'persistent_community') return persistent(input, route);
   const handlers = {
     verified_evidence: factual,
     calibrated_probability_pooling: probability,
@@ -18,6 +19,33 @@ function aggregate(input) {
   };
   const result = { policy: route.policy, questionType: route.questionType, ...handlers[route.policy](input) };
   return input.variantPolicy?.name === 'delphi_community' ? withDelphiDistribution(result, input) : result;
+}
+
+function persistent(input, route) {
+  const handlers = {
+    verified_evidence: factual, calibrated_probability_pooling: probability,
+    evidence_informed_design_review: design, pareto_options: pareto,
+    pluralism_with_human_judgment: normative, claim_map: exploratory,
+    type_specific_plural_judgment: mixed
+  };
+  const current = handlers[route.policy](input);
+  const history = Array.isArray(input.history) ? input.history : [];
+  const previous = history.map((entry) => entry.judgment?.aggregation).filter(Boolean);
+  return {
+    ...current,
+    longitudinal: { priorRounds: history.map((entry) => entry.round),
+      stableOutcomeRounds: countStableOutcomes([...previous, current]),
+      preservedDissent: previous.flatMap((item) => item.dissent || item.preservedDissent || []) }
+  };
+}
+
+function countStableOutcomes(aggregations) {
+  let count = 0;
+  for (let index = aggregations.length - 1; index >= 0; index -= 1) {
+    if (aggregations[index].outcome !== aggregations.at(-1)?.outcome) break;
+    count += 1;
+  }
+  return count;
 }
 
 function representative(input, route) {

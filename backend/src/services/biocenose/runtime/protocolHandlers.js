@@ -12,6 +12,7 @@ const aggregationService = require('../question/communityAggregationService');
 const dissentService = require('../dissent/dissentLedger');
 const minorityVeto = require('../dissent/minorityEvidenceVetoService');
 const judgmentService = require('../judgment/communityJudgmentService');
+const judgmentStore = require('../judgment/judgmentStore');
 const memberInvocation = require('./memberInvocationService');
 const DECISION_CHECKS = Object.freeze({
   EVIDENCE_SUPPORTED: (item) => item.verifiedClaimIds?.length > 0,
@@ -198,12 +199,14 @@ async function aggregateByQuestionType(context) {
   const claims = prior(context, 1).claims;
   const reviewResult = prior(context, 2);
   const options = context.aggregationContext || {};
+  const history = context.variantPolicy?.name === 'persistent_community'
+    ? await judgmentStore.listBeforeRound(context.db, session.communityId, session.round) : [];
   return aggregationService.aggregate({
     ...options, questionType: session.questionType, claims, judgments,
     arguments: prior(context, 3).arguments,
     forecasts: options.forecasts || judgments.flatMap((item) => item.judgment.probabilities || []),
     verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy,
-    isTrustedReceipt: context.isTrustedReceipt
+    isTrustedReceipt: context.isTrustedReceipt, history
   });
 }
 
