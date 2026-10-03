@@ -17,12 +17,12 @@ Morphogenèse retient `controlled` comme baseline. Le reçu inclut un
 `experimentalDesignId` reproductible; celui-ci identifie le plan fixe à trois stratégies,
 mais ne prétend pas figer les fournisseurs ou les seeds.
 
-`controlled` est exécutable comme baseline. Les onze autres variants
-(`heterogeneous`, `adversarial`, `counterfactual`, `factorial`, `pareto`,
-`jury`, `recursive`, `adaptive`, `temporal`, `oracular`, `exploratory`) sont
-implémentés avec contrat d'adaptateur : la sélection exige les adapters
-installés et disponibles sur le chemin de lancement, sinon le dispatch est
-refusé avant création des mondes (`TRINITY_DESIGN_ADAPTER_MISSING`).
+`controlled` est exécutable comme baseline. Les autres variants du catalogue
+décrivent des politiques et des contrats d'adapter, mais tous leurs exécuteurs
+ne sont pas reliés aux voies de dispatch. Chaque voie fournit la liste de ses
+adapters réellement exécutables; un adapter seulement chargeable ne suffit pas.
+Si une politique exige un adapter absent du chemin, le dispatch est refusé
+avant création des mondes (`TRINITY_ADAPTER_NOT_EXECUTABLE`).
 `jury` exige en plus `trinity_jury.enabled=true`, au moins deux `modelUris`
 distincts et un `maxCostUsd` positif. `heterogeneous` exige une diversité
 mesurée suffisante sur les routes de modèles réellement assignées, sinon le
@@ -152,7 +152,7 @@ La promotion prépare un candidat distinct depuis le workspace isolé du monde g
 
 ### Portée des variants et limites de preuve
 
-Le registre de variants et `trinityAdapters` fournissent maintenant des voies d'exécution pour `factorial_grid`, `recursive_nesting`, `provider_diverse` et `adaptive_replica_count`, ainsi que pour les autres variants déclarés. La sélection automatique choisit un variant compatible avec le profil et vérifie la disponibilité de ses adapters. Cela établit l'existence du mécanisme logiciel sur les voies qui l'appellent; cela ne prouve pas que chaque orchestration de production l'a choisi ni qu'un benchmark comparatif lui attribue un gain.
+Le registre de variants compile des politiques et vérifie les contrats de leurs adapters. Sur la voie `dispatch_trinity`, les adapters de diversité hétérogène, cross-examen adversarial, jury consultatif et profils Pareto sont reliés au dispatch et à la comparaison. Les autres politiques ne sont pas annoncées comme exécutables sur cette voie tant que leur runner et leur reçu de résultat ne sont pas branchés. Un adapter présent dans le registre ou chargeable par Node.js ne prouve pas qu'une mission l'a exécuté.
 
 La diversité fournisseur n'est garantie que lorsque l'adapter reçoit des fournisseurs distincts effectivement disponibles. Elle ne mesure pas à elle seule la corrélation statistique des erreurs. Le jury reste un avis consultatif borné; il n'est ni une preuve ni un arbitre du résultat. Les tests de sélection et d'adapters valident le contrat local, pas l'avantage causal sur un modèle seul ou une autre topologie.
 

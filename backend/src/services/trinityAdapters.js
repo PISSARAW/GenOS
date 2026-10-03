@@ -42,6 +42,10 @@ const ADAPTERS = Object.freeze({
   sequential_design_scheduler: adapter('./trinityAdaptiveSequential', 'replicationPolicy:adaptive_replica_count',
     ['sequentialAllocate', 'stoppingRule', 'computeBiasCorrectedEstimate'])
 });
+const DISPATCH_ADAPTERS = Object.freeze([
+  'diversity_planner', 'adversarial_cross_examiner', 'blind_jury_adjudicator',
+  'pareto_objective_assigner'
+]);
 
 function adapter(modulePath, serves, functions) {
   return Object.freeze({ module: modulePath, serves, functions: Object.freeze([...functions]) });
@@ -81,9 +85,13 @@ function isInstalled(name) {
 }
 
 function validateRequiredAdapters(names, availableNames) {
-  const missing = names.filter((name) => !isInstalled(name) || unavailable(name, availableNames));
+  const missing = names.filter((name) => !isInstalled(name));
   if (missing.length) {
     throw adapterError('TRINITY_DESIGN_ADAPTER_MISSING', `Experimental design requires unavailable adapters: ${missing.join(', ')}.`);
+  }
+  const nonExecutable = names.filter((name) => unavailable(name, availableNames));
+  if (nonExecutable.length) {
+    throw adapterError('TRINITY_ADAPTER_NOT_EXECUTABLE', `This dispatch path cannot execute adapters: ${nonExecutable.join(', ')}.`);
   }
 }
 
@@ -98,6 +106,9 @@ function describeRequiredAdapters(names) {
 function installedAdapterNames() {
   return adapterNames().filter(isInstalled);
 }
+function dispatchAdapterNames() {
+  return DISPATCH_ADAPTERS.filter((name) => isInstalled(name));
+}
 
 module.exports = { ADAPTERS, adapterNames, describeAdapter, describeRequiredAdapters,
-  resolveAdapter, isInstalled, installedAdapterNames, validateRequiredAdapters };
+  resolveAdapter, isInstalled, installedAdapterNames, dispatchAdapterNames, validateRequiredAdapters };

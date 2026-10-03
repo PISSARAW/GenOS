@@ -35,7 +35,7 @@ function composeMembers(mission, options, assignments) {
   const models = trinityModels();
   const composed = trinityService.compose(mission, {
     variantId: options.variant, experimentalDesign: options.experimentalDesign, trinityJury: options.jury,
-    availableAdapters: trinityAdapters.installedAdapterNames(), trinityModels: models
+    availableAdapters: trinityAdapters.dispatchAdapterNames(), trinityModels: models
   });
   return topologyWorkerKinds.applyTopologyWorkerKinds('trinity', assignModels(composed, models), assignments);
 }
