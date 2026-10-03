@@ -75,6 +75,7 @@ function assertRuntimeContract(contract, kind) {
     throw Object.assign(new Error('Worker runtime contract identity is invalid.'), { code: 'INVALID_WORKER_CONTRACT' });
   }
   workerKinds.assertMethodCompatibility(kind, contract.mission?.methodContract);
+  assertCanonicalContract(contract, kind);
   if (contract.assignment?.workerKind && contract.assignment.workerKind !== kind) {
     throw Object.assign(new Error('Worker assignment and runtime contract select different kinds.'), { code: 'INVALID_WORKER_CONTRACT' });
   }
@@ -83,6 +84,61 @@ function assertRuntimeContract(contract, kind) {
     throw Object.assign(new Error('Sub-orchestrator delegation contract is missing, expired, or outside its limits.'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
   }
   return true;
+}
+
+function assertCanonicalContract(contract, kind) {
+  const canonical = workerKinds.buildWorkerContract(kind, {
+    parentAgentId: contract.identity.parentId,
+    prompt: contract.mission?.objective,
+    scope: contract.mission?.scope,
+    methodContract: contract.mission?.methodContract,
+    topologySessionId: contract.mission?.topologySessionId,
+    workerAssignment: contract.assignment
+  });
+  assertAuthorityCeiling(contract.authority, canonical.authority, kind);
+  assertObjectCeilings(contract.resources, canonical.resources, { requireAll: true });
+  assertObjectCeilings(contract.limits, canonical.limits, { delegated: kind === 'sub_orchestrator' });
+  if (!sameArtifacts(contract.evidence, canonical.evidence)) throw invalidContract();
+}
+
+function assertAuthorityCeiling(actual, maximum, kind) {
+  if (!actual || typeof actual !== 'object') throw invalidContract();
+  for (const [key, allowed] of Object.entries(maximum)) {
+    const delegationGrant = kind === 'sub_orchestrator' && ['spawn', 'delegate'].includes(key);
+    if (delegationGrant) continue;
+    if (actual[key] !== allowed) throw invalidContract();
+  }
+  for (const [key, value] of Object.entries(actual)) {
+    if (!Object.hasOwn(maximum, key) && value === true) throw invalidContract();
+  }
+}
+
+function assertObjectCeilings(actual, maximum, options = {}) {
+  if (!actual || typeof actual !== 'object' || Array.isArray(actual)) throw invalidContract();
+  for (const [key, ceiling] of Object.entries(maximum)) {
+    if (options.delegated && key === 'maxTokens') continue;
+    if (!withinCeiling(actual[key], ceiling)) throw invalidContract();
+  }
+  for (const key of Object.keys(actual)) {
+    if (!Object.hasOwn(maximum, key) && !(options.delegated && ['maxChildren', 'maxTokens'].includes(key))) throw invalidContract();
+  }
+  if (options.requireAll && Object.keys(maximum).some((key) => !Object.hasOwn(actual, key))) throw invalidContract();
+}
+
+function withinCeiling(value, ceiling) {
+  if (ceiling === null) return value === null || (Number.isFinite(value) && value >= 0);
+  return Number.isFinite(value) && value >= 0 && value <= ceiling;
+}
+
+function sameArtifacts(actual, expected) {
+  return actual?.provenanceRequired === true
+    && JSON.stringify(actual.requiredArtifacts) === JSON.stringify(expected.requiredArtifacts);
+}
+
+function invalidContract() {
+  return Object.assign(new Error('Persisted worker contract exceeds its canonical authority or resource ceiling.'), {
+    code: 'INVALID_WORKER_CONTRACT'
+  });
 }
 
 function assertAssignmentMatches(contract, request) {
