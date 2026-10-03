@@ -11,6 +11,8 @@ async function verifyVariantActions(context) {
   const results = context.execution.results || [];
   return verifyPatchActions(plan.actions, session) && verifySearchAndEvolution(plan.actions, results)
     && verifySourceSinkRoles(plan.actions, session)
+    && await verifyFounderReserve({ actions: plan.actions, results, db: options.db,
+      metapopulationId: input.metapopulationId })
     && verifyTrials({ actions: plan.actions, results, db: options.db, metapopulationId: input.metapopulationId })
     && verifyMarkerReceipts(plan.actions, results) && await verifyCultureOffers({ plan, results, db: options.db, metapopulationId: input.metapopulationId });
 }
@@ -42,7 +44,7 @@ const MARKER_RECEIPTS = Object.freeze({
   MIGRATE_ISLAND_ELITE: (item) => item.migrated === true && typeof item.propaguleId === 'string',
   PROOF_OF_DATA_MINIMIZATION: (item) => item.proven === true && typeof item.proofId === 'string',
   REQUIRE_RECEIVER_ATTESTATION: (item) => item.required === true && typeof item.propaguleId === 'string',
-  STAGE_FOUNDER_RESERVE: (item) => item.staged === true && Number.isFinite(item.deficit),
+  STAGE_FOUNDER_RESERVE: (item) => item.staged === true && Number.isFinite(item.eventRevision) && item.founders.length >= item.deficit,
   DIVERSITY_FLOOR_BREACH: (item) => item.breached === true && Number.isFinite(item.currentDiversity),
   ALLOW_CONTROLLED_EXTINCTION: (item) => item.allowed === true && typeof item.demeId === 'string',
   PROTECT_FROM_EXTINCTION: (item) => item.protected === true && typeof item.demeId === 'string',
@@ -64,10 +66,21 @@ const MARKER_RECEIPTS = Object.freeze({
   REGISTER_RESIDENT_DAEMON: (item) => typeof item.daemonId === 'string' && typeof item.leaseId === 'string',
   MAINTAIN_RESIDENT_DAEMON_CYCLE: (item) => typeof item.maintained === 'boolean' && typeof item.demeId === 'string',
   EXPIRE_RESIDENT_DAEMON: (item) => item.deactivated === true && typeof item.demeId === 'string',
-  STAGE_FOUNDER_RESERVE: (item) => item.staged === true && Number.isFinite(item.deficit),
   PROOF_OF_DATA_MINIMIZATION: (item) => item.recorded === true && typeof item.proofId === 'string',
   REQUIRE_RECEIVER_ATTESTATION: (item) => item.required === true && typeof item.propaguleId === 'string',
 });
+
+async function verifyFounderReserve(context) {
+  const { actions, results, db, metapopulationId } = context;
+  const staged = actions.filter((action) => action.type === 'STAGE_FOUNDER_RESERVE');
+  if (!staged.length) return true;
+  const events = await store.listEvents(db, metapopulationId);
+  return staged.every((action) => results.some((result) => result.type === action.type
+    && result.staged === true && result.eventRevision
+    && events.some((event) => event.type === 'FOUNDER_RESERVE_STAGED'
+      && event.revision === result.eventRevision
+      && JSON.stringify(event.payload.founders) === JSON.stringify(action.founders))));
+}
 
 function verifySourceSinkRoles(actions, session) {
   const rotations = actions.filter((action) => action.type === 'ROTATE_SOURCE_SINK_ROLES');

@@ -84,7 +84,8 @@ function founderReserveActions(observed, input) {
   const reserve = rescueNetworkRuntime.maintainFounderReserve(observed.demes,
     { desiredSize: observed.variantPolicy.founderReserveSize, staged: input.stagedFounders });
   return reserve.needsStaging
-    ? [{ type: 'STAGE_FOUNDER_RESERVE', deficit: reserve.deficit, atRiskCount: reserve.atRiskCount }]
+    ? [{ type: 'STAGE_FOUNDER_RESERVE', deficit: reserve.deficit, atRiskCount: reserve.atRiskCount,
+      founders: (input.founderCandidates || []).filter((founder) => founder?.lineageId).slice(0, reserve.deficit) }]
     : [];
 }
 

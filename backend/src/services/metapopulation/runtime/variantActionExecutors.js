@@ -34,7 +34,6 @@ const RUNTIME_MARKERS = Object.freeze({
   MIGRATE_ISLAND_ELITE: async (action) => ({ type: action.type, propaguleId: action.propagule.propaguleId, migrated: true }),
   PROOF_OF_DATA_MINIMIZATION: async (action) => ({ type: action.type, propaguleId: action.propaguleId, proofId: action.proofId, proven: true }),
   REQUIRE_RECEIVER_ATTESTATION: async (action) => ({ type: action.type, propaguleId: action.propaguleId, targetRegion: action.targetRegion, required: true }),
-  STAGE_FOUNDER_RESERVE: async (action) => ({ type: action.type, deficit: action.deficit, staged: true }),
   DIVERSITY_FLOOR_BREACH: async (action) => ({ type: action.type, currentDiversity: action.currentDiversity, floor: action.floor, breached: true }),
   ALLOW_CONTROLLED_EXTINCTION: async (action) => ({ type: action.type, demeId: action.demeId, allowed: true }),
   PROTECT_FROM_EXTINCTION: async (action) => ({ type: action.type, demeId: action.demeId, uniqueCapabilities: action.uniqueCapabilities, protected: true }),
@@ -55,7 +54,7 @@ const RUNTIME_MARKERS = Object.freeze({
     const result = await classicPatchRuntime.runClassicPatchCycle(session, context.input, context.options);
     return { type: action.type, ...result };
   },
-  STAGE_FOUNDER_RESERVE: async (action) => ({ type: action.type, staged: true, deficit: action.deficit, atRiskCount: action.atRiskCount }),
+  STAGE_FOUNDER_RESERVE: stageFounderReserve,
   PROOF_OF_DATA_MINIMIZATION: async (action) => ({ type: action.type, recorded: true, propaguleId: action.propaguleId, proofId: action.proofId, contractId: action.contractId }),
   REQUIRE_RECEIVER_ATTESTATION: async (action) => ({ type: action.type, required: true, propaguleId: action.propaguleId, targetRegion: action.targetRegion }),
   CREATE_EPHEMERAL_PATCH_LEASE: async (action, context) => {
@@ -139,6 +138,20 @@ async function maintainResidentDaemonDb(action, context) {
   }
   const extended = await persistentDaemonLeaseService.extendDaemonLease({ db, metapopulationId: input.metapopulationId, demeId, ttlMs: 600000 });
   return { type: action.type, demeId, maintained: true, expiresAt: extended.expiresAt, leaseId: extended.leaseId };
+}
+
+async function stageFounderReserve(action, context) {
+  const founders = Array.isArray(action.founders) ? action.founders : [];
+  if (founders.length < action.deficit || !context.options.db) {
+    return { type: action.type, staged: false, deficit: action.deficit, founders: [], reason: 'FOUNDER_RESERVE_UNAVAILABLE' };
+  }
+  const event = await store.appendEvent(context.options.db, context.input.metapopulationId, {
+    type: 'FOUNDER_RESERVE_STAGED', actor: 'metapopulation-runtime',
+    occurredAt: new Date().toISOString(), provenance: { source: 'rescue-network-variant' },
+    payload: { founders, deficit: action.deficit }
+  });
+  return { type: action.type, staged: event.type === 'FOUNDER_RESERVE_STAGED', deficit: action.deficit,
+    founders, eventRevision: event.revision };
 }
 
 async function persistSourceSinkRoles(action, context) {
