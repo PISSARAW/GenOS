@@ -1,7 +1,7 @@
 # Contrat produit et définition de « terminé »
 
 - **Statut du document** : référence de périmètre
-- **Revue** : 2026-09-19
+- **Revue** : 2026-10-03
 - **Source d'inventaire** : dépôt courant ; les statuts ci-dessous évaluent la preuve disponible, pas l'ambition des noms de services.
 
 Ce document est le registre produit de GenOS. Une capacité n'est annoncée comme
@@ -47,7 +47,7 @@ exécutées pour cette revue.
 
 | Élément | Statut | Interface publique | Acceptation spécifique | Dépendances | Preuve de fonctionnement |
 | --- | --- | --- | --- | --- | --- |
-| Trinity | partiel | `composeMode(mode: trinity)` ; `merge_trinity` | comparer dossiers non vides, refuser égalité/absence de preuve, fusion protégée | dossiers, télémétrie, barrière comparative | `trinityService`, `trinityComparativeBarrier`; test d'intégration compose→merge à publier |
+| Trinity | partiel | `dispatch_trinity` ; `merge_trinity` | les 12 runners sont câblés au dispatch/superviseur ; vérifier sorties variant, reçus, gates et promotion | workers, routes de modèles, superviseur, dossiers de preuve et barrière comparative | Campagne R3 réelle : 12 missions, 36 agents, 12 `ESCALATE`, 0 merge. Elle établit le déclenchement des chemins et leurs refus, pas leur validation nominale ; critères détaillés dans [la fiche Trinity](../02-orchestration/topologies/trinity.md) et [ADR 0292](../adr/0292-execution-des-variants-trinity.md) |
 | A-Team | partiel | `composeMode(mode: a_team)` ; `analyzeMission(mission, { workGraph, capabilityRequirements, availableSpecialists })` | lorsqu'un WorkGraph validé ou des exigences explicites sont fournis, dériver les compétences, relier les handoffs et affecter uniquement les spécialistes disponibles ; les appels texte seul gardent une détection lexicale de compatibilité et ne constituent pas une extraction WorkGraph | coordination A-Team, exigences structurées, registre de spécialistes, workers | `workGraphRequirements`, `teamFormationOptimizer`, tests de graphe et d'affectation ; décomposition sémantique de mission et scénario E2E à publier |
 | Biome | expérimental | `composeMode(mode: biome)` | allocation bornée et observation reproductible, sans prétendre à une écologie réelle | foraging, métriques, budget | `biomeCoordinationService`, `foragingScoutHarvesterService`; tests de service, scénario E2E à publier |
 | Biocénose | partiel | `composeMode(mode: biocenose)` | quorum/consensus traçable, abstention et données contradictoires visibles | arène, Brier, quorum, preuves | `biocenoseService`, `arenaTaskEvaluation`; intégration consensus à publier |

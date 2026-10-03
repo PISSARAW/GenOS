@@ -96,7 +96,7 @@ Règle transversale : un succès de transport n'est pas une décision valide. Au
 
 ## 8. Réconciliations documentaires figées en Phase 0
 
-- **Trinity** : `docs/02-orchestration/topologies/trinity.md` prévaut — `factorial`, `recursive`, `oracular` sont reconnus mais refusés avant lancement. Les modules `trinityFactorialGrid`, `trinityRecursiveExecutor`, `trinityOracle` et les politiques `factorial_grid`, `recursive_nesting`, `oracular_prediction` marquées `implemented` dans `trinityVariantService.js` sont des utilitaires `bibliothèque` tant qu'aucun parcours de lancement ne les invoque avec gate passé. Aucune promotion vers `actif` sans preuve de lancement.
+- **Trinity** : l'état de refus décrit dans la version initiale de ce contrat a été dépassé par le câblage du 2026-10-03 (ADR 0292). Les douze runners sont reliés au dispatch/superviseur, avec des gates de complétude par variant. La campagne R3 a lancé les douze missions mais fini par 12 `ESCALATE` et 0 merge ; le câblage est donc établi, la validation produit ne l'est pas. Garder le statut `partiel` jusqu'à preuve des cellules, distributions, interventions, routes effectives, délibérations, lignages et mesures attendues. La fiche [Trinity](../02-orchestration/topologies/trinity.md) décrit les contrats courants.
 - **Conformité** : `docs/05-securite-gouvernance/conformite-et-gouvernance.md` prévaut — `complianceService` et la CLI `genos compliance` produisent des rapports de couverture de contrôles outillés, pas une conformité réglementaire complète ni une certification. Un score de 100 % signifie que les contrôles vérifiés ont passé.
 - **Indicateurs** : les 14 propriétés Butlin et les 15 familles GenOS restent des registres distincts non additionnables ; `composed-perceptual` reste `planned`.
 

@@ -42,14 +42,15 @@ variant dans le registre.
 | Rhizome | Douze choix disponibles et sélection par signaux | Routage, croissance, pruning et portée persistante | Les transitions de politique en cours de session restent à mesurer |
 | Métapopulation | Douze variants documentés et quatre alias historiques; sélection explicite/automatique persistée | Quorum, migration, diversité inter-îles, source-sink adaptatif; les rotations temporelles source/sink sont persistées comme événements, relues par l'observateur régional et vérifiées contre les transitions périmées; trials Classic Patch, patches éphémères, Anti-Synchrony, gates fédérés/culturels, adaptateurs de recherche et d'évolution | Rescue SLA observé mais secours soumis aux adaptateurs; l'évaluateur de colonie, le solveur et le moteur Rust doivent être fournis; pas encore de réserve persistante de fondateurs, QD/speciation, phylogénie culturelle complète, démons résidents ou rebouclage automatique de la cryptobiose |
 | Biome | Onze variants; explicite validé et sélection par mission | `advance_variant` persistant; allocation vectorielle/enchères, foraging-curiosité et archive, QD/CVT, succession à preuves, extinction/refuge/recolonisation, saisons inter-missions, génération POET bornée, coévolution adversariale abstraite, écologie des sources, scheduler compute, feedback multi-échelle | Le scheduler ne migre/exécute pas les fournisseurs; POET, attaques et fitness demandent des preuves externes; pas encore de daemon autonome ni benchmarks par variant |
-| Trinity | Douze presets choisis par signal de mission ou explicitement; préconditions contrôlées et adaptateurs requis vérifiés | Consignes distinctes par monde; reçu traçable avec adaptateurs et fonctions attendus; comparateur Pareto et modules spécialisés disponibles | Le cycle de mission n'invoque ni ne vérifie encore systématiquement chaque adaptateur déclaré; valider notamment les sorties Factorial, Recursive, Oracular, Jury, Adaptive, diversité fournisseurs et interventions contrefactuelles avant de considérer ces parcours complets |
+| Trinity | Douze presets choisis par signal de mission ou explicitement; préconditions contrôlées et adaptateurs requis vérifiés | Les douze runners sont appelés sur le chemin mission/superviseur; revues, continuations, expériences enfants, grille factorielle et réplicas QD ont des barrières de fin dédiées | Campagne R3 du 2026-10-03 : 12/12 `ESCALATE`, 0 merge. Parcours câblés, mais validation complète non acquise tant que les sorties ne portent pas les preuves, mesures, routes effectives et lignages requis; voir `topologies/trinity.md` et ADR 0292 |
 
-Ces branchements rendent le choix traçable et opérant au dispatch, mais ne valident pas encore
-la fin de l'objectif. La maturité centrale reste `partial` lorsque le parcours ne couvre pas
+Ces branchements rendent le choix traçable et opérant au dispatch. Le statut de Trinity reste
+`partial` : la campagne réelle R3 a déclenché les douze parcours mais tous ont escaladé, ce qui
+confirme que le câblage ne vaut pas validation de l'objectif. La maturité centrale reste `partial` lorsque le parcours ne couvre pas
 encore toutes les garanties ou tous les mécanismes visés. Elle informe sur la couverture; elle
-ne constitue ni un score de valeur ni un facteur de classement des variants. La vague suivante
-doit compléter les adaptateurs listés, puis produire les missions de validation par variant
-avant de promouvoir leur maturité.
+ne constitue ni un score de valeur ni un facteur de classement des variants. La suite doit
+qualifier Trinity avec des missions réussies et compléter les adaptateurs restants des autres
+topologies avant de promouvoir leur maturité.
 
 ## Plan par vagues
 
@@ -68,15 +69,18 @@ avant de promouvoir leur maturité.
 
 - Réconcilier les catalogues locaux et les fiches documentaires des huit topologies.
 - Déclarer pour chaque variant s'il est exécutable, partiel, expérimental ou conceptuel.
-- Pour Trinity et Biome, créer les politiques et adaptateurs absents du catalogue central.
+- Pour Trinity, maintenir le lien entre catalogue, douze runners et critères de sortie; pour
+  Biome, créer les politiques et adaptateurs qui manquent encore au catalogue central.
 - Le statut de maturité ne doit pas exclure un variant de la sélection automatique. Si un
   mécanisme requis n'a pas d'adaptateur ou de critère de succès observable, le parcours doit
   exposer cette limite et bloquer ou escalader l'action concernée sans déclasser le variant.
 
 ### Vague 3 — Adaptateurs et exécution par topologie
 
-- **Trinity** : relier les modes de comparaison aux trois mondes et aux barrières de
-  preuve; limiter les variantes factoriales/recursive/adaptive aux capacités disponibles.
+- **Trinity** : qualifier les douze runners branchés par des missions nominales avec reçus
+  vérifiables. Le facteur requiert seize cellules; récursion, adaptation et QD attendent leurs
+  exécutions additionnelles et preuves dédiées. La campagne R3 actuelle n'a validé aucun cas
+  nominal (12 escalades); conserver le statut partiel jusqu'à une qualification réussie.
 - **A-Team** : faire appliquer les formes de graphe, handoff, autorité, équipe et phase;
   distinguer sélection automatique des variantes multiteam partiellement prises en charge.
 - **Biome** : appliquer allocation, foraging, diversité, succession, résilience, mémoire,
