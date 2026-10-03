@@ -56,12 +56,15 @@ topologies avant de promouvoir leur maturité.
 
 - Le catalogue central résout explicitement les 95 variants canoniques des huit topologies;
   `test_morphogenesis_variant_catalog.js` vérifie leur sélection et la projection de leur identité.
-- Les 158 tests backend nommés pour les topologies passent après correction de l'attente du
-  runtime Biome, du contrat de dispatch Holobionte et de l'injection de branche Rhizome en
-  Morphogenèse. La suite backend générale passe également (55/55).
-- Ces tests prouvent des contrats et parcours codés, pas la réussite des missions par les modèles.
-  Les 48 missions de référence et la vérification d'un effet runtime propre pour chacun des
-  95 variants restent à rejouer; la parité de maturité n'est donc pas encore démontrée.
+- Le balayage backend élargi passe sur 230 fichiers de tests liés aux topologies, variants
+  et à Morphogenèse. La suite backend générale passe également (55/55). La matrice
+  `test_topology_mission_variant_routing.js` couvre les signaux de sélection des 48 missions
+  de référence; le test de dispatch vérifie aussi les workers, le schéma Syncytium et le
+  contrat Trinity adversarial.
+- Ces tests prouvent des contrats codés et la sélection attendue, pas la réussite des missions
+  par les modèles ni l'effet runtime spécifique des 95 variants. Les 48 missions réelles et
+  la vérification d'un effet runtime propre par variant restent à rejouer; la parité de
+  maturité n'est donc pas encore démontrée.
 
 ## Plan par vagues
 

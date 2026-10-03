@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : orchestration décentralisée par ramification de capacités, coordination locale, routage, croissance et résilience du réseau
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-04
 - **Lecture** : cette page décrit le modèle prévu de Rhizome, en particulier les rôles et comportements des sections 4 à 21. Les formules et réglages de ces sections sont des spécifications ou des exemples, pas nécessairement des mécanismes actifs. La section 3 marque chaque formule selon son statut ; les sections 22 et 24 situent l'implémentation actuelle.
 
 
@@ -27,6 +27,14 @@ Le cœur fonctionnel est réparti entre :
 
 - [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des quatre rôles rhizomatiques.
 - [backend/src/services/rhizomeCoordinationService.js](../../../backend/src/services/rhizomeCoordinationService.js) : sessions, traces stigmergiques, sélection directe d'un membre et pas Physarum.
+
+Le sélecteur de variant reconnaît comme besoins de croissance les dépendances inconnues ou
+cachées, les consommateurs cachés, les branches nouvellement découvertes et les interfaces
+manquantes. Les signaux de réacheminement et d'impasse relèvent de `resilient`. Cette sélection
+reste une décision de politique : elle ne prouve ni la découverte effective d'une capacité ni
+son admission dans le graphe. La matrice des 48 missions de référence vérifie le routage
+automatique, dont ces cas de croissance, dans
+`backend/tests/test_topology_mission_variant_routing.js`.
 
 ---
 
