@@ -211,7 +211,7 @@ const TEXT_PATTERNS = Object.freeze({
   pipeline: /\bcollect\b|\bextract\b|summari|publish|séquence|sequence|pipeline|linear/gi,
   project_dag: /work.?graph|graphe de travail|dependenc|dépendan|handoff|transmettre les artefacts|parallel workstreams/gi,
   boundary_spanner: /interface|contrat|contract|compatibilit|boundary|front.?back/gi,
-  cross_functional_pod: /feature|end\.to\.end|bout en bout|\bproduct\b|autonomous|full\.lifecycle/gi
+  cross_functional_pod: /feature|fonctionnalit|end\.to\.end|bout en bout|\bproduct\b|autonomous|full.lifecycle|parcours utilisateur|user journey|checkout|e-commerce/gi
 });
 
 function scoreVariant(name, mission = {}) {
