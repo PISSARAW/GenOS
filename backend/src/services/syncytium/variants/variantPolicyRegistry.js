@@ -91,9 +91,13 @@ function configureSchema(definitionItem, context = {}) {
     throw Object.assign(new Error('Human-AI policy fields are reserved and cannot be overridden.'), { code: 'SYNCYTIUM_HUMAN_AI_INVALID' });
   }
   Object.assign(fields, customFields);
+  const invariants = context.invariants || [];
+  if (definitionItem.id === 'hard' && !Object.keys(fields).length && !invariants.length) {
+    throw Object.assign(new Error('Hard Syncytium requires shared fields or invariants.'), { code: 'SYNCYTIUM_HARD_SCHEMA_REQUIRED' });
+  }
   return schemaService.compile({
     schemaId: `syncytium-${definitionItem.id}-policy-v1`, fields,
-    invariants: context.invariants || []
+    invariants
   });
 }
 
