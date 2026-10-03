@@ -1,6 +1,6 @@
 # Runtime agentique GenOS
 
-- **Statut** : Implémenté — runtime agentique (superviseur Node.js, processus enfants, SQLite, portes d'evidence) est disponible et opérationnel.
+- **Statut** : Partiel — superviseur Node.js opérationnel, mais sans rehydratation des processus au restart, sans annulation distante garantie, isolation worktree/copie (pas sandbox forte). Les sections biomimétiques (cryptophasie, conjoined, freemartin, superfétation) sont des démos/handlers mémoire, pas des garanties runtime.
 - **Portée** : `backend/src/services/agentRuntimeAdapter/index.js`, `agentProcessSupervisor.js`, `backend/bin/genos-agent-runtime.cjs`.
 - **Dernière revue** : 2026-09-26.
 
