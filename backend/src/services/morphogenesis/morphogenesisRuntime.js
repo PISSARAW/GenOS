@@ -1,7 +1,5 @@
 'use strict';
 
-const { emit } = require('../agentOrchestrationState');
-
 /**
  * Morphogenesis Runtime — orchestrates topology transitions for the collective.
  * Bridges strategy selection → AgentGit versioning → counterfactual testing → transition execution.
@@ -83,7 +81,7 @@ class MorphogenesisRuntime {
 
   async executeMorphology(morphology, options = {}) {
     if (!this._transitionEngine) {
-      return this._executeSimple(morphology, options);
+      throw new Error('Morphogenesis transition engine is unavailable; no topology change was applied.');
     }
 
     const planId = `morpho_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -131,14 +129,6 @@ class MorphogenesisRuntime {
     };
   }
 
-  async _executeSimple(morphology, options) {
-    emit(options.orchestratorId || 'morphogenesis', 'MORPHOGENESIS_SIMPLE', 'TOPOLOGY_CHANGE', `Applied ${morphology.topology} with ${morphology.agents.length} agents`, { topology: morphology.topology, agentCount: morphology.agents.length }, 'info');
-    return {
-      applied: true,
-      agents: morphology.agents,
-      topology: morphology.topology,
-    };
-  }
 }
 
 function currentCollectiveState() {
