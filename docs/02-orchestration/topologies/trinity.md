@@ -1,8 +1,8 @@
 # Trinity — Laboratoire Scientifique Interne de GenOS
 
-- **Statut** : Partiel ; le contrat opérationnel v1 décrit le runtime implémenté et ses limites. La génération de candidates est disponible sur demande avec budget ; l'adaptation statistique et plusieurs politiques avancées restent différées.
-- **Portée v1** : exactement trois mondes logiciels indépendants, composés par huit axes de politique, comparaison de leurs preuves, décision comparative et promotion d'un artefact candidat. Les axes partiels exposent leurs limites dans le reçu.
-- **Dernière revue** : 2026-09-26
+- **Statut** : Partiel ; les douze variants ont un chemin d'exécution branché au superviseur. Les contrôles de preuves restent bloquants et la campagne R3 du 2026-10-03 n'a produit aucune promotion (12/12 escalades).
+- **Portée** : trois mondes pour le parcours de base ; le plan factoriel lance seize cellules, la diversité peut ajouter des réplicas et la récursion lance une mission Trinity enfant. Les reçus et gates décrits ci-dessous déterminent si chaque parcours est complet.
+- **Dernière revue** : 2026-10-03
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
@@ -13,23 +13,34 @@ Cette section décrit le comportement déterministe du runtime v1 et répond aux
 ### Variants sélectionnables
 
 `variant_id` accepte les douze identifiants du catalogue Trinity. Sans choix explicite,
-Morphogenèse retient `controlled` comme baseline. Le reçu inclut un
-`experimentalDesignId` reproductible; celui-ci identifie le plan fixe à trois stratégies,
-mais ne prétend pas figer les fournisseurs ou les seeds.
+Morphogenèse retient `controlled` comme baseline. Depuis le 2026-10-03, chaque variant
+est relié au dispatch ou au superviseur et possède un contrôle de complétude. Cela signifie
+que son exécuteur est appelé, pas que le modèle réussira, que les preuves seront suffisantes
+ou que la mission sera promue. Une précondition absente ou un reçu incomplet garde le résultat
+en `ESCALATE_EXPERIMENT`.
 
-`controlled` est exécutable comme baseline. Les autres variants du catalogue
-décrivent des politiques et des contrats d'adapter, mais tous leurs exécuteurs
-ne sont pas reliés aux voies de dispatch. Chaque voie fournit la liste de ses
-adapters réellement exécutables; un adapter seulement chargeable ne suffit pas.
-Si une politique exige un adapter absent du chemin, le dispatch est refusé
-avant création des mondes (`TRINITY_ADAPTER_NOT_EXECUTABLE`).
-`jury` exige en plus `trinity_jury.enabled=true`, au moins deux `modelUris`
-distincts et un `maxCostUsd` positif. `heterogeneous` exige une diversité
-mesurée suffisante sur les routes de modèles réellement assignées, sinon le
-dispatch est refusé (`TRINITY_DIVERSITY_BELOW_THRESHOLD`) : une monoculture
-ne peut pas revendiquer ce variant. L'auto-sélection garde la baseline
-lorsqu'un signal correspond à un mode dont les préconditions manquent et
-expose ce mode comme suggestion.
+`controlled` lance trois stratégies indépendantes. `factorial` est l'exception de fan-out :
+il lance huit combinaisons (`approach × modelTier × validation`) avec deux répétitions,
+soit seize workers, et requiert seize places disponibles. `quality_diversity_replicas` ajoute
+les réplicas configurés après les trois mondes initiaux. `recursive_nesting` peut lancer une
+expérience enfant bornée. Les continuations adaptatives utilisent également de nouveaux
+workers et rattachent leurs rapports aux mondes d'origine.
+
+La diversité hétérogène valide les routes assignées et transporte `localModel` jusqu'au
+worker. Elle ne garantit pas que le fournisseur exécutera cette route : le modèle/provider
+effectif doit être présent dans la provenance. Le jury est convoqué sur le chemin requis,
+avec au moins deux URI de modèles distinctes ; son avis et sa calibration sont persistés,
+mais `decisionAuthority` reste `none`. La voie principale refuse avant lancement une
+composition dont les adapters requis ne sont pas disponibles ou dont le gate de diversité
+échoue (`TRINITY_ADAPTER_NOT_EXECUTABLE`, `TRINITY_DIVERSITY_BELOW_THRESHOLD`).
+
+La campagne R3 (36 agents réels, 12 missions) a observé `ESCALATE` pour les douze missions.
+Elle a notamment révélé une monoculture d'exécution malgré les familles de routes déclarées,
+un jury préconditionné mais non convoqué sur son ancien chemin, et des sorties sans les
+cellules, distributions, mesures ou lignages requis. Ces résultats restent des échecs de
+mission : le runtime ne les transforme pas en succès. Les détails et critères par variant
+sont dans la matrice ci-dessous; le protocole R3 est archivé sous
+[`artifacts/trinity-missions/round3/`](../../../artifacts/trinity-missions/round3/README.md).
 
 Les variants se composent par axe dans `experimental_design`; cet exemple réunit les
 politiques de diversité, de préparation adversariale, d'objectifs Pareto et de budget
@@ -44,22 +55,47 @@ adaptatif sans créer un nouvel identifiant de variant :
 }
 ```
 
-Le compilateur conserve les trois mondes, active le scheduler adaptatif uniquement sur le
-runtime qui le fournit et produit un reçu de maturité partielle avec les limites de chaque
-axe. Si un chemin de lancement ne fournit pas l'adaptateur requis, il refuse cette
-composition avant de créer les mondes.
+Le compilateur conserve la topologie de base à trois mondes et inclut les exécutions
+additionnelles explicitement demandées par le variant. Le reçu de maturité et le gate
+indiquent si chaque axe a réellement produit ses données. Les options adaptatives et QD
+exigent leurs budgets structurés ; elles ne sont pas activées par une simple valeur booléenne.
+Fournir `trinityAdaptiveBudget: { poolTokens, minimumTokens }` pour l'adaptatif et
+`trinityQD: { replicaBudget, tokensPerReplica }` pour les réplicas exploratoires. Le pool
+adaptatif doit couvrir au moins trois fois `minimumTokens`; QD vérifie les places pour les
+trois mondes initiaux et tous les réplicas avant le dispatch.
+
+### Exécution et preuves exigées par variant (revue du 2026-10-03)
+
+| Variant | Effet runtime exécuté | Condition pour déclarer le parcours complet |
+|---|---|---|
+| Controlled | Trois workers et comparaison comparative de leurs dossiers. | Trois rapports terminaux, contraintes satisfaites et preuves recevables ; les erreurs identiques restent des échecs. |
+| Heterogeneous | Assignations de modèles propagées au dispatch et gate de diversité. | Provenance des modèles effectivement utilisés et diversité au-dessus du seuil ; trois familles déclarées ne suffisent pas. |
+| Adversarial | Le superviseur lance attaque/défense et lie la revue à la comparaison. | Phases terminées et contre-exemples avec éléments vérifiables ; absence de réfutation ne prouve pas la thèse. |
+| Counterfactual | Conditions baseline, favorable et adverse avec intervention partagée. | Vecteurs mesurés et références à des reçus vérifiés pour les trois conditions ; les deltas sont observationnels, pas une attribution causale. |
+| Factorial | Huit cellules `approach × modelTier × validation`, répétées deux fois (16 workers). | Chaque rapport porte le `cellId`, les facteurs attendus et des preuves vérifiées ; sinon statistiques et promotion sont refusées. |
+| Pareto | Comparaison multiobjectif et scores scalarisés selon les profils configurés. | Vecteurs numériques dont chaque dimension est liée à une preuve vérifiée ; le score scalaire reste consultatif. |
+| Jury | Délibération aveugle et calibration du verdict du jury contre le gagnant déterministe. | Configuration valide, au moins deux URI distinctes, réponses exploitables et résultat `advisory` ; le jury n'autorise jamais seul une promotion. |
+| Recursive | Dispatch d'une mission Trinity enfant avec relation de lignage et profondeur bornée à trois. | Rapports réels de l'enfant terminés ; absence de sous-problème est explicitement `no_subproblem`, tout autre manque escalade. |
+| Adaptive | Allocation du pool selon l'incertitude vérifiée, puis nouvelle exécution par workers isolés. | `trinityAdaptiveBudget` contient `poolTokens` et `minimumTokens`; trois incertitudes référencent des preuves et les trois continuations terminent. |
+| Temporal | Comparaison court/moyen/long à partir d'effets mesurés. | Chaque effet porte un horizon, des valeurs numériques et des références vérifiées ; données manquantes donnent `insufficient_evidence`. |
+| Oracular | Une distribution sur `world_1..world_3` est scorée par Brier/log loss contre les scores mesurés des rapports. | Probabilités dans `[0,1]` dont la somme vaut 1 ; cette mesure porte sur le score des rapports et reste consultative, pas sur une vérité externe. |
+| Exploratory | Archive de diversité, choix de niches et workers QD indépendants. | `trinityQD` fournit budget de réplicas et tokens ; chaque reçu confirme la niche demandée par un vecteur de comportement lié à des preuves. |
+
+Une exécution qui satisfait ces conditions indique seulement que le mécanisme du variant a
+produit ses données. Les gardes globales de contraintes, de vérification indépendante et de
+promotion restent applicables.
 
 ### Décisions de périmètre
 
 | Question à trancher | Décision v1 |
 |---|---|
-| Combien de mondes une expérience contient-elle ? | Exactement trois : `direct`, `structured`, `falsification`. Une exécution avec moins ou plus de trois dossiers est invalide. |
-| Les mondes peuvent-ils communiquer avant la comparaison ? | Non. Aucun canal ou dossier mutable partagé n'est fourni en phase scellée. Les dossiers ne sont lus qu'après la fin des trois tentatives ou leur échec définitif. |
+| Combien de mondes une expérience contient-elle ? | Trois pour la baseline `controlled` ; le plan `factorial_grid` en lance seize (8 cellules × 2 répétitions). Les réplicas QD et expériences récursives sont des exécutions supplémentaires explicites. |
+| Les mondes peuvent-ils communiquer avant la comparaison ? | Non. Aucun canal ou dossier mutable partagé n'est fourni en phase scellée. Les dossiers initiaux ne sont lus qu'après la fin des tentatives attendues (trois pour la baseline, seize pour le factoriel) ou leur échec définitif. |
 | Les mondes partent-ils du même état ? | Oui. Ils reçoivent le même snapshot en lecture seule et des workspaces d'écriture distincts créés depuis ce snapshot. Si l'égalité des empreintes n'est pas vérifiable, le lancement échoue fermé. |
-| Que signifie « modèles hétérogènes » ? | Une préférence de sélection, pas une garantie. En v1, la stratégie cognitive est obligatoirement distincte ; le fournisseur peut être identique. Toute diversité de fournisseur réellement obtenue est enregistrée, jamais supposée. |
+| Que signifie « modèles hétérogènes » ? | Le preset assigne des routes distinctes et le gate vérifie leur diversité. Le passage de `localModel` au worker ne garantit pas à lui seul le fournisseur effectif : seule la provenance de la réponse établit le modèle utilisé. |
 | Le runtime calcule-t-il une probabilité EV calibrée ? | Non. V1 calcule un indice de valeur déterministe à partir des signaux fournis et le nomme `evIndex`, pas probabilité. Aucun poids ne peut être décrit comme appris/calibré sans jeu de données et preuve de calibration. |
 | Que fait une demande explicite de Trinity ? | Elle demande le protocole mais ne contourne ni budget, ni isolation, ni garde de sécurité. Le runtime refuse avec un motif explicite si l'une de ces garanties manque. |
-| Que fait le jury multi-modèle ? | Il est désactivé par défaut. S'il est configuré, il n'intervient qu'après le cross-examen sur `KEEP_PARETO_SET`, produit un avis aveugle et ne peut ni changer la décision Pareto, ni autoriser une promotion. |
+| Que fait le jury multi-modèle ? | Il est consultatif et doit être explicitement requis/configuré. Le superviseur peut le convoquer même si le classement déterministe est unique ; il produit un avis aveugle, persiste sa calibration et ne peut ni annuler un gate ni autoriser une promotion. |
 | Que signifie « promouvoir » ? | V1 promeut vers un artefact candidat versionné et vérifié dans GenOS. Cela ne déploie pas en production et ne modifie pas la branche de travail de l'utilisateur. |
 | L'atomicité couvre-t-elle Git, fichiers et base dans une transaction ACID unique ? | Non. V1 utilise une promotion en deux phases avec candidat temporaire, commit/hash vérifiés, changement d'état final et compensation/rollback en cas d'échec. L'état `promoted` n'est écrit qu'en dernier. |
 
@@ -69,7 +105,7 @@ Par défaut, le concepteur est déterministe et utilise les candidates de l'appe
 
 La génération accepte au plus douze candidates JSON structurées. Son coût maximal vient de `trinityHypothesisGenerationBudgetUsd`, plafonné au budget monétaire de la mission s'il est défini ; sinon le plafond vaut 10 % de `executionBudget.costUsd`. Sans budget positif, elle est ignorée (`status: "skipped"`). Erreur de routage, délai ou sortie invalide : le runtime garde le triplet fixe et enregistre `status: "unavailable"`. `hypothesisGeneration` conserve le statut, le modèle/fournisseur rapporté et le nombre de candidates. La génération ne s'exécute que si Trinity est effectivement activée.
 
-Le jury consultatif s'active avec `trinityJury: { enabled: true, modelUris: [...], maxCostUsd }`. Il faut au moins deux URI de modèles distinctes ; au plus cinq sont interrogés, avec un budget agrégé limité à 1 USD et réparti entre eux. Les candidats sont présentés sous des labels aléatoires sans identité, stratégie ni numéro de monde. Les votes et leur correspondance sont persistés avec la décision ; `decisionAuthority` reste `none`. Sans configuration valide, hors `KEEP_PARETO_SET` ou sans réponse JSON exploitable, le résultat est `unavailable` ou `partial`. L'avis ne répare jamais un contrôle manquant, une preuve absente ou un échec de contrainte.
+Le jury consultatif s'active avec `trinityJury: { enabled: true, modelUris: [...], maxCostUsd }`. Il faut au moins deux URI de modèles distinctes ; au plus cinq sont interrogés, avec un budget agrégé limité à 1 USD et réparti entre eux. Les candidats sont présentés sous des labels aléatoires sans identité, stratégie ni numéro de monde. Quand le plan requiert le jury, le superviseur le convoque après le classement et le cross-examen, même si le gagnant déterministe est unique ; il n'est pas conditionné à `KEEP_PARETO_SET`. Les votes, leur correspondance et la calibration contre le gagnant déterministe sont persistés ; `decisionAuthority` reste `none`. Sans configuration valide ou réponse JSON exploitable, le résultat est `unavailable` ou `partial` et un jury requis bloque la fusion. Des URI distinctes ne prouvent pas une indépendance cognitive. L'avis ne répare jamais un contrôle manquant, une preuve absente ou un échec de contrainte.
 
 Un appelant peut fournir `trinityHypothesisDesign.candidateHypotheses`, jusqu'à douze objets `{ id?, chamber?, hypothesis|statement, sourceRefs?, assumptions?, predictions?, falsificationCriteria?, experiment?: { protocol, expectedOutcome } }`, et `sourceEvidence` comme liste d'identifiants ou d'objets `{ id }`. Il peut aussi fournir `claimGraph.trustedRelations: [{ from, to, type, sourceRefs }]` pour exprimer une relation au niveau de la mission. Une référence de source doit être `mission` ou correspondre à un identifiant fourni ; sinon la candidate est écartée. Le runtime normalise les candidats et supprime les textes ou identifiants dupliqués. Parmi les triplets admissibles, il préfère d'abord un protocole expérimental commun aux trois hypothèses dont les prédictions explicites ont le plus de résultats distincts (`discriminationScore = résultats distincts / 3`), puis maximise l'orthogonalité lexicale Jaccard ; il départage ensuite par falsifiabilité déclarée et par identifiants en ordre lexical. Une candidate étiquetée `chamber` ne peut remplir que cette chambre ; une candidate sans étiquette peut remplir n'importe quelle chambre. Les hypothèses sélectionnées sont ajoutées aux prompts et à la provenance persistée. Ces scores sont des heuristiques sur des prédictions déclarées : ils ne mesurent pas le pouvoir discriminant empirique, ne sont pas calibrés et ne démontrent pas une diversité sémantique. Si moins de trois candidates valides restent, le runtime garde les trois stratégies fixes et marque `selectionMethod: "fixed_v1"`. Cette interface sélectionne des candidates fournies ; elle ne prétend pas générer de nouvelles hypothèses à partir des faits.
 
@@ -95,7 +131,7 @@ V1 calcule `evIndex = clamp01(0.20·hypothesisCount + 0.15·domainUncertainty + 
 
 Le lancement automatique est autorisé lorsque `evIndex >= 0.50`, `budgetRatio <= 1`, et le budget disponible couvre trois allocations minimales configurées. Une demande explicite peut ignorer le seuil `evIndex`, mais pas les limites de budget, de sécurité ou d'isolation. Si un signal obligatoire autre que `errorCorrelation` est inconnu, l'engagement automatique est refusé avec `insufficient_inputs`; l'appel explicite peut continuer et consigne les inconnues.
 
-Par défaut, le budget worker est réparti également entre les trois chambres après réservation du budget orchestrateur. Aucun worker ne peut dépasser son budget en empruntant à un autre. À épuisement, le monde termine avec `budget_exhausted`. Une mission peut activer `trinityAdaptiveBudget: true` : si le pool suffit à financer deux passages minimaux et que les trois mondes initiaux terminent avec un Evidence Vector dont l'incertitude référence des preuves présentes, le pool de continuation est réparti selon `0,1 + uncertainty`. Les trois mondes continuent toujours ; aucun n'est éliminé sur son incertitude. En cas d'échec, de référence invalide ou de pool insuffisant, la continuation est omise. L'allocation ou son motif d'omission est persisté avec la décision. La limite de durée est appliquée par expérience et par monde.
+Par défaut, le budget worker est réparti également entre les trois chambres après réservation du budget orchestrateur. Aucun worker ne peut dépasser son budget en empruntant à un autre. À épuisement, le monde termine avec `budget_exhausted`. Le variant adaptatif exige `trinityAdaptiveBudget: { poolTokens, minimumTokens }`. Après trois rapports initiaux terminaux, les incertitudes numériques doivent référencer des preuves vérifiées. Le pool est alloué selon `0,1 + uncertainty`, puis chaque monde poursuit dans un nouveau worker isolé. Une configuration invalide, une preuve manquante ou un timeout fait échouer le parcours adaptatif et bloque la fusion.
 
 ### Contrat de preuve et comparaison
 
@@ -146,13 +182,13 @@ Les états d'expérience sont `designed → sealed_running → sealed_complete �
 
 À la création, `design.historicalMemory` conserve un résumé descriptif des vingt dernières expériences terminales du même domaine (`sampleSize`, `outcomeCounts`). Il est figé avec le design pour rendre le contexte historique inspectable et ne modifie ni les hypothèses, ni les seuils, ni le budget. Ce résumé ne constitue pas un apprentissage adaptatif : les poids, stratégies et choix de vérificateurs ne sont pas ajustés automatiquement.
 
-Si un monde échoue, son dossier d'échec est conservé. L'expérience ne passe pas à la décision tant que les trois mondes n'ont pas un résultat terminal. L'absence de preuve sur l'un des trois mène à `ESCALATE_EXPERIMENT`; elle ne réduit pas silencieusement le nombre de mondes.
+Si un monde échoue, son dossier d'échec est conservé. L'expérience de base ne passe pas à la décision tant que les trois mondes n'ont pas un résultat terminal ; le plan factoriel attend ses seize cellules. L'absence de preuve requise mène à `ESCALATE_EXPERIMENT`; elle ne réduit pas silencieusement le nombre attendu de mondes.
 
 La promotion prépare un candidat distinct depuis le workspace isolé du monde gagnant. Son workspace est marqué `trinity_candidate` et `quarantined` jusqu'à la réussite des contrôles ; un candidat dont la préparation échoue est nettoyé. Les vérifications d'intégration configurées par identifiants de commandes découverts sont exécutées sur ce candidat. Pour chaque revendication retenue, l'appelant fournit `claimVerificationChecks: [{ claim, commandIds }]`, avec `claim` égal à son `id` ou à son `statement`, et des commandes directement pertinentes pour cette revendication. Chaque commande est rejouée dans une copie isolée du candidat par le bridge de vérification AEIS. La promotion exige un reçu HMAC valide, signé par un vérificateur de confiance, indépendant du producteur et lié au hash du candidat, à la revendication et à la commande. Le reçu et le digest du vérificateur sont persistés. Cette preuve indépendante établit l'exécution déterministe du contrôle ; elle ne remplace pas une revue sémantique indépendante de la revendication. Une revendication sans plan, une commande indisponible, un secret de signature absent ou un résultat sans reçu valide bloque la promotion. Chaque reçu de contrôle persiste aussi la commande, le code de sortie, le signal, la durée et les SHA-256 des sorties capturées (limitées à 16 Ko). Sans commande d'intégration configurée, la promotion échoue fermé. Le hash du candidat est recalculé après les contrôles. AgentGit reçoit une référence `trinity/<experimentId>` dont les métadonnées lient le hash du contenu et les reçus de vérification ; son hash d'état n'est pas le hash des fichiers du workspace. Après vérification de la signature AgentGit, les tags et la décision persistée passent à `promoted` dans la transaction finale, la transition d'expérience étant sa dernière écriture. Tout échec enregistre `promotion_failed`, conserve le candidat marqué `quarantined` pour inspection et ne modifie pas le workspace source.
 
 ### Portée des variants et limites de preuve
 
-Le registre de variants compile des politiques et vérifie les contrats de leurs adapters. Sur la voie `dispatch_trinity`, les adapters de diversité hétérogène, cross-examen adversarial, jury consultatif et profils Pareto sont reliés au dispatch et à la comparaison. Les autres politiques ne sont pas annoncées comme exécutables sur cette voie tant que leur runner et leur reçu de résultat ne sont pas branchés. Un adapter présent dans le registre ou chargeable par Node.js ne prouve pas qu'une mission l'a exécuté.
+Le registre compile les politiques et la voie `dispatch_trinity` relie les douze variants à leurs exécuteurs : comparaison de base, routes hétérogènes, revue adversariale, analyse contrefactuelle, grille factorielle, objectifs Pareto, jury, missions récursives, continuations adaptatives, horizons temporels, score oracle et archive QD. Le superviseur appelle les runners et vérifie leurs reçus avant de laisser passer la décision. Un adapter présent ou appelé ne prouve ni la validité du contenu produit par le modèle ni l'avantage du variant ; la campagne R3 échouée ne constitue pas une validation de qualité.
 
 La diversité fournisseur n'est garantie que lorsque l'adapter reçoit des fournisseurs distincts effectivement disponibles. Elle ne mesure pas à elle seule la corrélation statistique des erreurs. Le jury reste un avis consultatif borné; il n'est ni une preuve ni un arbitre du résultat. Les tests de sélection et d'adapters valident le contrat local, pas l'avantage causal sur un modèle seul ou une autre topologie.
 
@@ -593,7 +629,7 @@ La cible opérationnelle v1 suit quatre étapes :
 3. **Phase A (Sealed)** → trois chambres indépendantes produisent des `TrinityWorld`
 4. **Phase B (Cross-Examination)** → alignement, conflit, agrégation → décision finale
 
-Chaque étape cible est traçable et auditable. La reproductibilité est mesurée et limitée aux composants capables d'appliquer un seed. Le statut « Partiel » en tête de document reflète que ce contrat n'est pas encore entièrement câblé.
+Chaque étape cible est traçable et auditable. La reproductibilité est mesurée et limitée aux composants capables d'appliquer un seed. Le statut « Partiel » en tête de document reflète le résultat actuel : les chemins des douze variants sont câblés, mais la campagne R3 n'a satisfait aucun de leurs critères de sortie.
 
 *Prochaine partie : Trinity — Implémentation & Runtime (Partie 2)*
 
@@ -675,7 +711,7 @@ where $\alpha + \beta + \gamma = 1$ and $\alpha, \beta, \gamma > 0$.
 
 ### 2.2 Evidence Vector (cible v1)
 
-La cible v1 utilisera le vecteur à 10 dimensions $\mathbf{E}_i$ avec élimination Pareto (§3). L'implémentation actuelle reste partielle et utilise encore un score scalaire pondéré. Si une agrégation scalaire est ajoutée après filtrage Pareto, elle devra suivre une fonction d'utilité spécifique à la mission :
+Le comparateur courant utilise le vecteur de preuves et sa frontière Pareto. Certains runners spécialisés, dont le score scalaire Oracle et le scalariseur multiobjectif, calculent des analyses consultatives liées aux preuves ; ils ne remplacent pas les gates du comparateur. Les fonctions d'utilité pondérées de cette section restent des propositions de recherche :
 
 $$
 U_i = \sum_{d \in \text{dims}} w_d \cdot f_d(\mathbf{E}_i[d])
@@ -1291,6 +1327,11 @@ If post-verification fails, the system triggers an **alert** and initiates recov
 
 > Partie 3 de la documentation Trinity : les 12 variantes, leurs formulations mathématiques, et les stratégies d'expérimentation avancées.
 
+Les descriptions, équations et exemples de cette partie exposent le modèle de recherche ; ils
+ne décrivent pas tous exactement le protocole actuellement exécuté. La matrice opérationnelle
+en tête de ce fichier fait foi pour les facteurs, répétitions, préconditions, preuves requises
+et limites. Les exemples de résultat sont des scénarios illustratifs, pas des résultats mesurés.
+
 ## 1. Les 12 variantes de Trinity
 
 Trinity est une architecture d'orchestration multi-agents dont le principe fondamental est la **triangulation cognitive** : soumettre une tâche à plusieurs « mondes » (workways) indépendants, puis sélectionner ou synthétiser la meilleure réponse. Chaque variante décline ce principe selon une stratégie spécifique.
@@ -1303,7 +1344,7 @@ Trinity est une architecture d'orchestration multi-agents dont le principe fonda
 | 2 | **Trinity-Heterogeneous** | Trois mondes **maximisant la diversité** selon une métrique composite (provider, architecture, stratégie, historique). | Réduction des erreurs systémiques par anti-monoculture. | Un monde GPT-4o + un Claude + un modèle open-weight avec stratégies cognitive-recipe distinctes. |
 | 3 | **Trinity-Adversarial** | Monde 3 est explicitement **adversaire** : il tente de réfuter la sortie du Monde 1. Le Monde 2 observe et arbitre. | Détection de fausses pistes, robustesse épistémique. | Monde 1 propose, Monde 3 attaque, Monde 2 évalue la solidité de l'argument. |
 | 4 | **Trinity-Counterfactual** | Chaque monde raisonne sous une **prémisse contrefactuelle** différente. Le synthèse explore l'espace des possibles. | Analyse de sensibilité, planification sous incertitude. | Monde 1 = « si on a le budget », Monde 2 = « si le budget est coupé », Monde 3 = « si le double ». |
-| 5 | **Trinity-Factorial** | Plan d'expératoire complet : toutes les combinaisons de stratégies × modèles (matrice 3×3 ou plus). | Attribution causale de la performance au modèle vs à la stratégie. | 3 stratégies × 3 modèles = 9 cellules, analyse d'interaction. |
+| 5 | **Trinity-Factorial** | Plan factoriel borné sur approche × niveau de modèle × validation, deux répétitions par cellule. | Comparer ces facteurs dans les conditions du dispatch courant. | 2×2×2×2 répétitions = 16 cellules et analyse descriptive ; cela ne suffit pas à établir une causalité générale. |
 | 6 | **Trinity-Pareto** | Les mondes optimisent des **objectifs orthogonaux** (qualité, coût, latence). Le front de Pareto détermine l'élite. | Optimisation multi-objectif explicite. | Monde 1 = max qualité, Monde 2 = min latence, Monde 3 = min coût. |
 | 7 | **Trinity-Jury** | Les sorties de chaque monde sont évaluées **anonymement** par des vérificateurs indépendants qui ne connaissent pas la source. | Évaluation impartiale, détection de biais de source. | 5 juges évaluent 3 propositions anonymisées sur des critères normalisés. |
 | 8 | **Trinity-Recursive** | Si un monde identifie la tâche comme « difficile », il peut **lancer localement une sous-Trinity** pour résoudre un sous-problème. | Décomposition hiérarchique, escalation contrôlée. | Un module de raisonnement complexe invoque une micro-Trinity pour explorer 3 sous-approches. |
@@ -1316,7 +1357,7 @@ Trinity est une architecture d'orchestration multi-agents dont le principe fonda
 
 ### 2.1 Matrice stratégies × modèles
 
-La variante **Factorial** constitue un plan d'expérimentation orthogonal complet. Soit $\mathcal{S} = \{s_1, s_2, s_3\}$ l'ensemble des stratégies et $\mathcal{M} = \{m_A, m_B, m_C\}$ l'ensemble des modèles. Le plan factoriel définit $3 \times 3 = 9$ cellules expérimentales :
+Le modèle ci-dessous est une illustration conceptuelle à trois stratégies et trois modèles. Le runtime utilise le plan borné décrit plus haut : `approach={direct, planned}`, `modelTier={standard, frontier}`, `validation={basic, deep}`, deux répétitions, soit seize dispatchs. Ce modèle réel ne garantit pas l'équilibre de fournisseurs distincts : les routes effectives restent vérifiables par leur provenance.
 
 ```
                      Modèle A        Modèle B        Modèle C
@@ -1792,11 +1833,16 @@ avec éventuel **ex-aequo** résolu par diversification : si $|S_{\alpha_1} - S_
 5. **Valider le Jury :** s'assurer que les juges ne peuvent pas identifier la source par des caractéristiques stylistiques (anonymisation rigoureuse).
 6. **Journaliser les $\rho_{ij}$** dans la mémoire de l'agent pour affiner la sélection hétérogène au fil du temps.
 
-*Documentation Trinity — Partie sur 3. Pour la Partie 1 (fondamentaux), voir `trinity_part1.md`. Pour la Partie 2 (architecture), voir `trinity_part2.md`.*
+*Les équations de la Partie 3 restent conceptuelles lorsqu'elles ne figurent pas dans le contrat d'exécution en tête de page. Pour les préconditions et sorties mesurées par le runtime, voir la matrice opérationnelle.*
 
 # Trinity — Partie 4 : Cas d'usage, Anti-usages, Benchmarks, Métriques
 
 > Trinity est une topologie d'orchestration multi-monde pour GenOS. Elle ne cherche pas la meilleure réponse : elle cherche laquelle de plusieurs hypothèses plausibles survit à l'expérience.
+
+Les scénarios et leurs « résultats attendus » ci-dessous sont des exemples hypothétiques,
+pas des expériences exécutées ni des garanties de résultat. Les résultats effectivement
+observés dans la campagne du 2026-10-03 sont consignés dans les rapports R3 : 12 escalades,
+aucune fusion.
 
 ## 1. Cas d'usage typiques
 

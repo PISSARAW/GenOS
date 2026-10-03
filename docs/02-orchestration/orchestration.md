@@ -79,9 +79,13 @@ frontières et compensations.
 3. **Les limites de mission priment sur la recommandation.** Budget, leases, fan-out,
    isolation, capacité du garage et contraintes de survie peuvent réduire ou bloquer le
    plan. Une demande de Trinity n'autorise pas à contourner ces limites.
-4. **Trinity exige trois mondes comparables.** Le runtime refuse un autre nombre de
-   chambres ou des empreintes de snapshot différentes. Les mondes ne partagent pas leurs
-   sorties pendant la phase indépendante.
+4. **Trinity exige le nombre de mondes prévu par le plan.** La baseline lance trois
+   chambres indépendantes ; le factoriel attend seize cellules (huit combinaisons répétées
+   deux fois). Les réplicas QD et expériences récursives sont des exécutions additionnelles.
+   Dans tous les cas, les mondes initiaux ne partagent pas leurs sorties pendant la phase
+   indépendante, et l'absence d'une cellule ou preuve attendue bloque la fusion. Les douze
+   variants sont maintenant branchés au superviseur, mais restent partiels après les
+   douze escalades de la campagne R3 du 2026-10-03 ; voir [leur contrat et leurs gates](topologies/trinity.md).
 5. **La morphologie planifiée n'est pas automatiquement exécutée.** Le préparateur
    historique détermine encore le plan physique principal. Le planner Morphogenèse peut
    construire des candidats pour les huit topologies et joindre un graphe au plan
