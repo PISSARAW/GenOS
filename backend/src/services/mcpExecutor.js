@@ -78,13 +78,10 @@ function resolveGenosBinary(repositoryRoot) {
 }
 
 function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) {
-  return {
-    ...mcpBaseEnvironment(),
-    GENOS_WORKSPACE_ROOT: workspaceRoot,
-    GENOS_BIN: resolveGenosBinary(repositoryRoot),
-    GENOS_MCP_CLIENT: 'genos-backend',
-    GENOS_MCP_LEASE: process.env.GENOS_MCP_LEASE !== undefined ? process.env.GENOS_MCP_LEASE : toolName
-  };
+  void toolName;
+  const environment = { ...mcpBaseEnvironment(), GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: resolveGenosBinary(repositoryRoot), GENOS_MCP_CLIENT: 'genos-backend' };
+  if (process.env.GENOS_MCP_LEASE !== undefined) environment.GENOS_MCP_LEASE = process.env.GENOS_MCP_LEASE;
+  return environment;
 }
 
 function concatChunks(chunks) {
