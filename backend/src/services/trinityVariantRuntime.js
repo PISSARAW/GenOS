@@ -4,6 +4,7 @@ const oracle = require('./trinityOracle');
 const novelty = require('./trinityNoveltyArchive');
 const evidenceAudit = require('./trinityEvidenceAudit');
 const trinityService = require('./trinityService');
+const counterfactual = require('./trinityCounterfactualFork');
 
 function run(input) {
   const design = input.selection?.experimentalDesign || {};
@@ -15,7 +16,47 @@ function run(input) {
     || design.replicationPolicy === 'quality_diversity_replicas') {
     executions.qualityDiversity = runQualityDiversity(input.reports);
   }
+  if (design.hypothesisPolicy === 'counterfactual_dimensions') {
+    executions.counterfactual = runCounterfactual(input.reports);
+  }
   return { status: Object.values(executions).every((entry) => entry.status === 'executed') ? 'executed' : 'incomplete', executions };
+}
+
+function runCounterfactual(reports) {
+  const conditions = Object.fromEntries((reports || []).map((world) => [
+    world.report?.counterfactual?.condition, world.report
+  ]));
+  const baseline = conditions.baseline;
+  const favorable = conditions.favorable;
+  const adverse = conditions.adverse;
+  const interventions = { favorable: favorable?.counterfactual?.intervention,
+    adverse: adverse?.counterfactual?.intervention };
+  if (!baseline || !favorable || !adverse || !matchingInterventions(interventions)) {
+    return { status: 'incomplete', reason: 'baseline_and_two_matching_interventions_required' };
+  }
+  if (![baseline, favorable, adverse].every(validCounterfactualEvidence)) {
+    return { status: 'incomplete', reason: 'counterfactual_vector_evidence_missing' };
+  }
+  return { status: 'executed', ...counterfactual.analyzeCounterfactualResults({
+    baselineReport: baseline, favorableReport: favorable, adverseReport: adverse, interventions
+  }), causalAttribution: 'observed_intervention_deltas_only', decisionAuthority: 'none' };
+}
+
+function matchingInterventions(interventions) {
+  const favorable = interventions.favorable;
+  const adverse = interventions.adverse;
+  return favorable?.type === 'favorable' && adverse?.type === 'adverse'
+    && favorable.dimension && favorable.dimension === adverse.dimension
+    && favorable.description && adverse.description;
+}
+
+function validCounterfactualEvidence(report) {
+  const ids = verifiedEvidenceIds(report);
+  const vector = report.evidenceVector || {};
+  const refs = report.evidenceVectorEvidence || {};
+  return Object.keys(vector).length > 0 && Object.keys(vector).every((key) =>
+    Number.isFinite(vector[key]) && Array.isArray(refs[key]) && refs[key].length > 0
+      && refs[key].every((id) => ids.has(String(id))));
 }
 
 function runOracle(reports) {
@@ -69,4 +110,4 @@ function verifiedEvidenceIds(report) {
     .map((item) => String(item.id || '')).filter(Boolean));
 }
 
-module.exports = { run, runOracle, runQualityDiversity, validDistribution, candidateFromReport };
+module.exports = { run, runOracle, runQualityDiversity, runCounterfactual, validDistribution, candidateFromReport };

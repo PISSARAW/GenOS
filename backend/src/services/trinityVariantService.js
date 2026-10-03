@@ -369,6 +369,10 @@ function worldInstructions(design, index) {
   if (design.worldTopology === 'exploratory_novelty' || design.hypothesisPolicy === 'novelty_seeking') {
     instructions.push('Return behaviorVector as a numeric feature array and behaviorVectorEvidence as evidence IDs supporting those features. Do not invent measurements; use the same evidence[] IDs.');
   }
+  if (design.hypothesisPolicy === 'counterfactual_dimensions') {
+    const condition = ['baseline', 'favorable', 'adverse'][index];
+    instructions.push(`Return counterfactual.condition=${condition}. For intervention worlds include counterfactual.intervention with type, dimension, description, expectedEffect; both interventions must change the same dimension. Include measured evidenceVector and evidenceVectorEvidence.`);
+  }
   return instructions;
 }
 
