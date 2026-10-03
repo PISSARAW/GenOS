@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const biome = require('../src/services/biomeCoordinationService');
 const distance = require('../src/services/biome/foraging/semanticDistanceService');
 const selector = require('../src/services/biome/foraging/patchSelector');
+const foragingController = require('../src/services/biome/foraging/ecologicalForagingController');
 
 async function run() {
   assert.equal(distance.semanticDistance('inspect runtime logs', 'inspect runtime logs'), 0);
@@ -11,6 +12,11 @@ async function run() {
   assert.equal(selector.selectAlternative({ currentPatchId: 'old', alternatives: [
     { patchId: 'full', expectedReturn: 10, occupancy: 4, parallelCapacity: 4 }
   ] }), null);
+  const exhaustedPatch = foragingController.decide({ patchHistory: [{ patchId: 'old-patch', return: 2 }],
+    currentPatchId: 'old-patch', currentMarginalReturn: 0.2, environmentThreshold: 0.35,
+    alternatives: [{ patchId: 'new-patch', expectedReturn: 0, available: true }] });
+  assert.equal(exhaustedPatch.patchYield.shouldDepart, true);
+  assert.equal(exhaustedPatch.decision, 'PATCH_DEPARTURE');
 
   const session = await biome.composeBiome('Analyze logs and records.', {
     environment: { opportunities: [{ id: 'logs', descriptor: 'Analyze logs', opportunityScore: 0.8,

@@ -15,7 +15,7 @@ function decide(input = {}) {
     environmentThreshold: input.environmentThreshold, defaultSwitchCost: input.switchCost,
     occupancyByPatch: measureOccupancy(input.ecology?.populations || [])
   });
-  const shouldMigrate = Boolean(alternative && currentReturn <= alternative.netReturn);
+  const shouldMigrate = Boolean(alternative && (current.shouldDepart || currentReturn <= alternative.netReturn));
   const explorationMove = levyFlightPolicy.planMovement({
     alternatives: input.alternatives, currentPatchId: input.currentPatchId,
     currentSpace: input.currentSpace, stepsWithoutProgress: input.stepsWithoutProgress,
