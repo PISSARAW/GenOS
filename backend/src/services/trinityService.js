@@ -288,7 +288,8 @@ function mergeTrinityEvidence(worldEntries, options = {}) {
   const domain = options.domain || 'software_engineering';
   const entries = Array.isArray(worldEntries) ? worldEntries : [];
   const comparison = compareWorlds(entries, domain);
-  const pareto = trinityPareto.compare(entries, options);
+  const profiles = options.objectiveProfiles || objectiveProfilesFor(options.variantSelection);
+  const pareto = trinityPareto.compare(entries, { ...options, objectiveProfiles: profiles });
   comparison.pareto = pareto;
   if (pareto.outcome === 'KEEP_PARETO_SET') {
     const synthesis = trinityClaimGraph.synthesize(comparison.scoredWorlds, pareto, options.claimGraph || { nodes: [], edges: [] });
@@ -305,6 +306,12 @@ function mergeTrinityEvidence(worldEntries, options = {}) {
     return { canMerge: true, outcome: pareto.outcome, selectedWorld: winner.worldNumber, selectedRole: winner.role, bestScore: comparison.bestScore, comparativeAnalysis: comparison, mergedEvidence: { ...winnerReport, author: { name: 'Trinity Consolidated Synthesis', selectedWorld: winner.worldNumber, selectedRole: winner.role }, outcome: 'success', claims: [...winnerClaims, ...complementaryClaims], comparativeAnalysis: { winner: winner.worldNumber, winningRole: winner.role, score: comparison.bestScore, matrix: comparison.comparisonMatrix, evidenceVector: winner.vector } } };
   }
   return { canMerge: false, outcome: pareto.outcome, selectedWorld: null, bestScore: comparison.bestScore, reason: pareto.reason || `Pareto frontier retained ${pareto.frontier.length} candidates.`, recommendation: 'Escalate to human review or re-launch with modified mission.', comparativeAnalysis: comparison, mergedEvidence: null };
+}
+
+function objectiveProfilesFor(selection) {
+  const design = selection?.experimentalDesign;
+  if (design?.objectivePolicy !== 'pareto_orthogonal') return undefined;
+  return [0, 1, 2].map((index) => differentiation.objectiveFor(design, index));
 }
 
 function synthesizedClaimsResult(comparison, pareto, synthesis) {

@@ -107,6 +107,18 @@ assert.equal(mergeFailure.selectedWorld, null);
 assert.match(mergeFailure.reason, /required_evidence_vector_or_provenance_missing/i);
 assert.match(mergeFailure.recommendation, /Escalate to human review/i);
 
+const paretoReport = {
+  outcome: 'success', hardConstraintsPassed: true, budgetStatus: 'within',
+  evidence: [{ id: 'measure', verificationReceipt: trustedReceipt() }],
+  evidenceVector: { correctness: 0.8, coverage: 0.8, robustness: 0.8, reproducibility: 0.8, novelty: 0.5, cost: 0.4, latency: 0.4, risk: 0.2, uncertainty: 0.2, constraintCoverage: 0.95 },
+  evidenceVectorEvidence: Object.fromEntries(['correctness', 'coverage', 'robustness', 'reproducibility', 'risk', 'uncertainty', 'constraintCoverage'].map((key) => [key, ['measure']])),
+  claims: [verifiedClaim('All measured objectives have independent test support.', 'measure')]
+};
+const paretoResult = trinity.mergeTrinityEvidence([1, 2, 3].map((worldNumber) => ({ worldNumber, report: paretoReport })), {
+  variantSelection: { experimentalDesign: { objectivePolicy: 'pareto_orthogonal' } }
+});
+assert.deepEqual(paretoResult.comparativeAnalysis.pareto.objectiveProfiles.map((profile) => profile.profile), ['quality_focus', 'efficiency_focus', 'risk_focus']);
+
 // 6. Record world comparison telemetry
 let emittedEvent = null;
 const origEmit = telemetry.emitEvent;

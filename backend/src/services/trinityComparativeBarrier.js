@@ -145,7 +145,8 @@ async function applyTrinityComparison(ctx) {
   const claimGraph = trinityClaimGraph.build(worldReports, trinity.hypothesisDesign?.claimGraph);
   const maxLatencyMs = await experimentLatencySla(ctx.db, trinity.missionId);
   let result = trinityService.mergeTrinityEvidence(worldReports, {
-    domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds, claimGraph
+    domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds, claimGraph,
+    variantSelection: trinity.hypothesisDesign?.variantSelection
   });
   result = trinityAdversarial.enforceVariantGate(result, adversarialReview);
   if (adversarialReview) result.comparativeAnalysis.adversarialReview = adversarialReview;
