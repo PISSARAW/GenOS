@@ -76,8 +76,8 @@ impl ControlKernel {
             planner: MorphogenesisPlanner::default(),
             governance: GovernancePlane::new(),
             incarnation: AgentIncarnationService::new(),
-            current_topology: String::from("specialist_committee"),
-            initial_topology: String::from("specialist_committee"),
+            current_topology: String::from("specialist_expert_committee"),
+            initial_topology: String::from("specialist_expert_committee"),
             commits: Vec::new(),
         }
     }
