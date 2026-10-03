@@ -31,6 +31,7 @@ function buildWorkerMission(input = {}) {
     localRuntime: input.localRuntime,
     localModel: input.localModel,
     localRoutingPolicy: input.localRoutingPolicy,
+    variantIndex: input.variantIndex,
     autonomousOrchestration: false
   };
   mission.workerContract = workerKinds.buildWorkerContract(workerKind, mission);

@@ -69,6 +69,9 @@ function workerLaunchPayload(args) {
     workerKind,
     variantIndex: member.variantIndex,
     localModel: member.localModel,
+    localRoutingPolicy: member.localRoutingPolicy || (member.localModel ? {
+      primary: member.localModel, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
+    } : undefined),
     missionScope: member.missionScope,
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
