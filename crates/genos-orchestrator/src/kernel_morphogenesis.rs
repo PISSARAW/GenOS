@@ -133,6 +133,17 @@ pub struct Totals {
     pub cost: f64,
 }
 
+/// Destinations explicitement non resolues : fail-closed (ADR 0199).
+fn is_unresolved_destination(target: &str) -> bool {
+    matches!(
+        target,
+        "" | "cible"
+            | "courante"
+            | "scope_courant"
+            | "topologie_non_resolue"
+    )
+}
+
 impl MorphogenesisPlanner {
     pub fn new(policy: HysteresisPolicy) -> Self {
         Self {
@@ -145,7 +156,9 @@ impl MorphogenesisPlanner {
     /// Construit un plan a partir des propositions.
     pub fn plan(&mut self, input: &PlanInput<'_>) -> MorphogenesisPlan {
         let totals = self.sum_proposals(input.proposals);
-        if input.proposals.items.iter().any(|item| item.action == "change_topology") {
+        if input.proposals.items.iter().any(|item| {
+            item.action == "change_topology" && is_unresolved_destination(&item.target)
+        }) {
             return MorphogenesisPlan::no_change(
                 "destination de topologie non resolue",
                 totals.gain,
@@ -207,14 +220,27 @@ impl MorphogenesisPlanner {
         for item in proposals.items.iter() {
             self.apply_single(item, plan);
         }
+        self.ground_topology_changes(plan);
+    }
+
+    /// Remplace les `from` factices par la topologie courante reelle.
+    fn ground_topology_changes(&self, plan: &mut MorphogenesisPlan) {
+        for change in plan.topology_changes.iter_mut() {
+            if change.from == "courante" {
+                change.from = plan
+                    .rollback_topology
+                    .clone()
+                    .unwrap_or_default();
+            }
+        }
     }
 
     fn apply_single(&self, item: &crate::kernel_resolvers::Proposal, plan: &mut MorphogenesisPlan) {
         match item.action.as_str() {
             open if open == "change_topology" => plan.topology_changes.push(TopologyChange {
-                scope: item.target.clone(),
+                scope: String::from("collectif"),
                 from: String::from("courante"),
-                to: String::from("cible"),
+                to: item.target.clone(),
             }),
             open if open == "spawn_verifier" => plan.spawns.push(String::from("verifier")),
             open if open == "spawn_probe" => plan.spawns.push(String::from("probe")),

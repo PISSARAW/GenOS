@@ -47,7 +47,6 @@ pub struct KernelMissionReport {
 pub struct StepInput {
     pub no_progress: bool,
     pub worker_error_rate: f64,
-    pub success: bool,
 }
 
 /// Resultat d'un pas de boucle.
@@ -66,7 +65,6 @@ pub struct ControlKernel {
     pub incarnation: AgentIncarnationService,
     pub current_topology: String,
     pub initial_topology: String,
-    pub commits: Vec<String>,
 }
 
 impl ControlKernel {
@@ -78,7 +76,6 @@ impl ControlKernel {
             incarnation: AgentIncarnationService::new(),
             current_topology: String::from("specialist_expert_committee"),
             initial_topology: String::from("specialist_expert_committee"),
-            commits: Vec::new(),
         }
     }
 
@@ -88,7 +85,7 @@ impl ControlKernel {
         let plan = self.decide(input);
         let governance = self.authorize(&plan);
         let (plan_applied, spawned) = self.apply_if_allowed(&plan, &governance);
-        self.close_step(input, &plan);
+        self.close_step();
         StepOutcome {
             plan_applied,
             governance,
@@ -231,7 +228,9 @@ impl ControlKernel {
 
     fn record_topology(&mut self, plan: &MorphogenesisPlan) -> bool {
         if let Some(change) = plan.topology_changes.first() {
-            if change.to.is_empty() || change.to == "cible" { return false; }
+            if is_placeholder_topology(&change.to) {
+                return false;
+            }
             self.current_topology.clone_from(&change.to);
             self.state
                 .history
@@ -243,29 +242,21 @@ impl ControlKernel {
     }
 
     fn snapshot(&mut self, plan: &MorphogenesisPlan) {
-        let id = format!(
-            "commit_{}_{}",
-            self.commits.len() + 1,
+        let checkpoint = format!(
+            "memory_checkpoint_{}_{}",
+            self.state.resilience.checkpoints.len() + 1,
             plan.reason.replace(' ', "_")
         );
-        self.commits.push(id.clone());
-        self.state.history.agent_git_head = Some(id);
-        self.state.resilience.checkpoints.push(plan.reason.clone());
+        self.state.resilience.checkpoints.push(checkpoint);
     }
 
-    fn close_step(&mut self, input: &StepInput, plan: &MorphogenesisPlan) {
+    fn close_step(&mut self) {
         let update = EpistemicUpdate {
             verified_claims: Vec::new(),
             new_contradictions: Vec::new(),
             resolved_gaps: Vec::new(),
         };
         self.state.revise_epistemics(&update);
-        if input.success {
-            self.state
-                .history
-                .recent_successes
-                .push(plan.reason.clone());
-        }
         self.update_health();
     }
 
@@ -312,4 +303,15 @@ impl ControlKernel {
             learned: self.state.history.recent_successes.clone(),
         }
     }
+}
+
+/// Destinations refusees : jamais de transition vers un placeholder.
+fn is_placeholder_topology(target: &str) -> bool {
+    matches!(
+        target,
+        "" | "cible"
+            | "courante"
+            | "scope_courant"
+            | "topologie_non_resolue"
+    )
 }

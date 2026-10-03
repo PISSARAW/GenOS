@@ -94,6 +94,20 @@ fn gain_for(action: &str) -> (f64, f64) {
     }
 }
 
+/// Topologies resolues par le planner (fail-closed sinon).
+fn topology_destination(detail: &str) -> &'static str {
+    match detail {
+        open if open == "trinity" => "trinity",
+        open if open == "rhizome" => "rhizome",
+        open if open == "syncytium" => "syncytium",
+        open if open == "biome" => "biome",
+        open if open == "biocenose" => "biocenose",
+        open if open == "holobionte" => "holobionte",
+        open if open == "metapopulation" => "metapopulation",
+        open if open == "a_team" => "a_team",
+        _ => "topologie_non_resolue",
+    }
+}
 /// Appelle tous les resolvers puis retourne l'ensemble des propositions.
 pub fn resolve_all(input: &ResolverInput<'_>) -> ProposalSet {
     let mut set = ProposalSet::default();
@@ -158,7 +172,11 @@ fn collect_structural(input: &ResolverInput<'_>, set: &mut ProposalSet) {
         ),
         FailureType::Topology => emit(
             set,
-            &spec("TopologyResolver", "change_topology", "scope_courant"),
+            &spec(
+                "TopologyResolver",
+                "change_topology",
+                topology_destination(&input.diagnosis.detail),
+            ),
         ),
         FailureType::Communication => emit(
             set,
