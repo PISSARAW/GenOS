@@ -17,14 +17,19 @@ Morphogenèse retient `controlled` comme baseline. Le reçu inclut un
 `experimentalDesignId` reproductible; celui-ci identifie le plan fixe à trois stratégies,
 mais ne prétend pas figer les fournisseurs ou les seeds.
 
-`controlled` est exécutable comme baseline. `heterogeneous`, `adversarial`,
-`counterfactual`, `pareto`, `jury`, `adaptive`, `temporal` et `exploratory` sont des modes
-partiels : ils ajoutent des consignes ou activent un mécanisme déjà borné, et leur reçu
-énumère les limites. `jury` exige `trinity_jury.enabled=true` et au moins deux `modelUris`
-distincts et un `maxCostUsd` positif. `adaptive` active l'allocation adaptative de budget, sans changer le nombre de
-mondes. `factorial`, `recursive` et `oracular` sont reconnus mais refusés avant lancement,
-car leurs moteurs ne sont pas implémentés. L'auto-sélection garde la baseline lorsqu'un
-signal correspond à un mode partiel et expose ce mode comme suggestion.
+`controlled` est exécutable comme baseline. Les onze autres variants
+(`heterogeneous`, `adversarial`, `counterfactual`, `factorial`, `pareto`,
+`jury`, `recursive`, `adaptive`, `temporal`, `oracular`, `exploratory`) sont
+implémentés avec contrat d'adaptateur : la sélection exige les adapters
+installés et disponibles sur le chemin de lancement, sinon le dispatch est
+refusé avant création des mondes (`TRINITY_DESIGN_ADAPTER_MISSING`).
+`jury` exige en plus `trinity_jury.enabled=true`, au moins deux `modelUris`
+distincts et un `maxCostUsd` positif. `heterogeneous` exige une diversité
+mesurée suffisante sur les routes de modèles réellement assignées, sinon le
+dispatch est refusé (`TRINITY_DIVERSITY_BELOW_THRESHOLD`) : une monoculture
+ne peut pas revendiquer ce variant. L'auto-sélection garde la baseline
+lorsqu'un signal correspond à un mode dont les préconditions manquent et
+expose ce mode comme suggestion.
 
 Les variants se composent par axe dans `experimental_design`; cet exemple réunit les
 politiques de diversité, de préparation adversariale, d'objectifs Pareto et de budget
