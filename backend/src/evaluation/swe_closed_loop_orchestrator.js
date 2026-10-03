@@ -18,6 +18,7 @@ const { generate } = require('../services/modelRouter');
 const { locateCandidateFiles, extractRelevantExcerpt } = require('./swe_fault_localizer');
 const { applySearchReplace } = require('./swe_surgical_patcher');
 const { verifyTaskDynamically, probeBugReproduction } = require('./swe_native_verifier');
+const { REPOS_DIR } = require('./swe_paths');
 const {
   registerSweFleet,
   updateAgentProgress,
@@ -41,7 +42,6 @@ const {
   buildAdversarialCritique
 } = require('./swe_biomimetic_engine');
 
-const REPOS_DIR = path.resolve(__dirname, '../../../../.genos-agent-worlds/swe_repos');
 const PREDICTIONS_PATH = path.resolve(__dirname, 'swe_bench_real_predictions.jsonl');
 
 function loadPlasmidMemory(instanceId) {

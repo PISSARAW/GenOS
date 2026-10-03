@@ -4,5 +4,5 @@
   "status": "design_required",
   "comparisonEligible": false,
   "relatedAssets": ["../../planning-gap/"],
-  "blockers": ["Define fixed environments, executable constraints, and paired execution controls."]
+  "blockers": ["planning-gap's 12/12 result is an internal policy comparison, not an LLM versus GenOS run. The 2026-10-03 live GenOS pilot is recorded under v1/results: the runtime ran Qwen2.5 Coder 7B, but orchestration coverage was incomplete and its Blocks World answer failed the independent verifier. A direct A-Team dispatch was accepted with specialist and verifier_worker assignments, but completion artifacts are not yet available. Paired runs and a completion-verifying harness remain required."]
 }

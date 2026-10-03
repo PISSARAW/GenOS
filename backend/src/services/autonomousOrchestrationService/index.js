@@ -81,7 +81,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     phases: realizable,
     executionStatus,
     executionBlockers: executionStatus === 'blocked'
-      ? [{ code: 'NO_REALIZABLE_PHASES', message: 'The selected strategy portfolio cannot execute any autonomy phase.' }]
+      ? [executionBlocker(realizable)]
       : [],
     omittedPhases,
     remediation,
@@ -99,6 +99,16 @@ function buildAutonomyPlan(contract, budget = {}) {
   applySurvivalConstraints(plan);
   plan.controlRegulation = regulateAutonomyPlan(contract, budget, plan);
   return plan;
+}
+
+function executionBlocker(realizable) {
+  if (realizable.length === 0) {
+    return { code: 'NO_REALIZABLE_PHASES', message: 'The selected strategy portfolio cannot execute any autonomy phase.' };
+  }
+  return {
+    code: 'REQUIRED_PHASES_UNAVAILABLE',
+    message: 'One or more required autonomy phases are unavailable in the selected strategy portfolio.'
+  };
 }
 
 module.exports = {

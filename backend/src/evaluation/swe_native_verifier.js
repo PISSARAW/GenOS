@@ -12,18 +12,17 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { TASKS_PATH, REPOS_DIR } = require('./swe_paths');
 
-const REPOS_DIR = path.resolve(__dirname, '../../../../.genos-agent-worlds/swe_repos');
-const TASKS_PATH = path.resolve(__dirname, '../../../../SWE-bench/swe_bench_lite_tasks.json');
 const PREDICTIONS_PATH = path.resolve(__dirname, 'swe_bench_real_predictions.jsonl');
 
 function runCmd(cmd, cwd, env = {}) {
   try {
     const fullEnv = { ...process.env, ...env };
-    const stdout = execSync(cmd, { cwd, env: fullEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const stdout = execSync(cmd, { cwd, env: fullEnv, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 310000 });
     return { success: true, code: 0, output: stdout };
   } catch (err) {
-    return { success: false, code: err.status || 1, output: (err.stdout || '') + (err.stderr || '') };
+    return { success: false, code: err.status || 1, timedOut: err.code === 'ETIMEDOUT', output: (err.stdout || '') + (err.stderr || '') };
   }
 }
 
@@ -55,11 +54,61 @@ function toWslPath(winPath) {
   return winPath.replace(/\\/g, '/').replace(/^([a-zA-Z]):/, (_, drive) => `/mnt/${drive.toLowerCase()}`);
 }
 
-function runPytest(repoDir, testTarget, pythonPath = 'src:.') {
+function selectVenvName(task, repoName) {
+  const usesTomllib = task.repo === 'pallets/flask' && Number.parseFloat(task.version) >= 2.3;
+  return usesTomllib ? `${repoName}_py312` : repoName;
+}
+
+function pytestCounts(output) {
+  const summaries = [...output.matchAll(/={2,}\s*([^=\n]+?)\s+in\s+[\d.]+\s*(?:s|seconds?)\s*={2,}/g)];
+  const summary = summaries.at(-1);
+  if (!summary) return null;
+  const counts = { passed: 0, failed: 0, errors: 0, skipped: 0, xfailed: 0, xpassed: 0 };
+  const pattern = /(\d+)\s+(passed|failed|errors?|skipped|xfailed|xpassed)\b/gi;
+  for (const match of summary[1].matchAll(pattern)) {
+    const rawLabel = match[2].toLowerCase();
+    const label = rawLabel.startsWith('error') ? 'errors' : rawLabel;
+    counts[label] += Number(match[1]);
+  }
+  return counts;
+}
+
+function hasCleanPytestCounts(counts) {
+  return Boolean(counts) && counts.errors === 0 && counts.skipped === 0
+    && counts.xfailed === 0 && counts.xpassed === 0;
+}
+
+function matchesExpectedFailure(result, counts, expected) {
+  const completed = counts.failed + counts.passed === expected;
+  return !result.success && completed && counts.failed > 0;
+}
+
+function matchesExpectedPass(result, counts, expected) {
+  return result.success && counts.passed === expected && counts.failed === 0;
+}
+
+function matchesPytestOutcome({ result, expected, expectFailure }) {
+  if (result.timedOut) return false;
+  const counts = pytestCounts(result.output);
+  if (!hasCleanPytestCounts(counts)) return false;
+  return expectFailure
+    ? matchesExpectedFailure(result, counts, expected)
+    : matchesExpectedPass(result, counts, expected);
+}
+
+function quoteShellArg(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+function runPytest({ repoDir, testTargets, task, pythonPath = 'src:.' }) {
   const wslDir = toWslPath(repoDir);
   const repoName = path.basename(repoDir);
-  const pytestBin = `~/.swe_venvs/${repoName}/bin/pytest`;
-  const wslCmd = `wsl -d Ubuntu-24.04 bash -c "cd '${wslDir}' && PYTHONPATH=${pythonPath} ${pytestBin} ${testTarget} -v -W ignore::DeprecationWarning"`;
+  const venvName = selectVenvName(task, repoName);
+  const targetArgs = testTargets.map(quoteShellArg).join(' ');
+  const pythonBin = `~/.swe_venvs/${venvName}/bin/python`;
+  const script = `cd '${wslDir}' && PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=${pythonPath} timeout --signal=TERM --kill-after=5s 300s ${pythonBin} -m pytest ${targetArgs} -v -W ignore::DeprecationWarning`;
+  const encodedScript = Buffer.from(script, 'utf8').toString('base64');
+  const wslCmd = `wsl -d Ubuntu-24.04 bash -c "echo ${encodedScript} | base64 -d | bash"`;
   return runCmd(wslCmd, repoDir);
 }
 
@@ -73,12 +122,19 @@ function parseTestList(val) {
   }
 }
 
-function checkRegressionTests(repoDir, passList) {
+function checkRegressionTests({ repoDir, passList, task }) {
   if (!passList.length) return true;
   console.log(`\n[STEP 5] Running PASS_TO_PASS test suite (Regression Check)...`);
-  const samplePassTargets = passList.slice(0, 5).join(' ');
-  const regResult = runPytest(repoDir, samplePassTargets);
-  const ok = regResult.success;
+  const testBatches = [];
+  for (let offset = 0; offset < passList.length; offset += 20) {
+    testBatches.push(passList.slice(offset, offset + 20));
+  }
+  const ok = testBatches.every((tests) => {
+    const result = runPytest({ repoDir, testTargets: tests, task });
+    const passed = matchesPytestOutcome({ result, expected: tests.length, expectFailure: false });
+    if (!passed) console.warn(`  -> Failed PASS_TO_PASS batch (${tests.length} tests):\n${result.output.slice(-1200)}`);
+    return passed;
+  });
   console.log(`  -> PASS_TO_PASS regression check: ${ok ? 'PASSED' : 'FAILED'}`);
   return ok;
 }
@@ -135,10 +191,10 @@ function verifyTaskDynamically(task, patchToTest) {
   // Step 3: Run FAIL_TO_PASS before fix (Verify bug reproduction)
   console.log(`\n[STEP 2] Running FAIL_TO_PASS test before fix (Reproduction Check)...`);
   const failList = parseTestList(task.FAIL_TO_PASS);
-  const failToPassTarget = failList.join(' ');
-  const preResult = runPytest(repoDir, failToPassTarget);
-  const reproduced = !preResult.success;
+  const preResult = runPytest({ repoDir, testTargets: failList, task });
+  const reproduced = matchesPytestOutcome({ result: preResult, expected: failList.length, expectFailure: true });
   console.log(`  -> Pre-fix test result: ${reproduced ? 'FAILED (Expected reproduction!)' : 'PASSED'}`);
+  if (!reproduced) console.warn(`  -> Baseline test output:\n${(preResult.output || '').slice(-800)}`);
 
   // Step 4: Apply model patch
   console.log(`\n[STEP 3] Applying candidate patch (${patchToTest.length} bytes)...`);
@@ -151,8 +207,8 @@ function verifyTaskDynamically(task, patchToTest) {
 
   // Step 5: Run FAIL_TO_PASS after fix (Verify bug resolution)
   console.log(`\n[STEP 4] Running FAIL_TO_PASS test after fix (Resolution Check)...`);
-  const postResult = runPytest(repoDir, failToPassTarget);
-  const resolved = postResult.success;
+  const postResult = runPytest({ repoDir, testTargets: failList, task });
+  const resolved = matchesPytestOutcome({ result: postResult, expected: failList.length, expectFailure: false });
   console.log(`  -> Post-fix test result: ${resolved ? 'PASSED (RESOLUTION CONFIRMED!)' : 'FAILED'}`);
   if (!resolved) {
     console.log(`  -> Test output snippet:\n${(postResult.output || '').slice(-400)}`);
@@ -161,14 +217,14 @@ function verifyTaskDynamically(task, patchToTest) {
   // Step 6: Run PASS_TO_PASS check (Regression Check)
   let regressionFree = true;
   if (resolved) {
-    regressionFree = checkRegressionTests(repoDir, parseTestList(task.PASS_TO_PASS));
+    regressionFree = checkRegressionTests({ repoDir, passList: parseTestList(task.PASS_TO_PASS), task });
   }
 
   // Reset repo clean
   runGit('reset --hard', repoDir);
   runGit('clean -fdx', repoDir);
 
-  const status = (resolved && regressionFree) ? 'RESOLVED_PASS_AT_1' : 'UNRESOLVED';
+  const status = (reproduced && resolved && regressionFree) ? 'RESOLVED_PASS_AT_1' : 'UNRESOLVED';
   const errorOutput = resolved ? '' : extractPytestFailure(postResult.output);
   const verdict = { instance_id: instanceId, reproduced, resolved, regression_free: regressionFree, error_output: errorOutput, status };
 
@@ -242,12 +298,11 @@ function probeBugReproduction(task) {
     return { ok: false, traceback: '' };
   }
   const failList = parseTestList(task.FAIL_TO_PASS);
-  const failToPassTarget = failList.join(' ');
-  const preResult = runPytest(repoDir, failToPassTarget);
+  const preResult = runPytest({ repoDir, testTargets: failList, task });
   runGit('reset --hard', repoDir);
   runGit('clean -fdx', repoDir);
   const tb = extractPytestFailure(preResult.output) || preResult.output || '';
-  return { ok: true, reproduced: !preResult.success, traceback: tb };
+  return { ok: true, reproduced: matchesPytestOutcome({ result: preResult, expected: failList.length, expectFailure: true }), traceback: tb };
 }
 
 module.exports = { verifyTaskDynamically, runNativeVerification, probeBugReproduction };

@@ -3,6 +3,6 @@
   "suiteId": "repository_analysis",
   "status": "design_required",
   "comparisonEligible": false,
-  "relatedAssets": ["../../agent-architecture-comparison/", "../../topology-morphogenesis/"],
-  "blockers": ["Pin repository snapshots, tasks, expected findings, and a blinded scoring rubric."]
+  "relatedAssets": ["../../agent-architecture-comparison/", "../../topology-morphogenesis/", "v1/"],
+  "blockers": ["The v1 snapshot and deterministic pilot oracle are ready. The local model-alone pilot averages 0.28125 on four items but has citation failures; GenOS orchestration currently stops before inference because its selected strategy portfolio has no executable autonomy phase. Fix that runtime gate, then collect matched alone/genos runs and blinded independent citation adjudication before comparison eligibility."]
 }

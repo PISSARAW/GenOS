@@ -3,6 +3,18 @@ const { buildStrategyContract } = require('../src/services/strategyContractServi
 const { buildAutonomyPlan } = require('../src/services/autonomousOrchestrationService');
 const { assertAutonomyPlanExecutable, applyExecutionPolicy } = require('../src/services/agentRuntimeAdapter/missionPlanning');
 const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
+const { ORCHESTRATOR_CORE_LEASE } = require('../src/services/toolLeasePolicy');
+
+const planningContract = buildStrategyContract({
+  problem: 'Plan a deterministic block-world task under action constraints.',
+  problemProfile: { type: 'general', complexity: 0.8, uncertainty: 0.2, risk: 'low' }
+});
+const planningPlan = buildAutonomyPlan(planningContract, { tokens: 48000 });
+assert.equal(planningPlan.executionStatus, 'ready', 'runtime core phases do not depend on domain strategy selection');
+assert.deepEqual(planningPlan.omittedPhases, [], 'all required planning phases have runtime or strategy support');
+for (const phase of planningPlan.phases.filter((entry) => entry.strategyRequirements.length === 0)) {
+  for (const tool of phase.requiredTools) assert(ORCHESTRATOR_CORE_LEASE.includes(tool), `${tool} is provided by the orchestrator core lease`);
+}
 
 const securityContract = buildStrategyContract({
   problem: 'Investigate a high-risk security incident with uncertain exploitability and complex cross-service impact.',
@@ -13,8 +25,8 @@ const plan = buildAutonomyPlan(securityContract, { tokens: 48000, minimumWorkerT
 assert(plan.registry.total >= 78, 'the whole strategy registry must be evaluated');
 assert.strictEqual(plan.registry.selected.length > 0, true);
 assert.strictEqual(plan.organization, 'red_blue_coevolution');
-assert.equal(plan.executionStatus, 'blocked');
-assert.equal(plan.executionBlockers[0].code, 'NO_REALIZABLE_PHASES');
+assert.equal(plan.executionStatus, 'blocked', 'security work stays blocked when specialized phases lack strategy support');
+assert.equal(plan.executionBlockers[0].code, 'REQUIRED_PHASES_UNAVAILABLE');
 assert.strictEqual(plan.organizationPolicy.transitions.length, 4);
 assert.strictEqual(plan.decisionGates.length, 6);
 assert(plan.decisionGates.find((gate) => gate.id === 'reselect_strategy').actions.includes('genos_change_strategy'));
@@ -42,7 +54,7 @@ assert.strictEqual(plan.tokenPolicy.rounds.continuation.perWorkerTokens, 0);
 assert.strictEqual(plan.controlRegulation.schema, 'genos.control-regulation/v1alpha1');
 assert(plan.controlRegulation.signals.some((signal) => signal.source === 'attention' && signal.target === 'diagnostics'));
 assert(plan.controlRegulation.signals.some((signal) => signal.source === 'immune' && signal.direction === 'require_evidence'));
-assert(plan.controlRegulation.arbitration.vetoes.some((signal) => signal.target === 'promotion'));
+assert(plan.controlRegulation.arbitration.requiredEvidence.some((item) => item.target === 'promotion'));
 assert.strictEqual(plan.controlRegulation.convergence.axes.length, 9);
 assert.strictEqual(plan.controlRegulation.arbitration.actionMode, 'probe');
 assert.strictEqual(plan.controlRegulation.arbitration.reversibleOnly, true);

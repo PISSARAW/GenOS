@@ -33,3 +33,9 @@ Les manifestes sous `suites/` réservent les familles de la feuille de route et
 pointent vers les actifs existants. `planned` signifie qu'aucun protocole
 confirmatoire commun n'est encore prêt; il ne signifie pas qu'un résultat est nul.
 
+Le pilote local d'analyse de dépôts se trouve dans
+[`suites/repository_analysis/v1/`](suites/repository_analysis/v1/). Il prépare
+un snapshot GenOS immuable, quatre questions françaises et un oracle vérifiant
+les faits structurés et les citations. Il s'exécute sans Docker. Son smoke test
+qualifie uniquement le snapshot et l'oracle; aucune comparaison `alone`/`genos`
+ni évaluation humaine aveugle n'est encore produite.

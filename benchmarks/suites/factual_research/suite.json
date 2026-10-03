@@ -4,5 +4,5 @@
   "status": "design_required",
   "comparisonEligible": false,
   "relatedAssets": ["../../../backend/src/evaluation/locomo_eval_engine.js", "../../../backend/tests/test_literature_forager.js"],
-  "blockers": ["Choose a versioned question set, source snapshot policy, and source-grounded scoring oracle."]
+  "blockers": ["The v1 four-question corpus and citation oracle are frozen; Qwen2.5 Coder 7B alone pilot scored 0.8958/1 after clarifying the idempotence item. No matched GenOS run or blind citation adjudication exists yet."]
 }

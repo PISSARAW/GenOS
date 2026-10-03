@@ -18,9 +18,7 @@ const { generate } = require('../services/modelRouter');
 const { getDatabase } = require('../db');
 const { locateCandidateFiles, extractRelevantExcerpt } = require('./swe_fault_localizer');
 const { applySearchReplace } = require('./swe_surgical_patcher');
-
-const SWE_DATA_PATH = path.resolve(__dirname, '../../../../SWE-bench/swe_bench_lite_tasks.json');
-const REPOS_DIR = path.resolve(__dirname, '../../../../.genos-agent-worlds/swe_repos');
+const { TASKS_PATH: SWE_DATA_PATH, REPOS_DIR } = require('./swe_paths');
 
 function runGit(cmd, cwd) {
   return execSync(`git ${cmd}`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();

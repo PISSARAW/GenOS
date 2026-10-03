@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "corpusVersion": "1.0.0",
+  "files": [
+    {
+      "path": "rfc9110.json",
+      "sourceId": "rfc9110",
+      "version": "RFC 9110, June 2022",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "sha256": "2e48f5e38c0ef6d9cce346c86e8e6c0a75c0a62ea073d310e0551ddc39361505",
+      "bytes": 419
+    },
+    {
+      "path": "rfc9111.json",
+      "sourceId": "rfc9111",
+      "version": "RFC 9111, June 2022",
+      "url": "https://www.rfc-editor.org/rfc/rfc9111.html",
+      "sha256": "08b974c11c719a4ef2499aa60024532b908aed0e7d4495777b9e51e8d9e9c15c",
+      "bytes": 574
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "suiteId": "repository_analysis",
+  "version": "1.0.0",
+  "instructions": "Répondre uniquement avec un objet JSON par item : {\"taskId\":string,\"claims\":object,\"citations\":[{\"path\":string,\"startLine\":integer,\"endLine\":integer,\"quote\":string}]}. Les citations doivent provenir des fichiers du snapshot, avec des numéros de ligne exacts.",
+  "items": [
+    {
+      "taskId": "runtime-entrypoints-fr-01",
+      "prompt": "À partir du snapshot, donne les commandes de démarrage du backend, du CLI Rust et du serveur MCP Node, ainsi que les trois endpoints de santé du backend. Réponds avec les clés backendCommand, rustCliCommand, nodeMcpCommand et healthEndpoints.",
+      "snapshotFiles": ["README.md", "backend/README.md"],
+      "requiredClaimKeys": ["backendCommand", "rustCliCommand", "nodeMcpCommand", "healthEndpoints"],
+      "claimTypes": {"backendCommand":"string","rustCliCommand":"string","nodeMcpCommand":"string","healthEndpoints":"array"}
+    },
+    {
+      "taskId": "mcp-catalog-origin-fr-01",
+      "prompt": "Dans le serveur MCP JavaScript, quel fichier est la source canonique des schémas d’outils, quel fichier sert de copie de repli et dans quelle condition ce repli est-il utilisé ? Utilise les clés canonicalCatalog, fallbackCatalog et fallbackCondition.",
+      "snapshotFiles": ["docs/03-reference/outils-mcp.md"],
+      "requiredClaimKeys": ["canonicalCatalog", "fallbackCatalog", "fallbackCondition"],
+      "claimTypes": {"canonicalCatalog":"string","fallbackCatalog":"string","fallbackCondition":"string"}
+    },
+    {
+      "taskId": "mcp-lease-enforcement-fr-01",
+      "prompt": "Quelles variables définissent l’allow-list et la deny-list MCP, laquelle prévaut en cas de conflit, et le filtrage de tools/list suffit-il à protéger les appels directs ? Réponds avec leaseVariable, disabledVariable, precedence et directCallProtection.",
+      "snapshotFiles": ["docs/03-reference/outils-mcp.md"],
+      "requiredClaimKeys": ["leaseVariable", "disabledVariable", "precedence", "directCallProtection"],
+      "claimTypes": {"leaseVariable":"string","disabledVariable":"string","precedence":"string","directCallProtection":"string"}
+    },
+    {
+      "taskId": "codex-profile-setup-fr-01",
+      "prompt": "Que fait réellement le profil Codex : que configure le script, que signifie la présence de .mcp.json, et quel prérequis impose la réparation du plugin ? Utilise les clés setupCommand, mcpJsonRole et pluginPrerequisite.",
+      "snapshotFiles": ["integrations/codex/README.md"],
+      "requiredClaimKeys": ["setupCommand", "mcpJsonRole", "pluginPrerequisite"],
+      "claimTypes": {"setupCommand":"string","mcpJsonRole":"string","pluginPrerequisite":"string"}
+    }
+  ]
+}

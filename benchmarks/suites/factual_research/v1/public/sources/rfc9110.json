@@ -1,0 +1,10 @@
+{
+  "sourceId": "rfc9110",
+  "title": "HTTP Semantics",
+  "version": "RFC 9110, June 2022",
+  "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+  "facts": [
+    {"factId":"safe-methods","section":"9.2.1","text":"The methods defined as safe are GET, HEAD, OPTIONS and TRACE."},
+    {"factId":"idempotent-methods","section":"9.2.2","text":"PUT and DELETE are idempotent; the safe methods are also idempotent."}
+  ]
+}

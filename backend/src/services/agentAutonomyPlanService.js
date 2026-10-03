@@ -106,7 +106,7 @@ function attachAteamCoordination({ aTeam, agentId, normalizedMission, emitEvent 
 function activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiveOrchestratorReserve, trinityWorkerCount }) {
   autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
   autonomyPlan.tokenPolicy.orchestratorReserve = effectiveOrchestratorReserve;
-  autonomyPlan.tokenPolicy.rounds = buildRoundAllocation(autonomyPlan.tokenPolicy, effectiveWorkerShare, trinityWorkerCount);
+  autonomyPlan.tokenPolicy.rounds = aTeamDispatchBudget.buildRoundAllocation(autonomyPlan.tokenPolicy, effectiveWorkerShare, trinityWorkerCount);
   autonomyPlan.workers = autonomyPlan.trinity.members;
   autonomyPlan.dispatchWorkers = autonomyPlan.trinity.members;
   emit(agentId, 'TRINITY_PLANNED', 'COMPOSE_TRINITY', 'The mission explicitly requested Trinity; three evidence-comparison worlds were planned.', autonomyPlan.trinity, 'info');
@@ -114,7 +114,7 @@ function activateTrinity({ autonomyPlan, agentId, effectiveWorkerShare, effectiv
 
 function calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare) {
   const trinityWorkerCount = autonomyPlan.trinity.members.length;
-  const affordableTrinityMembers = affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
+  const affordableTrinityMembers = aTeamDispatchBudget.affordableWorkerCount(autonomyPlan.tokenPolicy, effectiveWorkerShare);
   autonomyPlan.trinity.budgetPermitsLaunch = affordableTrinityMembers >= trinityWorkerCount;
   const availableTokens = autonomyPlan.tokenPolicy.total * effectiveWorkerShare;
   const plannedTokens = Math.floor(availableTokens);

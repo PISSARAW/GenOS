@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "scoring": {"claimAccuracyWeight":0.5,"citationRecallWeight":0.3,"citationPrecisionWeight":0.2,"comparison":"Exact JSON values; arrays are set-normalized only where the question asks for a set."},
+  "tasks": {
+    "http-safe-methods-fr-01": {"claims":{"safeMethods":["GET","HEAD","OPTIONS","TRACE"]},"citations":[{"sourceId":"rfc9110","section":"9.2.1","factId":"safe-methods"}]},
+    "http-idempotent-methods-fr-01": {"claims":{"idempotentMethods":["PUT","DELETE","GET","HEAD","OPTIONS","TRACE"]},"citations":[{"sourceId":"rfc9110","section":"9.2.2","factId":"idempotent-methods"},{"sourceId":"rfc9110","section":"9.2.1","factId":"safe-methods"}]},
+    "http-request-no-cache-fr-01": {"claims":{"validationBeforeReuse":true,"storageAllowed":true},"citations":[{"sourceId":"rfc9111","section":"5.2.1.4","factId":"request-no-cache"}]},
+    "http-request-no-store-fr-01": {"claims":{"appliesTo":["private","shared"],"prohibitsRequestAndResponseStorage":true,"guaranteesPrivacy":false},"citations":[{"sourceId":"rfc9111","section":"5.2.1.5","factId":"request-no-store"}]}
+  }
+}

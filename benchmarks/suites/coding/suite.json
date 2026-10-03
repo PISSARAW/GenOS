@@ -3,6 +3,6 @@
   "suiteId": "coding",
   "status": "design_required",
   "comparisonEligible": false,
-  "relatedAssets": ["../../../backend/src/evaluation/swe_eval_runner.js", "../../../backend/src/evaluation/swe_eval_engine.js"],
-  "blockers": ["Define a fixed task set, independent test oracle, and matched alone/genos execution path."]
+  "relatedAssets": ["dataset.lock.json", "../../../backend/src/evaluation/swe_paths.js", "../../../backend/src/evaluation/swe_native_verifier.js", "../../../backend/src/evaluation/swe_eval_runner.js"],
+  "blockers": ["Calibrate host-side WSL environments for all 26 locked tasks (only 5/26 reference-patch checks currently pass; several pytest selectors or regression checks fail); implement isolated, matched alone/genos repetitions with reference patches withheld from model input and complete test receipts."]
 }

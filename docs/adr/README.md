@@ -273,9 +273,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0255](0255-active-query-simulation-prospective.md) | Active Query de simulation prospective | Accepté | 2026-10-01 | AGOW, Active Query, contrefactuels |
 | [0256](0256-gvx-experimentation-and-ledger-integrity.md) | Protocoles GVX adaptatifs et intégrité du ledger | Accepté | 2026-10-01 | GVX, expériences, preuves, intégrité |
 | [0257](0257-causal-self-twin.md) | Self-Twin causal versionné et écarts prédictifs | Accepté | 2026-10-01 | Self-Twin, causalité, GVX, AGOW |
+| [0258](0258-pont-developpemental-agow-gvx.md) | Pont développemental asymétrique entre AGOW et GVX | Accepté | 2026-10-01 | AGOW, GVX, preuves, interoception |
 | [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
 | [0260](0260-politique-modes-cognitifs-agow.md) | Sélection des modes cognitifs par regret prédictif | Accepté | 2026-10-01 | AGOW, regret prédictif, contrôle cognitif |
-| [0261](0261-detection-lacunes-apprentissage-gvx.md) | Détection des lacunes et buts d'apprentissage bornés | Accepté | 2026-10-01 | GVX, curriculum, curiosité, autorité |
+| [0261a](0261-cognition-a-la-demande-agow.md) | Cognition à la demande pour les requêtes AGOW | Accepté | 2026-10-02 | AGOW, requêtes actives, voies directes |
+| [0261b](0261-detection-lacunes-apprentissage-gvx.md) | Détection des lacunes et buts d'apprentissage bornés | Accepté | 2026-10-01 | GVX, curriculum, curiosité, autorité |
 | [0262](0262-proposition-mutation-recherche-lignees-gvx.md) | Proposition de mutation et recherche de lignées candidates | Accepté | 2026-10-01 | GVX, Self-Twin, AgentGit, expérimentation |
 | [0263](0263-nursery-experimentale-gvx.md) | Nursery expérimentale GVX et vérificateurs de confiance | Accepté | 2026-10-01 | GVX, expériences, isolation, preuve indépendante |
 | [0264](0264-monitoring-longitudinal-somatique.md) | Monitoring longitudinal de transformations somatiques | Accepté | 2026-10-01 | GVX, application somatique, régression, maturité |
@@ -284,8 +286,15 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0267](0267-branchement-runtime-adaptateurs-gvx.md) | Branchement des outcomes runtime et adaptateurs GVX de confiance | Accepté | 2026-10-01 | AGOW, T0–T3, AgentGit, preuves GVX |
 | [0268](0268-ledger-preuves-scientifiques.md) | Ledger partagé de preuves scientifiques | Accepté | 2026-10-02 | Épistémologie, expériences, provenance, topologies |
 | [0269](0269-campagnes-rivales-agow-gmw.md) | Protocoles Rivals pour AGOW et signature GMW | Accepté | 2026-10-02 | AGOW, expérimentation, médiation, preuves |
-| [0275](0275-execution-campagne-gvx.md) | Exécution vérifiée des campagnes GVX | Accepté | 2026-10-02 | GVX, benchmarks, preuves, exécution |
-| [0259](0259-systeme-predictif-multi-echelles.md) | Système prédictif multi-échelles T0–T6 | Accepté | 2026-10-01 | Prédiction, AGOW, apprentissage, morphogenèse, lignée |
+| [0270](0270-control-plane-de-verification-gvx.md) | Control plane de vérification GVX isolé | Accepté | 2026-10-02 | GVX, vérification indépendante, clés de signature |
+| [0271](0271-adaptation-predictive-et-self-twin.md) | Campagnes CTM externes et modèles adaptatifs | Accepté | 2026-10-02 | AGOW, Self-Twin, prédiction, expérimentation |
+| [0272a](0272-execution-cycle-developpemental-gvx.md) | Dispatch runtime du cycle développemental GVX | Accepté | 2026-10-02 | GVX, runtime AGOW, expérimentation et plasticité |
+| [0272b](0272-self-twin-dependency-recovery.md) | Découverte de dépendances et récupération Self-Twin | Accepté | 2026-10-02 | Self-Twin, causalité, récupération, preuves |
+| [0273](0273-adaptateurs-perception-incarnee.md) | Adaptateurs de perception incarnée | Accepté | 2026-10-02 | Perception multimodale, AGOW, environnement |
+| [0274](0274-jspace-adaptateurs-inspectables.md) | Adaptateurs J-space pour modèles inspectables | Accepté | 2026-10-02 | AGOW, interprétabilité, modèles locaux, causalité |
+| [0275a](0275-evidence-conscience-suite-unifiee.md) | Gates Butlin et suite fonctionnelle unifiée | Accepté | 2026-10-02 | Épistémologie, benchmarks, promotion, AGOW |
+| [0275b](0275-execution-campagne-gvx.md) | Exécution vérifiée des campagnes GVX | Accepté | 2026-10-02 | GVX, benchmarks, preuves, exécution |
+| [0276](0276-phases-runtime-core-et-portefeuille.md) | Séparation des phases du runtime core et du portefeuille de stratégies | Accepté | 2026-10-03 | Orchestration, stratégie, leases, benchmarks |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

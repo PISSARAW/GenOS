@@ -8,8 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const { getDatabase } = require('../db');
 const { solveTaskWithFleet } = require('./swe_closed_loop_orchestrator');
+const { TASKS_PATH, REPOS_DIR } = require('./swe_paths');
 
-const TASKS_PATH = path.resolve(__dirname, '../../../../SWE-bench/swe_bench_lite_tasks.json');
 const PREDICTIONS_PATH = path.resolve(__dirname, 'swe_bench_real_predictions.jsonl');
 
 function parseCliArgs() {
@@ -22,8 +22,6 @@ function parseCliArgs() {
   }
   return options;
 }
-
-const REPOS_DIR = path.resolve(__dirname, '../../../../.genos-agent-worlds/swe_repos');
 
 function filterTargetTasks(tasks, options) {
   let list = tasks.filter(t => fs.existsSync(path.join(REPOS_DIR, t.repo.replace('/', '__'))));

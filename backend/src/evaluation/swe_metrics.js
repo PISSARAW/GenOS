@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { TASKS_PATH } = require('./swe_paths');
 
 const PREDICTIONS_PATH = path.resolve(__dirname, 'swe_bench_real_predictions.jsonl');
-const TASKS_PATH = path.resolve(__dirname, '../../../../SWE-bench/swe_bench_lite_tasks.json');
 
 function loadDeduplicatedPredictions(lines) {
   const bestPredictions = new Map();

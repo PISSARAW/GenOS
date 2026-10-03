@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "scoring": {
+    "claimAccuracyWeight": 0.5,
+    "citationRecallWeight": 0.3,
+    "citationPrecisionWeight": 0.2,
+    "claimComparison": "JSON structural equality; object keys ignored, array order preserved",
+    "citationRule": "Each required evidence anchor must be quoted verbatim from its pinned snapshot line range. Extra or unverifiable citations reduce precision."
+  },
+  "tasks": {
+    "runtime-entrypoints-fr-01": {
+      "claims": {
+        "backendCommand": "npm --prefix backend start",
+        "rustCliCommand": "cargo run -p genos-cli -- --help",
+        "nodeMcpCommand": "node mcp/index.js",
+        "healthEndpoints": ["/healthz", "/readyz", "/livez"]
+      },
+      "evidence": [
+        {"path":"README.md","startLine":108,"endLine":110,"anchor":"npm --prefix backend start"},
+        {"path":"backend/README.md","startLine":190,"endLine":190,"anchor":"/healthz", "alsoContains":["/readyz","/livez"]}
+      ]
+    },
+    "mcp-catalog-origin-fr-01": {
+      "claims": {
+        "canonicalCatalog": "shared/toolDefinitions.json",
+        "fallbackCatalog": "mcp/toolDefinitions.json",
+        "fallbackCondition": "the JavaScript server runs outside the repository root"
+      },
+      "evidence": [
+        {"path":"docs/03-reference/outils-mcp.md","startLine":36,"endLine":41,"anchor":"shared/toolDefinitions.json","alsoContains":["mcp/toolDefinitions.json","hors racine du depot"]}
+      ]
+    },
+    "mcp-lease-enforcement-fr-01": {
+      "claims": {
+        "leaseVariable": "GENOS_MCP_LEASE",
+        "disabledVariable": "GENOS_MCP_DISABLED_TOOLS",
+        "precedence": "GENOS_MCP_DISABLED_TOOLS overrides GENOS_MCP_LEASE",
+        "directCallProtection": "No; tools/list filters discovery, while direct calls are checked separately by the MCP server and backend."
+      },
+      "evidence": [
+        {"path":"docs/03-reference/outils-mcp.md","startLine":63,"endLine":68,"anchor":"GENOS_MCP_LEASE","alsoContains":["GENOS_MCP_DISABLED_TOOLS","deny-list prioritaire"]},
+        {"path":"docs/03-reference/outils-mcp.md","startLine":85,"endLine":117,"anchor":"filtrage de `tools/list`","alsoContains":["directToolLeaseAllows()","directCallGuard()"]}
+      ]
+    },
+    "codex-profile-setup-fr-01": {
+      "claims": {
+        "setupCommand": "node integrations/codex/configure.cjs",
+        "mcpJsonRole": ".mcp.json is an example for clients that read that format; its presence alone does not configure Codex.",
+        "pluginPrerequisite": "An existing GenOS plugin is required for repair, and the command takes its directory with --plugin-dir."
+      },
+      "evidence": [
+        {"path":"integrations/codex/README.md","startLine":9,"endLine":15,"anchor":"node integrations/codex/configure.cjs","alsoContains":["sa présence ne configure pas","mcp_servers"]},
+        {"path":"integrations/codex/README.md","startLine":19,"endLine":25,"anchor":"Le programme exige un plugin existant","alsoContains":["--plugin-dir"]}
+      ]
+    }
+  }
+}

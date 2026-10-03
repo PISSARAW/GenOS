@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "repository": "GenOS",
+  "revision": "0c2de1f5b644f58cef0f8bc4a08afd76ce5b2f30",
+  "files": [
+    {
+      "path": "README.md",
+      "gitBlob": "8d096e4a777b2fe5445e4371f7d7f918b78d7e1d",
+      "sha256": "3ce5d0da107df972bd50f79018575b36887a0ae071d1ff0ede4b31c36a71552f",
+      "bytes": 9047
+    },
+    {
+      "path": "backend/README.md",
+      "gitBlob": "1f324f330b5decc5f388cb180e533dd40ea2d762",
+      "sha256": "f1081caab947cb801aa5e0fca390c7b7bffab3be6efbe63432c7bf1a0289df27",
+      "bytes": 22384
+    },
+    {
+      "path": "docs/03-reference/outils-mcp.md",
+      "gitBlob": "2db90f97c4e2590a7dfbba9f8fc77a79f6687827",
+      "sha256": "10bdc8fee810f0e478922f52e65740ca61f473eafef2ce0cf062a2359c78ba51",
+      "bytes": 29886
+    },
+    {
+      "path": "integrations/codex/README.md",
+      "gitBlob": "cabc02f6a583c4f31b73b1e021f3475770ef2e61",
+      "sha256": "f4fd205c9fb1512ba4aac6523e842013b5470f566741493b73ef38fbf3daaf8f",
+      "bytes": 5216
+    }
+  ]
+}
