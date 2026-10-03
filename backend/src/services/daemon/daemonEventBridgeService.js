@@ -85,6 +85,9 @@ function safeChangedFiles(files) {
 }
 
 async function maybeWakeRuntime(bridge, event, receptor) {
+  if (!bridge.runtime || !bridge.daemonId) {
+    return { woke: false, reason: 'daemon-runtime-unattached' };
+  }
   const decision = wakePolicyService.shouldWake(bridge.policy, {
     territoryId: event.territoryId,
     eventType: event.type,
@@ -92,14 +95,27 @@ async function maybeWakeRuntime(bridge, event, receptor) {
     now: event.now
   });
   if (!decision.woke) return decision;
-  if (bridge.runtime && bridge.daemonId) {
-    await daemonRuntime.heartbeat(bridge.runtime, {
-      daemonId: bridge.daemonId,
-      activity: receptor.wakeActivity,
-      health: 'HEALTHY'
-    });
-  }
+  if (!decision.woke) return decision;
+  const heartbeat = await daemonRuntime.heartbeat(bridge.runtime, {
+    daemonId: bridge.daemonId,
+    activity: receptor.wakeActivity,
+    health: 'HEALTHY'
+  });
+  if (!heartbeat.updated) return { woke: false, reason: 'daemon-runtime-update-failed' };
   return decision;
+}
+
+async function processPersistedEvent(bridge, event) {
+  const receptor = receptorRegistry.getReceptorFor(event.event_type);
+  if (!receptor || Number(event.woke) === 1) return { processed: true, woke: false };
+  const wake = await maybeWakeRuntime(bridge, {
+    territoryId: event.territory_id,
+    type: event.event_type
+  }, receptor);
+  if (wake.woke && bridge.db) {
+    await bridge.db.run('UPDATE daemon_events SET woke = 1 WHERE id = ?', event.id);
+  }
+  return { processed: true, woke: wake.woke, reason: wake.reason };
 }
 
 /**
@@ -168,5 +184,6 @@ async function logIngestedEvent(bridge, event, outcome) {
 module.exports = {
   createBridge,
   ingestEvent,
+  processPersistedEvent,
   validateBridgeEvent
 };

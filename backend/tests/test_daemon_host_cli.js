@@ -10,6 +10,8 @@ const {
 const territoryService = require('../src/services/daemon/daemonTerritoryService');
 const bridgeService = require('../src/services/daemon/daemonEventBridgeService');
 const runtimeService = require('../src/services/daemon/residentDaemonRuntime');
+const eventConsumer = require('../src/services/daemon/daemonEventConsumerService');
+const productionBridge = require('../src/services/daemon/daemonProductionBridge');
 const signalEventBus = require('../src/services/signalEventBus');
 
 async function openDb() {
@@ -61,6 +63,21 @@ async function main() {
   );
   assert.equal((await runtimeService.getDaemonState(runtime, { daemonId: 'daemon.host-cli' })).territoryId,
     'territory.host-cli');
+  const hostBridge = bridgeService.createBridge({ db, runtime, daemonId: 'daemon.host-cli' });
+  const eventContext = {
+    db, runtime, bridge: hostBridge, daemonId: 'daemon.host-cli', territoryId: 'territory.host-cli'
+  };
+  await eventConsumer.initializeCursor(eventContext);
+  const emitted = await productionBridge.emitTerritoryEvent(db, {
+    rootPath: '/tmp/host-cli', type: 'TEST_FAILED', payload: { file: 'src/a.js' }
+  });
+  assert.equal(emitted.emitted, true);
+  assert.equal(emitted.woke, false);
+  const polled = await eventConsumer.pollDaemonEvents(eventContext);
+  assert.equal(polled.count, 1);
+  assert.equal((await runtimeService.getDaemonState(runtime, { daemonId: 'daemon.host-cli' })).activity, 'FOCUSED');
+  assert.equal((await eventConsumer.pollDaemonEvents(eventContext)).count, 0);
+
   const unsubscribe = subscribeToSignals(bridge, 'territory.host-cli');
   signalEventBus.publish({
     signalType: 'text',
