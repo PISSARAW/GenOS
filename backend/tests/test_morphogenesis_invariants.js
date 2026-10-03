@@ -35,7 +35,7 @@ async function run() {
   assert.ok(checkState(sealedTrinityGraph()).length > 0, 'live cross-chamber state must be rejected after sealing');
   const metapopulation = { nodes: [{ nodeId: 'population', topology: 'metapopulation' }, { nodeId: 'deme-a', parentNodeId: 'population' }, { nodeId: 'deme-b', parentNodeId: 'population' }], edges: [{ edgeId: 'sync-all', type: 'SHARES_STATE', fromNodeId: 'deme-a', toNodeId: 'deme-b', properties: { force: true } }] };
   assert.ok(checkState(metapopulation).length > 0, 'forced population-wide state sync must be rejected');
-  const authorityGraph = { nodes: [{ nodeId: 'parent', authorityBoundary: { maxActions: ['read'] } }, { nodeId: 'child', parentNodeId: 'parent', authorityBoundary: { maxActions: ['write'] } }], edges: [] };
+  const authorityGraph = { nodes: [{ nodeId: 'parent', authorityBoundary: ['read'] }, { nodeId: 'child', parentNodeId: 'parent', authorityBoundary: ['write'] }], edges: [] };
   assert.ok(checkAuthority(authorityGraph).length > 0, 'nested authority cannot exceed the parent envelope');
   assert.ok(checkResources({ nodes: [{ nodeId: 'rhizome', topology: 'rhizome', budget: {} }], edges: [] }).length > 0, 'Rhizome requires explicit growth budget');
   const voteGraph = { nodes: [{ nodeId: 'bio', topology: 'biocenose', evidencePolicy: { produces: ['vote'] }, lifecycle: 'open' }, { nodeId: 'observer', parentNodeId: 'other' }], edges: [{ edgeId: 'vote', type: 'EXCHANGES_EVIDENCE', fromNodeId: 'bio', toNodeId: 'observer' }] };
@@ -62,7 +62,7 @@ async function run() {
   const repair = await repairSmallestRegion({ nodeId: 'x' }, { repair: async (level) => { attempts.push(level); return { valid: level === 'node' }; } });
   assert.deepEqual(attempts, ['node'], 'local repair stops at the smallest successful region');
   assert.equal(repair.level, 'node');
-  const flatPatch = createMorphologyPatch({ baseGraphVersion: 1, operations: [{ type: 'CHANGE_PARAMETERS' }], reason: 'parameter change', evidence: [], rollbackPlan: { restoreDomains: ['graph', 'workers', 'leases', 'state', 'budgets'] } });
+  const flatPatch = createMorphologyPatch({ baseGraphVersion: 1, operations: [{ type: 'CHANGE_BUDGET' }], reason: 'parameter change', evidence: [], rollbackPlan: { restoreDomains: ['graph', 'workers', 'leases', 'state', 'budgets'] } });
   assert.equal(flatPatch.operations.length, 1, 'parameter-only update requires no worker spawn');
   const constitution = createMorphologyConstitution({ systemPolicy: { controls: ['human'] }, humanAuthority: {}, securitySandbox: {}, privacyConstraints: {}, maxAutonomy: 1, governanceRequirements: [] });
   assert.equal(Object.isFrozen(constitution.systemPolicy.controls), true, 'nested constitutional policy is immutable');
