@@ -22,7 +22,7 @@ const CONTENT_TEMPLATES = Object.freeze({
   verification_report: { verdict: 'reject', evidence: ['<reproduction-ref>'] },
   experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: [{ metric: '<metric>', value: 0, unit: '<unit>', evidence: ['<measurement-ref>'] }] },
   formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', evidence: ['<receipt-ref>'] } },
-  synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'] },
+  synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'], disagreements: [] },
   creative_candidate: { candidate: '<candidate>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
   clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['<general-consideration>'], uncertainty: '<uncertainty>', safetyNote: 'No individual diagnosis or treatment advice.' },
   causal_dossier: { causalChain: [{ from: '<event-ref>', to: '<event-ref>', relation: '<causal-link>', evidence: ['<receipt-ref>'] }], evidence: ['<receipt-ref>'] },
@@ -54,7 +54,17 @@ function contentIsValid(type, content) {
   if (type === 'experiment_record' && !hasRecordedMeasurements(content)) return false;
   if (type === 'training_packet' && !hasValidatedTrainingPacket(content)) return false;
   if (type === 'creative_candidate' && !hasFalsifiableCandidate(content)) return false;
+  if (type === 'synthesis_dossier' && !hasPreservedSynthesis(content)) return false;
   return specializedContentIsValid(type, content);
+}
+
+function hasPreservedSynthesis(content) {
+  if (!isNonEmptyText(content.synthesis) || !hasEvidenceReferences(content.sources)
+    || !Array.isArray(content.disagreements)) return false;
+  return content.disagreements.every((item) => isNonEmptyText(item?.claim)
+    && Array.isArray(item.positions) && item.positions.length > 1
+    && item.positions.every((position) => isNonEmptyText(position?.source)
+      && isNonEmptyText(position?.position)));
 }
 
 function hasFalsifiableCandidate(content) {
