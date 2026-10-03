@@ -299,8 +299,8 @@ function createCellState(ctx, result) {
 function aggregateFindings(ctx) {
   if (!ctx || !ctx.colonyId) return { aggregated: false, errors: ['colonyId-required'] };
   if (!checkValidId(ctx.colonyId, COLONY_ID_PATTERN)) return { aggregated: false, errors: ['invalid-colonyId'] };
-  const colony = colonyRegistry.get(ctx.colonyId);
-  if (!colony) return { aggregated: false, errors: ['colony-not-found'] };
+  const colony = getColony(ctx.colonyId);
+  if (!colony || colony.state === 'DISSOLVED') return { aggregated: false, errors: ['colony-not-found'] };
   const findings = ctx.findings || colony.findings || [];
   const aggregated = mergeAndDeduplicate(findings);
   const territoryGraph = buildTerritoryGraph(aggregated);
@@ -362,6 +362,11 @@ function exhaustCells(colony) {
 
 function getColony(colonyId) {
   if (!colonyId || !checkValidId(colonyId, COLONY_ID_PATTERN)) return null;
+  const colony = colonyRegistry.get(colonyId);
+  if (!colony) return null;
+  if (colony.state !== 'DISSOLVED' && colony.expiresAt <= Date.now()) {
+    dissolveColony({ colonyId, reason: 'ttl-expired' });
+  }
   return colonyRegistry.get(colonyId) || null;
 }
 
@@ -371,7 +376,8 @@ function getCell(cellId) {
 }
 
 function listActiveColonies() {
-  return Array.from(colonyRegistry.values()).filter((c) => c.state !== 'DISSOLVED');
+  return Array.from(colonyRegistry.keys()).map(getColony)
+    .filter((colony) => colony && colony.state !== 'DISSOLVED');
 }
 
 function clearRegistry() {
