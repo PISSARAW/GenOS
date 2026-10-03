@@ -1,5 +1,5 @@
 // Registry for Frameshift (Indel) mutations
-const frameshiftRegistry = new Map();
+let frameshiftRegistry = new Map();
 
 function getFrameshiftRecord(id) {
   if (!frameshiftRegistry.has(id)) {
@@ -139,10 +139,11 @@ function _ensureframeshiftMutationRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::frameshift_mutation', 'frameshiftMutationRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : frameshiftMutationRegistry;
+    const mapToUse = stored && stored.size ? stored : frameshiftRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::frameshift_mutation', 'frameshiftMutationRegistry', mapToUse) : mapToUse;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'frameshiftMutationRegistry', {
+    frameshiftRegistry = persistentMap;
+    Object.defineProperty(module.exports, 'frameshiftRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -162,7 +163,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.frameshiftMutationRegistry || frameshiftMutationRegistry;
+  const map = module.exports.frameshiftRegistry || frameshiftRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;
