@@ -212,23 +212,30 @@ function mergePartitions(partitions, maxCells) {
   return merged;
 }
 
-function runScoutCell(ctx) {
+async function runScoutCell(ctx) {
   const preCheck = checkCellPreconditions(ctx);
   if (preCheck.error) return preCheck.error;
-  const cellState = createCellState(ctx.cellId, ctx.territory, ctx.goal);
+  if (typeof ctx.analyze !== 'function') {
+    return { ran: false, errors: ['evidence-backed-analyzer-required'] };
+  }
+  const result = await ctx.analyze({ territory: ctx.territory, goal: ctx.goal });
+  const validation = validateAnalysisResult(result, ctx.territory);
+  if (!validation.ok) return { ran: false, errors: validation.errors };
+  const cellState = createCellState(ctx, result);
   cellRegistry.set(ctx.cellId, cellState);
-  runAnalysis(ctx, cellState);
-  finalizeCellState(cellState);
-  return { ran: true, cellId: ctx.cellId, findings: cellState.findings, tokensUsed: cellState.tokensUsed, analysisType: cellState.analysisType };
+  cellState.state = 'COMPLETE';
+  cellState.completedAt = Date.now();
+  return {
+    ran: true, cellId: ctx.cellId, headSha: cellState.headSha,
+    provenanceRecordIds: cellState.provenanceRecordIds,
+    findings: cellState.findings, tokensUsed: cellState.tokensUsed,
+    analysisType: cellState.analysisType
+  };
 }
 
 function checkCellPreconditions(ctx) {
-  if (!ctx || !ctx.cellId || !ctx.territory || !ctx.goal) {
-    return { error: { ran: false, errors: ['cellId-territory-goal-required'] } };
-  }
-  if (!checkValidId(ctx.cellId, CELL_ID_PATTERN)) {
-    return { error: { ran: false, errors: ['invalid-cellId'] } };
-  }
+  const errors = basicCellErrors(ctx);
+  if (errors.length) return { error: { ran: false, errors } };
   const authority = getAuthorityProfile(SCOUT_PHENOTYPE_ID);
   if (!authority || authority.write || authority.spawn || authority.promote) {
     return { error: { ran: false, errors: ['scout-authority-violation'] } };
@@ -236,41 +243,57 @@ function checkCellPreconditions(ctx) {
   return { error: null };
 }
 
-function createCellState(cellId, territory, goal) {
-  return { id: cellId, territoryId: territory.id, goal, state: 'PENDING', findings: [], tokensUsed: 0, analysisType: null, createdAt: Date.now(), completedAt: null };
+function basicCellErrors(ctx) {
+  if (!ctx || !ctx.cellId || !ctx.territory || !ctx.goal) return ['cellId-territory-goal-required'];
+  return [
+    checkValidId(ctx.cellId, CELL_ID_PATTERN) ? null : 'invalid-cellId',
+    /^[a-f0-9]{40}$/.test(ctx.territory.headSha || '') ? null : 'territory-head-required'
+  ].filter(Boolean);
 }
 
-function runAnalysis(ctx, cellState) {
-  const staticResult = runStaticAnalysis(ctx);
-  cellState.findings.push(...staticResult.findings);
-  cellState.tokensUsed += staticResult.tokensUsed;
-  if (shouldUseLlm(ctx)) {
-    const llmResult = runLlmAnalysis(ctx);
-    cellState.findings.push(...llmResult.findings);
-    cellState.tokensUsed += llmResult.tokensUsed;
-    cellState.analysisType = 'hybrid';
-  } else {
-    cellState.analysisType = 'static';
+function validateAnalysisResult(result, territory) {
+  const errors = [
+    ...analysisEnvelopeErrors(result, territory),
+    ...analysisFindingErrors(result),
+    ...analysisTokenErrors(result)
+  ];
+  return { ok: errors.length === 0, errors };
+}
+
+function analysisEnvelopeErrors(result, territory) {
+  if (!result || typeof result !== 'object') return ['analysis-result-required'];
+  return [
+    result.headSha === territory.headSha ? null : 'analysis-head-mismatch',
+    Array.isArray(result.provenanceRecordIds) && result.provenanceRecordIds.length ? null : 'analysis-provenance-required'
+  ].filter(Boolean);
+}
+
+function analysisFindingErrors(result) {
+  if (!Array.isArray(result?.findings) || result.findings.some((finding) => !finding || typeof finding !== 'object')) {
+    return ['analysis-findings-invalid'];
   }
+  return result.findings.some((finding) => !findingHasProvenance(finding, result))
+    ? ['finding-provenance-required'] : [];
 }
 
-function finalizeCellState(cellState) {
-  cellState.state = 'COMPLETE';
-  cellState.completedAt = Date.now();
+function analysisTokenErrors(result) {
+  return Number.isFinite(result?.tokensUsed) && result.tokensUsed >= 0
+    ? [] : ['analysis-token-count-invalid'];
 }
 
-function shouldUseLlm(ctx) {
-  return ctx.forceLlm || Math.random() < DEFAULTS.llmRatio;
+function findingHasProvenance(finding, result) {
+  if (finding.headSha !== result.headSha || !Array.isArray(finding.provenanceRecordIds)) return false;
+  return finding.provenanceRecordIds.length > 0
+    && finding.provenanceRecordIds.every((id) => result.provenanceRecordIds.includes(id));
 }
 
-function runStaticAnalysis(ctx) {
-  const finding = { type: 'static', scope: ctx.territory.scopePath || '/', observation: `Static analysis on ${ctx.territory.id}: ${ctx.goal}`, confidence: 0.85, tokensUsed: 50 };
-  return { findings: [finding], tokensUsed: 50 };
-}
-
-function runLlmAnalysis(ctx) {
-  const finding = { type: 'llm', scope: ctx.territory.scopePath || '/', observation: `LLM-assisted insight on ${ctx.territory.id}: ${ctx.goal}`, confidence: 0.72, tokensUsed: 200 };
-  return { findings: [finding], tokensUsed: 200 };
+function createCellState(ctx, result) {
+  return {
+    id: ctx.cellId, territoryId: ctx.territory.id, headSha: result.headSha,
+    provenanceRecordIds: [...result.provenanceRecordIds], goal: ctx.goal,
+    state: 'PENDING', findings: result.findings, tokensUsed: result.tokensUsed,
+    analysisType: result.analysisType || 'injected', createdAt: Date.now(), completedAt: null
+  };
 }
 
 function aggregateFindings(ctx) {
