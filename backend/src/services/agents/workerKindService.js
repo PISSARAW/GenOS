@@ -18,7 +18,7 @@ const KINDS = Object.freeze({
   recovery_worker: ['AdaptiveRepair', 'dossier', 'BoundedWorker'],
   forensic_worker: ['AdaptiveRepair', 'causal_dossier', 'Verifier'],
   liaison_worker: ['Organizational', 'dossier', 'BoundedWorker'],
-  teaching_worker: ['Organizational', 'training_packet', 'ScoutCell'],
+  teaching_worker: ['Organizational', 'training_packet', 'Verifier'],
   sub_orchestrator: ['Organizational', 'dossier', 'SubOrchestrator']
 });
 
