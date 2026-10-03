@@ -232,12 +232,16 @@ Toute opération lit/écrit des `AgentDNA` et journalise sa provenance. Sortie =
 | `birth` | ADN | `Genome::derive_child` / `derive_reproductive_child` | engendre un nouvel agent (zygote → différenciation) |
 | `cross` | ADN A + ADN B | `MeioticCrossover::{single_point_crossover, uniform_crossover_with_seed, crossover_with_speciation}` | recombinaison, barrière de spéciation |
 | `mutate` | ADN + taux/type | `DnaStrand::mutate_point/mutate_stochastic`, `Genome::{mutate_stochastic,hypermutate}`, `crispr_cas9_knockout`, `pseudogenize`, `duplicate_gene` | mutation ponctuelle/stochastique/CRISPR |
-| `clone` | ADN | `CellDivision::{mitosis_attested,binary_fission,budding_with_limit_and_mutation}` | clone isogénique ou bourgeonnement |
+| `clone` | ADN | `CellDivision::{mitosis_attested,binary_fission,budding_with_limit_and_mutation_seeded}` | clone isogénique ou bourgeonnement à mutation reproductible par seed |
 | `graft` | ADN + gène/plasmide | `Genome::insert_gene`, `Plasmid::new` | acquiert un concept (gène localisé ou plasmide HGT) |
 | `speciate` | ADN parent + concepts | `Genome::derive_child` + greffe | dérive un nouveau génome (radiation adaptative) |
 | `decoy` | ADN + sélecteur | nouveau | génère un leurre (§10.6) |
 | `express` | ADN + contexte | §9 | produit `PHEN` sans écrire le génome |
 | `validate` | ADN | `Genome::validate` + contrôle de conteneur | accepte/rejette |
+
+Le dispatch de clonage accepte `mitosis`, `fission`, `binary_fission` et `budding`; les modes inconnus échouent avec une erreur de validation. Le chemin seeded de bourgeonnement transmet explicitement la graine de mutation à la dérivation de la fille. Pour la fertilisation, l'enfant hérite de l'union des loci des deux parents ; aux loci partagés, la sélection d'allèle utilise le RNG fourni et la reprogrammation épigénétique de reproduction s'applique.
+
+Pour le crossover à un point, le partage des gènes suit le point de coupure de la séquence (les extrémités 0 et longueur sont définies), plutôt qu'un partage indépendant au milieu de la liste de gènes. La reproductibilité reste liée à la graine et aux versions du moteur.
 
 ### Spéciation et greffe (`speciate`, `graft`)
 

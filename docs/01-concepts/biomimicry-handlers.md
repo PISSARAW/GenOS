@@ -1,6 +1,8 @@
-# Biomimicry Handlers — Primitives biomimétiques documentées
+# Biomimicry Handlers — Catalogue et niveau d'exécution
 
-> Statut : les handlers listés dans le diagramme runtime-agentique.md §5 sont présents dans `backend/src/services/mcpBioTools/handlers/`. Le transport zéro-texte passe par la publication inter-agents de l'organisation ; stigmergie et assimilation plasmidique publient aussi un événement borné quand `orchestrator_id` est fourni. Les autres opérations locales ne convertissent pas automatiquement leurs résultats en signaux.
+> **Portée :** les handlers biomimétiques sont des modèles logiciels inspirés de la biologie. La présence d'un handler ou le succès du transport MCP ne prouve pas la création d'un agent, une mutation d'AgentDNA, une exécution biologique ou une preuve empirique. Les handlers listés ici ne doivent pas être confondus avec les primitives Rust d'AgentDNA et de reproduction documentées dans [reproduction-et-replication.md](../02-orchestration/reproduction-et-replication.md).
+
+Le transport zéro-texte passe par la publication inter-agents de l'organisation ; stigmergie et assimilation plasmidique publient aussi un événement borné quand `orchestrator_id` est fourni. Les autres opérations locales ne convertissent pas automatiquement leurs résultats en signaux.
 
 ## Dispath MCP
 
@@ -14,37 +16,37 @@
 
 1. **thalamicBridge** — Pont sensoriel zero-copy entre agents jumeaux craniopages (H1 du diagramme)
 2. **cryptophasia** — Compression opcode dialectique dense (70–85% tokens) avec chaperone épistémique d'audit (H2)
-3. **mirrorTwinFork** — Fork counterfactual symétrique créant des paires constructives/adversariales (H3)
+3. **mirrorTwinFork** — Descripteurs constructif/adversarial en mémoire ; aucune branche runtime n'est forkée et aucune promotion n'est autorisée par le score heuristique (H3)
 4. **somaticResonance** — Télémétrie de stress et propagation d'onde d'entropie collective syncytiale (H4)
-5. **chimericMerge** — Fusion mosaïque tétragamétique combinant génome outils + mémoire immunitaire (H5)
-6. **polyovulationSpawn** — Spawn de flotte hétérozygote multi-zygotes (H6)
-7. **monozygoticSplit** — Clivage précoce en clones MCTS isogoniques (H7)
-8. **hybridMultiples** — Matrice cluster hiérarchique combinant polyovulation + clivage (H8)
-9. **conjoinedTwinBind** — Liaison viscérale profonde, pool de tokens partagé, verrou de survie mutuelle (H9)
+5. **chimericMerge** — Enregistre une configuration de mosaïque ; ne fusionne pas les génomes ni les agents (H5)
+6. **polyovulationSpawn** — Enregistre une flotte de descripteurs ; ne déploie pas d'agents (H6)
+7. **monozygoticSplit** — Enregistre 2 à 128 descripteurs de clones ; ne lance pas de branches MCTS/runtime (H7)
+8. **hybridMultiples** — Enregistre au plus 16 familles et 128 descripteurs par famille ; aucun agent n'est déployé (H8)
+9. **conjoinedTwinBind** — Ledger simulé de liaison et de ressources ; aucun runtime partagé n'est créé (H9)
 10. **parasiticGraft** — Assimilation autosite des outils auxiliaires du jumeau arrêté en membres zero-cost (H10)
-11. **fetusInFetu** — Encapsulation endoparasitaire + réanimation d'urgence du pod de rescue (H11)
-12. **sesquizygoticSplit** — Split dispermique 100% invariants maternels + 50% traits paternels (75% similarité) (H12)
-13. **heteropaternalSuperfecundation** — Spawn de demi-frères multi-fournisseurs maximisant la diversité cognitive (H13)
-14. **superfetationPipeline** — Pipeline de co-gestation asynchrone multi-stades avec héritage du cache de connaissances (H14)
-15. **tissueChimerism** — Agent monolithique à lignées ADN compartimentées (réseau vs filesystem) (H15)
-16. **obligatePolyembryony** — Clivage déterministe obligatoire en quadruplets isogoniques avec quorum 75% (H16)
-17. **marmosetGermlineChimerism** — Transfert germinal inter-jumeaux : un agent procrée pour son frère (H17)
+11. **fetusInFetu** — Registre de checkpoint descriptif avec somme de contrôle ; ne sauvegarde/restaure pas de runtime ni ne réanime d'agent (H11)
+12. **sesquizygoticSplit** — Descripteurs de deux profils et ratio nominal 75% ; ne calcule pas de similarité génomique réelle (H12)
+13. **heteropaternalSuperfecundation** — Descripteurs de 2 à 16 lignées parentales ; aucun agent n'est créé et l'indépendance de biais n'est pas testée (H13)
+14. **superfetationPipeline** — Registre d'âges/cache déclaratifs ; aucun agent ne reçoit réellement un cache (H14)
+15. **tissueChimerism** — Enregistre une configuration de chimérisme tissulaire ; aucun agent ni routage par lignée n'est créé (H15)
+16. **obligatePolyembryony** — Descripteurs de 4 ou 8 clones et votes de quorum liés à des identifiants connus ; aucune exécution parallèle ni promotion runtime (H16)
+17. **marmosetGermlineChimerism** — Registre de filiation proxy ; ne transmet pas de génome à une descendance runtime (H17)
 18. **freemartinInhibition** — Inhibition endocrine asymétrique : sterileisation du subordonné + boost de compute (H18)
 19. **embryonicDiapause** — Pipeline séquentiel 3-tiers avec dégel zero-latency de la diapause embryonnaire (H19)
 
 ### Génétique & Mutation
 
-20. **pointMutation** — Mutation ponctuelle : silencieuse, faux-sens, non-sens STOP (H20)
-21. **frameshiftMutation** — Mutation indel + décalage du frame de lecture + pads compensateurs (H21)
+20. **pointMutation** — Modification déclarative d'un registre de séquence ; aucun génome d'agent runtime n'est modifié (H20)
+21. **frameshiftMutation** — État de séquence de simulation ; aucune mutation n'est appliquée à AgentDNA/runtime (H21)
 22. **chromosomalDeletion** — Pruning structurel du pipeline (H22)
 23. **chromosomalDuplication** — Duplication en tandem + néo-fonctionnalisation (H23)
-24. **chromosomalInversion** — Inversion rétrograde du raisonnement (H24)
+24. **chromosomalInversion** — Inverse une plage valide d'un tableau descriptif ; ce n'est pas un ordonnanceur de raisonnement (H24)
 25. **chromosomalTranslocation** — Greffe de capacité cross-agent (H25)
-26. **aneuploidy** — Consensus trisomie 2/3 + monosomie (H26)
-27. **polyploidy** — Stratégie multi-couches 6n blé (H27)
-28. **transposonJump** — Saut cut-and-paste + rétrotransposition (H28)
-29. **dynamicTripletExpansion** — Anticipation microsatellite dynamique (H29)
-30. **mitochondrialDnaMutation** — Métabolisme énergétique matrilinéaire (H30)
+26. **aneuploidy** — Modifie un caryotype descriptif et compte des votes textuels bornés ; n'instancie pas de réplicas (H26)
+27. **polyploidy** — Décrit 2, 3, 4, 6 ou 8 couches ; ne change pas le génome et ne les orchestre pas (H27)
+28. **transposonJump** — Déplace ou copie des éléments entre loci enregistrés ; cibles allowlistées, plafond 64, sans mutation runtime (H28)
+29. **dynamicTripletExpansion** — Fait évoluer un compte répétitif de simulation avec deltas entiers bornés (H29)
+30. **mitochondrialDnaMutation** — Registre métabolique déclaratif ; stress fini accepté de 0,1 à 5 inclus, sans effet sur l'énergie runtime (H30)
 31. **epigeneticMethylation** — Mémoire environnementale réversible (H31)
 32. **horizontalGeneTransfer** — Transfert horizontal : plasmides + absorption bdelloid (H32)
 33. **agrobacteriumTdnaHijack** — Injection T-DNA + quota gallus (H33)
@@ -57,6 +59,14 @@
 
 38. **consciousnessTransfer** — Rejeu de conscience avec mémoire future (H38)
 39. **novikovCausalRebase** — Rebasing causal Novikov zero-paradoxe (H39)
+
+## Contrat réel des modèles de reproduction et mutation
+
+Les handlers biomimétiques Node opèrent sur des registres locaux (persistés lorsque le handler est correctement lié au persister) et retournent des descripteurs/mesures heuristiques. Ces écritures ne modifient pas à elles seules les fichiers AgentDNA, les agents actifs, leurs outils, leurs budgets ou leurs exécutions. Les sorties marquées `execution_scope: metadata_simulation`, `runtime_*: false` ou `promotion_allowed: false` rendent cette frontière explicite.
+
+Les contrôles ajoutés bornent entre autres le nombre de clones monozygotes à 2–128, les familles hybrides à 16 (128 clones/famille), les votes polyembryoniques à un vote par clone connu, les fournisseurs hétéropaternels à 2–16, les budgets polyembryoniques à 1–1 000 000 000, les niveaux de polyploïdie à 2/3/4/6/8 et les copies de transposons à 64. Les scores, ratios et libellés biologiques sont des valeurs de simulation ; ils ne constituent pas des résultats empiriques.
+
+À l'inverse, `genos-dna`, `genos-genome` et `genos-reproduction` fournissent les primitives Rust de génome, fertilisation, crossover, mitose, fission et bourgeonnement. Voir la référence de [reproduction et réplication](../02-orchestration/reproduction-et-replication.md) et la [spécification AgentDNA](../../spec/AGENT_DNA_SPEC.md).
 
 ## Couche de transport zero-texte
 
@@ -132,6 +142,6 @@ Les outils biomimétiques sont dispatchés via ce schéma. Les handlers couvrent
 - **Coalescing en mémoire** : `signalCoalescerService` maintient les périodes réfractaires et buffers en mémoire — perdu au redémarrage. Pas de coalescing inter-process.
 - **Plasticité des routes** : `synapticPlasticityService` conserve un cache mémoire des poids et les persiste dans `signal_channel_weights`. `loadWeights()` recharge les canaux avant la sélection d'une cible d'escalade cognitive. Les écritures SQLite asynchrones sont ordonnées; `flushPendingWrites()` permet d'attendre leur fin et remonte le premier échec en attente. Sans appel de vidage, un arrêt brutal peut encore perdre les dernières mises à jour volatiles.
 - **Escalade cognitive** : quand `llmRequired=true` et que le gate VoI l'autorise, `signalPlaneSubscriber.js` sélectionne une cible puis appelle `cognitiveSignalService.handleSignal`, qui passe le signal au `modelRouter.generate`. La réponse reste une sortie de modèle ; elle ne vaut ni action exécutée ni preuve vérifiée.
-- **Registres en mémoire** : la plupart des handlers utilisent des `Map` module-level (ex: `FETUS_REGISTRY`, `DIAPAUSE_REGISTRY`) perdus au redémarrage.
+- **Registres** : les handlers utilisent des `Map` module-level. Les handlers d'altération génétique et de reproduction audités (dont `pointMutation`, `frameshiftMutation`, `dynamicTripletExpansion`, les chimérismes, les variantes de jumeaux, `polyovulationSpawn`, `superfetationPipeline`, `fetusInFetu`, `aneuploidy`, `polyploidy`, les mutations chromosomiques/transposon et `mitochondrialDnaMutation`) les lient au persister adaptatif lorsqu'il est configuré. Sans persister, ils restent en mémoire et sont perdus au redémarrage. La persistance d'un registre ne donne pas d'effet au runtime qu'il décrit.
 - **Relations cross-agent** : `crossAgentRelationalService.js` fournit le registre durable SQLite et les profils de familiarité, historique partagé, autorité, confiance, indépendance épistémique, corrélation d'erreur et niveau de divulgation. La création reste explicite : seuls les handlers ou services qui appellent le registre créent des liens, et une relation absente est traitée comme une relation d'inconnus. L'apprentissage communicationnel met à jour le profil durable ; le pare-feu épistémique s'en sert pour évaluer l'indépendance. `relationResolverService.js` est relié au planificateur Holobionte, qui expose un choix relationnel parmi les candidats déjà éligibles, et aux affectations épistémiques lorsque le contexte fournit des candidats vérificateurs. Un vérificateur de filiation ou exclu est refusé. Ces profils et classements ne remplacent pas les preuves exigées pour une décision ; les registres détaillés propres à chaque handler restent distincts.
 - **Codex local requis** : les handlers appellent `genos biomimicry ...` via `runGenosSync` — si le binaire Rust n'est pas disponible, les handlers retournent `tool_error`.

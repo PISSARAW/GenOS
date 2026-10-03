@@ -1,8 +1,8 @@
 # Genome et epigenetique
 
-- **Statut** : Implémenté — manifeste `AgentGenome`, brins 2-bit, `Genome` Rust et genetics service JS sont disponibles.
+- **Statut** : Partiel — les primitives Rust et le service de génétique JavaScript manipulent des modèles génomiques ; les handlers biomimétiques MCP décrits plus bas n'appliquent pas leurs changements à l'AgentDNA runtime.
 - **Portée** : specs `spec/GENOME_SPEC.md` / `spec/genome.schema.json`, `crates/genos-genome`, `backend/src/services/geneticsService.js`.
-- **Dernière revue** : 2026-09-17.
+- **Dernière revue** : 2026-10-03.
 
 ## Definition
 
@@ -18,6 +18,8 @@ Trois representations cooperent sans etre interchangeables :
 | Genome cognitif JavaScript | [backend/src/services/geneticsService.js](../../backend/src/services/geneticsService.js) | agents backend, croisement, hypermutation et DAG de lineage |
 
 Un resultat de croisement ou un fitness predit est une hypothese. Sa promotion demande une evidence independante, par exemple un test, un compilateur ou une evaluation de domaine.
+
+**Frontière à respecter :** `backend/src/services/geneticsService.js` et les crates Rust sont des chemins de manipulation de modèles génomiques. Les handlers de `backend/src/services/mcpBioTools/handlers/` tels que `pointMutation`, `frameshiftMutation`, `dynamicTripletExpansion`, `chimericMerge`, `aneuploidy`, `polyploidy`, `transposonJump` et `mitochondrialDnaMutation` modifient des registres de simulation ; ils ne réécrivent pas le génome d'un agent actif et ne lancent pas de nouvel agent. Leurs mesures, hashes ou ratios sont locaux au scénario décrit.
 
 ### Encodage Nucléotidique 2-bit et Traduction Ribosomale
 Pour dépasser les limites de verbosité et de fragilité syntaxique du JSON, GenOS intègre la sérialisation directe du génome sous forme de brin d'ADN compact :
@@ -111,7 +113,7 @@ Le backend dispose d'un enforcement operationnel complementaire : [backend/tests
 
 ### Mutations Rust
 
-`mutate_stochastic(rate, rng)` perturbe chromosomes maternel/paternel et ADN de chaque gene. A taux nul ou negatif, aucune mutation n'est appliquee. `hypermutate(rate, rng)` accelere le taux selon :
+`mutate_stochastic(rate, rng)` perturbe chromosomes maternel/paternel et ADN de chaque gene. Un taux nul, negatif ou non fini ne produit aucune mutation. `hypermutate(rate, rng)` accelere le taux selon :
 
 $$
 r_{hyper} = \min(3r, 0.95)
@@ -132,6 +134,8 @@ $$
 Il peut reheater `temp`, perturber `topP`, etendre les outils et changer de strategie. Tous les tirages proviennent de SHA-256(seed), et le resultat contient `reproducibilitySeed`, genes d'origine, genes mutants et mutations appliquees.
 
 Une hypermutation augmente l'exploration, pas la qualite. Elle doit etre precedee d'un snapshot et suivie d'une evaluation isolee ; elle ne doit jamais ecraser le parent ou contourner les permissions.
+
+Cette primitive de service backend n'est pas le même chemin que le handler MCP `genos_biomimicry_point_mutation`. Ce dernier enregistre un scénario de mutation dans son propre registre et renvoie `execution_scope: metadata_simulation`; il ne crée pas un nouvel agent ni un `mutant_<uuid>`.
 
 ## Fitness et selection
 
@@ -259,13 +263,9 @@ La reproductibilite est invalidee si changent un parent, son contenu, seed, para
 
 Le point distinctif est l'union d'un modele de lineage biologique abstrait, de verrous d'expression et de provenance de mutations. Le cout de cette expressivite est qu'il faut maintenir trois contrats coherents (manifeste, Rust, backend) et toujours verifier les resultats dans le monde logiciel reel.
 
-## Chimérisme Tétragamétique et Recombinaison Mosaïque
+## Chimérisme tétragamétique (modèle déclaratif)
 
-Contrairement au croisement mendélien classique (`breed` / crossover) qui mélange les allèles de manière stochastique, le **chimérisme tétragamétique** (`genos_biomimicry_chimeric_merge`) combine deux lignées embryonnaires de façon compartimentée :
-- Le **génome fonctionnel** de la lignée A (outils, prompts opérationnels, capacités de transformation de code) ;
-- L'**épigénome et la mémoire immunitaire** de la lignée B (arbres d'évitement d'erreurs, vaccins anti-régression, synapses consolidées).
-
-Cette mosaïque permet de préserver l'intégrité de la boîte à outils tout en immunisant l'agent contre les échecs déjà rencontrés par la seconde branche.
+Le handler `genos_biomimicry_chimeric_merge` vérifie les identifiants fournis et enregistre un descripteur de fusion dans un registre. Il ne combine pas les outils, le génome, la mémoire ou les relations épistémiques de deux agents. Pour dériver un génome enfant à partir de deux parents, utiliser les primitives `fertilize`/`MeioticCrossover` décrites dans la spécification Rust ; une fusion runtime complète n'est pas fournie par ce handler.
 
 ---
 
@@ -380,13 +380,13 @@ flowchart TD
     AU_Core -->|"Activation à la demande (5 tokens overhead)"| AU_Graft
 ```
 
-### 4. Gémellité Sesquizygotique et Partage Génétique Hybride
+### 4. Descripteurs sesquizygotiques (simulation)
 
-Le profil sesquizygotique (`genos_biomimicry_sesquizygotic_split`) combine une empreinte génomique à 100% identique sur le chromosome constitutif (base maternelle : invariant et règles système) et à 50% chimérique sur les loci facultatifs et adaptateurs d'outils (vecteurs paternels), garantissant un alignement sémantique supérieur ($F_{overlap} = 0.75$) pour les consensus critiques.
+`genos_biomimicry_sesquizygotic_split` inscrit deux descripteurs et un ratio nominal de partage. Il ne compare pas les génomes parentaux, ne mélange pas leurs loci et ne garantit aucun taux réel de similarité ou alignement sémantique.
 
-### 5. Chimérisme Tissulaire Compartimenté (Multi-DNA Intra-Agent)
+### 5. Registre de chimérisme tissulaire (simulation)
 
-À la différence de la fusion mosaïque globale, le chimérisme tissulaire (`genos_biomimicry_tissue_chimerism`) partitionne deux codes génétiques distincts au sein d'un agent monolithique unique. Chaque sous-système (réseau, filesystem, inférence) exécute une lignée génomique hermétique avec ses propres outils autorisés et contraintes de politique.
+`genos_biomimicry_tissue_chimerism` conserve une configuration descriptive de lignées et de tissus. Il ne construit pas un agent multigénomique et ne route pas le réseau, le système de fichiers ou l'inférence selon des ADN distincts.
 
 ```mermaid
 flowchart TB
@@ -406,15 +406,19 @@ flowchart TB
     ChimericAgent -->|"Aiguillage selon le caryotype"| TissueFS
 ```
 
-### 6. Chimérisme Germinal du Ouistiti (Transmission Génétique Croisée)
+### 6. Registre de chimérisme germinal (simulation)
 
-Le chimérisme germinal (`genos_biomimicry_marmoset_germline_chimerism`) découple l'exécution physique de l'héritage génétique. Un agent proxy peut générer un enfant portant 100% du génome d'un agent tiers de sa fratrie, préservant ainsi les lignées hautement adaptatives même après l'extinction de leur découvreur initial.
+`genos_biomimicry_marmoset_germline_chimerism` inscrit des métadonnées d'échange et de descendance. Il ne transfère pas de génome et ne permet pas à un agent proxy de générer un enfant runtime.
 
 ---
 
 ## Primitives de Mutations Biomimétiques
 
-Les mutations dans GenOS modélisent les altérations accidentelles et intentionnelles de l'ADN agentique réparties sur trois échelles d'amplitude : génique (ponctuelle), chromosomique (structurelle) et génomique (numérique).
+> Les sections qui suivent exposent des analogies et des registres de simulation Node, pas des changements de l'AgentDNA actif. `pointMutation` et `frameshiftMutation` annotent des séquences locales ; l'expansion de répétitions agit sur un état de simulation ; les handlers de délétion, duplication, inversion, translocation, aneuploïdie, polyploïdie, transposon et ADN mitochondrial modifient leurs propres objets enregistrés. Ils ne modifient pas les chromosomes de `crates/genos-genome` et ne reconfigurent pas l'exécution d'un agent. Les chiffres et diagrammes d'exemple ci-dessous sont conceptuels sauf mention explicite d'une validation de code.
+
+Les limites vérifiées dans le code comprennent : inversion seulement d'une plage entière valide ; cible d'aneuploïdie restreinte aux clés de caryotype connues ; consensus borné à 1–128 votes et sans gagnant en cas d'égalité ; polyploïdie limitée à 2, 3, 4, 6 ou 8 couches descriptives ; insertion de transposon seulement sur un locus connu et plafond de 64 copies ; stress mtDNA fini compris entre 0,1 et 5. Ces validations protègent les registres de simulation, elles n'appliquent pas une mutation au génome runtime.
+
+Les handlers biomimétiques enregistrent des altérations de séquence simulées sur trois échelles : génique (ponctuelle), chromosomique (structurelle) et génomique (numérique). Les mutations réellement appliquées aux structures `AgentDNA` passent par les primitives Rust décrites dans les sections runtime de ce document.
 
 ### 1. Mutations Ponctuelles par Substitution (`genos_biomimicry_point_mutation`)
 
