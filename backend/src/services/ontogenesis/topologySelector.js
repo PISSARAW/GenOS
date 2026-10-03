@@ -8,7 +8,7 @@
  * variantes par le catalogue de morphogenèse, avec repli déclaré.
  */
 
-const { resolveWorkerKind } = require('../agents/workerKindService');
+const { resolveWorkerKind, KIND_CAPABILITIES } = require('../agents/workerKindService');
 
 const CATALOG = [
   { id: 'trinity', needs: ['execute', 'verify'], roles: ['specialist', 'bounded_worker', 'verifier_worker'], cost: 2 },
@@ -69,10 +69,27 @@ function blockedReason(ordered) {
 function validateRoles(entry) {
   try {
     entry.roles.forEach((role) => resolveWorkerKind(role));
-    return null;
+    return missingRoleCapability(entry);
   } catch (_) {
     return 'role-worker-inconnu';
   }
+}
+
+function roleCapabilities(role) {
+  try {
+    return KIND_CAPABILITIES[resolveWorkerKind(role)] || [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function missingRoleCapability(entry) {
+  const union = new Set();
+  for (const role of entry.roles) {
+    for (const capability of roleCapabilities(role)) union.add(capability);
+  }
+  const missing = entry.needs.find((need) => !union.has(need));
+  return missing ? `topologie-incoherente:${missing}` : null;
 }
 
 function resolveVariant(topology, requested) {

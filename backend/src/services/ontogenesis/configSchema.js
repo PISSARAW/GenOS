@@ -14,6 +14,7 @@ function defaultConfig() {
     branch: DEFAULT_BRANCH,
     budgets: { tokens: 140000, usd: 1, seconds: 120 },
     topologies: ['trinity'],
+    availableCapabilities: ['execute', 'verify', 'coordinate', 'analyze', 'observe'],
     checks: [{ program: 'npm', args: ['test'] }],
     memory: { envelopeMb: 2048, reserveMb: 512 },
     allowPush: false,
@@ -33,6 +34,10 @@ function checkBudgets(config, errors) {
   if (!Number.isFinite(budgets.seconds) || !(budgets.seconds > 0)) errors.push('budgets.seconds-positif-requis');
   if (config.topologies !== undefined && !Array.isArray(config.topologies)) {
     errors.push('topologies-tableau-requis');
+  }
+  if (config.availableCapabilities !== undefined
+    && (!Array.isArray(config.availableCapabilities) || config.availableCapabilities.length === 0)) {
+    errors.push('capacites-tableau-requis');
   }
 }
 

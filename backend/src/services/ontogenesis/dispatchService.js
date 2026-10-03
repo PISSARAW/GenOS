@@ -13,11 +13,37 @@ function allocatedBudget(remaining, config) {
   return Object.fromEntries(['tokens', 'usd', 'seconds'].map((key) => [key, Math.min(remaining[key], limit[key])]));
 }
 
+const DEFAULT_CAPABILITIES = ['execute', 'verify', 'coordinate', 'analyze', 'observe'];
+
+function inferTaskKind(task) {
+  const title = String((task && (task.kind || task.title)) || '').toLowerCase();
+  if (/conflit|resoudre|repare|repair|fix|regression/.test(title)) return 'repair';
+  if (/verif|verify|controle|preuve|audit/.test(title)) return 'verify';
+  if (/explor|recherche|cartograph|discover/.test(title)) return 'explore';
+  if (/decid|choix|arbitrage|strategie/.test(title)) return 'decide';
+  return 'implement';
+}
+
+function capabilitiesOf(config) {
+  if (config.availableCapabilities === undefined) {
+    return { list: DEFAULT_CAPABILITIES.slice(), defaulted: true };
+  }
+  if (!Array.isArray(config.availableCapabilities) || config.availableCapabilities.length === 0) {
+    return { list: [], defaulted: false, blocked: 'capacites-non-declarees' };
+  }
+  return { list: config.availableCapabilities.slice(), defaulted: false };
+}
+
 async function topologyFor(db, ctx) {
   const failures = await listFailures(db, ctx.project.id);
-  return selectTopology({ taskKind: 'implement', allowedTopologies: ctx.config.topologies || [],
-    availableCapabilities: ctx.config.availableCapabilities || ['execute', 'verify', 'coordinate', 'analyze', 'observe'],
+  const capabilities = capabilitiesOf(ctx.config);
+  if (capabilities.blocked) return { blocked: capabilities.blocked, rationale: [] };
+  const task = (ctx.selection && ctx.selection.task) || {};
+  const selection = selectTopology({ taskKind: task.kind || inferTaskKind(task), allowedTopologies: ctx.config.topologies || [],
+    availableCapabilities: capabilities.list,
     memoryLevel: ctx.memoryLevel, failures, variant: ctx.config.variant });
+  if (capabilities.defaulted) selection.rationale.unshift('capacites-par-defaut');
+  return selection;
 }
 
 function canAdmit(ctx, reservationMb) {
