@@ -75,7 +75,28 @@ function hasSolverReceipt(receipt) {
 function isNonDiagnosticClinicalReport(content) {
   const allowed = new Set(['caseScope', 'differentialConsiderations', 'uncertainty', 'safetyNote', 'evidence']);
   return content.caseScope === 'synthetic_educational'
-    && Object.keys(content).every((key) => allowed.has(key));
+    && Object.keys(content).every((key) => allowed.has(key))
+    && !containsClinicalDirective(content);
+}
+
+function containsClinicalDirective(content) {
+  const text = collectText(content).join(' ').toLowerCase();
+  return /\b(?:you|the patient|patient|they)\s+(?:have|has|are|is diagnosed with)\b/.test(text)
+    || /\bdiagnosis\s*:\s*\S/.test(text)
+    || /\b(?:prescribe|take|start|stop|increase|decrease)\s+(?:the\s+)?(?:medication|dose|treatment|therapy)\b/.test(text)
+    || /\brecommend(?:s|ed)?\s+(?:a\s+)?(?:treatment|medication|therapy)\b/.test(text);
+}
+
+function collectText(value) {
+  const pending = [value];
+  const text = [];
+  while (pending.length) {
+    const current = pending.pop();
+    if (typeof current === 'string') text.push(current);
+    else if (Array.isArray(current)) pending.push(...current);
+    else if (current && typeof current === 'object') pending.push(...Object.values(current));
+  }
+  return text;
 }
 
 function hasProvenance(artifact) {
