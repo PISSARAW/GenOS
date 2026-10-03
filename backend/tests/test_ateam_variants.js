@@ -67,6 +67,8 @@ function run() {
   assert.equal(selectVariant({ variant: 'pipeline' }), 'pipeline');
   assert.equal(selectVariant({ goal: 'urgent incident' }), 'tiger_team');
   assert.equal(selectVariant({ goal: 'incident multi-team outage' }), 'incident_command');
+  assert.equal(selectVariant({ goal: 'Organise explicitement les dépendances entre spécialistes et les artefacts transmis.' }), 'project_dag');
+  assert.equal(selectVariant({ goal: 'Construis le Work Graph et les handoffs typés de la mission.' }), 'project_dag');
   assert.equal(selectVariant({ teamCount: 2 }), 'multiteam');
   assert.equal(selectVariant({}), 'expert_committee');
 

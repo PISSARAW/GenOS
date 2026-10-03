@@ -209,6 +209,7 @@ const TEXT_PATTERNS = Object.freeze({
   tiger_team: /\burgent\b|\bcritical\b|zero-day|incident|\burgence\b|timebox/gi,
   incident_command: /\boutage\b|\bpanne\b|incident multi|\bcrise\b|\bics\b|incident\.command/gi,
   pipeline: /\bcollect\b|\bextract\b|summari|publish|séquence|sequence|pipeline|linear/gi,
+  project_dag: /work.?graph|graphe de travail|dependenc|dépendan|handoff|transmettre les artefacts|parallel workstreams/gi,
   cross_functional_pod: /feature|end\.to\.end|bout en bout|\bproduct\b|autonomous|full\.lifecycle/gi
 });
 
