@@ -1,5 +1,5 @@
 // Registry for Chromosomal Deletions
-const chromosomalDeletionRegistry = new Map(); /* persisterHook: chromosomalDeletionRegistry */
+let chromosomalDeletionRegistry = new Map(); /* persisterHook: chromosomalDeletionRegistry */
 
 const ESSENTIAL_LOCI = new Set(['LOCUS_KERNEL_INTEGRITY', 'LOCUS_AUTH_INVARIANTS', 'LOCUS_ROUTING']);
 
@@ -129,6 +129,7 @@ function _ensurechromosomalDeletionRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chromosomal_deletion', 'chromosomalDeletionRegistry') : null;
     const mapToUse = stored && stored.size ? stored : chromosomalDeletionRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chromosomal_deletion', 'chromosomalDeletionRegistry', mapToUse) : mapToUse;
+    chromosomalDeletionRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'chromosomalDeletionRegistry', {
       value: persistentMap,

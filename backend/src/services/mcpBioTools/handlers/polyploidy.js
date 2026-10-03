@@ -1,5 +1,5 @@
 // Registry for Genomic Polyploidy
-const polyploidyRegistry = new Map(); /* persisterHook: polyploidyRegistry */
+let polyploidyRegistry = new Map(); /* persisterHook: polyploidyRegistry */
 
 function getPolyploidyRecord(id) {
   if (!polyploidyRegistry.has(id)) {
@@ -144,6 +144,7 @@ function _ensurepolyploidyRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::polyploidy', 'polyploidyRegistry') : null;
     const mapToUse = stored && stored.size ? stored : polyploidyRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::polyploidy', 'polyploidyRegistry', mapToUse) : mapToUse;
+    polyploidyRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'polyploidyRegistry', {
       value: persistentMap,

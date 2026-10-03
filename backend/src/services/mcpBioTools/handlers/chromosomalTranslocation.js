@@ -1,5 +1,5 @@
 // Registry for Chromosomal Translocations
-const chromosomalTranslocationRegistry = new Map(); /* persisterHook: chromosomalTranslocationRegistry */
+let chromosomalTranslocationRegistry = new Map(); /* persisterHook: chromosomalTranslocationRegistry */
 
 function getAgentChromosome(agentId, defaultLoci = []) {
   if (!chromosomalTranslocationRegistry.has(agentId)) {
@@ -118,6 +118,7 @@ function _ensurechromosomalTranslocationRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chromosomal_translocation', 'chromosomalTranslocationRegistry') : null;
     const mapToUse = stored && stored.size ? stored : chromosomalTranslocationRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chromosomal_translocation', 'chromosomalTranslocationRegistry', mapToUse) : mapToUse;
+    chromosomalTranslocationRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'chromosomalTranslocationRegistry', {
       value: persistentMap,

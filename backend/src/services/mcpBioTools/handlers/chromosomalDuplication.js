@@ -1,5 +1,5 @@
 // Registry for Chromosomal Duplications
-const chromosomalDuplicationRegistry = new Map(); /* persisterHook: chromosomalDuplicationRegistry */
+let chromosomalDuplicationRegistry = new Map(); /* persisterHook: chromosomalDuplicationRegistry */
 
 // Plafond de copies en tandem par locus (anti-emballement).
 const MAX_TANDEM_COPIES = 8;
@@ -142,6 +142,7 @@ function _ensurechromosomalDuplicationRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::chromosomal_duplication', 'chromosomalDuplicationRegistry') : null;
     const mapToUse = stored && stored.size ? stored : chromosomalDuplicationRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::chromosomal_duplication', 'chromosomalDuplicationRegistry', mapToUse) : mapToUse;
+    chromosomalDuplicationRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'chromosomalDuplicationRegistry', {
       value: persistentMap,
