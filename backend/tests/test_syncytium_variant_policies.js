@@ -15,7 +15,10 @@ async function main() {
     const policy = registry.getPolicy(id);
     for (const method of methods) assert.equal(typeof policy[method], 'function', `${id} has ${method}`);
     assert.equal(typeof policy.analyzeFit('work', { variantId: id }).score, 'number');
-    assert.ok(policy.configureSchema({}).fields);
+    const schemaInput = id === 'hard'
+      ? { fields: { probes: { dataType: 'MAP', consistencyZone: 'SERIALIZABLE' } } }
+      : {};
+    assert.ok(policy.configureSchema(schemaInput).fields);
     assert.ok(Array.isArray(policy.configureRepair()));
     assert.ok(Array.isArray(policy.configureStopConditions()));
   }
