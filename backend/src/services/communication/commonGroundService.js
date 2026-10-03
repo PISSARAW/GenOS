@@ -119,8 +119,8 @@ async function receiverPrints(db, query) {
   const rows = await db.all(
     `SELECT semantic_fingerprint AS fp FROM communication_common_ground
      WHERE ((agent_a = ? AND agent_b = ?) OR (agent_a = ? AND agent_b = ?))
-       AND status = 'grounded'`,
-    [query.senderId, query.receiverId, query.receiverId, query.senderId]
+       AND domain = ? AND status = 'grounded'`,
+    [query.senderId, query.receiverId, query.receiverId, query.senderId, query.domain || 'general']
   );
   return new Set(rows.map((row) => row.fp));
 }

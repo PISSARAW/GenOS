@@ -24,7 +24,8 @@ async function attachUnknownRefs(query) {
   const enriched = [];
   for (const candidate of query.candidates) {
     const unknown = await computeKnowledgeDelta({
-      db: query.db, senderId: query.senderId, receiverId: candidate.agentId, semanticRefs: query.refs
+      db: query.db, senderId: query.senderId, receiverId: candidate.agentId,
+      domain: query.domain, semanticRefs: query.refs
     });
     enriched.push({ agentId: candidate.agentId, score: candidate.score, unknownRefs: unknown });
   }
