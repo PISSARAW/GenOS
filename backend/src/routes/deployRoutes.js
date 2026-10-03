@@ -19,6 +19,8 @@ router.post('/deploy/trinity', requirePermission('workspace:write'), requireTena
 router.get('/deploy/trinity', requireTenantScope(), deployController.listTrinityWorlds);
 router.get('/agents', requireTenantScope(), paginateList(deployController.listAgents));
 router.get('/agents/:id/dossier', requireTenantScope(), agentDossierController.getAgentDossier);
+router.get('/agents/:id/cognitive-regulation', requireTenantScope(), agentConscienceController.getAgentConscience);
+router.get('/agents/:id/cognitive-regulation/transitions', requireTenantScope(), agentConscienceController.getConscienceTransitions);
 router.get('/agents/:id/conscience', requireTenantScope(), agentConscienceController.getAgentConscience);
 router.get('/agents/:id/conscience/transitions', requireTenantScope(), agentConscienceController.getConscienceTransitions);
 router.post('/agents/:id/stop', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.stopAgent);

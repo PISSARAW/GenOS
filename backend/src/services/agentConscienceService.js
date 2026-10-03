@@ -161,12 +161,12 @@ function formatCognitiveRegulationPrompt(state) {
   const safeState = createCognitiveRegulationState(state);
   const harmony = harmonyOf(safeState);
   return [
-    `[ÉTAT DE RÉGULATION COGNITIVE & HARMONIE INTERNE]`,
-    `- Dissonance cognitive : ${safeState.dissonanceLevel.toFixed(1)} / ${safeState.maxDissonanceThreshold.toFixed(1)} (Seuil d'apoptose)`,
-    `- Harmonie interne : ${harmony}%`,
-    `- Événements Eurêka validés : ${safeState.eurekaMoments}`,
-    `- Capital cognitif restant : ${safeState.currentBudget.toFixed(0)} unités`,
-    `État de contrôle runtime : ces métriques décrivent la cohérence observée de cette branche. Si la dissonance dépasse ${safeState.maxDissonanceThreshold.toFixed(1)} (erreurs persistantes, répétition ou dérive sémantique), le runtime peut arrêter la branche. Vérifie les actions et leurs preuves; cet état ne constitue pas une conscience subjective.`
+    `[MÉTRIQUES DE RÉGULATION DU RUNTIME]`,
+    `- Score de dissonance calculé : ${safeState.dissonanceLevel.toFixed(1)} / ${safeState.maxDissonanceThreshold.toFixed(1)} (seuil d'arrêt)`,
+    `- Cohérence calculée : ${harmony}%`,
+    `- Découvertes associées à des preuves : ${safeState.eurekaMoments}`,
+    `- Budget d'exécution restant : ${safeState.currentBudget.toFixed(0)} unités`,
+    `Ces métriques décrivent la cohérence calculée de cette branche et peuvent déclencher son arrêt. Elles ne mesurent ni expérience subjective, ni compréhension, ni état mental. Vérifie séparément les actions et leurs preuves.`
   ].join('\n');
 }
 

@@ -1,7 +1,7 @@
-# Dossiers d’agents, evidence et conscience opérationnelle
+# Dossiers d’agents, preuves et régulation cognitive
 
 - **Statut** : Implémenté
-- **Portée** : dossiers de workers, barrière d’évidence, synthèse et transitions de conscience du control plane Node.
+- **Portée** : dossiers de workers, barrière d’évidence, synthèse et transitions de régulation cognitive du control plane Node.
 - **Dernière revue** : 2026-09-26
 
 ## 1. Définition
@@ -16,15 +16,15 @@ flowchart LR
   Worker --> Dossier[Dossier de preuves]
   Dossier --> Barrier[Evidence barrier]
   Barrier --> Orchestrator[Orchestrateur]
-  Orchestrator --> State[État de conscience]
+  Orchestrator --> State[État de régulation runtime]
   State --> History[Transitions persistées]
 ```
 
 Le dossier est une vue de travail par worker et par tour. Les événements sont
 enregistrés via `agentEvidenceService`, regroupés et contrôlés avant qu'un prompt
-de synthèse soit construit. La conscience opérationnelle suit séparément l'état
-de l'agent et ses transitions persistées : l'état de conscience ne remplace pas
-la validation du dossier.
+de synthèse soit construit. La régulation runtime suit séparément budget, erreurs,
+dissonance calculée et transitions persistées; elle ne mesure pas une conscience ni
+un état mental et ne remplace pas la validation du dossier.
 
 ## 2.1 Parcours d'une décision collective
 
@@ -57,7 +57,7 @@ un résumé de worker ou une confiance déclarée n'est pas une preuve brute. Le
 références d'artefacts doivent rester consultables pour permettre la vérification
 indépendante de la synthèse.
 
-## 4. État de conscience
+## 4. État de régulation runtime
 
 L’état combine budget, dissonance, activité et issue de la dernière évaluation :
 
@@ -78,8 +78,12 @@ Tout chargement est best-effort : bloc vide plutôt que mission bloquée.
 ## 5. Contrats exposés
 
 - `GET /api/agents/:id/dossier` ;
-- `GET /api/agents/:id/conscience` ;
-- `GET /api/agents/:id/conscience/transitions`.
+- `GET /api/agents/:id/cognitive-regulation` ;
+- `GET /api/agents/:id/cognitive-regulation/transitions`.
+
+Les anciennes routes `/conscience` et `/conscience/transitions` restent des alias
+de compatibilité. Le champ de réponse `conscience` est également conservé comme
+alias historique de `cognitiveRegulation`.
 
 Ces lectures restent soumises au scope tenant.
 

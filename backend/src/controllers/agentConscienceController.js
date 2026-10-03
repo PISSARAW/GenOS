@@ -15,6 +15,7 @@ async function getAgentConscience(req, res, next) {
       agentName: agent.name,
       status: agent.status,
       executionMode: agent.execution_mode,
+      cognitiveRegulation: conscience,
       conscience
     });
   } catch (error) {
