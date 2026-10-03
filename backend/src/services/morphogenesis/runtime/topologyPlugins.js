@@ -72,7 +72,7 @@ function individualsFrom(args, input) {
 
 function workerToIndividual(worker) {
   if (!worker || typeof worker !== 'object') return null;
-  const id = worker.id || worker.individualId;
+  const id = worker.workerId || worker.agentId || worker.id || worker.individualId;
   if (!id) return null;
   return { individualId: String(id), capabilities: worker.capabilities || [] };
 }

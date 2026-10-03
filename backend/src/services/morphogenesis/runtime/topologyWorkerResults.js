@@ -2,7 +2,7 @@
 
 function collectTopologyWorkerResults(workers, input = {}) {
   if (!Array.isArray(workers) || workers.length === 0) return [];
-  const results = Array.isArray(input.workerResults) ? input.workerResults : [];
+  const results = Array.isArray(input.workerResults) ? input.workerResults : workers;
   return workers.map((worker) => resultForWorker(worker, results));
 }
 
