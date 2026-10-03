@@ -86,32 +86,30 @@ impl MultiScaleMutator {
         if !rate.is_finite() || rate <= 0.0 { return results; }
         let len = strand.len();
         let codons = len / 3;
+        if codons == 0 { return results; }
+        let effective = rate.clamp(0.0, 1.0);
+        let baseline: Vec<DnaNucleotide> = strand.as_slice().to_vec();
+        let mut sequence = baseline.clone();
         for i in 0..codons {
-            if rng.random_bool(rate.clamp(0.0, 1.0)) {
-                let pos = i * 3;
-                let original_chars: Vec<char> = strand.as_str().chars().collect();
-                let old_char = strand.as_str().chars().nth(pos).unwrap_or('A');
-                let mut new_char = old_char;
-                while new_char == old_char {
-                    new_char = match rng.next_u32() % 4 {
-                        0 => 'A', 1 => 'C', 2 => 'G', _ => 'T',
-                    };
-                }
-                let mut new_seq = strand.as_slice().to_vec();
-                new_seq[pos] = DnaNucleotide::try_nucleotide_from_char(new_char).unwrap_or(DnaNucleotide::A);
-                strand.replace_sequence(new_seq);
+            if rng.random_bool(effective) {
+                let pos = i * 3 + rng.random_range(0..3);
+                let original = baseline[pos].clone();
+                let mutated = original.mutate(rng);
+                sequence[pos] = mutated.clone();
                 results.push(MutationResult {
                     scale: MutationScale::Codon,
                     effect: MutationEffect::Substitution,
                     affected_locus: None,
                     positions_changed: 1,
-                    successful: original_chars[pos] != new_char,
+                    successful: original != mutated,
                     description: format!(
-                        "Codon mutation at codon {}: {:?} -> {:?}",
-                        i, &original_chars[pos..pos + 3], new_char
+                        "Codon mutation at codon {i}: {original:?} -> {mutated:?}"
                     ),
                 });
             }
+        }
+        if !results.is_empty() {
+            strand.replace_sequence(sequence);
         }
         results
     }
