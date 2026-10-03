@@ -151,7 +151,8 @@ function workerMissionContract(mission) {
     objective: mission.prompt || mission.currentTask || '',
     scope: mission.scope || mission.workspaceRoot || '',
     methodContract: mission.methodContract,
-    topologySessionId: mission.topologySessionId || null
+    topologySessionId: mission.topologySessionId || null,
+    nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null
   };
 }
 
@@ -190,6 +191,8 @@ function buildWorkerContract(kind, mission = {}) {
     spawnBudget: 0,
     delegationDepth: 0,
     evidence: { requiredArtifacts: [definition.artifact], provenanceRequired: true },
+    niche: { domain: definition.kind === 'specialist' ? (mission.nicheDomain || mission.workerAssignment?.nicheDomain || 'declared_niche') : null },
+    expressedCapabilities: definition.kind === 'specialist' ? ['niche_analysis'] : [],
     limits: workerLimits(definition.kind, subOrchestrator),
     resources: workerResources(definition.kind)
   };
