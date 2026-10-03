@@ -9,7 +9,7 @@
 const crypto = require('crypto');
 
 // In-memory registry of polyembryonic clusters
-const POLYEMBRYONY_REGISTRY = new Map();
+let POLYEMBRYONY_REGISTRY = new Map();
 
 function generateId(prefix) {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}`;
@@ -164,10 +164,11 @@ function _ensureobligatePolyembryonyRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::obligate_polyembryony', 'obligatePolyembryonyRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : obligatePolyembryonyRegistry;
+    const mapToUse = stored && stored.size ? stored : POLYEMBRYONY_REGISTRY;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::obligate_polyembryony', 'obligatePolyembryonyRegistry', mapToUse) : mapToUse;
+    POLYEMBRYONY_REGISTRY = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'obligatePolyembryonyRegistry', {
+    Object.defineProperty(module.exports, 'POLYEMBRYONY_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -187,7 +188,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.obligatePolyembryonyRegistry || obligatePolyembryonyRegistry;
+  const map = module.exports.POLYEMBRYONY_REGISTRY || POLYEMBRYONY_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;
