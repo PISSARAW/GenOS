@@ -11,7 +11,7 @@ const POLICIES = Object.freeze({
   verifier_worker: { maxIterations: 5 },
   red_worker: { maxIterations: 5 },
   experimental_worker: { maxIterations: 10 },
-  formal_worker: { maxIterations: 10, maxTokens: 0 },
+  formal_worker: { maxIterations: 10, maxTokens: 0, executionMode: 'deterministic' },
   synthesis_worker: { maxIterations: 10 },
   creative_worker: { maxIterations: 10, maxCognitiveChanges: 2 },
   medical_worker: { maxIterations: 8 },
