@@ -132,9 +132,10 @@ class MorphogenesisRuntime {
   }
 
   async _executeSimple(morphology, options) {
-    emit(options.orchestratorId || 'morphogenesis', 'MORPHOGENESIS_SIMPLE', 'TOPOLOGY_CHANGE', `Applied ${morphology.topology} with ${morphology.agents.length} agents`, { topology: morphology.topology, agentCount: morphology.agents.length }, 'info');
+    emit(options.orchestratorId || 'morphogenesis', 'MORPHOGENESIS_PROPOSED', 'TOPOLOGY_CHANGE_UNAVAILABLE', `No transition engine is configured; ${morphology.topology} remains a proposal.`, { topology: morphology.topology, agentCount: morphology.agents.length, applied: false }, 'warning');
     return {
-      applied: true,
+      applied: false,
+      proposed: true,
       agents: morphology.agents,
       topology: morphology.topology,
     };
