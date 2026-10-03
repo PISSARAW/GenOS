@@ -204,9 +204,11 @@ async function runConscienceCheck(ctx, event, observation) {
     const evidence = extractEvidenceReport(event.payload);
     const rateLimited = await agentConscience.isEurekaRateLimited({ db, agentId });
     if (rateLimited) return false;
+    const previousCount = conscienceState.eurekaMoments;
     agentConscience.triggerEureka(conscienceState, {
       evidence: { source: 'genos-evidence-gate', claims: evidence.claims, artifact: evidence.workerArtifact }
     });
+    if (conscienceState.eurekaMoments === previousCount) return false;
     emit(agentId, 'COGNITIVE_EUREKA', 'EUREKA', `Événement Eurêka enregistré ! Dissonance réduite à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'info');
     await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'supervisor_eureka' });
   }

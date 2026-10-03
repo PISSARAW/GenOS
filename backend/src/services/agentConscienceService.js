@@ -143,6 +143,7 @@ function triggerEureka(state, options = {}) {
   state.eurekaMoments += 1;
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel / 2.0);
   state.currentBudget = Math.min(state.baselineBudget, state.currentBudget + 50.0);
+  state.revision += 1;
   return state;
 }
 
