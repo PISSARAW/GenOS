@@ -76,12 +76,17 @@ function methodContractFor(member) {
 function roleRequirements(member) {
   const role = workerKinds.normalize(member.role);
   const declared = values(member.workerRequirements?.requiredCapabilities);
-  const intent = Object.hasOwn(ROLE_REQUIREMENTS, role)
-    ? ROLE_REQUIREMENTS[role] : (role.endsWith('_specialist') ? ['domain_specialization'] : undefined);
+  const intent = roleIntent(role);
   if (intent === null) return null;
-  const domainSpecific = values(member.capabilities).length > 0 && !intent;
-  if (!intent && !domainSpecific && !declared.length) return undefined;
-  return [...new Set([...(intent || (domainSpecific ? ['domain_specialization'] : [])), ...declared])];
+  const memberCapabilities = values(member.capabilities);
+  const base = intent || memberCapabilities;
+  if (!base.length && !declared.length) return undefined;
+  return [...new Set([...base, ...declared])];
+}
+
+function roleIntent(role) {
+  if (Object.hasOwn(ROLE_REQUIREMENTS, role)) return ROLE_REQUIREMENTS[role];
+  return role.endsWith('_specialist') ? ['domain_specialization'] : undefined;
 }
 
 function memberRequirements(member, methodContract) {

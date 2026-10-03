@@ -27,6 +27,29 @@ function bindDispatchAssignments(autonomyPlan, assignments) {
   return bindToRoot({ plan: autonomyPlan, graph, root, assignments });
 }
 
+function bindDispatchResults(autonomyPlan, workers, results) {
+  const graph = autonomyPlan.morphogenesisPlan?.morphologyPatch?.graph;
+  const root = graph?.nodes?.find((node) => node.nodeId === graph.rootNodeId);
+  const assignments = root?.workers || [];
+  const reports = new Map((results || []).map((result) => [result.workerId, result.evidenceReport]));
+  autonomyPlan.workerResults = results || [];
+  if (!root) return;
+  root.workers = (workers || []).map((worker, index) => bindWorkerResult({
+    assignment: assignments[index], worker, report: reports.get(worker.agentId)
+  }));
+  root.workerResults = autonomyPlan.workerResults;
+}
+
+function bindWorkerResult(input) {
+  const { assignment = {}, worker, report } = input;
+  return {
+    ...assignment, ...worker,
+    capabilities: worker.capabilities?.length ? worker.capabilities : assignment.capabilities || [],
+    artifactType: report?.workerArtifact?.type || assignment.artifactType || null,
+    evidenceReport: report || null
+  };
+}
+
 function fallbackAssignments(plan, assignments) {
   plan.dispatchWorkers = assignments.map((assignment) => ({ ...assignment }));
   return { assignments: plan.dispatchWorkers, binding: null };
@@ -70,4 +93,4 @@ function reconcileDispatchBudget(plan, originalCount, selectedCount) {
   });
 }
 
-module.exports = { bindGraphMission, bindDispatchAssignments };
+module.exports = { bindGraphMission, bindDispatchAssignments, bindDispatchResults };

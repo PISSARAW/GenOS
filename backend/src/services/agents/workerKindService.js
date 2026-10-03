@@ -148,14 +148,43 @@ function methodContractError() {
   return Object.assign(new Error('Method contract must declare version 1 and a methodId.'), { code: 'WORKER_METHOD_CONTRACT_INVALID' });
 }
 
-function workerMissionContract(mission) {
+function workerMissionContract(mission, kind) {
+  const specialtyNiche = resolveSpecialtyNiche(mission);
+  const hostContractId = resolveHostContractId(mission);
+  const hostCapabilities = resolveHostCapabilities(mission);
+  if (kind === 'specialist' && !specialtyNiche) {
+    throw Object.assign(new Error('Specialist workers require an explicit niche.'), { code: 'SPECIALIST_NICHE_REQUIRED' });
+  }
+  if (kind === 'symbiotic_worker' && (!hostContractId || !hostCapabilities.length)) {
+    throw Object.assign(new Error('Symbiotic workers require a host contract and an explicit capability set.'), { code: 'SYMBIOTIC_HOST_CONTRACT_REQUIRED' });
+  }
   return {
     objective: mission.prompt || mission.currentTask || '',
     scope: mission.scope || mission.workspaceRoot || '',
     methodContract: mission.methodContract,
     topologySessionId: mission.topologySessionId || null,
-    nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null
+    nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
+    specialtyNiche,
+    hostContractId,
+    hostCapabilities
   };
+}
+
+function resolveHostContractId(mission) {
+  return mission.hostContractId || mission.workerAssignment?.hostContractId || null;
+}
+
+function resolveHostCapabilities(mission) {
+  const capabilities = mission.hostCapabilities || mission.workerAssignment?.hostCapabilities;
+  return Array.isArray(capabilities) ? [...new Set(capabilities.filter((item) => typeof item === 'string' && item.trim()))] : [];
+}
+
+function resolveSpecialtyNiche(mission) {
+  const assignment = mission.workerAssignment || {};
+  const parameters = mission.methodContract?.parameters || {};
+  const niche = mission.specialtyNiche || mission.nicheDomain || mission.niche || mission.domain
+    || assignment.nicheDomain || assignment.niche || assignment.domain || parameters.niche || parameters.domain;
+  return typeof niche === 'string' && niche.trim() ? niche.trim() : null;
 }
 
 function workerAuthorityContract(kind, authorities) {
@@ -172,6 +201,10 @@ function workerLimits(kind, subOrchestrator) {
   const policy = workerPolicy(kind);
   const maxIterations = Object.hasOwn(policy, 'maxIterations') ? policy.maxIterations : 10;
   const limits = { ...policy };
+  delete limits.maxTokens;
+  delete limits.maxTimeMs;
+  delete limits.maxCpuMs;
+  delete limits.executionMode;
   return { ...limits, maxIterations, ...(subOrchestrator ? { maxIterations: 30 } : {}) };
 }
 
@@ -184,7 +217,7 @@ function buildWorkerContract(kind, mission = {}) {
   return {
     version: 1,
     identity: { workerKind: definition.kind, parentId: mission.orchestratorAgentId || mission.parentAgentId || null },
-    mission: workerMissionContract(mission),
+    mission: workerMissionContract(mission, definition.kind),
     assignment: mission.workerAssignment || null,
     authority: workerAuthorityContract(definition.kind, authorities),
     spawnBudget: 0,
@@ -202,7 +235,8 @@ function workerResources(kind) {
   return {
     maxTokens: policy.maxTokens ?? 8000,
     maxTimeMs: Object.hasOwn(policy, 'maxTimeMs') ? policy.maxTimeMs : 300000,
-    maxCpuMs: policy.maxCpuMs ?? 60000
+    maxCpuMs: policy.maxCpuMs ?? 60000,
+    executionMode: policy.executionMode || 'model'
   };
 }
 

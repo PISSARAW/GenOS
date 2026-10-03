@@ -89,13 +89,22 @@ function applySynthesisPlan(ctx) {
   ctx.autonomyPlan.synthesisOnly = true;
   ctx.autonomyPlan.dispatchWorkers = [];
   ctx.autonomyPlan.completedWorkerIds = ctx.usable.map((dossier) => dossier.workerId);
-  ctx.autonomyPlan.completedWorkerDossiers = ctx.usable.map((dossier) => ({
-    workerId: dossier.workerId,
-    events: dossier.events.filter((event) => event.evidenceReport).map((event) => ({
-      evidenceReport: { claims: event.evidenceReport.claims || [] }
-    }))
-  }));
+  ctx.autonomyPlan.completedWorkerDossiers = ctx.usable.map(synthesisDossier);
+  ctx.autonomyPlan.workerResults = ctx.usable.map(topologyWorkerResult).filter(Boolean);
   ctx.autonomyPlan.mandatoryTools = stripDelegationTools(ctx.autonomyPlan.mandatoryTools);
+}
+
+function synthesisDossier(dossier) {
+  return { workerId: dossier.workerId, events: (dossier.events || [])
+    .filter((event) => event.evidenceReport)
+    .map((event) => ({ evidenceReport: { claims: event.evidenceReport.claims || [] } })) };
+}
+
+function topologyWorkerResult(dossier) {
+  const report = [...(dossier.events || [])].reverse()
+    .map((event) => event.evidenceReport)
+    .find((entry) => entry?.outcome === 'success' && entry.workerArtifact);
+  return report ? { workerId: dossier.workerId, workerKind: dossier.role, evidenceReport: report } : null;
 }
 
 function loadDossiers(ctx) {

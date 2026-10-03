@@ -142,11 +142,12 @@ function resolvePlanForCheck(normalizedMission) {
 
 function normalizeMissionBudgets(ctx) {
   const { normalizedMission } = ctx;
+  const runtimeEnvironment = bundledRuntimeEnvironment();
+  const normalizedExecutionBudget = normalizeMissionBudget(normalizedMission.executionBudget || {});
+  require('../agents/workerRuntimeBudgetService').clampMissionBudget(normalizedMission, normalizedExecutionBudget);
   if (normalizedMission.timeoutMs && !normalizedMission.workerBarrierTimeoutMs) {
     normalizedMission.workerBarrierTimeoutMs = Math.max(2000, Math.floor(normalizedMission.timeoutMs * 0.45));
   }
-  const runtimeEnvironment = bundledRuntimeEnvironment();
-  const normalizedExecutionBudget = normalizeMissionBudget(normalizedMission.executionBudget || {});
   const planForCheck = resolvePlanForCheck(normalizedMission);
   const shareError = planForCheck ? null : validateShareSum([normalizedExecutionBudget.workerShare, normalizedExecutionBudget.orchestratorReserve]);
   if (shareError) {

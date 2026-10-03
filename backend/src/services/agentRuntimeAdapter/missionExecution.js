@@ -81,6 +81,9 @@ async function startMissionInternal(mission) {
         throw barrierErr;
       }
     }
+    require('../morphogenesis/morphogenesisMissionBinding').bindDispatchResults(
+      ctx.autonomyPlan, autonomousWorkers, ctx.autonomyPlan.workerResults || []
+    );
   }
 
   assertMissionNotCancelled(agentId);
