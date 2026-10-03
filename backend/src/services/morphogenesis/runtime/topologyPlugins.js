@@ -105,11 +105,17 @@ async function executeHolobionte(args, context) {
   const input = inputFrom(context);
   const capability = capabilityFrom(input);
   const executeCapability = capabilityExecutorFrom(input);
+  const executeTrial = trialExecutorFrom(input);
   const { createRuntimeDb } = require('./sqliteDb');
   const created = await createRuntimeDb();
   try {
     await migrateHolobionte(created.db);
-    const session = await provisionHolobiont(created.db, { args, input, capability });
+    const setup = await provisionHolobiont(created.db, { args, input, capability });
+    const admission = await evaluateMissionTrial(created.db, { setup, input, executeTrial });
+    if (admission.decision !== 'ADMITTED') {
+      return { status: 'ADMISSION_REJECTED', admission, driver: created.driver };
+    }
+    const session = await require('../../holobionte/holobiontStore').getSession(created.db, setup.session.holobiontId);
     const runtime = require('../../holobionte/runtime/holobiontRuntime');
     const result = await runtime.runCycle(created.db, cycleInput(session, { input, capability, executeCapability }), {});
     return { ...result, driver: created.driver };
@@ -131,6 +137,15 @@ function capabilityExecutorFrom(input) {
   return input.executeCapability;
 }
 
+function trialExecutorFrom(input) {
+  if (typeof input.trialCapabilityExecutor !== 'function') {
+    throw Object.assign(new Error('holobionte requires an isolated trial capability executor.'), {
+      code: 'HOLOBIONT_TRIAL_EXECUTOR_REQUIRED'
+    });
+  }
+  return input.trialCapabilityExecutor;
+}
+
 async function migrateHolobionte(db) {
   const sessions = require('../../../db/migrations/migrateHolobiontSessions');
   const contracts = require('../../../db/migrations/migrateHolobiontContracts');
@@ -149,14 +164,42 @@ async function provisionHolobiont(db, setup) {
   const store = require('../../holobionte/holobiontStore');
   const constitution = require('../../holobionte/host/hostConstitutionService');
   const contracts = require('../../holobionte/contracts/symbiosisContractService');
+  const admission = require('../../holobionte/symbionts/symbiontAdmissionService');
   const created = await store.createSession(db, sessionInput(args, input));
   const holobiontId = created.holobiontId;
   const hostConstitution = constitution.createHostConstitution({ hostId: created.hostId, identity: created.hostId });
   await constitution.updateConstitution(db, { holobiontId, constitution: hostConstitution, expectedRevision: await revisionOf(store, db, holobiontId) });
   await store.appendEvent(db, { holobiontId, expectedRevision: await revisionOf(store, db, holobiontId), eventType: 'SYMBIONT_DISCOVERED', payload: { symbiontId: 'resident-mission', symbiont: { capabilities: [capability] } } });
   await contracts.createContract(db, { holobiontId, expectedSessionRevision: await revisionOf(store, db, holobiontId), contract: contractBody(created, capability) });
-  await store.appendEvent(db, { holobiontId, expectedRevision: await revisionOf(store, db, holobiontId), eventType: 'SYMBIONT_ADMITTED', payload: { symbiontId: 'resident-mission', receipt: { receiptId: 'morphogenesis-admission' } } });
-  return store.getSession(db, holobiontId);
+  const beforeTrial = await store.getSession(db, holobiontId);
+  const trial = await admission.startAdmission(db, {
+    holobiontId, expectedSessionRevision: beforeTrial.revision,
+    symbiontId: 'resident-mission', capability
+  });
+  return { session: await store.getSession(db, holobiontId),
+    contract: await contracts.getContract(db, holobiontId, 'resident-mission'), trial };
+}
+
+async function evaluateMissionTrial(db, context) {
+  const { setup, input, executeTrial } = context;
+  const symbiontId = setup.contract.symbiontId;
+  const trialResult = await executeTrial({
+    capability: setup.trial.sandbox.capability,
+    candidate: setup.session.candidateSymbionts.find((item) => item.id === symbiontId),
+    contract: setup.contract,
+    sandbox: setup.trial.sandbox
+  });
+  const admission = require('../../holobionte/symbionts/symbiontAdmissionService');
+  return admission.evaluateTrial(db, {
+    holobiontId: setup.session.holobiontId, symbiontId,
+    expectedSessionRevision: setup.session.revision,
+    contributionScore: trialResult?.contributionScore,
+    verification: trialResult?.verification,
+    contractCompliant: trialResult?.contractCompliant === true,
+    unsafeBehavior: trialResult?.unsafeBehavior === true,
+    riskScore: trialResult?.riskScore,
+    actorId: input.actorId
+  });
 }
 
 async function revisionOf(store, db, holobiontId) {
