@@ -28,7 +28,8 @@ class TrinityController extends TopologyController {
     }
 
     return {
-      verified_claims: this.extractVerifiedClaims(),
+      verified_claims: [],
+      candidate_claims: this.candidateClaimsFromConfidence(),
       competing_hypotheses: this.hypotheses,
       comparison_receipt: this.buildReceipt()
     };
@@ -55,7 +56,7 @@ class TrinityController extends TopologyController {
     return { merged: this.hypotheses.join(' + '), confidence: 0.8 };
   }
 
-  extractVerifiedClaims() {
+  candidateClaimsFromConfidence() {
     return this.hypotheses.filter(h => h.confidence > 0.7);
   }
 
