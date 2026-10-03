@@ -18,14 +18,10 @@ const territoryService = require('../src/services/daemon/daemonTerritoryService'
 const runtimeService = require('../src/services/daemon/residentDaemonRuntime');
 const eventBridge = require('../src/services/daemon/daemonEventBridgeService');
 const eventConsumer = require('../src/services/daemon/daemonEventConsumerService');
+const receptorRegistry = require('../src/services/daemon/daemonReceptorRegistry');
 const signalEventBus = require('../src/services/signalEventBus');
 
-const SUBSCRIBED_SIGNALS = [
-  'TERRITORY_FILE_CHANGED',
-  'TERRITORY_COMMIT',
-  'ORCHESTRATOR_ENTERED',
-  'KNOWLEDGE_STALE'
-];
+const SUBSCRIBED_SIGNALS = receptorRegistry.listDaemonEvents();
 
 const DEFAULT_HEARTBEAT_MS = 30000;
 const DEFAULT_EVENT_POLL_MS = 1000;
