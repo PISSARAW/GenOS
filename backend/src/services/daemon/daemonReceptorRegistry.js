@@ -11,7 +11,8 @@
  * Pipeline : event → receptor → cheap update → wake policy →
  * LLM seulement si nécessaire (zero-text : interruption, pas substrat).
  *
- * Priorités : high = candidate LLM, medium = focused sensing,
+ * Priorités : high = investigation déterministe après réveil,
+ * medium = focused sensing,
  * low = persistence only.
  */
 
@@ -47,10 +48,10 @@ const RECEPTORS = {
   ORCHESTRATOR_ENTERED: { wakeActivity: 'FOCUSED', priority: 'medium', cheapUpdate: 'touch', handoffRequested: true },
   ORCHESTRATOR_LEFT: { wakeActivity: null, priority: 'low', cheapUpdate: 'touch' },
   FINDING_CREATED: { wakeActivity: 'FOCUSED', priority: 'medium', cheapUpdate: 'touch' },
-  FINDING_REINFORCED: { wakeActivity: null, priority: 'low', cheapUpdate: 'touch' },
+  FINDING_REINFORCED: { wakeActivity: 'FOCUSED', priority: 'medium', cheapUpdate: 'touch' },
   FINDING_REFUTED: { wakeActivity: 'FOCUSED', priority: 'high', cheapUpdate: 'touch' },
-  RESOURCE_ORPHANED: { wakeActivity: 'FOCUSED', priority: 'high', cheapUpdate: 'touch' },
-  KNOWLEDGE_STALE: { wakeActivity: 'FOCUSED', priority: 'medium', cheapUpdate: 'touch' }
+  RESOURCE_ORPHANED: { wakeActivity: 'FOCUSED', priority: 'high', cheapUpdate: 'touch', handoffRequested: true },
+  KNOWLEDGE_STALE: { wakeActivity: 'FOCUSED', priority: 'medium', cheapUpdate: 'touch', handoffRequested: true }
 };
 
 function listDaemonEvents() {

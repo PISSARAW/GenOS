@@ -4,15 +4,15 @@
  * Daemon Event Bridge — ADR 0034 D3.
  *
  * Pipeline événementiel du ResidentDaemon :
- *   event → validation → receptor (registre) → cheap update
- *   → wake policy → heartbeat runtime si woke.
+ *   event → validation → receptor → cheap update → wake policy
+ *   → investigation déterministe sur réveil high-priority.
  *
  * Cheap updates (déterministes, sans LLM) :
  *  - touch : last_observed_at du territoire ;
  *  - head : TERRITORY_COMMIT avec headSha → updateHead (STALE auto).
  *
- * Le timer 60 min reste un filet de sécurité, pas le système
- * nerveux (il appellera ingestEvent avec KNOWLEDGE_STALE).
+ * Aucun timer synthétique KNOWLEDGE_STALE : la fraîcheur vient du
+ * HEAD cartographié et de son horodatage d'indexation.
  */
 
 const receptorRegistry = require('./daemonReceptorRegistry');
