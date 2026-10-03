@@ -2,13 +2,17 @@ use crate::epigenome::{DevelopmentalStage, EpigeneticMark, Epigenome};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+const DEVELOPMENTAL_WINDOW_STEPS: f64 = 10.0;
+
 // ── Embryogenesis engine ───────────────────────────────────────────────
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct EmbryogenesisContext {
     pub signals: Vec<DevelopmentalSignal>,
     pub morphogens: Vec<MorphogenGradient>,
+    /// Reserve métabolique normalisée entre 0 (arrêt) et 1 (capacité complète).
     pub energy_budget: f64,
+    /// Pas écoulés dans une fenêtre de différenciation de dix pas.
     pub time_step: u64,
 }
 
@@ -58,7 +62,7 @@ impl Embryogenesis {
     ) -> EmbryogenesisProgram {
         let mut program = EmbryogenesisProgram::default_program();
         let energy_factor = unit_interval(ctx.energy_budget);
-        let time_factor = (ctx.time_step as f64 / 10.0).clamp(0.0, 1.0);
+        let time_factor = (ctx.time_step as f64 / DEVELOPMENTAL_WINDOW_STEPS).clamp(0.0, 1.0);
         for (locus, gene) in &genome.genes {
             let methylated = gene.is_methylated || epigenome.get_mark(locus).is_some_and(|mark| {
                 matches!(mark.kind, EpigeneticMark::Methylation) && mark.level > 0.7
@@ -66,11 +70,15 @@ impl Embryogenesis {
             let expression = if methylated { 0.0 } else { unit_interval(gene.expression_volume) * energy_factor };
             program.gene_expression_profile.insert(locus.clone(), expression);
         }
-        let morphogen_field: HashMap<String, f64> = ctx
-            .morphogens
-            .iter()
-            .map(|m| (m.name.clone(), unit_interval(m.concentration)))
-            .collect();
+        let morphogen_field = ctx.morphogens.iter().fold(HashMap::new(), |mut field, morphogen| {
+            let source_expression = program.gene_expression_profile
+                .get(&morphogen.source_locus).copied().unwrap_or(0.0);
+            let concentration = unit_interval(morphogen.concentration) * source_expression * time_factor;
+            field.entry(morphogen.name.clone())
+                .and_modify(|known: &mut f64| *known = known.max(concentration))
+                .or_insert(concentration);
+            field
+        });
         program.expressed_lineage = dominant_morphogen(&morphogen_field);
         for signal in &ctx.signals {
             match signal {
@@ -89,20 +97,6 @@ impl Embryogenesis {
                     let expression = program.gene_expression_profile.get_mut(target_locus).unwrap();
                     *expression = unit_interval(*expression - unit_interval(*reduction) * energy_factor * time_factor);
                 }
-            }
-        }
-        let blocks: Vec<String> = epigenome
-            .marks
-            .iter()
-            .filter(|(_, m)| matches!(m.kind, EpigeneticMark::Methylation) && m.level > 0.7)
-            .map(|(l, _)| l.clone())
-            .collect();
-        if let Some(ref lineage) = program.expressed_lineage {
-            if blocks
-                .iter()
-                .any(|b| b.to_uppercase().contains(&lineage.to_uppercase()))
-            {
-                program.expressed_lineage = Some("BIPOTENT_UNCOMMITTED".to_string());
             }
         }
         for (locus, mark) in &epigenome.marks {
@@ -263,11 +257,12 @@ mod tests {
 
     #[test]
     fn same_genome_different_epigenome() {
-        let g = crate::genome::Genome::new("ATGC");
+        let mut g = crate::genome::Genome::new("ATGC");
+        g.insert_gene(crate::gene::Gene::new("NODE", "ATGC"));
         let ea = Epigenome::new();
         let mut eb = Epigenome::new();
         eb.add_mark(crate::epigenome::MarkParams {
-            locus: "NEURAL_DETERMINANT".to_string(),
+            locus: "NODE".to_string(),
             kind: EpigeneticMark::Methylation,
             level: 0.9,
         });
@@ -288,7 +283,8 @@ mod tests {
 
     #[test]
     fn morphogen_determines_lineage() {
-        let g = crate::genome::Genome::new("ATGC");
+        let mut g = crate::genome::Genome::new("ATGC");
+        g.insert_gene(crate::gene::Gene::new("NODE", "ATGC"));
         let e = Epigenome::new();
         let ctx = EmbryogenesisContext {
             signals: vec![],
@@ -306,10 +302,11 @@ mod tests {
 
     #[test]
     fn methylation_blocks_lineage() {
-        let g = crate::genome::Genome::new("ATGC");
+        let mut g = crate::genome::Genome::new("ATGC");
+        g.insert_gene(crate::gene::Gene::new("NODE", "ATGC"));
         let mut e = Epigenome::new();
         e.add_mark(crate::epigenome::MarkParams {
-            locus: "NEURAL_DETERMINANT".to_string(),
+            locus: "NODE".to_string(),
             kind: EpigeneticMark::Methylation,
             level: 0.95,
         });
@@ -324,12 +321,13 @@ mod tests {
             time_step: 10,
         };
         let r = Embryogenesis::compute_program(&g, &e, &ctx);
-        assert!(!r.expressed_lineage.as_ref().unwrap().contains("NEURAL"));
+        assert_eq!(r.expressed_lineage, None);
     }
 
     #[test]
     fn stress_does_not_affect_lineage() {
-        let g = crate::genome::Genome::new("ATGC");
+        let mut g = crate::genome::Genome::new("ATGC");
+        g.insert_gene(crate::gene::Gene::new("NODE", "ATGC"));
         let mut e = Epigenome::new();
         e.add_mark(crate::epigenome::MarkParams {
             locus: "STRESS_RESPONSE".to_string(),
