@@ -2,7 +2,8 @@
 
 const POLICIES = Object.freeze({
   scout_cell: { maxIterations: 1 },
-  resident_daemon: { maxIterations: null, maxTimeMs: null }
+  resident_daemon: { maxIterations: null, maxTimeMs: null },
+  bounded_worker: { maxIterations: 10 }
 });
 
 function workerPolicy(kind) {
