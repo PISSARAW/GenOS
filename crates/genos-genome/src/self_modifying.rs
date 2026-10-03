@@ -84,7 +84,7 @@ impl SelfModifyingMutator {
                 continue;
             }
             if let Some(gene) = genome.genes.get_mut(locus) {
-                let roll: u32 = rng.next_u32() % 3;
+                let roll = rng.random_range(0..3);
                 match roll {
                     0 => {
                         gene.expression_volume = (gene.expression_volume + 0.1).min(2.0);
