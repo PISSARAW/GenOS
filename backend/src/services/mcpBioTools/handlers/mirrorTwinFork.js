@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { quoteCliArg } = require('../shellQuote');
 
 // Registry for active mirror twin instances
-const mirrorTwinRegistry = new Map(); /* persisterHook: mirrorTwinRegistry */
+let mirrorTwinRegistry = new Map(); /* persisterHook: mirrorTwinRegistry */
 
 function getMirrorPair(pairId) {
   if (!mirrorTwinRegistry.has(pairId)) {
@@ -84,66 +84,60 @@ function handleMirrorTwinFork(args = {}, run) {
       base_snapshot_id: baseSnapshotId,
       right_twin: pair.rightTwin,
       left_twin: pair.leftTwin,
-      output: `Forked polar mirror twin pair '${pairId}'. Right Twin (Constructive: ${pair.rightTwin.id}) vs Left Twin (Situs Inversus: ${pair.leftTwin.id}).`
+      execution_scope: 'metadata_simulation',
+      runtime_agents_created: false,
+      output: `Recorded metadata descriptors for mirror pair '${pairId}'. No runtime agents were forked.`
     };
   }
 
   if (action === 'evaluate_polarity_equilibrium') {
-    const constructiveClaims = args.constructive_claims || ['Feature implementation proposed'];
-    const adversarialCritiques = args.adversarial_critiques || ['Edge case boundary check'];
+    const constructiveClaims = args.constructive_claims === undefined ? [] : args.constructive_claims;
+    const adversarialCritiques = args.adversarial_critiques === undefined ? [] : args.adversarial_critiques;
+    if (!Array.isArray(constructiveClaims) || !constructiveClaims.every(value => typeof value === 'string') ||
+        !Array.isArray(adversarialCritiques) || !adversarialCritiques.every(value => typeof value === 'string')) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'constructive_claims and adversarial_critiques must be arrays of strings.' };
+    }
 
     if (pair.rightTwin) pair.rightTwin.claimsProposed = constructiveClaims;
     if (pair.leftTwin) pair.leftTwin.counterExamplesFound = adversarialCritiques;
 
-    // Equilibrium calculation: measures how well constructive claims withstood adversarial pressure
-    const numClaims = Math.max(1, constructiveClaims.length);
-    const numCritiques = adversarialCritiques.length;
-    
-    // Balanced equilibrium between 0.0 (overwhelmed by bugs) and 1.0 (impenetrable robust solution)
-    const survivedCritiques = constructiveClaims.filter(c => !adversarialCritiques.some(crit => crit.includes(c)));
-    const equilibrium = Math.min(1.0, Math.max(0.1, survivedCritiques.length / numClaims));
-    pair.equilibriumScore = Number(equilibrium.toFixed(2));
+    // Inputs are recorded as metadata only; no claims or counterexamples are executed or checked.
+    const numClaims = constructiveClaims.length;
+    const survivedCritiques = [];
+    pair.equilibriumScore = 0;
     pair.updatedAt = new Date().toISOString();
 
     return {
       configured: true,
       success: true,
-      status: 'equilibrium_evaluated',
+      status: 'metadata_recorded',
       transport: 'counterfactual_mirror_plane',
       pair_id: pairId,
       equilibrium_score: pair.equilibriumScore,
       survived_claims: survivedCritiques,
-      falsified_count: numClaims - survivedCritiques.length,
-      arbiter_recommendation: pair.equilibriumScore >= 0.7 ? 'APPROVE_PROMOTION' : 'ITERATE_COUNTERFACTUAL',
-      output: `Mirror twin equilibrium evaluated at ${pair.equilibriumScore}. Recommendation: ${pair.equilibriumScore >= 0.7 ? 'APPROVE_PROMOTION' : 'ITERATE_COUNTERFACTUAL'}.`
+      falsified_count: 0,
+      execution_scope: 'metadata_simulation',
+      evidence_reviewed: false,
+      promotion_allowed: false,
+      arbiter_recommendation: 'MANUAL_REVIEW_REQUIRED',
+      output: `Recorded ${numClaims} claims and ${adversarialCritiques.length} critiques as metadata; no empirical evaluation occurred. Manual review is required.`
     };
   }
 
   if (action === 'reconcile_mirror') {
-    if (pair.equilibriumScore < 0.6 && args.force !== true) {
-      return {
-        configured: true,
-        success: false,
-        status: 'reconciliation_blocked',
-        transport: 'counterfactual_mirror_plane',
-        pair_id: pairId,
-        equilibrium_score: pair.equilibriumScore,
-        output: `Reconciliation blocked: equilibrium score ${pair.equilibriumScore} below quality gate threshold 0.60. Adversarial counter-examples unresolved.`
-      };
-    }
-
-    pair.reconciliationState = 'reconciled_promoted';
+    pair.reconciliationState = 'manual_review_required';
     pair.updatedAt = new Date().toISOString();
 
     return {
       configured: true,
-      success: true,
-      status: 'reconciled_promoted',
+      success: false,
+      status: 'promotion_unavailable',
       transport: 'counterfactual_mirror_plane',
       pair_id: pairId,
       final_equilibrium: pair.equilibriumScore,
-      promoted_snapshot_id: `snp-reconciled-${pairId.slice(-6)}`,
-      output: `Mirror twin pair '${pairId}' successfully reconciled and promoted with empirical anti-regression guarantee.`
+      execution_scope: 'metadata_simulation',
+      promotion_allowed: false,
+      output: `Pair '${pairId}' is recorded for manual review. No snapshot was promoted and no anti-regression guarantee was established.`
     };
   }
 
@@ -184,6 +178,7 @@ function _ensuremirrorTwinRegistryPersistent() {
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::mirror_twin_fork', 'mirrorTwinRegistry') : null;
     const mapToUse = stored && stored.size ? stored : mirrorTwinRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::mirror_twin_fork', 'mirrorTwinRegistry', mapToUse) : mapToUse;
+    mirrorTwinRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
     Object.defineProperty(module.exports, 'mirrorTwinRegistry', {
       value: persistentMap,
