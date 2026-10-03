@@ -68,8 +68,10 @@ async function handle(input) {
   const { variant, jury, experimentalDesign } = trinityOptionsFrom(context);
   const members = composeMembers(mission, { variant, jury, experimentalDesign }, assignments);
   if (garage.available < members.length) throw Object.assign(new Error(`Trinity design requires ${members.length} free worker slots`), { code: 'WORKER_GARAGE_FULL' });
-  const missionId = `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
-  await persistDispatchConfig(db, { missionId, mission, variantSelection: members[0]?.variantSelection, juryConfig: jury });
+  const missionId = context.request.trinityMissionId
+    || `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
+  const variantSelection = withRecursiveState(members[0]?.variantSelection, context.request);
+  await persistDispatchConfig(db, { missionId, mission, variantSelection, juryConfig: jury });
   const accepted = await launchWorlds({ db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId });
   const supervision = trinityMissionSupervisor.launch({
     missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot
@@ -79,6 +81,14 @@ async function handle(input) {
     variantSelection: members[0]?.variantSelection,
     capacity: workerGarage.getDynamicCapacity(context.orchestratorId), worlds: accepted, supervision
   } }));
+}
+
+function withRecursiveState(selection, request = {}) {
+  if (!selection) return selection;
+  return { ...selection, recursiveState: {
+    depth: Math.max(0, Number(request.recursiveDepth) || 0),
+    spentBudget: Math.max(0, Number(request.recursiveSpentBudget) || 0)
+  } };
 }
 
 async function persistDispatchConfig(db, config) {

@@ -13,6 +13,8 @@ const jury = require('../src/services/trinityBlindJuryService');
 const verifier = require('../src/services/trinityMissionVerifierService');
 const temporal = require('../src/services/trinityTemporalHorizons');
 const variantRuntime = require('../src/services/trinityVariantRuntime');
+const recursiveExecutor = require('../src/services/trinityRecursiveExecutor');
+const nestedMissionRunner = require('../src/services/trinityNestedMissionRunner');
 
 const TERMINAL = new Set(['blocked', 'completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
 
@@ -95,6 +97,7 @@ async function compareMission(db, input, reports) {
   const examined = await crossExamination.examine(db, reports, { centralProblem: input.mission });
   const worlds = verifier.verifyMissionReports(examined.reports, input.mission);
   const temporalReview = runTemporalReview(input.variantSelection, worlds);
+  const recursiveReview = await runRecursiveReview({ db, input, worlds });
   const review = await adversarial.runVariantReview({ db, agentId: input.orchestratorId, design, worlds });
   const graph = claimGraph.build(worlds);
   let result = trinityService.mergeTrinityEvidence(worlds, {
@@ -102,8 +105,10 @@ async function compareMission(db, input, reports) {
     threshold: 0.70, claimGraph: graph, variantSelection: input.variantSelection
   });
   result = adversarial.enforceVariantGate(result, review);
+  result = enforceRecursiveGate(result, recursiveReview);
   if (review) result.comparativeAnalysis.adversarialReview = review;
   if (temporalReview) result.comparativeAnalysis.temporalReview = temporalReview;
+  if (recursiveReview) result.comparativeAnalysis.recursiveExecution = recursiveReview;
   const variantExecution = variantRuntime.run({ selection: input.variantSelection, reports: worlds });
   if (Object.keys(variantExecution.executions).length) result.comparativeAnalysis.variantExecution = variantExecution;
   result.jury = await jury.evaluate({
@@ -119,6 +124,34 @@ async function compareMission(db, input, reports) {
       deterministicOutcome: { selectedWorld: result.selectedWorld } });
   }
   return result;
+}
+
+async function runRecursiveReview(context) {
+  const { input, db, worlds } = context;
+  const selection = input.variantSelection || {};
+  const design = selection.experimentalDesign || {};
+  if (design.worldTopology !== 'recursive_nesting' && design.hypothesisPolicy !== 'recursive_decomposition') return null;
+  const parent = worlds.find((world) => world.report?.claims?.length || world.report?.uncertainties?.length);
+  if (!parent) return { status: 'no_subproblem', result: null };
+  try {
+    return await recursiveExecutor.executeRecursiveTrinity({
+      mission: input.mission, parentReport: { ...parent.report, worldNumber: parent.worldNumber },
+      depth: Number(selection.recursiveState?.depth) || 0,
+      spentBudget: Number(selection.recursiveState?.spentBudget) || 0,
+      config: { maxDepth: 3, recursionBudget: 0.3, minMarginalCost: 0.05 },
+      runNestedTrinity: (child) => nestedMissionRunner.run({ db, parentAgentId: parent.agentId,
+        mission: child.mission, repoRoot: input.repoRoot, timeoutMs: 180000,
+        depth: child.depth, spentBudget: child.spentBudget })
+    });
+  } catch (error) {
+    return { status: 'unavailable', reason: error.code || 'nested_dispatch_failed' };
+  }
+}
+
+function enforceRecursiveGate(result, review) {
+  if (!review || ['verified', 'no_subproblem'].includes(review.status)) return result;
+  return { ...result, canMerge: false, outcome: 'ESCALATE_EXPERIMENT', selectedWorld: null,
+    mergedEvidence: null, reason: `recursive_${review.status}:${review.reason || 'incomplete_nested_evidence'}` };
 }
 
 function runTemporalReview(selection, worlds) {
