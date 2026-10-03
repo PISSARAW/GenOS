@@ -12,6 +12,8 @@ const MISSIONS = [
   ['Recover resilience after a regional failure.', 'resilience'],
   ['Maintain a persistent workspace over the long term.', 'persistent'],
   ['Discover novel options in an open-ended problem.', 'open_ended'],
+  ['Laisse émerger de nouvelles niches architecturales et préserve leurs élites.', 'open_ended'],
+  ['Fais naître, fusionner ou disparaître les niches selon leur pouvoir explicatif.', 'open_ended'],
   ['Run a security red-team attack simulation.', 'adversarial'],
   ['Research source collections and cite the literature.', 'knowledge'],
   ['Allocate GPU compute across local and cloud hardware.', 'compute'],
