@@ -13,7 +13,7 @@ async function verifyTrinityDispatch() {
   assert.equal(result.variantSelection.experimentalDesign.objectivePolicy, 'pareto_orthogonal');
   const explicit = await composeMode({ mode: 'trinity', mission: 'Secure the API.', options: { variantId: 'adversarial' } });
   assert.equal(explicit.variant, 'adversarial');
-  assert.match(explicit.members[2].mission, /challenge and correct/);
+  assert.match(explicit.members[2].mission, /counterexamples and refutations/);
   assert.match(explicit.members[2].mission, /evidence/);
 }
 

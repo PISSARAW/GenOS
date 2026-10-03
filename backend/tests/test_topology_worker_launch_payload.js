@@ -13,7 +13,7 @@ assert.equal(context.bridgePath, path.resolve(__dirname, '../bin/genos-orchestra
 
 const worker = workerLaunchPayload({
   context: { ...context, topologySession: { sessionId: 'syncytium:assignment:1', revision: 2 } },
-  member: { role: 'validator', mission: 'Validate JSON', engine: 'local' },
+  member: { role: 'verifier', mission: 'Validate JSON', engine: 'local' },
   workerId: 'worker-1', parent: { workspace_root: '/workspace' }
 });
 assert.equal(worker.action, 'dispatch_worker');
@@ -31,7 +31,7 @@ const populationContext = {
 };
 const populationWorker = workerLaunchPayload({
   context: populationContext,
-  member: { role: 'quorum_sensor', mission: 'A=1, B=1. Preserve these exact inputs.', engine: 'cloud' },
+  member: { role: 'quorum_sensor', workerKind: 'scout_cell', mission: 'A=1, B=1. Preserve these exact inputs.', engine: 'cloud' },
   workerId: 'population-worker', parent: { workspace_root: '/workspace' }
 });
 assert.ok(populationWorker.mission.includes('A=1, B=1. Preserve these exact inputs.'));
@@ -39,7 +39,7 @@ assert.ok(populationWorker.mission.includes('METAPOPULATION MIGRATION CONTRACT')
 
 const baselineWorker = workerLaunchPayload({
   context: { ...context, request: { ...context.request, mode: 'isolated_baseline' } },
-  member: { role: 'validator', mission: 'Independent baseline', engine: 'cloud' },
+  member: { role: 'verifier', mission: 'Independent baseline', engine: 'cloud' },
   workerId: 'baseline-worker', parent: { workspace_root: '/workspace' },
   toolLease: ['genos_snapshot', 'genos_worker_publish', 'genos_worker_inbox', 'genos_topology_session', 'genos_change_organization']
 });

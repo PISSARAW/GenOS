@@ -91,9 +91,14 @@ async function verifyBiologicalBranches() {
               : mode === 'rhizome' ? 'composeRhizome' : 'createSession';
       const service = services.find((entry) => entry[1] === method)[0];
       service[method] = async () => ({
-        members: biologicalModes.compose(mode, `Exercise the ${mode} topology mapping.`)
+        members: biologicalModes.compose(mode, mode === 'syncytium'
+          ? 'Maintain a shared graph of nodes and edges.'
+          : `Exercise the ${mode} topology mapping.`)
       });
-      const composition = await composeMode({ mode, mission: `Exercise the ${mode} topology mapping.` });
+      const mission = mode === 'syncytium'
+        ? 'Maintain a shared graph of nodes and edges.'
+        : `Exercise the ${mode} topology mapping.`;
+      const composition = await composeMode({ mode, mission });
       const members = verifyMappedTopology(mode, composition.members);
       for (const [index, member] of members.entries()) {
         if (member.workerKind) await persistAndCheckWorker(mode, member, index);
