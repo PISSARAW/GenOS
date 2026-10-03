@@ -53,12 +53,14 @@ function handleFrameshiftMutation(args = {}) {
       configured: true,
       success: true,
       status: 'insertion_frameshift_applied',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
       transport: 'frameshift_engine',
       shift_id: shiftId,
       frame_shift_offset: record.readingFrameShift,
       is_synchronized: record.isSynchronized,
       codons: computeCodons(record.sequenceTokens),
-      output: `Inserted token: reading frame shifted by +1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}).`
+      output: `Simulation inserted a token and shifted its model frame by +1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}); runtime behavior is unchanged.`
     };
   }
 
@@ -72,12 +74,14 @@ function handleFrameshiftMutation(args = {}) {
       configured: true,
       success: true,
       status: 'deletion_frameshift_applied',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
       transport: 'frameshift_engine',
       shift_id: shiftId,
       frame_shift_offset: record.readingFrameShift,
       is_synchronized: record.isSynchronized,
       codons: computeCodons(record.sequenceTokens),
-      output: `Deleted token: reading frame shifted by -1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}).`
+      output: `Simulation deleted a token and shifted its model frame by -1 (offset ${record.readingFrameShift}, sync=${record.isSynchronized}); runtime behavior is unchanged.`
     };
   }
 
@@ -94,6 +98,8 @@ function handleFrameshiftMutation(args = {}) {
       configured: true,
       success: true,
       status: 'reading_frame_realigned',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
       transport: 'frameshift_engine',
       shift_id: shiftId,
       pads_inserted: padNeeded,
@@ -104,9 +110,11 @@ function handleFrameshiftMutation(args = {}) {
   }
 
   return {
-    configured: true,
-    success: true,
-    status: 'active',
+      configured: true,
+      success: true,
+      status: 'active',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
     transport: 'frameshift_engine',
     shift_id: shiftId,
     frame_shift_offset: record.readingFrameShift,
