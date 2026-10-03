@@ -26,7 +26,10 @@ function resolvePloidyName(level) {
 }
 
 function handleMultiplyPloidy(record, polyId, level) {
-  const targetLevel = Math.max(2, Math.min(8, level || 4));
+  const targetLevel = level === undefined ? 4 : level;
+  if (![2, 3, 4, 6, 8].includes(targetLevel)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'ploidy_level must be one of 2, 3, 4, 6, or 8.' };
+  }
   record.ploidyLevel = targetLevel;
   record.ploidyName = resolvePloidyName(targetLevel);
   record.layers = [];
@@ -54,14 +57,16 @@ function handleMultiplyPloidy(record, polyId, level) {
   return {
     configured: true,
     success: true,
-    status: 'ploidy_multiplied',
+    status: 'metadata_recorded',
     transport: 'polyploidy_engine',
     polyploidy_id: polyId,
     ploidy_level: record.ploidyLevel,
     ploidy_name: record.ploidyName,
     layers_count: record.layers.length,
     layers: record.layers,
-    output: `Genome ploidy multiplied to ${record.ploidyName} with ${record.layers.length} specialized functional layers.`
+    execution_scope: 'metadata_simulation',
+    runtime_genome_changed: false,
+    output: `Recorded ${record.ploidyName} metadata with ${record.layers.length} descriptive layers. No runtime genome was changed.`
   };
 }
 
@@ -70,19 +75,27 @@ function handleOrchestrateLayers(record, polyId) {
   return {
     configured: true,
     success: true,
-    status: 'polyploid_layers_orchestrated',
+    status: 'metadata_recorded',
     transport: 'polyploidy_engine',
     polyploidy_id: polyId,
     ploidy_level: record.ploidyLevel,
     layers: record.layers,
     topology,
-    output: `Polyploid multi-layer orchestration active: ${topology}.`
+    execution_scope: 'metadata_simulation',
+    runtime_orchestration_started: false,
+    output: `Recorded a descriptive layer topology: ${topology}. No runtime orchestration started.`
   };
 }
 
 function handlePolyploidy(args = {}) {
   const action = args.action || 'status';
   const polyId = args.id || `poly-${Date.now()}`;
+  if (typeof polyId !== 'string' || !polyId.trim() || polyId.length > 120) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'id must be a non-empty string of at most 120 characters.' };
+  }
+  if (action === 'multiply_genome_ploidy' && args.ploidy_level !== undefined && ![2, 3, 4, 6, 8].includes(args.ploidy_level)) {
+    return { configured: true, success: false, status: 'invalid_args', error: 'ploidy_level must be one of 2, 3, 4, 6, or 8.' };
+  }
   const record = getPolyploidyRecord(polyId);
 
   if (action === 'multiply_genome_ploidy') {
