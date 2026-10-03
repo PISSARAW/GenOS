@@ -2,7 +2,7 @@
 
 - **Statut** : Topologie disponible avec sessions persistées, services de délibération et contrôleur de tours bornés. Le parcours de bout en bout dépend encore des handlers fournis par l'appelant.
 - **Portée implémentée** : composition des rôles, sélection de profils candidats, estimation conditionnelle de la taille effective, classification heuristique des questions, constitution versionnée et persistée, sessions auditées, engagements de jugement initiaux avec porte de divulgation, claims normalisés et dédupliqués après révélation, routage spécialisé vers reviewers et vérificateurs déclarés, graphe d'arguments persistant, registre de dissent append-only, historique append-only des révisions de croyance et signaux de conformité, agrégation initiale adaptée au type de question, calibration Brier par membre et domaine après résolution externe, jugement communautaire persisté et règles d'arrêt, recrutement adaptatif sur déficit de rôles ou de fournisseurs, conservation de la pluralité entre sous-communautés et bypass de preuves minoritaires vérifiées, frontière de confiance/quarantaine auditée, presets descriptifs de protocole, recommandations de transition à la Morphogenèse et contrôleur de tours piloté par handlers explicites, évaluation Pareto et métriques de diversité.
-- **Dernière revue** : 2026-09-24
+- **Dernière revue** : 2026-10-03
 
 Biocénose est une topologie spécialisée dans le cadre morphogénétique de GenOS : la
 Morphogenèse choisit et compose les organisations adaptées à une mission ; Biocénose
@@ -847,11 +847,18 @@ une revue humaine ; Hybrid Oracle Community bloque le traitement factuel sans v�
 déterministe. Epistemic Jury reste le protocole par défaut, et le graphe d'arguments est
 construit par le runtime commun.
 
-`argumentation_community`, `polycentric_council`, `representative_community`, `persistent_community` et
-`byzantine_resilient_community` sont reconnus mais retournent `executionLevel: PARTIAL` :
-le runtime n'implémente pas encore la composition de sous-communautés, l'échantillonnage
-représentatif, la mémoire de réputation inter-missions ou les garanties BFT. Le registre
-ne présente donc pas ces capacités comme exécutées.
+Les cinq variants ci-dessus restent déclarés `executionLevel: PARTIAL`, mais leurs parcours
+spécifiques ont désormais des effets runtime. Ce niveau décrit la couverture incomplète du
+contrat visé; il ne réduit ni leur valeur ni leur admissibilité au routage automatique. Le
+routeur choisit selon les signaux de mission et ne classe pas les variants par maturité.
+
+| Variant | Effet runtime appliqué | Limite documentée |
+| --- | --- | --- |
+| Argumentation Community | Construit le graphe d'arguments à partir des claims, supports, attaques et reçus vérifiés de confiance; l'adjudication utilise les labels d'acceptabilité et tient compte des membres mis en quarantaine. | Un claim sans support accepté reste non résolu; ce parcours ne garantit pas à lui seul la vérité des prémisses. |
+| Polycentric Council | Agrège les jugements des sous-communautés, conserve les distributions locales et le dissent, puis fédère les résultats au niveau parent. | Les résultats des clusters doivent être fournis; divergences et preuves minoritaires non résolues restent visibles et peuvent imposer l'escalade. |
+| Byzantine-Resilient Community | Filtre les éléments des membres mis en quarantaine et ne retient les reçus `VERIFIED` que si leur validateur de confiance les accepte. | Ce filtrage ne constitue pas une garantie BFT générale et ne démontre pas à lui seul une tolérance `N ≥ 3f + 1`. |
+| Representative Community | Agrège les votes pondérés d'un panel dont les sièges sont validés, uniques et de poids positif. | La sélection et la représentativité statistique du panel restent à établir en amont. |
+| Persistent Community | Consulte et conserve l'historique des jugements antérieurs à la ronde courante, avec stabilité et dissent préservé. | La portée longitudinale dépend du stockage et de l'identifiant de communauté; la maturité reste partielle. |
 
 ### 12.1 Epistemic Jury
 

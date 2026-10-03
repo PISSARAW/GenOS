@@ -1,16 +1,18 @@
 # Plan d'implémentation des variants des huit topologies
 
 - **Statut** : Implémentation en cours; couverture initiale branchée sur les huit topologies
-- **Dernière revue** : 2026-09-28
+- **Dernière revue** : 2026-10-03
 - **Décision d'architecture** : [ADR 0124](../../adr/0124-selection-automatique-des-variants.md)
 
 ## Objectif
 
 Pour toute mission lancée dans une topologie, choisir automatiquement un variant adapté,
-appliquer réellement sa politique, permettre une sélection explicite validée et expliquer
-le choix. « Adapté » signifie le meilleur variant exécutable selon les signaux et
-contraintes connus; le système ne doit pas prétendre à une optimalité parfaite sans
-comparaison mesurée.
+appliquer son mode d'utilisation, permettre une sélection explicite validée et expliquer le
+choix. Les variants ont la même valeur : ce sont des modes d'utilisation distincts de leur
+topologie, pas des options classées par maturité. « Adapté » désigne le variant dont les
+signaux correspondent à la mission sous les contraintes de compatibilité; le système ne
+prétend pas à une optimalité parfaite sans comparaison mesurée. Le niveau d'exécution décrit
+la couverture et les limites du parcours, indépendamment du choix du variant.
 
 ## Inventaire documentaire
 
@@ -34,7 +36,7 @@ variant dans le registre.
 | Topologie | Choix automatique et explicite | Effet runtime branché | Limites restantes |
 | --- | --- | --- | --- |
 | A-Team | Sélecteur et plan organisationnel existants | Graphe, communication et autorité de dispatch | Les formes multiteam restent soumises aux capacités disponibles |
-| Biocénose | Recommandation par type de question; explicite validé | Constitution et protocole runtime; concepts non compatibles exclus de l'auto-choix | Certaines politiques restent `PARTIAL` |
+| Biocénose | Recommandation par signaux de mission; explicite validé | Constitution et protocoles distincts; argumentation, fédération polycentrique, quarantaine, panel pondéré et historique persistant ont des effets runtime | Cinq parcours restent `PARTIAL`; voir la fiche pour leurs limites propres |
 | Holobionte | Douze identifiants et sélection par mission; préconditions vérifiées | Politique jointe à la composition host/symbiotes | Les modules mémoire, succession, outils et réseau n'appliquent pas tous encore leur politique à leurs opérations |
 | Syncytium | Auto-sélection et choix explicite | Schéma, session, cohérence, réplication et réparation | Human–AI reste conditionné aux capacités d'interface |
 | Rhizome | Douze choix disponibles et sélection par signaux | Routage, croissance, pruning et portée persistante | Les transitions de politique en cours de session restent à mesurer |
@@ -43,9 +45,11 @@ variant dans le registre.
 | Trinity | Douze presets choisis par signal de mission ou explicitement; préconditions contrôlées et adaptateurs requis vérifiés | Consignes distinctes par monde; reçu traçable avec adaptateurs et fonctions attendus; comparateur Pareto et modules spécialisés disponibles | Le cycle de mission n'invoque ni ne vérifie encore systématiquement chaque adaptateur déclaré; valider notamment les sorties Factorial, Recursive, Oracular, Jury, Adaptive, diversité fournisseurs et interventions contrefactuelles avant de considérer ces parcours complets |
 
 Ces branchements rendent le choix traçable et opérant au dispatch, mais ne valident pas encore
-la fin de l'objectif. La maturité centrale reste `partial` quand une politique n'agit pas sur
-tous les mécanismes de son variant. La vague suivante doit compléter les adaptateurs listés,
-puis produire les missions de validation par variant avant de promouvoir leur maturité.
+la fin de l'objectif. La maturité centrale reste `partial` lorsque le parcours ne couvre pas
+encore toutes les garanties ou tous les mécanismes visés. Elle informe sur la couverture; elle
+ne constitue ni un score de valeur ni un facteur de classement des variants. La vague suivante
+doit compléter les adaptateurs listés, puis produire les missions de validation par variant
+avant de promouvoir leur maturité.
 
 ## Plan par vagues
 
@@ -65,7 +69,9 @@ puis produire les missions de validation par variant avant de promouvoir leur ma
 - Réconcilier les catalogues locaux et les fiches documentaires des huit topologies.
 - Déclarer pour chaque variant s'il est exécutable, partiel, expérimental ou conceptuel.
 - Pour Trinity et Biome, créer les politiques et adaptateurs absents du catalogue central.
-- Ne pas auto-sélectionner une variante sans adaptateur et critère de succès observables.
+- Le statut de maturité ne doit pas exclure un variant de la sélection automatique. Si un
+  mécanisme requis n'a pas d'adaptateur ou de critère de succès observable, le parcours doit
+  exposer cette limite et bloquer ou escalader l'action concernée sans déclasser le variant.
 
 ### Vague 3 — Adaptateurs et exécution par topologie
 
@@ -75,8 +81,8 @@ puis produire les missions de validation par variant avant de promouvoir leur ma
   distinguer sélection automatique des variantes multiteam partiellement prises en charge.
 - **Biome** : appliquer allocation, foraging, diversité, succession, résilience, mémoire,
   adversarialité, substrat compute ou échelle selon le variant.
-- **Biocénose** : garder actifs les protocoles déjà supportés; implémenter ou exclure
-  explicitement les variantes `PARTIAL` jusqu'à leurs critères de fin.
+- **Biocénose** : garder les douze modes sélectionnables; compléter chaque parcours `PARTIAL`
+  selon ses critères propres, sans en faire une catégorie de valeur inférieure.
 - **Holobionte** : relier les profils host/symbiotes aux politiques de sécurité, localité,
   mémoire, régénération, outils et concurrence; ne pas promouvoir les concepts sans runtime.
 - **Syncytium** : connecter le variant sélectionné au schéma, zones de cohérence,

@@ -2,13 +2,14 @@
 
 - **Statut** : Partiel
 - **Portée** : inventaire central des variants Morphogenèse provenant des registres locaux
-- **Dernière revue** : 2026-09-28
+- **Dernière revue** : 2026-10-03
 
 Le registre Morphogenèse expose un catalogue commun de variants, tout en conservant les
-registres locaux comme sources de vérité pour leurs politiques. Ce catalogue permet
-l'inspection et la résolution par couple topologie/variant. Il ne signifie pas que le
-planner sélectionne déjà ces variants ou que leurs runtimes partagent une exécution
-uniforme.
+registres locaux comme sources de vérité pour leurs modes d'utilisation. Chaque variant est
+un parcours distinct de sa topologie et a la même valeur que les autres; la maturité mesure
+la couverture de son implémentation, pas son intérêt et ne sert pas à le déclasser au
+routage. Le catalogue permet l'inspection et la résolution par couple topologie/variant,
+mais n'unifie pas les exécutions locales.
 
 ## Couverture actuelle
 
@@ -25,7 +26,9 @@ uniforme.
 
 Les nombres du tableau comptent les variants nommés spécifiques et excluent `default`,
 enregistré séparément pour les huit topologies. Un variant catalogué n'implique pas que
-toutes ses garanties ou tous ses mécanismes conceptuels disposent d'un adaptateur complet.
+toutes ses garanties ou tous ses mécanismes disposent d'un adaptateur complet. Cette limite
+de couverture n'en fait pas un variant de valeur inférieure et ne doit pas, seule, empêcher
+son choix lorsque les signaux de mission lui correspondent.
 
 ## Contrat et résolution
 
@@ -43,8 +46,9 @@ une copie défensive de l'entrée. Un variant inconnu renvoie `null`.
 
 ## Limites actuelles
 
-- La planification Morphogenèse compare encore les topologies; elle ne choisit pas encore
-  systématiquement un variant par profil de problème.
+- La planification Morphogenèse compare les topologies; les routeurs locaux choisissent le
+  variant de mission selon leurs propres signaux et contraintes. Le catalogue central
+  n'exécute pas lui-même ces modes et ne normalise pas encore tous leurs reçus.
 - Les paramètres spécifiques restent interprétés par le runtime local correspondant.
 - Holobionte expose désormais des contrats de placement, mémoire, compétition, outils et
   synchronisation pour les variants correspondants. Ce sont des exigences déclaratives de
@@ -63,7 +67,8 @@ une copie défensive de l'entrée. Un variant inconnu renvoie `null`.
   suffit pas. L'évaluation immunitaire utilise les menaces déclarées, la mémoire adaptative et
   peut inclure la calibration des faux positifs et la détection d'auto-immunité.
 - Les variants Biocénose marqués `PARTIAL` et les variants Holobionte sont exposés avec une
-  maturité partielle; leur présence dans le catalogue ne les promeut pas au statut complet.
+  maturité partielle; cette maturité signale des limites de couverture, sans hiérarchie de
+  valeur entre variants.
 - Trinity déclare les douze presets et politiques exécutables, dont Factorial, Recursive et
   Oracular. Le choix automatique est signalé par la mission; le reçu expose les adaptateurs
   requis et leurs contrats, et refuse un adaptateur non chargeable ou indisponible. Les

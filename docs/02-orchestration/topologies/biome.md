@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : onze contrôleurs de variant accessibles sur session; la boucle autonome complète et les connecteurs fournisseurs restent hors portée.
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-10-03
 
 > *Biome est le protocole de GenOS pour maintenir et faire évoluer un ensemble de populations spécialisées dans un environnement dynamique, sous ressources limitées, lorsque la structure optimale du travail n'est pas connue à l'avance et doit émerger de l'interaction entre niches, populations, ressources et résultats.*
 
@@ -592,7 +592,7 @@ cycle est journalisé, incrémente le tick écologique et laisse son état dans 
 | --- | --- | --- |
 | Resource | Alloue le vecteur tokens/coût/quota/CPU/GPU/RAM/énergie; calcule starvation depuis les minima de niche; réserve des ressources; marché facultatif avec paiements; expose le rendement pour l'allocation suivante. | Pas d'apprentissage automatique de productivité entre missions. |
 | Exploration | Pondère l'information par curiosité et stagnation, foraging, pas de Lévy, archive des patches avec preuves et transfert vers un patch cible. | L'exécution d'un patch reste une requête au worker. |
-| Quality-Diversity | Descripteurs continus, cellules grille ou CVT, élite par cellule, compétition locale, nouveauté et file d'enfants issus du croisement/mutation. | Les descripteurs et opérateurs de mutation sont fournis par l'appelant; le fitness reste externe. |
+| Quality-Diversity | Exige une qualité numérique finie, des références de preuve, des descripteurs numériques normalisés dans `[0,1]` et des dimensions cohérentes avec l'archive et les centroïdes. Place chaque candidat dans une cellule de grille ou dans le centroïde CVT le plus proche; conserve la meilleure qualité par cellule, calcule la nouveauté locale et peut ajouter un enfant recombiné à la file. | Les descripteurs, la qualité mesurée, les références de preuve, les centroïdes et la mutation viennent de l'appelant. Le runtime valide la forme des références mais ne vérifie pas indépendamment les preuves; l'évaluation de fitness et l'exécution des enfants restent externes. |
 | Successional | Phases pioneer → specialist → stabilizer; exige preuve, niche colonisée et productivité, puis stabilité pour stabiliser; journalise ressources et références mémoire héritées. | Les mesures de stabilité doivent être fournies ou rester bloquantes. |
 | Resilience | Mesure la redondance par niche et le score de keystone; conserve les refuges; n'éteint une population que sur confirmation explicite avec preuve; finance la recolonisation depuis le refuge via la réserve. | Le benchmark perturbation/récupération est à produire. |
 | Persistent | Persiste saisons, mémoire, populations, niches, ressources et biofilm; la même `persistence_key` relie des missions; applique la rétention/decay configurée. | Sans clé partagée, la session est persistée isolément; aucun daemon saisonnier. |

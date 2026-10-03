@@ -2,7 +2,7 @@
 
 - **Statut** : spécification et état d'implémentation
 - **Portée** : persistance régionale par populations semi-indépendantes, migration et recolonisation
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-03
 
 > **Lecture du statut** — Les descriptions de rôles, variantes, scénarios et machines à états expriment le modèle visé lorsqu’elles sont présentées comme cible ou hypothèse. Les calculs, seuils et actions précédés de « réellement calculé », « implémenté » ou « défaut actuel » décrivent le code observé. Les analogies écologiques motivent le vocabulaire ; elles ne valident pas les performances du runtime.
 
@@ -693,7 +693,7 @@ DORMANT → [*] : fossilisation
 
 ### 13.8 Federated
 
-**Mécanisme :** Données et états restent locaux. Seuls les propagules vérifiés migrent.
+**Mécanisme :** Les transferts inter-régions exigent un contrat actif correspondant aux régions source et cible, une classification autorisée, une preuve de minimisation dans la limite `maxFields` et une attestation du receveur. Le reçu de minimisation contient un identifiant SHA-256 déterministe liant le propagule, le contrat et les champs annoncés; cet identifiant n'est ni une signature ni une preuve cryptographique que les données transférées ont réellement été expurgées. Seuls les propagules vérifiés et acceptés peuvent poursuivre la migration.
 **Quand :** Sites privés, edge computing, data sovereignty, partitions réseau.
 **Topologie :** Hierarchical avec corridors filtrés.
 **Politique :** Cultural + Counterexample. Pas d'agent brut (pas de données brutes).
