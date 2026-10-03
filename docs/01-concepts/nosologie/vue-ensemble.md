@@ -52,6 +52,12 @@ doit pas être lu comme un parcours de production attesté. Les opérateurs
 Rust documentés ne traitent pas une maladie réelle; les propositions du §4.2
 restent hors de la voie vérifiée.
 
+La taxonomie Rust `DiseaseCategory` est plus large que les variantes de
+`Pathology` actuellement définies : seules les catégories auxquelles une
+variante de pathologie est effectivement rattachée peuvent apparaître dans un
+rapport de diagnostic Rust. Les neuf familles ci-dessus sont un index de
+marqueurs et de propositions, pas neuf moteurs diagnostiques complets.
+
 ---
 
 ## 2. Matrice Nosologique Générale
