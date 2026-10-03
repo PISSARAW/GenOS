@@ -30,6 +30,7 @@ try {
   const hybrid = require('../src/services/mcpBioTools/handlers/hybridMultiples');
   const obligate = require('../src/services/mcpBioTools/handlers/obligatePolyembryony');
   const heteropaternal = require('../src/services/mcpBioTools/handlers/heteropaternalSuperfecundation');
+  const mirrorTwin = require('../src/services/mcpBioTools/handlers/mirrorTwinFork');
   const point = require('../src/services/mcpBioTools/handlers/pointMutation');
   const chimera = require('../src/services/mcpBioTools/handlers/chimericMerge');
   const conjoined = require('../src/services/mcpBioTools/handlers/conjoinedTwinBind');
@@ -42,6 +43,7 @@ try {
   hybrid.handleHybridMultiples({ action: 'generate_hybrid_cluster', cluster_id: 'persistent-hybrid' });
   obligate.handle({ action: 'spawn_obligate_clones', parent_prompt: 'persistent-poly' });
   heteropaternal.handle({ action: 'heteropaternal_fertilize_and_spawn' });
+  mirrorTwin.handleMirrorTwinFork({ action: 'fork_mirror_pair', pair_id: 'persistent-mirror' });
   point.handlePointMutation({ action: 'apply_substitution', id: 'persistent-point' });
   chimera.handleChimericMerge({ action: 'status', mosaic_id: 'persistent-chimera' });
   conjoined.handleConjoinedTwinBind({ action: 'status', pair_id: 'persistent-conjoined' });
@@ -56,6 +58,7 @@ try {
   assert.ok(hybrid.getSnapshot()['persistent-hybrid']);
   assert.ok(Object.keys(obligate.getSnapshot()).length);
   assert.ok(Object.keys(heteropaternal.getSnapshot()).length);
+  assert.ok(mirrorTwin.getSnapshot()['persistent-mirror']);
   assert.ok(point.getSnapshot()['persistent-point']);
   assert.ok(chimera.getSnapshot()['persistent-chimera']);
   assert.ok(conjoined.getSnapshot()['persistent-conjoined']);
@@ -68,6 +71,7 @@ try {
     'hybridMultiplesRegistry',
     'obligatePolyembryonyRegistry',
     'heteropaternalRegistry',
+    'mirrorTwinRegistry',
     'pointMutationRegistry',
     'chimericRegistry',
     'conjoinedTwinRegistry',
