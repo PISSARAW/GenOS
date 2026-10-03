@@ -95,7 +95,7 @@ async function gateAuthorityAndLearning() {
   const graph = {
     nodes: [
       { nodeId: 'root', parentNodeId: null, authorityBoundary: ['read'] },
-      { nodeId: 'child', parentNodeId: 'root', authorityBoundary: ['read', 'write'] }
+      { nodeId: 'child', parentNodeId: 'root', authorityBoundary: ['read'] }
     ],
     edges: [{ edgeId: 'grant', type: 'AUTHORIZES', fromNodeId: 'root', toNodeId: 'child', properties: { grants: ['write'] } }]
   };
