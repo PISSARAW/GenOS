@@ -25,6 +25,26 @@ function parseJsonResponse(text) {
   return JSON.parse(String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
 }
 
+function normalizeAttack(attack, index, attackerWorld) {
+  const targetWorld = Number(attack?.targetWorld);
+  const description = String(attack?.counterexample?.description || '').trim();
+  const steps = attack?.counterexample?.reproductionSteps;
+  if (!Number.isInteger(targetWorld) || targetWorld < 1 || targetWorld > 3 || targetWorld === attackerWorld) return null;
+  if (!String(attack?.attackStatement || '').trim() || description.length < 12 || !Array.isArray(steps) || !steps.length) return null;
+  return {
+    ...attack,
+    id: String(attack.id || `attack_${index + 1}`),
+    targetWorld,
+    severity: ['critical', 'major', 'minor'].includes(attack.severity) ? attack.severity : 'major'
+  };
+}
+
+function normalizeAttacks(attacks, attackerWorld) {
+  return (Array.isArray(attacks) ? attacks : [])
+    .map((attack, index) => normalizeAttack(attack, index, attackerWorld))
+    .filter(Boolean);
+}
+
 function extractFalsifiableClaims(report, sourceWorld) {
   const claims = Array.isArray(report.claims) ? report.claims : [];
   return claims
@@ -73,7 +93,7 @@ async function attackPhase(input) {
       maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'
     });
     const parsed = parseJsonResponse(result.text);
-    return { attacks: Array.isArray(parsed.attacks) ? parsed.attacks : [], model: result.model, provider: result.provider };
+    return { attacks: normalizeAttacks(parsed.attacks, input.attackerWorldNumber), model: result.model, provider: result.provider };
   } catch (e) {
     return { attacks: [], error: e.message };
   }
@@ -118,7 +138,8 @@ function adjudicate(attacks, defenses, evidenceGates) {
       reasoning = 'Defender conceded the attack';
     } else if (defense.response === 'refute') {
       const hasEvidence = Array.isArray(defense.evidence) && defense.evidence.length > 0;
-      const gatePass = evidenceGates?.every(g => g.passes(defense.evidence)) ?? hasEvidence;
+      const gatePass = Boolean(evidenceGates?.length)
+        && evidenceGates.every(g => typeof g.passes === 'function' && g.passes(defense.evidence));
       verdict = gatePass ? 'refuted' : 'attack_stands_insufficient_evidence';
       reasoning = gatePass ? 'Defense provided verified evidence' : 'Defense evidence did not pass gates';
     } else {
@@ -140,7 +161,8 @@ async function crossExamine(input) {
   const attacker = worlds[attackerIdx];
   const defenders = worlds.filter((_, i) => i !== attackerIdx);
 
-  const attackResult = await attackPhase({ ...input, attackerReport: attacker, defenderReports: defenders });
+  const attackerWorldNumber = attackerIdx + 1;
+  const attackResult = await attackPhase({ ...input, attackerWorldNumber, attackerReport: attacker, defenderReports: defenders });
   if (!attackResult.attacks.length) {
     return { phase: 'attack', attacks: [], defenses: [], adjudication: [], note: 'No attacks generated' };
   }
@@ -162,4 +184,35 @@ async function crossExamine(input) {
   };
 }
 
-module.exports = { crossExamine, attackPhase, defendPhase, adjudicate };
+function isAdversarialDesign(design) {
+  return design?.variantSelection?.experimentalDesign?.interactionPolicy === 'adversarial_cross_examination';
+}
+
+async function runVariantReview(input) {
+  if (!isAdversarialDesign(input.design)) return null;
+  return crossExamine({
+    db: input.db,
+    agentId: input.agentId,
+    tenant: input.tenant,
+    mission: input.design.centralProblem,
+    worlds: input.worlds,
+    config: { attackerWorldIndex: 2, maxCostUsd: input.maxCostUsd || 0.5 }
+  });
+}
+
+function enforceVariantGate(result, review) {
+  if (!review) return result;
+  const complete = review.phase === 'complete' && review.attacks.length > 0;
+  const unresolved = review.adjudication.some((entry) => !['refuted', 'conceded'].includes(entry.verdict));
+  if (complete && !unresolved) return result;
+  return {
+    ...result,
+    canMerge: false,
+    outcome: 'ESCALATE_EXPERIMENT',
+    selectedWorld: null,
+    mergedEvidence: null,
+    reason: !complete ? 'adversarial_review_missing_or_unusable' : 'adversarial_findings_unresolved'
+  };
+}
+
+module.exports = { crossExamine, attackPhase, defendPhase, adjudicate, normalizeAttacks, runVariantReview, enforceVariantGate };

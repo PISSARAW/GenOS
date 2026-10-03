@@ -231,6 +231,19 @@ function testAdversarialAdjudication() {
   assert.equal(refuted[0].verdict, 'refuted');
   const standing = adversarial.adjudicate(attacks, [], null);
   assert.equal(standing[0].verdict, 'attack_stands');
+  const unsupportedRefutation = adversarial.adjudicate(attacks,
+    [{ attackId: 'a1', response: 'refute', evidence: ['looks plausible'] }], null);
+  assert.equal(unsupportedRefutation[0].verdict, 'attack_stands_insufficient_evidence');
+  const normalized = adversarial.normalizeAttacks([
+    { targetWorld: 1, attackStatement: 'Claim misses a case', counterexample: { description: 'Balanced first weighing leaves four candidates', reproductionSteps: ['enumerate outcomes'] } },
+    { targetWorld: 3, attackStatement: 'self attack', counterexample: { description: 'not allowed', reproductionSteps: ['x'] } },
+    { targetWorld: 2, attackStatement: 'No reproducible example', counterexample: { description: 'too short', reproductionSteps: [] } }
+  ], 3);
+  assert.equal(normalized.length, 1);
+  assert.equal(normalized[0].id, 'attack_1');
+  const blocked = adversarial.enforceVariantGate({ canMerge: true, outcome: 'PROMOTE_WORLD' }, { phase: 'attack', attacks: [], adjudication: [] });
+  assert.equal(blocked.canMerge, false);
+  assert.equal(blocked.outcome, 'ESCALATE_EXPERIMENT');
 }
 
 async function testAdversarialShape() {

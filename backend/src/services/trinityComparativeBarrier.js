@@ -15,17 +15,16 @@ const { hashWorkspace } = require('./trinitySnapshotService');
 const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
 const trinityCrossExamination = require('./trinityCrossExaminationService');
+const trinityAdversarial = require('./trinityAdversarialCrossExamination');
 const candidateVerification = require('./trinityCandidateVerificationService');
 const trinityClaimGraph = require('./trinityClaimGraphService');
 const trinityBlindJury = require('./trinityBlindJuryService');
-
 function reportOf(event) {
   if (!event) return null;
   if (event.evidenceReport) return event.evidenceReport;
   const payload = event.payload || {};
   return payload.evidenceReport || payload.report || null;
 }
-
 function latestReport(dossier) {
   const events = Array.isArray(dossier?.events) ? dossier.events : [];
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -35,7 +34,6 @@ function latestReport(dossier) {
   const failure = [...events].reverse().find((event) => event && event.failure);
   return failure ? { outcome: 'failed', failure: failure.failure } : null;
 }
-
 function escapeLike(value) {
   return String(value).replace(/[\\%_]/g, (char) => `\\${char}`);
 }
@@ -75,7 +73,6 @@ async function buildWorldReportsFromMission(db, missionId) {
   }
   return reports;
 }
-
 function worldReportFor(params) {
   const { worker, member, byWorker, index } = params;
   const report = latestReport(byWorker.get(worker.agentId));
@@ -91,13 +88,11 @@ function worldReportFor(params) {
     report: report || undefined
   };
 }
-
 function buildWorldReports(workers, dossiers, options = {}) {
   const byWorker = new Map((dossiers || []).map((dossier) => [dossier.workerId, dossier]));
   const members = Array.isArray(options.members) ? options.members : [];
   return (workers || []).map((worker, index) => worldReportFor({ worker, member: members[index] || {}, byWorker, index }));
 }
-
 function buildComparison(result) {
   return {
     canMerge: result.canMerge,
@@ -115,7 +110,6 @@ function buildComparison(result) {
     adaptiveBudget: result.comparativeAnalysis?.adaptiveBudget || null
   };
 }
-
 async function recordComparison(ctx, trinity, result) {
   await trinityService.recordWorldComparison(ctx.db, {
     missionId: trinity.missionId,
@@ -128,7 +122,6 @@ async function recordComparison(ctx, trinity, result) {
     }
   });
 }
-
 async function experimentLatencySla(db, missionId) {
   if (!db || typeof db.get !== 'function') return null;
   const row = await db.get('SELECT budget_policy_json FROM trinity_experiments WHERE mission_id = ?', missionId);
@@ -137,7 +130,6 @@ async function experimentLatencySla(db, missionId) {
   const latency = Number(budget.maxLatencyMs);
   return Number.isFinite(latency) && latency >= 0 ? latency : null;
 }
-
 async function applyTrinityComparison(ctx) {
   const trinity = ctx && ctx.autonomyPlan ? ctx.autonomyPlan.trinity : null;
   if (!trinity || trinity.activated !== true) return null;
@@ -146,11 +138,17 @@ async function applyTrinityComparison(ctx) {
   const initialReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
   const crossExamination = await trinityCrossExamination.examine(ctx.db, initialReports, trinity.hypothesisDesign);
   const worldReports = crossExamination.reports;
+  const adversarialReview = await trinityAdversarial.runVariantReview({
+    db: ctx.db, agentId: ctx.agentId, tenant: ctx.tenant,
+    design: trinity.hypothesisDesign, worlds: worldReports
+  });
   const claimGraph = trinityClaimGraph.build(worldReports, trinity.hypothesisDesign?.claimGraph);
   const maxLatencyMs = await experimentLatencySla(ctx.db, trinity.missionId);
-  const result = trinityService.mergeTrinityEvidence(worldReports, {
+  let result = trinityService.mergeTrinityEvidence(worldReports, {
     domain: trinity.domain, threshold, maxLatencyMs, dimensionThresholds: trinity.dimensionThresholds, claimGraph
   });
+  result = trinityAdversarial.enforceVariantGate(result, adversarialReview);
+  if (adversarialReview) result.comparativeAnalysis.adversarialReview = adversarialReview;
   result.jury = await trinityBlindJury.evaluate({ db: ctx.db, agentId: ctx.agentId, outcome: result.outcome, mission: trinity.hypothesisDesign?.centralProblem, config: trinity.hypothesisDesign?.juryConfig, reports: worldReports });
   result.comparativeAnalysis.crossExamination = trinityCrossExamination.summary(crossExamination);
   result.comparativeAnalysis.claimGraph = claimGraph;
@@ -309,7 +307,6 @@ async function previousPromotion(input) {
     agentGit: decision.agentGit || null
   };
 }
-
 async function updateExperimentDecision(db, missionId, result) {
   if (!missionId) return;
   const experiment = await db.get('SELECT id, status FROM trinity_experiments WHERE mission_id = ?', missionId);
@@ -321,7 +318,6 @@ async function updateExperimentDecision(db, missionId, result) {
   const status = await advanceExperiment(db, experiment, evidenceRef);
   await persistDecision(db, { experiment, status, next, decision, evidenceRef, canMerge: result?.canMerge === true, outcome });
 }
-
 function outcomeFor(result) {
   if (result?.outcome) return result.outcome;
   return result?.canMerge ? 'PROMOTE_WORLD' : 'ESCALATE_EXPERIMENT';
@@ -342,7 +338,6 @@ async function advanceExperiment(db, experiment, evidenceRef) {
   if (status === 'sealed_complete') status = (await trinityExperimentStore.transition(db, { id: experiment.id, status: 'cross_examining', reason: 'comparative_review_started', evidenceRef })).status;
   return status;
 }
-
 async function persistDecision(db, input) {
   const { experiment, status, next, decision, evidenceRef, canMerge, outcome } = input;
   if (status === 'cross_examining') {
