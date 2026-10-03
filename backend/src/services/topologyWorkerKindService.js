@@ -29,6 +29,8 @@ const ROLE_REQUIREMENTS = Object.freeze({
   graph_analyzer: ['analyze', 'domain_specialization'],
   epistemic_specialist: ['analyze'],
   teacher: ['teach'],
+  medical_reviewer: ['clinical_context'],
+  clinical_educator: ['clinical_context'],
   causal_reconstructor: ['analyze', 'causal_analysis'],
   transactional_validator: ['verify'],
   code_semantic_reviewer: ['verify', 'adversarial_review']
