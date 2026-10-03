@@ -173,7 +173,7 @@ const PHENOTYPES = Object.freeze({
     delegationDepth: 0,
     spawnBudget: 0,
     authorityProfile: Object.freeze({
-      read: true, analyze: true, execute: false, write: false,
+      read: true, analyze: true, execute: true, write: false,
       spawn: false, delegate: false, promote: false, mutate: false,
       topology: false, strategy: false
     }),

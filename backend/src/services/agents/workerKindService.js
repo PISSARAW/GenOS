@@ -82,7 +82,7 @@ const PROMPT_RULES = Object.freeze({
   sub_orchestrator: 'Coordinate only this subgraph; do not alter global topology or promote results; honor spawn and depth ceilings.'
 });
 const AUTHORITY_OVERRIDES = Object.freeze({
-  resident_daemon: { execute: false },
+  resident_daemon: { execute: true },
   specialist: { write: false },
   creative_worker: { read: false, execute: false },
   synthesis_worker: { execute: false },
