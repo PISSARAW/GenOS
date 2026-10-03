@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { createRelation, stableRelationId } = require('../../crossAgentRelationalService');
 
 // In-memory registry of marmoset germline chimerism records
-const MARMOSET_REGISTRY = new Map();
+let MARMOSET_REGISTRY = new Map();
 
 function generateId(prefix) {
   return `${prefix}_${Math.random().toString(36).substring(2, 9)}`;
@@ -200,10 +200,11 @@ function _ensuremarmosetGermlineRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::marmoset_germline_chimerism', 'marmosetGermlineRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : marmosetGermlineRegistry;
+    const mapToUse = stored && stored.size ? stored : MARMOSET_REGISTRY;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::marmoset_germline_chimerism', 'marmosetGermlineRegistry', mapToUse) : mapToUse;
+    MARMOSET_REGISTRY = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'marmosetGermlineRegistry', {
+    Object.defineProperty(module.exports, 'MARMOSET_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -223,7 +224,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.marmosetGermlineRegistry || marmosetGermlineRegistry;
+  const map = module.exports.MARMOSET_REGISTRY || MARMOSET_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

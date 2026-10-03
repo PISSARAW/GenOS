@@ -15,9 +15,11 @@ const fakeBootstrap = {
 };
 const originalLoad = Module._load;
 Module._load = function loadWithFakePersister(request, parent, isMain) {
-  return request === '../../adaptiveStateBootstrap'
-    ? fakeBootstrap
-    : originalLoad.call(this, request, parent, isMain);
+  if (request === '../../adaptiveStateBootstrap') return fakeBootstrap;
+  if (request === '../../crossAgentRelationalService') {
+    return { createRelation: async () => {}, stableRelationId: (...parts) => parts.join(':') };
+  }
+  return originalLoad.call(this, request, parent, isMain);
 };
 
 try {
@@ -28,6 +30,10 @@ try {
   const hybrid = require('../src/services/mcpBioTools/handlers/hybridMultiples');
   const obligate = require('../src/services/mcpBioTools/handlers/obligatePolyembryony');
   const heteropaternal = require('../src/services/mcpBioTools/handlers/heteropaternalSuperfecundation');
+  const point = require('../src/services/mcpBioTools/handlers/pointMutation');
+  const chimera = require('../src/services/mcpBioTools/handlers/chimericMerge');
+  const conjoined = require('../src/services/mcpBioTools/handlers/conjoinedTwinBind');
+  const marmoset = require('../src/services/mcpBioTools/handlers/marmosetGermlineChimerism');
 
   dynamic.handleDynamicTripletExpansion({ id: 'persistent-dynamic', action: 'replicate_generation', delta_repeats: 1 });
   frameshift.handleFrameshiftMutation({ id: 'persistent-frameshift', action: 'insert_token_frameshift' });
@@ -36,6 +42,12 @@ try {
   hybrid.handleHybridMultiples({ action: 'generate_hybrid_cluster', cluster_id: 'persistent-hybrid' });
   obligate.handle({ action: 'spawn_obligate_clones', parent_prompt: 'persistent-poly' });
   heteropaternal.handle({ action: 'heteropaternal_fertilize_and_spawn' });
+  point.handlePointMutation({ action: 'apply_substitution', id: 'persistent-point' });
+  chimera.handleChimericMerge({ action: 'status', mosaic_id: 'persistent-chimera' });
+  conjoined.handleConjoinedTwinBind({ action: 'status', pair_id: 'persistent-conjoined' });
+  marmoset.MARMOSET_REGISTRY.set('persistent-marmoset', {
+    exchangeId: 'persistent-marmoset', donorTwinId: 'donor', proxyTwinId: 'proxy', descendants: []
+  });
 
   assert.ok(dynamic.getSnapshot()['persistent-dynamic']);
   assert.ok(frameshift.getSnapshot()['persistent-frameshift']);
@@ -44,6 +56,10 @@ try {
   assert.ok(hybrid.getSnapshot()['persistent-hybrid']);
   assert.ok(Object.keys(obligate.getSnapshot()).length);
   assert.ok(Object.keys(heteropaternal.getSnapshot()).length);
+  assert.ok(point.getSnapshot()['persistent-point']);
+  assert.ok(chimera.getSnapshot()['persistent-chimera']);
+  assert.ok(conjoined.getSnapshot()['persistent-conjoined']);
+  assert.ok(marmoset.getSnapshot()['persistent-marmoset']);
   assert.deepEqual(registryBindings.map(({ name }) => name), [
     'dynamicTripletExpansionRegistry',
     'frameshiftMutationRegistry',
@@ -51,7 +67,11 @@ try {
     'monozygoticRegistry',
     'hybridMultiplesRegistry',
     'obligatePolyembryonyRegistry',
-    'heteropaternalRegistry'
+    'heteropaternalRegistry',
+    'pointMutationRegistry',
+    'chimericRegistry',
+    'conjoinedTwinRegistry',
+    'marmosetGermlineRegistry'
   ]);
 } finally {
   Module._load = originalLoad;
