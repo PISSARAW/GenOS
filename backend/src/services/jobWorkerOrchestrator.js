@@ -21,7 +21,7 @@ function trackExecution(promise) {
 }
 
 async function processWorkflowTable(db) {
-  const rows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.priority DESC, r.created_at ASC");
+  const rows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.priority DESC, r.created_at ASC LIMIT 1");
   const job = selectFairWorkflow(rows, 'workflow_runs');
   if (!job) return;
   const outcome = await claim(db, 'workflow_runs', job.id);
@@ -37,7 +37,7 @@ async function runEvaluationJob(db, job) {
 }
 
 async function processQueuedTable(db, table) {
-  const rows = await db.all(`SELECT * FROM ${table} WHERE status = 'queued' AND (next_attempt_at IS NULL OR next_attempt_at <= CURRENT_TIMESTAMP) ORDER BY priority DESC, created_at ASC`);
+  const rows = await db.all(`SELECT * FROM ${table} WHERE status = 'queued' AND (next_attempt_at IS NULL OR next_attempt_at <= CURRENT_TIMESTAMP) ORDER BY priority DESC, created_at ASC LIMIT 1`);
   const job = selectFairWorkflow(rows, table);
   if (!job) return;
   const outcome = await claim(db, table, job.id);
