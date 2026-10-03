@@ -26,7 +26,8 @@ function composeSubCouncils(input = {}) {
 
 function delegateFor(cluster, count) {
   const distribution = Array.isArray(cluster.distribution) ? cluster.distribution : [];
-  const delegates = distribution.slice(0, Math.max(1, count)).map((item) => ({
+  const delegates = [...distribution].sort((left, right) => Number(right.share) - Number(left.share)
+    || String(left.position).localeCompare(String(right.position))).slice(0, Math.max(1, count)).map((item) => ({
     position: item.position, share: item.share, memberCount: item.memberCount
   }));
   return {

@@ -161,10 +161,14 @@ function polycentric(input, route) {
   const clusters = Array.isArray(input.clusters) ? input.clusters : [];
   const hierarchical = require('../deliberation/hierarchicalDeliberationService');
   const judgment = hierarchical.aggregateAtParent({ clusters, isTrustedReceipt: input.isTrustedReceipt });
-  const unresolved = clusters.length === 0 || judgment.parentMustReview;
+  const councilService = require('../deliberation/polycentricCouncilService');
+  const federation = clusters.length ? councilService.federate({ clusters: judgment.clusters,
+    delegatesPerCluster: input.delegatesPerCluster }) : null;
+  const unresolved = !federation || judgment.parentMustReview || federation.parentMustReview;
   return {
     policy: route.policy, questionType: route.questionType,
-    outcome: unresolved ? 'REVIEW_REQUIRED' : 'POLYCENTRIC_JUDGMENT', polycentric: judgment
+    outcome: unresolved ? 'REVIEW_REQUIRED' : 'POLYCENTRIC_JUDGMENT',
+    polycentric: { ...judgment, federation }
   };
 }
 
