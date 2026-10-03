@@ -11,6 +11,7 @@ const quiescence = require('./workerEvidenceBarrierQuiescence');
 const localWorker = require('./workerEvidenceBarrierLocal');
 const pipeline = require('./workerEvidenceBarrierPipeline');
 const barrier = require('./workerEvidenceBarrier');
+const { calculateInheritedCognitiveBudget } = require('./workerCognitiveBudget');
 
 async function waitForAutonomousWorkerQuiescence() {
   const args = Array.from(arguments);
@@ -47,36 +48,6 @@ function enforceTrinityBudget(plan) {
   if (policy.rounds.initial.workerCount !== 3) {
     throw Object.assign(new Error('The available budget cannot fund three Trinity worlds.'), { code: 'TRINITY_BUDGET_INSUFFICIENT' });
   }
-}
-
-function normalizeParentBudget(parentBudget) {
-  const numeric = Number(parentBudget);
-  if (Number.isFinite(numeric) === false) return 100;
-  if (numeric < 0) return 0;
-  return numeric;
-}
-
-function normalizeWorkerShare(workerShare) {
-  const numeric = Number(workerShare);
-  if (Number.isFinite(numeric) === false) return 0.6;
-  if (numeric < 0) return 0;
-  if (numeric > 1) return 1;
-  return numeric;
-}
-
-function normalizeWorkerCount(workerCount) {
-  const numeric = Number(workerCount);
-  if (Number.isFinite(numeric) === false) return 1;
-  const floored = Math.floor(numeric);
-  if (floored < 1) return 1;
-  return floored;
-}
-
-function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
-  const parent = normalizeParentBudget(parentBudget);
-  const share = normalizeWorkerShare(workerShare);
-  const count = normalizeWorkerCount(workerCount);
-  return (parent * share) / count;
 }
 
 async function executeWorkerPipeline(pipelineContext) {

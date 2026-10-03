@@ -16,6 +16,7 @@ const { buildExpressionContext } = require('./agentExpressionContextService');
 const { initClinicalState } = require('../medical/clinicalStateService');
 const { surveillanceScan } = require('../medical/immuneSurveillanceService');
 const workerKinds = require('./workerKindService');
+const { calculateInheritedCognitiveBudget } = require('../workerCognitiveBudget');
 
 function uuid() { return crypto.randomUUID(); }
 function safeArray(v) { return Array.isArray(v) ? v : []; }
@@ -44,16 +45,11 @@ function strategyFields(strategy) {
 }
 
 function computeCognitiveBudget(parent, request, workerCount) {
-  const requestedCount = Number(workerCount);
-  const count = Number.isFinite(requestedCount) && requestedCount > 0
-    ? Math.max(1, Math.floor(requestedCount)) : 1;
-  const requestedShare = Number(request.budget?.cognitiveShare ?? 0.6);
-  const share = Number.isFinite(requestedShare)
-    ? Math.max(0, Math.min(1, requestedShare)) : 0.6;
-  const requestedBudget = Number(parent.cognitive_budget ?? 100);
-  const parentBudget = Number.isFinite(requestedBudget) && requestedBudget >= 0
-    ? requestedBudget : 100;
-  return (parentBudget * share) / count;
+  return calculateInheritedCognitiveBudget(
+    parent.cognitive_budget,
+    request.budget?.cognitiveShare,
+    workerCount
+  );
 }
 
 async function buildDna(ctx) {
