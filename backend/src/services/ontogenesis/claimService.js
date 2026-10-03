@@ -47,7 +47,9 @@ async function renewIfExpired(db, claim) {
 }
 
 function isExpired(row) {
-  return String(row.expires_at) <= new Date().toISOString();
+  const expires = Date.parse(String(row.expires_at));
+  if (Number.isNaN(expires)) return true;
+  return expires <= Date.now();
 }
 
 async function extendClaim(db, claim) {
