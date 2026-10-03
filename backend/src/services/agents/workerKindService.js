@@ -172,9 +172,6 @@ function workerLimits(kind, subOrchestrator) {
   const policy = workerPolicy(kind);
   const maxIterations = Object.hasOwn(policy, 'maxIterations') ? policy.maxIterations : 10;
   const limits = { ...policy };
-  delete limits.maxTokens;
-  delete limits.maxTimeMs;
-  delete limits.maxCpuMs;
   return { ...limits, maxIterations, ...(subOrchestrator ? { maxIterations: 30 } : {}) };
 }
 
