@@ -58,9 +58,9 @@ async function main() {
   first = openDatabase(file);
   const restored = await clinical.getClinicalState(first.adapter, 'clinical-agent');
   assert.equal(restored.id, initial.id);
-  assert.deepEqual(restored.vitals, updated.vitals);
+  assert.deepEqual(restored.vitals, partial.vitals);
   for (const field of ['immuneTiter', 'inflammatoryIndex', 'cellCycleState', 'plasmidLoad', 'pathogenBurden', 'iatrogenicLoad', 'wellnessScore']) {
-    assert.equal(restored[field], updated[field], `${field} survives database reopen`);
+    assert.equal(restored[field], partial[field], `${field} survives database reopen`);
   }
   await closeDatabase(first.database);
   await fs.rm(file, { force: true });
