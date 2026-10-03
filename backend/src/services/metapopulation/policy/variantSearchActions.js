@@ -60,33 +60,34 @@ function deterministicSeed(context) {
 async function evolutionaryActions(observed, input, options) {
   return [
     ...evolutionRequests(observed, input),
-    ...reproductionActions(observed, input),
-    ...speciationActions(observed)
+    ...speciationActions(observed, input)
   ];
 }
 
 function evolutionRequests(observed, input) {
   if (observed.variantPolicy?.localEvolution !== true) return [];
   const actions = [];
-  for (const request of input.evolutionRequests || []) {
+  const requests = [...(input.evolutionRequests || []), ...populationRequests(observed, input)];
+  for (const request of requests) {
     const deme = observed.demes.find((d) => d.demeId === request.demeId);
-    if (!deme) continue;
-      const seed = request.seed || deterministicSeed({ missionId: input.metapopulationId, demeId: deme.demeId, generation: request.generation, solverId: 'evolution' });
+    if (!deme || !Array.isArray(request.population) || actions.some((item) => item.request.demeId === deme.demeId)) continue;
+    const seed = request.seed || deterministicSeed({ missionId: input.metapopulationId, demeId: deme.demeId, generation: request.generation, solverId: 'evolution' });
     actions.push({ type: 'EVOLVE_ISLAND', request: { ...request, demeId: deme.demeId, seed } });
   }
   return actions;
 }
 
-function reproductionActions(observed, input) {
-  if (observed.variantPolicy?.reproduceLocally !== true) return [];
-  return observed.demes.filter((d) => d.status === 'ACTIVE' && input.populationRefs?.[d.demeId])
-    .map((deme) => ({ type: 'LOCAL_REPRODUCTION', demeId: deme.demeId, population: input.populationRefs[deme.demeId] }));
+function populationRequests(observed, input) {
+  return observed.demes.filter((deme) => deme.status === 'ACTIVE' && Array.isArray(input.populationRefs?.[deme.demeId]))
+    .map((deme) => ({ demeId: deme.demeId, population: input.populationRefs[deme.demeId], generation: deme.generation || 0,
+      fitnessContext: deme.fitnessContext || {}, missionId: input.metapopulationId }));
 }
 
-function speciationActions(observed) {
-  return observed.variantPolicy?.speciation === true
-    ? [{ type: 'CHECK_SPECIATION', demes: observed.demes }]
-    : [];
+function speciationActions(observed, input) {
+  if (observed.variantPolicy?.speciation !== true) return [];
+  return (input.migrationHistoryByPair || []).filter((pair) => pair.demeA && pair.demeB
+    && Array.isArray(pair.migrationHistoryAB) && Array.isArray(pair.migrationHistoryBA))
+    .map((pair) => ({ type: 'CHECK_SPECIATION', ...pair }));
 }
 
 module.exports = { islandSearchActions, evolutionaryActions, deterministicSeed };

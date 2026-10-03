@@ -14,6 +14,7 @@ const ephemeralLeaseService = require('./ephemeralLeaseService');
 const persistentDaemonLeaseService = require('./persistentDaemonLeaseService');
 const persistentRuntimeService = require('./persistentRuntimeService');
 const migrationStore = require('../migration/migrationStore');
+const evolutionaryRuntime = require('../evolution/evolutionaryRuntimeService');
 
 async function executeVariantAction(action, context) {
   return EXECUTORS[action.type]?.(action, context) ?? executeRuntimeMarkerAction(action, context);
@@ -43,8 +44,8 @@ const RUNTIME_MARKERS = Object.freeze({
   MAINTAIN_RESIDENT_DAEMON: maintainResidentDaemonDb,
   UPDATE_DEME_MEMORY: updateDemeMemory,
   INTER_MISSION_MIGRATION: async (action, context) => ({ type: action.type, scheduled: true, migration: interMissionSummary(action) }),
-  LOCAL_REPRODUCTION: async (action) => ({ type: action.type, demeId: action.demeId, recorded: true, populationSize: Array.isArray(action.population) ? action.population.length : 0 }),
-  CHECK_SPECIATION: async (action) => ({ type: action.type, checked: true, demeCount: Array.isArray(action.demes) ? action.demes.length : 0 }),
+  CHECK_SPECIATION: async (action) => ({ type: action.type, demeA: action.demeA, demeB: action.demeB,
+    ...evolutionaryRuntime.detectSpeciation(action) }),
   TRANSFER_CULTURE: transferCultureOffer,
   REJECT_CULTURE_TRANSFER: async (action) => ({ type: action.type, cultureId: action.cultureId, reason: action.reason, rejected: true }),
   MUTATE_CULTURE: mutateCulture,

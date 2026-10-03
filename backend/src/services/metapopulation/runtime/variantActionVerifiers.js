@@ -54,8 +54,8 @@ const MARKER_RECEIPTS = Object.freeze({
   MAINTAIN_RESIDENT_DAEMON: (item) => typeof item.maintained === 'boolean' && typeof item.demeId === 'string',
   UPDATE_DEME_MEMORY: (item) => item.updated === true && typeof item.memoryRef === 'string',
   INTER_MISSION_MIGRATION: (item) => item.scheduled === true && typeof item.migration === 'object',
-  LOCAL_REPRODUCTION: (item) => item.recorded === true && typeof item.demeId === 'string',
-  CHECK_SPECIATION: (item) => item.checked === true,
+  CHECK_SPECIATION: (item) => typeof item.demeA === 'string' && typeof item.demeB === 'string'
+    && Number.isFinite(item.divergence) && Number.isFinite(item.threshold) && typeof item.speciated === 'boolean',
   TRANSFER_CULTURE: (item) => typeof item.offered === 'boolean' && (item.offered ? typeof item.migrationId === 'string' : typeof item.reason === 'string'),
   REJECT_CULTURE_TRANSFER: (item) => item.rejected === true && typeof item.reason === 'string',
   MUTATE_CULTURE: (item) => typeof item.mutated === 'boolean' && (item.mutated ? Number.isSafeInteger(item.newVersion) : typeof item.reason === 'string'),
