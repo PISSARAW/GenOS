@@ -22,8 +22,10 @@ async function run(input) {
   if (continuations.some((item) => !item)) return { status: 'incomplete', reason: 'worker_routing_assignment_missing' };
   const starts = await Promise.all(continuations.map((item) => startContinuation({ ...input, item })));
   const finished = await Promise.all(starts.map((item) => waitForContinuation(db, item, input.timeoutMs)));
+  await Promise.all(finished.map((item) => db.run(`UPDATE trinity_worlds SET agent_id = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE agent_id = ? AND id LIKE ?`, item.workerId, item.priorAgentId, `${input.missionId}%`)));
   return { status: 'executed', allocation, reports: await barrier.buildWorldReportsFromMission(db, input.missionId),
-    continuationWorkers: finished.map((item) => item.workerId), decisionAuthority: 'none' };
+    initialReports: reports, continuationWorkers: finished.map((item) => item.workerId), decisionAuthority: 'none' };
 }
 
 async function runQualityDiversityReplicas(input) {
@@ -83,28 +85,26 @@ function continuationFor(world, reports, assignments) {
 }
 
 async function startContinuation(input) {
-  const { db, item, orchestratorId, missionId, repoRoot, executionPolicy } = input;
-  const workspace = await db.get(`SELECT w.path as workspaceRoot FROM agents a
-    LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, item.agentId);
-  const previousEvent = await db.get('SELECT COALESCE(MAX(rowid), 0) as eventId FROM telemetry_events WHERE agent_id = ?', item.agentId);
-  const payload = dispatchPayload({ input, item, workspaceRoot: workspace?.workspaceRoot });
+  const { db, item, orchestratorId, missionId, repoRoot } = input;
+  const workerId = `adaptive_${crypto.randomUUID()}`;
+  const payload = dispatchPayload({ input, item: { ...item, agentId: workerId } });
   const accepted = await spawnDispatch({ repoRoot, payload });
-  if (accepted.workerId !== item.agentId || accepted.status !== 'accepted') {
+  if (accepted.workerId !== workerId || accepted.status !== 'accepted') {
     throw new Error(`Continuation dispatch rejected for world ${item.worldNumber}.`);
   }
-  return { workerId: item.agentId, afterEventId: Number(previousEvent?.eventId) || 0,
-    startedAt: Date.now(), missionId };
+  return { workerId, priorAgentId: item.agentId, worldNumber: item.worldNumber,
+    afterEventId: 0, startedAt: Date.now(), missionId };
 }
 
 function dispatchPayload(context) {
-  const { input, item, workspaceRoot } = context;
+  const { input, item } = context;
   const report = JSON.stringify(item.source.report || {}).slice(0, 8000);
   return { action: 'dispatch_worker', background: true, orchestratorId: input.orchestratorId,
     workerId: item.agentId, role: item.source.role,
     mission: `Continue Trinity world ${item.worldNumber} using only its own prior report. Allocate ${item.tokens} additional tokens. Prior report: ${report}`,
     model_tier: item.routing.modelTier || 'standard', localModel: item.routing.localModel || undefined,
     localRoutingPolicy: item.routing.localModel ? { primary: item.routing.localModel, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true } : undefined,
-    workspace_root: workspaceRoot, execution_budget: { tokens: item.tokens },
+    execution_budget: { tokens: item.tokens },
     executionPolicy: input.executionPolicy, timeoutMs: input.timeoutMs };
 }
 
