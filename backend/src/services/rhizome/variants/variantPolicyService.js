@@ -133,6 +133,9 @@ function analyzeFit(input = {}) {
   if (input.routeFailures > 0) return { variant: 'resilient', reason: 'ROUTE_FAILURES' };
   if (input.budgetTight === true) return { variant: 'sparse', reason: 'BUDGET_CONSTRAINT' };
   if (input.unknownCapabilities > 0) return { variant: 'exploratory', reason: 'CAPABILITY_UNCERTAINTY' };
+  if (input.privateOnly === true || input.privacyRequired === true || input.trustDomainRestricted === true) {
+    return { variant: 'private', reason: 'PRIVACY_OR_TRUST_BOUNDARY' };
+  }
   return { variant: 'routing', reason: 'STABLE_ROUTING_NEED' };
 }
 
