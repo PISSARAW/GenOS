@@ -21,7 +21,7 @@ const AUTO_RULES = Object.freeze([
   { variant: 'forecasting_crowd', type: 'PROBABILISTIC', signal: /forecast|predict|probabil|prevision|predire|risque|likelihood/i },
   { variant: 'adversarial_assembly', signal: /security|securite|threat|menace|audit|attack|attaque|falsif/i },
   { variant: 'hybrid_oracle_community', type: 'FACTUAL', signal: /verify|verifi|prove|prouver|confirm|confirmer|true|vrai/i },
-  { variant: 'minority_preserving_jury', signal: /dissent|dissensus|minority|minoritaire|disagreement|désaccord|plural/i },
+  { variant: 'minority_preserving_jury', signal: /dissent|dissensus|minority|minoritaire|disagreement|desaccord|plural/i },
   { variant: 'delphi_community', signal: /uncertain|incertain|expert|estimate|estimer|anonymous|anonyme/i }
 ]);
 
