@@ -82,6 +82,19 @@ function testAutomaticSelectionWithInstalledAdapters() {
   }
 }
 
+function testFrenchFalsificationMissions() {
+  const availableAdapters = adapters.installedAdapterNames();
+  const missions = [
+    'Cherche activement des explications concurrentes et indique ce qui permettrait de les réfuter.',
+    'Produis une conclusion qui survive à une tentative systématique de réfutation.',
+    'Résous les 12 pièces en trois pesées et prouve que la stratégie couvre tous les cas.'
+  ];
+  for (const mission of missions) {
+    const receipt = variants.selectForMission(mission, { availableAdapters });
+    assert.equal(receipt.selectedPreset, 'adversarial', mission);
+  }
+}
+
 function testExplicitReceipts() {
   for (const id of VARIANT_IDS) {
     const options = { variantId: id };
@@ -308,6 +321,7 @@ async function main() {
   testControlledBaseline();
   testRuntimeAdapterContracts();
   testAutomaticSelectionWithInstalledAdapters();
+  testFrenchFalsificationMissions();
   testExplicitReceipts();
   testAdapterGating();
   testAdapterRegistry();
