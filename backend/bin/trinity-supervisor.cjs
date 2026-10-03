@@ -51,7 +51,8 @@ async function supervise(input) {
   try {
     await waitForWorkers(db, input.missionId);
     const reports = await trinityBarrier.buildWorldReportsFromMission(db, input.missionId);
-    const result = await compareMission(db, input, reports);
+    const configuration = await loadDispatchConfig(db, input.missionId);
+    const result = await compareMission(db, { ...input, ...configuration }, reports);
     await trinityService.recordWorldComparison(db, {
       missionId: input.missionId,
       orchestratorId: input.orchestratorId,
@@ -71,6 +72,16 @@ async function supervise(input) {
   } finally {
     await closeDatabase(db);
   }
+}
+
+async function loadDispatchConfig(db, missionId) {
+  const stored = await db.get('SELECT mission, variant_selection_json, jury_config_json FROM trinity_dispatch_configs WHERE mission_id = ?', missionId);
+  if (!stored) throw Object.assign(new Error('Trinity dispatch configuration is missing.'), { code: 'TRINITY_DISPATCH_CONFIG_MISSING' });
+  return {
+    mission: stored.mission,
+    variantSelection: JSON.parse(stored.variant_selection_json || '{}'),
+    juryConfig: stored.jury_config_json ? JSON.parse(stored.jury_config_json) : null
+  };
 }
 
 async function compareMission(db, input, reports) {

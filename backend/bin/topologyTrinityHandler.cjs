@@ -51,16 +51,23 @@ async function handle(input) {
   const { variant, jury, experimentalDesign } = trinityOptionsFrom(context);
   const members = composeMembers(mission, { variant, jury, experimentalDesign }, assignments);
   const missionId = `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
+  await persistDispatchConfig(db, { missionId, mission, variantSelection: members[0]?.variantSelection, juryConfig: jury });
   const accepted = await launchWorlds({ db, context, members, missionId, mission, parent, launchWorker, createOrchestratorId });
   const supervision = trinityMissionSupervisor.launch({
-    missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot,
-    mission, variantSelection: members[0]?.variantSelection, juryConfig: jury
+    missionId, orchestratorId: context.orchestratorId, repoRoot: context.repoRoot
   });
   process.stdout.write(JSON.stringify({ orchestratorId: context.orchestratorId, trinity: {
     status: 'accepted', mission, missionId, variant: members[0]?.variant,
     variantSelection: members[0]?.variantSelection,
     capacity: workerGarage.getDynamicCapacity(context.orchestratorId), worlds: accepted, supervision
   } }));
+}
+
+async function persistDispatchConfig(db, config) {
+  await db.run(`INSERT INTO trinity_dispatch_configs
+    (mission_id, mission, variant_selection_json, jury_config_json) VALUES (?, ?, ?, ?)`,
+  config.missionId, config.mission, JSON.stringify(config.variantSelection || {}),
+  config.juryConfig ? JSON.stringify(config.juryConfig) : null);
 }
 
 async function launchWorlds(input) {
