@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "suiteId": "factual_research",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "instructions": "Réponds par item en JSON : {\"taskId\":string,\"claims\":object,\"citations\":[{\"sourceId\":string,\"section\":string,\"factId\":string}]}. N’utilise que les sources figées; cite le fait source le plus précis.",
   "items": [
-    {"taskId":"http-safe-methods-fr-01","prompt":"Selon la source RFC 9110 fournie, quels verbes HTTP sont définis comme safe ? Réponds dans safeMethods comme tableau de méthodes.","requiredClaimKeys":["safeMethods"],"claimTypes":{"safeMethods":"array"}},
-    {"taskId":"http-idempotent-methods-fr-01","prompt":"Selon la RFC 9110, donne l’ensemble complet des verbes idempotents : PUT, DELETE et les méthodes safe sont-ils tous idempotents ? Réponds dans idempotentMethods comme tableau, sans doublons.","requiredClaimKeys":["idempotentMethods"],"claimTypes":{"idempotentMethods":"array"}},
-    {"taskId":"http-request-no-cache-fr-01","prompt":"Que demande Cache-Control: no-cache à un cache avant de réutiliser une réponse stockée, et cette directive interdit-elle à elle seule le stockage ? Réponds avec validationBeforeReuse (booléen) et storageAllowed (booléen).","requiredClaimKeys":["validationBeforeReuse","storageAllowed"],"claimTypes":{"validationBeforeReuse":"boolean","storageAllowed":"boolean"}},
-    {"taskId":"http-request-no-store-fr-01","prompt":"Quelle est la portée de la directive de requête no-store, et garantit-elle la confidentialité ? Réponds avec appliesTo (tableau de types de caches), prohibitsRequestAndResponseStorage (booléen) et guaranteesPrivacy (booléen).","requiredClaimKeys":["appliesTo","prohibitsRequestAndResponseStorage","guaranteesPrivacy"],"claimTypes":{"appliesTo":"array","prohibitsRequestAndResponseStorage":"boolean","guaranteesPrivacy":"boolean"}}
+    {"taskId":"http-safe-methods-fr-01","sourceIds":["rfc9110"],"prompt":"Selon la source RFC 9110 fournie, quels verbes HTTP sont définis comme safe ? Réponds dans safeMethods comme tableau de méthodes.","requiredClaimKeys":["safeMethods"],"claimTypes":{"safeMethods":"array"}},
+    {"taskId":"http-idempotent-methods-fr-01","sourceIds":["rfc9110"],"prompt":"Selon la RFC 9110, donne l’ensemble complet des verbes idempotents : PUT, DELETE et les méthodes safe sont-ils tous idempotents ? Réponds dans idempotentMethods comme tableau, sans doublons.","requiredClaimKeys":["idempotentMethods"],"claimTypes":{"idempotentMethods":"array"}},
+    {"taskId":"http-request-no-cache-fr-01","sourceIds":["rfc9111"],"prompt":"Que demande Cache-Control: no-cache à un cache avant de réutiliser une réponse stockée, et cette directive interdit-elle à elle seule le stockage ? Réponds avec validationBeforeReuse (booléen) et storageAllowed (booléen).","requiredClaimKeys":["validationBeforeReuse","storageAllowed"],"claimTypes":{"validationBeforeReuse":"boolean","storageAllowed":"boolean"}},
+    {"taskId":"http-request-no-store-fr-01","sourceIds":["rfc9111"],"prompt":"Quelle est la portée de la directive de requête no-store, et garantit-elle la confidentialité ? Réponds avec appliesTo (tableau de types de caches), prohibitsRequestAndResponseStorage (booléen) et guaranteesPrivacy (booléen).","requiredClaimKeys":["appliesTo","prohibitsRequestAndResponseStorage","guaranteesPrivacy"],"claimTypes":{"appliesTo":"array","prohibitsRequestAndResponseStorage":"boolean","guaranteesPrivacy":"boolean"}}
   ]
 }

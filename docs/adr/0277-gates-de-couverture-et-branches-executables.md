@@ -38,6 +38,13 @@ y compris lorsque la stratégie primaire est une solution de repli. Cette règle
 empêche une migration automatique de reconstruire le contrat et d’effacer son mode
 d’évaluation pendant la mission.
 
+Le runtime local valide le contrat d'artefact d'un worker à chaque essai du modèle,
+avant l'émission d'un reçu de succès. Une sortie invalide déclenche une nouvelle
+génération avec ses motifs de rejet; après épuisement des essais, la mission échoue.
+La synthèse reçoit une projection des affirmations et références vérifiées de
+chaque dossier. Les dossiers complets restent persistés pour l'audit et les
+affirmations utilisées dans `dossierInfluence` doivent leur correspondre exactement.
+
 ## Conséquences
 
 - Les tâches simples peuvent suivre le chemin direct choisi par la stratégie.

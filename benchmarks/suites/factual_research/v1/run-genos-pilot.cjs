@@ -13,8 +13,11 @@ function hash(bytes) {
   return crypto.createHash('sha256').update(bytes).digest('hex');
 }
 
-function sourceCards(lock) {
-  return lock.files.map((file) => {
+function sourceCards(lock, sourceIds) {
+  if (!Array.isArray(sourceIds) || !sourceIds.length || new Set(sourceIds).size !== sourceIds.length) throw new Error('Question sourceIds must list unique locked sources.');
+  const files = lock.files.filter((file) => sourceIds.includes(file.sourceId));
+  if (files.length !== sourceIds.length) throw new Error('Question sourceIds do not match the locked source cards.');
+  return files.map((file) => {
     const card = fs.readFileSync(path.join(suite, 'public', 'sources', file.path), 'utf8');
     return `===== ${file.sourceId} | ${file.url} | ${file.version} =====\n${card}`;
   }).join('\n\n');
@@ -85,7 +88,7 @@ async function main() {
   const runDir = path.join(results, runId);
   fs.mkdirSync(runDir);
   const request = {
-    mission: missionPrompt(item, sourceCards(sourceState.lock)),
+    mission: missionPrompt(item, sourceCards(sourceState.lock, item.sourceIds)),
     executor: 'local', provider: 'ollama', modelId: model,
     evaluationMode: 'factual_read_only',
     workspaceRoot: suite,

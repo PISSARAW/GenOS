@@ -18,7 +18,7 @@ function prepareSources() {
       bytes: content.length
     };
   });
-  const lock = { schemaVersion: 1, corpusVersion: '1.0.0', files };
+  const lock = { schemaVersion: 1, corpusVersion: '1.1.0', files };
   fs.writeFileSync(path.join(__dirname, 'public', 'sources.lock.json'), `${JSON.stringify(lock, null, 2)}\n`);
   return lock;
 }

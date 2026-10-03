@@ -4,7 +4,7 @@
   "version": "RFC 9111, June 2022",
   "url": "https://www.rfc-editor.org/rfc/rfc9111.html",
   "facts": [
-    {"factId":"request-no-cache","section":"5.2.1.4","text":"A request with no-cache asks the cache not to reuse a stored response until it has been successfully validated by the origin."},
+    {"factId":"request-no-cache","section":"5.2.1.4","text":"A request with no-cache asks the cache not to reuse a stored response until it has been successfully validated by the origin. This directive governs reuse; by itself it does not prohibit storing the response."},
     {"factId":"request-no-store","section":"5.2.1.5","text":"Request no-store prohibits storing any part of that request or its response, applies to private and shared caches, and is not a reliable privacy guarantee."}
   ]
 }

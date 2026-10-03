@@ -13,8 +13,11 @@ function digest(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
-function sourceText(lock) {
-  return lock.files.map((file) => `\n===== ${file.sourceId} | ${file.url} | ${file.version} =====\n${fs.readFileSync(path.join(PUBLIC_DIR, 'sources', file.path), 'utf8')}`).join('\n');
+function sourceText(lock, sourceIds) {
+  if (!Array.isArray(sourceIds) || !sourceIds.length || new Set(sourceIds).size !== sourceIds.length) throw new Error('Question sourceIds must list unique locked sources.');
+  const files = lock.files.filter((file) => sourceIds.includes(file.sourceId));
+  if (files.length !== sourceIds.length) throw new Error('Question sourceIds do not match the locked source cards.');
+  return files.map((file) => `\n===== ${file.sourceId} | ${file.url} | ${file.version} =====\n${fs.readFileSync(path.join(PUBLIC_DIR, 'sources', file.path), 'utf8')}`).join('\n');
 }
 
 async function inspectModel() {
@@ -87,11 +90,10 @@ async function runAlone() {
   const modelInfo = await inspectModel();
   const questionBytes = fs.readFileSync(path.join(PUBLIC_DIR, 'questions.json'));
   const questions = JSON.parse(questionBytes.toString('utf8'));
-  const frozenSources = sourceText(sourceState.lock);
   const startedAt = new Date().toISOString();
   const observations = [];
   for (const item of questions.items) {
-    const outcome = await ask(item, frozenSources);
+    const outcome = await ask(item, sourceText(sourceState.lock, item.sourceIds));
     observations.push({ prediction: { ...outcome.prediction, taskId: item.taskId }, usage: outcome.usage, servedModel: outcome.servedModel });
     console.log(`${item.taskId}: response received from ${outcome.servedModel || MODEL}`);
   }

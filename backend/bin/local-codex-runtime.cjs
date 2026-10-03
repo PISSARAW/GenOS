@@ -116,6 +116,7 @@ function createGeneration(state) {
   const griotValidator = (text) => {
     if (text.length < 10) throw new Error('Réponse trop courte ou absente.');
     localSynthesis.validateSynthesisReply(text, state.autonomyPlan);
+    localSynthesis.validateWorkerReply(text, state);
   };
   const fallback = {
     used: false,
@@ -137,7 +138,6 @@ function createGeneration(state) {
   });
   return { generation, abort, fallback };
 }
-
 async function awaitGeneration(state, generation, abort) {
   const timeoutMs = budgetLimit(state.executionBudget, 'latencyMs');
   const timeout = latencyGuard(timeoutMs, abort);

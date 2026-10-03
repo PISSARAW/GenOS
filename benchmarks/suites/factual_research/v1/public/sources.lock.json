@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "corpusVersion": "1.0.0",
+  "corpusVersion": "1.1.0",
   "files": [
     {
       "path": "rfc9110.json",
@@ -15,8 +15,8 @@
       "sourceId": "rfc9111",
       "version": "RFC 9111, June 2022",
       "url": "https://www.rfc-editor.org/rfc/rfc9111.html",
-      "sha256": "08b974c11c719a4ef2499aa60024532b908aed0e7d4495777b9e51e8d9e9c15c",
-      "bytes": 574
+      "sha256": "92192913e2ed47b50b1b07300ede2d8c88c096f0cad61cb5548cc644a9c74ed6",
+      "bytes": 657
     }
   ]
 }

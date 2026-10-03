@@ -4,6 +4,9 @@ Quatre questions contrôlées en français sur des règles HTTP stables des RFC
 9110 et 9111. Les fiches locales reformulent brièvement les faits des sections
 référencées; les URL officielles et la version des RFC sont épinglées dans le
 corpus. Le run ne demande aucun réseau après sa préparation, ni Docker.
+La version 1.1 du corpus précise que `no-cache` règle la réutilisation sans
+interdire le stockage. Chaque question ne reçoit que la fiche RFC indiquée par
+son `sourceIds`, dans les deux modes d'exécution.
 
 ## Préparer et valider les sources
 

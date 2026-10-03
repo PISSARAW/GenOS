@@ -5,12 +5,26 @@ function parseReply(text) {
 
 function validateSynthesisReply(text, plan) {
   if (!plan?.synthesisOnly || !plan.completedWorkerIds?.length) return;
-  const influences = parseReply(text).dossierInfluence;
-  if (!Array.isArray(influences)) throw new Error('dossierInfluence doit être un tableau JSON avec une entrée par workerId du dossier.');
-  const missing = plan.completedWorkerIds.filter((id) => !influences.some((entry) => entry.workerId === id
-    && typeof entry.influence === 'string' && entry.influence.trim() && Array.isArray(entry.usedClaims)
-    && entry.usedClaims.every((claim) => typeof claim === 'string' && claim.trim())));
-  if (missing.length) throw new Error(`dossierInfluence manque les workers: ${missing.join(', ')}`);
+  const { validateDossierInfluence } = require('./agentEvidenceService');
+  const report = parseReply(text);
+  const dossiers = plan.completedWorkerDossiers || [];
+  try {
+    validateDossierInfluence(report, plan.completedWorkerIds, { dossiers });
+  } catch (error) {
+    const exactClaims = dossiers.flatMap((dossier) => dossier.events.flatMap((event) =>
+      (event.evidenceReport?.claims || []).map((claim) => claim.statement)));
+    throw new Error(`${error.message} usedClaims doit contenir ces phrases exactes, sans balise ajoutée : ${JSON.stringify(exactClaims)}`);
+  }
+}
+
+function validateWorkerReply(text, state) {
+  if (state.mission.executionMode !== 'worker') return;
+  const workerKinds = require('./agents/workerKindService');
+  const { inspectWorkerArtifact } = require('./agents/workerArtifactContract');
+  const kind = workerKinds.resolveWorkerKind(state.mission.workerKind, state.mission.role);
+  const inspected = inspectWorkerArtifact(kind, text, { methodContract: state.mission.methodContract || null });
+  if (inspected.artifact) return;
+  throw new Error(`Artefact worker '${workerKinds.kindDefinition(kind).artifact}' invalide : ${inspected.issues.join(', ')}. Rends uniquement le JSON du contrat avec des claims sourcés.`);
 }
 
 function reportClaims(parsedReply, reply, state) {
@@ -22,4 +36,4 @@ function attachInfluence(report, parsedReply) {
   if (Array.isArray(parsedReply.dossierInfluence)) report.dossierInfluence = parsedReply.dossierInfluence;
 }
 
-module.exports = { parseReply, validateSynthesisReply, reportClaims, attachInfluence };
+module.exports = { parseReply, validateSynthesisReply, validateWorkerReply, reportClaims, attachInfluence };
