@@ -148,6 +148,9 @@ function analyzeFit(input = {}) {
   if (input.lowLatencyRequired === true || (Number(input.maxHops) > 0 && Number(input.maxHops) <= 3)) {
     return { variant: 'small_world', reason: 'SHORT_PATH_REQUIREMENT' };
   }
+  if (input.networkGrowthRequired === true || input.newNodesExpected === true) {
+    return { variant: 'growth', reason: 'NETWORK_EXPANSION_REQUIRED' };
+  }
   if (input.routeFailures > 0) return { variant: 'resilient', reason: 'ROUTE_FAILURES' };
   if (input.budgetTight === true) return { variant: 'sparse', reason: 'BUDGET_CONSTRAINT' };
   if (input.unknownCapabilities > 0) return { variant: 'exploratory', reason: 'CAPABILITY_UNCERTAINTY' };

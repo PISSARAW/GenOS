@@ -29,6 +29,8 @@ function observe(state, result, input) {
     workflowRequired: input.workflowRequired,
     lowLatencyRequired: input.lowLatencyRequired,
     maxHops: input.maxHops,
+    networkGrowthRequired: input.networkGrowthRequired,
+    newNodesExpected: input.newNodesExpected,
     routeFailures: state.routeFailures,
     budgetTight: input.budgetTight,
     unknownCapabilities: isOpenGap(result) ? 1 : 0,
