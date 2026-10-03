@@ -5,6 +5,7 @@ const biome = require('../src/services/biome/variants/variantPolicyService');
 
 const MISSIONS = [
   ['Allocate scarce resources under a constrained budget.', 'resource'],
+  ['Explore several explanation niches and eliminate those that add little information.', 'exploration'],
   ['Explore unknown patches and debug an unfamiliar system.', 'exploration'],
   ['Optimize quality and diversity in creative alternatives.', 'quality_diversity'],
   ['Trouve 20 façons substantiellement différentes et préserve plusieurs familles de solutions.', 'quality_diversity'],
@@ -13,6 +14,7 @@ const MISSIONS = [
   ['Maintain a persistent workspace over the long term.', 'persistent'],
   ['Discover novel options in an open-ended problem.', 'open_ended'],
   ['Laisse émerger de nouvelles niches architecturales et préserve leurs élites.', 'open_ended'],
+  ['Autorise l’apparition de nouvelles niches si les observations le justifient.', 'open_ended'],
   ['Fais naître, fusionner ou disparaître les niches selon leur pouvoir explicatif.', 'open_ended'],
   ['Run a security red-team attack simulation.', 'adversarial'],
   ['Research source collections and cite the literature.', 'knowledge'],
