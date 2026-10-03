@@ -26,12 +26,11 @@ function testDiversityDiscriminates() {
   const varied = trinity.compose('Lance Trinity pour comparer trois tris.', {
     variantId: 'heterogeneous', availableAdapters: INSTALLED, trinityModels: MODELS
   });
-  const same = trinity.compose('Lance Trinity pour comparer trois tris.', {
-    variantId: 'heterogeneous', availableAdapters: INSTALLED, trinityModels: [MODELS[0], MODELS[0], MODELS[0]]
-  });
   const variedScore = varied[0].variantSelection.diversity.minPairwiseDiversity;
-  const sameScore = same[0].variantSelection.diversity.minPairwiseDiversity;
-  assert.ok(variedScore > sameScore, `diverse ${variedScore} must beat uniform ${sameScore}`);
+  assert.ok(variedScore >= varied[0].variantSelection.diversity.threshold);
+  assert.throws(() => trinity.compose('Lance Trinity pour comparer trois tris.', {
+    variantId: 'heterogeneous', availableAdapters: INSTALLED, trinityModels: [MODELS[0], MODELS[0], MODELS[0]]
+  }), (error) => error.code === 'TRINITY_DIVERSITY_BELOW_THRESHOLD');
 }
 
 function testPareto() {

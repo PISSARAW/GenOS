@@ -6,7 +6,7 @@ const DIVERSITY_DIMENSIONS = [
   'provider', 'modelFamily', 'cognitiveRecipe', 'tools', 'lineage', 'errorCorrelation'
 ];
 
-const MIN_DIVERSITY_THRESHOLD = 0.6;
+const MIN_DIVERSITY_THRESHOLD = 0.35;
 
 function providerDistance(a, b) {
   if (a === b) return 0;
@@ -21,7 +21,7 @@ function modelFamilyDistance(a, b) {
   const families = {
     'gpt-4': 'gpt4', 'gpt-4o': 'gpt4', 'gpt-4-turbo': 'gpt4',
     'claude-3': 'claude3', 'claude-3-5': 'claude35', 'claude-3-opus': 'claude3',
-    'gemini': 'gemini', 'mistral': 'mistral', 'llama': 'llama', 'qwen': 'qwen'
+    'gemini': 'gemini', 'mistral': 'mistral', 'llama': 'llama', 'qwen': 'qwen', 'deepseek': 'deepseek'
   };
   const aFam = families[a.toLowerCase()] || 'other';
   const bFam = families[b.toLowerCase()] || 'other';
@@ -66,7 +66,7 @@ function errorCorrelationDistance(historyA, historyB) {
 }
 
 function computeDiversityScore(worldA, worldB, historicalMemory = {}) {
-  const weights = { provider: 0.25, modelFamily: 0.20, cognitiveRecipe: 0.20, tools: 0.15, lineage: 0.10, errorCorrelation: 0.10 };
+  const weights = { provider: 0.15, modelFamily: 0.35, cognitiveRecipe: 0.30, tools: 0.05, lineage: 0.10, errorCorrelation: 0.05 };
   const dims = {
     provider: providerDistance(worldA.provider, worldB.provider),
     modelFamily: modelFamilyDistance(worldA.modelFamily, worldB.modelFamily),

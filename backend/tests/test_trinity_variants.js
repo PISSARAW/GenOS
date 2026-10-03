@@ -104,7 +104,7 @@ function testAdapterRegistry() {
   const names = adapters.adapterNames();
   assert.ok(names.length >= 20);
   assert.deepEqual(adapters.installedAdapterNames().sort(), names.sort());
-  assert.equal(adapters.resolveAdapter('diversity_planner').MIN_DIVERSITY_THRESHOLD, 0.6);
+  assert.equal(adapters.resolveAdapter('diversity_planner').MIN_DIVERSITY_THRESHOLD, 0.35);
   assert.throws(() => adapters.resolveAdapter('no_such_adapter'), (error) => error.code === 'TRINITY_ADAPTER_UNKNOWN');
   assert.throws(() => adapters.describeAdapter('no_such_adapter'), (error) => error.code === 'TRINITY_ADAPTER_UNKNOWN');
   const described = adapters.describeAdapter('factorial_grid_executor');

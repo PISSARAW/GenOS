@@ -56,6 +56,11 @@ function compose(mission, options = {}) {
   const design = variantSelection.experimentalDesign;
   const members = differentiation.differentiate(analysis.members, { goal, domain: analysis.domain, design });
   variantSelection.diversity = differentiation.diversityReceipt(members, options.trinityModels);
+  if (design.diversityPolicy === 'heterogeneous' && !variantSelection.diversity.passes) {
+    throw Object.assign(new Error(`Heterogeneous Trinity requires minimum diversity ${variantSelection.diversity.threshold}; measured ${variantSelection.diversity.minPairwiseDiversity}.`), {
+      code: 'TRINITY_DIVERSITY_BELOW_THRESHOLD', diversity: variantSelection.diversity
+    });
+  }
   return trinityVariants.applyToMembers(members, variantSelection);
 }
 

@@ -3,6 +3,7 @@ const aTeamDispatchBudget = require('./aTeamDispatchBudgetService');
 const { regulateAutonomyPlan } = require('./controlRegulationService');
 const trinityService = require('./trinityService');
 const trinityVariants = require('./trinityVariantService');
+const trinityModelDiversity = require('./trinityModelDiversityService');
 const trinityHypothesisGeneration = require('./trinityHypothesisGenerationService');
 const hypothesisDesign = require('./trinityHypothesisDesignService');
 const aTeamService = require('./aTeamService');
@@ -160,6 +161,7 @@ async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, 
   autonomyPlan.trinity.adaptiveBudget = normalizedMission.trinityAdaptiveBudget === true
     || autonomyPlan.trinity.variantSelection.effects?.adaptiveBudget === true;
   const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);
+  await trinityModelDiversity.enforcePlan({ autonomyPlan, normalizedMission, agentId, db, dispatchedAgent });
   await applyTrinityHypothesisDesign(autonomyPlan.trinity, normalizedMission, {
     db, agentId, organizationId: dispatchedAgent.organization_id, projectId: dispatchedAgent.project_id
   });
