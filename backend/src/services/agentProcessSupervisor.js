@@ -371,6 +371,7 @@ async function superviseMission(options) {
   const emitTracked = (...args) => { return emitTrackedImpl(ctx, ...args); };
   ctx.emitTracked = emitTracked;
   ctx.haltRuntime = haltRuntimeImpl;
+  require('./agents/workerRuntimeBudgetService').startWorkerDeadline(ctx);
   ctx.processEventQueue = processEventQueueImpl;
   child.stdout.on('data', (chunk) => { handleStdoutData(ctx, chunk); });
   child.stderr.on('data', (chunk) => { handleStderrData(ctx, chunk); });
