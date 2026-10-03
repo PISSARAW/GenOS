@@ -52,26 +52,28 @@ async function applyCheapUpdate(bridge, event, receptor) {
 
 async function applyHeadUpdate(bridge, event) {
   if (event.headSha) {
-    const res = await territoryService.updateHead(bridge.db, { id: event.territoryId, headSha: event.headSha });
-    const findings = await findingService.markStaleOnHead(bridge.db, {
-      territoryId: event.territoryId, headSha: event.headSha
-    });
     const changedFiles = safeChangedFiles(event.payload && event.payload.changedFiles);
     let refresh = { refreshed: false, reason: 'root-unavailable' };
     if (changedFiles && event.rootPath && changedFiles.length) {
-      try {
-        const result = await cartographer.updateFiles(bridge.db, {
-          territoryId: event.territoryId, rootPath: event.rootPath, files: changedFiles
-        });
-        refresh = { refreshed: true, ...result };
-      } catch (_) {
-        refresh = { refreshed: false, reason: 'refresh-failed' };
-      }
+      const result = await cartographer.updateFiles(bridge.db, {
+        territoryId: event.territoryId, rootPath: event.rootPath, files: changedFiles
+      });
+      refresh = { refreshed: true, ...result };
     } else if (changedFiles && changedFiles.length === 0) {
       refresh = { refreshed: true, invalidated: 0, reindexed: 0 };
     } else if (!changedFiles) {
       refresh = { refreshed: false, reason: 'changed-files-unavailable' };
     }
+    // Advance the commit cursor only after a known file delta has been
+    // indexed. If indexing throws, the old head remains and the next sync
+    // retries the same delta instead of treating stale graph data as current.
+    if (!refresh.refreshed && changedFiles) {
+      return { applied: false, kind: 'head', refresh };
+    }
+    const res = await territoryService.updateHead(bridge.db, { id: event.territoryId, headSha: event.headSha });
+    const findings = await findingService.markStaleOnHead(bridge.db, {
+      territoryId: event.territoryId, headSha: event.headSha
+    });
     return { applied: true, kind: 'head', ...res, findings, refresh };
   }
   await territoryService.touchObserved(bridge.db, { id: event.territoryId });
