@@ -201,6 +201,7 @@ function workerLimits(kind, subOrchestrator) {
   delete limits.maxTokens;
   delete limits.maxTimeMs;
   delete limits.maxCpuMs;
+  delete limits.executionMode;
   return { ...limits, maxIterations, ...(subOrchestrator ? { maxIterations: 30 } : {}) };
 }
 
@@ -229,7 +230,8 @@ function workerResources(kind) {
   return {
     maxTokens: policy.maxTokens ?? 8000,
     maxTimeMs: Object.hasOwn(policy, 'maxTimeMs') ? policy.maxTimeMs : 300000,
-    maxCpuMs: policy.maxCpuMs ?? 60000
+    maxCpuMs: policy.maxCpuMs ?? 60000,
+    executionMode: policy.executionMode || 'model'
   };
 }
 

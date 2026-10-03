@@ -133,7 +133,8 @@ function assertObjectCeilings(actual, maximum, options = {}) {
   if (!actual || typeof actual !== 'object' || Array.isArray(actual)) throw invalidContract();
   for (const [key, ceiling] of Object.entries(maximum)) {
     if (options.delegated && key === 'maxTokens') continue;
-    if (!withinCeiling(actual[key], ceiling)) throw invalidContract();
+    const valid = typeof ceiling === 'string' ? actual[key] === ceiling : withinCeiling(actual[key], ceiling);
+    if (!valid) throw invalidContract();
   }
   for (const key of Object.keys(actual)) {
     if (!Object.hasOwn(maximum, key) && !(options.delegated && ['maxChildren', 'maxTokens'].includes(key))) throw invalidContract();

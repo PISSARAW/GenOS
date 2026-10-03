@@ -3,7 +3,7 @@
 function clampMissionBudget(mission, budget) {
   if (!mission.workerContract?.resources) return budget;
   const resources = mission.workerContract.resources;
-  if (resources.maxTokens === 0) {
+  if (resources.executionMode !== 'model' || resources.maxTokens === 0) {
     throw Object.assign(new Error(`Worker '${mission.workerKind}' has no registered deterministic executor.`), {
       code: 'WORKER_EXECUTOR_UNAVAILABLE'
     });
