@@ -52,6 +52,7 @@ async function runBiome(args, context) {
 async function executeBiome(args, context) {
   const popRuntime = require('../../biome/populations/populationRuntimeService');
   const input = inputFrom(context);
+  const workerResults = collectMissionWorkers(args, input);
   const individuals = individualsFrom(args, input);
   const ecology = buildBiomeEcology(individuals);
   const actions = [];
@@ -60,7 +61,7 @@ async function executeBiome(args, context) {
     actions.push(await popRuntime.execute(ecology, { type: 'spawn', populationId: 'pop-mission', individuals }));
   }
   actions.push(await popRuntime.execute(ecology, { type: 'advance', populationId: 'pop-mission', measurements: measurementsFrom(input) }));
-  return { ecology: summarizeEcology(ecology), actions: actions.map((result) => result && result.action) };
+  return { ecology: summarizeEcology(ecology), actions: actions.map((result) => result && result.action), workerResults };
 }
 
 function individualsFrom(args, input) {
@@ -111,6 +112,7 @@ async function runHolobionte(args, context) {
 
 async function executeHolobionte(args, context) {
   const input = inputFrom(context);
+  const workerResults = collectMissionWorkers(args, input);
   const capability = capabilityFrom(input);
   const executeCapability = capabilityExecutorFrom(input);
   const executeTrial = trialExecutorFrom(input);
@@ -119,14 +121,14 @@ async function executeHolobionte(args, context) {
   try {
     await migrateHolobionte(created.db);
     const setup = await provisionHolobiont(created.db, { args, input, capability });
-    const admission = await evaluateMissionTrial(created.db, { setup, input, executeTrial });
+    const admission = await evaluateMissionTrial(created.db, { setup, input, executeTrial, workerResults });
     if (admission.decision !== 'ADMITTED') {
-      return { status: 'ADMISSION_REJECTED', admission, driver: created.driver };
+      return { status: 'ADMISSION_REJECTED', admission, driver: created.driver, workerResults };
     }
     const session = await require('../../holobionte/holobiontStore').getSession(created.db, setup.session.holobiontId);
     const runtime = require('../../holobionte/runtime/holobiontRuntime');
-    const result = await runtime.runCycle(created.db, cycleInput(session, { input, capability, executeCapability }), {});
-    return { ...result, driver: created.driver };
+    const result = await runtime.runCycle(created.db, cycleInput(session, { input, capability, executeCapability, workerResults }), {});
+    return { ...result, driver: created.driver, workerResults };
   } finally {
     await created.close();
   }
@@ -189,13 +191,14 @@ async function provisionHolobiont(db, setup) {
 }
 
 async function evaluateMissionTrial(db, context) {
-  const { setup, input, executeTrial } = context;
+  const { setup, input, executeTrial, workerResults } = context;
   const symbiontId = setup.contract.symbiontId;
   const trialResult = await executeTrial({
     capability: setup.trial.sandbox.capability,
     candidate: setup.session.candidateSymbionts.find((item) => item.id === symbiontId),
     contract: setup.contract,
-    sandbox: setup.trial.sandbox
+    sandbox: setup.trial.sandbox,
+    workerResults
   });
   const admission = require('../../holobionte/symbionts/symbiontAdmissionService');
   return admission.evaluateTrial(db, {
@@ -240,14 +243,15 @@ function contractBody(created, capability) {
 }
 
 function cycleInput(session, invocation) {
-  const { input, capability, executeCapability } = invocation;
+  const { input, capability, executeCapability, workerResults } = invocation;
   return {
     holobiontId: session.holobiontId,
     capability,
     missionId: session.missionId,
     allocation: input.allocation,
     actorId: input.actorId || 'morphogenesis-runtime',
-    executeCapability
+    executeCapability,
+    workerResults
   };
 }
 
@@ -265,6 +269,7 @@ async function runMetapopulation(args, context) {
 
 async function executeMetapopulation(args, context) {
   const input = inputFrom(context);
+  const workerResults = collectMissionWorkers(args, input);
   const mission = missionTextFrom(args, input, context);
   const { createRuntimeDb } = require('./sqliteDb');
   const created = await createRuntimeDb();
@@ -273,11 +278,15 @@ async function executeMetapopulation(args, context) {
     const coordination = require('../../metapopulationCoordinationService');
     const session = await coordination.createMetapopulationSession(mission, sessionOptions(args, input, created.db));
     const brain = require('../../metapopulation/runtime/regionalBrainService');
-    const result = await brain.runAutonomousRegionalRuntime({ metapopulationId: session.metapopulationId, maxCycles: 1 }, { db: created.db });
-    return { ...result, driver: created.driver };
+    const result = await brain.runAutonomousRegionalRuntime({ metapopulationId: session.metapopulationId, maxCycles: 1 }, { db: created.db, workerResults });
+    return { ...result, driver: created.driver, workerResults };
   } finally {
     await created.close();
   }
+}
+
+function collectMissionWorkers(args, input) {
+  return require('./topologyWorkerResults').collectTopologyWorkerResults(args.workers || [], input);
 }
 
 function missionTextFrom(args, input, context) {
