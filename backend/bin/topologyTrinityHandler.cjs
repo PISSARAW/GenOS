@@ -71,7 +71,8 @@ async function handle(input) {
   const assignments = workerAssignmentsFrom(context);
   const { variant, jury, experimentalDesign, adaptiveBudgetConfig, qdConfig } = trinityOptionsFrom(context);
   const members = composeMembers(mission, { variant, jury, experimentalDesign, adaptiveBudgetConfig, qdConfig }, assignments);
-  if (garage.available < members.length) throw Object.assign(new Error(`Trinity design requires ${members.length} free worker slots`), { code: 'WORKER_GARAGE_FULL' });
+  const requiredSlots = members.length + (usesQDReplicas(members) ? Number(qdConfig.replicaBudget) : 0);
+  if (garage.available < requiredSlots) throw Object.assign(new Error(`Trinity design requires ${requiredSlots} free worker slots`), { code: 'WORKER_GARAGE_FULL' });
   const missionId = context.request.trinityMissionId
     || `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
   const variantSelection = withDispatchRuntime(members, context.request);
@@ -85,6 +86,10 @@ async function handle(input) {
     variantSelection: members[0]?.variantSelection,
     capacity: workerGarage.getDynamicCapacity(context.orchestratorId), worlds: accepted, supervision
   } }));
+}
+
+function usesQDReplicas(members) {
+  return members[0]?.variantSelection?.experimentalDesign?.replicationPolicy === 'quality_diversity_replicas';
 }
 
 function withDispatchRuntime(members, request = {}) {
