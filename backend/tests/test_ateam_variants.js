@@ -69,6 +69,8 @@ function run() {
   assert.equal(selectVariant({ goal: 'incident multi-team outage' }), 'incident_command');
   assert.equal(selectVariant({ goal: 'Organise explicitement les dépendances entre spécialistes et les artefacts transmis.' }), 'project_dag');
   assert.equal(selectVariant({ goal: 'Construis le Work Graph et les handoffs typés de la mission.' }), 'project_dag');
+  assert.equal(selectVariant({ goal: 'Définis le contrat HTTP, les validations et les messages UI de cette API.' }), 'boundary_spanner');
+  assert.equal(selectVariant({ goal: 'Rends explicites les interfaces inter-domaines et leur compatibilité ascendante.' }), 'boundary_spanner');
   assert.equal(selectVariant({ teamCount: 2 }), 'multiteam');
   assert.equal(selectVariant({}), 'expert_committee');
 
