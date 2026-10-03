@@ -71,6 +71,7 @@ function validateOptionalFields(input) {
   checkMaxCellsError(input, errors);
   checkBudgetError(input, errors);
   checkTtlError(input, errors);
+  checkLlmRatioError(input, errors);
   return errors;
 }
 
@@ -96,6 +97,13 @@ function checkTtlError(input, errors) {
   if (input.ttl === undefined) return;
   const valid = Number.isInteger(input.ttl) && input.ttl >= 1000;
   if (!valid) errors.push('invalid-ttl');
+}
+
+function checkLlmRatioError(input, errors) {
+  if (input.llmRatio === undefined) return;
+  if (!Number.isFinite(input.llmRatio) || input.llmRatio < 0 || input.llmRatio > 1) {
+    errors.push('invalid-llmRatio');
+  }
 }
 
 function validateRequest(input) {
@@ -144,7 +152,7 @@ function normalizeRequest(request) {
     partitionStrategy: request.partitionStrategy || 'architecture',
     maxCells: Math.min(request.maxCells || DEFAULTS.maxCells, 50),
     budget: request.budget || DEFAULTS.budget, ttl: request.ttl || DEFAULTS.ttlMs,
-    llmRatio: request.llmRatio || DEFAULTS.llmRatio
+    llmRatio: request.llmRatio ?? DEFAULTS.llmRatio
   };
 }
 
