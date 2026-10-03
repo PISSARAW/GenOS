@@ -7,7 +7,7 @@ const POLICY_DEFINITIONS = Object.freeze({
   forecasting_crowd: policy({ disclosure: 'sealed', review: 'forecast_review', aggregation: 'calibrated_distribution', dissent: 'preserve_minorities', probabilisticOnly: true, requireCalibrationWeights: true }),
   argumentation_community: policy({ disclosure: 'sealed', review: 'structured_arguments', aggregation: 'argument_graph', dissent: 'preserve_material' }),
   polycentric_council: policy({ disclosure: 'sealed', review: 'local_specialized', aggregation: 'hierarchical', dissent: 'preserve_cluster_dissent' }),
-  byzantine_resilient_community: policy({ disclosure: 'sealed', review: 'provenance_first', aggregation: 'verified_evidence_first', dissent: 'counterexample_veto', quarantineAware: true }),
+  byzantine_resilient_community: policy({ disclosure: 'sealed', review: 'provenance_first', aggregation: 'verified_evidence_first', dissent: 'counterexample_veto', quarantineAware: true, executionLevel: 'PARTIAL' }),
   minority_preserving_jury: policy({ disclosure: 'sealed', review: 'specialized', aggregation: 'evidence_first', dissent: 'preserve_all', preserveAllDissent: true }),
   representative_community: policy({ disclosure: 'sealed', review: 'representative_panel', aggregation: 'weighted_distribution', dissent: 'preserve_minorities' }),
   persistent_community: policy({ disclosure: 'sealed', review: 'longitudinal', aggregation: 'calibrated_distribution', dissent: 'preserve_history' }),
