@@ -22,7 +22,6 @@ const daemonRuntime = require('./residentDaemonRuntime');
 const handoffCompiler = require('./handoff/handoffCompilerService');
 const cartographer = require('./cartography/cartographerService');
 const findingService = require('./findings/findingService');
-const signalEventBus = require('../signalEventBus');
 const { migrateDaemonEvents } = require('../../db/migrations/migrateDaemonEvents');
 const { migrateDaemonEventPayload } = require('../../db/migrations/migrateDaemonEventPayload');
 
@@ -126,7 +125,6 @@ async function ingestEvent(bridge, event) {
         mission: event.payload && event.payload.mission
       });
       if (result.compiled && result.signal) {
-        signalEventBus.publish(result.signal);
         handoffSignal = result.signal;
       }
     } catch (_) { /* handoff failure must not block ingestion */ }

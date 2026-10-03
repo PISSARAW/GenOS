@@ -629,10 +629,14 @@ Source : `backend/src/services/daemon/daemonStigmergyService.js:11-111`,
 
 - Compiler (D11) : sur `ORCHESTRATOR_ENTERED`, compile `TerritoryBrief` depuis
   territoire + graphe + findings + stigmergie, persiste en `daemon_handoffs`,
-  retourne `{brief, signal: TERRITORY_BRIEF_READY}`.
+  retourne `{brief, signal: TERRITORY_BRIEF_READY}`. En production, l'orchestrateur
+  récupère explicitement le brief persistant par `briefId` et l'ajoute au prompt
+  de la mission qui l'a demandé; si le daemon ou le brief manque, la mission continue.
 - Inclus : top 20 findings, 10 dead-ends `REFUTED`, 50 tests, findings ouverts
   (`NOT IN (REFUTED, EXPIRED)`), phénotypes actifs, attention stigmergique, `stalenessWarnings`.
-- Signal zero-texte = `{briefId, territoryId, headSha, relevanceClass}` seulement.
+- Signal zero-texte = `{briefId, territoryId, headSha, relevanceClass}` seulement;
+  le signal local n'est pas le transport du dossier. Le brief est consommé via la
+  récupération explicite et passe alors de `READY` à `CONSUMED`.
 - Pertinence déterministe sans LLM : poids `REPAIRABLE 6, CAUSALLY_SUPPORTED 5,
   REPRODUCED 4, SUPPORTED 3, HYPOTHESIZED 2, OBSERVED 1, STALE 0.5` + overlap
   lexical mission plafonné à 3. `relevanceClass : top ≥ 6 → high, ≥ 2 → medium, sinon low`.

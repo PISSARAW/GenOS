@@ -116,7 +116,7 @@ async function announceMissionStart(input) {
       });
       if (emitted.emitted) return {
         announced: true, territoryId: emitted.territoryId, rootPath: root,
-        synchronization
+        synchronization, handoffSignal: emitted.handoffSignal || null
       };
     }
     return { announced: false, reason: 'no-territory-registered' };
