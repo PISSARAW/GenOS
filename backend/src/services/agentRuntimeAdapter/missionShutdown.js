@@ -22,7 +22,7 @@ async function stopPersistedRuntime(agentId) {
     const agent = await db.get('SELECT runtime_pid, runtime_executable FROM agents WHERE id = ?', agentId);
     if (agent?.runtime_pid) {
       const matches = processMatches(agent.runtime_pid, agent.runtime_executable);
-      if (matches) terminatePid(agent.runtime_pid);
+      if (matches) terminatePid(agent.runtime_pid, agent.runtime_executable);
       await db.run("UPDATE agents SET status = ?, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", matches ? 'blocked' : 'error', matches ? 'Stopped from Studio' : 'Persisted runtime PID did not match its executable.', agentId);
       return { handled: true, killed: Boolean(matches) };
     }

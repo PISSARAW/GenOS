@@ -12,7 +12,7 @@ async function killVerifiedAgent(db, agent) {
   const fresh = await db.get('SELECT id, runtime_pid, runtime_executable FROM agents WHERE id = ?', agent.id);
   if (!fresh || !fresh.runtime_pid) return { id: agent.id, terminated: false, reason: 'NO_PID' };
   if (!processMatches(fresh.runtime_pid, fresh.runtime_executable, true)) return { id: fresh.id, terminated: false, reason: 'PID_EXECUTABLE_MISMATCH' };
-  return { id: fresh.id, terminated: terminatePid(fresh.runtime_pid), reason: 'TERMINATION_REQUESTED' };
+  return { id: fresh.id, terminated: terminatePid(fresh.runtime_pid, fresh.runtime_executable), reason: 'TERMINATION_REQUESTED' };
 }
 
 async function terminateActiveAgents(db, activeAgents) {
