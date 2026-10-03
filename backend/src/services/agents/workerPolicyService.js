@@ -6,7 +6,7 @@ const POLICIES = Object.freeze({
   bounded_worker: { maxIterations: 10 },
   adaptive_worker: { maxIterations: 20, maxStrategyChanges: 3, maxCognitiveChanges: 2 },
   specialist: { maxIterations: 20, maxStrategyChanges: 3, maxCognitiveChanges: 2 },
-  procedural_executor: { maxIterations: 10, maxTokens: 0 },
+  procedural_executor: { maxIterations: 10, maxTokens: 0, executionMode: 'deterministic' },
   symbiotic_worker: { maxIterations: 10 },
   verifier_worker: { maxIterations: 5 },
   red_worker: { maxIterations: 5 },
