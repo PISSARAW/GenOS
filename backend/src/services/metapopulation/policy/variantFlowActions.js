@@ -262,19 +262,44 @@ function verifiedTransferActions(observed, input) {
   if (observed.variantPolicy?.verifiedPropagulesOnly !== true) return [];
   const actions = [];
   for (const candidate of input.migrationCandidates || []) {
-    const authorized = authorizeFederationTransfer({
-      classification: candidate.classification || 'LOCAL_ONLY',
+    const authorized = federatedRuntime.authorizeFederatedTransfer({
+      propagule: candidate,
       sourceRegion: candidate.sourceRegion,
       targetRegion: candidate.targetRegion,
-      federationAgreement: candidate.federationAgreement
+      contracts: input.crossRegionContracts
     });
     if (!authorized.allowed) {
       actions.push({ type: 'REJECT_FEDERATED_TRANSFER', propaguleId: candidate.propaguleId, reason: authorized.reason });
-    } else if (candidate.requiresRedaction === true) {
-      actions.push({ type: 'REDACT_PROPAGULE', propaguleId: candidate.propaguleId, fields: candidate.redactionFields });
+      continue;
     }
+    if (!receiverAttested(candidate, input, observed.variantPolicy)) {
+      actions.push({ type: 'REJECT_FEDERATED_TRANSFER', propaguleId: candidate.propaguleId, reason: 'RECEIVER_ATTESTATION_REQUIRED' });
+      continue;
+    }
+    const action = federatedMigrationAction({ candidate, authorization: authorized, observed, input });
+    actions.push(action || { type: 'REJECT_FEDERATED_TRANSFER', propaguleId: candidate.propaguleId, reason: 'NO_ADMISSIBLE_FEDERATED_ROUTE' });
   }
   return actions;
+}
+
+function receiverAttested(candidate, input, policy) {
+  if (policy.requireReceiverAttestation !== true) return true;
+  return (input.receiverAttestations || []).some((entry) => entry.propaguleId === candidate.propaguleId
+    && entry.targetRegion === candidate.targetRegion && entry.accepted === true);
+}
+
+function federatedMigrationAction(context) {
+  const { candidate, authorization, observed, input } = context;
+  const proof = authorization.proof;
+  const evidence = [...(candidate.sourceEvidence || []), proof.proofId];
+  const propagule = {
+    ...candidate,
+    fields: proof.redacted,
+    sourceEvidence: evidence,
+    provenance: { ...candidate.provenance, federationContractId: authorization.contractId,
+      minimizationProofId: proof.proofId }
+  };
+  return routableMigrationAction({ candidate: propagule, observed, input, reason: 'federated' });
 }
 
 function sovereigntyActions(observed) {
@@ -293,15 +318,6 @@ function attestationActions(observed, input) {
   return (input.migrationCandidates || [])
     .filter((candidate) => candidate.sourceRegion && candidate.targetRegion)
     .map((candidate) => ({ type: 'REQUIRE_RECEIVER_ATTESTATION', propaguleId: candidate.propaguleId, targetRegion: candidate.targetRegion }));
-}
-
-function authorizeFederationTransfer(input) {
-  const CLASSIFICATIONS = ['PUBLIC', 'REGIONAL', 'SENSITIVE', 'LOCAL_ONLY'];
-  const classification = String(input.classification || 'LOCAL_ONLY').toUpperCase();
-  if (!CLASSIFICATIONS.includes(classification)) throw Object.assign(new Error('Unknown data classification.'), { code: 'METAPOPULATION_CLASSIFICATION_INVALID' });
-  const trustedRegion = Boolean(input.sourceRegion && input.sourceRegion === input.targetRegion);
-  const allowed = classification === 'PUBLIC' || classification === 'REGIONAL' && (trustedRegion || input.federationAgreement === true);
-  return { allowed, classification, sourceRegion: input.sourceRegion || null, targetRegion: input.targetRegion || null, reason: allowed ? 'SOVEREIGNTY_POLICY_SATISFIED' : 'SOVEREIGNTY_POLICY_DENIED' };
 }
 
 async function culturalActions(observed, input, options) {
