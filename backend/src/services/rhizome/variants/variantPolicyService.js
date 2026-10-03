@@ -136,6 +136,9 @@ function analyzeFit(input = {}) {
   if (input.persistentRequired === true || ['workspace', 'project', 'persistent'].includes(input.scope)) {
     return { variant: 'persistent', reason: 'PERSISTENT_SCOPE_REQUIRED' };
   }
+  if (input.ephemeralRequired === true || input.temporaryPatch === true) {
+    return { variant: 'ephemeral', reason: 'EPHEMERAL_SCOPE_REQUIRED' };
+  }
   if (input.routeFailures > 0) return { variant: 'resilient', reason: 'ROUTE_FAILURES' };
   if (input.budgetTight === true) return { variant: 'sparse', reason: 'BUDGET_CONSTRAINT' };
   if (input.unknownCapabilities > 0) return { variant: 'exploratory', reason: 'CAPABILITY_UNCERTAINTY' };
