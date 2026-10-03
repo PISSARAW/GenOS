@@ -60,7 +60,8 @@ topologies avant de promouvoir leur maturité.
   et à Morphogenèse. La suite backend générale passe également (55/55). La matrice
   `test_topology_mission_variant_routing.js` couvre les signaux de sélection des 48 missions
   de référence; le test de dispatch vérifie aussi les workers, le schéma Syncytium et le
-  contrat Trinity adversarial.
+  contrat Trinity adversarial. Un test complémentaire exercé séparément vérifie la sortie de
+  sécurité du watchdog et le planning non faisable du variant Syncytium `realtimeControl`.
 - Ces tests prouvent des contrats codés et la sélection attendue, pas la réussite des missions
   par les modèles ni l'effet runtime spécifique des 95 variants. Les 48 missions réelles et
   la vérification d'un effet runtime propre par variant restent à rejouer; la parité de

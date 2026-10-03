@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : inventaire central des variants Morphogenèse provenant des registres locaux
-- **Dernière revue** : 2026-10-03
+- **Dernière revue** : 2026-10-04
 
 Le registre Morphogenèse expose un catalogue commun de variants, tout en conservant les
 registres locaux comme sources de vérité pour leurs modes d'utilisation. Chaque variant est
@@ -29,6 +29,12 @@ enregistré séparément pour les huit topologies. Un variant catalogué n'impli
 toutes ses garanties ou tous ses mécanismes disposent d'un adaptateur complet. Cette limite
 de couverture n'en fait pas un variant de valeur inférieure et ne doit pas, seule, empêcher
 son choix lorsque les signaux de mission lui correspondent.
+
+Le variant Syncytium `realtimeControl` possède désormais une qualification dédiée dans
+`backend/tests/test_syncytium_realtime_control_variant.js` : le watchdog persiste la sortie
+de sécurité sur expiration et le planificateur EDF identifie un échéancier non faisable.
+Cette preuve couvre ces deux comportements; elle ne certifie pas de garantie temps réel dur,
+de borne WCET universelle ni l'exécution d'un contrôleur matériel.
 
 ## Contrat et résolution
 
