@@ -2,6 +2,7 @@
 
 const { ExecutorRegistry } = require('./operators/registry');
 const { createExecutionContext } = require('./operators/executionContext');
+const { defaultRegistry } = require('../variants/variantRegistry');
 
 function mergeChildEvidence(parent, child) {
   if (!child) return;
@@ -28,16 +29,17 @@ function recordExperience(store, graph, rootNode, result) {
 
 function variantPatch(input) {
   const { createMorphologyPatch, createOperation } = require('../transitions/morphologyPatch');
+  const { transition, context } = input;
   return createMorphologyPatch({
     baseGraphVersion: input.graph.version,
     operations: [createOperation('CHANGE_VARIANT', { nodeId: input.nodeId, newVariant: input.newVariant })],
     reason: input.reason || `Variant change to ${input.newVariant}`,
     evidence: input.evidence || [],
-    expectedGain: {},
-    expectedCost: {},
+    expectedGain: transition.gain || {},
+    expectedCost: { tokens: transition.cost || 0 },
     rollbackPlan: { restoreDomains: ['graph', 'workers', 'leases', 'state', 'budgets'] },
-    authority: null,
-    lease: null
+    authority: context.authority,
+    lease: context.lease
   });
 }
 
@@ -50,6 +52,7 @@ class MorphologyRuntime {
     this.globalInvariants = options.globalInvariants || [];
     this.eventHandlers = options.eventHandlers || {};
     this.experienceStore = options.experienceStore || null;
+    this.variantRegistry = options.variantRegistry || defaultRegistry;
   }
 
   async execute(graph, input = {}) {
@@ -159,12 +162,32 @@ class MorphologyRuntime {
     }
   }
 
-  async changeVariant(nodeId, graph, newVariant, execContext = {}) {
+  async changeVariant(input = {}) {
+    const { nodeId, graph, newVariant, execContext = {} } = input;
     const node = graph.nodes.find((entry) => entry.nodeId === nodeId);
     if (!node) throw new Error(`Node not found: ${nodeId}`);
     if (node.variant === newVariant) return { success: true, changed: false };
-    const patch = variantPatch({ graph, nodeId, newVariant, evidence: execContext.evidence || [] });
+
+    const transition = this.variantRegistry.getTransition(
+      node.topology, node.variant, node.topology, newVariant
+    );
+    if (!transition) {
+      return { success: false, changed: false, reason: `No transition rule from ${node.variant} to ${newVariant}` };
+    }
+    const decision = this.variantRegistry.canTransition(
+      node.topology, node.variant, node.topology, newVariant, execContext
+    );
+    if (!decision.allowed) return { success: false, changed: false, reason: decision.reason };
+
+    const patch = variantPatch({
+      graph, nodeId, newVariant, transition, context: execContext,
+      evidence: transition.requiresEvidence?.map(type => ({ type, present: true })) || []
+    });
     const result = await this.applyPatch(patch, graph, execContext);
+    if (result.success) {
+      node.variant = newVariant;
+      node.variantChangedAt = new Date().toISOString();
+    }
     return { success: result.success, changed: result.success, execution: result.execution };
   }
 }
