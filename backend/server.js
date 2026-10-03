@@ -105,7 +105,7 @@ async function reconcileDetachedProcesses(db) {
       await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
       continue;
     }
-    if (terminatePid(row.pid)) {
+    if (terminatePid(row.pid, row.command)) {
       await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
     } else {
       console.warn(`[GenOS Recovery] Could not terminate detached process ${row.pid}; retaining its recovery record.`);

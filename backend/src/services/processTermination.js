@@ -111,9 +111,10 @@ function terminateChild(child, detached = false) {
   return true;
 }
 
-function terminatePid(pid) {
+function terminatePid(pid, expected) {
   const numericPid = normalizePid(pid);
   if (!numericPid || numericPid === process.pid) return false;
+  if (expected !== undefined && !processMatches(numericPid, expected, true)) return false;
   try {
     if (process.platform === 'win32') {
       execFileSync('taskkill', ['/PID', String(numericPid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
