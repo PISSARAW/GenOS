@@ -101,7 +101,10 @@ pub fn check_degenerative_state(agent: &AgentCell) -> Option<Pathology> {
         })
     } else if agent.is_senescent {
         Some(Pathology::ReplicativeSenescence)
-    } else if (agent.conscience.dissonance_level as f64) > 0.85 {
+    } else if agent.conscience.max_dissonance_threshold.is_finite()
+        && agent.conscience.max_dissonance_threshold > 0.0
+        && agent.conscience.dissonance_level / agent.conscience.max_dissonance_threshold > 0.85
+    {
         Some(Pathology::PrionAggregation {
             dissonance_score: agent.conscience.dissonance_level as f64,
         })
