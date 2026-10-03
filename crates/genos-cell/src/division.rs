@@ -89,11 +89,13 @@ impl AgentCell {
         let half_budget = (self.conscience.current_budget / 2.0).max(0.0);
 
         let mut daughter_a = self.clone();
+        daughter_a.cell_id = Uuid::new_v4();
         daughter_a.conscience.current_budget = half_budget;
         daughter_a.bud_scars += 1;
         if daughter_a.bud_scars >= daughter_a.hayflick_limit {
             daughter_a.is_senescent = true;
         }
+        daughter_a.regenerate_organelle_ids();
 
         let mut daughter_b = self.clone();
         daughter_b.cell_id = Uuid::new_v4();
