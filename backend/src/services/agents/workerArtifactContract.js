@@ -52,7 +52,20 @@ function contentIsValid(type, content) {
   if (!hasRequiredFields(content, REQUIRED_FIELDS[type] || [])) return false;
   if (type === 'dossier' && !claimsAreSubstantiated(content)) return false;
   if (type === 'experiment_record' && !hasRecordedMeasurements(content)) return false;
+  if (type === 'training_packet' && !hasValidatedTrainingPacket(content)) return false;
   return specializedContentIsValid(type, content);
+}
+
+function hasValidatedTrainingPacket(content) {
+  return Array.isArray(content.prerequisites) && content.prerequisites.length > 0
+    && content.prerequisites.every(isNonEmptyText)
+    && Array.isArray(content.steps) && content.steps.length > 0
+    && content.steps.every(isNonEmptyText)
+    && hasEvidenceReferences(content.evidence);
+}
+
+function isNonEmptyText(value) {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 function hasRecordedMeasurements(content) {
