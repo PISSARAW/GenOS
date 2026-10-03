@@ -54,7 +54,9 @@ async function testRestrictedTrialAndAdmission(db, holobiontId) {
   assert.strictEqual(session.candidateSymbionts[0].admissionTrial.capability, 'review');
   const result = await admission.evaluateTrial(db, {
     holobiontId, symbiontId: 'candidate-admission', expectedSessionRevision: 4,
-    contributionScore: 0.9, evidenceRefs: ['sha256:review-result'], contractCompliant: true
+    contributionScore: 0.9, contractCompliant: true,
+    verification: { status: 'VERIFIED', verifierId: 'review-verifier', resultHash: 'sha256:review-result',
+      evidenceRefs: ['proof:citations:review-result'] }
   });
   assert.strictEqual(result.decision, 'ADMITTED');
   const restored = await store.getSession(db, holobiontId);
@@ -91,11 +93,14 @@ async function testTrialRejectionAndBounds(db, holobiontId) {
   const trial = await store.getSession(db, holobiontId);
   await assert.rejects(() => admission.evaluateTrial(db, {
     holobiontId, symbiontId: 'candidate-weak', expectedSessionRevision: trial.revision,
-    contributionScore: 0.1, evidenceRefs: [], contractCompliant: true
+    contributionScore: 0.1, contractCompliant: true,
+    verification: { status: 'VERIFIED', verifierId: 'review-verifier', resultHash: 'sha256:empty', evidenceRefs: [] }
   }), { code: 'HOLOBIONT_TRIAL_EVIDENCE_REQUIRED' });
   const rejected = await admission.evaluateTrial(db, {
     holobiontId, symbiontId: 'candidate-weak', expectedSessionRevision: trial.revision,
-    contributionScore: 0.1, evidenceRefs: ['sha256:no-useful-output'], contractCompliant: true
+    contributionScore: 0.1, contractCompliant: true,
+    verification: { status: 'VERIFIED', verifierId: 'review-verifier', resultHash: 'sha256:no-useful-output',
+      evidenceRefs: ['proof:citations:no-useful-output'] }
   });
   assert.strictEqual(rejected.decision, 'REJECTED');
   assert.strictEqual((await store.getSession(db, holobiontId)).candidateSymbionts.length, 0);

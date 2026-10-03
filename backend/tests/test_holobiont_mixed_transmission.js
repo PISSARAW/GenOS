@@ -76,7 +76,9 @@ async function testCoreAndPeriphery(db) {
   const evaluated = await admission.evaluateTrial(db, {
     holobiontId: result.child.holobiontId, symbiontId: 'context-parser',
     expectedSessionRevision: result.child.revision, contributionScore: 0.85,
-    evidenceRefs: ['proof:context-parser-trial'], contractCompliant: true
+    contractCompliant: true,
+    verification: { status: 'VERIFIED', verifierId: 'host-verifier', resultHash: 'sha256:context-parser-trial',
+      evidenceRefs: ['proof:review-proof:context-parser-trial'] }
   });
   assert.strictEqual(evaluated.decision, 'ADMITTED');
 }

@@ -58,7 +58,9 @@ async function testAcquisitionTrialAndAdmission(db) {
   const evaluated = await admission.evaluateTrial(db, {
     holobiontId: session.holobiontId, symbiontId: 'external-reviewer',
     expectedSessionRevision: trialSession.revision, contributionScore: 0.9,
-    evidenceRefs: ['proof:successful-review-trial'], contractCompliant: true
+    contractCompliant: true,
+    verification: { status: 'VERIFIED', verifierId: 'host-reviewer', resultHash: 'sha256:review-trial',
+      evidenceRefs: ['proof:review-proof:successful-review-trial'] }
   });
   assert.strictEqual(evaluated.decision, 'ADMITTED');
 }

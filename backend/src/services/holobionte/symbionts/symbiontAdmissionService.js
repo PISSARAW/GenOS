@@ -80,20 +80,29 @@ async function startAdmission(db, input = {}) {
   return { status: 'TRIAL', sessionRevision: revision, sandbox };
 }
 
-function trialReceipt(input, candidate) {
+function trialReceipt(input, candidate, contract) {
   const contribution = Number(input.contributionScore);
   if (!Number.isFinite(contribution) || contribution < 0 || contribution > 1) {
     throw admissionError('contributionScore must be between 0 and 1.');
   }
-  if (!Array.isArray(input.evidenceRefs) || input.evidenceRefs.length === 0) {
+  const verification = input.verification || {};
+  if (verification.status !== 'VERIFIED' || !Array.isArray(verification.evidenceRefs)
+    || verification.evidenceRefs.length === 0) {
     throw admissionError('At least one evidence reference is required.', 'HOLOBIONT_TRIAL_EVIDENCE_REQUIRED');
   }
-  const evidenceRefs = input.evidenceRefs.map((item) => requireText(item, 'evidence reference'));
+  const evidenceRefs = verification.evidenceRefs.map((item) => requireText(item, 'evidence reference'));
+  const missingEvidence = contract.evidenceRequirements.filter((required) =>
+    !evidenceRefs.some((reference) => reference.includes(required)));
+  if (missingEvidence.length) {
+    throw admissionError('Trial evidence does not cover the SymbiosisContract requirements.', 'HOLOBIONT_TRIAL_EVIDENCE_INCOMPLETE');
+  }
   const receipt = {
     receiptId: randomUUID(), trialId: candidate.admissionTrial.trialId,
     contractId: candidate.contractId, contractRevision: candidate.contractRevision,
     capability: candidate.admissionTrial.capability, contributionScore: contribution,
-    contractCompliant: input.contractCompliant === true, evidenceRefs,
+    contractCompliant: input.contractCompliant === true,
+    verifierId: requireText(verification.verifierId, 'verifierId'),
+    resultHash: requireText(verification.resultHash, 'resultHash'), evidenceRefs,
     evaluatedAt: new Date().toISOString(), actorId: input.actorId || null
   };
   return { receipt, contribution };
@@ -106,8 +115,8 @@ function decisionFor(input, contribution, immuneReview) {
 
 async function reviewTrial(input, receipt) {
   return immunePlane.reviewSymbiontOutput({
-    symbiontId: input.symbiontId, resultHash: receipt.trialId,
-    evidenceRefs: receipt.evidenceRefs, verifierId: input.verifierId,
+    symbiontId: input.symbiontId, resultHash: receipt.resultHash,
+    evidenceRefs: receipt.evidenceRefs, verifierId: receipt.verifierId,
     claim: `Trial contribution ${receipt.contributionScore} for ${receipt.capability}`,
     riskScore: input.unsafeBehavior ? 0.95 : input.riskScore,
     selfVerified: input.unsafeBehavior === true || input.selfVerified === true
@@ -121,7 +130,11 @@ async function evaluateTrial(db, input = {}) {
   const symbiontId = requireText(input.symbiontId, 'symbiontId');
   const candidate = candidateFor(session, symbiontId, 'TRIAL');
   if (!candidate.admissionTrial) throw admissionError('Trial sandbox record is missing.');
-  const { receipt, contribution } = trialReceipt(input, candidate);
+  const contract = await contracts.getContract(db, session.holobiontId, symbiontId);
+  if (!contract || contract.status !== 'ACTIVE') {
+    throw admissionError('An active contract is required to evaluate a trial.', 'HOLOBIONT_CONTRACT_REQUIRED');
+  }
+  const { receipt, contribution } = trialReceipt(input, candidate, contract);
   const immuneReview = await reviewTrial(input, receipt);
   receipt.immuneReview = immuneReview;
   const decision = decisionFor(input, contribution, immuneReview);

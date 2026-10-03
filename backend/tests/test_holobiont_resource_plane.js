@@ -47,7 +47,9 @@ async function setup(db) {
   });
   await admission.evaluateTrial(db, {
     holobiontId: session.holobiontId, symbiontId: 'sym-resource', expectedSessionRevision: 4,
-    contributionScore: 0.8, evidenceRefs: ['sha256:admission'], contractCompliant: true
+    contributionScore: 0.8, contractCompliant: true,
+    verification: { status: 'VERIFIED', verifierId: 'resource-verifier', resultHash: 'sha256:admission',
+      evidenceRefs: ['proof:result:admission'] }
   });
   await contribution.recordContribution(db, {
     holobiontId: session.holobiontId, symbiontId: 'sym-resource', capability: 'analyze',

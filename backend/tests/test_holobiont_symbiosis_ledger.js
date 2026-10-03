@@ -44,7 +44,9 @@ async function setup(db) {
   });
   await admission.evaluateTrial(db, {
     holobiontId: session.holobiontId, symbiontId: 'sym-ledger', expectedSessionRevision: 4,
-    contributionScore: 0.8, evidenceRefs: ['result:trial'], contractCompliant: true
+    contributionScore: 0.8, contractCompliant: true,
+    verification: { status: 'VERIFIED', verifierId: 'ledger-verifier', resultHash: 'sha256:ledger-trial',
+      evidenceRefs: ['result:result:trial'] }
   });
   return session.holobiontId;
 }
