@@ -21,7 +21,7 @@ const CONTENT_TEMPLATES = Object.freeze({
   dossier: { claims: [{ statement: '<claim>', evidence: ['<source-ref>'] }] },
   verification_report: { testedClaim: '<claim>', verificationMethod: '<method>', verdict: 'reject', reproductionSteps: ['<step>'], evidence: ['<reproduction-ref>'] },
   experiment_record: { hypothesis: '<hypothesis>', protocol: ['<step>'], measurements: [{ metric: '<metric>', value: 0, unit: '<unit>', evidence: ['<measurement-ref>'] }] },
-  formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', evidence: ['<receipt-ref>'] } },
+  formal_certificate: { claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', solverReceipt: { id: '<receipt-id>', claim: '<exact-claim>', solver: '<solver-name>', result: '<solver-result>', evidence: ['<receipt-ref>'] } },
   synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'], disagreements: [] },
   creative_candidate: { candidate: '<candidate>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
   clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['<general-consideration>'], uncertainty: '<uncertainty>', safetyNote: 'No individual diagnosis or treatment advice.' },
@@ -108,7 +108,7 @@ function hasRecordedMeasurements(content) {
 
 function specializedContentIsValid(type, content) {
   if (type === 'verification_report') return validVerificationContent(content);
-  if (type === 'formal_certificate') return hasSolverReceipt(content.solverReceipt);
+  if (type === 'formal_certificate') return hasSolverReceipt(content.solverReceipt, content);
   if (type === 'clinical_report') return isNonDiagnosticClinicalReport(content);
   if (type === 'causal_dossier') return hasCausalChain(content.causalChain);
   return true;
@@ -133,9 +133,11 @@ function validVerificationContent(content) {
   return true;
 }
 
-function hasSolverReceipt(receipt) {
-  return Boolean(receipt && typeof receipt.id === 'string' && receipt.id.trim()
-    && hasEvidenceReferences(receipt.evidence));
+function hasSolverReceipt(receipt, content) {
+  return Boolean(isNonEmptyText(content.claim) && isNonEmptyText(content.solver)
+    && receipt && typeof receipt.id === 'string' && receipt.id.trim()
+    && receipt.claim === content.claim && receipt.solver === content.solver
+    && receipt.result === content.result && hasEvidenceReferences(receipt.evidence));
 }
 
 function isNonDiagnosticClinicalReport(content) {
@@ -328,7 +330,7 @@ function appendSpecializedContentIssue(expected, content, issues) {
 function specializedContentIssue(expected, content) {
   const issues = {
     clinical_report: !isNonDiagnosticClinicalReport(content) && 'caseScope.must_be_synthetic_educational_and_non_diagnostic',
-    formal_certificate: !hasSolverReceipt(content.solverReceipt) && 'solverReceipt.invalid',
+    formal_certificate: !hasSolverReceipt(content.solverReceipt, content) && 'solverReceipt.invalid',
     verification_report: verificationIssue(content)
   };
   return issues[expected] ? `workerArtifact.content.${issues[expected]}` : null;
