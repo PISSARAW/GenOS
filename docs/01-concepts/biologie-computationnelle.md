@@ -2,7 +2,7 @@
 
 - **Statut** : Intégration partielle — `handleBiological` lance un tick Rust persistant et ingère ses reçus dans SQLite sous l'identité de mission backend. L'E2E redémarre le CLI et conserve cellule, génome, empreinte, tick et dépense ATP; l'identité reste celle de l'organisme Rust, pas du worker backend dispatché.
 - **Portée** : `crates/genos-cell/src/lib.rs` (`AgentCell`, `Organelle`), `crates/genos-biology/src/embryology.rs` (`seed_hox_genome`), `crates/genos-genome/*`, `crates/genos-reproduction/*`, `backend/src/services/missionOrganismService.js`.
-- **Dernière revue** : 2026-09-30.
+- **Dernière revue** : 2026-10-03.
 
 ## 1. Définition du domaine
 
@@ -43,7 +43,9 @@ Dans `GenosEcosystem::tick` (`crates/genos-orchestrator/src/tick.rs`), chaque co
 
 Deux modes de raccordement existent. Le bridge backend appelle le CLI et persiste le résultat localement après vérification de la mission active et de la portée tenant; `npm run test:biological-receipts` (depuis `backend/`) lance le binaire Rust compilé deux fois contre une base SQLite et vérifie identité stable, ticks croissants, cellule/génome et coût positif. L'uploader Rust optionnel, feature Cargo `api`, expédie également le journal vers `POST /api/rust/biological-receipts`; il exige `GENOS_BACKEND_URL`, `GENOS_RUST_RECEIPT_TOKEN`, `GENOS_RUST_RECEIPT_ORG_ID`, `GENOS_RUST_RECEIPT_PROJECT_ID` et `GENOS_RUST_RECEIPT_SECRET`. Cette route vérifie HMAC-SHA256, fraîcheur, nonce à usage unique et appartenance tenant; l'ingestion est idempotente par `receipt_id`. L'uploader peut retransmettre le journal entier et s'appuie donc sur cette idempotence. L'E2E du bridge couvre le tick backend direct, pas le transport HTTP signé en environnement déployé.
 
-`embryology::seed_hox_genome` assigne gènes et rôles selon ses règles de différenciation; ce n'est pas une simulation d'un gradient embryonnaire mesuré. `CellDivision::mitosis_attested` (`crates/genos-reproduction/src/division.rs`) applique les contrôles logiciels de division configurés; l'analogie avec une limite de Hayflick reste métaphorique.
+`BiomimeticOrchestrator::cleave_and_differentiate` appelle `differentiate_swarm`, qui utilise maintenant `Embryogenesis::compute_program` (`crates/genos-genome/src/development.rs`) pour résoudre la lignée de chaque cellule à partir du gène HOX source, de son expression et de la méthylation épigénétique. L'énergie passée au programme est la fraction `current_budget / baseline_budget`, bornée à `[0,1]`; le temps est exprimé en pas et son facteur atteint son plafond à dix pas. Le placement initial des rôles reste déterministe à partir de la position dans l'essaim et du paramètre `topology_gradient`. Ce chemin n'effectue ni diffusion de morphogènes ni interaction spatiale entre cellules; un locus source absent ou silencé laisse la cellule `UNCOMMITTED`. Ce développement est réellement appelé par ce chemin de l'orchestrateur Rust, mais n'est pas un passage automatique de chaque mission du backend.
+
+`CellDivision::mitosis_attested` (`crates/genos-reproduction/src/division.rs`) applique les contrôles logiciels de division configurés; l'analogie avec une limite de Hayflick reste métaphorique.
 
 ## 6. Schéma
 
