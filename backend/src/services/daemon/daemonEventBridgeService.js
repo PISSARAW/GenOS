@@ -117,7 +117,7 @@ async function maybeWakeRuntime(bridge, event, receptor) {
 
 async function processPersistedEvent(bridge, event) {
   const receptor = receptorRegistry.getReceptorFor(event.event_type);
-  if (!receptor || Number(event.woke) === 1) return { processed: true, woke: false };
+  if (!receptor) return { processed: true, woke: false };
   const wake = await maybeWakeRuntime(bridge, {
     territoryId: event.territory_id,
     type: event.event_type,
