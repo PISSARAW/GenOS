@@ -53,10 +53,22 @@ function testSameTagKept() {
   assert.equal(kept.length, 1);
 }
 
-function testNoScopePassthrough() {
+function testNoScopeDropsForeignDossier() {
   const items = [{ summary: foreignRecord() }, { summary: 'court' }];
-  assert.equal(scope.filterScoped(items, null, N1).length, 2);
-  assert.equal(scope.filterScoped(items, undefined, N1).length, 2);
+  const kept = scope.filterScoped(items, null, N1);
+  assert.equal(kept.length, 1);
+  assert.equal(kept[0].summary, 'court');
+}
+
+function testNoScopeDropsTagged() {
+  const tagged = `${foreignRecord()}\n[MISSION_SCOPE id=trinity_orch_N3 chamber=structured]`;
+  const kept = scope.filterScoped([{ summary: tagged }], null, N1);
+  assert.deepEqual(kept, []);
+}
+
+function testShortTaskPassthrough() {
+  const items = [{ summary: foreignRecord() }];
+  assert.equal(scope.filterScoped(items, null, 'query courte').length, 1);
 }
 
 async function main() {
@@ -67,7 +79,9 @@ async function main() {
   testShortGenericKept();
   testForeignTagDropped();
   testSameTagKept();
-  testNoScopePassthrough();
+  testNoScopeDropsForeignDossier();
+  testNoScopeDropsTagged();
+  testShortTaskPassthrough();
   console.log('✅ Trinity memory sealing tests passed.');
 }
 

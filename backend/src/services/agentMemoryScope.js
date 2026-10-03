@@ -49,18 +49,22 @@ function itemText(item) {
   return item.summary || item.content || item.observationOutput || item.actionInput || item.title || '';
 }
 
+function foreignTask(text, task) {
+  const embedded = embeddedTask(text);
+  const current = normalizeTask(task);
+  if (!embedded || embedded.length < LONG_TASK_CHARS) return false;
+  if (!current || current.length < LONG_TASK_CHARS) return false;
+  return embedded !== current;
+}
+
 function keepForScope(text, scope, task) {
   const checked = scopeOf(scope);
-  if (!checked) return true;
   const tag = scopeTagOf(text);
-  if (tag) return tag === checked.missionId;
-  const embedded = embeddedTask(text);
-  if (!embedded || embedded.length < LONG_TASK_CHARS) return true;
-  return embedded === normalizeTask(task);
+  if (tag) return Boolean(checked) && tag === checked.missionId;
+  return !foreignTask(text, task);
 }
 
 function filterScoped(items, scope, task) {
-  if (!scopeOf(scope)) return Array.isArray(items) ? items : [];
   return (Array.isArray(items) ? items : []).filter((item) => keepForScope(itemText(item), scope, task));
 }
 

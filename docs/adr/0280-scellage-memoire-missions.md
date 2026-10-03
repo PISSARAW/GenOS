@@ -59,8 +59,29 @@ mission N3, un monde N6 a cité la mission N5 comme preuve. Mécanisme :
   observé) sont tagués. Suivi requis.
 - Les vésicules synaptiques ne sont pas scopées. Suivi requis.
 
+## Addendum 2026-10-03 — règle par défaut sans plomberie
+
+La vérification live a montré que `missionScope` n'atteint pas le runtime :
+`prepareWorker` / `startWorkerMission` reconstruisent le membre sans les
+champs ajoutés, et l'enveloppe protobuf (`AgentMission`, `agent.proto`) n'a
+ni `variant_index` ni `mission_scope_json` — l'encodage les élimine. Le même
+trou affecte `variantIndex` / `localModel` du point 2 (seul le texte du prompt
+passe de bout en bout).
+
+En conséquence, la règle dossier-étranger s'applique aussi **sans scope
+déclaré** : tâche intégrée longue et différente de la tâche courante (elle
+aussi longue) → exclu ; enregistrement tagué lu sans scope → exclu (un tag
+n'existe que par écriture scopée, le lecteur est donc étranger). Tâches
+courtes : comportement inchangé. Le scope déclaré ajoute la précision
+d'attribution par `missionId` et `chamber`.
+
+Transport de bout en bout des champs (`prepareWorker`, `startWorkerMission`,
+`buildMissionEnvelope`, `agent.proto`) : suivi requis, commun aux points 2
+et 3.
+
 ## Preuves exigées
 
 - Test `backend/tests/test_trinity_memory_sealing.js` : dossier étranger
-  long exclu, même mission conservée, générique court conservé, tag
-  étranger exclu, sans scope tout passe, marquage aller-retour.
+  long exclu (avec et sans scope), même mission conservée, générique court
+  conservé, tag étranger exclu, tâche courte en passthrough, marquage
+  aller-retour.
