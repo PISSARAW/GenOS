@@ -248,9 +248,10 @@ stateDiagram-v2
 - `registerDaemon` exige `daemonId + territoryId`, conflit si territoire différent.
 - `heartbeat` sur daemon inconnu → `{updated:false, errors:['unknown-daemon']}`, jamais de throw.
 - Host minimal : `backend/bin/genos-daemon.cjs` — `--territory` + `--daemon-id` requis,
-  refuse de démarrer si territoire non enregistré, 4 signaux souscrits
-  (`TERRITORY_FILE_CHANGED, TERRITORY_COMMIT, ORCHESTRATOR_ENTERED, KNOWLEDGE_STALE`),
-  fallback `KNOWLEDGE_STALE` 60 s, heartbeat 30 s, shutdown `SIGINT/SIGTERM` gracieux.
+  refuse de démarrer si territoire non enregistré, souscrit les 16 événements reconnus,
+  poll persistant chaque seconde, heartbeat 30 s et shutdown `SIGINT/SIGTERM` gracieux.
+  Une erreur de poll marque la santé `DEGRADED`, rétablie après un poll réussi ; aucun
+  timer `KNOWLEDGE_STALE` n'est émis par l'hôte.
 
 Source : `backend/src/services/daemon/residentDaemonRuntime.js:21-173`,
 `backend/bin/genos-daemon.cjs:22-123`.
@@ -283,6 +284,8 @@ Source : `backend/src/services/daemon/residentDaemonRuntime.js:21-173`,
 Table `daemon_territories` (migration 037) avec `CHECK` sur l'état, index par
 `workspace_id / repo_identity / state`. `daemon_runtime_state` porte
 `(daemon_id, territory_id, activity, health, cognitive_revisions, last_heartbeat_at)`.
+La cartographie renseigne aussi `last_indexed_at` et `indexed_head_sha` ; la fraîcheur
+des connaissances est nulle si le HEAD indexé diffère du HEAD courant.
 
 ### 6.2 Éveil et récepteurs — schéma logique
 
@@ -292,13 +295,13 @@ Event → validate(territoryId, knownEvent) → cheapUpdate(head|touch)
 ```
 
 - 16 événements connus (`daemonReceptorRegistry.js:18-35`).
-- `high` = candidat LLM (`TEST_FAILED, BUILD_FAILED, AGENT_FAILED, FINDING_REFUTED, RESOURCE_ORPHANED`).
+- `high` = réveil focalisé (`TEST_FAILED, BUILD_FAILED, AGENT_FAILED, FINDING_REFUTED, RESOURCE_ORPHANED`) ; cela ne lance pas automatiquement un LLM.
 - `medium` = sensing focalisé (`wakeActivity: FOCUSED`).
 - `low` = persistance seule (`wakeActivity: null`, ex. `TEST_RECOVERED, AGENT_COMPLETED`).
 - Seul `ORCHESTRATOR_ENTERED` demande un handoff (`handoffRequested: true`).
 - Wake policy : `cooldown 5 s` par `(territoire, eventType)`, `10 wakes / 60 s` max,
   `low-priority-persist-only` ne réveille jamais. Temps injecté, sans LLM.
-- Timer 60 min = filet de rattrapage, pas le système nerveux.
+- Pas de timer de rattrapage `KNOWLEDGE_STALE` dans l'hôte ; l'interoception dérive la fraîcheur du dernier index réussi et de son HEAD.
 - `ingestEvent` retourne `llmRequired: false` ; le handoff est en `try/catch`
   et ne bloque jamais l'ingestion. Écriture `daemon_events` en best-effort.
 
