@@ -25,6 +25,8 @@ function observe(state, result, input) {
     temporaryPatch: input.temporaryPatch,
     bridgeRequired: input.bridgeRequired,
     representationCount: input.representationCount,
+    procedureRequired: input.procedureRequired,
+    workflowRequired: input.workflowRequired,
     routeFailures: state.routeFailures,
     budgetTight: input.budgetTight,
     unknownCapabilities: isOpenGap(result) ? 1 : 0,

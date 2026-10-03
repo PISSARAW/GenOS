@@ -142,6 +142,9 @@ function analyzeFit(input = {}) {
   if (input.bridgeRequired === true || Number(input.representationCount) > 1) {
     return { variant: 'cross_representation', reason: 'CROSS_REPRESENTATION_BRIDGE_REQUIRED' };
   }
+  if (input.procedureRequired === true || input.workflowRequired === true) {
+    return { variant: 'procedural', reason: 'VERIFIED_PROCEDURE_REQUIRED' };
+  }
   if (input.routeFailures > 0) return { variant: 'resilient', reason: 'ROUTE_FAILURES' };
   if (input.budgetTight === true) return { variant: 'sparse', reason: 'BUDGET_CONSTRAINT' };
   if (input.unknownCapabilities > 0) return { variant: 'exploratory', reason: 'CAPABILITY_UNCERTAINTY' };
