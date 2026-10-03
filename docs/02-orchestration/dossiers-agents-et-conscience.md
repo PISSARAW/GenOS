@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : dossiers de workers, barrière d’évidence, synthèse et transitions de régulation cognitive du control plane Node.
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-10-03
 
 ## 1. Définition
 
@@ -67,6 +67,13 @@ C_{t+1}=f(C_t,E_t,B_t,\Delta_t)
 
 Une hausse de la dissonance ou l’épuisement du budget peut conduire à `blocked` ou
 `apoptosis`, selon la politique de supervision.
+
+Le superviseur n'émet `COGNITIVE_EUREKA` qu'après validation du rapport, des
+claims et de l'artefact worker requis, puis acceptation effective de
+`triggerEureka`. Un refus (état déjà apoptotique ou fenêtre limitée, par exemple)
+ne produit ni événement Eurêka ni transition persistée sous cette raison. Une
+clôture de mission réussie, sans preuve validée transmise à cette barrière, ne
+déclenche pas de récompense cognitive.
 
 Les prompts embarquent le même matériau des deux runtimes (Codex supervisé et
 local) via `agentSelfBlocks` : `selfIntro`, `agentSelfBlock` (AgentSelf),
