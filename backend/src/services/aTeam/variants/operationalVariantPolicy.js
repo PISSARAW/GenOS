@@ -18,7 +18,8 @@ function buildOperationalPolicy(input = {}) {
   const policies = {
     expert_committee: () => ({ ...teamPolicies.expertCommittee(mission, members),
       ...expertCommitteeFullPotential(mission, members) }),
-    boundary_spanner: () => teamPolicies.interfaceContracts(mission, boundaries, members),
+    boundary_spanner: () => ({ ...teamPolicies.interfaceContracts(mission, boundaries, members),
+      ...boundarySpannerFullPotential(mission, boundaries, members) }),
     matrix_team: () => ({ ...teamPolicies.matrixDecisions(mission),
       ...matrixTeamFullPotential(mission) }),
     tiger_team: () => teamPolicies.tigerMandate(mission),
