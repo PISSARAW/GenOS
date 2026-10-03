@@ -311,17 +311,8 @@ async function executeMorphology({ morphology, outcome, finalVerdict, orchestrat
     orchestratorId, evidence: outcome.evidence,
     reason: `post-mission morphogenesis (verdict=${finalVerdict})`
   });
-  const committed = Boolean(result.commitId);
-  telemetry.emitEvent({
-    eventType: committed ? 'MORPHOGENESIS_COMPLETED' : 'MORPHOGENESIS_PROPOSED',
-    agentId: orchestratorId,
-    action: committed ? 'MORPHO_COMMITTED' : 'MORPHO_PROPOSED',
-    detail: committed
-      ? `Committed ${result.topology} morphology with ${result.agents?.length || 0} agents`
-      : `Morphology ${result.topology || 'unresolved'} evaluated without a commit receipt`,
-    payload: { topology: result.topology || null, committed, commitId: result.commitId || null },
-    severity: committed ? 'info' : 'warning'
-  });
+  const { buildMorphogenesisEvent } = require('../src/services/morphogenesis/morphogenesisTelemetryService');
+  telemetry.emitEvent(buildMorphogenesisEvent(result, orchestratorId));
 }
 
 async function checkMinimalShortcut(db) {
