@@ -25,7 +25,7 @@ const CONTENT_TEMPLATES = Object.freeze({
   synthesis_dossier: { synthesis: '<synthesis>', sources: ['<source-ref>'] },
   creative_candidate: { candidate: '<candidate>', assumptions: ['<assumption>'], falsificationTest: '<test>' },
   clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['<general-consideration>'], uncertainty: '<uncertainty>', safetyNote: 'No individual diagnosis or treatment advice.' },
-  causal_dossier: { causalChain: ['<event-ref>: <causal-link>'], evidence: ['<receipt-ref>'] },
+  causal_dossier: { causalChain: [{ from: '<event-ref>', to: '<event-ref>', relation: '<causal-link>', evidence: ['<receipt-ref>'] }], evidence: ['<receipt-ref>'] },
   training_packet: { prerequisites: ['<prerequisite>'], steps: ['<step>'], evidence: ['<source-ref>'] }
 });
 
@@ -58,7 +58,17 @@ function specializedContentIsValid(type, content) {
   if (type === 'verification_report') return validVerificationContent(content);
   if (type === 'formal_certificate') return hasSolverReceipt(content.solverReceipt);
   if (type === 'clinical_report') return isNonDiagnosticClinicalReport(content);
+  if (type === 'causal_dossier') return hasCausalChain(content.causalChain);
   return true;
+}
+
+function hasCausalChain(chain) {
+  return Array.isArray(chain) && chain.length > 0 && chain.every((link) =>
+    typeof link?.from === 'string' && link.from.trim()
+    && typeof link?.to === 'string' && link.to.trim()
+    && link.from !== link.to
+    && typeof link?.relation === 'string' && link.relation.trim()
+    && hasEvidenceReferences(link.evidence));
 }
 
 function validVerificationContent(content) {
