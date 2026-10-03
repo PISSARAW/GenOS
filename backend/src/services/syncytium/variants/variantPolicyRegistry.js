@@ -141,7 +141,14 @@ function configureConsistencyZones(definitionItem, context = {}) {
 function configureDomains(definitionItem, context = {}) {
   if (definitionItem.id === 'humanAi') return humanAiDomains(context.nuclei || []);
   if (definitionItem.id !== 'hierarchical') return Array.isArray(context.nuclearDomains) ? [...context.nuclearDomains] : [];
-  return regionsToDomains(context.regions || [], contractPaths(context.sharedContracts));
+  const regions = context.regions || [];
+  const contracts = contractPaths(context.sharedContracts);
+  if (!regions.length || !contracts.length) {
+    throw Object.assign(new Error('Hierarchical Syncytium requires regions and shared contracts.'), {
+      code: 'SYNCYTIUM_HIERARCHICAL_CONTEXT_REQUIRED'
+    });
+  }
+  return regionsToDomains(regions, contracts);
 }
 
 function humanAiDomains(nuclei) {
