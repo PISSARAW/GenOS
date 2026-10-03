@@ -82,6 +82,13 @@ function hasRecoveryReceipt(receipt) {
     && hasEvidenceReferences(receipt?.evidence));
 }
 
+function hasBoundedHandoff(handoff) {
+  return Boolean(isNonEmptyText(handoff?.sourceGroup)
+    && isNonEmptyText(handoff?.targetGroup)
+    && handoff.sourceGroup !== handoff.targetGroup
+    && hasEvidenceReferences(handoff?.deliveredRefs));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -182,6 +189,7 @@ function artifactInstruction(contract) {
   const required = contract?.evidence?.requiredArtifacts || [];
   if (!required.length) return '';
   if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
+  if (contract.identity?.workerKind === 'liaison_worker') return liaisonInstruction();
   const rhizome = rhizomeArtifactInstruction(contract, required);
   if (rhizome) return rhizome;
   const template = required.map((type) => ({ type, content: templateForWorker(contract, type) }));
@@ -196,6 +204,12 @@ function recoveryInstruction() {
   const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
     recoveryReceipt: { action: '<leased-action>', restoredState: '<restored-state>', receiptId: '<receipt-id>', evidence: ['<receipt-ref>'] } };
   return `Return a dossier plus the executed recovery receipt. Do not claim restoration without a receipt. Schema: ${JSON.stringify(output)}`;
+}
+
+function liaisonInstruction() {
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    handoff: { sourceGroup: '<source-group>', targetGroup: '<target-group>', deliveredRefs: ['<source-ref>'] } };
+  return `Return the dossier and explicit recipient-bound handoff. Keep the groups distinct and cite every transferred item. Schema: ${JSON.stringify(output)}`;
 }
 
 function templateForWorker(contract, type) {
@@ -287,6 +301,9 @@ function validateWorkerKindArtifact(result, kind, type) {
   if (kind === 'recovery_worker' && type === 'dossier' && !hasRecoveryReceipt(content.recoveryReceipt)) {
     return { artifact: null, issues: [...result.issues, 'workerArtifact.content.recoveryReceipt.invalid'] };
   }
+  if (kind === 'liaison_worker' && type === 'dossier' && !hasBoundedHandoff(content.handoff)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.handoff.invalid'] };
+  }
   return result;
 }
 
@@ -310,7 +327,11 @@ function valueAtPath(value, path) {
 function inspectDossier(input) {
   const { parsed, expected, kind, provenance, issues } = input;
   if (!parsed || issues.length) return { artifact: null, issues };
-  const content = { claims: parsed.claims, ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}) };
+  const content = {
+    claims: parsed.claims,
+    ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
+    ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {})
+  };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
   return { artifact: issues.length ? null : { type: expected, content, provenance: { ...(provenance || {}), sourceRefs } }, issues };
@@ -384,7 +405,8 @@ function validateWorkerArtifact(dossier, worker) {
 
 function kindArtifactIsInvalid(kind, type, content) {
   if (kind === 'red_worker' && type === 'verification_report') return !hasCounterexamples(content?.counterexamples);
-  return kind === 'recovery_worker' && type === 'dossier' && !hasRecoveryReceipt(content?.recoveryReceipt);
+  if (kind === 'recovery_worker' && type === 'dossier') return !hasRecoveryReceipt(content?.recoveryReceipt);
+  return kind === 'liaison_worker' && type === 'dossier' && !hasBoundedHandoff(content?.handoff);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
