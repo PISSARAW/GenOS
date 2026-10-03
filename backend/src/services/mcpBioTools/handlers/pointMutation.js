@@ -25,10 +25,10 @@ function computeMutationEffect(record, params) {
   if (mutationType === 'nonsense') {
     record.activeHalt = true;
     record.divergenceScore = 1.0;
-    return { halted: true, msg: `Nonsense substitution on '${targetKey}': premature STOP codon induced.` };
+    return { halted: true, msg: `Nonsense substitution on '${targetKey}' recorded in the mutation model; runtime execution is unchanged.` };
   }
   record.divergenceScore = Math.min(1.0, record.divergenceScore + 0.35);
-  return { halted: false, msg: `Missense substitution on '${targetKey}': behavioral alteration applied (${replacementValue}).` };
+  return { halted: false, msg: `Missense substitution on '${targetKey}' recorded in the mutation model (${replacementValue}); runtime behavior is unchanged.` };
 }
 
 function applySubstitution(record, params) {
@@ -48,6 +48,8 @@ function applySubstitution(record, params) {
     configured: true,
     success: true,
     status: 'substitution_applied',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
     transport: 'point_mutation_engine',
     mutation_id: mutationId,
     mutation_type: mutationType,
@@ -80,6 +82,8 @@ function handlePointMutation(args = {}) {
       configured: true,
       success: true,
       status: 'impact_evaluated',
+      execution_scope: 'metadata_simulation',
+      runtime_effect_applied: false,
       transport: 'point_mutation_engine',
       mutation_id: mutationId,
       history: record.history,
@@ -93,6 +97,8 @@ function handlePointMutation(args = {}) {
     configured: true,
     success: true,
     status: 'active',
+    execution_scope: 'metadata_simulation',
+    runtime_effect_applied: false,
     transport: 'point_mutation_engine',
     mutation_id: mutationId,
     active_halt: record.activeHalt,
