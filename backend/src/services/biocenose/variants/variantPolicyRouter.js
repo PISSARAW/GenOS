@@ -20,6 +20,7 @@ const AUTO_RULES = Object.freeze([
   { variant: 'human_ai_deliberation', type: 'NORMATIVE', signal: /ethic|moral|should|ought|devrait|faut.il|valeur/i },
   { variant: 'forecasting_crowd', type: 'PROBABILISTIC', signal: /forecast|predict|probabil|prevision|predire|risque|likelihood/i },
   { variant: 'adversarial_assembly', signal: /security|securite|threat|menace|audit|attack|attaque|falsif/i },
+  { variant: 'argumentation_community', signal: /argumentation|argument map|argument graph|claim graph|dialectic/i },
   { variant: 'hybrid_oracle_community', type: 'FACTUAL', signal: /verify|verifi|prove|prouver|confirm|confirmer|true|vrai/i },
   { variant: 'minority_preserving_jury', signal: /dissent|dissensus|minority|minoritaire|disagreement|desaccord|plural/i },
   { variant: 'delphi_community', signal: /uncertain|incertain|expert|estimate|estimer|anonymous|anonyme/i }
