@@ -18,7 +18,8 @@ function observe(state, result, input) {
   const fit = variants.analyzeFit({
     routeFailures: state.routeFailures,
     budgetTight: input.budgetTight,
-    unknownCapabilities: isOpenGap(result) ? 1 : 0
+    unknownCapabilities: isOpenGap(result) ? 1 : 0,
+    autoRepairRequired: input.autoRepairRequired
   });
   return {
     tickCount: state.tickCount,
