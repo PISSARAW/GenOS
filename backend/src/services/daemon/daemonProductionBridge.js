@@ -85,7 +85,8 @@ async function emitTerritoryEvent(db, event) {
       rootPath: event.rootPath,
       payload: event.payload || {}
     });
-    return { emitted: ingested.ingested === true, territoryId, ...ingested };
+    const applied = ingested.cheapUpdate?.applied !== false;
+    return { emitted: ingested.ingested === true && applied, territoryId, ...ingested };
   } catch (_) {
     return { emitted: false, reason: 'bridge-error' };
   }

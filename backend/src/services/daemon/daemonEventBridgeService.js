@@ -55,10 +55,14 @@ async function applyHeadUpdate(bridge, event) {
     const changedFiles = safeChangedFiles(event.payload && event.payload.changedFiles);
     let refresh = { refreshed: false, reason: 'root-unavailable' };
     if (changedFiles && event.rootPath && changedFiles.length) {
-      const result = await cartographer.updateFiles(bridge.db, {
-        territoryId: event.territoryId, rootPath: event.rootPath, files: changedFiles
-      });
-      refresh = { refreshed: true, ...result };
+      try {
+        const result = await cartographer.updateFiles(bridge.db, {
+          territoryId: event.territoryId, rootPath: event.rootPath, files: changedFiles
+        });
+        refresh = { refreshed: true, ...result };
+      } catch (_) {
+        refresh = { refreshed: false, reason: 'refresh-failed' };
+      }
     } else if (changedFiles && changedFiles.length === 0) {
       refresh = { refreshed: true, invalidated: 0, reindexed: 0 };
     } else if (!changedFiles) {
