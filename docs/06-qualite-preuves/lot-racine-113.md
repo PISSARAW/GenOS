@@ -19,7 +19,14 @@ antérieur à ce lot) et n'atteint donc pas ses propres assertions de refus ; ef
 Cas limites : `scholastiqueService` et `substanceService` inscrits au registre (`conceptDefinitions.js`) mais sans entrée
 `ADAPTERS` — jamais résolus par le routeur → `orphelin-registre`.
 
-## 2. Variants Trinity (9) : dispatch dynamique prouvé
+## 2. Variants Trinity — état historique au 2026-09-27
+
+**Mise à jour du 2026-10-04 — état courant :** ce décompte décrit l'audit historique du
+2026-09-27. Depuis, les douze variants sont reliés au dispatch et au superviseur avec des
+gates de sortie dédiés (ADR 0292). La campagne R3 pré-correctifs a produit 12 escalades et
+aucun merge ; plusieurs rapports montrent que leur runner n'a pas été invoqué. Les runners
+actuels n'ont pas encore été qualifiés par une nouvelle campagne. Voir la [matrice d'exécution
+Trinity](../02-orchestration/topologies/trinity.md).
 
 Parcours : `agentAutonomyPlanService.js:5` / `trinityService.js:117` / `morphogenesis/registry/variantCatalog.js:10` /
 `topologyProfileService.js:173` → `trinityVariantService.js:4` → `trinityAdapters.resolveAdapter` → `require(entry.module)` (`:68`)

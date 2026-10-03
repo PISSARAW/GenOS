@@ -84,8 +84,9 @@ frontières et compensations.
    deux fois). Les réplicas QD et expériences récursives sont des exécutions additionnelles.
    Dans tous les cas, les mondes initiaux ne partagent pas leurs sorties pendant la phase
    indépendante, et l'absence d'une cellule ou preuve attendue bloque la fusion. Les douze
-   variants sont maintenant branchés au superviseur, mais restent partiels après les
-   douze escalades de la campagne R3 du 2026-10-03 ; voir [leur contrat et leurs gates](topologies/trinity.md).
+   variants sont maintenant branchés au superviseur. Les douze escalades R3 datent d'avant
+   ces corrections ; aucune campagne post-correctifs n'a qualifié la voie complète. Voir
+   [leur contrat et leurs gates](topologies/trinity.md).
 5. **La morphologie planifiée n'est pas automatiquement exécutée.** Le préparateur
    historique détermine encore le plan physique principal. Le planner Morphogenèse peut
    construire des candidats pour les huit topologies et joindre un graphe au plan
@@ -173,7 +174,7 @@ ou de promotion.
 | Une requête a-t-elle choisi une voie minimale ? | profil et résultat de `executionRouterService` / événements de routage mémoire |
 | Le dispatch correspond-il au plan ? | `WORKER_DISPATCH_SELECTED`, `WORKER_DISPATCH_RECONCILED` ou `WORKER_DISPATCH_FAILED` |
 | Les dossiers sont-ils assez complets ? | `backend/tests/test_orchestration_evidence_barrier.js` et les références d'évidence persistées |
-| Trinity a-t-elle lancé trois environnements comparables ? | expérimentation persistée, trois mondes, empreintes de snapshot identiques |
+| Trinity a-t-elle lancé le nombre d'environnements prévu par son plan ? | expérimentation persistée, trois mondes en baseline ou seize cellules en factoriel, empreintes initiales identiques et reçus additionnels pour les réplicas/enfants |
 | Une clôture est-elle autorisée ? | reçu du gate de complétion : evidence satisfaite et invariants satisfaits |
 | Une nouvelle topology peut-elle recevoir l'état courant ? | adaptateur source→cible enregistré, sortie validée et reçu de transition |
 | Le code backend est-il conforme ? | `python scripts/ci/check_code_quality.py`, `npm test` et suites ciblées listées dans `AGENTS.md` |

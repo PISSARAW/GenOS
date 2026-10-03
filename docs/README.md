@@ -129,7 +129,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 
 **Modes de composition (topologies)** — index : [02-orchestration/topologies/README.md](02-orchestration/topologies/README.md)
 
-- [trinity.md](02-orchestration/topologies/trinity.md) — orchestration comparée en trois mondes.
+- [trinity.md](02-orchestration/topologies/trinity.md) — orchestration comparée, baseline à trois mondes et variants expérimentaux à fan-out contrôlé.
 - [a-team.md](02-orchestration/topologies/a-team.md) — équipe multidisciplinaire d'agents.
 - [biome.md](02-orchestration/topologies/biome.md) — orchestration par environnement et populations.
 - [biocenose.md](02-orchestration/topologies/biocenose.md) — orchestration communautaire.

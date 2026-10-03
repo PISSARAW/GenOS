@@ -45,7 +45,7 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 
 ## Huit topologies d'orchestration
 
-- **Trinity** — agents candidats comparés par dossiers d'évidence et barrière comparative.
+- **Trinity** — baseline comparative à trois mondes et douze variants à runners dédiés, avec gates de preuve ; les résultats incomplets escaladent (R3 pré-correctifs : 12/12 escalades, 0 merge ; qualification post-correctifs en attente).
 - **A-Team** — workers spécialisés par domaine, handoffs et arbitrage d'intégration.
 - **Biocénose** — consensus pondéré, quorum, métriques d'essaim et barrière d'évidence.
 - **Holobionte** — hôte avec veto immunitaire et workers symbiotes en inférence locale.
