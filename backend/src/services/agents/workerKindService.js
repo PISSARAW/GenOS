@@ -146,13 +146,26 @@ function methodContractError() {
   return Object.assign(new Error('Method contract must declare version 1 and a methodId.'), { code: 'WORKER_METHOD_CONTRACT_INVALID' });
 }
 
-function workerMissionContract(mission) {
+function workerMissionContract(mission, kind) {
+  const specialtyNiche = resolveSpecialtyNiche(mission);
+  if (kind === 'specialist' && !specialtyNiche) {
+    throw Object.assign(new Error('Specialist workers require an explicit niche.'), { code: 'SPECIALIST_NICHE_REQUIRED' });
+  }
   return {
     objective: mission.prompt || mission.currentTask || '',
     scope: mission.scope || mission.workspaceRoot || '',
     methodContract: mission.methodContract,
+    specialtyNiche,
     topologySessionId: mission.topologySessionId || null
   };
+}
+
+function resolveSpecialtyNiche(mission) {
+  const assignment = mission.workerAssignment || {};
+  const parameters = mission.methodContract?.parameters || {};
+  const niche = mission.specialtyNiche || mission.niche || mission.domain
+    || assignment.niche || assignment.domain || parameters.niche || parameters.domain;
+  return typeof niche === 'string' && niche.trim() ? niche.trim() : null;
 }
 
 function workerAuthorityContract(kind, authorities) {
@@ -184,7 +197,7 @@ function buildWorkerContract(kind, mission = {}) {
   return {
     version: 1,
     identity: { workerKind: definition.kind, parentId: mission.orchestratorAgentId || mission.parentAgentId || null },
-    mission: workerMissionContract(mission),
+    mission: workerMissionContract(mission, definition.kind),
     assignment: mission.workerAssignment || null,
     authority: workerAuthorityContract(definition.kind, authorities),
     spawnBudget: 0,

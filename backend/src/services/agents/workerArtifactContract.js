@@ -117,6 +117,13 @@ function hasStrategyTrace(trace) {
     && hasEvidenceReferences(entry.evidence));
 }
 
+function hasSpecialtyAssessment(value, expectedNiche) {
+  return Boolean(isNonEmptyText(value?.niche)
+    && (!expectedNiche || value.niche === expectedNiche)
+    && value.inScope === true
+    && hasEvidenceReferences(value.evidence));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -219,6 +226,7 @@ function artifactInstruction(contract) {
   if (contract.identity?.workerKind === 'resident_daemon') return residentInstruction();
   if (contract.identity?.workerKind === 'bounded_worker') return boundedWorkerInstruction();
   if (contract.identity?.workerKind === 'adaptive_worker') return adaptiveWorkerInstruction();
+  if (contract.identity?.workerKind === 'specialist') return specialistInstruction(contract.mission?.specialtyNiche);
   if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
   if (contract.identity?.workerKind === 'liaison_worker') return liaisonInstruction();
   const rhizome = rhizomeArtifactInstruction(contract, required);
@@ -247,6 +255,12 @@ function adaptiveWorkerInstruction() {
   const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
     strategyTrace: [{ strategy: '<contract-strategy>', decision: 'retained', reason: '<reason>', evidence: ['<evidence-ref>'] }] };
   return `Use only strategies declared by the contract and record each strategy decision with its reason and evidence. Schema: ${JSON.stringify(output)}`;
+}
+
+function specialistInstruction(niche) {
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    specialtyAssessment: { niche, inScope: true, evidence: ['<scope-evidence-ref>'] } };
+  return `Work only in the declared niche '${niche}'. If the task is outside it, return unresolved. Schema: ${JSON.stringify(output)}`;
 }
 
 function recoveryInstruction() {
@@ -362,6 +376,9 @@ function validateWorkerKindArtifact(result, kind, type) {
   if (kind === 'adaptive_worker' && type === 'dossier' && !hasStrategyTrace(content.strategyTrace)) {
     return { artifact: null, issues: [...result.issues, 'workerArtifact.content.strategyTrace.invalid'] };
   }
+  if (kind === 'specialist' && type === 'dossier' && !hasSpecialtyAssessment(content.specialtyAssessment)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.specialtyAssessment.invalid'] };
+  }
   return result;
 }
 
@@ -391,7 +408,8 @@ function inspectDossier(input) {
     ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
     ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
     ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {}),
-    ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {})
+    ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {}),
+    ...(kind === 'specialist' ? { specialtyAssessment: parsed.specialtyAssessment } : {})
   };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
@@ -457,20 +475,22 @@ function validateWorkerArtifact(dossier, worker) {
     const fields = REQUIRED_FIELDS[expected];
     if (!artifact || artifact.type !== expected || !fields
       || !artifact.content || !contentIsValid(expected, artifact.content)
-      || !hasProvenance(artifact) || kindArtifactIsInvalid(kind, expected, artifact.content)) {
+      || !hasProvenance(artifact) || kindArtifactIsInvalid(kind, expected, artifact.content, worker.workerContract)) {
       throw artifactError(worker.agentId, expected);
     }
   }
   return true;
 }
 
-function kindArtifactIsInvalid(kind, type, content) {
+function kindArtifactIsInvalid(kind, type, content, contract) {
   if (kind === 'red_worker' && type === 'verification_report') return !hasCounterexamples(content?.counterexamples);
   if (kind === 'recovery_worker' && type === 'dossier') return !hasRecoveryReceipt(content?.recoveryReceipt);
   if (kind === 'liaison_worker' && type === 'dossier') return !hasBoundedHandoff(content?.handoff);
   if (kind === 'resident_daemon' && type === 'dossier') return !hasTerritoryReport(content?.territoryReport);
   if (kind === 'bounded_worker' && type === 'dossier') return !hasBoundedScope(content?.scopeCompletion);
-  return kind === 'adaptive_worker' && type === 'dossier' && !hasStrategyTrace(content?.strategyTrace);
+  if (kind === 'adaptive_worker' && type === 'dossier') return !hasStrategyTrace(content?.strategyTrace);
+  return kind === 'specialist' && type === 'dossier'
+    && !hasSpecialtyAssessment(content?.specialtyAssessment, contract?.mission?.specialtyNiche);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };

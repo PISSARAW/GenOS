@@ -91,6 +91,7 @@ function assertCanonicalContract(contract, kind) {
     parentAgentId: contract.identity.parentId,
     prompt: contract.mission?.objective,
     scope: contract.mission?.scope,
+    specialtyNiche: contract.mission?.specialtyNiche,
     methodContract: contract.mission?.methodContract,
     topologySessionId: contract.mission?.topologySessionId,
     workerAssignment: contract.assignment
