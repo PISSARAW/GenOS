@@ -53,7 +53,15 @@ function contentIsValid(type, content) {
   if (type === 'dossier' && !claimsAreSubstantiated(content)) return false;
   if (type === 'experiment_record' && !hasRecordedMeasurements(content)) return false;
   if (type === 'training_packet' && !hasValidatedTrainingPacket(content)) return false;
+  if (type === 'creative_candidate' && !hasFalsifiableCandidate(content)) return false;
   return specializedContentIsValid(type, content);
+}
+
+function hasFalsifiableCandidate(content) {
+  return isNonEmptyText(content.candidate)
+    && Array.isArray(content.assumptions) && content.assumptions.length > 0
+    && content.assumptions.every(isNonEmptyText)
+    && isNonEmptyText(content.falsificationTest);
 }
 
 function hasValidatedTrainingPacket(content) {
