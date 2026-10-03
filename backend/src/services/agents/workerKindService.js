@@ -84,7 +84,7 @@ const PROMPT_RULES = Object.freeze({
 const AUTHORITY_OVERRIDES = Object.freeze({
   resident_daemon: { execute: false },
   specialist: { write: false },
-  creative_worker: { execute: false },
+  creative_worker: { read: false, execute: false },
   synthesis_worker: { execute: false },
   liaison_worker: { execute: false },
   // The base contract stays non-delegating; worker creation may grant the
