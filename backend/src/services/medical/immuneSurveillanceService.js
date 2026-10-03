@@ -185,10 +185,7 @@ async function diagnose(db, agentId, biopsyRef) {
   );
   if (!pathology) return { ok: false, error: 'biopsy_not_found' };
 
-  let evidence = [];
-  try { evidence = JSON.parse(pathology.evidence_json || '[]'); } catch (_) {}
-
-  const confidence = computeDiagnosisConfidence(pathology, evidence);
+  const confidence = computeDiagnosisConfidence(pathology);
   const confirmed = confidence > 0.5 && pathology.severity > 0.3;
 
   await db.run(`UPDATE pathologies SET status = ?, confidence = ? WHERE id = ?`,
@@ -204,12 +201,10 @@ async function diagnose(db, agentId, biopsyRef) {
   return { ok: true, biopsyRef, pathologyType: pathology.pathologyType, confirmed, confidence, severity: pathology.severity, recommendedTherapy: therapy };
 }
 
-function computeDiagnosisConfidence(pathology, evidence) {
-  const evidenceScore = evidence.reduce((sum, e) => {
-    const v = typeof e.value === 'number' ? clamp01(e.value) : 0;
-    return sum + v * (e.weight || 0);
-  }, 0);
-  return clamp01(pathology.confidence * 0.5 + evidenceScore * 0.5);
+function computeDiagnosisConfidence(pathology) {
+  const severity = Number(pathology?.severity);
+  if (!Number.isFinite(severity)) return clamp01(pathology?.confidence);
+  return clamp01(clamp01(severity) * 0.7 + 0.3);
 }
 
 async function quarantine(db, agentId, opts) {
@@ -254,4 +249,5 @@ async function immuneResponse(db, agentId, context = {}) {
 
 module.exports = {
   PATHOLOGY_DEFINITIONS, surveillanceScan, biopsy, diagnose, quarantine, immuneResponse,
+  computeDiagnosisConfidence,
 };
