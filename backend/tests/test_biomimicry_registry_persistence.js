@@ -33,6 +33,7 @@ try {
   const mirrorTwin = require('../src/services/mcpBioTools/handlers/mirrorTwinFork');
   const polyovulation = require('../src/services/mcpBioTools/handlers/polyovulationSpawn');
   const sesquizygotic = require('../src/services/mcpBioTools/handlers/sesquizygoticSplit');
+  const superfetation = require('../src/services/mcpBioTools/handlers/superfetationPipeline');
   const point = require('../src/services/mcpBioTools/handlers/pointMutation');
   const chimera = require('../src/services/mcpBioTools/handlers/chimericMerge');
   const conjoined = require('../src/services/mcpBioTools/handlers/conjoinedTwinBind');
@@ -48,6 +49,7 @@ try {
   mirrorTwin.handleMirrorTwinFork({ action: 'fork_mirror_pair', pair_id: 'persistent-mirror' });
   polyovulation.handlePolyovulationSpawn({ action: 'spawn_dizygotic_fleet', fleet_id: 'persistent-polyovulation' });
   sesquizygotic.SESQUIZYGOTIC_REGISTRY.set('persistent-sesqui', { pairId: 'persistent-sesqui', twins: [] });
+  superfetation.SUPERFETATION_REGISTRY.set('persistent-superfetation', { pipelineId: 'persistent-superfetation' });
   point.handlePointMutation({ action: 'apply_substitution', id: 'persistent-point' });
   chimera.handleChimericMerge({ action: 'status', mosaic_id: 'persistent-chimera' });
   conjoined.handleConjoinedTwinBind({ action: 'status', pair_id: 'persistent-conjoined' });
@@ -65,6 +67,7 @@ try {
   assert.ok(mirrorTwin.getSnapshot()['persistent-mirror']);
   assert.ok(polyovulation.getSnapshot()['persistent-polyovulation']);
   assert.ok(sesquizygotic.getSnapshot()['persistent-sesqui']);
+  assert.ok(superfetation.getSnapshot()['persistent-superfetation']);
   assert.ok(point.getSnapshot()['persistent-point']);
   assert.ok(chimera.getSnapshot()['persistent-chimera']);
   assert.ok(conjoined.getSnapshot()['persistent-conjoined']);
@@ -80,6 +83,7 @@ try {
     'mirrorTwinRegistry',
     'dizygoticFleetRegistry',
     'SESQUIZYGOTIC_REGISTRY',
+    'SUPERFETATION_REGISTRY',
     'pointMutationRegistry',
     'chimericRegistry',
     'conjoinedTwinRegistry',
