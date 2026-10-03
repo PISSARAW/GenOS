@@ -4,10 +4,12 @@ const assert = require('node:assert/strict');
 const {
   resolveRegisteredTerritory,
   createResidentRuntime,
-  subscribeToSignals
+  subscribeToSignals,
+  assertHostDaemonRegistered
 } = require('../bin/genos-daemon.cjs');
 const territoryService = require('../src/services/daemon/daemonTerritoryService');
 const bridgeService = require('../src/services/daemon/daemonEventBridgeService');
+const runtimeService = require('../src/services/daemon/residentDaemonRuntime');
 const signalEventBus = require('../src/services/signalEventBus');
 
 async function openDb() {
@@ -47,6 +49,18 @@ async function main() {
 
   const bridge = bridgeService.createBridge({ db });
   assert.equal(createResidentRuntime(db).db, db);
+  const runtime = createResidentRuntime(db);
+  await assertHostDaemonRegistered(runtime, {
+    daemonId: 'daemon.host-cli', territoryId: 'territory.host-cli'
+  });
+  await assert.rejects(
+    assertHostDaemonRegistered(runtime, {
+      daemonId: 'daemon.host-cli', territoryId: 'territory.other'
+    }),
+    { code: 'DAEMON_REGISTRATION_FAILED' }
+  );
+  assert.equal((await runtimeService.getDaemonState(runtime, { daemonId: 'daemon.host-cli' })).territoryId,
+    'territory.host-cli');
   const unsubscribe = subscribeToSignals(bridge, 'territory.host-cli');
   signalEventBus.publish({
     signalType: 'text',

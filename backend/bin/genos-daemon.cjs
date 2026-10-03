@@ -84,6 +84,15 @@ async function resolveRegisteredTerritory(db, territoryId) {
   return result.found ? result.territory : null;
 }
 
+async function assertHostDaemonRegistered(runtime, input) {
+  const result = await runtimeService.registerDaemon(runtime, input);
+  if (!result.registered) {
+    const reason = (result.errors || ['registration-rejected']).join(', ');
+    throw Object.assign(new Error(`Resident daemon registration failed: ${reason}`), { code: 'DAEMON_REGISTRATION_FAILED' });
+  }
+  return result;
+}
+
 async function shutdown(ctx) {
   if (ctx.unsubscribeSignals) ctx.unsubscribeSignals();
   if (ctx.fallbackTimer) clearInterval(ctx.fallbackTimer);
@@ -104,7 +113,7 @@ async function main() {
   if (!territory) throw new Error(`Territory ${flags.territoryId} is not registered; register it before starting the daemon.`);
 
   const runtime = createResidentRuntime(db);
-  await runtimeService.registerDaemon(runtime, {
+  await assertHostDaemonRegistered(runtime, {
     daemonId: flags.daemonId,
     territoryId: flags.territoryId,
     activity: 'BOOTSTRAPPING'
@@ -130,4 +139,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = { resolveRegisteredTerritory, createResidentRuntime, eventFromSignal, subscribeToSignals };
+module.exports = {
+  resolveRegisteredTerritory, createResidentRuntime, eventFromSignal,
+  subscribeToSignals, assertHostDaemonRegistered
+};
