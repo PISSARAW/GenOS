@@ -98,7 +98,9 @@ async function compareMission(db, input, reports) {
   if (review) result.comparativeAnalysis.adversarialReview = review;
   result.jury = await jury.evaluate({
     db, agentId: input.orchestratorId, outcome: result.outcome,
-    mission: input.mission, config: input.juryConfig, reports: worlds
+    mission: input.mission, config: input.juryConfig, reports: worlds,
+    required: input.variantSelection?.experimentalDesign?.adjudicationPolicy === 'blind_jury_advisory'
+      || input.variantSelection?.experimentalDesign?.interactionPolicy === 'jury_deliberation'
   });
   result.comparativeAnalysis.crossExamination = crossExamination.summary(examined);
   result.comparativeAnalysis.claimGraph = graph;

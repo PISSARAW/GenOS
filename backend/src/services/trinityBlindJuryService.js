@@ -150,8 +150,9 @@ function summarizeVotes(context) {
 }
 
 async function evaluate(input) {
-  if (input.outcome !== 'KEEP_PARETO_SET' || !validConfig(input.config)) {
-    return { status: 'unavailable', reason: 'jury_not_configured_for_unresolved_frontier', votes: [], decisionAuthority: 'none' };
+  const requested = input.required === true;
+  if ((!requested && input.outcome !== 'KEEP_PARETO_SET') || !validConfig(input.config)) {
+    return { status: 'unavailable', reason: requested ? 'jury_configuration_unavailable' : 'jury_not_configured_for_unresolved_frontier', votes: [], decisionAuthority: 'none' };
   }
   const pack = blindPack(input.reports || []);
   if (pack.candidates.length !== 3) return { status: 'unavailable', reason: 'three_candidate_dossiers_required', votes: [], decisionAuthority: 'none' };

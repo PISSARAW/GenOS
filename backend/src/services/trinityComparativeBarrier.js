@@ -38,9 +38,7 @@ function latestReport(dossier) {
 function escapeLike(value) {
   return String(value).replace(/[\\%_]/g, (char) => `\\${char}`);
 }
-
-// Direct path (dispatch_trinity / merge_trinity): the worker evidence lives in
-// the durable telemetry stream, not in the orchestrator's in-memory rounds.
+// Direct path (dispatch_trinity / merge_trinity): worker evidence lives in the durable telemetry stream.
 async function buildWorldReportsFromMission(db, missionId) {
   const worlds = await db.all(
     `SELECT w.world_number, w.strategy, w.agent_id, w.status FROM trinity_worlds w
@@ -151,7 +149,11 @@ async function applyTrinityComparison(ctx) {
   });
   result = trinityAdversarial.enforceVariantGate(result, adversarialReview);
   if (adversarialReview) result.comparativeAnalysis.adversarialReview = adversarialReview;
-  result.jury = await trinityBlindJury.evaluate({ db: ctx.db, agentId: ctx.agentId, outcome: result.outcome, mission: trinity.hypothesisDesign?.centralProblem, config: trinity.hypothesisDesign?.juryConfig, reports: worldReports });
+  const design = trinity.hypothesisDesign?.variantSelection?.experimentalDesign || {};
+  result.jury = await trinityBlindJury.evaluate({ db: ctx.db, agentId: ctx.agentId,
+    outcome: result.outcome, mission: trinity.hypothesisDesign?.centralProblem,
+    config: trinity.hypothesisDesign?.juryConfig, reports: worldReports,
+    required: design.adjudicationPolicy === 'blind_jury_advisory' || design.interactionPolicy === 'jury_deliberation' });
   if (result.jury.status !== 'unavailable') await trinityBlindJury.recordCalibration({ db: ctx.db, experimentId: trinity.missionId, juryResult: result.jury, deterministicOutcome: { selectedWorld: result.selectedWorld } });
   result.comparativeAnalysis.crossExamination = trinityCrossExamination.summary(crossExamination);
   result.comparativeAnalysis.claimGraph = claimGraph;
