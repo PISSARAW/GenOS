@@ -172,7 +172,10 @@ async function biopsy(db, agentId, pathologyType) {
 }
 
 async function diagnose(db, agentId, biopsyRef) {
-  const pathology = await db.get('SELECT * FROM pathologies WHERE id = ? AND agent_id = ?', biopsyRef, agentId);
+  const pathology = await db.get(
+    `SELECT id, clinical_state_id, pathology_type AS pathologyType, severity, confidence, evidence_json
+     FROM pathologies WHERE id = ? AND agent_id = ?`, biopsyRef, agentId
+  );
   if (!pathology) return { ok: false, error: 'biopsy_not_found' };
 
   let evidence = [];
