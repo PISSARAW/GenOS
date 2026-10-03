@@ -12,11 +12,11 @@ function domainProfile(text) {
   return DOMAIN_PROFILES.find(p => p.signals.some(s => s.test(t))) || DEFAULT_PROFILE;
 }
 
-function membersFor(profile) {
+function membersFor(profile, contract) {
   const chambers = ['direct', 'structured', 'falsification'];
   return ['basic_world', 'planned_world', 'ai_corrected_world'].map((label, i) => ({
     chamber: chambers[i],
-    label, hypothesis: `${profile.hypotheses[i]} Report evidenceVector (correctness, coverage, robustness, reproducibility, novelty, cost, latency, risk, uncertainty, constraintCoverage), hardConstraintsPassed, and budgetStatus. Use null for unmeasured dimensions and cite each measured dimension in evidenceVectorEvidence using IDs from evidence[]. Never invent measurements or evidence.`, role: profile.roles[i],
+    label, hypothesis: `${profile.hypotheses[i]} ${missionContracts.promptInstruction(contract)} Report evidenceVector (correctness, coverage, robustness, reproducibility, novelty, cost, latency, risk, uncertainty, constraintCoverage), hardConstraintsPassed, and budgetStatus. Use null for unmeasured dimensions and cite each measured dimension in evidenceVectorEvidence using IDs from evidence[]. Never invent measurements or evidence.`, role: profile.roles[i],
     modelTier: i === 0 ? 'standard' : 'frontier', domain: profile.domain,
     artifact: profile.artifact, pipelineStage: 0
   }));
@@ -39,12 +39,15 @@ function analyzeMission(mission) {
   const text = String(mission || '');
   const explicitlyRequested = EXPLICIT_PATTERNS.some(p => p.test(text));
   const interviewForPlan = INTERVIEW_PATTERNS.some(p => p.test(text));
-  const profile = domainProfile(text);
+  const contract = missionContracts.contractFor(text);
+  const baseProfile = domainProfile(text);
+  const profile = contract.domain === 'software_engineering' ? baseProfile
+    : { ...baseProfile, domain: contract.domain, artifact: contract.artifact };
   return {
     recommended: explicitlyRequested || interviewForPlan,
     explicitlyRequested, interviewForPlan,
     decision: explicitlyRequested ? 'launch' : interviewForPlan ? 'consider_after_interview' : 'not_applicable',
-    domain: profile.domain, artifact: profile.artifact, members: membersFor(profile)
+    domain: profile.domain, artifact: profile.artifact, members: membersFor(profile, contract)
   };
 }
 
@@ -120,6 +123,7 @@ const trinityClaimGraph = require('./trinityClaimGraphService');
 const trinityVariants = require('./trinityVariantService');
 const differentiation = require('./trinityDifferentiationService');
 const audit = require('./trinityEvidenceAudit');
+const missionContracts = require('./trinityMissionContractService');
 
 const DOMAIN_WEIGHTS = {
   creative_writing: { alpha: 0.30, beta: 0.25, gamma: 0.45 },

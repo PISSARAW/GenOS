@@ -16,6 +16,7 @@ const { workerEvidenceDossiers } = require('./agentEvidenceService');
 const { emit } = require('./agentOrchestrationState');
 const trinityCrossExamination = require('./trinityCrossExaminationService');
 const trinityAdversarial = require('./trinityAdversarialCrossExamination');
+const trinityMissionVerifier = require('./trinityMissionVerifierService');
 const candidateVerification = require('./trinityCandidateVerificationService');
 const trinityClaimGraph = require('./trinityClaimGraphService');
 const trinityBlindJury = require('./trinityBlindJuryService');
@@ -137,7 +138,7 @@ async function applyTrinityComparison(ctx) {
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, ctx.workers || []);
   const initialReports = buildWorldReports(ctx.workers || [], dossiers, { members: trinity.members || [] });
   const crossExamination = await trinityCrossExamination.examine(ctx.db, initialReports, trinity.hypothesisDesign);
-  const worldReports = crossExamination.reports;
+  const worldReports = trinityMissionVerifier.verifyMissionReports(crossExamination.reports, trinity.hypothesisDesign?.centralProblem);
   const adversarialReview = await trinityAdversarial.runVariantReview({
     db: ctx.db, agentId: ctx.agentId, tenant: ctx.tenant,
     design: trinity.hypothesisDesign, worlds: worldReports
