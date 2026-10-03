@@ -8,7 +8,7 @@
 const crypto = require('crypto');
 
 // In-memory registry of tissue chimeric agents
-const TISSUE_CHIMERISM_REGISTRY = new Map();
+let TISSUE_CHIMERISM_REGISTRY = new Map();
 
 function generateChecksum(obj) {
   return crypto.createHash('sha256').update(JSON.stringify(obj || {})).digest('hex').substring(0, 16);
@@ -168,10 +168,11 @@ function _ensuretissueChimerismRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::tissue_chimerism', 'tissueChimerismRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : tissueChimerismRegistry;
+    const mapToUse = stored && stored.size ? stored : TISSUE_CHIMERISM_REGISTRY;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::tissue_chimerism', 'tissueChimerismRegistry', mapToUse) : mapToUse;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'tissueChimerismRegistry', {
+    TISSUE_CHIMERISM_REGISTRY = persistentMap;
+    Object.defineProperty(module.exports, 'TISSUE_CHIMERISM_REGISTRY', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -191,7 +192,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.tissueChimerismRegistry || tissueChimerismRegistry;
+  const map = module.exports.TISSUE_CHIMERISM_REGISTRY || TISSUE_CHIMERISM_REGISTRY;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;

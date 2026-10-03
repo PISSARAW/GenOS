@@ -1,5 +1,5 @@
 // Registry for Dynamic Triplet Expansion & Anticipation
-const dynamicExpansionRegistry = new Map();
+let dynamicExpansionRegistry = new Map();
 
 const PATHOLOGICAL_THRESHOLD = 40;
 const SEVERE_THRESHOLD = 70;
@@ -126,10 +126,11 @@ function _ensuredynamicTripletExpansionRegistryPersistent() {
     if (!persister) return;
     // Réhydrate depuis DB
     const stored = persister.getMcpBiomimicryRegistry ? persister.getMcpBiomimicryRegistry('mcp_bio::dynamic_triplet_expansion', 'dynamicTripletExpansionRegistry') : null;
-    const mapToUse = stored && stored.size ? stored : dynamicTripletExpansionRegistry;
+    const mapToUse = stored && stored.size ? stored : dynamicExpansionRegistry;
     const persistentMap = persister.makePersistentMap ? persister.makePersistentMap('mcp_bio::dynamic_triplet_expansion', 'dynamicTripletExpansionRegistry', mapToUse) : mapToUse;
+    dynamicExpansionRegistry = persistentMap;
     // Remplacer la référence exportée par le proxy persistant
-    Object.defineProperty(module.exports, 'dynamicTripletExpansionRegistry', {
+    Object.defineProperty(module.exports, 'dynamicExpansionRegistry', {
       value: persistentMap,
       writable: true,
       configurable: true
@@ -149,7 +150,7 @@ function getAdaptivePersister() {
 }
 
 function getSnapshot() {
-  const map = module.exports.dynamicTripletExpansionRegistry || dynamicTripletExpansionRegistry;
+  const map = module.exports.dynamicExpansionRegistry || dynamicExpansionRegistry;
   const obj = {};
   if (map instanceof Map) {
     for (const [k, v] of map.entries()) obj[k] = v;
