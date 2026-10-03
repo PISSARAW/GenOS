@@ -11,6 +11,7 @@ const crossExamination = require('../src/services/trinityCrossExaminationService
 const claimGraph = require('../src/services/trinityClaimGraphService');
 const jury = require('../src/services/trinityBlindJuryService');
 const verifier = require('../src/services/trinityMissionVerifierService');
+const temporal = require('../src/services/trinityTemporalHorizons');
 
 const TERMINAL = new Set(['blocked', 'completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
 
@@ -88,6 +89,7 @@ async function compareMission(db, input, reports) {
   const design = { centralProblem: input.mission, variantSelection: input.variantSelection || {} };
   const examined = await crossExamination.examine(db, reports, { centralProblem: input.mission });
   const worlds = verifier.verifyMissionReports(examined.reports, input.mission);
+  const temporalReview = runTemporalReview(input.variantSelection, worlds);
   const review = await adversarial.runVariantReview({ db, agentId: input.orchestratorId, design, worlds });
   const graph = claimGraph.build(worlds);
   let result = trinityService.mergeTrinityEvidence(worlds, {
@@ -96,6 +98,7 @@ async function compareMission(db, input, reports) {
   });
   result = adversarial.enforceVariantGate(result, review);
   if (review) result.comparativeAnalysis.adversarialReview = review;
+  if (temporalReview) result.comparativeAnalysis.temporalReview = temporalReview;
   result.jury = await jury.evaluate({
     db, agentId: input.orchestratorId, outcome: result.outcome,
     mission: input.mission, config: input.juryConfig, reports: worlds,
@@ -109,6 +112,14 @@ async function compareMission(db, input, reports) {
       deterministicOutcome: { selectedWorld: result.selectedWorld } });
   }
   return result;
+}
+
+function runTemporalReview(selection, worlds) {
+  const design = selection?.experimentalDesign || {};
+  if (!['short_medium_long', 'multi_horizon_grid'].includes(design.temporalPolicy)
+    && design.worldTopology !== 'temporal_horizons') return null;
+  const report = temporal.compareTemporalWorlds(worlds.map((world) => world.report || {}));
+  return { ...report, decisionAuthority: 'none' };
 }
 
 let input = {};

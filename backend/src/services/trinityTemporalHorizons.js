@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const evidenceAudit = require('./trinityEvidenceAudit');
 
 const HORIZONS = {
   short: { label: 'immediate', range: [0, 30], discountRate: 0.0, description: 'Immediate effects (t=0..30 days)' },
@@ -21,7 +22,24 @@ function temporalValueFunction(effects, horizon, discountRate) {
 }
 
 function decomposeEffects(report, horizon) {
-  return [...claimEffects(report, horizon), ...riskEffects(report, horizon)];
+  const evidenceIds = verifiedEvidenceIds(report);
+  return (Array.isArray(report.temporalEffects) ? report.temporalEffects : [])
+    .filter((effect) => verifiedTemporalEffect(effect, horizon, evidenceIds));
+}
+
+function verifiedEvidenceIds(report) {
+  const items = Array.isArray(report?.evidence) ? report.evidence : [];
+  return new Set(items.filter((item) => item && typeof item === 'object'
+    && evidenceAudit.isVerifiedReceipt(item.verificationReceipt || item.receipt))
+    .map((item) => String(item.id || '')).filter(Boolean));
+}
+
+function verifiedTemporalEffect(effect, horizon, evidenceIds) {
+  const refs = Array.isArray(effect?.evidenceRefs) ? effect.evidenceRefs : [];
+  const validRefs = refs.length > 0 && refs.every((ref) => evidenceIds.has(String(ref)));
+  const numeric = ['time', 'magnitude', 'probability'].every((key) => Number.isFinite(effect?.[key]));
+  return validRefs && numeric && effect.horizon === horizon.label
+    && effect.time >= 0 && effect.probability >= 0 && effect.probability <= 1;
 }
 
 function claimEffects(report, horizon) {
@@ -127,7 +145,8 @@ function analyzeTemporalWorld(worldReport, horizonKey, config = {}) {
     technicalDebt: Number(techDebt.toFixed(3)),
     optionValue: Number(optionValue.toFixed(3)),
     discountRate: horizon.discountRate,
-    effects: effects.slice(0, 10)
+    effects: effects.slice(0, 10),
+    evidenceStatus: effects.length ? 'verified_effects' : 'insufficient_evidence'
   };
 }
 
@@ -149,6 +168,8 @@ function compareTemporalWorlds(worldReports, config = {}) {
     experimentalDesignId: `temporal-v1-${crypto.randomBytes(8).toString('hex')}`,
     horizons: horizonKeys,
     analyses,
+    evidenceStatus: horizonKeys.every((key) => analyses[key].every((world) => world.evidenceStatus === 'verified_effects'))
+      ? 'verified' : 'insufficient_evidence',
     crossHorizonComparison: crossHorizon,
     synthesis: {
       consistentWinner: crossHorizon.every(c => c.bestWorld === crossHorizon[0].bestWorld) ? crossHorizon[0].bestWorld : null,
