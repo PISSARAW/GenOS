@@ -1,5 +1,7 @@
 'use strict';
 
+const { randomUUID } = require('node:crypto');
+
 /**
  * ImmuneSurveillance Service — detect, quarantine, biopsy, diagnose, therapy orchestration.
  *
@@ -150,17 +152,22 @@ async function biopsy(db, agentId, pathologyType) {
   const state = await getClinicalState(db, agentId);
   if (!state) return { ok: false, error: 'no_clinical_state' };
 
-  const biopsyId = `biopsy_${agentId}_${Date.now()}`;
+  const biopsyId = `biopsy_${agentId}_${randomUUID()}`;
   const evidence = gatherVitalEvidence(state);
+  const definition = PATHOLOGY_DEFINITIONS[pathologyType];
+  const severity = definition ? definition.severity(state) : 0;
+  const confidence = definition ? clamp01(severity * 0.7 + 0.3) : 0;
+  evidence.push({ field: 'pathology_severity', value: severity, weight: 1 });
+  evidence.push({ field: 'pathology_specific', value: definition ? definition.evidence(state) : [], weight: 1 });
   evidence.push(await gatherTreatmentEvidence(db, agentId));
   evidence.push(await gatherEventEvidence(db, agentId));
 
-  const biopsyRef = `pathology_${agentId}_${Date.now()}`;
+  const biopsyRef = `pathology_${agentId}_${randomUUID()}`;
   await db.run(
     `INSERT INTO pathologies (id, agent_id, clinical_state_id, pathology_type, severity, confidence, evidence_json, biopsy_ref, status)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'biopsied')`,
     biopsyRef, agentId, state.id, pathologyType,
-    state.wellnessScore < 0.3 ? 0.8 : 0.5, 0.7, JSON.stringify(evidence), biopsyId
+    severity, confidence, JSON.stringify(evidence), biopsyId
   );
 
   await recordImmuneEvent(db, agentId, {
@@ -232,7 +239,8 @@ async function immuneResponse(db, agentId, context = {}) {
     if (!diagnosis.ok) continue;
 
     let quarantineResult = null;
-    if (scan.quarantine && diagnosis.confirmed) {
+    if (scan.quarantine && diagnosis.confirmed
+      && ['cognitive_metastasis', 'quarantine_breach'].includes(diagnosis.pathologyType)) {
       quarantineResult = await quarantine(db, agentId, {
         reason: `Confirmed ${diagnosis.pathologyType}`,
         context: { confidence: diagnosis.confidence },

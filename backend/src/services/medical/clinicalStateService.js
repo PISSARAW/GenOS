@@ -1,5 +1,7 @@
 'use strict';
 
+const { randomUUID } = require('node:crypto');
+
 /**
  * ClinicalState Service — per-agent medical runtime.
  *
@@ -107,7 +109,7 @@ async function refreshClinicalState(db, agentId, context = {}) {
 async function recordImmuneEvent(db, agentId, opts) {
   const { clinicalStateId, eventType, eventData = {}, severity = 'info' } = opts || {};
   if (!db || !agentId || !eventType) return null;
-  const id = `imrev_${agentId}_${Date.now()}`;
+  const id = `imrev_${agentId}_${randomUUID()}`;
   await db.run(
     `INSERT INTO immune_events (id, agent_id, clinical_state_id, event_type, event_json, severity)
      VALUES (?, ?, ?, ?, ?, ?)`,
