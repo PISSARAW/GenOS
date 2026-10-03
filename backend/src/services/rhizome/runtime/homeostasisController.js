@@ -23,6 +23,8 @@ function observe(state, result, input) {
     scope: input.scope,
     ephemeralRequired: input.ephemeralRequired,
     temporaryPatch: input.temporaryPatch,
+    bridgeRequired: input.bridgeRequired,
+    representationCount: input.representationCount,
     routeFailures: state.routeFailures,
     budgetTight: input.budgetTight,
     unknownCapabilities: isOpenGap(result) ? 1 : 0,
