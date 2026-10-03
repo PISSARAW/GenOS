@@ -58,10 +58,11 @@ topologies avant de promouvoir leur maturité.
   `test_morphogenesis_variant_catalog.js` vérifie leur sélection et la projection de leur identité.
 - Le balayage backend élargi passe sur 230 fichiers de tests liés aux topologies, variants
   et à Morphogenèse. La suite backend générale passe également (55/55). La matrice
-  `test_topology_mission_variant_routing.js` couvre les signaux de sélection des 48 missions
-  de référence; le test de dispatch vérifie aussi les workers, le schéma Syncytium et le
-  contrat Trinity adversarial. Un test complémentaire exercé séparément vérifie la sortie de
-  sécurité du watchdog et le planning non faisable du variant Syncytium `realtimeControl`.
+  `test_topology_mission_variant_routing.js` exécute les 48 prompts complets de la fixture
+  `backend/tests/fixtures/topology-missions-48.json` et vérifie leurs sélections attendues;
+  le test de dispatch couvre aussi les workers, le schéma Syncytium et le contrat Trinity
+  adversarial. Un test complémentaire vérifie la sortie de sécurité du watchdog et le planning
+  non faisable du variant Syncytium `realtimeControl`.
 - Ces tests prouvent des contrats codés et la sélection attendue, pas la réussite des missions
   par les modèles ni l'effet runtime spécifique des 95 variants. Les 48 missions réelles et
   la vérification d'un effet runtime propre par variant restent à rejouer; la parité de
