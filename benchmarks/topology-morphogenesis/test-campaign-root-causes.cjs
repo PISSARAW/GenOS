@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
 const { missingGraphItems } = require('./session-probes.cjs');
 const { installBusyRetry } = require('../../backend/src/db');
+const { evaluateQualification } = require('./campaignQualification.cjs');
 
 function receiptFor(statement) {
   return { telemetry: [{ event_type: 'EVIDENCE_REPORT', payload_json: JSON.stringify({
@@ -20,6 +21,23 @@ async function verifyDatabaseRetry() {
   installBusyRetry(db);
   assert.equal(await db.run('INSERT'), 'saved');
   assert.equal(db.attempts, 2);
+}
+
+function verifyPilotCannotQualifyAsConfirmatory() {
+  const suite = { status: 'protocol', controls: { repetitions: { pilot: 1, confirmatory: 3 } } };
+  const pilot = evaluateQualification({ suite, performedRepetitions: 1, sourceClean: true, verificationPassed: true });
+  assert.equal(pilot.status, 'pilot');
+  assert.equal(pilot.confirmatoryEligible, false);
+  assert.equal(pilot.repetitions.confirmatory.complete, false);
+  assert.ok(pilot.blockers.includes('suite_not_confirmatory'));
+
+  const confirmatory = evaluateQualification({ suite: { ...suite, status: 'confirmatory' },
+    performedRepetitions: 3, sourceClean: true, verificationPassed: true });
+  assert.equal(confirmatory.status, 'confirmatory');
+  assert.equal(confirmatory.confirmatoryEligible, true);
+  const dirty = evaluateQualification({ suite: { ...suite, status: 'confirmatory' },
+    performedRepetitions: 3, sourceClean: false, verificationPassed: true });
+  assert.equal(dirty.confirmatoryEligible, false);
 }
 
 async function main() {
@@ -40,6 +58,7 @@ async function main() {
     edges: [{ edgeId: 'validator-explainer' }]
   });
   await verifyDatabaseRetry();
+  verifyPilotCannotQualifyAsConfirmatory();
   process.stdout.write('Campaign root-cause checks passed.\n');
 }
 

@@ -12,6 +12,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
 | [0277](0277-gates-de-couverture-et-branches-executables.md) | Branches réalisables et statut fondé sur les reçus | Accepté | 2026-10-03 | Orchestration, stratégie, preuves, benchmarks |
 | [0286](0286-contrats-de-mission-et-preuve-executable-trinity.md) | Contrats de mission et preuves exécutables Trinity | Accepté | 2026-10-03 | Trinity, vérification indépendante, contrats |
+| [0287](0287-qualification-repetitions-campagnes.md) | Séparer le pilote de la qualification confirmatoire | Accepté | 2026-10-03 | Benchmarks, reproductibilité, qualification |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |

@@ -5,6 +5,7 @@ const path = require('path');
 const { createHash, randomBytes } = require('crypto');
 const { spawn } = require('child_process');
 const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
+const { evaluateQualification } = require('./campaignQualification.cjs');
 
 const repo = path.resolve(__dirname, '../..');
 const suite = JSON.parse(fs.readFileSync(path.join(__dirname, 'suite.json'), 'utf8'));
@@ -325,6 +326,12 @@ async function finalizeCampaign() {
   applyMechanismProbeResults(results, probeReceipts);
   results.verification = summarizeVerification(results, probeReceipts);
   if (probes.exitCode !== 0) results.verification.failedSessionProbes.push('session-probe-runner');
+  const qualification = evaluateQualification({ suite, performedRepetitions: 1,
+    sourceClean: results.sourceState.workingTreeClean, verificationPassed: results.verification.passed });
+  results.qualification = qualification.status;
+  results.repetitions = qualification.repetitions;
+  results.sourceState.confirmatoryEligible = qualification.confirmatoryEligible;
+  results.qualificationBlockers = qualification.blockers;
   results.completedAt = new Date().toISOString();
   validateCampaignEvidence(results);
   fs.writeFileSync(resultsPath, JSON.stringify(results, null, 2));
@@ -372,7 +379,7 @@ async function main() {
     const changedPaths = git('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean);
     results.sourceState = { workingTreeClean: changedPaths.length === 0,
       changedPathCount: changedPaths.length,
-      confirmatoryEligible: changedPaths.length === 0 };
+      confirmatoryEligible: false };
     for (const name of missions) {
       const run = await execute(name);
       await recordMissionResult({ name, run, db, results });
