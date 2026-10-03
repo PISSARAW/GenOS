@@ -111,7 +111,7 @@ const MISSION_SIGNALS = Object.freeze({
   cross_representation: /cross.representation|multi.modal|heterogeneous data|formats hétérogènes|multi.domaine/i,
   procedural: /procedure|procedural|pipeline|workflow|structured steps|étapes structurées/i,
   small_world: /low.latency|short.paths|few hops|faible latence|chemins courts/i,
-  growth: /grow|growth|expand|extension du réseau|développer le réseau|new branch|nouvelle[s]? branche[s]?|unknown dependency|dépendance inconnue|dépendance[s]? non cartographiée[s]?|hidden dependencies|dépendances cachées|capability missing|capacité manquante|missing interfaces?|interface[s]? manquante[s]?|architecture.*not.*known|architecture.*pas connue/i
+  growth: /grow|growth|expand|extension du réseau|développer le réseau|new branch|nouvelle[s]? branche[s]?|unknown dependency|dépendance inconnue|dépendance[s]? non cartographiée[s]?|hidden dependencies|dépendance[s]? cachée[s]?|hidden consumers|consommateur[s]? caché[s]?|capability missing|capacité manquante|missing interfaces?|interface[s]? manquante[s]?|architecture.*not.*known|architecture.*pas connue/i
 });
 const PRIORITY = Object.freeze([
   'private', 'self_healing', 'growth', 'resilient', 'sparse', 'persistent', 'ephemeral',
