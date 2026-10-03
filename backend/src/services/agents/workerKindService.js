@@ -168,7 +168,11 @@ function workerAuthorityContract(kind, authorities) {
 function workerLimits(kind, subOrchestrator) {
   const policy = workerPolicy(kind);
   const maxIterations = Object.hasOwn(policy, 'maxIterations') ? policy.maxIterations : 10;
-  return { maxIterations, ...(subOrchestrator ? { maxIterations: 30 } : {}) };
+  const limits = { ...policy };
+  delete limits.maxTokens;
+  delete limits.maxTimeMs;
+  delete limits.maxCpuMs;
+  return { ...limits, maxIterations, ...(subOrchestrator ? { maxIterations: 30 } : {}) };
 }
 
 function buildWorkerContract(kind, mission = {}) {
