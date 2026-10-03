@@ -31,8 +31,11 @@ indispensables au commit. Aucun de ces prérequis n'est remplacé par cet ADR.
 - Retourner l'identifiant et la version de la session issue d'un dispatch Rhizome.
 - Ajouter `add_node` et `add_edge` à `genos_topology_session`, avec validation par les
   contrats canoniques Rhizome, pour permettre le routage par capacité.
-- N'émettre `MORPHOGENESIS_COMPLETED` que si le runtime fournit un `commitId`; sinon,
-  émettre `MORPHOGENESIS_PROPOSED` avec `committed: false`.
+- Émettre `MORPHOGENESIS_COMPLETED` seulement si le résultat déclare une
+  application ou si son reçu de transition porte `committed: true`. Le champ
+  `commitId` peut rester nul : il désigne un commit AgentGit durable, pas le
+  statut du reçu de transition. Le runtime historique des missions reste
+  proposal-only et émet `MORPHOGENESIS_PROPOSED`.
 - Ignorer les événements internes `NATURAL_SEARCH_*` dans le contrôleur de recherche,
   afin qu'une décision/action du contrôleur ne soit pas retraitée comme une nouvelle
   entrée.
@@ -45,7 +48,8 @@ indispensables au commit. Aucun de ces prérequis n'est remplacé par cet ADR.
   par identité persistée.
 - Les missions peuvent créer un graphe Rhizome exécutable et vérifier les arêtes
   réellement utilisées.
-- Les événements de Morphogenèse ne confondent plus proposition et commit.
+- Les événements distinguent proposition, transition appliquée et identifiant
+  de commit AgentGit.
 - Les émissions du contrôleur de recherche ne peuvent plus créer leur propre boucle.
 
 ### Négatives

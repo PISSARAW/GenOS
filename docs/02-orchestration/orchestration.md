@@ -109,12 +109,27 @@ frontières et compensations.
 | Transition Morphogenèse inter-topologies | adaptateur testé Trinity → A-Team pour les revendications vérifiées | qu'une transition sans adaptateur soit permise ; elle échoue fermé |
 | Runtime Morphogenèse V2 | prévol shadow activable par variable d'environnement | qu'il remplace le chemin de mission ou autorise une mutation |
 
+La préparation historique `prepareMorphology` fusionne le profil du contrat avec
+`options.profile`; `options.fork_count` et `options.domains` les remplacent
+quand ils sont fournis. Les forks sont bornés à 1–64 (défaut 3), et les
+domaines sont reportés dans la proposition. `executeMorphology` reste
+proposal-only (`applied: false`, `proposed: true`) : il n'applique pas de
+transition et ne crée pas de commit AgentGit. Une future voie gouvernée doit
+appeler explicitement le pipeline de transition et ses adaptateurs.
+
 Les transitions de topologie sont limitées aux adaptateurs enregistrés. Pour l'état et les
 preuves actuels des topologies, voir [la référence morphogénétique](topologies/morphogenese.md),
 [les adaptateurs de topologie](../adr/0108-branchement-topologies-fail-closed.md),
 [le catalogue des variants](topologies/variants-morphologiques.md) et
 [ADR 0200](../adr/0200-lier-la-morphogenese-au-dispatch-de-mission.md) sur la liaison du
 graphe au dispatch réel.
+
+Dans cette voie explicite, la topologie cible et l'organisation cible sont
+distinctes (`targetTopology` et `targetOrganization`). Un transfert avec une
+cible de topologie mais sans topologie source est refusé. L'événement
+`MORPHOGENESIS_COMPLETED` requiert un résultat appliqué ou un reçu de transition
+committé; son `commitId` peut être nul et n'est renseigné que lorsqu'un commit
+AgentGit durable existe.
 
 ### Limites de capacité et garanties de charge
 

@@ -210,11 +210,13 @@ Pour les fichiers, [workspaceSnapshotStore.js](../../backend/src/services/worksp
 
 ### Commit de morphogenèse
 
-Chaque transition du runtime morphogénétique est versionnée par [morphogenesisGitService.js](../../backend/src/services/morphogenesis/morphogenesisGitService.js) via `executeVersionedTransition` : `VALIDATE → SNAPSHOT → APPLY → VERIFY → COMMIT`, avec `revert` en cas d’échec.
+Le pipeline explicite [morphogenesisGitService.js](../../backend/src/services/morphogenesis/morphogenesisGitService.js) expose `executeVersionedTransition` : il appelle `transitionEngineService.executeTransition`, puis écrit un commit AgentGit si le reçu indique un commit et qu'un agent cible est disponible. Ce wrapper n'est pas appelé par le chemin de mission historique : `morphogenesisRuntime.executeMorphology` retourne une proposition (`applied: false`). Le cycle contrefactuel décrit dans l'ADR 0040 n'est donc pas le chemin par défaut.
+
+`executeTransition` échoue avant mutation si une action `spawn` ou `retire` n'a pas son adaptateur runtime et son compensateur correspondants. Lors d'un échec après ces actions, le reçu sépare la restauration mémoire (`memoryRestored`) de la compensation externe (`externalCompensated`) et rapporte les erreurs éventuelles. Les snapshots du `collectiveStateService` sont un anneau mémoire borné à dix entrées; ils ne constituent pas une sauvegarde durable ni une transaction atomique sur SQLite, workspace et processus. La réussite d'un rollback externe dépend du compensateur fourni par l'hôte.
 
 Le contexte de commit (`buildCommitContext`) enregistre :
 
-- la topologie (`topologyChanges`, `targetOrganization`) ;
+- les changements de topologie (`topologyChanges`) et l'organisation (`targetOrganization`), deux axes distincts ;
 - les agents (`preserve`, `retire`, `spawn`, `rebind`) ;
 - les capacités et baux (`capabilityChanges`, `leaseChanges`) ;
 - les relations (`relationChanges`) ;

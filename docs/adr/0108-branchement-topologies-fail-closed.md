@@ -26,8 +26,11 @@ Toute transition entre deux topologies passe par le registre des adaptateurs.
 L'adaptateur connu Trinity vers A-Team ne transfère que les affirmations
 vérifiées dans ses lots de travail. Il porte un reçu d'adaptateur. Une
 transition sans adaptateur enregistré est refusée avant le snapshot et
-l'application du patch. Une composition initiale et une transition qui
-conserve la même topologie n'exigent pas de conversion.
+l'application du patch. Si une cible de topologie explicite est donnée mais
+que la topologie source est inconnue, la transition est aussi refusée
+(`source_topology_required`); elle ne peut pas être supposée compatible. Une
+composition initiale sans cible de transition et une transition qui conserve
+la même topologie n'exigent pas de conversion.
 
 La présence d'un plan ou d'un composeur ne prouve pas que son runtime a été
 exécuté. Les contrats, gates de promotion, reçus et preuves de chaque runtime

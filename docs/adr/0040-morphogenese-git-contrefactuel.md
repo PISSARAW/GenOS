@@ -29,6 +29,14 @@ GenOS possède les briques mais pas le cycle officiel :
 
 Sans cycle scellé, une transition peut être appliquée sans parent Git, sans fork borné, sans comparaison causale, et un fossile peut être confondu avec une branche ressuscitable.
 
+État d'implémentation observé le 2026-10-03 : le chemin de mission historique
+`morphogenesisRuntime.executeMorphology` est proposal-only et n'appelle pas
+`executeVersionedTransition`. Le moteur direct exige les adaptateurs de spawn
+et de retrait ainsi que leurs compensateurs, mais ses snapshots sont en mémoire
+et le rollback ne constitue pas une transaction durable multi-systèmes. Le cycle
+contrefactuel et le commit AgentGit restent une voie explicite, non le chemin
+automatique de chaque mission.
+
 ## Décision
 
 Faire du cycle suivant le seul chemin officiel de toute transformation morphologique (topologie, agents, leases, capacités, relations, plasmides, DNA, budgets, substrat) :
