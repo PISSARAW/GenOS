@@ -135,7 +135,7 @@ const AXES = Object.freeze({
       'Replicate to fill novelty archive niches (Quality-Diversity).',
       'Each replica targets a different behavioral niche.',
       'Selection pressure: quality × novelty, not convergence.'
-    ], { requiredAdapter: 'qd_replica_scheduler' })
+    ], { requiredAdapter: 'qd_replica_scheduler', requiresQDReplicas: true })
   },
   adjudicationPolicy: {
     evidence_gated: policy('implemented'),
@@ -337,6 +337,7 @@ function rejectUnknownAxes(input) {
 function mergePolicy(input) {
   const { selected, effects, adapters } = input;
   if (selected.adaptiveBudget) effects.adaptiveBudget = true;
+  if (selected.requiresQDReplicas) effects.requiresQDReplicas = true;
   if (selected.requiresJury) effects.requiresJury = true;
   if (selected.requiredAdapter) adapters.push(selected.requiredAdapter);
   return selected.maturity !== 'implemented';
@@ -348,8 +349,8 @@ function validatePreconditions(compiled, options) {
     throw variantError('TRINITY_VARIANT_PRECONDITION_MISSING', 'Blind jury requires enabled=true, at least two distinct model URIs, and a positive maxCostUsd.');
   }
   if (compiled.effects.adaptiveBudget && !adaptiveBudget.configurationReady(options.adaptiveBudgetConfig)) throw variantError('TRINITY_VARIANT_PRECONDITION_MISSING', 'Adaptive Trinity requires an explicit continuation pool and a minimum tranche per world.');
+  if (compiled.effects.requiresQDReplicas && !require('./trinityNoveltyArchive').replicaConfigurationReady(options.qdConfig)) throw variantError('TRINITY_VARIANT_PRECONDITION_MISSING', 'Quality-diversity replicas require an explicit replica count and token budget.');
 }
-
 function juryReady(config = {}) {
   const models = Array.isArray(config.modelUris) ? config.modelUris.filter((item) => typeof item === 'string' && item.trim()) : [];
   return config.enabled === true && new Set(models).size >= 2 && Number(config.maxCostUsd) > 0;
@@ -370,7 +371,7 @@ function worldInstructions(design, index) {
     instructions.push('Return oraclePrediction as a JSON object mapping world_1, world_2, world_3 to probabilities in [0,1] whose sum is exactly 1. Predict before seeing other worlds; cite the data or calibration basis.');
   }
   if (design.worldTopology === 'exploratory_novelty' || design.hypothesisPolicy === 'novelty_seeking') {
-    instructions.push('Return behaviorVector as a numeric feature array and behaviorVectorEvidence as evidence IDs supporting those features. Do not invent measurements; use the same evidence[] IDs.');
+    instructions.push('Return behaviorVector as a numeric feature array in [0,1], with at least 2 features, and behaviorVectorEvidence as evidence IDs supporting those features. Do not invent measurements; use the same evidence[] IDs.');
   }
   if (design.hypothesisPolicy === 'counterfactual_dimensions') {
     const condition = ['baseline', 'favorable', 'adverse'][index];

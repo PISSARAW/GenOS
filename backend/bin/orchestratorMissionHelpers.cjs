@@ -138,7 +138,8 @@ async function prepareMission(opts) {
 
   const garageDecision = decideGarageCapacity({ contract: strategyContract.contract, topology: request.action,
     teamMembers: morphology.agents?.length, variantId: request.variant_id || request.variantId || request.variant,
-    experimentalDesign: request.experimental_design || request.experimentalDesign });
+    experimentalDesign: request.experimental_design || request.experimentalDesign,
+    qdConfig: request.trinity_qd || request.trinityQD });
   await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?`, mergeMetadataJson(metadataJson, { garageCapacity: garageDecision.capacity, garageDecision, morphology: { topology: morphology.topology, agentCount: morphology.agents?.length, strategy: morphology.strategy } }), id);
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
   const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || request.executionBudget || request.execution_budget || {}) };

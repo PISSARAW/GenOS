@@ -53,14 +53,15 @@ function assignNiche(input = {}) {
   const vector = behaviorVector(input.vector);
   const nicheCount = Math.max(1, Number(input.nicheCount) || 8);
   const anchor = vector.slice(0, 2);
-  const key = anchor.map((value) => Math.floor(Number(value) * nicheCount)).join(':');
+  const key = anchor.map((value) => Math.min(nicheCount - 1, Math.floor(Number(value) * nicheCount))).join(':');
   return `niche_${key || '0'}`;
 }
 
 function scoreCandidate(candidate, archive, qualityWeight) {
   const vector = behaviorVector(candidate.vector);
   const quality = clamp01(Number(candidate.quality ?? 0.5));
-  const novelty = noveltyScore({ archive, vector });
+  const peers = archive.filter((entry) => String(entry.id) !== String(candidate.id));
+  const novelty = noveltyScore({ archive: peers, vector });
   const combined = (quality ** qualityWeight) * ((novelty / (1 + novelty)) ** (1 - qualityWeight));
   return { id: candidate.id, quality, novelty, combined: Number(combined.toFixed(6)) };
 }
@@ -98,6 +99,12 @@ function scheduleReplicas(input = {}) {
   return { replicas, totalReplicas: replicas.length, antiConvergence: true };
 }
 
+function replicaConfigurationReady(config = {}) {
+  const count = Number(config.replicaBudget), tokens = Number(config.tokensPerReplica);
+  return Number.isSafeInteger(count) && count >= 1 && count <= 12
+    && Number.isSafeInteger(tokens) && tokens > 0;
+}
+
 function clamp01(value) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(1, value));
@@ -108,4 +115,4 @@ function archiveError(code, message) {
 }
 
 module.exports = { behaviorVector, distance, addBehavior, noveltyScore, assignNiche,
-  qualityDiversitySelect, scheduleReplicas, MAX_ARCHIVE };
+  qualityDiversitySelect, scheduleReplicas, replicaConfigurationReady, MAX_ARCHIVE };

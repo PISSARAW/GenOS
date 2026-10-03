@@ -8,7 +8,8 @@ function contractParallelism(contract) {
   return Math.max(1, branches);
 }
 
-function topologyWorkerCount(topology, variant = null) {
+function topologyWorkerCount(topology, variant = null, qdConfig = {}) {
+  if (topology === 'dispatch_trinity' && qualityDiversityVariant(variant)) return 3 + Number(qdConfig.replicaBudget || 3);
   if (topology === 'dispatch_trinity' && factorialVariant(variant)) return 16;
   if (topology === 'dispatch_trinity') return 3;
   if (topology === 'dispatch_team') return 2;
@@ -18,9 +19,9 @@ function topologyWorkerCount(topology, variant = null) {
 }
 
 function computeRequiredCapacity(input = {}) {
-  const { contract, topology, teamMembers, variantId, experimentalDesign } = input;
+  const { contract, topology, teamMembers, variantId, experimentalDesign, qdConfig } = input;
   const fromBranches = contractParallelism(contract);
-  const fromTopology = topologyWorkerCount(topology, experimentalDesign?.worldTopology || variantId);
+  const fromTopology = topologyWorkerCount(topology, experimentalDesign || variantId, qdConfig);
   const fromTeam = Array.isArray(teamMembers) ? teamMembers.length : 0;
   const required = Math.max(fromBranches, fromTopology, fromTeam);
   const systemMax = config.maxActiveWorkers();
@@ -46,7 +47,7 @@ function decideGarageCapacity(input = {}) {
     adapted = true;
     rationale = `Required ${analysis.required} exceeds system max ${analysis.systemMax}; capped. Increase GENOS_MAX_ACTIVE_WORKERS to avoid adaptation.`;
   }
-  const minimumTrinity = factorialVariant(input.experimentalDesign?.worldTopology || input.variantId) ? 16 : 3;
+  const minimumTrinity = topologyWorkerCount(input.topology, input.experimentalDesign || input.variantId, input.qdConfig);
   if (input.topology === 'dispatch_trinity' && capacity < minimumTrinity) {
     if (analysis.systemMax >= minimumTrinity) {
       capacity = minimumTrinity;
@@ -59,8 +60,15 @@ function decideGarageCapacity(input = {}) {
 }
 
 function factorialVariant(value) {
+  const topology = typeof value === 'object' ? value.worldTopology : value;
   return ['factorial', 'factorial_grid', 'trinity-factorial', 'trinity_factorial']
-    .includes(String(value || '').trim().toLowerCase());
+    .includes(String(topology || '').trim().toLowerCase());
+}
+
+function qualityDiversityVariant(value) {
+  if (value && typeof value === 'object') return value.replicationPolicy === 'quality_diversity_replicas';
+  const id = String(value || '').trim().toLowerCase().replace(/^trinity[-_]/, '').replaceAll('-', '_');
+  return ['exploratory', 'quality_diversity_replicas'].includes(id);
 }
 
 module.exports = { computeRequiredCapacity, decideGarageCapacity, contractParallelism, topologyWorkerCount };

@@ -15,7 +15,8 @@ function trinityOptionsFrom(context) {
     variant: context.request.variant_id || context.request.variantId || context.request.variant,
     jury: context.request.trinity_jury || context.request.trinityJury,
     experimentalDesign: context.request.experimental_design || context.request.experimentalDesign,
-    adaptiveBudgetConfig: context.request.trinity_adaptive_budget || context.request.trinityAdaptiveBudget
+    adaptiveBudgetConfig: context.request.trinity_adaptive_budget || context.request.trinityAdaptiveBudget,
+    qdConfig: context.request.trinity_qd || context.request.trinityQD
   };
 }
 
@@ -38,6 +39,7 @@ function composeMembers(mission, options, assignments) {
   const composed = trinityService.compose(mission, {
     variantId: options.variant, experimentalDesign: options.experimentalDesign, trinityJury: options.jury,
     adaptiveBudgetConfig: options.adaptiveBudgetConfig,
+    qdConfig: options.qdConfig,
     availableAdapters: trinityAdapters.dispatchAdapterNames(), trinityModels: models
   });
   const members = topologyWorkerKinds.applyTopologyWorkerKinds('trinity', assignModels(composed, models), assignments);
@@ -67,8 +69,8 @@ async function handle(input) {
   const mission = missionFrom(context);
   context.nceEnrichments = await buildNCEEnrichments(context, 'trinity');
   const assignments = workerAssignmentsFrom(context);
-  const { variant, jury, experimentalDesign, adaptiveBudgetConfig } = trinityOptionsFrom(context);
-  const members = composeMembers(mission, { variant, jury, experimentalDesign, adaptiveBudgetConfig }, assignments);
+  const { variant, jury, experimentalDesign, adaptiveBudgetConfig, qdConfig } = trinityOptionsFrom(context);
+  const members = composeMembers(mission, { variant, jury, experimentalDesign, adaptiveBudgetConfig, qdConfig }, assignments);
   if (garage.available < members.length) throw Object.assign(new Error(`Trinity design requires ${members.length} free worker slots`), { code: 'WORKER_GARAGE_FULL' });
   const missionId = context.request.trinityMissionId
     || `trinity_${context.orchestratorId}_${require('crypto').randomUUID()}`;
@@ -94,6 +96,7 @@ function withDispatchRuntime(members, request = {}) {
     worldModelAssignments: members.map((member) => ({ worldNumber: member.worldNumber,
       modelTier: member.modelTier, localModel: member.localModel || null })),
     adaptiveBudgetConfig: request.trinity_adaptive_budget || request.trinityAdaptiveBudget || null,
+    qdConfig: request.trinity_qd || request.trinityQD || null,
     workerExecutionPolicy: request.executionPolicy || null
   };
 }

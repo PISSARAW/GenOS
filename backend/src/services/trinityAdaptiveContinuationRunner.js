@@ -2,8 +2,10 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const crypto = require('crypto');
 const adaptive = require('./trinityAdaptiveBudgetService');
 const barrier = require('./trinityComparativeBarrier');
+const novelty = require('./trinityNoveltyArchive');
 
 const TERMINAL = new Set(['completed', 'error', 'failed', 'terminated', 'apoptosis', 'unverified', 'quarantined']);
 
@@ -22,6 +24,55 @@ async function run(input) {
   const finished = await Promise.all(starts.map((item) => waitForContinuation(db, item, input.timeoutMs)));
   return { status: 'executed', allocation, reports: await barrier.buildWorldReportsFromMission(db, input.missionId),
     continuationWorkers: finished.map((item) => item.workerId), decisionAuthority: 'none' };
+}
+
+async function runQualityDiversityReplicas(input) {
+  const { db, missionId, reports, targets, selection } = input;
+  const config = selection?.qdConfig || {};
+  if (!Number.isSafeInteger(Number(config.tokensPerReplica)) || Number(config.tokensPerReplica) <= 0) {
+    return { status: 'incomplete', reason: 'replica_token_budget_missing' };
+  }
+  const assignments = selection.worldModelAssignments || [];
+  const started = [];
+  for (const [index, target] of (targets || []).entries()) {
+    const source = reports[index % reports.length];
+    const route = assignments.find((item) => item.worldNumber === source.worldNumber);
+    if (!source || !route) return { status: 'incomplete', reason: 'replica_model_assignment_missing' };
+    const workerId = `qd_${crypto.randomUUID()}`;
+    const worldNumber = reports.length + index + 1;
+    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
+      VALUES (?, ?, ?, ?, ?, 'queued', ?)`, `${missionId}_world_${worldNumber}`, input.mission,
+    worldNumber, `Trinity QD replica ${index + 1}`, 'quality_diversity_replica', workerId);
+    started.push(await startReplica({ ...input, target, route, workerId, worldNumber }));
+  }
+  const finished = await Promise.all(started.map((item) => waitForContinuation(db, item, input.timeoutMs)));
+  const allReports = await barrier.buildWorldReportsFromMission(db, missionId);
+  const replicaReports = finished.map((item) => allReports.find((world) => world.agentId === item.workerId));
+  if (replicaReports.some((world, index) => !validNicheReceipt(world, finished[index].targetNiche))) {
+    return { status: 'incomplete', reason: 'replica_niche_receipt_missing', reports: allReports };
+  }
+  return { status: 'executed', targetNiches: targets.map((item) => item.targetNiche),
+    workerIds: finished.map((item) => item.workerId), reports: allReports, decisionAuthority: 'none' };
+}
+
+function validNicheReceipt(world, targetNiche) {
+  return Boolean(world?.report?.behaviorVector && world.report.qdTargetNiche === targetNiche
+    && novelty.assignNiche({ vector: world.report.behaviorVector }) === targetNiche);
+}
+
+async function startReplica(input) {
+  const workerId = input.workerId;
+  const previousEvent = await input.db.get('SELECT COALESCE(MAX(rowid), 0) as eventId FROM telemetry_events WHERE agent_id = ?', workerId);
+  const payload = { action: 'dispatch_worker', background: true, orchestratorId: input.orchestratorId,
+    workerId, role: 'quality_diversity_replica', model_tier: input.route.modelTier || 'standard',
+    localModel: input.route.localModel || undefined,
+    mission: `${input.mission}\nIndependent quality-diversity replica. Target behavioral niche ${input.target.targetNiche}; use a distinct solution approach and report qdTargetNiche exactly plus a behaviorVector with at least 2 normalized [0,1] features and supporting behaviorVectorEvidence IDs.`,
+    execution_budget: { tokens: Number(input.selection.qdConfig.tokensPerReplica) },
+    executionPolicy: input.selection.workerExecutionPolicy, timeoutMs: input.timeoutMs };
+  const accepted = await spawnDispatch({ repoRoot: input.repoRoot, payload });
+  if (accepted.workerId !== workerId || accepted.status !== 'accepted') throw new Error('Quality-diversity replica dispatch was rejected.');
+  return { workerId, targetNiche: input.target.targetNiche,
+    afterEventId: Number(previousEvent?.eventId) || 0, startedAt: Date.now() };
 }
 
 function continuationFor(world, reports, assignments) {
@@ -91,4 +142,4 @@ async function waitForContinuation(db, continuation, timeoutMs) {
   throw new Error(`Adaptive continuation timed out for worker ${continuation.workerId}.`);
 }
 
-module.exports = { run };
+module.exports = { run, runQualityDiversityReplicas };

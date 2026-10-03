@@ -16,6 +16,7 @@ const variantRuntime = require('../src/services/trinityVariantRuntime');
 const recursiveExecutor = require('../src/services/trinityRecursiveExecutor');
 const nestedMissionRunner = require('../src/services/trinityNestedMissionRunner');
 const adaptiveContinuation = require('../src/services/trinityAdaptiveContinuationRunner');
+const noveltyArchive = require('../src/services/trinityNoveltyArchive');
 
 const TERMINAL = new Set(['blocked', 'completed', 'terminated', 'apoptosis', 'error', 'failed', 'unverified', 'quarantined']);
 
@@ -96,7 +97,9 @@ async function loadDispatchConfig(db, missionId) {
 async function compareMission(db, input, reports) {
   const design = { centralProblem: input.mission, variantSelection: input.variantSelection || {} };
   const adaptiveReview = await runAdaptiveReview({ db, input, reports });
-  const activeReports = adaptiveReview?.status === 'executed' ? adaptiveReview.reports : reports;
+  const qdReview = await runQualityDiversityReview({ db, input, reports });
+  const activeReports = qdReview?.status === 'executed' ? qdReview.reports
+    : adaptiveReview?.status === 'executed' ? adaptiveReview.reports : reports;
   const examined = await crossExamination.examine(db, activeReports, { centralProblem: input.mission });
   const worlds = verifier.verifyMissionReports(examined.reports, input.mission);
   const temporalReview = runTemporalReview(input.variantSelection, worlds);
@@ -114,6 +117,7 @@ async function compareMission(db, input, reports) {
   if (temporalReview) result.comparativeAnalysis.temporalReview = temporalReview;
   if (recursiveReview) result.comparativeAnalysis.recursiveExecution = recursiveReview;
   if (adaptiveReview) result.comparativeAnalysis.adaptiveBudgetExecution = adaptiveReview;
+  if (qdReview) result.comparativeAnalysis.qualityDiversityReplicas = qdReview;
   const variantExecution = variantRuntime.run({ selection: input.variantSelection, reports: worlds });
   if (Object.keys(variantExecution.executions).length) result.comparativeAnalysis.variantExecution = variantExecution;
   result.jury = await jury.evaluate({
@@ -130,7 +134,7 @@ async function compareMission(db, input, reports) {
       deterministicOutcome: { selectedWorld: result.selectedWorld } });
   }
   return enforceRequiredVariantGates({ result, input, temporalReview, recursiveReview,
-    adaptiveReview, variantExecution, review });
+    adaptiveReview, qdReview, variantExecution, review });
 }
 
 function enforceRequiredVariantGates(context) {
@@ -152,10 +156,42 @@ function enforceRequiredVariantGates(context) {
   if (temporalRequired(design) && context.temporalReview?.evidenceStatus !== 'verified') failures.push('temporal_evidence_incomplete');
   if (recursiveRequired(design) && !['verified', 'no_subproblem'].includes(context.recursiveReview?.status)) failures.push('recursive_execution_incomplete');
   if (design.replicationPolicy === 'adaptive_budget_fixed_replicas' && context.adaptiveReview?.status !== 'executed') failures.push('adaptive_continuation_incomplete');
+  if (design.replicationPolicy === 'quality_diversity_replicas' && context.qdReview?.status !== 'executed') failures.push('qd_replica_execution_incomplete');
   if (juryRequired(design) && context.result.jury?.status !== 'advisory') failures.push('jury_deliberation_incomplete');
   if (!failures.length) return result;
   return { ...result, canMerge: false, outcome: 'ESCALATE_EXPERIMENT', selectedWorld: null,
     mergedEvidence: null, reason: `required_variant_execution_incomplete:${failures.join(',')}` };
+}
+
+async function runQualityDiversityReview(context) {
+  const { db, input, reports } = context;
+  const selection = input.variantSelection || {};
+  if (selection.experimentalDesign?.replicationPolicy !== 'quality_diversity_replicas') return null;
+  const initial = variantRuntime.runQualityDiversity(reports);
+  if (initial.status !== 'executed') return { status: 'incomplete', reason: initial.reason };
+  const schedule = noveltyArchive.scheduleReplicas({ niches: qdTargets(initial, selection.qdConfig),
+    replicaBudget: Number(selection.qdConfig?.replicaBudget) });
+  try {
+    return await adaptiveContinuation.runQualityDiversityReplicas({ db, reports,
+      targets: schedule.replicas, selection, mission: input.mission,
+      missionId: input.missionId, orchestratorId: input.orchestratorId,
+      repoRoot: input.repoRoot, timeoutMs: 180000 });
+  } catch (error) {
+    return { status: 'incomplete', reason: error.code || 'qd_replica_dispatch_failed' };
+  }
+}
+
+function qdTargets(initial, config = {}) {
+  const occupied = new Set((initial.archive || []).map((item) => item.niche));
+  const niches = [];
+  const targetCount = Number(config.replicaBudget) || 0;
+  for (let x = 0; niches.length < targetCount && x < 8; x += 1) {
+    for (let y = 0; niches.length < targetCount && y < 8; y += 1) {
+      const niche = `niche_${x}:${y}`;
+      if (!occupied.has(niche)) niches.push(niche);
+    }
+  }
+  return niches;
 }
 
 function addExecutionFailure(failures, required, adapter, execution) {

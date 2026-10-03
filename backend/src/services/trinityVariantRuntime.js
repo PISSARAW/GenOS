@@ -156,8 +156,10 @@ function runQualityDiversity(reports) {
   if (candidates.length !== (reports || []).length || candidates.length < 3) {
     return { status: 'incomplete', reason: 'verified_behavior_vectors_missing' };
   }
-  const selection = novelty.qualityDiversitySelect({ candidates, archive: [], qualityWeight: 0.5 });
-  return { status: 'executed', ...selection, decisionAuthority: 'none', archiveScope: 'mission' };
+  const archive = candidates.map((candidate) => ({ ...candidate,
+    niche: novelty.assignNiche({ vector: candidate.vector }) }));
+  const selection = novelty.qualityDiversitySelect({ candidates, archive, qualityWeight: 0.5 });
+  return { status: 'executed', ...selection, archive, decisionAuthority: 'none', archiveScope: 'mission' };
 }
 
 function candidateFromReport(world) {
@@ -165,7 +167,8 @@ function candidateFromReport(world) {
   const vector = report.behaviorVector;
   const refs = Array.isArray(report.behaviorVectorEvidence) ? report.behaviorVectorEvidence : [];
   const known = verifiedEvidenceIds(report);
-  if (!Array.isArray(vector) || !vector.length || !refs.length || !refs.every((id) => known.has(String(id)))) return null;
+  if (!Array.isArray(vector) || vector.length < 2 || vector.some((value) => !Number.isFinite(value) || value < 0 || value > 1)
+    || !refs.length || !refs.every((id) => known.has(String(id)))) return null;
   const quality = trinityService.scoreWorldEvidence(report).totalScore;
   return { id: `world_${world.worldNumber}`, vector, quality };
 }
