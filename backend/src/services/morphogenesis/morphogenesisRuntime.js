@@ -20,7 +20,9 @@ class MorphogenesisRuntime {
   }
 
   async prepareMorphology(strategyContract, options = {}) {
-    const profile = strategyContract.profile || {};
+    const profile = { ...(strategyContract.profile || {}), ...(options.profile || {}) };
+    if (options.fork_count !== undefined) profile.fork_count = options.fork_count;
+    if (Array.isArray(options.domains)) profile.domains = options.domains;
     const strategyId = strategyContract.selected_strategy?.primary || 'deterministic_direct_path';
 
     const morphology = {
@@ -30,11 +32,14 @@ class MorphogenesisRuntime {
       relations: [],
       capabilities: [],
       transitionSequence: [],
+      primaryDomain: profile.primaryDomain || profile.domains?.[0] || null,
+      domains: Array.isArray(profile.domains) ? [...profile.domains] : [],
       substrate: { planner: 'cpu', execution: 'cpu' },
     };
 
     if (strategyId.includes('fork') || strategyId.includes('counterfactual')) {
-      const forkCount = profile.fork_count || profile.requested_workers || 3;
+      const requestedForks = Number(profile.fork_count || profile.requested_workers || 3);
+      const forkCount = Number.isInteger(requestedForks) ? Math.max(1, Math.min(64, requestedForks)) : 3;
       const roles = this._deriveRoles(strategyId, forkCount, profile);
       for (let i = 0; i < forkCount; i++) {
         morphology.agents.push({ role: roles[i] || `world_${i}`, modelTier: 'standard' });
