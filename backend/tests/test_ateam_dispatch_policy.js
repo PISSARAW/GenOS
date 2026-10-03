@@ -6,9 +6,9 @@ const { projectDagPolicy } = require('../src/services/aTeam/variants/projectDagP
 const { incidentStructure, tigerMandate, relayPackage } = require('../src/services/aTeam/variants/teamVariantPolicies');
 
 const members = [
-  { subSystem: 'api', label: 'api', role: 'backend', capabilities: ['api'], outputs: ['api-contract'], ownedResponsibilities: ['api'], criticality: 'critical' },
-  { subSystem: 'web', label: 'web', role: 'frontend', capabilities: ['web'], dependsOn: ['api'], outputs: ['site'], ownedResponsibilities: ['web'] },
-  { subSystem: 'security', label: 'security', role: 'security', capabilities: ['security', 'boundary_spanning'], dependsOn: ['api'], ownedResponsibilities: ['security'] }
+  { memberId: 'api', subSystem: 'api', label: 'api', role: 'backend', capabilities: ['api'], outputs: ['api-contract'], ownedResponsibilities: ['api'], criticality: 'critical' },
+  { memberId: 'web', subSystem: 'web', label: 'web', role: 'frontend', capabilities: ['web'], dependsOn: ['api'], outputs: ['site'], ownedResponsibilities: ['web'] },
+  { memberId: 'security', subSystem: 'security', label: 'security', role: 'security', capabilities: ['security', 'boundary_spanning'], dependsOn: ['api'], ownedResponsibilities: ['security'] }
 ];
 
 function run() {
@@ -26,7 +26,7 @@ function run() {
   assert.ok(pod.members.find((member) => member.subSystem === 'api').consults.includes('web'));
   assert.match(pod.members.find((member) => member.subSystem === 'api').mission, /Consult peer domains before cross-domain decisions: web, security/);
   assert.equal(pod.policy.boundarySpanners[0].ownerMemberId, 'security');
-  const incidentMembers = [...members, { subSystem: 'ops', role: 'operations' }];
+  const incidentMembers = [...members, { memberId: 'ops', subSystem: 'ops', role: 'operations' }];
   const incident = prepareDispatchPolicy({ mission: { variant: 'incident_command', incidentRoles: { commander: 'api', operations: 'ops', planning: 'web', logistics: 'security' }, sitrepIntervalMinutes: 15, operationalObjectives: ['restore service'] }, members: incidentMembers });
   assert.equal(incident.policy.commanderMemberId, 'api');
   assert.match(incident.members[0].mission, /Coordinate the incident response/);
