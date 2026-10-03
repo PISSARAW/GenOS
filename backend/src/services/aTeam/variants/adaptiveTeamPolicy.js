@@ -21,7 +21,7 @@ function buildAdaptiveConfig(mission, members) {
   const covered = computeCoveredCapabilities(members);
   const gaps = requiredCaps.filter((c) => !covered.has(c));
   return {
-    staffing: buildStaffingConfig(mission, gaps, requiredCaps, covered),
+    staffing: buildStaffingConfig(mission, { gaps, required: requiredCaps, covered }),
     recruitment: buildRecruitmentConfig(gaps, mission),
     morphogenesis: buildMorphogenesisConfig(),
     memoryTransfer: buildMemoryTransferConfig(),
