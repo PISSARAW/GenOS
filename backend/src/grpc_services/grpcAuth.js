@@ -46,8 +46,11 @@ function hasCredentials(call) {
 // guarding them turns every orchestrator healthcheck into UNAUTHENTICATED
 // and the supervisor into a kill/restart loop when the secret is missing.
 function isHealthcheckMethod(methodName) {
-  if (/^ping$/i.test(methodName)) return true;
-  return /health/i.test(methodName || '');
+  const name = String(methodName || '');
+  if (/^ping$/i.test(name)) return true;
+  if (/^grpc\.health\.v1\.health\/(check|watch)$/i.test(name)) return true;
+  if (/^(health|healthcheck|readyz|livez|ready|live)$/i.test(name)) return true;
+  return false;
 }
 
 function guardHandler(handler, methodName) {
