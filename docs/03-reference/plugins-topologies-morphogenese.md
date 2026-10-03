@@ -24,8 +24,8 @@ délègue au registre, sinon refuse (`Topology not registered`). Code :
 | Syncytium | `SyncytiumController` (état partagé, convergence déterministe) | non | gate §5 |
 | Biocénose | `BiocenoseController` (jury, ballots explicites) | non | gate §5 |
 | Biome | `populationRuntimeService` (`create→spawn→advance`) sur écologie in-memory construite des workers/input | non | gate §5 |
-| Holobionte | `runCycle` réel (migrations, provisioning session+constitution+symbiont+contrat, planner, exécuteur, ledger, mémoire, health) | SQLite (`:memory:`, natif sinon repli `node:sqlite` déclaré dans le reçu) | gate §5 |
-| Métapopulation | `runAutonomousRegionalRuntime` réel (session créée, adapters du `regionalBrain`, cycle `OBSERVE→…→VERIFY→RECORD`) | SQLite (`:memory:`, natif sinon repli `node:sqlite` déclaré dans le reçu) | gate §5 |
+| Holobionte | `runCycle` réel (migrations, provisioning session+constitution+symbiont+contrat, planner, exécuteur, ledger, mémoire, health) | Base persistante du control plane GenOS | gate §5 |
+| Métapopulation | `runAutonomousRegionalRuntime` réel (session créée, adapters du `regionalBrain`, cycle `OBSERVE→…→VERIFY→RECORD`) | Base persistante du control plane GenOS | gate §5 |
 
 ## 3. Contrats d'entrée des feuilles
 
@@ -44,15 +44,12 @@ sortie de l'étape/hôte précédent, pas l'input mission.
 
 ## 4. Exigence SQLite
 
-Holobionte et Métapopulation persistent. `runtime/sqliteDb.js` ouvre
-d'abord le natif (`sqlite`+`sqlite3`, `:memory:`), sinon un pont
-`node:sqlite` (même moteur, même SQL, API `get/all/run/exec/close`
-adaptée). Le pilote effectif figure dans la sortie (`driver`). Sans aucun
-SQLite, l'exécution échoue avec un message explicite
-(`requires a sqlite-capable runtime environment`) au lieu d'une erreur de
-binaire. Les migrations exécutées sont celles du dépôt, sans `.sql`
-ajouté : Holobionte (sessions, contrats, mémoire, ledger, plan immune),
-Métapopulation (base, runtime, variants).
+Holobionte et Métapopulation utilisent la base persistante partagée du control
+plane (`getDatabase()`), configurée par `GENOS_DB_PATH` ou les chemins par
+défaut de GenOS. Les migrations sont idempotentes et exécutées sur cette base;
+le plugin ne ferme pas la connexion partagée. Le stockage dépend donc du
+backend SQLite configuré pour le control plane et non d'une base de test
+` :memory: `.
 
 ## 5. Preuves
 
