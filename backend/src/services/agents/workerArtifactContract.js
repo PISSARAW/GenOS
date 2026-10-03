@@ -67,6 +67,14 @@ function hasPreservedSynthesis(content) {
       && isNonEmptyText(position?.position)));
 }
 
+function hasCounterexamples(items) {
+  return Array.isArray(items) && items.length > 0 && items.every((item) =>
+    isNonEmptyText(item?.claim) && isNonEmptyText(item?.attack)
+    && Array.isArray(item.reproductionSteps) && item.reproductionSteps.length > 0
+    && item.reproductionSteps.every(isNonEmptyText)
+    && hasEvidenceReferences(item.evidence));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -166,12 +174,18 @@ function artifactInstruction(contract) {
   if (!required.length) return '';
   const rhizome = rhizomeArtifactInstruction(contract, required);
   if (rhizome) return rhizome;
-  const template = required.map((type) => ({ type, content: CONTENT_TEMPLATES[type] }));
+  const template = required.map((type) => ({ type, content: templateForWorker(contract, type) }));
   if (required.every((type) => type === 'dossier')) {
     return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims })}. The top-level claims form the dossier; cite source references in evidence.`;
   }
   const artifact = template[0];
   return `Return one JSON object matching this contract: ${JSON.stringify({ outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims, workerArtifact: { ...artifact, provenance: { sourceRefs: ['<source-ref>'] } } })}. Keep the artifact under workerArtifact; its type must be ${artifact.type}. Do not put type or content at the root. Include source references in claims.evidence and workerArtifact.provenance.`;
+}
+
+function templateForWorker(contract, type) {
+  const template = CONTENT_TEMPLATES[type];
+  if (contract.identity?.workerKind !== 'red_worker' || type !== 'verification_report') return template;
+  return { ...template, counterexamples: [{ claim: '<claim>', attack: '<attack>', reproductionSteps: ['<step>'], evidence: ['<receipt-ref>'] }] };
 }
 
 function rhizomeArtifactInstruction(contract, required) {
@@ -243,9 +257,15 @@ function inspectWorkerArtifact(kind, reply, provenance) {
   const issues = [];
   if (!parsed) issues.push(reply ? 'response.invalid_json' : 'response.absent');
   if (parsed && !Array.isArray(parsed.claims)) issues.push('claims.missing_or_invalid');
-  const input = { parsed, expected, provenance: artifactProvenance, issues };
+  const input = { parsed, expected, kind, provenance: artifactProvenance, issues };
   const result = expected === 'dossier' ? inspectDossier(input) : inspectSpecialized(input);
-  return validateMethodEvidence(result, parsed, methodContract);
+  return validateWorkerKindArtifact(validateMethodEvidence(result, parsed, methodContract), kind, expected);
+}
+
+function validateWorkerKindArtifact(result, kind, type) {
+  if (kind !== 'red_worker' || type !== 'verification_report' || !result.artifact) return result;
+  if (hasCounterexamples(result.artifact.content.counterexamples)) return result;
+  return { artifact: null, issues: [...result.issues, 'workerArtifact.content.counterexamples.invalid'] };
 }
 
 function validateMethodEvidence(result, parsed, methodContract) {
@@ -328,15 +348,21 @@ function validateWorkerArtifact(dossier, worker) {
   if (!required.length) return true;
   const report = reportOf(dossier);
   const artifact = report.workerArtifact;
+  const kind = worker.workerContract?.identity?.workerKind;
   for (const expected of required) {
     const fields = REQUIRED_FIELDS[expected];
     if (!artifact || artifact.type !== expected || !fields
       || !artifact.content || !contentIsValid(expected, artifact.content)
-      || !hasProvenance(artifact)) {
+      || !hasProvenance(artifact) || kindArtifactIsInvalid(kind, expected, artifact.content)) {
       throw artifactError(worker.agentId, expected);
     }
   }
   return true;
+}
+
+function kindArtifactIsInvalid(kind, type, content) {
+  return kind === 'red_worker' && type === 'verification_report'
+    && !hasCounterexamples(content?.counterexamples);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
