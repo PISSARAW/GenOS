@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-10-03
 
 ---
 
@@ -67,9 +67,12 @@ backend SQLite configuré pour le control plane et non d'une base de test
   lourds (sessions distribuées, CRDT réseau, jury humain).
 - Le cycle Métapopulation sur région vide rend `VERIFIED` avec
   `actionCount 0` : reçu honnête d'inactivité, pas preuve d'efficacité.
-- `changeVariant` ne vérifie pas les règles de transition du
-  `variantRegistry` (gain/coût) : il applique un patch vérifié
-  structurellement, pas une décision apprise.
+- `MorphologyRuntime.changeVariant({ nodeId, graph, newVariant, execContext })`
+  exige une transition enregistrée dans le `variantRegistry`, puis applique ses
+  conditions et ses exigences de preuve avant le patch. Sans règle ou preuve,
+  le changement est refusé. Le patch transmet les métadonnées de gain/coût,
+  l'autorité et le lease; la vérification structurelle du graphe reste un gate
+  distinct.
 
 Chaque feuille du graphe porte maintenant un résultat distinct :
 `executionStatus=completed` signifie que l'opérateur a fini; `contractStatus`
@@ -78,3 +81,14 @@ et `evidenceStatus` restent `not_assessed` à ce niveau; `missionOutcome` vaut
 il vaut `no_action`. Un statut local de plugin tel que `VERIFIED` ne prouve pas
 à lui seul la réussite de la mission. La Métapopulation vide retourne
 `NO_ACTION`, jamais `VERIFIED`.
+
+Les receipts émis par les opérateurs sont des traces d'exécution
+(`recordType: execution_receipt`, `verificationStatus: not_verified`). Ils
+restent dans `receipts` et ne sont pas copiés dans `evidence`; seul un élément
+d'évidence distinct peut alimenter les gates de preuve. Le receipt ne porte pas
+à lui seul de signature ou de provenance vérifiable.
+
+La réussite technique de `MorphologyRuntime.execute` n'est plus enregistrée
+automatiquement comme outcome de mission dans le magasin d'expérience. La
+consolidation d'apprentissage relève des chemins séparés qui disposent d'un
+outcome vérifié et de sa preuve.
