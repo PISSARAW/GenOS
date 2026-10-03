@@ -1,5 +1,6 @@
 // Registry for Transposons (Jumping Genes)
 let transposonRegistry = new Map(); /* persisterHook: transposonRegistry */
+const MAX_TRANSPOSON_COPIES = 64;
 
 function getTransposonRecord(id) {
   if (!transposonRegistry.has(id)) {
@@ -28,6 +29,12 @@ function executeCutAndPaste(record, params) {
     return { success: false, msg: `Transposon '${transposonName}' not found.` };
   }
   const oldLocus = tn.currentLocus;
+  if (!Object.hasOwn(record.loci, targetLocus)) {
+    return { success: false, invalidTarget: true, msg: `Target locus '${targetLocus}' is not defined.` };
+  }
+  if (oldLocus === targetLocus) {
+    return { success: false, noOp: true, msg: `Transposon '${transposonName}' is already at '${targetLocus}'.` };
+  }
   tn.currentLocus = targetLocus;
   tn.jumpsCount += 1;
 
@@ -48,6 +55,12 @@ function executeCopyAndPaste(record, params) {
   const tn = record.transposons.find(t => t.name === transposonName);
   if (!tn) {
     return { success: false, msg: `Source transposon '${transposonName}' not found.` };
+  }
+  if (!Object.hasOwn(record.loci, targetLocus)) {
+    return { success: false, invalidTarget: true, msg: `Target locus '${targetLocus}' is not defined.` };
+  }
+  if (record.transposons.length >= MAX_TRANSPOSON_COPIES) {
+    return { success: false, capped: true, msg: `Refused: mobile element cap (${MAX_TRANSPOSON_COPIES}) reached.` };
   }
   const newCopyName = `${transposonName}_copy_${record.transposons.length + 1}`;
   const newTn = { name: newCopyName, currentLocus: targetLocus, type: 'retrotransposon', jumpsCount: 1 };
@@ -70,11 +83,13 @@ function handleCutAction(record, transId, args) {
   return {
     configured: true,
     success: res.success,
-    status: res.success ? 'cut_and_paste_completed' : 'transposon_not_found',
+    status: res.success ? 'cut_and_paste_completed' : (res.invalidTarget ? 'invalid_target' : (res.noOp ? 'no_op' : 'transposon_not_found')),
     transport: 'transposon_engine',
     transposon_id: transId,
     loci_state: record.loci,
     disrupted_loci: record.disruptedLoci,
+    execution_scope: 'metadata_simulation',
+    runtime_genome_changed: false,
     output: res.msg
   };
 }
@@ -87,12 +102,14 @@ function handleCopyAction(record, transId, args) {
   return {
     configured: true,
     success: res.success,
-    status: res.success ? 'retrojump_completed' : 'source_not_found',
+    status: res.success ? 'retrojump_completed' : (res.invalidTarget ? 'invalid_target' : (res.capped ? 'copy_cap_reached' : 'source_not_found')),
     transport: 'transposon_engine',
     transposon_id: transId,
     total_transposons: record.transposons.length,
     loci_state: record.loci,
     disrupted_loci: record.disruptedLoci,
+    execution_scope: 'metadata_simulation',
+    runtime_genome_changed: false,
     output: res.msg
   };
 }
