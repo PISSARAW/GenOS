@@ -73,7 +73,17 @@ function handleDynamicTripletExpansion(args = {}) {
   const record = getExpansionRecord(expId);
 
   if (action === 'expand_repeats' || action === 'replicate_generation') {
-    return handleReplicateGeneration(record, expId, args.delta_repeats);
+    const delta = args.delta_repeats === undefined ? 12 : args.delta_repeats;
+    if (!Number.isSafeInteger(delta) || delta < 0 || !Number.isSafeInteger(record.repeatCount + delta)) {
+      return {
+        configured: true,
+        success: false,
+        status: 'invalid_args',
+        expansion_id: expId,
+        error: 'delta_repeats must be a non-negative safe integer and keep repeat_count safe.'
+      };
+    }
+    return handleReplicateGeneration(record, expId, delta);
   }
   if (action === 'evaluate_anticipation_risk') {
     return handleEvaluateAnticipation(record, expId);
