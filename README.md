@@ -4,7 +4,7 @@
 
 En français : GenOS est un runtime open source pour agents IA, centré sur l'état versionné, les branches contrefactuelles et l'exécution vérifiable. Le nom canonique du projet est **GenOS Agent Runtime** afin de le distinguer des autres projets appelés GenOS.
 
-🌐 **Site public** : https://genoswork.vercel.app
+🌐 **Site public** : https://genos.work
 🧬 **Code source** : https://github.com/PISSARAW/GenOS
 📖 **Documentation** : [index des docs](docs/README.md)
 🔌 **Serveur MCP** : [serveur MCP GenOS](mcp/README.md) · [métadonnées pour le MCP Registry](server.json)
