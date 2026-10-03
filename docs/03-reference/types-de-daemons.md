@@ -246,6 +246,9 @@ stateDiagram-v2
 
 - 7 activités, 5 santés, transitions déterministes (`TRANSITIONS`).
 - `registerDaemon` exige `daemonId + territoryId`, conflit si territoire différent.
+- À la reprise d'un daemon existant, l'activité repart à `BOOTSTRAPPING` ; santé,
+  révisions cognitives et curseur `last_event_id` sont conservés. Le démarrage ne
+  restaure donc pas une activité transitoire telle que `INVESTIGATING`.
 - `heartbeat` sur daemon inconnu → `{updated:false, errors:['unknown-daemon']}`, jamais de throw.
 - Host minimal : `backend/bin/genos-daemon.cjs` — `--territory` + `--daemon-id` requis,
   refuse de démarrer si territoire non enregistré, 4 signaux souscrits
@@ -298,9 +301,21 @@ Event → validate(territoryId, knownEvent) → cheapUpdate(head|touch)
 - Seul `ORCHESTRATOR_ENTERED` demande un handoff (`handoffRequested: true`).
 - Wake policy : `cooldown 5 s` par `(territoire, eventType)`, `10 wakes / 60 s` max,
   `low-priority-persist-only` ne réveille jamais. Temps injecté, sans LLM.
-- Timer 60 min = filet de rattrapage, pas le système nerveux.
+- Le host démarre son filet `KNOWLEDGE_STALE` toutes les 60 s (défaut actuel) ;
+  ce timer ne remplace pas le journal événementiel.
 - `ingestEvent` retourne `llmRequired: false` ; le handoff est en `try/catch`
-  et ne bloque jamais l'ingestion. Écriture `daemon_events` en best-effort.
+  et ne bloque jamais l'ingestion. `ingestEvent` expose séparément `logged` :
+  son écriture `daemon_events` reste best-effort. Le pont de production ne marque
+  toutefois `emitted: true` que si l'update cheap a réussi et que l'événement a
+  été journalisé ; sinon il renvoie `event-log-failed` (sans throw).
+
+Le host applique les migrations daemon au démarrage plutôt qu'à chaque tick.
+Le poller durable s'exécute toutes les 500 ms, lit au plus 100 lignes après le
+curseur `last_event_id` et avance ce curseur via heartbeat. L'index
+`(territory_id, id)` couvre cette lecture. Les migrations `daemon_events` et
+`payload_json` sont mémorisées par objet de connexion pendant la vie du process.
+Le pont production exécute aussi `git rev-parse` et `git diff` de façon
+asynchrone, avec délais limites de 3 s et 5 s, pour ne pas bloquer l'event loop.
 
 ```mermaid
 sequenceDiagram
@@ -321,6 +336,7 @@ sequenceDiagram
       WAKE-->>BRIDGE: low-priority-persist-only
     end
     BRIDGE->>BRIDGE: log daemon_events (best-effort)
+    Note over PROD,BRIDGE: le pont production ne confirme l'émission qu'après le journal
 ```
 
 Source : `backend/src/services/daemon/daemonEventBridgeService.js:3-145`,
