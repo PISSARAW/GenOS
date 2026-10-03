@@ -283,11 +283,20 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
   try {
     const db = await getDatabase();
     const rows = await retryDbOperation(() => db.all(sql, vals));
-    return rows.map(decodeSignalRow).filter(Boolean);
+    return rows.map(decodeSignalRow).filter((signal) => (
+      signal && isReadableByAgent(signal, subscriberAgentId)
+    ));
   } catch (e) {
     console.warn('[SignalingTransport] readSignalsForAgent failed after retries:', e.message);
     return [];
   }
+}
+
+function isReadableByAgent(signal, agentId) {
+  if (signal.integrity?.status === 'rejected') return false;
+  const envelope = signal.decoded?.communicationEnvelope;
+  if (!envelope || envelope.recipientMode !== 'targeted') return true;
+  return envelope.recipientAgentIds.includes(agentId);
 }
 
 async function markSignalsSeen(subscriberAgentId, signalIds) {
