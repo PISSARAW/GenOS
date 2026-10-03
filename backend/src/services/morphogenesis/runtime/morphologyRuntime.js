@@ -10,23 +10,6 @@ function mergeChildEvidence(parent, child) {
   if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
 }
 
-function recordExperience(store, graph, rootNode, result) {
-  if (!store || typeof store.add !== 'function') return;
-  try {
-    store.add({
-      missionSignature: graph.missionId || graph.graphId,
-      problemProfile: {},
-      initialMorphology: { topology: rootNode.topology, variant: rootNode.variant, operator: rootNode.operator },
-      morphologyHistory: [{ version: graph.version, rootKind: rootNode.operator || rootNode.kind }],
-      budget: graph.globalBudget || {},
-      quality: 0,
-      evidenceQuality: 0,
-      finalOutcome: 'completed',
-      failures: 0
-    });
-  } catch (_) { /* learning must never break execution */ }
-}
-
 function variantPatch(input) {
   const { createMorphologyPatch, createOperation } = require('../transitions/morphologyPatch');
   const { transition, context } = input;
@@ -51,7 +34,6 @@ class MorphologyRuntime {
     this.globalBudget = options.globalBudget || {};
     this.globalInvariants = options.globalInvariants || [];
     this.eventHandlers = options.eventHandlers || {};
-    this.experienceStore = options.experienceStore || null;
     this.variantRegistry = options.variantRegistry || defaultRegistry;
   }
 
@@ -83,7 +65,6 @@ class MorphologyRuntime {
       mergeChildEvidence(context, result.context);
 
       this.emit('complete', { graph, result, context });
-      recordExperience(this.experienceStore, graph, rootNode, result);
 
       return { output: result.output, receipts: context.receipts, evidence: context.evidence, state: result.context.state || context.state };
     } catch (error) {
