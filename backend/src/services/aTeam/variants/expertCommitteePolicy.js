@@ -42,7 +42,7 @@ function findOverlap(expertiseA, expertiseB) {
   return expertiseA.filter((skill) => expertiseB.includes(skill));
 }
 
-function computeCoverage(matrix, required) {
+function computeCoverage(matrix, required = []) {
   const covered = new Set();
   for (const entry of matrix) {
     for (const skill of entry.expertise) covered.add(skill);

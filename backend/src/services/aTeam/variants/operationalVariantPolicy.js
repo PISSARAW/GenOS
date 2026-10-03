@@ -16,7 +16,8 @@ const { relayTeamFullPotential } = require('./relayTeamPolicy');
 function buildOperationalPolicy(input = {}) {
   const { mission = {}, plan = {}, members = [], boundaries = { interfaces: [] } } = input;
   const policies = {
-    expert_committee: () => teamPolicies.expertCommittee(mission, members),
+    expert_committee: () => ({ ...teamPolicies.expertCommittee(mission, members),
+      ...expertCommitteeFullPotential(mission, members) }),
     boundary_spanner: () => teamPolicies.interfaceContracts(mission, boundaries, members),
     matrix_team: () => ({ ...teamPolicies.matrixDecisions(mission),
       ...matrixTeamFullPotential(mission) }),
