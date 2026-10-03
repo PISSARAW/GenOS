@@ -195,7 +195,11 @@ function createSnapshot() {
 function rollback(snapshotId) {
   const target = snapshots.list().find((s) => s.id === snapshotId);
   if (!target) return false;
-  state = deserializeState(target.state);
+  const restored = deserializeState(target.state);
+  for (const key of Object.keys(state)) {
+    if (!Object.prototype.hasOwnProperty.call(restored, key)) delete state[key];
+  }
+  Object.assign(state, restored);
   state.updatedAt = new Date().toISOString();
   return true;
 }

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Transactional Transition Engine — applies a MorphogenesisPlan atomically.
+ * Transition Engine — applies a MorphogenesisPlan with host-provided compensation.
  *
  * Lifecycle: VALIDATE → SNAPSHOT → PREPARE → SPAWN/REBIND → MIGRATE → VERIFY → COMMIT
  * On any failure: ROLLBACK to the pre-transition snapshot.
@@ -13,8 +13,7 @@ const crypto = require('crypto');
 const {
   getState, createSnapshot, rollback: rollbackSnapshot
 } = require('../collectiveStateService');
-const { terminateChild } = require('../processTermination');
-const { activeProcesses, emit } = require('../agentOrchestrationState');
+const { emit } = require('../agentOrchestrationState');
 
 function uuid() { return crypto.randomUUID(); }
 function nowIso() { return new Date().toISOString(); }
@@ -48,6 +47,19 @@ function hasNoActiveConflict(plan, collectiveState) {
     if (agent.status === 'terminating') return false;
   }
   return true;
+}
+
+function adapterErrors(plan, ctx) {
+  // Host adapters own durable DB, workspace, and process effects; rollback adapters must undo them.
+  const actions = new Set((Array.isArray(plan?.actions) ? plan.actions : []).map((action) => action.type));
+  const errors = [];
+  if (actions.has('spawn') && (typeof ctx.spawnAgent !== 'function' || typeof ctx.rollbackSpawnAgent !== 'function')) {
+    errors.push('spawnAgent and rollbackSpawnAgent adapters are required');
+  }
+  if (actions.has('retire') && (typeof ctx.retireAgent !== 'function' || typeof ctx.rollbackRetireAgent !== 'function')) {
+    errors.push('retireAgent and rollbackRetireAgent adapters are required');
+  }
+  return errors;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,17 +142,15 @@ async function execSpawn(action, ctx) {
   return { agentId: descriptor.agentId, role: descriptor.role || action.role, descriptor };
 }
 
-async function execRetire(action, collectiveState) {
+async function execRetire(action, ctx) {
   const { agentId } = action;
-  const child = activeProcesses.get(agentId);
-  if (child) {
-    terminateChild(child);
-    activeProcesses.delete(agentId);
-  }
+  const { collectiveState, retireAgent } = ctx;
+  const retired = await retireAgent(action, { ...ctx, collectiveState });
+  if (retired?.retired !== true) throw new Error('retire runtime adapter did not confirm retirement');
   const state = collectiveState || getState();
   state.agents.delete(agentId);
   state.relationGraph?.delete(agentId);
-  return { agentId, runtime: Boolean(child) };
+  return { agentId, runtime: true };
 }
 
 async function execRebind(action, collectiveState) {
@@ -165,7 +175,7 @@ async function runAction(action, ctx) {
   try {
     let detail;
     if (action.type === 'spawn') detail = await execSpawn(action, ctx);
-    else if (action.type === 'retire') detail = await execRetire(action, ctx.collectiveState);
+    else if (action.type === 'retire') detail = await execRetire(action, ctx);
     else if (action.type === 'rebind') detail = await execRebind(action, ctx.collectiveState);
     else throw new Error(`unknown action type: ${action.type}`);
     return { type: action.type, status: 'success', startedAt, finishedAt: nowIso(), detail };
@@ -252,35 +262,36 @@ async function executeTransition(ctx) {
   const { plan, collectiveState, db } = ctx;
   const transitionId = `tx-${uuid().slice(0, 8)}`;
   const actionsTaken = [];
-  let preSnapshot = null;
-  let postSnapshot = null;
-  let rollbackReceipt = null;
 
   const validation = validateAndCheckConflict({ plan, collectiveState, transitionId });
-  if (!validation.valid) return buildReceipt({ transitionId, plan, preSnapshot: null, postSnapshot: null, actionsTaken: [], rollbackReceipt: null, committed: false });
+  const errors = [...(validation.errors || []), ...adapterErrors(plan, ctx)];
+  if (!validation.valid || errors.length) {
+    return { ...buildReceipt({ transitionId, plan, preSnapshot: null, postSnapshot: null, actionsTaken: [], rollbackReceipt: null, committed: false }), errors };
+  }
 
-  preSnapshot = createStateSnapshot(collectiveState);
+  const state = collectiveState || getState();
+  const preSnapshot = createStateSnapshot(state);
   const morphCtx = {
-    db, parent: ctx.parent, spawnAgent: ctx.spawnAgent,
-    transitionId, collectiveState: collectiveState || getState()
+    ...ctx, db, parent: ctx.parent, transitionId, collectiveState: state
   };
+  const compensations = [];
   emitTransitionStart({ transitionId, plan });
 
   try {
-    await executeActions({ plan, morphCtx, actionsTaken });
-    const migrationLog = migrateState({ fromState: collectiveState, toState: collectiveState, plan });
+    await executeActions({ plan, morphCtx, actionsTaken, compensations });
+    const migrationLog = migrateState({ fromState: state, toState: state, plan });
     if (migrationLog.length) emitMigration({ transitionId, migrationLog });
-    await verifyAndCommit({ plan, collectiveState, preSnapshot, transitionId });
-    return buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: createStateSnapshot(collectiveState), actionsTaken, rollbackReceipt: null, committed: true });
+    await verifyAndCommit({ plan, collectiveState: state, preSnapshot, transitionId });
+    return buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: createStateSnapshot(state), actionsTaken, rollbackReceipt: null, committed: true });
   } catch (err) {
-    return handleRollback({ err, preSnapshot, transitionId, plan, actionsTaken });
+    return handleRollback({ err, preSnapshot, transitionId, plan, actionsTaken, compensations, morphCtx });
   }
 }
 
 function validateAndCheckConflict(input) {
   const { plan, collectiveState, transitionId } = input;
   const errors = validatePlan(plan);
-  if (errors.length > 0) return { valid: false };
+  if (errors.length > 0) return { valid: false, errors };
   if (!hasNoActiveConflict(plan, collectiveState)) throw new Error('active_conflict: retiring agent already terminating');
   return { valid: true };
 }
@@ -294,10 +305,13 @@ function emitTransitionStart(input) {
 }
 
 async function executeActions(input) {
-  const { plan, morphCtx, actionsTaken } = input;
+  const { plan, morphCtx, actionsTaken, compensations } = input;
   for (const action of plan.actions) {
     const result = await runAction(action, morphCtx);
     actionsTaken.push(result);
+    if (result.status === 'success' && ['spawn', 'retire'].includes(action.type)) {
+      compensations.push({ action, result });
+    }
     if (result.status === 'failed' && !action.continueOnFailure) throw new Error(`action ${action.type} failed: ${result.error}`);
   }
 }
@@ -317,14 +331,36 @@ async function verifyAndCommit(input) {
     `Transition ${transitionId} committed`, { transitionId, planId: plan.id }, 'info');
 }
 
-function handleRollback(input) {
-  const { err, preSnapshot, transitionId, plan, actionsTaken } = input;
+async function compensateActions(compensations, ctx, cause) {
+  const errors = [];
+  for (const item of compensations.slice().reverse()) {
+    try {
+      const compensate = item.action.type === 'spawn' ? ctx.rollbackSpawnAgent : ctx.rollbackRetireAgent;
+      await compensate(item.action, { ...ctx, cause, actionResult: item.result });
+    } catch (error) {
+      errors.push(error.message || String(error));
+    }
+  }
+  return errors;
+}
+
+async function handleRollback(input) {
+  const { err, preSnapshot, transitionId, plan, actionsTaken, compensations, morphCtx } = input;
   emit('system', 'MORPHOGENESIS_TRANSITION_ROLLBACK', 'ROLLBACK',
     `Transition ${transitionId} rolling back: ${err.message}`, { transitionId, error: err.message }, 'error');
   let rollbackReceipt = null;
   if (preSnapshot) {
+    const compensationErrors = await compensateActions(compensations, morphCtx, err.message);
     const rolledBack = rollbackSnapshot(preSnapshot.snapshotId);
-    rollbackReceipt = { rolledBack, targetSnapshotId: preSnapshot.snapshotId, triggeredBy: err.message, timestamp: nowIso() };
+    rollbackReceipt = {
+      rolledBack: rolledBack && compensationErrors.length === 0,
+      memoryRestored: rolledBack,
+      externalCompensated: compensationErrors.length === 0,
+      compensationErrors,
+      targetSnapshotId: preSnapshot.snapshotId,
+      triggeredBy: err.message,
+      timestamp: nowIso()
+    };
   }
   return buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: null, actionsTaken, rollbackReceipt, committed: false });
 }
