@@ -5,10 +5,13 @@ const { MorphogenesisRuntime } = require('../src/services/morphogenesis/morphoge
 
 async function main() {
   const runtime = new MorphogenesisRuntime();
+  let transitionCalled = false;
+  runtime._transitionEngine = { executeTransition: async () => { transitionCalled = true; return { committed: true }; } };
   const result = await runtime.executeMorphology({ topology: 'trinity', agents: [{ role: 'critic' }] });
-  assert.equal(result.applied, false, 'missing transition engine cannot claim an applied mutation');
+  assert.equal(result.applied, false, 'the proposal path cannot claim an applied mutation');
   assert.equal(result.proposed, true);
   assert.equal(result.commitId, undefined, 'proposal has no commit receipt');
+  assert.equal(transitionCalled, false, 'legacy execution must not bypass the governed transition pipeline');
 }
 
 main().catch((error) => {

@@ -3,8 +3,8 @@
 const { emit } = require('../agentOrchestrationState');
 
 /**
- * Morphogenesis Runtime — orchestrates topology transitions for the collective.
- * Bridges strategy selection → AgentGit versioning → counterfactual testing → transition execution.
+ * Morphogenesis Runtime — prepares topology proposals for the collective.
+ * Applying a transition requires the separately governed transition pipeline.
  */
 
 class MorphogenesisRuntime {
@@ -16,14 +16,6 @@ class MorphogenesisRuntime {
   }
 
   async init() {
-    const { getDatabase } = require('../../db');
-    const db = await getDatabase();
-    this._db = db;
-
-    // Lazy-load services (may not be available)
-    try { this._transitionEngine = require('../morphogenesis/transitionEngineService'); } catch {}
-    try { this._agentGit = require('../morphogenesis/agentGitService'); } catch {}
-    try { this._counterfactual = require('../counterfactual/counterfactualPlanner'); } catch {}
     try { this._computeSubstrate = require('../../storage/compute/computeSubstrateResolver'); } catch {}
   }
 
@@ -82,53 +74,7 @@ class MorphogenesisRuntime {
   }
 
   async executeMorphology(morphology, options = {}) {
-    if (!this._transitionEngine) {
-      return this._executeSimple(morphology, options);
-    }
-
-    const planId = `morpho_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const plan = {
-      id: planId,
-      targetOrganization: morphology.topology || 'single_agent',
-      actions: (morphology.agents || []).map((a, i) => ({
-        type: 'spawn',
-        agentId: a.agentId || `${planId}-agent-${i}`,
-        role: a.role || `agent_${i}`,
-        phenotype: a.phenotype || {},
-        workspace: a.workspace
-      })),
-    };
-
-    const transitionSpec = {
-      transitionId: `tx_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      plan,
-      collectiveState: currentCollectiveState(),
-      db: this._db || null,
-      targetTopology: morphology.topology,
-      agents: morphology.agents,
-      reason: options.reason || `morphogenesis strategy=${morphology.strategy}`,
-      evidence: options.evidence || null,
-      committedBy: options.orchestratorId || 'morphogenesis_runtime',
-    };
-
-    if (this._agentGit) {
-      transitionSpec.agentGit = {
-        reason: transitionSpec.reason,
-        evidence: transitionSpec.evidence,
-        committedBy: transitionSpec.committedBy,
-      };
-    }
-
-    const result = await this._transitionEngine.executeTransition(transitionSpec);
-
-    return {
-      applied: result?.committed || false,
-      agents: morphology.agents,
-      topology: morphology.topology,
-      commitId: result?.commitId || null,
-      transitionId: result?.transitionId || transitionSpec.transitionId,
-      receipt: result || null,
-    };
+    return this._executeSimple(morphology, options);
   }
 
   async _executeSimple(morphology, options) {
@@ -139,14 +85,6 @@ class MorphogenesisRuntime {
       agents: morphology.agents,
       topology: morphology.topology,
     };
-  }
-}
-
-function currentCollectiveState() {
-  try {
-    return require('../collectiveStateService').getState();
-  } catch (_) {
-    return null;
   }
 }
 
