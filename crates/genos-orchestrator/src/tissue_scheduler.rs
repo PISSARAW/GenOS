@@ -4,10 +4,19 @@
 use std::collections::HashMap;
 
 /// Config minimale pour un pool de travaux in-process.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct InProcessPoolConfig {
     pub max_concurrent: usize,
     pub queue_capacity: usize,
+}
+
+impl Default for InProcessPoolConfig {
+    fn default() -> Self {
+        Self {
+            max_concurrent: 4,
+            queue_capacity: 64,
+        }
+    }
 }
 
 /// Travail unitaire planifié in-process.
@@ -135,21 +144,13 @@ impl TissueScheduler {
     }
 
     pub fn health(&self, tissue: &str) -> TissueHealth {
-        let active = self.tasks.values().filter(|t| t.tissue == tissue).count();
-        let queued = self
-            .results
-            .keys()
-            .filter(|id| {
-                self.tasks
-                    .get(id.as_str())
-                    .map(|t| t.tissue == tissue)
-                    .unwrap_or(false)
-            })
-            .count();
+        let pending = self.tasks.values().filter(|t| t.tissue == tissue).count();
+        let active = pending.min(self.config.max_concurrent);
+        let queued = pending.saturating_sub(active);
         TissueHealth {
             active,
             queued,
-            healthy: active <= self.config.max_concurrent,
+            healthy: pending <= self.config.queue_capacity,
         }
     }
 
@@ -181,7 +182,7 @@ impl TissueScheduler {
             .count();
         SquadHealth {
             active,
-            healthy: active > 0,
+            healthy: active <= self.config.max_concurrent,
         }
     }
 }
