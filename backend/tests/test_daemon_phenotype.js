@@ -62,6 +62,10 @@ async function main() {
   assert.ok(measured.pressures.dependency >= 0.6, 'dependency pressure from broken imports');
   assert.ok(measured.pressures.security >= 0.6, 'security pressure from HIGH_RISK');
   assert.ok(measured.pressures.documentation < 0.6, 'no documentation signal');
+  await stigmergy.depositRepellent(db, { territoryId: T, scope: 'auth', kind: 'HIGH_RISK', intensity: 10 });
+  const repelled = await phenotype.measureEcologicalPressure(db, { territoryId: T });
+  assert.ok(repelled.pressures.security < 0.6, 'negative marker repels activation pressure');
+  await stigmergy.depositMarker(db, { territoryId: T, scope: 'auth', kind: 'HIGH_RISK', intensity: 10 });
 
   // 2. Budding : 3 ACTIVE avec budded_at, documentation DORMANT.
   const assigned = await phenotype.assignPhenotypes(db, { territoryId: T });
@@ -80,9 +84,20 @@ async function main() {
   // 3. Findings STALE ne maintiennent pas de pression écologique.
   await db.run("UPDATE daemon_findings SET status = 'STALE' WHERE territory_id = ?", T);
   await db.run("DELETE FROM daemon_stigmergy_markers WHERE territory_id = ?", T);
+  await makeFinding(db, { id: 'finding.ph-old', detectorId: 'broken-import' });
+  await db.run(
+    "UPDATE daemon_findings SET status = 'STALE', updated_at = datetime('now', '-2 hours') WHERE id = ?",
+    'finding.ph-old'
+  );
+  await db.run(
+    `INSERT INTO daemon_events (territory_id, event_type, priority, created_at)
+     VALUES (?, 'FINDING_REFUTED', 'high', datetime('now', '-2 hours'))`,
+    T
+  );
   const stalePressure = await phenotype.measureEcologicalPressure(db, { territoryId: T });
   assert.ok(stalePressure.pressures.contract < 0.6);
   assert.ok(stalePressure.pressures.dependency < 0.6);
+  assert.ok(stalePressure.pressures.historian < 0.6, 'old events and findings leave the active window');
 
   // 4. Pression retombée → DORMANT, jamais supprimé, budded_at conservé.
   const dormant = await phenotype.assignPhenotypes(db, { territoryId: T });

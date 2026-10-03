@@ -38,6 +38,7 @@ const FAMILIES = [
 
 const ACTIVATE_AT = 0.6;
 const DORMANT_AT = 0.3;
+const DEFAULT_PRESSURE_WINDOW_MS = 60 * 60 * 1000;
 const LEGACY_FAMILIES = ['security', 'contract', 'dependency', 'documentation'];
 
 /**
@@ -71,21 +72,28 @@ function countByStatus(findings, status) {
   return (findings || []).filter((f) => f.status === status).length;
 }
 
-async function markerIntensity(db, territoryId, kind) {
+async function markerIntensity(db, query) {
+  const since = pressureWindowStart(query);
   const row = await db.get(
-    'SELECT intensity FROM daemon_stigmergy_markers WHERE territory_id = ? AND kind = ? ORDER BY ABS(intensity) DESC LIMIT 1',
-    territoryId,
-    kind
+    `SELECT intensity FROM daemon_stigmergy_markers
+     WHERE territory_id = ? AND kind = ? AND intensity > 0 AND datetime(updated_at) >= datetime(?)
+     ORDER BY intensity DESC LIMIT 1`,
+    query.territoryId,
+    query.kind,
+    since
   );
-  return clamp01(Math.abs(Number((row && row.intensity) || 0)) / 10);
+  return clamp01(Number((row && row.intensity) || 0) / 10);
 }
 
 async function eventPressure(db, query) {
   try {
+    const since = pressureWindowStart(query);
     const row = await db.get(
-      'SELECT COUNT(*) as n FROM daemon_events WHERE territory_id = ? AND event_type = ?',
+      `SELECT COUNT(*) as n FROM daemon_events
+       WHERE territory_id = ? AND event_type = ? AND datetime(created_at) >= datetime(?)`,
       query.territoryId,
-      query.type
+      query.type,
+      since
     );
     return clamp01(Number((row && row.n) || 0) / (query.divisor || 5));
   } catch (_) {
@@ -97,16 +105,36 @@ async function measureEcologicalPressure(db, args) {
   if (!db || !args || !args.territoryId) return { measured: false };
   await migrateDaemonPhenotype(db);
   await migrateDaemonStigmergy(db);
-  const sensed = await interoception.senseTerritory(db, args.territoryId, { now: args.now });
+  const query = pressureWindow(args);
+  const sensed = await interoception.senseTerritory(db, args.territoryId, query);
   const findings = await findingService.listFindings(db, { territoryId: args.territoryId });
-  const live = findings.filter((f) => !['REFUTED', 'EXPIRED', 'STALE'].includes(f.status));
+  const recent = findings.filter((finding) => findingUpdatedRecently(finding, query));
+  const live = recent.filter((f) => !['REFUTED', 'EXPIRED', 'STALE'].includes(f.status));
   const vars = sensed.variables || {};
-  const pressures = await derivePressures(db, { vars, live, all: findings, territoryId: args.territoryId });
+  const pressures = await derivePressures(db, { vars, live, all: recent, ...query, territoryId: args.territoryId });
   return {
     measured: true,
     territoryId: args.territoryId,
     pressures
   };
+}
+
+function pressureWindow(args) {
+  return {
+    now: args.now || Date.now(),
+    windowMs: args.windowMs || DEFAULT_PRESSURE_WINDOW_MS
+  };
+}
+
+function pressureWindowStart(query) {
+  return new Date(query.now - query.windowMs).toISOString();
+}
+
+function findingUpdatedRecently(finding, query) {
+  const raw = String(finding.updatedAt || '');
+  const timestamp = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)
+    ? Date.parse(raw) : Date.parse(`${raw.replace(' ', 'T')}Z`);
+  return Number.isFinite(timestamp) && timestamp >= query.now - query.windowMs;
 }
 
 async function derivePressures(db, job) {
@@ -120,10 +148,10 @@ async function deriveLegacyPressures(db, job) {
   return {
     security: clamp01(Math.max(
       vars.test_failure_pressure || 0,
-      await markerIntensity(db, territoryId, 'HIGH_RISK')
+      await markerIntensity(db, pressureQuery(job, 'HIGH_RISK'))
     )),
     contract: clamp01(Math.max(
-      await markerIntensity(db, territoryId, 'CONTRACT_DRIFT'),
+      await markerIntensity(db, pressureQuery(job, 'CONTRACT_DRIFT')),
       countByDetector(live, 'broken-import') / 3
     )),
     dependency: clamp01(Math.max(
@@ -154,7 +182,7 @@ async function historianPressure(db, job) {
   const repeated = (countByDetector(live, 'flaky-signal') + countByDetector(live, 'test-regression') + countByDetector(live, 'repeated-failure')) / 4;
   const refuted = countByStatus(all, 'REFUTED') / 5;
   const churn = 0.5 * (vars.change_rate || 0);
-  const sensed = Math.max(vars.repeated_failure_pressure || 0, await eventPressure(db, { territoryId, type: 'FINDING_REFUTED', divisor: 5 }));
+  const sensed = Math.max(vars.repeated_failure_pressure || 0, await eventPressure(db, pressureQuery(job, 'FINDING_REFUTED', 5)));
   return clamp01(Math.max(repeated, refuted, churn, sensed));
 }
 
@@ -166,7 +194,7 @@ async function chaperonePressure(db, job) {
     countByDetector(live, 'unintegrated-component')
   );
   const churn = vars.change_rate || 0;
-  const sensed = Math.max(vars.integration_pressure || 0, await eventPressure(db, { territoryId, type: 'AGENT_FAILED', divisor: 3 }));
+  const sensed = Math.max(vars.integration_pressure || 0, await eventPressure(db, pressureQuery(job, 'AGENT_FAILED', 3)));
   return clamp01(Math.max(unintegrated, 0.6 * churn, sensed));
 }
 
@@ -183,9 +211,9 @@ function metabolicPressure(job) {
 /** CrossRepo Symbiont : dérive de contrats partagés entre territoires. */
 async function crossRepoPressure(db, job) {
   const { live, territoryId } = job;
-  const drift = await markerIntensity(db, territoryId, 'CONTRACT_DRIFT');
+  const drift = await markerIntensity(db, pressureQuery(job, 'CONTRACT_DRIFT'));
   const broken = countByDetector(live, 'broken-import') / 2;
-  const perf = await markerIntensity(db, territoryId, 'PERFORMANCE_REGRESSION');
+  const perf = await markerIntensity(db, pressureQuery(job, 'PERFORMANCE_REGRESSION'));
   return clamp01(Math.max(drift, broken, 0.5 * perf));
 }
 
@@ -215,10 +243,17 @@ async function openRepairPressure(db, territoryId) {
 async function deepResearchPressure(db, job) {
   const { live, vars, territoryId } = job;
   const staleness = Math.max(vars.knowledge_staleness || 0, vars.knowledge_gap_pressure || 0);
-  const deadEnd = await markerIntensity(db, territoryId, 'DEAD_END');
-  const staleEvents = await eventPressure(db, { territoryId, type: 'KNOWLEDGE_STALE', divisor: 3 });
+  const deadEnd = await markerIntensity(db, pressureQuery(job, 'DEAD_END'));
+  const staleEvents = await eventPressure(db, pressureQuery(job, 'KNOWLEDGE_STALE', 3));
   const docDrift = countByDetector(live, 'stale-documentation') / 3;
   return clamp01(Math.max(0.6 * staleness, deadEnd, staleEvents, docDrift));
+}
+
+function pressureQuery(job, kind, divisor) {
+  return {
+    territoryId: job.territoryId, type: kind, kind, divisor,
+    now: job.now, windowMs: job.windowMs
+  };
 }
 
 function nextStatus(current, pressure) {
@@ -284,6 +319,7 @@ module.exports = {
   LEGACY_FAMILIES,
   ACTIVATE_AT,
   DORMANT_AT,
+  DEFAULT_PRESSURE_WINDOW_MS,
   PHENOTYPE_PROFILES,
   measureEcologicalPressure,
   assignPhenotypes,
