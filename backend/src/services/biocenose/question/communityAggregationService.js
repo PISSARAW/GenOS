@@ -142,19 +142,39 @@ function quantile(values, probability) {
 }
 
 function argumentation(input, route) {
-  const semantics = require('../argumentation/argumentationSemantics');
-  const labels = semantics.evaluate({
-    claims: input.claims, arguments: input.arguments,
-    verifiedClaimIds: (input.verificationReceipts || []).filter((item) => item.status === 'VERIFIED').map((item) => item.claimId)
-  });
+  const claims = input.claims || [];
+  const argumentsList = (input.arguments || []).filter((item) => !isQuarantinedArgument(item, input.quarantinedMemberIds));
+  const receipts = (input.verificationReceipts || []).filter((item) => item.status === 'VERIFIED'
+    && isTrusted(item, input.isTrustedReceipt));
+  const graph = require('../argumentation/acceptabilityService');
+  const graphInput = argumentGraphInput(claims, argumentsList, receipts);
+  const labels = graph.adjudicate({ claims, ...graphInput });
   const unresolvedClaimIds = labels.filter((item) => item.status !== 'ACCEPTED').map((item) => item.claimId);
-  const hasClaims = (input.claims || []).length > 0;
+  const cycles = graph.detectCycles(graphInput);
+  const hasClaims = claims.length > 0;
   return {
     policy: route.policy, questionType: route.questionType,
     outcome: unresolvedClaimIds.length || !hasClaims ? 'ARGUMENTS_UNRESOLVED' : 'ARGUMENTS_ACCEPTED', unresolvedClaimIds,
-    argumentation: { semantics: 'grounded_single_step', labels, unresolvedClaimIds,
-      contradictions: labels.filter((item) => item.contradiction).map((item) => item.claimId) }
+    argumentation: { semantics: 'grounded', labels, unresolvedClaimIds, ...cycles,
+      contradictions: labels.filter((item) => item.groundedSupport.length && item.groundedAttackers.length).map((item) => item.claimId) }
   };
+}
+
+function argumentGraphInput(claims, argumentsList, receipts) {
+  const supports = argumentsList.filter((item) => item.relation === 'SUPPORT')
+    .map((item) => ({ claimId: item.claimId, argumentId: item.argumentId }));
+  receipts.forEach((receipt, index) => supports.push({ claimId: receipt.claimId,
+    argumentId: `receipt:${receipt.claimId}:${receipt.receiptId || index}` }));
+  const byClaim = new Map(claims.map((claim) => [claim.claimId, supports.filter((item) => item.claimId === claim.claimId).map((item) => item.argumentId)]));
+  const attacks = argumentsList.filter((item) => ['ATTACK', 'REFUTE', 'UNDERCUT', 'COUNTEREXAMPLE'].includes(item.relation))
+    .flatMap((item) => (byClaim.get(item.argument?.targetClaimId || item.claimId) || [])
+      .filter((targetId) => targetId !== item.argumentId).map((targetId) => ({ from: item.argumentId, to: targetId })));
+  const nodes = [...new Set([...argumentsList.map((item) => item.argumentId), ...supports.map((item) => item.argumentId)])];
+  return { arguments: nodes.map((argumentId) => ({ argumentId })), supports, attacks };
+}
+
+function isQuarantinedArgument(item, memberIds) {
+  return new Set(memberIds || []).has(item.createdBy);
 }
 
 function polycentric(input, route) {
