@@ -12,13 +12,14 @@ class TopologyExecutor extends BaseExecutor {
     if (!executor) {
       const fallback = await this.executeDefaultTopology(topology, variant, workers, context);
       if (!fallback.receipt) fallback.receipt = this.createReceipt(node, leafSummary(topology, variant, workers, fallback.output));
+      fallback.output = withTopologyOutcome(fallback.output);
       return fallback;
     }
 
     const result = await executor.execute({ topology, variant, workers }, context);
     const receipt = this.createReceipt(node, leafSummary(topology, variant, workers, result));
 
-    return { output: result, receipt, state: result?.state };
+    return { output: withTopologyOutcome(result), receipt, state: result?.state };
   }
 
   async executeDefaultTopology(topology, variant, workers, context) {
@@ -32,6 +33,18 @@ class TopologyExecutor extends BaseExecutor {
     const state = raw && raw.state !== undefined ? raw.state : context.state;
     return { output, receipt: null, state };
   }
+}
+
+function withTopologyOutcome(output) {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return output;
+  const actionCount = Number.isFinite(output.actionCount) ? output.actionCount : null;
+  return {
+    ...output,
+    executionStatus: 'completed',
+    contractStatus: 'not_assessed',
+    evidenceStatus: 'not_assessed',
+    missionOutcome: actionCount === 0 ? 'no_action' : 'unverified'
+  };
 }
 
 function leafSummary(topology, variant, workers, output) {

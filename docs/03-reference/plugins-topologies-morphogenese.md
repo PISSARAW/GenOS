@@ -70,3 +70,11 @@ backend SQLite configuré pour le control plane et non d'une base de test
 - `changeVariant` ne vérifie pas les règles de transition du
   `variantRegistry` (gain/coût) : il applique un patch vérifié
   structurellement, pas une décision apprise.
+
+Chaque feuille du graphe porte maintenant un résultat distinct :
+`executionStatus=completed` signifie que l'opérateur a fini; `contractStatus`
+et `evidenceStatus` restent `not_assessed` à ce niveau; `missionOutcome` vaut
+`unverified` sauf si le cycle déclare explicitement `actionCount: 0`, auquel cas
+il vaut `no_action`. Un statut local de plugin tel que `VERIFIED` ne prouve pas
+à lui seul la réussite de la mission. La Métapopulation vide retourne
+`NO_ACTION`, jamais `VERIFIED`.
