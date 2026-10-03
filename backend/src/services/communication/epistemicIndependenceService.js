@@ -21,12 +21,15 @@ async function relationRows(db, agentIds) {
 
 function minIndependence(agentId, rows, fromIds) {
   let floor = 1;
+  let matched = false;
   for (const row of rows) {
     const involves = (row.s === agentId && fromIds.indexOf(row.t) >= 0)
       || (row.t === agentId && fromIds.indexOf(row.s) >= 0);
-    if (involves && Number(row.ei) < floor) floor = Number(row.ei);
+    if (!involves) continue;
+    matched = true;
+    if (Number(row.ei) < floor) floor = Number(row.ei);
   }
-  return floor;
+  return matched ? floor : 0;
 }
 
 async function assessIndependence(input) {
