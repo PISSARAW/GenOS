@@ -23,7 +23,7 @@ function context(fromTopology, toTopology, payload = {}) {
     patch: {
       baseGraphVersion: 1,
       targetTopology: toTopology,
-      operations: [{ type: 'CHANGE_PARAMETERS' }],
+      operations: [{ type: 'CHANGE_VARIANT' }],
       reason: 'verified topology transition',
       evidence: ['evidence:transition'],
       topologyTransitionPayload: payload,
@@ -50,9 +50,20 @@ async function verifyUnknownHandoffIsRejected() {
   assert.equal(capture.handoff, undefined);
 }
 
+async function verifyMissingSourceTopologyIsRejected() {
+  const capture = {};
+  const ctx = context('trinity', 'a_team');
+  ctx.graph.nodes[0].topology = null;
+  const transition = await transitionMorphology(ctx, adapters(capture));
+  assert.equal(transition.committed, false);
+  assert.ok(transition.errors[0].includes('source_topology_required'));
+  assert.equal(capture.handoff, undefined);
+}
+
 async function run() {
   await verifyHandoffIsApplied();
   await verifyUnknownHandoffIsRejected();
+  await verifyMissingSourceTopologyIsRejected();
   console.log('Morphology transition adapter checks: PASS');
 }
 

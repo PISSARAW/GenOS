@@ -30,7 +30,8 @@ function graphTopology(graph) {
 function topologyHandoff(context) {
   const fromTopology = graphTopology(context.graph);
   const toTopology = context.patch.targetTopology || graphTopology(context.patch.graph);
-  if (!fromTopology || !toTopology || fromTopology === toTopology) return { supported: true, adapted: false };
+  if (!toTopology || fromTopology === toTopology) return { supported: true, adapted: false };
+  if (!fromTopology) return { supported: false, reason: 'source_topology_required' };
   return adaptTopologyTransition({
     fromTopology,
     toTopology,
