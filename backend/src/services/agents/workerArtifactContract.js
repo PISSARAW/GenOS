@@ -104,6 +104,11 @@ function hasTerritoryReport(report) {
     && hasEvidenceReferences(report?.sourceRefs));
 }
 
+function hasBoundedScope(report) {
+  return Boolean(isNonEmptyText(report?.scopeRef)
+    && hasEvidenceReferences(report?.completedRefs));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -204,6 +209,7 @@ function artifactInstruction(contract) {
   const required = contract?.evidence?.requiredArtifacts || [];
   if (!required.length) return '';
   if (contract.identity?.workerKind === 'resident_daemon') return residentInstruction();
+  if (contract.identity?.workerKind === 'bounded_worker') return boundedWorkerInstruction();
   if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
   if (contract.identity?.workerKind === 'liaison_worker') return liaisonInstruction();
   const rhizome = rhizomeArtifactInstruction(contract, required);
@@ -220,6 +226,12 @@ function residentInstruction() {
   const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
     territoryReport: { territoryId: '<assigned-territory>', observedAt: '<ISO-8601>', sourceRefs: ['<source-ref>'] } };
   return `Report only observations from the assigned territory, with a timestamp and source references. Schema: ${JSON.stringify(output)}`;
+}
+
+function boundedWorkerInstruction() {
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    scopeCompletion: { scopeRef: '<assigned-scope-ref>', completedRefs: ['<result-ref>'] } };
+  return `Complete only the assigned scope. Report its scope reference and references to completed outputs. Schema: ${JSON.stringify(output)}`;
 }
 
 function recoveryInstruction() {
@@ -329,6 +341,9 @@ function validateWorkerKindArtifact(result, kind, type) {
   if (kind === 'resident_daemon' && type === 'dossier' && !hasTerritoryReport(content.territoryReport)) {
     return { artifact: null, issues: [...result.issues, 'workerArtifact.content.territoryReport.invalid'] };
   }
+  if (kind === 'bounded_worker' && type === 'dossier' && !hasBoundedScope(content.scopeCompletion)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.scopeCompletion.invalid'] };
+  }
   return result;
 }
 
@@ -356,7 +371,8 @@ function inspectDossier(input) {
     claims: parsed.claims,
     ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
     ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
-    ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {})
+    ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
+    ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {})
   };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
@@ -433,7 +449,8 @@ function kindArtifactIsInvalid(kind, type, content) {
   if (kind === 'red_worker' && type === 'verification_report') return !hasCounterexamples(content?.counterexamples);
   if (kind === 'recovery_worker' && type === 'dossier') return !hasRecoveryReceipt(content?.recoveryReceipt);
   if (kind === 'liaison_worker' && type === 'dossier') return !hasBoundedHandoff(content?.handoff);
-  return kind === 'resident_daemon' && type === 'dossier' && !hasTerritoryReport(content?.territoryReport);
+  if (kind === 'resident_daemon' && type === 'dossier') return !hasTerritoryReport(content?.territoryReport);
+  return kind === 'bounded_worker' && type === 'dossier' && !hasBoundedScope(content?.scopeCompletion);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
