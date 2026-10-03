@@ -73,6 +73,7 @@ function run() {
   assert.equal(selectVariant({ goal: 'Rends explicites les interfaces inter-domaines et leur compatibilité ascendante.' }), 'boundary_spanner');
   assert.equal(selectVariant({ goal: 'Conçois une fonctionnalité avec parcours utilisateur, endpoints backend et sécurité.' }), 'cross_functional_pod');
   assert.equal(selectVariant({ goal: 'Conçois le checkout e-commerce avec paiement, stock et expérience utilisateur.' }), 'cross_functional_pod');
+  assert.equal(selectVariant({ goal: 'Identifie les capability gaps pendant le travail et recrute les expertises manquantes.' }), 'adaptive');
   assert.equal(selectVariant({ teamCount: 2 }), 'multiteam');
   assert.equal(selectVariant({}), 'expert_committee');
 
