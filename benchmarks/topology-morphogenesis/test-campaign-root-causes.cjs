@@ -5,6 +5,7 @@ const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
 const { missingGraphItems } = require('./session-probes.cjs');
 const { installBusyRetry } = require('../../backend/src/db');
 const { evaluateQualification } = require('./campaignQualification.cjs');
+const { assessTopologyMission, parseWorkerReport } = require('./topologyMissionEvidence.cjs');
 
 function receiptFor(statement) {
   return { telemetry: [{ event_type: 'EVIDENCE_REPORT', payload_json: JSON.stringify({
@@ -40,6 +41,18 @@ function verifyPilotCannotQualifyAsConfirmatory() {
   assert.equal(dirty.confirmatoryEligible, false);
 }
 
+function verifyTopologyNeedsRealDossiersAndOracle() {
+  const workers = [{ status: 'completed', evidenceReport: null }];
+  assert.equal(assessTopologyMission({ workers, oracle: { status: 'missing' } }).passed, false);
+  workers[0].evidenceReport = parseWorkerReport(JSON.stringify({ evidenceReport: {
+    claims: [{ statement: 'Concrete mission result with calculated values and provenance.' }]
+  } }));
+  assert.equal(assessTopologyMission({ workers, oracle: { status: 'missing' } }).passed, false);
+  const verified = assessTopologyMission({ workers, oracle: { status: 'independent', passed: true } });
+  assert.equal(verified.passed, true);
+  assert.equal(verified.substantiveReportCount, 1);
+}
+
 async function main() {
   const latex = '24 - 3 = 21; 21 \\div 7 = 3; 21 \\mod 7 = 0; il n’y a pas de reste.';
   const proof = verifySimpleMissionProof(receiptFor(latex), 'orchestrateur-simple');
@@ -59,6 +72,7 @@ async function main() {
   });
   await verifyDatabaseRetry();
   verifyPilotCannotQualifyAsConfirmatory();
+  verifyTopologyNeedsRealDossiersAndOracle();
   process.stdout.write('Campaign root-cause checks passed.\n');
 }
 

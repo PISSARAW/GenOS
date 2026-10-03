@@ -6,6 +6,7 @@ const { createHash, randomBytes } = require('crypto');
 const { spawn } = require('child_process');
 const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
 const { evaluateQualification } = require('./campaignQualification.cjs');
+const topologyMissionEvidence = require('./topologyMissionEvidence.cjs');
 
 const repo = path.resolve(__dirname, '../..');
 const suite = JSON.parse(fs.readFileSync(path.join(__dirname, 'suite.json'), 'utf8'));
@@ -180,12 +181,13 @@ function receiptMatchesMission(name, receipt) {
 }
 
 function verifyMissionExecution(options) {
-  const { name, run, receipt } = options;
+  const { name, run, receipt, workers, oracle } = options;
   const failures = [];
   if (run.timedOut) failures.push('mission timed out');
   if (!receipt?.orchestratorId) failures.push('orchestrator receipt missing');
   if (run.exitCode !== 0 && name !== 'garde-preuve-negative') failures.push(`process exited with code ${run.exitCode ?? 'unknown'}`);
   failures.push(...(missionVerifiers[name] || verifyTopology)(options));
+  if (topologyMissions.has(name)) failures.push(...topologyMissionEvidence.assessTopologyMission({ workers, oracle }).failures);
   return { passed: failures.length === 0, failures };
 }
 
@@ -282,21 +284,14 @@ function getDispatchStatus(receipt, fallback = null) {
   return fallback;
 }
 
-async function workerStates(db, receipt) {
-  if (!receipt?.orchestratorId) return [];
-  const rows = await db.all(
-    "SELECT id, status FROM agents WHERE parent_agent_id = ? AND execution_mode = 'worker' ORDER BY id",
-    receipt.orchestratorId
-  );
-  return rows.map((row) => ({ id: row.id, status: row.status }));
-}
-
 async function recordMissionResult({ name, run, db, results }) {
   const receipt = readReceipt(name);
   const task = tasksById.get(name);
-  const workers = await workerStates(db, receipt);
+  const workers = await topologyMissionEvidence.workerStates(db, receipt);
   const proof = verifySimpleMissionProof(receipt, name);
-  const verification = verifyMissionExecution({ name, run, receipt, workers, proof });
+  const oracle = { status: task.oracle.status,
+    passed: task.oracle.status === 'independent' ? proof?.verified === true : false };
+  const verification = verifyMissionExecution({ name, run, receipt, workers, proof, oracle });
   const lifecycle = classifyMissionLifecycle({ name, run, receipt, workers, verification });
   results.missions.push({ ...run, missionFile: task.missionFile, missionSha256: missionDigest(name),
     mechanism: task.mechanism, mechanismEvidence: initialMechanismEvidence(task), oracleVerification: { status: task.oracle.status,
@@ -307,7 +302,9 @@ async function recordMissionResult({ name, run, db, results }) {
     verdict: receipt?.verdict || null, completionGate: receipt?.completionGate || null,
     dispatchStatus: getDispatchStatus(receipt),
     sessionId: receipt?.biologicalMode?.sessionId || receipt?.biologicalMode?.rhizomeId || null,
-    workers, independentProof: proof, lifecycle, verification });
+    workers: workers.map(({ id, role, status }) => ({ id, role, status })),
+    workerEvidence: topologyMissionEvidence.assessTopologyMission({ workers, oracle }),
+    independentProof: proof, lifecycle, verification });
   results.verification = summarizeVerification(results);
   validateCampaignEvidence(results);
   fs.writeFileSync(path.join(output, 'campaign-results.json'), JSON.stringify(results, null, 2));
