@@ -135,6 +135,16 @@ function hasHostContribution(value, contract) {
     && hasEvidenceReferences(value.evidence));
 }
 
+function hasBoundedChildSummary(items, contract) {
+  const maximum = contract
+    ? (Number.isSafeInteger(contract.limits?.maxChildren) ? contract.limits.maxChildren : 0)
+    : Number.POSITIVE_INFINITY;
+  if (!Array.isArray(items) || items.length > maximum) return false;
+  return items.every((item) => isNonEmptyText(item?.childId)
+    && ['success', 'failed', 'blocked'].includes(item.outcome)
+    && hasEvidenceReferences(item.evidence));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -239,6 +249,7 @@ function artifactInstruction(contract) {
   if (contract.identity?.workerKind === 'adaptive_worker') return adaptiveWorkerInstruction();
   if (contract.identity?.workerKind === 'specialist') return specialistInstruction(contract.mission?.specialtyNiche);
   if (contract.identity?.workerKind === 'symbiotic_worker') return symbioticInstruction(contract.mission);
+  if (contract.identity?.workerKind === 'sub_orchestrator') return subOrchestratorInstruction(contract.limits?.maxChildren);
   if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
   if (contract.identity?.workerKind === 'liaison_worker') return liaisonInstruction();
   const rhizome = rhizomeArtifactInstruction(contract, required);
@@ -279,6 +290,13 @@ function symbioticInstruction(mission) {
   const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
     hostContribution: { hostContractId: mission.hostContractId, capability: '<host-capability>', contractCompliant: true, evidence: ['<receipt-ref>'] } };
   return `Use only the host contract '${mission.hostContractId}' and its declared capabilities. Schema: ${JSON.stringify(output)}`;
+}
+
+function subOrchestratorInstruction(maxChildren) {
+  const limit = Number.isSafeInteger(maxChildren) ? maxChildren : 0;
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    childSummaries: [{ childId: '<child-id>', outcome: 'success', evidence: ['<child-receipt-ref>'] }] };
+  return `Coordinate no more than ${limit} children. Report each child outcome with its evidence references. Schema: ${JSON.stringify(output)}`;
 }
 
 function recoveryInstruction() {
@@ -400,6 +418,9 @@ function validateWorkerKindArtifact(result, kind, type) {
   if (kind === 'symbiotic_worker' && type === 'dossier' && !hasHostContribution(content.hostContribution)) {
     return { artifact: null, issues: [...result.issues, 'workerArtifact.content.hostContribution.invalid'] };
   }
+  if (kind === 'sub_orchestrator' && type === 'dossier' && !hasBoundedChildSummary(content.childSummaries)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.childSummaries.invalid'] };
+  }
   return result;
 }
 
@@ -431,7 +452,8 @@ function inspectDossier(input) {
     ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {}),
     ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {}),
     ...(kind === 'specialist' ? { specialtyAssessment: parsed.specialtyAssessment } : {}),
-    ...(kind === 'symbiotic_worker' ? { hostContribution: parsed.hostContribution } : {})
+    ...(kind === 'symbiotic_worker' ? { hostContribution: parsed.hostContribution } : {}),
+    ...(kind === 'sub_orchestrator' ? { childSummaries: parsed.childSummaries } : {})
   };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
@@ -514,8 +536,9 @@ function kindArtifactIsInvalid(kind, type, content, contract) {
   if (kind === 'specialist' && type === 'dossier') {
     return !hasSpecialtyAssessment(content?.specialtyAssessment, contract?.mission?.specialtyNiche);
   }
-  return kind === 'symbiotic_worker' && type === 'dossier'
-    && !hasHostContribution(content?.hostContribution, contract);
+  if (kind === 'symbiotic_worker' && type === 'dossier') return !hasHostContribution(content?.hostContribution, contract);
+  return kind === 'sub_orchestrator' && type === 'dossier'
+    && !hasBoundedChildSummary(content?.childSummaries, contract);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
