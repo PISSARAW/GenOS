@@ -20,9 +20,22 @@ function handleEncapsulate(args) {
   if (args.host_agent_id === undefined || args.host_agent_id === null || String(args.host_agent_id).trim() === '') {
     return { configured: true, success: false, status: 'invalid_args', error: 'host_agent_id: is required.' };
   }
-  const hostId = args.host_agent_id;
+  const hostId = String(args.host_agent_id).trim();
+  const existing = FETUS_REGISTRY.get(hostId);
+  if (existing && existing.state === 'dormant') {
+    return { configured: true, success: false, status: 'already_encapsulated', error: `Host [${hostId}] already has a dormant rescue descriptor.` };
+  }
   const fetusId = args.fetus_agent_id || `fetus_in_fetu_${Math.random().toString(36).substring(2, 9)}`;
-  const cleanCheckpoint = args.clean_checkpoint || { step: 0, memory: [], tools: [] };
+  let cleanCheckpoint;
+  try {
+    const rawCheckpoint = args.clean_checkpoint === undefined ? { step: 0, memory: [], tools: [] } : args.clean_checkpoint;
+    if (!rawCheckpoint || typeof rawCheckpoint !== 'object' || Array.isArray(rawCheckpoint)) throw new Error('must be an object');
+    const serialized = JSON.stringify(rawCheckpoint);
+    if (Buffer.byteLength(serialized, 'utf8') > 1024 * 1024) throw new Error('exceeds 1 MiB');
+    cleanCheckpoint = JSON.parse(serialized);
+  } catch (error) {
+    return { configured: true, success: false, status: 'invalid_args', error: `clean_checkpoint ${error.message || 'is not JSON serializable'}.` };
+  }
   const dormancyChecksum = computeChecksum(cleanCheckpoint);
 
   const fetusRecord = {
@@ -42,13 +55,15 @@ function handleEncapsulate(args) {
   return {
     configured: true,
     success: true,
-    status: 'encapsulated',
+    status: 'metadata_recorded',
     transport: 'internal_retroperitoneal_capsule',
     host_id: hostId,
     fetus_id: fetusId,
     dormancy_checksum: dormancyChecksum,
-    metabolic_overhead: 0,
-    output: `Dormant fetus [${fetusId}] successfully encapsulated inside host [${hostId}] as zero-cost rescue pod.`
+    execution_scope: 'metadata_simulation',
+    runtime_checkpoint_saved: false,
+    runtime_rescue_created: false,
+    output: `Recorded rescue metadata [${fetusId}] for host [${hostId}]. No runtime checkpoint or rescue agent was created.`
   };
 }
 
@@ -70,6 +85,31 @@ function handleResurrect(args) {
   const currentChecksum = computeChecksum(record.checkpoint);
   const isIntact = (currentChecksum === record.checksum);
 
+  if (!isIntact) {
+    return {
+      configured: true,
+      success: false,
+      status: 'integrity_check_failed',
+      transport: 'fetu_hatching_mechanism',
+      host_id: hostId,
+      fetus_id: record.fetusId,
+      integrity_verified: false,
+      execution_scope: 'metadata_simulation',
+      output: `Rescue descriptor [${record.fetusId}] failed its checksum check. No recovery was marked.`
+    };
+  }
+  if (record.state === 'hatched') {
+    return {
+      configured: true,
+      success: false,
+      status: 'already_recovered',
+      host_id: hostId,
+      fetus_id: record.fetusId,
+      execution_scope: 'metadata_simulation',
+      output: `Rescue descriptor [${record.fetusId}] was already marked recovered.`
+    };
+  }
+
   record.state = 'hatched';
   record.hatchedAt = new Date().toISOString();
   record.hatchCount += 1;
@@ -81,14 +121,17 @@ function handleResurrect(args) {
   return {
     configured: true,
     success: true,
-    status: 'emergency_resurrection_complete',
+    status: 'recovery_descriptor_ready',
     transport: 'fetu_hatching_mechanism',
     purged_host_id: hostId,
     active_resurrected_id: newActiveAgentId,
     checkpoint_restored: record.checkpoint,
     integrity_verified: isIntact,
     failure_reason: failureReason,
-    output: `Host [${hostId}] purged. Encapsulated fetus [${record.fetusId}] hatched into active agent [${newActiveAgentId}] with 100% integrity.`
+    execution_scope: 'metadata_simulation',
+    host_runtime_purged: false,
+    runtime_agent_created: false,
+    output: `Recovery descriptor [${record.fetusId}] passed its checksum and was marked recovered. No host was purged and no runtime agent was created.`
   };
 }
 
