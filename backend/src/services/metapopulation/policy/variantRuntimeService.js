@@ -6,7 +6,7 @@ const flow = require('./variantFlowActions');
 const historical = require('./historicalVariantActions');
 
 const VARIANT_RUNTIME_ACTIONS = Object.freeze([
-  'balanced', 'resilient',
+  'balanced', 'resilient', 'exploratory',
   'classic_patch', 'island_search', 'heterogeneous_islands', 'source_sink', 'rescue_network',
   'stepping_stone', 'anti_synchrony', 'federated', 'ephemeral_patch', 'persistent', 'evolutionary', 'cultural'
 ]);
@@ -14,6 +14,7 @@ const VARIANT_RUNTIME_ACTIONS = Object.freeze([
 const VARIANT_PLANNERS = Object.freeze({
   balanced: historical.balancedActions,
   resilient: historical.resilientActions,
+  exploratory: historical.exploratoryActions,
   classic_patch: lifecycle.classicPatchActions,
   island_search: search.islandSearchActions,
   heterogeneous_islands: flow.heterogeneousIslandsActions,

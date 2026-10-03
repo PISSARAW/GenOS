@@ -11,6 +11,10 @@ function resilientActions(observed, input) {
   return selectedMigrationActions(observed, input, 'rescue');
 }
 
+function exploratoryActions(observed, input) {
+  return selectedMigrationActions(observed, input, 'novelty');
+}
+
 function selectedMigrationActions(observed, input, policy) {
   const candidates = migrationPolicy.selectCandidates(input.migrationCandidates, {
     policy, limit: input.limit
@@ -20,4 +24,4 @@ function selectedMigrationActions(observed, input, policy) {
   })).filter(Boolean);
 }
 
-module.exports = { balancedActions, resilientActions };
+module.exports = { balancedActions, resilientActions, exploratoryActions };
