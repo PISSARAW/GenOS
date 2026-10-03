@@ -56,11 +56,13 @@ async function handleExchange(args) {
     configured: true,
     success: true,
     status: 'germline_chimerism_exchanged',
+    execution_scope: 'metadata_simulation',
+    payload_transferred_to_runtime: false,
     exchange_id: exchangeId,
     donor_twin: donorTwinId,
     proxy_twin: proxyTwinId,
     germline_checksum: payloadChecksum,
-    output: `Proxy twin [${proxyTwinId}] successfully colonized by germline cells from [${donorTwinId}].`
+    output: `Germline payload metadata recorded from [${donorTwinId}] for proxy [${proxyTwinId}]; runtime DNA was not changed.`
   };
 }
 
@@ -108,11 +110,15 @@ async function handleSpawnProxy(args) {
     configured: true,
     success: true,
     status: 'proxy_descendant_spawned',
+    execution_scope: 'metadata_simulation',
+    runtime_agent_created: false,
+    payload_record_created: true,
+    germline_dna_inherited: false,
     child_agent_id: childId,
     genetic_donor_parent: record.donorTwinId,
     gestational_proxy_parent: record.proxyTwinId,
     germline_checksum: record.payloadChecksum,
-    output: `Child [${childId}] spawned by proxy [${record.proxyTwinId}] carrying 100% germline DNA of [${record.donorTwinId}].`
+    output: `Proxy-descendant metadata [${childId}] recorded for [${record.proxyTwinId}] with a copy of [${record.donorTwinId}] payload; no runtime child or inherited DNA was created.`
   };
 }
 
