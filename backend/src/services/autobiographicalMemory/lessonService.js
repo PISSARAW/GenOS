@@ -46,7 +46,7 @@ function claimFor(key, successCount, failureCount) {
   if (failureCount >= successCount) {
     return `Avoid "${strategy}" for ${kind}: it failed ${failureCount}/${failureCount + successCount} observed times.`;
   }
-  return `Prefer "${strategy}" for ${kind}: it succeeded with evidence ${successCount}/${successCount + failureCount} observed times.`;
+  return `Prefer "${strategy}" for ${kind}: it was reported successful ${successCount}/${successCount + failureCount} observed times.`;
 }
 
 function recommendedActionFor(failureCount, successCount) {
@@ -98,6 +98,9 @@ async function upsertLesson(lesson, dbOverride) {
       confidence = excluded.confidence,
       supporting_episodes_json = excluded.supporting_episodes_json,
       counter_examples_json = excluded.counter_examples_json,
+      reuse_conditions_json = excluded.reuse_conditions_json,
+      avoid_conditions_json = excluded.avoid_conditions_json,
+      recommended_action = excluded.recommended_action,
       updated_at = CURRENT_TIMESTAMP`,
     lesson.id, lesson.scope, lesson.organizationId, lesson.projectId, lesson.claim, lesson.confidence,
     JSON.stringify(lesson.supportingEpisodes), JSON.stringify(lesson.counterExamples),
