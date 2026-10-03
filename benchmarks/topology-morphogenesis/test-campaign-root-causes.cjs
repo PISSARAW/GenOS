@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { verifySimpleMissionProof } = require('./simpleMissionProof.cjs');
-const { missingGraphItems } = require('./session-probes.cjs');
+const sessionProbes = require('./session-probes.cjs');
 const { installBusyRetry } = require('../../backend/src/db');
 const { evaluateQualification } = require('./campaignQualification.cjs');
 const { assessTopologyMission, parseWorkerReport } = require('./topologyMissionEvidence.cjs');
@@ -53,6 +53,22 @@ function verifyTopologyNeedsRealDossiersAndOracle() {
   assert.equal(verified.substantiveReportCount, 1);
 }
 
+async function verifySessionProbesAreReadOnly() {
+  const calls = [];
+  const api = { async operateTopologySession(input) {
+    calls.push(input.operation);
+    if (input.operation === 'snapshot') return { success: true, version: 0, entries: [], graph: { nodes: [], edges: [] }, shared: { sharedFields: {} } };
+    if (input.operation === 'history') return { success: true, operations: [] };
+    return { success: true, definitions: {}, receipts: [] };
+  } };
+  const biome = await sessionProbes.probeBiome('session', api);
+  const syncytium = await sessionProbes.probeSyncytium('session', api);
+  const rhizome = await sessionProbes.probeRhizome('session', api);
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every((operation) => ['snapshot', 'history', 'invariants'].includes(operation)));
+  assert.ok([biome, syncytium, rhizome].every((probe) => probe.verificationEligible === false));
+}
+
 async function main() {
   const latex = '24 - 3 = 21; 21 \\div 7 = 3; 21 \\mod 7 = 0; il n’y a pas de reste.';
   const proof = verifySimpleMissionProof(receiptFor(latex), 'orchestrateur-simple');
@@ -66,13 +82,14 @@ async function main() {
   };
   const desiredNodes = [{ nodeId: 'json-parser' }, { nodeId: 'schema-validator' }];
   const desiredEdges = [{ edgeId: 'parser-validator' }, { edgeId: 'validator-explainer' }];
-  assert.deepEqual(missingGraphItems(graph, desiredNodes, desiredEdges), {
+  assert.deepEqual(sessionProbes.missingGraphItems(graph, desiredNodes, desiredEdges), {
     nodes: [{ nodeId: 'schema-validator' }],
     edges: [{ edgeId: 'validator-explainer' }]
   });
   await verifyDatabaseRetry();
   verifyPilotCannotQualifyAsConfirmatory();
   verifyTopologyNeedsRealDossiersAndOracle();
+  await verifySessionProbesAreReadOnly();
   process.stdout.write('Campaign root-cause checks passed.\n');
 }
 

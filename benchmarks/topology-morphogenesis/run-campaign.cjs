@@ -234,7 +234,7 @@ function verifyNegativeControl({ receipt }) {
 function summarizeVerification(results, probes = null) {
   const failed = results.missions.filter((mission) => mission.verification?.passed !== true);
   const failedProbes = probes
-    ? Object.entries(probes).filter(([, probe]) => probe?.verified !== true).map(([name]) => name)
+    ? Object.entries(probes).filter(([, probe]) => probe?.verificationEligible === true && probe?.verified !== true).map(([name]) => name)
     : [];
   return {
     passed: failed.length === 0 && probes !== null && failedProbes.length === 0,
@@ -267,10 +267,12 @@ function applyMechanismProbeResults(results, probes) {
     const probeName = sessionProbeByTask[mission.name];
     if (!probeName) continue;
     const receipt = probes?.[probeName];
+    const verificationEligible = receipt?.verificationEligible === true && receipt?.scope === 'mission-outcome';
     mission.mechanismEvidence = {
       probeId: tasksById.get(mission.name).mechanismProbe,
-      status: receipt?.verified === true ? 'verified' : receipt?.verified === false ? 'failed' : 'missing',
-      passed: receipt?.verified === true,
+      status: verificationEligible ? receipt.verified === true ? 'verified' : 'failed'
+        : receipt ? 'diagnostic_only' : 'missing',
+      passed: verificationEligible ? receipt.verified === true : null,
       receiptFile: 'session-probes.json',
       receiptSha256: receipt ? sha256(JSON.stringify(receipt)) : null
     };
