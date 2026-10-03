@@ -70,6 +70,8 @@ function testAutomaticSelectionWithInstalledAdapters() {
   for (const [variantId, mission] of cases) {
     const options = { availableAdapters };
     if (variantId === 'jury') options.trinityJury = { enabled: true, modelUris: ['judge-a', 'judge-b'], maxCostUsd: 1 };
+    if (variantId === 'adaptive') options.adaptiveBudgetConfig = { poolTokens: 300, minimumTokens: 10 };
+    if (variantId === 'exploratory') options.qdConfig = { replicaBudget: 3, tokensPerReplica: 100 };
     const receipt = variants.selectForMission(mission, options);
     const baseline = variantId === 'controlled';
     assert.equal(receipt.method, baseline ? 'safe_baseline' : 'mission_signals', `${variantId} selection method`);
@@ -82,9 +84,10 @@ function testAutomaticSelectionWithInstalledAdapters() {
 
 function testExplicitReceipts() {
   for (const id of VARIANT_IDS) {
-    const options = id === 'jury'
-      ? { variantId: id, trinityJury: { enabled: true, modelUris: ['a', 'b'], maxCostUsd: 1 } }
-      : { variantId: id };
+    const options = { variantId: id };
+    if (id === 'jury') options.trinityJury = { enabled: true, modelUris: ['a', 'b'], maxCostUsd: 1 };
+    if (id === 'adaptive') options.adaptiveBudgetConfig = { poolTokens: 300, minimumTokens: 10 };
+    if (id === 'exploratory') options.qdConfig = { replicaBudget: 3, tokensPerReplica: 100 };
     const receipt = variants.selectForMission(`Mission for ${id}.`, options);
     assert.equal(receipt.variant, id);
     assert.ok(receipt.experimentalDesignId);
@@ -93,7 +96,7 @@ function testExplicitReceipts() {
 
 function testAdapterGating() {
   assert.throws(() => variants.selectForMission('Factorial mission.', { variantId: 'factorial', availableAdapters: [] }),
-    (error) => error.code === 'TRINITY_DESIGN_ADAPTER_MISSING');
+    (error) => error.code === 'TRINITY_ADAPTER_NOT_EXECUTABLE');
   assert.throws(() => variants.selectForMission('Jury mission.', { variantId: 'jury' }),
     (error) => error.code === 'TRINITY_VARIANT_PRECONDITION_MISSING');
   assert.throws(() => variants.selectForMission('Nope.', { variantId: 'unknown-variant' }),
