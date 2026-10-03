@@ -31,13 +31,13 @@ const ACTIVITIES = [
 const HEALTHS = ['HEALTHY', 'STRESSED', 'DEGRADED', 'SENESCENT', 'APOPTOTIC'];
 
 const TRANSITIONS = {
-  BOOTSTRAPPING: { surveyed: 'SURVEYING' },
-  SURVEYING: { complete: 'DORMANT' },
-  DORMANT: { signal: 'FOCUSED' },
-  FOCUSED: { investigate: 'INVESTIGATING' },
-  INVESTIGATING: { verify: 'VERIFYING' },
-  VERIFYING: { report: 'REPORTING' },
-  REPORTING: { done: 'DORMANT' }
+  BOOTSTRAPPING: { surveyed: 'SURVEYING', reset: 'BOOTSTRAPPING' },
+  SURVEYING: { complete: 'DORMANT', reset: 'BOOTSTRAPPING' },
+  DORMANT: { signal: 'FOCUSED', reset: 'BOOTSTRAPPING' },
+  FOCUSED: { investigate: 'INVESTIGATING', cool: 'DORMANT', reset: 'BOOTSTRAPPING' },
+  INVESTIGATING: { verify: 'VERIFYING', refute: 'DORMANT', cool: 'DORMANT', reset: 'BOOTSTRAPPING' },
+  VERIFYING: { report: 'REPORTING', refute: 'DORMANT', stale: 'DORMANT', reset: 'BOOTSTRAPPING' },
+  REPORTING: { done: 'DORMANT', signal: 'FOCUSED', reset: 'BOOTSTRAPPING' }
 };
 
 const GENOME_REF = 'agents/daemons/resident_daemon.agent.json';
@@ -76,6 +76,10 @@ async function registerDaemon(runtime, input) {
   if (territoryConflict(prior, input.territoryId)) {
     return { registered: false, errors: ['daemon-territory-conflict'] };
   }
+  const occupant = await findTerritoryOccupant(runtime, input);
+  if (occupant) {
+    return { registered: false, errors: ['daemon-territory-occupied'], occupant };
+  }
   const state = restoreRuntimeState(input, prior);
   await persistRegistration(runtime, { daemonId: input.daemonId, state, resumed: Boolean(prior) });
   runtime.daemons.set(input.daemonId, state);
@@ -91,6 +95,20 @@ function territoryConflict(prior, territoryId) {
   return Boolean(prior && prior.territory_id !== territoryId);
 }
 
+async function findTerritoryOccupant(runtime, input) {
+  if (!runtime.db) return null;
+  try {
+    const row = await runtime.db.get(
+      'SELECT daemon_id FROM daemon_runtime_state WHERE territory_id = ? AND daemon_id != ? LIMIT 1',
+      input.territoryId,
+      input.daemonId
+    );
+    return (row && row.daemon_id) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 async function persistRegistration(runtime, registration) {
   if (!runtime.db) return;
   if (registration.resumed) return touchRegistration(runtime.db, registration.daemonId);
@@ -98,10 +116,11 @@ async function persistRegistration(runtime, registration) {
 }
 
 async function touchRegistration(db, daemonId) {
-  await db.run(
+  const res = await db.run(
     "UPDATE daemon_runtime_state SET last_heartbeat_at = datetime('now'), updated_at = datetime('now') WHERE daemon_id = ?",
     daemonId
   );
+  if (!res || res.changes === 0) throw Object.assign(new Error('registration-missing'), { code: 'REGISTRATION_MISSING' });
 }
 
 async function insertRegistration(db, registration) {
@@ -133,19 +152,23 @@ async function heartbeat(runtime, tick) {
   const entry = runtime.daemons.get(tick.daemonId);
   if (!entry) return { updated: false, errors: ['unknown-daemon'] };
   applyTickToEntry(entry, tick);
-  await persistHeartbeat(runtime, tick, entry);
+  const receipt = await persistHeartbeat(runtime, tick, entry);
+  if (runtime.db && !receipt.persisted) return { updated: false, errors: ['persistence-missed'] };
   return { updated: true, activity: entry.activity, health: entry.health, revisions: entry.revisions };
 }
 
 function applyTickToEntry(entry, tick) {
-  if (isValidActivity(tick.activity)) entry.activity = tick.activity;
+  if (tick.activity && tick.activity !== entry.activity) {
+    const allowed = Object.values(TRANSITIONS[entry.activity] || {});
+    if (isValidActivity(tick.activity) && allowed.includes(tick.activity)) entry.activity = tick.activity;
+  }
   if (isValidHealth(tick.health)) entry.health = tick.health;
   if (tick.revision === true) entry.revisions += 1;
 }
 
 async function persistHeartbeat(runtime, tick, entry) {
-  if (!runtime.db) return;
-  await runtime.db.run(
+  if (!runtime.db) return { persisted: false };
+  const res = await runtime.db.run(
     `UPDATE daemon_runtime_state
      SET activity = ?, health = ?,
          cognitive_revisions = cognitive_revisions + ?,
@@ -156,6 +179,7 @@ async function persistHeartbeat(runtime, tick, entry) {
     tick.revision === true ? 1 : 0,
     tick.daemonId
   );
+  return { persisted: Boolean(res && res.changes > 0) };
 }
 
 async function getDaemonState(runtime, query) {
