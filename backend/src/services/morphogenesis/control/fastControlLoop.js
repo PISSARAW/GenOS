@@ -14,7 +14,7 @@ class FastControlLoop {
   }
 
   registerHandler(action, handler) {
-    this.handlers.set(action, handler);
+    this.handlers.set(String(action).toLowerCase(), handler);
   }
 
   shouldRun(now = Date.now(), force = false) {
@@ -44,7 +44,8 @@ class FastControlLoop {
   }
 
   async executeAction(action, context) {
-    const handler = this.handlers.get(action);
+    const normalized = String(action).toLowerCase();
+    const handler = this.handlers.get(normalized);
     if (!handler) throw new Error(`No handler for fast action: ${action}`);
     return handler(context);
   }

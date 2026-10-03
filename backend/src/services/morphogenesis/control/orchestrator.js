@@ -28,10 +28,25 @@ class ControlLoopOrchestrator {
     const pending = this.context.pendingMorphogenesisDecisions || [];
     this.context.pendingMorphogenesisDecisions = [...pending, decision].slice(-100);
     this.routeStructuralDecision(decision);
-    const fastContext = { ...this.context, latestEvent: event };
-    const fast = await this.fastLoop.run(fastContext, { force: true });
+    const fastContext = { ...this.context, latestEvent: event, latestDecision: decision };
+    const fast = await this.executeEventDecision(decision, fastContext);
     if (fast.executed) this.context.lastFastResult = fast;
     return { ...decision, fastLoop: fast };
+  }
+
+  async executeEventDecision(decision, context) {
+    if (decision.status === 'BLOCKED' || decision.action === 'NO_CHANGE') {
+      return { executed: false, reason: decision.status === 'BLOCKED' ? 'decision-blocked' : 'no-change' };
+    }
+    if (classifyAction(decision.action) !== 'fast') {
+      return { executed: false, reason: 'action-routed-to-another-loop' };
+    }
+    try {
+      const result = await this.fastLoop.executeAction(decision.action, context);
+      return { executed: true, action: decision.action, result };
+    } catch (error) {
+      return { executed: false, action: decision.action, reason: 'handler-unavailable', error: error.message };
+    }
   }
 
   routeStructuralDecision(decision) {
