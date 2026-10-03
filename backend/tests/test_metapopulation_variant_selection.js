@@ -12,6 +12,8 @@ async function run() {
   assertSelection('Partition this mission across independent populations.', 'balanced', 'complementary');
   assertSelection('Three independent populations use different algorithms and may transfer validated ideas.', 'heterogeneous_islands', 'complementary');
   assertSelection('Three different local environments retain local solutions and transfer only successful techniques.', 'heterogeneous_islands', 'complementary');
+  assertSelection('Trois populations indépendantes utilisent chacune une philosophie différente : gloutonne, dynamique et recherche locale.', 'heterogeneous_islands', 'complementary');
+  assertSelection('Quatre populations optimisent chacune une dimension différente et ne migrent que des techniques validées localement.', 'heterogeneous_islands', 'complementary');
   assert.equal(metapopulation.composeMetapopulation('Explore after an outage.', { variant: 'balanced' }).variant, 'balanced');
   verifyDocumentedVariants();
   verifyTopologyEffects();

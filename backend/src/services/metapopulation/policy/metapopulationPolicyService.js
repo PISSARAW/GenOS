@@ -33,7 +33,7 @@ const VARIANT_SIGNALS = Object.freeze({
   ephemeral_patch: /ephemeral|intermittent|temporary|temporaire|volatile.patch/i,
   persistent: /persistent|long.term|longue durée|resident|résident|between missions/i,
   evolutionary: /evolutionary|évolutionnaire|mutation|genome|génome|continuous.optimization/i,
-  heterogeneous_islands: /heterogeneous|hétérogène|multi.strategy|multi.stratégie|unknown.problem|different.*population|population.*different|environnements locaux|local environments|three populations|four populations|different methods|algorithmes différents/i,
+  heterogeneous_islands: /heterogeneous|hétérogène|multi.strategy|multi.stratégie|unknown.problem|different.*population|population.*different|environnements locaux|local environments|three populations|four populations|trois populations|quatre populations|different methods|algorithmes différents|philosophies différentes/i,
   stepping_stone: /stepping.stone|sparse.migration|migration sparse|preserve.diversity/i,
   anti_synchrony: /anti.synchron|correlated.failure|échec corrélé|firebreak/i,
   island_search: /island.search|sat|\bilp\b|local.search|optimisation dure/i,
