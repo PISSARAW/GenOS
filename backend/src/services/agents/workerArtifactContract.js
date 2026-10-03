@@ -109,6 +109,14 @@ function hasBoundedScope(report) {
     && hasEvidenceReferences(report?.completedRefs));
 }
 
+function hasStrategyTrace(trace) {
+  return Array.isArray(trace) && trace.length > 0 && trace.every((entry) =>
+    isNonEmptyText(entry?.strategy)
+    && ['retained', 'changed'].includes(entry.decision)
+    && isNonEmptyText(entry.reason)
+    && hasEvidenceReferences(entry.evidence));
+}
+
 function hasFalsifiableCandidate(content) {
   return isNonEmptyText(content.candidate)
     && Array.isArray(content.assumptions) && content.assumptions.length > 0
@@ -210,6 +218,7 @@ function artifactInstruction(contract) {
   if (!required.length) return '';
   if (contract.identity?.workerKind === 'resident_daemon') return residentInstruction();
   if (contract.identity?.workerKind === 'bounded_worker') return boundedWorkerInstruction();
+  if (contract.identity?.workerKind === 'adaptive_worker') return adaptiveWorkerInstruction();
   if (contract.identity?.workerKind === 'recovery_worker') return recoveryInstruction();
   if (contract.identity?.workerKind === 'liaison_worker') return liaisonInstruction();
   const rhizome = rhizomeArtifactInstruction(contract, required);
@@ -232,6 +241,12 @@ function boundedWorkerInstruction() {
   const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
     scopeCompletion: { scopeRef: '<assigned-scope-ref>', completedRefs: ['<result-ref>'] } };
   return `Complete only the assigned scope. Report its scope reference and references to completed outputs. Schema: ${JSON.stringify(output)}`;
+}
+
+function adaptiveWorkerInstruction() {
+  const output = { outcome: 'success', claims: CONTENT_TEMPLATES.dossier.claims,
+    strategyTrace: [{ strategy: '<contract-strategy>', decision: 'retained', reason: '<reason>', evidence: ['<evidence-ref>'] }] };
+  return `Use only strategies declared by the contract and record each strategy decision with its reason and evidence. Schema: ${JSON.stringify(output)}`;
 }
 
 function recoveryInstruction() {
@@ -344,6 +359,9 @@ function validateWorkerKindArtifact(result, kind, type) {
   if (kind === 'bounded_worker' && type === 'dossier' && !hasBoundedScope(content.scopeCompletion)) {
     return { artifact: null, issues: [...result.issues, 'workerArtifact.content.scopeCompletion.invalid'] };
   }
+  if (kind === 'adaptive_worker' && type === 'dossier' && !hasStrategyTrace(content.strategyTrace)) {
+    return { artifact: null, issues: [...result.issues, 'workerArtifact.content.strategyTrace.invalid'] };
+  }
   return result;
 }
 
@@ -372,7 +390,8 @@ function inspectDossier(input) {
     ...(kind === 'recovery_worker' ? { recoveryReceipt: parsed.recoveryReceipt } : {}),
     ...(kind === 'liaison_worker' ? { handoff: parsed.handoff } : {}),
     ...(kind === 'resident_daemon' ? { territoryReport: parsed.territoryReport } : {}),
-    ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {})
+    ...(kind === 'bounded_worker' ? { scopeCompletion: parsed.scopeCompletion } : {}),
+    ...(kind === 'adaptive_worker' ? { strategyTrace: parsed.strategyTrace } : {})
   };
   if (!contentIsValid(expected, content)) issues.push('content.claims.invalid');
   const sourceRefs = [...new Set(content.claims.flatMap((claim) => claim.evidence))];
@@ -450,7 +469,8 @@ function kindArtifactIsInvalid(kind, type, content) {
   if (kind === 'recovery_worker' && type === 'dossier') return !hasRecoveryReceipt(content?.recoveryReceipt);
   if (kind === 'liaison_worker' && type === 'dossier') return !hasBoundedHandoff(content?.handoff);
   if (kind === 'resident_daemon' && type === 'dossier') return !hasTerritoryReport(content?.territoryReport);
-  return kind === 'bounded_worker' && type === 'dossier' && !hasBoundedScope(content?.scopeCompletion);
+  if (kind === 'bounded_worker' && type === 'dossier') return !hasBoundedScope(content?.scopeCompletion);
+  return kind === 'adaptive_worker' && type === 'dossier' && !hasStrategyTrace(content?.strategyTrace);
 }
 
 module.exports = { REQUIRED_FIELDS, CONTENT_TEMPLATES, artifactInstruction, validateWorkerArtifact, buildDossierArtifact, buildWorkerArtifact, inspectWorkerArtifact };
