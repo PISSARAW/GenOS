@@ -1,5 +1,5 @@
 use crate::dna::{DnaNucleotide, DnaStrand};
-use crate::genome::Genome;
+use crate::genome::{Genome, INSTINCT_LOCUS_PREFIX};
 use crate::mutation_rates::MutationRates;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
@@ -32,6 +32,9 @@ pub enum MutationEffect {
     TransposonInsertion { source_locus: String, target_position: usize },
     EpigeneticChange,
 }
+
+/// Longueur maximale d'un ADN de gène après amplification (anti-emballement).
+pub const MAX_AMPLIFIED_GENE_DNA_LEN: usize = 4096;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct MutationResult {
@@ -123,12 +126,24 @@ impl MultiScaleMutator {
         if !rate.is_finite() || rate <= 0.0 { return results; }
         let loci: Vec<String> = genome.genes.keys().cloned().collect();
         for locus in &loci {
+            if locus.starts_with(INSTINCT_LOCUS_PREFIX) { continue; }
             if !rng.random_bool(rate.clamp(0.0, 1.0)) { continue; }
             let roll: u32 = rng.next_u32() % 4;
             match roll {
                 0 => {
                     if let Some(gene) = genome.genes.get(locus) {
                         let gene_dna_len = gene.dna.len();
+                        if gene_dna_len.saturating_mul(3) > MAX_AMPLIFIED_GENE_DNA_LEN {
+                            results.push(MutationResult {
+                                scale: MutationScale::Gene,
+                                effect: MutationEffect::Amplification { factor: 3 },
+                                affected_locus: Some(locus.clone()),
+                                positions_changed: 0,
+                                successful: false,
+                                description: format!("Gene amplification of {} refused: length cap", locus),
+                            });
+                            continue;
+                        }
                         let original = gene.dna.as_slice();
                         let mut new_dna = Vec::with_capacity(gene_dna_len * 3);
                         new_dna.extend_from_slice(original);
