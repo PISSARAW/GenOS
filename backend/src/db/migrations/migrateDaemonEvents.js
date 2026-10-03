@@ -1,5 +1,7 @@
 'use strict';
 
+const migratedDatabases = new WeakSet();
+
 /**
  * Migration 038 — journal des événements territoriaux (ADR 0034 D4).
  *
@@ -15,6 +17,8 @@
  */
 
 async function migrateDaemonEvents(db) {
+  if (!db || (typeof db !== 'object' && typeof db !== 'function')) return;
+  if (migratedDatabases.has(db)) return;
   await db.exec(`
     CREATE TABLE IF NOT EXISTS daemon_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,9 +33,12 @@ async function migrateDaemonEvents(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_daemon_events_territory
       ON daemon_events(territory_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_daemon_events_cursor
+      ON daemon_events(territory_id, id);
     CREATE INDEX IF NOT EXISTS idx_daemon_events_type
       ON daemon_events(event_type, created_at);
   `);
+  migratedDatabases.add(db);
 }
 
 module.exports = { migrateDaemonEvents };

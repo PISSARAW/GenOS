@@ -88,7 +88,6 @@ function startDurableEventPoller(db, runtime, daemonId, territoryId) {
     if (eventPollInProgress) return;
     eventPollInProgress = true;
     try {
-      await migrateDaemonEvents(db);
       const state = await runtimeService.getDaemonState(runtime, { daemonId });
       const rows = await db.all(
         'SELECT id, event_type, woke FROM daemon_events WHERE territory_id = ? AND id > ? ORDER BY id ASC LIMIT 100',
@@ -135,6 +134,7 @@ async function main() {
   }
 
   const db = await getDatabase();
+  await migrateDaemonEvents(db);
   const territory = await resolveRegisteredTerritory(db, flags.territoryId);
   if (!territory) throw new Error(`Territory ${flags.territoryId} is not registered; register it before starting the daemon.`);
 
