@@ -14,6 +14,15 @@ async function runTest() {
   assert.strictEqual(initRes.is_synchronized, true);
   console.log('✅ PASS: Initial reading frame is synchronized (offset 0)');
 
+  const invalidDelete = await executeBioTool('genos_biomimicry_frameshift_mutation', {
+    action: 'delete_token_frameshift',
+    id: 'mut-shift-invalid-delete',
+    position: 999
+  });
+  assert.strictEqual(invalidDelete.success, false);
+  assert.strictEqual(invalidDelete.status, 'invalid_args');
+  assert.strictEqual(invalidDelete.frame_shift_offset, undefined);
+
   // 2. Insert token to cause a +1 frameshift desynchronization
   const insertRes = await executeBioTool('genos_biomimicry_frameshift_mutation', {
     action: 'insert_token_frameshift',

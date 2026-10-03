@@ -44,6 +44,10 @@ function handleFrameshiftMutation(args = {}) {
   const record = getFrameshiftRecord(shiftId);
 
   if (action === 'insert_token_frameshift') {
+    const position = args.position === undefined ? 0 : args.position;
+    if (!Number.isSafeInteger(position) || position < 0 || position > record.sequenceTokens.length) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'position must be an integer from 0 through sequence length.' };
+    }
     processIndel(record, { isInsert: true, token: args.token, position: args.position });
     return {
       configured: true,
@@ -59,6 +63,10 @@ function handleFrameshiftMutation(args = {}) {
   }
 
   if (action === 'delete_token_frameshift') {
+    const position = args.position === undefined ? 0 : args.position;
+    if (!Number.isSafeInteger(position) || position < 0 || position >= record.sequenceTokens.length) {
+      return { configured: true, success: false, status: 'invalid_args', error: 'position must identify an existing token.' };
+    }
     processIndel(record, { isInsert: false, position: args.position });
     return {
       configured: true,
