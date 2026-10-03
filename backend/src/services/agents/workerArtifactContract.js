@@ -28,13 +28,23 @@ const CONTENT_TEMPLATES = Object.freeze({
   training_packet: { prerequisites: ['<prerequisite>'], steps: ['<step>'], evidence: ['<source-ref>'] }
 });
 
+function isSubstantiveReport(report) {
+  if (!report || typeof report !== 'object') return false;
+  if (Array.isArray(report.claims) && report.claims.length) return true;
+  const artifact = report.workerArtifact;
+  return Boolean(artifact && typeof artifact === 'object' && artifact.type && artifact.content);
+}
+
 function reportOf(dossier) {
   const events = [...(dossier.events || [])].reverse();
+  let fallback = null;
   for (const event of events) {
     const report = event.evidenceReport || event.payload?.evidenceReport || event.payload?.report;
-    if (report && typeof report === 'object') return report;
+    if (!report || typeof report !== 'object') continue;
+    if (isSubstantiveReport(report)) return report;
+    if (!fallback) fallback = report;
   }
-  return {};
+  return fallback || {};
 }
 
 function hasRequiredFields(content, required) {

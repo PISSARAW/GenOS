@@ -193,10 +193,29 @@ function buildWorkerContract(kind, mission = {}) {
     delegationDepth: 0,
     evidence: { requiredArtifacts: [definition.artifact], provenanceRequired: true },
     niche: { domain: definition.kind === 'specialist' ? (mission.nicheDomain || mission.workerAssignment?.nicheDomain || 'declared_niche') : null },
-    expressedCapabilities: definition.kind === 'specialist' ? ['niche_analysis'] : [],
+    expressedCapabilities: expressedCapabilitiesFor(definition.kind),
     limits: workerLimits(definition.kind, subOrchestrator),
     resources: workerResources(definition.kind)
   };
+}
+
+const EXPRESSED_CAPABILITIES = Object.freeze({
+  specialist: ['niche_analysis'],
+  symbiotic_worker: ['procedural_host'],
+  red_worker: ['adversarial_review'],
+  synthesis_worker: ['synthesize', 'preserve_provenance'],
+  forensic_worker: ['causal_analysis'],
+  experimental_worker: ['experiment', 'measure'],
+  formal_worker: ['formal_proof'],
+  procedural_executor: ['deterministic_procedure'],
+  creative_worker: ['create_candidate'],
+  recovery_worker: ['recover'],
+  liaison_worker: ['coordinate', 'handoff'],
+  teaching_worker: ['teach']
+});
+
+function expressedCapabilitiesFor(kind) {
+  return [...(EXPRESSED_CAPABILITIES[kind] || [])];
 }
 
 function workerResources(kind) {
