@@ -9,7 +9,7 @@ const POLICY_DEFINITIONS = Object.freeze({
   polycentric_council: policy({ disclosure: 'sealed', review: 'local_specialized', aggregation: 'hierarchical', dissent: 'preserve_cluster_dissent', executionLevel: 'PARTIAL' }),
   byzantine_resilient_community: policy({ disclosure: 'sealed', review: 'provenance_first', aggregation: 'verified_evidence_first', dissent: 'counterexample_veto', quarantineAware: true }),
   minority_preserving_jury: policy({ disclosure: 'sealed', review: 'specialized', aggregation: 'evidence_first', dissent: 'preserve_all', preserveAllDissent: true }),
-  representative_community: policy({ disclosure: 'sealed', review: 'representative_panel', aggregation: 'weighted_distribution', dissent: 'preserve_minorities', executionLevel: 'PARTIAL' }),
+  representative_community: policy({ disclosure: 'sealed', review: 'representative_panel', aggregation: 'weighted_distribution', dissent: 'preserve_minorities' }),
   persistent_community: policy({ disclosure: 'sealed', review: 'longitudinal', aggregation: 'calibrated_distribution', dissent: 'preserve_history', executionLevel: 'PARTIAL' }),
   human_ai_deliberation: policy({ disclosure: 'sealed', review: 'human_and_ai', aggregation: 'pluralism_with_human_judgment', dissent: 'preserve_all', requireHumanReview: true, preserveAllDissent: true }),
   hybrid_oracle_community: policy({ disclosure: 'sealed', review: 'specialized', aggregation: 'deterministic_oracle_first', dissent: 'counterexample_veto', requireDeterministicVerifier: true })
@@ -23,6 +23,7 @@ const AUTO_RULES = Object.freeze([
   { variant: 'argumentation_community', signal: /argumentation|argument map|argument graph|claim graph|dialectic/i },
   { variant: 'polycentric_council', signal: /polycentric|subsidiarity|federal council|nested council|local clusters/i },
   { variant: 'byzantine_resilient_community', signal: /byzantine|byzantin|collusion|quarantine|poisoned evidence|malicious member/i },
+  { variant: 'representative_community', signal: /representative panel|stratified panel|demographic representation|representative community/i },
   { variant: 'hybrid_oracle_community', type: 'FACTUAL', signal: /verify|verifi|prove|prouver|confirm|confirmer|true|vrai/i },
   { variant: 'minority_preserving_jury', signal: /dissent|dissensus|minority|minoritaire|disagreement|desaccord|plural/i },
   { variant: 'delphi_community', signal: /uncertain|incertain|expert|estimate|estimer|anonymous|anonyme/i }
