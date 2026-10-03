@@ -13,7 +13,6 @@ const crypto = require('crypto');
 const {
   getState, createSnapshot, rollback: rollbackSnapshot
 } = require('../collectiveStateService');
-const { incarnateAgent } = require('../agents/agentIncarnationService');
 const { terminateChild } = require('../processTermination');
 const { activeProcesses, emit } = require('../agentOrchestrationState');
 
@@ -109,28 +108,26 @@ function migrateState(ctx) {
 // ---------------------------------------------------------------------------
 
 async function execSpawn(action, ctx) {
-  const { db, parent, collectiveState } = ctx;
-  const request = {
-    role: action.role,
-    mission: action.mission || { prompt: action.prompt || 'morphogenesis-spawned' },
-    capabilityManifest: action.capabilityManifest || {},
-    phenotype: action.phenotype || {},
-    agentId: action.agentId,
-    parentAgentId: parent?.id,
-    workspace: action.workspace
-  };
-  const descriptor = await incarnateAgent({ request, ctx: { db } });
+  const { db, parent, collectiveState, spawnAgent } = ctx;
+  const parentAgentId = parent?.id || action.parentAgentId;
+  if (!db || !parentAgentId) throw new Error('spawn requires a database and authorized parent agent');
+  await require('../medical/missionQuarantineGate').assertMissionDispatchAllowed(db, parentAgentId);
+  if (typeof spawnAgent !== 'function') throw new Error('spawn runtime adapter is required');
+  const descriptor = await spawnAgent(action, { db, parentAgentId, collectiveState });
+  if (descriptor?.started !== true || !descriptor.agentId) {
+    throw new Error('spawn runtime adapter did not confirm a started worker');
+  }
   if (collectiveState) {
     collectiveState.agents.set(descriptor.agentId, {
       id: descriptor.agentId,
       topology: action.topology || 'unknown',
-      role: descriptor.role,
+      role: descriptor.role || action.role,
       status: 'active',
       capabilities: descriptor.capabilities || [],
-      parent: parent?.id
+      parent: parentAgentId
     });
   }
-  return { agentId: descriptor.agentId, role: descriptor.role, descriptor };
+  return { agentId: descriptor.agentId, role: descriptor.role || action.role, descriptor };
 }
 
 async function execRetire(action, collectiveState) {
@@ -263,7 +260,10 @@ async function executeTransition(ctx) {
   if (!validation.valid) return buildReceipt({ transitionId, plan, preSnapshot: null, postSnapshot: null, actionsTaken: [], rollbackReceipt: null, committed: false });
 
   preSnapshot = createStateSnapshot(collectiveState);
-  const morphCtx = { db, parent: ctx.parent, transitionId, collectiveState: collectiveState || getState() };
+  const morphCtx = {
+    db, parent: ctx.parent, spawnAgent: ctx.spawnAgent,
+    transitionId, collectiveState: collectiveState || getState()
+  };
   emitTransitionStart({ transitionId, plan });
 
   try {
