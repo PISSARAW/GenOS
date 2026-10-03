@@ -88,6 +88,20 @@ async function main() {
   const retried = await bridgeService.processPersistedEvent(retryBridge, persistedRetry);
   assert.equal(retried.woke, true, 'failed heartbeat must release the wake budget so the event can retry');
 
+  const secondRuntime = daemonRuntime.createRuntime(db, {});
+  await daemonRuntime.registerDaemon(secondRuntime, {
+    daemonId: 'daemon.bridge-2', territoryId: 'territory.bridge-test'
+  });
+  const secondBridge = bridgeService.createBridge({ db, runtime: secondRuntime, daemonId: 'daemon.bridge-2' });
+  const collectiveEvent = await bridgeService.ingestEvent(bridge, {
+    type: 'BUILD_FAILED', territoryId: 'territory.bridge-test'
+  });
+  assert.equal(collectiveEvent.woke, true);
+  const collectiveRow = await db.get('SELECT * FROM daemon_events ORDER BY id DESC LIMIT 1');
+  assert.equal(Number(collectiveRow.woke), 1);
+  const secondDelivery = await bridgeService.processPersistedEvent(secondBridge, collectiveRow);
+  assert.equal(secondDelivery.woke, true, 'each daemon cursor must deliver the territory event independently');
+
   const quiet = await bridgeService.ingestEvent(bridge, { type: 'AGENT_COMPLETED', territoryId: 'territory.bridge-test' });
   assert.equal(quiet.ingested, true);
   assert.equal(quiet.woke, false);
