@@ -77,7 +77,7 @@ function applyLegacyModelConfiguration() {
   }
 }
 
-loadEnvironmentFile();
+if (process.env.GENOS_DISABLE_DOTENV !== '1') loadEnvironmentFile();
 applyLegacyModelConfiguration();
 
 function isSupportedProvider(provider) {

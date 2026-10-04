@@ -303,6 +303,15 @@ async function run() {
     assert.strictEqual(result.assembly, null);
   });
 
+  await test('La promotion multi-provider refuse une configuration sans quorum', async () => {
+    const result = await evaluateReportWithAeis({ claims: [{
+      statement: 'echo ok outputs "ok"', test: { command: 'echo ok', expectOutput: 'ok' },
+      evidence: [{ kind: 'reproducible_artifact' }],
+    }] }, { multiProviderEnabled: true, providerAllowlist: [] });
+    assert.strictEqual(result.evaluation.eligible, false);
+    assert.strictEqual(result.assembly, null);
+  });
+
   // 15. Sans assembly AEIS la promotion gate refuse
   await test('Sans assembly la gate refuse', () => {
     const { buildGateContext } = require('../src/services/promotionGateContext');

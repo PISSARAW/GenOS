@@ -360,6 +360,9 @@ const migrationRunners = [
   createMigrationRunner('099-epistemic-immune-scope', 'Scope AEIS memory and deduplicate oracle outcomes', async (db) => {
     await require('./migrateEpistemicImmuneScope').migrateEpistemicImmuneScope(db);
   }),
+  createMigrationRunner('100-aeis-provider-reviews', 'Persist scoped process-isolated provider reviews', async (db) => {
+    await require('./migrateAeisProviderReviews').migrateAeisProviderReviews(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
