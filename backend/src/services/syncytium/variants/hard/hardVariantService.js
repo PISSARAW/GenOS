@@ -4,6 +4,7 @@ const schemaService = require('../../../syncytiumSchemaService');
 const { randomUUID, createHash } = require('node:crypto');
 
 const HARD_LEASES = 'hard.leases';
+const MAX_FENCED_RETRIES = 20;
 
 function createHardVariantService(syncytium) {
   return {
@@ -68,16 +69,25 @@ async function releaseFence(sessionId, request = {}, syncytium) {
 async function runFenced(sessionId, request = {}, syncytium) {
   validateIdentity(request);
   if (!Array.isArray(request.operations) || !request.operations.length) throw hardError('Fenced transactions require operations.');
-  const snapshot = await syncytium.snapshot(sessionId, request.options || {});
-  const lease = snapshot.shared.sharedFields[HARD_LEASES]?.[request.resourceId];
-  assertLeaseOwner(lease, request, time(request.now));
   const ordered = orderOperations(request.operations);
-  const result = await syncytium.applyTransaction(sessionId, {
-    txId: request.txId || randomUUID(), operations: ordered.operations,
-    preconditions: [...(request.preconditions || []), { op: 'state_version', value: snapshot.shared.totalOps }],
-    commitPolicy: 'SERIALIZABLE', fence: { resourceId: request.resourceId, token: request.leaseToken, number: request.fence }
-  }, { ...(request.options || {}), domainId: request.domainId || request.nucleusId });
-  return { ...result, deterministicOrder: ordered.digest };
+  let attempts = 0;
+  while (true) {
+    const snapshot = await syncytium.snapshot(sessionId, request.options || {});
+    const lease = snapshot.shared.sharedFields[HARD_LEASES]?.[request.resourceId];
+    assertLeaseOwner(lease, request, time(request.now));
+    try {
+      const result = await syncytium.applyTransaction(sessionId, {
+        txId: request.txId || randomUUID(), operations: ordered.operations,
+        preconditions: [...(request.preconditions || []), { op: 'state_version', value: snapshot.shared.totalOps }],
+        commitPolicy: 'SERIALIZABLE', fence: { resourceId: request.resourceId, actorId: request.actorId,
+          leaseToken: request.leaseToken, number: request.fence }
+      }, { ...(request.options || {}), domainId: request.domainId || request.nucleusId });
+      return { ...result, deterministicOrder: ordered.digest, fencingAttempts: attempts + 1 };
+    } catch (error) {
+      attempts += 1;
+      if (error.code !== 'SYNCYTIUM_PRECONDITION_FAILED' || attempts >= MAX_FENCED_RETRIES) throw error;
+    }
+  }
 }
 
 function orderOperations(operations) {
