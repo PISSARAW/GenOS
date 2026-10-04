@@ -13,6 +13,11 @@ indépendant. Leur résultat est toujours `unmeasured`, même si un adaptateur
 retourne `executed`. Une référence de preuve fournie par un adaptateur ne
 suffit pas à certifier une capacité.
 
+Les cas `scout-source`, `forensic-chain` et `teaching-transfer` contrôlent
+leurs invariants dans un module d'oracle séparé des exécuteurs. Les autres
+cas spécialisés utilisent encore un recalcul par le même module GenOS ; leur
+validation ne doit pas être présentée comme indépendante de l'implémentation.
+
 Exécution locale actuelle :
 
 ```powershell

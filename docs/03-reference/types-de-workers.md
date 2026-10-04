@@ -1338,11 +1338,12 @@ une parité avec un produit concurrent. Voir [ADR 0294](../adr/0294-executeurs-d
 bornée ; elle ne remplace pas une revue générale de code.
 
 La [campagne comparative](../../benchmarks/workers/README.md) contient 20 cas
-pour les 19 types. Deux cas procéduraux, une vérification, une falsification
-de reçu, une mesure LPT, une synthèse de désaccord et une fenêtre de
-surveillance sont mesurables par recalcul indépendant ; un huitième cas formel
-a été mesuré localement avec Lean 4.34.0. Les tâches
-sans oracle indépendant restent `unmeasured` ;
+pour les 19 types. Dix cas sont mesurés automatiquement sans Lean ; un
+onzième cas formel a été mesuré localement avec Lean 4.34.0. Les oracles
+scout, forensic et teaching vérifient leurs invariants séparément des
+exécuteurs. Plusieurs autres cas relancent encore le même module ; leur
+score n'est pas une validation indépendante. Les tâches sans oracle
+restent `unmeasured` ;
 un rapport rival n'est comparable que sur un même cas effectivement mesuré.
 
 ## 50. Niche et Host au dispatch topologique (2026-10-04)

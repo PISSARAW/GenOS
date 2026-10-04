@@ -40,6 +40,10 @@ async function verifyNativeExecution(testCase, execution) {
 }
 
 function verifiedSpecialized(testCase, execution) {
+  const independent = require('./independent-observation-oracles.cjs');
+  if (testCase.workerKind === 'scout_cell') return independent.verifyScout(testCase, execution);
+  if (testCase.workerKind === 'forensic_worker') return independent.verifyForensic(testCase, execution);
+  if (testCase.workerKind === 'teaching_worker') return independent.verifyTeaching(testCase, execution);
   if (testCase.workerKind === 'red_worker') return verifiedRed(testCase, execution);
   if (testCase.workerKind === 'experimental_worker') return verifiedExperiment(testCase, execution);
   if (testCase.workerKind === 'synthesis_worker') return verifiedSynthesis(testCase, execution);
@@ -47,27 +51,6 @@ function verifiedSpecialized(testCase, execution) {
   if (testCase.workerKind === 'scout_cell') return verifiedScout(testCase, execution);
   if (testCase.workerKind === 'teaching_worker') return verifiedTeaching(testCase, execution);
   return verifiedMonitor(testCase, execution);
-}
-
-function verifiedTeaching(testCase, execution) {
-  const expected = require('../../backend/src/services/agents/deterministicWorkerTeaching')
-    .runTeaching(testCase.methodContract);
-  return JSON.stringify(execution.result) === JSON.stringify(expected)
-    && execution.receipt?.id === expected.teachingReceipt.id;
-}
-
-function verifiedScout(testCase, execution) {
-  const expected = require('../../backend/src/services/agents/deterministicWorkerScout')
-    .runScout(testCase.methodContract);
-  return JSON.stringify(execution.result) === JSON.stringify(expected)
-    && execution.receipt?.id === expected.scoutReceipt.id;
-}
-
-function verifiedForensic(testCase, execution) {
-  const expected = require('../../backend/src/services/agents/deterministicWorkerForensic')
-    .runForensic(testCase.methodContract);
-  return JSON.stringify(execution.result) === JSON.stringify(expected)
-    && execution.receipt?.id === expected.forensicReceipt.id;
 }
 
 function verifiedVerification(testCase, execution) {
