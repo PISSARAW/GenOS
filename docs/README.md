@@ -279,6 +279,13 @@ Index : [adr/README.md](adr/README.md)
 - [0299-registre-obligations-g-cir.md](adr/0299-registre-obligations-g-cir.md) — registre versionné et graphe de dépendances des adaptateurs G-CIR.
 - [0294-cloture-de-continuite-de-mission.md](adr/0294-cloture-de-continuite-de-mission.md) — appartenance durable, transitions sûres, reprise après crash et réparation bornée des missions.
 - [0300-scellement-spores-biome.md](adr/0300-scellement-spores-biome.md) — chiffrement des spores Biome et autorisation explicite au dégel.
+- [0294-persistance-des-registres-biomimetiques.md](adr/0294-persistance-des-registres-biomimetiques.md) — réhydratation et persistance des registres de handlers.
+- [0295-registre-des-recepteurs-du-signal-plane.md](adr/0295-registre-des-recepteurs-du-signal-plane.md) — récepteurs déterministes durables par projet.
+- [0296-file-cognitive-du-signal-plane.md](adr/0296-file-cognitive-du-signal-plane.md) — tâches cognitives durables et reprises sous bail.
+- [0297-reprise-des-wake-handlers.md](adr/0297-reprise-des-wake-handlers.md) — réarmement des workers inactifs au démarrage.
+- [0298-boite-de-reception-signaux.md](adr/0298-boite-de-reception-signaux.md) — lecture et ACK des signaux sous contrôle de périmètre.
+- [0299-resultats-actions-signaux.md](adr/0299-resultats-actions-signaux.md) — résultat des actions fondé sur leurs effets réels.
+- [0301-expiration-des-buffers-de-signaux.md](adr/0301-expiration-des-buffers-de-signaux.md) — expiration des buffers supprimés et anti-rejeu.
 - [0086-branche-rhizome-morphogenese.md](adr/0086-branche-rhizome-morphogenese.md) — branche Rhizome acceptée dans un graphe Morphogenèse, avec budget et gate de preuve.
 - [0087-branche-trinity-morphogenese.md](adr/0087-branche-trinity-morphogenese.md) — branche Trinity proposée dans un graphe Morphogenèse, avec trois chambres scellées et budget dédié.
 - [0070-syncytium-variant-code.md](adr/0070-syncytium-variant-code.md) — état de code partagé, détection des ruptures de symboles et portée de l'analyse lexicale.

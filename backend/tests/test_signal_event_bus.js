@@ -138,6 +138,18 @@ async function testCoalescerDifferentSenders() {
   assert.strictEqual(aggregated.coalescedCount, 2, 'Aggregate covers both buffered signals');
 }
 
+async function testCoalescerWindowExpires() {
+  resetCoalescer();
+  const topic = `expiring-${Date.now()}`;
+  const opts = { refractoryMs: 0, coalesceMs: 5 };
+  const first = coalescer.coalesce({ signalId: 'first', topic, senderAgentId: 'sender' }, opts);
+  assert.strictEqual(first.coalescedCount, 1);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.strictEqual(coalescer.getBufferedCount(topic), 0, 'expired buffers are removed without another signal');
+  const next = coalescer.coalesce({ signalId: 'next', topic, senderAgentId: 'sender' }, opts);
+  assert.strictEqual(next.coalescedCount, 1, 'already published signals are not emitted twice');
+}
+
 async function testCheckRefractory() {
   const r1 = coalescer.checkRefractory('unknown', 'topic');
   assert.strictEqual(r1.allowed, true);
@@ -177,6 +189,9 @@ async function run() {
 
   await testCoalescerDifferentSenders();
   console.log('[PASS] Coalescer coalesces different senders in window');
+
+  await testCoalescerWindowExpires();
+  console.log('[PASS] Coalescer expires suppressed buffers');
 
   await testCheckRefractory();
   console.log('[PASS] checkRefractory works correctly');

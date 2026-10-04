@@ -29,8 +29,8 @@ function buildRefractoryKey(senderId, topic) {
 }
 
 function checkRefractory(senderId, topic, opts = {}) {
-  const now = opts.now || Date.now();
-  const refractoryMs = opts.refractoryMs || DEFAULT_REFRACTORY_MS;
+  const now = opts.now ?? Date.now();
+  const refractoryMs = opts.refractoryMs ?? DEFAULT_REFRACTORY_MS;
   const key = buildRefractoryKey(senderId, topic);
   const last = refractoryLog.get(key);
   if (!last) return { allowed: true, remaining: 0 };
@@ -43,7 +43,7 @@ function checkRefractory(senderId, topic, opts = {}) {
 }
 
 function recordEmission(senderId, topic, opts = {}) {
-  const now = opts.now || Date.now();
+  const now = opts.now ?? Date.now();
   const key = buildRefractoryKey(senderId, topic);
   refractoryLog.set(key, { lastEmitAt: now, topic });
   // Cleanup old entries (> 60s)
@@ -79,41 +79,45 @@ function aggregateSignals(signals, topic) {
 }
 
 function shouldCoalesce(signal, topic, opts = {}) {
-  const now = opts.now || Date.now();
-  const coalesceMs = opts.coalesceMs || DEFAULT_COALESCE_MS;
+  const now = opts.now ?? Date.now();
+  const coalesceMs = opts.coalesceMs ?? DEFAULT_COALESCE_MS;
   const buf = coalescingBuffer.get(topic);
   if (!buf) return { shouldEmit: true, aggregated: [signal] };
   const age = now - buf.firstEmitAt;
   if (age >= coalesceMs) {
-    const aggregated = [...buf.signals, signal];
+    clearTimeout(buf.timer);
     coalescingBuffer.delete(topic);
-    return { shouldEmit: true, aggregated };
+    return { shouldEmit: true, aggregated: [signal] };
   }
   buf.signals.push(signal);
   buf.lastEmitAt = now;
   return { shouldEmit: false, aggregated: buf.signals };
 }
 
-function bufferSignal(signal, topic) {
+function bufferSignal(signal, topic, opts = {}) {
   const key = topic || signal.topic || 'default';
   const existing = coalescingBuffer.get(key);
   if (existing) {
     existing.signals.push(signal);
-    existing.lastEmitAt = Date.now();
+    existing.lastEmitAt = opts.now ?? Date.now();
     return;
   }
-  // Le premier signal ouvre la fenêtre : il est inclus dans le buffer
-  // (push avant tout return), sinon l'agrégat suivant le perdrait.
+  const now = opts.now ?? Date.now();
+  const timer = setTimeout(() => coalescingBuffer.delete(key),
+    Math.max(1, opts.coalesceMs ?? DEFAULT_COALESCE_MS));
+  timer.unref?.();
   coalescingBuffer.set(key, {
     signals: [signal],
-    firstEmitAt: Date.now(),
-    lastEmitAt: Date.now(),
+    firstEmitAt: now,
+    lastEmitAt: now,
+    timer,
   });
 }
 
 function flushBufferedTopic(topic) {
   const buf = coalescingBuffer.get(topic);
   if (!buf) return [];
+  clearTimeout(buf.timer);
   coalescingBuffer.delete(topic);
   return buf.signals;
 }
@@ -125,18 +129,18 @@ function flushAndAggregate(topic, opts = {}) {
 }
 
 function clearAllCoalescerState() {
+  for (const buf of coalescingBuffer.values()) clearTimeout(buf.timer);
   coalescingBuffer.clear();
   refractoryLog.clear();
 }
 
 /**
  * True windowed coalescing + refractory:
- * S1 emits immediately and opens a window; S2..Sn inside the window
- * are buffered (return null); the first signal after the window
- * aggregates buffered + itself into one emission.
+ * S1 emits immediately and opens a window; later signals in that window
+ * are suppressed. The buffer is inspectable until expiry but is not published.
  */
 function coalesce(signal, opts = {}) {
-  const now = opts.now || Date.now();
+  const now = opts.now ?? Date.now();
   const topic = signal.topic || 'default';
   const senderId = signal.senderAgentId;
   const refractory = checkRefractory(senderId, topic, { now, refractoryMs: opts.refractoryMs });
@@ -145,7 +149,7 @@ function coalesce(signal, opts = {}) {
   if (!coalesceResult.shouldEmit) return null;
   recordEmission(senderId, topic, { now });
   if (coalesceResult.aggregated.length <= 1) {
-    bufferSignal(signal, topic);
+    bufferSignal(signal, topic, { now, coalesceMs: opts.coalesceMs });
   }
   return aggregateSignals(coalesceResult.aggregated, topic);
 }

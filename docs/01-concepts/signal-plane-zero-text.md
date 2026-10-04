@@ -110,7 +110,8 @@ Anti-spam biologique :
 - **Période réfractaire** : 2s par (sender, topic)
 - **Coalescing** : fenêtre de 500 ms en mémoire. Le premier signal est émis;
   les suivants peuvent être supprimés. Le buffer peut être agrégé par l'API
-  locale, mais il n'existe pas de vidage autonome vers la publication.
+  locale, mais il n'existe pas de vidage autonome vers la publication. Il expire
+  à la fin de la fenêtre et n'est pas réémis avec le signal suivant.
 
 ```js
 const result = signalCoalescer.coalesce({
