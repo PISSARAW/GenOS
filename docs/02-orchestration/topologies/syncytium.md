@@ -969,6 +969,12 @@ Les variants disposent désormais de services métier dédiés, raccordés à la
 - **Human–AI** : zones d'autorité humaine, consentement, pause, attribution, approbation
   et édition compensatoire.
 
+Le blackboard retourne l'événement après son ajout append-only. Les verrous de la variante
+Code appliquent leurs mises à jour en une transaction sérialisable via la façade Syncytium.
+Le watchdog écrit le journal de timeout, le journal fail-safe et la sortie sûre dans la même
+transaction préconditionnée, pour éviter qu'une écriture intermédiaire invalide la version
+vérifiée avant l'application de la sortie.
+
 Ces services restent des mécanismes locaux du runtime GenOS. La compression d'anti-entropie
 ne fournit pas de transport, les reçus WCET sont déclarés et non mesurés par un banc certifié,
 et une édition compensatoire ou un undo ne renverse pas un effet externe déjà exécuté.
