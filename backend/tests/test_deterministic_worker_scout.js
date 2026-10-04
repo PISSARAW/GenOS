@@ -14,6 +14,12 @@ const result = runScout(methodContract);
 assert.equal(result.observations[0].offset, 10);
 assert.equal(result.observations[0].confidence, 1);
 assert.deepEqual(result.observations[0].sourceRefs, ['corpus://test/1']);
+assert.equal(runScout({ ...methodContract, parameters: {
+  sources: [{ sourceRef: 'corpus://test/unicode', text: 'İ timeout=30' }], terms: ['timeout']
+} }).observations[0].offset, 2);
+assert.equal(runScout({ ...methodContract, parameters: {
+  sources: [{ sourceRef: 'corpus://test/case', text: 'Timeout=30' }], terms: ['timeout']
+} }).observations.length, 0);
 assert.throws(() => runScout({ ...methodContract, parameters: { sources: [
   methodContract.parameters.sources[0], methodContract.parameters.sources[0]], terms: ['timeout'] } }),
 { code: 'WORKER_SCOUT_INPUT_INVALID' });

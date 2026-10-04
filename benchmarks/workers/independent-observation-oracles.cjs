@@ -15,7 +15,7 @@ function verifyScout(testCase, execution) {
   const result = execution.result;
   const { sources, terms } = testCase.methodContract.parameters;
   const expected = sources.flatMap((source) => terms.flatMap((term) => {
-    const offset = source.text.toLocaleLowerCase('en').indexOf(term.toLocaleLowerCase('en'));
+    const offset = source.text.indexOf(term);
     return offset < 0 ? [] : [{ sourceRef: source.sourceRef, term, offset }];
   }));
   if (!Array.isArray(result?.observations) || result.observations.length !== expected.length) return false;

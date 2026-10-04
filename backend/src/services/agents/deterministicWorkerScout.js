@@ -35,9 +35,8 @@ function validMethod(methodContract, sources, terms) {
 }
 
 function scanSource(source, terms) {
-  const haystack = source.text.toLocaleLowerCase('en');
   return terms.flatMap((term) => {
-    const offset = haystack.indexOf(term.toLocaleLowerCase('en'));
+    const offset = source.text.indexOf(term);
     if (offset < 0) return [];
     return [{ observation: `Literal '${term}' found at offset ${offset}.`,
       sourceRefs: [source.sourceRef], confidence: 1,

@@ -1420,7 +1420,8 @@ Il ne prouve ni l'authenticité des reçus ni la causalité réelle. Voir
 ## 57. Observation littérale du scout cell (2026-10-04)
 
 La méthode `scan_literal` inspecte jusqu'à 20 textes fournis, de 8192
-caractères chacun, pour 20 termes littéraux au maximum. Elle produit un
+caractères chacun, pour 20 termes littéraux au maximum. La recherche est
+sensible à la casse et conserve les offsets du texte original. Elle produit un
 `scout_observation` avec la première position de chaque terme trouvé, la
 référence de source et une incertitude explicite sur l'interprétation du
 texte. Elle ne lit aucun fichier ni site distant et ne juge pas la véracité
