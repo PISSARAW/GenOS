@@ -15,8 +15,12 @@ const manifest = { mission: 'x', budget: { tokens: 100, costUsd: 0.02 }, repetit
   expectedClaims: [{ subject: 'x', predicate: 'safe', value: true }], variantId: 'graph' };
 assert.doesNotThrow(() => runner.validateManifest(manifest));
 for (const { id } of listPolicies()) {
-  assert.doesNotThrow(() => runner.validateManifest({ ...manifest, variantId: id }), `${id} is accepted by the campaign runner`);
+  const configuration = id === 'humanAi' ? { nuclei: [{ kind: 'human' }] } : undefined;
+  assert.doesNotThrow(() => runner.validateManifest({ ...manifest, variantId: id, configuration }),
+    `${id} is accepted by the campaign runner`);
 }
+assert.throws(() => runner.validateManifest({ ...manifest, variantId: 'humanAi' }),
+  { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ ...manifest, expectedClaims: [] }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ ...manifest, budget: { tokens: 0 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ ...manifest, campaignBudget: { tokens: 999 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });

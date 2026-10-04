@@ -86,6 +86,7 @@ const suites = {
     ['trace tenant scope', 'test_trace_tenant_scope.js']
   ],
   migration: [
+    ['daemon evidence view migration', 'test_daemon_evidence_view_migration.js'],
     ['MsgPack migration', 'test_msgpack_migration.js'],
     ['formal result MessagePack contract', 'test_formal_result_contract.js'],
     ['legacy migration', 'test_legacy_migration_ambiguity.js'],

@@ -216,6 +216,9 @@ const migrationRunners = [
     const { migrateIntegrityHardening } = require('./migrateIntegrityHardening');
     await migrateIntegrityHardening(db);
   }),
+  createMigrationRunner('062b-daemon-evidence-view-repair', 'Repair daemon evidence view after table hardening', async (db) => {
+    await require('./migrateDaemonEvidenceView').run(db);
+  }),
   createMigrationRunner('063-projection-outbox', 'Create transactional outbox tables for async projections', async (db) => {
     const { run } = require('./migrateProjectionOutbox');
     await run(db);

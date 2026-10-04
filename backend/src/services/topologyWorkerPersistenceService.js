@@ -9,7 +9,10 @@ async function ensureTopologyWorker(db, input) {
     orchestratorAgentId: input.parentId,
     methodContract: input.methodContract,
     workerAssignment: input.workerAssignment,
-    topologySessionId: input.topologySessionId
+    topologySessionId: input.topologySessionId,
+    nicheDomain: input.nicheDomain,
+    hostContractId: input.hostContractId,
+    hostCapabilities: input.hostCapabilities
   });
   const existing = await db.get('SELECT id, parent_agent_id, execution_mode, role, metadata_json FROM agents WHERE id = ?', input.workerId);
   if (existing) return validateExistingWorker({ db, existing, input, workerKind, workerContract });

@@ -25,6 +25,7 @@ async function migrateIntegrityHardening(db) {
   if (hasFK) return;
   await db.exec('BEGIN IMMEDIATE');
   try {
+    await db.exec('DROP VIEW IF EXISTS v_daemon_evidence_balance');
     await db.exec('ALTER TABLE daemon_finding_evidence RENAME TO daemon_finding_evidence_old');
     await db.exec(`CREATE TABLE daemon_finding_evidence (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,6 +42,7 @@ async function migrateIntegrityHardening(db) {
     await db.exec('INSERT INTO daemon_finding_evidence SELECT * FROM daemon_finding_evidence_old');
     await db.exec('DROP TABLE daemon_finding_evidence_old');
     await db.exec('CREATE INDEX IF NOT EXISTS idx_finding_evidence_finding ON daemon_finding_evidence(finding_id, side)');
+    await require('./migrateDaemonEvidenceView').run(db);
     await db.exec('COMMIT');
   } catch (error) {
     await db.exec('ROLLBACK');

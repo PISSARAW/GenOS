@@ -127,7 +127,7 @@ function buildMemberInvoker(timeoutMs = 90000) {
     if (details.prompts?.length) extraContext.push(`POINTS DE REVUE: ${details.prompts.join('; ')}`);
     if (details.claims?.length) {
       extraContext.push('CLAIMS à évaluation:');
-      for (const c of details.claims) extraContext.push(`  - "${c.statement}"`);
+      for (const c of details.claims) extraContext.push(`  - claimId=${c.claimId}: "${c.statement}"`);
     }
     if (details.reviews?.length) {
       extraContext.push('REVISIONS existantes:');
@@ -142,6 +142,11 @@ function buildMemberInvoker(timeoutMs = 90000) {
     }
     if (details.anonymousFeedback) {
       extraContext.push(`RETOUR ANONYME: ${JSON.stringify(details.anonymousFeedback)}`);
+    }
+    if (invocation.validationErrors?.length) {
+      extraContext.push(`VOTRE RÉPONSE PRÉCÉDENTE ÉTAIT INVALIDE: ${invocation.validationErrors.join('; ')}`);
+      extraContext.push(`RÉPONSE PRÉCÉDENTE: ${JSON.stringify(invocation.previousResponse || {}).slice(0, 12000)}`);
+      extraContext.push('Corrigez uniquement la structure ou les références invalides. Ne créez pas de preuve ni de claimId.');
     }
 
     const prompt = [
@@ -161,7 +166,7 @@ function buildMemberInvoker(timeoutMs = 90000) {
       'Structure attendue selon la phase:',
       '  SEALED_JUDGMENT: {"position":"...","claims":[{"statement":"..."}],"assumptions":["..."],"evidenceRefs":["..."],"unknowns":["..."],"abstentions":[],"confidence":0.0-1.0}',
       '  REVIEW: {"summary":"...","objections":["..."],"arguments":[{"relation":"SUPPORT|ATTACK|REFUTE|UNDERCUT|QUALIFY|COUNTEREXAMPLE","argument":{"statement":"..."}}],"dissent":[],"counterexamples":["..."]}. Ne créez pas de claimId; le système associe chaque argument au claim assigné.',
-      '  REVISION: {"changedClaims":["..."],"previousPosition":"...","newPosition":"...","reasonCodes":["NEW_EVIDENCE|BETTER_ARGUMENT|SELF_CORRECTION|MAJORITY_SIGNAL|COUNTEREXAMPLE"],"evidenceRefs":["..."]}'
+      '  REVISION: {"changedClaims":["claimId fourni ci-dessus"],"previousPosition":"...","newPosition":"...","reasonCodes":["NEW_EVIDENCE|BETTER_ARGUMENT|SELF_CORRECTION|MAJORITY_SIGNAL|COUNTEREXAMPLE"],"evidenceRefs":["..."]}. Utilisez uniquement les claimId fournis; si aucune révision n’est justifiée, changedClaims et reasonCodes doivent être [].'
     ].filter(Boolean).join('\n');
 
     try {
@@ -187,6 +192,9 @@ function buildMemberInvoker(timeoutMs = 90000) {
       }
 
       const payload = await response.json();
+      await invocation.onProviderObserved?.({
+        memberId: member.memberId, provider: 'ollama', model: payload.model || null
+      });
       const text = payload.message?.content || payload.response || payload.content || '';
 
       if (!text.trim()) throw new Error('Ollama returned an empty response');
@@ -267,24 +275,25 @@ function buildSummary(level, community, result, finalJudgment, events, elapsedMs
     || agg.outcome === 'TYPE_SPECIFIC_PLURALISM';
 
   const hasVeto = (judgment.openCriticalDissentIds || []).length > 0
-    || (judgment.dissentGates || []).filter(g => g.promotion !== 'ALLOWED').length > 0
-    || (judgment.promotionGate && judgment.promotionGate.status !== 'ALLOWED');
+    || (judgment.dissentGates || []).some(g => g.promotion !== 'ALLOWED');
 
   const commitments = events.filter(e => e.type === 'JUDGMENT_COMMITTED');
   const claimEvents = events.filter(e => e.type === 'CLAIM_PUBLISHED');
   const argumentEvents = events.filter(e => e.type === 'ARGUMENT_ADDED');
+  const modelEvents = events.filter(e => e.type === 'MODEL_PROVIDER_OBSERVED');
   const dissentEvents = events.filter(e => e.type === 'DISSENT_RECORDED');
   const revisionEvents = events.filter(e => e.type === 'BELIEF_REVISED');
   const terminal = typeof judgment.status === 'string' && judgment.status !== 'IN_PROGRESS';
   const error = judgment.error || (commitments.length === 0 ? 'No member judgments committed'
-    : !terminal ? 'No terminal judgment persisted' : null);
+    : modelEvents.length === 0 ? 'No observed model provenance'
+      : !terminal ? 'No terminal judgment persisted' : null);
 
   return {
     niveau: level.id,
     mission: level.mission,
     questionType: level.questionType,
     variant: level.variant,
-    penalite: judgment.promotionGate?.status === 'BLOCKED' ? 'MINORITY_VETO' : null,
+    penalite: hasVeto ? 'MINORITY_VETO' : null,
     sessionId: community?.communityId || 'ERREUR',
     phaseFinale: community?.phase || 'ERREUR',
     membresActifs: activeMembers,
@@ -292,6 +301,7 @@ function buildSummary(level, community, result, finalJudgment, events, elapsedMs
     jugementsEngagees: commitments.length,
     claimsPubliques: claimEvents.length,
     argumentsPublies: argumentEvents.length,
+    modelesObserves: [...new Set(modelEvents.map((event) => `${event.payload.provider}:${event.payload.model || 'unknown'}`))],
     revisionsDeCroyance: revisionEvents.length,
     dissentEntrees: dissentEvents.length,
     dissentPreserves: (judgment.preservedDissentIds || []).length,
@@ -373,6 +383,9 @@ async function runLevel(level, db) {
       if (session.status !== 'ACTIVE') break;
     } catch (err) {
       console.error(`${prefix} Round ${roundCount} ERREUR: ${err.message} (${err.code || 'no-code'})`);
+      if (err.details?.validationErrors?.length) {
+        console.error(`${prefix} Validation: ${err.details.validationErrors.join('; ')}`);
+      }
       if (err.code === 'BIOCENOSE_RUNTIME_STEP_BLOCKED') { stepFailure = err.message; break; }
       if (r < maxRounds - 1) continue;
       throw err;

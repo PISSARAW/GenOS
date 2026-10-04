@@ -82,7 +82,7 @@ fn kernel_step_applique_la_gouvernance_sans_fabriquer_de_commit() {
     assert!(kernel.state.history.agent_git_head.is_none());
     assert_eq!(kernel.state.resilience.checkpoints.len(), 1);
     assert!(kernel.state.history.recent_successes.is_empty());
-    let report = kernel.mission_report(false);
+    let report = kernel.mission_report();
     assert_eq!(report.objective, "corriger auth");
 }
 

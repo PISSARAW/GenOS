@@ -126,6 +126,7 @@ async function runSynapticVesiclesAndExosomes() {
   // D. Absorb Exosomes during Sleep Cycle
   const db = await getDatabase();
   const cycleResult = await vectorMemory.sleepCycle(db);
+  assert.equal(cycleResult.success, true, (cycleResult.errors || []).join('; ') || cycleResult.error);
   assert.ok(cycleResult.exosomesAbsorbed > 0, 'Sleep cycle must absorb deposited exosomes');
   assert.ok(cycleResult.engramsStored > 0, 'Absorbed exosome engrams must be stored in memory');
 
