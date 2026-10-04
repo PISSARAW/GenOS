@@ -47,7 +47,7 @@ async function checkHeadFreshness(db, ctx) {
     description: `territory head advanced from ${ctx.finding.headSha.slice(0, 8)} — knowledge requires revalidation`,
     provenanceRecordId: `daemon-territory:${ctx.finding.territoryId}`
   });
-  await findingService.markStaleOnHead(db, { territoryId: ctx.finding.territoryId, headSha: ctx.territory.headSha });
+  await findingService.transitionFinding(db, { id: ctx.finding.id, toStatus: 'STALE' });
   return { name: 'head-moved', transition: 'STALE' };
 }
 
@@ -164,9 +164,12 @@ async function ruleMissingSiblingTest(db, ctx) {
 
 async function scopedEvents(db, ctx, types) {
   const createdAt = Date.parse(ctx.finding.createdAt || '') || 0;
+  const now = Date.now();
+  const maxWindowMs = 30 * 24 * 60 * 60 * 1000;
+  const windowMs = Math.min(maxWindowMs, Math.max(60000, now - createdAt + 60000));
   const events = await eventLog.listRecentEvents(db, {
     territoryId: ctx.finding.territoryId,
-    windowMs: Math.max(60000, Date.now() - createdAt + 60000),
+    windowMs,
     types
   });
   return events.filter((event) => {
@@ -189,4 +192,15 @@ const RULES = {
   'missing-sibling-test': ruleMissingSiblingTest
 };
 
-module.exports = { verifyFinding };
+let customRules = {};
+
+function registerRule(detectorId, ruleFn) {
+  if (typeof ruleFn === 'function') customRules[detectorId] = ruleFn;
+}
+
+async function applyDetectorRule(db, ctx) {
+  const rule = customRules[ctx.finding.detectorId] || RULES[ctx.finding.detectorId] || ruleNoop;
+  return rule(db, ctx);
+}
+
+module.exports = { verifyFinding, registerRule };
