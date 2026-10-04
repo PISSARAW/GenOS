@@ -100,10 +100,17 @@ function withDispatchRuntime(members, request = {}) {
       spentBudget: Math.max(0, Number(request.recursiveSpentBudget) || 0) },
     worldModelAssignments: members.map((member) => ({ worldNumber: member.worldNumber,
       modelTier: member.modelTier, localModel: member.localModel || null })),
+    supervisionTimeoutMs: supervisionTimeoutMs(request),
     adaptiveBudgetConfig: request.trinity_adaptive_budget || request.trinityAdaptiveBudget || null,
     qdConfig: request.trinity_qd || request.trinityQD || null,
     workerExecutionPolicy: request.executionPolicy || null
   };
+}
+
+function supervisionTimeoutMs(request = {}) {
+  const requested = Number(request.trinitySupervisorTimeoutMs ?? request.timeoutMs);
+  if (!Number.isFinite(requested) || requested <= 0) return 180000;
+  return Math.min(600000, Math.max(180000, requested));
 }
 
 async function persistDispatchConfig(db, config) {
@@ -128,4 +135,4 @@ async function launchWorlds(input) {
   return accepted;
 }
 
-module.exports = { handle };
+module.exports = { handle, withDispatchRuntime, supervisionTimeoutMs };

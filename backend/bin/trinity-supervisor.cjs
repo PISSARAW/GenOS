@@ -24,7 +24,8 @@ function pause(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForWorkers(db, missionId, expectedWorlds, timeoutMs = 180000) {
+async function waitForWorkers(db, config) {
+  const { missionId, expectedWorlds, timeoutMs = 180000 } = config;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const rows = await db.all(
@@ -56,7 +57,11 @@ async function supervise(input) {
   const db = await getDatabase();
   try {
     const configuration = await loadDispatchConfig(db, input.missionId);
-    await waitForWorkers(db, input.missionId, expectedWorlds(configuration.variantSelection));
+    await waitForWorkers(db, {
+      missionId: input.missionId,
+      expectedWorlds: expectedWorlds(configuration.variantSelection),
+      timeoutMs: configuration.variantSelection.supervisionTimeoutMs
+    });
     const reports = await trinityBarrier.buildWorldReportsFromMission(db, input.missionId);
     const result = await compareMission(db, { ...input, ...configuration }, reports);
     await trinityService.recordWorldComparison(db, {
@@ -113,11 +118,6 @@ async function compareMission(db, input, reports) {
   result = adversarial.enforceVariantGate(result, review);
   result = enforceAdaptiveGate(result, adaptiveReview);
   result = enforceRecursiveGate(result, recursiveReview);
-  if (review) result.comparativeAnalysis.adversarialReview = review;
-  if (temporalReview) result.comparativeAnalysis.temporalReview = temporalReview;
-  if (recursiveReview) result.comparativeAnalysis.recursiveExecution = recursiveReview;
-  if (adaptiveReview) result.comparativeAnalysis.adaptiveBudgetExecution = adaptiveReview;
-  if (qdReview) result.comparativeAnalysis.qualityDiversityReplicas = qdReview;
   const variantExecution = variantRuntime.run({ selection: input.variantSelection, reports: worlds });
   if (Object.keys(variantExecution.executions).length) result.comparativeAnalysis.variantExecution = variantExecution;
   result.jury = await jury.evaluate({
@@ -127,8 +127,7 @@ async function compareMission(db, input, reports) {
       || input.variantSelection?.experimentalDesign?.interactionPolicy === 'jury_deliberation',
     deterministicWinner: result.selectedWorld
   });
-  result.comparativeAnalysis.crossExamination = crossExamination.summary(examined);
-  result.comparativeAnalysis.claimGraph = graph;
+  attachComparisonEvidence(result, { review, temporalReview, recursiveReview, adaptiveReview, qdReview, examined, graph });
   if (result.jury.status !== 'unavailable') {
     await jury.recordCalibration({ db, experimentId: input.missionId, juryResult: result.jury,
       deterministicOutcome: { selectedWorld: result.selectedWorld } });
@@ -137,30 +136,85 @@ async function compareMission(db, input, reports) {
     adaptiveReview, qdReview, variantExecution, review });
 }
 
+function attachComparisonEvidence(result, context) {
+  const { review, temporalReview, recursiveReview, adaptiveReview, qdReview, examined, graph } = context;
+  const entries = [
+    ['adversarialReview', review], ['temporalReview', temporalReview],
+    ['recursiveExecution', recursiveReview], ['adaptiveBudgetExecution', adaptiveReview],
+    ['qualityDiversityReplicas', qdReview]
+  ];
+  for (const [key, value] of entries) {
+    if (value) result.comparativeAnalysis[key] = value;
+  }
+  result.comparativeAnalysis.crossExamination = crossExamination.summary(examined);
+  result.comparativeAnalysis.claimGraph = graph;
+}
+
 function enforceRequiredVariantGates(context) {
-  const { result, input } = context;
-  const design = input.variantSelection?.experimentalDesign || {};
-  const required = input.variantSelection?.requiredAdapters || [];
-  const executions = context.variantExecution?.executions || {};
-  const failures = [];
-  addExecutionFailure(failures, required, 'factorial_grid_executor', executions.factorial);
-  addExecutionFailure(failures, required, 'counterfactual_fork_executor', executions.counterfactual);
-  addExecutionFailure(failures, required, 'oracular_executor', executions.oracle);
-  addExecutionFailure(failures, required, 'oracle_predictor', executions.oracle);
-  addExecutionFailure(failures, required, 'exploratory_novelty_executor', executions.qualityDiversity);
-  addExecutionFailure(failures, required, 'novelty_archive', executions.qualityDiversity);
-  addExecutionFailure(failures, required, 'qd_replica_scheduler', executions.qualityDiversity);
-  addExecutionFailure(failures, required, 'multi_objective_scalarizer', executions.scalarizedObjectives);
-  if (required.includes('diversity_planner') && input.variantSelection?.diversity?.passes !== true) failures.push('diversity_plan_incomplete');
-  if (required.includes('pareto_objective_assigner') && !result.comparativeAnalysis?.pareto) failures.push('pareto_comparison_missing');
-  if (temporalRequired(design) && context.temporalReview?.evidenceStatus !== 'verified') failures.push('temporal_evidence_incomplete');
-  if (recursiveRequired(design) && !['verified', 'no_subproblem'].includes(context.recursiveReview?.status)) failures.push('recursive_execution_incomplete');
-  if (design.replicationPolicy === 'adaptive_budget_fixed_replicas' && context.adaptiveReview?.status !== 'executed') failures.push('adaptive_continuation_incomplete');
-  if (design.replicationPolicy === 'quality_diversity_replicas' && context.qdReview?.status !== 'executed') failures.push('qd_replica_execution_incomplete');
-  if (juryRequired(design) && context.result.jury?.status !== 'advisory') failures.push('jury_deliberation_incomplete');
+  const { result } = context;
+  const failures = [...requiredAdapterFailures(context), ...requiredPolicyFailures(context)];
   if (!failures.length) return result;
   return { ...result, canMerge: false, outcome: 'ESCALATE_EXPERIMENT', selectedWorld: null,
     mergedEvidence: null, reason: `required_variant_execution_incomplete:${failures.join(',')}` };
+}
+
+function requiredAdapterFailures(context) {
+  const failures = [];
+  const required = context.input.variantSelection?.requiredAdapters || [];
+  const executions = context.variantExecution?.executions || {};
+  collectAdapterFailures({ failures, required, executions });
+  return failures;
+}
+
+function requiredPolicyFailures(context) {
+  return [missingDiversity(context), missingPareto(context), missingTemporal(context),
+    missingRecursive(context), missingAdaptive(context), missingQualityDiversity(context),
+    missingJury(context)].filter(Boolean);
+}
+
+function missingDiversity(context) {
+  const { input } = context;
+  return hasAdapter(context, 'diversity_planner') && input.variantSelection?.diversity?.passes !== true
+    ? 'diversity_plan_incomplete' : null;
+}
+
+function missingPareto(context) {
+  return hasAdapter(context, 'pareto_objective_assigner') && !context.result.comparativeAnalysis?.pareto
+    ? 'pareto_comparison_missing' : null;
+}
+
+function missingTemporal(context) {
+  const design = context.input.variantSelection?.experimentalDesign || {};
+  return temporalRequired(design) && context.temporalReview?.evidenceStatus !== 'verified'
+    ? 'temporal_evidence_incomplete' : null;
+}
+
+function missingRecursive(context) {
+  const design = context.input.variantSelection?.experimentalDesign || {};
+  return recursiveRequired(design) && !['verified', 'no_subproblem'].includes(context.recursiveReview?.status)
+    ? 'recursive_execution_incomplete' : null;
+}
+
+function missingAdaptive(context) {
+  const policy = context.input.variantSelection?.experimentalDesign?.replicationPolicy;
+  return policy === 'adaptive_budget_fixed_replicas' && context.adaptiveReview?.status !== 'executed'
+    ? 'adaptive_continuation_incomplete' : null;
+}
+
+function missingQualityDiversity(context) {
+  const policy = context.input.variantSelection?.experimentalDesign?.replicationPolicy;
+  return policy === 'quality_diversity_replicas' && context.qdReview?.status !== 'executed'
+    ? 'qd_replica_execution_incomplete' : null;
+}
+
+function missingJury(context) {
+  const design = context.input.variantSelection?.experimentalDesign || {};
+  return juryRequired(design) && context.result.jury?.status !== 'advisory'
+    ? 'jury_deliberation_incomplete' : null;
+}
+
+function hasAdapter(context, adapter) {
+  return (context.input.variantSelection?.requiredAdapters || []).includes(adapter);
 }
 
 async function runQualityDiversityReview(context) {
@@ -194,8 +248,19 @@ function qdTargets(initial, config = {}) {
   return niches;
 }
 
-function addExecutionFailure(failures, required, adapter, execution) {
-  if (required.includes(adapter) && execution?.status !== 'executed') failures.push(`${adapter}_incomplete`);
+function collectAdapterFailures(context) {
+  const { failures, required, executions } = context;
+  const checks = [
+    ['factorial_grid_executor', executions.factorial],
+    ['counterfactual_fork_executor', executions.counterfactual],
+    ['oracular_executor', executions.oracle], ['oracle_predictor', executions.oracle],
+    ['exploratory_novelty_executor', executions.qualityDiversity],
+    ['novelty_archive', executions.qualityDiversity], ['qd_replica_scheduler', executions.qualityDiversity],
+    ['multi_objective_scalarizer', executions.scalarizedObjectives]
+  ];
+  for (const [adapter, execution] of checks) {
+    if (required.includes(adapter) && execution?.status !== 'executed') failures.push(`${adapter}_incomplete`);
+  }
 }
 
 function temporalRequired(design) {
@@ -234,7 +299,7 @@ async function runRecursiveReview(context) {
   const { input, db, worlds } = context;
   const selection = input.variantSelection || {};
   const design = selection.experimentalDesign || {};
-  if (design.worldTopology !== 'recursive_nesting' && design.hypothesisPolicy !== 'recursive_decomposition') return null;
+  if (!recursiveDesignRequired(design)) return null;
   const parent = worlds.find((world) => world.report?.claims?.length || world.report?.uncertainties?.length);
   if (!parent) return { status: 'no_subproblem', result: null };
   try {
@@ -250,6 +315,10 @@ async function runRecursiveReview(context) {
   } catch (error) {
     return { status: 'unavailable', reason: error.code || 'nested_dispatch_failed' };
   }
+}
+
+function recursiveDesignRequired(design) {
+  return design.worldTopology === 'recursive_nesting' || design.hypothesisPolicy === 'recursive_decomposition';
 }
 
 function enforceRecursiveGate(result, review) {
@@ -272,3 +341,5 @@ if (input.missionId && input.orchestratorId) supervise(input).catch((error) => {
   console.error(`[trinity-supervisor] ${error.stack || error.message}`);
   process.exitCode = 1;
 });
+
+module.exports = { waitForWorkers, expectedWorlds };

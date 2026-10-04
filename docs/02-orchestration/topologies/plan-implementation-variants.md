@@ -71,6 +71,10 @@ topologies avant de promouvoir leur maturité.
   une mission nécessitant cinq domaines passe avec cinq slots disponibles et échoue de façon
   explicite avec quatre. Cette correction ferme un défaut de capacité, sans qualifier à elle
   seule les autres variants A-Team.
+- Trinity transmet au superviseur le délai de mission, borné entre 180 et 600 secondes; un
+  délai long explicitement demandé ne fait donc plus expirer la comparaison à 180 secondes.
+  Le test `test_trinity_supervisor_timeout.js` couvre la valeur par défaut, le délai demandé,
+  sa borne maximale et les tailles de chambre standard/factorielle.
 
 ## Plan par vagues
 
