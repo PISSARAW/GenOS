@@ -137,6 +137,7 @@ const suites = {
     ['durable cognitive escalation', 'test_signal_cognitive_jobs.js'],
     ['scoped receptor registry', 'test_signal_receptor_persistence.js'],
     ['scoped signal inbox and ACK', 'test_signal_delivery_api_contract.js'],
+    ['scoped signal HTTP routes', 'test_signal_delivery_http.js'],
     ['truthful receptor outcomes', 'test_signal_truthful_outcomes.js'],
     ['adaptive handler registries', 'test_adaptive_state_live_persistence.js'],
     ['worker wake rearm', 'test_signal_wake_rearm.js'],
