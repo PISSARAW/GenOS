@@ -29,6 +29,12 @@ function buildDefaultFunctionalInvariants(mission) {
     label: 'mission_outcome_success',
     verifier: { type: 'mission.outcome_success' }
   });
+  invariants.push({
+    id: 'completion_contract_configured',
+    kind: 'epistemic',
+    label: 'completion_contract_configured',
+    verifier: { type: 'context.flag', flag: 'completionContractConfigured' }
+  });
   if (goal.includes('auth') || goal.includes('authentifi')) {
     invariants.push({
       id: 'authentication_works',
@@ -80,6 +86,15 @@ function contractInvariants(mission) {
   const contract = mission.completionContract;
   if (contract && Array.isArray(contract.invariants) && contract.invariants.length > 0) {
     return contract.invariants.map((invariant, index) => ({
+      id: invariant.id || invariant.label || `completion_invariant_${index + 1}`,
+      kind: invariant.kind,
+      label: invariant.label || invariant.id,
+      verifier: invariant.verifier,
+      check: typeof invariant.check === 'function' ? invariant.check : undefined
+    }));
+  }
+  if (Array.isArray(mission.invariants) && mission.invariants.length > 0) {
+    return mission.invariants.map((invariant, index) => ({
       id: invariant.id || invariant.label || `completion_invariant_${index + 1}`,
       kind: invariant.kind,
       label: invariant.label || invariant.id,

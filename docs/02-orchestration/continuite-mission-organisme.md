@@ -233,9 +233,12 @@ viable → QUIESCENCE | starved → CRYPTOBIOSE | irrecoverable → APOPTOSE
 - **Preuves runtime** : collecte depuis dossiers workers, strategy_execution_runs,
   telemetry_events — couvert par `backend/tests/test_mission_evidence.js` (10 tests).
 - **Contrat de complétion** : `genome.completionContract` est la source
-  d'autorité des invariants et des preuves exigées ; les heuristiques sur le
-  prompt ne sont qu'un repli de développement. Le contrat est accepté depuis
-  la requête MCP (`completionContract`).
+  d'autorité des invariants et des preuves exigées ; les invariants explicites
+  de la mission sont également évalués. Les heuristiques sur le prompt ne sont
+  qu'un repli de développement. Sans invariant ou preuve de complétion explicite,
+  le repli échoue fermé : le statut terminé des agents ne suffit pas à autoriser
+  `MISSION_COMPLETED`. Le contrat est accepté depuis la requête MCP
+  (`completionContract`).
 - **Verifiers déclaratifs** : les invariants persistent comme des références
   au catalogue (`context.flag`, `context.list_empty`, `evidence.present`,
   `mission.outcome_success`…), jamais comme des closures JS. Le contrat
