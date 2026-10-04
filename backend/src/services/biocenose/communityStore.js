@@ -95,7 +95,7 @@ async function insertMembers(db, session) {
     revision += 1;
     await insertEvent(db, {
       communityId: session.communityId, revision, type: 'MEMBER_RECRUITED',
-      actorId: member.memberId, payload: { role: member.role }
+      actorId: member.memberId, payload: { role: member.role, missionsServed: Math.max(0, Number(member.attributes.missionsServed) || 0) }
     });
   }
   return revision;

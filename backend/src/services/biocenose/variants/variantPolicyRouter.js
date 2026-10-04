@@ -10,7 +10,7 @@ const POLICY_DEFINITIONS = Object.freeze({
   byzantine_resilient_community: policy({ disclosure: 'sealed', review: 'provenance_first', aggregation: 'verified_evidence_first', dissent: 'counterexample_veto', quarantineAware: true }),
   minority_preserving_jury: policy({ disclosure: 'sealed', review: 'specialized', aggregation: 'evidence_first', dissent: 'preserve_all', preserveAllDissent: true }),
   representative_community: policy({ disclosure: 'sealed', review: 'representative_panel', aggregation: 'weighted_distribution', dissent: 'preserve_minorities', requireSamplingWeights: true }),
-  persistent_community: policy({ disclosure: 'sealed', review: 'longitudinal', aggregation: 'calibrated_distribution', dissent: 'preserve_history', executionLevel: 'PARTIAL' }),
+  persistent_community: policy({ disclosure: 'sealed', review: 'longitudinal', aggregation: 'calibrated_distribution', dissent: 'preserve_history' }),
   human_ai_deliberation: policy({ disclosure: 'sealed', review: 'human_and_ai', aggregation: 'pluralism_with_human_judgment', dissent: 'preserve_all', requireHumanReview: true, preserveAllDissent: true }),
   hybrid_oracle_community: policy({ disclosure: 'sealed', review: 'specialized', aggregation: 'deterministic_oracle_first', dissent: 'counterexample_veto', requireDeterministicVerifier: true })
 });

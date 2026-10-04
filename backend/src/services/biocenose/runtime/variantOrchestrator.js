@@ -84,14 +84,16 @@ async function persistentContext(input) {
       const profile = reputation.domainReputation({ memberId: member.memberId, records: historical });
       const domainRecord = profile.domains.find((item) => item.domain === domain);
       const lastMission = Number(historical.at(-1)?.missionIndex || 0);
-      const elapsed = Math.max(0, (Number(input.missionIndex) || lastMission) - lastMission);
+      const currentMission = Number(input.missionIndex) || Number(member.missionsServed) || lastMission;
+      const elapsed = Math.max(0, currentMission - lastMission);
       const decayed = reputation.decayReputation({ reputation: domainRecord?.reputation,
         periodsElapsed: elapsed, halfLifeMissions: input.reputationHalfLifeMissions });
       const decision = reputation.membershipDecision({ reputation: decayed.decayedReputation,
         sampleCount: domainRecord?.sampleCount || 0 });
       records.push({ memberId: member.memberId, domain, sampleCount: domainRecord?.sampleCount || 0,
         reputation: domainRecord?.reputation ?? null, decayedReputation: decayed.decayedReputation,
-        periodsElapsed: elapsed, decision: decision.decision, reason: decision.reason });
+        periodsElapsed: elapsed, missionIndex: currentMission,
+        decision: decision.decision, reason: decision.reason });
     }
   }
   const tenures = input.session.members.map((member) => ({ memberId: member.memberId,

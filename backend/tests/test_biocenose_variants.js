@@ -13,7 +13,7 @@ const VARIANT_IDS = ['epistemic_jury', 'delphi_community', 'adversarial_assembly
   'argumentation_community', 'polycentric_council', 'byzantine_resilient_community', 'minority_preserving_jury',
   'representative_community', 'persistent_community', 'human_ai_deliberation', 'hybrid_oracle_community'];
 
-const PARTIAL_VARIANTS = new Set(['persistent_community']);
+const PARTIAL_VARIANTS = new Set();
 
 function testVariantSurface() {
   assert.deepEqual(Object.keys(router.POLICIES).sort(), [...VARIANT_IDS].sort());
