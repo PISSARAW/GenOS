@@ -1,6 +1,6 @@
 # Protocole d'exécution des missions Holobionte
 
-- **Statut** : protocole reproductible proposé; campagne complète non exécutée
+- **Statut** : runner de mission variant exécutable; campagne complète non exécutée
 - **Objet** : comparer topologies et workers sur les missions discriminantes et archiver les preuves
 - **Référence** : le commit V3 est inscrit dans chaque campagne
 - **Date** : 2026-10-04
@@ -254,11 +254,11 @@ asynchrone. Capacités documentées : buffer 10 000, file persistence par défau
 4 096, compteurs `droppedEvents`/`persistenceErrors`. `telemetry_events` stocke
 event/session/agent/type/action/detail/payload/severity/scope/date.
 
-Noms proposés au harnais : `HOLO_RUN_CREATED`, `HOLO_PREFLIGHT_PASSED`,
-`HOLO_VARIANT_SELECTED`, `HOLO_WORKER_STARTED`, `HOLO_MESSAGE_SENT`,
-`HOLO_TOOL_AUTHORIZED`, `HOLO_TOOL_EXECUTED`, `HOLO_EVIDENCE_RECORDED`,
-`HOLO_NOSOLOGY_CLASSIFIED`, `HOLO_VERIFICATION_COMPLETED`, `HOLO_RUN_TERMINAL`.
-Ce sont des conventions, pas la preuve que chaque producteur existe.
+Le runner de mission variant émet effectivement `HOLO_RUN_CREATED`,
+`HOLO_VARIANT_SELECTED`, `HOLO_VERIFICATION_COMPLETED` et `HOLO_RUN_TERMINAL`.
+Les événements workers, messages, outils, preuves et nosologie nécessitent encore
+des producteurs raccordés à leurs services réels; leurs noms ne sont pas émis par
+ce runner. La télémétrie détaillée des outils et communications reste à relier.
 
 Mesures par cellule :
 
@@ -295,10 +295,32 @@ node backend/tests/test_holobiont_variant_runtime_contracts.js
 node backend/tests/test_holobiont_longitudinal_benchmark.js
 ```
 
-Ces suites testent des contrats/runners, pas la campagne live. Le runner longitudinal
+Le runner persistant d'un variant se lance avec un adaptateur JavaScript local :
+
+```powershell
+node backend/bin/genos-holobionte-mission.cjs backend/campaign-adapters/mission.cjs
+```
+
+Le contrôle sans écriture s'exécute avec `--preflight` après le chemin de l'adaptateur.
+Il vérifie les champs de mission, la compatibilité du variant, les callbacks de
+preuve/verdict, le nombre de vérificateurs et le budget. Le lancement normal refuse
+également de commencer si ce précontrôle bloque.
+
+L'adaptateur exporte `createMissionInput()` avec mission, host, `variantId`,
+`variantOperations`, budget, adaptateurs réels et vérificateurs. Le runner écrit dans
+la DB GenOS configurée, transmet un signal d'annulation aux opérations, persiste les
+événements du Host et refuse `PASS` sans deux vérificateurs distincts, assertions
+réussies et preuves. Un adaptateur absent, un service distant non configuré ou une
+preuve non vérifiable laisse l'essai bloqué ou inconclusif. La commande ne fabrique
+pas les reçus cloud, outil ou agent dont la mission a besoin.
+
+Les missions de worker, leurs relations, échanges et classifications nosologiques ne
+sont pas créés automatiquement par ce runner; ils doivent être fournis et reliés par
+les adaptateurs de campagne avant que ces mesures soient disponibles. Ces suites
+testent des contrats/runners, pas la campagne live. Le runner longitudinal
 reçoit un `runMission` injectable; aucun adaptateur ne lance automatiquement les
-12 prompts rouges sur 8 topologies × 19 kinds. Il faut construire/configurer ce
-harnais avant la matrice réelle. Les tests intégrés requièrent `sqlite3` et modules
+12 prompts rouges sur 8 topologies × 19 kinds ni les douze bras longitudinaux. Le
+corpus et les adaptateurs de la campagne réelle restent à fournir. Les tests intégrés requièrent `sqlite3` et modules
 natifs (`npm ci`, `npm ci --prefix backend`). Ce document n'affirme pas que la
 campagne réelle est exécutée.
 
