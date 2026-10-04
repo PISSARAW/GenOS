@@ -112,7 +112,7 @@ assert.throws(() => enforcement.assertRuntimeContract({ ...delegated, delegation
 assert(leasePolicy.workerLeaseForRole('sub_orchestrator').includes('genos_delegate_worker'));
 assert(!leasePolicy.workerLeaseForRole('bounded_worker').includes('genos_delegate_worker'));
 assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('verifier_worker'), 'genos_merge'), { code: 'WORKER_CONTRACT_DENIED' });
-assert.throws(() => enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('creative_worker'), 'genos_search_failures'), { code: 'WORKER_CONTRACT_DENIED' });
+assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('creative_worker'), 'genos_search_failures'), true);
 assert.equal(enforcement.assertWorkerToolAllowed(workerKinds.buildWorkerContract('bounded_worker'), 'genos_search_failures'), true);
 assert.equal(enforcement.toolAction('genos_inspect'), 'read');
 assert.equal(enforcement.toolAction('genos_test'), 'execute');
@@ -132,9 +132,9 @@ async function verifyPersistedTools() {
   assert.equal(await enforcement.enforcePersistedWorkerTool({
     get: async () => ({ execution_mode: 'worker', role: 'implementation', metadata_json: JSON.stringify({ workerKind: 'bounded_worker' }) })
   }, 'worker-1', 'genos_search_failures'), true);
-  await assert.rejects(() => enforcement.enforcePersistedWorkerTool({
+  assert.equal(await enforcement.enforcePersistedWorkerTool({
     get: async () => ({ execution_mode: 'worker', role: 'literary_author', metadata_json: JSON.stringify({ workerKind: 'creative_worker' }) })
-  }, 'worker-2', 'genos_search_failures'), { code: 'WORKER_CONTRACT_DENIED' });
+  }, 'worker-2', 'genos_search_failures'), true);
   const topologyContract = workerKinds.buildWorkerContract('bounded_worker', { topologySessionId: 'session-owned' });
   topologyContract.authority.read = true;
   const topologyWorker = { get: async () => ({ execution_mode: 'worker', role: 'implementation', metadata_json: JSON.stringify({

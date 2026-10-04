@@ -1,8 +1,8 @@
 # Trinity — Laboratoire Scientifique Interne de GenOS
 
-- **Statut** : Partiel ; les douze variants ont un chemin d'exécution branché au superviseur. Les contrôles de preuves restent bloquants et la campagne R3 du 2026-10-03 n'a produit aucune promotion (12/12 escalades).
+- **Statut** : Partiel ; les douze variants ont un chemin d'exécution branché au superviseur. Les contrôles de preuves restent bloquants ; la campagne R3 pré-correctifs a produit 12/12 escalades et aucune promotion, et le runtime corrigé reste à requalifier.
 - **Portée** : trois mondes pour le parcours de base ; le plan factoriel lance seize cellules, la diversité peut ajouter des réplicas et la récursion lance une mission Trinity enfant. Les reçus et gates décrits ci-dessous déterminent si chaque parcours est complet.
-- **Dernière revue** : 2026-10-03
+- **Dernière revue** : 2026-10-04
 
 > *Trinity est le protocole expérimental de GenOS pour les situations où plusieurs hypothèses, méthodes ou conceptions plausibles doivent être testées indépendamment avant qu'une décision fiable puisse être prise.*
 
@@ -13,8 +13,10 @@ Cette section décrit le comportement déterministe du runtime v1 et répond aux
 ### Variants sélectionnables
 
 `variant_id` accepte les douze identifiants du catalogue Trinity. Sans choix explicite,
-Morphogenèse retient `controlled` comme baseline. Depuis le 2026-10-03, chaque variant
-est relié au dispatch ou au superviseur et possède un contrôle de complétude. Cela signifie
+Morphogenèse sélectionne le preset compatible avec les signaux de mission et conserve son
+identité dans `selectedPreset` jusqu'au dispatch. Si aucun preset ne passe ses préconditions,
+la sélection revient à `controlled` et conserve le variant proposé comme suggestion. Depuis
+le 2026-10-03, chaque variant est relié au dispatch ou au superviseur et possède un contrôle de complétude. Cela signifie
 que son exécuteur est appelé, pas que le modèle réussira, que les preuves seront suffisantes
 ou que la mission sera promue. Une précondition absente ou un reçu incomplet garde le résultat
 en `ESCALATE_EXPERIMENT`.
@@ -34,12 +36,12 @@ mais `decisionAuthority` reste `none`. La voie principale refuse avant lancement
 composition dont les adapters requis ne sont pas disponibles ou dont le gate de diversité
 échoue (`TRINITY_ADAPTER_NOT_EXECUTABLE`, `TRINITY_DIVERSITY_BELOW_THRESHOLD`).
 
-La campagne R3 (36 agents réels, 12 missions) a observé `ESCALATE` pour les douze missions.
-Elle a notamment révélé une monoculture d'exécution malgré les familles de routes déclarées,
-un jury préconditionné mais non convoqué sur son ancien chemin, et des sorties sans les
-cellules, distributions, mesures ou lignages requis. Ces résultats restent des échecs de
-mission : le runtime ne les transforme pas en succès. Les détails et critères par variant
-sont dans la matrice ci-dessous; le protocole R3 est archivé sous
+La campagne R3 (36 agents réels, 12 missions) a précédé les corrections de câblage et a
+observé `ESCALATE` pour les douze missions. Elle a révélé une monoculture d'exécution malgré
+les familles de routes déclarées, un jury préconditionné mais non convoqué sur cet ancien
+chemin, et des sorties sans les cellules, distributions, mesures ou lignages requis. Le code
+actuel relie les runners et gates correspondants, mais aucune campagne post-correctifs n'a
+encore vérifié ces voies de bout en bout. Les détails R3 sont archivés sous
 [`artifacts/trinity-missions/round3/`](../../../artifacts/trinity-missions/round3/README.md).
 
 Les variants se composent par axe dans `experimental_design`; cet exemple réunit les
@@ -629,7 +631,7 @@ La cible opérationnelle v1 suit quatre étapes :
 3. **Phase A (Sealed)** → trois chambres indépendantes produisent des `TrinityWorld`
 4. **Phase B (Cross-Examination)** → alignement, conflit, agrégation → décision finale
 
-Chaque étape cible est traçable et auditable. La reproductibilité est mesurée et limitée aux composants capables d'appliquer un seed. Le statut « Partiel » en tête de document reflète le résultat actuel : les chemins des douze variants sont câblés, mais la campagne R3 n'a satisfait aucun de leurs critères de sortie.
+Chaque étape cible est traçable et auditable. La reproductibilité est mesurée et limitée aux composants capables d'appliquer un seed. Le statut « Partiel » en tête de document reflète le résultat actuel : les chemins des douze variants sont câblés, mais la campagne R3 pré-correctifs n'a satisfait aucun de leurs critères de sortie. Aucune campagne post-correctifs n'a encore qualifié ces chemins.
 
 *Prochaine partie : Trinity — Implémentation & Runtime (Partie 2)*
 
@@ -1346,7 +1348,7 @@ Trinity est une architecture d'orchestration multi-agents dont le principe fonda
 | 4 | **Trinity-Counterfactual** | Chaque monde raisonne sous une **prémisse contrefactuelle** différente. Le synthèse explore l'espace des possibles. | Analyse de sensibilité, planification sous incertitude. | Monde 1 = « si on a le budget », Monde 2 = « si le budget est coupé », Monde 3 = « si le double ». |
 | 5 | **Trinity-Factorial** | Plan factoriel borné sur approche × niveau de modèle × validation, deux répétitions par cellule. | Comparer ces facteurs dans les conditions du dispatch courant. | 2×2×2×2 répétitions = 16 cellules et analyse descriptive ; cela ne suffit pas à établir une causalité générale. |
 | 6 | **Trinity-Pareto** | Les mondes optimisent des **objectifs orthogonaux** (qualité, coût, latence). Le front de Pareto détermine l'élite. | Optimisation multi-objectif explicite. | Monde 1 = max qualité, Monde 2 = min latence, Monde 3 = min coût. |
-| 7 | **Trinity-Jury** | Les sorties de chaque monde sont évaluées **anonymement** par des vérificateurs indépendants qui ne connaissent pas la source. | Évaluation impartiale, détection de biais de source. | 5 juges évaluent 3 propositions anonymisées sur des critères normalisés. |
+| 7 | **Trinity-Jury** | Les sorties de chaque monde sont évaluées **anonymement** par des modèles juges consultatifs qui ne reçoivent pas l'identité du monde. | Évaluation aveugle, détection de biais de source à mesurer. | Jusqu'à 5 juges configurés évaluent les propositions ; l'avis reste consultatif et ne remplace aucun gate. |
 | 8 | **Trinity-Recursive** | Si un monde identifie la tâche comme « difficile », il peut **lancer localement une sous-Trinity** pour résoudre un sous-problème. | Décomposition hiérarchique, escalation contrôlée. | Un module de raisonnement complexe invoque une micro-Trinity pour explorer 3 sous-approches. |
 | 9 | **Trinity-Adaptive** | Le nombre de replicas et le **budget de calcul** de chaque monde évoluent **en cours d'exécution** selon les signaux intermédiaires. | Allocation dynamique des ressources. | Un monde qui progresse vite reçoit plus de tokens ; un autre stagne est réduit. |
 | 10 | **Trinity-Temporal** | Les mondes opèrent à des **horizons temporels** différents : l'un réagit vite (court terme), un autre raisonne longuement (long terme). | Tâches urgentes vs tâches de fond. | Court terme = réponse immédiate, Moyen terme = synthèse, Long terme = réflexion stratégique. |
@@ -2068,21 +2070,23 @@ Avant d'activer Trinity, répondre à cette question :
 
 Cette question filtre 80 % des cas où Trinity serait un surcoût injustifié.
 
-## 5. Benchmarks à budget égal
+## 5. Comparaison quantitative — mesures à produire
 
-Tous les systèmes ci-dessous sont évalués à **budget fixe X** (même nombre de tokens, même budget compute).
+Ce dépôt ne fournit pas de protocole, jeu d'évaluation, budget exécuté et artefacts
+reproductibles qui étayent les anciennes valeurs numériques de ce tableau. Elles ne sont
+pas des benchmarks utilisables. La campagne Trinity R3 pré-correctifs a produit 12 escalades
+sur 12 missions et ne permet pas de calculer une accuracy ou un avantage comparatif. Le runtime
+corrigé n'a pas encore été rejoué dans cette campagne.
 
-| Système | Architecture | Accuracy (moyenne) | Latence | Coût € |
-|---------|-------------|--------------------|---------|--------|
-| **LLM direct** | Appel unique | 0.62 | 1.0 s | 0.001 |
-| **LLM long reasoning** | Appel unique, chain-of-thought long | 0.68 | 3.2 s | 0.003 |
-| **Best-of-3** | 3 appels parallèles, sélection du meilleur | 0.71 | 1.5 s | 0.003 |
-| **Self-consistency** | N appels, vote majoritaire | 0.74 | 4.0 s | 0.005 |
-| **Tree-of-Thought (ToT)** | Arbre de raisonnement, best-first | 0.76 | 5.5 s | 0.008 |
-| **Multi-agent debate** | 2+ agents s'affrontent | 0.78 | 8.0 s | 0.012 |
-| **Mixture-of-Agents (MoA)** | Pool d'agents, aggregation itérative | 0.80 | 10.0 s | 0.015 |
-| **Trinity actuelle** | 3 mondes, isolation partielle | 0.85 | 12.0 s | 0.020 |
-| **Trinity ultime** | 3 mondes, isolation complète, modèles hétérogènes, verifyers déterministes | 0.91 | 15.0 s | 0.025 |
+| Système | État de mesure dans ce dépôt |
+|---------|------------------------------|
+| LLM direct, long reasoning, Best-of-3, self-consistency, ToT, débat, MoA | Pas de campagne comparable documentée ici. |
+| Trinity actuelle | Non qualifiée ; R3 pré-correctifs : 12 missions, 12 escalades, 0 merge. |
+| Trinity cible | Hypothèse de conception, non mesurée. |
+
+Toute comparaison future doit publier les tâches, versions, fournisseurs, budgets, mesures,
+seeds et sorties, et séparer les refus/échecs des résultats corrects. Voir le plan de
+qualification dans [le plan des variants](plan-implementation-variants.md).
 
 ## 6. Métriques
 

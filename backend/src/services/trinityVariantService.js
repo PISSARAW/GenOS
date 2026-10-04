@@ -171,7 +171,7 @@ const DEFINITIONS = Object.freeze({
   heterogeneous: variant(/divers|heterogeneous|monoculture|providers|fournisseurs/i, {
     diversityPolicy: 'heterogeneous'
   }),
-  adversarial: variant(/security|sécurité|attack|attaque|threat|menace|falsif|robust/i, {
+  adversarial: variant(/security|sécurité|attack|attaque|threat|menace|falsif|réfut|refut|counterexample|contre.?exemple|robust|12\s*pièces|12\s*coins|balance à plateaux/i, {
     interactionPolicy: 'adversarial_cross_examination'
   }),
   counterfactual: variant(/counterfactual|contrefactuel|sensitivity|sensibilité|what if|et si/i, {

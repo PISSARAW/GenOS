@@ -131,7 +131,7 @@ impl MultiScaleMutator {
         for locus in &loci {
             if locus.starts_with(INSTINCT_LOCUS_PREFIX) { continue; }
             if !rng.random_bool(rate.clamp(0.0, 1.0)) { continue; }
-            let roll: u32 = rng.next_u32() % 4;
+            let roll = rng.random_range(0..4);
             match roll {
                 0 => {
                     if let Some(gene) = genome.genes.get(locus) {
@@ -251,9 +251,8 @@ impl MultiScaleMutator {
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
         if !rate.is_finite() || rate <= 0.0 { return results; }
-        let mut rng2 = rng;
-        let maternal_results = Self::mutate_nucleotide(&mut genome.chromosome_maternal, rate, &mut rng2);
-        let paternal_results = Self::mutate_nucleotide(&mut genome.chromosome_paternal, rate, &mut rng2);
+        let maternal_results = Self::mutate_nucleotide(&mut genome.chromosome_maternal, rate, rng);
+        let paternal_results = Self::mutate_nucleotide(&mut genome.chromosome_paternal, rate, rng);
         let total_changed = maternal_results.len() + paternal_results.len();
         results.extend(maternal_results);
         results.extend(paternal_results);
@@ -274,25 +273,40 @@ impl MultiScaleMutator {
         rng: &mut R,
     ) -> Vec<MutationResult> {
         let mut results = Vec::new();
-        
+
         // Nucleotide mutations on chromosomes
-        let mut maternal_strand = genome.chromosome_maternal.clone();
-        let mut paternal_strand = genome.chromosome_paternal.clone();
-        results.extend(Self::mutate_nucleotide(&mut maternal_strand, rates.nucleotide, rng));
-        results.extend(Self::mutate_nucleotide(&mut paternal_strand, rates.nucleotide, rng));
-        genome.chromosome_maternal = maternal_strand;
-        genome.chromosome_paternal = paternal_strand;
+        results.extend(Self::mutate_nucleotide(&mut genome.chromosome_maternal, rates.nucleotide, rng));
+        results.extend(Self::mutate_nucleotide(&mut genome.chromosome_paternal, rates.nucleotide, rng));
+
+        // Codon mutations on chromosomes
+        if rates.codon > 0.0 {
+            results.extend(Self::mutate_codon(&mut genome.chromosome_maternal, rates.codon, rng));
+            results.extend(Self::mutate_codon(&mut genome.chromosome_paternal, rates.codon, rng));
+        }
 
         // Gene-level mutations
         results.extend(Self::mutate_gene(genome, rates.gene, rng));
 
         // Segment mutations
-        let mut maternal_strand2 = genome.chromosome_maternal.clone();
-        let mut paternal_strand2 = genome.chromosome_paternal.clone();
-        results.extend(Self::mutate_segment(&mut maternal_strand2, rates.segment, rng));
-        results.extend(Self::mutate_segment(&mut paternal_strand2, rates.segment, rng));
-        genome.chromosome_maternal = maternal_strand2;
-        genome.chromosome_paternal = paternal_strand2;
+        results.extend(Self::mutate_segment(&mut genome.chromosome_maternal, rates.segment, rng));
+        results.extend(Self::mutate_segment(&mut genome.chromosome_paternal, rates.segment, rng));
+
+        // Chromosome-level mutations
+        if rates.chromosome > 0.0 {
+            results.extend(Self::mutate_chromosome(genome, rates.chromosome, rng));
+        }
+
+        // Genome-level placeholder (no-op structural mutation yet)
+        if rates.genome > 0.0 {
+            results.push(MutationResult {
+                scale: MutationScale::Genome,
+                effect: MutationEffect::Substitution,
+                affected_locus: None,
+                positions_changed: 0,
+                successful: false,
+                description: "Genome-level mutation not yet implemented".to_string(),
+            });
+        }
 
         results
     }

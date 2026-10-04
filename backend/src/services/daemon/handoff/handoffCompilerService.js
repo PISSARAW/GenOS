@@ -19,6 +19,7 @@ const graphStore = require('../cartography/graphStore');
 const stigmergyService = require('../daemonStigmergyService');
 const phenotypeService = require('../specialization/phenotypeService');
 const relevance = require('./handoffRelevanceService');
+const feedbackService = require('./handoffFeedbackService');
 
 const MAX_BRIEF_FINDINGS = 20;
 const MAX_DEAD_ENDS = 10;
@@ -26,7 +27,8 @@ const MAX_TESTS = 50;
 const MAX_ARCHITECTURE_REFS = 20;
 
 function briefIdFor(territoryId, headSha, mission) {
-  const hash = crypto.createHash('sha256').update(`${territoryId}|${headSha}|${mission || ''}|${Date.now()}`).digest('hex').slice(0, 12);
+  const base = `${territoryId}|${headSha}|${mission || ''}`;
+  const hash = crypto.createHash('sha256').update(base).digest('hex').slice(0, 12);
   return `brief-${hash}`;
 }
 
@@ -62,7 +64,8 @@ async function graphSummary(db, territoryId) {
   const counts = await graphStore.countGraph(db, { territoryId });
   const nodes = await graphStore.listNodes(db, { territoryId });
   const symbols = (nodes || []).filter((n) => n.kind === 'symbol').length;
-  return { files: counts.nodes - symbols, symbols, edges: counts.edges };
+  const files = Math.max(0, (counts.nodes || 0) - symbols);
+  return { files, symbols, edges: counts.edges };
 }
 
 async function architectureRefs(db, territoryId) {
@@ -93,7 +96,10 @@ function stalenessWarnings(territory, findings) {
   const warnings = [];
   if (territory.state === 'STALE') warnings.push('territory head advanced since last survey — brief may be partial');
   for (const finding of findings || []) {
-    if (finding.status === 'STALE') warnings.push(`finding ${finding.id} is stale (head ${finding.head_sha.slice(0, 8)})`);
+    if (finding.status === 'STALE') {
+      const short = finding.head_sha ? finding.head_sha.slice(0, 8) : 'unknown';
+      warnings.push(`finding ${finding.id} is stale (head ${short})`);
+    }
   }
   return warnings;
 }
@@ -119,7 +125,10 @@ async function compileBrief(db, args) {
   if (!stored.found) return { compiled: false, reason: 'unknown-territory' };
   const territory = stored.territory;
   const findings = await openFindings(db, args.territoryId);
-  const ranked = relevance.rankFindings(findings, { mission: args.mission });
+  const demoted = await feedbackService.getDemotedFindings(db, args.territoryId);
+  const demotedIds = new Set(demoted.map((d) => d.findingId));
+  const filteredFindings = findings.filter((f) => !demotedIds.has(f.id));
+  const ranked = relevance.rankFindings(filteredFindings, { mission: args.mission });
   const brief = await buildBrief(db, { args, territory, ranked });
   await db.run(
     `INSERT INTO daemon_handoffs (id, territory_id, head_sha, mission, relevance_class, brief_json)
@@ -147,18 +156,19 @@ async function buildBrief(db, job) {
   const staleSections = [];
   if (territory.state === 'STALE') staleSections.push('territory-index');
   if (ranked.some((item) => item.finding.status === 'STALE')) staleSections.push('findings');
+  const summary = await graphSummary(db, args.territoryId);
   return {
     briefId,
     territoryId: args.territoryId,
     headSha: territory.headSha,
     mission: args.mission || null,
-    relevanceClass: relevance.relevanceClass(ranked),
+    relevanceClass: relevance.relevanceClass(ranked, relevance.RELEVANCE_THRESHOLDS),
     activePhenotypes: phenotypes.active,
     phenotypeFocus: phenotypes.focus,
     summary: {
-      ...(await graphSummary(db, args.territoryId)),
+      ...summary,
       openFindings: ranked.length,
-      deadEnds: (await deadEnds(db, args.territoryId)).length
+      deadEnds: deadEndRows.length
     },
     findings: findingRows,
     deadEnds: deadEndRows,

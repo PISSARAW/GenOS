@@ -1,7 +1,7 @@
 use crate::division_phases;
 use crate::seed::{default_seed, rng_from_seed};
 use genos_genome::Genome;
-use rand::RngExt;
+use rand::{Rng, RngExt};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
@@ -184,82 +184,68 @@ impl CellDivision {
     pub const DEFAULT_HAYFLICK_LIMIT: u32 = 50;
 
     pub fn budding(mother: &Genome, daughter_volume: f64) -> Result<(Genome, Genome), String> {
-        let result = Self::budding_with_limit(
-            mother,
-            daughter_volume,
-            (mother.bud_scars.len() as u32, mother.hayflick_limit),
-        )?;
+        let result = Self::budding_with_limit(mother, daughter_volume)?;
         Ok((result.mother, result.daughter))
     }
 
     pub fn budding_with_limit(
         mother: &Genome,
         daughter_volume: f64,
-        limits: (u32, u32)
     ) -> Result<BuddingResult, String> {
-        let (current_scars, hayflick_limit) = limits;
-        Self::budding_with_limit_and_mutation(mother, daughter_volume, (current_scars, hayflick_limit, 0.0))
+        Self::budding_with_limit_and_mutation(mother, daughter_volume, 0.0)
     }
 
     pub fn budding_with_limit_and_mutation(
         mother: &Genome,
         daughter_volume: f64,
-        params: (u32, u32, f64)
+        mutation_rate: f64,
     ) -> Result<BuddingResult, String> {
-        let (current_scars, hayflick_limit, mutation_rate) = params;
         let seed = default_seed(
             &mother.genome_id().to_string(),
-            &format!("budding_mutation:{daughter_volume:.6}:{current_scars}:{hayflick_limit}:{mutation_rate:.6}"),
+            &format!("budding_mutation:{daughter_volume:.6}:{mutation_rate:.6}"),
         );
-        Self::budding_with_limit_and_mutation_seeded(mother, daughter_volume, (current_scars, hayflick_limit, mutation_rate, &seed))
+        Self::budding_with_limit_and_mutation_seeded(mother, daughter_volume, (mutation_rate, &seed))
     }
 
     pub fn budding_with_limit_and_mutation_seeded(
         mother: &Genome,
         daughter_volume: f64,
-        params: (u32, u32, f64, &str)
+        params: (f64, &str)
     ) -> Result<BuddingResult, String> {
-        let (current_scars, hayflick_limit, mutation_rate, seed) = params;
+        let (mutation_rate, seed) = params;
         if daughter_volume <= 0.0 || daughter_volume >= 1.0 {
             return Err("Daughter volume must be between 0 and 1".to_string());
         }
         if !(0.0..=1.0).contains(&mutation_rate) {
             return Err("Mutation rate must be between 0 and 1".to_string());
         }
-        if current_scars >= hayflick_limit {
+        if !mother.can_replicate() {
             return Err(format!(
-                "Hayflick limit reached: cell has accumulated {current_scars} bud scars (limit: {hayflick_limit})"
+                "Hayflick limit reached: cell has accumulated {} bud scars (limit: {})",
+                mother.bud_scars.len(), mother.hayflick_limit
             ));
         }
 
         let mut daughter = mother.derive_child();
         let mut parent = mother.clone();
-        let _ = parent.add_bud_scar(daughter.genome_id());
-        parent.hayflick_limit = hayflick_limit;
+        parent.add_bud_scar(daughter.genome_id())?;
 
-        let new_scars = parent.bud_scars.len().max(current_scars as usize + 1) as u32;
-        let is_senescent = new_scars >= hayflick_limit;
-
-        parent.insert_gene(genos_genome::Gene::new("bud_scars", &new_scars.to_string()));
-        parent.insert_gene(genos_genome::Gene::new("hayflick_limit", &hayflick_limit.to_string()));
-        parent.insert_gene(genos_genome::Gene::new("is_senescent", &is_senescent.to_string()));
+        let new_scars = parent.bud_scars.len() as u32;
+        let is_senescent = new_scars >= parent.hayflick_limit;
+        let hayflick_limit = parent.hayflick_limit;
 
         if mutation_rate > 0.0 {
-            mutate_budding_daughter(&mut daughter, (mother, daughter_volume, current_scars, hayflick_limit, mutation_rate, seed));
+            let mut rng = rng_from_seed(seed);
+            mutate_budding_daughter(&mut daughter, mutation_rate, &mut rng);
         }
 
         for gene in daughter.genes.values_mut() {
             gene.expression_volume = (gene.expression_volume * daughter_volume).clamp(0.01, 1.0);
         }
 
-        let daughter_limit = (hayflick_limit / 2).max(1);
+        let daughter_limit = (parent.hayflick_limit / 2).max(1);
         daughter.hayflick_limit = daughter_limit;
         daughter.bud_scars.clear();
-        daughter.insert_gene(genos_genome::Gene::new("lineage_mode", "ephemeral_bud"));
-        daughter.insert_gene(genos_genome::Gene::new("daughter_volume", &daughter_volume.to_string()));
-        daughter.insert_gene(genos_genome::Gene::new("bud_scars", "0"));
-        daughter.insert_gene(genos_genome::Gene::new("hayflick_limit", &daughter_limit.to_string()));
-        daughter.insert_gene(genos_genome::Gene::new("is_senescent", "false"));
 
         Ok(BuddingResult {
             mother: parent,
@@ -341,17 +327,16 @@ fn mutate_child_dna<R: rand::Rng + ?Sized>(child: &mut Genome, mutation_rate: f6
     }
 }
 
-fn mutate_budding_daughter(
+fn mutate_budding_daughter<R: rand::RngExt + ?Sized>(
     daughter: &mut Genome,
-    opts: (&Genome, f64, u32, u32, f64, &str)
+    mutation_rate: f64,
+    rng: &mut R,
 ) {
-    let (_, _, _, _, mutation_rate, seed) = opts;
-    let mut rng = rng_from_seed(&seed);
     let mut mat = daughter.chromosome_maternal.as_slice().to_vec();
     let mut pat = daughter.chromosome_paternal.as_slice().to_vec();
     for n in mat.iter_mut().chain(pat.iter_mut()) {
         if rng.random_bool(mutation_rate) {
-            *n = mutate_nucleotide(n, &mut rng);
+            *n = mutate_nucleotide(n, rng);
         }
     }
     daughter.chromosome_maternal.replace_sequence(mat);

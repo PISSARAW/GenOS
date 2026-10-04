@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : orchestration décentralisée par ramification de capacités, coordination locale, routage, croissance et résilience du réseau
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-04
 - **Lecture** : cette page décrit le modèle prévu de Rhizome, en particulier les rôles et comportements des sections 4 à 21. Les formules et réglages de ces sections sont des spécifications ou des exemples, pas nécessairement des mécanismes actifs. La section 3 marque chaque formule selon son statut ; les sections 22 et 24 situent l'implémentation actuelle.
 
 
@@ -27,6 +27,14 @@ Le cœur fonctionnel est réparti entre :
 
 - [backend/src/services/biologicalModeService.js](../../../backend/src/services/biologicalModeService.js) : composition des quatre rôles rhizomatiques.
 - [backend/src/services/rhizomeCoordinationService.js](../../../backend/src/services/rhizomeCoordinationService.js) : sessions, traces stigmergiques, sélection directe d'un membre et pas Physarum.
+
+Le sélecteur de variant reconnaît comme besoins de croissance les dépendances inconnues ou
+cachées, les consommateurs cachés, les branches nouvellement découvertes et les interfaces
+manquantes. Les signaux de réacheminement et d'impasse relèvent de `resilient`. Cette sélection
+reste une décision de politique : elle ne prouve ni la découverte effective d'une capacité ni
+son admission dans le graphe. La matrice des 48 missions de référence vérifie le routage
+automatique, dont ces cas de croissance, dans
+`backend/tests/test_topology_mission_variant_routing.js`.
 
 ---
 
@@ -1178,7 +1186,13 @@ Rhizome est **partiellement implémenté** dans le backend. Les fonctions vérif
 
 Ne sont pas fournis par le runtime seul : les exécuteurs concrets de tous les types de providers, la preuve qu'un service ou worker externe a démarré, le softmax de routage, le modèle statistique de fitness des ponts, une condition mathématique de promotion de mission ou un benchmark de production.
 
-Le CLI de télémétrie dans `crates/genos-cli/src/commands/rhizome_telemetry/` utilise un simulateur ; ce n'est pas le graphe opérationnel du backend. Les tests `backend/tests/test_rhizome_*.js` et `backend/tests/test_morphogenesis_rhizome_branch.js` valident les scénarios codés, sans valider les analogies biologiques ni les performances de production.
+Le planificateur Morphogenèse peut inclure une branche Rhizome enfant avec `rhizomeBranch: true`;
+il exige un budget `growth` positif et marque sa promotion `verified-only`. Le test
+`backend/tests/test_morphogenesis_rhizome_branch.js` couvre l'ajout, le budget, la politique de
+preuve et le refus sans budget. Le CLI de télémétrie dans
+`crates/genos-cli/src/commands/rhizome_telemetry/` utilise un simulateur ; ce n'est pas le graphe
+opérationnel du backend. Les tests `backend/tests/test_rhizome_*.js` valident les scénarios
+codés, sans valider les analogies biologiques ni les performances de production.
 ## 23. Commandes CLI
 
 ```bash

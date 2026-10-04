@@ -1,0 +1,290 @@
+[
+  {
+    "topology": "trinity",
+    "level": 1,
+    "mission": "Un serveur répond habituellement en 120 ms. Le premier appel après plusieurs minutes d'inactivité prend 1,8 s. Le CPU reste sous 20 %, la requête SQL prend 15 ms et les appels suivants reviennent immédiatement à 120–150 ms. Trouve l'explication la plus probable, mais cherche activement des explications concurrentes et indique ce qui permettrait de les réfuter.",
+    "expectedVariant": "adversarial"
+  },
+  {
+    "topology": "trinity",
+    "level": 2,
+    "mission": "Trouve toutes les erreurs logiques dans ce raisonnement :\n« Tous les corbeaux observés sont noirs. Cet oiseau est noir. Il est donc probablement un corbeau. Comme aucun corbeau blanc n'a été observé, tous les corbeaux sont nécessairement noirs. »\nProduis une conclusion finale qui survive à une tentative systématique de réfutation.",
+    "expectedVariant": "adversarial"
+  },
+  {
+    "topology": "trinity",
+    "level": 3,
+    "mission": "Une application devient parfois très lente. Trois explications sont plausibles : contention de verrou, garbage collection, appel réseau externe.\nLes ralentissements durent 2 à 4 secondes, surviennent surtout quand le trafic augmente, le CPU baisse pendant l'incident et aucune hausse notable de mémoire n'est observée.\nDétermine l'hypothèse la mieux soutenue, les éléments qui la contredisent et les observations supplémentaires les plus discriminantes.",
+    "expectedVariant": "controlled"
+  },
+  {
+    "topology": "trinity",
+    "level": 4,
+    "mission": "Nous devons stocker les événements d'un système financier auditable. Compare réellement trois architectures :  \n1. monolithe transactionnel classique ;\n2. microservices avec événements ;\n3. event sourcing + CQRS.\n   Contraintes : 10 000 écritures/s, audit complet 10 ans, équipe de 8 développeurs, erreurs financières très coûteuses, exploitation simple souhaitée.\n   Ne cherche pas artificiellement un gagnant : conserve un front de Pareto si nécessaire.",
+    "expectedVariant": "pareto"
+  },
+  {
+    "topology": "trinity",
+    "level": 5,
+    "mission": "Résous le problème des 12 pièces : 12 pièces extérieurement identiques, exactement une a un poids différent mais on ignore si elle est plus lourde ou plus légère. Tu disposes d'une balance à plateaux et de seulement trois pesées. Donne une stratégie adaptative permettant d'identifier à coup sûr la pièce et de dire si elle est plus lourde ou plus légère. Puis prouve que ta stratégie couvre tous les cas.",
+    "expectedVariant": "adversarial"
+  },
+  {
+    "topology": "trinity",
+    "level": 6,
+    "mission": "Conçois un algorithme de planification de trajet minimisant simultanément temps, coût, risque et consommation énergétique. Certaines contraintes sont dures, d'autres sont des objectifs. Il peut exister plusieurs solutions non dominées. Explore indépendamment plusieurs familles de résolution, recherche les cas où chacune échoue, puis produis soit une solution justifiée, soit un ensemble de Pareto si aucune ne domine.",
+    "expectedVariant": "pareto"
+  },
+  {
+    "topology": "a_team",
+    "level": 1,
+    "mission": "Conçois une fonctionnalité « mot de passe oublié ». Fournis le parcours utilisateur, les endpoints backend nécessaires et les protections de sécurité. Le résultat final doit être cohérent entre UX, backend et sécurité.",
+    "expectedVariant": "cross_functional_pod"
+  },
+  {
+    "topology": "a_team",
+    "level": 2,
+    "mission": "Conçois une API d'upload d'avatar. Je veux le contrat HTTP, les validations backend, les règles de sécurité, les messages d'erreur côté interface et les tests d'acceptation.",
+    "expectedVariant": "boundary_spanner"
+  },
+  {
+    "topology": "a_team",
+    "level": 3,
+    "mission": "Conçois un mini système de réservation de salles : modèle de données, API, logique anti-double-réservation, UI principale, tests et observabilité. Organise explicitement les dépendances entre spécialistes et les artefacts qu'ils doivent se transmettre.",
+    "expectedVariant": "project_dag"
+  },
+  {
+    "topology": "a_team",
+    "level": 4,
+    "mission": "Conçois le checkout d'un site e-commerce : panier, paiement, stock, confirmation, gestion des échecs, idempotence, sécurité, observabilité et expérience utilisateur. Le résultat doit former un seul système cohérent et chaque interface inter-domaine doit être explicitée.",
+    "expectedVariant": "cross_functional_pod"
+  },
+  {
+    "topology": "a_team",
+    "level": 5,
+    "mission": "Conçois de bout en bout une plateforme de suivi de colis. Elle doit permettre création d'expédition, paiement, suivi, scan par agents, notifications et gestion des incidents. Produis architecture, modèle de données, APIs, parcours utilisateur, règles de sécurité, tests, observabilité et stratégie de déploiement. Identifie les capability gaps pendant le travail et recrute les expertises manquantes plutôt que de les faire improviser par un mauvais spécialiste.",
+    "expectedVariant": "adaptive"
+  },
+  {
+    "topology": "a_team",
+    "level": 6,
+    "mission": "Rédige un RFC technique complet pour une plateforme SaaS multi-tenant qui importe des données comptables, les valide, les transforme, les historise et expose une API et une UI. Contraintes : isolation stricte des tenants, auditabilité, reprise après erreur, traitement asynchrone, observabilité, compatibilité ascendante des APIs et zéro perte silencieuse de données. Construis le Work Graph, les handoffs typés, les critères d'acceptation et les gates d'intégration.",
+    "expectedVariant": "project_dag"
+  },
+  {
+    "topology": "biome",
+    "level": 1,
+    "mission": "Trouve le plus grand nombre d'explications réellement distinctes à ce phénomène : une application paraît rapide en développement mais lente uniquement pour certains utilisateurs en production. Explore plusieurs niches explicatives et élimine progressivement celles qui apportent peu d'information.",
+    "expectedVariant": "exploration"
+  },
+  {
+    "topology": "biome",
+    "level": 2,
+    "mission": "Une messagerie duplique parfois un message. On sait seulement que le phénomène est intermittent et plus fréquent lors de connexions instables. Explore le problème sans imposer la décomposition au départ. Crée de nouvelles pistes lorsque les découvertes le justifient et abandonne les pistes stériles.",
+    "expectedVariant": "exploration"
+  },
+  {
+    "topology": "biome",
+    "level": 3,
+    "mission": "Trouve 20 façons substantiellement différentes de réduire de moitié le gaspillage alimentaire d'un campus universitaire sans dépasser 50 000 € par an. Préserve plusieurs familles de solutions plutôt que de converger immédiatement vers une seule idée.",
+    "expectedVariant": "quality_diversity"
+  },
+  {
+    "topology": "biome",
+    "level": 4,
+    "mission": "Un service subit des pics de latence de 5 secondes. Les suspects initiaux sont base de données, réseau, cache et CPU. En étudiant ces pistes, autorise l'apparition de nouvelles niches de recherche si des phénomènes comme contention, GC, DNS, locks, throttling ou N+1 deviennent plausibles. Réalloue l'effort en fonction du rendement informationnel de chaque niche.",
+    "expectedVariant": "open_ended"
+  },
+  {
+    "topology": "biome",
+    "level": 5,
+    "mission": "Imagine plusieurs architectures radicalement différentes pour une mémoire d'agents IA devant satisfaire simultanément : provenance, oubli sélectif, contradictions, recherche rapide, faible coût, fonctionnement local et partage entre agents. Ne fixe pas d'avance les catégories de solution. Laisse émerger de nouvelles niches architecturales, conserve les élites de niches différentes et détecte les niches redondantes.",
+    "expectedVariant": "open_ended"
+  },
+  {
+    "topology": "biome",
+    "level": 6,
+    "mission": "À partir de ces quatre observations —\nA augmente quand B diminue ;\nl'effet disparaît sous forte charge ;\nC semble corrélé uniquement après un délai ;\nune intervention sur D modifie A sans modifier B —\nconstruis un écosystème d'hypothèses causales. Fais naître, fusionner ou disparaître des niches selon leur pouvoir explicatif et cherche des perturbations conceptuelles permettant de révéler des mécanismes cachés.",
+    "expectedVariant": "open_ended"
+  },
+  {
+    "topology": "biocenose",
+    "level": 1,
+    "mission": "Pour une petite API interne utilisée par cinq développeurs, vaut-il mieux utiliser REST ou GraphQL ? Voici les contraintes : équipe peu expérimentée avec GraphQL, 20 endpoints prévus, clients uniquement internes, besoin de livraison rapide. Produis un jugement collectif en conservant les objections minoritaires pertinentes.",
+    "expectedVariant": "minority_preserving_jury"
+  },
+  {
+    "topology": "biocenose",
+    "level": 2,
+    "mission": "Une application souhaite faire passer la durée de session de 30 minutes à 24 heures pour réduire les plaintes utilisateurs. Analyse cette décision avec des perspectives sécurité, UX, support, opérations et produit. Ne force pas un consensus.",
+    "expectedVariant": "adversarial_assembly"
+  },
+  {
+    "topology": "biocenose",
+    "level": 3,
+    "mission": "Une équipe de 12 développeurs hésite entre monolithe modulaire et microservices. Elle possède 4 services métier, déploie deux fois par semaine, n'a qu'un DevOps et rencontre peu de problèmes de montée en charge. Cartographie les arguments, contre-arguments, conditions et points de désaccord.",
+    "expectedVariant": "minority_preserving_jury"
+  },
+  {
+    "topology": "biocenose",
+    "level": 4,
+    "mission": "Une expérience A/B donne :\nA : conversion 10 %, rétention J30 62 %, 10 000 utilisateurs.\nB : conversion 12 %, rétention J30 54 %, 10 200 utilisateurs.\nChez les nouveaux utilisateurs, B domine fortement ; chez les anciens, A domine.\nDélibère sur la conclusion réellement permise par ces données. Préserve les claims contestés et indique les expériences manquantes.",
+    "expectedVariant": "epistemic_jury"
+  },
+  {
+    "topology": "biocenose",
+    "level": 5,
+    "mission": "Une modification d'authentification simplifie le code mais supprime la rotation des refresh tokens. Produit une revue communautaire où sécurité, backend, exploitation, tests et produit rendent d'abord des jugements indépendants. Une preuve reproductible d'une vulnérabilité doit pouvoir bloquer un consensus majoritaire favorable.",
+    "expectedVariant": "adversarial_assembly"
+  },
+  {
+    "topology": "biocenose",
+    "level": 6,
+    "mission": "Un papier affirme qu'une nouvelle méthode IA surpasse l'état de l'art. Elle gagne sur 6 benchmarks sur 8, mais utilise trois fois plus de calcul, deux benchmarks sont issus du même dataset, aucune réplication indépendante n'existe et le gain disparaît sur les données hors distribution. Forme un jugement communautaire : claims robustes, claims faibles, désaccords, biais possibles, expérience critique manquante et niveau de consensus réellement justifiable.",
+    "expectedVariant": "minority_preserving_jury"
+  },
+  {
+    "topology": "holobionte",
+    "level": 1,
+    "mission": "Conçois une procédure de changement de mot de passe. Le Host fixe les objectifs, un spécialiste conçoit la solution, le système immunitaire cherche les failles et refuse toute solution dangereuse, puis la mémoire extrait les règles réutilisables.",
+    "expectedVariant": "immune-critical"
+  },
+  {
+    "topology": "holobionte",
+    "level": 2,
+    "mission": "Conçois une procédure de rotation de clés API sans interruption. Contraintes : aucune clé ne doit apparaître dans les logs, ancienne et nouvelle clé peuvent coexister 15 minutes maximum, retour arrière obligatoire.",
+    "expectedVariant": "immune-critical"
+  },
+  {
+    "topology": "holobionte",
+    "level": 3,
+    "mission": "Nous devons renommer une colonne critique d'une base de données sans perte de données ni interruption. Produis un plan. Le Host ne doit accepter aucune étape tant que l'Immune Symbiont n'a pas validé les invariants de sécurité et de rollback.",
+    "expectedVariant": "immune-critical"
+  },
+  {
+    "topology": "holobionte",
+    "level": 4,
+    "mission": "Conçois un système d'authentification avec passkeys, fallback de récupération, sessions multi-appareils et révocation. Le Host garde l'autorité sur les compromis. Les spécialistes peuvent proposer des mécanismes, mais l'Immune Plane doit bloquer toute proposition créant une faille de récupération de compte.",
+    "expectedVariant": "immune-critical"
+  },
+  {
+    "topology": "holobionte",
+    "level": 5,
+    "mission": "Un correctif urgent de production doit corriger une vulnérabilité critique. Contraintes : zéro perte de données, interruption maximale 30 secondes, rollback en moins de 5 minutes, aucune désactivation des contrôles de sécurité. Construis le plan sans rien exécuter. Toute option violant les invariants doit être mise en quarantaine même si elle est plus rapide.",
+    "expectedVariant": "immune-critical"
+  },
+  {
+    "topology": "holobionte",
+    "level": 6,
+    "mission": "Conçois l'architecture de gestion des secrets d'une plateforme multi-tenant : rotation, révocation, chiffrement, séparation des tenants, récupération après compromission, audit, sauvegardes et gestion des clés maîtresses. Fais travailler plusieurs symbiotes spécialisés, mais donne au Host une autorité claire et au système immunitaire un veto sur les chemins de compromission non maîtrisés.",
+    "expectedVariant": "immune-critical"
+  },
+  {
+    "topology": "syncytium",
+    "level": 1,
+    "mission": "Construisez collectivement un glossaire unique pour ces termes : agent, worker, orchestrateur, tâche, mission, outil, mémoire. Plusieurs participants peuvent proposer des définitions, mais l'état final ne doit contenir ni doublon ni contradiction.",
+    "expectedVariant": "document"
+  },
+  {
+    "topology": "syncytium",
+    "level": 2,
+    "mission": "Construisez ensemble un planning à partir de ces dépendances : A avant C, B avant C, C avant D, B avant E, D et E avant F. Plusieurs noyaux peuvent travailler simultanément, mais le graphe partagé doit toujours rester acyclique et cohérent.",
+    "expectedVariant": "graph"
+  },
+  {
+    "topology": "syncytium",
+    "level": 3,
+    "mission": "Base commune :\n« L'API /users retourne id, name, email. »\nChangements simultanés :  \n- équipe A veut ajouter avatar;\n- équipe B veut rendre email optionnel ;\n- équipe C veut renommer name en displayName;\n- équipe D exige une compatibilité ascendante pendant deux versions.\n  Construisez un contrat final unique sans perdre les contraintes introduites par les autres participants.",
+    "expectedVariant": "code"
+  },
+  {
+    "topology": "syncytium",
+    "level": 4,
+    "mission": "Reconstruis une timeline unique à partir de quatre journaux dont les horloges sont décalées.\nService A : login 12:00:02, request 12:00:04.\nService B : request reçue 11:59:59, DB call 12:00:01.\nDB : transaction start 12:00:07, commit 12:00:08.\nGateway : token vérifié 12:00:05.\nOn sait que A a +3 s, B a -2 s, DB a +5 s et Gateway a +1 s de décalage.\nConstruis progressivement un état causal partagé cohérent.",
+    "expectedVariant": "epistemic"
+  },
+  {
+    "topology": "syncytium",
+    "level": 5,
+    "mission": "Conçois un plan de migration d'une API utilisée par cinq services. Chaque spécialiste peut modifier contrat, tests, consommateurs ou déploiement, mais tous doivent partager en continu la même version logique du contrat. Invariants : aucune rupture de compatibilité pendant deux releases et aucune combinaison d'états intermédiaires ne doit rendre le système inutilisable.",
+    "expectedVariant": "code"
+  },
+  {
+    "topology": "syncytium",
+    "level": 6,
+    "mission": "Construis collectivement le modèle de données, les invariants et la machine à états d'un système de paiement. Plusieurs noyaux travaillent en parallèle sur paiement, remboursement, idempotence, fraude et rapprochement. À chaque modification, vérifie qu'aucun invariant global n'est violé. Explique également l'ordre causal des changements et résous explicitement les écritures concurrentes incompatibles.",
+    "expectedVariant": "transactional"
+  },
+  {
+    "topology": "rhizome",
+    "level": 1,
+    "mission": "Explique comment une photo prise par un smartphone finit sauvegardée dans le cloud. Commence avec les capacités évidentes, puis fais apparaître de nouvelles branches lorsqu'un maillon nécessaire est découvert. Relie les branches qui partagent des contrats ou des données.",
+    "expectedVariant": "growth"
+  },
+  {
+    "topology": "rhizome",
+    "level": 2,
+    "mission": "Cartographie toutes les capacités nécessaires pour qu'un utilisateur puisse acheter un produit en ligne, depuis le clic sur « acheter » jusqu'à la confirmation. Si une dépendance inconnue apparaît, crée une branche pour l'explorer plutôt que de forcer une capacité existante à la traiter.",
+    "expectedVariant": "growth"
+  },
+  {
+    "topology": "rhizome",
+    "level": 3,
+    "mission": "Une plateforme possède Auth, API, Cache et DB. Les utilisateurs signalent des erreurs intermittentes après connexion. Explore le problème de manière décentralisée. Si une branche révèle une dépendance non cartographiée — DNS, proxy, queue, session store, clock skew, etc. — étends le réseau et relie les preuves entre branches.",
+    "expectedVariant": "growth"
+  },
+  {
+    "topology": "rhizome",
+    "level": 4,
+    "mission": "Cartographie l'ensemble des dépendances nécessaires à une plateforme de paiement : authentification, catalogue, checkout, paiement, fraude, stock, notification, comptabilité. Détecte les interfaces manquantes et les chemins alternatifs. Ne suppose pas que l'architecture complète est connue au démarrage.",
+    "expectedVariant": "growth"
+  },
+  {
+    "topology": "rhizome",
+    "level": 5,
+    "mission": "Enquête sur cette panne : le checkout échoue pour 3 % des utilisateurs, uniquement dans une région, principalement après renouvellement de session. Le paiement lui-même reste sain. Les logs montrent parfois un timeout cache, parfois une signature de token invalide. Déploie progressivement des branches d'analyse, relie les éléments de provenance et abandonne/reroute les branches devenues inutiles.",
+    "expectedVariant": "resilient"
+  },
+  {
+    "topology": "rhizome",
+    "level": 6,
+    "mission": "Conçois une migration progressive d'une plateforme fictive de 12 services vers une nouvelle architecture alors que la carte complète des consommateurs n'est pas connue. À mesure que des dépendances cachées sont découvertes, crée de nouvelles branches de capacité, relie les contrats voisins, préserve des routes alternatives et évite qu'un coordinateur central devienne un single point of failure conceptuel.",
+    "expectedVariant": "growth"
+  },
+  {
+    "topology": "metapopulation",
+    "level": 1,
+    "mission": "Fais résoudre le même problème de planification par trois populations indépendantes utilisant chacune une philosophie différente : gloutonne, programmation dynamique et recherche locale. Chaque population conserve sa méthode, mais peut importer une idée validée des autres sans copier leur solution entière.",
+    "expectedVariant": "heterogeneous_islands"
+  },
+  {
+    "topology": "metapopulation",
+    "level": 2,
+    "mission": "Conçois une même fonctionnalité pour trois environnements locaux différents : navigateur desktop, mobile à faible réseau et terminal très limité. Chaque population optimise localement. Les bonnes pratiques transférables peuvent migrer, mais aucune solution locale ne doit être imposée aux autres si elle dégrade leur fitness.",
+    "expectedVariant": "heterogeneous_islands"
+  },
+  {
+    "topology": "metapopulation",
+    "level": 3,
+    "mission": "Fais travailler quatre populations sur un parseur commun : performance, lisibilité, tolérance aux entrées invalides et faible mémoire. Autorise les migrations de techniques entre populations seulement si elles améliorent la fitness locale du receveur.",
+    "expectedVariant": "heterogeneous_islands"
+  },
+  {
+    "topology": "metapopulation",
+    "level": 4,
+    "mission": "Résous un même problème combinatoire avec quatre populations : CP, programmation dynamique, recherche locale et évolutionnaire. Lorsqu'une population stagne, injecte sélectivement une idée provenant d'une autre. Préserve néanmoins plusieurs lignées et évite une monoculture prématurée.",
+    "expectedVariant": "evolutionary"
+  },
+  {
+    "topology": "metapopulation",
+    "level": 5,
+    "mission": "Quatre populations auditent le même pseudo-système de sécurité avec des méthodes différentes : threat modeling, analyse logique, adversarial thinking et vérification d'invariants. Une vulnérabilité découverte par une population peut migrer comme contre-exemple vers les autres, mais chacune doit la valider localement avant adoption.",
+    "expectedVariant": "conservative"
+  },
+  {
+    "topology": "metapopulation",
+    "level": 6,
+    "mission": "Fais évoluer quatre populations indépendantes de résolution d'un problème d'optimisation. Après une première phase, impose une nouvelle contrainte qui rend la stratégie d'une population invalide : considère cette population comme effondrée. Les autres doivent continuer. Recolonise ensuite son espace avec un founder set provenant d'au moins deux lignées différentes, puis vérifie que la nouvelle population retrouve une solution viable sans simplement cloner le meilleur voisin.",
+    "expectedVariant": "resilient"
+  }
+]

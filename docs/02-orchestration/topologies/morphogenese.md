@@ -2177,7 +2177,7 @@ Aucune optimalité globale, supériorité empirique ni intégration de productio
 ne découle de la seule présence de ces composants. Pour l'état précis du
 noyau de contrôle et ses limites, voir [noyau de contrôle morphogénétique](../noyau-controle-morphogenetique.md).
 
-## 46. Inventaire du branchement (audit du 2026-09-25)
+## 46. Inventaire du branchement (audit initial du 2026-09-25, mise à jour Trinity du 2026-10-04)
 
 Le registre, le résolveur, l'ontologie, le contrat de capacités et le dispatch
 commun déclarent les mêmes huit identifiants canoniques. Les composeurs sont
@@ -2185,7 +2185,7 @@ maintenant tous adressables par ce dispatch :
 
 | Topologie | Point de composition | État du dispatch commun |
 | --- | --- | --- |
-| Trinity | `trinityService.compose` | Dispatch dédié; trois chambres produites |
+| Trinity | `trinityService.compose` | Dispatch dédié; trois chambres en baseline, seize workers pour le factoriel, réplicas/enfants supplémentaires selon le variant. Les douze runners sont branchés depuis les corrections post-R3 ; la campagne pré-correctifs a produit 12 escalades, 0 merge et plusieurs runners absents. Pas de requalification post-correctifs (voir `topologies/trinity.md`). |
 | A-Team | `aTeamService.analyzeMission` et `aTeamService.compose` | Dispatch dédié; au moins deux domaines requis |
 | Biome | `biomeCoordinationService.composeBiome` | Dispatch dédié |
 | Biocénose | `biocenoseService.prepareCommunity` | Dispatch dédié; dépend de la base |

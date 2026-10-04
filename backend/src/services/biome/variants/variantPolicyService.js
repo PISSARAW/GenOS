@@ -16,13 +16,13 @@ const DEFINITIONS = Object.freeze({
 const RULES = Object.freeze([
   ['resilience', /critical|resilien|résilien|recovery|recover|panne|outage|failure|effondr/i],
   ['adversarial', /security|sécurité|threat|menace|attack|attaque|red.team|adversarial/i],
-  ['compute', /compute|gpu|cpu|hardware|matériel|local.cloud|cloud.local/i],
   ['persistent', /persistent|durable|workspace|long.term|longue durée|projet long/i],
   ['multi_scale', /multi.scale|large.scale|grande échelle|many agents|nombreux agents/i],
   ['successional', /phase|succession|long.project|projet long|stages/i],
   ['knowledge', /\bknowledge\b|\bsources?\b|citation|veille|littérature|literature|research/i],
-  ['quality_diversity', /quality.diversity|quality and diversity|diversité|diversity|creative|créativ/i],
-  ['open_ended', /open.ended|open problem|problème ouvert|novel|nouveau|discover|découvr/i],
+  ['quality_diversity', /quality.diversity|quality and diversity|diversité|diversity|creative|créativ|substantially different|substantiellement diff[eé]rent|distinct solution|solution families|familles de solutions|preserve.*famil|ways to/i],
+  ['open_ended', /open.ended|open problem|problème ouvert|novel|nouveau|discover|découvr|new niches?|nouvelles niches|niche.*emerg|émerg.*niche|apparition.*niche|naître.*niche/i],
+  ['compute', /compute|gpu|cpu|hardware|matériel|local.cloud|cloud.local/i],
   ['exploration', /explor|unknown|inconnu|debug|forag|investigat/i],
   ['resource', /resource|ressource|budget|allocation|scarcity|rareté/i]
 ]);

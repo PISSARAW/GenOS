@@ -6,7 +6,7 @@ runtime sont décrits dans [../topologies-et-capacites.md](../topologies-et-capa
 La [Morphogenèse](morphogenese.md) est le cadre transversal qui construit et compose
 ces organisations ; elle n'est pas un neuvième mode.
 
-- [trinity.md](trinity.md) — orchestration comparée en trois mondes.
+- [trinity.md](trinity.md) — orchestration comparée, baseline à trois mondes et variants expérimentaux à fan-out contrôlé.
 - [a-team.md](a-team.md) — équipe multidisciplinaire d'agents autonomes.
 - [biome.md](biome.md) — orchestration par environnement et populations spécialisées.
 - [biocenose.md](biocenose.md) — orchestration communautaire (coopération, compétition, validation).

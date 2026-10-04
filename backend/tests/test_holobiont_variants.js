@@ -46,7 +46,21 @@ function testFitAndIsolation() {
   assert.throws(() => variants.getVariant('unknown'), { code: 'HOLOBIONT_VARIANT_UNKNOWN' });
 }
 
+function testSecuritySensitiveMissionRouting() {
+  const compose = require('../src/services/holobionteCoordinationService').composeHolobiont;
+  const missions = [
+    'Conçois une procédure de changement de mot de passe, puis fais valider les failles par l’immunité.',
+    'Fais tourner les clés API sans interruption et sans secret dans les logs, avec rollback.',
+    'Renomme une colonne critique sans perte de données et valide les invariants de rollback.',
+    'Conçois une authentification passkeys et empêche les failles de récupération de compte.',
+    'Corrige une vulnérabilité critique sans désactiver les contrôles de sécurité.',
+    'Gère les secrets multi-tenant avec révocation, chiffrement et récupération après compromission.'
+  ];
+  for (const mission of missions) assert.equal(compose(mission).variant, 'immune-critical', mission);
+}
+
 testVariantSurface();
 testFitAndIsolation();
 testExtendedVariantContracts();
+testSecuritySensitiveMissionRouting();
 console.log('✅ Holobiont variant policy tests passed.');

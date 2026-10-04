@@ -89,8 +89,8 @@ async function linkContains(db, link) {
 
 async function indexFile(db, job) {
   const abs = path.join(job.rootPath, job.relPath);
-  const content = readCappedFile(abs);
-  if (content === null) return { indexed: false, reason: 'unreadable-or-too-large' };
+  const { content, reason } = readCappedFile(abs);
+  if (content === null) return { indexed: false, reason };
   await ensureDirChain(db, job);
   const fileId = await indexFileNode(db, { job, content });
   await linkParentContains(db, { job, fileId });
@@ -101,10 +101,10 @@ async function indexFile(db, job) {
 function readCappedFile(absPath) {
   try {
     const stat = fs.statSync(absPath);
-    if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return null;
-    return fs.readFileSync(absPath, 'utf8');
-  } catch (_) {
-    return null;
+    if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return { content: null, reason: stat.size > MAX_FILE_BYTES ? 'too-large' : 'not-a-file' };
+    return { content: fs.readFileSync(absPath, 'utf8'), reason: null };
+  } catch (e) {
+    return { content: null, reason: (e && e.code) || 'unreadable' };
   }
 }
 
@@ -148,7 +148,7 @@ async function indexSymbols(db, batch) {
 
 async function indexImports(db, batch) {
   for (const spec of batch.imports) {
-    const target = resolveRelativeImport(batch.job, spec);
+    const { target, reason } = resolveRelativeImport(batch.job, spec);
     if (!target) continue;
     const targetId = targetFileNodeId(batch.job, target);
     await graphStore.upsertEdge(db, {
@@ -159,14 +159,15 @@ async function indexImports(db, batch) {
 }
 
 function resolveRelativeImport(job, spec) {
+  if (!spec.startsWith('.') && !spec.startsWith('/')) return { target: null, reason: 'non-relative' };
   const fromDir = path.dirname(path.join(job.rootPath, job.relPath));
   const abs = path.resolve(fromDir, spec);
   const candidates = ['', '.js', '.ts', '.mjs', '.cjs', '.tsx', '.jsx', '/index.js', '/index.ts'];
   for (const suffix of candidates) {
     const hit = pickExistingFile(job, abs + suffix);
-    if (hit) return hit;
+    if (hit) return { target: hit, reason: null };
   }
-  return null;
+  return { target: null, reason: 'not-found' };
 }
 
 function pickExistingFile(job, absPath) {
@@ -187,28 +188,33 @@ function targetFileNodeId(job, targetRel) {
 
 async function scanTerritory(db, args) {
   const files = walkFiles(args.rootPath, args.scopePath || '/');
+  const totalFound = files.length;
   let indexed = 0;
+  let truncated = false;
+  if (totalFound > MAX_FILES) truncated = true;
   for (const relPath of files) {
     const res = await indexFile(db, { territoryId: args.territoryId, rootPath: args.rootPath, relPath });
     if (res.indexed) indexed += 1;
   }
   await markTerritoryIndexed(db, args.territoryId);
-  return { scanned: files.length, indexed };
+  return { scanned: totalFound, indexed, truncated, maxFiles: MAX_FILES };
 }
 
 async function updateFiles(db, args) {
   await invalidation.invalidateFiles(db, { territoryId: args.territoryId, files: args.files });
   let reindexed = 0;
+  let skipped = 0;
   for (const relPath of args.files || []) {
     const res = await indexFile(db, { territoryId: args.territoryId, rootPath: args.rootPath, relPath });
     if (res.indexed) {
       reindexed += 1;
     } else {
+      skipped += 1;
       await cleanupDanglingIncoming(db, args, relPath);
     }
   }
   await markTerritoryIndexed(db, args.territoryId);
-  return { invalidated: (args.files || []).length, reindexed };
+  return { invalidated: (args.files || []).length, reindexed, skipped };
 }
 
 async function markTerritoryIndexed(db, territoryId) {

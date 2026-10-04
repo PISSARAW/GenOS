@@ -211,8 +211,8 @@ async function assessSessionIndividuals(sessionId, individuals, options = {}) {
 async function updateSessionPopulation({ sessionId, command, options = {} }) {
   return applyOperation({
     sessionId, options, operation: `population_${command.type}`, input: command,
-    apply: (session) => {
-      const result = populationRuntimeService.execute(session.ecology, command, options);
+    apply: async (session) => {
+      const result = await populationRuntimeService.execute(session.ecology, command, options);
       const successionPhase = advanceSuccessionPhase(session.ecology, session.variantPolicy, command.measurements);
       return { ...result, successionPhase };
     }
@@ -222,7 +222,7 @@ async function updateSessionPopulation({ sessionId, command, options = {} }) {
 async function manageSessionResources({ sessionId, command, options = {} }) {
   return applyOperation({
     sessionId, options, operation: command.type, input: command,
-    apply: (session) => populationRuntimeService.execute(session.ecology, command, options)
+    apply: async (session) => populationRuntimeService.execute(session.ecology, command, options)
   });
 }
 
@@ -230,7 +230,7 @@ async function assessSessionCapacity({ sessionId, measurements = {}, thresholds 
   const command = { type: 'capacity_assess', measurements, thresholds, garageCapacity };
   return applyOperation({
     sessionId, options, operation: 'capacity_assess', input: command,
-    apply: (session) => populationRuntimeService.execute(session.ecology, command, options)
+    apply: async (session) => populationRuntimeService.execute(session.ecology, command, options)
   });
 }
 

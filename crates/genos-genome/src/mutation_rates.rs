@@ -26,7 +26,7 @@ impl Default for MutationRates {
 
 impl DnaNucleotide {
     pub fn nucleotide_random<R: rand::Rng + ?Sized>(rng: &mut R) -> Self {
-        match rng.next_u32() % 4 {
+        match rng.random_range(0..4) {
             0 => DnaNucleotide::A,
             1 => DnaNucleotide::C,
             2 => DnaNucleotide::G,

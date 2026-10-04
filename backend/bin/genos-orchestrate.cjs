@@ -83,7 +83,7 @@ async function waitForCompletion(db) {
     let agents, trinityWorlds;
     try {
       agents = await db.all('SELECT id, status, runtime_pid FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
-      trinityWorlds = await db.all("SELECT agent_id, status FROM trinity_worlds WHERE mission LIKE ? ORDER BY world_number", `%${id.slice(0, 24)}%`);
+      trinityWorlds = await db.all('SELECT agent_id, status FROM trinity_worlds WHERE id LIKE ? ORDER BY world_number', `${id}_world_%`);
     } catch (err) {
       if (isRetryableDatabaseError(err)) {
         await new Promise((resolve) => setTimeout(resolve, Math.min(3000, 300 * Math.pow(1.5, busyRetries))));

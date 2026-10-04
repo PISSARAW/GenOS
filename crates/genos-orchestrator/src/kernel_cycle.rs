@@ -85,7 +85,7 @@ impl ControlKernel {
         let plan = self.decide(input);
         let governance = self.authorize(&plan);
         let (plan_applied, spawned) = self.apply_if_allowed(&plan, &governance);
-        self.close_step();
+        self.close_step(obs, &plan, plan_applied, input);
         StepOutcome {
             plan_applied,
             governance,
@@ -301,11 +301,33 @@ impl ControlKernel {
         self.state.resilience.checkpoints.push(checkpoint);
     }
 
-    fn close_step(&mut self) {
+    fn close_step(&mut self, obs: &Observations, plan: &MorphogenesisPlan, applied: bool, input: &StepInput) {
+        let mut verified = Vec::new();
+        let mut contradictions = Vec::new();
+        let mut resolved = Vec::new();
+
+        if applied {
+            verified.push(format!("plan_applied:{}", plan.reason));
+        }
+        if input.success {
+            verified.push(String::from("step_succeeded"));
+        }
+        if !input.no_progress {
+            resolved.push(String::from("progress_observed"));
+        }
+        if input.worker_error_rate > 0.5 {
+            contradictions.push(format!("high_error_rate:{}", input.worker_error_rate));
+        }
+        for report in &obs.worker_reports {
+            if report.contains("evidence") || report.contains("verified") {
+                verified.push(report.clone());
+            }
+        }
+
         let update = EpistemicUpdate {
-            verified_claims: Vec::new(),
-            new_contradictions: Vec::new(),
-            resolved_gaps: Vec::new(),
+            verified_claims: verified,
+            new_contradictions: contradictions,
+            resolved_gaps: resolved,
         };
         self.state.revise_epistemics(&update);
         self.update_health();

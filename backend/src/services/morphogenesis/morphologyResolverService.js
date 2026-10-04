@@ -2,6 +2,7 @@
 
 const { compileExpression } = require('./graph/morphologyCompiler');
 const { topologyExpression, parallelExpression } = require('./expression/morphologyExpression');
+const { createRhizomeBranch } = require('./rhizomeBranchAdapter');
 
 function uniqueTopologies(selectedTopology, profile = {}) {
   const exploring = Number(profile.hypotheses_count || 0) >= 3
@@ -34,6 +35,11 @@ function resolveMorphology(input = {}) {
     mission: input.problem || input.mission,
     globalBudget: input.budget,
   });
+  if (input.rhizomeBranch) graph.nodes.push(createRhizomeBranch({
+    parentNodeId: graph.rootNodeId,
+    mission: input.problem || input.mission,
+    growthBudget: input.budget?.growth
+  }));
   return {
     expression,
     graph,

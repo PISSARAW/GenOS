@@ -209,7 +209,10 @@ const TEXT_PATTERNS = Object.freeze({
   tiger_team: /\burgent\b|\bcritical\b|zero-day|incident|\burgence\b|timebox/gi,
   incident_command: /\boutage\b|\bpanne\b|incident multi|\bcrise\b|\bics\b|incident\.command/gi,
   pipeline: /\bcollect\b|\bextract\b|summari|publish|séquence|sequence|pipeline|linear/gi,
-  cross_functional_pod: /feature|end\.to\.end|bout en bout|\bproduct\b|autonomous|full\.lifecycle/gi
+  project_dag: /work.?graph|graphe de travail|dependenc|dépendan|handoff|transmettre les artefacts|parallel workstreams/gi,
+  boundary_spanner: /interface|contrat|contract|compatibilit|boundary|front.?back/gi,
+  adaptive: /capability gaps?|missing capabilities|expertises? manquant(?:e|es)?|compétences manquantes|recrut(?:e|er|ement)|recruit(?:ing)?|staffing gaps?/gi,
+  cross_functional_pod: /feature|fonctionnalit|end\.to\.end|bout en bout|\bproduct\b|autonomous|full.lifecycle|parcours utilisateur|user journey|checkout|e-commerce/gi
 });
 
 function scoreVariant(name, mission = {}) {

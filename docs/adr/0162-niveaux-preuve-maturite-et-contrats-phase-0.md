@@ -42,10 +42,11 @@ Le plan des sept capacités exige de figer les contrats avant tout code. Trois c
 L'affirmation historique du point 4 sur les trois variants refusés ne décrit plus le dépôt
 courant. L'ADR [0292](0292-execution-des-variants-trinity.md) et la fiche
 [`trinity.md`](../02-orchestration/topologies/trinity.md) documentent les douze runners
-désormais branchés et leurs gates. La campagne R3 a déclenché les douze parcours, mais les
-douze ont escaladé sans merge : le câblage est démontré, leur validation nominale ne l'est pas.
-Le statut reste donc `partiel`; le principe « un module présent ne prouve pas une exécution
-valide » de cet ADR demeure en vigueur.
+désormais branchés et leurs gates. La campagne R3 pré-correctifs a produit douze escalades ;
+ses rapports montrent que plusieurs runners n'avaient pas été invoqués. Aucune campagne
+post-correctifs n'a encore vérifié le câblage actuel de bout en bout. Le statut reste donc
+`partiel`; le principe « un module présent ne prouve pas une exécution valide » de cet ADR
+demeure en vigueur.
 
 ## Alternatives
 

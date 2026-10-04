@@ -90,18 +90,30 @@ async function sweep(db, args) {
     rate: args.evaporationRate || DEFAULT_EVAPORATION_RATE
   });
   const suspectReceipt = await reviewSuspects(db, scope);
+  const findings = await expireFindings(db, scope);
+  const events = await pruneEvents(db, scope);
+  const handoffs = await expireHandoffs(db, scope);
+  const orphanEpisodes = await expireOrphanedEpisodes(db, scope);
+  const staleBriefs = await expireStaleHeadBriefs(db, scope);
+  const danglingEdges = await pruneDanglingEdges(db, scope);
   return {
     swept: true,
     territoryId: args.territoryId,
     sweptAt: scope.nowIso,
-    expiredFindings: await expireFindings(db, scope),
-    prunedEvents: await pruneEvents(db, scope),
-    expiredHandoffs: await expireHandoffs(db, scope),
+    expiredFindings: findings.count,
+    expiredFindingsError: findings.error,
+    prunedEvents: events.count,
+    prunedEventsError: events.error,
+    expiredHandoffs: handoffs.count,
+    expiredHandoffsError: handoffs.error,
     evaporatedMarkers: evaporated.evaporated,
     expiredRepairs: (await repairService.expireEpisodes(db, scope)).expired,
-    expiredOrphanEpisodes: await expireOrphanedEpisodes(db, scope),
-    expiredStaleBriefs: await expireStaleHeadBriefs(db, scope),
-    prunedDanglingEdges: await pruneDanglingEdges(db, scope),
+    expiredOrphanEpisodes: orphanEpisodes.count,
+    expiredOrphanEpisodesError: orphanEpisodes.error,
+    expiredStaleBriefs: staleBriefs.count,
+    expiredStaleBriefsError: staleBriefs.error,
+    prunedDanglingEdges: danglingEdges.count,
+    prunedDanglingEdgesError: danglingEdges.error,
     newSuspects: suspectReceipt.isNew,
     resolvedSuspects: suspectReceipt.resolved,
     pendingSuspects: suspectReceipt.pending
@@ -118,12 +130,13 @@ async function expireOrphanedEpisodes(db, scope) {
     const res = await db.run(
       `UPDATE daemon_repair_episodes SET status = 'EXPIRED', updated_at = datetime('now')
        WHERE territory_id = ? AND status IN ('OPEN', 'CLAIMED')
-       AND finding_id IN (SELECT id FROM daemon_findings WHERE status IN ('REFUTED', 'EXPIRED'))`,
+       AND finding_id IN (SELECT id FROM daemon_findings WHERE territory_id = ? AND status IN ('REFUTED', 'EXPIRED'))`,
+      scope.territoryId,
       scope.territoryId
     );
-    return (res && res.changes) || 0;
-  } catch (_) {
-    return 0;
+    return { count: (res && res.changes) || 0, error: null };
+  } catch (e) {
+    return { count: 0, error: (e && e.message) || 'expireOrphanedEpisodes-failed' };
   }
 }
 
@@ -134,16 +147,16 @@ async function expireOrphanedEpisodes(db, scope) {
 async function expireStaleHeadBriefs(db, scope) {
   try {
     const stored = await territoryService.getTerritory(db, { id: scope.territoryId });
-    if (!stored.found) return 0;
+    if (!stored.found) return { count: 0, error: 'territory-not-found' };
     const res = await db.run(
       `UPDATE daemon_handoffs SET status = 'EXPIRED'
        WHERE territory_id = ? AND status = 'READY' AND head_sha != ?`,
       scope.territoryId,
       stored.territory.headSha
     );
-    return (res && res.changes) || 0;
-  } catch (_) {
-    return 0;
+    return { count: (res && res.changes) || 0, error: null };
+  } catch (e) {
+    return { count: 0, error: (e && e.message) || 'expireStaleHeadBriefs-failed' };
   }
 }
 
@@ -156,14 +169,14 @@ async function pruneDanglingEdges(db, scope) {
     const res = await db.run(
       `DELETE FROM territory_graph_edges WHERE territory_id = ?
        AND (source_id NOT IN (SELECT id FROM territory_graph_nodes WHERE territory_id = ?)
-         OR target_id NOT IN (SELECT id FROM territory_graph_nodes WHERE territory_id = ?))`,
+          OR target_id NOT IN (SELECT id FROM territory_graph_nodes WHERE territory_id = ?))`,
       scope.territoryId,
       scope.territoryId,
       scope.territoryId
     );
-    return (res && res.changes) || 0;
-  } catch (_) {
-    return 0;
+    return { count: (res && res.changes) || 0, error: null };
+  } catch (e) {
+    return { count: 0, error: (e && e.message) || 'pruneDanglingEdges-failed' };
   }
 }
 

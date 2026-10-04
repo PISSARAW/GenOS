@@ -13,7 +13,7 @@ async function verifyTrinityDispatch() {
   assert.equal(result.variantSelection.experimentalDesign.objectivePolicy, 'pareto_orthogonal');
   const explicit = await composeMode({ mode: 'trinity', mission: 'Secure the API.', options: { variantId: 'adversarial' } });
   assert.equal(explicit.variant, 'adversarial');
-  assert.match(explicit.members[2].mission, /challenge and correct/);
+  assert.match(explicit.members[2].mission, /counterexamples and refutations/);
   assert.match(explicit.members[2].mission, /evidence/);
 }
 
@@ -30,6 +30,19 @@ async function verifyATeamDispatch() {
   await assert.rejects(
     () => composeMode({ mode: 'a_team', mission: 'Solve one simple recurrence.' }),
     { code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED' }
+  );
+  const broadMission = require('./fixtures/topology-missions-48.json').find(
+    (entry) => entry.topology === 'a_team' && entry.level === 3
+  ).mission;
+  const broadTeam = await composeMode({
+    mode: 'a_team', mission: broadMission, options: { variantId: 'project_dag', available: 5 }
+  });
+  assert.equal(broadTeam.members.length, 5);
+  await assert.rejects(
+    () => composeMode({
+      mode: 'a_team', mission: broadMission, options: { variantId: 'project_dag', available: 4 }
+    }),
+    { code: 'WORKER_GARAGE_FULL' }
   );
 }
 

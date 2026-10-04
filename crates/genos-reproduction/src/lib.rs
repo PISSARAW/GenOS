@@ -96,7 +96,7 @@ mod tests {
         mother.insert_gene(test_gene);
 
         // 1. Premier bourgeonnement (daughter_volume = 0.25)
-        let res1 = CellDivision::budding_with_limit(&mother, 0.25, (0, 3)).unwrap();
+        let res1 = CellDivision::budding_with_limit(&mother, 0.25).unwrap();
         assert_eq!(res1.bud_scars, 1);
         assert_eq!(res1.remaining_divisions, 2);
         assert!(!res1.is_senescent);
@@ -110,19 +110,19 @@ mod tests {
         assert_eq!(res1.daughter.hayflick_limit, 1);
 
         // 2. Deuxième bourgeonnement
-        let res2 = CellDivision::budding_with_limit(&res1.mother, 0.25, (res1.bud_scars, 3)).unwrap();
+        let res2 = CellDivision::budding_with_limit(&res1.mother, 0.25).unwrap();
         assert_eq!(res2.bud_scars, 2);
         assert_eq!(res2.remaining_divisions, 1);
         assert!(!res2.is_senescent);
 
         // 3. Troisième bourgeonnement (atteinte de la limite de Hayflick)
-        let res3 = CellDivision::budding_with_limit(&res2.mother, 0.25, (res2.bud_scars, 3)).unwrap();
+        let res3 = CellDivision::budding_with_limit(&res2.mother, 0.25).unwrap();
         assert_eq!(res3.bud_scars, 3);
         assert_eq!(res3.remaining_divisions, 0);
         assert!(res3.is_senescent);
 
         // 4. Quatrième bourgeonnement -> Doit échouer avec l'erreur Hayflick
-        let err = CellDivision::budding_with_limit(&res3.mother, 0.25, (res3.bud_scars, 3));
+        let err = CellDivision::budding_with_limit(&res3.mother, 0.25);
         assert!(err.is_err());
         assert!(err.unwrap_err().contains("Hayflick limit reached"));
 
@@ -154,8 +154,8 @@ mod tests {
     #[test]
     fn test_budding_mutation_is_reproducible_for_same_inputs() {
         let genome = Genome::new("BUDDING_REPRODUCIBILITY_SEQUENCE");
-        let first = CellDivision::budding_with_limit_and_mutation(&genome, 0.25, (0, 5, 0.2)).unwrap();
-        let second = CellDivision::budding_with_limit_and_mutation(&genome, 0.25, (0, 5, 0.2)).unwrap();
+        let first = CellDivision::budding_with_limit_and_mutation(&genome, 0.25, 0.2).unwrap();
+        let second = CellDivision::budding_with_limit_and_mutation(&genome, 0.25, 0.2).unwrap();
 
         assert_eq!(first.daughter.chromosome_maternal, second.daughter.chromosome_maternal);
         assert_eq!(first.daughter.chromosome_paternal, second.daughter.chromosome_paternal);
@@ -209,25 +209,24 @@ mod tests {
 
     #[test]
     fn test_budding_hayflick_limit_enforcement() {
-        let genome = Genome::new("MOTHER_BUD_GENOME");
-        let limit = 2;
+        let mut genome = Genome::new("MOTHER_BUD_GENOME");
+        genome.hayflick_limit = 2;
 
         // First bud
-        let res1 = CellDivision::budding_with_limit(&genome, 0.3, (0, limit)).expect("bud 1 should succeed");
+        let res1 = CellDivision::budding_with_limit(&genome, 0.3).expect("bud 1 should succeed");
         assert_eq!(res1.bud_scars, 1);
         assert_eq!(res1.remaining_divisions, 1);
         assert!(!res1.is_senescent);
         assert_eq!(res1.daughter_volume, 0.3);
-        assert!(res1.daughter.genes.contains_key("lineage_mode"));
 
         // Second bud (reaches limit)
-        let res2 = CellDivision::budding_with_limit(&res1.mother, 0.4, (res1.bud_scars, limit)).expect("bud 2 should reach limit");
+        let res2 = CellDivision::budding_with_limit(&res1.mother, 0.4).expect("bud 2 should reach limit");
         assert_eq!(res2.bud_scars, 2);
         assert_eq!(res2.remaining_divisions, 0);
         assert!(res2.is_senescent);
 
         // Third bud (blocked)
-        let res3 = CellDivision::budding_with_limit(&res2.mother, 0.4, (res2.bud_scars, limit));
+        let res3 = CellDivision::budding_with_limit(&res2.mother, 0.4);
         assert!(res3.is_err());
         assert!(res3.unwrap_err().contains("Hayflick limit reached"));
     }

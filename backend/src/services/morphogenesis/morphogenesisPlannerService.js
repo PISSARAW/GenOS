@@ -311,11 +311,11 @@ function compileTopologyCandidate(ctx, topology) {
     missionId: ctx.missionId || ctx.problemId,
     mission: ctx.problem || ctx.mission,
     budget: ctx.budget,
+    rhizomeBranch: ctx.rhizomeBranch,
   });
   require('./morphogenesisMissionBinding').bindGraphMission(morphology.graph, { organization: candidateCtx.proposedOrganization, assignments: ctx.missionAssignments });
   return { topology, contracts, components, targetAgents, plan, graph: morphology.graph, expression: morphology.expression, profileResolution };
 }
-
 function buildTopologyCandidates(ctx) {
   const allCandidatesNeeded = ctx.forceMorphologySelection === true || ctx.problemProfile || ctx.expression;
   const minimumTopology = minimumTopologyFrom(ctx);

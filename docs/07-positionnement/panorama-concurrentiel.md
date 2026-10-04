@@ -1,7 +1,7 @@
 # Panorama concurrentiel GenOS
 
 - **Statut** : référence maintenue ; les statuts GenOS suivent la règle `matrice-cohérence` (code + contrat + nominal + refus + preuve + limite).
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-10-04
 - **Sources code** : inventaire `docs/03-reference/inventaire-technique.md` du 2026-09-28 (176 outils déclarés, 101 handlers bio enregistrés / 89 fichiers), matrice `docs/06-qualite-preuves/matrice-coherence-code-docs.md` revue le 2026-09-28, audit `docs/06-qualite-preuves/audit-affirmations-operationnelles.md` revu le 2026-09-28, contrat mission `docs/02-orchestration/orchestration.md` (`Partiel`, revue 2026-09-25).
 
 ## 1. Objet et méthode
@@ -41,7 +41,7 @@ Code : `trinityService.js`, `aTeamService.js`, `biocenoseService.js`, `holobiont
 
 | Concept GenOS | Statut | Concurrents : ce qu'ils font | Écart |
 | --- | --- | --- | --- |
-| Trinity (3 mondes scellés, barrière comparative, `merge_trinity`) | Opérationnel | LangGraph `interrupt`/time-travel ; CrewAI hiérarchique ; AutoGen GroupChat/Magentic-One ; Agent Framework patterns sequential/concurrent/handoff | Aucun n'impose 3 chambres scellées + empreintes snapshot identiques + promotion du gagnant comme invariant. |
+| Trinity (baseline à 3 mondes, 12 variants, barrière comparative, `merge_trinity`) | Partiel | LangGraph `interrupt`/time-travel ; CrewAI hiérarchique ; AutoGen GroupChat/Magentic-One ; Agent Framework patterns sequential/concurrent/handoff | Les douze runners sont branchés après R3 ; la campagne pré-correctifs a produit 12 escalades et 0 merge, plusieurs runners n'ayant pas été invoqués. Aucun avantage comparatif de GenOS n'est démontré et aucun run post-correctifs n'est qualifié. La baseline garde ses gates et le factoriel/réplication ajoutent des exécutions. Les capacités des produits comparés doivent être vérifiées sur leurs versions et configurations. |
 | A-Team (domaines, handoffs, arbitrage) | Opérationnel | Mêmes + MetaGPT/ChatDev (rôles) | Handoffs GenOS liés à dossiers de preuve ; ailleurs coordination conversationnelle. |
 | Biocénose (quorum, Brier, byzantin) | Opérationnel | Ray, quorum applicatif ad hoc | Brier pondéré + abstention + veto minoritaire câblés ; ailleurs à construire. |
 | Holobionte (hôte + symbiotes, veto) | Opérationnel/Partiel selon primitive | Pas d'équivalent direct | Veto immunitaire et inférence locale disponibles comme primitives, appel non garanti sur chaque chemin. |

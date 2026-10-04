@@ -1,7 +1,7 @@
 # Plan d'implémentation des variants des huit topologies
 
 - **Statut** : Implémentation en cours; couverture initiale branchée sur les huit topologies
-- **Dernière revue** : 2026-10-03
+- **Dernière revue** : 2026-10-04
 - **Décision d'architecture** : [ADR 0124](../../adr/0124-selection-automatique-des-variants.md)
 
 ## Objectif
@@ -42,15 +42,39 @@ variant dans le registre.
 | Rhizome | Douze choix disponibles et sélection par signaux | Routage, croissance, pruning et portée persistante | Les transitions de politique en cours de session restent à mesurer |
 | Métapopulation | Douze variants documentés et quatre alias historiques; sélection explicite/automatique persistée | Quorum, migration, diversité inter-îles, source-sink adaptatif; les rotations temporelles source/sink sont persistées comme événements, relues par l'observateur régional et vérifiées contre les transitions périmées; trials Classic Patch, patches éphémères, Anti-Synchrony, gates fédérés/culturels, adaptateurs de recherche et d'évolution | Rescue SLA observé mais secours soumis aux adaptateurs; l'évaluateur de colonie, le solveur et le moteur Rust doivent être fournis; pas encore de réserve persistante de fondateurs, QD/speciation, phylogénie culturelle complète, démons résidents ou rebouclage automatique de la cryptobiose |
 | Biome | Onze variants; explicite validé et sélection par mission | `advance_variant` persistant; allocation vectorielle/enchères, foraging-curiosité et archive, QD/CVT, succession à preuves, extinction/refuge/recolonisation, saisons inter-missions, génération POET bornée, coévolution adversariale abstraite, écologie des sources, scheduler compute, feedback multi-échelle | Le scheduler ne migre/exécute pas les fournisseurs; POET, attaques et fitness demandent des preuves externes; pas encore de daemon autonome ni benchmarks par variant |
-| Trinity | Douze presets choisis par signal de mission ou explicitement; préconditions contrôlées et adaptateurs requis vérifiés | Les douze runners sont appelés sur le chemin mission/superviseur; revues, continuations, expériences enfants, grille factorielle et réplicas QD ont des barrières de fin dédiées | Campagne R3 du 2026-10-03 : 12/12 `ESCALATE`, 0 merge. Parcours câblés, mais validation complète non acquise tant que les sorties ne portent pas les preuves, mesures, routes effectives et lignages requis; voir `topologies/trinity.md` et ADR 0292 |
+| Trinity | Douze presets auto-sélectionnés par signal ou sélectionnés explicitement; le preset retenu est conservé au dispatch, avec retour contrôlé à `controlled` si ses préconditions manquent | Les douze runners sont reliés au chemin mission/superviseur; revues, continuations, expériences enfants, grille factorielle et réplicas QD ont des barrières de fin dédiées | Campagne R3 pré-correctifs du 2026-10-03 : 12 missions `ESCALATE`, 0 merge, avec sorties montrant plusieurs runners non invoqués. Les branchements correctifs n'ont pas encore été qualifiés par une nouvelle campagne; voir `topologies/trinity.md` et ADR 0292 |
 
 Ces branchements rendent le choix traçable et opérant au dispatch. Le statut de Trinity reste
-`partial` : la campagne réelle R3 a déclenché les douze parcours mais tous ont escaladé, ce qui
-confirme que le câblage ne vaut pas validation de l'objectif. La maturité centrale reste `partial` lorsque le parcours ne couvre pas
+`partial` : la campagne R3 pré-correctifs a révélé les défauts de câblage et tous ses rapports
+ont escaladé ; aucun run post-correctifs n'a encore qualifié les nouveaux chemins. La maturité centrale reste `partial` lorsque le parcours ne couvre pas
 encore toutes les garanties ou tous les mécanismes visés. Elle informe sur la couverture; elle
 ne constitue ni un score de valeur ni un facteur de classement des variants. La suite doit
 qualifier Trinity avec des missions réussies et compléter les adaptateurs restants des autres
 topologies avant de promouvoir leur maturité.
+
+### Qualification technique — 2026-10-04
+
+- Le catalogue central résout explicitement les 95 variants canoniques des huit topologies;
+  `test_morphogenesis_variant_catalog.js` vérifie leur sélection et la projection de leur identité.
+- Le balayage backend élargi passe sur 230 fichiers de tests liés aux topologies, variants
+  et à Morphogenèse. La suite backend générale passe également (55/55). La matrice
+  `test_topology_mission_variant_routing.js` exécute les 48 prompts complets de la fixture
+  `backend/tests/fixtures/topology-missions-48.json` et vérifie leurs sélections attendues;
+  le test de dispatch couvre aussi les workers, le schéma Syncytium et le contrat Trinity
+  adversarial. Un test complémentaire vérifie la sortie de sécurité du watchdog et le planning
+  non faisable du variant Syncytium `realtimeControl`.
+- Ces tests prouvent des contrats codés et la sélection attendue, pas la réussite des missions
+  par les modèles ni l'effet runtime spécifique des 95 variants. Les 48 missions réelles et
+  la vérification d'un effet runtime propre par variant restent à rejouer; la parité de
+  maturité n'est donc pas encore démontrée.
+- Le compositeur A-Team reçoit désormais la capacité libre du garage au dispatch biologique;
+  une mission nécessitant cinq domaines passe avec cinq slots disponibles et échoue de façon
+  explicite avec quatre. Cette correction ferme un défaut de capacité, sans qualifier à elle
+  seule les autres variants A-Team.
+- Trinity transmet au superviseur le délai de mission, borné entre 180 et 600 secondes; un
+  délai long explicitement demandé ne fait donc plus expirer la comparaison à 180 secondes.
+  Le test `test_trinity_supervisor_timeout.js` couvre la valeur par défaut, le délai demandé,
+  sa borne maximale et les tailles de chambre standard/factorielle.
 
 ## Plan par vagues
 
@@ -79,8 +103,8 @@ topologies avant de promouvoir leur maturité.
 
 - **Trinity** : qualifier les douze runners branchés par des missions nominales avec reçus
   vérifiables. Le facteur requiert seize cellules; récursion, adaptation et QD attendent leurs
-  exécutions additionnelles et preuves dédiées. La campagne R3 actuelle n'a validé aucun cas
-  nominal (12 escalades); conserver le statut partiel jusqu'à une qualification réussie.
+  exécutions additionnelles et preuves dédiées. La campagne R3 pré-correctifs n'a validé aucun
+  cas nominal (12 escalades); conserver le statut partiel jusqu'à une qualification réussie.
 - **A-Team** : faire appliquer les formes de graphe, handoff, autorité, équipe et phase;
   distinguer sélection automatique des variantes multiteam partiellement prises en charge.
 - **Biome** : appliquer allocation, foraging, diversité, succession, résilience, mémoire,

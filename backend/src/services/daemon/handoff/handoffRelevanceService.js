@@ -19,8 +19,14 @@ const STATUS_WEIGHT = {
   STALE: 0.5
 };
 
+const RELEVANCE_THRESHOLDS = { high: 6, medium: 2, low: 0 };
+
+function normalizeToken(token) {
+  return String(token || '').toLowerCase().replace(/s$/, '');
+}
+
 function tokensOf(text) {
-  return String(text || '').toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2);
+  return String(text || '').toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length > 2).map(normalizeToken);
 }
 
 function missionOverlap(finding, mission) {
@@ -43,12 +49,13 @@ function rankFindings(findings, args) {
   return scored;
 }
 
-function relevanceClass(ranked) {
+function relevanceClass(ranked, thresholds) {
   const top = (ranked || [])[0];
+  const t = thresholds || RELEVANCE_THRESHOLDS;
   if (!top) return 'low';
-  if (top.score >= 6) return 'high';
-  if (top.score >= 2) return 'medium';
+  if (top.score >= t.high) return 'high';
+  if (top.score >= t.medium) return 'medium';
   return 'low';
 }
 
-module.exports = { STATUS_WEIGHT, scoreFinding, rankFindings, relevanceClass };
+module.exports = { STATUS_WEIGHT, RELEVANCE_THRESHOLDS, scoreFinding, rankFindings, relevanceClass };
