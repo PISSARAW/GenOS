@@ -96,10 +96,23 @@ function testCloudEdgePlacementBatch() {
   assert.deepStrictEqual(result.steps.map((step) => step.host), ['cloud', 'cloud']);
 }
 
+function testEdgeCoreCloudOnDemandBatch() {
+  const steps = Array.from({ length: 10 }, (_, index) => ({ stepId: `step-${index}`,
+    availableEngines: index < 7 ? ['local'] : ['local', 'cloud'], requiresRemoteCapability: index >= 7,
+    redacted: true, dataClasses: ['PUBLIC', 'RESTRICTED'], restrictedDataClasses: ['RESTRICTED'],
+    verifyCloudConnectivity: () => index !== 8 }));
+  const result = runtime.planPlacementBatch({ variantId: 'edge-core/cloud-symbionts', steps });
+  assert.strictEqual(result.localCorePreserved, true);
+  assert.deepStrictEqual(result.cloudOnDemandStepIds, ['step-7', 'step-8', 'step-9']);
+  assert.strictEqual(result.steps[7].dataClasses.includes('RESTRICTED'), false);
+  assert.strictEqual(result.steps[8].accepted, false);
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
 testLocalExportProofGate();
 testRecoveryReservationGate();
 testCloudEdgePlacementBatch();
+testEdgeCoreCloudOnDemandBatch();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');

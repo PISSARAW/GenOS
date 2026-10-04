@@ -250,7 +250,9 @@ function planPlacementBatch(input = {}) {
     const step = record(raw, `steps[${index}]`);
     return { stepId: String(step.stepId || index), ...planPlacement({ ...input, ...step, steps: undefined }) };
   });
-  return { accepted: steps.every((step) => step.accepted), steps };
+  return { accepted: steps.every((step) => step.accepted),
+    localCorePreserved: steps.every((step) => step.host === 'local'),
+    cloudOnDemandStepIds: steps.filter((step) => step.symbionts === 'cloud-on-demand').map((step) => step.stepId), steps };
 }
 
 function edgeLeaseAllowed(lease, verifier, requiredCapability) {
