@@ -65,10 +65,22 @@ async function applyCulture(mission, config) {
   return selectCulturalTraits(mission.culturalTraits || [], {}, 3);
 }
 
-async function applyCultureLearning(mission, config) {
+async function applyCultureLearning(mission, config, db) {
   if (!config.culture.enabled || !mission.culturalTransfer) return null;
   const bridge = require('./culturalPhenotypeBridgeService');
-  return bridge.transferCultureToPhenotype(mission.culturalTransfer);
+  const service = require('./phenotypicDevelopmentService');
+  const state = mission.culturalTransfer.phenotypeState
+    || await resolvePhenotypeState(mission, service, db);
+  const result = await bridge.transferCultureToPhenotype({
+    ...mission.culturalTransfer, phenotypeState: state, recipientAgentId: mission.agentId,
+  });
+  mission.phenotypeState = state;
+  if (db && mission.agentId && result.phenotype.changed) {
+    await service.savePhenotypeState(state, db);
+    result.phenotype.stateId = state.id;
+    result.phenotype.revision = state.revision;
+  }
+  return result;
 }
 
 async function applyPlay(mission, config, db) {
@@ -143,6 +155,7 @@ function createEmptyPhenotypeState(mission) {
 }
 
 function normalizePhenotypeState(state, agentId) {
+  assertPhenotypeOwner(state, agentId);
   state.agentId = state.agentId || agentId || null;
   state.genomeId = state.genomeId || (state.agentId ? `agent:${state.agentId}` : null);
   state.branches = Array.isArray(state.branches) ? state.branches : [];
@@ -150,6 +163,12 @@ function normalizePhenotypeState(state, agentId) {
   state.history = Array.isArray(state.history) ? state.history : [];
   state.currentPhenotype = state.currentPhenotype || {};
   return state;
+}
+
+function assertPhenotypeOwner(state, agentId) {
+  if (state.agentId && agentId && state.agentId !== agentId) {
+    throw new Error('Phenotype state belongs to a different agent.');
+  }
 }
 
 module.exports = {
