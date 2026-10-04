@@ -39,3 +39,8 @@ un snapshot GenOS immuable, quatre questions françaises et un oracle vérifiant
 les faits structurés et les citations. Il s'exécute sans Docker. Son smoke test
 qualifie uniquement le snapshot et l'oracle; aucune comparaison `alone`/`genos`
 ni évaluation humaine aveugle n'est encore produite.
+
+Le [pilote Inspect AI](inspect-ai/README.md) expose quatre tâches à oracle
+déterministe et trois bras (`model-alone`, topologie imposée, morphogenèse) à
+un évaluateur externe. Il vérifie l'identité du modèle, les budgets déclarés et
+les scores indépendants, mais attend un runner réel pour produire une comparaison.

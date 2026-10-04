@@ -327,7 +327,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0297](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
 | [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
 | [0299a](0299-admission-relationnelle-transactionnelle.md) | Admission transactionnelle des signaux relationnels | Proposé, implémentation ciblée | 2026-10-04 | Communication inter-agents, autorité, persistance |
-| [0299b](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
+| [0299b](0299-capacites-transversales-morphogenese.md) | Cinq capacités transversales de morphogenèse | Proposé, avec première implémentation opt-in | 2026-10-04 | Morphogenèse, preuves, mémoire, risque statistique |
+| [0299c](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
+| [0300](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

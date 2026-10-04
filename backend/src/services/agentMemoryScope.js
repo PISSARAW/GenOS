@@ -33,6 +33,11 @@ function scopeTagOf(text) {
   return match ? match[1] : null;
 }
 
+function chamberTagOf(text) {
+  const match = String(text || '').match(/\[MISSION_SCOPE id=[^\s\]]+ chamber=([^\s\]]+)\]/);
+  return match ? match[1] : null;
+}
+
 function normalizeTask(text) {
   return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
@@ -60,7 +65,10 @@ function foreignTask(text, task) {
 function keepForScope(text, scope, task) {
   const checked = scopeOf(scope);
   const tag = scopeTagOf(text);
-  if (tag) return Boolean(checked) && tag === checked.missionId;
+  if (tag) {
+    const chamber = chamberTagOf(text);
+    return Boolean(checked) && tag === checked.missionId && (!chamber || chamber === checked.chamber);
+  }
   return !foreignTask(text, task);
 }
 

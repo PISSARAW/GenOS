@@ -25,6 +25,11 @@ reproduction, et les 8 modes de composition (topologies).
 - [dossiers-agents-et-conscience.md](dossiers-agents-et-conscience.md) — dossiers de preuves, conscience opérationnelle et transitions.
 - [contrats-strategie-et-execution.md](contrats-strategie-et-execution.md) — contrats versionnés, sélection et approbation des runs.
 - [topologies/morphogenese.md](topologies/morphogenese.md) — cadre transversal de construction et de composition des organisations cognitives.
+- [meristeme-epistemique.md](meristeme-epistemique.md) — croissance par distinctions expérimentales non couvertes.
+- [spirale-de-deblocage.md](spirale-de-deblocage.md) — tentatives distinctes et recherche à échelle bornée.
+- [chronotaxie-aperiodique.md](chronotaxie-aperiodique.md) — déphasage reproductible et couverture temporelle observée.
+- [cambium-contre-exemples.md](cambium-contre-exemples.md) — conservation des conditions, exceptions et témoins des procédures.
+- [infini-sous-contrat.md](infini-sous-contrat.md) — budget de risque statistique hérité entre branches.
 - [communication.md](communication.md) — écologie communicationnelle : 7 types, schémas par type, grounding, coûts, shadow et apprentissage.
 - [relations-inter-agents.md](relations-inter-agents.md) — relations typées entre agents (29 types, 6 classes, persistance, fiches et schémas par type).
 - [physiologie-relationnelle.md](physiologie-relationnelle.md) — contraintes relationnelles exécutables, noyau déterministe et filtrage de parenté du routage.

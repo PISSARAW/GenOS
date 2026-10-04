@@ -10,6 +10,15 @@ const CONSOLIDATION_THRESHOLD = 0.7;
 const REPETITION_THRESHOLD = 3;
 const NEGATIVE_THRESHOLD = 0.3;
 
+function refs(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function missingCambiumWitness(episode) {
+  if (!episode.cambiumRequired) return false;
+  return !episode.applicability || refs(episode.evidenceRefs).length === 0;
+}
+
 function countPatternOccurrences(pattern, episodes) {
   if (!pattern || !Array.isArray(episodes)) return 0;
   let count = 0;
@@ -59,6 +68,9 @@ function promoteToProcedural(episode) {
     category: 'procedural',
     source: 'consolidation',
     sourceEpisodeId: episode.id || null,
+    applicability: episode.applicability || null,
+    evidenceRefs: refs(episode.evidenceRefs),
+    counterexampleRefs: refs(episode.counterexampleRefs),
     provenance: {
       promotedFrom: 'episodic',
       originalEpisodeId: episode.id || null,
@@ -89,6 +101,9 @@ function markAsNegativeKnowledge(episode) {
 
 function classifyForConsolidation(episode, allEpisodes) {
   if (!episode) return { action: 'skip', reason: 'no_episode' };
+  if (missingCambiumWitness(episode)) {
+    return { action: 'skip', reason: 'cambium_witness_required' };
+  }
   const reward = Number(episode.rewardScore || 0);
   if (reward < NEGATIVE_THRESHOLD) {
     return { action: 'negative', entry: markAsNegativeKnowledge(episode) };

@@ -9,6 +9,7 @@ const { normalizeRhizomeSession } = require('./rhizome/contracts/rhizomeSession'
 const capabilityGraph = require('./rhizome/graph/capabilityGraphService');
 const boundaryDetector = require('./rhizome/boundary/boundaryDetector');
 const growthPlanner = require('./rhizome/growth/growthPlanner');
+const experimentalCoverage = require('./rhizome/growth/experimentalCoverageService');
 const routePlanner = require('./rhizome/routing/routePlanner');
 const trailService = require('./rhizome/stigmergy/trailService');
 const routeOutcomeService = require('./rhizome/learning/routeOutcomeService');
@@ -242,7 +243,9 @@ async function planGrowth(sessionId, gapId, options = {}) {
   const session = await getSession(sessionId, options.db);
   const gap = session.openGaps.find((item) => item.gapId === gapId);
   if (!gap) throw Object.assign(new Error(`Unknown Rhizome gap '${gapId}'.`), { code: 'RHIZOME_GAP_UNKNOWN' });
-  return growthPlanner.plan({ session, gap, values: options.candidates, options: { ...options, threshold: options.threshold ?? session.variantPolicy.growth.threshold } });
+  const scopedOptions = await experimentalCoverage.optionsForGrowth(options.db, options);
+  return growthPlanner.plan({ session, gap, values: options.candidates,
+    options: { ...scopedOptions, threshold: options.threshold ?? session.variantPolicy.growth.threshold } });
 }
 
 function applyGrowthAdmission(session, input, admissionPolicy) {

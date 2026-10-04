@@ -53,6 +53,13 @@ function testSameTagKept() {
   assert.equal(kept.length, 1);
 }
 
+function testChamberIsolation() {
+  const tagged = `[VERIFIED_SYSTEM_FACT] Task: ${N1}\nResult: private.\n[MISSION_SCOPE id=trinity_orch_N1 chamber=structured]`;
+  assert.deepEqual(scope.filterScoped([{ summary: tagged }], SCOPE_N1, N1), []);
+  assert.deepEqual(scope.filterScoped([{ summary: tagged }], { missionId: 'trinity_orch_N1' }, N1), []);
+  assert.equal(scope.filterScoped([{ summary: tagged }], { missionId: 'trinity_orch_N1', chamber: 'structured' }, N1).length, 1);
+}
+
 function testNoScopeDropsForeignDossier() {
   const items = [{ summary: foreignRecord() }, { summary: 'court' }];
   const kept = scope.filterScoped(items, null, N1);
@@ -71,6 +78,23 @@ function testShortTaskPassthrough() {
   assert.equal(scope.filterScoped(items, null, 'query courte').length, 1);
 }
 
+async function testRuntimePassesScope() {
+  const memory = require('../src/services/agentMemoryContext');
+  const original = memory.formatCognitiveMemoryPrompt;
+  let observed;
+  memory.formatCognitiveMemoryPrompt = async (_agent, _task, options) => {
+    observed = options.missionScope;
+    return '';
+  };
+  try {
+    const { attachMissionMemoryContext } = require('../src/services/agentRuntimeAdapter/missionLease');
+    await attachMissionMemoryContext({ prompt: N1, missionScope: SCOPE_N1 }, 'agent-a');
+    assert.deepEqual(observed, SCOPE_N1);
+  } finally {
+    memory.formatCognitiveMemoryPrompt = original;
+  }
+}
+
 async function main() {
   testTagRoundTrip();
   testUntaggedWriteUnchanged();
@@ -79,9 +103,11 @@ async function main() {
   testShortGenericKept();
   testForeignTagDropped();
   testSameTagKept();
+  testChamberIsolation();
   testNoScopeDropsForeignDossier();
   testNoScopeDropsTagged();
   testShortTaskPassthrough();
+  await testRuntimePassesScope();
   console.log('✅ Trinity memory sealing tests passed.');
 }
 

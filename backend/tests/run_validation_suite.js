@@ -12,6 +12,8 @@ const suites = {
     ['mission physics parameter service', 'test_mission_physics_parameter_service.js'],
     ['WorldState conditional model', 'test_world_state_conditional.js'],
     ['morphology learning evidence gate', 'test_morphology_learning_evidence.js'],
+    ['morphogenesis transverse capabilities', 'test_morphogenesis_capabilities.js'],
+    ['morphogenesis phase two integration', 'test_morphogenesis_capabilities_phase2.js'],
     ['replicated causal validation', 'test_replicated_causal_validation_service.js'],
     ['replicated causal runtime integration', 'test_replicated_causal_runtime_integration.js'],
     ['biological semantic response validation', 'test_biological_semantic_validation.js'],

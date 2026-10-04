@@ -1,0 +1,9 @@
+{
+  "runner": ["node", "benchmarks/inspect-ai/tests/fixture-runner.cjs"],
+  "modelId": "mockllm/model",
+  "maxTokens": 512,
+  "allowedTools": [],
+  "timeoutSeconds": 20,
+  "seed": 104729,
+  "fixedTopology": "trinity"
+}
