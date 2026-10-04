@@ -4,6 +4,7 @@ const { createHash, randomUUID } = require('crypto');
 const store = require('../holobiontStore');
 const variants = require('./index');
 const runtime = require('./variantRuntimeService');
+const { createWorkflowRunner } = require('./variantWorkflowService');
 
 const OPERATIONS = Object.freeze({
   organelle: ['assessOrganelle', 'testOrganelleEssentiality'],
@@ -114,4 +115,6 @@ async function evaluatePersistentVariant(db, input = {}) {
   return { receipt, sessionRevision: revision };
 }
 
-module.exports = { selectPersistentVariant, evaluatePersistentVariant, OPERATIONS };
+const runPersistentVariantWorkflow = createWorkflowRunner(evaluatePersistentVariant);
+
+module.exports = { selectPersistentVariant, evaluatePersistentVariant, runPersistentVariantWorkflow, OPERATIONS };
