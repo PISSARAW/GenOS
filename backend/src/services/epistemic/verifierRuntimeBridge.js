@@ -113,6 +113,9 @@ function buildProducerDescriptor(antigen) {
 function evaluateVerifierIndependence(verifier, antigen, priorVerifiers) {
   const worker = buildVerifierWorker(antigen, verifier);
   const descriptor = buildVerifierDescriptor(verifier, antigen, worker);
+  if (!verifier.executionWorkspace) {
+    return { independent: false, distance: 0, reason: 'missing_execution_workspace', descriptor };
+  }
   const producerDescriptor = buildProducerDescriptor(antigen || {});
   const vsProducer = evaluateIndependence(descriptor, [producerDescriptor]);
   if (!vsProducer.independent) return vsProducer;

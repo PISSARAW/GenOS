@@ -108,7 +108,7 @@ async function run() {
       test: { command: 'npm test', cwd: tmpDir },
     };
 
-    const result = await runTestAdapter(antigen, verifier, {});
+    const result = await runTestAdapter(antigen, verifier, { allowedWorkspaceRoot: tmpDir });
     assert.strictEqual(result.status, 'verified');
     assert.ok(result.observations.length > 0);
     const obs = result.observations.find(o => o.step === 'test:execute');
@@ -136,7 +136,7 @@ async function run() {
       artifact: { buildCommand: 'npm run check', cwd: tmpDir, type: 'npm-check' },
     };
 
-    const result = await runArtifactAdapter(antigen, verifier, {});
+    const result = await runArtifactAdapter(antigen, verifier, { allowedWorkspaceRoot: tmpDir });
     assert.strictEqual(result.status, 'verified');
     assert.ok(result.observations.length > 0);
     const buildObs = result.observations.find(o => o.step.startsWith('artifact:') && o.result === 'executed');
@@ -148,12 +148,12 @@ async function run() {
 
   // 6. independencePolicy intégrée dans le bridge
   await test('independencePolicy évalue avant signature', () => {
-    const v1 = { type: 'test', strategy: ['unit'] };
-    const v2 = { type: 'replay', strategy: ['replay'] };
+    const v1 = { type: 'test', strategy: ['unit'], executionWorkspace: 'workspace-one' };
+    const v2 = { type: 'replay', strategy: ['replay'], executionWorkspace: 'workspace-two' };
     const antigen = { id: 'claim-1' };
 
     const ind1 = evaluateVerifierIndependence(v1, antigen, []);
-    assert.strictEqual(ind1.independent, true, 'first verifier is always independent');
+    assert.strictEqual(ind1.independent, true, 'a verifier with an observed workspace can be independent');
 
     const ind2 = evaluateVerifierIndependence(v2, antigen, [v1]);
     assert.strictEqual(ind2.independent, true, 'different type/strategy → independent');
@@ -161,8 +161,8 @@ async function run() {
 
   // 7. independencePolicy détecte dépendance dans le bridge
   await test('independencePolicy détecte dépendance dans le bridge', () => {
-    const v1 = { type: 'test', strategy: ['unit'] };
-    const v2 = { type: 'test', strategy: ['unit'] };
+    const v1 = { type: 'test', strategy: ['unit'], executionWorkspace: 'workspace-one' };
+    const v2 = { type: 'test', strategy: ['unit'], executionWorkspace: 'workspace-one' };
     const antigen = { id: 'claim-1' };
 
     const ind2 = evaluateVerifierIndependence(v2, antigen, [v1]);
@@ -185,7 +185,7 @@ async function run() {
     const r = result.results[0];
     assert.ok(r.receipt);
     assert.ok(r.receipt.signature);
-    assert.strictEqual(r.receipt.independent, true);
+    assert.strictEqual(r.receipt.independent, false);
     assert.ok(r.receipt.independenceDescriptor);
   });
 

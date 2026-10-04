@@ -16,6 +16,7 @@
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const os = require('node:os');
+const path = require('node:path');
 const { appendBounded } = require('./boundedOutput');
 const { terminateChild } = require('./processTermination');
 const { isAllowedSandboxTestCommand } = require('./sandboxCommandPolicy');
@@ -53,6 +54,15 @@ function assertAllowed(command) {
   }
 }
 
+function commandInvocation(command) {
+  if (process.platform === 'win32') {
+    return { program: path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe'),
+      args: ['/d', '/s', '/c', command] };
+  }
+  const [program, ...args] = command.split(/\s+/);
+  return { program, args };
+}
+
 /**
  * Exécute une commande dans le répertoire de travail spécifié avec timeout.
  * Retourne un résultat d'exécution complet.
@@ -64,12 +74,12 @@ async function runIsolated({ command, cwd = process.cwd(), timeoutMs = DEFAULT_T
 
   assertAllowed(command);
 
-  const [program, ...args] = command.split(/\s+/);
+  const invocation = commandInvocation(command);
   return new Promise((resolve) => {
-    const child = spawn(program, args, {
+    const child = spawn(invocation.program, invocation.args, {
       cwd,
       env: buildIsolatedEnv(env),
-      shell: process.platform === 'win32',
+      shell: false,
       detached: process.platform !== 'win32',
       stdio: ['pipe', 'pipe', 'pipe'],
     });

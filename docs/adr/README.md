@@ -316,6 +316,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0295](0295-memoire-immunitaire-portee-et-oracle.md) | Mémoire immunitaire AEIS portée et résolue par preuve | Accepté | 2026-10-04 | AEIS, mémoire, SQLite, multitenance |
 | [0296](0296-revue-multi-fournisseur-aeis.md) | Revue AEIS par fournisseurs indépendants | Accepté | 2026-10-04 | AEIS, fournisseurs, processus, promotion |
 | [0297](0297-budget-et-retroaction-aeis.md) | Budget et rétroaction homéostatique AEIS | Accepté | 2026-10-04 | AEIS, runtime, ré-arbitration, budget |
+| [0298](0298-cycle-de-vie-des-recus-aeis.md) | Cycle de vie des reçus et assemblées AEIS | Accepté | 2026-10-04 | AEIS, signature, rétention, audit |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
