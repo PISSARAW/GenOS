@@ -1551,6 +1551,15 @@ Les chantiers de conception sont regroupés en 18 livrables cohérents. L'ordre 
 
 ### 32.4 Tests d'acceptation régionaux
 
+Le variant culturel valide chaque demande avec une source, une cible et une culture
+versionnée avant de planifier le transfert. Le runtime enregistre la culture dans SQLite,
+avec une clé propre à la session, un hash de contenu et son parent éventuel. Les offres
+de migration et les mutations ne sont vérifiées qu'après relecture de leurs lignes
+persistées. Une transmission confirmée exige deux dèmes résidents et une compatibilité
+attestée ; une offre en quarantaine ne prouve pas encore cette transmission. La
+phylogénie est reconstruite depuis les liens parentaux stockés. Voir
+[ADR 0293](../../adr/0293-persistance-des-variants-metapopulation.md).
+
 | Scénario | Résultat attendu |
 |---|---|
 | Un worker tombe, mais la fonction locale reste viable | Le dème n'est pas déclaré éteint. |

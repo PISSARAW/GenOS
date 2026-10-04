@@ -68,8 +68,9 @@ function diverseMigrationActions(observed, input) {
 async function heterogeneousCultureActions(observed, input) {
   if (observed.variantPolicy?.transferCulture !== true) return [];
   return (input.culturalTransfers || [])
-    .filter((request) => migrationPolicyService.isVersionedCulture(request.culture))
-    .map((request) => ({ type: 'TRANSFER_CULTURE', culture: request.culture, targetDemeId: request.targetDemeId }));
+    .map((request) => validatedCultureTransfer(request, input))
+    .map((request) => ({ type: 'TRANSFER_CULTURE', culture: request.culture,
+      sourceDemeId: request.sourceDemeId, targetDemeId: request.targetDemeId }));
 }
 
 async function sourceSinkActions(observed, input, options) {
@@ -332,17 +333,27 @@ function cultureTransferRequests(observed, input) {
   if (observed.variantPolicy?.artifactsOnly !== true) return [];
   const actions = [];
   for (const transfer of input.culturalTransfers || []) {
-    if (migrationPolicyService.isVersionedCulture(transfer.culture)) {
-      actions.push(compatibilityDecision(observed, transfer));
-    }
+    actions.push(compatibilityDecision(observed, validatedCultureTransfer(transfer, input)));
   }
   return actions;
+}
+
+function validatedCultureTransfer(request, input) {
+  const culture = request?.culture;
+  const sourceDemeId = request?.sourceDemeId || input.cultureSourceById?.[culture?.id];
+  const candidate = { type: culture?.payloadType || 'PROCEDURE', culture, provenance: { source: sourceDemeId } };
+  if (!sourceDemeId || !request?.targetDemeId || !migrationPolicyService.isVersionedCulture(candidate)) {
+    throw Object.assign(new Error('Cultural transfer requires a versioned artifact and two named demes.'),
+      { code: 'METAPOPULATION_CULTURE_TRANSFER_INVALID' });
+  }
+  return { ...request, sourceDemeId };
 }
 
 function compatibilityDecision(observed, transfer) {
   const compatibility = checkCulturalCompatibility(transfer.culture, observed.demes.find((d) => d.demeId === transfer.targetDemeId));
   return compatibility.compatible
-    ? { type: 'TRANSFER_CULTURE', culture: transfer.culture, targetDemeId: transfer.targetDemeId, transmission: transfer.transmission || 'horizontal' }
+    ? { type: 'TRANSFER_CULTURE', culture: transfer.culture, sourceDemeId: transfer.sourceDemeId,
+      targetDemeId: transfer.targetDemeId, transmission: transfer.transmission || 'horizontal' }
     : { type: 'REJECT_CULTURE_TRANSFER', cultureId: transfer.culture.id, reason: compatibility.reason };
 }
 

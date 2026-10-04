@@ -224,7 +224,8 @@ function hasCounterexample(candidate) {
 }
 
 function isCultural(candidate) {
-  return ['COGNITIVE_RECIPE', 'PROCEDURE', 'MEMORY_FRAGMENT', 'STRATEGY'].includes(candidate.type);
+  return ['COGNITIVE_RECIPE', 'PROCEDURE', 'MEMORY_FRAGMENT', 'STRATEGY',
+    'ARTIFACT', 'TEST', 'VERIFIER', 'TOOL_CONFIG'].includes(candidate.type);
 }
 
 function isVersionedCulture(candidate) {

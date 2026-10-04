@@ -4,6 +4,7 @@ const store = require('../metapopulationStore');
 const corridorStore = require('../migration/corridorStore');
 const migrationStore = require('../migration/migrationStore');
 const { RUNTIME_MARKERS } = require('./variantActionExecutors');
+const { verifyCulturalActions } = require('./culturalActionVerification');
 
 async function verifyVariantActions(context) {
   const { plan, input, options } = context;
@@ -14,7 +15,8 @@ async function verifyVariantActions(context) {
     && await verifyFounderReserve({ actions: plan.actions, results, db: options.db,
       metapopulationId: input.metapopulationId })
     && verifyTrials({ actions: plan.actions, results, db: options.db, metapopulationId: input.metapopulationId })
-    && verifyMarkerReceipts(plan.actions, results) && await verifyCultureOffers({ plan, results, db: options.db, metapopulationId: input.metapopulationId });
+    && verifyMarkerReceipts(plan.actions, results) && await verifyCultureOffers({ plan, results, db: options.db, metapopulationId: input.metapopulationId })
+    && await verifyCulturalActions({ actions: plan.actions, results, db: options.db, metapopulationId: input.metapopulationId });
 }
 
 function verifyMarkerReceipts(actions, results) {
