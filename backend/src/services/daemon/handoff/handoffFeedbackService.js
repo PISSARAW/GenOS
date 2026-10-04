@@ -31,8 +31,10 @@ async function recordFeedback(db, input) {
     input.findingId,
     input.verdict
   );
+  const usefulnessResult = await usefulness(db, { findingId: input.findingId });
+  const scoreResult = relevanceScore(usefulnessResult);
   maybePlasticitySignal(input);
-  return { recorded: true, briefId: input.briefId, findingId: input.findingId, verdict: input.verdict };
+  return { recorded: true, briefId: input.briefId, findingId: input.findingId, verdict: input.verdict, relevanceScore: scoreResult };
 }
 
 function maybePlasticitySignal(input) {
@@ -87,12 +89,41 @@ function relevanceScore(counts) {
 async function markBriefConsumed(db, query) {
   if (!db || !query || !query.briefId) return { consumed: false };
   await migrateDaemonHandoffs(db);
-  await db.run(
+  const res = await db.run(
     "UPDATE daemon_handoffs SET status = 'CONSUMED', consumed_at = datetime('now') WHERE id = ? AND status = 'READY'",
     query.briefId
   );
-  return { consumed: true, briefId: query.briefId };
+  const consumed = (res && res.changes) > 0;
+  return { consumed, briefId: query.briefId, actuallyChanged: consumed };
 }
+
+async function getDemotedFindings(db, territoryId) {
+  if (!db || !territoryId) return [];
+  await migrateDaemonHandoffFeedback(db);
+  const rows = await db.all(
+    `SELECT DISTINCT hf.finding_id FROM daemon_handoff_feedback hf
+     JOIN daemon_handoffs h ON h.id = hf.brief_id
+     WHERE h.territory_id = ?`,
+    territoryId
+  );
+  const demoted = [];
+  for (const row of rows || []) {
+    const u = await usefulness(db, { findingId: row.finding_id });
+    const s = relevanceScore(u);
+    if (s.demote) demoted.push({ findingId: row.finding_id, score: s });
+  }
+  return demoted;
+}
+
+module.exports = {
+  VERDICTS,
+  DEMOTE_AFTER_PRESENTATIONS,
+  recordFeedback,
+  usefulness,
+  relevanceScore,
+  markBriefConsumed,
+  getDemotedFindings
+};
 
 module.exports = {
   VERDICTS,

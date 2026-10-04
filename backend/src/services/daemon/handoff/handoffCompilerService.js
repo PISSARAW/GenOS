@@ -19,6 +19,7 @@ const graphStore = require('../cartography/graphStore');
 const stigmergyService = require('../daemonStigmergyService');
 const phenotypeService = require('../specialization/phenotypeService');
 const relevance = require('./handoffRelevanceService');
+const feedbackService = require('./handoffFeedbackService');
 
 const MAX_BRIEF_FINDINGS = 20;
 const MAX_DEAD_ENDS = 10;
@@ -124,7 +125,10 @@ async function compileBrief(db, args) {
   if (!stored.found) return { compiled: false, reason: 'unknown-territory' };
   const territory = stored.territory;
   const findings = await openFindings(db, args.territoryId);
-  const ranked = relevance.rankFindings(findings, { mission: args.mission });
+  const demoted = await feedbackService.getDemotedFindings(db, args.territoryId);
+  const demotedIds = new Set(demoted.map((d) => d.findingId));
+  const filteredFindings = findings.filter((f) => !demotedIds.has(f.id));
+  const ranked = relevance.rankFindings(filteredFindings, { mission: args.mission });
   const brief = await buildBrief(db, { args, territory, ranked });
   await db.run(
     `INSERT INTO daemon_handoffs (id, territory_id, head_sha, mission, relevance_class, brief_json)
