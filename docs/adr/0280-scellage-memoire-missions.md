@@ -79,6 +79,15 @@ Transport de bout en bout des champs (`prepareWorker`, `startWorkerMission`,
 `buildMissionEnvelope`, `agent.proto`) : suivi requis, commun aux points 2
 et 3.
 
+## Addendum 2026-10-04 — lecture ciblée du contexte de mission
+
+Le point d'injection `attachMissionMemoryContext` transmet maintenant le
+`missionScope` reçu au filtre de mémoire. Une entrée taguée pour une chambre
+différente de la chambre demandée est refusée, même si l'identifiant de mission
+est identique ; une lecture sans chambre n'ouvre pas une entrée privée de chambre.
+Cette correction ne prouve pas que tous les lanceurs transportent un scope
+authentifié, ni que les vésicules et mémoires non taguées sont privées.
+
 ## Preuves exigées
 
 - Test `backend/tests/test_trinity_memory_sealing.js` : dossier étranger
