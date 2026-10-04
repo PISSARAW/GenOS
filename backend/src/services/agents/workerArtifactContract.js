@@ -248,7 +248,7 @@ function validVerdict(verdict) {
 
 function validateWorkerArtifact(dossier, worker) {
   const required = worker.workerContract?.evidence?.requiredArtifacts || [];
-  if (!required.length) return true;
+  if (!required.length) throw Object.assign(new Error('Worker contract declares no required artifacts.'), { code: 'WORKER_CONTRACT_INVALID_NO_ARTIFACTS' });
   const report = reportOf(dossier);
   const artifact = report.workerArtifact;
   for (const expected of required) {
