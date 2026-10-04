@@ -17,6 +17,15 @@ function createSyncytiumCodeFacade(dependencies) {
     localizeFaults: dependencies.localizeFaults,
     chooseRepairCandidates: dependencies.chooseRepairCandidates,
     repairInvariant: dependencies.repairInvariant,
+    partitionReplica: dependencies.partitionReplica,
+    reconcileReplica: dependencies.reconcileReplica,
+    inspectReplicas: dependencies.inspectReplicas,
+    joinReplica: dependencies.joinReplica,
+    createSpeculativeBranch: dependencies.createSpeculativeBranch,
+    applySpeculativeOperation: dependencies.applySpeculativeOperation,
+    compareSpeculativeBranch: dependencies.compareSpeculativeBranch,
+    promoteSpeculativeBranch: dependencies.promoteSpeculativeBranch,
+    discardSpeculativeBranch: dependencies.discardSpeculativeBranch,
     inspectHistory: dependencies.inspectHistory,
     inspectConflicts: dependencies.inspectConflicts
   });
