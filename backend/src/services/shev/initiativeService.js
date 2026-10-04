@@ -79,6 +79,24 @@ async function reconcileQueued(db, projectId) {
   }
 }
 
+async function resumeAutomaticInitiatives(db, input) {
+  const rows = await db.all(`SELECT i.id AS initiative_id, i.mandate_version, o.* FROM shev_initiatives i
+    JOIN shev_observations o ON o.project_id = i.project_id AND o.id = i.observation_id
+    WHERE i.project_id = ? AND i.status = 'proposed'
+      AND i.reason IN ('diagnostic-delegue', 'instrumentation-deleguee')
+    ORDER BY i.created_at, i.id LIMIT 20`, [input.projectId]);
+  let queued = 0;
+  for (const row of rows) {
+    if (row.mandate_version !== input.mandateVersion) continue;
+    const decision = decisionFor(row, input.mandate, input.nowMs);
+    if (!decision.queue) continue;
+    await queueInitiative(db, { id: row.initiative_id, projectId: input.projectId,
+      observation: row, mandate: input.mandate, decision });
+    queued += 1;
+  }
+  return queued;
+}
+
 async function ensureWake(db, projectId) {
   const project = await db.get('SELECT state FROM ontogenesis_projects WHERE id = ?', [projectId]);
   if (project?.state !== 'IDLE') return;
@@ -97,10 +115,12 @@ async function compilePending(db, input) {
   const control = await db.get('SELECT mode FROM ontogenesis_control WHERE project_id = ?', [input.projectId]);
   if (control?.mode !== 'running') return { compiled: 0, queued: 0 };
   await reconcileQueued(db, input.projectId);
-  let queued = 0;
+  let queued = await resumeAutomaticInitiatives(db, { projectId: input.projectId,
+    mandateVersion: responsibility.mandateVersion, mandate: responsibility.mandate,
+    nowMs: input.nowMs ?? Date.now() });
   const observations = await pendingObservations(db, input.projectId);
   for (const observation of observations) {
-    const decision = decisionFor(observation, responsibility.mandate, input.nowMs || Date.now());
+    const decision = decisionFor(observation, responsibility.mandate, input.nowMs ?? Date.now());
     const id = await createInitiative(db, { projectId: input.projectId, observation,
       mandateVersion: responsibility.mandateVersion, decision });
     if (decision.queue) {

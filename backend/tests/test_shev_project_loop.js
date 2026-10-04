@@ -84,6 +84,15 @@ async function main() {
     assert.strictEqual(initiatives.find((item) => item.observation_id === 'stale-1').reason, 'preuve-perimee');
     assert.strictEqual((await db.get('SELECT COUNT(*) AS n FROM ontogenesis_backlog WHERE project_id = ?', ['shev-c'])).n, 1);
 
+    await recordObservation(db, observation('shev-c', 'crash-1'));
+    await db.run(`INSERT INTO shev_initiatives
+      (id, project_id, observation_id, mandate_version, kind, status, reason)
+      VALUES ('crash-proposal', 'shev-c', 'crash-1', 1, 'diagnose', 'proposed', 'diagnostic-delegue')`);
+    await tick(db, 'shev-c');
+    assert.strictEqual((await db.get("SELECT status FROM shev_initiatives WHERE id = 'crash-proposal'")).status, 'queued');
+    await tick(db, 'shev-c');
+    assert.strictEqual((await db.get('SELECT COUNT(*) AS n FROM ontogenesis_backlog WHERE project_id = ?', ['shev-c'])).n, 2);
+
     await recordObservation(db, observation('shev-c', 'gap-1', { kind: 'capability_gap',
       summary: 'Echec recurrent de conception', evidenceRefs: ['artifact:failure-series'] }));
     await tick(db, 'shev-c');
