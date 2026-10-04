@@ -34,7 +34,7 @@ function compileSchema() {
 }
 
 function createSession(m, o, syn) {
-  return syn.createSession(m, { ...o, schema: compileSchema(), variantPolicy: { id: 'speculative' } });
+  return syn.createSession(m, { ...o, schema: compileSchema(), variantPolicy: o.variantPolicy || { id: 'speculative' } });
 }
 
 const err = (msg, code) => Object.assign(new Error(msg), { code });

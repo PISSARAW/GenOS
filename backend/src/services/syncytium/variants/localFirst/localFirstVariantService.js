@@ -36,7 +36,7 @@ function createSession(m, o, syn) {
   const schema = compileSchema(o);
   if (o && o.fields && Object.keys(o.fields).length > 0)
     schema.fields = Object.assign({}, schema.fields, o.fields);
-  return syn.createSession(m, { ...o, schema, variantPolicy: { id: 'localFirst' } });
+  return syn.createSession(m, { ...o, schema, variantPolicy: o.variantPolicy || { id: 'localFirst' } });
 }
 
 function assertDevId(id, label) {

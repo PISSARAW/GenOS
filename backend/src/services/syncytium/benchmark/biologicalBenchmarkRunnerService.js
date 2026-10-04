@@ -108,7 +108,8 @@ function launchScenario({ manifest, variant }) {
     action: 'dispatch_biological', mode: variant.mode, mission: manifest.mission,
     executionBudget: manifest.budget, timeoutMs: manifest.timeoutMs,
     variant_id: manifest.variantId, worker_assignments: manifest.workerAssignments,
-    configuration: manifest.configuration, sessionOptions: manifest.sessionOptions
+    configuration: { ...(manifest.configuration || {}), useVariantRuntime: true },
+    sessionOptions: manifest.sessionOptions
   };
   const perWorkerTimeout = manifest.timeoutMs || 600000;
   const scenarioTimeout = manifest.scenarioTimeoutMs || perWorkerTimeout * Math.ceil(5 / 2) + 30000;

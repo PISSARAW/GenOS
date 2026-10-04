@@ -230,7 +230,7 @@ async function createPolicySession(context) {
   const fit = policy.analyzeFit(mission, request);
   const selection = policySelection(policy, fit, request.variantId);
   const variantPolicy = policySummary({ policy, mission, configuration, context: request });
-  const session = await syncytium.createSession(mission, {
+  const sessionOptions = {
     ...(request.sessionOptions || {}), schema,
     variantPolicy,
     variantSelection: selection,
@@ -238,7 +238,12 @@ async function createPolicySession(context) {
       ...configuration, nuclearDomains: configuration.nuclearDomains || request.sessionOptions?.nuclearDomains,
       nuclei: configuration.nuclei
     })
-  });
+  };
+  const session = configuration.useVariantRuntime === true
+    ? await require('./variantSessionFactory').createVariantSession({
+      syncytium, policyId: policy.id, mission, options: { ...configuration, ...sessionOptions }
+    })
+    : await syncytium.createSession(mission, sessionOptions);
   return { ...session, variantPolicy, variantSelection: session.variantSelection };
 }
 
