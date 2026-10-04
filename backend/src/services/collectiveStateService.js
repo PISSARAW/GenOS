@@ -182,25 +182,25 @@ function getRelations(agentId) {
   return out;
 }
 
-function createSnapshot() {
+function createSnapshot(targetState = state) {
   const snapshotId = `snap_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   snapshots.push({
     id: snapshotId,
-    state: serializeState(state),
+    state: serializeState(targetState),
     createdAt: new Date().toISOString()
   });
   return snapshotId;
 }
 
-function rollback(snapshotId) {
+function rollback(snapshotId, targetState = state) {
   const target = snapshots.list().find((s) => s.id === snapshotId);
   if (!target) return false;
   const restored = deserializeState(target.state);
-  for (const key of Object.keys(state)) {
-    if (!Object.prototype.hasOwnProperty.call(restored, key)) delete state[key];
+  for (const key of Object.keys(targetState)) {
+    if (!Object.prototype.hasOwnProperty.call(restored, key)) delete targetState[key];
   }
-  Object.assign(state, restored);
-  state.updatedAt = new Date().toISOString();
+  Object.assign(targetState, restored);
+  targetState.updatedAt = new Date().toISOString();
   return true;
 }
 

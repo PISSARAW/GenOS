@@ -70,7 +70,7 @@ function adapterErrors(plan, ctx) {
 
 function createStateSnapshot(collectiveState) {
   return {
-    snapshotId: createSnapshot(),
+    snapshotId: createSnapshot(collectiveState),
     capturedAt: nowIso(),
     morphologyVersion: collectiveState.currentMorphologyVersion,
     agentCount: collectiveState.agents.size,
@@ -358,7 +358,7 @@ async function handleRollback(input) {
   let rollbackReceipt = null;
   if (preSnapshot) {
     const compensationErrors = await compensateActions(compensations, morphCtx, err.message);
-    const rolledBack = rollbackSnapshot(preSnapshot.snapshotId);
+    const rolledBack = rollbackSnapshot(preSnapshot.snapshotId, morphCtx.collectiveState);
     rollbackReceipt = {
       rolledBack: rolledBack && compensationErrors.length === 0,
       memoryRestored: rolledBack,
@@ -374,7 +374,7 @@ async function handleRollback(input) {
 
 async function rollback(ctx) {
   const { snapshotId, collectiveState } = ctx;
-  const rolledBack = rollbackSnapshot(snapshotId);
+  const rolledBack = rollbackSnapshot(snapshotId, collectiveState);
   return {
     rolledBack,
     targetSnapshotId: snapshotId,
