@@ -5,8 +5,9 @@ const verifierRouter = require('./verifierRouter');
 async function routeAndVerify(input) {
   const { context, session, claim, receipts } = input;
   const verificationClaim = { ...(claim.claim || claim), claimId: claim.claimId || claim.claim?.claimId };
+  assertMixedClaimType(context, session, verificationClaim);
   const verification = verifierRouter.route({ claim: verificationClaim, members: session.members });
-  assertRequiredVerifier(context, session, verification, verificationClaim);
+  assertRequiredVerifier({ context, session, verification, claim: verificationClaim });
   if (!requiresVerification(context, session, verificationClaim)) return;
   if (typeof context.verificationExecutor !== 'function') {
     throw requiredReceipt('A deterministic verifier executor is required for this factual claim.');
@@ -20,7 +21,17 @@ async function routeAndVerify(input) {
   }
 }
 
-function assertRequiredVerifier(context, session, verification, claim) {
+function assertMixedClaimType(context, session, claim) {
+  if (!context.variantPolicy?.requireDeterministicVerifier || session.questionType !== 'MIXED') return;
+  const knownTypes = new Set(['FACT', 'FACTUAL', 'MATH', 'CODE', 'SECURITY', 'INTERPRETIVE', 'NORMATIVE', 'DESIGN', 'EXPLORATORY']);
+  if (!knownTypes.has(String(claim.type || '').toUpperCase())) {
+    throw Object.assign(new Error('Hybrid Oracle requires every MIXED claim to be explicitly typed before routing.'), {
+      code: 'BIOCENOSE_VARIANT_CLAIM_TYPE_REQUIRED'
+    });
+  }
+}
+
+function assertRequiredVerifier({ context, session, verification, claim }) {
   if (requiresVerification(context, session, claim) && !verification.deterministicAvailable) {
     throw requiredReceipt('Hybrid Oracle Community requires a deterministic verifier for factual claims.');
   }
@@ -43,4 +54,4 @@ function requiredReceipt(message) {
   return Object.assign(new Error(message), { code: 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED' });
 }
 
-module.exports = { routeAndVerify, assertRequiredVerifier, requiresVerification };
+module.exports = { routeAndVerify, assertRequiredVerifier, requiresVerification, assertMixedClaimType };

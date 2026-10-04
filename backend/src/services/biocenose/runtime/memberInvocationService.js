@@ -8,42 +8,135 @@ const { validateJudgment } = require('../contracts/judgmentContract');
 const REPAIRABLE_PHASES = new Set(['SEALED_JUDGMENT', 'REVIEW', 'REVISION']);
 
 async function invoke(input) {
-  if (typeof input.memberInvoker === 'function') {
-    return assertValidResponse(input, normalizeResult(await input.memberInvoker(invocationRequest(input))));
-  }
+  if (typeof input.memberInvoker === 'function') return invokeInjected(input);
+  return invokeModel(input);
+}
+
+async function invokeInjected(input) {
+  const request = invocationRequest(input);
+  let observationTask;
+  request.onProviderObserved = (observation) => {
+    observationTask = Promise.resolve(input.onProviderObserved?.(observation));
+    return observationTask;
+  };
+  const value = await input.memberInvoker(request);
+  if (observationTask) await observationTask;
+  return assertValidResponse(input, normalizeResult(value));
+}
+
+async function invokeModel(input) {
   const options = {
     db: input.db, agentId: input.member.memberId,
     model: input.member.model || input.member.modelUri,
     organizationId: input.member.organizationId, projectId: input.member.projectId,
-    priority: 'interactive', timeoutMs: input.timeoutMs || 60000,
-    maxTokens: input.maxTokens || 2500, stream: false
+    priority: 'interactive', timeoutMs: input.timeoutMs || defaultTimeoutMs(input),
+    maxTokens: input.maxTokens || 2500, stream: false,
+    responseFormat: responseFormatFor(input.phase, input.constitution?.variant)
   };
-  let first;
+  const initial = await firstModelResponse(input, options);
+  if (initial.repaired) return acceptedRepairedResponse(input, initial.response, parseResponse(initial.response.text));
   try {
-    first = await modelRouter.generate({ ...options, prompt: promptFor(input) });
-  } catch (error) {
-    if (!REPAIRABLE_PHASES.has(input.phase) || !isStructuredOutputError(error)) throw error;
-    const repaired = await modelRouter.generate({
-      ...options,
-      prompt: repairPrompt(input, '', ['The previous response was not valid JSON. Return exactly one complete JSON object.'])
-    });
-    return assertValidResponse(input, parseResponse(repaired.text));
-  }
-  try {
-    return assertValidResponse(input, parseResponse(first.text));
+    return await acceptedModelResponse(input, initial.response, parseResponse(initial.response.text));
   } catch (error) {
     if (!REPAIRABLE_PHASES.has(input.phase) || error.code !== 'BIOCENOSE_MEMBER_RESPONSE_INVALID') throw error;
     const errors = error.validationErrors || [error.message];
     const repaired = await modelRouter.generate({
       ...options,
-      prompt: repairPrompt(input, first.text, errors)
+      prompt: repairPrompt(input, initial.response.text, errors)
     });
-    return assertValidResponse(input, parseResponse(repaired.text));
+    return acceptedRepairedResponse(input, repaired, parseResponse(repaired.text));
   }
+}
+
+async function firstModelResponse(input, options) {
+  try { return { response: await modelRouter.generate({ ...options, prompt: promptFor(input) }), repaired: false }; }
+  catch (error) {
+    if (!REPAIRABLE_PHASES.has(input.phase) || !isStructuredOutputError(error)) throw error;
+    const response = await modelRouter.generate({ ...options,
+      prompt: repairPrompt(input, '', ['The previous response was not valid JSON. Return exactly one complete JSON object.']) });
+    return { response, repaired: true };
+  }
+}
+
+async function acceptedModelResponse(input, modelResponse, parsed) {
+  const response = assertValidResponse(input, parsed);
+  await recordProvider(input, modelResponse);
+  return response;
+}
+
+async function acceptedRepairedResponse(input, modelResponse, parsed) {
+  try { return await acceptedModelResponse(input, modelResponse, parsed); }
+  catch (error) {
+    if (input.phase !== 'REVISION' || !onlyUnknownClaimIds(error)) throw error;
+    await recordProvider(input, modelResponse);
+    const known = knownClaimIds(input);
+    const rejectedClaimIds = parsed.changedClaims.filter((claimId) => !known.has(claimId));
+    const position = String(input.details?.initialJudgment?.position ?? parsed.previousPosition ?? '');
+    return { previousPosition: position, newPosition: position, changedClaims: [],
+      reasonCodes: [], evidenceRefs: [], rejectedClaimIds };
+  }
+}
+
+function onlyUnknownClaimIds(error) {
+  const errors = error.validationErrors || [];
+  return errors.length === 1 && errors[0] === 'changedClaims must contain only supplied claimId values';
+}
+
+function knownClaimIds(input) {
+  return new Set((input.details?.claims || []).map((claim) => claim.claimId));
+}
+
+async function recordProvider(input, modelResponse) {
+  if (typeof input.onProviderObserved === 'function') await input.onProviderObserved({
+    memberId: input.member.memberId, provider: modelResponse.provider,
+    model: modelResponse.servedModel || modelResponse.model || modelResponse.requestedModel || null
+  });
+}
+
+function defaultTimeoutMs(input) {
+  return input.constitution?.variant === 'representative_community' ? 300000 : 60000;
 }
 
 function isStructuredOutputError(error) {
   return /invalid structured json|malformed sse json|malformed ndjson/i.test(String(error?.message || ''));
+}
+
+function responseFormatFor(phase, variant) {
+  const stringArray = { type: 'array', items: { type: 'string' } };
+  const mixedClaim = variant === 'hybrid_oracle_community';
+  const claimProperties = { statement: { type: 'string' }, ...(mixedClaim
+    ? { type: { type: 'string', enum: ['FACTUAL', 'PROBABILISTIC', 'NORMATIVE', 'DESIGN', 'EXPLORATORY'] },
+      verification: { type: 'object', required: ['kinds'], properties: { kinds: stringArray } } } : {}) };
+  const schemas = {
+    SEALED_JUDGMENT: {
+      type: 'object', required: ['judgment'], properties: { judgment: {
+        type: 'object', required: ['position', 'confidence', 'claims', 'assumptions', 'evidenceRefs', 'unknowns', 'abstentions', 'probabilities'], properties: {
+          position: { type: ['string', 'number'] }, confidence: { type: 'number', minimum: 0, maximum: 1 },
+          claims: { type: 'array', items: { type: 'object', required: mixedClaim ? ['statement', 'type'] : ['statement'],
+            properties: claimProperties, additionalProperties: true } },
+          assumptions: stringArray, evidenceRefs: stringArray, unknowns: stringArray, abstentions: stringArray,
+          probabilities: { type: 'array', items: { type: 'object', required: ['eventId', 'domain', 'probability'], properties: {
+            eventId: { type: 'string' }, domain: { type: 'string' }, probability: { type: 'number', minimum: 0, maximum: 1 }
+          }, additionalProperties: true } }
+        }, additionalProperties: true
+      } }, additionalProperties: true
+    },
+    REVIEW: {
+      type: 'object', required: ['summary', 'arguments'], properties: {
+        summary: { type: 'string' }, arguments: { type: 'array', items: { type: 'object', required: ['relation', 'argument'], properties: {
+          claimId: { type: 'string' }, relation: { type: 'string', enum: ARGUMENT_RELATIONS },
+          argument: { type: 'object', required: ['statement'], properties: { statement: { type: 'string' }, targetArgumentId: { type: 'string' }, targetClaimId: { type: 'string' } }, additionalProperties: true }
+        }, additionalProperties: true } }, dissent: { type: 'array' }
+      }, additionalProperties: true
+    },
+    REVISION: {
+      type: 'object', required: ['previousPosition', 'newPosition', 'changedClaims', 'reasonCodes', 'evidenceRefs'], properties: {
+        previousPosition: { type: 'string' }, newPosition: { type: 'string' }, changedClaims: stringArray,
+        reasonCodes: { type: 'array', items: { type: 'string', enum: REASON_CODES } }, evidenceRefs: stringArray
+      }, additionalProperties: true
+    }
+  };
+  return schemas[phase] ? { name: `biocenose_${phase.toLowerCase()}`, schema: schemas[phase] } : undefined;
 }
 
 function assertValidResponse(input, response) {
@@ -54,52 +147,95 @@ function assertValidResponse(input, response) {
   return response;
 }
 
+const RESPONSE_VALIDATORS = Object.freeze({
+  SEALED_JUDGMENT: judgmentErrors,
+  REVIEW: reviewErrors,
+  REVISION: revisionErrors
+});
+
 function responseErrors(input, response) {
-  if (input.phase === 'SEALED_JUDGMENT') {
-    const judgment = response.judgment || response;
-    const result = validateJudgment({
-      judgmentId: 'response', communityId: input.session.communityId,
-      memberId: input.member.memberId, round: input.session.round, judgment
-    });
-    return result.valid ? [] : result.errors;
+  return RESPONSE_VALIDATORS[input.phase]?.(input, response) || [];
+}
+
+function judgmentErrors(input, response) {
+  const judgment = response.judgment || response;
+  const result = validateJudgment({ judgmentId: 'response', communityId: input.session.communityId,
+    memberId: input.member.memberId, round: input.session.round, judgment });
+  const errors = result.valid ? [] : result.errors;
+  if (input.constitution?.variant === 'hybrid_oracle_community' && input.session.questionType === 'MIXED') {
+    errors.push(...hybridClaimErrors(judgment.claims));
   }
-  if (input.phase === 'REVIEW') {
-    if (!Array.isArray(response.arguments)) return ['arguments must be an array (use [] when there are no arguments)'];
-    return response.arguments.flatMap((item, index) => {
-      const errors = [];
-      if (!item || typeof item !== 'object') return [`arguments[${index}] must be an object`];
-      if (!ARGUMENT_RELATIONS.includes(item.relation)) errors.push(`arguments[${index}].relation must be one of ${ARGUMENT_RELATIONS.join(', ')}`);
-      const argument = item.argument || item;
-      if (typeof argument.statement !== 'string' || !argument.statement.trim()) errors.push(`arguments[${index}].argument.statement is required`);
-      if (item.claimId !== undefined && typeof item.claimId !== 'string') errors.push(`arguments[${index}].claimId must be a string`);
-      return errors;
-    });
-  }
-  if (input.phase === 'REVISION') {
-    if (!Array.isArray(response.changedClaims)) return ['changedClaims must be an array; use [] when no claims change'];
-    if (!response.changedClaims.length) return [];
-    const errors = [];
-    if (typeof response.newPosition !== 'string' || !response.newPosition.trim()) errors.push('newPosition is required when claims change');
-    if (!Array.isArray(response.reasonCodes) || !response.reasonCodes.length || !response.reasonCodes.every((code) => REASON_CODES.includes(code))) {
-      errors.push(`reasonCodes must contain one or more of ${REASON_CODES.join(', ')}`);
-    }
-    if (!Array.isArray(response.evidenceRefs)) errors.push('evidenceRefs must be an array (use [] when there are no references)');
-    if (Array.isArray(input.details?.claims)) {
-      const known = new Set(input.details.claims.map((claim) => claim.claimId));
-      if (!response.changedClaims.every((claimId) => typeof claimId === 'string' && known.has(claimId))) errors.push('changedClaims must contain only supplied claimId values');
-    }
-    return errors;
-  }
-  return [];
+  return errors;
+}
+
+function hybridClaimErrors(claims) {
+  if (!Array.isArray(claims)) return [];
+  const allowed = new Set(['FACTUAL', 'PROBABILISTIC', 'NORMATIVE', 'DESIGN', 'EXPLORATORY']);
+  return claims.flatMap((claim, index) => {
+    if (!allowed.has(String(claim?.type || '').toUpperCase())) return [`claims[${index}].type is required`];
+    if (String(claim.type).toUpperCase() !== 'FACTUAL') return [];
+    const kinds = claim.verification?.kinds || claim.verificationKinds;
+    return Array.isArray(kinds) && kinds.length && kinds.every((kind) => typeof kind === 'string' && kind.trim())
+      ? [] : [`claims[${index}].verification.kinds must be a nonempty string array`];
+  });
+}
+
+function reviewErrors(input, response) {
+  if (!Array.isArray(response.arguments)) return ['arguments must be an array (use [] when there are no arguments)'];
+  return response.arguments.flatMap(reviewItemErrors);
+}
+
+function reviewItemErrors(item, index) {
+  if (!item || typeof item !== 'object') return [`arguments[${index}] must be an object`];
+  const errors = [];
+  if (!ARGUMENT_RELATIONS.includes(item.relation)) errors.push(`arguments[${index}].relation must be one of ${ARGUMENT_RELATIONS.join(', ')}`);
+  const argument = item.argument || item;
+  if (typeof argument.statement !== 'string' || !argument.statement.trim()) errors.push(`arguments[${index}].argument.statement is required`);
+  if (item.claimId !== undefined && typeof item.claimId !== 'string') errors.push(`arguments[${index}].claimId must be a string`);
+  return errors;
+}
+
+function revisionErrors(input, response) {
+  if (!Array.isArray(response.changedClaims)) return ['changedClaims must be an array; use [] when no claims change'];
+  if (!response.changedClaims.length) return [];
+  return [...positionErrors(response), ...reasonErrors(response), ...evidenceErrors(response), ...claimReferenceErrors(input, response)];
+}
+
+function positionErrors(response) {
+  return typeof response.newPosition === 'string' && response.newPosition.trim()
+    ? [] : ['newPosition is required when claims change'];
+}
+
+function reasonErrors(response) {
+  const valid = Array.isArray(response.reasonCodes) && response.reasonCodes.length
+    && response.reasonCodes.every((code) => REASON_CODES.includes(code));
+  return valid ? [] : [`reasonCodes must contain one or more of ${REASON_CODES.join(', ')}`];
+}
+
+function evidenceErrors(response) {
+  return Array.isArray(response.evidenceRefs) ? [] : ['evidenceRefs must be an array (use [] when there are no references)'];
+}
+
+function claimReferenceErrors(input, response) {
+  const supplied = input.details?.claims;
+  if (!Array.isArray(supplied)) return [];
+  const known = new Set(supplied.map((claim) => claim.claimId));
+  return response.changedClaims.every((claimId) => typeof claimId === 'string' && known.has(claimId))
+    ? [] : ['changedClaims must contain only supplied claimId values'];
 }
 
 function repairPrompt(input, previousResponse, errors) {
+  const position = String(input.details?.initialJudgment?.position ?? '');
+  const noChangeShape = input.phase === 'REVISION'
+    ? JSON.stringify({ previousPosition: position, newPosition: position,
+      changedClaims: [], reasonCodes: [], evidenceRefs: [] }) : '{"changedClaims":[]}';
   return [
     promptFor(input),
     'Your previous JSON response failed contract validation. Return one corrected JSON object only.',
     `Validation errors: ${JSON.stringify(errors)}`,
     `Previous response: ${String(previousResponse || '').slice(0, 12000)}`,
-    'Preserve the substance of your answer. Do not invent facts, evidence references, claim IDs, or human/oracle decisions. If no belief change is justified, return exactly {"changedClaims":[]}. Include every required field and use only the enumerated values.'
+    'Preserve the substance of your answer. Do not invent facts, evidence references, claim IDs, or human/oracle decisions.',
+    `If no belief change is justified, return ${noChangeShape}. Include every required field and use only the enumerated values.`
   ].join('\n\n');
 }
 
@@ -107,7 +243,8 @@ function invocationRequest(input) {
   return {
     member: input.member, phase: input.phase, task: input.task,
     question: input.session.question, questionType: input.session.questionType,
-    constitution: input.constitution, context: input.details || {}
+    constitution: input.constitution, context: input.details || {},
+    onProviderObserved: input.onProviderObserved
   };
 }
 
@@ -119,6 +256,9 @@ function promptFor(input) {
     `Constitution: ${JSON.stringify(input.constitution)}`,
     `Phase context: ${JSON.stringify(input.details || {})}`,
     responseContract(input.phase),
+    ...(input.constitution?.variant === 'hybrid_oracle_community' ? [
+      'For every claim, set type to FACTUAL, PROBABILISTIC, NORMATIVE, DESIGN, or EXPLORATORY. Every FACTUAL claim requires a nested verification object such as {"verification":{"kinds":["formal_proof"]}}; never use a dotted key. State a concrete proposition with all needed inputs, not a placeholder such as "Statement A". Classify each claim separately; do not claim that the oracle has verified it.'
+    ] : []),
     'Return exactly one JSON object. Do not include markdown or other members\' answers.'
   ].join('\n\n');
 }
@@ -126,8 +266,8 @@ function promptFor(input) {
 function responseContract(phase) {
   const contracts = {
     SEALED_JUDGMENT: 'Required JSON shape: {"judgment":{"position":"your answer or abstention","confidence":0.0,"claims":[{"statement":"atomic claim"}],"assumptions":[],"evidenceRefs":[],"unknowns":[],"abstentions":[],"probabilities":[{"eventId":"event id","domain":"domain","probability":0.0}]}}. Include every listed array even when empty. Confidence and probabilities must be numbers from 0 to 1. Do not invent evidence references.',
-    REVIEW: 'Required JSON shape: {"summary":"brief review","arguments":[{"claimId":"claim id","relation":"SUPPORT|ATTACK|REFUTE|UNDERCUT|COUNTEREXAMPLE","argument":{"statement":"reason","targetArgumentId":"optional attacked argument id"}}],"dissent":[]}. Include arguments as an array; use an empty array when there are no arguments. Include dissent only when there is a material minority position.',
-    REVISION: 'If no claim changes, return exactly {"changedClaims":[]}. Otherwise return {"previousPosition":"...","newPosition":"...","changedClaims":["claim id"],"reasonCodes":["NEW_EVIDENCE"],"evidenceRefs":["reference"]}. changedClaims must contain only claimId strings shown in the supplied claims. reasonCodes must use one or more of NEW_EVIDENCE, COUNTEREXAMPLE, FORMAL_REFUTATION, BETTER_ARGUMENT, ASSUMPTION_CHANGED, SELF_CORRECTION, MAJORITY_SIGNAL, AUTHORITY_SIGNAL. Include at least one reason code and an evidenceRefs array; do not invent evidence references. Explain the prior and revised position in those two fields.',
+    REVIEW: `Required JSON shape: {"summary":"brief review","arguments":[{"claimId":"claim id","relation":"${ARGUMENT_RELATIONS.join('|')}","argument":{"statement":"reason","targetArgumentId":"optional attacked argument id"}}],"dissent":[]}. Include arguments as an array; use an empty array when there are no arguments. Include dissent only when there is a material minority position.`,
+    REVISION: 'Always return all five fields: previousPosition, newPosition, changedClaims, reasonCodes and evidenceRefs. If nothing changes, repeat the initial position in previousPosition and newPosition and use empty arrays for changedClaims, reasonCodes and evidenceRefs. If claims change, explain the revised position and include one or more allowed reason codes. Use only claimId values shown in the supplied claims; never invent evidence references.',
     LOCAL_COUNCIL_JUDGMENT: 'Required JSON shape: {"outcome":"local position","position":"local position","reasons":[],"dissent":null}. Record minority dissent as a concise object when present; use null otherwise.'
   };
   return contracts[phase] || 'Return a JSON object whose fields directly satisfy the requested task.';
@@ -156,4 +296,4 @@ function invalidResponse() {
   });
 }
 
-module.exports = { invoke, parseResponse, promptFor, responseContract };
+module.exports = { invoke, parseResponse, promptFor, responseContract, responseFormatFor, defaultTimeoutMs };
