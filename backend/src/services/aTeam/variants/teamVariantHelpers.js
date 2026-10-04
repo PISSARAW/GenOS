@@ -48,7 +48,8 @@ function buildDivisions(members, roles, spanOfControl) {
   if (leaders.length > spanOfControl) throw Object.assign(new Error('Incident commander exceeds span of control.'), { code: 'ATEAM_ICS_SPAN_EXCEEDED' });
   for (const member of members) {
     const id = memberId(member);
-    if (!id || id === roles.commander || leaders.some((leader) => leader.id === id)) continue;
+    const preassigned = assignments.some((division) => division.members.includes(id));
+    if (!id || id === roles.commander || leaders.some((leader) => leader.id === id) || preassigned) continue;
     const assigned = assignments.find((division) => division.supervisor === member.supervisorId);
     const fallback = assignments.find((division) => division.divisionId === 'operations');
     (assigned || fallback).members.push(id);

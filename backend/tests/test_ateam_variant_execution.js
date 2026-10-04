@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const execution = require('../src/services/aTeam/variants/variantExecutionService');
+const incidentCommand = require('../src/services/aTeam/variants/incidentCommandPolicy');
 
 async function testPipeline() {
   const cache = new Map();
@@ -86,11 +87,26 @@ function testOperationalGates() {
   }).approved, true);
 }
 
+function testIncidentSpanAssignments() {
+  const members = [
+    { memberId: 'ic' }, { memberId: 'ops' }, { memberId: 'plan' }, { memberId: 'log' },
+    { memberId: 'worker-a', supervisorId: 'ops' }, { memberId: 'worker-b', supervisorId: 'ops' },
+    { memberId: 'worker-c', supervisorId: 'plan' }
+  ];
+  const policy = incidentCommand.incidentCommandFullPotential({
+    incidentRoles: { commander: 'ic', operations: 'ops', planning: 'plan', logistics: 'log' },
+    sitrepIntervalMinutes: 15, operationalObjectives: ['restore service'], spanOfControl: 3
+  }, members);
+  assert.deepEqual(policy.span_of_control.directReportsPerSupervisor, { ops: 2, plan: 1, log: 0 });
+  assert.equal(policy.span_of_control.divisions.find((division) => division.supervisor === 'ops').members.length, 2);
+}
+
 async function run() {
   await testPipeline();
   await testStreamAndConsensus();
   testAuthoritiesAndHandoffs();
   testOperationalGates();
+  testIncidentSpanAssignments();
 }
 
 run().then(() => console.log('A-Team variant execution contracts passed.'))

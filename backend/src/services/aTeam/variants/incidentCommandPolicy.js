@@ -1,6 +1,7 @@
 'use strict';
 
 const { createHash } = require('crypto');
+const { buildDivisions } = require('./teamVariantHelpers');
 
 function incidentCommandFullPotential(mission, members) {
   const roles = mission.incidentRoles || {};
@@ -21,13 +22,14 @@ function incidentCommandFullPotential(mission, members) {
   }
 
   const spanOfControl = clampSpanOfControl(mission.spanOfControl || 5);
+  const divisions = buildDivisions(members, roles, spanOfControl);
 
   return {
     mandatory_ics_roles: buildRolesConfig(roles, requiredRoles, missingRoles),
     sitrep_cadence: buildSitrepConfig(mission),
     incident_timeline: buildTimelineConfig(mission),
     objectives_per_operational_period: buildPeriodConfig(mission),
-    span_of_control: buildSpanConfig(spanOfControl),
+    span_of_control: buildSpanConfig(spanOfControl, divisions),
     structured_handover: buildHandoverConfig(),
     structured_closure: buildClosureConfig()
   };
@@ -81,11 +83,12 @@ function buildPeriodConfig(mission) {
   };
 }
 
-function buildSpanConfig(span) {
+function buildSpanConfig(span, divisions) {
   return {
     max: span,
     enforced: true,
-    directReportsPerSupervisor: {},
+    directReportsPerSupervisor: Object.fromEntries(divisions.map((division) => [division.supervisor, division.members.length])),
+    divisions,
     violationAction: 'reassign_or_add_supervisor'
   };
 }
