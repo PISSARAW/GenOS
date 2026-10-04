@@ -131,13 +131,15 @@ Le runner `biologicalBenchmarkRunnerService` accepte une enveloppe équivalente 
   "variantId": "transactional",
   "repetitions": 1,
   "budget": { "tokens": 3000, "events": 60, "latencyMs": 150000, "costUsd": 0.25 },
+  "campaignBudget": { "tokens": 30000, "costUsd": 2.5 },
   "timeoutMs": 150000,
+  "scenarioTimeoutMs": 480000,
   "expectedClaims": [{ "subject": "reservation", "predicate": "within_capacity", "value": true }],
   "workerAssignments": {}
 }
 ```
 
-Les valeurs du JSON ne sont qu’un exemple de forme ; l’allowance monétaire doit être décidée par campagne. `expectedClaims: []` signifie « recall sémantique non mesuré », pas score parfait.
+Les valeurs du JSON ne sont qu’un exemple de forme. `budget` définit le plafond par worker ; `campaignBudget` doit couvrir le maximum demandé pour les deux topologies et toutes les répétitions. Les deux plafonds monétaires sont obligatoires avant l’envoi aux modèles.
 
 ```mermaid
 sequenceDiagram

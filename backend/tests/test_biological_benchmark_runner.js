@@ -10,8 +10,8 @@ assert.throws(() => runner.validateManifest({ mission: 'x', budget: {}, repetiti
   { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ mission: 'x', budget: {}, repetitions: 1, expectedClaims: [], variantId: 'unknown' }),
   { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
-const manifest = { mission: 'x', budget: { tokens: 100 }, repetitions: 1,
-  campaignBudget: { tokens: 1000 },
+const manifest = { mission: 'x', budget: { tokens: 100, costUsd: 0.02 }, repetitions: 1,
+  campaignBudget: { tokens: 1000, costUsd: 0.2 },
   expectedClaims: [{ subject: 'x', predicate: 'safe', value: true }], variantId: 'graph' };
 assert.doesNotThrow(() => runner.validateManifest(manifest));
 for (const { id } of listPolicies()) {

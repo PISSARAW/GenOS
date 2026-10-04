@@ -49,11 +49,9 @@ function validateCampaignBudget(manifest) {
   if (!Number.isFinite(manifest.campaignBudget?.tokens) || manifest.campaignBudget.tokens < maximumTokens) {
     throw invalid(`campaignBudget.tokens must cover the per-worker ceiling for up to ${maximumCalls} workers (${maximumTokens} tokens).`);
   }
-  if (manifest.budget.costUsd !== undefined) {
-    const maximumCost = manifest.budget.costUsd * maximumCalls;
-    if (!Number.isFinite(manifest.campaignBudget?.costUsd) || manifest.campaignBudget.costUsd < maximumCost) {
-      throw invalid(`campaignBudget.costUsd must cover the per-worker ceiling for up to ${maximumCalls} workers ($${maximumCost}).`);
-    }
+  const maximumCost = manifest.budget.costUsd * maximumCalls;
+  if (!Number.isFinite(manifest.campaignBudget?.costUsd) || manifest.campaignBudget.costUsd < maximumCost) {
+    throw invalid(`campaignBudget.costUsd must cover the per-worker ceiling for up to ${maximumCalls} workers ($${maximumCost}).`);
   }
 }
 
@@ -64,6 +62,7 @@ function validateBudget(budget) {
     }
   }
   if (!Number.isFinite(budget.tokens) || budget.tokens <= 0) throw invalid('budget.tokens must be a positive finite number.');
+  if (!Number.isFinite(budget.costUsd) || budget.costUsd <= 0) throw invalid('budget.costUsd must be a positive finite per-worker ceiling.');
 }
 
 async function executeRun({ manifest, db, variant, repetition }) {
