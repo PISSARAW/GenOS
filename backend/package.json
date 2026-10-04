@@ -49,6 +49,7 @@
     "test:foveal": "node tests/test_foveal_vision.js",
     "test:foraging:browser": "node tests/test_browser_runtime.js && node tests/test_foraging_browser_runtime.js",
     "test:web-journey": "node tests/test_web_journey_verifier.js",
+    "test:web-audits": "node tests/test_web_audit_sensors.js && node tests/test_shev_web_audits.js",
     "test:fossilization": "node tests/test_fossilization_service.js && node tests/test_orchestrator_fossilization.js",
     "test:nce": "node tests/test_play_narrative_service.js && node tests/nce_contract_tests.js && node tests/test_nce_phenotype_persistence.js && node tests/test_cultural_phenotype_causality.js && node tests/test_cultural_transfer_scope.js && node tests/test_nce_workflows_e2e.js && node tests/test_nce_culture_tasks_durable.js && node tests/test_poet_execution_evidence.js && node tests/test_nce_ablation_status.js",
     "test:biological-receipts": "cargo build -p genos-cli && node tests/test_biological_tick_rust_backend_e2e.js && node tests/test_biological_receipt_ingestion.js",

@@ -137,4 +137,4 @@ class WebJourneyVerifier {
   }
 }
 
-module.exports = { WebJourneyVerifier };
+module.exports = { WebJourneyVerifier, permittedUrl };

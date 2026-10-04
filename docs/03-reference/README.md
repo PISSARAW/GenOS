@@ -24,6 +24,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [notifications-et-alertes.md](notifications-et-alertes.md) — préférences et alertes tenant-scoped.
 - [qualite-code-et-complexite.md](qualite-code-et-complexite.md) — seuils, périmètre et audit strict de la qualité du code.
 - [ontogenese-contrats.md](ontogenese-contrats.md) — contrats stables V1 de l'Ontogenèse : tables, config, états, claims, sélecteur, intégrateur, CLI.
+- [verification-parcours-web.md](verification-parcours-web.md) — parcours Playwright, audits Lighthouse et axe-core, observations et effets SHEV.
 
 ## Spécifications normatives
 
