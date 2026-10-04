@@ -10,14 +10,6 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | N° | Titre | Statut | Date | Domaine |
 | --- | --- | --- | --- | --- |
 | [0001](0001-agent-dna-binary-format.md) | AgentDNA : format héréditaire binaire | Accepté | 2026-09-13 | Génome, reproduction, runtime, persistance |
-| [0277](0277-gates-de-couverture-et-branches-executables.md) | Branches réalisables et statut fondé sur les reçus | Accepté | 2026-10-03 | Orchestration, stratégie, preuves, benchmarks |
-| [0286](0286-contrats-de-mission-et-preuve-executable-trinity.md) | Contrats de mission et preuves exécutables Trinity | Accepté | 2026-10-03 | Trinity, vérification indépendante, contrats |
-| [0287](0287-qualification-repetitions-campagnes.md) | Séparer le pilote de la qualification confirmatoire | Accepté | 2026-10-03 | Benchmarks, reproductibilité, qualification |
-| [0288](0288-barriere-de-preuve-des-missions-topologiques.md) | Barrière de preuve des missions topologiques | Accepté | 2026-10-03 | Benchmarks topologiques, dossiers, vérification indépendante |
-| [0289](0289-probes-topologiques-read-only.md) | Probes topologiques en lecture seule | Accepté | 2026-10-03 | Benchmarks topologiques, observation, preuve |
-| [0290](0290-livraison-interprocessus-des-evenements-daemon.md) | Livraison interprocessus au daemon résident par curseur SQLite | Accepté | 2026-10-03 | Daemons résidents, événements, persistance |
-| [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
-| [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
@@ -247,6 +239,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0207](0207-transmettre-les-politiques-de-coordination-aux-workers.md) | Transmettre les politiques de coordination aux workers | Accepté | 2026-10-01 | Dispatch A-Team, coordination, handoffs |
 | [0208](0208-relier-perception-memoire-et-rappel.md) | Relier perception, mémoire et rappel | Accepté | 2026-10-01 | Perception, mémoire autobiographique, apprentissage |
 | [0209](0209-allowlist-surfaces-publiques.md) | Fermer les surfaces publiques par allowlist | Accepté | 2026-10-01 | API, authentification, sécurité |
+| [0211](0211-routage-des-missions-syncytium-vers-les-services-de-variant.md) | Routage des missions Syncytium vers les services de variant | accepté | 2026-10-04 | -- |
 | [0229](0229-deadlines-et-oracles-de-maturite.md) | Deadlines et oracles de maturité | Voir le fichier | -- | -- |
 | [0230](0230-journal-biologique-et-population-signee.md) | Journal biologique et population signée | Voir le fichier | -- | -- |
 | [0231](0231-succession-et-autorite-executable.md) | Succession et autorité executable | Voir le fichier | -- | -- |
@@ -303,14 +296,32 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0275a](0275-evidence-conscience-suite-unifiee.md) | Gates Butlin et suite fonctionnelle unifiée | Accepté | 2026-10-02 | Épistémologie, benchmarks, promotion, AGOW |
 | [0275b](0275-execution-campagne-gvx.md) | Exécution vérifiée des campagnes GVX | Accepté | 2026-10-02 | GVX, benchmarks, preuves, exécution |
 | [0276](0276-phases-runtime-core-et-portefeuille.md) | Séparation des phases du runtime core et du portefeuille de stratégies | Accepté | 2026-10-03 | Orchestration, stratégie, leases, benchmarks |
-| [0277](0277-workflows-persistants-holobionte.md) | Workflows persistants du runtime Holobionte | Accepté | 2026-10-04 | Holobionte, orchestration, reçus d'exécution |
-| [0278](0278-simulation-ecologique-bornee.md) | Simulation écologique bornée du Holobionte | Accepté | 2026-10-04 | Holobionte, microbiome adaptatif, fitness |
-| [0279](0279-calibration-immunitaire-decisionnelle.md) | Calibration immunitaire décisionnelle | Accepté | 2026-10-04 | Holobionte, immunité, mémoire épistémique |
-| [0280](0280-simulations-temporelles-regeneration-sync.md) | Simulations temporelles de régénération et synchronisation | Accepté | 2026-10-04 | Holobionte, résilience, synchronisation Edge |
-| [0281](0281-selection-remplacement-partenaire.md) | Séparer sélection et remplacement du partenaire | Accepté | 2026-10-04 | Holobionte, compétition, succession |
-| [0282](0282-lifecycle-admission-procedurale.md) | Lier le variant procédural au cycle d'admission | Accepté | 2026-10-04 | Holobionte, contrats, essais, admission |
-| [0283](0283-validation-schema-outils.md) | Validation JSON Schema et porte d'exécution des outils | Accepté | 2026-10-04 | Holobionte, outils, validation de schéma |
-| [0284](0284-routage-missions-variants.md) | Routage priorisé des missions Holobionte | Accepté | 2026-10-04 | Holobionte, sélection de variants, missions |
+| [0277a](0277-gates-de-couverture-et-branches-executables.md) | Branches réalisables et statut fondé sur les reçus | Accepté | 2026-10-03 | Orchestration, stratégie, preuves, benchmarks |
+| [0277b](0277-workflows-persistants-holobionte.md) | Workflows persistants du runtime Holobionte | Accepté | 2026-10-04 | Holobionte, orchestration, reçus d'exécution |
+| [0278a](0278-formal-read-only-benchmark.md) | Mode de lecture seule pour le pilote mathématique formel | Voir le fichier | -- | -- |
+| [0278b](0278-simulation-ecologique-bornee.md) | Simulation écologique bornée du Holobionte | Accepté | 2026-10-04 | Holobionte, microbiome adaptatif, fitness |
+| [0279a](0279-calibration-immunitaire-decisionnelle.md) | Calibration immunitaire décisionnelle | Accepté | 2026-10-04 | Holobionte, immunité, mémoire épistémique |
+| [0279b](0279-variants-trinity-effectifs.md) | Variants Trinity effectifs sur le chemin de dispatch | Accepté | 2026-10-03 | Trinity, variants, diversité, routage modèle, preuves |
+| [0280a](0280-scellage-memoire-missions.md) | Scellage mémoire des missions (scope mission/chambre) | Accepté | 2026-10-03 | Mémoire agent, Trinity, isolation, preuves |
+| [0280b](0280-simulations-temporelles-regeneration-sync.md) | Simulations temporelles de régénération et synchronisation | Accepté | 2026-10-04 | Holobionte, résilience, synchronisation Edge |
+| [0281a](0281-preuves-resolvables-ou-rien.md) | Preuves résolvables ou rien (scoring Trinity anti-fabrication) | Accepté | 2026-10-03 | Trinity, scoring, barrière comparative, preuves |
+| [0281b](0281-selection-remplacement-partenaire.md) | Séparer sélection et remplacement du partenaire | Accepté | 2026-10-04 | Holobionte, compétition, succession |
+| [0282a](0282-cross-examination-trinity.md) | Lier la falsification adversariale à la barrière Trinity | Acceptée. | -- | -- |
+| [0282b](0282-lifecycle-admission-procedurale.md) | Lier le variant procédural au cycle d'admission | Accepté | 2026-10-04 | Holobionte, contrats, essais, admission |
+| [0283a](0283-require-independent-verification-for-trinity-evidence.md) | Exiger une vérification indépendante pour les preuves Trinity | Acceptée. | -- | -- |
+| [0283b](0283-validation-schema-outils.md) | Validation JSON Schema et porte d'exécution des outils | Accepté | 2026-10-04 | Holobionte, outils, validation de schéma |
+| [0284a](0284-gate-trinity-diversite-reelle.md) | Bloquer les expériences hétérogènes sans diversité effective | Acceptée. | -- | -- |
+| [0284b](0284-routage-missions-variants.md) | Routage priorisé des missions Holobionte | Accepté | 2026-10-04 | Holobionte, sélection de variants, missions |
+| [0285](0285-transmettre-profils-pareto-trinity.md) | Transmettre les profils Pareto jusqu'au comparateur | Acceptée. | -- | -- |
+| [0286](0286-contrats-de-mission-et-preuve-executable-trinity.md) | Contrats de mission et preuves exécutables Trinity | Accepté | 2026-10-03 | Trinity, vérification indépendante, contrats |
+| [0287](0287-qualification-repetitions-campagnes.md) | Séparer le pilote de la qualification confirmatoire | Accepté | 2026-10-03 | Benchmarks, reproductibilité, qualification |
+| [0288](0288-barriere-de-preuve-des-missions-topologiques.md) | Barrière de preuve des missions topologiques | Accepté | 2026-10-03 | Benchmarks topologiques, dossiers, vérification indépendante |
+| [0289](0289-probes-topologiques-read-only.md) | Probes topologiques en lecture seule | Accepté | 2026-10-03 | Benchmarks topologiques, observation, preuve |
+| [0290](0290-livraison-interprocessus-des-evenements-daemon.md) | Livraison interprocessus au daemon résident par curseur SQLite | Accepté | 2026-10-03 | Daemons résidents, événements, persistance |
+| [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
+| [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
+| [0293](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
+| [0296](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

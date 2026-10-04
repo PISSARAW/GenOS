@@ -365,6 +365,9 @@ const migrationRunners = [
     const { migrateHolobiontVariantEvents } = require('./migrateHolobiontVariantEvents');
     await migrateHolobiontVariantEvents(db);
   }),
+  createMigrationRunner('100-procedural-causal-experiments', 'Persist pinned procedural causal experiments and isolated forks', async (db) => {
+    await require('./migrateProceduralCausalExperiments').migrateProceduralCausalExperiments(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
