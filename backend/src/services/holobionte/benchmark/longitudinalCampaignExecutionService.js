@@ -46,12 +46,17 @@ function resumeRun(state, arm, index) {
 
 async function executeRun(state, arm, index) {
   const mission = state.input.missions[index];
-  const result = await state.input.runMission({ arm, mission, sequence: index });
+  const remainingBudget = {
+    maxCost: state.budget.maxCost - state.totalCost,
+    maxTokens: state.budget.maxTokens - state.totalTokens,
+    maxTimeMs: state.budget.maxTimeMs - state.elapsedBeforeResume - (Date.now() - state.startedAt)
+  };
+  const result = await state.input.runMission({ arm, mission, sequence: index, remainingBudget });
   if (result?.missionId && result.missionId !== state.missionIds[index]) {
     throw invalid(`Runner returned an out-of-sequence mission for ${arm}.`);
   }
   if (state.input.requireRuntimeReceipt) validateRuntimeReceipt(result, arm);
-  const run = { ...result, missionId: state.missionIds[index] };
+  const run = { ...result, ...validateRun({ ...result, missionId: state.missionIds[index] }, arm) };
   state.arms[arm].push(run);
   accountRun(state, run);
   if (typeof state.input.onRun === 'function') {

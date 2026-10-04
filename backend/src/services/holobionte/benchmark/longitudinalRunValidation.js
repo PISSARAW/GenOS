@@ -73,7 +73,9 @@ function receiptEvidence(receipt) {
 function receiptMatchesRun(run, receipt) {
   return Boolean(run && Array.isArray(run.evidenceRefs)
     && receipt.evidenceRefs.every((ref) => run.evidenceRefs.includes(ref))
-    && receipt.verifierId === run.verifierId);
+    && receipt.verifierId === run.verifierId
+    && receipt.executor !== receipt.verifierId
+    && (!run.success || receipt.status === 'completed'));
 }
 
 function validateRuntimeReceipt(run, arm) {

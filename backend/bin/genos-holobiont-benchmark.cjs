@@ -56,12 +56,17 @@ function assertJournalHeader(rows, expected) {
 
 function collectResumeRuns(rows, missionIds) {
   const resumeRuns = Object.fromEntries(ARMS.map((arm) => [arm, {}]));
+  let next = 0;
   for (const row of rows.slice(1).filter((entry) => entry.type === 'run')) {
     const sequence = missionIds.indexOf(row.result?.missionId);
-    if (!resumeRuns[row.arm] || sequence < 0 || sequence !== row.sequence || resumeRuns[row.arm][row.result.missionId]) {
+    const expectedArm = ARMS[Math.floor(next / missionIds.length)];
+    const expectedSequence = next % missionIds.length;
+    if (!resumeRuns[row.arm] || sequence < 0 || sequence !== row.sequence
+      || row.arm !== expectedArm || sequence !== expectedSequence) {
       throw journalError('Journal contains an invalid or duplicate run.', 'HOLOBIONT_BENCHMARK_JOURNAL_INVALID');
     }
     resumeRuns[row.arm][row.result.missionId] = row.result;
+    next += 1;
   }
   return resumeRuns;
 }
@@ -81,6 +86,15 @@ function loadJournal(file, expected, resume) {
 }
 
 function writeReport(file, report) {
+  if (fs.existsSync(file)) {
+    const previous = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const same = previous.benchmarkId === report.benchmarkId
+      && previous.manifestSha256 === report.manifestSha256
+      && previous.adapterSha256 === report.adapterSha256
+      && JSON.stringify(previous.report) === JSON.stringify(report.report);
+    if (!same) throw journalError('Existing report disagrees with the journal.', 'HOLOBIONT_BENCHMARK_REPORT_MISMATCH');
+    return;
+  }
   const temporary = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(temporary, `${JSON.stringify(report, null, 2)}\n`, { flag: 'wx' });
   fs.renameSync(temporary, file);
@@ -115,8 +129,8 @@ async function executeCampaign(args) {
     const report = await runLongitudinalBenchmark({
       benchmarkId: campaign.benchmarkId,
       missions: campaign.missions,
-      runMission: ({ arm, mission, sequence }) => campaign.armAdapters[arm]({
-        arm, mission, sequence, signal: controller.signal, benchmarkId: campaign.benchmarkId
+      runMission: ({ arm, mission, sequence, remainingBudget }) => campaign.armAdapters[arm]({
+        arm, mission, sequence, remainingBudget, signal: controller.signal, benchmarkId: campaign.benchmarkId
       }),
       requireRuntimeReceipt: true,
       signal: controller.signal,
@@ -125,7 +139,6 @@ async function executeCampaign(args) {
       elapsedBeforeResume: journalState.elapsedBeforeResume,
       onRun: (entry) => appendJournal(journalPath, { type: 'run', ...entry, recordedAt: new Date().toISOString() })
     });
-    appendJournal(journalPath, { type: 'completed', completedAt: new Date().toISOString() });
     writeReport(outputPath, {
       schema: 'genos.holobiont.longitudinal-benchmark/v1', status: 'completed',
       startedAt: header.startedAt, completedAt: new Date().toISOString(),
@@ -137,6 +150,7 @@ async function executeCampaign(args) {
       budget,
       report
     });
+    appendJournal(journalPath, { type: 'completed', completedAt: new Date().toISOString() });
     process.stdout.write(`${JSON.stringify({ status: 'completed', benchmarkId: campaign.benchmarkId, missions: report.missionCount, runs: report.missionCount * 12, outputPath, journalPath })}\n`);
   } finally {
     if (deadline) clearTimeout(deadline);
