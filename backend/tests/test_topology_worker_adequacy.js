@@ -89,7 +89,10 @@ function testAdequacySweep() {
         [mapped] = topologyKinds.applyTopologyWorkerKinds('adequacy-probe', [member]);
       } catch (error) {
         assert.ok(['WORKER_KIND_CAPABILITY_UNSATISFIED', 'WORKER_METHOD_UNSUPPORTED',
-          'WORKER_EXECUTOR_UNAVAILABLE', 'WORKER_FORMAL_INPUT_INVALID', 'WORKER_VERIFICATION_INPUT_INVALID'].includes(error.code),
+          'WORKER_EXECUTOR_UNAVAILABLE', 'WORKER_FORMAL_INPUT_INVALID', 'WORKER_VERIFICATION_INPUT_INVALID',
+          'WORKER_MONITOR_INPUT_INVALID', 'WORKER_SCOUT_INPUT_INVALID',
+          'WORKER_EXPERIMENT_INPUT_INVALID', 'WORKER_SYNTHESIS_INPUT_INVALID',
+          'WORKER_TEACHING_INPUT_INVALID', 'WORKER_FORENSIC_INPUT_INVALID'].includes(error.code),
           `${role}/${methodId} fails closed, got ${error.code}`);
         if (error.code === 'WORKER_EXECUTOR_UNAVAILABLE') unavailable += 1;
         continue;

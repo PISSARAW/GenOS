@@ -51,6 +51,7 @@ async function main() {
   const ignoredScore = feedback.relevanceScore(ignoredCounts);
   assert.equal(ignoredScore.demote, true);
   assert.ok(ignoredScore.score < 0);
+  assert.deepEqual((await feedback.getDemotedFindings(db, 'territory.feedback-test')).map((item) => item.findingId), ['finding.ignored']);
 
   // 3. DECISIVE protège de la démotion et pèse double
   await feedback.recordFeedback(db, { briefId, findingId: 'finding.hero', verdict: 'DECISIVE' });

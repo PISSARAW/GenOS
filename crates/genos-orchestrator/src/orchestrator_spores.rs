@@ -70,12 +70,13 @@ impl BiomimeticOrchestrator {
         }
         let (warm_and_wet, nutrients_available) = conditions;
         let spore = self.dormant_spores[index].clone();
+        let parent_cell_id = spore.parent_cell_id;
         let genome = spore.genome.clone();
         let revived_cell = spore.germinate(warm_and_wet, nutrients_available)?;
         self.dormant_spores.remove(index);
         self.genomes.insert(genome.genome_id(), genome);
         let cell_id = revived_cell.cell_id;
-        if let Some(tissue_name) = self.spore_tissue_map.remove(&cell_id)
+        if let Some(tissue_name) = self.spore_tissue_map.remove(&parent_cell_id)
             && let Some(tissue) = self.tissues.get_mut(&tissue_name)
         {
             tissue.integrate_cell(cell_id);

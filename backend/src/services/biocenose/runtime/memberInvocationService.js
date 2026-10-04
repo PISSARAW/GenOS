@@ -15,13 +15,24 @@ async function invoke(input) {
 async function invokeInjected(input) {
   const request = invocationRequest(input);
   let observationTask;
-  request.onProviderObserved = (observation) => {
+  const onProviderObserved = (observation) => {
     observationTask = Promise.resolve(input.onProviderObserved?.(observation));
     return observationTask;
   };
-  const value = await input.memberInvoker(request);
-  if (observationTask) await observationTask;
-  return assertValidResponse(input, normalizeResult(value));
+  const call = async (repair = {}) => {
+    const value = await input.memberInvoker({ ...request, ...repair, onProviderObserved });
+    if (observationTask) await observationTask;
+    return normalizeResult(value);
+  };
+  let response;
+  try {
+    response = await call();
+    return assertValidResponse(input, response);
+  } catch (error) {
+    if (!REPAIRABLE_PHASES.has(input.phase) || error.code !== 'BIOCENOSE_MEMBER_RESPONSE_INVALID') throw error;
+    const repaired = await call({ validationErrors: error.validationErrors || [error.message], previousResponse: response });
+    return assertValidResponse(input, repaired);
+  }
 }
 
 async function invokeModel(input) {

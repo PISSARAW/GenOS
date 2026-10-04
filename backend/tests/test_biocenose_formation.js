@@ -30,6 +30,12 @@ function verifyFormationSelection() {
   assert.deepEqual(result.formation.selectedCandidateIds, ['gen-c', 'gen-a', 'rev-a', 'ver-a']);
   assert.equal(result.formation.effectiveCommunitySize.measured, false);
   assert.equal(result.formation.diversityGaps.missingRoles.length, 0);
+  const adversarial = biocenose.composeBiocenose('Review the proposed architecture.', {
+    population: { generators: 1, reviewers: 1, verifiers: 1 },
+    memberCandidates: candidates(), variant: 'adversarial_assembly'
+  });
+  assert.equal(adversarial.members.find((member) => member.memberId === 'rev-a').role, 'adversarial_reviewer');
+  assert.equal(adversarial.formation.diversityGaps.missingRoles.length, 0);
 }
 
 verifyEffectiveSize();

@@ -2,7 +2,6 @@ use crate::orchestrator::BiomimeticOrchestrator;
 use genos_biology::embryology::{
     cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome,
 };
-use genos_genome::Genome;
 use genos_cell::AgentCell;
 use uuid::Uuid;
 

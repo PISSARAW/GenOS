@@ -159,6 +159,7 @@ class TrinityDeployService {
       const workerContract = workerKinds.buildWorkerContract(w.workerKind, {
         prompt: w.mission || `${taskPrompt} — ${w.task}`,
         scope: w.workspaceRoot,
+        nicheDomain: w.domain,
         orchestratorAgentId: orchestratorId
       });
       await db.run('UPDATE agents SET metadata_json = ? WHERE id = ?',
@@ -210,6 +211,7 @@ class TrinityDeployService {
       runtimeAdapter.startMission({
         agentId: id, name: w.name, role: w.role, prompt: w.mission || `${taskPrompt} — ${w.task}`,
         workerKind: w.workerKind,
+        nicheDomain: w.domain,
         modelTier: w.modelTier, workspaceIsolation: 'Branch', workspaceId, workspaceRoot: w.workspaceRoot,
         workspaceProvisioned: true,
         executionBudget: {

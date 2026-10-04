@@ -1,7 +1,6 @@
 'use strict';
 
 const communityStore = require('../communityStore');
-const commitment = require('../deliberation/commitmentService');
 const claimsService = require('../claims/communityClaimGraph');
 const reviewerRouter = require('../review/reviewerRouter');
 const argumentsService = require('../argumentation/communityArgumentGraph');
@@ -13,6 +12,7 @@ const minorityVeto = require('../dissent/minorityEvidenceVetoService');
 const judgmentService = require('../judgment/communityJudgmentService');
 const judgmentStore = require('../judgment/judgmentStore');
 const memberInvocation = require('./memberInvocationService');
+const sealedJudgmentPhase = require('./sealedJudgmentPhase');
 const variantOrchestrator = require('./variantOrchestrator');
 const DECISION_CHECKS = Object.freeze({
   EVIDENCE_SUPPORTED: (item) => item.verifiedClaimIds?.length > 0,
@@ -47,69 +47,8 @@ function createHandlers(options = {}) {
 }
 
 async function collectSealedJudgments(context) {
-  const session = await loadActiveSession(context);
-  const persistent = context.variantPolicy?.name === 'persistent_community'
-    ? await variantOrchestrator.persistentContext({ ...context, session, judgments: [] }) : null;
-  if (persistent) await persistMembershipDecisions(context, session, persistent.report);
-  const current = persistent ? await loadActiveSession(context) : session;
-  const excluded = new Set(persistent?.report.excludedMemberIds || []);
-  const participants = current.members.filter((member) => member.status === 'ACTIVE'
-    && member.role !== 'community_facilitator' && !excluded.has(member.memberId));
-  const commitments = await communityStore.listCommitments(context.db, session.communityId, session.round);
-  const committed = new Set(commitments.map((item) => item.memberId));
-  const quarantined = [];
-  const delphi = context.variantPolicy?.name === 'delphi_community'
-    ? await variantOrchestrator.delphiContext({ ...context, session }) : null;
-  for (const member of participants.filter((item) => !committed.has(item.memberId))) {
-    const judgment = await invokeMember(context, {
-      member, phase: 'SEALED_JUDGMENT',
-      task: delphi ? 'Review anonymous prior-round feedback. Revise or maintain your judgment with reasons and evidence.'
-        : 'Form an independent initial judgment.',
-      details: delphi ? { anonymousFeedback: delphi.feedback,
-        priorPosition: delphi.previousByMember.get(member.memberId) } : {}
-    });
-    if (context.variantPolicy?.quarantineAware) {
-      const result = await variantOrchestrator.quarantineIfRequired({ ...context, session, member, judgment });
-      if (result) { quarantined.push(result); continue; }
-    }
-    await commitmentServiceCall(context, member, judgment);
-  }
-  const active = await loadActiveSession(context);
-  const quorumReport = context.variantPolicy?.quarantineAware
-    ? variantOrchestrator.assertByzantineQuorum({ ...context, session: active }) : null;
-  const judgments = await commitment.revealJudgments({
-    db: context.db, communityId: session.communityId, actorId: context.actorId
-  });
-  return { judgments, delphi: delphi ? {
-    feedback: delphi.feedback,
-    revisions: variantOrchestrator.delphiRevisions(delphi.previousByMember, judgments)
-  } : undefined,
-  byzantine: quorumReport ? { ...quorumReport, quarantined } : undefined,
-  persistentCommunity: persistent?.report };
-}
-async function persistMembershipDecisions(context, session, report) {
-  for (const item of report.members) {
-    await communityStore.appendEvent(context.db, { communityId: session.communityId,
-      actorId: context.actorId, type: 'MEMBERSHIP_DECISION_RECORDED',
-      payload: { memberId: item.memberId, domain: item.domain, sampleCount: item.sampleCount,
-        reputation: item.reputation, decayedReputation: item.decayedReputation,
-        periodsElapsed: item.periodsElapsed, decision: item.decision, reason: item.reason,
-        missionIndex: item.missionIndex }, patch: {} });
-  }
-  const rotated = new Set(report.rotation.rotate.map((item) => item.memberId));
-  const expelled = new Set(report.excludedMemberIds.filter((memberId) => !rotated.has(memberId)));
-  for (const [memberIds, type, reason] of [[rotated, 'MEMBER_ROTATED', 'ANTI_ENTRENCHMENT'],
-    [expelled, 'MEMBER_EXPELLED', 'REPUTATION_BELOW_FLOOR']]) {
-    for (const memberId of memberIds) {
-      await communityStore.appendEvent(context.db, { communityId: session.communityId,
-        actorId: context.actorId, type, payload: { memberId, reason }, patch: {} });
-    }
-  }
-}
-async function commitmentServiceCall(context, member, response) {
-  return commitment.commitJudgment({
-    db: context.db, communityId: context.communityId, memberId: member.memberId,
-    judgment: response.judgment || response
+  return sealedJudgmentPhase.collect({
+    context, loadActiveSession, invokeMember
   });
 }
 
@@ -236,18 +175,8 @@ async function aggregateByQuestionType(context) {
     return variantOrchestrator.aggregatePolycentric({ context, session, claims,
       reviews: reviewResult.reviews, invokeMember });
   }
-  const persistent = context.variantPolicy?.name === 'persistent_community'
-    ? await variantOrchestrator.persistentContext({ ...context, session, judgments, suppliedForecasts: options.forecasts }) : null;
-  const forecastContext = context.variantPolicy?.name === 'forecasting_crowd'
-    ? await variantOrchestrator.forecastingContext({ db: context.db, session, judgments,
-      suppliedForecasts: options.forecasts }) : null;
-  const sourceForecasts = persistent?.forecasts || options.forecasts || judgments.flatMap((item) =>
-    (item.judgment.probabilities || []).map((forecast) => ({ ...forecast, memberId: item.memberId })));
-  const calibratedForecasts = forecastContext?.forecasts || sourceForecasts;
-  const memberWeights = new Map(session.members.map((member) => [member.memberId, member.samplingWeight]));
-  const forecasts = context.variantPolicy?.requireSamplingWeights
-    ? calibratedForecasts.map((item) => ({ ...item, samplingWeight: item.samplingWeight ?? memberWeights.get(item.memberId) }))
-    : calibratedForecasts;
+  const { persistent, forecastContext } = await variantForecastContexts({ context, session, judgments, options });
+  const forecasts = selectForecasts({ context, session, judgments, options, persistent, forecastContext });
   const history = context.variantPolicy?.name === 'persistent_community'
     ? await judgmentStore.listBeforeRound(context.db, session.communityId, session.round) : [];
   const aggregation = aggregationService.aggregate({
@@ -261,7 +190,29 @@ async function aggregateByQuestionType(context) {
       .map((member) => member.memberId)
   });
   const result = persistent ? { ...aggregation, persistentCommunity: persistent.report } : aggregation;
-  if (!forecastContext) return result;
+  return forecastContext ? withForecastCalibration({ context, session, options, forecasts,
+    forecastContext, result }) : result;
+}
+
+async function variantForecastContexts({ context, session, judgments, options }) {
+  const persistent = context.variantPolicy?.name === 'persistent_community'
+    ? await variantOrchestrator.persistentContext({ ...context, session, judgments, suppliedForecasts: options.forecasts }) : null;
+  const forecastContext = context.variantPolicy?.name === 'forecasting_crowd'
+    ? await variantOrchestrator.forecastingContext({ db: context.db, session, judgments,
+      suppliedForecasts: options.forecasts }) : null;
+  return { persistent, forecastContext };
+}
+
+function selectForecasts({ context, session, judgments, options, persistent, forecastContext }) {
+  const source = persistent?.forecasts || options.forecasts || judgments.flatMap((item) =>
+    (item.judgment.probabilities || []).map((forecast) => ({ ...forecast, memberId: item.memberId })));
+  const calibrated = forecastContext?.forecasts || source;
+  if (!context.variantPolicy?.requireSamplingWeights) return calibrated;
+  const weights = new Map(session.members.map((member) => [member.memberId, member.samplingWeight]));
+  return calibrated.map((item) => ({ ...item, samplingWeight: item.samplingWeight ?? weights.get(item.memberId) }));
+}
+
+async function withForecastCalibration({ context, session, options, forecasts, forecastContext, result }) {
   const outcomes = Array.isArray(options.outcomes) ? options.outcomes : [];
   const forecastComparison = variantOrchestrator.scoreResolvedForecasts(forecasts, outcomes);
   const recordedCalibration = await variantOrchestrator.persistResolvedOutcomes({
@@ -354,6 +305,7 @@ async function invokeMember(context, request) {
   if (!member) throw Object.assign(new Error('A routed Biocenose member is unavailable.'), { code: 'BIOCENOSE_MEMBER_UNKNOWN' });
   return memberInvocation.invoke({
     ...request, db: context.db, memberInvoker: context.memberInvoker,
+    onProviderObserved: context.recordModelExecution,
     timeoutMs: context.timeoutMs, maxTokens: context.maxTokens,
     session: await loadActiveSession(context), constitution: context.constitution
   });
