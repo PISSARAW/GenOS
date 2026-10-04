@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 use uuid::Uuid;
 
-pub const DEFAULT_HAYFLICK_LIMIT: u32 = 5;
+pub const DEFAULT_HAYFLICK_LIMIT: u32 = 50;
 
 /// Préfixe réservé aux loci de comportements innés (instincts), verrouillés au
 /// développement et exemptés de mutation stochastique. Voir docs/01-concepts/instinct.md.
