@@ -75,7 +75,10 @@ async function main() {
     let measuredAfter;
     const transfer = await bridge.transferCultureToPhenotype({
       phenotypeState: state,
-      artifact: { id: 'artifact-nce-workflow-validation', content: { requiredCapabilities: ['nce-workflow-validation'] } },
+      artifact: { ...require('../src/services/culturalTransmissionService').createCulturalArtifact({
+        agentId: 'teacher', type: 'procedure',
+        content: { requiredCapabilities: ['nce-workflow-validation'] },
+      }), id: 'artifact-nce-workflow-validation' },
       benchmark: async () => {
         measuredAfter = await scoreTaskSuite(state);
         return measuredAfter.score;

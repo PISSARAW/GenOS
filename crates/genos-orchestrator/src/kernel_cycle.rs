@@ -85,7 +85,7 @@ impl ControlKernel {
         let plan = self.decide(input);
         let governance = self.authorize(&plan);
         let (plan_applied, spawned) = self.apply_if_allowed(&plan, &governance);
-        self.close_step(obs, &plan, plan_applied, input);
+        self.close_step(obs, (&plan, plan_applied), input);
         StepOutcome {
             plan_applied,
             governance,
@@ -301,16 +301,14 @@ impl ControlKernel {
         self.state.resilience.checkpoints.push(checkpoint);
     }
 
-    fn close_step(&mut self, obs: &Observations, plan: &MorphogenesisPlan, applied: bool, input: &StepInput) {
+    fn close_step(&mut self, obs: &Observations, outcome: (&MorphogenesisPlan, bool), input: &StepInput) {
+        let (plan, applied) = outcome;
         let mut verified = Vec::new();
         let mut contradictions = Vec::new();
         let mut resolved = Vec::new();
 
         if applied {
             verified.push(format!("plan_applied:{}", plan.reason));
-        }
-        if input.success {
-            verified.push(String::from("step_succeeded"));
         }
         if !input.no_progress {
             resolved.push(String::from("progress_observed"));

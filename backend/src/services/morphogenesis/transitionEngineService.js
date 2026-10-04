@@ -14,6 +14,7 @@ const {
   getState, createSnapshot, rollback: rollbackSnapshot
 } = require('../collectiveStateService');
 const { emit } = require('../agentOrchestrationState');
+const { validateAction } = require('./transitionActionValidation');
 
 function uuid() { return crypto.randomUUID(); }
 function nowIso() { return new Date().toISOString(); }
@@ -29,12 +30,7 @@ function validatePlan(plan) {
   if (!Array.isArray(plan.actions)) errors.push('plan.actions must be an array');
   if (plan.actions) {
     for (const [i, a] of plan.actions.entries()) {
-      if (!a.type) errors.push(`actions[${i}].type is required`);
-      if (!['spawn', 'retire', 'rebind'].includes(a.type)) {
-        errors.push(`actions[${i}].type invalid: ${a.type}`);
-      }
-      if (a.continueOnFailure === true) errors.push(`actions[${i}].continueOnFailure is unsafe`);
-      if (['retire', 'rebind'].includes(a.type) && !a.agentId) errors.push(`actions[${i}].agentId is required`);
+      errors.push(...validateAction(a, i));
     }
   }
   return errors;
@@ -137,17 +133,20 @@ async function execSpawn(action, ctx) {
   if (descriptor?.started !== true || !descriptor.agentId) {
     throw new Error('spawn runtime adapter did not confirm a started worker');
   }
-  if (collectiveState) {
-    collectiveState.agents.set(descriptor.agentId, {
-      id: descriptor.agentId,
-      topology: action.topology || 'unknown',
-      role: descriptor.role || action.role,
-      status: 'active',
-      capabilities: descriptor.capabilities || [],
-      parent: parentAgentId
-    });
-  }
+  registerSpawnedAgent({ collectiveState, descriptor, action, parentAgentId });
   return { agentId: descriptor.agentId, role: descriptor.role || action.role, descriptor };
+}
+
+function registerSpawnedAgent({ collectiveState, descriptor, action, parentAgentId }) {
+  if (!collectiveState) return;
+  collectiveState.agents.set(descriptor.agentId, {
+    id: descriptor.agentId,
+    topology: action.topology || 'unknown',
+    role: descriptor.role || action.role,
+    status: 'active',
+    capabilities: descriptor.capabilities || [],
+    parent: parentAgentId
+  });
 }
 
 async function execRetire(action, ctx) {

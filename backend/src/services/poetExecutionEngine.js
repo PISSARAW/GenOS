@@ -23,6 +23,7 @@ const runtime = require('./agentRuntimeAdapter');
 const telemetry = require('./telemetryObserver');
 const { withDeadline, abortable } = require('./operationDeadline');
 const evidence = require('./poetExecutionEvidence');
+const fs = require('node:fs/promises');
 
 const TERMINAL_EVENTS = new Set([
   'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR',
@@ -197,6 +198,11 @@ async function executeAgentOnEnvironment(agent, environment, options) {
     results.error = err.message;
     if (process.env.GENOS_POET_DEBUG === '1') console.error(err.stack);
     results.success = false;
+  } finally {
+    if (results.executionWorkspace && options?.retainWorkspace !== true) {
+      try { await fs.rm(results.executionWorkspace, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
+      catch (error) { results.cleanupError = error.message; results.success = false; results.score = 0; }
+    }
   }
   results.endedAt = new Date().toISOString();
   return results;
@@ -299,7 +305,7 @@ async function verifySolutionInSnapshot(missionResult, environment) {
   const binding = await evidence.bindSnapshot(snapshot, artifact, environment);
   const result = await runInSnapshot({
     snapshot: { id: snapshot?.id, snapshot_hash: snapshot?.snapshotHash, metadata: snapshot?.metadata },
-    command: environment.verifierCommand || 'npm test',
+    command: environment.verifierCommand,
     timeoutMs: 30000,
     workspacePath: environment.workspacePath,
   });

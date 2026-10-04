@@ -119,11 +119,12 @@ async function executeInSandbox(session, input, workspacePath) {
 // ─── Découverte d'affordances ───────────────────────────────────────
 
 function extractAffordances(iteration) {
+  if (iteration.outcome !== 'success' || !iteration.snapshotId || iteration.result?.exitCode !== 0) return [];
   const affordances = [];
   const observation = iteration.observation || '';
 
   // Pattern : "X peut faire Y" ou "X supporte Y"
-  const peutPattern = /(\w[\w\s]{2,30})\s+(peut|supporte|permet|offre)\s+(\w[\w\s]{2,50})/gi;
+  const peutPattern = /(\w[\w \t]{2,30})[ \t]+(peut|supporte|permet|offre)[ \t]+(\w[\w \t]{2,50})/gi;
   let match;
 
   while ((match = peutPattern.exec(observation)) !== null) {
@@ -131,8 +132,9 @@ function extractAffordances(iteration) {
       capability: match[1].trim(),
       verb: match[2].trim(),
       target: match[3].trim(),
-      source: 'observation',
-      confidence: 0.5,
+      source: 'successful-command-output',
+      confidence: 0.25,
+      verified: false,
     });
   }
 
@@ -171,10 +173,29 @@ async function runPlaySession(agentId, ctx) {
 
   session.dedupedDiscoveries = deduplicateAffordances(discoveries);
   session.discoveries = discoveries;
+  if (session.db?.run) await persistPlayObservations(session);
   session.status = session.budget <= 0 ? 'completed' : 'active';
   session.endedAt = new Date().toISOString();
 
   return session;
+}
+
+async function persistPlayObservations(session) {
+  for (const iteration of session.iterations) {
+    for (const item of iteration.affordancesDiscovered) {
+      const id = crypto.createHash('sha256').update(JSON.stringify({
+        agentId: session.agentId, snapshotId: iteration.snapshotId,
+        command: iteration.result?.command, item,
+      })).digest('hex');
+      await session.db.run(
+        `INSERT OR IGNORE INTO nce_play_observations
+         (id, agent_id, snapshot_id, command, observation_json, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        id, session.agentId, iteration.snapshotId, iteration.result?.command || '',
+        JSON.stringify(item), iteration.timestamp
+      );
+    }
+  }
 }
 
 function deduplicateAffordances(discoveries) {
@@ -191,13 +212,14 @@ function deduplicateAffordances(discoveries) {
 
 // ─── Génération combinatoire de commandes valides ───────────────────
 
-function generateCombinatorialInputs(tools, contexts) {
+function generateCombinatorialInputs(tools, contexts, seed = 'nce-v1') {
   const inputs = [];
 
   for (const tool of tools) {
     for (const context of contexts) {
       // Sélectionne une commande autorisée
-      const cmd = ALLOWED_SANDBOX_COMMANDS[Math.floor(Math.random() * ALLOWED_SANDBOX_COMMANDS.length)];
+      const digest = crypto.createHash('sha256').update(`${seed}:${tool}:${context}`).digest();
+      const cmd = ALLOWED_SANDBOX_COMMANDS[digest.readUInt32BE(0) % ALLOWED_SANDBOX_COMMANDS.length];
       inputs.push({
         action: `${tool}_${context}`,
         tool,

@@ -22,7 +22,8 @@ function createNCEConfig(options) {
 }
 
 async function safeExecute(fn) {
-  try { return await fn(); } catch (e) { return null; }
+  try { return { result: await fn(), error: null }; }
+  catch (error) { return { result: null, error: error.message }; }
 }
 
 async function enhanceMissionWithNCE(mission, db) {
@@ -38,6 +39,7 @@ async function enhanceMissionWithNCE(mission, db) {
     culturalLearning: null,
     play: null,
     phenotype: null,
+    errors: {},
   };
 
   const engines = [
@@ -46,13 +48,14 @@ async function enhanceMissionWithNCE(mission, db) {
     { fn: () => applyExaptation(mission, config, db), key: 'exaptations' },
     { fn: () => applyEnvCoev(mission, config), key: 'environments' },
     { fn: () => applyCulture(mission, config), key: 'culturalTraits' },
-    { fn: () => applyCultureLearning(mission, config), key: 'culturalLearning' },
+    { fn: () => applyCultureLearning(mission, config, db), key: 'culturalLearning' },
     { fn: () => applyPlay(mission, config, db), key: 'play' },
     { fn: () => applyPhenotype(mission, config, db), key: 'phenotype' },
   ];
 
   for (const engine of engines) {
-    const result = await safeExecute(engine.fn);
+    const { result, error } = await safeExecute(engine.fn);
+    if (error) enhancements.errors[engine.key] = error;
     if (hasResult(result)) {
       enhancements[engine.key] = result;
     }

@@ -82,48 +82,28 @@ function buildPhenotypeOptions(request) {
     phenotypeState: request.phenotypeState || request.phenotype_state,
     initialPhenotype: request.initialPhenotype || request.initial_phenotype,
     genomeId: getField(request, 'genomeId', 'genome_id'),
+    poet: getField(request, 'poet', 'poet'),
   };
 }
 
 async function computeNCEForTopology(task, options) {
   options = options || {};
-  let enhancements = {};
-  try {
-    enhancements = await nceIntegration.enhanceMissionWithNCE({
-      prompt: task,
-      domain: options.domain,
-      keywords: options.keywords,
-      budget: options.budget,
-      explorationDomains: options.explorationDomains,
-      knownConcepts: options.knownConcepts,
-      existingCapabilities: options.existingCapabilities,
-      culturalTraits: options.culturalTraits,
-      culturalTransfer: options.culturalTransfer,
-      requiredTools: options.requiredTools,
-      requiredCapabilities: options.requiredCapabilities,
-      phenotypeState: options.phenotypeState,
-      initialPhenotype: options.initialPhenotype,
-      genomeId: options.genomeId,
-      nceOptions: options.nceOptions,
-      workspacePath: options.workspacePath,
-      workspaceId: options.workspaceId,
-      agentId: options.agentId,
-    }, options.db);
-  } catch (nceError) {
-    enhancements = { error: nceError.message };
+  const topology = options.topology || 'worker';
+  const keywords = options.keywords || [];
+  const signals = getSignals(topology);
+  const nceOptions = { ...options.nceOptions };
+  for (const [key, enabled] of Object.entries(signals)) {
+    if (enabled === false) nceOptions[key === 'representationalMutation' ? 'reprMutation' : key] = false;
   }
-
-  return {
-    topology: options.topology || 'worker',
-    domain: enhancements.domain,
-    keywords: enhancements.keywords || [],
-    curiosity: enhancements.curiosity,
-    representations: enhancements.representations || [],
-    exaptations: enhancements.exaptations || [],
-    culturalTraits: enhancements.culturalTraits || [],
-    culturalLearning: enhancements.culturalLearning || null,
-    environments: enhancements.environments || [],
-  };
+  try {
+    const enhancements = await nceIntegration.enhanceMissionWithNCE({
+      ...options, prompt: task, nceOptions,
+    }, options.db);
+    return { topology, domain: options.domain, keywords, ...enhancements };
+  } catch (nceError) {
+    return { topology, domain: options.domain, keywords,
+      errors: { integration: nceError.message } };
+  }
 }
 
 module.exports = {

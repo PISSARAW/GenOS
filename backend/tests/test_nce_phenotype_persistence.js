@@ -9,8 +9,8 @@ async function main() {
     async run(_sql, id, agentId, genomeId, stateJson) {
       rows.set(id, { agentId, genomeId, stateJson });
     },
-    async get(_sql, _agentGuard, agentId, genomeId) {
-      const row = [...rows.values()].find((item) => item.agentId === agentId || item.genomeId === genomeId);
+    async get(_sql, agentId) {
+      const row = [...rows.values()].find((item) => item.agentId === agentId);
       return row ? { state_json: row.stateJson } : null;
     },
   };
