@@ -13,7 +13,7 @@ const VARIANT_IDS = ['epistemic_jury', 'delphi_community', 'adversarial_assembly
   'argumentation_community', 'polycentric_council', 'byzantine_resilient_community', 'minority_preserving_jury',
   'representative_community', 'persistent_community', 'human_ai_deliberation', 'hybrid_oracle_community'];
 
-const PARTIAL_VARIANTS = new Set(['argumentation_community', 'polycentric_council',
+const PARTIAL_VARIANTS = new Set(['polycentric_council',
   'byzantine_resilient_community', 'representative_community', 'persistent_community']);
 
 function testVariantSurface() {
@@ -81,6 +81,8 @@ function testArgumentationRuntimeUsesGroundedSemantics() {
   assert.deepEqual(result.argumentation.undecided.sort(), ['a', 'b']);
   assert.equal(result.argumentation.labels[0].status, 'UNDECIDED');
   assert.equal(result.argumentation.semantics, 'grounded');
+  assert.deepEqual(result.argumentation.unresolvedClaimIds, ['c1']);
+  assert.equal(result.outcome, 'ARGUMENTS_UNRESOLVED');
 }
 
 function testRepresentativeSamplingRespectsPanelSize() {
