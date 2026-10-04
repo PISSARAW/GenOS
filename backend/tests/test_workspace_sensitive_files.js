@@ -9,6 +9,8 @@ async function run() {
 	assert.equal(isExcluded('genos.db'), true);
 	assert.equal(isExcluded('genos.db-wal'), true);
 	assert.equal(isExcluded('genos.db.backup-20260916-075110'), true);
+	assert.equal(isExcluded('replay.sqlite.backup-20261004-112200'), true);
+	assert.equal(isExcluded('snapshot.sqlite3.bak-20261004-112200'), true);
 	assert.equal(isExcluded('worker_agent_run_1790349144340'), true);
 	assert.equal(isExcluded('.codex-worktrees'), true);
 	assert.equal(isExcluded('artifacts'), true);
