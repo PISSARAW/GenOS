@@ -4,7 +4,6 @@ const communityStore = require('../communityStore');
 const commitment = require('../deliberation/commitmentService');
 const claimsService = require('../claims/communityClaimGraph');
 const reviewerRouter = require('../review/reviewerRouter');
-const verifierRouter = require('../verification/verifierRouter');
 const argumentsService = require('../argumentation/communityArgumentGraph');
 const beliefRevision = require('../deliberation/beliefRevisionService');
 const effectiveSize = require('../formation/effectiveCommunitySizeService');
@@ -136,24 +135,8 @@ async function collectClaimReviews(input) {
 }
 
 async function verifyClaim(input) {
-  const { context, session, claim, receipts } = input;
-  const verification = verifierRouter.route({ claim, members: session.members });
-  assertVariantVerifier(context, session, verification);
-  if (!verification.deterministicAvailable || typeof context.verificationExecutor !== 'function') return;
-  for (const verifier of verification.verifiers) {
-    const receipt = await context.verificationExecutor({ claim, verifier, communityId: session.communityId });
-    if (isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) receipts.push({ ...receipt, claimId: claim.claimId });
-  }
+  return require('../verification/hybridOracleVerificationService').routeAndVerify(input);
 }
-
-function assertVariantVerifier(context, session, verification) {
-  if (!context.variantPolicy?.requireDeterministicVerifier || session.questionType !== 'FACTUAL'
-    || verification.deterministicAvailable) return;
-  throw Object.assign(new Error('Hybrid Oracle Community requires a deterministic verifier for factual claims.'), {
-    code: 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED'
-  });
-}
-
 async function buildArgumentGraph(context) {
   const reviews = prior(context, 2).reviews;
   const published = [];
@@ -326,10 +309,6 @@ function anonymousArgument(item) {
   return { claimId: item.claimId, relation: item.relation, argument: item.argument };
 }
 
-function isTrustedVerifiedReceipt(receipt, validator) {
-  if (!receipt || receipt.status !== 'VERIFIED' || typeof validator !== 'function') return false;
-  try { return validator(receipt) === true; } catch (_) { return false; }
-}
 
 function decisionReady(aggregation) {
   if (aggregation.humanJudgmentRequired) return true;

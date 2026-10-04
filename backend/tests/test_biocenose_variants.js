@@ -227,6 +227,27 @@ function testPersistentReputation() {
   assert.equal(rotation.rotationDue, true);
 }
 
+async function testHybridOracleMixedClaimsRequireTrustedReceipt() {
+  const oracle = require('../src/services/biocenose/verification/hybridOracleVerificationService');
+  const context = { variantPolicy: router.select('hybrid_oracle_community'),
+    isTrustedReceipt: (receipt) => receipt.oracle === 'trusted' };
+  const session = { communityId: 'c1', questionType: 'MIXED',
+    members: [{ memberId: 'v1', role: 'verifier', verificationKinds: ['formal_proof'] }] };
+  const claim = { claimId: 'claim-1', claim: { type: 'FACTUAL', verification: { kinds: ['formal_proof'] } } };
+  const receipts = [];
+  const noVerifierSession = { ...session, members: [] };
+  await assert.rejects(() => oracle.routeAndVerify({ context: { ...context, verificationExecutor: async () => ({}) },
+    session: noVerifierSession, claim, receipts }),
+  (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r1', oracle: 'untrusted' });
+  await assert.rejects(() => oracle.routeAndVerify({ context, session, claim, receipts }),
+    (error) => error.code === 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED');
+  context.verificationExecutor = async () => ({ status: 'VERIFIED', receiptId: 'r2', oracle: 'trusted' });
+  await oracle.routeAndVerify({ context, session, claim, receipts });
+  assert.deepEqual(receipts.map((receipt) => receipt.claimId), ['claim-1']);
+}
 function testDelphiSpreadAndForecastScoring() {
   const delphi = aggregation.aggregate({ questionType: 'PROBABILISTIC',
     variantPolicy: router.select('delphi_community'),
@@ -257,4 +278,9 @@ testByzantineQuorum();
 testRepresentativeSampling();
 testPersistentReputation();
 testDelphiSpreadAndForecastScoring();
-console.log('✅ Biocenose variant tests passed.');
+testHybridOracleMixedClaimsRequireTrustedReceipt().then(() => {
+  console.log('✅ Biocenose variant tests passed.');
+}).catch((error) => {
+  process.stderr.write(String(error.stack) + String.fromCharCode(10));
+  process.exitCode = 1;
+});
