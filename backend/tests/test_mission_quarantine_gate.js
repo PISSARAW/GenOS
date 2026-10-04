@@ -7,7 +7,13 @@ function fakeDb(row) {
   const statements = [];
   return {
     statements,
-    async get() { return row; },
+    async get(sql) {
+      if (sql.includes('FROM pathologies')) {
+        return { clinical_state_id: row.id, pathologyType: 'cognitive_metastasis', severity: 0.9, confidence: 0.93 };
+      }
+      return row;
+    },
+    async all() { return []; },
     async run(sql, ...params) { statements.push({ sql, params }); },
   };
 }
@@ -39,9 +45,18 @@ async function testQuarantinedMissionIsBlocked() {
   assert.ok(db.statements.some(({ sql }) => sql.includes("SET cell_cycle_state = 'arrested'")));
 }
 
+async function testInvalidClinicalStateFailsClosed() {
+  const malformed = fakeDb({ ...stateRow(), vitals_json: '{broken-json' });
+  await assert.rejects(assertMissionDispatchAllowed(malformed, 'parent-1'),
+    (error) => error.code === 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
+  await assert.rejects(assertMissionDispatchAllowed(null, 'parent-1'),
+    (error) => error.code === 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
+}
+
 async function run() {
   await testHealthyMissionPasses();
   await testQuarantinedMissionIsBlocked();
+  await testInvalidClinicalStateFailsClosed();
   console.log('Mission quarantine gate checks passed.');
 }
 

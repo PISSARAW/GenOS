@@ -323,10 +323,8 @@ function emitIncarnation(params) {
 }
 
 async function initClinicalAndScan(db, agentId) {
-  try {
-    await initClinicalState(db, agentId);
-    await surveillanceScan(db, agentId, {});
-  } catch (_) { /* medical runtime best-effort */ }
+  await initClinicalState(db, agentId);
+  await surveillanceScan(db, agentId, {});
 }
 
 async function incarnateAgent(opts) {
@@ -366,8 +364,8 @@ async function incarnateAgent(opts) {
   } catch (_) { expressionContext = null; }
   const descriptor = composeDescriptor({ agentId, identity, request, lease, workspaceRoot, authorityProfile, evolution, dnaSelection, route, prompt, conscience, expressionContext });
   const incSummary = { agentId, role: request.role, workerKind: request.workerKind, leaseCount: lease.length };
-  emitIncarnation({ parent, identity, role: request.role, summary: incSummary });
   await initClinicalAndScan(db, agentId);
+  emitIncarnation({ parent, identity, role: request.role, summary: incSummary });
   return descriptor;
 }
 

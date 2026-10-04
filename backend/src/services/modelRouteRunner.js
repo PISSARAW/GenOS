@@ -159,6 +159,7 @@ async function invokeProvider(ctx, prepared, uri) {
       seed: ctx.seed,
       stream: ctx.stream,
       enforceSchema: ctx.enforceSchema,
+      responseFormat: ctx.responseFormat,
       signal: attempt.controller.signal,
       displayWidth: ctx.displayWidth,
       displayHeight: ctx.displayHeight,
