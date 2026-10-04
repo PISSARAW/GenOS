@@ -62,7 +62,20 @@ async function testImmuneBatchMemory() {
   assert.deepStrictEqual(result.immuneMemory.map((item) => item.outputId), ['one', 'two']);
 }
 
+function testLocalExportProofGate() {
+  const base = { variantId: 'local-first', availableEngines: ['local'], dataClasses: ['RESTRICTED'],
+    restrictedDataClasses: ['RESTRICTED'], requireExportProof: true };
+  const refused = runtime.planPlacement(base);
+  assert.strictEqual(refused.accepted, false);
+  assert.strictEqual(refused.reason, 'NO_EXPORT_PROOF_REQUIRED');
+  const accepted = runtime.planPlacement({ ...base, attestNoExport: () => ({ receiptId: 'proof:1' }),
+    verifyNoExport: (proof) => proof.receiptId === 'proof:1' });
+  assert.strictEqual(accepted.accepted, true);
+  assert.strictEqual(accepted.exportProofVerified, true);
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
+testLocalExportProofGate();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');

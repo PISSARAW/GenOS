@@ -226,11 +226,13 @@ function placementResult(context) {
     : guards.cloudSymbionts ? 'edge' : placement.host;
   const exportProof = placement.host === 'local' && !guards.remoteNeeded && typeof input.attestNoExport === 'function'
     ? input.attestNoExport({ dataClasses: guards.classes }) : null;
-  return { accepted: placementReason(guards) === null, host: placement.host, requestedHost: placement.requestedHost,
+  const exportProofVerified = exportProof !== null && typeof input.verifyNoExport === 'function'
+    && input.verifyNoExport(exportProof) === true;
+  const reason = placementReason(guards) || (input.requireExportProof === true && !exportProofVerified ? 'NO_EXPORT_PROOF_REQUIRED' : null);
+  return { accepted: reason === null, host: placement.host, requestedHost: placement.requestedHost,
     symbionts, fallback: placement.fallback, dataClasses,
     pendingSync: variant.requireAsyncSync === true && input.edgeConnected !== true,
-    reason: placementReason(guards),
-    exportProof };
+    reason, exportProof, exportProofVerified };
 }
 
 function planPlacement(input = {}) {
