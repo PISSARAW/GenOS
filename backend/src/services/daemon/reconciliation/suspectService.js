@@ -67,33 +67,33 @@ async function guardedAll(db, sql, params) {
   }
 }
 
-async function findBlockedAgents(db, cutoffIso) {
+async function findBlockedAgents(db, cutoffIso, territoryId) {
   return guardedAll(db,
     `SELECT id FROM agents WHERE status IN ('blocked', 'error')
-     AND datetime(updated_at) <= datetime(?)`,
-    [cutoffIso]);
+     AND territory_id = ? AND datetime(updated_at) <= datetime(?)`,
+    [territoryId, cutoffIso]);
 }
 
-async function findStaleRuntimes(db, cutoffIso) {
+async function findStaleRuntimes(db, cutoffIso, territoryId) {
   return guardedAll(db,
     `SELECT id FROM agents WHERE runtime_pid IS NOT NULL AND status != 'running'
-     AND datetime(updated_at) <= datetime(?)`,
-    [cutoffIso]);
+     AND territory_id = ? AND datetime(updated_at) <= datetime(?)`,
+    [territoryId, cutoffIso]);
 }
 
-async function findOrphanWorkspaces(db, cutoffIso) {
+async function findOrphanWorkspaces(db, cutoffIso, territoryId) {
   return guardedAll(db,
     `SELECT w.id FROM workspaces w LEFT JOIN agents a ON a.workspace_id = w.id
      WHERE a.id IS NULL AND COALESCE(w.is_archived, 0) = 0
-     AND datetime(w.updated_at) <= datetime(?)`,
-    [cutoffIso]);
+     AND w.territory_id = ? AND datetime(w.updated_at) <= datetime(?)`,
+    [territoryId, cutoffIso]);
 }
 
-async function findStuckCapsules(db, cutoffIso) {
+async function findStuckCapsules(db, cutoffIso, territoryId) {
   return guardedAll(db,
     `SELECT id FROM cryptobiosis_snapshots WHERE status IN ('freezing', 'thawing')
-     AND datetime(frozen_at) <= datetime(?)`,
-    [cutoffIso]);
+     AND territory_id = ? AND datetime(frozen_at) <= datetime(?)`,
+    [territoryId, cutoffIso]);
 }
 
 async function findAbandonedBranches(db, job) {
