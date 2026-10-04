@@ -209,6 +209,8 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 
 Index : [adr/README.md](adr/README.md)
 
+Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-fermeture-runtime-nce.md).
+
 - [0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — format héréditaire binaire `AgentDNA`.
 - [0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d'innovation et promotion sous gate.
 - [0003-fossilization-stratigraphic-archive.md](adr/0003-fossilization-stratigraphic-archive.md) — fossilisation stratigraphique.
