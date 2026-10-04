@@ -111,7 +111,7 @@ async function evaluatePersistentVariant(db, input = {}) {
   const state = session.variantState || {};
   if (!state.variantId) throw error('Select a variant before evaluating it.', 'HOLOBIONT_VARIANT_REQUIRED');
   const execute = operationFor(state, input.operation);
-  const result = await execute(input.runtimeInput || {});
+  const result = await execute({ ...(input.runtimeInput || {}), variantId: state.variantId });
   const refs = verifiedResult(result, input, { operation: input.operation });
   const receipt = { evaluationId: randomUUID(), variantId: state.variantId, operation: input.operation,
     resultHash: `sha256:${createHash('sha256').update(JSON.stringify(result)).digest('hex')}`,
