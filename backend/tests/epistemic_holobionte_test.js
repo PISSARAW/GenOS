@@ -138,10 +138,8 @@ async function runTests() {
   assert.strictEqual(pendingEntry.successes, 0);
   assert.strictEqual(pendingEntry.affinity, 0.4, 'pending ne change pas affinity');
 
-  // Invariant 6: recordOutcome success/failure modifie l'affinité.
-  const resolvedEntry = recordOutcome([], { claim: 'P100' }, { domain: 'auth', outcome: 'success' });
-  assert.strictEqual(resolvedEntry.pending, false);
-  assert.strictEqual(resolvedEntry.affinity, 1, 'success → affinity = 1');
+  // Invariant 6: une réussite déclarée sans preuve scellée est refusée.
+  assert.throws(() => recordOutcome([], { claim: 'P100' }, { domain: 'auth', outcome: 'success' }), /scoped repository/);
 
   // Invariant 7: L'adaptateur homéostasie mappe correctement les champs d'antigène.
   const { computePressure } = require('../src/services/epistemic/epistemicHomeostasisService');

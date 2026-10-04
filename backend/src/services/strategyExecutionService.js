@@ -115,24 +115,17 @@ async function observeSurvivalEvent({ db, agentId, event, run }) {
   }
 }
 
-async function approveRun(db, id, options) {
-  const settings = options || {};
-  const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
-  if (!row) throw new Error(`Execution run ${id} not found`);
-  if (row.status !== 'awaiting_approval') throw new Error(`Execution run ${id} is not awaiting approval`);
-  const promotion = await promotionGate.loadPromotionContext(db, row, settings);
-  if (!promotion.report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
-  const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
-  await promotionGate.assertPromotionContainment(db, promotion, settings);
+async function evaluateAeisPromotion(db, request) {
+  const { promotion, id } = request;
   const workspace = await db.get(
-    'SELECT w.path FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
+    'SELECT w.id, w.path, w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
     promotion.agentId,
   );
   if (!workspace?.path) throw new Error(`Execution run ${id} has no trusted workspace for AEIS verification.`);
+  const scopeId = [workspace.organization_id || 'local', workspace.project_id || 'local', workspace.id].join(':');
 
-  // AEIS : évaluation épistémique du rapport via le Holobionte
   let aeisEvaluation = null;
-  const immuneMemory = await immuneMemoryRepository.load(db);
+  const immuneMemory = await immuneMemoryRepository.load(db, scopeId);
   try {
     aeisEvaluation = await evaluateReportWithAeis(promotion.report, {
       domain: promotion.contract?.problem_profile?.domain || 'general',
@@ -145,8 +138,23 @@ async function approveRun(db, id, options) {
   } catch (error) {
     throw new Error(`Execution run ${id} AEIS verification failed: ${error.message}`, { cause: error });
   }
-  await immuneMemoryRepository.save(db, immuneMemory);
+  await require('./epistemic/immuneMemoryOutcome').persistEvaluatedMemory(db, {
+    report: promotion.report, domain: promotion.contract?.problem_profile?.domain || 'general',
+    evaluation: aeisEvaluation, immuneMemory, runId: id, scopeId,
+  });
+  return aeisEvaluation;
+}
 
+async function approveRun(db, id, options) {
+  const settings = options || {};
+  const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
+  if (!row) throw new Error(`Execution run ${id} not found`);
+  if (row.status !== 'awaiting_approval') throw new Error(`Execution run ${id} is not awaiting approval`);
+  const promotion = await promotionGate.loadPromotionContext(db, row, settings);
+  if (!promotion.report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
+  const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
+  await promotionGate.assertPromotionContainment(db, promotion, settings);
+  const aeisEvaluation = await evaluateAeisPromotion(db, { promotion, id });
   const gateContext = promotionGate.buildGateContext({ promotion, options: settings, receipt, aeisEvaluation });
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);

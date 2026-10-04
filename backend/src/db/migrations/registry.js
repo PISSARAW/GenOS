@@ -374,6 +374,9 @@ const migrationRunners = [
   createMigrationRunner('102-shev-protocols', 'Persist authenticated SHEV decisions, monitoring and separate evaluation receipts', async (db) => {
     await require('./migrateShevProtocols').migrateShevProtocols(db);
   }),
+  createMigrationRunner('103-epistemic-immune-scope', 'Scope AEIS memory and deduplicate oracle outcomes', async (db) => {
+    await require('./migrateEpistemicImmuneScope').migrateEpistemicImmuneScope(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

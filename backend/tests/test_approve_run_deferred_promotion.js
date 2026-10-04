@@ -84,6 +84,18 @@ async function run() {
     const positive = await approveWithRealEvidence({ db, run, contractRecord, proofWorkspace });
     const { approvedRun, realReport } = positive;
     assert.equal(approvedRun.status, 'completed', 'genuine signed independent AEIS receipts must allow approval');
+    const learned = await db.get("SELECT * FROM epistemic_immune_memory_scoped WHERE scope_id = 'local:local:ws-aeis-promo'");
+    assert.equal(learned?.successes, 1, 'a validated promotion must resolve the immune outcome');
+    assert.equal(learned?.pending, 0);
+    assert.equal(learned?.affinity, 1);
+    const stored = await db.get('SELECT id FROM aeis_assurance_assemblies ORDER BY rowid DESC LIMIT 1');
+    const persisted = await require('../src/services/aeisAssemblyStore').readAssembly(db, stored.id);
+    const repeated = await require('../src/services/epistemic/immuneMemoryRepository').resolve(db, {
+      scopeId: 'local:local:ws-aeis-promo', signature: learned.signature,
+      assemblyId: stored.id, runId: run.id,
+      resultId: persisted.evaluation.assembly.results[0].resultId, test: realReport.claims[0].test,
+    });
+    assert.equal(repeated, false, 'a retried run cannot increase affinity twice');
     const proofEvaluation = await require('../src/services/epistemic/aeisPromotionBridge').evaluateReportWithAeis(realReport, {
       trustedVerifierDigests: require('../src/services/verifierTrustRegistry').listVerifierDigests(),
       allowedWorkspaceRoot: proofWorkspace,
