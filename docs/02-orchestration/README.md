@@ -8,6 +8,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [orchestration.md](orchestration.md) — branches, preuve avant validation, survivants, fan-out.
 - [agow.md](agow.md) — circuit AGOW, autorité runtime, contrats, modes et maturité des intégrations.
 - [ontogenese-boucle.md](ontogenese-boucle.md) — boucle Observer → réévaluer : sélection tâches/topologies, autorisation, réveils, notifications.
+- [shev.md](shev.md) — responsabilité persistante, observations, initiatives et vérification des effets du projet.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
 - [noyau-controle-morphogenetique.md](noyau-controle-morphogenetique.md) — kernel Rust : état global, diagnostic causal, résolveurs, plan morphogénétique, incarnation, gouvernance.
 - [regulation-multi-boucles.md](regulation-multi-boucles.md) — signaux de contrôle, boucles rapides/lentes, arbitrage.

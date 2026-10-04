@@ -365,6 +365,9 @@ const migrationRunners = [
     const { migrateHolobiontVariantEvents } = require('./migrateHolobiontVariantEvents');
     await migrateHolobiontVariantEvents(db);
   }),
+  createMigrationRunner('100-shev-project-loop', 'Persist delegated project responsibility, observations, initiatives and distinct effect assessments', async (db) => {
+    await require('./migrateShevProjectLoop').migrateShevProjectLoop(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
