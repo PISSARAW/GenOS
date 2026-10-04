@@ -80,8 +80,8 @@ function roleRequirements(member) {
   const declared = values(member.workerRequirements?.requiredCapabilities);
   const intent = roleIntent(role);
   if (intent === null) return null;
-  const memberCapabilities = values(member.capabilities);
-  const base = intent || memberCapabilities;
+  const domainCapabilities = values(member.capabilities);
+  const base = intent || (domainCapabilities.length ? ['domain_specialization'] : []);
   if (!base.length && !declared.length) return undefined;
   return [...new Set([...base, ...declared])];
 }

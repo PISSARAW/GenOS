@@ -8,10 +8,20 @@ const DEVELOPMENTAL_WINDOW_STEPS: u64 = 10;
 
 pub fn seed_hox_genome(base_instruction: &str) -> Genome {
     let mut genome = Genome::new(base_instruction);
-    genome.insert_gene(Gene::new("HOX-1_UI_FRONTEND", "UI_PROMPT"));
-    genome.insert_gene(Gene::new("HOX-2_LOGIC_BACKEND", "BACKEND_PROMPT"));
-    genome.insert_gene(Gene::new("HOX-3_DATA_STORAGE", "STORAGE_PROMPT"));
+    ensure_hox_genes(&mut genome);
     genome
+}
+
+fn ensure_hox_genes(genome: &mut Genome) {
+    for (locus, prompt) in [
+        ("HOX-1_UI_FRONTEND", "UI_PROMPT"),
+        ("HOX-2_LOGIC_BACKEND", "BACKEND_PROMPT"),
+        ("HOX-3_DATA_STORAGE", "STORAGE_PROMPT"),
+    ] {
+        if !genome.genes.contains_key(locus) {
+            genome.insert_gene(Gene::new(locus, prompt));
+        }
+    }
 }
 
 /// ACTE 1 : Le Zygote et la Mitose
@@ -42,6 +52,7 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
     if total == 0 {
         return;
     }
+    ensure_hox_genes(genome);
     let gradient = if topology_gradient.is_finite() {
         topology_gradient.clamp(0.0, 1.0)
     } else {
@@ -57,6 +68,7 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
         } else {
             "HOX-3_DATA_STORAGE"
         };
+        differentiate_cell_chromatin(target_role, genome);
         let budget = cell.conscience.current_budget;
         let baseline = cell.conscience.baseline_budget;
         let energy_budget = if baseline > 0.0 { (budget / baseline).clamp(0.0, 1.0) } else { 0.0 };
@@ -72,7 +84,9 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
         });
         cell.role = program.expressed_lineage.unwrap_or_else(|| "UNCOMMITTED".to_string());
         cell.chromatin_state = Some("Differentiated".to_string());
-        // Keep cell's own genome_id from mitosis, don't overwrite with parent genome_id
+        if cell.genome_id.is_none() {
+            cell.genome_id = Some(genome.genome_id());
+        }
     }
 
     update_hox_genes(swarm, genome);
@@ -83,11 +97,9 @@ fn update_hox_genes(swarm: &[AgentCell], genome: &mut Genome) {
     for (locus, gene) in genome.genes.iter_mut() {
         if let Some(axis) = hox_axis(locus) {
             if active_axes.contains(&axis) {
-                if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
-                    gene.chromatin_state = ChromatinState::Euchromatin;
-                    gene.developmentally_locked = false;
-                    gene.is_methylated = false;
-                }
+                gene.chromatin_state = ChromatinState::Euchromatin;
+                gene.developmentally_locked = false;
+                gene.is_methylated = false;
             } else {
                 gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
                 gene.developmentally_locked = true;
@@ -106,11 +118,9 @@ pub fn differentiate_cell_chromatin(role: &str, genome: &mut Genome) {
     for (locus, gene) in genome.genes.iter_mut() {
         if let Some(axis) = hox_axis(locus) {
             if target_axis == Some(axis) {
-                if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
-                    gene.chromatin_state = ChromatinState::Euchromatin;
-                    gene.developmentally_locked = false;
-                    gene.is_methylated = false;
-                }
+                gene.chromatin_state = ChromatinState::Euchromatin;
+                gene.developmentally_locked = false;
+                gene.is_methylated = false;
             } else {
                 gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
                 gene.developmentally_locked = true;

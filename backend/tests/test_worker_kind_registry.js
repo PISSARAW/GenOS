@@ -60,7 +60,11 @@ for (const [kind, [family, artifact]] of Object.entries(workerKinds.KINDS)) {
 
 for (const kind of Object.keys(workerKinds.KINDS)) {
   const profile = phenotypes.getPhenotype(kind);
-  const contract = workerKinds.buildWorkerContract(kind, { prompt: 'mission', scope: 'module' });
+  const contract = workerKinds.buildWorkerContract(kind, {
+    prompt: 'mission', scope: 'module', nicheDomain: kind === 'specialist' ? 'security' : undefined,
+    hostContractId: kind === 'symbiotic_worker' ? 'host-contract' : undefined,
+    hostCapabilities: kind === 'symbiotic_worker' ? ['host_data'] : undefined
+  });
   assert.equal(profile.workerKind, kind);
   assert.equal(contract.identity.workerKind, kind);
   assert.equal(contract.authority.promote, false);
@@ -72,7 +76,8 @@ assert.equal(workerKinds.buildWorkerContract('verifier_worker').authority.execut
 assert.equal(workerKinds.buildWorkerContract('resident_daemon').authority.execute, true);
 assert.equal(workerKinds.buildWorkerContract('scout_cell').authority.execute, false);
 assert.equal(workerKinds.buildWorkerContract('creative_worker').authority.execute, false);
-assert.equal(workerKinds.buildWorkerContract('specialist').authority.write, false);
+assert.throws(() => workerKinds.buildWorkerContract('specialist'), { code: 'SPECIALIST_NICHE_REQUIRED' });
+assert.equal(workerKinds.buildWorkerContract('specialist', { nicheDomain: 'security' }).authority.write, false);
 
 assert.equal(workerKinds.resolveWorkerKind(undefined, 'independent_reviewer'), 'verifier_worker');
 assert.equal(workerKinds.resolveWorkerKind(undefined, 'red_team'), 'red_worker');

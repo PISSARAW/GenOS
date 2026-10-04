@@ -126,7 +126,7 @@ fn mitose_autonome_partage_le_budget_et_marque_la_mere() {
     assert_eq!(mother.conscience.current_budget, 40.0);
     assert_eq!(daughter.conscience.current_budget, 40.0);
     assert_eq!(mother.bud_scars, 1);
-    assert_eq!(daughter.bud_scars, 1);
+    assert_eq!(daughter.bud_scars, 0);
     assert_eq!(mother.genome_id, Some(outcome.lineage_id));
     assert_eq!(eco.orchestrator.owning_tissue(outcome.daughter_id).as_deref(), Some("Arena"));
 }

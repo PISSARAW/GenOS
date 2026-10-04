@@ -7,10 +7,10 @@ const { createMorphologyPatch, createOperation } = require('../transitions/morph
 class VariantResolver {
   constructor(opts = {}) {
     this.registry = opts.registry || defaultRegistry;
-    this.patchExecutor = opts.patchExecutor || new PatchExecutor();
+    this.patchExecutor = opts.patchExecutor || new PatchExecutor({ adjudicator: opts.adjudicator, verifier: opts.verifier });
   }
 
-  async changeVariant(nodeId, graph, context, targetVariant) {
+  async changeVariant(nodeId, graph, context = {}, targetVariant) {
     const node = graph.nodes.find(n => n.nodeId === nodeId);
     if (!node) throw new Error(`Node not found: ${nodeId}`);
 
@@ -35,24 +35,21 @@ class VariantResolver {
       baseGraphVersion: graph.version,
       operations: [createOperation('CHANGE_VARIANT', { nodeId, newVariant: targetVariant })],
       reason: `Variant change: ${currentVariant} -> ${targetVariant}`,
-      evidence: transition.requiresEvidence?.map(e => ({ type: e, present: true })) || [],
+      evidence: context.evidence || [],
       expectedGain: transition.gain || {},
       expectedCost: { tokens: transition.cost || 0 },
+      rollbackPlan: context.rollbackPlan,
       authority: context.authority,
       lease: context.lease
     });
 
     const result = await this.patchExecutor.execute(patch, graph, context);
 
-    if (result.success) {
-      node.variant = targetVariant;
-      node.variantChangedAt = new Date().toISOString();
-    }
-
-    return { success: result.success, changed: true, execution: result.execution, from: currentVariant, to: targetVariant };
+    return { success: result.success, changed: result.success, execution: result.execution,
+      graph: result.execution?.commitResult?.graph, from: currentVariant, to: targetVariant };
   }
 
-  async changeTopology(nodeId, graph, context, targetTopology, targetVariant = 'default') {
+  async changeTopology(nodeId, graph, context = {}, targetTopology, targetVariant = 'default') {
     const node = graph.nodes.find(n => n.nodeId === nodeId);
     if (!node) throw new Error(`Node not found: ${nodeId}`);
 
@@ -77,22 +74,19 @@ class VariantResolver {
       baseGraphVersion: graph.version,
       operations: [createOperation('CHANGE_TOPOLOGY', { nodeId, newTopology: targetTopology, newVariant: targetVariant })],
       reason: `Topology change: ${currentTopology}:${currentVariant} -> ${targetTopology}:${targetVariant}`,
-      evidence: transition.requiresEvidence?.map(e => ({ type: e, present: true })) || [],
+      evidence: context.evidence || [],
       expectedGain: transition.gain || {},
       expectedCost: { tokens: transition.cost || 0 },
+      stateMigrationPlan: context.stateMigrationPlan,
+      rollbackPlan: context.rollbackPlan,
       authority: context.authority,
       lease: context.lease
     });
 
     const result = await this.patchExecutor.execute(patch, graph, context);
 
-    if (result.success) {
-      node.topology = targetTopology;
-      node.variant = targetVariant;
-      node.topologyChangedAt = new Date().toISOString();
-    }
-
-    return { success: result.success, changed: true, execution: result.execution, from: `${currentTopology}:${currentVariant}`, to: `${targetTopology}:${targetVariant}` };
+    return { success: result.success, changed: result.success, execution: result.execution,
+      graph: result.execution?.commitResult?.graph, from: `${currentTopology}:${currentVariant}`, to: `${targetTopology}:${targetVariant}` };
   }
 
   getAvailableVariants(topologyId) {

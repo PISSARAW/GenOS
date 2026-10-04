@@ -4,7 +4,8 @@ function diversityGaps(selected, requested) {
   const members = Array.isArray(selected) ? selected : [];
   const expected = requested || {};
   const roles = ['generator', 'reviewer', 'verifier'];
-  const missingRoles = roles.filter((role) => members.filter((member) => member.role === role).length < (expected[role] || 0));
+  const missingRoles = roles.filter((role) => members.filter((member) => member.role === role
+    || (role === 'reviewer' && member.role === 'adversarial_reviewer')).length < (expected[role] || 0));
   return {
     missingRoles,
     providerCount: uniqueCount(members.map((member) => member.provider)),

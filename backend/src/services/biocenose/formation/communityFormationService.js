@@ -71,24 +71,20 @@ function formCommunity(input) {
     representative = { ...sample, ...reweighted, ...ess, biasComparison };
   }
   if (!input.population && !candidates.length) {
-    return { members: biologicalModeService.compose('biocenose', input.mission), metrics: null };
+    const members = biologicalModeService.compose('biocenose', input.mission);
+    return { members: specializeReviewers(members, input.variant), metrics: null };
   }
   const requested = targetCounts(input.population);
   const templates = roleTemplates(input.mission);
   const selectedIds = [];
   const members = [templates.community_facilitator];
   for (const role of Object.keys(requested)) {
-    members.push(...membersForRole({
+    const selected = membersForRole({
       template: templates[role], role, requested: requested[role], candidates, selectedIds
-    }));
+    });
+    members.push(...specializeReviewers(selected, input.variant));
   }
-  if (representative) {
-    const strata = new Map(representative.sample.map((item) => [item.memberId, item.stratum]));
-    for (const member of members) {
-      member.samplingWeight = representative.weights[member.memberId] || 0;
-      member.representativeStratum = strata.get(member.memberId) || null;
-    }
-  }
+  applyRepresentativeWeights(members, representative);
   return {
     members,
     metrics: {
@@ -99,6 +95,21 @@ function formCommunity(input) {
       effectiveCommunitySize: effectiveCommunitySize(members), representative
     }
   };
+}
+
+function specializeReviewers(members, variant) {
+  if (variant !== 'adversarial_assembly') return members;
+  return members.map((member) => member.role === 'reviewer'
+    ? { ...member, role: 'adversarial_reviewer' } : member);
+}
+
+function applyRepresentativeWeights(members, representative) {
+  if (!representative) return;
+  const strata = new Map(representative.sample.map((item) => [item.memberId, item.stratum]));
+  for (const member of members) {
+    member.samplingWeight = representative.weights[member.memberId] || 0;
+    member.representativeStratum = strata.get(member.memberId) || null;
+  }
 }
 
 function assignOperationalRoles(candidates, requested) {

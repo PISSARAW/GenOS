@@ -294,7 +294,7 @@ async function runGrpcSuite() {
        ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status, execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id, parent_agent_id=excluded.parent_agent_id, is_apoptotic=0`,
       testWorkerId,
       'gRPC worker',
-      'worker',
+      'parallel_executor',
       'ws-test-identity',
       'orch-prime'
     );
