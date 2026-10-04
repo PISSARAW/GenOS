@@ -3,6 +3,7 @@
 const schemaService = require('../../../syncytiumSchemaService');
 const { randomUUID } = require('node:crypto');
 const { performance } = require('node:perf_hooks');
+const MAX_FAILSAFE_RETRIES = 20;
 
 function createRealtimeControlVariantService(syncytium) {
   return {
@@ -98,14 +99,29 @@ function validateCycle(request) {
 
 async function applyFailsafe(context) {
   const { sessionId, request, snapshot, reason, elapsedMs, syncytium } = context;
-  const result = await syncytium.applyTransaction(sessionId, {
-    txId: request.failSafeTxId || randomUUID(), operations: [{
-      opId: request.failSafeOpId || randomUUID(), actorId: request.actorId,
-      kind: { type: 'typed_field', key: 'safety_outputs', action: 'set', entryKey: request.taskId,
-        value: { taskId: request.taskId, output: request.safeOutput, reason, triggeredAtMs: Date.now() } }
-    }], preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
-  }, request.options || {});
-  return { ...result, control: { status: 'STOP_AND_REPAIR', reason, elapsedMs: elapsedMs ?? null, failSafeOutput: request.safeOutput } };
+  let current = snapshot;
+  for (let attempt = 0; attempt < MAX_FAILSAFE_RETRIES; attempt += 1) {
+    try {
+      const suffix = attempt === 0 ? '' : `:${attempt}`;
+      const result = await syncytium.applyTransaction(sessionId, {
+        txId: `${request.failSafeTxId || randomUUID()}${suffix}`, operations: [{
+          opId: `${request.failSafeOpId || randomUUID()}${suffix}`, actorId: request.actorId,
+          kind: { type: 'typed_field', key: 'safety_outputs', action: 'set', entryKey: request.taskId,
+            value: { taskId: request.taskId, output: request.safeOutput, reason, triggeredAtMs: Date.now() } }
+        }], preconditions: [{ op: 'state_version', value: current.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
+      }, request.options || {});
+      return { ...result, control: { status: 'STOP_AND_REPAIR', reason, elapsedMs: elapsedMs ?? null,
+        failSafeOutput: request.safeOutput, retries: attempt } };
+    } catch (error) {
+      if (error.code !== 'SYNCYTIUM_PRECONDITION_FAILED' || attempt === MAX_FAILSAFE_RETRIES - 1) {
+        throw Object.assign(new Error('Unable to persist the fail-safe output.'), {
+          code: 'SYNCYTIUM_FAILSAFE_WRITE_FAILED', cause: error
+        });
+      }
+      current = await syncytium.snapshot(sessionId, request.options || {});
+    }
+  }
+  throw Object.assign(new Error('Unable to persist the fail-safe output.'), { code: 'SYNCYTIUM_FAILSAFE_WRITE_FAILED' });
 }
 
 async function checkWatchdog(sessionId, request = {}, syncytium) {

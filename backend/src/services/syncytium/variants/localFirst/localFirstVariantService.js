@@ -21,7 +21,7 @@ function compileSchema(opt) {
   return S.compile({
     schemaId: 'syncytium-local-first-v1',
     fields: {
-      logicalClock: { dataType: 'MV_REGISTER', consistencyZone: 'CAUSAL' },
+      logicalClock: { dataType: 'MAP', consistencyZone: 'CAUSAL' },
       physicalClockOffset: { dataType: 'LWW_REGISTER', consistencyZone: 'CAUSAL' },
       offlineQueue: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
       syncState: { dataType: 'MAP', consistencyZone: 'CAUSAL' },
@@ -75,15 +75,16 @@ async function syncFromPeer(context) {
   assertDevId(src, 'sourceDeviceId');
   assertDevId(dst, 'targetDeviceId');
   assertVecClock(vc);
-  const opId = defaultOpId(o);
-  return syn.applyOperation(sid, {
-    opId, actorId: defaultActor(o, 'peer-sync'),
-    kind: { type: 'typed_field', key: 'syncState', action: 'set',
+  const syncedAt = now(), opId = defaultOpId(o), actorId = defaultActor(o, 'peer-sync');
+  return syn.applyTransaction(sid, { txId: opId, operations: [
+    { opId, actorId, kind: { type: 'typed_field', key: 'syncState', action: 'set',
       entryKey: `${src}→${dst}`,
       value: { sourceDeviceId: src, targetDeviceId: dst,
-        remoteVectorClock: Object.assign({}, vc), syncedAt: now(),
-        bytesTransferred: (o&&o.bytesTransferred)||0, outcome: 'SYNCED' } }
-  }, o);
+        remoteVectorClock: Object.assign({}, vc), syncedAt,
+        bytesTransferred: (o&&o.bytesTransferred)||0, outcome: 'SYNCED' } } },
+    { opId: `${opId}:replica`, actorId, kind: { type: 'typed_field', key: 'deviceReplicas', action: 'set',
+      entryKey: dst, value: { deviceId: dst, lastSyncAt: syncedAt, operationCount: 0 } } }
+  ] }, o);
 }
 
 async function partitionAndWorkOffline(context) {
@@ -133,8 +134,11 @@ async function reconcileOfflineQueue(context) {
   assertVecClock(vc);
   const result = await syn.reconcileReplica(sid, dev, { frontier: vc, options: o || {} });
   const pendingCount = result.accepted.length + (result.expired || []).length;
-  if (pendingCount === 0) return { reconciled: 0, deviceId: dev, timestamp: now(), status: result.status };
   const reconciledAt = now();
+  if (pendingCount === 0) {
+    await recordDeviceSync({ sid, dev, syncedAt: reconciledAt, o, syn });
+    return { reconciled: 0, deviceId: dev, timestamp: reconciledAt, status: result.status };
+  }
   const record = { deviceId: dev, reconciledAt, operationCount: result.accepted.length,
     acceptedOperationIds: result.accepted, expiredOperationIds: result.expired || [],
     remoteVectorClock: Object.assign({}, vc), status: 'RECONCILED' };
@@ -143,8 +147,17 @@ async function reconcileOfflineQueue(context) {
     kind: { type: 'typed_field', key: 'syncState', action: 'set',
       entryKey: `reconciliation-${dev}-${reconciledAt}`, value: record }
   }, o);
+  await recordDeviceSync({ sid, dev, syncedAt: reconciledAt, o, syn });
   return { reconciled: result.accepted.length, expired: result.expired || [], deviceId: dev,
     timestamp: reconciledAt, record };
+}
+
+async function recordDeviceSync(context) {
+  const { sid, dev, syncedAt, o, syn } = context;
+  const opId = defaultOpId(o);
+  return syn.applyOperation(sid, { opId, actorId: defaultActor(o, 'peer-sync'),
+    kind: { type: 'typed_field', key: 'deviceReplicas', action: 'set', entryKey: dev,
+      value: { deviceId: dev, lastSyncAt: syncedAt, operationCount: 0 } } }, o);
 }
 
 async function checkBudget(context) {

@@ -13,8 +13,7 @@ const VARIANT_IDS = ['epistemic_jury', 'delphi_community', 'adversarial_assembly
   'argumentation_community', 'polycentric_council', 'byzantine_resilient_community', 'minority_preserving_jury',
   'representative_community', 'persistent_community', 'human_ai_deliberation', 'hybrid_oracle_community'];
 
-const PARTIAL_VARIANTS = new Set([
-  'byzantine_resilient_community', 'representative_community', 'persistent_community']);
+const PARTIAL_VARIANTS = new Set();
 
 function testVariantSurface() {
   assert.deepEqual(Object.keys(router.POLICIES).sort(), [...VARIANT_IDS].sort());
@@ -194,6 +193,27 @@ function testByzantineQuorum() {
     signalFlags: ['HIGH_CONFIDENCE_WITHOUT_EVIDENCE'], trust: 0.9
   });
   assert.equal(quarantined.verdict, 'QUARANTINE');
+  const orchestrator = require('../src/services/biocenose/runtime/variantOrchestrator');
+  const before = Array.from({ length: 6 }, (_, index) => ({ memberId: `active-${index}`,
+    provider: `provider-${index}`, lineage: `lineage-${index}`, status: 'ACTIVE' }));
+  const initial = orchestrator.assertByzantineQuorum({ session: { members: before }, faultyAssumed: 1 });
+  const after = before.slice(1);
+  after.push({ ...before[0], status: 'QUARANTINED' });
+  const recalculated = orchestrator.assertByzantineQuorum({ session: { members: after }, faultyAssumed: 1 });
+  assert.equal(initial.quorum.memberCount, 6);
+  assert.equal(recalculated.quorum.memberCount, 5);
+  assert.equal(recalculated.faultDomains.domainCount, 5);
+  const correlated = [
+    { memberId: 'a1', provider: 'a', lineage: 'shared', status: 'ACTIVE' },
+    { memberId: 'a2', provider: 'a', lineage: 'shared', status: 'ACTIVE' },
+    { memberId: 'a3', provider: 'a', lineage: 'shared', status: 'ACTIVE' },
+    { memberId: 'a4', provider: 'a', lineage: 'shared', status: 'ACTIVE' },
+    { memberId: 'b1', provider: 'b', lineage: 'independent', status: 'ACTIVE' }
+  ];
+  assert.throws(() => orchestrator.assertByzantineQuorum({
+    session: { members: correlated }, faultyAssumed: 1
+  }), (error) => error.code === 'BIOCENOSE_BYZANTINE_QUORUM_LOST'
+    && error.details.domains.domainCount === 2 && error.details.quorum.quorum === 3);
 }
 
 function testRepresentativeSampling() {
@@ -213,6 +233,19 @@ function testRepresentativeSampling() {
   const ess = sampling.effectiveSampleSize({ weights: reweighted.weights });
   assert.ok(ess.effectiveSampleSize > 0);
   assert.ok(ess.efficiency <= 1);
+  const biasedPopulation = Array.from({ length: 8 }, (_, index) => ({ memberId: `common-${index}`,
+    expertise: 'common', provider: 'common-provider', lineage: 'common-lineage' }))
+    .concat(Array.from({ length: 2 }, (_, index) => ({ memberId: `rare-${index}`,
+      expertise: 'rare', provider: 'rare-provider', lineage: 'rare-lineage' })));
+  const representative = sampling.quotaSample({ population: biasedPopulation, totalQuota: 5, seed: 'fixed-mission' });
+  const repeated = sampling.quotaSample({ population: biasedPopulation, totalQuota: 5, seed: 'fixed-mission' });
+  assert.deepEqual(representative.sample, repeated.sample, 'same mission seed reproduces the sample');
+  const representativeWeights = sampling.reweight({ population: biasedPopulation, sample: representative.sample });
+  const comparison = sampling.comparePanels({ population: biasedPopulation, sample: representative.sample,
+    weights: representativeWeights.weights });
+  assert.equal(comparison.totalVariation.representativeWeighted, 0);
+  assert.ok(comparison.totalVariation.naive > comparison.totalVariation.representativeWeighted,
+    'weighted representative panel reduces the naive first-N panel bias');
   assert.throws(() => sampling.stratify({ population: [] }), (error) => error.code === 'BIOCENOSE_SAMPLING_EMPTY');
 }
 

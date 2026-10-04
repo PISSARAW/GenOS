@@ -96,8 +96,45 @@ function effectiveSampleSize(input = {}) {
   };
 }
 
+function comparePanels(input = {}) {
+  const population = Array.isArray(input.population) ? input.population : [];
+  const sample = Array.isArray(input.sample) ? input.sample : [];
+  if (!population.length || !sample.length) throw samplingError('BIOCENOSE_SAMPLING_EMPTY',
+    'Panel comparison requires a non-empty population and representative sample.');
+  const dimensions = Array.isArray(input.dimensions) && input.dimensions.length ? input.dimensions : [...DEFAULT_STRATA];
+  const populationStrata = stratify({ population, dimensions }).strata;
+  const keyById = new Map(population.map((member, index) => [String(member.memberId || `member_${index}`),
+    stratumKey(member, dimensions)]));
+  const sampleItems = sample.map((item) => typeof item === 'string' ? { memberId: item } : item);
+  const naiveIds = new Set(population.slice(0, sampleItems.length)
+    .map((member, index) => String(member.memberId || `member_${index}`)));
+  const weights = input.weights || {};
+  const totalWeight = sampleItems.reduce((sum, item) => sum + Math.max(0, Number(weights[item.memberId]) || 0), 0);
+  const strata = populationStrata.map((stratum) => {
+    const key = stratum.stratum;
+    const representativeCount = sampleItems.filter((item) => keyById.get(item.memberId) === key).length;
+    const naiveCount = [...naiveIds].filter((id) => keyById.get(id) === key).length;
+    const weightedTotal = sampleItems.filter((item) => keyById.get(item.memberId) === key)
+      .reduce((sum, item) => sum + Math.max(0, Number(weights[item.memberId]) || 0), 0);
+    return {
+      stratum: key,
+      populationShare: stratum.share,
+      representativeSampleShare: representativeCount / sampleItems.length,
+      weightedRepresentativeShare: totalWeight ? weightedTotal / totalWeight : 0,
+      naiveSampleShare: naiveCount / naiveIds.size
+    };
+  });
+  const totalVariation = (shareKey) => Number((0.5 * strata.reduce((sum, item) =>
+    sum + Math.abs(item.populationShare - item[shareKey]), 0)).toFixed(4));
+  return { dimensions, strata, totalVariation: {
+    representativeUnweighted: totalVariation('representativeSampleShare'),
+    representativeWeighted: totalVariation('weightedRepresentativeShare'),
+    naive: totalVariation('naiveSampleShare')
+  } };
+}
+
 function samplingError(code, message) {
   return Object.assign(new Error(message), { code });
 }
 
-module.exports = { stratify, quotaSample, reweight, effectiveSampleSize, DEFAULT_STRATA };
+module.exports = { stratify, quotaSample, reweight, effectiveSampleSize, comparePanels, DEFAULT_STRATA };

@@ -4,7 +4,7 @@ const schemaService = require('../../../syncytiumSchemaService');
 const { randomUUID } = require('node:crypto');
 
 const SECTION_ROLES = new Set(['overview', 'requirements', 'evidence', 'decision', 'appendix']);
-const BLOCK_TYPES = new Set(['paragraph', 'heading', 'code', 'list', 'quote', 'table']);
+const BLOCK_TYPES = new Set(['paragraph', 'heading', 'code', 'list', 'quote', 'table', 'citation']);
 
 function createDocumentVariantService(syncytium) {
   return {
@@ -45,11 +45,13 @@ function createBlock(request, snapshot) {
   if (!request.sectionId || !BLOCK_TYPES.has(request.blockType) || typeof request.text !== 'string') {
     throw documentError('A document block requires sectionId, a supported blockType and text.');
   }
+  validateCitation(request.blockType, request.citation);
   validateSectionRole(request.semanticRole);
   validateMarks(request.marks || [], request.text.length);
   return { blockId: request.blockId || randomUUID(), sectionId: request.sectionId,
     semanticRole: request.semanticRole || 'overview', blockType: request.blockType, text: request.text,
-    marks: request.marks || [], attribution: attribution(request), intent: request.intent || 'edit_document_content',
+    marks: request.marks || [], citation: request.citation || null,
+    attribution: attribution(request), intent: request.intent || 'edit_document_content',
     schemaVersion: snapshot.schema.schemaVersion };
 }
 
@@ -184,7 +186,8 @@ function compensationFor(original, request, history, snapshot) {
   if (!priorInsert) throw documentError('The deleted block is no longer available for compensation.');
   const blockId = request.restoreBlockId || randomUUID();
   return { kind: { type: 'typed_field', key: 'sections', action: 'insert', elementId: blockId,
-    afterId: priorInsert.kind.afterId || null, value: { ...priorInsert.kind.value, blockId, attribution: attribution(request) } } };
+    afterId: priorInsert.kind.afterId || null,
+    value: { ...priorInsert.kind.value, blockId, restoredBy: attribution(request) } } };
 }
 
 function validateSchemaVersion(snapshot, request) {
@@ -217,6 +220,14 @@ function nextCommentRevision(events, commentId) {
 
 function validateSectionRole(role) {
   if (role !== undefined && !SECTION_ROLES.has(role)) throw documentError('Unsupported semantic section role.');
+}
+
+function validateCitation(blockType, citation) {
+  if (blockType !== 'citation') return;
+  if (!citation || typeof citation !== 'object' || Array.isArray(citation)
+    || ![citation.sourceId, citation.url, citation.doi].some((value) => typeof value === 'string' && value.trim())) {
+    throw documentError('Citation blocks require a sourceId, URL or DOI.');
+  }
 }
 
 function validateMarks(marks, textLength) {

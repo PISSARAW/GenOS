@@ -1,7 +1,7 @@
 'use strict';
 
 const S = require('../../../syncytiumSchemaService');
-const { randomUUID } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
 const { performance } = require('node:perf_hooks');
 const DEFAULT_EXEC_BUDGET = 5000;
 
@@ -26,6 +26,7 @@ function compileSchema() {
       branchSnapshots: { dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING' },
       executionBudget: { dataType: 'LWW_REGISTER', consistencyZone: 'CAUSAL' },
       comparisonLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
+      validationLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
       promotionLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
       discardLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' }
     }
@@ -66,7 +67,7 @@ async function spawnBranch(ctx) {
 function validateConfig(cfg) {
   if (cfg && typeof cfg !== 'object')
     throw err('branchConfig must be object', 'SPEC_BAD_CONFIG');
-  const budget = cfg?.executionBudgetMs || DEFAULT_EXEC_BUDGET;
+  const budget = cfg?.executionBudgetMs ?? DEFAULT_EXEC_BUDGET;
   if (!Number.isFinite(budget) || budget < 0)
     throw err('budget must be non-negative finite', 'SPEC_BAD_CONFIG');
   return { cap: 16, budget };
@@ -95,15 +96,16 @@ async function executeOnBranch(ctx) {
   if (!branch) throw err(`branch '${branchId}' not found`, 'SPEC_BRANCH_NOT_FOUND');
   if (branch.status !== 'ACTIVE')
     throw err(`branch not ACTIVE (${branch.status})`, 'SPEC_BRANCH_NOT_ACTIVE');
-  const budget = branch.executionBudgetMs || DEFAULT_EXEC_BUDGET;
+  const budget = branch.executionBudgetMs ?? DEFAULT_EXEC_BUDGET;
   const wallStart = performance.now();
-  const { remaining, applied } = await applyOps({ sid, id: branchId, ops: operations, budget, o, syn });
-  if (remaining.ms < 0) {
+  const { remaining, applied, exceededAt } = await applyOps({ sid, id: branchId, ops: operations, budget, o, syn });
+  if (exceededAt !== null) {
     const exceeded = { ...branch, status: 'BUDGET_EXCEEDED', operationsCount: branch.operationsCount + 1,
-      lastExecutionAt: now(), appliedOperationIds: [...(branch.appliedOperationIds || []), ...applied.map((item) => item.opId)] };
+      lastExecutionAt: now(), budgetExceededAtOperation: exceededAt,
+      appliedOperationIds: [...(branch.appliedOperationIds || []), ...applied.map((item) => item.opId)] };
     await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
       value: exceeded, A: actor(o, 'branch-executor'), o }), o);
-    return buildBudgetExceeded({ branchId, count: applied.length, budget, remaining });
+    return buildBudgetExceeded({ branchId, count: applied.length, budget, remaining, exceededAt });
   }
   const n = now();
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
@@ -116,9 +118,10 @@ async function applyOps(ctx) {
   const { sid, id, ops, budget, o, syn } = ctx;
   const remaining = { ms: budget };
   const applied = [];
+  let exceededAt = null;
   for (let i = 0; i < ops.length; i++) {
     const cost = (ops[i]?.estimatedCostMs > 0) ? ops[i].estimatedCostMs : 1;
-    if (cost > remaining.ms) break;
+    if (cost > remaining.ms) { exceededAt = i; break; }
     remaining.ms -= cost;
     const op = ops[i];
     const opIdVal = op?.opId || randomUUID();
@@ -129,13 +132,13 @@ async function applyOps(ctx) {
     });
     applied.push({ index: i, status: 'APPLIED', opId: opIdVal });
   }
-  return { remaining, applied };
+  return { remaining, applied, exceededAt };
 }
 
-function buildBudgetExceeded({ branchId, count, budget, remaining }) {
+function buildBudgetExceeded({ branchId, count, budget, remaining, exceededAt }) {
   return { branchId, status: 'BUDGET_EXCEEDED', operationsApplied: count,
     budgetConsumedMs: budget - remaining.ms, budgetRemainingMs: 0,
-    abortedAtOperation: count, timestamp: now() };
+    abortedAtOperation: exceededAt, timestamp: now() };
 }
 function buildCompletion({ branchId, applied, budget, remaining, n, wallStart }) {
   return { branchId, status: 'COMPLETED',
@@ -190,14 +193,26 @@ async function promoteBranch(ctx) {
   const branch = reg[branchId];
   if (!branch) throw err(`branch '${branchId}' not found`, 'SPEC_BRANCH_NOT_FOUND');
   if (branch.status !== 'ACTIVE') throw err(`branch is not eligible for promotion (${branch.status})`, 'SPEC_PROMOTION_INELIGIBLE');
-  if (!validEvidenceGate(evidenceGate)) throw err('Promotion requires passing validation evidence.', 'SPEC_PROMOTION_GATED');
   const n = now();
   const A = actor(o, 'promotion-manager');
+  const fingerprint = branchFingerprint(branch);
+  if (!validEvidenceGate(evidenceGate)) {
+    const failed = { ...branch, status: 'VALIDATION_FAILED', validationFailedAt: n,
+      validationFingerprint: fingerprint, failedEvidenceGate: evidenceGate || null };
+    await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
+      value: failed, A, o }), o);
+    await syn.applyOperation(sid, makeFieldOp({ key: 'validationLog', action: 'add',
+      value: { branchId, fingerprint, passed: false, evidenceGate: evidenceGate || null, checkedAt: n, by: A }, A, o }), o);
+    throw err('Promotion requires passing validation evidence; this branch is now ineligible.', 'SPEC_PROMOTION_GATED');
+  }
   const promoted = await syn.promoteSpeculativeBranch(sid, { branchId, options: o });
   const status = promoted.status;
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
     value: { ...branch, status, promotedAt: n, promotionEvidenceGate: evidenceGate,
+      validationFingerprint: fingerprint,
       appliedOperationIds: promoted.operationIds }, A, o }), o);
+  await syn.applyOperation(sid, makeFieldOp({ key: 'validationLog', action: 'add',
+    value: { branchId, fingerprint, passed: true, evidenceGate, checkedAt: n, by: A }, A, o }), o);
   await syn.applyOperation(sid, makeFieldOp({ key: 'promotionLog', action: 'add',
     value: { branchId, promotedAt: n, by: A, evidenceGatePassed: true,
       label: branch.label || null, baseSnapshotId: branch.baseSnapshotId }, A, o }), o);
@@ -208,6 +223,12 @@ async function promoteBranch(ctx) {
 function validEvidenceGate(gate) {
   return gate && gate.passed === true && Array.isArray(gate.checks) && gate.checks.length > 0
     && gate.checks.every((check) => check && check.passed === true);
+}
+
+function branchFingerprint(branch) {
+  return createHash('sha256').update(JSON.stringify({ branchId: branch.branchId,
+    baseSnapshotId: branch.baseSnapshotId,
+    appliedOperationIds: [...(branch.appliedOperationIds || [])].sort() })).digest('hex');
 }
 
 async function discardBranch(ctx) {

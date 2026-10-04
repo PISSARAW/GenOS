@@ -58,15 +58,17 @@ function formCommunity(input) {
     });
     const requested = targetCounts(input.population);
     const totalQuota = requested.generator + requested.reviewer + requested.verifier;
-    const sample = representativeSampling.quotaSample({ population: candidates, totalQuota });
+    const sample = representativeSampling.quotaSample({ population: candidates, totalQuota, seed: input.mission });
     const reweighted = representativeSampling.reweight({ population: candidates, sample: sample.sample });
     const ess = representativeSampling.effectiveSampleSize({ weights: reweighted.weights });
+    const biasComparison = representativeSampling.comparePanels({ population: candidates,
+      sample: sample.sample, weights: reweighted.weights });
     const selected = new Set(sample.sample.map((item) => item.memberId));
     const selectedCandidates = candidates.filter((candidate) => selected.has(candidate.memberId))
       .map((candidate) => ({ ...candidate, role: null, communityRole: null }));
     candidates = assignOperationalRoles(selectedCandidates, requested)
       .flatMap((candidate) => candidateMemberService.normalizeCandidates([candidate]));
-    representative = { ...sample, ...reweighted, ...ess };
+    representative = { ...sample, ...reweighted, ...ess, biasComparison };
   }
   if (!input.population && !candidates.length) {
     return { members: biologicalModeService.compose('biocenose', input.mission), metrics: null };

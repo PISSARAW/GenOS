@@ -26,6 +26,9 @@ async function run() {
         process.stdout.write('Running ' + id + String.fromCharCode(10));
         const outcome = await runMission({ db, id, variant, questionType, participants });
         assertMissionOutcome(variant, outcome);
+        if (variant === 'persistent_community' && participants === 6) {
+          await testPersistentContinuity(db, { id, variant, questionType, participants });
+        }
         completed.push(id);
       }
     }
@@ -54,6 +57,23 @@ async function runMission(input) {
   });
   const events = await store.listEvents(input.db, community.communityId);
   return { community, result, judgments, events };
+}
+
+async function testPersistentContinuity(db, input) {
+  const next = await runMission({ ...input, db });
+  const rotatingMemberId = `${input.id}-member-1`;
+  const member = next.community.members.find((item) => item.memberId === rotatingMemberId);
+  assert.equal(member.missionsServed, 26, 'tenure is restored from the prior community history');
+  assert.ok(next.events.some((event) => event.type === 'MEMBER_ROTATED'
+    && event.payload.memberId === rotatingMemberId));
+  assert.ok(!next.judgments.some((item) => item.memberId === rotatingMemberId),
+    'the persisted rotation removes the member from the following active roster');
+  const profile = next.events.find((event) => event.type === 'MEMBERSHIP_DECISION_RECORDED'
+    && event.payload.memberId === rotatingMemberId && event.payload.domain === 'general');
+  assert.ok(profile, 'domain membership decision is persisted');
+  assert.equal(profile.payload.sampleCount, 4);
+  assert.ok(Number.isFinite(profile.payload.decayedReputation));
+  assert.equal(profile.payload.missionIndex, input.participants);
 }
 
 function makeCandidates(input, count, population) {
@@ -122,6 +142,8 @@ function assertMissionOutcome(variant, fixture) {
     assert.ok(community.formation.representative.sampleSize > 0);
     assert.ok(Object.values(community.formation.representative.weights).every((weight) => weight > 0));
     assert.ok(community.formation.representative.effectiveSampleSize > 0);
+    assert.ok(community.formation.representative.biasComparison.totalVariation.naive >= 0);
+    assert.ok(community.formation.representative.biasComparison.totalVariation.representativeWeighted >= 0);
   }
   if (variant === 'delphi_community') assert.ok(aggregation.delphi?.relativeSpread >= 0);
   if (variant === 'forecasting_crowd') assert.ok(aggregation.forecastCalibration);
@@ -131,7 +153,13 @@ function assertMissionOutcome(variant, fixture) {
     assert.equal(aggregation.polycentric.status, 'FEDERATED_PLURALISM');
   }
   if (variant === 'byzantine_resilient_community') {
-    assert.ok(result.receipts[0].result.byzantine?.faultDomains.domainCount > 0);
+    const quorum = result.receipts[0].result.byzantine;
+    assert.ok(quorum?.faultDomains.domainCount > 0);
+    assert.equal(quorum.quorum.memberCount,
+      community.members.filter((member) => member.role !== 'community_facilitator').length - 1,
+      'quorum uses the roster remaining after quarantine');
+    assert.equal(quorum.faultDomains.domainCount, quorum.quorum.memberCount,
+      'independent fixture members contribute independent fault domains');
     assert.ok(events.some((event) => event.type === 'MEMBER_QUARANTINED'));
   }
   if (variant === 'persistent_community') {
@@ -140,6 +168,8 @@ function assertMissionOutcome(variant, fixture) {
     assert.ok(events.some((event) => event.type === 'MEMBER_ROTATED'));
     assert.equal(report.rotation.rotationDue, true);
     assert.ok(report.excludedMemberIds.length > 0);
+    assert.ok(events.some((event) => event.type === 'MEMBERSHIP_DECISION_RECORDED'
+      && Number.isFinite(event.payload.sampleCount) && Number.isFinite(event.payload.decayedReputation)));
   }
   if (variant === 'human_ai_deliberation') {
     const judgment = result.receipts.find((item) => item.step === 'record_community_judgment')?.result.judgment;

@@ -11,6 +11,7 @@ const arenaTaskEvaluation = require('./arenaTaskEvaluation');
 const epistemicBiocenose = require('./epistemic/epistemicBiocenoseService');
 const hierarchicalQuorum = require('./hierarchicalQuorumService');
 const communityStore = require('./biocenose/communityStore');
+const persistentMembershipStore = require('./biocenose/calibration/persistentMembershipStore');
 const judgmentCommitmentService = require('./biocenose/deliberation/commitmentService');
 const communityClaimGraph = require('./biocenose/claims/communityClaimGraph');
 const reviewerRouter = require('./biocenose/review/reviewerRouter');
@@ -187,7 +188,8 @@ function composeBiocenose(mission, options = {}) {
 }
 
 async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
-  const composition = composeBiocenose(mission, options);
+  const preparedOptions = await preparePersistentCandidates(db, options);
+  const composition = composeBiocenose(mission, preparedOptions);
   const classification = questionClassifier.classifyQuestion(mission, { questionType: options.questionType });
   const session = await communityStore.createSession(db, {
     missionId: options.missionId,
@@ -216,6 +218,18 @@ async function prepareCommunity({ db, orchestratorId, mission, options = {} }) {
     variant: constitution.constitution.variant,
     variantSelection: constitution.variantSelection
   };
+}
+
+async function preparePersistentCandidates(db, options) {
+  if (variantPolicies.select(options.variant || options.variantId).name !== 'persistent_community'
+    || !Array.isArray(options.memberCandidates)) return options;
+  const memberCandidates = await Promise.all(options.memberCandidates.map(async (candidate) => {
+    const memberId = candidate.memberId || candidate.id;
+    if (!memberId) return candidate;
+    const persistedMissions = await persistentMembershipStore.memberMissionCount(db, memberId);
+    return { ...candidate, missionsServed: Math.max(Number(candidate.missionsServed) || 0, persistedMissions) };
+  }));
+  return { ...options, memberCandidates };
 }
 
 function activateBiocenose(mission, context = {}) {

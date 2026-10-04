@@ -93,11 +93,12 @@ async function addEvidence(context) {
   if (!request.claimId || !request.evidenceId || !EVIDENCE_KINDS.has(request.kind) || !hasPayload(request.payload)) {
     throw inputError('Evidence and refutations require claimId, evidenceId, a recognized kind and a typed payload.');
   }
+  const recordedAt = Date.now();
   return add({ sessionId, request, field, value: {
     claimId: request.claimId, evidenceId: request.evidenceId,
     kind: request.kind, payload: request.payload, authorId: request.actorId,
     sourceId: request.provenance?.sourceId || request.actorId,
-    provenance: request.provenance || null
+    recordedAt, provenance: provenance(request.provenance, request.actorId, recordedAt)
   }, syncytium });
 }
 
@@ -107,7 +108,7 @@ async function addUncertainty(sessionId, request = {}, syncytium) {
   }
   return add({ sessionId, request, field: 'uncertainty', value: {
     claimId: request.claimId, estimate: request.estimate,
-    method: request.method || 'unspecified', authorId: request.actorId
+    method: request.method || 'unspecified', authorId: request.actorId, recordedAt: Date.now()
   }, syncytium });
 }
 
@@ -148,7 +149,7 @@ async function addConfidenceUpdate(context) {
   return add({ sessionId, request, field: 'confidence_updates', value: {
     claimId: request.claimId, updateId: request.updateId, confidence: confidenceValue,
     actorId: request.actorId, sourceId: request.sourceId, reason: request.reason || null,
-    provenance: provenance(request.provenance, request.actorId, Date.now())
+    recordedAt: Date.now(), provenance: provenance(request.provenance, request.actorId, Date.now())
   }, syncytium });
 }
 
@@ -193,10 +194,24 @@ async function buildSnapshot(sessionId, options, syncytium) {
 function epistemicProjection(fields, options) {
   const claims = fields.claims || [];
   const at = Number.isSafeInteger(options?.at) ? options.at : Date.now();
-  return { claims, evidence: fields.evidence || [], refutations: fields.refutations || [], uncertainty: fields.uncertainty || [],
-    verification: fields.verification || [], confidenceUpdates: fields.confidence_updates || [],
-    confidenceByClaim: resolveConfidence(claims, fields.confidence_updates || []), contradictions: contradictionEdges(claims),
-    effectiveClaims: claims.filter((claim) => isEffectiveAt(claim, at)) };
+  const knownClaims = claims.filter((claim) => recordedBy(claim) <= at);
+  const effectiveClaims = knownClaims.filter((claim) => isEffectiveAt(claim, at));
+  const evidence = knownBy(fields.evidence || [], at);
+  const refutations = knownBy(fields.refutations || [], at);
+  const uncertainty = knownBy(fields.uncertainty || [], at);
+  const verification = knownBy(fields.verification || [], at);
+  const confidenceUpdates = knownBy(fields.confidence_updates || [], at);
+  return { asOf: at, claims, evidence, refutations, uncertainty, verification, confidenceUpdates,
+    confidenceByClaim: resolveConfidence(knownClaims, confidenceUpdates),
+    contradictions: contradictionEdges(effectiveClaims), effectiveClaims };
+}
+
+function knownBy(items, at) {
+  return items.filter((item) => recordedBy(item) <= at);
+}
+
+function recordedBy(item) {
+  return item.recordedAt ?? item.provenance?.recordedAt ?? item.createdAt ?? 0;
 }
 
 function contradictionEdges(claims) {
