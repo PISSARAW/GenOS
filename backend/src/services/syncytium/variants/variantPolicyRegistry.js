@@ -18,7 +18,8 @@ const FIELD_SETS = Object.freeze({
   },
   soft: {
     metrics: 'G_COUNTER', deltas: 'ADD_WINS_SET', antiEntropyLog: 'ADD_WINS_SET',
-    stalenessBudget: 'LWW_REGISTER'
+    localDeltas: 'ADD_WINS_SET', queuedDeltas: 'ADD_WINS_SET', partitions: 'MAP',
+    stalenessBudget: 'MV_REGISTER'
   },
   localFirst: {
     logicalClock: 'G_COUNTER', physicalClockOffset: 'LWW_REGISTER',
