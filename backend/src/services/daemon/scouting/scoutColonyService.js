@@ -11,9 +11,11 @@
  *  - ScoutCell != autorité (read-only, pas de spawn/récursion) ;
  *  - colonie bornée (maxCells, budget, ttl) ;
  *  - preuves ancrées au HEAD du territoire observé.
+ *  - persistance dans daemon_scout_colonies et daemon_scout_cells.
  */
 
 const { getPhenotype, getAuthorityProfile } = require('../../agents/phenotypeRegistryService');
+const persistence = require('./scoutColonyPersistence');
 
 const COLONY_ID_PATTERN = /^colony\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const CELL_ID_PATTERN = /^scout\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -23,6 +25,8 @@ const TERRITORY_ID_PATTERN = /^territory\.[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const PARTITION_STRATEGIES = Object.freeze([
   'architecture', 'git-history', 'tests', 'by-path', 'by-symbol'
 ]);
+
+const partitionUtils = require('./scoutPartitions');
 
 const COLONY_STATES = Object.freeze([
   'FORMING', 'SCOUTING', 'AGGREGATING', 'DISSOLVING', 'DISSOLVED'
@@ -39,6 +43,7 @@ const DEFAULTS = Object.freeze({
 const SCOUT_PHENOTYPE_ID = 'ScoutCell';
 const RESIDENT_DAEMON_ID = 'ResidentDaemon';
 
+// In-memory caches (populated from DB on startup)
 const colonyRegistry = new Map();
 const cellRegistry = new Map();
 
@@ -115,10 +120,11 @@ function validateRequest(input) {
   return { ok: errors.length === 0, errors };
 }
 
-function spawnColony(ctx) {
+async function spawnColony(ctx) {
   if (!ctx || !ctx.daemonId || !ctx.request) {
     return { spawned: false, errors: ['daemonId-and-request-required'] };
   }
+  if (!ctx.db) return { spawned: false, errors: ['db-required'] };
   if (!checkValidId(ctx.daemonId, DAEMON_ID_PATTERN)) {
     return { spawned: false, errors: ['invalid-daemonId'] };
   }
@@ -130,20 +136,29 @@ function spawnColony(ctx) {
   const request = normalizeRequest(ctx.request);
   const colony = createColony(ctx.daemonId, request);
   colonyRegistry.set(colony.id, colony);
+  await persistence.persistColony(ctx.db, colony);
   return { spawned: true, colony: { ...colony } };
 }
 
 function createColony(daemonId, request) {
   const colonyId = generateId('colony');
   const createdAt = Date.now();
-  return {
+  const expiresAt = createdAt + request.ttl;
+  const colony = {
     id: colonyId, apiVersion: 'genos.daemon/v1', kind: 'ScoutColony',
     daemonId, territoryId: request.territoryId,
     observationGoal: request.observationGoal, partitionStrategy: request.partitionStrategy,
     maxCells: request.maxCells, budget: request.budget, ttlMs: request.ttl,
     llmRatio: request.llmRatio, state: 'FORMING', cellIds: [], findings: [],
-    createdAt, expiresAt: createdAt + request.ttl
+    createdAt, expiresAt
   };
+  return colony;
+}
+
+async function loadColonies(db) {
+  const colonies = await persistence.loadColonies(db);
+  for (const colony of colonies) colonyRegistry.set(colony.id, colony);
+  return colonies;
 }
 
 function normalizeRequest(request) {
@@ -156,68 +171,17 @@ function normalizeRequest(request) {
   };
 }
 
-function partitionTerritory(ctx) {
+async function partitionTerritory(ctx) {
   if (!ctx || !ctx.territory || !ctx.strategy) {
     return { partitioned: false, errors: ['territory-and-strategy-required'] };
   }
   if (!checkValidId(ctx.territory.id, TERRITORY_ID_PATTERN)) {
     return { partitioned: false, errors: ['invalid-territory-id'] };
   }
+  if (!ctx.db) return { partitioned: false, errors: ['db-required'] };
   const maxCells = Math.min(ctx.maxCells || DEFAULTS.maxCells, 50);
-  const partitions = computePartitions(ctx.territory, ctx.strategy, maxCells);
+  const partitions = await partitionUtils.computePartitions({ db: ctx.db, territory: ctx.territory, strategy: ctx.strategy, maxCells });
   return { partitioned: true, strategy: ctx.strategy, partitionCount: partitions.length, partitions };
-}
-
-function computePartitions(territory, strategy, maxCells) {
-  const base = getBasePartitions(territory, strategy);
-  return base.length <= maxCells ? base : mergePartitions(base, maxCells);
-}
-
-function getBasePartitions(territory, strategy) {
-  const partitions = {
-    'architecture': [
-      { id: 'partition.core', type: 'module', scope: 'src/core/' },
-      { id: 'partition.services', type: 'module', scope: 'src/services/' },
-      { id: 'partition.api', type: 'module', scope: 'src/api/' },
-      { id: 'partition.utils', type: 'module', scope: 'src/utils/' },
-      { id: 'partition.config', type: 'config', scope: 'config/' }
-    ],
-    'git-history': [
-      { id: 'partition.recent', type: 'temporal', scope: 'last-7d' },
-      { id: 'partition.stable', type: 'temporal', scope: '30d-90d' },
-      { id: 'partition.legacy', type: 'temporal', scope: '>90d' }
-    ],
-    'tests': [
-      { id: 'partition.unit', type: 'test-type', scope: '*.test.*' },
-      { id: 'partition.integration', type: 'test-type', scope: '*.integration.*' },
-      { id: 'partition.e2e', type: 'test-type', scope: '*.e2e.*' }
-    ],
-    'by-path': [
-      { id: 'partition.backend', type: 'path', scope: 'backend/' },
-      { id: 'partition.crates', type: 'path', scope: 'crates/' },
-      { id: 'partition.mcp', type: 'path', scope: 'mcp/' }
-    ],
-    'by-symbol': [
-      { id: 'partition.functions', type: 'symbol', scope: 'function-decl' },
-      { id: 'partition.classes', type: 'symbol', scope: 'class-decl' },
-      { id: 'partition.imports', type: 'symbol', scope: 'import-graph' }
-    ]
-  };
-  return partitions[strategy] || [{ id: 'partition.default', type: 'full', scope: '/' }];
-}
-
-function mergePartitions(partitions, maxCells) {
-  const merged = [];
-  const chunkSize = Math.ceil(partitions.length / maxCells);
-  for (let i = 0; i < partitions.length; i += chunkSize) {
-    const chunk = partitions.slice(i, i + chunkSize);
-    merged.push({
-      id: `partition.merged-${i}`, type: 'merged',
-      scope: chunk.map((p) => p.scope).join(','),
-      mergedFrom: chunk.map((p) => p.id)
-    });
-  }
-  return merged;
 }
 
 async function runScoutCell(ctx) {
@@ -304,7 +268,7 @@ function createCellState(ctx, result) {
   };
 }
 
-function aggregateFindings(ctx) {
+async function aggregateFindings(ctx) {
   if (!ctx || !ctx.colonyId) return { aggregated: false, errors: ['colonyId-required'] };
   if (!checkValidId(ctx.colonyId, COLONY_ID_PATTERN)) return { aggregated: false, errors: ['invalid-colonyId'] };
   const colony = getColony(ctx.colonyId);
@@ -316,6 +280,7 @@ function aggregateFindings(ctx) {
   colony.findings = aggregated;
   colony.state = 'AGGREGATING';
   colonyRegistry.set(ctx.colonyId, colony);
+  if (ctx.db) await persistence.persistColonyUpdate(ctx.db, colony);
   return { aggregated: true, colonyId: ctx.colonyId, findingCount: aggregated.length, brief };
 }
 
@@ -348,8 +313,9 @@ function buildTerritoryBrief(colony, graph, findings) {
   };
 }
 
-function dissolveColony(ctx) {
+async function dissolveColony(ctx) {
   if (!ctx || !ctx.colonyId) return { dissolved: false, errors: ['colonyId-required'] };
+  if (!ctx.db) return { dissolved: false, errors: ['db-required'] };
   if (!checkValidId(ctx.colonyId, COLONY_ID_PATTERN)) return { dissolved: false, errors: ['invalid-colonyId'] };
   const colony = colonyRegistry.get(ctx.colonyId);
   if (!colony) return { dissolved: false, errors: ['colony-not-found'] };
@@ -358,23 +324,19 @@ function dissolveColony(ctx) {
   colony.dissolvedAt = Date.now();
   colony.dissolveReason = ctx.reason || 'ttl-expired';
   colonyRegistry.set(ctx.colonyId, colony);
+  await persistence.persistColonyUpdate(ctx.db, colony);
   return { dissolved: true, colonyId: ctx.colonyId, reason: colony.dissolveReason, cellCount: colony.cellIds.length, finalFindingCount: colony.findings.length };
 }
 
-function exhaustCells(colony) {
-  for (const cellId of colony.cellIds) {
-    const cell = cellRegistry.get(cellId);
-    if (cell) { cell.state = 'EXHAUSTED'; cellRegistry.set(cellId, cell); }
-  }
+function sweepScoutColonies(db) {
+  return persistence.sweepScoutColonies(db);
 }
 
 function getColony(colonyId) {
   if (!colonyId || !checkValidId(colonyId, COLONY_ID_PATTERN)) return null;
   const colony = colonyRegistry.get(colonyId);
   if (!colony) return null;
-  if (colony.state !== 'DISSOLVED' && colony.expiresAt <= Date.now()) {
-    dissolveColony({ colonyId, reason: 'ttl-expired' });
-  }
+  if (colony.state !== 'DISSOLVED' && colony.expiresAt <= Date.now()) return null;
   return colonyRegistry.get(colonyId) || null;
 }
 
@@ -395,6 +357,7 @@ function clearRegistry() {
 
 module.exports = {
   spawnColony, partitionTerritory, runScoutCell, aggregateFindings, dissolveColony,
+  loadColonies, sweepScoutColonies,
   getColony, getCell, listActiveColonies, clearRegistry,
   PARTITION_STRATEGIES, COLONY_STATES, CELL_STATES, DEFAULTS
 };

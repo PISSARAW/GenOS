@@ -88,7 +88,8 @@ const RUNTIME_MARKERS = Object.freeze({
   },
   EXPIRE_RESIDENT_DAEMON: async (action, context) => {
     if (!context.options.db) return { type: action.type, demeId: action.demeId, deactivated: false, reason: 'NO_DB' };
-    await persistentLeaseService.deactivateDaemonLease(context.options.db, context.input.metapopulationId, action.demeId);
+    await persistentDaemonLeaseService.deactivateDaemonLease(context.options.db,
+      context.input.metapopulationId, action.demeId);
     return { type: action.type, demeId: action.demeId, deactivated: true };
   },
 });
@@ -177,6 +178,16 @@ function interMissionSummary(action) {
   return migration;
 }
 
+function residentDeme(demes, demeId) {
+  return demes.find((deme) => deme.demeId === demeId
+    && ['ACTIVE', 'STRESSED', 'ESTABLISHING'].includes(deme.status));
+}
+
+function admissibleCorridor(corridors, sourceDemeId, targetDemeId) {
+  return corridors.find((corridor) => corridor.enabled && corridor.capacity > 0
+    && corridor.sourceDemeId === sourceDemeId && corridor.targetDemeId === targetDemeId);
+}
+
 async function transferCultureOffer(action, context) {
   const { input, options } = context;
   const culture = action.culture || {};
@@ -184,14 +195,10 @@ async function transferCultureOffer(action, context) {
   const sourceDemeId = action.sourceDemeId || input.cultureSourceById?.[culture.id] || null;
   if (!sourceDemeId) return { type: action.type, cultureId: culture.id, offered: false, reason: 'SOURCE_DEME_UNKNOWN' };
   const residents = context.observed?.demes || [];
-  const source = residents.find((deme) => deme.demeId === sourceDemeId);
-  const target = residents.find((deme) => deme.demeId === targetDemeId);
-  if (!source || !target || !['ACTIVE', 'STRESSED', 'ESTABLISHING'].includes(source.status)
-    || !['ACTIVE', 'STRESSED', 'ESTABLISHING'].includes(target.status)) {
+  if (!residentDeme(residents, sourceDemeId) || !residentDeme(residents, targetDemeId)) {
     return { type: action.type, cultureId: culture.id, offered: false, reason: 'DEME_NOT_RESIDENT' };
   }
-  const corridor = (context.observed?.corridors || []).find((c) => c.enabled && c.capacity > 0
-    && c.sourceDemeId === sourceDemeId && c.targetDemeId === targetDemeId);
+  const corridor = admissibleCorridor(context.observed?.corridors || [], sourceDemeId, targetDemeId);
   if (!corridor) return { type: action.type, cultureId: culture.id, offered: false, reason: 'NO_ADMISSIBLE_CORRIDOR' };
   await culturalPersistentRuntime.registerCulture({ db: options.db, metapopulationId: input.metapopulationId,
     culture, author: sourceDemeId });
