@@ -103,4 +103,21 @@ async function commitCompression(db, input) {
   });
 }
 
-module.exports = { registerProcedure, attachCounterexample, evaluateCompression, commitCompression };
+async function loadClaimContext(db, input) {
+  const claim = await db.get('SELECT * FROM morph_cambium_claims WHERE claim_id = ? AND scope_id = ?', [input.claimId, input.scopeId]);
+  if (!claim) return null;
+  const witnesses = await db.all('SELECT * FROM morph_cambium_witnesses WHERE claim_id = ?', [input.claimId]);
+  const counterexamples = await db.all('SELECT * FROM morph_cambium_counterexamples WHERE claim_id = ?', [input.claimId]);
+  const check = await resolvable(input, [{ artifact_ref: claim.verification_ref },
+    ...witnesses, ...counterexamples]);
+  return { claimId: input.claimId, status: claim.status,
+    usable: claim.status !== 'UNVERIFIED' && witnesses.length > 0 && check.allowed,
+    reason: check.allowed ? null : check.reason,
+    environmentVersion: claim.environment_version,
+    conditions: JSON.parse(claim.conditions_json),
+    counterexamples: counterexamples.map((item) => ({
+      counterexampleId: item.counterexample_id, condition: JSON.parse(item.condition_json),
+      artifactRef: item.artifact_ref })) };
+}
+
+module.exports = { registerProcedure, attachCounterexample, evaluateCompression, commitCompression, loadClaimContext };

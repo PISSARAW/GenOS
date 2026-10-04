@@ -1,6 +1,6 @@
 # Cambium des contre-exemples — préserver les conditions d'une procédure
 
-- **Statut** : Partiel — registre de claims, témoins, contre-exemples et gate de compression implémentés ; rejeu automatisé de la mémoire générale à faire.
+- **Statut** : Partiel — registre, gate et rappel Holobionte conditionné aux témoins implémentés ; rejeu automatisé de la mémoire générale à faire.
 - **Portée** : procédures mémorisées avec témoins vérifiables et conditions d'application.
 - **Dernière revue** : 2026-10-04.
 
@@ -60,7 +60,7 @@ flowchart LR
 - [Service Cambium](../../backend/src/services/morphogenesis/capabilities/cambiumService.js) : enregistrement, qualification et compression transactionnelle.
 - [Migration](../../backend/src/db/migrations/migrateMorphogenesisCapabilities.js) : claims, témoins, contre-exemples, contraintes SQL.
 - [Consolidation](../../backend/src/services/memory/consolidationPolicyService.js) : transporte conditions et références ; l'option `cambiumRequired` bloque une procédure sans applicabilité ou témoin déclaré.
-- [Mémoire Holobionte](../../backend/src/services/holobionte/memory/symbioticMemoryService.js) : enregistre le contrat Cambium optionnel dans la même transaction que la mémoire procédurale.
+- [Mémoire Holobionte](../../backend/src/services/holobionte/memory/symbioticMemoryService.js) : enregistre le contrat optionnel et, au rappel, fournit conditions et contre-exemples seulement si les artefacts restent résolubles.
 - [Propagation des contre-exemples](../../backend/src/services/epistemicScheduler/counterexamplePropagation.js) : primitive existante d'invalidation de descendants, encore à relier au registre du Cambium.
 
 `scopeId` confine la recherche d'une claim ; Holobionte le construit à partir
@@ -80,8 +80,9 @@ politique de données continuent à s'appliquer avant l'enregistrement.
 4. `commitCompression` refait cette évaluation dans une transaction. Si le
    dernier témoin doit partir, `degradeClaim` est exigé et le statut devient
    `UNVERIFIED` avant la suppression.
-5. Les lecteurs de mémoire doivent traiter `QUALIFIED` et `UNVERIFIED`
-   différemment d'une procédure pleinement vérifiée.
+5. Le rappel d'une procédure protégée exige un résolveur. Il renvoie ses
+   conditions et contre-exemples lorsque les témoins restent accessibles ;
+   une claim `UNVERIFIED` ou un artefact perdu n'est pas rappelé.
 
 Le comparateur est une dépendance de confiance injectée, pas un test
 universel fourni automatiquement par le registre.
@@ -100,6 +101,8 @@ Le [test de contrat](../../backend/tests/test_morphogenesis_capabilities.js)
 vérifie la qualification d'une claim, le refus de supprimer le dernier
 témoin, le refus d'un artefact non résoluble, la protection SQL d'un
 contre-exemple et la dégradation explicite à `UNVERIFIED`.
+Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
+vérifie le rappel contextualisé et le refus fermé après perte d'un témoin.
 
 Le benchmark à réaliser doit contenir des exceptions rares, de nombreuses
 répétitions communes et des changements de version. À stockage égal,
@@ -130,4 +133,4 @@ pas les couches existantes de persistance ou d'immunité Holobionte.
 
 Voir [Morphogenèse](topologies/morphogenese.md), [Holobionte](topologies/holobionte.md),
 [Épistémologie et évidence](../01-concepts/epistemologie-et-evidence.md) et
-[ADR 0296](../adr/0296-capacites-transversales-morphogenese.md).
+[ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).

@@ -1,6 +1,6 @@
 # Méristème épistémique — croissance par distinction expérimentale
 
-- **Statut** : Partiel — sélection et stockage de couverture implémentés ; recrutement automatique et calibration expérimentale à faire.
+- **Statut** : Partiel — couverture revalidée à la lecture et raccordée au plan Rhizome ; recrutement autonome, adaptation Trinity et calibration expérimentale à faire.
 - **Portée** : missions à hypothèses concurrentes, avant l'allocation de workers.
 - **Dernière revue** : 2026-10-04.
 
@@ -59,6 +59,7 @@ flowchart LR
 - [Moteur de classement](../../backend/src/services/morphogenesis/capabilities/epistemicMeristem.js) : normalisation et similarité comportementale.
 - [Stockage](../../backend/src/services/morphogenesis/capabilities/capabilityEvidenceStore.js) : reçus par `scopeId` dans `morph_experiment_coverage`.
 - [Planificateur Rhizome](../../backend/src/services/rhizome/growth/growthPlanner.js) : sélection optionnelle lorsque `experimentalCoverageReceipts` est fourni.
+- [Raccord Rhizome](../../backend/src/services/rhizome/growth/experimentalCoverageService.js) : charge les reçus du scope déclaré et revalide leurs artefacts avant `planGrowth`.
 - [Contrat de croissance](../../backend/src/services/rhizome/contracts/growthCandidate.js) : transporte `experimentContract`.
 - [Trinity](../../backend/src/services/trinityHypothesisDesignService.js) : fournit déjà hypothèses, prédictions et protocoles discriminants, sans traduction automatique vers tous les contrats du méristème.
 
@@ -74,7 +75,10 @@ pas les mondes scellés pendant leurs essais.
 1. Construire des candidats à partir des hypothèses ouvertes et des lacunes
    de capacité. Chaque candidat doit déclarer ce qui distinguerait les
    hypothèses, pas seulement une spécialité de worker.
-2. Lire les couvertures vérifiées du même `scopeId` avec `loadCoverage`.
+2. Fournir `experimentalScopeId`, une base et un résolveur d'artefacts à
+   `planGrowth`. `loadVerifiedCoverage` écarte les reçus dont le témoin ou
+   une preuve a disparu ; une liste fournie par l'appelant ne remplace pas
+   la lecture du registre.
 3. Classer par `rankExperiments`, puis présenter les candidats éligibles à
    Rhizome. Les contrôles de suffisance, budget, coût et preuve de lacune
    continuent à s'appliquer.
@@ -96,6 +100,8 @@ réplication indépendante peut encore être choisie pour confirmer le constat.
 Le [test de contrat](../../backend/tests/test_morphogenesis_capabilities.js)
 vérifie qu'un reçu simplement proposé n'inhibe pas une expérience, qu'une
 couverture vérifiée modifie le classement et que la réplication est distincte.
+Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
+vérifie aussi qu'une preuve devenue inaccessible ne compte plus comme couverture.
 
 Le benchmark à réaliser doit utiliser des incidents à causes cachées connues,
 les mêmes modèles et le même budget. Baselines : recrutement par rôle,
@@ -120,10 +126,10 @@ une comparaison empirique et des définitions stables des comportements.
   les gates de la morphogenèse gardent cette décision.
 - Les mondes Trinity scellés ne reçoivent pas les découvertes des autres
   mondes durant une vague.
-- La prochaine étape d'intégration est un adaptateur vérifié entre résultats
-  Trinity, carte de couverture et allocation de niche Biome.
+- L'adaptation des résultats Trinity vers la carte de couverture et
+  l'allocation de niche Biome restent à implémenter et qualifier.
 
 ## 10. Références internes
 
 Voir [Morphogenèse](topologies/morphogenese.md), [Trinity](topologies/trinity.md),
-[Rhizome](topologies/rhizome.md) et [ADR 0296](../adr/0296-capacites-transversales-morphogenese.md).
+[Rhizome](topologies/rhizome.md) et [ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).

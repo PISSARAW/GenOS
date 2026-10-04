@@ -1,6 +1,6 @@
 # Chronotaxie apériodique — couvrir les phases d'observation
 
-- **Statut** : Partiel — calcul des phases, schedules persistés et couverture observée implémentés ; sondes résidentes et qualification terrain à faire.
+- **Statut** : Partiel — schedules persistés, reçus d'observation résolus et fenêtres manquées comptées ; sondes résidentes et qualification terrain à faire.
 - **Portée** : observations récurrentes soumises à une fenêtre et un délai maximal.
 - **Dernière revue** : 2026-10-04.
 
@@ -72,10 +72,11 @@ suivent leur chemin normal.
    `anchorMs`. Une spécification invalide échoue avant l'insertion.
 2. Le tick émet l'événement de réveil prévu et avance l'index persistant.
    Une fenêtre manquée peut être sautée lors du calcul suivant.
-3. Une sonde en lecture seule réalise l'observation. Elle enregistre
-   explicitement `OBSERVED` ou `MISSED`, son heure et sa référence de preuve.
-4. `temporalCoverage` lit ces reçus pour diagnostiquer les phases encore
-   peu couvertes. Une observation normale ne nécessite aucun prompt.
+3. Une sonde en lecture seule réalise l'observation. `OBSERVED` exige une
+   heure dans la fenêtre et une référence de preuve résolue. `MISSED` n'est
+   accepté qu'après la fin de la fenêtre, sans référence de preuve.
+4. `temporalCoverage` compte les phases observées et les fenêtres manquées
+   séparément. Une observation normale ne nécessite aucun prompt.
 
 Le branchement d'une sonde résidente générique à cet événement reste à
 réaliser ; la table et l'API de reçus ne supposent pas que cette sonde existe
@@ -94,6 +95,8 @@ capacité a fait manquer certaines fenêtres.
 Le [test de contrat](../../backend/tests/test_morphogenesis_capabilities.js)
 contrôle la reproductibilité, l'avancement du schedule et la distinction
 entre observation réalisée et fenêtre manquée.
+Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
+refuse les observations hors fenêtre et les artefacts introuvables.
 
 Le benchmark à ajouter simule des défauts périodiques, quasi périodiques et
 aléatoires. Comparer polling fixe, décalages fixes, jitter et chronotaxie à
@@ -123,4 +126,4 @@ le jitter n'est pas établie par les tests de contrat.
 ## 10. Références internes
 
 Voir [Morphogenèse](topologies/morphogenese.md), [Holobionte](topologies/holobionte.md),
-[Métapopulation](topologies/metapopulation.md) et [ADR 0296](../adr/0296-capacites-transversales-morphogenese.md).
+[Métapopulation](topologies/metapopulation.md) et [ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).

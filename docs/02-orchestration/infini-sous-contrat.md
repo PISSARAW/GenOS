@@ -1,6 +1,6 @@
 # Infini sous contrat — conserver le risque statistique dans une lignée
 
-- **Statut** : Partiel — registre transactionnel et gate Trinity opt-in implémentés ; vérificateur de données, autres promotions et campagne empirique à qualifier.
+- **Statut** : Partiel — registre transactionnel et gates Trinity/Biocénose opt-in implémentés ; provenance des jeux et campagne empirique à qualifier.
 - **Portée** : suites adaptatives de comparaisons statistiques appartenant à un périmètre explicite.
 - **Dernière revue** : 2026-10-04.
 
@@ -69,7 +69,7 @@ flowchart LR
   F --> T[Test préenregistré]
   T --> E[Observations et évaluation]
   E --> S[Reçu signé du vérificateur]
-  S --> G[Gate Trinity opt-in]
+  S --> G[Gates Trinity ou Biocénose opt-in]
   G -->|seuil atteint| P[Autres gates de promotion]
   G -->|seuil absent| B[Promotion bloquée]
   F --> M[Merge : même grants, nouveau propriétaire]
@@ -79,6 +79,7 @@ flowchart LR
 - [Reçu statistique](../../backend/src/services/morphogenesis/capabilities/statisticalReceipt.js) : calcul séquentiel, HMAC et vérification constante du contenu signé.
 - [Gate](../../backend/src/services/morphogenesis/capabilities/statisticalPromotionGate.js) : résultat opt-in avant la préparation d'un artefact Trinity.
 - [Promotion Trinity](../../backend/src/services/trinityComparativeBarrier.js) : refuse une promotion statistique sans test préenregistré et reçu admissible.
+- [Promotion Biocénose](../../backend/src/services/biocenose/judgment/promotionGateService.js) : applique le contrat après ses gates factuels et de dissentiment ; un refus préalable ne consomme pas le test réservé.
 - [Persistance](../../backend/src/db/migrations/migrateMorphogenesisCapabilities.js) : grants, tests et événements d'audit immuables.
 
 SQLite `BEGIN IMMEDIATE` sérialise les transferts et réservations sur la
@@ -121,6 +122,9 @@ exerce split, réservation idempotente, refus de double usage d'un jeu,
 falsification d'un reçu, test positif, test négatif, fusion de propriété et
 conservation des comptes. Les tests de promotion Trinity existants restent
 applicables à leur chemin sans contrat statistique.
+Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
+vérifie qu'un refus préalable Biocénose laisse la réservation intacte et
+qu'un reçu admissible permet la promotion factuelle opt-in.
 
 Une qualification empirique exige de longues campagnes répétées avec de
 nombreuses modifications sans gain et quelques gains réels. Mesurer fausses
@@ -145,9 +149,9 @@ fixer une stratégie par défaut.
   le contrôle de provenance des jeux reste indispensable.
 - L'hypothèse `Pr(gain suivant | passé) ≤ 1/2` doit correspondre au protocole
   et à la définition de gain. Sinon la borne statistique annoncée ne tient pas.
-- Le branchement automatique concerne Trinity lorsqu'un contrat est fourni.
-  Les promotions des autres topologies, les archives et les transferts entre
-  installations restent à intégrer et à tester.
+- Les branchements concernent Trinity et Biocénose lorsqu'un contrat est
+  fourni. Les autres topologies, archives et transferts entre installations
+  restent à intégrer et à tester.
 - Une preuve formelle de conservation des unités serait utile, mais ne
   remplacerait pas la validation du modèle statistique et des données.
 
@@ -155,4 +159,4 @@ fixer une stratégie par défaut.
 
 Voir [Morphogenèse](topologies/morphogenese.md), [Trinity](topologies/trinity.md),
 [Épistémologie et évidence](../01-concepts/epistemologie-et-evidence.md) et
-[ADR 0296](../adr/0296-capacites-transversales-morphogenese.md).
+[ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).

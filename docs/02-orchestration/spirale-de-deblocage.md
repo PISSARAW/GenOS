@@ -1,6 +1,6 @@
 # Spirale de déblocage — changer de méthode et de périmètre avec preuve
 
-- **Statut** : Partiel — signatures, sélection et filtre morphologique implémentés ; pilotage automatique d'une mission entière à faire.
+- **Statut** : Partiel — historique vérifié, refus des doublons et progression bornée persistante implémentés ; pilotage d'une mission entière à faire.
 - **Portée** : recherches et corrections qui stagnent après des tentatives observables.
 - **Dernière revue** : 2026-10-04.
 
@@ -58,7 +58,7 @@ flowchart LR
 
 - [Moteur](../../backend/src/services/morphogenesis/capabilities/unblockSpiral.js) : signature, déduplication et sélection bornée.
 - [Historique persistant](../../backend/src/services/morphogenesis/capabilities/capabilityEvidenceStore.js) : table `morph_attempts`, indexée par `scopeId`.
-- [Recherche morphologique](../../backend/src/services/morphogenesis/synthesis/morphologySearchPolicy.js) : filtre optionnel lorsque `attemptHistory` est fourni.
+- [Recherche morphologique](../../backend/src/services/morphogenesis/synthesis/morphologySearchPolicy.js) : `chooseSearchScopePersisted` lit l'historique du scope, impose le plafond d'échelle et conserve la règle d'évaluation locale.
 - [Transition](../../backend/src/services/morphogenesis/transitions/morphologyTransitionService.js) : garde les étapes de snapshot, branche, comparaison, promotion et vérification.
 
 Le filtre ne supprime pas la règle existante : la recherche globale ne s'ouvre
@@ -68,16 +68,15 @@ peut être réévalué comme réplication indépendante avec justification.
 ## 5. Processus d'exécution
 
 1. Enregistrer l'état initial, l'hypothèse, la famille, l'échelle et les
-   nouvelles références de preuve avant l'essai.
-2. Charger l'historique du même périmètre de mission. `planNext` refuse les
-   signatures identiques et les reformulations sans différence démontrable.
-3. Borner l'échelle par l'autorité disponible. La proposition est transmise à
-   la politique de recherche puis au gate de transition existant.
-4. Après comparaison, rattacher un `outcomeRef` vérifié à la tentative.
-   L'absence de résultat concluant reste visible.
-5. Si de nouvelles preuves rendent une petite intervention pertinente, la
-   recherche peut revenir à cette échelle ; l'élargissement n'est pas
-   permanent.
+   références de preuve. Un résultat `VERIFIED_FAILURE` ou `VERIFIED_SUCCESS`
+   exige un `outcomeRef` résolu ; un résultat absent reste `UNVERIFIED`.
+2. `recordAttempt` refuse dans la transaction une tentative équivalente, sauf
+   réplication avec un vérificateur indépendant distinct.
+3. `chooseSearchScopePersisted` lit le même périmètre. Deux échecs vérifiés
+   consécutifs autorisent au plus l'échelle suivante, dans la borne demandée.
+   Une preuve nouvelle ou un succès recentre la recherche locale.
+4. La proposition passe encore par les autorisations et le gate de transition
+   existants ; élargir la recherche ne confère aucune permission supplémentaire.
 
 ## 6. Exemple
 
@@ -92,6 +91,8 @@ justifié.
 Le [test de contrat](../../backend/tests/test_morphogenesis_capabilities.js)
 vérifie le refus d'une répétition et le passage à un candidat distinct. Il
 teste aussi le branchement à la politique de recherche morphologique.
+Le [test de seconde tranche](../../backend/tests/test_morphogenesis_capabilities_phase2.js)
+exerce la persistance, le refus d'un doublon et l'ouverture après stagnation vérifiée.
 
 Une campagne doit séparer problèmes à solution locale et problèmes exigeant
 un changement de cadre. Mesurer le taux de déblocage, le coût jusqu'à la
@@ -112,13 +113,13 @@ avant une mutation et auditable après son résultat.
   équivalences sémantiques possibles.
 - Le service ne choisit pas seul une nouvelle topologie et ne modifie pas les
   permissions ; les gates d'autorité, de ressources et de preuve restent requis.
-- L'historique persistant accepte une déclaration d'`outcomeRef` ; son
-  producteur doit en vérifier la résolution.
+- L'historique vérifie l'`outcomeRef` lors de l'enregistrement d'un résultat
+  déclaré vérifié ; la qualité de cette preuve dépend du résolveur fourni.
 - Un échec n'est pas une preuve que toute une famille de méthodes est épuisée.
-- L'activation actuelle est opt-in via `attemptHistory`. Un contrôleur de
-  mission complet demandera un protocole de stagnation et de retour arrière.
+- L'activation reste opt-in via `attemptScopeId` et une base. Le contrôleur
+  ne pilote pas encore une mission entière ni son retour arrière.
 
 ## 10. Références internes
 
 Voir [Morphogenèse](topologies/morphogenese.md), [Biome](topologies/biome.md)
-et [ADR 0296](../adr/0296-capacites-transversales-morphogenese.md).
+et [ADR 0299](../adr/0299-capacites-transversales-morphogenese.md).

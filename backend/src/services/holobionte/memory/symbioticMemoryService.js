@@ -133,7 +133,20 @@ async function recallMemories(db, input = {}) {
       OR (scope = 'PROJECT' AND project_id = ?)
     ) ORDER BY created_at, revision`, session.hostId, session.holobiontId, session.hostId,
   session.missionId, session.workspaceId, session.projectId);
-  return latestMemories(rows, input.memoryType);
+  const recalled = [];
+  for (const memory of latestMemories(rows, input.memoryType)) {
+    const guarded = await withCambiumContext(db, memory, input.resolveArtifact);
+    if (guarded) recalled.push(guarded);
+  }
+  return recalled;
+}
+
+async function withCambiumContext(db, memory, resolveArtifact) {
+  if (memory.memoryType !== 'PROCEDURAL') return memory;
+  const scopeId = `${memory.scope}:${memory.projectId || memory.workspaceId || memory.missionId || memory.hostId}`;
+  const claim = await cambium.loadClaimContext(db, { claimId: memory.memoryId, scopeId, resolveArtifact });
+  if (!claim) return memory;
+  return claim.usable ? { ...memory, cambium: claim } : null;
 }
 
 function latestMemories(rows, memoryType) {
@@ -148,6 +161,7 @@ function parseMemory(row) {
   return {
     memoryId: row.memory_id, revision: row.revision, hostId: row.host_id,
     sourceHolobiontId: row.source_holobiont_id, scope: row.scope,
+    missionId: row.mission_id, workspaceId: row.workspace_id, projectId: row.project_id,
     memoryType: row.memory_type, status: row.status,
     content: JSON.parse(row.content_json), dataClasses: JSON.parse(row.data_classes_json),
     evidenceRefs: JSON.parse(row.evidence_refs_json), immuneReview: JSON.parse(row.immune_review_json),

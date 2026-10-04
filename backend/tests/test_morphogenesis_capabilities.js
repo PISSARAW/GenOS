@@ -83,7 +83,8 @@ async function testChronotaxis(db) {
   const ran = await schedules.markScheduleRan(db, { id, nowMs: Date.parse(first.next_run_at) });
   assert.equal(ran.firedWindowIndex, 0);
   await schedules.recordTemporalObservation(db, { observationId: 'observation', scheduleId: id,
-    windowIndex: 0, status: 'OBSERVED', observedAt: first.next_run_at, evidenceRef: 'probe:1' });
+    windowIndex: 0, status: 'OBSERVED', observedAt: first.next_run_at, evidenceRef: 'probe:1',
+    resolveArtifact: async () => true });
   assert.equal((await schedules.temporalCoverage(db, { scheduleId: id })).covered, 1);
   assert.equal(chronotaxis.coverage([{ status: 'MISSED', observedAt: first.next_run_at }],
     { periodMs: 1000, anchorMs }).covered, 0);

@@ -1,6 +1,6 @@
 # ADR 0299 — Cinq capacités transversales de morphogenèse
 
-- **Statut** : Proposé, avec première implémentation opt-in
+- **Statut** : Proposé, avec deuxième tranche opt-in implémentée
 - **Date** : 2026-10-04
 - **Domaine** : Morphogenèse, preuves, mémoire, risque statistique
 - **Décideurs** : Mainteneurs GenOS
@@ -38,6 +38,24 @@ Une migration SQLite versionnée stocke reçus, tentatives, observations, claims
 témoins et allocations. Les chemins existants ne changent que lorsqu'un contrat
 de la nouvelle capacité leur est fourni. Les promotions Trinity munies d'un
 contrat statistique exigent un test préenregistré et un reçu signé.
+
+## Deuxième tranche
+
+La lecture d'une couverture expérimentale revalide tous ses artefacts avant
+son emploi dans `planGrowth` de Rhizome. Les tentatives enregistrées refusent
+les doublons et un résultat déclaré vérifié exige un artefact résolu. La
+recherche persistante n'élargit son échelle qu'après des échecs vérifiés
+consécutifs et reste soumise au gate de transition morphologique.
+
+Une observation chronotaxique `OBSERVED` exige un reçu résolu et une heure
+dans sa fenêtre ; `MISSED` est enregistré séparément après expiration. Au
+rappel Holobionte, une procédure dotée d'un contrat Cambium est cachée si
+sa claim ou l'un de ses témoins n'est plus vérifiable ; ses conditions et
+contre-exemples accompagnent autrement le résultat.
+
+Biocénose accepte un contrat statistique opt-in uniquement après ses gates
+factuels et de dissentiment. Un refus préalable n'utilise pas la réservation
+du test. L'absence de contrat conserve les chemins existants.
 
 ## Frontières de preuve
 

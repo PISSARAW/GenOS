@@ -1,6 +1,7 @@
 'use strict';
 
 const spiral = require('../capabilities/unblockSpiral');
+const evidenceStore = require('../capabilities/capabilityEvidenceStore');
 
 function distinctCandidates(candidates, input) {
   if (!Array.isArray(input.attemptHistory)) return candidates;
@@ -27,4 +28,17 @@ function chooseSearchScope(input = {}) {
   };
 }
 
-module.exports = { chooseSearchScope };
+async function chooseSearchScopePersisted(db, input = {}) {
+  if (!db || !input.attemptScopeId) throw new Error('Persisted search requires database and attempt scope');
+  const attempts = await evidenceStore.loadAttempts(db, input.attemptScopeId);
+  const progression = spiral.scaleLimit({ ...input, attempts });
+  const result = chooseSearchScope({ ...input, attemptHistory: attempts,
+    maxScaleIndex: progression.maxScaleIndex });
+  if (result.scope === 'global' && !result.candidates.length && input.globalCandidates?.length) {
+    return { scope: 'blocked', candidates: [], globalAllowed: false,
+      reason: 'SCALE_NOT_AUTHORIZED', progression };
+  }
+  return { ...result, progression };
+}
+
+module.exports = { chooseSearchScope, chooseSearchScopePersisted };

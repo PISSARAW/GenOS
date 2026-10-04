@@ -36,6 +36,13 @@ function nextObservation(spec, nowMs) {
   throw new Error('No feasible observation window');
 }
 
+function windowBounds(spec, index) {
+  if (!Number.isInteger(index) || index < 0) throw new Error('Invalid observation window');
+  const { periodMs, anchorMs } = timing(spec);
+  const startMs = anchorMs + index * periodMs;
+  return { startMs, endMs: startMs + periodMs };
+}
+
 function coverage(observations, input) {
   const { periodMs, anchorMs, bins = 12 } = input;
   if (!Number.isInteger(bins) || bins < 2 || periodMs <= 0) throw new Error('Invalid coverage contract');
@@ -48,4 +55,4 @@ function coverage(observations, input) {
   return { observedBins: [...occupied].sort((a, b) => a - b), covered: occupied.size, total: bins };
 }
 
-module.exports = { PHASE_STEP, phase, nextObservation, coverage };
+module.exports = { PHASE_STEP, phase, nextObservation, windowBounds, coverage };

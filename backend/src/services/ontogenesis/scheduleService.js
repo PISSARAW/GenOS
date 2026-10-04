@@ -101,10 +101,11 @@ async function markScheduleRan(db, input) {
 }
 
 async function recordTemporalObservation(db, input) {
-  if (!input?.observationId || !input.scheduleId || !Number.isInteger(input.windowIndex)
-    || !['OBSERVED', 'MISSED'].includes(input.status)) throw new Error('Invalid temporal observation');
+  requireTemporalInput(input);
   const observedAt = input.observedAt || new Date().toISOString();
   if (!Number.isFinite(Date.parse(observedAt))) throw new Error('Invalid observation time');
+  const spec = await chronotaxisSpec(db, input.scheduleId);
+  await validateTemporalEvidence(input, observedAt, spec);
   await db.run(`INSERT INTO morph_temporal_observations
     (observation_id, schedule_id, window_index, observed_at, status, evidence_ref)
     VALUES (?, ?, ?, ?, ?, ?)`, [input.observationId, input.scheduleId, input.windowIndex,
@@ -112,13 +113,40 @@ async function recordTemporalObservation(db, input) {
   return { observationId: input.observationId, status: input.status };
 }
 
+function requireTemporalInput(input) {
+  if (!input?.observationId || !input.scheduleId || !Number.isInteger(input.windowIndex)
+    || !['OBSERVED', 'MISSED'].includes(input.status)) throw new Error('Invalid temporal observation');
+}
+
+async function chronotaxisSpec(db, scheduleId) {
+  const row = await db.get('SELECT kind, spec_json FROM ontogenesis_schedules WHERE id = ?', [scheduleId]);
+  if (!row || row.kind !== 'interval' || parseSpec(row).policy !== 'chronotaxis') {
+    throw new Error('Chronotaxis schedule required');
+  }
+  return parseSpec(row);
+}
+
+async function validateTemporalEvidence(input, observedAt, spec) {
+  const { startMs, endMs } = chronotaxis.windowBounds(spec, input.windowIndex);
+  const eventMs = Date.parse(observedAt);
+  if (input.status === 'MISSED') {
+    if (input.evidenceRef || eventMs < endMs) throw new Error('Missed window requires elapsed window without evidence');
+    return;
+  }
+  if (eventMs < startMs || eventMs >= endMs || !input.evidenceRef
+    || typeof input.resolveArtifact !== 'function' || !await input.resolveArtifact(input.evidenceRef)) {
+    throw new Error('Observed window requires resolvable in-window evidence');
+  }
+}
+
 async function temporalCoverage(db, input) {
   const row = await db.get('SELECT spec_json FROM ontogenesis_schedules WHERE id = ?', [input.scheduleId]);
   if (!row) throw new Error('schedule-introuvable');
   const spec = JSON.parse(row.spec_json);
   const observations = await db.all('SELECT * FROM morph_temporal_observations WHERE schedule_id = ?', [input.scheduleId]);
-  return chronotaxis.coverage(observations.map((item) => ({ status: item.status, observedAt: item.observed_at })),
+  const coverage = chronotaxis.coverage(observations.map((item) => ({ status: item.status, observedAt: item.observed_at })),
     { periodMs: spec.periodMs, anchorMs: spec.anchorMs, bins: input.bins || 12 });
+  return { ...coverage, missedWindows: observations.filter((item) => item.status === 'MISSED').length };
 }
 
 async function pauseSchedule(db, scheduleId) {
