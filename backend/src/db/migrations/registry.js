@@ -380,6 +380,9 @@ const migrationRunners = [
   createMigrationRunner('104-aeis-provider-reviews', 'Persist scoped process-isolated provider reviews', async (db) => {
     await require('./migrateAeisProviderReviews').migrateAeisProviderReviews(db);
   }),
+  createMigrationRunner('105-aeis-assembly-lifecycle', 'Add AEIS signing key IDs and assembly retention metadata', async (db) => {
+    await require('./migrateAeisAssemblyLifecycle').migrateAeisAssemblyLifecycle(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
