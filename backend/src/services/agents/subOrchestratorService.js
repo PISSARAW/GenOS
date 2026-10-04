@@ -1,13 +1,9 @@
 'use strict';
 
 /**
- * Sub-Orchestrator Service — bounded role escalation with explicit leases.
- *
- * Workers may request escalation to SubOrchestrator when task complexity
- * exceeds their bounded authority. The parent orchestrator evaluates the
- * request, grants a scoped lease, and the promoted agent operates within
- * strict bounds: spawn workers, organize local subgraph, evaluate evidence
- * — but CANNOT change global topology, promote others, or exceed budget.
+ * @deprecated Legacy in-memory lease service, NOT connected to dispatch.
+ * Active path: agents/subOrchestratorDispatchService.js with persisted contracts.
+ * Kept for reference only — DO NOT CALL.
  */
 
 const crypto = require('crypto');
