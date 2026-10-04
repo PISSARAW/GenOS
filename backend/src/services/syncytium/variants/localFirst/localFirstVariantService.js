@@ -1,7 +1,8 @@
 'use strict';
 const S = require('../../../syncytiumSchemaService');
 const { randomUUID } = require('node:crypto');
-const MAX_OFFLINE = 7*24*60*60*1000;
+const MAX_OFFLINE = 7 * 24 * 60 * 60 * 1000;
+const MAX_QUEUE_SIZE = 10000;
 
 function createLocalFirstVariantService(syn) {
   return {
@@ -16,199 +17,41 @@ function createLocalFirstVariantService(syn) {
   };
 }
 
-function compileSchema(opt) {
-  return S.compile({
-    schemaId: 'syncytium-local-first-v1',
-    fields: {
-      logicalClock: { dataType: 'MV_REGISTER', consistencyZone: 'CAUSAL' },
-      physicalClockOffset: { dataType: 'LWW_REGISTER', consistencyZone: 'CAUSAL' },
-      offlineQueue: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
-      syncState: { dataType: 'MAP', consistencyZone: 'CAUSAL' },
-      deviceReplicas: { dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING' },
-      encryptedLocalStoreKey: { dataType: 'LWW_REGISTER', consistencyZone: 'SERIALIZABLE' },
-      ...((opt&&opt.customFields)||{})
-    }
-  });
-}
+function compileSchema(opt) { return S.compile({ schemaId: 'syncytium-local-first-v1', fields: { logicalClock: { dataType: 'MV_REGISTER', consistencyZone: 'CAUSAL' }, physicalClockOffset: { dataType: 'LWW_REGISTER', consistencyZone: 'CAUSAL' }, offlineQueue: { dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING' }, syncState: { dataType: 'MAP', consistencyZone: 'CAUSAL' }, deviceReplicas: { dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING' }, vectorClocks: { dataType: 'MAP', consistencyZone: 'CAUSAL' }, reconciliationLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' }, expiredOpsLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' }, encryptedLocalStoreKey: { dataType: 'LWW_REGISTER', consistencyZone: 'SERIALIZABLE' }, ...((opt && opt.customFields) || {}) } }); }
+function createSession(m, o, syn) { const schema = compileSchema(o); if (o && o.fields && Object.keys(o.fields).length > 0) schema.fields = Object.assign({}, schema.fields, o.fields); return syn.createSession(m, { ...o, schema, variantPolicy: { id: 'localFirst' } }); }
 
-function createSession(m, o, syn) {
-  const schema = compileSchema(o);
-  if (o && o.fields && Object.keys(o.fields).length > 0)
-    schema.fields = Object.assign({}, schema.fields, o.fields);
-  return syn.createSession(m, { ...o, schema, variantPolicy: { id: 'localFirst' } });
-}
-
-function assertDevId(id, label) {
-  if (!id || typeof id !== 'string')
-    throw new Error(`LocalFirstError: ${label} must be a non-empty string`);
-}
-function assertNonNegFinite(v, label) {
-  if (typeof v !== 'number' || v < 0 || !isFinite(v))
-    throw new Error(`LocalFirstError: ${label} must be a non-negative finite number`);
-}
-function assertVecClock(vc) {
-  if (!vc || typeof vc !== 'object' || Array.isArray(vc))
-    throw new Error('LocalFirstError: remoteVectorClock must be a non-null object');
-}
+function assertDevId(id, label) { if (!id || typeof id !== 'string') throw new Error(`LocalFirstError: ${label} must be a non-empty string`); }
+function assertNonNegFinite(v, label) { if (typeof v !== 'number' || v < 0 || !isFinite(v)) throw new Error(`LocalFirstError: ${label} must be a non-negative finite number`); }
+function assertVecClock(vc) { if (!vc || typeof vc !== 'object' || Array.isArray(vc)) throw new Error('LocalFirstError: remoteVectorClock must be a non-null object'); }
 function now() { return Date.now(); }
 function defaultOpId(o) { return o && o.opId || randomUUID(); }
 function defaultActor(o, fallback) { return (o && o.actorId) || fallback; }
 
-async function applyHLC(context) {
-  const { sid, dev, ts, o, syn } = context;
-  assertDevId(dev, 'deviceId');
-  assertNonNegFinite(ts, 'logicalTime');
-  const n = now(), opId = defaultOpId(o);
-  return syn.applyOperation(sid, {
-    opId, actorId: defaultActor(o, 'hlc-writer'),
-    kind: { type: 'typed_field', key: 'logicalClock', action: 'set',
-      entryKey: dev, value: { deviceId: dev, logicalTime: ts, wallClock: n, recordedAt: n } }
-  }, o);
-}
+async function applyHLC(ctx) { const { sid, dev, ts, o, syn } = ctx; assertDevId(dev, 'deviceId'); assertNonNegFinite(ts, 'logicalTime'); const n = now(), opId = defaultOpId(o); const snap = await syn.snapshot(sid, o); const currentClock = snap.shared?.sharedFields?.logicalClock?.[dev] || { logicalTime: 0 }; const newLogicalTime = Math.max(currentClock.logicalTime, ts) + 1; const vc = { ...(snap.shared?.sharedFields?.vectorClocks?.[dev] || {}), [dev]: newLogicalTime }; await syn.applyOperation(sid, buildHlcOp(dev, newLogicalTime, n, opId, o), o); await syn.applyOperation(sid, buildVcOp(dev, vc, o), o); return { deviceId: dev, logicalTime: newLogicalTime, wallClock: n, vectorClock: vc }; }
+function buildHlcOp(dev, logicalTime, wallClock, opId, o) { return { opId, actorId: defaultActor(o, 'hlc-writer'), kind: { type: 'typed_field', key: 'logicalClock', action: 'set', entryKey: dev, value: { deviceId: dev, logicalTime, wallClock, recordedAt: wallClock } } }; }
+function buildVcOp(dev, vc, o) { return { opId: randomUUID(), actorId: defaultActor(o, 'hlc-writer'), kind: { type: 'typed_field', key: 'vectorClocks', action: 'set', entryKey: dev, value: vc } }; }
 
-async function syncFromPeer(context) {
-  const { sid, src, dst, vc, o, syn } = context;
-  assertDevId(src, 'sourceDeviceId');
-  assertDevId(dst, 'targetDeviceId');
-  assertVecClock(vc);
-  const opId = defaultOpId(o);
-  return syn.applyOperation(sid, {
-    opId, actorId: defaultActor(o, 'peer-sync'),
-    kind: { type: 'typed_field', key: 'syncState', action: 'set',
-      entryKey: `${src}→${dst}`,
-      value: { sourceDeviceId: src, targetDeviceId: dst,
-        remoteVectorClock: Object.assign({}, vc), syncedAt: now(),
-        bytesTransferred: (o&&o.bytesTransferred)||0, outcome: 'SYNCED' } }
-  }, o);
-}
+async function syncFromPeer(ctx) { const { sid, src, dst, vc, o, syn } = ctx; assertDevId(src, 'sourceDeviceId'); assertDevId(dst, 'targetDeviceId'); assertVecClock(vc); const n = now(), opId = defaultOpId(o); const snap = await syn.snapshot(sid, o); const mergedClock = mergeVectorClocks(snap.shared?.sharedFields?.vectorClocks?.[dst] || {}, vc); mergedClock[dst] = (mergedClock[dst] || 0) + 1; await syn.applyOperation(sid, { opId, actorId: defaultActor(o, 'peer-sync'), kind: { type: 'typed_field', key: 'vectorClocks', action: 'set', entryKey: dst, value: mergedClock } }, o); await syn.applyOperation(sid, buildSyncOp(src, dst, vc, mergedClock, n, o), o); return { sourceDeviceId: src, targetDeviceId: dst, mergedVectorClock: mergedClock, syncedAt: n }; }
+function mergeVectorClocks(local, remote) { const merged = { ...local }; for (const [k, v] of Object.entries(remote)) merged[k] = Math.max(merged[k] || 0, v); return merged; }
+function buildSyncOp(src, dst, remoteVC, localVC, syncedAt, o) { return { opId: randomUUID(), actorId: defaultActor(o, 'peer-sync'), kind: { type: 'typed_field', key: 'syncState', action: 'set', entryKey: `${src}→${dst}`, value: { sourceDeviceId: src, targetDeviceId: dst, remoteVectorClock: remoteVC, localVectorClock: localVC, syncedAt, bytesTransferred: 0, outcome: 'SYNCED' } } }; }
 
-async function partitionAndWorkOffline(context) {
-  const { sid, dev, ops, o, syn } = context;
-  assertDevId(dev, 'deviceId');
-  if (!Array.isArray(ops) || ops.length === 0)
-    throw new Error('LocalFirstError: operations must be a non-empty array');
-  const n = now(), expiresAt = n + ((o&&o.offlineDurationMs)||MAX_OFFLINE);
-  if (expiresAt - n > MAX_OFFLINE)
-    throw new Error('LocalFirstError: offlineDurationMs exceeds maximum allowed (7 days)');
-  const entries = ops.map((op, idx) => ({
-    operationId: op.operationId || `${dev}-${n}-${idx}`,
-    deviceId: dev, payload: op.payload,
-    operationType: op.operationType || 'mutation',
-    createdAt: n, expiresAt, sequence: idx
-  }));
-  return syn.applyOperation(sid, {
-    opId: defaultOpId(o), actorId: defaultActor(o, 'offline-worker'),
-    kind: { type: 'typed_field', key: 'offlineQueue', action: 'add', value: entries }
-  }, o);
-}
+async function partitionAndWorkOffline(ctx) { const { sid, dev, ops, o, syn } = ctx; assertDevId(dev, 'deviceId'); if (!Array.isArray(ops) || ops.length === 0) throw new Error('LocalFirstError: operations must be a non-empty array'); const n = now(), expiresAt = n + ((o && o.offlineDurationMs) || MAX_OFFLINE); if (expiresAt - n > MAX_OFFLINE) throw new Error('LocalFirstError: offlineDurationMs exceeds maximum allowed (7 days)'); const snap = await syn.snapshot(sid, o); const queue = snap.shared?.sharedFields?.offlineQueue?.[dev] || []; const currentSize = queue.filter(e => !e.reconciled && !e.expired).length; if (currentSize + ops.length > MAX_QUEUE_SIZE) throw new Error(`LocalFirstError: queue ceiling ${MAX_QUEUE_SIZE} would be exceeded`); const deviceVC = snap.shared?.sharedFields?.vectorClocks?.[dev] || {}; const baseSequence = queue.length > 0 ? Math.max(...queue.map(e => e.sequence)) : -1; const entries = ops.map((op, idx) => buildQueueEntry(dev, op, idx, n, expiresAt, deviceVC, baseSequence)); await syn.applyOperation(sid, buildQueueOp(dev, [...queue, ...entries], o), o); return { deviceId: dev, enqueued: entries.length, queueSize: currentSize + entries.length, expiresAt }; }
+function buildQueueEntry(dev, op, idx, createdAt, expiresAt, deviceVC, baseSequence) { return { operationId: op.operationId || `${dev}-${createdAt}-${idx}`, deviceId: dev, payload: op.payload, operationType: op.operationType || 'mutation', createdAt, expiresAt, sequence: baseSequence + 1 + idx, vectorClock: { ...deviceVC, [dev]: (deviceVC[dev] || 0) + 1 + idx }, reconciled: false, expired: false, reconciliationState: 'PENDING' }; }
+function buildQueueOp(dev, queue, o) { return { opId: defaultOpId(o), actorId: defaultActor(o, 'offline-worker'), kind: { type: 'typed_field', key: 'offlineQueue', action: 'set', entryKey: dev, value: queue } }; }
 
-async function reconcileOfflineQueue(context) {
-  const { sid, dev, vc, o, syn } = context;
-  assertDevId(dev, 'deviceId');
-  assertVecClock(vc);
-  const snap = await syn.snapshot(sid, o);
-  const queue = snap.shared?.sharedFields?.offlineQueue || [];
-  const pending = queue.filter(e => e.deviceId === dev && !e.reconciled);
-  if (pending.length === 0) return { reconciled: 0, deviceId: dev, timestamp: now() };
-  const reconciledAt = now();
-  const record = { deviceId: dev, reconciledAt, operationCount: pending.length,
-    remoteVectorClock: Object.assign({}, vc), status: 'RECONCILED' };
-  await syn.applyOperation(sid, {
-    opId: defaultOpId(o), actorId: defaultActor(o, 'reconciler'),
-    kind: { type: 'typed_field', key: 'syncState', action: 'set',
-      entryKey: `reconciliation-${dev}-${reconciledAt}`, value: record }
-  }, o);
-  return { reconciled: pending.length, deviceId: dev, timestamp: reconciledAt, record };
-}
+async function reconcileOfflineQueue(ctx) { const { sid, dev, vc, o, syn } = ctx; assertDevId(dev, 'deviceId'); assertVecClock(vc); const n = now(); const snap = await syn.snapshot(sid, o); const queue = snap.shared?.sharedFields?.offlineQueue?.[dev] || []; const deviceReplicas = snap.shared?.sharedFields?.deviceReplicas || {}; const pending = queue.filter(e => e.deviceId === dev && !e.reconciled && !e.expired); if (pending.length === 0) return { reconciled: 0, deviceId: dev, timestamp: n }; const { admissible, expired } = partitionPendingOps(pending, n, vc); const { updatedQueue, reconciledOps } = updateQueueWithReconciled(queue, admissible, expired, n, vc); await syn.applyOperation(sid, buildQueueOp(dev, updatedQueue, o), o); await syn.applyOperation(sid, buildReconciliationLogOp(dev, reconciledOps.length, expired.length, n, vc, o), o); if (expired.length > 0) await syn.applyOperation(sid, buildExpiredLogOp(dev, expired, n, o), o); const replicaInfo = deviceReplicas[dev] || {}; await syn.applyOperation(sid, buildReplicaOp(dev, replicaInfo, reconciledOps.length, n, o), o); return { reconciled: reconciledOps.length, expired: expired.length, deviceId: dev, timestamp: n }; }
+function partitionPendingOps(pending, now, vc) { const sorted = [...pending].sort((a, b) => compareVC(a.vectorClock, b.vectorClock) || a.sequence - b.sequence); const admissible = [], expired = []; for (const op of sorted) { if (op.expiresAt < now) { expired.push(op); continue; } if (vc && op.vectorClock && !isCausallyReady(op.vectorClock, vc)) continue; admissible.push(op); } return { admissible, expired }; }
+function compareVC(vc1, vc2) { const keys = new Set([...Object.keys(vc1), ...Object.keys(vc2)]); let less = false, greater = false; for (const k of keys) { const v1 = vc1[k]||0, v2 = vc2[k]||0; if (v1 < v2) less = true; if (v1 > v2) greater = true; } if (less && !greater) return -1; if (greater && !less) return 1; return 0; }
+function isCausallyReady(opVC, knownVC) { for (const [k, v] of Object.entries(opVC)) { if (k === 'deviceId') continue; if ((knownVC[k] || 0) < v) return false; } return true; }
+function updateQueueWithReconciled(queue, admissible, expired, n, vc) { const reconciledOps = admissible.map(op => ({ ...op, reconciled: true, reconciliationState: 'RECONCILED', reconciledAt: n, remoteVectorClock: { ...vc } })); const expiredOps = expired.map(op => ({ ...op, expired: true, reconciliationState: 'EXPIRED' })); const updated = queue.map(e => { const r = reconciledOps.find(x => x.operationId === e.operationId); if (r) return r; const ex = expiredOps.find(x => x.operationId === e.operationId); if (ex) return ex; return e; }); return { updatedQueue: updated, reconciledOps }; }
+function buildReconciliationLogOp(dev, reconciledCount, expiredCount, n, vc, o) { return { opId: randomUUID(), actorId: defaultActor(o, 'reconciler'), kind: { type: 'typed_field', key: 'reconciliationLog', action: 'add', value: { deviceId: dev, reconciledAt: n, operationCount: reconciledCount, expiredCount, remoteVectorClock: { ...vc }, status: 'RECONCILED' } } }; }
+function buildExpiredLogOp(dev, expired, n, o) { return { opId: randomUUID(), actorId: defaultActor(o, 'reconciler'), kind: { type: 'typed_field', key: 'expiredOpsLog', action: 'add', value: { deviceId: dev, expiredAt: n, operations: expired.map(e => e.operationId), count: expired.length } } }; }
+function buildReplicaOp(dev, replicaInfo, reconciledCount, n, o) { return { opId: randomUUID(), actorId: defaultActor(o, 'reconciler'), kind: { type: 'typed_field', key: 'deviceReplicas', action: 'set', entryKey: dev, value: { ...replicaInfo, lastSyncAt: n, operationCount: (replicaInfo.operationCount || 0) + reconciledCount } } }; }
 
-async function checkBudget(context) {
-  const { sid, dev, o, syn } = context;
-  assertDevId(dev, 'deviceId');
-  const snap = await syn.snapshot(sid, o);
-  const queue = snap.shared?.sharedFields?.offlineQueue || [];
-  const deviceReplicas = snap.shared?.sharedFields?.deviceReplicas || {};
-  const deviceOps = queue.filter(e => e.deviceId === dev);
-  const replicaInfo = deviceReplicas[dev] || {};
-  return {
-    deviceId: dev,
-    pendingOperations: deviceOps.filter(e => !e.reconciled).length,
-    totalOperations: deviceOps.length,
-    ageMs: now() - (replicaInfo.lastSyncAt || 0),
-    ageSeconds: Math.round((now() - (replicaInfo.lastSyncAt || 0)) / 1000),
-    lastSyncAt: replicaInfo.lastSyncAt || 0,
-    canAcceptMore: deviceOps.filter(e => !e.reconciled).length < 10000,
-    timestamp: now()
-  };
-}
-
-async function listDeviceReplicas(context) {
-  const { sid, o, syn } = context;
-  const snap = await syn.snapshot(sid, o);
-  const replicas = snap.shared?.sharedFields?.deviceReplicas || {};
-  const list = Object.entries(replicas).map(([id, info]) => ({
-    deviceId: id, lastSyncAt: info.lastSyncAt || 0,
-    operationCount: info.operationCount || 0,
-    isActive: (now() - (info.lastSyncAt || 0)) < 300000
-  }));
-  return { replicas: list, totalDevices: list.length,
-    activeDevices: list.filter(r => r.isActive).length, timestamp: now() };
-}
-
-async function localFirstSnapshot(context) {
-  const { sid, o, syn } = context;
-  const snap = await syn.snapshot(sid, o);
-  const sf = snap.shared?.sharedFields || {};
-  const lc = sf.logicalClock || {};
-  const oq = sf.offlineQueue || [];
-  const ss = sf.syncState || {};
-  const dr = sf.deviceReplicas || {};
-  const syncHistory = Object.values(ss).filter(s => s.outcome !== undefined);
-
-  return {
-    sessionId: sid, schemaId: 'syncytium-local-first-v1',
-    devices: Object.keys(lc).length,
-    devicesList: mapLogicalClockEntries(lc),
-    offlineQueue: buildOfflineQueueSummary(oq),
-    syncHistory: buildSyncHistorySummary(syncHistory),
-    deviceReplicas: buildDeviceReplicasSummary(dr),
-    encryptedLocalStoreKey: sf.encryptedLocalStoreKey ? 'SET' : 'UNSET',
-    timestamp: now()
-  };
-}
-
-function mapLogicalClockEntries(lc) {
-  return Object.entries(lc).map(([id, entry]) => ({
-    deviceId: id, logicalTime: entry.logicalTime,
-    wallClock: entry.wallClock, recordedAt: entry.recordedAt
-  }));
-}
-
-function buildOfflineQueueSummary(oq) {
-  return {
-    totalEntries: oq.length,
-    byDevice: oq.reduce((acc, e) => {
-      if (!acc[e.deviceId]) acc[e.deviceId] = [];
-      acc[e.deviceId].push(e);
-      return acc;
-    }, {}),
-    expiredEntries: oq.filter(e => (e.expiresAt || 0) < now()).length
-  };
-}
-
-function buildSyncHistorySummary(syncHistory) {
-  return {
-    totalSyncs: syncHistory.length,
-    lastSync: syncHistory.length > 0
-      ? syncHistory.reduce((a, b) => a.syncedAt > b.syncedAt ? a : b)
-      : null
-  };
-}
-
-function buildDeviceReplicasSummary(dr) {
-  return {
-    totalDevices: Object.keys(dr).length,
-    replicas: Object.entries(dr).map(([id, info]) => ({ deviceId: id, ...info }))
-  };
-}
+async function checkBudget(ctx) { const { sid, dev, o, syn } = ctx; assertDevId(dev, 'deviceId'); const snap = await syn.snapshot(sid, o); const queue = snap.shared?.sharedFields?.offlineQueue?.[dev] || []; const deviceReplicas = snap.shared?.sharedFields?.deviceReplicas || {}; const replicaInfo = deviceReplicas[dev] || {}; const deviceOps = queue; const pendingOps = deviceOps.filter(e => !e.reconciled && !e.expired); const expiredOps = deviceOps.filter(e => e.expired); const tooLongAbsent = (now() - (replicaInfo.lastSyncAt || 0)) > MAX_OFFLINE; return { deviceId: dev, pendingOperations: pendingOps.length, expiredOperations: expiredOps.length, totalOperations: deviceOps.length, ageMs: now() - (replicaInfo.lastSyncAt || 0), ageSeconds: Math.round((now() - (replicaInfo.lastSyncAt || 0)) / 1000), lastSyncAt: replicaInfo.lastSyncAt || 0, queueCeiling: MAX_QUEUE_SIZE, canAcceptMore: pendingOps.length < MAX_QUEUE_SIZE, tooLongAbsent, timestamp: now() }; }
+async function listDeviceReplicas(ctx) { const { sid, o, syn } = ctx; const snap = await syn.snapshot(sid, o); const replicas = snap.shared?.sharedFields?.deviceReplicas || {}; const list = Object.entries(replicas).map(([id, info]) => ({ deviceId: id, lastSyncAt: info.lastSyncAt || 0, operationCount: info.operationCount || 0, isActive: (now() - (info.lastSyncAt || 0)) < 300000, tooLongAbsent: (now() - (info.lastSyncAt || 0)) > MAX_OFFLINE })); return { replicas: list, totalDevices: list.length, activeDevices: list.filter(r => r.isActive).length, timestamp: now() }; }
+async function localFirstSnapshot(ctx) { const { sid, o, syn } = ctx; const snap = await syn.snapshot(sid, o); const sf = snap.shared?.sharedFields || {}; return { sessionId: sid, schemaId: 'syncytium-local-first-v1', devices: Object.keys(sf.logicalClock || {}).length, devicesList: Object.entries(sf.logicalClock || {}).map(([id, e]) => ({ deviceId: id, logicalTime: e.logicalTime, wallClock: e.wallClock, recordedAt: e.recordedAt })), offlineQueue: buildQueueSummary(sf.offlineQueue || {}), syncHistory: buildSyncSummary(sf.syncState || {}), deviceReplicas: { totalDevices: Object.keys(sf.deviceReplicas || {}).length, replicas: Object.entries(sf.deviceReplicas || {}).map(([id, i]) => ({ deviceId: id, ...i })) }, vectorClocks: Object.entries(sf.vectorClocks || {}).map(([id, clock]) => ({ deviceId: id, clock })), reconciliationLog: (sf.reconciliationLog || []).slice(-100), expiredOpsLog: (sf.expiredOpsLog || []).slice(-50), encryptedLocalStoreKey: sf.encryptedLocalStoreKey ? 'SET' : 'UNSET', timestamp: now() }; }
+function buildQueueSummary(oq) { const all = Object.values(oq).flat(); return { totalEntries: all.length, byDevice: oq, expiredEntries: all.filter(e => e.expired).length, pendingEntries: all.filter(e => !e.reconciled && !e.expired).length, reconciledEntries: all.filter(e => e.reconciled).length }; }
+function buildSyncSummary(ss) { const hist = Object.values(ss).filter(s => s.outcome !== undefined); return { totalSyncs: hist.length, lastSync: hist.length > 0 ? hist.reduce((a, b) => a.syncedAt > b.syncedAt ? a : b) : null }; }
 
 module.exports = { createLocalFirstVariantService };
