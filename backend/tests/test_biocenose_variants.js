@@ -214,6 +214,14 @@ function testByzantineQuorum() {
     session: { members: correlated }, faultyAssumed: 1
   }), (error) => error.code === 'BIOCENOSE_BYZANTINE_QUORUM_LOST'
     && error.details.domains.domainCount === 2 && error.details.quorum.quorum === 3);
+  const declaredProviders = Array.from({ length: 4 }, (_, index) => ({ memberId: `declared-${index}`,
+    provider: `provider-${index}`, lineage: `lineage-${index}`, status: 'ACTIVE' }));
+  const observedSameProvider = new Map(declaredProviders.map((member) => [member.memberId,
+    { provider: 'ollama', model: 'qwen2.5-coder:7b' }]));
+  assert.throws(() => orchestrator.assertByzantineQuorum({ session: { members: declaredProviders },
+    modelExecutionByMember: observedSameProvider, faultyAssumed: 1 }),
+  (error) => error.code === 'BIOCENOSE_BYZANTINE_QUORUM_LOST'
+    && error.details.domains.providerDomainCount === 1);
 }
 
 function testRepresentativeSampling() {
@@ -279,6 +287,9 @@ async function testHybridOracleMixedClaimsRequireTrustedReceipt() {
     members: [{ memberId: 'v1', role: 'verifier', verificationKinds: ['formal_proof'] }] };
   const claim = { claimId: 'claim-1', claim: { type: 'FACTUAL', verification: { kinds: ['formal_proof'] } } };
   const receipts = [];
+  await assert.rejects(() => oracle.routeAndVerify({ context, session,
+    claim: { claimId: 'claim-untyped', claim: { statement: 'Unclassified claim.' } }, receipts }),
+  (error) => error.code === 'BIOCENOSE_VARIANT_CLAIM_TYPE_REQUIRED');
   const noVerifierSession = { ...session, members: [] };
   await assert.rejects(() => oracle.routeAndVerify({ context: { ...context, verificationExecutor: async () => ({}) },
     session: noVerifierSession, claim, receipts }),
@@ -304,7 +315,9 @@ function testMixedClaimsUseTheirOwnQuestionType() {
 function testAdversarialRoleCapabilities() {
   const reviewers = require('../src/services/biocenose/review/reviewerRouter');
   const result = reviewers.route({ claim: { claimId: 'c1', type: 'security' },
-    members: [{ memberId: 'r1', role: 'reviewer',
+    members: [{ memberId: 'r1', role: 'reviewer', status: 'ACTIVE',
+      workerRequirements: { requiredCapabilities: ['adversarial_review'] } },
+    { memberId: 'r2', role: 'reviewer', status: 'ROTATED',
       workerRequirements: { requiredCapabilities: ['adversarial_review'] } }],
     policy: router.select('adversarial_assembly') });
   assert.equal(result.requiredReviewerMissing, false);
