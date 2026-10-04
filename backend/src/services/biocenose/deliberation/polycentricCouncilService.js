@@ -62,8 +62,8 @@ function federate(input = {}) {
   const outcomes = new Set(delegations.map((item) => item.outcome));
   const bypasses = delegations.flatMap((item) => item.minorityBypass);
   const conflicts = outcomes.size > 1 ? new Set(delegations.map((item) => item.clusterId)) : new Set();
-  const localMatters = delegations.filter((item) => item.dissent.length === 0
-    && item.minorityBypass.length === 0 && !conflicts.has(item.clusterId));
+  const localMatters = delegations.filter((item) => item.minorityBypass.length === 0
+    && !conflicts.has(item.clusterId));
   return {
     status: outcomes.size > 1 ? 'FEDERATED_PLURALISM' : 'FEDERATED_CONSENSUS',
     delegations,
@@ -73,7 +73,7 @@ function federate(input = {}) {
       outcomeConflicts: [...conflicts]
     },
     minorityBypass: bypasses,
-    parentMustReview: bypasses.length > 0 || outcomes.size > 1 || delegations.some((item) => item.dissent.length > 0)
+    parentMustReview: bypasses.length > 0 || outcomes.size > 1
   };
 }
 
