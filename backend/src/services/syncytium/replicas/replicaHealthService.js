@@ -10,7 +10,9 @@ function healthFor(replica, nowMs, staleAfterMs) {
   const lagMs = Math.max(0, nowMs - replica.lastSeenMs);
   const status = ['RETIRED', 'DISCONNECTED'].includes(replica.status)
     ? replica.status : lagMs > staleAfterMs ? 'LAGGING' : replica.status;
-  return { replicaId: replica.replicaId, actorId: replica.actorId, status, lagMs, lastSeenVersion: replica.lastSeenVersion };
+  return { replicaId: replica.replicaId, actorId: replica.actorId, status, lagMs,
+    lastSeenVersion: replica.lastSeenVersion, offlineOperationCount: (replica.offlineOperations || []).length,
+    hybridClock: replica.hybridClock || null };
 }
 
 module.exports = { inspect, DEFAULT_STALE_MS };

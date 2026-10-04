@@ -374,7 +374,7 @@ const codeFacade = createSyncytiumCodeFacade({
   createSession, applyOperation, snapshot, applyTransaction,
   createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch,
   promoteSpeculativeBranch, discardSpeculativeBranch,
-  partitionReplica, reconcileReplica, inspectReplicas,
+  joinReplica, partitionReplica, reconcileReplica, inspectReplicas,
   createSnapshot, listSnapshots, compactHistory,
   explain, localizeFaults, chooseRepairCandidates, repairInvariant,
   inspectHistory: sessionHistory.inspectHistory,
