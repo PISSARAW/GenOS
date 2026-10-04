@@ -67,7 +67,7 @@ async function spawnBranch(ctx) {
 function validateConfig(cfg) {
   if (cfg && typeof cfg !== 'object')
     throw err('branchConfig must be object', 'SPEC_BAD_CONFIG');
-  const budget = cfg?.executionBudgetMs || DEFAULT_EXEC_BUDGET;
+  const budget = cfg?.executionBudgetMs ?? DEFAULT_EXEC_BUDGET;
   if (!Number.isFinite(budget) || budget < 0)
     throw err('budget must be non-negative finite', 'SPEC_BAD_CONFIG');
   return { cap: 16, budget };
