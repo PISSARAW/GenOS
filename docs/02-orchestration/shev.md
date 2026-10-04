@@ -193,6 +193,8 @@ utilisent `INSERT OR IGNORE`, puis mettent l'initiative en état `queued`.
 
 Si le processus s'arrête après l'insertion de tâche et avant la mise à jour
 de l'initiative, `reconcileQueued` retrouve cette tâche au tick suivant.
+S'il s'arrête après l'initiative et avant la tâche, le tick reprend cette
+initiative automatique si l'observation reste actuelle et autorisée.
 Si le projet est `IDLE` avec une tâche SHEV encore ouverte, `ensureWake`
 crée un événement de réveil. Le tick consomme cet événement et repasse
 par la planification normale. Une pause ou un arrêt opérateur empêche la
