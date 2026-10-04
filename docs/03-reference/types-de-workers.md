@@ -1366,3 +1366,13 @@ un `verification_report` avec verdict `reject`, contre-exemple,
 est `unresolved` et ne vaut pas preuve générale. Cette route utilise
 zéro token de modèle ; les revues adversariales libres continuent à
 utiliser leur exécuteur habituel. Voir [ADR 0301](../adr/0301-falsification-deterministe-red-worker.md).
+
+## 52. Première mesure contre AutoGen local (2026-10-04)
+
+L'adaptateur AutoGen AgentChat + Ollama couvre le cas LPT et conserve
+la réponse brute. Sur un essai avec AutoGen 0.7.5 et
+`qwen2.5-coder:7b`, AutoGen a affecté A+B ensemble (makespan 9) ;
+GenOS a obtenu 7. Le comparateur a retenu ce seul cas commun.
+Les dix-huit autres types et le second cas procédural n'ont pas encore
+de mesure AutoGen. Le résultat ne démontre aucune parité générale.
+Voir [ADR 0302](../adr/0302-benchmark-rival-autogen-local.md).

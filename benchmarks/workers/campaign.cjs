@@ -22,6 +22,13 @@ async function score(testCase, execution) {
 }
 
 async function verifyExecution(testCase, execution) {
+  if (execution.provenance?.agentFramework === 'autogen-agentchat') {
+    return require('./autogen-evidence.cjs').verifiedAutoGen(testCase, execution) ? null : 'failed';
+  }
+  return verifyNativeExecution(testCase, execution);
+}
+
+async function verifyNativeExecution(testCase, execution) {
   if (testCase.workerKind === 'procedural_executor' && !verifiedProcedure(testCase, execution)) return 'failed';
   if (testCase.workerKind === 'verifier_worker' && !verifiedVerification(testCase, execution)) return 'failed';
   if (testCase.workerKind === 'red_worker' && !verifiedRed(testCase, execution)) return 'failed';
@@ -45,7 +52,7 @@ function verifiedRed(testCase, execution) {
 }
 
 function validReceipt(receipt) {
-  return typeof receipt?.id === 'string' && /^solver:\/\/sha256:[a-f0-9]{64}$/.test(receipt.id);
+  return typeof receipt?.id === 'string' && /^(solver|agent):\/\/sha256:[a-f0-9]{64}$/.test(receipt.id);
 }
 
 function verifiedProcedure(testCase, execution) {

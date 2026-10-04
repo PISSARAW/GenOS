@@ -38,3 +38,28 @@ locale mesure quatre cas sans Lean et un cinquième cas formel
 quand Lean est configuré ; elle ne démontre aucune parité
 avec un rival. Les sorties JSON sont des artefacts temporaires à conserver
 hors du dépôt.
+
+## Premier adaptateur rival : AutoGen local
+
+L'adaptateur [AutoGen AgentChat](https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/tutorial/index.html)
+emploie son [client Ollama](https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/tutorial/models.html#ollama-experimental).
+Installer `autogen-agentchat` et `autogen-ext[ollama]` dans un environnement
+Python isolé, puis définir `GENOS_RIVAL_PYTHON` vers son interpréteur et
+`GENOS_RIVAL_OLLAMA_MODEL` vers un modèle déjà présent sur le serveur local.
+
+```powershell
+$env:GENOS_RIVAL_PYTHON = 'chemin/vers/venv/Scripts/python.exe'
+$env:GENOS_RIVAL_OLLAMA_MODEL = 'qwen2.5-coder:7b'
+node benchmarks/workers/campaign.cjs benchmarks/workers/autogen-adapter.cjs autogen-local "$env:TEMP/autogen-workers.json"
+node benchmarks/workers/compare.cjs "$env:TEMP/genos-workers.json" "$env:TEMP/autogen-workers.json"
+```
+
+Seul `lpt-schedule` est raccordé. La réponse brute du modèle est conservée
+dans le rapport ; le validateur recalcule les charges depuis les travaux
+affectés et rejette les travaux manquants ou dupliqués. Le digest `agent://`
+porte sur cette réponse brute et ne doit pas être interprété comme un reçu
+de solveur. L'absence de Python, du paquet AutoGen ou du modèle local rend
+le cas indisponible ou en échec selon l'étape atteinte. Pour comparer un
+rapport GenOS qui contient une preuve Lean, Lean doit aussi être disponible
+lors de la relecture du comparateur ; un rapport GenOS sans Lean permet de
+comparer LPT sans cette dépendance.
