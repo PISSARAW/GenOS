@@ -33,6 +33,14 @@ function eventForSchedule(kind) {
   return kind === 'deadline' ? 'deadline' : 'wake';
 }
 
+function schedulePayload(row) {
+  const payload = { scheduleId: row.id };
+  let spec = {};
+  try { spec = JSON.parse(row.spec_json || '{}'); } catch (_) { return payload; }
+  if (row.kind === 'interval' && spec.policy === 'chronotaxis') payload.windowIndex = spec.index;
+  return payload;
+}
+
 function reserveOf(project) {
   try {
     const config = JSON.parse(project.config_json || '{}');
@@ -49,7 +57,7 @@ function doingOf(tasks) {
 async function fireDue(db, projectId, nowMs) {
   const due = await dueSchedules(db, { projectId });
   for (const row of due) {
-    await postEvent(db, { projectId, type: eventForSchedule(row.kind), payload: { scheduleId: row.id } });
+    await postEvent(db, { projectId, type: eventForSchedule(row.kind), payload: schedulePayload(row) });
     await markScheduleRan(db, { id: row.id, nowMs });
   }
   return due.length;

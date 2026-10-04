@@ -143,7 +143,6 @@ function reportTrinityPlan({ autonomyPlan, agentId, automaticRequest, trinityWor
     emit(agentId, 'TRINITY_SKIPPED', 'BUDGET_GUARD', autonomyPlan.trinity.reason, autonomyPlan.trinity, 'warning');
   }
 }
-
 async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, dispatchedAgent, effectiveWorkerShare, effectiveOrchestratorReserve }) {
   autonomyPlan.trinity = trinityService.analyzeMission(missionText(normalizedMission));
   const requestedVariant = normalizedMission.trinityVariantId || normalizedMission.trinityVariant
@@ -158,6 +157,7 @@ async function applyTrinityPlan({ autonomyPlan, normalizedMission, agentId, db, 
     autonomyPlan.trinity.members, autonomyPlan.trinity.variantSelection
   );
   autonomyPlan.trinity.dimensionThresholds = normalizedMission.trinityDimensionThresholds || {};
+  autonomyPlan.trinity.statisticalContract = normalizedMission.trinityStatisticalContract || null;
   autonomyPlan.trinity.adaptiveBudget = normalizedMission.trinityAdaptiveBudget === true
     || autonomyPlan.trinity.variantSelection.effects?.adaptiveBudget === true;
   const engagement = calculateTrinityEngagement(autonomyPlan, normalizedMission, effectiveWorkerShare);

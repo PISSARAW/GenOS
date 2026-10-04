@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const chronotaxis = require('../morphogenesis/capabilities/chronotaxis');
 
 /**
  * Échéances et intervalles de l'Ontogenèse (roadmap §P1).
@@ -14,7 +15,17 @@ function newId(prefix) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
+function scheduleSpec(input, nowMs) {
+  if (input.kind === 'interval' && input.spec?.policy === 'chronotaxis') {
+    return { ...input.spec, anchorMs: input.spec.anchorMs ?? nowMs, index: input.spec.index ?? 0 };
+  }
+  return input.spec || {};
+}
+
 function nextRunAfter(kind, spec, fromMs) {
+  if (kind === 'interval' && spec?.policy === 'chronotaxis') {
+    return chronotaxis.nextObservation(spec, fromMs).scheduledAt;
+  }
   if (kind === 'interval') {
     const every = Number((spec && spec.everyMinutes) || 0);
     if (!(every > 0)) throw new Error('intervalle-invalide');
@@ -29,12 +40,13 @@ async function createSchedule(db, input) {
   if (!KINDS.includes(input.kind)) throw new Error('schedule-kind-inconnu');
   const nowMs = input.nowMs || Date.now();
   const id = input.id || newId('sched');
-  const next = nextRunAfter(input.kind, input.spec, nowMs);
+  const spec = scheduleSpec(input, nowMs);
+  const next = nextRunAfter(input.kind, spec, nowMs);
   await db.run(
     `INSERT INTO ontogenesis_schedules
        (id, project_id, kind, spec_json, timezone, next_run_at, status, payload_json)
      VALUES (?, ?, ?, ?, ?, ?, 'active', ?)`,
-    [id, input.projectId, input.kind, JSON.stringify(input.spec || {}),
+    [id, input.projectId, input.kind, JSON.stringify(spec),
       input.timezone || 'UTC', next, JSON.stringify(input.payload || {})]
   );
   return id;
@@ -69,6 +81,16 @@ function parseSpec(row) {
 async function markScheduleRan(db, input) {
   const row = await db.get('SELECT * FROM ontogenesis_schedules WHERE id = ?', [input.id]);
   if (!row) throw new Error('schedule-introuvable');
+  if (row.kind === 'interval' && parseSpec(row).policy === 'chronotaxis') {
+    const spec = parseSpec(row);
+    const fired = chronotaxis.nextObservation(spec, Date.parse(row.next_run_at));
+    const nextSpec = { ...spec, index: fired.index + 1 };
+    const next = nextRunAfter(row.kind, nextSpec, input.nowMs || Date.now());
+    await db.run(`UPDATE ontogenesis_schedules
+      SET spec_json = ?, next_run_at = ?, last_run_at = datetime('now') WHERE id = ?`,
+    [JSON.stringify(nextSpec), next, row.id]);
+    return { id: row.id, status: 'active', nextRunAt: next, firedWindowIndex: fired.index };
+  }
   if (row.kind === 'interval') {
     const next = nextRunAfter(row.kind, parseSpec(row), input.nowMs || Date.now());
     await db.run(`UPDATE ontogenesis_schedules SET next_run_at = ?, last_run_at = datetime('now') WHERE id = ?`, [next, row.id]);
@@ -76,6 +98,27 @@ async function markScheduleRan(db, input) {
   }
   await db.run(`UPDATE ontogenesis_schedules SET status = 'done', last_run_at = datetime('now') WHERE id = ?`, [row.id]);
   return { id: row.id, status: 'done' };
+}
+
+async function recordTemporalObservation(db, input) {
+  if (!input?.observationId || !input.scheduleId || !Number.isInteger(input.windowIndex)
+    || !['OBSERVED', 'MISSED'].includes(input.status)) throw new Error('Invalid temporal observation');
+  const observedAt = input.observedAt || new Date().toISOString();
+  if (!Number.isFinite(Date.parse(observedAt))) throw new Error('Invalid observation time');
+  await db.run(`INSERT INTO morph_temporal_observations
+    (observation_id, schedule_id, window_index, observed_at, status, evidence_ref)
+    VALUES (?, ?, ?, ?, ?, ?)`, [input.observationId, input.scheduleId, input.windowIndex,
+    observedAt, input.status, input.evidenceRef || null]);
+  return { observationId: input.observationId, status: input.status };
+}
+
+async function temporalCoverage(db, input) {
+  const row = await db.get('SELECT spec_json FROM ontogenesis_schedules WHERE id = ?', [input.scheduleId]);
+  if (!row) throw new Error('schedule-introuvable');
+  const spec = JSON.parse(row.spec_json);
+  const observations = await db.all('SELECT * FROM morph_temporal_observations WHERE schedule_id = ?', [input.scheduleId]);
+  return chronotaxis.coverage(observations.map((item) => ({ status: item.status, observedAt: item.observed_at })),
+    { periodMs: spec.periodMs, anchorMs: spec.anchorMs, bins: input.bins || 12 });
 }
 
 async function pauseSchedule(db, scheduleId) {
@@ -90,4 +133,5 @@ async function stopTask(db, input) {
   return { taskId: row.id, stopped: true, status: 'blocked', reason: input.reason || '' };
 }
 
-module.exports = { KINDS, nextRunAfter, createSchedule, dueSchedules, markScheduleRan, pauseSchedule, stopTask };
+module.exports = { KINDS, nextRunAfter, createSchedule, dueSchedules, markScheduleRan,
+  recordTemporalObservation, temporalCoverage, pauseSchedule, stopTask };

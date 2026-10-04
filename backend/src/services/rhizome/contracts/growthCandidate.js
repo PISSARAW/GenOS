@@ -18,7 +18,8 @@ function normalizeGrowthCandidate(value) {
     coordinationCost: numberValue(candidate.coordinationCost, 'coordinationCost'),
     duplicationRisk: numberValue(candidate.duplicationRisk, 'duplicationRisk', { maximum: 1 }),
     sufficient: candidate.sufficient === true,
-    evidenceRefs: listValue(candidate.evidenceRefs, 'evidenceRefs')
+    evidenceRefs: listValue(candidate.evidenceRefs, 'evidenceRefs'),
+    experimentContract: candidate.experimentContract || null
   };
 }
 

@@ -368,6 +368,9 @@ const migrationRunners = [
   createMigrationRunner('100-procedural-causal-experiments', 'Persist pinned procedural causal experiments and isolated forks', async (db) => {
     await require('./migrateProceduralCausalExperiments').migrateProceduralCausalExperiments(db);
   }),
+  createMigrationRunner('101-morphogenesis-capabilities', 'Persist experimental coverage, attempts, temporal observations, counterexamples and inherited statistical risk', async (db) => {
+    await require('./migrateMorphogenesisCapabilities').migrateMorphogenesisCapabilities(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

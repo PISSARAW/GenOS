@@ -163,7 +163,8 @@ async function applyTrinityComparison(ctx) {
   trinity.comparison.synthesizedClaims = result.outcome === 'SYNTHESIZE_CLAIMS' ? result.mergedEvidence?.claims || [] : [];
   trinity.comparison.promotion = result.outcome === 'SYNTHESIZE_CLAIMS'
     ? { promoted: false, reason: 'synthesized_claims_require_artifact_assembly' }
-    : await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId, result });
+    : await promoteWinner(ctx.db, { missionId: trinity.missionId, orchestratorId: ctx.agentId,
+      result, statisticalContract: trinity.statisticalContract || null });
   emitComparison(ctx, trinity, result);
   return result;
 }
@@ -246,6 +247,12 @@ async function promoteWinner(db, input = {}) {
     return { promoted: false, reason: validation.reason };
   }
   const { winner } = validation;
+  const statistical = await require('./morphogenesis/capabilities/statisticalPromotionGate')
+    .evaluate(db, input.statisticalContract);
+  if (!statistical.allowed) {
+    await failPromotion({ db, missionId, reason: statistical.reason });
+    return { promoted: false, reason: statistical.reason, risk: statistical.result || null };
+  }
   const context = await loadMergeContext(db, winner);
   const artifact = await createMergeArtifact(db, { result, context, orchestratorId });
   if (!artifact) {
@@ -365,22 +372,7 @@ function comparisonEvidenceRef(missionId, result) {
   return `trinity-comparison:${missionId}:${digest}`;
 }
 
-function vectorDecisionSummary(pareto) {
-  if (!pareto) return null;
-  return {
-    outcome: pareto.outcome,
-    reason: pareto.reason || null,
-    dimensions: pareto.dimensions || [],
-    thresholds: pareto.thresholds || null,
-    frontier: (pareto.frontier || []).map((world) => world.worldNumber),
-    worlds: (pareto.worlds || []).map((world) => ({
-      worldNumber: world.worldNumber,
-      vector: world.vector,
-      missing: world.missing,
-      gateFailures: world.gateFailures || []
-    }))
-  };
-}
+const { vectorDecisionSummary } = require('./trinityVectorDecisionSummary');
 
 async function failPromotion(input) {
   const { db, missionId, reason, artifact = null } = input;
