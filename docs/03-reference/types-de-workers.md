@@ -1338,8 +1338,8 @@ une parité avec un produit concurrent. Voir [ADR 0294](../adr/0294-executeurs-d
 bornée ; elle ne remplace pas une revue générale de code.
 
 La [campagne comparative](../../benchmarks/workers/README.md) contient 20 cas
-pour les 19 types. Deux cas procéduraux, une vérification et une falsification
-de reçu sont mesurables par recalcul indépendant ; un cinquième cas formel
+pour les 19 types. Deux cas procéduraux, une vérification, une falsification
+de reçu et une mesure LPT sont mesurables par recalcul indépendant ; un sixième cas formel
 a été mesuré localement avec Lean 4.34.0. Les tâches
 sans oracle indépendant restent `unmeasured` ;
 un rapport rival n'est comparable que sur un même cas effectivement mesuré.
@@ -1370,9 +1370,18 @@ utiliser leur exécuteur habituel. Voir [ADR 0301](../adr/0301-falsification-det
 ## 52. Première mesure contre AutoGen local (2026-10-04)
 
 L'adaptateur AutoGen AgentChat + Ollama couvre le cas LPT et conserve
-la réponse brute. Sur un essai avec AutoGen 0.7.5 et
-`qwen2.5-coder:7b`, AutoGen a affecté A+B ensemble (makespan 9) ;
-GenOS a obtenu 7. Le comparateur a retenu ce seul cas commun.
+la réponse brute. Deux essais locaux avec AutoGen 0.7.5 et
+`qwen2.5-coder:7b` ont produit des makespans de 9 puis 7 ;
+GenOS a obtenu 7 sur ce cas déterministe. Le comparateur de la version
+courante du jeu retient un seul cas commun, réussi par les deux systèmes.
 Les dix-huit autres types et le second cas procédural n'ont pas encore
 de mesure AutoGen. Le résultat ne démontre aucune parité générale.
 Voir [ADR 0302](../adr/0302-benchmark-rival-autogen-local.md).
+
+## 53. Mesure bornée du worker expérimental (2026-10-04)
+
+La méthode `measure_lpt` exécute LPT sur les travaux déclarés, mesure le
+makespan et compare le résultat à un seuil. L'artefact
+`experiment_record` contient le protocole, la mesure et le reçu de
+calcul. La conclusion vaut seulement pour cette entrée et ce seuil.
+La route utilise zéro token de modèle. Voir [ADR 0303](../adr/0303-mesure-bornee-experimental-worker.md).

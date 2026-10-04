@@ -29,7 +29,10 @@ const CASES = Object.freeze([
       procedure: VERIFICATION_PROCEDURE,
       candidateReceipt: { ...CANDIDATE_RECEIPT, result: { found: false } }
     } }, oracle: { path: 'verdict', equals: 'reject' } },
-  { id: 'experiment-measure', workerKind: 'experimental_worker', task: 'Exécuter un protocole et enregistrer une mesure.' },
+  { id: 'experiment-measure', workerKind: 'experimental_worker', task: 'Mesurer le makespan LPT pour une hypothèse bornée.',
+    methodContract: { version: 1, methodId: 'measure_lpt', parameters: { jobs: [
+      { id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }
+    ], machines: 2, threshold: 7 } }, oracle: { path: 'measurements.0.value', equals: 7 } },
   { id: 'lean-arithmetic', workerKind: 'formal_worker', task: 'Prouver 2 + 2 = 4 dans Lean.',
     methodContract: { version: 1, methodId: 'formal_proof', parameters: { claim: '2 + 2 = 4', toolchainVersion: '' } },
     oracle: { path: 'result', equals: 'proved' } },

@@ -1,24 +1,25 @@
 'use strict';
 
 const NEEDS_DETERMINISTIC_RUNNER = new Set(['procedural_executor', 'formal_worker']);
+const SPECIALIZED_RUNNERS = Object.freeze({
+  verifier_worker: (method) => require('./deterministicWorkerVerifier').assertVerificationInput(method),
+  red_worker: (method) => require('./deterministicWorkerRed').assertRedInput(method),
+  experimental_worker: (method) => require('./deterministicWorkerExperiment').assertExperimentInput(method)
+});
 
 function isDeterministicWorkerMission(mission) {
   if (NEEDS_DETERMINISTIC_RUNNER.has(mission.workerKind)) return true;
   const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
   return (mission.workerKind === 'verifier_worker' && method?.methodId === 'verify_procedure')
-    || (mission.workerKind === 'red_worker' && method?.methodId === 'falsify_procedure');
+    || (mission.workerKind === 'red_worker' && method?.methodId === 'falsify_procedure')
+    || (mission.workerKind === 'experimental_worker' && method?.methodId === 'measure_lpt');
 }
 
 function assertWorkerExecutorAvailable(mission) {
   const kind = mission.workerKind;
-  if (kind === 'verifier_worker' && isDeterministicWorkerMission(mission)) {
+  if (SPECIALIZED_RUNNERS[kind] && isDeterministicWorkerMission(mission)) {
     const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
-    require('./deterministicWorkerVerifier').assertVerificationInput(method);
-    return;
-  }
-  if (kind === 'red_worker' && isDeterministicWorkerMission(mission)) {
-    const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
-    require('./deterministicWorkerRed').assertRedInput(method);
+    SPECIALIZED_RUNNERS[kind](method);
     return;
   }
   if (!NEEDS_DETERMINISTIC_RUNNER.has(kind)) return;

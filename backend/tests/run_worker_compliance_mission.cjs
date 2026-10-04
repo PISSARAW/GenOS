@@ -75,6 +75,12 @@ function complianceMethod(kind) {
     const candidateReceipt = { ...receipt, result: { found: false } };
     return { version: 1, methodId: 'falsify_procedure', parameters: { procedure, candidateReceipt } };
   }
+  if (kind === 'experimental_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_EXPERIMENT === '1') {
+    return { version: 1, methodId: 'measure_lpt', parameters: {
+      jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }],
+      machines: 2, threshold: 7
+    } };
+  }
   return undefined;
 }
 
@@ -95,17 +101,27 @@ async function validateMission(context) {
 }
 
 function correctMissionReference(kind, report, scenario) {
+  const specialized = specializedMissionReference(kind, report);
+  if (specialized !== null) return specialized;
   if (kind === 'procedural_executor') return solverReference(report?.workerArtifact?.content?.procedureReceipt?.id);
   if (kind === 'formal_worker') return solverReference(report?.workerArtifact?.content?.solverReceipt?.id);
   if (kind === 'verifier_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER === '1') {
     return solverReference(report?.workerArtifact?.content?.expectedReceipt?.id);
   }
+  return hasFixtureReference(report, scenario.sourceRef);
+}
+
+function specializedMissionReference(kind, report) {
   if (kind === 'red_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_RED === '1') {
     const content = report?.workerArtifact?.content;
     return content?.verdict === 'reject' && content?.counterexamples?.length > 0
       && solverReference(content?.expectedReceipt?.id);
   }
-  return hasFixtureReference(report, scenario.sourceRef);
+  if (kind === 'experimental_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_EXPERIMENT === '1') {
+    const content = report?.workerArtifact?.content;
+    return content?.measurements?.[0]?.value === 7 && solverReference(content?.procedureReceipt?.id);
+  }
+  return null;
 }
 
 function solverReference(id) {

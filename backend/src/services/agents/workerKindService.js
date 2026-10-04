@@ -43,6 +43,7 @@ const METHOD_CAPABILITIES = Object.freeze({
   formal_proof: ['formal_proof'], theorem_proving: ['formal_proof'],
   verify_procedure: ['verify'],
   falsify_procedure: ['adversarial_review'],
+  measure_lpt: ['experiment', 'measure'],
   clinical_review: ['clinical_context'],
   experimental_design: ['experiment'], controlled_experiment: ['experiment'],
   adversarial_review: ['adversarial_review'], threat_modeling: ['adversarial_review'],

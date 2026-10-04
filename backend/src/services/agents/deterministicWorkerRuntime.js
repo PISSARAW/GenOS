@@ -8,8 +8,14 @@ const { runProcedure } = require('./deterministicWorkerProcedures');
 const { runFormal } = require('./deterministicWorkerFormal');
 const { runVerification } = require('./deterministicWorkerVerifier');
 const { runRed } = require('./deterministicWorkerRed');
+const { runExperiment } = require('./deterministicWorkerExperiment');
 
 function reportFor(kind, result) {
+  if (kind === 'experimental_worker') {
+    const ref = result.procedureReceipt.id;
+    return { outcome: 'success', claims: [{ statement: result.conclusion, evidence: [ref] }],
+      workerArtifact: { type: 'experiment_record', content: result, provenance: { sourceRefs: [ref] } } };
+  }
   if (kind === 'formal_worker') {
     const ref = result.solverReceipt.id;
     return { outcome: 'success', claims: [{ statement: result.claim, evidence: [ref] }],
@@ -44,7 +50,8 @@ async function runDeterministicWorker(db, mission, executionRun) {
     const result = kind === 'formal_worker'
       ? await runFormal(method, { timeoutMs: mission.timeoutMs || 30000 })
       : kind === 'verifier_worker' ? runVerification(method)
-        : kind === 'red_worker' ? runRed(method) : runProcedure(method);
+        : kind === 'red_worker' ? runRed(method)
+          : kind === 'experimental_worker' ? runExperiment(method) : runProcedure(method);
     const evidenceReport = reportFor(kind, result);
     validateWorkerArtifact({ events: [{ evidenceReport }] }, mission);
     await updateAgent(mission.agentId, 'completed', 'Deterministic result certified');
