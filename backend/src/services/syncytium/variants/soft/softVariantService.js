@@ -180,7 +180,7 @@ async function compressState(context) {
   const { sessionId, options, syncytium } = context;
   const snapshot = await syncytium.snapshot(sessionId, options);
   const fields = snapshot.shared?.sharedFields || {};
-  const deltas = uniqueDeltas([...fields.deltas || [], ...fields.localDeltas || [], ...fields.queuedDeltas || []]);
+  const deltas = partitionService.uniqueDeltas([...fields.deltas || [], ...fields.localDeltas || [], ...fields.queuedDeltas || []]);
   const antiEntropyLog = fields.antiEntropyLog || [];
   const coveredIds = new Set(antiEntropyLog.map(e => e.deltaId));
   const prior = latestCompaction(fields.compactionLog || []);
