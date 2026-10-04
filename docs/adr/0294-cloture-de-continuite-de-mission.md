@@ -21,7 +21,12 @@ ces membres et la date de création de la mission. Les statuts de mission suiven
 des transitions conditionnelles ; seul le verdict final écrit `completed`.
 
 La suspension écrit snapshot, condition, état et statut dans une transaction.
-Le backend surveille les échéances temporelles persistées. La succession
+Le backend surveille les échéances temporelles persistées. Les réveils de budget,
+de fournisseur et d'événement externe lisent un registre d'observations durable,
+alimenté par une route réservée aux administrateurs avec référence de preuve.
+La santé disponible d'un fournisseur et les événements externes expirent.
+Les réveils par approbation relisent la décision persistée liée à l'agent.
+La succession
 associe un PID au détenteur de l'autorité et renouvelle une génération après
 la disparition du processus qui avait revendiqué `launching` ou `running`.
 
@@ -52,6 +57,7 @@ nouvelle génération d'autorité aurait permis deux successeurs simultanés.
 
 La présence d'un PID ne constitue qu'un contrôle local de vivacité ; le
 fencing par génération reste la protection contre une autorité ancienne. Les
-signaux de budget, fournisseur, approbation humaine et événement externe
-requièrent encore des producteurs authentifiés. Le rapport fonctionnel du
+observations de budget et fournisseur requièrent encore des producteurs métier
+authentifiés ; le registre et sa route ne constituent pas une mesure autonome.
+Le rapport fonctionnel du
 worker n'est pas une vérification indépendante.

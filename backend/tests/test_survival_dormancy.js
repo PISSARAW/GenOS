@@ -12,7 +12,7 @@ async function run() {
   let db = await getDatabase(dbPath);
   try {
     await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES ('dormant-agent', 'Dormant Agent', 'orchestrator', 'running', 'orchestrator')");
-    const suspended = await survivalState.suspend(db, { agentId: 'dormant-agent', wakeCondition: { type: 'budget_restored', minimumTokens: 1000 } });
+    const suspended = await survivalState.suspend(db, { agentId: 'dormant-agent', wakeCondition: { type: 'operator_or_signal' } });
     assert.equal(suspended.success, true);
     assert.equal(suspended.state.state, 'dormant');
     assert.equal(suspended.snapshot.status || 'frozen', 'frozen');
@@ -25,7 +25,7 @@ async function run() {
     assert.equal(wrongCondition.code, 'SURVIVAL_WAKE_EVENT_MISMATCH');
     const wakeCommand = {
       agentId: 'dormant-agent', wakeConditionId: suspended.wakeCondition.id,
-      event: { type: 'budget_restored', tokens: 1200 }
+      event: { type: 'operator_signal', authorized: true }
     };
     const wakeResults = await Promise.all([
       survivalState.wake(db, wakeCommand), survivalState.wake(db, wakeCommand)

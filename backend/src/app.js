@@ -54,6 +54,7 @@ const frameworkRoutes = require('./routes/frameworkRoutes');
 const productProofRoutes = require('./routes/productProofRoutes');
 const rustBridgeRoutes = require('./routes/rustBridgeRoutes');
 const daemonRoutes = require('./routes/daemonRoutes');
+const missionResourceRoutes = require('./routes/missionResourceRoutes');
 const chaosRoutes = require('./routes/chaosRoutes');
 const genomeRoutes = require('./routes/genomeRoutes');
 const healthController = require('./controllers/healthController');
@@ -162,6 +163,7 @@ function createApp() {
   app.use('/api/ide', ideRoutes);
   app.use('/api/strategies', strategyRoutes);
   app.use('/api/daemon', daemonRoutes);
+  app.use('/api', missionResourceRoutes);
   app.use('/api/chaos', chaosRoutes);
   app.use('/api', schemaRoutes);
 
