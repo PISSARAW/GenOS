@@ -45,10 +45,12 @@ async function codeGaps() {
   const session = await syncytium.createCodeSession('Dependency-aware locks and merge gates.');
   await syncytium.applyCodeChange(session.sessionId, {
     opId: 'gap-math-1', actorId: 'alice', filePath: 'src/math.js',
+    expectedHash: null,
     content: 'export function add(a, b) { return a + b; }'
   });
   await syncytium.applyCodeChange(session.sessionId, {
     opId: 'gap-use-1', actorId: 'alice', filePath: 'src/use.js',
+    expectedHash: null,
     content: "import { add } from './math.js';"
   });
   const lock = await syncytium.acquireFileLock(session.sessionId, {
@@ -56,8 +58,10 @@ async function codeGaps() {
   });
   assert.ok(lock.locked.includes('src/use.js'));
   assert.ok(lock.locked.includes('src/math.js'));
+  const initialHash = (await syncytium.codeSnapshot(session.sessionId)).code.files['src/math.js'].hash;
   await assert.rejects(syncytium.applyCodeChange(session.sessionId, {
     opId: 'gap-math-2', actorId: 'bob', filePath: 'src/math.js',
+    expectedHash: initialHash,
     content: 'export function add(a, b) { return a + b; }'
   }), (error) => error.code === 'SYNCYTIUM_CODE_LOCK_CONFLICT');
   await assert.rejects(syncytium.acquireFileLock(session.sessionId, {
@@ -74,6 +78,7 @@ async function codeGaps() {
   });
   await syncytium.applyCodeChange(session.sessionId, {
     opId: 'gap-math-3', actorId: 'bob', filePath: 'src/math.js',
+    expectedHash: initialHash,
     content: 'export function add(a, b) { return a + b; }'
   });
   await syncytium.recordCodeTestResult(session.sessionId, {
