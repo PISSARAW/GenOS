@@ -9,14 +9,14 @@ async function run() {
   assert.equal(CASES.length, 20);
   assert.equal(new Set(CASES.map((item) => item.workerKind)).size, 19);
   const report = await runCampaign(adapter, 'genos');
-  assert.deepEqual(summary(report), { passed: 6, failed: 0, unverified: 0, unmeasured: 14, total: 20, kinds: 19 });
+  assert.deepEqual(summary(report), { passed: 7, failed: 0, unverified: 0, unmeasured: 13, total: 20, kinds: 19 });
   await assert.rejects(compare(report, report), /distinct identified systems/);
   const rival = structuredClone(report);
   rival.systemId = 'rival';
   rival.results.find((row) => row.id === 'lpt-schedule').execution.result.output.makespan = 8;
   await assert.rejects(compare(report, rival), /inconsistent/);
   rival.results.find((row) => row.id === 'lpt-schedule').score = 'failed';
-  assert.equal((await compare(report, rival)).comparableCases, 6);
+  assert.equal((await compare(report, rival)).comparableCases, 7);
   rival.results.pop();
   await assert.rejects(compare(report, rival), /missing or duplicate/);
   const fake = { runCase: async () => ({ status: 'executed', result: { output: { makespan: 7 } },

@@ -91,6 +91,13 @@ function additionalComplianceMethod(kind) {
       { sourceRef: 'source://compliance/synthesis/b', claim: 'Release is safe.', position: 'no' }
     ] } };
   }
+  if (kind === 'resident_daemon' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_MONITOR === '1') {
+    return { version: 1, methodId: 'monitor_samples', parameters: {
+      territoryId: 'compliance-sensor', threshold: 10, samples: [
+        { value: 4, observedAt: '2026-10-04T10:00:00Z', sourceRef: 'sensor://compliance/1' },
+        { value: 12, observedAt: '2026-10-04T10:01:00Z', sourceRef: 'sensor://compliance/2' }
+      ] } };
+  }
   return undefined;
 }
 
@@ -132,6 +139,9 @@ function specializedMissionReference(kind, report) {
   if (kind === 'synthesis_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SYNTHESIS === '1') {
     return synthesisMissionReference(content);
   }
+  if (kind === 'resident_daemon' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_MONITOR === '1') {
+    return monitorMissionReference(content);
+  }
   return null;
 }
 
@@ -147,6 +157,12 @@ function experimentMissionReference(content) {
 function synthesisMissionReference(content) {
   return content?.disagreements?.[0]?.claim === 'Release is safe.'
     && content?.sources?.length === 2 && solverReference(content?.synthesisReceipt?.id);
+}
+
+function monitorMissionReference(content) {
+  return content?.anomalies?.[0]?.value === 12
+    && content?.territoryReport?.sourceRefs?.length === 2
+    && solverReference(content?.monitorReceipt?.id);
 }
 
 function solverReference(id) {

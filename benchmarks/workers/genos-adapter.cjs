@@ -6,6 +6,7 @@ const { runVerification } = require('../../backend/src/services/agents/determini
 const { runRed } = require('../../backend/src/services/agents/deterministicWorkerRed');
 const { runExperiment } = require('../../backend/src/services/agents/deterministicWorkerExperiment');
 const { runSynthesis } = require('../../backend/src/services/agents/deterministicWorkerSynthesis');
+const { runMonitor } = require('../../backend/src/services/agents/deterministicWorkerMonitor');
 
 async function runCase(testCase) {
   if (testCase.workerKind === 'procedural_executor') {
@@ -27,6 +28,10 @@ async function runCase(testCase) {
   if (testCase.workerKind === 'synthesis_worker') {
     const result = runSynthesis(testCase.methodContract);
     return { status: 'executed', result, receipt: result.synthesisReceipt };
+  }
+  if (testCase.workerKind === 'resident_daemon') {
+    const result = runMonitor(testCase.methodContract);
+    return { status: 'executed', result, receipt: result.monitorReceipt };
   }
   if (testCase.workerKind === 'formal_worker') {
     const toolchainVersion = process.env.GENOS_BENCHMARK_LEAN_VERSION;

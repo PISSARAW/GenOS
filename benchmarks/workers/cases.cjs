@@ -8,7 +8,12 @@ const CANDIDATE_RECEIPT = runProcedure(VERIFICATION_PROCEDURE).receipt;
 
 const CASES = Object.freeze([
   { id: 'scout-source', workerKind: 'scout_cell', task: 'Observer un corpus local et citer chaque observation.' },
-  { id: 'daemon-anomaly', workerKind: 'resident_daemon', task: 'Détecter une anomalie dans un flux borné, puis fournir le reçu.' },
+  { id: 'daemon-anomaly', workerKind: 'resident_daemon', task: 'Détecter un dépassement dans une fenêtre bornée.',
+    methodContract: { version: 1, methodId: 'monitor_samples', parameters: {
+      territoryId: 'benchmark-sensor', threshold: 10, samples: [
+        { value: 4, observedAt: '2026-10-04T10:00:00Z', sourceRef: 'sensor://benchmark/1' },
+        { value: 12, observedAt: '2026-10-04T10:01:00Z', sourceRef: 'sensor://benchmark/2' }
+      ] } }, oracle: { path: 'anomalies.0.value', equals: 12 } },
   { id: 'bounded-code', workerKind: 'bounded_worker', task: 'Corriger un bug borné et produire un diff vérifié.' },
   { id: 'adaptive-shift', workerKind: 'adaptive_worker', task: 'Changer de stratégie après une mesure défavorable.' },
   { id: 'specialist-niche', workerKind: 'specialist', task: 'Résoudre une tâche dans une niche déclarée et refuser une tâche hors niche.' },

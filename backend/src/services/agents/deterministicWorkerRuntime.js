@@ -10,16 +10,26 @@ const { runVerification } = require('./deterministicWorkerVerifier');
 const { runRed } = require('./deterministicWorkerRed');
 const { runExperiment } = require('./deterministicWorkerExperiment');
 const { runSynthesis } = require('./deterministicWorkerSynthesis');
+const { runMonitor } = require('./deterministicWorkerMonitor');
 
 const EXECUTORS = Object.freeze({
   formal_worker: (method, mission) => runFormal(method, { timeoutMs: mission.timeoutMs || 30000 }),
   verifier_worker: (method) => runVerification(method),
   red_worker: (method) => runRed(method),
   experimental_worker: (method) => runExperiment(method),
-  synthesis_worker: (method) => runSynthesis(method)
+  synthesis_worker: (method) => runSynthesis(method),
+  resident_daemon: (method) => runMonitor(method)
 });
 
 function reportFor(kind, result) {
+  if (kind === 'resident_daemon') {
+    const refs = result.territoryReport.sourceRefs;
+    const claim = `${result.anomalies.length} of ${result.sampleCount} samples exceeded ${result.threshold}.`;
+    return { outcome: 'success', claims: [{ statement: claim, evidence: refs }],
+      workerArtifact: { type: 'dossier', content: { claims: [{ statement: claim, evidence: refs }],
+        territoryReport: result.territoryReport, anomalies: result.anomalies,
+        monitorReceipt: result.monitorReceipt }, provenance: { sourceRefs: refs } } };
+  }
   if (kind === 'synthesis_worker') {
     const refs = result.sources;
     return { outcome: 'success', claims: [{ statement: result.synthesis, evidence: refs }],
