@@ -10,6 +10,9 @@ async function recordPendingDeliveries(signalId, recipientAgentIds) {
     }
   } catch (err) {
     console.warn(`[SignalingTransport] recordPendingDeliveries failed: ${err.message}`);
+    throw Object.assign(new Error(`Signal delivery enqueue failed: ${err.message}`), {
+      code: 'SIGNAL_DELIVERY_ENQUEUE_FAILED', cause: err
+    });
   }
 }
 

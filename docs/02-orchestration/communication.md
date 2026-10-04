@@ -1,8 +1,8 @@
 # Types de communication : Écologie communicationnelle GenOS
 
-- **Statut** : Partiel (enveloppe versionnée branchée au Signal Plane et aux messages d'organisation ; checkpoints persistés actifs par défaut, mode shadow disponible ; mesure réelle des tokens et adaptateurs généraux non branchés)
+- **Statut** : Partiel (enveloppe versionnée et Signal Plane branchés ; politique checkpoint active par défaut mais sans appelant de production trouvé ; seuls SIGNAL et STIGMERGY ont un adaptateur checkpoint ; mesure réelle des tokens non reliée automatiquement aux cycles)
 - **Portée** : les 7 types de communication inter-agents, leurs déclencheurs, leurs garanties et leur gouvernance (coût, métriques, shadow, apprentissage)
-- **Dernière revue** : 2026-09-25
+- **Dernière revue** : 2026-10-04
 
 ---
 

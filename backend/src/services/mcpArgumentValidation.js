@@ -278,7 +278,7 @@ function validateToolArguments(toolName, args = {}) {
   for (const [field, value] of Object.entries(args)) {
     if (typeof value === 'string') {
       if (value.includes('\0')) return invalid(field, 'contains null bytes.');
-      if (!FREEFORM_FIELDS.has(field)) {
+      if (!FREEFORM_FIELDS.has(field) && !(toolName === 'genos_biomimicry_cryptophasia' && field === 'intent')) {
         if (/[\r\n]/.test(value) || /["'`\\;|&<>$]/.test(value)) return invalid(field, 'contains forbidden command characters.');
         if (/\s/.test(value)) return invalid(field, 'must not contain whitespace.');
       }

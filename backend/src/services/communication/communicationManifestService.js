@@ -49,13 +49,14 @@ async function fetchAgentProfile(ctx) {
   const agentId = ctx.agentId;
   try {
     const row = await db.get(
-      'SELECT agent_id, phenotype_id, metadata_json FROM agents WHERE agent_id = ?',
+      'SELECT id, metadata_json FROM agents WHERE id = ?',
       [agentId]
     );
     if (!row) return null;
     let metadata = {};
     try { metadata = JSON.parse(row.metadata_json || '{}'); } catch (_) { /* ignore */ }
-    return { agentId: row.agent_id, phenotypeId: row.phenotype_id, metadata };
+    return { agentId: row.id,
+      phenotypeId: metadata.phenotypeId || metadata.phenotype_id || null, metadata };
   } catch (_) {
     return null;
   }

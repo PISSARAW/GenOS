@@ -22,6 +22,7 @@ async function setupTestDb() {
     CREATE TABLE organization_signal_budgets (organization_id TEXT PRIMARY KEY, budget_mv REAL NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)), created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE);
     CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL, visibility TEXT DEFAULT 'Private', language TEXT DEFAULT 'TypeScript', description TEXT, tags TEXT DEFAULT '[]', is_archived INTEGER DEFAULT 0, anomalies_count INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, organization_id TEXT, project_id TEXT);
     CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT NOT NULL, name_meaning TEXT, role TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'idle' CHECK (status IN ('idle','running','completed','blocked','error','terminated','apoptosis','active','Active','Apoptosis')), agent_type TEXT NOT NULL DEFAULT 'GenOS', execution_mode TEXT NOT NULL DEFAULT 'orchestrator' CHECK (execution_mode IN ('orchestrator','worker')), workspace_id TEXT, fleet_id TEXT, hallucination_monitoring INTEGER NOT NULL DEFAULT 0, hallucination_count INTEGER NOT NULL DEFAULT 0, dissonance_level REAL DEFAULT 0.0, eureka_count INTEGER DEFAULT 0, cognitive_budget REAL DEFAULT 100.0, cognitive_baseline_budget REAL DEFAULT 100.0, cognitive_max_dissonance REAL DEFAULT 50.0, conscience_revision INTEGER NOT NULL DEFAULT 0, is_apoptotic INTEGER DEFAULT 0, model_tier TEXT DEFAULT 'Flash', language TEXT DEFAULT 'TypeScript', isolation_mode TEXT DEFAULT 'Branch', parent_agent_id TEXT, lineage_relation TEXT DEFAULT 'independent', about TEXT, metadata_json TEXT DEFAULT '{}', current_task TEXT, runtime_pid INTEGER, runtime_started_at DATETIME, runtime_executable TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL, FOREIGN KEY (parent_agent_id) REFERENCES agents(id) ON DELETE SET NULL);
+    CREATE TABLE trinity_worlds (agent_id TEXT, status TEXT, updated_at DATETIME);
     CREATE TABLE signal_blobs (id INTEGER PRIMARY KEY AUTOINCREMENT, signal_id TEXT NOT NULL, signal_type TEXT NOT NULL CHECK (signal_type IN ('ligand','voltage','pheromone','plasmid','tensor','text')), signal_blob BLOB, content TEXT NOT NULL DEFAULT '', topic TEXT NOT NULL DEFAULT '', sender_agent_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, expires_at DATETIME, UNIQUE(signal_id));
     CREATE TABLE signal_subscriptions (subscriber_agent_id TEXT NOT NULL, topic TEXT NOT NULL, filter TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (subscriber_agent_id, topic));
     CREATE TABLE signal_deliveries (signal_id TEXT NOT NULL, subscriber_agent_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','seen','acked')), delivered_at DATETIME DEFAULT CURRENT_TIMESTAMP, seen_at DATETIME, acked_at DATETIME, PRIMARY KEY (signal_id, subscriber_agent_id));
@@ -286,8 +287,83 @@ async function runAllTests() {
   await testDeliveryAckCycle();
   await testWakeHandlerPath();
   await testDurablePollWakePath();
+  await testRejectedRecipientIsNotPersisted();
+  await testReadRespectsProjectScope();
+  await testReadRespectsTargetedAudience();
+  await testReceptorFailureEscalates();
+  await testReadAndAckFailuresAreVisible();
   console.log('\n✓ All Signal Plane E2E tests passed');
   await testDb.close();
+}
+
+async function testRejectedRecipientIsNotPersisted() {
+  resetState();
+  await testDb.run(`INSERT INTO projects (id, organization_id, name) VALUES ('proj-other', 'org-test', 'Other Project')`);
+  await testDb.run(`INSERT INTO workspaces (id, name, path, organization_id, project_id)
+    VALUES ('ws-other', 'Other Workspace', '/tmp/other', 'org-test', 'proj-other')`);
+  await testDb.run(`INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id)
+    VALUES ('worker-other', 'Other Worker', 'worker', 'active', 'worker', 'ws-other', 'orch-1')`);
+  const result = await transport.publishSignal({ signalType: 'ligand',
+    signalData: { semanticType: 'TEST_READY', concentration: 1 },
+    topic: 'scope-rejected', senderAgentId: 'orch-1', recipientAgentIds: ['worker-other'] });
+  assert.equal(result.published, false);
+  assert.equal(result.suppressedBy, 'recipient_scope');
+  const row = await testDb.get('SELECT signal_id FROM signal_blobs WHERE signal_id = ?', result.signalId);
+  assert.equal(row, undefined);
+  console.log('[PASS] testRejectedRecipientIsNotPersisted');
+}
+
+async function testReadRespectsProjectScope() {
+  resetState();
+  await testDb.run(`INSERT INTO agents (id, name, role, status, execution_mode, workspace_id)
+    VALUES ('orch-other', 'Other Orchestrator', 'orchestrator', 'idle', 'orchestrator', 'ws-other')`);
+  const result = await transport.publishSignal({ signalType: 'ligand',
+    signalData: { semanticType: 'OTHER_PROJECT', concentration: 0.9 },
+    senderAgentId: 'orch-other' });
+  assert.equal(result.published, true);
+  const own = await transport.readSignalsForAgent('worker-other');
+  const foreign = await transport.readSignalsForAgent('worker-1');
+  assert.ok(own.some((signal) => signal.signalId === result.signalId));
+  assert.ok(!foreign.some((signal) => signal.signalId === result.signalId));
+  console.log('[PASS] testReadRespectsProjectScope');
+}
+
+async function testReadRespectsTargetedAudience() {
+  resetState();
+  const result = await transport.publishSignal({ signalType: 'ligand',
+    signalData: { semanticType: 'PRIVATE_TARGET', concentration: 0.9 },
+    senderAgentId: 'orch-1', recipientAgentIds: ['worker-1'] });
+  assert.equal(result.published, true);
+  const target = await transport.readSignalsForAgent('worker-1');
+  const peer = await transport.readSignalsForAgent('worker-2');
+  assert.ok(target.some((signal) => signal.signalId === result.signalId));
+  assert.ok(!peer.some((signal) => signal.signalId === result.signalId));
+  console.log('[PASS] testReadRespectsTargetedAudience');
+}
+
+async function testReadAndAckFailuresAreVisible() {
+  resetState();
+  await testDb.exec('DROP TABLE signal_subscriptions');
+  await assert.rejects(transport.readSignalsForAgent('worker-1'), /signal_subscriptions/);
+  await testDb.exec('DROP TABLE signal_deliveries');
+  await assert.rejects(transport.markSignalsSeen('worker-1', ['missing-signal']), /signal_deliveries/);
+  console.log('[PASS] testReadAndAckFailuresAreVisible');
+}
+
+async function testReceptorFailureEscalates() {
+  resetState();
+  const original = receptor.matchAndDispatch;
+  receptor.matchAndDispatch = async () => { throw new Error('receptor unavailable'); };
+  try {
+    const result = await transport.publishSignal({ signalType: 'ligand',
+      signalData: { semanticType: 'BROKEN_RECEPTOR', concentration: 0.9 },
+      topic: 'broken-receptor', senderAgentId: 'orch-1' });
+    assert.equal(result.published, true);
+    assert.equal(result.llmRequired, true);
+  } finally {
+    receptor.matchAndDispatch = original;
+  }
+  console.log('[PASS] testReceptorFailureEscalates');
 }
 
 runAllTests().catch((err) => {

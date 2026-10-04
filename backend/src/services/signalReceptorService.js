@@ -47,7 +47,8 @@ const actionDispatchers = {
       depth: depth + 1,
       ttlMs: receptor.actionData?.ttlMs,
     });
-    return { executed: true, signalId: result.signalId, action: 'emit_signal' };
+    return { executed: result.published === true, signalId: result.signalId,
+      action: 'emit_signal', reason: result.published === true ? null : (result.suppressedBy || 'SIGNAL_NOT_PUBLISHED') };
   },
 
   /**
@@ -260,7 +261,9 @@ async function matchAndDispatch(signal, ctx = {}) {
     return { triggered: [], dispatched: [], llmRequired: hasRoutingContext(signal) };
   }
   const dispatched = await dispatchActions(triggered, signal, ctx);
-  return { triggered: triggered.map((t) => t.receptor.id), dispatched, llmRequired: false };
+  const executed = dispatched.some((result) => result.executed === true);
+  return { triggered: triggered.map((t) => t.receptor.id), dispatched,
+    llmRequired: !executed && hasRoutingContext(signal) };
 }
 
 module.exports = {

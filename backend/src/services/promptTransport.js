@@ -37,17 +37,19 @@ function encodePromptCapsule({ prompt, sourceAgentId = '', recipientAgentId = ''
   const message = PromptCapsule.create({
     sourceAgentId,
     recipientAgentId,
-    promptDna: promptToDna(prompt),
-    encoding: 'UTF-8-2BIT-DNA'
+    promptDna: Buffer.from(String(prompt || ''), 'utf8'),
+    encoding: 'UTF-8'
   });
   return Buffer.from(PromptCapsule.encode(message).finish());
 }
 
 function decodePromptCapsule(buffer) {
   const message = PromptCapsule.decode(buffer);
-  if (message.encoding !== 'UTF-8-2BIT-DNA') throw new Error(`Unsupported prompt capsule encoding '${message.encoding}'.`);
+  if (!['UTF-8', 'UTF-8-2BIT-DNA'].includes(message.encoding)) {
+    throw new Error(`Unsupported prompt capsule encoding '${message.encoding}'.`);
+  }
   return {
-    prompt: dnaToPrompt(message.promptDna),
+    prompt: message.encoding === 'UTF-8' ? Buffer.from(message.promptDna).toString('utf8') : dnaToPrompt(message.promptDna),
     sourceAgentId: message.sourceAgentId,
     recipientAgentId: message.recipientAgentId
   };
