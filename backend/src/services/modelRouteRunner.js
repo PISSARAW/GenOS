@@ -158,6 +158,7 @@ async function invokeProvider(ctx, prepared, uri) {
       projectId: ctx.projectId,
       seed: ctx.seed,
       stream: ctx.stream,
+      responseFormat: ctx.responseFormat,
       enforceSchema: ctx.enforceSchema,
       signal: attempt.controller.signal,
       displayWidth: ctx.displayWidth,
@@ -186,12 +187,13 @@ async function finalizeAttempt(ctx, outcome, result) {
   if (ctx.maxCostUsd != null && ctx.spent > Number(ctx.maxCostUsd)) throw Object.assign(new Error(`Actual model cost ${ctx.spent} exceeds budget ${ctx.maxCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
   const enriched = Object.assign({}, result, { model: outcome.uri, requestedModel: outcome.uri, servedModel: result.servedModel || result.model || outcome.prepared.modelName, latencyMs: Date.now() - outcome.startedAt, costUsd });
   await recordModelUsage(ctx.db, { organizationId: ctx.organizationId, projectId: ctx.projectId }, enriched);
-  await observeRoutingBandit(ctx, outcome, result, costUsd);
-  await recordLlmAttempt(ctx, outcome, result, costUsd);
+  const observation = { ctx, outcome, result, costUsd };
+  await observeRoutingBandit(observation);
+  await recordLlmAttempt(observation);
   return enriched;
 }
 
-async function recordLlmAttempt(ctx, outcome, result, costUsd) {
+async function recordLlmAttempt({ ctx, outcome, result, costUsd }) {
   try {
     await require('./shadowReplayService').recordAttempt(ctx.db, {
       uri: outcome.uri,
@@ -203,7 +205,7 @@ async function recordLlmAttempt(ctx, outcome, result, costUsd) {
   } catch (_) {}
 }
 
-async function observeRoutingBandit(ctx, outcome, result, costUsd) {
+async function observeRoutingBandit({ ctx, outcome, result, costUsd }) {
   try {
     await require('./routingBanditService').observe(ctx.db, {
       routeUri: outcome.uri,

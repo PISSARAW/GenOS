@@ -1,8 +1,22 @@
 const assert = require('node:assert/strict');
 const modelProvider = require('../src/services/modelProvider');
+const providerRequest = require('../src/services/modelProviderRequest');
 assert.deepEqual(modelProvider.normalizeMessageContent([{ type: 'text', text: 'hello' }, { type: 'tool_use', id: 'call-1', input: {} }]), {
   text: 'hello',
   toolCalls: [{ type: 'tool_use', id: 'call-1', input: {} }]
+});
+
+const responseFormat = { name: 'biocenose_revision', schema: {
+  type: 'object', required: ['changedClaims'], properties: { changedClaims: { type: 'array', items: { type: 'string' } } }
+} };
+assert.deepEqual(providerRequest.buildRequestBody({ provider: 'ollama', nativeOllama: true,
+  modelName: 'qwen', prompt: 'Return the schema.', responseFormat }), {
+  model: 'qwen', messages: [{ role: 'user', content: 'Return the schema.' }], stream: undefined,
+  format: responseFormat.schema
+});
+assert.deepEqual(providerRequest.buildRequestBody({ provider: 'openai', modelName: 'gpt-test',
+  prompt: 'Return the schema.', responseFormat }).response_format, {
+  type: 'json_schema', json_schema: { name: 'biocenose_revision', strict: false, schema: responseFormat.schema }
 });
 
 const previousKey = process.env.OPENAI_API_KEY;
@@ -31,6 +45,12 @@ global.fetch = async (_url, options) => {
   assert.equal(result.structured.ok, true);
   assert.equal(result.inputTokens, 0);
   assert.equal(result.outputTokens, 0);
+  const schemaResult = await modelProvider.generate({ model: 'openai://structured-test', prompt: 'Return the schema.',
+    stream: false, responseFormat });
+  assert.deepEqual(requestBody.response_format, { type: 'json_schema', json_schema: {
+    name: 'biocenose_revision', strict: false, schema: responseFormat.schema
+  } });
+  assert.deepEqual(schemaResult.structured, { ok: true });
   global.fetch = async () => ({
     ok: true,
     headers: { get: () => 'application/json' },

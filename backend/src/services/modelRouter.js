@@ -91,6 +91,7 @@ function buildRouteContext(opts, clock, remainingMs) {
     prompt: opts.prompt,
     maxTokens: opts.maxTokens,
     maxCostUsd: opts.maxCostUsd,
+    responseFormat: opts.responseFormat,
     spent: 0,
     priority: opts.priority || 'bulk',
     agentId: opts.agentId,
