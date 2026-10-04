@@ -19,6 +19,7 @@ const { handleAction, handleBackground, initializeMission } = require('./orchest
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const helpers = require('./orchestratorMissionHelpers.cjs');
 const requestMemory = require('./requestMemoryBridge.cjs');
+const missionCheckpoint = require('../src/services/communication/missionCheckpointBridge');
 
 const {
   buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
@@ -165,6 +166,8 @@ async function evaluateMissionContinuity(opts) {
     if (gate.allowed && missionId) await missionIdentity.setStatus(db, missionId, 'completed');
     completionGate = { allowed: gate.allowed, reason: gate.reason || null };
     emitCompletionEvent({ id, gateAllowed: gate.allowed, evaluation: evalResult, continuity, completionGate });
+    await missionCheckpoint.evaluateMissionCompletion({ db, agentId: id,
+      missionId: mission.id, gateAllowed: gate.allowed });
   } catch (continuityError) {
     continuity = { status: 'unknown', error: continuityError.message };
     completionGate = { allowed: false, reason: continuityError.message };

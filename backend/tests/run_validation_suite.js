@@ -133,6 +133,8 @@ const suites = {
     ['prompt capsule transport', 'test_prompt_transport.js'],
     ['cryptophasia validation', 'test_cryptophasia.js'],
     ['communication manifest V3 schema', 'test_communication_manifest_runtime.js'],
+    ['mission communication checkpoint', 'test_mission_communication_checkpoint.js'],
+    ['mission checkpoint policy runtime', 'test_mission_checkpoint_runtime.js'],
     ['durable signal delivery claims', 'test_signal_delivery_claims.js'],
     ['signal metrics', 'test_signal_metrics.js'],
     ['agent output schema', 'test_agent_output_schema.js'],
