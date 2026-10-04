@@ -241,6 +241,14 @@ async function dispatchActions(triggered, signal, ctx = {}) {
       continue;
     }
     try {
+      if (ctx.authorizeAction) {
+        const authority = await ctx.authorizeAction(receptor, signal);
+        if (authority?.authorized !== true) {
+          results.push({ receptorId: receptor.id, executed: false,
+            reason: authority?.reason || 'ACTION_NOT_AUTHORIZED' });
+          continue;
+        }
+      }
       const result = await dispatcher(receptor, signal, ctx);
       results.push({ receptorId: receptor.id, ...result });
     } catch (error) {

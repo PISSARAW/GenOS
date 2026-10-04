@@ -83,6 +83,13 @@ Si une dépendance est absente, l'action renvoie `{ executed: false, reason: 'NO
 
 **Appel** : `matchAndDispatch(signal, ctx)` — renvoie `{ triggered, dispatched, llmRequired }`.
 
+Dans le chemin de publication, chaque action exige un émetteur orchestrateur
+avec organisation et projet. `wake_worker` et `update_agent` exigent en plus un
+worker enfant dans ce même périmètre et présent parmi les destinataires routés.
+Une action refusée n'est pas comptée comme exécutée. Le registre de récepteurs
+reste en mémoire du processus ; aucune règle active n'est restaurée au redémarrage.
+L'identifiant d'agent fourni à MCP n'authentifie pas l'appelant.
+
 ### SignalEventBus
 
 EventEmitter singleton. Deux modes de souscription :

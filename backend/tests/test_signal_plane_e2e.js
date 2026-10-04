@@ -289,6 +289,7 @@ async function runAllTests() {
   await testDurablePollWakePath();
   await testRejectedRecipientIsNotPersisted();
   await testReadRespectsProjectScope();
+  await testReceptorCannotUpdateOtherProject();
   await testReadRespectsTargetedAudience();
   await testReceptorFailureEscalates();
   await testReadAndAckFailuresAreVisible();
@@ -326,6 +327,21 @@ async function testReadRespectsProjectScope() {
   assert.ok(own.some((signal) => signal.signalId === result.signalId));
   assert.ok(!foreign.some((signal) => signal.signalId === result.signalId));
   console.log('[PASS] testReadRespectsProjectScope');
+}
+
+async function testReceptorCannotUpdateOtherProject() {
+  resetState();
+  receptor.registerReceptor({ id: 'foreign-update', targetLigand: 'FOREIGN_UPDATE',
+    threshold: 0.5, action: 'update_agent',
+    actionData: { agentId: 'worker-other', status: 'completed' } });
+  const result = await transport.publishSignal({ signalType: 'ligand',
+    signalData: { semanticType: 'FOREIGN_UPDATE', concentration: 1 },
+    topic: 'foreign-update', senderAgentId: 'orch-1' });
+  const target = await testDb.get('SELECT status FROM agents WHERE id = ?', ['worker-other']);
+  assert.equal(result.published, true);
+  assert.equal(result.llmRequired, true);
+  assert.equal(target.status, 'active');
+  console.log('[PASS] testReceptorCannotUpdateOtherProject');
 }
 
 async function testReadRespectsTargetedAudience() {

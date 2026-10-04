@@ -2,20 +2,17 @@ const { getDatabase } = require('../db');
 const { SIGNAL_TYPES, formatSignalForTransport } = require('./biomimeticSignalingBus');
 const { routeCollectiveSignal } = require('./collectiveSignalOrganizationRouter');
 const signalRepressor = require('./signalRepressorService');
-const receptor = require('./signalReceptorService');
 const signalEventBus = require('./signalEventBus');
 const signalCoalescer = require('./signalCoalescerService');
 const plasticity = require('./synapticPlasticityService');
 const tensor = require('./tensorCompatibilityService');
 const signalMetrics = require('./signalMetricsService');
 const { checkRateLimit, validatePayloadSize, validateArgs, retryDbOperation } = require('./signalValidationUtils');
-const runtimeMissionExecution = require('./agentRuntimeAdapter/missionExecution');
-const { updateAgent: runtimeUpdateAgent } = require('./agentOrchestrationState');
-const dynamicOrg = require('./dynamicOrganizationService');
 const signalDelivery = require('./signalDeliveryService');
 const { recordPendingDeliveries } = require('./signalDeliveryHelpers');
 const { createEnvelope } = require('./communication/communicationEnvelopeService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
+const { dispatchReceptorsIfNeeded } = require('./signalReceptorDispatchService');
 
 const DEFAULT_SIGNAL_TTL_MS = 30_000;
 const LOCAL_BROADCAST_LOG = new Map();
@@ -114,20 +111,6 @@ function handleSuppressed(signal) {
   signalMetrics.recordOutcome('suppressed');
   // Supprimé (coalescé) = NON publié : published:false, sinon livraison fantôme.
   return { signalId: signal.id, published: false, coalesced: true, suppressed: true, signalType: signal.formatted.signalType, routing: { routed: false, reason: 'coalesced' } };
-}
-
-async function dispatchReceptorsIfNeeded(signal) {
-  const ctx = {
-    publishSignal: signal.publishSignal,
-    startMission: async (mission) => ({ started: true, agentId: mission.agentId, result: await runtimeMissionExecution.startMission(mission) }),
-    updateAgent: async (agentId, status, currentTask) => { await runtimeUpdateAgent(agentId, status, currentTask); return { updated: true, agentId, status }; },
-    changeOrganization: async (options) => ({ changed: true, organization: (await dynamicOrg.changeOrganization(await getDatabase(), options)) }),
-  };
-  const result = await receptor.matchAndDispatch(
-    { signalId: signal.signalId, signalType: signal.signalType, semanticType: signal.signalData?.semanticType || signal.signalType, concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0, topic: signal.topic, senderAgentId: signal.senderAgentId, depth: Number(signal.depth || 0), recipientAgentIds: Array.isArray(signal.recipientAgentIds) ? signal.recipientAgentIds : [] },
-    ctx
-  );
-  return { dispatched: result.dispatched.some((item) => item.executed === true), results: result.dispatched, triggered: result.triggered, llmRequired: result.llmRequired };
 }
 
 function updatePlasticityForRecipients(signal, dispatchResult, routing) {
