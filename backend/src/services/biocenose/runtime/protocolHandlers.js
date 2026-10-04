@@ -47,8 +47,10 @@ async function collectSealedJudgments(context) {
   const session = await loadActiveSession(context);
   const persistent = context.variantPolicy?.name === 'persistent_community'
     ? await variantOrchestrator.persistentContext({ ...context, session, judgments: [] }) : null;
+  if (persistent) await persistMembershipDecisions(context, session, persistent.report);
+  const current = persistent ? await loadActiveSession(context) : session;
   const excluded = new Set(persistent?.report.excludedMemberIds || []);
-  const participants = session.members.filter((member) => member.status === 'ACTIVE'
+  const participants = current.members.filter((member) => member.status === 'ACTIVE'
     && member.role !== 'community_facilitator' && !excluded.has(member.memberId));
   const commitments = await communityStore.listCommitments(context.db, session.communityId, session.round);
   const committed = new Set(commitments.map((item) => item.memberId));
@@ -81,6 +83,17 @@ async function collectSealedJudgments(context) {
   } : undefined,
   byzantine: quorumReport ? { ...quorumReport, quarantined } : undefined,
   persistentCommunity: persistent?.report };
+}
+async function persistMembershipDecisions(context, session, report) {
+  const rotated = new Set(report.rotation.rotate.map((item) => item.memberId));
+  const expelled = new Set(report.excludedMemberIds.filter((memberId) => !rotated.has(memberId)));
+  for (const [memberIds, type, reason] of [[rotated, 'MEMBER_ROTATED', 'ANTI_ENTRENCHMENT'],
+    [expelled, 'MEMBER_EXPELLED', 'REPUTATION_BELOW_FLOOR']]) {
+    for (const memberId of memberIds) {
+      await communityStore.appendEvent(context.db, { communityId: session.communityId,
+        actorId: context.actorId, type, payload: { memberId, reason }, patch: {} });
+    }
+  }
 }
 async function commitmentServiceCall(context, member, response) {
   return commitment.commitJudgment({

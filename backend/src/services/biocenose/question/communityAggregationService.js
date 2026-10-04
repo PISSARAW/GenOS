@@ -227,9 +227,20 @@ function mixed(input) {
 
 function mixedClaimResult(input) {
   return (claim) => {
-    const type = claim.questionType && claim.questionType !== 'MIXED' ? claim.questionType : 'EXPLORATORY';
+    const type = mixedClaimQuestionType(claim);
     return { claimId: claim.claimId, result: aggregate({ ...input, questionType: type, claims: [claim] }) };
   };
+}
+
+function mixedClaimQuestionType(claim) {
+  if (claim.questionType && claim.questionType !== 'MIXED') return claim.questionType;
+  const type = String(claim.claim?.type || claim.type || '').toUpperCase();
+  if (['FACT', 'FACTUAL', 'MATH', 'CODE', 'SECURITY'].includes(type)) return 'FACTUAL';
+  if (['PROBABILISTIC', 'FORECAST'].includes(type)) return 'PROBABILISTIC';
+  if (type === 'DESIGN') return 'DESIGN';
+  if (type === 'NORMATIVE') return 'NORMATIVE';
+  if (type === 'MULTI_CRITERIA') return 'MULTI_CRITERIA';
+  return 'EXPLORATORY';
 }
 
 function validForecast(item) {

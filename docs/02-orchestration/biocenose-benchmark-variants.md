@@ -28,3 +28,7 @@ Ce contrat rend les 48 missions comparables et reproductibles. Un PASS signifie 
 | Human–AI Deliberation | perspectives, dissent et dossier humain | pas de verdict moral automatique; état humain obligatoire |
 | Hybrid Oracle Community | classification par claim, vérificateur et reçu | claim factuel jamais `VERIFIED` sans reçu fiable, y compris en MIXED |
 
+
+## Vérification runtime
+
+`backend/tests/test_biocenose_mission_matrix.js` exécute les 12 variants à quatre tailles de communauté (48 tours runtime) avec SQLite et un simulateur déterministe de membres. Il vérifie les contrats de routage et les artefacts des variants, dont quarantaine Byzantine, conflits polycentriques, rotation persistée, reçu Oracle en MIXED et dossier de revue humaine. Ce test valide l’intégration du runtime; il ne mesure pas la justesse sémantique des réponses d’un fournisseur de modèles sur les 48 prompts originaux.

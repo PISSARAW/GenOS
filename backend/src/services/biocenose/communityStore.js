@@ -203,7 +203,7 @@ async function participantIds(db, communityId) {
      AND role != 'community_facilitator' ORDER BY member_id`, communityId
   );
   const statuses = await memberStatuses(db, communityId);
-  return rows.map((row) => row.member_id).filter((id) => statuses.get(id) !== 'QUARANTINED');
+  return rows.map((row) => row.member_id).filter((id) => statuses.get(id) === 'ACTIVE');
 }
 
 async function memberIds(db, communityId) {
@@ -218,9 +218,10 @@ async function isActiveMember(db, communityId, memberId) {
   const row = await db.get(
     'SELECT status FROM biocenose_members WHERE community_id = ? AND member_id = ?', communityId, memberId
   );
-  return Boolean(row && (await memberStatuses(db, communityId)).get(memberId) !== 'QUARANTINED');
+  return Boolean(row && (await memberStatuses(db, communityId)).get(memberId) === 'ACTIVE');
 }
 
+function membershipStatus(eventType) { return ({ MEMBER_QUARANTINED: 'QUARANTINED', MEMBER_REINSTATED: 'ACTIVE', MEMBER_ROTATED: 'ROTATED', MEMBER_EXPELLED: 'EXPELLED' })[eventType] || 'ACTIVE'; }
 async function memberStatuses(db, communityId) {
   const rows = await db.all(
     'SELECT member_id, status FROM biocenose_members WHERE community_id = ?', communityId
@@ -228,12 +229,12 @@ async function memberStatuses(db, communityId) {
   const statuses = new Map(rows.map((row) => [row.member_id, row.status]));
   const events = await db.all(
     `SELECT event_type, payload_json FROM biocenose_events WHERE community_id = ?
-     AND event_type IN ('MEMBER_QUARANTINED', 'MEMBER_REINSTATED') ORDER BY revision`, communityId
+     AND event_type IN ('MEMBER_QUARANTINED', 'MEMBER_REINSTATED', 'MEMBER_ROTATED', 'MEMBER_EXPELLED') ORDER BY revision`, communityId
   );
   for (const event of events) {
     const payload = parseJson(event.payload_json);
     if (statuses.has(payload.memberId)) statuses.set(payload.memberId,
-      event.event_type === 'MEMBER_QUARANTINED' ? 'QUARANTINED' : 'ACTIVE');
+      membershipStatus(event.event_type));
   }
   return statuses;
 }

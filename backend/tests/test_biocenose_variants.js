@@ -248,6 +248,25 @@ async function testHybridOracleMixedClaimsRequireTrustedReceipt() {
   await oracle.routeAndVerify({ context, session, claim, receipts });
   assert.deepEqual(receipts.map((receipt) => receipt.claimId), ['claim-1']);
 }
+function testMixedClaimsUseTheirOwnQuestionType() {
+  const result = aggregation.aggregate({ questionType: 'MIXED', claims: [
+    { claimId: 'factual-1', claim: { type: 'FACTUAL', statement: 'Claim', verification: { kinds: ['formal_proof'] } } },
+    { claimId: 'exploratory-1', claim: { type: 'EXPLORATORY', statement: 'Question' } }
+  ], verificationReceipts: [{ claimId: 'factual-1', status: 'VERIFIED' }] });
+  assert.equal(result.results[0].result.questionType, 'FACTUAL');
+  assert.equal(result.results[0].result.outcome, 'EVIDENCE_SUPPORTED');
+  assert.equal(result.results[1].result.questionType, 'EXPLORATORY');
+}
+function testAdversarialRoleCapabilities() {
+  const reviewers = require('../src/services/biocenose/review/reviewerRouter');
+  const result = reviewers.route({ claim: { claimId: 'c1', type: 'security' },
+    members: [{ memberId: 'r1', role: 'reviewer',
+      workerRequirements: { requiredCapabilities: ['adversarial_review'] } }],
+    policy: router.select('adversarial_assembly') });
+  assert.equal(result.requiredReviewerMissing, false);
+  assert.equal(result.reviewers[0].memberId, 'r1');
+  assert.ok(result.reviewers[0].specialties.includes('adversarial'));
+}
 function testDelphiSpreadAndForecastScoring() {
   const delphi = aggregation.aggregate({ questionType: 'PROBABILISTIC',
     variantPolicy: router.select('delphi_community'),
@@ -278,6 +297,8 @@ testByzantineQuorum();
 testRepresentativeSampling();
 testPersistentReputation();
 testDelphiSpreadAndForecastScoring();
+testAdversarialRoleCapabilities();
+testMixedClaimsUseTheirOwnQuestionType();
 testHybridOracleMixedClaimsRequireTrustedReceipt().then(() => {
   console.log('✅ Biocenose variant tests passed.');
 }).catch((error) => {
