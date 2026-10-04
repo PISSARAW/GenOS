@@ -5,6 +5,7 @@ const { getResponsibility } = require('./responsibilityService');
 
 const KINDS = new Set(['state', 'degradation', 'risk', 'opportunity', 'capability_gap', 'blind_spot']);
 const STATUSES = new Set(['observed', 'unknown', 'stale', 'invalid', 'inconclusive']);
+const SAFE_ID = /^[A-Za-z0-9._:-]{1,128}$/;
 
 function validDate(value) {
   return typeof value === 'string' && Number.isFinite(Date.parse(value));
@@ -15,8 +16,9 @@ function validText(value) {
 }
 
 function validIdentity(input) {
-  return input && ['id', 'projectId', 'domain', 'dimension', 'source', 'summary']
-    .every((key) => validText(input[key]));
+  return input && SAFE_ID.test(input.id) && ['projectId', 'domain', 'dimension', 'source', 'summary']
+    .every((key) => validText(input[key])) && input.source.length <= 256
+    && input.summary.length <= 2048;
 }
 
 function validClassification(input) {
@@ -24,12 +26,17 @@ function validClassification(input) {
     && validDate(input.observedAt) && (!input.validUntil || validDate(input.validUntil));
 }
 
+function validEvidence(input) {
+  return Array.isArray(input.evidenceRefs) && input.evidenceRefs.length <= 20
+    && input.evidenceRefs.every((ref) => validText(ref) && ref.length <= 512)
+    && (input.epistemicStatus !== 'observed' || input.evidenceRefs.length > 0);
+}
+
 function normalizedObservation(input) {
   if (!validIdentity(input) || !validClassification(input)) {
     throw new TypeError('SHEV observation is invalid.');
   }
-  if (!Array.isArray(input.evidenceRefs) || !input.evidenceRefs.every(validText)
-    || (input.epistemicStatus === 'observed' && input.evidenceRefs.length === 0)) {
+  if (!validEvidence(input)) {
     throw new TypeError('Observed SHEV evidence references are required.');
   }
   return { id: input.id, projectId: input.projectId, domain: input.domain,
