@@ -375,6 +375,19 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
   et le statut de mission. Un scheduler du backend consomme les échéances
   `time_elapsed`, les observations du registre durable et les approbations
   humaines. Le réveil conserve la dormance si le redémarrage échoue.
+  Une reprise de mission dormante renouvelle l'autorité d'exécution même si
+  l'ancien propriétaire est encore vivant. Le scheduler réconcilie les réveils
+  interrompus : il finalise une reprise seulement si la mission est active,
+  l'autorité est `running` et le processus du runtime correspond à son
+  exécutable enregistré, ou si l'agent a terminé avec le statut `completed`.
+  Sinon il revient à la dormance après arrêt confirmé d'un lancement orphelin.
+  Une reprise déjà `running` dont le runtime a disparu sans statut de succès
+  reste en attente d'une résolution explicite pour éviter un second lancement
+  aux effets inconnus. Après examen des effets, l'administrateur peut demander
+  `POST /api/missions/:missionId/wake/retry` avec un `evidenceRef` : GenOS
+  vérifie que le propriétaire et le runtime sont morts, journalise la décision
+  et réarme la condition dans une transaction. L'état de survie et le snapshot sont modifiés dans
+  une même transaction.
   Le registre accepte les soldes de tokens absolus, les disponibilités de
   fournisseur avec expiration et les événements externes avec expiration. Le
   contenu fourni par l'appelant de `wake()` ne fait plus autorité pour ces

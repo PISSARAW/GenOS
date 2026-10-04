@@ -42,7 +42,10 @@ async function attachOrchestrator(db, input = {}) {
       throw Object.assign(new Error('Mission orchestrator changed during succession.'), { code: 'MISSION_SUCCESSION_CONFLICT' });
     }
     await attachAgent(db, { missionId, agentId, role: 'orchestrator' });
-    await require('./missionExecutionAuthority').rotate(db, { missionId, agentId, previousAgentId: current.orchestratorAgentId });
+    await require('./missionExecutionAuthority').rotate(db, {
+      missionId, agentId, previousAgentId: current.orchestratorAgentId,
+      forceRotate: current.status === 'dormant'
+    });
     return get(db, missionId);
   });
 }
