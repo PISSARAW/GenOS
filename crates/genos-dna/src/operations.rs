@@ -148,12 +148,16 @@ pub fn clone_dna_pair(dna: &AgentDna, options: &CloneOptions) -> Result<ClonePai
     validate_clone_mode(&options.mode)?;
     let genome = dna.to_genome()?;
     let seed = resolve_seed(&options.seed, &format!("clone:{}", dna.meta.genome_id));
+    if !(0.0..=1.0).contains(&options.mutation_rate) {
+        return Err("Mutation rate must be between 0 and 1".to_string());
+    }
     if options.mode.as_str() == "budding" {
-        let limits = (0, genome.hayflick_limit, options.mutation_rate);
+        let current_scars = genome.bud_scars.len() as u32;
+        let hayflick_limit = genome.hayflick_limit;
         let result = CellDivision::budding_with_limit_and_mutation_seeded(
             &genome,
             options.daughter_volume,
-            (limits.0, limits.1, limits.2, &seed),
+            (current_scars, hayflick_limit, options.mutation_rate, &seed),
         )?;
         let mother = rebuild_inheriting(&result.mother, dna, (&dna.meta.name, mother_provenance(dna)));
         let mut daughter_prov = daughter_provenance(dna, &options.mode);
@@ -162,52 +166,10 @@ pub fn clone_dna_pair(dna: &AgentDna, options: &CloneOptions) -> Result<ClonePai
         let daughter = rebuild_inheriting(&result.daughter, dna, (&daughter_name, daughter_prov));
         return Ok(ClonePair { mother, daughter });
     }
-    Ok(ClonePair { mother: dna.clone(), daughter: clone_dna(dna, options)? })
-}
-
-fn mother_provenance(dna: &AgentDna) -> Provenance {
-    Provenance {
-        source_manifest: dna.provenance.source_manifest.clone(),
-        source_doc: dna.provenance.source_doc.clone(),
-        parents: vec![dna.meta.genome_id],
-        mutations: vec![Mutation {
-            gene: None,
-            kind: "budding:mother_scar".to_string(),
-            from: String::new(),
-            to: "scar+1".to_string(),
-        }],
-        ..Provenance::default()
-    }
-}
-
-fn daughter_provenance(dna: &AgentDna, _mode: &str) -> Provenance {
-    Provenance {
-        source_manifest: dna.provenance.source_manifest.clone(),
-        source_doc: dna.provenance.source_doc.clone(),
-        parents: vec![dna.meta.genome_id],
-        ..Provenance::default()
-    }
-}
-
-fn mother_scar_mutation(mother: &genos_genome::Genome) -> Mutation {
-    Mutation {
-        gene: None,
-        kind: "budding:mother_scar_recorded".to_string(),
-        from: String::new(),
-        to: format!("mother_scars={}", mother.bud_scars.len()),
-    }
-}
-
-pub fn clone_dna(dna: &AgentDna, options: &CloneOptions) -> Result<AgentDna, String> {
-    validate_clone_mode(&options.mode)?;
-    if options.mode.as_str() == "budding" {
-        return Ok(clone_dna_pair(dna, options)?.daughter);
-    }
-    let genome = dna.to_genome()?;
-    let seed = resolve_seed(&options.seed, &format!("clone:{}", dna.meta.genome_id));
-    let child = match options.mode.as_str() {
-        "fission" | "binary_fission" => CellDivision::binary_fission_with_seed(&genome, options.mutation_rate, &seed)?.1,
-        _ => CellDivision::mitosis_attested(&genome)?.clone,
+    let (mut mother_genome, child_genome) = match options.mode.as_str() {
+        "fission" | "binary_fission" => CellDivision::binary_fission_with_seed(&genome, options.mutation_rate, &seed)?,
+        "mitosis" => CellDivision::mitosis(&genome)?,
+        _ => return Err(format!("unsupported clone mode '{}'", options.mode)),
     };
     let provenance = Provenance {
         source_manifest: dna.provenance.source_manifest.clone(),
@@ -216,8 +178,15 @@ pub fn clone_dna(dna: &AgentDna, options: &CloneOptions) -> Result<AgentDna, Str
         ..Provenance::default()
     };
     let name = format!("{}_clone_{}", dna.meta.name, options.mode);
-    Ok(rebuild_inheriting(&child, dna, (&name, provenance)))
+    let mother = rebuild_inheriting(&mother_genome, dna, (&dna.meta.name, provenance.clone()));
+    let daughter = rebuild_inheriting(&child_genome, dna, (&name, provenance));
+    Ok(ClonePair { mother, daughter })
 }
+
+fn mother_provenance(dna: &AgentDna) -> Provenance { Provenance { source_manifest: dna.provenance.source_manifest.clone(), source_doc: dna.provenance.source_doc.clone(), parents: vec![dna.meta.genome_id], mutations: vec![Mutation { gene: None, kind: "budding:mother_scar".to_string(), from: String::new(), to: "scar+1".to_string() }], ..Provenance::default() } }
+fn daughter_provenance(dna: &AgentDna, _mode: &str) -> Provenance { Provenance { source_manifest: dna.provenance.source_manifest.clone(), source_doc: dna.provenance.source_doc.clone(), parents: vec![dna.meta.genome_id], ..Provenance::default() } }
+fn mother_scar_mutation(mother: &genos_genome::Genome) -> Mutation { Mutation { gene: None, kind: "budding:mother_scar_recorded".to_string(), from: String::new(), to: format!("mother_scars={}", mother.bud_scars.len()) } }
+pub fn clone_dna(dna: &AgentDna, options: &CloneOptions) -> Result<AgentDna, String> { validate_clone_mode(&options.mode)?; Ok(clone_dna_pair(dna, options)?.daughter) }
 
 fn validate_clone_mode(mode: &str) -> Result<(), String> {
     if ["mitosis", "fission", "binary_fission", "budding"].contains(&mode) {
