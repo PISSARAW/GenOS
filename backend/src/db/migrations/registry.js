@@ -366,6 +366,9 @@ const migrationRunners = [
   createMigrationRunner('101-aeis-assembly-lifecycle', 'Add AEIS signing key IDs and assembly retention metadata', async (db) => {
     await require('./migrateAeisAssemblyLifecycle').migrateAeisAssemblyLifecycle(db);
   }),
+  createMigrationRunner('102-aeis-assembly-scope', 'Bind AEIS assemblies to run and memory scope', async (db) => {
+    await require('./migrateAeisAssemblyScope').migrateAeisAssemblyScope(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

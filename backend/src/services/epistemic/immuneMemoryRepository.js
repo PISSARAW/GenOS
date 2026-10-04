@@ -94,8 +94,15 @@ async function resolve(db, input) {
   });
 }
 
+function assertAssemblyScope(saved, input) {
+  if (saved.runId !== input.runId || saved.scopeId !== input.scopeId) {
+    throw new Error('AEIS assembly does not belong to this run and scope.');
+  }
+}
+
 async function outcomeFromAssembly(db, input) {
   const saved = await readAssembly(db, input.assemblyId);
+  assertAssemblyScope(saved, input);
   const formal = saved.evaluation.assembly.results.find((item) => item.resultId === input.resultId);
   if (!formal || canonicalStatement(input.test) !== formal.canonicalStatement) throw new Error('AEIS oracle does not match the claim.');
   const receipts = saved.evaluation.assembly.verifications.filter((receipt) => receipt.independent === true

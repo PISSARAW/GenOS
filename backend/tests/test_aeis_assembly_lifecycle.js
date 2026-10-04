@@ -29,6 +29,9 @@ async function main() {
       evaluation: { eligible: true }, assembly: { verifications: [receipt] },
     });
     assert.equal((await store.readAssembly(db, id)).evaluation.evaluation.eligible, true);
+    await db.run('UPDATE aeis_assurance_assemblies SET run_id = ? WHERE id = ?', 'forged-run', id);
+    await assert.rejects(store.readAssembly(db, id), /integrity failure/);
+    await db.run('UPDATE aeis_assurance_assemblies SET run_id = NULL WHERE id = ?', id);
     const legacyId = 'legacy-assembly';
     const legacyPayload = JSON.stringify({ evaluation: { eligible: true }, assembly: { verifications: [] } });
     const legacyManifest = JSON.stringify({ trustedDigests: [] });
