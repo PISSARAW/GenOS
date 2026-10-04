@@ -92,15 +92,24 @@ pub struct CreativeCandidate {
     pub provenance: Vec<String>,
 }
 
-/// Rapport clinique d'un MedicalWorker.
+/// Rapport pedagogique sur une vignette synthetique, sans diagnostic individuel.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ClinicalReport {
-    pub symptoms: Vec<String>,
-    pub candidate_diagnoses: Vec<String>,
+    pub case_scope: String,
+    pub differential_considerations: Vec<String>,
     pub evidence: Vec<String>,
-    pub selected_diagnosis: Option<String>,
-    pub uncertainty: f64,
-    pub therapy_options: Vec<String>,
+    pub uncertainty: String,
+    pub safety_note: String,
+}
+
+impl ClinicalReport {
+    pub fn is_educational(&self) -> bool {
+        self.case_scope == "synthetic_educational"
+            && !self.differential_considerations.is_empty()
+            && !self.uncertainty.trim().is_empty()
+            && !self.safety_note.trim().is_empty()
+    }
 }
 
 /// Verdict d'un VerifierWorker : PASS / REJECT / UNRESOLVED.

@@ -179,7 +179,7 @@ pub fn symbiotic_preset(input: &PresetInput) -> WorkerRuntimeContract {
     c
 }
 
-/// Contrat MedicalWorker : diagnostic, jamais de terminaison auto.
+/// Contrat MedicalWorker : vignette synthetique pedagogique, sans diagnostic.
 pub fn medical_preset(input: &PresetInput) -> WorkerRuntimeContract {
     let mut c = verifier_preset(input);
     c.identity.phenotype = WorkerKind::MedicalWorker.name().to_string();

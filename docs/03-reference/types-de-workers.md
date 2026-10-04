@@ -140,7 +140,7 @@ Artefacts spécialisés exacts :
 | `ScoutObservation` | `question, territory, observations, confidence, evidence_refs, uncertainties` | Observation sourcée. |
 | `VerificationReport` | `claim, verdict: Accept\|Reject\|Unresolved, counterexamples, provenance_ok, uncertainty` | Verdict ternaire ; `unresolved(claim)` donne `Unresolved, provenance_ok=false, uncertainty=1.0`. |
 | `CreativeCandidate` | `hypothesis, novelty, expected_value, assumptions, falsification_test, provenance` | Jamais promu directement (commentaire code). |
-| `ClinicalReport` | `symptoms, candidate_diagnoses, evidence, selected_diagnosis, uncertainty, therapy_options` | Diagnostic, jamais terminaison auto. |
+| `ClinicalReport` | `caseScope, differentialConsiderations, evidence, uncertainty, safetyNote` | Vignette synthétique pédagogique, sans diagnostic ni traitement individuel. Les champs inconnus sont refusés côté Rust. |
 | `AdaptiveEnvelope` | `objective, scope, allowed_strategies, allowed_recipes, capability_ceiling, max_*, escalation_rules` | Plafond d'adaptation. |
 | `Escalation` | `kind, reason` | Remontée au parent. |
 
@@ -184,7 +184,7 @@ Table fidèle au code (identifiant → deltas → artefact attendu vérifié par
 | `formal_worker` | `formal_preset` (= procedural +) | Hérite `tokens=0`, `lease=["solver"]`, `recipe="deterministic"`. | `formal_certificate` |
 | `synthesis_worker` | `synthesis_preset` | Lecture seule, synthèse sans écraser les désaccords. | `synthesis_dossier` |
 | `creative_worker` | `creative_preset` | Lecture seule, `recipe="divergent"`, `allowed_recipe_changes=true`, `max_cognitif=2`. | `creative_candidate` |
-| `medical_worker` | `medical_preset` (= verifier +) | `itérations=8`, diagnostic, jamais terminaison auto. | `clinical_report` |
+| `medical_worker` | `medical_preset` (= verifier +) | `itérations=8`, rapport pédagogique sur une vignette synthétique, sans diagnostic ni traitement individuel. | `clinical_report` |
 | `recovery_worker` | `recovery_preset` (= bounded +) | Lease `["checkpoint_restore"]`, `itérations=3`. | `dossier` |
 | `forensic_worker` | `forensic_preset` (= verifier +) | Autopsie causale post-incident. | `causal_dossier` |
 | `liaison_worker` | `liaison_preset` | Lecture seule, `comms={bridge, 32}`. | `dossier` |
@@ -1183,7 +1183,7 @@ Principe : ne réaffecter que si `Gain > Cost + Marge`, avec fenêtre anti-flap 
 
 1. **Audit de code** : `scout_cell` (cartographie) → `bounded_worker` (correctifs) → `verifier_worker` (reproduction) → `forensic_worker` (chaîne causale).
 2. **Ingénierie exploratoire** : `experimental_worker` + `red_worker` + `synthesis_worker`, gate parent seul.
-3. **Restauration incident** : `recovery_worker` (3 itérations) → `medical_worker` (diagnostic + incertitude) → `teaching_worker` (procédure validée diffusée).
+3. **Restauration incident** : `recovery_worker` (3 itérations) → `forensic_worker` (analyse causale sourcée) → `teaching_worker` (procédure validée diffusée).
 4. **Veille territoriale** : `resident_daemon` illimité + `liaison_worker` (handoff `bridge/32`) + `specialist` (niche).
 5. **Preuve formelle** : `formal_worker` (`solver` + `formal_certificate`) + `verifier_worker` indépendant.
 
