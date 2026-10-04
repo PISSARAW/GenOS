@@ -11,9 +11,8 @@
 const signalEventBus = require('./signalEventBus');
 const { getDatabase } = require('../db');
 const { randomUUID } = require('node:crypto');
-const plasticity = require('./synapticPlasticityService');
 const escalation = require('./cognitiveEscalationService');
-const cognitiveSignalService = require('./cognitiveSignalService');
+const cognitiveWorker = require('./signalCognitiveWorkerService');
 const signalDelivery = require('./signalDeliveryService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 const signalMetrics = require('./signalMetricsService');
@@ -29,9 +28,9 @@ let pollInProgress = false;
  * Register a wake handler for a specific agent.
  * The handler is called when a signal is destined for this agent.
  */
-function registerWakeHandler(agentId, handler) {
+function registerWakeHandler(agentId, handler, poll = true) {
   registeredWakeHandlers.set(agentId, handler);
-  pollPendingDeliveries().catch((error) => logPollFailure(error));
+  if (poll) pollPendingDeliveries().catch((error) => logPollFailure(error));
 }
 
 /**
@@ -56,7 +55,7 @@ function recordWorkerIgnored() {
 }
 
 function handleWorkerResult(signal, result) {
-  if (result && result.acted === false) {
+  if (result?.acted !== true) {
     recordWorkerIgnored();
     return;
   }
@@ -182,30 +181,8 @@ function handleLlmEscalation(signal) {
   if (!signal.llmRequired) return;
   if (signal.recipientAgentIds && signal.recipientAgentIds.length) return;
   if (!escalation.shouldEscalate(signal)) return;
-
-  escalation.selectCognitiveTarget(signal).then(async (target) => {
-    const context = escalation.buildMinimalContext(signal);
-    console.log(`[SignalPlaneSubscriber] LLM escalation → ${target} (signal=${signal.signalId}, type=${signal.signalType})`);
-    signalMetrics.recordLlmEscalation();
-
-    try {
-      await cognitiveSignalService.handleSignal({ db: await getDatabase(), agentId: target,
-        signal, context });
-      signalMetrics.recordLlmWakeupOutcome({ useful: false });
-      signalMetrics.recordOutcome('ignored');
-      escalation.recordEscalationOutcome(signal.signalId, 'dispatched', 1);
-    } catch (err) {
-      signalMetrics.recordLlmWakeupOutcome({ useful: false });
-      signalMetrics.recordOutcome('llm_failed');
-      console.warn(`[SignalPlaneSubscriber] Escalation startMission failed for ${target}:`, err.message);
-      escalation.recordEscalationOutcome(signal.signalId, 'failed', 1);
-    }
-  }).catch((err) => {
-    console.warn(`[SignalPlaneSubscriber] Escalation target selection failed:`, err.message);
-    signalMetrics.recordLlmEscalation();
-    signalMetrics.recordLlmWakeupOutcome({ useful: false });
-    signalMetrics.recordOutcome('llm_failed');
-  });
+  cognitiveWorker.processCognitiveJob(signal.signalId)
+    .catch((error) => logPollFailure(error));
 }
 
 function startSignalPlaneSubscriber() {
@@ -216,10 +193,14 @@ function startSignalPlaneSubscriber() {
     signalEventBus.onSignal(handleLlmEscalation);
   }
   if (!pollTimer) {
-    pollTimer = setInterval(() => pollPendingDeliveries().catch(logPollFailure), POLL_INTERVAL_MS);
+    pollTimer = setInterval(() => {
+      pollPendingDeliveries().catch(logPollFailure);
+      cognitiveWorker.pollCognitiveJobs().catch(logPollFailure);
+    }, POLL_INTERVAL_MS);
     pollTimer.unref?.();
   }
   pollPendingDeliveries().catch(logPollFailure);
+  cognitiveWorker.pollCognitiveJobs().catch(logPollFailure);
   console.log('[SignalPlaneSubscriber] Started — listening for routed signals');
 }
 

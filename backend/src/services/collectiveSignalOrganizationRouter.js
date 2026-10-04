@@ -28,21 +28,14 @@ function proposedRoute(signalType, signal = {}) {
 }
 
 function buildScopeConditions(scope) {
-  const conditions = [];
-  const params = [];
-  if (scope.orgId) {
-    conditions.push('w.organization_id = ?');
-    params.push(scope.orgId);
-  }
-  if (scope.projId) {
-    conditions.push('w.project_id = ?');
-    params.push(scope.projId);
-  }
-  return { conditions, params };
+  return {
+    conditions: ['w.organization_id = ?', 'w.project_id = ?'],
+    params: [scope.orgId, scope.projId]
+  };
 }
 
 async function fetchAgentRecipients(db, orchestratorId, scope) {
-  if (!scope.orgId && !scope.projId) return [];
+  if (!scope.orgId || !scope.projId) return [];
   const { conditions, params: scopeParams } = buildScopeConditions(scope);
   const conditionsWithParent = [
     ...conditions,
@@ -60,6 +53,7 @@ async function fetchAgentRecipients(db, orchestratorId, scope) {
 }
 
 async function fetchOrgBudgetRecipients(db, orgId) {
+  if (!orgId) return [];
   const conditions = ['os.enabled = 1', 'os.budget_mv > 0'];
   const params = [];
   if (orgId) {
@@ -76,7 +70,7 @@ async function fetchOrgBudgetRecipients(db, orgId) {
 
 async function fetchRequestedRecipients(input) {
   const { db, senderId, scope, requestedIds } = input;
-  if (!scope.orgId && !scope.projId) return [];
+  if (!scope.orgId || !scope.projId || !requestedIds.length) return [];
   const { conditions, params } = buildScopeConditions(scope);
   const marks = requestedIds.map(() => '?').join(', ');
   return db.all(
@@ -103,6 +97,7 @@ function constrainRecipients(recipients, requestedRecipientIds) {
 async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}, orchestratorId = null, recipientAgentIds }) {
   const topic = extractTopic(signalType, signalData);
   const recipients = [];
+  let scope = { orgId: null, projId: null };
 
   if (!db) {
     return { signalId, signalType, topic, recipients: [],
@@ -115,7 +110,8 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
        FROM agents a JOIN workspaces w ON a.workspace_id = w.id WHERE a.id = ?`,
       orchestratorId
     );
-    const scope = { orgId: ws?.organizationId, projId: ws?.projectId };
+    scope = { orgId: ws?.organizationId, projId: ws?.projectId };
+    if (scope.orgId && scope.projId) await plasticity.loadWeights(db);
     const rows = Array.isArray(recipientAgentIds)
       ? await fetchRequestedRecipients({ db, senderId: orchestratorId, scope, requestedIds: [...new Set(recipientAgentIds)] })
       : ws?.executionMode === 'orchestrator' ? await fetchAgentRecipients(db, orchestratorId, scope) : [];
@@ -126,7 +122,7 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
     // Sort by plasticity weight descending (most reinforced channels first)
     recipients.sort((a, b) => (b.weight || 0) - (a.weight || 0));
     if (!Array.isArray(recipientAgentIds)) {
-      for (const row of await fetchOrgBudgetRecipients(db, scope.orgId)) {
+      for (const row of await fetchOrgBudgetRecipients(db, scope.projId ? scope.orgId : null)) {
         recipients.push({ kind: 'organization', organizationId: row.id, organizationName: row.name, budgetMv: row.budget_mv });
       }
     }
@@ -143,6 +139,9 @@ async function routeCollectiveSignal({ db, signalId, signalType, signalData = {}
     recipients: finalRecipients,
     routed: !constrained.mismatch && finalRecipients.length > 0,
     routingMode: constrained.mismatch ? 'scope_mismatch' : finalRecipients.length ? 'distributed' : 'local_only',
+    scope: scope.orgId && scope.projId
+      ? { organizationId: scope.orgId, projectId: scope.projId }
+      : null,
   };
 }
 

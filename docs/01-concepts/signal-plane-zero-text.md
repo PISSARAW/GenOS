@@ -2,8 +2,8 @@
 
 > GenOS V3 implémente un transport zero-texte où les agents communiquent par
 > signaux biomimétiques (ligands, potentiels, phéromones, plasmides, tenseurs)
-> sans passer par le LLM. Le runtime réagit déterministiquement ; le LLM est une
-> interruption, pas le substrat.
+> en privilégiant les actions déterministes. Une tâche cognitive durable peut
+> appeler un LLM lorsque le gate d'escalade l'autorise.
 
 ## Principe
 
@@ -14,17 +14,18 @@ Coalesce (anti-spam : période réfractaire + fenêtre 500ms)
   ↓
 Match Receptor (évaluation déterministe, pas de LLM)
   ↓
-  ├─ Receptor match → Action déterministe (0 LLM)
+  ├─ Receptor match → Action directe
   │     ├─ emit_signal
   │     ├─ wake_worker (startMission)
   │     ├─ update_agent (updateAgent)
   │     └─ change_organization (changeOrganization)
   │
-  └─ Aucun match → llmRequired=true → escalade cognitive
+  └─ Aucune action exécutée → llmRequired=true → gate VoI → tâche cognitive
 ```
 
-**Propriété clé** : un signal banal ne coûte aucun appel LLM. Seuls les signaux
-ambigus ou sans récepteur déclenchent une interruption cognitive.
+**Propriété clé** : un signal traité par un récepteur n'entraîne pas d'escalade
+cognitive. Sans action exécutée, le gate VoI décide si une tâche LLM est créée.
+L'action `wake_worker` peut néanmoins lancer une mission utilisant un modèle.
 
 ## Services
 
@@ -35,11 +36,11 @@ Point d'entrée principal : `publishSignal(params)`.
 Pipeline d'exécution (ordre critique) :
 
 1. **Validation** — type, payload size, rate limit
-2. **Persistance** — `signal_blobs` (SQLite WAL)
-3. **Coalesce** — anti-spam (période réfractaire 2s + fenêtre 500ms)
-4. **Route** — destinataires via `collectiveSignalOrganizationRouter`
-5. **EventBus** — notification push (après coalescing)
-6. **Plasticité** — renforcement/dépression des canaux
+2. **Coalesce** — anti-spam en mémoire, avant toute écriture
+3. **Route** — destinataires et contrôle organisation/projet
+4. **Persistance** — `signal_blobs`, puis livraisons ou tâche cognitive (SQLite WAL)
+5. **Récepteurs et EventBus** — action déterministe puis notification push
+6. **Plasticité** — poids persistés, rechargés au routage et vidés à l'arrêt
 
 La publication échoue maintenant avec `SIGNAL_PERSISTENCE_FAILED` si la
 persistance échoue après les reprises; un signal non persisté n'est jamais rendu
@@ -78,7 +79,10 @@ signalReceptorService.registerReceptor({
 | `update_agent` | Met à jour statut/tâche | `ctx.updateAgent` |
 | `change_organization` | Change la topologie | `ctx.changeOrganization` |
 
-Si une dépendance est absente, l'action renvoie `{ executed: false, reason: 'NO_*_FN' }`.
+Si une dépendance est absente ou si l'état n'a pas changé, l'action renvoie
+`executed: false`. Un récepteur durable se configure par la route HTTP
+`PUT /api/signals/receptors/:id`; le registre local `registerReceptor` reste en
+mémoire du processus.
 
 **Appel** : `matchAndDispatch(signal, ctx)` — renvoie `{ triggered, dispatched, llmRequired }`.
 
@@ -104,7 +108,9 @@ signalEventBus.onTopic('deploy/auth', handler);
 Anti-spam biologique :
 
 - **Période réfractaire** : 2s par (sender, topic)
-- **Coalescing** : 500ms fenêtre — les signaux rapides sont bufferisés puis agrégés
+- **Coalescing** : fenêtre de 500 ms en mémoire. Le premier signal est émis;
+  les suivants peuvent être supprimés. Le buffer peut être agrégé par l'API
+  locale, mais il n'existe pas de vidage autonome vers la publication.
 
 ```js
 const result = signalCoalescer.coalesce({
@@ -155,7 +161,23 @@ registerWakeHandler('worker-1', async (signal) => {
 startSignalPlaneSubscriber();
 ```
 
-Le subscriber écoute `recipient:${agentId}` et dispatch aux handlers enregistrés.
+Le subscriber écoute `recipient:${agentId}` et interroge la file SQLite pour
+reprendre les livraisons après redémarrage. Il réarme les workers `idle` au boot.
+Les tâches cognitives sont également prises avec un bail, réessayées puis
+placées en quarantaine après trois échecs. Leur réponse est consultative.
+
+### API de livraison
+
+Les routes exigent `security:manage` et les en-têtes
+`X-Organization-Id` et `X-Project-Id`. L'agent cible doit appartenir au projet.
+
+| Route | Effet |
+| --- | --- |
+| `POST /api/signals/subscriptions` | Abonner `{agentId, topic}` |
+| `DELETE /api/signals/subscriptions` | Désabonner par `agentId` et `topic` en query |
+| `GET /api/signals/inbox/:agentId` | Lire les signaux livrés ou diffusés et marquer comme vus |
+| `POST /api/signals/deliveries/:signalId/ack` | Acquitter `{agentId}` après livraison ou lecture |
+| `GET /api/signals/cognitive-jobs` | Consulter les tâches cognitives du projet |
 
 ## Schema DB
 
@@ -210,6 +232,8 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
 | `synapticPlasticityService.js` | Poids canaux, reinforce/depress/strongDepress, cache hydraté depuis SQLite, écritures ordonnées dans `signal_channel_weights` et `flushPendingWrites()` |
 | `collectiveSignalOrganizationRouter.js` | Routage destinataires, scope strict, tri plasticité |
 | `signalPlaneSubscriber.js` | Consumer EventBus + reprise durable SQLite, registerWakeHandler et routage `llmRequired` via `cognitiveSignalService` |
+| `signalCognitiveJobsService.js` | Tâches cognitives durables, baux, retries et quarantaine |
+| `signalInboxService.js` | Lecture et ACK du registre de livraison dans le périmètre |
 | `cognitiveSignalService.js` | Envoie le signal au `modelRouter.generate` avec sa cible cognitive et un prompt borné ; la réponse reste consultative |
 | `signal_delivery_claims` | Lease de consommation, tentatives, backoff et quarantaine terminale |
 | `agentRoundService.js` | Continuation différentielle (buildContinuationContext) |
@@ -223,7 +247,9 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
   validation de livraison peut réexécuter le handler. Celui-ci doit dédupliquer
   par `signalId`; les erreurs réessaient avec backoff et sont mises en quarantaine
   après huit tentatives. Les enveloppes absentes ou invalides ne réveillent pas.
-- **Coalescing en mémoire** : les buffers sont perdus au redémarrage.
+- **Coalescing en mémoire** : les buffers sont perdus au redémarrage et ne sont
+  pas vidés automatiquement vers le transport; les signaux supprimés dans la
+  fenêtre ne sont pas publiés. La limite de débit est aussi locale au processus.
 - **Escalade cognitive** : le gate VoI décide si le signal `llmRequired` est
   escaladé. Le résultat du modèle est une réponse consultative ; il ne constitue
   ni une exécution d'action ni une preuve de validité.
@@ -234,11 +260,14 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
 |------|---------|
 | `test_signal_receptor_service.js` | Registre, matchAndDispatch, llmRequired |
 | `test_signal_event_bus.js` | onSignal, onSignalType, onTopic, onAgent |
-| `test_signal_pipeline_integration.js` | Pipeline complet persist→coalesce→dispatch→plasticity |
+| `test_signal_pipeline_integration.js` | Pipeline de routage et anti-spam |
 | `test_signal_actionneurs.js` | startMission/updateAgent/changeOrganization via ctx |
 | `test_plasticity_tensor.js` | Poids, renforcement, compatibilité tenseurs |
 | `test_semantic_loop_detector.js` | Détection boucles sémantiques |
 | `test_signal_plane_e2e.js` | Escalade cognitive avec fixture SQLite alignée sur le schéma de production |
+| `test_signal_cognitive_jobs.js` | File cognitive, bail, reprise et quarantaine |
+| `test_signal_delivery_api_contract.js` | Lecture et ACK scoped des livraisons |
+| `test_signal_truthful_outcomes.js` | Débit et effet réel des actions |
 | `test_plasticity_tensor.js` | Vidage explicite des écritures de plasticité |
 
 Inclus dans `npm run test:validation` (profile `signalPlane`).

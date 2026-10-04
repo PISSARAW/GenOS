@@ -60,6 +60,9 @@ const genomeRoutes = require('./routes/genomeRoutes');
 const healthController = require('./controllers/healthController');
 const fossilRoutes = require('./routes/fossilRoutes');
 const qdProxyRoutes = require('./routes/qdProxyRoutes');
+const signalReceptorRoutes = require('./routes/signalReceptorRoutes');
+const signalCognitiveRoutes = require('./routes/signalCognitiveRoutes');
+const signalDeliveryRoutes = require('./routes/signalDeliveryRoutes');
 
 const SAFE_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 
@@ -148,6 +151,9 @@ function createApp() {
   app.use('/api/sso', ssoRoutes);
   app.use('/api/plugins', pluginRoutes);
   app.use('/api/registry', registryRoutes);
+  app.use('/api/signals', signalCognitiveRoutes);
+  app.use('/api/signals', signalDeliveryRoutes);
+  app.use('/api/signals', signalReceptorRoutes);
   app.use('/api/frameworks', frameworkRoutes);
   app.use('/api/product-proofs', productProofRoutes);
   app.use('/api/rust', rustBridgeRoutes);

@@ -14,6 +14,7 @@ const { enableGriotAutostart } = require('./src/services/griotAutostart');
 const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
 const workspaceSnapshotStore = require('./src/services/workspaceSnapshotStore');
 const signalPlaneSubscriber = require('./src/services/signalPlaneSubscriber');
+const plasticity = require('./src/services/synapticPlasticityService');
 const { terminatePid, processMatches } = require('./src/services/processTermination');
 const circuitBreaker = require('./src/services/circuitBreaker');
 const { readPort } = require('./src/services/runtimeConfig');
@@ -202,6 +203,9 @@ function registerWorkerShutdown(server, grpcServer, db) {
     console.log(`[GenOS Backend] Received ${signal}; draining requests.`);
     require('./src/services/survivalWakeSchedulerService').stop();
     await jobWorker.stopJobWorker({ drain: true, timeoutMs: 30000 });
+    signalPlaneSubscriber.stopSignalPlaneSubscriber();
+    try { await plasticity.flushPendingWrites(); }
+    catch (error) { console.error('[GenOS Backend] Plasticity flush failed:', error); }
     await trinityMonitorServer.stop();
     await telemetry.flush(5000);
     if (grpcServer) await new Promise((resolve) => grpcServer.tryShutdown(() => resolve()));
@@ -235,6 +239,7 @@ async function runWorkerProcess() {
     startTrinityMonitorIfEnabled();
     startAutobiographicalMemoryIfDesignated();
     startIdleTickSchedulerIfDesignated();
+    await require('./src/services/workerGarageService').rearmIdleWorkers(db);
     signalPlaneSubscriber.startSignalPlaneSubscriber();
 
     server.listen(PORT, () => {

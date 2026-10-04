@@ -374,6 +374,12 @@ const migrationRunners = [
   createMigrationRunner('102-morphogenesis-capabilities', 'Persist experimental coverage, attempts, temporal observations, counterexamples and inherited statistical risk', async (db) => {
     await require('./migrateMorphogenesisCapabilities').migrateMorphogenesisCapabilities(db);
   }),
+  createMigrationRunner('103-signal-receptors', 'Persist scoped deterministic signal receptors', async (db) => {
+    await require('./migrateSignalReceptors').migrateSignalReceptors(db);
+  }),
+  createMigrationRunner('104-signal-cognitive-jobs', 'Persist and retry Signal Plane cognitive escalations', async (db) => {
+    await require('./migrateSignalCognitiveJobs').migrateSignalCognitiveJobs(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

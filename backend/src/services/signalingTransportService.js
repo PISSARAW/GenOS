@@ -14,10 +14,12 @@ const { updateAgent: runtimeUpdateAgent } = require('./agentOrchestrationState')
 const dynamicOrg = require('./dynamicOrganizationService');
 const signalDelivery = require('./signalDeliveryService');
 const { recordPendingDeliveries } = require('./signalDeliveryHelpers');
+const cognitiveJobs = require('./signalCognitiveJobsService');
+const cognitiveEscalation = require('./cognitiveEscalationService');
 const { createEnvelope } = require('./communication/communicationEnvelopeService');
 const { decodeSignalRow } = require('./signalEnvelopeCodec');
 
-const DEFAULT_SIGNAL_TTL_MS = 30_000;
+const DEFAULT_SIGNAL_TTL_MS = 120_000;
 const LOCAL_BROADCAST_LOG = new Map();
 const MAX_LOCAL_LOG_SIZE = 1000;
 
@@ -53,7 +55,7 @@ async function persistSignalRow(row) {
     const db = await getDatabase();
     await retryDbOperation(() =>
       db.run(
-        `INSERT OR REPLACE INTO signal_blobs
+        `INSERT INTO signal_blobs
          (signal_id, signal_type, signal_blob, content, topic, sender_agent_id, created_at, expires_at)
          VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`,
         [row.signal_id, row.signal_type, row.signal_blob, row.content, row.topic, row.sender_agent_id, row.expires_at]
@@ -117,17 +119,18 @@ function handleSuppressed(signal) {
 }
 
 async function dispatchReceptorsIfNeeded(signal) {
+  await receptor.refreshPersistedReceptors(await getDatabase());
   const ctx = {
     publishSignal: signal.publishSignal,
     startMission: async (mission) => ({ started: true, agentId: mission.agentId, result: await runtimeMissionExecution.startMission(mission) }),
-    updateAgent: async (agentId, status, currentTask) => { await runtimeUpdateAgent(agentId, status, currentTask); return { updated: true, agentId, status }; },
-    changeOrganization: async (options) => ({ changed: true, organization: (await dynamicOrg.changeOrganization(await getDatabase(), options)) }),
+    updateAgent: async (agentId, status, currentTask) => ({ updated: await runtimeUpdateAgent(agentId, status, currentTask), agentId, status }),
+    changeOrganization: async (options) => dynamicOrg.changeOrganization(await getDatabase(), options),
   };
   const result = await receptor.matchAndDispatch(
-    { signalId: signal.signalId, signalType: signal.signalType, semanticType: signal.signalData?.semanticType || signal.signalType, concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0, topic: signal.topic, senderAgentId: signal.senderAgentId, depth: Number(signal.depth || 0), recipientAgentIds: Array.isArray(signal.recipientAgentIds) ? signal.recipientAgentIds : [] },
+    { signalId: signal.signalId, signalType: signal.signalType, semanticType: signal.signalData?.semanticType || signal.signalType, concentration: signal.signalData?.concentration ?? signal.signalData?.intensity ?? 1.0, topic: signal.topic, senderAgentId: signal.senderAgentId, depth: Number(signal.depth || 0), recipientAgentIds: Array.isArray(signal.recipientAgentIds) ? signal.recipientAgentIds : [], scope: signal.scope },
     ctx
   );
-  return { dispatched: result.dispatched.length > 0, results: result.dispatched, triggered: result.triggered, llmRequired: result.llmRequired };
+  return { dispatched: result.dispatched.some((item) => item.executed), results: result.dispatched, triggered: result.triggered, llmRequired: result.llmRequired };
 }
 
 function updatePlasticityForRecipients(signal, dispatchResult, routing) {
@@ -154,14 +157,11 @@ function scopeMismatchResult(signal, routing) {
     suppressedBy: 'recipient_scope', suppressionReason: 'One or more requested recipients are outside the authorized routing scope.', routing };
 }
 
-async function routeAndDispatch(signal, params, routing) {
-  const mismatch = scopeMismatchResult(signal, routing);
-  if (mismatch) return mismatch;
+async function routeAndDispatch(signal, routing) {
   // Destinataires AVANT dispatch : les récepteurs ciblés matchent dessus, jamais sur l'émetteur.
   const recipientAgentIds = (routing.recipients || []).filter((r) => r.kind === 'agent' && r.agentId).map((r) => r.agentId);
   let dispatchResult = { dispatched: false };
-  try {
-    dispatchResult = await dispatchReceptorsIfNeeded({
+  dispatchResult = await dispatchReceptorsIfNeeded({
       signalId: signal.id,
       signalType: signal.formatted.signalType,
       signalData: signal.signalData,
@@ -171,17 +171,22 @@ async function routeAndDispatch(signal, params, routing) {
       recipientAgentIds,
       ttlMs: signal.ttlMs,
       publishSignal,
+      scope: routing.scope,
     });
-  } catch (err) {
-    console.warn(`[SignalingTransport] dispatchReceptors failed for ${signal.id}: ${err.message}`);
-  }
   signalMetrics.recordDispatch();
   if (dispatchResult.dispatched) signalMetrics.recordTrigger();
   updatePlasticityForRecipients(signal, dispatchResult, routing);
   // F2: aucun récepteur matché => escalation LLM seule, pas d'envoi workers.
   if (dispatchResult.llmRequired) {
-    emitToBus({ ...signal, recipientAgentIds: [], llmRequired: true });
-    return { signalId: signal.id, published: true, coalesced: false, coalescedCount: 1, signalType: signal.formatted.signalType, routing, llmRequired: true };
+    const cognitiveSignal = {
+      ...signal, signalId: signal.id, signalType: signal.formatted.signalType,
+      recipientAgentIds: [], llmRequired: true, payloadRef: signal.id,
+      scope: routing.scope
+    };
+    const escalationQueued = Boolean(routing.scope) && cognitiveEscalation.shouldEscalate(cognitiveSignal);
+    if (escalationQueued) await cognitiveJobs.enqueueCognitiveJob(await getDatabase(), cognitiveSignal);
+    emitToBus(cognitiveSignal);
+    return { signalId: signal.id, published: true, coalesced: false, coalescedCount: 1, signalType: signal.formatted.signalType, routing, llmRequired: true, escalationQueued };
   }
   if (recipientAgentIds.length > 0) {
     signalMetrics.recordSignalRouted();
@@ -224,11 +229,10 @@ async function publishSignal(params) {
   const routing = await routeSignal(signal, params);
   const mismatch = scopeMismatchResult(signal, routing);
   if (mismatch) return mismatch;
-
   await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
   pushLocalLog(signal.id, signal.formatted);
 
-  return await routeAndDispatch(signal, params, routing);
+  return await routeAndDispatch(signal, routing);
 }
 
 async function buildSignalFromParams(params) {
@@ -276,47 +280,44 @@ function buildRow({ id, formatted, topic, senderAgentId, expiresAt }) {
 async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100) {
   // Pas de rejeu : déjà vus/livrés/ackés (signal_deliveries) exclus.
   let sql = `SELECT DISTINCT s.signal_id, s.signal_type, s.signal_blob, s.content, s.topic, s.sender_agent_id, s.created_at FROM signal_blobs s
+             JOIN agents receiver ON receiver.id = ?
+             JOIN workspaces receiver_ws ON receiver_ws.id = receiver.workspace_id
+             JOIN agents sender ON sender.id = s.sender_agent_id
+             JOIN workspaces sender_ws ON sender_ws.id = sender.workspace_id
              LEFT JOIN signal_subscriptions sub ON sub.topic = s.topic AND sub.subscriber_agent_id = ?
              WHERE s.signal_type != 'text' AND s.sender_agent_id != ? AND (sub.subscriber_agent_id IS NOT NULL OR s.topic = '')
+             AND receiver_ws.organization_id IS NOT NULL AND receiver_ws.project_id IS NOT NULL
+             AND sender_ws.organization_id = receiver_ws.organization_id
+             AND sender_ws.project_id = receiver_ws.project_id
              AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)
-             AND NOT EXISTS (SELECT 1 FROM signal_deliveries d WHERE d.signal_id = s.signal_id AND d.subscriber_agent_id = ? AND d.status IN ('seen', 'delivered', 'acked'))
+             AND NOT EXISTS (SELECT 1 FROM signal_deliveries d WHERE d.signal_id = s.signal_id AND d.subscriber_agent_id = ?)
              ${since ? 'AND s.created_at > ?' : ''} ORDER BY s.created_at DESC LIMIT ?`;
-  const vals = since ? [subscriberAgentId, subscriberAgentId, subscriberAgentId, since, limit] : [subscriberAgentId, subscriberAgentId, subscriberAgentId, limit];
+  const vals = since ? [subscriberAgentId, subscriberAgentId, subscriberAgentId, subscriberAgentId, since, limit] : [subscriberAgentId, subscriberAgentId, subscriberAgentId, subscriberAgentId, limit];
 
   try {
     const db = await getDatabase();
     const rows = await retryDbOperation(() => db.all(sql, vals));
-    return rows.map(decodeSignalRow).filter((signal) => (
-      signal && isReadableByAgent(signal, subscriberAgentId)
-    ));
+    return rows.map(decodeSignalRow).filter(Boolean);
   } catch (e) {
     console.warn('[SignalingTransport] readSignalsForAgent failed after retries:', e.message);
-    return [];
+    throw e;
   }
-}
-
-function isReadableByAgent(signal, agentId) {
-  if (signal.integrity?.status === 'rejected') return false;
-  const envelope = signal.decoded?.communicationEnvelope;
-  if (!envelope || envelope.recipientMode !== 'targeted') return true;
-  return envelope.recipientAgentIds.includes(agentId);
 }
 
 async function markSignalsSeen(subscriberAgentId, signalIds) {
   if (!signalIds || !signalIds.length) return;
-  const db = await getDatabase().catch(() => null);
-  if (!db) return;
+  const db = await getDatabase();
   try {
     await db.exec('BEGIN IMMEDIATE');
     for (const sid of signalIds) {
-      // INSERT OR IGNORE puis UPDATE sans régresser 'acked'.
-      await db.run(`INSERT OR IGNORE INTO signal_deliveries (signal_id, subscriber_agent_id, status, seen_at) VALUES (?, ?, 'pending', CURRENT_TIMESTAMP)`, [sid, subscriberAgentId]);
-      await db.run(`UPDATE signal_deliveries SET status = 'seen', seen_at = CURRENT_TIMESTAMP WHERE signal_id = ? AND subscriber_agent_id = ? AND status != 'acked'`, [sid, subscriberAgentId]);
+      await db.run(`INSERT OR IGNORE INTO signal_deliveries (signal_id, subscriber_agent_id, status, seen_at) VALUES (?, ?, 'seen', CURRENT_TIMESTAMP)`, [sid, subscriberAgentId]);
+      await db.run(`UPDATE signal_deliveries SET status = 'seen', seen_at = CURRENT_TIMESTAMP
+        WHERE signal_id = ? AND subscriber_agent_id = ? AND status = 'delivered'`, [sid, subscriberAgentId]);
     }
     await db.exec('COMMIT');
   } catch (e) {
     try { await db.exec('ROLLBACK'); } catch (_) {}
-    console.warn('[SignalingTransport] markSignalsSeen failed:', e.message);
+    throw e;
   }
 }
 
@@ -332,6 +333,7 @@ async function purgeExpiredSignals() {
     ));
   } catch (e) {
     console.warn('[SignalingTransport] purgeExpiredSignals failed after retries:', e.message);
+    throw e;
   }
 }
 

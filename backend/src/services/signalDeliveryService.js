@@ -7,6 +7,8 @@ const GROUNDING_LEVELS = Object.freeze({
 async function subscribeAgent(db, subscriberAgentId, topicFilter) {
   if (!db || !subscriberAgentId || !topicFilter) return false;
   const { topic, filter } = normalizeTopicFilter(topicFilter);
+  if (typeof topic !== 'string' || !topic.trim() || topic.length > 256) return false;
+  if (filter !== null) return false;
   try {
     await retryDbOperation(() => db.run(
       `INSERT OR REPLACE INTO signal_subscriptions (subscriber_agent_id, topic, filter)
@@ -23,11 +25,11 @@ async function subscribeAgent(db, subscriberAgentId, topicFilter) {
 async function unsubscribeAgent(db, subscriberAgentId, topic) {
   if (!db || !subscriberAgentId || !topic) return false;
   try {
-    await retryDbOperation(() => db.run(
+    const result = await retryDbOperation(() => db.run(
       `DELETE FROM signal_subscriptions WHERE subscriber_agent_id = ? AND topic = ?`,
       [subscriberAgentId, topic]
     ));
-    return true;
+    return result.changes === 1;
   } catch (e) {
     console.warn(`[SignalDelivery] unsubscribeAgent failed: ${e.message}`);
     return false;
@@ -53,12 +55,12 @@ async function markDelivered(db, delivery) {
   if (!db || !delivery) return false;
   const { signalId, subscriberAgentId } = delivery;
   try {
-    await retryDbOperation(() => db.run(
+    const result = await retryDbOperation(() => db.run(
       `UPDATE signal_deliveries SET status = 'delivered', delivered_at = CURRENT_TIMESTAMP
        WHERE signal_id = ? AND subscriber_agent_id = ? AND status = 'pending'`,
       [signalId, subscriberAgentId]
     ));
-    return true;
+    return result.changes === 1;
   } catch (e) {
     console.warn(`[SignalDelivery] markDelivered failed: ${e.message}`);
     return false;
@@ -69,12 +71,12 @@ async function ackDelivery(db, delivery) {
   if (!db || !delivery) return false;
   const { signalId, subscriberAgentId } = delivery;
   try {
-    await retryDbOperation(() => db.run(
+    const result = await retryDbOperation(() => db.run(
       `UPDATE signal_deliveries SET status = 'acked', acked_at = CURRENT_TIMESTAMP
-       WHERE signal_id = ? AND subscriber_agent_id = ? AND status != 'acked'`,
+       WHERE signal_id = ? AND subscriber_agent_id = ? AND status IN ('delivered', 'seen')`,
       [signalId, subscriberAgentId]
     ));
-    return true;
+    return result.changes === 1;
   } catch (e) {
     console.warn(`[SignalDelivery] ackDelivery failed: ${e.message}`);
     return false;

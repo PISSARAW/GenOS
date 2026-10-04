@@ -131,7 +131,7 @@ async function getDatabase(dbFilePath) {
     // Initialisation best-effort du persister d'état adaptatif hors-process
     // (Q-values, attractions, stigmergie, registres MCP) : ne jamais bloquer le boot.
     if (!skipBootstrap) {
-      try { await require('./adaptiveStateBootstrap').ensureAdaptivePersister(); } catch (_) {}
+      try { await require('../services/adaptiveStateBootstrap').ensureAdaptivePersister(db); } catch (_) {}
     }
     dbInstance = db;
     currentDbPath = filename;

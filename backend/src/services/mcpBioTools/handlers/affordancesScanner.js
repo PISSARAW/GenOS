@@ -143,3 +143,5 @@ function handleAffordancesScannerError(e) {
 }
 
 module.exports = { handleAffordancesScanner, handleAffordancesScannerError };
+
+module.exports.affordancesLedger = affordancesLedger;

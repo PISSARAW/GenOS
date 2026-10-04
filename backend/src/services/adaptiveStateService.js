@@ -88,6 +88,7 @@ async function appendEvent(db, { scope, key, eventType, eventPayload }) {
 class AdaptiveStateService {
   constructor(db) {
     this.db = db;
+    this.mcpRegistries = new Map();
   }
 
   // ── Génériques ────────────────────────────────────────────────────────────
@@ -123,63 +124,44 @@ class AdaptiveStateService {
    * `scope`/`key` si `this.db` est configuré.
    */
   makePersistentMap(scope, key, initial) {
-    const map = new Map(initial);
+    const map = initial instanceof Map ? initial : new Map(initial);
     const db = this.db;
     if (!db) return map;
-
-    const persist = (verb, args) => {
+    if (map.flushPersistence) return map;
+    let pending = Promise.resolve();
+    let lastError = null;
+    const persist = (verb) => {
       const snapshot = new Map(map);
-      saveMap(db, { scope, key, map: snapshot }).catch(() => {});
-      appendEvent(db, { scope, key, eventType: `mutate::${verb}`, eventPayload: {
-        verb,
-        args: Array.from(args).slice(0, 4).map(a =>
-          (a instanceof Map || a instanceof Set) ? '[complex]' : a
-        )
-      } }).catch(() => {});
+      pending = pending.then(async () => {
+        await saveMap(db, { scope, key, map: snapshot });
+        await appendEvent(db, { scope, key, eventType: `mutate::${verb}`, eventPayload: { size: snapshot.size } });
+        lastError = null;
+      }).catch((error) => {
+        lastError = error;
+        console.warn(`[adaptive-state] Failed to persist ${scope}/${key}: ${error.message}`);
+      });
     };
-
-    return new Proxy(map, {
-      get(target, prop) {
-        const val = target[prop];
-        if (typeof val === 'function') {
-          if (prop === 'set') {
-            return function (...args) {
-              const r = Reflect.apply(val, target, args);
-              persist('set', args).catch(() => {});
-              return r;
-            };
-          }
-          if (prop === 'delete') {
-            return function (...args) {
-              const r = Reflect.apply(val, target, args);
-              persist('delete', args).catch(() => {});
-              return r;
-            };
-          }
-          if (prop === 'clear') {
-            return function (...args) {
-              const r = Reflect.apply(val, target, args);
-              persist('clear', args).catch(() => {});
-              return r;
-            };
-          }
-          if (prop === 'updateFrom' && typeof val === 'function') {
-            return function (data) {
-              if (Array.isArray(data)) {
-                for (const row of data) {
-                  if (row && row.key !== undefined) target.set(String(row.key), row);
-                  }
-                } else if (data && typeof data === 'object') {
-                  for (const k of Object.keys(data)) target.set(k, data[k]);
-                }
-              persist('updateFrom', [data]).catch(() => {});
-              return target;
-            };
-          }
-        }
-        return val;
-      }
+    Object.defineProperties(map, {
+      set: { value(k, v) {
+        Map.prototype.set.call(map, k, v);
+        persist('set');
+        return map;
+      } },
+      delete: { value(k) {
+        const removed = Map.prototype.delete.call(map, k);
+        if (removed) persist('delete');
+        return removed;
+      } },
+      clear: { value() {
+        Map.prototype.clear.call(map);
+        persist('clear');
+      } },
+      flushPersistence: { value: async () => {
+        await pending;
+        if (lastError) throw lastError;
+      } }
     });
+    return map;
   }
 
   // ── Mutation hooks pour objets non-Map (neuroplastie, etc.) ───────────────
@@ -312,13 +294,18 @@ class AdaptiveStateService {
 
   // ── MCP Biomimétiques Registries ──────────────────────────────────────────
 
-  async getMcpBiomimicryRegistry(scope, key) {
-    const map = await loadMap(this.db, `mcp_bio::${scope}`, key);
-    return map;
+  getMcpBiomimicryRegistry(scope, key) {
+    return this.mcpRegistries.get(`${scope}::${key}`) || null;
+  }
+
+  registerMcpBiomimicryRegistry(scope, key, map) {
+    this.mcpRegistries.set(`${scope}::${key}`, map);
   }
 
   async setMcpBiomimicryRegistry(scope, key, map) {
-    await this.persistMap(`mcp_bio::${scope}`, key, map);
+    const normalized = scope.startsWith('mcp_bio::') ? scope : `mcp_bio::${scope}`;
+    await this.persistMap(normalized, key, map);
+    this.registerMcpBiomimicryRegistry(normalized, key, map);
   }
 
   // ── Boot / Resume ─────────────────────────────────────────────────────────

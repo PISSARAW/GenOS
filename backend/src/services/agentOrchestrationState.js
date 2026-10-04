@@ -80,16 +80,18 @@ function orchestratorToolLease(plan, knownTools) {
 
 async function updateAgent(agentId, status, currentTask) {
   const db = await getDatabase();
-  await db.run(
+  const result = await db.run(
     'UPDATE agents SET status = COALESCE(?, status), current_task = COALESCE(?, current_task), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
     status || null, currentTask || null, agentId
   );
+  if (result.changes !== 1) return false;
   if (status) {
     await db.run(
       'UPDATE trinity_worlds SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?',
       status, agentId
     );
   }
+  return true;
 }
 
 module.exports = {

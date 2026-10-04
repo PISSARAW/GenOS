@@ -16,10 +16,14 @@ const crypto = require('crypto');
 const { evaluateLigandReactivity, SIGNAL_TYPES } = require('./biomimeticSignalingBus');
 
 // ── Receptor registry ────────────────────────────────────────────────────────
-// Receptors are stored in-memory (per process). For multi-instance deployments,
-// a SQLite-backed registry with cache would be needed (P3).
-
 const receptors = new Map(); // receptorId -> receptor
+const persistedReceptors = new Map();
+
+async function refreshPersistedReceptors(db) {
+  const rows = await require('./signalReceptorPersistenceService').loadPersistedReceptors(db);
+  persistedReceptors.clear();
+  for (const row of rows) persistedReceptors.set(row.id, row);
+}
 
 // ── Action dispatchers ───────────────────────────────────────────────────────
 // Each action type has a handler. Handlers receive (receptor, signal, dispatchCtx)
@@ -47,7 +51,7 @@ const actionDispatchers = {
       depth: depth + 1,
       ttlMs: receptor.actionData?.ttlMs,
     });
-    return { executed: true, signalId: result.signalId, action: 'emit_signal' };
+    return { executed: result.published === true, signalId: result.signalId, action: 'emit_signal' };
   },
 
   /**
@@ -66,7 +70,7 @@ const actionDispatchers = {
       triggerReceptorId: receptor.id,
     };
     const result = await ctx.startMission(mission);
-    return { executed: true, workerId: mission.agentId, action: 'wake_worker', result };
+    return { executed: result.started === true, workerId: mission.agentId, action: 'wake_worker', result };
   },
 
   /**
@@ -74,13 +78,13 @@ const actionDispatchers = {
    */
   update_agent: async (receptor, signal, ctx) => {
     if (!ctx.updateAgent) return { executed: false, reason: 'NO_UPDATE_AGENT_FN' };
-    await ctx.updateAgent(
+    const result = await ctx.updateAgent(
       receptor.actionData?.agentId,
       receptor.actionData?.status,
       receptor.actionData?.currentTask
     );
     return {
-      executed: true,
+      executed: result?.updated === true,
       agentId: receptor.actionData?.agentId,
       status: receptor.actionData?.status,
       action: 'update_agent',
@@ -98,7 +102,7 @@ const actionDispatchers = {
       reason: `Receptor '${receptor.id}' triggered by signal ${signal.signalId}`,
       changedBy: signal.senderAgentId,
     });
-    return { executed: true, organization: result.organization, action: 'change_organization' };
+    return { executed: result?.changed === true, organization: result?.organization, action: 'change_organization' };
   },
 };
 
@@ -133,15 +137,15 @@ function validateReceptor(receptor) {
 }
 
 function unregisterReceptor(receptorId) {
-  return receptors.delete(receptorId);
+  return receptors.delete(receptorId) || persistedReceptors.delete(receptorId);
 }
 
 function getReceptor(receptorId) {
-  return receptors.get(receptorId) || null;
+  return receptors.get(receptorId) || persistedReceptors.get(receptorId) || null;
 }
 
 function listReceptors(filter = {}) {
-  let result = [...receptors.values()];
+  let result = [...new Map([...persistedReceptors, ...receptors]).values()];
   if (filter.enabled !== undefined) {
     result = result.filter((r) => r.enabled === filter.enabled);
   }
@@ -206,8 +210,9 @@ function hasRoutingContext(signal) {
  */
 function matchReceptors(signal) {
   const triggered = [];
-  for (const receptor of receptors.values()) {
+  for (const receptor of new Map([...persistedReceptors, ...receptors]).values()) {
     if (!receptor.enabled) continue;
+    if (receptor.organizationId && !receptorScopeMatches(receptor, signal)) continue;
     if (!receptorTargetMatches(receptor, signal)) {
       continue;
     }
@@ -225,6 +230,11 @@ function matchReceptors(signal) {
     }
   }
   return triggered;
+}
+
+function receptorScopeMatches(receptor, signal) {
+  return receptor.organizationId === signal.scope?.organizationId
+    && receptor.projectId === signal.scope?.projectId;
 }
 
 /**
@@ -260,7 +270,8 @@ async function matchAndDispatch(signal, ctx = {}) {
     return { triggered: [], dispatched: [], llmRequired: hasRoutingContext(signal) };
   }
   const dispatched = await dispatchActions(triggered, signal, ctx);
-  return { triggered: triggered.map((t) => t.receptor.id), dispatched, llmRequired: false };
+  return { triggered: triggered.map((t) => t.receptor.id), dispatched,
+    llmRequired: !dispatched.some((result) => result.executed) && hasRoutingContext(signal) };
 }
 
 module.exports = {
@@ -273,4 +284,5 @@ module.exports = {
   dispatchActions,
   matchAndDispatch,
   actionDispatchers,
+  refreshPersistedReceptors,
 };

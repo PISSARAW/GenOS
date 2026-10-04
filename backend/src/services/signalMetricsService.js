@@ -151,7 +151,7 @@ function impactForOutcome(outcome) {
     state_changed: { impact: 1, cost: 0 },
     artifact: { impact: 1, cost: 0 },
     org_changed: { impact: 1, cost: 0 },
-    llm_success: { impact: 1, cost: 1 },
+    llm_success: { impact: 0, cost: 1 },
     llm_failed: { impact: 0, cost: 1 },
   };
   return table[outcome] || { impact: 0, cost: 0 };

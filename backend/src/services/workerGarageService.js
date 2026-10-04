@@ -279,7 +279,7 @@ async function enterIdleState(db, agentId, orchestratorId) {
   return false;
 }
 
-function armWakeHandler(workerId) {
+function armWakeHandler(workerId, poll = true) {
   registerWakeHandler(workerId, async (signal) => {
     const signalData = JSON.stringify(signal.signalData || {}).slice(0, 12000);
     try {
@@ -295,7 +295,15 @@ function armWakeHandler(workerId) {
     } finally {
       unregisterWakeHandler(workerId);
     }
-  });
+  }, poll);
+}
+
+async function rearmIdleWorkers(db) {
+  const rows = await db.all(
+    `SELECT id FROM agents WHERE execution_mode = 'worker' AND status = 'idle'`
+  );
+  for (const row of rows) armWakeHandler(row.id, false);
+  return rows.length;
 }
 
 module.exports = {
@@ -315,6 +323,7 @@ module.exports = {
   releaseSlot,
   enterIdleState,
   armWakeHandler,
+  rearmIdleWorkers,
   getDynamicCapacity,
   setDynamicCapacity,
   releaseDynamicCapacity

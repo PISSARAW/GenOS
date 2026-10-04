@@ -3,13 +3,11 @@ const { recordPendingDelivery, markDelivered: markDeliveryDelivered } = require(
 
 async function recordPendingDeliveries(signalId, recipientAgentIds) {
   if (!signalId || !recipientAgentIds || !recipientAgentIds.length) return;
-  try {
-    const db = await getDatabase();
-    for (const recipientId of recipientAgentIds) {
-      await recordPendingDelivery(db, signalId, recipientId);
+  const db = await getDatabase();
+  for (const recipientId of recipientAgentIds) {
+    if (!await recordPendingDelivery(db, signalId, recipientId)) {
+      throw new Error(`Failed to persist delivery for ${signalId} to ${recipientId}`);
     }
-  } catch (err) {
-    console.warn(`[SignalingTransport] recordPendingDeliveries failed: ${err.message}`);
   }
 }
 

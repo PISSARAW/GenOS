@@ -11,6 +11,8 @@ const sqlite3 = require('sqlite3').verbose();
 
 const dbIndex = require('../src/db');
 const { migrateSignalDeliveryClaims } = require('../src/db/migrations/migrateSignalDeliveryClaims');
+const { migrateSignalReceptors } = require('../src/db/migrations/migrateSignalReceptors');
+const { migrateSignalCognitiveJobs } = require('../src/db/migrations/migrateSignalCognitiveJobs');
 let testDb = null;
 let llmCallCount = 0;
 
@@ -22,6 +24,7 @@ async function setupTestDb() {
     CREATE TABLE organization_signal_budgets (organization_id TEXT PRIMARY KEY, budget_mv REAL NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)), created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE);
     CREATE TABLE workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL, visibility TEXT DEFAULT 'Private', language TEXT DEFAULT 'TypeScript', description TEXT, tags TEXT DEFAULT '[]', is_archived INTEGER DEFAULT 0, anomalies_count INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, organization_id TEXT, project_id TEXT);
     CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT NOT NULL, name_meaning TEXT, role TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'idle' CHECK (status IN ('idle','running','completed','blocked','error','terminated','apoptosis','active','Active','Apoptosis')), agent_type TEXT NOT NULL DEFAULT 'GenOS', execution_mode TEXT NOT NULL DEFAULT 'orchestrator' CHECK (execution_mode IN ('orchestrator','worker')), workspace_id TEXT, fleet_id TEXT, hallucination_monitoring INTEGER NOT NULL DEFAULT 0, hallucination_count INTEGER NOT NULL DEFAULT 0, dissonance_level REAL DEFAULT 0.0, eureka_count INTEGER DEFAULT 0, cognitive_budget REAL DEFAULT 100.0, cognitive_baseline_budget REAL DEFAULT 100.0, cognitive_max_dissonance REAL DEFAULT 50.0, conscience_revision INTEGER NOT NULL DEFAULT 0, is_apoptotic INTEGER DEFAULT 0, model_tier TEXT DEFAULT 'Flash', language TEXT DEFAULT 'TypeScript', isolation_mode TEXT DEFAULT 'Branch', parent_agent_id TEXT, lineage_relation TEXT DEFAULT 'independent', about TEXT, metadata_json TEXT DEFAULT '{}', current_task TEXT, runtime_pid INTEGER, runtime_started_at DATETIME, runtime_executable TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL, FOREIGN KEY (parent_agent_id) REFERENCES agents(id) ON DELETE SET NULL);
+    CREATE TABLE trinity_worlds (agent_id TEXT PRIMARY KEY, status TEXT, updated_at DATETIME);
     CREATE TABLE signal_blobs (id INTEGER PRIMARY KEY AUTOINCREMENT, signal_id TEXT NOT NULL, signal_type TEXT NOT NULL CHECK (signal_type IN ('ligand','voltage','pheromone','plasmid','tensor','text')), signal_blob BLOB, content TEXT NOT NULL DEFAULT '', topic TEXT NOT NULL DEFAULT '', sender_agent_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, expires_at DATETIME, UNIQUE(signal_id));
     CREATE TABLE signal_subscriptions (subscriber_agent_id TEXT NOT NULL, topic TEXT NOT NULL, filter TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (subscriber_agent_id, topic));
     CREATE TABLE signal_deliveries (signal_id TEXT NOT NULL, subscriber_agent_id TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','seen','acked')), delivered_at DATETIME DEFAULT CURRENT_TIMESTAMP, seen_at DATETIME, acked_at DATETIME, PRIMARY KEY (signal_id, subscriber_agent_id));
@@ -29,6 +32,8 @@ async function setupTestDb() {
     CREATE TABLE signal_channel_weights (channel TEXT PRIMARY KEY, weight REAL NOT NULL, last_updated INTEGER NOT NULL, hits INTEGER NOT NULL DEFAULT 0, misses INTEGER NOT NULL DEFAULT 0, last_signal_type TEXT);
   `);
   await migrateSignalDeliveryClaims(testDb);
+  await migrateSignalReceptors(testDb);
+  await migrateSignalCognitiveJobs(testDb);
   await testDb.run(`INSERT INTO organizations (id, name) VALUES ('org-test', 'Test Org')`);
   await testDb.run(`INSERT INTO projects (id, organization_id, name) VALUES ('proj-test', 'org-test', 'Test Project')`);
   await testDb.run(`INSERT INTO organization_signal_budgets (organization_id, budget_mv, enabled) VALUES ('org-test', 100, 1)`);
@@ -136,6 +141,7 @@ async function testLlmEscalationPath() {
   assert.ok(context.payloadRef, 'Context carries payloadRef, not raw payload');
   assert.ok(!('data' in context), 'Context must not embed raw signal data');
   assert.strictEqual(llmCallCount, 0, 'LLM not invoked during escalation');
+  await testDb.run('DELETE FROM signal_cognitive_jobs WHERE signal_id = ?', result.signalId);
   console.log('[PASS] testLlmEscalationPath');
 }
 
@@ -278,6 +284,91 @@ async function testDurablePollWakePath() {
   console.log('[PASS] testDurablePollWakePath');
 }
 
+async function testPublicationRequiresDurableDelivery() {
+  resetState();
+  receptor.registerReceptor({
+    id: 'receptor-delivery-failure', targetLigand: 'DELIVERY_FAILURE',
+    threshold: 0.5, action: 'update_agent',
+    actionData: { agentId: 'worker-1', status: 'running' }
+  });
+  const originalRun = testDb.run.bind(testDb);
+  testDb.run = async (sql, ...values) => {
+    if (String(sql).includes('INSERT') && String(sql).includes('signal_deliveries')) {
+      throw new Error('injected delivery write failure');
+    }
+    return originalRun(sql, ...values);
+  };
+  try {
+    await assert.rejects(
+      transport.publishSignal({
+        signalType: 'ligand', signalData: { semanticType: 'DELIVERY_FAILURE' },
+        topic: 'durable-delivery-failure', senderAgentId: 'orch-1',
+        recipientAgentIds: ['worker-1']
+      }),
+      /Failed to persist delivery/
+    );
+  } finally {
+    testDb.run = originalRun;
+  }
+  console.log('[PASS] testPublicationRequiresDurableDelivery');
+}
+
+async function testSignalIdCannotOverwritePayload() {
+  resetState();
+  const signalId = 'sig-immutable-e2e';
+  await transport.publishSignal({
+    signalId, signalType: 'ligand', signalData: { semanticType: 'ORIGINAL' },
+    topic: 'immutable-original', senderAgentId: 'orch-1'
+  });
+  await assert.rejects(transport.publishSignal({
+    signalId, signalType: 'ligand', signalData: { semanticType: 'REPLACEMENT' },
+    topic: 'immutable-replacement', senderAgentId: 'orch-1'
+  }), /Signal persistence failed/);
+  const row = await testDb.get('SELECT topic FROM signal_blobs WHERE signal_id = ?', signalId);
+  assert.equal(row.topic, 'immutable-original');
+  console.log('[PASS] testSignalIdCannotOverwritePayload');
+}
+
+async function testScopedReadCannotStealDelivery() {
+  resetState();
+  await testDb.run("INSERT INTO organizations (id, name) VALUES ('org-other', 'Other Org')");
+  await testDb.run("INSERT INTO projects (id, organization_id, name) VALUES ('proj-other', 'org-other', 'Other Project')");
+  await testDb.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('ws-other', 'Other', '/tmp/other', 'org-other', 'proj-other')");
+  await testDb.run("INSERT INTO agents (id, name, role, execution_mode, workspace_id) VALUES ('worker-outside', 'Outside', 'worker', 'worker', 'ws-other')");
+  const broadcast = await transport.publishSignal({
+    signalType: 'ligand', signalData: { semanticType: 'SCOPED_READ' },
+    senderAgentId: 'orch-1'
+  });
+  assert.equal((await transport.readSignalsForAgent('worker-outside')).length, 0);
+  assert.ok((await transport.readSignalsForAgent('worker-1')).some(s => s.signalId === broadcast.signalId));
+  receptor.registerReceptor({
+    id: 'receptor-pending-read', targetLigand: 'PENDING_READ',
+    threshold: 0.5, action: 'update_agent',
+    actionData: { agentId: 'worker-1', status: 'running' }
+  });
+  assert.equal(await transport.subscribeAgent(testDb, 'worker-1', 'pending-read-test'), true);
+  const pending = await transport.publishSignal({
+    signalType: 'ligand', signalData: { semanticType: 'PENDING_READ' },
+    topic: 'pending-read-test', senderAgentId: 'orch-1', recipientAgentIds: ['worker-1']
+  });
+  const beforeSeen = await testDb.get('SELECT status FROM signal_deliveries WHERE signal_id = ?', pending.signalId);
+  assert.equal(beforeSeen?.status, 'pending');
+  assert.ok(!(await transport.readSignalsForAgent('worker-1')).some(s => s.signalId === pending.signalId));
+  await transport.markSignalsSeen('worker-1', [pending.signalId]);
+  const row = await testDb.get('SELECT status FROM signal_deliveries WHERE signal_id = ?', pending.signalId);
+  assert.equal(row.status, 'pending');
+  await testDb.run("INSERT INTO workspaces (id, name, path, organization_id) VALUES ('ws-partial', 'Partial', '/tmp/partial', 'org-test')");
+  await testDb.run("INSERT INTO agents (id, name, role, execution_mode, workspace_id) VALUES ('orch-partial', 'Partial', 'orchestrator', 'orchestrator', 'ws-partial')");
+  const rejected = await transport.publishSignal({
+    signalType: 'ligand', signalData: { semanticType: 'PARTIAL_SCOPE' },
+    topic: 'partial-scope', senderAgentId: 'orch-partial', recipientAgentIds: ['worker-1']
+  });
+  assert.equal(rejected.published, false);
+  assert.equal(rejected.routing.routingMode, 'scope_mismatch');
+  assert.equal(await testDb.get('SELECT signal_id FROM signal_blobs WHERE signal_id = ?', rejected.signalId), undefined);
+  console.log('[PASS] testScopedReadCannotStealDelivery');
+}
+
 async function runAllTests() {
   await setupTestDb();
   await testFullReceptorDispatchPath();
@@ -286,6 +377,9 @@ async function runAllTests() {
   await testDeliveryAckCycle();
   await testWakeHandlerPath();
   await testDurablePollWakePath();
+  await testPublicationRequiresDurableDelivery();
+  await testSignalIdCannotOverwritePayload();
+  await testScopedReadCannotStealDelivery();
   console.log('\n✓ All Signal Plane E2E tests passed');
   await testDb.close();
 }

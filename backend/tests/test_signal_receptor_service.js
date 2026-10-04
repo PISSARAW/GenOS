@@ -238,6 +238,7 @@ async function testUpdateAgentAction() {
   const ctx = {
     updateAgent: async (agentId, status, currentTask) => {
       updateCalls.push({ agentId, status, currentTask });
+      return { updated: true };
     },
   };
 

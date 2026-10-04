@@ -7,19 +7,22 @@ const foraging = require('./foragingScoutHarvesterService');
 const axolotlTopology = require('./axolotlTopologyService');
 const axolotlRegeneration = require('./axolotlRegenerationService');
 const plasticityRegulator = require('./development/plasticityRegulatorService');
-const mcpBioHandlers = require('./mcpBioTools/handlers');
+const { registryBindings } = require('./mcpBioTools/registryBindings');
 
 let adaptivePersister = null;
 let adaptivePersisterPromise = null;
 
-async function getAdaptivePersister() {
+function getAdaptivePersister() {
+  return adaptivePersister;
+}
+
+async function initializeAdaptivePersister(database) {
   if (adaptivePersister) return adaptivePersister;
   if (adaptivePersisterPromise) return adaptivePersisterPromise;
 
   adaptivePersisterPromise = (async () => {
     try {
-      const db = await getDatabase();
-      adaptivePersister = new AdaptiveStateService(db);
+      adaptivePersister = new AdaptiveStateService(database);
 
       // Réhydrate ganglia depuis storage
       await adaptivePersister.resumeGangliaFromStorage();
@@ -42,8 +45,8 @@ async function getAdaptivePersister() {
 
       return adaptivePersister;
     } catch (error) {
-      // L'adoption adaptive est best-effort : en cas d'échec, ganglia
-      // continue de fonctionner en mémoire sans persistance.
+      adaptivePersister = null;
+      adaptivePersisterPromise = null;
       console.warn('[adaptive-state] Failed to initialize adaptive persister:', error.message);
       return null;
     }
@@ -93,37 +96,29 @@ async function bindPlasticityRegulator(persister) {
 }
 
 async function bindMcpBiomimicryRegistries(persister) {
-  const registries = [
-    { name: 'agrobacterium', mod: require('./mcpBioTools/handlers/agrobacteriumTdnaHijack'), registryKey: 'agrobacteriumRegistry' },
-    { name: 'aneuploidy', mod: require('./mcpBioTools/handlers/aneuploidy'), registryKey: 'aneuploidyRegistry' },
-    { name: 'chromosomal_deletion', mod: require('./mcpBioTools/handlers/chromosomalDeletion'), registryKey: 'chromosomalDeletionRegistry' },
-    { name: 'chimeric_merge', mod: require('./mcpBioTools/handlers/chimericMerge'), registryKey: 'chimericRegistry' },
-    { name: 'conjoined_twin', mod: require('./mcpBioTools/handlers/conjoinedTwinBind'), registryKey: 'conjoinedTwinRegistry' },
-    { name: 'consciousness_transfer', mod: require('./mcpBioTools/handlers/consciousnessTransfer'), registryKey: 'consciousnessRegistry' },
-    { name: 'affordances_scanner', mod: require('./mcpBioTools/handlers/affordancesScanner'), registryKey: 'affordancesLedger' }
-  ];
-
-  for (const reg of registries) {
-    try {
-      const mod = reg.mod;
-      if (!mod || !mod[reg.registryKey]) continue;
-      const stored = await persister.restoreMap(`mcp_bio::${reg.name}`, reg.registryKey);
-      if (stored && stored.size) {
-        mod[reg.registryKey] = stored;
-      }
-      mod.setAdaptivePersister && mod.setAdaptivePersister(persister);
-    } catch (_) {}
+  for (const reg of registryBindings()) {
+    const live = reg.mod[reg.liveKey];
+    if (!(live instanceof Map)) throw new Error(`Missing biomimicry registry: ${reg.scope}/${reg.key}`);
+    const stored = await persister.restoreMap(reg.scope, reg.key);
+    if (stored.size) {
+      live.clear();
+      for (const [key, value] of stored) live.set(key, value);
+    }
+    persister.registerMcpBiomimicryRegistry(reg.scope, reg.key, live);
+    persister.makePersistentMap(reg.scope, reg.key, live);
+    if (reg.mod.setAdaptivePersister) reg.mod.setAdaptivePersister(persister);
   }
 }
 
 // Hook: opportuniste — on initialise au premier usage pour ne pas bloquer le boot
-async function ensureAdaptivePersister() {
-  return getAdaptivePersister();
+async function ensureAdaptivePersister(db) {
+  if (!db) return ensureAdaptivePersister(await getDatabase());
+  return initializeAdaptivePersister(db);
 }
 
 // Hook: appelé dans les handlers qui ont accès au db pour forcer la persistance
 async function persistAdaptiveStateNow() {
-  const persister = await getAdaptivePersister();
+  const persister = await ensureAdaptivePersister();
   if (!persister) return;
   // La persistance est déjà faite en temps réel par les handlers, mais on
   // peut forcer une synchro complète si nécessaire.

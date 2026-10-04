@@ -133,7 +133,7 @@ async function selectCognitiveTarget(signal) {
       bestId = candidateId;
     }
   }
-  return bestId || parentId || senderId || 'cognitive-fallback';
+  return bestId || parentId || senderId || null;
 }
 
 function signalDataOf(signal) {

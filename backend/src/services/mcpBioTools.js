@@ -6,6 +6,7 @@ function runGenosSync(command, timeoutMs) {
 const { getDatabase } = require('../db');
 const { terminateChild } = require('./processTermination');
 const { TOOL_HANDLERS } = require('./mcpBioTools/handlers');
+const { registryBindingForTool } = require('./mcpBioTools/registryBindings');
 
 let echolocationProcess = null;
 let echolocationProcessId = null;
@@ -45,11 +46,7 @@ async function executeBioTool(toolName, args, options = {}) {
   if (rejection) return rejection;
   const handler = TOOL_HANDLERS[toolName];
   if (handler) {
-    try {
-      return await handler.handle(args, run);
-    } catch (e) {
-      return handler.error(e);
-    }
+    return invokeBioHandler(handler, { toolName, args, run });
   }
   if (toolName === 'genos_biomimicry_echolocation') {
     try {
@@ -66,6 +63,31 @@ async function executeBioTool(toolName, args, options = {}) {
   // Explicit extra route (single source of truth): genos_biomimicry_distributed_huddle
   // and genos_biomimicry_axolotl_* are served by mcpBioExtra, not TOOL_HANDLERS.
   return require('./mcpBioExtra').executeBioExtra(toolName, args, { timeoutMs });
+}
+
+async function invokeBioHandler(handler, call) {
+  const binding = registryBindingForTool(call.toolName);
+  const persister = binding
+    ? await require('./adaptiveStateBootstrap').ensureAdaptivePersister(await getDatabase())
+    : null;
+  if (binding && !persister) {
+    return { configured: true, success: false, status: 'adaptive_state_unavailable' };
+  }
+  let result;
+  try {
+    result = await handler.handle(call.args, call.run);
+  } catch (error) {
+    return handler.error(error);
+  }
+  if (!binding) return result;
+  try {
+    const map = binding.mod[binding.liveKey];
+    await map.flushPersistence();
+    await persister.persistMap(binding.scope, binding.key, map);
+    return result;
+  } catch (error) {
+    return { configured: true, success: false, status: 'adaptive_state_persistence_failed', error: error.message };
+  }
 }
 
 function isBioTool(toolName) {

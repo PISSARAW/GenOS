@@ -27,12 +27,18 @@ async function handleSignalPublish(args, run) {
     ttlMs: ttl_ms != null ? Number(ttl_ms) : undefined,
     signalId: signal_id || undefined,
   });
+  return formatSignalPublishResult(result);
+}
+
+function formatSignalPublishResult(result) {
   return {
     configured: true,
-    success: true,
-    status: 'signal_published',
+    success: result.published === true,
+    status: result.published === true ? 'signal_published' : 'signal_suppressed',
     signalId: result.signalId,
     signalType: result.signalType,
+    suppressedBy: result.suppressedBy || null,
+    suppressionReason: result.suppressionReason || null,
     transport: 'zero_text',
   };
 }
