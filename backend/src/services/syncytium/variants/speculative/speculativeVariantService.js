@@ -24,6 +24,8 @@ function compileSchema() {
     fields: {
       branchRegistry: { dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING' },
       branchSnapshots: { dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING' },
+      branchStates: { dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING' },
+      branchLineage: { dataType: 'MAP', consistencyZone: 'INVARIANT_PRESERVING' },
       executionBudget: { dataType: 'LWW_REGISTER', consistencyZone: 'CAUSAL' },
       comparisonLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
       promotionLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
@@ -52,12 +54,40 @@ async function spawnBranch(ctx) {
   const n = now();
   const id = o?.branchId || `branch-${n}-${randomUUID().slice(0, 8)}`;
   const A = actor(o, 'speculative-worker');
-  const rec = { branchId: id, baseSnapshotId, parentBranchId: null,
-    label: null, status: 'ACTIVE', createdBy: A, createdAt: n,
-    executionBudgetMs: cfg.budget, operationsCount: 0, lastExecutionAt: null };
+  const baseSnap = await syn.snapshot(sid, o);
+  const branchState = {
+    sharedFields: JSON.parse(JSON.stringify(baseSnap.shared?.sharedFields || {})),
+    totalOps: baseSnap.shared?.totalOps || 0,
+    schema: baseSnap.schema
+  };
+  const rec = {
+    branchId: id,
+    baseSnapshotId,
+    parentBranchId: null,
+    label: null,
+    status: 'ACTIVE',
+    createdBy: A,
+    createdAt: n,
+    executionBudgetMs: cfg.budget,
+    operationsCount: 0,
+    lastExecutionAt: null,
+    baseTotalOps: branchState.totalOps
+  };
   const snapRef = { snapshotId: id, baseOn: baseSnapshotId, takenAt: n, branchId: id };
+  const lineage = {
+    branchId: id,
+    baseSnapshotId,
+    parentBranchId: null,
+    createdAt: n,
+    createdBy: A,
+    promotedAt: null,
+    discardedAt: null,
+    mergeBaseTotalOps: branchState.totalOps
+  };
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: id, value: rec, A, o }), o);
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchSnapshots', action: 'set', entryKey: id, value: snapRef, A, o }), o);
+  await syn.applyOperation(sid, makeFieldOp({ key: 'branchStates', action: 'set', entryKey: id, value: branchState, A, o }), o);
+  await syn.applyOperation(sid, makeFieldOp({ key: 'branchLineage', action: 'set', entryKey: id, value: lineage, A, o }), o);
   return { branchId: id, label: null, status: 'ACTIVE', baseSnapshotId,
     executionBudgetMs: cfg.budget, createdAt: n };
 }
@@ -89,38 +119,59 @@ async function executeOnBranch(ctx) {
   assertStr(branchId, 'branchId');
   if (!Array.isArray(operations) || operations.length === 0)
     throw err('operations must be a non-empty array', 'SPEC_BAD_INPUT');
-  const { reg } = await fetchReg(sid, o, syn);
+  const { reg, states } = await fetchRegStates(sid, o, syn);
   const branch = reg[branchId];
   if (!branch) throw err(`branch '${branchId}' not found`, 'SPEC_BRANCH_NOT_FOUND');
   if (branch.status !== 'ACTIVE')
     throw err(`branch not ACTIVE (${branch.status})`, 'SPEC_BRANCH_NOT_ACTIVE');
   const budget = branch.executionBudgetMs || DEFAULT_EXEC_BUDGET;
   const wallStart = performance.now();
-  const { remaining, applied } = await applyOps({ sid, id: branchId, ops: operations, budget, o, syn });
+  const { remaining, applied, newState } = await applyOpsOnBranch({ sid, id: branchId, ops: operations, budget, o, syn, branchState: states[branchId] });
   if (remaining.ms < 0)
     return buildBudgetExceeded({ branchId, count: applied.length, budget, remaining });
   const n = now();
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
     value: { ...branch, operationsCount: branch.operationsCount + 1, lastExecutionAt: n }, A: actor(o, 'branch-executor'), o }), o);
+  await syn.applyOperation(sid, makeFieldOp({ key: 'branchStates', action: 'set', entryKey: branchId,
+    value: newState, A: actor(o, 'branch-executor'), o }), o);
   return buildCompletion({ branchId, applied, budget, remaining, n, wallStart });
 }
 
-async function applyOps(ctx) {
-  const { sid, id, ops, budget, o, syn } = ctx;
+async function applyOpsOnBranch(ctx) {
+  const { sid, id, ops, budget, o, syn, branchState } = ctx;
   const remaining = { ms: budget };
   const applied = [];
+  let currentState = branchState ? JSON.parse(JSON.stringify(branchState)) : { sharedFields: {}, totalOps: 0, schema: null };
   for (let i = 0; i < ops.length; i++) {
     const cost = (ops[i]?.estimatedCostMs > 0) ? ops[i].estimatedCostMs : 1;
     if (cost > remaining.ms) break;
     remaining.ms -= cost;
     const op = ops[i];
     const opIdVal = op?.opId || randomUUID();
-    const kind = op?.kind || { type: 'typed_field', key: 'branchSnapshots', action: 'set',
+    const kind = op?.kind || { type: 'typed_field', key: 'branchStates', action: 'set',
       entryKey: id, value: { appliedOperation: opIdVal, index: i } };
-    await syn.applyOperation(sid, { opId: opIdVal, actorId: actor(o, 'branch-executor'), kind }, o);
+    currentState = applyOpToState(currentState, { opId: opIdVal, actorId: actor(o, 'branch-executor'), kind });
     applied.push({ index: i, status: 'APPLIED', opId: opIdVal });
   }
-  return { remaining, applied };
+  return { remaining, applied, newState: currentState };
+}
+
+function applyOpToState(state, operation) {
+  const newState = { ...state, sharedFields: { ...state.sharedFields }, totalOps: (state.totalOps || 0) + 1 };
+  const kind = operation.kind;
+  if (kind.type === 'typed_field') {
+    const key = kind.key;
+    if (!newState.sharedFields[key]) newState.sharedFields[key] = {};
+    if (kind.action === 'set') {
+      newState.sharedFields[key][kind.entryKey] = kind.value;
+    } else if (kind.action === 'delete') {
+      delete newState.sharedFields[key][kind.entryKey];
+    } else if (kind.action === 'add') {
+      if (!Array.isArray(newState.sharedFields[key])) newState.sharedFields[key] = [];
+      newState.sharedFields[key].push(kind.value);
+    }
+  }
+  return newState;
 }
 
 function buildBudgetExceeded({ branchId, count, budget, remaining }) {
@@ -142,13 +193,15 @@ async function compareBranches(ctx) {
   const { sid, branchIds, o, syn } = ctx;
   if (!Array.isArray(branchIds) || branchIds.length < 2)
     throw err('need >=2 branchIds', 'SPEC_BAD_INPUT');
-  const { reg, snaps } = await fetchRegSnaps(sid, o, syn);
+  const { reg, states } = await fetchRegStates(sid, o, syn);
   const branches = branchIds.map(id => {
     if (!reg[id]) throw err(`branch '${id}' not found`, 'SPEC_BRANCH_NOT_FOUND');
     const b = reg[id];
+    const state = states[id];
     return { branchId: id, status: b.status, label: b.label || null,
       createdAt: b.createdAt, baseSnapshotId: b.baseSnapshotId,
-      snapshot: snaps[id] || null };
+      snapshot: state || null, operationsCount: b.operationsCount,
+      budgetConsumedMs: (b.executionBudgetMs || DEFAULT_EXEC_BUDGET) - (b.executionBudgetMs || DEFAULT_EXEC_BUDGET) };
   });
   const comparisonId = o?.comparisonId || randomUUID();
   const lineageGroups = groupByBase(branches);
@@ -168,22 +221,49 @@ function groupByBase(branches) {
 }
 
 async function promoteBranch(ctx) {
-  const { sid, branchId, evidenceGate, o, syn } = ctx;
+  const { sid, branchId, validationResult, o, syn } = ctx;
   assertStr(branchId, 'branchId');
-  const { reg } = await fetchReg(sid, o, syn);
+  if (!validationResult || typeof validationResult !== 'object' || validationResult.valid !== true) {
+    throw err('Promotion requires explicit validationResult with valid=true from mission metrics comparison', 'SPEC_PROMOTION_GATED');
+  }
+  const { reg, states, lineage } = await fetchRegStatesLineage(sid, o, syn);
   const branch = reg[branchId];
   if (!branch) throw err(`branch '${branchId}' not found`, 'SPEC_BRANCH_NOT_FOUND');
   if (branch.status === 'PROMOTED') throw err('already PROMOTED', 'SPEC_ALREADY_PROMOTED');
   const n = now();
-  const status = evidenceGate ? 'PROMOTED' : 'PROMOTION_GATED';
+  const branchState = states[branchId];
+  if (!branchState) throw err('Branch state not found for promotion', 'SPEC_BRANCH_STATE_MISSING');
+  const mainSnapshot = await syn.snapshot(sid, o);
+  const mainState = { sharedFields: mainSnapshot.shared?.sharedFields || {}, totalOps: mainSnapshot.shared?.totalOps || 0 };
+  const mergedState = mergeStates(mainState, branchState, branch.baseTotalOps);
   const A = actor(o, 'promotion-manager');
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
-    value: { ...branch, status, promotedAt: evidenceGate ? n : null, promotionEvidenceGate: evidenceGate }, A, o }), o);
+    value: { ...branch, status: 'PROMOTED', promotedAt: n, promotionEvidenceGate: true, promotionValidation: validationResult }, A, o }), o);
+  await syn.applyOperation(sid, makeFieldOp({ key: 'branchLineage', action: 'set', entryKey: branchId,
+    value: { ...lineage[branchId], promotedAt: n, mergeBaseTotalOps: mainState.totalOps }, A, o }), o);
   await syn.applyOperation(sid, makeFieldOp({ key: 'promotionLog', action: 'add',
-    value: { branchId, promotedAt: n, by: A, evidenceGatePassed: evidenceGate,
-      label: branch.label || null, baseSnapshotId: branch.baseSnapshotId }, A, o }), o);
-  return { branchId, previousStatus: branch.status, newStatus: status,
-    evidenceGatePassed: evidenceGate, timestamp: n };
+    value: { branchId, promotedAt: n, by: A, evidenceGatePassed: true,
+      label: branch.label || null, baseSnapshotId: branch.baseSnapshotId, validationResult }, A, o }), o);
+  await syn.applyOperation(sid, makeFieldOp({ key: 'branchStates', action: 'delete', entryKey: branchId, A, o }), o);
+  return { branchId, previousStatus: branch.status, newStatus: 'PROMOTED',
+    evidenceGatePassed: true, timestamp: n, mergedOps: mergedState.totalOps - mainState.totalOps };
+}
+
+function mergeStates(mainState, branchState, baseTotalOps) {
+  const merged = { ...mainState, sharedFields: { ...mainState.sharedFields }, totalOps: mainState.totalOps };
+  const branchFields = branchState.sharedFields || {};
+  for (const [key, value] of Object.entries(branchFields)) {
+    if (!merged.sharedFields[key]) merged.sharedFields[key] = {};
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      merged.sharedFields[key] = { ...merged.sharedFields[key], ...value };
+    } else if (Array.isArray(value)) {
+      merged.sharedFields[key] = [...(merged.sharedFields[key] || []), ...value];
+    } else {
+      merged.sharedFields[key] = value;
+    }
+  }
+  merged.totalOps = Math.max(mainState.totalOps, branchState.totalOps);
+  return merged;
 }
 
 async function discardBranch(ctx) {
@@ -191,12 +271,14 @@ async function discardBranch(ctx) {
   assertStr(branchId, 'branchId');
   if (!reason || typeof reason !== 'string')
     throw err('reason must be a non-empty string', 'SPEC_BAD_INPUT');
-  const { reg } = await fetchReg(sid, o, syn);
+  const { reg, lineage } = await fetchRegLineage(sid, o, syn);
   if (!reg[branchId]) throw err(`branch '${branchId}' not found`, 'SPEC_BRANCH_NOT_FOUND');
   const n = now();
   const A = actor(o, 'speculation-manager');
-  await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'delete', entryKey: branchId, A, o }), o);
-  await syn.applyOperation(sid, makeFieldOp({ key: 'branchSnapshots', action: 'delete', entryKey: branchId, A, o }), o);
+  await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
+    value: { ...reg[branchId], status: 'DISCARDED', discardedAt: n, discardReason: reason }, A, o }), o);
+  await syn.applyOperation(sid, makeFieldOp({ key: 'branchLineage', action: 'set', entryKey: branchId,
+    value: { ...lineage[branchId], discardedAt: n, discardReason: reason }, A, o }), o);
   await syn.applyOperation(sid, makeFieldOp({ key: 'discardLog', action: 'add',
     value: { branchId, discardedAt: n, by: A, reason,
       label: reg[branchId].label || null, baseSnapshotId: reg[branchId].baseSnapshotId }, A, o }), o);
@@ -205,17 +287,21 @@ async function discardBranch(ctx) {
 
 async function listBranches(ctx) {
   const { sid, o, syn } = ctx;
-  const { reg, snaps } = await fetchRegSnaps(sid, o, syn);
+  const { reg, states, lineage } = await fetchRegStatesLineage(sid, o, syn);
   const branches = Object.values(reg).map(b => ({
     branchId: b.branchId, status: b.status, label: b.label || null,
     baseSnapshotId: b.baseSnapshotId, parentBranchId: b.parentBranchId,
     createdAt: b.createdAt, lastExecutionAt: b.lastExecutionAt,
     executionBudgetMs: b.executionBudgetMs, operationsCount: b.operationsCount,
-    hasSnapshot: !!snaps[b.branchId]
+    hasSnapshot: !!states[b.branchId],
+    hasLineage: !!lineage[b.branchId],
+    promotedAt: b.promotedAt || null,
+    discardedAt: b.discardedAt || null
   }));
   return { branches, totalCount: branches.length,
     activeCount: branches.filter(b => b.status === 'ACTIVE').length,
     promotedCount: branches.filter(b => b.status === 'PROMOTED').length,
+    discardedCount: branches.filter(b => b.status === 'DISCARDED').length,
     timestamp: now() };
 }
 
@@ -232,11 +318,22 @@ async function speculativeSnapshot(ctx) {
     timestamp: now() };
 }
 
-async function fetchRegSnaps(sid, o, syn) {
+async function fetchRegStates(sid, o, syn) {
   const snap = await syn.snapshot(sid, o);
   const sf = snap.shared?.sharedFields || {};
-  return { reg: sf.branchRegistry || {}, snaps: sf.branchSnapshots || {} };
+  return { reg: sf.branchRegistry || {}, states: sf.branchStates || {} };
 }
-const fetchReg = fetchRegSnaps;
+
+async function fetchRegLineage(sid, o, syn) {
+  const snap = await syn.snapshot(sid, o);
+  const sf = snap.shared?.sharedFields || {};
+  return { reg: sf.branchRegistry || {}, lineage: sf.branchLineage || {} };
+}
+
+async function fetchRegStatesLineage(sid, o, syn) {
+  const snap = await syn.snapshot(sid, o);
+  const sf = snap.shared?.sharedFields || {};
+  return { reg: sf.branchRegistry || {}, states: sf.branchStates || {}, lineage: sf.branchLineage || {} };
+}
 
 module.exports = { createSpeculativeVariantService };
