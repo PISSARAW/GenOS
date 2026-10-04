@@ -63,11 +63,13 @@ ne peut compenser une violation de sécurité ou élargir une permission.
 | Responsabilité | Rattachée à une identité de projet Ontogenèse, persistée dans SQLite. | Pas de cycle de révision de mandat. |
 | Mandat | Finalité, dimensions, attentes, critères d'acceptation, permissions explicites ; version 1 immuable. | Pas de modèle complet de maturité ni de préférences qualitatives. |
 | Observation | Source, date, validité, domaine, dimension, statut, résumé et références de preuve. | La source est rapportée, sans certification automatique. |
+| Adaptateur de données | Contrôle local de fraîcheur d'un fichier confiné au projet, sans appel modèle. | La métadonnée du fichier ne prouve pas la qualité de son contenu. |
 | Initiative | Une proposition déterministe par observation ; certaines deviennent une tâche. | Risque, opportunité et lacune restent proposés. |
 | Reprise | Identifiants déterministes pour tâches et initiatives ; réveil reconstruit si nécessaire. | La reprise d'un effet externe relève encore de l'adaptateur métier. |
 | Effet du projet | Observation postérieure et callback de vérification requis après une tâche `done`. | La qualité du vérificateur dépend de l'application. |
 | Développement | Signal `skill_gap` rapporté au journal GVX et proposition du contrôleur GVX. | Aucun cycle GVX n'est lancé automatiquement par SHEV. |
 | Progrès de l'agent | `not_tested` persiste séparément du progrès du projet. | Pas de certificat de transfert dans cette tranche. |
+| Démonstrateur | Une tâche SHEV traverse l'exécution Ontogenèse, l'intégration Git, une lecture indépendante du fichier, une régression simulée et une seconde réparation. | Il s'agit d'un essai local contrôlé, pas d'une campagne longitudinale réelle. |
 
 Le chemin principal se trouve dans
 `backend/src/services/shev/`. La migration `099-shev-project-loop` ajoute les
@@ -264,12 +266,25 @@ Un adaptateur responsable doit définir quatre contrats concrets :
 | Vérification | Quelles preuves établissent ou réfutent l'amélioration ? |
 | Reprise | Comment distinguer un effet déjà appliqué d'une tentative à refaire ? |
 
-Pour une application, la perception peut être un parcours réellement
+L'adaptateur exécutable `inspectDataFreshness` couvre un premier cas de
+pipeline de données local. Il lit les métadonnées d'un fichier régulier
+dans le répertoire du projet, refuse les chemins traversants, les liens
+symboliques et les chemins sensibles de la politique d'intégration, puis
+compare sa date de modification à un seuil positif fourni par l'application.
+Il produit `degradation` si le fichier est trop ancien, `state` s'il est
+assez récent et `blind_spot` avec statut `unknown` s'il manque. Son identifiant
+dépend du projet, du chemin, du seuil et de l'état du fichier : des ticks
+répétés sur un état inchangé ne créent pas de nouvelle tâche. La référence
+`file-metadata:sha256:…` lie les métadonnées observées ; elle n'est pas un
+hash du contenu ni un certificat de qualité du pipeline. La vérification
+aval doit être fournie par un adaptateur métier distinct.
+
+Pour une application, la perception pourrait être un parcours réellement
 exécuté et la vérification une comparaison de résultats et de rendus. Pour
-un pipeline de données, la perception peut porter sur la fraîcheur et la
-distribution des données, et la vérification sur des jeux de référence et
-des invariants aval. Ces exemples définissent des contrats à développer ;
-ce commit n'inclut aucun de ces deux adaptateurs exécutables.
+un pipeline de données plus riche, elle devra aussi couvrir distributions,
+schémas, fraîcheur de la sortie et invariants aval. Ces contrats restent à
+développer ; le contrôle de fraîcheur actuel ne prouve pas qu'un pipeline
+complet fonctionne correctement.
 
 Une source externe, une page, un document ou une sortie d'outil ne reçoit
 jamais l'autorité du mandat par sa seule présence dans une observation.
@@ -293,7 +308,13 @@ les politiques de sécurité du domaine.
 
 Les tests couvrent ces contrats dans
 `backend/tests/test_shev_project_loop.js` et réexécutent la suite
-Ontogenèse avec la nouvelle migration. Les résultats d'un test unitaire
+Ontogenèse avec la nouvelle migration. Le cas non web est exercé dans
+`backend/tests/test_shev_data_freshness.js`. Le scénario
+`backend/tests/test_shev_runtime_demo.js` exerce un projet Git temporaire :
+constat d'échec, création de tâche, candidat vérifié, intégration, constat
+postérieur, régression externe simulée et réparation par une nouvelle tâche.
+Il lit le fichier intégré pour évaluer l'effet sans se fier au rapport du
+worker. Les résultats d'un test local
 n'établissent ni la qualité d'un vrai capteur ni l'indépendance réelle
 d'un évaluateur de domaine.
 
@@ -303,6 +324,8 @@ La première tranche se reproduit avec :
 
 ```bash
 node backend/tests/test_shev_project_loop.js
+node backend/tests/test_shev_data_freshness.js
+node backend/tests/test_shev_runtime_demo.js
 npm --prefix backend run test:ontogenesis
 npm test
 ```
