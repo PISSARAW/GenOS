@@ -152,12 +152,10 @@ pub fn clone_dna_pair(dna: &AgentDna, options: &CloneOptions) -> Result<ClonePai
         return Err("Mutation rate must be between 0 and 1".to_string());
     }
     if options.mode.as_str() == "budding" {
-        let current_scars = genome.bud_scars.len() as u32;
-        let hayflick_limit = genome.hayflick_limit;
         let result = CellDivision::budding_with_limit_and_mutation_seeded(
             &genome,
             options.daughter_volume,
-            (current_scars, hayflick_limit, options.mutation_rate, &seed),
+            (options.mutation_rate, &seed),
         )?;
         let mother = rebuild_inheriting(&result.mother, dna, (&dna.meta.name, mother_provenance(dna)));
         let mut daughter_prov = daughter_provenance(dna, &options.mode);

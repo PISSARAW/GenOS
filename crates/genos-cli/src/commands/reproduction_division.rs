@@ -64,8 +64,7 @@ pub fn handle_division(args: DivisionArgs) {
             handle_fission(&parent, (&parent_path, &chromatin_dir), (args.mutation_rate, args.seed));
         }
         "budding" => {
-            let limit = args.hayflick_limit.unwrap_or(parent.hayflick_limit);
-            handle_budding(&parent, (&parent_path, &chromatin_dir), (args.daughter_volume, limit));
+            handle_budding(&parent, (&parent_path, &chromatin_dir), args.daughter_volume);
         }
         "schizogony" => {
             let actual_seed = args.seed.unwrap_or("genos-default-schizogony");
@@ -103,10 +102,9 @@ fn handle_fission(parent: &Genome, paths: (&Path, &Path), opts: (f64, Option<&st
     }
 }
 
-fn handle_budding(parent: &Genome, paths: (&Path, &Path), opts: (f64, u32)) {
+fn handle_budding(parent: &Genome, paths: (&Path, &Path), daughter_volume: f64) {
     let (parent_path, chromatin_dir) = paths;
-    let (daughter_volume, limit) = opts;
-    match CellDivision::budding_with_limit(parent, daughter_volume, (parent.bud_scars.len() as u32, limit)) {
+    match CellDivision::budding_with_limit(parent, daughter_volume) {
         Ok(res) => {
             let _ = std::fs::write(parent_path, serde_json::to_string_pretty(&res.mother).unwrap_or_default());
             let daughter_path = chromatin_dir.join(format!("{}.json", res.daughter.genome_id()));
