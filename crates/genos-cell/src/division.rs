@@ -73,8 +73,9 @@ impl AgentCell {
 
         let mut clone = self.clone();
         clone.cell_id = Uuid::new_v4();
-        clone.bud_scars = parent.bud_scars;
-        clone.is_senescent = parent.is_senescent;
+        clone.bud_scars = 0;
+        clone.bud_scar_ids.clear();
+        clone.is_senescent = false;
         clone.conscience.current_budget = divided_current_budget;
         clone.conscience.baseline_budget = divided_baseline_budget;
         clone.regenerate_organelle_ids();

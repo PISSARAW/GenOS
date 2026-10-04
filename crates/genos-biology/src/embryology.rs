@@ -16,7 +16,7 @@ pub fn seed_hox_genome(base_instruction: &str) -> Genome {
 
 /// ACTE 1 : Le Zygote et la Mitose
 /// Génère un essaim d'agents "Cellules Souches" identiques à partir d'une racine unique.
-pub fn cleave_zygote(zygote: AgentCell, divisions: u32) -> Vec<AgentCell> {
+pub fn cleave_zygote(zygote: AgentCell, divisions: u32) -> Result<Vec<AgentCell>, String> {
     let mut swarm = vec![zygote];
     for _ in 0..divisions.min(MAX_ZYGOTE_DIVISIONS) {
         let mut new_generation = Vec::with_capacity(swarm.len() * 2);
@@ -26,14 +26,14 @@ pub fn cleave_zygote(zygote: AgentCell, divisions: u32) -> Vec<AgentCell> {
                     new_generation.push(parent);
                     new_generation.push(clone);
                 }
-                Err(_) => {
-                    new_generation.push(cell);
+                Err(e) => {
+                    return Err(format!("Mitosis failed during cleavage: {}", e));
                 }
             }
         }
         swarm = new_generation;
     }
-    swarm
+    Ok(swarm)
 }
 
 /// ACTE 2 & 3 : Le GPS Paracrine (Gènes HOX) et la Différenciation Épigénétique
@@ -72,7 +72,7 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
         });
         cell.role = program.expressed_lineage.unwrap_or_else(|| "UNCOMMITTED".to_string());
         cell.chromatin_state = Some("Differentiated".to_string());
-        cell.genome_id = Some(genome.genome_id());
+        // Keep cell's own genome_id from mitosis, don't overwrite with parent genome_id
     }
 
     update_hox_genes(swarm, genome);
@@ -180,7 +180,7 @@ mod tests {
     #[test]
     fn test_embryology_cleavage_and_differentiation() {
         let zygote = AgentCell::new("Zygote", "Origine embryonnaire", "Stem");
-        let mut swarm = cleave_zygote(zygote, 2);
+        let mut swarm = cleave_zygote(zygote, 2).unwrap();
         assert_eq!(swarm.len(), 4);
 
         let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn test_differentiation_covers_hox_axis_and_clamps_gradient() {
         let zygote = AgentCell::new("Zygote", "Origin", "Stem");
-        let mut swarm = cleave_zygote(zygote, 2);
+        let mut swarm = cleave_zygote(zygote, 2).unwrap();
         let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
         differentiate_swarm(&mut swarm, 2.0, &mut genome);
         assert_eq!(swarm.first().map(|cell| cell.role.as_str()), Some("HOX-1_UI_FRONTEND"));
@@ -211,7 +211,7 @@ mod tests {
     #[test]
     fn test_hox_locus_aliases_follow_active_axes() {
         let zygote = AgentCell::new("Zygote", "Origin", "Stem");
-        let mut swarm = cleave_zygote(zygote, 2);
+        let mut swarm = cleave_zygote(zygote, 2).unwrap();
         let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
         genome.insert_gene(Gene::new("HOX_A1", "UI_PROMPT"));
         genome.insert_gene(Gene::new("HOX-2_LOGIC_BACKEND", "BACKEND_PROMPT"));
@@ -223,7 +223,7 @@ mod tests {
     #[test]
     fn test_reactivated_hox_axis_is_demethylated() {
         let zygote = AgentCell::new("Zygote", "Origin", "Stem");
-        let mut swarm = cleave_zygote(zygote, 1);
+        let mut swarm = cleave_zygote(zygote, 1).unwrap();
         let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
         let mut gene = Gene::new("HOX-1_UI_FRONTEND", "UI_PROMPT");
         gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn test_apoptosis_preserves_hox_role_coverage() {
         let zygote = AgentCell::new("Zygote", "Origin", "Stem");
-        let mut swarm = cleave_zygote(zygote, 2);
+        let mut swarm = cleave_zygote(zygote, 2).unwrap();
         let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
         differentiate_swarm(&mut swarm, 1.0, &mut genome);
         let roles: std::collections::HashSet<_> = swarm.iter().map(|cell| cell.role.clone()).collect();
@@ -254,7 +254,7 @@ mod tests {
     #[test]
     fn test_zygote_divisions_are_bounded() {
         let zygote = AgentCell::new("Zygote", "Origin", "Stem");
-        let swarm = cleave_zygote(zygote, MAX_ZYGOTE_DIVISIONS + 4);
+        let swarm = cleave_zygote(zygote, MAX_ZYGOTE_DIVISIONS + 4).unwrap();
         assert_eq!(swarm.len(), 1usize << MAX_ZYGOTE_DIVISIONS);
     }
 

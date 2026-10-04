@@ -28,11 +28,11 @@ pub struct SporeFromCell<'a> {
 }
 
 impl Spore {
-    pub fn new(spore_type: SporeType, genome: Genome, bunker_armor: u32) -> Self {
+    pub fn new(spore_type: SporeType, genome: Genome, parent_cell_id: Uuid, bunker_armor: u32) -> Self {
         Self {
             spore_type,
             genome,
-            parent_cell_id: Uuid::new_v4(),
+            parent_cell_id,
             conscience: CognitiveRegulationState::default(),
             organelles: Vec::new(),
             bunker_armor,
@@ -71,7 +71,7 @@ impl Spore {
         }
 
         let mut new_cell = AgentCell::default();
-        new_cell.cell_id = self.parent_cell_id;
+        new_cell.cell_id = Uuid::new_v4();
         new_cell.role = match self.spore_type {
             SporeType::FungalReproductive => "Fungal Colony Cell".to_string(),
             SporeType::BacterialEndospore => "Bacterial Vegetative Cell".to_string(),
@@ -83,13 +83,25 @@ impl Spore {
     }
 
     pub fn create_fungal_spores(genome: &Genome, count: usize) -> Vec<Self> {
+        let max_spores = 128;
+        let count = count.min(max_spores);
         (0..count)
-            .map(|_| Self::new(SporeType::FungalReproductive, genome.clone(), 0))
+            .map(|_| Self::new(
+                SporeType::FungalReproductive,
+                genome.derive_child(),
+                Uuid::nil(),
+                0
+            ))
             .collect()
     }
 
     pub fn create_bacterial_endospore(genome: &Genome) -> Self {
-        Self::new(SporeType::BacterialEndospore, genome.clone(), 9999)
+        Self::new(
+            SporeType::BacterialEndospore,
+            genome.derive_child(),
+            Uuid::nil(),
+            9999
+        )
     }
 }
 
@@ -122,6 +134,13 @@ mod tests {
     }
 
     #[test]
+    fn test_fungal_spores_bounded() {
+        let genome = Genome::new("MOTHER");
+        let spores = Spore::create_fungal_spores(&genome, 200);
+        assert_eq!(spores.len(), 128);
+    }
+
+    #[test]
     fn test_spore_round_trip_preserves_organelles() {
         let mut cell = AgentCell::new("Host", "Host", "Worker");
         cell.organelles.push(Organelle::Ribosome {
@@ -139,13 +158,21 @@ mod tests {
     }
 
     #[test]
-    fn test_germination_restores_genome_identity() {
+    fn test_germination_creates_new_cell_id() {
         let genome = Genome::new("PERSISTED_GENOME");
-        let genome_id = genome.genome_id();
         let spore = Spore::create_bacterial_endospore(&genome);
 
-        let revived = spore.germinate(true, true).unwrap();
+        let revived1 = spore.germinate(true, true).unwrap();
+        // Note: can't test second germination since spore is consumed
+        // But we verify the cell_id is newly generated, not parent_cell_id
+        assert_ne!(revived1.cell_id, Uuid::nil());
+    }
 
-        assert_eq!(revived.genome_id, Some(genome_id));
+    #[test]
+    fn test_fungal_spores_have_distinct_genomes() {
+        let genome = Genome::new("MOTHER");
+        let spores = Spore::create_fungal_spores(&genome, 3);
+        let ids: std::collections::HashSet<_> = spores.iter().map(|s| s.genome.genome_id()).collect();
+        assert_eq!(ids.len(), 3, "Each spore should have unique genome_id");
     }
 }
