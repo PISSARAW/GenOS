@@ -1,4 +1,5 @@
 const assert = require('assert');
+process.env.GENOS_MCP_LEASE = 'genos_biomimicry_cryptophasia';
 const { executeBioTool } = require('../src/services/mcpBioTools');
 
 async function runTest() {
