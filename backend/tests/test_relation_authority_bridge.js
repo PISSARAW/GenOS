@@ -5,8 +5,8 @@ const bridge = require('../src/services/relationAuthorityBridge');
 const authority = require('../src/services/agentAuthorityService');
 
 function verifyGrants() {
-  assert.equal(bridge.relationGrantsControl('manager', 'forward'), true);
-  assert.equal(bridge.relationGrantsControl('guardian', 'forward'), true);
+  assert.equal(bridge.relationGrantsControl('manager', 'forward'), false);
+  assert.equal(bridge.relationGrantsControl('guardian', 'forward'), false);
   assert.equal(bridge.relationGrantsControl('manager', 'reverse'), false);
   assert.equal(bridge.relationGrantsControl('friend', 'forward'), false);
   assert.equal(bridge.isVerifierBlocked('twin'), true);
@@ -36,9 +36,10 @@ async function verifyControlFallback() {
       organization_id: null, project_id: null
     }]
   };
-  const target = await authority.authorizeAgentControl(db, { targetId: 'target-1', actorId: 'actor-1' });
-  assert.equal(target.id, 'target-1');
-  assert.equal(target.relationControl, 'manager');
+  await assert.rejects(
+    () => authority.authorizeAgentControl(db, { targetId: 'target-1', actorId: 'actor-1' }),
+    (error) => error.code === 'AGENT_CONTROL_FORBIDDEN'
+  );
 }
 
 verifyGrants();

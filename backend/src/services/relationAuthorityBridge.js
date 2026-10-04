@@ -2,14 +2,15 @@
 
 const resolver = require('./morphogenesis/relationResolverService');
 
-const CONTROL_GRANTING_TYPES = Object.freeze(new Set(['manager', 'guardian', 'mentor', 'parent']));
+const CONTROL_GRANTING_TYPES = Object.freeze(new Set());
 const VERIFIER_BLOCKED_TYPES = Object.freeze(new Set([
   'parent', 'child', 'sibling', 'twin', 'ancestor', 'descendant', 'chimera', 'plasmid', 'graft'
 ]));
 
 function relationGrantsControl(relationType, direction) {
-  if (direction !== 'forward') return false;
-  return CONTROL_GRANTING_TYPES.has(String(relationType || ''));
+  void relationType;
+  void direction;
+  return false;
 }
 
 function isVerifierBlocked(relationType) {
