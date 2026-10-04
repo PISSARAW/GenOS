@@ -5,7 +5,22 @@ const NEEDS_DETERMINISTIC_RUNNER = new Set(['procedural_executor', 'formal_worke
 function assertWorkerExecutorAvailable(mission) {
   const kind = mission.workerKind;
   if (!NEEDS_DETERMINISTIC_RUNNER.has(kind)) return;
-  throw Object.assign(new Error(`Worker kind '${kind}' requires a deterministic runner that is not connected to mission execution.`), {
+  const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
+  const methodId = String(method?.methodId || '').trim().toLowerCase();
+  const supported = kind === 'procedural_executor'
+    ? require('./deterministicWorkerProcedures').SUPPORTED.has(methodId)
+    : ['formal_proof', 'theorem_proving'].includes(methodId);
+  if (supported && method?.version === 1) {
+    if (kind === 'formal_worker') require('./deterministicWorkerFormal').sourceFor(method.parameters);
+    else if (method.parameters && typeof method.parameters === 'object') return;
+    else throw unavailable(kind, methodId);
+    return;
+  }
+  throw unavailable(kind, methodId);
+}
+
+function unavailable(kind, methodId) {
+  return Object.assign(new Error(`Worker kind '${kind}' has no connected deterministic runner for '${methodId || 'unspecified'}'.`), {
     code: 'WORKER_EXECUTOR_UNAVAILABLE', workerKind: kind
   });
 }

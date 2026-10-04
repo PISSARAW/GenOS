@@ -1,6 +1,6 @@
 'use strict';
 
-const DETERMINISTIC_KINDS = new Set(['procedural_executor', 'formal_worker']);
+const DETERMINISTIC_KINDS = new Set(['formal_worker']);
 
 function expectedUnavailable(kind, errorCode) {
   return DETERMINISTIC_KINDS.has(kind) && errorCode === 'WORKER_EXECUTOR_UNAVAILABLE';

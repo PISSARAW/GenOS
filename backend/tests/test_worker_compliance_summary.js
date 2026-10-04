@@ -6,12 +6,12 @@ const { expectedUnavailable, summarizeCompliance } = require('./workerCompliance
 const kinds = ['bounded_worker', 'procedural_executor', 'formal_worker'];
 const results = [
   { kind: 'bounded_worker', passed: true },
-  { kind: 'procedural_executor', passed: false, errorCode: 'WORKER_EXECUTOR_UNAVAILABLE' },
+  { kind: 'procedural_executor', passed: true },
   { kind: 'formal_worker', passed: false, errorCode: 'WORKER_EXECUTOR_UNAVAILABLE' }
 ];
 assert.equal(expectedUnavailable('bounded_worker', 'WORKER_EXECUTOR_UNAVAILABLE'), false);
 assert.deepEqual(summarizeCompliance(results, kinds), {
-  executed: 1, unavailable: 2, failed: 0, accepted: true
+  executed: 2, unavailable: 1, failed: 0, accepted: true
 });
 assert.equal(summarizeCompliance([
   results[0], results[1], { ...results[2], errorCode: 'INVALID_WORKER_ARTIFACT' }

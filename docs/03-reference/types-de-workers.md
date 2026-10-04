@@ -1,6 +1,6 @@
 # Types de workers GenOS
 
-- **Statut** : Les 19 kinds passent une campagne locale de conformité avec `qwen2.5:14b` au 2026-09-25. Les contrats Rust et Node gardent des sémantiques distinctes ; la délégation du sous-orchestrateur n'a pas été exercée par cette campagne comme mission parent-enfant réelle.
+- **Statut** : La campagne locale du 2026-09-25 couvrait les contrats des 19 kinds avec `qwen2.5:14b` ; elle ne mesurait ni les exécuteurs déterministes ni la parité avec des agents concurrents. Les contrats Rust et Node gardent des sémantiques distinctes ; la délégation du sous-orchestrateur n'a pas été exercée par cette campagne comme mission parent-enfant réelle.
 - **Portée** : `crates/genos-worker` (autorité Rust), registre Node des phénotypes et des `WorkerKind`, vocabulaire des rôles de mission, preuves et dispatch.
 - **Dernière revue** : 2026-09-25
 
@@ -1313,3 +1313,26 @@ Un lease omis conserve le lease de politique ; un lease explicitement vide
 `[]` signifie zéro outil et ne retombe pas sur le lease complet du rôle. Cette
 distinction empêche qu'une absence d'autorité explicite soit élargie par
 accident (`toolLeasePolicy.restrictProvidedLease`).
+
+## 49. Exécution déterministe effective (2026-10-04)
+
+`procedural_executor` et `formal_worker` passent par
+`deterministicWorkerRuntime` après le bootstrap de mission, sans appel au
+routeur de modèles et avec zéro token. Le contrat de méthode exécuté doit être
+identique au contrat persisté. Un échec de calcul ou de preuve produit un
+événement terminal `AGENT_FAILED` et ne débloque aucune promotion.
+
+Les seules procédures raccordées sont `lpt` (affectation de travaux à des
+machines) et `subset_sum` (recherche bornée d'un sous-ensemble). Elles exigent
+des paramètres structurés dans `methodContract.parameters`; les autres noms
+déclarés dans le catalogue restent indisponibles à l'affectation. Le worker
+formel accepte une comparaison arithmétique close `claim` et une version exacte
+`toolchainVersion`, construit `theorem genos_worker_claim : ... := by decide`,
+puis lance Lean. Il échoue si Lean manque ou rejette le théorème. Les reçus
+`solver://sha256:...` sont dérivés de l'exécution locale; ils ne prouvent pas
+une parité avec un produit concurrent. Voir [ADR 0294](../adr/0294-executeurs-deterministes-workers.md).
+
+La [campagne comparative](../../benchmarks/workers/README.md) contient 20 cas
+pour les 19 types, mais seuls deux cas procéduraux ont actuellement été
+mesurés localement. Les tâches sans oracle indépendant restent `unmeasured` ;
+un rapport rival n'est comparable que sur un même cas effectivement mesuré.

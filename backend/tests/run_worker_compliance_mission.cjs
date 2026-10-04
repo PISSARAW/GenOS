@@ -45,7 +45,11 @@ async function seedParent(options) {
 async function missionFor(context) {
   const { db, parentId, workspaceId, kind, model, scenario } = context;
   const strategy = await contracts.getLatestContract(db, parentId, workspaceId);
-  const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`, hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local' };
+  const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`,
+    hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local',
+    methodContract: kind === 'procedural_executor' ? { version: 1, methodId: 'lpt', parameters: {
+      jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2
+    } } : undefined };
   const created = await fleet.createAutonomousWorkers(db, { id: parentId, agent_type: 'GenOS' }, {
     plan: { strategyContract: { primary: strategy.contract.selected_strategy.primary }, tokenPolicy: { total: 5000, workerShare: 0.6, orchestratorReserve: 0.4, allocation: 'fixed' }, dispatchWorkers: [assignment] },
     mission: { prompt: `${scenario.prompt} Verified fixture receipt: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
@@ -59,7 +63,7 @@ async function validateMission(context) {
   const artifactValidationError = validateArtifactForMission(report, worker.agentId, metadata.workerContract);
   const expected = kinds.kindDefinition(kind).artifact;
   const artifact = report?.workerArtifact?.type || null;
-  const correctReference = hasFixtureReference(report, scenario.sourceRef);
+  const correctReference = correctMissionReference(kind, report, scenario);
   const refusalsValidated = validateExpectedRefusals(kind, metadata.workerContract);
   const persistedContract = metadata.workerKind === kind && metadata.workerContract.identity.workerKind === kind;
   const parentBound = metadata.workerContract.identity.parentId === parentId;
@@ -67,6 +71,13 @@ async function validateMission(context) {
   const passed = successfulOutcome({ agent, report, artifact, expected, correctReference, refusalsValidated, persistedContract, parentBound, runtimeStarted });
   const errorCode = execution?.errorCode;
   return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, errorCode, expectedUnavailable: expectedUnavailable(kind, errorCode), error: passed ? null : artifactValidationError || execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
+}
+
+function correctMissionReference(kind, report, scenario) {
+  if (kind === 'procedural_executor') {
+    return /^solver:\/\/sha256:[a-f0-9]{64}$/.test(report?.workerArtifact?.content?.procedureReceipt?.id || '');
+  }
+  return hasFixtureReference(report, scenario.sourceRef);
 }
 
 function validateArtifactForMission(report, workerId, workerContract) {
@@ -170,7 +181,7 @@ async function executeWorkerMission(context) {
   const { worker, metadata, parentId, workspaceId, rootWorkspace, kind, model } = context;
   const timeoutMs = Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000;
   try {
-    return await runtime.startMission({ agentId: worker.agentId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, prompt: worker.prompt, workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true });
+    return await runtime.startMission({ agentId: worker.agentId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true });
   } catch (error) { return { error: error.message, errorCode: error.code || null }; }
 }
 
