@@ -602,7 +602,7 @@ preuves POET négatives et le statut des ablations.
   commande en échec ne produit aucune observation; la sortie réussie reste
   `verified: false` tant qu'aucun vérificateur indépendant ne confirme la capacité.
 - **Phénotype** : `applyPhenotype` développe l'état selon les outils et capacités requis
-  et retourne `genos.phenotype.v2`, sept valeurs et deux catégories explicites.
+  et retourne `genos.phenotype.v3`, sept valeurs, leur masque de présence et deux catégories explicites.
   Le test SQLite vérifie l'isolation de deux agents partageant un génome et le refus
   d'une sauvegarde fondée sur une révision obsolète.
 - **Transfert culturel** : la fixture exécute une tâche de grille fixe avant et
@@ -632,7 +632,7 @@ preuves POET négatives et le statut des ablations.
 
 ## 15. Limites honnêtes
 
-1. **Pas de créativité générale** : les moteurs optimisent des métriques locales sans compréhension sémantique profonde. `phenotypeVectorService.js` implémente `genos.phenotype.v2` avec sept valeurs et des catégories exactes rôle/stratégie; le vecteur créatif conceptuel [N,Q,S,D,T,E,O,H] reste distinct et n'est pas implémenté.
+1. **Pas de créativité générale** : les moteurs optimisent des métriques locales sans compréhension sémantique profonde. `phenotypeVectorService.js` implémente `genos.phenotype.v3` avec sept valeurs, un masque de présence et des catégories exactes rôle/stratégie; le vecteur créatif conceptuel [N,Q,S,D,T,E,O,H] reste distinct et n'est pas implémenté.
 2. **Pas de conscience** : la « simulation mentale » est un calcul de faisabilité sur des structures JSON.
 3. **Open-endedness bornée, pas générale** : le générateur produit des descriptions d'environnement; la boucle NCE exécute POET seulement sur des environnements et agents fournis avec vérificateurs protégés. Cela ne démontre ni génération automatique de questions ouvertes, ni chaîne bout-en-bout POET → changement de phénotype.
 4. **Sélection culturelle partielle** : `culturalSelectionService` conserve un score scalaire pour les traits. Le chemin distinct de migration en métapopulation sélectionne des propagules versionnées par fronts de Pareto sur nouveauté et fitness de la source. `measureCulturalTransfer` établit un ordre benchmark-avant → intégration → benchmark-après et refuse les scores non finis. `test_nce_culture_tasks_durable.js` exécute trois tests d'intégration déterministes (workflow NCE bout en bout, causalité du transfert culturel, aller-retour de persistance phénotypique), puis les répète après réouverture SQLite : 0/3 → 3/3 → 3/3. Les empreintes SHA-256 du code exécuté et des sorties, ainsi que le vecteur phénotypique avant/après, sont conservés dans le rapport. Cette preuve mesure la réussite durable de workflows NCE contrôlés; elle ne démontre pas encore qu'un agent accomplit de façon autonome des tâches utilisateur ou acquiert une compétence générale.

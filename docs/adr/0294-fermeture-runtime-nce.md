@@ -19,8 +19,8 @@ des buckets de rôle et de stratégie susceptibles de collision.
 - Les missions et les topologies transmettent les champs NCE nécessaires; les
   signaux de topologie désactivent aussi les moteurs concernés. Chaque erreur de
   moteur est renvoyée dans `nce.errors` et n'est pas comptée comme amélioration.
-- Le vecteur `genos.phenotype.v2` conserve sept valeurs numériques et les libellés
-  normalisés du rôle et de la stratégie. La sauvegarde conserve le vecteur dans
+- Le vecteur `genos.phenotype.v3` conserve sept valeurs numériques, leur masque
+  de présence et les libellés normalisés du rôle et de la stratégie. La sauvegarde conserve le vecteur dans
   `state_json`, lie l'état à son agent et refuse une révision obsolète.
 - Le transfert culturel vérifie l'identité et la provenance de l'artefact, modifie
   l'état phénotypique du destinataire et le persiste. Sans benchmark indépendant,
