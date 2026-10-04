@@ -314,7 +314,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0293](0293-persistance-des-variants-metapopulation.md) | Persistance des états de variants Metapopulation | Accepté | 2026-10-04 | Metapopulation, cycles régionaux, dèmes persistants et culture |
 | [0294](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
 | [0295](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | Projets persistants, perception, Ontogenèse, GVX |
+| [0296](0296-capacites-transversales-morphogenese.md) | Cinq capacités transversales de morphogenèse | Proposé, avec première implémentation opt-in | 2026-10-04 | Morphogenèse, preuves, mémoire, risque statistique |
 | [0297](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
+| [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
 | [0299](0299-capsule-prompt-utf8-direct.md) | Capsule de prompt UTF-8 directe | Accepté | 2026-10-04 | Transport interprocessus, communication, coût |
 | [0300](0300-checkpoint-communication-fin-mission.md) | Checkpoint de communication à la fin d'une mission | Accepté | 2026-10-04 | Orchestration, communication, preuve |
 | [0301](0301-msgpack-sans-repli-json-illisible.md) | MsgPack sans repli JSON illisible | Accepté | 2026-10-04 | Transport binaire, communication inter-agents, compatibilité |

@@ -12,6 +12,7 @@ const suites = {
     ['mission physics parameter service', 'test_mission_physics_parameter_service.js'],
     ['WorldState conditional model', 'test_world_state_conditional.js'],
     ['morphology learning evidence gate', 'test_morphology_learning_evidence.js'],
+    ['morphogenesis transverse capabilities', 'test_morphogenesis_capabilities.js'],
     ['replicated causal validation', 'test_replicated_causal_validation_service.js'],
     ['replicated causal runtime integration', 'test_replicated_causal_runtime_integration.js'],
     ['biological semantic response validation', 'test_biological_semantic_validation.js'],
@@ -142,12 +143,21 @@ const suites = {
     ['biomimetic signaling bus', 'test_biomimetic_signaling_bus.js'],
     ['dynamic organization', 'test_dynamic_organization.js'],
     ['worker idle lifecycle', 'test_worker_idle_lifecycle.js']
+  ],
+  relationalPhysiology: [
+    ['relational physiology core', 'relationalPhysiology/core.test.cjs'],
+    ['relational physiology communication', 'relationalPhysiology/communication.test.cjs'],
+    ['relational physiology delegation and learning', 'relationalPhysiology/delegation-learning.test.cjs'],
+    ['relational physiology epistemics', 'relationalPhysiology/epistemics.test.cjs'],
+    ['relational physiology runtime', 'relationalPhysiology/runtime.test.cjs'],
+    ['relational physiology SQLite routing', 'relationalPhysiology/sqlite-hook.test.cjs']
   ]
 };
 
 suites.all = [
   ...suites.smoke,
   ...suites.signalPlane,
+  ...suites.relationalPhysiology,
   ...suites.grpc,
   ...suites.mcp,
   ...suites.security,

@@ -16,6 +16,19 @@ paramètres appliqués avant persistance du run.
 | `adaptive` | Les phases explicites sont chacune converties en plan de variante ; le choix reste visible dans `execution.organizationPolicy.phases`. |
 | `multiteam` | Les définitions de sous-équipes et contrats sont validées et un graphe programme ainsi qu'un conseil sont produits dans la politique persistée. Sans sous-équipes explicites, le dispatch échoue. |
 
+Les préconditions métier doivent être présentes avant l'exécution : Matrix compare chaque
+`decision.revision` à `currentRevision` fourni par l'autorité (0 par défaut), Tiger applique
+l'échéance absolue du mandat, Incident Command matérialise les divisions et rejette un
+superviseur au-delà du span configuré, et Multiteam exige ses objectifs système et au moins
+deux sous-équipes. Relay inclut tout le payload imbriqué dans le digest canonique ; le
+récepteur doit renvoyer ce digest avec son accusé, qui est vérifié avant acceptation ou rollback.
+
+Pour `boundary_spanner`, une interface sans contrat préfourni devient une
+`proposal_required` attribuée à un propriétaire. Le worker doit proposer un contrat versionné,
+un schéma sémantique et des références de provenance ; la proposition ne vaut pas validation.
+La politique marque `promotionBlocked` tant qu'un contrat d'interface n'est pas validé. Un
+contrat fourni mais invalide reste un rejet fermé.
+
 Le runner de programme `multiteam/programRuntimeService.js` persiste l'état des sous-équipes,
 les exécute par couches topologiques via un adaptateur `executeTeam`, et bloque un consumer
 tant que chaque contrat entrant bloquant n'est pas marqué vérifié avec une référence de
