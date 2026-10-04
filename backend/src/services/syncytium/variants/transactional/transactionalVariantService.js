@@ -82,8 +82,7 @@ function legacyRequestMatches(existing, request) {
   const storedTtl = existing.leaseExpiresAt === null ? null : existing.leaseExpiresAt - existing.createdAt;
   return existing.budget === (request.budget || 0) && existing.inventory === (request.inventory || 0)
     && existing.capacity === (request.capacity || 0) && storedTtl === expectedTtl
-    && JSON.stringify(canonicalize(existing.metadata || null)) === JSON.stringify(canonicalize(request.metadata || null))
-    && (!request.reservationId || existing.reservationId === request.reservationId);
+    && JSON.stringify(canonicalize(existing.metadata || null)) === JSON.stringify(canonicalize(request.metadata || null));
 }
 
 function resourceOperations(request, reservationId) {
@@ -186,8 +185,7 @@ function operationId(request, field) {
 
 function requestFingerprint(request) {
   const intent = { actorId: request.actorId, budget: request.budget || 0, inventory: request.inventory || 0,
-    capacity: request.capacity || 0, metadata: request.metadata || null, ttlMs: request.ttlMs ?? null,
-    reservationId: request.reservationId || null };
+    capacity: request.capacity || 0, metadata: request.metadata || null, ttlMs: request.ttlMs ?? null };
   const canonical = JSON.stringify(canonicalize(intent));
   return createHash('sha256').update(canonical).digest('hex');
 }
