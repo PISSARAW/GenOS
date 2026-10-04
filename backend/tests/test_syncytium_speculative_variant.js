@@ -25,7 +25,8 @@ async function main() {
   const comparison = await syncytium.compareBranches({ ...common, branchIds: ['B1', 'B2'],
     metricName: 'score', metrics: { B1: 9, B2: 4 } });
   assert.equal(comparison.ranked[0].branchId, 'B1');
-  assert.equal(comparison.branches.find((branch) => branch.branchId === 'B1').snapshot.branchSnapshots['candidate-branch-b1-op'].result, 'B1');
+  assert.equal(comparison.branches.find((branch) => branch.branchId === 'B1').snapshot.sharedFields
+    .branchSnapshots['candidate-branch-b1-op'].result, 'B1');
 
   await assert.rejects(() => syncytium.promoteBranch({ ...common, branchId: 'B2',
     evidenceGate: { passed: false, checks: [{ passed: false }] } }),
