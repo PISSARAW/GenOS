@@ -371,6 +371,9 @@ const migrationRunners = [
   createMigrationRunner('101-shev-project-loop', 'Persist delegated project responsibility, observations, initiatives and distinct effect assessments', async (db) => {
     await require('./migrateShevProjectLoop').migrateShevProjectLoop(db);
   }),
+  createMigrationRunner('102-shev-protocols', 'Persist authenticated SHEV decisions, monitoring and separate evaluation receipts', async (db) => {
+    await require('./migrateShevProtocols').migrateShevProtocols(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

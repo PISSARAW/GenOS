@@ -8,7 +8,7 @@ function validInput(input) {
 }
 
 function comparable(after, before) {
-  return after && after.dimension === before.dimension && after.kind === 'state'
+  return after && after.dimension === before.dimension && ['state', 'degradation'].includes(after.kind)
     && after.epistemic_status === 'observed'
     && Date.parse(after.observed_at) > Date.parse(before.observed_at)
     && (!after.valid_until || Date.parse(after.valid_until) > Date.now());
@@ -36,9 +36,11 @@ async function effectContext(db, input) {
 
 async function recordProjectEffect(db, input) {
   if (!validInput(input)) throw new TypeError('SHEV effect requires an external verifier.');
+  monitoringIntervalOf(input);
   const existing = await db.get('SELECT * FROM shev_effects WHERE initiative_id = ?', [input.initiativeId]);
   if (existing) {
     if (existing.post_observation_id !== input.postObservationId) throw new Error('SHEV effect idempotency conflict.');
+    await ensureWatch(db, input);
     return { ...existing, replayed: true };
   }
   const { row, before, after } = await effectContext(db, input);
@@ -54,7 +56,23 @@ async function recordProjectEffect(db, input) {
     assessment.result, assessment.verifierRef, JSON.stringify(assessment.evidenceRefs)]);
   const stored = await db.get('SELECT * FROM shev_effects WHERE initiative_id = ?', [input.initiativeId]);
   if (stored.post_observation_id !== input.postObservationId) throw new Error('SHEV effect idempotency conflict.');
+  await ensureWatch(db, input);
   return stored;
+}
+
+async function ensureWatch(db, input) {
+  const intervalMs = monitoringIntervalOf(input);
+  await db.run(`INSERT OR IGNORE INTO shev_watches (initiative_id, interval_ms, next_due_at, status)
+    VALUES (?, ?, ?, 'active')`, [input.initiativeId, intervalMs,
+    new Date(Date.now() + intervalMs).toISOString()]);
+}
+
+function monitoringIntervalOf(input) {
+  const intervalMs = input.monitoringIntervalMs ?? 86400000;
+  if (!Number.isSafeInteger(intervalMs) || intervalMs < 3600000 || intervalMs > 2592000000) {
+    throw new TypeError('SHEV monitoring interval is invalid.');
+  }
+  return intervalMs;
 }
 
 module.exports = { recordProjectEffect };

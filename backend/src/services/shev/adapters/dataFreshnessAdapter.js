@@ -6,6 +6,7 @@ const { resolveWorkspaceRoot, resolveContainedPathNoSymlinkSync,
   normalizeRelativePath } = require('../../pathSafety');
 const { FORBIDDEN } = require('../../ontogenesis/integrationService');
 const { recordObservation } = require('../observationService');
+const { recordProjectEffect } = require('../effectService');
 
 function digest(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -62,4 +63,12 @@ async function inspectDataFreshness(db, input) {
     observedAt: new Date(nowMs).toISOString(), ...classification });
 }
 
-module.exports = { inspectDataFreshness };
+async function verifyDataFreshness(db, input) {
+  const after = await inspectDataFreshness(db, input);
+  return recordProjectEffect(db, { projectId: input.projectId,
+    initiativeId: input.initiativeId, postObservationId: after.id,
+    verify: async () => ({ result: after.kind === 'state' ? 'confirmed' : 'regressed',
+      verifierRef: 'shev:data-freshness:v1', evidenceRefs: after.evidenceRefs }) });
+}
+
+module.exports = { inspectDataFreshness, verifyDataFreshness };

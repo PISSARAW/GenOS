@@ -2,6 +2,7 @@
 
 const { randomUUID, createHash } = require('node:crypto');
 const { getResponsibility } = require('./responsibilityService');
+const { consumeAuthorization } = require('./authorityService');
 
 const KIND_BY_OBSERVATION = {
   degradation: 'diagnose', blind_spot: 'instrument', risk: 'investigate',
@@ -47,7 +48,9 @@ async function createInitiative(db, input) {
 }
 
 function taskFor(observation, dimension, kind) {
-  const verb = kind === 'instrument' ? 'Instrumenter' : 'Diagnostiquer';
+  const verbs = { instrument: 'Instrumenter', diagnose: 'Diagnostiquer',
+    investigate: 'Examiner le risque', experiment: "Tester l'opportunite" };
+  const verb = verbs[kind] || 'Examiner';
   return { id: scopedId('shev_task', observation.project_id, observation.id), projectId: observation.project_id,
     title: `${verb} ${dimension.name} (observation ${observation.id})`,
     priority: kind === 'diagnose' ? 80 : 40,
@@ -133,4 +136,64 @@ async function compilePending(db, input) {
   return { compiled: observations.length, queued };
 }
 
-module.exports = { compilePending, decisionFor };
+function validBudgetLimits(budget) {
+  return Number.isSafeInteger(budget.tokens) && budget.tokens > 0
+    && Number.isFinite(budget.usd) && budget.usd > 0 && budget.usd <= 100
+    && Number.isSafeInteger(budget.seconds) && budget.seconds > 0 && budget.seconds <= 3600;
+}
+
+function validBudget(budget) {
+  return budget && validBudgetLimits(budget)
+    && Number.isSafeInteger(budget.maxAttempts) && budget.maxAttempts > 0 && budget.maxAttempts <= 3
+    && Number.isFinite(Date.parse(budget.deadlineAt)) && Date.parse(budget.deadlineAt) > Date.now();
+}
+
+function approvable(row, responsibility) {
+  return responsibility && responsibility.stage !== 'observing' && row?.status === 'proposed'
+    && ['investigate', 'experiment'].includes(row.kind)
+    && row.mandate_version === responsibility.mandateVersion
+    && row.epistemic_status === 'observed'
+    && (!row.valid_until || Date.parse(row.valid_until) > Date.now());
+}
+
+async function approveInitiative(db, input) {
+  const responsibility = await getResponsibility(db, input?.projectId);
+  const row = await db.get(`SELECT i.*, o.epistemic_status, o.valid_until, o.dimension
+    FROM shev_initiatives i JOIN shev_observations o
+      ON o.project_id = i.project_id AND o.id = i.observation_id
+    WHERE i.id = ? AND i.project_id = ?`, [input.initiativeId, input.projectId]);
+  if (!approvable(row, responsibility)) {
+    throw new Error('SHEV risk or opportunity is not eligible for approval.');
+  }
+  if (!validBudget(input.budget) || !['on-failed-check', 'on-regression'].includes(input.stopCondition)
+    || typeof input.alternative !== 'string' || !input.alternative.trim()
+    || input.alternative.length > 1024) throw new TypeError('SHEV approval requires budget, stop and alternative.');
+  const budget = { tokens: input.budget.tokens, usd: input.budget.usd,
+    seconds: input.budget.seconds, maxAttempts: input.budget.maxAttempts,
+    deadlineAt: new Date(input.budget.deadlineAt).toISOString() };
+  const authorization = { ...input.authorization, operation: 'initiative-approval',
+    projectId: input.projectId, subjectId: input.initiativeId,
+    expectedVersion: responsibility.mandateVersion,
+    details: { budget, stopCondition: input.stopCondition, alternative: input.alternative } };
+  await db.exec('BEGIN IMMEDIATE');
+  try {
+    await consumeAuthorization(db, authorization);
+    const current = await db.get('SELECT mandate_version FROM shev_responsibilities WHERE project_id = ?', [input.projectId]);
+    if (current.mandate_version !== responsibility.mandateVersion) throw new Error('SHEV mandate changed during approval.');
+    await db.run(`INSERT INTO shev_initiative_approvals
+      (initiative_id, budget_json, stop_condition, alternative, authorization_nonce)
+      VALUES (?, ?, ?, ?, ?)`, [input.initiativeId, JSON.stringify(budget),
+      input.stopCondition, input.alternative, authorization.nonce]);
+    const observation = await db.get(`SELECT * FROM shev_observations
+      WHERE project_id = ? AND id = ?`, [input.projectId, row.observation_id]);
+    await queueInitiative(db, { id: row.id, projectId: input.projectId,
+      observation, mandate: responsibility.mandate, decision: { kind: row.kind } });
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
+  }
+  return db.get('SELECT * FROM shev_initiatives WHERE id = ?', [input.initiativeId]);
+}
+
+module.exports = { compilePending, decisionFor, approveInitiative };
