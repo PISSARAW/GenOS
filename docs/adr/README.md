@@ -310,6 +310,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0281](0281-selection-remplacement-partenaire.md) | Séparer sélection et remplacement du partenaire | Accepté | 2026-10-04 | Holobionte, compétition, succession |
 | [0282](0282-lifecycle-admission-procedurale.md) | Lier le variant procédural au cycle d'admission | Accepté | 2026-10-04 | Holobionte, contrats, essais, admission |
 | [0283](0283-validation-schema-outils.md) | Validation JSON Schema et porte d'exécution des outils | Accepté | 2026-10-04 | Holobionte, outils, validation de schéma |
+| [0284](0284-routage-missions-variants.md) | Routage priorisé des missions Holobionte | Accepté | 2026-10-04 | Holobionte, sélection de variants, missions |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

@@ -134,7 +134,12 @@ function testCompetitionSelectsProtectedGroupAlternative() {
   const result = runtime.selectCompetitivePartner({ candidates, budget, protectedGroups: ['protected'],
     verifyTrial: () => true, approveReplacement: (id) => id === 'protected-winner' });
   assert.strictEqual(result.champion.id, 'protected-winner');
-  assert.strictEqual(result.replacementAuthorized, true);
+  assert.strictEqual(result.replacementAuthorized, false);
+  const replacement = runtime.authorizeCompetitiveReplacement({ championId: result.champion.id, trials: result.trials,
+    verifyTrial: () => true, restorationReceipt: { id: 'restore' }, verifyRestoration: () => true,
+    rollbackSnapshot: { id: 'snapshot' }, verifyRollbackSnapshot: () => true,
+    approveReplacement: (id) => id === 'protected-winner' });
+  assert.strictEqual(replacement.replacementAuthorized, true);
 }
 
 function testProceduralRecruitmentContractGates() {
