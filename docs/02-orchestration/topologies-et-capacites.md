@@ -67,7 +67,10 @@ contrôlé de la même façon et fait échouer la composition s'il est incompati
 | Coordination (`coordinate`) | `liaison_worker`, `sub_orchestrator` |
 | Transfert (`handoff`) | `liaison_worker` |
 
-Le rôle `host_orchestrator` demeure un orchestrateur sans `WorkerKind`. Les
+Le rôle `host_orchestrator` demeure un orchestrateur sans `WorkerKind`; le
+dispatcher ne le transforme pas en worker enfant et ne le compte pas dans les
+slots disponibles. Pour Holobionte, il représente l'autorité du parent qui
+reçoit les résultats des symbiotes. Les
 méthodes connues ajoutent leurs capacités au contrat du rôle : par exemple,
 `dynamic_programming` requiert `deterministic_procedure`, tandis que
 `evolutionary_search` requiert `adaptive_strategy`. Une méthode personnalisée
