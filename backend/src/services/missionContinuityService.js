@@ -74,6 +74,13 @@ async function fetchMissionAgents(db, missionId) {
   return db.all('SELECT id, role, status, execution_mode FROM agents WHERE id = ? OR parent_agent_id = ?', missionId, missionId);
 }
 
+async function effectiveMissionOutcome(db, missionId) {
+  const members = await fetchMissionAgents(db, missionId);
+  const effective = await require('./regenerationAttemptService').effectiveAgents(db, missionId, members);
+  const outcome = require('./orchestratorOutcome').summarizeAgents(effective);
+  return { members, outcome };
+}
+
 function buildGenome(mission, existingState = null) {
   return {
     objective: mission.objective || mission.task || null,
@@ -374,6 +381,7 @@ module.exports = {
   tissueKindForAgent,
   agentToCell,
   fetchMissionAgents,
+  effectiveMissionOutcome,
   assembleOrganism,
   buildMissionInput,
   attachContract,

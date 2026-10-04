@@ -169,8 +169,12 @@ async function evaluateMissionContinuity(opts) {
   let completionGate = { allowed: false, reason: 'continuity evaluation did not run' };
   let evaluation = null;
   let organism = null;
+  let effectiveOutcome = outcome;
   try {
-    const context = await buildMissionContext({ outcome, policyRequest, request, db, missionId: missionId || id, agents });
+    const current = await missionContinuity.effectiveMissionOutcome(db, missionId || id);
+    const members = current.members;
+    effectiveOutcome = current.outcome;
+    const context = await buildMissionContext({ outcome: effectiveOutcome, policyRequest, request, db, missionId: missionId || id, agents: members });
     mission = missionContinuity.buildMissionInput(missionId || id, task, {
       orchestratorAgentId: id,
       completionContract: context.completionContract,
@@ -178,7 +182,7 @@ async function evaluateMissionContinuity(opts) {
       safetyConstraints: context.safetyConstraints,
       context: context.context
     });
-    const evalResult = await evaluateAndRepairMission({ db, id, task, outcome, agents, mission });
+    const evalResult = await evaluateAndRepairMission({ db, id, task, outcome: effectiveOutcome, agents: members, mission });
     evaluation = evalResult;
     organism = evalResult.organism;
     continuity = { ...buildContinuity(evalResult), missionId: mission.id };
@@ -189,7 +193,7 @@ async function evaluateMissionContinuity(opts) {
     continuity = { status: 'unknown', error: continuityError.message };
     completionGate = { allowed: false, reason: continuityError.message };
   }
-  return { continuity, completionGate, evaluation, organism, mission, outcome: evaluation?.repairedOutcome || outcome };
+  return { continuity, completionGate, evaluation, organism, mission, outcome: evaluation?.repairedOutcome || effectiveOutcome };
 }
 
 async function evaluateAndRepairMission(input) {
@@ -197,10 +201,9 @@ async function evaluateAndRepairMission(input) {
   if (evaluation.status === 'homeostasis_satisfied') return evaluation;
   const replacements = await regenerateUncoveredWorkers(input, evaluation);
   if (!replacements.some((replacement) => replacement.success)) return evaluation;
-  const agents = await missionContinuity.fetchMissionAgents(input.db, input.mission.id);
-  const effective = await require('../src/services/regenerationAttemptService').effectiveAgents(input.db, input.mission.id, agents);
-  const repairedOutcome = summarizeAgents(effective);
-  const context = await buildMissionContext({ outcome: repairedOutcome, policyRequest, request, db: input.db, missionId: input.mission.id, agents });
+  const current = await missionContinuity.effectiveMissionOutcome(input.db, input.mission.id);
+  const repairedOutcome = current.outcome;
+  const context = await buildMissionContext({ outcome: repairedOutcome, policyRequest, request, db: input.db, missionId: input.mission.id, agents: current.members });
   input.mission.context = context.context;
   evaluation = await missionContinuity.evaluateContinuity(input.db, input.mission);
   return { ...evaluation, repairedOutcome };
@@ -266,8 +269,7 @@ async function runOrchestratedMission(db) {
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
   await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology });
   const agents = await waitForCompletion(db);
-  const { summarizeAgents } = require('../src/services/orchestratorOutcome');
-  const outcome = summarizeAgents(agents);
+  const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
   await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, nceEnhancements });
 }

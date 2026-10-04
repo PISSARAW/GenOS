@@ -351,7 +351,7 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
    borné et idempotent (boucle dispatch → attente terminal → réévaluation,
    jusqu'à satisfaction ou épuisement), les preuves runtime collectées depuis
    les dossiers workers et la télémétrie — couverts par
-   `backend/tests/test_mission_continuity.js` (18 tests) et
+   `backend/tests/test_mission_continuity.js` (19 tests) et
    `backend/tests/test_mission_evidence.js` (10 tests) et
    `backend/tests/test_homeostasis_continuation.js` (18 tests).
 - **Implémenté et testé au niveau service** : `regenerateWorker()` crée un agent
