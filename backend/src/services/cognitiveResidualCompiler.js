@@ -2,8 +2,9 @@
 
 const crypto = require('node:crypto');
 const { isSupportedSignalType } = require('./biomimeticSignalingBus');
+const obligationRegistry = require('./cognitiveObligationRegistry');
 
-const CONTRACT_VERSION = 1;
+const CONTRACT_VERSION = 2;
 const MAX_PROJECTION_BYTES = 16 * 1024;
 const REDUNDANT_CONTEXT = new Map([
   ['signalId', 'runtime_identifier'],
@@ -92,6 +93,17 @@ function renderSignal(fields, context, omissions) {
   return lines.join('\n');
 }
 
+function signalObligations(promptDigest) {
+  return obligationRegistry.plan({ version: obligationRegistry.VERSION, operation: 'INFER', obligations: [
+    { id: 'signal_input', kind: 'INPUT', state: 'satisfied', dependsOn: [],
+      basis: { kind: 'materialized_prompt', reference: promptDigest } },
+    { id: 'escalation_gate', kind: 'GATE', state: 'enforced', dependsOn: ['signal_input'],
+      basis: { kind: 'runtime_flag', reference: 'llmRequired' } },
+    { id: 'interpret_signal', kind: 'INFER', state: 'open', dependsOn: ['escalation_gate'] },
+    { id: 'verify_candidate', kind: 'CHECK', state: 'open', dependsOn: ['interpret_signal'] }
+  ] });
+}
+
 function compileSignal(input) {
   const { signal, context = {}, agentId } = input || {};
   const invalidSignal = signalError(signal, agentId);
@@ -109,37 +121,59 @@ function compileSignal(input) {
   catch { return invalid('projection_unserializable'); }
   if (Buffer.byteLength(prompt, 'utf8') > MAX_PROJECTION_BYTES) return invalid('projection_too_large');
   const digest = crypto.createHash('sha256').update(prompt).digest('hex');
+  const promptDigest = `sha256:${digest}`;
+  const obligations = signalObligations(promptDigest);
+  if (obligations.status !== 'ready') return invalid(obligations.reason || 'inference_not_runnable');
   return {
-    status: 'ready', prompt, omissions,
+    status: 'ready', prompt, omissions, obligations,
     contract: {
       version: CONTRACT_VERSION, operation: 'INFER', source: signal.signalId,
       recipient: agentId, output: ['candidate', 'need', 'unknown'],
-      check: 'unverified_candidate_only'
+      check: 'unverified_candidate_only', obligationVersion: obligations.version,
+      obligationDigest: obligations.digest
     },
     admission: { reason: 'signal_escalation', alternatives: ['receptor_dispatch'], source: signal.signalId },
     visibility: {
       mode: 'materialized_in_this_invocation', recipient: agentId,
-      source: signal.signalId, promptDigest: `sha256:${digest}`,
+      source: signal.signalId, promptDigest,
       model: null, session: null, contextRevision: null
     }
   };
 }
 
 function hypothesisError(input) {
-  const { mission, supplied, agentId } = input || {};
+  const { mission, supplied, agentId, budget } = input || {};
   if (!agentId || supplied?.generateHypotheses !== true) return 'inference_not_authorized';
   if (typeof mission !== 'string' || !mission.trim()) return 'mission_content_missing';
+  return hypothesisContextError(supplied, budget);
+}
+
+function hypothesisContextError(supplied, budget) {
   if (typeof supplied !== 'object' || Array.isArray(supplied)) return 'generation_context_invalid';
   if (supplied.candidateHypotheses !== undefined && !Array.isArray(supplied.candidateHypotheses)) {
     return 'candidate_hypotheses_invalid';
   }
+  if (typeof budget !== 'number' || !Number.isFinite(budget) || budget <= 0) return 'generation_budget_required';
   return null;
+}
+
+function hypothesisObligations(promptDigest, budget) {
+  return obligationRegistry.plan({ version: obligationRegistry.VERSION, operation: 'INFER', obligations: [
+    { id: 'mission_input', kind: 'INPUT', state: 'satisfied', dependsOn: [],
+      basis: { kind: 'materialized_prompt', reference: promptDigest } },
+    { id: 'generation_request', kind: 'GATE', state: 'enforced', dependsOn: ['mission_input'],
+      basis: { kind: 'runtime_flag', reference: 'generateHypotheses' } },
+    { id: 'budget_limit', kind: 'GATE', state: 'enforced', dependsOn: ['generation_request'],
+      basis: { kind: 'model_router_limit', reference: `maxCostUsd:${budget}` } },
+    { id: 'propose_hypotheses', kind: 'INFER', state: 'open', dependsOn: ['budget_limit'] },
+    { id: 'verify_hypotheses', kind: 'CHECK', state: 'open', dependsOn: ['propose_hypotheses'] }
+  ] });
 }
 
 function compileHypotheses(input) {
   const error = hypothesisError(input);
   if (error) return invalid(error);
-  const { mission, supplied, agentId } = input;
+  const { mission, supplied, agentId, budget } = input;
   const omissions = Object.keys(supplied).filter((key) => !['generateHypotheses', 'candidateHypotheses'].includes(key))
     .sort().map((key) => ({ field: `supplied.${key}`, reason: 'outside_generation_contract' }));
   const lines = [
@@ -154,17 +188,21 @@ function compileHypotheses(input) {
   const prompt = lines.join('\n');
   if (Buffer.byteLength(prompt, 'utf8') > MAX_PROJECTION_BYTES) return invalid('projection_too_large');
   const digest = crypto.createHash('sha256').update(prompt).digest('hex');
+  const promptDigest = `sha256:${digest}`;
+  const obligations = hypothesisObligations(promptDigest, budget);
+  if (obligations.status !== 'ready') return invalid(obligations.reason || 'inference_not_runnable');
   const source = `trinity_mission:${crypto.createHash('sha256').update(mission).digest('hex')}`;
   return {
-    status: 'ready', prompt, omissions,
+    status: 'ready', prompt, omissions, obligations,
     contract: {
       version: CONTRACT_VERSION, operation: 'INFER', source, recipient: agentId,
-      output: ['candidateHypotheses'], check: 'unverified_candidate_only'
+      output: ['candidateHypotheses'], check: 'unverified_candidate_only',
+      obligationVersion: obligations.version, obligationDigest: obligations.digest
     },
     admission: { reason: 'explicit_hypothesis_generation', alternatives: ['fixed_hypothesis_design'], source },
     visibility: {
       mode: 'materialized_in_this_invocation', recipient: agentId, source,
-      promptDigest: `sha256:${digest}`, model: null, session: null, contextRevision: null
+      promptDigest, model: null, session: null, contextRevision: null
     }
   };
 }

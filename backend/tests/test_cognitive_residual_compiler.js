@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3').verbose();
+const { pack, unpack } = require('msgpackr');
 const compiler = require('../src/services/cognitiveResidualCompiler');
 const cognitiveSignal = require('../src/services/cognitiveSignalService');
 const modelRouter = require('../src/services/modelRouter');
@@ -14,7 +15,8 @@ function sample() {
       signalId: 's1', signalType: 'ligand', semanticType: 'NOVEL',
       topic: 'review', sender: 'agent-1', payloadRef: 's1',
       dataSize: 24, escalatedAt: '2026-10-04T00:00:00Z',
-      constraint: 'Do not write files'
+      constraint: 'Do not write files', units: 'milliseconds',
+      provenance: 'artifact:sealed-42'
     },
     signal: {
       signalId: 's1', signalType: 'ligand', topic: 'review',
@@ -28,8 +30,24 @@ function testProjection() {
   const input = sample();
   const compiled = compiler.compileSignal(input);
   assert.equal(compiled.status, 'ready');
+  assert.equal(compiled.contract.version, 2);
   assert.equal(compiled.contract.operation, 'INFER');
+  assert.equal(compiled.obligations.status, 'ready');
+  assert.deepEqual(compiled.obligations.runnable, ['interpret_signal']);
+  assert.deepEqual(compiled.obligations.waiting, ['verify_candidate']);
+  assert.equal(compiled.contract.obligationDigest, compiled.obligations.digest);
   assert.match(compiled.prompt, /context.constraint: "Do not write files"/);
+  assert.match(compiled.prompt, /context.units: "milliseconds"/);
+  assert.match(compiled.prompt, /context.provenance: "artifact:sealed-42"/);
+  for (const field of ['constraint', 'units', 'provenance']) {
+    assert.ok(!compiled.omissions.some((item) => item.field === `context.${field}`));
+    const changed = compiler.compileSignal({ ...input, context: {
+      ...input.context, [field]: `${input.context[field]}-changed`
+    } });
+    assert.equal(changed.status, 'ready');
+    assert.notEqual(changed.obligations.digest, compiled.obligations.digest);
+  }
+  assert.equal(compiled.obligations.obligations[0].basis.reference, compiled.visibility.promptDigest);
   assert.match(compiled.prompt, /signal.data:/);
   assert.doesNotMatch(compiled.prompt, /escalatedAt|dataSize|payloadRef/);
   assert.ok(compiled.omissions.some((item) => item.field === 'context.payloadRef'));
@@ -70,6 +88,11 @@ async function testModelBoundary() {
     assert.ok(receipt.audit_blob.length > 0);
     await db.run("UPDATE cognitive_inference_receipts SET prompt_bytes = x'00' WHERE signal_id = 's1'");
     await assert.rejects(cognitiveSignal.handleSignal({ db, ...sample() }), /prompt digest mismatch/);
+    const audit = unpack(receipt.audit_blob);
+    audit.obligations.digest = 'sha256:tampered';
+    await db.run("UPDATE cognitive_inference_receipts SET prompt_bytes = ?, audit_blob = ? WHERE signal_id = 's1'",
+      [receipt.prompt_bytes, pack(audit)]);
+    await assert.rejects(cognitiveSignal.handleSignal({ db, ...sample() }), /obligation audit mismatch/);
     await assert.rejects(cognitiveSignal.handleSignal({ db, ...sample(),
       context: { signalId: 'wrong' } }), { code: 'COGNITIVE_SIGNAL_BLOCKED' });
     assert.equal(calls, 1);

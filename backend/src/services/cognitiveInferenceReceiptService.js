@@ -1,6 +1,7 @@
 'use strict';
 
 const { randomUUID, createHash } = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
 const { pack, unpack } = require('msgpackr');
 
 async function ensureTable(db) {
@@ -25,20 +26,28 @@ function keyOf(compiled) {
     compiled.contract.version, compiled.visibility.promptDigest];
 }
 
+function auditOf(compiled) {
+  return { contract: compiled.contract, admission: compiled.admission,
+    visibility: compiled.visibility, omissions: compiled.omissions,
+    obligations: compiled.obligations };
+}
+
 async function reserve(db, compiled) {
   await ensureTable(db);
   const invocationId = randomUUID();
-  const audit = { contract: compiled.contract, admission: compiled.admission,
-    visibility: compiled.visibility, omissions: compiled.omissions };
+  const audit = auditOf(compiled);
   await db.run(`INSERT OR IGNORE INTO cognitive_inference_receipts
     (invocation_id, signal_id, agent_id, contract_version, prompt_digest,
      prompt_bytes, audit_blob, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
   [invocationId, ...keyOf(compiled), Buffer.from(compiled.prompt, 'utf8'), pack(audit)]);
-  const row = await db.get(`SELECT invocation_id, status, prompt_bytes, result_blob
+  const row = await db.get(`SELECT invocation_id, status, prompt_bytes, audit_blob, result_blob
     FROM cognitive_inference_receipts WHERE signal_id = ? AND agent_id = ?
     AND contract_version = ? AND prompt_digest = ?`, keyOf(compiled));
   const digest = `sha256:${createHash('sha256').update(row.prompt_bytes).digest('hex')}`;
   if (digest !== compiled.visibility.promptDigest) throw new Error('Cognitive receipt prompt digest mismatch.');
+  if (!isDeepStrictEqual(unpack(row.audit_blob), audit)) {
+    throw new Error('Cognitive receipt obligation audit mismatch.');
+  }
   if (row.status === 'completed' && !row.result_blob) throw new Error('Cognitive receipt result is missing.');
   return { invocationId: row.invocation_id, owned: row.invocation_id === invocationId,
     status: row.status, result: row.result_blob ? unpack(row.result_blob) : null };

@@ -120,6 +120,7 @@ const suites = {
     ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js']
   ],
   signalPlane: [
+    ['cognitive obligation registry', 'test_cognitive_obligation_registry.js'],
     ['cognitive residual compiler', 'test_cognitive_residual_compiler.js'],
     ['G-CIR Trinity hypothesis generation', 'test_gcir_trinity_hypothesis_generation.js'],
     ['signal receptor service', 'test_signal_receptor_service.js'],

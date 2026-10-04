@@ -1,9 +1,9 @@
 # G-CIR : interface cognitive résiduelle de GenOS
 
-- **Statut** : Partiel ; adaptateurs opérationnels dans le Signal Plane et la génération d'hypothèses Trinity
+- **Statut** : Partiel ; deux adaptateurs et registre local d'obligations versionné
 - **Portée** : contrats cognitifs, admission, projection vers un modèle, visibilité et validation
 - **Dernière revue** : 2026-10-04
-- **Décisions liées** : [ADR 0294](../adr/0294-contrat-residuel-cognitif-signal-plane.md), [ADR 0297](../adr/0297-g-cir-generation-hypotheses-trinity.md)
+- **Décisions liées** : [ADR 0294](../adr/0294-contrat-residuel-cognitif-signal-plane.md), [ADR 0297](../adr/0297-g-cir-generation-hypotheses-trinity.md), [ADR 0299](../adr/0299-registre-obligations-g-cir.md)
 
 ---
 
@@ -60,8 +60,9 @@ d'évaluation, pas une garantie d'optimalité. Un résultat du modèle n'est pas
 preuve parce qu'il respecte une grammaire.
 
 Soit un contrat $C$ et son ensemble d'obligations $O(C)$. Chaque obligation
-possède un état parmi `satisfaite`, `imposée`, `ouverte` et `bloquée`. Un
-compilateur général devrait maintenir l'invariant :
+possède un état parmi `satisfaite`, `imposée`, `ouverte` et `bloquée`. Le
+registre local maintient l'invariant pour les graphes de ses deux adaptateurs.
+Un compilateur général devrait le maintenir pour toutes les missions :
 
 $$
 \forall o \in O(C),\quad
@@ -89,7 +90,8 @@ compaction en amont.
 
 | Invariant | Exigence | État actuel |
 | --- | --- | --- |
-| Admission | Aucune inférence sans autorisation explicite et résidu | `llmRequired` pour le signal ; `generateHypotheses` et budget pour Trinity |
+| Admission | Aucune inférence sans autorisation explicite et résidu | Portes existantes et nœud `INFER` ouvert exécutable |
+| Dépendances | Pas de cycle ni de référence manquante | Registre versionné, ordre topologique et digest déterministe |
 | Type | Source et contexte cohérents | Signal validé ; mission et candidats Trinity contrôlés |
 | Taille | Pas de troncature silencieuse | Projection supérieure à 16 Kio bloquée |
 | Visibilité | Une référence seule n'est pas un contenu lu | Données du signal incluses ; reçu limité à l'invocation |
@@ -216,7 +218,18 @@ runtime, pas des tokens spéciaux universels pour les modèles.
 | `CHECK` | Vérifier le candidat avec méthode et périmètre | Non branché sur ce chemin |
 | `EMIT` | Publier selon permissions et reçus | Non branché sur ce chemin |
 
-Le graphe cible déclare les dépendances et les sorties de ces opérations.
+Le registre livré déclare les dépendances de `INPUT`, `GATE`, `INFER`, `CHECK`
+et `EMIT` pour les deux adaptateurs. Chaque nœud a un identifiant, un type,
+un état et des dépendances. Un nœud satisfait ou imposé porte une justification ;
+un `CHECK` satisfait exige un reçu de vérification, un `EMIT` satisfait un reçu
+d'effet. Les nœuds ouverts constituent le résidu. Le registre rejette les
+cycles, dépendances absentes ou encore ouvertes pour un nœud déclaré résolu,
+doublons, champs inconnus et graphes de plus de
+64 nœuds. Il fournit un ordre topologique et un digest SHA-256 déterministe.
+`ready` exige un `INFER` ouvert dont toutes les dépendances sont satisfaites ou
+imposées ; `resolved` et `deferred` ne lancent pas le modèle.
+
+Le graphe cible général déclare les dépendances et les sorties de ces opérations.
 Un nœud `INFER` n'est supprimé que si un résultat réutilisable encore valide
 ou une voie non neuronale autorisée satisfait la même obligation. Ce mécanisme
 général de suppression n'est pas encore livré.
@@ -227,6 +240,7 @@ général de suppression n'est pas encore livré.
 | --- | --- |
 | [`cognitiveEscalationService.js`](../../backend/src/services/cognitiveEscalationService.js) | Porte VoI et contexte minimal du signal |
 | [`cognitiveResidualCompiler.js`](../../backend/src/services/cognitiveResidualCompiler.js) | Validation, rendu portable, omissions, contrat et reçu |
+| [`cognitiveObligationRegistry.js`](../../backend/src/services/cognitiveObligationRegistry.js) | Validation du graphe, plan résiduel et digest canonique local |
 | [`cognitiveInferenceReceiptService.js`](../../backend/src/services/cognitiveInferenceReceiptService.js) | Reçu SQLite, octets exacts du rendu et déduplication des appels |
 | [`cognitiveSignalService.js`](../../backend/src/services/cognitiveSignalService.js) | Appel au routeur et classification consultative |
 | [`trinityHypothesisGenerationService.js`](../../backend/src/services/trinityHypothesisGenerationService.js) | Admission budgétaire, candidats Trinity et repli fixe |
@@ -235,8 +249,9 @@ général de suppression n'est pas encore livré.
 | [`modelRouter.js`](../../backend/src/services/modelRouter.js) | Sélection et invocation du backend modèle existant |
 
 Les contrats retournés par `compileSignal` et `compileHypotheses` portent
-`version`, `operation`, `source`,
-`recipient`, `output` et `check`. Ce n'est pas encore un schéma d'interopérabilité
+`version: 2`, `operation`, `source`, `recipient`, `output`, `check`,
+`obligationVersion` et `obligationDigest`. Chaque compilation expose aussi le
+graphe et son plan. Ce n'est pas encore un schéma d'interopérabilité
 inter-langages. Une évolution de ces champs exige une version de contrat et des
 tests de lecture rétrocompatible avant persistance durable.
 
@@ -260,7 +275,7 @@ capacités réelles du modèle pour tous les points d'entrée.
 
 Le reçu actuel comprend un destinataire, la source, un hash SHA-256 du prompt
 exact, le mode `materialized_in_this_invocation`, et le modèle rapporté par le
-routeur. Le rendu exact et les métadonnées du reçu sont persistés dans SQLite,
+routeur. Le rendu exact, le graphe d'obligations et les métadonnées du reçu sont persistés dans SQLite,
 avec les objets structurés encodés en MessagePack. Le reçu n'est pas signé
 ni lié à un registre de session. Il ne peut
 donc pas être utilisé pour déduire qu'un appel ultérieur verra encore ce contenu.
@@ -268,7 +283,9 @@ Une livraison répétée du même signal, ou une génération Trinity répétée
 la même mission, au même destinataire, pour la même version et le même hash de
 rendu, réutilise une réponse terminée. Une invocation en
 cours ou échouée ne déclenche pas automatiquement une nouvelle inférence.
-Le hash des octets stockés est revérifié lors de la réutilisation.
+Le hash des octets stockés et l'audit du graphe sont revérifiés lors de la
+réutilisation. Un budget différent pour un rendu Trinity identique échoue fermé :
+la clé SQLite historique ne distingue pas encore les digests de graphe.
 
 Le contrat cible étend le reçu avec la session, le backend et sa version,
 la révision du contexte, les fragments réellement matérialisés, leur portée,
@@ -347,9 +364,13 @@ sans traduire chaque message.
 
 ### 9.1 Tests exécutables actuels
 
+Le test [`test_cognitive_obligation_registry.js`](../../backend/tests/test_cognitive_obligation_registry.js)
+couvre la canonicalisation du graphe, le résidu exécutable, les cycles,
+les dépendances manquantes, les doublons et les justifications de `CHECK`.
 Le test [`test_cognitive_residual_compiler.js`](../../backend/tests/test_cognitive_residual_compiler.js)
 couvre l'admission, le blocage avant appel, la projection de la contrainte,
-le registre d'omissions, le hash du rendu, la réutilisation, la concurrence,
+des unités et de la provenance, le registre d'omissions, le hash du rendu,
+la variation du digest de graphe lorsque ces champs changent, la réutilisation, la concurrence,
 la corruption du reçu, les réponses typées et l'expiration
 du common ground. Il appartient au profil `signalPlane`.
 Le test [`test_gcir_trinity_hypothesis_generation.js`](../../backend/tests/test_gcir_trinity_hypothesis_generation.js)
@@ -357,6 +378,7 @@ couvre la projection Trinity, son reçu, la réutilisation, le repli fixe et
 l'absence d'appel après échec ou dépassement de taille.
 
 ```powershell
+node backend/tests/test_cognitive_obligation_registry.js
 node backend/tests/test_cognitive_residual_compiler.js
 node backend/tests/test_gcir_trinity_hypothesis_generation.js
 npm --prefix backend run test:signal-plane
@@ -369,8 +391,10 @@ réels. Le test du routeur utilise un stub pour vérifier la frontière d'appel.
 
 1. Cartographier tous les points d'entrée modèle, leurs permissions et leurs
    contrats de sortie ; ne pas supposer que `cognitiveSignalService` les couvre.
-2. Définir un registre d'obligations versionné et un graphe de dépendances ;
-   tester la conservation des négations, unités, contraintes et provenances.
+2. Livré localement : registre d'obligations versionné et graphe de dépendances
+   sur Signal Plane et Trinity. Les tests contrôlent la projection des négations,
+   unités et provenances, puis le changement de digest si elles varient. Une
+   conservation sémantique sur missions libres reste à établir.
 3. Ajouter un vrai registre de visibilité par invocation et session, avec
    cold start, reset, compaction, changement de modèle, expiration et reprise.
 4. Lier `CHECK` et `EMIT` aux vérificateurs et gates déjà autorisés ; rejeter
@@ -404,6 +428,8 @@ revendiquée. La combinaison G-CIR constitue une hypothèse d'ingénierie à
 
 - Les adaptateurs livrés couvrent deux points d'entrée précis ; il n'existe pas de
   compilateur universel de missions libres ni d'ISA exécutable inter-langages.
+- Le graphe décrit l'admission avant inférence ; il ne vérifie pas automatiquement
+  les nœuds `CHECK` et ne résout pas les obligations ouvertes par outil.
 - `READ`, `CALL`, `CHECK` et `EMIT` décrivent le noyau cible ; leur simple nom
   ne donne aucune capacité, permission ou preuve au modèle.
 - Le reçu de visibilité actuel atteste un rendu pour une invocation ; il ne

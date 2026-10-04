@@ -43,7 +43,7 @@ async function generate(input) {
   const { db, agentId, mission } = input;
   const budget = generationBudget(input.normalizedMission);
   if (!budget) return { candidates: [], status: 'skipped', reason: 'generation_budget_required' };
-  const compiled = compiler.compileHypotheses({ mission, supplied: input.supplied, agentId });
+  const compiled = compiler.compileHypotheses({ mission, supplied: input.supplied, agentId, budget });
   if (compiled.status !== 'ready') return { candidates: [], status: 'blocked', reason: compiled.reason };
   const receipt = await receipts.reserve(db, compiled);
   if (!receipt.owned) {
