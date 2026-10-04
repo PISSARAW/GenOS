@@ -162,6 +162,10 @@ Le subscriber écoute `recipient:${agentId}` et dispatch aux handlers enregistr�
 
 Migration v45 (`schema-next.js`) :
 
+Les charges non textuelles de `signal_blob` sont encodées en MsgPack. Une valeur
+non encodable est refusée avant persistance ; les anciens BLOB JSON restent
+lisibles (ADR 0301). Cela mesure des octets de transport, pas des tokens modèle.
+
 ```sql
 -- Signaux persistés
 CREATE TABLE signal_blobs (

@@ -131,6 +131,7 @@ const suites = {
     ['signal plane e2e', 'test_signal_plane_e2e.js'],
     ['signal publish MCP integrity', 'test_signal_publish_handler.js'],
     ['prompt capsule transport', 'test_prompt_transport.js'],
+    ['bio-polymer binary round-trip', 'test_bio_polymer_roundtrip.js'],
     ['cryptophasia validation', 'test_cryptophasia.js'],
     ['communication manifest V3 schema', 'test_communication_manifest_runtime.js'],
     ['mission communication checkpoint', 'test_mission_communication_checkpoint.js'],
