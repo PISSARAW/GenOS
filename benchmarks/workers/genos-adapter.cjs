@@ -5,6 +5,7 @@ const { runFormal } = require('../../backend/src/services/agents/deterministicWo
 const { runVerification } = require('../../backend/src/services/agents/deterministicWorkerVerifier');
 const { runRed } = require('../../backend/src/services/agents/deterministicWorkerRed');
 const { runExperiment } = require('../../backend/src/services/agents/deterministicWorkerExperiment');
+const { runSynthesis } = require('../../backend/src/services/agents/deterministicWorkerSynthesis');
 
 async function runCase(testCase) {
   if (testCase.workerKind === 'procedural_executor') {
@@ -22,6 +23,10 @@ async function runCase(testCase) {
   if (testCase.workerKind === 'experimental_worker') {
     const result = runExperiment(testCase.methodContract);
     return { status: 'executed', result, receipt: result.procedureReceipt };
+  }
+  if (testCase.workerKind === 'synthesis_worker') {
+    const result = runSynthesis(testCase.methodContract);
+    return { status: 'executed', result, receipt: result.synthesisReceipt };
   }
   if (testCase.workerKind === 'formal_worker') {
     const toolchainVersion = process.env.GENOS_BENCHMARK_LEAN_VERSION;

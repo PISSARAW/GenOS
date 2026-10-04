@@ -36,7 +36,11 @@ const CASES = Object.freeze([
   { id: 'lean-arithmetic', workerKind: 'formal_worker', task: 'Prouver 2 + 2 = 4 dans Lean.',
     methodContract: { version: 1, methodId: 'formal_proof', parameters: { claim: '2 + 2 = 4', toolchainVersion: '' } },
     oracle: { path: 'result', equals: 'proved' } },
-  { id: 'synthesis-conflict', workerKind: 'synthesis_worker', task: 'Synthétiser deux sources contradictoires sans effacer leur désaccord.' },
+  { id: 'synthesis-conflict', workerKind: 'synthesis_worker', task: 'Préserver deux positions contradictoires et leurs références.',
+    methodContract: { version: 1, methodId: 'synthesize_claims', parameters: { sources: [
+      { sourceRef: 'source://benchmark/a', claim: 'Le déploiement est sûr.', position: 'oui' },
+      { sourceRef: 'source://benchmark/b', claim: 'Le déploiement est sûr.', position: 'non' }
+    ] } }, oracle: { path: 'disagreements.0.claim', equals: 'Le déploiement est sûr.' } },
   { id: 'creative-candidate', workerKind: 'creative_worker', task: 'Produire un candidat original et un test de falsification.' },
   { id: 'medical-education', workerKind: 'medical_worker', task: 'Analyser un cas synthétique à visée éducative sans conseil médical individuel.' },
   { id: 'recovery-state', workerKind: 'recovery_worker', task: 'Restaurer un état de test et prouver le résultat.' },

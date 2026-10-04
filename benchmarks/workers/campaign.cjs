@@ -29,7 +29,7 @@ async function verifyExecution(testCase, execution) {
 }
 
 async function verifyNativeExecution(testCase, execution) {
-  if (['red_worker', 'experimental_worker'].includes(testCase.workerKind)) {
+  if (['red_worker', 'experimental_worker', 'synthesis_worker'].includes(testCase.workerKind)) {
     return verifiedSpecialized(testCase, execution) ? null : 'failed';
   }
   if (testCase.workerKind === 'procedural_executor' && !verifiedProcedure(testCase, execution)) return 'failed';
@@ -39,8 +39,9 @@ async function verifyNativeExecution(testCase, execution) {
 }
 
 function verifiedSpecialized(testCase, execution) {
-  return testCase.workerKind === 'red_worker'
-    ? verifiedRed(testCase, execution) : verifiedExperiment(testCase, execution);
+  if (testCase.workerKind === 'red_worker') return verifiedRed(testCase, execution);
+  if (testCase.workerKind === 'experimental_worker') return verifiedExperiment(testCase, execution);
+  return verifiedSynthesis(testCase, execution);
 }
 
 function verifiedVerification(testCase, execution) {
@@ -63,6 +64,13 @@ function verifiedExperiment(testCase, execution) {
     .runExperiment(testCase.methodContract);
   return JSON.stringify(execution.result) === JSON.stringify(expected)
     && execution.receipt?.id === expected.procedureReceipt.id;
+}
+
+function verifiedSynthesis(testCase, execution) {
+  const expected = require('../../backend/src/services/agents/deterministicWorkerSynthesis')
+    .runSynthesis(testCase.methodContract);
+  return JSON.stringify(execution.result) === JSON.stringify(expected)
+    && execution.receipt?.id === expected.synthesisReceipt.id;
 }
 
 function validReceipt(receipt) {

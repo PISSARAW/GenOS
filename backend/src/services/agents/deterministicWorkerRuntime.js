@@ -9,8 +9,22 @@ const { runFormal } = require('./deterministicWorkerFormal');
 const { runVerification } = require('./deterministicWorkerVerifier');
 const { runRed } = require('./deterministicWorkerRed');
 const { runExperiment } = require('./deterministicWorkerExperiment');
+const { runSynthesis } = require('./deterministicWorkerSynthesis');
+
+const EXECUTORS = Object.freeze({
+  formal_worker: (method, mission) => runFormal(method, { timeoutMs: mission.timeoutMs || 30000 }),
+  verifier_worker: (method) => runVerification(method),
+  red_worker: (method) => runRed(method),
+  experimental_worker: (method) => runExperiment(method),
+  synthesis_worker: (method) => runSynthesis(method)
+});
 
 function reportFor(kind, result) {
+  if (kind === 'synthesis_worker') {
+    const refs = result.sources;
+    return { outcome: 'success', claims: [{ statement: result.synthesis, evidence: refs }],
+      workerArtifact: { type: 'synthesis_dossier', content: result, provenance: { sourceRefs: refs } } };
+  }
   if (kind === 'experimental_worker') {
     const ref = result.procedureReceipt.id;
     return { outcome: 'success', claims: [{ statement: result.conclusion, evidence: [ref] }],
@@ -47,11 +61,8 @@ async function runDeterministicWorker(db, mission, executionRun) {
   }, 'info', 'running');
   await publish(db, mission, started);
   try {
-    const result = kind === 'formal_worker'
-      ? await runFormal(method, { timeoutMs: mission.timeoutMs || 30000 })
-      : kind === 'verifier_worker' ? runVerification(method)
-        : kind === 'red_worker' ? runRed(method)
-          : kind === 'experimental_worker' ? runExperiment(method) : runProcedure(method);
+    const execute = EXECUTORS[kind] || runProcedure;
+    const result = await execute(method, mission);
     const evidenceReport = reportFor(kind, result);
     validateWorkerArtifact({ events: [{ evidenceReport }] }, mission);
     await updateAgent(mission.agentId, 'completed', 'Deterministic result certified');

@@ -69,6 +69,10 @@ function complianceMethod(kind) {
     const candidateReceipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
     return { version: 1, methodId: 'verify_procedure', parameters: { procedure, candidateReceipt } };
   }
+  return additionalComplianceMethod(kind);
+}
+
+function additionalComplianceMethod(kind) {
   if (kind === 'red_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_RED === '1') {
     const procedure = { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } };
     const receipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
@@ -80,6 +84,12 @@ function complianceMethod(kind) {
       jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }],
       machines: 2, threshold: 7
     } };
+  }
+  if (kind === 'synthesis_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SYNTHESIS === '1') {
+    return { version: 1, methodId: 'synthesize_claims', parameters: { sources: [
+      { sourceRef: 'source://compliance/synthesis/a', claim: 'Release is safe.', position: 'yes' },
+      { sourceRef: 'source://compliance/synthesis/b', claim: 'Release is safe.', position: 'no' }
+    ] } };
   }
   return undefined;
 }
@@ -112,16 +122,31 @@ function correctMissionReference(kind, report, scenario) {
 }
 
 function specializedMissionReference(kind, report) {
+  const content = report?.workerArtifact?.content;
   if (kind === 'red_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_RED === '1') {
-    const content = report?.workerArtifact?.content;
-    return content?.verdict === 'reject' && content?.counterexamples?.length > 0
-      && solverReference(content?.expectedReceipt?.id);
+    return redMissionReference(content);
   }
   if (kind === 'experimental_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_EXPERIMENT === '1') {
-    const content = report?.workerArtifact?.content;
-    return content?.measurements?.[0]?.value === 7 && solverReference(content?.procedureReceipt?.id);
+    return experimentMissionReference(content);
+  }
+  if (kind === 'synthesis_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SYNTHESIS === '1') {
+    return synthesisMissionReference(content);
   }
   return null;
+}
+
+function redMissionReference(content) {
+  return content?.verdict === 'reject' && content?.counterexamples?.length > 0
+    && solverReference(content?.expectedReceipt?.id);
+}
+
+function experimentMissionReference(content) {
+  return content?.measurements?.[0]?.value === 7 && solverReference(content?.procedureReceipt?.id);
+}
+
+function synthesisMissionReference(content) {
+  return content?.disagreements?.[0]?.claim === 'Release is safe.'
+    && content?.sources?.length === 2 && solverReference(content?.synthesisReceipt?.id);
 }
 
 function solverReference(id) {

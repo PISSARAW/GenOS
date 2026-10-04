@@ -1339,7 +1339,8 @@ bornée ; elle ne remplace pas une revue générale de code.
 
 La [campagne comparative](../../benchmarks/workers/README.md) contient 20 cas
 pour les 19 types. Deux cas procéduraux, une vérification, une falsification
-de reçu et une mesure LPT sont mesurables par recalcul indépendant ; un sixième cas formel
+de reçu, une mesure LPT et une synthèse de désaccord sont mesurables par
+recalcul indépendant ; un septième cas formel
 a été mesuré localement avec Lean 4.34.0. Les tâches
 sans oracle indépendant restent `unmeasured` ;
 un rapport rival n'est comparable que sur un même cas effectivement mesuré.
@@ -1385,3 +1386,11 @@ makespan et compare le résultat à un seuil. L'artefact
 `experiment_record` contient le protocole, la mesure et le reçu de
 calcul. La conclusion vaut seulement pour cette entrée et ce seuil.
 La route utilise zéro token de modèle. Voir [ADR 0303](../adr/0303-mesure-bornee-experimental-worker.md).
+
+## 54. Synthèse structurée des désaccords (2026-10-04)
+
+La méthode `synthesize_claims` regroupe des propositions textuellement
+identiques et conserve chaque position contradictoire avec sa référence.
+Le `synthesis_dossier` ne résout pas le fond du désaccord et ne rapproche
+pas des formulations différentes. Le reçu relie le dossier aux entrées
+structurées. Voir [ADR 0304](../adr/0304-synthese-structuree-des-desaccords.md).

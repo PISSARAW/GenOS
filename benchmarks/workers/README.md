@@ -1,9 +1,10 @@
 # Campagne comparative des workers
 
-Le jeu contient 20 cas couvrant les 19 types de workers. Six cas disposent
+Le jeu contient 20 cas couvrant les 19 types de workers. Sept cas disposent
 d'un oracle automatique : LPT, `subset_sum`, une vérification indépendante
 de reçu de procédure, une falsification adversariale du même type de reçu,
-une mesure expérimentale du makespan et un théorème arithmétique Lean.
+une mesure expérimentale du makespan, une synthèse structurée de désaccord
+et un théorème arithmétique Lean.
 Les autres cas définissent des tâches, mais n'ont pas encore d'oracle métier
 indépendant. Leur résultat est toujours `unmeasured`, même si un adaptateur
 retourne `executed`. Une référence de preuve fournie par un adaptateur ne
@@ -34,7 +35,7 @@ La comparaison refuse deux rapports du même système, des versions de jeu
 différentes et les cas manquants ou dupliqués. Elle ne compare que les cas
 munis d'un oracle et mesurés des deux côtés. Le temps mesuré comprend
 l'exécution de l'adaptateur, pas la validation de l'oracle. La campagne
-locale mesure cinq cas sans Lean et un sixième cas formel
+locale mesure six cas sans Lean et un septième cas formel
 quand Lean est configuré ; elle ne démontre aucune parité
 avec un rival. Les sorties JSON sont des artefacts temporaires à conserver
 hors du dépôt.
