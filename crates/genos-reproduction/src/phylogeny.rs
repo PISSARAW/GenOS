@@ -1,6 +1,7 @@
 
 use serde::{Deserialize, Serialize};
-use crate::genome::Genome;
+use crate::genome::{Genome, DnaStrand};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum HybridizationResult {
@@ -56,7 +57,7 @@ pub enum PhylogeneticNode {
 }
 
 pub struct PhylogeneticTree {
-    pub root: PhylogeneticNode, 
+    pub root: PhylogeneticNode,
 }
 
 impl PhylogeneticTree {
@@ -66,15 +67,40 @@ impl PhylogeneticTree {
 
     pub fn attempt_hybridization(genome_a: &Genome, genome_b: &Genome, is_plant: bool) -> HybridizationResult {
         let divergence = Self::estimate_divergence_time(genome_a, genome_b);
-        
+
         if divergence > MAX_DIVERGENCE_HYBRIDIZATION {
             return HybridizationResult::Incompatible;
         }
 
-        let mut child_genome = genome_a.clone();
-        child_genome = child_genome.derive_child();
-        child_genome.chromosome_maternal = genome_a.chromosome_maternal.clone();
-        child_genome.chromosome_paternal = genome_b.chromosome_paternal.clone();
+        let mut child_genome = genome_a.derive_reproductive_child();
+        child_genome.set_identity(uuid::Uuid::new_v4());
+        child_genome.parent_ids = vec![genome_a.genome_id(), genome_b.genome_id()];
+        child_genome.generation = genome_a.generation.max(genome_b.generation).saturating_add(1);
+
+        // Recombine chromosomes using crossover
+        let (a_mat, a_pat) = crate::reproduction::strand_crossover(
+            &genome_a.chromosome_maternal,
+            &genome_a.chromosome_paternal,
+            &mut rand::rngs::StdRng::seed_from_u64(42)
+        );
+        let (b_mat, b_pat) = crate::reproduction::strand_crossover(
+            &genome_b.chromosome_maternal,
+            &genome_b.chromosome_paternal,
+            &mut rand::rngs::StdRng::seed_from_u64(43)
+        );
+        child_genome.chromosome_maternal = a_mat;
+        child_genome.chromosome_paternal = b_pat;
+
+        // Recombine genes from both parents
+        child_genome.genes = crate::reproduction::inherit_genes(genome_a, genome_b, &mut rand::rngs::StdRng::seed_from_u64(44));
+
+        // Merge extra chromosomes with dedup and cap
+        child_genome.extra_chromosomes = Self::merge_extra_chromosomes(genome_a, genome_b);
+
+        const MAX_EXTRA_CHROMOSOMES: usize = 8;
+        if child_genome.extra_chromosomes.len() > MAX_EXTRA_CHROMOSOMES {
+            child_genome.extra_chromosomes.truncate(MAX_EXTRA_CHROMOSOMES);
+        }
 
         if divergence <= MAX_DIVERGENCE_INTROGRESSION && genome_a.extra_chromosomes.len() == genome_b.extra_chromosomes.len() {
             return HybridizationResult::Introgression(child_genome);
@@ -82,12 +108,26 @@ impl PhylogeneticTree {
 
         if is_plant {
             let mut plant_genome = child_genome.clone();
-            plant_genome.extra_chromosomes.push(plant_genome.chromosome_maternal.clone());
-            plant_genome.extra_chromosomes.push(plant_genome.chromosome_paternal.clone());
+            // Add one haploid set from each parent (not full diploid)
+            plant_genome.extra_chromosomes.push(genome_a.chromosome_maternal.clone());
+            plant_genome.extra_chromosomes.push(genome_b.chromosome_maternal.clone());
+            if plant_genome.extra_chromosomes.len() > MAX_EXTRA_CHROMOSOMES {
+                plant_genome.extra_chromosomes.truncate(MAX_EXTRA_CHROMOSOMES);
+            }
             HybridizationResult::AllopolyploidPlant(plant_genome)
         } else {
             HybridizationResult::SterileHybrid(child_genome)
         }
+    }
+
+    fn merge_extra_chromosomes(a: &Genome, b: &Genome) -> Vec<DnaStrand> {
+        let mut combined = a.extra_chromosomes.clone();
+        for chrom in &b.extra_chromosomes {
+            if !combined.iter().any(|existing| existing == chrom) {
+                combined.push(chrom.clone());
+            }
+        }
+        combined
     }
 
     pub fn can_interbreed(genome_a: &Genome, genome_b: &Genome, geographic_isolation: bool) -> bool {
@@ -100,7 +140,7 @@ impl PhylogeneticTree {
         }
 
         let divergence_time = Self::estimate_divergence_time(genome_a, genome_b);
-        
+
         if divergence_time > MAX_DIVERGENCE_INTROGRESSION {
             return false;
         }
@@ -126,13 +166,16 @@ impl PhylogeneticTree {
             for i in 0..min_len {
                 if s1[i] != s2[i] { diffs += 1; }
             }
-            diffs += s1.len().max(s2.len()) - min_len;
+            // Count indel as 1 event, not length difference
+            if s1.len() != s2.len() {
+                diffs += 1;
+            }
             total_len += s1.len().max(s2.len());
         }
 
         let max_len = total_len as f64;
         let divergence_ratio = (diffs as f64) / max_len.max(1.0);
-        
+
         divergence_ratio * DIVERGENCE_RATIO_MULTIPLIER
     }
 }
@@ -146,7 +189,7 @@ impl PhylogeneticTree {
         }
         let strands_a = [genome_a.chromosome_maternal.as_slice(), genome_a.chromosome_paternal.as_slice()];
         let strands_b = [genome_b.chromosome_maternal.as_slice(), genome_b.chromosome_paternal.as_slice()];
-        
+
         let mut silent_mutations = 0;
         for (seq_a, seq_b) in strands_a.into_iter().zip(strands_b.into_iter()) {
             let min_len = seq_a.len().min(seq_b.len());
@@ -160,10 +203,10 @@ impl PhylogeneticTree {
 
         // Si on a 10 différences, c'est que A a fait 5 mutations et B a fait 5 mutations.
         let mutations_per_lineage = (silent_mutations as f64) / 2.0;
-        
+
         // Temps = (Mutations de la lignée) / (Vitesse de mutation)
         let generations_ago = mutations_per_lineage / mutation_rate_per_generation;
-        
+
         Ok(generations_ago)
     }
 
@@ -192,10 +235,10 @@ mod tests {
         let divergence_time = PhylogeneticTree::estimate_divergence_time(&human, &chimp);
         // 1 mutation sur 12 = 8.3%. 8.3% * 350 = ~29 millions d'années
         // On vérifie que c'est bien plus récent qu'avec une espèce lointaine
-        
+
         let fly = Genome::new("ATCGGGGGGGGG"); // Très différent
         let fly_divergence = PhylogeneticTree::estimate_divergence_time(&human, &fly);
-        
+
         assert!(divergence_time < fly_divergence, "L'ancêtre Homme-Mouche est plus vieux que Homme-Chimpanzé");
 
         // 2. Vérification des 3 Royaumes et de la proximité Animal/Champignon
@@ -242,7 +285,7 @@ mod tests {
         };
 
         let tree = PhylogeneticTree::new(luca);
-        
+
         // Traverser l'arbre pour prouver que Champignon et Humain sont dans la même sous-branche
         match tree.root {
             PhylogeneticNode::CommonNode { right: eucaryotes, .. } => {

@@ -101,6 +101,7 @@ pub fn meiosis_with_seed_and_mutation(
     let mat_slice = genome.chromosome_maternal.as_slice();
     let pat_slice = genome.chromosome_paternal.as_slice();
 
+    // Four chromatids after meiosis I: two parental, two recombinant
     let mut chrom_2 = mat_slice[..pt].to_vec();
     chrom_2.extend_from_slice(&pat_slice[pt..]);
     let mut chrom_3 = pat_slice[..pt].to_vec();
@@ -140,8 +141,9 @@ fn build_gamete<R: rand::Rng + ?Sized>(
     let mut gamete = genome.derive_child();
     gamete.parent_ids = vec![genome.genome_id()];
     gamete.ploidy = "haploid".to_string();
-    gamete.chromosome_maternal.replace_sequence(chrom.clone());
-    gamete.chromosome_paternal.replace_sequence(chrom);
+    // Haploid gamete: single chromosome set in maternal, paternal empty
+    gamete.chromosome_maternal.replace_sequence(chrom);
+    gamete.chromosome_paternal = genos_genome::DnaStrand::new(vec![]);
     gamete.bud_scars.clear();
     gamete.endogenous_retroviruses.clear();
     gamete.extra_chromosomes.clear();
