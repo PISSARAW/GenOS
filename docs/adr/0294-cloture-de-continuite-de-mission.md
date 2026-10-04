@@ -45,6 +45,8 @@ identifié ou terminé avec succès ; les autres lancements orphelins sont arrê
 avant réarmement. Un lancement dont le résultat reste ambigu n'est pas rejoué
 automatiquement. Un administrateur peut réarmer explicitement ce cas après
 avoir fourni une référence de preuve ; l'autorisation est inscrite dans l'audit.
+Si la mission atteint entretemps un statut terminal, la réconciliation ferme
+la condition déclenchée et aligne l'état de survie sur ce statut, sans relance.
 
 La régénération réserve durablement chaque perte et impose un budget explicite,
 un retour terminal, un rapport de contrôles fonctionnels et le rejeu indépendant

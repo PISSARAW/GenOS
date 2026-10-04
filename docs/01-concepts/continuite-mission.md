@@ -392,6 +392,11 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
   vérifie que le propriétaire et le runtime sont morts, journalise la décision
   et réarme la condition dans une transaction. L'état de survie et le snapshot sont modifiés dans
   une même transaction.
+  Si la mission a déjà un statut terminal lors de la réconciliation, la
+  condition déclenchée est fermée : une mission `completed` devient `recovered`
+  dans l'état de survie ; une mission `failed` ou `cancelled` devient `protected`.
+  Cette fermeture attend aussi l'arrêt du runtime. Le snapshot est marqué
+  comme dégelé sans relancer le runtime.
   Le registre accepte les soldes de tokens absolus, les disponibilités de
   fournisseur avec expiration et les événements externes avec expiration. Le
   curseur durable de chaque condition impose une nouvelle observation après
