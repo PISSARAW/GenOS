@@ -72,7 +72,7 @@ function createSession(mission, options = {}, syncytium) {
   return syncytium.createSession(mission, {
     ...options,
     schema,
-    variantPolicy: { id: 'soft' }
+    variantPolicy: options.variantPolicy || { id: 'soft' }
   });
 }
 
