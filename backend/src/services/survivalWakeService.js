@@ -11,7 +11,8 @@ async function ensureStorage(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS survival_wake_conditions (
     id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, condition_json TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'armed', triggered_at DATETIME, snapshot_id TEXT, owner_pid INTEGER, mission_id TEXT,
-    organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    organization_id TEXT, project_id TEXT, observation_cursor INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   CHECK (status IN ('armed', 'triggered', 'cancelled')), CHECK (json_valid(condition_json))
   );
   CREATE INDEX IF NOT EXISTS idx_survival_wake_conditions_agent ON survival_wake_conditions(agent_id, status);`);
@@ -19,6 +20,13 @@ async function ensureStorage(db) {
   await addColumn(db, columns, { name: 'snapshot_id', type: 'TEXT' });
   await addColumn(db, columns, { name: 'owner_pid', type: 'INTEGER' });
   await addColumn(db, columns, { name: 'mission_id', type: 'TEXT' });
+  if (!columns.some(column => column.name === 'observation_cursor')) {
+    await addColumn(db, columns, { name: 'observation_cursor', type: 'INTEGER' });
+    await require('./missionResourceRegistryService').ensureStorage(db);
+    await db.run(`UPDATE survival_wake_conditions SET observation_cursor =
+      COALESCE((SELECT MAX(rowid) FROM mission_resource_observations), 0)
+      WHERE observation_cursor IS NULL`);
+  }
   await db.run(`UPDATE survival_wake_conditions SET mission_id =
     (SELECT json_extract(s.state_json, '$.missionId') FROM cryptobiosis_snapshots s
      WHERE s.snapshot_id = survival_wake_conditions.snapshot_id AND json_valid(s.state_json))
@@ -41,11 +49,13 @@ async function arm(input = {}) {
     && !input.missionId) {
     throw Object.assign(new Error('A mission ID is required for a registry-backed wake.'), { code: 'WAKE_CONDITION_INVALID' });
   }
+  const cursor = await observationCursor(db);
   await db.run(
     `INSERT INTO survival_wake_conditions
-      (id, agent_id, condition_json, organization_id, project_id, snapshot_id, mission_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, input.agentId, JSON.stringify(condition), input.organizationId || null, input.projectId || null, input.snapshotId || null, input.missionId || null]
+      (id, agent_id, condition_json, organization_id, project_id, snapshot_id, mission_id, observation_cursor)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, input.agentId, JSON.stringify(condition), input.organizationId || null, input.projectId || null,
+      input.snapshotId || null, input.missionId || null, cursor]
   );
   return get({ id, db });
 }
@@ -136,10 +146,17 @@ async function trigger(input = {}) {
 async function rearm(input = {}) {
   const db = input.db || await getDatabase();
   await ensureStorage(db);
+  const cursor = await observationCursor(db);
   await db.run(`UPDATE survival_wake_conditions
-    SET status = 'armed', triggered_at = NULL, owner_pid = NULL
-    WHERE id = ? AND status = 'triggered'`, input.id);
+    SET status = 'armed', triggered_at = NULL, owner_pid = NULL, observation_cursor = ?
+    WHERE id = ? AND status = 'triggered'`, cursor, input.id);
   return get({ id: input.id, db });
+}
+
+async function observationCursor(db) {
+  await require('./missionResourceRegistryService').ensureStorage(db);
+  const row = await db.get('SELECT COALESCE(MAX(rowid), 0) AS cursor FROM mission_resource_observations');
+  return row.cursor;
 }
 
 async function abandoned(db) {
@@ -166,7 +183,7 @@ function format(row) {
     condition: JSON.parse(row.condition_json || '{}'), snapshotId: row.snapshot_id, missionId: row.mission_id,
     organizationId: row.organization_id,
     projectId: row.project_id, createdAt: row.created_at, triggeredAt: row.triggered_at,
-    ownerPid: row.owner_pid
+    ownerPid: row.owner_pid, observationCursor: row.observation_cursor || 0
   };
 }
 

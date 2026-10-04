@@ -25,6 +25,11 @@ Le backend surveille les échéances temporelles persistées. Les réveils de bu
 de fournisseur et d'événement externe lisent un registre d'observations durable,
 alimenté par une route réservée aux administrateurs avec référence de preuve.
 La santé disponible d'un fournisseur et les événements externes expirent.
+Chaque condition conserve le numéro de la dernière observation déjà présente
+à son armement ou à son réarmement. Seule une observation écrite ensuite peut
+déclencher un réveil lié au registre. La lecture de l'observation et la
+revendication du réveil sont atomiques ; l'ordre du registre vient de la
+séquence SQLite, pas des horloges des producteurs.
 Les réveils par approbation relisent la décision persistée liée à l'agent.
 Le réveil manuel d'une mission dormante passe par une route administrateur qui
 retrouve sa condition `operator_or_signal` et son orchestrateur courant.

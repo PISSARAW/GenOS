@@ -392,7 +392,11 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
   une même transaction.
   Le registre accepte les soldes de tokens absolus, les disponibilités de
   fournisseur avec expiration et les événements externes avec expiration. Le
-  contenu fourni par l'appelant de `wake()` ne fait plus autorité pour ces
+  curseur durable de chaque condition impose une nouvelle observation après
+  son armement ou son réarmement ; une ancienne mesure encore présente dans le
+  registre ne réveille pas la mission. La revendication du réveil et la lecture
+  du registre sont atomiques. Le contenu fourni par l'appelant de `wake()` ne
+  fait plus autorité pour ces
   conditions : le service relit les lignes persistées avant de reprendre.
   Le réveil manuel `operator_or_signal` passe par
   `POST /api/missions/:missionId/wake`, réservé aux administrateurs ; la route

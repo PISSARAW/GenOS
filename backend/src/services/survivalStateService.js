@@ -209,12 +209,18 @@ async function resolveWakeContext(db, command, id) {
 
 async function wake(db, command = {}) {
   const id = ensureAgentId(command.agentId);
-  const context = await resolveWakeContext(db, command, id);
-  if (!context.success) return context;
-  if (!await wakeConditionSatisfied(db, context.armed, command.event)) return { success: false, code: 'SURVIVAL_WAKE_EVENT_MISMATCH' };
-  const claim = await wakeService.trigger({ db, id: context.armed.id });
-  if (!claim.claimed) return { success: false, code: 'SURVIVAL_WAKE_ALREADY_CLAIMED' };
-  return completeWake({ db, command, agentId: id, context });
+  const claimed = await withTransaction(db, async () => {
+    const context = await resolveWakeContext(db, command, id);
+    if (!context.success) return context;
+    if (!await wakeConditionSatisfied(db, context.armed, command.event)) {
+      return { success: false, code: 'SURVIVAL_WAKE_EVENT_MISMATCH' };
+    }
+    const claim = await wakeService.trigger({ db, id: context.armed.id });
+    return claim.claimed ? { success: true, context }
+      : { success: false, code: 'SURVIVAL_WAKE_ALREADY_CLAIMED' };
+  });
+  if (!claimed.success) return claimed;
+  return completeWake({ db, command, agentId: id, context: claimed.context });
 }
 
 async function completeWake(input) {

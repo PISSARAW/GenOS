@@ -13,7 +13,9 @@ async function ensureStorage(db) {
     CHECK (kind IN ('budget','provider','external')), CHECK (json_valid(value_json))
   );
   CREATE INDEX IF NOT EXISTS idx_mission_resource_latest
-    ON mission_resource_observations(mission_id, kind, resource_key, observed_at DESC);`);
+    ON mission_resource_observations(mission_id, kind, resource_key, observed_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_mission_resource_sequence
+    ON mission_resource_observations(mission_id, kind, resource_key);`);
 }
 
 function invalid(message) {
@@ -120,10 +122,10 @@ function format(row) {
 
 async function latest(db, query) {
   await ensureStorage(db);
-  const row = await db.get(`SELECT * FROM mission_resource_observations
+  const row = await db.get(`SELECT rowid AS observation_sequence, * FROM mission_resource_observations
     WHERE mission_id = ? AND kind = ? AND resource_key = ?
-    ORDER BY observed_at DESC, rowid DESC LIMIT 1`, query.missionId, query.kind, query.resourceKey);
-  return row ? format(row) : null;
+    ORDER BY rowid DESC LIMIT 1`, query.missionId, query.kind, query.resourceKey);
+  return row ? { ...format(row), sequence: row.observation_sequence } : null;
 }
 
 async function satisfies(db, armed) {
@@ -138,20 +140,23 @@ async function satisfies(db, armed) {
 
 async function budgetSatisfied(db, armed) {
   const row = await latest(db, { missionId: armed.missionId, kind: 'budget', resourceKey: 'tokens' });
-  return Boolean(row && row.value.availableTokens >= Number(armed.condition.minimumTokens || 1));
+  return Boolean(isFresh(row, armed) && row.value.availableTokens >= Number(armed.condition.minimumTokens || 1));
 }
 
 async function providerSatisfied(db, armed) {
   if (!armed.condition.providerId) return false;
   const row = await latest(db, { missionId: armed.missionId, kind: 'provider', resourceKey: armed.condition.providerId });
-  return Boolean(row?.value.available && Date.parse(row.expiresAt) > Date.now());
+  return Boolean(isFresh(row, armed) && row.value.available && Date.parse(row.expiresAt) > Date.now());
 }
 
 async function externalSatisfied(db, armed) {
   if (!armed.condition.eventName) return false;
   const row = await latest(db, { missionId: armed.missionId, kind: 'external', resourceKey: armed.condition.eventName });
-  return Boolean(row && Date.parse(row.expiresAt) > Date.now()
-    && Date.parse(row.observedAt) >= Date.parse(`${armed.createdAt.replace(' ', 'T')}Z`));
+  return Boolean(isFresh(row, armed) && Date.parse(row.expiresAt) > Date.now());
+}
+
+function isFresh(observation, armed) {
+  return Boolean(observation && observation.sequence > armed.observationCursor);
 }
 
 async function humanGateSatisfied(db, armed) {
