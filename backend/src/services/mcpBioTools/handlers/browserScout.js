@@ -1,8 +1,18 @@
 const { defaultBrowserScout } = require('../../browserScoutService');
+const { WebJourneyVerifier } = require('../../webJourneyVerifier');
 
 async function handleBrowserScout(args) {
   const action = args.action || 'navigate';
   const sessionId = args.session_id || args.sessionId || 'scout-main';
+
+  if (action === 'verify_journey') {
+    const allowedHosts = (process.env.GENOS_BROWSER_VERIFICATION_HOSTS || '')
+      .split(',').map(host => host.trim().toLowerCase()).filter(Boolean);
+    const result = await new WebJourneyVerifier({ allowedHosts }).verify(args.journey);
+    return { configured: true, success: result.verified,
+      status: result.verified ? 'completed' : 'tool_error',
+      transport: 'local_service', output: JSON.stringify(result, null, 2) };
+  }
 
   if (action === 'open_browser_session') {
     const res = await defaultBrowserScout.openBrowserSession(sessionId, {
