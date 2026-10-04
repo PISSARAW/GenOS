@@ -9,7 +9,7 @@ const FIELD_SETS = Object.freeze({
   transactional: { budget: 'ESCROW_COUNTER', inventory: 'ESCROW_COUNTER', capacity: 'ESCROW_COUNTER', reservations: 'MAP' },
   epistemic: { claims: 'ADD_WINS_SET', evidence: 'ADD_WINS_SET', refutations: 'ADD_WINS_SET', uncertainty: 'ADD_WINS_SET' },
   blackboard: { events: 'ADD_WINS_SET' },
-  document: { sections: 'SEQUENCE', comments: 'ADD_WINS_SET', document_undo: 'ADD_WINS_SET' },
+  document: { sections: 'SEQUENCE', comments: 'ADD_WINS_SET', commentEvents: 'ADD_WINS_SET', document_undo: 'ADD_WINS_SET' },
   realtimeControl: { controls: 'STATE_MACHINE' },
   humanAi: {
     'human.presence': 'MAP', 'human.leases': 'MAP', 'human.comments': 'ADD_WINS_SET',
