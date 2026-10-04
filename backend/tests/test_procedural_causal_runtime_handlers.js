@@ -70,7 +70,8 @@ async function main() {
     environmentId: 'causal-env', environmentManifest: environment,
     snapshots: [{ snapshotId: 'causal-snapshot-a', state: stateA }, { snapshotId: 'causal-snapshot-b', state: stateB }],
     arms: { control: { metric: 0 }, intervention: { metric: 1 } },
-    budget: { maxSteps: 8 }, analysis: { bootstrapReplicates: 1000, analysisSeed: 17 },
+    seeds: [17, 19, 23], budget: { maxSteps: 8, maxRuns: 12 },
+    analysis: { bootstrapReplicates: 1000, analysisSeed: 17 },
   } });
   const pairs = [];
   for (const [snapshotId, state] of [['causal-snapshot-a', stateA], ['causal-snapshot-b', stateB]]) {
@@ -106,8 +107,9 @@ async function main() {
   assert.ok(graph.graphId);
   const paused = await callCausalPrimitive(db, 'procedural_causal_fork_create', { experimentId: created.experimentId,
     snapshotId: 'causal-snapshot-b', snapshotState: stateB, arm: 'control', seed: 23 });
+  await db.run("UPDATE procedural_causal_forks SET status = 'running', lease_token = 'owner', lease_until = datetime('now', '+60 seconds') WHERE fork_id = ?", [paused.forkId]);
   await require('../src/services/proceduralCausalExperimentService').checkpointFork(db, {
-    forkId: paused.forkId, expectedVersion: 0, state: stateB, status: 'paused',
+    forkId: paused.forkId, expectedVersion: 0, leaseToken: 'owner', state: stateB, status: 'paused',
   });
   await new Promise((resolve, reject) => raw.close((error) => error ? reject(error) : resolve()));
   const reopened = new sqlite3.Database(filename);
