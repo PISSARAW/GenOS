@@ -149,7 +149,8 @@ async function armPersistedWake(input) {
   if (!persisted) throw Object.assign(new Error('A persisted frozen snapshot is required before arming wake.'), { code: 'SURVIVAL_SNAPSHOT_REQUIRED' });
   return wakeService.arm({
     db, agentId, condition: command.wakeCondition || { type: 'operator_or_signal' },
-    snapshotId: persisted.snapshot_id, organizationId: command.organizationId, projectId: command.projectId
+    snapshotId: persisted.snapshot_id, missionId: command.missionId,
+    organizationId: command.organizationId, projectId: command.projectId
   });
 }
 
@@ -196,6 +197,7 @@ async function recordActionReceipt(db, receipt = {}) {
 async function resolveWakeContext(db, command, id) {
   const armed = command.wakeConditionId ? await wakeService.get({ db, id: command.wakeConditionId }) : (await wakeService.listArmed({ db, agentId: id }))[0];
   if (!armed || armed.status !== 'armed') return { success: false, code: 'WAKE_CONDITION_NOT_ARMED' };
+  if (armed.agentId !== id) return { success: false, code: 'SURVIVAL_WAKE_AGENT_MISMATCH' };
   const current = await get(db, id);
   if (!current || current.state !== 'dormant') return { success: false, code: 'SURVIVAL_NOT_DORMANT', state: current };
   if (!current.snapshotId) return { success: false, code: 'SURVIVAL_SNAPSHOT_REQUIRED' };
@@ -209,7 +211,7 @@ async function wake(db, command = {}) {
   const id = ensureAgentId(command.agentId);
   const context = await resolveWakeContext(db, command, id);
   if (!context.success) return context;
-  if (!wakeConditionSatisfied(context.armed, command.event)) return { success: false, code: 'SURVIVAL_WAKE_EVENT_MISMATCH' };
+  if (!await wakeConditionSatisfied(db, context.armed, command.event)) return { success: false, code: 'SURVIVAL_WAKE_EVENT_MISMATCH' };
   const claim = await wakeService.trigger({ db, id: context.armed.id });
   if (!claim.claimed) return { success: false, code: 'SURVIVAL_WAKE_ALREADY_CLAIMED' };
   return completeWake({ db, command, agentId: id, context });
@@ -229,9 +231,11 @@ async function completeWake(input) {
   return finishWake({ db, command, agentId, current, armed, restored, resumed });
 }
 
-function wakeConditionSatisfied(armed, event) {
+async function wakeConditionSatisfied(db, armed, event) {
   if (armed.condition.type === 'operator_or_signal') return event?.type === 'operator_signal' && event.authorized === true;
-  return Boolean(event && wakeEventMatches(armed.condition, event));
+  if (armed.condition.type === 'time_elapsed') return hasElapsed(armed.condition);
+  if (!event || ![event.type, event.kind].includes(armed.condition.type)) return false;
+  return require('./missionResourceRegistryService').satisfies(db, armed);
 }
 
 async function preserveDormancy(input) {
@@ -269,40 +273,7 @@ async function resumeMission(db, input = {}) {
   }
 }
 
-function wakeEventMatches(condition, event) {
-  const kind = condition?.type || condition?.kind;
-  if (!kind || !event || ![event.type, event.kind].includes(kind)) return false;
-  return matchWakePayload(kind, condition.payload || condition, event);
-}
-
-function matchWakePayload(kind, expected, event) {
-  const matches = {
-    budget_added: hasMinimumBudget, budget_restored: hasMinimumBudget,
-    provider_available: matchesProvider, human_resolves_gate: resolvesGate,
-    time_elapsed: hasElapsed, external_event: matchesExternalEvent
-  }[kind];
-  return matches ? matches(expected, event) : true;
-}
-
-function hasMinimumBudget(expected, event) {
-  const minimum = Number(expected.minimumTokens || 0);
-  const available = Number(event.availableTokens ?? event.tokens ?? -1);
-  return available >= minimum;
-}
-
-function matchesProvider(expected, event) {
-  return !expected.providerId || event.providerId === expected.providerId;
-}
-
-function resolvesGate(expected, event) {
-  return event.resolved === true && (!expected.gateId || event.gateId === expected.gateId);
-}
-
-function matchesExternalEvent(expected, event) {
-  return !expected.eventName || event.eventName === expected.eventName;
-}
-
-function hasElapsed(expected, event) {
+function hasElapsed(expected) {
   const dueAt = Date.parse(expected.dueAt || expected.at || '');
   return Number.isFinite(dueAt) && Date.now() >= dueAt;
 }

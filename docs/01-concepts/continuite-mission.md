@@ -1,6 +1,6 @@
 # Continuité de mission — l'organisme logiciel et ses six systèmes de survie
 
-- **Statut** : Partiel — identité et membres persistés, gate de complétion, régénération bornée avec preuve fonctionnelle, suspension atomique, réveil temporel et succession interprocessus. Les conditions de réveil liées au budget, au fournisseur et aux décisions humaines attendent encore des producteurs d'événements faisant autorité. La preuve de régénération provient actuellement du rapport du worker ; une vérification indépendante reste à brancher.
+- **Statut** : Partiel — identité et membres persistés, gate de complétion, régénération bornée avec preuve fonctionnelle, suspension atomique, réveil temporel, registre durable des ressources et succession interprocessus. Les observations de budget et de santé fournisseur doivent encore être alimentées par une source métier ; la preuve de régénération provient actuellement du rapport du worker et attend une vérification indépendante.
 - **Portée** : control plane Node — `missionIdentityService`, `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `homeostasisContinuationService`, `missionContinuityService`, `missionEvidenceCollector`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalStateService`, `survivalWakeService`, `survivalModesService` ; pont `backend/bin/genos-orchestrate.cjs` + helpers `continuationFeedbackLoop.cjs`, `orchestratorMissionHelpersBuildContext.cjs` ; migrations 033 `homeostasis_states`, 034 `mission_organism_state`, 085 `missions`/`mission_agents`, 027 `continuation_queue`.
 - **Dernière revue** : 2026-10-04.
 
@@ -365,9 +365,23 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
   `dormancy` avec mode éligible et condition de réveil. `survivalStateService`
   écrit dans une transaction le snapshot, l'état dormant, la condition persistée
   et le statut de mission. Un scheduler du backend consomme les échéances
-  `time_elapsed`. Le réveil conserve la dormance si le redémarrage échoue.
-  Les autres conditions typées sont stockées et validées par le service, mais
-  aucun producteur métier fiable ne les déclenche encore automatiquement.
+  `time_elapsed`, les observations du registre durable et les approbations
+  humaines. Le réveil conserve la dormance si le redémarrage échoue.
+  Le registre accepte les soldes de tokens absolus, les disponibilités de
+  fournisseur avec expiration et les événements externes avec expiration. Le
+  contenu fourni par l'appelant de `wake()` ne fait plus autorité pour ces
+  conditions : le service relit les lignes persistées avant de reprendre.
+  L'écriture passe par `POST /api/missions/:missionId/resources`, réservé aux
+  administrateurs authentifiés, avec `kind` (`budget`, `provider`, `external`),
+  `evidenceRef` et un identifiant d'observation `id` facultatif pour les retries.
+  Pour `budget`, fournir `availableTokens` ; pour `provider`, `resourceKey`,
+  `available` et `expiresAt` si disponible ; pour `external`, `resourceKey`
+  égal au nom de l'événement et `expiresAt`. Les observations de fournisseur
+  disponibles et les événements externes expirent au plus tard une heure après
+  leur écriture. La condition `human_resolves_gate` exige l'identifiant d'une
+  approbation approuvée pour l'orchestrateur dormant. Un producteur métier doit
+  écrire les observations de budget et de fournisseur pour déclencher ces
+  réveils en exploitation.
 - **Implémenté** : la migration 085 crée une identité `missionId` indépendante
   de l'orchestrateur, rattache les agents et migre les racines historiques.
   L'identifiant est renvoyé par le pont (y compris en mode détaché) et peut être
