@@ -2,9 +2,9 @@
 
 const { createHash } = require('crypto');
 const { detectDysbiosis } = require('../health/dysbiosisDetector');
-const { validateToolManifest, validateToolInvocation } = require('./toolRuntimeService');
+const { validateToolManifest, validateToolInvocation, authorizeToolInvocation } = require('./toolRuntimeService');
 const { reconcileEdgeEvents } = require('./edgeSyncRuntimeService');
-const { reviewThreat } = require('./immuneThreatRuntimeService');
+const { reviewThreat, reviewThreatBatch } = require('./immuneThreatRuntimeService');
 const { planRegeneration } = require('./regenerationRuntimeService');
 
 function invalid(message, code = 'HOLOBIONT_VARIANT_RUNTIME_INVALID') {
@@ -52,15 +52,33 @@ function replacementGate(input, core) {
   return restored && rollback && approved;
 }
 
+function coreDependencyClosure(nodes, edges, core) {
+  const closure = new Set(core);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of edges) {
+      if (closure.has(edge.target) && !closure.has(edge.source)) {
+        closure.add(text(edge.source, 'dependent id'));
+        changed = true;
+      }
+    }
+  }
+  const known = new Set(nodes.map((node) => node.id));
+  if ([...closure].some((id) => !known.has(id))) throw invalid('Dependency graph references an unknown core symbiont.');
+  return closure;
+}
+
 function assessOrganelle(input = {}) {
   const graph = record(input.dependencyGraph, 'dependencyGraph');
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph.edges) ? graph.edges : [];
   const core = new Set(nodes.filter((node) => node.core === true).map((node) => text(node.id, 'core id')));
-  const dependents = [...new Set(edges.filter((edge) => core.has(edge.target)).map((edge) => text(edge.source, 'dependent id')))];
+  const closure = coreDependencyClosure(nodes, edges, core);
+  const dependents = [...closure].filter((id) => !core.has(id));
   const replacementRequested = input.replacementRequested === true;
-  const replacementAllowed = replacementGate(input, core);
-  return { coreSymbiontIds: [...core], dependentSymbiontIds: dependents,
+  const replacementAllowed = replacementGate(input, closure);
+  return { coreSymbiontIds: [...core], coreDependencyClosureIds: [...closure], dependentSymbiontIds: dependents,
     replacementAllowed, blockedReasons: !replacementRequested || replacementAllowed ? [] : ['approval_snapshot_and_restoration_proof_required'],
     inheritance: { preserveCoreIdentity: true, evidenceRefs: evidence(input.evidenceRefs) } };
 }
@@ -96,19 +114,27 @@ function fitnessDelta(samples) {
   return samples.length ? samples[samples.length - 1].score - samples[0].score : null;
 }
 
-function ecologyAction(dysbiosis, diversity, floor) {
-  if (dysbiosis) return 'QUARANTINE_AND_REVIEW';
-  return diversity < floor ? 'ACQUIRE_CANDIDATE' : 'CONTINUE';
+function perSymbiontFitness(history) {
+  const records = Object.entries(record(history, 'fitnessBySymbiont'));
+  return records.map(([symbiontId, values]) => {
+    if (!Array.isArray(values) || values.length < 2) throw invalid(`Fitness history for ${symbiontId} needs at least two samples.`);
+    const samples = ecologySamples(values);
+    return { symbiontId, samples: samples.length, fitnessDelta: fitnessDelta(samples) };
+  });
 }
 
 function assessEcology(input = {}) {
   const { floor, diversity } = ecologyInputs(input);
   const samples = ecologySamples(Array.isArray(input.fitnessHistory) ? input.fitnessHistory : []);
+  const symbiontFitness = input.fitnessBySymbiont ? perSymbiontFitness(input.fitnessBySymbiont) : [];
   const dysbiosis = input.dysbiosisSignals
     ? detectDysbiosis(input.dysbiosisSignals).state === 'ALERT' : false;
+  const decliningSymbiontIds = symbiontFitness.filter((item) => item.fitnessDelta < 0).map((item) => item.symbiontId);
+  const action = dysbiosis ? 'QUARANTINE_AND_REVIEW'
+    : diversity < floor ? 'ACQUIRE_CANDIDATE' : decliningSymbiontIds.length ? 'REVIEW_CONTRIBUTORS' : 'CONTINUE';
   return { longitudinalSamples: samples.length, fitnessDelta: fitnessDelta(samples),
-    action: ecologyAction(dysbiosis, diversity, floor),
-    diversityFloor: floor, diversity, automaticReplacement: false };
+    action, diversityFloor: floor, diversity, symbiontFitness, decliningSymbiontIds,
+    dysbiosis, automaticReplacement: false };
 }
 
 function placementVariant(input) {
@@ -200,11 +226,13 @@ function placementResult(context) {
     : guards.cloudSymbionts ? 'edge' : placement.host;
   const exportProof = placement.host === 'local' && !guards.remoteNeeded && typeof input.attestNoExport === 'function'
     ? input.attestNoExport({ dataClasses: guards.classes }) : null;
-  return { accepted: placementReason(guards) === null, host: placement.host, requestedHost: placement.requestedHost,
+  const exportProofVerified = exportProof !== null && typeof input.verifyNoExport === 'function'
+    && input.verifyNoExport(exportProof) === true;
+  const reason = placementReason(guards) || (input.requireExportProof === true && !exportProofVerified ? 'NO_EXPORT_PROOF_REQUIRED' : null);
+  return { accepted: reason === null, host: placement.host, requestedHost: placement.requestedHost,
     symbionts, fallback: placement.fallback, dataClasses,
     pendingSync: variant.requireAsyncSync === true && input.edgeConnected !== true,
-    reason: placementReason(guards),
-    exportProof };
+    reason, exportProof, exportProofVerified };
 }
 
 function planPlacement(input = {}) {
@@ -216,6 +244,17 @@ function planPlacement(input = {}) {
   return placementResult(context);
 }
 
+function planPlacementBatch(input = {}) {
+  if (!Array.isArray(input.steps) || !input.steps.length) throw invalid('Placement batch requires at least one step.');
+  const steps = input.steps.map((raw, index) => {
+    const step = record(raw, `steps[${index}]`);
+    return { stepId: String(step.stepId || index), ...planPlacement({ ...input, ...step, steps: undefined }) };
+  });
+  return { accepted: steps.every((step) => step.accepted),
+    localCorePreserved: steps.every((step) => step.host === 'local'),
+    cloudOnDemandStepIds: steps.filter((step) => step.symbionts === 'cloud-on-demand').map((step) => step.stepId), steps };
+}
+
 function edgeLeaseAllowed(lease, verifier, requiredCapability) {
   return Boolean(lease && typeof verifier === 'function' && verifier(lease) === true
     && lease.leaseId && lease.deviceId && Date.parse(lease.expiresAt) > Date.now()
@@ -223,7 +262,7 @@ function edgeLeaseAllowed(lease, verifier, requiredCapability) {
 }
 
 function addMemory(context, memory) {
-  const { conflicts, byKey } = context;
+  const { conflicts, byKey, allByKey } = context;
   const item = record(memory, 'memory');
   text(item.id, 'memory.id');
     if (item.memoryType === 'PROCEDURAL' && item.procedureVerified !== true) {
@@ -231,14 +270,22 @@ function addMemory(context, memory) {
     }
   const refs = evidence(item.evidenceRefs);
   const key = text(item.conceptKey, 'memory.conceptKey');
+  const group = allByKey.get(key) || [];
+  for (const prior of group) {
+    if (JSON.stringify(prior.value) !== JSON.stringify(item.value)) {
+      conflicts.push({ conceptKey: key, memoryIds: [prior.id, item.id] });
+    }
+  }
+  group.push({ id: item.id, value: item.value });
+  allByKey.set(key, group);
   const current = byKey.get(key);
-  if (current && JSON.stringify(current.value) !== JSON.stringify(item.value)) conflicts.push({ conceptKey: key, memoryIds: [current.id, item.id] });
   const fitness = score(item.fitness, 'memory.fitness');
-  if (!current || fitness > current.fitness) byKey.set(key, { id: item.id, value: item.value, fitness, evidenceRefs: refs });
+  if (!current || fitness > current.fitness) byKey.set(key, { id: item.id, value: item.value, fitness,
+    memoryType: item.memoryType || null, provenance: { sourceId: item.sourceId || null, evidenceRefs: refs } });
 }
 
 function planMemory(input = {}) {
-  const context = { conflicts: [], byKey: new Map() };
+  const context = { conflicts: [], byKey: new Map(), allByKey: new Map() };
   for (const memory of Array.isArray(input.memories) ? input.memories : []) addMemory(context, memory);
   const { conflicts, byKey } = context;
   const restricted = new Set(Array.isArray(input.restrictedDataClasses) ? input.restrictedDataClasses : []);
@@ -266,12 +313,13 @@ function verifiedTrials(input, candidates, budget) {
 }
 
 function championFor(trials, input) {
-  const winner = trials[0] || null;
-  const runnerUp = trials[1] || null;
+  const eligible = input.allowGroupChangeVerified === true ? trials
+    : trials.filter((item) => input.protectedGroups?.includes(item.diversityGroup));
+  const winner = eligible[0] || null;
+  const runnerUp = eligible[1] || null;
   const margin = score(input.superiorityMargin ?? 0.05, 'superiorityMargin');
-  const diverse = winner && input.protectedGroups?.includes(winner.diversityGroup);
   if (!winner || (runnerUp && winner.score - runnerUp.score < margin)) return null;
-  return diverse || input.allowGroupChangeVerified === true ? winner : null;
+  return winner;
 }
 
 function selectCompetitivePartner(input = {}) {
@@ -289,9 +337,16 @@ function planRecruitment(input = {}) {
   const required = [...new Set((Array.isArray(input.requiredCapabilities) ? input.requiredCapabilities : []).map((item) => text(item, 'required capability')))];
   const available = new Set(Array.isArray(input.availableCapabilities) ? input.availableCapabilities : []);
   const gaps = required.filter((item) => !available.has(item));
-  const contract = gaps.length ? { capabilities: gaps, permissions: input.minimumPermissions || [],
-    evidenceRequired: true, trialRequired: true, sourceArtifacts: (input.dna || input.plasmid || input.fossil) ? [input.dna, input.plasmid, input.fossil].filter(Boolean) : [] } : null;
-  return { gaps, status: gaps.length ? 'CONTRACT_AND_ADMISSION_REQUIRED' : 'COVERED', contract, autoAssimilate: false };
+  const requestedPermissions = Array.isArray(input.minimumPermissions) ? input.minimumPermissions : [];
+  const allowedPermissions = new Set(Array.isArray(input.allowedPermissions) ? input.allowedPermissions : requestedPermissions);
+  const permissions = requestedPermissions.filter((permission) => allowedPermissions.has(permission));
+  const excludedPermissions = requestedPermissions.filter((permission) => !allowedPermissions.has(permission));
+  const sourceArtifacts = [input.dna, input.plasmid, input.fossil].filter(Boolean)
+    .filter((artifact) => typeof input.verifySourceArtifact === 'function' && input.verifySourceArtifact(artifact) === true);
+  const contract = gaps.length ? { capabilities: gaps, permissions, excludedPermissions,
+    evidenceRequired: true, trialRequired: true, sourceArtifacts } : null;
+  return { gaps, status: gaps.length ? 'CONTRACT_AND_ADMISSION_REQUIRED' : 'COVERED', contract,
+    admissionRequired: gaps.length > 0, autoAssimilate: false };
 }
 
 function createProofHash(value) {
@@ -299,5 +354,5 @@ function createProofHash(value) {
 }
 
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, planPlacement, planMemory,
-  selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, validateToolManifest,
-  validateToolInvocation, reconcileEdgeEvents, planRegeneration, createProofHash };
+  selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
+  validateToolInvocation, authorizeToolInvocation, reconcileEdgeEvents, planRegeneration, planPlacementBatch, createProofHash };

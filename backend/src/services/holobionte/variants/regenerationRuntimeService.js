@@ -35,8 +35,13 @@ function planRegeneration(input = {}) {
   const cryptobiosisEligible = damage >= 0.8 && input.persistentHost === true
     && typeof input.verifyRecoverySnapshot === 'function'
     && input.verifyRecoverySnapshot(input.recoverySnapshot) === true;
+  const reservation = damage > 0 && typeof input.reserveRecoveryResources === 'function'
+    ? input.reserveRecoveryResources({ damage, candidate }) : null;
+  const resourcesReserved = damage === 0 || (reservation !== null
+    && typeof input.verifyRecoveryReservation === 'function' && input.verifyRecoveryReservation(reservation) === true);
   return { status, replacementCandidate: canReplace ? candidate : null, reserveRequired: damage > 0,
-    controlledApoptosisAllowed: apoptosisAllowed(input, canReplace, candidate), evidenceRefs,
+    resourcesReserved, reservationReceipt: resourcesReserved && damage > 0 ? reservation : null,
+    controlledApoptosisAllowed: apoptosisAllowed(input, canReplace, candidate) && resourcesReserved, evidenceRefs,
     cryptobiosisEligible };
 }
 
