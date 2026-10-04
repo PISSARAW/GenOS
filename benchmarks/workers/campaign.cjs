@@ -13,12 +13,26 @@ async function score(testCase, execution) {
   if (!testCase.oracle) return 'unmeasured';
   if (execution.status === 'failed') return 'failed';
   if (execution.status !== 'executed') return 'unmeasured';
-  if (testCase.workerKind === 'procedural_executor' && !verifiedProcedure(testCase, execution)) return 'failed';
-  if (testCase.workerKind === 'formal_worker' && !(await verifiedFormalReceipt(testCase, execution))) return 'unverified';
+  const verification = await verifyExecution(testCase, execution);
+  if (verification) return verification;
   const value = testCase.oracle.path.split('.').reduce((item, key) => item?.[key], execution.result);
   if (value !== testCase.oracle.equals) return 'failed';
   if (!validReceipt(execution.receipt)) return 'unverified';
   return 'passed';
+}
+
+async function verifyExecution(testCase, execution) {
+  if (testCase.workerKind === 'procedural_executor' && !verifiedProcedure(testCase, execution)) return 'failed';
+  if (testCase.workerKind === 'verifier_worker' && !verifiedVerification(testCase, execution)) return 'failed';
+  if (testCase.workerKind === 'formal_worker' && !(await verifiedFormalReceipt(testCase, execution))) return 'unverified';
+  return null;
+}
+
+function verifiedVerification(testCase, execution) {
+  const expected = require('../../backend/src/services/agents/deterministicWorkerVerifier')
+    .runVerification(testCase.methodContract);
+  return JSON.stringify(execution.result) === JSON.stringify(expected)
+    && execution.receipt?.id === expected.expectedReceipt.id;
 }
 
 function validReceipt(receipt) {

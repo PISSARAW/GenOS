@@ -6,12 +6,18 @@ const { recordWorkerEvidence } = require('../agentEvidenceService');
 const { validateWorkerArtifact } = require('./workerArtifactContract');
 const { runProcedure } = require('./deterministicWorkerProcedures');
 const { runFormal } = require('./deterministicWorkerFormal');
+const { runVerification } = require('./deterministicWorkerVerifier');
 
 function reportFor(kind, result) {
   if (kind === 'formal_worker') {
     const ref = result.solverReceipt.id;
     return { outcome: 'success', claims: [{ statement: result.claim, evidence: [ref] }],
       workerArtifact: { type: 'formal_certificate', content: result, provenance: { sourceRefs: [ref] } } };
+  }
+  if (kind === 'verifier_worker') {
+    const ref = result.expectedReceipt.id;
+    return { outcome: 'success', claims: [{ statement: `Verification verdict: ${result.verdict}.`, evidence: [ref] }],
+      workerArtifact: { type: 'verification_report', content: result, provenance: { sourceRefs: [ref] } } };
   }
   const ref = result.receipt.id;
   const claim = `Procedure ${result.methodId} computed ${JSON.stringify(result.output)}.`;
@@ -36,7 +42,7 @@ async function runDeterministicWorker(db, mission, executionRun) {
   try {
     const result = kind === 'formal_worker'
       ? await runFormal(method, { timeoutMs: mission.timeoutMs || 30000 })
-      : runProcedure(method);
+      : kind === 'verifier_worker' ? runVerification(method) : runProcedure(method);
     const evidenceReport = reportFor(kind, result);
     validateWorkerArtifact({ events: [{ evidenceReport }] }, mission);
     await updateAgent(mission.agentId, 'completed', 'Deterministic result certified');

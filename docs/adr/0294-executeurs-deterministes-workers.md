@@ -23,6 +23,10 @@ algorithme donné est implémenté.
   validateur commun exige un total positif pour les missions à modèle.
 - Les procédures réellement implémentées sont `lpt` et `subset_sum`, avec
   bornes de taille et d'entiers. Les autres noms de méthode restent refusés.
+- Un `verifier_worker` reçoit la méthode `verify_procedure`, recalcule une
+  procédure persistée et compare son résultat et son reçu à un reçu candidat.
+  Son budget de modèle est également zéro pour cette mission. Un verdict
+  `reject` est un résultat de vérification valide, accompagné du nouveau reçu.
 - Le worker formel construit un théorème Lean à partir d'une comparaison
   arithmétique close, le prouve par `decide` et exige le succès du processus
   Lean de la version demandée. L'absence de Lean, un timeout ou une preuve

@@ -64,6 +64,11 @@ function complianceMethod(kind) {
       claim: '2 + 2 = 4', toolchainVersion: process.env.GENOS_COMPLIANCE_LEAN_VERSION
     } };
   }
+  if (kind === 'verifier_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER === '1') {
+    const procedure = { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } };
+    const candidateReceipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
+    return { version: 1, methodId: 'verify_procedure', parameters: { procedure, candidateReceipt } };
+  }
   return undefined;
 }
 
@@ -86,6 +91,9 @@ async function validateMission(context) {
 function correctMissionReference(kind, report, scenario) {
   if (kind === 'procedural_executor') return solverReference(report?.workerArtifact?.content?.procedureReceipt?.id);
   if (kind === 'formal_worker') return solverReference(report?.workerArtifact?.content?.solverReceipt?.id);
+  if (kind === 'verifier_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER === '1') {
+    return solverReference(report?.workerArtifact?.content?.expectedReceipt?.id);
+  }
   return hasFixtureReference(report, scenario.sourceRef);
 }
 

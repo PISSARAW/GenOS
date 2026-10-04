@@ -2,10 +2,25 @@
 
 const NEEDS_DETERMINISTIC_RUNNER = new Set(['procedural_executor', 'formal_worker']);
 
+function isDeterministicWorkerMission(mission) {
+  if (NEEDS_DETERMINISTIC_RUNNER.has(mission.workerKind)) return true;
+  const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
+  return mission.workerKind === 'verifier_worker' && method?.methodId === 'verify_procedure';
+}
+
 function assertWorkerExecutorAvailable(mission) {
   const kind = mission.workerKind;
+  if (kind === 'verifier_worker' && isDeterministicWorkerMission(mission)) {
+    const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
+    require('./deterministicWorkerVerifier').assertVerificationInput(method);
+    return;
+  }
   if (!NEEDS_DETERMINISTIC_RUNNER.has(kind)) return;
   const method = mission.methodContract || mission.workerContract?.mission?.methodContract;
+  assertNativeMethod(kind, method);
+}
+
+function assertNativeMethod(kind, method) {
   const methodId = String(method?.methodId || '').trim().toLowerCase();
   const supported = kind === 'procedural_executor'
     ? require('./deterministicWorkerProcedures').SUPPORTED.has(methodId)
@@ -34,9 +49,12 @@ function applyWorkerRuntimeLimits(mission, budget) {
   const resources = mission.workerContract?.resources;
   if (!resources) return budget;
   const bounded = { ...budget };
+  if (isDeterministicWorkerMission(mission)) {
+    assertWorkerExecutorAvailable(mission);
+    bounded.tokens = 0;
+  }
   if (Number.isFinite(resources.maxTokens)) {
-    if (resources.maxTokens <= 0) assertWorkerExecutorAvailable(mission);
-    bounded.tokens = cappedValue(budget.tokens, resources.maxTokens);
+    if (!isDeterministicWorkerMission(mission)) bounded.tokens = cappedValue(budget.tokens, resources.maxTokens);
   }
   if (Number.isFinite(resources.maxTimeMs) && resources.maxTimeMs > 0) {
     bounded.latencyMs = cappedValue(budget.latencyMs, resources.maxTimeMs);
@@ -46,4 +64,4 @@ function applyWorkerRuntimeLimits(mission, budget) {
   return bounded;
 }
 
-module.exports = { assertWorkerExecutorAvailable, applyWorkerRuntimeLimits };
+module.exports = { isDeterministicWorkerMission, assertWorkerExecutorAvailable, applyWorkerRuntimeLimits };

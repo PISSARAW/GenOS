@@ -41,6 +41,7 @@ const METHOD_CAPABILITIES = Object.freeze({
   local_search: ['deterministic_procedure'], constraint_programming: ['deterministic_procedure'],
   evolutionary_search: ['adaptive_strategy'], genetic_algorithm: ['adaptive_strategy'],
   formal_proof: ['formal_proof'], theorem_proving: ['formal_proof'],
+  verify_procedure: ['verify'],
   clinical_review: ['clinical_context'],
   experimental_design: ['experiment'], controlled_experiment: ['experiment'],
   adversarial_review: ['adversarial_review'], threat_modeling: ['adversarial_review'],
@@ -161,14 +162,18 @@ function workerMissionContract(mission, kind) {
     throw Object.assign(new Error('Symbiotic workers require a host contract and an explicit capability set.'), { code: 'SYMBIOTIC_HOST_CONTRACT_REQUIRED' });
   }
   return {
+    ...missionContractFields(mission),
+    specialtyNiche, hostContractId, hostCapabilities
+  };
+}
+
+function missionContractFields(mission) {
+  return {
     objective: mission.prompt || mission.currentTask || '',
     scope: mission.scope || mission.workspaceRoot || '',
     methodContract: mission.methodContract,
     topologySessionId: mission.topologySessionId || null,
     nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
-    specialtyNiche,
-    hostContractId,
-    hostCapabilities,
     hostId: mission.hostId || mission.workerAssignment?.hostId || null
   };
 }
@@ -185,8 +190,9 @@ function resolveHostCapabilities(mission) {
 function resolveSpecialtyNiche(mission) {
   const assignment = mission.workerAssignment || {};
   const parameters = mission.methodContract?.parameters || {};
-  const niche = mission.specialtyNiche || mission.nicheDomain || mission.niche || mission.domain
-    || assignment.nicheDomain || assignment.niche || assignment.domain || parameters.niche || parameters.domain;
+  const niche = [mission.specialtyNiche, mission.nicheDomain, mission.niche, mission.domain,
+    assignment.nicheDomain, assignment.niche, assignment.domain, parameters.niche, parameters.domain]
+    .find((item) => typeof item === 'string' && item.trim());
   return typeof niche === 'string' && niche.trim() ? niche.trim() : null;
 }
 

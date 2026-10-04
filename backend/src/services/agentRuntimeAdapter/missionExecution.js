@@ -52,7 +52,7 @@ async function startMissionInternal(mission) {
   assertMissionNotCancelled(agentId);
   await require('../missionExecutionAuthority').assertAgentCurrent(db,agentId);
   await require('../missionExecutionAuthority').assertAuthority(db,normalizedMission.missionExecutionAuthority);
-  if (normalizedMission.workerContract?.resources?.executionMode === 'deterministic') {
+  if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(normalizedMission)) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
     return require('../agents/deterministicWorkerRuntime').runDeterministicWorker(db, normalizedMission, executionRun);
   }

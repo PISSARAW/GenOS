@@ -244,7 +244,7 @@ function applyExecutionPolicy(ctx) {
 
 function computeRuntimeBudget(ctx) {
   const { autonomyPlan, normalizedRuntimeBudget, dispatchedAgent } = ctx;
-  if (ctx.normalizedMission.workerContract?.resources?.executionMode === 'deterministic') {
+  if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(ctx.normalizedMission)) {
     ctx.runtimeBudget = { ...normalizedRuntimeBudget, tokens: 0, deterministic: true };
     return;
   }

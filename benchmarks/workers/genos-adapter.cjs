@@ -2,11 +2,16 @@
 
 const { runProcedure } = require('../../backend/src/services/agents/deterministicWorkerProcedures');
 const { runFormal } = require('../../backend/src/services/agents/deterministicWorkerFormal');
+const { runVerification } = require('../../backend/src/services/agents/deterministicWorkerVerifier');
 
 async function runCase(testCase) {
   if (testCase.workerKind === 'procedural_executor') {
     const result = runProcedure(testCase.methodContract);
     return { status: 'executed', result, receipt: result.receipt };
+  }
+  if (testCase.workerKind === 'verifier_worker') {
+    const result = runVerification(testCase.methodContract);
+    return { status: 'executed', result, receipt: result.expectedReceipt };
   }
   if (testCase.workerKind === 'formal_worker') {
     const toolchainVersion = process.env.GENOS_BENCHMARK_LEAN_VERSION;

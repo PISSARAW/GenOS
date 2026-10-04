@@ -1,5 +1,11 @@
 'use strict';
 
+const { runProcedure } = require('../../backend/src/services/agents/deterministicWorkerProcedures');
+
+const VERIFICATION_PROCEDURE = { version: 1, methodId: 'subset_sum',
+  parameters: { values: [3, 5, 7], target: 10 } };
+const CANDIDATE_RECEIPT = runProcedure(VERIFICATION_PROCEDURE).receipt;
+
 const CASES = Object.freeze([
   { id: 'scout-source', workerKind: 'scout_cell', task: 'Observer un corpus local et citer chaque observation.' },
   { id: 'daemon-anomaly', workerKind: 'resident_daemon', task: 'Détecter une anomalie dans un flux borné, puis fournir le reçu.' },
@@ -14,7 +20,10 @@ const CASES = Object.freeze([
     methodContract: { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } },
     oracle: { path: 'output.found', equals: true } },
   { id: 'host-bound', workerKind: 'symbiotic_worker', task: 'Exécuter une contribution autorisée par le contrat hôte.' },
-  { id: 'verify-claim', workerKind: 'verifier_worker', task: 'Rejouer un cas de test et rendre un verdict indépendant.' },
+  { id: 'verify-claim', workerKind: 'verifier_worker', task: 'Recalculer indépendamment le reçu de procédure.',
+    methodContract: { version: 1, methodId: 'verify_procedure', parameters: {
+      procedure: VERIFICATION_PROCEDURE, candidateReceipt: CANDIDATE_RECEIPT
+    } }, oracle: { path: 'verdict', equals: 'accept' } },
   { id: 'red-counterexample', workerKind: 'red_worker', task: 'Trouver un contre-exemple reproductible.' },
   { id: 'experiment-measure', workerKind: 'experimental_worker', task: 'Exécuter un protocole et enregistrer une mesure.' },
   { id: 'lean-arithmetic', workerKind: 'formal_worker', task: 'Prouver 2 + 2 = 4 dans Lean.',

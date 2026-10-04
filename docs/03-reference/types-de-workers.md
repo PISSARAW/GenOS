@@ -1332,8 +1332,14 @@ puis lance Lean. Il échoue si Lean manque ou rejette le théorème. Les reçus
 `solver://sha256:...` sont dérivés de l'exécution locale; ils ne prouvent pas
 une parité avec un produit concurrent. Voir [ADR 0294](../adr/0294-executeurs-deterministes-workers.md).
 
+`verifier_worker` peut désormais exécuter la méthode structurée
+`verify_procedure` : il recalcule `lpt` ou `subset_sum` et rend `accept` ou
+`reject` selon le reçu candidat, sans modèle. Cette voie vérifie une procédure
+bornée ; elle ne remplace pas une revue générale de code.
+
 La [campagne comparative](../../benchmarks/workers/README.md) contient 20 cas
 pour les 19 types. Deux cas procéduraux sont mesurables sans dépendance ;
-un troisième cas formel a été mesuré localement avec Lean 4.34.0. Les tâches
+un cas de vérification de reçu est mesurable par recalcul indépendant et un
+quatrième cas formel a été mesuré localement avec Lean 4.34.0. Les tâches
 sans oracle indépendant restent `unmeasured` ;
 un rapport rival n'est comparable que sur un même cas effectivement mesuré.
