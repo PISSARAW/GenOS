@@ -1,3 +1,4 @@
+const RELATIONAL_SIGNAL_SCHEMA = require('./relationalPhysiology/signalToolSchema');
 const REQUIRED_STRINGS = {
   genos_agent_world_capsule: ['snapshot_id'],
   genos_world_sandbox_execute: ['world_id', 'command', 'backend'],
@@ -221,10 +222,12 @@ const TOOL_BASE_SCHEMAS = {
       kind: { type: 'string', description: 'Type of publication.' },
       signal_type: { type: 'string', enum: ['ligand', 'voltage', 'pheromone', 'plasmid', 'tensor'], description: 'Required non-text biomimetic signal type.' },
       signal_data: { type: ['object', 'string'], description: 'Physico-chemical signal payload (0-token) — object or string.' },
-      orchestrator_id: { type: 'string', description: 'Owning orchestrator that may react to the collective signal.' }
+      orchestrator_id: { type: 'string', description: 'Owning orchestrator that may react to the collective signal.' },
+      relational: RELATIONAL_SIGNAL_SCHEMA.properties.relational
     },
     required: ['kind', 'signal_type', 'signal_data'],
   },
+  genos_signal_publish: RELATIONAL_SIGNAL_SCHEMA,
   genos_worker_inbox: {
     type: 'object',
     properties: {
@@ -332,7 +335,6 @@ const TOOL_BASE_SCHEMAS = {
     },
   },
 };
-
 function normalizeMcpEnvelope(body = {}) {
   return {
     toolName: body.toolName ?? body.tool_name,
@@ -396,5 +398,3 @@ module.exports = {
   TOOL_BASE_SCHEMAS,
   validateStericOrSchema
 };
-
-
