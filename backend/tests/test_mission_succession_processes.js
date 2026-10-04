@@ -19,10 +19,10 @@ async function main() {
   const db = await open({ filename: file, driver: sqlite3.Database });
   try {
     await db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE missions(mission_id TEXT PRIMARY KEY, objective TEXT, orchestrator_agent_id TEXT,status TEXT,created_at TEXT,updated_at TEXT);
-      CREATE TABLE agents(id TEXT PRIMARY KEY,parent_agent_id TEXT);
+      CREATE TABLE agents(id TEXT PRIMARY KEY,parent_agent_id TEXT,runtime_pid INTEGER);
       CREATE TABLE mission_agents(mission_id TEXT,agent_id TEXT,role TEXT,PRIMARY KEY(mission_id,agent_id));
       CREATE TABLE effects(agent_id TEXT); INSERT INTO missions VALUES('mission','resume','old','dormant',NULL,NULL);
-      INSERT INTO agents VALUES('old',NULL),('a',NULL),('b',NULL),('worker','old');
+      INSERT INTO agents(id,parent_agent_id) VALUES('old',NULL),('a',NULL),('b',NULL),('worker','old');
       INSERT INTO mission_agents VALUES('mission','old','orchestrator');`);
     const a = await child(file); const b = await child(file); children.push(a,b);
     const outcomes = await Promise.all([a,b].map((process,index) => call(process, { missionId:'mission',agentId:index ? 'b':'a',expectedOrchestratorId:'old' })));

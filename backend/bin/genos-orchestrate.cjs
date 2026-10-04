@@ -38,7 +38,6 @@ if (process.env.GENOS_STREAM_TELEMETRY === '1') {
 
 const cliHelp = require('./cliHelp.cjs');
 if (cliHelp.checkHelp(process.argv, 'genos-orchestrate.cjs')) return;
-
 let request = {};
 try {
   const helper = require('./detachedSpawn.cjs');
@@ -58,7 +57,6 @@ let id = action === 'dispatch_worker' ? request.workerId : null;
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
 const allowedCommands = normalizeAllowedCommands(policyRequest.allowed_commands) || [];
 const allowFileEdits = policyRequest.allow_file_edits === true;
-
 const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state', 'philosophy']);
 if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
