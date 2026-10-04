@@ -377,15 +377,16 @@ const migrationRunners = [
   createMigrationRunner('103-epistemic-immune-scope', 'Scope AEIS memory and deduplicate oracle outcomes', async (db) => {
     await require('./migrateEpistemicImmuneScope').migrateEpistemicImmuneScope(db);
   }),
-  createMigrationRunner('104-aeis-provider-reviews', 'Persist scoped process-isolated provider reviews', async (db) => {
-    await require('./migrateAeisProviderReviews').migrateAeisProviderReviews(db);
-  }),
-  createMigrationRunner('105-aeis-assembly-lifecycle', 'Add AEIS signing key IDs and assembly retention metadata', async (db) => {
-    await require('./migrateAeisAssemblyLifecycle').migrateAeisAssemblyLifecycle(db);
-  }),
-  createMigrationRunner('106-aeis-assembly-scope', 'Bind AEIS assemblies to run and memory scope', async (db) => {
-    await require('./migrateAeisAssemblyScope').migrateAeisAssemblyScope(db);
-  }),
+  createMigrationRunner('104-aeis-provider-reviews', 'Persist scoped process-isolated provider reviews', async (db) =>
+    require('./migrateAeisProviderReviews').migrateAeisProviderReviews(db)),
+  createMigrationRunner('105-aeis-assembly-lifecycle', 'Add AEIS signing key IDs and assembly retention metadata', async (db) =>
+    require('./migrateAeisAssemblyLifecycle').migrateAeisAssemblyLifecycle(db)),
+  createMigrationRunner('106-aeis-assembly-scope', 'Bind AEIS assemblies to run and memory scope', async (db) =>
+    require('./migrateAeisAssemblyScope').migrateAeisAssemblyScope(db)),
+  createMigrationRunner('107-relational-execution', 'Persist scoped relational grants and atomic admission receipts', async (db) =>
+    require('./migrateRelationalExecution').migrateRelationalExecution(db)),
+  createMigrationRunner('108-morphogenesis-capabilities', 'Persist experimental coverage, attempts, temporal observations, counterexamples and inherited statistical risk', async (db) =>
+    require('./migrateMorphogenesisCapabilities').migrateMorphogenesisCapabilities(db)),
 ];
 
 async function runMigration(db, version, description) {

@@ -21,19 +21,13 @@ const helpers = require('./orchestratorMissionHelpers.cjs');
 const requestMemory = require('./requestMemoryBridge.cjs');
 const missionCheckpoint = require('../src/services/communication/missionCheckpointBridge');
 
-const {
-  buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
-  prepareMission, startOrchestratorMission,
-  buildContinuity, emitCompletionEvent,
-  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup,
-  emitTopologyEvent, tokenUsage
-} = helpers;
+const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
+  prepareMission, startOrchestratorMission, buildContinuity, emitCompletionEvent,
+  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage } = helpers;
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
-
 process.on('unhandledRejection', (reason) => {
   console.error('[genos-orchestrate] Unhandled rejection:', reason && reason.stack ? reason.stack : reason);
 });
-
 if (process.env.GENOS_STREAM_TELEMETRY === '1') {
   telemetry.on('telemetry', (evt) => {
     process.stdout.write(`GENOS_STREAM:${JSON.stringify(evt)}\n`);
@@ -42,7 +36,6 @@ if (process.env.GENOS_STREAM_TELEMETRY === '1') {
 
 const cliHelp = require('./cliHelp.cjs');
 if (cliHelp.checkHelp(process.argv, 'genos-orchestrate.cjs')) return;
-
 let request = {};
 try {
   const helper = require('./detachedSpawn.cjs');
@@ -57,12 +50,11 @@ const strategy = String(request.strategy || '').toLowerCase();
 const action = request.action || (biologicalModes.has(strategy) ? 'dispatch_biological' : 'orchestrate');
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
 let orchestratorId = request.orchestratorId;
-let missionId = request.missionId || null;
+let missionId = request.missionId || process.env.GENOS_MISSION_ID || null;
 let id = action === 'dispatch_worker' ? request.workerId : null;
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
 const allowedCommands = normalizeAllowedCommands(policyRequest.allowed_commands) || [];
 const allowFileEdits = policyRequest.allow_file_edits === true;
-
 const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state', 'philosophy']);
 if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
@@ -121,7 +113,25 @@ function missionExecutionTerminal(agents, trinityWorlds) {
 
 async function observeMissionPulse(db, pulseTick) {
   if (pulseTick % 10 !== 0) return;
-  try { await missionContinuity.observeMissionPulses(db, missionId || id); } catch (_) {}
+  try {
+    await missionContinuity.observeMissionPulses(db, missionId || id);
+    if (missionId && action === 'orchestrate') await regenerateDuringExecution(db);
+  } catch (error) {
+    telemetry.emitEvent({ eventType: 'MISSION_CONTINUITY_REPAIR_FAILED', agentId: id,
+      action: 'REGENERATE', detail: error.message, severity: 'error' });
+  }
+}
+
+async function regenerateDuringExecution(db) {
+  const executionBudget = policyRequest.executionBudget || policyRequest.execution_budget;
+  if (!Number.isSafeInteger(Number(executionBudget?.tokens)) || Number(executionBudget.tokens) <= 0) return;
+  const organism = await missionContinuity.assembleOrganism(db, { id: missionId, objective: task });
+  const contract = await require('../src/services/strategyContractService').getLatestContract(db, id);
+  await missionContinuity.regenerateMissingWorkers(db, {
+    missionId, orchestratorAgentId: id, organism, objective: task, executionBudget,
+    executionPolicy: { allowedCommands, allowFileEdits },
+    strategyContract: contract?.contract, timeoutMs: policyRequest.timeoutMs
+  });
 }
 
 async function prepareRuntime(initDb) {
@@ -145,7 +155,7 @@ async function findActiveOrchestrator(db) {
 
 async function ensureMissionIdentity(db) {
   missionId = missionId || missionIdentity.newMissionId();
-  await missionIdentity.create(db, { missionId, objective: task });
+  await require('../src/services/missionRegenerationChecksService').initializeMission(db, { missionId, objective: task, checks: policyRequest.regenerationChecks || policyRequest.regeneration_checks });
 }
 
 async function evaluateMissionContinuity(opts) {
@@ -155,8 +165,12 @@ async function evaluateMissionContinuity(opts) {
   let completionGate = { allowed: false, reason: 'continuity evaluation did not run' };
   let evaluation = null;
   let organism = null;
+  let effectiveOutcome = outcome;
   try {
-    const context = await buildMissionContext({ outcome, policyRequest, request, db, missionId: id, agents });
+    const current = await missionContinuity.effectiveMissionOutcome(db, missionId || id);
+    const members = current.members;
+    effectiveOutcome = current.outcome;
+    const context = await buildMissionContext({ outcome: effectiveOutcome, policyRequest, request, db, missionId: missionId || id, agents: members });
     mission = missionContinuity.buildMissionInput(missionId || id, task, {
       orchestratorAgentId: id,
       completionContract: context.completionContract,
@@ -164,12 +178,11 @@ async function evaluateMissionContinuity(opts) {
       safetyConstraints: context.safetyConstraints,
       context: context.context
     });
-    const evalResult = await evaluateAndRepairMission({ db, id, task, outcome, agents, mission });
+    const evalResult = await evaluateAndRepairMission({ db, id, task, outcome: effectiveOutcome, agents: members, mission });
     evaluation = evalResult;
     organism = evalResult.organism;
     continuity = { ...buildContinuity(evalResult), missionId: mission.id };
-    const gate = await missionContinuity.transitionMissionToComplete(db, { organism: evalResult.organism, mission, context: context.context });
-    if (gate.allowed && missionId) await missionIdentity.setStatus(db, missionId, 'completed');
+    const gate = await missionContinuity.transitionMissionToComplete(db, { organism: evalResult.organism, mission, context: mission.context, immune: evalResult.immune });
     completionGate = { allowed: gate.allowed, reason: gate.reason || null };
     emitCompletionEvent({ id, gateAllowed: gate.allowed, evaluation: evalResult, continuity, completionGate });
     await missionCheckpoint.evaluateMissionCompletion({ db, agentId: id,
@@ -178,7 +191,7 @@ async function evaluateMissionContinuity(opts) {
     continuity = { status: 'unknown', error: continuityError.message };
     completionGate = { allowed: false, reason: continuityError.message };
   }
-  return { continuity, completionGate, evaluation, organism, mission };
+  return { continuity, completionGate, evaluation, organism, mission, outcome: evaluation?.repairedOutcome || effectiveOutcome };
 }
 
 async function evaluateAndRepairMission(input) {
@@ -186,21 +199,22 @@ async function evaluateAndRepairMission(input) {
   if (evaluation.status === 'homeostasis_satisfied') return evaluation;
   const replacements = await regenerateUncoveredWorkers(input, evaluation);
   if (!replacements.some((replacement) => replacement.success)) return evaluation;
-  const agents = await missionContinuity.fetchMissionAgents(input.db, input.mission.id);
-  const context = await buildMissionContext({ outcome: input.outcome, policyRequest, request, db: input.db, missionId: input.id, agents });
+  const current = await missionContinuity.effectiveMissionOutcome(input.db, input.mission.id);
+  const repairedOutcome = current.outcome;
+  const context = await buildMissionContext({ outcome: repairedOutcome, policyRequest, request, db: input.db, missionId: input.mission.id, agents: current.members });
   input.mission.context = context.context;
   evaluation = await missionContinuity.evaluateContinuity(input.db, input.mission);
-  return evaluation;
+  return { ...evaluation, repairedOutcome };
 }
 
-function regenerateUncoveredWorkers(input, evaluation) {
+async function regenerateUncoveredWorkers(input, evaluation) {
+  const contract = await require('../src/services/strategyContractService').getLatestContract(input.db, input.id);
   return missionContinuity.regenerateMissingWorkers(input.db, {
     missionId: input.mission.id, orchestratorAgentId: input.id, organism: evaluation.organism,
     objective: input.task,
-    executionBudget: policyRequest.executionBudget || policyRequest.execution_budget,
-    executionPolicy: policyRequest.executionPolicy || policyRequest.execution_policy,
-    toolLease: policyRequest.toolLease || policyRequest.tool_lease,
-    strategyContract: policyRequest.strategyContract, timeoutMs: policyRequest.timeoutMs
+    executionBudget: policyRequest.executionBudget || policyRequest.execution_budget || request.executionBudget,
+    executionPolicy: { allowedCommands, allowFileEdits },
+    strategyContract: contract?.contract, timeoutMs: policyRequest.timeoutMs
   });
 }
 
@@ -250,17 +264,17 @@ async function runOrchestratedMission(db) {
   const { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology } = await prepareMission({ db, enhancedPrompt, id, policyRequest, request, nceMetadata });
   const workerGarage = require('../src/services/workerGarageService');
   workerGarage.setDynamicCapacity(id, garageDecision.capacity);
-  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology });
   if (missionId) await missionIdentity.attachOrchestrator(db, { missionId, agentId: id, expectedOrchestratorId: request.expectedOrchestratorId });
+  await startOrchestratorMission({ db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology });
   const agents = await waitForCompletion(db);
-  const { summarizeAgents } = require('../src/services/orchestratorOutcome');
-  const outcome = summarizeAgents(agents);
+  const outcome = require('../src/services/orchestratorOutcome').summarizeAgents(agents);
   const evaluation = await evaluateMissionContinuity({ db, id, task, outcome, agents });
   await finalizeOrchestratedMission({ db, outcome, evaluation, morphology, nceEnhancements });
 }
 
 async function finalizeOrchestratedMission(input) {
-  const { db, outcome, evaluation, morphology, nceEnhancements } = input;
+  const { db, evaluation, morphology, nceEnhancements } = input;
+  const outcome = evaluation.outcome || input.outcome;
   let { continuity, completionGate, evaluation: homeostasis, organism, mission } = evaluation;
   const { telemetryRows, runs, coverage } = await gatherTelemetryAndCoverage(db, id);
   const missionSuccess = completionGate.allowed === true;
@@ -278,7 +292,7 @@ async function finalizeOrchestratedMission(input) {
   finalVerdict = finalStatus.verdict;
   const dormant = await suspendUnsuccessfulMission({ db, mission, homeostasis, organism, finalStatus, continuity });
   if (dormant) finalVerdict = 'mission_dormant';
-  if (finalStatus.success && missionId) await missionIdentity.setStatus(db, missionId, 'completed');
+  if (missionId && !dormant) await missionIdentity.setStatus(db, missionId, finalStatus.success ? 'completed' : 'failed');
 
   await persistMissionChampion(db, outcome);
   emitFinalTelemetry({ telemetryRows, runs, coverage, nceEnhancements, missionSuccess: finalStatus.success, finalVerdict, continuity, completionGate, id, missionId });
@@ -351,6 +365,7 @@ async function cleanupFailure(db, state, error) {
   if (topologyFailure) telemetry.emitEvent({ eventType: topologyFailure, agentId: id, action: 'TOPOLOGY_FAILED', detail: error.message, payload: { action }, severity: 'error' });
   try { await runtime.stopMission(id); } catch (_) {}
   await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, id).catch(() => {});
+  if (missionId) await missionIdentity.setStatus(db, missionId, 'failed').catch(() => {});
   if (!state.delegatedWorkerId) return;
   await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, state.delegatedWorkerId).catch(() => {});
   await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", state.delegatedWorkerId).catch(() => {});

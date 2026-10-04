@@ -1,15 +1,37 @@
 'use strict';
 
+const statisticalGate = require('../../morphogenesis/capabilities/statisticalPromotionGate');
+
 async function evaluate(input, session, persistedClaims) {
   const result = evaluateAggregation(input, persistedClaims);
   if (input.variantPolicy?.requireHumanReview) {
     result.aggregation = { ...result.aggregation, humanJudgmentRequired: true };
   }
+  const dissent = await evaluateDissent(input, session.communityId);
+  const gated = await applyStatistical(input, result, dissent);
   return {
-    aggregation: result.aggregation,
-    gate: result.gate,
-    dissent: await evaluateDissent(input, session.communityId)
+    aggregation: gated.aggregation,
+    gate: gated.gate,
+    dissent
   };
+}
+
+async function applyStatistical(input, result, dissent) {
+  if (!input.statisticalContract) return result;
+  if (result.gate.status === 'NOT_APPLICABLE') {
+    return statisticalReview(result, 'STATISTICAL_SCOPE_NOT_APPLICABLE');
+  }
+  if (result.gate.status !== 'ALLOWED' || dissent.gates.some((gate) => gate.promotion !== 'ALLOWED')) {
+    return result;
+  }
+  const statistical = await statisticalGate.evaluate(input.db, input.statisticalContract);
+  if (!statistical.allowed) return statisticalReview(result, statistical.reason);
+  return { ...result, gate: { ...result.gate, statistical } };
+}
+
+function statisticalReview(result, reason) {
+  return { aggregation: { ...result.aggregation, outcome: 'REVIEW_REQUIRED' },
+    gate: { status: 'REVIEW_REQUIRED', reason } };
 }
 
 function evaluateAggregation(input, persistedClaims) {
@@ -77,4 +99,4 @@ function trusted(receipt, validator) {
   try { return validator(receipt) === true; } catch (_) { return false; }
 }
 
-module.exports = { evaluate };
+module.exports = { evaluate, applyStatistical };

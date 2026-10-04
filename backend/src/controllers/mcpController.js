@@ -7,6 +7,7 @@ const vfsSandboxService = require('../services/vfsSandboxService');
 const { MCP_CONTRACT_VERSION, getToolInputSchema, getFullToolSchema, normalizeMcpEnvelope } = require('../services/mcpContract');
 const { directToolLeaseAllows } = require('../services/mcpExecutor/config');
 const { enforcePersistedWorkerTool } = require('../services/agents/workerContractEnforcement');
+const { executeRelationalTransport } = require('../services/relationalPhysiology/httpTransport');
 
 function requestUser(req) {
   return req.user || {};
@@ -317,6 +318,15 @@ async function equipTool(req, res) {
   res.json({ success: true, toolName, equippedAgents: targetAgents });
 }
 
+function dispatchAuthorizedTool(input) {
+  const { req, res, db, toolName, args, agentId, timeoutMs } = input;
+  if (['genos_signal_publish', 'genos_worker_publish'].includes(toolName)
+    && Object.hasOwn(args || {}, 'relational')) {
+    return executeRelationalTransport({ res, db, args, agentId, scope: tenantScope(req) });
+  }
+  return executeToolTransport({ res, toolName, args: scopedToolArgs(req, toolName, args), timeoutMs, agentId });
+}
+
 async function executeTool(req, res) {
   const { toolName, args, timeoutMs } = normalizeMcpEnvelope(req.body || {});
   const db = await getDatabase();
@@ -334,7 +344,7 @@ async function executeTool(req, res) {
   }
   const check = circuitBreaker.canExecute(toolName, requestRole(req), agentId || 'global', args);
   if (!check.allowed) return mcpError(res, { status: 503, code: check.reason || 'CIRCUIT_OPEN', message: check.message });
-  return executeToolTransport({ res, toolName, args: scopedToolArgs(req, toolName, args), timeoutMs, agentId });
+  return dispatchAuthorizedTool({ req, res, db, toolName, args, agentId, timeoutMs });
 }
 
 async function dryRun(req, res, next) {

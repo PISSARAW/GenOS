@@ -321,8 +321,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
 | [0293](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
-| [0294a](0294-contrat-de-preuve-aeis.md) | Contrat de preuve exécutable AEIS | Accepté | 2026-10-04 | AEIS, preuve, promotion, confinement |
-| [0294b](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
+| [0294a](0294-cloture-de-continuite-de-mission.md) | Fermeture des transitions de continuité de mission | accepté | 2026-10-04 | orchestration et survie des missions |
+| [0294b](0294-contrat-de-preuve-aeis.md) | Contrat de preuve exécutable AEIS | Accepté | 2026-10-04 | AEIS, preuve, promotion, confinement |
+| [0294c](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
 | [0295a](0295-memoire-immunitaire-portee-et-oracle.md) | Mémoire immunitaire AEIS portée et résolue par preuve | Accepté | 2026-10-04 | AEIS, mémoire, SQLite, multitenance |
 | [0295b](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | Projets persistants, perception, Ontogenèse, GVX |
 | [0296a](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
@@ -332,16 +333,21 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0297c](0297-protocoles-de-responsabilite-shev.md) | Protocoles de responsabilité, surveillance et transfert SHEV | Accepté | 2026-10-04 | SHEV, mandat, récupération, GVX, évaluation |
 | [0298a](0298-cycle-de-vie-des-recus-aeis.md) | Cycle de vie des reçus et assemblées AEIS | Accepté | 2026-10-04 | AEIS, signature, rétention, audit |
 | [0298b](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
-| [0299a](0299-capsule-prompt-utf8-direct.md) | Capsule de prompt UTF-8 directe | Accepté | 2026-10-04 | Transport interprocessus, communication, coût |
-| [0299b](0299-liaison-des-assemblages-aeis-au-run.md) | Liaison des assemblages AEIS au run | Accepté | 2026-10-04 | AEIS, mémoire, intégrité, portée |
-| [0300](0300-checkpoint-communication-fin-mission.md) | Checkpoint de communication à la fin d'une mission | Accepté | 2026-10-04 | Orchestration, communication, preuve |
+| [0299a](0299-admission-relationnelle-transactionnelle.md) | Admission transactionnelle des signaux relationnels | Proposé, implémentation ciblée | 2026-10-04 | Communication inter-agents, autorité, persistance |
+| [0299b](0299-capacites-transversales-morphogenese.md) | Cinq capacités transversales de morphogenèse | Proposé, avec deuxième tranche opt-in implémentée | 2026-10-04 | Morphogenèse, preuves, mémoire, risque statistique |
+| [0299c](0299-capsule-prompt-utf8-direct.md) | Capsule de prompt UTF-8 directe | Accepté | 2026-10-04 | Transport interprocessus, communication, coût |
+| [0299d](0299-liaison-des-assemblages-aeis-au-run.md) | Liaison des assemblages AEIS au run | Accepté | 2026-10-04 | AEIS, mémoire, intégrité, portée |
+| [0299e](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
+| [0300a](0300-checkpoint-communication-fin-mission.md) | Checkpoint de communication à la fin d'une mission | Accepté | 2026-10-04 | Orchestration, communication, preuve |
+| [0300b](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
 | [0301](0301-msgpack-sans-repli-json-illisible.md) | MsgPack sans repli JSON illisible | Accepté | 2026-10-04 | Transport binaire, communication inter-agents, compatibilité |
 | [0302](0302-autorite-actions-recepteurs.md) | Autorité des actions de récepteurs | Accepté | 2026-10-04 | Communication, signalisation, isolation des projets |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
-> plusieurs fichiers. Les chemins sont conservés (ADR 0005) et l'index
-> les distingue par suffixe (`0063a`, `0063b`, …). Vérifié par
-> `python scripts/ci/check_adr_index.py`.
+> plusieurs fichiers, en plus de `003x` (format historique gelé). Les
+> fichiers sont conservés tels quels (renommage interdit sans migration
+> de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,
+> `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.

@@ -113,7 +113,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [environnement-hote.md](03-reference/environnement-hote.md) — mesures de la machine, choix du disque et régulation des ressources.
 - [orchestration.md](02-orchestration/orchestration.md) — branches, preuve avant validation, survivants, fan-out.
 - [shev.md](02-orchestration/shev.md) — mandat durable, perception qualifiée, initiative et effet vérifié sur le projet.
-- [g-cir.md](02-orchestration/g-cir.md) — interface cognitive résiduelle, contrat du Signal Plane, visibilité, validation et limites.
+- [g-cir.md](02-orchestration/g-cir.md) — interface cognitive résiduelle, registre d'obligations, visibilité, validation et limites.
 - [architecture-survie.md](02-orchestration/architecture-survie.md) — état de survie mesurable et politiques de continuité bornées.
 - [regulation-multi-boucles.md](02-orchestration/regulation-multi-boucles.md) — régulation multi-boucles, signaux et arbitrage.
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.
@@ -126,6 +126,11 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [reproduction-et-replication.md](02-orchestration/reproduction-et-replication.md) — mitose, budding, méiose, clonage.
 - [dossiers-agents-et-conscience.md](02-orchestration/dossiers-agents-et-conscience.md) — dossiers de preuves et conscience opérationnelle.
 - [contrats-strategie-et-execution.md](02-orchestration/contrats-strategie-et-execution.md) — contrats versionnés et exécution.
+- [meristeme-epistemique.md](02-orchestration/meristeme-epistemique.md) — expériences discriminantes et couverture vérifiée.
+- [spirale-de-deblocage.md](02-orchestration/spirale-de-deblocage.md) — déblocage par différence d'intervention, d'échelle ou de preuve.
+- [chronotaxie-aperiodique.md](02-orchestration/chronotaxie-aperiodique.md) — observation déphasée et couverture des phases.
+- [cambium-contre-exemples.md](02-orchestration/cambium-contre-exemples.md) — témoins et contre-exemples des procédures.
+- [infini-sous-contrat.md](02-orchestration/infini-sous-contrat.md) — conservation du risque statistique dans une lignée.
 - [relations-inter-agents.md](02-orchestration/relations-inter-agents.md) — relations typées entre agents (29 types, 6 classes, persistance, fiches et schémas par type).
 - [physiologie-relationnelle.md](02-orchestration/physiologie-relationnelle.md) — noyau déterministe de contraintes relationnelles et raccord ciblé au routage de communication.
 - [communication.md](02-orchestration/communication.md) — écologie communicationnelle : 7 types, schémas par type, grounding, coûts, shadow et apprentissage.
@@ -235,6 +240,7 @@ Index : [adr/README.md](adr/README.md)
 - [0204-recu-biologique-durable-rust-backend.md](adr/0204-recu-biologique-durable-rust-backend.md) — contrat d'ingestion idempotent des reçus Rust et limites de corrélation des identités.
 - [0205-parcours-aeis-et-causalite-procedurale.md](adr/0205-parcours-aeis-et-causalite-procedurale.md) — branchement runtime AEIS et persistance des parcours causaux bornés.
 - [0296-rejeu-causal-sous-bail.md](adr/0296-rejeu-causal-sous-bail.md) — checkpoints et résultats causaux sous bail, avec journal chaîné.
+- [0299-capacites-transversales-morphogenese.md](adr/0299-capacites-transversales-morphogenese.md) — cinq capacités opt-in de recherche, observation, mémoire et risque statistique.
 - [0206-decision-evidence-binding.md](adr/0206-decision-evidence-binding.md) — liaison transactionnelle des décisions à leurs références de preuve et à leur reçu de provenance.
 - [0270-control-plane-de-verification-gvx.md](adr/0270-control-plane-de-verification-gvx.md) — control plane séparé, signatures Ed25519 et preuves métier GVX.
 - [0272-execution-cycle-developpemental-gvx.md](adr/0272-execution-cycle-developpemental-gvx.md) — dispatch du cycle AGOW → GVX par adapters d'application épinglés.
@@ -269,6 +275,10 @@ Index : [adr/README.md](adr/README.md)
 - [0300-checkpoint-communication-fin-mission.md](adr/0300-checkpoint-communication-fin-mission.md) — évaluation de la communication après une fin de mission autorisée.
 - [0301-msgpack-sans-repli-json-illisible.md](adr/0301-msgpack-sans-repli-json-illisible.md) — refus des écritures MsgPack invalides et lecture des anciens BLOB JSON.
 - [0302-autorite-actions-recepteurs.md](adr/0302-autorite-actions-recepteurs.md) — autorité de projet vérifiée avant les actions des récepteurs du Signal Plane.
+- [0299-admission-relationnelle-transactionnelle.md](adr/0299-admission-relationnelle-transactionnelle.md) — admission SQLite ciblée des signaux RPE et idempotence durable.
+- [0299-registre-obligations-g-cir.md](adr/0299-registre-obligations-g-cir.md) — registre versionné et graphe de dépendances des adaptateurs G-CIR.
+- [0294-cloture-de-continuite-de-mission.md](adr/0294-cloture-de-continuite-de-mission.md) — appartenance durable, transitions sûres, reprise après crash et réparation bornée des missions.
+- [0300-scellement-spores-biome.md](adr/0300-scellement-spores-biome.md) — chiffrement des spores Biome et autorisation explicite au dégel.
 - [0086-branche-rhizome-morphogenese.md](adr/0086-branche-rhizome-morphogenese.md) — branche Rhizome acceptée dans un graphe Morphogenèse, avec budget et gate de preuve.
 - [0087-branche-trinity-morphogenese.md](adr/0087-branche-trinity-morphogenese.md) — branche Trinity proposée dans un graphe Morphogenèse, avec trois chambres scellées et budget dédié.
 - [0070-syncytium-variant-code.md](adr/0070-syncytium-variant-code.md) — état de code partagé, détection des ruptures de symboles et portée de l'analyse lexicale.

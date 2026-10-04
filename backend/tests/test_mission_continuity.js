@@ -11,6 +11,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 const TMP_DB = path.join(os.tmpdir(), `genos_continuity_test_${Date.now()}.db`);
 process.env.GENOS_DB_PATH = TMP_DB;
@@ -272,6 +273,95 @@ test('orchestrator succession is single-winner, atomic, and survives database re
   const members = await missionIdentity.members(db, missionId);
   assert.ok(members.some((member) => member.id === winner), 'winning successor remains linked to the mission after restart');
   assert.equal(members.filter((member) => member.role === 'orchestrator').length, 2, 'lineage retains prior and current orchestrators');
+  await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id)
+    VALUES (?, 'Unrelated', 'worker', 'completed', 'worker', 'orchestrator_old')`, `${missionId}_unrelated`);
+  const scoped = await missionIdentity.members(db, missionId);
+  assert.equal(scoped.some((member) => member.id === `${missionId}_unrelated`), false,
+    'later descendants of a retired orchestrator do not enter this mission');
+  const effective = await require('../src/services/regenerationAttemptService').effectiveAgents(db, missionId, scoped);
+  assert.equal(effective.some((member) => member.id === 'orchestrator_old'), false,
+    'retired orchestrators do not affect the current mission verdict');
+});
+
+test('regeneration dispatches a worker once and requires functional proof', async () => {
+  const dispatch = require('../src/services/orchestratorDispatchService');
+  const garage = require('../src/services/workerGarageService');
+  const sandbox = require('../src/services/sandboxExecutor');
+  const original = { dispatch: dispatch.dispatchWorkerMission, reserve: garage.reserveSlot,
+    idle: garage.enterIdleState, runIsolated: sandbox.runIsolated };
+  const missionId = `regeneration_${Date.now()}`;
+  await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, 'Regeneration test', ?)", `${missionId}_workspace`, os.tmpdir());
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES (?, 'Root', 'orchestrator', 'running', 'orchestrator', ?)", `${missionId}_root`, `${missionId}_workspace`);
+  await missionIdentity.create(db, { missionId, objective: 'Repair worker', orchestratorAgentId: `${missionId}_root` });
+  await require('../src/services/missionRegenerationChecksService').configure(db, {
+    missionId, role: 'verifier', commands: ['npm test'], actor: 'mission_test'
+  });
+  const organism = missionOrganism.newOrganism({ genome: { objective: 'Repair worker' } });
+  let proof = false;
+  let dispatches = 0;
+  try {
+    garage.reserveSlot = async () => ({ slot: 1 });
+    garage.enterIdleState = async () => {};
+    sandbox.runIsolated = async ({ command }) => ({ command,
+      commandHash: `sha256:${crypto.createHash('sha256').update(command).digest('hex')}`,
+      executionId: 'independent-check', processId: 123, exitCode: 0,
+      timedOut: false, success: true, stdout: '', stderr: '' });
+    dispatch.dispatchWorkerMission = async (worker) => {
+      dispatches += 1;
+      await db.run("UPDATE agents SET status = 'completed' WHERE id = ?", worker.agentId);
+      const report = { outcome: 'success', claims: [{ evidence: ['executed check'] }] };
+      if (proof) report.functionalEquivalence = {
+        lostIdentifier: /lostIdentifier='([^']+)'/.exec(worker.prompt)?.[1], role: 'verifier', passed: true,
+        checks: [{ command: 'npm test', exitCode: 0, evidenceRef: 'sha256:check' }]
+      };
+      await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, payload_json) VALUES (?, 'EVIDENCE_REPORT', 'REPORT', ?)",
+        worker.agentId, JSON.stringify({ evidenceReport: report }));
+    };
+    const makeInput = lostIdentifier => ({ db, missionId, organism, orchestratorAgentId: `${missionId}_root`,
+      plan: { lostIdentifier, kind: 'workers', role: 'verifier' }, executionBudget: { tokens: 1000 } });
+    const unverified = await regeneration.regenerateWorker(makeInput('lost_one'));
+    assert.equal(unverified.success, false);
+    assert.equal(unverified.status, 'unverified');
+    const duplicate = await regeneration.regenerateWorker(makeInput('lost_one'));
+    assert.equal(duplicate.status, 'blocked');
+    assert.equal(dispatches, 1);
+    proof = true;
+    const verified = await regeneration.regenerateWorker(makeInput('lost_two'));
+    assert.equal(verified.success, true);
+    assert.ok(verified.evidenceRef.startsWith('sha256:'));
+    assert.equal(dispatches, 2);
+    const attempts = require('../src/services/regenerationAttemptService');
+    await attempts.reserve(db, { missionId, lostIdentifier: 'lost_three', role: 'verifier', replacementId: 'worker_recovered' });
+    await db.run("UPDATE mission_regeneration_attempts SET owner_pid = -1 WHERE mission_id = ? AND lost_agent_id = 'lost_three'", missionId);
+    const recovered = await regeneration.regenerateWorker(makeInput('lost_three'));
+    assert.equal(recovered.success, true);
+    assert.equal(recovered.replacementId, 'worker_recovered');
+    assert.equal(dispatches, 3);
+  } finally {
+    dispatch.dispatchWorkerMission = original.dispatch;
+    garage.reserveSlot = original.reserve;
+    garage.enterIdleState = original.idle;
+    sandbox.runIsolated = original.runIsolated;
+  }
+});
+
+test('verified replacement determines the effective mission outcome', async () => {
+  const missionId = `effective_${Date.now()}`;
+  const rootId = `${missionId}_root`;
+  const lostId = `${missionId}_lost`;
+  const replacementId = `${missionId}_replacement`;
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, 'Root', 'orchestrator', 'completed', 'orchestrator')", rootId);
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id) VALUES (?, 'Lost', 'verifier', 'error', 'worker', ?)", lostId, rootId);
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id) VALUES (?, 'Replacement', 'verifier', 'idle', 'worker', ?)", replacementId, rootId);
+  await missionIdentity.create(db, { missionId, objective: 'Verify replacement', orchestratorAgentId: rootId });
+  await missionIdentity.attachAgent(db, { missionId, agentId: lostId, role: 'verifier' });
+  await missionIdentity.attachAgent(db, { missionId, agentId: replacementId, role: 'verifier' });
+  const attempts = require('../src/services/regenerationAttemptService');
+  await attempts.reserve(db, { missionId, lostIdentifier: lostId, replacementId, role: 'verifier' });
+  await attempts.mark(db, { missionId, lostIdentifier: lostId, replacementId, status: 'verified', evidenceRef: 'sha256:proof' });
+  const result = await missionContinuity.effectiveMissionOutcome(db, missionId);
+  assert.equal(result.outcome.success, true);
+  assert.equal(result.members.some(agent => agent.id === lostId), true, 'loss remains in historical membership');
 });
 
 async function main() {

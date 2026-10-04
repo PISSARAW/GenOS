@@ -12,6 +12,10 @@ async function main() {
       if (input.action === 'reserve') {
         const lease = await authority.reserve(db, input);
         process.send({ reserved: lease });
+      } else if (input.action === 'claim') {
+        const lease = await authority.reserve(db, input);
+        await authority.claimLaunch(db, lease);
+        process.send({ claimed: true });
       } else if (input.action === 'assert') {
         await authority.assertAgentCurrent(db,input.agentId); process.send({ current: true });
       } else {

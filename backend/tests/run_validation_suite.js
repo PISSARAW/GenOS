@@ -12,6 +12,8 @@ const suites = {
     ['mission physics parameter service', 'test_mission_physics_parameter_service.js'],
     ['WorldState conditional model', 'test_world_state_conditional.js'],
     ['morphology learning evidence gate', 'test_morphology_learning_evidence.js'],
+    ['morphogenesis transverse capabilities', 'test_morphogenesis_capabilities.js'],
+    ['morphogenesis phase two integration', 'test_morphogenesis_capabilities_phase2.js'],
     ['replicated causal validation', 'test_replicated_causal_validation_service.js'],
     ['replicated causal runtime integration', 'test_replicated_causal_runtime_integration.js'],
     ['biological semantic response validation', 'test_biological_semantic_validation.js'],
@@ -35,6 +37,7 @@ const suites = {
     ['political philosophy service', 'test_political_philosophy_service.js'],
     ['social cognition service', 'test_social_cognition_service.js'],
     ['topology MCP lease enforcement', 'test_mcp_topology_lease.js'],
+    ['property invariants for leases and transitions', 'test_property_invariants.js'],
     ['advanced IAM', 'test_advanced_iam.js'],
     ['mathematical promotion integration', 'test_mathematical_promotion_integration.js'],
     ['procedural organism foundations', 'test_procedural_organism_foundations.js'],
@@ -120,6 +123,7 @@ const suites = {
     ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js']
   ],
   signalPlane: [
+    ['cognitive obligation registry', 'test_cognitive_obligation_registry.js'],
     ['cognitive residual compiler', 'test_cognitive_residual_compiler.js'],
     ['G-CIR Trinity hypothesis generation', 'test_gcir_trinity_hypothesis_generation.js'],
     ['signal receptor service', 'test_signal_receptor_service.js'],

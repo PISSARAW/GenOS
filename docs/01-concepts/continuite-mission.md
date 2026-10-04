@@ -1,8 +1,8 @@
 # Continuité de mission — l'organisme logiciel et ses six systèmes de survie
 
-- **Statut** : Partiel — gate de complétion, continuation bornée et idempotente, preuves runtime, immunité, identité durable, suspension/réveil persistés et dispatch de régénération raccordés ; le réveil revendique atomiquement sa condition pour prévenir le double dispatch. La succession multi-processus est validée par `test_mission_succession_processes.js` (deux processus, store WAL partagé, perdant et ancien orchestrateur bloqués, réservation reprise après kill). La reprise après échec et le remplacement restent soumis à validation d'intégration.
+- **Statut** : Partiel — identité et membres persistés, gate de complétion, régénération bornée avec rejeu indépendant de contrôles configurés, suspension atomique, réveil temporel, registre durable des ressources et succession interprocessus. Les observations de budget et de santé fournisseur doivent encore être alimentées par une source métier. Une mission sans contrôles de régénération configurés ne régénère pas automatiquement de worker.
 - **Portée** : control plane Node — `missionIdentityService`, `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `homeostasisContinuationService`, `missionContinuityService`, `missionEvidenceCollector`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalStateService`, `survivalWakeService`, `survivalModesService` ; pont `backend/bin/genos-orchestrate.cjs` + helpers `continuationFeedbackLoop.cjs`, `orchestratorMissionHelpersBuildContext.cjs` ; migrations 033 `homeostasis_states`, 034 `mission_organism_state`, 085 `missions`/`mission_agents`, 027 `continuation_queue`.
-- **Dernière revue** : 2026-09-30.
+- **Dernière revue** : 2026-10-04.
 
 ## 1. Définition du domaine
 
@@ -275,7 +275,7 @@ terminaison du worker, rafraîchit les agents, collecte les preuves runtime via
 `missionEvidenceCollector.js` remplace les `['mission_outcome']` synthétiques
 par de vraies preuves :
 - `worker_evidence` : dossiers workers avec `evidenceReport`
-- `test_suite_passed` : `WORKER_EVIDENCE_BARRIER_SATISFIED` en télémétrie
+- `test_suite_passed` : reçu de test comportant suite et code de sortie zéro ; la barrière des dossiers seule ne suffit pas
 - `evidence_report` : événements `EVIDENCE_REPORT`
 - `execution_run_complete` : `strategy_execution_runs` complétés
 - `agent_completed` : événements `AGENT_COMPLETED`
@@ -304,9 +304,9 @@ complexité ≤ 10, événements de télémétrie en UPPER_SNAKE
    (max 3), attente terminaison, rafraîchissement agents + collecte preuves,
    réévaluation. Boucle jusqu'à satisfaction, épuisement du budget, ou
    irrécupérabilité.
-4. **Pendant la mission** : les pulses observent la flotte vivante ; un événement
-   de type worker déclenche l'analyse immunitaire et, si besoin, la
-   régénération.
+4. **Pendant la mission** : le poller des pulses examine périodiquement les
+   workers perdus ; il peut lancer au plus trois remplacements par mission,
+   sous réserve d'un budget explicite et d'une preuve fonctionnelle.
 5. **Mort cellulaire** : `assessDamage()` rend un verdict par cellule perdue —
    `covered` (continuer), `regenerate` (remplacer), `obsolete` (apoptose
    cellulaire confirmée) — puis enregistre la cicatrice.
@@ -351,19 +351,74 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
    borné et idempotent (boucle dispatch → attente terminal → réévaluation,
    jusqu'à satisfaction ou épuisement), les preuves runtime collectées depuis
    les dossiers workers et la télémétrie — couverts par
-   `backend/tests/test_mission_continuity.js` (13 tests) et
+   `backend/tests/test_mission_continuity.js` (19 tests) et
    `backend/tests/test_mission_evidence.js` (10 tests) et
    `backend/tests/test_homeostasis_continuation.js` (18 tests).
-- **Implémenté, intégration à valider** : `regenerateWorker()` crée un agent
+- **Implémenté au niveau service, intégration à valider** : `regenerateWorker()` crée un agent
   worker rattaché à la mission, réserve un slot et passe par le dispatch
-  runtime ; le rôle et la cicatrice ne sont annoncés réparés qu'après retour
-  terminal exploitable et vérification de couverture. Un refus ou un échec de
-  dispatch ne produit pas de cellule de remplacement vivante.
+  runtime. Le résultat doit être terminal et porter un rapport de succès avec
+  contrôles fonctionnels liés au rôle et à l'agent perdu. Les commandes de
+  vérification sont configurées par mission et par rôle, dans
+  `regenerationChecks` au lancement (`{ "verifier": ["npm test"] }`) ou par
+  `POST /api/missions/:missionId/regeneration-checks/:role` (admin, corps
+  `{ "commands": ["npm test"] }`). La politique est immuable pour ce rôle.
+  GenOS rejoue ces commandes dans le workspace de la mission avec la liste
+  autorisée du `sandboxExecutor`, conserve des reçus distincts du rapport du
+  worker et n'accepte le remplacement que si chaque exécution réussit.
+  Une table durable limite à trois les tentatives par mission et empêche de
+  redéployer deux fois pour la même perte. Les commandes configurées doivent
+  réellement couvrir le rôle à restaurer ; un test générique sans rapport
+  avec ce rôle ne constitue pas une preuve d'équivalence fonctionnelle.
 - **Implémenté, intégration à valider** : le pont accepte une demande explicite
   `dormancy` avec mode éligible et condition de réveil. `survivalStateService`
-  écrit le snapshot, l'état dormant et la condition persistée. Le réveil exige
-  un événement correspondant aux conditions typées, conserve la dormance si le
-  redémarrage échoue, puis restaure l'état et réactive la mission.
+  écrit dans une transaction le snapshot, l'état dormant, la condition persistée
+  et le statut de mission. Un scheduler du backend consomme les échéances
+  `time_elapsed`, les observations du registre durable et les approbations
+  humaines. Le réveil conserve la dormance si le redémarrage échoue.
+  Une reprise de mission dormante renouvelle l'autorité d'exécution même si
+  l'ancien propriétaire est encore vivant. Elle refuse de lancer un second
+  runtime tant que le PID enregistré pour l'ancien orchestrateur est vivant ou
+  impossible à vérifier. Ce contrôle précède la revendication de la condition,
+  afin de conserver l'observation de réveil jusqu'à l'arrêt effectif du runtime.
+  Le scheduler réconcilie les réveils
+  interrompus : il finalise une reprise seulement si la mission est active,
+  l'autorité est `running` et le processus du runtime correspond à son
+  exécutable enregistré, ou si l'agent a terminé avec le statut `completed`.
+  Sinon il revient à la dormance après arrêt confirmé d'un lancement orphelin.
+  Une reprise déjà `running` dont le runtime a disparu sans statut de succès
+  reste en attente d'une résolution explicite pour éviter un second lancement
+  aux effets inconnus. Après examen des effets, l'administrateur peut demander
+  `POST /api/missions/:missionId/wake/retry` avec un `evidenceRef` : GenOS
+  vérifie que le propriétaire et le runtime sont morts, journalise la décision
+  et réarme la condition dans une transaction. L'état de survie et le snapshot sont modifiés dans
+  une même transaction.
+  Si la mission a déjà un statut terminal lors de la réconciliation, la
+  condition déclenchée est fermée : une mission `completed` devient `recovered`
+  dans l'état de survie ; une mission `failed` ou `cancelled` devient `protected`.
+  Cette fermeture attend aussi l'arrêt du runtime. Le snapshot est marqué
+  comme dégelé sans relancer le runtime.
+  Le registre accepte les soldes de tokens absolus, les disponibilités de
+  fournisseur avec expiration et les événements externes avec expiration. Le
+  curseur durable de chaque condition impose une nouvelle observation après
+  son armement ou son réarmement ; une ancienne mesure encore présente dans le
+  registre ne réveille pas la mission. La revendication du réveil et la lecture
+  du registre sont atomiques. Le contenu fourni par l'appelant de `wake()` ne
+  fait plus autorité pour ces
+  conditions : le service relit les lignes persistées avant de reprendre.
+  Le réveil manuel `operator_or_signal` passe par
+  `POST /api/missions/:missionId/wake`, réservé aux administrateurs ; la route
+  utilise l'orchestrateur courant de la mission dormante.
+  L'écriture passe par `POST /api/missions/:missionId/resources`, réservé aux
+  administrateurs authentifiés, avec `kind` (`budget`, `provider`, `external`),
+  `evidenceRef` et un identifiant d'observation `id` facultatif pour les retries.
+  Pour `budget`, fournir `availableTokens` ; pour `provider`, `resourceKey`,
+  `available` et `expiresAt` si disponible ; pour `external`, `resourceKey`
+  égal au nom de l'événement et `expiresAt`. Les observations de fournisseur
+  disponibles et les événements externes expirent au plus tard une heure après
+  leur écriture. La condition `human_resolves_gate` exige l'identifiant d'une
+  approbation approuvée pour l'orchestrateur dormant. Un producteur métier doit
+  écrire les observations de budget et de fournisseur pour déclencher ces
+  réveils en exploitation.
 - **Implémenté** : la migration 085 crée une identité `missionId` indépendante
   de l'orchestrateur, rattache les agents et migre les racines historiques.
   L'identifiant est renvoyé par le pont (y compris en mode détaché) et peut être
@@ -375,7 +430,7 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
    le rôle requis (`npm --prefix backend run test:biological-bridge`). La
    succession concurrente de l'identité d'orchestrateur est couverte par
    `test_mission_succession_processes.js`, y compris le contrôle après
-   redémarrage d'un processus réservant.
+   redémarrage d'un processus réservant ou ayant revendiqué le lancement.
 - **Garde-fou** : l'apoptose systémique n'est jamais automatique —
   `apoptosisDecision()` exige `humanAuthorized: true`.
 - **Garde-fou** : un verdict homéostatique insatisfait est rapporté tel quel ;

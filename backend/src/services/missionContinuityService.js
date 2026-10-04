@@ -74,6 +74,13 @@ async function fetchMissionAgents(db, missionId) {
   return db.all('SELECT id, role, status, execution_mode FROM agents WHERE id = ? OR parent_agent_id = ?', missionId, missionId);
 }
 
+async function effectiveMissionOutcome(db, missionId) {
+  const members = await fetchMissionAgents(db, missionId);
+  const effective = await require('./regenerationAttemptService').effectiveAgents(db, missionId, members);
+  const outcome = require('./orchestratorOutcome').summarizeAgents(effective);
+  return { members, outcome };
+}
+
 function buildGenome(mission, existingState = null) {
   return {
     objective: mission.objective || mission.task || null,
@@ -312,6 +319,9 @@ async function regenerateMissingWorkers(db, input = {}) {
 }
 
 async function transitionMissionToComplete(db, target) {
+  if (target.immune?.safe === false) {
+    return { allowed: false, reason: target.immune.reason || 'Immune safety gate blocked completion.' };
+  }
   const { transitionMissionToComplete: transition } = require('./homeostasisService');
   return transition(db, target);
 }
@@ -341,8 +351,9 @@ function resolveDurableDormancyMode(eligibility) {
 }
 
 function assertDormancyRequest(input) {
-  if (input.wakeCondition && input.missionId && input.orchestratorAgentId) return;
-  throw new Error('missionId, orchestratorAgentId and wakeCondition are required for durable dormancy.');
+  if (input.wakeCondition && input.missionId && input.orchestratorAgentId
+    && typeof input.objective === 'string' && input.objective.trim()) return;
+  throw new Error('missionId, orchestratorAgentId, objective and wakeCondition are required for durable dormancy.');
 }
 
 function buildDormancyCommand(input, mode) {
@@ -370,6 +381,7 @@ module.exports = {
   tissueKindForAgent,
   agentToCell,
   fetchMissionAgents,
+  effectiveMissionOutcome,
   assembleOrganism,
   buildMissionInput,
   attachContract,

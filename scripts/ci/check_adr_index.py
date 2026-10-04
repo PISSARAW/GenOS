@@ -30,9 +30,10 @@ TITLE_RE = re.compile(r"^#\s+(.+)$", re.M)
 
 COLLISION_NOTE = (
     "> **Identifiants numériques partagés** : certains numéros sont portés par\n"
-    "> plusieurs fichiers. Les chemins sont conservés (ADR 0005) et l'index\n"
-    "> les distingue par suffixe (`0063a`, `0063b`, …). Vérifié par\n"
-    "> `python scripts/ci/check_adr_index.py`.\n"
+    "> plusieurs fichiers, en plus de `003x` (format historique gelé). Les\n"
+    "> fichiers sont conservés tels quels (renommage interdit sans migration\n"
+    "> de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,\n"
+    "> `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.\n"
 )
 
 NOTE_MARKERS = (

@@ -4,6 +4,10 @@ const { createResourceVector } = require('../contracts/resourceVector');
 const { normalizePopulation } = require('./populationService');
 
 function mergePopulations(target, source) {
+  if ((source.spores || []).length > 0 && target.populationId !== source.populationId) {
+    throw Object.assign(new Error('Sealed spores require authorized re-sealing before transfer.'),
+      { code: 'BIOME_SPORE_TRANSFER_REQUIRES_RESEAL' });
+  }
   if (target.nicheId !== source.nicheId) {
     throw Object.assign(new Error('Populations can merge only within the same niche.'), { code: 'BIOME_POPULATION_NICHE_MISMATCH' });
   }
