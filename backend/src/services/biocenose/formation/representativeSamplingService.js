@@ -25,25 +25,44 @@ function stratify(input = {}) {
   };
 }
 
-function quotaFor(stratum, quotas, totalQuota) {
-  if (quotas && Number.isFinite(Number(quotas[stratum.stratum]))) return Math.max(0, Number(quotas[stratum.stratum]));
-  if (totalQuota) return Math.max(1, Math.round(stratum.share * totalQuota));
-  return Math.max(1, Math.ceil(stratum.size / 2));
-}
-
 function quotaSample(input = {}) {
   const stratified = stratify(input);
   const quotas = input.quotas && typeof input.quotas === 'object' ? input.quotas : null;
   const totalQuota = Number(input.totalQuota) || 0;
+  const target = Math.min(stratified.populationSize, totalQuota || Object.values(quotas || {}).reduce((sum, value) => sum + Number(value || 0), 0)
+    || stratified.strata.reduce((sum, item) => sum + Math.max(1, Math.ceil(item.size / 2)), 0));
+  const allocated = allocateQuotas(stratified.strata, quotas, target);
   const sample = [];
   const unfilled = [];
-  for (const stratum of stratified.strata) {
-    const ordered = [...stratum.memberIds].sort();
-    const quota = Math.min(quotaFor(stratum, quotas, totalQuota), ordered.length);
+  for (const [index, stratum] of stratified.strata.entries()) {
+    const ordered = [...stratum.memberIds].sort((left, right) => scoreMember(left, input.seed) - scoreMember(right, input.seed));
+    const quota = allocated[index];
     sample.push(...ordered.slice(0, quota).map((memberId) => ({ memberId, stratum: stratum.stratum })));
-    if (quota < ordered.length) unfilled.push({ stratum: stratum.stratum, missing: ordered.length - quota });
+    if (quota < ordered.length) unfilled.push({ stratum: stratum.stratum, unselected: ordered.length - quota });
   }
   return { sample, sampleSize: sample.length, strata: stratified.strata.length, unfilled };
+}
+
+function allocateQuotas(strata, quotas, target) {
+  if (quotas) return strata.map((stratum) => Math.min(stratum.size, Math.max(0, Number(quotas[stratum.stratum]) || 0)));
+  const raw = strata.map((stratum) => target * stratum.share);
+  const allocation = raw.map((value, index) => Math.min(strata[index].size, Math.floor(value)));
+  let remaining = target - allocation.reduce((sum, value) => sum + value, 0);
+  const order = raw.map((value, index) => ({ index, remainder: value - Math.floor(value) }))
+    .sort((left, right) => right.remainder - left.remainder);
+  while (remaining > 0) {
+    const next = order.find((item) => allocation[item.index] < strata[item.index].size);
+    if (!next) break;
+    allocation[next.index] += 1;
+    remaining -= 1;
+  }
+  return allocation;
+}
+
+function scoreMember(memberId, seed = '') {
+  let hash = 2166136261;
+  for (const char of `${seed}:${memberId}`) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  return hash >>> 0;
 }
 
 function reweight(input = {}) {

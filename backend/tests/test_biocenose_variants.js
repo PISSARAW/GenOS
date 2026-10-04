@@ -7,6 +7,7 @@ const polycentric = require('../src/services/biocenose/deliberation/polycentricC
 const quorum = require('../src/services/biocenose/byzantine/byzantineQuorumService');
 const sampling = require('../src/services/biocenose/formation/representativeSamplingService');
 const reputation = require('../src/services/biocenose/calibration/persistentReputationService');
+const aggregation = require('../src/services/biocenose/question/communityAggregationService');
 
 const VARIANT_IDS = ['epistemic_jury', 'delphi_community', 'adversarial_assembly', 'forecasting_crowd',
   'argumentation_community', 'polycentric_council', 'byzantine_resilient_community', 'minority_preserving_jury',
@@ -67,6 +68,31 @@ function testGroundedLabelling() {
   assert.deepEqual(cyclic.undecided.sort(), ['x', 'y']);
 }
 
+function testArgumentationRuntimeUsesGroundedSemantics() {
+  const result = aggregation.aggregate({
+    questionType: 'EXPLORATORY', variantPolicy: router.select('argumentation_community'),
+    claims: [{ claimId: 'c1' }],
+    arguments: [
+      { argumentId: 'a', claimId: 'c1', relation: 'SUPPORT' },
+      { argumentId: 'b', claimId: 'c1', relation: 'ATTACK', targetArgumentId: 'a' },
+      { argumentId: 'a', claimId: 'c1', relation: 'ATTACK', targetArgumentId: 'b' }
+    ]
+  });
+  assert.deepEqual(result.argumentation.undecided.sort(), ['a', 'b']);
+  assert.equal(result.argumentation.labels[0].status, 'UNDECIDED');
+  assert.equal(result.argumentation.semantics, 'grounded');
+}
+
+function testRepresentativeSamplingRespectsPanelSize() {
+  const candidates = Array.from({ length: 30 }, (_, index) => ({ memberId: `m${index}`,
+    expertise: `domain-${index % 5}`, provider: `provider-${index % 3}`, lineage: `lineage-${index % 4}` }));
+  const result = sampling.quotaSample({ population: candidates, totalQuota: 3, seed: 'mission-a' });
+  assert.equal(result.sampleSize, 3);
+  assert.equal(new Set(result.sample.map((item) => item.memberId)).size, 3);
+  const weights = sampling.reweight({ population: candidates, sample: result.sample });
+  assert.ok(sampling.effectiveSampleSize({ weights: weights.weights }).effectiveSampleSize > 0);
+}
+
 function testCycleDetection() {
   const acyclic = acceptability.detectCycles({
     arguments: [{ argumentId: 'a1' }, { argumentId: 'a2' }],
@@ -119,8 +145,9 @@ function testPolycentricCouncil() {
     ]
   });
   assert.equal(federated.status, 'FEDERATED_PLURALISM');
-  assert.deepEqual(federated.subsidiarity.localRetained, ['council_1']);
-  assert.deepEqual(federated.subsidiarity.escalated, ['council_2']);
+  assert.deepEqual(federated.subsidiarity.localRetained, []);
+  assert.deepEqual(federated.subsidiarity.escalated, ['council_1', 'council_2']);
+  assert.deepEqual(federated.subsidiarity.outcomeConflicts, ['council_1', 'council_2']);
   assert.equal(federated.parentMustReview, true);
 }
 
@@ -204,6 +231,8 @@ testVariantSurface();
 testVariantContracts();
 testRecommend();
 testGroundedLabelling();
+testArgumentationRuntimeUsesGroundedSemantics();
+testRepresentativeSamplingRespectsPanelSize();
 testCycleDetection();
 testArgumentAdjudication();
 testPolycentricCouncil();

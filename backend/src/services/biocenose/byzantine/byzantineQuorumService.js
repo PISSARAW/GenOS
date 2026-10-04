@@ -50,6 +50,8 @@ function decayTrust(input = {}) {
 
 function sybilEvidence(input) {
   const { member, members } = input;
+  if (!member.provider || !member.lineage || !Array.isArray(member.errorVector)
+    || !member.errorVector.length) return [];
   const peers = (Array.isArray(members) ? members : []).filter((peer) => peer.memberId !== member.memberId);
   const twins = peers.filter((peer) => peer.provider === member.provider
     && peer.lineage === member.lineage
@@ -65,7 +67,8 @@ function admitMember(input = {}) {
   if (twins.length) {
     return { verdict: 'REJECT', reason: 'SYBIL_TWIN_DETECTED', twins, trust: trust.decayedTrust };
   }
-  if (flags.includes('HIGH_CONFIDENCE_WITHOUT_EVIDENCE') || flags.includes('INVALID_FORECAST_SIGNAL')) {
+  if (flags.includes('HIGH_CONFIDENCE_WITHOUT_EVIDENCE') || flags.includes('INVALID_FORECAST_SIGNAL')
+    || flags.includes('INVALID_EVIDENCE_REFERENCE')) {
     return { verdict: 'QUARANTINE', reason: 'MALICIOUS_SIGNAL', flags, trust: trust.decayedTrust };
   }
   if (trust.decayedTrust < Number(input.minTrust ?? 0.2)) {

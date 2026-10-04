@@ -5,6 +5,7 @@ const candidateMemberService = require('./candidateMemberService');
 const independenceOptimizer = require('./independenceOptimizer');
 const diversityGapService = require('./diversityGapService');
 const { effectiveCommunitySize } = require('./effectiveCommunitySizeService');
+const representativeSampling = require('./representativeSamplingService');
 
 function targetCounts(population) {
   return {
@@ -47,7 +48,26 @@ function membersForRole(input) {
 }
 
 function formCommunity(input) {
-  const candidates = candidateMemberService.normalizeCandidates(input.candidates);
+  const rawCandidates = input.variant === 'representative_community'
+    ? assignOperationalRoles(input.candidates, targetCounts(input.population)) : input.candidates;
+  let candidates = candidateMemberService.normalizeCandidates(rawCandidates);
+  let representative = null;
+  if (input.variant === 'representative_community') {
+    if (!candidates.length) throw Object.assign(new Error('Representative Community requires an explicit candidate population.'), {
+      code: 'BIOCENOSE_REPRESENTATIVE_POPULATION_REQUIRED'
+    });
+    const requested = targetCounts(input.population);
+    const totalQuota = requested.generator + requested.reviewer + requested.verifier;
+    const sample = representativeSampling.quotaSample({ population: candidates, totalQuota });
+    const reweighted = representativeSampling.reweight({ population: candidates, sample: sample.sample });
+    const ess = representativeSampling.effectiveSampleSize({ weights: reweighted.weights });
+    const selected = new Set(sample.sample.map((item) => item.memberId));
+    const selectedCandidates = candidates.filter((candidate) => selected.has(candidate.memberId))
+      .map((candidate) => ({ ...candidate, role: null, communityRole: null }));
+    candidates = assignOperationalRoles(selectedCandidates, requested)
+      .flatMap((candidate) => candidateMemberService.normalizeCandidates([candidate]));
+    representative = { ...sample, ...reweighted, ...ess };
+  }
   if (!input.population && !candidates.length) {
     return { members: biologicalModeService.compose('biocenose', input.mission), metrics: null };
   }
@@ -60,6 +80,13 @@ function formCommunity(input) {
       template: templates[role], role, requested: requested[role], candidates, selectedIds
     }));
   }
+  if (representative) {
+    const strata = new Map(representative.sample.map((item) => [item.memberId, item.stratum]));
+    for (const member of members) {
+      member.samplingWeight = representative.weights[member.memberId] || 0;
+      member.representativeStratum = strata.get(member.memberId) || null;
+    }
+  }
   return {
     members,
     metrics: {
@@ -67,9 +94,25 @@ function formCommunity(input) {
       selectedCandidateIds: selectedIds,
       fallbackMemberCount: members.length - selectedIds.length - 1,
       diversityGaps: diversityGapService.diversityGaps(members, requested),
-      effectiveCommunitySize: effectiveCommunitySize(members)
+      effectiveCommunitySize: effectiveCommunitySize(members), representative
     }
   };
+}
+
+function assignOperationalRoles(candidates, requested) {
+  const list = Array.isArray(candidates) ? candidates : [];
+  const capacity = Object.entries(requested).flatMap(([role, count]) => Array(count).fill(role));
+  let nextRole = 0;
+  return list.map((candidate) => {
+    const existingRole = String(candidate.communityRole || candidate.role || '').toLowerCase();
+    if (candidateMemberService.MEMBER_ROLES.includes(existingRole)) return candidate;
+    const role = capacity[nextRole % capacity.length];
+    nextRole += 1;
+    const profile = { ...candidate };
+    delete profile.role;
+    delete profile.communityRole;
+    return { ...profile, communityRole: role };
+  });
 }
 
 module.exports = { formCommunity, targetCounts, populationMember };

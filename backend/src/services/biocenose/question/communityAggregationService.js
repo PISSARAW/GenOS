@@ -57,19 +57,60 @@ function quantile(values, probability) {
 }
 
 function argumentation(input, route) {
-  const semantics = require('../argumentation/argumentationSemantics');
-  const labels = semantics.evaluate({
-    claims: input.claims, arguments: input.arguments,
-    verifiedClaimIds: (input.verificationReceipts || []).filter((item) => item.status === 'VERIFIED').map((item) => item.claimId)
-  });
+  const acceptability = require('../argumentation/acceptabilityService');
+  const claims = input.claims || [];
+  const argumentsList = input.arguments || [];
+  const verified = new Set((input.verificationReceipts || [])
+    .filter((item) => item.status === 'VERIFIED' && trustedReceipt(item, input.isTrustedReceipt))
+    .map((item) => item.claimId));
+  const normalized = normalizeArgumentGraph({ claims, arguments: argumentsList, verified });
+  const graph = acceptability.groundedLabelling(normalized);
+  const labels = acceptability.adjudicate(normalized);
   const unresolvedClaimIds = labels.filter((item) => item.status !== 'ACCEPTED').map((item) => item.claimId);
   const hasClaims = (input.claims || []).length > 0;
   return {
     policy: route.policy, questionType: route.questionType,
     outcome: unresolvedClaimIds.length || !hasClaims ? 'ARGUMENTS_UNRESOLVED' : 'ARGUMENTS_ACCEPTED', unresolvedClaimIds,
-    argumentation: { semantics: 'grounded_single_step', labels, unresolvedClaimIds,
+    argumentation: { semantics: 'grounded', graphLabels: graph.labels, undecided: graph.undecided,
+      cycles: acceptability.detectCycles(normalized), labels, unresolvedClaimIds,
       contradictions: labels.filter((item) => item.contradiction).map((item) => item.claimId) }
   };
+}
+
+function normalizeArgumentGraph(input) {
+  const argumentsList = [...input.arguments];
+  const attacks = [];
+  const supports = [];
+  for (const item of argumentsList) {
+    const id = String(item.argumentId || '');
+    const claimId = String(item.claimId || item.argument?.claimId || '');
+    const targetArgumentId = item.argument?.targetArgumentId || item.targetArgumentId;
+    const targetClaimId = item.argument?.targetClaimId || item.targetClaimId;
+    if (item.relation === 'SUPPORT' && id && claimId) supports.push({ claimId, argumentId: id });
+    if (['ATTACK', 'REFUTE', 'UNDERCUT', 'COUNTEREXAMPLE'].includes(item.relation) && id) {
+      const target = targetArgumentId || (targetClaimId && `claim-root:${targetClaimId}`);
+      if (target) attacks.push({ from: id, to: String(target) });
+    }
+  }
+  for (const claim of input.claims) {
+    if (!input.verified.has(claim.claimId)) continue;
+    const argumentId = `verified:${claim.claimId}`;
+    argumentsList.push({ argumentId, claimId: claim.claimId, relation: 'SUPPORT', createdBy: 'deterministic_verifier' });
+    supports.push({ claimId: claim.claimId, argumentId });
+  }
+  const attackedClaims = new Set(attacks.filter((edge) => edge.to.startsWith('claim-root:'))
+    .map((edge) => edge.to.slice('claim-root:'.length)));
+  for (const claimId of attackedClaims) {
+    const argumentId = `claim-root:${claimId}`;
+    argumentsList.push({ argumentId, claimId, relation: 'SUPPORT' });
+    supports.push({ claimId, argumentId });
+  }
+  return { claims: input.claims, arguments: argumentsList, attacks, supports };
+}
+
+function trustedReceipt(receipt, validator) {
+  if (typeof validator !== 'function') return false;
+  try { return validator(receipt) === true; } catch (_) { return false; }
 }
 
 function polycentric(input, route) {
@@ -99,7 +140,8 @@ function factual(input) {
 
 function probability(input) {
   const values = (input.forecasts || []).filter((item) => validForecast(item)
-    && (!input.variantPolicy?.requireCalibrationWeights || hasCalibrationWeights(item)));
+    && (!input.variantPolicy?.requireCalibrationWeights || hasCalibrationWeights(item))
+    && (!input.variantPolicy?.requireSamplingWeights || hasSamplingWeight(item)));
   if (!values.length) return { outcome: 'INSUFFICIENT_FORECASTS', estimates: [] };
   const eventIds = [...new Set(values.map((item) => item.eventId))];
   return {
@@ -113,15 +155,23 @@ function hasCalibrationWeights(item) {
     && Number.isFinite(item.independenceWeight) && item.independenceWeight > 0;
 }
 
+function hasSamplingWeight(item) {
+  return Number.isFinite(item.samplingWeight) && item.samplingWeight > 0;
+}
+
 function poolEvent(eventId, forecasts) {
-  const weighted = forecasts.every((item) => Number.isFinite(item.calibrationWeight) && item.calibrationWeight > 0
+  const samplingWeighted = forecasts.every(hasSamplingWeight);
+  const calibrated = forecasts.every((item) => Number.isFinite(item.calibrationWeight) && item.calibrationWeight > 0
     && Number.isFinite(item.independenceWeight) && item.independenceWeight > 0);
-  const totalWeight = forecasts.reduce((sum, item) => sum + (weighted ? item.calibrationWeight * item.independenceWeight : 1), 0);
+  const weighted = samplingWeighted || calibrated;
+  const weightOf = (item) => samplingWeighted ? item.samplingWeight : item.calibrationWeight * item.independenceWeight;
+  const totalWeight = forecasts.reduce((sum, item) => sum + (weighted ? weightOf(item) : 1), 0);
   const probabilityValue = forecasts.reduce((sum, item) => {
-    const weight = weighted ? item.calibrationWeight * item.independenceWeight : 1;
+    const weight = weighted ? weightOf(item) : 1;
     return sum + item.probability * weight;
   }, 0) / totalWeight;
-  return { eventId, probability: probabilityValue, memberCount: forecasts.length, weighting: weighted ? 'calibration_and_independence' : 'equal_fallback' };
+  return { eventId, probability: probabilityValue, memberCount: forecasts.length,
+    weighting: samplingWeighted ? 'representative_sampling' : weighted ? 'calibration_and_independence' : 'equal_fallback' };
 }
 
 function design(input) {
