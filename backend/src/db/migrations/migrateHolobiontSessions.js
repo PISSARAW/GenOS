@@ -58,7 +58,9 @@ async function migrateHolobiontSessions(db) {
         'SYMBIONT_QUARANTINED', 'SYMBIONT_SANCTIONED', 'SYMBIONT_EXPELLED',
         'SYMBIONT_DORMANT', 'RESOURCE_GRANTED', 'RESOURCE_REVOKED',
         'CAPABILITY_USED', 'CONTRIBUTION_VERIFIED', 'IMMUNE_REJECTION',
-        'IMMUNE_OVERRIDE', 'VERTICAL_TRANSMISSION', 'HORIZONTAL_ACQUISITION'
+        'IMMUNE_OVERRIDE', 'VERTICAL_TRANSMISSION', 'HORIZONTAL_ACQUISITION',
+        'VARIANT_SELECTED', 'VARIANT_RUNTIME_EVALUATED', 'ECOLOGICAL_CYCLE_COMPLETED',
+        'SYMBIONT_FITNESS_RECORDED'
       )),
       payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
       actor_id TEXT,
@@ -79,6 +81,52 @@ async function migrateHolobiontSessions(db) {
       BEFORE DELETE ON holobiont_events
       BEGIN SELECT RAISE(ABORT, 'holobiont_events is append-only'); END;
   `);
+  await migrateEventTypes(db);
+}
+
+async function migrateEventTypes(db) {
+  const row = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'holobiont_events'");
+  if (row?.sql?.includes('ECOLOGICAL_CYCLE_COMPLETED')) return;
+  await db.exec('BEGIN IMMEDIATE');
+  try {
+    await db.exec(`
+      DROP TRIGGER IF EXISTS holobiont_events_no_update;
+      DROP TRIGGER IF EXISTS holobiont_events_no_delete;
+      ALTER TABLE holobiont_events RENAME TO holobiont_events_legacy;
+      CREATE TABLE holobiont_events (
+        event_id TEXT PRIMARY KEY,
+        holobiont_id TEXT NOT NULL,
+        revision INTEGER NOT NULL CHECK (revision > 0),
+        event_type TEXT NOT NULL CHECK (event_type IN (
+          'HOST_CREATED', 'CONSTITUTION_UPDATED', 'SYMBIONT_DISCOVERED',
+          'SYMBIONT_ADMISSION_STARTED', 'SYMBIONT_ADMITTED', 'SYMBIONT_REJECTED',
+          'SYMBIONT_QUARANTINED', 'SYMBIONT_SANCTIONED', 'SYMBIONT_EXPELLED',
+          'SYMBIONT_DORMANT', 'RESOURCE_GRANTED', 'RESOURCE_REVOKED',
+          'CAPABILITY_USED', 'CONTRIBUTION_VERIFIED', 'IMMUNE_REJECTION',
+          'IMMUNE_OVERRIDE', 'VERTICAL_TRANSMISSION', 'HORIZONTAL_ACQUISITION',
+          'VARIANT_SELECTED', 'VARIANT_RUNTIME_EVALUATED', 'ECOLOGICAL_CYCLE_COMPLETED',
+          'SYMBIONT_FITNESS_RECORDED'
+        )),
+        payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+        actor_id TEXT,
+        occurred_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (holobiont_id) REFERENCES holobiont_sessions(holobiont_id) ON DELETE CASCADE,
+        UNIQUE (holobiont_id, revision)
+      );
+      INSERT INTO holobiont_events SELECT * FROM holobiont_events_legacy;
+      DROP TABLE holobiont_events_legacy;
+      CREATE INDEX IF NOT EXISTS idx_holobiont_events_type_time ON holobiont_events(event_type, occurred_at);
+      CREATE INDEX IF NOT EXISTS idx_holobiont_events_session ON holobiont_events(holobiont_id, revision);
+      CREATE TRIGGER holobiont_events_no_update BEFORE UPDATE ON holobiont_events
+        BEGIN SELECT RAISE(ABORT, 'holobiont_events is append-only'); END;
+      CREATE TRIGGER holobiont_events_no_delete BEFORE DELETE ON holobiont_events
+        BEGIN SELECT RAISE(ABORT, 'holobiont_events is append-only'); END;
+    `);
+    await db.exec('COMMIT');
+  } catch (error) {
+    await db.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 module.exports = { migrateHolobiontSessions };

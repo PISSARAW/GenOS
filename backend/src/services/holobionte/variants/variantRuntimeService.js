@@ -298,6 +298,10 @@ function createProofHash(value) {
   return `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
 }
 
+function runEcologicalCycle(input = {}) {
+  return require('./adaptiveMicrobiomeRuntimeService').runEcologicalCycle(input);
+}
+
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, planPlacement, planMemory,
   selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, validateToolManifest,
-  validateToolInvocation, reconcileEdgeEvents, planRegeneration, createProofHash };
+  validateToolInvocation, reconcileEdgeEvents, planRegeneration, createProofHash, runEcologicalCycle };
