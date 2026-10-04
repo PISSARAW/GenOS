@@ -357,6 +357,9 @@ const migrationRunners = [
   createMigrationRunner('098-scientific-evidence-ledger', 'Persist claims, immutable evidence, dissent and verifier assessments for scientific experiments', async (db) => {
     await require('./migrateScientificEvidenceLedger').migrateScientificEvidenceLedger(db);
   }),
+  createMigrationRunner('099-procedural-causal-experiments', 'Persist pinned procedural causal experiments and isolated forks', async (db) => {
+    await require('./migrateProceduralCausalExperiments').migrateProceduralCausalExperiments(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
 
 const FORK_STATES = new Set(['pending', 'running', 'paused', 'completed', 'failed', 'cancelled']);
 
@@ -15,6 +16,7 @@ function canonical(value) {
 }
 
 function digest(value) {
+  serialize(value);
   return crypto.createHash('sha256').update(canonical(value)).digest('hex');
 }
 
@@ -26,6 +28,9 @@ async function ensureSchema(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS procedural_causal_experiments (
     experiment_id TEXT PRIMARY KEY, protocol_version TEXT NOT NULL,
     snapshot_refs_json TEXT NOT NULL, snapshot_hashes_json TEXT NOT NULL,
+    snapshot_states_json TEXT NOT NULL DEFAULT '{}', arms_json TEXT NOT NULL DEFAULT '{}',
+    seeds_json TEXT NOT NULL DEFAULT '[]', runner_hash TEXT,
+    environment_manifest_json TEXT NOT NULL DEFAULT '{}',
     runner_id TEXT NOT NULL, environment_id TEXT NOT NULL,
     environment_hash TEXT NOT NULL, budget_json TEXT NOT NULL,
     analysis_json TEXT NOT NULL, status TEXT NOT NULL,
@@ -38,6 +43,7 @@ async function ensureSchema(db) {
     arm TEXT NOT NULL, seed INTEGER NOT NULL, state_json TEXT NOT NULL,
     state_hash TEXT NOT NULL, status TEXT NOT NULL,
     checkpoint_version INTEGER NOT NULL DEFAULT 0,
+    lease_token TEXT, lease_until TEXT,
     error_json TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(experiment_id, snapshot_id, arm, seed),
@@ -50,11 +56,28 @@ async function ensureSchema(db) {
     FOREIGN KEY(fork_id) REFERENCES procedural_causal_forks(fork_id)
   );
   CREATE INDEX IF NOT EXISTS idx_causal_forks_status ON procedural_causal_forks(experiment_id, status);`);
+  await ensureColumns(db, 'procedural_causal_experiments', {
+    snapshot_states_json: "TEXT NOT NULL DEFAULT '{}'", arms_json: "TEXT NOT NULL DEFAULT '{}'",
+    seeds_json: "TEXT NOT NULL DEFAULT '[]'", runner_hash: 'TEXT',
+    environment_manifest_json: "TEXT NOT NULL DEFAULT '{}'",
+  });
+  await ensureColumns(db, 'procedural_causal_forks', { lease_token: 'TEXT', lease_until: 'TEXT' });
+}
+
+async function ensureColumns(db, table, columns) {
+  const existing = new Set((await db.all(`PRAGMA table_info(${table})`)).map((column) => column.name));
+  for (const [name, definition] of Object.entries(columns)) {
+    if (!existing.has(name)) await db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+  }
 }
 
 function serialize(value) {
-  canonical(value);
-  return JSON.stringify(value);
+  let encoded;
+  try { encoded = JSON.stringify(value); } catch (_) { throw new Error('Causal inputs must be JSON serializable.'); }
+  if (encoded === undefined || !isDeepStrictEqual(JSON.parse(encoded), value)) {
+    throw new Error('Causal inputs must be losslessly JSON serializable.');
+  }
+  return encoded;
 }
 
 function validateExperiment(spec) {
@@ -62,7 +85,16 @@ function validateExperiment(spec) {
     if (typeof spec[field] !== 'string' || !spec[field].trim()) throw new Error(`${field} is required.`);
   }
   if (!Array.isArray(spec.snapshots) || !spec.snapshots.length) throw new Error('At least one snapshot is required.');
-  if (!spec.budget || !spec.analysis) throw new Error('Budget and analysis declarations are required.');
+  const ids = spec.snapshots.map((item) => item?.snapshotId);
+  if (ids.some((value) => typeof value !== 'string' || !value.trim()) || new Set(ids).size !== ids.length) {
+    throw new Error('Snapshot identities must be non-empty and distinct.');
+  }
+  if (!spec.arms?.control || !spec.arms?.intervention) throw new Error('Both causal arms are required.');
+  if (!Array.isArray(spec.seeds) || !spec.seeds.length || spec.seeds.some((seed) => !Number.isSafeInteger(seed))
+    || new Set(spec.seeds).size !== spec.seeds.length) throw new Error('Distinct integer seeds are required.');
+  if (!Number.isSafeInteger(spec.budget?.maxSteps) || spec.budget.maxSteps < 1
+    || !Number.isSafeInteger(spec.budget?.maxRuns) || spec.budget.maxRuns < spec.snapshots.length * spec.seeds.length * 2
+    || !spec.analysis || !spec.environmentManifest) throw new Error('Budget, analysis and environment declarations are required.');
 }
 
 async function createExperiment(db, spec) {
@@ -70,13 +102,16 @@ async function createExperiment(db, spec) {
   await ensureSchema(db);
   const experimentId = spec.experimentId || id('causal_exp');
   const snapshotHashes = Object.fromEntries(spec.snapshots.map((item) => [item.snapshotId, digest(item.state)]));
+  const snapshotStates = Object.fromEntries(spec.snapshots.map((item) => [item.snapshotId, item.state]));
   const environmentHash = digest(spec.environmentManifest);
   await db.run(`INSERT INTO procedural_causal_experiments
     (experiment_id, protocol_version, snapshot_refs_json, snapshot_hashes_json,
+     snapshot_states_json, arms_json, seeds_json, runner_hash, environment_manifest_json,
      runner_id, environment_id, environment_hash, budget_json, analysis_json, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [
     experimentId, spec.protocolVersion, serialize(spec.snapshots.map(({ snapshotId }) => snapshotId)),
-    serialize(snapshotHashes), spec.runnerId, spec.environmentId, environmentHash,
+    serialize(snapshotHashes), serialize(snapshotStates), serialize(spec.arms), serialize(spec.seeds),
+    spec.runnerHash || null, serialize(spec.environmentManifest), spec.runnerId, spec.environmentId, environmentHash,
     serialize(spec.budget), serialize(spec.analysis),
   ]);
   return { experimentId, snapshotHashes, environmentHash, status: 'pending' };
@@ -93,12 +128,15 @@ async function createFork(db, input) {
   const experiment = await db.get('SELECT * FROM procedural_causal_experiments WHERE experiment_id = ?', [input.experimentId]);
   if (!experiment) throw new Error(`Unknown causal experiment '${input.experimentId}'.`);
   const hashes = JSON.parse(experiment.snapshot_hashes_json);
-  if (hashes[input.snapshotId] !== digest(input.snapshotState)) throw new Error('CAUSAL_SNAPSHOT_MISMATCH');
-  if (!['control', 'intervention', 'parent', 'candidate'].includes(input.arm)) throw new Error('Unknown causal fork arm.');
-  if (!Number.isSafeInteger(input.seed)) throw new Error('Fork seed must be a safe integer.');
+  const states = JSON.parse(experiment.snapshot_states_json);
+  const seeds = JSON.parse(experiment.seeds_json);
+  const snapshotState = input.snapshotState === undefined ? states[input.snapshotId] : input.snapshotState;
+  if (hashes[input.snapshotId] !== digest(snapshotState)) throw new Error('CAUSAL_SNAPSHOT_MISMATCH');
+  if (!['control', 'intervention'].includes(input.arm)) throw new Error('Unknown causal fork arm.');
+  if (!seeds.includes(input.seed)) throw new Error('Fork seed is not declared by the experiment.');
   const forkId = id('causal_fork');
-  const forkHash = digest(input.snapshotState);
-  const stateJson = serialize(input.snapshotState);
+  const forkHash = digest(snapshotState);
+  const stateJson = serialize(snapshotState);
   await db.run(`INSERT INTO procedural_causal_forks
     (fork_id, experiment_id, snapshot_id, snapshot_hash, arm, seed, state_json, state_hash, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`, [

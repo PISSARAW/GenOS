@@ -11,7 +11,8 @@ async function main() {
   const snapshots = [{ snapshotId: 'snap-a', state: { x: 1 } }, { snapshotId: 'snap-b', state: { x: 2 } }];
   const experiment = await experimentService.createExperiment(db, {
     experimentId: 'aeis-causal-route', protocolVersion: 'v1', runnerId: 'runner-v1', environmentId: 'test',
-    environmentManifest: { runtime: 'test' }, snapshots, budget: { maxSteps: 10 }, analysis: { method: 'paired' },
+    environmentManifest: { runtime: 'test' }, snapshots, arms: { control: { id: 'c' }, intervention: { id: 'i' } },
+    seeds: [1, 2], budget: { maxSteps: 10, maxRuns: 8 }, analysis: { method: 'paired' },
   });
   const diffs = [];
   for (const snapshot of snapshots) {
