@@ -61,6 +61,22 @@ async function run() {
     protectedPaths: ['package.json', 'verify.cjs'],
     stats: { attemptCount: 0, solvedCount: 0 } };
   try {
+    const snapshots = require('../src/services/workspaceSnapshotStore');
+    const originalMaterialize = snapshots.materialize;
+    let partialPath;
+    snapshots.materialize = async (_snapshot, destination) => {
+      partialPath = destination;
+      await fs.mkdir(destination, { recursive: true });
+      await fs.writeFile(path.join(destination, 'partial.txt'), 'partial');
+      throw new Error('fixture materialization failed');
+    };
+    try {
+      await assert.rejects(require('../src/services/poetExecutionEvidence').isolateEnvironment(environment),
+        /fixture materialization failed/);
+      await assert.rejects(fs.access(partialPath), /ENOENT/);
+    } finally {
+      snapshots.materialize = originalMaterialize;
+    }
     const unchanged = await attempt(environment, async (mission) => { complete(mission, 'AGENT_COMPLETED'); return {}; });
     assert.match(unchanged.error, /new or changed/);
     const failed = await attempt(environment, async (mission) => { complete(mission, 'AGENT_FAILED'); return {}; });
@@ -87,7 +103,7 @@ async function run() {
     const unsafe = { ...environment, artifactPath: '../outside.json' };
     await assert.rejects(require('../src/services/poetExecutionEvidence').artifactEvidence(unsafe), /inside/);
     await testSelection(db, root);
-    console.log('POET evidence: unchanged artifact, failed terminal, hung startup, verifier tamper, split leakage, path escape rejected; agent selection frozen: PASS');
+    console.log('POET evidence: partial materialization cleanup, unchanged artifact, failed terminal, hung startup, verifier tamper, split leakage, path escape rejected; agent selection frozen: PASS');
   } finally {
     runtime.startMission = original.start;
     runtime.stopMission = original.stop;

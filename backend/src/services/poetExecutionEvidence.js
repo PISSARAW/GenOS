@@ -22,9 +22,16 @@ async function isolateEnvironment(environment) {
     workspace: { id: environment.workspaceId, path: environment.workspacePath },
     label: 'POET baseline', reason: 'Isolate one execution', author: 'poet_engine' });
   const destination = path.join(environment.workspacePath, '.genos', 'poet-runs', crypto.randomUUID());
-  const manifest = await snapshots.materialize({ ...snapshot, snapshot_hash: snapshot.snapshotHash }, destination);
-  return { ...environment, db, workspacePath: destination, baselineManifest: manifest,
-    baselineSnapshotHash: snapshot.snapshotHash };
+  try {
+    const manifest = await snapshots.materialize({ ...snapshot, snapshot_hash: snapshot.snapshotHash }, destination);
+    return { ...environment, db, workspacePath: destination, baselineManifest: manifest,
+      baselineSnapshotHash: snapshot.snapshotHash };
+  } catch (error) {
+    const cleanupError = await fs.rm(destination, { recursive: true, force: true,
+      maxRetries: 5, retryDelay: 100 }).then(() => null, (failure) => failure);
+    if (cleanupError) error.message += `; cleanup failed: ${cleanupError.message}`;
+    throw error;
+  }
 }
 function validateVerifierContract(environment) {
   if (!hasVerifierContract(environment)) {
