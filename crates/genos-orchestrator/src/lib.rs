@@ -1,6 +1,4 @@
 pub mod autopoiesis;
-#[cfg(feature = "api")]
-pub mod biological_receipt_backend;
 pub mod animal_sensory_runtime;
 pub mod behaviors;
 pub mod checkpoint;
@@ -219,7 +217,7 @@ mod tests {
         assert!(res_tool.unwrap().contains("dégénérescence"));
 
         // 8. Embryogenèse
-        let swarm = orch.cleave_and_differentiate(2, 1.0);
+        let swarm = orch.cleave_and_differentiate(2, 1.0).unwrap();
         assert!(!swarm.is_empty());
 
         // 9. Télémétrie bioluminescente

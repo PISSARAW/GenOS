@@ -5,4 +5,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('110-signal-cognitive-jobs', 'Persist and retry Signal Plane cognitive escalations', async (db) => {
     await require('./migrateSignalCognitiveJobs').migrateSignalCognitiveJobs(db);
   }),
+  createMigrationRunner('103-nce-play-observations', 'Persist scoped Play observations with snapshot provenance', async (db) => {
+    await require('./migrateNcePlayObservations').migrateNcePlayObservations(db);
+  }),
 ];

@@ -155,8 +155,15 @@ async function testPhenotypeVectorChangesWithDevelopment() {
   const before = vectorService.phenotypeVector(state.currentPhenotype, state);
   const result = await nce.applyPhenotype(mission, { phenotype: { enabled: true } }, null);
   const after = result.vector;
-  assert.equal(after.schema, 'genos.phenotype.v1');
-  assert.equal(after.values.length, 23);
+  assert.equal(after.schema, 'genos.phenotype.v3');
+  assert.equal(after.values.length, 7);
+  const otherRole = vectorService.phenotypeVector({ role: 'different-role' }, state);
+  assert.ok(vectorService.cosineSimilarity(after, otherRole) < 1,
+    'distinct role labels cannot collide in the phenotype vector');
+  const absent = vectorService.phenotypeVector({ role: 'solver' }, state);
+  const explicitZero = vectorService.phenotypeVector({ role: 'solver', temp: 0 }, state);
+  assert.notDeepEqual(absent.known, explicitZero.known,
+    'an absent scalar must remain distinct from a measured zero');
   assert.ok(result.actions.length > 0);
   assert.ok(vectorService.cosineSimilarity(before, after) < 1, 'environment-driven development changes the measured vector');
   assert.equal(vectorService.cosineSimilarity(after, after), 1);

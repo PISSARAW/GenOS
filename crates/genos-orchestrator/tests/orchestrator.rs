@@ -142,7 +142,7 @@ fn test_failed_endosymbiosis_is_atomic() {
 fn test_cleave_does_not_register_unlinked_cells() {
     let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
     let before = orchestrator.active_cells.len();
-    let swarm = orchestrator.cleave_and_differentiate(2, 1.0);
+    let swarm = orchestrator.cleave_and_differentiate(2, 1.0).unwrap();
     assert!(!swarm.is_empty());
     assert_eq!(
         orchestrator.active_cells.len(),
@@ -157,6 +157,7 @@ fn test_sporulation_preserves_genome_lineage() {
     orchestrator.create_tissue("Core", "Role").unwrap();
     let cell = orchestrator
         .cleave_and_differentiate(1, 1.0)
+        .unwrap()
         .into_iter()
         .next()
         .unwrap();
@@ -245,5 +246,4 @@ fn test_invariants_under_random_operations() {
         orch.check_invariants().unwrap();
     }
 }
-
 

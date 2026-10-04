@@ -387,7 +387,7 @@ const migrationRunners = [
     require('./migrateRelationalExecution').migrateRelationalExecution(db)),
   createMigrationRunner('108-morphogenesis-capabilities', 'Persist experimental coverage, attempts, temporal observations, counterexamples and inherited statistical risk', async (db) =>
     require('./migrateMorphogenesisCapabilities').migrateMorphogenesisCapabilities(db)),
-  ...require('./signalPlaneMigrationRunners')(createMigrationRunner),
+  ...require('./lateMigrationRunners')(createMigrationRunner),
 ];
 async function runMigration(db, version, description) {
   const runner = migrationRunners.find((r) => r.name === version);
