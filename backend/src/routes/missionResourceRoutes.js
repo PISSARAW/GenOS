@@ -8,6 +8,7 @@ const missions = require('../services/missionIdentityService');
 const survival = require('../services/survivalStateService');
 const wakes = require('../services/survivalWakeService');
 const missionChecks = require('../services/missionRegenerationChecksService');
+const wakeRecovery = require('../services/survivalWakeRecoveryService');
 
 const router = express.Router();
 router.use(requireRole(['admin']));
@@ -48,6 +49,16 @@ router.post('/missions/:missionId/wake', async (req, res, next) => {
       event: { type: 'operator_signal', authorized: true }
     });
     return res.status(result.success ? 200 : 409).json(result);
+  } catch (error) { return next(error); }
+});
+
+router.post('/missions/:missionId/wake/retry', async (req, res, next) => {
+  try {
+    const result = await wakeRecovery.retryAmbiguous(await getDatabase(), {
+      missionId: req.params.missionId, evidenceRef: req.body?.evidenceRef,
+      actor: req.user.keyId || req.user.username
+    });
+    return res.json(result);
   } catch (error) { return next(error); }
 });
 

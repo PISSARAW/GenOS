@@ -31,6 +31,13 @@ retrouve sa condition `operator_or_signal` et son orchestrateur courant.
 La succession
 associe un PID au détenteur de l'autorité et renouvelle une génération après
 la disparition du processus qui avait revendiqué `launching` ou `running`.
+Une reprise dormante renouvelle aussi la génération quand l'ancien propriétaire
+vit encore. Après une interruption de réveil, le scheduler ne finalise la
+reprise qu'avec une mission active, une autorité `running` et un runtime
+identifié ou terminé avec succès ; les autres lancements orphelins sont arrêtés
+avant réarmement. Un lancement dont le résultat reste ambigu n'est pas rejoué
+automatiquement. Un administrateur peut réarmer explicitement ce cas après
+avoir fourni une référence de preuve ; l'autorisation est inscrite dans l'audit.
 
 La régénération réserve durablement chaque perte et impose un budget explicite,
 un retour terminal, un rapport de contrôles fonctionnels et le rejeu indépendant

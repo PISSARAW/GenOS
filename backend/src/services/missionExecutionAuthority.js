@@ -41,6 +41,7 @@ async function claimLaunch(db, lease) {
   if (changed.changes !== 1) throw conflict();
 }
 function reusableAuthority(current, input) {
+  if (input.forceRotate) return false;
   if (current?.agent_id !== input.agentId || input.previousAgentId !== input.agentId) return false;
   return current.state === 'reserved' || isOwnerLive(current);
 }

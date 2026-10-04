@@ -240,17 +240,21 @@ async function wakeConditionSatisfied(db, armed, event) {
 
 async function preserveDormancy(input) {
   const { db, agentId, current, armed, resumed } = input;
-  await observe(db, agentId, { forcedState: 'dormant', snapshotId: current.snapshotId, wakeConditionId: armed.id });
-  await wakeService.rearm({ db, id: armed.id });
-  await db.run("UPDATE cryptobiosis_snapshots SET status = 'frozen', thawed_at = NULL WHERE snapshot_id = ?", current.snapshotId);
+  await withTransaction(db, async () => {
+    await observe(db, agentId, { forcedState: 'dormant', snapshotId: current.snapshotId, wakeConditionId: armed.id });
+    await wakeService.rearm({ db, id: armed.id });
+    await db.run("UPDATE cryptobiosis_snapshots SET status = 'frozen', thawed_at = NULL WHERE snapshot_id = ?", current.snapshotId);
+  });
   return resumed;
 }
 
 async function finishWake(input) {
   const { db, command, agentId, current, armed, restored, resumed } = input;
-  await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
-  const state = await observe(db, agentId, {
-    energy: command.energy ?? 1, forcedState: 'recovered', snapshotId: current.snapshotId, wakeConditionId: armed.id
+  const state = await withTransaction(db, async () => {
+    await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
+    return observe(db, agentId, {
+      energy: command.energy ?? 1, forcedState: 'recovered', snapshotId: current.snapshotId, wakeConditionId: armed.id
+    });
   });
   return { success: true, restored, state, resumed };
 }
