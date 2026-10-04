@@ -33,6 +33,9 @@ function validateManifest(manifest) {
   if (!Array.isArray(manifest.expectedClaims) || manifest.expectedClaims.length === 0) throw invalid('expectedClaims must contain at least one oracle claim.');
   if (manifest.expectedClaims.some((claim) => !claim || !claim.subject || !claim.predicate || claim.value === undefined)) throw invalid('Each expected claim needs subject, predicate, and value.');
   if (!SUPPORTED_VARIANTS.has(manifest.variantId)) throw invalid('variantId must select one of the 13 registered Syncytium policies.');
+  if (manifest.variantId === 'humanAi' && !manifest.configuration?.nuclei?.some((nucleus) => nucleus.kind === 'human')) {
+    throw invalid('Human-AI campaigns require a configured human nucleus.');
+  }
   validateBudget(manifest.budget);
   validateCampaignBudget(manifest);
   if (manifest.timeoutMs !== undefined && (!Number.isSafeInteger(manifest.timeoutMs) || manifest.timeoutMs < 10000 || manifest.timeoutMs > 600000)) throw invalid('timeoutMs must be an integer from 10000 through 600000.');
@@ -75,15 +78,16 @@ async function executeRun({ manifest, db, variant, repetition }) {
   const topologyComplete = variant.name === 'isolated_baseline'
     ? output.biologicalMode?.status === 'accepted'
     : output.biologicalMode?.complete === true && output.biologicalMode?.status === 'completed';
-  const complete = topologyComplete
-    && validation.status === 'complete'
+  const executionValid = topologyComplete
     && !output.biologicalMode?.dispatchFailures?.length
-    && members.length > 0 && members.every((member) => member.status === 'completed')
+    && members.length > 0 && members.every((member) => member.status === 'completed');
+  const complete = executionValid
+    && validation.status === 'complete'
     && quality.value === 1;
   return {
     variant: variant.name, task: manifest.mission, repetition: repetition + 1,
     budget: manifest.budget, workerCount: members.length, validation,
-    quality, counts, complete,
+    quality, counts, executionValid, complete,
     failures: collectFailures(output, members, runtimeValidation, quality),
     dispatchStatus: output.biologicalMode?.status || 'unknown'
   };
@@ -103,7 +107,8 @@ function launchScenario({ manifest, variant }) {
   const request = {
     action: 'dispatch_biological', mode: variant.mode, mission: manifest.mission,
     executionBudget: manifest.budget, timeoutMs: manifest.timeoutMs,
-    variant_id: manifest.variantId, worker_assignments: manifest.workerAssignments
+    variant_id: manifest.variantId, worker_assignments: manifest.workerAssignments,
+    configuration: manifest.configuration, sessionOptions: manifest.sessionOptions
   };
   const perWorkerTimeout = manifest.timeoutMs || 600000;
   const scenarioTimeout = manifest.scenarioTimeoutMs || perWorkerTimeout * Math.ceil(5 / 2) + 30000;
@@ -167,7 +172,7 @@ function reportCampaign(manifest, runs) {
     contract: 'GenOSBiologicalBenchmark/v1', mission: manifest.mission,
     campaignBudget: manifest.campaignBudget,
     repetitions: manifest.repetitions, equalBudget: comparison.equalBudget,
-    sameWorkerCount, comparable: comparison.equalBudget && sameWorkerCount && runs.every((run) => run.complete),
+    sameWorkerCount, comparable: comparison.equalBudget && sameWorkerCount && runs.every((run) => run.executionValid),
     comparison, quality: qualitySummary(runs), runs
   };
 }
