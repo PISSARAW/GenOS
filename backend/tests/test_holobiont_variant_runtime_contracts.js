@@ -18,6 +18,17 @@ Module._load = function load(request, parent, isMain) {
 };
 const runtime = require('../src/services/holobionte/variants/variantRuntimeService');
 Module._load = originalLoad;
+const immunePath = require.resolve('../src/services/holobionte/variants/immuneThreatRuntimeService');
+Module._load = function loadImmune(request, parent, isMain) {
+  if (parent?.filename.replace(/\\/g, '/').endsWith('variants/immuneThreatRuntimeService.js')) {
+    if (request === '../immune/holobiontImmunePlane') return { reviewSymbiontOutput: async () => ({ allowed: true, decision: 'ALLOW' }) };
+    if (request === '../immune/immuneOverreactionService') return { assessImmuneOverreaction: () => ({ state: 'NORMAL' }) };
+  }
+  return originalLoad.call(this, request, parent, isMain);
+};
+delete require.cache[immunePath];
+const immuneRuntime = require(immunePath);
+Module._load = originalLoad;
 
 function testOrganelleClosure() {
   const result = runtime.assessOrganelle({
@@ -41,6 +52,17 @@ function testAdaptiveFitnessPerSymbiont() {
   assert.strictEqual(result.automaticReplacement, false);
 }
 
+async function testImmuneBatchMemory() {
+  const result = await immuneRuntime.reviewThreatBatch({ independentVerifierIds: ['v1', 'v2'],
+    verifyThreatModel: () => true, threatModels: [{ id: 'known', riskScore: 0.2, indicators: ['known'], evidenceRefs: ['tm:1'] }],
+    outputs: [{ outputId: 'one', resultHash: 'sha256:1', dangerSignals: ['known'] },
+      { outputId: 'two', resultHash: 'sha256:2', dangerSignals: ['known'] }] });
+  assert.strictEqual(result.results.length, 2);
+  assert.strictEqual(result.blockedCount, 0);
+  assert.deepStrictEqual(result.immuneMemory.map((item) => item.outputId), ['one', 'two']);
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
+testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');

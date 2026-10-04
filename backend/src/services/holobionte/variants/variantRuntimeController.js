@@ -8,7 +8,7 @@ const runtime = require('./variantRuntimeService');
 const OPERATIONS = Object.freeze({
   organelle: ['assessOrganelle', 'testOrganelleEssentiality'],
   'adaptive-microbiome': ['assessEcology', 'planRecruitment', 'selectCompetitivePartner'],
-  'immune-critical': ['reviewImmuneThreat'],
+  'immune-critical': ['reviewImmuneThreat', 'reviewImmuneThreatBatch'],
   'local-first': ['planPlacement'],
   'regenerative': ['planRegeneration'],
   'cloud-core/edge-symbionts': ['planPlacement', 'reconcileEdgeEvents'],

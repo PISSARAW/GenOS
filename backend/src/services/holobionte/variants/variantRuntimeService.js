@@ -4,7 +4,7 @@ const { createHash } = require('crypto');
 const { detectDysbiosis } = require('../health/dysbiosisDetector');
 const { validateToolManifest, validateToolInvocation } = require('./toolRuntimeService');
 const { reconcileEdgeEvents } = require('./edgeSyncRuntimeService');
-const { reviewThreat } = require('./immuneThreatRuntimeService');
+const { reviewThreat, reviewThreatBatch } = require('./immuneThreatRuntimeService');
 const { planRegeneration } = require('./regenerationRuntimeService');
 
 function invalid(message, code = 'HOLOBIONT_VARIANT_RUNTIME_INVALID') {
@@ -325,5 +325,5 @@ function createProofHash(value) {
 }
 
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, planPlacement, planMemory,
-  selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, validateToolManifest,
+  selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
   validateToolInvocation, reconcileEdgeEvents, planRegeneration, createProofHash };

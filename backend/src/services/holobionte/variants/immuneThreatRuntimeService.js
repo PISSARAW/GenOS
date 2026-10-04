@@ -76,4 +76,20 @@ async function reviewThreat(input = {}) {
     verifierIds: assessment.verifiers, calibration };
 }
 
-module.exports = { reviewThreat };
+async function reviewThreatBatch(input = {}) {
+  const outputs = Array.isArray(input.outputs) ? input.outputs : [];
+  if (!outputs.length) throw invalid('At least one output is required for batch threat review.');
+  const results = [];
+  let immuneMemory = Array.isArray(input.immuneMemory) ? input.immuneMemory.slice() : [];
+  for (const [index, output] of outputs.entries()) {
+    const result = await reviewThreat({ ...input, ...object(output, 'output'), immuneMemory });
+    results.push({ outputId: String(output.outputId || index), ...result });
+    if (result.allowed === true) {
+      immuneMemory = [...immuneMemory, { outputId: String(output.outputId || index), resultHash: output.resultHash,
+        evidenceRefs: result.assessed.flatMap((item) => item.evidenceRefs) }];
+    }
+  }
+  return { results, blockedCount: results.filter((item) => item.allowed !== true).length, immuneMemory };
+}
+
+module.exports = { reviewThreat, reviewThreatBatch };
