@@ -262,6 +262,7 @@ Index : [adr/README.md](adr/README.md)
 - [0045-noyau-controle-morphogenetique.md](adr/0045-noyau-controle-morphogenetique.md) — noyau de contrôle morphogénétique de l'orchestrateur Rust.
 - [0046-routage-minimal-memoire-resultats.md](adr/0046-routage-minimal-memoire-resultats.md) — routage minimal suffisant des requêtes et mémoire des meilleurs résultats (réutilisation, champion, validité).
 - [0047-sessions-persistantes-metapopulation.md](adr/0047-sessions-persistantes-metapopulation.md) — contrats, sessions persistantes et journal régional de Métapopulation.
+- [0293-persistance-des-variants-metapopulation.md](adr/0293-persistance-des-variants-metapopulation.md) — états régionaux, mémoire des dèmes et cultures durables vérifiés par variant.
 - [0297-g-cir-generation-hypotheses-trinity.md](adr/0297-g-cir-generation-hypotheses-trinity.md) — contrat G-CIR et reçus pour les hypothèses candidates Trinity.
 - [0298-physiologie-relationnelle-executable.md](adr/0298-physiologie-relationnelle-executable.md) — restrictions relationnelles déterministes et filtrage de filiation dans le routage.
 - [0299-admission-relationnelle-transactionnelle.md](adr/0299-admission-relationnelle-transactionnelle.md) — admission SQLite ciblée des signaux RPE et idempotence durable.

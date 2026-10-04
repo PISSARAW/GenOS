@@ -320,7 +320,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0290](0290-livraison-interprocessus-des-evenements-daemon.md) | Livraison interprocessus au daemon résident par curseur SQLite | Accepté | 2026-10-03 | Daemons résidents, événements, persistance |
 | [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
-| [0293](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
+| [0293a](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
+| [0293b](0293-persistance-des-variants-metapopulation.md) | Persistance des états de variants Metapopulation | Accepté | 2026-10-04 | Metapopulation, cycles régionaux, dèmes persistants et culture |
 | [0294a](0294-cloture-de-continuite-de-mission.md) | Fermeture des transitions de continuité de mission | Accepté | 2026-10-04 | Orchestration et survie des missions |
 | [0294b](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
 | [0296](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
@@ -331,10 +332,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0299c](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
 | [0300](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
 
-> **Identifiants numériques partagés** : 26 numéros sont portés par deux
-> fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
-> 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,
-> 0108, 0122, 0126, 0154), plus `003x` (format historique gelé). Les
+> **Identifiants numériques partagés** : certains numéros sont portés par
+> plusieurs fichiers, en plus de `003x` (format historique gelé). Les
 > fichiers sont conservés tels quels (renommage interdit sans migration
 > de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,
 > `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.
