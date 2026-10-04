@@ -108,11 +108,26 @@ function testEdgeCoreCloudOnDemandBatch() {
   assert.strictEqual(result.steps[8].accepted, false);
 }
 
+function testMemoryPairwiseConflictsAndProvenance() {
+  const memories = [
+    { id: 'a', conceptKey: 'c', value: 'alpha', fitness: 0.4, memoryType: 'SEMANTIC', sourceId: 'src-1', evidenceRefs: ['a:1'] },
+    { id: 'b', conceptKey: 'c', value: 'beta', fitness: 0.8, memoryType: 'EPISODIC', sourceId: 'src-1', evidenceRefs: ['b:1'] },
+    { id: 'c', conceptKey: 'c', value: 'gamma', fitness: 0.6, memoryType: 'SEMANTIC', sourceId: 'src-2', evidenceRefs: ['c:1'] }
+  ];
+  const result = runtime.planMemory({ memories });
+  assert.strictEqual(result.conflicts.length, 3);
+  assert.strictEqual(result.consolidation[0].id, 'b');
+  assert.strictEqual(result.consolidation[0].provenance.sourceId, 'src-1');
+  assert.deepStrictEqual(result.consolidation[0].provenance.evidenceRefs, ['b:1']);
+  assert.strictEqual(result.automaticForgetting, false);
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
 testLocalExportProofGate();
 testRecoveryReservationGate();
 testCloudEdgePlacementBatch();
 testEdgeCoreCloudOnDemandBatch();
+testMemoryPairwiseConflictsAndProvenance();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');

@@ -262,7 +262,7 @@ function edgeLeaseAllowed(lease, verifier, requiredCapability) {
 }
 
 function addMemory(context, memory) {
-  const { conflicts, byKey } = context;
+  const { conflicts, byKey, allByKey } = context;
   const item = record(memory, 'memory');
   text(item.id, 'memory.id');
     if (item.memoryType === 'PROCEDURAL' && item.procedureVerified !== true) {
@@ -270,14 +270,22 @@ function addMemory(context, memory) {
     }
   const refs = evidence(item.evidenceRefs);
   const key = text(item.conceptKey, 'memory.conceptKey');
+  const group = allByKey.get(key) || [];
+  for (const prior of group) {
+    if (JSON.stringify(prior.value) !== JSON.stringify(item.value)) {
+      conflicts.push({ conceptKey: key, memoryIds: [prior.id, item.id] });
+    }
+  }
+  group.push({ id: item.id, value: item.value });
+  allByKey.set(key, group);
   const current = byKey.get(key);
-  if (current && JSON.stringify(current.value) !== JSON.stringify(item.value)) conflicts.push({ conceptKey: key, memoryIds: [current.id, item.id] });
   const fitness = score(item.fitness, 'memory.fitness');
-  if (!current || fitness > current.fitness) byKey.set(key, { id: item.id, value: item.value, fitness, evidenceRefs: refs });
+  if (!current || fitness > current.fitness) byKey.set(key, { id: item.id, value: item.value, fitness,
+    memoryType: item.memoryType || null, provenance: { sourceId: item.sourceId || null, evidenceRefs: refs } });
 }
 
 function planMemory(input = {}) {
-  const context = { conflicts: [], byKey: new Map() };
+  const context = { conflicts: [], byKey: new Map(), allByKey: new Map() };
   for (const memory of Array.isArray(input.memories) ? input.memories : []) addMemory(context, memory);
   const { conflicts, byKey } = context;
   const restricted = new Set(Array.isArray(input.restrictedDataClasses) ? input.restrictedDataClasses : []);
