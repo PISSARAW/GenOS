@@ -1,7 +1,7 @@
 # Panorama concurrentiel GenOS
 
 - **Statut** : référence maintenue ; les statuts GenOS suivent la règle `matrice-cohérence` (code + contrat + nominal + refus + preuve + limite).
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-10-04
 - **Sources code** : inventaire `docs/03-reference/inventaire-technique.md` du 2026-09-28 (176 outils déclarés, 101 handlers bio enregistrés / 89 fichiers), matrice `docs/06-qualite-preuves/matrice-coherence-code-docs.md` revue le 2026-09-28, audit `docs/06-qualite-preuves/audit-affirmations-operationnelles.md` revu le 2026-09-28, contrat mission `docs/02-orchestration/orchestration.md` (`Partiel`, revue 2026-09-25).
 
 ## 1. Objet et méthode
@@ -153,6 +153,9 @@ flowchart TD
 ```
 
 Positions relatives illustratives, non mesurées. Aucun score, aucun benchmark joint.
+Le protocole comparatif de continuité est décrit dans
+[`benchmarks/ontogenesis-continuity.md`](../06-qualite-preuves/benchmarks/ontogenesis-continuity.md) ;
+aucun résultat de comparaison avec ces produits n'est encore revendiqué.
 
 ## 6. Sources à maintenir
 
