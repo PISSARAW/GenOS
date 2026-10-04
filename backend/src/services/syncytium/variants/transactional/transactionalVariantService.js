@@ -6,180 +6,93 @@ const { randomUUID } = require('node:crypto');
 function createTransactionalVariantService(syncytium) {
   return {
     createTransactionalSession: (mission, options) => createSession(mission, options, syncytium),
-    reserveResources: (sessionId, request) => reserve(sessionId, request, syncytium),
+    reserveResources: (sessionId, request) => reserveAtomic(sessionId, request, syncytium),
     releaseReservation: (sessionId, request) => release(sessionId, request, syncytium),
-    sweepExpiredReservations: (sessionId, request) => sweepExpired(sessionId, request, syncytium),
+    sweepExpiredReservations: (sessionId, request) => sweepExpiredAtomic(sessionId, request, syncytium),
     detectReservationDeadlock: (waitEdges) => detectReservationDeadlock(waitEdges || []),
     transactionalSnapshot: (sessionId, options) => transactionalSnapshot(sessionId, options, syncytium)
   };
 }
 
-function createSession(mission, options = {}, syncytium) {
+function createSession(mission, options, syncytium) {
   const resources = options.resources || {};
-  return syncytium.createSession(mission, {
-    ...options,
-    schema: schemaService.compile({
-      schemaId: 'syncytium-transactional-v1',
-      fields: {
-        budget: escrow(resources.budget),
-        inventory: escrow(resources.inventory),
-        capacity: escrow(resources.capacity),
-        reservations: { dataType: 'MAP', consistencyZone: 'SERIALIZABLE' }
-      }
-    })
-  });
+  return syncytium.createSession(mission, { ...options, schema: schemaService.compile({ schemaId: 'syncytium-transactional-v1', fields: { budget: escrow(resources.budget), inventory: escrow(resources.inventory), capacity: escrow(resources.capacity), reservations: { dataType: 'MAP', consistencyZone: 'SERIALIZABLE' }, sweepLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' } } }) });
 }
 
-function escrow(allocations = {}) {
-  return { dataType: 'ESCROW_COUNTER', consistencyZone: 'INVARIANT_PRESERVING', escrowAllocations: allocations };
-}
+function escrow(allocations) { return { dataType: 'ESCROW_COUNTER', consistencyZone: 'INVARIANT_PRESERVING', escrowAllocations: allocations }; }
 
-async function reserve(sessionId, request = {}, syncytium) {
+async function reserveAtomic(sessionId, request, syncytium) {
   validateRequest(request);
-  const snapshot = await syncytium.snapshot(sessionId, request.options || {});
-  const replayed = findIdempotentReplay(snapshot.shared.sharedFields.reservations, request);
-  if (replayed) return { replayed: true, reservation: replayed, snapshot };
-  const reservationId = request.reservationId || randomUUID();
-  const operations = resourceOperations(request, reservationId);
-  operations.push(mapOperation({ request, reservationId, action: 'set', value: reservationValue(request, reservationId) }));
-  const result = await syncytium.applyTransaction(sessionId, {
-    txId: request.txId || randomUUID(), operations,
-    preconditions: request.stateVersion === undefined ? [] : [{ op: 'state_version', value: request.stateVersion }],
-    commitPolicy: 'SERIALIZABLE'
-  }, request.options || {});
-  return { replayed: false, reservationId, ...result };
+  const maxRetries = request.maxRetries ?? 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const snapshot = await syncytium.snapshot(sessionId, request.options || {});
+    const reservations = snapshot.shared.sharedFields.reservations || {};
+    const replayed = findIdempotentReplay(reservations, request);
+    if (replayed) return { replayed: true, reservation: replayed, snapshot, retries: attempt - 1 };
+    const reservationId = request.reservationId || randomUUID();
+    const ops = buildResourceOps(request, reservationId);
+    ops.push(mapOp({ request, reservationId, action: 'set', value: reservationValue(request, reservationId) }));
+    try { return { replayed: false, reservationId, ...(await syncytium.applyTransaction(sessionId, { txId: request.txId || randomUUID(), operations: ops, preconditions: request.stateVersion === undefined ? [] : [{ op: 'state_version', value: request.stateVersion }], commitPolicy: 'SERIALIZABLE' }, request.options || {})), retries: attempt - 1 }; } catch (e) { if ((e.code === 'SYNCYTIUM_TRANSACTION_CONFLICT' || e.code === 'SYNCYTIUM_PRECONDITION_FAILED') && attempt < maxRetries) { await sleep(50 * attempt); continue; } throw e; }
+  }
+  throw hardError('Reservation failed after retries', 'SYNCYTIUM_RESERVATION_FAILED');
 }
 
-function findIdempotentReplay(reservations, request) {
-  if (!request.idempotencyKey) return null;
-  const existing = Object.values(reservations || {}).find((item) => item.idempotencyKey === request.idempotencyKey);
-  return existing || null;
-}
+function findIdempotentReplay(reservations, request) { if (!request.idempotencyKey) return null; return Object.values(reservations || {}).find(item => item.idempotencyKey === request.idempotencyKey) || null; }
+function buildResourceOps(request, reservationId) { return ['budget', 'inventory', 'capacity'].filter(f => request[f] > 0).map(f => ({ opId: opId(request, f), actorId: request.actorId, kind: { type: 'typed_field', key: f, action: 'consume', amount: request[f] }, reservationId })); }
+function reservationValue(request, reservationId) { return { reservationId, actorId: request.actorId, budget: request.budget || 0, inventory: request.inventory || 0, capacity: request.capacity || 0, metadata: request.metadata || null, idempotencyKey: request.idempotencyKey || null, leaseExpiresAt: leaseExpiry(request), createdAt: Date.now() }; }
+function leaseExpiry(request) { if (request.ttlMs === undefined || request.ttlMs === null) return null; if (!Number.isSafeInteger(request.ttlMs) || request.ttlMs < 1) throw inputError('Reservation ttlMs must be a positive safe integer.'); return Date.now() + request.ttlMs; }
 
-function resourceOperations(request, reservationId) {
-  return ['budget', 'inventory', 'capacity']
-    .filter((field) => request[field] > 0)
-    .map((field) => ({
-      opId: operationId(request, field), actorId: request.actorId,
-      kind: { type: 'typed_field', key: field, action: 'consume', amount: request[field] },
-      reservationId
-    }));
-}
-
-function reservationValue(request, reservationId) {
-  return {
-    reservationId, actorId: request.actorId,
-    budget: request.budget || 0, inventory: request.inventory || 0,
-    capacity: request.capacity || 0, metadata: request.metadata || null,
-    idempotencyKey: request.idempotencyKey || null,
-    leaseExpiresAt: leaseExpiry(request),
-    createdAt: Date.now()
-  };
-}
-
-function leaseExpiry(request) {
-  if (request.ttlMs === undefined || request.ttlMs === null) return null;
-  if (!Number.isSafeInteger(request.ttlMs) || request.ttlMs < 1) throw inputError('Reservation ttlMs must be a positive safe integer.');
-  return Date.now() + request.ttlMs;
-}
-
-async function release(sessionId, request = {}, syncytium) {
+async function release(sessionId, request, syncytium) {
   if (!request.reservationId || !request.actorId) throw inputError('A reservationId and actorId are required.');
-  const snapshot = await syncytium.snapshot(sessionId, request.options || {});
-  const reservation = snapshot.shared.sharedFields.reservations?.[request.reservationId];
-  if (!reservation || reservation.actorId !== request.actorId) {
-    throw Object.assign(new Error('Reservation is missing or owned by another actor.'), { code: 'SYNCYTIUM_RESERVATION_NOT_FOUND' });
+  const maxRetries = request.maxRetries ?? 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const snapshot = await syncytium.snapshot(sessionId, request.options || {});
+    const reservation = snapshot.shared.sharedFields.reservations?.[request.reservationId];
+    if (!reservation || reservation.actorId !== request.actorId) throw Object.assign(new Error('Reservation is missing or owned by another actor.'), { code: 'SYNCYTIUM_RESERVATION_NOT_FOUND' });
+    const ops = ['budget', 'inventory', 'capacity'].filter(f => reservation[f] > 0).map(f => ({ opId: opId(request, `release-${f}`), actorId: request.actorId, kind: { type: 'typed_field', key: f, action: 'release', amount: reservation[f] } }));
+    ops.push(mapOp({ request, reservationId: request.reservationId, action: 'delete' }));
+    try { return await syncytium.applyTransaction(sessionId, { txId: request.txId || randomUUID(), operations: ops, preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' }, request.options || {}); } catch (e) { if ((e.code === 'SYNCYTIUM_TRANSACTION_CONFLICT' || e.code === 'SYNCYTIUM_PRECONDITION_FAILED') && attempt < maxRetries) { await sleep(50 * attempt); continue; } throw e; }
   }
-  const operations = ['budget', 'inventory', 'capacity'].filter((field) => reservation[field] > 0).map((field) => ({
-    opId: operationId(request, `release-${field}`), actorId: request.actorId,
-    kind: { type: 'typed_field', key: field, action: 'release', amount: reservation[field] }
-  }));
-  operations.push(mapOperation({ request, reservationId: request.reservationId, action: 'delete' }));
-  return syncytium.applyTransaction(sessionId, {
-    txId: request.txId || randomUUID(), operations,
-    preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }],
-    commitPolicy: 'SERIALIZABLE'
-  }, request.options || {});
+  throw hardError('Release failed after retries', 'SYNCYTIUM_RELEASE_FAILED');
 }
 
-function mapOperation(context) {
-  const { request, reservationId, action, value } = context;
-  return {
-    opId: operationId(request, 'reservation'), actorId: request.actorId,
-    kind: { type: 'typed_field', key: 'reservations', action, entryKey: reservationId, value }
-  };
-}
+function mapOp(ctx) { const { request, reservationId, action, value } = ctx; return { opId: opId(request, 'reservation'), actorId: request.actorId, kind: { type: 'typed_field', key: 'reservations', action, entryKey: reservationId, value } }; }
 
-function validateRequest(request) {
-  if (!request.actorId) throw inputError('A resource reservation requires an actorId.');
-  for (const field of ['budget', 'inventory', 'capacity']) {
-    const amount = request[field] || 0;
-    if (!Number.isSafeInteger(amount) || amount < 0) throw inputError(`${field} must be a non-negative safe integer.`);
-  }
-  if (![request.budget, request.inventory, request.capacity].some((amount) => amount > 0)) {
-    throw inputError('A reservation must consume at least one resource.');
-  }
-}
+function validateRequest(request) { if (!request.actorId) throw inputError('A resource reservation requires an actorId.'); for (const f of ['budget', 'inventory', 'capacity']) { const a = request[f] || 0; if (!Number.isSafeInteger(a) || a < 0) throw inputError(`${f} must be a non-negative safe integer.`); } if (![request.budget, request.inventory, request.capacity].some(a => a > 0)) throw inputError('A reservation must consume at least one resource.'); }
 
-function operationId(request, field) {
-  return `${request.txId || randomUUID()}:${field}`;
-}
+function opId(request, field) { return `${request.txId || randomUUID()}:${field}`; }
 
-async function transactionalSnapshot(sessionId, options, syncytium) {
-  const result = await syncytium.snapshot(sessionId, options || {});
-  const fields = result.shared.sharedFields;
-  return { ...result, resources: { budget: fields.budget || 0, inventory: fields.inventory || 0,
-    capacity: fields.capacity || 0, reservations: fields.reservations || {} } };
-}
+async function transactionalSnapshot(sessionId, options, syncytium) { const r = await syncytium.snapshot(sessionId, options || {}); const f = r.shared.sharedFields; return { ...r, resources: { budget: f.budget || 0, inventory: f.inventory || 0, capacity: f.capacity || 0, reservations: f.reservations || {} } }; }
 
-async function sweepExpired(sessionId, request = {}, syncytium) {
+async function sweepExpiredAtomic(sessionId, request, syncytium) {
   const now = Number.isSafeInteger(request.now) ? request.now : Date.now();
-  const snapshot = await syncytium.snapshot(sessionId, request.options || {});
-  const expired = Object.values(snapshot.shared.sharedFields.reservations || {})
-    .filter((item) => Number.isSafeInteger(item.leaseExpiresAt) && item.leaseExpiresAt <= now);
-  const swept = [];
-  for (const reservation of expired) {
-    await release(sessionId, { ...request, reservationId: reservation.reservationId, actorId: reservation.actorId,
-      txId: request.txId ? `${request.txId}:${reservation.reservationId}` : undefined }, syncytium);
-    swept.push(reservation.reservationId);
+  const maxRetries = request.maxRetries ?? 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    const snapshot = await syncytium.snapshot(sessionId, request.options || {});
+    const reservations = snapshot.shared.sharedFields.reservations || {};
+    const expired = Object.values(reservations).filter(item => Number.isSafeInteger(item.leaseExpiresAt) && item.leaseExpiresAt <= now);
+    if (!expired.length) return { swept: [], sweptCount: 0, now, retries: attempt - 1 };
+    const ops = []; const sweptIds = [];
+    for (const res of expired) {
+      for (const f of ['budget', 'inventory', 'capacity'].filter(f => res[f] > 0)) ops.push({ opId: opId({ ...request, txId: `${request.txId}:${res.reservationId}` }, `sweep-${f}`), actorId: res.actorId, kind: { type: 'typed_field', key: f, action: 'release', amount: res[f] } });
+      ops.push(mapOp({ request: { ...request, actorId: res.actorId }, reservationId: res.reservationId, action: 'delete' }));
+      sweptIds.push(res.reservationId);
+    }
+    try {
+      await syncytium.applyTransaction(sessionId, { txId: request.txId || randomUUID(), operations: ops, preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' }, request.options || {});
+      await syncytium.applyOperation(sessionId, { opId: randomUUID(), actorId: 'sweep-daemon', kind: { type: 'typed_field', key: 'sweepLog', action: 'add', value: { sweptIds, sweptAt: now, count: sweptIds.length } } }, request.options || {});
+      return { swept: sweptIds, sweptCount: sweptIds.length, now, retries: attempt - 1 };
+    } catch (e) { if ((e.code === 'SYNCYTIUM_TRANSACTION_CONFLICT' || e.code === 'SYNCYTIUM_PRECONDITION_FAILED') && attempt < maxRetries) { await sleep(50 * attempt); continue; } throw e; }
   }
-  return { swept, sweptCount: swept.length, now };
+  throw hardError('Sweep failed after retries', 'SYNCYTIUM_SWEEP_FAILED');
 }
 
-function detectReservationDeadlock(waitEdges) {
-  const graph = new Map();
-  for (const edge of waitEdges || []) appendWaitEdge(graph, edge);
-  for (const holder of graph.keys()) {
-    const cycle = findWaitCycle(graph, holder);
-    if (cycle) return { deadlocked: true, cycle, victim: cycle[cycle.length - 1] };
-  }
-  return { deadlocked: false, cycle: [], victim: null };
-}
+function detectReservationDeadlock(waitEdges) { const g = new Map(); for (const e of waitEdges || []) if (e?.waiter && e?.holder) { if (!g.has(e.waiter)) g.set(e.waiter, []); g.get(e.waiter).push(e.holder); } for (const h of g.keys()) { const cycle = findCycle(g, h); if (cycle) return { deadlocked: true, cycle, victim: cycle[cycle.length - 1] }; } return { deadlocked: false, cycle: [], victim: null }; }
+function findCycle(g, start) { return dfs({ g, start, cur: start, vis: new Set(), path: [] }); }
+function dfs(ctx) { const { g, start, cur, vis, path } = ctx; if (vis.has(cur)) return cur === start && path.length > 0 ? [...path, start] : null; const np = [...path, cur]; for (const h of g.get(cur) || []) { const c = dfs({ g, start, cur: h, vis: new Set([...vis, cur]), path: np }); if (c) return c; } return null; }
 
-function appendWaitEdge(graph, edge) {
-  if (!edge || !edge.waiter || !edge.holder) return;
-  if (!graph.has(edge.waiter)) graph.set(edge.waiter, []);
-  graph.get(edge.waiter).push(edge.holder);
-}
-
-function findWaitCycle(graph, start) {
-  return depthFirst({ graph, start, current: start, visited: new Set(), path: [] });
-}
-
-function depthFirst(context) {
-  const { graph, start, current, visited, path } = context;
-  if (visited.has(current)) return current === start && path.length > 0 ? [...path, start] : null;
-  const nextPath = [...path, current];
-  const holders = graph.get(current) || [];
-  for (const holder of holders) {
-    const cycle = depthFirst({ graph, start, current: holder, visited: new Set([...visited, current]), path: nextPath });
-    if (cycle) return cycle;
-  }
-  return null;
-}
-
-function inputError(message) {
-  return Object.assign(new Error(message), { code: 'SYNCYTIUM_RESERVATION_INVALID' });
-}
+function inputError(msg) { return Object.assign(new Error(msg), { code: 'SYNCYTIUM_RESERVATION_INVALID' }); }
+function hardError(msg, code = 'SYNCYTIUM_TRANSACTIONAL_ERROR') { return Object.assign(new Error(msg), { code }); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 module.exports = { createTransactionalVariantService, detectReservationDeadlock };
