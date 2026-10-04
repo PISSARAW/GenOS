@@ -15,6 +15,7 @@ const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPoli
 const { compactStrategyContract, compactAutonomyPlan, buildAgentRuntimePrompt } = require('./agent-runtime-prompt.cjs');
 const { handleRuntimeClose } = require('./agent-runtime-close.cjs');
 const events = require('./agent-runtime-events.cjs');
+const runtimeStdio = require('./agent-runtime-stdio.cjs');
 const { resolveCodexLaunch } = require('./codexLaunchResolver.cjs');
 const { buildMcpServerEnvironment, serializeMcpServerEnvironment } = require('../src/services/agentRuntimeMcpConfiguration');
 
@@ -345,20 +346,6 @@ function runMemoryPipeline(state) {
   }).catch(() => {});
 }
 
-function wireStdio(state) {
-  state.child.stdout.on('data', (chunk) => {
-    events.handleStdout(state, chunk);
-  });
-  state.child.stderr.on('data', (chunk) => {
-    const detail = chunk.toString();
-    state.stderr = `${state.stderr}${detail}`.slice(-4000);
-    process.stderr.write(detail);
-  });
-  state.child.stdin.on('error', (error) => {
-    if (error.code !== 'EPIPE') process.stderr.write(`Runtime stdin error: ${error.message}\n`);
-  });
-}
-
 function wireProcessEvents(state) {
   state.child.on('error', (error) => {
     state.emit({ eventType: 'AGENT_RUNTIME_ERROR', action: 'ERROR', detail: error.message, severity: 'error', status: 'error' });
@@ -400,7 +387,7 @@ function startRuntime(state) {
       events.stopForBudget(state, { dimension: 'tokens', observed: state.estimatedTokens, limit: events.budgetLimit(state, 'tokens') });
     });
   }
-  wireStdio(state);
+  runtimeStdio.wireStdio(state);
   state.child.stdin.end(state.prompt);
   wireProcessEvents(state);
 }

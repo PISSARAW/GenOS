@@ -5,6 +5,7 @@ const biologicalMode = require('../src/services/biologicalModeService');
 const capabilityResolver = require('../src/services/agents/agentIncarnationPayloadService');
 const variantWorkers = require('../src/services/syncytiumVariantWorkerService');
 const { parseToolLease } = require('../bin/agent-runtime-session.cjs');
+const { isPermanentNetworkDenial } = require('../bin/agent-runtime-stdio.cjs');
 
 const requiredSyncytiumCapabilities = [
   'CRDT_SHARED_STATE', 'SIGNALING_BUS', 'CAUSAL_STATE', 'SEMANTIC_CONFLICTS',
@@ -12,6 +13,8 @@ const requiredSyncytiumCapabilities = [
 ];
 
 assert.deepEqual(parseToolLease('[]'), [], 'a deny-all worker lease is a valid empty lease');
+assert.equal(isPermanentNetworkDenial('connect wss://chatgpt.com/backend-api/codex/responses: os error 10013'), true);
+assert.equal(isPermanentNetworkDenial('temporary timeout opening wss://chatgpt.com/backend-api/codex/responses'), false);
 
 function assertLaunchLease(member) {
   const launch = capabilityResolver.buildLaunchCapabilities({
