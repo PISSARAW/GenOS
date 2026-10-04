@@ -32,7 +32,8 @@ La succession
 associe un PID au détenteur de l'autorité et renouvelle une génération après
 la disparition du processus qui avait revendiqué `launching` ou `running`.
 Une reprise dormante renouvelle aussi la génération quand l'ancien propriétaire
-vit encore. Après une interruption de réveil, le scheduler ne finalise la
+vit encore, mais attend l'arrêt du runtime enregistré avant de relancer le même
+agent. Après une interruption de réveil, le scheduler ne finalise la
 reprise qu'avec une mission active, une autorité `running` et un runtime
 identifié ou terminé avec succès ; les autres lancements orphelins sont arrêtés
 avant réarmement. Un lancement dont le résultat reste ambigu n'est pas rejoué

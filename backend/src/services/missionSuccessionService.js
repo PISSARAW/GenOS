@@ -6,6 +6,7 @@ async function resumeWithAuthority(db, input) {
   const runtime = input.runtime || require('./agentRuntimeAdapter');
   if (!mission.missionId) return runtime.startMission({ ...mission, agentId: successorId, workspaceId });
   const previous = await require('./missionIdentityService').get(db, mission.missionId);
+  await assertDormantRuntimeStopped(db, previous);
   const lease = await authority.reserve(db, { missionId: mission.missionId, agentId: successorId, expectedOrchestratorId });
   if (authority.isOwnerLive(lease)) return { started: true, duplicate: true };
   await authority.claimLaunch(db,lease);
@@ -27,5 +28,19 @@ function assertDormantLaunch(previous, resumed) {
   if (previous?.status !== 'dormant') return;
   if (resumed?.started === true && resumed.duplicate !== true) return;
   throw Object.assign(new Error('Dormant mission did not launch a new runtime.'), { code: 'MISSION_RESUME_NOT_LAUNCHED' });
+}
+
+async function assertDormantRuntimeStopped(db, previous) {
+  if (previous?.status !== 'dormant' || !previous.orchestratorAgentId) return;
+  const agent = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', previous.orchestratorAgentId);
+  if (!Number.isInteger(agent?.runtime_pid) || agent.runtime_pid <= 0) return;
+  try {
+    process.kill(agent.runtime_pid, 0);
+  } catch (error) {
+    if (error.code === 'ESRCH') return;
+  }
+  throw Object.assign(new Error('Dormant mission still has a live or unverifiable runtime.'), {
+    code: 'MISSION_DORMANT_RUNTIME_ACTIVE'
+  });
 }
 module.exports = { resumeWithAuthority };
