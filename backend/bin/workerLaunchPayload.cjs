@@ -43,11 +43,28 @@ function isolatedBaselineLease(context, lease) {
 }
 
 function selectedExecutor(context) {
-  return context.request?.executor || process.env.GENOS_AGENT_EXECUTOR;
+  return context.request?.executor || process.env.GENOS_AGENT_EXECUTOR || (context.request?.localModel ? 'local' : undefined);
 }
 
-function localRuntimeFlag(member) {
-  return member.engine === 'local' ? { localRuntime: true } : {};
+function selectedModel(member, request) {
+  return member.localModel || request?.localModel;
+}
+
+function localRuntimeFlag(member, request) {
+  return member.engine === 'local' || Boolean(request?.localModel) ? { localRuntime: true } : {};
+}
+
+function selectedBudget(member, request) {
+  const budget = request?.execution_budget || request?.executionBudget;
+  return Number.isFinite(member.executionBudgetTokens)
+    ? { ...(budget || {}), tokens: member.executionBudgetTokens }
+    : budget;
+}
+
+function selectedRoutingPolicy(member, localModel) {
+  return member.localRoutingPolicy || (localModel ? {
+    primary: localModel, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
+  } : undefined);
 }
 
 function workerLaunchPayload(args) {
@@ -55,10 +72,7 @@ function workerLaunchPayload(args) {
   const workerKind = require('../src/services/agents/workerKindService').resolveWorkerKind(member.workerKind, member.role);
   const baseMission = enrichMission(context, member.mission || '', member.role);
   const mission = topologyInstructions(isolatedBaselineInstructions(baseMission, context), context.topologySession);
-  const budget = context.request?.execution_budget || context.request?.executionBudget;
-  const executionBudget = Number.isFinite(member.executionBudgetTokens)
-    ? { ...(budget || {}), tokens: member.executionBudgetTokens }
-    : budget;
+  const localModel = selectedModel(member, context.request);
   return {
     action: 'dispatch_worker',
     background: false,
@@ -68,10 +82,8 @@ function workerLaunchPayload(args) {
     role: member.role,
     workerKind,
     variantIndex: member.variantIndex,
-    localModel: member.localModel,
-    localRoutingPolicy: member.localRoutingPolicy || (member.localModel ? {
-      primary: member.localModel, fallbacks: [], parallelReview: [], mode: 'fallback', preferLocal: true
-    } : undefined),
+    localModel,
+    localRoutingPolicy: selectedRoutingPolicy(member, localModel),
     missionScope: member.missionScope,
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
@@ -80,13 +92,13 @@ function workerLaunchPayload(args) {
     capabilities: capabilities || [],
     capabilityManifest: capabilityManifest || null,
     toolLease: isolatedBaselineLease(context, toolLease),
-    execution_budget: executionBudget,
+    execution_budget: selectedBudget(member, context.request),
     timeoutMs: context.request?.timeoutMs,
     workspace_root: context.request?.workspace_root || parent?.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
     reuseChecked: true,
     reuseWorkerId: workerId,
     executor: selectedExecutor(context),
-    ...localRuntimeFlag(member),
+    ...localRuntimeFlag(member, context.request),
   };
 }
 

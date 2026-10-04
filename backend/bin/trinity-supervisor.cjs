@@ -57,12 +57,14 @@ async function supervise(input) {
   const db = await getDatabase();
   try {
     const configuration = await loadDispatchConfig(db, input.missionId);
-    await waitForWorkers(db, {
+    const workers = await waitForWorkers(db, {
       missionId: input.missionId,
       expectedWorlds: expectedWorlds(configuration.variantSelection),
       timeoutMs: configuration.variantSelection.supervisionTimeoutMs
     });
+    requireSuccessfulWorkers(workers, expectedWorlds(configuration.variantSelection));
     const reports = await trinityBarrier.buildWorldReportsFromMission(db, input.missionId);
+    requireCompleteReports(reports, expectedWorlds(configuration.variantSelection));
     const result = await compareMission(db, { ...input, ...configuration }, reports);
     await trinityService.recordWorldComparison(db, {
       missionId: input.missionId,
@@ -82,6 +84,27 @@ async function supervise(input) {
     telemetry.emitEvent({ eventType: 'TRINITY_MISSION_FAILED', agentId: input.orchestratorId, action: 'FAIL_TRINITY', detail: error.message, payload: { missionId: input.missionId }, severity: 'error' });
   } finally {
     await closeDatabase(db);
+  }
+}
+
+function requireSuccessfulWorkers(workers, expected) {
+  if (workers.length !== expected || workers.some((worker) => worker.status !== 'completed')) {
+    throw Object.assign(new Error('Trinity comparison requires every expected world worker to complete successfully.'), {
+      code: 'TRINITY_WORLD_EXECUTION_INCOMPLETE'
+    });
+  }
+}
+
+function requireCompleteReports(reports, expected) {
+  const complete = reports.length === expected && reports.every((report) => {
+    const evidence = report.report;
+    return evidence?.outcome === 'success'
+      && (report.claims.length > 0 || report.tests.length > 0 || evidence.workerArtifact);
+  });
+  if (!complete) {
+    throw Object.assign(new Error('Trinity comparison requires one substantive success evidence report per world.'), {
+      code: 'TRINITY_WORLD_EVIDENCE_INCOMPLETE'
+    });
   }
 }
 
@@ -342,4 +365,4 @@ if (input.missionId && input.orchestratorId) supervise(input).catch((error) => {
   process.exitCode = 1;
 });
 
-module.exports = { waitForWorkers, expectedWorlds };
+module.exports = { waitForWorkers, expectedWorlds, requireSuccessfulWorkers, requireCompleteReports };
