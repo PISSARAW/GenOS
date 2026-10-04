@@ -123,6 +123,12 @@ async function approveRun(db, id, options) {
   const promotion = await promotionGate.loadPromotionContext(db, row, settings);
   if (!promotion.report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
   const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
+  await promotionGate.assertPromotionContainment(db, promotion, settings);
+  const workspace = await db.get(
+    'SELECT w.path FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
+    promotion.agentId,
+  );
+  if (!workspace?.path) throw new Error(`Execution run ${id} has no trusted workspace for AEIS verification.`);
 
   // AEIS : évaluation épistémique du rapport via le Holobionte
   let aeisEvaluation = null;
@@ -134,9 +140,10 @@ async function approveRun(db, id, options) {
       immuneMemory,
       db,
       multiProviderEnabled: promotion.contract?.problem_profile?.multi_provider_verification === true,
+      allowedWorkspaceRoot: workspace.path,
     });
-  } catch (_) {
-    // AEIS ne doit pas bloquer la promotion — le gate évaluera l'absence
+  } catch (error) {
+    throw new Error(`Execution run ${id} AEIS verification failed: ${error.message}`, { cause: error });
   }
   await immuneMemoryRepository.save(db, immuneMemory);
 
@@ -144,7 +151,6 @@ async function approveRun(db, id, options) {
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);
-  await promotionGate.assertPromotionContainment(db, promotion, settings);
   const primitives = events.resolveStagePrimitives('conditional_promotion', promotion.contract.strategy_portfolio);
   const promotionResult = await promotionGate.runPromotionPipeline(promotion, primitives);
   if (!promotionResult.success) throw new Error(`Execution run ${id} promotion failed: ${promotionResult.error || 'unknown error'}`);

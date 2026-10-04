@@ -321,7 +321,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
 | [0293](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
-| [0294](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
+| [0294a](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
+| [0294b](0294-contrat-de-preuve-aeis.md) | Contrat de preuve exécutable AEIS | Accepté | 2026-10-04 | AEIS, preuve, promotion, confinement |
 | [0295](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | Projets persistants, perception, Ontogenèse, GVX |
 | [0296](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
 | [0297a](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la génération d'hypothèses Trinity | Accepté | 2026-10-04 | Trinity, cognition, preuve |
