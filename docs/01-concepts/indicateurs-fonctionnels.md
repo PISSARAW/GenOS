@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel (suivi d'indicateurs, pas de détection de conscience)
 - **Portée** : lecture transversale des boucles réflexives GenOS face aux indicateurs de la littérature (Butlin et al. 2023/2025) ; chaque indicateur pointe son implémentation et sa limite explicite.
-- **Dernière revue** : 2026-09-30
+- **Dernière revue** : 2026-10-04
 
 ## 1. Définition du domaine
 
@@ -59,7 +59,7 @@ Inventaire historique à requalifier par les reçus du plan de validation.
 
 | Famille (littérature) | Implémentation GenOS | Statut | Ce qui manque |
 |---|---|---|---|
-| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs ; helper `globalWorkspaceService` avec contrôle d'autorisation, consommation et sonde par ablation | Partiel | helper de workspace non branché au chemin de production ; disponibilité globale réelle et usage aval restent à valider |
+| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs ; `globalWorkspaceService` avec contrôle d'autorisation et consommation, appelé par `attachGlobalWorkspace` dans le chemin `planMission` | Partiel | usage causal dans des missions réelles, concurrence et réplication indépendante non validés |
 | Ignition non-linéaire | `ignitionService` : seuil, burst ×1,5, réfractaire, fuite, propagation réelle | Partiel | dynamique compétitive |
 | Attention sélective | fovéation, active sensing, pont thalamique, leases + bancs causaux et sondes | Implémenté (fonctionnel) | steering live |
 | Récurrence entretenue | `reverberationService` + `idleTickService` + scheduler appelé par le serveur | Partiel | effet du maintien et récurrence perceptive à valider |
