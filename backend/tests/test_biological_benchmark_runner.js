@@ -21,6 +21,7 @@ assert.throws(() => runner.validateManifest({ ...manifest, expectedClaims: [] })
 assert.throws(() => runner.validateManifest({ ...manifest, budget: { tokens: 0 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ ...manifest, campaignBudget: { tokens: 999 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ ...manifest, budget: { tokens: 100, costUsd: 0.02 }, campaignBudget: { tokens: 1000, costUsd: 0.19 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
+assert.throws(() => runner.validateManifest({ ...manifest, timeoutMs: 120000, scenarioTimeoutMs: 120000 }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 const completeOutput = { members: [{ status: 'completed' }, { status: 'completed' }], dispatchFailures: [] };
 applySemanticValidation(completeOutput, { status: 'complete', workerCount: 2, coveredWorkers: 2 }, 2);
 assert.equal(completeOutput.complete, true);

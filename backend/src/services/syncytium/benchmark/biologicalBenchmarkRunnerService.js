@@ -35,8 +35,12 @@ function validateManifest(manifest) {
   if (!SUPPORTED_VARIANTS.has(manifest.variantId)) throw invalid('variantId must select one of the 13 registered Syncytium policies.');
   validateBudget(manifest.budget);
   validateCampaignBudget(manifest);
-  if (manifest.timeoutMs !== undefined && (!Number.isSafeInteger(manifest.timeoutMs) || manifest.timeoutMs < 10000)) throw invalid('timeoutMs must be an integer of at least 10000.');
-  if (manifest.scenarioTimeoutMs !== undefined && (!Number.isSafeInteger(manifest.scenarioTimeoutMs) || manifest.scenarioTimeoutMs < 10000)) throw invalid('scenarioTimeoutMs must be an integer of at least 10000.');
+  if (manifest.timeoutMs !== undefined && (!Number.isSafeInteger(manifest.timeoutMs) || manifest.timeoutMs < 10000 || manifest.timeoutMs > 600000)) throw invalid('timeoutMs must be an integer from 10000 through 600000.');
+  const minimumScenarioTimeout = (manifest.timeoutMs || 600000) * Math.ceil(MAX_WORKERS_PER_SCENARIO / 2) + 30000;
+  if (manifest.scenarioTimeoutMs !== undefined
+    && (!Number.isSafeInteger(manifest.scenarioTimeoutMs) || manifest.scenarioTimeoutMs < minimumScenarioTimeout)) {
+    throw invalid(`scenarioTimeoutMs must cover three worker waves and startup margin (at least ${minimumScenarioTimeout} ms).`);
+  }
 }
 
 function validateCampaignBudget(manifest) {
