@@ -10,7 +10,6 @@ const { selectCuriousDomain } = require('./curiosityExplorerService');
 const { generateContextualRepresentations } = require('./representationalMutationEngine');
 const { generateExaptations } = require('./exaptationEngine');
 const { selectCulturalTraits } = require('./culturalSelectionService');
-const { createEnvironmentPopulation } = require('./environmentGeneratorService');
 
 async function applyCuriosity(mission, config) {
   if (!config.curiosity.enabled) return null;
@@ -57,7 +56,10 @@ async function applyExaptation(mission, config, db) {
 
 async function applyEnvCoev(mission, config) {
   if (!config.envCoev.enabled) return [];
-  return createEnvironmentPopulation(3, ['creative_exploration', 'coordination_challenge']);
+  const poet = mission.poet;
+  if (!poet) return [];
+  const { evaluateGeneralization } = require('./poetBridgeService');
+  return [await evaluateGeneralization(poet.agents, poet.split, poet.options)];
 }
 
 async function applyCulture(mission, config) {

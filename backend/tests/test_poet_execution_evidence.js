@@ -10,9 +10,9 @@ const engine = require('../src/services/poetExecutionEngine');
 function complete(mission, eventType) {
   setImmediate(() => telemetry.emit('telemetry', { agentId: mission.agentId, eventType }));
 }
-async function attempt(environment, startMission) {
+async function attempt(environment, startMission, timeoutMs = 10000) {
   runtime.startMission = startMission;
-  return engine.executeAgentOnEnvironment({ id: 'poet-evidence-test' }, environment, { timeoutMs: 200 });
+  return engine.executeAgentOnEnvironment({ id: 'poet-evidence-test' }, environment, { timeoutMs });
 }
 async function testSelection(db, root) {
   const calls = [];
@@ -23,7 +23,8 @@ async function testSelection(db, root) {
     await fs.writeFile(path.join(workspace, 'package.json'), JSON.stringify({ scripts: { test: 'node verify.cjs' } }));
     await fs.writeFile(path.join(workspace, 'verify.cjs'), `require('node:assert/strict').equal(require('./solution.json').answer,${kind === 'training' ? 1 : 2});`);
     environments.push({ id: kind, workspacePath: workspace, workspaceId: 'evidence-workspace', db,
-      difficulty: 0.2, goals: [kind], protectedPaths: ['package.json', 'verify.cjs'],
+      difficulty: 0.2, goals: [kind], verifierCommand: 'npm test',
+      protectedPaths: ['package.json', 'verify.cjs'],
       stats: { attemptCount: 0, solvedCount: 0 } });
   }
   runtime.startMission = async (mission) => {
@@ -56,7 +57,8 @@ async function run() {
   await fs.writeFile(path.join(workspace, 'package.json'), JSON.stringify({ scripts: { test: 'node verify.cjs' } }));
   await fs.writeFile(path.join(workspace, 'verify.cjs'), 'process.exit(0)');
   const environment = { id: 'evidence', workspaceId: 'evidence-workspace', workspacePath: workspace, db,
-    difficulty: 0.2, goals: ['write a solution'], protectedPaths: ['package.json', 'verify.cjs'],
+    difficulty: 0.2, goals: ['write a solution'], verifierCommand: 'npm test',
+    protectedPaths: ['package.json', 'verify.cjs'],
     stats: { attemptCount: 0, solvedCount: 0 } };
   try {
     const unchanged = await attempt(environment, async (mission) => { complete(mission, 'AGENT_COMPLETED'); return {}; });
@@ -64,7 +66,8 @@ async function run() {
     const failed = await attempt(environment, async (mission) => { complete(mission, 'AGENT_FAILED'); return {}; });
     assert.equal(failed.success, false);
     assert.equal(failed.verification, undefined);
-    const hung = await attempt(environment, (mission) => { complete(mission, 'AGENT_COMPLETED'); return new Promise(() => {}); });
+    const hung = await attempt(environment,
+      (mission) => { complete(mission, 'AGENT_COMPLETED'); return new Promise(() => {}); }, 500);
     assert.match(hung.error, /deadline/);
     assert.ok(stopped > 0, 'deadline stops the runtime even after premature completion telemetry');
     const rewritten = await attempt(environment, async (mission) => {
@@ -77,6 +80,9 @@ async function run() {
     assert.equal(await fs.readFile(path.join(workspace, 'solution.json'), 'utf8'), '{"answer":1}', 'attempts never mutate the template');
     const bridge = require('../src/services/poetBridgeService');
     await assert.rejects(bridge.evaluateGeneralization([{ id: 'solver' }],
+      { training: [{ ...environment, protectedPaths: [] }],
+        heldOut: [{ ...environment, id: 'invalid-heldout' }] }), /requires a workspace/);
+    await assert.rejects(bridge.evaluateGeneralization([{ id: 'solver' }],
       { training: [environment], heldOut: [{ ...environment, id: 'copied' }] }), /content must be disjoint/);
     const unsafe = { ...environment, artifactPath: '../outside.json' };
     await assert.rejects(require('../src/services/poetExecutionEvidence').artifactEvidence(unsafe), /inside/);
@@ -86,7 +92,7 @@ async function run() {
     runtime.startMission = original.start;
     runtime.stopMission = original.stop;
     await closeDatabase();
-    await fs.rm(root, { recursive: true, force: true });
+    await fs.rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; });

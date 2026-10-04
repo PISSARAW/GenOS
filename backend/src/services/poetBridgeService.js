@@ -28,9 +28,9 @@ async function executeEnvironment(agents, environment, options) {
     try {
       const executionResult = await executeAgentOnEnvironment(agent, environment, options);
       evaluations.push({ agent, evaluation: {
-        capabilityScore: executionResult.score,
+        capabilityScore: executionResult.success ? executionResult.score : 0,
         difficultyFactor: 1 - environment.difficulty * 0.5,
-        overallScore: executionResult.score,
+        overallScore: executionResult.success ? executionResult.score : 0,
         canSolve: executionResult.success,
       }, executionResult });
     } catch (error) {
@@ -44,6 +44,7 @@ async function executeEnvironment(agents, environment, options) {
 
 function updateEnvironmentStats(environment, best) {
   if (!best) return;
+  environment.stats ||= { attemptCount: 0, solvedCount: 0 };
   environment.stats.attemptCount += 1;
   if (!best.evaluation.canSolve) return;
   environment.stats.solvedCount += 1;
@@ -110,6 +111,7 @@ function validateSplitIds(training, heldOut) {
 }
 
 function validateEnvironment(environment) {
+  require('./poetExecutionEvidence').validateVerifierContract(environment);
   if (!environment.stats || !Number.isFinite(environment.difficulty)) {
     throw new Error(`Invalid POET environment ${environment.id}`);
   }

@@ -158,6 +158,8 @@ async function testPoetWithRealSnapshotVerification() {
     const result = await bridge.coevolveWithExecution([{ id: 'agent-poet-real', role: 'solver' }], [environment], { timeoutMs: 60000 });
     const execution = result[0].evaluations[0].executionResult;
     assert.equal(execution.success, true, JSON.stringify(execution));
+    await assert.rejects(fs.access(execution.executionWorkspace), /ENOENT/,
+      'isolated POET workspace is removed after evidence capture');
     assert.match(execution.verification.output, /solver supporte maze solving/);
     assert.equal(environment.stats.solvedCount, 1);
     assert.equal(await fs.readFile(path.join(workspacePath, 'proof.txt'), 'utf8'), 'original');
@@ -172,6 +174,16 @@ async function testPoetWithRealSnapshotVerification() {
     assert.equal(generalization.heldOut.successRate, 1);
     assert.notEqual(generalization.split.trainingIds[0], generalization.split.heldOutIds[0]);
     assert.match(generalization.evidenceRef, /^[a-f0-9]{64}$/);
+    const nceResult = await require('../src/services/nceIntegrationService').enhanceMissionWithNCE({
+      poet: { agents: [{ id: 'agent-poet-real', role: 'solver' }],
+        split: { training: [environment], heldOut: [{ ...environment,
+          id: 'env-poet-nce-heldout', goals: ['solve another held-out grid'] }] },
+        options: { timeoutMs: 60000 } },
+      nceOptions: { curiosity: false, reprMutation: false, exaptation: false,
+        envCoev: true, culture: false, play: false, phenotype: false },
+    }, sqlite.adapter);
+    assert.equal(nceResult.environments[0].measured, true,
+      'the NCE integration must execute POET instead of returning synthetic descriptors');
     console.log('POET with real snapshot capture and verification: PASS');
   } finally {
     await new Promise((resolve, reject) => sqlite.database.close((error) => error ? reject(error) : resolve()));

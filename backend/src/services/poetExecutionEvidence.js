@@ -16,6 +16,7 @@ async function artifactEvidence(environment) {
   return { path: relative.replaceAll('\\', '/'), sha256: hash(await fs.readFile(file)), size: stat.size };
 }
 async function isolateEnvironment(environment) {
+  validateVerifierContract(environment);
   const db = environment.db || await require('../db').getDatabase();
   const snapshot = await snapshots.capture({ db,
     workspace: { id: environment.workspaceId, path: environment.workspacePath },
@@ -24,6 +25,22 @@ async function isolateEnvironment(environment) {
   const manifest = await snapshots.materialize({ ...snapshot, snapshot_hash: snapshot.snapshotHash }, destination);
   return { ...environment, db, workspacePath: destination, baselineManifest: manifest,
     baselineSnapshotHash: snapshot.snapshotHash };
+}
+function validateVerifierContract(environment) {
+  if (!hasVerifierContract(environment)) {
+    throw new Error('POET requires a workspace, verifier command and protected verifier paths');
+  }
+  for (const name of environment.protectedPaths) {
+    if (!snapshots.isSafeRelative(name)) throw new Error('POET protected path must remain inside workspace');
+  }
+  if (environment.protectedPaths.includes(environment.artifactPath || 'solution.json')) {
+    throw new Error('POET artifact cannot replace a protected verifier path');
+  }
+}
+function hasVerifierContract(environment) {
+  return Boolean(environment?.workspacePath && environment.workspaceId
+    && typeof environment.verifierCommand === 'string' && environment.verifierCommand.trim()
+    && Array.isArray(environment.protectedPaths) && environment.protectedPaths.length);
 }
 async function bindSnapshot(snapshot, evidence, environment) {
   const manifest = await snapshots.readManifest({ ...snapshot, snapshot_hash: snapshot.snapshotHash },);
@@ -41,4 +58,4 @@ async function environmentFingerprint(environment) {
   return hash(JSON.stringify({ goals: environment.goals, constraints: environment.constraints || {},
     files: files.map((file) => ({ path: file.path, hash: file.hash })) }));
 }
-module.exports = { artifactEvidence, isolateEnvironment, bindSnapshot, environmentFingerprint };
+module.exports = { artifactEvidence, isolateEnvironment, bindSnapshot, environmentFingerprint, validateVerifierContract };
