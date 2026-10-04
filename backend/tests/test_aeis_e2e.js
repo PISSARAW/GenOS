@@ -1,6 +1,9 @@
 'use strict';
 
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || 'test-secret-e2e';
 
@@ -168,7 +171,7 @@ async function run() {
   await test('evaluateReportWithAeis construit une assemblée', async () => {
     const report = {
       claims: [
-        { statement: 'p < 0.05 alone suffices', evidence: [{ kind: 'test_result' }] },
+        { statement: 'echo 1 exits with code 0', test: { command: 'echo 1' }, evidence: [{ kind: 'test_result' }] },
       ],
     };
     const result = await evaluateReportWithAeis(report, {
@@ -216,14 +219,20 @@ async function run() {
 
   // 14. Bon claim avec commande de reproduction : eligible, bindé, gate OK
   await test('Bon claim eligible via sandbox, binde, gate OK', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-aeis-replicas-'));
+    fs.mkdirSync(path.join(root, 'a'));
+    fs.mkdirSync(path.join(root, 'b'));
+    try {
     const { listVerifierDigests } = require('../src/services/verifierTrustRegistry');
     const { buildGateContext } = require('../src/services/promotionGateContext');
     const policy = require('../src/services/epistemicAssurancePolicy');
     const report = {
       claims: [
         {
-          statement: 'echo 4 produces 4',
-          test: { command: 'echo 4', expectOutput: '4' },
+          statement: 'echo 4 outputs "4"',
+          test: { command: 'echo 4', expectOutput: '4', replicas: {
+            proof: { cwd: path.join(root, 'a') }, source: { cwd: path.join(root, 'b') },
+          } },
           evidence: [{ kind: 'reproducible_artifact' }],
         },
       ],
@@ -231,6 +240,7 @@ async function run() {
     const result = await evaluateReportWithAeis(report, {
       domain: 'general',
       immuneMemory: [],
+      allowedWorkspaceRoot: root,
     });
     // Après exécution, le registry a enregistré tous les verifiers utilisés.
     const trustedDigests = listVerifierDigests();
@@ -251,6 +261,7 @@ async function run() {
       gate
     );
     assert.deepStrictEqual(violations, []);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 
   // 15. Faux claim avec commande : NON eligible (refuté par sandbox)
@@ -259,7 +270,7 @@ async function run() {
     const report = {
       claims: [
         {
-          statement: '2+2=5',
+          statement: 'echo 5 outputs "4"',
           test: { command: 'echo 5', expectOutput: '4' },
           evidence: [{ kind: 'reproducible_artifact' }],
         },
@@ -281,6 +292,15 @@ async function run() {
       r.counterexamples.some(c => c.type === 'output_mismatch')
     );
     assert.ok(refuted, 'le faux claim doit etre refute par output_mismatch');
+  });
+
+  await test('Une affirmation sans lien avec un test réussi est refusée', async () => {
+    const result = await evaluateReportWithAeis({ claims: [{
+      statement: '2 + 2 = 5', test: { command: 'echo ok', expectOutput: 'ok' },
+      evidence: [{ kind: 'reproducible_artifact' }],
+    }] });
+    assert.strictEqual(result.evaluation.eligible, false);
+    assert.strictEqual(result.assembly, null);
   });
 
   // 15. Sans assembly AEIS la promotion gate refuse

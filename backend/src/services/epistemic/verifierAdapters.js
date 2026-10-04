@@ -16,6 +16,7 @@
 
 const crypto = require('node:crypto');
 const { runIsolated } = require('../sandboxExecutor');
+const { resolveSandboxTarget } = require('./sandboxTarget');
 
 /* ============================================================
    Utilitaires communs
@@ -41,14 +42,6 @@ function computeEvidenceDigest(observations) {
   return `sha256:${crypto.createHash('sha256').update(canonical).digest('hex')}`;
 }
 
-function resolveSandboxTarget(config, verifier, context) {
-  return {
-    command: config.command || config.buildCommand,
-    cwd: config.cwd || verifier.cwd || context?.cwd || process.cwd(),
-    timeout: context?.timeoutMs || config.timeoutMs || 30000,
-  };
-}
-
 function truncateOutput(text) {
   const s = String(text || '');
   return s.length > 2000 ? s.slice(0, 2000) : s;
@@ -59,6 +52,7 @@ function executionDetail(command, execution) {
     command,
     commandHash: execution.commandHash,
     executionId: execution.executionId, processId: execution.processId,
+    cwd: execution.cwd,
     exitCode: execution.exitCode,
     success: execution.success,
     timedOut: execution.timedOut,
@@ -134,7 +128,7 @@ async function executeConfiguredTest(target, testConfig) {
       cwd: target.cwd,
       timeoutMs: target.timeout,
     });
-    observations.push(observationRecord('test:execute', executionDetail(target.command, execution)));
+    observations.push(observationRecord('test:execute', executionDetail(target.command, { ...execution, cwd: target.cwd })));
     const counterexamples = collectTestCounterexamples(execution, testConfig);
     const status = counterexamples.length > 0 ? 'refuted' : 'verified';
     return { observations, counterexamples, status };
@@ -267,7 +261,7 @@ async function executeConfiguredBuild(target, artifactConfig, observations) {
       cwd: target.cwd,
       timeoutMs: target.timeout,
     });
-    observations.push(observationRecord('artifact:build', executionDetail(target.command, execution)));
+    observations.push(observationRecord('artifact:build', executionDetail(target.command, { ...execution, cwd: target.cwd })));
     observations.push(
       observationRecord('artifact:validate', {
         validation: artifactConfig.validation || 'structural',

@@ -20,6 +20,7 @@ const { createFormalResult } = require('../formalResultService');
 const { assessClaim } = require('./verificationKernel');
 const verificationFabric = require('./verificationFabric');
 const { validateReceipt } = require('../epistemicVerifierReceiptService');
+const { validateClaimContract } = require('./claimVerificationContract');
 
 /**
  * Convertit un résultat immunitaire Holobionte en FormalResult.
@@ -294,6 +295,14 @@ function extractAntigensFromReport(report, domain = 'general') {
 }
 
 async function evaluateReportWithAeis(report, context = {}) {
+  const claims = Array.isArray(report?.claims) ? report.claims : [];
+  const invalid = claims.map(validateClaimContract).filter((contract) => !contract.valid);
+  if (invalid.length) {
+    return {
+      evaluation: { eligible: false, violations: invalid.map((item) => ({ policy: 'claim_verification_contract', message: item.reason })) },
+      assembly: null, holobionteResults: [], allAccepted: false, anyBlocked: true,
+    };
+  }
   const antigens = extractAntigensFromReport(report, context.domain);
   if (antigens.length === 0) {
     return {
