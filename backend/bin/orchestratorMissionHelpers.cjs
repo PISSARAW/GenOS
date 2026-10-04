@@ -53,7 +53,7 @@ async function applyNceEnhancements(nceInput, db, orchestratorId) {
     return await nceIntegration.enhanceMissionWithNCE(nceInput, db);
   } catch (nceErr) {
     telemetry.emitEvent({ eventType: 'NCE_ENHANCEMENT_ERROR', agentId: orchestratorId, action: 'NCE_SKIPPED', detail: nceErr.message, severity: 'warn' });
-    return {};
+    return { errors: { integration: nceErr.message } };
   }
 }
 
@@ -85,6 +85,13 @@ function buildNceInput(request) {
     genome: pickOr(request, ['agent_dna', 'agentDna']),
     environment: pickOr(request, ['environment_context', 'environmentContext']),
     culturalTraits: pickOr(request, ['cultural_traits', 'culturalTraits']),
+    culturalTransfer: pickOr(request, ['cultural_transfer', 'culturalTransfer']),
+    requiredTools: pickOr(request, ['required_tools', 'requiredTools']),
+    requiredCapabilities: pickOr(request, ['required_capabilities', 'requiredCapabilities']),
+    phenotypeState: pickOr(request, ['phenotype_state', 'phenotypeState']),
+    initialPhenotype: pickOr(request, ['initial_phenotype', 'initialPhenotype']),
+    genomeId: pickOr(request, ['genome_id', 'genomeId']),
+    poet: request.poet,
     nceOptions: pickOr(request, ['nce_options', 'nceOptions']),
     workspacePath: resolveWorkspacePath(request),
     workspaceId: resolveWorkspaceId(request),
@@ -94,18 +101,18 @@ function buildNceInput(request) {
 
 function buildEnhancedPrompt(nceEnhancements, task) {
   const { buildPromptEnrichment, hasResult } = require('../src/services/ncePromptService');
-  let enhancedPrompt = task;
-  const nceMetadata = {};
-  if (nceEnhancements && Object.keys(nceEnhancements).length > 0) {
-    const promptAdditions = buildPromptEnrichment(nceEnhancements);
-    if (promptAdditions) enhancedPrompt = task + promptAdditions;
-    if (hasResult(nceEnhancements.curiosity?.ranking)) nceMetadata.curiosity = nceEnhancements.curiosity.selectedDomainId;
-    if (hasResult(nceEnhancements.representations)) nceMetadata.representations = nceEnhancements.representations.length;
-    if (hasResult(nceEnhancements.exaptations)) nceMetadata.exaptations = nceEnhancements.exaptations.length;
-    if (hasResult(nceEnhancements.environments)) nceMetadata.environments = nceEnhancements.environments.length;
-    if (hasResult(nceEnhancements.culturalTraits)) nceMetadata.culturalTraits = nceEnhancements.culturalTraits.length;
-  }
-  return { enhancedPrompt, nceMetadata };
+  const enhancements = nceEnhancements || {};
+  const fields = {
+    curiosity: [enhancements.curiosity?.ranking, enhancements.curiosity?.selectedDomainId],
+    representations: [enhancements.representations, enhancements.representations?.length],
+    exaptations: [enhancements.exaptations, enhancements.exaptations?.length],
+    environments: [enhancements.environments, enhancements.environments?.length],
+    culturalTraits: [enhancements.culturalTraits, enhancements.culturalTraits?.length],
+  };
+  const nceMetadata = Object.fromEntries(Object.entries(fields)
+    .filter(([, [value]]) => hasResult(value))
+    .map(([key, [, value]]) => [key, value]));
+  return { enhancedPrompt: task + buildPromptEnrichment(enhancements), nceMetadata };
 }
 
 function mergeMetadataJson(existing, nceMetadata) {
@@ -138,16 +145,26 @@ async function prepareMission(opts) {
   await morphoRuntime.init();
   const morphology = await morphoRuntime.prepareMorphology(strategyContract.contract, { profile: strategyContract.profile, fork_count: request.fork_count, domains: request.domains });
 
-  const garageDecision = decideGarageCapacity({ contract: strategyContract.contract, topology: request.action,
-    teamMembers: morphology.agents?.length, variantId: request.variant_id || request.variantId || request.variant,
-    experimentalDesign: request.experimental_design || request.experimentalDesign,
-    qdConfig: request.trinity_qd || request.trinityQD });
+  const garageDecision = decideGarageCapacity(buildGarageInput(request, morphology, strategyContract));
   await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?`, mergeMetadataJson(metadataJson, { garageCapacity: garageDecision.capacity, garageDecision, morphology: { topology: morphology.topology, agentCount: morphology.agents?.length, strategy: morphology.strategy } }), id);
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
-  const missionBudget = { ...(policyRequest.executionBudget || policyRequest.execution_budget || request.executionBudget || request.execution_budget || {}) };
+  const missionBudget = resolveMissionBudget(policyRequest, request);
   applyLatencyBudget(missionBudget, requestTimeoutMs);
   const useLocalRuntime = checkLocalRuntime(policyRequest, request);
   return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology };
+}
+
+function buildGarageInput(request, morphology, strategyContract) {
+  return { contract: strategyContract.contract, topology: request.action,
+    teamMembers: morphology.agents?.length,
+    variantId: request.variant_id || request.variantId || request.variant,
+    experimentalDesign: request.experimental_design || request.experimentalDesign,
+    qdConfig: request.trinity_qd || request.trinityQD };
+}
+
+function resolveMissionBudget(policyRequest, request) {
+  return { ...(policyRequest.executionBudget || policyRequest.execution_budget
+    || request.executionBudget || request.execution_budget || {}) };
 }
 
 function applyLatencyBudget(budget, timeoutMs) {
@@ -264,12 +281,15 @@ function emitFinalTelemetry(opts) {
 }
 
 function buildNceInfo(nceEnhancements) {
+  const { hasResult } = require('../src/services/nceIntegrationService');
   return {
-    enhancementsApplied: Object.keys(nceEnhancements).filter((k) => nceEnhancements[k] && k !== 'error').length,
+    enhancementsApplied: Object.entries(nceEnhancements)
+      .filter(([key, value]) => key !== 'errors' && hasResult(value)).length,
     curiosityRanking: nceEnhancements.curiosity?.ranking?.length || 0,
     representations: nceEnhancements.representations?.length || 0,
     exaptations: nceEnhancements.exaptations?.length || 0,
-    environments: nceEnhancements.environments?.length || 0
+    environments: nceEnhancements.environments?.length || 0,
+    errors: nceEnhancements.errors || {}
   };
 }
 
