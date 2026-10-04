@@ -56,6 +56,11 @@ async function missionFor(context) {
 }
 
 function complianceMethod(kind) {
+  if (kind === 'scout_cell' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SCOUT === '1') {
+    return { version: 1, methodId: 'scan_literal', parameters: {
+      sources: [{ sourceRef: 'corpus://compliance/log-1', text: 'status=ok timeout=30' }],
+      terms: ['timeout'] } };
+  }
   if (kind === 'procedural_executor') return { version: 1, methodId: 'lpt', parameters: {
     jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2
   } };
@@ -129,9 +134,8 @@ async function validateMission(context) {
 }
 
 function correctMissionReference(kind, report, scenario) {
-  if (kind === 'forensic_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_FORENSIC === '1') {
-    return forensicMissionReference(report?.workerArtifact?.content);
-  }
+  const observed = observedMissionReference(kind, report?.workerArtifact?.content);
+  if (observed !== null) return observed;
   const specialized = specializedMissionReference(kind, report);
   if (specialized !== null) return specialized;
   if (kind === 'procedural_executor') return solverReference(report?.workerArtifact?.content?.procedureReceipt?.id);
@@ -140,6 +144,17 @@ function correctMissionReference(kind, report, scenario) {
     return solverReference(report?.workerArtifact?.content?.expectedReceipt?.id);
   }
   return hasFixtureReference(report, scenario.sourceRef);
+}
+
+function observedMissionReference(kind, content) {
+  if (kind === 'scout_cell' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SCOUT === '1') {
+    return content?.observations?.[0]?.offset === 10
+      && solverReference(content?.scoutReceipt?.id);
+  }
+  if (kind === 'forensic_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_FORENSIC === '1') {
+    return forensicMissionReference(content);
+  }
+  return null;
 }
 
 function specializedMissionReference(kind, report) {

@@ -12,6 +12,7 @@ const { runExperiment } = require('./deterministicWorkerExperiment');
 const { runSynthesis } = require('./deterministicWorkerSynthesis');
 const { runMonitor } = require('./deterministicWorkerMonitor');
 const { runForensic } = require('./deterministicWorkerForensic');
+const { runScout } = require('./deterministicWorkerScout');
 
 const EXECUTORS = Object.freeze({
   formal_worker: (method, mission) => runFormal(method, { timeoutMs: mission.timeoutMs || 30000 }),
@@ -20,10 +21,18 @@ const EXECUTORS = Object.freeze({
   experimental_worker: (method) => runExperiment(method),
   synthesis_worker: (method) => runSynthesis(method),
   resident_daemon: (method) => runMonitor(method),
-  forensic_worker: (method) => runForensic(method)
+  forensic_worker: (method) => runForensic(method),
+  scout_cell: (method) => runScout(method)
 });
 
 function reportFor(kind, result) {
+  if (kind === 'scout_cell') {
+    const refs = result.scannedSources;
+    const statement = `${result.observations.length} literal observations across ${refs.length} supplied sources.`;
+    return { outcome: 'success', claims: [{ statement, evidence: refs }],
+      workerArtifact: { type: 'scout_observation', content: result,
+        provenance: { sourceRefs: refs } } };
+  }
   if (kind === 'forensic_worker') {
     const refs = result.evidence;
     const statement = `${result.causalChain.length} declared causal links reconstructed; causal truth unverified.`;

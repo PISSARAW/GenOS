@@ -8,35 +8,24 @@ const { runExperiment } = require('../../backend/src/services/agents/determinist
 const { runSynthesis } = require('../../backend/src/services/agents/deterministicWorkerSynthesis');
 const { runMonitor } = require('../../backend/src/services/agents/deterministicWorkerMonitor');
 const { runForensic } = require('../../backend/src/services/agents/deterministicWorkerForensic');
+const { runScout } = require('../../backend/src/services/agents/deterministicWorkerScout');
+
+const RUNNERS = Object.freeze({
+  scout_cell: [runScout, 'scoutReceipt'],
+  procedural_executor: [runProcedure, 'receipt'],
+  verifier_worker: [runVerification, 'expectedReceipt'],
+  red_worker: [runRed, 'expectedReceipt'],
+  experimental_worker: [runExperiment, 'procedureReceipt'],
+  synthesis_worker: [runSynthesis, 'synthesisReceipt'],
+  resident_daemon: [runMonitor, 'monitorReceipt'],
+  forensic_worker: [runForensic, 'forensicReceipt']
+});
 
 async function runCase(testCase) {
-  if (testCase.workerKind === 'procedural_executor') {
-    const result = runProcedure(testCase.methodContract);
-    return { status: 'executed', result, receipt: result.receipt };
-  }
-  if (testCase.workerKind === 'verifier_worker') {
-    const result = runVerification(testCase.methodContract);
-    return { status: 'executed', result, receipt: result.expectedReceipt };
-  }
-  if (testCase.workerKind === 'red_worker') {
-    const result = runRed(testCase.methodContract);
-    return { status: 'executed', result, receipt: result.expectedReceipt };
-  }
-  if (testCase.workerKind === 'experimental_worker') {
-    const result = runExperiment(testCase.methodContract);
-    return { status: 'executed', result, receipt: result.procedureReceipt };
-  }
-  if (testCase.workerKind === 'synthesis_worker') {
-    const result = runSynthesis(testCase.methodContract);
-    return { status: 'executed', result, receipt: result.synthesisReceipt };
-  }
-  if (testCase.workerKind === 'resident_daemon') {
-    const result = runMonitor(testCase.methodContract);
-    return { status: 'executed', result, receipt: result.monitorReceipt };
-  }
-  if (testCase.workerKind === 'forensic_worker') {
-    const result = runForensic(testCase.methodContract);
-    return { status: 'executed', result, receipt: result.forensicReceipt };
+  const runner = RUNNERS[testCase.workerKind];
+  if (runner) {
+    const result = runner[0](testCase.methodContract);
+    return { status: 'executed', result, receipt: result[runner[1]] };
   }
   if (testCase.workerKind === 'formal_worker') {
     const toolchainVersion = process.env.GENOS_BENCHMARK_LEAN_VERSION;

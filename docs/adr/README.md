@@ -335,6 +335,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0304](0304-synthese-structuree-des-desaccords.md) | Synthèse structurée des désaccords | Accepté | 2026-10-04 | Workers, synthèse, provenance |
 | [0305](0305-fenetre-observation-resident-daemon.md) | Fenêtre d'observation du resident daemon | Accepté | 2026-10-04 | Workers, observation, anomalies |
 | [0306](0306-reconstruction-causes-declarees-forensic-worker.md) | Reconstruction des causes déclarées du forensic worker | Accepté | 2026-10-04 | Workers, analyse d'incident, provenance |
+| [0307](0307-observation-litterale-scout-cell.md) | Observation littérale du scout cell | Accepté | 2026-10-04 | Workers, observation, provenance |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

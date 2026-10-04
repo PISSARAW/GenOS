@@ -1414,3 +1414,12 @@ figurer dans la suite et ne peut être postérieur. Le `causal_dossier` reprodui
 ces liens avec leurs trois références, et distingue les événements non liés.
 Il ne prouve ni l'authenticité des reçus ni la causalité réelle. Voir
 [ADR 0306](../adr/0306-reconstruction-causes-declarees-forensic-worker.md).
+
+## 57. Observation littérale du scout cell (2026-10-04)
+
+La méthode `scan_literal` inspecte jusqu'à 20 textes fournis, de 8192
+caractères chacun, pour 20 termes littéraux au maximum. Elle produit un
+`scout_observation` avec la première position de chaque terme trouvé, la
+référence de source et une incertitude explicite sur l'interprétation du
+texte. Elle ne lit aucun fichier ni site distant et ne juge pas la véracité
+des sources. Voir [ADR 0307](../adr/0307-observation-litterale-scout-cell.md).

@@ -7,7 +7,10 @@ const VERIFICATION_PROCEDURE = { version: 1, methodId: 'subset_sum',
 const CANDIDATE_RECEIPT = runProcedure(VERIFICATION_PROCEDURE).receipt;
 
 const CASES = Object.freeze([
-  { id: 'scout-source', workerKind: 'scout_cell', task: 'Observer un corpus local et citer chaque observation.' },
+  { id: 'scout-source', workerKind: 'scout_cell', task: 'Relever le terme timeout dans une source fournie.',
+    methodContract: { version: 1, methodId: 'scan_literal', parameters: {
+      sources: [{ sourceRef: 'corpus://benchmark/log-1', text: 'status=ok timeout=30' }],
+      terms: ['timeout'] } }, oracle: { path: 'observations.0.offset', equals: 10 } },
   { id: 'daemon-anomaly', workerKind: 'resident_daemon', task: 'Détecter un dépassement dans une fenêtre bornée.',
     methodContract: { version: 1, methodId: 'monitor_samples', parameters: {
       territoryId: 'benchmark-sensor', threshold: 10, samples: [
