@@ -244,6 +244,15 @@ function planPlacement(input = {}) {
   return placementResult(context);
 }
 
+function planPlacementBatch(input = {}) {
+  if (!Array.isArray(input.steps) || !input.steps.length) throw invalid('Placement batch requires at least one step.');
+  const steps = input.steps.map((raw, index) => {
+    const step = record(raw, `steps[${index}]`);
+    return { stepId: String(step.stepId || index), ...planPlacement({ ...input, ...step, steps: undefined }) };
+  });
+  return { accepted: steps.every((step) => step.accepted), steps };
+}
+
 function edgeLeaseAllowed(lease, verifier, requiredCapability) {
   return Boolean(lease && typeof verifier === 'function' && verifier(lease) === true
     && lease.leaseId && lease.deviceId && Date.parse(lease.expiresAt) > Date.now()
@@ -328,4 +337,4 @@ function createProofHash(value) {
 
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, planPlacement, planMemory,
   selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
-  validateToolInvocation, reconcileEdgeEvents, planRegeneration, createProofHash };
+  validateToolInvocation, reconcileEdgeEvents, planRegeneration, planPlacementBatch, createProofHash };

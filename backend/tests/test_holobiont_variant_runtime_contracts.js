@@ -86,9 +86,20 @@ function testRecoveryReservationGate() {
   assert.strictEqual(result.controlledApoptosisAllowed, false);
 }
 
+function testCloudEdgePlacementBatch() {
+  const lease = { leaseId: 'lease', deviceId: 'edge-1', capabilities: ['camera'],
+    expiresAt: new Date(Date.now() + 60_000).toISOString() };
+  const result = runtime.planPlacementBatch({ variantId: 'cloud-core/edge-symbionts', edgeConnected: true,
+    edgeLease: lease, requiredEdgeCapability: 'camera', verifyEdgeLease: () => true,
+    steps: [{ stepId: 'camera-a', availableEngines: ['cloud'] }, { stepId: 'camera-b', availableEngines: ['cloud'] }] });
+  assert.strictEqual(result.accepted, true);
+  assert.deepStrictEqual(result.steps.map((step) => step.host), ['cloud', 'cloud']);
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
 testLocalExportProofGate();
 testRecoveryReservationGate();
+testCloudEdgePlacementBatch();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');

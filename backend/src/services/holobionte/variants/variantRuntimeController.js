@@ -9,15 +9,15 @@ const OPERATIONS = Object.freeze({
   organelle: ['assessOrganelle', 'testOrganelleEssentiality'],
   'adaptive-microbiome': ['assessEcology', 'planRecruitment', 'selectCompetitivePartner'],
   'immune-critical': ['reviewImmuneThreat', 'reviewImmuneThreatBatch'],
-  'local-first': ['planPlacement'],
+  'local-first': ['planPlacement', 'planPlacementBatch'],
   'regenerative': ['planRegeneration'],
-  'cloud-core/edge-symbionts': ['planPlacement', 'reconcileEdgeEvents'],
-  'edge-core/cloud-symbionts': ['planPlacement'],
+  'cloud-core/edge-symbionts': ['planPlacement', 'planPlacementBatch', 'reconcileEdgeEvents'],
+  'edge-core/cloud-symbionts': ['planPlacement', 'planPlacementBatch'],
   'memory-rich': ['planMemory'],
   'competitive-partner': ['selectCompetitivePartner'],
   'procedural': ['planRecruitment'],
   'tool': ['validateToolManifest', 'validateToolInvocation'],
-  'cloud-core/edge-sync': ['planPlacement', 'reconcileEdgeEvents']
+  'cloud-core/edge-sync': ['planPlacement', 'planPlacementBatch', 'reconcileEdgeEvents']
 });
 
 function error(message, code) {
