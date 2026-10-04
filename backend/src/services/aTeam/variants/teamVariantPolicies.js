@@ -148,6 +148,7 @@ function matrixDecisions(mission) {
       informed: defaultTo(entry.informedIds, []),
       functionalOwner: entry.functionalOwnerId,
       productOwner: entry.productOwnerId,
+      currentRevision: Number.isSafeInteger(entry.currentRevision) ? entry.currentRevision : 0,
       vetoRights: defaultTo(entry.vetoRights, { functional: false, product: false })
     };
   }

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const execution = require('../src/services/aTeam/variants/variantExecutionService');
 const incidentCommand = require('../src/services/aTeam/variants/incidentCommandPolicy');
 const relayPolicy = require('../src/services/aTeam/variants/relayTeamPolicy');
+const teamPolicies = require('../src/services/aTeam/variants/teamVariantPolicies');
 
 async function testPipeline() {
   const cache = new Map();
@@ -116,6 +117,13 @@ function testRelayNestedDigest() {
   assert.notEqual(first.cryptographic_versioned_handoff.digest, altered.cryptographic_versioned_handoff.digest);
 }
 
+function testMatrixRevisionProjection() {
+  const policy = teamPolicies.matrixDecisions({ decisionAuthorities: [{
+    decisionType: 'release', functionalOwnerId: 'fn', productOwnerId: 'po', currentRevision: 7
+  }] });
+  assert.equal(policy.raciMatrix.release.currentRevision, 7);
+}
+
 async function run() {
   await testPipeline();
   await testStreamAndConsensus();
@@ -123,6 +131,7 @@ async function run() {
   testOperationalGates();
   testIncidentSpanAssignments();
   testRelayNestedDigest();
+  testMatrixRevisionProjection();
 }
 
 run().then(() => console.log('A-Team variant execution contracts passed.'))
