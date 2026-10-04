@@ -1372,12 +1372,13 @@ utiliser leur exécuteur habituel. Voir [ADR 0301](../adr/0301-falsification-det
 ## 52. Première mesure contre AutoGen local (2026-10-04)
 
 L'adaptateur AutoGen AgentChat + Ollama couvre LPT et `subset_sum`, et
-conserve les réponses brutes. Quatre essais locaux LPT avec AutoGen 0.7.5
-et `qwen2.5-coder:7b` ont produit des makespans de 9, 7, 9 puis 7 ;
-GenOS a obtenu 7. Sur les deux essais `subset_sum`, AutoGen a fourni
-un témoin valide puis un résultat rejeté. Le dernier rapport, établi sur
-le jeu courant, compare deux cas communs : LPT réussi par les deux
-systèmes et `subset_sum` réussi par GenOS seul.
+conserve les réponses brutes. Cinq essais locaux LPT avec AutoGen 0.7.5
+et `qwen2.5-coder:7b` ont produit des makespans de 9, 7, 9, 7 puis 9 ;
+GenOS a obtenu 7. Sur trois essais `subset_sum`, AutoGen a fourni un
+témoin valide, puis deux résultats rejetés. Le rapport courant
+(`sha256:69d4ca77f2bef18d14ad6ce7a3cfd4af8ee8b3bb44bf9dc74afe4624fd075d5d`)
+compare deux cas communs : GenOS passe les deux, AutoGen aucun sur ce
+tirage.
 Les dix-huit autres types n'ont pas encore de mesure AutoGen.
 Ces essais ne démontrent aucune parité générale.
 Voir [ADR 0302](../adr/0302-benchmark-rival-autogen-local.md).

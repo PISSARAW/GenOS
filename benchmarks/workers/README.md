@@ -50,6 +50,11 @@ quand Lean est configuré ; elle ne démontre aucune parité
 avec un rival. Les sorties JSON sont des artefacts temporaires à conserver
 hors du dépôt.
 
+Sur le digest courant du 2026-10-04, deux cas procéduraux sont communs
+avec AutoGen local : GenOS passe les deux, AutoGen aucun dans ce tirage.
+Les 18 autres cas de cet adaptateur restent non mesurés. Les essais
+précédents ont varié ; ces deux résultats ne fondent aucun classement général.
+
 ## Premier adaptateur rival : AutoGen local
 
 L'adaptateur [AutoGen AgentChat](https://microsoft.github.io/autogen/stable/user-guide/agentchat-user-guide/tutorial/index.html)

@@ -32,6 +32,13 @@ l'identité du modèle ou du serveur. Quatre essais locaux LPT ont donné des
 makespans différents (9, 7, 9 puis 7) ; ils ne constituent pas une estimation
 de performance générale.
 
+Une cinquième mesure LPT sur le jeu courant a produit 9, et une troisième
+mesure `subset_sum` n'a pas fourni de témoin valide. Le digest de suite
+`sha256:69d4ca77f2bef18d14ad6ce7a3cfd4af8ee8b3bb44bf9dc74afe4624fd075d5d`
+lie les deux rapports du 2026-10-04 : GenOS passe les deux cas communs,
+AutoGen échoue sur les deux. La variabilité observée interdit d'en déduire
+une parité ou une supériorité générale.
+
 ## Alternatives
 
 - Générer un reçu GenOS à partir de la réponse AutoGen : rejeté, car
