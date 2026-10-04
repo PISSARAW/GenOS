@@ -91,6 +91,71 @@ pub fn is_tool_allowed(name: &str) -> bool {
         .any(|tool| tool.get("name").and_then(Value::as_str) == Some(name))
 }
 
+pub fn is_tool_allowed_for_call(name: &str, args: &Value) -> bool {
+    if !is_tool_allowed(name) {
+        return false;
+    }
+    let Some(scope) = biological_feature_scope(name, args) else {
+        return true;
+    };
+    let disabled = configured_tool_set("GENOS_MCP_DISABLED_TOOLS").unwrap_or_default();
+    let Some(lease) = configured_tool_set("GENOS_MCP_LEASE") else {
+        let exposed = env_flag("GENOS_MCP_EXPOSE_ALL")
+            && expose_all_allowed(
+                true,
+                env::var("NODE_ENV").ok().as_deref(),
+                env_flag("GENOS_MCP_ALLOW_UNSAFE_EXPOSE_ALL"),
+            );
+        return capability_scope_granted(&scope, CapabilityLease {
+            lease: None,
+            disabled: &disabled,
+            expose_all: exposed,
+        });
+    };
+    capability_scope_granted(&scope, CapabilityLease {
+        lease: Some(&lease),
+        disabled: &disabled,
+        expose_all: false,
+    })
+}
+
+struct CapabilityLease<'a> {
+    lease: Option<&'a [String]>,
+    disabled: &'a [String],
+    expose_all: bool,
+}
+
+fn capability_scope_granted(scope: &str, access: CapabilityLease<'_>) -> bool {
+    if access.disabled.iter().any(|item| item == scope) {
+        return false;
+    }
+    access.expose_all || access.lease.is_some_and(|items| items.iter().any(|item| item == scope))
+}
+
+fn biological_feature_scope(name: &str, args: &Value) -> Option<String> {
+    if name != "genos_biomimicry" {
+        return None;
+    }
+    let feature = args.get("feature")?.as_str()?.trim().to_ascii_lowercase();
+    if feature.is_empty() {
+        return None;
+    }
+    let canonical = match feature.as_str() {
+        "electric_organ" => "electrocyte",
+        "collar_cell" => "choanocyte",
+        "structural_color" => "iridophore",
+        "stomata" => "guard_cell",
+        "xylem_wood" => "tracheid",
+        "plasmid_hgt" => "prokaryote",
+        _ => feature.as_str(),
+    };
+    let action = args.get("action")?.as_str()?.trim().to_ascii_lowercase();
+    if action.is_empty() {
+        return None;
+    }
+    Some(format!("genos_biomimicry::{canonical}::{action}"))
+}
+
 fn lease_expired() -> bool {
     let raw = match env::var("GENOS_MCP_LEASE_EXPIRES_AT") {
         Ok(value) => value,
@@ -135,7 +200,8 @@ fn expose_all_allowed(requested: bool, node_env: Option<&str>, unsafe_production
 
 #[cfg(test)]
 mod lease_tests {
-    use super::{catalog_tools::bridged_catalog_specs, expose_all_allowed, lease_expired_at};
+    use super::{biological_feature_scope, capability_scope_granted, CapabilityLease, catalog_tools::bridged_catalog_specs, expose_all_allowed, lease_expired_at};
+    use serde_json::json;
 
     #[test]
     fn backend_bridged_tools_come_from_canonical_catalog() {
@@ -159,5 +225,43 @@ mod lease_tests {
         assert!(expose_all_allowed(true, Some("development"), false));
         assert!(!expose_all_allowed(true, Some("production"), false));
         assert!(expose_all_allowed(true, Some("production"), true));
+    }
+
+    #[test]
+    fn specialized_biomimicry_calls_require_a_capability_scope() {
+        assert_eq!(
+            biological_feature_scope("genos_biomimicry", &json!({"feature":"electric_organ", "action":"discharge"})),
+            Some("genos_biomimicry::electrocyte::discharge".into())
+        );
+        assert_eq!(
+            biological_feature_scope("genos_biomimicry", &json!({"feature":"choanocyte", "action":"sift"})),
+            Some("genos_biomimicry::choanocyte::sift".into())
+        );
+        for (feature, action, scope) in [
+            ("iridophore", "render", "genos_biomimicry::iridophore::render"),
+            ("guard_cell", "throttle", "genos_biomimicry::guard_cell::throttle"),
+            ("tracheid", "transport", "genos_biomimicry::tracheid::transport"),
+            ("prokaryote", "conjugate", "genos_biomimicry::prokaryote::conjugate"),
+        ] {
+            assert_eq!(
+                biological_feature_scope("genos_biomimicry", &json!({"feature":feature, "action":action})),
+                Some(scope.into())
+            );
+        }
+        assert_eq!(
+            biological_feature_scope("genos_biomimicry", &json!({"feature":"invented", "action":"run"})),
+            Some("genos_biomimicry::invented::run".into())
+        );
+        assert_eq!(biological_feature_scope("genos_snapshot", &json!({"feature":"electrocyte", "action":"discharge"})), None);
+    }
+
+    #[test]
+    fn specialized_capability_scope_is_exact_and_disable_overrides_grant() {
+        let granted = vec!["genos_biomimicry::electrocyte::discharge".to_owned()];
+        assert!(capability_scope_granted(&granted[0], CapabilityLease { lease: Some(&granted), disabled: &[], expose_all: false }));
+        assert!(!capability_scope_granted("genos_biomimicry::electrocyte::recharge", CapabilityLease { lease: Some(&granted), disabled: &[], expose_all: false }));
+        assert!(!capability_scope_granted(&granted[0], CapabilityLease { lease: Some(&granted), disabled: &granted, expose_all: false }));
+        assert!(!capability_scope_granted(&granted[0], CapabilityLease { lease: None, disabled: &[], expose_all: false }));
+        assert!(capability_scope_granted(&granted[0], CapabilityLease { lease: None, disabled: &[], expose_all: true }));
     }
 }

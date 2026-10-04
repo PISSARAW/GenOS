@@ -34,9 +34,14 @@ function rankEpisodesByRelevance(episodes, goal) {
 
 function lessonAppliesToConditions(lesson, kind, goal) {
   if (lesson.scope && kind && lesson.scope !== kind) return false;
-  if (!lesson.reuseConditions?.length) return true;
   const goalTokens = new Set(tokenize(goal));
-  return lesson.reuseConditions.some((condition) => tokenize(condition).some((token) => goalTokens.has(token)) || condition === kind);
+  if (!goalTokens.size || !lesson.reuseConditions?.length) return false;
+  return lesson.reuseConditions.some((condition) => {
+    const conditionTokens = new Set(tokenize(condition));
+    const matches = [...conditionTokens].filter((token) => goalTokens.has(token)).length;
+    const denominator = Math.max(conditionTokens.size, goalTokens.size);
+    return denominator > 0 && matches / denominator >= 0.5;
+  });
 }
 
 function episodeLine(episode) {
@@ -57,11 +62,10 @@ function lessonLine(lesson) {
 
 function adjustmentsFromLessons(lessons) {
   const avoidCount = lessons.filter((lesson) => lesson.recommendedAction === 'avoid_strategy_before_retry').length;
-  const reuseCount = lessons.filter((lesson) => lesson.recommendedAction === 'reuse_strategy_first').length;
   return {
     riskDelta: avoidCount > 0 ? -0.1 * avoidCount : 0,
     evidenceStrictnessDelta: avoidCount > 0 ? 0.1 * avoidCount : 0,
-    confidenceBoost: reuseCount > 0 ? 0.05 * reuseCount : 0
+    confidenceBoost: 0
   };
 }
 

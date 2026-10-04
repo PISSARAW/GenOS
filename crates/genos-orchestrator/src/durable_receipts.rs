@@ -1,8 +1,8 @@
 //! Durable receipt boundary for mission ticks.
 
+use crate::GenosEcosystem;
 use crate::planner::Goal;
 use crate::tick::TickReport;
-use crate::GenosEcosystem;
 use genos_store::BiologicalReceiptStore;
 
 #[cfg(feature = "api")]
@@ -68,23 +68,43 @@ impl GenosEcosystem {
         goal: &Goal,
         store: &BiologicalReceiptStore,
     ) -> Result<TickReport, TickPersistenceError> {
+        self.tick_and_persist_with_receipts(goal, store)
+            .map(|(report, _)| report)
+    }
+
+    /// Persist one tick and return the exact durable receipt batch.
+    pub fn tick_and_persist_with_receipts(
+        &mut self,
+        goal: &Goal,
+        store: &BiologicalReceiptStore,
+    ) -> Result<(TickReport, Vec<serde_json::Value>), TickPersistenceError> {
         let mut report = self.tick_unpersisted(goal);
-        self.persist_tick_report(&mut report, store)
+        let receipts = self.build_receipt_batch(&mut report)
             .map_err(|message| TickPersistenceError { report: report.clone(), message })?;
-        Ok(report)
+        store.append_receipts(&receipts)
+            .map_err(|message| TickPersistenceError { report: report.clone(), message })?;
+        self.flush_receipt_journal(store)
+            .map_err(|message| TickPersistenceError { report: report.clone(), message })?;
+        Ok((report, receipts))
     }
 
     pub fn configure_receipt_journal(&mut self, path: impl Into<std::path::PathBuf>) {
         self.receipt_journal = Some(path.into());
     }
 
-    pub(crate) fn persist_tick_report(&self, report: &mut TickReport, store: &BiologicalReceiptStore) -> Result<(), String> {
-        let population = self.population_state_receipt(report.tick)?;
+    fn build_receipt_batch(&self, report: &mut TickReport) -> Result<Vec<serde_json::Value>, String> {
+        let mut population = self.population_state_receipt(report.tick)?;
+        population["receipt_id"] = serde_json::Value::String(uuid::Uuid::new_v4().to_string());
         let population_json = serde_json::to_string(&population).map_err(|error| error.to_string())?;
         for receipt in &mut report.biological_receipts { receipt.population_json = Some(population_json.clone()); }
         let mut receipts = report.biological_receipts.iter().map(serde_json::to_value)
             .collect::<Result<Vec<_>, _>>().map_err(|error| error.to_string())?;
         receipts.push(population);
+        Ok(receipts)
+    }
+
+    pub(crate) fn persist_tick_report(&self, report: &mut TickReport, store: &BiologicalReceiptStore) -> Result<(), String> {
+        let receipts = self.build_receipt_batch(report)?;
         store.append_receipts(&receipts)?;
         self.flush_receipt_journal(store)
     }
@@ -170,12 +190,22 @@ mod tests {
 
     #[test]
     fn persisted_tick_contains_population_snapshot_for_restart_recovery() {
-        let path = std::env::temp_dir().join(format!("genos-population-{}.jsonl", uuid::Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("genos-population-{}.jsonl", uuid::Uuid::new_v4()));
         let store = BiologicalReceiptStore::open(&path);
         let mut ecosystem = GenosEcosystem::new("durable-population");
         let mission_id = uuid::Uuid::new_v4();
         ecosystem.set_mission_id(mission_id);
-        ecosystem.orchestrator.create_tissue("Arena", "Exec").unwrap();
+        let root_cell = ecosystem.orchestrator.orchestrator_id;
+        let root_genome = ecosystem.seed_germline(root_cell, "DURABLE_ROOT").unwrap();
+        let root_fingerprint = ecosystem.orchestrator.genomes[&root_genome]
+            .fingerprint()
+            .unwrap()
+            .content_hash;
+        ecosystem
+            .orchestrator
+            .create_tissue("Arena", "Exec")
+            .unwrap();
         let cell = ecosystem
             .orchestrator
             .add_worker("Arena", AgentCell::new("cell", "w", "Soma"))
@@ -183,13 +213,35 @@ mod tests {
         ecosystem.seed_germline(cell, "DURABLE_POPULATION").unwrap();
         ecosystem.feed(100.0);
 
-        ecosystem.tick_and_persist(&Goal::SecurePerimeter, &store).unwrap();
+        let report = ecosystem.tick_and_persist(&Goal::Explore, &store).unwrap();
+        assert!(
+            !report.biological_receipts.is_empty(),
+            "the real tick must emit at least one execution receipt"
+        );
         let restored = BiologicalReceiptStore::open(&path).read_all().unwrap();
-        let execution = restored.iter().find(|receipt| receipt["schema"] == "genos.biological-execution-receipt/v1").unwrap();
-        assert_eq!(execution["mission_id"], mission_id.to_string());
-        assert!(execution["tick"].is_number());
-        assert_eq!(execution["execution_scope"], "organism");
-        assert!(restored.iter().any(|receipt| receipt["schema"] == "genos.population-state/v1"));
+        assert!(
+            restored
+                .iter()
+                .any(|receipt| receipt["schema"] == "genos.population-state/v1")
+        );
+        let tick_receipt = restored
+            .iter()
+            .find(|receipt| receipt["schema"] == "genos.biological-execution-receipt/v1")
+            .expect("tick receipt persisted");
+        assert_eq!(tick_receipt["mission_id"], mission_id.to_string());
+        assert_eq!(tick_receipt["cell_id"], root_cell.to_string());
+        assert_eq!(tick_receipt["genome_id"], root_genome.to_string());
+        assert_eq!(tick_receipt["genome_fingerprint"], root_fingerprint);
+        assert!(tick_receipt["cost"].as_f64().unwrap() > 0.0);
+        assert_eq!(tick_receipt["cost_unit"], "atp_token");
+        assert_eq!(tick_receipt["consumed"], true);
+        assert!(
+            report
+                .biological_receipts
+                .iter()
+                .any(|receipt| receipt.receipt_id.to_string()
+                    == tick_receipt["receipt_id"].as_str().unwrap())
+        );
         let _ = std::fs::remove_file(path);
     }
 

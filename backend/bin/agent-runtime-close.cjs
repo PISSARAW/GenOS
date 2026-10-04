@@ -36,7 +36,7 @@ async function handleRuntimeClose(ctx) {
   }
   const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
   if (db && hasAgentInDb) {
-    await persistConscience(ctx, code, missingTools);
+    await persistConscience(ctx, code);
   } else if (code === 0 && missingTools.length) {
     handleMissingTools(ctx, missingTools);
   } else if (code === 0) {
@@ -58,12 +58,8 @@ function handleBudgetStop(ctx, budgetStopped) {
   process.exit(1);
 }
 
-async function persistConscience(ctx, code, missingTools) {
+async function persistConscience(ctx, code) {
   const { db, agentConscience, conscienceState, pendingConscienceOp, mission } = ctx;
-  if (code === 0 && !missingTools.length) {
-    // Eurêka adossé à la complétion mission (preuve réelle), pas gratuit.
-    agentConscience.triggerEureka(conscienceState, { evidence: { missionCompleted: true, agentId: mission.agentId } });
-  }
   try {
     await pendingConscienceOp;
     await agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: code === 0 ? 'mission_completed' : 'mission_failed' });

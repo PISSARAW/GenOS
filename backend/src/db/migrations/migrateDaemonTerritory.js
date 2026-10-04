@@ -77,6 +77,10 @@ async function migrateDaemonTerritory(db) {
   `);
   await ensureTerritoryColumn(db, 'last_indexed_at', 'TEXT');
   await ensureTerritoryColumn(db, 'indexed_head_sha', 'TEXT');
+  const runtimeColumns = new Set((await db.all('PRAGMA table_info(daemon_runtime_state)')).map((column) => column.name));
+  if (!runtimeColumns.has('last_event_id')) {
+    await db.exec('ALTER TABLE daemon_runtime_state ADD COLUMN last_event_id INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
 async function ensureTerritoryColumn(db, name, type) {

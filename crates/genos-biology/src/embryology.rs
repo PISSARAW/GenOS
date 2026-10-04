@@ -1,8 +1,10 @@
 use crate::cell::AgentCell;
 use crate::genome::{ChromatinState, Gene, Genome};
+use genos_genome::{Embryogenesis, EmbryogenesisContext, MorphogenGradient};
 use std::collections::HashSet;
 
 pub const MAX_ZYGOTE_DIVISIONS: u32 = 16;
+const DEVELOPMENTAL_WINDOW_STEPS: u64 = 10;
 
 pub fn seed_hox_genome(base_instruction: &str) -> Genome {
     let mut genome = Genome::new(base_instruction);
@@ -48,13 +50,27 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
     for (i, cell) in swarm.iter_mut().enumerate() {
         let position_ratio = if total == 1 { 0.0 } else { i as f64 / (total - 1) as f64 };
 
-        if position_ratio < gradient / 3.0 {
-            cell.role = "HOX-1_UI_FRONTEND".to_string();
+        let target_role = if position_ratio < gradient / 3.0 {
+            "HOX-1_UI_FRONTEND"
         } else if position_ratio < (gradient / 3.0) * 2.0 {
-            cell.role = "HOX-2_LOGIC_BACKEND".to_string();
+            "HOX-2_LOGIC_BACKEND"
         } else {
-            cell.role = "HOX-3_DATA_STORAGE".to_string();
-        }
+            "HOX-3_DATA_STORAGE"
+        };
+        let budget = cell.conscience.current_budget;
+        let baseline = cell.conscience.baseline_budget;
+        let energy_budget = if baseline > 0.0 { (budget / baseline).clamp(0.0, 1.0) } else { 0.0 };
+        let program = Embryogenesis::compute_program(genome, &genome.epigenome, &EmbryogenesisContext {
+            signals: Vec::new(),
+            morphogens: vec![MorphogenGradient {
+                name: target_role.to_string(),
+                concentration: 1.0,
+                source_locus: target_role.to_string(),
+            }],
+            energy_budget,
+            time_step: DEVELOPMENTAL_WINDOW_STEPS,
+        });
+        cell.role = program.expressed_lineage.unwrap_or_else(|| "UNCOMMITTED".to_string());
         cell.chromatin_state = Some("Differentiated".to_string());
         cell.genome_id = Some(genome.genome_id());
     }

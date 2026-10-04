@@ -246,6 +246,9 @@ stateDiagram-v2
 
 - 7 activités, 5 santés, transitions déterministes (`TRANSITIONS`).
 - `registerDaemon` exige `daemonId + territoryId`, conflit si territoire différent.
+- À la reprise d'un daemon existant, l'activité repart à `BOOTSTRAPPING` ; santé,
+  révisions cognitives et curseur `last_event_id` sont conservés. Le démarrage ne
+  restaure donc pas une activité transitoire telle que `INVESTIGATING`.
 - `heartbeat` sur daemon inconnu → `{updated:false, errors:['unknown-daemon']}`, jamais de throw.
 - Host minimal : `backend/bin/genos-daemon.cjs` — `--territory` + `--daemon-id` requis,
   refuse de démarrer si territoire non enregistré, souscrit les 16 événements reconnus,
@@ -306,7 +309,18 @@ Event → validate(territoryId, knownEvent) → cheapUpdate(head|touch)
   Temps injecté, sans LLM.
 - Pas de timer de rattrapage `KNOWLEDGE_STALE` dans l'hôte ; l'interoception dérive la fraîcheur du dernier index réussi et de son HEAD.
 - `ingestEvent` retourne `llmRequired: false` ; le handoff est en `try/catch`
-  et ne bloque jamais l'ingestion. Écriture `daemon_events` en best-effort.
+  et ne bloque jamais l'ingestion. `ingestEvent` expose séparément `logged` :
+  son écriture `daemon_events` reste best-effort. Le pont de production ne marque
+  toutefois `emitted: true` que si l'update cheap a réussi et que l'événement a
+  été journalisé ; sinon il renvoie `event-log-failed` (sans throw).
+
+Le host applique les migrations daemon au démarrage plutôt qu'à chaque tick.
+Le poller durable s'exécute toutes les 500 ms, lit au plus 100 lignes après le
+curseur `last_event_id` et avance ce curseur via heartbeat. L'index
+`(territory_id, id)` couvre cette lecture. Les migrations `daemon_events` et
+`payload_json` sont mémorisées par objet de connexion pendant la vie du process.
+Le pont production exécute aussi `git rev-parse` et `git diff` de façon
+asynchrone, avec délais limites de 3 s et 5 s, pour ne pas bloquer l'event loop.
 
 ```mermaid
 sequenceDiagram
@@ -331,6 +345,7 @@ sequenceDiagram
       WAKE-->>BRIDGE: low-priority-persist-only
     end
     BRIDGE->>BRIDGE: log daemon_events (best-effort)
+    Note over PROD,BRIDGE: le pont production ne confirme l'émission qu'après le journal
 ```
 
 Source : `backend/src/services/daemon/daemonEventBridgeService.js:3-145`,
@@ -641,10 +656,14 @@ Source : `backend/src/services/daemon/daemonStigmergyService.js:11-111`,
 
 - Compiler (D11) : sur `ORCHESTRATOR_ENTERED`, compile `TerritoryBrief` depuis
   territoire + graphe + findings + stigmergie, persiste en `daemon_handoffs`,
-  retourne `{brief, signal: TERRITORY_BRIEF_READY}`.
+  retourne `{brief, signal: TERRITORY_BRIEF_READY}`. En production, l'orchestrateur
+  récupère explicitement le brief persistant par `briefId` et l'ajoute au prompt
+  de la mission qui l'a demandé; si le daemon ou le brief manque, la mission continue.
 - Inclus : top 20 findings, 10 dead-ends `REFUTED`, 50 tests, findings ouverts
   (`NOT IN (REFUTED, EXPIRED)`), phénotypes actifs, attention stigmergique, `stalenessWarnings`.
-- Signal zero-texte = `{briefId, territoryId, headSha, relevanceClass}` seulement.
+- Signal zero-texte = `{briefId, territoryId, headSha, relevanceClass}` seulement;
+  le signal local n'est pas le transport du dossier. Le brief est consommé via la
+  récupération explicite et passe alors de `READY` à `CONSUMED`.
 - Pertinence déterministe sans LLM : poids `REPAIRABLE 6, CAUSALLY_SUPPORTED 5,
   REPRODUCED 4, SUPPORTED 3, HYPOTHESIZED 2, OBSERVED 1, STALE 0.5` + overlap
   lexical mission plafonné à 3. `relevanceClass : top ≥ 6 → high, ≥ 2 → medium, sinon low`.

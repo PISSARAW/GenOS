@@ -25,18 +25,19 @@ ses handlers (aucune mutation ne s'appliquait, en silence).
    structure/type/budget avec refus fermé (`morphologyCompiler.js`,
    `morphologyTypeChecker.js`, `morphologyBudgetChecker.js`).
 2. Les 8 opérateurs ont une sémantique réelle (barrière de jointure, gates
-   post-étape, états isolés, reçus de décision, budgets comparables,
-   contrats `BRIDGE` fail-closed, quorum `FEDERATE`) et chaque nœud émet un
-   reçu avec dossier de preuve distinct.
+   post-étape, états isolés, reçus d'exécution, budgets comparables,
+   contrats `BRIDGE` fail-closed, quorum `FEDERATE`). Les reçus et les preuves
+   sont des flux distincts; un reçu d'exécution ne vaut pas preuve.
 3. Les 8 topologies sont câblées par plugins explicites
    (`installTopologyPlugins`, opt-in, pas d'auto-montage) : 5 contrôleurs
    in-process, Biome in-memory réel, Holobionte/Métapopulation sur runtimes
    réels persistés (SQLite natif sinon repli `node:sqlite` déclaré).
    Contrats d'entrée des feuilles imposés avec refus fermé (ballots,
    `capability`, mission).
-4. `MorphologyRuntime.applyPatch` (pipeline complet avec contrefactuel et
-   rollback) et `changeVariant` (patch vérifié, sans reconstruction) ;
-   enregistrement best-effort dans le magasin d'expérience.
+4. `MorphologyRuntime.applyPatch` (pipeline avec contrefactuel et rollback)
+   et `changeVariant` (transition enregistrée, conditions/preuves requises,
+   puis patch). Une exécution sans issue évaluée ne crée pas d'expérience
+   d'apprentissage.
 5. Déterminisme des contrôleurs (plus de `Math.random`/`Date.now` dans les
    décisions) ; `applyOperation` sur opérateur inconnu lève au lieu
    d'ignorer.
@@ -58,6 +59,12 @@ Négatives :
 - Les contrôleurs restent des modèles simplifiés ; le planificateur
   historique reste mono-topologie ; les boucles de contrôle ne sont pas
   tickées ; les priors du résolveur ne sont pas calibrés.
+
+L'API runtime actuelle refuse `changeVariant` si son `variantRegistry` ne
+contient aucune transition applicable, ou si les conditions ou preuves de cette
+transition ne sont pas satisfaites. Un receipt porte le statut
+`verificationStatus: not_verified`; la validation d'un graphe ou l'émission
+d'un receipt ne démontre pas le résultat de mission.
 
 ## Alternatives
 

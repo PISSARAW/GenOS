@@ -77,6 +77,12 @@ les leçons dont les conditions de réutilisation s'appliquent, et renvoie :
   l'appelant est censé répercuter sur le budget, la tolérance au risque ou les portes de
   preuve — ce n'est pas un rappel décoratif.
 
+Les leçons v1 résument des statuts de résultat déclarés; elles ne vérifient pas elles-mêmes
+les artefacts de preuve. Elles ne doivent donc jamais augmenter la confiance du modèle de
+soi. Leur rappel exige une proximité lexicale significative avec le but courant; cette
+heuristique réduit les transferts manifestement éloignés, sans démontrer une équivalence
+de contexte.
+
 L'intégration runtime est effectuée par
 `backend/src/services/autobiographicalMemory/orchestratorRecall.js`, appelé depuis
 `buildAutonomyPlanForMission` dans `backend/src/services/agentAutonomyPlanService.js`,

@@ -111,14 +111,16 @@ async function findTerritoryOccupant(runtime, input) {
 
 async function persistRegistration(runtime, registration) {
   if (!runtime.db) return;
-  if (registration.resumed) return touchRegistration(runtime.db, registration.daemonId);
+  if (registration.resumed) return touchRegistration(runtime.db, registration.daemonId, registration.state);
   return insertRegistration(runtime.db, registration);
 }
 
-async function touchRegistration(db, daemonId) {
+async function touchRegistration(db, daemonId, state) {
   const res = await db.run(
-    "UPDATE daemon_runtime_state SET last_heartbeat_at = datetime('now'), updated_at = datetime('now') WHERE daemon_id = ?",
-    daemonId
+    `UPDATE daemon_runtime_state
+     SET activity = ?, health = ?, last_heartbeat_at = datetime('now'), updated_at = datetime('now')
+     WHERE daemon_id = ?`,
+    state.activity, state.health, daemonId
   );
   if (!res || res.changes === 0) throw Object.assign(new Error('registration-missing'), { code: 'REGISTRATION_MISSING' });
 }
@@ -137,13 +139,14 @@ async function insertRegistration(db, registration) {
 }
 
 function restoreRuntimeState(input, prior) {
-  const activity = prior ? prior.activity : input.activity;
+  const activity = prior ? 'BOOTSTRAPPING' : input.activity;
   const health = prior ? prior.health : input.health;
   return {
     territoryId: input.territoryId,
     activity: isValidActivity(activity) ? activity : 'BOOTSTRAPPING',
     health: isValidHealth(health) ? health : 'HEALTHY',
-    revisions: Number((prior && prior.cognitive_revisions) || 0)
+    revisions: Number((prior && prior.cognitive_revisions) || 0),
+    lastEventId: Number((prior && prior.last_event_id) || 0)
   };
 }
 
@@ -154,7 +157,7 @@ async function heartbeat(runtime, tick) {
   applyTickToEntry(entry, tick);
   const receipt = await persistHeartbeat(runtime, tick, entry);
   if (runtime.db && !receipt.persisted) return { updated: false, errors: ['persistence-missed'] };
-  return { updated: true, activity: entry.activity, health: entry.health, revisions: entry.revisions };
+  return { updated: true, activity: entry.activity, health: entry.health, revisions: entry.revisions, lastEventId: entry.lastEventId };
 }
 
 function applyTickToEntry(entry, tick) {
@@ -167,18 +170,22 @@ function applyTickToEntry(entry, tick) {
 }
 
 async function persistHeartbeat(runtime, tick, entry) {
-  if (!runtime.db) return { persisted: false };
+  const nextEventId = Number.isSafeInteger(tick.eventId) ? Math.max(entry.lastEventId || 0, tick.eventId) : (entry.lastEventId || 0);
+  if (!runtime.db) { entry.lastEventId = nextEventId; return { persisted: false }; }
   const res = await runtime.db.run(
     `UPDATE daemon_runtime_state
-     SET activity = ?, health = ?,
-         cognitive_revisions = cognitive_revisions + ?,
-         last_heartbeat_at = datetime('now'), updated_at = datetime('now')
+      SET activity = ?, health = ?,
+          cognitive_revisions = cognitive_revisions + ?,
+          last_event_id = MAX(last_event_id, ?),
+          last_heartbeat_at = datetime('now'), updated_at = datetime('now')
      WHERE daemon_id = ?`,
     entry.activity,
     entry.health,
     tick.revision === true ? 1 : 0,
+    nextEventId,
     tick.daemonId
   );
+  entry.lastEventId = nextEventId;
   return { persisted: Boolean(res && res.changes > 0) };
 }
 
@@ -196,7 +203,8 @@ async function getDaemonState(runtime, query) {
     territoryId: row.territory_id,
     activity: row.activity,
     health: row.health,
-    revisions: row.cognitive_revisions
+    revisions: row.cognitive_revisions,
+    lastEventId: Number(row.last_event_id || 0)
   };
 }
 

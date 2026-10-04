@@ -1294,3 +1294,19 @@ topologies biologiques produit des membres typés mais n'implique pas, à elle
 seule, leur lancement. Les artefacts sont vérifiés par les barrières de preuve
 du chemin d'exécution concerné; la vérification des chemins `requiredEvidence`
 est actuellement raccordée au validateur d'artefacts du runtime local.
+
+## 48. Budget cognitif et lease effectif (2026-10-03)
+
+Les chemins `agentFleetWorkers` et `agents/agentIncarnationService` partagent
+`workerCognitiveBudget.calculateInheritedCognitiveBudget` :
+`max(0, budget parent) × clamp(part worker, 0, 1) / max(1, floor(nombre workers))`.
+Valeurs parent non finies → défaut 100 ; parts non finies → défaut 0,6 ; compte
+de workers invalide → 1. La part explicite `0` est conservée, jamais remplacée
+par le défaut. Le dispatch générique inscrit le worker et débite le budget du
+parent dans la même transaction, avec reprise bornée sur une course de débit.
+
+Le lease fourni par l'appelant est une restriction de la politique calculée.
+Un lease omis conserve le lease de politique ; un lease explicitement vide
+`[]` signifie zéro outil et ne retombe pas sur le lease complet du rôle. Cette
+distinction empêche qu'une absence d'autorité explicite soit élargie par
+accident (`toolLeasePolicy.restrictProvidedLease`).

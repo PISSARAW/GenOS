@@ -83,7 +83,12 @@ async function waitForCompletion(db) {
     let agents, trinityWorlds;
     try {
       agents = await db.all('SELECT id, status, runtime_pid FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
-      trinityWorlds = await db.all('SELECT agent_id, status FROM trinity_worlds WHERE id LIKE ? ORDER BY world_number', `${id}_world_%`);
+      trinityWorlds = await db.all(
+        `SELECT agent_id, status FROM trinity_worlds
+         WHERE experiment_id GLOB ? AND datetime(created_at) >= datetime(?)
+         ORDER BY world_number`,
+        `trinity_${id}*`, new Date(SCRIPT_START_TIME).toISOString()
+      );
     } catch (err) {
       if (isRetryableDatabaseError(err)) {
         await new Promise((resolve) => setTimeout(resolve, Math.min(3000, 300 * Math.pow(1.5, busyRetries))));
@@ -108,8 +113,9 @@ function isRetryableDatabaseError(error) {
 function missionExecutionTerminal(agents, trinityWorlds) {
   const terminal = ['blocked', 'error', 'terminated', 'apoptosis', 'completed', 'unverified', 'failed', 'quarantined'];
   const allAgentsTerminal = agents.length && agents.every((agent) => !agent.runtime_pid && terminal.includes(agent.status));
-  const allTrinityTerminal = trinityWorlds.length >= 3 && trinityWorlds.every((world) => terminal.includes(world.status));
-  return allAgentsTerminal || allTrinityTerminal;
+  const allTrinityTerminal = trinityWorlds.length === 0 ||
+    (trinityWorlds.length >= 3 && trinityWorlds.every((world) => terminal.includes(world.status)));
+  return Boolean(allAgentsTerminal && allTrinityTerminal);
 }
 
 async function observeMissionPulse(db, pulseTick) {

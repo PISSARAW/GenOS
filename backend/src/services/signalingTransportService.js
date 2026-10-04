@@ -154,8 +154,7 @@ function scopeMismatchResult(signal, routing) {
     suppressedBy: 'recipient_scope', suppressionReason: 'One or more requested recipients are outside the authorized routing scope.', routing };
 }
 
-async function routeAndDispatch(signal, params) {
-  const routing = await routeSignal(signal, params);
+async function routeAndDispatch(signal, params, routing) {
   const mismatch = scopeMismatchResult(signal, routing);
   if (mismatch) return mismatch;
   // Destinataires AVANT dispatch : les récepteurs ciblés matchent dessus, jamais sur l'émetteur.
@@ -222,10 +221,14 @@ async function publishSignal(params) {
   });
   if (!coalesced) return handleSuppressed(signal);
 
+  const routing = await routeSignal(signal, params);
+  const mismatch = scopeMismatchResult(signal, routing);
+  if (mismatch) return mismatch;
+
   await persistSignalRow(buildRow({ id: signal.id, formatted: signal.formatted, topic: signal.topic, senderAgentId: signal.senderAgentId, expiresAt: signal.expiresAt }));
   pushLocalLog(signal.id, signal.formatted);
 
-  return await routeAndDispatch(signal, params);
+  return await routeAndDispatch(signal, params, routing);
 }
 
 async function buildSignalFromParams(params) {
@@ -283,11 +286,20 @@ async function readSignalsForAgent(subscriberAgentId, since = null, limit = 100)
   try {
     const db = await getDatabase();
     const rows = await retryDbOperation(() => db.all(sql, vals));
-    return rows.map(decodeSignalRow).filter(Boolean);
+    return rows.map(decodeSignalRow).filter((signal) => (
+      signal && isReadableByAgent(signal, subscriberAgentId)
+    ));
   } catch (e) {
     console.warn('[SignalingTransport] readSignalsForAgent failed after retries:', e.message);
     return [];
   }
+}
+
+function isReadableByAgent(signal, agentId) {
+  if (signal.integrity?.status === 'rejected') return false;
+  const envelope = signal.decoded?.communicationEnvelope;
+  if (!envelope || envelope.recipientMode !== 'targeted') return true;
+  return envelope.recipientAgentIds.includes(agentId);
 }
 
 async function markSignalsSeen(subscriberAgentId, signalIds) {

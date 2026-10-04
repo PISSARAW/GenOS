@@ -27,7 +27,6 @@ function reasonOf(node, branchName) {
 
 function collectResult(parent, child) {
   parent.receipts.push(...child.receipts);
-  parent.evidence.push(...child.receipts);
   parent.evidence.push(...child.evidence);
 }
 

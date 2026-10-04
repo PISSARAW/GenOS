@@ -230,7 +230,7 @@ function buildExecutionResult(decision, result) {
 
 async function publishAndWrap(decision, ctx, recipients) {
   const signalData = buildSignalData(ctx, decision);
-  const topic = recipients.length > 0 ? 'checkpoint' : 'global';
+  const topic = decision.scope === 'GLOBAL_BROADCAST' ? 'global' : 'checkpoint';
   const params = {
     signalType: 'ligand',
     signalData,

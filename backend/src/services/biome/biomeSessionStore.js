@@ -63,8 +63,11 @@ async function mutate(options) {
     if (!record) throw Object.assign(new Error(`Unknown biome session '${options.id}'.`), { code: 'BIOME_SESSION_UNKNOWN' });
     const change = await options.mutator(record);
     if (change.state.persistenceKey && change.state.scope === 'persistent') {
-      change.state.persistenceRevision = await savePersistentEnvironment(db, change.state.persistenceKey,
-        persistentSnapshot(change.state), change.state.persistenceRevision ?? null);
+      change.state.persistenceRevision = await savePersistentEnvironment(db, {
+        id: change.state.persistenceKey,
+        state: persistentSnapshot(change.state),
+        expectedRevision: change.state.persistenceRevision ?? null,
+      });
     }
     const revision = record.revision + 1;
     const updated = await db.run(`UPDATE topology_sessions SET state_json = ?, revision = ?, updated_at = CURRENT_TIMESTAMP

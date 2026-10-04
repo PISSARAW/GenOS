@@ -4,20 +4,32 @@ const { analyzeSpeechAct } = require('../philosophy/speechActService');
 const { createLanguageGame, evaluateMove } = require('../philosophy/languageGameService');
 const { compileFromReport } = require('./speechActCompilerService');
 const { ensureVerbalTables, assertArtifactKind, getEscalation } = require('./verbalEscalationService');
+const { withTransaction } = require('../../db');
 
 const DIALOGUE_DIRECT = new Set(['COMMITMENT_NEGOTIATION', 'HUMAN_EXPLANATION_REQUIRED']);
 
 const DEFAULT_BUDGETS = Object.freeze({ tokenBudget: 2000, maxTurns: 8 });
 
 function budgetsOf(input) {
-  return {
-    tokenBudget: Number(input.tokenBudget || DEFAULT_BUDGETS.tokenBudget),
-    maxTurns: Number(input.maxTurns || DEFAULT_BUDGETS.maxTurns)
-  };
+  const tokenBudget = input.tokenBudget === undefined ? DEFAULT_BUDGETS.tokenBudget : Number(input.tokenBudget);
+  const maxTurns = input.maxTurns === undefined ? DEFAULT_BUDGETS.maxTurns : Number(input.maxTurns);
+  if (!Number.isSafeInteger(tokenBudget) || tokenBudget < 0 || tokenBudget > 1000000) {
+    throw new Error('Dialogue tokenBudget must be an integer between 0 and 1000000.');
+  }
+  if (!Number.isSafeInteger(maxTurns) || maxTurns < 1 || maxTurns > 100) {
+    throw new Error('Dialogue maxTurns must be an integer between 1 and 100.');
+  }
+  return { tokenBudget, maxTurns };
 }
 
 function deadlineOf(input) {
-  if (input.deadlineMs) return new Date(Date.now() + Number(input.deadlineMs)).toISOString();
+  if (input.deadlineMs !== undefined && input.deadlineMs !== null) {
+    const deadlineMs = Number(input.deadlineMs);
+    if (!Number.isFinite(deadlineMs) || deadlineMs <= 0 || deadlineMs > 86400000) {
+      throw new Error('Dialogue deadlineMs must be between 1 and 86400000.');
+    }
+    return new Date(Date.now() + deadlineMs).toISOString();
+  }
   return null;
 }
 
@@ -45,51 +57,68 @@ async function turnCount(db, escalationId) {
   return Number(row.n);
 }
 
-async function forceCloseUnresolved(db, escalationId, tokensUsed) {
+async function forceCloseUnresolved(db, escalationId, tokensUsed, reason) {
   await db.run(
     `INSERT OR IGNORE INTO dialogue_artifacts (escalation_id, kind, artifact_json) VALUES (?, 'UNRESOLVED', ?)`,
-    [escalationId, JSON.stringify({ reason: 'budget_exhausted', tokensUsed })]
+    [escalationId, JSON.stringify({ reason, tokensUsed })]
   );
-  await db.run("UPDATE verbal_escalations SET status = 'unresolved', updated_at = CURRENT_TIMESTAMP WHERE id = ?", [escalationId]);
+  await db.run("UPDATE verbal_escalations SET status = 'unresolved', tokens_used = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [tokensUsed, escalationId]);
   return getSession({ db, escalationId });
 }
 
 async function appendTurn(input) {
   const db = await ensureVerbalTables(input.db);
-  const session = await getSession({ db, escalationId: input.escalationId });
-  if (!session || session.status !== 'dialogue_open') {
-    throw new Error('Dialogue is not open for new turns.');
-  }
-  const used = Number(session.tokensUsed) + Number(input.tokensUsed || 0);
-  if (used > Number(session.tokenBudget)) return forceCloseUnresolved(db, session.id, used);
-  const count = await turnCount(db, session.id);
-  if (count >= Number(session.maxTurns)) return forceCloseUnresolved(db, session.id, used);
-  const speechAct = analyzeSpeechAct({ utterance: input.utterance, speaker: input.speaker });
-  const compiled = compileFromReport(speechAct, { utterance: input.utterance, speaker: input.speaker });
-  const stored = Object.assign({}, speechAct, { compiled });
-  await db.run(
-    `INSERT INTO dialogue_turns (escalation_id, seq, speaker_agent_id, utterance_text, speech_act_json, tokens_used)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [session.id, count + 1, input.speaker, input.utterance, JSON.stringify(stored), Number(input.tokensUsed || 0)]
-  );
-  await db.run('UPDATE verbal_escalations SET tokens_used = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [used, session.id]);
-  return { turn: count + 1, speechAct, compiled, closed: false, tokensUsed: used };
+  const turnTokens = input.tokensUsed === undefined ? 0 : Number(input.tokensUsed);
+  if (!Number.isSafeInteger(turnTokens) || turnTokens < 0) throw new Error('tokensUsed must be a non-negative integer.');
+  if (typeof input.utterance !== 'string' || !input.utterance.trim()) throw new Error('A non-empty utterance is required.');
+  return withTransaction(db, async (tx) => {
+    const session = await getSession({ db: tx, escalationId: input.escalationId });
+    if (!session || session.status !== 'dialogue_open') {
+      throw new Error('Dialogue is not open for new turns.');
+    }
+    if (!session.participants.includes(input.speaker)) throw new Error('Speaker is not a participant in this dialogue.');
+    const used = Number(session.tokensUsed) + turnTokens;
+    if (session.deadlineAt && Date.now() >= Date.parse(session.deadlineAt)) {
+      return forceCloseUnresolved(tx, session.id, used, 'deadline_exhausted');
+    }
+    if (used > Number(session.tokenBudget)) return forceCloseUnresolved(tx, session.id, used, 'budget_exhausted');
+    const count = await turnCount(tx, session.id);
+    if (count >= Number(session.maxTurns)) return forceCloseUnresolved(tx, session.id, used, 'turn_limit_exhausted');
+    const speechAct = analyzeSpeechAct({ utterance: input.utterance, speaker: input.speaker });
+    const compiled = compileFromReport(speechAct, { utterance: input.utterance, speaker: input.speaker });
+    const stored = Object.assign({}, speechAct, { compiled });
+    await tx.run(
+      `INSERT INTO dialogue_turns (escalation_id, seq, speaker_agent_id, utterance_text, speech_act_json, tokens_used)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [session.id, count + 1, input.speaker, input.utterance, JSON.stringify(stored), turnTokens]
+    );
+    await tx.run('UPDATE verbal_escalations SET tokens_used = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [used, session.id]);
+    return { turn: count + 1, speechAct, compiled, closed: false, tokensUsed: used };
+  });
 }
 
 async function closeSession(input) {
   const db = await ensureVerbalTables(input.db);
-  const session = await getSession({ db, escalationId: input.escalationId });
-  if (!session || session.status !== 'dialogue_open') {
-    throw new Error('Only an open dialogue can be closed with an artifact.');
-  }
   assertArtifactKind(input.artifactKind);
-  await db.run(
-    `INSERT INTO dialogue_artifacts (escalation_id, kind, artifact_json) VALUES (?, ?, ?)`,
-    [session.id, input.artifactKind, JSON.stringify(input.artifact || {})]
-  );
-  const status = input.artifactKind === 'UNRESOLVED' ? 'unresolved' : 'resolved';
-  await db.run('UPDATE verbal_escalations SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, session.id]);
-  return getSession({ db, escalationId: session.id });
+  return withTransaction(db, async (tx) => {
+    const session = await getSession({ db: tx, escalationId: input.escalationId });
+    if (!session || session.status !== 'dialogue_open') {
+      throw new Error('Only an open dialogue can be closed with an artifact.');
+    }
+    if (session.requiredArtifact && input.artifactKind !== 'UNRESOLVED'
+        && input.artifactKind !== session.requiredArtifact) {
+      throw Object.assign(new Error(`Dialogue requires artifact '${session.requiredArtifact}', not '${input.artifactKind}'.`), {
+        code: 'REQUIRED_ARTIFACT_MISMATCH'
+      });
+    }
+    await tx.run(
+      `INSERT INTO dialogue_artifacts (escalation_id, kind, artifact_json) VALUES (?, ?, ?)`,
+      [session.id, input.artifactKind, JSON.stringify(input.artifact || {})]
+    );
+    const status = input.artifactKind === 'UNRESOLVED' ? 'unresolved' : 'resolved';
+    await tx.run('UPDATE verbal_escalations SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, session.id]);
+    return getSession({ db: tx, escalationId: session.id });
+  });
 }
 
 async function getSession(input) {

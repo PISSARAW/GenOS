@@ -1,6 +1,9 @@
 pub mod autopoiesis;
+#[cfg(feature = "api")]
+pub mod biological_receipt_backend;
 pub mod animal_sensory_runtime;
 pub mod behaviors;
+pub mod checkpoint;
 pub mod clinical_therapy;
 #[cfg(feature = "api")]
 pub mod authorized_therapy;
@@ -13,9 +16,9 @@ pub mod director_beam;
 pub mod director_learning;
 pub mod director_persistence;
 pub mod director_planning;
+pub mod drives;
 pub mod durable_receipts;
 pub mod dna_ops;
-pub mod drives;
 pub mod ecosystem;
 pub mod ecosystem_params;
 pub mod hgt_runtime;

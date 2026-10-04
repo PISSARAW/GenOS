@@ -1,5 +1,3 @@
-module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };
-
 const circuitBreaker = require('./circuitBreaker');
 const workerGarage = require('./workerGarageService');
 const workerKinds = require('./agents/workerKindService');
@@ -13,6 +11,7 @@ const agentEvolution = require('./agentEvolutionService');
 const agentDnaStore = require('./agentDnaStore');
 const { withTransaction } = require('../db');
 const config = require('../config/orchestratorConfig');
+const { calculateInheritedCognitiveBudget } = require('./workerCognitiveBudget');
 
 async function applyAgentDna(ctx) {
   const { db, parent, assignment, mission } = ctx;
@@ -77,15 +76,6 @@ function phenotypeHash(selection) {
   if (!selection || !selection.genes) return null;
   const crypto = require('crypto');
   return crypto.createHash('sha256').update(JSON.stringify(selection.genes)).digest('hex').slice(0, 16);
-}
-
-function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
-  const normalizedParentBudget = Math.max(0, Number(parentBudget ?? 100));
-  const normalizedWorkerShare = Number.isFinite(Number(workerShare))
-    ? Math.max(0, Math.min(1, Number(workerShare)))
-    : 0.6;
-  const normalizedWorkerCount = Math.max(1, Math.floor(Number(workerCount) || 1));
-  return (normalizedParentBudget * normalizedWorkerShare) / normalizedWorkerCount;
 }
 
 async function createAutonomousWorkers(db, orchestrator, options = {}) {
@@ -392,3 +382,5 @@ function splitBudget(value, index, assignments) {
   const extra = index === 0 ? fractional : 0;
   return Number((base + bonus + extra).toFixed(6));
 }
+
+module.exports = { createAutonomousWorkers, splitBudget, buildExecutionBudget, inheritedWorkerEngine, calculateInheritedCognitiveBudget, buildWorkerPrompt, includePersistedWorkers, workerIdentity };

@@ -25,7 +25,7 @@ graph TD
     end
 
     subgraph COGNITIVE["Dégénérescence Cognitive & Logistique"]
-        DISSONANCE["Dissonance cognitive (> 0.85)"] --> PRION["Pathology::PrionAggregation\n(Plaques Amyloïdes / Alpha-Synucléine)"]
+        DISSONANCE["Dissonance / seuil configurable > 85 %"] --> PRION["Pathology::PrionAggregation\n(Plaques Amyloïdes / Alpha-Synucléine)"]
         TICKS["Âge d'exécution (age_ticks)"] --> DECAY["Pathology::ContextualDecay\n(Atrophie Synaptique / Tau)"]
         DOPA_DEP["Déplétion Dopaminergique"] --> AKINESIA["Akinésie Moteur / Hillock Blocker"]
     end
@@ -76,7 +76,7 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
   La maladie d'Alzheimer computationnelle correspond à la **corruption progressive de la mémoire épisodique et du graphe causal d'un agent**, doublée d'un **effondrement de l'arbre dendritique et de l'intégrité du transport axonal**.
 * **Modules Rust et Fichiers Source Concrets :**
   1. [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs#L67-L75) :
-     - [`Pathology::PrionAggregation { dissonance_score }`](../../../crates/genos-cell/src/clinical.rs#L68-L70) : Accumulation d'incohérences de raisonnement non corrigées dans la mémoire de travail de l'agent. Quand `dissonance_level > 0.85`, cette pathologie est diagnostiquée par [`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs#L62-L74). Les hallucinations logiques agissent comme des prions / oligomères $A\beta$, contaminant les inférences subséquentes.
+     - [`Pathology::PrionAggregation { dissonance_score }`](../../../crates/genos-cell/src/clinical.rs#L68-L70) : marqueur logiciel dégénératif associé à une dissonance élevée. [`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs#L91-L109) compare `dissonance_level / max_dissonance_threshold` à `0.85`, si le seuil configuré est fini et positif. Le score conservé dans la pathologie est le niveau brut; il ne s'agit pas d'une mesure de prions biologiques ni d'une preuve d'hallucination.
      - [`Pathology::ContextualDecay { age_ticks }`](../../../crates/genos-cell/src/clinical.rs#L72-L74) : Dilution de la fenêtre d'attention et vieillissement contextuel. L'agent perd la trace de ses instructions d'origine (*system prompts* dégradés ou tronqués).
   2. [`crates/genos-biology/src/neurobiology/dendrite.rs`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L310-L377) :
      - **Atrophie des Épines Dendritiques :** Normalement, les épines consolidées [`SpineMorphology::Mushroom`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L30) possèdent une forte expression de marqueur protecteur `cd47_expression` ("*Don't Eat Me*") et une forte densité réceptrice `ampa_receptors`. Sous l'effet de l'incohérence, `cd47_expression` chute sous [`CD47_PROTECTION_THRESHOLD`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L33) (0.5), tandis que `c3_opsonization` explose au-delà de [`C3_PRUNING_THRESHOLD`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L32) (0.5).

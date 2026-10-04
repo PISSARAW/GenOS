@@ -198,6 +198,24 @@ async function generateModel(req, res, next) {
   }
 }
 
+async function ingestBiologicalReceipts(req, res) {
+  try {
+    const { getDatabase } = require('../db');
+    const receiptService = require('../services/biologicalExecutionReceiptService');
+    const result = await receiptService.ingest(await getDatabase(), {
+      ...req.body,
+      organizationId: req.tenant.organizationId,
+      projectId: req.tenant.projectId
+    });
+    return res.status(202).json(result);
+  } catch (error) {
+    const status = error.code === 'MISSION_NOT_FOUND' ? 404
+      : error.code === 'MISSION_SCOPE_DENIED' ? 403
+        : error.code === 'BIOLOGICAL_RECEIPT_CONFLICT' ? 409 : 400;
+    return res.status(status).json({ error: { code: error.code || 'BIOLOGICAL_RECEIPT_INVALID', message: error.message } });
+  }
+}
+
 module.exports = {
   getStatus,
   createSnapshot,
@@ -206,5 +224,6 @@ module.exports = {
   simulateHallucination,
   replayBranch,
   diffSnapshots,
-  generateModel
+  generateModel,
+  ingestBiologicalReceipts
 };

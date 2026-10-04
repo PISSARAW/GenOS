@@ -111,7 +111,6 @@ function mergeStates(states) {
 function mergeSucceeded(parent, succeeded) {
   for (const entry of succeeded) {
     parent.receipts.push(...entry.value.context.receipts);
-    parent.evidence.push(...entry.value.context.receipts);
     parent.evidence.push(...entry.value.context.evidence);
   }
 }

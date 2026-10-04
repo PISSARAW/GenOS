@@ -1,7 +1,7 @@
 # Maturité des capacités biologiques
 
 - **Statut** : Référence — grille d'évaluation, pas revendication.
-- **Dernière revue** : 2026-09-30 (révision des preuves et du backlog).
+- **Dernière revue** : 2026-10-01.
 - **Règle** : un statut exige le chemin de code et le test cités. Sans les
   deux, le statut est « proposition ».
 
@@ -12,12 +12,14 @@
   par un chemin runtime.
 - **intégrée** : appelée par un chemin réel du runtime (CLI, backend, MCP,
   orchestrateur), avec lease et permissions quand il s'agit d'un effet.
+- **intégrée partielle** : un chemin de runtime et sa frontière d'autorité sont
+  vérifiés, mais une étape du cycle de vie ou une preuve de tâche durable manque.
 - **validée** : résultat mesuré par un test bout en bout ou un benchmark
   reproductible (commande, seed, artefacts conservés).
 
-## 2. Matrice actuelle (revue 2026-09-30)
+## 2. Matrice actuelle (revue 2026-10-01)
 
-| Concept | Statut retenu | Preuve | Ce qui manque pour le niveau suivant |
+| Capacité | Statut | Chemin et preuve observée | Lacune restante |
 | --- | --- | --- | --- |
 | Cellule `AgentCell`, division | primitive | `crates/genos-cell`, tests crate | appel par un chemin mission avec reçu |
 | Génome, mutations, crossover | primitive | `crates/genos-genome`, tests crate | replay de lignée via runtime |

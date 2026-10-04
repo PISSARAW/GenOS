@@ -251,7 +251,7 @@ $$
 ### 4.4 Contre-indications et Risques Iatrogènes
 > [!WARNING]
 > **Lésions de reperfusion computationnelle (*Reperfusion Injury*) :**
-> Restaurer brutalement l'ATP et le trafic de messages sur un nœud qui a accumulé des données incohérentes ou des prions de dissonance ([`dissonance_score > 0.85`](../../../crates/genos-biology/src/pathology.rs#L67-L70)) déclenche une libération explosive de cytokines (IL-6), transformant l'ischémie en **orage cytokinique auto-immun aigu** ([`Pathology::CytokineStorm`](../../../crates/genos-cell/src/clinical.rs#L23-L25)).
+> Dans ce scénario conceptuel, restaurer brutalement l'ATP et le trafic de messages peut aggraver l'état inflammatoire simulé. Le marqueur de dissonance est posé si `dissonance_level / max_dissonance_threshold > 0.85`, avec un seuil fini et positif ([`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs#L91-L109)); ce n'est pas le test direct `dissonance_score > 0.85` et le marqueur ne déclenche pas à lui seul un orage cytokinique dans le code.
 > 
 > **Arythmie de désynchronisation :**
 > Réinjecter un flux sans phase stabilisée dans le [`KuramotoOscillator`](../../../crates/genos-signal/src/kuramoto.rs) désynchronise les agents frères, engendrant des états de concurrence (*race conditions*) destructeurs.

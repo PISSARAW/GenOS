@@ -126,6 +126,7 @@ async function main() {
   }
 
   const db = await getDatabase();
+  await migrateDaemonEvents(db);
   const territory = await resolveRegisteredTerritory(db, flags.territoryId);
   if (!territory) throw new Error(`Territory ${flags.territoryId} is not registered; register it before starting the daemon.`);
 

@@ -26,6 +26,7 @@ const INTENT_RISKS = new Set(['low', 'medium', 'high', 'critical']);
 const RISK_LEVEL = Object.freeze({ low: 0, medium: 1, high: 2, critical: 3 });
 
 const RISK_DISCLOSURE = Object.freeze({ low: 0, medium: 0.2, high: 0.5, critical: 0.8 });
+const MAX_GLOBAL_RECIPIENTS = 100;
 
 // Checkpoint communication is active by default; operators can still select
 // shadow explicitly through setMode() for a dry run.
@@ -263,9 +264,7 @@ async function decideStigmergy(input, intent, refs) {
 }
 
 function broadcastGrounding(risk, requiresAction) {
-  const level = groundingFor(risk, requiresAction);
-  if (level === 'human_confirmation') return 'verified_ack';
-  return level;
+  return groundingFor(risk, requiresAction);
 }
 
 async function decideLocalBroadcast(input, intent, refs) {
@@ -294,10 +293,27 @@ async function decideLocalBroadcast(input, intent, refs) {
 }
 
 async function decideGlobalBroadcast(input, intent, refs) {
-  const fleet = Math.max(1, Number(input.fleetSize || 1000));
+  const db = input.db || await getDatabase();
+  const sender = await db.get(
+    `SELECT w.organization_id AS organizationId, w.project_id AS projectId
+     FROM agents a JOIN workspaces w ON a.workspace_id = w.id WHERE a.id = ?`,
+    [intent.senderAgentId]
+  );
+  if (!sender?.organizationId || !sender?.projectId) {
+    return silenceDecision('BROADCAST_SCOPE_UNAVAILABLE', { stage: 'scope', utility: 0, gain: 0, cost: 0 });
+  }
+  const rows = await db.all(
+    `SELECT a.id FROM agents a JOIN workspaces w ON a.workspace_id = w.id
+     WHERE a.id != ? AND a.execution_mode = 'worker'
+       AND a.status NOT IN ('completed','terminated','apoptosis','error','failed','unverified','quarantined')
+       AND w.organization_id = ? AND w.project_id = ? ORDER BY a.id LIMIT ?`,
+    [intent.senderAgentId, sender.organizationId, sender.projectId, MAX_GLOBAL_RECIPIENTS]
+  );
+  const recipients = rows.map((row) => row.id);
+  if (recipients.length === 0) return silenceDecision('NO_GLOBAL_RECIPIENTS', { stage: 'scope', utility: 0, gain: 0, cost: 0 });
   const grounding = broadcastGrounding(intent.risk, intent.requiresAction);
   const cost = estimateCost({
-    encoding: 'semantic-fingerprint', recipientCount: fleet, grounding,
+    encoding: 'semantic-fingerprint', recipientCount: recipients.length, grounding,
     contaminationRisk: 0.5, disclosureRisk: disclosureOf(intent.risk), coefficients: input.coefficients
   });
   const gain = computeGain({
@@ -309,14 +325,15 @@ async function decideGlobalBroadcast(input, intent, refs) {
   if (utility <= 0) {
     return silenceDecision('TOKEN_SAVINGS', { stage: 'utility', utility, gain, cost: cost.total });
   }
-  const meta = { utility, gain, cost: cost.total, breakdown: cost.breakdown, variants: 1, fleetSize: fleet };
-  return { action: 'SIGNAL', scope: 'GLOBAL_BROADCAST', recipients: [], encoding: 'semantic-fingerprint',
+  const meta = { utility, gain, cost: cost.total, breakdown: cost.breakdown, variants: 1, fleetSize: recipients.length };
+  return { action: 'SIGNAL', scope: 'GLOBAL_BROADCAST', recipients, encoding: 'semantic-fingerprint',
     grounding, ttlMs: input.ttlMs || 60000, reasonCodes: ['BROADCAST_FANOUT', 'COGNITIVE_WAKE'], meta };
 }
 
 async function tryPrescoped(input, intent, refs) {
-  if (input.receptorTopic) return decideLocalBroadcast(input, intent, refs);
+  if (intent.risk === 'critical' && input.humanRequired !== false) return null;
   if (globalEligible(intent, input)) return decideGlobalBroadcast(input, intent, refs);
+  if (input.receptorTopic) return decideLocalBroadcast(input, intent, refs);
   if (stigmergyEligible(intent, input)) return decideStigmergy(input, intent, refs);
   return null;
 }

@@ -308,7 +308,7 @@ function derivePolicyLease(input) {
 function restrictProvidedLease(provided, policyLease) {
   const policy = new Set((Array.isArray(policyLease) ? policyLease : []).map(normalizeToolName));
   if (!Array.isArray(provided)) return [...policy];
-  if (provided.length === 0) return [...policy];
+  if (provided.length === 0) return [];
   const restricted = [];
   for (const tool of provided) {
     const name = normalizeToolName(tool);

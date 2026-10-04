@@ -19,39 +19,51 @@
  */
 
 const bridgeService = require('./daemonEventBridgeService');
+const wakePolicyService = require('./daemonWakePolicyService');
 const { migrateDaemonTerritory } = require('../../db/migrations/migrateDaemonTerritory');
-const { spawnSync } = require('node:child_process');
+const { execFile } = require('node:child_process');
+const { promisify } = require('node:util');
 
 const MAX_CHANGED_FILES = 200;
 const SAFE_REPO_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9_.@/-]{1,240}$/;
 const DAEMON_LIVE_AFTER_MS = 90000;
+const productionWakePolicy = wakePolicyService.createWakePolicy({});
 
 function normalizeRootPath(rootPath) {
   return String(rootPath || '').replace(/\\/g, '/').replace(/\/+$/, '') || '/';
 }
 
-function readWorkspaceHead(rootPath) {
-  const result = spawnSync('git', ['-C', rootPath, 'rev-parse', 'HEAD'], {
-    encoding: 'utf8', timeout: 3000, windowsHide: true
-  });
-  const headSha = (result.stdout || '').trim().toLowerCase();
-  return result.status === 0 && /^[a-f0-9]{40}$/.test(headSha) ? headSha : null;
+const execFileAsync = promisify(execFile);
+
+async function readWorkspaceHead(rootPath) {
+  try {
+    const result = await execFileAsync('git', ['-C', rootPath, 'rev-parse', 'HEAD'], {
+      encoding: 'utf8', timeout: 3000, windowsHide: true, maxBuffer: 1024 * 1024
+    });
+    const headSha = (result.stdout || '').trim().toLowerCase();
+    return /^[a-f0-9]{40}$/.test(headSha) ? headSha : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 async function changedFilesBetween(rootPath, oldHead, newHead) {
   if (!/^[a-f0-9]{40}$/.test(oldHead || '') || !/^[a-f0-9]{40}$/.test(newHead || '')) return null;
-  const result = spawnSync('git', ['-C', rootPath, 'diff', '--name-only', '--no-renames', `${oldHead}..${newHead}`], {
-    encoding: 'utf8', timeout: 5000, windowsHide: true, maxBuffer: 1024 * 1024
-  });
-  if (result.status !== 0) return null;
-  const paths = (result.stdout || '').split(/\r?\n/).filter(Boolean);
-  if (paths.length > MAX_CHANGED_FILES || paths.some((path) => !SAFE_REPO_PATH.test(path))) return null;
-  return paths;
+  try {
+    const result = await execFileAsync('git', ['-C', rootPath, 'diff', '--name-only', '--no-renames', `${oldHead}..${newHead}`], {
+      encoding: 'utf8', timeout: 5000, windowsHide: true, maxBuffer: 1024 * 1024
+    });
+    const paths = (result.stdout || '').split(/\r?\n/).filter(Boolean);
+    if (paths.length > MAX_CHANGED_FILES || paths.some((path) => !SAFE_REPO_PATH.test(path))) return null;
+    return paths;
+  } catch (_) {
+    return null;
+  }
 }
 
 async function synchronizeTerritory(db, rootPath, territoryId) {
   const row = await db.get('SELECT head_sha FROM daemon_territories WHERE id = ?', territoryId);
-  const workspaceHead = readWorkspaceHead(rootPath);
+  const workspaceHead = await readWorkspaceHead(rootPath);
   if (!row || !workspaceHead) return { synchronized: false, reason: 'head-unavailable' };
   if (row.head_sha === workspaceHead) return { synchronized: true, headSha: workspaceHead, changedFiles: [] };
   const changedFiles = await changedFilesBetween(rootPath, row.head_sha, workspaceHead);
@@ -117,7 +129,7 @@ async function emitTerritoryEvent(db, event) {
     if (!db || !event || !event.rootPath || !event.type) return { emitted: false, reason: 'args-required' };
     const territoryId = await resolveTerritoryByRoot(db, event.rootPath);
     if (!territoryId) return { emitted: false, reason: 'no-territory-registered' };
-    const bridge = bridgeService.createBridge({ db });
+    const bridge = bridgeService.createBridge({ db, policy: productionWakePolicy });
     const ingested = await bridgeService.ingestEvent(bridge, {
       type: event.type,
       territoryId,
@@ -125,7 +137,14 @@ async function emitTerritoryEvent(db, event) {
       rootPath: event.rootPath,
       payload: event.payload || {}
     });
-    return { emitted: ingested.ingested === true, territoryId, ...ingested };
+    const applied = ingested.cheapUpdate?.applied !== false;
+    const logged = ingested.logged === true;
+    return {
+      emitted: ingested.ingested === true && applied && logged,
+      ...(!logged ? { reason: 'event-log-failed' } : {}),
+      territoryId,
+      ...ingested
+    };
   } catch (_) {
     return { emitted: false, reason: 'bridge-error' };
   }
@@ -155,7 +174,8 @@ async function announceMissionStart(input) {
       });
       if (emitted.emitted) return {
         announced: true, territoryId: emitted.territoryId, rootPath: root,
-        synchronization, daemonLive: await daemonLive(input.db, emitted.territoryId)
+        synchronization, daemonLive: await daemonLive(input.db, emitted.territoryId),
+        handoffSignal: emitted.handoffSignal || null
       };
     }
     return { announced: false, reason: 'no-territory-registered' };

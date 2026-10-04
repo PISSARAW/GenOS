@@ -10,7 +10,7 @@ const dbPath = path.join(os.tmpdir(), `genos_biological_bridge_${randomUUID()}.d
 process.env.GENOS_DB_PATH = dbPath;
 process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'biological-bridge-test';
 const { getDatabase, closeDatabase } = require('../src/db');
-const { ingestBiologicalReceipt } = require('../src/services/biologicalExecutionReceiptService');
+const { ingestBiologicalReceipt, runMissionTick } = require('../src/services/biologicalExecutionReceiptService');
 const missionContinuity = require('../src/services/missionContinuityService');
 const biologicalReceiptController = require('../src/controllers/biologicalReceiptController');
 const receiptOrigin = require('../src/middleware/biologicalReceiptOrigin');
@@ -53,6 +53,46 @@ async function run() {
     db = await getDatabase(dbPath);
     const reopened = await db.get('SELECT receipt_json FROM biological_execution_receipts WHERE receipt_id = ?', receiptId);
     assert.equal(JSON.parse(reopened.receipt_json).mission_id, missionId);
+
+    const divisionMissionId = randomUUID();
+    await db.run('INSERT INTO missions (mission_id, objective) VALUES (?, ?)', divisionMissionId, 'division receipt bridge');
+    const genosCli = require('../src/services/genosCli');
+    const originalRunGenos = genosCli.runGenos;
+    const divisionReceiptId = randomUUID();
+    const divisionFixture = { schema: 'genos.cell-division-receipt/v1', receipt_id: divisionReceiptId,
+      parent_cell_id: randomUUID(), daughter_cell_id: randomUUID(), parent_genome_id: randomUUID(),
+      daughter_genome_id: randomUUID(), lineage_id: randomUUID(), generation: 2, requested_cost: 12,
+      consumed_cost: 12, cost_unit: 'atp_token', completed: true, reason: null, observed_at_unix_ms: 4322 };
+    genosCli.runGenos = async (args) => {
+      assert.ok(args.includes('--divide'), 'backend opt-in reaches the Rust CLI');
+      const rustMissionId = args[args.indexOf('--mission-id') + 1];
+      return { ok: true, json: { operation: 'biological_mission_tick', mission_id: rustMissionId, tick: 1, receipts: [
+        { schema: 'genos.biological-execution-receipt/v1', receipt_id: randomUUID(), mission_id: rustMissionId,
+          cell_id: null, genome_id: null, tick: 1, execution_scope: 'organism', operation: 'Observe',
+          metabolic_register: 'rust_orchestrator_metabolism', cost: 0, cost_unit: 'atp_token', consumed: false,
+          completed: true, observed_at_unix_ms: 4321 },
+        { ...divisionFixture, mission_id: rustMissionId }
+      ] } };
+    };
+    try {
+      const divisionResult = await runMissionTick(db, { missionId: divisionMissionId, divide: true });
+      assert.equal(divisionResult.receipts.length, 2);
+      const persistedDivision = await db.get('SELECT mission_id, receipt_schema, operation, cell_id, genome_id, receipt_json FROM biological_execution_receipts WHERE receipt_id = ?', divisionReceiptId);
+      assert.equal(persistedDivision.mission_id, divisionMissionId);
+      assert.equal(persistedDivision.receipt_schema, 'genos.cell-division-receipt/v1');
+      assert.equal(persistedDivision.operation, 'cell_division');
+      assert.ok(persistedDivision.cell_id && persistedDivision.genome_id);
+      assert.ok(JSON.parse(persistedDivision.receipt_json).daughter_cell_id);
+      const duplicateDivision = await runMissionTick(db, { missionId: divisionMissionId, divide: true });
+      assert.ok(duplicateDivision.receipts.find((row) => row.receiptId === divisionReceiptId)?.duplicate,
+        'division receipt ingestion is idempotent across repeated backend delivery');
+      await closeDatabase();
+      db = await getDatabase(dbPath);
+      assert.ok(JSON.parse((await db.get('SELECT receipt_json FROM biological_execution_receipts WHERE receipt_id = ?', divisionReceiptId)).receipt_json).lineage_id,
+        'parent/child lineage remains available after backend database restart');
+    } finally {
+      genosCli.runGenos = originalRunGenos;
+    }
 
     const lateMissionId = randomUUID();
     const lateReceiptId = randomUUID();

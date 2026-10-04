@@ -394,7 +394,7 @@ $$
          return TickResult::Halted("Budget exhausted (starvation)".to_string());
      }
      ```
-  7. En ultime recours pour survivre, les cellules ouvrières entrent dans une autophagie dégradative incontrôlée, consommant leurs propres représentations sémantiques et provoquant une dissonance extrême ([`agent.conscience.dissonance_level > 0.85`](../../../crates/genos-biology/src/pathology.rs#L67-L70)), dégénérant en [`Pathology::PrionAggregation`](../../../crates/genos-cell/src/clinical.rs#L68).
+  7. Dans ce scénario conceptuel, l'autophagie logicielle peut être associée à une hausse de dissonance. Le marqueur `PrionAggregation` n'est diagnostiqué que si `dissonance_level / max_dissonance_threshold > 0.85` avec un seuil configurable fini et positif ([`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs#L91-L109)); le score brut seul ne porte pas cette décision.
 
 ```
        ┌────────────────────────────────────────────────────────┐

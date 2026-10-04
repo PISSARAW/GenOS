@@ -41,7 +41,7 @@ conception : le code applique des règles déterministes, pas un développement
 embryonnaire réel. Ne pas présenter ces termes comme des garanties
 biologiques.
 
-## 4. Cas d'usage
+## 4. Cas d'usage visé — non démontré en production
 
 Mission multi-domaines (backend, sécurité, recherche) avec budgets bornés :
 le kernel arbitre les propositions des résolveurs, produit un
@@ -81,17 +81,25 @@ Observations structurées → OrchestratorState → Diagnosis
 | `kernel_governance.rs` | validation pré-application |
 | `kernel_cycle.rs` | `ControlKernel::step`, santé collective, diversité, rapports |
 
-Implémentation : Rust, sans appel LLM, testée par
-`crates/genos-orchestrator/tests/kernel_control.rs` (6/6 OK).
+Prototype de contrôle : Rust, sans appel LLM, couvert par
+`crates/genos-orchestrator/tests/kernel_control.rs`. L'incarnation produit des
+descriptions d'agents en mémoire; elle ne lance ni le runtime worker Node, ni un
+modèle, ni un workspace réel. Les identifiants de checkpoint ne sont pas des
+commits AgentGit.
 
 ## 8. Processus d'exécution et de validation
 
 1. `ControlKernel::step(observations)` intègre, diagnostique, résout,
-   planifie, fait valider, exécute si autorisé, révise l'épistémique.
+   planifie, applique la gouvernance locale, met à jour son état en mémoire et
+   révise l'épistémique. Cela ne constitue pas une exécution de mission live.
 2. Gate qualité : 0 violation sur ces fichiers (400 lignes, 3 paramètres,
    complexité ≤ 10).
 3. Chaque transition ajoute un repère textuel à l'état mémoire; il ne contient
    pas de snapshot sérialisé. Le rollback du plan n'est pas persisté.
+
+Le rapport du kernel fixe `verified: false` : cette boucle ne collecte pas de
+preuves indépendantes permettant de vérifier une mission. Le paramètre de
+vérification arbitraire a été retiré de son API.
 
 ## 9. Comparaison avec le marché
 

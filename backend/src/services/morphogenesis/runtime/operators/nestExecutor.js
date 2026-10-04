@@ -29,7 +29,6 @@ function allowedKeys(node) {
 
 function collectHost(parent, child) {
   parent.receipts.push(...child.receipts);
-  parent.evidence.push(...child.receipts);
   parent.evidence.push(...child.evidence);
 }
 

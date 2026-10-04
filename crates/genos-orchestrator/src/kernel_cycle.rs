@@ -358,10 +358,10 @@ impl ControlKernel {
     }
 
     /// Rapport final expliquant le comportement de l'organisme.
-    pub fn mission_report(&self, verified: bool) -> KernelMissionReport {
+    pub fn mission_report(&self) -> KernelMissionReport {
         KernelMissionReport {
             objective: self.state.mission.objective.clone().unwrap_or_default(),
-            verified,
+            verified: false,
             initial_morphology: self.initial_topology.clone(),
             final_morphology: self.current_topology.clone(),
             transitions: self.state.history.morphology_history.clone(),

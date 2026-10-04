@@ -76,9 +76,50 @@ fn pre_deliberation(eco: &mut GenosEcosystem, state: &WorldState) -> Option<Tick
     if let Some(report) = early_survival_gate(eco, state) {
         return Some(report);
     }
+    integrate_neural_signals(eco, state);
     eco.express_free_desire(state);
     eco.run_instincts(state);
     None
+}
+
+fn integrate_neural_signals(eco: &mut GenosEcosystem, state: &WorldState) {
+    let threat = finite_unit(state.threat);
+    let stress = finite_unit(state.stress);
+    if threat == 0.0 && stress == 0.0 {
+        return;
+    }
+    if threat > 0.0 {
+        eco.neuro
+            .receive("mission.threat", Neurotransmitter::Glutamate, 20.0 * threat);
+    }
+    if stress > 0.0 {
+        eco.neuro
+            .receive("mission.stress", Neurotransmitter::GABA, 8.0 * stress);
+    }
+    let potential_before = eco.neuro.current_potential();
+    let spikes = eco.neuro.fire().unwrap_or_default();
+    let potential_after = eco.neuro.current_potential();
+    eco.neuro.apply_plasticity();
+    eco.record_event(
+        "NEURAL_MISSION_SIGNAL",
+        json!({
+            "schema": "genos.neural-mission-signal/v1",
+            "threat": threat,
+            "stress": stress,
+            "potential_before": potential_before,
+            "potential_after": potential_after,
+            "spike_count": spikes.len(),
+            "myelination": eco.neuro.myelination(),
+        }),
+    );
+}
+
+fn finite_unit(value: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
 }
 
 fn early_survival_gate(eco: &mut GenosEcosystem, state: &WorldState) -> Option<TickReport> {
@@ -127,6 +168,8 @@ impl GenosEcosystem {
         if let Some(report) = pre_deliberation(self, &state) {
             return report;
         }
+        let mut state = state;
+        self.regulate_mission_flux(&mut state);
         if let Err(error) = run_creative_simulation(self, &state, goal) {
             return self.halted_report(&format!("checkpoint creatif invalide: {error}"));
         }
@@ -182,19 +225,63 @@ impl GenosEcosystem {
         report
     }
 
+    fn regulate_mission_flux(&mut self, state: &mut WorldState) {
+        let capacity = self.orchestrator.metabolism.capacity;
+        let available = self.orchestrator.metabolism.available();
+        let resource_ratio = if capacity.is_finite() && capacity > 0.0 {
+            (available / capacity).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        self.guard_cell
+            .regulate(resource_ratio, finite_unit(state.stress));
+
+        let requested_flux = if state.budget.is_finite() && state.budget > 0.0 {
+            state.budget
+        } else {
+            0.0
+        };
+        let result = self.guard_cell.throttle_flux(requested_flux);
+        state.budget = result.admitted_flux;
+        self.record_event(
+            "MISSION_FLUX_REGULATED",
+            json!({
+                "schema": "genos.guard-cell-mission-flux/v1",
+                "resourceRatio": resource_ratio,
+                "stress": finite_unit(state.stress),
+                "requestedFlux": result.requested_flux,
+                "admittedFlux": result.admitted_flux,
+                "throttledFlux": result.throttled_flux,
+                "poreApertureRatio": result.pore_aperture_ratio,
+                "backpressureActive": result.backpressure_active,
+                "status": result.status,
+                "permission": "planning_budget_only"
+            }),
+        );
+    }
+
     fn execution_receipt(
         &self,
         concept: Concept,
         consumed: bool,
         completed: bool,
     ) -> BiologicalExecutionReceipt {
+        let cell_id = Some(self.orchestrator.orchestrator_id)
+            .filter(|cell_id| self.orchestrator.active_cells.contains_key(cell_id));
+        let genome_id = cell_id
+            .and_then(|cell_id| self.orchestrator.active_cells.get(&cell_id)?.genome_id)
+            .filter(|genome_id| self.orchestrator.genomes.contains_key(genome_id));
+        let genome_fingerprint = genome_id
+            .and_then(|genome_id| self.orchestrator.genomes.get(&genome_id))
+            .and_then(|genome| genome.fingerprint().ok())
+            .map(|fingerprint| fingerprint.content_hash);
         BiologicalExecutionReceipt {
             schema: "genos.biological-execution-receipt/v1".to_string(),
             receipt_id: Uuid::new_v4(),
             mission_id: self.mission_id,
-            cell_id: None,
-            genome_id: None,
-            genome_fingerprint: None,
+            cell_id,
+            genome_id,
+            genome_fingerprint,
             population_json: None,
             tick: 0,
             execution_scope: "organism".to_string(),
@@ -310,33 +397,5 @@ fn record_creative_hypotheses(eco: &mut GenosEcosystem, tasks: &[crate::creativi
 }
 
 #[cfg(test)]
-mod receipt_tests {
-    use super::*;
-    use crate::GenosEcosystem;
-
-    #[test]
-    fn receipt_preserves_known_correlation_and_marks_unobserved_identity_absent() {
-        let mission_id = Uuid::new_v4();
-        let mut ecosystem = GenosEcosystem::new("receipt-test");
-        ecosystem.set_mission_id(mission_id);
-        let receipt = ecosystem.execution_receipt(Concept::Observe, true, true);
-
-        assert_eq!(receipt.schema, "genos.biological-execution-receipt/v1");
-        assert_eq!(receipt.mission_id, Some(mission_id));
-        assert_eq!(receipt.cell_id, None);
-        assert_eq!(receipt.genome_id, None);
-        assert_eq!(receipt.execution_scope, "organism");
-        assert_eq!(receipt.cost_unit, "atp_token");
-        assert!(receipt.consumed && receipt.completed);
-    }
-
-    #[test]
-    fn refused_metabolic_debit_is_not_reported_as_consumed_or_completed() {
-        let ecosystem = GenosEcosystem::new("receipt-test");
-        let receipt = ecosystem.execution_receipt(Concept::Observe, false, false);
-
-        assert!(!receipt.consumed);
-        assert!(!receipt.completed);
-        assert_eq!(receipt.metabolic_register, "rust_orchestrator_metabolism");
-    }
-}
+#[path = "tick_receipt_tests.rs"]
+mod receipt_tests;

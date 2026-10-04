@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-09-26
+- **Dernière revue** : 2026-10-03
 
 ---
 
@@ -24,8 +24,8 @@ délègue au registre, sinon refuse (`Topology not registered`). Code :
 | Syncytium | `SyncytiumController` (état partagé, convergence déterministe) | non | gate §5 |
 | Biocénose | `BiocenoseController` (jury, ballots explicites) | non | gate §5 |
 | Biome | `populationRuntimeService` (`create→spawn→advance`) sur écologie in-memory construite des workers/input | non | gate §5 |
-| Holobionte | `runCycle` réel (migrations, provisioning session+constitution+symbiont+contrat, planner, exécuteur, ledger, mémoire, health) | SQLite (`:memory:`, natif sinon repli `node:sqlite` déclaré dans le reçu) | gate §5 |
-| Métapopulation | `runAutonomousRegionalRuntime` réel (session créée, adapters du `regionalBrain`, cycle `OBSERVE→…→VERIFY→RECORD`) | SQLite (`:memory:`, natif sinon repli `node:sqlite` déclaré dans le reçu) | gate §5 |
+| Holobionte | `runCycle` réel (migrations, provisioning session+constitution+symbiont+contrat, planner, exécuteur, ledger, mémoire, health) | Base persistante du control plane GenOS | gate §5 |
+| Métapopulation | `runAutonomousRegionalRuntime` réel (session créée, adapters du `regionalBrain`, cycle `OBSERVE→…→VERIFY→RECORD`) | Base persistante du control plane GenOS | gate §5 |
 
 ## 3. Contrats d'entrée des feuilles
 
@@ -44,15 +44,12 @@ sortie de l'étape/hôte précédent, pas l'input mission.
 
 ## 4. Exigence SQLite
 
-Holobionte et Métapopulation persistent. `runtime/sqliteDb.js` ouvre
-d'abord le natif (`sqlite`+`sqlite3`, `:memory:`), sinon un pont
-`node:sqlite` (même moteur, même SQL, API `get/all/run/exec/close`
-adaptée). Le pilote effectif figure dans la sortie (`driver`). Sans aucun
-SQLite, l'exécution échoue avec un message explicite
-(`requires a sqlite-capable runtime environment`) au lieu d'une erreur de
-binaire. Les migrations exécutées sont celles du dépôt, sans `.sql`
-ajouté : Holobionte (sessions, contrats, mémoire, ledger, plan immune),
-Métapopulation (base, runtime, variants).
+Holobionte et Métapopulation utilisent la base persistante partagée du control
+plane (`getDatabase()`), configurée par `GENOS_DB_PATH` ou les chemins par
+défaut de GenOS. Les migrations sont idempotentes et exécutées sur cette base;
+le plugin ne ferme pas la connexion partagée. Le stockage dépend donc du
+backend SQLite configuré pour le control plane et non d'une base de test
+` :memory: `.
 
 ## 5. Preuves
 
@@ -73,6 +70,28 @@ Métapopulation (base, runtime, variants).
   lourds (sessions distribuées, CRDT réseau, jury humain).
 - Le cycle Métapopulation sur région vide rend `VERIFIED` avec
   `actionCount 0` : reçu honnête d'inactivité, pas preuve d'efficacité.
-- `changeVariant` ne vérifie pas les règles de transition du
-  `variantRegistry` (gain/coût) : il applique un patch vérifié
-  structurellement, pas une décision apprise.
+- `MorphologyRuntime.changeVariant({ nodeId, graph, newVariant, execContext })`
+  exige une transition enregistrée dans le `variantRegistry`, puis applique ses
+  conditions et ses exigences de preuve avant le patch. Sans règle ou preuve,
+  le changement est refusé. Le patch transmet les métadonnées de gain/coût,
+  l'autorité et le lease; la vérification structurelle du graphe reste un gate
+  distinct.
+
+Chaque feuille du graphe porte maintenant un résultat distinct :
+`executionStatus=completed` signifie que l'opérateur a fini; `contractStatus`
+et `evidenceStatus` restent `not_assessed` à ce niveau; `missionOutcome` vaut
+`unverified` sauf si le cycle déclare explicitement `actionCount: 0`, auquel cas
+il vaut `no_action`. Un statut local de plugin tel que `VERIFIED` ne prouve pas
+à lui seul la réussite de la mission. La Métapopulation vide retourne
+`NO_ACTION`, jamais `VERIFIED`.
+
+Les receipts émis par les opérateurs sont des traces d'exécution
+(`recordType: execution_receipt`, `verificationStatus: not_verified`). Ils
+restent dans `receipts` et ne sont pas copiés dans `evidence`; seul un élément
+d'évidence distinct peut alimenter les gates de preuve. Le receipt ne porte pas
+à lui seul de signature ou de provenance vérifiable.
+
+La réussite technique de `MorphologyRuntime.execute` n'est plus enregistrée
+automatiquement comme outcome de mission dans le magasin d'expérience. La
+consolidation d'apprentissage relève des chemins séparés qui disposent d'un
+outcome vérifié et de sa preuve.

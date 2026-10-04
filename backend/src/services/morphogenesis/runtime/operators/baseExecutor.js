@@ -10,7 +10,6 @@ function collectChildOutputs(parent, child) {
   if (!child) return;
   if (Array.isArray(child.receipts)) {
     parent.receipts.push(...child.receipts);
-    parent.evidence.push(...child.receipts);
   }
   if (Array.isArray(child.evidence)) parent.evidence.push(...child.evidence);
 }
@@ -71,7 +70,6 @@ class BaseExecutor {
       nodeId: node.nodeId,
       kind: node.operator || node.kind,
       output: detail,
-      evidence: [],
       budget: node.budget || {}
     });
   }

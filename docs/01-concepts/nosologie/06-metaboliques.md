@@ -181,8 +181,11 @@ provoquant un orage inflammatoire microcristallin localisé et l'occlusion physi
 - **Acidose lactique métabolique et dérive prionique** :
   - En forçant l'assimilation rapide de contextes non validés par le ribosome sans attendre la réplication sémantique normale, l'agent accumule des raisonnements tronqués ou contradictoires dans sa mémoire de travail. Cela majore le niveau de dissonance cognitive :
     ```rust
-    // pathology.rs: L67-71
-    if (agent.conscience.dissonance_level as f64) > 0.85 {
+    // pathology.rs: check_degenerative_state
+    if agent.conscience.max_dissonance_threshold.is_finite()
+        && agent.conscience.max_dissonance_threshold > 0.0
+        && agent.conscience.dissonance_level / agent.conscience.max_dissonance_threshold > 0.85
+    {
         Some(Pathology::PrionAggregation { dissonance_score: ... })
     }
     ```

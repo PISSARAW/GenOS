@@ -2249,11 +2249,19 @@ contrat d'entrée (ballots Biocénose, `capability`+exécuteur+allocation
 Holobionte, mission Métapopulation) avec refus fermé sinon.
 
 Le runtime expose en outre `applyPatch` (pipeline
-validation→contrefactuel→adjudication→transaction→vérification→commit/rollback)
-et `changeVariant` (changement de variant pas cher, sans reconstruction),
-et enregistre chaque exécution réussie dans le magasin d'expérience
-(best-effort, sans jamais casser l'exécution). Les contrôleurs sont
-déterministes (plus de `Math.random` ni `Date.now` dans les décisions).
+validation→contrefactuel→adjudication→transaction→vérification→commit/rollback).
+`changeVariant({ nodeId, graph, newVariant, execContext })` refuse les mutations
+sans règle de transition enregistrée ou sans satisfaire les conditions et
+preuves de cette règle; le patch reprend aussi son coût, son gain attendu,
+l'autorité et le lease fournis. L'exécution d'un graphe ne crée pas à elle seule
+une expérience d'apprentissage : le magasin n'est alimenté que par les chemins
+de consolidation qui disposent d'un résultat évalué et vérifié. Les contrôleurs
+sont déterministes (plus de `Math.random` ni `Date.now` dans les décisions).
+
+Les receipts du runtime sont des traces (`execution_receipt`,
+`not_verified`). Les opérateurs les propagent dans `receipts`, séparément des
+éléments `evidence`; un receipt ne devient pas une preuve par propagation et ne
+porte pas de garantie cryptographique.
 
 Limites maintenues : le planificateur historique sélectionne encore une
 topologie unique (le graphe composite vient du compilateur, pas du

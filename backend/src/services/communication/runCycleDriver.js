@@ -9,9 +9,8 @@
 
 const { getDatabase } = require('../../db');
 const { decideCommunication, logShadowDecision } = require('./communicationPolicyEngine');
-const { learnFromOutcome } = require('./communicationLearningService');
 const { assessAgency } = require('./agencyDriver');
-const { recordDecision, recordTokens, recordUsefulAction, recordRedundant } = require('./communicationMetricsService');
+const { recordDecision } = require('./communicationMetricsService');
 
 async function resolveDb(inputDb) {
   if (inputDb) return inputDb;
@@ -27,6 +26,7 @@ function isVerbal(action) {
 function buildSilenceResult(encoding) {
   return {
     executed: false,
+    simulated: true,
     simulatedOutcome: {
       actionTaken: false, recipientKnew: false,
       interpretationCorrect: true, tokensUsed: 0, channel: encoding
@@ -61,7 +61,8 @@ function buildExecutionResult(decision, usageReceipt) {
   const recipients = decision.recipients || [];
   const usage = tokenAccounting(decision, usageReceipt);
   return {
-    executed: true,
+    executed: false,
+    simulated: true,
     simulatedOutcome: {
       actionTaken: decision.action === 'SIGNAL' && recipients.length > 0,
       recipientKnew: recipients.length > 0 && Math.random() > 0.3,
@@ -88,32 +89,6 @@ async function tryLogShadow(input) {
   }
 }
 
-function buildLearnQuery(ctx, receiverId) {
-  return {
-    db: ctx.db, senderId: ctx.intent.senderAgentId, receiverId,
-    domain: ctx.intent.domain, semanticRefs: ctx.intent.semanticRefs || [],
-    channel: ctx.decision.action, actionTaken: ctx.outcome.actionTaken,
-    recipientKnew: ctx.outcome.recipientKnew,
-    interpretationCorrect: ctx.outcome.interpretationCorrect,
-    tokensUsed: ctx.outcome.tokensUsed,
-    tokensMeasured: ctx.outcome.tokensMeasured
-  };
-}
-
-async function learnFromReceivers(ctx) {
-  let lastResult = null;
-  for (const receiverId of ctx.decision.recipients) {
-    const query = buildLearnQuery(ctx, receiverId);
-    lastResult = await learnFromOutcome(query);
-  }
-  return lastResult;
-}
-
-function updateMetrics(outcome) {
-  if (outcome.actionTaken) recordUsefulAction();
-  else if (outcome.tokensUsed > 0) recordRedundant();
-}
-
 function buildReceipt(ctx) {
   return {
     decision: ctx.decision,
@@ -128,13 +103,14 @@ function buildReceipt(ctx) {
 function receiptOutcome(ctx) {
   const recipients = ctx.decision.recipients || [];
   return {
-    executed: ctx.outcome.actionTaken !== undefined,
-    actionTaken: ctx.outcome.actionTaken || false,
-    recipientKnew: ctx.outcome.recipientKnew || false,
-    tokensUsed: ctx.outcome.tokensUsed || 0,
-    tokensProjected: ctx.outcome.tokensProjected || 0,
-    tokensMeasured: ctx.outcome.tokensMeasured === true,
-    usageReceiptId: ctx.outcome.usageReceiptId || null,
+    executed: false,
+    simulated: true,
+    actionTaken: null,
+    recipientKnew: null,
+    tokensUsed: 0,
+    tokensProjected: 0,
+    tokensMeasured: false,
+    usageReceiptId: null,
     channel: ctx.decision.encoding, recipientCount: recipients.length
   };
 }
@@ -163,35 +139,21 @@ async function runCycle(params) {
 
   const shadowReceipt = await tryLogShadow(input);
 
-  const sim = await simulateExecution(decision, opts.usageReceipt);
-  const executed = sim.executed;
-  const simulatedOutcome = sim.simulatedOutcome;
-  if (isVerbal(decision.action)) recordTokens({
-    measured: simulatedOutcome.tokensMeasured,
-    tokensInput: opts.usageReceipt?.inputTokens,
-    tokensOutput: opts.usageReceipt?.outputTokens,
-    tokensProjected: simulatedOutcome.tokensProjected
-  });
-
-  let learnResult = null;
-  if (executed && decision.recipients && decision.recipients.length > 0) {
-    const ctx = { db: resolvedDb, intent, decision, outcome: simulatedOutcome };
-    learnResult = await learnFromReceivers(ctx);
-    updateMetrics(simulatedOutcome);
-  }
+  const simulation = await simulateExecution(decision, opts.usageReceipt);
+  const simulatedOutcome = simulation.simulatedOutcome;
 
   const agency = await assessAgency({
     db: resolvedDb, agentId: intent.senderAgentId, domain: intent.domain
   });
 
   const outcome = {
-    executed, simulatedOutcome, learnResult,
+    executed: false, simulated: true, simulatedOutcome, learnResult: null,
     decisionAction: decision.action,
     recipientCount: (decision.recipients || []).length,
     reasonCodes: decision.reasonCodes || []
   };
 
-  return { decision, outcome, agency, receipt: buildReceipt({ decision, outcome: simulatedOutcome, agency, shadow: shadowReceipt }) };
+  return { decision, outcome, agency, receipt: buildReceipt({ decision, outcome, agency, shadow: shadowReceipt }) };
 }
 
 async function runCycleBatch(cycles, globalOpts = {}) {

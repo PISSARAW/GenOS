@@ -24,11 +24,19 @@ pub fn assess_agent_clinical_status(agent: &AgentCell) -> ClinicalStatusReport {
     {
         active_pathologies.push(pathology);
     }
-    let dominant_category = agent
-        .clinical
-        .active_pathologies
-        .first()
-        .map(|p| p.category());
+    let mut category_counts: Vec<(DiseaseCategory, usize)> = Vec::new();
+    for pathology in &active_pathologies {
+        let category = pathology.category();
+        if let Some((_, count)) = category_counts.iter_mut().find(|(known, _)| *known == category) {
+            *count += 1;
+        } else {
+            category_counts.push((category, 1));
+        }
+    }
+    let dominant_category = category_counts
+        .into_iter()
+        .max_by_key(|(_, count)| *count)
+        .map(|(category, _)| category);
 
     let recommended_treatment = if active_pathologies
         .iter()
@@ -93,7 +101,10 @@ pub fn check_degenerative_state(agent: &AgentCell) -> Option<Pathology> {
         })
     } else if agent.is_senescent {
         Some(Pathology::ReplicativeSenescence)
-    } else if (agent.conscience.dissonance_level as f64) > 0.85 {
+    } else if agent.conscience.max_dissonance_threshold.is_finite()
+        && agent.conscience.max_dissonance_threshold > 0.0
+        && agent.conscience.dissonance_level / agent.conscience.max_dissonance_threshold > 0.85
+    {
         Some(Pathology::PrionAggregation {
             dissonance_score: agent.conscience.dissonance_level as f64,
         })

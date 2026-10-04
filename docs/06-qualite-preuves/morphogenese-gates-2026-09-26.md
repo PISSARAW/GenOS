@@ -47,3 +47,19 @@ binaire `sqlite3` natif inutilisable (arch x64) → pilote `node-sqlite-shim`.
   elle-même est du ressort mission.
 - Aucune comparaison humain-vs-machine ni campagne multi-missions :
   ces gates prouvent l'exécution, pas la supériorité.
+
+## Évolution du contrat — 2026-10-03
+
+Les mesures du tableau ci-dessus restent l'archive du protocole exécuté le
+2026-09-26; elles ne valident pas le code actuel. Depuis, le contrat a évolué :
+
+- `changeVariant` exige une transition enregistrée, ses conditions et ses
+  preuves avant d'appliquer le patch;
+- une exécution de graphe réussie ne crée plus automatiquement une expérience
+  `completed`; l'apprentissage requiert un outcome évalué et vérifié;
+- les receipts d'exécution sont conservés dans `receipts`, étiquetés
+  `not_verified`, et ne sont plus propagés dans `evidence`.
+
+Les hooks de commit ont contrôlé la qualité statique des fichiers concernés lors
+de ces changements. Aucune suite de tests morphogenèse n'a été rejouée pour
+cette mise à jour documentaire ni pour les commits du 2026-10-03.

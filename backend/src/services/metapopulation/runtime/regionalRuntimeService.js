@@ -12,6 +12,7 @@ async function runRegionalRuntime(input = {}, options = {}) {
     if (stopped) return { status: 'STOPPED', reason: stopped, cycles };
     const result = await runRegionalCycle({ ...input, cycle: index + 1 }, options);
     cycles.push(result);
+    if (result.status === 'NO_ACTION') return { status: 'NO_ACTION', reason: 'NO_ACTIONS_PLANNED', cycles };
     if (result.status !== 'VERIFIED') return { status: 'HALTED', reason: result.reason || result.status, cycles };
   }
   return { status: 'LIMIT_REACHED', reason: 'MAX_CYCLES', cycles };
@@ -39,8 +40,9 @@ async function executeCycleStages(input, options) {
   const execution = await executePlan(adapter, { plan, diagnosis, observed, input });
   const verification = await adapter.verify(execution, plan, diagnosis, observed, input);
   if (!verification || verification.valid !== true) throw runtimeError('REGIONAL_VERIFY_FAILED', 'Regional cycle verification failed.');
-  await recordCycle(input, options, { type: 'REGIONAL_CYCLE_RECORDED', diagnosis, plan, execution, verification });
-  return { status: 'VERIFIED', cycle: input.cycle || null, stages: STAGES,
+  const status = plan.actions.length === 0 ? 'NO_ACTION' : 'VERIFIED';
+  await recordCycle(input, options, { type: 'REGIONAL_CYCLE_RECORDED', status, diagnosis, plan, execution, verification });
+  return { status, cycle: input.cycle || null, stages: STAGES,
     actionCount: plan.actions.length, verification };
 }
 
@@ -63,7 +65,7 @@ async function recordCycle(input, options, outcome) {
   const coordination = require('../../metapopulationCoordinationService');
   return coordination.recordMetapopulationEvent(input.metapopulationId, {
     type: outcome.type,
-    payload: { cycle: input.cycle || null, status: outcome.type === 'REGIONAL_CYCLE_RECORDED' ? 'VERIFIED' : 'FAILED',
+    payload: { cycle: input.cycle || null, status: outcome.status || (outcome.type === 'REGIONAL_CYCLE_RECORDED' ? 'VERIFIED' : 'FAILED'),
       actionCount: outcome.plan?.actions?.length || 0, diagnosis: outcome.diagnosis?.summary || null,
       verification: outcome.verification?.valid === true ? 'VALID' : null, failure: outcome.failure || null },
     actor: input.actor || 'metapopulation-runtime',

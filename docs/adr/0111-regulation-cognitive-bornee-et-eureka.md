@@ -25,6 +25,10 @@ un handler ne restaure pas actuellement de runtime.
   persistant. Les transitions d’état et leur audit sont écrits dans une même
   transaction. Une apoptose persistée marque aussi l’agent comme tel ; le chemin
   superviseur arrête son runtime.
+- L’événement Eurêka n’est émis et persisté que si l’appel a réellement accepté
+  la transition (compteur incrémenté); la révision de régulation avance avec
+  celle-ci. La fin normale du processus n'est pas une preuve et ne déclenche
+  pas à elle seule la récompense.
 - Les adaptateurs philosophiques ne tirent pas de conclusion plus forte que leurs
   observations. Une comparaison bornée sans contre-exemple laisse la
   supervenience indéterminée.
@@ -43,3 +47,10 @@ fenêtre Eurêka est calculée depuis les transitions persistées.
 Les scores restent des signaux heuristiques et ne constituent ni une mesure de
 conscience phénoménale ni une preuve de qualité intrinsèque. Leur calibration doit
 être évaluée sur des missions et des résultats observables.
+
+## Mise en œuvre — 2026-10-03
+
+`runConscienceCheck` compare le compteur Eurêka avant/après l'appel et ne publie
+ni l'événement ni la raison persistée `supervisor_eureka` si le compteur n'a pas
+augmenté. Le chemin de fermeture du runtime ne fournit pas de preuve fabriquée à
+partir du seul code de sortie. L'acceptation incrémente aussi `revision`.
