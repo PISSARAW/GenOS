@@ -35,11 +35,14 @@ impl MeioticCrossover {
         gene
     }
 
-    pub fn single_point_crossover(parent_a: &Genome, parent_b: &Genome, crossover_point: usize) -> (Genome, Genome) {
+pub fn single_point_crossover(parent_a: &Genome, parent_b: &Genome, crossover_point: usize) -> (Genome, Genome) {
         let mut child_a = parent_a.derive_reproductive_child();
-        let mut child_b = parent_b.derive_reproductive_child();
+        let mut child_b = parent_a.derive_reproductive_child();
         child_a.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
         child_b.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
+        // Both children share the same lineage (parent_a's)
+        child_a.set_lineage(parent_a.lineage_id());
+        child_b.set_lineage(parent_a.lineage_id());
 
         let (a_gamete_1, a_gamete_2) = Self::gametes(parent_a, crossover_point);
         let (b_gamete_1, b_gamete_2) = Self::gametes(parent_b, crossover_point);
@@ -48,7 +51,7 @@ impl MeioticCrossover {
         child_b.chromosome_maternal.replace_sequence(a_gamete_2);
         child_b.chromosome_paternal.replace_sequence(b_gamete_2);
 
-        // Approximate gene-order split using the same breakpoint fraction as the nucleotide crossover.
+        // Recombinaison réciproque des gènes selon le point de coupure avec reprogrammation épigénétique méiotique
         let mut all_loci: Vec<String> = parent_a.genes.keys().chain(parent_b.genes.keys()).cloned().collect();
         all_loci.sort();
         all_loci.dedup();
@@ -72,17 +75,17 @@ impl MeioticCrossover {
             let from_b = parent_b.genes.get(locus);
 
             if idx < gene_split {
-                if let Some(g) = from_a.or(from_b) {
+                if let Some(g) = from_a {
                     genes_a.insert(locus.clone(), Self::reprogram_inherited_gene(g.clone()));
                 }
-                if let Some(g) = from_b.or(from_a) {
+                if let Some(g) = from_b {
                     genes_b.insert(locus.clone(), Self::reprogram_inherited_gene(g.clone()));
                 }
             } else {
-                if let Some(g) = from_b.or(from_a) {
+                if let Some(g) = from_b {
                     genes_a.insert(locus.clone(), Self::reprogram_inherited_gene(g.clone()));
                 }
-                if let Some(g) = from_a.or(from_b) {
+                if let Some(g) = from_a {
                     genes_b.insert(locus.clone(), Self::reprogram_inherited_gene(g.clone()));
                 }
             }
@@ -94,7 +97,12 @@ impl MeioticCrossover {
     }
 
     fn gametes(parent: &Genome, crossover_point: usize) -> (Vec<genos_genome::DnaNucleotide>, Vec<genos_genome::DnaNucleotide>) {
-        let point = crossover_point.min(parent.chromosome_maternal.len()).min(parent.chromosome_paternal.len());
+        let min_len = parent.chromosome_maternal.len().min(parent.chromosome_paternal.len());
+        if min_len < 2 {
+            // No crossover possible, return parental strands
+            return (parent.chromosome_maternal.as_slice().to_vec(), parent.chromosome_paternal.as_slice().to_vec());
+        }
+        let point = crossover_point.clamp(1, min_len - 1);
         let mut first = parent.chromosome_maternal.as_slice()[..point].to_vec();
         first.extend_from_slice(&parent.chromosome_paternal.as_slice()[point..]);
         let mut second = parent.chromosome_paternal.as_slice()[..point].to_vec();
@@ -102,14 +110,12 @@ impl MeioticCrossover {
         (first, second)
     }
 
-    pub fn uniform_crossover(parent_a: &Genome, parent_b: &Genome, swap_prob: f64) -> Genome {
-        Self::uniform_crossover_with_seed(parent_a, parent_b, (swap_prob, &default_seed(
-            &parent_a.genome_id().to_string(),
-            &parent_b.genome_id().to_string(),
-        )))
+pub fn uniform_crossover(parent_a: &Genome, parent_b: &Genome, swap_prob: f64) -> Genome {
+        let nonce = uuid::Uuid::new_v4().to_string();
+        Self::uniform_crossover_with_seed(parent_a, parent_b, (swap_prob, &format!("{}:{}", default_seed(&parent_a.genome_id().to_string(), &parent_b.genome_id().to_string()), nonce)))
     }
 
-    pub fn uniform_crossover_with_seed(parent_a: &Genome, parent_b: &Genome, config: (f64, &str)) -> Genome {
+pub fn uniform_crossover_with_seed(parent_a: &Genome, parent_b: &Genome, config: (f64, &str)) -> Genome {
         let (swap_prob, seed) = config;
         let mut child = parent_a.derive_reproductive_child();
         child.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
@@ -148,11 +154,29 @@ impl MeioticCrossover {
         }
         child.genes = recombined_genes;
 
-        Self::inherit_extra_chromosomes(&mut child, parent_b);
+        Self::inherit_accessories(&mut child, (parent_a, parent_b), (swap_prob, &mut rng));
+        child
+    }
 
+    fn inherit_accessories<R: rand::Rng>(child: &mut Genome, parents: (&Genome, &Genome), config: (f64, &mut R)) {
+        let (parent_a, parent_b) = parents;
+        let (swap_prob, rng) = config;
+        Self::inherit_extra_chromosomes(child, parent_a);
+        Self::inherit_extra_chromosomes(child, parent_b);
+
+        for plasmid in &parent_a.plasmids {
+            if !child.plasmids.iter().any(|existing| existing.instruction == plasmid.instruction) {
+                child.plasmids.push(plasmid.clone());
+            }
+        }
         for plasmid in &parent_b.plasmids {
             if rng.random_bool(swap_prob) && !child.plasmids.iter().any(|existing| existing.instruction == plasmid.instruction) {
                 child.plasmids.push(plasmid.clone());
+            }
+        }
+        for enhancer in &parent_a.regulatory_enhancers {
+            if !child.regulatory_enhancers.contains(enhancer) {
+                child.regulatory_enhancers.push(enhancer.clone());
             }
         }
         for enhancer in &parent_b.regulatory_enhancers {
@@ -160,7 +184,6 @@ impl MeioticCrossover {
                 child.regulatory_enhancers.push(enhancer.clone());
             }
         }
-        child
     }
 
     fn inherit_extra_chromosomes(child: &mut Genome, parent: &Genome) {
@@ -174,18 +197,11 @@ impl MeioticCrossover {
     fn recombine_gamete_uniform<R: rand::Rng>(parent: &Genome, swap_prob: f64, rng: &mut R) -> Vec<genos_genome::DnaNucleotide> {
         let mat = parent.chromosome_maternal.as_slice();
         let pat = parent.chromosome_paternal.as_slice();
-        let max_len = mat.len().max(pat.len());
-        let mut gamete = Vec::with_capacity(max_len);
+        let min_len = mat.len().min(pat.len());
+        let mut gamete = Vec::with_capacity(min_len);
 
-        for i in 0..max_len {
-            let nuc = match (mat.get(i), pat.get(i)) {
-                (Some(&m), Some(&p)) => {
-                    if rng.random_bool(swap_prob) { p } else { m }
-                }
-                (Some(&m), None) => m,
-                (None, Some(&p)) => p,
-                (None, None) => unreachable!(),
-            };
+        for i in 0..min_len {
+            let nuc = if rng.random_bool(swap_prob) { pat[i] } else { mat[i] };
             gamete.push(nuc);
         }
         gamete
