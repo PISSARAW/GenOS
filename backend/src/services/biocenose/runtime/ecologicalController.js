@@ -2,7 +2,7 @@
 
 const morphogenesis = require('../integration/biocenoseMorphogenesisAdapter');
 
-const RECEIPT_INDEX = Object.freeze({ verification: 2, independence: 5, aggregation: 6, dissent: 7, judgment: 8 });
+const RECEIPT_INDEX = Object.freeze({ claims: 1, verification: 2, independence: 5, aggregation: 6, dissent: 7, judgment: 8 });
 
 function evaluate(input) {
   const receipts = input.receipts || [];
@@ -42,7 +42,11 @@ function observe(input, reports) {
 function independenceObservation(report) {
   return {
     effectiveCommunitySize: report.report?.effectiveSize ?? null,
-    independenceMeasured: report.report?.measured === true
+    independenceMeasured: report.report?.measured === true,
+    providerProvenanceComplete: report.report?.providerProvenanceComplete === true,
+    observedProviderCount: report.report?.observedProviderCount ?? null,
+    observedModelCount: report.report?.observedModelCount ?? null,
+    providerIndependenceMeasured: report.report?.providerIndependenceMeasured === true
   };
 }
 
@@ -55,7 +59,7 @@ function isActiveMember(member) {
 }
 
 function claimObservation(reports) {
-  const claims = reports.aggregation.claims || [];
+  const claims = reports.claims.claims || reports.aggregation.claims || [];
   const verifiedClaimIds = new Set((reports.verification.verificationReceipts || [])
     .filter((item) => item.status === 'VERIFIED').map((item) => item.claimId));
   return {

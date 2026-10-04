@@ -321,12 +321,18 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
 | [0293](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
-| [0294](0294-fermeture-runtime-nce.md) | Contrats de preuve des chemins runtime NCE | Accepté | 2026-10-04 | Natural Creative Ecology, Play, phénotype, culture, POET |
+| [0294a](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
+| [0294b](0294-fermeture-runtime-nce.md) | Contrats de preuve des chemins runtime NCE | Accepté | 2026-10-04 | Natural Creative Ecology, Play, phénotype, culture, POET |
+| [0296](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
+| [0297](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
+| [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
+| [0299a](0299-admission-relationnelle-transactionnelle.md) | Admission transactionnelle des signaux relationnels | Proposé, implémentation ciblée | 2026-10-04 | Communication inter-agents, autorité, persistance |
+| [0299b](0299-capacites-transversales-morphogenese.md) | Cinq capacités transversales de morphogenèse | Proposé, avec première implémentation opt-in | 2026-10-04 | Morphogenèse, preuves, mémoire, risque statistique |
+| [0299c](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
+| [0300](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
 
-> **Identifiants numériques partagés** : 26 numéros sont portés par deux
-> fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
-> 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,
-> 0108, 0122, 0126, 0154), plus `003x` (format historique gelé). Les
+> **Identifiants numériques partagés** : certains numéros sont portés par
+> plusieurs fichiers, en plus de `003x` (format historique gelé). Les
 > fichiers sont conservés tels quels (renommage interdit sans migration
 > de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,
 > `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.

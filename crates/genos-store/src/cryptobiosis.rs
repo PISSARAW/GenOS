@@ -27,6 +27,10 @@ impl SporeVitrifiedPayload {
     }
 
     pub fn germinate(&self, warm_and_wet: bool, nutrients: bool) -> Result<&[u8], String> {
+        let actual_hash = format!("{:x}", Sha256::digest(&self.raw_blob));
+        if actual_hash != self.payload_hash {
+            return Err("INVALID_SPORE: Payload hash mismatch".to_string());
+        }
         if self.trehalose_concentration < 0.2 {
             return Err("OSMOTIC_COLLAPSE: Insufficient trehalose cryoprotection".to_string());
         }
@@ -103,10 +107,12 @@ impl CryptobiosisStore {
     }
 
     pub fn thaw_vitrified(&mut self, config: VitrifiedThaw<'_>) -> Result<Vec<u8>, String> {
-        let agent = self.vault.remove(config.agent_id).ok_or_else(|| format!("Agent '{}' not found in cryptobiosis store", config.agent_id))?;
-        let spore = agent.vitrified_spore.ok_or_else(|| format!("Agent '{}' has no vitrified spore payload", config.agent_id))?;
+        let agent = self.vault.get(config.agent_id).ok_or_else(|| format!("Agent '{}' not found in cryptobiosis store", config.agent_id))?;
+        let spore = agent.vitrified_spore.as_ref().ok_or_else(|| format!("Agent '{}' has no vitrified spore payload", config.agent_id))?;
         let bytes = spore.germinate(config.warm_and_wet, config.nutrients)?;
-        Ok(bytes.to_vec())
+        let restored = bytes.to_vec();
+        self.vault.remove(config.agent_id);
+        Ok(restored)
     }
 
     pub fn is_dormant(&self, agent_id: &str) -> bool {

@@ -29,10 +29,8 @@ FIELD_RES = {
 TITLE_RE = re.compile(r"^#\s+(.+)$", re.M)
 
 COLLISION_NOTE = (
-    "> **Identifiants numériques partagés** : 26 numéros sont portés par deux\n"
-    "> fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,\n"
-    "> 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,\n"
-    "> 0108, 0122, 0126, 0154), plus `003x` (format historique gelé). Les\n"
+    "> **Identifiants numériques partagés** : certains numéros sont portés par\n"
+    "> plusieurs fichiers, en plus de `003x` (format historique gelé). Les\n"
     "> fichiers sont conservés tels quels (renommage interdit sans migration\n"
     "> de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,\n"
     "> `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.\n"

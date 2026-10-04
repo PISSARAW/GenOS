@@ -365,7 +365,16 @@ const migrationRunners = [
     const { migrateHolobiontVariantEvents } = require('./migrateHolobiontVariantEvents');
     await migrateHolobiontVariantEvents(db);
   }),
-  createMigrationRunner('100-nce-play-observations', 'Persist scoped Play observations with snapshot provenance', async (db) => {
+  createMigrationRunner('100-procedural-causal-experiments', 'Persist pinned procedural causal experiments and isolated forks', async (db) => {
+    await require('./migrateProceduralCausalExperiments').migrateProceduralCausalExperiments(db);
+  }),
+  createMigrationRunner('101-relational-execution', 'Persist scoped relational grants and atomic admission receipts', async (db) => {
+    await require('./migrateRelationalExecution').migrateRelationalExecution(db);
+  }),
+  createMigrationRunner('102-morphogenesis-capabilities', 'Persist experimental coverage, attempts, temporal observations, counterexamples and inherited statistical risk', async (db) => {
+    await require('./migrateMorphogenesisCapabilities').migrateMorphogenesisCapabilities(db);
+  }),
+  createMigrationRunner('103-nce-play-observations', 'Persist scoped Play observations with snapshot provenance', async (db) => {
     await require('./migrateNcePlayObservations').migrateNcePlayObservations(db);
   }),
 ];
