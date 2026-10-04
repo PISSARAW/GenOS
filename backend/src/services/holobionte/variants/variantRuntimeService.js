@@ -337,9 +337,16 @@ function planRecruitment(input = {}) {
   const required = [...new Set((Array.isArray(input.requiredCapabilities) ? input.requiredCapabilities : []).map((item) => text(item, 'required capability')))];
   const available = new Set(Array.isArray(input.availableCapabilities) ? input.availableCapabilities : []);
   const gaps = required.filter((item) => !available.has(item));
-  const contract = gaps.length ? { capabilities: gaps, permissions: input.minimumPermissions || [],
-    evidenceRequired: true, trialRequired: true, sourceArtifacts: (input.dna || input.plasmid || input.fossil) ? [input.dna, input.plasmid, input.fossil].filter(Boolean) : [] } : null;
-  return { gaps, status: gaps.length ? 'CONTRACT_AND_ADMISSION_REQUIRED' : 'COVERED', contract, autoAssimilate: false };
+  const requestedPermissions = Array.isArray(input.minimumPermissions) ? input.minimumPermissions : [];
+  const allowedPermissions = new Set(Array.isArray(input.allowedPermissions) ? input.allowedPermissions : requestedPermissions);
+  const permissions = requestedPermissions.filter((permission) => allowedPermissions.has(permission));
+  const excludedPermissions = requestedPermissions.filter((permission) => !allowedPermissions.has(permission));
+  const sourceArtifacts = [input.dna, input.plasmid, input.fossil].filter(Boolean)
+    .filter((artifact) => typeof input.verifySourceArtifact === 'function' && input.verifySourceArtifact(artifact) === true);
+  const contract = gaps.length ? { capabilities: gaps, permissions, excludedPermissions,
+    evidenceRequired: true, trialRequired: true, sourceArtifacts } : null;
+  return { gaps, status: gaps.length ? 'CONTRACT_AND_ADMISSION_REQUIRED' : 'COVERED', contract,
+    admissionRequired: gaps.length > 0, autoAssimilate: false };
 }
 
 function createProofHash(value) {

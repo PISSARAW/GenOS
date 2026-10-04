@@ -135,6 +135,18 @@ function testCompetitionSelectsProtectedGroupAlternative() {
   assert.strictEqual(result.replacementAuthorized, true);
 }
 
+function testProceduralRecruitmentContractGates() {
+  const result = runtime.planRecruitment({ requiredCapabilities: ['parse', 'validate'], availableCapabilities: ['parse'],
+    minimumPermissions: ['read', 'admin'], allowedPermissions: ['read'], dna: { id: 'dna-ok' }, plasmid: { id: 'plasmid-bad' },
+    verifySourceArtifact: (artifact) => artifact.id === 'dna-ok' });
+  assert.deepStrictEqual(result.gaps, ['validate']);
+  assert.deepStrictEqual(result.contract.permissions, ['read']);
+  assert.deepStrictEqual(result.contract.excludedPermissions, ['admin']);
+  assert.deepStrictEqual(result.contract.sourceArtifacts, [{ id: 'dna-ok' }]);
+  assert.strictEqual(result.contract.trialRequired, true);
+  assert.strictEqual(result.autoAssimilate, false);
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
 testLocalExportProofGate();
@@ -143,5 +155,6 @@ testCloudEdgePlacementBatch();
 testEdgeCoreCloudOnDemandBatch();
 testMemoryPairwiseConflictsAndProvenance();
 testCompetitionSelectsProtectedGroupAlternative();
+testProceduralRecruitmentContractGates();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');
