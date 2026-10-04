@@ -7,7 +7,17 @@ async function runRegionalRuntime(input = {}, options = {}) {
   requireRuntimeContext(input, options);
   const limit = cycleLimit(input.maxCycles);
   const cycles = [];
-  for (let index = 0; index < limit; index += 1) {
+  let startCycle = 1;
+
+  if (input.resume === true) {
+    const lastVerified = await getLastVerifiedCycle(options.db, input.metapopulationId);
+    if (lastVerified) {
+      startCycle = lastVerified.cycle + 1;
+      input.seed = lastVerified.seed;
+    }
+  }
+
+  for (let index = startCycle - 1; index < limit; index += 1) {
     const stopped = stopReason(input.stopConditions, index);
     if (stopped) return { status: 'STOPPED', reason: stopped, cycles };
     const result = await runRegionalCycle({ ...input, cycle: index + 1 }, options);
@@ -33,7 +43,8 @@ async function runRegionalCycle(input = {}, options = {}) {
 
 async function executeCycleStages(input, options) {
   const adapter = options.adapters;
-  const observed = await adapter.observe(input);
+  const seed = input.seed || generateSeed();
+  const observed = await adapter.observe({ ...input, seed });
   const diagnosis = await adapter.diagnose(observed, input);
   const plan = await adapter.plan(diagnosis, observed, input);
   validatePlan(plan);
@@ -41,9 +52,67 @@ async function executeCycleStages(input, options) {
   const verification = await adapter.verify(execution, plan, diagnosis, observed, input);
   if (!verification || verification.valid !== true) throw runtimeError('REGIONAL_VERIFY_FAILED', 'Regional cycle verification failed.');
   const status = plan.actions.length === 0 ? 'NO_ACTION' : 'VERIFIED';
-  await recordCycle(input, options, { type: 'REGIONAL_CYCLE_RECORDED', status, diagnosis, plan, execution, verification });
+  await persistCycleState(input, options, { observed, diagnosis, plan, execution, verification, seed });
+  await recordCycle(input, options, { type: 'REGIONAL_CYCLE_RECORDED', status, diagnosis, plan, execution, verification, seed });
   return { status, cycle: input.cycle || null, stages: STAGES,
-    actionCount: plan.actions.length, verification };
+    actionCount: plan.actions.length, verification, seed };
+}
+
+async function persistCycleState(input, options, cycleData) {
+  const { db } = options;
+  const metapopulationId = input.metapopulationId;
+  const stateId = `cycle-${metapopulationId}-${input.cycle}-${Date.now()}`;
+  const { withTransaction } = require('../../../db');
+  await withTransaction(db, async () => {
+    await db.run(
+      `INSERT INTO metapopulation_cycle_states
+       (state_id, metapopulation_id, cycle, seed, observed_json, diagnosis_json, plan_json, execution_json, verification_json, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'VERIFIED', ?)`,
+      stateId, metapopulationId, input.cycle, cycleData.seed,
+      JSON.stringify(cycleData.observed), JSON.stringify(cycleData.diagnosis),
+      JSON.stringify(cycleData.plan), JSON.stringify(cycleData.execution),
+      JSON.stringify(cycleData.verification), new Date().toISOString()
+    );
+  });
+}
+
+async function getLastVerifiedCycle(db, metapopulationId) {
+  const row = await db.get(
+    `SELECT cycle, seed, observed_json, diagnosis_json, plan_json, execution_json, verification_json
+     FROM metapopulation_cycle_states
+     WHERE metapopulation_id = ? AND status = 'VERIFIED'
+     ORDER BY cycle DESC LIMIT 1`,
+    metapopulationId
+  );
+  if (!row) return null;
+  return {
+    cycle: row.cycle,
+    seed: row.seed,
+    observed: JSON.parse(row.observed_json),
+    diagnosis: JSON.parse(row.diagnosis_json),
+    plan: JSON.parse(row.plan_json),
+    execution: JSON.parse(row.execution_json),
+    verification: JSON.parse(row.verification_json)
+  };
+}
+
+async function resumeFromCycle(db, metapopulationId, targetCycle) {
+  const row = await db.get(
+    `SELECT cycle, seed, observed_json, diagnosis_json, plan_json, execution_json, verification_json
+     FROM metapopulation_cycle_states
+     WHERE metapopulation_id = ? AND cycle = ? AND status = 'VERIFIED'`,
+    metapopulationId, targetCycle
+  );
+  if (!row) return null;
+  return {
+    cycle: row.cycle,
+    seed: row.seed,
+    observed: JSON.parse(row.observed_json),
+    diagnosis: JSON.parse(row.diagnosis_json),
+    plan: JSON.parse(row.plan_json),
+    execution: JSON.parse(row.execution_json),
+    verification: JSON.parse(row.verification_json)
+  };
 }
 
 async function executePlan(adapter, context) {
@@ -65,7 +134,7 @@ async function recordCycle(input, options, outcome) {
   const coordination = require('../../metapopulationCoordinationService');
   return coordination.recordMetapopulationEvent(input.metapopulationId, {
     type: outcome.type,
-    payload: { cycle: input.cycle || null, status: outcome.status || (outcome.type === 'REGIONAL_CYCLE_RECORDED' ? 'VERIFIED' : 'FAILED'),
+    payload: { cycle: input.cycle || null, status: outcome.type === 'REGIONAL_CYCLE_RECORDED' ? 'VERIFIED' : 'FAILED',
       actionCount: outcome.plan?.actions?.length || 0, diagnosis: outcome.diagnosis?.summary || null,
       verification: outcome.verification?.valid === true ? 'VALID' : null, failure: outcome.failure || null },
     actor: input.actor || 'metapopulation-runtime',
@@ -91,5 +160,6 @@ function stopReason(conditions = {}, cycleIndex = 0) {
 }
 function cycleLimit(value) { return Number.isSafeInteger(value) ? Math.max(1, Math.min(100, value)) : 1; }
 function runtimeError(code, message) { return Object.assign(new Error(message), { code }); }
+function generateSeed() { return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`; }
 
-module.exports = { runRegionalRuntime, runRegionalCycle, STAGES };
+module.exports = { runRegionalRuntime, runRegionalCycle, STAGES, persistCycleState, getLastVerifiedCycle, resumeFromCycle };
