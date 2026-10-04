@@ -1,19 +1,106 @@
 'use strict';
 
 const modelRouter = require('../../modelRouter');
+const { REASON_CODES } = require('../contracts/beliefUpdateContract');
+const { ARGUMENT_RELATIONS } = require('../contracts/argumentContract');
+const { validateJudgment } = require('../contracts/judgmentContract');
+
+const REPAIRABLE_PHASES = new Set(['SEALED_JUDGMENT', 'REVIEW', 'REVISION']);
 
 async function invoke(input) {
-  if (typeof input.memberInvoker === 'function') return normalizeResult(
-    await input.memberInvoker(invocationRequest(input))
-  );
-  const response = await modelRouter.generate({
+  if (typeof input.memberInvoker === 'function') {
+    return assertValidResponse(input, normalizeResult(await input.memberInvoker(invocationRequest(input))));
+  }
+  const options = {
     db: input.db, agentId: input.member.memberId,
     model: input.member.model || input.member.modelUri,
     organizationId: input.member.organizationId, projectId: input.member.projectId,
-    prompt: promptFor(input), priority: 'interactive', timeoutMs: input.timeoutMs || 60000,
+    priority: 'interactive', timeoutMs: input.timeoutMs || 60000,
     maxTokens: input.maxTokens || 2500, stream: false
+  };
+  let first;
+  try {
+    first = await modelRouter.generate({ ...options, prompt: promptFor(input) });
+  } catch (error) {
+    if (!REPAIRABLE_PHASES.has(input.phase) || !isStructuredOutputError(error)) throw error;
+    const repaired = await modelRouter.generate({
+      ...options,
+      prompt: repairPrompt(input, '', ['The previous response was not valid JSON. Return exactly one complete JSON object.'])
+    });
+    return assertValidResponse(input, parseResponse(repaired.text));
+  }
+  try {
+    return assertValidResponse(input, parseResponse(first.text));
+  } catch (error) {
+    if (!REPAIRABLE_PHASES.has(input.phase) || error.code !== 'BIOCENOSE_MEMBER_RESPONSE_INVALID') throw error;
+    const errors = error.validationErrors || [error.message];
+    const repaired = await modelRouter.generate({
+      ...options,
+      prompt: repairPrompt(input, first.text, errors)
+    });
+    return assertValidResponse(input, parseResponse(repaired.text));
+  }
+}
+
+function isStructuredOutputError(error) {
+  return /invalid structured json|malformed sse json|malformed ndjson/i.test(String(error?.message || ''));
+}
+
+function assertValidResponse(input, response) {
+  const errors = responseErrors(input, response);
+  if (errors.length) throw Object.assign(new Error(`Biocenose ${input.phase} response violates its contract: ${errors.join('; ')}`), {
+    code: 'BIOCENOSE_MEMBER_RESPONSE_INVALID', validationErrors: errors
   });
-  return parseResponse(response.text);
+  return response;
+}
+
+function responseErrors(input, response) {
+  if (input.phase === 'SEALED_JUDGMENT') {
+    const judgment = response.judgment || response;
+    const result = validateJudgment({
+      judgmentId: 'response', communityId: input.session.communityId,
+      memberId: input.member.memberId, round: input.session.round, judgment
+    });
+    return result.valid ? [] : result.errors;
+  }
+  if (input.phase === 'REVIEW') {
+    if (!Array.isArray(response.arguments)) return ['arguments must be an array (use [] when there are no arguments)'];
+    return response.arguments.flatMap((item, index) => {
+      const errors = [];
+      if (!item || typeof item !== 'object') return [`arguments[${index}] must be an object`];
+      if (!ARGUMENT_RELATIONS.includes(item.relation)) errors.push(`arguments[${index}].relation must be one of ${ARGUMENT_RELATIONS.join(', ')}`);
+      const argument = item.argument || item;
+      if (typeof argument.statement !== 'string' || !argument.statement.trim()) errors.push(`arguments[${index}].argument.statement is required`);
+      if (item.claimId !== undefined && typeof item.claimId !== 'string') errors.push(`arguments[${index}].claimId must be a string`);
+      return errors;
+    });
+  }
+  if (input.phase === 'REVISION') {
+    if (!Array.isArray(response.changedClaims)) return ['changedClaims must be an array; use [] when no claims change'];
+    if (!response.changedClaims.length) return [];
+    const errors = [];
+    if (typeof response.newPosition !== 'string' || !response.newPosition.trim()) errors.push('newPosition is required when claims change');
+    if (!Array.isArray(response.reasonCodes) || !response.reasonCodes.length || !response.reasonCodes.every((code) => REASON_CODES.includes(code))) {
+      errors.push(`reasonCodes must contain one or more of ${REASON_CODES.join(', ')}`);
+    }
+    if (!Array.isArray(response.evidenceRefs)) errors.push('evidenceRefs must be an array (use [] when there are no references)');
+    if (Array.isArray(input.details?.claims)) {
+      const known = new Set(input.details.claims.map((claim) => claim.claimId));
+      if (!response.changedClaims.every((claimId) => typeof claimId === 'string' && known.has(claimId))) errors.push('changedClaims must contain only supplied claimId values');
+    }
+    return errors;
+  }
+  return [];
+}
+
+function repairPrompt(input, previousResponse, errors) {
+  return [
+    promptFor(input),
+    'Your previous JSON response failed contract validation. Return one corrected JSON object only.',
+    `Validation errors: ${JSON.stringify(errors)}`,
+    `Previous response: ${String(previousResponse || '').slice(0, 12000)}`,
+    'Preserve the substance of your answer. Do not invent facts, evidence references, claim IDs, or human/oracle decisions. If no belief change is justified, return exactly {"changedClaims":[]}. Include every required field and use only the enumerated values.'
+  ].join('\n\n');
 }
 
 function invocationRequest(input) {
