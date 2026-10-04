@@ -112,7 +112,7 @@ async function testExpiry() {
     assert.equal(await ground.knows({ db, agentA: 'a', agentB: 'b', semanticFingerprint: 'old' }), false);
     assert.deepEqual((await ground.getSharedGround({ db, agentA: 'a', agentB: 'b', domain: 'audit' }))
       .map((item) => item.semanticFingerprint), ['live']);
-    assert.deepEqual(await ground.computeKnowledgeDelta({ db, senderId: 'a', receiverId: 'b',
+    assert.deepEqual(await ground.computeKnowledgeDelta({ db, senderId: 'a', receiverId: 'b', domain: 'audit',
       semanticRefs: ['old', 'live'] }), ['old']);
     assert.deepEqual(await ground.computeGroupGrounding({ db, agentIds: ['a', 'b'], domain: 'audit' }), ['live']);
   } finally { await db.close(); }
