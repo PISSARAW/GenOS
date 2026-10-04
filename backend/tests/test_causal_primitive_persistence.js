@@ -39,8 +39,8 @@ async function createCompletedPair(db, input) {
     const fork = await experimentService.createFork(db, { experimentId: input.experimentId, snapshotId: input.snapshot.snapshotId, snapshotState: input.snapshot.state, arm, seed: input.seed });
     const result = { metric: arm === 'control' ? 0 : 1, trajectory: [{ step: arm }] };
     await db.run("UPDATE procedural_causal_forks SET status = 'completed' WHERE fork_id = ?", fork.forkId);
-    await db.run(`INSERT INTO procedural_causal_fork_events (fork_id, event_type, state_hash, payload_json)
-      VALUES (?, 'RUN_RESULT', ?, ?)`, [fork.forkId, experimentService.digest(result), JSON.stringify({ result })]);
+    await experimentService.recordEvent(db, { forkId: fork.forkId, eventType: 'RUN_RESULT',
+      stateHash: experimentService.digest(result), payload: { result } });
     pair.push(fork);
   }
   return pair;
