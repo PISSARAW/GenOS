@@ -33,6 +33,8 @@ function validatePlan(plan) {
       if (!['spawn', 'retire', 'rebind'].includes(a.type)) {
         errors.push(`actions[${i}].type invalid: ${a.type}`);
       }
+      if (a.continueOnFailure === true) errors.push(`actions[${i}].continueOnFailure is unsafe`);
+      if (['retire', 'rebind'].includes(a.type) && !a.agentId) errors.push(`actions[${i}].agentId is required`);
     }
   }
   return errors;
@@ -198,9 +200,9 @@ async function runAction(action, ctx) {
 // ---------------------------------------------------------------------------
 
 function verifySpawn(a, postState, failures) {
-  if (a.agentId && !postState.agents.has(a.agentId)) {
-    failures.push(`spawn ${a.agentId}: agent not in post-state`);
-  }
+  const actualId = a.actualAgentId || a.agentId;
+  if (!actualId || !postState.agents.has(actualId)) failures.push(`spawn ${actualId || 'unknown'}: agent not in post-state`);
+  if (a.agentId && a.actualAgentId && a.agentId !== a.actualAgentId) failures.push(`spawn ${a.agentId}: unexpected agent ${a.actualAgentId}`);
 }
 
 function verifyRetire(a, postState, failures) {
@@ -226,8 +228,8 @@ function verifyTransition(ctx) {
   const { plan, preState, postState } = ctx;
   const failures = [];
 
-  for (const a of plan.actions) {
-    if (a.type === 'spawn') verifySpawn(a, postState, failures);
+  for (const [index, a] of plan.actions.entries()) {
+    if (a.type === 'spawn') verifySpawn({ ...a, actualAgentId: ctx.actionsTaken?.[index]?.detail?.agentId }, postState, failures);
     else if (a.type === 'retire') verifyRetire(a, postState, failures);
     else if (a.type === 'rebind') verifyRebind(a, postState, failures);
   }
@@ -286,7 +288,7 @@ async function executeTransition(ctx) {
     await executeActions({ plan, morphCtx, actionsTaken, compensations });
     const migrationLog = migrateState({ fromState: state, toState: state, plan });
     if (migrationLog.length) emitMigration({ transitionId, migrationLog });
-    await verifyAndCommit({ plan, collectiveState: state, preSnapshot, transitionId });
+    await verifyAndCommit({ plan, collectiveState: state, preSnapshot, transitionId, actionsTaken });
     return buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: createStateSnapshot(state), actionsTaken, rollbackReceipt: null, committed: true });
   } catch (err) {
     return handleRollback({ err, preSnapshot, transitionId, plan, actionsTaken, compensations, morphCtx });
@@ -317,7 +319,7 @@ async function executeActions(input) {
     if (result.status === 'success' && ['spawn', 'retire'].includes(action.type)) {
       compensations.push({ action, result });
     }
-    if (result.status === 'failed' && !action.continueOnFailure) throw new Error(`action ${action.type} failed: ${result.error}`);
+    if (result.status === 'failed') throw new Error(`action ${action.type} failed: ${result.error}`);
   }
 }
 
@@ -329,8 +331,8 @@ function emitMigration(input) {
 }
 
 async function verifyAndCommit(input) {
-  const { plan, collectiveState, preSnapshot, transitionId } = input;
-  const verification = verifyTransition({ plan, preState: preSnapshot, postState: collectiveState });
+  const { plan, collectiveState, preSnapshot, transitionId, actionsTaken } = input;
+  const verification = verifyTransition({ plan, preState: preSnapshot, postState: collectiveState, actionsTaken });
   if (!verification.verified) throw new Error(`verification failed: ${verification.failures.join('; ')}`);
   emit('system', 'MORPHOGENESIS_TRANSITION_COMMIT', 'COMMIT',
     `Transition ${transitionId} committed`, { transitionId, planId: plan.id }, 'info');
