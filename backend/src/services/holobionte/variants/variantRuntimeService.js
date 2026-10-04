@@ -114,19 +114,27 @@ function fitnessDelta(samples) {
   return samples.length ? samples[samples.length - 1].score - samples[0].score : null;
 }
 
-function ecologyAction(dysbiosis, diversity, floor) {
-  if (dysbiosis) return 'QUARANTINE_AND_REVIEW';
-  return diversity < floor ? 'ACQUIRE_CANDIDATE' : 'CONTINUE';
+function perSymbiontFitness(history) {
+  const records = Object.entries(record(history, 'fitnessBySymbiont'));
+  return records.map(([symbiontId, values]) => {
+    if (!Array.isArray(values) || values.length < 2) throw invalid(`Fitness history for ${symbiontId} needs at least two samples.`);
+    const samples = ecologySamples(values);
+    return { symbiontId, samples: samples.length, fitnessDelta: fitnessDelta(samples) };
+  });
 }
 
 function assessEcology(input = {}) {
   const { floor, diversity } = ecologyInputs(input);
   const samples = ecologySamples(Array.isArray(input.fitnessHistory) ? input.fitnessHistory : []);
+  const symbiontFitness = input.fitnessBySymbiont ? perSymbiontFitness(input.fitnessBySymbiont) : [];
   const dysbiosis = input.dysbiosisSignals
     ? detectDysbiosis(input.dysbiosisSignals).state === 'ALERT' : false;
+  const decliningSymbiontIds = symbiontFitness.filter((item) => item.fitnessDelta < 0).map((item) => item.symbiontId);
+  const action = dysbiosis ? 'QUARANTINE_AND_REVIEW'
+    : diversity < floor ? 'ACQUIRE_CANDIDATE' : decliningSymbiontIds.length ? 'REVIEW_CONTRIBUTORS' : 'CONTINUE';
   return { longitudinalSamples: samples.length, fitnessDelta: fitnessDelta(samples),
-    action: ecologyAction(dysbiosis, diversity, floor),
-    diversityFloor: floor, diversity, automaticReplacement: false };
+    action, diversityFloor: floor, diversity, symbiontFitness, decliningSymbiontIds,
+    dysbiosis, automaticReplacement: false };
 }
 
 function placementVariant(input) {

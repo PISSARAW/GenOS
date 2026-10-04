@@ -30,5 +30,17 @@ function testOrganelleClosure() {
   assert.deepStrictEqual(result.dependentSymbiontIds, ['adapter', 'worker', 'leaf']);
 }
 
+function testAdaptiveFitnessPerSymbiont() {
+  const result = runtime.assessEcology({ diversity: 3, diversityFloor: 2,
+    fitnessBySymbiont: {
+      stable: [{ score: 0.8, evidenceRefs: ['s:1'] }, { score: 0.82, evidenceRefs: ['s:2'] }],
+      declining: [{ score: 0.5, evidenceRefs: ['d:1'] }, { score: 0.3, evidenceRefs: ['d:2'] }]
+    } });
+  assert.deepStrictEqual(result.decliningSymbiontIds, ['declining']);
+  assert.strictEqual(result.action, 'REVIEW_CONTRIBUTORS');
+  assert.strictEqual(result.automaticReplacement, false);
+}
+
 testOrganelleClosure();
+testAdaptiveFitnessPerSymbiont();
 console.log('✅ Holobiont variant runtime contracts passed.');
