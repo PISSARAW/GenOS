@@ -273,7 +273,7 @@ Le type et le contrat dérivé sont persistés dans `agents.metadata_json = JSON
 
 Principe ADR 0064 : « l'incarnation reconstruit le contrat côté serveur ; les données fournies par l'appelant ne définissent pas l'autorité ».
 
-- `agents/workerContractEnforcement.js` (`enforcePersistedWorkerTool`) : relit `execution_mode, metadata_json, role`, si `worker` alors `resolveWorkerKind(metadata.workerKind, role)` + `buildWorkerContract(kind, mission)` puis assertion d'outil.
+- `agents/workerContractEnforcement.js` (`enforcePersistedWorkerTool`) : relit `execution_mode, metadata_json, role, parent_agent_id`, reconstruit les plafonds canoniques du type, refuse toute autorité ou ressource supplémentaire, toute preuve obligatoire supprimée et toute divergence de parent, puis autorise l'outil. Une délégation `sub_orchestrator` exige toujours son contrat borné non expiré.
 - `agentRuntimeAdapter/missionBootstrap.js` (`resolveWorkerIdentity`) : recalcule le kind, `WORKER_KIND_MISMATCH` si divergence, puis contrôle le contrat persistant. Un contrat délégant n'est accepté que pour `sub_orchestrator` avec profondeur 1, budget d'enfants conforme, limites présentes et expiration future; toute autre délégation échoue au boot.
 - `agents/agentIncarnationService.js` (`incarnateAgent`) : écrase `request.workerKind/workerContract` par `resolve + build` ; `computeLease` (rôle/caps → DNA → phénotype → provided, `stripOrchestrate`) ; `setupAuthority` (`allowFileEdits = ap.allowFileEdits ∧ contract.authority.write`, `permittedToolSet`, `executionMode:'worker'`).
 - `orchestratorDispatchService.js` (`buildWorkerMission`) : même pattern + injection `Worker kind: X. promptRule(X)` dans le prompt.

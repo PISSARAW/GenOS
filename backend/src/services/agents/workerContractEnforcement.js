@@ -48,18 +48,27 @@ function assertWorkerToolAllowed(contract, toolName, args = {}) {
 async function enforcePersistedWorkerTool(db, agentId, toolCall) {
   const normalizedCall = typeof toolCall === 'string' ? { toolName: toolCall, args: {} } : (toolCall || {});
   const { toolName, args = {} } = normalizedCall;
-  const agent = await db.get('SELECT execution_mode, metadata_json, role FROM agents WHERE id = ?', agentId);
+  const agent = await db.get('SELECT execution_mode, metadata_json, role, parent_agent_id FROM agents WHERE id = ?', agentId);
   if (!agent || agent.execution_mode !== 'worker') return true;
-  let metadata = {};
-  try { metadata = typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {}; }
-  catch (_) { throw contractError('unknown', toolAction(toolName)); }
+  const metadata = parseWorkerMetadata(agent, toolName);
   const kind = workerKinds.resolveWorkerKind(metadata.workerKind, agent.role);
-  const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, {
-    topologySessionId: metadata.topologySessionId
-  });
+  const contract = metadata.workerContract || workerKinds.buildWorkerContract(kind, { topologySessionId: metadata.topologySessionId });
   if (contract.identity?.workerKind !== kind) throw contractError('unknown', toolAction(toolName));
+  assertRuntimeContract(contract, kind);
+  assertParentBinding(contract, agent);
   assertTopologySessionScope({ toolName, args, metadata, kind });
   return assertWorkerToolAllowed(contract, toolName, args);
+}
+
+function parseWorkerMetadata(agent, toolName) {
+  try { return typeof agent.metadata_json === 'string' ? JSON.parse(agent.metadata_json) : agent.metadata_json || {}; }
+  catch (_) { throw contractError('unknown', toolAction(toolName)); }
+}
+
+function assertParentBinding(contract, agent) {
+  if (contract.identity?.parentId !== (agent.parent_agent_id || null)) {
+    throw invalidWorkerContract('Persisted worker parent does not match the agent record.');
+  }
 }
 
 function assertTopologySessionScope(input) {
@@ -82,7 +91,62 @@ function assertRuntimeContract(contract, kind) {
   if (kind === 'sub_orchestrator' && !validSubOrchestratorContract(contract)) {
     throw Object.assign(new Error('Sub-orchestrator delegation contract is missing, expired, or outside its limits.'), { code: 'UNSUPPORTED_WORKER_DELEGATION' });
   }
+  assertCanonicalCeilings(contract, kind);
   return true;
+}
+
+function invalidWorkerContract(message) {
+  return Object.assign(new Error(message), { code: 'INVALID_WORKER_CONTRACT' });
+}
+
+function exceedsCeiling(value, ceiling) {
+  if (ceiling === null) return value !== null && (!Number.isFinite(value) || value < 0);
+  return !Number.isFinite(value) || value < 0 || value > ceiling;
+}
+
+function assertCanonicalCeilings(contract, kind) {
+  const canonical = workerKinds.buildWorkerContract(kind, {
+    ...contract.mission, workerAssignment: contract.assignment,
+    parentAgentId: contract.identity.parentId
+  });
+  assertAuthorityCeiling(contract, canonical, kind);
+  assertBudgetCeilings(contract.resources, canonical.resources);
+  assertBudgetCeilings(contract.limits, canonical.limits);
+  assertEvidenceCeiling(contract.evidence, canonical.evidence);
+  const capabilities = canonical.expressedCapabilities;
+  if (contract.expressedCapabilities?.some((capability) => !capabilities.includes(capability))) {
+    throw invalidWorkerContract('Worker contract declares an unsupported capability.');
+  }
+}
+
+function assertAuthorityCeiling(contract, canonical, kind) {
+  const allowedDelegation = kind === 'sub_orchestrator' && validSubOrchestratorContract(contract);
+  for (const [action, granted] of Object.entries(contract.authority || {})) {
+    if (granted !== true || canonical.authority[action] === true) continue;
+    if (allowedDelegation && ['spawn', 'delegate'].includes(action)) continue;
+    throw invalidWorkerContract(`Worker contract grants '${action}' beyond its canonical authority.`);
+  }
+}
+
+function assertEvidenceCeiling(actual, canonical) {
+  if (actual?.provenanceRequired !== true) {
+    throw invalidWorkerContract('Worker contract must retain provenance requirements.');
+  }
+  for (const artifact of canonical.requiredArtifacts) {
+    if (!actual?.requiredArtifacts?.includes(artifact)) {
+      throw invalidWorkerContract(`Worker contract omits required '${artifact}' evidence.`);
+    }
+  }
+}
+
+function assertBudgetCeilings(actual, canonical) {
+  for (const [name, ceiling] of Object.entries(canonical)) {
+    if (ceiling === null || typeof ceiling === 'number') {
+      if (exceedsCeiling(actual?.[name], ceiling)) {
+        throw invalidWorkerContract(`Worker contract exceeds the '${name}' budget.`);
+      }
+    }
+  }
 }
 
 function assertAssignmentMatches(contract, request) {
