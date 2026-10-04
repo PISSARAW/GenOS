@@ -18,6 +18,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0290](0290-livraison-interprocessus-des-evenements-daemon.md) | Livraison interprocessus au daemon résident par curseur SQLite | Accepté | 2026-10-03 | Daemons résidents, événements, persistance |
 | [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
+| [0293](0293-runner-reel-campagne-holobionte.md) | Runner réel et reprise de campagne Holobionte | Accepté | 2026-10-04 | Holobionte, benchmarks, budget, preuves |
 | [0002](0002-agentdna-innovation-loop.md) | Boucle d'innovation AgentDNA | Accepté | 2026-09-14 | Génome, apprentissage, orchestration, preuve |
 | [0003](0003-fossilization-stratigraphic-archive.md) | Fossilisation stratigraphique | Accepté | 2026-09-27 | Persistance, mémoire, orchestration, preuve |
 | [0004](0004-instinct-innate-circuits.md) | Instinct : circuits innés et PAF | Proposé | 2026-09-14 | Biomimétique, génome, neurobiologie, sûreté |
