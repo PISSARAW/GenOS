@@ -181,6 +181,7 @@ async function consumeJsonResponse(context, response) {
   const result = buildFinalResponse({ text, toolCalls: normalized.toolCalls, responseFormat: context.options.responseFormat, prompt: context.options.prompt, payload, provider: context.configuration.provider, modelName: context.configuration.modelName });
   if (context.options.enforceSchema === false) return result;
   if (result.structured) {
+    if (context.options.responseFormat?.schema) return result;
     Object.assign(result, validateStructuredCandidate(result.structured));
     return result;
   }

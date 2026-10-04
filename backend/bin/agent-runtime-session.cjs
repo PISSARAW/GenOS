@@ -15,6 +15,7 @@ const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPoli
 const { compactStrategyContract, compactAutonomyPlan, buildAgentRuntimePrompt } = require('./agent-runtime-prompt.cjs');
 const { handleRuntimeClose } = require('./agent-runtime-close.cjs');
 const events = require('./agent-runtime-events.cjs');
+const runtimeStdio = require('./agent-runtime-stdio.cjs');
 const { resolveCodexLaunch } = require('./codexLaunchResolver.cjs');
 const { buildMcpServerEnvironment, serializeMcpServerEnvironment } = require('../src/services/agentRuntimeMcpConfiguration');
 
@@ -75,11 +76,6 @@ function parseToolLease(rawJson) {
     return null;
   }
   toolLease = [...new Set(toolLease.map((tool) => { return tool.trim(); }))];
-  if (!toolLease.length) {
-    process.stderr.write('Invalid mission tool lease: at least one tool is required.\n');
-    process.exitCode = 2;
-    return null;
-  }
   return toolLease;
 }
 
@@ -242,12 +238,24 @@ function cleanup(state) {
   if (state.cleanedUp) return;
   state.cleanedUp = true;
   if (state.latencyTimer) clearTimeout(state.latencyTimer);
-  fs.rmSync(state.isolatedCodexHome, { recursive: true, force: true });
+  fs.rmSync(state.isolatedRuntimeRoot || state.isolatedCodexHome, { recursive: true, force: true });
 }
 
 function setupCodexHome() {
   const hostCodexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
-  const isolatedCodexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-codex-'));
+  // Codex refuses to install its helper binaries when CODEX_HOME and the
+  // process temp directory live under the Windows system temp root. Keep both
+  // isolated per-run directories under the runner's writable, non-temp area.
+  const configuredRoot = process.env.GENOS_RUNNER_LOG_DIR;
+  const runtimeParent = configuredRoot && path.isAbsolute(configuredRoot)
+    ? configuredRoot
+    : path.resolve(__dirname, '../..', '.genos-runner-logs');
+  fs.mkdirSync(runtimeParent, { recursive: true });
+  const isolatedRuntimeRoot = fs.mkdtempSync(path.join(runtimeParent, 'genos-runtime-'));
+  const isolatedCodexHome = path.join(isolatedRuntimeRoot, 'codex-home');
+  const isolatedTemp = path.join(isolatedRuntimeRoot, 'tmp');
+  fs.mkdirSync(isolatedCodexHome, { recursive: true });
+  fs.mkdirSync(isolatedTemp, { recursive: true });
   const hostAuth = path.join(hostCodexHome, 'auth.json');
   if (fs.existsSync(hostAuth)) fs.copyFileSync(hostAuth, path.join(isolatedCodexHome, 'auth.json'));
   fs.writeFileSync(path.join(isolatedCodexHome, 'config.toml'), '[features]\nhooks = true\n', { mode: 0o600 });
@@ -256,7 +264,7 @@ function setupCodexHome() {
     description: 'Enforce the execution policy attached to a GenOS mission.',
     hooks: { PreToolUse: [{ matcher: '^(Bash|apply_patch)$', hooks: [{ type: 'command', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(policyHook)}`, timeout: 10 }] }] }
   }), { mode: 0o600 });
-  return isolatedCodexHome;
+  return { home: isolatedCodexHome, root: isolatedRuntimeRoot, temp: isolatedTemp };
 }
 
 function buildMcpConfig(binaries) {
@@ -283,11 +291,14 @@ function buildMcpServerArgs(state, binaries, mcp) {
   ];
 }
 
-function buildSpawnEnv(state, isolatedCodexHome) {
+function buildSpawnEnv(state, isolatedCodexHome, isolatedTemp) {
   const { executionMode } = state;
   return {
     ...process.env,
     CODEX_HOME: isolatedCodexHome,
+    TMP: isolatedTemp,
+    TEMP: isolatedTemp,
+    TMPDIR: isolatedTemp,
     GENOS_EXECUTION_MODE: executionMode,
     GENOS_AGENT_ID: state.mission.agentId,
     GENOS_ORCHESTRATOR_AGENT_ID: state.orchestratorAgentId,
@@ -299,18 +310,20 @@ function buildSpawnEnv(state, isolatedCodexHome) {
 
 function createInvocation(state, binaries) {
   const codexLaunch = resolveCodexLaunch(process.env.CODEX_EXECUTABLE || 'codex');
-  const codexHome = setupCodexHome();
+  const isolated = setupCodexHome();
   const mcp = buildMcpConfig(binaries);
   const args = [...codexLaunch.args, 'exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust', '-c', 'approval_policy="never"'];
   args.push(...codexRuntimeConfiguration.commandOptions(state.mission));
   args.push(...buildMcpServerArgs(state, binaries, mcp));
   args.push('-C', binaries.workspace, '-');
-  return { command: codexLaunch.command, args, codexHome, env: buildSpawnEnv(state, codexHome) };
+  return { command: codexLaunch.command, args, codexHome: isolated.home,
+    runtimeRoot: isolated.root, env: buildSpawnEnv(state, isolated.home, isolated.temp) };
 }
 
 function spawnChild(state, binaries) {
   const invocation = createInvocation(state, binaries);
   state.isolatedCodexHome = invocation.codexHome;
+  state.isolatedRuntimeRoot = invocation.runtimeRoot;
   // Preserve TOML/JSON quoting and Windows paths as literal argv entries.
   state.child = spawn(invocation.command, invocation.args, {
     cwd: binaries.workspace,
@@ -331,20 +344,6 @@ function runMemoryPipeline(state) {
       state.emit({ eventType: 'AGENT_STEP', action: 'MEMORY_RETRIEVAL', detail: 'Strategy memory retrieval primitives executed.', payload: { results: res.results } });
     }
   }).catch(() => {});
-}
-
-function wireStdio(state) {
-  state.child.stdout.on('data', (chunk) => {
-    events.handleStdout(state, chunk);
-  });
-  state.child.stderr.on('data', (chunk) => {
-    const detail = chunk.toString();
-    state.stderr = `${state.stderr}${detail}`.slice(-4000);
-    process.stderr.write(detail);
-  });
-  state.child.stdin.on('error', (error) => {
-    if (error.code !== 'EPIPE') process.stderr.write(`Runtime stdin error: ${error.message}\n`);
-  });
 }
 
 function wireProcessEvents(state) {
@@ -388,9 +387,9 @@ function startRuntime(state) {
       events.stopForBudget(state, { dimension: 'tokens', observed: state.estimatedTokens, limit: events.budgetLimit(state, 'tokens') });
     });
   }
-  wireStdio(state);
+  runtimeStdio.wireStdio(state);
   state.child.stdin.end(state.prompt);
   wireProcessEvents(state);
 }
 
-module.exports = { runSession };
+module.exports = { runSession, parseToolLease };

@@ -18,7 +18,9 @@ async function performStep(input, step, receipts) {
     return assertResult(step, result);
   } catch (error) {
     if (error.code === 'BIOCENOSE_RUNTIME_STEP_BLOCKED') throw error;
-    throw blocked(step, error.code || error.message);
+    throw blocked(step, error.code || error.message, {
+      validationErrors: error.validationErrors || error.details?.validationErrors
+    });
   }
 }
 
@@ -28,9 +30,12 @@ function assertResult(step, result) {
   return result;
 }
 
-function blocked(step, reason) {
+function blocked(step, reason, details = {}) {
   return Object.assign(new Error(`Biocenose runtime stopped at '${step}': ${reason}.`), {
-    code: 'BIOCENOSE_RUNTIME_STEP_BLOCKED', details: { step, reason }
+    code: 'BIOCENOSE_RUNTIME_STEP_BLOCKED', details: {
+      step, reason,
+      ...(Array.isArray(details.validationErrors) ? { validationErrors: details.validationErrors } : {})
+    }
   });
 }
 

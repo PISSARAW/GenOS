@@ -23,12 +23,18 @@ const VARIANT_WORKERS = Object.freeze({
   }
 });
 
+const SYNCYTIUM_WORKER_CAPABILITIES = Object.freeze([
+  'CRDT_SHARED_STATE', 'SIGNALING_BUS', 'CAUSAL_STATE', 'SEMANTIC_CONFLICTS',
+  'INVARIANT_GATES', 'SELECTIVE_SYNC', 'TRANSACTIONAL_SHARED_STATE'
+]);
+
 function membersForSession(session) {
   const variantId = session?.variantPolicy?.id || session?.variantSelection?.id;
   const worker = VARIANT_WORKERS[variantId];
   if (!worker) return [];
   return [{
     role: worker.role,
+    capabilities: SYNCYTIUM_WORKER_CAPABILITIES,
     mission: `${session.mission}\n\nVariant specialist (${variantId}): ${worker.mission}`,
     modelTier: 'standard',
     variantId

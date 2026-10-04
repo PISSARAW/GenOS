@@ -3,15 +3,33 @@
 const assert = require('node:assert/strict');
 const runner = require('../src/services/syncytium/benchmark/biologicalBenchmarkRunnerService');
 const { workerLaunchPayload } = require('../bin/workerLaunchPayload.cjs');
+const { listPolicies } = require('../src/services/syncytium/variants/variantPolicyRegistry');
+const { applySemanticValidation } = require('../src/services/syncytiumMissionCompletionService');
 
 assert.throws(() => runner.validateManifest({ mission: 'x', budget: {}, repetitions: 0, expectedClaims: [] }),
   { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
 assert.throws(() => runner.validateManifest({ mission: 'x', budget: {}, repetitions: 1, expectedClaims: [], variantId: 'unknown' }),
   { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
-assert.doesNotThrow(() => runner.validateManifest({ mission: 'x', budget: {}, repetitions: 1, expectedClaims: [], variantId: 'graph' }));
-assert.deepEqual(runner.qualityScore([], []), {
-  expectedClaims: 0, matchedClaims: 0, value: null, measured: false
-});
+const manifest = { mission: 'x', budget: { tokens: 100, costUsd: 0.02 }, repetitions: 1,
+  campaignBudget: { tokens: 1000, costUsd: 0.2 },
+  expectedClaims: [{ subject: 'x', predicate: 'safe', value: true }], variantId: 'graph' };
+assert.doesNotThrow(() => runner.validateManifest(manifest));
+for (const { id } of listPolicies()) {
+  assert.doesNotThrow(() => runner.validateManifest({ ...manifest, variantId: id }), `${id} is accepted by the campaign runner`);
+}
+assert.throws(() => runner.validateManifest({ ...manifest, expectedClaims: [] }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
+assert.throws(() => runner.validateManifest({ ...manifest, budget: { tokens: 0 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
+assert.throws(() => runner.validateManifest({ ...manifest, campaignBudget: { tokens: 999 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
+assert.throws(() => runner.validateManifest({ ...manifest, budget: { tokens: 100, costUsd: 0.02 }, campaignBudget: { tokens: 1000, costUsd: 0.19 } }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
+assert.throws(() => runner.validateManifest({ ...manifest, timeoutMs: 120000, scenarioTimeoutMs: 120000 }), { code: 'BIOLOGICAL_BENCHMARK_INVALID' });
+const completeOutput = { members: [{ status: 'completed' }, { status: 'completed' }], dispatchFailures: [] };
+applySemanticValidation(completeOutput, { status: 'complete', workerCount: 2, coveredWorkers: 2 }, 2);
+assert.equal(completeOutput.complete, true);
+const partialOutput = { members: [{ status: 'error' }], dispatchFailures: [{ role: 'guardian', reason: 'worker_status_error' }] };
+applySemanticValidation(partialOutput, { status: 'complete', workerCount: 1, coveredWorkers: 1 }, 2);
+assert.equal(partialOutput.complete, false);
+assert.equal(partialOutput.status, 'partial');
+assert.equal(partialOutput.semanticValidation.status, 'incomplete');
 assert.equal(runner.qualityScore(
   [{ subject: 'avatar', predicate: 'required', value: true }],
   [{ subject: 'avatar', predicate: 'required', value: true }]

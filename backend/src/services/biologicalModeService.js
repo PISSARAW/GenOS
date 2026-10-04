@@ -1,5 +1,10 @@
 const symbioteRuntime = require('./symbioteRuntimeService');
 
+const SYNCYTIUM_WORKER_CAPABILITIES = Object.freeze([
+  'CRDT_SHARED_STATE', 'SIGNALING_BUS', 'CAUSAL_STATE', 'SEMANTIC_CONFLICTS',
+  'INVARIANT_GATES', 'SELECTIVE_SYNC', 'TRANSACTIONAL_SHARED_STATE'
+]);
+
 const RUNTIME_BRIDGE_CONTRACT = Object.freeze({
   controlPlane: 'backend-node',
   biomimeticKernel: 'crates/genos-orchestrator',
@@ -122,6 +127,7 @@ function composeMember({ mode, role, index, definition, goal, options }) {
   const methodContract = requested.methodContract;
   return {
     role,
+    ...(mode === 'syncytium' ? { capabilities: SYNCYTIUM_WORKER_CAPABILITIES } : {}),
     mechanisms: definition.mechanisms || [],
     modelTier: FRONTIER_ROLES.has(role) ? 'frontier' : 'standard',
     memberNumber: index + 1,

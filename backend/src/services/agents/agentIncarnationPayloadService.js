@@ -42,10 +42,8 @@ function fallbackResult(hint, role) {
 }
 
 function manifestCapabilities(manifest, hint) {
-  if (manifest && Array.isArray(manifest.owned) && manifest.owned.length) {
-    return manifest.owned.map(String);
-  }
-  return safeList(hint);
+  const owned = manifest && Array.isArray(manifest.owned) ? manifest.owned.map(String) : [];
+  return [...new Set([...owned, ...safeList(hint)])];
 }
 
 /**

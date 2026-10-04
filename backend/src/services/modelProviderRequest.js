@@ -32,8 +32,24 @@ function normalizeMessageContent(content) {
 }
 
 function parseStructuredResponse(text, responseFormat) {
-  if (responseFormat !== 'json_object') return null;
+  if (responseFormat !== 'json_object' && !isJsonSchemaFormat(responseFormat)) return null;
   try { return JSON.parse(text); } catch (_) { throw new Error('Provider returned invalid structured JSON.'); }
+}
+
+function isJsonSchemaFormat(value) {
+  return Boolean(value && typeof value === 'object' && value.schema && typeof value.schema === 'object');
+}
+
+function ollamaFormat(responseFormat) {
+  if (isJsonSchemaFormat(responseFormat)) return responseFormat.schema;
+  return responseFormat === 'json_object' ? 'json' : responseFormat;
+}
+
+function openAiResponseFormat(responseFormat) {
+  if (!isJsonSchemaFormat(responseFormat)) return responseFormat ? { type: responseFormat } : undefined;
+  return { type: 'json_schema', json_schema: {
+    name: responseFormat.name || 'structured_response', strict: false, schema: responseFormat.schema
+  } };
 }
 
 function buildHeaders(provider, apiKey, computerUse) {
@@ -61,19 +77,26 @@ function buildAnthropicBody(params) {
 }
 
 function buildGeminiBody(params) {
-  const { prompt, outputLimit } = params;
+  const { prompt, outputLimit, responseFormat } = params;
+  const schema = isJsonSchemaFormat(responseFormat) ? responseFormat.schema : null;
   return {
     contents: [{ parts: Array.isArray(prompt) ? prompt.map((p) => p.text ? { text: p.text } : p) : [{ text: prompt }] }],
-    ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {})
+    ...(outputLimit || schema ? { generationConfig: {
+      ...(outputLimit ? { maxOutputTokens: outputLimit } : {}),
+      ...(responseFormat ? { responseMimeType: 'application/json' } : {}),
+      ...(schema ? { responseSchema: schema } : {})
+    } } : {})
   };
 }
 
 function buildOpenAiBody(params) {
   const { modelName, prompt, stream, outputLimit, seed, responseFormat, nativeOllama } = params;
   if (nativeOllama) {
-    return { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit || seed != null ? { options: { ...(outputLimit ? { num_predict: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) } } : {}) };
+    return { model: modelName, messages: [{ role: 'user', content: prompt }], stream,
+      ...(responseFormat ? { format: ollamaFormat(responseFormat) } : {}),
+      ...(outputLimit || seed != null ? { options: { ...(outputLimit ? { num_predict: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) } } : {}) };
   }
-  return { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}), ...(responseFormat ? { response_format: { type: responseFormat } } : {}) };
+  return { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}), ...(responseFormat ? { response_format: openAiResponseFormat(responseFormat) } : {}) };
 }
 
 function buildRequestBody(params) {

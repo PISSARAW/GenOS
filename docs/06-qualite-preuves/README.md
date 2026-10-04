@@ -2,6 +2,8 @@
 
 - [audit-affirmations-operationnelles.md](audit-affirmations-operationnelles.md) — vérification des contrats publiés, chemins, comportements et limites de couverture.
 - [plan-implementation-gvx.md](plan-implementation-gvx.md) — lots GVX, état d'implémentation et preuves empiriques restantes.
+- [missions-live-biocenose-2026-10-04.md](missions-live-biocenose-2026-10-04.md) — exécution sur modèle local des douze missions Biocénose « Très complexe » et leurs blocages réels.
+- [missions-live-biocenose-sqlite-2026-10-04.md](missions-live-biocenose-sqlite-2026-10-04.md) — reprise sur base SQLite fichier avec télémétrie persistée et états finaux par mission.
 
 Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 
