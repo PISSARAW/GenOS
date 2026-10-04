@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { CASES, score } = require('../../benchmarks/workers/campaign.cjs');
-const { digest, parseAssignments, scheduleOutput, verifiedAutoGen } = require('../../benchmarks/workers/autogen-evidence.cjs');
+const { digest, parseAssignments, scheduleOutput, validatedOutput, verifiedAutoGen } = require('../../benchmarks/workers/autogen-evidence.cjs');
 
 const testCase = CASES.find((item) => item.id === 'lpt-schedule');
 const rawOutput = '```json\n[{"machine":1,"jobs":["A"]},{"machine":2,"jobs":["B","C"]}]\n```';
@@ -16,10 +16,19 @@ assert.equal(scheduleOutput([{ machine: 1, jobs: ['A', 'A'] }, { machine: 2, job
   testCase.methodContract.parameters), null);
 assert.equal(verifiedAutoGen(testCase, { ...execution, result: { output: { ...output, makespan: 8 } } }), false);
 assert.equal(verifiedAutoGen(testCase, { ...execution, receipt: { id: digest('different') } }), false);
+const subsetCase = CASES.find((item) => item.id === 'subset-sum');
+const subsetRaw = '{"indices":[0,2]}';
+const subsetOutput = validatedOutput(subsetCase, subsetRaw);
+assert.deepEqual(subsetOutput, { found: true, indices: [0, 2], sum: 10 });
+const subsetExecution = { status: 'executed', result: { output: subsetOutput },
+  receipt: { id: digest(subsetRaw) }, provenance: { agentFramework: 'autogen-agentchat', rawOutput: subsetRaw } };
+assert.equal(verifiedAutoGen(subsetCase, subsetExecution), true);
+assert.equal(validatedOutput(subsetCase, '{"indices":[0,1]}'), null);
 
 async function run() {
   assert.equal(await score(testCase, execution), 'passed');
   assert.equal(await score(testCase, { ...execution, result: { output: { ...output, makespan: 8 } } }), 'failed');
+  assert.equal(await score(subsetCase, subsetExecution), 'passed');
 }
 
 run().then(() => console.log('AutoGen rival evidence: PASS')).catch((error) => { console.error(error); process.exitCode = 1; });

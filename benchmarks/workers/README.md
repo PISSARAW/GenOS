@@ -55,9 +55,11 @@ node benchmarks/workers/campaign.cjs benchmarks/workers/autogen-adapter.cjs auto
 node benchmarks/workers/compare.cjs "$env:TEMP/genos-workers.json" "$env:TEMP/autogen-workers.json"
 ```
 
-Seul `lpt-schedule` est raccordé. La réponse brute du modèle est conservée
-dans le rapport ; le validateur recalcule les charges depuis les travaux
-affectés et rejette les travaux manquants ou dupliqués. Le digest `agent://`
+`lpt-schedule` et `subset-sum` sont raccordés. La réponse brute du modèle est
+conservée dans le rapport ; le validateur recalcule les charges depuis les
+travaux affectés et rejette les travaux manquants ou dupliqués. Pour
+`subset-sum`, il exige des indices distincts et recalcule leur somme.
+Le digest `agent://`
 porte sur cette réponse brute et ne doit pas être interprété comme un reçu
 de solveur. L'absence de Python, du paquet AutoGen ou du modèle local rend
 le cas indisponible ou en échec selon l'étape atteinte. Pour comparer un

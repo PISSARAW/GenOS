@@ -2,10 +2,12 @@
 
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { digest, parseAssignments, scheduleOutput } = require('./autogen-evidence.cjs');
+const { digest, validatedOutput } = require('./autogen-evidence.cjs');
 
 async function runCase(testCase) {
-  if (testCase.id !== 'lpt-schedule') return { status: 'unavailable', reason: 'AutoGen LPT adapter covers this case only.' };
+  if (!['lpt-schedule', 'subset-sum'].includes(testCase.id)) {
+    return { status: 'unavailable', reason: 'AutoGen adapter covers LPT and subset sum only.' };
+  }
   const python = process.env.GENOS_RIVAL_PYTHON;
   if (!python) return { status: 'unavailable', reason: 'GENOS_RIVAL_PYTHON is required.' };
   return outcomeFor(invokeAutoGen(python, testCase), testCase);
@@ -13,7 +15,8 @@ async function runCase(testCase) {
 
 function invokeAutoGen(python, testCase) {
   return spawnSync(python, [path.join(__dirname, 'autogen-rival.py')], {
-    input: JSON.stringify(testCase.methodContract.parameters), encoding: 'utf8', windowsHide: true,
+    input: JSON.stringify({ id: testCase.id, parameters: testCase.methodContract.parameters }),
+    encoding: 'utf8', windowsHide: true,
     timeout: 180000, maxBuffer: 1024 * 1024
   });
 }
@@ -29,12 +32,11 @@ function outcomeFor(child, testCase) {
 }
 
 function responseOutcome(response, testCase) {
-  let parsed;
-  try { parsed = parseAssignments(response.rawOutput); } catch (_) {
+  let output;
+  try { output = validatedOutput(testCase, response.rawOutput); } catch (_) {
     return { status: 'failed', reason: 'AutoGen answer is not JSON.', rawOutput: response.rawOutput.slice(0, 2000) };
   }
-  const output = scheduleOutput(parsed, testCase.methodContract.parameters);
-  if (!output) return { status: 'failed', reason: 'AutoGen answer is not a complete valid assignment.' };
+  if (!output) return { status: 'failed', reason: 'AutoGen answer lacks a valid witness.' };
   return { status: 'executed', result: { output }, receipt: { id: digest(response.rawOutput) },
     provenance: { agentFramework: 'autogen-agentchat', rawOutput: response.rawOutput,
       model: response.model, frameworkVersion: response.frameworkVersion } };

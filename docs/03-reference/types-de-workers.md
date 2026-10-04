@@ -1370,13 +1370,14 @@ utiliser leur exécuteur habituel. Voir [ADR 0301](../adr/0301-falsification-det
 
 ## 52. Première mesure contre AutoGen local (2026-10-04)
 
-L'adaptateur AutoGen AgentChat + Ollama couvre le cas LPT et conserve
-la réponse brute. Deux essais locaux avec AutoGen 0.7.5 et
-`qwen2.5-coder:7b` ont produit des makespans de 9 puis 7 ;
-GenOS a obtenu 7 sur ce cas déterministe. Le comparateur de la version
-courante du jeu retient un seul cas commun, réussi par les deux systèmes.
-Les dix-huit autres types et le second cas procédural n'ont pas encore
-de mesure AutoGen. Le résultat ne démontre aucune parité générale.
+L'adaptateur AutoGen AgentChat + Ollama couvre LPT et `subset_sum`, et
+conserve les réponses brutes. Trois essais locaux LPT avec AutoGen 0.7.5
+et `qwen2.5-coder:7b` ont produit des makespans de 9, 7 puis 9 ;
+GenOS a obtenu 7. Dans le troisième essai, AutoGen a trouvé un témoin
+valide pour `subset_sum` : le comparateur retient deux cas communs,
+un réussi par les deux systèmes et un réussi par GenOS seul.
+Les dix-huit autres types n'ont pas encore de mesure AutoGen.
+Ces trois essais ne démontrent aucune parité générale.
 Voir [ADR 0302](../adr/0302-benchmark-rival-autogen-local.md).
 
 ## 53. Mesure bornée du worker expérimental (2026-10-04)

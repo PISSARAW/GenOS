@@ -14,20 +14,22 @@ le concurrent fournissait une sortie valide dans son propre runtime.
 
 ## Décision
 
-Un adaptateur exécute AutoGen AgentChat avec Ollama local pour le cas LPT.
+Un adaptateur exécute AutoGen AgentChat avec Ollama local pour LPT et
+`subset_sum`.
 Il conserve la réponse brute, le modèle et la version du framework.
 Un validateur distinct reparcourt cette réponse, vérifie une affectation
-complète des travaux, recalcule les charges et compare le digest du
-transcript. Les autres cas restent `unmeasured` pour cet adaptateur.
-Le score LPT utilise le même oracle de makespan que GenOS.
+complète des travaux ou des indices de sous-ensemble, recalcule les
+charges ou la somme et compare le digest du transcript. Les autres cas
+restent `unmeasured` pour cet adaptateur. Les scores utilisent les mêmes
+oracles de makespan et d'existence de sous-ensemble que GenOS.
 
 ## Conséquences
 
-Un cas commun devient comparable sans adapter la réponse rivale au reçu
+Deux cas communs deviennent comparables sans adapter la réponse rivale au reçu
 interne de GenOS. Le digest du transcript atteste seulement que la réponse
 stockée n'a pas changé entre l'exécution et la lecture ; il ne prouve pas
-l'identité du modèle ou du serveur. Deux essais locaux ont donné des
-makespans différents (9 puis 7) ; ils ne constituent pas une estimation
+l'identité du modèle ou du serveur. Trois essais locaux LPT ont donné des
+makespans différents (9, 7 puis 9) ; ils ne constituent pas une estimation
 de performance générale.
 
 ## Alternatives

@@ -6,10 +6,14 @@ function digest(text) {
   return `agent://sha256:${createHash('sha256').update(text).digest('hex')}`;
 }
 
-function parseAssignments(rawOutput) {
+function parseAnswer(rawOutput) {
   const trimmed = rawOutput.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  const parsed = JSON.parse(fenced ? fenced[1] : trimmed);
+  return JSON.parse(fenced ? fenced[1] : trimmed);
+}
+
+function parseAssignments(rawOutput) {
+  const parsed = parseAnswer(rawOutput);
   return Array.isArray(parsed) ? parsed : parsed?.assignments;
 }
 
@@ -44,15 +48,29 @@ function validMachine(item, seenMachines, limits) {
     && !seenMachines.has(item.machine);
 }
 
+function subsetOutput(answer, parameters) {
+  const indices = answer?.indices;
+  if (!Array.isArray(indices) || !indices.length || new Set(indices).size !== indices.length
+    || indices.some((index) => !Number.isSafeInteger(index) || index < 0 || index >= parameters.values.length)) return null;
+  const sum = indices.reduce((total, index) => total + parameters.values[index], 0);
+  return sum === parameters.target ? { found: true, indices, sum } : null;
+}
+
+function validatedOutput(testCase, rawOutput) {
+  const parameters = testCase.methodContract.parameters;
+  if (testCase.id === 'lpt-schedule') return scheduleOutput(parseAssignments(rawOutput), parameters);
+  if (testCase.id === 'subset-sum') return subsetOutput(parseAnswer(rawOutput), parameters);
+  return null;
+}
+
 function verifiedAutoGen(testCase, execution) {
-  if (testCase.id !== 'lpt-schedule') return false;
+  if (!['lpt-schedule', 'subset-sum'].includes(testCase.id)) return false;
   const provenance = execution.provenance;
   if (provenance?.agentFramework !== 'autogen-agentchat' || typeof provenance.rawOutput !== 'string'
     || execution.receipt?.id !== digest(provenance.rawOutput)) return false;
-  let parsed;
-  try { parsed = parseAssignments(provenance.rawOutput); } catch (_) { return false; }
-  const output = scheduleOutput(parsed, testCase.methodContract.parameters);
+  let output;
+  try { output = validatedOutput(testCase, provenance.rawOutput); } catch (_) { return false; }
   return output !== null && JSON.stringify(output) === JSON.stringify(execution.result?.output);
 }
 
-module.exports = { digest, parseAssignments, scheduleOutput, verifiedAutoGen };
+module.exports = { digest, parseAssignments, scheduleOutput, subsetOutput, validatedOutput, verifiedAutoGen };
