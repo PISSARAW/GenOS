@@ -1,13 +1,15 @@
 'use strict';
 
 const { deriveProfile } = require('./relationshipCommunicationProfileService');
+const { excludeKnownDependentAudience } = require('../relationalPhysiology/legacyAudienceGate');
 
 const DISCLOSURE_REQUIRED = Object.freeze({ low: 0, medium: 0.2, high: 0.5, critical: 0.8 });
 const GROUNDING_LEVEL = Object.freeze({ none: 0, semantic_ack: 1, action_ack: 2, verified_ack: 3, human_confirmation: 4 });
 
 async function profileAudience(input) {
   const candidates = await Promise.all((input.candidates || []).map((candidate) => profileCandidate(input, candidate)));
-  return candidates.filter((candidate) => eligible(candidate.communicationProfile, input.intent));
+  const eligibleCandidates = candidates.filter((candidate) => eligible(candidate.communicationProfile, input.intent));
+  return excludeKnownDependentAudience(input, eligibleCandidates);
 }
 
 async function profileCandidate(input, candidate) {

@@ -6,6 +6,7 @@ reproduction, et les 8 modes de composition (topologies).
 ## Exécution
 
 - [orchestration.md](orchestration.md) — branches, preuve avant validation, survivants, fan-out.
+- [g-cir.md](g-cir.md) — interface cognitive résiduelle, contrat du Signal Plane, visibilité, validation et limites.
 - [agow.md](agow.md) — circuit AGOW, autorité runtime, contrats, modes et maturité des intégrations.
 - [ontogenese-boucle.md](ontogenese-boucle.md) — boucle Observer → réévaluer : sélection tâches/topologies, autorisation, réveils, notifications.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
@@ -26,6 +27,7 @@ reproduction, et les 8 modes de composition (topologies).
 - [topologies/morphogenese.md](topologies/morphogenese.md) — cadre transversal de construction et de composition des organisations cognitives.
 - [communication.md](communication.md) — écologie communicationnelle : 7 types, schémas par type, grounding, coûts, shadow et apprentissage.
 - [relations-inter-agents.md](relations-inter-agents.md) — relations typées entre agents (29 types, 6 classes, persistance, fiches et schémas par type).
+- [physiologie-relationnelle.md](physiologie-relationnelle.md) — contraintes relationnelles exécutables, noyau déterministe et filtrage de parenté du routage.
 - [protocole-execution-agents.md](protocole-execution-agents.md) — cycle de mission, budgets, topologies, workers, communication, nosologie, télémétrie et protocole de preuve.
 
 ## Modes de composition

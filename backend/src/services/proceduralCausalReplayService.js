@@ -1,6 +1,7 @@
 'use strict';
 
-const { digest, ensureSchema, loadFork, checkpointFork } = require('./proceduralCausalExperimentService');
+const { randomUUID } = require('node:crypto');
+const { digest, ensureSchema, loadFork, checkpointFork, recordEvent, transaction } = require('./proceduralCausalExperimentService');
 
 async function ensureDiffSchema(db) {
   await ensureSchema(db);
@@ -94,12 +95,43 @@ async function verifyReplayInputs(db, fork, input) {
   return { experiment, budget: JSON.parse(experiment.budget_json), arm };
 }
 
-async function persistRunResult(db, forkId, result) {
-  const stateHash = digest(result);
-  await db.run(`INSERT INTO procedural_causal_fork_events
-    (fork_id, event_type, state_hash, payload_json) VALUES (?, 'RUN_RESULT', ?, ?)`,
-  [forkId, stateHash, JSON.stringify({ result })]);
+async function claimFork(db, fork) {
+  const leaseToken = randomUUID();
+  const claimed = await db.run(`UPDATE procedural_causal_forks
+    SET status = 'running', lease_token = ?, lease_until = datetime('now', '+60 seconds'),
+        updated_at = datetime('now')
+    WHERE fork_id = ? AND checkpoint_version = ?
+      AND (status IN ('pending', 'paused', 'failed')
+        OR (status = 'running' AND (lease_until <= datetime('now')
+          OR (lease_until IS NULL AND updated_at < datetime('now', '-60 seconds')))))`,
+  [leaseToken, fork.fork_id, fork.checkpoint_version]);
+  if (claimed.changes !== 1) throw new Error('CAUSAL_FORK_LEASE_CONFLICT');
+  return leaseToken;
+}
+
+async function persistRunResult(db, input) {
+  const stateHash = digest(input.result);
+  await transaction(db, async () => {
+    const updated = await db.run(`UPDATE procedural_causal_forks
+      SET status = 'completed', lease_token = NULL, lease_until = NULL, updated_at = datetime('now')
+      WHERE fork_id = ? AND checkpoint_version = ? AND lease_token = ? AND status = 'running'
+        AND lease_until > datetime('now')`,
+    [input.forkId, input.checkpointVersion, input.leaseToken]);
+    if (updated.changes !== 1) throw new Error('CAUSAL_FORK_LEASE_CONFLICT');
+    await recordEvent(db, { forkId: input.forkId, eventType: 'RUN_RESULT', stateHash,
+      payload: { result: input.result } });
+  });
   return stateHash;
+}
+
+async function markFailed(db, input) {
+  const status = input.aborted ? 'paused' : 'failed';
+  const errorJson = input.aborted ? null : JSON.stringify({ message: input.error.message });
+  await db.run(`UPDATE procedural_causal_forks
+    SET status = ?, error_json = ?, lease_token = NULL, lease_until = NULL,
+        updated_at = datetime('now')
+    WHERE fork_id = ? AND lease_token = ? AND status = 'running'`,
+  [status, errorJson, input.forkId, input.leaseToken]);
 }
 
 async function replayFork(db, input) {
@@ -110,11 +142,7 @@ async function replayFork(db, input) {
   const { experiment, budget, arm } = await verifyReplayInputs(db, fork, input);
   if (!['pending', 'paused', 'failed', 'running'].includes(fork.status)) throw new Error('CAUSAL_FORK_NOT_RESUMABLE');
   const startHash = digest(fork.state);
-  const claimed = await db.run(`UPDATE procedural_causal_forks SET status = 'running', updated_at = datetime('now')
-    WHERE fork_id = ? AND checkpoint_version = ?
-      AND (status IN ('pending', 'paused', 'failed') OR (status = 'running' AND updated_at < datetime('now', '-60 seconds')))`,
-  [fork.fork_id, fork.checkpoint_version]);
-  if (claimed.changes !== 1) throw new Error('CAUSAL_FORK_LEASE_CONFLICT');
+  const leaseToken = await claimFork(db, fork);
   let checkpointVersion = fork.checkpoint_version;
   try {
     const result = await input.runner(arm, structuredClone(fork.state), {
@@ -122,19 +150,18 @@ async function replayFork(db, input) {
       resume: fork.checkpoint_version > 0,
       signal: input.signal,
       checkpoint: async (state) => {
-        const saved = await checkpointFork(db, { forkId: fork.fork_id, expectedVersion: checkpointVersion, state, status: 'running' });
+        const saved = await checkpointFork(db, { forkId: fork.fork_id, expectedVersion: checkpointVersion,
+          leaseToken, state, status: 'running' });
         checkpointVersion = saved.checkpointVersion;
         return saved;
       },
     });
     if (input.signal?.aborted) throw Object.assign(new Error('CAUSAL_EXPERIMENT_ABORTED'), { code: 'CAUSAL_EXPERIMENT_ABORTED' });
-    const resultHash = await persistRunResult(db, fork.fork_id, result);
-    await db.run("UPDATE procedural_causal_forks SET status = 'completed', updated_at = datetime('now') WHERE fork_id = ?", [fork.fork_id]);
+    const resultHash = await persistRunResult(db, { forkId: fork.fork_id, checkpointVersion,
+      leaseToken, result });
     return { forkId: fork.fork_id, startHash, resultHash, result };
   } catch (error) {
-    const status = input.signal?.aborted ? 'paused' : 'failed';
-    const errorJson = status === 'paused' ? null : JSON.stringify({ message: error.message });
-    await db.run('UPDATE procedural_causal_forks SET status = ?, error_json = ?, updated_at = datetime(\'now\') WHERE fork_id = ?', [status, errorJson, fork.fork_id]);
+    await markFailed(db, { forkId: fork.fork_id, leaseToken, aborted: input.signal?.aborted, error });
     throw error;
   }
 }

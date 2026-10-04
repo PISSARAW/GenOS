@@ -365,6 +365,12 @@ const migrationRunners = [
     const { migrateHolobiontVariantEvents } = require('./migrateHolobiontVariantEvents');
     await migrateHolobiontVariantEvents(db);
   }),
+  createMigrationRunner('100-procedural-causal-experiments', 'Persist pinned procedural causal experiments and isolated forks', async (db) => {
+    await require('./migrateProceduralCausalExperiments').migrateProceduralCausalExperiments(db);
+  }),
+  createMigrationRunner('101-relational-execution', 'Persist scoped relational grants and atomic admission receipts', async (db) => {
+    await require('./migrateRelationalExecution').migrateRelationalExecution(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
