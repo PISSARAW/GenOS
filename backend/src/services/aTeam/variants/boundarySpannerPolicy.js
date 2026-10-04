@@ -1,14 +1,18 @@
 'use strict';
 
 const { validateSchema } = require('./variantExecutionService');
+const { interfaceContractProposal } = require('./teamVariantHelpers');
 
 function boundarySpannerFullPotential(mission, boundaries, members) {
   const supplied = Array.isArray(mission.interfaceContracts) ? mission.interfaceContracts : [];
   const contracts = boundaries.interfaces.map((boundary) => buildContractWithValidation(boundary, supplied, members));
+  const promotionBlocked = contracts.some((contract) => contract.status !== 'validated');
 
   return {
     semantic_contract_models: {
       contracts,
+      promotionBlocked,
+      proposalRequired: promotionBlocked,
       contractVersioning: true,
       sourceProvenanceRequired: true
     },
@@ -47,7 +51,7 @@ function boundarySpannerFullPotential(mission, boundaries, members) {
 
 function buildContractWithValidation(boundary, supplied, members) {
   const found = findInterfaceContract(boundary, supplied);
-  if (!found) throw new Error(`Boundary ${boundary.from} → ${boundary.to} requires a semantic interface contract.`);
+  if (!found) return interfaceContractProposal(boundary);
 
   validateSemanticContract(found, boundary);
   validateEndpointSchemas(found, boundary, members);
@@ -55,6 +59,7 @@ function buildContractWithValidation(boundary, supplied, members) {
   const translationSchema = resolveTranslationSchema(found);
   return {
     ...found,
+    status: 'validated',
     boundaryId: boundary.id,
     provenanceRequired: true,
     compatibilityChecksRequired: true,

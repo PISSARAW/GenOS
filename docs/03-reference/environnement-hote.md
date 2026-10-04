@@ -29,6 +29,11 @@ si l'espace estimé plus la marge de sécurité tient. Le chemin suit la forme
 refont le choix selon l'espace libre du moment. `GENOS_CAPSULE_ROOT` reste disponible
 pour imposer un emplacement fixe.
 
+La copie de workspace vers une capsule omet les bases SQLite, leurs journaux et leurs
+sauvegardes (`.db`, `.sqlite`, `.sqlite3`, `-wal`, `-shm`, `-journal`, `.backup-*`,
+`.bak-*`). Cela évite de dupliquer les données du plan de contrôle et ses sauvegardes
+de migration dans chaque workspace de worker.
+
 Une installation existante conserve sa base SQLite historique et ses données. Pour
 les déplacer, il faut arrêter les processus, préserver ensemble la base et ses
 fichiers `-wal` et `-shm`, puis vérifier la copie avant de changer la configuration.

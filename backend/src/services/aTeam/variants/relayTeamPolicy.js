@@ -1,6 +1,7 @@
 'use strict';
 
 const { createHash } = require('crypto');
+const { canonicalJson } = require('./variantExecutionService');
 
 function relayTeamFullPotential(mission, members) {
   const ownerPair = resolveOwnerPair(members);
@@ -66,8 +67,7 @@ function buildCanonicalPayload(params, ownerPair) {
 }
 
 function computeDigest(payload) {
-  const canonicalString = JSON.stringify(payload, Object.keys(payload).sort());
-  return createHash('sha256').update(canonicalString).digest('hex');
+  return createHash('sha256').update(canonicalJson(payload)).digest('hex');
 }
 
 function buildCryptographicHandoff({ canonicalPayload, digest, params }) {

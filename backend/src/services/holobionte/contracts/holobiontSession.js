@@ -48,6 +48,7 @@ function createHolobiontSession(input = {}) {
     phenotype: objectValue(input.phenotype, { capabilities: [] }),
     dependencyGraph: objectValue(input.dependencyGraph, { edges: [] }),
     variantState: objectValue(input.variantState, { variantId: null, policy: null, selectionReceipt: null, evaluations: [] }),
+    ecologicalState: objectValue(input.ecologicalState, { cycle: 0, fitnessBySymbiont: {}, diversityHistory: [], dysbiosisHistory: [] }),
     status,
     revision: 0
   };

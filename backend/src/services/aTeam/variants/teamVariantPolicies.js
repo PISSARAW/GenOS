@@ -2,7 +2,7 @@
 
 const { createHash } = require('crypto');
 const { validateSchema, createRelayHandoff, canonicalJson } = require('./variantExecutionService');
-const { calculateConflictSeverity, buildCompatibilityMatrix, buildEscalationPaths, buildDivisions, normalizeStopCriteria, validateControlledSummary, calculateAutonomyMetric, buildInternalContracts, buildExternalContracts, defaultTo } = require('./teamVariantHelpers');
+const { calculateConflictSeverity, buildCompatibilityMatrix, buildEscalationPaths, buildDivisions, normalizeStopCriteria, validateControlledSummary, calculateAutonomyMetric, buildInternalContracts, buildExternalContracts, defaultTo, interfaceContractProposal } = require('./teamVariantHelpers');
 
 function expertCommittee(mission, members) {
   const expertise = members.map((member) => ({
@@ -64,7 +64,7 @@ function interfaceContracts(mission, boundaries, members) {
   const supplied = Array.isArray(mission.interfaceContracts) ? mission.interfaceContracts : [];
   const contracts = boundaries.interfaces.map((boundary) => {
     const found = supplied.find((contract) => contract.fromDomain === boundary.from && contract.toDomain === boundary.to);
-    if (!found) throw coded(`Boundary ${boundary.from} → ${boundary.to} requires a semantic interface contract.`, 'ATEAM_INTERFACE_CONTRACT_REQUIRED');
+    if (!found) return interfaceContractProposal(boundary);
     validateSemanticContract(found, boundary);
     validateEndpointSchemas(found, boundary, members);
 
@@ -77,6 +77,7 @@ function interfaceContracts(mission, boundaries, members) {
 
     return {
       ...found,
+      status: 'validated',
       boundaryId: boundary.id,
       provenanceRequired: true,
       compatibilityChecksRequired: true,
@@ -94,10 +95,12 @@ function interfaceContracts(mission, boundaries, members) {
 
   return {
     interfaceContracts: contracts,
+    promotionBlocked: contracts.some((contract) => contract.status !== 'validated'),
     semanticDriftCheck: true,
     globalCompatibilityMatrix: buildCompatibilityMatrix(contracts)
   };
 }
+
 
 function validateSemanticContract(contract, boundary) {
   if (!contract.contractId || !Number.isInteger(contract.version) || !contract.provenance?.sourceRefs?.length) {
@@ -145,6 +148,7 @@ function matrixDecisions(mission) {
       informed: defaultTo(entry.informedIds, []),
       functionalOwner: entry.functionalOwnerId,
       productOwner: entry.productOwnerId,
+      currentRevision: Number.isSafeInteger(entry.currentRevision) ? entry.currentRevision : 0,
       vetoRights: defaultTo(entry.vetoRights, { functional: false, product: false })
     };
   }

@@ -221,6 +221,28 @@ mod worker_tests {
     }
 
     #[test]
+    fn medical_report_matches_the_educational_runtime_contract() {
+        use crate::dossier::ClinicalReport;
+
+        let report: ClinicalReport = serde_json::from_value(serde_json::json!({
+            "caseScope": "synthetic_educational",
+            "differentialConsiderations": ["Une consideration generale"],
+            "evidence": ["fixture://synthetic-case"],
+            "uncertainty": "Historique et examen absents",
+            "safetyNote": "Consulter un professionnel pour un cas reel"
+        })).expect("synthetic educational report");
+        assert!(report.is_educational());
+        assert!(serde_json::from_value::<ClinicalReport>(serde_json::json!({
+            "caseScope": "synthetic_educational",
+            "differentialConsiderations": ["Une consideration generale"],
+            "evidence": [],
+            "uncertainty": "Incertitude",
+            "safetyNote": "Avis professionnel",
+            "selectedDiagnosis": "diagnostic individuel"
+        })).is_err());
+    }
+
+    #[test]
     fn phenotype_niche_fit_and_dediff() {
         let mut p = default_phenotype(WorkerKind::Specialist);
         p.specialization = Some("rust_concurrency".to_string());

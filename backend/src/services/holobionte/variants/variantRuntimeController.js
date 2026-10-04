@@ -16,7 +16,7 @@ const PROCEDURAL_OPERATIONS = Object.freeze({
 
 const OPERATIONS = Object.freeze({
   organelle: ['assessOrganelle', 'testOrganelleEssentiality'],
-  'adaptive-microbiome': ['assessEcology', 'simulateEcology', 'planRecruitment', 'selectCompetitivePartner', 'authorizeCompetitiveReplacement'],
+  'adaptive-microbiome': ['assessEcology', 'simulateEcology', 'planRecruitment', 'selectCompetitivePartner', 'authorizeCompetitiveReplacement', 'runEcologicalCycle'],
   'immune-critical': ['reviewImmuneThreat', 'reviewImmuneThreatBatch'],
   'local-first': ['planPlacement', 'planPlacementBatch'],
   'regenerative': ['planRegeneration', 'simulateRegeneration'],
@@ -112,15 +112,44 @@ async function evaluatePersistentVariant(db, input = {}) {
   const state = session.variantState || {};
   if (!state.variantId) throw error('Select a variant before evaluating it.', 'HOLOBIONT_VARIANT_REQUIRED');
   const execute = operationFor(state, input.operation);
-  const result = await execute({ ...(input.runtimeInput || {}), variantId: state.variantId });
+  const runtimeInput = input.runtimeInput || {};
+  let result;
+  let cyclePayload = null;
+  if (input.operation === 'runEcologicalCycle') {
+    const policy = variants.getVariant(state.variantId);
+    const ecoState = session.ecologicalState || { cycle: 0, fitnessBySymbiont: {}, diversityHistory: [], dysbiosisHistory: [] };
+    result = await execute({
+      ecologicalState: ecoState,
+      policy: { ...policy.configureCompetition(), diversityFloor: 2 },
+      residentSymbionts: session.residentSymbionts || [],
+      dysbiosisSignals: runtimeInput.dysbiosisSignals,
+      requiredCapabilities: runtimeInput.requiredCapabilities,
+      minimumPermissions: runtimeInput.minimumPermissions,
+      candidates: runtimeInput.candidates,
+      budget: runtimeInput.budget,
+      protectedGroups: runtimeInput.protectedGroups,
+      verifyTrial: runtimeInput.verifyTrial,
+      evidenceRefs: runtimeInput.evidenceRefs
+    });
+    cyclePayload = {
+      cycle: result.cycle,
+      diversity: result.diversity,
+      dysbiosis: result.dysbiosis,
+      fitnessBySymbiont: result.fitnessSnapshot,
+      recordedAt: new Date().toISOString()
+    };
+  } else {
+    result = await execute({ ...runtimeInput, variantId: state.variantId });
+  }
   const refs = await verifiedResult(result, input, { operation: input.operation });
   const receipt = { evaluationId: randomUUID(), variantId: state.variantId, operation: input.operation,
     resultHash: `sha256:${createHash('sha256').update(JSON.stringify(result)).digest('hex')}`,
     evidenceRefs: refs, result, actorId: input.actorId || null, evaluatedAt: new Date().toISOString() };
   if (JSON.stringify(receipt).length > 65536) throw error('Variant evaluation receipt exceeds the persistence limit.', 'HOLOBIONT_VARIANT_RECEIPT_TOO_LARGE');
-  const revision = await store.appendEvent(db, { holobiontId: session.holobiontId,
-    eventType: 'VARIANT_RUNTIME_EVALUATED', expectedRevision: session.revision, actorId: input.actorId,
-    payload: receipt });
+  const events = cyclePayload ? [{ eventType: 'ECOLOGICAL_CYCLE_COMPLETED', payload: cyclePayload }] : [];
+  events.push({ eventType: 'VARIANT_RUNTIME_EVALUATED', payload: receipt });
+  const revision = await store.appendEvents(db, { holobiontId: session.holobiontId,
+    expectedRevision: session.revision, actorId: input.actorId, events });
   return { receipt, sessionRevision: revision };
 }
 
@@ -141,4 +170,24 @@ async function evaluateWorkflowStep(db, input) {
 
 const runPersistentVariantWorkflow = createWorkflowRunner(evaluateWorkflowStep);
 
-module.exports = { selectPersistentVariant, evaluatePersistentVariant, runPersistentVariantWorkflow, OPERATIONS };
+async function recordSymbiontFitness(db, input = {}) {
+  const session = await store.getSession(db, input.holobiontId);
+  if (!session) throw error('Holobiont session not found.', 'HOLOBIONT_SESSION_NOT_FOUND');
+  requireRevision(input, session);
+  const symbiontId = String(input.symbiontId || '').trim();
+  const fitness = Number(input.fitness);
+  const cycle = Number(input.cycle);
+  if (!symbiontId || !Number.isFinite(fitness) || fitness < 0 || fitness > 1 || !Number.isInteger(cycle) || cycle < 0) {
+    throw error('Invalid symbiont fitness input.', 'HOLOBIONT_INVALID_FITNESS_INPUT');
+  }
+  const revision = await store.appendEvent(db, {
+    holobiontId: session.holobiontId,
+    eventType: 'SYMBIONT_FITNESS_RECORDED',
+    expectedRevision: session.revision,
+    actorId: input.actorId,
+    payload: { symbiontId, fitness, cycle, recordedAt: new Date().toISOString() }
+  });
+  return { sessionRevision: revision };
+}
+
+module.exports = { selectPersistentVariant, evaluatePersistentVariant, runPersistentVariantWorkflow, recordSymbiontFitness, OPERATIONS };

@@ -86,6 +86,8 @@ function instructionFor(member, policy) {
     return `Satisfy stage schemas exactly. Input: ${JSON.stringify(member.inputSchema || {})}. Output: ${JSON.stringify(member.outputSchema || {})}.`;
   }
   const ownedInterfaces = policy.boundarySpanners.filter((entry) => entry.ownerMemberId === memberKey(member));
+  const proposals = pendingBoundaryProposals(ownedInterfaces, policy.interfaceContracts);
+  if (proposals.length) return `Propose versioned semantic contracts for ${proposals.join(', ')}. Cite sourceRefs from mission evidence; mark unresolved fields explicitly. Proposals are not validated contracts and block promotion until both domains validate them.`;
   if (ownedInterfaces.length) return `Own and validate these interfaces only: ${ownedInterfaces.map((entry) => entry.boundaryId).join(', ')}.`;
   if (memberKey(member) === policy.commanderMemberId) return 'Coordinate the incident response within the declared team scope and escalate decisions outside your authority.';
   const consultation = consultationInstruction(member, policy);
@@ -93,6 +95,12 @@ function instructionFor(member, policy) {
   if (policy.variant === 'boundary_spanner') return 'Own only the interfaces assigned to you; validate both sides of each contract.';
   if (policy.variant === 'relay_team') return 'Receive context from the previous owner and pass a typed, evidence-backed handoff to the next owner.';
   return 'Follow the persisted WorkGraph and the team contract for this responsibility.';
+}
+
+function pendingBoundaryProposals(owned, contracts) {
+  const pending = new Set((contracts || []).filter((contract) => contract.status === 'proposal_required')
+    .map((contract) => contract.boundaryId));
+  return owned.map((entry) => entry.boundaryId).filter((id) => pending.has(id));
 }
 
 function consultationInstruction(member, policy) {

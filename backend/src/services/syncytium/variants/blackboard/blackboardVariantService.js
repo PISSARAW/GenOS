@@ -17,7 +17,8 @@ function createBlackboardVariantService(syncytium) {
     postEvidence: (sessionId, request) => post({ sessionId, request, eventType: 'new_evidence', syncytium }),
     requestVerification: (sessionId, request) => post({ sessionId, request, eventType: 'request_verification', syncytium }),
     reportUnresolvedDependency: (sessionId, request) => post({ sessionId, request, eventType: 'unresolved_dependency', syncytium }),
-    publishBlackboardResult: (sessionId, request) => post({ sessionId, request, eventType: 'result', syncytium }),
+    publishBlackboardResult: (sessionId, request) => postResult({ sessionId, request, syncytium }),
+    readBlackboardHistory: (sessionId, options) => readHistory(sessionId, options, syncytium),
     readBlackboard: (sessionId, options) => read(sessionId, options, syncytium)
   };
 }
@@ -34,11 +35,20 @@ async function post(context) {
     payload: request.payload, respondsTo: request.respondsTo || null, createdAt,
     expiresAt: request.ttlMs ? createdAt + request.ttlMs : null
   };
+  if (event.respondsTo) await validateRespondsTo(syncytium, sessionId, request.options || {}, event.respondsTo);
   const result = await syncytium.applyOperation(sessionId, {
     opId: request.opId || randomUUID(), actorId: request.actorId,
     kind: { type: 'typed_field', key: 'events', action: 'add', value: event }
   }, request.options || {});
   return { ...result, event };
+}
+
+async function postResult(context) {
+  const { sessionId, request = {}, syncytium } = context;
+  if (!request.respondsTo || typeof request.respondsTo !== 'string') {
+    throw blackboardError('A result event must reference a question event via respondsTo.');
+  }
+  return post({ sessionId, request, eventType: 'result', syncytium });
 }
 
 function validateEvent(eventType, request) {
@@ -79,6 +89,23 @@ function validateEventType(objectType) {
   if (objectType !== undefined && (typeof objectType !== 'string' || !objectType.trim())) {
     throw blackboardError('Blackboard objectType must be a non-empty string.');
   }
+}
+
+async function validateRespondsTo(syncytium, sessionId, options, respondsTo) {
+  const snapshot = await syncytium.snapshot(sessionId, options);
+  const events = snapshot.shared.sharedFields.events || [];
+  const target = events.find((event) => event.eventId === respondsTo);
+  if (!target) throw blackboardError('respondsTo references non-existent event: ' + respondsTo);
+  if (!isOpenQuestion(target)) throw blackboardError('respondsTo must reference a question-type event.');
+}
+
+async function readHistory(sessionId, options = {}, syncytium) {
+  const snapshot = await syncytium.snapshot(sessionId, options);
+  const events = snapshot.shared.sharedFields.events || [];
+  const withRespondsTo = events.map((event) => ({ ...event,
+    isResolved: Boolean(event.respondsTo && events.some((candidate) => candidate.eventId === event.respondsTo))
+  }));
+  return { ...snapshot, history: withRespondsTo, totalEvents: events.length };
 }
 
 async function read(sessionId, options = {}, syncytium) {

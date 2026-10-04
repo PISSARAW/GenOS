@@ -381,8 +381,12 @@ function createProofHash(value) {
   return `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
 }
 
+function runEcologicalCycle(input = {}) {
+  return require('./adaptiveMicrobiomeRuntimeService').runEcologicalCycle(input);
+}
+
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, simulateEcology, planPlacement, planMemory,
-  selectCompetitivePartner, authorizeCompetitiveReplacement, planRecruitment,
-  reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
-  validateToolInvocation, authorizeToolInvocation, executeToolInvocation, reconcileEdgeEvents, simulateEdgeSynchronization,
-  planRegeneration, simulateRegeneration, planPlacementBatch, createProofHash };
+  selectCompetitivePartner, authorizeCompetitiveReplacement, planRecruitment, reviewImmuneThreat: reviewThreat,
+  reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest, validateToolInvocation, authorizeToolInvocation,
+  executeToolInvocation, reconcileEdgeEvents, simulateEdgeSynchronization, planRegeneration, simulateRegeneration,
+  planPlacementBatch, createProofHash, runEcologicalCycle };

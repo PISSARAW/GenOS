@@ -2,6 +2,9 @@
 
 const assert = require('node:assert/strict');
 const execution = require('../src/services/aTeam/variants/variantExecutionService');
+const incidentCommand = require('../src/services/aTeam/variants/incidentCommandPolicy');
+const relayPolicy = require('../src/services/aTeam/variants/relayTeamPolicy');
+const teamPolicies = require('../src/services/aTeam/variants/teamVariantPolicies');
 
 async function testPipeline() {
   const cache = new Map();
@@ -86,11 +89,49 @@ function testOperationalGates() {
   }).approved, true);
 }
 
+function testIncidentSpanAssignments() {
+  const members = [
+    { memberId: 'ic' }, { memberId: 'ops' }, { memberId: 'plan' }, { memberId: 'log' },
+    { memberId: 'worker-a', supervisorId: 'ops' }, { memberId: 'worker-b', supervisorId: 'ops' },
+    { memberId: 'worker-c', supervisorId: 'plan' }
+  ];
+  const policy = incidentCommand.incidentCommandFullPotential({
+    incidentRoles: { commander: 'ic', operations: 'ops', planning: 'plan', logistics: 'log' },
+    sitrepIntervalMinutes: 15, operationalObjectives: ['restore service'], spanOfControl: 3
+  }, members);
+  assert.deepEqual(policy.span_of_control.directReportsPerSupervisor, { ops: 2, plan: 1, log: 0 });
+  assert.equal(policy.span_of_control.divisions.find((division) => division.supervisor === 'ops').members.length, 2);
+}
+
+function testRelayNestedDigest() {
+  const members = [{ memberId: 'owner-a' }, { memberId: 'owner-b' }];
+  const payload = { evidenceRefs: ['receipt://verified'], handoffState: { nested: { result: 'one' } } };
+  const first = relayPolicy.relayTeamFullPotential(payload, members);
+  const reordered = relayPolicy.relayTeamFullPotential({
+    handoffState: { nested: { result: 'one' } }, evidenceRefs: ['receipt://verified']
+  }, members);
+  const altered = relayPolicy.relayTeamFullPotential({
+    evidenceRefs: ['receipt://verified'], handoffState: { nested: { result: 'two' } }
+  }, members);
+  assert.equal(first.cryptographic_versioned_handoff.digest, reordered.cryptographic_versioned_handoff.digest);
+  assert.notEqual(first.cryptographic_versioned_handoff.digest, altered.cryptographic_versioned_handoff.digest);
+}
+
+function testMatrixRevisionProjection() {
+  const policy = teamPolicies.matrixDecisions({ decisionAuthorities: [{
+    decisionType: 'release', functionalOwnerId: 'fn', productOwnerId: 'po', currentRevision: 7
+  }] });
+  assert.equal(policy.raciMatrix.release.currentRevision, 7);
+}
+
 async function run() {
   await testPipeline();
   await testStreamAndConsensus();
   testAuthoritiesAndHandoffs();
   testOperationalGates();
+  testIncidentSpanAssignments();
+  testRelayNestedDigest();
+  testMatrixRevisionProjection();
 }
 
 run().then(() => console.log('A-Team variant execution contracts passed.'))

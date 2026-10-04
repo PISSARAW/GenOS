@@ -79,7 +79,7 @@ async function persistNewRun(input, draft) {
   } catch (error) {
     const raced = await loadExisting(input.db, draft);
     if (raced) return raced;
-    if (graphResult.created) await require('./topologySessionStore').remove(input.db, graphId);
+    if (graphResult.created) await require('../topologySessionStore').remove(input.db, graphId);
     throw error;
   }
 }

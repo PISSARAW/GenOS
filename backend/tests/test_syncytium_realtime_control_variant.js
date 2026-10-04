@@ -14,6 +14,8 @@ async function verifyFailSafeWatchdog() {
   assert.equal(result.control.reason, 'WATCHDOG_TIMEOUT');
   const state = await syncytium.snapshot(session.sessionId);
   assert.deepEqual(state.shared.sharedFields.safety_outputs['motor-control'].output, { enabled: false });
+  assert.equal(state.shared.sharedFields.watchdog_log.length, 1);
+  assert.equal(state.shared.sharedFields.fail_safe_log.length, 1);
 }
 
 function verifyDeadlineSchedule() {

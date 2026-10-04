@@ -53,7 +53,9 @@ const eventReducers = {
   VERTICAL_TRANSMISSION: (session, payload) => recordTransmission(session, payload, 'VERTICAL_TRANSMISSION'),
   HORIZONTAL_ACQUISITION: recordHorizontalAcquisition,
   VARIANT_SELECTED: recordVariantSelection,
-  VARIANT_RUNTIME_EVALUATED: recordVariantEvaluation
+  VARIANT_RUNTIME_EVALUATED: recordVariantEvaluation,
+  ECOLOGICAL_CYCLE_COMPLETED: recordEcologicalCycle,
+  SYMBIONT_FITNESS_RECORDED: recordSymbiontFitness
 };
 
 function recordVariantSelection(session, payload) {
@@ -67,6 +69,43 @@ function recordVariantEvaluation(session, payload) {
   const state = session.variantState || { evaluations: [] };
   const evaluations = [...(state.evaluations || []), payload].slice(-100);
   session.variantState = { ...state, evaluations, latestEvaluation: payload };
+  return session;
+}
+
+function mergeFitnessBySymbiont(existing, incoming, cycleData) {
+  const merged = { ...existing };
+  const { cycle, recordedAt } = cycleData;
+  if (incoming && typeof incoming === 'object') {
+    for (const [symbiontId, fitness] of Object.entries(incoming)) {
+      if (!merged[symbiontId]) merged[symbiontId] = [];
+      merged[symbiontId].push({ cycle, fitness: Number(fitness), recordedAt });
+    }
+  }
+  return merged;
+}
+
+function recordEcologicalCycle(session, payload) {
+  const eco = session.ecologicalState || { cycle: 0, fitnessBySymbiont: {}, diversityHistory: [], dysbiosisHistory: [] };
+  const cycle = Number(payload.cycle) || eco.cycle + 1;
+  const diversity = Number(payload.diversity) || 0;
+  const dysbiosis = payload.dysbiosis || null;
+  const recordedAt = payload.recordedAt || new Date().toISOString();
+  const fitnessBySymbiont = mergeFitnessBySymbiont(eco.fitnessBySymbiont, payload.fitnessBySymbiont, { cycle, recordedAt });
+  const diversityHistory = [...(eco.diversityHistory || []), { cycle, diversity, recordedAt }].slice(-50);
+  const dysbiosisHistory = [...(eco.dysbiosisHistory || []), dysbiosis].filter(Boolean).slice(-50);
+  session.ecologicalState = { cycle, fitnessBySymbiont, diversityHistory, dysbiosisHistory };
+  return session;
+}
+
+function recordSymbiontFitness(session, payload) {
+  const eco = session.ecologicalState || { cycle: 0, fitnessBySymbiont: {}, diversityHistory: [], dysbiosisHistory: [] };
+  const symbiontId = String(payload.symbiontId || '').trim();
+  const fitness = Number(payload.fitness);
+  const cycle = Number(payload.cycle) || eco.cycle;
+  if (!symbiontId || !Number.isFinite(fitness) || fitness < 0 || fitness > 1) return session;
+  if (!eco.fitnessBySymbiont[symbiontId]) eco.fitnessBySymbiont[symbiontId] = [];
+  eco.fitnessBySymbiont[symbiontId].push({ cycle, fitness, recordedAt: payload.recordedAt || new Date().toISOString() });
+  session.ecologicalState = { ...eco };
   return session;
 }
 
@@ -208,13 +247,32 @@ async function createSession(db, input) {
 }
 
 async function appendEvent(db, input) {
+  const event = normalizeEvent(input);
+  return withTransaction(db, (tx) => appendEventRow(tx, event));
+}
+
+async function appendEvents(db, input) {
+  if (!Array.isArray(input.events) || !input.events.length) {
+    throw Object.assign(new Error('Holobiont event batch must not be empty.'), { code: 'HOLOBIONT_EVENT_INVALID' });
+  }
+  const events = input.events.map((event) => normalizeEvent({ ...input, ...event }));
+  return withTransaction(db, async (tx) => {
+    let revision = input.expectedRevision;
+    for (const event of events) {
+      revision = await appendEventRow(tx, { ...event, expectedRevision: revision });
+    }
+    return revision;
+  });
+}
+
+function normalizeEvent(input) {
   const eventType = String(input.eventType || '');
   if (!EVENT_TYPES.includes(eventType)) throw Object.assign(new Error('Unknown Holobiont event type.'), { code: 'HOLOBIONT_EVENT_INVALID' });
   const payload = input.payload === undefined ? {} : input.payload;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw Object.assign(new Error('Holobiont event payload must be a JSON object.'), { code: 'HOLOBIONT_EVENT_INVALID' });
   }
-  return withTransaction(db, (tx) => appendEventRow(tx, { ...input, eventType, payload }));
+  return { ...input, eventType, payload };
 }
 
 async function getSession(db, holobiontId) {
@@ -267,4 +325,4 @@ async function listLifecycleEvents(db, holobiontId) {
   return rows.map((row) => ({ ...row, payload: JSON.parse(row.payloadJson), payloadJson: undefined }));
 }
 
-module.exports = { createSession, appendEvent, getSession, listEvents, reduceEvent, updateLifecycleStatus, listLifecycleEvents };
+module.exports = { createSession, appendEvent, appendEvents, getSession, listEvents, reduceEvent, updateLifecycleStatus, listLifecycleEvents };

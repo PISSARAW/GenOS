@@ -59,7 +59,10 @@ function run() {
   ];
   const boundary = prepareDispatchPolicy({ mission: { variant: 'boundary_spanner', interfaceContracts }, members });
   assert.ok(boundary.policy.interfaceContracts.every((contract) => contract.dualValidationRequired));
-  assert.throws(() => prepareDispatchPolicy({ mission: { variant: 'boundary_spanner' }, members }), { code: 'ATEAM_INTERFACE_CONTRACT_REQUIRED' });
+  const proposal = prepareDispatchPolicy({ mission: { variant: 'boundary_spanner' }, members });
+  assert.ok(proposal.policy.interfaceContracts.every((contract) => contract.status === 'proposal_required'));
+  assert.equal(proposal.policy.promotionBlocked, true);
+  assert.match(proposal.members.find((member) => member.memberId === 'security').mission, /Propose versioned semantic contracts/);
   const dag = projectDagPolicy({
     dagNodes: [
       { nodeId: 'a', memberId: 'api', dependencies: [], duration: 3, resources: { cpu: 1 }, inputSchema: { type: 'object' }, outputSchema: { type: 'object' } },

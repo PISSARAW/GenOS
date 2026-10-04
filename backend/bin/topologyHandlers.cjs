@@ -18,13 +18,14 @@ function createOrchestratorId(prefix) {
 
 function selectMembers(members, available) {
   if (!Array.isArray(members)) return [];
-  if (available < members.length) {
+  const workers = members.filter((member) => member.executionMode !== 'orchestrator');
+  if (available < workers.length) {
     throw Object.assign(
-      new Error(`Biological dispatch requires ${members.length} free worker slots, but only ${available} available`),
+      new Error(`Biological dispatch requires ${workers.length} free worker slots, but only ${available} available`),
       { code: 'WORKER_GARAGE_FULL' }
     );
   }
-  return members.slice();
+  return workers;
 }
 
 function collectMechanisms(members) {
@@ -387,4 +388,4 @@ async function handleTrinity(db, context) {
   return topologyTrinityHandler.handle({ db, context, ensureParent, workerGarage, buildNCEEnrichments, createOrchestratorId, launchWorker });
 }
 
-module.exports = { handleTeam, handleBiological, handleTrinity };
+module.exports = { handleTeam, handleBiological, handleTrinity, selectMembers };

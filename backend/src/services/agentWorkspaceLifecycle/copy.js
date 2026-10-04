@@ -40,7 +40,7 @@ function createExclusionFilter() {
 
 function isDatabaseArtifact(name) {
   return /\.(?:db|sqlite|sqlite3)(?:-(?:shm|wal|journal))?$/i.test(name)
-    || /^genos\.db\.backup-/i.test(name);
+    || /\.(?:db|sqlite|sqlite3)\.(?:backup|bak)-/i.test(name);
 }
 
 function isAgentRunWorkspace(name) {

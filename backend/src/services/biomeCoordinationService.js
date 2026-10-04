@@ -18,6 +18,7 @@ const nicheLifecycleService = require('./biome/niches/nicheLifecycleService');
 const nicheStore = require('./biome/niches/nicheStore');
 const agentNicheService = require('./biome/niches/agentNicheService');
 const populationRuntimeService = require('./biome/populations/populationRuntimeService');
+const { createInitialEcology } = require('./biome/biomeSessionEcology');
 const ecologicalForagingController = require('./biome/foraging/ecologicalForagingController');
 const foragingActionExecutor = require('./biome/foraging/foragingActionExecutor');
 const biomeVariantPolicy = require('./biome/variants/variantPolicyService');
@@ -26,6 +27,7 @@ const biomeVariantOperations = require('./biome/variants/variantSessionOperation
 const { sourceOpportunities, advanceSuccessionPhase, healthAssessment, allocationOptions,
   allocateResources, forageStep, ecosystemHealth } = biomeVariantOperations;
 const crypto = require('crypto');
+const biomeRuntime = require('./biome/biomeRuntime');
 const DEFAULT_ORGANIZATION = 'energy_huddle';
 const MECHANISMS = ['resource_allocation', 'optimal_foraging', 'quorum_sensing'];
 const sessions = new Map();
@@ -60,13 +62,17 @@ function createSession(context) {
   const environmentModel = environmentModelService.createEnvironmentModel({
     environmentId: persistenceKey || `${sessionId}:environment`, mission: goal, scope, environment: options.environment
   });
+  const members = createMembers(goal, variant, sessionId);
+  const { populations, niches } = createInitialEcology(members);
   return {
     sessionId,
     biomeId: sessionId,
     revision: null,
     ecology: biomeStore.createBiomeState({
       biomeId: sessionId, missionId: sessionId, scope,
-      environment: environmentModel.environment
+      environment: environmentModel.environment,
+      populations,
+      niches
     }),
     mode: 'biome',
     mission: goal,
@@ -79,7 +85,7 @@ function createSession(context) {
     mechanisms: MECHANISMS,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'biome', organization }),
     matrix: biofilmMatrix.createMatrix(`biome-${Date.now()}`, options),
-    members: createMembers(goal, variant, sessionId)
+    members
   };
 }
 
@@ -358,5 +364,7 @@ module.exports = {
   updateSessionPopulation,
   manageSessionResources,
   assessSessionCapacity,
-  rehydrate: sessionPersistence.rehydrate
+  rehydrate: sessionPersistence.rehydrate,
+  BiomeRuntime: biomeRuntime.BiomeRuntime,
+  STOP_CONDITIONS: biomeRuntime.STOP_CONDITIONS
 };
