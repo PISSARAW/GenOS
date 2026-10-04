@@ -54,6 +54,7 @@ const ROLE_ALIASES = Object.freeze({
   verifier: 'verifier_worker',
   red_team: 'red_worker', blue_team: 'verifier_worker', analyst: 'verifier_worker',
   recovery_specialist: 'recovery_worker', contract_auditor: 'verifier_worker',
+  parallel_executor: 'bounded_worker', self_correcting_implementation: 'adaptive_worker',
   strategist: 'sub_orchestrator', literary_author: 'creative_worker',
   direct_author: 'creative_worker', planned_author: 'creative_worker',
   dramaturg: 'creative_worker', literary_critic: 'verifier_worker',
