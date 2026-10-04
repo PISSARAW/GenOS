@@ -1,4 +1,5 @@
 const leasePolicy = require('./toolLeasePolicy');
+const cedarAuthority = require('./cedarAgentAuthority');
 
 const EXECUTION_MODES = Object.freeze(['orchestrator', 'worker']);
 
@@ -43,9 +44,19 @@ function assertMissionAgent(agent, agentId, workspaceId) {
 async function authorizeWorker(db, agent, orchestratorAgentId) {
   if (!orchestratorAgentId) throw authorityError('WORKER_REQUIRES_ORCHESTRATOR', `Worker '${agent.name}' cannot start itself; its orchestrator must dispatch the mission.`);
   if (agent.parent_agent_id !== orchestratorAgentId) throw authorityError('WORKER_ORCHESTRATOR_MISMATCH', `Worker '${agent.name}' is not assigned to orchestrator '${orchestratorAgentId}'.`);
-  const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ? AND execution_mode = \'orchestrator\'', orchestratorAgentId);
+  const parent = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ? AND execution_mode = \'orchestrator\'', orchestratorAgentId);
   if (!parent || (parent.workspace_id || null) !== (agent.workspace_id || null)) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Worker '${agent.id}' and orchestrator '${orchestratorAgentId}' are not in the same workspace.`);
   await requireOrchestrator(db, orchestratorAgentId);
+  if (!cedarAuthority.authorize({ principal: parent, resource: agent, action: 'StartMission', workspaceId: agent.workspace_id })) {
+    throw authorityError('MISSION_CEDAR_DENIED', `Cedar denied mission dispatch for worker '${agent.id}'.`);
+  }
+  return agent;
+}
+
+function authorizeOrchestratorMission(agent) {
+  if (!cedarAuthority.authorize({ principal: agent, resource: agent, action: 'StartMission', workspaceId: agent.workspace_id })) {
+    throw authorityError('MISSION_CEDAR_DENIED', `Cedar denied mission start for orchestrator '${agent.id}'.`);
+  }
   return agent;
 }
 
@@ -73,7 +84,7 @@ async function authorizeMission(db, agentOrOptions, ...legacyArgs) {
   }
   const caps = options.capabilities !== undefined ? options.capabilities : (options.plan || options.autonomyPlan);
   assertToolLeaseFresh({ ...agent, capabilities: caps }, options.toolLease, options.plan || options.autonomyPlan);
-  if (agent.execution_mode === 'orchestrator') return agent;
+  if (agent.execution_mode === 'orchestrator') return authorizeOrchestratorMission(agent);
   return authorizeWorker(db, agent, orchestratorAgentId);
 }
 
@@ -94,10 +105,7 @@ async function authorizeAgentControl(db, targetOrOptions, ...legacyArgs) {
   const actor = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ?', actorId || '');
   if (!actor || actor.workspace_id !== target.workspace_id) throw authorityError('AGENT_CONTROL_FORBIDDEN', 'The acting agent cannot control this target.');
   await require('./missionExecutionAuthority').assertAgentCurrent(db, actor.id);
-  if (!canDirectlyControl(actor, target)) {
-    const bridge = require('./relationAuthorityBridge');
-    const verdict = await bridge.resolveControlByRelation(actor.id, target.id, { db });
-    if (verdict.granted) return { ...target, relationControl: verdict.profile.relationType };
+  if (!canDirectlyControl(actor, target) || !cedarAuthority.authorize({ principal: actor, resource: target, action: 'Control', workspaceId: target.workspace_id })) {
     throw authorityError('AGENT_CONTROL_FORBIDDEN', 'Only the target or its orchestrator may control this agent.');
   }
   return target;

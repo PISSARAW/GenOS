@@ -1,0 +1,18 @@
+namespace GenOS {
+  entity Agent = {
+    agentId: String,
+    workspaceId: String,
+    executionMode: String,
+    parentId: String
+  };
+  action "Control" appliesTo {
+    principal: Agent,
+    resource: Agent,
+    context: { workspaceId: String }
+  };
+  action "StartMission" appliesTo {
+    principal: Agent,
+    resource: Agent,
+    context: { workspaceId: String }
+  };
+}
