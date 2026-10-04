@@ -26,6 +26,8 @@ de fournisseur et d'événement externe lisent un registre d'observations durabl
 alimenté par une route réservée aux administrateurs avec référence de preuve.
 La santé disponible d'un fournisseur et les événements externes expirent.
 Les réveils par approbation relisent la décision persistée liée à l'agent.
+Le réveil manuel d'une mission dormante passe par une route administrateur qui
+retrouve sa condition `operator_or_signal` et son orchestrateur courant.
 La succession
 associe un PID au détenteur de l'autorité et renouvelle une génération après
 la disparition du processus qui avait revendiqué `launching` ou `running`.
