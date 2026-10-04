@@ -1,4 +1,4 @@
-# ADR 0299 - Scellement des spores Biome
+# ADR 0300 - Scellement des spores Biome
 
 - **Statut** : Accepté
 - **Date** : 2026-10-04

@@ -325,7 +325,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0296](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
 | [0297](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
 | [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
-| [0299](0299-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
+| [0300](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
