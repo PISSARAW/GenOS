@@ -170,7 +170,8 @@ function composeBiocenose(mission, options = {}) {
     });
   }
   const formation = communityFormationService.formCommunity({
-    mission: goal, population: options.population, candidates: options.memberCandidates
+    mission: goal, population: options.population, candidates: options.memberCandidates,
+    variant: variantPolicies.select(options.variant || options.variantId).name
   });
   const organization = options.organization || 'blind_adversarial_review';
   return {

@@ -6,6 +6,17 @@ const hybridClock = require('../causality/hybridLogicalClockService');
 function stage(context) {
   const replica = context.session.replicas[context.options.replicaId];
   if (!replica || replica.status !== 'PARTITIONED') return null;
+  if (context.operation.actorId !== replica.actorId) {
+    throw offlineError('SYNCYTIUM_REPLICA_ACTOR_MISMATCH', 'Offline mutation actor does not own the partitioned replica.');
+  }
+  if (Number.isSafeInteger(context.operation.offlineExpiresAt) && context.operation.offlineExpiresAt <= Date.now()) {
+    throw offlineError('SYNCYTIUM_OFFLINE_OPERATION_EXPIRED', 'The offline operation exceeds its accepted offline period.');
+  }
+  const queueLimit = context.operation.offlineQueueLimit;
+  if (queueLimit !== undefined && (!Number.isSafeInteger(queueLimit) || queueLimit < 1
+    || (replica.offlineOperations || []).length >= queueLimit)) {
+    throw offlineError('SYNCYTIUM_OFFLINE_QUEUE_FULL', 'Replica offline operation queue is full.');
+  }
   const policy = offlinePolicy(context.session.schema, context.operation);
   enforcePolicy(policy);
   const previous = structuredClone(replica);
@@ -66,6 +77,12 @@ function createLocalState(replica, baseState) {
 }
 
 function offlinePolicy(schema, operation) {
+  const requestedPolicy = operation.offlinePolicy;
+  if (requestedPolicy !== undefined) {
+    const supported = new Set(['ALLOW_LOCAL_MUTATION', 'ALLOW_READ_ONLY', 'QUEUE_UNTIL_CONNECTED', 'REJECT']);
+    if (!supported.has(requestedPolicy)) throw offlineError('SYNCYTIUM_OFFLINE_POLICY_INVALID', 'Unsupported offline mutation policy.');
+    return requestedPolicy;
+  }
   const field = schema?.fields?.[operation.kind?.key];
   if (operation.fieldType === 'ESCROW_COUNTER') return 'REJECT';
   return field?.offlinePolicy || 'ALLOW_LOCAL_MUTATION';

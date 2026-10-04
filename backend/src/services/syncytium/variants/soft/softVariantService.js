@@ -2,6 +2,7 @@
 
 const schemaService = require('../../../syncytiumSchemaService');
 const { randomUUID } = require('node:crypto');
+const partitionService = require('./softPartitionService');
 
 const PARTITION_POLICIES = new Set([
   'ALLOW_LOCAL_MUTATION',
@@ -45,6 +46,9 @@ function compileSchema(options = {}) {
     fields: {
       metrics:     { dataType: 'G_COUNTER',    consistencyZone: 'EVENTUAL' },
       deltas:      { dataType: 'ADD_WINS_SET', consistencyZone: 'EVENTUAL' },
+      localDeltas: { dataType: 'ADD_WINS_SET', consistencyZone: 'EVENTUAL' },
+      queuedDeltas: { dataType: 'ADD_WINS_SET', consistencyZone: 'EVENTUAL' },
+      partitions: { dataType: 'MAP', consistencyZone: 'CAUSAL' },
       antiEntropyLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
       stalenessBudget: { dataType: 'MV_REGISTER', consistencyZone: 'CAUSAL' },
       ...options.customFields || {}
@@ -78,17 +82,28 @@ function createSession(mission, options = {}, syncytium) {
 async function applyDelta(context) {
   const { sessionId, delta, options, syncytium } = context;
   validateDelta(delta);
+  const actorId = options.actorId || delta.author || 'soft-writer';
+  const opId = options.opId || randomUUID();
   const enriched = Object.assign({
     deltaId: delta.deltaId || randomUUID(),
+    operationId: opId,
     timestamp: Date.now(),
     author: delta.author || 'anonymous',
     vectorClock: delta.vectorClock || {}
   }, delta);
 
-  const opId = options.opId || randomUUID();
-  return syncytium.applyOperation(sessionId, {
+  const snapshot = await syncytium.snapshot(sessionId, options);
+  const replicaId = options.replicaId || actorId;
+  const partition = snapshot.shared.sharedFields.partitions?.[replicaId];
+  if (partition && partition.expiresAt <= Date.now()) {
+    throw Object.assign(new Error('Expired partitions must reconcile before accepting more deltas.'), { code: 'SYNCYTIUM_PARTITION_RECONCILIATION_REQUIRED' });
+  }
+  const offlinePolicy = partition ? partitionService.nativeOfflinePolicy(partition.policy) : undefined;
+
+  const result = await syncytium.applyOperation(sessionId, {
     opId,
-    actorId: options.actorId || 'soft-writer',
+    actorId,
+    ...(offlinePolicy ? { offlinePolicy } : {}),
     kind: {
       type: 'typed_field',
       key: 'deltas',
@@ -96,6 +111,8 @@ async function applyDelta(context) {
       value: enriched
     }
   }, options);
+  return { ...result, localOnly: result.offline && offlinePolicy === 'ALLOW_LOCAL_MUTATION',
+    queued: result.queued === true, delta: enriched };
 }
 
 function validateDelta(delta) {
@@ -112,10 +129,12 @@ function validateDelta(delta) {
 /* ------------------------------------------------------------------ */
 
 async function reconcileAntiEntropy(context) {
-  const { sessionId, options, syncytium } = context;
+  const { sessionId, options, syncytium, vectorClock = {} } = context;
+  if (options.replicaId) return partitionService.reconcileReplica(context, vectorClock);
   const snapshot = await syncytium.snapshot(sessionId, options);
-  const deltas = snapshot.shared?.sharedFields?.deltas || [];
-  const antiEntropyLog = snapshot.shared?.sharedFields?.antiEntropyLog || [];
+  const fields = snapshot.shared?.sharedFields || {};
+  const deltas = partitionService.uniqueDeltas([...fields.deltas || [], ...fields.localDeltas || [], ...fields.queuedDeltas || []]);
+  const antiEntropyLog = fields.antiEntropyLog || [];
 
   const seenIds = new Set(antiEntropyLog.map(entry => entry.deltaId));
   const unseen = deltas.filter(d => !seenIds.has(d.deltaId));
@@ -126,23 +145,22 @@ async function reconcileAntiEntropy(context) {
     reconciledAt: reconciliationTime,
     author: delta.author,
     vectorClock: delta.vectorClock,
-    metadata: { reconciledBy: 'anti_entropy', options: options }
+    metadata: { reconciledBy: 'anti_entropy' }
   }));
 
   if (entries.length === 0) {
     return { reconciled: 0, timestamp: reconciliationTime, stale: true };
   }
 
-  const opId = options.opId || randomUUID();
-  await syncytium.applyOperation(sessionId, {
-    opId,
-    actorId: 'anti-entropy-daemon',
-    kind: {
-      type: 'typed_field',
-      key: 'antiEntropyLog',
-      action: 'add',
-      value: entries
-    }
+  const operations = unseen.flatMap((delta, index) => [
+    { opId: `${options.opId || randomUUID()}:delta:${index}`, actorId: 'anti-entropy-daemon',
+      kind: { type: 'typed_field', key: 'deltas', action: 'add', value: delta } },
+    { opId: `${options.opId || randomUUID()}:log:${index}`, actorId: 'anti-entropy-daemon',
+      kind: { type: 'typed_field', key: 'antiEntropyLog', action: 'add', value: entries[index] } }
+  ]);
+  await syncytium.applyTransaction(sessionId, {
+    txId: options.txId || randomUUID(), operations,
+    preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
   }, options);
 
   return {
@@ -160,8 +178,9 @@ async function reconcileAntiEntropy(context) {
 async function compressState(context) {
   const { sessionId, options, syncytium } = context;
   const snapshot = await syncytium.snapshot(sessionId, options);
-  const deltas = snapshot.shared?.sharedFields?.deltas || [];
-  const antiEntropyLog = snapshot.shared?.sharedFields?.antiEntropyLog || [];
+  const fields = snapshot.shared?.sharedFields || {};
+  const deltas = uniqueDeltas([...fields.deltas || [], ...fields.localDeltas || [], ...fields.queuedDeltas || []]);
+  const antiEntropyLog = fields.antiEntropyLog || [];
 
   const coveredIds = new Set(antiEntropyLog.map(e => e.deltaId));
   const toKeep = deltas.filter(d => !coveredIds.has(d.deltaId));
@@ -213,7 +232,7 @@ async function getStalenessBudget(context) {
   const { sessionId, options, syncytium } = context;
   const snapshot = await syncytium.snapshot(sessionId, options);
   const budgetField = snapshot.shared?.sharedFields?.stalenessBudget;
-  if (!budgetField || !budgetField.value !== undefined) {
+  if (!budgetField || budgetField.value === undefined) {
     return { budget: DEFAULT_STALENESS_BUDGET, active: false };
   }
   return { budget: budgetField.value, active: true, updatedAt: budgetField.updatedAt };
@@ -236,28 +255,25 @@ async function simulatePartition(context) {
   }
 
   const opId = options.opId || randomUUID();
+  const replicaId = options.replicaId;
+  if (!replicaId) throw Object.assign(new Error('Partition simulation requires replicaId.'), { code: 'SYNCYTIUM_PARTITION_REPLICA_REQUIRED' });
+  const startedAt = Date.now();
   const entry = {
-    partitionId: randomUUID(),
+    partitionId: randomUUID(), actorId: options.actorId || replicaId, replicaId,
     policy,
     durationMs,
-    startedAt: Date.now(),
-    expiresAt: Date.now() + durationMs,
-    actorId: options.actorId || 'partition-simulator',
+    startedAt,
+    expiresAt: startedAt + durationMs,
     status: 'ACTIVE'
   };
 
+  await syncytium.partitionReplica(sessionId, replicaId, { db: options.db });
   await syncytium.applyOperation(sessionId, {
     opId,
     actorId: entry.actorId,
     kind: {
       type: 'typed_field',
-      key: 'antiEntropyLog',
-      action: 'add',
-      value: {
-        deltaId: `partition-${entry.partitionId}`,
-        eventType: 'PARTITION_SIMULATION',
-        ...entry
-      }
+      key: 'partitions', action: 'set', entryKey: replicaId, value: entry
     }
   }, options);
 
@@ -267,7 +283,7 @@ async function simulatePartition(context) {
     durationMs,
     startedAt: entry.startedAt,
     expiresAt: entry.expiresAt,
-    status: 'ACTIVE'
+    status: 'ACTIVE', capabilities: partitionService.partitionCapabilities(policy)
   };
 }
 
@@ -277,6 +293,7 @@ async function simulatePartition(context) {
 
 async function listDeltas(context) {
   const { sessionId, options, syncytium } = context;
+  await partitionService.assertReadableDuringPartition(sessionId, options, syncytium);
   const snapshot = await syncytium.snapshot(sessionId, options);
   const deltas = snapshot.shared?.sharedFields?.deltas || [];
   const filterType = options.filterType;
@@ -304,10 +321,11 @@ async function listDeltas(context) {
 
 async function softSnapshot(context) {
   const { sessionId, options, syncytium } = context;
+  await partitionService.assertReadableDuringPartition(sessionId, options, syncytium);
   const snapshot = await syncytium.snapshot(sessionId, options);
   const sf = snapshot.shared?.sharedFields || {};
 
-  const deltas = sf.deltas || [];
+  const deltas = partitionService.uniqueDeltas([...sf.deltas || [], ...sf.localDeltas || [], ...sf.queuedDeltas || []]);
   const antiEntropyLog = sf.antiEntropyLog || [];
   const stalenessBudget = sf.stalenessBudget;
 
@@ -315,9 +333,7 @@ async function softSnapshot(context) {
     ? stalenessBudget.value
     : DEFAULT_STALENESS_BUDGET;
 
-  const seenIds = new Set(antiEntropyLog
-    .filter(e => e.deltaId && !e.deltaId.startsWith('partition-'))
-    .map(e => e.deltaId));
+  const seenIds = new Set(antiEntropyLog.map(e => e.deltaId));
   const unseenDeltas = deltas.filter(d => !seenIds.has(d.deltaId));
   const staleness = unseenDeltas.length;
 
@@ -330,9 +346,9 @@ async function softSnapshot(context) {
       unseenDeltas: staleness,
       stalenessBudget,
       antiEntropyEntries: antiEntropyLog.length,
-      partitionEvents: antiEntropyLog.filter(
-        e => e.eventType === 'PARTITION_SIMULATION'
-      ).length
+      partitionEvents: Object.keys(sf.partitions || {}).length,
+      localDeltas: (sf.localDeltas || []).length,
+      queuedDeltas: (sf.queuedDeltas || []).length
     },
     stalenessExceedsBudget: staleness > budget,
     compressed: await compressState({ sessionId, options, syncytium }),

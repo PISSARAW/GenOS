@@ -12,16 +12,31 @@ function composeSubCouncils(input = {}) {
   const members = Array.isArray(input.members) ? input.members : [];
   if (!members.length) throw councilError('BIOCENOSE_COUNCIL_NO_MEMBERS', 'Polycentric council requires at least one member.');
   const councilCount = Math.max(1, Math.min(Number(input.councilCount) || 2, members.length));
-  const buckets = Array.from({ length: councilCount }, (_, index) => []);
   const ordered = [...members].sort((left, right) => localKey(left).localeCompare(localKey(right)));
-  ordered.forEach((member, index) => buckets[index % councilCount].push(member));
-  return buckets.map((bucket, index) => ({
+  const buckets = input.specializeByExpertise ? expertiseBuckets(ordered) : roundRobinBuckets(ordered, councilCount);
+  return buckets.map((entry, index) => ({
     councilId: `council_${index + 1}`,
-    scope: input.scope || 'local',
+    scope: entry.scope || input.scope || 'local',
     charter: input.charter || { subsidiarity: true, dissentPreserved: true },
-    memberIds: bucket.map(memberKey),
-    size: bucket.length
+    memberIds: entry.members.map(memberKey),
+    size: entry.members.length
   }));
+}
+
+function roundRobinBuckets(members, count) {
+  const buckets = Array.from({ length: count }, () => []);
+  members.forEach((member, index) => buckets[index % count].push(member));
+  return buckets.map((value) => ({ members: value }));
+}
+
+function expertiseBuckets(members) {
+  const grouped = new Map();
+  for (const member of members) {
+    const expertise = String(member.expertise || 'general');
+    if (!grouped.has(expertise)) grouped.set(expertise, []);
+    grouped.get(expertise).push(member);
+  }
+  return [...grouped].map(([scope, value]) => ({ scope, members: value }));
 }
 
 function delegateFor(cluster, count) {
@@ -46,16 +61,19 @@ function federate(input = {}) {
   const delegations = clusters.map((cluster) => delegateFor(cluster, delegatesPerCluster));
   const outcomes = new Set(delegations.map((item) => item.outcome));
   const bypasses = delegations.flatMap((item) => item.minorityBypass);
-  const localMatters = delegations.filter((item) => item.dissent.length === 0 && item.minorityBypass.length === 0);
+  const conflicts = outcomes.size > 1 ? new Set(delegations.map((item) => item.clusterId)) : new Set();
+  const localMatters = delegations.filter((item) => item.dissent.length === 0
+    && item.minorityBypass.length === 0 && !conflicts.has(item.clusterId));
   return {
     status: outcomes.size > 1 ? 'FEDERATED_PLURALISM' : 'FEDERATED_CONSENSUS',
     delegations,
     subsidiarity: {
       localRetained: localMatters.map((item) => item.clusterId),
-      escalated: delegations.filter((item) => !localMatters.includes(item)).map((item) => item.clusterId)
+      escalated: delegations.filter((item) => !localMatters.includes(item)).map((item) => item.clusterId),
+      outcomeConflicts: [...conflicts]
     },
     minorityBypass: bypasses,
-    parentMustReview: bypasses.length > 0 || outcomes.size > 1
+    parentMustReview: bypasses.length > 0 || outcomes.size > 1 || delegations.some((item) => item.dissent.length > 0)
   };
 }
 

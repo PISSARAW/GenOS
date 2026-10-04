@@ -1,6 +1,7 @@
 'use strict';
 const S = require('../../../syncytiumSchemaService');
 const { randomUUID } = require('node:crypto');
+const hybridClock = require('../../causality/hybridLogicalClockService');
 const MAX_OFFLINE = 7*24*60*60*1000;
 
 function createLocalFirstVariantService(syn) {
@@ -59,10 +60,13 @@ async function applyHLC(context) {
   assertDevId(dev, 'deviceId');
   assertNonNegFinite(ts, 'logicalTime');
   const n = now(), opId = defaultOpId(o);
+  const snapshot = await syn.snapshot(sid, o || {});
+  const previous = snapshot.shared?.sharedFields?.logicalClock?.[dev];
+  const value = hybridClock.tick({ previous, wallTime: ts, actorId: defaultActor(o, dev) });
   return syn.applyOperation(sid, {
     opId, actorId: defaultActor(o, 'hlc-writer'),
     kind: { type: 'typed_field', key: 'logicalClock', action: 'set',
-      entryKey: dev, value: { deviceId: dev, logicalTime: ts, wallClock: n, recordedAt: n } }
+      entryKey: dev, value: { deviceId: dev, logicalTime: value.logical, wallClock: value.wallTime, actorId: value.actorId, recordedAt: n } }
   }, o);
 }
 
@@ -87,56 +91,79 @@ async function partitionAndWorkOffline(context) {
   assertDevId(dev, 'deviceId');
   if (!Array.isArray(ops) || ops.length === 0)
     throw new Error('LocalFirstError: operations must be a non-empty array');
-  const n = now(), expiresAt = n + ((o&&o.offlineDurationMs)||MAX_OFFLINE);
-  if (expiresAt - n > MAX_OFFLINE)
+  const n = now(), duration = o?.offlineDurationMs === undefined ? MAX_OFFLINE : o.offlineDurationMs;
+  if (!Number.isSafeInteger(duration) || duration < 1 || duration > MAX_OFFLINE)
     throw new Error('LocalFirstError: offlineDurationMs exceeds maximum allowed (7 days)');
+  const expiresAt = n + duration;
+  const actorId = defaultActor(o, dev);
+  const existing = (await syn.inspectReplicas(sid, o || {})).find((replica) => replica.replicaId === dev);
+  if ((existing?.offlineOperationCount || 0) + ops.length > 10000) {
+    throw Object.assign(new Error('Offline operation queue budget is exhausted.'), { code: 'SYNCYTIUM_OFFLINE_QUEUE_FULL' });
+  }
+  await syn.joinReplica(sid, { replicaId: dev, actorId }, o || {});
+  await syn.applyOperation(sid, { opId: randomUUID(), actorId,
+    kind: { type: 'typed_field', key: 'deviceReplicas', action: 'set', entryKey: dev,
+      value: { deviceId: dev, lastSyncAt: n, operationCount: 0 } } }, o || {});
+  await syn.partitionReplica(sid, dev, o || {});
   const entries = ops.map((op, idx) => ({
     operationId: op.operationId || `${dev}-${n}-${idx}`,
     deviceId: dev, payload: op.payload,
     operationType: op.operationType || 'mutation',
     createdAt: n, expiresAt, sequence: idx
   }));
-  return syn.applyOperation(sid, {
-    opId: defaultOpId(o), actorId: defaultActor(o, 'offline-worker'),
-    kind: { type: 'typed_field', key: 'offlineQueue', action: 'add', value: entries }
-  }, o);
+  const staged = [];
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index];
+    const requested = ops[index].operation;
+    const operation = requested && typeof requested === 'object' ? requested : {
+      kind: { type: 'typed_field', key: 'offlineQueue', action: 'add', value: entry }
+    };
+    staged.push(await syn.applyOperation(sid, {
+      ...operation, opId: entry.operationId, actorId,
+      offlinePolicy: 'ALLOW_LOCAL_MUTATION', offlineQueueLimit: 10000, offlineExpiresAt: expiresAt
+    }, { ...(o || {}), replicaId: dev }));
+  }
+  return { deviceId: dev, offline: true, staged: staged.length, entries,
+    operationIds: entries.map((entry) => entry.operationId), localOnly: true };
 }
 
 async function reconcileOfflineQueue(context) {
   const { sid, dev, vc, o, syn } = context;
   assertDevId(dev, 'deviceId');
   assertVecClock(vc);
-  const snap = await syn.snapshot(sid, o);
-  const queue = snap.shared?.sharedFields?.offlineQueue || [];
-  const pending = queue.filter(e => e.deviceId === dev && !e.reconciled);
-  if (pending.length === 0) return { reconciled: 0, deviceId: dev, timestamp: now() };
+  const result = await syn.reconcileReplica(sid, dev, { frontier: vc, options: o || {} });
+  const pendingCount = result.accepted.length + (result.expired || []).length;
+  if (pendingCount === 0) return { reconciled: 0, deviceId: dev, timestamp: now(), status: result.status };
   const reconciledAt = now();
-  const record = { deviceId: dev, reconciledAt, operationCount: pending.length,
+  const record = { deviceId: dev, reconciledAt, operationCount: result.accepted.length,
+    acceptedOperationIds: result.accepted, expiredOperationIds: result.expired || [],
     remoteVectorClock: Object.assign({}, vc), status: 'RECONCILED' };
   await syn.applyOperation(sid, {
     opId: defaultOpId(o), actorId: defaultActor(o, 'reconciler'),
     kind: { type: 'typed_field', key: 'syncState', action: 'set',
       entryKey: `reconciliation-${dev}-${reconciledAt}`, value: record }
   }, o);
-  return { reconciled: pending.length, deviceId: dev, timestamp: reconciledAt, record };
+  return { reconciled: result.accepted.length, expired: result.expired || [], deviceId: dev,
+    timestamp: reconciledAt, record };
 }
 
 async function checkBudget(context) {
   const { sid, dev, o, syn } = context;
   assertDevId(dev, 'deviceId');
   const snap = await syn.snapshot(sid, o);
-  const queue = snap.shared?.sharedFields?.offlineQueue || [];
-  const deviceReplicas = snap.shared?.sharedFields?.deviceReplicas || {};
-  const deviceOps = queue.filter(e => e.deviceId === dev);
-  const replicaInfo = deviceReplicas[dev] || {};
+  const replicas = await syn.inspectReplicas(sid, o || {});
+  const replicaInfo = replicas.find((replica) => replica.replicaId === dev) || {};
+  const deviceOps = replicaInfo.offlineOperationCount || 0;
+  const lastSyncAt = snap.shared?.sharedFields?.deviceReplicas?.[dev]?.lastSyncAt || 0;
   return {
     deviceId: dev,
-    pendingOperations: deviceOps.filter(e => !e.reconciled).length,
-    totalOperations: deviceOps.length,
-    ageMs: now() - (replicaInfo.lastSyncAt || 0),
-    ageSeconds: Math.round((now() - (replicaInfo.lastSyncAt || 0)) / 1000),
-    lastSyncAt: replicaInfo.lastSyncAt || 0,
-    canAcceptMore: deviceOps.filter(e => !e.reconciled).length < 10000,
+    pendingOperations: deviceOps,
+    totalOperations: deviceOps + Object.values(snap.shared?.sharedFields?.syncState || {})
+      .filter((item) => item.deviceId === dev).reduce((total, item) => total + (item.operationCount || 0), 0),
+    ageMs: now() - lastSyncAt,
+    ageSeconds: Math.round((now() - lastSyncAt) / 1000),
+    lastSyncAt,
+    canAcceptMore: deviceOps < 10000,
     timestamp: now()
   };
 }
@@ -162,15 +189,19 @@ async function localFirstSnapshot(context) {
   const oq = sf.offlineQueue || [];
   const ss = sf.syncState || {};
   const dr = sf.deviceReplicas || {};
+  const replicaHealth = await syn.inspectReplicas(sid, o || {});
   const syncHistory = Object.values(ss).filter(s => s.outcome !== undefined);
 
   return {
     sessionId: sid, schemaId: 'syncytium-local-first-v1',
-    devices: Object.keys(lc).length,
+    devices: new Set([...Object.keys(lc), ...replicaHealth.map((replica) => replica.replicaId)]).size,
     devicesList: mapLogicalClockEntries(lc),
     offlineQueue: buildOfflineQueueSummary(oq),
     syncHistory: buildSyncHistorySummary(syncHistory),
     deviceReplicas: buildDeviceReplicasSummary(dr),
+    localReplicaState: replicaHealth.map((replica) => ({ deviceId: replica.replicaId,
+      status: replica.status, pendingOperations: replica.offlineOperationCount,
+      lastSeenVersion: replica.lastSeenVersion, hybridClock: replica.hybridClock })),
     encryptedLocalStoreKey: sf.encryptedLocalStoreKey ? 'SET' : 'UNSET',
     timestamp: now()
   };

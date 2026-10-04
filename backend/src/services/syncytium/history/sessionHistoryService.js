@@ -39,8 +39,13 @@ async function reconcileReplica(context) {
     if (!replica || replica.status === 'RETIRED') throw Object.assign(new Error(`Unknown active replica '${replicaId}'.`), { code: 'SYNCYTIUM_REPLICA_UNKNOWN' });
     const previousCrdt = session.crdt;
     const previousReplica = structuredClone(replica);
+    const pendingOperations = input.operations || replica.offlineOperations;
+    const nowMs = Number.isSafeInteger(input.nowMs) ? input.nowMs : Date.now();
+    const expiredOperations = pendingOperations.filter((operation) => Number.isSafeInteger(operation.offlineExpiresAt)
+      && operation.offlineExpiresAt <= nowMs);
+    const eligibleOperations = pendingOperations.filter((operation) => !expiredOperations.includes(operation));
     const result = replicaReconciliation.reconcile(session, replica, {
-      ...input, operations: input.operations || replica.offlineOperations
+      ...input, operations: eligibleOperations
     });
     session.crdt = result.candidate;
     replica.causalFrontier = result.remoteFrontier;
@@ -62,6 +67,7 @@ async function reconcileReplica(context) {
     }
     return {
       replicaId, status: replica.status, accepted: result.accepted.map((operation) => operation.opId),
+      expired: expiredOperations.map((operation) => operation.opId),
       missingOperations: result.missingOperations, snapshotRequired: result.snapshotRequired, snapshot: result.snapshot
     };
   });

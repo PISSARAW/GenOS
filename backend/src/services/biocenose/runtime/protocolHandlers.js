@@ -14,6 +14,7 @@ const minorityVeto = require('../dissent/minorityEvidenceVetoService');
 const judgmentService = require('../judgment/communityJudgmentService');
 const judgmentStore = require('../judgment/judgmentStore');
 const memberInvocation = require('./memberInvocationService');
+const variantOrchestrator = require('./variantOrchestrator');
 const DECISION_CHECKS = Object.freeze({
   EVIDENCE_SUPPORTED: (item) => item.verifiedClaimIds?.length > 0,
   EVIDENCE_WITH_DISSENT: (item) => item.verifiedClaimIds?.length > 0,
@@ -48,19 +49,31 @@ function createHandlers(options = {}) {
 
 async function collectSealedJudgments(context) {
   const session = await loadActiveSession(context);
+  const persistent = context.variantPolicy?.name === 'persistent_community'
+    ? await variantOrchestrator.persistentContext({ ...context, session, judgments: [] }) : null;
+  const excluded = new Set(persistent?.report.excludedMemberIds || []);
   const participants = session.members.filter((member) => member.status === 'ACTIVE'
-    && member.role !== 'community_facilitator');
+    && member.role !== 'community_facilitator' && !excluded.has(member.memberId));
   const commitments = await communityStore.listCommitments(context.db, session.communityId, session.round);
   const committed = new Set(commitments.map((item) => item.memberId));
+  const quarantined = [];
   for (const member of participants.filter((item) => !committed.has(item.memberId))) {
     const judgment = await invokeMember(context, {
       member, phase: 'SEALED_JUDGMENT', task: 'Form an independent initial judgment.', details: {}
     });
+    if (context.variantPolicy?.quarantineAware) {
+      const result = await variantOrchestrator.quarantineIfRequired({ ...context, session, member, judgment });
+      if (result) { quarantined.push(result); continue; }
+    }
     await commitmentServiceCall(context, member, judgment);
   }
+  const active = await loadActiveSession(context);
+  const quorumReport = context.variantPolicy?.quarantineAware
+    ? variantOrchestrator.assertByzantineQuorum({ ...context, session: active }) : null;
   return { judgments: await commitment.revealJudgments({
     db: context.db, communityId: session.communityId, actorId: context.actorId
-  }) };
+  }), byzantine: quorumReport ? { ...quorumReport, quarantined } : undefined,
+  persistentCommunity: persistent?.report };
 }
 
 async function commitmentServiceCall(context, member, response) {
@@ -189,7 +202,13 @@ async function collectBeliefRevisions(context) {
 
 async function checkIndependence(context) {
   const session = await loadActiveSession(context);
-  return { report: effectiveSize.effectiveCommunitySize(session.members) };
+  const active = session.members.filter((member) => member.status === 'ACTIVE'
+    && member.role !== 'community_facilitator');
+  const report = effectiveSize.effectiveCommunitySize(active);
+  if (context.variantPolicy?.quarantineAware) {
+    report.byzantine = variantOrchestrator.assertByzantineQuorum({ ...context, session: { ...session, members: active } });
+  }
+  return { report };
 }
 
 async function aggregateByQuestionType(context) {
@@ -199,20 +218,32 @@ async function aggregateByQuestionType(context) {
   const claims = prior(context, 1).claims;
   const reviewResult = prior(context, 2);
   const options = context.aggregationContext || {};
+  if (context.variantPolicy?.name === 'polycentric_council' && !options.clusters?.length) {
+    return variantOrchestrator.aggregatePolycentric({ context, session, claims,
+      reviews: reviewResult.reviews, invokeMember });
+  }
+  const persistent = context.variantPolicy?.name === 'persistent_community'
+    ? await variantOrchestrator.persistentContext({ ...context, session, judgments, suppliedForecasts: options.forecasts }) : null;
+  const sourceForecasts = persistent?.forecasts || options.forecasts || judgments.flatMap((item) =>
+    (item.judgment.probabilities || []).map((forecast) => ({ ...forecast, memberId: item.memberId })));
+  const memberWeights = new Map(session.members.map((member) => [member.memberId, member.samplingWeight]));
+  const forecasts = context.variantPolicy?.requireSamplingWeights
+    ? sourceForecasts.map((item) => ({ ...item, samplingWeight: item.samplingWeight ?? memberWeights.get(item.memberId) }))
+    : sourceForecasts;
   const history = context.variantPolicy?.name === 'persistent_community'
     ? await judgmentStore.listBeforeRound(context.db, session.communityId, session.round) : [];
-  return aggregationService.aggregate({
+  const aggregation = aggregationService.aggregate({
     ...options, questionType: session.questionType, claims, judgments,
     arguments: prior(context, 3).arguments,
-    forecasts: options.forecasts || judgments.flatMap((item) => item.judgment.probabilities || []),
+    forecasts,
     verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy,
     isTrustedReceipt: context.isTrustedReceipt, history,
     members: session.members,
     quarantinedMemberIds: session.members.filter((member) => member.status === 'QUARANTINED')
       .map((member) => member.memberId)
   });
+  return persistent ? { ...aggregation, persistentCommunity: persistent.report } : aggregation;
 }
-
 async function checkDissent(context) {
   const session = await loadActiveSession(context);
   const reviews = prior(context, 2).reviews;
