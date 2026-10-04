@@ -26,7 +26,8 @@ const MAX_TESTS = 50;
 const MAX_ARCHITECTURE_REFS = 20;
 
 function briefIdFor(territoryId, headSha, mission) {
-  const hash = crypto.createHash('sha256').update(`${territoryId}|${headSha}|${mission || ''}|${Date.now()}`).digest('hex').slice(0, 12);
+  const base = `${territoryId}|${headSha}|${mission || ''}`;
+  const hash = crypto.createHash('sha256').update(base).digest('hex').slice(0, 12);
   return `brief-${hash}`;
 }
 
@@ -62,7 +63,8 @@ async function graphSummary(db, territoryId) {
   const counts = await graphStore.countGraph(db, { territoryId });
   const nodes = await graphStore.listNodes(db, { territoryId });
   const symbols = (nodes || []).filter((n) => n.kind === 'symbol').length;
-  return { files: counts.nodes - symbols, symbols, edges: counts.edges };
+  const files = Math.max(0, (counts.nodes || 0) - symbols);
+  return { files, symbols, edges: counts.edges };
 }
 
 async function architectureRefs(db, territoryId) {
@@ -93,7 +95,10 @@ function stalenessWarnings(territory, findings) {
   const warnings = [];
   if (territory.state === 'STALE') warnings.push('territory head advanced since last survey — brief may be partial');
   for (const finding of findings || []) {
-    if (finding.status === 'STALE') warnings.push(`finding ${finding.id} is stale (head ${finding.head_sha.slice(0, 8)})`);
+    if (finding.status === 'STALE') {
+      const short = finding.head_sha ? finding.head_sha.slice(0, 8) : 'unknown';
+      warnings.push(`finding ${finding.id} is stale (head ${short})`);
+    }
   }
   return warnings;
 }
@@ -147,6 +152,7 @@ async function buildBrief(db, job) {
   const staleSections = [];
   if (territory.state === 'STALE') staleSections.push('territory-index');
   if (ranked.some((item) => item.finding.status === 'STALE')) staleSections.push('findings');
+  const summary = await graphSummary(db, args.territoryId);
   return {
     briefId,
     territoryId: args.territoryId,
@@ -156,9 +162,9 @@ async function buildBrief(db, job) {
     activePhenotypes: phenotypes.active,
     phenotypeFocus: phenotypes.focus,
     summary: {
-      ...(await graphSummary(db, args.territoryId)),
+      ...summary,
       openFindings: ranked.length,
-      deadEnds: (await deadEnds(db, args.territoryId)).length
+      deadEnds: deadEndRows.length
     },
     findings: findingRows,
     deadEnds: deadEndRows,
