@@ -194,14 +194,6 @@ fn validate_clone_mode(mode: &str) -> Result<(), String> {
     }
 }
 
-fn validate_clone_mode(mode: &str) -> Result<(), String> {
-    if ["mitosis", "fission", "binary_fission", "budding"].contains(&mode) {
-        Ok(())
-    } else {
-        Err(format!("unsupported clone mode '{mode}'"))
-    }
-}
-
 pub fn decoy(dna: &AgentDna, options: &DecoyOptions) -> Result<AgentDna, String> {
     let mut output = dna.clone();
     output.provenance.decoy = Some(Decoy {
