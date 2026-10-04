@@ -146,6 +146,7 @@ function resolveMember(mode, member) {
     if (error.code === 'UNKNOWN_WORKER_KIND') error.code = 'TOPOLOGY_WORKER_KIND_UNKNOWN';
     throw error;
   }
+  require('./agents/workerRuntimeLimitsService').assertWorkerExecutorAvailable({ workerKind: selection.kind });
   const definition = workerKinds.kindDefinition(selection.kind);
   const workerAssignment = {
     version: 1,

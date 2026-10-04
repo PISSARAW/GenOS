@@ -75,21 +75,14 @@ function verifyMappedTopology(mode, rawMembers) {
 }
 
 async function verifyBiologicalBranches() {
-  const modes = ['biocenose', 'biome', 'holobionte', 'metapopulation', 'rhizome', 'syncytium'];
   const services = [
-    [biocenose, 'prepareCommunity'], [biome, 'composeBiome'],
-    [holobionte, 'composeHolobiont'], [metapopulation, 'createMetapopulationSession'],
-    [rhizome, 'composeRhizome'], [syncytium, 'createSession']
+    ['biocenose', biocenose, 'prepareCommunity'], ['biome', biome, 'composeBiome'],
+    ['holobionte', holobionte, 'composeHolobiont'], ['metapopulation', metapopulation, 'createMetapopulationSession'],
+    ['rhizome', rhizome, 'composeRhizome'], ['syncytium', syncytium, 'createSession']
   ];
-  const originals = services.map(([service, name]) => [service, name, service[name]]);
+  const originals = services.map(([, service, name]) => [service, name, service[name]]);
   try {
-    for (const mode of modes) {
-      const method = mode === 'biocenose' ? 'prepareCommunity'
-        : mode === 'biome' ? 'composeBiome'
-          : mode === 'holobionte' ? 'composeHolobiont'
-            : mode === 'metapopulation' ? 'createMetapopulationSession'
-              : mode === 'rhizome' ? 'composeRhizome' : 'createSession';
-      const service = services.find((entry) => entry[1] === method)[0];
+    for (const [mode, service, method] of services) {
       service[method] = async () => ({
         members: biologicalModes.compose(mode, mode === 'syncytium'
           ? 'Maintain a shared graph of nodes and edges.'
@@ -162,9 +155,7 @@ async function verifyFailClosedCases() {
 
 function verifyMethodContractsSelectSpecialists() {
   const cases = [
-    ['implementation', 'dynamic_programming', 'procedural_executor'],
     ['implementation', 'evolutionary_search', 'adaptive_worker'],
-    ['implementation', 'formal_proof', 'formal_worker'],
     ['implementation', 'experimental_design', 'experimental_worker'],
     ['adversarial_reviewer', 'threat_modeling', 'red_worker'],
     ['analyst', 'causal_analysis', 'forensic_worker'],
@@ -177,6 +168,11 @@ function verifyMethodContractsSelectSpecialists() {
       role, methodContract: { version: 1, methodId }
     }]);
     assert.equal(member.workerKind, expectedKind, `${role}/${methodId} selects ${expectedKind}`);
+  }
+  for (const methodId of ['dynamic_programming', 'formal_proof']) {
+    assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
+      role: 'implementation', methodContract: { version: 1, methodId }
+    }]), { code: 'WORKER_EXECUTOR_UNAVAILABLE' });
   }
   assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
     role: 'implementation', methodContract: { version: 1, methodId: 'unregistered_method' }
