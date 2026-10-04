@@ -35,7 +35,7 @@ async function runCase(testCase) {
     const method = { ...testCase.methodContract, parameters: {
       ...testCase.methodContract.parameters, toolchainVersion
     } };
-    const result = await runFormal(method);
+    const result = await runFormal(method, { timeoutMs: 120000 });
     return { status: 'executed', result, receipt: result.solverReceipt };
   }
   return { status: 'unavailable', reason: 'No real benchmark adapter is connected for this worker kind.' };

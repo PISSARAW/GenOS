@@ -28,6 +28,8 @@ Pour inclure Lean, placer l'exécutable `lean` dans le `PATH` ou définir
 `GENOS_LEAN_EXECUTABLE`, puis fournir la sortie exacte de `lean --version`
 dans `GENOS_BENCHMARK_LEAN_VERSION`. Le
 vérificateur du benchmark relance Lean indépendamment de l'adaptateur.
+L'adaptateur et ce contrôle disposent chacun de 120 secondes pour absorber
+un démarrage à froid ; la durée mesurée inclut ce démarrage.
 
 Un adaptateur rival est un module CommonJS exportant
 `async runCase(testCase)`. Il retourne `{ status: 'executed', result, receipt }`,

@@ -105,7 +105,8 @@ async function verifiedFormalReceipt(testCase, execution) {
   const method = { ...testCase.methodContract, parameters: { ...testCase.methodContract.parameters,
     toolchainVersion: version } };
   try {
-    const checked = await require('../../backend/src/services/agents/deterministicWorkerFormal').runFormal(method);
+    const checked = await require('../../backend/src/services/agents/deterministicWorkerFormal')
+      .runFormal(method, { timeoutMs: 120000 });
     return checked.solverReceipt.id === execution.receipt.id
       && checked.solverReceipt.sourceDigest === execution.receipt.sourceDigest;
   } catch (_) { return false; }
