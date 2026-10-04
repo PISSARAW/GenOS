@@ -56,7 +56,9 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
             cell.role = "HOX-3_DATA_STORAGE".to_string();
         }
         cell.chromatin_state = Some("Differentiated".to_string());
-        // Keep cell's own genome_id from mitosis, don't overwrite with parent genome_id
+        if cell.genome_id.is_none() {
+            cell.genome_id = Some(genome.genome_id());
+        }
     }
 
     update_hox_genes(swarm, genome);

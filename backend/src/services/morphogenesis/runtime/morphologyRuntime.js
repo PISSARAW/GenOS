@@ -168,6 +168,7 @@ class MorphologyRuntime {
     const { checkBudgets } = require('../graph/morphologyBudgetChecker');
     const executor = new PatchExecutor({
       runtime: this,
+      adjudicator: execContext.adjudicator,
       verifier: { verify: verifyPatched }
     });
     return executor.execute(patch, graph, execContext);

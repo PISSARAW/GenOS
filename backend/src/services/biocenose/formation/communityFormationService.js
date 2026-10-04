@@ -56,9 +56,11 @@ function formCommunity(input) {
   const selectedIds = [];
   const members = [templates.community_facilitator];
   for (const role of Object.keys(requested)) {
-    members.push(...membersForRole({
+    const selected = membersForRole({
       template: templates[role], role, requested: requested[role], candidates, selectedIds
-    }));
+    });
+    members.push(...(input.variant === 'adversarial_assembly' && role === 'reviewer'
+      ? selected.map((member) => ({ ...member, role: 'adversarial_reviewer' })) : selected));
   }
   return {
     members,

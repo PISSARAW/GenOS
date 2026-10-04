@@ -10,7 +10,7 @@ function generateCandidates(seedExpression, morphogenContext, options = {}) {
   const candidates = [];
 
   for (let i = 0; i < count; i++) {
-    const mutations = sampleMutations(probs, maxDepth);
+    const mutations = sampleMutations(probs, maxDepth, { expression: seedExpression, random: options.random });
     const candidate = applyMutations(seedExpression, mutations);
     candidates.push({ expression: candidate, mutations, probability: mutationProbability(mutations, probs) });
   }

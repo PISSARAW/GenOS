@@ -28,7 +28,8 @@ pub struct SporeFromCell<'a> {
 }
 
 impl Spore {
-    pub fn new(spore_type: SporeType, genome: Genome, parent_cell_id: Uuid, bunker_armor: u32) -> Self {
+    pub fn new(spore_type: SporeType, genome: Genome, origin: (Uuid, u32)) -> Self {
+        let (parent_cell_id, bunker_armor) = origin;
         Self {
             spore_type,
             genome,
@@ -71,7 +72,13 @@ impl Spore {
         }
 
         let mut new_cell = AgentCell::default();
-        new_cell.cell_id = Uuid::new_v4();
+        new_cell.cell_id = if matches!(self.spore_type, SporeType::BacterialEndospore)
+            && self.parent_cell_id != Uuid::nil()
+        {
+            self.parent_cell_id
+        } else {
+            Uuid::new_v4()
+        };
         new_cell.role = match self.spore_type {
             SporeType::FungalReproductive => "Fungal Colony Cell".to_string(),
             SporeType::BacterialEndospore => "Bacterial Vegetative Cell".to_string(),
@@ -89,8 +96,7 @@ impl Spore {
             .map(|_| Self::new(
                 SporeType::FungalReproductive,
                 genome.derive_child(),
-                Uuid::nil(),
-                0
+                (Uuid::nil(), 0)
             ))
             .collect()
     }
@@ -99,8 +105,7 @@ impl Spore {
         Self::new(
             SporeType::BacterialEndospore,
             genome.derive_child(),
-            Uuid::nil(),
-            9999
+            (Uuid::nil(), 9999)
         )
     }
 }

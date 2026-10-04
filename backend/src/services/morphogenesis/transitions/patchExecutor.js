@@ -1,7 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('crypto');
-const { validateMorphologyPatch, hasStructuralOperation } = require('./morphologyPatch');
+const { validateMorphologyPatch } = require('./morphologyPatch');
 const { MorphologyRuntime } = require('../runtime/morphologyRuntime');
 const { applyOperation } = require('./patchOperations');
 
@@ -44,6 +44,8 @@ class PatchExecutor {
     const validation = validateMorphologyPatch(patch);
     if (!validation.valid) throw new Error(`Patch validation failed: ${validation.errors.join('; ')}`);
     if (patch.baseGraphVersion !== graph.version) throw new Error(`Patch baseGraphVersion ${patch.baseGraphVersion} != graph version ${graph.version}`);
+    if (typeof this.adjudicator?.adjudicate !== 'function') throw new Error('Patch adjudicator is required');
+    if (typeof this.verifier?.verify !== 'function') throw new Error('Patch verifier is required');
     if (this.typeChecker) { const tc = await this.typeChecker.check(patch, graph); if (!tc.valid) throw new Error(`Type check failed: ${tc.errors.join('; ')}`); }
     if (this.budgetValidator) { const bc = await this.budgetValidator.check(patch, graph, context); if (!bc.valid) throw new Error(`Budget validation failed: ${bc.errors.join('; ')}`); }
     if (this.authorityValidator) { const ac = await this.authorityValidator.check(patch, context); if (!ac.valid) throw new Error(`Authority validation failed: ${ac.errors.join('; ')}`); }
@@ -54,17 +56,15 @@ class PatchExecutor {
   async runCounterfactual(exec) {
     exec.phase = 'counterfactual';
     const { patch, graph } = exec;
-    exec.shadowGraph = hasStructuralOperation(patch.operations) ? this.applyPatch(patch, graph) : graph;
+    exec.shadowGraph = this.applyPatch(patch, graph);
     exec.counterfactualResult = await this.runtime.execute(exec.shadowGraph, exec.context.input);
     exec.status = 'counterfactual_complete';
   }
 
   async runAdjudication(exec) {
     exec.phase = 'adjudication';
-    if (this.adjudicator) {
-      exec.adjudication = await this.adjudicator.adjudicate({ patch: exec.patch, counterfactualResult: exec.counterfactualResult, expectedGain: exec.patch.expectedGain, expectedCost: exec.patch.expectedCost, context: exec.context });
-      if (!exec.adjudication.approved) throw new Error(`Adjudication rejected: ${exec.adjudication.reason}`);
-    } else { exec.adjudication = { approved: true, reason: 'auto-approved', score: 1.0 }; }
+    exec.adjudication = await this.adjudicator.adjudicate({ patch: exec.patch, counterfactualResult: exec.counterfactualResult, expectedGain: exec.patch.expectedGain, expectedCost: exec.patch.expectedCost, context: exec.context });
+    if (exec.adjudication?.approved !== true) throw new Error(`Adjudication rejected: ${exec.adjudication?.reason || 'approval missing'}`);
     exec.status = 'adjudicated';
   }
 
@@ -78,10 +78,8 @@ class PatchExecutor {
 
   async runVerification(exec) {
     exec.phase = 'verification';
-    if (this.verifier) {
-      exec.verification = await this.verifier.verify({ graph: exec.appliedGraph, patch: exec.patch, context: exec.context });
-      if (!exec.verification.valid) throw new Error(`Verification failed: ${exec.verification.errors.join('; ')}`);
-    } else { exec.verification = { valid: true, errors: [] }; }
+    exec.verification = await this.verifier.verify({ graph: exec.appliedGraph, patch: exec.patch, context: exec.context });
+    if (exec.verification?.valid !== true) throw new Error(`Verification failed: ${(exec.verification?.errors || ['valid receipt missing']).join('; ')}`);
     exec.status = 'verified';
   }
 

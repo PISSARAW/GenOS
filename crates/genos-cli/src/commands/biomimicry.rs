@@ -316,7 +316,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
         }
         BiomimicrySubcommands::Embryology { action: _, divisions, gradient } => {
             let zygote = AgentCell::new("Zygote_Origin", "Origine clonale", "Stem");
-            let mut swarm = cleave_zygote(zygote, divisions);
+            let mut swarm = cleave_zygote(zygote, divisions)?;
             let mut genome = seed_hox_genome("HOX_BLUEPRINT");
             differentiate_swarm(&mut swarm, gradient, &mut genome);
             sculpt_architecture_via_apoptosis(&mut swarm);
