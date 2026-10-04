@@ -16,6 +16,25 @@ paramètres appliqués avant persistance du run.
 | `adaptive` | Les phases explicites sont chacune converties en plan de variante ; le choix reste visible dans `execution.organizationPolicy.phases`. |
 | `multiteam` | Les définitions de sous-équipes et contrats sont validées et un graphe programme ainsi qu'un conseil sont produits dans la politique persistée. Sans sous-équipes explicites, le dispatch échoue. |
 
+
+## Évaluation optionnelle des variantes
+
+Le module `variants/variantExecutionRuntime.js` expose un runner appelé explicitement.
+Il évalue les préconditions et produit un état de décision, mais le dispatch générique
+ne l'appelle pas. Son statut `SUCCEEDED` signifie que cette évaluation s'est achevée ;
+il ne prouve ni l'exécution d'un sous-run ni l'autorisation de promotion.
+
+Dans ce runner, Matrix compare `decision.revision` à `currentRevision` fourni par
+l'autorité (0 par défaut). Tiger vérifie l'échéance absolue du mandat. Incident Command
+vérifie les rôles et le span configuré. Relay recalcule le digest du payload imbriqué et
+vérifie l'accusé avant acceptation ou rollback. Multiteam exige des objectifs système
+et au moins deux sous-équipes, puis prépare leurs contrats sans lancer les sous-runs.
+
+Pour `boundary_spanner`, une interface sans contrat préfourni devient
+`proposal_required`. Le résultat indique `promotionBlocked` tant qu'un contrat
+d'interface n'est pas validé ; ce drapeau ne constitue pas à lui seul une gate de
+promotion. Un contrat fourni mais invalide reste un rejet fermé.
+
 Le runner de programme `multiteam/programRuntimeService.js` persiste l'état des sous-équipes,
 les exécute par couches topologiques via un adaptateur `executeTeam`, et bloque un consumer
 tant que chaque contrat entrant bloquant n'est pas marqué vérifié avec une référence de

@@ -42,7 +42,7 @@ module.exports = {
     this.recordEvidence('sub_teams', { count: teamConfigs.length, teams: teamConfigs.map(t => t.teamId) });
 
     for (const team of teamConfigs) {
-      this.recordEvidence('sub_team_launched', { teamId: team.teamId, variant: team.variant, members: team.members.length });
+      this.recordEvidence('sub_team_planned', { teamId: team.teamId, variant: team.variant, members: team.members.length });
     }
 
     const contracts = multiPolicy.interTeamContracts;
@@ -55,7 +55,7 @@ module.exports = {
 
     const conflicts = this.mission.conflicts || [];
     for (const conflict of conflicts) {
-      this.recordDecision('conflict_resolution', { conflict, resolution: multiPolicy.systemicConflictDetection.resolution });
+      this.recordDecision('conflict_resolution_plan', { conflict, resolution: multiPolicy.systemicConflictDetection.resolution });
     }
 
     this.state.result = { teams: teamConfigs, contracts, council, budget: multiPolicy.budget };

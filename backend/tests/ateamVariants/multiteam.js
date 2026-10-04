@@ -29,7 +29,8 @@ async function run(members, boundaries) {
     const result = await runVariantTest('multiteam', mission, { members: allMembers, boundaries });
     assert.equal(result.status, 'SUCCEEDED');
     assert.equal(result.result.teams.length, 2);
-    console.log('✓ Multiteam: Launches sub-teams with contracts');
+    assert.equal(result.evidence.filter((item) => item.type === 'sub_team_planned').length, 2);
+    console.log('✓ Multiteam: Plans sub-teams with contracts');
     passed++;
   } catch (e) { console.log('✗ Multiteam: Valid sub-teams', e.message); failed++; }
 
@@ -45,7 +46,7 @@ async function run(members, boundaries) {
     passed++;
   }
 
-  // 35. Positive: Integration council resolves conflicts
+  // 35. Positive: Integration council records conflict-resolution plans
   try {
     const mission = {
       variant: 'multiteam',
@@ -61,8 +62,8 @@ async function run(members, boundaries) {
     const allMembers = createMockMembers([{ memberId: 'a1' }, { memberId: 'b1' }]);
     const result = await runVariantTest('multiteam', mission, { members: allMembers, boundaries });
     assert.equal(result.status, 'SUCCEEDED');
-    assert.ok(result.decisions.some(d => d.type === 'conflict_resolution'));
-    console.log('✓ Multiteam: Integration council resolves conflicts');
+    assert.ok(result.decisions.some(d => d.type === 'conflict_resolution_plan'));
+    console.log('✓ Multiteam: Integration council records conflict-resolution plans');
     passed++;
   } catch (e) { console.log('✗ Multiteam: Conflict resolution', e.message); failed++; }
 
