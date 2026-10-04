@@ -18,6 +18,7 @@ async function create(db, input = {}) {
 
 async function attachAgent(db, input = {}) {
   const { missionId, agentId, role = null } = input;
+  if (!missionId || !agentId) throw new Error('missionId and agentId are required.');
   await db.run(`INSERT OR IGNORE INTO mission_agents (mission_id, agent_id, role)
     VALUES (?, ?, ?)`, missionId, agentId, role);
   return db.get('SELECT mission_id AS missionId, agent_id AS agentId, role FROM mission_agents WHERE mission_id = ? AND agent_id = ?', missionId, agentId);
@@ -28,6 +29,9 @@ async function attachOrchestrator(db, input = {}) {
   return withTransaction(db, async () => {
     const current = await get(db, missionId);
     if (!current) throw new Error(`Mission '${missionId}' was not found.`);
+    if (!['active', 'dormant'].includes(current.status)) {
+      throw Object.assign(new Error('A terminal mission cannot acquire a new orchestrator.'), { code: 'MISSION_TERMINAL' });
+    }
     if (current.orchestratorAgentId && current.orchestratorAgentId !== agentId
       && current.orchestratorAgentId !== expectedOrchestratorId) {
       throw Object.assign(new Error('Mission succession requires the current orchestrator identity.'), { code: 'MISSION_SUCCESSION_CONFLICT' });
@@ -50,20 +54,23 @@ async function get(db, missionId) {
 }
 
 async function members(db, missionId) {
-  return db.all(`WITH RECURSIVE descendants(id, role) AS (
-    SELECT agent_id, role FROM mission_agents WHERE mission_id = ?
-    UNION
-    SELECT child.id, child.role FROM agents child
-    JOIN descendants parent ON child.parent_agent_id = parent.id
-  )
-  SELECT DISTINCT a.id, a.role, a.status, a.execution_mode
-  FROM descendants d JOIN agents a ON a.id = d.id`, missionId);
+  return db.all(`SELECT a.id, a.role, a.status, a.execution_mode
+    FROM mission_agents ma JOIN agents a ON a.id = ma.agent_id
+    WHERE ma.mission_id = ?`, missionId);
 }
 
 async function setStatus(db, missionId, status) {
   const allowed = new Set(['active', 'dormant', 'completed', 'failed', 'cancelled']);
   if (!allowed.has(status)) throw new Error(`Invalid mission status '${status}'.`);
-  await db.run('UPDATE missions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE mission_id = ?', status, missionId);
+  const transitions = { active: ['dormant', 'completed', 'failed', 'cancelled'], dormant: ['active', 'failed', 'cancelled'], completed: [], failed: [], cancelled: [] };
+  const current = await get(db, missionId);
+  if (!current) throw new Error(`Mission '${missionId}' was not found.`);
+  if (current.status === status) return current;
+  if (!transitions[current.status]?.includes(status)) {
+    throw Object.assign(new Error(`Invalid mission transition ${current.status} -> ${status}.`), { code: 'MISSION_INVALID_TRANSITION' });
+  }
+  const changed = await db.run('UPDATE missions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE mission_id = ? AND status = ?', status, missionId, current.status);
+  if (changed.changes !== 1) throw Object.assign(new Error('Mission status changed concurrently.'), { code: 'MISSION_STATUS_CONFLICT' });
   return get(db, missionId);
 }
 

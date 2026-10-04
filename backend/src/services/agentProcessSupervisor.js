@@ -206,7 +206,7 @@ function buildMissionEnvelope(ctx, identity, runtimeStrategyContract) {
     agentType: normalizedMission.agentType || '',
     strategyContractJson: JSON.stringify(runtimeStrategyContract),
     executionMode: dispatchedAgent.execution_mode,
-    orchestratorAgentId: normalizedMission.orchestratorAgentId || '',
+    orchestratorAgentId: normalizedMission.orchestratorAgentId || '', missionId: normalizedMission.missionId || '',
     autonomyPlanJson: JSON.stringify(autonomyPlan || {}),
     toolLeaseJson: JSON.stringify(normalizedMission.toolLease || []),
     genosCapsuleJson: JSON.stringify(genosCapsule),

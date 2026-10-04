@@ -4,13 +4,14 @@ const { collectMissionEvidence } = require('../src/services/missionEvidenceColle
 
 function makeHomeostasisContext(opts) {
   const { outcome, policyRequest = {}, request = {}, flags, evidence, profiles, dossierCount } = opts;
-  flags.missionOutcome = outcome.success === true;
+  const missionOutcome = outcome.success === true && opts.evidenceAvailable !== false;
+  flags.missionOutcome = missionOutcome;
   return {
     completionContract: policyRequest.completionContract || request.completionContract || null,
     invariants: policyRequest.invariants || request.invariants || null,
     safetyConstraints: policyRequest.safetyConstraints || request.safetyConstraints || null,
     context: {
-      missionOutcome: outcome.success === true,
+      missionOutcome,
       flags,
       evidence,
       functionalChecks: outcome.functionalChecks || {},
@@ -27,10 +28,11 @@ function makeFallbackContext(opts) {
     outcome,
     policyRequest: policyRequest || {},
     request: request || {},
-    flags: { missionOutcome: true },
-    evidence: outcome.success === true ? ['mission_outcome'] : [],
+    flags: { missionOutcome: false },
+    evidence: [],
     profiles: [],
     dossierCount: 0,
+    evidenceAvailable: false,
   });
 }
 
@@ -52,7 +54,7 @@ async function buildMissionContext(opts) {
     outcome,
     policyRequest,
     request,
-    flags: runtimeEvidence.flags || { missionOutcome: true },
+    flags: runtimeEvidence.flags || { missionOutcome: outcome.success === true },
     evidence: runtimeEvidence.evidence || [],
     profiles: runtimeEvidence.profiles || [],
     dossierCount: runtimeEvidence.dossiers?.length || 0,

@@ -6,7 +6,7 @@ async function resumeWithAuthority(db, input) {
   const runtime = input.runtime || require('./agentRuntimeAdapter');
   if (!mission.missionId) return runtime.startMission({ ...mission, agentId: successorId, workspaceId });
   const lease = await authority.reserve(db, { missionId: mission.missionId, agentId: successorId, expectedOrchestratorId });
-  if (lease.state === 'running') return { started: true, duplicate: true };
+  if (authority.isOwnerLive(lease)) return { started: true, duplicate: true };
   await authority.claimLaunch(db,lease);
   try {
     if (expectedOrchestratorId && expectedOrchestratorId !== successorId) await runtime.stopMission(expectedOrchestratorId);

@@ -115,11 +115,12 @@ test('buildMissionContext produces real evidence kinds when db available', async
   assert.ok(typeof result.context.flags === 'object', 'flags should be object');
 });
 
-test('buildMissionContext falls back to synthetic when no db', async () => {
+test('buildMissionContext fails closed when no db', async () => {
   const result = await buildMissionContext({ db: null, missionId: 'no_db', agents: [], outcome: { success: true }, policyRequest: {}, request: {} });
   assert.ok(result.context);
-  assert.strictEqual(result.context.missionOutcome, true);
+  assert.strictEqual(result.context.missionOutcome, false);
   assert.ok(Array.isArray(result.context.evidence));
+  assert.equal(result.context.evidence.length, 0);
 });
 
 test('evidence kinds include worker_evidence when dossiers have reports', () => {
@@ -130,10 +131,12 @@ test('evidence kinds include worker_evidence when dossiers have reports', () => 
   assert.ok(kinds.includes('worker_evidence'), 'should include worker_evidence when dossiers have reports');
 });
 
-test('evidence kinds include test_suite_passed when barrier satisfied', () => {
+test('barrier alone does not establish a passing test suite', () => {
   const telemetry = [{ event_type: 'WORKER_EVIDENCE_BARRIER_SATISFIED' }];
   const kinds = buildEvidenceKinds({ dossiers: [], runs: [], telemetry });
-  assert.ok(kinds.includes('test_suite_passed'), 'should include test_suite_passed when barrier satisfied');
+  assert.equal(kinds.includes('test_suite_passed'), false);
+  telemetry[0].payload_json = JSON.stringify({ suite: 'unit', exitCode: 0 });
+  assert.equal(buildEvidenceKinds({ dossiers: [], runs: [], telemetry }).includes('test_suite_passed'), true);
 });
 
 test('typed profiles created from dossiers and runs', () => {

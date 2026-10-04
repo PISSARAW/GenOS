@@ -40,7 +40,14 @@ async function main() {
     const result = await call(recovered,{ missionId:'mission',agentId:'replacement',expectedOrchestratorId:'replacement' });
     assert.equal(result.result.started,true,'reservation survives distinct process restart');
     assert.equal((await db.get('SELECT state FROM mission_execution_authority')).state,'running');
-    console.log('Two SQLite-backed processes: single executable successor, stale authority blocked, reserved crash recovered: PASS');
+    const claimed = await call(b,{ action:'claim',missionId:'mission',agentId:'after_claim',expectedOrchestratorId:'replacement' });
+    assert.equal(claimed.claimed,true);
+    b.kill(); await once(b,'exit');
+    const afterCrash = await child(file); children.push(afterCrash);
+    const resumed = await call(afterCrash,{ missionId:'mission',agentId:'after_claim',expectedOrchestratorId:'after_claim' });
+    assert.equal(resumed.result.started,true,'launching lease survives an owner process crash');
+    assert.equal((await db.get('SELECT state FROM mission_execution_authority')).state,'running');
+    console.log('Two SQLite-backed processes: single successor, stale authority blocked, reserved and launching crashes recovered: PASS');
   } finally {
     await Promise.all(children.filter(process => process.exitCode === null && !process.killed).map(async process => { process.kill(); await once(process,'exit'); }));
     await db.close(); await fs.rm(dir,{ recursive:true,force:true });
