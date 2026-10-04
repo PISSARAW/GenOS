@@ -13,7 +13,7 @@ const VARIANT_IDS = ['epistemic_jury', 'delphi_community', 'adversarial_assembly
   'argumentation_community', 'polycentric_council', 'byzantine_resilient_community', 'minority_preserving_jury',
   'representative_community', 'persistent_community', 'human_ai_deliberation', 'hybrid_oracle_community'];
 
-const PARTIAL_VARIANTS = new Set(['representative_community', 'persistent_community']);
+const PARTIAL_VARIANTS = new Set(['persistent_community']);
 
 function testVariantSurface() {
   assert.deepEqual(Object.keys(router.POLICIES).sort(), [...VARIANT_IDS].sort());
@@ -233,6 +233,19 @@ function testRepresentativeSampling() {
   const ess = sampling.effectiveSampleSize({ weights: reweighted.weights });
   assert.ok(ess.effectiveSampleSize > 0);
   assert.ok(ess.efficiency <= 1);
+  const biasedPopulation = Array.from({ length: 8 }, (_, index) => ({ memberId: `common-${index}`,
+    expertise: 'common', provider: 'common-provider', lineage: 'common-lineage' }))
+    .concat(Array.from({ length: 2 }, (_, index) => ({ memberId: `rare-${index}`,
+      expertise: 'rare', provider: 'rare-provider', lineage: 'rare-lineage' })));
+  const representative = sampling.quotaSample({ population: biasedPopulation, totalQuota: 5, seed: 'fixed-mission' });
+  const repeated = sampling.quotaSample({ population: biasedPopulation, totalQuota: 5, seed: 'fixed-mission' });
+  assert.deepEqual(representative.sample, repeated.sample, 'same mission seed reproduces the sample');
+  const representativeWeights = sampling.reweight({ population: biasedPopulation, sample: representative.sample });
+  const comparison = sampling.comparePanels({ population: biasedPopulation, sample: representative.sample,
+    weights: representativeWeights.weights });
+  assert.equal(comparison.totalVariation.representativeWeighted, 0);
+  assert.ok(comparison.totalVariation.naive > comparison.totalVariation.representativeWeighted,
+    'weighted representative panel reduces the naive first-N panel bias');
   assert.throws(() => sampling.stratify({ population: [] }), (error) => error.code === 'BIOCENOSE_SAMPLING_EMPTY');
 }
 

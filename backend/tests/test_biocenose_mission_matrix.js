@@ -122,6 +122,8 @@ function assertMissionOutcome(variant, fixture) {
     assert.ok(community.formation.representative.sampleSize > 0);
     assert.ok(Object.values(community.formation.representative.weights).every((weight) => weight > 0));
     assert.ok(community.formation.representative.effectiveSampleSize > 0);
+    assert.ok(community.formation.representative.biasComparison.totalVariation.naive >= 0);
+    assert.ok(community.formation.representative.biasComparison.totalVariation.representativeWeighted >= 0);
   }
   if (variant === 'delphi_community') assert.ok(aggregation.delphi?.relativeSpread >= 0);
   if (variant === 'forecasting_crowd') assert.ok(aggregation.forecastCalibration);

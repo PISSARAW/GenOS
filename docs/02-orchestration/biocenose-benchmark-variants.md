@@ -23,7 +23,7 @@ Ce contrat rend les 48 missions comparables et reproductibles. Un PASS signifie 
 | Polycentric Council | roster de conseils, résultats locaux et fédération | dissent local conservé; seuls les conflits requis sont escaladés |
 | Byzantine-Resilient Community | domaines de fautes, décisions d'admission, quorum actif | le quorum est recalculé après quarantaine; corrélations ne comptent pas comme indépendance |
 | Minority-Preserving Jury | registre complet des dissents et reçus | tout dissent valide est conservé; seuls les contre-exemples confirmés bloquent la promotion |
-| Representative Community | population, strates, tirage, poids et ESS | le panel et ses poids proviennent de la population fournie; le biais du panel naïf est comparé |
+| Representative Community | population, strates, tirage reproductible, poids, ESS et comparaison de biais | le panel et ses poids proviennent de la population fournie; l'écart de représentation pondéré est comparé au panel naïf premier-N |
 | Persistent Community | historique par domaine, réputation, décision d'adhésion | decay, effectif d'échantillon et rotation sont persistés et influencent le roster suivant |
 | Human–AI Deliberation | perspectives, dissent et dossier humain | pas de verdict moral automatique; état humain obligatoire |
 | Hybrid Oracle Community | classification par claim, vérificateur et reçu | claim factuel jamais `VERIFIED` sans reçu fiable, y compris en MIXED |
