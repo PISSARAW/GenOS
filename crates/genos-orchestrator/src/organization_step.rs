@@ -16,6 +16,12 @@ const TABLE: &[(&str, &[&str], &str, &str)] = &[
     ("strategy_arena", &["competitor", "champion"], "competitor", "observer"),
     ("competitive_arena", &["competitor", "champion"], "competitor", "observer"),
     ("memory_compilation", &["librarian", "compiler"], "compiler", "member"),
+    ("flocking_boids", &["boid"], "flocker", "member"),
+    ("fish_school_search", &["school"], "schooler", "member"),
+    ("slime_mould_network", &["hypha", "front"], "front", "member"),
+    ("energy_huddle", &["huddler"], "huddler", "member"),
+    ("network_silence", &["silent"], "listener", "member"),
+    ("isolated_recovery", &["healer"], "healer", "member"),
 ];
 
 fn contains_any(haystack: &str, keys: &[&str]) -> bool {
