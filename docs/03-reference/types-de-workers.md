@@ -1404,3 +1404,13 @@ horodatées, signale les valeurs strictement supérieures au seuil et
 conserve les références des échantillons dans le dossier. Elle ne
 maintient pas un abonnement permanent au territoire. Voir
 [ADR 0305](../adr/0305-fenetre-observation-resident-daemon.md).
+
+## 56. Reconstruction des causes déclarées du forensic worker (2026-10-04)
+
+La méthode `trace_declared_causes` accepte une suite bornée d'événements
+horodatés et référencés. Chaque lien doit être déclaré par l'événement
+conséquent avec une référence de reçu distincte ; l'antécédent doit déjà
+figurer dans la suite et ne peut être postérieur. Le `causal_dossier` reproduit
+ces liens avec leurs trois références, et distingue les événements non liés.
+Il ne prouve ni l'authenticité des reçus ni la causalité réelle. Voir
+[ADR 0306](../adr/0306-reconstruction-causes-declarees-forensic-worker.md).

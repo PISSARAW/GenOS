@@ -49,7 +49,8 @@ const METHOD_CAPABILITIES = Object.freeze({
   clinical_review: ['clinical_context'],
   experimental_design: ['experiment'], controlled_experiment: ['experiment'],
   adversarial_review: ['adversarial_review'], threat_modeling: ['adversarial_review'],
-  causal_analysis: ['causal_analysis'], recovery: ['recover'], recolonization: ['recover'],
+  causal_analysis: ['causal_analysis'], trace_declared_causes: ['causal_analysis'],
+  recovery: ['recover'], recolonization: ['recover'],
   synthesis: ['synthesize'], creative_writing: ['create_candidate']
 });
 

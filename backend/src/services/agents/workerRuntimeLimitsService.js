@@ -4,14 +4,15 @@ const NEEDS_DETERMINISTIC_RUNNER = new Set(['procedural_executor', 'formal_worke
 const SPECIALIZED_METHODS = Object.freeze({
   verifier_worker: 'verify_procedure', red_worker: 'falsify_procedure',
   experimental_worker: 'measure_lpt', synthesis_worker: 'synthesize_claims',
-  resident_daemon: 'monitor_samples'
+  resident_daemon: 'monitor_samples', forensic_worker: 'trace_declared_causes'
 });
 const SPECIALIZED_RUNNERS = Object.freeze({
   verifier_worker: (method) => require('./deterministicWorkerVerifier').assertVerificationInput(method),
   red_worker: (method) => require('./deterministicWorkerRed').assertRedInput(method),
   experimental_worker: (method) => require('./deterministicWorkerExperiment').assertExperimentInput(method),
   synthesis_worker: (method) => require('./deterministicWorkerSynthesis').assertSynthesisInput(method),
-  resident_daemon: (method) => require('./deterministicWorkerMonitor').assertMonitorInput(method)
+  resident_daemon: (method) => require('./deterministicWorkerMonitor').assertMonitorInput(method),
+  forensic_worker: (method) => require('./deterministicWorkerForensic').assertForensicInput(method)
 });
 
 function isDeterministicWorkerMission(mission) {

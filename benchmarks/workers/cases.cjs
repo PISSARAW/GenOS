@@ -49,7 +49,12 @@ const CASES = Object.freeze([
   { id: 'creative-candidate', workerKind: 'creative_worker', task: 'Produire un candidat original et un test de falsification.' },
   { id: 'medical-education', workerKind: 'medical_worker', task: 'Analyser un cas synthétique à visée éducative sans conseil médical individuel.' },
   { id: 'recovery-state', workerKind: 'recovery_worker', task: 'Restaurer un état de test et prouver le résultat.' },
-  { id: 'forensic-chain', workerKind: 'forensic_worker', task: 'Relier des événements à des observations sans causalité inventée.' },
+  { id: 'forensic-chain', workerKind: 'forensic_worker', task: 'Reconstituer les liens explicitement attestés entre événements.',
+    methodContract: { version: 1, methodId: 'trace_declared_causes', parameters: { events: [
+      { id: 'deploy', occurredAt: '2026-10-04T10:00:00Z', sourceRef: 'incident://benchmark/deploy' },
+      { id: 'alert', occurredAt: '2026-10-04T10:01:00Z', sourceRef: 'incident://benchmark/alert',
+        causedBy: { eventId: 'deploy', receiptRef: 'incident://benchmark/causation' } }
+    ] } }, oracle: { path: 'causalChain.0.from', equals: 'deploy' } },
   { id: 'liaison-delivery', workerKind: 'liaison_worker', task: 'Transmettre des références à un groupe destinataire avec reçu.' },
   { id: 'teaching-transfer', workerKind: 'teaching_worker', task: 'Enseigner une procédure validée et contrôler son transfert.' },
   { id: 'subgraph-delegation', workerKind: 'sub_orchestrator', task: 'Coordonner deux enfants dans un sous-graphe borné.' }

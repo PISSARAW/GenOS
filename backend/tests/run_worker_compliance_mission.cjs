@@ -69,7 +69,18 @@ function complianceMethod(kind) {
     const candidateReceipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
     return { version: 1, methodId: 'verify_procedure', parameters: { procedure, candidateReceipt } };
   }
+  if (kind === 'forensic_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_FORENSIC === '1') {
+    return forensicComplianceMethod();
+  }
   return additionalComplianceMethod(kind);
+}
+
+function forensicComplianceMethod() {
+  return { version: 1, methodId: 'trace_declared_causes', parameters: { events: [
+    { id: 'deploy', occurredAt: '2026-10-04T10:00:00Z', sourceRef: 'incident://compliance/deploy' },
+    { id: 'alert', occurredAt: '2026-10-04T10:01:00Z', sourceRef: 'incident://compliance/alert',
+      causedBy: { eventId: 'deploy', receiptRef: 'incident://compliance/causation' } }
+  ] } };
 }
 
 function additionalComplianceMethod(kind) {
@@ -118,6 +129,9 @@ async function validateMission(context) {
 }
 
 function correctMissionReference(kind, report, scenario) {
+  if (kind === 'forensic_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_FORENSIC === '1') {
+    return forensicMissionReference(report?.workerArtifact?.content);
+  }
   const specialized = specializedMissionReference(kind, report);
   if (specialized !== null) return specialized;
   if (kind === 'procedural_executor') return solverReference(report?.workerArtifact?.content?.procedureReceipt?.id);
@@ -143,6 +157,12 @@ function specializedMissionReference(kind, report) {
     return monitorMissionReference(content);
   }
   return null;
+}
+
+function forensicMissionReference(content) {
+  return content?.causalChain?.[0]?.from === 'deploy'
+    && content?.causalChain?.[0]?.to === 'alert'
+    && solverReference(content?.forensicReceipt?.id);
 }
 
 function redMissionReference(content) {

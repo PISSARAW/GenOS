@@ -29,7 +29,8 @@ async function verifyExecution(testCase, execution) {
 }
 
 async function verifyNativeExecution(testCase, execution) {
-  if (['red_worker', 'experimental_worker', 'synthesis_worker', 'resident_daemon'].includes(testCase.workerKind)) {
+  if (['red_worker', 'experimental_worker', 'synthesis_worker', 'resident_daemon',
+    'forensic_worker'].includes(testCase.workerKind)) {
     return verifiedSpecialized(testCase, execution) ? null : 'failed';
   }
   if (testCase.workerKind === 'procedural_executor' && !verifiedProcedure(testCase, execution)) return 'failed';
@@ -42,7 +43,15 @@ function verifiedSpecialized(testCase, execution) {
   if (testCase.workerKind === 'red_worker') return verifiedRed(testCase, execution);
   if (testCase.workerKind === 'experimental_worker') return verifiedExperiment(testCase, execution);
   if (testCase.workerKind === 'synthesis_worker') return verifiedSynthesis(testCase, execution);
+  if (testCase.workerKind === 'forensic_worker') return verifiedForensic(testCase, execution);
   return verifiedMonitor(testCase, execution);
+}
+
+function verifiedForensic(testCase, execution) {
+  const expected = require('../../backend/src/services/agents/deterministicWorkerForensic')
+    .runForensic(testCase.methodContract);
+  return JSON.stringify(execution.result) === JSON.stringify(expected)
+    && execution.receipt?.id === expected.forensicReceipt.id;
 }
 
 function verifiedVerification(testCase, execution) {

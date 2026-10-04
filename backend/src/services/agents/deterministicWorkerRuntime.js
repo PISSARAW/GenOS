@@ -11,6 +11,7 @@ const { runRed } = require('./deterministicWorkerRed');
 const { runExperiment } = require('./deterministicWorkerExperiment');
 const { runSynthesis } = require('./deterministicWorkerSynthesis');
 const { runMonitor } = require('./deterministicWorkerMonitor');
+const { runForensic } = require('./deterministicWorkerForensic');
 
 const EXECUTORS = Object.freeze({
   formal_worker: (method, mission) => runFormal(method, { timeoutMs: mission.timeoutMs || 30000 }),
@@ -18,10 +19,17 @@ const EXECUTORS = Object.freeze({
   red_worker: (method) => runRed(method),
   experimental_worker: (method) => runExperiment(method),
   synthesis_worker: (method) => runSynthesis(method),
-  resident_daemon: (method) => runMonitor(method)
+  resident_daemon: (method) => runMonitor(method),
+  forensic_worker: (method) => runForensic(method)
 });
 
 function reportFor(kind, result) {
+  if (kind === 'forensic_worker') {
+    const refs = result.evidence;
+    const statement = `${result.causalChain.length} declared causal links reconstructed; causal truth unverified.`;
+    return { outcome: 'success', claims: [{ statement, evidence: refs }],
+      workerArtifact: { type: 'causal_dossier', content: result, provenance: { sourceRefs: refs } } };
+  }
   if (kind === 'resident_daemon') {
     const refs = result.territoryReport.sourceRefs;
     const claim = `${result.anomalies.length} of ${result.sampleCount} samples exceeded ${result.threshold}.`;
