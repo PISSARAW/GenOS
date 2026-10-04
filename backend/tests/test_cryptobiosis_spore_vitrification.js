@@ -47,5 +47,6 @@ const revived = germinateSpore(spore, { warmAndWet: true, nutrients: true });
 assert.strictEqual(revived.status, 'thawed');
 assert.strictEqual(revived.hydrationLevel, 1.0);
 assert.deepStrictEqual(revived.state, livingCellState, 'L’état ressuscité doit être 100% identique à l’état vivant d’origine');
+assert.throws(() => germinateSpore({ ...spore, rawBlob: Buffer.from('tampered') }), /INVALID_SPORE/);
 
 console.log('[Test] test_cryptobiosis_spore_vitrification PASSED successfully.');

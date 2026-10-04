@@ -111,14 +111,7 @@ mod tests {
             nutrients: true,
         });
         assert!(failed_thaw.is_err());
-
-        // Re-freeze with valid conditions
-        vault.freeze_vitrified(cryptobiosis::VitrifiedFreeze {
-            agent_id: "agent_tardigrade",
-            data: payload,
-            trehalose: 0.85,
-            armor: 500,
-        });
+        assert!(vault.is_dormant("agent_tardigrade"));
         let thawed_bytes = vault
             .thaw_vitrified(cryptobiosis::VitrifiedThaw {
                 agent_id: "agent_tardigrade",
@@ -127,6 +120,14 @@ mod tests {
             })
             .expect("Vitrified spore must germinate");
         assert_eq!(thawed_bytes, payload);
+        assert!(!vault.is_dormant("agent_tardigrade"));
+    }
+
+    #[test]
+    fn test_cryptobiosis_rejects_tampering() {
+        let mut spore = cryptobiosis::SporeVitrifiedPayload::new(b"state", 0.85, 500);
+        spore.raw_blob[0] ^= 1;
+        assert!(spore.germinate(true, true).is_err());
     }
 
     #[test]

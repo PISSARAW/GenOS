@@ -2,7 +2,7 @@
 
 const agentEvolution = require('../../agentEvolutionService');
 const { composePortfolio } = require('../../../cognition/cognitivePortfolio');
-const cryptobiosis = require('../../cryptobiosisSporeService');
+const sealedSpores = require('../../sealedSporeService');
 const { createIndividual } = require('../contracts/individual');
 const populations = require('./populationService');
 
@@ -57,10 +57,12 @@ function parentInput(parent) {
 function freezeIndividual(population, individualId, options = {}) {
   const individual = population.individuals.find((item) => item.individualId === individualId);
   if (!individual) throw Object.assign(new Error(`Unknown individual '${individualId}'.`), { code: 'BIOME_INDIVIDUAL_UNKNOWN' });
-  const spore = cryptobiosis.vitrifyState(individual, options);
-  const frozenSpore = { individualId, payloadHash: spore.payloadHash, rawBlob: spore.rawBlob.toString('base64'),
-    trehaloseConcentration: spore.trehaloseConcentration, bunkerArmor: spore.bunkerArmor,
-    vitrifiedAt: spore.vitrifiedAt, hydrationLevel: spore.hydrationLevel, isVitrified: spore.isVitrified };
+  const context = sporeContext(population, individualId);
+  const payload = { individual,
+    trehalose: Number.isFinite(options.trehalose) ? Math.max(0, Math.min(1, options.trehalose)) : 0.85,
+    armor: Number.isInteger(options.armor) ? options.armor : 500 };
+  const frozenSpore = { individualId, ...sealedSpores.sealState(payload, context),
+    vitrifiedAt: new Date().toISOString(), hydrationLevel: 0, isVitrified: true };
   return {
     population: populations.normalizePopulation({ ...population,
       individuals: population.individuals.filter((item) => item.individualId !== individualId),
@@ -71,14 +73,28 @@ function freezeIndividual(population, individualId, options = {}) {
   };
 }
 
-function thawIndividual(population, individualId, environment = {}) {
+function thawIndividual(population, individualId, controls = {}) {
   const spore = (population.spores || []).find((item) => item.individualId === individualId);
   if (!spore) throw Object.assign(new Error(`No frozen individual '${individualId}'.`), { code: 'BIOME_SPORE_UNKNOWN' });
-  const restored = cryptobiosis.germinateSpore({ ...spore, rawBlob: Buffer.from(spore.rawBlob, 'base64') }, environment);
+  const environment = controls.environment || {};
+  if (environment.warmAndWet === false || environment.nutrients === false) {
+    throw new Error('DORMANT: Environmental conditions not satisfied for germination');
+  }
+  const payload = sealedSpores.openState(spore, sporeContext(population, individualId), controls.authorizeSporeRead);
+  if (!Number.isFinite(payload?.trehalose) || payload.trehalose < 0.2) {
+    throw new Error('OSMOTIC_COLLAPSE: Insufficient trehalose cryoprotection');
+  }
+  const restored = payload?.individual;
+  if (restored?.individualId !== individualId) throw new Error('INVALID_SPORE: Restored individual identity mismatch');
   const result = populations.spawn(populations.normalizePopulation({ ...population,
     spores: population.spores.filter((item) => item.individualId !== individualId)
-  }), [restored.state]);
-  return { population: populations.advance(result.population, { productivity: population.productivity }), individual: restored.state };
+  }), [restored]);
+  return { population: populations.advance(result.population, { productivity: population.productivity }), individual: restored };
+}
+
+function sporeContext(population, individualId) {
+  return { domainId: 'biome', vaultId: population.populationId, artifactId: individualId,
+    artifactVersion: 1, schemaVersion: 1 };
 }
 
 module.exports = { mutatePopulation, freezeIndividual, thawIndividual };

@@ -328,7 +328,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
 | [0299a](0299-admission-relationnelle-transactionnelle.md) | Admission transactionnelle des signaux relationnels | Proposé, implémentation ciblée | 2026-10-04 | Communication inter-agents, autorité, persistance |
 | [0299b](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
-| [0300](0300-affectation-niches-et-contrats-hotes.md) | Niche du spécialiste et contrat du symbiote en topologie | Accepté | 2026-10-04 | Topologies, workers spécialistes, Holobionte |
+| [0300a](0300-affectation-niches-et-contrats-hotes.md) | Niche du spécialiste et contrat du symbiote en topologie | Accepté | 2026-10-04 | Topologies, workers spécialistes, Holobionte |
+| [0300b](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
 | [0301](0301-falsification-deterministe-red-worker.md) | Falsification déterministe du red worker | Accepté | 2026-10-04 | Workers, revue adversariale, preuve |
 | [0302](0302-benchmark-rival-autogen-local.md) | Première mesure rivale locale avec AutoGen | Accepté | 2026-10-04 | Workers, benchmarks comparatifs, provenance |
 | [0303](0303-mesure-bornee-experimental-worker.md) | Mesure bornée du worker expérimental | Accepté | 2026-10-04 | Workers, expérimentation, preuve |
@@ -338,10 +339,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0307](0307-observation-litterale-scout-cell.md) | Observation littérale du scout cell | Accepté | 2026-10-04 | Workers, observation, provenance |
 | [0308](0308-transfert-subset-sum-teaching-worker.md) | Transfert contrôlé de subset_sum par le teaching worker | Accepté | 2026-10-04 | Workers, transmission, vérification |
 
-> **Identifiants numériques partagés** : 26 numéros sont portés par deux
-> fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
-> 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,
-> 0108, 0122, 0126, 0154), plus `003x` (format historique gelé). Les
+> **Identifiants numériques partagés** : certains numéros sont portés par
+> plusieurs fichiers, en plus de `003x` (format historique gelé). Les
 > fichiers sont conservés tels quels (renommage interdit sans migration
 > de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,
 > `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.

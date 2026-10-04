@@ -15,6 +15,7 @@
     "test:biological-bridge": "node tests/test_biological_receipt_bridge.js && node tests/test_survival_dormancy.js && node tests/test_mission_continuity.js",
     "test:signal-plane": "node tests/run_validation_suite.js signalPlane",
     "test:validation": "node tests/run_validation_suite.js all",
+    "test:properties": "node tests/test_property_invariants.js",
     "test:security": "node tests/run_validation_suite.js security",
     "test:mcp": "node tests/run_validation_suite.js mcp",
     "test:tenancy": "node tests/run_validation_suite.js tenancy",
@@ -87,6 +88,7 @@
     }
   },
   "devDependencies": {
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "fast-check": "^4.10.2"
   }
 }
