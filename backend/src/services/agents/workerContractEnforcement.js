@@ -181,7 +181,7 @@ function invalidContract() {
 function assertAssignmentMatches(contract, request) {
   const kind = contract?.identity?.workerKind;
   if (kind === 'procedural_executor' || kind === 'formal_worker') {
-    if (!isDeepStrictEqual(contract.mission?.methodContract, request?.methodContract)) {
+    if (!isDeepStrictEqual(contract.mission?.methodContract || null, request?.methodContract || null)) {
       throw Object.assign(new Error('Deterministic worker input differs from its persisted method contract.'), {
         code: 'WORKER_METHOD_MISMATCH'
       });

@@ -1333,6 +1333,7 @@ puis lance Lean. Il échoue si Lean manque ou rejette le théorème. Les reçus
 une parité avec un produit concurrent. Voir [ADR 0294](../adr/0294-executeurs-deterministes-workers.md).
 
 La [campagne comparative](../../benchmarks/workers/README.md) contient 20 cas
-pour les 19 types, mais seuls deux cas procéduraux ont actuellement été
-mesurés localement. Les tâches sans oracle indépendant restent `unmeasured` ;
+pour les 19 types. Deux cas procéduraux sont mesurables sans dépendance ;
+un troisième cas formel a été mesuré localement avec Lean 4.34.0. Les tâches
+sans oracle indépendant restent `unmeasured` ;
 un rapport rival n'est comparable que sur un même cas effectivement mesuré.

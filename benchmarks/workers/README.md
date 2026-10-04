@@ -13,8 +13,9 @@ Exécution locale actuelle :
 node benchmarks/workers/campaign.cjs benchmarks/workers/genos-adapter.cjs genos "$env:TEMP/genos-workers.json"
 ```
 
-Pour inclure Lean, installer l'exécutable `lean` dans le `PATH` et fournir la
-sortie exacte de `lean --version` dans `GENOS_BENCHMARK_LEAN_VERSION`. Le
+Pour inclure Lean, placer l'exécutable `lean` dans le `PATH` ou définir
+`GENOS_LEAN_EXECUTABLE`, puis fournir la sortie exacte de `lean --version`
+dans `GENOS_BENCHMARK_LEAN_VERSION`. Le
 vérificateur du benchmark relance Lean indépendamment de l'adaptateur.
 
 Un adaptateur rival est un module CommonJS exportant
@@ -31,6 +32,7 @@ La comparaison refuse deux rapports du même système, des versions de jeu
 différentes et les cas manquants ou dupliqués. Elle ne compare que les cas
 munis d'un oracle et mesurés des deux côtés. Le temps mesuré comprend
 l'exécution de l'adaptateur, pas la validation de l'oracle. La campagne
-locale actuelle mesure deux cas procéduraux ; elle ne démontre aucune parité
+locale mesure deux cas procéduraux sans Lean et un troisième cas formel
+quand Lean est configuré ; elle ne démontre aucune parité
 avec un rival. Les sorties JSON sont des artefacts temporaires à conserver
 hors du dépôt.

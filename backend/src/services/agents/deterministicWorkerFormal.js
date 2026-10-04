@@ -25,7 +25,8 @@ async function runFormal(methodContract, options = {}) {
   const execute = options.executor || executeLeanCheck;
   const execution = await execute({
     source, toolchainVersion: parameters.toolchainVersion, strictToolchainVersion: true,
-    leanExecutable: options.leanExecutable || 'lean', timeoutMs: options.timeoutMs || 30000
+    leanExecutable: options.leanExecutable || process.env.GENOS_LEAN_EXECUTABLE || 'lean',
+    timeoutMs: options.timeoutMs || 30000
   });
   if (execution.exitCode !== 0 || execution.axioms.length
     || execution.toolchainVersion !== parameters.toolchainVersion) {

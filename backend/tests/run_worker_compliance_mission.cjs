@@ -47,14 +47,24 @@ async function missionFor(context) {
   const strategy = await contracts.getLatestContract(db, parentId, workspaceId);
   const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`,
     hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local',
-    methodContract: kind === 'procedural_executor' ? { version: 1, methodId: 'lpt', parameters: {
-      jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2
-    } } : undefined };
+    methodContract: complianceMethod(kind) };
   const created = await fleet.createAutonomousWorkers(db, { id: parentId, agent_type: 'GenOS' }, {
     plan: { strategyContract: { primary: strategy.contract.selected_strategy.primary }, tokenPolicy: { total: 5000, workerShare: 0.6, orchestratorReserve: 0.4, allocation: 'fixed' }, dispatchWorkers: [assignment] },
-    mission: { prompt: `${scenario.prompt} Verified fixture receipt: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
+    mission: { prompt: `${scenario.prompt} Fixture data: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
   });
   return created[0];
+}
+
+function complianceMethod(kind) {
+  if (kind === 'procedural_executor') return { version: 1, methodId: 'lpt', parameters: {
+    jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2
+  } };
+  if (kind === 'formal_worker' && process.env.GENOS_COMPLIANCE_LEAN_VERSION) {
+    return { version: 1, methodId: 'formal_proof', parameters: {
+      claim: '2 + 2 = 4', toolchainVersion: process.env.GENOS_COMPLIANCE_LEAN_VERSION
+    } };
+  }
+  return undefined;
 }
 
 async function validateMission(context) {
@@ -74,10 +84,13 @@ async function validateMission(context) {
 }
 
 function correctMissionReference(kind, report, scenario) {
-  if (kind === 'procedural_executor') {
-    return /^solver:\/\/sha256:[a-f0-9]{64}$/.test(report?.workerArtifact?.content?.procedureReceipt?.id || '');
-  }
+  if (kind === 'procedural_executor') return solverReference(report?.workerArtifact?.content?.procedureReceipt?.id);
+  if (kind === 'formal_worker') return solverReference(report?.workerArtifact?.content?.solverReceipt?.id);
   return hasFixtureReference(report, scenario.sourceRef);
+}
+
+function solverReference(id) {
+  return /^solver:\/\/sha256:[a-f0-9]{64}$/.test(id || '');
 }
 
 function validateArtifactForMission(report, workerId, workerContract) {
