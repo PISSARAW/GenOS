@@ -203,6 +203,9 @@ function buildMemberInvoker(timeoutMs = 90000) {
       if (!cleaned) throw new Error('Ollama returned an empty JSON object');
       const parsed = JSON.parse(cleaned);
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Ollama response is not a JSON object');
+      if (phase === 'REVISION' && !Array.isArray(parsed.changedClaims)) {
+        console.error(`[Biocenose] REVISION JSON keys: ${Object.keys(parsed).join(', ')}`);
+      }
       return parsed;
     } catch (err) {
       throw new Error(`Ollama invocation failed: ${err.message}`);
