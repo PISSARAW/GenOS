@@ -52,15 +52,33 @@ function replacementGate(input, core) {
   return restored && rollback && approved;
 }
 
+function coreDependencyClosure(nodes, edges, core) {
+  const closure = new Set(core);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const edge of edges) {
+      if (closure.has(edge.target) && !closure.has(edge.source)) {
+        closure.add(text(edge.source, 'dependent id'));
+        changed = true;
+      }
+    }
+  }
+  const known = new Set(nodes.map((node) => node.id));
+  if ([...closure].some((id) => !known.has(id))) throw invalid('Dependency graph references an unknown core symbiont.');
+  return closure;
+}
+
 function assessOrganelle(input = {}) {
   const graph = record(input.dependencyGraph, 'dependencyGraph');
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph.edges) ? graph.edges : [];
   const core = new Set(nodes.filter((node) => node.core === true).map((node) => text(node.id, 'core id')));
-  const dependents = [...new Set(edges.filter((edge) => core.has(edge.target)).map((edge) => text(edge.source, 'dependent id')))];
+  const closure = coreDependencyClosure(nodes, edges, core);
+  const dependents = [...closure].filter((id) => !core.has(id));
   const replacementRequested = input.replacementRequested === true;
-  const replacementAllowed = replacementGate(input, core);
-  return { coreSymbiontIds: [...core], dependentSymbiontIds: dependents,
+  const replacementAllowed = replacementGate(input, closure);
+  return { coreSymbiontIds: [...core], coreDependencyClosureIds: [...closure], dependentSymbiontIds: dependents,
     replacementAllowed, blockedReasons: !replacementRequested || replacementAllowed ? [] : ['approval_snapshot_and_restoration_proof_required'],
     inheritance: { preserveCoreIdentity: true, evidenceRefs: evidence(input.evidenceRefs) } };
 }
