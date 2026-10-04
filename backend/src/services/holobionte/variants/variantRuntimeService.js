@@ -313,12 +313,13 @@ function verifiedTrials(input, candidates, budget) {
 }
 
 function championFor(trials, input) {
-  const winner = trials[0] || null;
-  const runnerUp = trials[1] || null;
+  const eligible = input.allowGroupChangeVerified === true ? trials
+    : trials.filter((item) => input.protectedGroups?.includes(item.diversityGroup));
+  const winner = eligible[0] || null;
+  const runnerUp = eligible[1] || null;
   const margin = score(input.superiorityMargin ?? 0.05, 'superiorityMargin');
-  const diverse = winner && input.protectedGroups?.includes(winner.diversityGroup);
   if (!winner || (runnerUp && winner.score - runnerUp.score < margin)) return null;
-  return diverse || input.allowGroupChangeVerified === true ? winner : null;
+  return winner;
 }
 
 function selectCompetitivePartner(input = {}) {
