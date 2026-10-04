@@ -16,7 +16,7 @@ assert.equal(biocenose.selectBiocenoseVariant('delphi').disclosure, 'anonymous_r
 assert.equal(biocenose.selectBiocenoseVariant('delphi').minimumRounds, 2);
 assert.equal(biocenose.selectBiocenoseVariant('forecasting_crowd').requireCalibrationWeights, true);
 assert.equal(biocenose.selectBiocenoseVariant('human_ai_deliberation').requireHumanReview, true);
-assert.equal(biocenose.selectBiocenoseVariant('polycentric_council').executionLevel, 'PARTIAL');
+assert.equal(biocenose.selectBiocenoseVariant('polycentric_council').executionLevel, 'EXECUTABLE');
 assert.equal(biocenose.selectBiocenoseVariant('hybrid_oracle_community').requireDeterministicVerifier, true);
 assert.throws(() => biocenose.selectBiocenoseVariant('unknown'), (error) => error.code === 'BIOCENOSE_VARIANT_UNKNOWN');
 

@@ -23,10 +23,13 @@ function domainKey(member) {
 function partitionFaultDomains(input = {}) {
   const members = Array.isArray(input.members) ? input.members : [];
   const domains = new Map();
+  const providers = new Map();
   for (const member of members) {
     const key = domainKey(member);
     if (!domains.has(key)) domains.set(key, []);
     domains.get(key).push(String(member.memberId || 'unknown'));
+    const provider = String(member.provider || 'unknown');
+    providers.set(provider, (providers.get(provider) || 0) + 1);
   }
   const quorum = quorumFor({ memberCount: members.length, faultyAssumed: Number(input.faultyAssumed) || 0 });
   const sizes = [...domains.values()].map((list) => list.length);
@@ -34,6 +37,8 @@ function partitionFaultDomains(input = {}) {
   return {
     domains: [...domains.entries()].map(([domain, memberIds]) => ({ domain, memberIds, size: memberIds.length })),
     domainCount: domains.size,
+    providerDomainCount: providers.size,
+    providerDomainSizes: Object.fromEntries(providers),
     largestDomainSize: largest,
     singleDomainQuorum: largest >= quorum.quorum,
     warning: largest >= quorum.quorum ? 'A single fault domain can reach quorum alone.' : null
