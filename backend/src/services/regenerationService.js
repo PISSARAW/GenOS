@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { recordScar, recordCheckpoint, isFunctionCovered } = require('./missionOrganismService');
 const { emitCellDeath, emitTissueRegeneration } = require('./vitalSignalsService');
 const attempts = require('./regenerationAttemptService');
+const missionChecks = require('./missionRegenerationChecksService');
 
 const DAMAGE_ASSESSMENT_SCHEMA = 'genos.damage-assessment/v1alpha1';
 
@@ -155,6 +156,9 @@ async function regenerateWorker(input = {}) {
   const tokens = Number(input.executionBudget?.tokens);
   if (!Number.isSafeInteger(tokens) || tokens <= 0) return blockedBudget();
   const context = await loadRegenerationContext(input);
+  if (!context.checks?.commands.length || !context.parent.workspace_root) {
+    return { success: false, status: 'blocked', reason: 'Mission-configured regeneration checks and a workspace are required.' };
+  }
   const proposedId = `worker_${crypto.randomUUID()}`;
   const reservation = await attempts.reserve(db, { missionId, lostIdentifier: plan.lostIdentifier, role: plan.role, replacementId: proposedId });
   if (!reservation.reserved) return { success: false, status: 'blocked', reason: reservation.reason };
@@ -168,7 +172,7 @@ function blockedBudget() {
 async function runReservedRegeneration(state) {
   const { input, context, replacementId } = state;
   const { db, missionId, plan } = input;
-  const prompt = input.prompt || `Replace the lost ${plan.role} worker for mission: ${input.objective || context.mission.objective}. In the EVIDENCE_REPORT, provide functionalEquivalence with lostIdentifier='${plan.lostIdentifier}', role='${plan.role}', passed=true, and checks containing executed command, exitCode=0 and evidenceRef for each required check.`;
+  const prompt = `${input.prompt || `Replace the lost ${plan.role} worker for mission: ${input.objective || context.mission.objective}.`} In the EVIDENCE_REPORT, provide functionalEquivalence with lostIdentifier='${plan.lostIdentifier}', role='${plan.role}', passed=true, and checks for these mission-configured commands: ${context.checks.commands.join('; ')}. Include command, exitCode and evidenceRef for each check. GenOS replays these checks independently.`;
   try {
     await insertRegenerationWorker(db, { replacementId, orchestratorId: context.orchestratorId, parent: context.parent, role: plan.role, prompt });
     await require('./missionIdentityService').attachAgent(db, { missionId, agentId: replacementId, role: plan.role });
@@ -196,7 +200,8 @@ async function loadRegenerationContext(input) {
   const parent = await db.get(`SELECT a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode,
     w.path AS workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, orchestratorId);
   if (!parent) throw Object.assign(new Error('Current mission orchestrator was not found.'), { code: 'ORCHESTRATOR_NOT_FOUND' });
-  return { mission, orchestratorId, parent };
+  const checks = await missionChecks.get(db, missionId, input.plan.role);
+  return { mission, orchestratorId, parent, checks };
 }
 
 async function dispatchRegeneratedWorker(input) {
@@ -240,29 +245,44 @@ async function verifyRegeneratedWorker(input) {
     await db.run("UPDATE agents SET status = 'unverified', current_task = 'Missing successful evidence report for regeneration', updated_at = CURRENT_TIMESTAMP WHERE id = ?", replacementId);
     return { success: false, replacementId, status: 'unverified', reason: 'Worker did not persist a successful evidence report.' };
   }
-  if (!hasFunctionalProof(receipt.report, plan)) {
+  if (!hasFunctionalProof(receipt.report, plan, context.checks.commands)) {
     await db.run("UPDATE agents SET status = 'unverified', current_task = 'Missing functional equivalence proof', updated_at = CURRENT_TIMESTAMP WHERE id = ?", replacementId);
     return { success: false, replacementId, status: 'unverified', reason: 'Functional equivalence proof is missing or invalid.' };
   }
   let agent = await db.get('SELECT status FROM agents WHERE id = ?', replacementId);
+  if (!agent || !['completed', 'idle'].includes(agent.status)) {
+    return { success: false, replacementId, status: agent?.status || 'missing', reason: 'Worker dispatch has no successful terminal result.' };
+  }
+  const independent = await missionChecks.verify(db, {
+    missionId, lostAgentId: plan.lostIdentifier, replacementId, role: plan.role,
+    workspaceRoot: context.parent.workspace_root, reportEvidenceRef: receipt.evidenceRef
+  });
+  if (!independent.success) {
+    await db.run("UPDATE agents SET status = 'unverified', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      independent.reason, replacementId);
+    return { success: false, replacementId, status: 'unverified', reason: independent.reason,
+      evidenceRef: independent.evidenceRef };
+  }
   if (agent?.status === 'completed') {
     await require('./workerGarageService').enterIdleState(db, replacementId, context.orchestratorId);
     agent = await db.get('SELECT status FROM agents WHERE id = ?', replacementId);
   }
-  if (!agent || !['completed', 'idle'].includes(agent.status)) {
-    return { success: false, replacementId, status: agent?.status || 'missing', reason: 'Worker dispatch has no successful terminal result.' };
-  }
-  const regenerated = regenerateCell({ organism: request.organism, plan: { ...plan, replacementId }, mission: missionId, evidenceRef: receipt.evidenceRef });
+  const regenerated = regenerateCell({ organism: request.organism, plan: { ...plan, replacementId }, mission: missionId, evidenceRef: independent.evidenceRef });
   const equivalence = verifyFunctionalEquivalence(regenerated.organism, request.requiredRoles || [plan.role]);
-  return { success: equivalence.equivalent, replacementId, status: agent.status, evidenceRef: receipt.evidenceRef, ...regenerated, equivalence };
+  return { success: equivalence.equivalent, replacementId, status: agent.status, evidenceRef: independent.evidenceRef, ...regenerated, equivalence };
 }
 
-function hasFunctionalProof(report, plan) {
+function hasFunctionalProof(report, plan, commands) {
   const proof = report.functionalEquivalence;
   return proof?.lostIdentifier === plan.lostIdentifier && proof.role === plan.role
     && proof.passed === true && Array.isArray(proof.checks) && proof.checks.length > 0
-    && proof.checks.every(check => typeof check.command === 'string' && check.command.trim()
-      && check.exitCode === 0 && typeof check.evidenceRef === 'string' && check.evidenceRef.trim());
+    && commands.every(command => proof.checks.some(check => check.command === command && check.exitCode === 0))
+    && proof.checks.every(validReportedCheck);
+}
+
+function validReportedCheck(check) {
+  return typeof check.command === 'string' && Boolean(check.command.trim())
+    && check.exitCode === 0 && typeof check.evidenceRef === 'string' && Boolean(check.evidenceRef.trim());
 }
 
 async function readRegenerationReceipt(db, agentId) {

@@ -7,6 +7,7 @@ const registry = require('../services/missionResourceRegistryService');
 const missions = require('../services/missionIdentityService');
 const survival = require('../services/survivalStateService');
 const wakes = require('../services/survivalWakeService');
+const missionChecks = require('../services/missionRegenerationChecksService');
 
 const router = express.Router();
 router.use(requireRole(['admin']));
@@ -47,6 +48,24 @@ router.post('/missions/:missionId/wake', async (req, res, next) => {
       event: { type: 'operator_signal', authorized: true }
     });
     return res.status(result.success ? 200 : 409).json(result);
+  } catch (error) { return next(error); }
+});
+
+router.post('/missions/:missionId/regeneration-checks/:role', async (req, res, next) => {
+  try {
+    const policy = await missionChecks.configure(await getDatabase(), {
+      missionId: req.params.missionId, role: req.params.role,
+      commands: req.body?.commands, actor: req.user.keyId || req.user.username
+    });
+    return res.status(201).json(policy);
+  } catch (error) { return next(error); }
+});
+
+router.get('/missions/:missionId/regeneration-checks/:role', async (req, res, next) => {
+  try {
+    const policy = await missionChecks.get(await getDatabase(), req.params.missionId, req.params.role);
+    if (!policy) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No regeneration checks configured.' } });
+    return res.json(policy);
   } catch (error) { return next(error); }
 });
 

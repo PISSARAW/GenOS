@@ -11,6 +11,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
 const TMP_DB = path.join(os.tmpdir(), `genos_continuity_test_${Date.now()}.db`);
 process.env.GENOS_DB_PATH = TMP_DB;
@@ -285,23 +286,33 @@ test('orchestrator succession is single-winner, atomic, and survives database re
 test('regeneration dispatches a worker once and requires functional proof', async () => {
   const dispatch = require('../src/services/orchestratorDispatchService');
   const garage = require('../src/services/workerGarageService');
-  const original = { dispatch: dispatch.dispatchWorkerMission, reserve: garage.reserveSlot, idle: garage.enterIdleState };
+  const sandbox = require('../src/services/sandboxExecutor');
+  const original = { dispatch: dispatch.dispatchWorkerMission, reserve: garage.reserveSlot,
+    idle: garage.enterIdleState, runIsolated: sandbox.runIsolated };
   const missionId = `regeneration_${Date.now()}`;
-  await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, 'Root', 'orchestrator', 'running', 'orchestrator')", `${missionId}_root`);
+  await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, 'Regeneration test', ?)", `${missionId}_workspace`, os.tmpdir());
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES (?, 'Root', 'orchestrator', 'running', 'orchestrator', ?)", `${missionId}_root`, `${missionId}_workspace`);
   await missionIdentity.create(db, { missionId, objective: 'Repair worker', orchestratorAgentId: `${missionId}_root` });
+  await require('../src/services/missionRegenerationChecksService').configure(db, {
+    missionId, role: 'verifier', commands: ['npm test'], actor: 'mission_test'
+  });
   const organism = missionOrganism.newOrganism({ genome: { objective: 'Repair worker' } });
   let proof = false;
   let dispatches = 0;
   try {
     garage.reserveSlot = async () => ({ slot: 1 });
     garage.enterIdleState = async () => {};
+    sandbox.runIsolated = async ({ command }) => ({ command,
+      commandHash: `sha256:${crypto.createHash('sha256').update(command).digest('hex')}`,
+      executionId: 'independent-check', processId: 123, exitCode: 0,
+      timedOut: false, success: true, stdout: '', stderr: '' });
     dispatch.dispatchWorkerMission = async (worker) => {
       dispatches += 1;
       await db.run("UPDATE agents SET status = 'completed' WHERE id = ?", worker.agentId);
       const report = { outcome: 'success', claims: [{ evidence: ['executed check'] }] };
       if (proof) report.functionalEquivalence = {
         lostIdentifier: /lostIdentifier='([^']+)'/.exec(worker.prompt)?.[1], role: 'verifier', passed: true,
-        checks: [{ command: 'verify', exitCode: 0, evidenceRef: 'sha256:check' }]
+        checks: [{ command: 'npm test', exitCode: 0, evidenceRef: 'sha256:check' }]
       };
       await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, payload_json) VALUES (?, 'EVIDENCE_REPORT', 'REPORT', ?)",
         worker.agentId, JSON.stringify({ evidenceReport: report }));
@@ -330,6 +341,7 @@ test('regeneration dispatches a worker once and requires functional proof', asyn
     dispatch.dispatchWorkerMission = original.dispatch;
     garage.reserveSlot = original.reserve;
     garage.enterIdleState = original.idle;
+    sandbox.runIsolated = original.runIsolated;
   }
 });
 

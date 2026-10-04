@@ -33,8 +33,10 @@ associe un PID au détenteur de l'autorité et renouvelle une génération aprè
 la disparition du processus qui avait revendiqué `launching` ou `running`.
 
 La régénération réserve durablement chaque perte et impose un budget explicite,
-un retour terminal et un rapport de contrôles fonctionnels avant de restaurer
-le rôle. Les échecs historiques remplacés sont exclus du verdict effectif,
+un retour terminal, un rapport de contrôles fonctionnels et le rejeu indépendant
+des commandes configurées par la mission pour ce rôle avant de restaurer le
+rôle. La politique de commandes est immuable une fois écrite et son absence
+bloque la régénération. Les échecs historiques remplacés sont exclus du verdict effectif,
 tout en restant présents dans les traces et cicatrices.
 
 ## Conséquences
@@ -61,5 +63,6 @@ La présence d'un PID ne constitue qu'un contrôle local de vivacité ; le
 fencing par génération reste la protection contre une autorité ancienne. Les
 observations de budget et fournisseur requièrent encore des producteurs métier
 authentifiés ; le registre et sa route ne constituent pas une mesure autonome.
-Le rapport fonctionnel du
-worker n'est pas une vérification indépendante.
+Le rejeu indépendant démontre l'exécution des commandes configurées dans le
+workspace de mission. Leur pertinence fonctionnelle reste la responsabilité
+de la configuration de la mission.

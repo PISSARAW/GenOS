@@ -1,6 +1,6 @@
 # Continuité de mission — l'organisme logiciel et ses six systèmes de survie
 
-- **Statut** : Partiel — identité et membres persistés, gate de complétion, régénération bornée avec preuve fonctionnelle, suspension atomique, réveil temporel, registre durable des ressources et succession interprocessus. Les observations de budget et de santé fournisseur doivent encore être alimentées par une source métier ; la preuve de régénération provient actuellement du rapport du worker et attend une vérification indépendante.
+- **Statut** : Partiel — identité et membres persistés, gate de complétion, régénération bornée avec rejeu indépendant de contrôles configurés, suspension atomique, réveil temporel, registre durable des ressources et succession interprocessus. Les observations de budget et de santé fournisseur doivent encore être alimentées par une source métier. Une mission sans contrôles de régénération configurés ne régénère pas automatiquement de worker.
 - **Portée** : control plane Node — `missionIdentityService`, `missionOrganismService`, `homeostasisContractService`, `homeostasisService`, `homeostasisContinuationService`, `missionContinuityService`, `missionEvidenceCollector`, `vitalSignalsService`, `immuneGateService`, `immuneMemoryService`, `regenerationService`, `survivalStateService`, `survivalWakeService`, `survivalModesService` ; pont `backend/bin/genos-orchestrate.cjs` + helpers `continuationFeedbackLoop.cjs`, `orchestratorMissionHelpersBuildContext.cjs` ; migrations 033 `homeostasis_states`, 034 `mission_organism_state`, 085 `missions`/`mission_agents`, 027 `continuation_queue`.
 - **Dernière revue** : 2026-10-04.
 
@@ -354,13 +354,21 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
    `backend/tests/test_mission_continuity.js` (19 tests) et
    `backend/tests/test_mission_evidence.js` (10 tests) et
    `backend/tests/test_homeostasis_continuation.js` (18 tests).
-- **Implémenté et testé au niveau service** : `regenerateWorker()` crée un agent
+- **Implémenté au niveau service, intégration à valider** : `regenerateWorker()` crée un agent
   worker rattaché à la mission, réserve un slot et passe par le dispatch
   runtime. Le résultat doit être terminal et porter un rapport de succès avec
-  contrôles fonctionnels liés au rôle et à l'agent perdu. Une table durable
-  limite à trois les tentatives par mission et empêche de redéployer deux fois
-  pour la même perte. Le test simule le runtime ; une campagne avec un vrai
-  fournisseur et un vérificateur indépendant reste nécessaire.
+  contrôles fonctionnels liés au rôle et à l'agent perdu. Les commandes de
+  vérification sont configurées par mission et par rôle, dans
+  `regenerationChecks` au lancement (`{ "verifier": ["npm test"] }`) ou par
+  `POST /api/missions/:missionId/regeneration-checks/:role` (admin, corps
+  `{ "commands": ["npm test"] }`). La politique est immuable pour ce rôle.
+  GenOS rejoue ces commandes dans le workspace de la mission avec la liste
+  autorisée du `sandboxExecutor`, conserve des reçus distincts du rapport du
+  worker et n'accepte le remplacement que si chaque exécution réussit.
+  Une table durable limite à trois les tentatives par mission et empêche de
+  redéployer deux fois pour la même perte. Les commandes configurées doivent
+  réellement couvrir le rôle à restaurer ; un test générique sans rapport
+  avec ce rôle ne constitue pas une preuve d'équivalence fonctionnelle.
 - **Implémenté, intégration à valider** : le pont accepte une demande explicite
   `dormancy` avec mode éligible et condition de réveil. `survivalStateService`
   écrit dans une transaction le snapshot, l'état dormant, la condition persistée
