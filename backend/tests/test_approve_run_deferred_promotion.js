@@ -17,12 +17,18 @@ async function run() {
     options: {}, receipt: null, aeisEvaluation: { assembly: null }
   });
   assert.equal(reportOnlyContext.epistemicAssembly, null, 'caller reports cannot supply the trusted AEIS assembly');
-  const dbPath = path.resolve(__dirname, 'test-approve-run-promotion.db');
+  const dbPath = path.join(os.tmpdir(), `genos-aeis-approve-${process.pid}.db`);
   const proofWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-aeis-promotion-proof-'));
-  fs.writeFileSync(path.join(proofWorkspace, 'package.json'), JSON.stringify({
-    name: 'genos-aeis-promotion-proof', version: '1.0.0', scripts: { test: 'node verify.js' }
-  }));
-  fs.writeFileSync(path.join(proofWorkspace, 'verify.js'), "process.stdout.write('promotion-proof\\n');\n");
+  for (const replica of ['a', 'b']) {
+    const cwd = path.join(proofWorkspace, replica);
+    fs.mkdirSync(cwd);
+    fs.writeFileSync(path.join(cwd, 'package.json'), JSON.stringify({
+      name: `genos-aeis-promotion-proof-${replica}`, version: '1.0.0', scripts: { test: 'node verify.js' }
+    }));
+    fs.writeFileSync(path.join(cwd, 'verify.js'), replica === 'a'
+      ? "process.stdout.write('promotion-proof\\n');\n"
+      : "process.stdout.write(['promotion', 'proof'].join('-') + '\\n');\n");
+  }
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   const db = await getDatabase(dbPath);
 
@@ -33,7 +39,8 @@ async function run() {
     };
     telemetry.on('telemetry', onTelemetry);
 
-    await db.run("INSERT OR REPLACE INTO agents (id, name, role, status, execution_mode) VALUES ('agent-promo-test', 'Promo Agent', 'orchestrator', 'running', 'orchestrator')");
+    await db.run("INSERT INTO workspaces (id, name, path) VALUES ('ws-aeis-promo', 'AEIS promotion', ?)", proofWorkspace);
+    await db.run("INSERT OR REPLACE INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('agent-promo-test', 'Promo Agent', 'orchestrator', 'running', 'orchestrator', 'ws-aeis-promo')");
     const contractRecord = await strategyContracts.saveContract(db, {
       agentId: 'agent-promo-test',
       problem: 'High risk mission requiring human approval'
@@ -77,8 +84,31 @@ async function run() {
     const positive = await approveWithRealEvidence({ db, run, contractRecord, proofWorkspace });
     const { approvedRun, realReport } = positive;
     assert.equal(approvedRun.status, 'completed', 'genuine signed independent AEIS receipts must allow approval');
+    const metrics = JSON.parse((await db.get('SELECT metrics_json FROM strategy_execution_runs WHERE id = ?', run.id)).metrics_json);
+    assert.equal(metrics.aeisEvidenceScore, 1, 'runtime rearbitration must consume the AEIS receipts');
+    assert.ok(Number.isFinite(metrics.aeisPressure));
+    const learned = await db.get("SELECT * FROM epistemic_immune_memory_scoped WHERE scope_id = 'local:local:ws-aeis-promo'");
+    assert.equal(learned?.successes, 1, 'a validated promotion must resolve the immune outcome');
+    assert.equal(learned?.pending, 0);
+    assert.equal(learned?.affinity, 1);
+    const stored = await db.get('SELECT id FROM aeis_assurance_assemblies ORDER BY rowid DESC LIMIT 1');
+    const persisted = await require('../src/services/aeisAssemblyStore').readAssembly(db, stored.id);
+    assert.equal(persisted.runId, run.id);
+    assert.equal(persisted.scopeId, 'local:local:ws-aeis-promo');
+    await assert.rejects(require('../src/services/epistemic/immuneMemoryRepository').resolve(db, {
+      scopeId: persisted.scopeId, signature: learned.signature,
+      assemblyId: stored.id, runId: 'another-run',
+      resultId: persisted.evaluation.assembly.results[0].resultId, test: realReport.claims[0].test,
+    }), /does not belong/);
+    const repeated = await require('../src/services/epistemic/immuneMemoryRepository').resolve(db, {
+      scopeId: 'local:local:ws-aeis-promo', signature: learned.signature,
+      assemblyId: stored.id, runId: run.id,
+      resultId: persisted.evaluation.assembly.results[0].resultId, test: realReport.claims[0].test,
+    });
+    assert.equal(repeated, false, 'a retried run cannot increase affinity twice');
     const proofEvaluation = await require('../src/services/epistemic/aeisPromotionBridge').evaluateReportWithAeis(realReport, {
-      trustedVerifierDigests: require('../src/services/verifierTrustRegistry').listVerifierDigests()
+      trustedVerifierDigests: require('../src/services/verifierTrustRegistry').listVerifierDigests(),
+      allowedWorkspaceRoot: proofWorkspace,
     });
     assertPositiveAssembly(proofEvaluation);
 
@@ -99,9 +129,12 @@ async function approveWithRealEvidence(spec) {
   const realReport = {
     outcome: 'success',
     claims: [{
-      statement: 'The promotion verifier command returns its expected output.',
+      statement: 'npm test exits with code 0',
       evidence: [{ kind: 'reproducible_artifact', content: { fixture: 'promotion-e2e' } }],
-      test: { command: 'npm test', cwd: proofWorkspace }
+      test: { command: 'npm test', replicas: {
+        proof: { cwd: path.join(proofWorkspace, 'a') },
+        source: { cwd: path.join(proofWorkspace, 'b') },
+      } }
     }]
   };
   const approvedRun = await strategyService.approveRun(db, run.id, {

@@ -278,6 +278,21 @@ async function testInvalidReceptor() {
   );
 }
 
+async function testFailedActionRequiresRecovery() {
+  resetReceptors();
+  receptor.registerReceptor({ id: 'failed-cascade', targetLigand: 'TEST_READY',
+    threshold: 0.5, action: 'emit_signal' });
+  const signal = { signalId: 'sig-failed', signalType: 'ligand',
+    semanticType: 'TEST_READY', concentration: 0.9, topic: 'test', senderAgentId: 'worker-a' };
+  const result = await receptor.matchAndDispatch(signal, {
+    publishSignal: async () => ({ signalId: 'sig-suppressed', published: false,
+      suppressedBy: 'rate_limit' })
+  });
+  assert.strictEqual(result.dispatched[0].executed, false);
+  assert.strictEqual(result.dispatched[0].reason, 'rate_limit');
+  assert.strictEqual(result.llmRequired, true);
+}
+
 async function run() {
   await testRegisterAndList();
   console.log('[PASS] register / list receptors');
@@ -302,6 +317,9 @@ async function run() {
 
   await testInvalidReceptor();
   console.log('[PASS] invalid receptor registration rejected');
+
+  await testFailedActionRequiresRecovery();
+  console.log('[PASS] failed receptor action requires recovery');
 
   console.log('\nTous les tests du Signal Receptor Service sont passés.');
 }

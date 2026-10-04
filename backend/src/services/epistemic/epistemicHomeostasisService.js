@@ -132,13 +132,9 @@ function tierFromPressure(pressure) {
 }
 
 function feedbackEffect(pressure, previousPressure, evidenceDelta) {
-  const positive = Math.max(0, pressure - previousPressure);
-  const negative = Math.max(0, previousPressure - pressure);
-  const evidenceGain = Math.max(0, evidenceDelta || 0);
-  if (evidenceGain > 0.15 && negative > 0) {
-    return Math.max(0, pressure - Math.min(negative, evidenceGain * 0.5));
-  }
-  return pressure + positive * 0.5;
+  const pressureRise = Math.max(0, pressure - previousPressure);
+  const delta = Number.isFinite(evidenceDelta) ? evidenceDelta : 0;
+  return clampAt(pressure + pressureRise * 0.5 - delta * 0.5, 0, 1);
 }
 
 module.exports = {

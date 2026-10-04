@@ -6,6 +6,7 @@
  * Real in-memory SQLite, real services, zero external LLM calls.
  */
 const assert = require('assert');
+const { signalPlaneScopeCases } = require('./signalPlaneScopeCases');
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3').verbose();
 
@@ -331,10 +332,10 @@ async function testSignalIdCannotOverwritePayload() {
 
 async function testScopedReadCannotStealDelivery() {
   resetState();
-  await testDb.run("INSERT INTO organizations (id, name) VALUES ('org-other', 'Other Org')");
-  await testDb.run("INSERT INTO projects (id, organization_id, name) VALUES ('proj-other', 'org-other', 'Other Project')");
-  await testDb.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('ws-other', 'Other', '/tmp/other', 'org-other', 'proj-other')");
-  await testDb.run("INSERT INTO agents (id, name, role, execution_mode, workspace_id) VALUES ('worker-outside', 'Outside', 'worker', 'worker', 'ws-other')");
+  await testDb.run("INSERT INTO organizations (id, name) VALUES ('org-third', 'Third Org')");
+  await testDb.run("INSERT INTO projects (id, organization_id, name) VALUES ('proj-third', 'org-third', 'Third Project')");
+  await testDb.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('ws-third', 'Third', '/tmp/third', 'org-third', 'proj-third')");
+  await testDb.run("INSERT INTO agents (id, name, role, execution_mode, workspace_id) VALUES ('worker-outside', 'Outside', 'worker', 'worker', 'ws-third')");
   const broadcast = await transport.publishSignal({
     signalType: 'ligand', signalData: { semanticType: 'SCOPED_READ' },
     senderAgentId: 'orch-1'
@@ -380,15 +381,14 @@ async function runAllTests() {
   await testPublicationRequiresDurableDelivery();
   await testSignalIdCannotOverwritePayload();
   await testScopedReadCannotStealDelivery();
+  await signalPlaneScopeCases({ testDb, transport, receptor, resetState })();
   console.log('\n✓ All Signal Plane E2E tests passed');
   await testDb.close();
 }
-
 runAllTests().catch((err) => {
   console.error('✗ Test failed:', err.message);
   process.exit(1);
 });
-
 module.exports = {
   setupTestDb,
   testFullReceptorDispatchPath,

@@ -14,6 +14,8 @@ async function memoryDb() {
   await migrateOntogenesisConversation(db);
   await migrateOntogenesisSchedule(db);
   await migrateOntogenesisQuestions(db);
+  await require('../src/db/migrations/migrateShevProjectLoop').migrateShevProjectLoop(db);
+  await require('../src/db/migrations/migrateShevProtocols').migrateShevProtocols(db);
   return db;
 }
 

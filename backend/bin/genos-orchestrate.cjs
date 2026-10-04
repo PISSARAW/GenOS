@@ -19,13 +19,11 @@ const { handleAction, handleBackground, initializeMission } = require('./orchest
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 const helpers = require('./orchestratorMissionHelpers.cjs');
 const requestMemory = require('./requestMemoryBridge.cjs');
-const {
-  buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
-  prepareMission, startOrchestratorMission,
-  buildContinuity, emitCompletionEvent,
-  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup,
-  emitTopologyEvent, tokenUsage
-} = helpers;
+const missionCheckpoint = require('../src/services/communication/missionCheckpointBridge');
+
+const { buildActionContext, applyNceEnhancements, buildNceInput, buildEnhancedPrompt,
+  prepareMission, startOrchestratorMission, buildContinuity, emitCompletionEvent,
+  gatherTelemetryAndCoverage, emitFinalTelemetry, runActionWithCleanup, emitTopologyEvent, tokenUsage } = helpers;
 const { buildMissionContext } = require('./orchestratorMissionHelpersBuildContext.cjs');
 process.on('unhandledRejection', (reason) => {
   console.error('[genos-orchestrate] Unhandled rejection:', reason && reason.stack ? reason.stack : reason);
@@ -187,6 +185,8 @@ async function evaluateMissionContinuity(opts) {
     const gate = await missionContinuity.transitionMissionToComplete(db, { organism: evalResult.organism, mission, context: mission.context, immune: evalResult.immune });
     completionGate = { allowed: gate.allowed, reason: gate.reason || null };
     emitCompletionEvent({ id, gateAllowed: gate.allowed, evaluation: evalResult, continuity, completionGate });
+    await missionCheckpoint.evaluateMissionCompletion({ db, agentId: id,
+      missionId: mission.id, gateAllowed: gate.allowed });
   } catch (continuityError) {
     continuity = { status: 'unknown', error: continuityError.message };
     completionGate = { allowed: false, reason: continuityError.message };

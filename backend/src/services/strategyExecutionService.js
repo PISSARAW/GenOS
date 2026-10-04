@@ -116,6 +116,39 @@ async function observeSurvivalEvent({ db, agentId, event, run }) {
   }
 }
 
+async function evaluateAeisPromotion(db, request) {
+  const { promotion, id } = request;
+  const workspace = await db.get(
+    'SELECT w.id, w.path, w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
+    promotion.agentId,
+  );
+  if (!workspace?.path) throw new Error(`Execution run ${id} has no trusted workspace for AEIS verification.`);
+  const scopeId = [workspace.organization_id || 'local', workspace.project_id || 'local', workspace.id].join(':');
+
+  let aeisEvaluation = null;
+  const immuneMemory = await immuneMemoryRepository.load(db, scopeId);
+  try {
+    aeisEvaluation = await evaluateReportWithAeis(promotion.report, {
+      domain: promotion.contract?.problem_profile?.domain || 'general',
+      trustedVerifierDigests: listVerifierDigests(),
+      immuneMemory,
+      db,
+      multiProviderEnabled: promotion.contract?.problem_profile?.multi_provider_verification === true,
+      providerAllowlist: promotion.contract?.problem_profile?.aeis_provider_allowlist || [],
+      maxVerifierExecutions: promotion.contract?.problem_profile?.aeis_max_verifier_executions,
+      scopeId, runId: id,
+      allowedWorkspaceRoot: workspace.path,
+    });
+  } catch (error) {
+    throw new Error(`Execution run ${id} AEIS verification failed: ${error.message}`, { cause: error });
+  }
+  await require('./epistemic/immuneMemoryOutcome').persistEvaluatedMemory(db, {
+    report: promotion.report, domain: promotion.contract?.problem_profile?.domain || 'general',
+    evaluation: aeisEvaluation, immuneMemory, runId: id, scopeId,
+  });
+  return aeisEvaluation;
+}
+
 async function approveRun(db, id, options) {
   const settings = options || {};
   const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
@@ -124,31 +157,23 @@ async function approveRun(db, id, options) {
   const promotion = await promotionGate.loadPromotionContext(db, row, settings);
   if (!promotion.report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
   const receipt = promotionGate.assertApprovalProof(promotion, settings, id);
-
-  // AEIS : évaluation épistémique du rapport via le Holobionte
-  let aeisEvaluation = null;
-  const immuneMemory = await immuneMemoryRepository.load(db);
-  try {
-    aeisEvaluation = await evaluateReportWithAeis(promotion.report, {
-      domain: promotion.contract?.problem_profile?.domain || 'general',
-      trustedVerifierDigests: listVerifierDigests(),
-      immuneMemory,
-      db,
-      multiProviderEnabled: promotion.contract?.problem_profile?.multi_provider_verification === true,
-    });
-  } catch (_) {
-    // AEIS ne doit pas bloquer la promotion — le gate évaluera l'absence
-  }
-  await immuneMemoryRepository.save(db, immuneMemory);
-
+  await promotionGate.assertPromotionContainment(db, promotion, settings);
+  const aeisEvaluation = await evaluateAeisPromotion(db, { promotion, id });
   const gateContext = promotionGate.buildGateContext({ promotion, options: settings, receipt, aeisEvaluation });
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);
-  await promotionGate.assertPromotionContainment(db, promotion, settings);
   const primitives = events.resolveStagePrimitives('conditional_promotion', promotion.contract.strategy_portfolio);
-  const promotionResult = await promotionGate.runPromotionPipeline(promotion, primitives);
+  const promotionResult = await promotionGate.runPromotionPipeline(promotion, primitives, aeisEvaluation);
   if (!promotionResult.success) throw new Error(`Execution run ${id} promotion failed: ${promotionResult.error || 'unknown error'}`);
+  if (promotionResult.controlRegulation?.arbitration?.status === 'blocked') {
+    throw new Error(`Execution run ${id} AEIS homeostatic rearbitration blocked promotion.`);
+  }
+  await db.run('UPDATE strategy_execution_runs SET metrics_json = ? WHERE id = ?', JSON.stringify({
+    ...events.safeJson(row.metrics_json, {}),
+    aeisPressure: promotionResult.controlRegulation?.homeostasis?.pressure ?? null,
+    aeisEvidenceScore: promotionResult.controlRegulation?.feedback?.evidenceScore ?? null,
+  }), id);
   await promotionGate.applyPostPromotion(db, promotion, settings);
   await promotionGate.finalizePromotion(db, promotion, settings);
   await selfModel.calibrate(db, id);

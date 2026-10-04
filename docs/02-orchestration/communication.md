@@ -1,8 +1,8 @@
 # Types de communication : Écologie communicationnelle GenOS
 
-- **Statut** : Partiel (enveloppe versionnée branchée au Signal Plane et aux messages d'organisation ; checkpoints actifs par défaut, mode shadow disponible ; reçus checkpoint en mémoire bornés à 100 ; mesure réelle des tokens et adaptateurs généraux non branchés)
+- **Statut** : Partiel (enveloppe versionnée et Signal Plane branchés ; `MISSION_COMPLETED` évalué après le gate de fin de mission ; autres checkpoints sans raccord de production ; seuls SIGNAL et STIGMERGY ont un adaptateur checkpoint ; mesure réelle des tokens non reliée automatiquement aux cycles)
 - **Portée** : les 7 types de communication inter-agents, leurs déclencheurs, leurs garanties et leur gouvernance (coût, métriques, shadow, apprentissage)
-- **Dernière revue** : 2026-10-03
+- **Dernière revue** : 2026-10-04
 
 ---
 
@@ -470,6 +470,9 @@ Garanties réelles : **best-effort, pas exactly-once**. Push `EventEmitter` sing
   Les signaux ligand restent soumis à la vérification d'audience. La simulation
   applique des règles déterministes bornées ; elle ne modélise ni imagination,
   ni propriété biologique.
+- La fin de mission autorisée appelle `MISSION_COMPLETED` depuis l'orchestrateur.
+  Une fin bloquée n'émet pas ce checkpoint. Un échec de politique ou de télémétrie
+  ne change pas le verdict du gate ; la télémétrie reste best effort (ADR 0300).
 - La persistance garantit la lecture interprocessus des dépôts STIGMERGY via la base partagée, pas un push instantané aux workers : le consommateur doit relire les signaux. Sans base, le checkpoint retourne `PERSISTENCE_REQUIRED` et ne revendique aucun partage.
 - Pas de bouclage `recommendActions → policy engine`.
 - Pas de preuve qu'un `transport_ack` vaut décision valide (la beard épistémique reste entière : seul `verified_ack/human_confirmation` + gate de preuve autorise une promotion).

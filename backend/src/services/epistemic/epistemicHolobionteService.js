@@ -138,8 +138,11 @@ function diagnoseWinnerError(oracleTruth, winnerResult) {
 }
 
 async function runClonalSelectionCycle(parent, antigen, ctx) {
-  const clones = expandClone(parent, { count: 2 });
   const oracleTruth = oracleFrom(ctx, antigen);
+  if (!isOracleResolved(oracleTruth)) {
+    return { clones: [], selection: null, maturation: null, oracleResolved: false };
+  }
+  const clones = expandClone(parent, { count: 2 });
   const cloneResults = await executeVerifierWorkers(antigen, clones, ctx);
   applyOracleToClones(clones, cloneResults, oracleTruth);
   const selection = selectWinningClones(parent, clones);
@@ -284,6 +287,19 @@ function homeostasisInputFrom(antigen) {
   };
 }
 
+async function reviewProviders(antigen, context) {
+  if (context.multiProviderEnabled !== true) return null;
+  return runProviderMetapopulation(antigen, context.providerProfiles || [], {
+    runner: context.providerRunner, db: context.db, scopeId: context.scopeId, runId: context.runId,
+  });
+}
+
+function enforceProviderVeto(host, review) {
+  if (!review || (review.status === 'complete' && review.verdict === 'supports')) return host;
+  return { ...host, accepted: false,
+    reason: `Host veto: multi-provider review ${review.status}/${review.verdict || 'none'}` };
+}
+
 async function epistemicHolobionte(antigen, context = {}) {
   const specialist = specialistSymbioteSolve(antigen, context);
   const memory = memorySymbiontLookup(antigen, { ...context, domain: context.domain });
@@ -292,17 +308,19 @@ async function epistemicHolobionte(antigen, context = {}) {
     immuneMemory: context.immuneMemory,
     knownSubject: memory.hasMemory,
   });
-  const recruitment = await recruitNicheVerifier(antigen, immune, context);
+  const previousVerificationRate = require('./epistemicHomeostaticRearbitration').verificationRate(
+    immune.verifierResults?.results || [],
+  );
+  const recruitment = await recruitNicheVerifier(antigen, immune, { ...context,
+    preferredVerifierType: memory.effectiveResponse?.type || memory.effectiveResponse });
   immune = recruitment.immune;
-  const feedbackResult = await applyHomeostaticFeedback(antigen, immune, context);
+  const feedbackResult = await applyHomeostaticFeedback(antigen, immune, { ...context, previousVerificationRate });
   immune = feedbackResult.immune;
-  const providerReview = context.providerProfiles?.length
-    ? await runProviderMetapopulation(antigen, context.providerProfiles)
-    : null;
-  const host = hostDecision(
+  const providerReview = await reviewProviders(antigen, context);
+  const host = enforceProviderVeto(hostDecision(
     { specialist, immune, memory },
     { stakes: context.stakes, hostVeto: context.hostVeto },
-  );
+  ), providerReview);
   const biocenose = cognitiveBiocenose(
     immune.pipeline?.decision?.assignedVerifiers?.map((v) => ({
       type: v.verifier, niche: v.verifier, strategy: v.strategy,
@@ -330,7 +348,7 @@ async function epistemicHolobionte(antigen, context = {}) {
     accepted: host.accepted,
     reason: host.reason,
     finalAuthority: 'host',
-    specialist, immune, memory, biocenose: { ...biocenose, ...recruitment.diversity },
+    specialist, immune, memory, biocenose: { ...biocenose, recruited: recruitment.recruited },
     homeostasisFeedback: feedbackResult.feedback, providerReview,
     homeostasis: { pressure, tier },
     epistemicDissonance: dissonance,

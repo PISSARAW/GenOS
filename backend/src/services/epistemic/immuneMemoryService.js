@@ -138,14 +138,6 @@ function fuzzyRecall(memory, pattern, opts = {}) {
   return mergeRecallResults(exact, similar, opts.threshold || SEUIL_RAPPEL_AUTOMATIQUE);
 }
 
-function updateEntryAffinity(entry, success) {
-  entry.failures += success ? 0 : 1;
-  entry.successes += success ? 1 : 0;
-  const total = entry.successes + entry.failures;
-  entry.affinity = total > 0 ? entry.successes / total : entry.affinity;
-  entry.affinity = Math.min(1, Math.max(0, entry.affinity));
-}
-
 function evictIfFull(memory) {
   while (memory.length >= MAX_MEMORY_ENTRIES) {
     let victim = 0;
@@ -157,6 +149,9 @@ function evictIfFull(memory) {
 }
 
 function recordOutcome(memory, pattern, opts = {}) {
+  if (opts.outcome === 'success' || opts.outcome === 'failure') {
+    throw new Error('Resolve AEIS memory through the scoped repository with verified execution evidence.');
+  }
   const sig = signatureFrom(pattern);
   let entry = memory.find((e) => e.signature === sig);
   if (!entry) {
@@ -178,12 +173,6 @@ function recordOutcome(memory, pattern, opts = {}) {
   if (opts.outcome === 'pending') {
     entry.pending = true;
     return entry;
-  }
-
-  // Seul un oracle externe peut marquer un résultat comme success/failure.
-  if (opts.outcome === 'success' || opts.outcome === 'failure') {
-    entry.pending = false;
-    updateEntryAffinity(entry, opts.outcome === 'success');
   }
 
   entry.effectiveResponse = opts.effectiveResponse || entry.effectiveResponse;

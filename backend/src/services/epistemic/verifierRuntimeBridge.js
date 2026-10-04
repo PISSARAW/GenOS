@@ -78,7 +78,7 @@ function buildVerifierDescriptor(verifier, antigen, worker) {
     version: pick(verifier.version, '1.0'),
     strategy: pick(strategy, verifier.type),
     evidenceSource: pick(antigen.id, 'unknown'),
-    workspaceId: runtimeWorkspaceId(verifier, worker, actorId),
+    workspaceId: verifier.executionWorkspace || runtimeWorkspaceId(verifier, worker, actorId),
     executionId: pick(pick(verifier.executionId, worker && worker.agentId), null),
     contextDigest: pick(verifier.contextDigest, null),
     toolchainDigest: pick(verifier.toolchainDigest, null),
@@ -113,6 +113,9 @@ function buildProducerDescriptor(antigen) {
 function evaluateVerifierIndependence(verifier, antigen, priorVerifiers) {
   const worker = buildVerifierWorker(antigen, verifier);
   const descriptor = buildVerifierDescriptor(verifier, antigen, worker);
+  if (!verifier.executionWorkspace) {
+    return { independent: false, distance: 0, reason: 'missing_execution_workspace', descriptor };
+  }
   const producerDescriptor = buildProducerDescriptor(antigen || {});
   const vsProducer = evaluateIndependence(descriptor, [producerDescriptor]);
   if (!vsProducer.independent) return vsProducer;
@@ -153,6 +156,7 @@ function signVerifierResult(antigen, verifier, signed) {
   const signedReceipt = issueReceipt(preReceipt);
   return {
     status: signed.outcome.status,
+    verifierType: verifier.type,
     resultId: antigen.id,
     evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest || 'none',
     verifierDigest,
@@ -180,10 +184,31 @@ async function runSingleVerifier(antigen, verifier, ctx) {
   const outcome = await executeVerifierWithAdapter(
     antigen,
     enriched,
-    { worker, timeoutMs: ctx.opts.timeoutMs || 30000, testConfig: enriched.test, artifactConfig: enriched.artifact }
+    { worker, timeoutMs: ctx.opts.timeoutMs || 30000, testConfig: enriched.test,
+      artifactConfig: enriched.artifact, allowedWorkspaceRoot: ctx.opts.allowedWorkspaceRoot }
   );
-  const independence = evaluateVerifierIndependence(verifier, antigen, ctx.executedVerifiers);
-  return signVerifierResult(antigen, verifier, { outcome, independence });
+  const executionWorkspace = outcome.observations?.find((item) => item.detail?.executionId)?.detail.cwd;
+  const executed = { ...verifier, executionWorkspace };
+  const independence = executionWorkspace
+    ? evaluateVerifierIndependence(executed, antigen, ctx.executedVerifiers)
+    : { independent: false, distance: 0, reason: 'missing_execution_workspace', descriptor: buildVerifierDescriptor(executed, antigen, worker) };
+  return { result: signVerifierResult(antigen, verifier, { outcome, independence }), executed };
+}
+
+function consumeVerifierBudget(budget) {
+  if (!budget) return true;
+  if (!Number.isInteger(budget.remaining) || budget.remaining <= 0) return false;
+  budget.remaining -= 1;
+  return true;
+}
+
+function setFallbackContract(enriched, command) {
+  const artifactTypes = ['artifact', 'proof', 'repro', 'benchmark'];
+  if (artifactTypes.includes(enriched.type)) {
+    enriched.artifact = { buildCommand: command };
+  } else {
+    enriched.test = { command };
+  }
 }
 
 function enrichVerifier(antigen, verifier) {
@@ -192,17 +217,11 @@ function enrichVerifier(antigen, verifier) {
   const enriched = { ...verifier };
   const contract = antigen.verificationContract;
   if (contract?.test) {
-    enriched.test = contract.test;
+    enriched.test = { ...contract.test, ...(contract.test.replicas?.[verifier.type] ?? {}) };
   } else if (contract?.artifact) {
     enriched.artifact = contract.artifact;
   } else if (antigen.reproCommand && !enriched.test && !enriched.artifact) {
-    // Fallback : reconstruire depuis reproCommand seul.
-    const looksLikeArtifact = enriched.type === 'artifact' || enriched.type === 'proof' || enriched.type === 'repro' || enriched.type === 'benchmark';
-    if (looksLikeArtifact) {
-      enriched.artifact = { buildCommand: antigen.reproCommand };
-    } else {
-      enriched.test = { command: antigen.reproCommand };
-    }
+    setFallbackContract(enriched, antigen.reproCommand);
   }
   return enriched;
 }
@@ -220,9 +239,14 @@ async function executeVerifierWorkers(antigen, verifiers, opts = {}) {
   const executedVerifiers = [...(opts.priorVerifiers || [])];
 
   for (const verifier of verifiers) {
+    if (!consumeVerifierBudget(opts.verifierBudget)) {
+      results.push({ status: 'inconclusive', verifierType: verifier.type, reason: 'verifier_budget_exhausted' });
+      continue;
+    }
     try {
-      results.push(await runSingleVerifier(antigen, verifier, { executedVerifiers, opts }));
-      executedVerifiers.push(verifier);
+      const executed = await runSingleVerifier(antigen, verifier, { executedVerifiers, opts });
+      results.push(executed.result);
+      executedVerifiers.push(executed.executed);
     } catch (err) {
       results.push(errorVerifierResult(verifier, err));
     }

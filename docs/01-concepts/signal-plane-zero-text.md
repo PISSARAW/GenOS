@@ -36,8 +36,8 @@ Point d'entrée principal : `publishSignal(params)`.
 Pipeline d'exécution (ordre critique) :
 
 1. **Validation** — type, payload size, rate limit
-2. **Coalesce** — anti-spam en mémoire, avant toute écriture
-3. **Route** — destinataires et contrôle organisation/projet
+2. **Route** — destinataires et contrôle organisation/projet
+3. **Coalesce** — anti-spam en mémoire, avant toute écriture
 4. **Persistance** — `signal_blobs`, puis livraisons ou tâche cognitive (SQLite WAL)
 5. **Récepteurs et EventBus** — action déterministe puis notification push
 6. **Plasticité** — poids persistés, rechargés au routage et vidés à l'arrêt
@@ -85,6 +85,13 @@ Si une dépendance est absente ou si l'état n'a pas changé, l'action renvoie
 mémoire du processus.
 
 **Appel** : `matchAndDispatch(signal, ctx)` — renvoie `{ triggered, dispatched, llmRequired }`.
+
+Dans le chemin de publication, chaque action exige un émetteur orchestrateur
+avec organisation et projet. `wake_worker` et `update_agent` exigent en plus un
+worker enfant dans ce même périmètre et présent parmi les destinataires routés.
+Une action refusée n'est pas comptée comme exécutée. Le registre de récepteurs
+reste en mémoire du processus ; aucune règle active n'est restaurée au redémarrage.
+L'identifiant d'agent fourni à MCP n'authentifie pas l'appelant.
 
 ### SignalEventBus
 
@@ -186,6 +193,10 @@ droit d'écriture sur un projet actif.
 
 Migration v45 (`schema-next.js`) :
 
+Les charges non textuelles de `signal_blob` sont encodées en MsgPack. Une valeur
+non encodable est refusée avant persistance ; les anciens BLOB JSON restent
+lisibles (ADR 0301). Cela mesure des octets de transport, pas des tokens modèle.
+
 ```sql
 -- Signaux persistés
 CREATE TABLE signal_blobs (
@@ -253,6 +264,12 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
 - **Coalescing en mémoire** : les buffers sont perdus au redémarrage et ne sont
   pas vidés automatiquement vers le transport; les signaux supprimés dans la
   fenêtre ne sont pas publiés. La limite de débit est aussi locale au processus.
+- **Polling** : les lectures vérifient l'intégrité de l'enveloppe, le projet,
+  l'organisation et les destinataires explicites. Une lease d'outil seule ne
+  lie pas l'identité `agent_id` fournie à l'identité du client MCP. Une erreur
+  SQLite pendant la lecture ou le marquage « vu » remonte désormais au client.
+- **Panne de récepteur** : le signal persisté demande une escalade cognitive
+  si le dispatch déterministe échoue ; cette demande reste soumise au gate VoI.
 - **Escalade cognitive** : le gate VoI décide si le signal `llmRequired` est
   escaladé. Le résultat du modèle est une réponse consultative ; il ne constitue
   ni une exécution d'action ni une preuve de validité.

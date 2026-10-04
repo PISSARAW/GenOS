@@ -8,7 +8,7 @@ function assemblyFrom(executionContext) {
   if (executionContext.aeisEvaluation && executionContext.aeisEvaluation.assembly) {
     return executionContext.aeisEvaluation.assembly;
   }
-  return executionContext.report?.epistemicAssembly;
+  return null;
 }
 
 function missingAssemblyViolation() {
