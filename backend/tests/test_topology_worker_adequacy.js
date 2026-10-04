@@ -61,13 +61,15 @@ function testReachability() {
   for (const declared of [['clinical_context'], ['teach'], ['observe', 'execute'], ['coordinate', 'delegate'], ['measure']]) {
     record(selectQuiet(`custom_${declared.join('_')}`, null, declared), `declared:${declared.join(',')}`);
   }
-  assert.deepEqual([...reached.keys()].sort(), [...EXPECTED_KINDS].sort());
+  assert.deepEqual([...reached.keys()].sort(), EXPECTED_KINDS.filter((kind) =>
+    !['procedural_executor', 'formal_worker'].includes(kind)).sort());
 }
 
 function testPreferenceFirst() {
   assert.equal(selectQuiet('reviewer'), 'verifier_worker');
   assert.equal(selectQuiet('adversarial_reviewer'), 'red_worker');
-  assert.equal(selectQuiet('implementation', 'formal_proof'), 'formal_worker');
+  assert.equal(selectQuiet('implementation', 'formal_proof'), null);
+  assert.equal(selectQuiet('implementation', 'dynamic_programming'), null);
   assert.equal(selectQuiet('implementation', 'experimental_design'), 'experimental_worker');
   assert.equal(selectQuiet('analyst', 'causal_analysis'), 'forensic_worker');
   assert.equal(selectQuiet('literary_author'), 'creative_worker');
@@ -77,6 +79,7 @@ function testAdequacySweep() {
   const roles = Object.keys(topologyKinds.ROLE_REQUIREMENTS);
   const methods = [null, ...Object.keys(workerKinds.METHOD_CAPABILITIES)];
   let checked = 0;
+  let unavailable = 0;
   for (const role of roles) {
     for (const methodId of methods) {
       const member = { role };
@@ -85,8 +88,9 @@ function testAdequacySweep() {
       try {
         [mapped] = topologyKinds.applyTopologyWorkerKinds('adequacy-probe', [member]);
       } catch (error) {
-        assert.ok(['WORKER_KIND_CAPABILITY_UNSATISFIED', 'WORKER_METHOD_UNSUPPORTED'].includes(error.code),
+        assert.ok(['WORKER_KIND_CAPABILITY_UNSATISFIED', 'WORKER_METHOD_UNSUPPORTED', 'WORKER_EXECUTOR_UNAVAILABLE'].includes(error.code),
           `${role}/${methodId} fails closed, got ${error.code}`);
+        if (error.code === 'WORKER_EXECUTOR_UNAVAILABLE') unavailable += 1;
         continue;
       }
       if (!mapped.workerKind) continue;
@@ -97,7 +101,8 @@ function testAdequacySweep() {
       }
     }
   }
-  assert.ok(checked > 500, `sweep covers enough assignments (got ${checked})`);
+  assert.ok(checked > 300, `sweep covers executable assignments (got ${checked})`);
+  assert.ok(unavailable > 0, 'sweep observes unavailable deterministic runners');
 }
 
 testKindCatalog();

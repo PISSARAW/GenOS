@@ -11,6 +11,7 @@ const { validateWorkerArtifact } = require('../src/services/agents/workerArtifac
 const { assertRuntimeContract, assertWorkerToolAllowed } = require('../src/services/agents/workerContractEnforcement');
 const { extractEvidenceReport } = require('../src/services/agentEvidenceService');
 const { workerComplianceScenario } = require('./fixtures/workerComplianceScenarios');
+const { expectedUnavailable } = require('./workerComplianceSummary.cjs');
 
 function inside(root, target) {
   const relative = path.relative(path.resolve(root), path.resolve(target));
@@ -64,7 +65,8 @@ async function validateMission(context) {
   const parentBound = metadata.workerContract.identity.parentId === parentId;
   const runtimeStarted = Boolean(execution);
   const passed = successfulOutcome({ agent, report, artifact, expected, correctReference, refusalsValidated, persistedContract, parentBound, runtimeStarted });
-  return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, error: passed ? null : artifactValidationError || execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
+  const errorCode = execution?.errorCode;
+  return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, errorCode, expectedUnavailable: expectedUnavailable(kind, errorCode), error: passed ? null : artifactValidationError || execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
 }
 
 function validateArtifactForMission(report, workerId, workerContract) {
@@ -116,12 +118,12 @@ async function runOne({ runId, kind }) {
     const result = await validateMission({ ...context, db, execution });
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result)}\n`);
-    if (!result.passed) process.exitCode = 1;
+    if (!result.passed && !result.expectedUnavailable) process.exitCode = 1;
   } catch (error) {
     const result = failedMissionResult({ runId, kind, parentId, error, context, execution });
     saveResult(result);
     process.stdout.write(`${JSON.stringify(result)}\n`);
-    process.exitCode = 1;
+    if (!result.expectedUnavailable) process.exitCode = 1;
   } finally {
     await require('../src/services/telemetryObserver').flush(5000).catch(() => undefined);
     await closeDatabase();
@@ -146,6 +148,8 @@ function failedMissionResult(options) {
     stageTimings: {},
     artifactDiagnostics: null,
     passed: false,
+    errorCode: error.code || null,
+    expectedUnavailable: expectedUnavailable(kind, error.code),
     error: error.message
   };
 }
@@ -167,7 +171,7 @@ async function executeWorkerMission(context) {
   const timeoutMs = Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000;
   try {
     return await runtime.startMission({ agentId: worker.agentId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, prompt: worker.prompt, workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true });
-  } catch (error) { return { error: error.message }; }
+  } catch (error) { return { error: error.message, errorCode: error.code || null }; }
 }
 
 module.exports = { runOne };

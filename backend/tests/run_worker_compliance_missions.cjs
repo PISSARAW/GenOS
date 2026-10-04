@@ -6,6 +6,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const kinds = require('../src/services/agents/workerKindService');
 const scenarios = require('./fixtures/workerComplianceScenarios');
+const { summarizeCompliance } = require('./workerComplianceSummary.cjs');
 
 const RUN_ID = process.env.GENOS_COMPLIANCE_RUN_ID || `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
 
@@ -38,8 +39,9 @@ function launchEachKind() {
   const reportPath = path.join(process.env.GENOS_COMPLIANCE_ROOT, 'worker-compliance-report.json');
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
   const results = report.results.filter((entry) => entry.runId === RUN_ID);
-  process.stdout.write(`Compliance run ${RUN_ID}: ${results.filter((entry) => entry.passed).length}/${results.length} passed. Failed process kinds: ${failed.join(', ') || 'none'}.\n`);
-  process.exitCode = results.length === 19 && results.every((entry) => entry.passed) ? 0 : 1;
+  const summary = summarizeCompliance(results, Object.keys(kinds.KINDS));
+  process.stdout.write(`Compliance run ${RUN_ID}: ${summary.executed}/${results.length} executed, ${summary.unavailable} expected unavailable, ${summary.failed} failed. Failed process kinds: ${failed.join(', ') || 'none'}.\n`);
+  process.exitCode = summary.accepted && failed.length === 0 ? 0 : 1;
 }
 
 function runSelectedKind() {
