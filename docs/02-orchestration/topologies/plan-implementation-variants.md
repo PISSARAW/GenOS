@@ -67,6 +67,10 @@ topologies avant de promouvoir leur maturité.
   par les modèles ni l'effet runtime spécifique des 95 variants. Les 48 missions réelles et
   la vérification d'un effet runtime propre par variant restent à rejouer; la parité de
   maturité n'est donc pas encore démontrée.
+- Le compositeur A-Team reçoit désormais la capacité libre du garage au dispatch biologique;
+  une mission nécessitant cinq domaines passe avec cinq slots disponibles et échoue de façon
+  explicite avec quatre. Cette correction ferme un défaut de capacité, sans qualifier à elle
+  seule les autres variants A-Team.
 
 ## Plan par vagues
 

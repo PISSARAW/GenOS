@@ -97,6 +97,11 @@ de la partie 2 reste indicative tant que les unités et les paramètres $C$, $\k
 $\bar{c}$ ne sont pas calibrés sur des mesures runtime. Le runtime ne doit pas inventer ces
 valeurs ni revendiquer une optimisation globale qu'il ne calcule pas.
 
+Le dispatch biologique transmet au compositeur A-Team le nombre réel de slots libres du
+garage. Le test de régression vérifie qu'une mission à cinq domaines est composée avec cinq
+slots et refusée avec quatre; la valeur par défaut du compositeur ne réduit donc plus
+silencieusement la capacité disponible.
+
 Pour une première implémentation, la formation applique les contraintes dures avant tout
 score : couvrir chaque tâche requise, disposer des outils nécessaires, respecter le budget
 et les slots, puis préférer les profils vérifiés et les interfaces compatibles. Les scores
