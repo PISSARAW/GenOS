@@ -371,6 +371,9 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
   fournisseur avec expiration et les événements externes avec expiration. Le
   contenu fourni par l'appelant de `wake()` ne fait plus autorité pour ces
   conditions : le service relit les lignes persistées avant de reprendre.
+  Le réveil manuel `operator_or_signal` passe par
+  `POST /api/missions/:missionId/wake`, réservé aux administrateurs ; la route
+  utilise l'orchestrateur courant de la mission dormante.
   L'écriture passe par `POST /api/missions/:missionId/resources`, réservé aux
   administrateurs authentifiés, avec `kind` (`budget`, `provider`, `external`),
   `evidenceRef` et un identifiant d'observation `id` facultatif pour les retries.

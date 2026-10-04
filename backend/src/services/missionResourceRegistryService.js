@@ -66,9 +66,9 @@ async function record(db, input) {
   await ensureStorage(db);
   const observation = buildObservation(input);
   return withTransaction(db, async () => {
-    await assertMissionActive(db, input.missionId);
     const existing = await db.get('SELECT * FROM mission_resource_observations WHERE id = ?', observation.id);
     if (existing) return unchanged(existing, observation);
+    await assertMissionActive(db, input.missionId);
     await insertObservation(db, observation);
     return observation;
   });
