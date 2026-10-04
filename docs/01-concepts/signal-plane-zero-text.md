@@ -170,6 +170,8 @@ placées en quarantaine après trois échecs. Leur réponse est consultative.
 
 Les routes exigent `security:manage` et les en-têtes
 `X-Organization-Id` et `X-Project-Id`. L'agent cible doit appartenir au projet.
+La lecture de la boîte marque les signaux comme vus et exige donc aussi le
+droit d'écriture sur un projet actif.
 
 | Route | Effet |
 | --- | --- |

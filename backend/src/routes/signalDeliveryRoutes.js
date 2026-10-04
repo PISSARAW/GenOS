@@ -44,7 +44,7 @@ router.delete('/subscriptions', requireTenantScope({ write: true }), async (req,
   } catch (error) { next(error); }
 });
 
-router.get('/inbox/:agentId', async (req, res, next) => {
+router.get('/inbox/:agentId', requireTenantScope({ write: true }), async (req, res, next) => {
   try {
     const db = await getDatabase();
     if (!await scopedAgent(db, req.tenant, req.params.agentId)) return res.status(404).json({ signals: [] });
