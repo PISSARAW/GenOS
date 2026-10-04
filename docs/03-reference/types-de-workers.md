@@ -1423,3 +1423,13 @@ caractères chacun, pour 20 termes littéraux au maximum. Elle produit un
 référence de source et une incertitude explicite sur l'interprétation du
 texte. Elle ne lit aucun fichier ni site distant et ne juge pas la véracité
 des sources. Voir [ADR 0307](../adr/0307-observation-litterale-scout-cell.md).
+
+## 58. Transfert contrôlé de subset_sum (2026-10-04)
+
+La méthode `teach_subset_sum` exécute une instance bornée de `subset_sum`,
+produit les étapes de la procédure et vérifie les indices proposés par
+l'apprenant. Le `training_packet` conserve les prérequis, le reçu de la
+démonstration et le résultat du contrôle de transfert. Un paquet peut être
+produit avec un contrôle échoué ; il ne présente alors pas l'apprentissage
+comme réussi. Cette route ne mesure pas la rétention à long terme. Voir
+[ADR 0308](../adr/0308-transfert-subset-sum-teaching-worker.md).

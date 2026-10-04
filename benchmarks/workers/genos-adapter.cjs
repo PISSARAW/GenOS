@@ -9,6 +9,7 @@ const { runSynthesis } = require('../../backend/src/services/agents/deterministi
 const { runMonitor } = require('../../backend/src/services/agents/deterministicWorkerMonitor');
 const { runForensic } = require('../../backend/src/services/agents/deterministicWorkerForensic');
 const { runScout } = require('../../backend/src/services/agents/deterministicWorkerScout');
+const { runTeaching } = require('../../backend/src/services/agents/deterministicWorkerTeaching');
 
 const RUNNERS = Object.freeze({
   scout_cell: [runScout, 'scoutReceipt'],
@@ -18,7 +19,8 @@ const RUNNERS = Object.freeze({
   experimental_worker: [runExperiment, 'procedureReceipt'],
   synthesis_worker: [runSynthesis, 'synthesisReceipt'],
   resident_daemon: [runMonitor, 'monitorReceipt'],
-  forensic_worker: [runForensic, 'forensicReceipt']
+  forensic_worker: [runForensic, 'forensicReceipt'],
+  teaching_worker: [runTeaching, 'teachingReceipt']
 });
 
 async function runCase(testCase) {

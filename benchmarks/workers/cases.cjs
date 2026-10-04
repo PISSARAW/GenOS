@@ -59,7 +59,11 @@ const CASES = Object.freeze([
         causedBy: { eventId: 'deploy', receiptRef: 'incident://benchmark/causation' } }
     ] } }, oracle: { path: 'causalChain.0.from', equals: 'deploy' } },
   { id: 'liaison-delivery', workerKind: 'liaison_worker', task: 'Transmettre des références à un groupe destinataire avec reçu.' },
-  { id: 'teaching-transfer', workerKind: 'teaching_worker', task: 'Enseigner une procédure validée et contrôler son transfert.' },
+  { id: 'teaching-transfer', workerKind: 'teaching_worker', task: 'Enseigner subset_sum et contrôler un témoin d’apprentissage.',
+    methodContract: { version: 1, methodId: 'teach_subset_sum', parameters: {
+      procedure: VERIFICATION_PROCEDURE, learnerIndices: [0, 2],
+      prerequisites: ['Addition d’entiers', 'Indices distincts']
+    } }, oracle: { path: 'transferCheck.passed', equals: true } },
   { id: 'subgraph-delegation', workerKind: 'sub_orchestrator', task: 'Coordonner deux enfants dans un sous-graphe borné.' }
 ]);
 

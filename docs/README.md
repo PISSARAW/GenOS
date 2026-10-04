@@ -254,6 +254,7 @@ Index : [adr/README.md](adr/README.md)
 - [0305-fenetre-observation-resident-daemon.md](adr/0305-fenetre-observation-resident-daemon.md) — détection de dépassements dans une fenêtre bornée et référencée.
 - [0306-reconstruction-causes-declarees-forensic-worker.md](adr/0306-reconstruction-causes-declarees-forensic-worker.md) — reconstruction prudente des liens d'incident déclarés et référencés.
 - [0307-observation-litterale-scout-cell.md](adr/0307-observation-litterale-scout-cell.md) — détection littérale dans un corpus fourni, avec références et limites explicites.
+- [0308-transfert-subset-sum-teaching-worker.md](adr/0308-transfert-subset-sum-teaching-worker.md) — transmission d'une procédure exécutée et vérification d'un témoin d'apprentissage.
 - [0037-ecosysteme-agentique-11-15.md](adr/0037-ecosysteme-agentique-11-15.md) — écosystème agentique : environnement/niches, substrat cognitif natif-first, physiologie collective, plan de gouvernance, interoception collective.
 - [0038-boucle-controle-cognitif-morphogenese.md](adr/0038-boucle-controle-cognitif-morphogenese.md) — boucle de contrôle cognitif de la morphogenèse.
 - [0039-systemes-vitaux-agents-6-10.md](adr/0039-systemes-vitaux-agents-6-10.md) — systèmes vitaux 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux.

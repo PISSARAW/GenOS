@@ -56,11 +56,8 @@ async function missionFor(context) {
 }
 
 function complianceMethod(kind) {
-  if (kind === 'scout_cell' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SCOUT === '1') {
-    return { version: 1, methodId: 'scan_literal', parameters: {
-      sources: [{ sourceRef: 'corpus://compliance/log-1', text: 'status=ok timeout=30' }],
-      terms: ['timeout'] } };
-  }
+  const local = localComplianceMethod(kind);
+  if (local) return local;
   if (kind === 'procedural_executor') return { version: 1, methodId: 'lpt', parameters: {
     jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2
   } };
@@ -74,10 +71,24 @@ function complianceMethod(kind) {
     const candidateReceipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
     return { version: 1, methodId: 'verify_procedure', parameters: { procedure, candidateReceipt } };
   }
+  return additionalComplianceMethod(kind);
+}
+
+function localComplianceMethod(kind) {
   if (kind === 'forensic_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_FORENSIC === '1') {
     return forensicComplianceMethod();
   }
-  return additionalComplianceMethod(kind);
+  if (kind === 'teaching_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_TEACHING === '1') {
+    return { version: 1, methodId: 'teach_subset_sum', parameters: {
+      procedure: { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } },
+      learnerIndices: [0, 2], prerequisites: ['Integer addition'] } };
+  }
+  if (kind === 'scout_cell' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SCOUT === '1') {
+    return { version: 1, methodId: 'scan_literal', parameters: {
+      sources: [{ sourceRef: 'corpus://compliance/log-1', text: 'status=ok timeout=30' }],
+      terms: ['timeout'] } };
+  }
+  return null;
 }
 
 function forensicComplianceMethod() {
@@ -147,6 +158,10 @@ function correctMissionReference(kind, report, scenario) {
 }
 
 function observedMissionReference(kind, content) {
+  if (kind === 'teaching_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_TEACHING === '1') {
+    return content?.transferCheck?.passed === true
+      && solverReference(content?.teachingReceipt?.id);
+  }
   if (kind === 'scout_cell' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SCOUT === '1') {
     return content?.observations?.[0]?.offset === 10
       && solverReference(content?.scoutReceipt?.id);

@@ -47,6 +47,7 @@ const METHOD_CAPABILITIES = Object.freeze({
   synthesize_claims: ['synthesize', 'preserve_provenance'],
   monitor_samples: ['observe', 'execute'],
   scan_literal: ['observe'],
+  teach_subset_sum: ['teach'],
   clinical_review: ['clinical_context'],
   experimental_design: ['experiment'], controlled_experiment: ['experiment'],
   adversarial_review: ['adversarial_review'], threat_modeling: ['adversarial_review'],

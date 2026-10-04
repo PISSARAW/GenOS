@@ -5,7 +5,7 @@ const SPECIALIZED_METHODS = Object.freeze({
   verifier_worker: 'verify_procedure', red_worker: 'falsify_procedure',
   experimental_worker: 'measure_lpt', synthesis_worker: 'synthesize_claims',
   resident_daemon: 'monitor_samples', forensic_worker: 'trace_declared_causes',
-  scout_cell: 'scan_literal'
+  scout_cell: 'scan_literal', teaching_worker: 'teach_subset_sum'
 });
 const SPECIALIZED_RUNNERS = Object.freeze({
   verifier_worker: (method) => require('./deterministicWorkerVerifier').assertVerificationInput(method),
@@ -14,7 +14,8 @@ const SPECIALIZED_RUNNERS = Object.freeze({
   synthesis_worker: (method) => require('./deterministicWorkerSynthesis').assertSynthesisInput(method),
   resident_daemon: (method) => require('./deterministicWorkerMonitor').assertMonitorInput(method),
   forensic_worker: (method) => require('./deterministicWorkerForensic').assertForensicInput(method),
-  scout_cell: (method) => require('./deterministicWorkerScout').assertScoutInput(method)
+  scout_cell: (method) => require('./deterministicWorkerScout').assertScoutInput(method),
+  teaching_worker: (method) => require('./deterministicWorkerTeaching').assertTeachingInput(method)
 });
 
 function isDeterministicWorkerMission(mission) {
