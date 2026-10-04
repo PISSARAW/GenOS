@@ -1,14 +1,16 @@
 const assert = require('assert');
+const { randomUUID } = require('node:crypto');
 process.env.GENOS_MCP_LEASE = 'genos_biomimicry_cryptophasia';
 const { executeBioTool } = require('../src/services/mcpBioTools');
 
 async function runTest() {
+  const sessionId = `session-twin-crypto-${randomUUID()}`;
   console.log('=== TESTING CRYPTOPHASIA DUAL-LAYER DIALECT & AUDITING ===');
 
   // 1. Encode natural intent into dense dialect opcode
   const encodeRes = await executeBioTool('genos_biomimicry_cryptophasia', {
     action: 'encode_dialect',
-    session_id: 'session-twin-crypto',
+    session_id: sessionId,
     opcode: 'BISECT_REGRESSION',
     intent: 'Perform O(log N) bisection on snapshot timeline to locate regression culprit in workspace',
     payload: { targetSnapshot: 'snp-42', testCommand: 'npm test' }
@@ -23,7 +25,7 @@ async function runTest() {
   // 2. Decode dialect packet with chaperone verification
   const decodeRes = await executeBioTool('genos_biomimicry_cryptophasia', {
     action: 'decode_dialect',
-    session_id: 'session-twin-crypto',
+    session_id: sessionId,
     dialect_packet: encodeRes.dialect_packet
   });
 
@@ -37,7 +39,7 @@ async function runTest() {
   // 3. Extract complete chaperone audit trace for epistemic proof
   const auditRes = await executeBioTool('genos_biomimicry_cryptophasia', {
     action: 'audit_trace',
-    session_id: 'session-twin-crypto'
+    session_id: sessionId
   });
 
   assert.strictEqual(auditRes.success, true);
