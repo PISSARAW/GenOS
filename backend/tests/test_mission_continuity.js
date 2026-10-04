@@ -333,6 +333,25 @@ test('regeneration dispatches a worker once and requires functional proof', asyn
   }
 });
 
+test('verified replacement determines the effective mission outcome', async () => {
+  const missionId = `effective_${Date.now()}`;
+  const rootId = `${missionId}_root`;
+  const lostId = `${missionId}_lost`;
+  const replacementId = `${missionId}_replacement`;
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, 'Root', 'orchestrator', 'completed', 'orchestrator')", rootId);
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id) VALUES (?, 'Lost', 'verifier', 'error', 'worker', ?)", lostId, rootId);
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id) VALUES (?, 'Replacement', 'verifier', 'idle', 'worker', ?)", replacementId, rootId);
+  await missionIdentity.create(db, { missionId, objective: 'Verify replacement', orchestratorAgentId: rootId });
+  await missionIdentity.attachAgent(db, { missionId, agentId: lostId, role: 'verifier' });
+  await missionIdentity.attachAgent(db, { missionId, agentId: replacementId, role: 'verifier' });
+  const attempts = require('../src/services/regenerationAttemptService');
+  await attempts.reserve(db, { missionId, lostIdentifier: lostId, replacementId, role: 'verifier' });
+  await attempts.mark(db, { missionId, lostIdentifier: lostId, replacementId, status: 'verified', evidenceRef: 'sha256:proof' });
+  const result = await missionContinuity.effectiveMissionOutcome(db, missionId);
+  assert.equal(result.outcome.success, true);
+  assert.equal(result.members.some(agent => agent.id === lostId), true, 'loss remains in historical membership');
+});
+
 async function main() {
   let passed = 0;
   let failed = 0;
