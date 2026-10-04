@@ -6,6 +6,7 @@ reproduction, et les 8 modes de composition (topologies).
 ## Exécution
 
 - [orchestration.md](orchestration.md) — branches, preuve avant validation, survivants, fan-out.
+- [g-cir.md](g-cir.md) — interface cognitive résiduelle, contrat du Signal Plane, visibilité, validation et limites.
 - [agow.md](agow.md) — circuit AGOW, autorité runtime, contrats, modes et maturité des intégrations.
 - [ontogenese-boucle.md](ontogenese-boucle.md) — boucle Observer → réévaluer : sélection tâches/topologies, autorisation, réveils, notifications.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
