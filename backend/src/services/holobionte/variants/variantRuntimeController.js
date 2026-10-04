@@ -8,7 +8,7 @@ const { createWorkflowRunner } = require('./variantWorkflowService');
 
 const OPERATIONS = Object.freeze({
   organelle: ['assessOrganelle', 'testOrganelleEssentiality'],
-  'adaptive-microbiome': ['assessEcology', 'planRecruitment', 'selectCompetitivePartner'],
+  'adaptive-microbiome': ['assessEcology', 'simulateEcology', 'planRecruitment', 'selectCompetitivePartner'],
   'immune-critical': ['reviewImmuneThreat', 'reviewImmuneThreatBatch'],
   'local-first': ['planPlacement', 'planPlacementBatch'],
   'regenerative': ['planRegeneration'],

@@ -137,6 +137,34 @@ function assessEcology(input = {}) {
     dysbiosis, automaticReplacement: false };
 }
 
+async function simulateEcology(input = {}) {
+  const cycles = Number(input.cycles ?? 20);
+  if (!Number.isInteger(cycles) || cycles < 1 || cycles > 20) throw invalid('Ecology simulation is limited to 1–20 cycles.');
+  if (typeof input.evaluateCycle !== 'function') throw invalid('A cycle evaluator is required.', 'HOLOBIONT_ECOLOGY_EVALUATOR_REQUIRED');
+  const history = [];
+  let state = input.initialState || {};
+  for (let cycle = 0; cycle < cycles; cycle += 1) {
+    const result = await input.evaluateCycle({ cycle: cycle + 1, state, history: history.slice() });
+    if (!result || typeof result !== 'object' || Array.isArray(result)) throw invalid('Cycle evaluator returned an invalid record.');
+    const cycleEvidence = evidence(result.evidenceRefs, `cycle ${cycle + 1} evidenceRefs`);
+    const fitness = score(result.fitness, `cycle ${cycle + 1} fitness`);
+    const diversity = Number(result.diversity);
+    if (!Number.isInteger(diversity) || diversity < 0) throw invalid(`Cycle ${cycle + 1} diversity must be a non-negative integer.`);
+    history.push({ cycle: cycle + 1, fitness, evidenceRefs: cycleEvidence, diversity, dysbiosis: result.dysbiosis === true });
+    state = result.state || state;
+    if (result.stop === true || result.dysbiosis === true) break;
+  }
+  const first = history[0];
+  const last = history[history.length - 1];
+  const delta = last.fitness - first.fitness;
+  const action = history.some((item) => item.dysbiosis) ? 'QUARANTINE_AND_REVIEW'
+    : last.diversity < Number(input.diversityFloor ?? 2) ? 'ACQUIRE_CANDIDATE'
+    : history.some((item, index) => index > 0 && item.fitness < history[index - 1].fitness) ? 'REVIEW_CONTRIBUTORS'
+      : 'CONTINUE';
+  return { status: 'SIMULATED', cyclesCompleted: history.length, history, fitnessDelta: delta,
+    action, automaticReplacement: false, finalState: state };
+}
+
 function placementVariant(input) {
   const requirement = String(input.variantId || 'local-first');
   const edgeCore = requirement === 'edge-core/cloud-symbionts';
@@ -353,6 +381,6 @@ function createProofHash(value) {
   return `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
 }
 
-module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, planPlacement, planMemory,
+module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, simulateEcology, planPlacement, planMemory,
   selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
   validateToolInvocation, authorizeToolInvocation, reconcileEdgeEvents, planRegeneration, planPlacementBatch, createProofHash };

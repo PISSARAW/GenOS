@@ -304,6 +304,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0275b](0275-execution-campagne-gvx.md) | Exécution vérifiée des campagnes GVX | Accepté | 2026-10-02 | GVX, benchmarks, preuves, exécution |
 | [0276](0276-phases-runtime-core-et-portefeuille.md) | Séparation des phases du runtime core et du portefeuille de stratégies | Accepté | 2026-10-03 | Orchestration, stratégie, leases, benchmarks |
 | [0277](0277-workflows-persistants-holobionte.md) | Workflows persistants du runtime Holobionte | Accepté | 2026-10-04 | Holobionte, orchestration, reçus d'exécution |
+| [0278](0278-simulation-ecologique-bornee.md) | Simulation écologique bornée du Holobionte | Accepté | 2026-10-04 | Holobionte, microbiome adaptatif, fitness |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
