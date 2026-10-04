@@ -1,7 +1,7 @@
 
 use serde::{Deserialize, Serialize};
 use crate::genome::{Genome, DnaStrand};
-use uuid::Uuid;
+use rand::SeedableRng;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum HybridizationResult {
@@ -72,27 +72,8 @@ impl PhylogeneticTree {
             return HybridizationResult::Incompatible;
         }
 
-        let mut child_genome = genome_a.derive_reproductive_child();
-        child_genome.set_identity(uuid::Uuid::new_v4());
-        child_genome.parent_ids = vec![genome_a.genome_id(), genome_b.genome_id()];
-        child_genome.generation = genome_a.generation.max(genome_b.generation).saturating_add(1);
-
-        // Recombine chromosomes using crossover
-        let (a_mat, a_pat) = crate::reproduction::strand_crossover(
-            &genome_a.chromosome_maternal,
-            &genome_a.chromosome_paternal,
-            &mut rand::rngs::StdRng::seed_from_u64(42)
-        );
-        let (b_mat, b_pat) = crate::reproduction::strand_crossover(
-            &genome_b.chromosome_maternal,
-            &genome_b.chromosome_paternal,
-            &mut rand::rngs::StdRng::seed_from_u64(43)
-        );
-        child_genome.chromosome_maternal = a_mat;
-        child_genome.chromosome_paternal = b_pat;
-
-        // Recombine genes from both parents
-        child_genome.genes = crate::reproduction::inherit_genes(genome_a, genome_b, &mut rand::rngs::StdRng::seed_from_u64(44));
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let mut child_genome = genos_genome::reproduction::fertilize(genome_a, genome_b, &mut rng);
 
         // Merge extra chromosomes with dedup and cap
         child_genome.extra_chromosomes = Self::merge_extra_chromosomes(genome_a, genome_b);
