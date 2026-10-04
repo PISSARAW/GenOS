@@ -46,4 +46,14 @@ const baselineWorker = workerLaunchPayload({
 assert.ok(baselineWorker.mission.includes('ISOLATED BASELINE'));
 assert.deepEqual(baselineWorker.toolLease, ['genos_snapshot']);
 
+const localModelWorker = workerLaunchPayload({
+  context: { ...context, request: { ...context.request, executor: undefined, localModel: 'ollama://qwen2.5-coder:7b' } },
+  member: { role: 'analyst', mission: 'Analyze evidence', engine: 'cloud' },
+  workerId: 'local-model-worker', parent: { workspace_root: '/workspace' }
+});
+assert.equal(localModelWorker.executor, 'local');
+assert.equal(localModelWorker.localRuntime, true);
+assert.equal(localModelWorker.localModel, 'ollama://qwen2.5-coder:7b');
+assert.equal(localModelWorker.localRoutingPolicy.primary, 'ollama://qwen2.5-coder:7b');
+
 console.log('Topology worker launch payload: PASS');
