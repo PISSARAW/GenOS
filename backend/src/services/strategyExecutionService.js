@@ -133,6 +133,8 @@ async function evaluateAeisPromotion(db, request) {
       immuneMemory,
       db,
       multiProviderEnabled: promotion.contract?.problem_profile?.multi_provider_verification === true,
+      providerAllowlist: promotion.contract?.problem_profile?.aeis_provider_allowlist || [],
+      scopeId, runId: id,
       allowedWorkspaceRoot: workspace.path,
     });
   } catch (error) {

@@ -329,6 +329,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0297b](0297-protocoles-de-responsabilite-shev.md) | Protocoles de responsabilité, surveillance et transfert SHEV | Accepté | 2026-10-04 | SHEV, mandat, récupération, GVX, évaluation |
 | [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
 | [0295a](0295-memoire-immunitaire-portee-et-oracle.md) | Mémoire immunitaire AEIS portée et résolue par preuve | Accepté | 2026-10-04 | AEIS, mémoire, SQLite, multitenance |
+| [0296b](0296-revue-multi-fournisseur-aeis.md) | Revue AEIS par fournisseurs indépendants | Accepté | 2026-10-04 | AEIS, fournisseurs, processus, promotion |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers. Les chemins sont conservés (ADR 0005) et l'index
