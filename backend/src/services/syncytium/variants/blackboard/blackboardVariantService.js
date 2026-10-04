@@ -89,7 +89,8 @@ async function read(sessionId, options = {}, syncytium) {
   const now = Number.isSafeInteger(options.now) ? options.now : Date.now();
   const visible = events.filter((event) => !event.expiresAt || event.expiresAt > now);
   const filtered = filter ? visible.filter((event) => event.eventType === filter) : visible;
-  const resolved = new Set(visible.map((event) => event.respondsTo).filter(Boolean));
+  const questionIds = new Set(visible.filter(isOpenQuestion).map((event) => event.eventId));
+  const resolved = new Set(visible.filter(isAnswer).map((event) => event.respondsTo).filter((id) => questionIds.has(id)));
   const unresolvedQuestions = visible.filter(isOpenQuestion).filter((event) => !resolved.has(event.eventId));
   const priorityQueue = [...filtered].sort(comparePriority);
   return { ...snapshot, blackboard: filtered, priorityQueue, unresolvedQuestions };
@@ -97,6 +98,10 @@ async function read(sessionId, options = {}, syncytium) {
 
 function isOpenQuestion(event) {
   return ['new_problem', 'request_verification', 'unresolved_dependency'].includes(event.eventType);
+}
+
+function isAnswer(event) {
+  return ['new_evidence', 'result'].includes(event.eventType) && typeof event.respondsTo === 'string';
 }
 
 function comparePriority(left, right) {
