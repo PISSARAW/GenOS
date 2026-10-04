@@ -20,6 +20,7 @@ Les nouvelles capsules portent les octets UTF-8 directs avec `encoding = "UTF-8"
 Le décodeur accepte aussi `UTF-8-2BIT-DNA` pour les anciennes capsules. Le nom
 Protobuf `prompt_dna` reste inchangé pour préserver le numéro de champ et la
 compatibilité du message ; sa sémantique dépend du champ `encoding`.
+Les deux variantes refusent les octets UTF-8 invalides au décodage.
 
 La décision porte sur les octets du transport. Elle ne prétend ni supprimer le
 prompt du modèle, ni prouver une économie de tokens fournisseur.

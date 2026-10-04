@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const protobuf = require('protobufjs');
 const path = require('node:path');
-const { promptToDna, encodePromptCapsule, decodePromptCapsule } = require('../src/services/promptTransport');
+const { promptToDna, dnaToPrompt, encodePromptCapsule, decodePromptCapsule } = require('../src/services/promptTransport');
 const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 
 const prompt = 'Analyser la synapse Δ et produire une preuve courte.';
@@ -19,6 +19,11 @@ const legacy = PromptCapsule.encode(PromptCapsule.create({
   promptDna: promptToDna(prompt), encoding: 'UTF-8-2BIT-DNA'
 })).finish();
 assert.equal(decodePromptCapsule(legacy).prompt, prompt);
+const invalidUtf8 = PromptCapsule.encode(PromptCapsule.create({
+  promptDna: Buffer.from([0xc3, 0x28]), encoding: 'UTF-8'
+})).finish();
+assert.throws(() => decodePromptCapsule(invalidUtf8), /invalid UTF-8/);
+assert.throws(() => dnaToPrompt(Buffer.from('TAATAGGA')), /invalid UTF-8/);
 
 const frame = encodeMission({ agentId: 'worker', orchestratorAgentId: 'orch', prompt });
 const decodedMission = decodeMission(frame);

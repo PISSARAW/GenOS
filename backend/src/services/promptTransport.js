@@ -2,11 +2,18 @@
 
 const path = require('path');
 const protobuf = require('protobufjs');
+const { TextDecoder } = require('node:util');
 
 const root = protobuf.loadSync(path.resolve(__dirname, '../proto/synapse.proto'));
 const PromptCapsule = root.lookupType('synapse.PromptCapsule');
 const DNA_ALPHABET = ['A', 'C', 'G', 'T'];
 const DNA_INDEX = new Map(DNA_ALPHABET.map((base, index) => [base, index]));
+const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+
+function decodeUtf8(bytes) {
+  try { return utf8Decoder.decode(bytes); }
+  catch (error) { throw new Error('Prompt capsule contains invalid UTF-8.', { cause: error }); }
+}
 
 function promptToDna(prompt) {
   const bytes = Buffer.from(String(prompt || ''), 'utf8');
@@ -30,7 +37,7 @@ function dnaToPrompt(dna) {
     if (values.some((value) => value === undefined)) throw new Error('Prompt DNA strand contains an invalid base.');
     bytes[index / 4] = (values[0] << 6) | (values[1] << 4) | (values[2] << 2) | values[3];
   }
-  return bytes.toString('utf8');
+  return decodeUtf8(bytes);
 }
 
 function encodePromptCapsule({ prompt, sourceAgentId = '', recipientAgentId = '' }) {
@@ -49,7 +56,7 @@ function decodePromptCapsule(buffer) {
     throw new Error(`Unsupported prompt capsule encoding '${message.encoding}'.`);
   }
   return {
-    prompt: message.encoding === 'UTF-8' ? Buffer.from(message.promptDna).toString('utf8') : dnaToPrompt(message.promptDna),
+    prompt: message.encoding === 'UTF-8' ? decodeUtf8(message.promptDna) : dnaToPrompt(message.promptDna),
     sourceAgentId: message.sourceAgentId,
     recipientAgentId: message.recipientAgentId
   };
