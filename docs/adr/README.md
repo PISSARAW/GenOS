@@ -365,6 +365,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0306](0306-reconstruction-causes-declarees-forensic-worker.md) | Reconstruction des causes déclarées du forensic worker | Accepté | 2026-10-04 | Workers, analyse d'incident, provenance |
 | [0307](0307-observation-litterale-scout-cell.md) | Observation littérale du scout cell | Accepté | 2026-10-04 | Workers, observation, provenance |
 | [0308](0308-transfert-subset-sum-teaching-worker.md) | Transfert contrôlé de subset_sum par le teaching worker | Accepté | 2026-10-04 | Workers, transmission, vérification |
+| [0309](0309-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

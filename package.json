@@ -21,6 +21,9 @@
     "docs:inventory:check": "node scripts/docs/generate-technical-inventory.js --check"
   },
   "dependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "chrome-launcher": "^1.2.2",
+    "lighthouse": "^12.8.2",
     "msgpackr": "^2.1.0",
     "playwright": "^1.63.0",
     "puppeteer": "^25.10.0"

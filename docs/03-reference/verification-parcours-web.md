@@ -40,12 +40,42 @@ assertions. Le reçu JSON est écrit dans `.genos/workspace/browser-verification
 (`GENOS_BROWSER_VERIFICATION_ARTIFACTS_DIR` permet de changer ce répertoire)
 avec une empreinte SHA-256 dans `evidenceRefs`. Il conserve les résultats des
 assertions et l'empreinte du parcours, sans recopier les valeurs des actions.
-Le triplet `result`, `verifierRef`, `evidenceRefs` peut alimenter un vérificateur
-d'effet SHEV lorsque ce module est présent dans la branche utilisée. Le reçu
-ne constitue pas, à lui seul, une décision de promotion.
+Le triplet `result`, `verifierRef`, `evidenceRefs` alimente le contrôle d'effet
+SHEV décrit ci-dessous. Le reçu ne constitue pas, à lui seul, une décision de
+promotion.
+
+## Audits Lighthouse, axe-core et observations SHEV
+
+`WebAuditService` exécute les capteurs demandés dans cet ordre : Lighthouse,
+axe-core, puis le parcours Playwright. Chaque capteur retourne `confirmed`,
+`regressed` ou `inconclusive`. Un échec mesuré classe le contrôle global comme
+`regressed` ; l'absence de toute régression et un contrôle incomplet donnent
+`inconclusive`. Seuls des contrôles tous confirmés donnent `confirmed`.
+
+La configuration exige des seuils explicites pour les catégories Lighthouse
+(`performance`, `accessibility`, `best-practices`, `seo`) et pour le nombre maximal
+de violations axe-core. Ces seuils font partie de l'empreinte de configuration.
+Le reçu JSON conserve les scores, les règles axe-core violées et les assertions
+Playwright. L'analyse axe-core ne couvre que les règles automatisables ; un reçu
+vert ne prouve pas l'accessibilité complète de l'application.
+
+L'adaptateur `shev/adapters/webAuditAdapter.js` inscrit une observation
+`degradation`, `state` ou `blind_spot` dans la dimension du mandat. Une
+dégradation observée peut créer une initiative SHEV selon les droits du mandat.
+Après la tâche du worker, `verifyWebEffect` relance les mêmes contrôles. Il
+refuse un changement de critères, exige une tâche terminée et n'inscrit un effet
+confirmé que sur un nouveau reçu observé. Un contrôle inconclusif conserve son
+observation, sans confirmer l'effet. Le résultat du worker n'est pas une preuve.
+
+Lighthouse est réservé à des URL choisies par l'opérateur : son navigateur
+effectue ses propres requêtes et n'emploie pas l'interception Playwright des
+ressources secondaires. Ne pas auditer une page non fiable avec ce capteur.
+La liste `GENOS_BROWSER_VERIFICATION_HOSTS` reste obligatoire pour les URL
+initiales et finales ; la liste vide refuse le contrôle.
 
 Exécuter le test avec un navigateur disponible :
 
 ```bash
 npm --prefix backend run test:web-journey
+npm --prefix backend run test:web-audits
 ```
