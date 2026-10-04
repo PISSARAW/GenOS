@@ -1,7 +1,10 @@
 'use strict';
 
 const { spawnSync } = require('node:child_process');
+const crypto = require('node:crypto');
 const path = require('node:path');
+
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= crypto.randomBytes(32).toString('hex');
 
 const cases = [
   'test_aeis_e2e.js',
