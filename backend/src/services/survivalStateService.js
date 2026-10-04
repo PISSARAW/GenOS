@@ -200,11 +200,34 @@ async function resolveWakeContext(db, command, id) {
   if (armed.agentId !== id) return { success: false, code: 'SURVIVAL_WAKE_AGENT_MISMATCH' };
   const current = await get(db, id);
   if (!current || current.state !== 'dormant') return { success: false, code: 'SURVIVAL_NOT_DORMANT', state: current };
+  const snapshotCheck = await checkWakeSnapshot(db, armed, current);
+  if (!snapshotCheck.success) return snapshotCheck;
+  const missionCheck = await checkWakeMission(db, armed, id);
+  if (!missionCheck.success) return missionCheck;
+  return { success: true, armed, current };
+}
+
+async function checkWakeSnapshot(db, armed, current) {
   if (!current.snapshotId) return { success: false, code: 'SURVIVAL_SNAPSHOT_REQUIRED' };
   if (armed.snapshotId !== current.snapshotId) return { success: false, code: 'SURVIVAL_WAKE_SNAPSHOT_MISMATCH' };
   const persistedSnapshot = await db.get("SELECT snapshot_id FROM cryptobiosis_snapshots WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
   if (!persistedSnapshot) return { success: false, code: 'SURVIVAL_SNAPSHOT_NOT_FOUND' };
-  return { success: true, armed, current };
+  return { success: true };
+}
+
+async function checkWakeMission(db, armed, agentId) {
+  if (!armed.missionId) return { success: true };
+  const mission = await require('./missionIdentityService').get(db, armed.missionId);
+  if (mission?.status !== 'dormant' || mission.orchestratorAgentId !== agentId) {
+    return { success: false, code: 'SURVIVAL_WAKE_MISSION_MISMATCH' };
+  }
+  try {
+    await require('./missionSuccessionService').assertDormantRuntimeStopped(db, mission);
+    return { success: true };
+  } catch (error) {
+    if (error.code === 'MISSION_DORMANT_RUNTIME_ACTIVE') return { success: false, code: error.code };
+    throw error;
+  }
 }
 
 async function wake(db, command = {}) {

@@ -43,4 +43,4 @@ async function assertDormantRuntimeStopped(db, previous) {
     code: 'MISSION_DORMANT_RUNTIME_ACTIVE'
   });
 }
-module.exports = { resumeWithAuthority };
+module.exports = { resumeWithAuthority, assertDormantRuntimeStopped };
