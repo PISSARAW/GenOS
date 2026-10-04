@@ -4,6 +4,7 @@ const { evaluateSurvival } = require('./survivalModelService');
 const resilience = require('./resilienceService');
 const wakeService = require('./survivalWakeService');
 const crypto = require('crypto');
+const { withTransaction } = require('../db');
 
 const STATES = Object.freeze(['nominal', 'stressed', 'protected', 'dormant', 'waking', 'recovered', 'quarantined']);
 const PRESSURE_STATES = new Set(['starvation', 'infection', 'injury', 'predation', 'overgrowth', 'isolation', 'conflict', 'senescence', 'habitat_loss', 'stagnation']);
@@ -111,12 +112,17 @@ async function transition(db, command = {}) {
 
 async function suspend(db, command = {}) {
   const id = ensureAgentId(command.agentId);
-  await assertMissionOrchestrator(db, command.missionId, id);
-  const snapshot = await freezeMissionSnapshot({ db, command, agentId: id });
-  const wake = await armPersistedWake({ db, command, agentId: id, snapshot });
-  const state = await observeDormancy({ db, agentId: id, snapshot, wake });
-  if (command.missionId) await require('./missionIdentityService').setStatus(db, command.missionId, 'dormant');
-  return { success: true, state, snapshot, wakeCondition: wake };
+  if (command.missionId && !normalizeIndependentMission(command.mission)) {
+    throw Object.assign(new Error('A resumable mission objective is required for dormancy.'), { code: 'SURVIVAL_MISSION_REQUIRED' });
+  }
+  return withTransaction(db, async () => {
+    await assertMissionOrchestrator(db, command.missionId, id);
+    const snapshot = await freezeMissionSnapshot({ db, command, agentId: id });
+    const wake = await armPersistedWake({ db, command, agentId: id, snapshot });
+    const state = await observeDormancy({ db, agentId: id, snapshot, wake });
+    if (command.missionId) await require('./missionIdentityService').setStatus(db, command.missionId, 'dormant');
+    return { success: true, state, snapshot, wakeCondition: wake };
+  });
 }
 
 async function assertMissionOrchestrator(db, missionId, agentId) {
@@ -143,7 +149,8 @@ async function armPersistedWake(input) {
   if (!persisted) throw Object.assign(new Error('A persisted frozen snapshot is required before arming wake.'), { code: 'SURVIVAL_SNAPSHOT_REQUIRED' });
   return wakeService.arm({
     db, agentId, condition: command.wakeCondition || { type: 'operator_or_signal' },
-    snapshotId: persisted.snapshot_id, organizationId: command.organizationId, projectId: command.projectId
+    snapshotId: persisted.snapshot_id, missionId: command.missionId,
+    organizationId: command.organizationId, projectId: command.projectId
   });
 }
 
@@ -190,23 +197,53 @@ async function recordActionReceipt(db, receipt = {}) {
 async function resolveWakeContext(db, command, id) {
   const armed = command.wakeConditionId ? await wakeService.get({ db, id: command.wakeConditionId }) : (await wakeService.listArmed({ db, agentId: id }))[0];
   if (!armed || armed.status !== 'armed') return { success: false, code: 'WAKE_CONDITION_NOT_ARMED' };
+  if (armed.agentId !== id) return { success: false, code: 'SURVIVAL_WAKE_AGENT_MISMATCH' };
   const current = await get(db, id);
   if (!current || current.state !== 'dormant') return { success: false, code: 'SURVIVAL_NOT_DORMANT', state: current };
+  const snapshotCheck = await checkWakeSnapshot(db, armed, current);
+  if (!snapshotCheck.success) return snapshotCheck;
+  const missionCheck = await checkWakeMission(db, armed, id);
+  if (!missionCheck.success) return missionCheck;
+  return { success: true, armed, current };
+}
+
+async function checkWakeSnapshot(db, armed, current) {
   if (!current.snapshotId) return { success: false, code: 'SURVIVAL_SNAPSHOT_REQUIRED' };
   if (armed.snapshotId !== current.snapshotId) return { success: false, code: 'SURVIVAL_WAKE_SNAPSHOT_MISMATCH' };
   const persistedSnapshot = await db.get("SELECT snapshot_id FROM cryptobiosis_snapshots WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
   if (!persistedSnapshot) return { success: false, code: 'SURVIVAL_SNAPSHOT_NOT_FOUND' };
-  return { success: true, armed, current };
+  return { success: true };
+}
+
+async function checkWakeMission(db, armed, agentId) {
+  if (!armed.missionId) return { success: true };
+  const mission = await require('./missionIdentityService').get(db, armed.missionId);
+  if (mission?.status !== 'dormant' || mission.orchestratorAgentId !== agentId) {
+    return { success: false, code: 'SURVIVAL_WAKE_MISSION_MISMATCH' };
+  }
+  try {
+    await require('./missionSuccessionService').assertDormantRuntimeStopped(db, mission);
+    return { success: true };
+  } catch (error) {
+    if (error.code === 'MISSION_DORMANT_RUNTIME_ACTIVE') return { success: false, code: error.code };
+    throw error;
+  }
 }
 
 async function wake(db, command = {}) {
   const id = ensureAgentId(command.agentId);
-  const context = await resolveWakeContext(db, command, id);
-  if (!context.success) return context;
-  if (!wakeConditionSatisfied(context.armed, command.event)) return { success: false, code: 'SURVIVAL_WAKE_EVENT_MISMATCH' };
-  const claim = await wakeService.trigger({ db, id: context.armed.id });
-  if (!claim.claimed) return { success: false, code: 'SURVIVAL_WAKE_ALREADY_CLAIMED' };
-  return completeWake({ db, command, agentId: id, context });
+  const claimed = await withTransaction(db, async () => {
+    const context = await resolveWakeContext(db, command, id);
+    if (!context.success) return context;
+    if (!await wakeConditionSatisfied(db, context.armed, command.event)) {
+      return { success: false, code: 'SURVIVAL_WAKE_EVENT_MISMATCH' };
+    }
+    const claim = await wakeService.trigger({ db, id: context.armed.id });
+    return claim.claimed ? { success: true, context }
+      : { success: false, code: 'SURVIVAL_WAKE_ALREADY_CLAIMED' };
+  });
+  if (!claimed.success) return claimed;
+  return completeWake({ db, command, agentId: id, context: claimed.context });
 }
 
 async function completeWake(input) {
@@ -223,30 +260,39 @@ async function completeWake(input) {
   return finishWake({ db, command, agentId, current, armed, restored, resumed });
 }
 
-function wakeConditionSatisfied(armed, event) {
-  return armed.condition.type === 'operator_or_signal' || Boolean(event && wakeEventMatches(armed.condition, event));
+async function wakeConditionSatisfied(db, armed, event) {
+  if (armed.condition.type === 'operator_or_signal') return event?.type === 'operator_signal' && event.authorized === true;
+  if (armed.condition.type === 'time_elapsed') return hasElapsed(armed.condition);
+  if (!event || ![event.type, event.kind].includes(armed.condition.type)) return false;
+  return require('./missionResourceRegistryService').satisfies(db, armed);
 }
 
 async function preserveDormancy(input) {
   const { db, agentId, current, armed, resumed } = input;
-  await observe(db, agentId, { forcedState: 'dormant', snapshotId: current.snapshotId, wakeConditionId: armed.id });
-  await wakeService.rearm({ db, id: armed.id });
-  await db.run("UPDATE cryptobiosis_snapshots SET status = 'frozen', thawed_at = NULL WHERE snapshot_id = ?", current.snapshotId);
+  await withTransaction(db, async () => {
+    await observe(db, agentId, { forcedState: 'dormant', snapshotId: current.snapshotId, wakeConditionId: armed.id });
+    await wakeService.rearm({ db, id: armed.id });
+    await db.run("UPDATE cryptobiosis_snapshots SET status = 'frozen', thawed_at = NULL WHERE snapshot_id = ?", current.snapshotId);
+  });
   return resumed;
 }
 
 async function finishWake(input) {
   const { db, command, agentId, current, armed, restored, resumed } = input;
-  await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
-  const state = await observe(db, agentId, {
-    energy: command.energy ?? 1, forcedState: 'recovered', snapshotId: current.snapshotId, wakeConditionId: armed.id
+  const state = await withTransaction(db, async () => {
+    await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ? AND status = 'frozen'", current.snapshotId);
+    return observe(db, agentId, {
+      energy: command.energy ?? 1, forcedState: 'recovered', snapshotId: current.snapshotId, wakeConditionId: armed.id
+    });
   });
   return { success: true, restored, state, resumed };
 }
 
 async function resumeMission(db, input = {}) {
   const { command, mission, restored, agentId } = input;
-  if (!mission) return { success: true, resumed: null };
+  if (!mission) return restored.state?.missionId
+    ? { success: false, code: 'SURVIVAL_MISSION_REQUIRED' }
+    : { success: true, resumed: null };
   const successorId = command.orchestratorAgentId || agentId;
   try {
     const resumed = await require('./missionSuccessionService').resumeWithAuthority(db, {
@@ -260,43 +306,9 @@ async function resumeMission(db, input = {}) {
   }
 }
 
-function wakeEventMatches(condition, event) {
-  const kind = condition?.type || condition?.kind;
-  if (!kind || !event || ![event.type, event.kind].includes(kind)) return false;
-  return matchWakePayload(kind, condition.payload || condition, event);
-}
-
-function matchWakePayload(kind, expected, event) {
-  const matches = {
-    budget_added: hasMinimumBudget, budget_restored: hasMinimumBudget,
-    provider_available: matchesProvider, human_resolves_gate: resolvesGate,
-    time_elapsed: hasElapsed, external_event: matchesExternalEvent
-  }[kind];
-  return matches ? matches(expected, event) : true;
-}
-
-function hasMinimumBudget(expected, event) {
-  const minimum = Number(expected.minimumTokens || 0);
-  const available = Number(event.availableTokens ?? event.tokens ?? -1);
-  return available >= minimum;
-}
-
-function matchesProvider(expected, event) {
-  return !expected.providerId || event.providerId === expected.providerId;
-}
-
-function resolvesGate(expected, event) {
-  return event.resolved === true && (!expected.gateId || event.gateId === expected.gateId);
-}
-
-function matchesExternalEvent(expected, event) {
-  return !expected.eventName || event.eventName === expected.eventName;
-}
-
-function hasElapsed(expected, event) {
+function hasElapsed(expected) {
   const dueAt = Date.parse(expected.dueAt || expected.at || '');
-  const eventAt = Date.parse(event.at || new Date().toISOString());
-  return Number.isFinite(dueAt) && eventAt >= dueAt;
+  return Number.isFinite(dueAt) && Date.now() >= dueAt;
 }
 
 module.exports = { STATES, get, observe, transition, suspend, wake, recoveryPlan, recordActionReceipt, RECEIPT_TYPES, ensureStorage };

@@ -122,6 +122,7 @@ async function bootstrapWorkerDatabase() {
   if (process.env.GENOS_RUNTIME_MAINTENANCE === '1') {
     await circuitBreaker.hydrateToolLocks(db);
     await runtimeAdapter.reconcilePersistedRuntimes(db);
+    require('./src/services/survivalWakeSchedulerService').start(db);
     await reconcileDetachedProcesses(db);
     await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
     await workspaceSnapshotStore.reconcileSnapshotArtifacts(db).catch((error) => {
@@ -199,6 +200,7 @@ function registerWorkerShutdown(server, grpcServer, db) {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[GenOS Backend] Received ${signal}; draining requests.`);
+    require('./src/services/survivalWakeSchedulerService').stop();
     await jobWorker.stopJobWorker({ drain: true, timeoutMs: 30000 });
     await trinityMonitorServer.stop();
     await telemetry.flush(5000);

@@ -126,6 +126,17 @@ function mergeMetadataJson(existing, nceMetadata) {
   return metadataJson;
 }
 
+function contractEvaluationMode(policyRequest, request) {
+  const readOnlyModes = new Set(['factual_read_only', 'formal_read_only']);
+  return readOnlyModes.has(request.evaluationMode) && policyRequest.allow_file_edits !== true
+    ? request.evaluationMode : null;
+}
+
+function requestedMissionBudget(policyRequest, request) {
+  return { ...(policyRequest.executionBudget || policyRequest.execution_budget
+    || request.executionBudget || request.execution_budget || {}) };
+}
+
 async function prepareMission(opts) {
   const { db, enhancedPrompt, id, policyRequest, request, nceMetadata } = opts;
   const contracts = require('../src/services/strategyContractService');
@@ -133,9 +144,7 @@ async function prepareMission(opts) {
   const metadataJson = mergeMetadataJson(existing?.metadata_json, { nceMetadata });
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?)`, id, enhancedPrompt, metadataJson);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
-  const readOnlyModes = new Set(['factual_read_only', 'formal_read_only']);
-  const evaluationMode = readOnlyModes.has(request.evaluationMode) && policyRequest.allow_file_edits !== true
-    ? request.evaluationMode : null;
+  const evaluationMode = contractEvaluationMode(policyRequest, request);
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt,
     evaluationMode, createdBy: 'mcp_orchestrate' });
 
@@ -148,7 +157,7 @@ async function prepareMission(opts) {
   const garageDecision = decideGarageCapacity(buildGarageInput(request, morphology, strategyContract));
   await db.run(`UPDATE agents SET metadata_json = ? WHERE id = ?`, mergeMetadataJson(metadataJson, { garageCapacity: garageDecision.capacity, garageDecision, morphology: { topology: morphology.topology, agentCount: morphology.agents?.length, strategy: morphology.strategy } }), id);
   const requestTimeoutMs = policyRequest.timeoutMs || request.timeoutMs;
-  const missionBudget = resolveMissionBudget(policyRequest, request);
+  const missionBudget = requestedMissionBudget(policyRequest, request);
   applyLatencyBudget(missionBudget, requestTimeoutMs);
   const useLocalRuntime = checkLocalRuntime(policyRequest, request);
   return { strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, garageDecision, morphology };
@@ -160,11 +169,6 @@ function buildGarageInput(request, morphology, strategyContract) {
     variantId: request.variant_id || request.variantId || request.variant,
     experimentalDesign: request.experimental_design || request.experimentalDesign,
     qdConfig: request.trinity_qd || request.trinityQD };
-}
-
-function resolveMissionBudget(policyRequest, request) {
-  return { ...(policyRequest.executionBudget || policyRequest.execution_budget
-    || request.executionBudget || request.execution_budget || {}) };
 }
 
 function applyLatencyBudget(budget, timeoutMs) {
@@ -181,10 +185,15 @@ function checkLocalRuntime(policyRequest, request) {
 }
 
 async function startOrchestratorMission(opts) {
-  const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology } = opts;
+  const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology } = opts;
   const entry = await announceTerritoryEntry(db, request);
   const groundedPrompt = await attachTerritoryBrief(db, enhancedPrompt, entry && entry.handoffSignal);
-  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: promptWithWorkerAssignments(groundedPrompt, request), modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider, modelId: policyRequest.modelId || request.modelId, hostExecutionContext: request.hostExecutionContext, morphology, ...missionWorkspaceOptions(request) });
+  const mission = { agentId: id, missionId, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: promptWithWorkerAssignments(groundedPrompt, request), modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider, modelId: policyRequest.modelId || request.modelId, hostExecutionContext: request.hostExecutionContext, morphology, ...missionWorkspaceOptions(request) };
+  if (!missionId) return runtime.startMission(mission);
+  return require('../src/services/missionSuccessionService').resumeWithAuthority(db, {
+    mission, successorId: id, expectedOrchestratorId: request.expectedOrchestratorId || id,
+    workspaceId: request.workspaceId || request.workspace_id, runtime
+  });
 }
 
 function missionWorkspaceOptions(request) {

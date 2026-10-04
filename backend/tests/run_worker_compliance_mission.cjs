@@ -45,12 +45,87 @@ async function seedParent(options) {
 async function missionFor(context) {
   const { db, parentId, workspaceId, kind, model, scenario } = context;
   const strategy = await contracts.getLatestContract(db, parentId, workspaceId);
-  const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`, hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local' };
+  const assignment = { workerKind: kind, role: kind, label: `compliance-${kind}`,
+    hypothesis: `Produce the contract artifact from ${scenario.sourceRef}.`, capabilities: [], modelTier: 'Local',
+    methodContract: complianceMethod(kind) };
   const created = await fleet.createAutonomousWorkers(db, { id: parentId, agent_type: 'GenOS' }, {
     plan: { strategyContract: { primary: strategy.contract.selected_strategy.primary }, tokenPolicy: { total: 5000, workerShare: 0.6, orchestratorReserve: 0.4, allocation: 'fixed' }, dispatchWorkers: [assignment] },
-    mission: { prompt: `${scenario.prompt} Verified fixture receipt: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
+    mission: { prompt: `${scenario.prompt} Fixture data: ${JSON.stringify(scenario.receipt)}. Source evidence: ${scenario.sourceRef} Analyze this synthetic fixture only. Do not access or modify repository files.`, workspaceRoot: context.rootWorkspace, capsuleRoot: process.env.GENOS_CAPSULE_ROOT, executionPolicy: { allowFileEdits: false }, executionBudget: { tokens: 5000, events: 40, latencyMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000 }, timeoutMs: Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000, executor: 'local', localRuntime: true, localModel: model }
   });
   return created[0];
+}
+
+function complianceMethod(kind) {
+  const local = localComplianceMethod(kind);
+  if (local) return local;
+  if (kind === 'procedural_executor') return { version: 1, methodId: 'lpt', parameters: {
+    jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }], machines: 2
+  } };
+  if (kind === 'formal_worker' && process.env.GENOS_COMPLIANCE_LEAN_VERSION) {
+    return { version: 1, methodId: 'formal_proof', parameters: {
+      claim: '2 + 2 = 4', toolchainVersion: process.env.GENOS_COMPLIANCE_LEAN_VERSION
+    } };
+  }
+  if (kind === 'verifier_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER === '1') {
+    const procedure = { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } };
+    const candidateReceipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
+    return { version: 1, methodId: 'verify_procedure', parameters: { procedure, candidateReceipt } };
+  }
+  return additionalComplianceMethod(kind);
+}
+
+function localComplianceMethod(kind) {
+  if (kind === 'forensic_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_FORENSIC === '1') {
+    return forensicComplianceMethod();
+  }
+  if (kind === 'teaching_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_TEACHING === '1') {
+    return { version: 1, methodId: 'teach_subset_sum', parameters: {
+      procedure: { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } },
+      learnerIndices: [0, 2], prerequisites: ['Integer addition'] } };
+  }
+  if (kind === 'scout_cell' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SCOUT === '1') {
+    return { version: 1, methodId: 'scan_literal', parameters: {
+      sources: [{ sourceRef: 'corpus://compliance/log-1', text: 'status=ok timeout=30' }],
+      terms: ['timeout'] } };
+  }
+  return null;
+}
+
+function forensicComplianceMethod() {
+  return { version: 1, methodId: 'trace_declared_causes', parameters: { events: [
+    { id: 'deploy', occurredAt: '2026-10-04T10:00:00Z', sourceRef: 'incident://compliance/deploy' },
+    { id: 'alert', occurredAt: '2026-10-04T10:01:00Z', sourceRef: 'incident://compliance/alert',
+      causedBy: { eventId: 'deploy', receiptRef: 'incident://compliance/causation' } }
+  ] } };
+}
+
+function additionalComplianceMethod(kind) {
+  if (kind === 'red_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_RED === '1') {
+    const procedure = { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } };
+    const receipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
+    const candidateReceipt = { ...receipt, result: { found: false } };
+    return { version: 1, methodId: 'falsify_procedure', parameters: { procedure, candidateReceipt } };
+  }
+  if (kind === 'experimental_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_EXPERIMENT === '1') {
+    return { version: 1, methodId: 'measure_lpt', parameters: {
+      jobs: [{ id: 'A', duration: 5 }, { id: 'B', duration: 4 }, { id: 'C', duration: 3 }],
+      machines: 2, threshold: 7
+    } };
+  }
+  if (kind === 'synthesis_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SYNTHESIS === '1') {
+    return { version: 1, methodId: 'synthesize_claims', parameters: { sources: [
+      { sourceRef: 'source://compliance/synthesis/a', claim: 'Release is safe.', position: 'yes' },
+      { sourceRef: 'source://compliance/synthesis/b', claim: 'Release is safe.', position: 'no' }
+    ] } };
+  }
+  if (kind === 'resident_daemon' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_MONITOR === '1') {
+    return { version: 1, methodId: 'monitor_samples', parameters: {
+      territoryId: 'compliance-sensor', threshold: 10, samples: [
+        { value: 4, observedAt: '2026-10-04T10:00:00Z', sourceRef: 'sensor://compliance/1' },
+        { value: 12, observedAt: '2026-10-04T10:01:00Z', sourceRef: 'sensor://compliance/2' }
+      ] } };
+  }
+  return undefined;
 }
 
 async function validateMission(context) {
@@ -59,7 +134,7 @@ async function validateMission(context) {
   const artifactValidationError = validateArtifactForMission(report, worker.agentId, metadata.workerContract);
   const expected = kinds.kindDefinition(kind).artifact;
   const artifact = report?.workerArtifact?.type || null;
-  const correctReference = hasFixtureReference(report, scenario.sourceRef);
+  const correctReference = correctMissionReference(kind, report, scenario);
   const refusalsValidated = validateExpectedRefusals(kind, metadata.workerContract);
   const persistedContract = metadata.workerKind === kind && metadata.workerContract.identity.workerKind === kind;
   const parentBound = metadata.workerContract.identity.parentId === parentId;
@@ -67,6 +142,81 @@ async function validateMission(context) {
   const passed = successfulOutcome({ agent, report, artifact, expected, correctReference, refusalsValidated, persistedContract, parentBound, runtimeStarted });
   const errorCode = execution?.errorCode;
   return { runId: process.env.GENOS_COMPLIANCE_RUN_ID, kind, workerId: worker.agentId, persistedContract, parentBound, runtimeStarted, status: agent.status, outcome: report?.outcome || null, expectedArtifact: expected, artifact, sourceEvidenceValidated: correctReference, refusalsValidated, stageTimings: eventPayload.stageTimings || {}, artifactDiagnostics: eventPayload.workerArtifactDiagnostics || null, passed, errorCode, expectedUnavailable: expectedUnavailable(kind, errorCode), error: passed ? null : artifactValidationError || execution?.error || report?.error || 'Positive evidence or expected refusal scenarios did not satisfy the contract.' };
+}
+
+function correctMissionReference(kind, report, scenario) {
+  const observed = observedMissionReference(kind, report?.workerArtifact?.content);
+  if (observed !== null) return observed;
+  const specialized = specializedMissionReference(kind, report);
+  if (specialized !== null) return specialized;
+  if (kind === 'procedural_executor') return solverReference(report?.workerArtifact?.content?.procedureReceipt?.id);
+  if (kind === 'formal_worker') return solverReference(report?.workerArtifact?.content?.solverReceipt?.id);
+  if (kind === 'verifier_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER === '1') {
+    return solverReference(report?.workerArtifact?.content?.expectedReceipt?.id);
+  }
+  return hasFixtureReference(report, scenario.sourceRef);
+}
+
+function observedMissionReference(kind, content) {
+  if (kind === 'teaching_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_TEACHING === '1') {
+    return content?.transferCheck?.passed === true
+      && solverReference(content?.teachingReceipt?.id);
+  }
+  if (kind === 'scout_cell' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SCOUT === '1') {
+    return content?.observations?.[0]?.offset === 10
+      && solverReference(content?.scoutReceipt?.id);
+  }
+  if (kind === 'forensic_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_FORENSIC === '1') {
+    return forensicMissionReference(content);
+  }
+  return null;
+}
+
+function specializedMissionReference(kind, report) {
+  const content = report?.workerArtifact?.content;
+  if (kind === 'red_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_RED === '1') {
+    return redMissionReference(content);
+  }
+  if (kind === 'experimental_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_EXPERIMENT === '1') {
+    return experimentMissionReference(content);
+  }
+  if (kind === 'synthesis_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_SYNTHESIS === '1') {
+    return synthesisMissionReference(content);
+  }
+  if (kind === 'resident_daemon' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_MONITOR === '1') {
+    return monitorMissionReference(content);
+  }
+  return null;
+}
+
+function forensicMissionReference(content) {
+  return content?.causalChain?.[0]?.from === 'deploy'
+    && content?.causalChain?.[0]?.to === 'alert'
+    && solverReference(content?.forensicReceipt?.id);
+}
+
+function redMissionReference(content) {
+  return content?.verdict === 'reject' && content?.counterexamples?.length > 0
+    && solverReference(content?.expectedReceipt?.id);
+}
+
+function experimentMissionReference(content) {
+  return content?.measurements?.[0]?.value === 7 && solverReference(content?.procedureReceipt?.id);
+}
+
+function synthesisMissionReference(content) {
+  return content?.disagreements?.[0]?.claim === 'Release is safe.'
+    && content?.sources?.length === 2 && solverReference(content?.synthesisReceipt?.id);
+}
+
+function monitorMissionReference(content) {
+  return content?.anomalies?.[0]?.value === 12
+    && content?.territoryReport?.sourceRefs?.length === 2
+    && solverReference(content?.monitorReceipt?.id);
+}
+
+function solverReference(id) {
+  return /^solver:\/\/sha256:[a-f0-9]{64}$/.test(id || '');
 }
 
 function validateArtifactForMission(report, workerId, workerContract) {
@@ -170,7 +320,7 @@ async function executeWorkerMission(context) {
   const { worker, metadata, parentId, workspaceId, rootWorkspace, kind, model } = context;
   const timeoutMs = Number(process.env.GENOS_COMPLIANCE_LATENCY_MS) || 180000;
   try {
-    return await runtime.startMission({ agentId: worker.agentId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, prompt: worker.prompt, workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true });
+    return await runtime.startMission({ agentId: worker.agentId, orchestratorAgentId: parentId, role: worker.role, workerKind: kind, workerContract: metadata.workerContract, methodContract: worker.methodContract, prompt: worker.prompt, workspaceId, workspaceRoot: worker.workspaceRoot || rootWorkspace, workspaceProvisioned: true, executor: 'local', localRuntime: true, localModel: model, modelTier: 'Local', timeoutMs, executionBudget: { ...worker.executionBudget, tokens: 5000, events: 40, latencyMs: timeoutMs }, executionPolicy: { allowFileEdits: false, silentUpdates: true }, toolLease: worker.toolLease || [], silentUpdates: true });
   } catch (error) { return { error: error.message, errorCode: error.code || null }; }
 }
 

@@ -203,6 +203,10 @@ function resolveOrchestratorBridge() {
   return candidates.find((candidate) => candidate && fs.existsSync(candidate)) || null;
 }
 
+function withMissionIdentity(payload) {
+  return { ...payload, missionId: payload.missionId || process.env.GENOS_MISSION_ID || undefined };
+}
+
 async function runOrchestrator(payload, { onTelemetry } = {}) {
   const executor = normalizeRequestedExecutor(payload.executor);
   if (requiresCallerSampling(payload.action) && executor === 'caller_mcp' && !server.getClientCapabilities()?.sampling) {
@@ -211,12 +215,12 @@ async function runOrchestrator(payload, { onTelemetry } = {}) {
   const hostExecutionContext = executor === 'caller_mcp'
     ? createHostExecutionContext({ payload, clientVersion: server.getClientVersion(), clientCapabilities: server.getClientCapabilities() })
     : null;
-  const executionPayload = hostExecutionContext ? {
+  const executionPayload = withMissionIdentity(hostExecutionContext ? {
     ...payload,
     provider: hostExecutionContext.providerId,
     modelId: hostExecutionContext.modelId,
     hostExecutionContext
-  } : payload;
+  } : payload);
   const bridge = resolveOrchestratorBridge();
   if (!bridge) {
     throw new Error("GenOS orchestrator bridge not found. Set GENOS_ORCHESTRATOR_BRIDGE or install the GenOS repository.");

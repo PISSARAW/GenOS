@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "msgpackr": "^2.1.0",
+    "playwright": "^1.63.0",
     "puppeteer": "^25.10.0"
   },
   "devDependencies": {

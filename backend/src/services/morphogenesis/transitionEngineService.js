@@ -287,8 +287,15 @@ async function executeTransition(ctx) {
     await executeActions({ plan, morphCtx, actionsTaken, compensations });
     const migrationLog = migrateState({ fromState: state, toState: state, plan });
     if (migrationLog.length) emitMigration({ transitionId, migrationLog });
-    await verifyAndCommit({ plan, collectiveState: state, preSnapshot, transitionId, actionsTaken });
-    return buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: createStateSnapshot(state), actionsTaken, rollbackReceipt: null, committed: true });
+    verifyTransitionState({ plan, collectiveState: state, preSnapshot, actionsTaken });
+    const receipt = buildReceipt({ transitionId, plan, preSnapshot, postSnapshot: createStateSnapshot(state), actionsTaken, rollbackReceipt: null, committed: true });
+    if (ctx.persistCommit) {
+      const commit = await ctx.persistCommit(receipt);
+      if (!commit?.id) throw new Error('durable morphogenesis commit was not created');
+      receipt.commitId = commit.id;
+    }
+    emit('system', 'MORPHOGENESIS_TRANSITION_COMMIT', 'COMMIT', `Transition ${transitionId} committed`, { transitionId, planId: plan.id }, 'info');
+    return receipt;
   } catch (err) {
     return handleRollback({ err, preSnapshot, transitionId, plan, actionsTaken, compensations, morphCtx });
   }
@@ -329,12 +336,10 @@ function emitMigration(input) {
     { transitionId, log: migrationLog }, 'info');
 }
 
-async function verifyAndCommit(input) {
-  const { plan, collectiveState, preSnapshot, transitionId, actionsTaken } = input;
+function verifyTransitionState(input) {
+  const { plan, collectiveState, preSnapshot, actionsTaken } = input;
   const verification = verifyTransition({ plan, preState: preSnapshot, postState: collectiveState, actionsTaken });
   if (!verification.verified) throw new Error(`verification failed: ${verification.failures.join('; ')}`);
-  emit('system', 'MORPHOGENESIS_TRANSITION_COMMIT', 'COMMIT',
-    `Transition ${transitionId} committed`, { transitionId, planId: plan.id }, 'info');
 }
 
 async function compensateActions(compensations, ctx, cause) {

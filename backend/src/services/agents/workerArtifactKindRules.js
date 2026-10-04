@@ -15,7 +15,11 @@ function hasCounterexamples(items) {
 
 function kindArtifactIsInvalid(input) {
   const { kind, type, content } = input;
-  if (kind === 'red_worker' && type === 'verification_report') return !hasCounterexamples(content?.counterexamples);
+  if (kind === 'red_worker' && type === 'verification_report') {
+    if (content?.verdict === 'unresolved' && Array.isArray(content.counterexamples)
+      && content.counterexamples.length === 0) return false;
+    return !hasCounterexamples(content?.counterexamples);
+  }
   const check = kindChecker(input);
   return check === true;
 }

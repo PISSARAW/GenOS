@@ -19,10 +19,10 @@ async function main() {
   const db = await open({ filename: file, driver: sqlite3.Database });
   try {
     await db.exec(`PRAGMA journal_mode=WAL; CREATE TABLE missions(mission_id TEXT PRIMARY KEY, objective TEXT, orchestrator_agent_id TEXT,status TEXT,created_at TEXT,updated_at TEXT);
-      CREATE TABLE agents(id TEXT PRIMARY KEY,parent_agent_id TEXT);
+      CREATE TABLE agents(id TEXT PRIMARY KEY,parent_agent_id TEXT,runtime_pid INTEGER);
       CREATE TABLE mission_agents(mission_id TEXT,agent_id TEXT,role TEXT,PRIMARY KEY(mission_id,agent_id));
       CREATE TABLE effects(agent_id TEXT); INSERT INTO missions VALUES('mission','resume','old','dormant',NULL,NULL);
-      INSERT INTO agents VALUES('old',NULL),('a',NULL),('b',NULL),('worker','old');
+      INSERT INTO agents(id,parent_agent_id) VALUES('old',NULL),('a',NULL),('b',NULL),('worker','old');
       INSERT INTO mission_agents VALUES('mission','old','orchestrator');`);
     const a = await child(file); const b = await child(file); children.push(a,b);
     const outcomes = await Promise.all([a,b].map((process,index) => call(process, { missionId:'mission',agentId:index ? 'b':'a',expectedOrchestratorId:'old' })));
@@ -40,7 +40,14 @@ async function main() {
     const result = await call(recovered,{ missionId:'mission',agentId:'replacement',expectedOrchestratorId:'replacement' });
     assert.equal(result.result.started,true,'reservation survives distinct process restart');
     assert.equal((await db.get('SELECT state FROM mission_execution_authority')).state,'running');
-    console.log('Two SQLite-backed processes: single executable successor, stale authority blocked, reserved crash recovered: PASS');
+    const claimed = await call(b,{ action:'claim',missionId:'mission',agentId:'after_claim',expectedOrchestratorId:'replacement' });
+    assert.equal(claimed.claimed,true);
+    b.kill(); await once(b,'exit');
+    const afterCrash = await child(file); children.push(afterCrash);
+    const resumed = await call(afterCrash,{ missionId:'mission',agentId:'after_claim',expectedOrchestratorId:'after_claim' });
+    assert.equal(resumed.result.started,true,'launching lease survives an owner process crash');
+    assert.equal((await db.get('SELECT state FROM mission_execution_authority')).state,'running');
+    console.log('Two SQLite-backed processes: single successor, stale authority blocked, reserved and launching crashes recovered: PASS');
   } finally {
     await Promise.all(children.filter(process => process.exitCode === null && !process.killed).map(async process => { process.kill(); await once(process,'exit'); }));
     await db.close(); await fs.rm(dir,{ recursive:true,force:true });

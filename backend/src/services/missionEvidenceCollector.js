@@ -16,45 +16,43 @@ const EVIDENCE_TELEMETRY_EVENTS = new Set([
 ]);
 
 async function collectMissionEvidence(db, missionId, agents) {
-  const dossiers = await collectWorkerDossiers(db, missionId, agents);
-  const runs = await collectExecutionRuns(db, missionId);
-  const telemetry = await collectEvidenceTelemetry(db, missionId);
-  const flags = buildEvidenceFlags({ agents, dossiers, telemetry });
+  const identity = await require('./missionIdentityService').get(db, missionId);
+  const members = identity ? await require('./missionIdentityService').members(db, missionId) : agents || [];
+  const effective = identity ? await require('./regenerationAttemptService').effectiveAgents(db, missionId, members) : members;
+  const scope = { missionId, identity };
+  const dossiers = collectWorkerDossiers(identity?.orchestratorAgentId || missionId, members);
+  const runs = await collectExecutionRuns(db, scope);
+  const telemetry = await collectEvidenceTelemetry(db, scope);
+  const flags = buildEvidenceFlags({ agents: effective, dossiers, telemetry });
   const evidence = buildEvidenceKinds({ dossiers, runs, telemetry });
   const profiles = buildTypedProfiles(dossiers, runs);
   return { flags, evidence, profiles, dossiers, runs, telemetry };
 }
 
-async function collectWorkerDossiers(db, missionId, agents) {
-  try {
-    const workers = agents.filter(a => a.parent_agent_id === missionId || a.id !== missionId);
-    if (!workers.length) return [];
-    return workerEvidenceDossiers(missionId, workers.map(w => ({ agentId: w.id, name: w.name, role: w.role })));
-  } catch {
-    return [];
-  }
+function collectWorkerDossiers(orchestratorId, agents) {
+  const workers = agents.filter(a => a.execution_mode === 'worker');
+  if (!workers.length) return [];
+  const memberIds = new Set(workers.map(worker => worker.id));
+  return workerEvidenceDossiers(orchestratorId, workers.map(w => ({ agentId: w.id, name: w.name, role: w.role })))
+    .filter(dossier => memberIds.has(dossier.workerId));
 }
 
-async function collectExecutionRuns(db, missionId) {
-  try {
-    return await db.all(
-      'SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at',
-      missionId, missionId
-    );
-  } catch {
-    return [];
-  }
+async function collectExecutionRuns(db, scope) {
+  if (!scope.identity) return db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at', scope.missionId);
+  return db.all(`SELECT r.agent_id, r.status, r.metrics_json FROM strategy_execution_runs r
+    JOIN mission_agents ma ON ma.agent_id = r.agent_id
+    WHERE ma.mission_id = ? AND r.created_at >= ? ORDER BY r.created_at`, scope.missionId, scope.identity.createdAt);
 }
 
-async function collectEvidenceTelemetry(db, missionId) {
-  try {
-    return await db.all(
-      "SELECT event_type, action, detail, payload_json FROM telemetry_events WHERE agent_id = ? AND event_type IN ('EVIDENCE_REPORT','AGENT_COMPLETED','AGENT_FAILED','AGENT_HALTED','WORKER_EVIDENCE_BARRIER_PARTIAL','WORKER_EVIDENCE_BARRIER_SATISFIED','MISSION_HOMEOSTASIS_ACHIEVED','HOMEOSTASIS_CONTINUATION_DISPATCHED','MISSION_COMPLETED','MISSION_COMPLETION_BLOCKED') ORDER BY created_at LIMIT 100",
-      missionId
-    );
-  } catch {
-    return [];
-  }
+async function collectEvidenceTelemetry(db, scope) {
+  const types = [...EVIDENCE_TELEMETRY_EVENTS];
+  const placeholders = types.map(() => '?').join(',');
+  if (!scope.identity) return db.all(`SELECT event_type, action, detail, payload_json FROM telemetry_events
+    WHERE agent_id = ? AND event_type IN (${placeholders}) ORDER BY created_at LIMIT 1000`, scope.missionId, ...types);
+  return db.all(`SELECT t.event_type, t.action, t.detail, t.payload_json FROM telemetry_events t
+    JOIN mission_agents ma ON ma.agent_id = t.agent_id
+    WHERE ma.mission_id = ? AND t.created_at >= ? AND t.event_type IN (${placeholders})
+    ORDER BY t.created_at LIMIT 1000`, scope.missionId, scope.identity.createdAt, ...types);
 }
 
 function buildEvidenceFlags({ agents, dossiers, telemetry }) {

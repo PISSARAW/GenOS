@@ -191,27 +191,18 @@ async function commitTransition(db, ctx) {
 async function executeVersionedTransition(ctx) {
   const { plan, collectiveState, db, req } = ctx;
   const refName = ctx.refName || 'main';
-  const agentId = ctx.agentId || (plan.actions && plan.actions[0]?.agentId) || ctx.parent?.id;
-
-  // Run the transition
-  const receipt = await executeTransition(ctx);
-  attachCounterfactual(plan, receipt, ctx.counterfactual);
-
-  if (!receipt.committed || !agentId) {
-    return { receipt, commit: null };
-  }
-
-  // Create commit after successful transition
-  const commit = await commitTransition(db, {
-    agentId,
-    workspaceId: ctx.workspaceId,
-    plan,
-    receipt,
-    req,
-    refName,
-    collectiveState,
-  });
-
+  const agentId = ctx.agentId || plan?.actions?.[0]?.agentId || ctx.parent?.id;
+  if (!agentId) return { receipt: { committed: false, errors: ['agentId is required for versioned transitions'] }, commit: null };
+  let commit = null;
+  const receipt = await executeTransition({ ...ctx, persistCommit: async (candidate) => {
+    attachCounterfactual(plan, candidate, ctx.counterfactual);
+    commit = await commitTransition(db, {
+      agentId, workspaceId: ctx.workspaceId, plan, receipt: candidate,
+      req, refName, collectiveState,
+    });
+    return commit;
+  } });
+  if (!receipt.committed) commit = null;
   return { receipt, commit };
 }
 

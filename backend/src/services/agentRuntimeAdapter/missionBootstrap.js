@@ -110,6 +110,7 @@ async function resolveMissionContract(ctx) {
 
 async function resolveLocalModel(ctx) {
   const nm = ctx.normalizedMission;
+  if (require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(nm)) return;
   if (nm.executor === 'caller_mcp' || ctx.dispatchedAgent.execution_mode !== 'worker') return;
   const explicitRoute = await require('../agentModelRoutingService').explicitLocalRoute(nm);
   if (explicitRoute) {

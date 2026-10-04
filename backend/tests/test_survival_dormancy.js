@@ -12,7 +12,7 @@ async function run() {
   let db = await getDatabase(dbPath);
   try {
     await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES ('dormant-agent', 'Dormant Agent', 'orchestrator', 'running', 'orchestrator')");
-    const suspended = await survivalState.suspend(db, { agentId: 'dormant-agent', wakeCondition: { type: 'budget_restored', minimumTokens: 1000 } });
+    const suspended = await survivalState.suspend(db, { agentId: 'dormant-agent', wakeCondition: { type: 'operator_or_signal' } });
     assert.equal(suspended.success, true);
     assert.equal(suspended.state.state, 'dormant');
     assert.equal(suspended.snapshot.status || 'frozen', 'frozen');
@@ -25,7 +25,7 @@ async function run() {
     assert.equal(wrongCondition.code, 'SURVIVAL_WAKE_EVENT_MISMATCH');
     const wakeCommand = {
       agentId: 'dormant-agent', wakeConditionId: suspended.wakeCondition.id,
-      event: { type: 'budget_restored', tokens: 1200 }
+      event: { type: 'operator_signal', authorized: true }
     };
     const wakeResults = await Promise.all([
       survivalState.wake(db, wakeCommand), survivalState.wake(db, wakeCommand)
@@ -58,7 +58,8 @@ async function testFailedResumeReturnsToDormancy(dbPath) {
     });
     runtime.startMission = async () => { throw new Error('controlled dispatch failure'); };
     const result = await survivalState.wake(db, {
-      agentId: 'dispatch-fail-agent', wakeConditionId: suspended.wakeCondition.id
+      agentId: 'dispatch-fail-agent', wakeConditionId: suspended.wakeCondition.id,
+      event: { type: 'operator_signal', authorized: true }
     });
     assert.equal(result.success, false);
     assert.equal(result.error, 'controlled dispatch failure');
@@ -74,5 +75,24 @@ async function testFailedResumeReturnsToDormancy(dbPath) {
   }
 }
 
+async function testTimedWake(dbPath) {
+  const db = await getDatabase(dbPath);
+  try {
+    await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES ('timed-agent', 'Timed', 'orchestrator', 'running', 'orchestrator')");
+    const dueAt = new Date(Date.now() - 1000).toISOString();
+    const suspended = await survivalState.suspend(db, {
+      agentId: 'timed-agent', wakeCondition: { kind: 'time_elapsed', payload: { dueAt } }
+    });
+    const results = await require('../src/services/survivalWakeSchedulerService').tick(db);
+    assert.equal(results.find(result => result.conditionId === suspended.wakeCondition.id)?.result.success, true);
+    assert.equal((await survivalState.get(db, 'timed-agent')).state, 'recovered');
+    console.log('Persisted timed wake consumed by scheduler.');
+  } finally {
+    await closeDatabase();
+    for (const suffix of ['', '-shm', '-wal']) if (fs.existsSync(dbPath + suffix)) fs.unlinkSync(dbPath + suffix);
+  }
+}
+
 run().then(() => testFailedResumeReturnsToDormancy(path.resolve(__dirname, 'test-survival-dispatch-fail.db')))
+  .then(() => testTimedWake(path.resolve(__dirname, 'test-survival-timed-wake.db')))
   .catch((error) => { console.error(error); process.exit(1); });

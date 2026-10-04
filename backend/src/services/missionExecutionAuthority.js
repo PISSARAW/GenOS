@@ -4,8 +4,18 @@ const { randomUUID } = require('node:crypto');
 async function ensureTable(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS mission_execution_authority (
     mission_id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, generation INTEGER NOT NULL,
-    token TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('reserved','launching','running','failed'))
+    token TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('reserved','launching','running','failed')),
+    owner_pid INTEGER, claimed_at DATETIME
   )`);
+  const columns = await db.all('PRAGMA table_info(mission_execution_authority)');
+  await addColumn(db, columns, { name: 'owner_pid', type: 'INTEGER' });
+  await addColumn(db, columns, { name: 'claimed_at', type: 'DATETIME' });
+}
+async function addColumn(db, columns, spec) {
+  const { name, type } = spec;
+  if (columns.some(column => column.name === name)) return;
+  try { await db.exec(`ALTER TABLE mission_execution_authority ADD COLUMN ${name} ${type}`); }
+  catch (error) { if (!/duplicate column name/i.test(error.message)) throw error; }
 }
 function conflict() {
   return Object.assign(new Error('Mission execution authority is stale'), { code: 'MISSION_AUTHORITY_STALE' });
@@ -13,10 +23,11 @@ function conflict() {
 async function rotate(db, input) {
   await ensureTable(db);
   const current = await db.get('SELECT * FROM mission_execution_authority WHERE mission_id=?', input.missionId);
-  if (current?.agent_id === input.agentId && input.previousAgentId === input.agentId && current.state !== 'failed') return current;
+  if (reusableAuthority(current, input)) return current;
   await db.run(`INSERT INTO mission_execution_authority (mission_id,agent_id,generation,token,state)
     VALUES (?,?,?,?,'reserved') ON CONFLICT(mission_id) DO UPDATE SET
-    agent_id=excluded.agent_id,generation=excluded.generation,token=excluded.token,state='reserved'`,
+    agent_id=excluded.agent_id,generation=excluded.generation,token=excluded.token,
+    state='reserved',owner_pid=NULL,claimed_at=NULL`,
   input.missionId,input.agentId,(current?.generation || 0)+1,randomUUID());
   return db.get('SELECT * FROM mission_execution_authority WHERE mission_id=?', input.missionId);
 }
@@ -25,9 +36,18 @@ async function reserve(db, input) {
   return db.get('SELECT * FROM mission_execution_authority WHERE mission_id=?', input.missionId);
 }
 async function claimLaunch(db, lease) {
-  const changed = await db.run("UPDATE mission_execution_authority SET state='launching' WHERE mission_id=? AND token=? AND state='reserved'",
-    lease.mission_id,lease.token);
+  const changed = await db.run("UPDATE mission_execution_authority SET state='launching',owner_pid=?,claimed_at=CURRENT_TIMESTAMP WHERE mission_id=? AND token=? AND state='reserved'",
+    process.pid,lease.mission_id,lease.token);
   if (changed.changes !== 1) throw conflict();
+}
+function reusableAuthority(current, input) {
+  if (input.forceRotate) return false;
+  if (current?.agent_id !== input.agentId || input.previousAgentId !== input.agentId) return false;
+  return current.state === 'reserved' || isOwnerLive(current);
+}
+function isOwnerLive(lease) {
+  if (!['launching', 'running'].includes(lease.state) || !Number.isInteger(lease.owner_pid) || lease.owner_pid <= 0) return false;
+  try { process.kill(lease.owner_pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
 }
 async function assertAuthority(db, authority) {
   if (!authority) return;
@@ -50,7 +70,8 @@ async function assertAgentCurrent(db, agentId) {
   ) SELECT ma.mission_id FROM ancestry a
     JOIN mission_agents ma ON ma.agent_id=a.id AND ma.role='orchestrator'
     JOIN missions m ON m.mission_id=ma.mission_id
-    WHERE m.orchestrator_agent_id IS NOT ma.agent_id LIMIT 1`,agentId);
+    WHERE m.status IN ('active','dormant')
+      AND m.orchestrator_agent_id IS NOT ma.agent_id LIMIT 1`,agentId);
   if (stale) throw conflict();
 }
-module.exports = { rotate, reserve, assertAuthority, assertAgentCurrent, mark, claimLaunch };
+module.exports = { rotate, reserve, assertAuthority, assertAgentCurrent, mark, claimLaunch, isOwnerLive };

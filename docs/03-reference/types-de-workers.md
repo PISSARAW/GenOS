@@ -1,6 +1,6 @@
 # Types de workers GenOS
 
-- **Statut** : Les 19 kinds passent une campagne locale de conformité avec `qwen2.5:14b` au 2026-09-25. Les contrats Rust et Node gardent des sémantiques distinctes ; la délégation du sous-orchestrateur n'a pas été exercée par cette campagne comme mission parent-enfant réelle.
+- **Statut** : La campagne locale du 2026-09-25 couvrait les contrats des 19 kinds avec `qwen2.5:14b` ; elle ne mesurait ni les exécuteurs déterministes ni la parité avec des agents concurrents. Les contrats Rust et Node gardent des sémantiques distinctes ; la délégation du sous-orchestrateur n'a pas été exercée par cette campagne comme mission parent-enfant réelle.
 - **Portée** : `crates/genos-worker` (autorité Rust), registre Node des phénotypes et des `WorkerKind`, vocabulaire des rôles de mission, preuves et dispatch.
 - **Dernière revue** : 2026-09-25
 
@@ -1313,3 +1313,126 @@ Un lease omis conserve le lease de politique ; un lease explicitement vide
 `[]` signifie zéro outil et ne retombe pas sur le lease complet du rôle. Cette
 distinction empêche qu'une absence d'autorité explicite soit élargie par
 accident (`toolLeasePolicy.restrictProvidedLease`).
+
+## 49. Exécution déterministe effective (2026-10-04)
+
+`procedural_executor` et `formal_worker` passent par
+`deterministicWorkerRuntime` après le bootstrap de mission, sans appel au
+routeur de modèles et avec zéro token. Le contrat de méthode exécuté doit être
+identique au contrat persisté. Un échec de calcul ou de preuve produit un
+événement terminal `AGENT_FAILED` et ne débloque aucune promotion.
+
+Les seules procédures raccordées sont `lpt` (affectation de travaux à des
+machines) et `subset_sum` (recherche bornée d'un sous-ensemble). Elles exigent
+des paramètres structurés dans `methodContract.parameters`; les autres noms
+déclarés dans le catalogue restent indisponibles à l'affectation. Le worker
+formel accepte une comparaison arithmétique close `claim` et une version exacte
+`toolchainVersion`, construit `theorem genos_worker_claim : ... := by decide`,
+puis lance Lean. Il échoue si Lean manque ou rejette le théorème. Les reçus
+`solver://sha256:...` sont dérivés de l'exécution locale; ils ne prouvent pas
+une parité avec un produit concurrent. Voir [ADR 0294](../adr/0294-executeurs-deterministes-workers.md).
+
+`verifier_worker` peut désormais exécuter la méthode structurée
+`verify_procedure` : il recalcule `lpt` ou `subset_sum` et rend `accept` ou
+`reject` selon le reçu candidat, sans modèle. Cette voie vérifie une procédure
+bornée ; elle ne remplace pas une revue générale de code.
+
+La [campagne comparative](../../benchmarks/workers/README.md) contient 20 cas
+pour les 19 types. Dix cas sont mesurés automatiquement sans Lean ; un
+onzième cas formel a été mesuré localement avec Lean 4.34.0. Les oracles
+scout, forensic et teaching vérifient leurs invariants séparément des
+exécuteurs. Plusieurs autres cas relancent encore le même module ; leur
+score n'est pas une validation indépendante. Les tâches sans oracle
+restent `unmeasured` ;
+un rapport rival n'est comparable que sur un même cas effectivement mesuré.
+
+## 50. Niche et Host au dispatch topologique (2026-10-04)
+
+L'affectation `specialist` inscrit une niche explicite dans
+`workerAssignment.nicheDomain` : domaine du membre si présent, sinon rôle
+qualifié par la topologie. Les rôles techniques de l'A-Team sont routés vers
+`domain_specialization`, tandis que `frontend`, `backend` et les autres
+étiquettes restent des domaines, sans élargir les droits du runtime.
+
+L'affectation `symbiotic_worker` conserve seulement les identifiants et
+capacités Host fournis par le membre. Une composition sans Host peut être
+décrite, mais sa persistance refuse le worker tant que `hostContractId` et
+`hostCapabilities` ne sont pas fournis. Voir [ADR 0300](../adr/0300-affectation-niches-et-contrats-hotes.md).
+
+## 51. Falsification déterministe du red worker (2026-10-04)
+
+La méthode `falsify_procedure` recalcule une procédure `lpt` ou
+`subset_sum` avec un reçu candidat. Une sortie contradictoire produit
+un `verification_report` avec verdict `reject`, contre-exemple,
+étapes de reproduction et reçu recalculé. Sans divergence, le verdict
+est `unresolved` et ne vaut pas preuve générale. Cette route utilise
+zéro token de modèle ; les revues adversariales libres continuent à
+utiliser leur exécuteur habituel. Voir [ADR 0301](../adr/0301-falsification-deterministe-red-worker.md).
+
+## 52. Première mesure contre AutoGen local (2026-10-04)
+
+L'adaptateur AutoGen AgentChat + Ollama couvre LPT et `subset_sum`, et
+conserve les réponses brutes. Cinq essais locaux LPT avec AutoGen 0.7.5
+et `qwen2.5-coder:7b` ont produit des makespans de 9, 7, 9, 7 puis 9 ;
+GenOS a obtenu 7. Sur trois essais `subset_sum`, AutoGen a fourni un
+témoin valide, puis deux résultats rejetés. Le rapport courant
+(`sha256:69d4ca77f2bef18d14ad6ce7a3cfd4af8ee8b3bb44bf9dc74afe4624fd075d5d`)
+compare deux cas communs : GenOS passe les deux, AutoGen aucun sur ce
+tirage.
+Les dix-huit autres types n'ont pas encore de mesure AutoGen.
+Ces essais ne démontrent aucune parité générale.
+Voir [ADR 0302](../adr/0302-benchmark-rival-autogen-local.md).
+
+## 53. Mesure bornée du worker expérimental (2026-10-04)
+
+La méthode `measure_lpt` exécute LPT sur les travaux déclarés, mesure le
+makespan et compare le résultat à un seuil. L'artefact
+`experiment_record` contient le protocole, la mesure et le reçu de
+calcul. La conclusion vaut seulement pour cette entrée et ce seuil.
+La route utilise zéro token de modèle. Voir [ADR 0303](../adr/0303-mesure-bornee-experimental-worker.md).
+
+## 54. Synthèse structurée des désaccords (2026-10-04)
+
+La méthode `synthesize_claims` regroupe des propositions textuellement
+identiques et conserve chaque position contradictoire avec sa référence.
+Le `synthesis_dossier` ne résout pas le fond du désaccord et ne rapproche
+pas des formulations différentes. Le reçu relie le dossier aux entrées
+structurées. Voir [ADR 0304](../adr/0304-synthese-structuree-des-desaccords.md).
+
+## 55. Observation bornée du resident daemon (2026-10-04)
+
+La méthode `monitor_samples` vérifie une fenêtre finie de mesures
+horodatées, signale les valeurs strictement supérieures au seuil et
+conserve les références des échantillons dans le dossier. Elle ne
+maintient pas un abonnement permanent au territoire. Voir
+[ADR 0305](../adr/0305-fenetre-observation-resident-daemon.md).
+
+## 56. Reconstruction des causes déclarées du forensic worker (2026-10-04)
+
+La méthode `trace_declared_causes` accepte une suite bornée d'événements
+horodatés et référencés. Chaque lien doit être déclaré par l'événement
+conséquent avec une référence de reçu distincte ; l'antécédent doit déjà
+figurer dans la suite et ne peut être postérieur. Le `causal_dossier` reproduit
+ces liens avec leurs trois références, et distingue les événements non liés.
+Il ne prouve ni l'authenticité des reçus ni la causalité réelle. Voir
+[ADR 0306](../adr/0306-reconstruction-causes-declarees-forensic-worker.md).
+
+## 57. Observation littérale du scout cell (2026-10-04)
+
+La méthode `scan_literal` inspecte jusqu'à 20 textes fournis, de 8192
+caractères chacun, pour 20 termes littéraux au maximum. La recherche est
+sensible à la casse et conserve les offsets du texte original. Elle produit un
+`scout_observation` avec la première position de chaque terme trouvé, la
+référence de source et une incertitude explicite sur l'interprétation du
+texte. Elle ne lit aucun fichier ni site distant et ne juge pas la véracité
+des sources. Voir [ADR 0307](../adr/0307-observation-litterale-scout-cell.md).
+
+## 58. Transfert contrôlé de subset_sum (2026-10-04)
+
+La méthode `teach_subset_sum` exécute une instance bornée de `subset_sum`,
+produit les étapes de la procédure et vérifie les indices proposés par
+l'apprenant. Le `training_packet` conserve les prérequis, le reçu de la
+démonstration et le résultat du contrôle de transfert. Un paquet peut être
+produit avec un contrôle échoué ; il ne présente alors pas l'apprentissage
+comme réussi. Cette route ne mesure pas la rétention à long terme. Voir
+[ADR 0308](../adr/0308-transfert-subset-sum-teaching-worker.md).

@@ -88,6 +88,9 @@ function roleRequirements(member) {
 
 function roleIntent(role) {
   if (Object.hasOwn(ROLE_REQUIREMENTS, role)) return ROLE_REQUIREMENTS[role];
+  if (role.endsWith('_engineer') || role.endsWith('_scientist') || role === 'mathematician') {
+    return ['domain_specialization'];
+  }
   return role.endsWith('_specialist') ? ['domain_specialization'] : undefined;
 }
 
@@ -151,18 +154,9 @@ function resolveMember(mode, member) {
     if (error.code === 'UNKNOWN_WORKER_KIND') error.code = 'TOPOLOGY_WORKER_KIND_UNKNOWN';
     throw error;
   }
-  require('./agents/workerRuntimeLimitsService').assertWorkerExecutorAvailable({ workerKind: selection.kind });
+  require('./agents/workerRuntimeLimitsService').assertWorkerExecutorAvailable({ workerKind: selection.kind, methodContract });
   const definition = workerKinds.kindDefinition(selection.kind);
-  const workerAssignment = {
-    version: 1,
-    topology: mode,
-    topologyRole: member.role,
-    workerKind: selection.kind,
-    selectionSource: selection.source,
-    requiredCapabilities: requirements,
-    compatibleKinds: selection.candidates,
-    methodContract
-  };
+  const workerAssignment = buildWorkerAssignment({ mode, member, selection, requirements, methodContract });
   return {
     ...member,
     workerKind: selection.kind,
@@ -172,6 +166,36 @@ function resolveMember(mode, member) {
     workerKindReason: `${selection.kind} satisfait [${requirements.join(', ')}] pour ${mode}:${member.role}.`,
     workerArtifact: definition.artifact,
     executionMode: 'worker'
+  };
+}
+
+function buildWorkerAssignment({ mode, member, selection, requirements, methodContract }) {
+  return {
+    version: 1,
+    topology: mode,
+    topologyRole: member.role,
+    workerKind: selection.kind,
+    selectionSource: selection.source,
+    requiredCapabilities: requirements,
+    compatibleKinds: selection.candidates,
+    methodContract,
+    ...specialistFields(mode, member, selection.kind),
+    ...symbioticFields(member, selection.kind)
+  };
+}
+
+function specialistFields(mode, member, kind) {
+  if (kind !== 'specialist') return {};
+  return { nicheDomain: member.nicheDomain || member.workerRequirements?.nicheDomain
+    || member.label || `${mode}:${member.role}` };
+}
+
+function symbioticFields(member, kind) {
+  if (kind !== 'symbiotic_worker') return {};
+  return {
+    hostContractId: member.hostContractId || member.workerRequirements?.hostContractId || null,
+    hostCapabilities: member.hostCapabilities || member.workerRequirements?.hostCapabilities || [],
+    hostId: member.hostId || member.workerRequirements?.hostId || null
   };
 }
 

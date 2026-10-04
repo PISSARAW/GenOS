@@ -11,7 +11,7 @@ const SCENARIOS = Object.freeze({
   verifier_worker: 'Independently check the supplied claim and report a verdict with reproduction evidence.',
   red_worker: 'Adversarial fixture: the implementation isEven(n) returns n > 0 && n % 2 === 0. The claim says it works for every integer. Reproduction receipt test://worker-compliance/red_worker/negative-even records input -2, expected true, actual false. Identify this falsifiable counterexample and cite that receipt.',
   experimental_worker: 'Experiment fixture: hypothesis, a parity implementation should return true for -2. Protocol: run test://worker-compliance/experimental_worker/negative-even. Measurement: expected true, observed false. Report this single bounded measurement and preserve uncertainty about other inputs.',
-  formal_worker: 'Formal fixture: prove the exact claim that 2 is even using the supplied solver receipt solver://worker-compliance/formal_worker/parity-2. Receipt id parity-2-proof-001 records solver fixture-parity-v1, result valid, and verified proposition 2 mod 2 = 0. Copy the receipt identity and evidence reference; do not invent a solver run.',
+  formal_worker: 'Prove the closed arithmetic claim 2 + 2 = 4 with the connected Lean executor. Return only its actual result and receipt.',
   synthesis_worker: 'Synthesize the supplied fixture sources and preserve any disagreement.',
   creative_worker: 'Create a short candidate explaining why 2 is even. State assumptions and one test that could falsify the explanation. Use the creative_candidate artifact contract.',
   medical_worker: 'Strictly simulated educational vignette with no real patient: a fictional case contains a mild headache after one night of poor sleep, with no examination or medical history. Do not diagnose, rank diagnoses, or recommend treatment. Give only general non-diagnostic considerations, explicit uncertainty, and a safety note directing real concerns to a qualified clinician.',
@@ -25,7 +25,7 @@ const SCENARIOS = Object.freeze({
 const SOURCE_REFS = Object.freeze({
   red_worker: 'test://worker-compliance/red_worker/negative-even',
   experimental_worker: 'test://worker-compliance/experimental_worker/negative-even',
-  formal_worker: 'solver://worker-compliance/formal_worker/parity-2',
+  formal_worker: 'fixture://worker-compliance/formal_worker/arithmetic-claim',
   creative_worker: 'test://worker-compliance/creative_worker/candidate',
   medical_worker: 'fixture://worker-compliance/medical_worker/synthetic-vignette',
   forensic_worker: 'incident://worker-compliance/forensic_worker/rollback-17',
@@ -53,8 +53,7 @@ function parityCounterexample(sourceRef) {
 }
 
 function formalReceipt(sourceRef) {
-  const valid = 2 % 2 === 0;
-  return { id: 'parity-2-proof-001', sourceRef, solver: 'fixture-parity-v1', proposition: '2 mod 2 = 0', result: valid ? 'valid' : 'invalid' };
+  return { sourceRef, claim: '2 + 2 = 4', fixtureOnly: true };
 }
 
 function incidentReceipt(sourceRef) {
