@@ -6,6 +6,7 @@ const { validateToolManifest, validateToolInvocation, authorizeToolInvocation } 
 const { reconcileEdgeEvents, simulateEdgeSynchronization } = require('./edgeSyncRuntimeService');
 const { reviewThreat, reviewThreatBatch } = require('./immuneThreatRuntimeService');
 const { planRegeneration, simulateRegeneration } = require('./regenerationRuntimeService');
+const { authorizeCompetitiveReplacement } = require('./competitiveReplacementRuntimeService');
 
 function invalid(message, code = 'HOLOBIONT_VARIANT_RUNTIME_INVALID') {
   return Object.assign(new Error(message), { code });
@@ -356,9 +357,8 @@ function selectCompetitivePartner(input = {}) {
   const trials = verifiedTrials(input, candidates, record(input.budget, 'budget'));
   if (trials.length < 2) return { champion: null, trials, replacementAuthorized: false };
   const champion = championFor(trials, input);
-  const replacementAuthorized = Boolean(champion && typeof input.approveReplacement === 'function'
-    && input.approveReplacement(champion.id) === true);
-  return { champion, trials, replacementAuthorized };
+  return { champion, trials, replacementAuthorized: false,
+    replacementRequiresSeparateApproval: Boolean(champion) };
 }
 
 function planRecruitment(input = {}) {
@@ -382,6 +382,7 @@ function createProofHash(value) {
 }
 
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, simulateEcology, planPlacement, planMemory,
-  selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
+  selectCompetitivePartner, authorizeCompetitiveReplacement, planRecruitment,
+  reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
   validateToolInvocation, authorizeToolInvocation, reconcileEdgeEvents, simulateEdgeSynchronization,
   planRegeneration, simulateRegeneration, planPlacementBatch, createProofHash };

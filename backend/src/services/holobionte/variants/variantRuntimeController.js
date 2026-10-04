@@ -8,14 +8,14 @@ const { createWorkflowRunner } = require('./variantWorkflowService');
 
 const OPERATIONS = Object.freeze({
   organelle: ['assessOrganelle', 'testOrganelleEssentiality'],
-  'adaptive-microbiome': ['assessEcology', 'simulateEcology', 'planRecruitment', 'selectCompetitivePartner'],
+  'adaptive-microbiome': ['assessEcology', 'simulateEcology', 'planRecruitment', 'selectCompetitivePartner', 'authorizeCompetitiveReplacement'],
   'immune-critical': ['reviewImmuneThreat', 'reviewImmuneThreatBatch'],
   'local-first': ['planPlacement', 'planPlacementBatch'],
   'regenerative': ['planRegeneration', 'simulateRegeneration'],
   'cloud-core/edge-symbionts': ['planPlacement', 'planPlacementBatch', 'reconcileEdgeEvents', 'simulateEdgeSynchronization'],
   'edge-core/cloud-symbionts': ['planPlacement', 'planPlacementBatch'],
   'memory-rich': ['planMemory'],
-  'competitive-partner': ['selectCompetitivePartner'],
+  'competitive-partner': ['selectCompetitivePartner', 'authorizeCompetitiveReplacement'],
   'procedural': ['planRecruitment'],
   'tool': ['validateToolManifest', 'validateToolInvocation', 'authorizeToolInvocation'],
   'cloud-core/edge-sync': ['planPlacement', 'planPlacementBatch', 'reconcileEdgeEvents', 'simulateEdgeSynchronization']
