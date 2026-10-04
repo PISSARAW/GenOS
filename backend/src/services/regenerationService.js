@@ -304,11 +304,14 @@ async function insertRegenerationWorker(db, input) {
   const { replacementId, orchestratorId, parent, role, prompt } = input;
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id,
     fleet_id, model_tier, language, isolation_mode, parent_agent_id, current_task)
-    VALUES (?, ?, ?, 'idle', 'GenOS', 'worker', ?, ?, ?, ?, ?, ?, ?)`,
+    VALUES (?, ?, ?, 'unverified', 'GenOS', 'worker', ?, ?, ?, ?, ?, ?, ?)`,
   replacementId, `Regenerated ${role}`, role, parent.workspace_id, parent.fleet_id,
   parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', orchestratorId, prompt);
-  await db.run(`UPDATE agents SET status = 'idle', current_task = ?
-    WHERE id = ? AND status IN ('error', 'unverified', 'completed')`, prompt, replacementId);
+  const worker = await db.get('SELECT status FROM agents WHERE id = ?', replacementId);
+  if (['error', 'unverified', 'completed'].includes(worker?.status)) {
+    await require('./workerGarageService').enterIdleState(db, replacementId, orchestratorId);
+    await db.run("UPDATE agents SET current_task = ? WHERE id = ? AND status = 'idle'", prompt, replacementId);
+  }
 }
 
 function verifyFunctionalEquivalence(organism, requiredRoles) {
