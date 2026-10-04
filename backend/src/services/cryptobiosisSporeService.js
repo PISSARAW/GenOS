@@ -32,6 +32,11 @@ function germinateSpore(vitrifiedSpore, environment = {}) {
   if (!vitrifiedSpore || !vitrifiedSpore.rawBlob) {
     throw new Error('INVALID_SPORE: Missing vitrified spore payload');
   }
+  const rawBlob = Buffer.from(vitrifiedSpore.rawBlob);
+  const actualHash = crypto.createHash('sha256').update(rawBlob).digest('hex');
+  if (actualHash !== vitrifiedSpore.payloadHash) {
+    throw new Error('INVALID_SPORE: Payload hash mismatch');
+  }
   const trehalose = vitrifiedSpore.trehaloseConcentration ?? 0;
   if (trehalose < 0.2) {
     throw new Error('OSMOTIC_COLLAPSE: Insufficient trehalose cryoprotection (< 0.2)');

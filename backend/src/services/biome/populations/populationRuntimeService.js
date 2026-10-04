@@ -23,7 +23,7 @@ const operationHandlers = {
   migrate: (ecology, command) => migrateIndividual(ecology, command),
   mutate: (ecology, command, options) => mutatePopulation(ecology, command, options),
   freeze: (ecology, command, options) => freezeIndividual(ecology, command, options),
-  thaw: (ecology, command) => thawIndividual(ecology, command),
+  thaw: (ecology, command, options) => thawIndividual(ecology, command, options),
   merge: (ecology, command) => mergePopulation(ecology, command),
   resource_allocate: (ecology, command) => allocateResources(ecology, command),
   resource_consume: (ecology, command) => consumeResources(ecology, command),
@@ -73,11 +73,13 @@ function freezeIndividual(ecology, command, options) {
   return { ...result, action: { type: 'INDIVIDUAL_VITRIFIED', status: 'applied', individualId: command.individualId } };
 }
 
-function thawIndividual(ecology, command) {
+function thawIndividual(ecology, command, options) {
   const current = findPopulation(ecology, command.populationId);
   const niche = findNiche(ecology, current.nicheId);
   if (!isNicheAvailable(niche)) throw populationError('BIOME_NICHE_UNAVAILABLE', current.nicheId);
-  const result = evolution.thawIndividual(current, command.individualId, command.environment);
+  const result = evolution.thawIndividual(current, command.individualId, {
+    environment: command.environment, authorizeSporeRead: options.authorizeSporeRead
+  });
   validateMembers(current, niche, [result.individual]);
   replacePopulation(ecology, result.population);
   refreshNicheOccupancy(ecology, current.nicheId);
