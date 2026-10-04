@@ -97,4 +97,24 @@ function reconcileEdgeEvents(input = {}) {
     conflicts: context.conflicts, causalClocks: clockSnapshot(context.clocks), autoResolveConflicts: false };
 }
 
-module.exports = { reconcileEdgeEvents, vectorClock, advances, concurrent };
+function simulateEdgeSynchronization(input = {}) {
+  const batches = Array.isArray(input.batches) ? input.batches : [];
+  if (!batches.length || batches.length > 20) throw invalid('Synchronization simulation requires 1–20 batches.');
+  if (typeof input.verifyProvenance !== 'function') throw invalid('A provenance verifier is required for temporal synchronization.');
+  const accepted = (Array.isArray(input.knownEvents) ? input.knownEvents : []).map((item) => object(item, 'known event'));
+  let priorClocks = input.priorClocks || {};
+  const history = [];
+  for (const [index, batch] of batches.entries()) {
+    const current = object(batch, `batch ${index + 1}`);
+    const result = reconcileEdgeEvents({ ...input, events: Array.isArray(current.events) ? current.events : [],
+      knownEvents: accepted, priorClocks });
+    accepted.push(...result.accepted);
+    priorClocks = result.causalClocks;
+    history.push({ batchId: String(current.batchId || index), accepted: result.accepted, rejected: result.rejected,
+      conflicts: result.conflicts, causalClocks: result.causalClocks });
+  }
+  return { status: 'SIMULATED', batchesCompleted: history.length, history, acceptedEventCount: accepted.length,
+    conflicts: history.flatMap((item) => item.conflicts), causalClocks: priorClocks, autoResolveConflicts: false };
+}
+
+module.exports = { reconcileEdgeEvents, simulateEdgeSynchronization, vectorClock, advances, concurrent };

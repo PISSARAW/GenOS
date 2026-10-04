@@ -3,9 +3,9 @@
 const { createHash } = require('crypto');
 const { detectDysbiosis } = require('../health/dysbiosisDetector');
 const { validateToolManifest, validateToolInvocation, authorizeToolInvocation } = require('./toolRuntimeService');
-const { reconcileEdgeEvents } = require('./edgeSyncRuntimeService');
+const { reconcileEdgeEvents, simulateEdgeSynchronization } = require('./edgeSyncRuntimeService');
 const { reviewThreat, reviewThreatBatch } = require('./immuneThreatRuntimeService');
-const { planRegeneration } = require('./regenerationRuntimeService');
+const { planRegeneration, simulateRegeneration } = require('./regenerationRuntimeService');
 
 function invalid(message, code = 'HOLOBIONT_VARIANT_RUNTIME_INVALID') {
   return Object.assign(new Error(message), { code });
@@ -383,4 +383,5 @@ function createProofHash(value) {
 
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, simulateEcology, planPlacement, planMemory,
   selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
-  validateToolInvocation, authorizeToolInvocation, reconcileEdgeEvents, planRegeneration, planPlacementBatch, createProofHash };
+  validateToolInvocation, authorizeToolInvocation, reconcileEdgeEvents, simulateEdgeSynchronization,
+  planRegeneration, simulateRegeneration, planPlacementBatch, createProofHash };
