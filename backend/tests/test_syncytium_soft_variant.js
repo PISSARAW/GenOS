@@ -38,12 +38,12 @@ async function main() {
     (error) => error.code === 'SYNCYTIUM_PARTITION_READ_REJECTED');
 
   const sharedBefore = await syncytium.snapshot(sessionId);
-  assert.equal(sharedBefore.shared.sharedFields.deltas.some((delta) => delta.deltaId === 'd-local'), false);
+  assert.equal((sharedBefore.shared.sharedFields.deltas || []).some((delta) => delta.deltaId === 'd-local'), false);
   const reconciliation = await syncytium.reconcileAntiEntropy({ sessionId, vectorClock: {},
     options: { replicaId: 'local', actorId: 'actor-local' } });
   assert.equal(reconciliation.reconciled, 1);
   const sharedAfter = await syncytium.snapshot(sessionId);
-  assert.equal(sharedAfter.shared.sharedFields.deltas.some((delta) => delta.deltaId === 'd-local'), true);
+  assert.equal((sharedAfter.shared.sharedFields.deltas || []).some((delta) => delta.deltaId === 'd-local'), true);
   console.log('Syncytium soft partition and anti-entropy checks: PASS');
 }
 
