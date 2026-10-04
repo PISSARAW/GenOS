@@ -2,6 +2,8 @@
 
 const modelRouter = require('./modelRouter');
 const trinityService = require('./trinityService');
+const compiler = require('./cognitiveResidualCompiler');
+const receipts = require('./cognitiveInferenceReceiptService');
 
 function generationRequested(supplied, baseDesign) {
   return supplied.generateHypotheses === true && baseDesign.selectionMethod === 'fixed_v1';
@@ -16,23 +18,12 @@ function generationBudget(mission) {
   return Number.isFinite(missionBudget) && missionBudget > 0 ? Number((missionBudget * 0.1).toFixed(6)) : null;
 }
 
-function promptFor(input) {
-  return [
-    'Propose up to six competing, falsifiable hypotheses for a sealed three-world software experiment.',
-    'Return only JSON: {"candidateHypotheses":[{"id":"...","chamber":"direct|structured|falsification","hypothesis":"...","assumptions":[],"predictions":[],"falsificationCriteria":[],"experiment":{"protocol":"...","expectedOutcome":"..."}}]}.',
-    'Do not state a hypothesis as an established fact. Use only these source references: mission. Do not invent external evidence IDs.',
-    `Mission: ${input.mission}`,
-    `Caller candidates to improve or complement: ${JSON.stringify(input.supplied.candidateHypotheses || [])}`,
-    'The only allowed source reference is mission.'
-  ].join('\n');
-}
-
 function parseCandidates(text) {
   const normalized = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   const parsed = JSON.parse(normalized);
   const items = Array.isArray(parsed) ? parsed : parsed.candidateHypotheses;
   if (!Array.isArray(items)) throw new Error('Hypothesis model returned no candidateHypotheses array.');
-  return items.slice(0, 12).map(normalizeGeneratedCandidate).filter(Boolean);
+  return items.slice(0, 6).map(normalizeGeneratedCandidate).filter(Boolean);
 }
 
 function normalizeGeneratedCandidate(item, index) {
@@ -52,11 +43,29 @@ async function generate(input) {
   const { db, agentId, mission } = input;
   const budget = generationBudget(input.normalizedMission);
   if (!budget) return { candidates: [], status: 'skipped', reason: 'generation_budget_required' };
-  const result = await modelRouter.generate({
-    db, agentId, organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
-    prompt: promptFor(input), maxTokens: 1200, maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'
-  });
-  return { candidates: parseCandidates(result.text), status: 'generated', model: result.model || null, provider: result.provider || null };
+  const compiled = compiler.compileHypotheses({ mission, supplied: input.supplied, agentId });
+  if (compiled.status !== 'ready') return { candidates: [], status: 'blocked', reason: compiled.reason };
+  const receipt = await receipts.reserve(db, compiled);
+  if (!receipt.owned) {
+    if (receipt.status === 'completed') return { ...receipt.result, reused: true };
+    return { candidates: [], status: 'unavailable', reason: `receipt_${receipt.status}` };
+  }
+  try {
+    const response = await modelRouter.generate({
+      db, agentId, organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
+      prompt: compiled.prompt, maxTokens: 1200, maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'
+    });
+    const result = {
+      candidates: parseCandidates(response.text), status: 'generated', verification: 'unverified',
+      model: response.model || null, provider: response.provider || null,
+      promptDigest: compiled.visibility.promptDigest, invocationId: receipt.invocationId
+    };
+    await receipts.complete(db, receipt.invocationId, result);
+    return result;
+  } catch (error) {
+    await receipts.fail(db, receipt.invocationId);
+    throw error;
+  }
 }
 
 async function design(input) {
@@ -72,7 +81,11 @@ async function design(input) {
     const combined = [...(supplied.candidateHypotheses || []), ...result.candidates];
     const generatedDesign = trinityService.designHypotheses(mission, { ...supplied, candidateHypotheses: combined });
     const used = generatedDesign.selectedTriplet.some((candidate) => candidate.origin === 'model_generated');
-    return { ...generatedDesign, hypothesisGeneration: { status: used ? 'generated' : 'unused', model: result.model, provider: result.provider, candidateCount: result.candidates.length } };
+    return { ...generatedDesign, hypothesisGeneration: {
+      status: used ? 'generated' : 'unused', verification: result.verification,
+      model: result.model, provider: result.provider, candidateCount: result.candidates.length,
+      promptDigest: result.promptDigest, invocationId: result.invocationId, reused: result.reused === true
+    } };
   } catch (error) {
     return { ...base, hypothesisGeneration: { status: 'unavailable', reason: error.code || error.message } };
   }

@@ -120,6 +120,8 @@ const suites = {
     ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js']
   ],
   signalPlane: [
+    ['cognitive residual compiler', 'test_cognitive_residual_compiler.js'],
+    ['G-CIR Trinity hypothesis generation', 'test_gcir_trinity_hypothesis_generation.js'],
     ['signal receptor service', 'test_signal_receptor_service.js'],
     ['signal event bus', 'test_signal_event_bus.js'],
     ['signal pipeline integration', 'test_signal_pipeline_integration.js'],
@@ -133,12 +135,21 @@ const suites = {
     ['biomimetic signaling bus', 'test_biomimetic_signaling_bus.js'],
     ['dynamic organization', 'test_dynamic_organization.js'],
     ['worker idle lifecycle', 'test_worker_idle_lifecycle.js']
+  ],
+  relationalPhysiology: [
+    ['relational physiology core', 'relationalPhysiology/core.test.cjs'],
+    ['relational physiology communication', 'relationalPhysiology/communication.test.cjs'],
+    ['relational physiology delegation and learning', 'relationalPhysiology/delegation-learning.test.cjs'],
+    ['relational physiology epistemics', 'relationalPhysiology/epistemics.test.cjs'],
+    ['relational physiology runtime', 'relationalPhysiology/runtime.test.cjs'],
+    ['relational physiology SQLite routing', 'relationalPhysiology/sqlite-hook.test.cjs']
   ]
 };
 
 suites.all = [
   ...suites.smoke,
   ...suites.signalPlane,
+  ...suites.relationalPhysiology,
   ...suites.grpc,
   ...suites.mcp,
   ...suites.security,

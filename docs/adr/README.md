@@ -321,17 +321,17 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
 | [0293](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
+| [0294](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
 | [0295](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | Projets persistants, perception, Ontogenèse, GVX |
 | [0296](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
-| [0297](0297-protocoles-de-responsabilite-shev.md) | Protocoles de responsabilité, surveillance et transfert SHEV | Accepté | 2026-10-04 | SHEV, mandat, récupération, GVX, évaluation |
+| [0297a](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la génération d'hypothèses Trinity | Accepté | 2026-10-04 | Trinity, cognition, preuve |
+| [0297b](0297-protocoles-de-responsabilite-shev.md) | Protocoles de responsabilité, surveillance et transfert SHEV | Accepté | 2026-10-04 | SHEV, mandat, récupération, GVX, évaluation |
+| [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
 
-> **Identifiants numériques partagés** : 26 numéros sont portés par deux
-> fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,
-> 0078, 0079, 0082, 0083, 0085, 0086, 0087, 0088, 0090, 0093, 0095, 0103,
-> 0108, 0122, 0126, 0154), plus `003x` (format historique gelé). Les
-> fichiers sont conservés tels quels (renommage interdit sans migration
-> de provenance, ADR 0005) ; l'index les distingue par suffixe (`0063a`,
-> `0063b`, …). Vérifié par `python scripts/ci/check_adr_index.py`.
+> **Identifiants numériques partagés** : certains numéros sont portés par
+> plusieurs fichiers. Les chemins sont conservés (ADR 0005) et l'index
+> les distingue par suffixe (`0063a`, `0063b`, …). Vérifié par
+> `python scripts/ci/check_adr_index.py`.
 ## Cycle de vie d'un ADR
 
 - **Proposé** — rédigé, en revue.
