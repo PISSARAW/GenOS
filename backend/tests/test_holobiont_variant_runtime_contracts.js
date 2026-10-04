@@ -20,6 +20,7 @@ const runtime = require('../src/services/holobionte/variants/variantRuntimeServi
 Module._load = originalLoad;
 const regeneration = require('../src/services/holobionte/variants/regenerationRuntimeService');
 const toolRuntime = require('../src/services/holobionte/variants/toolRuntimeService');
+const edgeSync = require('../src/services/holobionte/variants/edgeSyncRuntimeService');
 const immunePath = require.resolve('../src/services/holobionte/variants/immuneThreatRuntimeService');
 Module._load = function loadImmune(request, parent, isMain) {
   if (parent?.filename.replace(/\\/g, '/').endsWith('variants/immuneThreatRuntimeService.js')) {
@@ -160,6 +161,17 @@ function testToolAdmissionAndInvocationGate() {
   assert.strictEqual(toolRuntime.authorizeToolInvocation({ ...base, leasedPermissions: [] }).reason, 'UNLEASED_PERMISSION');
 }
 
+function testEdgeSyncReportsFilteredEvents() {
+  const event = (eventId, tick, capability) => ({ eventId, authorityZone: 'A', conflictKey: eventId,
+    vectorClock: { A: tick }, capability, provenance: { evidenceRefs: [`proof:${eventId}`] } });
+  const result = edgeSync.reconcileEdgeEvents({ authorityZones: ['A'], replicatedCapabilities: ['allowed'],
+    verifyProvenance: () => true, events: [event('accepted', 1, 'allowed'), event('filtered', 2, 'other'),
+      event('accepted', 3, 'allowed')] });
+  assert.strictEqual(result.accepted.length, 1);
+  assert.deepStrictEqual(result.rejected.map((item) => item.reason), ['CAPABILITY_NOT_REPLICATED', 'DUPLICATE_EVENT']);
+  assert.deepStrictEqual(result.causalClocks, { A: { A: 1 } });
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
 testLocalExportProofGate();
@@ -170,5 +182,6 @@ testMemoryPairwiseConflictsAndProvenance();
 testCompetitionSelectsProtectedGroupAlternative();
 testProceduralRecruitmentContractGates();
 testToolAdmissionAndInvocationGate();
+testEdgeSyncReportsFilteredEvents();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');

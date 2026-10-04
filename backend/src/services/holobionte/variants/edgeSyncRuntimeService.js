@@ -54,9 +54,15 @@ function addConflicts(context, event, clock) {
 
 function applyEdgeEvent(context, event) {
   const eventId = required(event.eventId, 'eventId');
-  if (context.seen.has(eventId)) return;
+  if (context.seen.has(eventId)) {
+    context.rejected.push({ eventId, reason: 'DUPLICATE_EVENT' });
+    return;
+  }
   context.seen.add(eventId);
-  if (event.capability && context.replicatedCapabilities.size && !context.replicatedCapabilities.has(event.capability)) return;
+  if (event.capability && context.replicatedCapabilities.size && !context.replicatedCapabilities.has(event.capability)) {
+    context.rejected.push({ eventId, reason: 'CAPABILITY_NOT_REPLICATED' });
+    return;
+  }
   const clock = vectorClock(event.vectorClock);
   const reason = authorizedEvent(context, event, clock);
   if (reason) context.rejected.push({ eventId, reason });
