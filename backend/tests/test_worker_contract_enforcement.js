@@ -128,6 +128,16 @@ const assignedContract = workerKinds.buildWorkerContract('procedural_executor', 
 assert.equal(assignedContract.assignment.workerKind, 'procedural_executor');
 assert.equal(assignedContract.mission.methodContract.methodId, 'dynamic_programming');
 assert.equal(assignedContract.resources.maxTokens, 0);
+const boundedContract = workerKinds.buildWorkerContract('bounded_worker');
+assert.throws(() => enforcement.assertRuntimeContract({
+  ...boundedContract, authority: { ...boundedContract.authority, promote: true }
+}, 'bounded_worker'), { code: 'INVALID_WORKER_CONTRACT' });
+assert.throws(() => enforcement.assertRuntimeContract({
+  ...boundedContract, resources: { ...boundedContract.resources, maxTokens: 100000 }
+}, 'bounded_worker'), { code: 'INVALID_WORKER_CONTRACT' });
+assert.throws(() => enforcement.assertRuntimeContract({
+  ...boundedContract, evidence: { requiredArtifacts: [], provenanceRequired: false }
+}, 'bounded_worker'), { code: 'INVALID_WORKER_CONTRACT' });
 async function verifyPersistedTools() {
   assert.equal(await enforcement.enforcePersistedWorkerTool({
     get: async () => ({ execution_mode: 'worker', role: 'implementation', metadata_json: JSON.stringify({ workerKind: 'bounded_worker' }) })
@@ -143,6 +153,17 @@ async function verifyPersistedTools() {
   assert.equal(await enforcement.enforcePersistedWorkerTool(topologyWorker, 'worker-3', {
     toolName: 'genos_topology_session', args: { operation: 'events', session_id: 'session-owned' }
   }), true);
+  const elevated = { ...boundedContract, authority: { ...boundedContract.authority, promote: true } };
+  await assert.rejects(() => enforcement.enforcePersistedWorkerTool({
+    get: async () => ({ execution_mode: 'worker', role: 'implementation', metadata_json: JSON.stringify({
+      workerKind: 'bounded_worker', workerContract: elevated
+    }) })
+  }, 'worker-4', 'genos_merge'), { code: 'INVALID_WORKER_CONTRACT' });
+  await assert.rejects(() => enforcement.enforcePersistedWorkerTool({
+    get: async () => ({ execution_mode: 'worker', role: 'implementation', parent_agent_id: 'trusted-parent', metadata_json: JSON.stringify({
+      workerKind: 'bounded_worker', workerContract: boundedContract
+    }) })
+  }, 'worker-5', 'genos_search_failures'), { code: 'INVALID_WORKER_CONTRACT' });
   await assert.rejects(() => enforcement.enforcePersistedWorkerTool(topologyWorker, 'worker-3', {
     toolName: 'genos_topology_session', args: { operation: 'events', session_id: 'other-session' }
   }), { code: 'WORKER_CONTRACT_DENIED' });

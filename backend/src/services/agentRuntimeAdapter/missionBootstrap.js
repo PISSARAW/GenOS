@@ -37,6 +37,7 @@ async function resolveWorkerIdentity(normalizedMission, dispatchedAgent) {
   const contractEnforcement = require('../agents/workerContractEnforcement');
   contractEnforcement.assertRuntimeContract(normalizedMission.workerContract, normalizedMission.workerKind);
   contractEnforcement.assertAssignmentMatches(normalizedMission.workerContract, normalizedMission);
+  require('../agents/workerRuntimeLimitsService').assertWorkerExecutorAvailable(normalizedMission);
 }
 
 function persistedWorkerContract(agent) {
@@ -143,8 +144,8 @@ function resolvePlanForCheck(normalizedMission) {
 function normalizeMissionBudgets(ctx) {
   const { normalizedMission } = ctx;
   const runtimeEnvironment = bundledRuntimeEnvironment();
-  const normalizedExecutionBudget = normalizeMissionBudget(normalizedMission.executionBudget || {});
-  require('../agents/workerRuntimeBudgetService').clampMissionBudget(normalizedMission, normalizedExecutionBudget);
+  const normalizedExecutionBudget = require('../agents/workerRuntimeLimitsService')
+    .applyWorkerRuntimeLimits(normalizedMission, normalizeMissionBudget(normalizedMission.executionBudget || {}));
   if (normalizedMission.timeoutMs && !normalizedMission.workerBarrierTimeoutMs) {
     normalizedMission.workerBarrierTimeoutMs = Math.max(2000, Math.floor(normalizedMission.timeoutMs * 0.45));
   }

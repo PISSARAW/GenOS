@@ -103,6 +103,10 @@ function assertCanonicalContract(contract, kind) {
   assertObjectCeilings(contract.resources, canonical.resources, { requireAll: true });
   assertObjectCeilings(contract.limits, canonical.limits, { delegated: kind === 'sub_orchestrator' });
   if (!sameArtifacts(contract.evidence, canonical.evidence)) throw invalidContract();
+  const capabilities = canonical.expressedCapabilities || [];
+  if (contract.expressedCapabilities?.some((capability) => !capabilities.includes(capability))) {
+    throw invalidContract();
+  }
 }
 
 function assertHostCapabilityBoundary(contract, kind) {

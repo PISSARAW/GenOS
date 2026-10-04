@@ -273,7 +273,7 @@ Le type et le contrat dérivé sont persistés dans `agents.metadata_json = JSON
 
 Principe ADR 0064 : « l'incarnation reconstruit le contrat côté serveur ; les données fournies par l'appelant ne définissent pas l'autorité ».
 
-- `agents/workerContractEnforcement.js` (`enforcePersistedWorkerTool`) : relit `execution_mode, metadata_json, role`, si `worker` alors `resolveWorkerKind(metadata.workerKind, role)` + `buildWorkerContract(kind, mission)` puis assertion d'outil.
+- `agents/workerContractEnforcement.js` (`enforcePersistedWorkerTool`) : relit `execution_mode, metadata_json, role, parent_agent_id`, reconstruit les plafonds canoniques du type, refuse toute autorité ou ressource supplémentaire, toute preuve obligatoire supprimée et toute divergence de parent, puis autorise l'outil. Une délégation `sub_orchestrator` exige toujours son contrat borné non expiré.
 - `agentRuntimeAdapter/missionBootstrap.js` (`resolveWorkerIdentity`) : recalcule le kind, `WORKER_KIND_MISMATCH` si divergence, puis contrôle le contrat persistant. Un contrat délégant n'est accepté que pour `sub_orchestrator` avec profondeur 1, budget d'enfants conforme, limites présentes et expiration future; toute autre délégation échoue au boot.
 - `agents/agentIncarnationService.js` (`incarnateAgent`) : écrase `request.workerKind/workerContract` par `resolve + build` ; `computeLease` (rôle/caps → DNA → phénotype → provided, `stripOrchestrate`) ; `setupAuthority` (`allowFileEdits = ap.allowFileEdits ∧ contract.authority.write`, `permittedToolSet`, `executionMode:'worker'`).
 - `orchestratorDispatchService.js` (`buildWorkerMission`) : même pattern + injection `Worker kind: X. promptRule(X)` dans le prompt.
@@ -305,6 +305,8 @@ Socle `8000 / 300_000 / 60_000`. Variantes : `procedural` et `formal` `tokens=0`
 `WorkerState` applique `tokens_spent ≥ token_budget ⇒ Terminate` et `iteration ≥ max_iterations ⇒ Terminate`, avec trajectoires `recipe_trajectory` / `strategy_trajectory` et `receipts` tracés.
 
 ### 7.2 Baux d'outils fail-closed côté Node
+
+`missionBootstrap` applique les plafonds `resources.maxTokens` et `resources.maxTimeMs` au budget normalisé et au délai de mission des workers. Pour `resident_daemon`, le plafond Node est de 30 minutes par mission, sans borne d'itérations dans le preset. `maxCpuMs` et `limits.maxIterations` restent des données de contrat sans compteur d'exécution Node dédié ; ne pas les présenter comme des limites runtime garanties.
 
 - `toolLeasePolicy.js` : `WORKER_BASE_LEASE` restreint, `ORCHESTRATOR_CORE_LEASE` large. `restrictProvidedLease` ne peut que restreindre ; `genos_orchestrate` toujours retiré.
 - `missionLease.js` (`enforceMissionToolLease`) : fraîcheur du bail (`AGENT_TOOL_LEASE_STALE`), dérivation, restriction, et si `contract.authority.execute===false ⇒ toolLease=[]` (concerne `ScoutCell`, `ResidentDaemon` brut, `creative/synthesis/liaison` après overrides).
@@ -395,7 +397,7 @@ Aucune variable ne réactive le spawn imbriqué. Le contrat de base est non dél
 ### 13.1 Limites structurelles
 
 - Le backend ne charge pas le crate Rust : il applique une **traduction Node** des invariants, pas l'implémentation Rust elle-même ; toute divergence nécessite des tests de parité (ADR 0064).
-- Les profils génériques Node ne reproduisent pas toute la sémantique des presets Rust (ex. `procedural_executor/symbiotic_worker` projetés sur `BoundedWorker`, `formal_worker` sur `BoundedWorker` alors que Rust hérite `procedural` avec `tokens=0`).
+- Les profils génériques Node ne reproduisent pas toute la sémantique des presets Rust. `procedural_executor` et `formal_worker` ont un budget de zéro jeton côté Node et Rust ; le démarrage de mission Node refuse ces types (`WORKER_EXECUTOR_UNAVAILABLE`) tant que leur exécuteur déterministe n'est pas raccordé.
 - `WorkerDossier.status` est une chaîne libre côté Rust ; seule la convention `"completed"` + artefacts + provenance vaut succès vérifié.
 - `FormalWorker.default_phenotype` est `Experimenter`, pas `Verifier` : la formalisation est une expérimentation déterministe, pas une vérification indépendante.
 
@@ -895,7 +897,7 @@ Chaque fiche suit le même gabarit : responsabilité → preset Rust → contrat
 
 - **Responsabilité** : exécution déterministe avec certificat attendu.
 - **Preset** : `formal_preset` — hérite `procedural` (`tokens=0`, `solver`, `deterministic`), `formal_certificate`.
-- **Node** : projeté sur `BoundedWorker` (divergence à noter : Node ne porte pas `tokens=0`).
+- **Node** : projeté sur le profil d'autorité `BoundedWorker`, mais porte `maxTokens=0` et refuse le démarrage d'une mission sans exécuteur déterministe raccordé.
 - **Artefact** : `formal_certificate[claim, solver, result, solverReceipt{id, evidence}]` + provenance.
 - **Consigne** : la preuve doit citer un reçu de solveur fourni ou réellement exécuté ; aucun reçu ne peut être inventé.
 - **Critère** : le reçu identifie le résultat du solveur et référence sa preuve.
@@ -1184,7 +1186,7 @@ Principe : ne réaffecter que si `Gain > Cost + Marge`, avec fenêtre anti-flap 
 1. **Audit de code** : `scout_cell` (cartographie) → `bounded_worker` (correctifs) → `verifier_worker` (reproduction) → `forensic_worker` (chaîne causale).
 2. **Ingénierie exploratoire** : `experimental_worker` + `red_worker` + `synthesis_worker`, gate parent seul.
 3. **Restauration incident** : `recovery_worker` (3 itérations) → `forensic_worker` (analyse causale sourcée) → `teaching_worker` (procédure validée diffusée).
-4. **Veille territoriale** : `resident_daemon` illimité + `liaison_worker` (handoff `bridge/32`) + `specialist` (niche).
+4. **Veille territoriale** : `resident_daemon` sans plafond d'itérations mais avec une durée maximale de 30 minutes par mission Node + `liaison_worker` (handoff `bridge/32`) + `specialist` (niche).
 5. **Preuve formelle** : `formal_worker` (`solver` + `formal_certificate`) + `verifier_worker` indépendant.
 
 ---
@@ -1234,7 +1236,7 @@ Rust et Node partagent un catalogue de 19 identifiants, familles et artefacts at
 - **Node** : `workerKindService` (19 `KINDS`, 19 alias, 19 consignes, 6 overrides, `resolve/normalize/kindDefinition/buildWorkerContract/promptRule/evidenceRule`), `phenotypeRegistryService` (9 phénotypes stockés + virtuels), `workerContractEnforcement` (`AUTHORITY_TOOLS`, `WORKER_CONTRACT_DENIED`, `UNSUPPORTED_WORKER_DELEGATION`), `missionBootstrap` (`WORKER_KIND_MISMATCH`), `agentFleetWorkers` (dispatch générique, `metadata_json`), `authorityMatrixService` (lookup 13 dimensions), `workerArtifactContract` (10 types, `INVALID_WORKER_ARTIFACT`), barrières `SATISFIED/PARTIAL/STRICT`.
 - **Délégation bornée — implémentation présente, validation de bout en bout incomplète** : le chemin `genos_delegate_worker` vérifie l'identité d'agent résolue par le contrôleur MCP, le contrat persistant et son expiration. Il limite les kinds enfants à `scout_cell`, `bounded_worker`, `adaptive_worker` et `verifier_worker`, plafonne les tokens à 10 000 (et au budget du parent), attend le résultat pendant 60 secondes et autorise jusqu'à cinq enfants. Le contrat de délégation dure une heure. Les presets Rust donnent également spawn=5/profondeur=1, mais avec un budget tokens de 20 000 et sans cette expiration Node. Les tests simulent la base et le superviseur; ils ne prouvent pas une mission parent-enfant réelle.
 - **Parité vérifiée** : les identifiants canoniques, familles et artefacts des 19 kinds sont comparés entre `WorkerKind`/`family_of`/`preset_for` Rust et `KINDS` Node par `test_worker_kind_registry.js`.
-- **Asymétries sémantiques** : `procedural_executor` et `formal_worker` héritent côté Rust de la recette déterministe, du lease solveur et de `tokens=0`; Node ne porte pas ces champs dans son contrat effectif. `symbiotic_worker` reçoit côté Rust la capacité `procedural_host` et une intersection d'autorité; Node le projette sur `BoundedWorker`. `teaching_worker` est un preset organisationnel avec mémoire culturelle côté Rust, projeté sur `ScoutCell` côté Node. `sub_orchestrator` reçoit un contrat délégant uniquement lors de sa création persistée Node, avec allowlist, plafond de tokens et expiration propres au backend. Ces projections sont documentées, pas déclarées identiques.
+- **Asymétries sémantiques** : `procedural_executor` et `formal_worker` héritent côté Rust de la recette déterministe, du lease solveur et de `tokens=0`; Node porte le plafond de zéro jeton et refuse leur démarrage faute d'exécuteur raccordé. `symbiotic_worker` reçoit côté Rust la capacité `procedural_host` et une intersection d'autorité; Node le projette sur `BoundedWorker`. `teaching_worker` est un preset organisationnel avec mémoire culturelle côté Rust, projeté sur `Verifier` côté Node. `sub_orchestrator` reçoit un contrat délégant uniquement lors de sa création persistée Node, avec allowlist, plafond de tokens et expiration propres au backend. Ces projections sont documentées, pas déclarées identiques.
 - Le backend applique une traduction Node des invariants, pas le crate Rust. Il n'existe pas de pont Rust→Node sûr et défini (ADR 0064); le test de parité porte donc sur le catalogue et les champs explicitement comparables, pas sur l'équivalence complète du runtime.
 
 ## 46. Inventaire du dispatch (audit 2026-09-25)
