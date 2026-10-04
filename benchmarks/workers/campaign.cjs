@@ -24,6 +24,7 @@ async function score(testCase, execution) {
 async function verifyExecution(testCase, execution) {
   if (testCase.workerKind === 'procedural_executor' && !verifiedProcedure(testCase, execution)) return 'failed';
   if (testCase.workerKind === 'verifier_worker' && !verifiedVerification(testCase, execution)) return 'failed';
+  if (testCase.workerKind === 'red_worker' && !verifiedRed(testCase, execution)) return 'failed';
   if (testCase.workerKind === 'formal_worker' && !(await verifiedFormalReceipt(testCase, execution))) return 'unverified';
   return null;
 }
@@ -33,6 +34,14 @@ function verifiedVerification(testCase, execution) {
     .runVerification(testCase.methodContract);
   return JSON.stringify(execution.result) === JSON.stringify(expected)
     && execution.receipt?.id === expected.expectedReceipt.id;
+}
+
+function verifiedRed(testCase, execution) {
+  const expected = require('../../backend/src/services/agents/deterministicWorkerRed')
+    .runRed(testCase.methodContract);
+  return JSON.stringify(execution.result) === JSON.stringify(expected)
+    && execution.receipt?.id === expected.expectedReceipt.id
+    && expected.counterexample !== null;
 }
 
 function validReceipt(receipt) {

@@ -3,6 +3,7 @@
 const { runProcedure } = require('../../backend/src/services/agents/deterministicWorkerProcedures');
 const { runFormal } = require('../../backend/src/services/agents/deterministicWorkerFormal');
 const { runVerification } = require('../../backend/src/services/agents/deterministicWorkerVerifier');
+const { runRed } = require('../../backend/src/services/agents/deterministicWorkerRed');
 
 async function runCase(testCase) {
   if (testCase.workerKind === 'procedural_executor') {
@@ -11,6 +12,10 @@ async function runCase(testCase) {
   }
   if (testCase.workerKind === 'verifier_worker') {
     const result = runVerification(testCase.methodContract);
+    return { status: 'executed', result, receipt: result.expectedReceipt };
+  }
+  if (testCase.workerKind === 'red_worker') {
+    const result = runRed(testCase.methodContract);
     return { status: 'executed', result, receipt: result.expectedReceipt };
   }
   if (testCase.workerKind === 'formal_worker') {

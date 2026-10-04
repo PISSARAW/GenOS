@@ -1338,9 +1338,9 @@ une parité avec un produit concurrent. Voir [ADR 0294](../adr/0294-executeurs-d
 bornée ; elle ne remplace pas une revue générale de code.
 
 La [campagne comparative](../../benchmarks/workers/README.md) contient 20 cas
-pour les 19 types. Deux cas procéduraux sont mesurables sans dépendance ;
-un cas de vérification de reçu est mesurable par recalcul indépendant et un
-quatrième cas formel a été mesuré localement avec Lean 4.34.0. Les tâches
+pour les 19 types. Deux cas procéduraux, une vérification et une falsification
+de reçu sont mesurables par recalcul indépendant ; un cinquième cas formel
+a été mesuré localement avec Lean 4.34.0. Les tâches
 sans oracle indépendant restent `unmeasured` ;
 un rapport rival n'est comparable que sur un même cas effectivement mesuré.
 
@@ -1356,3 +1356,13 @@ L'affectation `symbiotic_worker` conserve seulement les identifiants et
 capacités Host fournis par le membre. Une composition sans Host peut être
 décrite, mais sa persistance refuse le worker tant que `hostContractId` et
 `hostCapabilities` ne sont pas fournis. Voir [ADR 0300](../adr/0300-affectation-niches-et-contrats-hotes.md).
+
+## 51. Falsification déterministe du red worker (2026-10-04)
+
+La méthode `falsify_procedure` recalcule une procédure `lpt` ou
+`subset_sum` avec un reçu candidat. Une sortie contradictoire produit
+un `verification_report` avec verdict `reject`, contre-exemple,
+étapes de reproduction et reçu recalculé. Sans divergence, le verdict
+est `unresolved` et ne vaut pas preuve générale. Cette route utilise
+zéro token de modèle ; les revues adversariales libres continuent à
+utiliser leur exécuteur habituel. Voir [ADR 0301](../adr/0301-falsification-deterministe-red-worker.md).

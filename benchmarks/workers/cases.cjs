@@ -24,7 +24,11 @@ const CASES = Object.freeze([
     methodContract: { version: 1, methodId: 'verify_procedure', parameters: {
       procedure: VERIFICATION_PROCEDURE, candidateReceipt: CANDIDATE_RECEIPT
     } }, oracle: { path: 'verdict', equals: 'accept' } },
-  { id: 'red-counterexample', workerKind: 'red_worker', task: 'Trouver un contre-exemple reproductible.' },
+  { id: 'red-counterexample', workerKind: 'red_worker', task: 'Trouver un contre-exemple reproductible.',
+    methodContract: { version: 1, methodId: 'falsify_procedure', parameters: {
+      procedure: VERIFICATION_PROCEDURE,
+      candidateReceipt: { ...CANDIDATE_RECEIPT, result: { found: false } }
+    } }, oracle: { path: 'verdict', equals: 'reject' } },
   { id: 'experiment-measure', workerKind: 'experimental_worker', task: 'Exécuter un protocole et enregistrer une mesure.' },
   { id: 'lean-arithmetic', workerKind: 'formal_worker', task: 'Prouver 2 + 2 = 4 dans Lean.',
     methodContract: { version: 1, methodId: 'formal_proof', parameters: { claim: '2 + 2 = 4', toolchainVersion: '' } },

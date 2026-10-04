@@ -69,6 +69,12 @@ function complianceMethod(kind) {
     const candidateReceipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
     return { version: 1, methodId: 'verify_procedure', parameters: { procedure, candidateReceipt } };
   }
+  if (kind === 'red_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_RED === '1') {
+    const procedure = { version: 1, methodId: 'subset_sum', parameters: { values: [3, 5, 7], target: 10 } };
+    const receipt = require('../src/services/agents/deterministicWorkerProcedures').runProcedure(procedure).receipt;
+    const candidateReceipt = { ...receipt, result: { found: false } };
+    return { version: 1, methodId: 'falsify_procedure', parameters: { procedure, candidateReceipt } };
+  }
   return undefined;
 }
 
@@ -93,6 +99,11 @@ function correctMissionReference(kind, report, scenario) {
   if (kind === 'formal_worker') return solverReference(report?.workerArtifact?.content?.solverReceipt?.id);
   if (kind === 'verifier_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_VERIFIER === '1') {
     return solverReference(report?.workerArtifact?.content?.expectedReceipt?.id);
+  }
+  if (kind === 'red_worker' && process.env.GENOS_COMPLIANCE_DETERMINISTIC_RED === '1') {
+    const content = report?.workerArtifact?.content;
+    return content?.verdict === 'reject' && content?.counterexamples?.length > 0
+      && solverReference(content?.expectedReceipt?.id);
   }
   return hasFixtureReference(report, scenario.sourceRef);
 }
