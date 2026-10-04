@@ -357,6 +357,9 @@ const migrationRunners = [
   createMigrationRunner('098-scientific-evidence-ledger', 'Persist claims, immutable evidence, dissent and verifier assessments for scientific experiments', async (db) => {
     await require('./migrateScientificEvidenceLedger').migrateScientificEvidenceLedger(db);
   }),
+  createMigrationRunner('099-epistemic-immune-scope', 'Scope AEIS memory and deduplicate oracle outcomes', async (db) => {
+    await require('./migrateEpistemicImmuneScope').migrateEpistemicImmuneScope(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

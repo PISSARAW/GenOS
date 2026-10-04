@@ -11,24 +11,39 @@ const repository = require('../src/services/epistemic/immuneMemoryRepository');
 async function main() {
   process.env.NODE_ENV = 'test';
   process.env.GENOS_ADMIN_PASSWORD ||= 'test-admin-password-aeis-memory';
+  process.env.GENOS_EPISTEMIC_RECEIPT_SECRET ||= 'test-secret-aeis-memory';
   const dbPath = path.join(os.tmpdir(), `aeis-memory-${process.pid}.db`);
   const db = await getDatabase(dbPath);
   try {
     const antigen = { claim: 'expired token is rejected', domain: 'auth' };
     const entries = [];
     memory.recordOutcome(entries, antigen, { domain: 'auth', outcome: 'pending' });
-    await repository.save(db, entries);
-    const reloaded = await repository.load(db);
+    await repository.save(db, entries, 'tenant-a:project-a:workspace-a');
+    const reloaded = await repository.load(db, 'tenant-a:project-a:workspace-a');
     assert.equal(reloaded.length, 1);
     assert.equal(reloaded[0].pending, true);
     assert.equal(reloaded[0].affinity, 0.4);
-    memory.recordOutcome(reloaded, antigen, { outcome: 'success' });
-    await repository.save(db, reloaded);
-    const resolved = await repository.load(db);
-    assert.equal(resolved[0].pending, false);
-    assert.equal(resolved[0].successes, 1);
-    assert.equal(resolved[0].affinity, 1);
-    console.log('AEIS immune memory persists pending and oracle-resolved outcomes.');
+    assert.equal((await repository.load(db, 'tenant-b:project-a:workspace-a')).length, 0);
+    await assert.rejects(repository.resolve(db, {
+      scopeId: 'tenant-a:project-a:workspace-a', signature: reloaded[0].signature,
+      runId: 'unproven', resultId: 'unproven', assemblyId: 'missing',
+    }), /assembly not found/);
+    assert.equal((await repository.load(db, 'tenant-a:project-a:workspace-a'))[0].successes, 0);
+    const report = { claims: [{ statement: 'echo 5 outputs "4"',
+      test: { command: 'echo 5', expectOutput: '4' }, evidence: [{ kind: 'reproducible_artifact' }] }] };
+    const exposure = [];
+    const bridge = require('../src/services/epistemic/aeisPromotionBridge');
+    const checked = await bridge.evaluateReportWithAeis(report, { db, immuneMemory: exposure });
+    await repository.save(db, exposure, 'tenant-a:project-a:workspace-a');
+    const refutedAntigen = bridge.extractAntigensFromReport(report)[0];
+    assert.equal(await repository.resolve(db, {
+      scopeId: 'tenant-a:project-a:workspace-a', signature: memory.signatureFrom(refutedAntigen),
+      runId: 'refuted-run', assemblyId: checked.persistedAssemblyId,
+      resultId: checked.assembly.results[0].resultId, test: report.claims[0].test,
+    }), true);
+    const refuted = await repository.load(db, 'tenant-a:project-a:workspace-a');
+    assert.equal(refuted.find((entry) => entry.signature === memory.signatureFrom(refutedAntigen)).failures, 1);
+    console.log('AEIS immune memory is persisted, scoped and rejects unproven outcomes.');
   } finally {
     await closeDatabase();
     for (const suffix of ['', '-shm', '-wal']) {

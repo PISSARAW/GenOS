@@ -54,20 +54,10 @@ assert.strictEqual(afterPending.pending, true);
 assert.strictEqual(afterPending.successes, 0);
 assert.strictEqual(afterPending.failures, 0);
 
-// Seul un oracle externe peut marquer un résultat comme success/failure.
-const after = M.recordOutcome(fresh, 'P1', { domain: 'auth', outcome: 'success', effectiveResponse: 'alt' });
-assert.strictEqual(after.pending, false);
-assert.strictEqual(after.successes, 1);
-assert.strictEqual(after.failures, 0);
-assert.strictEqual(after.affinity, 1);
-
-const after2 = M.recordOutcome(fresh, 'P1', { domain: 'auth', outcome: 'failure' });
-assert.strictEqual(after2.successes, 1);
-assert.strictEqual(after2.failures, 1);
-assert.strictEqual(after2.affinity, 0.5);
-
-const after3 = M.recordOutcome(fresh, 'P1', { domain: 'auth', outcome: 'success' });
-assert.strictEqual(after3.affinity, 2 / 3);
+// Une résolution sans assemblée persistée et scellée est interdite.
+assert.throws(() => M.recordOutcome(fresh, 'P1', { outcome: 'success' }), /scoped repository/);
+assert.throws(() => M.recordOutcome(fresh, 'P1', { outcome: 'failure' }), /scoped repository/);
+assert.strictEqual(fresh[0].pending, true);
 
 // ---- priorityRank ----
 
