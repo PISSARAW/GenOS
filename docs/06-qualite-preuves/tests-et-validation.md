@@ -17,7 +17,7 @@ Les principales sources sont :
 - [backend/tests/stress/test_apex_adversarial_defense_bench.js](../../backend/tests/stress/test_apex_adversarial_defense_bench.js)
 - [crates/genos-cli/src/tests/mod.rs](../../crates/genos-cli/src/tests/mod.rs)
 
-Le dépôt ne repose pas sur Jest, Mocha, Vitest ou un framework de property testing centralisé. Les tests Node sont des scripts exécutables avec `node`, `assert`, des serveurs locaux, SQLite et des doubles ciblés. Les tests Rust sont les tests unitaires de crates exécutés par Cargo.
+Les tests Node restent des scripts exécutables avec `node`, `assert`, des serveurs locaux, SQLite et des doubles ciblés. Une suite ciblée utilise `fast-check` pour les invariants de sécurité des leases et des transitions ; il n'existe pas de framework de test unique pour tout le dépôt. Les tests Rust sont les tests unitaires de crates exécutés par Cargo.
 
 ---
 
@@ -92,6 +92,7 @@ flowchart TD
 | `npm test` | délègue à `npm --prefix backend test`, donc `backend/tests/test_backend.js` |
 | `npm run test:quality` | lance les tests de qualité/evaluation Node |
 | `npm --prefix backend run test:validation` | exécute tous les profils de validation Node |
+| `npm --prefix backend run test:properties` | génère 150 cas par propriété pour les leases MCP, la morphogenèse locale et la promotion de transition |
 | `npm --prefix backend run test:security` | exécute le master adversarial sécurité |
 | `npm --prefix backend run test:mcp` | exécute le sous-ensemble MCP |
 | `npm --prefix backend run test:tenancy` | exécute l'isolation tenant |
@@ -151,6 +152,8 @@ La suite `test:quality` regroupe notamment :
 - preuve de « no answer ».
 
 Ce regroupement ne mesure pas une qualité subjective du modèle. Il vérifie que les résultats et preuves stockés par les composants d'évaluation respectent les contrats attendus.
+
+La suite [test_property_invariants.js](../../backend/tests/test_property_invariants.js) est aussi incluse dans le profil `smoke` de `test:validation`. Elle utilise une graine fixe (`20261004`) et le rétrécissement de `fast-check` pour reproduire les contre-exemples. Les propriétés vérifient qu'une lease MCP ne révèle aucun outil hors de sa liste, qu'une restriction ou expiration ne peut ouvrir des droits, qu'une morphogenèse locale reste dans ses limites, et qu'une transition refusée par le gate ou la vérification n'est jamais committée. Les adaptateurs de transition sont des doubles : ces tests ne valident pas la restauration d'un état réel ni l'exécution d'un worker externe.
 
 ---
 
