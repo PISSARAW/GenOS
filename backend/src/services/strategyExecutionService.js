@@ -134,6 +134,7 @@ async function evaluateAeisPromotion(db, request) {
       db,
       multiProviderEnabled: promotion.contract?.problem_profile?.multi_provider_verification === true,
       providerAllowlist: promotion.contract?.problem_profile?.aeis_provider_allowlist || [],
+      maxVerifierExecutions: promotion.contract?.problem_profile?.aeis_max_verifier_executions,
       scopeId, runId: id,
       allowedWorkspaceRoot: workspace.path,
     });
@@ -162,8 +163,16 @@ async function approveRun(db, id, options) {
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);
   const primitives = events.resolveStagePrimitives('conditional_promotion', promotion.contract.strategy_portfolio);
-  const promotionResult = await promotionGate.runPromotionPipeline(promotion, primitives);
+  const promotionResult = await promotionGate.runPromotionPipeline(promotion, primitives, aeisEvaluation);
   if (!promotionResult.success) throw new Error(`Execution run ${id} promotion failed: ${promotionResult.error || 'unknown error'}`);
+  if (promotionResult.controlRegulation?.arbitration?.status === 'blocked') {
+    throw new Error(`Execution run ${id} AEIS homeostatic rearbitration blocked promotion.`);
+  }
+  await db.run('UPDATE strategy_execution_runs SET metrics_json = ? WHERE id = ?', JSON.stringify({
+    ...events.safeJson(row.metrics_json, {}),
+    aeisPressure: promotionResult.controlRegulation?.homeostasis?.pressure ?? null,
+    aeisEvidenceScore: promotionResult.controlRegulation?.feedback?.evidenceScore ?? null,
+  }), id);
   await promotionGate.applyPostPromotion(db, promotion, settings);
   await promotionGate.finalizePromotion(db, promotion, settings);
   await selfModel.calibrate(db, id);

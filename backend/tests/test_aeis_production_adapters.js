@@ -40,19 +40,33 @@ async function run() {
   try {
     assert.throws(() => registry.resolveVerifierDigest({ type: 'invented' }), /Unregistered/);
     assert.throws(() => registry.resolveVerifierDigest({ type: 'test', verifierDigest: 'forged' }), /Untrusted/);
+    const proof = path.resolve(__dirname, '../src/services/sandboxCommandPolicy.js');
+    const independence = path.resolve(__dirname, '../src/services/epistemicScheduler/independencePolicy.js');
+    for (const replica of ['a', 'b']) {
+      const cwd = path.join(root, replica);
+      fs.mkdirSync(cwd);
+      fs.writeFileSync(path.join(cwd, 'package.json'), JSON.stringify({
+        name: `aeis-production-${replica}`, version: '1.0.0', scripts: { test: 'node verify.js' },
+      }));
+      fs.writeFileSync(path.join(cwd, 'verify.js'), replica === 'a'
+        ? `const assert=require('node:assert');assert(require(${JSON.stringify(proof)}).isAllowedSandboxTestCommand('npm test'));`
+        : `const assert=require('node:assert');assert.equal(require(${JSON.stringify(independence)}).verificationReplicaTarget({risk:'high'}),2);`);
+    }
     const db = await getDatabase(database);
     const result = await require('../src/services/epistemic/aeisPromotionBridge').evaluateReportWithAeis({
-      claims: [{ statement: 'The deployed backend passes its complete smoke suite.',
-        evidence: [{ kind: 'reproducible_artifact', content: { revision: 'point-6', command: 'npm test' } }],
-        test: { command: 'npm test', cwd: path.resolve(__dirname, '../..') } }],
-    }, { db, timeoutMs: 180000 });
+      claims: [{ statement: 'npm test exits with code 0',
+        evidence: [{ kind: 'reproducible_artifact', content: { command: 'npm test' } }],
+        test: { command: 'npm test', replicas: {
+          proof: { cwd: path.join(root, 'a') }, source: { cwd: path.join(root, 'b') },
+        } } }],
+    }, { db, timeoutMs: 180000, allowedWorkspaceRoot: root });
     checkReceipts(result);
     assert.ok(result.persistedAssemblyId);
     await closeDatabase();
     const child = spawnSync(process.execPath, [__filename, 'reload', database, result.persistedAssemblyId],
       { env: process.env, encoding: 'utf8', timeout: 30000 });
     assert.equal(child.status, 0, child.stderr + child.stdout);
-    console.log('Production AEIS adapters: real backend suite, signed process evidence, restart and tamper rejection: PASS');
+    console.log('Production AEIS adapters: distinct executable replicas, signed process evidence, restart and tamper rejection: PASS');
   } finally {
     await closeDatabase();
     fs.rmSync(root, { recursive: true, force: true });

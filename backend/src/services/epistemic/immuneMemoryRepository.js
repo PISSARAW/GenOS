@@ -71,22 +71,24 @@ async function save(db, entries, scopeId) {
 async function resolve(db, input) {
   const scopeId = assertScope(input.scopeId);
   if (!input.assemblyId || !input.runId || !input.signature || !input.resultId) throw new Error('AEIS memory resolution requires persisted evidence.');
-  const outcome = await outcomeFromAssembly(db, input);
-  if (!outcome) return false;
+  const verdict = await outcomeFromAssembly(db, input);
+  if (!verdict.outcome) return false;
   return withTransaction(db, async () => {
     const row = await db.get(`SELECT signature FROM ${TABLE} WHERE scope_id = ? AND signature = ?`, scopeId, input.signature);
     if (!row) throw new Error('AEIS memory pattern not found in scope.');
     const event = await db.run(
       `INSERT OR IGNORE INTO epistemic_immune_outcomes (scope_id, evidence_id, signature, outcome)
-       VALUES (?, ?, ?, ?)`, scopeId, `${input.runId}:${input.resultId}`, input.signature, outcome,
+       VALUES (?, ?, ?, ?)`, scopeId, `${input.runId}:${input.resultId}`, input.signature, verdict.outcome,
     );
     if (!event.changes) return false;
-    const success = outcome === 'success' ? 1 : 0;
+    const success = verdict.outcome === 'success' ? 1 : 0;
     await db.run(
       `UPDATE ${TABLE} SET successes = successes + ?, failures = failures + ?,
        affinity = CAST(successes + ? AS REAL) / (successes + failures + 1),
+       effective_response_json = COALESCE(?, effective_response_json),
        pending = 0, updated_at = ? WHERE scope_id = ? AND signature = ?`,
-      success, 1 - success, success, new Date().toISOString(), scopeId, input.signature,
+      success, 1 - success, success, jsonOrNull(verdict.effectiveResponse),
+      new Date().toISOString(), scopeId, input.signature,
     );
     return true;
   });
@@ -99,7 +101,10 @@ async function outcomeFromAssembly(db, input) {
   const receipts = saved.evaluation.assembly.verifications.filter((receipt) => receipt.independent === true
     && receipt.resultId === formal.resultId && receipt.evidenceDigest === formal.evidence.digest);
   const outcome = resolvedOutcome(receipts, input.test, saved.evaluation.evaluation.eligible);
-  return outcome;
+  const rows = saved.evaluation.holobionteResults.flatMap((item) => item.immune?.verifierResults?.results || []);
+  const winner = rows.find((row) => row.status === 'verified' && row.receipt?.independent
+    && receipts.some((receipt) => receipt.signature === row.receipt.signature));
+  return { outcome, effectiveResponse: outcome === 'success' ? winner?.verifierType : null };
 }
 
 function executionRefutes(receipt, test) {

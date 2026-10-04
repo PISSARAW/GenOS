@@ -84,6 +84,9 @@ async function run() {
     const positive = await approveWithRealEvidence({ db, run, contractRecord, proofWorkspace });
     const { approvedRun, realReport } = positive;
     assert.equal(approvedRun.status, 'completed', 'genuine signed independent AEIS receipts must allow approval');
+    const metrics = JSON.parse((await db.get('SELECT metrics_json FROM strategy_execution_runs WHERE id = ?', run.id)).metrics_json);
+    assert.equal(metrics.aeisEvidenceScore, 1, 'runtime rearbitration must consume the AEIS receipts');
+    assert.ok(Number.isFinite(metrics.aeisPressure));
     const learned = await db.get("SELECT * FROM epistemic_immune_memory_scoped WHERE scope_id = 'local:local:ws-aeis-promo'");
     assert.equal(learned?.successes, 1, 'a validated promotion must resolve the immune outcome');
     assert.equal(learned?.pending, 0);
