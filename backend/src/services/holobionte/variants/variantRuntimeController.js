@@ -16,7 +16,7 @@ const OPERATIONS = Object.freeze({
   'memory-rich': ['planMemory'],
   'competitive-partner': ['selectCompetitivePartner'],
   'procedural': ['planRecruitment'],
-  'tool': ['validateToolManifest', 'validateToolInvocation'],
+  'tool': ['validateToolManifest', 'validateToolInvocation', 'authorizeToolInvocation'],
   'cloud-core/edge-sync': ['planPlacement', 'planPlacementBatch', 'reconcileEdgeEvents']
 });
 

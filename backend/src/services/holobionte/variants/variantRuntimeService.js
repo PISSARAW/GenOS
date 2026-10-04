@@ -2,7 +2,7 @@
 
 const { createHash } = require('crypto');
 const { detectDysbiosis } = require('../health/dysbiosisDetector');
-const { validateToolManifest, validateToolInvocation } = require('./toolRuntimeService');
+const { validateToolManifest, validateToolInvocation, authorizeToolInvocation } = require('./toolRuntimeService');
 const { reconcileEdgeEvents } = require('./edgeSyncRuntimeService');
 const { reviewThreat, reviewThreatBatch } = require('./immuneThreatRuntimeService');
 const { planRegeneration } = require('./regenerationRuntimeService');
@@ -355,4 +355,4 @@ function createProofHash(value) {
 
 module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, planPlacement, planMemory,
   selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
-  validateToolInvocation, reconcileEdgeEvents, planRegeneration, planPlacementBatch, createProofHash };
+  validateToolInvocation, authorizeToolInvocation, reconcileEdgeEvents, planRegeneration, planPlacementBatch, createProofHash };

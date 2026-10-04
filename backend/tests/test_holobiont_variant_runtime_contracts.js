@@ -19,6 +19,7 @@ Module._load = function load(request, parent, isMain) {
 const runtime = require('../src/services/holobionte/variants/variantRuntimeService');
 Module._load = originalLoad;
 const regeneration = require('../src/services/holobionte/variants/regenerationRuntimeService');
+const toolRuntime = require('../src/services/holobionte/variants/toolRuntimeService');
 const immunePath = require.resolve('../src/services/holobionte/variants/immuneThreatRuntimeService');
 Module._load = function loadImmune(request, parent, isMain) {
   if (parent?.filename.replace(/\\/g, '/').endsWith('variants/immuneThreatRuntimeService.js')) {
@@ -147,6 +148,18 @@ function testProceduralRecruitmentContractGates() {
   assert.strictEqual(result.autoAssimilate, false);
 }
 
+function testToolAdmissionAndInvocationGate() {
+  const manifest = { name: 'calculator', version: '1.0', permissions: ['compute'],
+    inputSchema: { type: 'object', properties: { a: { type: 'number' }, b: { type: 'number' } }, required: ['a', 'b'], additionalProperties: false },
+    outputSchema: { type: 'object', properties: { result: { type: 'number' } } } };
+  const base = { manifest, value: { a: 2, b: 3 }, leasedPermissions: ['compute'],
+    toolLease: { toolName: 'calculator', expiresAt: new Date(Date.now() + 60_000).toISOString() },
+    verifyLease: () => true, verifyHealth: () => true, isRevoked: () => false };
+  assert.strictEqual(toolRuntime.authorizeToolInvocation(base).allowed, true);
+  assert.strictEqual(toolRuntime.authorizeToolInvocation({ ...base, value: { a: 2, b: 3, extra: true } }).reason, 'INPUT_SCHEMA_INVALID');
+  assert.strictEqual(toolRuntime.authorizeToolInvocation({ ...base, leasedPermissions: [] }).reason, 'UNLEASED_PERMISSION');
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
 testLocalExportProofGate();
@@ -156,5 +169,6 @@ testEdgeCoreCloudOnDemandBatch();
 testMemoryPairwiseConflictsAndProvenance();
 testCompetitionSelectsProtectedGroupAlternative();
 testProceduralRecruitmentContractGates();
+testToolAdmissionAndInvocationGate();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');

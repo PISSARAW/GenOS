@@ -14,7 +14,13 @@ function permissionGaps(permissions, leased) {
 }
 
 function manifestShape(manifest) {
-  return Boolean(manifest.name && manifest.version && manifest.inputSchema && manifest.outputSchema);
+  return Boolean(manifest.name && manifest.version && schemaShape(manifest.inputSchema) && schemaShape(manifest.outputSchema));
+}
+
+function schemaShape(schema) {
+  return Boolean(schema && typeof schema === 'object' && !Array.isArray(schema)
+    && (!schema.type || ['object', 'array', 'string', 'number', 'integer', 'boolean'].includes(schema.type))
+    && (!schema.properties || (typeof schema.properties === 'object' && !Array.isArray(schema.properties))));
 }
 
 function validLease(input, manifest) {
@@ -66,4 +72,11 @@ function validateToolInvocation(input = {}) {
   return { valid: !errors.missing.length && !errors.invalidTypes.length && !errors.extras.length, ...errors };
 }
 
-module.exports = { validateToolManifest, validateToolInvocation };
+function authorizeToolInvocation(input = {}) {
+  const manifest = validateToolManifest(input);
+  if (!manifest.valid) return { allowed: false, reason: manifest.reason, manifest, invocation: null };
+  const invocation = validateToolInvocation({ schema: input.manifest.inputSchema, value: input.value });
+  return { allowed: invocation.valid, reason: invocation.valid ? null : 'INPUT_SCHEMA_INVALID', manifest, invocation };
+}
+
+module.exports = { validateToolManifest, validateToolInvocation, authorizeToolInvocation };
