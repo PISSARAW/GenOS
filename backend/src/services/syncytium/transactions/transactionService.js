@@ -112,7 +112,7 @@ function preconditionPasses(precondition, state, stateVersion) {
   if (precondition.op === 'state_version') return precondition.value === stateVersion;
   const actual = readValue(state, precondition.path);
   const checks = {
-    equals: () => actual === precondition.value,
+    equals: () => actual === precondition.value || (actual == null && precondition.value == null),
     not_equals: () => actual !== precondition.value,
     present: () => actual !== undefined && actual !== null,
     min: () => Number.isFinite(actual) && actual >= precondition.value,
@@ -123,6 +123,7 @@ function preconditionPasses(precondition, state, stateVersion) {
 
 function readValue(state, path) {
   if (Object.hasOwn(state, path)) return state[path];
+  if (Array.isArray(path)) return path.reduce((value, key) => value?.[key], state);
   return String(path || '').split('.').filter(Boolean).reduce((value, key) => value?.[key], state);
 }
 
