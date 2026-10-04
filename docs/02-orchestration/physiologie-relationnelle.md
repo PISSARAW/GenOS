@@ -205,6 +205,34 @@ contenus, ne valide pas les origines des candidats restants et n'est pas une
 transaction de révocation. Les fonctions générales ci-dessus doivent être
 raccordées aux points d'exécution pour ces garanties supplémentaires.
 
+## 9 bis. Frontière réelle ciblée (V2)
+
+Le contrôleur HTTP MCP accepte un mode `relational` de
+`genos_signal_publish` et `genos_worker_publish`. L'identité de l'acteur et le scope viennent de
+l'authentification et du tenant du contrôleur. La requête exige
+`signal_type: "ligand"`, `signal_data: {}` et
+`relational: { operationId, receiverId, refs, event?, blind?, expectedRevision? }`.
+Les références sont des triplets `id/hash/kind` ; aucun corps libre n'est
+transmis. `genos_worker_publish` conserve aussi son champ `kind` requis.
+Le mode est distinct du serveur MCP stdio.
+
+Un grant persistant `rpe_communication_grants` lie scope, acteur,
+destinataire, triplets exacts, échéance et accusé requis. Il doit être
+provisionné par un administrateur du plan de contrôle. Son absence ou sa
+révocation ferme le canal. Dans une transaction SQLite `BEGIN IMMEDIATE`,
+l'adaptateur charge les agents, le graphe et le grant, évalue `runGuarded`,
+journalise la décision dans `rpe_execution_decisions`, puis écrit le signal
+réduit et la livraison `pending`. Un même `operationId` ne peut pas être
+réemployé pour un autre contenu. La lecture existante
+`readSignalsForAgent` voit l'enveloppe ciblée et vérifie son intégrité.
+
+Cette admission signifie seulement que le signal est durable et lisible par
+le destinataire. Elle ne démontre ni sa consommation ni son ACK. Le canal
+relationnel ne déclenche pas le bus réactif ni les récepteurs. Les autres
+appels au transport général, les baux externes et les chemins MCP stdio ne
+sont pas couverts par cette frontière. Voir
+[ADR 0299](../adr/0299-admission-relationnelle-transactionnelle.md).
+
 ## 10. Développement relationnel proposé
 
 Ne pas ajouter un « chef du graphe ». Les données restent fédérées : registre des

@@ -35,6 +35,7 @@ const suites = {
     ['political philosophy service', 'test_political_philosophy_service.js'],
     ['social cognition service', 'test_social_cognition_service.js'],
     ['topology MCP lease enforcement', 'test_mcp_topology_lease.js'],
+    ['property invariants for leases and transitions', 'test_property_invariants.js'],
     ['advanced IAM', 'test_advanced_iam.js'],
     ['mathematical promotion integration', 'test_mathematical_promotion_integration.js'],
     ['procedural organism foundations', 'test_procedural_organism_foundations.js'],
@@ -120,6 +121,7 @@ const suites = {
     ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js']
   ],
   signalPlane: [
+    ['cognitive obligation registry', 'test_cognitive_obligation_registry.js'],
     ['cognitive residual compiler', 'test_cognitive_residual_compiler.js'],
     ['G-CIR Trinity hypothesis generation', 'test_gcir_trinity_hypothesis_generation.js'],
     ['signal receptor service', 'test_signal_receptor_service.js'],
