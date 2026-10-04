@@ -121,6 +121,7 @@ const suites = {
   ],
   signalPlane: [
     ['cognitive residual compiler', 'test_cognitive_residual_compiler.js'],
+    ['G-CIR Trinity hypothesis generation', 'test_gcir_trinity_hypothesis_generation.js'],
     ['signal receptor service', 'test_signal_receptor_service.js'],
     ['signal event bus', 'test_signal_event_bus.js'],
     ['signal pipeline integration', 'test_signal_pipeline_integration.js'],

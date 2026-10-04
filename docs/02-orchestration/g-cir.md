@@ -1,9 +1,9 @@
 # G-CIR : interface cognitive résiduelle de GenOS
 
-- **Statut** : Partiel ; premier adaptateur opérationnel dans le Signal Plane
+- **Statut** : Partiel ; adaptateurs opérationnels dans le Signal Plane et la génération d'hypothèses Trinity
 - **Portée** : contrats cognitifs, admission, projection vers un modèle, visibilité et validation
 - **Dernière revue** : 2026-10-04
-- **Décision liée** : [ADR 0294](../adr/0294-contrat-residuel-cognitif-signal-plane.md)
+- **Décisions liées** : [ADR 0294](../adr/0294-contrat-residuel-cognitif-signal-plane.md), [ADR 0297](../adr/0297-g-cir-generation-hypotheses-trinity.md)
 
 ---
 
@@ -47,6 +47,9 @@ Le Signal Plane applique déjà une partie de cette séquence : un récepteur pe
 traiter un signal sans LLM ; l'escalade cognitive intervient sous une porte VoI.
 L'adaptateur G-CIR livré ici ne s'active qu'après cette porte. Il ne remplace ni
 le bus de signaux, ni l'ordonnanceur, ni les gates de preuve.
+Trinity utilise le même contrat pour sa génération optionnelle d'hypothèses,
+après sa porte de budget. La sélection du triplet reste sous le contrôle de
+`trinityService` ; elle ne constitue pas une vérification expérimentale.
 
 ## 2. Statut des assertions et modèle logique
 
@@ -86,12 +89,12 @@ compaction en amont.
 
 | Invariant | Exigence | État actuel |
 | --- | --- | --- |
-| Admission | Aucune inférence sans autorisation explicite et résidu | `llmRequired` exigé ; porte Signal Plane conservée |
-| Type | Signal et contexte cohérents | Validé dans l'adaptateur |
+| Admission | Aucune inférence sans autorisation explicite et résidu | `llmRequired` pour le signal ; `generateHypotheses` et budget pour Trinity |
+| Type | Source et contexte cohérents | Signal validé ; mission et candidats Trinity contrôlés |
 | Taille | Pas de troncature silencieuse | Projection supérieure à 16 Kio bloquée |
 | Visibilité | Une référence seule n'est pas un contenu lu | Données du signal incluses ; reçu limité à l'invocation |
 | Omission | Chaque suppression connue est justifiée hors prompt | Registre pour doublons et métadonnées de ce chemin |
-| Épistémologie | Sortie neuronale = candidat | `candidate`, `need`, `unknown` ; état `unverified` |
+| Épistémologie | Sortie neuronale = candidat | Signal : `candidate`, `need`, `unknown` ; Trinity : hypothèses `unverified` |
 | Effets | Aucun effet accordé par le texte du modèle | Aucun exécuteur d'effet dans l'adaptateur |
 | Fraîcheur | Connaissance expirée exclue | Lectures du common ground filtrées |
 | Transport | Les octets internes ne sont pas du langage modèle | MessagePack existant hors de cet adaptateur |
@@ -142,7 +145,17 @@ ces obligations. Seule une question restant ouverte peut déclencher `INFER`.
 Un constat du modèle passe ensuite par un reproducer indépendant avant `EMIT`.
 Ce flux complet n'est **pas** implémenté par l'adaptateur Signal Plane.
 
-### 4.3 Calcul formel
+### 4.3 Hypothèses Trinity
+
+Lorsque `trinityHypothesisDesign.generateHypotheses` est demandé et que le plan
+fixe n'a pas déjà été remplacé par un triplet fourni, Trinity peut admettre une
+inférence dans la limite de son budget. Le compilateur matérialise la mission
+et les candidats fournis, borne le rendu à 16 Kio et inscrit les autres champs
+du design dans le registre d'omissions. La réponse est un ensemble de six
+hypothèses candidates au maximum. Le service existant normalise et sélectionne
+le triplet ; les protocoles proposés restent au statut `proposed`.
+
+### 4.4 Calcul formel
 
 Une opération `PROVE` appartient au backend formel et conserve l'énoncé exact,
 les hypothèses et la version de l'environnement de preuve. Une proposition de
@@ -182,6 +195,11 @@ La réponse `candidate` conserve le statut `unverified`. Une sortie libre ou
 mal formée devient `unknown` avec la raison `invalid_response`. Aucune de ces
 réponses ne modifie le dépôt ou l'état d'un agent.
 
+Pour Trinity, le rendu porte la mission et `callerCandidates` sous forme JSON.
+Une sortie JSON invalide, une projection surdimensionnée ou un reçu déjà en
+échec renvoie le plan fixe sans nouvel appel au modèle. Le résultat expose
+`verification: unverified`, le digest du prompt et l'identifiant du reçu.
+
 ## 6. Architecture technique
 
 ### 6.1 Noyau cible
@@ -192,9 +210,9 @@ runtime, pas des tokens spéciaux universels pour les modèles.
 | Opération | Contrat attendu | Implémentation G-CIR actuelle |
 | --- | --- | --- |
 | `READ` | Résoudre une référence autorisée et versionnée | Hors périmètre |
-| `SELECT` | Construire la vue des dépendances utiles | Sélection de champs du signal uniquement |
+| `SELECT` | Construire la vue des dépendances utiles | Champs du signal ou mission et candidats Trinity |
 | `CALL` | Exécuter un outil autorisé | Existant dans GenOS, sans IR G-CIR général |
-| `INFER` | Soumettre un résidu admis au modèle | Adaptateur Signal Plane |
+| `INFER` | Soumettre un résidu admis au modèle | Signal Plane et génération d'hypothèses Trinity |
 | `CHECK` | Vérifier le candidat avec méthode et périmètre | Non branché sur ce chemin |
 | `EMIT` | Publier selon permissions et reçus | Non branché sur ce chemin |
 
@@ -211,11 +229,13 @@ général de suppression n'est pas encore livré.
 | [`cognitiveResidualCompiler.js`](../../backend/src/services/cognitiveResidualCompiler.js) | Validation, rendu portable, omissions, contrat et reçu |
 | [`cognitiveInferenceReceiptService.js`](../../backend/src/services/cognitiveInferenceReceiptService.js) | Reçu SQLite, octets exacts du rendu et déduplication des appels |
 | [`cognitiveSignalService.js`](../../backend/src/services/cognitiveSignalService.js) | Appel au routeur et classification consultative |
+| [`trinityHypothesisGenerationService.js`](../../backend/src/services/trinityHypothesisGenerationService.js) | Admission budgétaire, candidats Trinity et repli fixe |
 | [`signalPlaneSubscriber.js`](../../backend/src/services/signalPlaneSubscriber.js) | Déclenchement après routage, sans crédit de succès vérifié |
 | [`commonGroundService.js`](../../backend/src/services/communication/commonGroundService.js) | Connaissance partagée et exclusion des entrées expirées |
 | [`modelRouter.js`](../../backend/src/services/modelRouter.js) | Sélection et invocation du backend modèle existant |
 
-Le contrat retourné par `compileSignal` porte `version`, `operation`, `source`,
+Les contrats retournés par `compileSignal` et `compileHypotheses` portent
+`version`, `operation`, `source`,
 `recipient`, `output` et `check`. Ce n'est pas encore un schéma d'interopérabilité
 inter-langages. Une évolution de ces champs exige une version de contrat et des
 tests de lecture rétrocompatible avant persistance durable.
@@ -227,6 +247,9 @@ supporté, un identifiant de signal, des données objet et un contexte cohérent
 Il refuse un contexte qui contredit l'identifiant, le type, le type sémantique,
 le sujet ou l'expéditeur du signal. Il refuse également une projection non
 sérialisable ou dépassant 16 Kio. Ces refus précèdent `modelRouter.generate`.
+Pour Trinity, l'activation explicite, le plan encore fixe et le budget sont
+des préconditions supplémentaires. Une mission absente, des candidats mal
+typés ou un rendu trop volumineux bloquent cet appel sans bloquer le plan fixe.
 
 La porte VoI amont est une heuristique d'admission. Le fait de ne trouver aucun
 récepteur n'établit pas, à lui seul, qu'une inférence soit utile ou autorisée.
@@ -241,8 +264,9 @@ routeur. Le rendu exact et les métadonnées du reçu sont persistés dans SQLit
 avec les objets structurés encodés en MessagePack. Le reçu n'est pas signé
 ni lié à un registre de session. Il ne peut
 donc pas être utilisé pour déduire qu'un appel ultérieur verra encore ce contenu.
-Une livraison répétée du même signal au même destinataire, pour la même version
-et le même hash de rendu, réutilise une réponse terminée. Une invocation en
+Une livraison répétée du même signal, ou une génération Trinity répétée pour
+la même mission, au même destinataire, pour la même version et le même hash de
+rendu, réutilise une réponse terminée. Une invocation en
 cours ou échouée ne déclenche pas automatiquement une nouvelle inférence.
 Le hash des octets stockés est revérifié lors de la réutilisation.
 
@@ -257,7 +281,8 @@ reconfirmée.
 
 Chaque champ supprimé de la projection actuelle produit une entrée
 `{field, reason}` hors prompt. Les raisons en usage sont `already_materialized`,
-`payload_materialized_inline`, `runtime_identifier` et `runtime_metadata`.
+`payload_materialized_inline`, `runtime_identifier`, `runtime_metadata` et
+`outside_generation_contract` pour les champs Trinity non projetés.
 Le contrat cible distingue en plus : résultat exécuté avec reçu, résultat
 réutilisé et valide, donnée exactement dérivable, hors dépendances déclarées,
 ou omission heuristique soumise à une politique de risque. Une omission
@@ -327,9 +352,13 @@ couvre l'admission, le blocage avant appel, la projection de la contrainte,
 le registre d'omissions, le hash du rendu, la réutilisation, la concurrence,
 la corruption du reçu, les réponses typées et l'expiration
 du common ground. Il appartient au profil `signalPlane`.
+Le test [`test_gcir_trinity_hypothesis_generation.js`](../../backend/tests/test_gcir_trinity_hypothesis_generation.js)
+couvre la projection Trinity, son reçu, la réutilisation, le repli fixe et
+l'absence d'appel après échec ou dépassement de taille.
 
 ```powershell
 node backend/tests/test_cognitive_residual_compiler.js
+node backend/tests/test_gcir_trinity_hypothesis_generation.js
 npm --prefix backend run test:signal-plane
 ```
 
@@ -373,7 +402,7 @@ revendiquée. La combinaison G-CIR constitue une hypothèse d'ingénierie à
 
 ## 11. Limites et non-objectifs
 
-- L'adaptateur livré couvre le Signal Plane seulement ; il n'existe pas de
+- Les adaptateurs livrés couvrent deux points d'entrée précis ; il n'existe pas de
   compilateur universel de missions libres ni d'ISA exécutable inter-langages.
 - `READ`, `CALL`, `CHECK` et `EMIT` décrivent le noyau cible ; leur simple nom
   ne donne aucune capacité, permission ou preuve au modèle.
@@ -386,6 +415,7 @@ revendiquée. La combinaison G-CIR constitue une hypothèse d'ingénierie à
 - Aucune compression latente, aucun fine-tuning, aucune optimisation de coûts
   mesurée et aucune migration du digest des enveloppes n'ont été livrés.
 
-La prochaine extension sûre consiste à brancher le même contrat sur un second
-point d'entrée cognitif avec un vérificateur déjà existant, puis à comparer la
-qualité et le coût de bout en bout avant d'élargir le déploiement.
+La prochaine étape est de relier les hypothèses retenues à des résultats
+expérimentaux vérifiés, puis de comparer la qualité et le coût de bout en bout
+avant d'élargir le déploiement. Ni le reçu d'inférence ni la sélection du
+triplet ne sont des résultats de `CHECK`.
