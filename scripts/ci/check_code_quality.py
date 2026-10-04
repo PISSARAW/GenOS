@@ -235,14 +235,14 @@ def all_paths(root: Path) -> list[Path]:
     paths = []
     for line in result.stdout.splitlines():
         p = root / line
-        if p.exists() and is_source(p):
+        if p.exists() and is_source(p.relative_to(root)):
             paths.append(p)
     return paths
 
 
 def commit_paths(root: Path) -> list[Path]:
     staged = staged_paths(root)
-    return all_paths(root) if any(is_source(path) for path in staged) else []
+    return all_paths(root) if any(is_source(path.relative_to(root)) for path in staged) else []
 
 
 def load_baseline() -> dict:
@@ -333,7 +333,7 @@ def select_paths(root: Path) -> list[Path]:
 def main() -> int:
     root = Path.cwd()
     lines_only = '--lines-only' in sys.argv or '--size-only' in sys.argv
-    paths = [path for path in select_paths(root) if is_source(path) and path.exists()]
+    paths = [path for path in select_paths(root) if is_source(path.relative_to(root)) and path.exists()]
     current = collect_violations(paths, root, lines_only)
     if '--update-baseline' in sys.argv:
         snapshot = baseline_snapshot(current)
