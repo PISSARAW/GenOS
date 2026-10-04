@@ -272,6 +272,65 @@ test('orchestrator succession is single-winner, atomic, and survives database re
   const members = await missionIdentity.members(db, missionId);
   assert.ok(members.some((member) => member.id === winner), 'winning successor remains linked to the mission after restart');
   assert.equal(members.filter((member) => member.role === 'orchestrator').length, 2, 'lineage retains prior and current orchestrators');
+  await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id)
+    VALUES (?, 'Unrelated', 'worker', 'completed', 'worker', 'orchestrator_old')`, `${missionId}_unrelated`);
+  const scoped = await missionIdentity.members(db, missionId);
+  assert.equal(scoped.some((member) => member.id === `${missionId}_unrelated`), false,
+    'later descendants of a retired orchestrator do not enter this mission');
+  const effective = await require('../src/services/regenerationAttemptService').effectiveAgents(db, missionId, scoped);
+  assert.equal(effective.some((member) => member.id === 'orchestrator_old'), false,
+    'retired orchestrators do not affect the current mission verdict');
+});
+
+test('regeneration dispatches a worker once and requires functional proof', async () => {
+  const dispatch = require('../src/services/orchestratorDispatchService');
+  const garage = require('../src/services/workerGarageService');
+  const original = { dispatch: dispatch.dispatchWorkerMission, reserve: garage.reserveSlot, idle: garage.enterIdleState };
+  const missionId = `regeneration_${Date.now()}`;
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, 'Root', 'orchestrator', 'running', 'orchestrator')", `${missionId}_root`);
+  await missionIdentity.create(db, { missionId, objective: 'Repair worker', orchestratorAgentId: `${missionId}_root` });
+  const organism = missionOrganism.newOrganism({ genome: { objective: 'Repair worker' } });
+  let proof = false;
+  let dispatches = 0;
+  try {
+    garage.reserveSlot = async () => ({ slot: 1 });
+    garage.enterIdleState = async () => {};
+    dispatch.dispatchWorkerMission = async (worker) => {
+      dispatches += 1;
+      await db.run("UPDATE agents SET status = 'completed' WHERE id = ?", worker.agentId);
+      const report = { outcome: 'success', claims: [{ evidence: ['executed check'] }] };
+      if (proof) report.functionalEquivalence = {
+        lostIdentifier: /lostIdentifier='([^']+)'/.exec(worker.prompt)?.[1], role: 'verifier', passed: true,
+        checks: [{ command: 'verify', exitCode: 0, evidenceRef: 'sha256:check' }]
+      };
+      await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, payload_json) VALUES (?, 'EVIDENCE_REPORT', 'REPORT', ?)",
+        worker.agentId, JSON.stringify({ evidenceReport: report }));
+    };
+    const makeInput = lostIdentifier => ({ db, missionId, organism, orchestratorAgentId: `${missionId}_root`,
+      plan: { lostIdentifier, kind: 'workers', role: 'verifier' }, executionBudget: { tokens: 1000 } });
+    const unverified = await regeneration.regenerateWorker(makeInput('lost_one'));
+    assert.equal(unverified.success, false);
+    assert.equal(unverified.status, 'unverified');
+    const duplicate = await regeneration.regenerateWorker(makeInput('lost_one'));
+    assert.equal(duplicate.status, 'blocked');
+    assert.equal(dispatches, 1);
+    proof = true;
+    const verified = await regeneration.regenerateWorker(makeInput('lost_two'));
+    assert.equal(verified.success, true);
+    assert.ok(verified.evidenceRef.startsWith('sha256:'));
+    assert.equal(dispatches, 2);
+    const attempts = require('../src/services/regenerationAttemptService');
+    await attempts.reserve(db, { missionId, lostIdentifier: 'lost_three', role: 'verifier', replacementId: 'worker_recovered' });
+    await db.run("UPDATE mission_regeneration_attempts SET owner_pid = -1 WHERE mission_id = ? AND lost_agent_id = 'lost_three'", missionId);
+    const recovered = await regeneration.regenerateWorker(makeInput('lost_three'));
+    assert.equal(recovered.success, true);
+    assert.equal(recovered.replacementId, 'worker_recovered');
+    assert.equal(dispatches, 3);
+  } finally {
+    dispatch.dispatchWorkerMission = original.dispatch;
+    garage.reserveSlot = original.reserve;
+    garage.enterIdleState = original.idle;
+  }
 });
 
 async function main() {

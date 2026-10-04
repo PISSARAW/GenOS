@@ -302,6 +302,7 @@ function buildSpawnEnv(state, isolatedCodexHome, isolatedTemp) {
     GENOS_EXECUTION_MODE: executionMode,
     GENOS_AGENT_ID: state.mission.agentId,
     GENOS_ORCHESTRATOR_AGENT_ID: state.orchestratorAgentId,
+    GENOS_MISSION_ID: state.mission.missionId || '',
     GENOS_ALLOWED_COMMANDS_JSON: JSON.stringify(state.allowedCommands),
     GENOS_ALLOW_FILE_EDITS: state.allowFileEdits ? 'true' : 'false',
     GENOS_SILENT_UPDATES: state.executionPolicy.silentUpdates === true ? 'true' : 'false'

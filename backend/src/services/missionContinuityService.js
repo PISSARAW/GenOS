@@ -312,6 +312,9 @@ async function regenerateMissingWorkers(db, input = {}) {
 }
 
 async function transitionMissionToComplete(db, target) {
+  if (target.immune?.safe === false) {
+    return { allowed: false, reason: target.immune.reason || 'Immune safety gate blocked completion.' };
+  }
   const { transitionMissionToComplete: transition } = require('./homeostasisService');
   return transition(db, target);
 }
@@ -341,8 +344,9 @@ function resolveDurableDormancyMode(eligibility) {
 }
 
 function assertDormancyRequest(input) {
-  if (input.wakeCondition && input.missionId && input.orchestratorAgentId) return;
-  throw new Error('missionId, orchestratorAgentId and wakeCondition are required for durable dormancy.');
+  if (input.wakeCondition && input.missionId && input.orchestratorAgentId
+    && typeof input.objective === 'string' && input.objective.trim()) return;
+  throw new Error('missionId, orchestratorAgentId, objective and wakeCondition are required for durable dormancy.');
 }
 
 function buildDormancyCommand(input, mode) {
