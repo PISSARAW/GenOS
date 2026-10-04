@@ -218,7 +218,7 @@ async function setStalenessBudget(context) {
     kind: {
       type: 'typed_field',
       key: 'stalenessBudget',
-      action: 'set',
+      action: 'assign',
       value: {
         value: budget,
         updatedAt: Date.now(),
@@ -232,10 +232,17 @@ async function getStalenessBudget(context) {
   const { sessionId, options, syncytium } = context;
   const snapshot = await syncytium.snapshot(sessionId, options);
   const budgetField = snapshot.shared?.sharedFields?.stalenessBudget;
-  if (!budgetField || budgetField.value === undefined) {
+  const current = latestBudgetValue(budgetField);
+  if (!current) {
     return { budget: DEFAULT_STALENESS_BUDGET, active: false };
   }
-  return { budget: budgetField.value, active: true, updatedAt: budgetField.updatedAt };
+  return { budget: current.value, active: true, updatedAt: current.updatedAt };
+}
+
+function latestBudgetValue(field) {
+  const values = Array.isArray(field) ? field : field ? [field] : [];
+  return values.filter((entry) => Number.isFinite(entry?.value) && Number.isSafeInteger(entry?.updatedAt))
+    .sort((left, right) => right.updatedAt - left.updatedAt || String(left.author).localeCompare(String(right.author)))[0] || null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -275,7 +282,7 @@ async function simulatePartition(context) {
       type: 'typed_field',
       key: 'partitions', action: 'set', entryKey: replicaId, value: entry
     }
-  }, options);
+  }, { ...options, replicaId: undefined });
 
   return {
     partitionId: entry.partitionId,
@@ -328,10 +335,7 @@ async function softSnapshot(context) {
   const deltas = partitionService.uniqueDeltas([...sf.deltas || [], ...sf.localDeltas || [], ...sf.queuedDeltas || []]);
   const antiEntropyLog = sf.antiEntropyLog || [];
   const stalenessBudget = sf.stalenessBudget;
-
-  const budget = (stalenessBudget && stalenessBudget.value !== undefined)
-    ? stalenessBudget.value
-    : DEFAULT_STALENESS_BUDGET;
+  const budget = latestBudgetValue(stalenessBudget)?.value ?? DEFAULT_STALENESS_BUDGET;
 
   const seenIds = new Set(antiEntropyLog.map(e => e.deltaId));
   const unseenDeltas = deltas.filter(d => !seenIds.has(d.deltaId));

@@ -4,7 +4,6 @@ const communityStore = require('../communityStore');
 const commitment = require('../deliberation/commitmentService');
 const claimsService = require('../claims/communityClaimGraph');
 const reviewerRouter = require('../review/reviewerRouter');
-const verifierRouter = require('../verification/verifierRouter');
 const argumentsService = require('../argumentation/communityArgumentGraph');
 const beliefRevision = require('../deliberation/beliefRevisionService');
 const effectiveSize = require('../formation/effectiveCommunitySizeService');
@@ -51,15 +50,23 @@ async function collectSealedJudgments(context) {
   const session = await loadActiveSession(context);
   const persistent = context.variantPolicy?.name === 'persistent_community'
     ? await variantOrchestrator.persistentContext({ ...context, session, judgments: [] }) : null;
+  if (persistent) await persistMembershipDecisions(context, session, persistent.report);
+  const current = persistent ? await loadActiveSession(context) : session;
   const excluded = new Set(persistent?.report.excludedMemberIds || []);
-  const participants = session.members.filter((member) => member.status === 'ACTIVE'
+  const participants = current.members.filter((member) => member.status === 'ACTIVE'
     && member.role !== 'community_facilitator' && !excluded.has(member.memberId));
   const commitments = await communityStore.listCommitments(context.db, session.communityId, session.round);
   const committed = new Set(commitments.map((item) => item.memberId));
   const quarantined = [];
+  const delphi = context.variantPolicy?.name === 'delphi_community'
+    ? await variantOrchestrator.delphiContext({ ...context, session }) : null;
   for (const member of participants.filter((item) => !committed.has(item.memberId))) {
     const judgment = await invokeMember(context, {
-      member, phase: 'SEALED_JUDGMENT', task: 'Form an independent initial judgment.', details: {}
+      member, phase: 'SEALED_JUDGMENT',
+      task: delphi ? 'Review anonymous prior-round feedback. Revise or maintain your judgment with reasons and evidence.'
+        : 'Form an independent initial judgment.',
+      details: delphi ? { anonymousFeedback: delphi.feedback,
+        priorPosition: delphi.previousByMember.get(member.memberId) } : {}
     });
     if (context.variantPolicy?.quarantineAware) {
       const result = await variantOrchestrator.quarantineIfRequired({ ...context, session, member, judgment });
@@ -70,12 +77,27 @@ async function collectSealedJudgments(context) {
   const active = await loadActiveSession(context);
   const quorumReport = context.variantPolicy?.quarantineAware
     ? variantOrchestrator.assertByzantineQuorum({ ...context, session: active }) : null;
-  return { judgments: await commitment.revealJudgments({
+  const judgments = await commitment.revealJudgments({
     db: context.db, communityId: session.communityId, actorId: context.actorId
-  }), byzantine: quorumReport ? { ...quorumReport, quarantined } : undefined,
+  });
+  return { judgments, delphi: delphi ? {
+    feedback: delphi.feedback,
+    revisions: variantOrchestrator.delphiRevisions(delphi.previousByMember, judgments)
+  } : undefined,
+  byzantine: quorumReport ? { ...quorumReport, quarantined } : undefined,
   persistentCommunity: persistent?.report };
 }
-
+async function persistMembershipDecisions(context, session, report) {
+  const rotated = new Set(report.rotation.rotate.map((item) => item.memberId));
+  const expelled = new Set(report.excludedMemberIds.filter((memberId) => !rotated.has(memberId)));
+  for (const [memberIds, type, reason] of [[rotated, 'MEMBER_ROTATED', 'ANTI_ENTRENCHMENT'],
+    [expelled, 'MEMBER_EXPELLED', 'REPUTATION_BELOW_FLOOR']]) {
+    for (const memberId of memberIds) {
+      await communityStore.appendEvent(context.db, { communityId: session.communityId,
+        actorId: context.actorId, type, payload: { memberId, reason }, patch: {} });
+    }
+  }
+}
 async function commitmentServiceCall(context, member, response) {
   return commitment.commitJudgment({
     db: context.db, communityId: context.communityId, memberId: member.memberId,
@@ -129,24 +151,8 @@ async function collectClaimReviews(input) {
 }
 
 async function verifyClaim(input) {
-  const { context, session, claim, receipts } = input;
-  const verification = verifierRouter.route({ claim, members: session.members });
-  assertVariantVerifier(context, session, verification);
-  if (!verification.deterministicAvailable || typeof context.verificationExecutor !== 'function') return;
-  for (const verifier of verification.verifiers) {
-    const receipt = await context.verificationExecutor({ claim, verifier, communityId: session.communityId });
-    if (isTrustedVerifiedReceipt(receipt, context.isTrustedReceipt)) receipts.push({ ...receipt, claimId: claim.claimId });
-  }
+  return require('../verification/hybridOracleVerificationService').routeAndVerify(input);
 }
-
-function assertVariantVerifier(context, session, verification) {
-  if (!context.variantPolicy?.requireDeterministicVerifier || session.questionType !== 'FACTUAL'
-    || verification.deterministicAvailable) return;
-  throw Object.assign(new Error('Hybrid Oracle Community requires a deterministic verifier for factual claims.'), {
-    code: 'BIOCENOSE_VARIANT_VERIFIER_REQUIRED'
-  });
-}
-
 async function buildArgumentGraph(context) {
   const reviews = prior(context, 2).reviews;
   const published = [];
@@ -224,12 +230,16 @@ async function aggregateByQuestionType(context) {
   }
   const persistent = context.variantPolicy?.name === 'persistent_community'
     ? await variantOrchestrator.persistentContext({ ...context, session, judgments, suppliedForecasts: options.forecasts }) : null;
+  const forecastContext = context.variantPolicy?.name === 'forecasting_crowd'
+    ? await variantOrchestrator.forecastingContext({ db: context.db, session, judgments,
+      suppliedForecasts: options.forecasts }) : null;
   const sourceForecasts = persistent?.forecasts || options.forecasts || judgments.flatMap((item) =>
     (item.judgment.probabilities || []).map((forecast) => ({ ...forecast, memberId: item.memberId })));
+  const calibratedForecasts = forecastContext?.forecasts || sourceForecasts;
   const memberWeights = new Map(session.members.map((member) => [member.memberId, member.samplingWeight]));
   const forecasts = context.variantPolicy?.requireSamplingWeights
-    ? sourceForecasts.map((item) => ({ ...item, samplingWeight: item.samplingWeight ?? memberWeights.get(item.memberId) }))
-    : sourceForecasts;
+    ? calibratedForecasts.map((item) => ({ ...item, samplingWeight: item.samplingWeight ?? memberWeights.get(item.memberId) }))
+    : calibratedForecasts;
   const history = context.variantPolicy?.name === 'persistent_community'
     ? await judgmentStore.listBeforeRound(context.db, session.communityId, session.round) : [];
   const aggregation = aggregationService.aggregate({
@@ -242,7 +252,16 @@ async function aggregateByQuestionType(context) {
     quarantinedMemberIds: session.members.filter((member) => member.status === 'QUARANTINED')
       .map((member) => member.memberId)
   });
-  return persistent ? { ...aggregation, persistentCommunity: persistent.report } : aggregation;
+  const result = persistent ? { ...aggregation, persistentCommunity: persistent.report } : aggregation;
+  if (!forecastContext) return result;
+  const outcomes = Array.isArray(options.outcomes) ? options.outcomes : [];
+  const forecastComparison = variantOrchestrator.scoreResolvedForecasts(forecasts, outcomes);
+  const recordedCalibration = await variantOrchestrator.persistResolvedOutcomes({
+    db: context.db, communityId: session.communityId, actorId: context.actorId,
+    forecasts, outcomes, isTrustedReceipt: context.isTrustedReceipt
+  });
+  return { ...result, forecastCalibration: { members: forecastContext.weights,
+    missingMemberIds: forecastContext.missingMemberIds, forecastComparison, recordedCalibration } };
 }
 async function checkDissent(context) {
   const session = await loadActiveSession(context);
@@ -277,6 +296,8 @@ async function recordCommunityJudgment(context) {
     stableRoundCount: context.stopping?.stableRoundCount ?? (decisionReady(aggregation) || openGate ? 1 : 0)
   };
   if (context.variantPolicy?.minimumRounds > context.session.round + 1) stopping.stableRoundCount = 0;
+  if (aggregation.delphi?.relativeSpread > 0.25
+    && context.session.round + 1 < (context.constitution?.roundLimit || 1)) stopping.stableRoundCount = 0;
   return judgmentService.finalize({
     db: context.db, communityId: context.communityId, actorId: context.actorId,
     aggregation, variantPolicy: context.variantPolicy,
@@ -308,10 +329,6 @@ function anonymousArgument(item) {
   return { claimId: item.claimId, relation: item.relation, argument: item.argument };
 }
 
-function isTrustedVerifiedReceipt(receipt, validator) {
-  if (!receipt || receipt.status !== 'VERIFIED' || typeof validator !== 'function') return false;
-  try { return validator(receipt) === true; } catch (_) { return false; }
-}
 
 function decisionReady(aggregation) {
   if (aggregation.humanJudgmentRequired) return true;

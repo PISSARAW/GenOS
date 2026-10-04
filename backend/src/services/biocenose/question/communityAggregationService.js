@@ -115,9 +115,19 @@ function withDelphiDistribution(result, input) {
       distribution: positionCounts(input.judgments || []),
       numeric: positions.length > 0,
       interquartileRange: positions.length ? quantile(positions, 0.75) - quantile(positions, 0.25) : null,
-      median: positions.length ? quantile(positions, 0.5) : null
+      median: positions.length ? quantile(positions, 0.5) : null,
+      minimum: positions.length ? positions[0] : null,
+      maximum: positions.length ? positions[positions.length - 1] : null,
+      relativeSpread: relativeSpread(positions)
     }
   };
+}
+
+function relativeSpread(values) {
+  if (!values.length) return null;
+  const median = quantile(values, 0.5);
+  const range = values[values.length - 1] - values[0];
+  return median === 0 ? range : range / Math.abs(median);
 }
 
 function hasNumericPosition(value) {
@@ -306,9 +316,20 @@ function mixed(input) {
 
 function mixedClaimResult(input) {
   return (claim) => {
-    const type = claim.questionType && claim.questionType !== 'MIXED' ? claim.questionType : 'EXPLORATORY';
+    const type = mixedClaimQuestionType(claim);
     return { claimId: claim.claimId, result: aggregate({ ...input, questionType: type, claims: [claim] }) };
   };
+}
+
+function mixedClaimQuestionType(claim) {
+  if (claim.questionType && claim.questionType !== 'MIXED') return claim.questionType;
+  const type = String(claim.claim?.type || claim.type || '').toUpperCase();
+  if (['FACT', 'FACTUAL', 'MATH', 'CODE', 'SECURITY'].includes(type)) return 'FACTUAL';
+  if (['PROBABILISTIC', 'FORECAST'].includes(type)) return 'PROBABILISTIC';
+  if (type === 'DESIGN') return 'DESIGN';
+  if (type === 'NORMATIVE') return 'NORMATIVE';
+  if (type === 'MULTI_CRITERIA') return 'MULTI_CRITERIA';
+  return 'EXPLORATORY';
 }
 
 function validForecast(item) {

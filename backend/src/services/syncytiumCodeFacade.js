@@ -4,9 +4,9 @@ const { createCodeVariantService } = require('./syncytium/variants/code/codeVari
 const { createVariantFacade } = require('./syncytium/variants/variantFacade');
 
 function createSyncytiumCodeFacade(dependencies) {
-  const { createSession, applyOperation, snapshot, applyTransaction } = dependencies;
+  const { createSession, applyOperation, snapshot, applyTransaction, inspectHistory } = dependencies;
 
-  const codeVariant = createCodeVariantService({ createSession, applyOperation, snapshot });
+  const codeVariant = createCodeVariantService({ createSession, applyOperation, snapshot, applyTransaction, inspectHistory });
 
   const variantFacade = createVariantFacade({
     createSession, applyOperation, applyTransaction, snapshot,
@@ -17,6 +17,15 @@ function createSyncytiumCodeFacade(dependencies) {
     localizeFaults: dependencies.localizeFaults,
     chooseRepairCandidates: dependencies.chooseRepairCandidates,
     repairInvariant: dependencies.repairInvariant,
+    partitionReplica: dependencies.partitionReplica,
+    reconcileReplica: dependencies.reconcileReplica,
+    inspectReplicas: dependencies.inspectReplicas,
+    joinReplica: dependencies.joinReplica,
+    createSpeculativeBranch: dependencies.createSpeculativeBranch,
+    applySpeculativeOperation: dependencies.applySpeculativeOperation,
+    compareSpeculativeBranch: dependencies.compareSpeculativeBranch,
+    promoteSpeculativeBranch: dependencies.promoteSpeculativeBranch,
+    discardSpeculativeBranch: dependencies.discardSpeculativeBranch,
     inspectHistory: dependencies.inspectHistory,
     inspectConflicts: dependencies.inspectConflicts
   });

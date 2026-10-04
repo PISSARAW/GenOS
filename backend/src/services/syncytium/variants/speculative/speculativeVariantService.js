@@ -50,7 +50,7 @@ async function spawnBranch(ctx) {
   assertStr(baseSnapshotId, 'baseSnapshotId');
   const cfg = validateConfig(o?.branchConfig);
   const n = now();
-  const id = o?.branchId || `branch-${n}-${randomUUID().slice(0, 8)}`;
+  const id = ctx.branchId || o?.branchId || `branch-${n}-${randomUUID().slice(0, 8)}`;
   const A = actor(o, 'speculative-worker');
   const rec = { branchId: id, baseSnapshotId, parentBranchId: null,
     label: null, status: 'ACTIVE', createdBy: A, createdAt: n,
@@ -152,7 +152,7 @@ async function compareBranches(ctx) {
   if (!Array.isArray(branchIds) || branchIds.length < 2)
     throw err('need >=2 branchIds', 'SPEC_BAD_INPUT');
   const { reg, snaps } = await fetchRegSnaps(sid, o, syn);
-  const metricValues = o?.metrics || {};
+  const metricValues = ctx.metrics || o?.metrics || {};
   const branches = await Promise.all(branchIds.map(async (id) => {
     if (!reg[id]) throw err(`branch '${id}' not found`, 'SPEC_BRANCH_NOT_FOUND');
     const b = reg[id];
@@ -161,7 +161,7 @@ async function compareBranches(ctx) {
       createdAt: b.createdAt, baseSnapshotId: b.baseSnapshotId,
       snapshot: native.simulated, changedFields: native.changedFields, metric: metricValues[id] };
   }));
-  const metricName = o?.metricName;
+  const metricName = ctx.metricName || o?.metricName;
   if (metricName && branches.some((branch) => !Number.isFinite(branch.metric))) {
     throw err(`Metric '${metricName}' requires one finite value for every branch`, 'SPEC_METRIC_INVALID');
   }

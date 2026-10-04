@@ -33,7 +33,9 @@ function availableReviewers(input) {
 }
 
 function matchesPolicy(member, policy) {
-  return !policy?.requireAdversarialReviewer || member.role === 'adversarial_reviewer';
+  if (!policy?.requireAdversarialReviewer) return true;
+  const required = member.workerRequirements?.requiredCapabilities || [];
+  return member.role === 'adversarial_reviewer' || required.includes('adversarial_review');
 }
 
 function isReviewer(member) {
@@ -41,7 +43,7 @@ function isReviewer(member) {
 }
 
 function assignment(member, required) {
-  const capabilities = member.capabilities || member.expertise || [];
+  const capabilities = memberCapabilities(member);
   const tags = normalizeTags(capabilities);
   return {
     memberId: member.memberId || member.id,
@@ -50,6 +52,11 @@ function assignment(member, required) {
   };
 }
 
+function memberCapabilities(member) {
+  return normalizeTags([member.capabilities, member.expertise, member.workerRequirements?.requiredCapabilities]
+    .flatMap((value) => Array.isArray(value) ? value : value ? [value] : []))
+    .map((tag) => tag === 'adversarial_review' ? 'adversarial' : tag);
+}
 function claimTags(claim) {
   const type = String(claim.type || claim.risk || '').toLowerCase();
   if (type.includes('security')) return ['security', 'risk'];
