@@ -114,6 +114,10 @@ et placer leur autorité hors du candidat évalué.
 l'adaptateur de perception. Un rejeu identique retourne `replayed: true` ;
 la même paire `(projectId, id)` avec un autre contenu est refusée. Le domaine
 est libre, mais la dimension doit figurer dans le mandat du projet.
+L'identifiant est limité à 128 caractères alphanumériques ou `._:-` ; le
+résumé, la source et les références de preuve sont bornés en taille. Cela
+empêche un identifiant externe d'injecter un texte d'instruction dans le
+titre de la tâche Ontogenèse.
 
 | Champ | Sens |
 | --- | --- |
