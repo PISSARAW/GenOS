@@ -138,8 +138,11 @@ function diagnoseWinnerError(oracleTruth, winnerResult) {
 }
 
 async function runClonalSelectionCycle(parent, antigen, ctx) {
-  const clones = expandClone(parent, { count: 2 });
   const oracleTruth = oracleFrom(ctx, antigen);
+  if (!isOracleResolved(oracleTruth)) {
+    return { clones: [], selection: null, maturation: null, oracleResolved: false };
+  }
+  const clones = expandClone(parent, { count: 2 });
   const cloneResults = await executeVerifierWorkers(antigen, clones, ctx);
   applyOracleToClones(clones, cloneResults, oracleTruth);
   const selection = selectWinningClones(parent, clones);
@@ -305,9 +308,13 @@ async function epistemicHolobionte(antigen, context = {}) {
     immuneMemory: context.immuneMemory,
     knownSubject: memory.hasMemory,
   });
-  const recruitment = await recruitNicheVerifier(antigen, immune, context);
+  const previousVerificationRate = require('./epistemicHomeostaticRearbitration').verificationRate(
+    immune.verifierResults?.results || [],
+  );
+  const recruitment = await recruitNicheVerifier(antigen, immune, { ...context,
+    preferredVerifierType: memory.effectiveResponse?.type || memory.effectiveResponse });
   immune = recruitment.immune;
-  const feedbackResult = await applyHomeostaticFeedback(antigen, immune, context);
+  const feedbackResult = await applyHomeostaticFeedback(antigen, immune, { ...context, previousVerificationRate });
   immune = feedbackResult.immune;
   const providerReview = await reviewProviders(antigen, context);
   const host = enforceProviderVeto(hostDecision(

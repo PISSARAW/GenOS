@@ -196,6 +196,7 @@ async function evaluateAeisForPromotion(antigens, context = {}) {
   const holobionteResults = await Promise.all(
     antigens.map(antigen => epistemicHolobionte(antigen, {
       ...context,
+      verifierBudget: { remaining: Math.min(8, Math.max(2, Number(context.maxVerifierExecutions) || 4)) },
       immuneMemory: context.immuneMemory || [],
       domain: context.domain,
       stakes: context.stakes,

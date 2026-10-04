@@ -106,6 +106,7 @@ async function loadPromotionContext(db, row, options) {
     report: acc.report,
     task: acc.task,
     workspaceId: acc.workspaceId,
+    budget: safeJson(row.budget_json, {}),
     turns: acc.turns
   };
 }
@@ -277,8 +278,17 @@ function pipelineTurns(turns) {
   return [{ action: 'human_approval', pass: true }];
 }
 
-async function runPromotionPipeline(promotion, primitives) {
+function aeisEvidenceScore(evaluation) {
+  const receipts = evaluation?.assembly?.verifications || [];
+  if (!receipts.length) return 0;
+  return receipts.filter((item) => item.status === 'verified' && item.independent === true).length / receipts.length;
+}
+
+async function runPromotionPipeline(promotion, primitives, aeisEvaluation) {
   const adapter = require('./strategyExecutionAdapter');
+  const regulation = require('./controlRegulationService').regulateAutonomyPlan(
+    promotion.contract, promotion.budget, { workers: [], dispatchWorkers: [] },
+  );
   const list = Array.isArray(primitives) ? primitives : PROMOTION_FALLBACK_PRIMITIVES;
   try {
     return await adapter.executePipelineWithFeedback(list, {
@@ -289,7 +299,9 @@ async function runPromotionPipeline(promotion, primitives) {
       report: promotion.report,
       turns: pipelineTurns(promotion.turns),
       sourceId: promotion.agentId,
-      targetId: promotion.agentId
+      targetId: promotion.agentId,
+      controlRegulation: regulation,
+      evidenceScore: aeisEvidenceScore(aeisEvaluation),
     });
   } catch (error) {
     return { success: false, error: error.message };

@@ -153,6 +153,7 @@ function signVerifierResult(antigen, verifier, signed) {
   const signedReceipt = issueReceipt(preReceipt);
   return {
     status: signed.outcome.status,
+    verifierType: verifier.type,
     resultId: antigen.id,
     evidenceDigest: antigen.epitopes?.evidence?.digest || signedReceipt.evidenceDigest || 'none',
     verifierDigest,
@@ -189,6 +190,13 @@ async function runSingleVerifier(antigen, verifier, ctx) {
     ? evaluateVerifierIndependence(executed, antigen, ctx.executedVerifiers)
     : { independent: false, distance: 0, reason: 'missing_execution_workspace', descriptor: buildVerifierDescriptor(executed, antigen, worker) };
   return { result: signVerifierResult(antigen, verifier, { outcome, independence }), executed };
+}
+
+function consumeVerifierBudget(budget) {
+  if (!budget) return true;
+  if (!Number.isInteger(budget.remaining) || budget.remaining <= 0) return false;
+  budget.remaining -= 1;
+  return true;
 }
 
 function setFallbackContract(enriched, command) {
@@ -228,6 +236,10 @@ async function executeVerifierWorkers(antigen, verifiers, opts = {}) {
   const executedVerifiers = [...(opts.priorVerifiers || [])];
 
   for (const verifier of verifiers) {
+    if (!consumeVerifierBudget(opts.verifierBudget)) {
+      results.push({ status: 'inconclusive', verifierType: verifier.type, reason: 'verifier_budget_exhausted' });
+      continue;
+    }
     try {
       const executed = await runSingleVerifier(antigen, verifier, { executedVerifiers, opts });
       results.push(executed.result);
