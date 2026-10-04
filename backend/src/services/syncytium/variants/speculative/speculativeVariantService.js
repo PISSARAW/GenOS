@@ -56,6 +56,7 @@ async function spawnBranch(ctx) {
     label: null, status: 'ACTIVE', createdBy: A, createdAt: n,
     executionBudgetMs: cfg.budget, operationsCount: 0, lastExecutionAt: null };
   const snapRef = { snapshotId: id, baseOn: baseSnapshotId, takenAt: n, branchId: id };
+  await syn.createSpeculativeBranch(sid, { branchId: id, options: o });
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: id, value: rec, A, o }), o);
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchSnapshots', action: 'set', entryKey: id, value: snapRef, A, o }), o);
   return { branchId: id, label: null, status: 'ACTIVE', baseSnapshotId,
@@ -97,11 +98,17 @@ async function executeOnBranch(ctx) {
   const budget = branch.executionBudgetMs || DEFAULT_EXEC_BUDGET;
   const wallStart = performance.now();
   const { remaining, applied } = await applyOps({ sid, id: branchId, ops: operations, budget, o, syn });
-  if (remaining.ms < 0)
+  if (remaining.ms < 0) {
+    const exceeded = { ...branch, status: 'BUDGET_EXCEEDED', operationsCount: branch.operationsCount + 1,
+      lastExecutionAt: now(), appliedOperationIds: [...(branch.appliedOperationIds || []), ...applied.map((item) => item.opId)] };
+    await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
+      value: exceeded, A: actor(o, 'branch-executor'), o }), o);
     return buildBudgetExceeded({ branchId, count: applied.length, budget, remaining });
+  }
   const n = now();
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
-    value: { ...branch, operationsCount: branch.operationsCount + 1, lastExecutionAt: n }, A: actor(o, 'branch-executor'), o }), o);
+    value: { ...branch, operationsCount: branch.operationsCount + 1, lastExecutionAt: n,
+      appliedOperationIds: [...(branch.appliedOperationIds || []), ...applied.map((item) => item.opId)] }, A: actor(o, 'branch-executor'), o }), o);
   return buildCompletion({ branchId, applied, budget, remaining, n, wallStart });
 }
 
@@ -117,7 +124,9 @@ async function applyOps(ctx) {
     const opIdVal = op?.opId || randomUUID();
     const kind = op?.kind || { type: 'typed_field', key: 'branchSnapshots', action: 'set',
       entryKey: id, value: { appliedOperation: opIdVal, index: i } };
-    await syn.applyOperation(sid, { opId: opIdVal, actorId: actor(o, 'branch-executor'), kind }, o);
+    await syn.applySpeculativeOperation(sid, {
+      branchId: id, operation: { opId: opIdVal, actorId: actor(o, 'branch-executor'), kind }, options: o
+    });
     applied.push({ index: i, status: 'APPLIED', opId: opIdVal });
   }
   return { remaining, applied };
@@ -143,19 +152,26 @@ async function compareBranches(ctx) {
   if (!Array.isArray(branchIds) || branchIds.length < 2)
     throw err('need >=2 branchIds', 'SPEC_BAD_INPUT');
   const { reg, snaps } = await fetchRegSnaps(sid, o, syn);
-  const branches = branchIds.map(id => {
+  const metricValues = o?.metrics || {};
+  const branches = await Promise.all(branchIds.map(async (id) => {
     if (!reg[id]) throw err(`branch '${id}' not found`, 'SPEC_BRANCH_NOT_FOUND');
     const b = reg[id];
+    const native = await syn.compareSpeculativeBranch(sid, { branchId: id, options: o });
     return { branchId: id, status: b.status, label: b.label || null,
       createdAt: b.createdAt, baseSnapshotId: b.baseSnapshotId,
-      snapshot: snaps[id] || null };
-  });
+      snapshot: native.simulated, changedFields: native.changedFields, metric: metricValues[id] };
+  }));
+  const metricName = o?.metricName;
+  if (metricName && branches.some((branch) => !Number.isFinite(branch.metric))) {
+    throw err(`Metric '${metricName}' requires one finite value for every branch`, 'SPEC_METRIC_INVALID');
+  }
+  const ranked = metricName ? [...branches].sort((left, right) => right.metric - left.metric) : [];
   const comparisonId = o?.comparisonId || randomUUID();
   const lineageGroups = groupByBase(branches);
   const A = actor(o, 'comparison-daemon');
   await syn.applyOperation(sid, makeFieldOp({ key: 'comparisonLog', action: 'add',
     value: { comparisonId, branchIds, comparedAt: now(), actorId: A, status: 'DIFFERENTIAL', lineageGroups }, A, o }), o);
-  return { comparisonId, branches, lineageGroups, timestamp: now() };
+  return { comparisonId, metricName: metricName || null, branches, ranked, lineageGroups, timestamp: now() };
 }
 
 function groupByBase(branches) {
@@ -173,17 +189,25 @@ async function promoteBranch(ctx) {
   const { reg } = await fetchReg(sid, o, syn);
   const branch = reg[branchId];
   if (!branch) throw err(`branch '${branchId}' not found`, 'SPEC_BRANCH_NOT_FOUND');
-  if (branch.status === 'PROMOTED') throw err('already PROMOTED', 'SPEC_ALREADY_PROMOTED');
+  if (branch.status !== 'ACTIVE') throw err(`branch is not eligible for promotion (${branch.status})`, 'SPEC_PROMOTION_INELIGIBLE');
+  if (!validEvidenceGate(evidenceGate)) throw err('Promotion requires passing validation evidence.', 'SPEC_PROMOTION_GATED');
   const n = now();
-  const status = evidenceGate ? 'PROMOTED' : 'PROMOTION_GATED';
   const A = actor(o, 'promotion-manager');
+  const promoted = await syn.promoteSpeculativeBranch(sid, { branchId, options: o });
+  const status = promoted.status;
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'set', entryKey: branchId,
-    value: { ...branch, status, promotedAt: evidenceGate ? n : null, promotionEvidenceGate: evidenceGate }, A, o }), o);
+    value: { ...branch, status, promotedAt: n, promotionEvidenceGate: evidenceGate,
+      appliedOperationIds: promoted.operationIds }, A, o }), o);
   await syn.applyOperation(sid, makeFieldOp({ key: 'promotionLog', action: 'add',
-    value: { branchId, promotedAt: n, by: A, evidenceGatePassed: evidenceGate,
+    value: { branchId, promotedAt: n, by: A, evidenceGatePassed: true,
       label: branch.label || null, baseSnapshotId: branch.baseSnapshotId }, A, o }), o);
   return { branchId, previousStatus: branch.status, newStatus: status,
-    evidenceGatePassed: evidenceGate, timestamp: n };
+    evidenceGatePassed: true, promotedSnapshot: promoted.snapshot, timestamp: n };
+}
+
+function validEvidenceGate(gate) {
+  return gate && gate.passed === true && Array.isArray(gate.checks) && gate.checks.length > 0
+    && gate.checks.every((check) => check && check.passed === true);
 }
 
 async function discardBranch(ctx) {
@@ -193,6 +217,7 @@ async function discardBranch(ctx) {
     throw err('reason must be a non-empty string', 'SPEC_BAD_INPUT');
   const { reg } = await fetchReg(sid, o, syn);
   if (!reg[branchId]) throw err(`branch '${branchId}' not found`, 'SPEC_BRANCH_NOT_FOUND');
+  await syn.discardSpeculativeBranch(sid, { branchId, reason, options: o });
   const n = now();
   const A = actor(o, 'speculation-manager');
   await syn.applyOperation(sid, makeFieldOp({ key: 'branchRegistry', action: 'delete', entryKey: branchId, A, o }), o);

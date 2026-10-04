@@ -14,13 +14,15 @@ function createSyncytiumSpeculationService(dependencies) {
     create: delegateCreate,
     apply: delegateApply,
     compare: delegateCompare,
-    promote: delegatePromote
+    promote: delegatePromote,
+    discard: delegateDiscard
   };
 
   function delegateCreate(sessionId, request) { return createBranch(sessionId, request, dependencies); }
   function delegateApply(sessionId, request) { return applyBranch(sessionId, request, dependencies); }
   function delegateCompare(sessionId, request) { return compareBranch(sessionId, request, dependencies); }
   function delegatePromote(sessionId, request) { return promoteBranch(sessionId, request, dependencies); }
+  function delegateDiscard(sessionId, request) { return discardBranch(sessionId, request, dependencies); }
 }
 
 async function createBranch(sessionId, request, dependencies) {
@@ -133,6 +135,21 @@ async function promoteBranch(sessionId, request, dependencies) {
       throw error;
     }
     return { branchId, status: branch.status, operationIds: accepted.map((item) => item.opId), snapshot: candidate.getSnapshot() };
+  });
+}
+
+async function discardBranch(sessionId, request, dependencies) {
+  const { branchId, options = {} } = request;
+  return router.run({ coordinationRequired: true }, sessionId, async () => {
+    const session = await dependencies.getSession(sessionId, options.db);
+    const branch = requireOpenBranch(session, branchId);
+    const previous = structuredClone(branch);
+    branch.status = 'DISCARDED';
+    branch.discardedAtMs = Date.now();
+    branch.discardReason = String(request.reason || 'discarded');
+    session.pendingReplicaEvent = { type: 'SPECULATION_DISCARDED', branchId };
+    await persistBranchChange({ session, options, dependencies, rollback: () => Object.assign(branch, previous) });
+    return { branchId, status: branch.status, discardedAtMs: branch.discardedAtMs };
   });
 }
 

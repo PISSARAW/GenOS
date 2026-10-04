@@ -369,8 +369,11 @@ const createSpeculativeBranch = (sessionId, request = {}) => speculation.create(
 const applySpeculativeOperation = (sessionId, request = {}) => speculation.apply(sessionId, request);
 const compareSpeculativeBranch = (sessionId, request = {}) => speculation.compare(sessionId, request);
 const promoteSpeculativeBranch = (sessionId, request = {}) => speculation.promote(sessionId, request);
+const discardSpeculativeBranch = (sessionId, request = {}) => speculation.discard(sessionId, request);
 const codeFacade = createSyncytiumCodeFacade({
   createSession, applyOperation, snapshot, applyTransaction,
+  createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch,
+  promoteSpeculativeBranch, discardSpeculativeBranch,
   createSnapshot, listSnapshots, compactHistory,
   explain, localizeFaults, chooseRepairCandidates, repairInvariant,
   inspectHistory: sessionHistory.inspectHistory,
@@ -383,6 +386,6 @@ async function closeSession(sessionId, options = {}) {
   return true;
 }
 
-const exported = { createSession, applyOperation, applyTransaction, publishReflexSignal, snapshot, createSnapshot, listSnapshots, compactHistory, joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas, partitionReplica, reconcileReplica, explain, simulateWithout, simulateReplacing, localizeFaults, repairInvariant, chooseRepairCandidates, createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch, ...codeFacade, assessConsistency, closeSession, isIonicFlux, rehydrate };
+const exported = { createSession, applyOperation, applyTransaction, publishReflexSignal, snapshot, createSnapshot, listSnapshots, compactHistory, joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas, partitionReplica, reconcileReplica, explain, simulateWithout, simulateReplacing, localizeFaults, repairInvariant, chooseRepairCandidates, createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch, discardSpeculativeBranch, ...codeFacade, assessConsistency, closeSession, isIonicFlux, rehydrate };
 Object.keys(exported).forEach((key) => { if (!exported[key]) delete exported[key]; });
 module.exports = exported;
