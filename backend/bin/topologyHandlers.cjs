@@ -358,9 +358,10 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
   return Promise.all(selected.map((member, index) => launchWorker({ db, context, member, index: index + 1, parent })));
 }
 
-function composeBiologicalMode({ db, context, mode, mission }) {
+async function composeBiologicalMode({ db, context, mode, mission }) {
   const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;
   const workerAssignments = context.request.worker_assignments || context.request.workerAssignments;
+  const available = mode === 'a_team' ? (await workerGarage.state(db, context.orchestratorId)).available : undefined;
   if (mode === 'isolated_baseline') {
     return require('../src/services/isolatedBaselineTopologyService').compose({ mission, options: { workerAssignments } });
   }
@@ -368,7 +369,7 @@ function composeBiologicalMode({ db, context, mode, mission }) {
   return biologicalTopology.composeMode({
     db, orchestratorId: context.orchestratorId, mode, mission,
     options: { agentCount, clusterSize, fanout, organization, workerAssignments, variantId,
-      scope: context.request.scope, configuration: context.request.configuration }
+      available, scope: context.request.scope, configuration: context.request.configuration }
   });
 }
 

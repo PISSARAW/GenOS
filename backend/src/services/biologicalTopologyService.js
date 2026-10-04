@@ -69,7 +69,8 @@ function composeATeam({ mission, options = {} }) {
     subSystems: analysis.detectedDomains,
     assignedRoles: analysis.members.map((member) => member.role),
     modelTiers: analysis.members.map((member) => member.modelTier),
-    dependencies
+    dependencies,
+    available: options.available ?? aTeamService.MAX_MEMBERS
   });
   const dispatch = require('./aTeam/dispatchPolicyService').prepareDispatchPolicy({
     mission: { goal: mission, variant: options.variantId || options.variant }, members

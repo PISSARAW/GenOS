@@ -31,6 +31,19 @@ async function verifyATeamDispatch() {
     () => composeMode({ mode: 'a_team', mission: 'Solve one simple recurrence.' }),
     { code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED' }
   );
+  const broadMission = require('./fixtures/topology-missions-48.json').find(
+    (entry) => entry.topology === 'a_team' && entry.level === 3
+  ).mission;
+  const broadTeam = await composeMode({
+    mode: 'a_team', mission: broadMission, options: { variantId: 'project_dag', available: 5 }
+  });
+  assert.equal(broadTeam.members.length, 5);
+  await assert.rejects(
+    () => composeMode({
+      mode: 'a_team', mission: broadMission, options: { variantId: 'project_dag', available: 4 }
+    }),
+    { code: 'WORKER_GARAGE_FULL' }
+  );
 }
 
 async function verifySyncytiumVariantDispatch() {
