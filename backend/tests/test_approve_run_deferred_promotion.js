@@ -93,6 +93,13 @@ async function run() {
     assert.equal(learned?.affinity, 1);
     const stored = await db.get('SELECT id FROM aeis_assurance_assemblies ORDER BY rowid DESC LIMIT 1');
     const persisted = await require('../src/services/aeisAssemblyStore').readAssembly(db, stored.id);
+    assert.equal(persisted.runId, run.id);
+    assert.equal(persisted.scopeId, 'local:local:ws-aeis-promo');
+    await assert.rejects(require('../src/services/epistemic/immuneMemoryRepository').resolve(db, {
+      scopeId: persisted.scopeId, signature: learned.signature,
+      assemblyId: stored.id, runId: 'another-run',
+      resultId: persisted.evaluation.assembly.results[0].resultId, test: realReport.claims[0].test,
+    }), /does not belong/);
     const repeated = await require('../src/services/epistemic/immuneMemoryRepository').resolve(db, {
       scopeId: 'local:local:ws-aeis-promo', signature: learned.signature,
       assemblyId: stored.id, runId: run.id,

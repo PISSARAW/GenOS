@@ -323,7 +323,7 @@ async function evaluateReportWithAeis(report, context = {}) {
     result.evaluation = { eligible: false, violations: [{ policy: 'multi_provider_review', message: 'Independent provider review is missing, disputed or refuting.' }] };
     result.assembly = null;
   }
-  if (context.db && result.assembly) result.persistedAssemblyId = await require('../aeisAssemblyStore').saveAssembly(context.db, result);
+  if (context.db && result.assembly) result.persistedAssemblyId = await require('../aeisAssemblyStore').saveAssembly(context.db, result, context);
   return result;
 }
 

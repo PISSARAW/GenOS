@@ -332,6 +332,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0296b](0296-revue-multi-fournisseur-aeis.md) | Revue AEIS par fournisseurs indépendants | Accepté | 2026-10-04 | AEIS, fournisseurs, processus, promotion |
 | [0297c](0297-budget-et-retroaction-aeis.md) | Budget et rétroaction homéostatique AEIS | Accepté | 2026-10-04 | AEIS, runtime, ré-arbitration, budget |
 | [0298b](0298-cycle-de-vie-des-recus-aeis.md) | Cycle de vie des reçus et assemblées AEIS | Accepté | 2026-10-04 | AEIS, signature, rétention, audit |
+| [0299](0299-liaison-des-assemblages-aeis-au-run.md) | Liaison des assemblages AEIS au run | Accepté | 2026-10-04 | AEIS, mémoire, intégrité, portée |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers. Les chemins sont conservés (ADR 0005) et l'index
