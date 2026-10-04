@@ -120,6 +120,7 @@ const suites = {
     ['incremental Lean gate', 'test_epistemic_scheduler_lean_gate.js']
   ],
   signalPlane: [
+    ['cognitive residual compiler', 'test_cognitive_residual_compiler.js'],
     ['signal receptor service', 'test_signal_receptor_service.js'],
     ['signal event bus', 'test_signal_event_bus.js'],
     ['signal pipeline integration', 'test_signal_pipeline_integration.js'],

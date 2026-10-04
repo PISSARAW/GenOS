@@ -312,6 +312,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0291](0291-persistance-du-daemon-de-metapopulation.md) | Persistance du daemon de métapopulation | Accepté | 2026-10-03 | Daemons, métapopulations, baux |
 | [0292](0292-execution-des-variants-trinity.md) | Exécution et gates des douze variants Trinity | Accepté | 2026-10-03 | Trinity, orchestration, preuves, promotion |
 | [0293](0293-persistance-des-variants-metapopulation.md) | Persistance des états de variants Metapopulation | Accepté | 2026-10-04 | Metapopulation, cycles régionaux, dèmes persistants et culture |
+| [0294](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
 | [0295](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | Projets persistants, perception, Ontogenèse, GVX |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux

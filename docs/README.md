@@ -113,6 +113,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [environnement-hote.md](03-reference/environnement-hote.md) — mesures de la machine, choix du disque et régulation des ressources.
 - [orchestration.md](02-orchestration/orchestration.md) — branches, preuve avant validation, survivants, fan-out.
 - [shev.md](02-orchestration/shev.md) — mandat durable, perception qualifiée, initiative et effet vérifié sur le projet.
+- [g-cir.md](02-orchestration/g-cir.md) — interface cognitive résiduelle, contrat du Signal Plane, visibilité, validation et limites.
 - [architecture-survie.md](02-orchestration/architecture-survie.md) — état de survie mesurable et politiques de continuité bornées.
 - [regulation-multi-boucles.md](02-orchestration/regulation-multi-boucles.md) — régulation multi-boucles, signaux et arbitrage.
 - [theorie-du-soi-orchestrator.md](02-orchestration/theorie-du-soi-orchestrator.md) — modèle de soi calculé, calibration et garde-fous décisionnels.

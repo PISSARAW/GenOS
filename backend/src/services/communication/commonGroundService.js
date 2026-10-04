@@ -97,7 +97,8 @@ async function knows(input) {
   const row = await db.get(
     `SELECT 1 AS ok FROM communication_common_ground
      WHERE ((agent_a = ? AND agent_b = ?) OR (agent_a = ? AND agent_b = ?))
-       AND semantic_fingerprint = ? AND status = 'grounded' LIMIT 1`,
+       AND semantic_fingerprint = ? AND status = 'grounded'
+       AND (expires_at IS NULL OR julianday(expires_at) > julianday('now')) LIMIT 1`,
     [input.agentA, input.agentB, input.agentB, input.agentA, input.semanticFingerprint]
   );
   return Boolean(row);
@@ -109,6 +110,7 @@ async function getSharedGround(input) {
     `SELECT * FROM communication_common_ground
      WHERE ((agent_a = ? AND agent_b = ?) OR (agent_a = ? AND agent_b = ?))
        AND domain = ? AND status = 'grounded'
+       AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))
      ORDER BY semantic_fingerprint ASC`,
     [input.agentA, input.agentB, input.agentB, input.agentA, input.domain]
   );
@@ -119,7 +121,8 @@ async function receiverPrints(db, query) {
   const rows = await db.all(
     `SELECT semantic_fingerprint AS fp FROM communication_common_ground
      WHERE ((agent_a = ? AND agent_b = ?) OR (agent_a = ? AND agent_b = ?))
-       AND status = 'grounded'`,
+       AND status = 'grounded'
+       AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))`,
     [query.senderId, query.receiverId, query.receiverId, query.senderId]
   );
   return new Set(rows.map((row) => row.fp));
@@ -162,7 +165,8 @@ function collectPairs(ids, index, pairs) {
 async function pairPrints(db, pair, domain) {
   const rows = await db.all(
     `SELECT semantic_fingerprint AS fp FROM communication_common_ground
-     WHERE agent_a = ? AND agent_b = ? AND domain = ? AND status = 'grounded'`,
+     WHERE agent_a = ? AND agent_b = ? AND domain = ? AND status = 'grounded'
+       AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))`,
     [pair[0], pair[1], domain]
   );
   return new Set(rows.map((row) => row.fp));

@@ -191,8 +191,8 @@ function handleLlmEscalation(signal) {
     try {
       await cognitiveSignalService.handleSignal({ db: await getDatabase(), agentId: target,
         signal, context });
-      signalMetrics.recordLlmWakeupOutcome({ useful: true });
-      signalMetrics.recordOutcome('llm_success');
+      signalMetrics.recordLlmWakeupOutcome({ useful: false });
+      signalMetrics.recordOutcome('ignored');
       escalation.recordEscalationOutcome(signal.signalId, 'dispatched', 1);
     } catch (err) {
       signalMetrics.recordLlmWakeupOutcome({ useful: false });
