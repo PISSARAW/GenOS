@@ -371,6 +371,9 @@ const migrationRunners = [
   createMigrationRunner('101-relational-execution', 'Persist scoped relational grants and atomic admission receipts', async (db) => {
     await require('./migrateRelationalExecution').migrateRelationalExecution(db);
   }),
+  createMigrationRunner('102-morphogenesis-capabilities', 'Persist experimental coverage, attempts, temporal observations, counterexamples and inherited statistical risk', async (db) => {
+    await require('./migrateMorphogenesisCapabilities').migrateMorphogenesisCapabilities(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
