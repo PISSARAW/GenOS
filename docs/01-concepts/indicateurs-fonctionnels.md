@@ -59,7 +59,7 @@ Inventaire historique à requalifier par les reçus du plan de validation.
 
 | Famille (littérature) | Implémentation GenOS | Statut | Ce qui manque |
 |---|---|---|---|
-| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs ; `globalWorkspaceService` avec contrôle d'autorisation et consommation, appelé par `attachGlobalWorkspace` dans le chemin `planMission` | Partiel | usage causal dans des missions réelles, concurrence et réplication indépendante non validés |
+| Diffusion globale (GWT) | bus + workspace sélectif à récepteurs ; `globalWorkspaceService` avec contrôle d'autorisation et consommation, appelé par `attachGlobalWorkspace` dans le chemin `planMission` | Partiel | en mode par défaut, contenu identique au prompt accessible en repli ; effet causal propre, concurrence et réplication indépendante non validés |
 | Ignition non-linéaire | `ignitionService` : seuil, burst ×1,5, réfractaire, fuite, propagation réelle | Partiel | dynamique compétitive |
 | Attention sélective | fovéation, active sensing, pont thalamique, leases + bancs causaux et sondes | Implémenté (fonctionnel) | steering live |
 | Récurrence entretenue | `reverberationService` + `idleTickService` + scheduler appelé par le serveur | Partiel | effet du maintien et récurrence perceptive à valider |

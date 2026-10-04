@@ -14,7 +14,7 @@ pas protocole, profil, seeds, budget, résultat et réplication.
 | Butlin | RPT-2 Perception intégrée | 10–11 | `implemented_not_validated` | binding, espace inspectable | pas de permutation causale à grande échelle |
 | Butlin | GWT-1 Spécialistes parallèles | 12 | `implemented_not_validated` | workspace compétitif | concurrence réelle non mesurée |
 | Butlin | GWT-2 Workspace sélectif | 12 | `implemented_not_validated` | capacité, éviction, surcharge | pas de réplication indépendante |
-| Butlin | GWT-3 Diffusion globale | 12 | `implemented_not_validated` | `missionPlanning.attachGlobalWorkspace` est appelé par `planMission` ; `test_global_workspace_runtime.js` vérifie disponibilité/consommation par module et lecture du contenu par `missionText` | contrat local du chemin de planification ; pas de campagne live multi-missions, concurrence ni réplication indépendante |
+| Butlin | GWT-3 Diffusion globale | 12 | `implemented_not_validated` | `missionPlanning.attachGlobalWorkspace` est appelé par `planMission` ; `test_global_workspace_runtime.js` vérifie disponibilité/consommation par module et lecture du contenu par `missionText` | en mode par défaut, le contenu du workspace est le prompt déjà accessible en repli : l'effet propre de la diffusion n'est pas identifiable ; pas de campagne live ni de réplication indépendante |
 | Butlin | GWT-4 Attention dépendante de l’état | 13 | `implemented_not_validated` | prédiction et score d’accord | pas de test reserved |
 | Butlin | HOT-1 Perception générative | 11 | `implemented_not_validated` | prior, précision, erreur | modèle génératif limité |
 | Butlin | HOT-2 Fiabilité monitorée | 14 | `implemented_not_validated` | erreur confiance/exactitude | calibration adversariale absente |

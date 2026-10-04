@@ -19,6 +19,8 @@ Le [registre machine](../../shared/indicatorRegistry.json) énumère 14 proprié
 
 L'ancienne [fiche des indicateurs](../01-concepts/indicateurs-fonctionnels.md) disait que le helper de workspace n'était pas branché à la production. Le code étudié appelle désormais `attachGlobalWorkspace` depuis `planMission` et le test correspondant passe. La fiche est corrigée ; GWT-3 reste partiel tant qu'une intervention appariée n'établit pas l'usage causal dans une mission. AGOW et `globalWorkspaceService` sont deux circuits à distinguer dans chaque protocole et reçu.
 
+**Facteur de confusion découvert après les tests.** En mode `GENOS_AGOW_MODE=off`, `attachGlobalWorkspace` crée son candidat depuis `normalizedMission.prompt` ou `currentTask`, puis inscrit ce même texte dans le consommateur `planning`. `missionText` lit ce consommateur s'il est disponible, mais revient au prompt lorsqu'il ne l'est pas. Le test courant compare deux accès au même texte : il vérifie le câblage, sans identifier un apport causal distinct du workspace. Une variation de contenu indépendante, avec provenance et sans autre canal vers le planificateur, est nécessaire avant le pilote GWT-3. Ce constat est reporté dans la [matrice](matrice-preuves-indicateurs.md).
+
 ## 2. Journal des vérifications
 
 Toutes les commandes ci-dessous ont été lancées depuis la copie isolée de la révision indiquée. `NODE_PATH` pointait vers les dépendances déjà installées du dépôt source pour le test de câblage ; les autres tests ne nécessitaient pas ce réglage. Les tentatives initiales de ce test dans le checkout partiel échouaient sur des fichiers non extraits (`strategyRegistry`, puis `conceptRegistry`) ou sur la dépendance `msgpackr` absente du chemin de modules ; ces erreurs d'environnement ne constituent pas un échec du mécanisme. Le dossier `backend/src` a ensuite été extrait et `NODE_PATH` fourni.
@@ -39,7 +41,7 @@ Contrôles globaux tentés dans la copie partielle : `git diff --cached --check`
 
 **Hypothèse falsifiable.** À modèle, mission, outils, budget et état initial appariés, rendre un contenu admissible disponible via `globalWorkspaceService` change l'action en aval lorsque la tâche exige ce contenu. Un simple accusé de livraison ne satisfait pas l'hypothèse.
 
-1. Déclarer le profil `node-runtime`, la révision de code, la version du modèle éventuel, le jeu de missions et l'identité des récepteurs. Conserver AGOW comme facteur séparé ou le maintenir constant.
+1. Déclarer le profil `node-runtime`, la révision de code, la version du modèle éventuel, le jeu de missions et l'identité des récepteurs. Fournir au workspace un contenu indépendant du prompt, avec provenance vérifiable, et fermer tout autre canal vers le planificateur. Si ce montage n'est pas réalisable, arrêter le pilote comme `unavailable`. Conserver AGOW comme facteur séparé ou le maintenir constant.
 2. Préenregistrer trois bras : contenu diffusé et consommable ; contenu coupé au récepteur ; intervention factice conservant le coût et la forme des messages. Apparier seeds et snapshots ; randomiser l'ordre des bras. Conserver les gates de permission et de preuve.
 3. Mesurer avant ouverture du réservé : admissions, livraisons, lectures effectives, choix exécutés, exactitude sur la tâche, coût, latence, échecs et données manquantes. Figer une métrique principale, un effet minimal utile, le nombre d'unités indépendantes et la règle d'arrêt après un pilote sur données de développement.
 4. Exiger des reçus reliant contenu, identité du consommateur, décision, action et observation. Contrôler une fuite directe du contenu dans le prompt ou un autre canal. Une différence de texte seule n'est pas un effet suffisant.
@@ -51,6 +53,7 @@ Le même ordre s'applique ensuite à RPT, HOT, AST, PP et AE selon les épreuves
 
 - Choisir et figer un profil exécutable et un corpus de développement distinct du réservé.
 - Configurer une base de données locale accessible pour conserver les reçus, puis prouver la restauration et le rejeu.
+- Supprimer le facteur de confusion prompt/workspace et vérifier l'isolement des canaux, avec ADR si le circuit de production doit changer.
 - Exécuter le pilote GWT-3 avec les trois bras, ses contrôles de coût et les reçus de décision.
 - Lancer les suites requises par `AGENTS.md` sur un checkout complet avant une promotion de code ou d'indicateur.
 - Actualiser la matrice uniquement à partir des reçus obtenus ; laisser les résultats non mesurés en `not_run` ou `unavailable`.
