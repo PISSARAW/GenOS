@@ -73,9 +73,21 @@ async function revealJudgments(input) {
   }));
 }
 
+async function listRevealedJudgments(input) {
+  const session = await communityStore.loadSession(input.db, input.communityId);
+  if (!session || input.round >= session.round) throw Object.assign(
+    new Error('Only an earlier completed round can be disclosed as feedback.'),
+    { code: 'BIOCENOSE_DISCLOSURE_ROUND_INVALID' }
+  );
+  const payloads = await communityStore.sealedPayloads(input.db, input.communityId, input.round);
+  assertPayloadIntegrity(payloads);
+  return payloads.map((entry) => ({ memberId: entry.memberId, round: entry.round,
+    judgment: entry.payload.judgment.judgment }));
+}
+
 function assertPayloadIntegrity(payloads) {
   const valid = payloads.every((entry) => judgmentHash(entry.payload) === entry.commitmentHash);
   if (!valid) throw Object.assign(new Error('A sealed judgment failed commitment hash validation.'), { code: 'BIOCENOSE_COMMITMENT_INTEGRITY_FAILURE' });
 }
 
-module.exports = { commitJudgment, revealJudgments, judgmentHash };
+module.exports = { commitJudgment, revealJudgments, listRevealedJudgments, judgmentHash };

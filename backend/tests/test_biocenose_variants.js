@@ -227,6 +227,23 @@ function testPersistentReputation() {
   assert.equal(rotation.rotationDue, true);
 }
 
+function testDelphiSpreadAndForecastScoring() {
+  const delphi = aggregation.aggregate({ questionType: 'PROBABILISTIC',
+    variantPolicy: router.select('delphi_community'),
+    judgments: [{ memberId: 'm1', judgment: { position: 0.2 } },
+      { memberId: 'm2', judgment: { position: 0.4 } },
+      { memberId: 'm3', judgment: { position: 0.8 } }] });
+  assert.equal(delphi.delphi.minimum, 0.2);
+  assert.equal(delphi.delphi.maximum, 0.8);
+  assert.ok(Math.abs(delphi.delphi.relativeSpread - 1.5) < 1e-9);
+  const orchestrator = require('../src/services/biocenose/runtime/variantOrchestrator');
+  const scores = orchestrator.scoreResolvedForecasts([
+    { memberId: 'm1', eventId: 'rain', probability: 0.8 },
+    { memberId: 'm2', eventId: 'rain', probability: 0.2 }
+  ], [{ eventId: 'rain', outcome: 1 }]);
+  assert.equal(scores.resolvedCount, 2);
+  assert.ok(Math.abs(scores.meanBrier - 0.34) < 1e-9);
+}
 testVariantSurface();
 testVariantContracts();
 testRecommend();
@@ -239,4 +256,5 @@ testPolycentricCouncil();
 testByzantineQuorum();
 testRepresentativeSampling();
 testPersistentReputation();
+testDelphiSpreadAndForecastScoring();
 console.log('✅ Biocenose variant tests passed.');

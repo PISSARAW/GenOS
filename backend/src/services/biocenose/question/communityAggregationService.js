@@ -30,9 +30,19 @@ function withDelphiDistribution(result, input) {
       distribution: positionCounts(input.judgments || []),
       numeric: positions.length > 0,
       interquartileRange: positions.length ? quantile(positions, 0.75) - quantile(positions, 0.25) : null,
-      median: positions.length ? quantile(positions, 0.5) : null
+      median: positions.length ? quantile(positions, 0.5) : null,
+      minimum: positions.length ? positions[0] : null,
+      maximum: positions.length ? positions[positions.length - 1] : null,
+      relativeSpread: relativeSpread(positions)
     }
   };
+}
+
+function relativeSpread(values) {
+  if (!values.length) return null;
+  const median = quantile(values, 0.5);
+  const range = values[values.length - 1] - values[0];
+  return median === 0 ? range : range / Math.abs(median);
 }
 
 function hasNumericPosition(value) {

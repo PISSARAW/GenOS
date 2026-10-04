@@ -4,6 +4,46 @@ const maliciousSignals = require('../byzantine/maliciousSignalDetector');
 const byzantineQuorum = require('../byzantine/byzantineQuorumService');
 const quarantineService = require('../byzantine/quarantineService');
 
+async function delphiContext(input) {
+  if (input.session.round < 1) return null;
+  const commitment = require('../deliberation/commitmentService');
+  const argumentsGraph = require('../argumentation/communityArgumentGraph');
+  const previous = await commitment.listRevealedJudgments({ db: input.db,
+    communityId: input.session.communityId, round: input.session.round - 1 });
+  const snapshot = await argumentsGraph.snapshot({ db: input.db,
+    communityId: input.session.communityId, round: input.session.round - 1 });
+  const counts = new Map();
+  for (const item of previous) {
+    const position = String(item.judgment.position ?? 'ABSTAIN');
+    counts.set(position, (counts.get(position) || 0) + 1);
+  }
+  const memberPositions = new Map(previous.map((item) => [item.memberId, item.judgment.position]));
+  return {
+    feedback: { anonymous: true, distribution: [...counts].map(([position, count]) => ({ position, count })),
+      arguments: snapshot.arguments.map(stripAttribution) },
+    previousByMember: memberPositions
+  };
+}
+
+function delphiRevisions(previousByMember, current) {
+  return current.map((item) => {
+    const before = previousByMember.get(item.memberId);
+    const after = item.judgment.position;
+    const changed = String(before) !== String(after);
+    const reasonCodes = item.judgment.reasonCodes || [];
+    const evidenceRefs = item.judgment.evidenceRefs || [];
+    const rationale = require('../deliberation/revisionReasonClassifier').classify({ reasonCodes, evidenceRefs });
+    return { memberId: item.memberId, previousPosition: before, newPosition: after,
+      status: changed ? 'REVISED' : 'MAINTAINED', reasonCodes, evidenceRefs,
+      rationale: reasonCodes.length ? rationale : { evidenceGrounded: false, socialSignalOnly: false, unclassified: true } };
+  });
+}
+
+function stripAttribution(item) {
+  const { createdBy, owners, ...value } = item;
+  return value;
+}
+
 async function quarantineIfRequired(input) {
   if (!input.variantPolicy?.quarantineAware) return null;
   const nested = input.judgment?.judgment || input.judgment || {};
@@ -37,27 +77,33 @@ async function persistentContext(input) {
   const store = require('../calibration/calibrationStore');
   const records = [];
   for (const member of input.session.members.filter((item) => item.status === 'ACTIVE')) {
-    const domain = String(member.expertise || input.session.questionType || 'general');
-    const history = await store.list(input.db, member.memberId, domain);
-    const profile = reputation.domainReputation({ memberId: member.memberId, records: history });
-    const domainRecord = profile.domains.find((item) => item.domain === domain);
-    const lastMission = Number(history.at(-1)?.missionIndex || 0);
-    const elapsed = Math.max(0, (Number(input.missionIndex) || lastMission) - lastMission);
-    const decayed = reputation.decayReputation({ reputation: domainRecord?.reputation,
-      periodsElapsed: elapsed, halfLifeMissions: input.reputationHalfLifeMissions });
-    const decision = reputation.membershipDecision({ reputation: decayed.decayedReputation,
-      sampleCount: domainRecord?.sampleCount || 0 });
-    records.push({ memberId: member.memberId, domain, sampleCount: domainRecord?.sampleCount || 0,
-      reputation: domainRecord?.reputation ?? null, decayedReputation: decayed.decayedReputation,
-      periodsElapsed: elapsed, decision: decision.decision, reason: decision.reason });
+    const domains = memberDomains(member, input.session.questionType);
+    for (const domain of domains) {
+      const history = await store.list(input.db, member.memberId, domain);
+      const historical = history.length ? history : (member.calibrationHistory || []).filter((item) => item.domain === domain);
+      const profile = reputation.domainReputation({ memberId: member.memberId, records: historical });
+      const domainRecord = profile.domains.find((item) => item.domain === domain);
+      const lastMission = Number(historical.at(-1)?.missionIndex || 0);
+      const elapsed = Math.max(0, (Number(input.missionIndex) || lastMission) - lastMission);
+      const decayed = reputation.decayReputation({ reputation: domainRecord?.reputation,
+        periodsElapsed: elapsed, halfLifeMissions: input.reputationHalfLifeMissions });
+      const decision = reputation.membershipDecision({ reputation: decayed.decayedReputation,
+        sampleCount: domainRecord?.sampleCount || 0 });
+      records.push({ memberId: member.memberId, domain, sampleCount: domainRecord?.sampleCount || 0,
+        reputation: domainRecord?.reputation ?? null, decayedReputation: decayed.decayedReputation,
+        periodsElapsed: elapsed, decision: decision.decision, reason: decision.reason });
+    }
   }
   const tenures = input.session.members.map((member) => ({ memberId: member.memberId,
     missions: Number(member.missionsServed || member.tenureMissions) || 0 }));
   const rotation = reputation.antiEntrenchment({ tenures,
     maxTenureMissions: Number(input.maxTenureMissions) || 20 });
-  const excluded = new Set([...records.filter((item) => item.decision === 'EXPEL').map((item) => item.memberId),
+  const currentDomain = String(input.forecastDomain || input.session.questionType || 'general');
+  const currentRecords = records.filter((item) => item.domain === currentDomain
+    || !records.some((entry) => entry.memberId === item.memberId && entry.domain === currentDomain));
+  const excluded = new Set([...currentRecords.filter((item) => item.decision === 'EXPEL').map((item) => item.memberId),
     ...rotation.rotate.map((item) => item.memberId)]);
-  const weights = new Map(records.map((item) => [item.memberId, Math.max(0.05, item.decayedReputation ?? 0.5)]));
+  const weights = new Map(currentRecords.map((item) => [item.memberId, Math.max(0.05, item.decayedReputation ?? 0.5)]));
   const source = input.suppliedForecasts || (input.judgments || []).flatMap((item) => (item.judgment.probabilities || [])
     .map((forecast) => ({ ...forecast, memberId: item.memberId })));
   const forecasts = source.filter((item) => !excluded.has(item.memberId)).map((item) => ({
@@ -65,6 +111,84 @@ async function persistentContext(input) {
     independenceWeight: item.independenceWeight || 1
   }));
   return { forecasts, report: { members: records, rotation, excludedMemberIds: [...excluded] } };
+}
+
+function memberDomains(member, fallback) {
+  const expertise = Array.isArray(member.expertise) ? member.expertise : [member.expertise];
+  const values = expertise.filter((value) => typeof value === 'string' && value.trim());
+  return [...new Set(values.length ? values : [String(fallback || 'general')])];
+}
+
+async function forecastingContext(input) {
+  const store = require('../calibration/calibrationStore');
+  const members = new Map(input.session.members.map((item) => [item.memberId, item]));
+  const source = input.suppliedForecasts || (input.judgments || []).flatMap((item) =>
+    (item.judgment.probabilities || []).map((forecast) => ({ ...forecast, memberId: item.memberId })));
+  const cache = new Map();
+  const weights = new Map();
+  const forecasts = [];
+  for (const forecast of source) {
+    const member = members.get(forecast.memberId);
+    const domain = String(forecast.domain || member?.forecastDomain
+      || (typeof member?.expertise === 'string' ? member.expertise : input.session.questionType) || 'general');
+    const key = `${forecast.memberId}:${domain}`;
+    if (!cache.has(key)) {
+      const stored = await store.list(input.db, forecast.memberId, domain);
+      const history = stored.length ? stored : (member?.calibrationHistory || []).filter((item) => item.domain === domain);
+      const meanBrier = mean(history.map((item) => Number(item.brierScore)).filter(Number.isFinite));
+      const explicit = Number(member?.calibrationWeight ?? member?.calibration);
+      const calibrationWeight = meanBrier === null
+        ? (Number.isFinite(explicit) && explicit > 0 ? explicit : null)
+        : Math.max(0, 1 - meanBrier);
+      cache.set(key, { domain, calibrationWeight,
+        independenceWeight: Number(member?.independenceWeight) > 0 ? Number(member.independenceWeight) : 1,
+        sampleCount: history.length });
+    }
+    const weight = cache.get(key);
+    weights.set(key, { memberId: forecast.memberId, ...weight });
+    forecasts.push({ ...forecast, domain, calibrationWeight: forecast.calibrationWeight ?? weight.calibrationWeight,
+      independenceWeight: forecast.independenceWeight ?? weight.independenceWeight });
+  }
+  return { forecasts, weights: [...weights.values()],
+    missingMemberIds: [...new Set([...weights.values()]
+      .filter((item) => !(item.calibrationWeight > 0)).map((item) => item.memberId))] };
+}
+function mean(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+}
+
+function scoreResolvedForecasts(forecasts, outcomes) {
+  const resolved = new Map(outcomes.map((item) => [item.eventId, Number(item.outcome)]));
+  const scores = forecasts.filter((item) => resolved.has(item.eventId)
+    && Number.isFinite(item.probability) && item.probability >= 0 && item.probability <= 1
+    && [0, 1].includes(resolved.get(item.eventId)))
+    .map((item) => ({ memberId: item.memberId, eventId: item.eventId,
+      brierScore: (item.probability - resolved.get(item.eventId)) ** 2 }));
+  return { scores, meanBrier: mean(scores.map((item) => item.brierScore)), resolvedCount: scores.length };
+}
+
+async function persistResolvedOutcomes(input) {
+  const calibration = require('../calibration/calibrationService');
+  const recorded = [];
+  for (const outcome of input.outcomes || []) {
+    const receipt = outcome.receipt;
+    if (!outcome.eventId || !outcome.domain || ![0, 1].includes(Number(outcome.outcome))
+      || typeof input.isTrustedReceipt !== 'function' || !trustedReceipt(receipt, input.isTrustedReceipt)) continue;
+    const oracleRef = outcome.oracleRef || receipt.receiptId || receipt.reference;
+    const forecasts = input.forecasts.filter((item) => item.eventId === outcome.eventId
+      && item.domain === outcome.domain && typeof item.memberId === 'string'
+      && Number.isFinite(item.probability) && item.probability >= 0 && item.probability <= 1);
+    if (!oracleRef || !forecasts.length) continue;
+    recorded.push(await calibration.recordResolution({ db: input.db, communityId: input.communityId,
+      actorId: input.actorId, eventId: outcome.eventId, domain: outcome.domain,
+      outcome: Number(outcome.outcome), oracleRef, forecasts }));
+  }
+  return recorded;
+}
+
+function trustedReceipt(receipt, validator) {
+  if (!receipt || receipt.status !== 'VERIFIED' || typeof validator !== 'function') return false;
+  try { return validator(receipt) === true; } catch (_) { return false; }
 }
 
 async function aggregatePolycentric(input) {
@@ -112,4 +236,5 @@ function stripOwner(claim) {
   return value;
 }
 
-module.exports = { quarantineIfRequired, assertByzantineQuorum, persistentContext, aggregatePolycentric };
+module.exports = { quarantineIfRequired, assertByzantineQuorum, persistentContext, aggregatePolycentric,
+  delphiContext, delphiRevisions, forecastingContext, scoreResolvedForecasts, persistResolvedOutcomes };

@@ -54,9 +54,15 @@ async function collectSealedJudgments(context) {
   const commitments = await communityStore.listCommitments(context.db, session.communityId, session.round);
   const committed = new Set(commitments.map((item) => item.memberId));
   const quarantined = [];
+  const delphi = context.variantPolicy?.name === 'delphi_community'
+    ? await variantOrchestrator.delphiContext({ ...context, session }) : null;
   for (const member of participants.filter((item) => !committed.has(item.memberId))) {
     const judgment = await invokeMember(context, {
-      member, phase: 'SEALED_JUDGMENT', task: 'Form an independent initial judgment.', details: {}
+      member, phase: 'SEALED_JUDGMENT',
+      task: delphi ? 'Review anonymous prior-round feedback. Revise or maintain your judgment with reasons and evidence.'
+        : 'Form an independent initial judgment.',
+      details: delphi ? { anonymousFeedback: delphi.feedback,
+        priorPosition: delphi.previousByMember.get(member.memberId) } : {}
     });
     if (context.variantPolicy?.quarantineAware) {
       const result = await variantOrchestrator.quarantineIfRequired({ ...context, session, member, judgment });
@@ -67,12 +73,16 @@ async function collectSealedJudgments(context) {
   const active = await loadActiveSession(context);
   const quorumReport = context.variantPolicy?.quarantineAware
     ? variantOrchestrator.assertByzantineQuorum({ ...context, session: active }) : null;
-  return { judgments: await commitment.revealJudgments({
+  const judgments = await commitment.revealJudgments({
     db: context.db, communityId: session.communityId, actorId: context.actorId
-  }), byzantine: quorumReport ? { ...quorumReport, quarantined } : undefined,
+  });
+  return { judgments, delphi: delphi ? {
+    feedback: delphi.feedback,
+    revisions: variantOrchestrator.delphiRevisions(delphi.previousByMember, judgments)
+  } : undefined,
+  byzantine: quorumReport ? { ...quorumReport, quarantined } : undefined,
   persistentCommunity: persistent?.report };
 }
-
 async function commitmentServiceCall(context, member, response) {
   return commitment.commitJudgment({
     db: context.db, communityId: context.communityId, memberId: member.memberId,
@@ -221,12 +231,16 @@ async function aggregateByQuestionType(context) {
   }
   const persistent = context.variantPolicy?.name === 'persistent_community'
     ? await variantOrchestrator.persistentContext({ ...context, session, judgments, suppliedForecasts: options.forecasts }) : null;
+  const forecastContext = context.variantPolicy?.name === 'forecasting_crowd'
+    ? await variantOrchestrator.forecastingContext({ db: context.db, session, judgments,
+      suppliedForecasts: options.forecasts }) : null;
   const sourceForecasts = persistent?.forecasts || options.forecasts || judgments.flatMap((item) =>
     (item.judgment.probabilities || []).map((forecast) => ({ ...forecast, memberId: item.memberId })));
+  const calibratedForecasts = forecastContext?.forecasts || sourceForecasts;
   const memberWeights = new Map(session.members.map((member) => [member.memberId, member.samplingWeight]));
   const forecasts = context.variantPolicy?.requireSamplingWeights
-    ? sourceForecasts.map((item) => ({ ...item, samplingWeight: item.samplingWeight ?? memberWeights.get(item.memberId) }))
-    : sourceForecasts;
+    ? calibratedForecasts.map((item) => ({ ...item, samplingWeight: item.samplingWeight ?? memberWeights.get(item.memberId) }))
+    : calibratedForecasts;
   const aggregation = aggregationService.aggregate({
     ...options, questionType: session.questionType, claims, judgments,
     arguments: prior(context, 3).arguments,
@@ -234,7 +248,16 @@ async function aggregateByQuestionType(context) {
     verificationReceipts: reviewResult.verificationReceipts, variantPolicy: context.variantPolicy,
     isTrustedReceipt: context.isTrustedReceipt
   });
-  return persistent ? { ...aggregation, persistentCommunity: persistent.report } : aggregation;
+  const result = persistent ? { ...aggregation, persistentCommunity: persistent.report } : aggregation;
+  if (!forecastContext) return result;
+  const outcomes = Array.isArray(options.outcomes) ? options.outcomes : [];
+  const forecastComparison = variantOrchestrator.scoreResolvedForecasts(forecasts, outcomes);
+  const recordedCalibration = await variantOrchestrator.persistResolvedOutcomes({
+    db: context.db, communityId: session.communityId, actorId: context.actorId,
+    forecasts, outcomes, isTrustedReceipt: context.isTrustedReceipt
+  });
+  return { ...result, forecastCalibration: { members: forecastContext.weights,
+    missingMemberIds: forecastContext.missingMemberIds, forecastComparison, recordedCalibration } };
 }
 
 async function checkDissent(context) {
@@ -270,6 +293,8 @@ async function recordCommunityJudgment(context) {
     stableRoundCount: context.stopping?.stableRoundCount ?? (decisionReady(aggregation) || openGate ? 1 : 0)
   };
   if (context.variantPolicy?.minimumRounds > context.session.round + 1) stopping.stableRoundCount = 0;
+  if (aggregation.delphi?.relativeSpread > 0.25
+    && context.session.round + 1 < (context.constitution?.roundLimit || 1)) stopping.stableRoundCount = 0;
   return judgmentService.finalize({
     db: context.db, communityId: context.communityId, actorId: context.actorId,
     aggregation, variantPolicy: context.variantPolicy,
