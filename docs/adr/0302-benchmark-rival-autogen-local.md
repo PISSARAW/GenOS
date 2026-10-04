@@ -28,8 +28,8 @@ oracles de makespan et d'existence de sous-ensemble que GenOS.
 Deux cas communs deviennent comparables sans adapter la réponse rivale au reçu
 interne de GenOS. Le digest du transcript atteste seulement que la réponse
 stockée n'a pas changé entre l'exécution et la lecture ; il ne prouve pas
-l'identité du modèle ou du serveur. Trois essais locaux LPT ont donné des
-makespans différents (9, 7 puis 9) ; ils ne constituent pas une estimation
+l'identité du modèle ou du serveur. Quatre essais locaux LPT ont donné des
+makespans différents (9, 7, 9 puis 7) ; ils ne constituent pas une estimation
 de performance générale.
 
 ## Alternatives
