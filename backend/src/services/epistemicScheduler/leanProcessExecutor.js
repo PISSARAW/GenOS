@@ -8,7 +8,8 @@ const path = require('node:path');
 function runProcess(executable, args, options = {}) {
   return new Promise((resolve) => {
     execFile(executable, args, options, (error, stdout, stderr) => {
-      resolve({ exitCode: error?.code ?? 0, stdout: String(stdout || ''), stderr: String(stderr || ''), error });
+      resolve({ exitCode: error ? (Number.isInteger(error.code) ? error.code : 1) : 0,
+        stdout: String(stdout || ''), stderr: String(stderr || ''), error });
     });
   });
 }
@@ -27,7 +28,11 @@ async function executeSource(request, executable, directory) {
 async function executeLeanCheck(request = {}) {
   const executable = request.leanExecutable || 'lean';
   const version = await runProcess(executable, ['--version'], { windowsHide: true, timeout: 10000 });
-  if (version.exitCode !== 0 || !version.stdout.includes(request.toolchainVersion)) {
+  const actualVersion = version.stdout.trim();
+  const matches = request.strictToolchainVersion
+    ? actualVersion === String(request.toolchainVersion || '').trim()
+    : actualVersion.includes(request.toolchainVersion);
+  if (version.exitCode !== 0 || !matches) {
     return { exitCode: version.exitCode || 1, stderr: 'Lean toolchain version mismatch.', toolchainVersion: version.stdout.trim(), axioms: [] };
   }
   const directory = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'genos-lean-'));

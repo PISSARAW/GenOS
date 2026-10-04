@@ -324,13 +324,23 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0293b](0293-persistance-des-variants-metapopulation.md) | Persistance des états de variants Metapopulation | Accepté | 2026-10-04 | Metapopulation, cycles régionaux, dèmes persistants et culture |
 | [0294a](0294-cloture-de-continuite-de-mission.md) | Fermeture des transitions de continuité de mission | Accepté | 2026-10-04 | Orchestration et survie des missions |
 | [0294b](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
+| [0294c](0294-executeurs-deterministes-workers.md) | Exécuteurs déterministes des workers | Accepté | 2026-10-04 | Workers, orchestration, preuve |
 | [0296](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
 | [0297](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
 | [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
 | [0299a](0299-admission-relationnelle-transactionnelle.md) | Admission transactionnelle des signaux relationnels | Proposé, implémentation ciblée | 2026-10-04 | Communication inter-agents, autorité, persistance |
 | [0299b](0299-capacites-transversales-morphogenese.md) | Cinq capacités transversales de morphogenèse | Proposé, avec première implémentation opt-in | 2026-10-04 | Morphogenèse, preuves, mémoire, risque statistique |
 | [0299c](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
-| [0300](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
+| [0300a](0300-affectation-niches-et-contrats-hotes.md) | Niche du spécialiste et contrat du symbiote en topologie | Accepté | 2026-10-04 | Topologies, workers spécialistes, Holobionte |
+| [0300b](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
+| [0301](0301-falsification-deterministe-red-worker.md) | Falsification déterministe du red worker | Accepté | 2026-10-04 | Workers, revue adversariale, preuve |
+| [0302](0302-benchmark-rival-autogen-local.md) | Première mesure rivale locale avec AutoGen | Accepté | 2026-10-04 | Workers, benchmarks comparatifs, provenance |
+| [0303](0303-mesure-bornee-experimental-worker.md) | Mesure bornée du worker expérimental | Accepté | 2026-10-04 | Workers, expérimentation, preuve |
+| [0304](0304-synthese-structuree-des-desaccords.md) | Synthèse structurée des désaccords | Accepté | 2026-10-04 | Workers, synthèse, provenance |
+| [0305](0305-fenetre-observation-resident-daemon.md) | Fenêtre d'observation du resident daemon | Accepté | 2026-10-04 | Workers, observation, anomalies |
+| [0306](0306-reconstruction-causes-declarees-forensic-worker.md) | Reconstruction des causes déclarées du forensic worker | Accepté | 2026-10-04 | Workers, analyse d'incident, provenance |
+| [0307](0307-observation-litterale-scout-cell.md) | Observation littérale du scout cell | Accepté | 2026-10-04 | Workers, observation, provenance |
+| [0308](0308-transfert-subset-sum-teaching-worker.md) | Transfert contrôlé de subset_sum par le teaching worker | Accepté | 2026-10-04 | Workers, transmission, vérification |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

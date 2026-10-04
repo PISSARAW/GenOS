@@ -1,5 +1,6 @@
 'use strict';
 
+const { isDeepStrictEqual } = require('node:util');
 const workerKinds = require('./workerKindService');
 
 const AUTHORITY_TOOLS = Object.freeze({
@@ -135,15 +136,30 @@ function assertAuthorityCeiling(actual, maximum, kind) {
 
 function assertObjectCeilings(actual, maximum, options = {}) {
   if (!actual || typeof actual !== 'object' || Array.isArray(actual)) throw invalidContract();
+  assertCeilingValues(actual, maximum, options);
+  assertCeilingKeys(actual, maximum, options);
+}
+
+function assertCeilingValues(actual, maximum, options) {
   for (const [key, ceiling] of Object.entries(maximum)) {
     if (options.delegated && key === 'maxTokens') continue;
-    const valid = typeof ceiling === 'string' ? actual[key] === ceiling : withinCeiling(actual[key], ceiling);
-    if (!valid) throw invalidContract();
+    if (!validCeilingValue(actual[key], ceiling)) throw invalidContract();
   }
+}
+
+function assertCeilingKeys(actual, maximum, options) {
   for (const key of Object.keys(actual)) {
-    if (!Object.hasOwn(maximum, key) && !(options.delegated && ['maxChildren', 'maxTokens'].includes(key))) throw invalidContract();
+    if (!permittedCeilingKey(key, maximum, options)) throw invalidContract();
   }
   if (options.requireAll && Object.keys(maximum).some((key) => !Object.hasOwn(actual, key))) throw invalidContract();
+}
+
+function validCeilingValue(actual, ceiling) {
+  return typeof ceiling === 'string' ? actual === ceiling : withinCeiling(actual, ceiling);
+}
+
+function permittedCeilingKey(key, maximum, options) {
+  return Object.hasOwn(maximum, key) || Boolean(options.delegated && ['maxChildren', 'maxTokens'].includes(key));
 }
 
 function withinCeiling(value, ceiling) {
@@ -163,6 +179,15 @@ function invalidContract() {
 }
 
 function assertAssignmentMatches(contract, request) {
+  const kind = contract?.identity?.workerKind;
+  if (require('./workerRuntimeLimitsService').isDeterministicWorkerMission({ workerKind: kind,
+    methodContract: contract.mission?.methodContract })) {
+    if (!isDeepStrictEqual(contract.mission?.methodContract || null, request?.methodContract || null)) {
+      throw Object.assign(new Error('Deterministic worker input differs from its persisted method contract.'), {
+        code: 'WORKER_METHOD_MISMATCH'
+      });
+    }
+  }
   const assignment = contract?.assignment;
   if (!assignment) return true;
   if (assignment.workerKind !== contract.identity?.workerKind) {

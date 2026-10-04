@@ -23,13 +23,29 @@ async function persistAndCheckWorker(mode, member, index) {
     get: async () => null,
     run: async (_sql, ...values) => { metadata = JSON.parse(values.at(-1)); }
   };
+  let assignment = member.workerAssignment;
+  if (member.workerKind === 'symbiotic_worker' && !assignment.hostContractId) {
+    await assert.rejects(persistence.ensureTopologyWorker(db, {
+      workerId, parentId: 'topology-orchestrator', role: member.role,
+      workerKind: member.workerKind, mission: member.mission, workerAssignment: assignment
+    }), { code: 'SYMBIOTIC_HOST_CONTRACT_REQUIRED' });
+    assignment = { ...assignment, hostContractId: 'fixture-host-contract', hostCapabilities: ['host_bound'] };
+  }
   const created = await persistence.ensureTopologyWorker(db, {
     workerId, parentId: 'topology-orchestrator', role: member.role,
-    workerKind: member.workerKind, mission: member.mission
+    workerKind: member.workerKind, mission: member.mission,
+    methodContract: member.methodContract, workerAssignment: assignment
   });
   assert.deepEqual(created, { workerId, created: true });
   assert.equal(metadata.workerKind, member.workerKind, `${mode}:${member.role} persisted the selected kind`);
   assert.equal(metadata.workerContract.identity.workerKind, member.workerKind);
+  if (member.workerKind === 'specialist') {
+    assert.equal(metadata.workerContract.mission.specialtyNiche, member.workerAssignment.nicheDomain);
+  }
+  if (member.workerKind === 'symbiotic_worker') {
+    assert.equal(metadata.workerContract.mission.hostContractId, assignment.hostContractId);
+    assert.deepEqual(metadata.workerContract.mission.hostCapabilities, assignment.hostCapabilities);
+  }
   assert.deepEqual(metadata.workerContract.evidence.requiredArtifacts,
     [workerKinds.kindDefinition(member.workerKind).artifact]);
   assert.equal(enforcement.assertRuntimeContract(metadata.workerContract, member.workerKind), true);
@@ -103,6 +119,13 @@ async function verifyBiologicalBranches() {
 }
 
 async function verifyProductTopologies() {
+  const [hostedSymbiont] = topologyKinds.applyTopologyWorkerKinds('holobionte', [{
+    role: 'specialist_symbiont', mission: 'Contribute within the Host contract.',
+    hostContractId: 'host-contract-1', hostCapabilities: ['host_bound'], hostId: 'host-1'
+  }]);
+  assert.equal(hostedSymbiont.workerAssignment.hostContractId, 'host-contract-1');
+  assert.deepEqual(hostedSymbiont.workerAssignment.hostCapabilities, ['host_bound']);
+  assert.equal(hostedSymbiont.workerAssignment.hostId, 'host-1');
   const securityMission = 'Launch Trinity to secure OAuth permissions against token exploits.';
   assert.equal(trinity.analyzeMission(securityMission).recommended, true);
   const securityComposition = await composeMode({ mode: 'trinity', mission: securityMission });
@@ -169,11 +192,14 @@ function verifyMethodContractsSelectSpecialists() {
     }]);
     assert.equal(member.workerKind, expectedKind, `${role}/${methodId} selects ${expectedKind}`);
   }
-  for (const methodId of ['dynamic_programming', 'formal_proof']) {
+  for (const methodId of ['dynamic_programming']) {
     assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
       role: 'implementation', methodContract: { version: 1, methodId }
     }]), { code: 'WORKER_EXECUTOR_UNAVAILABLE' });
   }
+  assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
+    role: 'implementation', methodContract: { version: 1, methodId: 'formal_proof' }
+  }]), { code: 'WORKER_FORMAL_INPUT_INVALID' });
   assert.throws(() => topologyKinds.applyTopologyWorkerKinds('method-fit', [{
     role: 'implementation', methodContract: { version: 1, methodId: 'unregistered_method' }
   }]), { code: 'WORKER_METHOD_UNSUPPORTED' });

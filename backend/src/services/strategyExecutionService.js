@@ -22,7 +22,8 @@ function normalizedBudget(input) {
   const source = input || {};
   return Object.fromEntries(Object.entries(events.DEFAULT_BUDGET).map(([key, fallback]) => {
     const value = Number(source[key]);
-    return [key, Number.isFinite(value) && value > 0 ? value : fallback];
+    const zeroTokenBudget = key === 'tokens' && source.deterministic === true && value === 0;
+    return [key, zeroTokenBudget ? 0 : Number.isFinite(value) && value > 0 ? value : fallback];
   }));
 }
 
