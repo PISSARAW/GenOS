@@ -131,7 +131,13 @@ function assertMissionOutcome(variant, fixture) {
     assert.equal(aggregation.polycentric.status, 'FEDERATED_PLURALISM');
   }
   if (variant === 'byzantine_resilient_community') {
-    assert.ok(result.receipts[0].result.byzantine?.faultDomains.domainCount > 0);
+    const quorum = result.receipts[0].result.byzantine;
+    assert.ok(quorum?.faultDomains.domainCount > 0);
+    assert.equal(quorum.quorum.memberCount,
+      community.members.filter((member) => member.role !== 'community_facilitator').length - 1,
+      'quorum uses the roster remaining after quarantine');
+    assert.equal(quorum.faultDomains.domainCount, quorum.quorum.memberCount,
+      'independent fixture members contribute independent fault domains');
     assert.ok(events.some((event) => event.type === 'MEMBER_QUARANTINED'));
   }
   if (variant === 'persistent_community') {
