@@ -4,6 +4,8 @@ const { randomUUID, createHash } = require('crypto');
 const { SCOPES } = require('../constants');
 const { getSession, appendEvent } = require('../holobiontStore');
 const immunePlane = require('../immune/holobiontImmunePlane');
+const cambium = require('../../morphogenesis/capabilities/cambiumService');
+const { withTransaction } = require('../../../db');
 
 const MEMORY_TYPES = Object.freeze([
   'EPISODIC', 'PROCEDURAL', 'PARTNER_REPUTATION', 'IMMUNE', 'LINEAGE', 'HOST_CONTINUITY'
@@ -93,7 +95,14 @@ async function recordMemory(db, input = {}) {
     return { accepted: false, reason: 'AEIS_IMMUNE_REJECTION', immuneReview: review, sessionRevision };
   }
   record.immuneReview = review;
-  await insertMemory(db, record);
+  await withTransaction(db, async (tx) => {
+    await insertMemory(tx, record);
+    if (record.memoryType === 'PROCEDURAL' && input.cambiumContract) {
+      await cambium.registerProcedure(tx, { ...input.cambiumContract,
+        claimId: record.memoryId, scopeId: `${record.scope}:${record.projectId || record.workspaceId || record.missionId || record.hostId}`,
+        procedure: record.content });
+    }
+  });
   return record;
 }
 

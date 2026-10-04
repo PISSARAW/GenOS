@@ -360,6 +360,9 @@ const migrationRunners = [
   createMigrationRunner('099-shev-project-loop', 'Persist delegated project responsibility, observations, initiatives and distinct effect assessments', async (db) => {
     await require('./migrateShevProjectLoop').migrateShevProjectLoop(db);
   }),
+  createMigrationRunner('100-morphogenesis-capabilities', 'Persist experimental coverage, attempts, temporal observations, counterexamples and inherited statistical risk', async (db) => {
+    await require('./migrateMorphogenesisCapabilities').migrateMorphogenesisCapabilities(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
