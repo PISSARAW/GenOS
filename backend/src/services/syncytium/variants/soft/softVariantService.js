@@ -50,6 +50,7 @@ function compileSchema(options = {}) {
       queuedDeltas: { dataType: 'ADD_WINS_SET', consistencyZone: 'EVENTUAL' },
       partitions: { dataType: 'MAP', consistencyZone: 'CAUSAL' },
       antiEntropyLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
+      compactionLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
       stalenessBudget: { dataType: 'MV_REGISTER', consistencyZone: 'CAUSAL' },
       ...options.customFields || {}
     }
@@ -181,25 +182,36 @@ async function compressState(context) {
   const fields = snapshot.shared?.sharedFields || {};
   const deltas = uniqueDeltas([...fields.deltas || [], ...fields.localDeltas || [], ...fields.queuedDeltas || []]);
   const antiEntropyLog = fields.antiEntropyLog || [];
-
   const coveredIds = new Set(antiEntropyLog.map(e => e.deltaId));
-  const toKeep = deltas.filter(d => !coveredIds.has(d.deltaId));
-  const compressedCount = deltas.length - toKeep.length;
-
-  const metrics = deltas.reduce((acc, d) => {
+  const prior = latestCompaction(fields.compactionLog || []);
+  const priorIds = new Set(prior?.compactedDeltaIds || []);
+  const toCompact = deltas.filter((delta) => coveredIds.has(delta.deltaId));
+  const compactedDeltaIds = [...new Set([...(prior?.compactedDeltaIds || []), ...toCompact.map((delta) => delta.deltaId)])].sort();
+  const toKeep = deltas.filter((delta) => !compactedDeltaIds.includes(delta.deltaId));
+  const newlyCompacted = compactedDeltaIds.filter((id) => !priorIds.has(id));
+  const metrics = toCompact.reduce((acc, d) => {
     if (d.type === 'increment') acc.incrementCount = (acc.incrementCount || 0) + 1;
     if (d.type === 'set')      acc.setCount = (acc.setCount || 0) + 1;
     if (d.value !== undefined) acc.lastValue = d.value;
     return acc;
-  }, { incrementCount: 0, setCount: 0, lastValue: undefined });
+    }, { incrementCount: 0, setCount: 0, lastValue: undefined });
+  const compactedAt = Date.now();
+  if (newlyCompacted.length === 0) return { compactedCount: compactedDeltaIds.length,
+    compressedCount: 0, remainingDeltas: toKeep.length, preservedDeltaIds: toKeep.map((delta) => delta.deltaId),
+    metrics: prior?.metrics || metrics, compactedAt: prior?.compactedAt || compactedAt };
+  const entry = { generation: (prior?.generation || 0) + 1, compactedDeltaIds, metrics, compactedAt };
+  await syncytium.applyTransaction(sessionId, { txId: options.txId || randomUUID(), operations: [{
+    opId: options.opId || randomUUID(), actorId: options.actorId || 'soft-compactor',
+    kind: { type: 'typed_field', key: 'compactionLog', action: 'add', value: entry }
+  }], preconditions: [{ op: 'state_version', value: snapshot.shared.totalOps }], commitPolicy: 'SERIALIZABLE' }, options);
+  return { compactedCount: compactedDeltaIds.length, compressedCount: newlyCompacted.length,
+    remainingDeltas: toKeep.length, preservedDeltaIds: toKeep.map((delta) => delta.deltaId),
+    metrics, compactedAt, generation: entry.generation };
+}
 
-  return {
-    compressedCount,
-    remainingDeltas: toKeep.length,
-    metrics,
-    compressedAt: Date.now(),
-    note: 'compression is read-only in this variant; compacted state write pending'
-  };
+function latestCompaction(entries) {
+  return [...entries].sort((left, right) => (right.generation || 0) - (left.generation || 0)
+    || (right.compactedAt || 0) - (left.compactedAt || 0))[0] || null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -334,6 +346,7 @@ async function softSnapshot(context) {
 
   const deltas = partitionService.uniqueDeltas([...sf.deltas || [], ...sf.localDeltas || [], ...sf.queuedDeltas || []]);
   const antiEntropyLog = sf.antiEntropyLog || [];
+  const compacted = latestCompaction(sf.compactionLog || []);
   const stalenessBudget = sf.stalenessBudget;
   const budget = latestBudgetValue(stalenessBudget)?.value ?? DEFAULT_STALENESS_BUDGET;
 
@@ -350,12 +363,15 @@ async function softSnapshot(context) {
       unseenDeltas: staleness,
       stalenessBudget,
       antiEntropyEntries: antiEntropyLog.length,
+      compactedDeltas: compacted?.compactedDeltaIds?.length || 0,
+      preservedDeltas: deltas.filter((delta) => !compacted?.compactedDeltaIds?.includes(delta.deltaId)).length,
       partitionEvents: Object.keys(sf.partitions || {}).length,
       localDeltas: (sf.localDeltas || []).length,
       queuedDeltas: (sf.queuedDeltas || []).length
     },
     stalenessExceedsBudget: staleness > budget,
-    compressed: await compressState({ sessionId, options, syncytium }),
+    compressed: compacted ? { compactedCount: compacted.compactedDeltaIds.length,
+      metrics: compacted.metrics, compactedAt: compacted.compactedAt, generation: compacted.generation } : null,
     timestamp: Date.now()
   };
 }
