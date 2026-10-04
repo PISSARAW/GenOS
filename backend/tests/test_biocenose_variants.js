@@ -13,7 +13,7 @@ const VARIANT_IDS = ['epistemic_jury', 'delphi_community', 'adversarial_assembly
   'argumentation_community', 'polycentric_council', 'byzantine_resilient_community', 'minority_preserving_jury',
   'representative_community', 'persistent_community', 'human_ai_deliberation', 'hybrid_oracle_community'];
 
-const PARTIAL_VARIANTS = new Set(['polycentric_council',
+const PARTIAL_VARIANTS = new Set([
   'byzantine_resilient_community', 'representative_community', 'persistent_community']);
 
 function testVariantSurface() {
@@ -150,7 +150,16 @@ function testPolycentricCouncil() {
   assert.deepEqual(federated.subsidiarity.localRetained, []);
   assert.deepEqual(federated.subsidiarity.escalated, ['council_1', 'council_2']);
   assert.deepEqual(federated.subsidiarity.outcomeConflicts, ['council_1', 'council_2']);
+  assert.deepEqual(federated.delegations[1].dissent, [{ dissentId: 'd1' }]);
   assert.equal(federated.parentMustReview, true);
+  const localDissent = polycentric.federate({ clusters: [
+    { clusterId: 'council_1', outcome: 'SHIP', distribution: [], dissent: [{ dissentId: 'd2' }] },
+    { clusterId: 'council_2', outcome: 'SHIP', distribution: [], dissent: [] }
+  ] });
+  assert.deepEqual(localDissent.subsidiarity.localRetained, ['council_1', 'council_2']);
+  assert.deepEqual(localDissent.subsidiarity.escalated, []);
+  assert.deepEqual(localDissent.delegations[0].dissent, [{ dissentId: 'd2' }]);
+  assert.equal(localDissent.parentMustReview, false);
 }
 
 function testByzantineQuorum() {
