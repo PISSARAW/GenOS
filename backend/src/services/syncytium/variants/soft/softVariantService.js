@@ -3,341 +3,68 @@
 const schemaService = require('../../../syncytiumSchemaService');
 const { randomUUID } = require('node:crypto');
 
-const PARTITION_POLICIES = new Set([
-  'ALLOW_LOCAL_MUTATION',
-  'ALLOW_READ_ONLY',
-  'QUEUE_OPERATION',
-  'REJECT_OPERATION'
-]);
-
+const PARTITION_POLICIES = new Set(['ALLOW_LOCAL_MUTATION', 'ALLOW_READ_ONLY', 'QUEUE_OPERATION', 'REJECT_OPERATION']);
 const DEFAULT_STALENESS_BUDGET = 5000;
 
 function createSoftVariantService(syncytium) {
   return {
-    createSoftSession: (mission, options) =>
-      createSession(mission, options, syncytium),
-
+    createSoftSession: (mission, options) => createSession(mission, options, syncytium),
     applyDelta: (ctx) => applyDelta({ ...ctx, syncytium }),
-
     reconcileAntiEntropy: (ctx) => reconcileAntiEntropy({ ...ctx, syncytium }),
-
     compressState: (ctx) => compressState({ ...ctx, syncytium }),
-
     setStalenessBudget: (ctx) => setStalenessBudget({ ...ctx, syncytium }),
-
     getStalenessBudget: (ctx) => getStalenessBudget({ ...ctx, syncytium }),
-
     simulatePartition: (ctx) => simulatePartition({ ...ctx, syncytium }),
-
+    setPartitionPolicy: (ctx) => setPartitionPolicy({ ...ctx, syncytium }),
+    checkPartitionPolicy: (ctx) => checkPartitionPolicy({ ...ctx, syncytium }),
     listDeltas: (ctx) => listDeltas({ ...ctx, syncytium }),
-
     softSnapshot: (ctx) => softSnapshot({ ...ctx, syncytium })
   };
 }
 
-/* ------------------------------------------------------------------ */
-/* Schema                                                               */
-/* ------------------------------------------------------------------ */
+function compileSchema(options) { return schemaService.compile({ schemaId: 'syncytium-soft-v1', fields: { metrics: { dataType: 'G_COUNTER', consistencyZone: 'EVENTUAL' }, deltas: { dataType: 'ADD_WINS_SET', consistencyZone: 'EVENTUAL' }, antiEntropyLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' }, stalenessBudget: { dataType: 'MV_REGISTER', consistencyZone: 'CAUSAL' }, partitionPolicy: { dataType: 'LWW_REGISTER', consistencyZone: 'CAUSAL' }, partitionLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' }, compactionWatermark: { dataType: 'LWW_REGISTER', consistencyZone: 'CAUSAL' }, ...(options?.customFields || {}) } }); }
+function createSession(mission, options, syncytium) { const schema = compileSchema(options); if (options?.fields) schema.fields = Object.assign({}, schema.fields, options.fields); return syncytium.createSession(mission, { ...options, schema, variantPolicy: { id: 'soft' } }); }
 
-function compileSchema(options = {}) {
-  return schemaService.compile({
-    schemaId: 'syncytium-soft-v1',
-    fields: {
-      metrics:     { dataType: 'G_COUNTER',    consistencyZone: 'EVENTUAL' },
-      deltas:      { dataType: 'ADD_WINS_SET', consistencyZone: 'EVENTUAL' },
-      antiEntropyLog: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
-      stalenessBudget: { dataType: 'MV_REGISTER', consistencyZone: 'CAUSAL' },
-      ...options.customFields || {}
-    }
-  });
-}
+async function applyDelta(ctx) { const { sessionId, delta, options, syncytium } = ctx; validateDelta(delta); return syncytium.applyOperation(sessionId, buildAddOp(enrichDelta(delta), options), options); }
+function validateDelta(delta) { if (!delta || typeof delta !== 'object' || Array.isArray(delta)) throw new Error('SoftVariantError: delta must be a non-null object'); if (delta.type === undefined) throw new Error('SoftVariantError: delta must declare a type'); }
+function enrichDelta(delta) { return Object.assign({ deltaId: delta.deltaId || randomUUID(), timestamp: Date.now(), author: delta.author || 'anonymous', vectorClock: delta.vectorClock || {}, partitionContext: delta.partitionContext || null }, delta); }
+function buildAddOp(value, options) { return { opId: options.opId || randomUUID(), actorId: options.actorId || 'soft-writer', kind: { type: 'typed_field', key: 'deltas', action: 'add', value } }; }
 
-/* ------------------------------------------------------------------ */
-/* Session creation                                                     */
-/* ------------------------------------------------------------------ */
+async function reconcileAntiEntropy(ctx) { const { sessionId, options, syncytium } = ctx; const snapshot = await syncytium.snapshot(sessionId, options); const deltas = snapshot.shared?.sharedFields?.deltas || []; const antiEntropyLog = snapshot.shared?.sharedFields?.antiEntropyLog || []; const compactionWatermark = snapshot.shared?.sharedFields?.compactionWatermark; const unseen = filterUnseenDeltas(deltas, antiEntropyLog, compactionWatermark); if (unseen.length === 0) return { reconciled: 0, timestamp: Date.now(), stale: true }; const entries = unseen.map(d => buildReconciliationEntry(d)); await syncytium.applyOperation(sessionId, buildAntiEntropyOp(entries), options); return { reconciled: entries.length, timestamp: Date.now(), stale: false, deltaIds: entries.map(e => e.deltaId) }; }
 
-function createSession(mission, options = {}, syncytium) {
-  const schema = compileSchema(options);
-  const fields = options.fields || {};
-  // Merge any caller-supplied field overrides into a fresh compile
-  if (Object.keys(fields).length > 0) {
-    const merged = Object.assign({}, schema.fields, fields);
-    schema.fields = merged;
-  }
-  return syncytium.createSession(mission, {
-    ...options,
-    schema,
-    variantPolicy: { id: 'soft' }
-  });
-}
+function filterUnseenDeltas(deltas, antiEntropyLog, compactionWatermark) { const seenIds = new Set(antiEntropyLog.filter(e => e.deltaId && !e.deltaId.startsWith('partition-')).map(e => e.deltaId)); const watermarkClock = compactionWatermark?.value?.vectorClock || {}; return deltas.filter(d => !seenIds.has(d.deltaId) && !dominates(watermarkClock, d.vectorClock || {})); }
+function dominates(vc1, vc2) { if (!vc1 || !vc2) return false; const allKeys = new Set([...Object.keys(vc1), ...Object.keys(vc2)]); let hasGreater = false; for (const key of allKeys) { const v1 = vc1[key] || 0; const v2 = vc2[key] || 0; if (v1 < v2) return false; if (v1 > v2) hasGreater = true; } return hasGreater; }
+function buildReconciliationEntry(delta) { return { deltaId: delta.deltaId, reconciledAt: Date.now(), author: delta.author, vectorClock: delta.vectorClock, metadata: { reconciledBy: 'anti_entropy' } }; }
+function buildAntiEntropyOp(entries) { return { opId: randomUUID(), actorId: 'anti-entropy-daemon', kind: { type: 'typed_field', key: 'antiEntropyLog', action: 'add', value: entries } }; }
 
-/* ------------------------------------------------------------------ */
-/* Delta application (Δ-CRDT core)                                     */
-/* ------------------------------------------------------------------ */
+async function compressState(ctx) { const { sessionId, options, syncytium } = ctx; const snapshot = await syncytium.snapshot(sessionId, options); const deltas = snapshot.shared?.sharedFields?.deltas || []; const antiEntropyLog = snapshot.shared?.sharedFields?.antiEntropyLog || []; const coveredIds = new Set(antiEntropyLog.map(e => e.deltaId)); const watermarkClock = (snapshot.shared?.sharedFields?.compactionWatermark?.value?.vectorClock) || {}; const toKeep = deltas.filter(d => !coveredIds.has(d.deltaId) && !dominates(watermarkClock, d.vectorClock || {})); const compressedCount = deltas.length - toKeep.length; const newWatermark = computeWatermark(deltas, antiEntropyLog); await syncytium.applyOperation(sessionId, buildWatermarkOp(newWatermark, options), options); return buildCompressionResult(compressedCount, toKeep.length, deltas, newWatermark); }
+function computeWatermark(deltas, antiEntropyLog) { const coveredClocks = antiEntropyLog.filter(e => e.deltaId && !e.deltaId.startsWith('partition-') && e.vectorClock).map(e => e.vectorClock); if (coveredClocks.length === 0) return {}; const merged = {}; for (const vc of coveredClocks) for (const [k, v] of Object.entries(vc)) merged[k] = Math.max(merged[k] || 0, v); return merged; }
+function buildWatermarkOp(watermark, options) { return { opId: randomUUID(), actorId: 'compaction-daemon', kind: { type: 'typed_field', key: 'compactionWatermark', action: 'set', value: { vectorClock: watermark, compactedAt: Date.now() } } }; }
+function buildCompressionResult(compressedCount, remainingDeltas, deltas, watermark) { const metrics = deltas.reduce((acc, d) => { if (d.type === 'increment') acc.incrementCount = (acc.incrementCount || 0) + 1; if (d.type === 'set') acc.setCount = (acc.setCount || 0) + 1; if (d.value !== undefined) acc.lastValue = d.value; return acc; }, { incrementCount: 0, setCount: 0, lastValue: undefined }); return { compressedCount, remainingDeltas, metrics, watermark, compressedAt: Date.now(), note: 'compaction applied with watermark' }; }
 
-async function applyDelta(context) {
-  const { sessionId, delta, options, syncytium } = context;
-  validateDelta(delta);
-  const enriched = Object.assign({
-    deltaId: delta.deltaId || randomUUID(),
-    timestamp: Date.now(),
-    author: delta.author || 'anonymous',
-    vectorClock: delta.vectorClock || {}
-  }, delta);
+async function setStalenessBudget(ctx) { const { sessionId, budget, options, syncytium } = ctx; if (typeof budget !== 'number' || budget < 0 || !isFinite(budget)) throw new Error('SoftVariantError: stalenessBudget must be a non-negative finite number'); return syncytium.applyOperation(sessionId, buildBudgetOp(budget, options), options); }
+function buildBudgetOp(budget, options) { return { opId: options.opId || randomUUID(), actorId: options.actorId || 'soft-admin', kind: { type: 'typed_field', key: 'stalenessBudget', action: 'set', value: { value: budget, updatedAt: Date.now(), author: options.actorId || 'soft-admin' } } }; }
 
-  const opId = options.opId || randomUUID();
-  return syncytium.applyOperation(sessionId, {
-    opId,
-    actorId: options.actorId || 'soft-writer',
-    kind: {
-      type: 'typed_field',
-      key: 'deltas',
-      action: 'add',
-      value: enriched
-    }
-  }, options);
-}
+async function getStalenessBudget(ctx) { const { sessionId, options, syncytium } = ctx; const snapshot = await syncytium.snapshot(sessionId, options); const budgetField = snapshot.shared?.sharedFields?.stalenessBudget; if (!budgetField || budgetField.value === undefined) return { budget: DEFAULT_STALENESS_BUDGET, active: false }; return { budget: budgetField.value, active: true, updatedAt: budgetField.updatedAt }; }
 
-function validateDelta(delta) {
-  if (!delta || typeof delta !== 'object' || Array.isArray(delta)) {
-    throw new Error('SoftVariantError: delta must be a non-null object');
-  }
-  if (delta.type === undefined) {
-    throw new Error('SoftVariantError: delta must declare a type');
-  }
-}
+async function simulatePartition(ctx) { const { sessionId, policy, durationMs, options, syncytium } = ctx; validatePartitionPolicy(policy); validateDuration(durationMs); const entry = buildPartitionEntry(policy, durationMs, options); await syncytium.applyOperation(sessionId, buildPartitionLogOp(entry), options); await syncytium.applyOperation(sessionId, buildPolicyOp(entry), options); return buildPartitionResult(entry); }
+function validatePartitionPolicy(policy) { if (!PARTITION_POLICIES.has(policy)) throw new Error(`SoftVariantError: unknown partition policy '${policy}'. Allowed: ${[...PARTITION_POLICIES].join(', ')}`); }
+function validateDuration(durationMs) { if (typeof durationMs !== 'number' || durationMs <= 0 || !isFinite(durationMs)) throw new Error('SoftVariantError: durationMs must be a positive finite number'); }
+function buildPartitionEntry(policy, durationMs, options) { const now = Date.now(); return { partitionId: randomUUID(), policy, durationMs, startedAt: now, expiresAt: now + durationMs, actorId: options.actorId || 'partition-simulator', status: 'ACTIVE' }; }
+function buildPartitionLogOp(entry) { return { opId: randomUUID(), actorId: entry.actorId, kind: { type: 'typed_field', key: 'partitionLog', action: 'add', value: entry } }; }
+function buildPolicyOp(entry) { return { opId: randomUUID(), actorId: entry.actorId, kind: { type: 'typed_field', key: 'partitionPolicy', action: 'set', value: { policy: entry.policy, startedAt: entry.startedAt, expiresAt: entry.expiresAt, partitionId: entry.partitionId } } }; }
+function buildPartitionResult(entry) { return { partitionId: entry.partitionId, policy: entry.policy, durationMs: entry.durationMs, startedAt: entry.startedAt, expiresAt: entry.expiresAt, status: 'ACTIVE' }; }
 
-/* ------------------------------------------------------------------ */
-/* Anti-entropy reconciliation                                          */
-/* ------------------------------------------------------------------ */
+async function setPartitionPolicy(ctx) { const { sessionId, policy, options, syncytium } = ctx; validatePartitionPolicy(policy); await syncytium.applyOperation(sessionId, { opId: options.opId || randomUUID(), actorId: options.actorId || 'policy-admin', kind: { type: 'typed_field', key: 'partitionPolicy', action: 'set', value: { policy, setAt: Date.now() } } }, options); return { policy, setAt: Date.now() }; }
 
-async function reconcileAntiEntropy(context) {
-  const { sessionId, options, syncytium } = context;
-  const snapshot = await syncytium.snapshot(sessionId, options);
-  const deltas = snapshot.shared?.sharedFields?.deltas || [];
-  const antiEntropyLog = snapshot.shared?.sharedFields?.antiEntropyLog || [];
+async function checkPartitionPolicy(ctx) { const { sessionId, operationType, options, syncytium } = ctx; const snapshot = await syncytium.snapshot(sessionId, options); const policy = getEffectivePolicy(snapshot, Date.now()); return { ...evaluatePolicy(policy, operationType), policy }; }
+function getEffectivePolicy(snapshot, now) { const partitionPolicy = snapshot.shared?.sharedFields?.partitionPolicy; const partitionLog = snapshot.shared?.sharedFields?.partitionLog || []; const activePartition = partitionLog.filter(p => p.status === 'ACTIVE' && p.expiresAt > now).sort((a, b) => b.startedAt - a.startedAt)[0]; return activePartition?.policy || partitionPolicy?.value?.policy || 'ALLOW_LOCAL_MUTATION'; }
+function evaluatePolicy(policy, operationType) { switch (policy) { case 'REJECT_OPERATION': return { allowed: false, queued: false, reason: 'Partition policy REJECT_OPERATION active' }; case 'QUEUE_OPERATION': return { allowed: false, queued: true, reason: 'Partition policy QUEUE_OPERATION active - operation queued' }; case 'ALLOW_READ_ONLY': return (operationType === 'mutation' || operationType === 'write') ? { allowed: false, queued: false, reason: 'Partition policy ALLOW_READ_ONLY active - mutations rejected' } : { allowed: true, queued: false, reason: '' }; default: return { allowed: true, queued: false, reason: '' }; } }
 
-  const seenIds = new Set(antiEntropyLog.map(entry => entry.deltaId));
-  const unseen = deltas.filter(d => !seenIds.has(d.deltaId));
+async function listDeltas(ctx) { const { sessionId, options, syncytium } = ctx; const snapshot = await syncytium.snapshot(sessionId, options); const deltas = snapshot.shared?.sharedFields?.deltas || []; return filterAndReturnDeltas(deltas, options); }
+function filterAndReturnDeltas(deltas, options) { let result = deltas; if (options.filterType) result = result.filter(d => d.type === options.filterType); if (options.since !== undefined) result = result.filter(d => (d.timestamp || 0) >= options.since); return { deltas: result, totalCount: deltas.length, filteredCount: result.length, snapshotAt: Date.now() }; }
 
-  const reconciliationTime = Date.now();
-  const entries = unseen.map(delta => ({
-    deltaId: delta.deltaId,
-    reconciledAt: reconciliationTime,
-    author: delta.author,
-    vectorClock: delta.vectorClock,
-    metadata: { reconciledBy: 'anti_entropy', options: options }
-  }));
-
-  if (entries.length === 0) {
-    return { reconciled: 0, timestamp: reconciliationTime, stale: true };
-  }
-
-  const opId = options.opId || randomUUID();
-  await syncytium.applyOperation(sessionId, {
-    opId,
-    actorId: 'anti-entropy-daemon',
-    kind: {
-      type: 'typed_field',
-      key: 'antiEntropyLog',
-      action: 'add',
-      value: entries
-    }
-  }, options);
-
-  return {
-    reconciled: entries.length,
-    timestamp: reconciliationTime,
-    stale: false,
-    deltaIds: entries.map(e => e.deltaId)
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* State compression                                                    */
-/* ------------------------------------------------------------------ */
-
-async function compressState(context) {
-  const { sessionId, options, syncytium } = context;
-  const snapshot = await syncytium.snapshot(sessionId, options);
-  const deltas = snapshot.shared?.sharedFields?.deltas || [];
-  const antiEntropyLog = snapshot.shared?.sharedFields?.antiEntropyLog || [];
-
-  const coveredIds = new Set(antiEntropyLog.map(e => e.deltaId));
-  const toKeep = deltas.filter(d => !coveredIds.has(d.deltaId));
-  const compressedCount = deltas.length - toKeep.length;
-
-  const metrics = deltas.reduce((acc, d) => {
-    if (d.type === 'increment') acc.incrementCount = (acc.incrementCount || 0) + 1;
-    if (d.type === 'set')      acc.setCount = (acc.setCount || 0) + 1;
-    if (d.value !== undefined) acc.lastValue = d.value;
-    return acc;
-  }, { incrementCount: 0, setCount: 0, lastValue: undefined });
-
-  return {
-    compressedCount,
-    remainingDeltas: toKeep.length,
-    metrics,
-    compressedAt: Date.now(),
-    note: 'compression is read-only in this variant; compacted state write pending'
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* Staleness budget                                                     */
-/* ------------------------------------------------------------------ */
-
-async function setStalenessBudget(context) {
-  const { sessionId, budget, options, syncytium } = context;
-  if (typeof budget !== 'number' || budget < 0 || !isFinite(budget)) {
-    throw new Error('SoftVariantError: stalenessBudget must be a non-negative finite number');
-  }
-  const opId = options.opId || randomUUID();
-  return syncytium.applyOperation(sessionId, {
-    opId,
-    actorId: options.actorId || 'soft-admin',
-    kind: {
-      type: 'typed_field',
-      key: 'stalenessBudget',
-      action: 'set',
-      value: {
-        value: budget,
-        updatedAt: Date.now(),
-        author: options.actorId || 'soft-admin'
-      }
-    }
-  }, options);
-}
-
-async function getStalenessBudget(context) {
-  const { sessionId, options, syncytium } = context;
-  const snapshot = await syncytium.snapshot(sessionId, options);
-  const budgetField = snapshot.shared?.sharedFields?.stalenessBudget;
-  if (!budgetField || !budgetField.value !== undefined) {
-    return { budget: DEFAULT_STALENESS_BUDGET, active: false };
-  }
-  return { budget: budgetField.value, active: true, updatedAt: budgetField.updatedAt };
-}
-
-/* ------------------------------------------------------------------ */
-/* Partition simulation                                                 */
-/* ------------------------------------------------------------------ */
-
-async function simulatePartition(context) {
-  const { sessionId, policy, durationMs, options, syncytium } = context;
-  if (!PARTITION_POLICIES.has(policy)) {
-    throw new Error(
-      `SoftVariantError: unknown partition policy '${policy}'. ` +
-      `Allowed: ${[...PARTITION_POLICIES].join(', ')}`
-    );
-  }
-  if (typeof durationMs !== 'number' || durationMs <= 0 || !isFinite(durationMs)) {
-    throw new Error('SoftVariantError: durationMs must be a positive finite number');
-  }
-
-  const opId = options.opId || randomUUID();
-  const entry = {
-    partitionId: randomUUID(),
-    policy,
-    durationMs,
-    startedAt: Date.now(),
-    expiresAt: Date.now() + durationMs,
-    actorId: options.actorId || 'partition-simulator',
-    status: 'ACTIVE'
-  };
-
-  await syncytium.applyOperation(sessionId, {
-    opId,
-    actorId: entry.actorId,
-    kind: {
-      type: 'typed_field',
-      key: 'antiEntropyLog',
-      action: 'add',
-      value: {
-        deltaId: `partition-${entry.partitionId}`,
-        eventType: 'PARTITION_SIMULATION',
-        ...entry
-      }
-    }
-  }, options);
-
-  return {
-    partitionId: entry.partitionId,
-    policy,
-    durationMs,
-    startedAt: entry.startedAt,
-    expiresAt: entry.expiresAt,
-    status: 'ACTIVE'
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* Delta listing                                                        */
-/* ------------------------------------------------------------------ */
-
-async function listDeltas(context) {
-  const { sessionId, options, syncytium } = context;
-  const snapshot = await syncytium.snapshot(sessionId, options);
-  const deltas = snapshot.shared?.sharedFields?.deltas || [];
-  const filterType = options.filterType;
-  const since = options.since;
-
-  let result = deltas;
-  if (filterType) {
-    result = result.filter(d => d.type === filterType);
-  }
-  if (since !== undefined) {
-    result = result.filter(d => (d.timestamp || 0) >= since);
-  }
-
-  return {
-    deltas: result,
-    totalCount: deltas.length,
-    filteredCount: result.length,
-    snapshotAt: Date.now()
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* Snapshot                                                            */
-/* ------------------------------------------------------------------ */
-
-async function softSnapshot(context) {
-  const { sessionId, options, syncytium } = context;
-  const snapshot = await syncytium.snapshot(sessionId, options);
-  const sf = snapshot.shared?.sharedFields || {};
-
-  const deltas = sf.deltas || [];
-  const antiEntropyLog = sf.antiEntropyLog || [];
-  const stalenessBudget = sf.stalenessBudget;
-
-  const budget = (stalenessBudget && stalenessBudget.value !== undefined)
-    ? stalenessBudget.value
-    : DEFAULT_STALENESS_BUDGET;
-
-  const seenIds = new Set(antiEntropyLog
-    .filter(e => e.deltaId && !e.deltaId.startsWith('partition-'))
-    .map(e => e.deltaId));
-  const unseenDeltas = deltas.filter(d => !seenIds.has(d.deltaId));
-  const staleness = unseenDeltas.length;
-
-  return {
-    sessionId,
-    schemaId: 'syncytium-soft-v1',
-    metrics: {
-      totalDeltas: deltas.length,
-      seenDeltas: deltas.length - staleness,
-      unseenDeltas: staleness,
-      stalenessBudget,
-      antiEntropyEntries: antiEntropyLog.length,
-      partitionEvents: antiEntropyLog.filter(
-        e => e.eventType === 'PARTITION_SIMULATION'
-      ).length
-    },
-    stalenessExceedsBudget: staleness > budget,
-    compressed: await compressState({ sessionId, options, syncytium }),
-    timestamp: Date.now()
-  };
-}
+async function softSnapshot(ctx) { const { sessionId, options, syncytium } = ctx; const snapshot = await syncytium.snapshot(sessionId, options); const sf = snapshot.shared?.sharedFields || {}; const deltas = sf.deltas || []; const antiEntropyLog = sf.antiEntropyLog || []; const stalenessBudget = sf.stalenessBudget; const partitionPolicy = sf.partitionPolicy; const partitionLog = sf.partitionLog || []; const compactionWatermark = sf.compactionWatermark; const now = Date.now(); const activePartition = partitionLog.filter(p => p.status === 'ACTIVE' && p.expiresAt > now).sort((a, b) => b.startedAt - a.startedAt)[0]; const budget = (stalenessBudget && stalenessBudget.value !== undefined) ? stalenessBudget.value : DEFAULT_STALENESS_BUDGET; const seenIds = new Set(antiEntropyLog.filter(e => e.deltaId && !e.deltaId.startsWith('partition-')).map(e => e.deltaId)); const staleness = deltas.filter(d => !seenIds.has(d.deltaId)).length; const watermark = compactionWatermark?.value?.vectorClock || {}; const coveredByWatermark = deltas.filter(d => dominates(watermark, d.vectorClock || {})).length; return buildSnapshotResult(sessionId, deltas, staleness, budget, antiEntropyLog, partitionLog, activePartition, partitionPolicy, coveredByWatermark); }
+function buildSnapshotResult(sessionId, deltas, staleness, budget, antiEntropyLog, partitionLog, activePartition, partitionPolicy, coveredByWatermark) { return { sessionId, schemaId: 'syncytium-soft-v1', metrics: { totalDeltas: deltas.length, seenDeltas: deltas.length - staleness, unseenDeltas: staleness, coveredByWatermark, stalenessBudget, antiEntropyEntries: antiEntropyLog.length, partitionEvents: partitionLog.filter(e => e.eventType === 'PARTITION_SIMULATION').length, activePartition: activePartition ? { policy: activePartition.policy, expiresAt: activePartition.expiresAt } : null, effectivePolicy: activePartition?.policy || partitionPolicy?.value?.policy || 'ALLOW_LOCAL_MUTATION' }, stalenessExceedsBudget: staleness > budget, compressed: { compressedCount: 0, remainingDeltas: deltas.length, metrics: {}, watermark: {}, compressedAt: Date.now() }, timestamp: Date.now() }; }
 
 module.exports = { createSoftVariantService };
