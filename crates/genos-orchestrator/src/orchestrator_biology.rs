@@ -2,19 +2,18 @@ use crate::orchestrator::BiomimeticOrchestrator;
 use genos_biology::embryology::{
     cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome,
 };
-use genos_genome::Genome;
 use genos_cell::AgentCell;
 use uuid::Uuid;
 
 impl BiomimeticOrchestrator {
-    pub fn cleave_and_differentiate(&mut self, divisions: u32, gradient: f64) -> Vec<AgentCell> {
+    pub fn cleave_and_differentiate(&mut self, divisions: u32, gradient: f64) -> Result<Vec<AgentCell>, String> {
         let zygote = AgentCell::new("Zygote_Origin", "Origine clonale", "Embryo");
-        let mut swarm = cleave_zygote(zygote, divisions);
+        let mut swarm = cleave_zygote(zygote, divisions)?;
         let mut genome = seed_hox_genome("HOX_BLUEPRINT");
         differentiate_swarm(&mut swarm, gradient, &mut genome);
         sculpt_architecture_via_apoptosis(&mut swarm);
         self.genomes.insert(genome.genome_id(), genome.clone());
-        swarm
+        Ok(swarm)
     }
 
     pub fn trigger_endosymbiosis(
