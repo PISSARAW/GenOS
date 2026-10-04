@@ -16,6 +16,7 @@ async function run() {
     assert.equal(result.status, 'COMPLETED');
     assert.equal(result.receipts.length, ROUND_STEPS.length);
     assert.equal(result.ecologicalDecision.nextAction, 'COLLECT_INDEPENDENCE_EVIDENCE');
+    assert.equal(result.followUpStatus, 'REVIEW_REQUIRED');
     const events = await store.listEvents(db, community.communityId);
     assert.equal(events.filter((event) => event.type === 'DELIBERATION_STEP_COMPLETED').length, ROUND_STEPS.length);
     assert.equal(events.filter((event) => event.type === 'ECOLOGICAL_CONTROL_DECISION').length, 1);

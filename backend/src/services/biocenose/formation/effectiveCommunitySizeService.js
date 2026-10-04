@@ -31,7 +31,10 @@ function mean(values) {
 
 function effectiveCommunitySize(members) {
   const list = Array.isArray(members) ? members : [];
-  if (!hasCompleteErrorVectors(list)) return { observedSize: list.length, effectiveSize: null, measured: false, pairCount: 0 };
+  const routeEvidence = providerEvidence(list);
+  if (!hasCompleteErrorVectors(list)) return {
+    observedSize: list.length, effectiveSize: null, measured: false, pairCount: 0, ...routeEvidence
+  };
   const correlations = [];
   for (let left = 0; left < list.length; left += 1) {
     for (let right = left + 1; right < list.length; right += 1) {
@@ -48,8 +51,18 @@ function effectiveCommunitySize(members) {
     meanErrorCorrelation: Number(meanCorrelation.toFixed(3)),
     pairCount: correlations.length,
     measured: true,
-    basis: 'aligned_historical_error_vectors'
+    basis: 'aligned_historical_error_vectors', ...routeEvidence
   };
+}
+
+function providerEvidence(members) {
+  const complete = members.length > 0 && members.every((member) =>
+    typeof member.actualProvider === 'string' && member.actualProvider.trim());
+  if (!complete) return { providerProvenanceComplete: false, observedProviderCount: null, observedModelCount: null };
+  const providers = new Set(members.map((member) => member.actualProvider));
+  const models = new Set(members.map((member) => `${member.actualProvider}/${member.actualModel || 'unknown'}`));
+  return { providerProvenanceComplete: true, observedProviderCount: providers.size,
+    observedModelCount: models.size, providerIndependenceMeasured: providers.size > 1 };
 }
 
 function hasCompleteErrorVectors(members) {
@@ -60,4 +73,4 @@ function hasCompleteErrorVectors(members) {
     member.errorVectorScope === scope && Array.isArray(member.errorVector) && member.errorVector.length === vectorSize));
 }
 
-module.exports = { effectiveCommunitySize, errorCorrelation };
+module.exports = { effectiveCommunitySize, errorCorrelation, providerEvidence };
