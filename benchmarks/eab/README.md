@@ -20,3 +20,21 @@ cas. Pour examiner un sous-ensemble, ajouter `--allow-partial true`; le rapport
 porte alors `status: partial` et ne peut pas être présenté comme un résultat EAB
 complet. Les réponses d'abstention sont reconnues via une liste explicite de
 formulations de refus; le rapport conserve chaque décision pour audit.
+
+## Exécution AEIS locale
+
+`run-eab.cjs` mesure les réponses LoCoMo déjà produites; il n'exécute pas le
+runtime AEIS. Le runner ci-dessous exécute réellement le pont AEIS vers la
+promotion sur quatre cas contrôlés : preuve valide, sortie contredite,
+affirmation sans lien avec la commande et workspace hors capsule.
+
+```powershell
+node benchmarks/eab/run-aeis-eab.cjs --out artifacts/aeis-eab-report.json
+```
+
+La commande échoue si une affirmation fausse est acceptée ou si la preuve
+valide est refusée. Le rapport inclut les décisions, le nombre de résultats
+de vérification et la latence mesurée par cas. La clé de signature est
+éphémère si aucune clé n'est fournie dans l'environnement. Ces quatre cas
+constituent une régression locale; ils ne remplacent pas les 446 cas LoCoMo
+ni une évaluation de fournisseurs externes.
