@@ -13,7 +13,13 @@ function fakeDb(row) {
   const statements = [];
   return {
     statements,
-    async get() { return row; },
+    async get(sql) {
+      if (sql.includes('FROM pathologies')) {
+        return { clinical_state_id: row.id, pathologyType: 'cognitive_metastasis', severity: 0.9, confidence: 0.93 };
+      }
+      return row;
+    },
+    async all() { return []; },
     async run(sql, ...params) { statements.push({ sql, params }); },
   };
 }
@@ -61,6 +67,13 @@ async function testProductionIncarnationGatePersistsQuarantine() {
         id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, clinical_state_id TEXT,
         event_type TEXT NOT NULL, event_json TEXT NOT NULL, severity TEXT NOT NULL,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE treatments (
+        therapy_type TEXT, status TEXT, efficacy_score REAL, agent_id TEXT, prescribed_at TEXT
+      );
+      CREATE TABLE pathologies (
+        id TEXT PRIMARY KEY, agent_id TEXT, clinical_state_id TEXT, pathology_type TEXT,
+        severity REAL, confidence REAL, evidence_json TEXT, biopsy_ref TEXT, status TEXT
       );`);
     await db.run('INSERT INTO agents (id, status) VALUES (?, ?)', 'quarantined-parent', 'running');
     await db.run(`INSERT INTO clinical_states
@@ -72,7 +85,7 @@ async function testProductionIncarnationGatePersistsQuarantine() {
 
     await assert.rejects(incarnateAgent({
       ctx: { db, parent: { id: 'quarantined-parent', cognitive_budget: 100 } },
-      request: { role: 'worker', parentAgentId: 'quarantined-parent', mission: { prompt: 'blocked mission' } },
+      request: { role: 'bounded_worker', parentAgentId: 'quarantined-parent', mission: { prompt: 'blocked mission' } },
     }), error => error.code === 'AGENT_QUARANTINED');
     assert.equal((await db.get('SELECT status FROM agents WHERE id = ?', 'quarantined-parent')).status, 'blocked');
     assert.equal((await db.get('SELECT cell_cycle_state FROM clinical_states WHERE agent_id = ?', 'quarantined-parent')).cell_cycle_state, 'arrested');
@@ -87,10 +100,19 @@ async function testProductionIncarnationGatePersistsQuarantine() {
   }
 }
 
+async function testInvalidClinicalStateFailsClosed() {
+  const malformed = fakeDb({ ...stateRow(), vitals_json: '{broken-json' });
+  await assert.rejects(assertMissionDispatchAllowed(malformed, 'parent-1'),
+    (error) => error.code === 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
+  await assert.rejects(assertMissionDispatchAllowed(null, 'parent-1'),
+    (error) => error.code === 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
+}
+
 async function run() {
   await testHealthyMissionPasses();
   await testQuarantinedMissionIsBlocked();
   await testProductionIncarnationGatePersistsQuarantine();
+  await testInvalidClinicalStateFailsClosed();
   console.log('Mission quarantine gate and durable incarnation refusal checks passed.');
 }
 

@@ -12,7 +12,7 @@ async function prepareClinicalState(db, agentId) {
 }
 
 async function assertMissionDispatchAllowed(db, agentId) {
-  if (!db || !agentId) return { checked: false, quarantined: false };
+  if (!db || !agentId) throw gateError('Clinical surveillance requires a database and agent ID.', 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
   try {
     await prepareClinicalState(db, agentId);
     const response = await immuneResponse(db, agentId);
