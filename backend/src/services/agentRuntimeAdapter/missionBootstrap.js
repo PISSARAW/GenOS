@@ -37,6 +37,7 @@ async function resolveWorkerIdentity(normalizedMission, dispatchedAgent) {
   const contractEnforcement = require('../agents/workerContractEnforcement');
   contractEnforcement.assertRuntimeContract(normalizedMission.workerContract, normalizedMission.workerKind);
   contractEnforcement.assertAssignmentMatches(normalizedMission.workerContract, normalizedMission);
+  require('../agents/workerRuntimeLimitsService').assertWorkerExecutorAvailable(normalizedMission);
 }
 
 function persistedWorkerContract(agent) {
@@ -146,7 +147,8 @@ function normalizeMissionBudgets(ctx) {
     normalizedMission.workerBarrierTimeoutMs = Math.max(2000, Math.floor(normalizedMission.timeoutMs * 0.45));
   }
   const runtimeEnvironment = bundledRuntimeEnvironment();
-  const normalizedExecutionBudget = normalizeMissionBudget(normalizedMission.executionBudget || {});
+  const normalizedExecutionBudget = require('../agents/workerRuntimeLimitsService')
+    .applyWorkerRuntimeLimits(normalizedMission, normalizeMissionBudget(normalizedMission.executionBudget || {}));
   const planForCheck = resolvePlanForCheck(normalizedMission);
   const shareError = planForCheck ? null : validateShareSum([normalizedExecutionBudget.workerShare, normalizedExecutionBudget.orchestratorReserve]);
   if (shareError) {
