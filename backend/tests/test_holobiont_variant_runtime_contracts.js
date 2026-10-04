@@ -18,6 +18,7 @@ Module._load = function load(request, parent, isMain) {
 };
 const runtime = require('../src/services/holobionte/variants/variantRuntimeService');
 Module._load = originalLoad;
+const regeneration = require('../src/services/holobionte/variants/regenerationRuntimeService');
 const immunePath = require.resolve('../src/services/holobionte/variants/immuneThreatRuntimeService');
 Module._load = function loadImmune(request, parent, isMain) {
   if (parent?.filename.replace(/\\/g, '/').endsWith('variants/immuneThreatRuntimeService.js')) {
@@ -74,8 +75,20 @@ function testLocalExportProofGate() {
   assert.strictEqual(accepted.exportProofVerified, true);
 }
 
+function testRecoveryReservationGate() {
+  const input = { damageScore: 0.85, evidenceRefs: ['damage:1'], replacementCandidate: { id: 'candidate' },
+    restorationReceipt: { id: 'restore' }, verifyRestoration: () => true, verifyLineage: () => true,
+    reserveRecoveryResources: () => ({ id: 'reservation' }), verifyRecoveryReservation: () => false,
+    approveApoptosis: () => true };
+  const result = regeneration.planRegeneration(input);
+  assert.strictEqual(result.status, 'REPLACEMENT_READY');
+  assert.strictEqual(result.resourcesReserved, false);
+  assert.strictEqual(result.controlledApoptosisAllowed, false);
+}
+
 testOrganelleClosure();
 testAdaptiveFitnessPerSymbiont();
 testLocalExportProofGate();
+testRecoveryReservationGate();
 testImmuneBatchMemory().catch((error) => { console.error(error); process.exitCode = 1; });
 console.log('✅ Holobiont variant runtime contracts passed.');
