@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const os = require('node:os');
 const fixture = require('./ontogenesisFixture');
 const store = require('../src/services/ontogenesis/projectStore');
 const { tickOnce } = require('../src/services/ontogenesis/tickService');
@@ -33,6 +34,8 @@ async function tick(db, projectId) {
 }
 
 async function main() {
+  const originalFreeMem = os.freemem;
+  os.freemem = () => Math.round(os.totalmem() * 0.5);
   const db = await fixture.memoryDb();
   try {
     await project(db, 'shev-a');
@@ -106,7 +109,7 @@ async function main() {
     assert.strictEqual((await requestDevelopment(db, { projectId: 'shev-c', observationId: 'gap-1',
       entityId: 'agent-a', scope: { organizationId: 'org-a', projectId: 'shev-c' } })).action.replayed, true);
     console.log('SHEV project loop checks passed.');
-  } finally { await db.close(); }
+  } finally { os.freemem = originalFreeMem; await db.close(); }
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });
