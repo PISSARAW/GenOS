@@ -6,7 +6,7 @@ const { createVariantFacade } = require('./syncytium/variants/variantFacade');
 function createSyncytiumCodeFacade(dependencies) {
   const { createSession, applyOperation, snapshot, applyTransaction } = dependencies;
 
-  const codeVariant = createCodeVariantService({ createSession, applyOperation, snapshot });
+  const codeVariant = createCodeVariantService({ createSession, applyOperation, applyTransaction, snapshot });
 
   const variantFacade = createVariantFacade({
     createSession, applyOperation, applyTransaction, snapshot,
