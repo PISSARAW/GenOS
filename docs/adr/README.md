@@ -303,6 +303,14 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0275a](0275-evidence-conscience-suite-unifiee.md) | Gates Butlin et suite fonctionnelle unifiée | Accepté | 2026-10-02 | Épistémologie, benchmarks, promotion, AGOW |
 | [0275b](0275-execution-campagne-gvx.md) | Exécution vérifiée des campagnes GVX | Accepté | 2026-10-02 | GVX, benchmarks, preuves, exécution |
 | [0276](0276-phases-runtime-core-et-portefeuille.md) | Séparation des phases du runtime core et du portefeuille de stratégies | Accepté | 2026-10-03 | Orchestration, stratégie, leases, benchmarks |
+| [0277](0277-workflows-persistants-holobionte.md) | Workflows persistants du runtime Holobionte | Accepté | 2026-10-04 | Holobionte, orchestration, reçus d'exécution |
+| [0278](0278-simulation-ecologique-bornee.md) | Simulation écologique bornée du Holobionte | Accepté | 2026-10-04 | Holobionte, microbiome adaptatif, fitness |
+| [0279](0279-calibration-immunitaire-decisionnelle.md) | Calibration immunitaire décisionnelle | Accepté | 2026-10-04 | Holobionte, immunité, mémoire épistémique |
+| [0280](0280-simulations-temporelles-regeneration-sync.md) | Simulations temporelles de régénération et synchronisation | Accepté | 2026-10-04 | Holobionte, résilience, synchronisation Edge |
+| [0281](0281-selection-remplacement-partenaire.md) | Séparer sélection et remplacement du partenaire | Accepté | 2026-10-04 | Holobionte, compétition, succession |
+| [0282](0282-lifecycle-admission-procedurale.md) | Lier le variant procédural au cycle d'admission | Accepté | 2026-10-04 | Holobionte, contrats, essais, admission |
+| [0283](0283-validation-schema-outils.md) | Validation JSON Schema et porte d'exécution des outils | Accepté | 2026-10-04 | Holobionte, outils, validation de schéma |
+| [0284](0284-routage-missions-variants.md) | Routage priorisé des missions Holobionte | Accepté | 2026-10-04 | Holobionte, sélection de variants, missions |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

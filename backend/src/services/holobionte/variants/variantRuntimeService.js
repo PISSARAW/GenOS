@@ -2,10 +2,11 @@
 
 const { createHash } = require('crypto');
 const { detectDysbiosis } = require('../health/dysbiosisDetector');
-const { validateToolManifest, validateToolInvocation, authorizeToolInvocation } = require('./toolRuntimeService');
-const { reconcileEdgeEvents } = require('./edgeSyncRuntimeService');
+const { validateToolManifest, validateToolInvocation, authorizeToolInvocation, executeToolInvocation } = require('./toolRuntimeService');
+const { reconcileEdgeEvents, simulateEdgeSynchronization } = require('./edgeSyncRuntimeService');
 const { reviewThreat, reviewThreatBatch } = require('./immuneThreatRuntimeService');
-const { planRegeneration } = require('./regenerationRuntimeService');
+const { planRegeneration, simulateRegeneration } = require('./regenerationRuntimeService');
+const { authorizeCompetitiveReplacement } = require('./competitiveReplacementRuntimeService');
 
 function invalid(message, code = 'HOLOBIONT_VARIANT_RUNTIME_INVALID') {
   return Object.assign(new Error(message), { code });
@@ -135,6 +136,34 @@ function assessEcology(input = {}) {
   return { longitudinalSamples: samples.length, fitnessDelta: fitnessDelta(samples),
     action, diversityFloor: floor, diversity, symbiontFitness, decliningSymbiontIds,
     dysbiosis, automaticReplacement: false };
+}
+
+async function simulateEcology(input = {}) {
+  const cycles = Number(input.cycles ?? 20);
+  if (!Number.isInteger(cycles) || cycles < 1 || cycles > 20) throw invalid('Ecology simulation is limited to 1–20 cycles.');
+  if (typeof input.evaluateCycle !== 'function') throw invalid('A cycle evaluator is required.', 'HOLOBIONT_ECOLOGY_EVALUATOR_REQUIRED');
+  const history = [];
+  let state = input.initialState || {};
+  for (let cycle = 0; cycle < cycles; cycle += 1) {
+    const result = await input.evaluateCycle({ cycle: cycle + 1, state, history: history.slice() });
+    if (!result || typeof result !== 'object' || Array.isArray(result)) throw invalid('Cycle evaluator returned an invalid record.');
+    const cycleEvidence = evidence(result.evidenceRefs, `cycle ${cycle + 1} evidenceRefs`);
+    const fitness = score(result.fitness, `cycle ${cycle + 1} fitness`);
+    const diversity = Number(result.diversity);
+    if (!Number.isInteger(diversity) || diversity < 0) throw invalid(`Cycle ${cycle + 1} diversity must be a non-negative integer.`);
+    history.push({ cycle: cycle + 1, fitness, evidenceRefs: cycleEvidence, diversity, dysbiosis: result.dysbiosis === true });
+    state = result.state || state;
+    if (result.stop === true || result.dysbiosis === true) break;
+  }
+  const first = history[0];
+  const last = history[history.length - 1];
+  const delta = last.fitness - first.fitness;
+  const action = history.some((item) => item.dysbiosis) ? 'QUARANTINE_AND_REVIEW'
+    : last.diversity < Number(input.diversityFloor ?? 2) ? 'ACQUIRE_CANDIDATE'
+    : history.some((item, index) => index > 0 && item.fitness < history[index - 1].fitness) ? 'REVIEW_CONTRIBUTORS'
+      : 'CONTINUE';
+  return { status: 'SIMULATED', cyclesCompleted: history.length, history, fitnessDelta: delta,
+    action, automaticReplacement: false, finalState: state };
 }
 
 function placementVariant(input) {
@@ -328,9 +357,8 @@ function selectCompetitivePartner(input = {}) {
   const trials = verifiedTrials(input, candidates, record(input.budget, 'budget'));
   if (trials.length < 2) return { champion: null, trials, replacementAuthorized: false };
   const champion = championFor(trials, input);
-  const replacementAuthorized = Boolean(champion && typeof input.approveReplacement === 'function'
-    && input.approveReplacement(champion.id) === true);
-  return { champion, trials, replacementAuthorized };
+  return { champion, trials, replacementAuthorized: false,
+    replacementRequiresSeparateApproval: Boolean(champion) };
 }
 
 function planRecruitment(input = {}) {
@@ -353,6 +381,8 @@ function createProofHash(value) {
   return `sha256:${createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
 }
 
-module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, planPlacement, planMemory,
-  selectCompetitivePartner, planRecruitment, reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
-  validateToolInvocation, authorizeToolInvocation, reconcileEdgeEvents, planRegeneration, planPlacementBatch, createProofHash };
+module.exports = { assessOrganelle, testOrganelleEssentiality, assessEcology, simulateEcology, planPlacement, planMemory,
+  selectCompetitivePartner, authorizeCompetitiveReplacement, planRecruitment,
+  reviewImmuneThreat: reviewThreat, reviewImmuneThreatBatch: reviewThreatBatch, validateToolManifest,
+  validateToolInvocation, authorizeToolInvocation, executeToolInvocation, reconcileEdgeEvents, simulateEdgeSynchronization,
+  planRegeneration, simulateRegeneration, planPlacementBatch, createProofHash };

@@ -60,10 +60,12 @@ function assessModels(input) {
 
 function reviewInput(input, assessment) {
   const relevant = assessment.assessed.filter((item) => item.observed);
+  const priorWorkflowMemory = (Array.isArray(input.workflowResults) ? input.workflowResults : [])
+    .flatMap((result) => Array.isArray(result?.immuneMemory) ? result.immuneMemory : []);
   return { symbiontId: input.symbiontId, claim: input.claim || 'Threat-model review', resultHash: input.resultHash,
     evidenceRefs: [...new Set(relevant.flatMap((item) => item.evidenceRefs))], verifierId: assessment.verifiers[0],
     riskScore: relevant.length ? Math.max(...relevant.map((item) => item.riskScore)) : 0,
-    immuneMemory: input.immuneMemory || [] };
+    immuneMemory: [...(Array.isArray(input.immuneMemory) ? input.immuneMemory : []), ...priorWorkflowMemory] };
 }
 
 async function reviewThreat(input = {}) {
@@ -72,7 +74,9 @@ async function reviewThreat(input = {}) {
   const review = await immunePlane.reviewSymbiontOutput(reviewInput(input, assessment));
   const calibration = Array.isArray(input.calibrationOutcomes)
     ? immuneOverreaction.assessImmuneOverreaction({ outcomes: input.calibrationOutcomes }) : null;
-  return { ...review, assessed: assessment.assessed, unknownSignals: assessment.unknownSignals,
+  const calibrationHold = calibration?.reviewRequired === true;
+  return { ...review, ...(calibrationHold ? { allowed: false, blocked: true, decision: 'REVIEW',
+    blockReason: 'IMMUNE_CALIBRATION_REVIEW_REQUIRED' } : {}), assessed: assessment.assessed, unknownSignals: assessment.unknownSignals,
     verifierIds: assessment.verifiers, calibration };
 }
 
@@ -84,10 +88,9 @@ async function reviewThreatBatch(input = {}) {
   for (const [index, output] of outputs.entries()) {
     const result = await reviewThreat({ ...input, ...object(output, 'output'), immuneMemory });
     results.push({ outputId: String(output.outputId || index), ...result });
-    if (result.allowed === true) {
-      immuneMemory = [...immuneMemory, { outputId: String(output.outputId || index), resultHash: output.resultHash,
-        evidenceRefs: result.assessed.flatMap((item) => item.evidenceRefs) }];
-    }
+    immuneMemory = [...immuneMemory, { outputId: String(output.outputId || index), resultHash: output.resultHash || null,
+      decision: result.decision || 'BLOCK', allowed: result.allowed === true,
+      evidenceRefs: (result.assessed || []).flatMap((item) => item.evidenceRefs) }];
   }
   return { results, blockedCount: results.filter((item) => item.allowed !== true).length, immuneMemory };
 }

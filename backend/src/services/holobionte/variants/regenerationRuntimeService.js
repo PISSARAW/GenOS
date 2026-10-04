@@ -45,4 +45,23 @@ function planRegeneration(input = {}) {
     cryptobiosisEligible };
 }
 
-module.exports = { planRegeneration };
+function simulateRegeneration(input = {}) {
+  const stages = Array.isArray(input.stages) ? input.stages : [];
+  if (!stages.length || stages.length > 20) throw Object.assign(new Error('Regeneration simulation requires 1–20 stages.'), { code: 'HOLOBIONT_REGENERATION_INVALID' });
+  let previousTick = -1;
+  const history = stages.map((raw, index) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw Object.assign(new Error(`Stage ${index + 1} must be an object.`), { code: 'HOLOBIONT_REGENERATION_INVALID' });
+    const tick = Number(raw.tick);
+    if (!Number.isInteger(tick) || tick < 0 || tick <= previousTick) {
+      throw Object.assign(new Error('Regeneration stage ticks must increase.'), { code: 'HOLOBIONT_REGENERATION_INVALID' });
+    }
+    previousTick = tick;
+    const damage = bounded(raw.damageScore, `stage ${index + 1} damageScore`);
+    return { tick, damageScore: damage, evidenceRefs: damage > 0 ? evidence(raw.evidenceRefs) : [] };
+  });
+  const delta = history.at(-1).damageScore - history[0].damageScore;
+  return { status: delta < 0 ? 'RECOVERING' : delta > 0 ? 'WORSENING' : 'STABLE', history,
+    damageDelta: delta, replacementAuthorized: false, automaticApoptosis: false };
+}
+
+module.exports = { planRegeneration, simulateRegeneration };
