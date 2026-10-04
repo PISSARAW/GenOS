@@ -96,5 +96,10 @@ function buildExternalContracts(mission, members) {
 
 function defaultTo(value, fallback) { return value || fallback; }
 
+function interfaceContractProposal(boundary) {
+  return { boundaryId: boundary.id, fromDomain: boundary.from, toDomain: boundary.to,
+    status: 'proposal_required', requiredFields: ['contractId', 'version', 'semanticSchema', 'provenance.sourceRefs'], promotionBlocked: true };
+}
+
 function memberId(member = {}) { return member.memberId || member.agentId || member.workerId || member.domain || member.subSystem || member.label || member.role || null; }
-module.exports = { calculateConflictSeverity, buildCompatibilityMatrix, buildEscalationPaths, buildDivisions, normalizeStopCriteria, validateControlledSummary, calculateAutonomyMetric, buildInternalContracts, buildExternalContracts, defaultTo };
+module.exports = { calculateConflictSeverity, buildCompatibilityMatrix, buildEscalationPaths, buildDivisions, normalizeStopCriteria, validateControlledSummary, calculateAutonomyMetric, buildInternalContracts, buildExternalContracts, defaultTo, interfaceContractProposal };
