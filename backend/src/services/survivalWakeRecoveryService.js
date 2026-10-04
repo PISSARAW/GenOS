@@ -19,9 +19,29 @@ async function reconcileOne(db, condition) {
   const snapshot = await db.get('SELECT status FROM cryptobiosis_snapshots WHERE snapshot_id = ?', condition.snapshotId);
   if (!['frozen', 'thawed'].includes(snapshot?.status)) return;
   const context = await loadContext(db, condition);
+  if (await finalizeTerminal(db, { condition, state, context })) return;
   if (await finalizeRunning(db, { condition, state, snapshot, context })) return;
   if (await unresolvedLiveRuntime(db, { condition, state, context })) return;
   await restoreDormancy(db, { condition, state, snapshot, context });
+}
+
+async function finalizeTerminal(db, input) {
+  const { condition, state, context } = input;
+  const status = context.mission?.status;
+  if (state.state !== 'waking' || !['completed', 'failed', 'cancelled'].includes(status)
+    || context.mission.orchestratorAgentId !== condition.agentId
+    || context.authority?.agent_id !== condition.agentId) return false;
+  if (pidAlive(context.runtime?.runtime_pid)) return false;
+  await withTransaction(db, async () => {
+    await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = COALESCE(thawed_at, CURRENT_TIMESTAMP) WHERE snapshot_id = ?", condition.snapshotId);
+    await survival.observe(db, condition.agentId, {
+      forcedState: status === 'completed' ? 'recovered' : 'protected',
+      snapshotId: condition.snapshotId, wakeConditionId: condition.id,
+      source: 'terminal_mission_reconciliation', missionStatus: status
+    });
+    await conditions.resolveTriggered({ db, id: condition.id });
+  });
+  return true;
 }
 
 async function loadContext(db, condition) {

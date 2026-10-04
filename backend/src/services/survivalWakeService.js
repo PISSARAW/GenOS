@@ -153,6 +153,13 @@ async function rearm(input = {}) {
   return get({ id: input.id, db });
 }
 
+async function resolveTriggered(input = {}) {
+  const db = input.db || await getDatabase();
+  await ensureStorage(db);
+  await db.run("UPDATE survival_wake_conditions SET status = 'cancelled' WHERE id = ? AND status = 'triggered'", input.id);
+  return get({ id: input.id, db });
+}
+
 async function observationCursor(db) {
   await require('./missionResourceRegistryService').ensureStorage(db);
   const row = await db.get('SELECT COALESCE(MAX(rowid), 0) AS cursor FROM mission_resource_observations');
@@ -187,4 +194,4 @@ function format(row) {
   };
 }
 
-module.exports = { arm, get, listArmed, listDue, listRegistryArmed, abandoned, trigger, rearm, cancel, ensureStorage };
+module.exports = { arm, get, listArmed, listDue, listRegistryArmed, abandoned, trigger, rearm, resolveTriggered, cancel, ensureStorage };
