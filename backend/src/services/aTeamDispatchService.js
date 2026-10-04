@@ -210,6 +210,7 @@ async function persistPlannedWorkers(input) {
     workerKind: member.workerKind,
     methodContract: member.methodContract,
     workerAssignment: member.workerAssignment,
+    nicheDomain: member.nicheDomain || member.domain || member.subSystem || member.label,
     mission: member.mission || input.context.task
   })));
 }

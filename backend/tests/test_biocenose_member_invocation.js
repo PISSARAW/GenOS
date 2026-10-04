@@ -41,6 +41,22 @@ async function run() {
     modelRouter.generate = originalGenerate;
   }
 
+  const injectedRequests = [];
+  const repairedInjection = await invocation.invoke({
+    phase: 'REVISION', task: 'Revise claims',
+    session: { communityId: 'community-injected', question: 'Question', questionType: 'DESIGN', round: 0 },
+    member: { memberId: 'injected-member', role: 'reviewer' },
+    details: { initialJudgment: { position: 'Old' }, claims: [{ claimId: 'claim-1', statement: 'Claim' }] },
+    memberInvoker: async (request) => {
+      injectedRequests.push(request);
+      return injectedRequests.length === 1 ? { newPosition: 'Old' }
+        : { previousPosition: 'Old', newPosition: 'Old', changedClaims: [], reasonCodes: [], evidenceRefs: [] };
+    }
+  });
+  assert.deepEqual(repairedInjection.changedClaims, []);
+  assert.equal(injectedRequests.length, 2);
+  assert.match(injectedRequests[1].validationErrors.join('; '), /changedClaims must be an array/);
+
   let attempts = 0;
   modelRouter.generate = async () => {
     attempts += 1;

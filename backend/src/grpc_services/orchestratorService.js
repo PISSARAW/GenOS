@@ -31,7 +31,7 @@ async function dispatchWorker(ctx) {
   assertWorkspaceIsolated(worker);
   const workspaceRoot = await workspaceLifecycle.createIsolatedWorkspace(worker.workspaceRoot, worker_id);
   const result = await dispatchWorkerMission({
-    agentId: worker_id, orchestratorAgentId: orchestrator_id, prompt, role: 'worker',
+    agentId: worker_id, orchestratorAgentId: orchestrator_id, prompt, role: worker.role,
     workspaceId: call.request.workspace_id || worker.workspaceId || undefined,
     workspaceRoot, capsuleRoot: path.dirname(workspaceRoot), workspaceProvisioned: true,
     modelTier: call.request.model_tier || worker.modelTier || undefined,
@@ -42,7 +42,7 @@ async function dispatchWorker(ctx) {
 
 async function fetchWorker(db, worker_id, orchestrator_id) {
   return db.get(
-    `SELECT a.id AS worker_id, a.workspace_id AS workspace_id, w.organization_id AS organizationId, w.project_id AS projectId, w.path AS workspaceRoot, a.model_tier AS modelTier, a.isolation_mode AS isolationMode
+    `SELECT a.id AS worker_id, a.role AS role, a.workspace_id AS workspace_id, w.organization_id AS organizationId, w.project_id AS projectId, w.path AS workspaceRoot, a.model_tier AS modelTier, a.isolation_mode AS isolationMode
      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
      WHERE a.id = ? AND a.parent_agent_id = ? AND a.execution_mode = 'worker'`,
     worker_id, orchestrator_id

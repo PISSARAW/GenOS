@@ -63,8 +63,13 @@ function assertByzantineQuorum(input) {
     && member.role !== 'community_facilitator');
   const faultyAssumed = Number(input.faultyAssumed ?? input.constitution?.faultyAssumed ?? 1);
   const quorum = byzantineQuorum.quorumFor({ memberCount: active.length, faultyAssumed });
-  const domains = byzantineQuorum.partitionFaultDomains({ members: active, faultyAssumed });
-  if (!quorum.honorsAssumption || !quorum.bftPossible || domains.domainCount < quorum.quorum) {
+  const observed = active.map((member) => {
+    const execution = input.modelExecutionByMember?.get(member.memberId);
+    return execution?.provider ? { ...member, provider: execution.provider } : member;
+  });
+  const domains = byzantineQuorum.partitionFaultDomains({ members: observed, faultyAssumed });
+  if (!quorum.honorsAssumption || !quorum.bftPossible || domains.domainCount < quorum.quorum
+    || domains.providerDomainCount < quorum.quorum) {
     throw Object.assign(new Error('Byzantine quorum is not supported by the active independent fault domains.'), {
       code: 'BIOCENOSE_BYZANTINE_QUORUM_LOST', details: { quorum, domains }
     });
@@ -75,27 +80,7 @@ function assertByzantineQuorum(input) {
 async function persistentContext(input) {
   const reputation = require('../calibration/persistentReputationService');
   const store = require('../calibration/calibrationStore');
-  const records = [];
-  for (const member of input.session.members.filter((item) => item.status === 'ACTIVE')) {
-    const domains = memberDomains(member, input.session.questionType);
-    for (const domain of domains) {
-      const history = await store.list(input.db, member.memberId, domain);
-      const historical = history.length ? history : (member.calibrationHistory || []).filter((item) => item.domain === domain);
-      const profile = reputation.domainReputation({ memberId: member.memberId, records: historical });
-      const domainRecord = profile.domains.find((item) => item.domain === domain);
-      const lastMission = Number(historical.at(-1)?.missionIndex || 0);
-      const currentMission = Number(input.missionIndex) || Number(member.missionsServed) || lastMission;
-      const elapsed = Math.max(0, currentMission - lastMission);
-      const decayed = reputation.decayReputation({ reputation: domainRecord?.reputation,
-        periodsElapsed: elapsed, halfLifeMissions: input.reputationHalfLifeMissions });
-      const decision = reputation.membershipDecision({ reputation: decayed.decayedReputation,
-        sampleCount: domainRecord?.sampleCount || 0 });
-      records.push({ memberId: member.memberId, domain, sampleCount: domainRecord?.sampleCount || 0,
-        reputation: domainRecord?.reputation ?? null, decayedReputation: decayed.decayedReputation,
-        periodsElapsed: elapsed, missionIndex: currentMission,
-        decision: decision.decision, reason: decision.reason });
-    }
-  }
+  const records = await persistentRecords({ input, reputation, store });
   const tenures = input.session.members.map((member) => ({ memberId: member.memberId,
     missions: Number(member.missionsServed || member.tenureMissions) || 0 }));
   const rotation = reputation.antiEntrenchment({ tenures,
@@ -105,14 +90,46 @@ async function persistentContext(input) {
     || !records.some((entry) => entry.memberId === item.memberId && entry.domain === currentDomain));
   const excluded = new Set([...currentRecords.filter((item) => item.decision === 'EXPEL').map((item) => item.memberId),
     ...rotation.rotate.map((item) => item.memberId)]);
+  const forecasts = persistentForecasts({ input, currentRecords, excluded });
+  return { forecasts, report: { members: records, rotation, excludedMemberIds: [...excluded] } };
+}
+
+async function persistentRecords({ input, reputation, store }) {
+  const records = [];
+  for (const member of input.session.members.filter((item) => item.status === 'ACTIVE')) {
+    for (const domain of memberDomains(member, input.session.questionType)) {
+      records.push(await persistentMemberRecord({ input, member, domain, reputation, store }));
+    }
+  }
+  return records;
+}
+
+async function persistentMemberRecord({ input, member, domain, reputation, store }) {
+  const history = await store.list(input.db, member.memberId, domain);
+  const historical = history.length ? history : (member.calibrationHistory || []).filter((item) => item.domain === domain);
+  const profile = reputation.domainReputation({ memberId: member.memberId, records: historical });
+  const domainRecord = profile.domains.find((item) => item.domain === domain);
+  const lastMission = Number(historical.at(-1)?.missionIndex || 0);
+  const currentMission = Number(input.missionIndex) || Number(member.missionsServed) || lastMission;
+  const elapsed = Math.max(0, currentMission - lastMission);
+  const decayed = reputation.decayReputation({ reputation: domainRecord?.reputation,
+    periodsElapsed: elapsed, halfLifeMissions: input.reputationHalfLifeMissions });
+  const decision = reputation.membershipDecision({ reputation: decayed.decayedReputation,
+    sampleCount: domainRecord?.sampleCount || 0 });
+  return { memberId: member.memberId, domain, sampleCount: domainRecord?.sampleCount || 0,
+    reputation: domainRecord?.reputation ?? null, decayedReputation: decayed.decayedReputation,
+    periodsElapsed: elapsed, missionIndex: currentMission,
+    decision: decision.decision, reason: decision.reason };
+}
+
+function persistentForecasts({ input, currentRecords, excluded }) {
   const weights = new Map(currentRecords.map((item) => [item.memberId, Math.max(0.05, item.decayedReputation ?? 0.5)]));
   const source = input.suppliedForecasts || (input.judgments || []).flatMap((item) => (item.judgment.probabilities || [])
     .map((forecast) => ({ ...forecast, memberId: item.memberId })));
-  const forecasts = source.filter((item) => !excluded.has(item.memberId)).map((item) => ({
+  return source.filter((item) => !excluded.has(item.memberId)).map((item) => ({
     ...item, calibrationWeight: weights.get(item.memberId) ?? item.calibrationWeight,
     independenceWeight: item.independenceWeight || 1
   }));
-  return { forecasts, report: { members: records, rotation, excludedMemberIds: [...excluded] } };
 }
 
 function memberDomains(member, fallback) {
@@ -130,23 +147,7 @@ async function forecastingContext(input) {
   const weights = new Map();
   const forecasts = [];
   for (const forecast of source) {
-    const member = members.get(forecast.memberId);
-    const domain = String(forecast.domain || member?.forecastDomain
-      || (typeof member?.expertise === 'string' ? member.expertise : input.session.questionType) || 'general');
-    const key = `${forecast.memberId}:${domain}`;
-    if (!cache.has(key)) {
-      const stored = await store.list(input.db, forecast.memberId, domain);
-      const history = stored.length ? stored : (member?.calibrationHistory || []).filter((item) => item.domain === domain);
-      const meanBrier = mean(history.map((item) => Number(item.brierScore)).filter(Number.isFinite));
-      const explicit = Number(member?.calibrationWeight ?? member?.calibration);
-      const calibrationWeight = meanBrier === null
-        ? (Number.isFinite(explicit) && explicit > 0 ? explicit : null)
-        : Math.max(0, 1 - meanBrier);
-      cache.set(key, { domain, calibrationWeight,
-        independenceWeight: Number(member?.independenceWeight) > 0 ? Number(member.independenceWeight) : 1,
-        sampleCount: history.length });
-    }
-    const weight = cache.get(key);
+    const { domain, key, weight } = await forecastProfile({ input, forecast, members, cache, store });
     weights.set(key, { memberId: forecast.memberId, ...weight });
     forecasts.push({ ...forecast, domain, calibrationWeight: forecast.calibrationWeight ?? weight.calibrationWeight,
       independenceWeight: forecast.independenceWeight ?? weight.independenceWeight });
@@ -154,6 +155,28 @@ async function forecastingContext(input) {
   return { forecasts, weights: [...weights.values()],
     missingMemberIds: [...new Set([...weights.values()]
       .filter((item) => !(item.calibrationWeight > 0)).map((item) => item.memberId))] };
+}
+
+async function forecastProfile({ input, forecast, members, cache, store }) {
+  const member = members.get(forecast.memberId);
+  const domain = String(forecast.domain || member?.forecastDomain
+    || (typeof member?.expertise === 'string' ? member.expertise : input.session.questionType) || 'general');
+  const key = `${forecast.memberId}:${domain}`;
+  if (!cache.has(key)) cache.set(key, await loadForecastWeight({ input, forecast, member, domain, store }));
+  return { domain, key, weight: cache.get(key) };
+}
+
+async function loadForecastWeight({ input, forecast, member, domain, store }) {
+  const stored = await store.list(input.db, forecast.memberId, domain);
+  const history = stored.length ? stored : (member?.calibrationHistory || []).filter((item) => item.domain === domain);
+  const meanBrier = mean(history.map((item) => Number(item.brierScore)).filter(Number.isFinite));
+  const explicit = Number(member?.calibrationWeight ?? member?.calibration);
+  const calibrationWeight = meanBrier === null
+    ? (Number.isFinite(explicit) && explicit > 0 ? explicit : null)
+    : Math.max(0, 1 - meanBrier);
+  return { domain, calibrationWeight,
+    independenceWeight: Number(member?.independenceWeight) > 0 ? Number(member.independenceWeight) : 1,
+    sampleCount: history.length };
 }
 function mean(values) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -173,19 +196,26 @@ async function persistResolvedOutcomes(input) {
   const calibration = require('../calibration/calibrationService');
   const recorded = [];
   for (const outcome of input.outcomes || []) {
-    const receipt = outcome.receipt;
-    if (!outcome.eventId || !outcome.domain || ![0, 1].includes(Number(outcome.outcome))
-      || typeof input.isTrustedReceipt !== 'function' || !trustedReceipt(receipt, input.isTrustedReceipt)) continue;
-    const oracleRef = outcome.oracleRef || receipt.receiptId || receipt.reference;
-    const forecasts = input.forecasts.filter((item) => item.eventId === outcome.eventId
-      && item.domain === outcome.domain && typeof item.memberId === 'string'
-      && Number.isFinite(item.probability) && item.probability >= 0 && item.probability <= 1);
+    if (!eligibleOutcome(outcome, input.isTrustedReceipt)) continue;
+    const oracleRef = outcome.oracleRef || outcome.receipt.receiptId || outcome.receipt.reference;
+    const forecasts = matchingForecasts(input.forecasts, outcome);
     if (!oracleRef || !forecasts.length) continue;
     recorded.push(await calibration.recordResolution({ db: input.db, communityId: input.communityId,
       actorId: input.actorId, eventId: outcome.eventId, domain: outcome.domain,
       outcome: Number(outcome.outcome), oracleRef, forecasts }));
   }
   return recorded;
+}
+
+function eligibleOutcome(outcome, validator) {
+  return Boolean(outcome.eventId && outcome.domain && [0, 1].includes(Number(outcome.outcome))
+    && trustedReceipt(outcome.receipt, validator));
+}
+
+function matchingForecasts(forecasts, outcome) {
+  return forecasts.filter((item) => item.eventId === outcome.eventId
+    && item.domain === outcome.domain && typeof item.memberId === 'string'
+    && Number.isFinite(item.probability) && item.probability >= 0 && item.probability <= 1);
 }
 
 function trustedReceipt(receipt, validator) {
@@ -202,17 +232,7 @@ async function aggregatePolycentric(input) {
     scope: input.context.aggregationContext?.scope || 'mission', specializeByExpertise: true });
   const clusters = [];
   for (const council of councils) {
-    const responses = [];
-    for (const memberId of council.memberIds) {
-      const member = input.session.members.find((item) => item.memberId === memberId);
-      const response = await input.invokeMember(input.context, {
-        member, phase: 'LOCAL_COUNCIL_JUDGMENT',
-        task: 'Return this local council\'s position, reasons, and any dissent as JSON.',
-        details: { council, claims: (input.claims || []).map(stripOwner),
-          reviews: (input.reviews || []).map((item) => item.review) }
-      });
-      responses.push({ memberId, outcome: String(response.outcome || response.position || 'ABSTAIN'), dissent: response.dissent });
-    }
+    const responses = await localCouncilResponses(input, council);
     clusters.push(localCouncilOutcome(council.councilId, responses));
   }
   const federated = councilService.federate({ clusters,
@@ -220,6 +240,21 @@ async function aggregatePolycentric(input) {
   return { policy: 'hierarchical', questionType: input.session.questionType,
     outcome: federated.parentMustReview ? 'REVIEW_REQUIRED' : 'POLYCENTRIC_JUDGMENT',
     polycentric: { councils, clusters, ...federated } };
+}
+
+async function localCouncilResponses(input, council) {
+  const responses = [];
+  for (const memberId of council.memberIds) {
+    const member = input.session.members.find((item) => item.memberId === memberId);
+    const response = await input.invokeMember(input.context, {
+      member, phase: 'LOCAL_COUNCIL_JUDGMENT',
+      task: 'Return this local council\'s position, reasons, and any dissent as JSON.',
+      details: { council, claims: (input.claims || []).map(stripOwner),
+        reviews: (input.reviews || []).map((item) => item.review) }
+    });
+    responses.push({ memberId, outcome: String(response.outcome || response.position || 'ABSTAIN'), dissent: response.dissent });
+  }
+  return responses;
 }
 
 function localCouncilOutcome(clusterId, responses) {

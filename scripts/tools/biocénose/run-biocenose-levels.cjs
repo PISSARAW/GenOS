@@ -12,7 +12,7 @@ const fs = require('fs');
 // Positionnement: le script est dans scripts/tools/biocénose/
 const SCRIPT_DIR = __dirname;
 const ROOT = path.resolve(SCRIPT_DIR, '../../..');  // GenOS racine
-const BACKEND_NPM = path.join(ROOT, 'backend/node_modules');
+const BACKEND_NPM = process.env.GENOS_BACKEND_NODE_MODULES || path.join(ROOT, 'backend/node_modules');
 const BACKEND_SRC = path.join(ROOT, 'backend/src');
 
 // Vérification précoce
@@ -111,6 +111,7 @@ function buildMemberInvoker(timeoutMs = 90000) {
     const roleInstructions = {
       generator: 'Vous êtes un solveur indépendant. Produisez votre meilleur jugement sans vous conformer à ce que vous pensez être la majorité. Soyez précis et citez vos incertitudes.',
       reviewer: 'Vous êtes un réviseur critique. Examinez le claim assigné de manière rigoureuse. Identifiez les faiblesses, les hypothèses non vérifiées, les contre-exemples possibles. Soyez constructif mais exigeant.',
+      adversarial_reviewer: 'Vous êtes un réviseur adversarial. Cherchez des contre-exemples concrets et des failles dans le claim assigné.',
       verifier: 'Vous êtes un vérificateur. Évaluez si les claims peuvent être vérifiés de manière déterministe. Identifiez ce qui est testable et ce qui ne l\'est pas.',
       community_facilitator: 'Vous facilitez la délibération sans prendre position sur le fond. Organisez le processus.'
     };
@@ -122,9 +123,11 @@ function buildMemberInvoker(timeoutMs = 90000) {
     };
 
     const extraContext = [];
+    if (details.claim) extraContext.push(`CLAIM ASSIGNÉ: ${JSON.stringify(details.claim)}`);
+    if (details.prompts?.length) extraContext.push(`POINTS DE REVUE: ${details.prompts.join('; ')}`);
     if (details.claims?.length) {
       extraContext.push('CLAIMS à évaluation:');
-      for (const c of details.claims) extraContext.push(`  - "${c.statement}"`);
+      for (const c of details.claims) extraContext.push(`  - claimId=${c.claimId}: "${c.statement}"`);
     }
     if (details.reviews?.length) {
       extraContext.push('REVISIONS existantes:');
@@ -139,6 +142,11 @@ function buildMemberInvoker(timeoutMs = 90000) {
     }
     if (details.anonymousFeedback) {
       extraContext.push(`RETOUR ANONYME: ${JSON.stringify(details.anonymousFeedback)}`);
+    }
+    if (invocation.validationErrors?.length) {
+      extraContext.push(`VOTRE RÉPONSE PRÉCÉDENTE ÉTAIT INVALIDE: ${invocation.validationErrors.join('; ')}`);
+      extraContext.push(`RÉPONSE PRÉCÉDENTE: ${JSON.stringify(invocation.previousResponse || {}).slice(0, 12000)}`);
+      extraContext.push('Corrigez uniquement la structure ou les références invalides. Ne créez pas de preuve ni de claimId.');
     }
 
     const prompt = [
@@ -156,9 +164,9 @@ function buildMemberInvoker(timeoutMs = 90000) {
       '',
       'REGLES STRICTES: Repondez UNIQUEMENT par un objet JSON valide. Aucun markdown, aucun texte hors JSON.',
       'Structure attendue selon la phase:',
-      '  SEALED_JUDGMENT: {"position":"...","claims":[{"statement":"..."}],"assumptions":["..."],"evidenceRefs":["..."],"unknowns":["..."],"confidence":0.0-1.0}',
-      '  REVIEW: {"claimId":"...","summary":"...","objections":["..."],"arguments":[{"claimId":"...","relation":"SUPPORT|ATTACK|REFUTE|UNDERCUT|QUALIFY|COUNTEREXAMPLE","argument":"..."}],"dissent":[{"claimId":"...","position":"...","materiality":0-1,"severity":0-1,"supportingMembers":["..."],"evidenceRefs":["..."],"claimRefs":["..."]}],"counterexamples":["..."]}',
-      '  REVISION: {"changedClaims":["..."],"previousPosition":"...","newPosition":"...","reasonCodes":["NEW_EVIDENCE|BETTER_ARGUMENT|SELF_CORRECTION|MAJORITY_SIGNAL|COUNTEREXAMPLE"],"evidenceRefs":["..."]}'
+      '  SEALED_JUDGMENT: {"position":"...","claims":[{"statement":"..."}],"assumptions":["..."],"evidenceRefs":["..."],"unknowns":["..."],"abstentions":[],"confidence":0.0-1.0}',
+      '  REVIEW: {"summary":"...","objections":["..."],"arguments":[{"relation":"SUPPORT|ATTACK|REFUTE|UNDERCUT|QUALIFY|COUNTEREXAMPLE","argument":{"statement":"..."}}],"dissent":[],"counterexamples":["..."]}. Ne créez pas de claimId; le système associe chaque argument au claim assigné.',
+      '  REVISION: {"changedClaims":["claimId fourni ci-dessus"],"previousPosition":"...","newPosition":"...","reasonCodes":["NEW_EVIDENCE|BETTER_ARGUMENT|SELF_CORRECTION|MAJORITY_SIGNAL|COUNTEREXAMPLE"],"evidenceRefs":["..."]}. Utilisez uniquement les claimId fournis; si aucune révision n’est justifiée, changedClaims et reasonCodes doivent être [].'
     ].filter(Boolean).join('\n');
 
     try {
@@ -171,6 +179,7 @@ function buildMemberInvoker(timeoutMs = 90000) {
         body: JSON.stringify({
           model: MODEL_NAME,
           messages: [{ role: 'user', content: prompt }],
+          format: 'json',
           stream: false
         }),
         signal: controller.signal
@@ -183,53 +192,23 @@ function buildMemberInvoker(timeoutMs = 90000) {
       }
 
       const payload = await response.json();
+      await invocation.onProviderObserved?.({
+        memberId: member.memberId, provider: 'ollama', model: payload.model || null
+      });
       const text = payload.message?.content || payload.response || payload.content || '';
 
-      if (!text.trim()) {
-        return { position: 'NO_RESPONSE', claims: [], confidence: 0.05 };
-      }
+      if (!text.trim()) throw new Error('Ollama returned an empty response');
 
       const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-      if (!cleaned) {
-        return { position: 'NO_RESPONSE', claims: [], confidence: 0.05 };
+      if (!cleaned) throw new Error('Ollama returned an empty JSON object');
+      const parsed = JSON.parse(cleaned);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Ollama response is not a JSON object');
+      if (phase === 'REVISION' && !Array.isArray(parsed.changedClaims)) {
+        console.error(`[Biocenose] REVISION JSON keys: ${Object.keys(parsed).join(', ')}`);
       }
-
-      try {
-        const parsed = JSON.parse(cleaned);
-        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          return {
-            position: 'INVALID_JSON_STRUCTURE',
-            claims: [{ statement: cleaned.slice(0, 300) }],
-            assumptions: ['JSON non structure comme un jugement'],
-            confidence: 0.1
-          };
-        }
-        return parsed;
-      } catch (_) {
-        return {
-          position: 'PARSE_ERROR',
-          claims: [{ statement: cleaned.slice(0, 300) }],
-          assumptions: ['La reponse du membre n\'a pas pu etre parsee en JSON'],
-          confidence: 0.1
-        };
-      }
+      return parsed;
     } catch (err) {
-      if (err.name === 'AbortError') {
-        return {
-          position: 'TIMEOUT',
-          claims: [{ statement: 'Le membre n\'a pas repondu dans le temps imparti' }],
-          assumptions: ['Timeout LLM'],
-          confidence: 0.05,
-          unknowns: ['Infrastructure LLM non disponible']
-        };
-      }
-      return {
-        position: 'INVOCATION_FAILED',
-        claims: [{ statement: `Erreur d'invocation: ${err.message.slice(0, 200)}` }],
-        assumptions: ['Le membre n\'a pas pu etre interroge'],
-        confidence: 0.05,
-        unknowns: ['Infrastructure LLM non disponible']
-      };
+      throw new Error(`Ollama invocation failed: ${err.message}`);
     }
   };
 }
@@ -277,6 +256,11 @@ const LEVELS = [
   }
 ];
 
+function selectedLevels() {
+  const requested = process.env.GENOS_BIOCENOSE_LEVEL;
+  return requested ? LEVELS.filter((level) => String(level.id) === requested) : LEVELS;
+}
+
 // ============================================================================
 // Rapport
 // ============================================================================
@@ -294,31 +278,33 @@ function buildSummary(level, community, result, finalJudgment, events, elapsedMs
     || agg.outcome === 'TYPE_SPECIFIC_PLURALISM';
 
   const hasVeto = (judgment.openCriticalDissentIds || []).length > 0
-    || (judgment.dissentGates || []).filter(g => g.promotion !== 'ALLOWED').length > 0
-    || (judgment.promotionGate && judgment.promotionGate.status !== 'ALLOWED');
+    || (judgment.dissentGates || []).some(g => g.promotion !== 'ALLOWED');
 
   const commitments = events.filter(e => e.type === 'JUDGMENT_COMMITTED');
   const claimEvents = events.filter(e => e.type === 'CLAIM_PUBLISHED');
-  const reviewEvents = events.filter(e => e.type === 'CLAIM_REVIEWED');
-  const argumentEvents = events.filter(e => e.type === 'ARGUMENT_PUBLISHED');
+  const argumentEvents = events.filter(e => e.type === 'ARGUMENT_ADDED');
+  const modelEvents = events.filter(e => e.type === 'MODEL_PROVIDER_OBSERVED');
   const dissentEvents = events.filter(e => e.type === 'DISSENT_RECORDED');
   const revisionEvents = events.filter(e => e.type === 'BELIEF_REVISED');
+  const terminal = typeof judgment.status === 'string' && judgment.status !== 'IN_PROGRESS';
+  const error = judgment.error || (commitments.length === 0 ? 'No member judgments committed'
+    : modelEvents.length === 0 ? 'No observed model provenance'
+      : !terminal ? 'No terminal judgment persisted' : null);
 
   return {
     niveau: level.id,
     mission: level.mission,
     questionType: level.questionType,
     variant: level.variant,
-    penalite: judgment.promotionGate?.status === 'BLOCKED' ? 'MINORITY_VETO' : null,
+    penalite: hasVeto ? 'MINORITY_VETO' : null,
     sessionId: community?.communityId || 'ERREUR',
     phaseFinale: community?.phase || 'ERREUR',
     membresActifs: activeMembers,
     variantExecutionLevel: judgment.variantExecutionLevel || null,
     jugementsEngagees: commitments.length,
     claimsPubliques: claimEvents.length,
-    claimsVerifies: 0,
-    revuesEffectuees: reviewEvents.length,
     argumentsPublies: argumentEvents.length,
+    modelesObserves: [...new Set(modelEvents.map((event) => `${event.payload.provider}:${event.payload.model || 'unknown'}`))],
     revisionsDeCroyance: revisionEvents.length,
     dissentEntrees: dissentEvents.length,
     dissentPreserves: (judgment.preservedDissentIds || []).length,
@@ -327,23 +313,12 @@ function buildSummary(level, community, result, finalJudgment, events, elapsedMs
     etapesEffectuees: events.filter(e => e.type.startsWith('DELIBERATION_STEP_COMPLETED')).length,
     aggregationOutcome: agg.outcome || null,
     arbitrage: judgment.promotionGate?.status || null,
-    verdictFinal: judgment.status || 'IN_PROGRESS',
-    arretee: judgment.status !== 'IN_PROGRESS',
-    pluralismePreserve: hasPluralism,
-    vetoActif: hasVeto,
-    membrePositions: commitments.map(c => {
-      try {
-        const payload = JSON.parse(c.payload_json || '{}');
-        return {
-          memberId: c.actor_id,
-          position: payload.position || 'N/A',
-          confidence: payload.confidence || null,
-          claimsCount: (payload.claims || []).length
-        };
-      } catch (_) {
-        return { memberId: c.actor_id, position: 'UNPARSED', confidence: null, claimsCount: 0 };
-      }
-    })
+    verdictFinal: judgment.status || 'EXECUTION_FAILED',
+    arretee: commitments.length > 0 && terminal && judgment.status !== 'EXECUTION_FAILED',
+    erreur: error,
+    pluralismePreserve: hasPluralism && commitments.length > 0,
+    vetoActif: hasVeto && commitments.length > 0,
+    membresEngages: [...new Set(commitments.map((event) => event.actorId))]
   };
 }
 
@@ -385,6 +360,7 @@ async function runLevel(level, db) {
   let lastResult = null;
   let lastJudgment = null;
   let roundCount = 0;
+  let stepFailure = null;
   const maxRounds = 5;
 
   for (let r = 0; r < maxRounds; r++) {
@@ -410,7 +386,10 @@ async function runLevel(level, db) {
       if (session.status !== 'ACTIVE') break;
     } catch (err) {
       console.error(`${prefix} Round ${roundCount} ERREUR: ${err.message} (${err.code || 'no-code'})`);
-      if (err.code === 'BIOCENOSE_RUNTIME_STEP_BLOCKED') break;
+      if (err.details?.validationErrors?.length) {
+        console.error(`${prefix} Validation: ${err.details.validationErrors.join('; ')}`);
+      }
+      if (err.code === 'BIOCENOSE_RUNTIME_STEP_BLOCKED') { stepFailure = err.message; break; }
       if (r < maxRounds - 1) continue;
       throw err;
     }
@@ -418,10 +397,14 @@ async function runLevel(level, db) {
 
   const session = await communityStore.loadSession(db, community.communityId);
   const events = await communityStore.listEvents(db, community.communityId);
+  const persisted = await db.get('SELECT judgment_json FROM biocenose_judgments WHERE community_id = ? ORDER BY round DESC LIMIT 1', community.communityId);
+  if (persisted) lastJudgment = { judgment: JSON.parse(persisted.judgment_json) };
 
   console.error(`${prefix} Session: phase=${session?.phase}, status=${session?.status}, round=${session?.round}`);
 
-  if (!lastResult || lastResult.status === 'IN_PROGRESS') {
+  if (stepFailure) {
+    lastJudgment = { judgment: { status: 'EXECUTION_FAILED', error: stepFailure } };
+  } else if (!lastResult || lastResult.status === 'IN_PROGRESS') {
     console.error(`${prefix} Finalisation forcee...`);
 
     if (session?.phase !== 'AGGREGATION') {
@@ -484,6 +467,8 @@ async function runLevel(level, db) {
 // ============================================================================
 
 async function main() {
+  const levels = selectedLevels();
+  if (!levels.length) throw new Error('Unknown Biocenose level');
   console.error('[Biocenose] ============================================================');
   console.error('[Biocenose] Lancement des 6 niveaux de delibearation communautaire');
   console.error('[Biocenose] Infrastructure: biocenoseService + Ollama HTTP direct');
@@ -502,7 +487,7 @@ async function main() {
     const results = [];
     console.error('EXECUTION NIVEAU PAR NIVEAU:\n');
 
-    for (const level of LEVELS) {
+    for (const level of levels) {
       try {
         results.push(await runLevel(level, db));
       } catch (err) {
@@ -529,7 +514,7 @@ async function main() {
     process.stdout.write('\n' + JSON.stringify({
       orchestrator: 'GenOS Biocenose V3',
       heure: new Date().toISOString(),
-      total: LEVELS.length,
+      total: levels.length,
       niveaux: results.map(r => r.summary)
     }, null, 2) + '\n');
 
@@ -544,13 +529,9 @@ async function main() {
       console.error(`  Mission: ${s.mission.slice(0, 120)}${s.mission.length > 120 ? '...' : ''}`);
       console.error(`  Verdict final: ${s.verdictFinal}${s.aggregationOutcome ? ` (${s.aggregationOutcome})` : ''}`);
       console.error(`  Session: ${s.sessionId} | Phase: ${s.phaseFinale} | Variant exec: ${s.variantExecutionLevel || 'N/A'}`);
-      console.error(`  Membres: ${s.membresActifs} actifs | Jugements: ${s.jugementsEngagees} | Claims: ${s.claimsPubliques} | Revues: ${s.revuesEffectuees} | Args: ${s.argumentsPublies} | Revisions: ${s.revisionsDeCroyance}`);
+      console.error(`  Membres: ${s.membresActifs} actifs | Jugements: ${s.jugementsEngagees} | Claims: ${s.claimsPubliques} | Args: ${s.argumentsPublies} | Revisions: ${s.revisionsDeCroyance}`);
       console.error(`  Dissent: ${s.dissentEntrees} entrees, ${s.dissentCritiquesOuverts} critiques ouverts, ${s.dissentPreserves} preserves, ${s.dissentGatesNonAutorisees} portes non-autorisees`);
-      if (s.membrePositions?.length) {
-        for (const mp of s.membrePositions) {
-          console.error(`    - ${mp.memberId}: "${mp.position}" (conf=${mp.confidence}, claims=${mp.claimsCount})`);
-        }
-      }
+      if (s.membresEngages?.length) console.error(`  Membres engagés: ${s.membresEngages.join(', ')}`);
       console.error(`  => Pluralisme preserve: ${s.pluralismePreserve ? 'OUI' : 'NON'} | Veto actif: ${s.vetoActif ? 'OUI' : 'non'}`);
       if (s.penalite) console.error(`  WARNING Pénalite: ${s.penalite}`);
       if (s.erreur) console.error(`  ERROR Erreur: ${s.erreur}`);
@@ -559,6 +540,7 @@ async function main() {
     // Bilan global
     const total = results.length;
     const successful = results.filter(r => !r.summary.erreur).length;
+    if (successful !== total) process.exitCode = 1;
     const pluralism = results.filter(r => r.summary.pluralismePreserve).length;
     const veto = results.filter(r => r.summary.vetoActif).length;
     const arrest = results.filter(r => r.summary.arretee).length;

@@ -73,27 +73,67 @@ function getBaseMutationProbabilities() {
   return probs;
 }
 
-function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function weightedRandom(items, weights) { const sum = weights.reduce((a, b) => a + b, 0); let r = Math.random() * sum; for (let i = 0; i < items.length; i++) { r -= weights[i]; if (r <= 0) return items[i]; } return items[items.length - 1]; }
+function pickRandom(arr, random = Math.random) { return arr[Math.floor(random() * arr.length)]; }
+function weightedRandom(items, weights, random = Math.random) { const sum = weights.reduce((a, b) => a + b, 0); let r = random() * sum; for (let i = 0; i < items.length; i++) { r -= weights[i]; if (r <= 0) return items[i]; } return items[items.length - 1]; }
 
-function generateMutationParams(type) {
+function topologyChoices() {
+  return Object.keys(require('../registry/topologyRegistry').DEFINITIONS);
+}
+
+function variantChoices(topology) {
+  if (topology === 'metapopulation') {
+    return [...require('../../metapopulation/policy/metapopulationPolicyService').DOCUMENTED_VARIANTS];
+  }
+  return require('../registry/variantCatalog').topologyVariants(topology).map((entry) => entry.variantId);
+}
+
+function mutationChoices(type, expression) {
+  const current = expression?.kind === 'TOPOLOGY' ? expression.topology : null;
+  if (type === 'CHANGE_TOPOLOGY') return topologyChoices().filter((topology) => topology !== current);
+  if (type === 'CHANGE_VARIANT' && current) {
+    return variantChoices(current).filter((variant) => variant !== expression.variant);
+  }
+  if (type === 'CHANGE_VARIANT') return [];
+  return topologyChoices();
+}
+
+function generateMutationParams(type, options = {}) {
   const params = { type };
+  const random = options.random || Math.random;
   switch (type) {
-    case 'ADD_NODE': params.topology = pickRandom(['trinity', 'rhizome', 'a_team', 'syncytium', 'biocenose']); break;
-    case 'CHANGE_TOPOLOGY': params.newTopology = pickRandom(['trinity', 'rhizome', 'a_team', 'syncytium', 'biocenose']); break;
-    case 'CHANGE_VARIANT': params.newVariant = pickRandom(['heterogeneous', 'adversarial', 'controlled', 'adaptive']); break;
+    case 'ADD_NODE':
+      params.topology = pickRandom(topologyChoices(), random);
+      params.variant = pickRandom(variantChoices(params.topology), random);
+      break;
+    case 'CHANGE_TOPOLOGY':
+      params.newTopology = pickRandom(mutationChoices(type, options.expression), random);
+      params.newVariant = pickRandom(variantChoices(params.newTopology), random);
+      break;
+    case 'CHANGE_VARIANT':
+      if (!options.expression || options.expression.kind !== 'TOPOLOGY') {
+        throw new Error('CHANGE_VARIANT requires a topology expression');
+      }
+      params.newVariant = pickRandom(mutationChoices(type, options.expression), random);
+      break;
     case 'ADD_BRIDGE': params.adapter = 'default'; break;
     case 'CHANGE_BUDGET': params.budgetDelta = { tokens: Math.floor(Math.random() * 1000) - 500 }; break;
   }
   return params;
 }
 
-function sampleMutations(probs, maxDepth) {
+function sampleMutations(probs, maxDepth, options = {}) {
   const mutations = [];
-  const depth = Math.floor(Math.random() * maxDepth) + 1;
+  const random = options.random || Math.random;
+  const depth = Math.floor(random() * maxDepth) + 1;
+  let expression = options.expression ? structuredClone(options.expression) : null;
   for (let i = 0; i < depth; i++) {
-    const type = weightedRandom(Object.keys(probs), Object.values(probs));
-    mutations.push({ type, ...generateMutationParams(type) });
+    const available = Object.entries(probs).filter(([type]) => expression?.kind === 'TOPOLOGY'
+      || (type !== 'CHANGE_TOPOLOGY' && type !== 'CHANGE_VARIANT'));
+    if (!available.length) break;
+    const type = weightedRandom(available.map(([name]) => name), available.map(([, weight]) => weight), random);
+    const mutation = generateMutationParams(type, { expression, random });
+    mutations.push(mutation);
+    if (expression) expression = require('./mutationOperators').applySingleMutation(expression, mutation);
   }
   return mutations;
 }

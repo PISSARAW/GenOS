@@ -123,9 +123,16 @@ async function absorbExosomes(db = null) {
   const database = db || (await getDatabase());
   const exosomes = await phagocytizeExosomes();
   if (!exosomes.length || !database) {
-    return { absorbedCount: exosomes.length, engramsStored: 0, plasmidsAssimilated: 0 };
+    return {
+      success: exosomes.length === 0,
+      absorbedCount: 0,
+      engramsStored: 0,
+      plasmidsAssimilated: 0,
+      errors: exosomes.length ? ['Exosome absorption requires a database.'] : []
+    };
   }
 
+  let absorbedCount = 0;
   let engramsStored = 0;
   let plasmidsAssimilated = 0;
   const errors = [];
@@ -227,11 +234,14 @@ async function absorbExosomes(db = null) {
       }
     }
     if (errors.length === errorsBefore && exo.__sourcePath) {
-      try { fs.unlinkSync(exo.__sourcePath); } catch (error) { errors.push(`Exosome cleanup failed: ${error.message}`); }
+      try {
+        fs.unlinkSync(exo.__sourcePath);
+        absorbedCount += 1;
+      } catch (error) { errors.push(`Exosome cleanup failed: ${error.message}`); }
     }
   }
 
-  return { success: errors.length === 0, absorbedCount: exosomes.length, engramsStored, plasmidsAssimilated, errors };
+  return { success: errors.length === 0, absorbedCount, engramsStored, plasmidsAssimilated, errors };
 }
 
 module.exports = {

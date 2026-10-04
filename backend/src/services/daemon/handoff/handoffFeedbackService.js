@@ -124,12 +124,3 @@ module.exports = {
   markBriefConsumed,
   getDemotedFindings
 };
-
-module.exports = {
-  VERDICTS,
-  DEMOTE_AFTER_PRESENTATIONS,
-  recordFeedback,
-  usefulness,
-  relevanceScore,
-  markBriefConsumed
-};

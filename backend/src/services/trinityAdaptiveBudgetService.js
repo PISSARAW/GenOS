@@ -4,14 +4,19 @@ const { extractEvidenceReport } = require('./agentEvidenceService');
 const evidenceAudit = require('./trinityEvidenceAudit');
 
 function validUncertainty(report) {
-  const value = Number(report?.evidenceVector?.uncertainty);
+  const value = report?.evidenceVector?.uncertainty;
   const references = report?.evidenceVectorEvidence?.uncertainty;
+  if (!Number.isFinite(value) || value < 0 || value > 1) return null;
+  if (!Array.isArray(references) || !references.length) return null;
+  const known = verifiedEvidenceIds(report);
+  return references.every((reference) => known.has(String(reference))) ? value : null;
+}
+
+function verifiedEvidenceIds(report) {
   const evidence = Array.isArray(report?.evidence) ? report.evidence : [];
-  const known = new Set(evidence.filter((item) => item && typeof item === 'object'
+  return new Set(evidence.filter((item) => item && typeof item === 'object'
     && evidenceAudit.isVerifiedReceipt(item.verificationReceipt || item.receipt))
     .map((item) => item.id).filter(Boolean).map(String));
-  if (!Number.isFinite(value) || value < 0 || value > 1 || !Array.isArray(references) || !references.length) return null;
-  return references.every((reference) => known.has(String(reference))) ? value : null;
 }
 
 function resultForWorld(input, index) {
@@ -34,9 +39,17 @@ function distribute(input) {
   return input.worlds.map((world, index) => ({ ...world, tokens: input.minimumTokens + allocations[index] }));
 }
 
+function validAllocationInput(input) {
+  if (!input || !Array.isArray(input.workerIds) || !Array.isArray(input.results)
+    || input.workerIds.length !== 3 || new Set(input.workerIds).size !== 3) return false;
+  return Number.isSafeInteger(input.pool) && Number.isSafeInteger(input.minimumTokens)
+    && input.minimumTokens > 0 && input.pool >= input.minimumTokens * 3;
+}
+
 function allocate(input) {
+  if (!validAllocationInput(input)) return null;
   const worlds = input.workerIds.map((_, index) => resultForWorld(input, index));
-  if (worlds.length !== 3 || worlds.some((world) => !world) || input.pool < input.minimumTokens * 3) return null;
+  if (worlds.some((world) => !world)) return null;
   return { basis: 'verified_evidence_vector_uncertainty', worlds: distribute({ ...input, worlds }) };
 }
 
