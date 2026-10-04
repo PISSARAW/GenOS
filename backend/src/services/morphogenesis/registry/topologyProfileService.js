@@ -147,6 +147,7 @@ function selectLocalVariant(topology, ctx) {
   try {
     return selector(ctx, mission);
   } catch (error) {
+    if (error.code === 'HOLOBIONT_VARIANT_INCOMPATIBLE') throw error;
     return defaultSelection(error.code || 'SELECTOR_UNAVAILABLE');
   }
 }

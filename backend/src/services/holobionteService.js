@@ -10,6 +10,7 @@ const biologicalModeService = require('./biologicalModeService');
 const variants = require('./holobionte/variants');
 const variantRuntime = require('./holobionte/variants/variantRuntimeService');
 const variantRuntimeController = require('./holobionte/variants/variantRuntimeController');
+const { runVariantMission } = require('./holobionte/variants/variantMissionExecutor');
 
 function composeHolobionte(mission, options = {}) {
   const goal = String(mission || '').trim();
@@ -60,5 +61,5 @@ function activateHolobionte(mission, context = {}) {
 module.exports = {
   composeHolobionte,
   activateHolobionte,
-  variantRuntime: { ...variantRuntime, ...variantRuntimeController }
+  variantRuntime: { ...variantRuntime, ...variantRuntimeController, runVariantMission }
 };

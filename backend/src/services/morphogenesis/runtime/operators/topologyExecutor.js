@@ -10,7 +10,7 @@ class TopologyExecutor extends BaseExecutor {
 
     const executor = this.runtime.topologyExecutors?.[topology];
     if (!executor) {
-      const fallback = await this.executeDefaultTopology(topology, variant, workers, context);
+      const fallback = await this.executeDefaultTopology({ topology, variant, workers, graph, context });
       fallback.output = withTopologyOutcome(fallback.output);
       if (!fallback.receipt) fallback.receipt = this.createReceipt(node, leafSummary(topology, { variant, workers, output: fallback.output }));
       return fallback;
@@ -23,13 +23,14 @@ class TopologyExecutor extends BaseExecutor {
     return { output, receipt, state: result?.state };
   }
 
-  async executeDefaultTopology(topology, variant, workers, context) {
+  async executeDefaultTopology(input) {
+    const { topology, variant, workers, graph, context } = input;
     const topologyImpl = this.runtime.topologyRegistry?.[topology];
     if (!topologyImpl) {
       throw new Error(`Topology not registered: ${topology}`);
     }
 
-    const raw = await topologyImpl.run({ variant, workers }, context);
+    const raw = await topologyImpl.run({ topology, variant, workers, mission: graph.missionId }, context);
     const output = raw && raw.output !== undefined ? raw.output : raw;
     const state = raw && raw.state !== undefined ? raw.state : context.state;
     return { output, receipt: null, state };
@@ -39,7 +40,31 @@ class TopologyExecutor extends BaseExecutor {
 function withTopologyOutcome(output) {
   if (!output || typeof output !== 'object' || Array.isArray(output)) return output;
   const actionCount = Number.isFinite(output.actionCount) ? output.actionCount : null;
-  return { ...output, executionStatus: 'completed', contractStatus: 'not_assessed', evidenceStatus: 'not_assessed', missionOutcome: actionCount === 0 ? 'no_action' : 'unverified' };
+  return { ...output, ...outcomeDefaults(output, actionCount) };
+}
+
+function outcomeDefaults(output, actionCount) {
+  return { executionStatus: executionStatus(output), contractStatus: contractStatus(output),
+    evidenceStatus: evidenceStatus(output), missionOutcome: missionOutcome(output, actionCount) };
+}
+
+function executionStatus(output) {
+  return output.executionStatus || 'completed';
+}
+
+function contractStatus(output) {
+  return output.contractStatus || (output.workflow ? 'assessed' : 'not_assessed');
+}
+
+function evidenceStatus(output) {
+  const verified = ({ PASS: true, FAIL: true })[output.verdict] === true;
+  return output.evidenceStatus || (verified ? 'verified' : 'not_assessed');
+}
+
+function missionOutcome(output, actionCount) {
+  const outcome = ({ PASS: 'verified', FAIL: 'failed' })[output.verdict]
+    || (actionCount === 0 ? 'no_action' : 'unverified');
+  return output.missionOutcome || outcome;
 }
 
 function leafSummary(topology, { variant, workers, output }) {

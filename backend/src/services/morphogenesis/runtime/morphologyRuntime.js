@@ -75,6 +75,9 @@ class MorphologyRuntime {
     this.globalInvariants = options.globalInvariants || [];
     this.eventHandlers = options.eventHandlers || {};
     this.variantRegistry = options.variantRegistry || defaultRegistry;
+    if (options.installTopologyPlugins !== false) {
+      require('./topologyPlugins').installTopologyPlugins(this);
+    }
   }
 
   async execute(graph, input = {}) {

@@ -59,8 +59,28 @@ function testSecuritySensitiveMissionRouting() {
   for (const mission of missions) assert.equal(compose(mission).variant, 'immune-critical', mission);
 }
 
+function testNamedRedMissionRouting() {
+  const cases = [
+    ['1. Organelle', 'organelle'], ['2. Adaptive Microbiome', 'adaptive-microbiome'],
+    ['3. Immune-Critical', 'immune-critical'], ['4. Local-First', 'local-first'],
+    ['5. Regenerative', 'regenerative'], ['6. Cloud-Core / Edge-Symbionts', 'cloud-core/edge-symbionts'],
+    ['7. Edge-Core / Cloud-Symbionts', 'edge-core/cloud-symbionts'], ['8. Memory-Rich', 'memory-rich'],
+    ['9. Competitive-Partner', 'competitive-partner'], ['10. Procedural Holobiont', 'procedural'],
+    ['11. Tool Holobiont', 'tool'], ['12. Cloud-Core / Edge-Sync', 'cloud-core/edge-sync']
+  ];
+  const fitContext = { capabilities: ['stable-core', 'diversity', 'cloud-core', 'edge-symbionts',
+    'cloud-proxy', 'persistent-memory', 'verified-trials', 'tool-sandbox', 'edge-sync', 'provenance-verification'],
+  localEngineAvailable: true, immunePlaneAvailable: true, successionAvailable: true };
+  for (const [mission, expected] of cases) {
+    assert.equal(variants.selectForMission(mission, fitContext).policy.name, expected, mission);
+  }
+  assert.throws(() => variants.selectForMission('4. Local-First'),
+    { code: 'HOLOBIONT_VARIANT_INCOMPATIBLE' });
+}
+
 testVariantSurface();
 testFitAndIsolation();
 testExtendedVariantContracts();
 testSecuritySensitiveMissionRouting();
+testNamedRedMissionRouting();
 console.log('✅ Holobiont variant policy tests passed.');

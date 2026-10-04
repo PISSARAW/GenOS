@@ -203,7 +203,7 @@ async function executeToolInvocation(input = {}) {
   const authorization = authorizeToolInvocation(input);
   if (!authorization.allowed) return { executed: false, reason: authorization.reason, authorization, output: null };
   if (typeof input.execute !== 'function') return { executed: false, reason: 'EXECUTOR_REQUIRED', authorization, output: null };
-  const output = await input.execute(input.value, input.manifest);
+  const output = await input.execute(input.value, input.manifest, input.signal);
   const outputValidation = validateToolInvocation({ schema: input.manifest.outputSchema, value: output });
   return { executed: true, accepted: outputValidation.valid, reason: outputValidation.valid ? null : 'OUTPUT_SCHEMA_INVALID',
     authorization, output, outputValidation };

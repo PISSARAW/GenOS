@@ -25,7 +25,7 @@ function runWithController(registry, topology) {
     const node = nodeFrom(args, topology, context);
     const controller = registry.getController(topology, node);
     await controller.compose({ variant: args.variant });
-    const input = inputFrom(context);
+    const input = inputFrom(context, args);
     const workerResults = require('./topologyWorkerResults').collectTopologyWorkerResults(node.workers, input);
     const output = await controller.execute({ ...input, workers: node.workers, workerResults });
     return attachWorkerResults(output, workerResults);
@@ -51,7 +51,7 @@ async function runBiome(args, context) {
 
 async function executeBiome(args, context) {
   const popRuntime = require('../../biome/populations/populationRuntimeService');
-  const input = inputFrom(context);
+  const input = inputFrom(context, args);
   const workerResults = collectMissionWorkers(args, input);
   const individuals = individualsFrom(args, input);
   const ecology = buildBiomeEcology(individuals);
@@ -111,13 +111,16 @@ async function runHolobionte(args, context) {
 }
 
 async function executeHolobionte(args, context) {
-  const input = inputFrom(context);
+  const input = inputFrom(context, args);
+  if (input.variantId && Array.isArray(input.variantOperations)) {
+    return executeVariantMission(args, input);
+  }
   const workerResults = collectMissionWorkers(args, input);
   const capability = capabilityFrom(input);
   const executeCapability = capabilityExecutorFrom(input);
   const executeTrial = trialExecutorFrom(input);
   const { createRuntimeDb } = require('./sqliteDb');
-  const created = await createRuntimeDb();
+  const created = await createRuntimeDb({ db: input.db });
   try {
     await migrateHolobionte(created.db);
     const setup = await provisionHolobiont(created.db, { args, input, capability });
@@ -162,11 +165,25 @@ async function migrateHolobionte(db) {
   const memory = require('../../../db/migrations/migrateHolobiontMemory');
   const ledger = require('../../../db/migrations/migrateHolobiontLedger');
   const immune = require('../../../db/migrations/migrateHolobiontImmunePlane');
+  const variantEvents = require('../../../db/migrations/migrateHolobiontVariantEvents');
   await sessions.migrateHolobiontSessions(db);
   await contracts.migrateHolobiontContracts(db);
   await memory.migrateHolobiontMemory(db);
   await ledger.migrateHolobiontLedger(db);
   await immune.migrateHolobiontImmunePlane(db);
+  await variantEvents.migrateHolobiontVariantEvents(db);
+}
+
+async function executeVariantMission(args, input) {
+  const { db, close, driver } = await require('./sqliteDb').createRuntimeDb({ db: input.db });
+  try {
+    await migrateHolobionte(db);
+    const result = await require('../../holobionte/variants/variantMissionExecutor')
+      .runVariantMission(db, { ...input, variantId: args.variant, missionId: missionFrom(args, input) });
+    return { ...result, driver };
+  } finally {
+    await close();
+  }
 }
 
 async function provisionHolobiont(db, setup) {
@@ -268,7 +285,7 @@ async function runMetapopulation(args, context) {
 }
 
 async function executeMetapopulation(args, context) {
-  const input = inputFrom(context);
+  const input = inputFrom(context, args);
   const workerResults = collectMissionWorkers(args, input);
   const mission = missionTextFrom(args, input, context);
   const { createRuntimeDb } = require('./sqliteDb');
@@ -327,9 +344,10 @@ function nodeFrom(args, topology, context) {
   };
 }
 
-function inputFrom(context) {
-  if (context.input && typeof context.input === 'object') return context.input;
-  return {};
+function inputFrom(context, args = {}) {
+  const input = context.input && typeof context.input === 'object' ? context.input : {};
+  return { ...input, variantId: args.variant || input.variantId || null,
+    workers: Array.isArray(args.workers) ? args.workers : input.workers || [] };
 }
 
 module.exports = { PLUGIN_TOPOLOGIES, UNSUPPORTED_TOPOLOGIES, installTopologyPlugins, hostFrom, missionTextFrom };

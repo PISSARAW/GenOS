@@ -29,6 +29,21 @@ const INTENTS = Object.freeze([
   { variant: 'adaptiveMicrobiome', pattern: /\b(adapt|evol|évol|divers|learn|apprend)\w*/i, reason: 'adaptation_required' }
 ]);
 
+const NAMED_VARIANTS = Object.freeze([
+  { variant: 'organelle', pattern: /(?:^|\n)\s*#?\s*1[.)]?\s+organelle\b/i },
+  { variant: 'adaptiveMicrobiome', pattern: /(?:^|\n)\s*#?\s*2[.)]?\s+adaptive\s+microbiome\b/i },
+  { variant: 'immuneCritical', pattern: /(?:^|\n)\s*#?\s*3[.)]?\s+immune[- ]critical\b/i },
+  { variant: 'localFirst', pattern: /(?:^|\n)\s*#?\s*4[.)]?\s+local[- ]first\b/i },
+  { variant: 'regenerative', pattern: /(?:^|\n)\s*#?\s*5[.)]?\s+regenerative\b/i },
+  { variant: 'cloudCoreEdge', pattern: /(?:^|\n)\s*#?\s*6[.)]?\s+cloud[- ]core\s*\/\s*edge[- ]symbionts\b/i },
+  { variant: 'edgeCoreCloud', pattern: /(?:^|\n)\s*#?\s*7[.)]?\s+edge[- ]core\s*\/\s*cloud[- ]symbionts\b/i },
+  { variant: 'memoryRich', pattern: /(?:^|\n)\s*#?\s*8[.)]?\s+memory[- ]rich\b/i },
+  { variant: 'competitivePartner', pattern: /(?:^|\n)\s*#?\s*9[.)]?\s+competitive[- ]partner\b/i },
+  { variant: 'procedural', pattern: /(?:^|\n)\s*#?\s*10[.)]?\s+procedural\s+holobiont\b/i },
+  { variant: 'tool', pattern: /(?:^|\n)\s*#?\s*11[.)]?\s+tool\s+holobiont\b/i },
+  { variant: 'cloudCoreEdgeSync', pattern: /(?:^|\n)\s*#?\s*12[.)]?\s+cloud[- ]core\s*\/\s*edge[- ]sync\b/i }
+]);
+
 function normalize(name) {
   const value = String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   return Object.keys(policies).find((key) => key.toLowerCase() === value)
@@ -44,7 +59,12 @@ function getVariant(name) {
 function selectForMission(mission, options = {}) {
   const explicit = options.variantId || options.variant;
   if (explicit) return selection(getVariant(explicit), { source: 'explicit', reason: 'operator_selection', mission, options });
-  const matchedIntents = INTENTS.filter((item) => item.pattern.test(String(mission || '')));
+  const missionText = String(mission || '');
+  const named = NAMED_VARIANTS.find((item) => item.pattern.test(missionText));
+  const matchedIntents = INTENTS.filter((item) => item.pattern.test(missionText));
+  if (named) return selection(policies[named.variant], { source: 'mission_label',
+    reason: 'named_mission_variant', mission, options,
+    matchedIntents: matchedIntents.map((item) => ({ variant: policies[item.variant].name, reason: item.reason })) });
   const intent = matchedIntents[0];
   const candidate = intent && policies[intent.variant];
   const fit = candidate?.analyzeFit(options);

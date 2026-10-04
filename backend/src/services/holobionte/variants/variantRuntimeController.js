@@ -95,10 +95,11 @@ function operationFor(state, operation) {
   return execute;
 }
 
-function verifiedResult(result, input, context) {
+async function verifiedResult(result, input, context) {
   const refs = [...new Set([...evidenceRefs(result), ...(Array.isArray(input.evidenceRefs) ? input.evidenceRefs : [])])];
   const verify = input.verifyEvaluationEvidence;
-  if (!refs.length || typeof verify !== 'function' || verify({ operation: context.operation, result, evidenceRefs: refs }) !== true) {
+  if (!refs.length || typeof verify !== 'function'
+    || await verify({ operation: context.operation, result, evidenceRefs: refs }) !== true) {
     throw error('Variant evaluation requires independently verified evidence.', 'HOLOBIONT_EVIDENCE_REQUIRED');
   }
   return refs;
@@ -112,7 +113,7 @@ async function evaluatePersistentVariant(db, input = {}) {
   if (!state.variantId) throw error('Select a variant before evaluating it.', 'HOLOBIONT_VARIANT_REQUIRED');
   const execute = operationFor(state, input.operation);
   const result = await execute({ ...(input.runtimeInput || {}), variantId: state.variantId });
-  const refs = verifiedResult(result, input, { operation: input.operation });
+  const refs = await verifiedResult(result, input, { operation: input.operation });
   const receipt = { evaluationId: randomUUID(), variantId: state.variantId, operation: input.operation,
     resultHash: `sha256:${createHash('sha256').update(JSON.stringify(result)).digest('hex')}`,
     evidenceRefs: refs, result, actorId: input.actorId || null, evaluatedAt: new Date().toISOString() };

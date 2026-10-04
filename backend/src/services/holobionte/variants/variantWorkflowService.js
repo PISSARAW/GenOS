@@ -16,7 +16,8 @@ function createWorkflowRunner(evaluateStep) {
       }
       try {
         const evaluation = await evaluateStep(db, { ...input, ...step, expectedSessionRevision: revision,
-          runtimeInput: { ...(step.runtimeInput || {}), workflowResults: completed.map((item) => item.result) } });
+          runtimeInput: { ...(step.runtimeInput || {}), signal: input.signal,
+            workflowResults: completed.map((item) => item.result) } });
         if (!evaluation?.receipt || !Number.isInteger(evaluation.sessionRevision)) {
           throw Object.assign(new Error('Step evaluator returned no durable receipt or revision.'), { code: 'HOLOBIONT_WORKFLOW_RECEIPT_INVALID' });
         }
