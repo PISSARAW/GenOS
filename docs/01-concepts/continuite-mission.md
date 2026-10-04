@@ -378,7 +378,9 @@ borné et idempotent** — sous la gouvernance de preuve commune à GenOS.
   Une reprise de mission dormante renouvelle l'autorité d'exécution même si
   l'ancien propriétaire est encore vivant. Elle refuse de lancer un second
   runtime tant que le PID enregistré pour l'ancien orchestrateur est vivant ou
-  impossible à vérifier. Le scheduler réconcilie les réveils
+  impossible à vérifier. Ce contrôle précède la revendication de la condition,
+  afin de conserver l'observation de réveil jusqu'à l'arrêt effectif du runtime.
+  Le scheduler réconcilie les réveils
   interrompus : il finalise une reprise seulement si la mission est active,
   l'autorité est `running` et le processus du runtime correspond à son
   exécutable enregistré, ou si l'agent a terminé avec le statut `completed`.
