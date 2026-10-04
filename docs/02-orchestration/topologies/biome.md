@@ -60,6 +60,14 @@ $$\text{observe} \rightarrow \text{estimate state} \rightarrow \text{decide} \ri
 
 C'est le **chantier central** de Biome.
 
+Le runtime expérimental `BiomeRuntime` fournit désormais une boucle multi-ticks explicite
+pour les variants : chaque tick observe l'état, choisit une action via le variant actif,
+applique les changements dans la session puis évalue les conditions d'arrêt. Les populations
+et niches initiales sont dérivées des rôles de session et persistées dans l'état écologique.
+Cette boucle s'arrête sur ses limites de budget/itérations; elle ne constitue pas encore un
+ordonnanceur autonome permanent ni une preuve de réussite de la mission. La sortie reste
+soumise aux gates habituelles de preuves.
+
 ### 1.4 Les 4 rôles ne doivent pas être 4 workers
 
 `biologicalModeService` produit 4 rôles : `environment_mapper`, `resource_steward`, `population_specialist`, `ecosystem_observer`.

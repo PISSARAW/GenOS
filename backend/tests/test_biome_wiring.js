@@ -59,8 +59,8 @@ const qualityCandidate = await biome.advanceSessionVariant(diversityBiome.sessio
 });
 assert.equal(qualityCandidate.decision.accepted, true);
 const multiScaleBiome = await biome.composeBiome('Report ecosystem effects at multiple scales and multi-scale systems.');
-const scales = await biome.assessSessionHealth(multiScaleBiome.sessionId, ['scout']);
-assert.equal(scales.ecologicalScales.population.count, 0);
+  const scales = await biome.assessSessionHealth(multiScaleBiome.sessionId, ['scout']);
+  assert.equal(scales.ecologicalScales.population.count, 4);
 const computeBiome = await biome.composeBiome('Allocate GPU compute across hardware resources.');
 const computeAllocation = await biome.allocateSessionResources(computeBiome.sessionId, [
   { id: 'gpu-ready', demand: 1, priority: 1, computeAvailability: 1 },
