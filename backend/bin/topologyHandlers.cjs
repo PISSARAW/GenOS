@@ -11,6 +11,8 @@ const { buildLaunchCapabilities } = require('../src/services/agents/agentIncarna
 const { ensureTopologyWorker } = require('../src/services/topologyWorkerPersistenceService');
 const detachedSpawn = require('./detachedSpawn.cjs');
 const rhizomeMissionRunner = require('../src/services/rhizome/rhizomeMissionRunnerService');
+const syncytiumMissionCompletion = require('../src/services/syncytiumMissionCompletionService');
+const biologicalWorkerCompletion = require('../src/services/biologicalWorkerCompletionService');
 
 function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
@@ -81,7 +83,9 @@ function launchCapabilities(context, member) {
     domain: context.request?.domain,
     mode: context.request?.mode,
     organization: context.request?.organization,
-    budgetTokens: Number.isFinite(member.executionBudgetTokens) ? member.executionBudgetTokens : context.request?.execution_budget?.tokens,
+    budgetTokens: Number.isFinite(member.executionBudgetTokens)
+      ? member.executionBudgetTokens
+      : member.executionBudget?.tokens ?? context.request?.execution_budget?.tokens ?? context.request?.executionBudget?.tokens,
     capabilitiesHint: member.capabilities,
   });
 }
@@ -232,12 +236,25 @@ async function handleBiological(db, context) {
   }
   const members = composition.members || [];
   const accepted = await dispatchAndCollectResults({ db, context, mode, parent, members });
-  const semanticValidation = await validateBiologicalResponses({ db, context, mode, accepted });
+  if (process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1' && mode !== 'syncytium') {
+    await biologicalWorkerCompletion.collectCompletedWorkerStatuses({ db, context, accepted });
+  }
+  const semanticValidation = mode === 'syncytium'
+    ? await biologicalWorkerCompletion.validateSyncytiumResponses({ db, context, accepted,
+      expectedCount: members.length, waitForWorkers: waitForMetapopulationWorkers })
+    : null;
   const topology = topologyDetails(composition);
   const out = buildBiologicalOutput({ context, mode, mission, members, accepted, topology });
-  if (semanticValidation) applySemanticValidation(out.biologicalMode, semanticValidation);
+  if (mode === 'syncytium' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
+    out.biologicalMode.dispatchFailures = context.dispatchFailures || [];
+  }
+  if (semanticValidation) syncytiumMissionCompletion.applySemanticValidation(out.biologicalMode, semanticValidation, members.length);
   await applyRhizomeResults({ db, context, mode, topology, accepted, parent, output: out });
   process.stdout.write(JSON.stringify(out));
+  if ((mode === 'syncytium' && !out.biologicalMode.complete)
+    || (process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1' && (out.biologicalMode.dispatchFailures || []).length)) {
+    throw Object.assign(new Error(`${mode} dispatch did not complete every required worker with valid evidence.`), { code: 'BIOLOGICAL_MISSION_INCOMPLETE' });
+  }
 }
 
 async function persistBiologicalMissionTick({ db, context, parent, mission }) {
@@ -247,18 +264,6 @@ async function persistBiologicalMissionTick({ db, context, parent, mission }) {
     organizationId: parent.organization_id, projectId: parent.project_id,
     timeoutMs: context.request.timeoutMs
   });
-}
-
-async function validateBiologicalResponses({ db, context, mode, accepted }) {
-  if (mode !== 'syncytium') return null;
-  await waitForMetapopulationWorkers(db, accepted, context.request.timeoutMs);
-  return require('../src/services/biologicalSemanticValidationService').validate(db, accepted);
-}
-
-function applySemanticValidation(output, validation) {
-  output.semanticValidation = validation;
-  output.complete = validation.status === 'complete';
-  if (!output.complete) output.status = 'partial';
 }
 
 async function dispatchAndCollectResults({ db, context, mode, parent, members }) {
@@ -355,10 +360,12 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
       const pairResults = await Promise.allSettled(
         pair.map((member, index) => launchWorker({ db, context, member, index: offset + index + 1, parent }))
       );
-      for (const result of pairResults) {
+      for (let index = 0; index < pairResults.length; index += 1) {
+        const result = pairResults[index];
         if (result.status === 'fulfilled') {
           completed.push(result.value);
         } else {
+          biologicalWorkerCompletion.recordDispatchFailure(context, pair[index]?.role || 'unknown', result.reason?.message || 'worker_launch_failed');
           console.error(`[topology] Worker launch failed: ${result.reason?.message || result.reason}`);
         }
       }

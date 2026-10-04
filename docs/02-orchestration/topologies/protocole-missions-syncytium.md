@@ -70,14 +70,14 @@ Le runner de benchmark prend un budget obligatoire, une mission, `variantId`, `t
 
 Ces plafonds sont des **valeurs de planification à calibrer**, pas les budgets ni les durées mesurés dans les tests déterministes de ce relevé :
 
-| Niveau | Tokens max par exécution | Événements max | Timeout |
+| Niveau | Tokens max par worker et par exécution | Événements max | Timeout worker |
 | --- | ---: | ---: | ---: |
 | Simple | 1 500 | 30 | 90 s |
 | Moyen | 3 000 | 60 | 150 s |
 | Difficile | 5 000 | 100 | 240 s |
 | Très complexe | 8 000 | 160 | 360 s |
 
-Pour 52 cas lancés une fois, le plafond brut est de **214 500 tokens** ; les répétitions le multiplient. Définir en plus un plafond `costUsd` explicite dans le manifeste de campagne avant d’autoriser un dispatch LLM. Ne pas convertir des tokens en dollars sans connaître le modèle, ses tarifs en vigueur et la ventilation entrée/sortie. Interrompre la campagne si le plafond global est atteint. Une répétition de chaque cas est le minimum fonctionnel ; trois répétitions sont recommandées pour toute comparaison sensible à l’ordonnancement. Le budget de temps d’une campagne est la somme des timeouts des cas, plus le temps d’initialisation et de validation ; ne pas confondre ce plafond avec le temps réellement observé.
+La somme des caps pour un worker sur 52 cas est **227 500 tokens** (17 500 par variant × 13 variants). Le runner passe le même plafond par worker ; il ne le répartit pas entre membres. Une comparaison complète utilise quatre workers baseline et quatre ou cinq workers Syncytium selon le variant : le plafond conservateur est donc **2 047 500 tokens** par campagne comparative, avant répétitions et hors éventuels appels internes supplémentaires. Le manifeste exige `campaignBudget.tokens` couvrant cette borne (et `campaignBudget.costUsd` si le cap de coût individuel est défini). C’est une vérification des plafonds demandés, pas une facturation mesurée. Définir `costUsd` par worker avant dispatch. Ne pas convertir des tokens en dollars sans connaître le modèle, ses tarifs en vigueur et la ventilation entrée/sortie. Une répétition de chaque cas est le minimum fonctionnel ; trois répétitions sont recommandées pour toute comparaison sensible à l’ordonnancement. Le temps d’une campagne comparative inclut les vagues de workers : prévoir jusqu’à `ceil(workerCount / 2) × timeoutMs` par topologie, plus démarrage et validation. Le runner utilise une enveloppe plus longue que le timeout individuel.
 
 ### Exécutions déterministes relevées le 2026-10-04
 
@@ -96,7 +96,7 @@ Une composition Syncytium ajoute quatre responsabilités de base :
 
 Les deux rôles de coordination indiqués par `biologicalModeService` (coordinateur et guardian) sont de tier `frontier` ; executor/intégrateur sont `standard` suivant ce catalogue. Le choix final de `WorkerKind` est fait par exigences de capacités et affectations demandées ; un tier de modèle ne prouve pas qu’un modèle est disponible ni qu’il a été appelé.
 
-La politique ajoute actuellement un worker spécialiste pour cinq variants : `code → code_semantic_reviewer`, `graph → graph_analyzer`, `document → causal_reconstructor`, `epistemic → epistemic_specialist`, `transactional → transactional_validator`. Les huit autres variants n’ont pas de worker spécialiste déclaré dans `syncytiumVariantWorkerService`. Chaque rôle spécialiste est résolu ensuite vers un `WorkerKind` compatible. La présence dans une composition n’équivaut pas à une exécution réussie.
+Les treize politiques sont maintenant reconnues par le runner. Cinq variants ajoutent un worker spécialiste : `code → code_semantic_reviewer`, `graph → graph_analyzer`, `document → causal_reconstructor`, `epistemic → epistemic_specialist`, `transactional → transactional_validator`. Les huit autres s’appuient sur les rôles de base sans spécialiste dédié déclaré dans `syncytiumVariantWorkerService`. Chaque rôle spécialiste est résolu ensuite vers un `WorkerKind` compatible. La présence dans une composition n’équivaut pas à une exécution réussie.
 
 ### Carte relationnelle logique
 
@@ -132,7 +132,7 @@ Le runner `biologicalBenchmarkRunnerService` accepte une enveloppe équivalente 
   "repetitions": 1,
   "budget": { "tokens": 3000, "events": 60, "latencyMs": 150000, "costUsd": 0.25 },
   "timeoutMs": 150000,
-  "expectedClaims": [],
+  "expectedClaims": [{ "subject": "reservation", "predicate": "within_capacity", "value": true }],
   "workerAssignments": {}
 }
 ```
@@ -192,7 +192,7 @@ Enregistrer au minimum par run :
 - tokens/coût seulement si la source les rapporte ; sinon `null` ;
 - état de collecte télémétrique : événements attendus/reçus, `flush.flushed`, `pending`, pertes et erreurs.
 
-Le rapport du benchmark biologique expose certains compteurs mais retourne explicitement `null` pour des mesures que le runtime ne collecte pas (par ex. toutes les mises à jour distribuées ou la quantité d’opérations sûres sans coordination). Le taux de rappel des claims vaut `null` quand aucun claim attendu n’est fourni. Laisser ces valeurs nulles jusqu’à l’ajout d’un instrument mesurable.
+Le runner refuse les manifests sans claims d’oracle ni plafond agrégé `campaignBudget`. Une exécution n’est complète que si tous les workers sont terminés, la validation est complète et le rappel des claims vaut 1. Les claims et leur texte de preuve ne remplacent pas encore un validateur de reçus métier par scénario ; la complétude du benchmark ne certifie donc pas à elle seule chaque invariant détaillé des 52 énoncés. Le rapport expose certains compteurs mais retourne explicitement `null` pour des mesures que le runtime ne collecte pas (par ex. toutes les mises à jour distribuées ou la quantité d’opérations sûres sans coordination). Laisser ces valeurs nulles jusqu’à l’ajout d’un instrument mesurable.
 
 ## 10. Carte relationnelle persistée des agents
 
@@ -233,6 +233,6 @@ Après un correctif local du bail vide et de la propagation des capacités, un a
 
 ## 12. Suite pour valider les missions LLM de bout en bout
 
-Le bail vide est maintenant accepté comme un bail valide sans outils (deny-all), et les capacités de topologie sont propagées aux workers Syncytium ; les tests ciblés de ces contrats passent. Le dispatch autonome reste non validé : la télémétrie indique que l’environnement a bloqué la connexion WebSocket des runtimes. Il faut exécuter le probe dans un environnement qui autorise ce point de terminaison, puis vérifier le timeout et le budget par worker avant d’élargir la campagne. Le code de sortie 0 masque également le résultat partiel et doit être corrigé pour les campagnes. Réussir d’abord le probe simple avec un résultat validé et les reçus de session attendus. Ensuite seulement, transformer les 52 énoncés en manifestes versionnés avec un oracle par cas ; choisir des affectations `WorkerKind` et un plafond de coût global ; isoler la base et le workspace ; vérifier que le dispatch attend bien la fin de tous les workers. Lancer d’abord un cas simple par variant, examiner les artefacts et la télémétrie, puis les niveaux supérieurs. Toute erreur de worker, timeout, preuve manquante ou divergence d’oracle vaut FAIL pour le cas. Comparer ensuite chaque cas avec le baseline sous mêmes budgets/affectations/répétitions. Publier un rapport PASS/FAIL par cas, les métriques nulles explicitement, les incidents nosologiques le cas échéant et les liens vers les preuves brutes.
+Le bail vide est maintenant accepté comme un bail valide sans outils (deny-all), et les capacités de topologie sont propagées aux workers Syncytium ; les tests ciblés de ces contrats passent. Le dispatch autonome reste non validé : la télémétrie indique que l’environnement a bloqué la connexion WebSocket des runtimes. Le runtime s’arrête désormais dès la détection du refus permanent `os error 10013`; il faut exécuter le probe dans un environnement qui autorise ce point de terminaison avant d’élargir la campagne. Les dispatchs Syncytium incomplets remontent maintenant comme échec CLI et ne publient pas l’événement de complétion. Réussir d’abord le probe simple avec un résultat validé et les reçus de session attendus. Ensuite seulement, transformer les 52 énoncés en manifestes versionnés avec un oracle par cas ; choisir des affectations `WorkerKind` et un plafond de coût global ; isoler la base et le workspace ; vérifier que le dispatch attend bien la fin de tous les workers. Lancer d’abord un cas simple par variant, examiner les artefacts et la télémétrie, puis les niveaux supérieurs. Toute erreur de worker, timeout, preuve manquante ou divergence d’oracle vaut FAIL pour le cas. Comparer ensuite chaque cas avec le baseline sous mêmes budgets/affectations/répétitions. Publier un rapport PASS/FAIL par cas, les métriques nulles explicitement, les incidents nosologiques le cas échéant et les liens vers les preuves brutes.
 
 La campagne n’est complète que lorsque les **52 lignes** ont un résultat terminal, un oracle évalué et une provenance de preuve. Une suite technique passant n’autorise pas à marquer les quatre niveaux d’un variant « oui » par extrapolation.
