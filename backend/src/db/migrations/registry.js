@@ -365,6 +365,9 @@ const migrationRunners = [
     const { migrateHolobiontVariantEvents } = require('./migrateHolobiontVariantEvents');
     await migrateHolobiontVariantEvents(db);
   }),
+  createMigrationRunner('100-nce-play-observations', 'Persist scoped Play observations with snapshot provenance', async (db) => {
+    await require('./migrateNcePlayObservations').migrateNcePlayObservations(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {

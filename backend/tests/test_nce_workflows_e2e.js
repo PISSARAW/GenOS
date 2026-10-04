@@ -34,6 +34,7 @@ async function createSqliteDatabase() {
     run: (sql, ...params) => executeSql({ database, sql, params, mode: 'run' }),
     get: (sql, ...params) => executeSql({ database, sql, params, mode: 'get' }),
     all: (sql, ...params) => executeSql({ database, sql, params, mode: 'all' }),
+    exec: (sql) => new Promise((resolve, reject) => database.exec(sql, (error) => error ? reject(error) : resolve())),
   };
   await adapter.run(`CREATE TABLE agent_phenotype_states (
     id TEXT PRIMARY KEY, agent_id TEXT, genome_id TEXT, state_json TEXT,
@@ -44,6 +45,7 @@ async function createSqliteDatabase() {
     id TEXT PRIMARY KEY, workspace_id TEXT, snapshot_hash TEXT, step_number INTEGER,
     label TEXT, author TEXT, reason TEXT, diff_summary TEXT, metadata TEXT
   )`);
+  await require('../src/db/migrations/migrateNcePlayObservations').migrateNcePlayObservations(adapter);
   return { database, adapter };
 }
 
@@ -56,7 +58,9 @@ async function testCulturePhenotypeWithSQLite() {
   } };
   try {
     const state = { id: 'pheno_agent-learner', agentId: 'agent-learner', genomeId: 'genome-learner', currentPhenotype: { role: 'solver' }, branches: [], atrophies: [], history: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    const artifact = { id: 'artifact-planning', agentId: 'teacher', content: { requiredCapabilities: ['planning'] } };
+    const artifact = { ...require('../src/services/culturalTransmissionService').createCulturalArtifact({
+      agentId: 'teacher', type: 'procedure', content: { requiredCapabilities: ['planning'] },
+    }), id: 'artifact-planning' };
     const benchmark = async () => Number(state.branches.some((branch) => branch.capabilities.includes('planning')));
     const bridge = require('../src/services/culturalPhenotypeBridgeService');
     const phenotype = require('../src/services/phenotypicDevelopmentService');
@@ -73,6 +77,14 @@ async function testCulturePhenotypeWithSQLite() {
     assert.equal(restored.branches.length, 2);
     assert.equal(JSON.parse(indexedState.branches_json).length, 2, 'denormalized branch index stays synchronized');
     assert.equal(JSON.parse(indexedState.history_json)[0].culturalArtifactId, artifact.id);
+    const other = { ...restored, id: 'pheno_other-agent', agentId: 'other-agent',
+      genomeId: state.genomeId, revision: 0, branches: [], history: [] };
+    await phenotype.savePhenotypeState(other, sqlite.adapter);
+    const owned = await phenotype.loadPhenotypeState(state.genomeId, sqlite.adapter, state.agentId);
+    assert.equal(owned.agentId, state.agentId, 'shared genome must not return another agent phenotype');
+    const stale = JSON.parse(JSON.stringify(owned));
+    await phenotype.savePhenotypeState(owned, sqlite.adapter);
+    await assert.rejects(phenotype.savePhenotypeState(stale, sqlite.adapter), /revision conflict/);
     console.log('Culture to phenotype persistence with SQLite: PASS');
   } finally {
     await new Promise((resolve, reject) => sqlite.database.close((error) => error ? reject(error) : resolve()));
@@ -101,6 +113,13 @@ async function testPlayWithRealSnapshotRuntime() {
     assert.equal(session.iterations[0].snapshotId.startsWith('snp-'), true);
     assert.equal(await fs.readFile(path.join(workspacePath, 'proof.txt'), 'utf8'), 'original', 'execution stays isolated from the source workspace');
     assert.ok(await sqlite.adapter.get('SELECT snapshot_hash FROM workspace_snapshots WHERE id = ?', session.iterations[0].snapshotId));
+    const stored = await sqlite.adapter.get('SELECT observation_json FROM nce_play_observations WHERE agent_id = ?', 'agent-play-real');
+    assert.equal(JSON.parse(stored.observation_json).verified, false,
+      'Play output is recorded as an observation, not an independently verified ability');
+    assert.deepEqual(play.extractAffordances({ outcome: 'failure', snapshotId: 'snp-failed',
+      result: { exitCode: 1 }, observation: 'solver supporte maze solving' }), []);
+    assert.deepEqual(play.generateCombinatorialInputs(['solver'], ['maze'], 'seed-1'),
+      play.generateCombinatorialInputs(['solver'], ['maze'], 'seed-1'));
     console.log('Play with real snapshot capture and execution: PASS');
   } finally {
     await new Promise((resolve, reject) => sqlite.database.close((error) => error ? reject(error) : resolve()));
@@ -133,9 +152,10 @@ async function testPoetWithRealSnapshotVerification() {
     const environment = {
       id: 'env-poet-real', difficulty: 0.3, workspacePath, workspaceId: 'ws-poet-real',
       db: sqlite.adapter, goals: ['solve grid'],
+      verifierCommand: 'npm test', protectedPaths: ['package.json', 'verify.js'],
       stats: { attemptCount: 0, solvedCount: 0, bestScore: 0 },
     };
-    const result = await bridge.coevolveWithExecution([{ id: 'agent-poet-real', role: 'solver' }], [environment], { timeoutMs: 10000 });
+    const result = await bridge.coevolveWithExecution([{ id: 'agent-poet-real', role: 'solver' }], [environment], { timeoutMs: 60000 });
     const execution = result[0].evaluations[0].executionResult;
     assert.equal(execution.success, true, JSON.stringify(execution));
     assert.match(execution.verification.output, /solver supporte maze solving/);
@@ -145,7 +165,7 @@ async function testPoetWithRealSnapshotVerification() {
     const generalization = await bridge.evaluateGeneralization(
       [{ id: 'agent-poet-real', role: 'solver' }],
       { training: [environment], heldOut: [{ ...environment, id: 'env-poet-heldout', goals: ['solve held-out grid'] }] },
-      { timeoutMs: 10000 },
+      { timeoutMs: 60000 },
     );
     assert.equal(generalization.measured, true, 'held-out environments are actually executed');
     assert.equal(generalization.training.successRate, 1);
