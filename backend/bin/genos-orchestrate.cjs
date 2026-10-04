@@ -159,7 +159,7 @@ async function findActiveOrchestrator(db) {
 
 async function ensureMissionIdentity(db) {
   missionId = missionId || missionIdentity.newMissionId();
-  await missionIdentity.create(db, { missionId, objective: task });
+  await require('../src/services/missionRegenerationChecksService').initializeMission(db, { missionId, objective: task, checks: policyRequest.regenerationChecks || policyRequest.regeneration_checks });
 }
 
 async function evaluateMissionContinuity(opts) {
