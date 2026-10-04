@@ -158,7 +158,7 @@ async function buildBrief(db, job) {
     territoryId: args.territoryId,
     headSha: territory.headSha,
     mission: args.mission || null,
-    relevanceClass: relevance.relevanceClass(ranked),
+    relevanceClass: relevance.relevanceClass(ranked, relevance.RELEVANCE_THRESHOLDS),
     activePhenotypes: phenotypes.active,
     phenotypeFocus: phenotypes.focus,
     summary: {
