@@ -28,12 +28,25 @@ async function execute(context) {
   if (duplicate === 'PARTIAL') throw transactionError('SYNCYTIUM_TRANSACTION_PARTIAL_DUPLICATE', 'Only part of this transaction was already applied.');
   const snapshot = session.crdt.getSnapshot();
   checkPreconditions(transaction.preconditions, snapshot, snapshot.totalOps);
+  validateFence(transaction.fence, snapshot.sharedFields);
   validateInvariantSelection(transaction.invariants, session.schema?.invariants || {});
   const candidate = session.crdt.fork();
   const accepted = applyOperations({ ...context, candidate });
   const receipts = evaluateInvariants(session.schema, candidate);
   validateReceipts(receipts);
   return persistCandidate({ ...context, candidate, accepted, receipts });
+}
+
+function validateFence(fence, sharedFields) {
+  if (fence === undefined) return;
+  const lease = sharedFields['hard.leases']?.[fence.resourceId];
+  const valid = fence && typeof fence.resourceId === 'string' && fence.resourceId
+    && typeof fence.actorId === 'string' && fence.actorId
+    && typeof fence.leaseToken === 'string' && fence.leaseToken
+    && Number.isSafeInteger(fence.number) && fence.number > 0
+    && lease?.holderId === fence.actorId && lease.leaseToken === fence.leaseToken
+    && lease.fence === fence.number && lease.expiresAt > Date.now();
+  if (!valid) throw transactionError('SYNCYTIUM_HARD_FENCE_STALE', 'Fenced transaction token is stale, expired or not owned by its actor.');
 }
 
 function validateTransaction(transaction) {

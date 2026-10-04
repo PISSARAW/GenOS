@@ -50,17 +50,35 @@ async function executeCycle(sessionId, request = {}, syncytium) {
     return applyFailsafe({ sessionId, request, snapshot, reason: 'WCET_EVIDENCE_OR_DEADLINE_INVALID', syncytium });
   }
   const startedAt = performance.now();
-  const result = await syncytium.applyTransaction(sessionId, {
-    txId: request.txId || randomUUID(), operations: request.operations,
-    preconditions: [...(request.preconditions || []), { op: 'state_version', value: snapshot.shared.totalOps }],
-    commitPolicy: 'SERIALIZABLE'
-  }, request.options || {});
-  const elapsedMs = performance.now() - startedAt;
-  if (Date.now() > request.deadlineAtMs) {
+  const branchId = `control-${request.taskId}-${randomUUID()}`;
+  let branchCreated = false;
+  try {
+    await syncytium.createSpeculativeBranch(sessionId, { branchId, options: request.options || {} });
+    branchCreated = true;
+    for (const operation of request.operations) {
+      await syncytium.applySpeculativeOperation(sessionId, {
+        branchId, operation, options: request.options || {}
+      });
+    }
+    const elapsedMs = performance.now() - startedAt;
+    if (Date.now() + evidence.upperBoundMs > request.deadlineAtMs) {
+      await syncytium.discardSpeculativeBranch(sessionId, { branchId, reason: 'DEADLINE_MISSED', options: request.options || {} });
+      branchCreated = false;
+      const latest = await syncytium.snapshot(sessionId, request.options || {});
+      return applyFailsafe({ sessionId, request, snapshot: latest, reason: 'DEADLINE_MISSED', elapsedMs, syncytium });
+    }
+    const result = await syncytium.promoteSpeculativeBranch(sessionId, { branchId, options: request.options || {} });
+    branchCreated = false;
+    return { ...result, control: { status: 'COMPLETED_WITHIN_BUDGET', elapsedMs,
+      wcetEvidenceId: evidence.evidenceId } };
+  } catch (error) {
+    if (branchCreated) await syncytium.discardSpeculativeBranch(sessionId, {
+      branchId, reason: 'CONTROL_VALIDATION_FAILED', options: request.options || {}
+    });
     const latest = await syncytium.snapshot(sessionId, request.options || {});
-    return applyFailsafe({ sessionId, request, snapshot: latest, reason: 'DEADLINE_MISSED', elapsedMs, syncytium });
+    return applyFailsafe({ sessionId, request, snapshot: latest,
+      reason: 'CONTROL_VALIDATION_FAILED', syncytium });
   }
-  return { ...result, control: { status: 'COMPLETED_WITHIN_BUDGET', elapsedMs, wcetEvidenceId: evidence.evidenceId } };
 }
 
 function findWcetEvidence(snapshot, evidenceId) {
