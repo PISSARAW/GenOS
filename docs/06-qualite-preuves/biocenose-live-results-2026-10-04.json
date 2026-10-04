@@ -1,0 +1,177 @@
+{
+  "startedAt": "2026-10-04T06:06:05.380Z",
+  "model": "ollama://qwen2.5-coder:7b",
+  "scope": "12 très complexes, un par variant",
+  "limitations": [
+    "Tous les participants invoquent le même modèle local; les lignages et domaines fournisseur sont déclarés, pas indépendants en réalité.",
+    "Aucun reçu de vérification ni décision humaine n’est fabriqué; les missions qui les exigent restent bloquées ou en revue.",
+    "Après les quatre premières missions, la suite reprend avec un seul générateur, reviewer et vérificateur pour limiter la durée; Delphi garde les rounds définis par sa constitution."
+  ],
+  "missions": [
+    {
+      "label": "Epistemic Jury",
+      "variant": "epistemic_jury",
+      "questionType": "FACTUAL",
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'collect_belief_revisions': BIOCENOSE_BELIEF_UPDATE_INVALID.",
+      "startedAt": "2026-10-04T06:06:05.382Z",
+      "durationMs": 70064
+    },
+    {
+      "label": "Delphi Community",
+      "variant": "delphi_community",
+      "questionType": "PROBABILISTIC",
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'collect_sealed_judgments': BIOCENOSE_JUDGMENT_INVALID.",
+      "startedAt": "2026-10-04T06:07:15.448Z",
+      "durationMs": 6459
+    },
+    {
+      "label": "Adversarial Assembly",
+      "variant": "adversarial_assembly",
+      "questionType": "FACTUAL",
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'collect_sealed_judgments': Every model route failed. ollama://qwen2.5-coder:7b: Model provider returned HTTP 500. {\"error\":{\"message\":\"prediction aborted, token repeat limit reached\",\"type\":\"api_error\",\"param\":null,\"code\":null}}\n.",
+      "startedAt": "2026-10-04T06:07:21.909Z",
+      "durationMs": 8877
+    },
+    {
+      "label": "Forecasting Crowd",
+      "variant": "forecasting_crowd",
+      "questionType": "PROBABILISTIC",
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'build_argument_graph': BIOCENOSE_ARGUMENT_INVALID.",
+      "startedAt": "2026-10-04T06:07:30.787Z",
+      "durationMs": 154201
+    },
+    {
+      "label": "Argumentation Community",
+      "variant": "argumentation_community",
+      "questionType": "EXPLORATORY",
+      "population": {
+        "generators": 1,
+        "reviewers": 1,
+        "verifiers": 1
+      },
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'build_argument_graph': BIOCENOSE_ARGUMENT_INVALID.",
+      "startedAt": "2026-10-04T06:11:20.038Z",
+      "durationMs": 63863
+    },
+    {
+      "label": "Polycentric Council",
+      "variant": "polycentric_council",
+      "questionType": "DESIGN",
+      "population": {
+        "generators": 1,
+        "reviewers": 1,
+        "verifiers": 1
+      },
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'collect_belief_revisions': BIOCENOSE_BELIEF_UPDATE_INVALID.",
+      "startedAt": "2026-10-04T06:12:23.903Z",
+      "durationMs": 15407
+    },
+    {
+      "label": "Byzantine-Resilient Community",
+      "variant": "byzantine_resilient_community",
+      "questionType": "FACTUAL",
+      "population": {
+        "generators": 7,
+        "reviewers": 3,
+        "verifiers": 3
+      },
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'build_argument_graph': BIOCENOSE_ARGUMENT_INVALID.",
+      "startedAt": "2026-10-04T06:12:39.318Z",
+      "durationMs": 304211
+    },
+    {
+      "label": "Minority-Preserving Jury",
+      "variant": "minority_preserving_jury",
+      "questionType": "FACTUAL",
+      "population": {
+        "generators": 1,
+        "reviewers": 1,
+        "verifiers": 1
+      },
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'collect_belief_revisions': BIOCENOSE_BELIEF_UPDATE_INVALID.",
+      "startedAt": "2026-10-04T06:17:43.530Z",
+      "durationMs": 109886
+    },
+    {
+      "label": "Representative Community",
+      "variant": "representative_community",
+      "questionType": "DESIGN",
+      "population": {
+        "generators": 4,
+        "reviewers": 4,
+        "verifiers": 4
+      },
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'collect_sealed_judgments': BIOCENOSE_JUDGMENT_INVALID.",
+      "startedAt": "2026-10-04T06:19:33.417Z",
+      "durationMs": 28158
+    },
+    {
+      "label": "Persistent Community",
+      "variant": "persistent_community",
+      "questionType": "PROBABILISTIC",
+      "population": {
+        "generators": 1,
+        "reviewers": 1,
+        "verifiers": 1
+      },
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'collect_belief_revisions': BIOCENOSE_BELIEF_UPDATE_INVALID.",
+      "startedAt": "2026-10-04T06:20:01.576Z",
+      "durationMs": 61246
+    },
+    {
+      "label": "Human–AI Deliberation",
+      "variant": "human_ai_deliberation",
+      "questionType": "NORMATIVE",
+      "population": {
+        "generators": 1,
+        "reviewers": 1,
+        "verifiers": 1
+      },
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'collect_belief_revisions': BIOCENOSE_BELIEF_UPDATE_INVALID.",
+      "startedAt": "2026-10-04T06:21:02.823Z",
+      "durationMs": 48056
+    },
+    {
+      "label": "Hybrid Oracle Community",
+      "variant": "hybrid_oracle_community",
+      "questionType": "MIXED",
+      "population": {
+        "generators": 1,
+        "reviewers": 1,
+        "verifiers": 1
+      },
+      "status": "BLOCKED_OR_FAILED",
+      "code": "BIOCENOSE_RUNTIME_STEP_BLOCKED",
+      "message": "Biocenose runtime stopped at 'build_argument_graph': BIOCENOSE_ARGUMENT_CLAIM_UNKNOWN.",
+      "startedAt": "2026-10-04T06:21:50.880Z",
+      "durationMs": 30778
+    }
+  ],
+  "finishedAt": "2026-10-04T06:22:21.659Z",
+  "summary": {
+    "total": 12,
+    "blockedOrFailed": 12
+  }
+}
