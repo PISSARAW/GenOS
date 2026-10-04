@@ -1343,3 +1343,16 @@ un cas de vérification de reçu est mesurable par recalcul indépendant et un
 quatrième cas formel a été mesuré localement avec Lean 4.34.0. Les tâches
 sans oracle indépendant restent `unmeasured` ;
 un rapport rival n'est comparable que sur un même cas effectivement mesuré.
+
+## 50. Niche et Host au dispatch topologique (2026-10-04)
+
+L'affectation `specialist` inscrit une niche explicite dans
+`workerAssignment.nicheDomain` : domaine du membre si présent, sinon rôle
+qualifié par la topologie. Les rôles techniques de l'A-Team sont routés vers
+`domain_specialization`, tandis que `frontend`, `backend` et les autres
+étiquettes restent des domaines, sans élargir les droits du runtime.
+
+L'affectation `symbiotic_worker` conserve seulement les identifiants et
+capacités Host fournis par le membre. Une composition sans Host peut être
+décrite, mais sa persistance refuse le worker tant que `hostContractId` et
+`hostCapabilities` ne sont pas fournis. Voir [ADR 0300](../adr/0300-affectation-niches-et-contrats-hotes.md).
