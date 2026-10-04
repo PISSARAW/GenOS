@@ -20,7 +20,7 @@ Match Receptor (évaluation déterministe, pas de LLM)
   │     ├─ update_agent (updateAgent)
   │     └─ change_organization (changeOrganization)
   │
-  └─ Aucun match → llmRequired=true → escalade cognitive
+  └─ Aucun match ou aucune action réussie → llmRequired=true → escalade cognitive
 ```
 
 **Propriété clé** : un signal banal ne coûte aucun appel LLM. Seuls les signaux
@@ -35,11 +35,12 @@ Point d'entrée principal : `publishSignal(params)`.
 Pipeline d'exécution (ordre critique) :
 
 1. **Validation** — type, payload size, rate limit
-2. **Persistance** — `signal_blobs` (SQLite WAL)
+2. **Route de contrôle** — refus du scope demandé hors projet/organisation
 3. **Coalesce** — anti-spam (période réfractaire 2s + fenêtre 500ms)
-4. **Route** — destinataires via `collectiveSignalOrganizationRouter`
-5. **EventBus** — notification push (après coalescing)
-6. **Plasticité** — renforcement/dépression des canaux
+4. **Persistance** — `signal_blobs` (SQLite WAL) pour les signaux conservés
+5. **Dispatch** — récepteurs et livraisons persistées aux destinataires
+6. **EventBus** — notification push locale
+7. **Plasticité** — renforcement/dépression des canaux
 
 La publication échoue maintenant avec `SIGNAL_PERSISTENCE_FAILED` si la
 persistance échoue après les reprises; un signal non persisté n'est jamais rendu
@@ -81,6 +82,13 @@ signalReceptorService.registerReceptor({
 Si une dépendance est absente, l'action renvoie `{ executed: false, reason: 'NO_*_FN' }`.
 
 **Appel** : `matchAndDispatch(signal, ctx)` — renvoie `{ triggered, dispatched, llmRequired }`.
+
+Dans le chemin de publication, chaque action exige un émetteur orchestrateur
+avec organisation et projet. `wake_worker` et `update_agent` exigent en plus un
+worker enfant dans ce même périmètre et présent parmi les destinataires routés.
+Une action refusée n'est pas comptée comme exécutée. Le registre de récepteurs
+reste en mémoire du processus ; aucune règle active n'est restaurée au redémarrage.
+L'identifiant d'agent fourni à MCP n'authentifie pas l'appelant.
 
 ### SignalEventBus
 
@@ -161,6 +169,10 @@ Le subscriber écoute `recipient:${agentId}` et dispatch aux handlers enregistr�
 
 Migration v45 (`schema-next.js`) :
 
+Les charges non textuelles de `signal_blob` sont encodées en MsgPack. Une valeur
+non encodable est refusée avant persistance ; les anciens BLOB JSON restent
+lisibles (ADR 0301). Cela mesure des octets de transport, pas des tokens modèle.
+
 ```sql
 -- Signaux persistés
 CREATE TABLE signal_blobs (
@@ -224,6 +236,16 @@ l'agent Z). Anciennement fusionnées dans `signal_subs` — empêchait propremen
   par `signalId`; les erreurs réessaient avec backoff et sont mises en quarantaine
   après huit tentatives. Les enveloppes absentes ou invalides ne réveillent pas.
 - **Coalescing en mémoire** : les buffers sont perdus au redémarrage.
+- **Récepteurs** : leur registre est en mémoire et aucun enregistrement au
+  démarrage du serveur n'est actuellement câblé. Les tests enregistrent leurs
+  propres récepteurs ; ce résultat ne démontre pas une couverture déterministe
+  générale en production.
+- **Polling** : les lectures vérifient l'intégrité de l'enveloppe, le projet,
+  l'organisation et les destinataires explicites. Une lease d'outil seule ne
+  lie pas l'identité `agent_id` fournie à l'identité du client MCP. Une erreur
+  SQLite pendant la lecture ou le marquage « vu » remonte désormais au client.
+- **Panne de récepteur** : le signal persisté demande une escalade cognitive
+  si le dispatch déterministe échoue ; cette demande reste soumise au gate VoI.
 - **Escalade cognitive** : le gate VoI décide si le signal `llmRequired` est
   escaladé. Le résultat du modèle est une réponse consultative ; il ne constitue
   ni une exécution d'action ni une preuve de validité.

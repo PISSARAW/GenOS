@@ -327,6 +327,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0297a](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la génération d'hypothèses Trinity | Accepté | 2026-10-04 | Trinity, cognition, preuve |
 | [0297b](0297-protocoles-de-responsabilite-shev.md) | Protocoles de responsabilité, surveillance et transfert SHEV | Accepté | 2026-10-04 | SHEV, mandat, récupération, GVX, évaluation |
 | [0298](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
+| [0299](0299-capsule-prompt-utf8-direct.md) | Capsule de prompt UTF-8 directe | Accepté | 2026-10-04 | Transport interprocessus, communication, coût |
+| [0300](0300-checkpoint-communication-fin-mission.md) | Checkpoint de communication à la fin d'une mission | Accepté | 2026-10-04 | Orchestration, communication, preuve |
+| [0301](0301-msgpack-sans-repli-json-illisible.md) | MsgPack sans repli JSON illisible | Accepté | 2026-10-04 | Transport binaire, communication inter-agents, compatibilité |
+| [0302](0302-autorite-actions-recepteurs.md) | Autorité des actions de récepteurs | Accepté | 2026-10-04 | Communication, signalisation, isolation des projets |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers. Les chemins sont conservés (ADR 0005) et l'index
