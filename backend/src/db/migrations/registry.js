@@ -357,6 +357,9 @@ const migrationRunners = [
   createMigrationRunner('098-scientific-evidence-ledger', 'Persist claims, immutable evidence, dissent and verifier assessments for scientific experiments', async (db) => {
     await require('./migrateScientificEvidenceLedger').migrateScientificEvidenceLedger(db);
   }),
+  createMigrationRunner('099-shev-project-loop', 'Persist delegated project responsibility, observations, initiatives and distinct effect assessments', async (db) => {
+    await require('./migrateShevProjectLoop').migrateShevProjectLoop(db);
+  }),
 ];
 
 async function runMigration(db, version, description) {
