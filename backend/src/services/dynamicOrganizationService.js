@@ -305,10 +305,16 @@ async function publish(db, options = {}) {
   const proposal = signalRouter().proposedRoute(signalInfo.signalType, signalInfo.signalType === 'text' ? {} : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType));
   const changed = Boolean(proposal && proposal.organization !== state.organization);
   if (changed) {
+    const governance = require('./governancePlaneService');
+    const ctx = governance.defineContext({ principal: orchestratorId, organization: state.organization, actionRisk: 'MEDIUM', reversibility: 'reversible', action: { name: 'change_organization', risk: 'MEDIUM', impact: 'medium', reversibility: 'reversible', blastRadius: 'collective' } });
+    const verdict = governance.gateMorphogenesis({ plan: { topologyChanges: 1, spawn: 0 }, context: ctx });
+    if (verdict.verdict === 'HUMAN_REVIEW' || verdict.verdict === 'DENY') {
+      throw new Error(`Governance denied organization change to ${proposal.organization}: ${verdict.reason || verdict.verdict}`);
+    }
     await changeOrganization(db, {
       orchestratorId,
       organization: proposal.organization,
-      reason: `Signal ${signalInfo.signalType} selected organization ${proposal.organization}.`,
+      reason: `Signal ${signalInfo.signalType} selected organization ${proposal.organization} (governance: ${verdict.verdict}).`,
       changedBy: orchestratorId
     });
   }
