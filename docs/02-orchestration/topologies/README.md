@@ -12,6 +12,7 @@ ces organisations ; elle n'est pas un neuvième mode.
 - [biocenose.md](biocenose.md) — orchestration communautaire (coopération, compétition, validation).
 - [holobionte.md](holobionte.md) — orchestration intégrée hôte-symbionte.
 - [syncytium.md](syncytium.md) — orchestration par état partagé et synchronisation continue.
+- [protocole-missions-syncytium.md](protocole-missions-syncytium.md) — budgets, missions, workers, échanges, nosologie, télémétrie et preuves d’exécution.
 - [rhizome.md](rhizome.md) — orchestration décentralisée par ramification de capacités.
 - [metapopulation.md](metapopulation.md) — orchestration par populations semi-indépendantes.
 - [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance et maturité des variants des topologies.

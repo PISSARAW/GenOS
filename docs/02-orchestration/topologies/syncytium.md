@@ -4,7 +4,7 @@
 - **Portée** : modèle complet du protocole Syncytium, de la composition et du commit causal à la convergence, la reprise et l'exploitation.
 - **Dernière revue** : 2026-09-25
 
-> **Statut scientifique et mathématique.** Les équations de cette fiche sont un modèle de conception, sauf indication explicite contraire. Elles ne constituent ni une preuve du comportement du dépôt ni une mesure expérimentale. Le code actuel expose notamment un conseil morphogénétique partiel ; il ne réalise pas le protocole distribué décrit ci-dessous. Les propriétés CRDT ne valent que sous les hypothèses propres au type et au protocole de réplication considérés.
+> **Statut scientifique et mathématique.** Les équations de cette fiche restent un modèle de conception, sauf indication explicite contraire. Le runtime Node possède maintenant des services Syncytium, 13 politiques de variants, sessions CRDT, opérations, transactions, réplication/réconciliation et diagnostics ; des tests ciblés attestent certains comportements, sans prouver toutes les propriétés formelles décrites ici ni un protocole distribué complet. Les propriétés CRDT ne valent que sous les hypothèses propres au type et au protocole de réplication considérés. Voir le [protocole opératoire et le relevé des tests](protocole-missions-syncytium.md) pour la séparation entre code, mesures et architecture cible.
 
 ## 1. Définition
 
