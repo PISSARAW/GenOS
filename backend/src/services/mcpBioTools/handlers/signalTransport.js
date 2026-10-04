@@ -27,18 +27,21 @@ async function handleSignalPublish(args, run) {
     ttlMs: ttl_ms != null ? Number(ttl_ms) : undefined,
     signalId: signal_id || undefined,
   });
-  return formatSignalPublishResult(result);
+  return publishResult(result);
 }
 
-function formatSignalPublishResult(result) {
+function publishResult(result) {
+  const published = result.published === true;
   return {
     configured: true,
-    success: result.published === true,
-    status: result.published === true ? 'signal_published' : 'signal_suppressed',
+    success: published,
+    status: published ? 'signal_published' : 'signal_suppressed',
     signalId: result.signalId,
     signalType: result.signalType,
+    published,
     suppressedBy: result.suppressedBy || null,
     suppressionReason: result.suppressionReason || null,
+    routing: result.routing || null,
     transport: 'zero_text',
   };
 }

@@ -1,5 +1,11 @@
 # Économie, Scalabilité et Analyse des Systèmes Multi-Agents (GenOS vs Frameworks Traditionnels)
 
+> **Statut : hypothèses illustratives, non benchmark comparatif vérifié.** Les
+> coûts, latences, taux d'échec et facteurs de gain chiffrés ci-dessous ne sont
+> pas des mesures de production. Le transport courant des capsules de prompt
+> utilise UTF-8 direct avec lecture des anciennes capsules DNA (ADR 0299) ;
+> aucun gain de tokens fournisseur n'est déduit de ce changement d'octets.
+
 ## 1. Définition et Problématique
 
 L'essor des architectures multi-agents (CrewAI, Microsoft AutoGen, LangGraph, MetaGPT, ChatDev) repose sur une promesse fondamentale : décomposer des problèmes complexes en sous-tâches coordonnées entre agents spécialisés (architecte, développeur, relecteur, testeur, auditeur).

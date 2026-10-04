@@ -197,6 +197,7 @@ async function tickOnce(db, input) {
     for (const questionId of expired) {
       await notify(db, { projectId: input.projectId, kind: 'decision_needed', payload: { reason: `question-expiree:${questionId}` } });
     }
+    await require('../shev/initiativeService').compilePending(db, input);
     const ctx = await loadContext(db, input);
     ctx.fence = fence;
     await fence();

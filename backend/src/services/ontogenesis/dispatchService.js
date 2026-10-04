@@ -7,6 +7,7 @@ const { listFailures, listSimilarFailures, SIMILARITY_LIMIT } = require('./memor
 const { createExecution } = require('./executionStore');
 const { reservationFor } = require('./resourceGuard');
 const { notify } = require('./notificationService');
+const { initiativeEnvelope, clampBudget } = require('../shev/initiativeAdmissionService');
 
 function allocatedBudget(remaining, config) {
   const limit = config.missionBudgets || { tokens: 40000, usd: 0.25, seconds: 120 };
@@ -105,6 +106,8 @@ async function persistDispatch(db, input) {
 
 async function dispatchTask(db, ctx, harness) {
   if (!Array.isArray(ctx.config.checks) || !ctx.config.checks.length) return blockDispatch(db, ctx, 'verifications-requises');
+  const envelope = await initiativeEnvelope(db, ctx.selection?.task);
+  if (envelope?.blocked) return blockDispatch(db, ctx, envelope.blocked);
   const selection = await topologyFor(db, ctx);
   if (selection.blocked) return blockDispatch(db, ctx, selection.blocked);
   if (await hasSimilarFailures(db, ctx)) return blockDispatch(db, ctx, 'echec-similaire-repete');
@@ -115,7 +118,7 @@ async function dispatchTask(db, ctx, harness) {
   const task = ctx.selection.task;
   const input = { id: `onto_run_${randomUUID()}`, projectId: ctx.project.id, taskId: task.id,
     ...workspace, topology: selection.topology, variant: selection.variant, reservationMb,
-    budgets: allocatedBudget(ctx.remaining, ctx.config) };
+    budgets: clampBudget(allocatedBudget(ctx.remaining, ctx.config), envelope) };
   await persistDispatch(db, input);
   await traceSelection(db, ctx, selection);
   try {

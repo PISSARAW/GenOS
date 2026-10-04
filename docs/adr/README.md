@@ -323,26 +323,38 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0293a](0293-execution-missions-variants-holobionte.md) | Exécution persistante des missions par variant Holobionte | Accepté | 2026-10-04 | Holobionte, Morphogenèse, exécution de missions |
 | [0293b](0293-persistance-des-variants-metapopulation.md) | Persistance des états de variants Metapopulation | Accepté | 2026-10-04 | Metapopulation, cycles régionaux, dèmes persistants et culture |
 | [0294a](0294-cloture-de-continuite-de-mission.md) | Fermeture des transitions de continuité de mission | Accepté | 2026-10-04 | Orchestration et survie des missions |
-| [0294b](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
-| [0294c](0294-executeurs-deterministes-workers.md) | Exécuteurs déterministes des workers | Accepté | 2026-10-04 | Workers, orchestration, preuve |
-| [0294d](0294-fermeture-runtime-nce.md) | Contrats de preuve des chemins runtime NCE | Accepté | 2026-10-04 | Natural Creative Ecology, Play, phénotype, culture, POET |
-| [0294e](0294-persistance-des-registres-biomimetiques.md) | Persistance des registres biomimétiques | Voir le fichier | -- | -- |
-| [0295](0295-registre-des-recepteurs-du-signal-plane.md) | Registre durable des récepteurs du Signal Plane | Voir le fichier | -- | -- |
+| [0294b](0294-contrat-de-preuve-aeis.md) | Contrat de preuve exécutable AEIS | Accepté | 2026-10-04 | AEIS, preuve, promotion, confinement |
+| [0294c](0294-contrat-residuel-cognitif-signal-plane.md) | Contrat cognitif résiduel du Signal Plane | Accepté | 2026-10-04 | Signal Plane, cognition, preuve |
+| [0294d](0294-executeurs-deterministes-workers.md) | Exécuteurs déterministes des workers | Accepté | 2026-10-04 | Workers, orchestration, preuve |
+| [0294e](0294-fermeture-runtime-nce.md) | Contrats de preuve des chemins runtime NCE | Accepté | 2026-10-04 | Natural Creative Ecology, Play, phénotype, culture, POET |
+| [0294f](0294-persistance-des-registres-biomimetiques.md) | Persistance des registres biomimétiques | Voir le fichier | -- | -- |
+| [0295a](0295-memoire-immunitaire-portee-et-oracle.md) | Mémoire immunitaire AEIS portée et résolue par preuve | Accepté | 2026-10-04 | AEIS, mémoire, SQLite, multitenance |
+| [0295b](0295-registre-des-recepteurs-du-signal-plane.md) | Registre durable des récepteurs du Signal Plane | Voir le fichier | -- | -- |
+| [0295c](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | projets persistants, perception, Ontogenèse, GVX |
 | [0296a](0296-file-cognitive-du-signal-plane.md) | File cognitive durable du Signal Plane | Voir le fichier | -- | -- |
 | [0296b](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
-| [0297a](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
-| [0297b](0297-reprise-des-wake-handlers.md) | Réarmement des workers au démarrage | Voir le fichier | -- | -- |
+| [0296c](0296-revue-multi-fournisseur-aeis.md) | Revue AEIS par fournisseurs indépendants | Accepté | 2026-10-04 | AEIS, fournisseurs, processus, promotion |
+| [0297a](0297-budget-et-retroaction-aeis.md) | Budget et rétroaction homéostatique AEIS | Accepté | 2026-10-04 | AEIS, runtime, ré-arbitration, budget |
+| [0297b](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |
+| [0297c](0297-protocoles-de-responsabilite-shev.md) | Protocoles de responsabilité, de surveillance et de transfert SHEV | Accepté | 2026-10-04 | SHEV, Ontogenèse, GVX, évaluation |
+| [0297d](0297-reprise-des-wake-handlers.md) | Réarmement des workers au démarrage | Voir le fichier | -- | -- |
 | [0298a](0298-boite-de-reception-signaux.md) | Boîte de réception des signaux | Voir le fichier | -- | -- |
-| [0298b](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
+| [0298b](0298-cycle-de-vie-des-recus-aeis.md) | Cycle de vie des reçus et assemblées AEIS | Accepté | 2026-10-04 | AEIS, signature, rétention, audit |
+| [0298c](0298-physiologie-relationnelle-executable.md) | Physiologie relationnelle exécutable | Proposé, avec noyau intégré et raccord ciblé | 2026-10-04 | Relations inter-agents, communication, autorité, preuves |
 | [0299a](0299-admission-relationnelle-transactionnelle.md) | Admission transactionnelle des signaux relationnels | Proposé, implémentation ciblée | 2026-10-04 | Communication inter-agents, autorité, persistance |
 | [0299b](0299-capacites-transversales-morphogenese.md) | Cinq capacités transversales de morphogenèse | Proposé, avec première implémentation opt-in | 2026-10-04 | Morphogenèse, preuves, mémoire, risque statistique |
-| [0299c](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
-| [0299d](0299-resultats-actions-signaux.md) | Résultats réels des actions de récepteur | Voir le fichier | -- | -- |
+| [0299c](0299-capsule-prompt-utf8-direct.md) | Capsule de prompt UTF-8 directe | Accepté | 2026-10-04 | Transport interprocessus, communication, coût |
+| [0299d](0299-liaison-des-assemblages-aeis-au-run.md) | Liaison des assemblages AEIS au run | Accepté | 2026-10-04 | AEIS, mémoire, intégrité, portée |
+| [0299e](0299-registre-obligations-g-cir.md) | Registre d'obligations et graphe G-CIR | Accepté | 2026-10-04 | cognition, orchestration, preuve |
+| [0299f](0299-resultats-actions-signaux.md) | Résultats réels des actions de récepteur | Voir le fichier | -- | -- |
 | [0300a](0300-affectation-niches-et-contrats-hotes.md) | Niche du spécialiste et contrat du symbiote en topologie | Accepté | 2026-10-04 | Topologies, workers spécialistes, Holobionte |
-| [0300b](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
+| [0300b](0300-checkpoint-communication-fin-mission.md) | Checkpoint de communication à la fin d'une mission | Accepté | 2026-10-04 | Orchestration, communication, preuve |
+| [0300c](0300-scellement-spores-biome.md) | Scellement des spores Biome | Accepté | 2026-10-04 | cryptobiose, confidentialité, restauration |
 | [0301a](0301-expiration-des-buffers-de-signaux.md) | Expiration des buffers de signaux | Voir le fichier | -- | -- |
 | [0301b](0301-falsification-deterministe-red-worker.md) | Falsification déterministe du red worker | Accepté | 2026-10-04 | Workers, revue adversariale, preuve |
-| [0302](0302-benchmark-rival-autogen-local.md) | Première mesure rivale locale avec AutoGen | Accepté | 2026-10-04 | Workers, benchmarks comparatifs, provenance |
+| [0301c](0301-msgpack-sans-repli-json-illisible.md) | MsgPack sans repli JSON illisible | Accepté | 2026-10-04 | Transport binaire, communication inter-agents, compatibilité |
+| [0302a](0302-autorite-actions-recepteurs.md) | Autorité des actions de récepteurs | Accepté | 2026-10-04 | Communication, signalisation, isolation des projets |
+| [0302b](0302-benchmark-rival-autogen-local.md) | Première mesure rivale locale avec AutoGen | Accepté | 2026-10-04 | Workers, benchmarks comparatifs, provenance |
 | [0303](0303-mesure-bornee-experimental-worker.md) | Mesure bornée du worker expérimental | Accepté | 2026-10-04 | Workers, expérimentation, preuve |
 | [0304](0304-synthese-structuree-des-desaccords.md) | Synthèse structurée des désaccords | Accepté | 2026-10-04 | Workers, synthèse, provenance |
 | [0305](0305-fenetre-observation-resident-daemon.md) | Fenêtre d'observation du resident daemon | Accepté | 2026-10-04 | Workers, observation, anomalies |

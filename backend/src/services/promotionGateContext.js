@@ -1,10 +1,7 @@
 'use strict';
 
-function assemblyFromAeis(aeisEvaluation, options) {
+function assemblyFromAeis(aeisEvaluation) {
   if (aeisEvaluation && aeisEvaluation.assembly) return aeisEvaluation.assembly;
-  if (options && options.epistemicAssembly) return options.epistemicAssembly;
-  // A report is caller-controlled input. Only use an assembly built by AEIS
-  // or an explicitly trusted internal caller; never accept one embedded in it.
   return null;
 }
 
@@ -34,7 +31,7 @@ function selectIndependentReceipt(aeisEvaluation) {
 }
 
 function buildGateContext({ promotion, options, receipt, aeisEvaluation }) {
-  const epistemicAssembly = assemblyFromAeis(aeisEvaluation, options);
+  const epistemicAssembly = assemblyFromAeis(aeisEvaluation);
   return {
     agentId: options.agentId || promotion.agentId,
     report: promotion.report,

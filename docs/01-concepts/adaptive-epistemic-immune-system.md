@@ -119,7 +119,7 @@ seuil apoptosis = 50
 | Immunité adaptative | `adaptiveImmuneResponse` — vérificateurs spécialisés avec affinité | Pas de lymphocyte ; des objets avec `affinity` et `strategy` |
 | Sélection clonale | `verifierCatalogService.selectTopClones` (≥2, falsification prioritaire) + `clonalExpansionService` (`expandClone` exécutés, `selectWinningClones` tranche sur oracle) | Pas de réplication ; tri par `fit`, 4 mutations, clones réellement exécutés, oracle requis pour trancher |
 | Affinity maturation | `affinityMaturationService.matureStrategy` — mutation ciblée après résolution oracle truth, sinon `pending` | Pas de mutation génétique ; 5 mutations diagnostiquées, jamais de succès auto-déclaré |
-| Mémoire immunitaire | `immuneMemoryService` — signature, recall, fuzzyRecall Jaccard, thresholdRecall, recordOutcome | Pas de cellule mémoire ; un tableau en mémoire |
+| Mémoire immunitaire | `immuneMemoryService` + `immuneMemoryRepository` — rappel et résultats confirmés | SQLite par organisation, projet et workspace ; le rappel seul ne tranche pas l'issue |
 | Inflammation | `epistemicInflammationAndRegulation` — pression → effort | Pas de cytokine ; un calcul de pression |
 | Tolérance / T-reg | `regulatoryReview` — inhibe les rejets injustifiés | Pas de cellule T ; une fonction qui vérifie la justification |
 | Apoptose | `epistemicApoptosisService` + `epistemicApoptosisAuthorityBridge` — dissonance → seuils → autopsie → révocation runtime | Pas de mort cellulaire ; un agent marqué `apoptotique` + statut DB mis à jour |
@@ -318,7 +318,7 @@ epistemicHolobionte(antigen, context)
   ├── cognitiveBiocenose(reviewers)                          [diversité]
   ├── computePressure(antigen)                               [homéostasie]
   ├── applyEpistemicApoptosis(db, agentId, signals)          [apoptose → révocation]
-  └── recordOutcome(memory, antigen, opts)                   [pending sans oracle, jamais success auto]
+  └── immuneMemoryRepository.resolve(db, preuve signée)     [issue seulement après relecture]
 ```
 
 ### Schéma de la réponse immunitaire
@@ -404,8 +404,9 @@ epistemicHolobionte(antigen, context)
    hostDecision({ specialist, immune, memory }, opts) → { accepted, reason }
 
 10. MÉMOIRE
-    recordOutcome(memory, antigen, { domain, outcome })
-    outcome pending sans oracle (host.accepted ≠ success) ; seul un oracle tranche
+    immuneMemoryRepository.save(db, observations, scopeId)
+    immuneMemoryRepository.resolve(db, runId + scopeId + assemblyId + résultat)
+    issue déduite des reçus signés et du prédicat exact ; sinon pending
 
 11. HOMÉOSTASIE
     computePressure(antigen) → 0.0 - 1.0
@@ -414,16 +415,41 @@ epistemicHolobionte(antigen, context)
 
 ### Validation des tests
 
+Un claim promouvable doit exprimer exactement le prédicat exécuté. Les deux
+répliques doivent pointer vers des répertoires existants, distincts et situés
+dans le workspace de l'agent :
+
+```json
+{
+  "statement": "echo OK outputs \"OK\"",
+  "test": {
+    "command": "echo OK",
+    "expectOutput": "OK",
+    "replicas": {
+      "proof": { "cwd": "<workspace>/replica-a" },
+      "source": { "cwd": "<workspace>/replica-b" }
+    }
+  }
+}
+```
+
+L'opérateur fournit `GENOS_EPISTEMIC_RECEIPT_SECRET` et un
+`GENOS_EPISTEMIC_RECEIPT_KEY_ID` stable. La rotation conserve les anciennes
+clés dans `GENOS_EPISTEMIC_RECEIPT_PREVIOUS_KEYS` pendant la période de
+rétention. Les assemblées nouvelles signent également le run et la portée de
+mémoire; celles qui précèdent cette liaison restent lisibles pour l'audit.
+L'option `problem_profile.multi_provider_verification` active la revue par
+fournisseurs. `problem_profile.aeis_provider_allowlist` doit alors désigner au
+moins deux fournisseurs distincts configurés; une revue manquante, divergente
+ou réfutante bloque la promotion. Les avis provider ne remplacent pas les
+reçus indépendants des vérificateurs locaux.
+
 Suite AEIS complète (`backend/package.json` → `test:aeis`) :
 
 ```bash
-npm run test:aeis
-# test_aeis_e2e.js      # holobionte, adapters, receipts, binding, bon claim eligible + gate OK
-# test_aeis_sandbox.js  # sandbox réel, adapters via runIsolated, indépendance avant signature
-# epistemic_holobionte_test.js
-# verifier_execution_test.js
-# clonal_expansion_test.js
-# affinity_maturation_test.js
+npm --prefix backend run test:aeis
+# Inclut approveRun() avec SQLite, reçus, mémoire, fournisseurs, niches,
+# processus séparés, homéostasie et benchmark AEIS EAB local.
 ```
 
 Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
@@ -460,14 +486,20 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
 - **Pas de vérité absolue** : le système mesure la fiabilité, pas la vérité.
   Un claim vérifié peut être faux ; un claim rejeté peut être vrai.
 
-- **Mémoire en mémoire** : la mémoire immunitaire est un tableau en mémoire
-  (pas persistante entre sessions). Pour une persistance, il faudrait une table
-  SQLite dédiée.
+- **Mémoire persistée et bornée** : les observations AEIS sont conservées en
+  SQLite par organisation/projet/workspace. Une issue n'est inscrite qu'après
+  relecture de l'assemblée signée; les anciennes entrées globales ne sont pas
+  attribuées à un tenant par supposition. La rétention est bornée par portée.
 
 - **Évaluation EAB** : `benchmarks/eab/run-eab.cjs` extrait les 446 questions
   de catégorie 5 LoCoMo depuis le corpus et les apparie aux prédictions. Il
   mesure abstention, couverture, taux de réponse erronée, F1 lexical et écart
   métrique. Le corpus officiel n'est pas redistribué avec GenOS.
+
+- **Régression AEIS EAB** : `benchmarks/eab/run-aeis-eab.cjs` exécute quatre
+  cas locaux sur le runtime de promotion et mesure acceptations, refus,
+  latence et nombre de résultats de vérification. Elle n'est pas une mesure
+  sur les 446 questions LoCoMo.
 
 ### Garde-fous
 
@@ -490,7 +522,8 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
 
 ### Statut
 
-- **Statut** : Partiel / Prototype exécutable
+- **Statut** : intégré au chemin de promotion pour les prédicats de commande
+  vérifiables; les capacités décrites ci-dessous ont des tests E2E locaux.
 
 **Implémenté** :
 - modèle antigène (EpistemicAntigen)
@@ -498,6 +531,8 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
 - calcul homéostasie (pression D = f(risk, uncertainty, contradiction, novelty, cost, evidence))
 - sélection de verifiers (affinity-based, ≥2 avec second avis falsification)
 - mémoire immunitaire (signature, recall, fuzzyRecall Jaccard, thresholdRecall, recordOutcome)
+- persistance SQLite par portée et résolution après validation de l'assemblée
+  signée; rotation de clé par identifiant et rétention des assemblées
 - métriques de diversité (effectiveDiversity, shannonDiversity, errorDiversity, toolDiversity)
 - biocénose / métapopulation / stigmergie / holobionte
 - exécution réelle des verifiers (verifierExecutionService + verifierRuntimeBridge)
@@ -508,31 +543,32 @@ Tests unitaires par service : `node backend/tests/epistemic_*_test.js`.
 - census de contraintes depuis receipts indépendants (2 acteurs requis)
 - AEIS → promotion gate injectée (epistemicAssembly depuis aeisEvaluation)
 - clonal expansion exécutée (clonalExpansionService : mutateStrategy, expandClone, selectWinningClones)
+- recrutement de niches conditionnel à la pression, à la preuve observée et au
+  budget par claim (maximum 8 exécutions)
 - affinity maturation branchée avec oracle requis (affinityMaturationService : diagnoseError, targetedMutation, matureStrategy)
 - stigmergie inter-process (stigmergyInterProcessBridge via biomimeticSignalingBus)
 - apoptose intégrée à l'autorité runtime (epistemicApoptosisAuthorityBridge)
 - AEIS → promotion gate (require_epistemic_assurance = true)
+- feedback homéostatique appliqué à la ré-arbitration runtime et au veto final
+- revues multi-provider structurées, distinctes, persistées en SQLite et
+  opposables lorsqu'elles sont activées par la politique du contrat
+- processus enfants séparés pour les revues provider, avec environnement
+  réduit, limite de temps, mémoire et taille de réponse
+- `approveRun()` couvert avec SQLite sur le chemin accepté et les refus de
+  reçus absents ou altérés
 - Intégration AEIS et runner EAB LoCoMo catégorie 5 disponibles; le rapport
   compare l'abstention observable aux 446 pièges et expose l'artéfact du F1
   lexical lorsque le gold est `undefined`.
+- benchmark local AEIS EAB exécutant quatre cas adversariaux sur le vrai pont
+  de promotion, raccordé à `npm test`
 
-**Partiel** :
-- les profils multi-provider activés par politique du contrat exécutent des revues
-  dans des processus séparés; leurs sorties restent consultatives, non signées et
-  exclues des reçus utilisés pour la promotion
-- la biocénose recrute un vérificateur de niche libre quand la diversité est faible;
-  une rétroaction de pression et de delta de preuve peut déclencher un vérificateur
-  supplémentaire, mais aucun quorum multi-provider ne constitue une preuve
-- les métapopulations sont isolées par processus pour ces revues; la persistance
-  durable de populations et des preuves de généralisation restent à établir
-- Les tests actuels de `approveRun()` avec DB n'atteignent pas le chemin positif
-  avec preuves valides : ils sont refusés comme prévu faute de reçus de
-  vérification signés, indépendants et couvrant le census des obligations. Il
-  reste à produire un E2E accepté avec deux acteurs indépendants, en plus des
-  cas de refus déjà couverts par les gates.
-- vérification multi-provider désormais branchable depuis `immuneSymbiontReview`; l’adaptateur et la politique `requireCrossProvider` restent à fournir par l’appelant avant promotion sensible
-- recrutement de niche désormais dynamique depuis `immuneSymbiontReview` quand le recensement détecte une monoculture; les tests d’intégration sur providers/runtime réel restent à compléter
-- worker AEIS isolé dans un processus séparé disponible et appelé lorsque `isolatedPopulations` est fourni; la configuration et la preuve E2E de séparation des populations restent à couvrir
-- feedback homéostatique runtime intégré à la ré-arbitration de la boucle de
-  contrôle à partir de la pression d'assurance et du delta de preuve
-- `approveRun()` complet avec DB non couvert par un test E2E bon/bloqué (gate testée via buildGateContext + policy)
+**Bornes vérifiées** :
+- le contrat promouvable est actuellement une proposition exacte de type
+  `<commande> outputs "<valeur>"` ou `<commande> exits with code 0`;
+  une affirmation libre ou seulement apparentée à un test est refusée
+- le processus enfant isole l'exécution provider, mais l'adapter de commandes
+  ne constitue pas un conteneur ni une garantie d'isolation du système entier
+- les tests provider utilisent des réponses contrôlées; ils ne démontrent pas
+  un quorum sur des comptes et modèles externes réels
+- le benchmark local ne permet pas de déclarer un score sur LoCoMo sans le
+  corpus et les prédictions correspondantes

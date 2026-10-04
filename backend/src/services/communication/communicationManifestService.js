@@ -49,13 +49,14 @@ async function fetchAgentProfile(ctx) {
   const agentId = ctx.agentId;
   try {
     const row = await db.get(
-      'SELECT agent_id, phenotype_id, metadata_json FROM agents WHERE agent_id = ?',
+      'SELECT id, metadata_json FROM agents WHERE id = ?',
       [agentId]
     );
     if (!row) return null;
     let metadata = {};
     try { metadata = JSON.parse(row.metadata_json || '{}'); } catch (_) { /* ignore */ }
-    return { agentId: row.agent_id, phenotypeId: row.phenotype_id, metadata };
+    return { agentId: row.id,
+      phenotypeId: metadata.phenotypeId || metadata.phenotype_id || null, metadata };
   } catch (_) {
     return null;
   }
@@ -184,11 +185,7 @@ function invalidateManifest(agentId) {
   manifestCache.delete(agentId);
 }
 
-function validateManifest(manifest) {
-  const errors = [];
-  if (!manifest || typeof manifest !== 'object') {
-    return { valid: false, errors: ['Manifest is required.'] };
-  }
+function validateManifestCollections(manifest, errors) {
   if (!manifest.agentId) errors.push('agentId is required.');
   if (!Array.isArray(manifest.allowedChannels)) {
     errors.push('allowedChannels must be an array.');
@@ -199,12 +196,11 @@ function validateManifest(manifest) {
   if (!Array.isArray(manifest.sendTools) || manifest.sendTools.length === 0) {
     errors.push('sendTools must be a non-empty array.');
   }
-  if (!Array.isArray(manifest.receiveTools)) {
-    errors.push('receiveTools must be an array.');
-  }
-  if (!Array.isArray(manifest.subscriptions)) {
-    errors.push('subscriptions must be an array.');
-  }
+  if (!Array.isArray(manifest.receiveTools)) errors.push('receiveTools must be an array.');
+  if (!Array.isArray(manifest.subscriptions)) errors.push('subscriptions must be an array.');
+}
+
+function validateManifestPolicies(manifest, errors) {
   if (!VALID_ENCODINGS.includes(manifest.preferredEncoding)) {
     errors.push(`preferredEncoding must be one of: ${VALID_ENCODINGS.join(', ')}.`);
   }
@@ -214,13 +210,30 @@ function validateManifest(manifest) {
   if (!VALID_POLICIES.includes(manifest.disclosurePolicy)) {
     errors.push(`disclosurePolicy must be one of: ${VALID_POLICIES.join(', ')}.`);
   }
+}
+
+function validateManifestBudget(manifest, errors) {
   if (!manifest.communicationBudget || typeof manifest.communicationBudget !== 'object') {
     errors.push('communicationBudget must be an object.');
-  } else {
-    const b = manifest.communicationBudget;
-    if (typeof b.total !== 'number' || b.total < 0) errors.push('communicationBudget.total must be a non-negative number.');
-    if (typeof b.used !== 'number' || b.used < 0) errors.push('communicationBudget.used must be a non-negative number.');
+    return;
   }
+  const budget = manifest.communicationBudget;
+  if (typeof budget.total !== 'number' || budget.total < 0) {
+    errors.push('communicationBudget.total must be a non-negative number.');
+  }
+  if (typeof budget.used !== 'number' || budget.used < 0) {
+    errors.push('communicationBudget.used must be a non-negative number.');
+  }
+}
+
+function validateManifest(manifest) {
+  if (!manifest || typeof manifest !== 'object') {
+    return { valid: false, errors: ['Manifest is required.'] };
+  }
+  const errors = [];
+  validateManifestCollections(manifest, errors);
+  validateManifestPolicies(manifest, errors);
+  validateManifestBudget(manifest, errors);
   return { valid: errors.length === 0, errors };
 }
 

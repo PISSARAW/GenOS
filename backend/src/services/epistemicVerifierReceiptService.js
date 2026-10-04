@@ -13,12 +13,7 @@
  */
 
 const crypto = require('node:crypto');
-
-function secretKey() {
-  const value = String(process.env.GENOS_EPISTEMIC_RECEIPT_SECRET || '').trim();
-  if (!value) throw new Error('GENOS_EPISTEMIC_RECEIPT_SECRET must be configured.');
-  return value;
-}
+const { currentKeyId, keyFor } = require('./epistemicReceiptKeyring');
 
 function payloadText(receipt) {
   const fields = [
@@ -39,11 +34,12 @@ function payloadText(receipt) {
     fields.push([...receipt.evidenceTypes].sort().join(','));
   }
   if (receipt.executionEvidence) fields.push(JSON.stringify(receipt.executionEvidence));
+  if (receipt.keyId) fields.push(receipt.keyId);
   return fields.join('\u0000');
 }
 
 function signatureFor(receipt) {
-  return crypto.createHmac('sha256', secretKey()).update(payloadText(receipt)).digest('hex');
+  return crypto.createHmac('sha256', keyFor(receipt.keyId)).update(payloadText(receipt)).digest('hex');
 }
 
 function issueReceipt(input = {}) {
@@ -55,6 +51,7 @@ function issueReceipt(input = {}) {
     nonce: input.nonce || crypto.randomUUID(),
     status: input.status || 'verified',
     independent: input.independent === true,
+    keyId: currentKeyId(),
     independenceDescriptor: input.independenceDescriptor || null,
     independenceDistance: input.independenceDistance !== undefined ? input.independenceDistance : null,
   };

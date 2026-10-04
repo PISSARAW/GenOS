@@ -12,15 +12,23 @@ function packBioPolymer(data) {
   if (data === undefined || data === null) return null;
   try {
     return pack(data);
-  } catch (_) {
-    // Fallback JSON si msgpackr n'est pas disponible.
-    return Buffer.from(JSON.stringify(data), 'utf8');
+  } catch (error) {
+    throw Object.assign(new Error(`Bio-polymer MsgPack encoding failed: ${error.message}`), {
+      code: 'BIOPOLYMER_PACK_FAILED', cause: error
+    });
   }
+}
+
+function parseLegacyJsonBlob(source) {
+  if (source.length < 2 || (source[0] !== 0x7b && source[0] !== 0x5b)) return undefined;
+  try { return JSON.parse(Buffer.from(source).toString('utf8')); } catch (_) { return undefined; }
 }
 
 function unpackBioPolymer(source) {
   if (source === undefined || source === null) return null;
   if (Buffer.isBuffer(source) || source instanceof Uint8Array) {
+    const legacy = parseLegacyJsonBlob(source);
+    if (legacy !== undefined) return legacy;
     try {
       return unpack(source);
     } catch (_) {

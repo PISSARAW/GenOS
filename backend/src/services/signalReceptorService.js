@@ -51,7 +51,8 @@ const actionDispatchers = {
       depth: depth + 1,
       ttlMs: receptor.actionData?.ttlMs,
     });
-    return { executed: result.published === true, signalId: result.signalId, action: 'emit_signal' };
+    return { executed: result.published === true, signalId: result.signalId,
+      action: 'emit_signal', reason: result.published === true ? null : (result.suppressedBy || 'SIGNAL_NOT_PUBLISHED') };
   },
 
   /**
@@ -250,6 +251,14 @@ async function dispatchActions(triggered, signal, ctx = {}) {
       continue;
     }
     try {
+      if (ctx.authorizeAction) {
+        const authority = await ctx.authorizeAction(receptor, signal);
+        if (authority?.authorized !== true) {
+          results.push({ receptorId: receptor.id, executed: false,
+            reason: authority?.reason || 'ACTION_NOT_AUTHORIZED' });
+          continue;
+        }
+      }
       const result = await dispatcher(receptor, signal, ctx);
       results.push({ receptorId: receptor.id, ...result });
     } catch (error) {
@@ -270,8 +279,9 @@ async function matchAndDispatch(signal, ctx = {}) {
     return { triggered: [], dispatched: [], llmRequired: hasRoutingContext(signal) };
   }
   const dispatched = await dispatchActions(triggered, signal, ctx);
+  const executed = dispatched.some((result) => result.executed === true);
   return { triggered: triggered.map((t) => t.receptor.id), dispatched,
-    llmRequired: !dispatched.some((result) => result.executed) && hasRoutingContext(signal) };
+    llmRequired: !executed && hasRoutingContext(signal) };
 }
 
 module.exports = {

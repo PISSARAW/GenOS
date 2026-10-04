@@ -8,6 +8,7 @@
 const assert = require('assert');
 const { open } = require('sqlite');
 const sqlite3 = require('sqlite3').verbose();
+const { createAdditionalSignalPlaneCases } = require('./signalPlaneE2eAdditionalCases');
 
 const dbIndex = require('../src/db');
 const { migrateSignalDeliveryClaims } = require('../src/db/migrations/migrateSignalDeliveryClaims');
@@ -329,46 +330,6 @@ async function testSignalIdCannotOverwritePayload() {
   console.log('[PASS] testSignalIdCannotOverwritePayload');
 }
 
-async function testScopedReadCannotStealDelivery() {
-  resetState();
-  await testDb.run("INSERT INTO organizations (id, name) VALUES ('org-other', 'Other Org')");
-  await testDb.run("INSERT INTO projects (id, organization_id, name) VALUES ('proj-other', 'org-other', 'Other Project')");
-  await testDb.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('ws-other', 'Other', '/tmp/other', 'org-other', 'proj-other')");
-  await testDb.run("INSERT INTO agents (id, name, role, execution_mode, workspace_id) VALUES ('worker-outside', 'Outside', 'worker', 'worker', 'ws-other')");
-  const broadcast = await transport.publishSignal({
-    signalType: 'ligand', signalData: { semanticType: 'SCOPED_READ' },
-    senderAgentId: 'orch-1'
-  });
-  assert.equal((await transport.readSignalsForAgent('worker-outside')).length, 0);
-  assert.ok((await transport.readSignalsForAgent('worker-1')).some(s => s.signalId === broadcast.signalId));
-  receptor.registerReceptor({
-    id: 'receptor-pending-read', targetLigand: 'PENDING_READ',
-    threshold: 0.5, action: 'update_agent',
-    actionData: { agentId: 'worker-1', status: 'running' }
-  });
-  assert.equal(await transport.subscribeAgent(testDb, 'worker-1', 'pending-read-test'), true);
-  const pending = await transport.publishSignal({
-    signalType: 'ligand', signalData: { semanticType: 'PENDING_READ' },
-    topic: 'pending-read-test', senderAgentId: 'orch-1', recipientAgentIds: ['worker-1']
-  });
-  const beforeSeen = await testDb.get('SELECT status FROM signal_deliveries WHERE signal_id = ?', pending.signalId);
-  assert.equal(beforeSeen?.status, 'pending');
-  assert.ok(!(await transport.readSignalsForAgent('worker-1')).some(s => s.signalId === pending.signalId));
-  await transport.markSignalsSeen('worker-1', [pending.signalId]);
-  const row = await testDb.get('SELECT status FROM signal_deliveries WHERE signal_id = ?', pending.signalId);
-  assert.equal(row.status, 'pending');
-  await testDb.run("INSERT INTO workspaces (id, name, path, organization_id) VALUES ('ws-partial', 'Partial', '/tmp/partial', 'org-test')");
-  await testDb.run("INSERT INTO agents (id, name, role, execution_mode, workspace_id) VALUES ('orch-partial', 'Partial', 'orchestrator', 'orchestrator', 'ws-partial')");
-  const rejected = await transport.publishSignal({
-    signalType: 'ligand', signalData: { semanticType: 'PARTIAL_SCOPE' },
-    topic: 'partial-scope', senderAgentId: 'orch-partial', recipientAgentIds: ['worker-1']
-  });
-  assert.equal(rejected.published, false);
-  assert.equal(rejected.routing.routingMode, 'scope_mismatch');
-  assert.equal(await testDb.get('SELECT signal_id FROM signal_blobs WHERE signal_id = ?', rejected.signalId), undefined);
-  console.log('[PASS] testScopedReadCannotStealDelivery');
-}
-
 async function runAllTests() {
   await setupTestDb();
   await testFullReceptorDispatchPath();
@@ -379,7 +340,10 @@ async function runAllTests() {
   await testDurablePollWakePath();
   await testPublicationRequiresDurableDelivery();
   await testSignalIdCannotOverwritePayload();
-  await testScopedReadCannotStealDelivery();
+  const runAdditional = createAdditionalSignalPlaneCases({
+    testDb, resetState, transport, receptor, assert
+  });
+  await runAdditional();
   console.log('\n✓ All Signal Plane E2E tests passed');
   await testDb.close();
 }

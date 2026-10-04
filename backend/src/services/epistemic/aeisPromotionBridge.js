@@ -20,6 +20,7 @@ const { createFormalResult } = require('../formalResultService');
 const { assessClaim } = require('./verificationKernel');
 const verificationFabric = require('./verificationFabric');
 const { validateReceipt } = require('../epistemicVerifierReceiptService');
+const { validateClaimContract } = require('./claimVerificationContract');
 
 /**
  * Convertit un résultat immunitaire Holobionte en FormalResult.
@@ -195,6 +196,7 @@ async function evaluateAeisForPromotion(antigens, context = {}) {
   const holobionteResults = await Promise.all(
     antigens.map(antigen => epistemicHolobionte(antigen, {
       ...context,
+      verifierBudget: { remaining: Math.min(8, Math.max(2, Number(context.maxVerifierExecutions) || 4)) },
       immuneMemory: context.immuneMemory || [],
       domain: context.domain,
       stakes: context.stakes,
@@ -294,6 +296,14 @@ function extractAntigensFromReport(report, domain = 'general') {
 }
 
 async function evaluateReportWithAeis(report, context = {}) {
+  const claims = Array.isArray(report?.claims) ? report.claims : [];
+  const invalid = claims.map(validateClaimContract).filter((contract) => !contract.valid);
+  if (invalid.length) {
+    return {
+      evaluation: { eligible: false, violations: invalid.map((item) => ({ policy: 'claim_verification_contract', message: item.reason })) },
+      assembly: null, holobionteResults: [], allAccepted: false, anyBlocked: true,
+    };
+  }
   const antigens = extractAntigensFromReport(report, context.domain);
   if (antigens.length === 0) {
     return {
@@ -305,18 +315,22 @@ async function evaluateReportWithAeis(report, context = {}) {
     };
   }
   const providerProfiles = context.multiProviderEnabled === true
-    ? await loadProviderProfiles(context.db)
+    ? await loadProviderProfiles(context.db, context.providerAllowlist)
     : [];
   const trustedVerifierDigests = require('../verifierTrustRegistry').listVerifierDigests();
   const result = await evaluateAeisForPromotion(antigens, { ...context, providerProfiles, trustedVerifierDigests });
-  if (context.db) result.persistedAssemblyId = await require('../aeisAssemblyStore').saveAssembly(context.db, result);
+  if (context.multiProviderEnabled === true && result.holobionteResults.some((item) => !item.accepted)) {
+    result.evaluation = { eligible: false, violations: [{ policy: 'multi_provider_review', message: 'Independent provider review is missing, disputed or refuting.' }] };
+    result.assembly = null;
+  }
+  if (context.db && result.assembly) result.persistedAssemblyId = await require('../aeisAssemblyStore').saveAssembly(context.db, result, context);
   return result;
 }
 
-async function loadProviderProfiles(db) {
-  if (!db) return [];
+async function loadProviderProfiles(db, allowlist) {
+  if (!db || !Array.isArray(allowlist) || allowlist.length < 2) return [];
   const rows = await db.all('SELECT provider, model, endpoint FROM provider_configs WHERE enabled = 1 ORDER BY provider, model');
-  return rows.filter((row) => row.provider && row.model).map((row) => ({
+  return rows.filter((row) => row.provider && row.model && allowlist.includes(row.provider)).map((row) => ({
     provider: row.provider, model: `${row.provider}://${row.model}`, endpoint: row.endpoint,
   }));
 }

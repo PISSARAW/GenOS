@@ -11,15 +11,23 @@ async function applyHomeostaticFeedback(antigen, immune, context = {}) {
   const initialResults = immune.verifierResults?.results || [];
   const pressure = homeostasis.computePressure(homeostasisInput(antigen));
   const previousPressure = Number.isFinite(context.previousPressure) ? context.previousPressure : pressure;
-  const evidenceDelta = verificationRate(initialResults);
+  const previousRate = Number.isFinite(context.previousVerificationRate) ? context.previousVerificationRate : verificationRate(initialResults);
+  const evidenceDelta = verificationRate(initialResults) - previousRate;
   const adjustedPressure = homeostasis.feedbackEffect(pressure, previousPressure, evidenceDelta);
   const feedback = { pressure, previousPressure, adjustedPressure,
-    tier: homeostasis.tierFromPressure(adjustedPressure), evidenceDelta, rearbitration: null };
+    tier: homeostasis.tierFromPressure(adjustedPressure), evidenceDelta,
+    previousVerificationRate: previousRate, verificationRate: verificationRate(initialResults),
+    rearbitration: null };
+  if (context.verifierBudget && context.verifierBudget.remaining <= 0) return { immune, feedback };
   const additional = selectAdditionalVerifier(immune, feedback.tier);
   if (!additional) return { immune, feedback };
-  const prior = assignedVerifiers(immune);
+  const prior = priorExecutedVerifiers(immune);
   const result = await executeVerifierWorkers(antigen, [additional], { ...context, priorVerifiers: prior });
-  return { immune: mergeReview(immune, result, additional), feedback: { ...feedback, rearbitration: { verifier: additional.type, resultCount: result.results.length } } };
+  const merged = mergeReview(immune, result, additional);
+  return { immune: merged, feedback: { ...feedback,
+    rearbitration: { verifier: additional.type, resultCount: result.results.length,
+      verificationRate: verificationRate(merged.verifierResults.results),
+      budgetRemaining: context.verifierBudget?.remaining ?? null } } };
 }
 
 function homeostasisInput(antigen) {
@@ -41,11 +49,24 @@ function assignedVerifiers(immune) {
   }));
 }
 
+function priorExecutedVerifiers(immune) {
+  return (immune.verifierResults?.results || []).filter((row) => row.receipt).map((row) => ({
+    type: row.verifierType, executionWorkspace: row.receipt.independenceDescriptor?.workspaceId,
+    strategy: row.receipt.independenceDescriptor?.strategy?.split(',') || [],
+  }));
+}
+
 function selectAdditionalVerifier(immune, tier) {
-  if (TIER_RANK[tier] < TIER_RANK.inflamed || immune.verifierResults?.status === 'verified') return null;
+  if (TIER_RANK[tier] < TIER_RANK.inflamed || hasIndependentQuorum(immune)) return null;
   const used = new Set(assignedVerifiers(immune).map((verifier) => verifier.type));
   const kind = VERIFIER_KINDS.find((candidate) => !used.has(candidate));
   return kind ? { ...defaultCatalog()[kind], niche: kind } : null;
+}
+
+function hasIndependentQuorum(immune) {
+  const workspaces = (immune.verifierResults?.results || []).filter((row) => row.status === 'verified'
+    && row.receipt?.independent === true).map((row) => row.receipt.independenceDescriptor?.workspaceId);
+  return new Set(workspaces.filter(Boolean)).size >= 2;
 }
 
 function mergeReview(immune, addition, verifier) {
@@ -65,21 +86,31 @@ function mergeReview(immune, addition, verifier) {
 }
 
 function verifierDiversity(immune) {
-  const reviewers = assignedVerifiers(immune).map((verifier) => ({ type: verifier.type, niche: verifier.type, strategy: verifier.strategy }));
+  const reviewers = (immune.verifierResults?.results || []).filter((row) => row.receipt).map((row) => ({
+    type: row.verifierType, niche: row.verifierType,
+    strategy: row.receipt?.independenceDescriptor?.strategy || row.verifierType,
+    provider: row.receipt?.independenceDescriptor?.model || 'unknown',
+    tools: (row.receipt?.executionEvidence || []).map((item) => item.commandHash),
+    errorPatterns: row.counterexamples?.map((item) => item.type) || [],
+  }));
   const measured = biocenose.cognitiveBiocenose(reviewers);
   return { ...measured, recruited: measured.shouldRecruit ? measured.recommendNiche : null };
 }
 
 async function recruitNicheVerifier(antigen, immune, context = {}) {
   const diversity = verifierDiversity(immune);
-  if (!diversity.shouldRecruit) return { immune, diversity, recruited: null };
-  const kind = VERIFIER_KINDS.includes(diversity.recommendNiche) ? diversity.recommendNiche
-    : VERIFIER_KINDS.find((candidate) => !assignedVerifiers(immune).some((verifier) => verifier.type === candidate));
+  if (!diversity.shouldRecruit || hasIndependentQuorum(immune) || context.verifierBudget?.remaining === 0) {
+    return { immune, diversity, recruited: null };
+  }
+  const used = new Set(assignedVerifiers(immune).map((verifier) => verifier.type));
+  const preferred = context.preferredVerifierType;
+  const kind = VERIFIER_KINDS.includes(preferred) && !used.has(preferred) ? preferred
+    : VERIFIER_KINDS.find((candidate) => !used.has(candidate));
   if (!kind) return { immune, diversity, recruited: null };
   const verifier = { ...defaultCatalog()[kind], niche: kind };
-  const prior = assignedVerifiers(immune);
+  const prior = priorExecutedVerifiers(immune);
   const result = await executeVerifierWorkers(antigen, [verifier], { ...context, priorVerifiers: prior });
   return { immune: mergeReview(immune, result, verifier), diversity: { ...diversity, recruited: kind }, recruited: kind };
 }
 
-module.exports = { applyHomeostaticFeedback, verifierDiversity, recruitNicheVerifier, homeostasisInput };
+module.exports = { applyHomeostaticFeedback, verifierDiversity, recruitNicheVerifier, homeostasisInput, verificationRate };
