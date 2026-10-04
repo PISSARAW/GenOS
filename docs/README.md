@@ -238,6 +238,7 @@ Index : [adr/README.md](adr/README.md)
 - [0279-calibration-immunitaire-decisionnelle.md](adr/0279-calibration-immunitaire-decisionnelle.md) — calibration qui bloque les décisions en sur-réaction et mémoire de lot persistée dans les reçus.
 - [0280-simulations-temporelles-regeneration-sync.md](adr/0280-simulations-temporelles-regeneration-sync.md) — trajectoires de dommage et lots de synchronisation séquentiels, bornés et audités.
 - [0281-selection-remplacement-partenaire.md](adr/0281-selection-remplacement-partenaire.md) — sélection sans effet, suivie d'une autorisation de remplacement à portes indépendantes.
+- [0282-lifecycle-admission-procedurale.md](adr/0282-lifecycle-admission-procedurale.md) — workflow procédural relié aux services de contrat, d'essai et d'admission existants.
 - [0037-ecosysteme-agentique-11-15.md](adr/0037-ecosysteme-agentique-11-15.md) — écosystème agentique : environnement/niches, substrat cognitif natif-first, physiologie collective, plan de gouvernance, interoception collective.
 - [0038-boucle-controle-cognitif-morphogenese.md](adr/0038-boucle-controle-cognitif-morphogenese.md) — boucle de contrôle cognitif de la morphogenèse.
 - [0039-systemes-vitaux-agents-6-10.md](adr/0039-systemes-vitaux-agents-6-10.md) — systèmes vitaux 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux.

@@ -308,6 +308,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0279](0279-calibration-immunitaire-decisionnelle.md) | Calibration immunitaire décisionnelle | Accepté | 2026-10-04 | Holobionte, immunité, mémoire épistémique |
 | [0280](0280-simulations-temporelles-regeneration-sync.md) | Simulations temporelles de régénération et synchronisation | Accepté | 2026-10-04 | Holobionte, résilience, synchronisation Edge |
 | [0281](0281-selection-remplacement-partenaire.md) | Séparer sélection et remplacement du partenaire | Accepté | 2026-10-04 | Holobionte, compétition, succession |
+| [0282](0282-lifecycle-admission-procedurale.md) | Lier le variant procédural au cycle d'admission | Accepté | 2026-10-04 | Holobionte, contrats, essais, admission |
 
 > **Identifiants numériques partagés** : 26 numéros sont portés par deux
 > fichiers (0018, 0020, 0021, 0022, 0063, 0064, 0065, 0071, 0073, 0076,

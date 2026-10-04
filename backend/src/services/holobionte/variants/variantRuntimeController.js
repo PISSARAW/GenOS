@@ -5,6 +5,14 @@ const store = require('../holobiontStore');
 const variants = require('./index');
 const runtime = require('./variantRuntimeService');
 const { createWorkflowRunner } = require('./variantWorkflowService');
+const admission = require('../symbionts/symbiontAdmissionService');
+const contracts = require('../contracts/symbiosisContractService');
+
+const PROCEDURAL_OPERATIONS = Object.freeze({
+  createSymbiosisContract: contracts.createContract,
+  startSymbiontAdmission: admission.startAdmission,
+  evaluateSymbiontTrial: admission.evaluateTrial
+});
 
 const OPERATIONS = Object.freeze({
   organelle: ['assessOrganelle', 'testOrganelleEssentiality'],
@@ -16,7 +24,7 @@ const OPERATIONS = Object.freeze({
   'edge-core/cloud-symbionts': ['planPlacement', 'planPlacementBatch'],
   'memory-rich': ['planMemory'],
   'competitive-partner': ['selectCompetitivePartner', 'authorizeCompetitiveReplacement'],
-  'procedural': ['planRecruitment'],
+  'procedural': ['planRecruitment', 'createSymbiosisContract', 'startSymbiontAdmission', 'evaluateSymbiontTrial'],
   'tool': ['validateToolManifest', 'validateToolInvocation', 'authorizeToolInvocation'],
   'cloud-core/edge-sync': ['planPlacement', 'planPlacementBatch', 'reconcileEdgeEvents', 'simulateEdgeSynchronization']
 });
@@ -115,6 +123,21 @@ async function evaluatePersistentVariant(db, input = {}) {
   return { receipt, sessionRevision: revision };
 }
 
-const runPersistentVariantWorkflow = createWorkflowRunner(evaluatePersistentVariant);
+async function evaluateWorkflowStep(db, input) {
+  const execute = PROCEDURAL_OPERATIONS[input.operation];
+  if (!execute) return evaluatePersistentVariant(db, input);
+  const session = await store.getSession(db, input.holobiontId);
+  if (!session) throw error('Holobiont session not found.', 'HOLOBIONT_SESSION_NOT_FOUND');
+  requireRevision(input, session);
+  if (session.variantState?.variantId !== 'procedural') {
+    throw error('Admission lifecycle operations require the procedural variant.', 'HOLOBIONT_VARIANT_OPERATION_FORBIDDEN');
+  }
+  const result = await execute(db, { ...input, ...(input.runtimeInput || {}),
+    holobiontId: input.holobiontId, expectedSessionRevision: input.expectedSessionRevision });
+  return { receipt: { operation: input.operation, result },
+    sessionRevision: Number.isInteger(result.sessionRevision) ? result.sessionRevision : session.revision };
+}
+
+const runPersistentVariantWorkflow = createWorkflowRunner(evaluateWorkflowStep);
 
 module.exports = { selectPersistentVariant, evaluatePersistentVariant, runPersistentVariantWorkflow, OPERATIONS };
