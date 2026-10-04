@@ -29,7 +29,8 @@ const BRIDGE_TYPES = {
   CONTRACT_DRIFT: 'epistemic_contradiction',
   TEST_INSTABILITY: 'epistemic_contradiction',
   DEAD_END: 'epistemic_known_failure',
-  VERIFIED_OK: 'epistemic_verifier_success'
+  VERIFIED_OK: 'epistemic_verifier_success',
+  PERFORMANCE_REGRESSION: 'epistemic_performance_regression'
 };
 
 const MAX_INTENSITY = 10;
@@ -80,6 +81,10 @@ async function getMarker(db, marker) {
   return { deposited: true, territoryId: row.territory_id, scope: row.scope, kind: row.kind, intensity: row.intensity };
 }
 
+function toSqliteUtc() {
+  return new Date().toISOString().replace('T', ' ').replace('Z', '');
+}
+
 async function evaporateMarkers(db, args) {
   if (!db || !args || !args.territoryId) return { evaporated: 0 };
   await migrateDaemonStigmergy(db);
@@ -87,7 +92,7 @@ async function evaporateMarkers(db, args) {
   await db.run(
     'UPDATE daemon_stigmergy_markers SET intensity = intensity * ?, updated_at = datetime(?) WHERE territory_id = ?',
     1 - rate,
-    new Date().toISOString(),
+    toSqliteUtc(),
     args.territoryId
   );
   const res = await db.run(
@@ -103,7 +108,7 @@ async function readAttention(db, query) {
   await migrateDaemonStigmergy(db);
   const limit = Math.max(1, Math.min(100, Number(query.limit) || 20));
   const rows = await db.all(
-    'SELECT territory_id, scope, kind, intensity FROM daemon_stigmergy_markers WHERE territory_id = ? ORDER BY ABS(intensity) DESC LIMIT ?',
+    'SELECT territory_id, scope, kind, intensity FROM daemon_stigmergy_markers WHERE territory_id = ? ORDER BY intensity DESC LIMIT ?',
     query.territoryId,
     limit
   );
@@ -111,7 +116,7 @@ async function readAttention(db, query) {
 }
 
 function toAttentionItem(row) {
-  return { scope: row.scope, kind: row.kind, attention: Number(row.intensity.toFixed(3)) };
+  return { scope: row.scope, kind: row.kind, attention: Number(row.intensity.toFixed(3)), isRepellent: row.kind === 'DEAD_END' || row.intensity < 0 };
 }
 
 function buildBridgeSignal(marker) {
