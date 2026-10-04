@@ -29,9 +29,12 @@ function modelAnswer() {
 function testProjection() {
   const supplied = { generateHypotheses: true, candidateHypotheses: [{ hypothesis: 'A caller proposal' }],
     sourceEvidence: ['private-evidence'] };
-  const result = compiler.compileHypotheses({ agentId: 'worker', mission: 'Check caching', supplied });
+  const result = compiler.compileHypotheses({ agentId: 'worker', mission: 'Check caching', supplied, budget: 0.1 });
   assert.equal(result.status, 'ready');
   assert.equal(result.contract.operation, 'INFER');
+  assert.deepEqual(result.obligations.runnable, ['propose_hypotheses']);
+  assert.deepEqual(result.obligations.waiting, ['verify_hypotheses']);
+  assert.equal(result.contract.obligationDigest, result.obligations.digest);
   assert.deepEqual(result.contract.output, ['candidateHypotheses']);
   assert.match(result.prompt, /callerCandidates:/);
   assert.doesNotMatch(result.prompt, /private-evidence/);
@@ -39,10 +42,13 @@ function testProjection() {
   assert.match(result.visibility.promptDigest, /^sha256:[a-f0-9]{64}$/);
   assert.equal(compiler.compileHypotheses({ agentId: 'worker', mission: 'Check caching',
     supplied: { generateHypotheses: false } }).status, 'blocked');
-  assert.equal(compiler.compileHypotheses({ agentId: 'worker', mission: 'x'.repeat(20_000), supplied })
+  assert.equal(compiler.compileHypotheses({ agentId: 'worker', mission: 'x'.repeat(20_000), supplied, budget: 0.1 })
     .reason, 'projection_too_large');
   assert.equal(compiler.compileHypotheses({ agentId: 'worker', mission: 'Check caching',
-    supplied: { generateHypotheses: true, candidateHypotheses: 'wrong' } }).reason, 'candidate_hypotheses_invalid');
+    supplied: { generateHypotheses: true, candidateHypotheses: 'wrong' }, budget: 0.1 })
+    .reason, 'candidate_hypotheses_invalid');
+  assert.equal(compiler.compileHypotheses({ agentId: 'worker', mission: 'Check caching', supplied })
+    .reason, 'generation_budget_required');
 }
 
 async function testGenerationReceipt() {
@@ -63,6 +69,12 @@ async function testGenerationReceipt() {
     assert.ok(first.selectedTriplet.every((item) => item.origin === 'model_generated'));
     const again = await generation.design(input(db));
     assert.equal(again.hypothesisGeneration.reused, true);
+    assert.equal(calls, 1);
+    const budgetChanged = input(db);
+    budgetChanged.normalizedMission.trinityHypothesisGenerationBudgetUsd = 0.2;
+    const changed = await generation.design(budgetChanged);
+    assert.equal(changed.hypothesisGeneration.status, 'unavailable');
+    assert.match(changed.hypothesisGeneration.reason, /obligation audit mismatch/);
     assert.equal(calls, 1);
     const receipt = await db.get('SELECT status, prompt_bytes, audit_blob FROM cognitive_inference_receipts');
     assert.equal(receipt.status, 'completed');
