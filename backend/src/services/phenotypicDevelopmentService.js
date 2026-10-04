@@ -22,6 +22,7 @@
 
 const { express } = require('./agentDna/express');
 const { getDatabase } = require('../db');
+const { phenotypeVector } = require('./phenotypeVectorService');
 
 // ─── Développement phénotypique ─────────────────────────────────────
 
@@ -124,6 +125,8 @@ function useBranch(state, branchId) {
   branch.useCount += 1;
   branch.lastUsedAt = new Date().toISOString();
   branch.strength = Math.min(1, branch.strength + 0.05);
+  state.history.push({ action: 'use', branchId, timestamp: branch.lastUsedAt });
+  state.updatedAt = branch.lastUsedAt;
 
   return branch;
 }
@@ -144,6 +147,8 @@ function developFromEnvironment(state, environment) {
       // Renforcer la branche existante
       existing.strength = Math.min(1, existing.strength + 0.1);
       existing.lastUsedAt = new Date().toISOString();
+      state.history.push({ action: 'strengthen', branchId: existing.id, timestamp: existing.lastUsedAt });
+      state.updatedAt = existing.lastUsedAt;
       actions.push({ action: 'strengthen', branchId: existing.id, need: need.type });
     } else {
       // Créer une nouvelle branche
@@ -253,37 +258,44 @@ function getDevelopmentMetrics(state) {
 
 async function savePhenotypeState(state, database) {
   const db = database || await getDatabase();
-  const id = state.id || `pheno_${state.agentId || state.genomeId}`;
-  state.id = id;
-
-  await db.run(
+  const previousRevision = preparePhenotypeSave(state);
+  const result = await db.run(
     `INSERT INTO agent_phenotype_states (id, agent_id, genome_id, state_json, phenotype_json, branches_json, atrophies_json, history_json, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET state_json = excluded.state_json, phenotype_json = excluded.phenotype_json,
        branches_json = excluded.branches_json, atrophies_json = excluded.atrophies_json,
-       history_json = excluded.history_json, updated_at = excluded.updated_at`,
-    id,
-    state.agentId || null,
-    state.genomeId,
-    JSON.stringify(state),
-    JSON.stringify(state.currentPhenotype || {}),
-    JSON.stringify(state.branches || []),
-    JSON.stringify(state.atrophies || []),
-    JSON.stringify(state.history || []),
-    state.createdAt,
-    state.updatedAt
+       history_json = excluded.history_json, updated_at = excluded.updated_at
+       WHERE agent_phenotype_states.agent_id IS excluded.agent_id
+         AND COALESCE(json_extract(agent_phenotype_states.state_json, '$.revision'), 0) = ?`,
+    state.id, state.agentId || null, state.genomeId, JSON.stringify(state),
+    JSON.stringify(state.currentPhenotype || {}), JSON.stringify(state.branches || []),
+    JSON.stringify(state.atrophies || []), JSON.stringify(state.history || []),
+    state.createdAt, state.updatedAt, previousRevision
   );
+  if (result?.changes === 0) {
+    state.revision = previousRevision;
+    throw new Error('Phenotype revision conflict or owner mismatch.');
+  }
+  return state.id;
+}
 
-  return id;
+function preparePhenotypeSave(state) {
+  if (!state.agentId && !state.genomeId) throw new Error('Phenotype owner is required.');
+  const id = state.id || `pheno_${state.agentId || state.genomeId}`;
+  state.id = id;
+  const previousRevision = Number.isSafeInteger(state.revision) ? state.revision : 0;
+  state.revision = previousRevision + 1;
+  state.vector = phenotypeVector(state.currentPhenotype, state);
+  return previousRevision;
 }
 
 async function loadPhenotypeState(genomeId, database, agentId) {
   const db = database || await getDatabase();
   const row = await db.get(
-    'SELECT state_json FROM agent_phenotype_states WHERE (? IS NOT NULL AND agent_id = ?) OR genome_id = ? ORDER BY updated_at DESC LIMIT 1',
-    agentId || null,
-    agentId || null,
-    genomeId
+    agentId
+      ? 'SELECT state_json FROM agent_phenotype_states WHERE agent_id = ? ORDER BY updated_at DESC LIMIT 1'
+      : 'SELECT state_json FROM agent_phenotype_states WHERE genome_id = ? AND agent_id IS NULL ORDER BY updated_at DESC LIMIT 1',
+    agentId || genomeId
   );
 
   return row ? JSON.parse(row.state_json) : null;

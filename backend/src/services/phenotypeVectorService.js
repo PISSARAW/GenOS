@@ -1,15 +1,10 @@
 'use strict';
 
-const VECTOR_SCHEMA = 'genos.phenotype.v1';
-const CATEGORY_BUCKETS = 8;
-const VECTOR_LENGTH = 7 + CATEGORY_BUCKETS * 2;
+const VECTOR_SCHEMA = 'genos.phenotype.v2';
+const VECTOR_LENGTH = 7;
 
-function categoryBucket(value, offset) {
-  const text = String(value || '').trim().toLowerCase();
-  if (!text) return -1;
-  let hash = 2166136261;
-  for (const char of text) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
-  return offset + ((hash >>> 0) % CATEGORY_BUCKETS);
+function category(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
 function finiteUnit(value) {
@@ -27,17 +22,18 @@ function phenotypeVector(phenotype, state = {}) {
     finiteUnit(branches.length ? branches.reduce((sum, branch) => sum + finiteUnit(branch.strength), 0) / branches.length : 0),
     finiteUnit((pheno.tools || []).length / 16),
     finiteUnit((pheno.capabilities || []).length / 16),
-    ...Array(CATEGORY_BUCKETS * 2).fill(0),
   ];
-  const role = categoryBucket(pheno.role, 7);
-  const strategy = categoryBucket(pheno.strategy, 7 + CATEGORY_BUCKETS);
-  if (role >= 0) values[role] = 1;
-  if (strategy >= 0) values[strategy] = 1;
-  return { schema: VECTOR_SCHEMA, values };
+  return { schema: VECTOR_SCHEMA, values, categories: {
+    role: category(pheno.role), strategy: category(pheno.strategy),
+  } };
 }
 
 function isCompatible(vector) {
-  return vector?.schema === VECTOR_SCHEMA && Array.isArray(vector.values) && vector.values.length === VECTOR_LENGTH;
+  return vector?.schema === VECTOR_SCHEMA && Array.isArray(vector.values)
+    && vector.values.length === VECTOR_LENGTH
+    && vector.values.every((value) => Number.isFinite(value) && value >= 0 && value <= 1)
+    && typeof vector.categories?.role === 'string'
+    && typeof vector.categories?.strategy === 'string';
 }
 
 function cosineSimilarity(left, right) {
@@ -50,7 +46,22 @@ function cosineSimilarity(left, right) {
     leftNorm += left.values[index] ** 2;
     rightNorm += right.values[index] ** 2;
   }
+  dot += categoryDot(left.categories, right.categories);
+  leftNorm += categoryNorm(left.categories);
+  rightNorm += categoryNorm(right.categories);
   return leftNorm && rightNorm ? dot / Math.sqrt(leftNorm * rightNorm) : 0;
+}
+
+function categoryDot(left, right) {
+  let matches = 0;
+  for (const key of ['role', 'strategy']) {
+    matches += Number(Boolean(left[key]) && left[key] === right[key]);
+  }
+  return matches;
+}
+
+function categoryNorm(categories) {
+  return Number(Boolean(categories.role)) + Number(Boolean(categories.strategy));
 }
 
 module.exports = { VECTOR_SCHEMA, phenotypeVector, cosineSimilarity };
