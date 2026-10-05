@@ -5,7 +5,7 @@ const { createHash } = require('node:crypto');
 const VERSION = 1;
 const MAX_OBLIGATIONS = 64;
 const STATES = new Set(['satisfied', 'enforced', 'open', 'blocked']);
-const KINDS = new Set(['INPUT', 'GATE', 'INFER', 'CHECK', 'EMIT']);
+const KINDS = new Set(['READ', 'SELECT', 'CALL', 'INPUT', 'GATE', 'INFER', 'CHECK', 'EMIT']);
 const BASIS_KINDS = new Set(['materialized_prompt', 'runtime_flag', 'model_router_limit',
   'check_receipt', 'effect_receipt']);
 const NODE_FIELDS = new Set(['id', 'kind', 'state', 'dependsOn', 'basis', 'reason']);

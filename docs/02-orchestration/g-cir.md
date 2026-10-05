@@ -1,6 +1,6 @@
 # G-CIR : interface cognitive résiduelle de GenOS
 
-- **Statut** : Partiel ; deux adaptateurs et registre local d'obligations versionné
+- **Statut** : Partiel ; noyau Omega livré localement, intégrations générales encore progressives
 - **Portée** : contrats cognitifs, admission, projection vers un modèle, visibilité et validation
 - **Dernière revue** : 2026-10-04
 - **Décisions liées** : [ADR 0294](../adr/0294-contrat-residuel-cognitif-signal-plane.md), [ADR 0297](../adr/0297-g-cir-generation-hypotheses-trinity.md), [ADR 0299](../adr/0299-registre-obligations-g-cir.md)
@@ -204,6 +204,35 @@ Une sortie JSON invalide, une projection surdimensionnée ou un reçu déjà en
 
 ## 6. Architecture technique
 
+### 6.0 Incrément G-CIR Omega
+
+Le noyau Omega ajoute un chemin de compilation sémantique indépendant des
+adaptateurs historiques Signal Plane et Trinity. Il accepte les opérations
+`READ`, `SELECT`, `CALL`, `INFER`, `CHECK` et `EMIT` dans le même registre
+d'obligations, puis produit une SSA cognitive minimale (`%1`, `%2`, ...), un
+slice causal arrière depuis les obligations demandées et une projection JIT.
+Cette projection sélectionne une représentation supportée par le profil ABI du
+modèle (`portable`, `json`, `sexpr`, `table` ou `code`) ; le modèle inconnu
+retombe sur `portable`.
+
+Le service `cognitiveVisibilityLedger` matérialise des objets par session et
+révision, et permet l'invalidation explicite lors d'une compaction, d'un reset
+ou d'un changement de contexte. `cognitiveWorkingSetService` fournit le
+registre/page-in/page-out et retourne `page_fault` lorsqu'une référence n'est
+pas dans le working set. Ces services sont des primitives runtime testées ; ils
+ne prétendent pas encore prouver la compréhension du modèle ni remplacer les
+gates de vérification et d'effet.
+
+Le compilateur Omega est exposé par
+`backend/src/services/cognitiveOmegaCompiler.js`. Il reste volontairement
+additif : les points d'entrée existants conservent leur contrat v2 et leurs
+reçus, mais `modelRouter.generate` constitue désormais la passerelle Omega
+commune. Toute requête legacy y est enveloppée dans un résidu compatible ; une
+requête portant un programme Omega explicite utilise le slice et la projection
+calculés par Omega. La mise en production d'un `CHECK` ou d'un `EMIT` exige toujours un
+vérificateur ou un actionneur autorisé ; le texte d'un modèle ne peut pas
+fournir lui-même cette autorité.
+
 ### 6.1 Noyau cible
 
 Le noyau proposé comprend six opérations. Leurs noms désignent une sémantique
@@ -246,7 +275,7 @@ général de suppression n'est pas encore livré.
 | [`trinityHypothesisGenerationService.js`](../../backend/src/services/trinityHypothesisGenerationService.js) | Admission budgétaire, candidats Trinity et repli fixe |
 | [`signalPlaneSubscriber.js`](../../backend/src/services/signalPlaneSubscriber.js) | Déclenchement après routage, sans crédit de succès vérifié |
 | [`commonGroundService.js`](../../backend/src/services/communication/commonGroundService.js) | Connaissance partagée et exclusion des entrées expirées |
-| [`modelRouter.js`](../../backend/src/services/modelRouter.js) | Sélection et invocation du backend modèle existant |
+| [`modelRouter.js`](../../backend/src/services/modelRouter.js) | Passerelle Omega commune, sélection et invocation du backend modèle |
 
 Les contrats retournés par `compileSignal` et `compileHypotheses` portent
 `version: 2`, `operation`, `source`, `recipient`, `output`, `check`,
@@ -426,8 +455,10 @@ revendiquée. La combinaison G-CIR constitue une hypothèse d'ingénierie à
 
 ## 11. Limites et non-objectifs
 
-- Les adaptateurs livrés couvrent deux points d'entrée précis ; il n'existe pas de
-  compilateur universel de missions libres ni d'ISA exécutable inter-langages.
+- Le compilateur universel de missions libres et l'ISA exécutable inter-langages
+  restent hors périmètre ; les appels modèle applicatifs passent toutefois par
+  la passerelle Omega commune, avec un wrapper de compatibilité pour les anciens
+  contrats.
 - Le graphe décrit l'admission avant inférence ; il ne vérifie pas automatiquement
   les nœuds `CHECK` et ne résout pas les obligations ouvertes par outil.
 - `READ`, `CALL`, `CHECK` et `EMIT` décrivent le noyau cible ; leur simple nom

@@ -151,7 +151,7 @@ async function invokeProvider(ctx, prepared, uri) {
       prompt: ctx.prompt,
       timeoutMs: attemptTimeout,
       maxTokens: ctx.maxTokens,
-      endpoint: prepared.endpoint,
+      endpoint: ctx.endpoint || prepared.endpoint,
       priority: ctx.priority,
       agentId: ctx.agentId,
       organizationId: ctx.organizationId,

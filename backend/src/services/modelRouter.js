@@ -1,6 +1,7 @@
 const localModelDiscovery = require('./localModelDiscovery');
 const routingPolicy = require('./modelRoutingPolicy');
 const routeRunner = require('./modelRouteRunner');
+const cognitiveOmega = require('./cognitiveOmegaCompiler');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -88,6 +89,7 @@ function defaultOnToken() {}
 function buildRouteContext(opts, clock, remainingMs) {
   return {
     db: opts.db,
+    endpoint: opts.endpoint,
     prompt: opts.prompt,
     maxTokens: opts.maxTokens,
     maxCostUsd: opts.maxCostUsd,
@@ -106,8 +108,20 @@ function buildRouteContext(opts, clock, remainingMs) {
     displayHeight: opts.displayHeight || 1080,
     requiredCapabilities: opts.requiredCapabilities || [],
     onToken: opts.onToken || defaultOnToken,
-    remainingMs
+    remainingMs,
+    cognitiveContract: opts.cognitiveContract
   };
+}
+
+function cognitiveRequest(options) {
+  if (options.cognitiveContract) return options.cognitiveContract;
+  if (options.cognitiveProgram) return cognitiveOmega.compile(options.cognitiveProgram);
+  return cognitiveOmega.compilePrompt({ prompt: options.prompt, operation: options.cognitiveOperation,
+    source: options.cognitiveSource });
+}
+
+function withCognitiveResult(result, contract) {
+  return { ...result, cognitive: contract };
 }
 
 function missingRouteError(policy, configured) {
@@ -140,14 +154,23 @@ async function resolvePolicy(opts) {
 
 async function generate(options) {
   const opts = options || {};
-  const clock = routingPolicy.computeDeadline(opts);
+  const cognitiveContract = cognitiveRequest(opts);
+  if (cognitiveContract.status !== 'ready') {
+    throw Object.assign(new Error(`Cognitive compilation blocked: ${cognitiveContract.reason}`),
+      { code: 'COGNITIVE_COMPILATION_BLOCKED', reason: cognitiveContract.reason });
+  }
+  const routedOptions = { ...opts, prompt: cognitiveContract.prompt || opts.prompt, cognitiveContract };
+  const clock = routingPolicy.computeDeadline(routedOptions);
   const remainingMs = () => Math.min(clock.timeout, clock.deadline - Date.now());
   if (remainingMs() <= 0) throw new Error('Model routing deadline exhausted before attempting a provider.');
-  const policy = await resolvePolicy(opts);
-  const candidates = await resolveCandidates(opts, policy);
-  routingPolicy.assertStrictPreferLocal(policy, candidates, opts);
-  if (policy.mode === 'parallel' && candidates.length > 1) return routeRunner.runParallel(candidates, buildRouteContext(opts, clock, remainingMs));
-  return routeRunner.runFallback(candidates, buildRouteContext(opts, clock, remainingMs));
+  const policy = await resolvePolicy(routedOptions);
+  const candidates = await resolveCandidates(routedOptions, policy);
+  routingPolicy.assertStrictPreferLocal(policy, candidates, routedOptions);
+  const context = buildRouteContext(routedOptions, clock, remainingMs);
+  const result = policy.mode === 'parallel' && candidates.length > 1
+    ? await routeRunner.runParallel(candidates, context)
+    : await routeRunner.runFallback(candidates, context);
+  return withCognitiveResult(result, cognitiveContract);
 }
 
 module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };

@@ -5,6 +5,7 @@
 const os = require('os');
 const { getDatabase } = require('../db');
 const modelProvider = require('../services/modelProvider');
+const modelRouter = require('../services/modelRouter');
 const localModelDiscovery = require('../services/localModelDiscovery');
 const { sanitizeString } = require('../middleware/security');
 
@@ -87,7 +88,8 @@ async function testModel(req, res, next) {
       const registered = await db.get('SELECT endpoint FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName);
       endpoint = registered?.endpoint || undefined;
     }
-    const result = await modelProvider.generate({ model, prompt, endpoint, timeoutMs: Math.min(Number(req.body?.timeoutMs) || 30000, 120000) });
+    const result = await modelRouter.generate({ model, prompt, endpoint,
+      agentId: 'config-model-test', timeoutMs: Math.min(Number(req.body?.timeoutMs) || 30000, 120000) });
     res.json({ success: true, provider: result.provider, text: result.text, usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens } });
   } catch (error) {
     res.status(502).json({ error: { code: 'MODEL_EXECUTION_FAILED', message: error.message } });
