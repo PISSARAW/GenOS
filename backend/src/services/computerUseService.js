@@ -7,7 +7,7 @@
  * strategyExecutionAdapter, the same generic mechanism used by every other
  * strategy primitive.
  */
-const { generate } = require("./modelProvider");
+const modelRouter = require('./modelRouter');
 const { runGenosSync } = require("./genosCli");
 const fs = require("fs");
 const path = require("path");
@@ -180,9 +180,11 @@ const FALLBACK_PLAN = {
 
 async function requestModelText(params) {
     try {
-        const result = await generate({
+        const result = await modelRouter.generate({
             model: params.model,
             prompt: params.prompt,
+            cognitivePrompt: params.mission,
+            cognitiveRawPrompt: params.prompt,
             stream: false,
             maxTokens: 4096,
             displayWidth: params.capture.width,

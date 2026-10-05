@@ -302,7 +302,7 @@ général de suppression n'est pas encore livré.
 | [`trinityHypothesisGenerationService.js`](../../backend/src/services/trinityHypothesisGenerationService.js) | Admission budgétaire, candidats Trinity et repli fixe |
 | [`signalPlaneSubscriber.js`](../../backend/src/services/signalPlaneSubscriber.js) | Déclenchement après routage, sans crédit de succès vérifié |
 | [`commonGroundService.js`](../../backend/src/services/communication/commonGroundService.js) | Connaissance partagée et exclusion des entrées expirées |
-| [`modelRouter.js`](../../backend/src/services/modelRouter.js) | Passerelle Omega commune, sélection et invocation du backend modèle |
+| [`modelRouter.js`](../../backend/src/services/modelRouter.js) | Passerelle Omega commune, sélection et invocation du backend modèle ; les prompts vision Computer Use passent aussi par cette voie |
 
 Les contrats retournés par `compileSignal` et `compileHypotheses` portent
 `version: 2`, `operation`, `source`, `recipient`, `output`, `check`,

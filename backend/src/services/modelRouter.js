@@ -41,6 +41,12 @@ function isLocal(uri) {
 
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
 
+function promptText(value) {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map((part) => part?.text || '').filter(Boolean).join('\n');
+  return JSON.stringify(value || '');
+}
+
 function responseScore(result) {
   return routingPolicy.responseScore(result);
 }
@@ -137,12 +143,13 @@ async function cognitiveRequest(options) {
     risk: options.cognitiveRisk, uncertainty: options.cognitiveUncertainty,
     irreversible: options.cognitiveIrreversible, highStakes: options.cognitiveHighStakes,
     tokens: options.maxTokens, latencyMs: options.timeoutMs, candidates: options.cognitiveCandidates });
-  return cognitiveOmega.compilePrompt({ prompt: options.prompt, operation: options.cognitiveOperation,
+  const contract = cognitiveOmega.compilePrompt({ prompt: options.cognitivePrompt || promptText(options.prompt), operation: options.cognitiveOperation,
     source: options.cognitiveSource, domain: options.cognitiveDomain, program,
     model: options.model, representation: selection?.representation,
     projectionSelection: selection,
     projectionProfile: selection?.profile ? { model: options.model,
       representations: [selection.representation] } : null, economy });
+  return { ...contract, routePrompt: options.cognitiveRawPrompt || null };
 }
 
 function withCognitiveResult(result, contract) {
@@ -267,7 +274,8 @@ async function generate(options) {
     throw Object.assign(new Error(`Cognitive compilation blocked: ${cognitiveContract.reason}`),
       { code: 'COGNITIVE_COMPILATION_BLOCKED', reason: cognitiveContract.reason });
   }
-  const routedOptions = { ...opts, prompt: cognitiveContract.prompt || opts.prompt, cognitiveContract };
+  const routedOptions = { ...opts, prompt: cognitiveContract.routePrompt || cognitiveContract.prompt || opts.prompt,
+    cognitiveContract };
   const clock = routingPolicy.computeDeadline(routedOptions);
   const remainingMs = () => Math.min(clock.timeout, clock.deadline - Date.now());
   if (remainingMs() <= 0) throw new Error('Model routing deadline exhausted before attempting a provider.');

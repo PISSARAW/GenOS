@@ -7,4 +7,6 @@ assert.match(source, /outcome = 'capture_unavailable'/);
 assert.match(source, /outcome = 'model_unavailable'/);
 assert.match(source, /outcome = 'execution_failed'/);
 assert.doesNotMatch(source, /capture\.synthetic\)\s*\{\s*outcome = 'completed'/);
+assert.doesNotMatch(source, /require\(['"]\.\/modelProvider['"]\)/);
+assert.match(source, /modelRouter\.generate/);
 console.log('Computer Use does not promote synthetic execution to success.');
