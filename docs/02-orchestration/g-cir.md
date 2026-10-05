@@ -447,6 +447,14 @@ réels. Le test du routeur utilise un stub pour vérifier la frontière d'appel.
 6. Comparer sur des jeux figés le système courant, une prose courte, un rendu
    fixe et la résidualisation complète ; mesurer erreurs, tokens, coût et
    latence p50/p95 avec intervalles d'incertitude.
+7. La projection adaptative est désormais profilée par modèle et domaine dans
+   `cognitive_projection_samples` : le tokenizer backend mesure les tokens,
+   tandis que coût, latence et qualité doivent être fournis par le runtime.
+   `cognitiveProjectionProfilerService` sélectionne empiriquement une
+   représentation seulement lorsque la qualité est attestée, puis versionne la
+   promotion PGO dans `cognitive_projection_policies`. Les promotions et
+   rollbacks sont également inscrits dans le journal GVX lorsqu'un scope est
+   fourni.
 
 Les résultats enregistrés lors d'un replay ne sont pas une nouvelle inférence
 reproductible à l'identique. Les essais de formats supplémentaires consomment
@@ -484,8 +492,9 @@ revendiquée. La combinaison G-CIR constitue une hypothèse d'ingénierie à
   validation indépendante reste nécessaire avant tout effet.
 - Le format textuel portable vise la compréhension de nombreux LLM ; il ne
   garantit pas qu'un modèle particulier possède la capacité de la tâche.
-- Aucune compression latente, aucun fine-tuning, aucune optimisation de coûts
-  mesurée et aucune migration du digest des enveloppes n'ont été livrés.
+- Aucune compression latente ni fine-tuning ne sont revendiqués. La projection
+  adaptative mesure et sélectionne les formats textuels disponibles ; elle ne
+  fabrique pas une mesure de qualité à partir d'un succès de transport.
 
 La prochaine étape est de relier les hypothèses retenues à des résultats
 expérimentaux vérifiés, puis de comparer la qualité et le coût de bout en bout

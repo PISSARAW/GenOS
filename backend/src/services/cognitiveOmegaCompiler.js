@@ -38,10 +38,17 @@ function compilePrompt(input = {}) {
   const operation = input.operation || 'INFER';
   const plan = promptPlan(input.prompt, operation, input.program && registryOperations(input.program));
   if (plan.status === 'blocked') return { status: 'blocked', reason: plan.reason, version: VERSION };
+  const projected = input.representation && input.representation !== 'portable' && input.program
+    ? projection.compile({ value: { operation, input: input.program,
+      constraints: { domain: input.domain || 'runtime' } },
+    profile: input.projectionProfile || { model: input.model, representations: [input.representation] },
+    representation: input.representation }) : null;
   return { status: 'ready', version: VERSION,
     mode: input.program ? 'native_domain_graph' : 'portable_compatibility', operation,
     domain: input.domain || 'runtime', program: input.program || null,
-    prompt: input.prompt, plan, digest: plan.digest, source: input.source || null };
+    prompt: projected?.prompt || input.prompt, plan, digest: plan.digest, source: input.source || null,
+    projection: projected || { status: 'ready', representation: 'portable', model: input.model || 'unknown-model' },
+    representation: projected?.representation || 'portable', selection: input.projectionSelection || null };
 }
 
 function compile(input = {}) {

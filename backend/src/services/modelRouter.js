@@ -3,6 +3,7 @@ const routingPolicy = require('./modelRoutingPolicy');
 const routeRunner = require('./modelRouteRunner');
 const cognitiveOmega = require('./cognitiveOmegaCompiler');
 const domainGraph = require('./cognitiveOmegaDomainGraphService');
+const projectionProfiler = require('./cognitiveProjectionProfilerService');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -114,14 +115,21 @@ function buildRouteContext(opts, clock, remainingMs) {
   };
 }
 
-function cognitiveRequest(options) {
+async function cognitiveRequest(options) {
   if (options.cognitiveContract) return options.cognitiveContract;
   const program = options.cognitiveProgram || (options.cognitiveDomain
     ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
       objects: options.cognitiveObjects, output: options.cognitiveOutput,
       verification: options.cognitiveVerification }).operations : null);
+  const selection = options.db && options.model
+    ? await projectionProfiler.select(options.db, { model: options.model,
+      task: options.cognitiveDomain || 'runtime' }) : null;
   return cognitiveOmega.compilePrompt({ prompt: options.prompt, operation: options.cognitiveOperation,
-    source: options.cognitiveSource, domain: options.cognitiveDomain, program });
+    source: options.cognitiveSource, domain: options.cognitiveDomain, program,
+    model: options.model, representation: selection?.representation,
+    projectionSelection: selection,
+    projectionProfile: selection?.profile ? { model: options.model,
+      representations: [selection.representation] } : null });
 }
 
 function withCognitiveResult(result, contract) {
@@ -158,7 +166,8 @@ async function resolvePolicy(opts) {
 
 async function generate(options) {
   const opts = options || {};
-  const cognitiveContract = cognitiveRequest(opts);
+  const startedAt = Date.now();
+  const cognitiveContract = await cognitiveRequest(opts);
   if (cognitiveContract.status !== 'ready') {
     throw Object.assign(new Error(`Cognitive compilation blocked: ${cognitiveContract.reason}`),
       { code: 'COGNITIVE_COMPILATION_BLOCKED', reason: cognitiveContract.reason });
@@ -174,6 +183,13 @@ async function generate(options) {
   const result = policy.mode === 'parallel' && candidates.length > 1
     ? await routeRunner.runParallel(candidates, context)
     : await routeRunner.runFallback(candidates, context);
+  if (opts.db && opts.model) {
+    await projectionProfiler.record(opts.db, { model: result.model || opts.model,
+      task: opts.cognitiveDomain || 'runtime', representation: cognitiveContract.representation,
+      prompt: cognitiveContract.prompt, latencyMs: Date.now() - startedAt,
+      costUsd: result.costUsd, quality: opts.cognitiveQuality,
+      evidenceDigest: opts.cognitiveEvidenceDigest });
+  }
   return withCognitiveResult(result, cognitiveContract);
 }
 
