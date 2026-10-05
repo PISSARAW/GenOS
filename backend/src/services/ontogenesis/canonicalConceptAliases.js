@@ -111,7 +111,13 @@ const PHILOSOPHY_ALIASES = Object.freeze({
   realisme_speculatif: 'school.speculative-realism', tout_vide_infini: 'ontology.whole-void-infinite',
   alterite: 'ontology.person-other', mondes_possibles: 'ontology.possible-worlds',
   realisme: 'truth.internal-realism', nominalisme: 'ontology.stances',
-  conceptualisme: 'ontology.stances', organisme_procedural: 'process.actuality-potentiality'
+  conceptualisme: 'ontology.stances', organisme_procedural: 'process.actuality-potentiality',
+  ontologie: 'ontology.being', etre: 'ontology.being', substance: 'ontology.being',
+  attribut: 'ontology.stances', mode: 'ontology.stances', monde_possible: 'ontology.possible-worlds',
+  accessibilite_mondes: 'ontology.possible-worlds', identite: 'ontology.identity-change',
+  continuite_identite: 'ontology.identity-change', realisme_independant: 'truth.internal-realism',
+  tout: 'ontology.whole-void-infinite', vide: 'ontology.whole-void-infinite', infini: 'ontology.whole-void-infinite',
+  autrui: 'ontology.person-other', modele_esprit_matiere: 'metaphysics.mind-body'
 });
 
 const RUNTIME_ALIASES = Object.freeze({

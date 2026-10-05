@@ -217,6 +217,17 @@ assert.deepStrictEqual(operationsResilienceMission.resolvedConcepts.map((concept
   'isolated_recovery', 'OBSERVABILITY', 'TOKEN_ECONOMY'
 ]);
 
+const possibleWorldMission = registry.resolveMission({ requestedConcepts: [
+  'ontologie', 'etre', 'monde_possible', 'accessibilite_mondes', 'identite',
+  'continuite_identite', 'realisme_independant', 'vide', 'autrui', 'modele_esprit_matiere'
+] });
+assert.ok(possibleWorldMission.resolvedConcepts.every((concept) => concept.source === 'philosophy'));
+assert.deepStrictEqual(possibleWorldMission.resolvedConcepts.map((concept) => concept.id), [
+  'ontology.being', 'ontology.being', 'ontology.possible-worlds', 'ontology.possible-worlds',
+  'ontology.identity-change', 'ontology.identity-change', 'truth.internal-realism',
+  'ontology.whole-void-infinite', 'ontology.person-other', 'metaphysics.mind-body'
+]);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
