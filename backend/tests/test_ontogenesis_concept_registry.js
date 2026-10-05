@@ -362,6 +362,16 @@ assert.ok(securityOperationsMission.resolvedConcepts.every((concept) =>
   concept.source === 'capability' || concept.source === 'interface_runtime' || concept.source === 'runtime'));
 assert.ok(securityOperationsMission.resolvedConcepts.every((concept) => concept.id));
 
+const nosologyMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'gaia', 'maladies_auto_immunes', 'maladies_degeneratives', 'maladies_infectieuses',
+  'maladies_genetiques', 'cancers', 'maladies_metaboliques', 'maladies_cardiovasculaires',
+  'maladies_psychiatriques', 'maladies_environnementales', 'maladie_nosocomiale',
+  'maladie_iatrogene', 'therapie', 'pharmacopee'
+] });
+assert.equal(nosologyMission.resolvedConcepts[0].source, 'capability');
+assert.ok(nosologyMission.resolvedConcepts.slice(1).every((concept) =>
+  concept.source === 'documentation' && !concept.available && !concept.executable));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

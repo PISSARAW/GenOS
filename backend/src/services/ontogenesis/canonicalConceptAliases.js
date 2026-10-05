@@ -113,6 +113,7 @@ const CAPABILITY_ALIASES = Object.freeze({
   , niche: 'STRATEGY_ADAPTATION', metabolisme_computationnel: 'TOKEN_ECONOMY'
   , sensorium: 'FOVEAL_PERCEPTION', symbiose: 'IMMUNE_SYSTEM'
   , electrocytes: 'SIGNALING_BUS'
+  , gaia: 'SWARM_METRICS'
   , scopes_tenant: 'COMPLIANCE', multi_tenant: 'COMPLIANCE'
   , rollout: 'PROMOTION_GATE'
   , famille_sensorielle: 'FOVEAL_PERCEPTION', famille_execution: 'PROCEDURAL_GUIDANCE'
