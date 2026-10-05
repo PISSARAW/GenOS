@@ -22,7 +22,7 @@ const CATALOG = [
 ];
 
 const PREFERENCES = {
-  implement: ['trinity', 'a_team', 'rhizome', 'biome', 'metapopulation', 'syncytium', 'biocenose', 'holobionte'],
+  implement: ['a_team', 'trinity', 'rhizome', 'biome', 'metapopulation', 'syncytium', 'biocenose', 'holobionte'],
   verify: ['biocenose', 'trinity', 'metapopulation', 'a_team', 'syncytium', 'holobionte', 'rhizome', 'biome'],
   explore: ['rhizome', 'biome', 'metapopulation', 'trinity', 'a_team', 'biocenose', 'syncytium', 'holobionte'],
   decide: ['biocenose', 'trinity', 'holobionte', 'metapopulation', 'a_team', 'syncytium', 'rhizome', 'biome'],
@@ -93,7 +93,10 @@ function missingRoleCapability(entry) {
 }
 
 function resolveVariant(topology, requested) {
-  if (!requested || requested === 'default') return { variant: 'default', note: null };
+  if (!requested || requested === 'default') {
+    if (topology === 'trinity') return { variant: 'controlled', note: 'defaut-trinity:controlled' };
+    return { variant: 'default', note: null };
+  }
   try {
     const catalog = require('../morphogenesis/registry/variantCatalog');
     const known = catalog.topologyVariants(topology) || [];

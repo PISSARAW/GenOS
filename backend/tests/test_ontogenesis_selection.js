@@ -25,6 +25,12 @@ assert.strictEqual(implement.topology, 'a_team');
 assert.ok(implement.rationale.some((line) => line.includes('a_team:retenu')));
 assert.deepStrictEqual(implement.workerRoles.slice(0, 1), ['sub_orchestrator']);
 
+const trinityDefault = selector.selectTopology({
+  taskKind: 'verify', allowedTopologies: ['trinity'],
+  availableCapabilities: ['execute', 'verify'], memoryLevel: 'normal', failures: []
+});
+assert.strictEqual(trinityDefault.variant, 'controlled');
+
 // Capacité manquante : repli explicite vers une topologie admissible.
 const degraded = selector.selectTopology({
   taskKind: 'implement', allowedTopologies: ['a_team', 'rhizome'],
