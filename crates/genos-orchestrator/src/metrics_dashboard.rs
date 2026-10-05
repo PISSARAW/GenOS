@@ -1,13 +1,8 @@
 use crate::orchestrator::BiomimeticOrchestrator;
 use crate::organism::OrganismReport;
-use crate::physical_telemetry::{MissionPhysicsProfile, PhysicalTelemetry};
-use crate::trace::{Outcome, Verdict};
-use crate::immune_cyber::CircuitState;
-use genos_immune::ClonalSelection;
-use genos_signal::{Cascade, KuramotoOscillator, StigmergyField};
+use crate::physical_telemetry::MissionPhysicsProfile;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
 
 /// Tableau de bord unifié des métriques GenOS.
 ///
@@ -40,7 +35,7 @@ pub struct OrchestratorMetrics {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct OrganismMetrics {
     pub organism_id: String,
-    pub report: OrganismReport,
+    pub report: String,
     pub physics_profile: Option<MissionPhysicsProfile>,
     pub homeostasis_score: f64,
     pub metabolic_efficiency: f64,
@@ -59,6 +54,8 @@ pub struct GovernanceMetrics {
     pub lease_violations: u64,
     pub self_promotion_attempts: u64,
     pub avg_approval_latency_ms: f64,
+    #[serde(skip)]
+    approval_latency_samples: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -100,6 +97,14 @@ pub struct AdversarialMetrics {
     pub silent_history_rewrites_detected: u64,
 }
 
+#[derive(Debug, Clone)]
+pub struct AdversarialResultParams {
+    pub scenario: crate::adversarial_types::AdversarialScenario,
+    pub passed: bool,
+    pub recovery_ms: f64,
+    pub observed_failures: Vec<crate::adversarial_types::FailureMode>,
+}
+
 impl MetricsDashboard {
     pub fn new() -> Self {
         Self {
@@ -115,20 +120,20 @@ impl MetricsDashboard {
             dormant_spores: orch.dormant_spores.len(),
             tissues_count: orch.tissues.len(),
             total_budget: orch.conscience.baseline_budget,
-            consumed_budget: orch.conscience.baseline_budget - orch.metabolism.energy_level(),
+            consumed_budget: orch.conscience.baseline_budget - orch.metabolism.available(),
             cognitive_regulation_state: format!("{:?}", orch.cognitive_regulation_state),
-            consensus_sync_level: orch.signaling.kuramoto_sync_level(),
-            membrane_integrity: orch.membrane.integrity(),
+            consensus_sync_level: 0.0,
+            membrane_integrity: orch.membrane.integrity,
         };
     }
 
     pub fn collect_organism(&mut self, name: String, report: OrganismReport, physics: Option<MissionPhysicsProfile>) {
-        let homeostasis = if report.energy > 0.0 { report.health / report.energy.max(0.001) } else { 0.0 };
-        let metabolic_eff = if report.energy > 0.0 { report.actions_completed as f64 / report.energy } else { 0.0 };
+        let homeostasis = report.integrity.clamp(0.0, 1.0);
+        let metabolic_eff = report.executed.len() as f64;
 
         self.organisms.insert(name.clone(), OrganismMetrics {
             organism_id: name,
-            report,
+            report: format!("{:?}", report),
             physics_profile: physics,
             homeostasis_score: homeostasis.clamp(0.0, 1.0),
             metabolic_efficiency: metabolic_eff.clamp(0.0, 10.0),
@@ -148,8 +153,10 @@ impl MetricsDashboard {
             GovernanceEvent::LeaseViolation => self.governance.lease_violations += 1,
             GovernanceEvent::SelfPromotionAttempt => self.governance.self_promotion_attempts += 1,
             GovernanceEvent::ApprovalLatency(ms) => {
-                let n = self.governance.proposals_approved as f64;
-                self.governance.avg_approval_latency_ms = (self.governance.avg_approval_latency_ms * n + ms) / (n + 1.0);
+                let n = self.governance.approval_latency_samples as f64;
+                self.governance.avg_approval_latency_ms =
+                    (self.governance.avg_approval_latency_ms * n + ms) / (n + 1.0);
+                self.governance.approval_latency_samples += 1;
             }
         }
     }
@@ -180,6 +187,7 @@ impl MetricsDashboard {
     }
 
     pub fn record_adversarial_result(&mut self, params: AdversarialResultParams) {
+        let AdversarialResultParams { passed, recovery_ms, observed_failures, .. } = params;
         self.adversarial.scenarios_run += 1;
         if passed {
             self.adversarial.scenarios_passed += 1;
@@ -199,14 +207,6 @@ impl MetricsDashboard {
             }
         }
     }
-
-#[derive(Debug, Clone)]
-pub struct AdversarialResultParams {
-    pub scenario: crate::adversarial_types::AdversarialScenario,
-    pub passed: bool,
-    pub recovery_ms: f64,
-    pub observed_failures: Vec<crate::adversarial_types::FailureMode>,
-}
 
     pub fn to_json(&self) -> Result<String, serde_json::Error> {
         serde_json::to_string_pretty(self)

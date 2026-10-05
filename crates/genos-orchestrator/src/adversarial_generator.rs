@@ -1,27 +1,26 @@
 use crate::adversarial_types::{
     AdversarialInjection, AdversarialScenario, FailureMode, InjectionPattern, InjectionTarget,
-    InjectionType, ScenarioCategory, ScenarioTemplate, SuccessCriteria, TickDistribution,
+    CellType, InjectionType, ScenarioCategory, ScenarioTemplate, SuccessCriteria, TickDistribution,
 };
-use crate::environment::Environment;
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha20Rng;
+use crate::environment::FileSandbox;
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 use std::collections::HashMap;
 
 pub struct AdversarialGenerator {
-    rng: ChaCha20Rng,
-    base_environment: Environment,
+    rng: StdRng,
+    base_environment: FileSandbox,
     scenario_templates: HashMap<ScenarioCategory, ScenarioTemplate>,
 }
 
 impl AdversarialGenerator {
-    pub fn new(seed: u64, base_environment: Environment) -> Self {
-        let mut gen = Self {
-            rng: ChaCha20Rng::seed_from_u64(seed),
+    pub fn new(seed: u64, base_environment: FileSandbox) -> Self {
+        let mut generator = Self {
+            rng: StdRng::seed_from_u64(seed),
             base_environment,
             scenario_templates: HashMap::new(),
         };
-        gen.register_default_templates();
-        gen
+        generator.register_default_templates();
+        generator
     }
 
     fn register_default_templates(&mut self) {
@@ -52,8 +51,8 @@ impl AdversarialGenerator {
             base_intensity: 0.6,
             typical_duration: 800,
             injection_patterns: vec![
-                InjectionPattern { target: SpecializedCell(crate::specialized_cell_runtime::CellType::Choanocyte), injection_type: FalseNegative { detector: "flow_anomaly".into() }, probability: 0.4, tick_distribution: Early { window: 50 } },
-                InjectionPattern { target: SpecializedCell(crate::specialized_cell_runtime::CellType::Cnidocyte), injection_type: FalsePositive { detector: "threat_pattern".into() }, probability: 0.3, tick_distribution: Uniform },
+                InjectionPattern { target: SpecializedCell(CellType::Choanocyte), injection_type: FalseNegative { detector: "flow_anomaly".into() }, probability: 0.4, tick_distribution: Early { window: 50 } },
+                InjectionPattern { target: SpecializedCell(CellType::Cnidocyte), injection_type: FalsePositive { detector: "threat_pattern".into() }, probability: 0.3, tick_distribution: Uniform },
             ],
         });
 
@@ -98,7 +97,7 @@ impl AdversarialGenerator {
             typical_duration: 700,
             injection_patterns: vec![
                 InjectionPattern { target: ImmuneSystem, injection_type: FalseNegative { detector: "sql_injection".into() }, probability: 0.6, tick_distribution: Uniform },
-                InjectionPattern { target: SpecializedCell(crate::specialized_cell_runtime::CellType::Tracheide), injection_type: CorruptMemory { bitflip_rate: 0.002 }, probability: 0.4, tick_distribution: Burst { center: 300, spread: 100 } },
+                InjectionPattern { target: SpecializedCell(CellType::Tracheide), injection_type: CorruptMemory { bitflip_rate: 0.002 }, probability: 0.4, tick_distribution: Burst { center: 300, spread: 100 } },
             ],
         });
 
@@ -106,7 +105,7 @@ impl AdversarialGenerator {
             base_intensity: 0.4,
             typical_duration: 400,
             injection_patterns: vec![
-                InjectionPattern { target: SpecializedCell(crate::specialized_cell_runtime::CellType::Iridophore), injection_type: CorruptMemory { bitflip_rate: 0.01 }, probability: 0.5, tick_distribution: Early { window: 20 } },
+                InjectionPattern { target: SpecializedCell(CellType::Iridophore), injection_type: CorruptMemory { bitflip_rate: 0.01 }, probability: 0.5, tick_distribution: Early { window: 20 } },
             ],
         });
 
@@ -128,20 +127,20 @@ impl AdversarialGenerator {
                 injection_patterns: vec![],
             });
 
-        let intensity = (template.base_intensity * intensity_multiplier).clamp(0.0, 1.0);
+        let intensity = (template.base_intensity * intensity_multiplier).clamp(0.3, 1.0);
         let duration = (template.typical_duration as f64 * intensity_multiplier) as u64;
 
         let mut injections = Vec::new();
         for pattern in &template.injection_patterns {
-            if self.rng.gen::<f64>() < pattern.probability * intensity {
+            if self.rng.random::<f64>() < pattern.probability * intensity {
                 let tick_offset = match pattern.tick_distribution {
-                    TickDistribution::Early { window } => self.rng.gen_range(0..window.min(duration)),
-                    TickDistribution::Uniform => self.rng.gen_range(0..duration),
-                    TickDistribution::Late { window } => duration.saturating_sub(window) + self.rng.gen_range(0..window.min(duration)),
+                    TickDistribution::Early { window } => self.rng.random_range(0..window.min(duration).max(1)),
+                    TickDistribution::Uniform => self.rng.random_range(0..duration.max(1)),
+                    TickDistribution::Late { window } => duration.saturating_sub(window) + self.rng.random_range(0..window.min(duration).max(1)),
                     TickDistribution::Burst { center, spread } => {
                         let start = center.saturating_sub(spread);
                         let end = (center + spread).min(duration);
-                        self.rng.gen_range(start..end)
+                        if start >= end { start } else { self.rng.random_range(start..end) }
                     }
                 };
                 injections.push(AdversarialInjection {
@@ -157,7 +156,7 @@ impl AdversarialGenerator {
 
         AdversarialScenario {
             id: uuid::Uuid::new_v4(),
-            seed: self.rng.gen(),
+            seed: self.rng.random(),
             category,
             intensity,
             duration_ticks: duration,
@@ -173,7 +172,7 @@ impl AdversarialGenerator {
 
         let (failures, max_dev, max_recovery, gates, forbidden) = match category {
             ResourceExhaustion => (
-                vec![HomeostasisLoss, MetabolicCollapse],
+                vec![HomeostasisLoss, FailureMode::MetabolicCollapse],
                 0.3 + intensity * 0.4,
                 200 + (intensity * 500.0) as u64,
                 vec!["metabolic_checkpoint".into(), "resource_accounting".into()],
@@ -184,7 +183,7 @@ impl AdversarialGenerator {
                 0.2 + intensity * 0.3,
                 100 + (intensity * 300.0) as u64,
                 vec!["input_validation".into(), "immune_detection".into()],
-                vec![GovernanceBypass, MetabolicCollapse],
+                vec![GovernanceBypass, FailureMode::MetabolicCollapse],
             ),
             InternalFailure => (
                 vec![HomeostasisLoss, ImmuneBlindness],
@@ -198,7 +197,7 @@ impl AdversarialGenerator {
                 0.15 + intensity * 0.25,
                 50 + (intensity * 200.0) as u64,
                 vec!["governance_validation".into(), "veto_audit".into()],
-                vec![DataCorruption, MetabolicCollapse],
+                vec![DataCorruption, FailureMode::MetabolicCollapse],
             ),
             TemporalStress => (
                 vec![SnapshotInconsistency, HomeostasisLoss],
@@ -208,14 +207,14 @@ impl AdversarialGenerator {
                 vec![GovernanceBypass, ImmuneBlindness],
             ),
             CascadeFailure => (
-                vec![CascadeUncontrolled, HomeostasisLoss, MetabolicCollapse],
+                vec![CascadeUncontrolled, HomeostasisLoss, FailureMode::MetabolicCollapse],
                 0.4 + intensity * 0.5,
                 300 + (intensity * 800.0) as u64,
                 vec!["cascade_dampening".into(), "circuit_breaker".into()],
                 vec![GovernanceBypass],
             ),
-            MetabolicCollapse => (
-                vec![MetabolicCollapse, HomeostasisLoss],
+            ScenarioCategory::MetabolicCollapse => (
+                vec![FailureMode::MetabolicCollapse, HomeostasisLoss],
                 0.5 + intensity * 0.4,
                 500 + (intensity * 1000.0) as u64,
                 vec!["metabolic_checkpoint".into(), "cryptobiosis_trigger".into()],
@@ -226,7 +225,7 @@ impl AdversarialGenerator {
                 0.2 + intensity * 0.3,
                 100 + (intensity * 300.0) as u64,
                 vec!["immune_detection".into(), "memory_persistence".into()],
-                vec![GovernanceBypass, MetabolicCollapse],
+                vec![GovernanceBypass, FailureMode::MetabolicCollapse],
             ),
             ReproductionError => (
                 vec![ReproductionDefect, DataCorruption],
@@ -240,7 +239,7 @@ impl AdversarialGenerator {
                 0.25 + intensity * 0.35,
                 200 + (intensity * 500.0) as u64,
                 vec!["morphogenesis_validation".into(), "plan_audit".into()],
-                vec![MetabolicCollapse, ImmuneBlindness],
+                vec![FailureMode::MetabolicCollapse, ImmuneBlindness],
             ),
         };
 
@@ -266,7 +265,7 @@ impl AdversarialGenerator {
         for category in categories {
             for i in 0..count_per_category {
                 let intensity = 0.3 + (i as f64 / count_per_category as f64) * 0.7;
-                suite.push(self.generate(category, intensity));
+                suite.push(self.generate(category.clone(), intensity));
             }
         }
         suite
@@ -275,7 +274,7 @@ impl AdversarialGenerator {
 
 impl Default for AdversarialGenerator {
     fn default() -> Self {
-        Self::new(0xDEAD_BEEF, Environment::default())
+        Self::new(0xDEAD_BEEF, FileSandbox::new(".").expect("current directory must be sandboxable"))
     }
 }
 
@@ -286,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_generator_deterministic() {
-        let env = Environment::default();
+        let env = FileSandbox::new(".").unwrap();
         let mut gen1 = AdversarialGenerator::new(42, env.clone());
         let mut gen2 = AdversarialGenerator::new(42, env);
 
@@ -299,8 +298,8 @@ mod tests {
 
     #[test]
     fn test_suite_generation() {
-        let mut gen = AdversarialGenerator::default();
-        let suite = gen.generate_suite(2);
+        let mut generator = AdversarialGenerator::default();
+        let suite = generator.generate_suite(2);
         assert_eq!(suite.len(), 20);
         for s in &suite {
             assert!(s.intensity >= 0.3 && s.intensity <= 1.0);
@@ -310,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_all_categories_covered() {
-        let mut gen = AdversarialGenerator::default();
+        let mut generator = AdversarialGenerator::default();
         for cat in [
             ScenarioCategory::ResourceExhaustion,
             ScenarioCategory::InputCorruption,
@@ -323,7 +322,7 @@ mod tests {
             ScenarioCategory::ReproductionError,
             ScenarioCategory::MorphogenesisLoop,
         ] {
-            let s = gen.generate(cat, 1.0);
+            let s = generator.generate(cat.clone(), 1.0);
             assert_eq!(s.category, cat);
             assert!(!s.success_criteria.required_evidence_gates_passed.is_empty());
         }

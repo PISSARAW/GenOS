@@ -47,6 +47,7 @@ pub trait Environment {
 }
 
 /// Bac à sable fichiers confiné à un répertoire racine.
+#[derive(Clone, Debug)]
 pub struct FileSandbox {
     pub root: PathBuf,
     pub ops: u64,

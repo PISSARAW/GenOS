@@ -1,7 +1,14 @@
-use crate::specialized_cell_runtime::CellType;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum CellType {
+    Choanocyte,
+    Cnidocyte,
+    Tracheide,
+    Iridophore,
+}
 
 /// Générateur de scénarios adversariaux pour tests de robustesse.
 ///
@@ -59,7 +66,7 @@ pub enum InjectionTarget {
     ExternalApi,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum InjectionType {
     BudgetCut { percentage: f64 },
     LatencySpike { ms: u64 },
@@ -71,6 +78,29 @@ pub enum InjectionType {
     DeadlockInduction { resources: Vec<String> },
     ReplayAttack { event_id: String },
     ResourceLeak { rate_per_tick: f64 },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InjectionPattern {
+    pub target: InjectionTarget,
+    pub injection_type: InjectionType,
+    pub probability: f64,
+    pub tick_distribution: TickDistribution,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ScenarioTemplate {
+    pub base_intensity: f64,
+    pub typical_duration: u64,
+    pub injection_patterns: Vec<InjectionPattern>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TickDistribution {
+    Early { window: u64 },
+    Uniform,
+    Late { window: u64 },
+    Burst { center: u64, spread: u64 },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]

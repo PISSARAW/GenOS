@@ -65,6 +65,14 @@ pub struct InvalidationRecord {
     pub replacement: Option<Uuid>,
 }
 
+#[derive(Debug, Clone)]
+pub struct InvalidationParams {
+    pub reason: String,
+    pub evidence: String,
+    pub by: String,
+    pub replacement: Option<Uuid>,
+}
+
 impl AssumptionRegistry {
     pub fn new() -> Self {
         Self {
@@ -83,7 +91,7 @@ impl AssumptionRegistry {
         self.assumptions.get(&id)
     }
 
-pub fn invalidate(&mut self, id: Uuid, params: InvalidationParams) -> Result<(), String> {
+    pub fn invalidate(&mut self, id: Uuid, params: InvalidationParams) -> Result<(), String> {
         if let Some(assumption) = self.assumptions.remove(&id) {
             let record = InvalidationRecord {
                 assumption_id: id,
@@ -98,16 +106,6 @@ pub fn invalidate(&mut self, id: Uuid, params: InvalidationParams) -> Result<(),
         } else {
             Err(format!("Assumption {} not found or already invalidated", id))
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct InvalidationParams {
-    pub reason: String,
-    pub evidence: String,
-    pub by: String,
-    pub replacement: Option<Uuid>,
-}
     }
 
     pub fn list_active(&self, domain: Option<AssumptionDomain>) -> Vec<&Assumption> {
@@ -155,7 +153,12 @@ mod tests {
         });
 
         assert!(reg.get(id).is_some());
-        reg.invalidate(id, "Contre-exemple trouvé".into(), "test_apex_adversarial_defense_bench: échec 12%".into(), "ci-bot".into(), None).unwrap();
+        reg.invalidate(id, InvalidationParams {
+            reason: "Contre-exemple trouvé".into(),
+            evidence: "test_apex_adversarial_defense_bench: échec 12%".into(),
+            by: "ci-bot".into(),
+            replacement: None,
+        }).unwrap();
         assert!(reg.get(id).is_none());
         assert_eq!(reg.list_invalidated().len(), 1);
     }
