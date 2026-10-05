@@ -5,7 +5,8 @@ const { attachWorkerArtifact } = require('../src/services/workerEvidenceLocalArt
 
 const report = { outcome: 'success', claims: [], fullText: JSON.stringify({
   outcome: 'success',
-  claims: [{ statement: 'The contract covers the API response.', evidence: ['mission:api-response'] }]
+  claims: [{ statement: 'The contract covers the API response.', evidence: ['mission:api-response'] }],
+  scopeCompletion: { scopeRef: 'mission:api-response', completedRefs: ['mission:api-response'] }
 }) };
 attachWorkerArtifact(report, {
   mission: { workerKind: 'bounded_worker', localModel: 'test-model', workspaceRoot: 'workspace' },

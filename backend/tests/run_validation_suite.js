@@ -65,6 +65,13 @@ const suites = {
     ['natural search full pipeline E2E', 'search/test_natural_search_full_pipeline_e2e.js'],
     ['natural search evolution', 'search/test_search_evolution.js']
   ],
+  variantIntegration: [
+    ['scout colony evidence and persistence', 'test_daemon_scout_colony.js'],
+    ['Metapopulation regional persistence', 'test_metapopulation_regional_brain.js'],
+    ['A-Team variant contracts', 'test_ateam_variant_acceptance.js'],
+    ['Biocenose argumentation round', 'test_argumentation_runtime.js'],
+    ['Trinity variant contract fixtures', 'test_trinity_executable_harness.js']
+  ],
   grpc: [
     ['gRPC integration', 'test_grpc_services.js']
   ],
@@ -167,6 +174,7 @@ const suites = {
 
 suites.all = [
   ...suites.smoke,
+  ...suites.variantIntegration,
   ...suites.signalPlane,
   ...suites.relationalPhysiology,
   ...suites.grpc,

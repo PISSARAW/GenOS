@@ -79,6 +79,11 @@ async function runtimeChecks() {
     assert.equal(result.status, 'LIMIT_REACHED', JSON.stringify(result));
     assert.equal(result.cycles[0].status, 'VERIFIED');
     assert.equal(result.cycles[0].actionCount, 1);
+    const regionalRuntime = require('../src/services/metapopulation/runtime/regionalRuntimeService');
+    const savedCycle = await regionalRuntime.getLastVerifiedCycle(db, sessionId);
+    assert.equal(savedCycle.cycle, 1);
+    assert.equal(savedCycle.verification.valid, true);
+    assert.equal(typeof savedCycle.seed, 'string');
     assert.equal((await metapopulation.getDeme(sessionId, 'deme-fragile', { db })).status, 'AT_RISK');
 
     metapopulation.registerMigrationAdapter('STRATEGY', {
@@ -95,11 +100,11 @@ async function runtimeChecks() {
     });
     const waiting = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId,
       maxCycles: 1, ...migrationCycle('propagule-waiting', false) }, { db });
-    assert.equal(waiting.cycles[0].status, 'VERIFIED');
+    assert.equal(waiting.cycles[0].status, 'NO_ACTION');
     assert.equal(waiting.cycles[0].actionCount, 0, 'migration trigger remains a required gate');
     const uneconomic = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId,
       maxCycles: 1, ...migrationCycle('propagule-uneconomic', true, false) }, { db });
-    assert.equal(uneconomic.cycles[0].status, 'VERIFIED');
+    assert.equal(uneconomic.cycles[0].status, 'NO_ACTION');
     assert.equal(uneconomic.cycles[0].actionCount, 0, 'negative migration utility must block the offer');
 
     const accepted = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId,
@@ -132,7 +137,7 @@ async function runtimeChecks() {
     assert.ok(rescueEvents.some((event) => event.type === 'RESCUE_OUTCOME_RECORDED'));
     const cappedRescue = await metapopulation.runAutonomousRegionalRuntime({ metapopulationId: sessionId,
       maxCycles: 1, ...rescueCycle('propagule-rescue-exhausted') }, { db });
-    assert.equal(cappedRescue.cycles[0].status, 'VERIFIED');
+    assert.equal(cappedRescue.cycles[0].status, 'NO_ACTION');
     assert.equal(cappedRescue.cycles[0].actionCount, 0, 'rescue attempt limit blocks a new offer');
     assert.deepEqual(await metapopulation.listPropaguleQuarantine({ metapopulationId: sessionId,
       targetDemeId: 'deme-fragile' }, { db }), []);
