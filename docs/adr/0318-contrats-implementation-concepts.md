@@ -23,6 +23,10 @@ Le compilateur produit un contrat pour chacune des 375 entrées. Il distingue
 implémentés. Le routeur expose uniquement des lectures : liste, contrat unique
 et santé du registre. Ces opérations n’accordent aucune autorité runtime.
 
+Chaque expérience compare la topologie de référence `isolated_critics` à des
+variantes centralisée, fédérée et pair-à-pair ; cette déclaration ne vaut pas
+encore résultat expérimental.
+
 ## Conséquences
 
 - les contrats sont comparables et testables sans multiplier les modules ;

@@ -41,7 +41,7 @@
     },
     "experiment": {
       "type": "object",
-      "required": ["id", "hypothesis", "baseline", "successCondition", "rejectionCondition", "evidenceRequired", "status"],
+      "required": ["id", "hypothesis", "baseline", "successCondition", "rejectionCondition", "evidenceRequired", "topologies", "status"],
       "properties": {
         "id": { "type": "string" },
         "hypothesis": { "type": "string" },
@@ -49,6 +49,7 @@
         "successCondition": { "type": "string" },
         "rejectionCondition": { "type": "string" },
         "evidenceRequired": { "type": "array", "items": { "type": "string" } },
+        "topologies": { "type": "array", "minItems": 2, "items": { "type": "string" } },
         "status": { "const": "planned" }
       },
       "additionalProperties": false

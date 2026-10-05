@@ -38,6 +38,8 @@ Chaque contrat contient une interprétation, un invariant, un mécanisme partag�
 des observables, un scénario comparable, des tests de falsification, des limites
 et une responsabilité. Chaque entrée possède aussi une expérience planifiée,
 un baseline, une hypothèse, un critère de succès et un critère de rejet.
+Les expériences déclarent aussi la topologie de référence `isolated_critics` et
+les variantes `centralized`, `federated` et `peer_to_peer`.
 Les 354 contrats mappés ne sont pas présentés comme des fonctionnalités : leur
 mapping n’est pas encore une preuve de comportement.
 Le routeur expose les contrats en

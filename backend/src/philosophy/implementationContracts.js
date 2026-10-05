@@ -86,6 +86,7 @@ const SCENARIO_BY_CATEGORY = Object.freeze({
   organization: { mode: 'topology-comparison', stimulus: 'comparer deux organisations sur la même mission', observation: 'le coût et la distribution des décisions sont mesurés' },
   evaluation: { mode: 'evidence-ablation', stimulus: 'retirer une preuve ou changer le critère', observation: 'la confiance ou le verdict est révisé' },
 });
+const TOPOLOGY_VARIANTS = Object.freeze(['isolated_critics', 'centralized', 'federated', 'peer_to_peer']);
 
 function contractType(concept) {
   if (concept.role === 'lens') return 'lens';
@@ -114,6 +115,7 @@ function experimentFor(category, conceptId, scenario) {
     successCondition: scenario.observation,
     rejectionCondition: 'Aucune différence mesurable, preuve manquante ou résultat non reproductible.',
     evidenceRequired: ['scenario-input', 'scenario-output', 'comparison-receipt'],
+    topologies: TOPOLOGY_VARIANTS,
     status: 'planned',
   };
 }
@@ -199,6 +201,7 @@ function validateContract(contractValue) {
   }
   if (!contractValue.scenario || contractValue.scenario.contractId !== contractValue.id) errors.push('scenario must identify its contract');
   if (!contractValue.experiment || contractValue.experiment.status !== 'planned') errors.push('experiment must be planned');
+  if (!contractValue.experiment?.topologies?.includes('isolated_critics')) errors.push('experiment must include the reference topology');
   for (const field of ['targets', 'observables', 'falsificationTests', 'limits', 'obligations', 'prohibitions', 'violationCriteria']) {
     if (!Array.isArray(contractValue[field]) || contractValue[field].length === 0) errors.push(`${field} must be a non-empty array`);
   }
