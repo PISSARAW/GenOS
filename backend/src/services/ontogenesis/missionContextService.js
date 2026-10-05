@@ -11,6 +11,7 @@ const path = require('path');
 const morphogenesisPlanner = require('../morphogenesis/morphogenesisPlannerService');
 const { isTopology } = require('../morphogenesis/morphogenesisOntology');
 const conceptRegistry = require('./canonicalConceptRegistry');
+const { CATALOG: topologyCatalog } = require('./topologySelector');
 
 const MAX_FILE_BYTES = 128 * 1024;
 const MAX_CONTEXT_CHARS = 4000;
@@ -52,11 +53,16 @@ function normalizeText(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function capabilitiesFor(profile, kind) {
+function topologyNeeds(topology) {
+  return (topologyCatalog.find((entry) => entry.id === topology) || {}).needs || [];
+}
+
+function capabilitiesFor(profile, kind, topology) {
   const capabilities = new Set(['execute', 'analyze']);
   if (kind === 'verify' || profile.scripts.includes('test')) capabilities.add('verify');
   if (profile.ecosystem === 'node') capabilities.add('observe');
   if (kind === 'implement') capabilities.add('coordinate');
+  for (const capability of topologyNeeds(topology)) capabilities.add(capability);
   return [...capabilities];
 }
 
@@ -86,7 +92,8 @@ function inferredTopology(project, profile, kind) {
   return { topology: 'trinity', reason: 'repli-evidence' };
 }
 
-function morphologyFor(project, profile, kind, capabilities) {
+function morphologyFor(input) {
+  const { project, profile, kind, capabilities } = input;
   const selection = inferredTopology(project, profile, kind);
   const requested = selection.topology;
   if (!requested) return { selectedTopology: null, requestedTopology: null, selectionReason: selection.reason,
@@ -136,7 +143,8 @@ function compileMission(project) {
   const root = path.resolve(project.root_path);
   const profile = { ...packageProfile(root), files: fileProfile(root) };
   const kind = classifyMission(project.objective || '', profile);
-  const capabilities = capabilitiesFor(profile, kind);
+  const topology = inferredTopology(project, profile, kind).topology;
+  const capabilities = capabilitiesFor(profile, kind, topology);
   const concepts = conceptRegistry.resolveMission({ objective: project.objective, profile, allowedCapabilities: capabilities });
   const tasks = buildTasks(project.objective || 'mission du projet', profile, kind);
   const context = JSON.stringify({ objective: project.objective || '', kind, profile });
@@ -146,7 +154,7 @@ function compileMission(project) {
     capabilities,
     capabilityCatalog: capabilityCatalog(),
     concepts,
-    morphology: morphologyFor(project, profile, kind, capabilities),
+    morphology: morphologyFor({ project, profile, kind, capabilities }),
     context: context.slice(0, MAX_CONTEXT_CHARS),
     tasks: tasks.map((task) => ({ ...task, dependsOn: task.dependsOnIndex === undefined ? [] : [] }))
   };

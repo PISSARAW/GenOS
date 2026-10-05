@@ -47,6 +47,8 @@ try {
   assert.strictEqual(compileMission({ root_path: root, objective: 'Explorer les branches distribuées' }).morphology.selectedTopology, 'rhizome');
   assert.strictEqual(compileMission({ root_path: root, objective: 'Vérifier les résultats' }).morphology.selectedTopology, 'trinity');
   assert.strictEqual(compileMission({ root_path: root, objective: 'Réparer après un crash' }).morphology.selectedTopology, 'metapopulation');
+  assert.ok(compileMission({ root_path: root, objective: 'Réparer après un crash' }).capabilities.includes('verify'));
+  assert.ok(compileMission({ root_path: root, objective: 'Décider entre deux stratégies' }).capabilities.includes('coordinate'));
   const invalid = compileMission({ root_path: root, config_json: JSON.stringify({ topology: 'unknown' }), objective: 'Mission configuree' });
   assert.strictEqual(invalid.morphology.selectedTopology, null);
   assert.strictEqual(invalid.morphology.error, 'topologie-configuree-inconnue');
