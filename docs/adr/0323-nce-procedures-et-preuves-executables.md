@@ -1,7 +1,8 @@
 # ADR 0323 — NCE : procédures exécutables et preuves liées au phénotype
 
-- Date : 2026-10-05
-- Statut : accepté
+- **Date** : 2026-10-05
+- **Statut** : Accepté
+- **Domaine** : NCE, procédures, phénotype et preuves
 
 ## Contexte
 
@@ -34,3 +35,10 @@ La fermeture est testable sans fournisseur LLM, sur les familles de tâches
 documentées. Elle ne prouve aucune créativité générale ni supériorité statistique
 universelle. Les prototypes restent identifiés comme simulations. Toute extension
 du vocabulaire nécessite sa validation et son propre vérificateur.
+
+## Alternatives
+
+- Conserver seulement des noms de capacités : insuffisant pour établir un transfert exécutable.
+- Exécuter du code arbitraire contenu dans les artefacts : rejeté pour préserver le confinement.
+- Exiger un fournisseur LLM pour chaque test : conservé comme extension du runtime POET existant,
+  sans en faire une dépendance des preuves déterministes de cette boucle.

@@ -27,11 +27,13 @@ function generatedInput(seed) {
 
 async function createEnvironment(root, request, db) {
   const workspacePath = await fs.mkdtemp(path.join(root, 'nce-env-'));
-  const id = `nce-${digest(request).slice(0, 24)}`;
+  const id = `nce-${digest({ ...request, workspacePath }).slice(0, 24)}`;
   await fs.writeFile(path.join(workspacePath, 'package.json'), JSON.stringify({ scripts: { test: 'node verify.cjs' } }));
   await fs.writeFile(path.join(workspacePath, 'verify.cjs'), VERIFIER);
   await fs.writeFile(path.join(workspacePath, 'task.json'), JSON.stringify({ family: request.family }));
   await fs.writeFile(path.join(workspacePath, 'input.json'), JSON.stringify(generatedInput(request.seed)));
+  await db.run('INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)',
+    id, `NCE ${request.family} ${id}`, workspacePath);
   return { id, workspaceId: id, workspacePath, db, artifactPath: 'solution.json',
     verifierCommand: 'npm test', protectedPaths: ['package.json', 'verify.cjs', 'input.json', 'task.json'],
     goals: [`Produce ${request.family} numbers from input.json`], difficulty: 0.3,

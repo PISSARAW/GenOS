@@ -69,13 +69,18 @@ async function enhanceMissionWithNCE(mission, db) {
 async function applyCausalCycle(mission, db) {
   if (!mission.nceExperiment) return null;
   const { runCausalCycle } = require('./nceCausalCycleService');
+  const requested = mission.nceExperiment.features || {};
   const result = await runCausalCycle({ ...mission.nceExperiment, agentId: mission.agentId,
-    features: { play: mission.nceOptions?.play, culture: mission.nceOptions?.culture,
-      phenotype: mission.nceOptions?.phenotype, poet: mission.nceOptions?.envCoev } }, db);
+    features: { play: enabled(requested.play, mission.nceOptions?.play),
+      culture: enabled(requested.culture, mission.nceOptions?.culture),
+      phenotype: enabled(requested.phenotype, mission.nceOptions?.phenotype),
+      poet: enabled(requested.poet, mission.nceOptions?.envCoev) } }, db);
   mission.phenotypeState = await require('./phenotypicDevelopmentService')
     .loadPhenotypeState(null, db, mission.agentId);
   return result;
 }
+
+function enabled(request, option) { return request !== false && option !== false; }
 
 function hasResult(value) {
   if (Array.isArray(value)) return value.length > 0;

@@ -100,8 +100,8 @@ async function applyPlay(mission, config, db) {
   const session = await runPlaySession(mission.agentId || 'agent', {
     db,
     workspacePath: mission.workspacePath,
-    inputs: inputs.slice(0, Math.max(1, config.playSandbox.budget || DEFAULT_PLAY_BUDGET)),
-    options: { budget: Math.max(1, config.playSandbox.budget || DEFAULT_PLAY_BUDGET) },
+    inputs,
+    options: { budget: config.playSandbox.budget ?? DEFAULT_PLAY_BUDGET },
   });
   return {
     discoveries: session.dedupedDiscoveries || [],

@@ -1,15 +1,31 @@
 # Plan d'implémentation — fermeture causale de la Natural Creative Ecology
 
-- **Statut** : Plan proposé — aucun résultat scientifique revendiqué
+- **Statut** : Lots exécutables livrés pour les familles numériques bornées ; aucune créativité générale revendiquée
 - **Portée** : parcours Play, développement et mesure du phénotype, transfert culturel, POET, puis protocole d'ablation
 - **Fiche de référence** : [Natural Creative Ecology](natural-creative-ecology.md)
-- **Dernière revue** : 2026-09-30
+- **Dernière revue** : 2026-10-05
+
+## Livraison du 2026-10-05
+
+| Lot | Réalisation vérifiable |
+| --- | --- |
+| 0 | Reçus versionnés, hashes, identifiants de cycle, idempotence, sauvegarde atomique de l'état et du reçu avec contrôle de révision |
+| 1 | Vecteur structurel v3 conservé ; vecteur créatif v1 à huit dimensions, masque de présence et preuves obligatoires |
+| 2 | Procédures exécutables transmises entre agents ; gain avant/après sur tâches contrôlées ; reprise SQLite ; contrôles négatifs |
+| 3 | Worker natif dans un vrai processus, Play sur snapshots, budgets nuls respectés, rollback sur échec de benchmark |
+| 4 | Générateur de trois familles vérifiables, sélection training figée avant held-out, procédure promue et phénotype persistés |
+| 5 | Six bras d'ablation réellement exécutés, deux graines dans la régression, sorties brutes et coûts conservés |
+
+Contrats, commandes et limites : [Expériences NCE](../03-reference/experiences-nce.md).
+Les observations ci-dessous sont l'état historique ayant motivé le plan. Le lot 5
+n'établit pas une supériorité statistique générale ; O/H restent inconnus sans
+observations dédiées et les familles de tâches ouvertes restent hors du runtime natif.
 
 ## Objectif
 
 Établir une chaîne vérifiable entre les mécanismes NCE et leurs effets observés sur une tâche, sans confondre transport, exécution réussie, changement d'état et preuve causale. Les tests d'intégration doivent d'abord valider le comportement logiciel. Toute conclusion comparative ou scientifique attendra un protocole contrôlé et des répétitions suffisantes.
 
-## État de départ observé
+## État de départ historique
 
 - Le service `phenotypeVectorService` calcule déjà un vecteur `genos.phenotype.v1` de 23 valeurs; le test contractuel vérifie qu'il varie après un développement environnemental. Le manque à traiter est son alimentation par un état de phénotype réel, sa persistance/version et sa vérification dans le parcours runtime, pas la création initiale d'un vecteur.
 - `applyPhenotype` développe un état transmis dans la mission, mais ne charge ni ne persiste lui-même un état durable. Le résultat expose un résumé et le vecteur.

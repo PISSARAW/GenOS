@@ -24,6 +24,9 @@ async function assertLearning(ctx) {
   assert.equal(replay.replayed, true);
   assert.equal(replay.evidenceRef, result.evidenceRef);
   await assert.rejects(runCausalCycle({ ...input, features: { play: false } }, ctx.db), /runId reused/);
+  await assert.rejects(runCausalCycle({ ...input, timeoutMs: 1 }, ctx.db), /runId reused/);
+  await assert.rejects(runCausalCycle({ ...input, split: { ...split,
+    heldOut: split.heldOut.map((environment) => ({ ...environment, protectedPaths: [] })) } }, ctx.db), /runId reused/);
   return result;
 }
 

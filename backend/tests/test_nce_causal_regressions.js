@@ -7,6 +7,7 @@ const { creativePhenotypeVector, DIMENSIONS } = require('../src/services/creativ
 const { executeProgram, program } = require('../src/services/nceProcedureProgram');
 
 async function main() {
+  await assertFeatureIntersection();
   const state = { currentPhenotype: {}, branches: [], atrophies: [], history: [] };
   const original = structuredClone(state);
   let calls = 0;
@@ -30,6 +31,23 @@ async function main() {
   assert.throws(() => program(Array(17).fill('sort')), /excessive/);
   assert.deepEqual(executeProgram(program(['unique', 'sort']), [3, 2, 3, -1]), [-1, 2, 3]);
   console.log('NCE rollback, strict measurements, creative vectors and executable programs: PASS');
+}
+
+async function assertFeatureIntersection() {
+  const cycle = require('../src/services/nceCausalCycleService');
+  const original = cycle.runCausalCycle;
+  let captured;
+  cycle.runCausalCycle = async (input) => { captured = input; return { measured: false }; };
+  try {
+    const result = await require('../src/services/nceIntegrationService').enhanceMissionWithNCE({
+      agentId: 'a', nceExperiment: { features: { play: true, culture: false } },
+      nceOptions: { curiosity: false, reprMutation: false, exaptation: false,
+        play: false, culture: true, phenotype: false, envCoev: false },
+    }, { get: async () => null });
+    assert.deepEqual(result.errors, {});
+    assert.equal(captured.features.play, false);
+    assert.equal(captured.features.culture, false);
+  } finally { cycle.runCausalCycle = original; }
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

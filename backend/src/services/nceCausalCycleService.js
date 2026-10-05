@@ -36,6 +36,9 @@ function procedureAgent(agentId, procedure) {
 }
 
 async function stateFor(input, db) {
+  await db.run(`INSERT OR IGNORE INTO agents
+    (id, name, role, status, execution_mode) VALUES (?, ?, ?, ?, ?)`,
+  input.agentId, input.agentId, 'nce-experimental-subject', 'idle', 'worker');
   const persisted = await phenotype.loadPhenotypeState(null, db, input.agentId);
   if (persisted) return persisted;
   return { id: `pheno_agent_${input.agentId}`, agentId: input.agentId, genomeId: `agent:${input.agentId}`,
@@ -49,7 +52,10 @@ async function requestDigest(input, context) {
     heldOut: await Promise.all(input.split.heldOut.map(environmentFingerprint)),
   };
   return programs.digest({ agentId: input.agentId, features: context.features,
-    artifacts: context.artifacts, fingerprints });
+    artifacts: context.artifacts, fingerprints, timeoutMs: input.timeoutMs ?? 30000,
+    contracts: [...input.split.training, ...input.split.heldOut].map((environment) => ({
+      command: environment.verifierCommand, protectedPaths: environment.protectedPaths,
+      artifactPath: environment.artifactPath })) });
 }
 
 function replayReceipt(state, input, requestHash) {
