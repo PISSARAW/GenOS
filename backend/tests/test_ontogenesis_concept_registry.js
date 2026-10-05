@@ -15,6 +15,7 @@ assert.ok(web.domains.includes('epistemology'));
 assert.ok(web.operational.length > 0);
 assert.ok(web.unavailable.length > 0);
 assert.ok(web.canonicalConcepts.length >= 400);
+assert.ok(web.runtimeConcepts.length >= 180);
 assert.ok(web.selectedConcepts.some((concept) => concept.id === 'mission'));
 assert.strictEqual(web.failClosed, true);
 

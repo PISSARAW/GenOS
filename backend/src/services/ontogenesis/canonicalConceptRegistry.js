@@ -8,6 +8,7 @@
 
 const accessMatrix = require('../capabilityAccessMatrix');
 const conceptInventory = require('./canonicalConceptInventory');
+const runtimeConceptRegistry = require('../conceptRegistryService');
 
 const LEGACY_DOMAIN_CATALOG = Object.freeze([
   ['foundations', ['mission', 'provenance', 'evidence', 'authority', 'lease', 'budget', 'workspace', 'promotion', 'recovery']],
@@ -66,10 +67,17 @@ function capabilityCatalog() {
 function conceptCatalog() {
   const operational = new Set(capabilityCatalog().filter((entry) => entry.state === 'operationnel')
     .map((entry) => entry.capability.toLowerCase()));
-  return DOMAIN_CATALOG.flatMap((domain) => domain.concepts.map((id) => ({
+  const documented = DOMAIN_CATALOG.flatMap((domain) => domain.concepts.map((id) => ({
     id, domain: domain.id, state: operational.has(id) ? 'operationnel' : 'catalogue',
-    executable: operational.has(id)
+    executable: operational.has(id), source: 'documentation'
   })));
+  const registered = Object.values(runtimeConceptRegistry.getAllConcepts()).map((concept) => ({
+    id: concept.id, domain: concept.kind, state: concept.maturity || 'ready', source: 'concept_registry',
+    executable: Boolean((concept.tools || []).length || (concept.primitives || []).length),
+    tools: concept.tools || [], primitives: concept.primitives || [],
+    capabilities: concept.capabilities || [], authority: concept.authorityRequirements || []
+  }));
+  return documented.concat(registered);
 }
 
 function resolveMission(input = {}) {
@@ -82,10 +90,19 @@ function resolveMission(input = {}) {
   return {
     domains, capabilities,
     canonicalConcepts: conceptCatalog(), selectedConcepts,
+    runtimeConcepts: registeredConcepts(),
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
     failClosed: true
   };
+}
+
+function registeredConcepts() {
+  return Object.values(runtimeConceptRegistry.getAllConcepts()).map((concept) => ({
+    id: concept.id, kind: concept.kind, maturity: concept.maturity || 'ready',
+    tools: concept.tools || [], primitives: concept.primitives || [],
+    capabilities: concept.capabilities || [], authority: concept.authorityRequirements || []
+  }));
 }
 
 function registryHealth() {
@@ -100,4 +117,4 @@ function registryHealth() {
   };
 }
 
-module.exports = { DOMAIN_CATALOG, capabilityCatalog, conceptCatalog, resolveMission, registryHealth };
+module.exports = { DOMAIN_CATALOG, capabilityCatalog, conceptCatalog, registeredConcepts, resolveMission, registryHealth };
