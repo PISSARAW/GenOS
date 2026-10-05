@@ -37,5 +37,12 @@ const policy = { read: ['repo'], select: ['auth_slice'], call: ['scan'], infer: 
   assert.equal(denied.reason, 'emit_not_authorized');
   const missing = await runtime.execute({ operations, policy: { ...policy, infer: [] }, allowEmit: true });
   assert.equal(missing.reason, 'infer_not_authorized');
+  const mmuRuntime = createRuntime();
+  const paged = await mmuRuntime.execute({
+    operations: [{ id: 'read_paged', kind: 'READ', reference: '@repo/missing', dependsOn: [] }],
+    policy: { read: ['@repo/missing'] },
+    mmu: { need: async () => ({ status: 'page_in', page: { value: { loaded: true } } }) }
+  });
+  assert.deepEqual(paged.values.read_paged, { loaded: true });
   console.log('G-CIR Omega runtime checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

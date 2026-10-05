@@ -54,9 +54,17 @@ function createRuntime() {
   async function read(operation, state) {
     if (!allowed(state.policy, 'READ', operation.reference)) return blocked('read_not_authorized', operation);
     const reader = readers.get(operation.reference);
-    if (!reader && !Object.hasOwn(state.objects, operation.reference)) return blocked('reader_missing', operation);
-    const value = reader ? await reader({ reference: operation.reference, context: state.context })
-      : state.objects[operation.reference];
+    let value;
+    if (reader) value = await reader({ reference: operation.reference, context: state.context });
+    else if (Object.hasOwn(state.objects, operation.reference)) value = state.objects[operation.reference];
+    else if (state.mmu) {
+      const page = await state.mmu.need({ objectId: operation.reference,
+        sessionId: state.context.sessionId, scope: state.context.scope, context: state.context });
+      if (!['ready', 'page_in'].includes(page.status) || page.page?.value === undefined) {
+        return blocked(page.reason || 'page_in_failed', operation);
+      }
+      value = page.page.value;
+    } else return blocked('reader_missing', operation);
     state.values[operation.id] = value;
     return { status: 'ready', value };
   }
@@ -137,7 +145,7 @@ function createRuntime() {
     const byId = new Map(operations.map((operation) => [operation.id, operation]));
     const state = { context: input.context || {}, objects: input.objects || {}, values: {}, receipts: {},
     policy: input.policy || {}, allowEmit: input.allowEmit === true,
-    verifierRegistry: input.verifierRegistry || null };
+    verifierRegistry: input.verifierRegistry || null, mmu: input.mmu || null };
     const results = [];
     for (const obligation of plan.obligations) {
       const operation = byId.get(obligation.id);
@@ -157,7 +165,8 @@ function createRuntime() {
       }
     }
     const digest = crypto.createHash('sha256').update(JSON.stringify(results)).digest('hex');
-    return { status: 'emitted', results, values: state.values, digest: `sha256:${digest}` };
+    return { status: 'emitted', results, values: state.values, digest: `sha256:${digest}`,
+      economy: input.economy || null, mmu: state.mmu?.metrics?.() || null };
   }
 
   return { execute,

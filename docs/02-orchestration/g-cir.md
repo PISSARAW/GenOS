@@ -494,6 +494,15 @@ AGOW, Morphogenèse, RPE et Natural Search disposent de profils d'intégration
 explicites. Ce pilotage choisit la profondeur et les vérifications du graphe ;
 il ne transforme pas une estimation ROI en preuve de qualité.
 
+Le `modelRouter` transmet désormais ce plan au runtime Omega. Le MMU fourni par
+le contexte de requête est utilisé par `READ` pour résoudre les défauts de page;
+avec une base SQLite et un identifiant de session, le routeur peut construire
+un working set et un ledger de visibilité persistants. La procéduralisation est
+également raccordée au cycle : une procédure active et validée peut réutiliser
+un résultat sans appel LLM, tandis qu'une exécution portant des références de
+preuve peut enregistrer une trace et produire un candidat de compilation. Une
+trace sans preuve ne peut pas être promue automatiquement.
+
 L'interopérabilité Node/Rust utilise le schéma partagé
 `spec/g-cir-omega.schema.json`, une enveloppe MessagePack positionnelle et les
 vecteurs `spec/g-cir-omega-vectors.json`. Le test Node et le test `genos-mcp`

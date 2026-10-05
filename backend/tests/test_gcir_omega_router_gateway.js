@@ -16,6 +16,7 @@ routeRunner.runFallback = async (candidates, context) => ({
     assert.equal(result.cognitive.mode, 'portable_compatibility');
     assert.equal(result.cognitiveSeen.plan.status, 'ready');
     assert.equal(result.cognitive.execution.status, 'emitted');
+    assert.equal(result.cognitive.execution.economy.source, 'omega_cognitive_economy_v1');
     assert.deepEqual(result.cognitive.execution.operations.map((item) => item.kind),
       ['READ', 'SELECT', 'INFER']);
     assert.equal(result.cognitive.execution.operations[2].status, 'ready');
