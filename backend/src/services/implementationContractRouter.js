@@ -3,6 +3,7 @@
 const {
   compileRegistry,
   compileConcept,
+  readinessReport,
 } = require('../philosophy/implementationContracts');
 
 function copy(value) {
@@ -33,4 +34,5 @@ module.exports = {
   implementationContractHealth,
   listImplementationContracts,
   getImplementationContract,
+  readinessReport,
 };

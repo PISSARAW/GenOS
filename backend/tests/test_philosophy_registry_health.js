@@ -61,7 +61,7 @@ console.log(`Philosophical registry health tests passed (${health.conceptCount} 
 
 const contractHealth = router.handlePhilosophyRequest({ request: { operation: 'implementationContractHealth' } });
 assert.ok(contractHealth instanceof Promise);
-contractHealth.then((result) => {
+contractHealth.then(async (result) => {
   assert.equal(result.valid, true, result.errors.join('; '));
   assert.equal(result.registeredConcepts, health.conceptCount);
   assert.equal(result.compiledConcepts, 375);
@@ -70,6 +70,11 @@ contractHealth.then((result) => {
   assert.equal(result.mappedCount, 354);
   assert.equal(Object.values(result.categoryCounts).reduce((sum, count) => sum + count, 0), 375);
   assert.ok(result.categoryCounts.evaluation > 0);
+  const readiness = await router.handlePhilosophyRequest({ request: { operation: 'implementationReadiness' } });
+  assert.equal(readiness.total, 375);
+  assert.equal(readiness.readyForExperiment, 375);
+  assert.equal(readiness.blocked, 0);
+  assert.equal(readiness.promotionEligible, 0);
   const contract = router.getImplementationContract('epistemology.certainty-doubt');
   assert.ok(contract);
   assert.equal(contract.apiVersion, 'genos.contract/v1');

@@ -197,4 +197,30 @@ function compileRegistry(concepts) {
   return { valid: errors.length === 0, contracts, errors, pilotCount, mappedCount, pendingCount: mappedCount, categoryCounts };
 }
 
-module.exports = { PILOT_CONTRACTS, compileConcept, compileRegistry, validateContract };
+function runReadinessProbe(contractValue) {
+  const errors = validateContract(contractValue);
+  const mapped = contractValue.compilationState === 'mapped-pending-behavior' || contractValue.compilationState === undefined;
+  if (!mapped) errors.push('mechanism is not mapped');
+  return {
+    contractId: contractValue.id,
+    status: errors.length === 0 ? 'ready-for-experiment' : 'blocked',
+    errors,
+    promotionEligible: false,
+    evidence: errors.length === 0 ? ['schema-valid', 'scenario-present', 'mechanism-mapped'] : [],
+  };
+}
+
+function readinessReport(concepts) {
+  const compiled = compileRegistry(concepts);
+  const probes = compiled.contracts.map(runReadinessProbe);
+  return {
+    valid: compiled.valid && probes.every((probe) => probe.status === 'ready-for-experiment'),
+    total: probes.length,
+    readyForExperiment: probes.filter((probe) => probe.status === 'ready-for-experiment').length,
+    blocked: probes.filter((probe) => probe.status === 'blocked').length,
+    promotionEligible: 0,
+    probes,
+  };
+}
+
+module.exports = { PILOT_CONTRACTS, compileConcept, compileRegistry, validateContract, runReadinessProbe, readinessReport };

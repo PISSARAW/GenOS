@@ -41,7 +41,9 @@ Les 354 contrats mappés ne sont pas présentés comme des fonctionnalités : le
 mapping n’est pas encore une preuve de comportement.
 Le routeur expose les contrats en
 lecture seule via `listImplementationContracts`, `getImplementationContract` et
-`implementationContractHealth`.
+`implementationContractHealth`. L’opération `implementationReadiness` exécute
+un contrôle borné sur les 375 contrats et ne marque jamais un contrat comme
+promouvable : elle établit seulement `ready-for-experiment`.
 
 La santé du registre est vérifiée au chargement et par la suite
 `backend/tests/test_philosophy_registry_health.js`. Une entrée peut rester
