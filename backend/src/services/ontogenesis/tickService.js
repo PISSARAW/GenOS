@@ -28,6 +28,7 @@ const { budgetState, memoryState } = require('./resourceGuard');
 const { dispatchTask } = require('./dispatchService');
 const { haltForControl, observeExecution } = require('./executionLifecycle');
 const { processIntegration } = require('./integrationController');
+const { compileDevelopmentalContext } = require('./developmentalContextService');
 
 const NO_WAKE = ['STOPPING', 'STOPPED', 'EXECUTING', 'VERIFYING', 'INTEGRATING', 'INITIALIZING', 'PLANNING'];
 
@@ -230,6 +231,7 @@ async function tickOnce(db, input) {
     await compileEmptyBacklog(db, project, tasks);
     const ctx = await loadContext(db, input);
     ctx.mission = compileMission(ctx.project);
+    ctx.mission.developmentalContext = await compileDevelopmentalContext(db, ctx.project);
     ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
       (capability) => ctx.mission.capabilities.includes(capability)
     );
