@@ -46,6 +46,8 @@ const DOMAIN_CATALOG = Object.freeze(conceptInventory.entries().reduce((domains,
 }, LEGACY_DOMAIN_CATALOG.map((domain) => ({ id: domain.id, concepts: [...domain.concepts] }))
 ).map((domain) => Object.freeze({ id: domain.id, concepts: Object.freeze([...new Set(domain.concepts)]) })));
 
+const EXISTING_ADAPTERS = Object.freeze({ morphogenese: { service: 'morphogenesisPlannerService', access: 'plan' } });
+
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -79,6 +81,10 @@ function topologyAllows(topology, concept) {
 function resolveConceptReference(reference, topology) {
   const requested = requestedId(reference);
   const target = normalize(requested);
+  const adapter = EXISTING_ADAPTERS[target];
+  if (adapter) return { requested, id: target, source: 'existing_adapter', available: Boolean(topology),
+    executable: Boolean(topology), access: adapter.access,
+    reason: topology ? null : 'topologie-requise', service: adapter.service };
   const runtime = Object.values(runtimeConceptRegistry.getAllConcepts())
     .find((concept) => runtimeReference(concept, requested));
   if (runtime) {
@@ -131,13 +137,15 @@ function coverageReport() {
   const runtimeIds = new Set(runtime.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const graphIds = new Set(graph.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const philosophyIds = new Set(CONCEPT_DEFINITIONS.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
-  const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0, documentationOnly: 0 };
+  const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0,
+    existingAdapter: 0, documentationOnly: 0 };
   for (const entry of conceptInventory.entries()) {
     const id = normalize(entry.id);
     if (runtimeIds.has(id)) counts.runtime += 1;
     else if (capabilities.has(id)) counts.operationalCapability += 1;
     else if (philosophyIds.has(id)) counts.philosophyRead += 1;
     else if (graphIds.has(id)) counts.capabilityGraph += 1;
+    else if (EXISTING_ADAPTERS[id]) counts.existingAdapter += 1;
     else counts.documentationOnly += 1;
   }
   return { inventory: conceptInventory.entries().length, ...counts,

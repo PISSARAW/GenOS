@@ -61,12 +61,13 @@ try {
     config_json: JSON.stringify({ concepts: ['genos_browser_act', 'morphogenese'] }) });
   assert.strictEqual(configured.concepts.resolvedConcepts[0].source, 'runtime');
   assert.strictEqual(configured.concepts.resolvedConcepts[0].executable, true);
-  assert.strictEqual(configured.concepts.resolvedConcepts[1].source, 'documentation');
-  assert.strictEqual(configured.concepts.blockedConcepts.length, 1);
+  assert.strictEqual(configured.concepts.resolvedConcepts[1].source, 'existing_adapter');
+  assert.strictEqual(configured.concepts.resolvedConcepts[1].service, 'morphogenesisPlannerService');
+  assert.strictEqual(configured.concepts.blockedConcepts.length, 0);
   const configuredPlan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },
     mission: configured, config: { budgets: {}, authority: {} }, selection: { topology: 'a_team' } });
   assert.strictEqual(configuredPlan.resolvedConcepts.length, 2);
-  assert.strictEqual(configuredPlan.blockedConcepts[0].id, 'morphogenese');
+  assert.deepStrictEqual(configuredPlan.blockedConcepts, []);
   assert.ok(compileMission({ root_path: root, objective: 'Décider entre deux stratégies' }).capabilities.includes('coordinate'));
   const invalid = compileMission({ root_path: root, config_json: JSON.stringify({ topology: 'unknown' }), objective: 'Mission configuree' });
   assert.strictEqual(invalid.morphology.selectedTopology, null);

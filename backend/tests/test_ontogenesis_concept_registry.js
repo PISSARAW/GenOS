@@ -22,7 +22,7 @@ assert.strictEqual(web.coverage.registryRuntime, 182);
 assert.strictEqual(web.coverage.registryPhilosophy, 375);
 assert.strictEqual(web.coverage.registryGraph, 527);
 assert.strictEqual(web.coverage.runtime + web.coverage.operationalCapability + web.coverage.philosophyRead
-  + web.coverage.capabilityGraph
+  + web.coverage.capabilityGraph + web.coverage.existingAdapter
   + web.coverage.documentationOnly, web.coverage.inventory);
 assert.ok(web.canonicalConcepts.length >= 400);
 assert.ok(web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length >= 375);
@@ -32,12 +32,14 @@ assert.ok(web.runtimeConcepts.every((concept) => Array.isArray(concept.unavailab
 assert.ok(web.runtimeConcepts.every((concept) => concept.unavailablePrimitives.length === 0));
 assert.ok(web.runtimeConcepts.filter((concept) => concept.primitives.length > 0)
   .every((concept) => concept.executable));
-assert.deepStrictEqual(web.resolvedConcepts.map((concept) => concept.source), ['documentation', 'runtime', 'philosophy', 'unknown']);
-assert.strictEqual(web.resolvedConcepts[0].reason, 'concept-documentaire-sans-raccord-runtime');
+assert.deepStrictEqual(web.resolvedConcepts.map((concept) => concept.source), ['existing_adapter', 'runtime', 'philosophy', 'unknown']);
+assert.strictEqual(web.resolvedConcepts[0].source, 'existing_adapter');
+assert.strictEqual(web.resolvedConcepts[0].service, 'morphogenesisPlannerService');
+assert.strictEqual(web.resolvedConcepts[0].executable, true);
 assert.strictEqual(web.resolvedConcepts[1].executable, true);
 assert.strictEqual(web.resolvedConcepts[2].access, 'read');
 assert.strictEqual(web.resolvedConcepts[2].available, false);
-assert.strictEqual(web.blockedConcepts.length, 3);
+assert.strictEqual(web.blockedConcepts.length, 2);
 assert.deepStrictEqual(web.runtimeLeaseCandidates.map((entry) => entry.conceptId), ['genos_browser_act']);
 assert.ok(web.runtimeLeaseCandidates.some((entry) => entry.tools.includes('genos_browser_act')));
 assert.ok(web.runtimeLeaseCandidates.every((entry) => !entry.tools.includes('genos_orchestrate')));
