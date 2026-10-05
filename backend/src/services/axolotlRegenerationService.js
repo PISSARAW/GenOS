@@ -31,14 +31,16 @@ async function planRegeneration(input) {
   const contract = nursery.validateContract(input.functionalContract);
   const scope = helpers.normalizeScope(input.scope, currentTopology);
   const budget = nursery.validateBudget(input.executionBudget);
+  const cognitiveScope = normalizeCognitiveScope(input.cognitiveScope);
+  const preserved = await require('./axolotlCognitiveSources').collect(db, { ...input, cognitiveScope, orchestratorId: owner.id });
   const session = { id: `regen_${crypto.randomUUID()}`, orchestratorId: owner.id, workspaceId: owner.workspace_id,
     mission: input.mission, reason: input.reason, createdAt: new Date().toISOString(), status: 'planned',
-    scope, currentTopology, functionalContract: contract, budget, preserved: store.clone(input.preferredPreservation || []),
+    scope, currentTopology, functionalContract: contract, budget, cognitiveScope, preserved,
     targetStructure: helpers.compareTopologyAlternatives(currentTopology)[0] };
   session.regenerationPath = helpers.buildRegenerationPath(currentTopology, session.targetStructure, session.preserved);
   const saved = await store.transaction(db, async (tx) => {
     let baseline = await store.read(tx, { kind: 'topology', id: owner.id });
-    if (!baseline) baseline = await store.write(tx, { kind: 'topology', id: owner.id, value: { topology: currentTopology } });
+    if (!baseline) baseline = await store.write(tx, { kind: 'topology', id: owner.id, value: { topology: currentTopology, functionalContract: contract, workspaceId: owner.workspace_id } });
     if (store.hash(baseline.topology) !== store.hash(currentTopology)) throw store.error('AXOLOTL_BASELINE_MISMATCH');
     return store.write(tx, { kind: 'session', id: session.id, value: { ...session, baselineVersion: baseline.version } });
   });
@@ -50,7 +52,8 @@ async function ownedSession(db, input) {
   const session = await store.read(db, { kind: 'session', id: input.sessionId });
   if (!session) throw store.error('AXOLOTL_SESSION_NOT_FOUND');
   if (input.orchestratorId !== session.orchestratorId) throw store.error('AXOLOTL_SESSION_ACCESS_DENIED');
-  await store.assertOwner(db, input.orchestratorId);
+  const owner = await store.assertOwner(db, input.orchestratorId);
+  if (owner.workspace_id !== session.workspaceId) throw store.error('AXOLOTL_WORKSPACE_CHANGED');
   return session;
 }
 
@@ -61,7 +64,7 @@ async function claim(db, input) {
     const retryable = session.status === 'failed' && input.retry === true;
     if (session.status !== 'planned' && !expired && !retryable) throw store.error('REGENERATION_SESSION_NOT_PLANNED');
     await require('./axolotlTopologyService').assertMutable({ db: tx, orchestratorId: session.orchestratorId });
-    const deadline = Date.now() + session.budget.durationMs * session.budget.experiments + 1000;
+    const deadline = Date.now() + session.budget.durationMs;
     return store.write(tx, { kind: 'session', id: session.id, expectedVersion: session.version,
       value: { ...session, status: 'executing', runId: crypto.randomUUID(), startedAt: Date.now(), deadline } });
   });
@@ -71,11 +74,15 @@ async function executeRegeneration({ sessionId, db, context = {} }) {
   const connection = resolveDb(db);
   const session = await claim(connection, { ...context, sessionId });
   try {
-    const topology = helpers.buildScopedTopology(session);
-    const result = await nursery.evaluate({ topology, contract: session.functionalContract, budget: session.budget });
-    const cost = costs.accumulate(null, { ...costs.changes(session.currentTopology, topology), durationMs: Date.now() - session.startedAt, events: result.events });
+    const regenerated = helpers.buildScopedTopology(session);
+    const cognitive = await require('./axolotlCognitiveService').evaluate(connection, session, regenerated);
+    const topology = cognitive.topology;
+    const result = await nursery.evaluate({ topology, contract: session.functionalContract,
+      budget: { ...cognitive.remaining, durationMs: session.deadline - Date.now() } });
+    const cost = costs.accumulate(cognitive.cost, { ...costs.changes(session.currentTopology, topology), events: result.events });
+    cost.durationMs = Date.now() - session.startedAt;
     const evidence = { sessionId, subjectHash: store.hash(topology), contractHash: store.hash(session.functionalContract), runId: session.runId, result };
-    return await finalize(connection, { session, topology, result, evidence, cost });
+    return await finalize(connection, { session, topology, result, evidence, cost, learning: cognitive.learning });
   } catch (failure) {
     await markFailed(connection, session, failure);
     return { success: false, sessionId, status: 'failed', code: failure.code || 'AXOLOTL_EXECUTION_FAILED', error: failure.message };
@@ -92,12 +99,13 @@ async function finalize(db, execution) {
     if (result.passed) {
       await require('./axolotlTopologyService').assertMutable({ db: tx, orchestratorId: session.orchestratorId });
       const adopted = await store.write(tx, { kind: 'topology', id: session.orchestratorId, expectedVersion: session.baselineVersion,
-        value: { topology, sessionId: session.id, evidenceRef } });
+        value: { topology, sessionId: session.id, evidenceRef, functionalContract: session.functionalContract, workspaceId: session.workspaceId } });
       adoptedVersion = adopted.version;
     }
+    const record = supportCandidates(execution.learning, { passed: result.passed, topology });
     const state = await store.write(tx, { kind: 'session', id: session.id, expectedVersion: current.version,
       value: { ...current, status: result.passed ? 'completed' : 'rejected', newTopology: topology,
-        validation: result, evidenceRef, adoptedVersion, cost, completedAt: new Date().toISOString() } });
+        validation: result, evidenceRef, adoptedVersion, cost, learning: record, completedAt: new Date().toISOString() } });
     return { success: result.passed, sessionId: session.id, status: state.status, newTopology: topology, validation: result, cost, evidenceRef };
   });
 }
@@ -119,7 +127,8 @@ async function rollbackRegeneration(input) {
     const active = await store.read(tx, { kind: 'topology', id: session.orchestratorId });
     if (active.version !== session.adoptedVersion) throw store.error('AXOLOTL_ROLLBACK_CONFLICT');
     await store.write(tx, { kind: 'topology', id: session.orchestratorId, expectedVersion: active.version,
-      value: { topology: session.currentTopology, rollbackOf: session.id } });
+      value: { topology: session.currentTopology, rollbackOf: session.id, functionalContract: session.functionalContract, workspaceId: session.workspaceId } });
+    await revokeTraits(tx, session);
     await store.write(tx, { kind: 'session', id: session.id, expectedVersion: session.version,
       value: { ...session, status: 'rolled_back', rollbackReason: input.reason, rolledBackAt: new Date().toISOString() } });
     return { success: true, sessionId: session.id, status: 'rolled_back' };
@@ -141,6 +150,30 @@ async function prepareCognitiveLearning(sessionId, input) {
 }
 async function promoteCognitiveCandidate(input) {
   return require('./axolotlCognitiveService').promote({ ...input, db: resolveDb(input.db) });
+}
+
+function normalizeCognitiveScope(scope = []) {
+  if (!Array.isArray(scope) || scope.length > 128 || scope.some((key) => typeof key !== 'string' || !key)) throw store.error('AXOLOTL_COGNITIVE_SCOPE_INVALID');
+  return [...new Set(scope)];
+}
+
+function supportCandidates(record, outcome) {
+  for (const candidate of record.candidates) {
+    if (candidate.status !== 'tested_candidate') continue;
+    const kept = store.hash(outcome.topology.knowledge[candidate.key]) === candidate.contentHash;
+    candidate.status = outcome.passed && kept ? 'supported_candidate' : 'rejected_candidate';
+  }
+  return record;
+}
+
+async function revokeTraits(db, session) {
+  for (const candidate of session.learning?.candidates || []) {
+    if (!candidate.traitId) continue;
+    const row = await db.get('SELECT trait_data_json FROM learned_traits WHERE id = ?', candidate.traitId);
+    if (!row) throw store.error('AXOLOTL_PROMOTED_TRAIT_MISSING');
+    const data = { ...JSON.parse(row.trait_data_json), active: false, rollbackOf: session.id };
+    await db.run('UPDATE learned_traits SET trait_data_json = ?, confidence = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', JSON.stringify(data), candidate.traitId);
+  }
 }
 
 module.exports = { assessRegenerationNeed, planRegeneration, executeRegeneration, rollbackRegeneration,

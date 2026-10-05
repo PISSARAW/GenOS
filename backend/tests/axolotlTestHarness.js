@@ -13,6 +13,8 @@ async function fixture() {
     CREATE TABLE learned_traits (id TEXT PRIMARY KEY, trait_name TEXT, trait_description TEXT,
       source_agent_id TEXT, context_id TEXT, trait_data_json TEXT, promotion_level INTEGER, confidence REAL,
       usage_count INTEGER, created_at TEXT, updated_at TEXT);`);
+  await db.exec(`CREATE TABLE episodic_memories (id TEXT PRIMARY KEY, agent_id TEXT, observation_output TEXT, is_purged INTEGER DEFAULT 0);
+    INSERT INTO episodic_memories VALUES ('source', 'parent', 'safe', 0), ('foreign', 'stranger', 'private', 0), ('purged', 'parent', 'obsolete', 1);`);
   return { db, filename, directory, reopen: () => open({ filename, driver: sqlite3.Database }),
     cleanup: () => fs.rm(directory, { recursive: true, force: true }) };
 }

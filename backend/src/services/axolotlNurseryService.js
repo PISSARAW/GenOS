@@ -28,6 +28,7 @@ function validateBudget(budget = {}) {
 }
 
 function evaluate(input) {
+  if (!Number.isFinite(input.budget.durationMs) || input.budget.durationMs <= 0) return Promise.reject(error('AXOLOTL_DURATION_BUDGET_EXHAUSTED'));
   if (input.contract.probes.length > input.budget.events) return Promise.reject(error('AXOLOTL_EVENT_BUDGET_EXHAUSTED'));
   const verifierDigest = hash(['axolotlNurseryWorker.cjs', 'axolotlRuntimeKernel.js', 'axolotlRegenerationHelpers.js']
     .map((file) => fs.readFileSync(path.join(__dirname, file), 'utf8')));
@@ -39,6 +40,7 @@ function evaluate(input) {
     worker.once('message', (result) => {
       received = true;
       clearTimeout(timer);
+      if (!Number.isSafeInteger(result.events)) { reject(error('AXOLOTL_PROBE_INVALID_RESULT')); return; }
       resolve({ ...result, verifierDigest, processId: process.pid, workerId: worker.threadId, isolated: true });
     });
     worker.once('error', (failure) => { clearTimeout(timer); reject(failure); });

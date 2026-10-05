@@ -1,84 +1,32 @@
 'use strict';
+const { error, hash } = require('./axolotlStateStore');
 
-const crypto = require('crypto');
-const { withTransaction } = require('../db');
-
-/**
- * Keeps cognitive regeneration experiments attached to an Axolotl session.
- * Candidate knowledge is never promoted by this module.
- */
 function createLearningRecord(input = {}) {
-  const candidates = Array.isArray(input.candidates) ? input.candidates : [];
-  return {
-    status: candidates.length ? 'proposed' : 'not_requested',
-    candidates: candidates.map((candidate, index) => ({
-      id: String(candidate.id || `candidate_${index + 1}`),
-      kind: String(candidate.kind || 'knowledge'),
-      content: candidate.content,
-      sourceRefs: Array.isArray(candidate.sourceRefs) ? candidate.sourceRefs : [],
-      status: 'proposed',
-      evidence: []
-    }))
-  };
+  const items = input.candidates || [];
+  if (!Array.isArray(items) || items.length > 128) throw error('AXOLOTL_CANDIDATES_INVALID');
+  const candidates = items.map(normalizeCandidate);
+  if (new Set(candidates.map((item) => item.id)).size !== candidates.length) throw error('AXOLOTL_CANDIDATE_ID_DUPLICATED');
+  return { status: candidates.length ? 'proposed' : 'not_requested', candidates, experiments: [] };
 }
-
-async function evaluateCandidates(record, evaluator) {
-  if (!record || record.candidates.length === 0) return record;
-  if (typeof evaluator !== 'function') return { ...record, status: 'awaiting_evaluator' };
-  const candidates = [];
-  for (const candidate of record.candidates) {
-    const outcome = await evaluator({ ...candidate });
-    candidates.push(attachOutcome(candidate, outcome));
-  }
-  return { status: 'evaluated', candidates };
+function normalizeCandidate(candidate, index) {
+  validateCandidate(candidate);
+  const id = String(candidate.id || `candidate_${index + 1}`);
+  if (!/^[\w.-]{1,160}$/.test(id)) throw error('AXOLOTL_CANDIDATE_ID_INVALID');
+  return { id, key: candidate.key, kind: candidate.kind || 'knowledge', content: structuredClone(candidate.content),
+    contentHash: hash(candidate.content), sourceRefs: structuredClone(candidate.sourceRefs || []),
+    status: 'proposed', evidence: [] };
 }
-
-function attachOutcome(candidate, outcome) {
-  const valid = Boolean(outcome && outcome.passed === true && Array.isArray(outcome.evidenceRefs) && outcome.evidenceRefs.length);
-  return {
-    ...candidate,
-    status: valid ? 'supported_candidate' : 'rejected_candidate',
-    evidence: valid ? outcome.evidenceRefs.map(String) : [],
-    reason: valid ? null : String(outcome?.reason || 'Évaluation sans preuve recevable.')
-  };
+function validateCandidate(candidate) {
+  if (!candidate || typeof candidate.key !== 'string' || !candidate.key.trim() || candidate.key.length > 160) throw error('AXOLOTL_CANDIDATE_KEY_REQUIRED');
+  if (!Object.hasOwn(candidate, 'content') || candidate.content === undefined || Buffer.byteLength(JSON.stringify(candidate.content)) > 65536) throw error('AXOLOTL_CANDIDATE_CONTENT_INVALID');
+  if (candidate.sourceRefs && !Array.isArray(candidate.sourceRefs)) throw error('AXOLOTL_CANDIDATE_SOURCES_INVALID');
 }
-
-function matchesVerifiedEvidence(result, refs) {
-  const verified = new Set(result?.verifiedRefs || []);
-  return result?.valid === true && refs.length > 0 && refs.every((ref) => verified.has(ref));
+function scopedCandidates(session, input) {
+  const record = createLearningRecord(input);
+  const scope = new Set(session.cognitiveScope || []);
+  if (record.candidates.some((item) => !scope.has(item.key))) throw error('AXOLOTL_COGNITIVE_SCOPE_DENIED');
+  if (record.candidates.some((item) => !session.functionalContract.probes.some((probe) => probe.kind === 'recall' && probe.key === item.key))) throw error('AXOLOTL_CANDIDATE_NOT_COVERED');
+  if (record.candidates.length + 2 > session.budget.experiments) throw error('AXOLOTL_EXPERIMENT_BUDGET_EXHAUSTED');
+  return record;
 }
-
-function promotionDetails(candidate) {
-  const value = candidate.content && typeof candidate.content === 'object' ? candidate.content : {};
-  return {
-    name: String(value.traitName || value.name || candidate.id).slice(0, 120),
-    description: String(value.description || (typeof candidate.content === 'string' ? candidate.content : '')).slice(0, 4000),
-    tags: Array.isArray(value.tags) ? value.tags.map(String).slice(0, 32) : []
-  };
-}
-
-function promotionPreconditionFailure({ candidate, refs, db, evidenceVerifier }) {
-  if (candidate?.status !== 'supported_candidate' || !refs.length) return 'COGNITIVE_CANDIDATE_UNSUPPORTED';
-  if (!db || typeof evidenceVerifier !== 'function') return 'COGNITIVE_EVIDENCE_VERIFIER_REQUIRED';
-  return null;
-}
-
-async function promoteCandidate({ candidate, sessionId, sourceAgentId, db, evidenceVerifier }) {
-  const refs = candidate?.evidence || [];
-  const precondition = promotionPreconditionFailure({ candidate, refs, db, evidenceVerifier });
-  if (precondition) return { success: false, code: precondition };
-  const verification = await evidenceVerifier({ db, evidenceRefs: refs, sessionId, candidateId: candidate.id });
-  if (!matchesVerifiedEvidence(verification, refs)) return { success: false, code: 'COGNITIVE_EVIDENCE_REJECTED' };
-  const details = promotionDetails(candidate);
-  if (!details.description) return { success: false, code: 'COGNITIVE_CANDIDATE_EMPTY' };
-  const traitId = `axolotl_trait_${crypto.randomUUID()}`;
-  await withTransaction(db, (tx) => tx.run(
-    `INSERT INTO learned_traits (id, trait_name, trait_description, source_agent_id, context_id, trait_data_json, promotion_level, confidence, usage_count, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 0, 0.5, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    traitId, details.name, details.description, sourceAgentId || null, sessionId,
-    JSON.stringify({ kind: 'axolotl_regeneration_candidate', candidateId: candidate.id, evidenceRefs: refs, verifierReceipt: verification.receiptId || null, tags: details.tags })
-  ));
-  return { success: true, traitId, promotionLevel: 0, evidenceRefs: refs, receiptId: verification.receiptId || null };
-}
-
-module.exports = { createLearningRecord, evaluateCandidates, promoteCandidate };
+module.exports = { createLearningRecord, scopedCandidates };
