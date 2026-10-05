@@ -18,11 +18,12 @@ function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
 }
 
-function selectMembers(members, available) {
+function selectMembers(members, available, waveSize) {
   if (!Array.isArray(members)) return [];
-  if (available < members.length) {
+  const required = Math.min(members.length, waveSize || members.length);
+  if (available < required) {
     throw Object.assign(
-      new Error(`Biological dispatch requires ${members.length} free worker slots, but only ${available} available`),
+      new Error(`Biological dispatch requires ${required} free worker slots, but only ${available} available`),
       { code: 'WORKER_GARAGE_FULL' }
     );
   }
@@ -346,9 +347,10 @@ function dispatchRhizomeMissionMembers({ db, context, members, parent }) {
 async function dispatchBiologicalMembers({ db, context, mode, parent, members }) {
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full`), { code: 'WORKER_GARAGE_FULL' });
-  const selected = selectMembers(members, garage.available);
+  const waves = mode === 'metapopulation' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
+  const selected = selectMembers(members, garage.available, waves ? 2 : members.length);
   if (mode === 'rhizome') return dispatchRhizomeMissionMembers({ db, context, members: selected, parent });
-  if (mode === 'metapopulation' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
+  if (waves) {
     const completed = [];
     for (let offset = 0; offset < selected.length; offset += 2) {
       const pair = selected.slice(offset, offset + 2);
