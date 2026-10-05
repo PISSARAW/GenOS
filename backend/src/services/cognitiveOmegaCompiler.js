@@ -13,9 +13,14 @@ function valueId(index) { return `%${index}`; }
 function promptPlan(prompt, operation) {
   const digest = crypto.createHash('sha256').update(prompt).digest('hex');
   return registry.plan({ version: registry.VERSION, operation, obligations: [
-    { id: 'prompt_input', kind: 'INPUT', state: 'satisfied', dependsOn: [],
+    { id: 'prompt_read', kind: 'READ', state: 'satisfied', dependsOn: [],
       basis: { kind: 'materialized_prompt', reference: `sha256:${digest}` } },
-    { id: 'residual_inference', kind: 'INFER', state: 'open', dependsOn: ['prompt_input'] }
+    { id: 'residual_select', kind: 'SELECT', state: 'satisfied', dependsOn: ['prompt_read'],
+      basis: { kind: 'materialized_prompt', reference: `sha256:${digest}` } },
+    { id: 'model_call_admission', kind: 'CALL', state: 'enforced', dependsOn: ['residual_select'],
+      basis: { kind: 'runtime_flag', reference: 'model_route_admitted' } },
+    { id: 'residual_inference', kind: 'INFER', state: 'open', dependsOn: ['model_call_admission'] },
+    { id: 'candidate_check', kind: 'CHECK', state: 'open', dependsOn: ['residual_inference'] }
   ] });
 }
 

@@ -15,6 +15,9 @@ routeRunner.runFallback = async (candidates, context) => ({
     assert.equal(result.text, 'review residual');
     assert.equal(result.cognitive.mode, 'portable_compatibility');
     assert.equal(result.cognitiveSeen.plan.status, 'ready');
+    assert.deepEqual(result.cognitiveSeen.plan.obligations.map((item) => item.kind),
+      ['READ', 'SELECT', 'CALL', 'INFER', 'CHECK']);
+    assert.deepEqual(result.cognitiveSeen.plan.residual, ['residual_inference', 'candidate_check']);
     assert.match(result.cognitive.digest, /^sha256:[a-f0-9]{64}$/);
     await assert.rejects(router.generate({ model: 'test://omega', prompt: '' }), /Cognitive compilation blocked/);
     console.log('G-CIR Omega router gateway checks passed.');
