@@ -84,6 +84,9 @@ const CAPABILITY_ALIASES = Object.freeze({
   , contrat_execution: 'EXECUTION_GUARDRAILS', contrat_mission: 'EXECUTION_GUARDRAILS'
   , progressive_delivery: 'PROMOTION_GATE', strategy_arena: 'ARENA_COMPETITION'
   , permission_check: 'EXECUTION_GUARDRAILS'
+  , creativite_emergente: 'STRATEGY_ADAPTATION', nouveaute: 'STRATEGY_ADAPTATION'
+  , divergence: 'STRATEGY_PORTFOLIO', candidat_creatif: 'STRATEGY_PORTFOLIO'
+  , recherche_adaptative: 'STRATEGY_ADAPTATION', arene_strategies: 'ARENA_COMPETITION'
   , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
   , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
   , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
@@ -184,7 +187,16 @@ const RUNTIME_ALIASES = Object.freeze({
   workspace_contrefactuel: 'n_way_counterfactual_fork', lignage: 'genos_lineage',
   campagne_evaluation: 'pareto_frontier_concept', benchmark: 'plan_execute_verify',
   frontier_escalation: 'entropy_model_escalation_concept', falsification_forks: 'n_way_counterfactual_fork'
-  , permission_explicite: 'permission_check', cedar: 'active_abstention_human_approval'
+  , permission_explicite: 'permission_check', cedar: 'active_abstention_human_approval',
+  natural_creative_ecology: 'niche_exploration_concept', affordance: 'niche_exploration_concept',
+  exploration: 'niche_exploration_concept', recombinaison: 'genetic_strategy_algorithm',
+  fragment: 'beam_search_concept', falsification_creative: 'falsifiable_hypothesis_tree',
+  recherche_naturelle: 'fish_school_search', pression_recherche: 'genos_parasitic_pressure',
+  progres_causal: 'causal_bisection', active_query: 'genos_search_failures',
+  simulation_prospective: 'simulated_annealing_concept', meristeme_epistemique: 'niche_exploration_concept',
+  experience_discriminante: 'factorial_experiment_concept', spirale_deblocage: 'retroactive_exploration',
+  chronotaxie_aperiodique: 'niche_exploration_concept', observation_dephasee: 'niche_exploration_concept',
+  conservation_contre_exemples: 'falsifiable_hypothesis_tree'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({

@@ -249,6 +249,15 @@ assert.ok(securityMission.resolvedConcepts.every((concept) => concept.source ===
 assert.ok(securityMission.resolvedConcepts.every((concept) => concept.available === true || concept.available === false));
 assert.ok(securityMission.blockedConcepts.length > 0);
 
+const researchMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'natural_creative_ecology', 'exploration', 'recombinaison', 'divergence', 'candidat_creatif',
+  'falsification_creative', 'recherche_naturelle', 'pression_recherche', 'progres_causal',
+  'simulation_prospective', 'recherche_adaptative', 'arene_strategies', 'experience_discriminante',
+  'conservation_contre_exemples'
+] });
+assert.ok(researchMission.resolvedConcepts.every((concept) => concept.source === 'runtime' || concept.source === 'capability'));
+assert.ok(researchMission.resolvedConcepts.every((concept) => concept.available === true || concept.available === false));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
