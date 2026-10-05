@@ -46,7 +46,12 @@ const DOMAIN_CATALOG = Object.freeze(conceptInventory.entries().reduce((domains,
 }, LEGACY_DOMAIN_CATALOG.map((domain) => ({ id: domain.id, concepts: [...domain.concepts] }))
 ).map((domain) => Object.freeze({ id: domain.id, concepts: Object.freeze([...new Set(domain.concepts)]) })));
 
-const EXISTING_ADAPTERS = Object.freeze({ morphogenese: { service: 'morphogenesisPlannerService', access: 'plan' } });
+const EXISTING_ADAPTERS = Object.freeze({
+  morphogenese: { service: 'morphogenesisPlannerService', access: 'plan' },
+  ontogenese: { service: 'tickService', access: 'control' },
+  gvx: { service: 'gvxDevelopmentController', access: 'observe' },
+  shev: { service: 'shev.responsibilityService', access: 'observe' }
+});
 
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')

@@ -56,4 +56,11 @@ assert.strictEqual(graphMission.resolvedConcepts[0].source, 'capability_graph');
 assert.strictEqual(graphMission.resolvedConcepts[0].available, true);
 assert.strictEqual(graphMission.resolvedConcepts[0].executable, true);
 
+const lifecycleMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: ['ontogenese', 'gvx', 'shev'] });
+assert.deepStrictEqual(lifecycleMission.resolvedConcepts.map((concept) => concept.source),
+  ['existing_adapter', 'existing_adapter', 'existing_adapter']);
+assert.deepStrictEqual(lifecycleMission.resolvedConcepts.map((concept) => concept.available), [true, true, true]);
+assert.strictEqual(lifecycleMission.resolvedConcepts[1].service, 'gvxDevelopmentController');
+assert.strictEqual(lifecycleMission.resolvedConcepts[2].service, 'shev.responsibilityService');
+
 console.log('ontogenesis canonical concept registry checks passed.');
