@@ -38,7 +38,8 @@ function makeBarrierInput(agentId, workers) {
     normalizedMission: { prompt: 'base mission', workerBarrierTimeoutMs: 50 },
     autonomyPlan: {},
     contractRecord: {},
-    autonomousWorkers: workers
+    autonomousWorkers: workers,
+    strict: false
   };
 }
 

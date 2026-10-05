@@ -11,6 +11,7 @@ const {
   activeWorkerRecoveryDispatches,
   TERMINAL_AGENT_STATUSES
 } = require('./agentOrchestrationState');
+const { reconcilePersistedRuntimeRow } = require('./agentRuntimeAdapter/missionReconcile');
 
 // Barrier-settled states: lifecycle-terminal states plus `idle` (initial or
 // re-armed, nothing running) and `blocked` (budget/operator halt: nothing
@@ -63,8 +64,15 @@ function placeholdersFor(ids) {
 async function fetchBarrierAgents(db, orchestratorId, ids) {
   if (ids.length === 0) return [];
   const placeholders = placeholdersFor(ids);
-  const rows = await db.all('SELECT id, status FROM agents WHERE parent_agent_id = ? AND id IN (' + placeholders + ')', orchestratorId, ...ids);
-  if (Array.isArray(rows)) return rows;
+  const rows = await db.all('SELECT id, status, runtime_pid, runtime_executable FROM agents WHERE parent_agent_id = ? AND id IN (' + placeholders + ')', orchestratorId, ...ids);
+  if (Array.isArray(rows)) {
+    for (const row of rows) {
+      await reconcilePersistedRuntimeRow(db, row);
+    }
+    const refreshed = await db.all('SELECT id, status FROM agents WHERE parent_agent_id = ? AND id IN (' + placeholders + ')', orchestratorId, ...ids);
+    if (Array.isArray(refreshed)) return refreshed;
+    return rows;
+  }
   return [];
 }
 
