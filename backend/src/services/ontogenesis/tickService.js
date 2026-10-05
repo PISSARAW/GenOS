@@ -155,6 +155,15 @@ async function dispatchWithHarness(db, ctx) {
   return dispatchTask(db, ctx, ctx.harness);
 }
 
+async function blockInvalidMission(db, ctx) {
+  const error = ctx.mission?.morphology?.error;
+  if (!error) return null;
+  await setProjectState(db, { projectId: ctx.project.id, state: 'WAITING_INPUT' });
+  await notify(db, { projectId: ctx.project.id, kind: 'decision_needed',
+    payload: { reason: `morphologie-invalide:${error}` } });
+  return { ticked: true, blocked: true, reason: `morphologie-invalide:${error}` };
+}
+
 async function applyDecision(db, ctx, decision) {
   const runtimeOutcome = await applyRuntime(db, ctx);
   if (runtimeOutcome) return runtimeOutcome;
@@ -241,6 +250,8 @@ async function tickOnce(db, input) {
     ctx.mission.plan = buildMissionCapabilityPlan({
       project: ctx.project, task: ctx.selection.task || {}, mission: ctx.mission, config: ctx.config
     });
+    const blocked = await blockInvalidMission(db, ctx);
+    if (blocked) return blocked;
     ctx.fence = fence;
     await fence();
     if (ctx.harness && ctx.project.state === 'EXECUTING') Object.assign(ctx, await observeExecution(db, ctx, ctx.harness));
