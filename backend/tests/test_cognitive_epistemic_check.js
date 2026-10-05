@@ -34,5 +34,13 @@ const operations = [
   const invalid = await runtime.execute({ operations: [{ ...operations[0], input: { agentA: 'a' } }],
     verifierRegistry: registry, policy: { check: ['schema'] } });
   assert.equal(invalid.reason, 'verification_failed');
+  const defaultRuntime = createRuntime();
+  const defaultResult = await defaultRuntime.execute({
+    operations: [{ ...operations[0], verificationDescriptor: {
+      type: 'schema', schema: 'common-ground.schema.json'
+    } }], policy: { check: ['schema'] }
+  });
+  assert.equal(defaultResult.status, 'emitted');
+  assert.equal(defaultResult.results[0].receipt?.signature !== undefined, true);
   console.log('Cognitive epistemic CHECK checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

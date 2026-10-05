@@ -35,7 +35,22 @@ function operationInput(operation, values) {
   return dependencies.length === 1 ? dependencies[0] : dependencies;
 }
 
-function createRuntime() {
+function createDefaultVerifierRegistry(input) {
+  if (input.verifierRegistry !== undefined) return input.verifierRegistry;
+  const { createRegistry } = require('./cognitiveEpistemicCheckService');
+  return createRegistry({ runIsolated: input.runIsolated, handlers: input.verifierHandlers });
+}
+
+function registerOperationVerifier(operation, registry) {
+  const descriptor = operation.verifier || operation.verificationDescriptor
+    || (operation.verification && typeof operation.verification === 'object'
+      ? operation.verification : null);
+  if (descriptor?.type && typeof registry?.register === 'function') {
+    registry.register(operation.reference, descriptor);
+  }
+}
+
+function createRuntime(input = {}) {
   const readers = new Map();
   const selectors = new Map();
   const tools = new Map();
@@ -145,7 +160,7 @@ function createRuntime() {
     const byId = new Map(operations.map((operation) => [operation.id, operation]));
     const state = { context: input.context || {}, objects: input.objects || {}, values: {}, receipts: {},
     policy: input.policy || {}, allowEmit: input.allowEmit === true,
-    verifierRegistry: input.verifierRegistry || null, mmu: input.mmu || null };
+    verifierRegistry: input.verifierRegistry || createDefaultVerifierRegistry(input), mmu: input.mmu || null };
     const results = [];
     for (const obligation of plan.obligations) {
       const operation = byId.get(obligation.id);
@@ -153,6 +168,7 @@ function createRuntime() {
         === 'ready' || results.find((item) => item.id === id)?.status === 'verified'
         || results.find((item) => item.id === id)?.status === 'emitted');
       if (!dependenciesReady) return { status: 'blocked', reason: 'dependency_execution_failed', results };
+      registerOperationVerifier(operation, state.verifierRegistry);
       const handler = { READ: read, SELECT: select, CALL: call, INFER: infer,
         CHECK: check, EMIT: emit }[operation.kind];
       try {

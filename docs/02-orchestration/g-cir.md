@@ -275,7 +275,10 @@ doublons, champs inconnus et graphes de plus de
 `ready` exige un `INFER` ouvert dont toutes les dépendances sont satisfaites ou
 imposées ; `resolved` et `deferred` ne lancent pas le modèle.
 
-Le registre `cognitiveEpistemicCheckService` branche les vérifications `CHECK`
+Le runtime Omega crée par défaut un registre `cognitiveEpistemicCheckService`;
+un registre explicite reste disponible comme override pour les environnements
+spécialisés. Les descripteurs portés par les opérations `CHECK` y sont
+enregistrés automatiquement. Le registre branche les vérifications `CHECK`
 sur les adaptateurs de tests/reproduction, validation de schéma, commandes SMT
 en sandbox, Lean, AEIS, SHEV et receipts signés. Chaque résultat est converti
 en receipt HMAC lié à l'identifiant de l'opération et à un digest d'observations.
