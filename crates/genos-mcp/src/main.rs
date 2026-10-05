@@ -1,9 +1,10 @@
 mod executor;
-mod tools;
 pub mod omega;
+mod omega_dispatch;
 pub mod omega_runtime;
+mod tools;
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::env;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -192,6 +193,23 @@ mod tests {
         assert!(init.is_some());
         assert_eq!(init.unwrap()["id"], 1);
     }
+
+    #[test]
+    fn process_request_executes_omega_graphs_through_the_mcp_path() {
+        let request = json!({
+            "jsonrpc": "2.0", "id": 2, "method": "omega/execute",
+            "params": { "envelope": {
+                "schema": "genos.gcir.omega/v1", "version": 1, "id": "mcp-omega",
+                "operations": [
+                    { "id": "read", "kind": "READ", "reference": "repo", "dependsOn": [], "state": "open" },
+                    { "id": "select", "kind": "SELECT", "reference": "slice", "dependsOn": ["read"], "state": "open" }
+                ], "policy": { "read": ["repo"], "select": ["slice"] }
+            }, "objects": { "repo": { "ok": true } } }
+        });
+        let response = process_request(&request.to_string(), Path::new(".")).expect("response");
+        assert_eq!(response["result"]["status"], "emitted");
+        assert_eq!(response["result"]["values"]["select"]["ok"], true);
+    }
 }
 
 fn extract_json_candidate(line: &str) -> &str {
@@ -270,6 +288,8 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
         }
         "notifications/initialized" => None,
         "ping" => Some(json!({ "jsonrpc": "2.0", "id": id, "result": {} })),
+        "omega/execute" => Some(json!({ "jsonrpc": "2.0", "id": id,
+            "result": omega_dispatch::execute(req.get("params").unwrap_or(&Value::Null), workspace) })),
         "tools/list" => Some(json!({
             "jsonrpc": "2.0",
             "id": id,

@@ -165,8 +165,47 @@ pub fn read_compatible_json(bytes: &[u8]) -> Result<OmegaEnvelope, String> {
             payload,
         });
     }
-    let envelope: OmegaEnvelope =
-        serde_json::from_value(value).map_err(|_| ERROR_ENVELOPE_INVALID.to_string())?;
+    let operations = value
+        .get("operations")
+        .and_then(Value::as_array)
+        .ok_or(ERROR_ENVELOPE_INVALID)?
+        .iter()
+        .map(legacy_operation)
+        .collect::<Result<Vec<_>, _>>()?;
+    let policy = value
+        .get("policy")
+        .and_then(Value::as_object)
+        .map(|items| {
+            items
+                .iter()
+                .map(|(key, values)| {
+                    Ok((
+                        key.clone(),
+                        values
+                            .as_array()
+                            .ok_or(ERROR_ENVELOPE_INVALID)?
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .map(String::from)
+                            .collect(),
+                    ))
+                })
+                .collect::<Result<Vec<_>, String>>()
+        })
+        .transpose()?
+        .unwrap_or_default();
+    let envelope = OmegaEnvelope {
+        schema: schema.into(),
+        version,
+        id: value
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or(ERROR_ENVELOPE_INVALID)?
+            .into(),
+        operations,
+        policy,
+        payload: value.get("payload").cloned(),
+    };
     validate(&envelope)?;
     Ok(envelope)
 }
