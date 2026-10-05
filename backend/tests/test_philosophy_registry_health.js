@@ -10,6 +10,8 @@ const {
   validateRegistry,
   registryHealth
 } = require('../src/philosophy/conceptRegistry');
+const router = require('../src/services/philosophyRouter');
+const { validateContract } = require('../src/philosophy/implementationContracts');
 
 function baseConcept() {
   return { ...CONCEPT_DEFINITIONS[0] };
@@ -48,3 +50,22 @@ assertInvalid([{ ...baseConcept(), relations: [{ type: 'depends_on', target: 'mi
 assertInvalid([{ ...baseConcept(), genosDomains: ['not-a-genos-domain'] }], 'unknown GenOS subdomain');
 
 console.log(`Philosophical registry health tests passed (${health.conceptCount} concepts).`);
+
+const contractHealth = router.handlePhilosophyRequest({ request: { operation: 'implementationContractHealth' } });
+assert.ok(contractHealth instanceof Promise);
+contractHealth.then((result) => {
+  assert.equal(result.valid, true, result.errors.join('; '));
+  assert.equal(result.registeredConcepts, health.conceptCount);
+  assert.equal(result.compiledConcepts, 21);
+  const contract = router.getImplementationContract('epistemology.certainty-doubt');
+  assert.ok(contract);
+  assert.equal(validateContract(contract).length, 0);
+  assert.equal(router.getImplementationContract('core.agent'), null);
+  return router.handlePhilosophyRequest({ request: { operation: 'listImplementationContracts', arguments: { target: 'response' } } });
+}).then((result) => {
+  assert.ok(result.contracts.length >= 4);
+  console.log(`Implementation contract pilot tests passed (${result.contracts.length} response contracts).`);
+}).catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

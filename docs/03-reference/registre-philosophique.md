@@ -27,6 +27,17 @@ Le sous-domaine `mathematics` est documenté dans
 
 La documentation explique le modèle ; elle ne duplique pas le registre canonique.
 
+## Contrats d’implémentation
+
+Le compilateur `backend/src/philosophy/implementationContracts.js` transforme
+une première tranche de 21 concepts transversaux en contrats opérationnels.
+Chaque contrat contient une interprétation, un invariant, un mécanisme partagé,
+des observables, des tests de falsification, des limites et une responsabilité.
+Les 354 autres concepts restent enregistrés mais non compilés ; ils ne sont donc
+pas présentés comme des fonctionnalités. Le routeur expose les contrats en
+lecture seule via `listImplementationContracts`, `getImplementationContract` et
+`implementationContractHealth`.
+
 La santé du registre est vérifiée au chargement et par la suite
 `backend/tests/test_philosophy_registry_health.js`. Une entrée peut rester
 `partial` ou `planned` sans devenir une capacité d'exécution : le statut

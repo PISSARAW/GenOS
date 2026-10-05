@@ -263,6 +263,28 @@
       "minimum": 0,
       "maximum": 1
     },
+    "classification": {
+      "type": "string",
+      "enum": [
+        "reference_only",
+        "primitive",
+        "integrated",
+        "validated"
+      ]
+    },
+    "classificationDetails": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "description": { "type": "string" },
+        "executable": { "type": "boolean" },
+        "evidence": { "type": "string" },
+        "knownLimits": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
     "provenance": {
       "type": "object",
       "properties": {

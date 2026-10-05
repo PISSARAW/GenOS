@@ -13,6 +13,7 @@ const paradoxAnalysis = require('./paradoxAnalysisService');
 const rationalityNorms = require('./rationalityNormsService'); const reliability = require('./reliabilityService');
 const specializedEpistemology = require('./specializedEpistemologyService');
 const { boundedAnalysis, boundedOntologyAnalysis } = require('./philosophyAnalysisContract');
+const implementationContracts = require('./implementationContractRouter');
 const registry = validateRegistry();
 if (!registry.valid) {
   throw new Error(`Invalid philosophical concept registry: ${registry.errors.join('; ')}`);
@@ -20,6 +21,7 @@ if (!registry.valid) {
 const definitions = registry.concepts;
 const OPERATIONS = Object.freeze([
   'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'applyRuntimeEffect',
+  'listImplementationContracts', 'getImplementationContract', 'implementationContractHealth',
   'listRelations', 'getNeighborhood', 'exportGraph', 'compareEthicalFrameworks',
   'saveAnalysis', 'getAnalysis', 'listAnalyses', 'queryOntology'
 ]);
@@ -359,6 +361,9 @@ async function handleSavedAnalysis(operation, args) {
 }
 const OPERATION_HANDLERS = Object.freeze({
   listConcepts: (args) => ({ concepts: listConcepts(args) }),
+  listImplementationContracts: (args) => ({ contracts: implementationContracts.listImplementationContracts(definitions, args) }),
+  getImplementationContract: (args) => ({ contract: implementationContracts.getImplementationContract(requireConcept(args.conceptId || args.id)) }),
+  implementationContractHealth: () => implementationContracts.implementationContractHealth(definitions),
   getConcept: (args) => ({ concept: requireConcept(args.conceptId || args.id) }),
   registryHealth: () => registryHealth(),
   evaluateConcept: (args) => evaluateConcept(args),
@@ -389,5 +394,7 @@ module.exports = {
   listRelations,
   getNeighborhood,
   exportGraph,
-  registryHealth
-};
+  registryHealth,
+  getImplementationContract: (id) => implementationContracts.getImplementationContract(requireConcept(id)),
+  listImplementationContracts: (args) => implementationContracts.listImplementationContracts(definitions, args),
+  implementationContractHealth: () => implementationContracts.implementationContractHealth(definitions) };

@@ -1,0 +1,98 @@
+'use strict';
+
+/**
+ * Operational contracts are the executable boundary between a philosophical
+ * registry entry and GenOS behaviour. A contract is a testable proposal, not
+ * proof that the philosophical position is true.
+ */
+
+const TARGETS = Object.freeze([
+  'agent', 'relations', 'topology', 'world', 'reflection', 'response',
+]);
+const MATURITY = Object.freeze([
+  'registered', 'defined', 'mechanism-linked', 'observable', 'tested',
+  'integrated', 'validated',
+]);
+
+function contract(id, ...values) {
+  const [type, interpretation, invariant, mechanism, targets, observables, tests, limits, conflicts = []] = values;
+  return {
+    id,
+    type,
+    interpretation,
+    targets,
+    invariant,
+    mechanism,
+    observables,
+    falsificationTests: tests,
+    limits,
+    conflicts,
+    permissions: [],
+    obligations: ['conserver la provenance des observations et des décisions'],
+    prohibitions: ['convertir une analogie en autorisation runtime'],
+    violationCriteria: ['une décision modifie le comportement sans observation traçable'],
+    responsibility: 'Le producteur de la décision conserve la justification et le résultat observé.',
+    maturity: 'tested',
+    status: 'candidate',
+  };
+}
+
+const PILOT_CONTRACTS = Object.freeze([
+  contract('truth.pragmatist', 'concept', 'Une croyance gagne en fiabilité si elle résiste à des tests indépendants et améliore les prédictions.', 'Ne pas augmenter la confiance sans nouvelle preuve.', 'belief_revision', ['world', 'reflection', 'response'], ['prediction_accuracy', 'confidence_delta', 'correction_delay'], ['injecter une contradiction fiable et vérifier la révision'], ['La réussite pratique ne prouve pas une vérité métaphysique.'], ['truth.correspondence']),
+  contract('epistemology.certainty-doubt', 'concept', 'Une incertitude pertinente déclenche une vérification ou une réponse calibrée.', 'Une incertitude forte sur une affirmation importante doit rester visible.', 'uncertainty_monitor', ['world', 'reflection', 'response'], ['uncertainty_visibility', 'useful_verifications', 'uncorrected_errors'], ['fournir deux sources contradictoires et mesurer la calibration'], ['Le doute systématique peut empêcher d agir.'], ['epistemology.justification']),
+  contract('epistemology.justification', 'concept', 'Une affirmation importante doit conserver les raisons et sources qui la soutiennent.', 'Aucune confiance élevée sans justification inspectable.', 'evidence_registry', ['world', 'reflection', 'response'], ['evidence_coverage', 'unsupported_claims', 'provenance_completeness'], ['supprimer la source principale et vérifier le déclassement'], ['Une justification cohérente peut rester fausse.']),
+  contract('causality.counterfactuals', 'concept', 'Une cause est testée par une variation contrôlée et une différence de résultat.', 'Ne pas confondre succession temporelle et dépendance causale.', 'counterfactual_brancher', ['world', 'reflection'], ['effect_delta', 'branch_reproducibility', 'confounders'], ['rejouer avec et sans intervention sur la variable'], ['Les contrefactuels dépendent du modèle et de ses variables.']),
+  contract('core.lineage', 'notion', 'Une lignée conserve la continuité historique des versions et forks.', 'Toute décision doit être rattachable à une version et un parent.', 'lineage_tracker', ['agent', 'reflection'], ['lineage_completeness', 'orphan_decisions', 'fork_count'], ['créer un fork puis rechercher la décision dans les deux lignées'], ['La continuité fonctionnelle ne démontre pas une identité personnelle.']),
+  contract('ontology.identity-change', 'concept', 'Une identité runtime est suivie par invariants, transitions et provenance.', 'Une transition d identité doit être explicitement classifiée.', 'identity_continuity_tracker', ['agent', 'world'], ['transition_classification', 'identity_conflicts', 'provenance_completeness'], ['modifier un invariant et vérifier la détection de rupture'], ['Le modèle ne capture pas une identité substantielle.']),
+  contract('metaphysics.reference-intentionality', 'notion', 'Une sortie est analysée selon l objet visé et non seulement sa forme textuelle.', 'Toute interprétation d intention doit exposer son contexte et son incertitude.', 'intent_model', ['agent', 'response'], ['intent_confidence', 'context_coverage', 'misread_rate'], ['présenter deux intentions compatibles avec le même énoncé'], ['Une intention subjective ne peut pas être inférée avec certitude.']),
+  contract('ethics.responsibility-other', 'norm', 'Une décision conserve son auteur, ses obligations et ses conséquences envers autrui.', 'Une responsabilité ne peut pas être effacée par une délégation technique.', 'accountability_ledger', ['agent', 'relations', 'reflection'], ['attribution_completeness', 'unresolved_obligations', 'harm_traceability'], ['déléguer une action puis auditer la chaîne de responsabilité'], ['La traçabilité ne résout pas à elle seule un conflit moral.']),
+  contract('ethics.distributive-justice', 'norm', 'Une répartition expose les critères, bénéficiaires et coûts supportés.', 'Toute allocation doit être explicable par des critères déclarés.', 'allocation_auditor', ['relations', 'topology', 'response'], ['allocation_coverage', 'cost_asymmetry', 'criteria_visibility'], ['modifier les critères et comparer les bénéficiaires'], ['Aucune théorie de justice n est présumée universelle.']),
+  contract('politics.separation-of-powers', 'norm', 'Le contrôle du routage, de la proposition et de la décision doit être séparable.', 'Un agent ne doit pas cumuler silencieusement proposition, arbitrage et audit.', 'authority_graph', ['relations', 'topology'], ['authority_concentration', 'audit_independence', 'override_count'], ['concentrer les rôles et vérifier l alerte de gouvernance'], ['La séparation augmente parfois la latence.']),
+  contract('politics.social-contract', 'theory', 'Les règles de coordination sont explicites, acceptées dans le périmètre et révisables.', 'Une obligation collective doit avoir un sujet, une portée et une procédure de sortie.', 'commitment_protocol', ['relations', 'topology'], ['commitment_coverage', 'consent_rate', 'violations'], ['introduire une règle ambiguë et vérifier le refus de promotion'], ['Le consentement simulé ne vaut pas consentement humain.']),
+  contract('school.deleuze', 'lens', 'La diversité des chemins et des points d entrée est évaluée comme propriété de topologie.', 'Une architecture alternative doit pouvoir être comparée sans être appelée rhizomatique par analogie seule.', 'topology_graph', ['topology', 'relations'], ['alternative_paths', 'routing_resilience', 'coordination_cost'], ['comparer diffusion, fédération et pair à pair sur la même mission'], ['La métaphore rhizomatique ne définit pas un algorithme unique.']),
+  contract('core.success-not-truth', 'constraint', 'Un transport ou une sortie réussie ne vaut pas preuve de validité.', 'La promotion exige une preuve indépendante du succès du transport.', 'evidence_gate', ['world', 'reflection', 'response'], ['promotion_rejections', 'independent_evidence', 'false_successes'], ['retourner un succès sans artefact et vérifier le rejet'], ['Le gate ne produit pas la preuve manquante.']),
+  contract('logic.paraconsistent', 'method', 'Des contradictions locales peuvent être conservées sans explosion logique.', 'Une contradiction doit être signalée sans autoriser une conclusion arbitraire.', 'contradiction_detector', ['world', 'reflection'], ['contradiction_count', 'explosion_prevention', 'resolution_delay'], ['injecter P et non-P puis vérifier les conclusions bornées'], ['La tolérance aux contradictions peut retarder une décision.']),
+  contract('method.intervention-replay', 'method', 'Une hypothèse causale est comparée par replay d une intervention bornée.', 'Un replay doit conserver les conditions et l artefact de comparaison.', 'causal_replay', ['world', 'reflection'], ['replay_fidelity', 'condition_drift', 'effect_delta'], ['rejouer deux fois avec le même seed et comparer les reçus'], ['Un replay fidèle ne garantit pas un modèle causal complet.']),
+  contract('epistemology.knowledge', 'concept', 'Un état de connaissance combine croyance, justification et vérité alléguée sans les confondre.', 'Le système doit distinguer croyance, preuve et statut de validation.', 'belief_store', ['world', 'reflection', 'response'], ['claim_layer_separation', 'knowledge_retractions', 'source_quality'], ['retirer la justification d une croyance vraie par hasard'], ['La vérité externe reste hors du registre local.']),
+  contract('ontology.possible-worlds', 'method', 'Les scénarios alternatifs sont des branches explicitement bornées du modèle.', 'Une possibilité ne doit pas être présentée comme un fait observé.', 'possibility_set', ['world', 'reflection'], ['branch_count', 'fact_hypothesis_separation', 'branch_cost'], ['introduire une branche impossible selon les invariants'], ['La couverture des mondes possibles est nécessairement partielle.']),
+  contract('ethics.precautionary-principle', 'norm', 'Une incertitude grave et un dommage difficilement réversible peuvent relever le seuil d action.', 'Le coût d une action irréversible doit être visible avant promotion.', 'risk_threshold', ['world', 'response'], ['irreversibility_visibility', 'deferred_actions', 'risk_calibration'], ['comparer une action réversible et une action irréversible à incertitude égale'], ['La précaution peut favoriser l inaction.']),
+  contract('politics.pluralism', 'norm', 'Des modèles concurrents peuvent rester représentés tant qu ils sont pertinents.', 'Le consensus ne doit pas supprimer une dissidence sans motif enregistré.', 'model_diversity_ledger', ['relations', 'reflection', 'response'], ['model_diversity', 'dissent_retention', 'convergence_delay'], ['introduire une critique minoritaire correcte et mesurer sa conservation'], ['La pluralité ne remplace pas une décision.']),
+  contract('interpretation.construction', 'lens', 'Une interprétation est produite par un cadre déclaré et doit rester révisable.', 'Une interprétation ne doit pas être confondue avec l observation source.', 'interpretation_layer', ['world', 'reflection', 'response'], ['observation_interpretation_separation', 'revision_count', 'frame_visibility'], ['changer le cadre et vérifier la conservation de l observation brute'], ['Plusieurs interprétations peuvent rester sous-déterminées.']),
+  contract('core.intervention-not-metaphor', 'constraint', 'Une intervention GenOS est une opération réelle seulement si ses effets et permissions sont vérifiables.', 'Une métaphore ne peut pas déclencher une mutation runtime.', 'operation_authorizer', ['agent', 'world'], ['authorized_operations', 'metaphor_rejections', 'effect_receipts'], ['soumettre une analogie comme permission et vérifier le refus'], ['La validation porte sur l opération, pas sur la théorie.']),
+]);
+
+const CONTRACTS = new Map(PILOT_CONTRACTS.map((item) => [item.id, item]));
+
+function compileConcept(concept) {
+  const definition = CONTRACTS.get(concept.id);
+  if (!definition) return null;
+  return {
+    ...definition,
+    source: concept.provenance || null,
+    conceptStatus: concept.status,
+    serviceMaturity: concept.serviceMaturity || null,
+  };
+}
+
+function validateContract(contractValue) {
+  const errors = [];
+  if (!contractValue || typeof contractValue !== 'object') return ['contract must be an object'];
+  for (const field of ['id', 'type', 'interpretation', 'invariant', 'mechanism', 'responsibility', 'status']) {
+    if (typeof contractValue[field] !== 'string' || !contractValue[field].trim()) errors.push(`${field} must be a non-empty string`);
+  }
+  for (const field of ['targets', 'observables', 'falsificationTests', 'limits', 'obligations', 'prohibitions', 'violationCriteria']) {
+    if (!Array.isArray(contractValue[field]) || contractValue[field].length === 0) errors.push(`${field} must be a non-empty array`);
+  }
+  if (!TARGETS.every((target) => typeof target === 'string')) errors.push('invalid target vocabulary');
+  if (!contractValue.targets?.every((target) => TARGETS.includes(target))) errors.push('targets contains an unknown target');
+  if (!MATURITY.includes(contractValue.maturity)) errors.push('maturity is invalid');
+  return errors;
+}
+
+function compileRegistry(concepts) {
+  const contracts = concepts.map(compileConcept).filter(Boolean);
+  const errors = contracts.flatMap((item) => validateContract(item).map((error) => `${item.id}: ${error}`));
+  return { valid: errors.length === 0, contracts, errors };
+}
+
+module.exports = { PILOT_CONTRACTS, compileConcept, compileRegistry, validateContract };
