@@ -88,6 +88,10 @@ const CAPABILITY_ALIASES = Object.freeze({
   , divergence: 'STRATEGY_PORTFOLIO', candidat_creatif: 'STRATEGY_PORTFOLIO'
   , recherche_adaptative: 'STRATEGY_ADAPTATION', arene_strategies: 'ARENA_COMPETITION'
   , vision_polarisee: 'FOVEAL_PERCEPTION', sensorium_incarn: 'FOVEAL_PERCEPTION'
+  , interoception: 'CONSCIENCE_HOMEOSTASIS', calibration: 'EPISTEMICS_BRIER'
+  , dissonance_cognitive: 'SEMANTIC_CONFLICTS', memoire_autobiographique: 'EPISODIC_MEMORY'
+  , modele_soi: 'CONSCIENCE_HOMEOSTASIS', theorie_soi_orchestrateur: 'CONSCIENCE_HOMEOSTASIS'
+  , indicateurs_conscience: 'CONSCIENCE_HOMEOSTASIS', etats_conscience: 'CONSCIENCE_HOMEOSTASIS'
   , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
   , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
   , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
@@ -198,7 +202,9 @@ const RUNTIME_ALIASES = Object.freeze({
   experience_discriminante: 'factorial_experiment_concept', spirale_deblocage: 'retroactive_exploration',
   chronotaxie_aperiodique: 'niche_exploration_concept', observation_dephasee: 'niche_exploration_concept',
   conservation_contre_exemples: 'falsifiable_hypothesis_tree',
-  vision_polarisee: 'FOVEAL_PERCEPTION', sensorium_incarn: 'FOVEAL_PERCEPTION'
+  vision_polarisee: 'FOVEAL_PERCEPTION', sensorium_incarn: 'FOVEAL_PERCEPTION',
+  imagination: 'n_way_counterfactual_fork', simulation_interne: 'simulated_annealing_concept',
+  reflexion: 'memory_compilation_strategy', metacognition: 'memory_compilation_strategy'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({

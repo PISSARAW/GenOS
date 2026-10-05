@@ -266,6 +266,17 @@ assert.deepStrictEqual(sensingIncarnationMission.resolvedConcepts.map((concept) 
 assert.deepStrictEqual(sensingIncarnationMission.resolvedConcepts.map((concept) => concept.id),
   ['FOVEAL_PERCEPTION', 'FOVEAL_PERCEPTION']);
 
+const cognitionMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'interoception', 'calibration', 'dissonance_cognitive', 'memoire_autobiographique',
+  'modele_soi', 'indicateurs_conscience', 'imagination', 'simulation_interne', 'reflexion', 'metacognition'
+] });
+assert.ok(cognitionMission.resolvedConcepts.every((concept) => concept.source === 'runtime' || concept.source === 'capability'));
+assert.deepStrictEqual(cognitionMission.resolvedConcepts.map((concept) => concept.id), [
+  'CONSCIENCE_HOMEOSTASIS', 'EPISTEMICS_BRIER', 'SEMANTIC_CONFLICTS', 'EPISODIC_MEMORY',
+  'CONSCIENCE_HOMEOSTASIS', 'CONSCIENCE_HOMEOSTASIS', 'n_way_counterfactual_fork',
+  'simulated_annealing_concept', 'memory_compilation_strategy', 'memory_compilation_strategy'
+]);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
