@@ -42,7 +42,8 @@ const plan = applyMissionCapabilityContract({ organization: 'specialist_expert_c
 });
 assert.deepStrictEqual(plan.capabilityContract.required, ['SIGNALING_BUS']);
 assert.deepStrictEqual(conceptTools({ conceptLeaseCandidates: [{ tools: ['genos_worker_publish', 'genos_orchestrate'] }] }), ['genos_worker_publish']);
-assert.deepStrictEqual(plan.requiredTools, ['genos_snapshot', 'genos_worker_publish']);
+assert.deepStrictEqual(plan.requiredTools, ['genos_snapshot']);
+assert.deepStrictEqual(plan.conceptTools, ['genos_worker_publish']);
 const lease = orchestratorLeaseForPlan(plan);
 assert.ok(lease.includes('genos_worker_publish'));
 assert.ok(!lease.includes('genos_orchestrate'));

@@ -287,10 +287,11 @@ function filterOrchestratorRequiredTools(requiredTools, extraKnown) {
 
 function orchestratorLeaseForPlan(plan, extraKnown) {
   const required = filterOrchestratorRequiredTools(planRequiredTools(plan), extraKnown);
+  const concepts = filterOrchestratorRequiredTools(plan?.conceptTools, extraKnown);
   const capabilities = plan && plan.capabilityContract && Array.isArray(plan.capabilityContract.required)
     ? plan.capabilityContract.required
     : [];
-  const lease = [...leaseForCapabilities(orchestratorCoreLease(), capabilities), ...required];
+  const lease = [...leaseForCapabilities(orchestratorCoreLease(), capabilities), ...required, ...concepts];
   return lease.filter((tool) => !isOrchestrateVariant(tool));
 }
 
