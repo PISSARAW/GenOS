@@ -154,11 +154,12 @@ function workerMissionContract(mission) {
   };
 }
 
-function workerAuthorityContract(kind, authorities) {
+function workerAuthorityContract(kind, authorities, mission) {
   return {
     read: Boolean(authorities.read), analyze: Boolean(authorities.analyze),
     execute: Boolean(authorities.execute), write: Boolean(authorities.write),
-    spawn: false, delegate: false, promote: Boolean(authorities.promote), topology: false,
+    spawn: false, delegate: false, promote: Boolean(authorities.promote),
+    topology: false, topologySession: Boolean(mission.topologySessionId),
     strategy: ['adaptive_worker', 'specialist', 'sub_orchestrator'].includes(kind)
   };
 }
@@ -178,7 +179,7 @@ function buildWorkerContract(kind, mission = {}) {
     identity: { workerKind: definition.kind, parentId: mission.orchestratorAgentId || mission.parentAgentId || null },
     mission: workerMissionContract(mission),
     assignment: mission.workerAssignment,
-    authority: workerAuthorityContract(definition.kind, authorities),
+    authority: workerAuthorityContract(definition.kind, authorities, mission),
     spawnBudget: 0,
     delegationDepth: 0,
     evidence: { requiredArtifacts: [definition.artifact], provenanceRequired: true },
