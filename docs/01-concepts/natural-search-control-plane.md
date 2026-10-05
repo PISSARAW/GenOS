@@ -1,173 +1,126 @@
 # Natural Search Control Plane
 
-- **Statut au 2026-09-30** : Phases 1–12 raccordées au runtime; l'état des sept modules opérationnels est persisté dans `search_module_state` et restauré après réouverture SQLite. Un E2E vérifie génome, variants, patch, historique de replay, mémoire négative, population évolutionnaire et culture. Cela prouve le round-trip de ces états, pas une reprise d'exécution complète depuis tous les événements de l'agent.
-- **Portée** : `backend/src/services/search/*.js`, `backend/tests/search/test_*.js`, `docs/adr/0032-natural-search-control-plane.md`.
-- **Dernière revue** : 2026-09-30.
-- **Preuve de reprise** : `npm --prefix backend run test:natural-search` exécute les E2E SQLite du pipeline et le test `test_natural_search_module_restore.js`, qui ferme/réouvre SQLite et vérifie l'état opérationnel des sept modules.
+- **Statut au 2026-10-06** : phases 1–12 raccordées au runtime backend.
+  La reprise durable des états des phases 6–12 est implémentée et démontrée
+  après arrêt brutal et réouverture SQLite.
+- **Portée** : contrôle de recherche interne dans `backend/src/services/search/`.
+- **Décisions** : [ADR 0032](../adr/0032-natural-search-control-plane.md) et
+  [ADR 0323 — reprise atomique](../adr/0323-reprise-atomique-natural-search.md).
 
-## État d'implémentation
+## Contrat runtime
 
-| Composant | Statut | Fichier | Intégration pipeline |
+`agentProcessEventPipeline` appelle `checkNaturalSearchControl(ctx, event)`.
+Les événements alimentent le senseur et le ledger. Le contrôleur choisit un
+processus avec pression, rayon et hystérésis ; l'actuateur exécute le service
+correspondant. Les reçus distinguent succès, opération ignorée et échec.
+La décision et le checkpoint sont écrits avant l'annonce du succès.
+
+Les cinq événements `HYPOTHESIS_*` de proposition, début de test, progrès,
+falsification et suspension participent au même chemin. Une proposition répétée
+conserve son identité. Une hypothèse et ses preuves restent liées à leur agent.
+
+### Mesures et preuves
+
+La provenance vient de la source runtime : les champs de provenance du payload
+sont ignorés. `EVIDENCE_REPORT` reste auto-déclaré ; un résultat d'outil est
+observé et ne devient pas vérifié par son nom. Les gains non finis ou négatifs
+ne gonflent pas les compteurs. Les forces et fiabilités nulles restent nulles.
+
+Les UPSERT préservent identité, propriétaire, date de création et liens étrangers.
+La recharge ne rattache pas les preuves archivées à une hypothèse explicitement
+rouverte. Après plus de cinq étapes de stagnation sans hypothèse active, le
+runtime peut proposer une hypothèse du génome sous réserve de la mémoire négative.
+
+## Phases 6–12
+
+| Phase | Module | Exécution actuelle | État repris |
 | --- | --- | --- | --- |
-| Causal Progress Sensor | ✅ | `causalProgressService.js` | ✅ via `checkNaturalSearchControl()` |
-| Entropy×Progression Classifier | ✅ | `entropyProgressClassifier.js` | ✅ |
-| Hypothesis Ledger | ✅ | `hypothesisLedgerService.js` | ✅ |
-| Search Pressure Model | ✅ | `searchPressureService.js` | ✅ |
-| Natural Search Controller | ✅ | `naturalSearchController.js` | ✅ hystérésis + PROCESS_LEVEL |
-| Natural Search Actuator | ✅ | `naturalSearchActuatorService.js` | ✅ dispatch des primitives runtime + `ActuatorModules` |
-| SearchReceipt | ✅ | `SearchReceipt.js` | ✅ |
-| Runtime Integration | ✅ | `agentProcessEventPipeline.js` | ✅ via `checkNaturalSearchControl()` |
-| Persistance SQLite | ✅ états de modules restaurés | `searchPersistenceService.js`, `moduleStatePersistence.js` | Ledger, preuves, pression et état sérialisable des sept modules rechargés après redémarrage; rejouer les événements source reste hors de ce contrat |
-| E2E — composants isolés | ✅ | `test_natural_search_runtime_e2e.js` | ✅ |
-| E2E — pipeline `checkNaturalSearchControl()` | ✅ | `test_natural_search_e2e_pipeline.js` | ✅ appelle `checkNaturalSearchControl()` avec SQLite |
-| `test_search_evolution.js` | ✅ | `test_search_evolution.js` | ✅ EVOLUTION process + actuator cohérents |
+| 6 | Search Genome | Hypermutation structurée selon le rayon sélectionné | Génome, exploration, opérateurs et mutations |
+| 7 | Cognitive Affinity | Création et classement de variants admissibles ; proposition au ledger | Variants et génome retenu |
+| 8 | Generalized Foraging | Gain mesuré ; maintien ou départ ; nouveau patch après départ | Patches, visites, départs et historique |
+| 9 | Causal Replay | Analyse du journal disponible et de ses checkpoints ; entrée vide ignorée | Historique d'analyse et événements bornés |
+| 10 | Negative Search Memory | Falsification vers trail dédupliqué ; blocage par agent et énoncé exact ; évaporation TTL | Trails, conditions, confiance et expiration |
+| 11 | Search Evolution | Une génération sur la population existante ; fitness issue du ledger ; adoption du meilleur génome | Population, génération et historique |
+| 12 | Cultural Transmission | Compilation sous preuve, outbox durable, réception idempotente et candidature aux variants | Plasmides, transmissions et réceptions |
 
-### Phases 6–12 : raccordement runtime et reprise
+`ActuatorModules` instancie les sept modules. Runtime et intégration utilisent
+les mêmes génome, mémoire négative et culture. L'hystérésis conserve ses
+compteurs après redémarrage ; évolution, forage et replay disposent de sorties.
 
-| Phase | Module | Point d'entrée runtime | Reprise après redémarrage |
-| --- | --- | --- | --- |
-| 6 | Search Genome — `searchGenomeService.js` | Actuator `STRESS_HYPERMUTATION` et `EVOLUTION`; instantanés + état courant écrits en SQLite | Génome courant rechargé; snapshots historiques restent des enregistrements |
-| 7 | Cognitive Affinity — `cognitiveAffinityService.js` | Actuator `CLONAL_AFFINITY_SEARCH`: crée/classe les variants et propose le variant retenu au ledger | Variants transitoires sérialisables restaurés |
-| 8 | Generalized Foraging — `searchPatchService.js` | Actuator `FORAGE`: crée/actualise un patch et décide du départ | Patch, historique et visites restaurés; métrique de rendement reste lexicale |
-| 9 | Causal Replay — `causalReplayService.js` | Actuator `REPLAY_CAUSAL`: rejoue les événements fournis, garde le point de reprise et les checkpoints en mémoire | Historique de replay sérialisable rechargé; les événements source et l'état externe ne sont pas reconstruits |
-| 10 | Negative Search Memory — `negativeSearchMemoryService.js` | Runtime: falsification/échec → `recordNegativeOutcome` | Trails, conditions et TTL restaurés; les trails expirés restent filtrés par leur durée |
-| 11 | Search Evolution — `searchEvolutionService.js` | Actuator `EVOLUTION`: fait évoluer la population et écrit un instantané | Population, génération et historique rechargés |
-| 12 | Cultural Transmission — `searchCultureService.js` | Après succès `EVOLUTION`/`CLONAL_AFFINITY_SEARCH`: compile et transmet un plasmide | Plasmides et transmissions restaurés dans le service d'Actuator |
+La plasticité change la topologie du **génome de recherche** durable, sans
+modifier les autorisations de l'agent. La spéciation persiste des niches SQLite
+et annonce le nombre réellement créé.
 
-## Architecture finale
+### Culture et promotion
 
-```
-Event (AGENT_STEP / EVIDENCE_REPORT / AGENT_FAILED)
-  ↓
-agentProcessEventPipeline.processEventQueueImpl()
-  ↓
-checkNaturalSearchControl(ctx, event)
-  ├─ CausalProgressService.ingestEvent()
-  ├─ HypothesisLedger.addEvidence() / propose()   ← PROVENANCE forcé à SELF_REPORTED par le runtime
-  ├─ NaturalSearchController.selectProcess()
-  │    └─ PROCESS_LEVEL (CONTINUE=0 … EVOLUTION=6)
-  │    └─ Hystérésis : blocage downgrade uniquement, escalation toujours autorisée
-  ├─ NaturalSearchActuator.execute()
-  │    ├─ FORAGE           → forage() + SearchPatchService (patch lifecycle + MVT)
-  │    ├─ PLASTICITE       → plasticity() + applySnapshotState (DB)
-  │    ├─ CLONAL_AFFINITY_SEARCH → clonalAffinity() + CognitiveAffinity (createVariants + selectBestVariant) + ledger.propose
-  │    ├─ STRESS_HYPERMUTATION   → hypermutation() + SearchGenomeService.mutateGenome + saveGenomeSnapshot
-  │    ├─ SPECIATION             → speciation() + INSERT niches (DB)
-  │    ├─ EVOLUTION              → evolution() + SearchEvolutionEngine.evolve + saveGenomeSnapshot
-  │    ├─ REPLAY_CAUSAL          → replayCausal() + CausalReplayService (checkpoints) + saveReplayLog
-  │    └─ CONTINUE               → no-op
-  ├─ Negative Search Memory (falsification → recordNegativeOutcome)
-  ├─ Cultural Transmission (succès EVOLUTION/CLONAL → compilePlasmid + transmit)
-  └─ SearchPersistence.saveHypothesis/saveProof/savePressureState/saveDecision/savePatchVisit/saveGenomeSnapshot/saveReplayLog()
-      ↓ (à la fin)
-  clearSearchState() → flushSearchState() → suppression état mémoire
-```
+Un succès d'évolution ou de sélection clonale ne suffit pas à transmettre.
+L'appelant runtime fournit une validation du génome concerné : reproductibilité,
+taux fini d'au moins 0,7 et deux références distinctes. Ces références doivent
+correspondre à des preuves observées ou vérifiées d'hypothèses soutenues de la
+famille concernée.
 
-## Points d'audit résolus
+La transmission cible un autre agent de la même organisation et du même projet.
+Le récepteur lit l'outbox du checkpoint engagé du producteur, déduplique et
+conserve ses réceptions après redémarrage. Un changement de périmètre du
+récepteur retire les candidats reçus devenus incompatibles.
 
-| Point | Description | Statut |
-| --- | --- | --- |
-| 1 | Hystérésis : mapping PHASE_EXIT + logique hold | ✅ corrigé |
-| 2 | Actuator : enum EVOLUTION + méthodes *Sync | ✅ corrigé |
-| 3 | Hypothèses à partir d'événements runtime (`maybeProposeHypothesis`) | ✅ implémenté |
-| 4 | Preuve → hypothèse par `hypothesisId` (rejet preuve sans ID + falsifiée) | ✅ implémenté |
-| 5 | `executeProcess({selection, searchCtx, actuator})` + `searchCtx` transmis | ✅ corrigé |
-| 6 | Source unique `searchProcessTypes.js` | ✅ implémenté |
-| 7 | Actuator → primitives GenOS réelles (PLASTICITE/CLONAL/SPECIATION/REPLAY_CAUSAL/EVOLUTION) | ✅ terminé |
-| 8 | Persistence SQLite opérationnelle (API async `sqlite`) | ✅ implémenté |
-| 9 | E2E pipeline `checkNaturalSearchControl()` avec vraie DB SQLite | ✅ implémenté |
-|| 11 | Actuator → encapsulation des 7 modules isolés via `ActuatorModules` (actuatorModules.js) | ✅ terminé |
-|| 12 | Mémoire négative + culture branchées au runtime (falsification → recordNegativeOutcome, succès → compilePlasmid + transmit) | ✅ implémenté |
+Le trait reçu devient un candidat. Il ne promeut aucune décision. Le runtime
+ne fabrique ni reproductibilité ni preuve indépendante.
 
-### Correctifs P0/P1 livrés le 2026-09-23
+## Reprise durable
 
-- **`stepsSinceChange` compteur** : reset à 0 au changement de processus, incrémenté sinon (était figé / jamais mis à jour).
-- **Provenance runtime-only** : `payload.provenance` / `payload.evidenceProvenance` ignorés dans `resolveProvenance()` ; un agent ne peut plus s'auto-attribuer `observed`/`verified`.
-- **`ingestFailureEvidence agentId`** : `ReferenceError` corrigé (`searchState.agentId` persisté dans `getOrCreateSearchState`), signature `checkNaturalSearchControl(ctx, event, finalEvent)` alignée sur l'appel pipeline à 3 arguments.
-- **Protocole hypothèses runtime** : nouveau `hypothesisEventProtocol.js` — `HYPOTHESIS_PROPOSED` (avec `hypothesisId` explicite), `HYPOTHESIS_TEST_STARTED`, `HYPOTHESIS_PROGRESS`, `HYPOTHESIS_FALSIFIED`, `HYPOTHESIS_SUSPENDED`, plus proposition via `hypothesisStatement` et auto-génération sur gain d'information.
-- **CI** : doublon `test:natural-search` supprimé dans `package.json`, suite `full_pipeline_e2e` ajoutée à `test:natural-search` et au profil `smoke` de `run_validation_suite.js`.
+`search_runtime_checkpoint` est la source de reprise prioritaire. Le document
+versionné conserve ledger, preuves, pression exacte, processus, hystérésis,
+compteurs, senseur, budgets, journal causal borné à 100 événements, reçus et
+les sept états de modules.
 
-### Correctifs P0/P1 livrés le 2026-09-22
+Une instruction SQLite remplace atomiquement le document. Une révision comparée
+à celle chargée refuse les écrivains périmés. Les opérations d'un agent sont
+sérialisées dans le processus. L'initialisation n'est publiée qu'après restauration,
+réception culturelle et création du premier checkpoint.
 
-- **`ledger.PROVENANCE → undefined`** : `naturalSearchRuntime.js` importait `HypothesisLedger, HYPOTHESIS_STATUS` depuis `hypothesisLedgerService` mais utilisait `ledger.PROVENANCE.SELF_REPORTED`. Correction : import explicite `{ HypothesisLedger, HYPOTHESIS_STATUS, PROVENANCE }` et usage de `PROVENANCE.SELF_REPORTED`. Le runtime force `SELF_REPORTED` pour toute preuve injectée via `ingestEvidence`.
-- **Hystérésis inversée (escalade bloquée)** : l'ancienne logique faisait `holdProcess = true` quand `p >= PHASE_ENTER[lastProcess]`, ce qui bloquait toute montée. Correction : `PROCESS_LEVEL` explicite + hystérésis uniquement sur `desiredLevel < currentLevel`.
-- **`stepsSinceChange` ne reset pas** : incrémenté dans tous les cas sans reset au changement de processus. Correction : reset à 0 quand `process !== this.lastProcess`, incrémente sinon.
-- **Actuator `EVOLUTION` manquant** : l'Actuateur n'exportait pas `EVOLUTION` dans son `SEARCH_PROCESS` local. L'Actuator utilise désormais `searchProcessTypes.js` comme source unique.
-- **`executeProcess` sans agentId** : `searchCtx.agentId` requis, sinon log + retour null.
-- **Path `../../db` vs `../db`** : le chemin relatif correct depuis `services/search/` vers `db/` est `../../db`.
+Les tables historiques et `search_module_state` sont des projections et une
+voie de migration des anciens états. Une panne peut les laisser partiellement
+écrites ; la reprise retrouve le précédent checkpoint cohérent. Les formats
+bruts historiques sont lus ; les nouvelles écritures utilisent la version 1.
 
-## Planning-gap (mesure du 2026-09-30)
+Un JSON corrompu, une version inconnue, une forme incompatible, un conflit
+d'identité ou une écriture échouée provoque une erreur explicite.
+`clearSearchState` attend le flush et conserve la mémoire si celui-ci échoue.
+Le pipeline reçoit un signal d'arrêt du traitement courant.
 
-`npm --prefix backend run test:planning-gap` compare 12 tâches au même budget de
-240 expansions et vérifie chaque plan avec le validateur du domaine. GenOS trie
-sa frontière par coût cumulé + heuristique admissible, enregistre le meilleur
-coût par état et utilise le contrôleur/ledger pour tracer l'exploration. Les
-heuristiques Blocksworld comptent les blocs hors préfixe de support; TrapChain
-utilise une distance de grille relâchée qui ignore les portes verrouillées ;
-elle ne suppose pas que les clés soient obligatoires. `trap-far-key` place désormais la clé du côté accessible du mur : elle
-était auparavant derrière la porte qu'elle seule pouvait ouvrir, donc la tâche
-était impossible. Résultats mesurés : ReAct 9/12, ToT 11/12, MCTS 6/12, GenOS
-12/12. Les plans GenOS sont optimaux pour les sept tâches Blocksworld; les plans
-de `bw-swap` (6) et `bw-tower-5` (8) atteignent la longueur BFS optimale. Le
-budget est passé de 120 à 240 pour couvrir le cas `bw-table-6` (193 expansions).
-ToT laisse encore une tâche irrésolue. Ces tâches restent synthétiques.
-Résultats bruts par tâche et plans vérifiés :
-`benchmarks/planning-gap/results/2026-09-30-a-star-240.json`.
-Ces 12 tâches synthétiques valident le harness et ne mesurent pas des missions
-web ou des tâches de planification de production.
+## Validation du 2026-10-06
 
-## Limitations connues
+`npm --prefix backend run test:natural-search` : **21 scripts passés**.
+La suite couvre réouverture complète des modules et prochaine décision,
+arrêt brutal après projections partielles, douze événements concurrents,
+écrivain périmé, flush échoué, provenance falsifiée, identité étrangère,
+formats corrompus, routage réel, expiration et réception culturelle durable.
 
-- **Persistance SQLite** : `clearSearchState()` attend le flush avant de supprimer l'état mémoire. Le runtime recharge hypothèses, preuves, compteurs et états sérialisables des phases 6–12 après réouverture. Il ne reconstitue pas encore l'exécution externe à partir du journal événementiel complet de l'agent.
-- **Provenance** : `resolveProvenance()` route selon le type d'événement (EVIDENCE_REPORT→VERIFIED, AGENT_STEP→SELF_REPORTED, TOOL→OBSERVED, autre→INFERRED). Les champs `payload.provenance` / `payload.evidenceProvenance` sont ignorés : l'autorité sur la provenance vient du runtime, pas du producteur de la claim.
-- **Création proactive** : après 5 étapes sans progrès, `proactiveHypothesis()` génère une hypothèse à partir du genome courant.
-- **Encapsulation** : les sept modules sont instanciés par `ActuatorModules`; `SearchIntegration` existe et est utilisé pour la mémoire négative. Le round-trip JSON ne garantit pas la validité à long terme de chaque format de module lors d'une future migration de schéma.
+La plasticité est vérifiée avec un schéma d'agents sans colonnes fictives
+`topology` ou `tools`. Les fixtures de reprise utilisent WAL, les clés étrangères
+et une télémétrie isolée de la base de production.
 
-## Expérience initiale planning-gap (2026-09-23)
+`npm test` et `cargo test --workspace --offline -j 2` : **passés**.
+Le contrôle qualité des fichiers de ces commits n'ajoute aucune violation.
+Le contrôle global reste affecté par la dette préexistante hors de ce périmètre.
 
-- **Protocole** : même modèle du monde (successeurs + heuristique partagés), même budget (120 expansions), vérificateur indépendant qui rejoue chaque plan. 12 tâches long-horizon (Blocksworld type Sussman + TrapChain à clés/détours). Commande : `npm --prefix backend run test:planning-gap`. Résultats bruts : `benchmarks/planning-gap/results/2026-09-23-baseline.json`.
-- **Résultat** : ReAct 8/12, ToT 10/12, MCTS 3/12, GenOS 6/12. La myopie est démontrée (`bw-swap` piège le glouton pendant que ToT réussit), mais **le planning gap n'est pas fermé** : à budget égal, ToT fait mieux que le contrôleur actuel.
-- **Lecture** : le contrôle pression + hystérésis + ledger + mémoire négative sous-explore sur les tours longues (largeur dictée par le rayon trop souvent à 1–2, faisceau tronqué à 4). Piste : élargir le rayon STRUCTUREL/RADICAL et conserver la diversité du faisceau au lieu de tronquer au meilleur score heuristique.
+## Planning-gap et limites
 
-## Principe fondamental
+Le harness synthétique compare douze tâches Blocksworld et TrapChain au budget
+commun de 240 expansions et vérifie les plans avec des validateurs et une BFS.
+Résultat actuel : ReAct 9/12, ToT 11/12, MCTS 6/12, GenOS 12/12 ; les douze
+plans GenOS atteignent les optimums sur ce jeu.
 
-> **Nature is not a database of solutions. Nature is a collection of search processes.**
+Cette mesure valide le harness et le tri de frontière par coût et heuristique.
+Elle ne mesure pas l'efficacité causale des phases 6–12 en production.
 
-$$\boxed{
-\text{Observe}
-\rightarrow
-\text{Measure progress}
-\rightarrow
-\text{Sense pressure}
-\rightarrow
-\text{Change search process}
-\rightarrow
-\text{Test}
-\rightarrow
-\text{Remember}
-}$$
-
-## Références biologiques
-
-1. Spiro, Parkinson & Othmer 1997 — chemotaxie bactérienne
-2. Schwab, Casasa & Moczek 2019 — plasticité développementale
-3. Foster 2007 — mutagenèse de stress
-4. Bowers, Boyle & Damoiseaux 2018 — maturation d'affinité
-
-## Revue contradictoire du 2026-10-01
-
-Le harness contient huit tâches Blocksworld et quatre TrapChain. Son oracle
-Blocksworld actuel couvre sept tâches : la limite de profondeur 14 et la limite
-de 5000 états excluent `bw-table-6`. Une BFS sans cette coupure trouve 16 actions
-(6959 états développés, 7057 découverts), comme le plan GenOS.
-
-Une BFS sur position + clés établit les optimums TrapChain : key-detour 8,
-long-detour 10, culdesac 8, far-key 13. Les deux premiers plans GenOS mesurent
-11 et 15 : l'heuristique surestime le coût en imposant une clé évitable. Le
-succès 12/12 ne prouve donc pas l'optimalité des douze plans. Ces oracles doivent
-être intégrés au test avant de revendiquer l'admissibilité.
-
-Le lot 2 corrige cette surestimation et intègre une BFS pour chaque domaine.
-Le test vérifie désormais les douze optimums, y compris `bw-table-6` à 16.
-À 240 expansions : ReAct 9/12, ToT 11/12, MCTS 6/12, GenOS 12/12, avec
-les douze plans GenOS optimaux sur ce jeu synthétique uniquement.
+- Le replay analyse les checkpoints disponibles ; il ne restaure pas un
+  workspace externe ni un journal complet d'agent.
+- La spéciation crée des niches ; elle ne lance pas de nouveaux agents.
+- Les conditions des trails sont conservées ; le blocage utilise l'agent,
+  l'énoncé exact et le TTL.
+- La validation culturelle est une entrée explicite de l'appelant runtime.
+- La reprise garantit l'état interne engagé. Les projections seules ne sont
+  pas une garantie atomique. Un conflit exige une recharge ; le vieillissement
+  réel de la fenêtre de mesures peut changer la prochaine décision.

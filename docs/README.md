@@ -221,6 +221,8 @@ Index : [adr/README.md](adr/README.md)
 
 Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-fermeture-runtime-nce.md).
 
+Décision Natural Search : [ADR 0323 — reprise atomique](adr/0323-reprise-atomique-natural-search.md).
+
 - [0001-agent-dna-binary-format.md](adr/0001-agent-dna-binary-format.md) — format héréditaire binaire `AgentDNA`.
 - [0002-agentdna-innovation-loop.md](adr/0002-agentdna-innovation-loop.md) — boucle d'innovation et promotion sous gate.
 - [0003-fossilization-stratigraphic-archive.md](adr/0003-fossilization-stratigraphic-archive.md) — fossilisation stratigraphique.

@@ -2,6 +2,7 @@
  * E2E test with real SQLite and real event structure.
  */
 
+require('./naturalSearchTestTelemetry');
 const assert = require('node:assert/strict');
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
@@ -17,6 +18,7 @@ async function runRuntimeE2ETest() {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
 
   await db.exec(`
+    PRAGMA foreign_keys=ON;
     CREATE TABLE agents (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

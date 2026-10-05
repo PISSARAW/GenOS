@@ -8,6 +8,7 @@
  *   4. L'Actuator génère un receipt persisté
  */
 
+require('./naturalSearchTestTelemetry');
 const assert = require('node:assert/strict');
 const os = require('node:os');
 const path = require('node:path');
@@ -27,6 +28,7 @@ async function runFullPipelineE2E() {
   let db = await open({ filename: dbPath, driver: sqlite3.Database });
 
   await db.exec(`
+    PRAGMA foreign_keys=ON;
     CREATE TABLE agents (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
