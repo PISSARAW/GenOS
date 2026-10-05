@@ -278,7 +278,10 @@ async function executeNativeGraph({ graph, candidates, context, mode, mmu, econo
   const execution = await runtime.execute({
     context: nativeContext(context, graph), objects: graph.objectStore || {}, policy: nativePolicy(graph),
     mmu, economy, allowEmit: options.cognitiveAllowEmit === true,
-    verifierRegistry: options.cognitiveVerifierRegistry, operations: graph.operations
+    verifierRegistry: options.cognitiveVerifierRegistry,
+    verifierHandlers: options.cognitiveVerifierHandlers,
+    verifierDescriptors: options.cognitiveVerificationDescriptors,
+    operations: graph.operations
   });
   if (execution.status === 'blocked') {
     throw Object.assign(new Error(`Omega native graph blocked: ${execution.reason}`), {

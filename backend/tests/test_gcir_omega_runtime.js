@@ -53,5 +53,19 @@ const policy = { read: ['repo'], select: ['auth_slice'], call: ['scan'], infer: 
     policy: { read: ['@runtime/request', '@runtime/constraints'], select: ['runtime/request'] }
   });
   assert.deepEqual(semantic.values.select_runtime, { request: { task: 'x' } });
+  let resolvedDescriptor = null;
+  const intent = await createRuntime().execute({
+    operations: [{ id: 'check_intent', kind: 'CHECK', reference: 'epistemic/trinity',
+      verification: 'reproducer', input: { finding: 'candidate' }, dependsOn: [] }],
+    policy: { check: ['epistemic/trinity'] },
+    verifierRegistry: {
+      resolve: () => ({ type: 'reproducer' }),
+      register: (_, descriptor) => { resolvedDescriptor = descriptor; },
+      get: () => async () => ({ status: 'verified', valid: true })
+    }
+  });
+  assert.equal(intent.results[0].status, 'verified');
+  assert.equal(intent.values.check_intent.finding, 'candidate');
+  assert.deepEqual(resolvedDescriptor, { type: 'reproducer' });
   console.log('G-CIR Omega runtime checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

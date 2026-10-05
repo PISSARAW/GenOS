@@ -57,13 +57,21 @@ function buildSelection(domain, records, reads, semantics, input) {
 }
 
 function buildProof(domain, semantics, input) {
-  return { required: true, method: input.verification || semantics.verification,
+  return { required: true, method: verificationIntent(input, semantics),
     evidenceRefs: Array.isArray(input.evidenceRefs) ? [...new Set(input.evidenceRefs)] : [],
     independent: input.independentVerification !== false, binding: `infer_${domain}` };
 }
 
 function verificationValue(input, semantics) {
-  return input.verificationDescriptor || input.verification || semantics.verification;
+  return input.verificationDescriptor || (input.verification && typeof input.verification === 'object'
+    ? input.verification : null);
+}
+
+function verificationIntent(input, semantics) {
+  if (typeof input.verification === 'string') return input.verification;
+  if (input.verificationDescriptor?.intent) return input.verificationDescriptor.intent;
+  if (input.verificationDescriptor?.type) return input.verificationDescriptor.type;
+  return semantics.verification;
 }
 
 function build(input = {}) {
@@ -73,7 +81,9 @@ function build(input = {}) {
   const reads = readOperations(domain, records);
   const selection = buildSelection(domain, records, reads, semantics, input);
   const callId = `call_${domain}`; const inferId = `infer_${domain}`; const checkId = `check_${domain}`;
-  const proof = buildProof(domain, semantics, { ...input, verification: verificationValue(input, semantics) });
+  const descriptor = verificationValue(input, semantics);
+  const intent = verificationIntent(input, semantics);
+  const proof = buildProof(domain, semantics, input);
   const effects = Array.isArray(input.effects) ? input.effects : [];
   const operations = [...reads, selection,
     { id: callId, kind: 'CALL', reference: semantics.tool, dependsOn: [selection.id],
@@ -82,7 +92,7 @@ function build(input = {}) {
     { id: inferId, kind: 'INFER', reference: `model/${domain}`, dependsOn: [callId], inputRef: callId,
       output: input.output || ['candidate'], proofBinding: proof.binding },
     { id: checkId, kind: 'CHECK', reference: `epistemic/${domain}`, dependsOn: [inferId],
-      verification: verificationValue(input, semantics), proof }];
+      verification: intent, verificationDescriptor: descriptor, proof }];
   if (effects.length) operations.push({ id: `emit_${domain}`, kind: 'EMIT', reference: semantics.effect,
     dependsOn: [checkId], effectContract: { declared: effects, target: semantics.effect }, proofBinding: checkId });
   return { domain, objects: Object.fromEntries(records.map((record) => [record.field, record.value])),

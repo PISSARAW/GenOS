@@ -7,6 +7,7 @@ const adapters = require('./epistemic/verifierAdapters');
 const { issueReceipt, validateReceipt } = require('./epistemicVerifierReceiptService');
 
 const TYPES = ['test', 'reproducer', 'schema', 'smt', 'lean', 'aeis', 'shev', 'receipt'];
+const INTENT_TYPES = Object.freeze({ test: 'test', reproducer: 'reproducer', aeis: 'aeis', receipt: 'receipt' });
 
 function digest(value) {
   return `sha256:${crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
@@ -129,6 +130,14 @@ function createRegistry(options = {}) {
     handlers.set(reference, { descriptor, handler, verifierDigest: ensureTrust(descriptor.type) });
     return reference;
   }
+  function resolve(intent, context = {}) {
+    if (intent && typeof intent === 'object') return intent;
+    const key = String(intent || '').trim().toLowerCase();
+    const configured = options.descriptors?.[key] || options.verificationDescriptors?.[key];
+    if (configured?.type) return { ...configured };
+    const type = INTENT_TYPES[key];
+    return type ? { type, domain: context.domain || undefined } : null;
+  }
   function get(reference) {
     const entry = handlers.get(reference);
     if (!entry) return null;
@@ -142,7 +151,7 @@ function createRegistry(options = {}) {
       return { ...outcome, ...receipt, valid: status === 'verified' };
     };
   }
-  return { register, get, verifierDigest: (reference) => handlers.get(reference)?.verifierDigest || null };
+  return { register, get, resolve, verifierDigest: (reference) => handlers.get(reference)?.verifierDigest || null };
 }
 
 module.exports = { TYPES, createRegistry, digest };

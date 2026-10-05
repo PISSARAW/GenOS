@@ -49,15 +49,17 @@ function semanticSelection(operation, values) {
 function createDefaultVerifierRegistry(input) {
   if (input.verifierRegistry !== undefined) return input.verifierRegistry;
   const { createRegistry } = require('./cognitiveEpistemicCheckService');
-  return createRegistry({ runIsolated: input.runIsolated, handlers: input.verifierHandlers });
+  return createRegistry({ runIsolated: input.runIsolated, handlers: input.verifierHandlers,
+    descriptors: input.verifierDescriptors || input.verificationDescriptors });
 }
 
 function registerOperationVerifier(operation, registry) {
   const descriptor = operation.verifier || operation.verificationDescriptor
     || (operation.verification && typeof operation.verification === 'object'
       ? operation.verification : null);
-  if (descriptor?.type && typeof registry?.register === 'function') {
-    registry.register(operation.reference, descriptor);
+  const resolved = descriptor || registry?.resolve?.(operation.verification, { operation });
+  if (resolved?.type && typeof registry?.register === 'function') {
+    registry.register(operation.reference, resolved);
   }
 }
 
