@@ -62,7 +62,6 @@ async function bindSnapshot(snapshot, evidence, environment) {
 }
 async function environmentFingerprint(environment) {
   const files = await snapshots.collectFiles(environment.workspacePath);
-  return hash(JSON.stringify({ goals: environment.goals, constraints: environment.constraints || {},
-    files: files.map((file) => ({ path: file.path, hash: file.hash })) }));
+  return hash(JSON.stringify(files.map((file) => ({ path: file.path, hash: file.hash }))));
 }
 module.exports = { artifactEvidence, isolateEnvironment, bindSnapshot, environmentFingerprint, validateVerifierContract };

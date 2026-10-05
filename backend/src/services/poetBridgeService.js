@@ -96,6 +96,10 @@ function selectTrainingAgent(agents, results) {
 
 function validateGeneralizationInput(agents, training, heldOut) {
   if (!Array.isArray(agents) || agents.length === 0) throw new Error('Generalization requires at least one agent');
+  if (agents.some((agent) => typeof agent.id !== 'string' || !agent.id.trim()) ||
+      new Set(agents.map((agent) => agent.id)).size !== agents.length) {
+    throw new Error('Generalization requires unique agent IDs');
+  }
   if (!training.length || !heldOut.length) throw new Error('Generalization requires non-empty training and held-out sets');
   validateSplitIds(training, heldOut);
   [...training, ...heldOut].forEach(validateEnvironment);
@@ -121,7 +125,7 @@ function hasMeasuredExecutions(results, agentId) {
   return results.every((entry) => {
     const execution = entry.evaluations.find((item) => item.agent.id === agentId)?.executionResult;
     return execution?.termination?.eventType === 'AGENT_COMPLETED'
-      && Number.isInteger(execution.verification?.exitCode) && !execution.error;
+      && Number.isInteger(execution.verification?.exitCode) && !execution.error && !execution.cleanupError;
   });
 }
 

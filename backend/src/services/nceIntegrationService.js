@@ -14,7 +14,7 @@ function createNCEConfig(options) {
     curiosity: { enabled: options.curiosity !== false, weights: options.curiosityWeights || {} },
     representationalMutation: { enabled: options.reprMutation !== false },
     exaptation: { enabled: options.exaptation !== false },
-    playSandbox: { enabled: options.play !== false, budget: options.playBudget || 5 },
+    playSandbox: { enabled: options.play !== false, budget: options.playBudget ?? 5 },
     phenotype: { enabled: options.phenotype !== false },
     envCoev: { enabled: options.envCoev !== false },
     culture: { enabled: options.culture !== false },
@@ -39,6 +39,7 @@ async function enhanceMissionWithNCE(mission, db) {
     culturalLearning: null,
     play: null,
     phenotype: null,
+    causalCycle: null,
     errors: {},
   };
 
@@ -51,6 +52,7 @@ async function enhanceMissionWithNCE(mission, db) {
     { fn: () => applyCultureLearning(mission, config, db), key: 'culturalLearning' },
     { fn: () => applyPlay(mission, config, db), key: 'play' },
     { fn: () => applyPhenotype(mission, config, db), key: 'phenotype' },
+    { fn: () => applyCausalCycle(mission, db), key: 'causalCycle' },
   ];
 
   for (const engine of engines) {
@@ -62,6 +64,17 @@ async function enhanceMissionWithNCE(mission, db) {
   }
 
   return enhancements;
+}
+
+async function applyCausalCycle(mission, db) {
+  if (!mission.nceExperiment) return null;
+  const { runCausalCycle } = require('./nceCausalCycleService');
+  const result = await runCausalCycle({ ...mission.nceExperiment, agentId: mission.agentId,
+    features: { play: mission.nceOptions?.play, culture: mission.nceOptions?.culture,
+      phenotype: mission.nceOptions?.phenotype, poet: mission.nceOptions?.envCoev } }, db);
+  mission.phenotypeState = await require('./phenotypicDevelopmentService')
+    .loadPhenotypeState(null, db, mission.agentId);
+  return result;
 }
 
 function hasResult(value) {
