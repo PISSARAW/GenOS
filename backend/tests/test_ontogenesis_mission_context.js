@@ -22,6 +22,7 @@ try {
   assert.ok(compiled.profile.stack.includes('react'));
   assert.ok(compiled.capabilities.includes('verify'));
   assert.strictEqual(compiled.morphology.selectedTopology, 'a_team');
+  assert.strictEqual(compiled.morphology.selectionReason, 'implementation-structuree');
   assert.ok(compiled.morphology.graph.graphId);
   assert.ok(compiled.capabilityCatalog.length > 0);
   const request = requestFor({ id: 'run-1', project, task: { title: 'implementer', acceptance_json: '[]', id: 'task-1' },
@@ -43,6 +44,12 @@ try {
   assert.strictEqual(compiled.tasks.length, 3);
   assert.strictEqual(compiled.tasks[1].dependsOn.length, 0);
   assert.strictEqual(classifyMission('Réparer la régression', compiled.profile), 'repair');
+  assert.strictEqual(compileMission({ root_path: root, objective: 'Explorer les branches distribuées' }).morphology.selectedTopology, 'rhizome');
+  assert.strictEqual(compileMission({ root_path: root, objective: 'Vérifier les résultats' }).morphology.selectedTopology, 'trinity');
+  assert.strictEqual(compileMission({ root_path: root, objective: 'Réparer après un crash' }).morphology.selectedTopology, 'metapopulation');
+  const invalid = compileMission({ root_path: root, config_json: JSON.stringify({ topology: 'unknown' }), objective: 'Mission configuree' });
+  assert.strictEqual(invalid.morphology.selectedTopology, null);
+  assert.strictEqual(invalid.morphology.error, 'topologie-configuree-inconnue');
   console.log('ontogenesis mission context checks passed.');
 } finally {
   fs.rmSync(root, { recursive: true, force: true });

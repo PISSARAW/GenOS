@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const morphogenesisPlanner = require('../morphogenesis/morphogenesisPlannerService');
+const { isTopology } = require('../morphogenesis/morphogenesisOntology');
 const conceptRegistry = require('./canonicalConceptRegistry');
 
 const MAX_FILE_BYTES = 128 * 1024;
@@ -39,12 +40,16 @@ function fileProfile(root) {
 }
 
 function classifyMission(objective, profile) {
-  const text = `${objective} ${profile.stack.join(' ')}`.toLowerCase();
+  const text = normalizeText(`${objective} ${profile.stack.join(' ')}`);
   if (/répar|repar|fix|bug|regression|corrig/.test(text)) return 'repair';
   if (/audit|verif|test|preuve|controle/.test(text)) return 'verify';
   if (/explor|cartograph|comprendre|inventaire/.test(text)) return 'explore';
   if (/décid|decid|arbitr|choix|stratég|strateg/.test(text)) return 'decide';
   return 'implement';
+}
+
+function normalizeText(value) {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function capabilitiesFor(profile, kind) {
@@ -55,8 +60,37 @@ function capabilitiesFor(profile, kind) {
   return [...capabilities];
 }
 
-function morphologyFor(project, profile, capabilities) {
-  const requested = profile.stack.includes('react') ? 'a_team' : 'trinity';
+function projectConfig(project) {
+  try { return JSON.parse(project.config_json || '{}'); } catch (_) { return {}; }
+}
+
+function inferredTopology(project, profile, kind) {
+  const config = projectConfig(project);
+  const configured = config.topology || config.morphology?.topology;
+  if (configured && !isTopology(configured)) return { topology: null, reason: 'topologie-configuree-inconnue' };
+  if (configured) return { topology: configured, reason: 'configuration' };
+  const text = normalizeText(`${project.objective || ''} ${profile.stack.join(' ')}`);
+  if (/browser|navigat|forag|web.*collect|collect.*web/.test(text)) return { topology: 'biome', reason: 'perception-web' };
+  if (/crdt|etat partage|état partagé|coherence distrib|cohérence distrib/.test(text)) return { topology: 'syncytium', reason: 'etat-partage' };
+  if (/decentral|décentral|multi[- ]?branche|routage distrib|route distrib/.test(text)) return { topology: 'rhizome', reason: 'routage-distribue' };
+  if (/recuper|récupér|resilien|résilien|crash|panne/.test(text) || kind === 'repair') {
+    return { topology: 'metapopulation', reason: 'recuperation' };
+  }
+  if (/symbio|host|hote|hôte|immune/.test(text)) return { topology: 'holobionte', reason: 'relation-hote' };
+  if (kind === 'explore') return { topology: 'rhizome', reason: 'exploration' };
+  if (kind === 'decide') return { topology: 'biocenose', reason: 'deliberation' };
+  if (kind === 'verify') return { topology: 'trinity', reason: 'verification-comparative' };
+  if (profile.stack.includes('react') || profile.ecosystem === 'node') {
+    return { topology: 'a_team', reason: 'implementation-structuree' };
+  }
+  return { topology: 'trinity', reason: 'repli-evidence' };
+}
+
+function morphologyFor(project, profile, kind, capabilities) {
+  const selection = inferredTopology(project, profile, kind);
+  const requested = selection.topology;
+  if (!requested) return { selectedTopology: null, requestedTopology: null, selectionReason: selection.reason,
+    graph: null, candidates: [], error: selection.reason };
   try {
     const plan = morphogenesisPlanner.planMorphogenesis({
       proposedTopology: requested,
@@ -65,11 +99,13 @@ function morphologyFor(project, profile, capabilities) {
       currentState: { topology: requested, agents: new Map(), capabilities, budgets: {} },
       availableCapabilities: capabilities, budget: 0, pressure: 0
     });
-    return { selectedTopology: plan.selectedTopology, selectedOrganization: plan.selectedOrganization || null,
+    return { selectedTopology: plan.selectedTopology, requestedTopology: requested,
+      selectionReason: selection.reason, selectedOrganization: plan.selectedOrganization || null,
       graph: plan.morphologyGraphRef,
       candidates: plan.candidateMorphologies || [], receipt: plan.controlReceipt || null };
   } catch (error) {
-    return { selectedTopology: null, graph: null, candidates: [], error: error.code || error.message };
+    return { selectedTopology: null, requestedTopology: requested, selectionReason: selection.reason,
+      graph: null, candidates: [], error: error.code || error.message };
   }
 }
 
@@ -110,7 +146,7 @@ function compileMission(project) {
     capabilities,
     capabilityCatalog: capabilityCatalog(),
     concepts,
-    morphology: morphologyFor(project, profile, capabilities),
+    morphology: morphologyFor(project, profile, kind, capabilities),
     context: context.slice(0, MAX_CONTEXT_CHARS),
     tasks: tasks.map((task) => ({ ...task, dependsOn: task.dependsOnIndex === undefined ? [] : [] }))
   };
