@@ -11,6 +11,7 @@ const { acquireClaim, releaseClaim, extendClaim } = require('./claimService');
 const { getControl } = require('./controlService');
 const { getProject, setProjectState, listTasks, addTask, taskByTitle, bumpAttempt } = require('./projectStore');
 const { compileMission, linkCompiledTasks } = require('./missionContextService');
+const { buildMissionCapabilityPlan } = require('./missionCapabilityPlanService');
 const { selectNextTask } = require('./taskSelector');
 const { stepLoop } = require('./loopController');
 const { nextState } = require('./stateMachine');
@@ -235,6 +236,9 @@ async function tickOnce(db, input) {
     if (ctx.mission.morphology.selectedTopology) {
       ctx.config.topologies = [ctx.mission.morphology.selectedTopology];
     }
+    ctx.mission.plan = buildMissionCapabilityPlan({
+      project: ctx.project, task: ctx.selection.task || {}, mission: ctx.mission, config: ctx.config
+    });
     ctx.fence = fence;
     await fence();
     if (ctx.harness && ctx.project.state === 'EXECUTING') Object.assign(ctx, await observeExecution(db, ctx, ctx.harness));

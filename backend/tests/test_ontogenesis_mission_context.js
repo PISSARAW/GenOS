@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const { compileMission, classifyMission } = require('../src/services/ontogenesis/missionContextService');
 const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
+const { buildMissionCapabilityPlan } = require('../src/services/ontogenesis/missionCapabilityPlanService');
 const fixture = require('./ontogenesisFixture');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'onto-context-'));
@@ -27,6 +28,11 @@ try {
     selection: { topology: 'a_team', variant: 'default' }, worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: compiled });
   assert.strictEqual(request.projectId, undefined);
   assert.deepStrictEqual(request.capabilityContract.required, compiled.capabilities);
+  const plan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },
+    mission: compiled, config: { budgets: { tokens: 10 }, authority: {} }, selection: { topology: 'a_team', variant: 'default' } });
+  assert.strictEqual(plan.failClosed, true);
+  assert.strictEqual(plan.evidence.independent, true);
+  assert.strictEqual(plan.recovery.rollback, true);
   assert.strictEqual(compiled.tasks.length, 3);
   assert.strictEqual(compiled.tasks[1].dependsOn.length, 0);
   assert.strictEqual(classifyMission('Réparer la régression', compiled.profile), 'repair');

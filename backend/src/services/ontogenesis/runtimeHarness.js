@@ -31,6 +31,7 @@ function requestFor(input) {
     capabilityContract: { required: input.mission?.capabilities || [] },
     capabilityCatalog: input.mission?.capabilityCatalog || [],
     morphologyPlan: input.mission?.morphology || null,
+    missionCapabilityPlan: input.mission?.plan || null,
     problemProfile: input.mission?.profile || {},
     requiresEvidenceBeforePromotion: true,
     workspaceRoot: input.worktree,
