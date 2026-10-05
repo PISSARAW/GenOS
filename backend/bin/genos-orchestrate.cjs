@@ -68,13 +68,11 @@ const SCRIPT_START_TIME = Date.now();
 const TOP_LEVEL_MISSION_ACTIONS = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
 
 async function waitForCompletion(db) {
-  const unbounded = policyRequest.unbounded === true || policyRequest.noTimeout === true
-    || request.unbounded === true || request.noTimeout === true;
   const baseTimeout = Number(policyRequest.timeoutMs ?? request.timeoutMs ?? 600000);
-  const deadline = unbounded ? null : Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
+  const deadline = Math.max(Date.now() + 5000, SCRIPT_START_TIME + baseTimeout);
   let pulseTick = 0;
   let busyRetries = 0;
-  while (unbounded || Date.now() < deadline) {
+  while (Date.now() < deadline) {
     let agents, trinityWorlds;
     try {
       agents = await db.all('SELECT id, status, runtime_pid FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
