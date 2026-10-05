@@ -44,6 +44,18 @@ const CAPABILITY_ALIASES = Object.freeze({
   , migration_json_legacy: 'PROVENANCE_INTEGRITY', compatibilite_versions: 'PROVENANCE_INTEGRITY'
   , scellement_draft_sealed: 'CAPSULES_SNAPSHOTS', graphe_organisme_procedural: 'PROCEDURAL_GUIDANCE'
   , immutabilite: 'INVARIANT_GATES', provenance_genomique: 'PROVENANCE_INTEGRITY'
+  , epigenetique: 'GENOME_EPIGENETICS', chromatine: 'GENOME_EPIGENETICS'
+  , genes: 'GENOME_EPIGENETICS', expression_genetique: 'GENOME_EPIGENETICS'
+  , mutation: 'PROCEDURAL_EVOLUTION', stabilite_genomique: 'INVARIANT_GATES'
+  , phenotype: 'GENOME_EPIGENETICS', dedifferenciation: 'GENOME_EPIGENETICS'
+  , embryogenese: 'GENOME_EPIGENETICS', hox: 'GENOME_EPIGENETICS'
+  , meristeme: 'GENOME_EPIGENETICS', cambium: 'GENOME_EPIGENETICS'
+  , homeostasie: 'CONSCIENCE_HOMEOSTASIS', organes_vitaux: 'CONSCIENCE_HOMEOSTASIS'
+  , systemes_survie: 'CONSCIENCE_HOMEOSTASIS', reproduction: 'EVOLUTION_REPRODUCTION'
+  , replication: 'EVOLUTION_REPRODUCTION', mitose: 'EVOLUTION_REPRODUCTION'
+  , bourgeonnement: 'EVOLUTION_REPRODUCTION', meiose: 'EVOLUTION_REPRODUCTION'
+  , clonage: 'EVOLUTION_REPRODUCTION', heredite: 'GENOME_EPIGENETICS'
+  , hote_symbionte: 'IMMUNE_SYSTEM', ecosysteme_agentique: 'SWARM_METRICS'
 });
 
 const PHILOSOPHY_ALIASES = Object.freeze({
@@ -92,7 +104,7 @@ const RUNTIME_ALIASES = Object.freeze({
   versioning: 'provenance_integrity', fingerprint: 'provenance_integrity', canonicalisation: 'provenance_integrity',
   signature: 'provenance_integrity', prov: 'provenance_integrity', sign: 'provenance_integrity',
   migration_json_legacy: 'provenance_integrity', compatibilite_versions: 'provenance_integrity',
-  provenance_genomique: 'provenance_integrity'
+  provenance_genomique: 'provenance_integrity', apoptose_controlee: 'apoptosis_concept'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
