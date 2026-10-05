@@ -15,6 +15,9 @@ const service = require('../src/services/proceduralCompilationService');
     validator: async (procedure, traces) => ({ status: 'verified', procedureId: procedure.procedureId,
       replayed: traces.length }) });
   assert.equal(promoted.status, 'promoted');
+  const automatic = await service.compileAndPromote(db, { agentId: 'a1', contextHash: 'ctx',
+    autoPromote: true, validator: async () => ({ status: 'verified' }), executorId: 'test' });
+  assert.equal(automatic.status, 'promoted');
   const reused = await service.reuse(db, { agentId: 'a1', contextHash: 'ctx', input: 0,
     executor: async ({ step, input }) => `${input}:${step}` });
   assert.equal(reused.status, 'reused');

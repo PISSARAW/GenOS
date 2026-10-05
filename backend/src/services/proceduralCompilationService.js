@@ -77,9 +77,18 @@ async function validate(candidate, input) {
   if (!candidate?.procedure || typeof input?.validator !== 'function') {
     return { valid: false, reason: 'procedural_validator_required' };
   }
+  if (!candidate.procedure.provenance?.evidenceRefs?.length) {
+    return { valid: false, reason: 'procedural_evidence_required' };
+  }
   const result = await input.validator(candidate.procedure, candidate.traces);
   const valid = result?.valid === true || result?.status === 'verified' || result?.reproducible === true;
   return { valid, result, reason: valid ? null : 'procedural_replay_failed' };
+}
+
+async function compileAndPromote(db, input) {
+  const candidate = await compile(db, input);
+  if (input.autoPromote !== true || candidate.status !== 'candidate') return candidate;
+  return promote(db, { ...input, candidate });
 }
 
 async function promote(db, input) {
@@ -126,4 +135,4 @@ async function reuse(db, input) {
 }
 
 module.exports = { ensure, traceFrom, recordTrace, loadTraces, compile, validate, promote,
-  registerExecutor, reuse };
+  compileAndPromote, registerExecutor, reuse };

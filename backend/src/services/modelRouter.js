@@ -188,13 +188,14 @@ async function recordProceduralExecution(options, contract, execution) {
     ? [...new Set(options.cognitiveEvidenceRefs)] : [];
   if (!evidenceRefs.length) return { status: 'blocked', reason: 'procedural_evidence_required' };
   const contextHash = contract.digest || `omega:${options.cognitiveDomain || 'runtime'}`;
-  const trace = await proceduralCompilation.recordTrace(options.db, {
-    agentId: options.agentId, contextHash,
-    steps: execution.operations.map((operation) => `${operation.kind}:${operation.id}`),
-    evidenceRefs, success: true
-  });
-  return proceduralCompilation.compile(options.db, { agentId: options.agentId, contextHash,
-    policy: options.cognitiveProceduralPolicy });
+  await proceduralCompilation.recordTrace(options.db, { agentId: options.agentId, contextHash,
+    steps: execution.operations.map((operation) => `${operation.kind}:${operation.id}`), evidenceRefs, success: true });
+  const input = { agentId: options.agentId, contextHash, policy: options.cognitiveProceduralPolicy,
+    executorId: options.cognitiveProcedureExecutorId, validator: options.cognitiveProcedureValidator,
+    autoPromote: options.cognitiveProcedureAutoPromote !== false
+      && typeof options.cognitiveProcedureValidator === 'function'
+      && (typeof options.cognitiveProcedureExecutor === 'function' || options.cognitiveProcedureExecutorId) };
+  return proceduralCompilation.compileAndPromote(options.db, input);
 }
 
 async function reuseProceduralExecution(options, contract) {
@@ -396,5 +397,4 @@ async function generate(options) {
     } catch (_) { /* Economy telemetry cannot turn a valid model result into a route failure. */ }
   }
   return withCognitiveResult(result, cognitiveResult);
-}
-module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
+}; module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
