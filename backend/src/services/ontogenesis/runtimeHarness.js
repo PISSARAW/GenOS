@@ -31,6 +31,7 @@ function requestFor(input) {
     projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
     autonomousOrchestration: true, useMemoryContext: true,
     proposedTopology: input.selection.topology, morphologyTopology: input.selection.topology,
+    organization: input.mission?.morphology?.selectedOrganization || undefined,
     capabilities: input.mission?.capabilities || [],
     capabilityRequirements: input.mission?.capabilities || [],
     capabilityContract: { required: input.mission?.capabilities || [] },

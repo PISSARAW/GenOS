@@ -28,6 +28,7 @@ try {
     selection: { topology: 'a_team', variant: 'default', workerRoles: ['sub_orchestrator', 'specialist'] }, worktree: root,
     budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: compiled });
   assert.strictEqual(request.projectId, undefined);
+  assert.strictEqual(request.organization, compiled.morphology.selectedOrganization || undefined);
   assert.deepStrictEqual(request.capabilityContract.required, compiled.capabilities);
   assert.strictEqual(request.worker_assignments.specialist.workerKind, 'specialist');
   const plan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },

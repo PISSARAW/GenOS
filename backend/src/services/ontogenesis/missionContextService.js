@@ -65,7 +65,8 @@ function morphologyFor(project, profile, capabilities) {
       currentState: { topology: requested, agents: new Map(), capabilities, budgets: {} },
       availableCapabilities: capabilities, budget: 0, pressure: 0
     });
-    return { selectedTopology: plan.selectedTopology, graph: plan.morphologyGraphRef,
+    return { selectedTopology: plan.selectedTopology, selectedOrganization: plan.selectedOrganization || null,
+      graph: plan.morphologyGraphRef,
       candidates: plan.candidateMorphologies || [], receipt: plan.controlReceipt || null };
   } catch (error) {
     return { selectedTopology: null, graph: null, candidates: [], error: error.code || error.message };
