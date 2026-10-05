@@ -27,6 +27,7 @@ function resolveOverrides(optionsOverride) {
 function assertCapsuleBoundary(resolvedCapsuleRoot, source, defaultRoot) {
   const configuredRoot = process.env.GENOS_CAPSULE_ROOT ? path.resolve(process.env.GENOS_CAPSULE_ROOT) : null;
   const siblingRoot = path.resolve(path.dirname(source));
+  if (samePath(resolvedCapsuleRoot, source)) return;
   if (samePath(resolvedCapsuleRoot, configuredRoot)) return;
   if (samePath(resolvedCapsuleRoot, siblingRoot)) return;
   if (isInside(resolvedCapsuleRoot, defaultRoot)) return;
@@ -44,6 +45,9 @@ function resolveCapsuleRoot(source, capsuleRootOverride, automaticRoot) {
 }
 
 function resolveDestination(source, workerId, { capsuleRoot, capsuleRootOverride }) {
+  if (capsuleRootOverride && samePath(path.resolve(capsuleRootOverride), source)) {
+    return resolveContainedPath(capsuleRoot, path.join('.genos-agent-worlds', workerId), 'capsule path');
+  }
   if (capsuleRootOverride) return resolveContainedPath(capsuleRoot, workerId, 'capsule path');
   return resolveContainedPath(path.join(capsuleRoot, path.basename(source)), workerId, 'capsule path');
 }

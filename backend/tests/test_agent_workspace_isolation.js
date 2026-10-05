@@ -42,6 +42,13 @@ async function run() {
     assert.strictEqual(fs.readFileSync(path.join(worker, 'mission.txt'), 'utf8'), 'dynamic programming');
     assert.strictEqual(worker.startsWith(`${orchestratorRoot}${path.sep}`), false);
 
+    const directRoot = path.join(root, 'direct');
+    fs.mkdirSync(directRoot);
+    fs.writeFileSync(path.join(directRoot, 'mission.txt'), 'direct workspace');
+    const directWorker = await createIsolatedWorkspace(directRoot, 'worker-direct', directRoot);
+    assert.strictEqual(directWorker, path.join(directRoot, '.genos-agent-worlds', 'worker-direct'));
+    assert.strictEqual(fs.readFileSync(path.join(directWorker, 'mission.txt'), 'utf8'), 'direct workspace');
+
     const repository = path.join(root, 'repository');
     const nestedMission = path.join(repository, 'task');
     fs.mkdirSync(nestedMission, { recursive: true });
