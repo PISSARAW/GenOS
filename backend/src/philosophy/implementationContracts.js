@@ -72,6 +72,12 @@ const TARGET_BY_DOMAIN = Object.freeze({
   identity: 'agent', 'social-cognition': 'relations', wellbeing: 'response', computation: 'world',
   prediction: 'world', epistemics: 'reflection', ethics: 'relations', causality: 'world', process: 'topology',
 });
+const MECHANISM_BY_DOMAIN = Object.freeze({
+  ontology: 'WorldModel', consciousness: 'SelfModel', cognition: 'WorldModel', phenomenology: 'InterpretationLayer',
+  identity: 'IdentityContinuityTracker', 'social-cognition': 'AgentRelationModel', wellbeing: 'AnswerPlanner',
+  computation: 'EvidenceRegistry', prediction: 'PredictionEngine', epistemics: 'BeliefRevision',
+  ethics: 'PolicyGate', causality: 'CausalGraph', process: 'TopologyGraph',
+});
 
 function contractType(concept) {
   if (concept.role === 'lens') return 'lens';
@@ -103,7 +109,8 @@ function provisionalContract(concept) {
     interpretation,
     targets: fallbackTargets(concept),
     invariant: 'Ne pas attribuer au concept ' + concept.id + ' une autorité runtime sans mécanisme et preuve indépendants.',
-    mechanism: 'pending:' + concept.domain,
+    mechanism: MECHANISM_BY_DOMAIN[concept.domain] || 'ReflectionLoop',
+    mechanismEvidence: 'mapping-only',
     observables: ['contract_completeness', 'behavioral_delta', 'evidence_coverage'],
     falsificationTests: ['Définir puis exécuter un test qui distingue ' + concept.id + ' d une absence de ce concept.'],
     limits: concept.knownLimits?.length ? concept.knownLimits : ['Interprétation provisoire ; aucun mécanisme exécutable n est encore assigné.'],
@@ -113,9 +120,9 @@ function provisionalContract(concept) {
     prohibitions: ['présenter ce contrat provisoire comme une capacité implémentée'],
     violationCriteria: ['une sortie affirme que le concept est implémenté avant une preuve comportementale'],
     responsibility: 'Le propriétaire du registre doit compléter le mécanisme et les expériences avant promotion.',
-    maturity: 'defined',
+    maturity: 'mechanism-linked',
     status: 'candidate',
-    compilationState: 'pending-mechanism',
+    compilationState: 'mapped-pending-behavior',
   };
 }
 
@@ -169,10 +176,11 @@ function validateContract(contractValue) {
 function compileRegistry(concepts) {
   const contracts = concepts.map(compileConcept).filter(Boolean);
   const errors = contracts.flatMap((item) => validateContract(item).map((error) => item.id + ': ' + error));
-  const pilotCount = contracts.filter((item) => item.compilationState !== 'pending-mechanism').length;
+  const pilotCount = contracts.filter((item) => item.compilationState === undefined).length;
+  const mappedCount = contracts.filter((item) => item.compilationState === 'mapped-pending-behavior').length;
   const categoryCounts = Object.fromEntries([...new Set(contracts.map((item) => item.category))]
     .map((category) => [category, contracts.filter((item) => item.category === category).length]));
-  return { valid: errors.length === 0, contracts, errors, pilotCount, pendingCount: contracts.length - pilotCount, categoryCounts };
+  return { valid: errors.length === 0, contracts, errors, pilotCount, mappedCount, pendingCount: mappedCount, categoryCounts };
 }
 
 module.exports = { PILOT_CONTRACTS, compileConcept, compileRegistry, validateContract };

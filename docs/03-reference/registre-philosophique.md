@@ -31,12 +31,13 @@ La documentation explique le modèle ; elle ne duplique pas le registre canoniqu
 
 Le compilateur `backend/src/philosophy/implementationContracts.js` transforme
 les 375 concepts en contrats structurés. Les 21 concepts transversaux disposent
-de contrats pilotes détaillés ; les 354 autres disposent d’un contrat provisoire
-explicitement marqué `pending-mechanism`.
+de contrats pilotes détaillés ; les 354 autres sont reliés à un mécanisme partagé
+et marqués `mapped-pending-behavior`.
 Le format est versionné par `spec/implementation-contract.schema.json`.
 Chaque contrat contient une interprétation, un invariant, un mécanisme partagé,
 des observables, des tests de falsification, des limites et une responsabilité.
-Les 354 contrats provisoires ne sont pas présentés comme des fonctionnalités.
+Les 354 contrats mappés ne sont pas présentés comme des fonctionnalités : leur
+mapping n’est pas encore une preuve de comportement.
 Le routeur expose les contrats en
 lecture seule via `listImplementationContracts`, `getImplementationContract` et
 `implementationContractHealth`.

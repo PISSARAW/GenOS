@@ -59,6 +59,7 @@ contractHealth.then((result) => {
   assert.equal(result.compiledConcepts, 375);
   assert.equal(result.pilotCount, 21);
   assert.equal(result.pendingCount, 354);
+  assert.equal(result.mappedCount, 354);
   assert.equal(Object.values(result.categoryCounts).reduce((sum, count) => sum + count, 0), 375);
   const contract = router.getImplementationContract('epistemology.certainty-doubt');
   assert.ok(contract);
@@ -69,8 +70,8 @@ contractHealth.then((result) => {
   assert.ok(Array.isArray(contract.sourceRefs));
   assert.equal(validateContract(contract).length, 0);
   assert.ok(validateContract({ ...contract, kind: 'InvalidContract' }).some((error) => error.includes('kind')));
-  assert.equal(router.getImplementationContract('core.agent').maturity, 'defined');
-  assert.equal(router.getImplementationContract('core.agent').compilationState, 'pending-mechanism');
+  assert.equal(router.getImplementationContract('core.agent').maturity, 'mechanism-linked');
+  assert.equal(router.getImplementationContract('core.agent').compilationState, 'mapped-pending-behavior');
   return router.handlePhilosophyRequest({ request: { operation: 'listImplementationContracts', arguments: { target: 'response' } } });
 }).then((result) => {
   assert.ok(result.contracts.length >= 4);
