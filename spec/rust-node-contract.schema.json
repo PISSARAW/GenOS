@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/rust-node-contract.schema.json",
+  "title": "RustNodeExecutionContract",
+  "version": "1.0.0",
+  "description": "Common execution contract between Rust CLI and Node backend for GenOS operations",
+  "type": "object",
+  "required": ["protocolVersion", "messageType", "correlationId", "payload"],
+  "properties": {
+    "protocolVersion": {
+      "type": "string",
+      "const": "genos.rust-node/v1",
+      "description": "Contract version identifier"
+    },
+    "messageType": {
+      "type": "string",
+      "enum": [
+        "COMMAND_REQUEST",
+        "COMMAND_RESPONSE",
+        "STREAM_EVENT",
+        "HEARTBEAT",
+        "CANCELLATION"
+      ],
+      "description": "Type of message in the protocol"
+    },
+    "correlationId": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{8,64}$",
+      "description": "Unique correlation ID for request/response matching"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of message creation"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Message-specific payload",
+      "oneOf": [
+        { "$ref": "#/definitions/CommandRequest" },
+        { "$ref": "#/definitions/CommandResponse" },
+        { "$ref": "#/definitions/StreamEvent" },
+        { "$ref": "#/definitions/Heartbeat" },
+        { "$ref": "#/definitions/Cancellation" }
+      ]
+    }
+  },
+  "definitions": {
+    "CommandRequest": {
+      "type": "object",
+      "required": ["command", "args", "timeoutMs", "idempotencyKey"],
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": [
+            "snapshot_create",
+            "snapshot_validate",
+            "snapshot_diff",
+            "hallucination_analyze",
+            "hallucination_simulate",
+            "replay_basic",
+            "evolution_crossover",
+            "evolution_division",
+            "evolution_phylogeny",
+            "biomimicry_cryptobiosis",
+            "fossil_record",
+            "fossil_list",
+            "capsule_create",
+            "capsule_audit",
+            "reproduction_crossover",
+            "reproduction_division"
+          ],
+          "description": "Rust CLI subcommand to execute"
+        },
+        "args": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Command arguments"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 300000,
+          "default": 60000,
+          "description": "Execution timeout in milliseconds"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "description": "Client-generated key for idempotent execution"
+        },
+        "workingDirectory": {
+          "type": "string",
+          "description": "Optional working directory override"
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Additional environment variables"
+        }
+      }
+    },
+    "CommandResponse": {
+      "type": "object",
+      "required": ["success", "exitCode", "correlationId", "durationMs"],
+      "properties": {
+        "success": {
+          "type": "boolean",
+          "description": "Whether command completed successfully (exit code 0)"
+        },
+        "exitCode": {
+          "type": "integer",
+          "description": "Process exit code"
+        },
+        "correlationId": {
+          "type": "string",
+          "description": "Echo of request correlationId"
+        },
+        "durationMs": {
+          "type": "integer",
+          "description": "Execution duration in milliseconds"
+        },
+        "stdout": {
+          "type": "string",
+          "description": "Captured stdout"
+        },
+        "stderr": {
+          "type": "string",
+          "description": "Captured stderr"
+        },
+        "json": {
+          "type": ["object", "null"],
+          "description": "Parsed JSON output from stdout (if valid JSON)"
+        },
+        "error": {
+          "type": ["object", "null"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" },
+            "details": { "type": "object" }
+          },
+          "description": "Structured error if success is false"
+        },
+        "receipt": {
+          "type": ["object", "null"],
+          "description": "Cryptographic receipt for verified operations"
+        }
+      }
+    },
+    "StreamEvent": {
+      "type": "object",
+      "required": ["eventType", "data"],
+      "properties": {
+        "eventType": { "type": "string" },
+        "data": { "type": "object" },
+        "sequence": { "type": "integer" }
+      }
+    },
+    "Heartbeat": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["ALIVE", "BUSY", "DRAINING"] },
+        "activeOperations": { "type": "integer" },
+        "queueDepth": { "type": "integer" }
+      }
+    },
+    "Cancellation": {
+      "type": "object",
+      "required": ["targetCorrelationId", "reason"],
+      "properties": {
+        "targetCorrelationId": { "type": "string" },
+        "reason": { "type": "string" },
+        "force": { "type": "boolean", "default": false }
+      }
+    },
+    "SnapshotCreatePayload": {
+      "type": "object",
+      "required": ["agentId", "snapshotId", "branchId", "worldId", "genome", "state", "createdAt"],
+      "properties": {
+        "snapshotId": { "type": "string", "pattern": "^snap-[a-f0-9-]+$" },
+        "agentId": { "type": "string" },
+        "branchId": { "type": "string", "pattern": "^branch-[a-f0-9-]+$" },
+        "worldId": { "type": "string" },
+        "genome": { "type": "object" },
+        "state": {
+          "type": "object",
+          "required": ["executionStatus", "workingMemory", "entropy", "dissonance", "genesisHash"],
+          "properties": {
+            "executionStatus": { "type": "string", "enum": ["quiescent", "active", "paused", "completed", "failed"] },
+            "workingMemory": { "type": "array", "items": { "type": "object" } },
+            "entropy": { "type": "number", "minimum": 0, "maximum": 1 },
+            "dissonance": { "type": "number", "minimum": 0, "maximum": 1 },
+            "genesisHash": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

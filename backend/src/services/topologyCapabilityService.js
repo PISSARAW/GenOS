@@ -79,7 +79,8 @@ function normalizeKey(value) {
 }
 
 function requiredCapabilities(keys) {
-  return [...new Set((keys || []).filter((key) => GENOS_CAPABILITIES.includes(key)))].sort();
+  const upper = new Set(GENOS_CAPABILITIES.map(k => k.toUpperCase()));
+  return [...new Set((keys || []).filter((key) => upper.has(String(key).toUpperCase())))].sort();
 }
 
 function capabilitiesForMode(mode) {
