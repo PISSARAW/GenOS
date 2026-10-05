@@ -227,9 +227,11 @@ Le compilateur Omega est exposé par
 `backend/src/services/cognitiveOmegaCompiler.js`. Il reste volontairement
 additif : les points d'entrée existants conservent leur contrat v2 et leurs
 reçus, mais `modelRouter.generate` constitue désormais la passerelle Omega
-commune. Toute requête legacy y est enveloppée dans un résidu compatible ; une
-requête portant un programme Omega explicite utilise le slice et la projection
-calculés par Omega. La mise en production d'un `CHECK` ou d'un `EMIT` exige toujours un
+commune. Les domaines Signal, Trinity, Biocénose, workers, évaluations,
+primitives et contrôleurs construisent leurs graphes natifs via
+`cognitiveOmegaDomainGraphService`. Une requête non classifiée reste enveloppée
+dans le graphe runtime de compatibilité ; une requête portant un programme Omega
+explicite utilise le slice et la projection calculés par Omega. La mise en production d'un `CHECK` ou d'un `EMIT` exige toujours un
 vérificateur ou un actionneur autorisé ; le texte d'un modèle ne peut pas
 fournir lui-même cette autorité.
 
