@@ -20,4 +20,12 @@ const contract = omega.compilePrompt({ prompt: 'task', program: [{ id: 'read', k
   economy: economy.forRpe({ risk: 0.7 }) });
 assert.equal(contract.economy.topology, 'syncytium');
 assert.equal(contract.economy.level, 'L4');
+assert.equal(contract.economy.execution.verificationPasses, 2);
+assert.equal(contract.economy.execution.allowEmit, true);
+const graph = [{ id: 'infer', kind: 'INFER', dependsOn: [] },
+  { id: 'check', kind: 'CHECK', reference: 'epistemic/runtime', dependsOn: ['infer'] },
+  { id: 'emit', kind: 'EMIT', reference: 'runtime.commit', dependsOn: ['check'] }];
+assert.deepEqual(economy.shapeOperations(graph, economy.plan({ level: 'L0' })).map((item) => item.kind), ['INFER']);
+assert.deepEqual(economy.shapeOperations(graph, economy.plan({ level: 'L5' }))
+  .map((item) => item.kind), ['INFER', 'CHECK', 'CHECK', 'CHECK', 'EMIT']);
 console.log('Cognitive economy controller checks passed.');

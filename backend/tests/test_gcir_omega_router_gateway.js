@@ -27,7 +27,7 @@ routeRunner.runFallback = async (candidates, context) => ({
     const native = await router.generate({
       model: 'test://omega', prompt: 'run native trinity graph', stream: false,
       cognitiveDomain: 'trinity', cognitiveObjects: { mission: 'm1', experiment: 'e1' },
-      cognitiveEffects: ['promote'], cognitiveNativeExecution: true,
+      cognitiveEffects: ['promote'], cognitiveLevel: 'L3', cognitiveNativeExecution: true,
       cognitiveNativeHandlers: {
         tools: { 'trinity/experiment': async ({ arguments: input }) => ({ ...input, prepared: true }) },
         emitters: { 'trinity.promote': async ({ value }) => ({ promoted: value }) }

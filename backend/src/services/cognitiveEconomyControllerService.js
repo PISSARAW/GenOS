@@ -71,11 +71,41 @@ function plan(input = {}) {
   const selected = candidates(input).filter((candidate) => TOPOLOGIES.includes(candidate.topology || selectedTopology))
     .sort((left, right) => right.roi - left.roi)[0] || { topology: selectedTopology, roi: 0 };
   const selectedLevel = LEVEL_POLICY[level.id];
+  const selectedTopologyName = selected.topology || selectedTopology;
+  const verificationPasses = selectedLevel.graph.filter((kind) => kind === 'CHECK').length;
   return { status: 'planned', integration: integrationKey(input.integration || 'runtime'),
-    topology: selected.topology || selectedTopology, level: level.id, levelValue: level.value,
+    topology: selectedTopologyName, level: level.id, levelValue: level.value,
     graph: selectedLevel.graph, verification: selectedLevel.verification, roi: selected.roi,
     risk: level.risk, requiredCapabilities: topology.contractFor({ mode: selected.topology || selectedTopology }).required,
+    execution: executionPolicy(selectedTopologyName, level.value, verificationPasses),
     source: 'omega_cognitive_economy_v1' };
+}
+
+function executionPolicy(selectedTopology, level, verificationPasses) {
+  const parallelTopologies = new Set(['a_team', 'biocenose', 'biome', 'metapopulation', 'rhizome']);
+  return { mode: parallelTopologies.has(selectedTopology) ? 'parallel' : 'fallback',
+    allowEmit: level >= 3, verificationPasses, topology: selectedTopology,
+    organization: level >= 4 ? 'independent_review' : 'single_pass' };
+}
+
+function shapeOperations(operations, economy) {
+  const source = Array.isArray(operations) ? operations : [];
+  const passes = economy?.execution?.verificationPasses ?? 1;
+  const checks = source.filter((operation) => operation.kind === 'CHECK');
+  if (!checks.length) return source.map((operation) => ({ ...operation, dependsOn: [...(operation.dependsOn || [])] }));
+  const primary = checks[0];
+  const shaped = source.filter((operation) => operation.kind !== 'CHECK' && operation.kind !== 'EMIT')
+    .map((operation) => ({ ...operation, dependsOn: [...(operation.dependsOn || [])] }));
+  let previous = primary.dependsOn?.[0];
+  for (let index = 0; index < passes; index += 1) {
+    const check = { ...primary, id: index ? `${primary.id}_${index + 1}` : primary.id,
+      dependsOn: [previous] };
+    shaped.push(check);
+    previous = check.id;
+  }
+  const emit = source.find((operation) => operation.kind === 'EMIT');
+  if (emit && economy.execution?.allowEmit) shaped.push({ ...emit, dependsOn: [previous] });
+  return shaped;
 }
 
 function observe(input = {}) {
@@ -107,4 +137,4 @@ function forRpe(input = {}) { return plan({ ...input, integration: 'rpe' }); }
 function forNaturalSearch(input = {}) { return plan({ ...input, integration: 'natural_search' }); }
 
 module.exports = { LEVELS, TOPOLOGIES, INTEGRATIONS, LEVEL_POLICY, plan, observe, record,
-  forAgow, forMorphogenesis, forRpe, forNaturalSearch, riskOf, roi };
+  forAgow, forMorphogenesis, forRpe, forNaturalSearch, riskOf, roi, shapeOperations };

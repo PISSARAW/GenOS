@@ -131,28 +131,30 @@ function buildRouteContext(opts, clock, remainingMs) {
 
 async function cognitiveRequest(options) {
   if (options.cognitiveContract) return options.cognitiveContract;
+  const economy = cognitiveEconomy.plan({ integration: options.cognitiveIntegration || options.cognitiveDomain,
+    topology: options.cognitiveTopology, level: options.cognitiveLevel,
+    risk: options.cognitiveRisk, uncertainty: options.cognitiveUncertainty,
+    irreversible: options.cognitiveIrreversible, highStakes: options.cognitiveHighStakes,
+    tokens: options.maxTokens, latencyMs: options.timeoutMs, candidates: options.cognitiveCandidates });
   const nativeGraph = options.cognitiveProgram ? null : (options.cognitiveDomain
     ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
       objects: options.cognitiveObjects, output: options.cognitiveOutput,
       verification: options.cognitiveVerification, evidenceRefs: options.cognitiveEvidenceRefs,
       verificationDescriptor: options.cognitiveVerificationDescriptor,
       effects: options.cognitiveEffects }) : null);
+  const nativeExecutionGraph = nativeGraph ? { ...nativeGraph,
+    operations: cognitiveEconomy.shapeOperations(nativeGraph.operations, economy) } : null;
   const program = options.cognitiveProgram || nativeGraph?.operations || null;
   const selection = options.db && options.model && typeof options.db.all === 'function'
     ? await projectionProfiler.select(options.db, { model: options.model,
       task: options.cognitiveDomain || 'runtime' }) : null;
-  const economy = cognitiveEconomy.plan({ integration: options.cognitiveIntegration || options.cognitiveDomain,
-    topology: options.cognitiveTopology, level: options.cognitiveLevel,
-    risk: options.cognitiveRisk, uncertainty: options.cognitiveUncertainty,
-    irreversible: options.cognitiveIrreversible, highStakes: options.cognitiveHighStakes,
-    tokens: options.maxTokens, latencyMs: options.timeoutMs, candidates: options.cognitiveCandidates });
   const contract = cognitiveOmega.compilePrompt({ prompt: options.cognitivePrompt || promptText(options.prompt), operation: options.cognitiveOperation,
     source: options.cognitiveSource, domain: options.cognitiveDomain, program,
     model: options.model, representation: selection?.representation,
     projectionSelection: selection,
     projectionProfile: selection?.profile ? { model: options.model,
       representations: [selection.representation] } : null, economy });
-  return { ...contract, nativeGraph, routePrompt: options.cognitiveRawPrompt || null };
+  return { ...contract, nativeGraph, nativeExecutionGraph, routePrompt: options.cognitiveRawPrompt || null };
 }
 
 function withCognitiveResult(result, contract) {
@@ -277,7 +279,7 @@ async function executeNativeGraph({ graph, candidates, context, mode, mmu, econo
   });
   const execution = await runtime.execute({
     context: nativeContext(context, graph), objects: graph.objectStore || {}, policy: nativePolicy(graph),
-    mmu, economy, allowEmit: options.cognitiveAllowEmit === true,
+    mmu, economy, allowEmit: options.cognitiveAllowEmit !== false && economy?.execution?.allowEmit === true,
     verifierRegistry: options.cognitiveVerifierRegistry,
     verifierHandlers: options.cognitiveVerifierHandlers,
     verifierDescriptors: options.cognitiveVerificationDescriptors,
@@ -359,9 +361,12 @@ async function generate(options) {
     procedural = { status: 'reused', procedure: reused.procedure,
       promotionReceipt: reused.promotionReceipt };
   } else {
-    const mode = policy.mode === 'parallel' && candidates.length > 1 ? 'parallel' : 'fallback';
+    const economyMode = cognitiveContract.economy?.execution?.mode;
+    const mode = economyMode === 'parallel' && candidates.length > 1 ? 'parallel'
+      : policy.mode === 'parallel' && candidates.length > 1 ? 'parallel' : 'fallback';
     const executor = shouldExecuteNative(opts, cognitiveContract)
-      ? executeNativeGraph({ graph: cognitiveContract.nativeGraph, candidates, context, mode, mmu,
+      ? executeNativeGraph({ graph: cognitiveContract.nativeExecutionGraph || cognitiveContract.nativeGraph,
+        candidates, context, mode, mmu,
         economy: cognitiveContract.economy, options: opts })
       : executeInferenceThroughOmega({ candidates, context, mode, mmu, economy: cognitiveContract.economy });
     routed = await executor;
@@ -392,5 +397,4 @@ async function generate(options) {
   }
   return withCognitiveResult(result, cognitiveResult);
 }
-
 module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
