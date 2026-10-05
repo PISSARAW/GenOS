@@ -1683,7 +1683,9 @@ dependencies = [
 name = "genos-mcp"
 version = "0.1.0"
 dependencies = [
+ "hex",
  "libc",
+ "rmp-serde",
  "serde",
  "serde_json",
 ]

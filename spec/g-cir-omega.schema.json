@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/g-cir-omega.schema.json",
+  "title": "G-CIR Omega canonical envelope",
+  "type": "object",
+  "required": ["schema", "version", "id", "operations", "policy"],
+  "properties": {
+    "schema": { "const": "genos.gcir.omega/v1" },
+    "version": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "operations": {
+      "type": "array", "minItems": 1, "maxItems": 64,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "dependsOn", "state"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["READ", "SELECT", "CALL", "INFER", "CHECK", "EMIT"] },
+          "reference": { "type": ["string", "null"] },
+          "dependsOn": { "type": "array", "items": { "type": "string" } },
+          "state": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "policy": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+    "payload": { "type": ["object", "null"] }
+  },
+  "additionalProperties": false
+}

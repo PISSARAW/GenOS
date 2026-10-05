@@ -493,6 +493,12 @@ AGOW, Morphogenèse, RPE et Natural Search disposent de profils d'intégration
 explicites. Ce pilotage choisit la profondeur et les vérifications du graphe ;
 il ne transforme pas une estimation ROI en preuve de qualité.
 
+L'interopérabilité Node/Rust utilise le schéma partagé
+`spec/g-cir-omega.schema.json`, une enveloppe MessagePack positionnelle et les
+vecteurs `spec/g-cir-omega-vectors.json`. Le test Node et le test `genos-mcp`
+doivent produire le même octet-par-octet et le même digest; le payload binaire
+est un JSON canonique UTF-8, tandis que le contrat logique expose un objet.
+
 - Le compilateur universel de missions libres et l'ISA exécutable inter-langages
   restent hors périmètre ; les appels modèle applicatifs passent toutefois par
   la passerelle Omega commune, avec un wrapper de compatibilité pour les anciens

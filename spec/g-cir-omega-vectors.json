@@ -1,0 +1,21 @@
+{
+  "schema": "genos.gcir.omega/v1",
+  "vectors": [
+    {
+      "name": "read-check-basic",
+      "envelope": {
+        "schema": "genos.gcir.omega/v1",
+        "version": 1,
+        "id": "vector-1",
+        "operations": [
+          { "id": "read", "kind": "READ", "reference": "repo", "dependsOn": [], "state": "satisfied" },
+          { "id": "check", "kind": "CHECK", "reference": "test", "dependsOn": ["read"], "state": "open" }
+        ],
+        "policy": { "check": ["test"], "read": ["repo"] },
+        "payload": { "domain": "interop", "n": 1 }
+      },
+      "messagePackHex": "96b367656e6f732e676369722e6f6d6567612f763101a8766563746f722d319295a472656164a452454144a47265706f90a973617469736669656495a5636865636ba5434845434ba47465737491a472656164a46f70656e9292a5636865636b91a47465737492a47265616491a47265706fba7b22646f6d61696e223a22696e7465726f70222c226e223a317d",
+      "sha256": "sha256:3e89f2c8341e5de3483766b68f91513619e09336a65bc4369be1a5af752b0359"
+    }
+  ]
+}
