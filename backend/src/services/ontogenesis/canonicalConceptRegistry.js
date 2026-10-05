@@ -64,6 +64,17 @@ function capabilityCatalog() {
   }));
 }
 
+function executionFields(concept) {
+  const primitives = concept.primitives || [];
+  const handlers = require('../strategyExecutionAdapter').getHandlers();
+  const implementedPrimitives = primitives.filter((primitive) => typeof handlers[primitive] === 'function');
+  const unavailablePrimitives = primitives.filter((primitive) => typeof handlers[primitive] !== 'function');
+  return {
+    implementedPrimitives, unavailablePrimitives,
+    executable: Boolean((concept.tools || []).length || (primitives.length && !unavailablePrimitives.length))
+  };
+}
+
 function conceptCatalog() {
   const operational = new Set(capabilityCatalog().filter((entry) => entry.state === 'operationnel')
     .map((entry) => entry.capability.toLowerCase()));
@@ -72,8 +83,8 @@ function conceptCatalog() {
     executable: operational.has(id), source: 'documentation'
   })));
   const registered = Object.values(runtimeConceptRegistry.getAllConcepts()).map((concept) => ({
+    ...executionFields(concept),
     id: concept.id, domain: concept.kind, state: concept.maturity || 'ready', source: 'concept_registry',
-    executable: Boolean((concept.tools || []).length || (concept.primitives || []).length),
     tools: concept.tools || [], primitives: concept.primitives || [],
     capabilities: concept.capabilities || [], authority: concept.authorityRequirements || []
   }));
@@ -103,6 +114,7 @@ function resolveMission(input = {}) {
 function compatibleRuntimeConcepts(topology) {
   if (!topology) return [];
   return runtimeConceptRegistry.findCompatibleConcepts({ topology }).map((concept) => ({
+    ...executionFields(concept),
     id: concept.id, kind: concept.kind, maturity: concept.maturity || 'ready',
     tools: concept.tools || [], primitives: concept.primitives || [],
     capabilities: concept.capabilities || [], strategies: concept.strategies || []
@@ -111,6 +123,7 @@ function compatibleRuntimeConcepts(topology) {
 
 function registeredConcepts() {
   return Object.values(runtimeConceptRegistry.getAllConcepts()).map((concept) => ({
+    ...executionFields(concept),
     id: concept.id, kind: concept.kind, maturity: concept.maturity || 'ready',
     tools: concept.tools || [], primitives: concept.primitives || [],
     capabilities: concept.capabilities || [], authority: concept.authorityRequirements || []

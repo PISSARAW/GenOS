@@ -18,6 +18,11 @@ assert.ok(web.operational.length > 0);
 assert.ok(web.unavailable.length > 0);
 assert.ok(web.canonicalConcepts.length >= 400);
 assert.ok(web.runtimeConcepts.length >= 180);
+assert.ok(web.runtimeConcepts.every((concept) => Array.isArray(concept.implementedPrimitives)));
+assert.ok(web.runtimeConcepts.every((concept) => Array.isArray(concept.unavailablePrimitives)));
+assert.ok(web.runtimeConcepts.every((concept) => concept.unavailablePrimitives.length === 0));
+assert.ok(web.runtimeConcepts.filter((concept) => concept.primitives.length > 0)
+  .every((concept) => concept.executable));
 assert.ok(web.runtimeLeaseCandidates.length > 0);
 assert.ok(web.runtimeLeaseCandidates.every((entry) => !entry.tools.includes('genos_orchestrate')));
 const compatibleTools = new Set(runtimeRegistry.resolveCapabilities(web.compatibleRuntimeConcepts.map((concept) => concept.id)));
