@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : contrats stables V1
-- **Dernière revue** : 2026-10-01
+- **Dernière revue** : 2026-10-05
 
 Référence des contrats persistants et comportementaux de l'Ontogenèse (ADR 0235).
 Sources : `backend/src/db/migrations/migrateOntogenesis.js` (migration 086),
@@ -10,8 +10,12 @@ Sources : `backend/src/db/migrations/migrateOntogenesis.js` (migration 086),
 `backend/src/services/ontogenesis/configSchema.js`, `stateMachine.js`, `claimService.js`,
 `inboxService.js`, `memoryService.js`, `notificationService.js`, `activityView.js`,
 `integrationService.js`, `topologySelector.js`, `memoryPressure.js`,
-`backend/bin/genos-ontogenesis.cjs`.
+`backend/bin/genos-ontogenesis.cjs`, `canonicalConceptRegistry.js`,
+`missionCapabilityPlanService.js`, `runtimeHarness.js`.
 Tout écart entre ce document et ces fichiers est un bug de documentation.
+
+Le raccord détaillé des concepts philosophiques est documenté séparément dans
+[Contrats philosophiques dans l’Ontogenèse](contrats-philosophiques-ontogenese.md).
 
 ## 1. Tables `ontogenesis_*`
 

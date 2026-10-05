@@ -159,6 +159,7 @@ Index : [03-reference/README.md](03-reference/README.md)
 - [persistance-et-donnees.md](03-reference/persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
 - [resultats-formels-messagepack.md](03-reference/resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [registre-philosophique.md](03-reference/registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
+- [contrats-philosophiques-ontogenese.md](03-reference/contrats-philosophiques-ontogenese.md) — raccord des 375 contrats philosophiques au plan de mission et au runtime harness Ontogenèse.
 - [modeles-et-providers.md](03-reference/modeles-et-providers.md) — providers, routing, coûts, local/remote.
 - [integrations-ide.md](03-reference/integrations-ide.md) — contrat IDE `genos.ide/v1`.
 - [notifications-et-alertes.md](03-reference/notifications-et-alertes.md) — préférences et alertes tenant-scoped.

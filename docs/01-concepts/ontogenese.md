@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : contrôleur d'Ontogenèse (`backend/src/services/ontogenesis/`), machine à états, boucle de pilotage, sélection bornée, politique de réveil, persistance `ontogenesis_*` ; décision tracée par l'ADR 0235.
-- **Dernière revue** : 2026-10-02
+- **Dernière revue** : 2026-10-05
 
 > Convention de lecture de cette fiche : chaque affirmation porte son statut.
 > **Implémenté** = comportement présent dans le dépôt et vérifiable (chemin de fichier cité).
@@ -22,6 +22,16 @@ Deux rôles séparés structurent le domaine (**Cadre conceptuel**, ADR 0235 §1
 Ce qui distingue l'Ontogenèse du runtime agentique décrit dans [runtime-agentique.md](runtime-agentique.md) : le runtime exécute une mission autorisée bornée vers une sortie terminale (**Implémenté** — `backend/src/services/agentRuntimeAdapter/index.js`), tandis que le contrôleur d'Ontogenèse possède la responsabilité entre les missions : backlog, priorités, mémoire, réveils, intégration (**Partiel** — le tick résident, le runner, la vérification et l'intégrateur sont raccordés dans `tickService.js`, `runtimeHarness.js` et `integrationController.js`; l'exploitation continue, la couverture de reprise et certains contrôles OS demeurent limités, voir §7–§10).
 
 La règle épistémique GenOS s'applique sans exception : un transport réussi n'est pas une preuve de décision valide ; une tâche terminée sans preuves suffisantes reste non vérifiée, jamais promue (**Implémenté** — refus de promotion sans preuves dans `backend/src/services/ontogenesis/loopController.js`, fonction `stepVerifying`).
+
+Les 375 contrats philosophiques peuvent maintenant accompagner ce cycle sans
+élargir son autorité (**Partiel** — résolution, planification et transport vers
+le runner implémentés ; expériences runtime et validation indépendante encore
+séparées). Le chemin détaillé est décrit dans
+[Contrats philosophiques dans l’Ontogenèse](../03-reference/contrats-philosophiques-ontogenese.md) :
+`canonicalConceptRegistry` fournit la référence, `missionCapabilityPlanService`
+la déduplique dans `philosophicalContracts`, puis `runtimeHarness` la transmet
+avec les preuves et topologies attendues. Le champ `promotionEligible` reste
+`false` jusqu’aux gates existantes.
 
 ## 2. Modèle formel
 

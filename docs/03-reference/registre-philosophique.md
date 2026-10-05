@@ -23,7 +23,8 @@ Le sous-domaine `mathematics` est documenté dans
 | Relations philosophiques | `backend/src/philosophy/relationRegistry.js` |
 | Sous-domaines GenOS | `backend/src/philosophy/genosSubdomains.js` |
 | Maturité des services | `backend/src/philosophy/serviceMaturity.js` |
-| Contrats | `spec/philosophical-concept.schema.json`, `spec/ontology-relation.schema.json` |
+| Contrats philosophiques | `backend/src/philosophy/implementationContracts.js`, `spec/implementation-contract.schema.json` |
+| Raccord Ontogenèse | `backend/src/services/ontogenesis/canonicalConceptRegistry.js`, `missionCapabilityPlanService.js`, `runtimeHarness.js` |
 
 La documentation explique le modèle ; elle ne duplique pas le registre canonique.
 
@@ -60,6 +61,20 @@ La santé du registre est vérifiée au chargement et par la suite
 `backend/tests/test_philosophy_registry_health.js`. Une entrée peut rester
 `partial` ou `planned` sans devenir une capacité d'exécution : le statut
 philosophique et la maturité du service restent deux dimensions séparées.
+
+## Raccord à l’Ontogenèse
+
+Le détail du flux est décrit dans
+[Contrats philosophiques dans l’Ontogenèse](contrats-philosophiques-ontogenese.md).
+En résumé, le registre canonique attache à chaque concept son contrat complet et
+une référence compacte. Lorsqu’une mission sélectionne ou demande un concept,
+`missionCapabilityPlanService` déduplique ces références dans
+`philosophicalContracts`, puis `runtimeHarness` les transmet au runner.
+
+Ce raccord est un contexte de planification et d’audit : il ne rend pas le
+concept exécutable, ne crée pas de lease et ne modifie pas la décision de
+promotion. Une topologie incompatible conserve le concept dans les éléments
+bloqués ; la référence du contrat reste disponible pour expliquer le blocage.
 
 Les adaptateurs bornés de qualia, d'intentionnalité, de supervenience,
 d'émergence et de modèles esprit-corps sont opérationnels via `evaluateConcept`

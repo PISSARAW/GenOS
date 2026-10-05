@@ -3,7 +3,7 @@
 - Statut : Accepté
 - Date : 2026-10-05
 - Domaine : registre philosophique, épistémologie, expérimentation
-- Lié à : [ADR 0018](0018-gouvernance-registre-philosophique.md)
+- Lié à : [ADR 0018](0018-gouvernance-registre-philosophique.md), [ADR 0319](0319-raccord-contrats-philosophiques-ontogenese.md)
 
 ## Contexte
 
@@ -19,9 +19,10 @@ des observables, des tests de falsification, des limites et des responsabilités
 
 Le compilateur produit un contrat pour chacune des 375 entrées. Il distingue
 21 contrats pilotes détaillés et 354 contrats provisoires marqués
-`pending-mechanism`; ces derniers ne peuvent pas être annoncés comme
-implémentés. Le routeur expose uniquement des lectures : liste, contrat unique
-et santé du registre. Ces opérations n’accordent aucune autorité runtime.
+`mapped-pending-behavior`; ces derniers ne peuvent pas être annoncés comme
+implémentés. Le routeur expose uniquement des lectures : liste, contrat unique,
+santé, préparation expérimentale et vérification des preuves manquantes. Ces
+opérations n’accordent aucune autorité runtime.
 
 Chaque expérience compare la topologie de référence `isolated_critics` à des
 variantes centralisée, fédérée et pair-à-pair ; cette déclaration ne vaut pas
@@ -33,3 +34,5 @@ encore résultat expérimental.
 - la maturité `tested` est distincte du statut philosophique du concept ;
 - une absence de contrat est visible plutôt que remplacée par une promesse ;
 - l’extension aux autres entrées devra fournir des tests et des limites.
+- le raccord à l’Ontogenèse doit transporter le contrat comme contexte de
+  mission sans créer de lease ni contourner les gates (voir ADR 0319).

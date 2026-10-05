@@ -375,6 +375,8 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0315](0315-terminologie-organisme-computationnel.md) | Terminologie : organisme computationnel vs biologique | Accepté | 2026-10-05 | Biomimétique, terminologie, anti-anthropomorphisme |
 | [0316](0316-terminologie-controleur-multi-application-contrat.md) | Terminologie : contrôleur multi-application sous contrat | Accepté | 2026-10-05 | Sécurité, contrats, moindre privilège |
 | [0317](0317-interdictions-structurelles-autonomie-autofix.md) | Interdictions structurelles : autonomie, auto-promotion, autofix | Accepté — Coercitif | 2026-10-05 | Sécurité, architecture, CI gate |
+| [0318](0318-contrats-implementation-concepts.md) | Contrats d’implémentation des concepts | Accepté | 2026-10-05 | Registre philosophique, épistémologie, expérimentation |
+| [0319](0319-raccord-contrats-philosophiques-ontogenese.md) | Raccord des contrats philosophiques au cycle Ontogenèse | Accepté | 2026-10-05 | Ontogenèse, registre philosophique, preuve |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
