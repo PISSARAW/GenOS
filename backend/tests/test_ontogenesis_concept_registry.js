@@ -147,6 +147,20 @@ assert.deepStrictEqual(biologyMission.resolvedConcepts.map((concept) => concept.
   'EVOLUTION_REPRODUCTION', 'EVOLUTION_REPRODUCTION', 'GENOME_EPIGENETICS', 'IMMUNE_SYSTEM', 'SWARM_METRICS'
 ]);
 
+const immuneMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'antigene_epistemique', 'selection_clonale', 'homeostasie_effort', 'apoptose_epistemique',
+  'recus_aeis', 'assemblees_aeis', 'oracle_scelle', 'calibration_faux_positifs_negatifs',
+  'rearbitrage_promotion'
+] });
+assert.deepStrictEqual(immuneMission.resolvedConcepts.map((concept) => concept.source), [
+  'capability', 'capability', 'capability', 'runtime', 'capability',
+  'capability', 'capability', 'capability', 'capability'
+]);
+assert.deepStrictEqual(immuneMission.resolvedConcepts.map((concept) => concept.id), [
+  'IMMUNE_SYSTEM', 'IMMUNE_SYSTEM', 'CONSCIENCE_HOMEOSTASIS', 'apoptosis_concept',
+  'EVIDENCE_BARRIER', 'QUORUM', 'CAPSULES_SNAPSHOTS', 'EPISTEMICS_BRIER', 'PROMOTION_GATE'
+]);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

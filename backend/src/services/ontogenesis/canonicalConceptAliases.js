@@ -56,6 +56,18 @@ const CAPABILITY_ALIASES = Object.freeze({
   , bourgeonnement: 'EVOLUTION_REPRODUCTION', meiose: 'EVOLUTION_REPRODUCTION'
   , clonage: 'EVOLUTION_REPRODUCTION', heredite: 'GENOME_EPIGENETICS'
   , hote_symbionte: 'IMMUNE_SYSTEM', ecosysteme_agentique: 'SWARM_METRICS'
+  , antigene_epistemique: 'IMMUNE_SYSTEM', immunite_innee: 'IMMUNE_SYSTEM'
+  , immunite_adaptative: 'IMMUNE_SYSTEM', anticorps_specialises: 'IMMUNE_SYSTEM'
+  , selection_clonale: 'IMMUNE_SYSTEM', maturation_affinite: 'IMMUNE_SYSTEM'
+  , memoire_immunitaire: 'IMMUNE_SYSTEM', inflammation: 'IMMUNE_SYSTEM'
+  , homeostasie_effort: 'CONSCIENCE_HOMEOSTASIS', tolerance: 'IMMUNE_SYSTEM'
+  , regulateur_t: 'IMMUNE_SYSTEM', biocenose_cognitive: 'SWARM_METRICS'
+  , metapopulation_epistemique: 'SWARM_METRICS', stigmergie_epistemique: 'STIGMERGY'
+  , holobionte_epistemique: 'IMMUNE_SYSTEM', recus_aeis: 'EVIDENCE_BARRIER'
+  , assemblees_aeis: 'QUORUM', oracle_scelle: 'CAPSULES_SNAPSHOTS'
+  , calibration_faux_positifs_negatifs: 'EPISTEMICS_BRIER'
+  , revue_multi_fournisseur: 'STRATEGY_PORTFOLIO', feedback_immunitaire: 'IMMUNE_SYSTEM'
+  , rearbitrage_promotion: 'PROMOTION_GATE'
 });
 
 const PHILOSOPHY_ALIASES = Object.freeze({
@@ -105,6 +117,7 @@ const RUNTIME_ALIASES = Object.freeze({
   signature: 'provenance_integrity', prov: 'provenance_integrity', sign: 'provenance_integrity',
   migration_json_legacy: 'provenance_integrity', compatibilite_versions: 'provenance_integrity',
   provenance_genomique: 'provenance_integrity', apoptose_controlee: 'apoptosis_concept'
+  , apoptose_epistemique: 'apoptosis_concept'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
