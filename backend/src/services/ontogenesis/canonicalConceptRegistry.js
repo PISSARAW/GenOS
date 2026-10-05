@@ -7,6 +7,7 @@
  */
 
 const accessMatrix = require('../capabilityAccessMatrix');
+const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
 const conceptInventory = require('./canonicalConceptInventory');
 const runtimeConceptRegistry = require('../conceptRegistryService');
 
@@ -76,6 +77,11 @@ function resolveConceptReference(reference, topology) {
   if (capability) return { requested, id: capability.capability, source: 'capability',
     available: capability.state === 'operationnel', executable: capability.state === 'operationnel',
     reason: capability.state === 'operationnel' ? null : `capacite-${capability.state}`, tools: capability.tools };
+  const philosophical = CONCEPT_DEFINITIONS.find((concept) => normalize(concept.id) === target
+    || (concept.aliases || []).some((alias) => normalize(alias) === target));
+  if (philosophical) return { requested, id: philosophical.id, source: 'philosophy', available: true,
+    executable: false, access: 'read', reason: 'lecture-philosophique', tools: ['genos_philosophy'],
+    status: philosophical.status, service: philosophical.service || null };
   const documented = conceptInventory.entries().find((entry) => normalize(entry.id) === target);
   if (documented) return { requested, id: documented.id, source: 'documentation', available: false,
     executable: false, reason: 'concept-documentaire-sans-raccord-runtime', domain: documented.domain };
@@ -120,13 +126,18 @@ function conceptCatalog() {
     id, domain: domain.id, state: operational.has(id) ? 'operationnel' : 'catalogue',
     executable: operational.has(id), source: 'documentation'
   })));
+  const philosophical = CONCEPT_DEFINITIONS.map((concept) => ({
+    id: concept.id, domain: concept.domain, state: concept.status || 'documented', executable: false,
+    source: 'philosophy_registry', access: 'read', tools: ['genos_philosophy'],
+    service: concept.service || null, mapping: concept.mapping || null
+  }));
   const registered = Object.values(runtimeConceptRegistry.getAllConcepts()).map((concept) => ({
     ...executionFields(concept),
     id: concept.id, domain: concept.kind, state: concept.maturity || 'ready', source: 'concept_registry',
     tools: concept.tools || [], primitives: concept.primitives || [],
     capabilities: concept.capabilities || [], authority: concept.authorityRequirements || []
   }));
-  return documented.concat(registered);
+  return documented.concat(philosophical, registered);
 }
 
 function resolveMission(input = {}) {
