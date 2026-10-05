@@ -63,4 +63,8 @@ assert.deepStrictEqual(lifecycleMission.resolvedConcepts.map((concept) => concep
 assert.strictEqual(lifecycleMission.resolvedConcepts[1].service, 'gvxDevelopmentController');
 assert.strictEqual(lifecycleMission.resolvedConcepts[2].service, 'shev.responsibilityService');
 
+const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
+assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
+assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
+
 console.log('ontogenesis canonical concept registry checks passed.');

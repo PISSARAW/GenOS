@@ -53,6 +53,25 @@ const EXISTING_ADAPTERS = Object.freeze({
   shev: { service: 'shev.responsibilityService', access: 'observe' }
 });
 
+const CAPABILITY_ALIASES = Object.freeze({
+  memoire_graphe: 'GRAPH_MEMORY', memoire_vectorielle: 'VECTOR_MEMORY',
+  memoire_episodique: 'EPISODIC_MEMORY', memoire_procedurale: 'PROCEDURAL_MEMORY',
+  economie_tokens: 'TOKEN_ECONOMY', etat_partage_crdt: 'CRDT_SHARED_STATE',
+  bus_signalisation: 'SIGNALING_BUS', plasticite_synaptique: 'SYNAPTIC_PLASTICITY',
+  etat_causal: 'CAUSAL_STATE', gates_invariants: 'INVARIANT_GATES',
+  etat_partage_transactionnel: 'TRANSACTIONAL_SHARED_STATE', sync_selective: 'SELECTIVE_SYNC',
+  resilience_recuperation: 'RESILIENCE_RECOVERY', homeostasie_conscience: 'CONSCIENCE_HOMEOSTASIS',
+  evolution_reproduction: 'EVOLUTION_REPRODUCTION', genome_epigenetique: 'GENOME_EPIGENETICS',
+  metriques_essaim: 'SWARM_METRICS', gate_promotion: 'PROMOTION_GATE', gouverneur_sortie: 'OUTPUT_GOVERNOR',
+  sandbox_vfs: 'VFS_SANDBOX', gateway_inference: 'INFERENCE_GATEWAY', inference_locale: 'LOCAL_INFERENCE',
+  guidance_procedurale: 'PROCEDURAL_GUIDANCE', evolution_procedurale: 'PROCEDURAL_EVOLUTION',
+  validation_causale_procedurale: 'PROCEDURAL_CAUSAL_VALIDATION', conflits_semantiques: 'SEMANTIC_CONFLICTS',
+  arene_competition: 'ARENA_COMPETITION', adaptation_strategie: 'STRATEGY_ADAPTATION',
+  brier_epistemique: 'EPISTEMICS_BRIER', monitoring_hallucinations: 'HALLUCINATION_MONITORING',
+  perception_foveale: 'FOVEAL_PERCEPTION', approbation_gouvernance: 'GOVERNANCE_APPROVAL',
+  routage_modeles: 'MODEL_ROUTING'
+});
+
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -100,7 +119,9 @@ function resolveConceptReference(reference, topology) {
       compatibleTopologies: runtime.compatibleTopologies, tools: runtime.tools || [],
       primitives: runtime.primitives || [], unavailablePrimitives: execution.unavailablePrimitives };
   }
-  const capability = capabilityCatalog().find((entry) => normalize(entry.capability) === target);
+  const capabilityId = CAPABILITY_ALIASES[target] || target;
+  const capability = capabilityCatalog().find((entry) => entry.capability === capabilityId
+    || normalize(entry.capability) === capabilityId.toLowerCase());
   if (capability) return { requested, id: capability.capability, source: 'capability',
     available: capability.state === 'operationnel', executable: capability.state === 'operationnel',
     reason: capability.state === 'operationnel' ? null : `capacite-${capability.state}`, tools: capability.tools };
@@ -146,8 +167,9 @@ function coverageReport() {
     existingAdapter: 0, documentationOnly: 0 };
   for (const entry of conceptInventory.entries()) {
     const id = normalize(entry.id);
+    const capabilityId = CAPABILITY_ALIASES[id];
     if (runtimeIds.has(id)) counts.runtime += 1;
-    else if (capabilities.has(id)) counts.operationalCapability += 1;
+    else if (capabilities.has(id) || (capabilityId && capabilities.has(normalize(capabilityId)))) counts.operationalCapability += 1;
     else if (philosophyIds.has(id)) counts.philosophyRead += 1;
     else if (graphIds.has(id)) counts.capabilityGraph += 1;
     else if (EXISTING_ADAPTERS[id]) counts.existingAdapter += 1;
