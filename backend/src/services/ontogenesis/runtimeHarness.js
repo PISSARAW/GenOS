@@ -38,6 +38,7 @@ function requestFor(input) {
     capabilityCatalog: input.mission?.capabilityCatalog || [],
     conceptResolution: input.mission?.concepts || null,
     conceptLeaseCandidates: input.mission?.plan?.runtimeLeaseCandidates || [],
+    strategyConcept: input.mission?.plan?.strategy || null,
     developmentalContext: input.mission?.developmentalContext || null,
     worker_assignments: workerAssignments,
     morphologyPlan: input.mission?.morphology || null,

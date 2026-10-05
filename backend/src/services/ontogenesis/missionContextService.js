@@ -145,7 +145,8 @@ function compileMission(project) {
   const kind = classifyMission(project.objective || '', profile);
   const topology = inferredTopology(project, profile, kind).topology;
   const capabilities = capabilitiesFor(profile, kind, topology);
-  const concepts = conceptRegistry.resolveMission({ objective: project.objective, profile, allowedCapabilities: capabilities });
+  const concepts = conceptRegistry.resolveMission({ objective: project.objective, profile,
+    missionKind: kind, allowedCapabilities: capabilities });
   const tasks = buildTasks(project.objective || 'mission du projet', profile, kind);
   const context = JSON.stringify({ objective: project.objective || '', kind, profile });
   return {

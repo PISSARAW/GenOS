@@ -92,6 +92,7 @@ function resolveMission(input = {}) {
     canonicalConcepts: conceptCatalog(), selectedConcepts,
     runtimeConcepts: registeredConcepts(),
     runtimeLeaseCandidates: runtimeLeaseCandidates(),
+    strategy: strategyForMission(input.missionKind),
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
     failClosed: true
@@ -115,6 +116,16 @@ function runtimeLeaseCandidates() {
   })).filter((entry) => entry.tools.length > 0);
 }
 
+function strategyForMission(kind) {
+  const ids = { implement: 'minimal_patch', repair: 'diagnose_baseline', verify: 'plan_execute_verify',
+    explore: 'n_way_counterfactual_fork', decide: 'pareto_frontier_concept' };
+  const concept = runtimeConceptRegistry.getConcept(ids[kind] || ids.implement);
+  if (!concept) return null;
+  return { id: concept.id, maturity: concept.maturity || 'ready', strategies: concept.strategies || [],
+    primitives: concept.primitives || [], tools: concept.tools || [], costModel: concept.costModel,
+    evidenceContract: concept.evidenceContract || [], compatibleTopologies: concept.compatibleTopologies || [] };
+}
+
 function registryHealth() {
   const capabilities = capabilityCatalog();
   return {
@@ -128,4 +139,4 @@ function registryHealth() {
 }
 
 module.exports = { DOMAIN_CATALOG, capabilityCatalog, conceptCatalog, registeredConcepts,
-  runtimeLeaseCandidates, resolveMission, registryHealth };
+  runtimeLeaseCandidates, strategyForMission, resolveMission, registryHealth };

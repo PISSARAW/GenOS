@@ -25,6 +25,7 @@ try {
   assert.strictEqual(compiled.morphology.selectionReason, 'implementation-structuree');
   assert.ok(compiled.morphology.graph.graphId);
   assert.ok(compiled.capabilityCatalog.length > 0);
+  assert.strictEqual(compiled.concepts.strategy.id, 'minimal_patch');
   const request = requestFor({ id: 'run-1', project, task: { title: 'implementer', acceptance_json: '[]', id: 'task-1' },
     selection: { topology: 'a_team', variant: 'default', workerRoles: ['sub_orchestrator', 'specialist'] }, worktree: root,
     budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: compiled });

@@ -48,6 +48,7 @@ function buildMissionCapabilityPlan(input) {
     canonicalConcepts: concepts.canonicalConcepts || [],
     runtimeConcepts: concepts.runtimeConcepts || [],
     runtimeLeaseCandidates: concepts.runtimeLeaseCandidates || [],
+    strategy: concepts.strategy || null,
     capabilityRequirements: required,
     capabilityCatalog: mission.capabilityCatalog || [],
     blockedCapabilities: concepts.unavailable || [],
