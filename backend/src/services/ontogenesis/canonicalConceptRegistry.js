@@ -92,7 +92,7 @@ function resolveMission(input = {}) {
     canonicalConcepts: conceptCatalog(), selectedConcepts,
     runtimeConcepts: registeredConcepts(),
     compatibleRuntimeConcepts: compatibleRuntimeConcepts(input.topology),
-    runtimeLeaseCandidates: runtimeLeaseCandidates(),
+    runtimeLeaseCandidates: runtimeLeaseCandidates(input.topology),
     strategy: strategyForMission(input.missionKind),
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
@@ -117,13 +117,16 @@ function registeredConcepts() {
   }));
 }
 
-function runtimeLeaseCandidates() {
+function runtimeLeaseCandidates(topology) {
+  if (!topology) return [];
+  const compatible = compatibleRuntimeConcepts(topology);
+  const allowedTools = new Set(runtimeConceptRegistry.resolveCapabilities(compatible.map((concept) => concept.id)));
   return registeredConcepts().map((concept) => ({
     conceptId: concept.id,
     tools: runtimeConceptRegistry.generateLeaseForConcept(concept.id),
     authority: concept.authority,
     maturity: concept.maturity
-  })).filter((entry) => entry.tools.length > 0);
+  })).filter((entry) => entry.tools.some((tool) => allowedTools.has(tool)));
 }
 
 function strategyForMission(kind) {
