@@ -36,6 +36,7 @@ try {
   assert.strictEqual(request.conceptResolution.failClosed, true);
   assert.strictEqual(request.developmentalContext, null);
   assert.match(request.mission, /Developmental context: unavailable/);
+  assert.match(request.mission, /Strategy concept:/);
   assert.strictEqual(request.worker_assignments.specialist.workerKind, 'specialist');
   const plan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },
     mission: compiled, config: { budgets: { tokens: 10 }, authority: {} }, selection: { topology: 'a_team', variant: 'default' } });
