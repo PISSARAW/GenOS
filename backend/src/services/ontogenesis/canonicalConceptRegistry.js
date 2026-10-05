@@ -72,6 +72,26 @@ const CAPABILITY_ALIASES = Object.freeze({
   routage_modeles: 'MODEL_ROUTING'
 });
 
+// Les identifiants documentaires francophones pointent vers le registre
+// philosophique deja implemente, sans transformer une lecture en execution.
+const PHILOSOPHY_ALIASES = Object.freeze({
+  ontologie_generale: 'ontology.being', causalite: 'causality.determination',
+  temps_identite: 'ontology.identity-change', esprit_conscience: 'metaphysics.mind-body',
+  epistemologie: 'epistemology.knowledge', philosophie_processus: 'process.actuality-potentiality',
+  ethique: 'ethics.consequentialism', phenomenologie: 'metaphysics.reference-intentionality',
+  platonisme: 'school.platonism', aristotelisme: 'school.aristotelianism',
+  stoicisme: 'school.stoicism', epicurisme: 'school.epicureanism',
+  scholastique: 'school.scholasticism', cartesianisme: 'school.cartesianism',
+  leibnizianisme: 'school.leibnizianism', spinozisme: 'school.spinozism',
+  newtonianisme: 'school.newtonianism', kantisme: 'school.kantianism',
+  contingence_evenement: 'ontology.contingency-necessity', materialisme: 'metaphysics.material-monism',
+  panpsychisme: 'metaphysics.panpsychism', eliminativisme: 'metaphysics.eliminativism',
+  realisme_speculatif: 'school.speculative-realism', tout_vide_infini: 'ontology.whole-void-infinite',
+  alterite: 'ontology.person-other', mondes_possibles: 'ontology.possible-worlds',
+  realisme: 'truth.internal-realism', nominalisme: 'ontology.stances',
+  conceptualisme: 'ontology.stances', organisme_procedural: 'process.actuality-potentiality'
+});
+
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -85,6 +105,10 @@ function requestedId(reference) {
 function runtimeReference(concept, reference) {
   const target = normalize(reference);
   return normalize(concept.id) === target || (concept.aliases || []).some((alias) => normalize(alias) === target);
+}
+
+function philosophyReference(target) {
+  return PHILOSOPHY_ALIASES[target] || target;
 }
 
 function topologyTools(topology) {
@@ -125,8 +149,9 @@ function resolveConceptReference(reference, topology) {
   if (capability) return { requested, id: capability.capability, source: 'capability',
     available: capability.state === 'operationnel', executable: capability.state === 'operationnel',
     reason: capability.state === 'operationnel' ? null : `capacite-${capability.state}`, tools: capability.tools };
-  const philosophical = CONCEPT_DEFINITIONS.find((concept) => normalize(concept.id) === target
-    || (concept.aliases || []).some((alias) => normalize(alias) === target));
+  const philosophicalTarget = philosophyReference(target);
+  const philosophical = CONCEPT_DEFINITIONS.find((concept) => normalize(concept.id) === normalize(philosophicalTarget)
+    || (concept.aliases || []).some((alias) => normalize(alias) === normalize(philosophicalTarget)));
   if (philosophical) {
     const available = topologyAllows(topology, { tools: ['genos_philosophy'] });
     return { requested, id: philosophical.id, source: 'philosophy', available,
@@ -163,6 +188,9 @@ function coverageReport() {
   const runtimeIds = new Set(runtime.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const graphIds = new Set(graph.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const philosophyIds = new Set(CONCEPT_DEFINITIONS.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
+  const philosophyAliasIds = new Set([
+    ...Object.keys(PHILOSOPHY_ALIASES), ...Object.values(PHILOSOPHY_ALIASES)
+  ].map(normalize));
   const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0,
     existingAdapter: 0, documentationOnly: 0 };
   for (const entry of conceptInventory.entries()) {
@@ -170,7 +198,7 @@ function coverageReport() {
     const capabilityId = CAPABILITY_ALIASES[id];
     if (runtimeIds.has(id)) counts.runtime += 1;
     else if (capabilities.has(id) || (capabilityId && capabilities.has(normalize(capabilityId)))) counts.operationalCapability += 1;
-    else if (philosophyIds.has(id)) counts.philosophyRead += 1;
+    else if (philosophyIds.has(id) || philosophyAliasIds.has(id)) counts.philosophyRead += 1;
     else if (graphIds.has(id)) counts.capabilityGraph += 1;
     else if (EXISTING_ADAPTERS[id]) counts.existingAdapter += 1;
     else counts.documentationOnly += 1;

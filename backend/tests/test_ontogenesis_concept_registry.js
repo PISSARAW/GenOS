@@ -68,6 +68,13 @@ const aliasMission = registry.resolveMission({ topology: 'trinity', requestedCon
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
 
+const philosophyMission = registry.resolveMission({ requestedConcepts: ['ontologie_generale', 'causalite', 'platonisme'] });
+assert.deepStrictEqual(philosophyMission.resolvedConcepts.map((concept) => concept.source), ['philosophy', 'philosophy', 'philosophy']);
+assert.deepStrictEqual(philosophyMission.resolvedConcepts.map((concept) => concept.id),
+  ['ontology.being', 'causality.determination', 'school.platonism']);
+assert.ok(philosophyMission.resolvedConcepts.every((concept) => concept.access === 'read' && !concept.executable));
+assert.ok(philosophyMission.coverage.philosophyRead >= 30);
+
 const sensorCapabilities = new Map(accessMatrix.fullMatrix()
   .filter((entry) => ['WEB_FORAGING', 'FOVEAL_PERCEPTION', 'COMPUTER_USE'].includes(entry.capability))
   .map((entry) => [entry.capability, entry]));
