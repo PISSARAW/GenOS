@@ -161,6 +161,18 @@ assert.deepStrictEqual(immuneMission.resolvedConcepts.map((concept) => concept.i
   'EVIDENCE_BARRIER', 'QUORUM', 'CAPSULES_SNAPSHOTS', 'EPISTEMICS_BRIER', 'PROMOTION_GATE'
 ]);
 
+const coordinationMission = registry.resolveMission({ topology: 'syncytium', requestedConcepts: [
+  'intelligence_nuee', 'pheromones', 'signaux', 'recepteurs', 'ack', 'consensus',
+  'flocking', 'competition', 'handoff', 'relations_inter_agents', 'graphe_relations',
+  'responsabilite_persistante', 'observation_qualifiee', 'effet_verifie_projet'
+] });
+assert.ok(coordinationMission.resolvedConcepts.every((concept) => concept.source === 'capability'));
+assert.deepStrictEqual(coordinationMission.resolvedConcepts.map((concept) => concept.id), [
+  'SWARM_METRICS', 'STIGMERGY', 'SIGNALING_BUS', 'LIGAND_RECEPTOR', 'SIGNALING_BUS', 'QUORUM',
+  'SWARM_METRICS', 'ARENA_COMPETITION', 'SIGNALING_BUS', 'LIGAND_RECEPTOR', 'GRAPH_MEMORY',
+  'GOVERNANCE_APPROVAL', 'EVIDENCE_BARRIER', 'EVIDENCE_BARRIER'
+]);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

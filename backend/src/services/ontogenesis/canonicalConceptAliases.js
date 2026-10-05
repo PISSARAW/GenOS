@@ -68,6 +68,20 @@ const CAPABILITY_ALIASES = Object.freeze({
   , calibration_faux_positifs_negatifs: 'EPISTEMICS_BRIER'
   , revue_multi_fournisseur: 'STRATEGY_PORTFOLIO', feedback_immunitaire: 'IMMUNE_SYSTEM'
   , rearbitrage_promotion: 'PROMOTION_GATE'
+  , intelligence_nuee: 'SWARM_METRICS', pheromones: 'STIGMERGY'
+  , signaux: 'SIGNALING_BUS', signal_plane: 'SIGNALING_BUS', signal_plane_zero_text: 'SIGNALING_BUS'
+  , recepteurs: 'LIGAND_RECEPTOR', boite_reception: 'LIGAND_RECEPTOR', ack: 'SIGNALING_BUS'
+  , coalescing: 'SIGNALING_BUS', event_bus: 'SIGNALING_BUS'
+  , communication_zero_text: 'SIGNALING_BUS', communication_shadow: 'SIGNALING_BUS'
+  , grounding_communicationnel: 'LIGAND_RECEPTOR', cout_communication: 'TOKEN_ECONOMY'
+  , consensus: 'QUORUM', flocking: 'SWARM_METRICS', competition: 'ARENA_COMPETITION'
+  , arena: 'ARENA_COMPETITION', handoff: 'SIGNALING_BUS', liaison: 'LIGAND_RECEPTOR'
+  , relations_inter_agents: 'LIGAND_RECEPTOR', physiologie_relationnelle: 'CONSCIENCE_HOMEOSTASIS'
+  , parente_filtrage_routage: 'LIGAND_RECEPTOR', autorite_routage: 'LIGAND_RECEPTOR'
+  , graphe_relations: 'GRAPH_MEMORY', graphe_gcir: 'GRAPH_MEMORY', registre_obligations: 'GOVERNANCE_APPROVAL'
+  , gcir: 'GRAPH_MEMORY', agow: 'ARENA_COMPETITION', responsabilite_persistante: 'GOVERNANCE_APPROVAL'
+  , initiative: 'SIGNALING_BUS', observation_qualifiee: 'EVIDENCE_BARRIER'
+  , effet_verifie_projet: 'EVIDENCE_BARRIER'
 });
 
 const PHILOSOPHY_ALIASES = Object.freeze({
