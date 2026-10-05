@@ -2636,6 +2636,10 @@
               "advance_variant"
             ]
           },
+          "after_revision": {
+            "type": "integer",
+            "minimum": -1
+          },
           "op": {
             "type": "object"
           },
@@ -3760,6 +3764,123 @@
       "inputSchema": {
         "type": "object",
         "properties": {}
+      }
+    },
+    {
+      "name": "genos_browser_act",
+      "category": "Web & Interaction",
+      "risk": "Amber",
+      "description": "Navigate and act in a bounded browser session through the existing browser scout service.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "selector_id": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "journey": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_optimal_foraging",
+      "category": "Biomimicry",
+      "risk": "Amber",
+      "description": "Evaluate and execute bounded foraging steps through the existing ecological scouting services.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "patch_history": {
+            "type": "array"
+          },
+          "next_url": {
+            "type": "string"
+          },
+          "html_content": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_foveal_crop",
+      "category": "Perception",
+      "risk": "Low",
+      "description": "Focus, scan, or crop an image through the existing foveal vision service.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "image_path": {
+            "type": "string"
+          },
+          "bbox": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "keyword": {
+            "type": "string"
+          },
+          "target_type": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    {
+      "name": "genos_computer_use",
+      "category": "Computer Interaction",
+      "risk": "Red",
+      "description": "Run the existing bounded screenshot-model-action computer-use loop.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "model": {
+            "type": "string"
+          },
+          "max_iterations": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "prompt"
+        ],
+        "additionalProperties": true
       }
     },
     {

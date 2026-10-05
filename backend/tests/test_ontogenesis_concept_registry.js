@@ -3,6 +3,7 @@
 const assert = require('assert');
 const registry = require('../src/services/ontogenesis/canonicalConceptRegistry');
 const runtimeRegistry = require('../src/services/conceptRegistryService');
+const accessMatrix = require('../src/services/capabilityAccessMatrix');
 
 const health = registry.registryHealth();
 assert.ok(health.domains >= 23);
@@ -66,5 +67,19 @@ assert.strictEqual(lifecycleMission.resolvedConcepts[2].service, 'shev.responsib
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
+
+const sensorCapabilities = new Map(accessMatrix.fullMatrix()
+  .filter((entry) => ['WEB_FORAGING', 'FOVEAL_PERCEPTION', 'COMPUTER_USE'].includes(entry.capability))
+  .map((entry) => [entry.capability, entry]));
+for (const capability of ['WEB_FORAGING', 'FOVEAL_PERCEPTION', 'COMPUTER_USE']) {
+  assert.strictEqual(sensorCapabilities.get(capability).state, 'operationnel');
+  assert.deepStrictEqual(sensorCapabilities.get(capability).missingFromCatalog, []);
+  assert.deepStrictEqual(sensorCapabilities.get(capability).missingRoutes, []);
+}
+
+const sensorMission = registry.resolveMission({ topology: 'biome', requestedConcepts: ['web_foraging', 'perception_foveale'] });
+assert.deepStrictEqual(sensorMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability']);
+assert.ok(sensorMission.runtimeLeaseCandidates.some((entry) => entry.tools.includes('genos_browser_act')));
+assert.ok(sensorMission.runtimeLeaseCandidates.some((entry) => entry.tools.includes('genos_foveal_crop')));
 
 console.log('ontogenesis canonical concept registry checks passed.');
