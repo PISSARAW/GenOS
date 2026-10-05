@@ -7,6 +7,7 @@
  */
 
 const accessMatrix = require('../capabilityAccessMatrix');
+const capabilityGraph = require('../capabilityGraphService');
 const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
 const conceptInventory = require('./canonicalConceptInventory');
 const runtimeConceptRegistry = require('../conceptRegistryService');
@@ -69,7 +70,8 @@ function topologyTools(topology) {
 
 function topologyAllows(topology, concept) {
   if (!topology) return true;
-  if ((concept.compatibleTopologies || []).length) return concept.compatibleTopologies.includes(topology);
+  const compatibleTopologies = concept.compatibleTopologies || concept.compatible_topologies || [];
+  if (compatibleTopologies.length) return compatibleTopologies.includes(topology);
   const allowed = topologyTools(topology);
   return (concept.tools || []).some((tool) => allowed.has(tool));
 }
@@ -98,7 +100,18 @@ function resolveConceptReference(reference, topology) {
     return { requested, id: philosophical.id, source: 'philosophy', available,
       executable: false, access: 'read', reason: available ? 'lecture-philosophique' : 'outil-lecture-non-autorise',
       tools: ['genos_philosophy'],
-    status: philosophical.status, service: philosophical.service || null };
+      status: philosophical.status, service: philosophical.service || null };
+  }
+  const graphConcept = Object.values(capabilityGraph.getAllConcepts()).find((concept) => normalize(concept.id) === target
+    || (concept.aliases || []).some((alias) => normalize(alias) === target));
+  if (graphConcept) {
+    const available = topologyAllows(topology, { tools: graphConcept.tools, compatibleTopologies: graphConcept.compatible_topologies });
+    const executable = Boolean(graphConcept.tools.length
+      || (graphConcept.primitives.length && graphConcept.handlers.length === graphConcept.primitives.length));
+    return { requested, id: graphConcept.id, source: 'capability_graph', available,
+      executable: available && executable, reason: available ? null : 'topologie-incompatible',
+      graphKey: Object.entries(capabilityGraph.getAllConcepts()).find(([, concept]) => concept === graphConcept)?.[0],
+      tools: graphConcept.tools, primitives: graphConcept.primitives, handlers: graphConcept.handlers };
   }
   const documented = conceptInventory.entries().find((entry) => normalize(entry.id) === target);
   if (documented) return { requested, id: documented.id, source: 'documentation', available: false,
@@ -113,19 +126,22 @@ function resolveConceptReferences(references, topology) {
 
 function coverageReport() {
   const runtime = Object.values(runtimeConceptRegistry.getAllConcepts());
+  const graph = Object.values(capabilityGraph.getAllConcepts());
   const capabilities = new Set(capabilityCatalog().map((entry) => normalize(entry.capability)));
   const runtimeIds = new Set(runtime.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
+  const graphIds = new Set(graph.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const philosophyIds = new Set(CONCEPT_DEFINITIONS.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
-  const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, documentationOnly: 0 };
+  const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0, documentationOnly: 0 };
   for (const entry of conceptInventory.entries()) {
     const id = normalize(entry.id);
     if (runtimeIds.has(id)) counts.runtime += 1;
     else if (capabilities.has(id)) counts.operationalCapability += 1;
     else if (philosophyIds.has(id)) counts.philosophyRead += 1;
+    else if (graphIds.has(id)) counts.capabilityGraph += 1;
     else counts.documentationOnly += 1;
   }
   return { inventory: conceptInventory.entries().length, ...counts,
-    registryRuntime: runtime.length, registryPhilosophy: CONCEPT_DEFINITIONS.length };
+    registryRuntime: runtime.length, registryPhilosophy: CONCEPT_DEFINITIONS.length, registryGraph: graph.length };
 }
 
 function leaseCandidatesForReferences(references, topology) {
@@ -175,13 +191,20 @@ function conceptCatalog() {
     source: 'philosophy_registry', access: 'read', tools: ['genos_philosophy'],
     service: concept.service || null, mapping: concept.mapping || null
   }));
+  const graph = Object.entries(capabilityGraph.getAllConcepts()).map(([graphKey, concept]) => ({
+    id: concept.id, graphKey, domain: `capability_graph:${concept.category}`, state: concept.maturity || 'ready',
+    executable: Boolean(concept.tools.length || (concept.primitives.length && concept.handlers.length === concept.primitives.length)),
+    source: 'capability_graph', tools: concept.tools, primitives: concept.primitives,
+    handlers: concept.handlers, capabilities: concept.capabilities,
+    compatibleTopologies: concept.compatible_topologies
+  }));
   const registered = Object.values(runtimeConceptRegistry.getAllConcepts()).map((concept) => ({
     ...executionFields(concept),
     id: concept.id, domain: concept.kind, state: concept.maturity || 'ready', source: 'concept_registry',
     tools: concept.tools || [], primitives: concept.primitives || [],
     capabilities: concept.capabilities || [], authority: concept.authorityRequirements || []
   }));
-  return documented.concat(philosophical, registered);
+  return documented.concat(philosophical, graph, registered);
 }
 
 function resolveMission(input = {}) {

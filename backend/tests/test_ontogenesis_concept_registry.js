@@ -20,7 +20,9 @@ assert.ok(web.unavailable.length > 0);
 assert.strictEqual(web.coverage.inventory, 704);
 assert.strictEqual(web.coverage.registryRuntime, 182);
 assert.strictEqual(web.coverage.registryPhilosophy, 375);
+assert.strictEqual(web.coverage.registryGraph, 527);
 assert.strictEqual(web.coverage.runtime + web.coverage.operationalCapability + web.coverage.philosophyRead
+  + web.coverage.capabilityGraph
   + web.coverage.documentationOnly, web.coverage.inventory);
 assert.ok(web.canonicalConcepts.length >= 400);
 assert.ok(web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length >= 375);
@@ -46,5 +48,10 @@ assert.strictEqual(web.strategy.id, 'minimal_patch');
 assert.ok(web.compatibleRuntimeConcepts.length > 0);
 assert.ok(web.selectedConcepts.some((concept) => concept.id === 'mission'));
 assert.strictEqual(web.failClosed, true);
+
+const graphMission = registry.resolveMission({ topology: 'syncytium', requestedConcepts: ['capability_routing'] });
+assert.strictEqual(graphMission.resolvedConcepts[0].source, 'capability_graph');
+assert.strictEqual(graphMission.resolvedConcepts[0].available, true);
+assert.strictEqual(graphMission.resolvedConcepts[0].executable, true);
 
 console.log('ontogenesis canonical concept registry checks passed.');
