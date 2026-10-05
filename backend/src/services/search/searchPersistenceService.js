@@ -6,6 +6,7 @@
 class SearchPersistence {
   constructor(db) {
     this.db = db;
+    this.checkpointVersions = new Map();
   }
 
   async run(sql, params = []) {
@@ -116,30 +117,58 @@ class SearchPersistence {
         PRIMARY KEY (agent_id, module),
         FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
       );
+      CREATE TABLE IF NOT EXISTS search_runtime_checkpoint (
+        agent_id TEXT PRIMARY KEY REFERENCES agents(id) ON DELETE CASCADE,
+        state_json TEXT NOT NULL,
+        revision INTEGER NOT NULL DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS search_niches (
+        id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+        focus TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
+    const checkpointColumns = await this.db.all('PRAGMA table_info(search_runtime_checkpoint)');
+    if (!checkpointColumns.some(column => column.name === 'revision')) {
+      await this.db.exec('ALTER TABLE search_runtime_checkpoint ADD COLUMN revision INTEGER NOT NULL DEFAULT 0');
+    }
   }
 
   async saveHypothesis(h) {
-    await this.db.run(`
-      INSERT OR REPLACE INTO search_hypotheses
+    const result = await this.db.run(`
+      INSERT INTO search_hypotheses
       (id, agent_id, parent_hypothesis_id, branch_id, statement, prediction,
        falsification_condition, confidence, uncertainty, status,
        created_at, last_tested_at, last_progress_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?)
+      ON CONFLICT(id) DO UPDATE SET statement=excluded.statement, prediction=excluded.prediction,
+      falsification_condition=excluded.falsification_condition, confidence=excluded.confidence,
+      uncertainty=excluded.uncertainty, status=excluded.status,
+      last_tested_at=excluded.last_tested_at, last_progress_at=excluded.last_progress_at
+      WHERE search_hypotheses.agent_id=excluded.agent_id
     `, [h.id, h.agentId, h.parentHypothesisId, h.branchId, h.statement, h.prediction,
         h.falsificationCondition, h.confidence, h.uncertainty, h.status,
         h.createdAt, h.lastTestedAt, h.lastProgressAt]);
+    if (result.changes !== 1) throw new Error('Hypothesis ID belongs to another agent');
   }
 
   async saveProof(p) {
-    await this.db.run(`
-      INSERT OR REPLACE INTO search_proofs
+    const result = await this.db.run(`
+      INSERT INTO search_proofs
       (id, hypothesis_id, direction, strength, provenance, reliability,
        independent, evidence_ref, receipt_ref, source_agent, source_tool, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+      ON CONFLICT(id) DO UPDATE SET direction=excluded.direction, strength=excluded.strength,
+      provenance=excluded.provenance, reliability=excluded.reliability, independent=excluded.independent,
+      evidence_ref=excluded.evidence_ref, receipt_ref=excluded.receipt_ref,
+      source_agent=excluded.source_agent, source_tool=excluded.source_tool
+      WHERE search_proofs.hypothesis_id=excluded.hypothesis_id
     `, [p.id, p.hypothesisId, p.direction, p.strength, p.provenance,
         p.reliability, p.independent ? 1 : 0, p.evidenceRef, p.receiptRef,
         p.sourceAgent, p.sourceTool, p.createdAt]);
+    if (result.changes !== 1) throw new Error('Proof ID belongs to another hypothesis');
   }
 
   async savePressureState(agentId, s) {
@@ -198,13 +227,66 @@ class SearchPersistence {
     await this.db.run(`INSERT INTO search_module_state (agent_id, module, state_json, updated_at)
       VALUES (?, ?, ?, datetime('now')) ON CONFLICT(agent_id, module) DO UPDATE SET
       state_json = excluded.state_json, updated_at = excluded.updated_at`,
-    [agentId, module, JSON.stringify(state)]);
+    [agentId, module, JSON.stringify({ version: 1, payload: state })]);
   }
 
   async loadModuleState(agentId, module) {
     const row = await this.db.get('SELECT state_json FROM search_module_state WHERE agent_id = ? AND module = ?', [agentId, module]);
     if (!row) return null;
-    try { return JSON.parse(row.state_json); } catch (_) { return null; }
+    return require('./searchStateCodec').decodeState(row.state_json, module);
+  }
+
+  async saveModuleStates(agentId, states) {
+    const entries = Object.entries(states);
+    const values = entries.map(() => "(?,?,?,datetime('now'))").join(',');
+    const params = entries.flatMap(([module, payload]) => [agentId, module, JSON.stringify({ version: 1, payload })]);
+    await this.db.run(`INSERT INTO search_module_state (agent_id,module,state_json,updated_at)
+      VALUES ${values} ON CONFLICT(agent_id,module) DO UPDATE SET
+      state_json=excluded.state_json, updated_at=excluded.updated_at`, params);
+  }
+
+  async saveRuntimeCheckpoint(agentId, state) {
+    const expected = this.checkpointVersions.get(agentId) || 0;
+    const result = await this.db.run(`INSERT INTO search_runtime_checkpoint (agent_id,state_json,revision) VALUES (?,?,1)
+      ON CONFLICT(agent_id) DO UPDATE SET state_json=excluded.state_json, updated_at=datetime('now'),
+      revision=search_runtime_checkpoint.revision+1 WHERE search_runtime_checkpoint.revision=?`,
+    [agentId, JSON.stringify({ version: 1, payload: state }), expected]);
+    if (result.changes !== 1) throw new Error('Concurrent Natural Search checkpoint writer');
+    this.checkpointVersions.set(agentId, expected + 1);
+  }
+
+  async loadRuntimeCheckpoint(agentId) {
+    const row = await this.db.get('SELECT state_json,revision FROM search_runtime_checkpoint WHERE agent_id=?', agentId);
+    if (!row) return null;
+    const saved = require('./searchStateCodec').decodeState(row.state_json, 'checkpoint');
+    if (saved.agentId !== agentId) throw new Error('Natural Search checkpoint agent mismatch');
+    this.checkpointVersions.set(agentId, row.revision);
+    return saved;
+  }
+
+  async loadIncomingCulture(agentId) {
+    const target = await this.db.get('SELECT * FROM agents WHERE id=?', agentId);
+    const rows = await this.db.all(`SELECT c.agent_id,c.state_json,a.* FROM search_runtime_checkpoint c
+      JOIN agents a ON a.id=c.agent_id WHERE c.agent_id<>?`, agentId);
+    return rows.filter(row => row.organization_id === target.organization_id && row.project_id === target.project_id).flatMap(row => {
+      const saved = require('./searchStateCodec').decodeState(row.state_json, 'checkpoint');
+      const culture = saved.modules.culture;
+      const plasmids = new Map(culture.plasmids);
+      return culture.transmissions.filter(tx => tx.targetAgentId === agentId)
+        .map(tx => ({ sourceAgentId: row.agent_id, organizationId: row.organization_id, projectId: row.project_id,
+          transmission: tx, plasmid: plasmids.get(tx.plasmidId) }));
+    });
+  }
+
+  async canTransmitCulture(agentId, targetId) {
+    const source = await this.db.get('SELECT * FROM agents WHERE id=?', agentId);
+    const target = await this.db.get('SELECT * FROM agents WHERE id=?', targetId);
+    if (!source || !target || agentId === targetId) return false;
+    return source.organization_id === target.organization_id && source.project_id === target.project_id;
+  }
+
+  async getAgentScope(agentId) {
+    return this.db.get('SELECT * FROM agents WHERE id=?', agentId);
   }
 
   async loadProofsForAgent(agentId) {

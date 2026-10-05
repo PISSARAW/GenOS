@@ -27,7 +27,7 @@ function ingestEvidence(state, event) {
   state.ledger.addEvidence(target.id, { direction: 'for', strength: Math.min(1, finiteGain(payload.evidenceStrength ?? 0.5)),
     provenance, reliability: 0.7, independent: false, evidenceRef: payload.evidenceRef || null,
     sourceAgent: state.agentId, sourceTool: event.eventType });
-  if (provenance === PROVENANCE.OBSERVED && finiteGain(payload.evidenceGain) > 0) state.lastProgressStep = state.stepCount;
+  if (provenance === PROVENANCE.OBSERVED && finiteGain(payload.evidenceGain) > 0) state.lastProgressStep = state.stepCount + 1;
 }
 
 function ingestFailureEvidence(state, event) {
