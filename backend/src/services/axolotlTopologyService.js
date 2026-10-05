@@ -17,6 +17,20 @@
 
 // État interne : mode actuel par orchestrateur — perdu au redémarrage
 const topologyModes = new Map();
+let adaptivePersister = null;
+
+function setAdaptivePersister(persister) { adaptivePersister = persister; }
+function setStateStore(stored) {
+  topologyModes.clear();
+  for (const [id, value] of stored) topologyModes.set(id, value);
+}
+
+async function assertMutable({ db, orchestratorId }) {
+  const durable = await require('./axolotlStateStore').read(db, { kind: 'plasticity', id: orchestratorId });
+  if (['STABLE', 'CONSOLIDATING'].includes(durable?.state) || isStabilise(orchestratorId)) {
+    throw require('./axolotlStateStore').error('AXOLOTL_TOPOLOGY_FROZEN');
+  }
+}
 
 /**
  * Définir le mode topologique pour un orchestrateur.
@@ -154,4 +168,5 @@ module.exports = {
   transitionToPlastique,
   listTopologyModes,
   resetToDefault
+  , setAdaptivePersister, setStateStore, assertMutable
 };
