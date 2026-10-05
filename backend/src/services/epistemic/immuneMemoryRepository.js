@@ -109,9 +109,10 @@ async function outcomeFromAssembly(db, input) {
     && receipt.resultId === formal.resultId && receipt.evidenceDigest === formal.evidence.digest);
   const outcome = resolvedOutcome(receipts, input.test, saved.evaluation.evaluation.eligible);
   const rows = saved.evaluation.holobionteResults.flatMap((item) => item.immune?.verifierResults?.results || []);
-  const winner = rows.find((row) => row.status === 'verified' && row.receipt?.independent
+  const winningStatus = outcome === 'failure' ? 'refuted' : 'verified';
+  const winner = rows.find((row) => row.status === winningStatus && row.receipt?.independent
     && receipts.some((receipt) => receipt.signature === row.receipt.signature));
-  return { outcome, effectiveResponse: outcome === 'success' ? winner?.verifierType : null };
+  return { outcome, effectiveResponse: outcome ? winner?.verifierType : null };
 }
 
 function executionRefutes(receipt, test) {
