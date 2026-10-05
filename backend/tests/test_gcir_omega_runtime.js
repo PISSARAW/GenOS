@@ -44,5 +44,14 @@ const policy = { read: ['repo'], select: ['auth_slice'], call: ['scan'], infer: 
     mmu: { need: async () => ({ status: 'page_in', page: { value: { loaded: true } } }) }
   });
   assert.deepEqual(paged.values.read_paged, { loaded: true });
+  const semantic = await createRuntime().execute({
+    operations: [{ id: 'read_a', kind: 'READ', reference: '@runtime/request', objectId: 'runtime/request', dependsOn: [] },
+      { id: 'read_b', kind: 'READ', reference: '@runtime/constraints', objectId: 'runtime/constraints', dependsOn: [] },
+      { id: 'select_runtime', kind: 'SELECT', reference: 'runtime/request', dependsOn: ['read_a', 'read_b'],
+        objectRefs: ['@runtime/request', '@runtime/constraints'], selection: { requiredFields: ['request'] } }],
+    objects: { 'runtime/request': { task: 'x' }, 'runtime/constraints': { safe: true } },
+    policy: { read: ['@runtime/request', '@runtime/constraints'], select: ['runtime/request'] }
+  });
+  assert.deepEqual(semantic.values.select_runtime, { request: { task: 'x' } });
   console.log('G-CIR Omega runtime checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

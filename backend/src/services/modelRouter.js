@@ -131,10 +131,12 @@ function buildRouteContext(opts, clock, remainingMs) {
 
 async function cognitiveRequest(options) {
   if (options.cognitiveContract) return options.cognitiveContract;
-  const program = options.cognitiveProgram || (options.cognitiveDomain
+  const nativeGraph = options.cognitiveProgram ? null : (options.cognitiveDomain
     ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
       objects: options.cognitiveObjects, output: options.cognitiveOutput,
-      verification: options.cognitiveVerification }).operations : null);
+      verification: options.cognitiveVerification, evidenceRefs: options.cognitiveEvidenceRefs,
+      effects: options.cognitiveEffects }) : null);
+  const program = options.cognitiveProgram || nativeGraph?.operations || null;
   const selection = options.db && options.model && typeof options.db.all === 'function'
     ? await projectionProfiler.select(options.db, { model: options.model,
       task: options.cognitiveDomain || 'runtime' }) : null;
@@ -149,7 +151,7 @@ async function cognitiveRequest(options) {
     projectionSelection: selection,
     projectionProfile: selection?.profile ? { model: options.model,
       representations: [selection.representation] } : null, economy });
-  return { ...contract, routePrompt: options.cognitiveRawPrompt || null };
+  return { ...contract, nativeGraph, routePrompt: options.cognitiveRawPrompt || null };
 }
 
 function withCognitiveResult(result, contract) {

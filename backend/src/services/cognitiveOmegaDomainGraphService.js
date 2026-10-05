@@ -1,46 +1,90 @@
 'use strict';
 
+const crypto = require('node:crypto');
+
 const DOMAINS = new Set(['signal', 'trinity', 'biocenose', 'worker', 'evaluation', 'primitive', 'controller', 'runtime']);
 
 const DOMAIN_FIELDS = Object.freeze({
-  signal: ['signal', 'context', 'receptor'],
-  trinity: ['mission', 'candidateHypotheses', 'experiment'],
-  biocenose: ['member', 'contract', 'input'],
-  worker: ['mission', 'constraints', 'evidence'],
-  evaluation: ['benchmark', 'case', 'rubric'],
-  primitive: ['primitive', 'arguments', 'constraints'],
-  controller: ['request', 'tenant', 'constraints'],
-  runtime: ['request', 'constraints']
+  signal: ['signal', 'context', 'receptor'], trinity: ['mission', 'candidateHypotheses', 'experiment'],
+  biocenose: ['member', 'contract', 'input'], worker: ['mission', 'constraints', 'evidence'],
+  evaluation: ['benchmark', 'case', 'rubric'], primitive: ['primitive', 'arguments', 'constraints'],
+  controller: ['request', 'tenant', 'constraints'], runtime: ['request', 'constraints']
 });
 
-function normalizeDomain(domain) {
-  return DOMAINS.has(domain) ? domain : 'runtime';
+const DOMAIN_SEMANTICS = Object.freeze({
+  signal: { selector: 'signal/relevance', tool: 'signal/resolve', verification: 'aeis', effect: 'signal.publish' },
+  trinity: { selector: 'trinity/hypothesis', tool: 'trinity/experiment', verification: 'reproducer', effect: 'trinity.promote' },
+  biocenose: { selector: 'biocenose/contract', tool: 'biocenose/invoke', verification: 'receipt', effect: 'biocenose.commit' },
+  worker: { selector: 'worker/evidence', tool: 'worker/execute', verification: 'test', effect: 'worker.complete' },
+  evaluation: { selector: 'evaluation/case', tool: 'evaluation/run', verification: 'test', effect: 'evaluation.record' },
+  primitive: { selector: 'primitive/arguments', tool: 'primitive/execute', verification: 'receipt', effect: 'primitive.commit' },
+  controller: { selector: 'controller/constraints', tool: 'controller/dispatch', verification: 'aeis', effect: 'controller.apply' },
+  runtime: { selector: 'runtime/request', tool: 'runtime/execute', verification: 'receipt', effect: 'runtime.commit' }
+});
+
+function normalizeDomain(domain) { return DOMAINS.has(domain) ? domain : 'runtime'; }
+
+function digest(value) {
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
+}
+
+function resolveObjects(input, domain) {
+  const source = input.objects || {};
+  return DOMAIN_FIELDS[domain].filter((field) => source[field] !== undefined).map((field) => ({
+    id: `${domain}/${field}`, reference: `@${domain}/${field}`, domain, field, value: source[field],
+    digest: digest(source[field]), visibility: input.visibility || 'session'
+  }));
+}
+
+function operationField(field) {
+  return field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+function readOperations(domain, records) {
+  const source = records.length ? records : [{ id: `${domain}/request`, reference: `@${domain}/request`,
+    domain, field: 'request', value: null, digest: null, visibility: 'session' }];
+  return source.map((record) => ({ id: `read_${operationField(record.field)}`, kind: 'READ', reference: record.reference,
+    dependsOn: [], objectId: record.id, objectDigest: record.digest, visibility: record.visibility }));
+}
+
+function buildSelection(domain, records, reads, semantics, input) {
+  return { id: `select_${domain}`, kind: 'SELECT', reference: semantics.selector,
+    dependsOn: reads.map((operation) => operation.id), objectRefs: records.map((record) => record.reference),
+    fields: records.map((record) => record.field), selection: {
+      strategy: input.selectionStrategy || 'domain_semantic', predicate: input.selectionPredicate || null,
+      requiredFields: input.requiredFields || records.map((record) => record.field)
+    } };
+}
+
+function buildProof(domain, semantics, input) {
+  return { required: true, method: input.verification || semantics.verification,
+    evidenceRefs: Array.isArray(input.evidenceRefs) ? [...new Set(input.evidenceRefs)] : [],
+    independent: input.independentVerification !== false, binding: `infer_${domain}` };
 }
 
 function build(input = {}) {
   const domain = normalizeDomain(input.domain);
-  const fields = DOMAIN_FIELDS[domain];
-  const objects = {};
-  fields.forEach((field) => {
-    if (input.objects && input.objects[field] !== undefined) objects[field] = input.objects[field];
-  });
-  const references = Object.keys(objects).sort().map((field) => `@${domain}/${field}`);
-  const readId = `read_${domain}`;
-  const selectId = `select_${domain}`;
-  return {
-    domain, objects, references,
-    operations: [
-      { id: readId, kind: 'READ', reference: references[0] || `@${domain}/request`, dependsOn: [] },
-      { id: selectId, kind: 'SELECT', reference: `@${domain}/residual`, dependsOn: [readId],
-        fields: Object.keys(objects) },
-      { id: `call_${domain}`, kind: 'CALL', reference: `model/${domain}`,
-        dependsOn: [selectId], input: { operation: input.operation || 'INFER' } },
-      { id: `infer_${domain}`, kind: 'INFER', dependsOn: [`call_${domain}`],
-        output: input.output || ['candidate'] },
-      { id: `check_${domain}`, kind: 'CHECK', reference: `epistemic/${domain}`,
-        dependsOn: [`infer_${domain}`], verification: input.verification || 'independent' }
-    ]
-  };
+  const semantics = DOMAIN_SEMANTICS[domain];
+  const records = resolveObjects(input, domain);
+  const reads = readOperations(domain, records);
+  const selection = buildSelection(domain, records, reads, semantics, input);
+  const callId = `call_${domain}`; const inferId = `infer_${domain}`; const checkId = `check_${domain}`;
+  const proof = buildProof(domain, semantics, input);
+  const effects = Array.isArray(input.effects) ? input.effects : [];
+  const operations = [...reads, selection,
+    { id: callId, kind: 'CALL', reference: semantics.tool, dependsOn: [selection.id],
+      arguments: { domain, objectRefs: records.map((record) => record.reference), operation: input.operation || 'INFER' },
+      effectContract: { declared: effects, target: semantics.effect } },
+    { id: inferId, kind: 'INFER', reference: `model/${domain}`, dependsOn: [callId], inputRef: callId,
+      output: input.output || ['candidate'], proofBinding: proof.binding },
+    { id: checkId, kind: 'CHECK', reference: `epistemic/${domain}`, dependsOn: [inferId],
+      verification: input.verification || semantics.verification, proof }];
+  if (effects.length) operations.push({ id: `emit_${domain}`, kind: 'EMIT', reference: semantics.effect,
+    dependsOn: [checkId], effectContract: { declared: effects, target: semantics.effect }, proofBinding: checkId });
+  return { domain, objects: Object.fromEntries(records.map((record) => [record.field, record.value])),
+    objectStore: Object.fromEntries(records.map((record) => [record.reference, record.value])),
+    objectRecords: records, references: records.map((record) => record.reference), proofs: [proof], effects,
+    dependencies: Object.fromEntries(operations.map((operation) => [operation.id, operation.dependsOn])), operations };
 }
 
-module.exports = { build, normalizeDomain };
+module.exports = { build, normalizeDomain, DOMAIN_FIELDS, DOMAIN_SEMANTICS };

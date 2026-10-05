@@ -237,6 +237,12 @@ explicite utilise le slice et la projection calculés par Omega. La mise en prod
 vérificateur ou un actionneur autorisé ; le texte d'un modèle ne peut pas
 fournir lui-même cette autorité.
 
+Ces graphes ne sont plus une simple suite fixe de cinq étiquettes : chaque
+objet reçoit une référence et un digest, chaque `SELECT` porte ses critères et
+ses dépendances, `CHECK` porte le binding de preuve et les `CALL`/`EMIT` portent
+un contrat d'effets. Le runtime peut résoudre le magasin d'objets et appliquer
+la sélection sémantique lorsqu'aucun handler spécialisé n'est enregistré.
+
 L'exécution est fournie par
 `backend/src/services/cognitiveOmegaRuntimeService.js`. Elle ne traite pas les
 opérations comme de simples étiquettes : `READ` résout un objet via un lecteur

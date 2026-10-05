@@ -35,6 +35,17 @@ function operationInput(operation, values) {
   return dependencies.length === 1 ? dependencies[0] : dependencies;
 }
 
+function semanticSelection(operation, values) {
+  const selected = {};
+  operation.dependsOn.forEach((id, index) => {
+    const reference = operation.objectRefs?.[index];
+    const field = reference?.split('/').pop();
+    if (field && (!operation.selection.requiredFields?.length
+      || operation.selection.requiredFields.includes(field))) selected[field] = values[id];
+  });
+  return selected;
+}
+
 function createDefaultVerifierRegistry(input) {
   if (input.verifierRegistry !== undefined) return input.verifierRegistry;
   const { createRegistry } = require('./cognitiveEpistemicCheckService');
@@ -72,6 +83,9 @@ function createRuntime(input = {}) {
     let value;
     if (reader) value = await reader({ reference: operation.reference, context: state.context });
     else if (Object.hasOwn(state.objects, operation.reference)) value = state.objects[operation.reference];
+    else if (operation.objectId && Object.hasOwn(state.objects, operation.objectId)) {
+      value = state.objects[operation.objectId];
+    }
     else if (state.mmu) {
       const page = await state.mmu.need({ objectId: operation.reference,
         sessionId: state.context.sessionId, scope: state.context.scope, context: state.context });
@@ -90,8 +104,9 @@ function createRuntime(input = {}) {
     }
     const selector = selectors.get(operation.reference || operation.id);
     const input = operationInput(operation, state.values);
-    const value = selector ? await selector({ input, context: state.context, values: state.values })
-      : input;
+    const selectedInput = !selector && operation.selection ? semanticSelection(operation, state.values) : input;
+    const value = selector ? await selector({ input: selectedInput, context: state.context, values: state.values })
+      : selectedInput;
     state.values[operation.id] = value;
     return { status: 'ready', value };
   }
@@ -128,7 +143,7 @@ function createRuntime(input = {}) {
       || state.verifierRegistry?.get(operation.reference);
     if (!verifier) return blocked('verifier_missing', operation);
     const receipt = await verifier({ candidate: operationInput(operation, state.values),
-      context: { ...state.context, resultId: operation.id }, values: state.values });
+      context: { ...state.context, resultId: operation.id, proof: operation.proof || null }, values: state.values });
     if (!verified(receipt)) return blocked('verification_failed', operation);
     state.receipts[operation.id] = receipt;
     state.values[operation.id] = operationInput(operation, state.values);
@@ -144,7 +159,7 @@ function createRuntime(input = {}) {
     const emitter = emitters.get(operation.reference);
     if (!emitter) return blocked('emitter_missing', operation);
     const value = await emitter({ value: operationInput(operation, state.values), receipt: dependency,
-      context: state.context });
+      context: { ...state.context, effect: operation.effectContract || null } });
     state.values[operation.id] = value;
     return { status: 'emitted', value, receipt: dependency };
   }
