@@ -72,4 +72,11 @@ async function assertOwner(db, owner) {
   return agent;
 }
 
-module.exports = { ensure, read, write, save, list, transaction, putEvidence, evidence, assertOwner, hash, error, clone };
+async function activeTopology(db, ownerId) {
+  const owner = await assertOwner(db, ownerId);
+  const active = await read(db, { kind: 'topology', id: ownerId });
+  if (active && active.workspaceId !== owner.workspace_id) throw error('AXOLOTL_WORKSPACE_CHANGED');
+  return active;
+}
+
+module.exports = { ensure, read, write, save, list, transaction, putEvidence, evidence, assertOwner, activeTopology, hash, error, clone };

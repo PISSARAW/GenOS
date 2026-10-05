@@ -1,172 +1,50 @@
 'use strict';
-
-/**
- * @file axolotlTopologyService.js
- * @description Extension de la topologie biologique pour le mode plastique axolotl.
- *
- * Deux modes d'organisation topologique :
- * - plastique : la topologie peut changer à tout moment (état larvaire axolotl)
- * - stabilisé : la topologie est figée (état adulte)
- *
- * La transition entre les deux modes est délibérée (pas automatique).
- *
- * NB : pas de require vers biologicalTopologyService ici (dépendance
- * circulaire volontairement évitée : biologicalTopologyService compose
- * l'axolotl, pas l'inverse).
- */
-
-// État interne : mode actuel par orchestrateur — perdu au redémarrage
+const store = require('./axolotlStateStore');
+const regulator = require('./development/plasticityRegulatorService');
 const topologyModes = new Map();
-let adaptivePersister = null;
-
-function setAdaptivePersister(persister) { adaptivePersister = persister; }
+let database = null;
+function setAdaptivePersister(persister) { database = persister?.db || database; }
 function setStateStore(stored) {
   topologyModes.clear();
-  for (const [id, value] of stored) topologyModes.set(id, value);
+  for (const [id, entry] of stored) topologyModes.set(id, store.clone(entry));
 }
-
-async function assertMutable({ db, orchestratorId }) {
-  const durable = await require('./axolotlStateStore').read(db, { kind: 'plasticity', id: orchestratorId });
-  if (['STABLE', 'CONSOLIDATING'].includes(durable?.state) || isStabilise(orchestratorId)) {
-    throw require('./axolotlStateStore').error('AXOLOTL_TOPOLOGY_FROZEN');
-  }
-}
-
-/**
- * Définir le mode topologique pour un orchestrateur.
- * @param {string} orchestratorId - identifiant de l'orchestrateur
- * @param {'plastique'|'stabilisé'} mode - mode souhaité
- * @returns {object} état du mode
- */
-function setTopologyMode(orchestratorId, mode) {
-  const normalized = String(mode || 'plastique').toLowerCase().trim();
-  const resolved = (normalized === 'stabilisé' || normalized === 'stable') ? 'stabilisé' : 'plastique';
-  topologyModes.set(orchestratorId, { mode: resolved, setAt: new Date().toISOString() });
-  return getTopologyMode(orchestratorId);
-}
-
-/**
- * Récupérer le mode topologique actuel.
- * @param {string} orchestratorId
- * @returns {object|null} mode actuel ou null
- */
 function getTopologyMode(orchestratorId) {
-  const entry = topologyModes.get(orchestratorId);
-  if (!entry) {
-    // Par défaut : plastique (état larvaire par défaut = axolotl)
-    return { mode: 'plastique', setAt: null, defaulted: true };
-  }
-  return { ...entry, defaulted: false };
+  return { ...(topologyModes.get(orchestratorId) || { mode: 'plastique', setAt: null, defaulted: true }) };
 }
-
-/**
- * Vérifier si l'orchestrateur est en mode plastique.
- */
-function isPlastique(orchestratorId) {
-  const mode = getTopologyMode(orchestratorId);
-  return mode.mode === 'plastique';
+async function getTopologyModeDurable(orchestratorId, input = {}) {
+  const db = input.db || database;
+  if (!db) return getTopologyMode(orchestratorId);
+  const state = await regulator.getPlasticity(orchestratorId, { db });
+  const frozen = ['STABLE', 'CONSOLIDATING'].includes(state.state);
+  const mode = { mode: frozen ? 'stabilisé' : 'plastique', state: state.state, setAt: state.lastChangeAt, defaulted: !state.version };
+  if (!state.version && topologyModes.get(orchestratorId)?.mode === 'stabilisé') mode.mode = 'stabilisé';
+  topologyModes.set(orchestratorId, mode);
+  return { ...mode };
 }
-
-/**
- * Vérifier si l'orchestrateur est en mode stabilisé.
- */
-function isStabilise(orchestratorId) {
-  const mode = getTopologyMode(orchestratorId);
-  return mode.mode === 'stabilisé';
-}
-
-/**
- * Appliquer une organisation dans le mode actuel.
- * En mode plastique, la topologie peut être réorganisée librement.
- * En mode stabilisé, la réorganisation doit passer par les mécanismes classiques.
- *
- * @param {object} input - { db, orchestratorId, organization, reason }
- */
-async function applyOrganizationMode(input = {}) {
-  const { db, orchestratorId, organization, reason } = input;
-  if (!organization) return;
-
-  const modeEntry = getTopologyMode(orchestratorId);
-
-  if (modeEntry.mode === 'stabilisé') {
-    // En mode stabilisé : organisation par le mécanisme classique
-    const dynamicOrganization = require('./dynamicOrganizationService');
-    await dynamicOrganization.changeOrganization(db, {
-      orchestratorId,
-      organization,
-      reason: reason || `Changement organisationnel en mode stabilisé`,
-      changedBy: orchestratorId
-    }).catch(() => {});
-  } else {
-    // En mode plastique : application libre avec trace
-    const dynamicOrganization = require('./dynamicOrganizationService');
-    await dynamicOrganization.changeOrganization(db, {
-      orchestratorId,
-      organization,
-      reason: reason || `Réorganisation plastique (axolotl mode)`,
-      changedBy: orchestratorId
-    }).catch(() => {});
-  }
-}
-
-/**
- * Transitionner vers le mode stabilisé.
- * Utilisé quand le contexte justifie la stabilité (problème résolu, production stable).
- */
-function transitionToStabilise(orchestratorId, reason) {
-  const before = getTopologyMode(orchestratorId);
-  setTopologyMode(orchestratorId, 'stabilisé');
-  return {
-    from: before.mode,
-    to: 'stabilisé',
-    reason: reason || 'Transition vers stabilité',
-    at: new Date().toISOString()
-  };
-}
-
-/**
- * Transitionner vers le mode plastique.
- * Utilisé quand une nouvelle menace ou opportunité nécessite la reconfiguration.
- */
-function transitionToPlastique(orchestratorId, reason) {
-  const before = getTopologyMode(orchestratorId);
-  setTopologyMode(orchestratorId, 'plastique');
-  return {
-    from: before.mode,
-    to: 'plastique',
-    reason: reason || 'Transition vers plasticité (axolotl mode)',
-    at: new Date().toISOString()
-  };
-}
-
-/**
- * Lister tous les modes connus.
- */
-function listTopologyModes() {
-  const result = [];
-  for (const [orchestratorId, entry] of topologyModes) {
-    result.push({ orchestratorId, ...entry });
-  }
+async function setTopologyMode(orchestratorId, mode, options = {}) {
+  const normalized = String(mode).trim().toLowerCase();
+  if (!['plastique', 'plastic', 'stabilisé', 'stable'].includes(normalized)) throw store.error('AXOLOTL_MODE_INVALID');
+  const to = ['stabilisé', 'stable'].includes(normalized) ? 'STABLE' : 'PLASTIC';
+  const result = await regulator.requestChange({ ...options, db: options.db || database, id: orchestratorId, to,
+    reason: options.reason || 'Transition explicite du mode topologique' });
+  if (result.ok) await getTopologyModeDurable(orchestratorId, { db: options.db || database });
   return result;
 }
-
-/**
- * Réinitialiser le mode à la valeur par défaut (plastique).
- */
-function resetToDefault(orchestratorId) {
-  topologyModes.delete(orchestratorId);
-  return getTopologyMode(orchestratorId);
+function isPlastique(id) { return getTopologyMode(id).mode === 'plastique'; }
+function isStabilise(id) { return getTopologyMode(id).mode === 'stabilisé'; }
+async function assertMutable(input) {
+  const mode = await getTopologyModeDurable(input.orchestratorId, { db: input.db });
+  if (mode.mode === 'stabilisé') throw store.error('AXOLOTL_TOPOLOGY_FROZEN');
 }
-
-module.exports = {
-  setTopologyMode,
-  getTopologyMode,
-  isPlastique,
-  isStabilise,
-  applyOrganizationMode,
-  transitionToStabilise,
-  transitionToPlastique,
-  listTopologyModes,
-  resetToDefault
-  , setAdaptivePersister, setStateStore, assertMutable
-};
+async function applyOrganizationMode(input = {}) {
+  await assertMutable(input);
+  return require('./dynamicOrganizationService').changeOrganization(input.db, {
+    orchestratorId: input.orchestratorId, organization: input.organization, reason: input.reason, changedBy: input.orchestratorId
+  });
+}
+function transitionToStabilise(id, reason, input = {}) { return setTopologyMode(id, 'stabilisé', { ...input, reason }); }
+function transitionToPlastique(id, reason, input = {}) { return setTopologyMode(id, 'plastique', { ...input, reason }); }
+function listTopologyModes() { return [...topologyModes].map(([orchestratorId, value]) => ({ orchestratorId, ...value })); }
+function resetToDefault(id, input = {}) { return transitionToPlastique(id, 'Retour contrôlé vers plasticité', input); }
+module.exports = { setAdaptivePersister, setStateStore, getTopologyMode, getTopologyModeDurable, setTopologyMode,
+  isPlastique, isStabilise, assertMutable, applyOrganizationMode, transitionToStabilise, transitionToPlastique, listTopologyModes, resetToDefault };
