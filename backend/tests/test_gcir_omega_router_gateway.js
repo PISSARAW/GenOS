@@ -41,6 +41,10 @@ routeRunner.runFallback = async (candidates, context) => ({
     assert.equal(native.cognitive.execution.operations.find((item) => item.kind === 'CALL').status, 'ready');
     assert.equal(native.cognitive.execution.operations.find((item) => item.kind === 'CHECK').status, 'verified');
     assert.equal(native.cognitive.execution.operations.find((item) => item.kind === 'EMIT').status, 'emitted');
+    await assert.rejects(router.generate({ model: 'test://omega', prompt: 'native handlers required',
+      stream: false, cognitiveDomain: 'trinity', cognitiveObjects: { mission: 'm2' } }),
+      (error) => error.code === 'OMEGA_NATIVE_GRAPH_BLOCKED'
+        && error.omegaExecution.operations.some((item) => item.reason === 'tool_missing'));
     await assert.rejects(router.generate({ model: 'test://omega', prompt: '' }), /Cognitive compilation blocked/);
     console.log('G-CIR Omega router gateway checks passed.');
   } finally {

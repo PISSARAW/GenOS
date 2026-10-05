@@ -295,9 +295,8 @@ async function executeNativeGraph({ graph, candidates, context, mode, mmu, econo
   return { result: execution.values[infer?.id], execution: omegaExecution(execution) };
 }
 
-function shouldExecuteNative(options, contract) {
-  return Boolean(contract.nativeGraph && (options.cognitiveNativeExecution === true
-    || options.cognitiveNativeHandlers));
+function shouldExecuteNative(contract) {
+  return Boolean(contract.nativeGraph);
 }
 
 function missingRouteError(policy, configured) {
@@ -365,7 +364,7 @@ async function generate(options) {
     const economyMode = cognitiveContract.economy?.execution?.mode;
     const mode = economyMode === 'parallel' && candidates.length > 1 ? 'parallel'
       : policy.mode === 'parallel' && candidates.length > 1 ? 'parallel' : 'fallback';
-    const executor = shouldExecuteNative(opts, cognitiveContract)
+    const executor = shouldExecuteNative(cognitiveContract)
       ? executeNativeGraph({ graph: cognitiveContract.nativeExecutionGraph || cognitiveContract.nativeGraph,
         candidates, context, mode, mmu,
         economy: cognitiveContract.economy, options: opts })
