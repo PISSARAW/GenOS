@@ -317,6 +317,15 @@ assert.deepStrictEqual(directLinksMission.resolvedConcepts.map((concept) => conc
 ]);
 assert.equal(directLinksMission.resolvedConcepts[0].service, 'claimService');
 
+const physicsMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'inertie', 'friction', 'entropie', 'seuil', 'pression', 'materiau_computationnel',
+  'resistance', 'cout', 'energie', 'degradation', 'gating_decisionnel',
+  'contraintes_physiques_calcul', 'ressources_environnement_hote', 'regulation_cpu_disque_memoire'
+] });
+assert.ok(physicsMission.resolvedConcepts.every((concept) =>
+  concept.source === 'capability' || concept.source === 'runtime'));
+assert.ok(physicsMission.resolvedConcepts.every((concept) => concept.id));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
