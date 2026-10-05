@@ -54,6 +54,10 @@ const EXISTING_ADAPTERS = Object.freeze({
 });
 
 const CAPABILITY_ALIASES = Object.freeze({
+  portfolio_strategies: 'STRATEGY_PORTFOLIO', competition_arena: 'ARENA_COMPETITION',
+  barriere_evidence: 'EVIDENCE_BARRIER', ligand_recepteur: 'LIGAND_RECEPTOR',
+  stigmergie: 'STIGMERGY', systeme_immunitaire: 'IMMUNE_SYSTEM',
+  capsules_snapshots: 'CAPSULES_SNAPSHOTS', observabilite: 'OBSERVABILITY',
   memoire_graphe: 'GRAPH_MEMORY', memoire_vectorielle: 'VECTOR_MEMORY',
   memoire_episodique: 'EPISODIC_MEMORY', memoire_procedurale: 'PROCEDURAL_MEMORY',
   economie_tokens: 'TOKEN_ECONOMY', etat_partage_crdt: 'CRDT_SHARED_STATE',

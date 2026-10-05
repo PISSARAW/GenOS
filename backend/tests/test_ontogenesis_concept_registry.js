@@ -75,6 +75,17 @@ assert.deepStrictEqual(philosophyMission.resolvedConcepts.map((concept) => conce
 assert.ok(philosophyMission.resolvedConcepts.every((concept) => concept.access === 'read' && !concept.executable));
 assert.ok(philosophyMission.coverage.philosophyRead >= 30);
 
+const canonicalCapabilityMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'portfolio_strategies', 'barriere_evidence', 'systeme_immunitaire', 'ligand_recepteur', 'observabilite'
+] });
+assert.deepStrictEqual(canonicalCapabilityMission.resolvedConcepts.map((concept) => concept.source),
+  ['capability', 'capability', 'capability', 'capability', 'capability']);
+assert.deepStrictEqual(canonicalCapabilityMission.resolvedConcepts.map((concept) => concept.id),
+  ['STRATEGY_PORTFOLIO', 'EVIDENCE_BARRIER', 'IMMUNE_SYSTEM', 'LIGAND_RECEPTOR', 'OBSERVABILITY']);
+assert.deepStrictEqual(canonicalCapabilityMission.resolvedConcepts.map((concept) => concept.available),
+  [true, false, false, true, true]);
+assert.strictEqual(canonicalCapabilityMission.blockedConcepts.length, 2);
+
 const sensingMission = registry.resolveMission({ topology: 'biome', requestedConcepts: ['foveation', 'echolocation', 'olfaction'] });
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.source), ['runtime', 'runtime', 'runtime']);
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.id),
