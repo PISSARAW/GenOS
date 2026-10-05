@@ -77,13 +77,17 @@ function conceptInstruction(plan) {
   const compatible = Array.isArray(source.compatibleRuntimeConcepts) ? source.compatibleRuntimeConcepts : [];
   const candidates = Array.isArray(source.runtimeLeaseCandidates) ? source.runtimeLeaseCandidates : [];
   const blocked = Array.isArray(source.blockedCapabilities) ? source.blockedCapabilities : [];
+  const resolved = Array.isArray(source.resolvedConcepts) ? source.resolvedConcepts : [];
   return JSON.stringify({
     catalogueSize: Array.isArray(source.canonicalConcepts) ? source.canonicalConcepts.length : 0,
     runtimeConcepts: Array.isArray(source.runtimeConcepts) ? source.runtimeConcepts.length : 0,
     strategy: source.strategy?.strategyId || source.strategy?.id || null,
     compatible: compatible.map((concept) => concept.id).filter(Boolean),
     leasedTools: [...new Set(candidates.flatMap((candidate) => candidate.tools || []))],
-    blocked: blocked.map((entry) => entry.capability || entry.id).filter(Boolean)
+    requested: resolved.map((concept) => ({ id: concept.id, source: concept.source,
+      available: concept.available, executable: concept.executable, access: concept.access, reason: concept.reason })),
+    blocked: blocked.map((entry) => entry.capability || entry.id).filter(Boolean),
+    blockedConcepts: resolved.filter((concept) => !concept.available).map((concept) => concept.id).filter(Boolean)
   });
 }
 

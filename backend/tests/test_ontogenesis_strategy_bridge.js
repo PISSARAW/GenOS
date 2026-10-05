@@ -28,7 +28,9 @@ assert.match(request.mission, /Strategy concept:/);
 assert.match(request.mission, /Canonical concepts:/);
 assert.match(conceptInstruction({ canonicalConcepts: [{ id: 'mission' }], runtimeConcepts: [{ id: 'minimal_patch' }],
   strategy: { strategyId: 'minimal_patch' }, compatibleRuntimeConcepts: [{ id: 'a_team' }],
-  runtimeLeaseCandidates: [{ tools: ['genos_snapshot'] }], blockedCapabilities: [] }), /minimal_patch/);
+  runtimeLeaseCandidates: [{ tools: ['genos_snapshot'] }], blockedCapabilities: [],
+  resolvedConcepts: [{ id: 'morphogenese', source: 'documentation', available: false,
+    executable: false, reason: 'concept-documentaire-sans-raccord-runtime' }] }), /morphogenese/);
 const runtimeContext = missionRuntimeContext({
   conceptResolution: { failClosed: true }, missionCapabilityPlan: { version: 1 },
   developmentalContext: { failClosed: true }, unrelated: 'not-forwarded'
