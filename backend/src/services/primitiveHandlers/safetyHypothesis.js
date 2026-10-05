@@ -56,6 +56,7 @@ async function generateHypotheses(task, error) {
   try {
     const modelRouter = require('../modelRouter');
     const res = await modelRouter.generate({
+      cognitiveDomain: 'primitive', cognitiveObjects: { primitive: 'safety_hypothesis', arguments: { task, error } },
       prompt: `Diagnose the following failure and provide exactly 3 falsifiable hypotheses.\nTask: ${task}\nError: ${error}\nOutput a JSON array of objects with keys: id, statement, confidence.`,
       priority: 'bulk',
       maxTokens: 500

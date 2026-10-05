@@ -190,7 +190,8 @@ async function generateModel(req, res, next) {
     const { prompt, agentId } = req.body;
     if (!prompt) return res.status(400).json({ error: { code: 'MISSING_PROMPT', message: 'prompt is required.' } });
     const modelRouter = require('../services/modelRouter');
-    const generated = await modelRouter.generate({ db: null, agentId: agentId || 'world_runner', prompt, timeoutMs: 90000 });
+    const generated = await modelRouter.generate({ db: null, agentId: agentId || 'world_runner', prompt,
+      cognitiveDomain: 'controller', cognitiveObjects: { request: req.body }, timeoutMs: 90000 });
     res.json({ text: generated });
   } catch (error) {
     if (next) return next(error);

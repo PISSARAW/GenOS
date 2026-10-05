@@ -57,6 +57,7 @@ async function generateInterventions(input) {
   try {
     const result = await modelRouter.generate({
       db: input.db, agentId: input.agentId,
+      cognitiveDomain: 'trinity', cognitiveObjects: { mission: input.mission, experiment: input },
       organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
       model: config?.modelUri, prompt, maxTokens: 1000,
       maxCostUsd: budget, timeoutMs: 20000, priority: 'interactive'

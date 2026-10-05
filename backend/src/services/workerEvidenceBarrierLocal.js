@@ -60,6 +60,7 @@ async function generateWorkerResult(ctx) {
   const startedAt = Date.now();
   try { return await modelRouter.generate({
     db: ctx.db,
+    cognitiveDomain: 'worker', cognitiveObjects: { mission: ctx.mission, evidence: ctx },
     agentId: ctx.mission.agentId,
     model: ctx.workerModel,
     timeoutMs: ctx.latencyMs,

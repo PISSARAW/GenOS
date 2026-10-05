@@ -111,6 +111,8 @@ async function runLlmNode(context, node) {
   const promptTemplate = firstTruthy(node.prompt, safeGet(node.data, 'prompt'), `Execute the workflow step: ${String(firstTruthy(safeGet(node.data, 'label'), node.id))}`);
   const generated = await modelRouter.generate({
     db: context.db,
+    cognitiveDomain: 'worker',
+    cognitiveObjects: { mission: node, constraints: context },
     agentId: firstTruthy(node.agentId, safeGet(node.data, 'agentId'), node.id),
     model,
     prompt: resolveTemplate(promptTemplate, {

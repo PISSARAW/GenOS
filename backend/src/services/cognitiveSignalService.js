@@ -25,7 +25,9 @@ function reusedAnswer(reservation) {
 async function runInference(input) {
   const { db, agentId, compiled, reservation } = input;
   try {
-    const result = await modelRouter.generate({ db, agentId, prompt: compiled.prompt, priority: 'interactive' });
+    const result = await modelRouter.generate({ db, agentId, prompt: compiled.prompt,
+      cognitiveDomain: 'signal', cognitiveObjects: { signal: compiled.contract, context: compiled.visibility },
+      priority: 'interactive' });
     const answer = answerOf(result, compiled);
     await receipts.complete(db, reservation.invocationId, answer);
     return answer;

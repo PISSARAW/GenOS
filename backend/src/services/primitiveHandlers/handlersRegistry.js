@@ -43,6 +43,7 @@ async function providerFallback(context = {}) {
   if (!models.length) return { success: false, error: 'model and fallbacks are required.' };
   const result = await modelRouter.generate({
     ...context,
+    cognitiveDomain: 'primitive', cognitiveObjects: { primitive: context.primitive || 'model_generation', arguments: context },
     model: models[0],
     policy: { primary: models[0], fallbacks: models.slice(1), mode: 'fallback' }
   });

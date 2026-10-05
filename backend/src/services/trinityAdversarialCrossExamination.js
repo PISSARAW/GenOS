@@ -88,6 +88,7 @@ async function attackPhase(input) {
   try {
     const result = await modelRouter.generate({
       db: input.db, agentId: input.agentId,
+      cognitiveDomain: 'trinity', cognitiveObjects: { mission, evidence: { defenderDossiers, attackerReport } },
       organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
       model: config?.modelUri, prompt, maxTokens: 2000,
       maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'
@@ -113,6 +114,7 @@ async function defendPhase(input) {
   try {
     const result = await modelRouter.generate({
       db: input.db, agentId: input.agentId,
+      cognitiveDomain: 'trinity', cognitiveObjects: { mission, evidence: { defenderDossiers, attackerReport } },
       organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
       model: config?.modelUri, prompt, maxTokens: 2000,
       maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'

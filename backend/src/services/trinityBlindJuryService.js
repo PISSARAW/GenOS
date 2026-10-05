@@ -90,6 +90,7 @@ async function judge(input) {
   try {
     const result = await modelRouter.generate({
       db: input.db, agentId: input.agentId,
+      cognitiveDomain: 'trinity', cognitiveObjects: { mission: input.prompt, experiment: input },
       organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
       model: input.modelUri, prompt: input.prompt, maxTokens: 500,
       maxCostUsd: budget, timeoutMs: 20000, priority: 'bulk'

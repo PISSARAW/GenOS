@@ -10,9 +10,15 @@ const VERSION = 1;
 
 function valueId(index) { return `%${index}`; }
 
-function promptPlan(prompt, operation) {
+function registryOperations(operations) {
+  return operations.map(({ id, kind, state, dependsOn, basis, reason }) => ({
+    id, kind, state: state || 'open', dependsOn: dependsOn || [], basis, reason
+  }));
+}
+
+function promptPlan(prompt, operation, program) {
   const digest = crypto.createHash('sha256').update(prompt).digest('hex');
-  return registry.plan({ version: registry.VERSION, operation, obligations: [
+  const fallback = [
     { id: 'prompt_read', kind: 'READ', state: 'satisfied', dependsOn: [],
       basis: { kind: 'materialized_prompt', reference: `sha256:${digest}` } },
     { id: 'residual_select', kind: 'SELECT', state: 'satisfied', dependsOn: ['prompt_read'],
@@ -21,7 +27,8 @@ function promptPlan(prompt, operation) {
       basis: { kind: 'runtime_flag', reference: 'model_route_admitted' } },
     { id: 'residual_inference', kind: 'INFER', state: 'open', dependsOn: ['model_call_admission'] },
     { id: 'candidate_check', kind: 'CHECK', state: 'open', dependsOn: ['residual_inference'] }
-  ] });
+  ];
+  return registry.plan({ version: registry.VERSION, operation, obligations: program || fallback });
 }
 
 function compilePrompt(input = {}) {
@@ -29,9 +36,11 @@ function compilePrompt(input = {}) {
     return { status: 'blocked', reason: 'cognitive_prompt_missing', version: VERSION };
   }
   const operation = input.operation || 'INFER';
-  const plan = promptPlan(input.prompt, operation);
-  if (plan.status !== 'ready') return { status: 'blocked', reason: plan.reason, version: VERSION };
-  return { status: 'ready', version: VERSION, mode: 'portable_compatibility', operation,
+  const plan = promptPlan(input.prompt, operation, input.program && registryOperations(input.program));
+  if (plan.status === 'blocked') return { status: 'blocked', reason: plan.reason, version: VERSION };
+  return { status: 'ready', version: VERSION,
+    mode: input.program ? 'native_domain_graph' : 'portable_compatibility', operation,
+    domain: input.domain || 'runtime', program: input.program || null,
     prompt: input.prompt, plan, digest: plan.digest, source: input.source || null };
 }
 

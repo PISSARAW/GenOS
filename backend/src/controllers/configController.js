@@ -89,6 +89,7 @@ async function testModel(req, res, next) {
       endpoint = registered?.endpoint || undefined;
     }
     const result = await modelRouter.generate({ model, prompt, endpoint,
+      cognitiveDomain: 'controller', cognitiveObjects: { request: req.body, constraints: { endpoint } },
       agentId: 'config-model-test', timeoutMs: Math.min(Number(req.body?.timeoutMs) || 30000, 120000) });
     res.json({ success: true, provider: result.provider, text: result.text, usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens } });
   } catch (error) {

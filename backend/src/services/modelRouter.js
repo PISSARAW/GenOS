@@ -2,6 +2,7 @@ const localModelDiscovery = require('./localModelDiscovery');
 const routingPolicy = require('./modelRoutingPolicy');
 const routeRunner = require('./modelRouteRunner');
 const cognitiveOmega = require('./cognitiveOmegaCompiler');
+const domainGraph = require('./cognitiveOmegaDomainGraphService');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -115,9 +116,12 @@ function buildRouteContext(opts, clock, remainingMs) {
 
 function cognitiveRequest(options) {
   if (options.cognitiveContract) return options.cognitiveContract;
-  if (options.cognitiveProgram) return cognitiveOmega.compile(options.cognitiveProgram);
+  const program = options.cognitiveProgram || (options.cognitiveDomain
+    ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
+      objects: options.cognitiveObjects, output: options.cognitiveOutput,
+      verification: options.cognitiveVerification }).operations : null);
   return cognitiveOmega.compilePrompt({ prompt: options.prompt, operation: options.cognitiveOperation,
-    source: options.cognitiveSource });
+    source: options.cognitiveSource, domain: options.cognitiveDomain, program });
 }
 
 function withCognitiveResult(result, contract) {

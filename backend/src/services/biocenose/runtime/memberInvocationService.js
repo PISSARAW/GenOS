@@ -53,18 +53,21 @@ async function invokeModel(input) {
     const errors = error.validationErrors || [error.message];
     const repaired = await modelRouter.generate({
       ...options,
-      prompt: repairPrompt(input, initial.response.text, errors)
+      prompt: repairPrompt(input, initial.response.text, errors), cognitiveDomain: 'biocenose',
+      cognitiveObjects: { member: input.memberId, contract: input.contract, input }
     });
     return acceptedRepairedResponse(input, repaired, parseResponse(repaired.text));
   }
 }
 
 async function firstModelResponse(input, options) {
-  try { return { response: await modelRouter.generate({ ...options, prompt: promptFor(input) }), repaired: false }; }
+  try { return { response: await modelRouter.generate({ ...options, prompt: promptFor(input),
+    cognitiveDomain: 'biocenose', cognitiveObjects: { member: input.memberId, contract: input.contract, input } }), repaired: false }; }
   catch (error) {
     if (!REPAIRABLE_PHASES.has(input.phase) || !isStructuredOutputError(error)) throw error;
     const response = await modelRouter.generate({ ...options,
-      prompt: repairPrompt(input, '', ['The previous response was not valid JSON. Return exactly one complete JSON object.']) });
+      prompt: repairPrompt(input, '', ['The previous response was not valid JSON. Return exactly one complete JSON object.']),
+      cognitiveDomain: 'biocenose', cognitiveObjects: { member: input.memberId, contract: input.contract, input } });
     return { response, repaired: true };
   }
 }

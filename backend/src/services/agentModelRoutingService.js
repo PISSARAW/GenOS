@@ -46,6 +46,7 @@ async function consultLocalModels({ db, agentId, mission, plan, tenant = {} }) {
     const result = await modelRouter.generate({
       db, agentId, ...tenant, timeoutMs: planTimeoutMs, policy, model: explicitRoute?.selectedModel,
       priority: 'interactive',
+      cognitiveDomain: 'worker', cognitiveObjects: { mission, constraints: plan.profile, evidence: capable },
       prompt: `You are the local planning model for a GenOS orchestrator. Analyse this mission and return a concise JSON-like recommendation: which hypotheses merit forks, which worker roles are needed, when replay/merge is justified, and what can be delegated locally. Mission: ${mission.prompt || mission.currentTask || ''}. Strategy profile: ${JSON.stringify(plan.profile)}.`
     });
     return { consulted: true, candidates, selectedModel: result.model, provider: result.provider, usage: modelUsage(result), advice: String(result.text || '').slice(0, 4000), route: result.route, policy };

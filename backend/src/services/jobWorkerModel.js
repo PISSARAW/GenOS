@@ -30,6 +30,8 @@ async function runModelAttempt(runtime, model) {
   const started = Date.now();
   const generated = await modelRouter.generate({
     db: runtime.db,
+    cognitiveDomain: 'worker',
+    cognitiveObjects: { mission: runtime.job, constraints: runtime.config },
     agentId: firstTruthy(runtime.config.agentId, runtime.job.id),
     organizationId: runtime.job.organization_id,
     projectId: runtime.job.project_id,

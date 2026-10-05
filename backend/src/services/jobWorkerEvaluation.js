@@ -82,6 +82,8 @@ function loadEvaluationCheckpoint(job, cases) {
 function generateEvaluation(runtime, item, input) {
   return modelRouter.generate({
     db: runtime.db,
+    cognitiveDomain: 'evaluation',
+    cognitiveObjects: { benchmark: runtime.job, case: item, rubric: input },
     agentId: firstTruthy(runtime.parsed.config.agentId, runtime.job.id),
     organizationId: runtime.job.organization_id,
     projectId: runtime.job.project_id,
@@ -120,6 +122,8 @@ function buildJudgePrompt(rubric, caseData) {
 function generateJudge(runtime, caseData, judgePrompt) {
   return modelRouter.generate({
     db: runtime.db,
+    cognitiveDomain: 'evaluation',
+    cognitiveObjects: { benchmark: runtime.job, case: caseData, rubric: judgePrompt },
     agentId: firstTruthy(runtime.parsed.config.judgeAgentId, runtime.job.id),
     organizationId: runtime.job.organization_id,
     projectId: runtime.job.project_id,

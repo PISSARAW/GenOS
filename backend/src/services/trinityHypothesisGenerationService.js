@@ -53,7 +53,9 @@ async function generate(input) {
   try {
     const response = await modelRouter.generate({
       db, agentId, organizationId: input.tenant?.organizationId, projectId: input.tenant?.projectId,
-      prompt: compiled.prompt, maxTokens: 1200, maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'
+      prompt: compiled.prompt, cognitiveDomain: 'trinity',
+      cognitiveObjects: { mission, candidateHypotheses: input.supplied.candidateHypotheses || [], experiment: input.supplied },
+      maxTokens: 1200, maxCostUsd: budget, timeoutMs: 30000, priority: 'interactive'
     });
     const result = {
       candidates: parseCandidates(response.text), status: 'generated', verification: 'unverified',
