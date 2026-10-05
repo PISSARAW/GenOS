@@ -8,7 +8,7 @@
     "dev": "node server.js",
     "holobionte:mission": "node bin/genos-holobionte-mission.cjs",
     "test": "node tests/test_backend.js && npm run test:authority && npm run test:aeis",
-    "test:authority": "node tests/test_cedar_agent_authority.js && node tests/test_relation_authority_bridge.js",
+    "test:authority": "node tests/test_cedar_agent_authority.js && node tests/test_relation_authority_bridge.js && node tests/test_biscuit_delegation.js",
     "test:shev": "node tests/test_shev_project_loop.js && node tests/test_shev_data_freshness.js && node tests/test_shev_runtime_demo.js && node tests/test_shev_protocols.js && node tests/test_shev_domain_adapters.js && node tests/test_shev_progress_evaluation.js",
     "test:agent-git": "node tests/test_agent_git_sqlite_e2e.js && node tests/test_agent_git_foundations.js && node tests/test_agent_git_invariants_p0.js && node tests/test_agent_git_head_index.js && node tests/test_agent_git_state_operations.js && node tests/test_agent_git_advanced_operations.js && node tests/test_agent_git_advanced_features.js && node tests/test_agent_git_remote_ssrf.js",
     "test:quality": "node tests/run_quality_suite.js",
@@ -70,6 +70,7 @@
     "autostart:status": "node bin/genos-daemon.cjs --status"
   },
   "dependencies": {
+    "@biscuit-auth/biscuit-wasm": "^0.5.0",
     "@cedar-policy/cedar-wasm": "^4.13.0",
     "@grpc/grpc-js": "^1.14.4",
     "@grpc/proto-loader": "^0.8.1",
