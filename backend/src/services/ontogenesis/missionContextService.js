@@ -12,6 +12,7 @@ const morphogenesisPlanner = require('../morphogenesis/morphogenesisPlannerServi
 const { isTopology } = require('../morphogenesis/morphogenesisOntology');
 const conceptRegistry = require('./canonicalConceptRegistry');
 const { CATALOG: topologyCatalog } = require('./topologySelector');
+const dynamicOrganization = require('../dynamicOrganizationService');
 
 const MAX_FILE_BYTES = 128 * 1024;
 const MAX_CONTEXT_CHARS = 4000;
@@ -70,6 +71,17 @@ function projectConfig(project) {
   try { return JSON.parse(project.config_json || '{}'); } catch (_) { return {}; }
 }
 
+function organizationFor(project, topology) {
+  const defaults = { trinity: 'strategy_arena', a_team: 'specialist_expert_committee',
+    biome: 'energy_huddle', biocenose: 'blind_adversarial_review', holobionte: 'specialist_expert_committee',
+    syncytium: 'memory_compilation', rhizome: 'mycelial_routing', metapopulation: 'quorum_with_abstention' };
+  const configured = projectConfig(project).organization || defaults[topology];
+  if (!configured || !dynamicOrganization.organizationProfile(configured)) {
+    return { organization: null, error: 'organisation-configuree-inconnue' };
+  }
+  return { organization: configured, error: null };
+}
+
 function inferredTopology(project, profile, kind) {
   const config = projectConfig(project);
   const configured = config.topology || config.morphology?.topology;
@@ -96,18 +108,22 @@ function morphologyFor(input) {
   const { project, profile, kind, capabilities } = input;
   const selection = input.selection || inferredTopology(project, profile, kind);
   const requested = selection.topology;
+  const organization = organizationFor(project, requested);
   if (!requested) return { selectedTopology: null, requestedTopology: null, selectionReason: selection.reason,
     graph: null, candidates: [], error: selection.reason };
+  if (organization.error) return { selectedTopology: null, requestedTopology: requested,
+    selectionReason: selection.reason, selectedOrganization: null, graph: null, candidates: [], error: organization.error };
   try {
     const plan = morphogenesisPlanner.planMorphogenesis({
       proposedTopology: requested,
+      proposedOrganization: organization.organization,
       topologyProfile: { baseTopology: requested },
       problemProfile: { domain: profile.ecosystem, stack: profile.stack, objective: project.objective || '' },
       currentState: { topology: requested, agents: new Map(), capabilities, budgets: {} },
       availableCapabilities: capabilities, budget: 0, pressure: 0
     });
     return { selectedTopology: plan.selectedTopology, requestedTopology: requested,
-      selectionReason: selection.reason, selectedOrganization: plan.selectedOrganization || null,
+      selectionReason: selection.reason, selectedOrganization: plan.selectedOrganization || organization.organization,
       graph: plan.morphologyGraphRef,
       candidates: plan.candidateMorphologies || [], receipt: plan.controlReceipt || null };
   } catch (error) {
