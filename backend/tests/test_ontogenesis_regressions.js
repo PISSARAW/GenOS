@@ -55,6 +55,8 @@ async function stopAndPause(db, project) {
 
 async function missionSettlement(db) {
   const completion = require('../src/services/ontogenesis/missionCompletion');
+  assert.deepStrictEqual(completion.verifyEvidenceContract({ requiresEvidenceBeforePromotion: true }, { context: { evidence: [] } }), { allowed: false, reason: 'evidence-independante-requise' });
+  assert.strictEqual(completion.verifyEvidenceContract({ requiresEvidenceBeforePromotion: false }, { context: { evidence: [] } }), null);
   assert.strictEqual(completion.settled([]), false);
   assert.strictEqual(completion.settled([{ status: 'completed', runtime_pid: 42 }]), false);
   await db.exec('CREATE TABLE agents (id TEXT PRIMARY KEY, parent_agent_id TEXT, status TEXT, runtime_pid INTEGER)');

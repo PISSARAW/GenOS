@@ -31,6 +31,8 @@ async function completionGate(db, request, agents) {
   const outcome = summarizeAgents(agents);
   if (!agents.every((agent) => agent.status === 'completed')) return { allowed: false, reason: 'agents-non-verifies' };
   const context = await buildMissionContext({ db, missionId: request.id, agents, outcome, request, policyRequest: request });
+  const evidenceGate = verifyEvidenceContract(request, context);
+  if (evidenceGate) return evidenceGate;
   const mission = continuity.buildMissionInput(request.id, request.mission, {
     orchestratorAgentId: request.id, completionContract: context.completionContract,
     invariants: context.invariants, safetyConstraints: context.safetyConstraints, context: context.context
@@ -39,4 +41,13 @@ async function completionGate(db, request, agents) {
   return continuity.transitionMissionToComplete(db, { organism: evaluation.organism, mission, context: context.context });
 }
 
-module.exports = { waitForMission, completionGate, missionAgents, settled };
+function verifyEvidenceContract(request, context) {
+  if (request.requiresEvidenceBeforePromotion === false) return null;
+  const evidence = context.context && context.context.evidence;
+  if (!Array.isArray(evidence) || evidence.length === 0) {
+    return { allowed: false, reason: 'evidence-independante-requise' };
+  }
+  return null;
+}
+
+module.exports = { waitForMission, completionGate, missionAgents, settled, verifyEvidenceContract };
