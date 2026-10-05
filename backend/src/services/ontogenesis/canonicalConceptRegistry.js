@@ -207,33 +207,16 @@ function resolveConceptReferences(references, topology) {
 function coverageReport() {
   const runtime = Object.values(runtimeConceptRegistry.getAllConcepts());
   const graph = Object.values(capabilityGraph.getAllConcepts());
-  const capabilities = new Set(capabilityCatalog().map((entry) => normalize(entry.capability)));
-  const runtimeIds = new Set(runtime.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
-  const graphIds = new Set(graph.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
-  const workerIds = new Set(Object.keys(workerKinds.KINDS).map(normalize));
-  const lifecycleIds = new Set(Object.keys(LIFECYCLE_REFERENCES).map(normalize));
-  const interfaceIds = new Set(Object.keys(INTERFACE_REFERENCES).map(normalize));
-  const chainIds = new Set(Object.keys(CENTRAL_CHAIN_REFERENCES).map(normalize));
-  const philosophyIds = new Set(CONCEPT_DEFINITIONS.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
-  const philosophyAliasIds = new Set([
-    ...Object.keys(PHILOSOPHY_ALIASES), ...Object.values(PHILOSOPHY_ALIASES)
-  ].map(normalize));
   const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0,
     workerRuntime: 0, workerLifecycle: 0, interfaceRuntime: 0, centralChainRuntime: 0,
     existingAdapter: 0, documentationOnly: 0 };
   for (const entry of conceptInventory.entries()) {
-    const id = normalize(entry.id);
-    const capabilityId = CAPABILITY_ALIASES[id];
-    if (runtimeIds.has(id)) counts.runtime += 1;
-    else if (capabilities.has(id) || (capabilityId && capabilities.has(normalize(capabilityId)))) counts.operationalCapability += 1;
-    else if (philosophyIds.has(id) || philosophyAliasIds.has(id)) counts.philosophyRead += 1;
-    else if (graphIds.has(id)) counts.capabilityGraph += 1;
-    else if (workerIds.has(id)) counts.workerRuntime += 1;
-    else if (lifecycleIds.has(id)) counts.workerLifecycle += 1;
-    else if (interfaceIds.has(id)) counts.interfaceRuntime += 1;
-    else if (chainIds.has(id)) counts.centralChainRuntime += 1;
-    else if (EXISTING_ADAPTERS[id]) counts.existingAdapter += 1;
-    else counts.documentationOnly += 1;
+    const source = resolveConceptReference(entry.id).source;
+    const category = { runtime: 'runtime', capability: 'operationalCapability', philosophy: 'philosophyRead',
+      capability_graph: 'capabilityGraph', worker_runtime: 'workerRuntime', worker_lifecycle: 'workerLifecycle',
+      interface_runtime: 'interfaceRuntime', central_chain_runtime: 'centralChainRuntime',
+      existing_adapter: 'existingAdapter' }[source] || 'documentationOnly';
+    counts[category] += 1;
   }
   return { inventory: conceptInventory.entries().length, ...counts,
     registryRuntime: runtime.length, registryPhilosophy: CONCEPT_DEFINITIONS.length, registryGraph: graph.length,

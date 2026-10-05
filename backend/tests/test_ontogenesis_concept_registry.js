@@ -372,6 +372,8 @@ assert.equal(nosologyMission.resolvedConcepts[0].source, 'capability');
 assert.ok(nosologyMission.resolvedConcepts.slice(1).every((concept) =>
   concept.source === 'existing_adapter' && concept.available && concept.executable));
 assert.ok(nosologyMission.resolvedConcepts.some((concept) => concept.service === 'clinicalTherapyService'));
+assert.equal(nosologyMission.coverage.documentationOnly, 0);
+assert.equal(nosologyMission.coverage.inventory, 704);
 
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
