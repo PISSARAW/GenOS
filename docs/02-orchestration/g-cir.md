@@ -219,9 +219,11 @@ Le service `cognitiveVisibilityLedger` matérialise des objets par session et
 révision, et permet l'invalidation explicite lors d'une compaction, d'un reset
 ou d'un changement de contexte. `cognitiveWorkingSetService` fournit le
 registre/page-in/page-out et retourne `page_fault` lorsqu'une référence n'est
-pas dans le working set. Ces services sont des primitives runtime testées ; ils
-ne prétendent pas encore prouver la compréhension du modèle ni remplacer les
-gates de vérification et d'effet.
+pas dans le working set. `cognitiveMmuService` transforme désormais ce défaut
+en résolution active : permission, resolver, matérialisation dans le ledger,
+coût bytes/tokens/latence et chargement sont contrôlés ; son préchargeur ne
+charge que les pages dont l'utilité attendue dépasse le coût estimé. Un défaut
+non autorisé ou non résolu reste bloqué.
 
 Le compilateur Omega est exposé par
 `backend/src/services/cognitiveOmegaCompiler.js`. Il reste volontairement
