@@ -11,7 +11,8 @@ async function record(db, args, error, callerId) {
   const action = String(args.variant_action || args.operation || 'unknown');
   const input = args.variant_input || {};
   const opId = input.opId || input.o?.opId || input.change?.opId
-    || input.operation?.opId || args.op?.opId || null;
+    || input.result?.opId || input.build?.opId || input.operation?.opId
+    || args.op?.opId || null;
   await db.run(`INSERT INTO syncytium_rejection_receipts
     (session_id, action, code, op_id, caller_id) VALUES (?, ?, ?, ?, ?)`,
   sessionId, action, error.code, opId, callerId || null);

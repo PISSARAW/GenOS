@@ -17,7 +17,10 @@ const ACTIONS = Object.freeze({
 });
 
 const CONTEXT_VARIANTS = new Set(['soft', 'localFirst', 'speculative']);
-const CODE_THREE_ARGS = new Set(['applyCodeChange', 'recordCodeTestResult', 'recordCodeBuildState', 'projectGraph']);
+const THREE_ARG_INPUTS = Object.freeze({
+  applyCodeChange: 'change', recordCodeTestResult: 'result',
+  recordCodeBuildState: 'build', projectGraph: 'query'
+});
 const DIRECT_OPTIONS = new Set(['documentSnapshot', 'codeSnapshot', 'readBlackboard', 'graphSnapshot', 'epistemicSnapshot', 'transactionalSnapshot', 'humanAiSnapshot']);
 
 async function executeVariantAction(input) {
@@ -31,7 +34,10 @@ async function executeVariantAction(input) {
   if (action === 'detectReservationDeadlock') return service[action](request.waitEdges || []);
   if (action === 'planControlSchedule') return service[action](request.jobs || []);
   if (CONTEXT_VARIANTS.has(variantId)) return service[action](contextRequest({ db, sessionId, variantId, request }));
-  if (CODE_THREE_ARGS.has(action)) return service[action](sessionId, request, { db });
+  if (THREE_ARG_INPUTS[action]) {
+    const input = request[THREE_ARG_INPUTS[action]] || request;
+    return service[action](sessionId, input, { ...(request.options || {}), db });
+  }
   if (DIRECT_OPTIONS.has(action)) return service[action](sessionId, { ...request, db });
   return service[action](sessionId, { ...request, options: { ...(request.options || {}), db } });
 }

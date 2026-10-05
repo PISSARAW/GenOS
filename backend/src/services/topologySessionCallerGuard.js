@@ -42,7 +42,9 @@ function bindCaller(args, callerId) {
       ...input,
       o: bindActor(input.o || {}, callerId),
       options: bindActor(input.options || {}, callerId),
-      change: bindActor(input.change || {}, callerId),
+      ...(input.change ? { change: bindActor(input.change, callerId) } : {}),
+      ...(input.result ? { result: bindActor(input.result, callerId) } : {}),
+      ...(input.build ? { build: bindActor(input.build, callerId) } : {}),
       ...(input.operation ? { operation: bindActor(input.operation, callerId) } : {}),
       ...(input.operations ? { operations: input.operations.map((item) => bindActor(item, callerId)) } : {}),
       ...(input.transaction ? { transaction: {
