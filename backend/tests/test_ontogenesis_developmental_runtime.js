@@ -3,6 +3,7 @@
 const assert = require('assert');
 const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
 const { buildMissionMorphogenesisInput } = require('../src/services/agentRuntimeAdapter/missionMorphogenesis');
+const { organizationForMission } = require('../src/services/missionOrganizationResolver');
 
 const developmentalContext = {
   shev: { available: true, pendingInitiatives: 2 },
@@ -28,4 +29,6 @@ const morphogenesis = buildMissionMorphogenesisInput({ db: {}, agentId: 'agent-1
   contractRecord: null });
 assert.deepStrictEqual(morphogenesis.problemProfile.developmentalContext, developmentalContext);
 assert.deepStrictEqual(morphogenesis.problemProfile.strategyConcept, { id: 'minimal_patch' });
+assert.strictEqual(organizationForMission({ normalizedMission: { organization: 'mycelial_routing' },
+  autonomyPlan: { organization: 'strategy_arena' } }), 'mycelial_routing');
 console.log('ontogenesis developmental runtime checks passed.');

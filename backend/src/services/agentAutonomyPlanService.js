@@ -18,11 +18,10 @@ const autobiographicalRecall = require('./autobiographicalMemory/orchestratorRec
 const survivalState = require('./survivalStateService');
 const cognitivePhenotype = require('./cognitivePhenotypeService');
 const { prepareTeamLifecycle } = require('./aTeam/lifecycle/teamLifecycleService');
-
+const { organizationForMission } = require('./missionOrganizationResolver');
 function clampShare(value) {
   return Math.max(0, Math.min(1, value));
 }
-
 function resolveWorkerShare(missionBudget) {
   if (Number.isFinite(Number(missionBudget.workerShare))) {
     return clampShare(Number(missionBudget.workerShare));
@@ -287,9 +286,11 @@ async function applyLocalModelReview({ db, agentId, normalizedMission, autonomyP
   emit(agentId, 'LOCAL_MODEL_ROUTING', 'PLAN_REVIEW', message, autonomyPlan.localModelReview, consulted ? 'info' : 'warning');
 }
 
-async function applyOrganizationState({ db, agentId, autonomyPlan }) {
+async function applyOrganizationState({ db, agentId, autonomyPlan, normalizedMission }) {
   const organizationState = await dynamicOrganization.getState(db, agentId);
   if (!organizationState) {
+    const requested = organizationForMission({ normalizedMission, autonomyPlan });
+    if (requested) autonomyPlan.organization = requested;
     const initialized = await dynamicOrganization.changeOrganization(db, {
       orchestratorId: agentId,
       organization: autonomyPlan.organization,
@@ -390,11 +391,10 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   await applySelfModel({ db, agentId, normalizedMission, autonomyPlan });
   await autobiographicalRecall.recallBeforePlanning({ db, agentId, normalizedMission, autonomyPlan });
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });
-  await applyOrganizationState({ db, agentId, autonomyPlan });
+  await applyOrganizationState({ db, agentId, autonomyPlan, normalizedMission });
   applyCapabilityContract(autonomyPlan);
   autonomyPlan.controlRegulation = regulateAutonomyPlan(contractRecord.contract, regulationBudget, autonomyPlan);
   emitControlRegulation(agentId, autonomyPlan);
   return autonomyPlan;
 }
-
 module.exports = { buildAutonomyPlanForMission, attachAteamCoordination, missionText };
