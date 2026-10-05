@@ -12,6 +12,7 @@ const {
 } = require('../src/philosophy/conceptRegistry');
 const router = require('../src/services/philosophyRouter');
 const { validateContract } = require('../src/philosophy/implementationContracts');
+const { compileRegistry } = require('../src/philosophy/implementationContracts');
 
 function baseConcept() {
   return { ...CONCEPT_DEFINITIONS[0] };
@@ -28,6 +29,12 @@ assert.equal(health.valid, true, health.errors.join('; '));
 assert.equal(health.conceptCount, CONCEPT_DEFINITIONS.length);
 assert.deepEqual(health.duplicateIds, []);
 assert.deepEqual(health.errors, []);
+const compiled = compileRegistry(CONCEPT_DEFINITIONS);
+assert.equal(compiled.valid, true, compiled.errors.join('; '));
+assert.equal(compiled.contracts.length, 375);
+assert.ok(compiled.contracts.every((item) => validateContract(item).length === 0));
+assert.ok(compiled.contracts.every((item) => item.interpretation && item.invariant && item.mechanism));
+assert.ok(compiled.contracts.every((item) => item.sourceRefs.length > 0));
 
 const ids = CONCEPT_DEFINITIONS.map((concept) => concept.id);
 assert.equal(new Set(ids).size, ids.length);
