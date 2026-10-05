@@ -36,7 +36,8 @@ et marqués `mapped-pending-behavior`.
 Le format est versionné par `spec/implementation-contract.schema.json`.
 Chaque contrat contient une interprétation, un invariant, un mécanisme partagé,
 des observables, un scénario comparable, des tests de falsification, des limites
-et une responsabilité.
+et une responsabilité. Chaque entrée possède aussi une expérience planifiée,
+un baseline, une hypothèse, un critère de succès et un critère de rejet.
 Les 354 contrats mappés ne sont pas présentés comme des fonctionnalités : leur
 mapping n’est pas encore une preuve de comportement.
 Le routeur expose les contrats en

@@ -7,7 +7,7 @@
     "apiVersion", "kind", "id", "type", "interpretation", "targets",
     "invariant", "mechanism", "observables", "falsificationTests", "limits",
     "permissions", "obligations", "prohibitions", "violationCriteria",
-    "responsibility", "maturity", "status", "scenario"
+    "responsibility", "maturity", "status", "scenario", "experiment"
   ],
   "properties": {
     "apiVersion": { "const": "genos.contract/v1" },
@@ -36,6 +36,20 @@
         "mode": { "type": "string" },
         "stimulus": { "type": "string" },
         "observation": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "experiment": {
+      "type": "object",
+      "required": ["id", "hypothesis", "baseline", "successCondition", "rejectionCondition", "evidenceRequired", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "hypothesis": { "type": "string" },
+        "baseline": { "type": "string" },
+        "successCondition": { "type": "string" },
+        "rejectionCondition": { "type": "string" },
+        "evidenceRequired": { "type": "array", "items": { "type": "string" } },
+        "status": { "const": "planned" }
       },
       "additionalProperties": false
     },

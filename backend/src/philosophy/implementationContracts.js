@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('node:crypto');
 const { validateSpec } = require('../services/specValidator');
 
 /**
@@ -104,20 +105,36 @@ function scenarioFor(category, conceptId) {
   return { id: 'scenario.' + category, contractId: conceptId, ...SCENARIO_BY_CATEGORY[category] };
 }
 
+function experimentFor(category, conceptId, scenario) {
+  const experimentId = crypto.createHash('sha256').update(conceptId + '\0' + scenario.id).digest('hex').slice(0, 16);
+  return {
+    id: 'experiment.' + experimentId,
+    hypothesis: 'Le mécanisme associé à ' + conceptId + ' produit une différence observable dans le scénario.',
+    baseline: 'Exécuter le même scénario avec le mécanisme désactivé.',
+    successCondition: scenario.observation,
+    rejectionCondition: 'Aucune différence mesurable, preuve manquante ou résultat non reproductible.',
+    evidenceRequired: ['scenario-input', 'scenario-output', 'comparison-receipt'],
+    status: 'planned',
+  };
+}
+
 function provisionalContract(concept) {
   const interpretation = concept.scope || concept.definition || ('Le concept ' + concept.label + ' doit être opérationnalisé.');
+  const category = categoryForConcept(concept);
+  const scenario = scenarioFor(category, concept.id);
   return {
     apiVersion: 'genos.contract/v1',
     kind: 'ImplementationContract',
     id: concept.id,
     type: contractType(concept),
-    category: categoryForConcept(concept),
+    category,
     family: concept.family || concept.domain,
     traditions: [concept.school].filter(Boolean),
     distinctions: concept.aliases || [],
     confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
     sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
-    scenario: scenarioFor(categoryForConcept(concept), concept.id),
+    scenario,
+    experiment: experimentFor(category, concept.id, scenario),
     interpretation,
     targets: fallbackTargets(concept),
     invariant: 'Ne pas attribuer au concept ' + concept.id + ' une autorité runtime sans mécanisme et preuve indépendants.',
@@ -141,15 +158,18 @@ function provisionalContract(concept) {
 function compileConcept(concept) {
   const definition = CONTRACTS.get(concept.id);
   if (!definition) return provisionalContract(concept);
+  const category = categoryForConcept(concept);
+  const scenario = scenarioFor(category, concept.id);
   return {
     ...definition,
-    category: categoryForConcept(concept),
+    category,
     family: concept.family || concept.domain,
     traditions: [concept.school].filter(Boolean),
     distinctions: concept.aliases || [],
     confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
     sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
-    scenario: scenarioFor(categoryForConcept(concept), concept.id),
+    scenario,
+    experiment: experimentFor(category, concept.id, scenario),
     source: concept.provenance || null,
     conceptStatus: concept.status,
     serviceMaturity: concept.serviceMaturity || null,
@@ -178,6 +198,7 @@ function validateContract(contractValue) {
     errors.push('category is invalid');
   }
   if (!contractValue.scenario || contractValue.scenario.contractId !== contractValue.id) errors.push('scenario must identify its contract');
+  if (!contractValue.experiment || contractValue.experiment.status !== 'planned') errors.push('experiment must be planned');
   for (const field of ['targets', 'observables', 'falsificationTests', 'limits', 'obligations', 'prohibitions', 'violationCriteria']) {
     if (!Array.isArray(contractValue[field]) || contractValue[field].length === 0) errors.push(`${field} must be a non-empty array`);
   }

@@ -36,6 +36,7 @@ assert.ok(compiled.contracts.every((item) => validateContract(item).length === 0
 assert.ok(compiled.contracts.every((item) => item.interpretation && item.invariant && item.mechanism));
 assert.ok(compiled.contracts.every((item) => item.sourceRefs.length > 0));
 assert.ok(compiled.contracts.every((item) => item.scenario && item.scenario.contractId === item.id));
+assert.ok(compiled.contracts.every((item) => item.experiment && item.experiment.status === 'planned'));
 
 const ids = CONCEPT_DEFINITIONS.map((concept) => concept.id);
 assert.equal(new Set(ids).size, ids.length);
