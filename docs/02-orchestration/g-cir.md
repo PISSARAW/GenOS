@@ -242,12 +242,13 @@ L'exécution est fournie par
 opérations comme de simples étiquettes : `READ` résout un objet via un lecteur
 autorisé ou une table d'objets explicitement fournie, `SELECT` applique un
 sélecteur enregistré ou transmet les dépendances, `CALL` invoque un outil
-enregistré après contrôle de permission, `CHECK` exige un vérificateur dont le
-résultat est effectivement vérifié, et `EMIT` exige à la fois une permission
-d'effet et le reçu vérifié d'une dépendance `CHECK`. Toute absence de handler,
-permission ou reçu bloque l'exécution. Le runtime retourne un digest des
-résultats et ne considère jamais une réponse textuelle de modèle comme une
-preuve.
+enregistré après contrôle de permission, `INFER` invoque un inferer enregistré
+avec l'entrée des dépendances et le contexte de l'opération, `CHECK` exige un
+vérificateur dont le résultat est effectivement vérifié, et `EMIT` exige à la
+fois une permission d'effet et le reçu vérifié d'une dépendance `CHECK`. Toute
+absence de handler, permission ou reçu bloque l'exécution. Le runtime retourne
+un digest des résultats et ne considère jamais une réponse textuelle de modèle
+comme une preuve.
 
 ### 6.1 Noyau cible
 
@@ -259,7 +260,7 @@ runtime, pas des tokens spéciaux universels pour les modèles.
 | `READ` | Résoudre une référence autorisée et versionnée | Hors périmètre |
 | `SELECT` | Construire la vue des dépendances utiles | Champs du signal ou mission et candidats Trinity |
 | `CALL` | Exécuter un outil autorisé | Existant dans GenOS, sans IR G-CIR général |
-| `INFER` | Soumettre un résidu admis au modèle | Signal Plane et génération d'hypothèses Trinity |
+| `INFER` | Soumettre un résidu admis au modèle | Runtime Omega via `registerInferer`, plus Signal Plane et génération d'hypothèses Trinity |
 | `CHECK` | Vérifier le candidat avec méthode et périmètre | Registre épistémique générique et receipts signés |
 | `EMIT` | Publier selon permissions et reçus | Non branché sur ce chemin |
 

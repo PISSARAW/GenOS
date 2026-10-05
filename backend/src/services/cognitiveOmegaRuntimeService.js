@@ -3,7 +3,7 @@
 const crypto = require('node:crypto');
 const registry = require('./cognitiveObligationRegistry');
 
-const KINDS = new Set(['READ', 'SELECT', 'CALL', 'CHECK', 'EMIT']);
+const KINDS = new Set(['READ', 'SELECT', 'CALL', 'INFER', 'CHECK', 'EMIT']);
 
 function blocked(reason, operation) {
   return { status: 'blocked', reason, operation: operation?.id || null };
@@ -39,6 +39,7 @@ function createRuntime() {
   const readers = new Map();
   const selectors = new Map();
   const tools = new Map();
+  const inferers = new Map();
   const verifiers = new Map();
   const emitters = new Map();
 
@@ -78,6 +79,22 @@ function createRuntime() {
     if (!tool) return blocked('tool_missing', operation);
     const value = await tool({ arguments: operation.arguments || operation.input,
       context: state.context, values: state.values });
+    state.values[operation.id] = value;
+    return { status: 'ready', value };
+  }
+
+  async function infer(operation, state) {
+    if (!allowed(state.policy, 'INFER', operation.reference || operation.id)) {
+      return blocked('infer_not_authorized', operation);
+    }
+    const inferer = inferers.get(operation.reference || operation.id);
+    if (!inferer) return blocked('inferer_missing', operation);
+    const value = await inferer({
+      input: operationInput(operation, state.values),
+      context: state.context,
+      values: state.values,
+      operation
+    });
     state.values[operation.id] = value;
     return { status: 'ready', value };
   }
@@ -128,7 +145,8 @@ function createRuntime() {
         === 'ready' || results.find((item) => item.id === id)?.status === 'verified'
         || results.find((item) => item.id === id)?.status === 'emitted');
       if (!dependenciesReady) return { status: 'blocked', reason: 'dependency_execution_failed', results };
-      const handler = { READ: read, SELECT: select, CALL: call, CHECK: check, EMIT: emit }[operation.kind];
+      const handler = { READ: read, SELECT: select, CALL: call, INFER: infer,
+        CHECK: check, EMIT: emit }[operation.kind];
       try {
         const result = await handler(operation, state);
         results.push({ id: operation.id, kind: operation.kind, ...result });
@@ -146,6 +164,7 @@ function createRuntime() {
     registerReader: (reference, handler) => register(readers, reference, handler),
     registerSelector: (reference, handler) => register(selectors, reference, handler),
     registerTool: (reference, handler) => register(tools, reference, handler),
+    registerInferer: (reference, handler) => register(inferers, reference, handler),
     registerVerifier: (reference, handler) => register(verifiers, reference, handler),
     registerEmitter: (reference, handler) => register(emitters, reference, handler) };
 }
