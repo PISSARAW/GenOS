@@ -26,13 +26,11 @@ function stubDb() {
   
   return {
     get: async (sql, ...params) => {
-      console.log(`  [DB GET] SQL: ${sql.substring(0, 100)}... params:`, params);
       // AdaptiveStateService queries: SELECT payload_json FROM adaptive_state WHERE scope = ? AND key = ?
       if (sql.includes('adaptive_state') && sql.includes('WHERE scope') && sql.includes('key')) {
         const scope = params[0];
         const key = params[1];
         const fullKey = `adaptive_state|${scope}|${key}`;
-        console.log(`  [DB GET] adaptive_state: scope=${scope}, key=${key}, found=${tables.has(fullKey)}`);
         if (tables.has(fullKey)) return { payload_json: tables.get(fullKey) };
         return null;
       }
@@ -80,7 +78,6 @@ function stubDb() {
         && (sql.includes('INSERT') || sql.includes('REPLACE'))) {
         // INSERT OR REPLACE INTO adaptive_state (scope, key, payload_json, version, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
         const [scope, key, payloadJson, version] = params;
-        console.log(`  [DB RUN] adaptive_state: scope=${scope}, key=${key}, payload=${payloadJson}`);
         tables.set(`adaptive_state|${scope}|${key}`, payloadJson);
       }
     },
@@ -117,7 +114,6 @@ async function runGWT1Test() {
   const dispatchResults = [];
   for (const signal of signals) {
     const result = await dispatch(db, signal);
-    console.log(`  Signal ${signal.signature}: delivered=${JSON.stringify(result.delivered)}, suppressed=${JSON.stringify(result.suppressed)}`);
     dispatchResults.push({ signal: signal.signature, ...result });
   }
 
@@ -153,18 +149,15 @@ async function runGWT1Test() {
   
   // Deuxième envoi immédiat - désensibilisé (×0.7 = 0.56, seuil orchestrator=0.3, passe encore)
   const second = await dispatch(db, repeatedSignal);
-  console.log(`  Second: delivered=${JSON.stringify(second.delivered)}, suppressed=${JSON.stringify(second.suppressed)}`);
   assert.ok(second.delivered.includes('orchestrator-1'), 'Second delivery should still succeed (0.56 > 0.3)');
   
   // Troisième envoi : la désensibilisation est appliquée par livraison
   // spécialisée, donc le seuil peut être franchi avant le quatrième appel.
   const third = await dispatch(db, repeatedSignal);
-  console.log(`  Third: delivered=${JSON.stringify(third.delivered)}, suppressed=${JSON.stringify(third.suppressed)}`);
   assert.ok(third.suppressed.some(s => s.agentId === 'orchestrator-1'), 'Third delivery should eventually be suppressed');
   
   // Quatrième envoi - 0.392 * 0.7 = 0.274, EN DESSOUS de 0.3 -> bloqué
   const fourth = await dispatch(db, repeatedSignal);
-  console.log(`  Fourth: delivered=${JSON.stringify(fourth.delivered)}, suppressed=${JSON.stringify(fourth.suppressed)}`);
   const orchestratorSuppressed = fourth.suppressed.find(s => s.agentId === 'orchestrator-1');
   assert.ok(orchestratorSuppressed, 'Fourth delivery should remain suppressed for orchestrator');
   

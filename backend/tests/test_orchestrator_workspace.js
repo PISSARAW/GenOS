@@ -20,6 +20,15 @@ async function main() {
 
     const worker = await provisionMissionWorkspace({ agentId: 'worker-test', workspaceRoot: orchestrator.workspaceRoot }, 'worker');
     assert.equal(worker.workspaceRoot, orchestrator.workspaceRoot, 'a worker keeps the workspace allocated by its orchestrator');
+
+    const directRoot = path.join(directory, 'direct');
+    fs.mkdirSync(directRoot);
+    const direct = await provisionMissionWorkspace({
+      agentId: 'direct-orchestrator', workspaceRoot: directRoot,
+      workspaceProvisioned: true, capsuleRoot: directRoot
+    }, 'orchestrator');
+    assert.equal(direct.workspaceRoot, directRoot, 'a pre-provisioned mission keeps its requested workspace');
+    assert.equal(direct.capsuleRoot, directRoot, 'direct mission capsules stay in the requested workspace');
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
     if (previousCapsuleRoot === undefined) delete process.env.GENOS_CAPSULE_ROOT;

@@ -199,7 +199,11 @@ async function startOrchestratorMission(opts) {
 }
 
 function missionWorkspaceOptions(request) {
-  return { workspaceRoot: request.workspaceRoot || request.workspace_root,
+  const workspaceRoot = request.workspaceRoot || request.workspace_root;
+  return { workspaceRoot,
+    workspaceProvisioned: request.workspaceProvisioned === true,
+    capsuleRoot: request.capsuleRoot || request.capsule_root
+      || (request.workspaceProvisioned === true ? workspaceRoot : undefined),
     proposedTopology: request.proposedTopology, trinityMode: request.trinityMode,
     trinityVariant: request.variant, aTeamMode: request.aTeamMode };
 }
