@@ -39,6 +39,7 @@ assert.ok(compiled.contracts.every((item) => item.scenario && item.scenario.cont
 assert.ok(compiled.contracts.every((item) => item.experiment && item.experiment.status === 'planned'));
 assert.ok(compiled.contracts.every((item) => item.experiment.topologies.includes('isolated_critics')));
 assert.ok(compiled.contracts.every((item) => item.experiment.topologies.length === 4));
+assert.ok(compiled.contracts.every((item) => Array.isArray(item.conflicts)));
 
 const ids = CONCEPT_DEFINITIONS.map((concept) => concept.id);
 assert.equal(new Set(ids).size, ids.length);

@@ -120,6 +120,13 @@ function experimentFor(category, conceptId, scenario) {
   };
 }
 
+function conflictRefs(concept) {
+  return (concept.relations || [])
+    .filter((relation) => /conflict|oppose|tension|contrad/i.test(relation.type || ''))
+    .map((relation) => relation.target)
+    .filter(Boolean);
+}
+
 function provisionalContract(concept) {
   const interpretation = concept.scope || concept.definition || ('Le concept ' + concept.label + ' doit être opérationnalisé.');
   const category = categoryForConcept(concept);
@@ -133,6 +140,7 @@ function provisionalContract(concept) {
     family: concept.family || concept.domain,
     traditions: [concept.school].filter(Boolean),
     distinctions: concept.aliases || [],
+    conflicts: conflictRefs(concept),
     confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
     sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
     scenario,
@@ -145,7 +153,6 @@ function provisionalContract(concept) {
     observables: ['contract_completeness', 'behavioral_delta', 'evidence_coverage'],
     falsificationTests: ['Définir puis exécuter un test qui distingue ' + concept.id + ' d une absence de ce concept.'],
     limits: concept.knownLimits?.length ? concept.knownLimits : ['Interprétation provisoire ; aucun mécanisme exécutable n est encore assigné.'],
-    conflicts: [],
     permissions: [],
     obligations: ['conserver la provenance des observations et des décisions'],
     prohibitions: ['présenter ce contrat provisoire comme une capacité implémentée'],
@@ -168,6 +175,7 @@ function compileConcept(concept) {
     family: concept.family || concept.domain,
     traditions: [concept.school].filter(Boolean),
     distinctions: concept.aliases || [],
+    conflicts: conflictRefs(concept),
     confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
     sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
     scenario,
