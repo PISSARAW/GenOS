@@ -91,7 +91,7 @@ function launchCapabilities(context, member) {
 }
 
 async function launchWorker({ db, context, member, index, parent, suppliedWorkerId }) {
-  const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
+  const workerId = suppliedWorkerId || member.workerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
   const launchCaps = launchCapabilities(context, member);
   await persistWorkerIdentity({ db, context, member, parent, workerId });
   await spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps });
@@ -378,14 +378,15 @@ async function dispatchBiologicalMembers({ db, context, mode, parent, members })
 function composeBiologicalMode({ db, context, mode, mission }) {
   const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;
   const workerAssignments = context.request.worker_assignments || context.request.workerAssignments;
-  if (mode === 'isolated_baseline') {
-    return require('../src/services/isolatedBaselineTopologyService').compose({ mission, options: { workerAssignments } });
-  }
   const variantId = context.request.variant_id || context.request.variantId || context.request.variant;
+  if (mode === 'isolated_baseline') {
+    return require('../src/services/isolatedBaselineTopologyService').compose({ mission, options: { workerAssignments, variantId } });
+  }
   return biologicalTopology.composeMode({
     db, orchestratorId: context.orchestratorId, mode, mission,
     options: { agentCount, clusterSize, fanout, organization, workerAssignments, variantId,
-      scope: context.request.scope, configuration: context.request.configuration }
+      scope: context.request.scope, configuration: context.request.configuration,
+      sessionOptions: context.request.sessionOptions }
   });
 }
 
