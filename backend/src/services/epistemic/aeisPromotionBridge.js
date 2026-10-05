@@ -196,6 +196,7 @@ async function evaluateAeisForPromotion(antigens, context = {}) {
   const holobionteResults = await Promise.all(
     antigens.map(antigen => epistemicHolobionte(antigen, {
       ...context,
+      requireExecutableQuorum: true,
       verifierBudget: { remaining: Math.min(8, Math.max(2, Number(context.maxVerifierExecutions) || 4)) },
       immuneMemory: context.immuneMemory || [],
       domain: context.domain,
@@ -205,6 +206,10 @@ async function evaluateAeisForPromotion(antigens, context = {}) {
 
   const assembly = buildAssuranceAssemblyFromHolobionte(antigens, holobionteResults, context);
   const evaluation = evaluateEpistemicAssurance(assembly);
+  if (holobionteResults.some((result) => !result.accepted)) {
+    evaluation.eligible = false;
+    evaluation.violations.push({ policy: 'host_veto', message: 'The AEIS host refused one or more claims.' });
+  }
   const claimAssessments = assessAntigenClaims(antigens, holobionteResults, context);
 
   return {
@@ -213,7 +218,7 @@ async function evaluateAeisForPromotion(antigens, context = {}) {
     holobionteResults,
     claimAssessments,
     allAccepted: holobionteResults.every(r => r.accepted),
-    anyBlocked: holobionteResults.some(r => r.immune?.blocked && !r.immune?.regulatorInhibited),
+    anyBlocked: holobionteResults.some(r => !r.accepted),
   };
 }
 

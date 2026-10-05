@@ -49,7 +49,7 @@ async function runTests() {
   const multiProviderReview = await H.immuneSymbiontReview(antigen, {
     crossProvider: {
       providers: [{ provider: 'provider-a' }, { provider: 'provider-b' }],
-      runProvider: async ({ provider }) => ({ assessment: `reviewed by ${provider}` }),
+      runProvider: async ({ provider }) => ({ assessment: `reviewed by ${provider}`, verdict: 'supports' }),
     },
     requireCrossProvider: true,
   });
@@ -57,6 +57,12 @@ async function runTests() {
   assert.equal(multiProviderReview.blocked, false);
   assert.ok(multiProviderReview.nicheRecruitment);
   assert.equal(multiProviderReview.isolatedPopulations, null);
+  const dissenting = await H.immuneSymbiontReview(antigen, {
+    crossProvider: { providers: [{ provider: 'a' }, { provider: 'b' }],
+      runProvider: async () => ({ assessment: 'refuting review', verdict: 'refutes' }) },
+    requireCrossProvider: true,
+  });
+  assert.equal(dissenting.blocked, true, 'two completed requests cannot override a refutation');
 
   // ---- memorySymbiontLookup ----
 
