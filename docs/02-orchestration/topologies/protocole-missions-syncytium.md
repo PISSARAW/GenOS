@@ -56,7 +56,7 @@ Le routeur de politique accepte un `variantId` explicite ; sinon il choisit selo
 | Real-Time Control | Contrôle/reflexes avec préconditions et réponse failsafe | Échéance et invariant respectés dans le modèle testé ; conflit de version réessayé ou arrêt sûr vérifié |
 | Human–AI | Consentement, présence, autorité, approbation et attribution | Action critique attend l’approbation requise ; retrait/refus appliqué ; annulation conserve auteur et audit |
 
-Les formulations détaillées des 52 missions initiales (13 variants × 4 niveaux) sont conservées dans le texte fourni par l’utilisateur. Pour un rapport de campagne, recopier chaque énoncé et attacher son oracle plutôt que ne garder que cette synthèse.
+Les formulations détaillées des 52 missions initiales (13 variants × 4 niveaux) et du cas transversal sont versionnées dans `backend/fixtures/syncytium/missionCatalog.json`. Le catalogue conserve les énoncés ; `requiresIndependentOracle` signale qu'aucun énoncé ne constitue à lui seul un oracle exécutable. Un rapport de campagne doit associer à chaque cas des opérations identifiées et des assertions indépendantes.
 
 ## 4. Budget, durée et répétitions
 
@@ -135,11 +135,15 @@ Le runner `biologicalBenchmarkRunnerService` accepte une enveloppe équivalente 
   "timeoutMs": 150000,
   "scenarioTimeoutMs": 480000,
   "expectedClaims": [{ "subject": "reservation", "predicate": "within_capacity", "value": true }],
+  "oracle": { "assertions": [
+    { "kind": "state", "path": ["shared", "sharedFields", "reservations", "r1", "status"], "operator": "equals", "value": "active" },
+    { "kind": "operation_rejected", "opId": "over-capacity-1", "code": "SYNCYTIUM_TRANSACTION_INVALID" }
+  ] },
   "workerAssignments": {}
 }
 ```
 
-Les valeurs du JSON ne sont qu’un exemple de forme. `budget` définit le plafond par worker ; `campaignBudget` doit couvrir le maximum demandé pour les deux topologies et toutes les répétitions. Les deux plafonds monétaires sont obligatoires avant l’envoi aux modèles.
+Les valeurs du JSON ne sont qu’un exemple de forme : les chemins, identifiants et codes de l'oracle doivent correspondre à un cas réel. `budget` définit le plafond par worker ; `campaignBudget` doit couvrir le maximum demandé pour les deux topologies et toutes les répétitions. Les deux plafonds monétaires sont obligatoires avant l’envoi aux modèles.
 
 ```mermaid
 sequenceDiagram
@@ -194,7 +198,9 @@ Enregistrer au minimum par run :
 - tokens/coût seulement si la source les rapporte ; sinon `null` ;
 - état de collecte télémétrique : événements attendus/reçus, `flush.flushed`, `pending`, pertes et erreurs.
 
-Le runner refuse les manifests sans claims d’oracle ni plafond agrégé `campaignBudget`. Une exécution n’est complète que si tous les workers sont terminés, la validation est complète et le rappel des claims vaut 1. Les claims et leur texte de preuve ne remplacent pas encore un validateur de reçus métier par scénario ; la complétude du benchmark ne certifie donc pas à elle seule chaque invariant détaillé des 52 énoncés. Le rapport expose certains compteurs mais retourne explicitement `null` pour des mesures que le runtime ne collecte pas (par ex. toutes les mises à jour distribuées ou la quantité d’opérations sûres sans coordination). Laisser ces valeurs nulles jusqu’à l’ajout d’un instrument mesurable.
+Le runner refuse les manifests sans claims d’oracle ni plafond agrégé `campaignBudget`. Une exécution Syncytium n’est complète que si tous les workers sont terminés, la validation est complète, le rappel des claims vaut 1 **et** l'oracle indépendant vérifie ses assertions sur l'état persistant, les opérations appliquées et les reçus de rejet. Un oracle absent échoue fermé. Le validateur générique permet des assertions d'état, de révision et d'opérations ; il faut encore écrire les assertions particulières de chacun des 53 cas avant de revendiquer leur réussite. Le rapport expose certains compteurs mais retourne explicitement `null` pour des mesures que le runtime ne collecte pas (par ex. toutes les mises à jour distribuées ou la quantité d’opérations sûres sans coordination). Laisser ces valeurs nulles jusqu’à l’ajout d’un instrument mesurable.
+
+Le rapport `observedBudget` lit les reçus de fin et les événements bruts du fournisseur pour chaque worker. Il exige une mesure explicite des tokens et du coût, compare les usages aux plafonds individuels, puis vérifie la somme contre `campaignBudget`. Si le fournisseur n'émet pas le coût, le verdict reste non vérifié même si le runtime a inscrit `0` comme valeur de repli. Le plafond agrégé n'est pas une preuve de facturation à lui seul.
 
 ## 10. Carte relationnelle persistée des agents
 

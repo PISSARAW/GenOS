@@ -1,0 +1,376 @@
+{
+  "cases": [
+    {
+      "id": "hard-simple",
+      "variantId": "hard",
+      "level": "simple",
+      "mission": "Deux noyaux A et B veulent modifier la même ressource `deployment`. A obtient un fence pour 30 secondes. B tente immédiatement d’obtenir la même ressource. A doit être autorisé et B refusé.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "hard-medium",
+      "variantId": "hard",
+      "level": "medium",
+      "mission": "A obtient le fence `inventory` avec fence number 1. Son lease expire puis B récupère la ressource avec fence number 2. A tente ensuite une transaction en présentant son ancien token. Refuse cette transaction comme stale.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "hard-hard",
+      "variantId": "hard",
+      "level": "hard",
+      "mission": "Trois noyaux proposent simultanément plusieurs mutations sur une ressource critique. Le détenteur du fence exécute quatre opérations données dans un ordre arbitraire. Applique-les dans l’ordre déterministe du variant et vérifie une précondition sur la version de l’état avant commit.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "hard-complex",
+      "variantId": "hard",
+      "level": "complex",
+      "mission": "Simule 20 transactions concurrentes sur trois ressources critiques. Les leases expirent, changent de détenteur et certains anciens détenteurs tentent de réutiliser leurs tokens. Injecte également une modification de version entre lecture et commit. Aucune opération stale ne doit réussir, les fences doivent croître monotonement et les transactions acceptées doivent avoir un ordre déterministe reproductible.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "soft-simple",
+      "variantId": "soft",
+      "level": "simple",
+      "mission": "Deux noyaux produisent chacun trois deltas indépendants pendant une courte désynchronisation. Réunis ensuite les deltas et effectue une anti-entropie pour que tous soient marqués réconciliés.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "soft-medium",
+      "variantId": "soft",
+      "level": "medium",
+      "mission": "Fixe un staleness budget de 3 opérations. Un réplica accumule cinq deltas non réconciliés. Détecte que son budget de staleness est dépassé puis lance la réconciliation.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "soft-hard",
+      "variantId": "soft",
+      "level": "hard",
+      "mission": "Simule quatre politiques de partition successivement : `ALLOW_LOCAL_MUTATION`, `ALLOW_READ_ONLY`, `QUEUE_OPERATION`, `REJECT_OPERATION`. Montre quelles activités doivent rester possibles dans chaque cas, puis réconcilie les mutations admissibles.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "soft-complex",
+      "variantId": "soft",
+      "level": "complex",
+      "mission": "Trois réplicas travaillent sous partitions intermittentes pendant 20 cycles. Ils génèrent des deltas avec vector clocks différentes, reviennent en ligne à des moments différents et accumulent divers niveaux de staleness. Exécute des cycles d’anti-entropie, détecte les deltas déjà couverts, mesure le budget dépassé et compresse conceptuellement l’historique réconcilié sans perdre les deltas encore nécessaires.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "document-simple",
+      "variantId": "document",
+      "level": "simple",
+      "mission": "Deux noyaux ajoutent chacun un paragraphe dans des sections différentes d’un même document. Chaque bloc doit conserver son auteur et son rôle sémantique.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "document-medium",
+      "variantId": "document",
+      "level": "medium",
+      "mission": "A ajoute un paragraphe. B ajoute un commentaire ciblant ce bloc. C supprime ensuite le bloc. Conserve l’historique causal et l’attribution des trois opérations.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "document-hard",
+      "variantId": "document",
+      "level": "hard",
+      "mission": "Plusieurs noyaux éditent en parallèle cinq sections avec headings, paragraphes, listes, code et citations. Une opération est envoyée avec une ancienne `schemaVersion`. Refuse uniquement cette opération stale sans invalider les modifications légitimes.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "document-complex",
+      "variantId": "document",
+      "level": "complex",
+      "mission": "Construis un rapport en cinq sections pendant 30 opérations concurrentes : insertion, suppression, commentaires et annotations. Deux utilisateurs regrettent ensuite certaines modifications. Utilise des **edits compensatoires** pour les annuler tout en conservant l’audit, l’attribution et la causalité. Vérifie qu’une opération ne peut être undo deux fois et qu’un undo ne prétend pas effacer l’existence historique de l’édition originale.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "code-simple",
+      "variantId": "code",
+      "level": "simple",
+      "mission": "Deux développeurs modifient deux fichiers indépendants. Chaque changement fournit le hash attendu de son fichier. Accepte les deux si les hashes correspondent.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "code-medium",
+      "variantId": "code",
+      "level": "medium",
+      "mission": "A lit `service.js` avec hash H1. B le modifie et produit H2. A tente ensuite de pousser son changement basé sur H1. Refuse l’écriture stale.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "code-hard",
+      "variantId": "code",
+      "level": "hard",
+      "mission": "`api.js` dépend de `auth.js`, qui dépend de `token.js`. Un noyau acquiert un lock sur `api.js`. Verrouille également la fermeture de dépendances nécessaire. Un second noyau ne doit pas pouvoir modifier `auth.js` pendant ce lease.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "code-complex",
+      "variantId": "code",
+      "level": "complex",
+      "mission": "Quatre noyaux refactorent simultanément un petit projet multi-fichiers. Certains changements sont indépendants, d’autres touchent les mêmes dépendances. Utilise expected hashes et locks de fermeture de dépendances pour empêcher les écrasements stale. Enregistre ensuite plusieurs résultats de tests et un état de build. La fusion finale n’est autorisée que si le build passe et qu’au moins un test passant existe. Injecte un build cassé puis sa correction.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "blackboard-simple",
+      "variantId": "blackboard",
+      "level": "simple",
+      "mission": "A publie un `new_problem` de priorité 20 et B un `new_problem` de priorité 80. Le second doit apparaître avant le premier dans la priority queue.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "blackboard-medium",
+      "variantId": "blackboard",
+      "level": "medium",
+      "mission": "Publie un problème, une demande de vérification et une dépendance non résolue. Réponds à seulement deux des trois événements. Le snapshot doit identifier correctement la question encore ouverte.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "blackboard-hard",
+      "variantId": "blackboard",
+      "level": "hard",
+      "mission": "Dix événements ont des priorités et TTL différents. Avance l’horloge au-delà de certains TTL. Les événements expirés doivent disparaître de la vue active sans être effacés de l’historique append-only.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "blackboard-complex",
+      "variantId": "blackboard",
+      "level": "complex",
+      "mission": "Simule 40 événements produits par plusieurs noyaux : problèmes, preuves, requêtes de vérification, dépendances et résultats. Certains résultats répondent explicitement à des événements précédents, d’autres non. Plusieurs événements expirent. Construis à chaque instant la queue prioritaire et l’ensemble exact des questions non résolues, sans transformer le blackboard en workflow centralisé ou supprimer l’historique.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "graph-simple",
+      "variantId": "graph",
+      "level": "simple",
+      "mission": "Deux noyaux ajoutent chacun un nœud, puis un troisième crée une arête entre eux. Le graphe final doit contenir les trois opérations.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "graph-medium",
+      "variantId": "graph",
+      "level": "medium",
+      "mission": "Tente d’ajouter une arête dont la source ou la cible est invalide, puis une arête valide. Seule la seconde doit survivre aux contrôles d’intégrité.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "graph-hard",
+      "variantId": "graph",
+      "level": "hard",
+      "mission": "Construis un DAG de dix nœuds. Deux opérations concurrentes ajouteraient ensemble un cycle. Active la règle `acyclic` et empêche l’état final de devenir cyclique.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "graph-complex",
+      "variantId": "graph",
+      "level": "complex",
+      "mission": "Quatre noyaux modifient un graphe de 30 nœuds et plusieurs types d’arêtes. Ajouts et suppressions sont concurrents. Maintiens les invariants, détecte dangling edges/cycles selon les règles activées, puis projette seulement les nœuds atteignables depuis `N1` jusqu’à profondeur 4 et uniquement par les types d’arêtes `depends_on` et `supports`.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "epistemic-simple",
+      "variantId": "epistemic",
+      "level": "simple",
+      "mission": "A publie le claim C1 avec confiance 0,7. B ajoute une preuve pour C1 provenant d’une source différente. Conserve claim et evidence séparément.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "epistemic-medium",
+      "variantId": "epistemic",
+      "level": "medium",
+      "mission": "Ajoute C2 qui contredit explicitement C1. Le snapshot doit montrer les deux claims et une arête de contradiction plutôt que choisir automatiquement un gagnant.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "epistemic-hard",
+      "variantId": "epistemic",
+      "level": "hard",
+      "mission": "A crée un claim. A tente ensuite de le vérifier lui-même : refuse. B utilise une source déjà utilisée pour le claim : refuse aussi. C, avec nouvelle identité et nouvelle source, peut effectuer la vérification indépendante.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "epistemic-complex",
+      "variantId": "epistemic",
+      "level": "complex",
+      "mission": "Construis 15 claims avec preuves, réfutations, dates de validité et estimations d’incertitude. Plusieurs claims se contredisent. Effectue des vérifications indépendantes avec sources distinctes et plusieurs mises à jour de confiance. À une date donnée, construis l’état épistémique effectif sans supprimer les claims expirés de l’historique et sans compter deux fois la même source comme indépendance.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "transactional-simple",
+      "variantId": "transactional",
+      "level": "simple",
+      "mission": "Budget disponible : 100. A réserve 30. B réserve 50. La ressource restante doit être 20 et aucune allocation ne doit passer sous zéro.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "transactional-medium",
+      "variantId": "transactional",
+      "level": "medium",
+      "mission": "A répète exactement la même demande avec la même `idempotencyKey`. Le système doit renvoyer la réservation existante au lieu de consommer les ressources une deuxième fois.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "transactional-hard",
+      "variantId": "transactional",
+      "level": "hard",
+      "mission": "Trois réservations consomment simultanément budget, inventory et capacity. L’une possède un TTL qui expire. Libère atomiquement ses trois ressources lors du sweep.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "transactional-complex",
+      "variantId": "transactional",
+      "level": "complex",
+      "mission": "Simule 15 acteurs réservant simultanément budget, inventaire et capacité. Certains appels sont des retries idempotents, certaines réservations expirent et certains acteurs attendent des ressources possédées par d’autres. Maintiens tous les compteurs ≥0, refuse les préconditions stale, libère correctement les leases expirés et détecte un cycle A→B→C→A dans le wait graph en désignant une victime.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "localFirst-simple",
+      "variantId": "localFirst",
+      "level": "simple",
+      "mission": "Device A travaille hors ligne et produit trois opérations. Place-les dans son `offlineQueue` avec ordre local avant toute reconnexion.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "localFirst-medium",
+      "variantId": "localFirst",
+      "level": "medium",
+      "mission": "A et B restent séparés, chacun produit plusieurs mutations avec son horloge logique. Reconnecte A et enregistre une synchronisation A→B avec son vector clock.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "localFirst-hard",
+      "variantId": "localFirst",
+      "level": "hard",
+      "mission": "Un appareil demande de rester offline plus de sept jours. Refuse ce budget. Un autre accumule 9 999 opérations en attente : il peut encore en accepter ; lorsqu’il dépasse le plafond de 10 000, signale que le budget est épuisé.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "localFirst-complex",
+      "variantId": "localFirst",
+      "level": "complex",
+      "mission": "Trois devices travaillent alternativement online/offline durant plusieurs périodes. Ils enregistrent HLC/logical clocks, queues locales et synchronisations pair-à-pair. Certaines opérations expirent avant reconnexion. Réconcilie les queues avec vector clocks, détecte les appareils trop longtemps offline et montre quelles informations restent locales, lesquelles ont été réconciliées et dans quel ordre causal.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "speculative-simple",
+      "variantId": "speculative",
+      "level": "simple",
+      "mission": "À partir du même snapshot S0, crée deux branches B1 et B2 représentant deux solutions différentes. Aucune ne doit modifier immédiatement l’état principal.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "speculative-medium",
+      "variantId": "speculative",
+      "level": "medium",
+      "mission": "Exécute trois opérations sur B1 sous un budget de 5 secondes et deux opérations sur B2. Compare leurs résultats selon une métrique fournie.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "speculative-hard",
+      "variantId": "speculative",
+      "level": "hard",
+      "mission": "Trois branches résolvent le même problème. L’une dépasse son budget, la seconde échoue à une validation, la troisième passe toutes les vérifications. Seule B3 doit devenir éligible à la promotion.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "speculative-complex",
+      "variantId": "speculative",
+      "level": "complex",
+      "mission": "Depuis un même snapshot, lance cinq alternatives concurrentes avec budgets, métriques et résultats différents. Maintiens la lignée de chaque branche. Compare-les après exécution, tente de promouvoir une branche qui a échoué au gate — refuse — puis promeus la meilleure branche vérifiée. Les quatre autres doivent être explicitement discardées et l’état principal ne doit jamais contenir leurs mutations abandonnées.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "hierarchical-simple",
+      "variantId": "hierarchical",
+      "level": "simple",
+      "mission": "Deux régions A et B ont chacune un champ local privé et partagent `global.status`. Vérifie que A peut lire/modifier le contrat partagé mais pas le champ privé de B.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "hierarchical-medium",
+      "variantId": "hierarchical",
+      "level": "medium",
+      "mission": "Trois régions mettent à jour simultanément des données locales et deux champs frontaliers partagés. Construis un snapshot régional de A contenant ses champs locaux et seulement les shared boundary fields autorisés.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "hierarchical-hard",
+      "variantId": "hierarchical",
+      "level": "hard",
+      "mission": "Active un firebreak sur Region B après une anomalie. Les opérations régionales de B doivent être bloquées tandis que A et C continuent. Désactive ensuite le firebreak et reprends les opérations B.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "hierarchical-complex",
+      "variantId": "hierarchical",
+      "level": "complex",
+      "mission": "Simule cinq régions avec champs locaux, contrats inter-régionaux et plusieurs opérations simultanées. Une région produit une violation critique : active son firebreak. Les quatre autres doivent continuer sans accéder à son état privé. Réconcilie ensuite uniquement les boundary contracts nécessaires avant réouverture et vérifie qu’aucun état local privé n’a été globalement répliqué.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "realtimeControl-simple",
+      "variantId": "realtimeControl",
+      "level": "simple",
+      "mission": "Trois jobs ont deadlines 20, 50 et 100 ms et WCET respectifs 5, 10 et 15 ms. Construis l’ordonnancement EDF et vérifie s’ils sont schedulables.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "realtimeControl-medium",
+      "variantId": "realtimeControl",
+      "level": "medium",
+      "mission": "Une tâche critique possède une deadline à 100 ms mais le reçu WCET annonce une borne de 150 ms. N’exécute pas normalement la tâche : produis directement la sortie fail-safe.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "realtimeControl-hard",
+      "variantId": "realtimeControl",
+      "level": "hard",
+      "mission": "Trois tâches partagent une ressource. Une tâche très prioritaire attend une ressource détenue par une tâche faible priorité. Identifie l’inversion de priorité dans le planning.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "realtimeControl-complex",
+      "variantId": "realtimeControl",
+      "level": "complex",
+      "mission": "Simule dix cycles de contrôle avec différentes deadlines et preuves WCET. Certains respectent le budget, un reçoit une preuve incompatible, un autre dépasse la deadline et un dernier cesse d’envoyer son heartbeat au watchdog. Tous les cas dangereux doivent aboutir à `STOP_AND_REPAIR` avec sortie sûre explicite. Aucun deadline miss ne doit être promu comme succès.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "humanAi-simple",
+      "variantId": "humanAi",
+      "level": "simple",
+      "mission": "Configure un noyau humain H et deux noyaux IA A et B. A tente d’approuver une action critique : refuse. H approuve la même action : accepte l’approbation.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "humanAi-medium",
+      "variantId": "humanAi",
+      "level": "medium",
+      "mission": "H accorde son consentement à A. A exécute une action approuvée. H retire ensuite son consentement. Toute nouvelle action critique de A doit être bloquée.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "humanAi-hard",
+      "variantId": "humanAi",
+      "level": "hard",
+      "mission": "H met la session en pause pendant que plusieurs agents travaillent. Toutes les nouvelles actions critiques sont bloquées. Les commentaires append-only restent consultables. H reprend ensuite la session et approuve une seule action déterminée.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "humanAi-complex",
+      "variantId": "humanAi",
+      "level": "complex",
+      "mission": "Un humain et quatre noyaux IA collaborent sur 20 opérations. Les IA produisent commentaires et propositions, mais trois actions sont critiques. L’une n’a aucune approbation humaine, l’une possède une approbation rejetée, la dernière une approbation valide. Seule la troisième peut être exécutée. L’humain retire ensuite le consentement d’un agent, pause la session, puis demande un undo compensatoire sur une action déjà exécutée. Conserve attribution et audit complet ; l’undo ne doit jamais prétendre annuler magiquement un effet externe déjà survenu.",
+      "requiresIndependentOracle": true
+    },
+    {
+      "id": "syncytium-transversal",
+      "variantId": "transversal",
+      "level": "complex",
+      "mission": "Crée plusieurs noyaux qui partagent un même état structuré. Fais leur proposer des opérations simultanées comprenant : deux mutations fusionnables, une mutation stale, une opération hors autorité, deux opérations qui créeraient ensemble une violation d’invariant et deux intentions incompatibles FINALIZE/RESET. Applique ce qui peut converger sans coordination, coordonne ou rejette ce qui l’exige, puis attends la quiescence et vérifie que tous les réplicas reconstruisent le même état valide.",
+      "requiresIndependentOracle": true
+    }
+  ],
+  "contract": "GenOSSyncytiumMissionCatalog/v1"
+}
