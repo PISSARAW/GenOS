@@ -235,7 +235,6 @@ async function routeHierarchyEvent(ctx, event) {
     return null;
   }
 }
-
 async function processEventQueueImpl(ctx) {
   const { db, agentId, normalizedMission, state } = ctx;
   if (state.isProcessingEvents) return;
@@ -256,6 +255,11 @@ async function processEventQueueImpl(ctx) {
       await routeHierarchyEvent(ctx, currentEvent);
       await require('./agow/agowRuntimeIngressService').process({ ctx, event: currentEvent, finalEvent });
       await require('./runtimePredictiveBridgeService').process(ctx, currentEvent);
+      await require('./conceptRuntimeService').processEvent(db, {
+        agentId,
+        event: currentEvent,
+        options: { evidence: currentEvent.payload?.conceptEvidence }
+      });
       if (await checkNaturalSearchControl(ctx, currentEvent, finalEvent)) continue;
       await advanceAutonomousRound(normalizedMission, currentEvent);
     } catch (err) {
@@ -264,7 +268,6 @@ async function processEventQueueImpl(ctx) {
   }
   state.isProcessingEvents = false;
 }
-
 function parseEventPayload(event) {
   try {
     return event.payloadJson ? JSON.parse(event.payloadJson) : {};
@@ -272,21 +275,17 @@ function parseEventPayload(event) {
     return { raw: event.payloadJson };
   }
 }
-
 function enqueueStatusUpdate(ctx, event, nextStatus) {
   if (!(nextStatus || event.currentTask)) return;
   if (event.eventType === 'AGENT_COMPLETED' && !event.status) return;
   ctx.state.executionQueue = ctx.state.executionQueue.then(() => { return updateAgent(ctx.agentId, nextStatus, event.currentTask); });
 }
-
 function rejectedWorkerCompletion(eventType, state) {
   return eventType === 'AGENT_COMPLETED' && state.missionDomainState.hasDomainFailure;
 }
-
 function resolveWorkerTerminalStatus(eventType, eventStatus, state) {
   return rejectedWorkerCompletion(eventType, state) ? 'failed' : eventStatus;
 }
-
 function handleDecodedEvent(ctx, event) {
   const payload = parseEventPayload(event);
   applyDomainStateFromEvent({
@@ -393,10 +392,8 @@ async function handleChildClose(ctx, code, signal) {
   }
 }
 
-module.exports = {
-  applyDomainStateFromEvent, checkDossierInfluence, checkHallucination, checkStrategyGuardrail,
-  checkSwarmSentinel, checkInteractionDeadlock, classifyConscienceEvent, buildCognitiveHealth,
-  runConscienceCheck, routeHierarchyEvent, isFinalEvent, rejectedWorkerCompletion, resolveWorkerTerminalStatus, processEventQueueImpl, handleDecodedEvent, handleStdoutData,
-  handleStderrData, handleStdinError, handleChildError, handleChildClose, checkNaturalSearchControl,
-  clearSearchState
-};
+module.exports = { applyDomainStateFromEvent, checkDossierInfluence, checkHallucination, checkStrategyGuardrail,
+  checkSwarmSentinel, checkInteractionDeadlock, classifyConscienceEvent, buildCognitiveHealth, runConscienceCheck,
+  routeHierarchyEvent, isFinalEvent, rejectedWorkerCompletion, resolveWorkerTerminalStatus, processEventQueueImpl,
+  handleDecodedEvent, handleStdoutData, handleStderrData, handleStdinError, handleChildError, handleChildClose,
+  checkNaturalSearchControl, clearSearchState };
