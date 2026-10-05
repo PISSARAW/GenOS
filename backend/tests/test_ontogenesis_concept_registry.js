@@ -75,6 +75,13 @@ assert.deepStrictEqual(philosophyMission.resolvedConcepts.map((concept) => conce
 assert.ok(philosophyMission.resolvedConcepts.every((concept) => concept.access === 'read' && !concept.executable));
 assert.ok(philosophyMission.coverage.philosophyRead >= 30);
 
+const sensingMission = registry.resolveMission({ topology: 'biome', requestedConcepts: ['foveation', 'echolocation', 'olfaction'] });
+assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.source), ['runtime', 'runtime', 'runtime']);
+assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.id),
+  ['foveal_scan_concept', 'echolocation_probe', 'scent_trace']);
+assert.ok(sensingMission.resolvedConcepts.every((concept) => concept.available));
+assert.ok(sensingMission.resolvedConcepts.every((concept) => concept.executable));
+
 const sensorCapabilities = new Map(accessMatrix.fullMatrix()
   .filter((entry) => ['WEB_FORAGING', 'FOVEAL_PERCEPTION', 'COMPUTER_USE'].includes(entry.capability))
   .map((entry) => [entry.capability, entry]));

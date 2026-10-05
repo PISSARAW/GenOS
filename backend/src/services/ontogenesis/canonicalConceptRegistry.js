@@ -92,6 +92,15 @@ const PHILOSOPHY_ALIASES = Object.freeze({
   conceptualisme: 'ontology.stances', organisme_procedural: 'process.actuality-potentiality'
 });
 
+const RUNTIME_ALIASES = Object.freeze({
+  foraging_charnov: 'energy_foraging_concept',
+  foveation: 'foveal_scan_concept',
+  perception_active: 'echolocation_probe',
+  navigation_active: 'landmark_navigation',
+  olfaction: 'scent_trace',
+  echolocation: 'echolocation_probe'
+});
+
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -111,6 +120,10 @@ function philosophyReference(target) {
   return PHILOSOPHY_ALIASES[target] || target;
 }
 
+function runtimeReferenceTarget(target) {
+  return RUNTIME_ALIASES[target] || target;
+}
+
 function topologyTools(topology) {
   if (!topology) return null;
   const compatible = runtimeConceptRegistry.findCompatibleConcepts({ topology });
@@ -122,6 +135,7 @@ function topologyAllows(topology, concept) {
   if (!topology) return true;
   const compatibleTopologies = concept.compatibleTopologies || concept.compatible_topologies || [];
   if (compatibleTopologies.length) return compatibleTopologies.includes(topology);
+  if (!(concept.tools || []).length && (concept.primitives || []).length) return true;
   const allowed = topologyTools(topology);
   return (concept.tools || []).some((tool) => allowed.has(tool));
 }
@@ -133,8 +147,9 @@ function resolveConceptReference(reference, topology) {
   if (adapter) return { requested, id: target, source: 'existing_adapter', available: Boolean(topology),
     executable: Boolean(topology), access: adapter.access,
     reason: topology ? null : 'topologie-requise', service: adapter.service };
+  const runtimeTarget = runtimeReferenceTarget(target);
   const runtime = Object.values(runtimeConceptRegistry.getAllConcepts())
-    .find((concept) => runtimeReference(concept, requested));
+    .find((concept) => runtimeReference(concept, runtimeTarget));
   if (runtime) {
     const execution = executionFields(runtime);
     const compatible = topologyAllows(topology, runtime);
