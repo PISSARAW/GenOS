@@ -4,6 +4,8 @@ const assert = require('assert');
 const { buildStrategyContract } = require('../src/services/strategyContractService');
 const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
 const { missionRuntimeContext } = require('../bin/orchestratorMissionHelpers.cjs');
+const { applyMissionCapabilityContract, conceptTools } = require('../src/services/missionCapabilityContractService');
+const { orchestratorLeaseForPlan } = require('../src/services/toolLeasePolicy');
 
 const strategy = buildStrategyContract({
   problem: 'Create a React site with tests', requestedPrimary: 'minimal_patch'
@@ -29,4 +31,14 @@ const runtimeContext = missionRuntimeContext({
 assert.deepStrictEqual(runtimeContext.conceptResolution, { failClosed: true });
 assert.strictEqual(runtimeContext.missionCapabilityPlan.version, 1);
 assert.strictEqual(runtimeContext.unrelated, undefined);
+const plan = applyMissionCapabilityContract({ organization: 'specialist_expert_committee', requiredTools: ['genos_snapshot'] }, {
+  topologyContract: { mode: 'a_team', organization: 'specialist_expert_committee', required: ['SIGNALING_BUS'] },
+  conceptLeaseCandidates: [{ tools: ['genos_worker_publish', 'genos_orchestrate'] }]
+});
+assert.deepStrictEqual(plan.capabilityContract.required, ['SIGNALING_BUS']);
+assert.deepStrictEqual(conceptTools({ conceptLeaseCandidates: [{ tools: ['genos_worker_publish', 'genos_orchestrate'] }] }), ['genos_worker_publish']);
+assert.deepStrictEqual(plan.requiredTools, ['genos_snapshot', 'genos_worker_publish']);
+const lease = orchestratorLeaseForPlan(plan);
+assert.ok(lease.includes('genos_worker_publish'));
+assert.ok(!lease.includes('genos_orchestrate'));
 console.log('ontogenesis strategy bridge checks passed.');

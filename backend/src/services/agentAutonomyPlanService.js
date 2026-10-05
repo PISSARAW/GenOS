@@ -12,7 +12,7 @@ const aTeamCoordination = require('./aTeamCoordinationService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const { emit } = require('./agentOrchestrationState');
 const { consultLocalModels } = require('./agentModelRoutingService');
-const topologyCapabilityService = require('./topologyCapabilityService');
+const { applyMissionCapabilityContract } = require('./missionCapabilityContractService');
 const selfModel = require('./selfModelService');
 const autobiographicalRecall = require('./autobiographicalMemory/orchestratorRecall');
 const survivalState = require('./survivalStateService');
@@ -304,23 +304,6 @@ async function applyOrganizationState({ db, agentId, autonomyPlan, normalizedMis
   emit(agentId, 'ORGANIZATION_RESTORED', 'ORGANIZE', `Restored runtime organization '${organizationState.organization}'.`, organizationState, 'info');
 }
 
-function resolveCapabilityMode(autonomyPlan) {
-  if (autonomyPlan.trinity && autonomyPlan.trinity.activated) {
-    return 'trinity';
-  }
-  if (autonomyPlan.aTeam && autonomyPlan.aTeam.activated) {
-    return 'a_team';
-  }
-  return null;
-}
-
-function applyCapabilityContract(autonomyPlan) {
-  autonomyPlan.capabilityContract = topologyCapabilityService.contractFor({
-    mode: resolveCapabilityMode(autonomyPlan),
-    organization: autonomyPlan.organization
-  });
-}
-
 function emitControlRegulation(agentId, autonomyPlan) {
   const regulation = autonomyPlan.controlRegulation;
   if (!regulation) return;
@@ -392,7 +375,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
   await autobiographicalRecall.recallBeforePlanning({ db, agentId, normalizedMission, autonomyPlan });
   await applyLocalModelReview({ db, agentId, normalizedMission, autonomyPlan });
   await applyOrganizationState({ db, agentId, autonomyPlan, normalizedMission });
-  applyCapabilityContract(autonomyPlan);
+  applyMissionCapabilityContract(autonomyPlan, normalizedMission);
   autonomyPlan.controlRegulation = regulateAutonomyPlan(contractRecord.contract, regulationBudget, autonomyPlan);
   emitControlRegulation(agentId, autonomyPlan);
   return autonomyPlan;
