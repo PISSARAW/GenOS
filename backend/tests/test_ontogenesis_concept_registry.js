@@ -290,6 +290,16 @@ assert.ok(epistemologyMission.resolvedConcepts.some((concept) => !concept.availa
 assert.ok(epistemologyMission.resolvedConcepts.filter((concept) => concept.available)
   .every((concept) => concept.executable));
 
+const computationalBiologyMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'cellule_computationnelle', 'agent_cellule_specialisee', 'genome', 'niche',
+  'metabolisme_computationnel', 'sensorium', 'dormance', 'symbiose'
+] });
+assert.deepStrictEqual(computationalBiologyMission.resolvedConcepts.map((concept) => concept.source), [
+  'capability', 'capability', 'capability', 'capability', 'capability', 'capability',
+  'runtime', 'capability'
+]);
+assert.ok(computationalBiologyMission.resolvedConcepts.every((concept) => concept.id));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

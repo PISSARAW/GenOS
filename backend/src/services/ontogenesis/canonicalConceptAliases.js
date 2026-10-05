@@ -108,6 +108,10 @@ const CAPABILITY_ALIASES = Object.freeze({
   , quorum_abstention: 'QUORUM', monitoring_hallucinations: 'HALLUCINATION_MONITORING'
   , brier_score: 'EPISTEMICS_BRIER', barriere_evidence: 'EVIDENCE_BARRIER'
   , gate_promotion: 'PROMOTION_GATE'
+  , cellule_computationnelle: 'PROCEDURAL_GUIDANCE'
+  , agent_cellule_specialisee: 'LIGAND_RECEPTOR', genome: 'GENOME_EPIGENETICS'
+  , niche: 'STRATEGY_ADAPTATION', metabolisme_computationnel: 'TOKEN_ECONOMY'
+  , sensorium: 'FOVEAL_PERCEPTION', symbiose: 'IMMUNE_SYSTEM'
   , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
   , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
   , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
@@ -221,6 +225,7 @@ const RUNTIME_ALIASES = Object.freeze({
   vision_polarisee: 'FOVEAL_PERCEPTION', sensorium_incarn: 'FOVEAL_PERCEPTION',
   imagination: 'n_way_counterfactual_fork', simulation_interne: 'simulated_annealing_concept',
   reflexion: 'memory_compilation_strategy', metacognition: 'memory_compilation_strategy'
+  , dormance: 'memory_sleep_cycle'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
