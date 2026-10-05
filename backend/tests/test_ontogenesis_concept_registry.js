@@ -354,6 +354,14 @@ assert.ok(orchestrationSensingMission.resolvedConcepts.every((concept) =>
   concept.source === 'runtime' || concept.source === 'capability'));
 assert.ok(orchestrationSensingMission.resolvedConcepts.every((concept) => concept.id));
 
+const securityOperationsMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'scopes_tenant', 'multi_tenant', 'cors', 'authentification', 'sso', 'oidc', 'saml',
+  'daemon_resident', 'autostart', 'nettoyage', 'rollout', 'deploiement_docker', 'deploiement_windows'
+] });
+assert.ok(securityOperationsMission.resolvedConcepts.every((concept) =>
+  concept.source === 'capability' || concept.source === 'interface_runtime' || concept.source === 'runtime'));
+assert.ok(securityOperationsMission.resolvedConcepts.every((concept) => concept.id));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

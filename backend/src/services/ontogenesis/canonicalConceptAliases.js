@@ -113,6 +113,8 @@ const CAPABILITY_ALIASES = Object.freeze({
   , niche: 'STRATEGY_ADAPTATION', metabolisme_computationnel: 'TOKEN_ECONOMY'
   , sensorium: 'FOVEAL_PERCEPTION', symbiose: 'IMMUNE_SYSTEM'
   , electrocytes: 'SIGNALING_BUS'
+  , scopes_tenant: 'COMPLIANCE', multi_tenant: 'COMPLIANCE'
+  , rollout: 'PROMOTION_GATE'
   , famille_sensorielle: 'FOVEAL_PERCEPTION', famille_execution: 'PROCEDURAL_GUIDANCE'
   , famille_epistemique: 'EVIDENCE_BARRIER', famille_reparation_adaptative: 'RESILIENCE_RECOVERY'
   , famille_organisationnelle: 'SWARM_METRICS', mode_adaptatif: 'STRATEGY_ADAPTATION'
@@ -274,6 +276,7 @@ const RUNTIME_ALIASES = Object.freeze({
   , cellules_balistiques: 'foveal_scan_concept'
   , cellules_osmotiques: 'energy_foraging_concept', organismes_acaryotes: 'genos_optimal_foraging'
   , primitives_controle_animal: 'execution_guardrails'
+  , nettoyage: 'autophagy_cleanup'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
@@ -299,7 +302,11 @@ const INTERFACE_REFERENCES = Object.freeze({
   observabilite: 'telemetryObserver', logs_audit: 'auditLogService', traces: 'telemetryObserver',
   spans: 'telemetryObserver', request_ids: 'telemetryObserver', trace_ids: 'telemetryObserver',
   metriques_tenant: 'evaluationObservabilityService', health_checks: 'healthRoutes',
-  readiness: 'readinessRoutes', alertes: 'telemetryObserver'
+  readiness: 'readinessRoutes', alertes: 'telemetryObserver', cors: 'backendHttpServer',
+  authentification: 'authMiddleware', sso: 'ssoRoutes', oidc: 'ssoRoutes', saml: 'ssoRoutes',
+  scopes_tenant: 'tenantMiddleware', multi_tenant: 'tenantMiddleware',
+  daemon_resident: 'residentDaemonController', autostart: 'daemonAgentAutostart',
+  deploiement_docker: 'deployService', deploiement_windows: 'deployService', rollout: 'releaseController'
 });
 
 const CENTRAL_CHAIN_REFERENCES = Object.freeze({
