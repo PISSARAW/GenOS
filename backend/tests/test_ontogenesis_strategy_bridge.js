@@ -24,6 +24,8 @@ const request = requestFor({
   mission: { capabilities: [], plan: { strategy: { id: 'minimal_patch' } } }
 });
 assert.strictEqual(request.strategyConcept.id, 'minimal_patch');
+assert.deepStrictEqual(request.knownConcepts, []);
+assert.deepStrictEqual(request.requiredTools, []);
 assert.match(request.mission, /Strategy concept:/);
 assert.match(request.mission, /Canonical concepts:/);
 assert.match(conceptInstruction({ canonicalConcepts: [{ id: 'mission' }], runtimeConcepts: [{ id: 'minimal_patch' }],

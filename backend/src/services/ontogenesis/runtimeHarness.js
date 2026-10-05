@@ -23,6 +23,11 @@ function createRuntimeHarness(db) {
 function requestFor(input) {
   const checks = input.config.checks || [];
   const roles = input.selection.workerRoles || [];
+  const plan = input.mission?.plan || {};
+  const resolution = input.mission?.concepts || {};
+  const resolvedIds = (resolution.resolvedConcepts || []).filter((concept) => concept.available).map((concept) => concept.id);
+  const compatibleIds = (plan.compatibleRuntimeConcepts || []).map((concept) => concept.id);
+  const leasedTools = [...new Set((plan.runtimeLeaseCandidates || []).flatMap((candidate) => candidate.tools || []))];
   const workerAssignments = Object.fromEntries(roles.map((role) => [role, {
     workerKind: role,
     workerRequirements: { requiredCapabilities: workerRequirementsFor(role), allowedKinds: [role] }
@@ -39,7 +44,7 @@ function requestFor(input) {
     topologyContract: input.mission?.plan?.topologyContract || null,
     capabilityCatalog: input.mission?.capabilityCatalog || [],
     conceptResolution: input.mission?.concepts || null,
-    conceptLeaseCandidates: input.mission?.plan?.runtimeLeaseCandidates || [],
+    conceptLeaseCandidates: plan.runtimeLeaseCandidates || [],
     strategyConcept: input.mission?.plan?.strategy || null,
     compatibleConcepts: input.mission?.plan?.compatibleRuntimeConcepts || [],
     developmentalContext: input.mission?.developmentalContext || null,
@@ -48,6 +53,10 @@ function requestFor(input) {
     missionCapabilityPlan: input.mission?.plan || null,
     problemProfile: input.mission?.profile || {},
     requiresEvidenceBeforePromotion: true,
+    knownConcepts: [...new Set([...resolvedIds, ...compatibleIds])],
+    existingCapabilities: input.mission?.capabilities || [],
+    requiredTools: leasedTools,
+    requiredCapabilities: plan.capabilityRequirements || input.mission?.capabilities || [],
     workspaceRoot: input.worktree,
     trinityMode: input.selection.topology === 'trinity' ? 'explicit' : undefined,
     aTeamMode: input.selection.topology === 'a_team' ? 'explicit' : undefined,
