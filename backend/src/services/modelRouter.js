@@ -4,6 +4,7 @@ const routeRunner = require('./modelRouteRunner');
 const cognitiveOmega = require('./cognitiveOmegaCompiler');
 const domainGraph = require('./cognitiveOmegaDomainGraphService');
 const projectionProfiler = require('./cognitiveProjectionProfilerService');
+const cognitiveEconomy = require('./cognitiveEconomyControllerService');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -124,12 +125,17 @@ async function cognitiveRequest(options) {
   const selection = options.db && options.model
     ? await projectionProfiler.select(options.db, { model: options.model,
       task: options.cognitiveDomain || 'runtime' }) : null;
+  const economy = cognitiveEconomy.plan({ integration: options.cognitiveIntegration || options.cognitiveDomain,
+    topology: options.cognitiveTopology, level: options.cognitiveLevel,
+    risk: options.cognitiveRisk, uncertainty: options.cognitiveUncertainty,
+    irreversible: options.cognitiveIrreversible, highStakes: options.cognitiveHighStakes,
+    tokens: options.maxTokens, latencyMs: options.timeoutMs, candidates: options.cognitiveCandidates });
   return cognitiveOmega.compilePrompt({ prompt: options.prompt, operation: options.cognitiveOperation,
     source: options.cognitiveSource, domain: options.cognitiveDomain, program,
     model: options.model, representation: selection?.representation,
     projectionSelection: selection,
     projectionProfile: selection?.profile ? { model: options.model,
-      representations: [selection.representation] } : null });
+      representations: [selection.representation] } : null, economy });
 }
 
 function withCognitiveResult(result, contract) {
@@ -189,6 +195,14 @@ async function generate(options) {
       prompt: cognitiveContract.prompt, latencyMs: Date.now() - startedAt,
       costUsd: result.costUsd, quality: opts.cognitiveQuality,
       evidenceDigest: opts.cognitiveEvidenceDigest });
+  }
+  if (opts.db) {
+    try {
+      await cognitiveEconomy.record(opts.db, { integration: opts.cognitiveIntegration || opts.cognitiveDomain,
+        topology: cognitiveContract.economy?.topology, level: cognitiveContract.economy?.level,
+        risk: opts.cognitiveRisk, tokens: result.usage?.total_tokens || result.usage?.totalTokens || result.tokens,
+        latencyMs: Date.now() - startedAt, costUsd: result.costUsd, quality: opts.cognitiveQuality });
+    } catch (_) { /* Economy telemetry cannot turn a valid model result into a route failure. */ }
   }
   return withCognitiveResult(result, cognitiveContract);
 }

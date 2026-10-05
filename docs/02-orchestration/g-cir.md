@@ -485,6 +485,14 @@ revendiquée. La combinaison G-CIR constitue une hypothèse d'ingénierie à
 
 ## 11. Limites et non-objectifs
 
+La décision Omega porte maintenant un bloc d'économie cognitive :
+`cognitiveEconomyControllerService` normalise les huit topologies canoniques,
+calcule un niveau L0–L5 à partir du risque et de l'incertitude, sélectionne le
+meilleur ROI observé et attache tokens, latence, coût et risque au contrat.
+AGOW, Morphogenèse, RPE et Natural Search disposent de profils d'intégration
+explicites. Ce pilotage choisit la profondeur et les vérifications du graphe ;
+il ne transforme pas une estimation ROI en preuve de qualité.
+
 - Le compilateur universel de missions libres et l'ISA exécutable inter-langages
   restent hors périmètre ; les appels modèle applicatifs passent toutefois par
   la passerelle Omega commune, avec un wrapper de compatibilité pour les anciens

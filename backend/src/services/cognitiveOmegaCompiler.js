@@ -48,7 +48,8 @@ function compilePrompt(input = {}) {
     domain: input.domain || 'runtime', program: input.program || null,
     prompt: projected?.prompt || input.prompt, plan, digest: plan.digest, source: input.source || null,
     projection: projected || { status: 'ready', representation: 'portable', model: input.model || 'unknown-model' },
-    representation: projected?.representation || 'portable', selection: input.projectionSelection || null };
+    representation: projected?.representation || 'portable', selection: input.projectionSelection || null,
+    economy: input.economy || null };
 }
 
 function compile(input = {}) {
