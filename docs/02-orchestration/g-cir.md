@@ -233,6 +233,18 @@ calculés par Omega. La mise en production d'un `CHECK` ou d'un `EMIT` exige tou
 vérificateur ou un actionneur autorisé ; le texte d'un modèle ne peut pas
 fournir lui-même cette autorité.
 
+L'exécution est fournie par
+`backend/src/services/cognitiveOmegaRuntimeService.js`. Elle ne traite pas les
+opérations comme de simples étiquettes : `READ` résout un objet via un lecteur
+autorisé ou une table d'objets explicitement fournie, `SELECT` applique un
+sélecteur enregistré ou transmet les dépendances, `CALL` invoque un outil
+enregistré après contrôle de permission, `CHECK` exige un vérificateur dont le
+résultat est effectivement vérifié, et `EMIT` exige à la fois une permission
+d'effet et le reçu vérifié d'une dépendance `CHECK`. Toute absence de handler,
+permission ou reçu bloque l'exécution. Le runtime retourne un digest des
+résultats et ne considère jamais une réponse textuelle de modèle comme une
+preuve.
+
 ### 6.1 Noyau cible
 
 Le noyau proposé comprend six opérations. Leurs noms désignent une sémantique
