@@ -84,6 +84,14 @@ const CAPABILITY_ALIASES = Object.freeze({
   , contrat_execution: 'EXECUTION_GUARDRAILS', contrat_mission: 'EXECUTION_GUARDRAILS'
   , progressive_delivery: 'PROMOTION_GATE', strategy_arena: 'ARENA_COMPETITION'
   , permission_check: 'EXECUTION_GUARDRAILS'
+  , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
+  , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
+  , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
+  , gestion_risque: 'OUTPUT_GOVERNOR', auditabilite: 'COMPLIANCE'
+  , conservation_preuves: 'EVIDENCE_BARRIER', gouvernance_donnees: 'COMPLIANCE'
+  , isolation: 'VFS_SANDBOX', confinement_chemins: 'VFS_SANDBOX', secrets: 'COMPLIANCE'
+  , release: 'PROMOTION_GATE', deploiement: 'PROMOTION_GATE'
+  , autorite_plateforme: 'GOVERNANCE_APPROVAL', confirmation_actions_destructives: 'GOVERNANCE_APPROVAL'
   , intelligence_nuee: 'SWARM_METRICS', pheromones: 'STIGMERGY'
   , signaux: 'SIGNALING_BUS', signal_plane: 'SIGNALING_BUS', signal_plane_zero_text: 'SIGNALING_BUS'
   , recepteurs: 'LIGAND_RECEPTOR', boite_reception: 'LIGAND_RECEPTOR', ack: 'SIGNALING_BUS'
@@ -176,6 +184,7 @@ const RUNTIME_ALIASES = Object.freeze({
   workspace_contrefactuel: 'n_way_counterfactual_fork', lignage: 'genos_lineage',
   campagne_evaluation: 'pareto_frontier_concept', benchmark: 'plan_execute_verify',
   frontier_escalation: 'entropy_model_escalation_concept', falsification_forks: 'n_way_counterfactual_fork'
+  , permission_explicite: 'permission_check', cedar: 'active_abstention_human_approval'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
