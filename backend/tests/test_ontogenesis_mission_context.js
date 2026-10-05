@@ -49,6 +49,8 @@ try {
   assert.strictEqual(plan.recovery.rollback, true);
   assert.deepStrictEqual(plan.resolvedConcepts, []);
   assert.deepStrictEqual(plan.blockedConcepts, []);
+  assert.strictEqual(plan.philosophicalContracts.required, true);
+  assert.ok(plan.philosophicalContracts.contracts.length > 0);
   assert.strictEqual(compiled.tasks.length, 3);
   assert.strictEqual(compiled.tasks[1].dependsOn.length, 0);
   assert.strictEqual(classifyMission('Réparer la régression', compiled.profile), 'repair');
@@ -68,6 +70,18 @@ try {
     mission: configured, config: { budgets: {}, authority: {} }, selection: { topology: 'a_team' } });
   assert.strictEqual(configuredPlan.resolvedConcepts.length, 2);
   assert.deepStrictEqual(configuredPlan.blockedConcepts, []);
+  const philosophyConfigured = compileMission({ root_path: root, objective: 'Épistémologie appliquée',
+    config_json: JSON.stringify({ concepts: ['epistemologie'] }) });
+  const philosophyPlan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },
+    mission: philosophyConfigured, config: { budgets: {}, authority: {} }, selection: { topology: 'a_team' } });
+  assert.strictEqual(philosophyPlan.philosophicalContracts.required, true);
+  const knowledgeContract = philosophyPlan.philosophicalContracts.contracts.find((contract) => contract.id === 'epistemology.knowledge');
+  assert.ok(knowledgeContract);
+  assert.strictEqual(knowledgeContract.promotionEligible, false);
+  const philosophyRequest = requestFor({ id: 'run-philosophy', project, task: { title: 'verifier', acceptance_json: '[]', id: 'task-1' },
+    selection: { topology: 'a_team', variant: 'default', workerRoles: [] }, worktree: root,
+    budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: { ...philosophyConfigured, plan: philosophyPlan } });
+  assert.ok(philosophyRequest.philosophicalContracts.some((contract) => contract.id === 'epistemology.knowledge'));
   assert.ok(compileMission({ root_path: root, objective: 'Décider entre deux stratégies' }).capabilities.includes('coordinate'));
   const invalid = compileMission({ root_path: root, config_json: JSON.stringify({ topology: 'unknown' }), objective: 'Mission configuree' });
   assert.strictEqual(invalid.morphology.selectedTopology, null);

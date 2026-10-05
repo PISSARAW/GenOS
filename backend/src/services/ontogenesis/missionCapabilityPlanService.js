@@ -35,6 +35,14 @@ function buildRecoveryContract(config) {
   };
 }
 
+function philosophicalContractRequirements(concepts) {
+  const entries = [...(concepts.resolvedConcepts || []), ...(concepts.selectedConcepts || [])]
+    .filter((concept) => concept.implementationContractReference)
+    .map((concept) => concept.implementationContractReference);
+  const uniqueEntries = [...new Map(entries.map((entry) => [entry.id, entry])).values()];
+  return { required: uniqueEntries.length > 0, promotionEligible: false, contracts: uniqueEntries };
+}
+
 function buildMissionCapabilityPlan(input) {
   const mission = input.mission || {};
   const config = input.config || {};
@@ -60,6 +68,7 @@ function buildMissionCapabilityPlan(input) {
     capabilityRequirements: required,
     capabilityCatalog: mission.capabilityCatalog || [],
     blockedCapabilities: concepts.unavailable || [],
+    philosophicalContracts: philosophicalContractRequirements(concepts),
     morphology: mission.morphology || null,
     topology,
     organization,

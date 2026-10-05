@@ -27,6 +27,9 @@ function requestFor(input) {
   const resolution = input.mission?.concepts || {};
   const resolvedIds = (resolution.resolvedConcepts || []).filter((concept) => concept.available).map((concept) => concept.id);
   const compatibleIds = (plan.compatibleRuntimeConcepts || []).map((concept) => concept.id);
+  const philosophicalContracts = plan.philosophicalContracts?.contracts
+    || (input.mission?.concepts?.resolvedConcepts || [])
+      .map((concept) => concept.implementationContractReference).filter(Boolean);
   const leasedTools = [...new Set((plan.runtimeLeaseCandidates || []).flatMap((candidate) => candidate.tools || []))];
   const workerAssignments = Object.fromEntries(roles.map((role) => [role, {
     workerKind: role,
@@ -45,6 +48,7 @@ function requestFor(input) {
     capabilityCatalog: input.mission?.capabilityCatalog || [],
     conceptResolution: input.mission?.concepts || null,
     conceptLeaseCandidates: plan.runtimeLeaseCandidates || [],
+    philosophicalContracts,
     strategyConcept: input.mission?.plan?.strategy || null,
     compatibleConcepts: input.mission?.plan?.compatibleRuntimeConcepts || [],
     developmentalContext: input.mission?.developmentalContext || null,
@@ -96,7 +100,8 @@ function conceptInstruction(plan) {
     requested: resolved.map((concept) => ({ id: concept.id, source: concept.source,
       available: concept.available, executable: concept.executable, access: concept.access, reason: concept.reason })),
     blocked: blocked.map((entry) => entry.capability || entry.id).filter(Boolean),
-    blockedConcepts: resolved.filter((concept) => !concept.available).map((concept) => concept.id).filter(Boolean)
+    blockedConcepts: resolved.filter((concept) => !concept.available).map((concept) => concept.id).filter(Boolean),
+    philosophicalContracts: source.philosophicalContracts?.contracts || []
   });
 }
 

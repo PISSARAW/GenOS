@@ -262,6 +262,14 @@ Tables dédiées `ontogenesis_*` (**Implémenté** — migrations `backend/src/d
 
 Réutilisation des contrats GenOS par leurs interfaces, jamais contournés (**Cadre conceptuel** comme intégration complète, ADR 0235 §2 ; les contrats cibles eux-mêmes sont **Implémentés** indépendamment) : morphogenèse et topologies via `morphogenesis/*` et adaptateurs, workers via `workerKindService.js` et `workerContractEnforcement.js`, snapshots et forks via les stores contrefactuels, budgets via les services métaboliques, preuves et promotion via les gates (ADR 0198, 0206, 0135, 0234), mémoire d'échecs avant choix d'approche. Créer une mission n'élargit jamais les autorisations et ne réinitialise jamais les budgets : les plafonds sont hérités du projet et décroissants (**Cadre conceptuel** — règle d'autorité de l'ADR).
 
+Les contrats d'implémentation philosophiques sont maintenant raccordés au cycle
+de mission : `canonicalConceptRegistry` résout le concept et son contrat,
+`missionCapabilityPlanService` transmet les références de scénario, de preuves et
+de topologies dans le plan, puis `runtimeHarness` les remet au runner. Ce raccord
+reste déclaratif et fail-closed : un contrat est utilisable pour préparer une
+expérience, mais `promotionEligible` reste `false` tant que les reçus runtime et
+la gate indépendante ne sont pas présents.
+
 ### 7.1 Maturité vérifiable par sous-système
 
 | Capacité | Statut courant | Périmètre réellement couvert |

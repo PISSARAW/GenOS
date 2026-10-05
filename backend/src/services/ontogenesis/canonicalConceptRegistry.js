@@ -56,30 +56,24 @@ const EXISTING_ADAPTERS = Object.freeze({
   gvx: { service: 'gvxDevelopmentController', access: 'observe' },
   shev: { service: 'shev.responsibilityService', access: 'observe' }
 });
-
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
-
 function requestedId(reference) {
   if (typeof reference === 'string') return reference;
   return reference && (reference.id || reference.name || reference.concept);
 }
-
 function runtimeReference(concept, reference) {
   const target = normalize(reference);
   return normalize(concept.id) === target || (concept.aliases || []).some((alias) => normalize(alias) === target);
 }
-
 function philosophyReference(target) {
   return PHILOSOPHY_ALIASES[target] || target;
 }
-
 function runtimeReferenceTarget(target) {
   return RUNTIME_ALIASES[target] || target;
 }
-
 function workerReference(requested, target) {
   const definition = workerKinds.KINDS[target];
   if (!definition) return null;
@@ -88,25 +82,26 @@ function workerReference(requested, target) {
     access: 'contract', family, artifact, authorityPhenotype,
     capabilities: workerKinds.KIND_CAPABILITIES[target] || [] };
 }
-
 function lifecycleReference(requested, target) {
   const service = LIFECYCLE_REFERENCES[target];
   if (!service) return null;
   return { requested, id: target, source: 'worker_lifecycle', available: true, executable: false,
     access: 'contract', service, domain: 'worker_lifecycle' };
 }
-
 function interfaceReference(requested, target) {
   const service = INTERFACE_REFERENCES[target];
   if (!service) return null;
   return { requested, id: target, source: 'interface_runtime', available: true, executable: false,
     access: 'contract', service, domain: 'interfaces' };
 }
-
 function implementationContractFor(concept) {
   return implementationContracts.getImplementationContract(concept);
 }
 
+function implementationContractReference(contract) {
+  if (!contract) return null;
+  return { id: contract.id, category: contract.category, maturity: contract.maturity, compilationState: contract.compilationState || 'pilot', readiness: 'ready-for-experiment', scenarioId: contract.scenario?.id || null, experimentId: contract.experiment?.id || null, evidenceRequired: contract.experiment?.evidenceRequired || [], topologies: contract.experiment?.topologies || [], promotionEligible: false };
+}
 function centralChainReference(requested, target) {
   const service = CENTRAL_CHAIN_REFERENCES[target];
   if (!service) return null;
@@ -166,12 +161,13 @@ function resolveConceptReference(reference, topology) {
   const philosophical = CONCEPT_DEFINITIONS.find((concept) => normalize(concept.id) === normalize(philosophicalTarget)
     || (concept.aliases || []).some((alias) => normalize(alias) === normalize(philosophicalTarget)));
   if (philosophical) {
+    const implementationContract = implementationContractFor(philosophical);
     const available = topologyAllows(topology, { tools: ['genos_philosophy'] });
     return { requested, id: philosophical.id, source: 'philosophy', available,
       executable: false, access: 'read', reason: available ? 'lecture-philosophique' : 'outil-lecture-non-autorise',
       tools: ['genos_philosophy'],
       status: philosophical.status, service: philosophical.service || null,
-      implementationContract: implementationContractFor(philosophical) };
+      implementationContract, implementationContractReference: implementationContractReference(implementationContract) };
   }
   const graphConcept = Object.values(capabilityGraph.getAllConcepts()).find((concept) => normalize(concept.id) === target
     || (concept.aliases || []).some((alias) => normalize(alias) === target));
@@ -273,12 +269,16 @@ function conceptCatalog() {
     id, domain: domain.id, state: operational.has(id) ? 'operationnel' : 'catalogue',
     executable: operational.has(id), source: 'documentation'
   })));
-  const philosophical = CONCEPT_DEFINITIONS.map((concept) => ({
+  const philosophical = CONCEPT_DEFINITIONS.map((concept) => {
+    const implementationContract = implementationContractFor(concept);
+    return {
+    implementationContract,
     id: concept.id, domain: concept.domain, state: concept.status || 'documented', executable: false,
     source: 'philosophy_registry', access: 'read', tools: ['genos_philosophy'],
-    service: concept.service || null, mapping: concept.mapping || null
-    , implementationContract: implementationContractFor(concept)
-  }));
+    service: concept.service || null, mapping: concept.mapping || null,
+    implementationContractReference: implementationContractReference(implementationContract)
+    };
+  });
   const graph = Object.entries(capabilityGraph.getAllConcepts()).map(([graphKey, concept]) => ({
     id: concept.id, graphKey, domain: `capability_graph:${concept.category}`, state: concept.maturity || 'ready',
     executable: Boolean(concept.tools.length || (concept.primitives.length && concept.handlers.length === concept.primitives.length)),

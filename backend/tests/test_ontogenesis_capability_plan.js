@@ -27,5 +27,6 @@ assert.deepStrictEqual(plan.compatibleRuntimeConcepts, []);
 assert.deepStrictEqual(plan.runtimeLeaseCandidates, []);
 assert.deepStrictEqual(plan.resolvedConcepts, []);
 assert.deepStrictEqual(plan.blockedConcepts, []);
+assert.deepStrictEqual(plan.philosophicalContracts, { required: false, promotionEligible: false, contracts: [] });
 assert.strictEqual(plan.strategy, null);
 console.log('ontogenesis capability plan checks passed.');
