@@ -21,7 +21,7 @@ async function run() {
     assert.equal(claimed.status, 'claimed');
     assert.equal(await fabric.updatePersistent(db, { requestId: 'garage-request', status: 'running' }), true);
     assert.equal(await fabric.updatePersistent(db, { requestId: 'garage-request', status: 'completed', result: { verified: false } }), true);
-    const frozen = await preemption.freezeWorker({ db, workerId: 'garage-child', freeze: async () => ({ success: true, snapshotId: 'snap-garage-1', runtimeStopped: true }) });
+    const frozen = await preemption.freezeWorker({ db, workerId: 'garage-child', freeze: async () => ({ success: true, snapshotId: 'snap-garage-1', capsuleHash: 'a'.repeat(64), runtimeStopped: true }) });
     assert.equal(frozen.status, 'frozen');
     const thawed = await preemption.thawWorker({ db, workerId: 'garage-child', snapshotId: frozen.snapshotId, thaw: async () => ({ success: true }) });
     assert.equal(thawed.status, 'thawed');

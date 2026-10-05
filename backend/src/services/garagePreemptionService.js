@@ -14,7 +14,14 @@ function freezeAdapter(input = {}) {
 }
 
 function thawAdapter(input = {}) {
-  return input.thaw || ((context) => resilience.thawCryptobiosis(context.db, context.snapshotId, context.workspaceId));
+  return input.thaw || (async (context) => {
+    const response = await genosCli.runCryptobiosisThaw(context.agentId);
+    const data = response.data || {};
+    if (!response.ok || (data.agent_id && data.agent_id !== context.agentId) || data.status !== 'RESUSCITATED') {
+      return { success: false, code: 'GARAGE_THAW_INVALID', error: response.error || 'Cryptobiosis thaw returned an invalid capsule.' };
+    }
+    return resilience.thawCryptobiosis(context.db, context.snapshotId, context.workspaceId);
+  });
 }
 
 async function loadWorker(db, workerId) {
@@ -34,9 +41,11 @@ async function freezeWorker(input = {}) {
   if (!worker) throw Object.assign(new Error('Worker not found for garage preemption.'), { code: 'AGENT_NOT_FOUND' });
   const result = await freezeAdapter(input)({ agentId: worker.id, workspaceId: worker.workspace_id, reason: input.reason || 'Garage preemption' });
   const data = result.data || result.cryptobiosis || result;
-  if (!result.ok && result.success !== true && !data.capsule_hash && !data.capsuleHash) throw Object.assign(new Error('Worker freeze did not produce a durable capsule.'), { code: 'GARAGE_FREEZE_FAILED' });
+  const capsuleHash = data.capsule_hash || data.capsuleHash;
+  if ((!result.ok && result.success !== true) || typeof capsuleHash !== 'string' || !capsuleHash) {
+    throw Object.assign(new Error('Worker freeze did not produce a durable capsule.'), { code: 'GARAGE_FREEZE_FAILED' });
+  }
   const snapshotId = data.capsule_id || data.snapshotId || `${worker.id}:${data.capsule_hash || data.capsuleHash}`;
-  const capsuleHash = data.capsule_hash || data.capsuleHash || `garage:${snapshotId}`;
   await input.db.run(
     `INSERT OR IGNORE INTO cryptobiosis_snapshots(snapshot_id, id, agent_id, workspace_id, capsule_hash, status, metadata_json)
      VALUES (?, ?, ?, ?, ?, 'frozen', ?)`,
