@@ -2,7 +2,7 @@
 
 - **Statut** : Opérationnel avec concepts partiels
 - **Portée** : concepts, relations et mappings philosophiques déclaratifs
-- **Dernière revue** : 2026-09-17
+- **Dernière revue** : 2026-10-05
 
 ## Rôle
 
@@ -47,6 +47,12 @@ lecture seule via `listImplementationContracts`, `getImplementationContract` et
 `implementationContractHealth`. L’opération `implementationReadiness` exécute
 un contrôle borné sur les 375 contrats et ne marque jamais un contrat comme
 promouvable : elle établit seulement `ready-for-experiment`.
+L’opération `assessContractPromotion` applique la barrière de maturité : elle
+vérifie que la cible est supérieure à la maturité courante et exige les reçus
+correspondants (`observation-receipt`, `scenario-receipt`, `runtime-receipt`,
+puis `independent-receipt`). Elle retourne les preuves manquantes et conserve
+`promotionEligible: false` tant que la gate générale n’a pas produit un verdict
+autorisé ; ce contrôle ne simule donc pas une promotion.
 
 La santé du registre est vérifiée au chargement et par la suite
 `backend/tests/test_philosophy_registry_health.js`. Une entrée peut rester
