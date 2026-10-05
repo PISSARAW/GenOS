@@ -62,6 +62,7 @@ contractHealth.then((result) => {
   assert.equal(contract.apiVersion, 'genos.contract/v1');
   assert.equal(contract.kind, 'ImplementationContract');
   assert.equal(validateContract(contract).length, 0);
+  assert.ok(validateContract({ ...contract, kind: 'InvalidContract' }).some((error) => error.includes('kind')));
   assert.equal(router.getImplementationContract('core.agent'), null);
   return router.handlePhilosophyRequest({ request: { operation: 'listImplementationContracts', arguments: { target: 'response' } } });
 }).then((result) => {

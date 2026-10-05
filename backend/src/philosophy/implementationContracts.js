@@ -1,5 +1,7 @@
 'use strict';
 
+const { validateSpec } = require('../services/specValidator');
+
 /**
  * Operational contracts are the executable boundary between a philosophical
  * registry entry and GenOS behaviour. A contract is a testable proposal, not
@@ -79,6 +81,8 @@ function compileConcept(concept) {
 function validateContract(contractValue) {
   const errors = [];
   if (!contractValue || typeof contractValue !== 'object') return ['contract must be an object'];
+  const schemaResult = validateSpec('implementation-contract.schema.json', contractValue);
+  if (!schemaResult.valid) errors.push(...schemaResult.errors);
   if (contractValue.apiVersion !== 'genos.contract/v1') errors.push('apiVersion must be genos.contract/v1');
   if (contractValue.kind !== 'ImplementationContract') errors.push('kind must be ImplementationContract');
   for (const field of ['id', 'type', 'interpretation', 'invariant', 'mechanism', 'responsibility', 'status']) {
