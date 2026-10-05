@@ -383,6 +383,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0321](0321-economie-cognitive-omega-topologies.md) | Économie cognitive Omega et topologies | Voir le fichier | -- | -- |
 | [0322](0322-interop-gcir-omega-rust-node.md) | Interopérabilité G-CIR Omega Rust/Node | Voir le fichier | -- | -- |
 | [0323](0323-biscuit-delegation-workers.md) | Jetons Biscuit pour la délégation bornée | Accepté | 2026-10-06 | autorisation, sous-orchestration, délégation |
+| [0324](0324-capsules-secretstream-transport.md) | Capsules transportables par flux authentifié | Accepté | 2026-10-06 | continuité, cryptographie, restauration |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
