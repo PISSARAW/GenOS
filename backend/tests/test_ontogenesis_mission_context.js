@@ -32,6 +32,7 @@ try {
     budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: compiled });
   assert.strictEqual(request.projectId, undefined);
   assert.strictEqual(request.organization, compiled.morphology.selectedOrganization || undefined);
+  assert.strictEqual(request.topologyContract, null);
   assert.deepStrictEqual(request.capabilityContract.required, compiled.capabilities);
   assert.ok(request.conceptResolution.domains.includes('orchestration'));
   assert.strictEqual(request.conceptResolution.failClosed, true);

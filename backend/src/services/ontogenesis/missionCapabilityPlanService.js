@@ -1,5 +1,7 @@
 'use strict';
 
+const topologyCapabilityService = require('../topologyCapabilityService');
+
 /**
  * Contrat universel entre une mission Ontogenèse et le runtime GenOS.
  * Le plan décrit ce qui peut être appelé et ce qui doit rester bloqué.
@@ -38,6 +40,9 @@ function buildMissionCapabilityPlan(input) {
   const config = input.config || {};
   const concepts = mission.concepts || { operational: [], unavailable: [] };
   const required = unique([...(mission.capabilities || []), ...operationalConcepts(concepts)]);
+  const topology = input.selection?.topology || mission.morphology?.selectedTopology || null;
+  const organization = mission.morphology?.selectedOrganization || null;
+  const topologyContract = topologyCapabilityService.contractFor({ mode: topology, organization });
   return {
     version: 1,
     projectId: input.project.id,
@@ -54,7 +59,9 @@ function buildMissionCapabilityPlan(input) {
     capabilityCatalog: mission.capabilityCatalog || [],
     blockedCapabilities: concepts.unavailable || [],
     morphology: mission.morphology || null,
-    topology: input.selection && input.selection.topology,
+    topology,
+    organization,
+    topologyContract,
     variant: input.selection && input.selection.variant,
     authority: config.authority || {},
     budgets: config.missionBudgets || config.budgets || {},
