@@ -277,6 +277,19 @@ assert.deepStrictEqual(cognitionMission.resolvedConcepts.map((concept) => concep
   'simulated_annealing_concept', 'memory_compilation_strategy', 'memory_compilation_strategy'
 ]);
 
+const epistemologyMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'epistemologie_operationnelle', 'savoir', 'verite', 'inference', 'justification',
+  'gettier', 'reliabilisme', 'epistemologie_sociale', 'corroboration', 'incertitude',
+  'claim', 'ledger_hypotheses', 'contre_exemple', 'preuve_directe', 'grounding',
+  'resultat_formel', 'resultat_non_verifie', 'promotion_eligible', 'revision_croyance',
+  'dissonance', 'biais', 'consensus_pondere', 'quorum_abstention'
+] });
+assert.ok(epistemologyMission.resolvedConcepts.every((concept) => concept.source === 'capability'));
+assert.ok(epistemologyMission.resolvedConcepts.some((concept) => concept.available));
+assert.ok(epistemologyMission.resolvedConcepts.some((concept) => !concept.available));
+assert.ok(epistemologyMission.resolvedConcepts.filter((concept) => concept.available)
+  .every((concept) => concept.executable));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
