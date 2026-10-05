@@ -7,7 +7,7 @@
     "apiVersion", "kind", "id", "type", "interpretation", "targets",
     "invariant", "mechanism", "observables", "falsificationTests", "limits",
     "permissions", "obligations", "prohibitions", "violationCriteria",
-    "responsibility", "maturity", "status"
+    "responsibility", "maturity", "status", "scenario"
   ],
   "properties": {
     "apiVersion": { "const": "genos.contract/v1" },
@@ -27,6 +27,18 @@
     "prohibitions": { "type": "array", "minItems": 1, "items": { "type": "string" } },
     "violationCriteria": { "type": "array", "minItems": 1, "items": { "type": "string" } },
     "responsibility": { "type": "string", "minLength": 1 },
+    "scenario": {
+      "type": "object",
+      "required": ["id", "contractId", "mode", "stimulus", "observation"],
+      "properties": {
+        "id": { "type": "string" },
+        "contractId": { "type": "string" },
+        "mode": { "type": "string" },
+        "stimulus": { "type": "string" },
+        "observation": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
     "maturity": { "type": "string", "enum": ["registered", "defined", "mechanism-linked", "observable", "tested", "integrated", "validated"] },
     "status": { "type": "string", "enum": ["candidate", "approved", "rejected", "disabled"] }
   },

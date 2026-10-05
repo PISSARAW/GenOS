@@ -78,6 +78,13 @@ const MECHANISM_BY_DOMAIN = Object.freeze({
   computation: 'EvidenceRegistry', prediction: 'PredictionEngine', epistemics: 'BeliefRevision',
   ethics: 'PolicyGate', causality: 'CausalGraph', process: 'TopologyGraph',
 });
+const SCENARIO_BY_CATEGORY = Object.freeze({
+  state: { mode: 'ablation', stimulus: 'retirer ou perturber la représentation d état', observation: 'la différence d état est détectée et tracée' },
+  transformation: { mode: 'counterfactual', stimulus: 'exécuter une variation contrôlée', observation: 'la transition et son effet sont comparables' },
+  constraint: { mode: 'violation', stimulus: 'soumettre une action qui viole la contrainte', observation: 'l action est signalée ou refusée' },
+  organization: { mode: 'topology-comparison', stimulus: 'comparer deux organisations sur la même mission', observation: 'le coût et la distribution des décisions sont mesurés' },
+  evaluation: { mode: 'evidence-ablation', stimulus: 'retirer une preuve ou changer le critère', observation: 'la confiance ou le verdict est révisé' },
+});
 
 function contractType(concept) {
   if (concept.role === 'lens') return 'lens';
@@ -93,6 +100,10 @@ function fallbackTargets(concept) {
   return [...new Set(targets.length ? targets : ['reflection'])];
 }
 
+function scenarioFor(category, conceptId) {
+  return { id: 'scenario.' + category, contractId: conceptId, ...SCENARIO_BY_CATEGORY[category] };
+}
+
 function provisionalContract(concept) {
   const interpretation = concept.scope || concept.definition || ('Le concept ' + concept.label + ' doit être opérationnalisé.');
   return {
@@ -106,6 +117,7 @@ function provisionalContract(concept) {
     distinctions: concept.aliases || [],
     confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
     sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
+    scenario: scenarioFor(categoryForConcept(concept), concept.id),
     interpretation,
     targets: fallbackTargets(concept),
     invariant: 'Ne pas attribuer au concept ' + concept.id + ' une autorité runtime sans mécanisme et preuve indépendants.',
@@ -137,6 +149,7 @@ function compileConcept(concept) {
     distinctions: concept.aliases || [],
     confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
     sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
+    scenario: scenarioFor(categoryForConcept(concept), concept.id),
     source: concept.provenance || null,
     conceptStatus: concept.status,
     serviceMaturity: concept.serviceMaturity || null,
@@ -164,6 +177,7 @@ function validateContract(contractValue) {
   if (!['state', 'transformation', 'constraint', 'organization', 'evaluation'].includes(contractValue.category)) {
     errors.push('category is invalid');
   }
+  if (!contractValue.scenario || contractValue.scenario.contractId !== contractValue.id) errors.push('scenario must identify its contract');
   for (const field of ['targets', 'observables', 'falsificationTests', 'limits', 'obligations', 'prohibitions', 'violationCriteria']) {
     if (!Array.isArray(contractValue[field]) || contractValue[field].length === 0) errors.push(`${field} must be a non-empty array`);
   }
