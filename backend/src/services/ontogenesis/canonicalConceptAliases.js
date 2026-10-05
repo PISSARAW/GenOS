@@ -76,6 +76,10 @@ const CAPABILITY_ALIASES = Object.freeze({
   , plasticite_dendritique: 'SYNAPTIC_PLASTICITY', plasticite_locale: 'SYNAPTIC_PLASTICITY'
   , plasticite_collective: 'SYNAPTIC_PLASTICITY', adaptation: 'STRATEGY_ADAPTATION'
   , lacune_apprentissage: 'CONTROLLED_LAMARCKIAN_LEARNING', transmission: 'SIGNALING_BUS'
+  , pathologie_runtime: 'RESILIENCE_RECOVERY', immunite_graduee: 'IMMUNE_SYSTEM'
+  , isolated_recovery: 'RESILIENCE_RECOVERY', heartbeat: 'OBSERVABILITY'
+  , checkpoint_cryptographique: 'CAPSULES_SNAPSHOTS', idempotence_appels_externes: 'RESILIENCE_RECOVERY'
+  , retention_bornee: 'VFS_SANDBOX', chargeback: 'TOKEN_ECONOMY'
   , intelligence_nuee: 'SWARM_METRICS', pheromones: 'STIGMERGY'
   , signaux: 'SIGNALING_BUS', signal_plane: 'SIGNALING_BUS', signal_plane_zero_text: 'SIGNALING_BUS'
   , recepteurs: 'LIGAND_RECEPTOR', boite_reception: 'LIGAND_RECEPTOR', ack: 'SIGNALING_BUS'
@@ -146,7 +150,14 @@ const RUNTIME_ALIASES = Object.freeze({
   leases_outils: 'execution_guardrails', budgets: 'execution_guardrails',
   fossilisation_stratigraphique: 'genos_lineage', heritage_risque: 'genos_lineage',
   infini_sous_contrat: 'execution_guardrails', self_twin_causal: 'causal_replay_intervention_concept',
-  lacune_apprentissage: 'controlled_lamarckian_learning'
+  lacune_apprentissage: 'controlled_lamarckian_learning', derive: 'entropy_sentinel',
+  claims_interrompus: 'circuit_breaker_concept', redemarrage: 'checkpoint_regeneration_concept',
+  retry_policy: 'circuit_breaker_concept', backoff: 'circuit_breaker_concept',
+  apoptose_agent: 'apoptosis_concept', corruption_filesystem: 'diagnose_baseline',
+  perte_base: 'checkpoint_regeneration_concept', recuperation_wal: 'checkpoint_regeneration_concept',
+  rollback: 'checkpoint_regeneration_concept', restauration: 'checkpoint_regeneration_concept',
+  deterministic_direct_path: 'deterministic_replay',
+  haute_disponibilite: 'checkpoint_regeneration_concept', pathologie_runtime: 'diagnose_baseline'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({

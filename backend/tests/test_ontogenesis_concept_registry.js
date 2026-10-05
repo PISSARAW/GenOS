@@ -201,6 +201,22 @@ assert.deepStrictEqual(memoryFoundationMission.resolvedConcepts.map((concept) =>
   'genos_lineage', 'genos_lineage', 'execution_guardrails', 'causal_replay_intervention_concept'
 ]);
 
+const operationsResilienceMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
+  'pathologie_runtime', 'derive', 'claims_interrompus', 'redemarrage', 'retry_policy',
+  'apoptose_agent', 'recuperation_wal', 'checkpoint_cryptographique', 'rollback',
+  'restauration', 'idempotence_appels_externes', 'isolated_recovery', 'heartbeat', 'chargeback'
+] });
+assert.deepStrictEqual(operationsResilienceMission.resolvedConcepts.map((concept) => concept.source), [
+  'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'runtime',
+  'capability', 'runtime', 'runtime', 'capability', 'runtime', 'capability', 'capability'
+]);
+assert.deepStrictEqual(operationsResilienceMission.resolvedConcepts.map((concept) => concept.id), [
+  'diagnose_baseline', 'entropy_sentinel', 'circuit_breaker_concept', 'checkpoint_regeneration_concept',
+  'circuit_breaker_concept', 'apoptosis_concept', 'checkpoint_regeneration_concept', 'CAPSULES_SNAPSHOTS',
+  'checkpoint_regeneration_concept', 'checkpoint_regeneration_concept', 'RESILIENCE_RECOVERY',
+  'isolated_recovery', 'OBSERVABILITY', 'TOKEN_ECONOMY'
+]);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
