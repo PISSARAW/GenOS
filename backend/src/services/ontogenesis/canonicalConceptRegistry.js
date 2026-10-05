@@ -12,7 +12,8 @@ const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
 const conceptInventory = require('./canonicalConceptInventory');
 const runtimeConceptRegistry = require('../conceptRegistryService');
 const workerKinds = require('../agents/workerKindService');
-const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES } = require('./canonicalConceptAliases');
+const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES,
+  INTERFACE_REFERENCES } = require('./canonicalConceptAliases');
 
 const LEGACY_DOMAIN_CATALOG = Object.freeze([
   ['foundations', ['mission', 'provenance', 'evidence', 'authority', 'lease', 'budget', 'workspace', 'promotion', 'recovery']],
@@ -94,6 +95,13 @@ function lifecycleReference(requested, target) {
     access: 'contract', service, domain: 'worker_lifecycle' };
 }
 
+function interfaceReference(requested, target) {
+  const service = INTERFACE_REFERENCES[target];
+  if (!service) return null;
+  return { requested, id: target, source: 'interface_runtime', available: true, executable: false,
+    access: 'contract', service, domain: 'interfaces' };
+}
+
 function topologyTools(topology) {
   if (!topology) return null;
   const compatible = runtimeConceptRegistry.findCompatibleConcepts({ topology });
@@ -138,6 +146,8 @@ function resolveConceptReference(reference, topology) {
   if (capability) return { requested, id: capability.capability, source: 'capability',
     available: capability.state === 'operationnel', executable: capability.state === 'operationnel',
     reason: capability.state === 'operationnel' ? null : `capacite-${capability.state}`, tools: capability.tools };
+  const interfaceConcept = interfaceReference(requested, target);
+  if (interfaceConcept) return interfaceConcept;
   const philosophicalTarget = philosophyReference(target);
   const philosophical = CONCEPT_DEFINITIONS.find((concept) => normalize(concept.id) === normalize(philosophicalTarget)
     || (concept.aliases || []).some((alias) => normalize(alias) === normalize(philosophicalTarget)));
@@ -178,12 +188,13 @@ function coverageReport() {
   const graphIds = new Set(graph.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const workerIds = new Set(Object.keys(workerKinds.KINDS).map(normalize));
   const lifecycleIds = new Set(Object.keys(LIFECYCLE_REFERENCES).map(normalize));
+  const interfaceIds = new Set(Object.keys(INTERFACE_REFERENCES).map(normalize));
   const philosophyIds = new Set(CONCEPT_DEFINITIONS.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const philosophyAliasIds = new Set([
     ...Object.keys(PHILOSOPHY_ALIASES), ...Object.values(PHILOSOPHY_ALIASES)
   ].map(normalize));
   const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0,
-    workerRuntime: 0, workerLifecycle: 0,
+    workerRuntime: 0, workerLifecycle: 0, interfaceRuntime: 0,
     existingAdapter: 0, documentationOnly: 0 };
   for (const entry of conceptInventory.entries()) {
     const id = normalize(entry.id);
@@ -194,6 +205,7 @@ function coverageReport() {
     else if (graphIds.has(id)) counts.capabilityGraph += 1;
     else if (workerIds.has(id)) counts.workerRuntime += 1;
     else if (lifecycleIds.has(id)) counts.workerLifecycle += 1;
+    else if (interfaceIds.has(id)) counts.interfaceRuntime += 1;
     else if (EXISTING_ADAPTERS[id]) counts.existingAdapter += 1;
     else counts.documentationOnly += 1;
   }
@@ -270,7 +282,11 @@ function conceptCatalog() {
     id, domain: 'worker_lifecycle', state: 'ready', executable: false, source: 'worker_lifecycle',
     access: 'contract', service
   }));
-  return documented.concat(philosophical, graph, workers, lifecycle, registered);
+  const interfaces = Object.entries(INTERFACE_REFERENCES).map(([id, service]) => ({
+    id, domain: 'interfaces', state: 'ready', executable: false, source: 'interface_runtime',
+    access: 'contract', service
+  }));
+  return documented.concat(philosophical, graph, workers, lifecycle, interfaces, registered);
 }
 
 function resolveMission(input = {}) {

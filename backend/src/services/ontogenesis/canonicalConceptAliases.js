@@ -87,4 +87,17 @@ const LIFECYCLE_REFERENCES = Object.freeze({
   terminer: 'agentProcessSupervisor'
 });
 
-module.exports = { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES };
+const INTERFACE_REFERENCES = Object.freeze({
+  api_rest: 'backendHttpServer', grpc: 'backendGrpcServer', mcp: 'mcpToolRegistry',
+  mcp_stdio: 'mcpStdioServer', cli_rust: 'genosCli', facade_operateur: 'genosCli',
+  ide: 'ideIntegration', studio: 'studioIntegration', tui: 'genosCli',
+  providers_modeles: 'modelProviderRegistry', endpoints_openai_compatibles: 'modelProviderRegistry',
+  sqlite_wal: 'sqliteWalStore', event_log: 'eventLogStore', persistance_sessions: 'sessionStore',
+  observabilite: 'telemetryObserver', logs_audit: 'auditLogService', traces: 'telemetryObserver',
+  spans: 'telemetryObserver', request_ids: 'telemetryObserver', trace_ids: 'telemetryObserver',
+  metriques_tenant: 'evaluationObservabilityService', health_checks: 'healthRoutes',
+  readiness: 'readinessRoutes', alertes: 'telemetryObserver'
+});
+
+module.exports = { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES,
+  LIFECYCLE_REFERENCES, INTERFACE_REFERENCES };

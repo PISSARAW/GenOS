@@ -24,7 +24,7 @@ assert.strictEqual(web.coverage.registryPhilosophy, 375);
 assert.strictEqual(web.coverage.registryGraph, 527);
 assert.strictEqual(web.coverage.runtime + web.coverage.operationalCapability + web.coverage.philosophyRead
   + web.coverage.capabilityGraph + web.coverage.workerRuntime + web.coverage.workerLifecycle
-  + web.coverage.existingAdapter
+  + web.coverage.interfaceRuntime + web.coverage.existingAdapter
   + web.coverage.documentationOnly, web.coverage.inventory);
 assert.ok(web.canonicalConcepts.length >= 400);
 assert.ok(web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length >= 375);
@@ -84,6 +84,17 @@ assert.deepStrictEqual(workerLifecycleMission.resolvedConcepts.map((concept) => 
 ]);
 assert.ok(workerLifecycleMission.resolvedConcepts.every((concept) => concept.available && !concept.executable));
 assert.ok(workerLifecycleMission.canonicalConcepts.filter((concept) => concept.source === 'worker_lifecycle').length >= 23);
+
+const interfaceMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
+  'api_rest', 'mcp_stdio', 'cli_rust', 'health_checks'
+] });
+assert.deepStrictEqual(interfaceMission.resolvedConcepts.map((concept) => concept.source),
+  ['interface_runtime', 'interface_runtime', 'interface_runtime', 'interface_runtime']);
+assert.deepStrictEqual(interfaceMission.resolvedConcepts.map((concept) => concept.service), [
+  'backendHttpServer', 'mcpStdioServer', 'genosCli', 'healthRoutes'
+]);
+assert.ok(interfaceMission.resolvedConcepts.every((concept) => concept.available && !concept.executable));
+assert.ok(interfaceMission.canonicalConcepts.filter((concept) => concept.source === 'interface_runtime').length >= 24);
 
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
