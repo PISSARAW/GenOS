@@ -4,17 +4,15 @@ async function plasticity(context, searchGenome, db) {
   const receipt = new SearchReceipt('PLASTICITE', 'PHENOTYPE_CHANGED');
   if (!db || !context.agentId) return receipt.setSkipped('No agent storage available');
   try {
-    const current = await db.get('SELECT topology,tools FROM agents WHERE id=?', context.agentId);
-    if (!current) return receipt.setSkipped('Agent not found');
+    const agent = await db.get('SELECT id FROM agents WHERE id=?', context.agentId);
+    if (!agent) return receipt.setSkipped('Agent not found');
+    const current = searchGenome.genome;
+    const before = { topology: current.topology, tools: [...current.operators] };
     const topologies = ['isolated', 'adversarial', 'swarm', 'pipeline'];
     const topology = topologies.find(t => t !== current.topology);
-    const tools = searchGenome.genome.operators;
-    const result = await db.run('UPDATE agents SET topology=?, tools=? WHERE id=?',
-      [topology, JSON.stringify(tools), context.agentId]);
-    if (result.changes === 0) return receipt.setSkipped('Agent not found');
     searchGenome.genome.topology = topology;
-    return receipt.setSuccess({ before: { topology: current.topology, tools: current.tools },
-      after: { topology, tools }, changed: true });
+    return receipt.setSuccess({ before,
+      after: { topology, tools: [...current.operators] }, changed: true, scope: 'search-genome' });
   } catch (err) { return receipt.setFailure(err.message); }
 }
 
