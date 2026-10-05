@@ -66,7 +66,7 @@ async function evaluateGeneralization(agents, split, options) {
   const heldOutResults = await coevolveWithExecution([selectedAgent], cloneEnvironments(heldOut), options);
   const trainingMetrics = summarizeResults(trainingResults.map((entry) => ({ ...entry, bestAgent: selectedAgent })));
   const heldOutMetrics = summarizeResults(heldOutResults);
-  const measured = hasMeasuredExecutions([...trainingResults, ...heldOutResults]);
+  const measured = hasMeasuredExecutions([...trainingResults, ...heldOutResults], selectedAgent.id);
   return {
     selectedAgentId: selectedAgent.id,
     fingerprints,
@@ -117,9 +117,12 @@ function validateEnvironment(environment) {
   }
 }
 
-function hasMeasuredExecutions(results) {
-  return results.every((entry) => entry.bestAgent &&
-    entry.evaluations.some((item) => item.executionResult?.termination?.terminated));
+function hasMeasuredExecutions(results, agentId) {
+  return results.every((entry) => {
+    const execution = entry.evaluations.find((item) => item.agent.id === agentId)?.executionResult;
+    return execution?.termination?.eventType === 'AGENT_COMPLETED'
+      && Number.isInteger(execution.verification?.exitCode) && !execution.error;
+  });
 }
 
 function cloneEnvironments(environments) {
@@ -151,19 +154,15 @@ function executionEvidence(results) {
     error: item.executionResult?.error || item.error || null,
     terminalEvent: item.executionResult?.termination?.eventType || null,
     baselineSnapshotHash: item.executionResult?.baselineSnapshotHash || null,
+    success: item.executionResult?.success === true,
+    score: item.evaluation.overallScore,
+    artifact: item.executionResult?.artifact || null,
     verification: item.executionResult?.verification || null,
   })));
 }
 
 function hashResults(results) {
-  return createHash('sha256').update(JSON.stringify(results.map((result) => ({
-    environmentId: result.environment.id,
-    executions: result.evaluations.map((item) => ({
-      agentId: item.agent.id, success: item.executionResult?.success === true,
-      score: item.executionResult?.score || 0, endedAt: item.executionResult?.endedAt || null,
-      error: item.executionResult?.error || item.error || null,
-    })),
-  })))).digest('hex');
+  return createHash('sha256').update(JSON.stringify(executionEvidence(results))).digest('hex');
 }
 
 /** Simulation retained for explicit fixtures; never used by evaluateGeneralization. */

@@ -125,9 +125,10 @@ async function measureCulturalTransfer(opts) {
 }
 
 function finiteBenchmark(value, label) {
-  const score = Number(value);
-  if (!Number.isFinite(score)) throw new Error(`${label} must return a finite number.`);
-  return score;
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`${label} must return a finite number.`);
+  }
+  return value;
 }
 
 function mutateArtifact(opts) {

@@ -71,17 +71,19 @@ async function applyCultureLearning(mission, config, db) {
   if (!config.culture.enabled || !mission.culturalTransfer) return null;
   const bridge = require('./culturalPhenotypeBridgeService');
   const service = require('./phenotypicDevelopmentService');
-  const state = mission.culturalTransfer.phenotypeState
-    || await resolvePhenotypeState(mission, service, db);
+  const state = await resolvePhenotypeState({ ...mission,
+    phenotypeState: mission.culturalTransfer.phenotypeState || mission.phenotypeState }, service, db);
+  const previous = structuredClone(state);
   const result = await bridge.transferCultureToPhenotype({
     ...mission.culturalTransfer, phenotypeState: state, recipientAgentId: mission.agentId,
   });
-  mission.phenotypeState = state;
   if (db && mission.agentId && result.phenotype.changed) {
-    await service.savePhenotypeState(state, db);
+    try { await service.savePhenotypeState(state, db); }
+    catch (error) { Object.assign(state, previous); throw error; }
     result.phenotype.stateId = state.id;
     result.phenotype.revision = state.revision;
   }
+  mission.phenotypeState = state;
   return result;
 }
 
@@ -147,7 +149,7 @@ function createEmptyPhenotypeState(mission) {
     id: agentId ? `pheno_agent_${agentId}` : null,
     agentId,
     genomeId: mission.genomeId || (agentId ? `agent:${agentId}` : null),
-    currentPhenotype: mission.initialPhenotype || {},
+    currentPhenotype: structuredClone(mission.initialPhenotype || {}),
     branches: [],
     atrophies: [],
     history: [],
