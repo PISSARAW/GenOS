@@ -202,6 +202,8 @@ function missionWorkspaceOptions(request) {
   const workspaceRoot = request.workspaceRoot || request.workspace_root;
   return { workspaceRoot,
     workspaceProvisioned: request.workspaceProvisioned === true,
+    unbounded: request.unbounded === true,
+    noTimeout: request.noTimeout === true,
     capsuleRoot: request.capsuleRoot || request.capsule_root
       || (request.workspaceProvisioned === true ? workspaceRoot : undefined),
     proposedTopology: request.proposedTopology, trinityMode: request.trinityMode,

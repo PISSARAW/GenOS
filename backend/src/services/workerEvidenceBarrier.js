@@ -123,6 +123,10 @@ function resolveBarrierTimeout(missionTimeoutMs) {
   return Math.max(120000, Math.min(600000, scaled));
 }
 
+function isUnboundedMission(mission) {
+  return mission?.unbounded === true || mission?.noTimeout === true;
+}
+
 async function runEvidenceBarrier(barrierContext) {
   const workers = barrierContext.autonomousWorkers;
   if (!workers) return;
@@ -143,8 +147,9 @@ async function runEvidenceBarrier(barrierContext) {
       workers: workers,
       contract: readContract({ contractRecord: barrierContext.contractRecord }),
       barrier: barrier,
-      timeoutMs: barrierContext.normalizedMission.workerBarrierTimeoutMs ??
-        (barrierContext.normalizedMission.timeoutMs ? resolveBarrierTimeout(barrierContext.normalizedMission.timeoutMs) : 60000)
+      timeoutMs: isUnboundedMission(barrierContext.normalizedMission) ? Infinity
+        : barrierContext.normalizedMission.workerBarrierTimeoutMs
+          ?? (barrierContext.normalizedMission.timeoutMs ? resolveBarrierTimeout(barrierContext.normalizedMission.timeoutMs) : 60000)
     });
   } catch (error) {
     if (resolveTimeoutFlag(error)) {
