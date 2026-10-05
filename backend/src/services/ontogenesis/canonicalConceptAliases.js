@@ -125,6 +125,14 @@ const CAPABILITY_ALIASES = Object.freeze({
   , contraintes_physiques_calcul: 'EXECUTION_GUARDRAILS'
   , ressources_environnement_hote: 'TOKEN_ECONOMY'
   , regulation_cpu_disque_memoire: 'OUTPUT_GOVERNOR'
+  , garage_fabric: 'STRATEGY_PORTFOLIO', architecte: 'PROCEDURAL_GUIDANCE'
+  , juge: 'GOVERNANCE_APPROVAL', equipe_specialisee: 'LIGAND_RECEPTOR'
+  , domaines: 'MODEL_ROUTING', integration: 'PROMOTION_GATE'
+  , communaute: 'SWARM_METRICS', arguments: 'EVIDENCE_BARRIER'
+  , veto_minoritaire: 'QUORUM', hote: 'VFS_SANDBOX', symbiontes: 'IMMUNE_SYSTEM'
+  , coherence_invariants: 'INVARIANT_GATES', niches: 'STRATEGY_ADAPTATION'
+  , biofilm: 'STIGMERGY', ramification_decentralisee: 'STRATEGY_PORTFOLIO'
+  , populations_semi_independantes: 'SWARM_METRICS', recuperation_lignage: 'RESILIENCE_RECOVERY'
   , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
   , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
   , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
@@ -242,7 +250,7 @@ const RUNTIME_ALIASES = Object.freeze({
   , mode_deterministe: 'deterministic_replay', mode_borne: 'execution_guardrails'
   , role_adversaire: 'genos_adversarial_review', role_experimentateur: 'factorial_experiment_concept'
   , pression: 'genos_parasitic_pressure', gating_decisionnel: 'execution_guardrails'
-  , contraintes_physiques_calcul: 'execution_guardrails'
+  , contraintes_physiques_calcul: 'execution_guardrails', trois_mondes: 'n_way_counterfactual_fork'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({

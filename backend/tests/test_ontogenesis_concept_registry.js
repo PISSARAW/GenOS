@@ -326,6 +326,16 @@ assert.ok(physicsMission.resolvedConcepts.every((concept) =>
   concept.source === 'capability' || concept.source === 'runtime'));
 assert.ok(physicsMission.resolvedConcepts.every((concept) => concept.id));
 
+const topologyMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'garage_fabric', 'architecte', 'juge', 'trois_mondes', 'equipe_specialisee', 'domaines',
+  'integration', 'communaute', 'arguments', 'veto_minoritaire', 'hote', 'symbiontes',
+  'coherence_invariants', 'niches', 'biofilm', 'ramification_decentralisee',
+  'populations_semi_independantes', 'recuperation_lignage'
+] });
+assert.ok(topologyMission.resolvedConcepts.every((concept) =>
+  concept.source === 'capability' || concept.source === 'runtime'));
+assert.ok(topologyMission.resolvedConcepts.every((concept) => concept.id));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
