@@ -186,6 +186,21 @@ assert.deepStrictEqual(coreFoundationsMission.resolvedConcepts.map((concept) => 
   'execution_guardrails', 'execution_guardrails', 'PROMOTION_GATE', 'evidence_first'
 ]);
 
+const memoryFoundationMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'memoire_travail', 'memoire_semantique', 'memoire_ancestrale', 'memoire_autobiographique',
+  'vector_search', 'plasticite_dendritique', 'adaptation', 'lacune_apprentissage',
+  'transmission', 'fossilisation_stratigraphique', 'heritage_risque', 'infini_sous_contrat', 'self_twin_causal'
+] });
+assert.deepStrictEqual(memoryFoundationMission.resolvedConcepts.map((concept) => concept.source), [
+  'capability', 'capability', 'capability', 'capability', 'capability', 'capability',
+  'capability', 'runtime', 'capability', 'runtime', 'runtime', 'runtime', 'runtime'
+]);
+assert.deepStrictEqual(memoryFoundationMission.resolvedConcepts.map((concept) => concept.id), [
+  'PROCEDURAL_MEMORY', 'GRAPH_MEMORY', 'GENOME_EPIGENETICS', 'EPISODIC_MEMORY', 'VECTOR_MEMORY',
+  'SYNAPTIC_PLASTICITY', 'STRATEGY_ADAPTATION', 'controlled_lamarckian_learning', 'SIGNALING_BUS',
+  'genos_lineage', 'genos_lineage', 'execution_guardrails', 'causal_replay_intervention_concept'
+]);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

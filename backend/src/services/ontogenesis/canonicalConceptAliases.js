@@ -70,6 +70,12 @@ const CAPABILITY_ALIASES = Object.freeze({
   , rearbitrage_promotion: 'PROMOTION_GATE'
   , leases_outils: 'execution_guardrails', budgets: 'execution_guardrails'
   , promotion_rejet_quarantaine_escalade: 'PROMOTION_GATE'
+  , memoire_travail: 'PROCEDURAL_MEMORY', memoire_semantique: 'GRAPH_MEMORY'
+  , memoire_ancestrale: 'GENOME_EPIGENETICS', memoire_autobiographique: 'EPISODIC_MEMORY'
+  , memoire_culturelle: 'GRAPH_MEMORY', vector_search: 'VECTOR_MEMORY'
+  , plasticite_dendritique: 'SYNAPTIC_PLASTICITY', plasticite_locale: 'SYNAPTIC_PLASTICITY'
+  , plasticite_collective: 'SYNAPTIC_PLASTICITY', adaptation: 'STRATEGY_ADAPTATION'
+  , lacune_apprentissage: 'CONTROLLED_LAMARCKIAN_LEARNING', transmission: 'SIGNALING_BUS'
   , intelligence_nuee: 'SWARM_METRICS', pheromones: 'STIGMERGY'
   , signaux: 'SIGNALING_BUS', signal_plane: 'SIGNALING_BUS', signal_plane_zero_text: 'SIGNALING_BUS'
   , recepteurs: 'LIGAND_RECEPTOR', boite_reception: 'LIGAND_RECEPTOR', ack: 'SIGNALING_BUS'
@@ -137,7 +143,10 @@ const RUNTIME_ALIASES = Object.freeze({
   runtime_agents_reproductible_supervise: 'paired_functional_reproducibility',
   etat_versionne: 'provenance_integrity', branches_forks_snapshots_diffs_replay: 'deterministic_replay',
   succes_technique_vs_verite: 'evidence_first', concept_metaphore_capacite: 'evidence_first',
-  leases_outils: 'execution_guardrails', budgets: 'execution_guardrails'
+  leases_outils: 'execution_guardrails', budgets: 'execution_guardrails',
+  fossilisation_stratigraphique: 'genos_lineage', heritage_risque: 'genos_lineage',
+  infini_sous_contrat: 'execution_guardrails', self_twin_causal: 'causal_replay_intervention_concept',
+  lacune_apprentissage: 'controlled_lamarckian_learning'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
