@@ -155,6 +155,7 @@ const CAPABILITY_ALIASES = Object.freeze({
   , gcir: 'GRAPH_MEMORY', agow: 'ARENA_COMPETITION', responsabilite_persistante: 'GOVERNANCE_APPROVAL'
   , initiative: 'SIGNALING_BUS', observation_qualifiee: 'EVIDENCE_BARRIER'
   , effet_verifie_projet: 'EVIDENCE_BARRIER'
+  , adaptive_epistemic_immune_system: 'IMMUNE_SYSTEM'
 });
 
 const PHILOSOPHY_ALIASES = Object.freeze({
@@ -178,7 +179,20 @@ const PHILOSOPHY_ALIASES = Object.freeze({
   accessibilite_mondes: 'ontology.possible-worlds', identite: 'ontology.identity-change',
   continuite_identite: 'ontology.identity-change', realisme_independant: 'truth.internal-realism',
   tout: 'ontology.whole-void-infinite', vide: 'ontology.whole-void-infinite', infini: 'ontology.whole-void-infinite',
-  autrui: 'ontology.person-other', modele_esprit_matiere: 'metaphysics.mind-body'
+  autrui: 'ontology.person-other', modele_esprit_matiere: 'metaphysics.mind-body',
+  esprit: 'metaphysics.mind-body', mental: 'metaphysics.mind-body', conscience: 'metaphysics.qualia',
+  conscience_operationnelle: 'metaphysics.mind-body', conscience_fonctionnelle: 'metaphysics.mind-body',
+  qualia: 'metaphysics.qualia', intentionalite: 'metaphysics.reference-intentionality',
+  supervenience: 'metaphysics.supervenience', emergence: 'metaphysics.emergence',
+  limite_metrique_experience: 'metaphysics.qualia', loi: 'causality.determination',
+  determinisme: 'causality.determinism-indeterminism', temps_a_series: 'time.a-series-b-series',
+  temps_b_series: 'time.a-series-b-series', identite_personnelle: 'ontology.identity-change',
+  continuite: 'ontology.continuous-discrete', discontinuite: 'ontology.continuous-discrete',
+  transition_phase: 'process.actuality-potentiality', semantique_modale: 'logic.modal',
+  recu_monde_possible: 'ontology.possible-worlds', correlationnisme: 'truth.internal-realism',
+  propriete_second_ordre: 'metaphysics.second-order-properties', criteres_identite: 'ontology.identity-change',
+  metaphysique_descriptive: 'ontology.being', analyse_interpretative: 'interpretation.construction',
+  non_promotion_analyse_philosophique: 'epistemology.knowledge'
 });
 
 const RUNTIME_ALIASES = Object.freeze({

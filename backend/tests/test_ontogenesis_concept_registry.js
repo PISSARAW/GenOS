@@ -336,6 +336,15 @@ assert.ok(topologyMission.resolvedConcepts.every((concept) =>
   concept.source === 'capability' || concept.source === 'runtime'));
 assert.ok(topologyMission.resolvedConcepts.every((concept) => concept.id));
 
+const philosophyReadMission = registry.resolveMission({ requestedConcepts: [
+  'esprit', 'conscience', 'qualia', 'intentionalite', 'supervenience', 'emergence',
+  'loi', 'determinisme', 'temps_a_series', 'identite_personnelle', 'semantique_modale',
+  'recu_monde_possible', 'propriete_second_ordre', 'analyse_interpretative',
+  'non_promotion_analyse_philosophique'
+] });
+assert.ok(philosophyReadMission.resolvedConcepts.every((concept) => concept.source === 'philosophy'));
+assert.ok(philosophyReadMission.resolvedConcepts.every((concept) => concept.access === 'read'));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
