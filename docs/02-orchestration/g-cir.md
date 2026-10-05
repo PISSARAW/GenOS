@@ -260,7 +260,7 @@ runtime, pas des tokens spéciaux universels pour les modèles.
 | `SELECT` | Construire la vue des dépendances utiles | Champs du signal ou mission et candidats Trinity |
 | `CALL` | Exécuter un outil autorisé | Existant dans GenOS, sans IR G-CIR général |
 | `INFER` | Soumettre un résidu admis au modèle | Signal Plane et génération d'hypothèses Trinity |
-| `CHECK` | Vérifier le candidat avec méthode et périmètre | Non branché sur ce chemin |
+| `CHECK` | Vérifier le candidat avec méthode et périmètre | Registre épistémique générique et receipts signés |
 | `EMIT` | Publier selon permissions et reçus | Non branché sur ce chemin |
 
 Le registre livré déclare les dépendances de `INPUT`, `GATE`, `INFER`, `CHECK`
@@ -273,6 +273,13 @@ doublons, champs inconnus et graphes de plus de
 64 nœuds. Il fournit un ordre topologique et un digest SHA-256 déterministe.
 `ready` exige un `INFER` ouvert dont toutes les dépendances sont satisfaites ou
 imposées ; `resolved` et `deferred` ne lancent pas le modèle.
+
+Le registre `cognitiveEpistemicCheckService` branche les vérifications `CHECK`
+sur les adaptateurs de tests/reproduction, validation de schéma, commandes SMT
+en sandbox, Lean, AEIS, SHEV et receipts signés. Chaque résultat est converti
+en receipt HMAC lié à l'identifiant de l'opération et à un digest d'observations.
+Un résultat inconclusif, une signature absente ou un vérificateur non autorisé
+bloquent `CHECK` et empêchent toute émission dépendante.
 
 Le graphe cible général déclare les dépendances et les sorties de ces opérations.
 Un nœud `INFER` n'est supprimé que si un résultat réutilisable encore valide
@@ -482,8 +489,9 @@ revendiquée. La combinaison G-CIR constitue une hypothèse d'ingénierie à
   restent hors périmètre ; les appels modèle applicatifs passent toutefois par
   la passerelle Omega commune, avec un wrapper de compatibilité pour les anciens
   contrats.
-- Le graphe décrit l'admission avant inférence ; il ne vérifie pas automatiquement
-  les nœuds `CHECK` et ne résout pas les obligations ouvertes par outil.
+- Les vérificateurs spécialisés restent dépendants de leurs outils et de leurs
+  configurations (tests, Lean, AEIS ou SHEV) ; une indisponibilité produit un
+  état inconclusif et ne vaut pas preuve.
 - `READ`, `CALL`, `CHECK` et `EMIT` décrivent le noyau cible ; leur simple nom
   ne donne aucune capacité, permission ou preuve au modèle.
 - Le reçu de visibilité actuel atteste un rendu pour une invocation ; il ne

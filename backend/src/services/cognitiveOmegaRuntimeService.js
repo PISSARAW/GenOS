@@ -84,10 +84,11 @@ function createRuntime() {
 
   async function check(operation, state) {
     if (!allowed(state.policy, 'CHECK', operation.reference)) return blocked('check_not_authorized', operation);
-    const verifier = verifiers.get(operation.reference);
+    const verifier = verifiers.get(operation.reference)
+      || state.verifierRegistry?.get(operation.reference);
     if (!verifier) return blocked('verifier_missing', operation);
     const receipt = await verifier({ candidate: operationInput(operation, state.values),
-      context: state.context, values: state.values });
+      context: { ...state.context, resultId: operation.id }, values: state.values });
     if (!verified(receipt)) return blocked('verification_failed', operation);
     state.receipts[operation.id] = receipt;
     state.values[operation.id] = operationInput(operation, state.values);
@@ -118,7 +119,8 @@ function createRuntime() {
     if (plan.status === 'blocked') return blocked(plan.reason);
     const byId = new Map(operations.map((operation) => [operation.id, operation]));
     const state = { context: input.context || {}, objects: input.objects || {}, values: {}, receipts: {},
-      policy: input.policy || {}, allowEmit: input.allowEmit === true };
+    policy: input.policy || {}, allowEmit: input.allowEmit === true,
+    verifierRegistry: input.verifierRegistry || null };
     const results = [];
     for (const obligation of plan.obligations) {
       const operation = byId.get(obligation.id);
