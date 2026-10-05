@@ -91,12 +91,22 @@ function resolveMission(input = {}) {
     domains, capabilities,
     canonicalConcepts: conceptCatalog(), selectedConcepts,
     runtimeConcepts: registeredConcepts(),
+    compatibleRuntimeConcepts: compatibleRuntimeConcepts(input.topology),
     runtimeLeaseCandidates: runtimeLeaseCandidates(),
     strategy: strategyForMission(input.missionKind),
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
     failClosed: true
   };
+}
+
+function compatibleRuntimeConcepts(topology) {
+  if (!topology) return [];
+  return runtimeConceptRegistry.findCompatibleConcepts({ topology }).map((concept) => ({
+    id: concept.id, kind: concept.kind, maturity: concept.maturity || 'ready',
+    tools: concept.tools || [], primitives: concept.primitives || [],
+    capabilities: concept.capabilities || [], strategies: concept.strategies || []
+  }));
 }
 
 function registeredConcepts() {

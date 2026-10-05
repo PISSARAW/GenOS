@@ -94,7 +94,7 @@ function inferredTopology(project, profile, kind) {
 
 function morphologyFor(input) {
   const { project, profile, kind, capabilities } = input;
-  const selection = inferredTopology(project, profile, kind);
+  const selection = input.selection || inferredTopology(project, profile, kind);
   const requested = selection.topology;
   if (!requested) return { selectedTopology: null, requestedTopology: null, selectionReason: selection.reason,
     graph: null, candidates: [], error: selection.reason };
@@ -143,9 +143,10 @@ function compileMission(project) {
   const root = path.resolve(project.root_path);
   const profile = { ...packageProfile(root), files: fileProfile(root) };
   const kind = classifyMission(project.objective || '', profile);
-  const topology = inferredTopology(project, profile, kind).topology;
+  const selection = inferredTopology(project, profile, kind);
+  const topology = selection.topology;
   const capabilities = capabilitiesFor(profile, kind, topology);
-  const concepts = conceptRegistry.resolveMission({ objective: project.objective, profile,
+  const concepts = conceptRegistry.resolveMission({ objective: project.objective, profile, topology,
     missionKind: kind, allowedCapabilities: capabilities });
   const tasks = buildTasks(project.objective || 'mission du projet', profile, kind);
   const context = JSON.stringify({ objective: project.objective || '', kind, profile });
@@ -155,7 +156,7 @@ function compileMission(project) {
     capabilities,
     capabilityCatalog: capabilityCatalog(),
     concepts,
-    morphology: morphologyFor({ project, profile, kind, capabilities }),
+    morphology: morphologyFor({ project, profile, kind, capabilities, selection }),
     context: context.slice(0, MAX_CONTEXT_CHARS),
     tasks: tasks.map((task) => ({ ...task, dependsOn: task.dependsOnIndex === undefined ? [] : [] }))
   };
