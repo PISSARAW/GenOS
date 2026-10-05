@@ -60,13 +60,21 @@ fn executes_all_semantic_operations() {
             .iter()
             .filter(|item| item.status == "ready")
             .count(),
-        5
+        4
     );
     assert_eq!(
         result
             .results
             .iter()
             .filter(|item| item.status == "verified")
+            .count(),
+        1
+    );
+    assert_eq!(
+        result
+            .results
+            .iter()
+            .filter(|item| item.status == "emitted")
             .count(),
         1
     );

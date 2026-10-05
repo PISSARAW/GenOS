@@ -303,7 +303,7 @@ impl OmegaRuntime {
         match result {
             Ok(value) => {
                 values.insert(operation.0.clone(), value);
-                ready(operation)
+                emitted(operation)
             }
             Err(reason) => blocked_operation(operation, reason),
         }
@@ -346,6 +346,15 @@ fn ready(operation: &OmegaOperation) -> OperationResult {
         id: operation.0.clone(),
         kind: operation.1.clone(),
         status: "ready".into(),
+        reason: None,
+    }
+}
+
+fn emitted(operation: &OmegaOperation) -> OperationResult {
+    OperationResult {
+        id: operation.0.clone(),
+        kind: operation.1.clone(),
+        status: "emitted".into(),
         reason: None,
     }
 }

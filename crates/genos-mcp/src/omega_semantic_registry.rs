@@ -37,6 +37,9 @@ pub fn validate(envelope: &OmegaEnvelope) -> Result<(), String> {
     let expected = [semantic.selector, semantic.tool, semantic.infer,
         format!("epistemic/{domain}"), semantic.effect];
     for operation in &envelope.operations {
+        if operation.1 == "READ" {
+            continue;
+        }
         if let Some(reference) = operation.2.as_deref()
             && !reference.starts_with('@') && !expected.iter().any(|item| item == reference) {
             return Err(format!("omega_semantic_reference_unknown:{reference}"));

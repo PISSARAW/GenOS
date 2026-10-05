@@ -18,7 +18,7 @@
     "test:signal-plane": "node tests/run_validation_suite.js signalPlane",
     "test:validation": "node tests/run_validation_suite.js all",
     "test:properties": "node tests/test_property_invariants.js",
-    "test:interop": "node tests/test_cognitive_omega_interop.js",
+    "test:interop": "node tests/test_cognitive_omega_interop.js && node tests/test_cognitive_omega_cross_runtime_matrix.js",
     "test:security": "node tests/run_validation_suite.js security",
     "test:mcp": "node tests/run_validation_suite.js mcp",
     "test:tenancy": "node tests/run_validation_suite.js tenancy",

@@ -22,7 +22,8 @@ function validateGraph(graph) {
   const semantic = forDomain(graph?.domain);
   if (!semantic) return { valid: false, reason: 'omega_domain_unknown' };
   const expected = new Set([semantic.selector, semantic.tool, semantic.infer, `epistemic/${graph.domain}`, semantic.effect]);
-  const references = (graph.operations || []).map((operation) => operation.reference).filter(Boolean);
+  const references = (graph.operations || []).filter((operation) => operation.kind !== 'READ')
+    .map((operation) => operation.reference).filter(Boolean);
   const unknown = references.filter((reference) => !expected.has(reference) && !reference.startsWith('@'));
   const check = (graph.operations || []).find((operation) => operation.kind === 'CHECK');
   if (check?.verification && check.verification !== semantic.verification) {

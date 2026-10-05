@@ -1,0 +1,38 @@
+{
+  "schema": "genos.gcir.omega.execution-matrix/v1",
+  "cases": [
+    {
+      "name": "canonical-six-operation-runtime",
+      "envelope": {
+        "schema": "genos.gcir.omega/v1",
+        "version": 1,
+        "id": "execution-matrix-1",
+        "operations": [
+          { "id": "read", "kind": "READ", "reference": "repo", "dependsOn": [], "state": "open" },
+          { "id": "select", "kind": "SELECT", "reference": "runtime/request", "dependsOn": ["read"], "state": "open" },
+          { "id": "call", "kind": "CALL", "reference": "runtime/execute", "dependsOn": ["select"], "state": "open" },
+          { "id": "infer", "kind": "INFER", "reference": "model/runtime", "dependsOn": ["call"], "state": "open" },
+          { "id": "check", "kind": "CHECK", "reference": "epistemic/runtime", "dependsOn": ["infer"], "state": "open" },
+          { "id": "emit", "kind": "EMIT", "reference": "runtime.commit", "dependsOn": ["check"], "state": "open" }
+        ],
+        "policy": {
+          "read": ["repo"],
+          "select": ["runtime/request"],
+          "call": ["runtime/execute"],
+          "infer": ["model/runtime"],
+          "check": ["epistemic/runtime"],
+          "emit": ["runtime.commit"]
+        },
+        "payload": { "domain": "runtime", "verification": "receipt" }
+      },
+      "objects": { "repo": { "id": "repo-1", "value": "fixture" } },
+      "toolResults": { "runtime/execute": { "tool": "executed" } },
+      "inferenceResults": { "model/runtime": { "inference": "accepted" } },
+      "verificationReceipts": { "epistemic/runtime": { "valid": true, "receipt": "check-1" } },
+      "emissionResults": { "runtime.commit": { "emitted": true } },
+      "allowEmit": true,
+      "expectedKinds": ["READ", "SELECT", "CALL", "INFER", "CHECK", "EMIT"],
+      "expectedStatuses": ["ready", "ready", "ready", "ready", "verified", "emitted"]
+    }
+  ]
+}

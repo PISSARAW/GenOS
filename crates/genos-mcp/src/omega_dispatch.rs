@@ -95,6 +95,7 @@ fn register_tools(
     envelope: &OmegaEnvelope,
     workspace: &Path,
 ) {
+    register_tool_results(runtime, params, envelope);
     let Some(mapping) = params.get("toolMap").and_then(Value::as_object) else {
         return;
     };
@@ -123,6 +124,17 @@ fn register_tools(
             }
             serde_json::from_str(&output).or_else(|_| Ok(json!({ "text": output })))
         });
+    }
+}
+
+fn register_tool_results(runtime: &mut OmegaRuntime, params: &Value, envelope: &OmegaEnvelope) {
+    let Some(values) = params.get("toolResults").and_then(Value::as_object) else {
+        return;
+    };
+    for operation in envelope.operations.iter().filter(|item| item.1 == "CALL") {
+        let reference = operation.2.clone().unwrap_or_default();
+        let Some(value) = values.get(&reference).cloned() else { continue; };
+        runtime.register_tool(&reference, move |_| Ok(value.clone()));
     }
 }
 
