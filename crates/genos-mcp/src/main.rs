@@ -1,6 +1,7 @@
 mod executor;
 mod tools;
 pub mod omega;
+pub mod omega_runtime;
 
 use serde_json::{Value, json};
 use std::env;
