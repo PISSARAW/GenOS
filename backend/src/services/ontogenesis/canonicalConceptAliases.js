@@ -99,5 +99,13 @@ const INTERFACE_REFERENCES = Object.freeze({
   readiness: 'readinessRoutes', alertes: 'telemetryObserver'
 });
 
+const CENTRAL_CHAIN_REFERENCES = Object.freeze({
+  differenciation: 'agentIncarnationService', contrat: 'workerContractEnforcement',
+  execution_isolee: 'vfsSandbox', observation: 'observationService', action_bornee: 'strategyExecutionAdapter',
+  recus: 'agentEvidenceService', preuve: 'evidenceGate', decision: 'decisionObservabilityService',
+  promotion: 'promotionGate', rejet: 'evidenceGate', recuperation: 'checkpointRegeneration',
+  fossilisation: 'agentEvolutionService', transport_non_preuve: 'evidenceGate'
+});
+
 module.exports = { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES,
-  LIFECYCLE_REFERENCES, INTERFACE_REFERENCES };
+  LIFECYCLE_REFERENCES, INTERFACE_REFERENCES, CENTRAL_CHAIN_REFERENCES };

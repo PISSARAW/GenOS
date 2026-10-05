@@ -14,7 +14,7 @@ const runtimeConceptRegistry = require('../conceptRegistryService');
 const workerKinds = require('../agents/workerKindService');
 const implementationContracts = require('../implementationContractRouter');
 const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES,
-  INTERFACE_REFERENCES } = require('./canonicalConceptAliases');
+  INTERFACE_REFERENCES, CENTRAL_CHAIN_REFERENCES } = require('./canonicalConceptAliases');
 
 const LEGACY_DOMAIN_CATALOG = Object.freeze([
   ['foundations', ['mission', 'provenance', 'evidence', 'authority', 'lease', 'budget', 'workspace', 'promotion', 'recovery']],
@@ -107,6 +107,13 @@ function implementationContractFor(concept) {
   return implementationContracts.getImplementationContract(concept);
 }
 
+function centralChainReference(requested, target) {
+  const service = CENTRAL_CHAIN_REFERENCES[target];
+  if (!service) return null;
+  return { requested, id: target, source: 'central_chain_runtime', available: true, executable: false,
+    access: 'contract', service, domain: 'central_chain' };
+}
+
 function topologyTools(topology) {
   if (!topology) return null;
   const compatible = runtimeConceptRegistry.findCompatibleConcepts({ topology });
@@ -153,6 +160,8 @@ function resolveConceptReference(reference, topology) {
     reason: capability.state === 'operationnel' ? null : `capacite-${capability.state}`, tools: capability.tools };
   const interfaceConcept = interfaceReference(requested, target);
   if (interfaceConcept) return interfaceConcept;
+  const chainConcept = centralChainReference(requested, target);
+  if (chainConcept) return chainConcept;
   const philosophicalTarget = philosophyReference(target);
   const philosophical = CONCEPT_DEFINITIONS.find((concept) => normalize(concept.id) === normalize(philosophicalTarget)
     || (concept.aliases || []).some((alias) => normalize(alias) === normalize(philosophicalTarget)));
@@ -195,12 +204,13 @@ function coverageReport() {
   const workerIds = new Set(Object.keys(workerKinds.KINDS).map(normalize));
   const lifecycleIds = new Set(Object.keys(LIFECYCLE_REFERENCES).map(normalize));
   const interfaceIds = new Set(Object.keys(INTERFACE_REFERENCES).map(normalize));
+  const chainIds = new Set(Object.keys(CENTRAL_CHAIN_REFERENCES).map(normalize));
   const philosophyIds = new Set(CONCEPT_DEFINITIONS.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const philosophyAliasIds = new Set([
     ...Object.keys(PHILOSOPHY_ALIASES), ...Object.values(PHILOSOPHY_ALIASES)
   ].map(normalize));
   const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0,
-    workerRuntime: 0, workerLifecycle: 0, interfaceRuntime: 0,
+    workerRuntime: 0, workerLifecycle: 0, interfaceRuntime: 0, centralChainRuntime: 0,
     existingAdapter: 0, documentationOnly: 0 };
   for (const entry of conceptInventory.entries()) {
     const id = normalize(entry.id);
@@ -212,6 +222,7 @@ function coverageReport() {
     else if (workerIds.has(id)) counts.workerRuntime += 1;
     else if (lifecycleIds.has(id)) counts.workerLifecycle += 1;
     else if (interfaceIds.has(id)) counts.interfaceRuntime += 1;
+    else if (chainIds.has(id)) counts.centralChainRuntime += 1;
     else if (EXISTING_ADAPTERS[id]) counts.existingAdapter += 1;
     else counts.documentationOnly += 1;
   }
@@ -294,7 +305,11 @@ function conceptCatalog() {
     id, domain: 'interfaces', state: 'ready', executable: false, source: 'interface_runtime',
     access: 'contract', service
   }));
-  return documented.concat(philosophical, graph, workers, lifecycle, interfaces, registered);
+  const chain = Object.entries(CENTRAL_CHAIN_REFERENCES).map(([id, service]) => ({
+    id, domain: 'central_chain', state: 'ready', executable: false, source: 'central_chain_runtime',
+    access: 'contract', service
+  }));
+  return documented.concat(philosophical, graph, workers, lifecycle, interfaces, chain, registered);
 }
 
 function resolveMission(input = {}) {

@@ -24,7 +24,7 @@ assert.strictEqual(web.coverage.registryPhilosophy, 375);
 assert.strictEqual(web.coverage.registryGraph, 527);
 assert.strictEqual(web.coverage.runtime + web.coverage.operationalCapability + web.coverage.philosophyRead
   + web.coverage.capabilityGraph + web.coverage.workerRuntime + web.coverage.workerLifecycle
-  + web.coverage.interfaceRuntime + web.coverage.existingAdapter
+  + web.coverage.interfaceRuntime + web.coverage.centralChainRuntime + web.coverage.existingAdapter
   + web.coverage.documentationOnly, web.coverage.inventory);
 assert.ok(web.canonicalConcepts.length >= 400);
 assert.ok(web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length >= 375);
@@ -95,6 +95,19 @@ assert.deepStrictEqual(interfaceMission.resolvedConcepts.map((concept) => concep
 ]);
 assert.ok(interfaceMission.resolvedConcepts.every((concept) => concept.available && !concept.executable));
 assert.ok(interfaceMission.canonicalConcepts.filter((concept) => concept.source === 'interface_runtime').length >= 24);
+
+const chainMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
+  'differenciation', 'contrat', 'execution_isolee', 'action_bornee', 'transport_non_preuve'
+] });
+assert.deepStrictEqual(chainMission.resolvedConcepts.map((concept) => concept.source), [
+  'central_chain_runtime', 'central_chain_runtime', 'central_chain_runtime',
+  'central_chain_runtime', 'central_chain_runtime'
+]);
+assert.deepStrictEqual(chainMission.resolvedConcepts.map((concept) => concept.service), [
+  'agentIncarnationService', 'workerContractEnforcement', 'vfsSandbox',
+  'strategyExecutionAdapter', 'evidenceGate'
+]);
+assert.ok(chainMission.resolvedConcepts.every((concept) => concept.available && !concept.executable));
 
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
