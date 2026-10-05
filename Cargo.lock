@@ -1618,6 +1618,13 @@ dependencies = [
 [[package]]
 name = "genos-common"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "uuid",
+]
 
 [[package]]
 name = "genos-creativity"
@@ -1701,6 +1708,7 @@ dependencies = [
  "genos-worker",
  "rand 0.10.2",
  "reqwest",
+ "rmp-serde",
  "serde",
  "serde_json",
  "sha2",

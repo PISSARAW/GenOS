@@ -1,13 +1,14 @@
-const { open } = require('sqlite');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
+const db = new Database('genos.db');
 
-async function fix() {
-  const db = await open({ filename: './genos.db', driver: sqlite3.Database });
-  await db.run('UPDATE workspaces SET isolated = 1 WHERE id = "ws-test-identity"');
-  console.log('Updated workspace isolated to 1');
-  const ws = await db.get('SELECT * FROM workspaces WHERE id = "ws-test-identity"');
-  console.log('Workspace:', ws);
-  await db.close();
-}
+const projectId = 'onto_dynamic_duo';
 
-fix().catch(console.error);
+// Get the integration path for this project
+const integrationPath = 'D:\\DynamicDuo\\.genos\\ontogenesis\\ed3fe9a83acef778cb81f3b1\\integration';
+
+// Update the agent's workspace_id
+db.prepare(`
+  UPDATE agents SET workspace_id = ? WHERE id LIKE 'onto_run_%'
+`).run(integrationPath);
+
+console.log('Agent workspace_id updated');

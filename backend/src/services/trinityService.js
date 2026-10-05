@@ -23,7 +23,7 @@ function membersFor(profile, contract) {
 }
 
 const EXPLICIT_PATTERNS = [
-  /(?:^|\b)(?:launch|use|using|run|start|activate|invoke|deploy|want|with)\s+(?:the\s+)?trinity\b/i,
+  /(?:^|\b)(?:launch|using|run|start|activate|invoke|deploy|want|with)\s+(?:the\s+)?trinity\b/i,
   /(?:^|\b)(?:lance|lancer|utilise|utiliser|active|activer|invoque|invoquer|déploie|deploie|déployer|deployer|veux|souhaite)\s+(?:le\s+mode\s+)?trinity\b/i,
   /\b(?:trinity mode|mode trinity)\b/i, /\bavec\s+trinity\b/i, /^\s*trinity\b/i
 ];

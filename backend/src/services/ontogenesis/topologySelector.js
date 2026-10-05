@@ -22,7 +22,7 @@ const CATALOG = [
 ];
 
 const PREFERENCES = {
-  implement: ['a_team', 'trinity', 'rhizome', 'biome', 'metapopulation', 'syncytium', 'biocenose', 'holobionte'],
+  implement: ['trinity', 'a_team', 'rhizome', 'biome', 'metapopulation', 'syncytium', 'biocenose', 'holobionte'],
   verify: ['biocenose', 'trinity', 'metapopulation', 'a_team', 'syncytium', 'holobionte', 'rhizome', 'biome'],
   explore: ['rhizome', 'biome', 'metapopulation', 'trinity', 'a_team', 'biocenose', 'syncytium', 'holobionte'],
   decide: ['biocenose', 'trinity', 'holobionte', 'metapopulation', 'a_team', 'syncytium', 'rhizome', 'biome'],

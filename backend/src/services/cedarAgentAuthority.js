@@ -37,14 +37,15 @@ function entity(agent) {
 
 function authorize(input) {
   const { principal, resource, action, workspaceId } = input;
-  if (!principal?.id || !resource?.id || !workspaceId) return false;
+  if (!principal?.id || !resource?.id) return false;
+  const ctxWorkspaceId = workspaceId || '';
   const entities = [entity(principal)];
   if (principal.id !== resource.id) entities.push(entity(resource));
   const result = cedar.isAuthorized({
     principal: entities[0].uid,
     action: { type: 'GenOS::Action', id: action },
     resource: { type: 'GenOS::Agent', id: resource.id },
-    context: { workspaceId },
+    context: { workspaceId: ctxWorkspaceId },
     schema,
     policies: policies(source),
     entities
