@@ -7,8 +7,9 @@ const semanticValidation = require('../../biologicalSemanticValidationService');
 const scenarioOracle = require('./syncytiumScenarioOracleService');
 const budgetEvidence = require('./syncytiumBudgetEvidenceService');
 const { listPolicies } = require('../variants/variantPolicyRegistry');
+const missionCatalog = require('../../../../fixtures/syncytium/missionCatalog.json');
 
-const SUPPORTED_VARIANTS = new Set(listPolicies().map((policy) => policy.id));
+const SUPPORTED_VARIANTS = new Set([...listPolicies().map((policy) => policy.id), 'transversal']);
 const MAX_WORKERS_PER_SCENARIO = 5;
 const CAMPAIGN_VARIANT_COUNT = 2;
 
@@ -34,7 +35,12 @@ function validateManifest(manifest) {
   if (!Number.isSafeInteger(manifest.repetitions) || manifest.repetitions < 1) throw invalid('repetitions must be a positive integer.');
   if (!Array.isArray(manifest.expectedClaims) || manifest.expectedClaims.length === 0) throw invalid('expectedClaims must contain at least one oracle claim.');
   if (manifest.expectedClaims.some((claim) => !claim || !claim.subject || !claim.predicate || claim.value === undefined)) throw invalid('Each expected claim needs subject, predicate, and value.');
-  if (!SUPPORTED_VARIANTS.has(manifest.variantId)) throw invalid('variantId must select one of the 13 registered Syncytium policies.');
+  if (!SUPPORTED_VARIANTS.has(manifest.variantId)) throw invalid('variantId must select a registered Syncytium policy or the transversal protocol.');
+  if (manifest.caseId) {
+    const scenario = missionCatalog.cases.find((item) => item.id === manifest.caseId);
+    if (!scenario || scenario.variantId !== manifest.variantId
+      || scenario.mission !== manifest.mission) throw invalid('caseId, variantId and mission must match the versioned catalog.');
+  }
   if (manifest.variantId === 'humanAi' && !manifest.configuration?.nuclei?.some((nucleus) => nucleus.kind === 'human')) {
     throw invalid('Human-AI campaigns require a configured human nucleus.');
   }
@@ -94,7 +100,8 @@ async function executeRun({ manifest, db, variant, repetition }) {
     && validation.status === 'complete'
     && quality.value === 1 && (variant.name !== 'syncytium' || oracle.pass);
   return {
-    variant: variant.name, task: manifest.mission, repetition: repetition + 1,
+    variant: variant.name, caseId: manifest.caseId || null,
+    task: manifest.mission, repetition: repetition + 1,
     budget: manifest.budget, workerCount: members.length, validation,
     quality, oracle, observedBudget, counts, executionValid, complete,
     failures: collectFailures({ output, members, validation: runtimeValidation || validation,
@@ -117,11 +124,13 @@ function collectFailures(input) {
 
 function launchScenario({ manifest, variant }) {
   const root = path.resolve(__dirname, '../../../../../');
+  const transversal = manifest.variantId === 'transversal';
   const request = {
     action: 'dispatch_biological', mode: variant.mode, mission: manifest.mission,
     executionBudget: manifest.budget, timeoutMs: manifest.timeoutMs,
-    variant_id: manifest.variantId, worker_assignments: manifest.workerAssignments,
-    configuration: { ...(manifest.configuration || {}), useVariantRuntime: true },
+    variant_id: transversal ? undefined : manifest.variantId,
+    worker_assignments: manifest.workerAssignments,
+    configuration: { ...(manifest.configuration || {}), useVariantRuntime: !transversal },
     sessionOptions: manifest.sessionOptions
   };
   const perWorkerTimeout = manifest.timeoutMs || 600000;
@@ -191,7 +200,8 @@ function reportCampaign(manifest, runs) {
     && aggregateUsage.tokens <= manifest.campaignBudget.tokens
     && aggregateUsage.costUsd <= manifest.campaignBudget.costUsd;
   return {
-    contract: 'GenOSBiologicalBenchmark/v1', mission: manifest.mission,
+    contract: 'GenOSBiologicalBenchmark/v1', caseId: manifest.caseId || null,
+    mission: manifest.mission,
     campaignBudget: manifest.campaignBudget, aggregateUsage, campaignBudgetVerified,
     repetitions: manifest.repetitions, equalBudget: comparison.equalBudget,
     sameWorkerCount, comparable: comparison.equalBudget && sameWorkerCount

@@ -145,6 +145,8 @@ Le runner `biologicalBenchmarkRunnerService` accepte une enveloppe équivalente 
 
 Les valeurs du JSON ne sont qu’un exemple de forme : les chemins, identifiants et codes de l'oracle doivent correspondre à un cas réel. `budget` définit le plafond par worker ; `campaignBudget` doit couvrir le maximum demandé pour les deux topologies et toutes les répétitions. Les deux plafonds monétaires sont obligatoires avant l’envoi aux modèles.
 
+Pour la matrice complète, `genos-biological-benchmark.cjs` accepte aussi un objet `{ "cases": [53 manifestes], "matrixBudget": { "tokens": ..., "costUsd": ... }, "maxRuntimeMs": ... }`. Chaque manifeste porte `caseId` et recopie exactement le `variantId` et la `mission` du catalogue. Le cas `syncytium-transversal` utilise `variantId: "transversal"` et la route Syncytium générique. Le contrôle préalable refuse les cas absents, dupliqués, sans assertions indépendantes ou dont les plafonds cumulés dépassent `matrixBudget` ; aucun worker n'est lancé avant ce contrôle. Le verdict matriciel reste faux si un cas n'est pas exécuté, si la comparaison est non vérifiée ou si une exécution Syncytium n'a pas passé son oracle.
+
 ```mermaid
 sequenceDiagram
     participant H as Harnais / manifeste
