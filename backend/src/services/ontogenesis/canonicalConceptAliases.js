@@ -117,6 +117,7 @@ const CAPABILITY_ALIASES = Object.freeze({
   , famille_organisationnelle: 'SWARM_METRICS', mode_adaptatif: 'STRATEGY_ADAPTATION'
   , mode_creatif: 'STRATEGY_ADAPTATION', role_producteur: 'PROCEDURAL_GUIDANCE'
   , role_verificateur: 'EVIDENCE_BARRIER', role_synthetiseur: 'PROCEDURAL_GUIDANCE'
+  , hallucination: 'HALLUCINATION_MONITORING', couverture_temporelle: 'OBSERVABILITY'
   , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
   , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
   , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
@@ -262,7 +263,7 @@ const INTERFACE_REFERENCES = Object.freeze({
 });
 
 const CENTRAL_CHAIN_REFERENCES = Object.freeze({
-  differenciation: 'agentIncarnationService', contrat: 'workerContractEnforcement',
+  lease: 'claimService', differenciation: 'agentIncarnationService', contrat: 'workerContractEnforcement',
   execution_isolee: 'vfsSandbox', observation: 'observationService', action_bornee: 'strategyExecutionAdapter',
   recus: 'agentEvidenceService', preuve: 'evidenceGate', decision: 'decisionObservabilityService',
   promotion: 'promotionGate', rejet: 'evidenceGate', recuperation: 'checkpointRegeneration',

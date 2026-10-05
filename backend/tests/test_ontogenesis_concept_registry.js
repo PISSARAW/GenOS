@@ -309,6 +309,14 @@ assert.ok(workerFamiliesMission.resolvedConcepts.every((concept) =>
   concept.source === 'capability' || concept.source === 'runtime'));
 assert.ok(workerFamiliesMission.resolvedConcepts.every((concept) => concept.id));
 
+const directLinksMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'lease', 'hallucination', 'couverture_temporelle'
+] });
+assert.deepStrictEqual(directLinksMission.resolvedConcepts.map((concept) => concept.source), [
+  'central_chain_runtime', 'capability', 'capability'
+]);
+assert.equal(directLinksMission.resolvedConcepts[0].service, 'claimService');
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
