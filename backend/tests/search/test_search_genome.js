@@ -44,7 +44,8 @@ const { createRandomGenome, mutateGenome, crossoverGenome, HYPOTHESIS_FAMILIES, 
   const originalStrategy = g.strategy
   const mutated = mutateGenome(g, 'structural')
   assert.equal(g.strategy, originalStrategy, 'original not modified')
-  assert.ok(mutated.id === g.id, 'same genome ID preserved')
+  assert.notEqual(mutated.id, g.id, 'mutated genome has a distinct ID')
+  assert.deepEqual(mutated.parentIds, [g.id], 'parent identity retained')
 }
 
 // Les mutations ciblent des dimensions différentes

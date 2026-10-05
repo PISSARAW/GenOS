@@ -9,7 +9,8 @@ const { createRandomGenome } = require('../../src/services/search/searchGenomeSe
     environment: 'test-env',
     generations: 5,
     successRate: 0.8,
-    reproducible: true
+    reproducible: true,
+    evidenceRefs: ['run-1', 'run-2']
   });
   assert.ok(plasmid.id, 'plasmid has ID');
   assert.ok(plasmid.trait, 'plasmid has trait');
@@ -19,7 +20,8 @@ const { createRandomGenome } = require('../../src/services/search/searchGenomeSe
 {
   const culture = new SearchCultureService();
   const genome = createRandomGenome();
-  const plasmid = culture.compilePlasmid(genome, { environment: 'test-env', generations: 5, successRate: 0.8, reproducible: true });
+  const plasmid = culture.compilePlasmid(genome, { environment: 'test-env', generations: 5,
+    successRate: 0.8, reproducible: true, evidenceRefs: ['run-1', 'run-2'] });
   const tx = culture.transmit(plasmid.id, 'agent-2');
   assert.ok(tx, 'transmission recorded');
   assert.equal(plasmid.transmissions, 1, 'transmission count incremented');

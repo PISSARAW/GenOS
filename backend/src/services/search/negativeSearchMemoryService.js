@@ -13,6 +13,8 @@ class NegativeSearchMemory {
   }
 
   recordFailure(agentId, hypothesis, evidence, environment) {
+    const existing = this.getActiveTrails(agentId).find(t => t.hypothesisId === hypothesis.id);
+    if (existing) return existing;
     const id = `neg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const trail = {
       id,
@@ -34,12 +36,12 @@ class NegativeSearchMemory {
   }
 
   calculateConfidence(evidence) {
-    return Math.min(1, (evidence.strength || 0.5) * (evidence.reliability || 0.7));
+    return Math.max(0, Math.min(1, (evidence.strength ?? 0.5) * (evidence.reliability ?? 0.7)));
   }
 
   calculateTTL(evidence) {
     const baseTTL = 3600000; // 1 hour
-    return baseTTL * (evidence.strength || 0.5);
+    return baseTTL * Math.max(0, evidence.strength ?? 0.5);
   }
 
   getActiveTrails(agentId) {
@@ -55,7 +57,7 @@ class NegativeSearchMemory {
   evaporate() {
     const now = Date.now();
     for (const [id, trail] of this.trails) {
-      if (now > trail.createdAt + trail.ttl) {
+      if (now >= trail.createdAt + trail.ttl) {
         this.trails.delete(id);
       }
     }

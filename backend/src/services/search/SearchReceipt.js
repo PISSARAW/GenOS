@@ -1,6 +1,6 @@
 class SearchReceipt {
   constructor(process, action, params = {}) {
-    this.id = `receipt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    this.id = `receipt_${require('crypto').randomUUID()}`
     this.process = process
     this.action = action
     this.params = params
@@ -19,6 +19,13 @@ class SearchReceipt {
   setFailure(error) {
     this.status = 'failure'
     this.error = error
+    this.result = { error }
+    return this
+  }
+
+  setSkipped(reason) {
+    this.status = 'skipped'
+    this.result = { reason, changed: false }
     return this
   }
 

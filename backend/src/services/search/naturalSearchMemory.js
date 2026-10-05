@@ -1,37 +1,41 @@
-function isEvolutionSelection(selection) {
-  return ['EVOLUTION', 'CLONAL_AFFINITY_SEARCH'].includes(selection.process);
+function transmitEvolvedPlasmid(context) {
+  const { searchState, searchCtx, agentId } = context;
+  const outcome = searchCtx.validatedSearchOutcomes;
+  if (!outcome || !outcome.targetAgentId || outcome.targetAgentId === agentId) return;
+  const modules = searchState.actuator.modules;
+  const genome = modules.getBestGenome();
+  const validation = outcome.cultureValidation;
+  if (!validation || validation.genomeId !== genome?.id) return;
+  const refs = observedReferences(searchState.ledger, genome.hypothesisFamily);
+  if (!Array.isArray(validation.evidenceRefs) || !validation.evidenceRefs.every(ref => refs.has(ref))) return;
+  const plasmid = modules.compilePlasmid(genome, validation);
+  if (plasmid) modules.cultureService.transmit(plasmid.id, outcome.targetAgentId);
 }
 
-function transmitEvolvedPlasmid(context) {
-  const { searchState, selection, receipt, searchCtx, agentId } = context;
-  if (!isEvolutionSelection(selection) || !receipt.result) return;
-  const genome = searchState.actuator.modules.getBestGenome?.();
-  if (!genome) return;
-  const plasmid = searchState.actuator.modules.compilePlasmid(genome, {
-    environment: { searchYield: searchCtx.searchYield || 0, falsifiedHypotheses: searchCtx.falsifiedHypotheses || 0 },
-    generations: receipt.result.evolutionLog?.length || 0,
-    successRate: 0.7,
-    reproducible: true
-  });
-  if (plasmid) searchState.actuator.modules.cultureService.transmit(plasmid.id, agentId);
+function observedReferences(ledger, family) {
+  const supported = [...ledger.hypotheses.values()].filter(h => h.status === 'supported' && h.statement.includes(family));
+  const proofs = supported.flatMap(h => ledger.proofsByIds(h.proofIds));
+  return new Set(proofs.filter(p => p.direction === 'for' && ['observed', 'verified'].includes(p.provenance)).map(p => p.evidenceRef));
 }
 
 function recordFalsifiedHypotheses(context) {
-  const { searchState, agentId, eventType } = context;
-  const hypotheses = searchState.ledger.hypothesesForAgent(agentId).filter(h => h.status === 'falsified');
-  for (const hypothesis of hypotheses) {
-    try {
-      searchState.actuator.modules.recordNegativeOutcome(agentId, hypothesis,
-        { ref: `falsified:${hypothesis.id}`, strength: 0.8, reliability: 0.9 },
-        { signature: eventType, conditions: [], scope: 'agent' });
-    } catch (_) {}
+  const { searchState, agentId, eventType, hypothesisId } = context;
+  const modules = searchState.actuator.modules;
+  modules.negativeMemory.evaporate();
+  if (eventType !== 'HYPOTHESIS_FALSIFIED') return;
+  for (const h of searchState.ledger.hypothesesForAgent(agentId)) {
+    if (h.id !== hypothesisId || h.status !== 'falsified') continue;
+    modules.recordNegativeOutcome(agentId, h,
+      { ref: `falsified:${h.id}`, strength: 0.8, reliability: 0.9 },
+      { signature: 'falsified', conditions: [], scope: 'agent' });
   }
 }
 
 function handlePostReceiptMemory(context) {
-  if (context.receipt?.status !== 'success') return;
-  try { transmitEvolvedPlasmid(context); } catch (_) {}
   recordFalsifiedHypotheses(context);
+  if (context.receipt?.status !== 'success') return;
+  if (!['EVOLUTION', 'CLONAL_AFFINITY_SEARCH'].includes(context.selection.process)) return;
+  transmitEvolvedPlasmid(context);
 }
 
 module.exports = { handlePostReceiptMemory };

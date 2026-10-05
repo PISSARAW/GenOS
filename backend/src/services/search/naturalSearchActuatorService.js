@@ -10,10 +10,11 @@ class NaturalSearchActuator {
     this.db = options.db || null;
     this.persistence = options.persistence || null;
     this.ledger = options.ledger || null;
-    this.searchGenome = options.searchGenome || { patches: new Map(), population: null, genome: null };
     this.maxReceipts = 50;
     this.receipts = [];
     this.modules = options.modules || new ActuatorModules({ ledger: this.ledger });
+    this.searchGenome = this.modules.searchGenome;
+    if (options.searchGenome?.genome) Object.assign(this.searchGenome, options.searchGenome);
   }
 
   async forage(context) {
@@ -31,7 +32,7 @@ class NaturalSearchActuator {
       const patch = this.modules.ensurePatch(agentId);
       const elapsedTimeSec = context.elapsedTimeSec || 10;
 
-      const infoGain = 0.05 + Math.random() * 0.1;
+      const infoGain = require('./naturalSearchEvidence').finiteGain(context.infoGain);
       this.modules.recordForageStep(patch.id, infoGain, 1);
 
       if (this.modules.shouldDepartPatch(patch.id, elapsedTimeSec)) {
@@ -40,13 +41,10 @@ class NaturalSearchActuator {
           departed: true,
           patchId: patch.id,
           visits: patch.visits,
+          infoGain,
           reason: 'marginal yield below threshold'
         };
-        const updatedPatch = this.modules.patchService.patches.get(patch.id);
-        if (updatedPatch) {
-          updatedPatch.history = [];
-          updatedPatch.visits = 0;
-        }
+        patch.departed = true;
       } else {
         receipt.action = 'PATCH_CONTINUE';
         receipt.result = {
@@ -67,7 +65,7 @@ class NaturalSearchActuator {
       try {
         await this.persistence.savePatchVisit(context.agentId, receipt.result.patchId,
           receipt.result.infoGain || 0, receipt.result.departed || false);
-      } catch (_) {}
+      } catch (err) { receipt.status = 'failure'; receipt.result.error = err.message; }
     }
     return receipt;
   }
@@ -92,13 +90,15 @@ class NaturalSearchActuator {
       const baseHypothesis = context.baseHypothesis || { id: 'base', statement: 'Hypothèse de base' };
       const variants = this.modules.createAffinityVariants(null, 4, 'minimal');
       const best = this.modules.selectAffinityVariant(variants, context.agentId);
+      if (!best) throw new Error('All affinity variants blocked by negative memory');
+      this.searchGenome.genome = best;
 
       receipt.result = {
         baseHypothesis: baseHypothesis.statement,
         variantsCreated: variants.length,
         variants: variants.map(v => ({ id: v.id, statement: v.statement || v.hypothesisFamily })),
         selectedVariant: best.id,
-        selectionScore: best.score || 0
+        selectionScore: best.score ?? null
       };
 
       if (this.ledger && best) {
@@ -119,19 +119,6 @@ class NaturalSearchActuator {
     }
 
     this.recordReceipt(receipt);
-    if (this.persistence && receipt.result) {
-      try {
-        await this.persistence.saveDecision(context.agentId, {
-          process: 'CLONAL_AFFINITY_SEARCH',
-          classification: 'CLONAL_AFFINITY',
-          pressure: 0.5,
-          searchYield: 0.1,
-          stepsSinceProgress: 0,
-          falsifiedHypotheses: 0,
-          diagnostics: { selectedVariant: receipt.result?.selectedVariant }
-        });
-      } catch (_) {}
-    }
     return receipt;
   }
 
@@ -165,7 +152,7 @@ class NaturalSearchActuator {
       try {
         await this.persistence.saveGenomeSnapshot(context.agentId, 'STRESS_HYPERMUTATION',
           this.searchGenome.genome, receipt.result.mutations);
-      } catch (_) {}
+      } catch (err) { receipt.status = 'failure'; receipt.result.error = err.message; }
     }
     return receipt;
   }
@@ -192,16 +179,19 @@ class NaturalSearchActuator {
         failedFamilies: context.failedFamilies || [],
         recommendedStrategies: context.recommendedStrategies || []
       };
+      const initialPopulation = this.modules.evolutionEngine.population.length;
       const evolutionResult = this.modules.evolveSearchPopulation(env);
 
       receipt.result = {
-        initialPopulation: context.population || 10,
-        generations: context.generations || 3,
+        initialPopulation,
+        generations: 1,
         evolvedPopulation: this.modules.evolutionEngine.population.length,
-        evolutionLog: evolutionResult,
+        evolutionLog: [evolutionResult],
+        fitnessBasis: env,
         bestGenome: this.modules.getBestGenome()
       };
       this.searchGenome.population = this.modules.evolutionEngine.population;
+      this.searchGenome.genome = this.modules.getBestGenome();
     } catch (err) {
       receipt.status = 'failure';
       receipt.result = { error: err.message };
@@ -212,7 +202,7 @@ class NaturalSearchActuator {
       try {
         await this.persistence.saveGenomeSnapshot(context.agentId, 'EVOLUTION',
           { population: this.searchGenome.population }, receipt.result.evolutionLog);
-      } catch (_) {}
+      } catch (err) { receipt.status = 'failure'; receipt.result.error = err.message; }
     }
     return receipt;
   }
@@ -232,10 +222,11 @@ class NaturalSearchActuator {
       const events = context.events || [];
       const ledger = this.ledger;
       const replayResult = await this.modules.replayCausalEvents(context.agentId, failedHypothesis, events, ledger);
+      receipt.status = replayResult.receipt.status;
 
       receipt.action = replayResult.receipt?.action || 'REPLAY_INITIATED';
       receipt.result = {
-        restorePoint: replayResult.receipt?.result?.restorePoint || context.lastKnownGood || 'last_checkpoint',
+        restorePoint: replayResult.receipt?.result?.restorePoint ?? null,
         stateRestored: replayResult.receipt?.result?.stateRestored || false,
         checkpointIndex: replayResult.receipt?.result?.checkpointIndex ?? -1,
         checkpointCount: replayResult.receipt?.result?.checkpointCount ?? 0
@@ -246,11 +237,11 @@ class NaturalSearchActuator {
     }
 
     this.recordReceipt(receipt);
-    if (this.persistence && receipt.result) {
+    if (this.persistence && receipt.status === 'success' && receipt.result.restorePoint) {
       try {
         await this.persistence.saveReplayLog(context.agentId, receipt.result.restorePoint,
           receipt.result.stateRestored, null);
-      } catch (_) {}
+      } catch (err) { receipt.status = 'failure'; receipt.result.error = err.message; }
     }
     return receipt;
   }
@@ -282,6 +273,7 @@ class NaturalSearchActuator {
   }
 
   recordReceipt(receipt) {
+    receipt.id = `receipt_${require('crypto').randomUUID()}`;
     this.receipts.push(receipt);
     if (this.receipts.length > this.maxReceipts) this.receipts.shift();
   }

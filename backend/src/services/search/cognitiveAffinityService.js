@@ -46,7 +46,7 @@ function selectBestVariant(variants, ledger, agentId) {
     }
   }
 
-  return best;
+  return best ? { ...best, score: bestScore } : null;
 }
 
 module.exports = { createClones, createVariants, selectBestVariant }

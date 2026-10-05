@@ -25,6 +25,9 @@ const PHASE_ENTER = {
   [SEARCH_PROCESS.SPECIATION]: 0.91
 };
 const PHASE_EXIT = {
+  [SEARCH_PROCESS.FORAGE]: 1.01,
+  [SEARCH_PROCESS.REPLAY_CAUSAL]: 0.40,
+  [SEARCH_PROCESS.EVOLUTION]: 1.01,
   [SEARCH_PROCESS.PLASTICITE]: 0.25,
   [SEARCH_PROCESS.CLONAL_AFFINITY_SEARCH]: 0.40,
   [SEARCH_PROCESS.STRESS_HYPERMUTATION]: 0.50,
@@ -39,6 +42,7 @@ class NaturalSearchController {
     this.lastProcess = null;
     this.stepsInCurrentProcess = 0;
     this.stepsSinceChange = 0;
+    this.lastEvolutionLineageCount = 0;
     this.ledger = options.ledger || null;
   }
 
@@ -72,7 +76,10 @@ class NaturalSearchController {
       (ctx.lineagePressure.falsifiedCount >= 3 || ctx.lineagePressure.supportedCount >= 3);
 
     let desired;
-    if (hasSignificantLineagePressure) {
+    const lineageCount = (ctx.lineagePressure?.falsifiedCount || 0) + (ctx.lineagePressure?.supportedCount || 0);
+    if (p >= PHASE_ENTER[SEARCH_PROCESS.SPECIATION] && ctx.falsifiedHypotheses >= 3) {
+      desired = SEARCH_PROCESS.SPECIATION;
+    } else if (hasSignificantLineagePressure && lineageCount > this.lastEvolutionLineageCount) {
       desired = SEARCH_PROCESS.EVOLUTION;
     } else if (p < PHASE_ENTER[SEARCH_PROCESS.PLASTICITE]) {
       if (ctx.searchYield !== undefined && ctx.searchYield < 0.05) {
@@ -98,7 +105,8 @@ class NaturalSearchController {
     const currentLevel = PROCESS_LEVEL[this.lastProcess] ?? -1;
     const desiredLevel = PROCESS_LEVEL[desired] ?? -1;
 
-    if (this.lastProcess && desiredLevel < currentLevel) {
+    if (this.lastProcess && (desiredLevel < currentLevel ||
+      (desiredLevel === currentLevel && desired !== this.lastProcess))) {
       // Downgrade — vérifier seuil de sortie + dwell
       const exitThresh = PHASE_EXIT[this.lastProcess];
       if (exitThresh !== undefined && p < exitThresh && this.stepsSinceChange >= MIN_DWELL_STEPS) {
@@ -127,6 +135,7 @@ class NaturalSearchController {
       this.stepsInCurrentProcess++;
     }
     this.lastProcess = process;
+    if (process === SEARCH_PROCESS.EVOLUTION) this.lastEvolutionLineageCount = lineageCount;
 
     return {
       process,
