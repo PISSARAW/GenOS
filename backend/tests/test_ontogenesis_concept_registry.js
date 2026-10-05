@@ -95,6 +95,15 @@ assert.deepStrictEqual(foundationsMission.resolvedConcepts.map((concept) => conc
   ['runtime', 'runtime', 'runtime', 'runtime', 'capability']);
 assert.ok(foundationsMission.resolvedConcepts.slice(0, 4).every((concept) => concept.available));
 
+const orchestrationMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'workflow', 'retry', 'checkpoint', 'rejeu_causal', 'bisection_causale', 'escalade'
+] });
+assert.deepStrictEqual(orchestrationMission.resolvedConcepts.map((concept) => concept.id), [
+  'plan_execute_verify', 'circuit_breaker_concept', 'checkpoint_regeneration_concept',
+  'deterministic_replay', 'causal_bisection', 'entropy_model_escalation_concept'
+]);
+assert.ok(orchestrationMission.resolvedConcepts.every((concept) => concept.source === 'runtime'));
+
 const sensingMission = registry.resolveMission({ topology: 'biome', requestedConcepts: ['foveation', 'echolocation', 'olfaction'] });
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.source), ['runtime', 'runtime', 'runtime']);
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.id),
