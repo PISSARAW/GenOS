@@ -173,6 +173,19 @@ assert.deepStrictEqual(coordinationMission.resolvedConcepts.map((concept) => con
   'GOVERNANCE_APPROVAL', 'EVIDENCE_BARRIER', 'EVIDENCE_BARRIER'
 ]);
 
+const coreFoundationsMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'runtime_agents_reproductible_supervise', 'etat_versionne',
+  'branches_forks_snapshots_diffs_replay', 'succes_technique_vs_verite',
+  'leases_outils', 'budgets', 'promotion_rejet_quarantaine_escalade', 'concept_metaphore_capacite'
+] });
+assert.deepStrictEqual(coreFoundationsMission.resolvedConcepts.map((concept) => concept.source), [
+  'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'capability', 'runtime'
+]);
+assert.deepStrictEqual(coreFoundationsMission.resolvedConcepts.map((concept) => concept.id), [
+  'paired_functional_reproducibility', 'provenance_integrity', 'deterministic_replay', 'evidence_first',
+  'execution_guardrails', 'execution_guardrails', 'PROMOTION_GATE', 'evidence_first'
+]);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

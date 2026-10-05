@@ -68,6 +68,8 @@ const CAPABILITY_ALIASES = Object.freeze({
   , calibration_faux_positifs_negatifs: 'EPISTEMICS_BRIER'
   , revue_multi_fournisseur: 'STRATEGY_PORTFOLIO', feedback_immunitaire: 'IMMUNE_SYSTEM'
   , rearbitrage_promotion: 'PROMOTION_GATE'
+  , leases_outils: 'execution_guardrails', budgets: 'execution_guardrails'
+  , promotion_rejet_quarantaine_escalade: 'PROMOTION_GATE'
   , intelligence_nuee: 'SWARM_METRICS', pheromones: 'STIGMERGY'
   , signaux: 'SIGNALING_BUS', signal_plane: 'SIGNALING_BUS', signal_plane_zero_text: 'SIGNALING_BUS'
   , recepteurs: 'LIGAND_RECEPTOR', boite_reception: 'LIGAND_RECEPTOR', ack: 'SIGNALING_BUS'
@@ -131,7 +133,11 @@ const RUNTIME_ALIASES = Object.freeze({
   signature: 'provenance_integrity', prov: 'provenance_integrity', sign: 'provenance_integrity',
   migration_json_legacy: 'provenance_integrity', compatibilite_versions: 'provenance_integrity',
   provenance_genomique: 'provenance_integrity', apoptose_controlee: 'apoptosis_concept'
-  , apoptose_epistemique: 'apoptosis_concept'
+  , apoptose_epistemique: 'apoptosis_concept',
+  runtime_agents_reproductible_supervise: 'paired_functional_reproducibility',
+  etat_versionne: 'provenance_integrity', branches_forks_snapshots_diffs_replay: 'deterministic_replay',
+  succes_technique_vs_verite: 'evidence_first', concept_metaphore_capacite: 'evidence_first',
+  leases_outils: 'execution_guardrails', budgets: 'execution_guardrails'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
