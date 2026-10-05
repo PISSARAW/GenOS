@@ -258,6 +258,14 @@ const researchMission = registry.resolveMission({ topology: 'trinity', requested
 assert.ok(researchMission.resolvedConcepts.every((concept) => concept.source === 'runtime' || concept.source === 'capability'));
 assert.ok(researchMission.resolvedConcepts.every((concept) => concept.available === true || concept.available === false));
 
+const sensingIncarnationMission = registry.resolveMission({ topology: 'biome', requestedConcepts: [
+  'vision_polarisee', 'sensorium_incarn'
+] });
+assert.deepStrictEqual(sensingIncarnationMission.resolvedConcepts.map((concept) => concept.source),
+  ['capability', 'capability']);
+assert.deepStrictEqual(sensingIncarnationMission.resolvedConcepts.map((concept) => concept.id),
+  ['FOVEAL_PERCEPTION', 'FOVEAL_PERCEPTION']);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

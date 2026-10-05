@@ -87,6 +87,7 @@ const CAPABILITY_ALIASES = Object.freeze({
   , creativite_emergente: 'STRATEGY_ADAPTATION', nouveaute: 'STRATEGY_ADAPTATION'
   , divergence: 'STRATEGY_PORTFOLIO', candidat_creatif: 'STRATEGY_PORTFOLIO'
   , recherche_adaptative: 'STRATEGY_ADAPTATION', arene_strategies: 'ARENA_COMPETITION'
+  , vision_polarisee: 'FOVEAL_PERCEPTION', sensorium_incarn: 'FOVEAL_PERCEPTION'
   , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
   , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
   , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
@@ -196,7 +197,8 @@ const RUNTIME_ALIASES = Object.freeze({
   simulation_prospective: 'simulated_annealing_concept', meristeme_epistemique: 'niche_exploration_concept',
   experience_discriminante: 'factorial_experiment_concept', spirale_deblocage: 'retroactive_exploration',
   chronotaxie_aperiodique: 'niche_exploration_concept', observation_dephasee: 'niche_exploration_concept',
-  conservation_contre_exemples: 'falsifiable_hypothesis_tree'
+  conservation_contre_exemples: 'falsifiable_hypothesis_tree',
+  vision_polarisee: 'FOVEAL_PERCEPTION', sensorium_incarn: 'FOVEAL_PERCEPTION'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
