@@ -112,6 +112,7 @@ const CAPABILITY_ALIASES = Object.freeze({
   , agent_cellule_specialisee: 'LIGAND_RECEPTOR', genome: 'GENOME_EPIGENETICS'
   , niche: 'STRATEGY_ADAPTATION', metabolisme_computationnel: 'TOKEN_ECONOMY'
   , sensorium: 'FOVEAL_PERCEPTION', symbiose: 'IMMUNE_SYSTEM'
+  , electrocytes: 'SIGNALING_BUS'
   , famille_sensorielle: 'FOVEAL_PERCEPTION', famille_execution: 'PROCEDURAL_GUIDANCE'
   , famille_epistemique: 'EVIDENCE_BARRIER', famille_reparation_adaptative: 'RESILIENCE_RECOVERY'
   , famille_organisationnelle: 'SWARM_METRICS', mode_adaptatif: 'STRATEGY_ADAPTATION'
@@ -133,6 +134,7 @@ const CAPABILITY_ALIASES = Object.freeze({
   , coherence_invariants: 'INVARIANT_GATES', niches: 'STRATEGY_ADAPTATION'
   , biofilm: 'STIGMERGY', ramification_decentralisee: 'STRATEGY_PORTFOLIO'
   , populations_semi_independantes: 'SWARM_METRICS', recuperation_lignage: 'RESILIENCE_RECOVERY'
+  , git_agentique: 'PROVENANCE', agent_git: 'PROVENANCE'
   , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
   , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
   , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
@@ -265,6 +267,13 @@ const RUNTIME_ALIASES = Object.freeze({
   , role_adversaire: 'genos_adversarial_review', role_experimentateur: 'factorial_experiment_concept'
   , pression: 'genos_parasitic_pressure', gating_decisionnel: 'execution_guardrails'
   , contraintes_physiques_calcul: 'execution_guardrails', trois_mondes: 'n_way_counterfactual_fork'
+  , worker: 'genos_delegate_worker', sous_orchestrateur: 'genos_orchestrate'
+  , fan_out: 'genos_delegate_worker', contrat_execution: 'execution_guardrails'
+  , contrat_mission: 'plan_execute_verify'
+  , electroreception: 'echolocation_probe', magnetoreception: 'landmark_navigation'
+  , cellules_balistiques: 'foveal_scan_concept'
+  , cellules_osmotiques: 'energy_foraging_concept', organismes_acaryotes: 'genos_optimal_foraging'
+  , primitives_controle_animal: 'execution_guardrails'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({

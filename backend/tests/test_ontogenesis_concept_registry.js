@@ -345,6 +345,15 @@ const philosophyReadMission = registry.resolveMission({ requestedConcepts: [
 assert.ok(philosophyReadMission.resolvedConcepts.every((concept) => concept.source === 'philosophy'));
 assert.ok(philosophyReadMission.resolvedConcepts.every((concept) => concept.access === 'read'));
 
+const orchestrationSensingMission = registry.resolveMission({ topology: 'biome', requestedConcepts: [
+  'worker', 'sous_orchestrateur', 'fan_out', 'contrat_execution', 'contrat_mission',
+  'git_agentique', 'agent_git', 'electroreception', 'magnetoreception', 'cellules_balistiques',
+  'electrocytes', 'cellules_osmotiques', 'organismes_acaryotes', 'primitives_controle_animal'
+] });
+assert.ok(orchestrationSensingMission.resolvedConcepts.every((concept) =>
+  concept.source === 'runtime' || concept.source === 'capability'));
+assert.ok(orchestrationSensingMission.resolvedConcepts.every((concept) => concept.id));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
