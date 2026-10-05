@@ -94,6 +94,12 @@ function provisionalContract(concept) {
     kind: 'ImplementationContract',
     id: concept.id,
     type: contractType(concept),
+    category: categoryForConcept(concept),
+    family: concept.family || concept.domain,
+    traditions: [concept.school].filter(Boolean),
+    distinctions: concept.aliases || [],
+    confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
+    sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
     interpretation,
     targets: fallbackTargets(concept),
     invariant: 'Ne pas attribuer au concept ' + concept.id + ' une autorité runtime sans mécanisme et preuve indépendants.',
@@ -118,10 +124,24 @@ function compileConcept(concept) {
   if (!definition) return provisionalContract(concept);
   return {
     ...definition,
+    category: categoryForConcept(concept),
+    family: concept.family || concept.domain,
+    traditions: [concept.school].filter(Boolean),
+    distinctions: concept.aliases || [],
+    confidence: typeof concept.historicalConfidence === 'number' ? concept.historicalConfidence : null,
+    sourceRefs: concept.provenance ? [concept.provenance.sourceDocument || concept.id] : [concept.id],
     source: concept.provenance || null,
     conceptStatus: concept.status,
     serviceMaturity: concept.serviceMaturity || null,
   };
+}
+
+function categoryForConcept(concept) {
+  if (['ethics', 'politics', 'law'].includes(concept.domain) || concept.role === 'norm') return 'constraint';
+  if (['process', 'causality', 'computation'].includes(concept.domain)) return 'transformation';
+  if (['social-cognition', 'identity'].includes(concept.domain)) return 'organization';
+  if (['epistemics', 'prediction', 'wellbeing'].includes(concept.domain)) return 'evaluation';
+  return 'state';
 }
 
 function validateContract(contractValue) {
@@ -133,6 +153,9 @@ function validateContract(contractValue) {
   if (contractValue.kind !== 'ImplementationContract') errors.push('kind must be ImplementationContract');
   for (const field of ['id', 'type', 'interpretation', 'invariant', 'mechanism', 'responsibility', 'status']) {
     if (typeof contractValue[field] !== 'string' || !contractValue[field].trim()) errors.push(`${field} must be a non-empty string`);
+  }
+  if (!['state', 'transformation', 'constraint', 'organization', 'evaluation'].includes(contractValue.category)) {
+    errors.push('category is invalid');
   }
   for (const field of ['targets', 'observables', 'falsificationTests', 'limits', 'obligations', 'prohibitions', 'violationCriteria']) {
     if (!Array.isArray(contractValue[field]) || contractValue[field].length === 0) errors.push(`${field} must be a non-empty array`);
@@ -147,7 +170,9 @@ function compileRegistry(concepts) {
   const contracts = concepts.map(compileConcept).filter(Boolean);
   const errors = contracts.flatMap((item) => validateContract(item).map((error) => item.id + ': ' + error));
   const pilotCount = contracts.filter((item) => item.compilationState !== 'pending-mechanism').length;
-  return { valid: errors.length === 0, contracts, errors, pilotCount, pendingCount: contracts.length - pilotCount };
+  const categoryCounts = Object.fromEntries([...new Set(contracts.map((item) => item.category))]
+    .map((category) => [category, contracts.filter((item) => item.category === category).length]));
+  return { valid: errors.length === 0, contracts, errors, pilotCount, pendingCount: contracts.length - pilotCount, categoryCounts };
 }
 
 module.exports = { PILOT_CONTRACTS, compileConcept, compileRegistry, validateContract };

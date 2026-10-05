@@ -59,10 +59,14 @@ contractHealth.then((result) => {
   assert.equal(result.compiledConcepts, 375);
   assert.equal(result.pilotCount, 21);
   assert.equal(result.pendingCount, 354);
+  assert.equal(Object.values(result.categoryCounts).reduce((sum, count) => sum + count, 0), 375);
   const contract = router.getImplementationContract('epistemology.certainty-doubt');
   assert.ok(contract);
   assert.equal(contract.apiVersion, 'genos.contract/v1');
   assert.equal(contract.kind, 'ImplementationContract');
+  assert.ok(['state', 'transformation', 'constraint', 'organization', 'evaluation'].includes(contract.category));
+  assert.ok(Array.isArray(contract.traditions));
+  assert.ok(Array.isArray(contract.sourceRefs));
   assert.equal(validateContract(contract).length, 0);
   assert.ok(validateContract({ ...contract, kind: 'InvalidContract' }).some((error) => error.includes('kind')));
   assert.equal(router.getImplementationContract('core.agent').maturity, 'defined');
