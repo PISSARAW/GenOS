@@ -42,8 +42,10 @@ function fileProfile(root) {
 }
 
 function classifyMission(objective, profile) {
+  const objectiveText = normalizeText(objective);
   const text = normalizeText(`${objective} ${profile.stack.join(' ')}`);
   if (/répar|repar|fix|bug|regression|corrig/.test(text)) return 'repair';
+  if (/creer|construire|developper|implementer|site|application|react|web/.test(objectiveText)) return 'implement';
   if (/audit|verif|test|preuve|controle/.test(text)) return 'verify';
   if (/explor|cartograph|comprendre|inventaire/.test(text)) return 'explore';
   if (/décid|decid|arbitr|choix|stratég|strateg/.test(text)) return 'decide';

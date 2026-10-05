@@ -69,7 +69,8 @@ function requestFor(input) {
     timeoutMs: Math.floor(input.budgets.seconds * 600),
     executionBudget: { tokens: input.budgets.tokens, costUsd: input.budgets.usd, latencyMs: Math.floor(input.budgets.seconds * 600) },
     allowed_commands: checks.map((check) => [check.program, ...check.args].join(' ')),
-    executor: input.config.executor, provider: input.config.provider, modelId: input.config.modelId
+    executor: input.config.executor, provider: input.config.provider, modelId: input.config.modelId,
+    allow_file_edits: input.config.authority?.allowEdit === true
   };
 }
 
