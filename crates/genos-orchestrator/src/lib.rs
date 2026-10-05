@@ -70,6 +70,8 @@ pub mod physical_coverage;
 pub mod physical_git;
 pub mod physical_learning;
 pub mod physical_store;
+pub mod physical_policy;
+pub mod physical_search;
 pub mod physical_telemetry;
 pub mod physics;
 pub mod planner;

@@ -1,199 +1,189 @@
-//! Mesures matérielles de l'exécution, facultatives lorsque la source manque.
+//! Mesures sourcées et modulation bornée de la politique.
 use crate::director::{Decision, Director};
+pub use crate::physical_learning::MissionPhysicsProfile;
+use crate::physical_measurements::*;
 use crate::physics::PhysicalState;
 use crate::planner::{Goal, WorldState};
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct MissionPhysicsProfile {
-    pub episodes: u64,
-    pub successes: u64,
-    pub friction_scale: f64,
-}
-
-impl Default for MissionPhysicsProfile {
-    fn default() -> Self {
-        Self { episodes: 0, successes: 0, friction_scale: 1.0 }
-    }
-}
-
-impl MissionPhysicsProfile {
-    pub fn record_episode(&mut self, success: bool) {
-        self.episodes = self.episodes.saturating_add(1);
-        self.successes = self.successes.saturating_add(if success { 1 } else { 0 });
-        if self.episodes >= 3 {
-            let rate = self.successes as f64 / self.episodes as f64;
-            self.friction_scale = (1.1 - rate * 0.2).clamp(0.8, 1.2);
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct PhysicalTelemetry {
     pub workspace_files: Option<usize>,
-    /// Octets du vecteur de contexte réellement transmis au directeur.
     pub context_bytes: Option<usize>,
-    /// Dépendances directes déclarées dans les manifests reconnus.
     pub declared_dependencies: Option<usize>,
-    /// Fraction de lignes couvertes lue depuis `lcov.info` (si présent).
     pub line_coverage: Option<f64>,
     pub git_dirty_files: Option<usize>,
     pub git_branches: Option<usize>,
     pub ci_budget_ratio: Option<f64>,
+    pub workspace: WorkspaceMeasurements,
+    pub context: Measurement<ContextUsage>,
+    pub evidence_debt: Measurement<EvidenceDebt>,
 }
-
 impl PhysicalTelemetry {
     pub fn sample() -> Self {
         Self::sample_with_context(None)
     }
-
     pub fn sample_with_context(context: Option<&[f64]>) -> Self {
-        let root = std::env::current_dir().ok();
+        let context = context
+            .filter(|values| values.iter().all(|value| value.is_finite()))
+            .and_then(|values| serde_json::to_vec(values).ok())
+            .map(|bytes| {
+                Measurement::measured(ContextUsage::from_payload(&bytes), "director features JSON")
+            })
+            .unwrap_or_default();
+        Self::sample_at(&WorkspacePhysicsConfig::default(), context)
+    }
+    pub fn sample_at(config: &WorkspacePhysicsConfig, context: Measurement<ContextUsage>) -> Self {
+        let inventory = crate::physical_workspace::inventory(config);
+        let dependencies = crate::physical_dependencies::dependencies(config, &inventory);
+        let coverage = crate::physical_coverage::coverage(config, &inventory);
+        let (git_dirty_files, git_branches) = crate::physical_git::sample_git(config);
+        Self::from_workspace(
+            WorkspaceMeasurements {
+                inventory,
+                dependencies,
+                coverage,
+                git_dirty_files,
+                git_branches,
+            },
+            context,
+        )
+    }
+    pub fn from_workspace(
+        workspace: WorkspaceMeasurements,
+        context: Measurement<ContextUsage>,
+    ) -> Self {
         Self {
-            workspace_files: root.as_deref().and_then(count_workspace_files),
-            context_bytes: context.and_then(|values| serde_json::to_vec(values).ok().map(|v| v.len())),
-            declared_dependencies: root.as_deref().and_then(count_declared_dependencies),
-            line_coverage: root.as_deref().and_then(read_lcov_coverage),
-            git_dirty_files: root
-                .as_deref()
-                .and_then(|path| git_count(path, "status", &["--short"])),
-            git_branches: root
-                .as_deref()
-                .and_then(|path| git_count(path, "branch", &["--list"])),
+            workspace_files: workspace.inventory.usable().map(|value| value.files.len()),
+            context_bytes: context.usable().map(|value| value.bytes),
+            declared_dependencies: workspace
+                .dependencies
+                .usable()
+                .map(|value| value.declared_count()),
+            line_coverage: workspace
+                .coverage
+                .usable()
+                .and_then(|value| value.line_ratio()),
+            git_dirty_files: workspace.git_dirty_files.usable().copied(),
+            git_branches: workspace.git_branches.usable().copied(),
             ci_budget_ratio: ci_budget_ratio(),
+            workspace,
+            context,
+            evidence_debt: Measurement::default(),
         }
     }
-
-    /// Incorpore les mesures disponibles aux variables de contrôle [0,1].
     pub fn apply(&self, state: &mut PhysicalState) {
         self.apply_with_scale(state, 1.0);
     }
-
-    pub fn apply_with_scale(&self, state: &mut PhysicalState, friction_scale: f64) {
+    pub fn apply_with_scale(&self, state: &mut PhysicalState, scale: f64) {
+        let mut profile = MissionPhysicsProfile::default();
+        profile.friction_scale = if scale.is_finite() {
+            scale.clamp(0.8, 1.2)
+        } else {
+            1.0
+        };
+        self.apply_profile(state, &profile);
+    }
+    pub fn apply_profile(&self, state: &mut PhysicalState, profile: &MissionPhysicsProfile) {
+        let safe = profile
+            .valid()
+            .then_some(profile)
+            .cloned()
+            .unwrap_or_default();
         if let Some(files) = self.workspace_files {
-            state.friction = (state.friction + (files as f64 / 5000.0).min(0.2) * friction_scale).clamp(0.0, 1.0);
+            state.friction =
+                unit(state.friction + (files as f64 / 5000.0).min(0.2) * safe.friction_scale);
         }
         if let Some(bytes) = self.context_bytes {
-            state.friction = (state.friction + (bytes as f64 / 1_000_000.0).min(0.15)).clamp(0.0, 1.0);
+            state.friction =
+                unit(state.friction + (bytes as f64 / safe.context_reference()).min(0.15));
         }
-        if let Some(dependencies) = self.declared_dependencies {
-            state.entropy = (state.entropy + (dependencies as f64 / 2_000.0).min(0.15)).clamp(0.0, 1.0);
+        self.apply_structure(state, &safe);
+        self.apply_constraints(state);
+        if let Some(coverage) = self
+            .line_coverage
+            .filter(|value| value.is_finite() && (0.0..=1.0).contains(value))
+        {
+            state.rupture_risk = unit(state.rupture_risk + (1.0 - coverage) * 0.1);
         }
-        if let Some(coverage) = self.line_coverage {
-            state.energy = (state.energy + (coverage - 0.5) * 0.1).clamp(0.0, 1.0);
+        state.viscosity = unit(0.5 * (1.0 - state.energy) + 0.5 * state.entropy);
+        state.elasticity = unit(1.0 - 0.5 * state.rupture_risk - 0.3 * state.entropy);
+    }
+    fn apply_structure(&self, state: &mut PhysicalState, profile: &MissionPhysicsProfile) {
+        state.structural_gravity.clear();
+        if let Some(graph) = self.workspace.dependencies.usable() {
+            state.entropy = unit(
+                state.entropy
+                    + (graph.edge_count() as f64 / profile.dependency_reference()).min(0.15),
+            );
+            state.structural_gravity = graph.gravity();
+        } else if let Some(deps) = self.declared_dependencies {
+            state.entropy =
+                unit(state.entropy + (deps as f64 / profile.dependency_reference()).min(0.15));
         }
         if let Some(dirty) = self.git_dirty_files {
-            state.entropy = (state.entropy + (dirty as f64 / 100.0).min(0.2)).clamp(0.0, 1.0);
+            state.entropy = unit(state.entropy + (dirty as f64 / 100.0).min(0.2));
         }
         if let Some(branches) = self.git_branches {
-            state.inertia = (state.inertia + (branches as f64 / 100.0).min(0.15)).clamp(0.0, 1.0);
+            state.inertia = unit(state.inertia + (branches as f64 / 100.0).min(0.15));
         }
-        if let Some(ratio) = self.ci_budget_ratio {
-            state.energy = state.energy.min(ratio);
-            state.pressure = state.pressure.max(1.0 - ratio);
+    }
+    fn apply_constraints(&self, state: &mut PhysicalState) {
+        if let Some(ratio) = self.ci_budget_ratio.filter(|ratio| ratio.is_finite()) {
+            state.energy = state.energy.min(unit(ratio));
+            state.pressure = state.pressure.max(1.0 - unit(ratio));
+        }
+        if let Some(pressure) = self.context.usable().and_then(ContextUsage::token_pressure) {
+            state.pressure = state.pressure.max(pressure);
+            state.friction = unit(state.friction + pressure * 0.15);
+        }
+        if let Some(debt) = self.evidence_debt.usable().filter(|debt| debt.required > 0) {
+            state.evidence_debt = unit(debt.outstanding as f64 / debt.required as f64);
+            state.rupture_risk = unit(state.rupture_risk + state.evidence_debt * 0.1);
         }
     }
 }
-
-/// Applique la dérivation mesurée avant d'appeler la politique normale.
-pub(crate) fn decide(
+pub struct PhysicalDecisionInputs<'a> {
+    pub state: &'a WorldState,
+    pub goal: &'a Goal,
+    pub telemetry: &'a PhysicalTelemetry,
+}
+pub fn decide_measured(
     director: &Director,
-    state: &WorldState,
-    goal: &Goal,
+    inputs: PhysicalDecisionInputs<'_>,
 ) -> (Decision, PhysicalState) {
+    let profile = director
+        .mission_physics
+        .get(&inputs.goal.mission_key())
+        .filter(|profile| profile.valid())
+        .cloned()
+        .unwrap_or_default();
     let mut physical = PhysicalState::derive(
-        state,
+        inputs.state,
         director.physical_memory.as_ref().map(|memory| &memory.0),
     );
-    let profile = director.mission_physics.get(&goal.mission_key()).cloned().unwrap_or_default();
-    PhysicalTelemetry::sample_with_context(Some(&director.last_context))
-        .apply_with_scale(&mut physical, profile.friction_scale);
+    physical.energy = if inputs.state.budget.is_finite() {
+        unit(inputs.state.budget / profile.budget_reference())
+    } else {
+        0.0
+    };
+    inputs.telemetry.apply_profile(&mut physical, &profile);
     let context = crate::physics::DecisionContext {
-        state,
-        goal,
+        state: inputs.state,
+        goal: inputs.goal,
         phys: &physical,
         previous_strategy: director.physical_memory.as_ref().map(|memory| memory.1),
     };
     (director.decide_physical(&context), physical)
 }
-
-fn count_declared_dependencies(root: &Path) -> Option<usize> {
-    let mut total = 0usize;
-    let mut found = false;
-    for manifest in ["Cargo.toml", "backend/package.json", "mcp/package.json", "package.json"] {
-        let content = std::fs::read_to_string(root.join(manifest)).ok();
-        let Some(content) = content else { continue };
-        found = true;
-        if manifest.ends_with("package.json") {
-            let parsed: serde_json::Value = serde_json::from_str(&content).ok()?;
-            for key in ["dependencies", "devDependencies", "peerDependencies"] {
-                total += parsed.get(key).and_then(serde_json::Value::as_object).map_or(0, |deps| deps.len());
-            }
-        } else {
-            let mut in_dependencies = false;
-            for line in content.lines() {
-                let trimmed = line.trim();
-                if trimmed.starts_with('[') {
-                    in_dependencies = matches!(trimmed, "[dependencies]" | "[dev-dependencies]" | "[build-dependencies]");
-                } else if in_dependencies && trimmed.contains('=') && !trimmed.starts_with('#') {
-                    total += 1;
-                }
-            }
-        }
+pub(crate) fn unit(value: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        1.0
     }
-    found.then_some(total)
 }
-
-fn read_lcov_coverage(root: &Path) -> Option<f64> {
-    let report = std::fs::read_to_string(root.join("coverage/lcov.info")).ok()?;
-    let mut found = 0usize;
-    let mut covered = 0usize;
-    for line in report.lines() {
-        if let Some((_, hits)) = line.strip_prefix("DA:").and_then(|value| value.split_once(',')) {
-            found += 1;
-            if hits.parse::<usize>().ok()? > 0 {
-                covered += 1;
-            }
-        }
-    }
-    (found > 0).then_some(covered as f64 / found as f64)
-}
-
-fn git_count(root: &Path, command: &str, args: &[&str]) -> Option<usize> {
-    let output = Command::new("git")
-        .args([command])
-        .args(args)
-        .current_dir(root)
-        .output()
-        .ok()?;
-    output
-        .status
-        .success()
-        .then(|| String::from_utf8_lossy(&output.stdout).lines().count())
-}
-
-fn count_workspace_files(root: &Path) -> Option<usize> {
-    let mut pending = vec![PathBuf::from(root)];
-    let mut count = 0usize;
-    while let Some(directory) = pending.pop() {
-        for entry in std::fs::read_dir(directory).ok()? {
-            let entry = entry.ok()?;
-            let name = entry.file_name();
-            if matches!(name.to_str(), Some(".git" | "target" | "node_modules")) {
-                continue;
-            }
-            let kind = entry.file_type().ok()?;
-            if kind.is_dir() {
-                pending.push(entry.path());
-            } else if kind.is_file() {
-                count += 1;
-            }
-        }
-    }
-    Some(count)
-}
-
 fn ci_budget_ratio() -> Option<f64> {
     let remaining = std::env::var("CI_BUDGET_REMAINING")
         .or_else(|_| std::env::var("GITHUB_RUN_ATTEMPT_REMAINING"))
@@ -205,5 +195,25 @@ fn ci_budget_ratio() -> Option<f64> {
         .ok()?
         .parse::<f64>()
         .ok()?;
-    (total > 0.0).then(|| (remaining / total).clamp(0.0, 1.0))
+    (remaining.is_finite() && total.is_finite() && remaining >= 0.0 && total > 0.0)
+        .then(|| (remaining / total).clamp(0.0, 1.0))
+}
+
+/// Compatibilite pour les appelants directs; tick utilise le cache du runtime.
+pub fn decide(director: &Director, state: &WorldState, goal: &Goal) -> (Decision, PhysicalState) {
+    let context = serde_json::to_vec(&(state, goal, &director.last_context))
+        .ok()
+        .map(|bytes| {
+            Measurement::measured(ContextUsage::from_payload(&bytes), "decision input JSON")
+        })
+        .unwrap_or_default();
+    let telemetry = PhysicalTelemetry::sample_at(&WorkspacePhysicsConfig::default(), context);
+    decide_measured(
+        director,
+        PhysicalDecisionInputs {
+            state,
+            goal,
+            telemetry: &telemetry,
+        },
+    )
 }

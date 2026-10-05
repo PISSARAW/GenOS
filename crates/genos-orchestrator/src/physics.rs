@@ -5,14 +5,17 @@
 //! tout franchissement de seuil change le régime. Chaque champ de
 //! `PhysicalState` influence réellement le scoring (voir `decide_physical`).
 
-use crate::director::{Decision, Director, Strategy};
-use crate::organization::{Superorganism, by_name};
-use crate::planner::{ActionStats, Concept, Goal, WorldState};
+use crate::director::Strategy;
+use crate::planner::{Concept, Goal, WorldState};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 fn clamp01(value: f64) -> f64 {
-    value.clamp(0.0, 1.0)
+    if value.is_finite() {
+        value.clamp(0.0, 1.0)
+    } else {
+        1.0
+    }
 }
 
 fn entropy_from(state: &WorldState) -> f64 {
@@ -75,17 +78,17 @@ fn material_from_prefix(p: &str) -> Material {
 }
 
 fn risk_cost(inputs: &UtilityInputs) -> f64 {
-    inputs.profile.blast_radius
-        * (1.0 - inputs.profile.reversibility)
-        * (1.0 + inputs.phys.rupture_risk)
+    clamp01(inputs.profile.blast_radius)
+        * (1.0 - clamp01(inputs.profile.reversibility))
+        * (1.0 + clamp01(inputs.phys.rupture_risk))
 }
 
 fn friction_cost(inputs: &UtilityInputs) -> f64 {
-    inputs.profile.friction * (1.0 + inputs.phys.friction)
+    clamp01(inputs.profile.friction) * (1.0 + clamp01(inputs.phys.friction))
 }
 
 fn entropy_cost(inputs: &UtilityInputs) -> f64 {
-    inputs.profile.entropy_delta * (1.0 + inputs.phys.entropy)
+    signed_unit(inputs.profile.entropy_delta) * (1.0 + clamp01(inputs.phys.entropy))
 }
 
 /// État physique dérivé du monde observable : texture, masse, limites.
@@ -102,6 +105,8 @@ pub struct PhysicalState {
     pub plasticity: f64,
     pub rupture_risk: f64,
     pub resonance: f64,
+    #[serde(default)]
+    pub evidence_debt: f64,
     pub structural_gravity: BTreeMap<String, f64>,
 }
 
@@ -119,6 +124,7 @@ impl Default for PhysicalState {
             plasticity: 0.2,
             rupture_risk: 0.0,
             resonance: 0.0,
+            evidence_debt: 0.0,
             structural_gravity: BTreeMap::new(),
         }
     }
@@ -126,7 +132,11 @@ impl Default for PhysicalState {
 
 impl PhysicalState {
     pub fn derive(state: &WorldState, previous: Option<&PhysicalState>) -> Self {
-        let energy = clamp01(state.budget / 120.0);
+        let energy = if state.budget.is_finite() {
+            clamp01(state.budget / 120.0)
+        } else {
+            0.0
+        };
         let entropy = entropy_from(state);
         let friction = clamp01(0.5 * state.stress + 0.5 * (1.0 - energy));
         let pressure = clamp01(state.budget_pressure.max(state.threat));
@@ -152,6 +162,7 @@ impl PhysicalState {
             plasticity,
             rupture_risk,
             resonance,
+            evidence_debt: 0.0,
             structural_gravity,
         }
     }
@@ -212,7 +223,31 @@ pub struct UtilityInputs<'a> {
 }
 
 pub fn utility_score(inputs: &UtilityInputs) -> f64 {
-    inputs.expected_gain - friction_cost(inputs) - risk_cost(inputs) - entropy_cost(inputs)
+    if !inputs.expected_gain.is_finite() {
+        return f64::NEG_INFINITY;
+    }
+    let p = inputs.profile;
+    let s = inputs.phys;
+    let gravity = s
+        .structural_gravity
+        .values()
+        .copied()
+        .map(clamp01)
+        .fold(0.0_f64, f64::max);
+    let load = clamp01(p.mass) * (1.0 - clamp01(s.energy)) * (1.0 + clamp01(s.viscosity)) * 0.1;
+    let latency = clamp01(p.latency) * (clamp01(s.temperature) + clamp01(s.viscosity)) * 0.1;
+    let instability = clamp01(p.blast_radius) * (1.0 - clamp01(s.elasticity) + gravity) * 0.1;
+    let debt = clamp01(p.evidence_debt_delta) * clamp01(s.evidence_debt);
+    let resonance = clamp01(p.entropy_delta) * clamp01(s.resonance) * 0.1;
+    inputs.expected_gain
+        - friction_cost(inputs)
+        - risk_cost(inputs)
+        - entropy_cost(inputs)
+        - load
+        - latency
+        - instability
+        - debt
+        - resonance
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -278,7 +313,7 @@ pub fn classify_material_explicit(path: &str, declared_type: &str) -> Material {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Regime {
     Normal,
     Conservation,
@@ -298,7 +333,7 @@ pub fn determine_regime(state: &WorldState, phys: &PhysicalState) -> Regime {
         Regime::Conservation
     } else if phys.entropy > ENTROPY_CONSOLIDATION_THRESHOLD {
         Regime::Consolidation
-    } else if state.workers > state.required_workers * 2 {
+    } else if state.workers > state.required_workers.saturating_mul(2) {
         Regime::Contention
     } else {
         Regime::Normal
@@ -306,9 +341,10 @@ pub fn determine_regime(state: &WorldState, phys: &PhysicalState) -> Regime {
 }
 
 pub fn inertia_threshold(phys: &PhysicalState, current_strategy_success: f64) -> f64 {
-    let mut threshold = 0.05 + phys.inertia * 0.2;
-    threshold += (current_strategy_success - 0.5) * 0.1;
-    threshold -= phys.pressure * 0.1;
+    let mut threshold = 0.05 + clamp01(phys.inertia) * 0.2 + clamp01(phys.resonance) * 0.05
+        - clamp01(phys.plasticity) * 0.05;
+    threshold += (clamp01(current_strategy_success) - 0.5) * 0.1;
+    threshold -= clamp01(phys.pressure) * 0.1;
     threshold.clamp(0.0, 0.4)
 }
 
@@ -319,71 +355,10 @@ pub struct DecisionContext<'a> {
     pub previous_strategy: Option<Strategy>,
 }
 
-impl Director {
-    pub fn decide_physical(&self, ctx: &DecisionContext) -> Decision {
-        match determine_regime(ctx.state, ctx.phys) {
-            Regime::HumanReview => {
-                return Self::halted_physical("risque de rupture eleve : revue humaine requise");
-            }
-            Regime::Consolidation => {
-                return Self::halted_physical(
-                    "entropie trop haute : consolidation obligatoire avant expansion",
-                );
-            }
-            _ => {}
-        }
-        let decision = self.decide(ctx.state, ctx.goal);
-        if decision.halt.is_some() {
-            return decision;
-        }
-        self.apply_inertia_gate(ctx, decision)
-    }
-
-    fn halted_physical(reason: &str) -> Decision {
-        Decision {
-            strategy: Strategy::Solo,
-            organization: *by_name("network_silence").expect("organisation du catalogue"),
-            superorganism: Superorganism::Swarm,
-            steps: Vec::new(),
-            rationale: reason.to_string(),
-            halt: Some(reason.to_string()),
-        }
-    }
-
-    fn apply_inertia_gate(&self, ctx: &DecisionContext, decision: Decision) -> Decision {
-        let Some(previous) = ctx.previous_strategy else {
-            return decision;
-        };
-        if previous == decision.strategy {
-            return decision;
-        }
-        let previous_steps = self.plan_strategy(previous, ctx.state, ctx.goal);
-        if previous_steps.is_empty() {
-            return decision;
-        }
-        let previous_score = self.estimate(&previous_steps, ctx.state, ctx.goal);
-        let new_score = self.estimate(&decision.steps, ctx.state, ctx.goal);
-        let success_rate = self
-            .stats
-            .values()
-            .map(ActionStats::rate)
-            .fold(0.0_f64, f64::max);
-        let threshold = inertia_threshold(ctx.phys, success_rate);
-        if new_score - previous_score > threshold {
-            return decision;
-        }
-        let rationale = format!(
-            "{} (inertie: gain {:.2} < seuil {:.2}, strategie {:?} conservee)",
-            decision.rationale,
-            new_score - previous_score,
-            threshold,
-            previous
-        );
-        Decision {
-            strategy: previous,
-            steps: previous_steps,
-            rationale,
-            ..decision
-        }
+fn signed_unit(value: f64) -> f64 {
+    if value.is_finite() {
+        value.clamp(-1.0, 1.0)
+    } else {
+        1.0
     }
 }
