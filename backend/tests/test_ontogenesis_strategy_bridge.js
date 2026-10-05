@@ -2,7 +2,7 @@
 
 const assert = require('assert');
 const { buildStrategyContract } = require('../src/services/strategyContractService');
-const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
+const { requestFor, conceptInstruction } = require('../src/services/ontogenesis/runtimeHarness');
 const { missionRuntimeContext } = require('../bin/orchestratorMissionHelpers.cjs');
 const { applyMissionCapabilityContract, conceptTools } = require('../src/services/missionCapabilityContractService');
 const { orchestratorLeaseForPlan } = require('../src/services/toolLeasePolicy');
@@ -25,6 +25,10 @@ const request = requestFor({
 });
 assert.strictEqual(request.strategyConcept.id, 'minimal_patch');
 assert.match(request.mission, /Strategy concept:/);
+assert.match(request.mission, /Canonical concepts:/);
+assert.match(conceptInstruction({ canonicalConcepts: [{ id: 'mission' }], runtimeConcepts: [{ id: 'minimal_patch' }],
+  strategy: { strategyId: 'minimal_patch' }, compatibleRuntimeConcepts: [{ id: 'a_team' }],
+  runtimeLeaseCandidates: [{ tools: ['genos_snapshot'] }], blockedCapabilities: [] }), /minimal_patch/);
 const runtimeContext = missionRuntimeContext({
   conceptResolution: { failClosed: true }, missionCapabilityPlan: { version: 1 },
   developmentalContext: { failClosed: true }, unrelated: 'not-forwarded'

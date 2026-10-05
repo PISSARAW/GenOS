@@ -28,7 +28,7 @@ function requestFor(input) {
     workerRequirements: { requiredCapabilities: workerRequirementsFor(role), allowedKinds: [role] }
   }]));
   return {
-    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
+    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nCanonical concepts: ${conceptInstruction(input.mission?.plan)}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
     projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
     autonomousOrchestration: true, useMemoryContext: true,
     proposedTopology: input.selection.topology, morphologyTopology: input.selection.topology,
@@ -69,6 +69,21 @@ function developmentalInstruction(context) {
     shev: { available: context.shev?.available, pendingInitiatives: context.shev?.pendingInitiatives || 0 },
     gvx: { available: context.gvx?.available, eventCount: context.gvx?.eventCount || 0 },
     failClosed: context.failClosed === true
+  });
+}
+
+function conceptInstruction(plan) {
+  const source = plan || {};
+  const compatible = Array.isArray(source.compatibleRuntimeConcepts) ? source.compatibleRuntimeConcepts : [];
+  const candidates = Array.isArray(source.runtimeLeaseCandidates) ? source.runtimeLeaseCandidates : [];
+  const blocked = Array.isArray(source.blockedCapabilities) ? source.blockedCapabilities : [];
+  return JSON.stringify({
+    catalogueSize: Array.isArray(source.canonicalConcepts) ? source.canonicalConcepts.length : 0,
+    runtimeConcepts: Array.isArray(source.runtimeConcepts) ? source.runtimeConcepts.length : 0,
+    strategy: source.strategy?.strategyId || source.strategy?.id || null,
+    compatible: compatible.map((concept) => concept.id).filter(Boolean),
+    leasedTools: [...new Set(candidates.flatMap((candidate) => candidate.tools || []))],
+    blocked: blocked.map((entry) => entry.capability || entry.id).filter(Boolean)
   });
 }
 
@@ -120,4 +135,4 @@ async function resources(db, project) {
   return { ownedMb, reservationsMb };
 }
 
-module.exports = { createRuntimeHarness, requestFor, RUNNER };
+module.exports = { createRuntimeHarness, requestFor, RUNNER, conceptInstruction };
