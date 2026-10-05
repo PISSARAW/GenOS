@@ -13,21 +13,26 @@ async function runMatrix(input, db) {
     const manifest = manifests.get(scenario.id);
     reports.push({ caseId: scenario.id, report: await runner.runCampaign(manifest, db) });
   }
-  const observed = reports.reduce((sum, item) => ({
-    tokens: sum.tokens + item.report.aggregateUsage.tokens,
-    costUsd: sum.costUsd + item.report.aggregateUsage.costUsd
-  }), { tokens: 0, costUsd: 0 });
+  const observed = { tokens: sumMeasured(reports, 'tokens'),
+    costUsd: sumMeasured(reports, 'costUsd') };
   const missing = catalog.cases.map((item) => item.id)
     .filter((id) => !reports.some((item) => item.caseId === id));
   const pass = missing.length === 0 && reports.every((item) =>
     item.report.comparable && item.report.campaignBudgetVerified
     && item.report.runs.filter((run) => run.variant === 'syncytium').every((run) => run.complete))
+    && observed.tokens !== null && observed.costUsd !== null
     && observed.tokens <= input.matrixBudget.tokens
     && observed.costUsd <= input.matrixBudget.costUsd;
   return { contract: 'GenOSSyncytiumMissionMatrix/v1',
     startedAtUtc, completedAtUtc: new Date().toISOString(),
     expectedCases: catalog.cases.length, executedCases: reports.length,
     missing, observed, matrixBudget: input.matrixBudget, pass, reports };
+}
+
+function sumMeasured(reports, dimension) {
+  const values = reports.map((item) => item.report.aggregateUsage[dimension]);
+  return values.length && values.every(Number.isFinite)
+    ? values.reduce((sum, value) => sum + value, 0) : null;
 }
 
 function validateMatrix(input) {

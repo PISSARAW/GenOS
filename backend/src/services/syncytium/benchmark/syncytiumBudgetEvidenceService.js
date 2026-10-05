@@ -3,9 +3,9 @@
 async function measure(db, members, budget) {
   const workers = await Promise.all(members.map((member) => readWorker(db, member, budget)));
   const observed = {
-    tokens: workers.reduce((sum, worker) => sum + (worker.usage?.tokens || 0), 0),
-    events: workers.reduce((sum, worker) => sum + (worker.usage?.events || 0), 0),
-    costUsd: workers.reduce((sum, worker) => sum + (worker.usage?.costUsd || 0), 0)
+    tokens: sumMeasured(workers, 'tokens'),
+    events: sumMeasured(workers, 'events'),
+    costUsd: sumMeasured(workers, 'costUsd')
   };
   return { workers, observed,
     measured: workers.length > 0 && workers.every((worker) => worker.measured),
@@ -21,17 +21,25 @@ async function readWorker(db, member, budget) {
     WHERE agent_id = ? AND event_type = 'AGENT_STEP' ORDER BY id`, workerId);
   const usage = parse(completion?.payload_json)?.usage;
   const observations = raw.map((row) => parse(row.payload_json));
-  const measured = Boolean(usage) && observations.some((event) => reportedTokens(event))
-    && observations.some((event) => reportedCost(event));
+  const measurement = { tokens: observations.some((event) => reportedTokens(event)),
+    events: Number.isSafeInteger(usage?.events),
+    costUsd: observations.some((event) => reportedCost(event)) };
+  const measured = Boolean(usage) && Object.values(measurement).every(Boolean);
   const normalized = usage ? { tokens: Number(usage.tokens), events: Number(usage.events),
     costUsd: Number(usage.cost_usd) } : null;
   const within = normalized && ['tokens', 'events', 'costUsd'].every((key) =>
     Number.isFinite(normalized[key]) && normalized[key] >= 0
     && (budget[key] === undefined || normalized[key] <= budget[key]));
-  return { workerId, usage: normalized, measured, within: Boolean(within),
+  return { workerId, usage: normalized, measurement, measured, within: Boolean(within),
     verified: measured && Boolean(within),
     reason: !completion ? 'missing_completion_receipt' : !measured ? 'provider_usage_unmeasured'
       : !within ? 'worker_budget_exceeded' : null };
+}
+
+function sumMeasured(workers, key) {
+  if (!workers.length || workers.some((worker) => !worker.measurement?.[key]
+    || !Number.isFinite(worker.usage?.[key]))) return null;
+  return workers.reduce((sum, worker) => sum + worker.usage[key], 0);
 }
 
 function reportedTokens(event) {

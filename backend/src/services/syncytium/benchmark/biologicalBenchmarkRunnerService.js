@@ -192,11 +192,12 @@ function reportCampaign(manifest, runs) {
     variant: run.variant, task: run.task, budget: run.budget, counts: run.counts
   })));
   const sameWorkerCount = workerCountsMatch(runs, manifest.repetitions);
-  const aggregateUsage = runs.reduce((total, run) => ({
-    tokens: total.tokens + run.observedBudget.observed.tokens,
-    costUsd: total.costUsd + run.observedBudget.observed.costUsd
-  }), { tokens: 0, costUsd: 0 });
+  const aggregateUsage = {
+    tokens: sumObserved(runs, 'tokens'),
+    costUsd: sumObserved(runs, 'costUsd')
+  };
   const campaignBudgetVerified = runs.every((run) => run.observedBudget.verified)
+    && aggregateUsage.tokens !== null && aggregateUsage.costUsd !== null
     && aggregateUsage.tokens <= manifest.campaignBudget.tokens
     && aggregateUsage.costUsd <= manifest.campaignBudget.costUsd;
   return {
@@ -208,6 +209,11 @@ function reportCampaign(manifest, runs) {
       && campaignBudgetVerified && runs.every((run) => run.executionValid),
     comparison, quality: qualitySummary(runs), runs
   };
+}
+
+function sumObserved(runs, dimension) {
+  const values = runs.map((run) => run.observedBudget.observed[dimension]);
+  return values.every(Number.isFinite) ? values.reduce((sum, value) => sum + value, 0) : null;
 }
 
 function workerCountsMatch(runs, repetitions) {
