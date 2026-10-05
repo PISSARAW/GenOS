@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 pub const SCHEMA: &str = "genos.gcir.omega/v1";
 pub const SUPPORTED_VERSIONS: [u8; 1] = [1];
+pub const READABLE_VERSIONS: [u8; 2] = [0, 1];
 const KINDS: [&str; 6] = ["READ", "SELECT", "CALL", "INFER", "CHECK", "EMIT"];
 
 pub const ERROR_SCHEMA_UNSUPPORTED: &str = "omega.schema_unsupported";
@@ -83,8 +84,119 @@ pub fn decode(bytes: &[u8]) -> Result<OmegaEnvelope, String> {
             .transpose()
             .map_err(|_| ERROR_PAYLOAD_INVALID.to_string())?,
     };
+    if envelope.version == 0 || is_legacy_schema(&envelope.schema) {
+        return migrate_legacy(envelope);
+    }
     validate(&envelope)?;
     Ok(envelope)
+}
+
+fn is_legacy_schema(schema: &str) -> bool {
+    schema == "genos.gcir.omega" || schema == "genos.gcir.omega/v0"
+}
+
+fn migrate_legacy(mut envelope: OmegaEnvelope) -> Result<OmegaEnvelope, String> {
+    if !READABLE_VERSIONS.contains(&envelope.version)
+        || (envelope.version != 0 && !is_legacy_schema(&envelope.schema))
+    {
+        return Err(ERROR_VERSION_UNSUPPORTED.into());
+    }
+    if envelope.version == 0 && envelope.schema != SCHEMA && !is_legacy_schema(&envelope.schema) {
+        return Err(ERROR_SCHEMA_UNSUPPORTED.into());
+    }
+    envelope.schema = SCHEMA.into();
+    envelope.version = 1;
+    validate(&envelope)?;
+    Ok(envelope)
+}
+
+pub fn read_compatible_json(bytes: &[u8]) -> Result<OmegaEnvelope, String> {
+    let value: Value =
+        serde_json::from_slice(bytes).map_err(|_| ERROR_ENVELOPE_INVALID.to_string())?;
+    let version = value.get("version").and_then(Value::as_u64).unwrap_or(1) as u8;
+    let schema = value
+        .get("schema")
+        .and_then(Value::as_str)
+        .unwrap_or(SCHEMA);
+    if version == 0 || is_legacy_schema(schema) {
+        let operations = value
+            .get("operations")
+            .or_else(|| value.get("ops"))
+            .and_then(Value::as_array)
+            .ok_or(ERROR_ENVELOPE_INVALID)?
+            .iter()
+            .map(legacy_operation)
+            .collect::<Result<Vec<_>, _>>()?;
+        let policy = value
+            .get("policy")
+            .or_else(|| value.get("permissions"))
+            .and_then(Value::as_object)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(|(key, values)| {
+                        let entries = values
+                            .as_array()
+                            .ok_or(ERROR_ENVELOPE_INVALID)?
+                            .iter()
+                            .map(|item| item.as_str().unwrap_or_default().to_string())
+                            .collect();
+                        Ok((key.clone(), entries))
+                    })
+                    .collect::<Result<Vec<_>, String>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
+        let payload = value
+            .get("payload")
+            .cloned()
+            .or_else(|| value.get("context").cloned());
+        return migrate_legacy(OmegaEnvelope {
+            schema: schema.into(),
+            version,
+            id: value
+                .get("id")
+                .or_else(|| value.get("runId"))
+                .and_then(Value::as_str)
+                .unwrap_or("omega-legacy")
+                .into(),
+            operations,
+            policy,
+            payload,
+        });
+    }
+    let envelope: OmegaEnvelope =
+        serde_json::from_value(value).map_err(|_| ERROR_ENVELOPE_INVALID.to_string())?;
+    validate(&envelope)?;
+    Ok(envelope)
+}
+
+fn legacy_operation(value: &Value) -> Result<OmegaOperation, String> {
+    let text = |key: &str| value.get(key).and_then(Value::as_str).map(String::from);
+    let id = text("id")
+        .or_else(|| text("name"))
+        .ok_or(ERROR_OPERATION_INVALID)?;
+    let kind = text("kind")
+        .or_else(|| text("type"))
+        .ok_or(ERROR_OPERATION_INVALID)?;
+    let reference = text("reference").or_else(|| text("ref"));
+    let depends_on = value
+        .get("dependsOn")
+        .or_else(|| value.get("dependencies"))
+        .or_else(|| value.get("deps"))
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(String::from)
+                .collect()
+        })
+        .unwrap_or_default();
+    let state = text("state")
+        .or_else(|| text("status"))
+        .unwrap_or_else(|| "open".into());
+    Ok(OmegaOperation(id, kind, reference, depends_on, state))
 }
 
 pub fn encode(envelope: &OmegaEnvelope) -> Result<Vec<u8>, String> {
@@ -109,8 +221,8 @@ pub fn encode(envelope: &OmegaEnvelope) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        decode, encode, validate, OmegaEnvelope, OmegaOperation, ERROR_FRAME_INVALID,
-        ERROR_VERSION_UNSUPPORTED,
+        decode, encode, read_compatible_json, validate, OmegaEnvelope, OmegaOperation,
+        ERROR_FRAME_INVALID, ERROR_VERSION_UNSUPPORTED, SCHEMA,
     };
     use serde_json::{json, Value};
 
@@ -163,6 +275,7 @@ mod tests {
             serde_json::from_str(include_str!("../../../spec/g-cir-omega-compatibility.json"))
                 .expect("compatibility matrix");
         assert_eq!(matrix["supportedVersions"][0], 1);
+        assert_eq!(matrix["readableVersions"][0], 0);
         assert_eq!(
             validate(&OmegaEnvelope {
                 version: 2,
@@ -175,6 +288,15 @@ mod tests {
             decode(&[0xc6, 0, 0, 0, 1, 0]),
             Err(ERROR_FRAME_INVALID.into())
         );
+    }
+
+    #[test]
+    fn legacy_json_is_migrated_to_v1() {
+        let legacy = br#"{"version":0,"schema":"genos.gcir.omega/v0","id":"legacy","ops":[{"name":"read","type":"READ","ref":"repo","deps":[],"status":"open"}],"permissions":{"read":["repo"]}}"#;
+        let value = read_compatible_json(legacy).expect("legacy envelope");
+        assert_eq!(value.schema, SCHEMA);
+        assert_eq!(value.version, 1);
+        assert_eq!(value.operations[0].2.as_deref(), Some("repo"));
     }
 
     #[test]

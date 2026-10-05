@@ -2,12 +2,14 @@
   "protocol": "genos.gcir.omega",
   "currentVersion": 1,
   "supportedVersions": [1],
+  "readableVersions": [0, 1],
   "matrix": [
     { "producer": "node", "consumer": "rust", "version": 1, "expected": "accept" },
     { "producer": "rust", "consumer": "node", "version": 1, "expected": "accept" },
     { "producer": "node", "consumer": "node", "version": 1, "expected": "accept" },
     { "producer": "rust", "consumer": "rust", "version": 1, "expected": "accept" },
-    { "producer": "legacy", "consumer": "node", "version": 0, "expected": "reject", "error": "omega.version_unsupported" },
+    { "producer": "legacy", "consumer": "node", "version": 0, "expected": "accept", "migration": "v0_to_v1" },
+    { "producer": "legacy", "consumer": "rust", "version": 0, "expected": "accept", "migration": "v0_to_v1" },
     { "producer": "future", "consumer": "rust", "version": 2, "expected": "reject", "error": "omega.version_unsupported" },
     { "producer": "malformed", "consumer": "node", "version": 1, "expected": "reject", "error": "omega.frame_invalid" },
     { "producer": "malformed", "consumer": "rust", "version": 1, "expected": "reject", "error": "omega.frame_invalid" }

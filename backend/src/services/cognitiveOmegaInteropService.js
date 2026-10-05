@@ -6,6 +6,8 @@ const specValidator = require('./specValidator');
 
 const SCHEMA = 'genos.gcir.omega/v1';
 const SUPPORTED_VERSIONS = Object.freeze([1]);
+const READABLE_VERSIONS = Object.freeze([0, 1]);
+const LEGACY_SCHEMAS = new Set(['genos.gcir.omega', 'genos.gcir.omega/v0']);
 const KINDS = new Set(['READ', 'SELECT', 'CALL', 'INFER', 'CHECK', 'EMIT']);
 const ERROR_CODES = Object.freeze({
   SCHEMA_UNSUPPORTED: 'omega.schema_unsupported', VERSION_UNSUPPORTED: 'omega.version_unsupported',
@@ -52,6 +54,31 @@ function validate(input) {
   return { valid: schemaResult.available && errors.length === 0, value, errors };
 }
 
+function legacyOperation(operation = {}) {
+  return { id: operation.id ?? operation.name, kind: operation.kind ?? operation.type,
+    reference: operation.reference ?? operation.ref ?? null,
+    dependsOn: operation.dependsOn ?? operation.dependencies ?? operation.deps ?? [],
+    state: operation.state ?? operation.status ?? 'open' };
+}
+
+function migrateLegacy(input = {}) {
+  if (Number(input.version) !== 0 && !LEGACY_SCHEMAS.has(input.schema)) return input;
+  if (Number(input.version) === 0 && input.schema && input.schema !== SCHEMA
+      && !LEGACY_SCHEMAS.has(input.schema)) throw error(ERROR_CODES.SCHEMA_UNSUPPORTED);
+  const operations = input.operations || input.ops || input.graph;
+  if (!Array.isArray(operations)) throw error(ERROR_CODES.ENVELOPE_INVALID);
+  return { schema: SCHEMA, version: 1, id: input.id || input.runId || 'omega-legacy',
+    operations: operations.map(legacyOperation), policy: input.policy || input.permissions || {},
+    payload: input.payload ?? input.context ?? null };
+}
+
+function read(input) {
+  const migrated = migrateLegacy(input);
+  const checked = validate(migrated);
+  if (!checked.valid) throw error(checked.errors[0] || ERROR_CODES.ENVELOPE_INVALID);
+  return checked.value;
+}
+
 function negotiateVersion(version) {
   if (!SUPPORTED_VERSIONS.includes(Number(version))) throw error(ERROR_CODES.VERSION_UNSUPPORTED);
   return Number(version);
@@ -78,7 +105,7 @@ function decode(buffer) {
     throw error(ERROR_CODES.FRAME_INVALID);
   }
   const [schema, version, id, operations, policyEntries, payload] = frame;
-  negotiateVersion(version);
+  if (!READABLE_VERSIONS.includes(Number(version))) negotiateVersion(version);
   let decodedPayload = null;
   if (payload != null) {
     try { decodedPayload = JSON.parse(payload); } catch (_) { throw error(ERROR_CODES.PAYLOAD_INVALID); }
@@ -89,9 +116,7 @@ function decode(buffer) {
       id: operationId, kind, reference, dependsOn, state })), policy: Object.fromEntries(policyEntries),
     payload: decodedPayload };
   } catch (_) { throw error(ERROR_CODES.FRAME_INVALID); }
-  const checked = validate(value);
-  if (!checked.valid) throw error(checked.errors[0] || ERROR_CODES.ENVELOPE_INVALID);
-  return checked.value;
+  return read(value);
 }
 
 function digest(input) { return `sha256:${crypto.createHash('sha256').update(encode(input)).digest('hex')}`; }
@@ -111,5 +136,25 @@ function fuzzDecode(input, seed = 17) {
   return { iterations: 256, accepted };
 }
 
+function randomEnvelope(seed) {
+  const id = `fuzz-${seed.toString(16)}`;
+  return { schema: SCHEMA, version: 1, id,
+    operations: [{ id: 'read', kind: 'READ', reference: 'fuzz', dependsOn: [], state: 'open' }],
+    policy: { read: ['fuzz'] }, payload: { seed } };
+}
+
+function fuzzCampaign(options = {}) {
+  const iterations = Math.max(1, Math.min(512, Number(options.iterations) || 64));
+  let state = (options.seed ?? crypto.randomInt(0, 0xffffffff)) >>> 0;
+  for (let index = 0; index < iterations; index += 1) {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    const envelope = randomEnvelope(state);
+    if (digest(decode(encode(envelope))) !== digest(envelope)) throw error(ERROR_CODES.ENVELOPE_INVALID);
+    fuzzDecode(encode(envelope), state);
+  }
+  return { iterations, seed: options.seed ?? state, status: 'passed' };
+}
+
 module.exports = { SCHEMA, SUPPORTED_VERSIONS, ERROR_CODES, OmegaInteropError, normalize,
-  validate, negotiateVersion, encode, decode, digest, fuzzDecode, tuple };
+  READABLE_VERSIONS, validate, read, migrateLegacy, negotiateVersion, encode, decode, digest,
+  fuzzDecode, fuzzCampaign, tuple };

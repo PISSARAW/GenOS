@@ -53,6 +53,22 @@ jobs:
         working-directory: mcp
         run: node test_lease.js && node test_identity_lease.js && node test_node_cli_fallback.mjs
 
+  omega-interop:
+    name: Omega interoperability and bounded fuzzing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend deps
+        run: npm ci --prefix backend
+      - name: Run v0/v1 compatibility and fuzz campaign
+        working-directory: backend
+        run: npm run test:interop
+
   backend-smoke:
     runs-on: ubuntu-latest
     steps:
