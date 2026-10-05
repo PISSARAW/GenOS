@@ -4,6 +4,7 @@ const {
   compileRegistry,
   compileConcept,
   readinessReport,
+  assessPromotion,
 } = require('../philosophy/implementationContracts');
 
 function copy(value) {
@@ -30,9 +31,14 @@ function getImplementationContract(concept) {
   return copy(compileConcept(concept));
 }
 
+function assessContractPromotion(concept, targetMaturity, evidence) {
+  return assessPromotion(compileConcept(concept), targetMaturity, evidence);
+}
+
 module.exports = {
   implementationContractHealth,
   listImplementationContracts,
   getImplementationContract,
   readinessReport,
+  assessContractPromotion,
 };

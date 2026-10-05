@@ -16,6 +16,12 @@ const MATURITY = Object.freeze([
   'registered', 'defined', 'mechanism-linked', 'observable', 'tested',
   'integrated', 'validated',
 ]);
+const EVIDENCE_FOR_MATURITY = Object.freeze({
+  observable: ['observation-receipt'],
+  tested: ['scenario-receipt'],
+  integrated: ['scenario-receipt', 'runtime-receipt'],
+  validated: ['scenario-receipt', 'runtime-receipt', 'independent-receipt'],
+});
 
 function contract(id, ...values) {
   const [type, interpretation, invariant, mechanism, targets, observables, tests, limits, conflicts = []] = values;
@@ -255,4 +261,23 @@ function readinessReport(concepts) {
   };
 }
 
-module.exports = { PILOT_CONTRACTS, compileConcept, compileRegistry, validateContract, runReadinessProbe, readinessReport };
+function assessPromotion(contractValue, targetMaturity, evidence = []) {
+  const errors = validateContract(contractValue);
+  if (!MATURITY.includes(targetMaturity)) errors.push('requested maturity is invalid');
+  const currentIndex = MATURITY.indexOf(contractValue.maturity);
+  const targetIndex = MATURITY.indexOf(targetMaturity);
+  if (targetIndex <= currentIndex) errors.push('requested maturity must be higher than current maturity');
+  const required = EVIDENCE_FOR_MATURITY[targetMaturity] || [];
+  const missingEvidence = required.filter((item) => !evidence.includes(item));
+  return {
+    contractId: contractValue.id,
+    currentMaturity: contractValue.maturity,
+    targetMaturity,
+    eligible: errors.length === 0 && missingEvidence.length === 0,
+    promotionEligible: false,
+    errors,
+    missingEvidence,
+  };
+}
+
+module.exports = { PILOT_CONTRACTS, compileConcept, compileRegistry, validateContract, runReadinessProbe, readinessReport, assessPromotion };

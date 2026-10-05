@@ -79,6 +79,9 @@ contractHealth.then(async (result) => {
   assert.equal(readiness.readyForExperiment, 375);
   assert.equal(readiness.blocked, 0);
   assert.equal(readiness.promotionEligible, 0);
+  const promotion = await router.handlePhilosophyRequest({ request: { operation: 'assessContractPromotion', arguments: { conceptId: 'core.agent', targetMaturity: 'validated', evidence: [] } } });
+  assert.equal(promotion.eligible, false);
+  assert.ok(promotion.missingEvidence.length >= 1);
   const contract = router.getImplementationContract('epistemology.certainty-doubt');
   assert.ok(contract);
   assert.equal(contract.apiVersion, 'genos.contract/v1');

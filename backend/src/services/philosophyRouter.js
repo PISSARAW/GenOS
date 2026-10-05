@@ -21,7 +21,7 @@ if (!registry.valid) {
 const definitions = registry.concepts;
 const OPERATIONS = Object.freeze([
   'listConcepts', 'getConcept', 'registryHealth', 'evaluateConcept', 'applyRuntimeEffect',
-  'listImplementationContracts', 'getImplementationContract', 'implementationContractHealth', 'implementationReadiness',
+  'listImplementationContracts', 'getImplementationContract', 'implementationContractHealth', 'implementationReadiness', 'assessContractPromotion',
   'listRelations', 'getNeighborhood', 'exportGraph', 'compareEthicalFrameworks',
   'saveAnalysis', 'getAnalysis', 'listAnalyses', 'queryOntology'
 ]);
@@ -365,6 +365,7 @@ const OPERATION_HANDLERS = Object.freeze({
   getImplementationContract: (args) => ({ contract: implementationContracts.getImplementationContract(requireConcept(args.conceptId || args.id)) }),
   implementationContractHealth: () => implementationContracts.implementationContractHealth(definitions),
   implementationReadiness: () => implementationContracts.readinessReport(definitions),
+  assessContractPromotion: (args) => implementationContracts.assessContractPromotion(requireConcept(args.conceptId || args.id), args.targetMaturity, args.evidence || []),
   getConcept: (args) => ({ concept: requireConcept(args.conceptId || args.id) }),
   registryHealth: () => registryHealth(),
   evaluateConcept: (args) => evaluateConcept(args),
@@ -395,6 +396,5 @@ module.exports = {
   listRelations,
   getNeighborhood,
   exportGraph,
-  registryHealth, getImplementationContract: (id) => implementationContracts.getImplementationContract(requireConcept(id)),
-  listImplementationContracts: (args) => implementationContracts.listImplementationContracts(definitions, args), implementationContractHealth: () => implementationContracts.implementationContractHealth(definitions),
-  implementationReadiness: () => implementationContracts.readinessReport(definitions) };
+  registryHealth, getImplementationContract: (id) => implementationContracts.getImplementationContract(requireConcept(id)), listImplementationContracts: (args) => implementationContracts.listImplementationContracts(definitions, args), implementationContractHealth: () => implementationContracts.implementationContractHealth(definitions),
+  implementationReadiness: () => implementationContracts.readinessReport(definitions), assessContractPromotion: (args) => implementationContracts.assessContractPromotion(requireConcept(args.conceptId || args.id), args.targetMaturity, args.evidence || []) };
