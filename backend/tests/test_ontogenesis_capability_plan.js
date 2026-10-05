@@ -20,4 +20,5 @@ assert.strictEqual(plan.topology, 'a_team');
 assert.deepStrictEqual(plan.requestedConcepts, ['orchestration']);
 assert.deepStrictEqual(plan.canonicalConcepts, []);
 assert.deepStrictEqual(plan.runtimeConcepts, []);
+assert.deepStrictEqual(plan.runtimeLeaseCandidates, []);
 console.log('ontogenesis capability plan checks passed.');

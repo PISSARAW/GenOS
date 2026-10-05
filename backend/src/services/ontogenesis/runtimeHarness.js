@@ -37,6 +37,7 @@ function requestFor(input) {
     capabilityContract: { required: input.mission?.capabilities || [] },
     capabilityCatalog: input.mission?.capabilityCatalog || [],
     conceptResolution: input.mission?.concepts || null,
+    conceptLeaseCandidates: input.mission?.plan?.runtimeLeaseCandidates || [],
     developmentalContext: input.mission?.developmentalContext || null,
     worker_assignments: workerAssignments,
     morphologyPlan: input.mission?.morphology || null,

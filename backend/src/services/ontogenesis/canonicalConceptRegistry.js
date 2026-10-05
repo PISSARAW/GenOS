@@ -91,6 +91,7 @@ function resolveMission(input = {}) {
     domains, capabilities,
     canonicalConcepts: conceptCatalog(), selectedConcepts,
     runtimeConcepts: registeredConcepts(),
+    runtimeLeaseCandidates: runtimeLeaseCandidates(),
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
     failClosed: true
@@ -105,6 +106,15 @@ function registeredConcepts() {
   }));
 }
 
+function runtimeLeaseCandidates() {
+  return registeredConcepts().map((concept) => ({
+    conceptId: concept.id,
+    tools: runtimeConceptRegistry.generateLeaseForConcept(concept.id),
+    authority: concept.authority,
+    maturity: concept.maturity
+  })).filter((entry) => entry.tools.length > 0);
+}
+
 function registryHealth() {
   const capabilities = capabilityCatalog();
   return {
@@ -117,4 +127,5 @@ function registryHealth() {
   };
 }
 
-module.exports = { DOMAIN_CATALOG, capabilityCatalog, conceptCatalog, registeredConcepts, resolveMission, registryHealth };
+module.exports = { DOMAIN_CATALOG, capabilityCatalog, conceptCatalog, registeredConcepts,
+  runtimeLeaseCandidates, resolveMission, registryHealth };

@@ -47,6 +47,7 @@ function buildMissionCapabilityPlan(input) {
       .concat(concepts.selectedConcepts ? [] : (concepts.domains || [])),
     canonicalConcepts: concepts.canonicalConcepts || [],
     runtimeConcepts: concepts.runtimeConcepts || [],
+    runtimeLeaseCandidates: concepts.runtimeLeaseCandidates || [],
     capabilityRequirements: required,
     capabilityCatalog: mission.capabilityCatalog || [],
     blockedCapabilities: concepts.unavailable || [],
