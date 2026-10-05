@@ -1,3 +1,5 @@
+pub mod adversarial_generator;
+pub mod adversarial_types;
 pub mod autopoiesis;
 pub mod animal_sensory_runtime;
 pub mod behaviors;
@@ -6,6 +8,7 @@ pub mod clinical_therapy;
 #[cfg(feature = "api")]
 pub mod authorized_therapy;
 pub mod conscience;
+pub mod metrics_dashboard;
 pub mod creativity;
 pub mod core_self;
 pub mod diagnostics;
@@ -140,6 +143,9 @@ pub use token_bucket::{
 pub use trace::{Outcome, ReplayReport, Verdict};
 pub use volition::VolitionState;
 pub use worlds::{Hypothesis, Multiverse, WorldOutcome};
+pub use adversarial_types::{AdversarialScenario, AdversarialInjection, ScenarioCategory, InjectionTarget, InjectionType, FailureMode, SuccessCriteria};
+pub use adversarial_generator::AdversarialGenerator;
+pub use metrics_dashboard::{MetricsDashboard, OrchestratorMetrics, OrganismMetrics, GovernanceMetrics, EpistemologyMetrics, InfrastructureMetrics, AdversarialMetrics, GovernanceEvent, EpistemologyEvent};
 
 // Accès direct à tout l'écosystème GenOS depuis le crate orchestrateur.
 pub use genos_biology;
