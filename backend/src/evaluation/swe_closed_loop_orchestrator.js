@@ -173,6 +173,8 @@ async function synthesizePatch(params) {
   const { db, prompt, modelUri, originalSource, targetRelFile } = params;
   const genResult = await generate({
     prompt,
+    cognitiveDomain: 'evaluation',
+    cognitiveObjects: { benchmark: 'swe_closed_loop', case: { targetRelFile, originalSource }, rubric: params },
     model: modelUri,
     priority: 'interactive',
     timeoutMs: 600000,

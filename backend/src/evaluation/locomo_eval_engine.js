@@ -183,6 +183,8 @@ Answer:`;
       try {
         const genResult = await generate({
           prompt,
+          cognitiveDomain: 'evaluation',
+          cognitiveObjects: { benchmark: 'locomo', case: { conversationId: convId, question }, rubric: goldAnswer },
           model: modelUri,
           maxTokens: 32,
           timeoutMs: 45000,

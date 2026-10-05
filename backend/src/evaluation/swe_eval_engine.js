@@ -143,6 +143,8 @@ async function solveSweTask(task, options = {}) {
   const db = await getDatabase();
   const genResult = await generate({
     prompt,
+    cognitiveDomain: 'evaluation',
+    cognitiveObjects: { benchmark: 'swe', case: { task, targetRelFile }, rubric: excerpt },
     model: modelUri,
     priority: 'interactive',
     timeoutMs: 90000,
