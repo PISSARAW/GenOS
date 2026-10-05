@@ -49,6 +49,44 @@ function normalize(value) {
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
 
+function requestedId(reference) {
+  if (typeof reference === 'string') return reference;
+  return reference && (reference.id || reference.name || reference.concept);
+}
+
+function runtimeReference(concept, reference) {
+  const target = normalize(reference);
+  return normalize(concept.id) === target || (concept.aliases || []).some((alias) => normalize(alias) === target);
+}
+
+function resolveConceptReference(reference, topology) {
+  const requested = requestedId(reference);
+  const target = normalize(requested);
+  const runtime = Object.values(runtimeConceptRegistry.getAllConcepts())
+    .find((concept) => runtimeReference(concept, requested));
+  if (runtime) {
+    const execution = executionFields(runtime);
+    const compatible = !topology || !runtime.compatibleTopologies.length || runtime.compatibleTopologies.includes(topology);
+    return { requested, id: runtime.id, source: 'runtime', available: compatible,
+      executable: execution.executable && compatible, reason: compatible ? null : 'topologie-incompatible',
+      compatibleTopologies: runtime.compatibleTopologies, tools: runtime.tools || [],
+      primitives: runtime.primitives || [], unavailablePrimitives: execution.unavailablePrimitives };
+  }
+  const capability = capabilityCatalog().find((entry) => normalize(entry.capability) === target);
+  if (capability) return { requested, id: capability.capability, source: 'capability',
+    available: capability.state === 'operationnel', executable: capability.state === 'operationnel',
+    reason: capability.state === 'operationnel' ? null : `capacite-${capability.state}`, tools: capability.tools };
+  const documented = conceptInventory.entries().find((entry) => normalize(entry.id) === target);
+  if (documented) return { requested, id: documented.id, source: 'documentation', available: false,
+    executable: false, reason: 'concept-documentaire-sans-raccord-runtime', domain: documented.domain };
+  return { requested, id: requested, source: 'unknown', available: false, executable: false, reason: 'concept-inconnu' };
+}
+
+function resolveConceptReferences(references, topology) {
+  const list = Array.isArray(references) ? references : (references ? [references] : []);
+  return list.map((reference) => resolveConceptReference(reference, topology));
+}
+
 function domainMatches(text) {
   const normalized = normalize(text);
   const baseline = new Set(['foundations', 'orchestration', 'epistemology', 'security_governance', 'operations_resilience']);
@@ -98,9 +136,12 @@ function resolveMission(input = {}) {
   const allowed = new Set(input.allowedCapabilities || []);
   const selectedDomains = new Set(domains);
   const selectedConcepts = conceptCatalog().filter((entry) => selectedDomains.has(entry.domain));
+  const resolvedConcepts = resolveConceptReferences(input.requestedConcepts, input.topology);
   return {
     domains, capabilities,
     canonicalConcepts: conceptCatalog(), selectedConcepts,
+    requestedConcepts: input.requestedConcepts || [], resolvedConcepts,
+    blockedConcepts: resolvedConcepts.filter((concept) => !concept.available),
     runtimeConcepts: registeredConcepts(),
     compatibleRuntimeConcepts: compatibleRuntimeConcepts(input.topology),
     runtimeLeaseCandidates: runtimeLeaseCandidates(input.topology),
@@ -167,4 +208,4 @@ function registryHealth() {
 }
 
 module.exports = { DOMAIN_CATALOG, capabilityCatalog, conceptCatalog, registeredConcepts,
-  runtimeLeaseCandidates, strategyForMission, resolveMission, registryHealth };
+  runtimeLeaseCandidates, strategyForMission, resolveConceptReferences, resolveMission, registryHealth };

@@ -47,6 +47,8 @@ try {
   assert.strictEqual(plan.failClosed, true);
   assert.strictEqual(plan.evidence.independent, true);
   assert.strictEqual(plan.recovery.rollback, true);
+  assert.deepStrictEqual(plan.resolvedConcepts, []);
+  assert.deepStrictEqual(plan.blockedConcepts, []);
   assert.strictEqual(compiled.tasks.length, 3);
   assert.strictEqual(compiled.tasks[1].dependsOn.length, 0);
   assert.strictEqual(classifyMission('Réparer la régression', compiled.profile), 'repair');
@@ -55,6 +57,16 @@ try {
   assert.strictEqual(compileMission({ root_path: root, objective: 'Vérifier les résultats' }).morphology.selectedTopology, 'trinity');
   assert.strictEqual(compileMission({ root_path: root, objective: 'Réparer après un crash' }).morphology.selectedTopology, 'metapopulation');
   assert.ok(compileMission({ root_path: root, objective: 'Réparer après un crash' }).capabilities.includes('verify'));
+  const configured = compileMission({ root_path: root, objective: 'Mission web configuree',
+    config_json: JSON.stringify({ concepts: ['genos_browser_act', 'morphogenese'] }) });
+  assert.strictEqual(configured.concepts.resolvedConcepts[0].source, 'runtime');
+  assert.strictEqual(configured.concepts.resolvedConcepts[0].executable, true);
+  assert.strictEqual(configured.concepts.resolvedConcepts[1].source, 'documentation');
+  assert.strictEqual(configured.concepts.blockedConcepts.length, 1);
+  const configuredPlan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },
+    mission: configured, config: { budgets: {}, authority: {} }, selection: { topology: 'a_team' } });
+  assert.strictEqual(configuredPlan.resolvedConcepts.length, 2);
+  assert.strictEqual(configuredPlan.blockedConcepts[0].id, 'morphogenese');
   assert.ok(compileMission({ root_path: root, objective: 'Décider entre deux stratégies' }).capabilities.includes('coordinate'));
   const invalid = compileMission({ root_path: root, config_json: JSON.stringify({ topology: 'unknown' }), objective: 'Mission configuree' });
   assert.strictEqual(invalid.morphology.selectedTopology, null);

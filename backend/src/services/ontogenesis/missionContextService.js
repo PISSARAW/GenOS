@@ -162,8 +162,10 @@ function compileMission(project) {
   const selection = inferredTopology(project, profile, kind);
   const topology = selection.topology;
   const capabilities = capabilitiesFor(profile, kind, topology);
+  const config = projectConfig(project);
+  const requestedConcepts = config.concepts || config.canonicalConcepts || [];
   const concepts = conceptRegistry.resolveMission({ objective: project.objective, profile, topology,
-    missionKind: kind, allowedCapabilities: capabilities });
+    missionKind: kind, allowedCapabilities: capabilities, requestedConcepts });
   const tasks = buildTasks(project.objective || 'mission du projet', profile, kind);
   const context = JSON.stringify({ objective: project.objective || '', kind, profile });
   return {

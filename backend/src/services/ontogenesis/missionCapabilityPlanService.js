@@ -50,6 +50,8 @@ function buildMissionCapabilityPlan(input) {
     domains: concepts.domains || [],
     requestedConcepts: (concepts.selectedConcepts || []).map((concept) => concept.id)
       .concat(concepts.selectedConcepts ? [] : (concepts.domains || [])),
+    resolvedConcepts: concepts.resolvedConcepts || [],
+    blockedConcepts: concepts.blockedConcepts || [],
     canonicalConcepts: concepts.canonicalConcepts || [],
     runtimeConcepts: concepts.runtimeConcepts || [],
     compatibleRuntimeConcepts: concepts.compatibleRuntimeConcepts || [],

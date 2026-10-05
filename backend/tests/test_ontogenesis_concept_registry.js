@@ -11,7 +11,8 @@ assert.ok(health.concepts >= 400);
 assert.ok(health.capabilities > 0);
 
 const web = registry.resolveMission({ objective: 'Créer un site React avec vérification et récupération',
-  profile: { stack: ['react'] }, topology: 'a_team' });
+  profile: { stack: ['react'] }, topology: 'a_team',
+  requestedConcepts: ['morphogenese', 'genos_browser_act', 'concept_inexistant'] });
 assert.ok(web.domains.includes('orchestration'));
 assert.ok(web.domains.includes('epistemology'));
 assert.ok(web.operational.length > 0);
@@ -23,6 +24,10 @@ assert.ok(web.runtimeConcepts.every((concept) => Array.isArray(concept.unavailab
 assert.ok(web.runtimeConcepts.every((concept) => concept.unavailablePrimitives.length === 0));
 assert.ok(web.runtimeConcepts.filter((concept) => concept.primitives.length > 0)
   .every((concept) => concept.executable));
+assert.deepStrictEqual(web.resolvedConcepts.map((concept) => concept.source), ['documentation', 'runtime', 'unknown']);
+assert.strictEqual(web.resolvedConcepts[0].reason, 'concept-documentaire-sans-raccord-runtime');
+assert.strictEqual(web.resolvedConcepts[1].executable, true);
+assert.strictEqual(web.blockedConcepts.length, 2);
 assert.ok(web.runtimeLeaseCandidates.length > 0);
 assert.ok(web.runtimeLeaseCandidates.every((entry) => !entry.tools.includes('genos_orchestrate')));
 const compatibleTools = new Set(runtimeRegistry.resolveCapabilities(web.compatibleRuntimeConcepts.map((concept) => concept.id)));
