@@ -23,7 +23,7 @@ assert.strictEqual(web.coverage.registryRuntime, 182);
 assert.strictEqual(web.coverage.registryPhilosophy, 375);
 assert.strictEqual(web.coverage.registryGraph, 527);
 assert.strictEqual(web.coverage.runtime + web.coverage.operationalCapability + web.coverage.philosophyRead
-  + web.coverage.capabilityGraph + web.coverage.existingAdapter
+  + web.coverage.capabilityGraph + web.coverage.workerRuntime + web.coverage.existingAdapter
   + web.coverage.documentationOnly, web.coverage.inventory);
 assert.ok(web.canonicalConcepts.length >= 400);
 assert.ok(web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length >= 375);
@@ -63,6 +63,15 @@ assert.deepStrictEqual(lifecycleMission.resolvedConcepts.map((concept) => concep
 assert.deepStrictEqual(lifecycleMission.resolvedConcepts.map((concept) => concept.available), [true, true, true]);
 assert.strictEqual(lifecycleMission.resolvedConcepts[1].service, 'gvxDevelopmentController');
 assert.strictEqual(lifecycleMission.resolvedConcepts[2].service, 'shev.responsibilityService');
+
+const workerMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
+  'bounded_worker', 'verifier_worker', 'sub_orchestrator'
+] });
+assert.deepStrictEqual(workerMission.resolvedConcepts.map((concept) => concept.source),
+  ['worker_runtime', 'worker_runtime', 'worker_runtime']);
+assert.ok(workerMission.resolvedConcepts.every((concept) => concept.available && !concept.executable));
+assert.ok(workerMission.resolvedConcepts.every((concept) => concept.access === 'contract'));
+assert.ok(workerMission.canonicalConcepts.filter((concept) => concept.source === 'worker_runtime').length >= 19);
 
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
