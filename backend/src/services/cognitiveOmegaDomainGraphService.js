@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const semanticRegistry = require('./cognitiveOmegaSemanticRegistryService');
 
 const DOMAINS = new Set(['signal', 'trinity', 'biocenose', 'worker', 'evaluation', 'primitive', 'controller', 'runtime']);
 
@@ -11,16 +12,8 @@ const DOMAIN_FIELDS = Object.freeze({
   controller: ['request', 'tenant', 'constraints'], runtime: ['request', 'constraints']
 });
 
-const DOMAIN_SEMANTICS = Object.freeze({
-  signal: { selector: 'signal/relevance', tool: 'signal/resolve', verification: 'aeis', effect: 'signal.publish' },
-  trinity: { selector: 'trinity/hypothesis', tool: 'trinity/experiment', verification: 'reproducer', effect: 'trinity.promote' },
-  biocenose: { selector: 'biocenose/contract', tool: 'biocenose/invoke', verification: 'receipt', effect: 'biocenose.commit' },
-  worker: { selector: 'worker/evidence', tool: 'worker/execute', verification: 'test', effect: 'worker.complete' },
-  evaluation: { selector: 'evaluation/case', tool: 'evaluation/run', verification: 'test', effect: 'evaluation.record' },
-  primitive: { selector: 'primitive/arguments', tool: 'primitive/execute', verification: 'receipt', effect: 'primitive.commit' },
-  controller: { selector: 'controller/constraints', tool: 'controller/dispatch', verification: 'aeis', effect: 'controller.apply' },
-  runtime: { selector: 'runtime/request', tool: 'runtime/execute', verification: 'receipt', effect: 'runtime.commit' }
-});
+const DOMAIN_SEMANTICS = Object.freeze(Object.fromEntries(semanticRegistry.domains()
+  .map((domain) => [domain, semanticRegistry.forDomain(domain)])));
 
 function normalizeDomain(domain) { return DOMAINS.has(domain) ? domain : 'runtime'; }
 
@@ -95,10 +88,13 @@ function build(input = {}) {
       verification: intent, verificationDescriptor: descriptor, proof }];
   if (effects.length) operations.push({ id: `emit_${domain}`, kind: 'EMIT', reference: semantics.effect,
     dependsOn: [checkId], effectContract: { declared: effects, target: semantics.effect }, proofBinding: checkId });
-  return { domain, objects: Object.fromEntries(records.map((record) => [record.field, record.value])),
+  const graph = { domain, objects: Object.fromEntries(records.map((record) => [record.field, record.value])),
     objectStore: Object.fromEntries(records.map((record) => [record.reference, record.value])),
     objectRecords: records, references: records.map((record) => record.reference), proofs: [proof], effects,
     dependencies: Object.fromEntries(operations.map((operation) => [operation.id, operation.dependsOn])), operations };
+  const registryCheck = semanticRegistry.validateGraph(graph);
+  if (!registryCheck.valid) throw new Error(registryCheck.reason);
+  return graph;
 }
 
 module.exports = { build, normalizeDomain, DOMAIN_FIELDS, DOMAIN_SEMANTICS };

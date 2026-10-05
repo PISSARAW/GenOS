@@ -1,0 +1,13 @@
+{
+  "schema": "genos.gcir.omega.semantic-handlers/v1",
+  "handlers": {
+    "signal": { "selector": "signal/relevance", "tool": "signal/resolve", "infer": "model/signal", "verification": "aeis", "effect": "signal.publish" },
+    "trinity": { "selector": "trinity/hypothesis", "tool": "trinity/experiment", "infer": "model/trinity", "verification": "reproducer", "effect": "trinity.promote" },
+    "biocenose": { "selector": "biocenose/contract", "tool": "biocenose/invoke", "infer": "model/biocenose", "verification": "receipt", "effect": "biocenose.commit" },
+    "worker": { "selector": "worker/evidence", "tool": "worker/execute", "infer": "model/worker", "verification": "test", "effect": "worker.complete" },
+    "evaluation": { "selector": "evaluation/case", "tool": "evaluation/run", "infer": "model/evaluation", "verification": "test", "effect": "evaluation.record" },
+    "primitive": { "selector": "primitive/arguments", "tool": "primitive/execute", "infer": "model/primitive", "verification": "receipt", "effect": "primitive.commit" },
+    "controller": { "selector": "controller/constraints", "tool": "controller/dispatch", "infer": "model/controller", "verification": "aeis", "effect": "controller.apply" },
+    "runtime": { "selector": "runtime/request", "tool": "runtime/execute", "infer": "model/runtime", "verification": "receipt", "effect": "runtime.commit" }
+  }
+}

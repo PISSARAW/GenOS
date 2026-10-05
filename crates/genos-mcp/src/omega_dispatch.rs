@@ -1,6 +1,7 @@
 use crate::executor;
 use crate::omega::{read_compatible_json, OmegaEnvelope};
 use crate::omega_runtime::{ExecutionInput, OmegaRuntime};
+use crate::omega_semantic_registry;
 use crate::tools;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -16,6 +17,9 @@ pub fn execute(params: &Value, workspace: &Path) -> Value {
         Ok(envelope) => envelope,
         Err(error) => return blocked(error),
     };
+    if let Err(error) = omega_semantic_registry::validate(&envelope) {
+        return blocked(error);
+    }
     let mut runtime = OmegaRuntime::default();
     register_selectors(&mut runtime, &envelope);
     register_values(&mut runtime, params, &envelope);

@@ -2,6 +2,7 @@ mod executor;
 pub mod omega;
 mod omega_dispatch;
 pub mod omega_runtime;
+mod omega_semantic_registry;
 mod tools;
 
 use serde_json::{json, Value};
