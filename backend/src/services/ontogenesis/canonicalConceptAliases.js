@@ -26,6 +26,12 @@ const CAPABILITY_ALIASES = Object.freeze({
   brier_epistemique: 'EPISTEMICS_BRIER', monitoring_hallucinations: 'HALLUCINATION_MONITORING',
   perception_foveale: 'FOVEAL_PERCEPTION', approbation_gouvernance: 'GOVERNANCE_APPROVAL',
   routage_modeles: 'MODEL_ROUTING'
+  , barriere_comparative: 'EVIDENCE_BARRIER', handoffs: 'SIGNALING_BUS', quorum: 'QUORUM'
+  , veto_immunitaire: 'IMMUNE_SYSTEM', inference_locale: 'LOCAL_INFERENCE'
+  , etat_partage: 'CRDT_SHARED_STATE', crdt: 'CRDT_SHARED_STATE'
+  , allocation: 'TOKEN_ECONOMY', demes: 'SWARM_METRICS'
+  , arbitrage_pareto: 'STRATEGY_PORTFOLIO', variants: 'STRATEGY_PORTFOLIO'
+  , admission_workers: 'LIGAND_RECEPTOR'
 });
 
 const PHILOSOPHY_ALIASES = Object.freeze({

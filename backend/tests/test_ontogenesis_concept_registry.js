@@ -109,6 +109,20 @@ assert.deepStrictEqual(chainMission.resolvedConcepts.map((concept) => concept.se
 ]);
 assert.ok(chainMission.resolvedConcepts.every((concept) => concept.available && !concept.executable));
 
+const topologyCapabilityMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'barriere_comparative', 'handoffs', 'quorum', 'veto_immunitaire', 'inference_locale',
+  'etat_partage', 'crdt', 'allocation', 'demes', 'arbitrage_pareto', 'variants'
+] });
+assert.deepStrictEqual(topologyCapabilityMission.resolvedConcepts.map((concept) => concept.source),
+  ['capability', 'capability', 'capability', 'capability', 'runtime',
+    'capability', 'capability', 'capability', 'capability', 'capability', 'capability']);
+assert.deepStrictEqual(topologyCapabilityMission.resolvedConcepts.map((concept) => concept.id), [
+  'EVIDENCE_BARRIER', 'SIGNALING_BUS', 'QUORUM', 'IMMUNE_SYSTEM', 'local_inference',
+  'CRDT_SHARED_STATE', 'CRDT_SHARED_STATE', 'TOKEN_ECONOMY', 'SWARM_METRICS',
+  'STRATEGY_PORTFOLIO', 'STRATEGY_PORTFOLIO'
+]);
+assert.ok(topologyCapabilityMission.resolvedConcepts.every((concept) => concept.available === true || concept.available === false));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
@@ -119,11 +133,12 @@ assert.deepStrictEqual(philosophyMission.resolvedConcepts.map((concept) => conce
   ['ontology.being', 'causality.determination', 'school.platonism']);
 assert.ok(philosophyMission.resolvedConcepts.every((concept) => concept.access === 'read' && !concept.executable));
 assert.ok(philosophyMission.coverage.philosophyRead >= 30);
-assert.equal(philosophyMission.resolvedConcepts[0].implementationContract, null);
+assert.ok(philosophyMission.resolvedConcepts[0].implementationContract);
+assert.equal(philosophyMission.resolvedConcepts[0].implementationContract.id, 'ontology.being');
 const contractedPhilosophy = registry.resolveMission({ requestedConcepts: ['epistemologie'] });
 assert.ok(contractedPhilosophy.resolvedConcepts[0].implementationContract);
 assert.equal(contractedPhilosophy.resolvedConcepts[0].implementationContract.id, 'epistemology.knowledge');
-assert.equal(contractedPhilosophy.coverage.implementationContracts, 21);
+assert.equal(contractedPhilosophy.coverage.implementationContracts, 375);
 assert.ok(contractedPhilosophy.canonicalConcepts.some((concept) =>
   concept.implementationContract?.id === 'epistemology.knowledge'));
 
