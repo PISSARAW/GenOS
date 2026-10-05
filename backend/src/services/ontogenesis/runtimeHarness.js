@@ -49,6 +49,7 @@ function requestFor(input) {
     conceptResolution: input.mission?.concepts || null,
     conceptLeaseCandidates: plan.runtimeLeaseCandidates || [],
     philosophicalContracts,
+    runtimeBridges: plan.runtimeBridges || [],
     strategyConcept: input.mission?.plan?.strategy || null,
     compatibleConcepts: input.mission?.plan?.compatibleRuntimeConcepts || [],
     developmentalContext: input.mission?.developmentalContext || null,
@@ -102,6 +103,7 @@ function conceptInstruction(plan) {
     blocked: blocked.map((entry) => entry.capability || entry.id).filter(Boolean),
     blockedConcepts: resolved.filter((concept) => !concept.available).map((concept) => concept.id).filter(Boolean),
     philosophicalContracts: source.philosophicalContracts?.contracts || []
+    , runtimeBridges: source.runtimeBridges || []
   });
 }
 

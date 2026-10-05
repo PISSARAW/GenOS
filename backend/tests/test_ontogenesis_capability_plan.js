@@ -28,5 +28,18 @@ assert.deepStrictEqual(plan.runtimeLeaseCandidates, []);
 assert.deepStrictEqual(plan.resolvedConcepts, []);
 assert.deepStrictEqual(plan.blockedConcepts, []);
 assert.deepStrictEqual(plan.philosophicalContracts, { required: false, promotionEligible: false, contracts: [] });
+assert.deepStrictEqual(plan.runtimeBridges.map((bridge) => bridge.id), ['a-team-variant-runtime']);
 assert.strictEqual(plan.strategy, null);
+
+const integratedPlan = buildMissionCapabilityPlan({
+  project: { id: 'p2' }, task: { id: 't2', acceptance_json: '[]' },
+  selection: { topology: 'biome', variant: 'web_sensorium' }, config: {},
+  mission: {
+    capabilities: ['WEB_FORAGING', 'FOVEAL_PERCEPTION', 'COMPUTER_USE', 'PROVENANCE'],
+    concepts: { resolvedConcepts: [{ id: 'global_workspace' }], operational: [] }, morphology: {}
+  }
+});
+assert.deepStrictEqual(integratedPlan.runtimeBridges.map((bridge) => bridge.id), [
+  'concept-runtime', 'web-sensorium', 'biome-vertical-slice', 'rust-node-contract'
+]);
 console.log('ontogenesis capability plan checks passed.');

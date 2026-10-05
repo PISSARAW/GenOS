@@ -1,11 +1,9 @@
 'use strict';
-
 /**
  * Registre de raccordement des familles canoniques à l'Ontogenèse.
  * Il décrit les points d'appel disponibles sans transformer un concept
  * documentaire en capacité exécutable.
  */
-
 const accessMatrix = require('../capabilityAccessMatrix');
 const capabilityGraph = require('../capabilityGraphService');
 const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
@@ -15,7 +13,6 @@ const workerKinds = require('../agents/workerKindService');
 const implementationContracts = require('../implementationContractRouter');
 const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES,
   INTERFACE_REFERENCES, CENTRAL_CHAIN_REFERENCES } = require('./canonicalConceptAliases');
-
 const LEGACY_DOMAIN_CATALOG = Object.freeze([
   ['foundations', ['mission', 'provenance', 'evidence', 'authority', 'lease', 'budget', 'workspace', 'promotion', 'recovery']],
   ['computational_biology', ['cell', 'organism', 'genome', 'phenotype', 'differentiation', 'morphogenesis', 'homeostasis', 'interoception', 'symbiosis', 'ecosystem']],
@@ -40,16 +37,14 @@ const LEGACY_DOMAIN_CATALOG = Object.freeze([
   ['security_governance', ['identity', 'rbac', 'tenant', 'project', 'release', 'deployment', 'human_approval', 'compliance', 'sandbox', 'secrets', 'cedar']],
   ['operations_resilience', ['daemon', 'autostart', 'sentinel', 'heartbeat', 'claim_recovery', 'retry_policy', 'dead_letter', 'wal_recovery', 'idempotence', 'rollout']],
   ['philosophy', ['ontology', 'causality', 'time', 'identity', 'mind', 'epistemology', 'ethics', 'phenomenology', 'process', 'possible_worlds']]
-].map(([id, concepts]) => Object.freeze({ id, concepts: Object.freeze(concepts) })));
-
+ ].map(([id, concepts]) => Object.freeze({ id, concepts: Object.freeze(concepts) })));
 const DOMAIN_CATALOG = Object.freeze(conceptInventory.entries().reduce((domains, entry) => {
   const domain = domains.find((item) => item.id === entry.domain);
   if (domain) domain.concepts.push(entry.id);
   else domains.push({ id: entry.domain, concepts: [entry.id] });
   return domains;
 }, LEGACY_DOMAIN_CATALOG.map((domain) => ({ id: domain.id, concepts: [...domain.concepts] }))
-).map((domain) => Object.freeze({ id: domain.id, concepts: Object.freeze([...new Set(domain.concepts)]) })));
-
+ ).map((domain) => Object.freeze({ id: domain.id, concepts: Object.freeze([...new Set(domain.concepts)]) })));
 const EXISTING_ADAPTERS = Object.freeze({
   morphogenese: { service: 'morphogenesisPlannerService', access: 'plan' },
   ontogenese: { service: 'tickService', access: 'control' },
@@ -67,8 +62,26 @@ const EXISTING_ADAPTERS = Object.freeze({
   maladie_nosocomiale: { service: 'missionQuarantineGate', access: 'control' },
   maladie_iatrogene: { service: 'clinicalStateService', access: 'observe' },
   therapie: { service: 'clinicalTherapyService', access: 'plan' },
-  pharmacopee: { service: 'therapyAuthorizationService', access: 'plan' }
-});
+  pharmacopee: { service: 'therapyAuthorizationService', access: 'plan' },
+  global_workspace: { service: 'conceptRuntimeService', access: 'observe' },
+  nonlinear_ignition: { service: 'conceptRuntimeService', access: 'observe' },
+  sustained_recurrence: { service: 'conceptRuntimeService', access: 'observe' },
+  metacognition: { service: 'conceptRuntimeService', access: 'observe' },
+  predictive_inference: { service: 'conceptRuntimeService', access: 'observe' },
+  self_world_distinction: { service: 'conceptRuntimeService', access: 'observe' },
+  world_model: { service: 'conceptRuntimeService', access: 'observe' },
+  flexible_agency: { service: 'conceptRuntimeService', access: 'observe' },
+  causal_integration: { service: 'conceptRuntimeService', access: 'observe' },
+  valence_interoception: { service: 'conceptRuntimeService', access: 'observe' },
+  report_access: { service: 'conceptRuntimeService', access: 'observe' },
+  equipe_specialisee: { service: 'variantExecutionRuntime.executeExpertCommittee', access: 'execute' },
+  pipeline: { service: 'variantExecutionRuntime.executePipeline', access: 'execute' },
+  project_dag: { service: 'variantExecutionRuntime.executeProjectDag', access: 'execute' },
+  pod_cross_fonctionnel: { service: 'variantExecutionRuntime.executeCrossFunctionalPod', access: 'execute' },
+  boundary_spanner: { service: 'variantExecutionRuntime.executeBoundarySpanner', access: 'execute' },
+  equipe_matricielle: { service: 'variantExecutionRuntime.executeMatrixTeam', access: 'execute' },
+  tiger_team: { service: 'variantExecutionRuntime.executeTigerTeam', access: 'execute' }
+ });
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -109,8 +122,7 @@ function interfaceReference(requested, target) {
 }
 function implementationContractFor(concept) {
   return implementationContracts.getImplementationContract(concept);
-}
-
+  }
 function implementationContractReference(contract) {
   if (!contract) return null;
   return { id: contract.id, category: contract.category, maturity: contract.maturity, compilationState: contract.compilationState || 'pilot', readiness: 'ready-for-experiment', scenarioId: contract.scenario?.id || null, experimentId: contract.experiment?.id || null, evidenceRequired: contract.experiment?.evidenceRequired || [], topologies: contract.experiment?.topologies || [], promotionEligible: false };
@@ -120,15 +132,13 @@ function centralChainReference(requested, target) {
   if (!service) return null;
   return { requested, id: target, source: 'central_chain_runtime', available: true, executable: false,
     access: 'contract', service, domain: 'central_chain' };
-}
-
+ }
 function topologyTools(topology) {
   if (!topology) return null;
   const compatible = runtimeConceptRegistry.findCompatibleConcepts({ topology });
   const ids = [topology, ...compatible.map((concept) => concept.id)];
   return new Set(runtimeConceptRegistry.resolveCapabilities(ids));
-}
-
+ }
 function topologyAllows(topology, concept) {
   if (!topology) return true;
   const compatibleTopologies = concept.compatibleTopologies || concept.compatible_topologies || [];
@@ -136,8 +146,7 @@ function topologyAllows(topology, concept) {
   if (!(concept.tools || []).length && (concept.primitives || []).length) return true;
   const allowed = topologyTools(topology);
   return (concept.tools || []).some((tool) => allowed.has(tool));
-}
-
+ }
 function resolveConceptReference(reference, topology) {
   const requested = requestedId(reference);
   const target = normalize(requested);

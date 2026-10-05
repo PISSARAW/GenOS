@@ -270,11 +270,12 @@ const cognitionMission = registry.resolveMission({ topology: 'holobionte', reque
   'interoception', 'calibration', 'dissonance_cognitive', 'memoire_autobiographique',
   'modele_soi', 'indicateurs_conscience', 'imagination', 'simulation_interne', 'reflexion', 'metacognition'
 ] });
-assert.ok(cognitionMission.resolvedConcepts.every((concept) => concept.source === 'runtime' || concept.source === 'capability'));
+assert.ok(cognitionMission.resolvedConcepts.every((concept) =>
+  concept.source === 'runtime' || concept.source === 'capability' || concept.source === 'existing_adapter'));
 assert.deepStrictEqual(cognitionMission.resolvedConcepts.map((concept) => concept.id), [
   'CONSCIENCE_HOMEOSTASIS', 'EPISTEMICS_BRIER', 'SEMANTIC_CONFLICTS', 'EPISODIC_MEMORY',
   'CONSCIENCE_HOMEOSTASIS', 'CONSCIENCE_HOMEOSTASIS', 'n_way_counterfactual_fork',
-  'simulated_annealing_concept', 'memory_compilation_strategy', 'memory_compilation_strategy'
+  'simulated_annealing_concept', 'memory_compilation_strategy', 'metacognition'
 ]);
 
 const epistemologyMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
@@ -333,7 +334,7 @@ const topologyMission = registry.resolveMission({ topology: 'trinity', requested
   'populations_semi_independantes', 'recuperation_lignage'
 ] });
 assert.ok(topologyMission.resolvedConcepts.every((concept) =>
-  concept.source === 'capability' || concept.source === 'runtime'));
+  concept.source === 'capability' || concept.source === 'runtime' || concept.source === 'existing_adapter'));
 assert.ok(topologyMission.resolvedConcepts.every((concept) => concept.id));
 
 const philosophyReadMission = registry.resolveMission({ requestedConcepts: [
@@ -374,6 +375,15 @@ assert.ok(nosologyMission.resolvedConcepts.slice(1).every((concept) =>
 assert.ok(nosologyMission.resolvedConcepts.some((concept) => concept.service === 'clinicalTherapyService'));
 assert.equal(nosologyMission.coverage.documentationOnly, 0);
 assert.equal(nosologyMission.coverage.inventory, 704);
+
+const runtimeBridgeMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'global_workspace', 'metacognition', 'world_model', 'causal_integration', 'equipe_specialisee'
+] });
+assert.deepStrictEqual(runtimeBridgeMission.resolvedConcepts.map((concept) => concept.source), [
+  'existing_adapter', 'existing_adapter', 'existing_adapter', 'existing_adapter', 'existing_adapter'
+]);
+assert.equal(runtimeBridgeMission.resolvedConcepts[0].service, 'conceptRuntimeService');
+assert.equal(runtimeBridgeMission.resolvedConcepts[4].service, 'variantExecutionRuntime.executeExpertCommittee');
 
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);

@@ -43,6 +43,37 @@ function philosophicalContractRequirements(concepts) {
   return { required: uniqueEntries.length > 0, promotionEligible: false, contracts: uniqueEntries };
 }
 
+const COGNITIVE_RUNTIME_CONCEPTS = new Set([
+  'global_workspace', 'nonlinear_ignition', 'sustained_recurrence', 'metacognition',
+  'predictive_inference', 'self_world_distinction', 'world_model', 'flexible_agency',
+  'causal_integration', 'valence_interoception', 'report_access'
+]);
+
+function runtimeBridgePlan({ mission, concepts, topology, organization }) {
+  const resolvedIds = new Set((concepts.resolvedConcepts || []).map((concept) => concept.id));
+  const required = new Set([
+    ...(mission.capabilities || []),
+    ...(concepts.operational || []).map((entry) => entry.capability)
+  ]);
+  const bridges = [];
+  if ([...COGNITIVE_RUNTIME_CONCEPTS].some((id) => resolvedIds.has(id))) {
+    bridges.push({ id: 'concept-runtime', service: 'conceptRuntimeService', trigger: 'agent-process-event', promotionEligible: false });
+  }
+  if (['WEB_FORAGING', 'FOVEAL_PERCEPTION', 'COMPUTER_USE'].some((id) => required.has(id))) {
+    bridges.push({ id: 'web-sensorium', services: ['browserScoutService', 'fovealVisionService', 'foragingScoutHarvesterService'], trigger: 'closed-loop-sensing', promotionEligible: false });
+  }
+  if (topology === 'biome') {
+    bridges.push({ id: 'biome-vertical-slice', service: 'ontogenesis.tickService', trigger: 'capture-observe-decide-act-verify', promotionEligible: false });
+  }
+  if (required.has('PROVENANCE') || required.has('CAPSULES_SNAPSHOTS')) {
+    bridges.push({ id: 'rust-node-contract', services: ['rustBridgeEvidenceService', 'rustNodeContractValidator'], trigger: 'snapshot-receipt-validation', promotionEligible: false });
+  }
+  if (topology === 'a_team' || organization) {
+    bridges.push({ id: 'a-team-variant-runtime', service: 'variantExecutionRuntime', trigger: 'selected-variant', promotionEligible: false });
+  }
+  return bridges;
+}
+
 function buildMissionCapabilityPlan(input) {
   const mission = input.mission || {};
   const config = input.config || {};
@@ -51,6 +82,7 @@ function buildMissionCapabilityPlan(input) {
   const topology = input.selection?.topology || mission.morphology?.selectedTopology || null;
   const organization = mission.morphology?.selectedOrganization || null;
   const topologyContract = topologyCapabilityService.contractFor({ mode: topology, organization });
+  const runtimeBridges = runtimeBridgePlan({ mission, concepts, topology, organization });
   return {
     version: 1,
     projectId: input.project.id,
@@ -69,6 +101,7 @@ function buildMissionCapabilityPlan(input) {
     capabilityCatalog: mission.capabilityCatalog || [],
     blockedCapabilities: concepts.unavailable || [],
     philosophicalContracts: philosophicalContractRequirements(concepts),
+    runtimeBridges,
     morphology: mission.morphology || null,
     topology,
     organization,
@@ -82,4 +115,4 @@ function buildMissionCapabilityPlan(input) {
   };
 }
 
-module.exports = { buildMissionCapabilityPlan };
+module.exports = { buildMissionCapabilityPlan, runtimeBridgePlan };
