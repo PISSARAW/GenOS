@@ -33,9 +33,9 @@
       "properties": {
         "id": { "type": "string" },
         "contractId": { "type": "string" },
-        "mode": { "type": "string" },
-        "stimulus": { "type": "string" },
-        "observation": { "type": "string" }
+        "mode": { "type": "string", "minLength": 1 },
+        "stimulus": { "type": "string", "minLength": 1 },
+        "observation": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
@@ -43,13 +43,13 @@
       "type": "object",
       "required": ["id", "hypothesis", "baseline", "successCondition", "rejectionCondition", "evidenceRequired", "topologies", "status"],
       "properties": {
-        "id": { "type": "string" },
-        "hypothesis": { "type": "string" },
-        "baseline": { "type": "string" },
-        "successCondition": { "type": "string" },
-        "rejectionCondition": { "type": "string" },
-        "evidenceRequired": { "type": "array", "items": { "type": "string" } },
-        "topologies": { "type": "array", "minItems": 2, "items": { "type": "string" } },
+        "id": { "type": "string", "minLength": 1 },
+        "hypothesis": { "type": "string", "minLength": 1 },
+        "baseline": { "type": "string", "minLength": 1 },
+        "successCondition": { "type": "string", "minLength": 1 },
+        "rejectionCondition": { "type": "string", "minLength": 1 },
+        "evidenceRequired": { "type": "array", "minItems": 3, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "topologies": { "type": "array", "minItems": 4, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
         "status": { "const": "planned" }
       },
       "additionalProperties": false

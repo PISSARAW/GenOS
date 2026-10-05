@@ -36,9 +36,11 @@ assert.ok(compiled.contracts.every((item) => validateContract(item).length === 0
 assert.ok(compiled.contracts.every((item) => item.interpretation && item.invariant && item.mechanism));
 assert.ok(compiled.contracts.every((item) => item.sourceRefs.length > 0));
 assert.ok(compiled.contracts.every((item) => item.scenario && item.scenario.contractId === item.id));
-assert.ok(compiled.contracts.every((item) => item.experiment && item.experiment.status === 'planned'));
-assert.ok(compiled.contracts.every((item) => item.experiment.topologies.includes('isolated_critics')));
-assert.ok(compiled.contracts.every((item) => item.experiment.topologies.length === 4));
+  assert.ok(compiled.contracts.every((item) => item.experiment && item.experiment.status === 'planned'));
+  assert.ok(compiled.contracts.every((item) => item.experiment.topologies.includes('isolated_critics')));
+  assert.ok(compiled.contracts.every((item) => item.experiment.topologies.length === 4));
+  assert.ok(compiled.contracts.every((item) => item.experiment.evidenceRequired.includes('comparison-receipt')));
+  assert.ok(compiled.contracts.every((item) => item.scenario.stimulus && item.scenario.observation));
 assert.ok(compiled.contracts.every((item) => Array.isArray(item.conflicts)));
 
 const ids = CONCEPT_DEFINITIONS.map((concept) => concept.id);
@@ -79,6 +81,7 @@ contractHealth.then(async (result) => {
   assert.equal(readiness.readyForExperiment, 375);
   assert.equal(readiness.blocked, 0);
   assert.equal(readiness.promotionEligible, 0);
+  assert.ok(readiness.probes.every((probe) => probe.evidence.includes('falsification-plan')));
   const promotion = await router.handlePhilosophyRequest({ request: { operation: 'assessContractPromotion', arguments: { conceptId: 'core.agent', targetMaturity: 'validated', evidence: [] } } });
   assert.equal(promotion.eligible, false);
   assert.ok(promotion.missingEvidence.length >= 1);

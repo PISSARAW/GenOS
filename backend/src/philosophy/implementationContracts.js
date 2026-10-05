@@ -214,8 +214,11 @@ function validateContract(contractValue) {
     errors.push('category is invalid');
   }
   if (!contractValue.scenario || contractValue.scenario.contractId !== contractValue.id) errors.push('scenario must identify its contract');
+  if (!contractValue.scenario?.stimulus || !contractValue.scenario?.observation) errors.push('scenario must define stimulus and observation');
   if (!contractValue.experiment || contractValue.experiment.status !== 'planned') errors.push('experiment must be planned');
   if (!contractValue.experiment?.topologies?.includes('isolated_critics')) errors.push('experiment must include the reference topology');
+  if (!TOPOLOGY_VARIANTS.every((topology) => contractValue.experiment?.topologies?.includes(topology))) errors.push('experiment must compare all topology variants');
+  if (!['scenario-input', 'scenario-output', 'comparison-receipt'].every((evidence) => contractValue.experiment?.evidenceRequired?.includes(evidence))) errors.push('experiment must define the comparison evidence set');
   for (const field of ['targets', 'observables', 'falsificationTests', 'limits', 'obligations', 'prohibitions', 'violationCriteria']) {
     if (!Array.isArray(contractValue[field]) || contractValue[field].length === 0) errors.push(`${field} must be a non-empty array`);
   }
@@ -244,7 +247,7 @@ function runReadinessProbe(contractValue) {
     status: errors.length === 0 ? 'ready-for-experiment' : 'blocked',
     errors,
     promotionEligible: false,
-    evidence: errors.length === 0 ? ['schema-valid', 'scenario-present', 'mechanism-mapped'] : [],
+    evidence: errors.length === 0 ? ['schema-valid', 'scenario-present', 'falsification-plan', 'topology-matrix', 'evidence-plan', 'mechanism-mapped'] : [],
   };
 }
 

@@ -39,7 +39,9 @@ des observables, un scénario comparable, des tests de falsification, des limite
 et une responsabilité. Chaque entrée possède aussi une expérience planifiée,
 un baseline, une hypothèse, un critère de succès et un critère de rejet.
 Les expériences déclarent aussi la topologie de référence `isolated_critics` et
-les variantes `centralized`, `federated` et `peer_to_peer`.
+les variantes `centralized`, `federated` et `peer_to_peer`, ainsi que les trois
+preuves minimales d’une comparaison (`scenario-input`, `scenario-output`,
+`comparison-receipt`). La validation échoue si l’une de ces pièces manque.
 Les 354 contrats mappés ne sont pas présentés comme des fonctionnalités : leur
 mapping n’est pas encore une preuve de comportement.
 Le routeur expose les contrats en
