@@ -5,7 +5,20 @@ const msgpack = require('msgpackr');
 const specValidator = require('./specValidator');
 
 const SCHEMA = 'genos.gcir.omega/v1';
+const SUPPORTED_VERSIONS = Object.freeze([1]);
 const KINDS = new Set(['READ', 'SELECT', 'CALL', 'INFER', 'CHECK', 'EMIT']);
+const ERROR_CODES = Object.freeze({
+  SCHEMA_UNSUPPORTED: 'omega.schema_unsupported', VERSION_UNSUPPORTED: 'omega.version_unsupported',
+  ENVELOPE_INVALID: 'omega.envelope_invalid', OPERATION_INVALID: 'omega.operation_invalid',
+  DUPLICATE_OPERATION: 'omega.duplicate_operation', FRAME_INVALID: 'omega.frame_invalid',
+  PAYLOAD_INVALID: 'omega.payload_invalid'
+});
+
+class OmegaInteropError extends Error {
+  constructor(code, message = code) { super(message); this.name = 'OmegaInteropError'; this.code = code; }
+}
+
+function error(code) { return new OmegaInteropError(code); }
 
 function sortedObject(value) {
   if (Array.isArray(value)) return value.map(sortedObject);
@@ -19,7 +32,7 @@ function normalize(input = {}) {
     dependsOn: Array.isArray(operation.dependsOn) ? operation.dependsOn.map(String) : [],
     state: String(operation.state || 'open'),
   })) : [];
-  return { schema: SCHEMA, version: 1, id: String(input.id || 'omega-vector'), operations,
+  return { schema: input.schema ?? SCHEMA, version: input.version ?? 1, id: String(input.id || 'omega-vector'), operations,
     policy: sortedObject(input.policy || {}), payload: input.payload == null ? null : sortedObject(input.payload) };
 }
 
@@ -27,13 +40,21 @@ function validate(input) {
   const value = normalize(input);
   const schemaResult = specValidator.validateSpec('g-cir-omega.schema.json', value);
   const ids = new Set();
-  const errors = [...schemaResult.errors];
+  const errors = [];
+  if (value.schema !== SCHEMA) errors.push(ERROR_CODES.SCHEMA_UNSUPPORTED);
+  if (!SUPPORTED_VERSIONS.includes(value.version)) errors.push(ERROR_CODES.VERSION_UNSUPPORTED);
+  if (schemaResult.errors.length && !errors.length) errors.push(ERROR_CODES.ENVELOPE_INVALID);
   for (const operation of value.operations) {
-    if (ids.has(operation.id)) errors.push(`duplicate operation id: ${operation.id}`);
+    if (ids.has(operation.id)) errors.push(ERROR_CODES.DUPLICATE_OPERATION);
     ids.add(operation.id);
-    if (!KINDS.has(operation.kind)) errors.push(`unknown operation kind: ${operation.kind}`);
+    if (!KINDS.has(operation.kind)) errors.push(ERROR_CODES.OPERATION_INVALID);
   }
   return { valid: schemaResult.available && errors.length === 0, value, errors };
+}
+
+function negotiateVersion(version) {
+  if (!SUPPORTED_VERSIONS.includes(Number(version))) throw error(ERROR_CODES.VERSION_UNSUPPORTED);
+  return Number(version);
 }
 
 function tuple(value) {
@@ -46,22 +67,49 @@ function tuple(value) {
 
 function encode(input) {
   const checked = validate(input);
-  if (!checked.valid) throw new Error(`Invalid canonical Omega envelope: ${checked.errors.join('; ')}`);
+  if (!checked.valid) throw error(checked.errors[0] || ERROR_CODES.ENVELOPE_INVALID);
   return msgpack.encode(tuple(checked.value));
 }
 
 function decode(buffer) {
-  const frame = msgpack.decode(Buffer.from(buffer));
-  if (!Array.isArray(frame) || frame.length !== 6) throw new Error('Invalid canonical Omega frame.');
+  let frame;
+  try { frame = msgpack.decode(Buffer.from(buffer)); } catch (_) { throw error(ERROR_CODES.FRAME_INVALID); }
+  if (!Array.isArray(frame) || frame.length !== 6 || !Array.isArray(frame[3]) || !Array.isArray(frame[4])) {
+    throw error(ERROR_CODES.FRAME_INVALID);
+  }
   const [schema, version, id, operations, policyEntries, payload] = frame;
-  const value = { schema, version, id, operations: operations.map(([operationId, kind, reference, dependsOn, state]) => ({
-    id: operationId, kind, reference, dependsOn, state })), policy: Object.fromEntries(policyEntries),
-    payload: payload == null ? null : JSON.parse(payload) };
+  negotiateVersion(version);
+  let decodedPayload = null;
+  if (payload != null) {
+    try { decodedPayload = JSON.parse(payload); } catch (_) { throw error(ERROR_CODES.PAYLOAD_INVALID); }
+  }
+  let value;
+  try {
+    value = { schema, version, id, operations: operations.map(([operationId, kind, reference, dependsOn, state]) => ({
+      id: operationId, kind, reference, dependsOn, state })), policy: Object.fromEntries(policyEntries),
+    payload: decodedPayload };
+  } catch (_) { throw error(ERROR_CODES.FRAME_INVALID); }
   const checked = validate(value);
-  if (!checked.valid) throw new Error(`Invalid decoded Omega envelope: ${checked.errors.join('; ')}`);
+  if (!checked.valid) throw error(checked.errors[0] || ERROR_CODES.ENVELOPE_INVALID);
   return checked.value;
 }
 
 function digest(input) { return `sha256:${crypto.createHash('sha256').update(encode(input)).digest('hex')}`; }
 
-module.exports = { SCHEMA, normalize, validate, encode, decode, digest, tuple };
+function fuzzDecode(input, seed = 17) {
+  const source = Buffer.from(input);
+  let state = seed >>> 0;
+  let accepted = 0;
+  for (let index = 0; index < 256; index += 1) {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    const mutated = Buffer.from(source);
+    mutated[state % Math.max(1, mutated.length)] ^= (state >>> 24) || 1;
+    try { decode(mutated); accepted += 1; } catch (caught) {
+      if (!(caught instanceof OmegaInteropError)) throw caught;
+    }
+  }
+  return { iterations: 256, accepted };
+}
+
+module.exports = { SCHEMA, SUPPORTED_VERSIONS, ERROR_CODES, OmegaInteropError, normalize,
+  validate, negotiateVersion, encode, decode, digest, fuzzDecode, tuple };

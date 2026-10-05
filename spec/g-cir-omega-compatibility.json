@@ -1,0 +1,20 @@
+{
+  "protocol": "genos.gcir.omega",
+  "currentVersion": 1,
+  "supportedVersions": [1],
+  "matrix": [
+    { "producer": "node", "consumer": "rust", "version": 1, "expected": "accept" },
+    { "producer": "rust", "consumer": "node", "version": 1, "expected": "accept" },
+    { "producer": "node", "consumer": "node", "version": 1, "expected": "accept" },
+    { "producer": "rust", "consumer": "rust", "version": 1, "expected": "accept" },
+    { "producer": "legacy", "consumer": "node", "version": 0, "expected": "reject", "error": "omega.version_unsupported" },
+    { "producer": "future", "consumer": "rust", "version": 2, "expected": "reject", "error": "omega.version_unsupported" },
+    { "producer": "malformed", "consumer": "node", "version": 1, "expected": "reject", "error": "omega.frame_invalid" },
+    { "producer": "malformed", "consumer": "rust", "version": 1, "expected": "reject", "error": "omega.frame_invalid" }
+  ],
+  "errorCodes": [
+    "omega.schema_unsupported", "omega.version_unsupported", "omega.envelope_invalid",
+    "omega.operation_invalid", "omega.duplicate_operation", "omega.frame_invalid",
+    "omega.payload_invalid"
+  ]
+}

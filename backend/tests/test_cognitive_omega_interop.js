@@ -1,7 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const msgpack = require('msgpackr');
 const vectors = require('../../spec/g-cir-omega-vectors.json');
+const compatibility = require('../../spec/g-cir-omega-compatibility.json');
 const interop = require('../src/services/cognitiveOmegaInteropService');
 
 for (const vector of vectors.vectors) {
@@ -16,4 +18,19 @@ for (const vector of vectors.vectors) {
 assert.equal(interop.validate({ ...vectors.vectors[0].envelope, operations: [
   vectors.vectors[0].envelope.operations[0], vectors.vectors[0].envelope.operations[0]
 ] }).valid, false);
+assert.deepEqual(interop.SUPPORTED_VERSIONS, compatibility.supportedVersions);
+assert.throws(() => interop.encode({ ...vectors.vectors[0].envelope, version: 2 }),
+  (error) => error.code === 'omega.version_unsupported');
+assert.throws(() => interop.decode(Buffer.from('00', 'hex')),
+  (error) => error.code === 'omega.frame_invalid');
+const invalidPayloadFrame = msgpack.encode([
+  vectors.vectors[0].envelope.schema, 1, 'invalid-payload', [], [], '{invalid-json}'
+]);
+assert.throws(() => interop.decode(invalidPayloadFrame),
+  (error) => error.code === 'omega.payload_invalid');
+const fuzz = interop.fuzzDecode(Buffer.from(vectors.vectors[0].messagePackHex, 'hex'));
+assert.equal(fuzz.iterations, 256);
+for (const row of compatibility.matrix.filter((item) => item.expected === 'reject')) {
+  assert.equal(typeof row.error, 'string');
+}
 console.log('G-CIR Omega Node interop checks passed.');

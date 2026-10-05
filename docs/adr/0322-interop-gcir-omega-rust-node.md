@@ -27,3 +27,17 @@ utilise le module `genos-mcp::omega`.
 3. Un vecteur partagé doit être identique octet par octet et par SHA-256.
 4. Une incompatibilité ou un payload invalide bloque le décodage.
 5. Une évolution incompatible exige une nouvelle version de schéma et de vecteurs.
+
+## Compatibilité et robustesse
+
+La matrice `spec/g-cir-omega-compatibility.json` est la source de vérité des
+versions acceptées et des rejets attendus. La version 1 est actuellement la
+seule version supportée ; les versions futures ou historiques sont refusées
+avec le code `omega.version_unsupported`, sans conversion silencieuse.
+
+Les deux implémentations exposent les mêmes codes d'erreur pour schéma,
+version, enveloppe, opération, doublon, trame et payload. Les tests négatifs
+couvrent les erreurs de décodage et les mutations déterministes de 256 trames
+par implémentation. Ces tests bornés ne remplacent pas un fuzzing non borné,
+mais garantissent qu'une entrée arbitrairement corrompue ne provoque ni panic
+Rust ni exception Node non typée.
