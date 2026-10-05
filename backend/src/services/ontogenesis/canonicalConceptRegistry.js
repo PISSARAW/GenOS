@@ -54,9 +54,12 @@ const EXISTING_ADAPTERS = Object.freeze({
 });
 
 const CAPABILITY_ALIASES = Object.freeze({
-  portfolio_strategies: 'STRATEGY_PORTFOLIO', competition_arena: 'ARENA_COMPETITION',
+  portfolio_strategies: 'STRATEGY_PORTFOLIO', selection_multi_strategies: 'STRATEGY_PORTFOLIO',
+  competition_arena: 'ARENA_COMPETITION', brier_score: 'EPISTEMICS_BRIER',
   barriere_evidence: 'EVIDENCE_BARRIER', ligand_recepteur: 'LIGAND_RECEPTOR',
-  stigmergie: 'STIGMERGY', systeme_immunitaire: 'IMMUNE_SYSTEM',
+  evidence_independante: 'EVIDENCE_BARRIER', foraging: 'WEB_FORAGING',
+  routage_capacites: 'LIGAND_RECEPTOR', traces_stigmergiques: 'STIGMERGY',
+  recovery_lignage: 'RESILIENCE_RECOVERY', stigmergie: 'STIGMERGY', systeme_immunitaire: 'IMMUNE_SYSTEM',
   capsules_snapshots: 'CAPSULES_SNAPSHOTS', observabilite: 'OBSERVABILITY',
   memoire_graphe: 'GRAPH_MEMORY', memoire_vectorielle: 'VECTOR_MEMORY',
   memoire_episodique: 'EPISODIC_MEMORY', memoire_procedurale: 'PROCEDURAL_MEMORY',
@@ -97,6 +100,15 @@ const PHILOSOPHY_ALIASES = Object.freeze({
 });
 
 const RUNTIME_ALIASES = Object.freeze({
+  preuve_avant_promotion: 'evidence_first', falsifiabilite: 'falsification_principle',
+  provenance: 'provenance_integrity', decisions_bornees: 'execution_guardrails',
+  recus_verifiables: 'tool_output_validation', autorite_explicite: 'active_abstention_human_approval',
+  isolation_workspaces: 'vfs_sandbox', fail_closed: 'zero_trust',
+  execution_contrefactuelle: 'n_way_counterfactual_fork', falsification: 'falsifiable_hypothesis_tree',
+  hypothese: 'falsifiable_hypothesis_tree', prediction: 'bayesian_sequential_diagnosis',
+  compilation_memoire: 'memory_compilation_strategy', retrieval: 'retrieval_first',
+  circuit_breaker: 'circuit_breaker_concept', regeneration: 'checkpoint_regeneration_concept',
+  attention: 'foveal_scan_concept',
   foraging_charnov: 'energy_foraging_concept',
   foveation: 'foveal_scan_concept',
   perception_active: 'echolocation_probe',

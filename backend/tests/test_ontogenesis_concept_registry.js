@@ -86,6 +86,15 @@ assert.deepStrictEqual(canonicalCapabilityMission.resolvedConcepts.map((concept)
   [true, false, false, true, true]);
 assert.strictEqual(canonicalCapabilityMission.blockedConcepts.length, 2);
 
+const foundationsMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: [
+  'preuve_avant_promotion', 'falsifiabilite', 'provenance', 'decisions_bornees', 'brier_score'
+] });
+assert.deepStrictEqual(foundationsMission.resolvedConcepts.map((concept) => concept.id),
+  ['evidence_first', 'falsification_principle', 'provenance_integrity', 'execution_guardrails', 'EPISTEMICS_BRIER']);
+assert.deepStrictEqual(foundationsMission.resolvedConcepts.map((concept) => concept.source),
+  ['runtime', 'runtime', 'runtime', 'runtime', 'capability']);
+assert.ok(foundationsMission.resolvedConcepts.slice(0, 4).every((concept) => concept.available));
+
 const sensingMission = registry.resolveMission({ topology: 'biome', requestedConcepts: ['foveation', 'echolocation', 'olfaction'] });
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.source), ['runtime', 'runtime', 'runtime']);
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.id),
