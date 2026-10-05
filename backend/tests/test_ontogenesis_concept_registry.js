@@ -23,7 +23,8 @@ assert.strictEqual(web.coverage.registryRuntime, 182);
 assert.strictEqual(web.coverage.registryPhilosophy, 375);
 assert.strictEqual(web.coverage.registryGraph, 527);
 assert.strictEqual(web.coverage.runtime + web.coverage.operationalCapability + web.coverage.philosophyRead
-  + web.coverage.capabilityGraph + web.coverage.workerRuntime + web.coverage.existingAdapter
+  + web.coverage.capabilityGraph + web.coverage.workerRuntime + web.coverage.workerLifecycle
+  + web.coverage.existingAdapter
   + web.coverage.documentationOnly, web.coverage.inventory);
 assert.ok(web.canonicalConcepts.length >= 400);
 assert.ok(web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length >= 375);
@@ -72,6 +73,17 @@ assert.deepStrictEqual(workerMission.resolvedConcepts.map((concept) => concept.s
 assert.ok(workerMission.resolvedConcepts.every((concept) => concept.available && !concept.executable));
 assert.ok(workerMission.resolvedConcepts.every((concept) => concept.access === 'contract'));
 assert.ok(workerMission.canonicalConcepts.filter((concept) => concept.source === 'worker_runtime').length >= 19);
+
+const workerLifecycleMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
+  'incarnation', 'selection_strategie', 'collecte_recus', 'terminer'
+] });
+assert.deepStrictEqual(workerLifecycleMission.resolvedConcepts.map((concept) => concept.source),
+  ['worker_lifecycle', 'worker_lifecycle', 'worker_lifecycle', 'worker_lifecycle']);
+assert.deepStrictEqual(workerLifecycleMission.resolvedConcepts.map((concept) => concept.service), [
+  'agentIncarnationService', 'strategyExecutionAdapter', 'agentEvidenceService', 'agentProcessSupervisor'
+]);
+assert.ok(workerLifecycleMission.resolvedConcepts.every((concept) => concept.available && !concept.executable));
+assert.ok(workerLifecycleMission.canonicalConcepts.filter((concept) => concept.source === 'worker_lifecycle').length >= 23);
 
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);

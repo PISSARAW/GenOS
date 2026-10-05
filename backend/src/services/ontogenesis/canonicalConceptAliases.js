@@ -73,4 +73,18 @@ const RUNTIME_ALIASES = Object.freeze({
   navigation_active: 'landmark_navigation', olfaction: 'scent_trace', echolocation: 'echolocation_probe'
 });
 
-module.exports = { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES };
+const LIFECYCLE_REFERENCES = Object.freeze({
+  incarnation: 'agentIncarnationService', chargement_soi: 'agentExpressionContextService',
+  chargement_mission: 'agentIncarnationService', chargement_autorite: 'agentAuthorityService',
+  perception: 'agentExpressionContextService', mise_a_jour_epistemique: 'agentProcessEventPipeline',
+  recuperation_memoire: 'agentExpressionContextService', verification_regulation: 'workerContractEnforcement',
+  selection_recette_cognitive: 'agentAutonomyPlanService', selection_strategie: 'strategyExecutionAdapter',
+  selection_procedures: 'deterministicWorkerProcedures', action: 'deterministicWorkerRuntime',
+  collecte_recus: 'agentEvidenceService', evaluation_evidence: 'agentProcessEventPipeline',
+  mise_a_jour_memoire: 'agentExpressionContextService', communication: 'subOrchestratorDispatchService',
+  revue: 'workerContractEnforcement', terminaison: 'agentProcessSupervisor', continuer: 'adaptiveWorkerService',
+  adapter: 'adaptiveWorkerService', demander_capacite: 'workerContractEnforcement', escalader: 'subOrchestratorService',
+  terminer: 'agentProcessSupervisor'
+});
+
+module.exports = { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES };

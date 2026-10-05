@@ -12,7 +12,7 @@ const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
 const conceptInventory = require('./canonicalConceptInventory');
 const runtimeConceptRegistry = require('../conceptRegistryService');
 const workerKinds = require('../agents/workerKindService');
-const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES } = require('./canonicalConceptAliases');
+const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES } = require('./canonicalConceptAliases');
 
 const LEGACY_DOMAIN_CATALOG = Object.freeze([
   ['foundations', ['mission', 'provenance', 'evidence', 'authority', 'lease', 'budget', 'workspace', 'promotion', 'recovery']],
@@ -87,6 +87,13 @@ function workerReference(requested, target) {
     capabilities: workerKinds.KIND_CAPABILITIES[target] || [] };
 }
 
+function lifecycleReference(requested, target) {
+  const service = LIFECYCLE_REFERENCES[target];
+  if (!service) return null;
+  return { requested, id: target, source: 'worker_lifecycle', available: true, executable: false,
+    access: 'contract', service, domain: 'worker_lifecycle' };
+}
+
 function topologyTools(topology) {
   if (!topology) return null;
   const compatible = runtimeConceptRegistry.findCompatibleConcepts({ topology });
@@ -112,6 +119,8 @@ function resolveConceptReference(reference, topology) {
     reason: topology ? null : 'topologie-requise', service: adapter.service };
   const worker = workerReference(requested, target);
   if (worker) return worker;
+  const lifecycle = lifecycleReference(requested, target);
+  if (lifecycle) return lifecycle;
   const runtimeTarget = runtimeReferenceTarget(target);
   const runtime = Object.values(runtimeConceptRegistry.getAllConcepts())
     .find((concept) => runtimeReference(concept, runtimeTarget));
@@ -168,12 +177,13 @@ function coverageReport() {
   const runtimeIds = new Set(runtime.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const graphIds = new Set(graph.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const workerIds = new Set(Object.keys(workerKinds.KINDS).map(normalize));
+  const lifecycleIds = new Set(Object.keys(LIFECYCLE_REFERENCES).map(normalize));
   const philosophyIds = new Set(CONCEPT_DEFINITIONS.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
   const philosophyAliasIds = new Set([
     ...Object.keys(PHILOSOPHY_ALIASES), ...Object.values(PHILOSOPHY_ALIASES)
   ].map(normalize));
   const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, capabilityGraph: 0,
-    workerRuntime: 0,
+    workerRuntime: 0, workerLifecycle: 0,
     existingAdapter: 0, documentationOnly: 0 };
   for (const entry of conceptInventory.entries()) {
     const id = normalize(entry.id);
@@ -183,6 +193,7 @@ function coverageReport() {
     else if (philosophyIds.has(id) || philosophyAliasIds.has(id)) counts.philosophyRead += 1;
     else if (graphIds.has(id)) counts.capabilityGraph += 1;
     else if (workerIds.has(id)) counts.workerRuntime += 1;
+    else if (lifecycleIds.has(id)) counts.workerLifecycle += 1;
     else if (EXISTING_ADAPTERS[id]) counts.existingAdapter += 1;
     else counts.documentationOnly += 1;
   }
@@ -255,7 +266,11 @@ function conceptCatalog() {
     family: definition[0], artifact: definition[1], authorityPhenotype: definition[2],
     capabilities: workerKinds.KIND_CAPABILITIES[id] || []
   }));
-  return documented.concat(philosophical, graph, workers, registered);
+  const lifecycle = Object.entries(LIFECYCLE_REFERENCES).map(([id, service]) => ({
+    id, domain: 'worker_lifecycle', state: 'ready', executable: false, source: 'worker_lifecycle',
+    access: 'contract', service
+  }));
+  return documented.concat(philosophical, graph, workers, lifecycle, registered);
 }
 
 function resolveMission(input = {}) {
