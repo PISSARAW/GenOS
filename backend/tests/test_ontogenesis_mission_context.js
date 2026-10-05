@@ -40,6 +40,8 @@ try {
   assert.match(request.mission, /Developmental context: unavailable/);
   assert.match(request.mission, /Strategy concept:/);
   assert.strictEqual(request.worker_assignments.specialist.workerKind, 'specialist');
+  assert.deepStrictEqual(request.worker_assignments.specialist.workerRequirements.requiredCapabilities,
+    ['execute', 'analyze', 'domain_specialization']);
   const plan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },
     mission: compiled, config: { budgets: { tokens: 10 }, authority: {} }, selection: { topology: 'a_team', variant: 'default' } });
   assert.strictEqual(plan.failClosed, true);

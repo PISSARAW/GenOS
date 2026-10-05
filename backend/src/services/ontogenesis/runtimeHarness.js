@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const { processRows, treeRows, ownsProcess } = require('./processResources');
 const { managedRoot, ensureIntegration } = require('./worktreeService');
 const { terminatePid } = require('../processTermination');
+const workerKinds = require('../agents/workerKindService');
 
 const RUNNER = path.resolve(__dirname, '../../../bin/ontogenesisMissionRunner.cjs');
 
@@ -24,7 +25,7 @@ function requestFor(input) {
   const roles = input.selection.workerRoles || [];
   const workerAssignments = Object.fromEntries(roles.map((role) => [role, {
     workerKind: role,
-    workerRequirements: { requiredCapabilities: input.mission?.capabilities || [], allowedKinds: [role] }
+    workerRequirements: { requiredCapabilities: workerRequirementsFor(role), allowedKinds: [role] }
   }]));
   return {
     id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nStrategy concept: ${JSON.stringify(input.mission?.plan?.strategy || {})}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
@@ -56,6 +57,10 @@ function requestFor(input) {
     allowed_commands: checks.map((check) => [check.program, ...check.args].join(' ')),
     executor: input.config.executor, provider: input.config.provider, modelId: input.config.modelId
   };
+}
+
+function workerRequirementsFor(role) {
+  return [...(workerKinds.KIND_CAPABILITIES[workerKinds.resolveWorkerKind(role)] || [])];
 }
 
 function developmentalInstruction(context) {
