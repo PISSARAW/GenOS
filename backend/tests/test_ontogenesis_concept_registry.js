@@ -228,6 +228,18 @@ assert.deepStrictEqual(possibleWorldMission.resolvedConcepts.map((concept) => co
   'ontology.whole-void-infinite', 'ontology.person-other', 'metaphysics.mind-body'
 ]);
 
+const orchestrationCoreMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
+  'orchestrateur', 'mission', 'tache', 'graphe_etats', 'survivant', 'branches_execution',
+  'strategie', 'backoff_jitter', 'wal', 'rollback_atomique', 'capsule', 'workspace_contrefactuel',
+  'lignage', 'progressive_delivery', 'strategy_arena', 'permission_check', 'frontier_escalation'
+] });
+assert.deepStrictEqual(orchestrationCoreMission.resolvedConcepts.map((concept) => concept.source), [
+  'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'runtime',
+  'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'capability', 'runtime', 'runtime', 'runtime'
+]);
+assert.ok(orchestrationCoreMission.resolvedConcepts.every((concept) => concept.source === 'runtime' || concept.source === 'capability'));
+assert.ok(orchestrationCoreMission.blockedConcepts.length > 0);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

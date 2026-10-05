@@ -80,6 +80,10 @@ const CAPABILITY_ALIASES = Object.freeze({
   , isolated_recovery: 'RESILIENCE_RECOVERY', heartbeat: 'OBSERVABILITY'
   , checkpoint_cryptographique: 'CAPSULES_SNAPSHOTS', idempotence_appels_externes: 'RESILIENCE_RECOVERY'
   , retention_bornee: 'VFS_SANDBOX', chargeback: 'TOKEN_ECONOMY'
+  , contrat_methode: 'PROCEDURAL_GUIDANCE', contrat_strategie: 'STRATEGY_PORTFOLIO'
+  , contrat_execution: 'EXECUTION_GUARDRAILS', contrat_mission: 'EXECUTION_GUARDRAILS'
+  , progressive_delivery: 'PROMOTION_GATE', strategy_arena: 'ARENA_COMPETITION'
+  , permission_check: 'EXECUTION_GUARDRAILS'
   , intelligence_nuee: 'SWARM_METRICS', pheromones: 'STIGMERGY'
   , signaux: 'SIGNALING_BUS', signal_plane: 'SIGNALING_BUS', signal_plane_zero_text: 'SIGNALING_BUS'
   , recepteurs: 'LIGAND_RECEPTOR', boite_reception: 'LIGAND_RECEPTOR', ack: 'SIGNALING_BUS'
@@ -163,7 +167,15 @@ const RUNTIME_ALIASES = Object.freeze({
   perte_base: 'checkpoint_regeneration_concept', recuperation_wal: 'checkpoint_regeneration_concept',
   rollback: 'checkpoint_regeneration_concept', restauration: 'checkpoint_regeneration_concept',
   deterministic_direct_path: 'deterministic_replay',
-  haute_disponibilite: 'checkpoint_regeneration_concept', pathologie_runtime: 'diagnose_baseline'
+  haute_disponibilite: 'checkpoint_regeneration_concept', pathologie_runtime: 'diagnose_baseline',
+  orchestrateur: 'plan_execute_verify', mission: 'plan_execute_verify', tache: 'plan_execute_verify',
+  job: 'plan_execute_verify', graphe_etats: 'loop_detection_lkgs', transition: 'checkpoint_regeneration_concept',
+  survivant: 'winner_takes_branch', prefere: 'pareto_frontier_concept', branches_execution: 'n_way_counterfactual_fork',
+  strategie: 'genetic_strategy_algorithm', backoff_jitter: 'circuit_breaker_concept', wal: 'checkpoint_regeneration_concept',
+  rollback_atomique: 'checkpoint_regeneration_concept', capsule: 'checkpoint_regeneration_concept',
+  workspace_contrefactuel: 'n_way_counterfactual_fork', lignage: 'genos_lineage',
+  campagne_evaluation: 'pareto_frontier_concept', benchmark: 'plan_execute_verify',
+  frontier_escalation: 'entropy_model_escalation_concept', falsification_forks: 'n_way_counterfactual_fork'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
