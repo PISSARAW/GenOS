@@ -17,4 +17,6 @@ const plan = buildMissionCapabilityPlan({
 assert.deepStrictEqual(plan.capabilityRequirements, ['execute', 'verify', 'MCP']);
 assert.strictEqual(plan.blockedCapabilities[0].capability, 'consciousness');
 assert.strictEqual(plan.topology, 'a_team');
+assert.deepStrictEqual(plan.requestedConcepts, ['orchestration']);
+assert.deepStrictEqual(plan.canonicalConcepts, []);
 console.log('ontogenesis capability plan checks passed.');

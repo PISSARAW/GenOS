@@ -7,8 +7,9 @@
  */
 
 const accessMatrix = require('../capabilityAccessMatrix');
+const conceptInventory = require('./canonicalConceptInventory');
 
-const DOMAIN_CATALOG = Object.freeze([
+const LEGACY_DOMAIN_CATALOG = Object.freeze([
   ['foundations', ['mission', 'provenance', 'evidence', 'authority', 'lease', 'budget', 'workspace', 'promotion', 'recovery']],
   ['computational_biology', ['cell', 'organism', 'genome', 'phenotype', 'differentiation', 'morphogenesis', 'homeostasis', 'interoception', 'symbiosis', 'ecosystem']],
   ['agent_dna', ['agent_dna', 'agent_genome', 'epigenetics', 'mutation', 'speciation', 'graft', 'fossilization', 'heredity']],
@@ -34,6 +35,14 @@ const DOMAIN_CATALOG = Object.freeze([
   ['philosophy', ['ontology', 'causality', 'time', 'identity', 'mind', 'epistemology', 'ethics', 'phenomenology', 'process', 'possible_worlds']]
 ].map(([id, concepts]) => Object.freeze({ id, concepts: Object.freeze(concepts) })));
 
+const DOMAIN_CATALOG = Object.freeze(conceptInventory.entries().reduce((domains, entry) => {
+  const domain = domains.find((item) => item.id === entry.domain);
+  if (domain) domain.concepts.push(entry.id);
+  else domains.push({ id: entry.domain, concepts: [entry.id] });
+  return domains;
+}, LEGACY_DOMAIN_CATALOG.map((domain) => ({ id: domain.id, concepts: [...domain.concepts] }))
+).map((domain) => Object.freeze({ id: domain.id, concepts: Object.freeze([...new Set(domain.concepts)]) })));
+
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -54,13 +63,25 @@ function capabilityCatalog() {
   }));
 }
 
+function conceptCatalog() {
+  const operational = new Set(capabilityCatalog().filter((entry) => entry.state === 'operationnel')
+    .map((entry) => entry.capability.toLowerCase()));
+  return DOMAIN_CATALOG.flatMap((domain) => domain.concepts.map((id) => ({
+    id, domain: domain.id, state: operational.has(id) ? 'operationnel' : 'catalogue',
+    executable: operational.has(id)
+  })));
+}
+
 function resolveMission(input = {}) {
   const objective = input.objective || '';
   const domains = domainMatches(`${objective} ${(input.profile && input.profile.stack || []).join(' ')}`);
   const capabilities = capabilityCatalog();
   const allowed = new Set(input.allowedCapabilities || []);
+  const selectedDomains = new Set(domains);
+  const selectedConcepts = conceptCatalog().filter((entry) => selectedDomains.has(entry.domain));
   return {
     domains, capabilities,
+    canonicalConcepts: conceptCatalog(), selectedConcepts,
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
     failClosed: true
@@ -79,4 +100,4 @@ function registryHealth() {
   };
 }
 
-module.exports = { DOMAIN_CATALOG, capabilityCatalog, resolveMission, registryHealth };
+module.exports = { DOMAIN_CATALOG, capabilityCatalog, conceptCatalog, resolveMission, registryHealth };
