@@ -122,7 +122,7 @@ async function dispatchTask(db, ctx, harness) {
   await persistDispatch(db, input);
   await traceSelection(db, ctx, selection);
   try {
-    const started = await harness.start({ ...input, project: ctx.project, task, selection, config: ctx.config });
+    const started = await harness.start({ ...input, project: ctx.project, task, selection, config: ctx.config, mission: ctx.mission });
     await db.run('UPDATE ontogenesis_execution SET pid = ?, executable = ? WHERE id = ?', [started.pid, started.executable, input.id]);
     return { state: 'EXECUTING', event: 'dispatch', operationId: input.id };
   } catch (error) {

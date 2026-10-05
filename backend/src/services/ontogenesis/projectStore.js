@@ -52,6 +52,13 @@ async function addTask(db, task) {
   return id;
 }
 
+async function taskByTitle(db, projectId, title) {
+  return db.get(
+    'SELECT id FROM ontogenesis_backlog WHERE project_id = ? AND title = ?',
+    [projectId, title]
+  );
+}
+
 async function listTasks(db, projectId) {
   return db.all(
     `SELECT * FROM ontogenesis_backlog WHERE project_id = ?
@@ -71,4 +78,4 @@ async function bumpAttempt(db, taskId) {
   await db.run('UPDATE ontogenesis_backlog SET attempt = attempt + 1 WHERE id = ?', [taskId]);
 }
 
-module.exports = { createProject, getProject, setProjectState, addTask, listTasks, setTaskStatus, bumpAttempt };
+module.exports = { createProject, getProject, setProjectState, addTask, taskByTitle, listTasks, setTaskStatus, bumpAttempt };

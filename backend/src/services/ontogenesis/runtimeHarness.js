@@ -22,8 +22,18 @@ function createRuntimeHarness(db) {
 function requestFor(input) {
   const checks = input.config.checks || [];
   return {
-    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
-    workspaceRoot: input.worktree, proposedTopology: input.selection.topology,
+    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
+    projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
+    autonomousOrchestration: true, useMemoryContext: true,
+    proposedTopology: input.selection.topology, morphologyTopology: input.selection.topology,
+    capabilities: input.mission?.capabilities || [],
+    capabilityRequirements: input.mission?.capabilities || [],
+    capabilityContract: { required: input.mission?.capabilities || [] },
+    capabilityCatalog: input.mission?.capabilityCatalog || [],
+    morphologyPlan: input.mission?.morphology || null,
+    problemProfile: input.mission?.profile || {},
+    requiresEvidenceBeforePromotion: true,
+    workspaceRoot: input.worktree,
     trinityMode: input.selection.topology === 'trinity' ? 'explicit' : undefined,
     aTeamMode: input.selection.topology === 'a_team' ? 'explicit' : undefined,
     variant: input.selection.variant,

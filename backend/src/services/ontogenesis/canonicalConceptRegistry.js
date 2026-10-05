@@ -1,0 +1,82 @@
+'use strict';
+
+/**
+ * Registre de raccordement des familles canoniques à l'Ontogenèse.
+ * Il décrit les points d'appel disponibles sans transformer un concept
+ * documentaire en capacité exécutable.
+ */
+
+const accessMatrix = require('../capabilityAccessMatrix');
+
+const DOMAIN_CATALOG = Object.freeze([
+  ['foundations', ['mission', 'provenance', 'evidence', 'authority', 'lease', 'budget', 'workspace', 'promotion', 'recovery']],
+  ['computational_biology', ['cell', 'organism', 'genome', 'phenotype', 'differentiation', 'morphogenesis', 'homeostasis', 'interoception', 'symbiosis', 'ecosystem']],
+  ['agent_dna', ['agent_dna', 'agent_genome', 'epigenetics', 'mutation', 'speciation', 'graft', 'fossilization', 'heredity']],
+  ['epistemology', ['claim', 'hypothesis', 'prediction', 'falsification', 'replication', 'grounding', 'uncertainty', 'promotion_gate']],
+  ['cognition', ['attention', 'perception', 'interoception', 'imagination', 'reflection', 'metacognition', 'self_model', 'calibration']],
+  ['memory_plasticity', ['working_memory', 'episodic_memory', 'semantic_memory', 'procedural_memory', 'ancestral_memory', 'retrieval', 'consolidation', 'plasticity']],
+  ['collective_coordination', ['swarm', 'signal_plane', 'signal_bus', 'reception', 'ack', 'consensus', 'quorum', 'handoff', 'agow', 'shev']],
+  ['research_creativity', ['creative_candidate', 'exploration', 'recombination', 'falsification', 'active_query', 'simulation', 'strategy_arena', 'research_pressure']],
+  ['computation_physics', ['inertia', 'friction', 'entropy', 'threshold', 'pressure', 'cost', 'energy', 'blast_radius']],
+  ['orchestration', ['orchestrator', 'mission', 'task', 'run', 'workflow', 'worker', 'fan_out', 'strategy', 'retry', 'checkpoint', 'rollback']],
+  ['topologies', ['trinity', 'a_team', 'biocenose', 'holobionte', 'syncytium', 'biome', 'rhizome', 'metapopulation', 'garage_fabric']],
+  ['dynamic_organizations', ['specialist_expert_committee', 'blind_adversarial_review', 'weighted_consensus', 'quorum_with_abstention', 'stigmergy', 'flocking', 'strategy_arena', 'competitive_arena', 'isolated_recovery']],
+  ['topology_capabilities', ['strategy_portfolio', 'promotion_gate', 'evidence_barrier', 'brier', 'hallucination_monitoring', 'graph_memory', 'vector_memory', 'immune_system', 'crdt', 'sandbox', 'model_routing']],
+  ['workers', ['scout_cell', 'resident_daemon', 'bounded_worker', 'adaptive_worker', 'specialist', 'procedural_executor', 'symbiotic_worker', 'verifier_worker', 'red_worker', 'experimental_worker', 'formal_worker', 'synthesis_worker', 'creative_worker', 'medical_worker', 'recovery_worker', 'forensic_worker', 'liaison_worker', 'teaching_worker', 'sub_orchestrator']],
+  ['worker_lifecycle', ['incarnation', 'self_loading', 'mission_loading', 'authority_loading', 'memory_retrieval', 'recipe_selection', 'strategy_selection', 'receipts', 'review', 'termination']],
+  ['biomimetic_sensing', ['foraging', 'foveation', 'active_perception', 'active_navigation', 'web_foraging', 'computer_use', 'sensorium']],
+  ['epistemic_immune_system', ['antigen', 'innate_immunity', 'adaptive_immunity', 'clonal_selection', 'immune_memory', 'inflammation', 'quarantine', 'sealed_oracle', 're_arbitration']],
+  ['nosology', ['runtime_pathology', 'drift', 'diagnosis', 'therapy', 'circuit_breaker', 'quarantine', 'repair', 'causal_autopsy']],
+  ['possible_worlds', ['ontology', 'causality', 'counterfactual', 'world', 'accessibility', 'causal_dependence', 'replay', 'identity']],
+  ['interfaces', ['rest', 'grpc', 'mcp', 'mcp_stdio', 'cli', 'ide', 'studio', 'sqlite_wal', 'event_log', 'observability']],
+  ['security_governance', ['identity', 'rbac', 'tenant', 'project', 'release', 'deployment', 'human_approval', 'compliance', 'sandbox', 'secrets', 'cedar']],
+  ['operations_resilience', ['daemon', 'autostart', 'sentinel', 'heartbeat', 'claim_recovery', 'retry_policy', 'dead_letter', 'wal_recovery', 'idempotence', 'rollout']],
+  ['philosophy', ['ontology', 'causality', 'time', 'identity', 'mind', 'epistemology', 'ethics', 'phenomenology', 'process', 'possible_worlds']]
+].map(([id, concepts]) => Object.freeze({ id, concepts: Object.freeze(concepts) })));
+
+function normalize(value) {
+  return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
+function domainMatches(text) {
+  const normalized = normalize(text);
+  const baseline = new Set(['foundations', 'orchestration', 'epistemology', 'security_governance', 'operations_resilience']);
+  DOMAIN_CATALOG.filter((domain) => domain.concepts.some((concept) => normalized.includes(concept)))
+    .forEach((domain) => baseline.add(domain.id));
+  return DOMAIN_CATALOG.map((domain) => domain.id).filter((id) => baseline.has(id));
+}
+
+function capabilityCatalog() {
+  return accessMatrix.fullMatrix().map((entry) => ({
+    capability: entry.capability, level: entry.level, state: entry.state,
+    service: entry.service, tools: entry.catalogued
+  }));
+}
+
+function resolveMission(input = {}) {
+  const objective = input.objective || '';
+  const domains = domainMatches(`${objective} ${(input.profile && input.profile.stack || []).join(' ')}`);
+  const capabilities = capabilityCatalog();
+  const allowed = new Set(input.allowedCapabilities || []);
+  return {
+    domains, capabilities,
+    operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
+    unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
+    failClosed: true
+  };
+}
+
+function registryHealth() {
+  const capabilities = capabilityCatalog();
+  return {
+    domains: DOMAIN_CATALOG.length,
+    concepts: DOMAIN_CATALOG.reduce((sum, domain) => sum + domain.concepts.length, 0),
+    capabilities: capabilities.length,
+    operational: capabilities.filter((entry) => entry.state === 'operationnel').length,
+    partial: capabilities.filter((entry) => entry.state === 'partiel').length,
+    conceptual: capabilities.filter((entry) => entry.state === 'conceptuel').length
+  };
+}
+
+module.exports = { DOMAIN_CATALOG, capabilityCatalog, resolveMission, registryHealth };

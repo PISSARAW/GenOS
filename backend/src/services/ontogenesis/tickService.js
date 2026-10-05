@@ -9,7 +9,8 @@
 
 const { acquireClaim, releaseClaim, extendClaim } = require('./claimService');
 const { getControl } = require('./controlService');
-const { getProject, setProjectState, listTasks, addTask, bumpAttempt } = require('./projectStore');
+const { getProject, setProjectState, listTasks, addTask, taskByTitle, bumpAttempt } = require('./projectStore');
+const { compileMission, linkCompiledTasks } = require('./missionContextService');
 const { selectNextTask } = require('./taskSelector');
 const { stepLoop } = require('./loopController');
 const { nextState } = require('./stateMachine');
@@ -72,6 +73,31 @@ async function loadContext(db, input) {
   const ctx = { project, control, tasks, config: configOf(project), selection: selectNextTask(tasks), memoryLevel, budgetsOk: true, harness: input.harness };
   if (input.harness) Object.assign(ctx, await budgetState(db, ctx), await memoryState(db, ctx, input.harness));
   return ctx;
+}
+
+async function compileEmptyBacklog(db, project, tasks) {
+  if (tasks.length > 0) return null;
+  const compiled = compileMission(project);
+  const created = [];
+  for (const task of linkCompiledTasks(compiled.tasks)) {
+    const title = task.title;
+    const existing = await taskByTitle(db, project.id, title);
+    if (existing) {
+      created.push({ ...task, id: existing.id });
+      continue;
+    }
+    const id = await addTask(db, { projectId: project.id, title, priority: task.priority,
+      acceptance: [...task.acceptance, `context:${compiled.context}`] });
+    created.push({ ...task, id });
+  }
+  const first = created[0];
+  for (let index = 0; index < created.length; index += 1) {
+    const task = created[index];
+    const source = compiled.tasks[index];
+    const dependency = source.dependsOnIndex === undefined ? [] : [created[source.dependsOnIndex].id];
+    if (dependency.length) await db.run('UPDATE ontogenesis_backlog SET depends_on_json = ? WHERE id = ?', [JSON.stringify(dependency), task.id]);
+  }
+  return { kind: compiled.kind, profile: compiled.profile, capabilities: compiled.capabilities, taskId: first && first.id };
 }
 
 function snapshotOf(ctx) {
@@ -198,7 +224,17 @@ async function tickOnce(db, input) {
       await notify(db, { projectId: input.projectId, kind: 'decision_needed', payload: { reason: `question-expiree:${questionId}` } });
     }
     await require('../shev/initiativeService').compilePending(db, input);
+    const project = await getProject(db, input.projectId);
+    const tasks = await listTasks(db, input.projectId);
+    await compileEmptyBacklog(db, project, tasks);
     const ctx = await loadContext(db, input);
+    ctx.mission = compileMission(ctx.project);
+    ctx.config.availableCapabilities = (ctx.config.availableCapabilities || []).filter(
+      (capability) => ctx.mission.capabilities.includes(capability)
+    );
+    if (ctx.mission.morphology.selectedTopology) {
+      ctx.config.topologies = [ctx.mission.morphology.selectedTopology];
+    }
     ctx.fence = fence;
     await fence();
     if (ctx.harness && ctx.project.state === 'EXECUTING') Object.assign(ctx, await observeExecution(db, ctx, ctx.harness));
