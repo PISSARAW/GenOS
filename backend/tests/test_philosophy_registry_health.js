@@ -68,6 +68,7 @@ contractHealth.then((result) => {
   assert.equal(result.pendingCount, 354);
   assert.equal(result.mappedCount, 354);
   assert.equal(Object.values(result.categoryCounts).reduce((sum, count) => sum + count, 0), 375);
+  assert.ok(result.categoryCounts.evaluation > 0);
   const contract = router.getImplementationContract('epistemology.certainty-doubt');
   assert.ok(contract);
   assert.equal(contract.apiVersion, 'genos.contract/v1');

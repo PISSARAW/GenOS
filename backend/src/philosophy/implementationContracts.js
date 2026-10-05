@@ -147,7 +147,7 @@ function categoryForConcept(concept) {
   if (['ethics', 'politics', 'law'].includes(concept.domain) || concept.role === 'norm') return 'constraint';
   if (['process', 'causality', 'computation'].includes(concept.domain)) return 'transformation';
   if (['social-cognition', 'identity'].includes(concept.domain)) return 'organization';
-  if (['epistemics', 'prediction', 'wellbeing'].includes(concept.domain)) return 'evaluation';
+  if (['epistemics', 'prediction', 'wellbeing', 'epistemology', 'social-epistemology', 'truth', 'science', 'logic', 'methods', 'mathematics', 'metalogic', 'modality'].includes(concept.domain)) return 'evaluation';
   return 'state';
 }
 
