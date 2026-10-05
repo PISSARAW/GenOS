@@ -98,7 +98,6 @@ function assertCanonicalContract(contract, kind) {
     hostCapabilities: contract.mission?.hostCapabilities,
     methodContract: contract.mission?.methodContract,
     topologySessionId: contract.mission?.topologySessionId,
-    writeLease: contract.mission?.writeLease === true,
     workerAssignment: contract.assignment
   });
   assertAuthorityCeiling(contract.authority, canonical.authority, kind);

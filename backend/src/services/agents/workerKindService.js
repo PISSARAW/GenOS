@@ -58,7 +58,6 @@ const METHOD_CAPABILITIES = Object.freeze({
 
 const ROLE_ALIASES = Object.freeze({
   implementation: 'bounded_worker', frontend_developer: 'bounded_worker',
-  autonomous_orchestrator: 'sub_orchestrator',
   independent_reviewer: 'verifier_worker', neutral_observer: 'scout_cell',
   verifier: 'verifier_worker',
   red_team: 'red_worker', blue_team: 'verifier_worker', analyst: 'verifier_worker',
@@ -126,10 +125,8 @@ function kindDefinition(kind) {
   return { kind: resolved, family, artifact, authorityPhenotype };
 }
 
-function applyAuthorityOverrides(kind, profile = {}, mission = {}) {
-  const resolvedKind = resolveWorkerKind(kind);
-  const directWrite = mission.writeLease === true && resolvedKind === 'bounded_worker';
-  return { ...profile, write: directWrite, ...(AUTHORITY_OVERRIDES[resolvedKind] || {}) };
+function applyAuthorityOverrides(kind, profile = {}) {
+  return { ...profile, write: false, ...(AUTHORITY_OVERRIDES[resolveWorkerKind(kind)] || {}) };
 }
 
 function assertMethodCompatibility(kind, methodContract) {
@@ -184,9 +181,7 @@ function missionContractFields(mission) {
     methodContract: mission.methodContract,
     topologySessionId: mission.topologySessionId || null,
     nicheDomain: mission.nicheDomain || mission.workerAssignment?.nicheDomain || null,
-    hostId: mission.hostId || mission.workerAssignment?.hostId || null,
-    writeLease: mission.writeLease === true
-      || (mission.executionPolicy?.allowFileEdits === true && mission.workspaceProvisioned === true)
+    hostId: mission.hostId || mission.workerAssignment?.hostId || null
   };
 }
 
@@ -233,7 +228,7 @@ function buildWorkerContract(kind, mission = {}) {
   const definition = kindDefinition(kind);
   assertMethodCompatibility(definition.kind, mission.methodContract);
   const profile = require('./phenotypeRegistryService').getAuthorityProfile(definition.authorityPhenotype) || {};
-  const authorities = applyAuthorityOverrides(definition.kind, profile, mission);
+  const authorities = applyAuthorityOverrides(definition.kind, profile);
   const subOrchestrator = definition.kind === 'sub_orchestrator';
   return {
     version: 1,
