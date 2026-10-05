@@ -17,6 +17,8 @@ const MATURITY = Object.freeze([
 function contract(id, ...values) {
   const [type, interpretation, invariant, mechanism, targets, observables, tests, limits, conflicts = []] = values;
   return {
+    apiVersion: 'genos.contract/v1',
+    kind: 'ImplementationContract',
     id,
     type,
     interpretation,
@@ -77,6 +79,8 @@ function compileConcept(concept) {
 function validateContract(contractValue) {
   const errors = [];
   if (!contractValue || typeof contractValue !== 'object') return ['contract must be an object'];
+  if (contractValue.apiVersion !== 'genos.contract/v1') errors.push('apiVersion must be genos.contract/v1');
+  if (contractValue.kind !== 'ImplementationContract') errors.push('kind must be ImplementationContract');
   for (const field of ['id', 'type', 'interpretation', 'invariant', 'mechanism', 'responsibility', 'status']) {
     if (typeof contractValue[field] !== 'string' || !contractValue[field].trim()) errors.push(`${field} must be a non-empty string`);
   }

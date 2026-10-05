@@ -31,6 +31,7 @@ La documentation explique le modèle ; elle ne duplique pas le registre canoniqu
 
 Le compilateur `backend/src/philosophy/implementationContracts.js` transforme
 une première tranche de 21 concepts transversaux en contrats opérationnels.
+Le format est versionné par `spec/implementation-contract.schema.json`.
 Chaque contrat contient une interprétation, un invariant, un mécanisme partagé,
 des observables, des tests de falsification, des limites et une responsabilité.
 Les 354 autres concepts restent enregistrés mais non compilés ; ils ne sont donc

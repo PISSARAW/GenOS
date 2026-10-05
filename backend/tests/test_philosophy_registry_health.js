@@ -59,6 +59,8 @@ contractHealth.then((result) => {
   assert.equal(result.compiledConcepts, 21);
   const contract = router.getImplementationContract('epistemology.certainty-doubt');
   assert.ok(contract);
+  assert.equal(contract.apiVersion, 'genos.contract/v1');
+  assert.equal(contract.kind, 'ImplementationContract');
   assert.equal(validateContract(contract).length, 0);
   assert.equal(router.getImplementationContract('core.agent'), null);
   return router.handlePhilosophyRequest({ request: { operation: 'listImplementationContracts', arguments: { target: 'response' } } });
