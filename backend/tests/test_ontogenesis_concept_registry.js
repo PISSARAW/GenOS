@@ -106,6 +106,13 @@ assert.deepStrictEqual(philosophyMission.resolvedConcepts.map((concept) => conce
   ['ontology.being', 'causality.determination', 'school.platonism']);
 assert.ok(philosophyMission.resolvedConcepts.every((concept) => concept.access === 'read' && !concept.executable));
 assert.ok(philosophyMission.coverage.philosophyRead >= 30);
+assert.equal(philosophyMission.resolvedConcepts[0].implementationContract, null);
+const contractedPhilosophy = registry.resolveMission({ requestedConcepts: ['epistemologie'] });
+assert.ok(contractedPhilosophy.resolvedConcepts[0].implementationContract);
+assert.equal(contractedPhilosophy.resolvedConcepts[0].implementationContract.id, 'epistemology.knowledge');
+assert.equal(contractedPhilosophy.coverage.implementationContracts, 21);
+assert.ok(contractedPhilosophy.canonicalConcepts.some((concept) =>
+  concept.implementationContract?.id === 'epistemology.knowledge'));
 
 const canonicalCapabilityMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
   'portfolio_strategies', 'barriere_evidence', 'systeme_immunitaire', 'ligand_recepteur', 'observabilite'

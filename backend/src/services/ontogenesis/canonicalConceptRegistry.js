@@ -12,6 +12,7 @@ const { CONCEPT_DEFINITIONS } = require('../../philosophy/conceptDefinitions');
 const conceptInventory = require('./canonicalConceptInventory');
 const runtimeConceptRegistry = require('../conceptRegistryService');
 const workerKinds = require('../agents/workerKindService');
+const implementationContracts = require('../implementationContractRouter');
 const { CAPABILITY_ALIASES, PHILOSOPHY_ALIASES, RUNTIME_ALIASES, LIFECYCLE_REFERENCES,
   INTERFACE_REFERENCES } = require('./canonicalConceptAliases');
 
@@ -102,6 +103,10 @@ function interfaceReference(requested, target) {
     access: 'contract', service, domain: 'interfaces' };
 }
 
+function implementationContractFor(concept) {
+  return implementationContracts.getImplementationContract(concept);
+}
+
 function topologyTools(topology) {
   if (!topology) return null;
   const compatible = runtimeConceptRegistry.findCompatibleConcepts({ topology });
@@ -156,7 +161,8 @@ function resolveConceptReference(reference, topology) {
     return { requested, id: philosophical.id, source: 'philosophy', available,
       executable: false, access: 'read', reason: available ? 'lecture-philosophique' : 'outil-lecture-non-autorise',
       tools: ['genos_philosophy'],
-      status: philosophical.status, service: philosophical.service || null };
+      status: philosophical.status, service: philosophical.service || null,
+      implementationContract: implementationContractFor(philosophical) };
   }
   const graphConcept = Object.values(capabilityGraph.getAllConcepts()).find((concept) => normalize(concept.id) === target
     || (concept.aliases || []).some((alias) => normalize(alias) === target));
@@ -210,7 +216,8 @@ function coverageReport() {
     else counts.documentationOnly += 1;
   }
   return { inventory: conceptInventory.entries().length, ...counts,
-    registryRuntime: runtime.length, registryPhilosophy: CONCEPT_DEFINITIONS.length, registryGraph: graph.length };
+    registryRuntime: runtime.length, registryPhilosophy: CONCEPT_DEFINITIONS.length, registryGraph: graph.length,
+    implementationContracts: implementationContracts.implementationContractHealth(CONCEPT_DEFINITIONS).compiledConcepts };
 }
 
 function leaseCandidatesForReferences(references, topology) {
@@ -259,6 +266,7 @@ function conceptCatalog() {
     id: concept.id, domain: concept.domain, state: concept.status || 'documented', executable: false,
     source: 'philosophy_registry', access: 'read', tools: ['genos_philosophy'],
     service: concept.service || null, mapping: concept.mapping || null
+    , implementationContract: implementationContractFor(concept)
   }));
   const graph = Object.entries(capabilityGraph.getAllConcepts()).map(([graphKey, concept]) => ({
     id: concept.id, graphKey, domain: `capability_graph:${concept.category}`, state: concept.maturity || 'ready',
