@@ -54,7 +54,20 @@ const EXISTING_ADAPTERS = Object.freeze({
   morphogenese: { service: 'morphogenesisPlannerService', access: 'plan' },
   ontogenese: { service: 'tickService', access: 'control' },
   gvx: { service: 'gvxDevelopmentController', access: 'observe' },
-  shev: { service: 'shev.responsibilityService', access: 'observe' }
+  shev: { service: 'shev.responsibilityService', access: 'observe' },
+  maladies_auto_immunes: { service: 'immuneSurveillanceService', access: 'observe' },
+  maladies_degeneratives: { service: 'clinicalStateService', access: 'observe' },
+  maladies_infectieuses: { service: 'missionQuarantineGate', access: 'control' },
+  maladies_genetiques: { service: 'clinicalStateService', access: 'observe' },
+  cancers: { service: 'clinicalStateService', access: 'observe' },
+  maladies_metaboliques: { service: 'clinicalStateService', access: 'observe' },
+  maladies_cardiovasculaires: { service: 'clinicalStateService', access: 'observe' },
+  maladies_psychiatriques: { service: 'clinicalStateService', access: 'observe' },
+  maladies_environnementales: { service: 'clinicalStateService', access: 'observe' },
+  maladie_nosocomiale: { service: 'missionQuarantineGate', access: 'control' },
+  maladie_iatrogene: { service: 'clinicalStateService', access: 'observe' },
+  therapie: { service: 'clinicalTherapyService', access: 'plan' },
+  pharmacopee: { service: 'therapyAuthorizationService', access: 'plan' }
 });
 function normalize(value) {
   return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
