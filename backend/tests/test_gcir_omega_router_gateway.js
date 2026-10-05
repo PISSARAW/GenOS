@@ -24,6 +24,23 @@ routeRunner.runFallback = async (candidates, context) => ({
       ['READ', 'SELECT', 'CALL', 'INFER', 'CHECK']);
     assert.deepEqual(result.cognitiveSeen.plan.residual, ['residual_inference', 'candidate_check']);
     assert.match(result.cognitive.digest, /^sha256:[a-f0-9]{64}$/);
+    const native = await router.generate({
+      model: 'test://omega', prompt: 'run native trinity graph', stream: false,
+      cognitiveDomain: 'trinity', cognitiveObjects: { mission: 'm1', experiment: 'e1' },
+      cognitiveEffects: ['promote'], cognitiveNativeExecution: true,
+      cognitiveNativeHandlers: {
+        tools: { 'trinity/experiment': async ({ arguments: input }) => ({ ...input, prepared: true }) },
+        emitters: { 'trinity.promote': async ({ value }) => ({ promoted: value }) }
+      },
+      cognitiveAllowEmit: true,
+      cognitiveVerifierRegistry: { get: () => async () => ({ status: 'verified', valid: true }) }
+    });
+    assert.equal(native.text, 'run native trinity graph');
+    assert.deepEqual(native.cognitive.execution.operations.map((item) => item.kind),
+      ['READ', 'READ', 'SELECT', 'CALL', 'INFER', 'CHECK', 'EMIT']);
+    assert.equal(native.cognitive.execution.operations.find((item) => item.kind === 'CALL').status, 'ready');
+    assert.equal(native.cognitive.execution.operations.find((item) => item.kind === 'CHECK').status, 'verified');
+    assert.equal(native.cognitive.execution.operations.find((item) => item.kind === 'EMIT').status, 'emitted');
     await assert.rejects(router.generate({ model: 'test://omega', prompt: '' }), /Cognitive compilation blocked/);
     console.log('G-CIR Omega router gateway checks passed.');
   } finally {

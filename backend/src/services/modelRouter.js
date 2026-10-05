@@ -135,6 +135,7 @@ async function cognitiveRequest(options) {
     ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
       objects: options.cognitiveObjects, output: options.cognitiveOutput,
       verification: options.cognitiveVerification, evidenceRefs: options.cognitiveEvidenceRefs,
+      verificationDescriptor: options.cognitiveVerificationDescriptor,
       effects: options.cognitiveEffects }) : null);
   const program = options.cognitiveProgram || nativeGraph?.operations || null;
   const selection = options.db && options.model && typeof options.db.all === 'function'
@@ -240,6 +241,59 @@ async function executeInferenceThroughOmega({ candidates, context, mode, mmu, ec
   return { result: execution.values.model_infer, execution: omegaExecution(execution) };
 }
 
+function registerHandlers(runtime, handlers = {}) {
+  const register = (entries, method) => Object.entries(entries || {}).forEach(([reference, handler]) => {
+    if (typeof handler === 'function') runtime[method](reference, handler);
+  });
+  register(handlers.readers, 'registerReader');
+  register(handlers.selectors, 'registerSelector');
+  register(handlers.tools, 'registerTool');
+  register(handlers.inferers, 'registerInferer');
+  register(handlers.verifiers, 'registerVerifier');
+  register(handlers.emitters, 'registerEmitter');
+}
+
+function nativePolicy(graph) {
+  const operations = graph.operations || [];
+  const byKind = (kind) => operations.filter((operation) => operation.kind === kind).map((operation) => operation.reference);
+  return { read: byKind('READ'), select: byKind('SELECT'), call: byKind('CALL'),
+    infer: byKind('INFER'), check: byKind('CHECK'), emit: byKind('EMIT') };
+}
+
+function nativeContext(context, graph) {
+  return { model: context.model, operation: context.cognitiveContract?.operation || 'INFER',
+    sessionId: context.sessionId, scope: context.cognitiveScope, domain: graph.domain };
+}
+
+async function executeNativeGraph({ graph, candidates, context, mode, mmu, economy, options }) {
+  const runtime = createOmegaRuntime();
+  const handlers = options.cognitiveNativeHandlers || {};
+  registerHandlers(runtime, handlers);
+  const inferer = mode === 'parallel'
+    ? () => routeRunner.runParallel(candidates, context)
+    : () => routeRunner.runFallback(candidates, context);
+  (graph.operations || []).filter((operation) => operation.kind === 'INFER').forEach((operation) => {
+    runtime.registerInferer(operation.reference, inferer);
+  });
+  const execution = await runtime.execute({
+    context: nativeContext(context, graph), objects: graph.objectStore || {}, policy: nativePolicy(graph),
+    mmu, economy, allowEmit: options.cognitiveAllowEmit === true,
+    verifierRegistry: options.cognitiveVerifierRegistry, operations: graph.operations
+  });
+  if (execution.status === 'blocked') {
+    throw Object.assign(new Error(`Omega native graph blocked: ${execution.reason}`), {
+      code: 'OMEGA_NATIVE_GRAPH_BLOCKED', omegaExecution: omegaExecution(execution)
+    });
+  }
+  const infer = (graph.operations || []).find((operation) => operation.kind === 'INFER');
+  return { result: execution.values[infer?.id], execution: omegaExecution(execution) };
+}
+
+function shouldExecuteNative(options, contract) {
+  return Boolean(contract.nativeGraph && (options.cognitiveNativeExecution === true
+    || options.cognitiveNativeHandlers));
+}
+
 function missingRouteError(policy, configured) {
   if (policy.preferLocal || configured[0] === 'auto') return Object.assign(new Error('No local chat-capable model is available for the requested route.'), { code: 'LOCAL_MODEL_REQUIRED' });
   return Object.assign(new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.'), { code: 'MODEL_ROUTE_REQUIRED' });
@@ -302,9 +356,12 @@ async function generate(options) {
     procedural = { status: 'reused', procedure: reused.procedure,
       promotionReceipt: reused.promotionReceipt };
   } else {
-    routed = await executeInferenceThroughOmega({ candidates, context,
-      mode: policy.mode === 'parallel' && candidates.length > 1 ? 'parallel' : 'fallback', mmu,
-      economy: cognitiveContract.economy });
+    const mode = policy.mode === 'parallel' && candidates.length > 1 ? 'parallel' : 'fallback';
+    const executor = shouldExecuteNative(opts, cognitiveContract)
+      ? executeNativeGraph({ graph: cognitiveContract.nativeGraph, candidates, context, mode, mmu,
+        economy: cognitiveContract.economy, options: opts })
+      : executeInferenceThroughOmega({ candidates, context, mode, mmu, economy: cognitiveContract.economy });
+    routed = await executor;
   }
   const result = routed.result;
   if (!procedural) {
