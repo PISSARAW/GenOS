@@ -187,10 +187,10 @@ async function recordProceduralExecution(options, contract, execution) {
   const evidenceRefs = Array.isArray(options.cognitiveEvidenceRefs)
     ? [...new Set(options.cognitiveEvidenceRefs)] : [];
   if (!evidenceRefs.length) return { status: 'blocked', reason: 'procedural_evidence_required' };
-  const contextHash = contract.digest || `omega:${options.cognitiveDomain || 'runtime'}`;
-  await proceduralCompilation.recordTrace(options.db, { agentId: options.agentId, contextHash,
+  const contextHash = contract.digest || `omega:${options.cognitiveDomain || 'runtime'}`; const context = proceduralCompilation.contextFor(options, contract);
+  await proceduralCompilation.recordTrace(options.db, { agentId: options.agentId, contextHash, context,
     steps: execution.operations.map((operation) => `${operation.kind}:${operation.id}`), evidenceRefs, success: true });
-  const input = { agentId: options.agentId, contextHash, policy: options.cognitiveProceduralPolicy,
+  const input = { agentId: options.agentId, contextHash, context, policy: options.cognitiveProceduralPolicy,
     executorId: options.cognitiveProcedureExecutorId, validator: options.cognitiveProcedureValidator,
     autoPromote: options.cognitiveProcedureAutoPromote !== false
       && typeof options.cognitiveProcedureValidator === 'function'
@@ -200,9 +200,9 @@ async function recordProceduralExecution(options, contract, execution) {
 
 async function reuseProceduralExecution(options, contract) {
   if (!options.db || !options.agentId) return null;
-  const contextHash = contract.digest || `omega:${options.cognitiveDomain || 'runtime'}`;
+  const contextHash = contract.digest || `omega:${options.cognitiveDomain || 'runtime'}`; const context = proceduralCompilation.contextFor(options, contract);
   const reused = await proceduralCompilation.reuse(options.db, {
-    agentId: options.agentId, contextHash, input: options.prompt,
+    agentId: options.agentId, contextHash, context, input: options.prompt,
     executor: options.cognitiveProcedureExecutor
   });
   return reused.status === 'reused' ? reused : null;
