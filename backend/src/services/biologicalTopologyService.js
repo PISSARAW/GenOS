@@ -92,11 +92,19 @@ function composeBiocenose({ db, orchestratorId, mission, options = {} }) {
 
 async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
   const schema = options.sessionOptions?.schema || readSyncytiumSchema();
-  const configuration = options.configuration || (schema ? {
+  const initialConfiguration = options.configuration || (schema ? {
     fields: schema.fields, invariants: schema.invariants
   } : {});
+  const variantId = options.variantId || options.variant;
+  const selectedVariantId = require('./syncytium/variants/variantPolicyRegistry')
+    .selectPolicy(mission, { variantId }).id;
+  const identityPlan = initialConfiguration.useVariantRuntime === true
+    ? require('./syncytium/variants/syncytiumWorkerIdentityPlan').prepare(
+      orchestratorId, selectedVariantId, initialConfiguration)
+    : null;
+  const configuration = identityPlan?.configuration || initialConfiguration;
   const session = await syncytiumCoordinationService.createPolicySession(mission, {
-    variantId: options.variantId || options.variant,
+    variantId,
     configuration,
     sessionOptions: {
       ...(options.sessionOptions || {}), db,
@@ -104,6 +112,15 @@ async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
     }
   });
   session.members = [...session.members, ...syncytiumVariantWorkerService.membersForSession(session)];
+  if (identityPlan) session.members = session.members.map((member, index) => ({
+    ...member, workerId: identityPlan.workerIds[index]
+  }));
+  if (session.variantPolicy?.runtimeMode === 'specialized') {
+    const actions = require('./syncytium/variants/variantToolRouter').ACTIONS[session.variantPolicy.id] || [];
+    session.members = session.members.map((member) => ({ ...member,
+      mission: `${member.mission}\n\nVARIANT API: use genos_topology_session with operation "variant", session_id, variant_action from [${actions.join(', ')}], and variant_input containing the action arguments. Cite the returned operation receipt. Generic apply/branch/promote are disabled for this specialized session.`
+    }));
+  }
   await applyOrganization({ db, orchestratorId, organization: session.organization, reason: 'Syncytium mode activation' });
   return session;
 }
