@@ -104,6 +104,15 @@ assert.deepStrictEqual(orchestrationMission.resolvedConcepts.map((concept) => co
 ]);
 assert.ok(orchestrationMission.resolvedConcepts.every((concept) => concept.source === 'runtime'));
 
+const memoryMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'consolidation', 'oubli', 'stdp', 'apprentissage', 'reutilisation_resultats'
+] });
+assert.deepStrictEqual(memoryMission.resolvedConcepts.map((concept) => concept.id), [
+  'memory_compilation_strategy', 'memory_sleep_cycle', 'stdp_plasticity',
+  'controlled_lamarckian_learning', 'golden_path_replay'
+]);
+assert.ok(memoryMission.resolvedConcepts.every((concept) => concept.source === 'runtime'));
+
 const sensingMission = registry.resolveMission({ topology: 'biome', requestedConcepts: ['foveation', 'echolocation', 'olfaction'] });
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.source), ['runtime', 'runtime', 'runtime']);
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.id),
