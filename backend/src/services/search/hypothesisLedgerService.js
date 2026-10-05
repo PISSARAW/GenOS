@@ -79,9 +79,9 @@ class HypothesisLedger {
       id,
       hypothesisId,
       direction: proof.direction === 'against' ? 'against' : 'for',
-      strength: Math.max(0, Number(proof.strength || 1)),
+      strength: Math.max(0, Number(proof.strength ?? 1)),
       provenance: proof.provenance || PROVENANCE.SELF_REPORTED,
-      reliability: Math.max(0, Math.min(1, Number(proof.reliability || 0.5))),
+      reliability: Math.max(0, Math.min(1, Number(proof.reliability ?? 0.5))),
       independent: proof.independent !== false,
       evidenceRef: proof.evidenceRef || null,
       receiptRef: proof.receiptRef || null,
@@ -192,7 +192,8 @@ class HypothesisLedger {
   load(state) {
     if (!state) return this
     if (state.hypotheses) this._loadHypotheses(state.hypotheses)
-    if (state.proofs) this._loadProofs(state.proofs)
+    const attach = new Set((state.hypotheses || []).filter(h => h.proofIds === undefined).map(h => h.id))
+    if (state.proofs) this._loadProofs(state.proofs, attach)
     this.notify({ type: 'HYPOTHESIS_LOADED', hypotheses: this.activeHypotheses() })
     return this
   }
@@ -219,26 +220,26 @@ class HypothesisLedger {
     }
   }
 
-  _loadProofs(pDataList) {
+  _loadProofs(pDataList, attach) {
     for (const pData of pDataList) {
       const id = pData.id || crypto.randomBytes(6).toString('hex')
       const proofRecord = {
         id,
         hypothesisId: pData.hypothesisId,
         direction: pData.direction === 'against' ? 'against' : 'for',
-        strength: Math.max(0, Number(pData.strength || 1)),
+        strength: Math.max(0, Number(pData.strength ?? 1)),
         provenance: pData.provenance || PROVENANCE.SELF_REPORTED,
-        reliability: Math.max(0, Math.min(1, Number(pData.reliability || 0.5))),
+        reliability: Math.max(0, Math.min(1, Number(pData.reliability ?? 0.5))),
         independent: pData.independent !== false,
         evidenceRef: pData.evidenceRef || null,
         receiptRef: pData.receiptRef || null,
         sourceAgent: pData.sourceAgent || null,
         sourceTool: pData.sourceTool || null,
-        createdAt: Date.now()
+        createdAt: pData.createdAt ?? Date.now()
       }
       this.proofs.set(id, proofRecord)
       const hypothesis = this.hypotheses.get(proofRecord.hypothesisId)
-      if (hypothesis && !hypothesis.proofIds.includes(id)) {
+      if (hypothesis && attach.has(hypothesis.id) && !hypothesis.proofIds.includes(id)) {
         hypothesis.proofIds.push(id)
       }
     }

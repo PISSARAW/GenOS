@@ -366,8 +366,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0306](0306-reconstruction-causes-declarees-forensic-worker.md) | Reconstruction des causes déclarées du forensic worker | Accepté | 2026-10-04 | Workers, analyse d'incident, provenance |
 | [0307](0307-observation-litterale-scout-cell.md) | Observation littérale du scout cell | Accepté | 2026-10-04 | Workers, observation, provenance |
 | [0308](0308-transfert-subset-sum-teaching-worker.md) | Transfert contrôlé de subset_sum par le teaching worker | Accepté | 2026-10-04 | Workers, transmission, vérification |
-| [0309](0309-evaluation-isolee-variants-a-team.md) | Évaluation isolée des variantes A-Team | Accepté | 2026-10-04 | A-Team, contrats de variante, preuve, dispatch |
-| [0310](0310-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
+| [0309a](0309-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
+| [0309b](0309-evaluation-isolee-variants-a-team.md) | Évaluation isolée des variantes A-Team | Accepté | 2026-10-04 | A-Team, contrats de variante, preuve, dispatch |
+| [0310a](0310-audits-web-shev-independants.md) | Audits web indépendants pour SHEV | Accepté | 2026-10-04 | SHEV, vérification d'effet, qualité web |
+| [0310b](0310-autorisation-cedar-agents.md) | Autorisation Cedar des missions et du contrôle d'agents | Accepté | 2026-10-04 | autorisation, missions, délégation, relations |
 | [0311](0311-autorisation-cedar-agents.md) | Autorisation Cedar des missions et du contrôle d'agents | Accepté | 2026-10-04 | autorisation, missions, délégation, relations |
 | [0312](0312-garage-fabric-adaptatif.md) | Garage Fabric adaptatif pour le control plane | Accepté — première tranche de fondation | 2026-10-05 | orchestration, workers, capacité, résilience |
 | [0313](0313-niveaux-maturite-et-criteres-certification.md) | Niveaux de maturité et critères de certification | Accepté | 2026-10-05 | Gouvernance, maturité, certification, métaphysique |
@@ -377,6 +379,10 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0317](0317-interdictions-structurelles-autonomie-autofix.md) | Interdictions structurelles : autonomie, auto-promotion, autofix | Accepté — Coercitif | 2026-10-05 | Sécurité, architecture, CI gate |
 | [0318](0318-contrats-implementation-concepts.md) | Contrats d’implémentation des concepts | Accepté | 2026-10-05 | Registre philosophique, épistémologie, expérimentation |
 | [0319](0319-raccord-contrats-philosophiques-ontogenese.md) | Raccord des contrats philosophiques au cycle Ontogenèse | Accepté | 2026-10-05 | Ontogenèse, registre philosophique, preuve |
+| [0320](0320-compilation-procedurale-runtime.md) | Compilation procédurale runtime | Voir le fichier | -- | -- |
+| [0321](0321-economie-cognitive-omega-topologies.md) | Économie cognitive Omega et topologies | Voir le fichier | -- | -- |
+| [0322](0322-interop-gcir-omega-rust-node.md) | Interopérabilité G-CIR Omega Rust/Node | Voir le fichier | -- | -- |
+| [0323](0323-reprise-atomique-natural-search.md) | Reprise atomique du Natural Search Control Plane | accepté | 2026-10-06 | contrôle de recherche, SQLite, preuves et reprise |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les
