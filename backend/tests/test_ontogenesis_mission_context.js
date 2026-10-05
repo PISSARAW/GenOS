@@ -25,9 +25,11 @@ try {
   assert.ok(compiled.morphology.graph.graphId);
   assert.ok(compiled.capabilityCatalog.length > 0);
   const request = requestFor({ id: 'run-1', project, task: { title: 'implementer', acceptance_json: '[]', id: 'task-1' },
-    selection: { topology: 'a_team', variant: 'default' }, worktree: root, budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: compiled });
+    selection: { topology: 'a_team', variant: 'default', workerRoles: ['sub_orchestrator', 'specialist'] }, worktree: root,
+    budgets: { seconds: 10, tokens: 1, usd: 0 }, config: {}, mission: compiled });
   assert.strictEqual(request.projectId, undefined);
   assert.deepStrictEqual(request.capabilityContract.required, compiled.capabilities);
+  assert.strictEqual(request.worker_assignments.specialist.workerKind, 'specialist');
   const plan = buildMissionCapabilityPlan({ project: { id: 'project-1' }, task: { id: 'task-1', acceptance_json: '[]' },
     mission: compiled, config: { budgets: { tokens: 10 }, authority: {} }, selection: { topology: 'a_team', variant: 'default' } });
   assert.strictEqual(plan.failClosed, true);

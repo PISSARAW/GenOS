@@ -21,6 +21,11 @@ function createRuntimeHarness(db) {
 
 function requestFor(input) {
   const checks = input.config.checks || [];
+  const roles = input.selection.workerRoles || [];
+  const workerAssignments = Object.fromEntries(roles.map((role) => [role, {
+    workerKind: role,
+    workerRequirements: { requiredCapabilities: input.mission?.capabilities || [], allowedKinds: [role] }
+  }]));
   return {
     id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
     projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
@@ -30,6 +35,7 @@ function requestFor(input) {
     capabilityRequirements: input.mission?.capabilities || [],
     capabilityContract: { required: input.mission?.capabilities || [] },
     capabilityCatalog: input.mission?.capabilityCatalog || [],
+    worker_assignments: workerAssignments,
     morphologyPlan: input.mission?.morphology || null,
     missionCapabilityPlan: input.mission?.plan || null,
     problemProfile: input.mission?.profile || {},
