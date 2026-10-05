@@ -1,4 +1,5 @@
 const config = require('../config/orchestratorConfig');
+const garageFabric = require('./garageFabricService');
 const { registerWakeHandler, unregisterWakeHandler } = require('./signalPlaneSubscriber');
 
 const dynamicCapacities = new Map();
@@ -326,5 +327,6 @@ module.exports = {
   rearmIdleWorkers,
   getDynamicCapacity,
   setDynamicCapacity,
-  releaseDynamicCapacity
+  releaseDynamicCapacity,
+  garageFabric
 };

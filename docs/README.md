@@ -145,6 +145,7 @@ Index : [02-orchestration/README.md](02-orchestration/README.md)
 - [syncytium.md](02-orchestration/topologies/syncytium.md) — état partagé et synchronisation continue.
 - [rhizome.md](02-orchestration/topologies/rhizome.md) — ramification décentralisée de capacités.
 - [metapopulation.md](02-orchestration/topologies/metapopulation.md) — populations semi-indépendantes.
+- [garage-fabric.md](02-orchestration/topologies/garage-fabric.md) — garage adaptatif des workers, leases et admission multi-stratégies.
 
 ### 5. Référence technique
 

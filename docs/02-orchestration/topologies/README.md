@@ -16,6 +16,7 @@ ces organisations ; elle n'est pas un neuvième mode.
 - [rhizome.md](rhizome.md) — orchestration décentralisée par ramification de capacités.
 - [metapopulation.md](metapopulation.md) — orchestration par populations semi-indépendantes.
 - [variants-morphologiques.md](variants-morphologiques.md) — catalogue central, provenance et maturité des variants des topologies.
+- [garage-fabric.md](garage-fabric.md) — capacité adaptative, leases, file et réarrangement logique des workers.
 
 ## Voir aussi
 
