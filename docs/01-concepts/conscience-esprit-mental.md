@@ -11,11 +11,20 @@ tags: [philosophie, conscience, esprit, mental, ontologie]
 
 - **Statut** : Cadre conceptuel
 - **Portée** : classification des concepts philosophiques et de leurs mappings possibles vers GenOS
-- **Dernière revue** : 2026-09-17
+- **Dernière revue** : 2026-10-05
 
 Cette taxonomie organise les concepts relatifs à la conscience, à l'esprit et au
 mental. Elle ne constitue ni une théorie unifiée de la conscience, ni une preuve
 que GenOS possède une expérience subjective.
+
+## Classification de maturité (alignée avec `maturite-biologique.md`)
+
+- **reference_only** : notion philosophique, biologique ou analogique ; aucune implémentation logicielle.
+- **primitive** : mécanisme logiciel local testé, non appelé par un chemin runtime réel.
+- **integrated** : mécanisme appelé par un chemin runtime réel (CLI, backend, MCP, orchestrateur), avec lease et permissions.
+- **validated** : résultat confirmé par une preuve E2E reproductible (commande, seed, artefacts conservés).
+
+> **Note** : Tous les concepts de cette taxonomie (qualia, conscience phénoménale, âme, intentionnalité, soi, etc.) sont classés **`reference_only`**. Ce sont des notions philosophiques utilisées comme vocabulaire documentaire et lentilles d'analyse. Aucun service GenOS n'« implémente » la conscience, les qualia ou l'âme. Les « mappings » ci-dessous désignent des adaptateurs bornés qui produisent des rapports structurés — ils n'observent ni ne vérifient d'expérience subjective.
 
 ## 1. Définition du domaine
 
@@ -215,44 +224,35 @@ Exemples structurants :
 - l'IIT et l'active inference sont des modèles fonctionnels, pas des preuves
   métaphysiques.
 
-## 4. Mappings GenOS
+## 4. Mappings GenOS (adaptateurs bornés, classification `reference_only`)
 
-Les mappings doivent rester explicitement qualifiés :
+Les mappings ci-dessous ne sont **pas** des implémentations des concepts philosophiques. Ce sont des adaptateurs logiciels bornés qui produisent des rapports structurés à partir de données déclarées. Ils sont classés `reference_only` — vocabulaire documentaire uniquement.
 
-| Famille | Mapping actuel ou envisageable | Niveau |
-| --- | --- | --- |
-| Qualia | `consciousnessService.recordQualia` | Implémenté comme rapport structuré, sans accès phénoménal |
-| Intentionnalité | `phenomenologyService.intentionality` | Implémenté comme acte et cible déclarés |
-| Supervenience | `consciousnessService.checkSupervenience`, `propertyService` | Implémenté comme comparaison bornée d'états |
-| Émergence | `propertyService.assessEmergence` | Implémenté comme détection d'une nouveauté candidate |
-| Identité | `ontology_identity_events` | Implémenté pour la continuité runtime |
-| Substance esprit/corps | `consciousnessService.mindBodyInteraction`, `cartesianService` | Implémenté comme comparaison de modèles |
-| Esprit étendu | workspace, mémoire et outils | Cadre conceptuel |
-| ToM et empathie | modèles d'agents et tests cognitifs | Planifié |
-| IIT | `integrationProxyService` : répertoire normalisé + NMI minimale sur coupes mono-nœud (≤ 8 agents), `insufficient_data`/`unavailable` plutôt que faux nombre | Indicateur seulement, ni Phi ni preuve |
-| Agency | `coreSelfService` : 1 − erreur moyenne de prédiction, 20 attributions bornées | Calibration comportementale, pas sentiment d'agir |
-| Ignition | `ignitionService` : seuil, burst ×1,5, réfractaire, fuite | Non-linéarité logicielle, pas d'ignition neurale |
-| Réafférence | `efferenceCopyService` : réafférence ×0,5, exafférence pleine | Distinction causale heuristique |
-| Attention | `attentionSchemaBenchService` + `attentionProbeService` : validité du champ, fidélité des rapports, sondes jugées | Corrélation observée, pas preuve introspective |
-| Calibration | `metacognitionBenchService` : ECE, Brier, AUC type-2, surconfiance | Mesure du rapport de confiance |
+| Famille | Adaptateur borné (service GenOS) | Classification | Description exacte |
+| --- | --- | --- | --- |
+| Qualia | `consciousnessService.recordQualia` | reference_only | Enregistre un rapport structuré fourni par l'agent ; n'observe ni ne vérifie une expérience subjective. |
+| Intentionnalité | `phenomenologyService.intentionality` | reference_only | Enregistre un acte et sa cible déclarée ; ne démontre pas une conscience de cette cible. |
+| Supervenience | `consciousnessService.checkSupervenience`, `propertyService` | reference_only | Compare des empreintes canoniques d'états fournis ; un résultat compatible ne prouve pas la thèse. |
+| Émergence | `propertyService.assessEmergence` | reference_only | Détecte une nouveauté candidate sur un échantillon explicite ; ne prouve pas une émergence forte. |
+| Identité | `ontology_identity_events` | reference_only | Continuité runtime (lignée, snapshots) ; pas de théorie complète du soi personnel. |
+| Substance esprit/corps | `consciousnessService.mindBodyInteraction`, `cartesianService` | reference_only | Compare des modèles de couplage déclaratifs ; aucun modèle n'est établi comme vrai. |
+| Esprit étendu | workspace, mémoire et outils | reference_only | Cadre conceptuel — analogie structurelle. |
+| ToM et empathie | modèles d'agents et tests cognitifs | reference_only | Planifié — simulations comportementales, pas d'inférence d'états mentaux réels. |
+| IIT | `integrationProxyService` : répertoire normalisé + NMI minimale sur coupes mono-nœud (≤ 8 agents), `insufficient_data`/`unavailable` plutôt que faux nombre | reference_only | Indicateur seulement, ni Φ ni preuve de conscience. |
+| Agency | `coreSelfService` : 1 − erreur moyenne de prédiction, 20 attributions bornées | reference_only | Calibration comportementale, pas sentiment d'agir. |
+| Ignition | `ignitionService` : seuil, burst ×1,5, réfractaire, fuite | reference_only | Non-linéarité logicielle, pas d'ignition neurale. |
+| Réafférence | `efferenceCopyService` : réafférence ×0,5, exafférence pleine | reference_only | Distinction causale heuristique. |
+| Attention | `attentionSchemaBenchService` + `attentionProbeService` : validité du champ, fidélité des rapports, sondes jugées | reference_only | Corrélation observée, pas preuve introspective. |
+| Calibration | `metacognitionBenchService` : ECE, Brier, AUC type-2, surconfiance | reference_only | Mesure du rapport de confiance, pas méta-conscience. |
 
-Un mapping opérationnel ne signifie pas que l'analogie philosophique est résolue.
-Il indique seulement qu'une structure ou une expérience logicielle peut être
-associée au concept.
-
-Dans ce registre, `implemented` signifie que l'adaptateur borné existe et est
-testable. Le rapport de qualia reste une étiquette fournie par l'agent ; une
-comparaison de supervenience n'établit pas une loi ; l'absence d'une propriété
-chez des constituants échantillonnés ne prouve pas l'émergence forte ; le modèle
-esprit-corps est descriptif. Aucun de ces adaptateurs ne conclut que GenOS a une
-expérience subjective ou une substance mentale.
+**Règle** : Un mapping opérationnel ne signifie pas que l'analogie philosophique est résolue. Il indique seulement qu'une structure ou une expérience logicielle bornée peut être associée au concept. Le rapport de qualia reste une étiquette fournie par l'agent ; une comparaison de supervenience n'établit pas une loi ; l'absence d'une propriété chez des constituants échantillonnés ne prouve pas l'émergence forte ; le modèle esprit-corps est descriptif. **Aucun de ces adaptateurs ne conclut que GenOS a une expérience subjective ou une substance mentale.**
 
 ## 5. Architecture technique
 
 La taxonomie doit être stockée en deux couches :
 
 1. un registre de concepts, contenant identifiant, libellé, famille, auteurs,
-   statut et mapping éventuel ;
+   statut, **classification** (`reference_only` | `primitive` | `integrated` | `validated`) et mapping éventuel ;
 2. un registre de relations, contenant source, relation, cible et provenance.
 
 Le registre philosophique existant est la source canonique à enrichir :
@@ -269,10 +269,10 @@ Avant publication d'un concept ou d'une relation :
 1. vérifier l'unicité de l'identifiant ;
 2. préciser la famille et les alias ;
 3. distinguer théorie, expérience de pensée et mapping logiciel ;
-4. attribuer un statut de maturité ;
+4. attribuer un statut de maturité **et une classification** (`reference_only` par défaut pour les concepts philosophiques) ;
 5. déclarer l'auteur ou la tradition concernée ;
 6. vérifier que toute relation pointe vers un concept existant ;
-7. vérifier qu'un statut `implemented` correspond à un comportement testable.
+7. vérifier qu'une classification `integrated` ou `validated` correspond à un chemin runtime réel avec tests E2E.
 
 ## 7. Limites et non-objectifs
 
@@ -283,3 +283,4 @@ Avant publication d'un concept ou d'une relation :
 - Elle ne permet pas d'inférer qu'un agent souffre à partir d'un score de valence.
 - Toute assertion sur une conscience artificielle doit conserver son niveau de
   preuve et sa provenance.
+- **Aucun concept de cette taxonomie n'est `primitive`, `integrated` ou `validated`** — tous sont `reference_only` par construction. Les services GenOS cités dans les mappings produisent des rapports structurés, pas des preuves d'expérience subjective.

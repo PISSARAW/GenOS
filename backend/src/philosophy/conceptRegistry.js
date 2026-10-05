@@ -5,7 +5,7 @@ const { validateSpec } = require('../services/specValidator');
 const { GENOS_SUBDOMAINS, subdomainsForConcept } = require('./genosSubdomains');
 const { maturityForConcept } = require('./serviceMaturity');
 const { mappingForConcept } = require('./runtimeMappings');
-const { DEFAULTS_BY_ROLE, ROLE_BY_ID } = require('./conceptRoles');
+const { DEFAULTS_BY_ROLE, ROLE_BY_ID, CLASSIFICATION_LEVELS, CLASSIFICATION_DEFAULTS, classificationForRole } = require('./conceptRoles');
 
 const CONCEPT_SCHEMA = 'philosophical-concept.schema.json';
 
@@ -36,6 +36,7 @@ function normalizeConcept(concept) {
   const falsifiable = resolveField(concept.falsifiable, 'falsifiable', defaults);
   const scope = resolveField(concept.scope, 'scope', defaults);
   const historicalConfidence = resolveField(concept.historicalConfidence, 'historicalConfidence', defaults);
+  const classification = resolveField(concept.classification, 'classification', defaults);
 
   return {
     apiVersion: 'genos.philosophy/v1',
@@ -61,7 +62,8 @@ function normalizeConcept(concept) {
     mapping: concept.mapping || mappingForConcept(concept.id),
     serviceMaturity: maturityForConcept(concept),
     provenance: concept.provenance || {
-      version: '1.0.0',      sourceType: 'genos',
+      version: '1.0.0',
+      sourceType: 'genos',
       evidenceStatus: 'documented',
       interpretationStatus: 'conceptual',
     },
@@ -71,6 +73,8 @@ function normalizeConcept(concept) {
     scope,
     knownLimits,
     historicalConfidence,
+    classification,
+    classificationDetails: CLASSIFICATION_DEFAULTS[classification] || null,
   };
 }
 
@@ -134,4 +138,4 @@ function registryHealth() {
   };
 }
 
-module.exports = { normalizeConcept, validateRegistry, registryHealth };
+module.exports = { normalizeConcept, validateRegistry, registryHealth, CLASSIFICATION_LEVELS, CLASSIFICATION_DEFAULTS };

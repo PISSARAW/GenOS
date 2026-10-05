@@ -1,6 +1,14 @@
 'use strict';
 
 /**
+ * CLASSIFICATION: reference_only
+ * Ce service ne N'IMPLÉMENTE PAS la conscience. Il fournit des adaptateurs bornés
+ * pour enregistrer des rapports structurés fournis par l'agent.
+ * Les champs phenomenalAccess, subjectiveAwareness, metaphysicalClaimEstablished
+ * sont systématiquement unassessed / false.
+ */
+
+/**
  * Consciousness Service — Qualia, Intentionnalité, Supervenience, Corps-Esprit.
  *
  * Mapping philosophique :

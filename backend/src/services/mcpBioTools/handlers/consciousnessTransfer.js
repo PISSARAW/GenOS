@@ -1,6 +1,11 @@
 /**
  * @file consciousnessTransfer.js
  * @description Registry-only temporal replay simulation; it does not restore an agent runtime.
+ *
+ * CLASSIFICATION: reference_only
+ * Ce service ne N'IMPLÉMENTE PAS le transfert de conscience. C'est un registre
+ * de simulation de rejeu temporel (snapshot replay) sans restauration d'état d'agent.
+ * Les champs success=false, status='not_implemented'/'simulation_only' sont systématiques.
  */
 
 'use strict';

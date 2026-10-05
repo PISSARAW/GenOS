@@ -1,5 +1,12 @@
 'use strict';
 
+/**
+ * CLASSIFICATION: reference_only
+ * Cette suite de benchmarks fonctionnels teste des modèles théoriques de conscience
+ * (CTM, MBH, etc.) via des challengers rivaux. Elle ne MESURE PAS la conscience.
+ * Résultat: promotionAllowed=false, status='nursery_review_required'.
+ */
+
 const challengeRunner = require('./rivalChallengeRunner');
 const ctmCampaign = require('./ctmExternalCampaignService');
 const matcher = require('./rivalControlMatcher');
