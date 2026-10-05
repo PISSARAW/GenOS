@@ -333,10 +333,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0295b](0295-registre-des-recepteurs-du-signal-plane.md) | Registre durable des récepteurs du Signal Plane | Voir le fichier | -- | -- |
 | [0295c](0295-responsabilite-persistante-shev.md) | Responsabilité persistante et initiatives SHEV | Accepté | 2026-10-04 | projets persistants, perception, Ontogenèse, GVX |
 | [0295d](0295-transitions-morphologiques-avec-jugement-et-verification.md) | Transitions morphologiques avec jugement et vérification | Accepté | 2026-10-04 | Morphogenèse, transitions et preuves |
-| [0296a](0296-erreurs-explicites-de-cleavage.md) | Erreurs explicites de clivage embryogénétique | Accepté | 2026-10-04 | Orchestrateur Rust, embryogenèse |
-| [0296b](0296-file-cognitive-du-signal-plane.md) | File cognitive durable du Signal Plane | Voir le fichier | -- | -- |
-| [0296c](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
-| [0296d](0296-revue-multi-fournisseur-aeis.md) | Revue AEIS par fournisseurs indépendants | Accepté | 2026-10-04 | AEIS, fournisseurs, processus, promotion |
+| [0296a](0296-capacites-transversales-morphogenese.md) | Première tranche des capacités transversales de morphogenèse | Proposé, première implémentation opt-in | 2026-10-04 | Morphogenèse, preuves, mémoire, risque statistique |
+| [0296b](0296-erreurs-explicites-de-cleavage.md) | Erreurs explicites de clivage embryogénétique | Accepté | 2026-10-04 | Orchestrateur Rust, embryogenèse |
+| [0296c](0296-file-cognitive-du-signal-plane.md) | File cognitive durable du Signal Plane | Voir le fichier | -- | -- |
+| [0296d](0296-rejeu-causal-sous-bail.md) | Rejeu causal sous bail et journal chaîné | Accepté | 2026-10-04 | Causalité procédurale, persistance, concurrence |
+| [0296e](0296-revue-multi-fournisseur-aeis.md) | Revue AEIS par fournisseurs indépendants | Accepté | 2026-10-04 | AEIS, fournisseurs, processus, promotion |
 | [0297a](0297-budget-et-retroaction-aeis.md) | Budget et rétroaction homéostatique AEIS | Accepté | 2026-10-04 | AEIS, runtime, ré-arbitration, budget |
 | [0297b](0297-campagnes-biocenose-avec-sorties-verifiables.md) | Campagnes Biocénose avec sorties vérifiables | Accepté | 2026-10-04 | Biocénose, formation et qualification avec modèle local |
 | [0297c](0297-g-cir-generation-hypotheses-trinity.md) | G-CIR pour la generation d'hypotheses Trinity | Accepte | 2026-10-04 | Trinity, cognition, preuve |

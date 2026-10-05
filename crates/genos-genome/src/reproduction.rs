@@ -51,10 +51,10 @@ pub fn strand_crossover(
     rng: &mut (impl rand::Rng + ?Sized),
 ) -> (DnaStrand, DnaStrand) {
     let len = maternal.len().min(paternal.len());
-    if len == 0 {
+    if len < 2 {
         return (maternal.clone(), paternal.clone());
     }
-    let point = rng.random_range(1..len);
+    let point = rng.random_range(0..=len);
     let mut first_seq = maternal.as_slice()[..point].to_vec();
     first_seq.extend_from_slice(&paternal.as_slice()[point..]);
     let mut second_seq = paternal.as_slice()[..point].to_vec();
@@ -73,6 +73,11 @@ pub fn fertilize(parent_a: &Genome, parent_b: &Genome, rng: &mut (impl rand::Rng
     child.chromosome_paternal = b_mat;
     child.genes = inherit_genes(parent_a, parent_b, rng);
     child.extra_chromosomes = build_extra_chromosomes(parent_a, parent_b, rng);
+    // Cap extra chromosomes to prevent unbounded growth
+    const MAX_EXTRA_CHROMOSOMES: usize = 8;
+    if child.extra_chromosomes.len() > MAX_EXTRA_CHROMOSOMES {
+        child.extra_chromosomes.truncate(MAX_EXTRA_CHROMOSOMES);
+    }
     child
 }
 

@@ -15,6 +15,7 @@ const persistentDaemonLeaseService = require('./persistentDaemonLeaseService');
 const persistentRuntimeService = require('./persistentRuntimeService');
 const migrationStore = require('../migration/migrationStore');
 const evolutionaryRuntime = require('../evolution/evolutionaryRuntimeService');
+const culturalPersistentRuntime = require('../migration/culturalPersistentRuntimeService');
 
 async function executeVariantAction(action, context) {
   return EXECUTORS[action.type]?.(action, context) ?? executeRuntimeMarkerAction(action, context);
@@ -87,7 +88,8 @@ const RUNTIME_MARKERS = Object.freeze({
   },
   EXPIRE_RESIDENT_DAEMON: async (action, context) => {
     if (!context.options.db) return { type: action.type, demeId: action.demeId, deactivated: false, reason: 'NO_DB' };
-    await persistentLeaseService.deactivateDaemonLease(context.options.db, context.input.metapopulationId, action.demeId);
+    await persistentDaemonLeaseService.deactivateDaemonLease(context.options.db,
+      context.input.metapopulationId, action.demeId);
     return { type: action.type, demeId: action.demeId, deactivated: true };
   },
 });
@@ -176,15 +178,30 @@ function interMissionSummary(action) {
   return migration;
 }
 
+function residentDeme(demes, demeId) {
+  return demes.find((deme) => deme.demeId === demeId
+    && ['ACTIVE', 'STRESSED', 'ESTABLISHING'].includes(deme.status));
+}
+
+function admissibleCorridor(corridors, sourceDemeId, targetDemeId) {
+  return corridors.find((corridor) => corridor.enabled && corridor.capacity > 0
+    && corridor.sourceDemeId === sourceDemeId && corridor.targetDemeId === targetDemeId);
+}
+
 async function transferCultureOffer(action, context) {
   const { input, options } = context;
   const culture = action.culture || {};
   const targetDemeId = action.targetDemeId;
   const sourceDemeId = action.sourceDemeId || input.cultureSourceById?.[culture.id] || null;
   if (!sourceDemeId) return { type: action.type, cultureId: culture.id, offered: false, reason: 'SOURCE_DEME_UNKNOWN' };
-  const corridor = (context.observed?.corridors || []).find((c) => c.enabled && c.capacity > 0
-    && c.sourceDemeId === sourceDemeId && c.targetDemeId === targetDemeId);
+  const residents = context.observed?.demes || [];
+  if (!residentDeme(residents, sourceDemeId) || !residentDeme(residents, targetDemeId)) {
+    return { type: action.type, cultureId: culture.id, offered: false, reason: 'DEME_NOT_RESIDENT' };
+  }
+  const corridor = admissibleCorridor(context.observed?.corridors || [], sourceDemeId, targetDemeId);
   if (!corridor) return { type: action.type, cultureId: culture.id, offered: false, reason: 'NO_ADMISSIBLE_CORRIDOR' };
+  await culturalPersistentRuntime.registerCulture({ db: options.db, metapopulationId: input.metapopulationId,
+    culture, author: sourceDemeId });
   const migrationStore = require('../migration/migrationStore');
   const offered = await migrationStore.offerMigration(options.db, { metapopulationId: input.metapopulationId,
     corridorId: corridor.corridorId,
@@ -202,21 +219,22 @@ function culturePropagule(context) {
 }
 
 function culturePayloadType(culture) {
-  return ['PROCEDURE', 'MEMORY_FRAGMENT', 'ARTIFACT', 'COGNITIVE_RECIPE', 'STRATEGY'].includes(culture.payloadType)
-    ? culture.payloadType : 'PROCEDURE';
+  const type = culture.payloadType === 'TOOL_CONFIGURATION' ? 'TOOL_CONFIG' : culture.payloadType;
+  return ['PROCEDURE', 'MEMORY_FRAGMENT', 'ARTIFACT', 'COGNITIVE_RECIPE', 'STRATEGY',
+    'TEST', 'VERIFIER', 'TOOL_CONFIG'].includes(type) ? type : 'PROCEDURE';
 }
 
-async function mutateCulture(action) {
-  const runtime = require('../migration/culturalRuntimeService');
-  const result = runtime.mutateCultureLocally(action.cultureId, action.mutation, action.mutatorId || 'regional-runtime');
-  return { type: action.type, cultureId: action.cultureId, ...result };
+async function mutateCulture(action, context) {
+  const result = await culturalPersistentRuntime.mutateCulture({ db: context.options.db,
+    metapopulationId: context.input.metapopulationId, cultureId: action.cultureId,
+    mutation: action.mutation, mutatorId: action.mutatorId || 'regional-runtime' });
+  return { type: action.type, requestedCultureId: action.cultureId, ...result };
 }
 
-async function buildPhylogeny(action) {
-  const runtime = require('../migration/culturalRuntimeService');
-  const ids = Array.isArray(action.cultureIds) ? action.cultureIds
-    : (Array.isArray(action.demes) ? action.demes.flatMap((d) => d.cultureIds || []) : []);
-  return { type: action.type, ...runtime.buildCulturalPhylogeny(ids) };
+async function buildPhylogeny(action, context) {
+  const result = await culturalPersistentRuntime.buildCulturalPhylogeny({ db: context.options.db,
+    metapopulationId: context.input.metapopulationId });
+  return { type: action.type, ...result };
 }
 
 const EXECUTORS = Object.freeze({

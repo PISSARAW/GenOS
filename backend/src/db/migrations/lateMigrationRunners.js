@@ -8,4 +8,10 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('103-nce-play-observations', 'Persist scoped Play observations with snapshot provenance', async (db) => {
     await require('./migrateNcePlayObservations').migrateNcePlayObservations(db);
   }),
+  createMigrationRunner('111-daemon-scout', 'Persist scout colonies and cells', async (db) => {
+    await require('./migrateDaemonScout').migrateDaemonScout(db);
+  }),
+  createMigrationRunner('112-daemon-wake-policy', 'Persist daemon territory wake policy', async (db) => {
+    await require('./migrateDaemonWakePolicy').migrateDaemonWakePolicy(db);
+  }),
 ];

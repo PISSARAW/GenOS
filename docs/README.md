@@ -281,6 +281,7 @@ Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-f
 - [0294-candidats-morphogenetiques-du-catalogue.md](adr/0294-candidats-morphogenetiques-du-catalogue.md) — génération de candidats parmi les 95 variants canoniques avec compatibilité topologie/variant.
 - [0295-transitions-morphologiques-avec-jugement-et-verification.md](adr/0295-transitions-morphologiques-avec-jugement-et-verification.md) — refus des transitions sans jugement ni vérification explicites.
 - [0296-erreurs-explicites-de-cleavage.md](adr/0296-erreurs-explicites-de-cleavage.md) — propagation des échecs de mitose par l'API Rust.
+- [0296-capacites-transversales-morphogenese.md](adr/0296-capacites-transversales-morphogenese.md) — première tranche des cinq capacités transversales de morphogenèse.
 - [0297-campagnes-biocenose-avec-sorties-verifiables.md](adr/0297-campagnes-biocenose-avec-sorties-verifiables.md) — rapports de campagnes réelles sans verdicts fabriqués.
 - [0297-g-cir-generation-hypotheses-trinity.md](adr/0297-g-cir-generation-hypotheses-trinity.md) — contrat G-CIR et reçus pour les hypothèses candidates Trinity.
 - [0298-physiologie-relationnelle-executable.md](adr/0298-physiologie-relationnelle-executable.md) — restrictions relationnelles déterministes et filtrage de filiation dans le routage.

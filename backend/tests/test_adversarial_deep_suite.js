@@ -201,26 +201,35 @@ async function runCircuitBreakerTests() {
   }, { toolName: 'genos_run', args: {} });
   assert(viewerExec.status === 403, 'Viewer blocked from MCP tool execution with 403 FORBIDDEN');
 
-  // 4.2 High-impact actions enter a one-shot admin approval workflow.
-  const opDestructive = await sendReq({
+  // 4.2 An admin requests one-shot approval from a separate admin.
+  const pendingDestructive = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
-    headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { toolName: 'genos_merge', args: {} });
-  assert(opDestructive.status === 202 && opDestructive.body.approvalRequired === true, `Operator destructive genos_merge deferred for explicit approval (${opDestructive.status}: ${JSON.stringify(opDestructive.body)})`);
+  assert(pendingDestructive.status === 202 && pendingDestructive.body.approvalRequired === true,
+    `Admin destructive genos_merge deferred for explicit approval (${pendingDestructive.status}: ${JSON.stringify(pendingDestructive.body)})`);
+
+  const reviewerKey = await sendReq({
+    method: 'POST',
+    path: '/api/auth/keys',
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+  }, { label: 'Independent Approval Reviewer', role: 'admin', permissions: ['read'] });
+  assert(reviewerKey.status === 201 && reviewerKey.body.key.rawKey,
+    'Separate admin reviewer credential created');
 
   const approved = await sendReq({
     method: 'POST',
-    path: `/api/platform/approvals/${opDestructive.body.approvalId}/decision`,
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
+    path: `/api/platform/approvals/${pendingDestructive.body.approvalId}/decision`,
+    headers: { Authorization: `Bearer ${reviewerKey.body.key.rawKey}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { decision: 'approve', reason: 'Adversarial approval flow test' });
   assert(approved.status === 200 && approved.body.status === 'approved' && approved.body.execution,
     `Approved destructive action consumed and execution attempted (${approved.status}: ${JSON.stringify(approved.body)})`);
 
   const replayApproval = await sendReq({
     method: 'POST',
-    path: `/api/platform/approvals/${opDestructive.body.approvalId}/decision`,
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
+    path: `/api/platform/approvals/${pendingDestructive.body.approvalId}/decision`,
+    headers: { Authorization: `Bearer ${reviewerKey.body.key.rawKey}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { decision: 'approve' });
   assert(replayApproval.status === 409, 'Approval cannot be consumed twice');
 

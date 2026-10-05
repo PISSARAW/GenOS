@@ -86,13 +86,14 @@ async function loadScanState(db, agentId, context) {
   return getClinicalState(db, agentId);
 }
 
-async function surveillanceScan(db, agentId, context = {}) {
-  // Seuils atteignables: sans observations, relit l'état persisté au lieu de
-  // réinitialiser (refreshClinicalState avec contexte vide remettrait les
-  // charges à zéro et aucun seuil ne pourrait jamais se déclencher).
-  const state = await loadScanState(db, agentId, context);
-  if (!state) return { state, detections: [], quarantine: false };
+function validateVitals(state) {
+  const vitalFields = ['cognitiveIntegrity', 'stress', 'energy', 'budgetRatio', 'dissonance', 'apoptosisRisk'];
+  if (!state.vitals || vitalFields.some((field) => !Number.isFinite(state.vitals[field]))) {
+    throw new Error('clinical vitals are incomplete or invalid');
+  }
+}
 
+function detectPathologies(state) {
   const detections = [];
   for (const [pType, def] of Object.entries(PATHOLOGY_DEFINITIONS)) {
     try {
@@ -106,8 +107,19 @@ async function surveillanceScan(db, agentId, context = {}) {
           });
         }
       }
-    } catch (_) { /* skip this pathology */ }
+    } catch (error) { throw new Error(`pathology scan failed for ${pType}: ${error.message}`); }
   }
+  return detections;
+}
+
+async function surveillanceScan(db, agentId, context = {}) {
+  // Seuils atteignables: sans observations, relit l'état persisté au lieu de
+  // réinitialiser (refreshClinicalState avec contexte vide remettrait les
+  // charges à zéro et aucun seuil ne pourrait jamais se déclencher).
+  const state = await loadScanState(db, agentId, context);
+  if (!state) return { state, detections: [], quarantine: false };
+  validateVitals(state);
+  const detections = detectPathologies(state);
 
   const quarantine = detections.some(
     d => (d.pathologyType === 'cognitive_metastasis' || d.pathologyType === 'quarantine_breach') && d.confidence > 0.6

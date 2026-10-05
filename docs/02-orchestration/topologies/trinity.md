@@ -44,6 +44,14 @@ actuel relie les runners et gates correspondants, mais aucune campagne post-corr
 encore vérifié ces voies de bout en bout. Les détails R3 sont archivés sous
 [`artifacts/trinity-missions/round3/`](../../../artifacts/trinity-missions/round3/README.md).
 
+La comparaison est fail-closed : le superviseur attend le nombre exact de mondes prévu,
+exige que chacun ait terminé avec `completed`, puis exige un rapport de succès substantiel
+par monde avant d'appeler le comparateur. Un worker en erreur, un rapport absent ou vide
+produit `TRINITY_MISSION_FAILED`; les mondes ne sont pas marqués `compared` et aucune
+complétion n'est publiée. Pour les workers locaux, le validateur d'artefacts lit la réponse
+JSON brute conservée dans `fullText`, pas l'enveloppe du rapport qui la contient. L'acceptation
+de l'artefact n'assouplit ni la présence de claims ni leurs exigences de preuve.
+
 Les variants se composent par axe dans `experimental_design`; cet exemple réunit les
 politiques de diversité, de préparation adversariale, d'objectifs Pareto et de budget
 adaptatif sans créer un nouvel identifiant de variant :

@@ -4,6 +4,8 @@ const store = require('../metapopulationStore');
 const corridorStore = require('../migration/corridorStore');
 const migrationStore = require('../migration/migrationStore');
 const { RUNTIME_MARKERS } = require('./variantActionExecutors');
+const culturalPersistentRuntime = require('../migration/culturalPersistentRuntimeService');
+const { verifyCulturalActions } = require('./culturalActionVerification');
 
 async function verifyVariantActions(context) {
   const { plan, input, options } = context;
@@ -14,63 +16,209 @@ async function verifyVariantActions(context) {
     && await verifyFounderReserve({ actions: plan.actions, results, db: options.db,
       metapopulationId: input.metapopulationId })
     && verifyTrials({ actions: plan.actions, results, db: options.db, metapopulationId: input.metapopulationId })
-    && verifyMarkerReceipts(plan.actions, results) && await verifyCultureOffers({ plan, results, db: options.db, metapopulationId: input.metapopulationId });
+    && await verifyMarkerReceipts({ actions: plan.actions, results, db: options.db, metapopulationId: input.metapopulationId })
+    && await verifyCultureOffers({ plan, results, db: options.db, metapopulationId: input.metapopulationId })
+    && await verifyCulturalActions({ actions: plan.actions, results, db: options.db,
+      metapopulationId: input.metapopulationId });
 }
 
-function verifyMarkerReceipts(actions, results) {
-  return Object.keys(RUNTIME_MARKERS).every((type) => verifyMarkerFamily(actions, results, type));
+async function verifyMarkerReceipts(context) {
+  const { actions, results, db, metapopulationId } = context;
+  for (const type of Object.keys(RUNTIME_MARKERS)) {
+    if (!await verifyMarkerFamily({ actions, results, db, metapopulationId, type })) {
+      return false;
+    }
+  }
+  return true;
 }
 
-function verifyMarkerFamily(actions, results, type) {
+async function verifyMarkerFamily(context) {
+  const { actions, results, db, metapopulationId, type } = context;
   const expected = actions.filter((item) => item.type === type);
   if (!expected.length) return true;
   const actual = results.filter((item) => item.type === type);
-  return actual.length === expected.length && actual.every((item) => checkMarkerReceipt(type, item));
+  if (actual.length !== expected.length) return false;
+  const verifier = MARKER_VERIFIERS[type];
+  if (!verifier) return true;
+  for (const item of actual) {
+    const matched = expected.find((action) => actionScope(action) === actionScope(item));
+    if (!matched || !await verifier({ item, db, metapopulationId, expected: matched })) {
+      return false;
+    }
+  }
+  return true;
 }
 
-function checkMarkerReceipt(type, item) {
-  const predicate = MARKER_RECEIPTS[type];
-  return typeof predicate === 'function' ? predicate(item) : true;
+function actionScope(action) {
+  return action.requestedCultureId || action.patchId || action.patch?.patchId || action.demeId || action.corridorId
+    || action.propaguleId || action.propagule?.propaguleId || action.cultureId || action.culture?.id || '';
 }
 
-const MARKER_RECEIPTS = Object.freeze({
-  TRIGGER_ISLAND_MIGRATION: (item) => item.triggered === true && Number.isFinite(item.interval),
-  TRIGGER_STEPPING_STONE_MIGRATION: (item) => item.triggered === true && Number.isFinite(item.interval),
-  ACTIVATE_RESERVE_CORRIDOR: (item) => typeof item.activated === 'boolean' && (item.activated || typeof item.reason === 'string'),
-  DEPLOY_FOUNDER: (item) => typeof item.deployed === 'boolean' && (item.deployed ? typeof item.colonizationId === 'string' : typeof item.reason === 'string'),
-  PROTECT_SOURCE: (item) => item.protected === true && typeof item.demeId === 'string',
-  RECOVERY_SLA_BREACH: (item) => item.breached === true && typeof item.demeId === 'string',
-  ROTATE_SOURCE_SINK_ROLES: (item) => item.persisted === true && Number.isInteger(item.rotated) && Array.isArray(item.changes),
-  MIGRATE_ISLAND_ELITE: (item) => item.migrated === true && typeof item.propaguleId === 'string',
-  REQUIRE_RECEIVER_ATTESTATION: (item) => item.required === true && typeof item.propaguleId === 'string',
-  STAGE_FOUNDER_RESERVE: (item) => item.staged === true && Number.isFinite(item.eventRevision) && item.founders.length >= item.deficit,
-  DIVERSITY_FLOOR_BREACH: (item) => item.breached === true && Number.isFinite(item.currentDiversity),
-  ALLOW_CONTROLLED_EXTINCTION: (item) => item.allowed === true && typeof item.demeId === 'string',
-  PROTECT_FROM_EXTINCTION: (item) => item.protected === true && typeof item.demeId === 'string',
-  REJECT_FEDERATED_TRANSFER: (item) => item.rejected === true && typeof item.reason === 'string',
-  REDACT_PROPAGULE: (item) => item.redacted === true,
-  REQUIRE_SOVEREIGNTY_ACKNOWLEDGMENT: (item) => item.required === true && typeof item.demeId === 'string',
-  MAINTAIN_RESIDENT_DAEMON: (item) => typeof item.maintained === 'boolean' && typeof item.demeId === 'string',
-  UPDATE_DEME_MEMORY: (item) => item.updated === true && typeof item.memoryRef === 'string',
-  INTER_MISSION_MIGRATION: (item) => item.scheduled === true && typeof item.migration === 'object',
-  CHECK_SPECIATION: (item) => typeof item.demeA === 'string' && typeof item.demeB === 'string'
-    && Number.isFinite(item.divergence) && Number.isFinite(item.threshold) && typeof item.speciated === 'boolean',
-  TRANSFER_CULTURE: (item) => typeof item.offered === 'boolean' && (item.offered ? typeof item.migrationId === 'string' : typeof item.reason === 'string'),
-  REJECT_CULTURE_TRANSFER: (item) => item.rejected === true && typeof item.reason === 'string',
-  MUTATE_CULTURE: (item) => typeof item.mutated === 'boolean' && (item.mutated ? Number.isSafeInteger(item.newVersion) : typeof item.reason === 'string'),
-  BUILD_CULTURAL_PHYLOGENY: (item) => Array.isArray(item.nodes) && Number.isSafeInteger(item.count),
-  COLLAPSE_DETECTED_POPULATE_VACANCY: (item) => Array.isArray(item.results),
-  CREATE_EPHEMERAL_PATCH_LEASE: (item) => typeof item.leaseId === 'string' && typeof item.patchId === 'string',
-  RENEW_EPHEMERAL_PATCH_LEASE: (item) => typeof item.leaseId === 'string' && typeof item.patchId === 'string' && item.renewed === true,
-  REGISTER_RESIDENT_DAEMON: (item) => typeof item.daemonId === 'string' && typeof item.leaseId === 'string',
-  MAINTAIN_RESIDENT_DAEMON_CYCLE: (item) => typeof item.maintained === 'boolean' && typeof item.demeId === 'string',
-  EXPIRE_RESIDENT_DAEMON: (item) => item.deactivated === true && typeof item.demeId === 'string',
-  PROOF_OF_DATA_MINIMIZATION: (item) => item.recorded === true && item.proven === true
-    && item.proof?.proofId === item.proofId && item.proof?.contractId === item.contractId
-    && Number.isSafeInteger(item.proof?.originalFieldCount)
-    && Number.isSafeInteger(item.proof?.transferredFieldCount)
-    && item.proof.transferredFieldCount <= item.proof.originalFieldCount,
-  REQUIRE_RECEIVER_ATTESTATION: (item) => item.required === true && typeof item.propaguleId === 'string',
+const MARKER_VERIFIERS = Object.freeze({
+  TRIGGER_ISLAND_MIGRATION: async ({ item, db, metapopulationId }) => {
+    if (!item.triggered || !Number.isFinite(item.interval)) return false;
+    const migrations = await migrationStore.listMigrations(db, metapopulationId);
+    return migrations.some(m => m.triggerReason === 'island_migration' && m.interval === item.interval);
+  },
+  TRIGGER_STEPPING_STONE_MIGRATION: async ({ item, db, metapopulationId }) => {
+    if (!item.triggered || !Number.isFinite(item.interval)) return false;
+    const migrations = await migrationStore.listMigrations(db, metapopulationId);
+    return migrations.some(m => m.triggerReason === 'stepping_stone' && m.interval === item.interval);
+  },
+  ACTIVATE_RESERVE_CORRIDOR: async ({ item, db, metapopulationId }) => {
+    if (typeof item.activated !== 'boolean') return false;
+    if (!item.activated) return typeof item.reason === 'string';
+    const graph = await corridorStore.listGraph(db, metapopulationId);
+    return graph.some(c => c.corridorId === item.corridorId && c.enabled && !c.isReserve);
+  },
+  DEPLOY_FOUNDER: async ({ item, db, metapopulationId }) => {
+    if (typeof item.deployed !== 'boolean') return false;
+    if (!item.deployed) return typeof item.reason === 'string';
+    const rows = await db.all('SELECT colonization_id FROM metapopulation_colonizations WHERE metapopulation_id = ? AND colonization_id = ?', metapopulationId, item.colonizationId);
+    return rows.length > 0 && rows[0].colonization_id === item.colonizationId;
+  },
+  PROTECT_SOURCE: async ({ item, db, metapopulationId }) => {
+    if (!item.protected || !item.demeId) return false;
+    const deme = await store.getDeme(db, metapopulationId, item.demeId);
+    return deme?.status === 'ACTIVE' && deme?.protectedFromCull === true;
+  },
+  RECOVERY_SLA_BREACH: async ({ item, db, metapopulationId }) => {
+    if (!item.breached || !item.demeId) return false;
+    const events = await store.listEvents(db, metapopulationId);
+    return events.some(e => e.type === 'RECOVERY_SLA_BREACH' && e.payload?.demeId === item.demeId);
+  },
+  ROTATE_SOURCE_SINK_ROLES: async ({ item, db, metapopulationId }) => {
+    if (!item.persisted || !Number.isInteger(item.rotated) || !Array.isArray(item.changes)) return false;
+    const session = await store.loadSession(db, metapopulationId);
+    const roles = session.regionalMemory?.sourceSinkRoles || {};
+    return item.changes.every(change => roles[change.demeId]?.role === change.to);
+  },
+  MIGRATE_ISLAND_ELITE: async ({ item, db, metapopulationId }) => {
+    if (!item.migrated || !item.propaguleId) return false;
+    const migration = await migrationStore.getMigration(db, metapopulationId, item.propaguleId);
+    return migration && ['ACCEPTED', 'REJECTED', 'ROLLED_BACK'].includes(migration.status);
+  },
+  REQUIRE_RECEIVER_ATTESTATION: async ({ item, db, metapopulationId }) => {
+    if (!item.required || !item.propaguleId) return false;
+    const migration = await migrationStore.getMigration(db, metapopulationId, item.propaguleId);
+    return migration && migration.receiverAttestation?.verified === true;
+  },
+  STAGE_FOUNDER_RESERVE: async ({ item, db, metapopulationId }) => {
+    if (!item.staged || !Number.isFinite(item.eventRevision)) return false;
+    const events = await store.listEvents(db, metapopulationId);
+    return events.some(e => e.type === 'FOUNDER_RESERVE_STAGED' && e.revision === item.eventRevision);
+  },
+  DIVERSITY_FLOOR_BREACH: async ({ item, db, metapopulationId }) => {
+    if (!item.breached || !Number.isFinite(item.currentDiversity)) return false;
+    const events = await store.listEvents(db, metapopulationId);
+    return events.some(e => e.type === 'DIVERSITY_FLOOR_BREACH' && e.payload?.currentDiversity === item.currentDiversity);
+  },
+  ALLOW_CONTROLLED_EXTINCTION: async ({ item, db, metapopulationId }) => {
+    if (!item.allowed || !item.demeId) return false;
+    const deme = await store.getDeme(db, metapopulationId, item.demeId);
+    return deme?.status === 'COLLAPSED' && deme?.allowedExtinction === true;
+  },
+  PROTECT_FROM_EXTINCTION: async ({ item, db, metapopulationId }) => {
+    if (!item.protected || !item.demeId) return false;
+    const deme = await store.getDeme(db, metapopulationId, item.demeId);
+    return deme?.protectedFromCull === true;
+  },
+  REJECT_FEDERATED_TRANSFER: async ({ item, db, metapopulationId }) => {
+    if (!item.rejected || !item.reason) return false;
+    const events = await store.listEvents(db, metapopulationId);
+    return events.some(e => e.type === 'FEDERATED_TRANSFER_REJECTED' && e.payload?.reason === item.reason);
+  },
+  REDACT_PROPAGULE: async ({ item, db, metapopulationId }) => {
+    if (!item.redacted) return false;
+    const events = await store.listEvents(db, metapopulationId);
+    return events.some(e => e.type === 'PROPAGULE_REDACTED' && e.payload?.propaguleId === item.propaguleId);
+  },
+  REQUIRE_SOVEREIGNTY_ACKNOWLEDGMENT: async ({ item, db, metapopulationId }) => {
+    if (!item.required || !item.demeId) return false;
+    const deme = await store.getDeme(db, metapopulationId, item.demeId);
+    return deme?.sovereigntyAcknowledged === true;
+  },
+  MAINTAIN_RESIDENT_DAEMON: async ({ item, db, metapopulationId }) => {
+    if (typeof item.maintained !== 'boolean' || !item.demeId) return false;
+    const deme = await store.getDeme(db, metapopulationId, item.demeId);
+    return deme?.status === 'ACTIVE' && item.maintained === (deme?.daemonLeaseActive === true);
+  },
+  UPDATE_DEME_MEMORY: async ({ item, db, metapopulationId }) => {
+    if (!item.updated || !item.memoryRef) return false;
+    const deme = await store.getDeme(db, metapopulationId, item.demeId);
+    return deme?.localMemoryRef === item.memoryRef;
+  },
+  INTER_MISSION_MIGRATION: async ({ item, db, metapopulationId }) => {
+    if (!item.scheduled || !item.migration) return false;
+    const migrations = await migrationStore.listMigrations(db, metapopulationId);
+    return migrations.some(m => m.migrationId === item.migration.migrationId);
+  },
+  CHECK_SPECIATION: async ({ item, db, metapopulationId }) => {
+    if (!item.demeA || !item.demeB || !Number.isFinite(item.divergence) || !Number.isFinite(item.threshold) || typeof item.speciated !== 'boolean') return false;
+    const events = await store.listEvents(db, metapopulationId);
+    return events.some(e => e.type === 'SPECIATION_DETECTED' && e.payload?.demeA === item.demeA && e.payload?.demeB === item.demeB);
+  },
+  TRANSFER_CULTURE: async ({ item, db, metapopulationId, expected }) => {
+    if (typeof item.offered !== 'boolean') return false;
+    if (!item.offered) return typeof item.reason === 'string' && item.cultureId === expected.culture.id;
+    const culture = await culturalPersistentRuntime.getCulture({ db, metapopulationId, cultureId: item.cultureId });
+    if (!culture || culture.version !== expected.culture.version) return false;
+    const migration = await migrationStore.getMigration(db, metapopulationId, item.migrationId);
+    return migration && ['QUARANTINED', 'ACCEPTED', 'REJECTED'].includes(migration.status);
+  },
+  REJECT_CULTURE_TRANSFER: async ({ item, expected }) => {
+    return item.rejected === true && item.cultureId === expected.cultureId && item.reason === expected.reason;
+  },
+  MUTATE_CULTURE: async ({ item, db, metapopulationId, expected }) => {
+    if (typeof item.mutated !== 'boolean') return false;
+    if (!item.mutated) return item.reason === 'CULTURE_NOT_FOUND';
+    const child = await culturalPersistentRuntime.getCulture({ db, metapopulationId, cultureId: item.cultureId });
+    return child?.parentCultureId === expected.cultureId && child.version === item.newVersion
+      && child.contentHash === item.contentHash;
+  },
+  BUILD_CULTURAL_PHYLOGENY: async ({ item, db, metapopulationId }) => {
+    if (!Array.isArray(item.nodes) || !Number.isSafeInteger(item.count)) return false;
+    const persisted = await culturalPersistentRuntime.buildCulturalPhylogeny({ db, metapopulationId });
+    return item.count === persisted.count && JSON.stringify(item.nodes) === JSON.stringify(persisted.nodes);
+  },
+  COLLAPSE_DETECTED_POPULATE_VACANCY: async ({ item, db, metapopulationId }) => {
+    if (!Array.isArray(item.results)) return false;
+    const rows = await db.all('SELECT colonization_id FROM metapopulation_colonizations WHERE metapopulation_id = ? AND status = ?', metapopulationId, 'IN_TRIAL');
+    return rows.length >= item.results.length;
+  },
+  CREATE_EPHEMERAL_PATCH_LEASE: async ({ item, db, metapopulationId }) => {
+    if (!item.leaseId || !item.patchId) return false;
+    const lease = await db.get('SELECT lease_id FROM metapopulation_ephemeral_leases WHERE metapopulation_id = ? AND lease_id = ?', metapopulationId, item.leaseId);
+    return !!lease;
+  },
+  RENEW_EPHEMERAL_PATCH_LEASE: async ({ item, db, metapopulationId }) => {
+    if (!item.leaseId || !item.patchId || item.renewed !== true) return false;
+    const lease = await db.get('SELECT lease_id, expires_at FROM metapopulation_ephemeral_leases WHERE metapopulation_id = ? AND lease_id = ?', metapopulationId, item.leaseId);
+    return lease && lease.expires_at > Date.now();
+  },
+  REGISTER_RESIDENT_DAEMON: async ({ item, db, metapopulationId }) => {
+    if (!item.daemonId || !item.leaseId) return false;
+    const lease = await db.get('SELECT lease_id FROM metapopulation_daemon_leases WHERE metapopulation_id = ? AND lease_id = ?', metapopulationId, item.leaseId);
+    return !!lease;
+  },
+  MAINTAIN_RESIDENT_DAEMON_CYCLE: async ({ item, db, metapopulationId }) => {
+    if (typeof item.maintained !== 'boolean' || !item.demeId) return false;
+    const deme = await store.getDeme(db, metapopulationId, item.demeId);
+    return deme?.status === 'ACTIVE' && item.maintained === (deme?.daemonLeaseActive === true);
+  },
+  EXPIRE_RESIDENT_DAEMON: async ({ item, db, metapopulationId }) => {
+    if (!item.deactivated || !item.demeId) return false;
+    const deme = await store.getDeme(db, metapopulationId, item.demeId);
+    return deme?.daemonLeaseActive !== true;
+  },
+  PROOF_OF_DATA_MINIMIZATION: async ({ item, db, metapopulationId }) => {
+    if (!item.recorded || !item.proven) return false;
+    if (!item.proof || item.proof.proofId !== item.proofId || item.proof.contractId !== item.contractId) return false;
+    if (!Number.isSafeInteger(item.proof.originalFieldCount) || !Number.isSafeInteger(item.proof.transferredFieldCount)) return false;
+    if (item.proof.transferredFieldCount > item.proof.originalFieldCount) return false;
+    const events = await store.listEvents(db, metapopulationId);
+    return events.some(e => e.type === 'DATA_MINIMIZATION_PROOF' && e.payload?.proofId === item.proofId);
+  },
 });
 
 async function verifyFounderReserve(context) {

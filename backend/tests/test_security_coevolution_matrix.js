@@ -121,7 +121,8 @@ async function assertOperatorCannotExecute(tool) {
   }, { toolName: tool, args: {} });
   const denied = response.status === 503 && response.body.error.code === 'INSUFFICIENT_ROLE';
   const tenantBlocked = response.status === 403 && response.body.error.code === 'TENANT_SCOPE_REQUIRED';
-  assert(denied || tenantBlocked, `Operator blocked from executing destructive tool '${tool}'.`);
+  const routeBlocked = response.status === 403 && response.body.error.code === 'FORBIDDEN';
+  assert(denied || tenantBlocked || routeBlocked, `Operator blocked from executing destructive tool '${tool}'.`);
 }
 
 async function assertOpenCircuitBlocks(tool) {

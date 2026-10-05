@@ -66,6 +66,7 @@ async function generateWorkerResult(ctx) {
     priority: 'bulk',
     maxTokens: ctx.maxTokens,
     maxCostUsd: ctx.maxCost,
+    responseFormat: 'json_object',
     policy: ctx.policy,
     prompt: ctx.promptText
   }); } finally { ctx.stageTimings.modelRouteMs = Date.now() - startedAt; }

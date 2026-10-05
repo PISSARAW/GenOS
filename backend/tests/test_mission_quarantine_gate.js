@@ -8,12 +8,19 @@ const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 const { assertMissionDispatchAllowed } = require('../src/services/medical/missionQuarantineGate');
 const { incarnateAgent } = require('../src/services/agents/agentIncarnationService');
+const { migrateMedicalTables } = require('../src/db/migrations/migrateMedicalTables');
 
 function fakeDb(row) {
   const statements = [];
   return {
     statements,
-    async get() { return row; },
+    async get(sql) {
+      if (sql.includes('FROM pathologies')) {
+        return { clinical_state_id: row.id, pathologyType: 'cognitive_metastasis', severity: 0.9, confidence: 0.93 };
+      }
+      return row;
+    },
+    async all() { return []; },
     async run(sql, ...params) { statements.push({ sql, params }); },
   };
 }
@@ -50,18 +57,8 @@ async function testProductionIncarnationGatePersistsQuarantine() {
   const dbPath = path.join(directory, 'quarantine.db');
   let db = await open({ filename: dbPath, driver: sqlite3.Database });
   try {
-    await db.exec(`CREATE TABLE agents (id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'running', updated_at TEXT);
-      CREATE TABLE clinical_states (
-        id TEXT PRIMARY KEY, agent_id TEXT NOT NULL UNIQUE, vitals_json TEXT NOT NULL,
-        immune_titer REAL NOT NULL, inflammatory_index REAL NOT NULL, cell_cycle_state TEXT NOT NULL,
-        plasmid_load REAL NOT NULL, pathogen_burden REAL NOT NULL, iatrogenic_load REAL NOT NULL,
-        wellness_score REAL NOT NULL, observed_at TEXT, updated_at TEXT
-      );
-      CREATE TABLE immune_events (
-        id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, clinical_state_id TEXT,
-        event_type TEXT NOT NULL, event_json TEXT NOT NULL, severity TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP
-      );`);
+    await db.exec("CREATE TABLE agents (id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'running', updated_at TEXT)");
+    await migrateMedicalTables(db);
     await db.run('INSERT INTO agents (id, status) VALUES (?, ?)', 'quarantined-parent', 'running');
     await db.run(`INSERT INTO clinical_states
       (id, agent_id, vitals_json, immune_titer, inflammatory_index, cell_cycle_state,
@@ -72,7 +69,7 @@ async function testProductionIncarnationGatePersistsQuarantine() {
 
     await assert.rejects(incarnateAgent({
       ctx: { db, parent: { id: 'quarantined-parent', cognitive_budget: 100 } },
-      request: { role: 'worker', parentAgentId: 'quarantined-parent', mission: { prompt: 'blocked mission' } },
+      request: { role: 'bounded_worker', parentAgentId: 'quarantined-parent', mission: { prompt: 'blocked mission' } },
     }), error => error.code === 'AGENT_QUARANTINED');
     assert.equal((await db.get('SELECT status FROM agents WHERE id = ?', 'quarantined-parent')).status, 'blocked');
     assert.equal((await db.get('SELECT cell_cycle_state FROM clinical_states WHERE agent_id = ?', 'quarantined-parent')).cell_cycle_state, 'arrested');
@@ -87,11 +84,20 @@ async function testProductionIncarnationGatePersistsQuarantine() {
   }
 }
 
+async function testInvalidClinicalStateFailsClosed() {
+  const malformed = fakeDb({ ...stateRow(), vitals_json: '{broken-json' });
+  await assert.rejects(assertMissionDispatchAllowed(malformed, 'parent-1'),
+    (error) => error.code === 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
+  await assert.rejects(assertMissionDispatchAllowed(null, 'parent-1'),
+    (error) => error.code === 'IMMUNE_SURVEILLANCE_UNAVAILABLE');
+}
+
 async function run() {
   await testHealthyMissionPasses();
   await testQuarantinedMissionIsBlocked();
   await testProductionIncarnationGatePersistsQuarantine();
-  console.log('Mission quarantine gate and durable incarnation refusal checks passed.');
+  await testInvalidClinicalStateFailsClosed();
+  console.log('Mission quarantine gate, malformed state, and durable incarnation refusal checks passed.');
 }
 
 run().catch((error) => {
