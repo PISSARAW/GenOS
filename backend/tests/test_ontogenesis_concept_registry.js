@@ -29,8 +29,10 @@ assert.deepStrictEqual(web.resolvedConcepts.map((concept) => concept.source), ['
 assert.strictEqual(web.resolvedConcepts[0].reason, 'concept-documentaire-sans-raccord-runtime');
 assert.strictEqual(web.resolvedConcepts[1].executable, true);
 assert.strictEqual(web.resolvedConcepts[2].access, 'read');
-assert.strictEqual(web.blockedConcepts.length, 2);
-assert.ok(web.runtimeLeaseCandidates.length > 0);
+assert.strictEqual(web.resolvedConcepts[2].available, false);
+assert.strictEqual(web.blockedConcepts.length, 3);
+assert.deepStrictEqual(web.runtimeLeaseCandidates.map((entry) => entry.conceptId), ['genos_browser_act']);
+assert.ok(web.runtimeLeaseCandidates.some((entry) => entry.tools.includes('genos_browser_act')));
 assert.ok(web.runtimeLeaseCandidates.every((entry) => !entry.tools.includes('genos_orchestrate')));
 const compatibleTools = new Set(runtimeRegistry.resolveCapabilities(web.compatibleRuntimeConcepts.map((concept) => concept.id)));
 assert.ok(web.runtimeLeaseCandidates.every((entry) =>

@@ -60,6 +60,20 @@ function runtimeReference(concept, reference) {
   return normalize(concept.id) === target || (concept.aliases || []).some((alias) => normalize(alias) === target);
 }
 
+function topologyTools(topology) {
+  if (!topology) return null;
+  const compatible = runtimeConceptRegistry.findCompatibleConcepts({ topology });
+  const ids = [topology, ...compatible.map((concept) => concept.id)];
+  return new Set(runtimeConceptRegistry.resolveCapabilities(ids));
+}
+
+function topologyAllows(topology, concept) {
+  if (!topology) return true;
+  if ((concept.compatibleTopologies || []).length) return concept.compatibleTopologies.includes(topology);
+  const allowed = topologyTools(topology);
+  return (concept.tools || []).some((tool) => allowed.has(tool));
+}
+
 function resolveConceptReference(reference, topology) {
   const requested = requestedId(reference);
   const target = normalize(requested);
@@ -67,7 +81,7 @@ function resolveConceptReference(reference, topology) {
     .find((concept) => runtimeReference(concept, requested));
   if (runtime) {
     const execution = executionFields(runtime);
-    const compatible = !topology || !runtime.compatibleTopologies.length || runtime.compatibleTopologies.includes(topology);
+    const compatible = topologyAllows(topology, runtime);
     return { requested, id: runtime.id, source: 'runtime', available: compatible,
       executable: execution.executable && compatible, reason: compatible ? null : 'topologie-incompatible',
       compatibleTopologies: runtime.compatibleTopologies, tools: runtime.tools || [],
@@ -79,9 +93,13 @@ function resolveConceptReference(reference, topology) {
     reason: capability.state === 'operationnel' ? null : `capacite-${capability.state}`, tools: capability.tools };
   const philosophical = CONCEPT_DEFINITIONS.find((concept) => normalize(concept.id) === target
     || (concept.aliases || []).some((alias) => normalize(alias) === target));
-  if (philosophical) return { requested, id: philosophical.id, source: 'philosophy', available: true,
-    executable: false, access: 'read', reason: 'lecture-philosophique', tools: ['genos_philosophy'],
+  if (philosophical) {
+    const available = topologyAllows(topology, { tools: ['genos_philosophy'] });
+    return { requested, id: philosophical.id, source: 'philosophy', available,
+      executable: false, access: 'read', reason: available ? 'lecture-philosophique' : 'outil-lecture-non-autorise',
+      tools: ['genos_philosophy'],
     status: philosophical.status, service: philosophical.service || null };
+  }
   const documented = conceptInventory.entries().find((entry) => normalize(entry.id) === target);
   if (documented) return { requested, id: documented.id, source: 'documentation', available: false,
     executable: false, reason: 'concept-documentaire-sans-raccord-runtime', domain: documented.domain };
@@ -91,6 +109,15 @@ function resolveConceptReference(reference, topology) {
 function resolveConceptReferences(references, topology) {
   const list = Array.isArray(references) ? references : (references ? [references] : []);
   return list.map((reference) => resolveConceptReference(reference, topology));
+}
+
+function leaseCandidatesForReferences(references, topology) {
+  const allowedTools = topologyTools(topology);
+  return references.filter((concept) => concept.available && (concept.tools || []).length)
+    .map((concept) => ({ conceptId: concept.id, tools: concept.tools.filter((tool) => tool !== 'genos_orchestrate'),
+      authority: concept.access === 'read' ? ['read'] : ['execute'], maturity: concept.status || 'ready' }))
+    .map((entry) => ({ ...entry, tools: allowedTools ? entry.tools.filter((tool) => allowedTools.has(tool)) : entry.tools }))
+    .filter((entry) => entry.tools.length);
 }
 
 function domainMatches(text) {
@@ -148,6 +175,7 @@ function resolveMission(input = {}) {
   const selectedDomains = new Set(domains);
   const selectedConcepts = conceptCatalog().filter((entry) => selectedDomains.has(entry.domain));
   const resolvedConcepts = resolveConceptReferences(input.requestedConcepts, input.topology);
+  const hasRequestedConcepts = resolvedConcepts.length > 0;
   return {
     domains, capabilities,
     canonicalConcepts: conceptCatalog(), selectedConcepts,
@@ -155,7 +183,8 @@ function resolveMission(input = {}) {
     blockedConcepts: resolvedConcepts.filter((concept) => !concept.available),
     runtimeConcepts: registeredConcepts(),
     compatibleRuntimeConcepts: compatibleRuntimeConcepts(input.topology),
-    runtimeLeaseCandidates: runtimeLeaseCandidates(input.topology),
+    runtimeLeaseCandidates: hasRequestedConcepts
+      ? leaseCandidatesForReferences(resolvedConcepts, input.topology) : runtimeLeaseCandidates(input.topology),
     strategy: strategyForMission(input.missionKind),
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
@@ -165,7 +194,10 @@ function resolveMission(input = {}) {
 
 function compatibleRuntimeConcepts(topology) {
   if (!topology) return [];
-  return runtimeConceptRegistry.findCompatibleConcepts({ topology }).map((concept) => ({
+  const compatible = runtimeConceptRegistry.findCompatibleConcepts({ topology });
+  const topologyConcept = runtimeConceptRegistry.getConcept(topology);
+  const concepts = topologyConcept ? [topologyConcept, ...compatible.filter((concept) => concept.id !== topology)] : compatible;
+  return concepts.map((concept) => ({
     ...executionFields(concept),
     id: concept.id, kind: concept.kind, maturity: concept.maturity || 'ready',
     tools: concept.tools || [], primitives: concept.primitives || [],
@@ -185,7 +217,7 @@ function registeredConcepts() {
 function runtimeLeaseCandidates(topology) {
   if (!topology) return [];
   const compatible = compatibleRuntimeConcepts(topology);
-  const allowedTools = new Set(runtimeConceptRegistry.resolveCapabilities(compatible.map((concept) => concept.id)));
+  const allowedTools = topologyTools(topology);
   return registeredConcepts().map((concept) => ({
     conceptId: concept.id,
     tools: runtimeConceptRegistry.generateLeaseForConcept(concept.id),
