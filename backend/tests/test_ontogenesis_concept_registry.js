@@ -123,6 +123,17 @@ assert.deepStrictEqual(topologyCapabilityMission.resolvedConcepts.map((concept) 
 ]);
 assert.ok(topologyCapabilityMission.resolvedConcepts.every((concept) => concept.available === true || concept.available === false));
 
+const dnaMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
+  'agent_dna', 'agent_genome', 'fingerprint', 'expression_adn_phenotype',
+  'scellement_draft_sealed', 'graphe_organisme_procedural', 'immutabilite', 'provenance_genomique'
+] });
+assert.deepStrictEqual(dnaMission.resolvedConcepts.map((concept) => concept.source),
+  ['capability', 'capability', 'runtime', 'capability', 'capability', 'capability', 'capability', 'runtime']);
+assert.deepStrictEqual(dnaMission.resolvedConcepts.map((concept) => concept.id), [
+  'GENOME_EPIGENETICS', 'GENOME_EPIGENETICS', 'provenance_integrity', 'GENOME_EPIGENETICS',
+  'CAPSULES_SNAPSHOTS', 'PROCEDURAL_GUIDANCE', 'INVARIANT_GATES', 'provenance_integrity'
+]);
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);

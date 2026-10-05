@@ -32,6 +32,18 @@ const CAPABILITY_ALIASES = Object.freeze({
   , allocation: 'TOKEN_ECONOMY', demes: 'SWARM_METRICS'
   , arbitrage_pareto: 'STRATEGY_PORTFOLIO', variants: 'STRATEGY_PORTFOLIO'
   , admission_workers: 'LIGAND_RECEPTOR'
+  , agent_dna: 'GENOME_EPIGENETICS', agent_genome: 'GENOME_EPIGENETICS'
+  , identite_hereditaire: 'GENOME_EPIGENETICS', versioning: 'PROVENANCE_INTEGRITY'
+  , fingerprint: 'PROVENANCE_INTEGRITY', canonicalisation: 'PROVENANCE_INTEGRITY'
+  , signature: 'PROVENANCE_INTEGRITY', meta: 'GENOME_EPIGENETICS'
+  , chrm: 'GENOME_EPIGENETICS', chrp: 'GENOME_EPIGENETICS', xchr: 'GENOME_EPIGENETICS'
+  , gene: 'GENOME_EPIGENETICS', plas: 'GENOME_EPIGENETICS', enha: 'GENOME_EPIGENETICS'
+  , scar: 'GENOME_EPIGENETICS', phen: 'GENOME_EPIGENETICS', prov: 'PROVENANCE_INTEGRITY'
+  , sign: 'PROVENANCE_INTEGRITY', expression_adn_phenotype: 'GENOME_EPIGENETICS'
+  , graft: 'GENOME_EPIGENETICS', decoy: 'GENOME_EPIGENETICS'
+  , migration_json_legacy: 'PROVENANCE_INTEGRITY', compatibilite_versions: 'PROVENANCE_INTEGRITY'
+  , scellement_draft_sealed: 'CAPSULES_SNAPSHOTS', graphe_organisme_procedural: 'PROCEDURAL_GUIDANCE'
+  , immutabilite: 'INVARIANT_GATES', provenance_genomique: 'PROVENANCE_INTEGRITY'
 });
 
 const PHILOSOPHY_ALIASES = Object.freeze({
@@ -76,7 +88,11 @@ const RUNTIME_ALIASES = Object.freeze({
   dead_letter: 'dlq_autopsy_concept', reprise_crash: 'checkpoint_regeneration_concept',
   wal_recovery: 'checkpoint_regeneration_concept', foraging_charnov: 'energy_foraging_concept',
   foveation: 'foveal_scan_concept', perception_active: 'echolocation_probe',
-  navigation_active: 'landmark_navigation', olfaction: 'scent_trace', echolocation: 'echolocation_probe'
+  navigation_active: 'landmark_navigation', olfaction: 'scent_trace', echolocation: 'echolocation_probe',
+  versioning: 'provenance_integrity', fingerprint: 'provenance_integrity', canonicalisation: 'provenance_integrity',
+  signature: 'provenance_integrity', prov: 'provenance_integrity', sign: 'provenance_integrity',
+  migration_json_legacy: 'provenance_integrity', compatibilite_versions: 'provenance_integrity',
+  provenance_genomique: 'provenance_integrity'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({
