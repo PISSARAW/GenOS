@@ -42,9 +42,13 @@ function selectStrategyPortfolio(input = {}) {
   const problem = resolveProblem(input);
   const profile = resolveSelectionProfile(input, problem);
   const options = resolveOptions(input);
+  const requestedPrimary = input.requestedPrimary || PREFERRED_PRIMARY[profile.type];
+  if (input.requestedPrimary && !getStrategy(input.requestedPrimary)) {
+    throw Object.assign(new Error(`Unknown requested strategy '${input.requestedPrimary}'.`), { code: 'STRATEGY_REQUEST_UNKNOWN' });
+  }
+  options.requestedPrimary = requestedPrimary;
   const decisions = buildDecisions(profile, options);
   const portfolio = choosePortfolio(decisions, profile, options);
-  const requestedPrimary = PREFERRED_PRIMARY[profile.type];
   const requestedDecision = decisions.find((item) => item.strategy.id === requestedPrimary);
   const primary = resolvePrimary(portfolio, decisions, requestedPrimary);
   if (!primary) {

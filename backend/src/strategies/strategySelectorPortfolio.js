@@ -34,8 +34,8 @@ function composePortfolio(ids, inhibited, decisions) {
   return result;
 }
 
-function preferredStrategyIds(profile) {
-  const ids = new Set([PREFERRED_PRIMARY[profile.type], 'retrieval_first', 'negative_knowledge', 'zero_trust', 'tool_output_validation', 'execution_guardrails']);
+function preferredStrategyIds(profile, requestedPrimary) {
+  const ids = new Set([requestedPrimary || PREFERRED_PRIMARY[profile.type], PREFERRED_PRIMARY[profile.type], 'retrieval_first', 'negative_knowledge', 'zero_trust', 'tool_output_validation', 'execution_guardrails']);
   if (profile.requires_reproducibility) ids.add('deterministic_replay');
   ids.add(profile.objectives_conflict ? 'pareto_frontier' : 'successive_halving');
   if (profile.complexity >= 0.7) ids.add(profile.risk === 'high' ? 'blind_adversarial_review' : 'specialist_expert_committee');
@@ -67,7 +67,7 @@ function choosePortfolio(decisions, profile, options = {}) {
   const portfolioSize = resolvePortfolioSize(options);
   const inhibited = new Set(options.inhibitedStrategyIds || []);
   const eligible = sortEligible(decisions);
-  const portfolio = composePortfolio(preferredStrategyIds(profile), inhibited, decisions);
+  const portfolio = composePortfolio(preferredStrategyIds(profile, options.requestedPrimary), inhibited, decisions);
   const families = new Set(portfolio.map((strategy) => strategy.family));
   const context = { portfolioSize, inhibited, families };
   fillUniqueFamilies(portfolio, eligible, context);
