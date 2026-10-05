@@ -189,7 +189,7 @@ async function startOrchestratorMission(opts) {
   const { db, strategyContract, missionBudget, useLocalRuntime, requestTimeoutMs, id, missionId, enhancedPrompt, policyRequest, request, allowedCommands, allowFileEdits, runtime, morphology } = opts;
   const entry = await announceTerritoryEntry(db, request);
   const groundedPrompt = await attachTerritoryBrief(db, enhancedPrompt, entry && entry.handoffSignal);
-  const mission = { agentId: id, missionId, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: promptWithWorkerAssignments(groundedPrompt, request), modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider, modelId: policyRequest.modelId || request.modelId, hostExecutionContext: request.hostExecutionContext, morphology, ...missionWorkspaceOptions(request) };
+  const mission = { agentId: id, missionId, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: promptWithWorkerAssignments(groundedPrompt, request), modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: missionBudget, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: autonomousOrchestrationEnabled(policyRequest, request), timeoutMs: requestTimeoutMs, executor: policyRequest.executor || request.executor || (useLocalRuntime ? 'local' : undefined), provider: policyRequest.provider || request.provider, modelId: policyRequest.modelId || request.modelId, hostExecutionContext: request.hostExecutionContext, morphology, ...missionWorkspaceOptions(request), ...missionRuntimeContext(request) };
   if (!missionId) return runtime.startMission(mission);
   return require('../src/services/missionSuccessionService').resumeWithAuthority(db, {
     mission, successorId: id, expectedOrchestratorId: request.expectedOrchestratorId || id,
@@ -201,6 +201,15 @@ function missionWorkspaceOptions(request) {
   return { workspaceRoot: request.workspaceRoot || request.workspace_root,
     proposedTopology: request.proposedTopology, trinityMode: request.trinityMode,
     trinityVariant: request.variant, aTeamMode: request.aTeamMode };
+}
+
+function missionRuntimeContext(request) {
+  const fields = ['organization', 'capabilities', 'capabilityRequirements', 'capabilityContract',
+    'topologyContract', 'capabilityCatalog', 'conceptResolution', 'conceptLeaseCandidates',
+    'strategyConcept', 'compatibleConcepts', 'developmentalContext', 'worker_assignments',
+    'morphologyPlan', 'missionCapabilityPlan', 'problemProfile', 'requiresEvidenceBeforePromotion'];
+  return Object.fromEntries(fields.filter((field) => request[field] !== undefined)
+    .map((field) => [field, request[field]]));
 }
 
 function promptWithWorkerAssignments(prompt, request = {}) {
@@ -322,6 +331,7 @@ module.exports = {
   prepareMission,
   applyLatencyBudget,
   checkLocalRuntime,
+  missionRuntimeContext,
   startOrchestratorMission,
   buildMissionContext,
   buildContinuity,

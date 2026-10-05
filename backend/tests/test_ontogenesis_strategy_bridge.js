@@ -3,6 +3,7 @@
 const assert = require('assert');
 const { buildStrategyContract } = require('../src/services/strategyContractService');
 const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
+const { missionRuntimeContext } = require('../bin/orchestratorMissionHelpers.cjs');
 
 const strategy = buildStrategyContract({
   problem: 'Create a React site with tests', requestedPrimary: 'minimal_patch'
@@ -21,4 +22,11 @@ const request = requestFor({
 });
 assert.strictEqual(request.strategyConcept.id, 'minimal_patch');
 assert.match(request.mission, /Strategy concept:/);
+const runtimeContext = missionRuntimeContext({
+  conceptResolution: { failClosed: true }, missionCapabilityPlan: { version: 1 },
+  developmentalContext: { failClosed: true }, unrelated: 'not-forwarded'
+});
+assert.deepStrictEqual(runtimeContext.conceptResolution, { failClosed: true });
+assert.strictEqual(runtimeContext.missionCapabilityPlan.version, 1);
+assert.strictEqual(runtimeContext.unrelated, undefined);
 console.log('ontogenesis strategy bridge checks passed.');
