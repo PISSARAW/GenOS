@@ -25,18 +25,18 @@ function stubDb() {
   tables.set('agents|default-1', JSON.stringify({ id: 'default-1', role: 'default', parent_agent_id: null }));
   
   return {
-    get: async (sql, s, k) => {
-      const key = `${s}|${k}`;
-      if (tables.has(key)) return { payload_json: tables.get(key) };
-      // AdaptiveStateService uses scope as s, key as agentId, and objectKey as k
-      // It queries: SELECT payload_json FROM adaptive_state WHERE scope = ? AND agent_id = ? AND object_key = ?
-      if (sql.includes('adaptive_state') && sql.includes('scope') && sql.includes('agent_id') && sql.includes('object_key')) {
-        const scope = sql.split('scope = ?')[1]?.split('AND')[0]?.trim() || '';
-        const agentId = sql.split('agent_id = ?')[1]?.split('AND')[0]?.trim() || '';
-        const objectKey = sql.split('object_key = ?')[0]?.split('?').pop()?.trim() || '';
-        const fullKey = `adaptive_state|${scope}|${agentId}|${objectKey}`;
+    get: async (sql, ...params) => {
+      // AdaptiveStateService queries: SELECT payload_json FROM adaptive_state WHERE scope = ? AND key = ?
+      if (sql.includes('adaptive_state') && sql.includes('WHERE scope') && sql.includes('key')) {
+        const [, scope, key] = params;
+        const fullKey = `adaptive_state|${scope}|${key}`;
+        console.log(`  [DB GET] adaptive_state: scope=${scope}, key=${key}, found=${tables.has(fullKey)}`);
         if (tables.has(fullKey)) return { payload_json: tables.get(fullKey) };
+        return null;
       }
+      // Other queries use s|k format
+      const key = `${params[0]}|${params[1]}`;
+      if (tables.has(key)) return { payload_json: tables.get(key) };
       return null;
     },
     all: async (sql) => {
@@ -74,9 +74,10 @@ function stubDb() {
           signal_id: signalId, subscriber_agent_id: subscriberAgentId, status
         }));
       }
-      if (sql.includes('adaptive_state')) {
-        const [, scope, agentId, key, payloadJson] = params;
-        tables.set(`${scope}|${agentId}|${key}`, payloadJson);
+      if (sql.includes('adaptive_state') && (sql.includes('INSERT') || sql.includes('REPLACE'))) {
+        // INSERT OR REPLACE INTO adaptive_state (scope, key, payload_json, version, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        const [scope, key, payloadJson, version] = params;
+        tables.set(`adaptive_state|${scope}|${key}`, payloadJson);
       }
     },
     seed: (scope, key, value) => tables.set(`${scope}|${key}`, JSON.stringify(value))
