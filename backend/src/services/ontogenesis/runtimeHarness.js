@@ -27,7 +27,7 @@ function requestFor(input) {
     workerRequirements: { requiredCapabilities: input.mission?.capabilities || [], allowedKinds: [role] }
   }]));
   return {
-    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
+    id: input.id, mission: `${topologyInstruction(input.selection.topology)}\n${input.project.objective}\n\nTask: ${input.task.title}\nAcceptance: ${input.task.acceptance_json}\nMorphogenesis: ${JSON.stringify(input.mission?.morphology || {})}\nDevelopmental context: ${developmentalInstruction(input.mission?.developmentalContext)}\nTopology: ${input.selection.topology}; variant: ${input.selection.variant}. Return executable evidence; do not commit or push.`,
     projectId: input.project.id, taskId: input.task.id, missionScope: input.worktree,
     autonomousOrchestration: true, useMemoryContext: true,
     proposedTopology: input.selection.topology, morphologyTopology: input.selection.topology,
@@ -52,6 +52,15 @@ function requestFor(input) {
     allowed_commands: checks.map((check) => [check.program, ...check.args].join(' ')),
     executor: input.config.executor, provider: input.config.provider, modelId: input.config.modelId
   };
+}
+
+function developmentalInstruction(context) {
+  if (!context) return 'unavailable';
+  return JSON.stringify({
+    shev: { available: context.shev?.available, pendingInitiatives: context.shev?.pendingInitiatives || 0 },
+    gvx: { available: context.gvx?.available, eventCount: context.gvx?.eventCount || 0 },
+    failClosed: context.failClosed === true
+  });
 }
 
 function topologyInstruction(topology) {
