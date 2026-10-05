@@ -112,6 +112,11 @@ const CAPABILITY_ALIASES = Object.freeze({
   , agent_cellule_specialisee: 'LIGAND_RECEPTOR', genome: 'GENOME_EPIGENETICS'
   , niche: 'STRATEGY_ADAPTATION', metabolisme_computationnel: 'TOKEN_ECONOMY'
   , sensorium: 'FOVEAL_PERCEPTION', symbiose: 'IMMUNE_SYSTEM'
+  , famille_sensorielle: 'FOVEAL_PERCEPTION', famille_execution: 'PROCEDURAL_GUIDANCE'
+  , famille_epistemique: 'EVIDENCE_BARRIER', famille_reparation_adaptative: 'RESILIENCE_RECOVERY'
+  , famille_organisationnelle: 'SWARM_METRICS', mode_adaptatif: 'STRATEGY_ADAPTATION'
+  , mode_creatif: 'STRATEGY_ADAPTATION', role_producteur: 'PROCEDURAL_GUIDANCE'
+  , role_verificateur: 'EVIDENCE_BARRIER', role_synthetiseur: 'PROCEDURAL_GUIDANCE'
   , autorite: 'GOVERNANCE_APPROVAL', rbac: 'GOVERNANCE_APPROVAL'
   , organisation: 'VFS_SANDBOX', projet: 'VFS_SANDBOX', workspace: 'VFS_SANDBOX'
   , environnement: 'VFS_SANDBOX', separation_responsabilites: 'GOVERNANCE_APPROVAL'
@@ -226,6 +231,8 @@ const RUNTIME_ALIASES = Object.freeze({
   imagination: 'n_way_counterfactual_fork', simulation_interne: 'simulated_annealing_concept',
   reflexion: 'memory_compilation_strategy', metacognition: 'memory_compilation_strategy'
   , dormance: 'memory_sleep_cycle'
+  , mode_deterministe: 'deterministic_replay', mode_borne: 'execution_guardrails'
+  , role_adversaire: 'genos_adversarial_review', role_experimentateur: 'factorial_experiment_concept'
 });
 
 const LIFECYCLE_REFERENCES = Object.freeze({

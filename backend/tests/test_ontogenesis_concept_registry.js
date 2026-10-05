@@ -300,6 +300,15 @@ assert.deepStrictEqual(computationalBiologyMission.resolvedConcepts.map((concept
 ]);
 assert.ok(computationalBiologyMission.resolvedConcepts.every((concept) => concept.id));
 
+const workerFamiliesMission = registry.resolveMission({ topology: 'a_team', requestedConcepts: [
+  'famille_sensorielle', 'famille_execution', 'famille_epistemique', 'famille_reparation_adaptative',
+  'famille_organisationnelle', 'mode_deterministe', 'mode_borne', 'mode_adaptatif', 'mode_creatif',
+  'role_producteur', 'role_verificateur', 'role_adversaire', 'role_experimentateur', 'role_synthetiseur'
+] });
+assert.ok(workerFamiliesMission.resolvedConcepts.every((concept) =>
+  concept.source === 'capability' || concept.source === 'runtime'));
+assert.ok(workerFamiliesMission.resolvedConcepts.every((concept) => concept.id));
+
 const aliasMission = registry.resolveMission({ topology: 'trinity', requestedConcepts: ['memoire_graphe', 'etat_causal', 'economie_tokens'] });
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.source), ['capability', 'capability', 'capability']);
 assert.deepStrictEqual(aliasMission.resolvedConcepts.map((concept) => concept.id), ['GRAPH_MEMORY', 'CAUSAL_STATE', 'TOKEN_ECONOMY']);
