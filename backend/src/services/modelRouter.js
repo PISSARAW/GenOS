@@ -2,6 +2,7 @@ const localModelDiscovery = require('./localModelDiscovery');
 const routingPolicy = require('./modelRoutingPolicy');
 const routeRunner = require('./modelRouteRunner');
 const cognitiveOmega = require('./cognitiveOmegaCompiler');
+const { createRuntime: createOmegaRuntime } = require('./cognitiveOmegaRuntimeService');
 const domainGraph = require('./cognitiveOmegaDomainGraphService');
 const projectionProfiler = require('./cognitiveProjectionProfilerService');
 const cognitiveEconomy = require('./cognitiveEconomyControllerService');
@@ -122,7 +123,7 @@ async function cognitiveRequest(options) {
     ? domainGraph.build({ domain: options.cognitiveDomain, operation: options.cognitiveOperation,
       objects: options.cognitiveObjects, output: options.cognitiveOutput,
       verification: options.cognitiveVerification }).operations : null);
-  const selection = options.db && options.model
+  const selection = options.db && options.model && typeof options.db.all === 'function'
     ? await projectionProfiler.select(options.db, { model: options.model,
       task: options.cognitiveDomain || 'runtime' }) : null;
   const economy = cognitiveEconomy.plan({ integration: options.cognitiveIntegration || options.cognitiveDomain,
@@ -140,6 +141,41 @@ async function cognitiveRequest(options) {
 
 function withCognitiveResult(result, contract) {
   return { ...result, cognitive: contract };
+}
+
+function omegaExecution(execution) {
+  return {
+    status: execution.status,
+    digest: execution.digest || null,
+    operations: (execution.results || []).map(({ id, kind, status, reason }) => ({
+      id, kind, status, reason: reason || null
+    }))
+  };
+}
+
+async function executeInferenceThroughOmega(candidates, context, mode) {
+  const runtime = createOmegaRuntime();
+  runtime.registerInferer('model/infer', async () => (
+    mode === 'parallel'
+      ? routeRunner.runParallel(candidates, context)
+      : routeRunner.runFallback(candidates, context)
+  ));
+  const execution = await runtime.execute({
+    context: { model: candidates[0], operation: 'INFER' },
+    objects: { prompt: context.prompt },
+    policy: { read: ['prompt'], select: ['residual'], infer: ['model/infer'] },
+    operations: [
+      { id: 'prompt', kind: 'READ', reference: 'prompt', dependsOn: [] },
+      { id: 'residual', kind: 'SELECT', reference: 'residual', dependsOn: ['prompt'] },
+      { id: 'model_infer', kind: 'INFER', reference: 'model/infer', dependsOn: ['residual'] }
+    ]
+  });
+  if (execution.status === 'blocked') {
+    throw Object.assign(new Error(`Omega runtime blocked model inference: ${execution.reason}`), {
+      code: 'OMEGA_RUNTIME_BLOCKED', omegaExecution: omegaExecution(execution)
+    });
+  }
+  return { result: execution.values.model_infer, execution: omegaExecution(execution) };
 }
 
 function missingRouteError(policy, configured) {
@@ -186,10 +222,11 @@ async function generate(options) {
   const candidates = await resolveCandidates(routedOptions, policy);
   routingPolicy.assertStrictPreferLocal(policy, candidates, routedOptions);
   const context = buildRouteContext(routedOptions, clock, remainingMs);
-  const result = policy.mode === 'parallel' && candidates.length > 1
-    ? await routeRunner.runParallel(candidates, context)
-    : await routeRunner.runFallback(candidates, context);
-  if (opts.db && opts.model) {
+  const routed = await executeInferenceThroughOmega(candidates, context,
+    policy.mode === 'parallel' && candidates.length > 1 ? 'parallel' : 'fallback');
+  const result = routed.result;
+  const cognitiveResult = { ...cognitiveContract, execution: routed.execution };
+  if (opts.db && opts.model && typeof opts.db.run === 'function') {
     await projectionProfiler.record(opts.db, { model: result.model || opts.model,
       task: opts.cognitiveDomain || 'runtime', representation: cognitiveContract.representation,
       prompt: cognitiveContract.prompt, latencyMs: Date.now() - startedAt,
@@ -204,7 +241,7 @@ async function generate(options) {
         latencyMs: Date.now() - startedAt, costUsd: result.costUsd, quality: opts.cognitiveQuality });
     } catch (_) { /* Economy telemetry cannot turn a valid model result into a route failure. */ }
   }
-  return withCognitiveResult(result, cognitiveContract);
+  return withCognitiveResult(result, cognitiveResult);
 }
 
 module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };

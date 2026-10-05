@@ -15,6 +15,10 @@ routeRunner.runFallback = async (candidates, context) => ({
     assert.equal(result.text, 'review residual');
     assert.equal(result.cognitive.mode, 'portable_compatibility');
     assert.equal(result.cognitiveSeen.plan.status, 'ready');
+    assert.equal(result.cognitive.execution.status, 'emitted');
+    assert.deepEqual(result.cognitive.execution.operations.map((item) => item.kind),
+      ['READ', 'SELECT', 'INFER']);
+    assert.equal(result.cognitive.execution.operations[2].status, 'ready');
     assert.deepEqual(result.cognitiveSeen.plan.obligations.map((item) => item.kind),
       ['READ', 'SELECT', 'CALL', 'INFER', 'CHECK']);
     assert.deepEqual(result.cognitiveSeen.plan.residual, ['residual_inference', 'candidate_check']);
