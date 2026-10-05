@@ -11,7 +11,7 @@ async function guardTopologyCall(db, record, args, context = {}) {
   }
   const callerId = context.agentId || process.env.GENOS_AGENT_ID;
   if (!callerId) {
-    if (operation === 'variant') throw denied('Variant mutations require an authenticated caller.');
+    if (MUTATIONS.has(operation)) throw denied('Syncytium mutations require an authenticated caller.');
     return args;
   }
   const agent = await db.get('SELECT execution_mode, metadata_json FROM agents WHERE id = ?', callerId);

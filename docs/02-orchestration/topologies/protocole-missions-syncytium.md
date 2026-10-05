@@ -184,6 +184,8 @@ Taxonomie opérationnelle à reporter dans le manifeste (classification recomman
 
 Le canal Syncytium vérifiable est d’abord le service d’état : une session partagée, opérations typées et identifiées, snapshots, transactions, changements de réplica/deltas lorsqu’ils sont activés, historique et services d’audit/réparation. Le nucleus d’exécution transmet `actorId` et `domainId` à chaque opération ; les portes de schéma, domaine, autorité, zone de cohérence et invariant s’appliquent selon l’API choisie.
 
+La passerelle MCP lie `actorId` à l'identité authentifiée de l'agent, contrôle l'appartenance des workers à la session et refuse les mutations Syncytium sans appelant. Une session spécialisée refuse `apply`, `branch` et `promote` génériques : les workers utilisent `operation: "variant"` et une action autorisée de leur variant. Les refus codés sont enregistrés avec la session, l'action, l'opération et l'appelant pour vérification par l'oracle.
+
 Les autres services GenOS exposent enveloppes de communication/signaux, routage selon relation, checkpoint, common ground et métriques de communication. Les utiliser seulement si le dispatch/worker les appelle et si le run en conserve le reçu. La documentation d’une enveloppe ou d’un service n’est pas la preuve que les membres Syncytium se sont échangé un message dans cette exécution. Éviter un broadcast redondant : envoyer les informations nécessaires à l’orchestrateur ou aux consommateurs ciblés, et mesurer les décisions, livraisons, accusés et rejets séparément.
 
 ## 9. Télémétrie et format de preuve
