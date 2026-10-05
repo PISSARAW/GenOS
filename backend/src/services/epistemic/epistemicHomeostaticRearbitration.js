@@ -4,6 +4,7 @@ const homeostasis = require('./epistemicHomeostasisService');
 const biocenose = require('./epistemicBiocenoseService');
 const { defaultCatalog, VERIFIER_KINDS } = require('./verifierCatalogService');
 const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
+const { isConfirmedExecution } = require('./verifierEvidence');
 
 const TIER_RANK = Object.freeze({ baseline: 0, lean: 1, adaptive: 2, inflamed: 3, systemic: 4 });
 
@@ -40,7 +41,7 @@ function homeostasisInput(antigen) {
 
 function verificationRate(results) {
   if (!results.length) return 0;
-  return results.filter((result) => result.status === 'verified').length / results.length;
+  return results.filter((result) => result.status === 'verified' && isConfirmedExecution(result)).length / results.length;
 }
 
 function assignedVerifiers(immune) {
@@ -51,6 +52,7 @@ function assignedVerifiers(immune) {
 
 function priorExecutedVerifiers(immune) {
   return (immune.verifierResults?.results || []).filter((row) => row.receipt).map((row) => ({
+    ...row.receipt.independenceDescriptor,
     type: row.verifierType, executionWorkspace: row.receipt.independenceDescriptor?.workspaceId,
     strategy: row.receipt.independenceDescriptor?.strategy?.split(',') || [],
   }));
@@ -65,7 +67,7 @@ function selectAdditionalVerifier(immune, tier) {
 
 function hasIndependentQuorum(immune) {
   const workspaces = (immune.verifierResults?.results || []).filter((row) => row.status === 'verified'
-    && row.receipt?.independent === true).map((row) => row.receipt.independenceDescriptor?.workspaceId);
+    && isConfirmedExecution(row)).map((row) => row.receipt.independenceDescriptor?.workspaceId);
   return new Set(workspaces.filter(Boolean)).size >= 2;
 }
 
@@ -113,4 +115,5 @@ async function recruitNicheVerifier(antigen, immune, context = {}) {
   return { immune: mergeReview(immune, result, verifier), diversity: { ...diversity, recruited: kind }, recruited: kind };
 }
 
-module.exports = { applyHomeostaticFeedback, verifierDiversity, recruitNicheVerifier, homeostasisInput, verificationRate };
+module.exports = { applyHomeostaticFeedback, verifierDiversity, recruitNicheVerifier,
+  homeostasisInput, verificationRate, priorExecutedVerifiers, hasIndependentQuorum };

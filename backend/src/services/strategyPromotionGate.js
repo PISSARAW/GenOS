@@ -201,6 +201,9 @@ function describeViolations(violations) {
 }
 
 function assertPromotionGate(contract, gateContext) {
+  if (gateContext.aeisEvaluation?.evaluation?.eligible === false) {
+    throw new Error(`AEIS epistemic assurance refused: ${describeViolations(gateContext.aeisEvaluation.evaluation.violations)}`);
+  }
   const promotionPolicy = require('./strategyPromotionPolicyService');
   const evaluation = promotionPolicy.evaluatePromotionGate(contract, gateContext);
   if (evaluation.eligible) return evaluation;

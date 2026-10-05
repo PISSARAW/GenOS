@@ -34,7 +34,6 @@ const crypto = require('node:crypto');
  */
 
 const { runAdaptivePipeline } = require('./adaptiveImmuneResponse');
-const { cognitiveBiocenose, isMonoculture } = require('./epistemicBiocenoseService');
 const { recall, fuzzyRecall, recordOutcome } = require('./immuneMemoryService');
 const { regulatoryReview } = require('./epistemicInflammationAndRegulation');
 const { reArbitrateFromHomeostasis, verifierAssignments } = require('./epistemicHomeostaticArbitration');
@@ -44,10 +43,9 @@ const { executeVerifierWorkers } = require('./verifierRuntimeBridge');
 const { expandClone, selectWinningClones } = require('./clonalExpansionService');
 const { matureStrategy } = require('./affinityMaturationService');
 const { depositPheromone } = require('./stigmergyInterProcessBridge');
-const { applyHomeostaticFeedback, recruitNicheVerifier } = require('./epistemicHomeostaticRearbitration');
+const { applyHomeostaticFeedback, recruitNicheVerifier, verifierDiversity, hasIndependentQuorum } = require('./epistemicHomeostaticRearbitration');
 const { runProviderMetapopulation } = require('./epistemicProviderMetapopulation');
 const { verifyAcrossProviders } = require('./crossProviderVerificationService');
-const { recruitAndExecute } = require('./epistemicNicheRecruitmentService');
 const { runIsolatedPopulations } = require('./processIsolatedMetapopulationRunner');
 
 function hostDecision(reports, opts = {}) {
@@ -150,7 +148,7 @@ async function runClonalSelectionCycle(parent, antigen, ctx) {
   // Calculer le vrai diagnostic de confusion pour piloter la maturation.
   let maturation = null;
   if (oracleTruth && selection?.winner) {
-    const winnerResult = cloneResults.results.find(r => r.resultId === selection.winner.id) || cloneResults.results[0];
+    const winnerResult = cloneResults.results.find(r => r.verifierId === selection.winner.id);
     const diagnosis = diagnoseWinnerError(oracleTruth, winnerResult);
     maturation = matureStrategy({
       strategy: selection.winner.strategy || [],
@@ -167,38 +165,44 @@ async function runReviewIntegrations(antigen, verifiers, context) {
   const crossProvider = context.crossProvider
     ? await verifyAcrossProviders({ ...context.crossProvider, claim: antigen.claim, evidence: antigen.epitopes?.evidence })
     : null;
-  const nicheRecruitment = await recruitAndExecute({
-    reviewers: verifiers,
-    execute: async (candidate) => {
-      const execution = await executeVerifierWorkers(antigen, [{ ...candidate, verifier: candidate.type }], context);
-      return execution.results?.[0] || null;
-    },
-  });
   const isolatedPopulations = Array.isArray(context.isolatedPopulations)
     ? await runIsolatedPopulations(context.isolatedPopulations)
     : null;
-  return { crossProvider, nicheRecruitment, isolatedPopulations };
+  return { crossProvider, isolatedPopulations };
 }
 
-function reviewBlockState(pipeline, context, integrations) {
-  const innateBlocked = isImmuneDecisionBlocked(pipeline);
-  const crossProviderBlocked = context.requireCrossProvider === true && integrations.crossProvider?.independent !== true;
+function reviewBlockState(immune, context, integrations) {
+  const pipeline = immune.pipeline;
+  if (isImmuneDecisionBlocked(pipeline)) {
+    return { blocked: true, blockReason: `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}` };
+  }
+  const verificationBlocked = immune.verifierResults?.results.some((row) => row.status === 'refuted') === true;
+  if (verificationBlocked) return { blocked: true, blockReason: 'verifier execution refuted the claim' };
+  if (context.requireExecutableQuorum === true && !hasIndependentQuorum(immune)) {
+    return { blocked: true, blockReason: 'independent executable verifier quorum unavailable' };
+  }
+  const reason = integrationBlockReason(context, integrations);
+  return { blocked: Boolean(reason), blockReason: reason };
+}
+
+function integrationBlockReason(context, integrations) {
+  const crossProviderBlocked = context.requireCrossProvider === true
+    && (integrations.crossProvider?.independent !== true || integrations.crossProvider.verdict !== 'supports');
+  if (crossProviderBlocked) return 'independent provider quorum unavailable';
   const isolationBlocked = context.requireProcessIsolation === true
     && (!integrations.isolatedPopulations?.length || integrations.isolatedPopulations.some((item) => item.status === 'error'));
-  const reason = innateBlocked
-    ? `decision: ${pipeline.decision?.innate?.decision?.action || 'unknown'}`
-    : crossProviderBlocked ? 'independent provider quorum unavailable'
-      : isolationBlocked ? 'process-isolated verifier unavailable' : null;
-  return { blocked: innateBlocked || crossProviderBlocked || isolationBlocked, blockReason: reason };
+  return isolationBlocked ? 'process-isolated verifier unavailable' : null;
 }
 async function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
   const initialVerifiers = verifierAssignments(pipeline);
   const initialResults = await executeVerifierWorkers(antigen, initialVerifiers, context);
   const reviewed = await reArbitrateFromHomeostasis({ antigen, context, pipeline, initialVerifiers, firstResults: initialResults });
-  const { verifierResults, verifiers } = reviewed;
+  const recruited = await recruitNicheVerifier(antigen, reviewed, context);
+  const verifierResults = recruited.immune.verifierResults;
+  const verifiers = verifierAssignments(recruited.immune.pipeline);
   const integrations = await runReviewIntegrations(antigen, verifiers, context);
-  const { blocked, blockReason } = reviewBlockState(reviewed.pipeline, context, integrations);
+  const { blocked, blockReason } = reviewBlockState(recruited.immune, context, integrations);
 
   const bestVerifier = selectBestVerifier(verifiers);
   const clonal = bestVerifier
@@ -219,7 +223,10 @@ async function immuneSymbiontReview(antigen, context = {}) {
     blockReason,
     regulatorInhibited: regulator.inhibit,
     regulatorReason: regulator.reason,
-    pipeline: reviewed.pipeline,
+    pipeline: recruited.immune.pipeline,
+    nicheRecruitment: { census: recruited.diversity,
+      candidate: recruited.recruited ? { type: recruited.recruited } : null,
+      result: recruited.recruited ? verifierResults.results.at(-1) : null },
     homeostaticFeedback: reviewed.feedback,
     decision: pipeline.decision?.innate?.decision?.action || pipeline.decision?.decision || 'unknown',
     verifierResults,
@@ -252,6 +259,7 @@ function memorySymbiontLookup(antigen, context = {}) {
     hasMemory: Boolean(direct || fuzzy.length),
     effectiveResponse: direct?.effectiveResponse || (fuzzy[0]?.effectiveResponse || null),
     knownFailurePattern: direct?.pattern || null,
+    confirmedFailure: (direct?.failures || fuzzy[0]?.failures || 0) > 0,
   };
 }
 
@@ -307,13 +315,11 @@ async function epistemicHolobionte(antigen, context = {}) {
     ...context,
     immuneMemory: context.immuneMemory,
     knownSubject: memory.hasMemory,
+    preferredVerifierType: memory.effectiveResponse?.type || memory.effectiveResponse,
   });
   const previousVerificationRate = require('./epistemicHomeostaticRearbitration').verificationRate(
     immune.verifierResults?.results || [],
   );
-  const recruitment = await recruitNicheVerifier(antigen, immune, { ...context,
-    preferredVerifierType: memory.effectiveResponse?.type || memory.effectiveResponse });
-  immune = recruitment.immune;
   const feedbackResult = await applyHomeostaticFeedback(antigen, immune, { ...context, previousVerificationRate });
   immune = feedbackResult.immune;
   const providerReview = await reviewProviders(antigen, context);
@@ -321,11 +327,7 @@ async function epistemicHolobionte(antigen, context = {}) {
     { specialist, immune, memory },
     { stakes: context.stakes, hostVeto: context.hostVeto },
   ), providerReview);
-  const biocenose = cognitiveBiocenose(
-    immune.pipeline?.decision?.assignedVerifiers?.map((v) => ({
-      type: v.verifier, niche: v.verifier, strategy: v.strategy,
-    })) || [],
-  );
+  const biocenose = verifierDiversity(immune);
   const pressure = computePressure(homeostasisInputFrom(antigen));
   const tier = tierFromPressure(pressure);
 
@@ -348,7 +350,7 @@ async function epistemicHolobionte(antigen, context = {}) {
     accepted: host.accepted,
     reason: host.reason,
     finalAuthority: 'host',
-    specialist, immune, memory, biocenose: { ...biocenose, recruited: recruitment.recruited },
+    specialist, immune, memory, biocenose: { ...biocenose, recruited: immune.nicheRecruitment?.candidate?.type || null },
     homeostasisFeedback: feedbackResult.feedback, providerReview,
     homeostasis: { pressure, tier },
     epistemicDissonance: dissonance,

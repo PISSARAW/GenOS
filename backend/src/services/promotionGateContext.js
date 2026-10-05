@@ -1,6 +1,7 @@
 'use strict';
 
 function assemblyFromAeis(aeisEvaluation) {
+  if (aeisEvaluation?.allAccepted === false) return null;
   if (aeisEvaluation && aeisEvaluation.assembly) return aeisEvaluation.assembly;
   return null;
 }
