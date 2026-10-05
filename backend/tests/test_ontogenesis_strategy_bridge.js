@@ -6,6 +6,7 @@ const { requestFor } = require('../src/services/ontogenesis/runtimeHarness');
 const { missionRuntimeContext } = require('../bin/orchestratorMissionHelpers.cjs');
 const { applyMissionCapabilityContract, conceptTools } = require('../src/services/missionCapabilityContractService');
 const { orchestratorLeaseForPlan } = require('../src/services/toolLeasePolicy');
+const { strategyForMission } = require('../src/services/ontogenesis/canonicalConceptRegistry');
 
 const strategy = buildStrategyContract({
   problem: 'Create a React site with tests', requestedPrimary: 'minimal_patch'
@@ -41,4 +42,7 @@ assert.deepStrictEqual(plan.requiredTools, ['genos_snapshot', 'genos_worker_publ
 const lease = orchestratorLeaseForPlan(plan);
 assert.ok(lease.includes('genos_worker_publish'));
 assert.ok(!lease.includes('genos_orchestrate'));
+const decisionStrategy = strategyForMission('decide');
+assert.strictEqual(decisionStrategy.id, 'pareto_frontier_concept');
+assert.strictEqual(decisionStrategy.strategyId, 'pareto_frontier');
 console.log('ontogenesis strategy bridge checks passed.');

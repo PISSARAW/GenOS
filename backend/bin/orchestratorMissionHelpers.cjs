@@ -145,7 +145,8 @@ async function prepareMission(opts) {
   await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task, metadata_json) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?, ?)`, id, enhancedPrompt, metadataJson);
   await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ?, metadata_json = ? WHERE id = ?`, enhancedPrompt, metadataJson, id);
   const evaluationMode = contractEvaluationMode(policyRequest, request);
-  const requestedPrimary = request.strategyConcept?.id || request.strategyConceptId;
+  const requestedPrimary = request.strategyConcept?.strategyId
+    || request.strategyConcept?.id || request.strategyConceptId;
   const strategyContract = await contracts.saveContract(db, { agentId: id, problem: enhancedPrompt,
     requestedPrimary, evaluationMode, createdBy: 'mcp_orchestrate' });
 
