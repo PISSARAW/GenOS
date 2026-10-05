@@ -56,14 +56,17 @@ assert.ok(contractHealth instanceof Promise);
 contractHealth.then((result) => {
   assert.equal(result.valid, true, result.errors.join('; '));
   assert.equal(result.registeredConcepts, health.conceptCount);
-  assert.equal(result.compiledConcepts, 21);
+  assert.equal(result.compiledConcepts, 375);
+  assert.equal(result.pilotCount, 21);
+  assert.equal(result.pendingCount, 354);
   const contract = router.getImplementationContract('epistemology.certainty-doubt');
   assert.ok(contract);
   assert.equal(contract.apiVersion, 'genos.contract/v1');
   assert.equal(contract.kind, 'ImplementationContract');
   assert.equal(validateContract(contract).length, 0);
   assert.ok(validateContract({ ...contract, kind: 'InvalidContract' }).some((error) => error.includes('kind')));
-  assert.equal(router.getImplementationContract('core.agent'), null);
+  assert.equal(router.getImplementationContract('core.agent').maturity, 'defined');
+  assert.equal(router.getImplementationContract('core.agent').compilationState, 'pending-mechanism');
   return router.handlePhilosophyRequest({ request: { operation: 'listImplementationContracts', arguments: { target: 'response' } } });
 }).then((result) => {
   assert.ok(result.contracts.length >= 4);

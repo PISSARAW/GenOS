@@ -30,12 +30,14 @@ La documentation explique le modèle ; elle ne duplique pas le registre canoniqu
 ## Contrats d’implémentation
 
 Le compilateur `backend/src/philosophy/implementationContracts.js` transforme
-une première tranche de 21 concepts transversaux en contrats opérationnels.
+les 375 concepts en contrats structurés. Les 21 concepts transversaux disposent
+de contrats pilotes détaillés ; les 354 autres disposent d’un contrat provisoire
+explicitement marqué `pending-mechanism`.
 Le format est versionné par `spec/implementation-contract.schema.json`.
 Chaque contrat contient une interprétation, un invariant, un mécanisme partagé,
 des observables, des tests de falsification, des limites et une responsabilité.
-Les 354 autres concepts restent enregistrés mais non compilés ; ils ne sont donc
-pas présentés comme des fonctionnalités. Le routeur expose les contrats en
+Les 354 contrats provisoires ne sont pas présentés comme des fonctionnalités.
+Le routeur expose les contrats en
 lecture seule via `listImplementationContracts`, `getImplementationContract` et
 `implementationContractHealth`.
 

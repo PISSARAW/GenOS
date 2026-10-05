@@ -17,10 +17,11 @@ Introduire un contrat d’implémentation séparé du concept. Un contrat décri
 interprétation opérationnelle, un invariant, un mécanisme partagé, des cibles,
 des observables, des tests de falsification, des limites et des responsabilités.
 
-Le compilateur est piloté sur 21 concepts transversaux. Les autres concepts
-restent enregistrés mais non compilés et ne peuvent pas être annoncés comme
+Le compilateur produit un contrat pour chacune des 375 entrées. Il distingue
+21 contrats pilotes détaillés et 354 contrats provisoires marqués
+`pending-mechanism`; ces derniers ne peuvent pas être annoncés comme
 implémentés. Le routeur expose uniquement des lectures : liste, contrat unique
-et santé du pilote. Ces opérations n’accordent aucune autorité runtime.
+et santé du registre. Ces opérations n’accordent aucune autorité runtime.
 
 ## Conséquences
 

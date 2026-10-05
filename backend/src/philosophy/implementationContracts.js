@@ -67,9 +67,55 @@ const PILOT_CONTRACTS = Object.freeze([
 
 const CONTRACTS = new Map(PILOT_CONTRACTS.map((item) => [item.id, item]));
 
+const TARGET_BY_DOMAIN = Object.freeze({
+  ontology: 'world', consciousness: 'agent', cognition: 'world', phenomenology: 'response',
+  identity: 'agent', 'social-cognition': 'relations', wellbeing: 'response', computation: 'world',
+  prediction: 'world', epistemics: 'reflection', ethics: 'relations', causality: 'world', process: 'topology',
+});
+
+function contractType(concept) {
+  if (concept.role === 'lens') return 'lens';
+  if (concept.role === 'speculative') return 'theory';
+  if (concept.role === 'operational') return 'method';
+  if (['ethics', 'politics', 'law'].includes(concept.domain)) return 'norm';
+  return 'notion';
+}
+
+function fallbackTargets(concept) {
+  const domains = Array.isArray(concept.genosDomains) ? concept.genosDomains : [];
+  const targets = domains.map((domain) => TARGET_BY_DOMAIN[domain]).filter(Boolean);
+  return [...new Set(targets.length ? targets : ['reflection'])];
+}
+
+function provisionalContract(concept) {
+  const interpretation = concept.scope || concept.definition || ('Le concept ' + concept.label + ' doit être opérationnalisé.');
+  return {
+    apiVersion: 'genos.contract/v1',
+    kind: 'ImplementationContract',
+    id: concept.id,
+    type: contractType(concept),
+    interpretation,
+    targets: fallbackTargets(concept),
+    invariant: 'Ne pas attribuer au concept ' + concept.id + ' une autorité runtime sans mécanisme et preuve indépendants.',
+    mechanism: 'pending:' + concept.domain,
+    observables: ['contract_completeness', 'behavioral_delta', 'evidence_coverage'],
+    falsificationTests: ['Définir puis exécuter un test qui distingue ' + concept.id + ' d une absence de ce concept.'],
+    limits: concept.knownLimits?.length ? concept.knownLimits : ['Interprétation provisoire ; aucun mécanisme exécutable n est encore assigné.'],
+    conflicts: [],
+    permissions: [],
+    obligations: ['conserver la provenance des observations et des décisions'],
+    prohibitions: ['présenter ce contrat provisoire comme une capacité implémentée'],
+    violationCriteria: ['une sortie affirme que le concept est implémenté avant une preuve comportementale'],
+    responsibility: 'Le propriétaire du registre doit compléter le mécanisme et les expériences avant promotion.',
+    maturity: 'defined',
+    status: 'candidate',
+    compilationState: 'pending-mechanism',
+  };
+}
+
 function compileConcept(concept) {
   const definition = CONTRACTS.get(concept.id);
-  if (!definition) return null;
+  if (!definition) return provisionalContract(concept);
   return {
     ...definition,
     source: concept.provenance || null,
@@ -99,8 +145,9 @@ function validateContract(contractValue) {
 
 function compileRegistry(concepts) {
   const contracts = concepts.map(compileConcept).filter(Boolean);
-  const errors = contracts.flatMap((item) => validateContract(item).map((error) => `${item.id}: ${error}`));
-  return { valid: errors.length === 0, contracts, errors };
+  const errors = contracts.flatMap((item) => validateContract(item).map((error) => item.id + ': ' + error));
+  const pilotCount = contracts.filter((item) => item.compilationState !== 'pending-mechanism').length;
+  return { valid: errors.length === 0, contracts, errors, pilotCount, pendingCount: contracts.length - pilotCount };
 }
 
 module.exports = { PILOT_CONTRACTS, compileConcept, compileRegistry, validateContract };
