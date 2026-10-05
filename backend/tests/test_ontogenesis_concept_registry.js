@@ -113,6 +113,17 @@ assert.deepStrictEqual(memoryMission.resolvedConcepts.map((concept) => concept.i
 ]);
 assert.ok(memoryMission.resolvedConcepts.every((concept) => concept.source === 'runtime'));
 
+const resilienceMission = registry.resolveMission({ topology: 'holobionte', requestedConcepts: [
+  'contrefactuel', 'dependance_causale', 'diagnostic', 'quarantaine',
+  'autopsie_causale', 'sentinel', 'dead_letter', 'routage_local_distant'
+] });
+assert.deepStrictEqual(resilienceMission.resolvedConcepts.map((concept) => concept.id), [
+  'n_way_counterfactual_fork', 'causal_replay_intervention_concept', 'diagnose_baseline',
+  'immune_challenge', 'dlq_autopsy_concept', 'entropy_sentinel', 'dlq_autopsy_concept', 'MODEL_ROUTING'
+]);
+assert.deepStrictEqual(resilienceMission.resolvedConcepts.slice(0, 7).map((concept) => concept.source),
+  ['runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'runtime', 'runtime']);
+
 const sensingMission = registry.resolveMission({ topology: 'biome', requestedConcepts: ['foveation', 'echolocation', 'olfaction'] });
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.source), ['runtime', 'runtime', 'runtime']);
 assert.deepStrictEqual(sensingMission.resolvedConcepts.map((concept) => concept.id),
