@@ -38,6 +38,7 @@ try {
   assert.strictEqual(request.conceptResolution.failClosed, true);
   assert.strictEqual(request.developmentalContext, null);
   assert.strictEqual(request.allow_file_edits, false);
+  assert.strictEqual(request.explicit_write_lease, false);
   assert.match(request.mission, /Developmental context: unavailable/);
   assert.match(request.mission, /Strategy concept:/);
   assert.strictEqual(request.worker_assignments.specialist.workerKind, 'specialist');

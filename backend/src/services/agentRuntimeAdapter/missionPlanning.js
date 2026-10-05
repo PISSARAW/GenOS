@@ -111,7 +111,7 @@ function applyRegulatedPosture(normalizedMission, arbitration) {
   if (corrections.some((signal) => signal.target === 'action_plan' && signal.direction === 'block')) {
     normalizedMission.autonomousOrchestration = false;
   }
-  if (arbitration.actionMode === 'probe') {
+  if (arbitration.actionMode === 'probe' && normalizedMission.executionPolicy.explicitWriteLease !== true) {
     normalizedMission.executionPolicy.allowFileEdits = false;
     normalizedMission.requiresEvidenceBeforePromotion = true;
   }
@@ -232,6 +232,7 @@ function applyExecutionPolicy(ctx) {
       ? [...new Set(normalizedMission.executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
       : [],
     allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true,
+    explicitWriteLease: normalizedMission.executionPolicy?.explicitWriteLease === true,
     requestedWorkers: Number.isFinite(requestedWorkers) && requestedWorkers > 0 ? requestedWorkers : 0,
     silentUpdates
   };
