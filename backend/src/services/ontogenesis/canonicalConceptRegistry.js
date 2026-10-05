@@ -111,6 +111,23 @@ function resolveConceptReferences(references, topology) {
   return list.map((reference) => resolveConceptReference(reference, topology));
 }
 
+function coverageReport() {
+  const runtime = Object.values(runtimeConceptRegistry.getAllConcepts());
+  const capabilities = new Set(capabilityCatalog().map((entry) => normalize(entry.capability)));
+  const runtimeIds = new Set(runtime.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
+  const philosophyIds = new Set(CONCEPT_DEFINITIONS.flatMap((concept) => [concept.id, ...(concept.aliases || [])].map(normalize)));
+  const counts = { runtime: 0, operationalCapability: 0, philosophyRead: 0, documentationOnly: 0 };
+  for (const entry of conceptInventory.entries()) {
+    const id = normalize(entry.id);
+    if (runtimeIds.has(id)) counts.runtime += 1;
+    else if (capabilities.has(id)) counts.operationalCapability += 1;
+    else if (philosophyIds.has(id)) counts.philosophyRead += 1;
+    else counts.documentationOnly += 1;
+  }
+  return { inventory: conceptInventory.entries().length, ...counts,
+    registryRuntime: runtime.length, registryPhilosophy: CONCEPT_DEFINITIONS.length };
+}
+
 function leaseCandidatesForReferences(references, topology) {
   const allowedTools = topologyTools(topology);
   return references.filter((concept) => concept.available && (concept.tools || []).length)
@@ -188,6 +205,7 @@ function resolveMission(input = {}) {
     strategy: strategyForMission(input.missionKind),
     operational: capabilities.filter((entry) => entry.state === 'operationnel' && (!allowed.size || allowed.has(entry.capability))),
     unavailable: capabilities.filter((entry) => entry.state !== 'operationnel'),
+    coverage: coverageReport(),
     failClosed: true
   };
 }
@@ -251,4 +269,4 @@ function registryHealth() {
 }
 
 module.exports = { DOMAIN_CATALOG, capabilityCatalog, conceptCatalog, registeredConcepts,
-  runtimeLeaseCandidates, strategyForMission, resolveConceptReferences, resolveMission, registryHealth };
+  runtimeLeaseCandidates, strategyForMission, resolveConceptReferences, resolveMission, coverageReport, registryHealth };

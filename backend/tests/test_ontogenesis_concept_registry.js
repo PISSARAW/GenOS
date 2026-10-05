@@ -17,6 +17,11 @@ assert.ok(web.domains.includes('orchestration'));
 assert.ok(web.domains.includes('epistemology'));
 assert.ok(web.operational.length > 0);
 assert.ok(web.unavailable.length > 0);
+assert.strictEqual(web.coverage.inventory, 704);
+assert.strictEqual(web.coverage.registryRuntime, 182);
+assert.strictEqual(web.coverage.registryPhilosophy, 375);
+assert.strictEqual(web.coverage.runtime + web.coverage.operationalCapability + web.coverage.philosophyRead
+  + web.coverage.documentationOnly, web.coverage.inventory);
 assert.ok(web.canonicalConcepts.length >= 400);
 assert.ok(web.canonicalConcepts.filter((concept) => concept.source === 'philosophy_registry').length >= 375);
 assert.ok(web.runtimeConcepts.length >= 180);
