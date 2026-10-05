@@ -1103,7 +1103,22 @@ provenance dans le scope de mission avant toute propagation; sans mesure ou prov
 valide, aucun apprentissage causal n'est crédité. Le feedback Self-Twin exige une
 référence de prédiction explicite.
 
-## 24. Références
+## 24. Compilation procédurale
+
+`backend/src/services/proceduralCompilationService.js` fournit la boucle
+durable de procéduralisation. Les traces réussies sont enregistrées avec leur
+contexte, leur séquence et leurs preuves; la consolidation détecte un chemin
+commun après le nombre minimal d'épisodes et le seuil de réussite de la policy.
+
+Une procédure candidate doit ensuite passer un validateur de rejeu fourni par
+l'hôte avant promotion. La procédure et son receipt de promotion sont persistés
+en SQLite; les versions précédentes sont marquées `superseded`. `reuse` ne
+consulte aucun modèle: il résout l'exécuteur déterministe enregistré, exécute
+les étapes, retourne `llmCalls: 0` et `costUsd: 0`, et bloque si l'exécuteur
+manque. Une absence de preuve ou un échec de rejeu ne peut donc pas devenir une
+procédure active.
+
+## 25. Références
 
 - [ADR 0006 — Active Global Organism Workspace](../adr/0006-active-global-organism-workspace.md)
 - [ADR 0007 — Persistance, activation des organes et évaluation AGOW](../adr/0007-agow-runtime-persistence-et-evaluation.md)
@@ -1119,7 +1134,7 @@ référence de prédiction explicite.
 
 ---
 
-## 25. Conclusion
+## 26. Conclusion
 
 AGOW possède maintenant des services intégrés pour la provenance épistémique, le regret,
 les branches contrefactuelles isolées, les traces de plasticité, les voies directes, les
