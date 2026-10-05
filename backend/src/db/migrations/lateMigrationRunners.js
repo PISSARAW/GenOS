@@ -14,4 +14,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('112-daemon-wake-policy', 'Persist daemon territory wake policy', async (db) => {
     await require('./migrateDaemonWakePolicy').migrateDaemonWakePolicy(db);
   }),
+  createMigrationRunner('113-garage-fabric', 'Persist adaptive worker garage queue and leases', async (db) => {
+    await require('./migrateGarageFabric').migrateGarageFabric(db);
+  }),
 ];

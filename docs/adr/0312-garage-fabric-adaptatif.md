@@ -1,6 +1,6 @@
 # ADR 0312 — Garage Fabric adaptatif pour le control plane
 
-- **Statut** : Accepté — première tranche de fondation
+- **Statut** : Accepté — file persistante et cycle de préemption raccordés
 - **Date** : 2026-10-05
 - **Domaine** : Orchestration, workers, capacité, résilience
 
@@ -23,10 +23,11 @@ garage existant. Il fournit :
 - une file priorisée ;
 - un plan de snapshot obligatoire avant préemption.
 
-La tranche actuelle ne préempte pas réellement un worker et ne persiste pas la
-file : elle produit un plan explicite. Une future intégration doit appeler les
-services de snapshot, de mission et de persistance avant de transformer ce plan
-en mutation runtime.
+La file SQLite `garage_queue` est persistante. Le dispatch opérateur peut y
+déposer une demande lorsque le garage est plein ; la libération d'un slot
+déclenche le claim et le lancement de la demande suivante. La préemption
+compose les primitives de cryptobiose existantes et enregistre le snapshot
+avant de rendre le worker non actif.
 
 ## Alternatives
 
@@ -49,7 +50,7 @@ en mutation runtime.
 ## Conséquences
 
 Le control plane possède désormais un vocabulaire stable pour choisir une
-stratégie de capacité sans présenter une heuristique comme une garantie.
-L'intégration runtime complète reste un travail ultérieur : table de file,
-réconciliation au redémarrage, hooks de snapshot/thaw et télémétrie des
-transitions.
+stratégie de capacité, une file survivant au redémarrage et un cycle de
+préemption raccordé aux capsules de cryptobiose. La réconciliation avancée
+des leases expirées et la télémétrie détaillée des transitions restent à
+étendre.

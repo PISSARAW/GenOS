@@ -280,6 +280,22 @@ async function dispatchWorker(req, res) {
     emitDispatchWorkerTelemetry({ workerId, orchestratorId, req });
     res.status(202).json({ ...slot, started: true, status: 'queued' });
   } catch (err) {
+    if (err.code === 'WORKER_GARAGE_FULL' && req.body?.queueIfFull !== false) {
+      const queued = await workerGarage.garageFabric.enqueuePersistent(db, {
+        requestId: req.body?.requestId,
+        orchestratorId: req.params.id,
+        workerId: req.params.workerId || req.body?.workerId,
+        organizationId: req.tenant?.organizationId,
+        projectId: req.tenant?.projectId,
+        mission: req.body?.mission || 'Queued worker mission',
+        prompt: req.body?.prompt || req.body?.mission,
+        role: req.body?.role,
+        name: req.body?.name,
+        priority: req.body?.priority,
+        mode: req.body?.mode
+      });
+      return res.status(202).json({ queued: true, started: false, status: queued.status, requestId: queued.request_id, mode: queued.mode });
+    }
     handleDispatchWorkerError(err, res);
   }
 }

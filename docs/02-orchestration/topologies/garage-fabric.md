@@ -75,9 +75,11 @@ Une lease contient :
 }
 ```
 
-Une lease expirée ne peut pas être renouvelée. La file de la première tranche
-est process-local et ordonnée par priorité puis ancienneté ; elle ne remplace
-pas encore la persistance SQLite du control plane.
+Une lease expirée ne peut pas être renouvelée. La file est persistée dans
+`garage_queue`, ordonnée par priorité puis ancienneté, et survit au
+redémarrage du backend. Une lease expirée devient `expired` ; elle doit ensuite
+être réconciliée par un opérateur ou un worker de reprise. Le dispatcher
+raccordé au garage claim la prochaine entrée après une libération de slot.
 
 ## 5. Invariants de sûreté
 
@@ -97,8 +99,9 @@ Admission, choix de mode, renouvellement de lease et classement de la file.
 
 ### 6.2 Boucle structurelle
 
-Future intégration : pause, snapshot, libération de slot, création de capsule,
-reprise et réconciliation après crash.
+Pause, snapshot, libération de slot, création de capsule, reprise et
+réconciliation après crash sont raccordés par `garagePreemptionService` et
+`garageQueueDispatcher`.
 
 ### 6.3 Boucle évolutive
 
@@ -108,16 +111,15 @@ affirmée par la présente tranche.
 
 ## 7. Ce qui reste à raccorder
 
-- table SQLite de requêtes de garage et index de priorité ;
-- réconciliation de la file au redémarrage ;
-- adaptateur `snapshot → freeze → thaw` ;
+- réconciliation automatique des leases expirées au redémarrage ;
+- télémétrie détaillée des claims, préemptions et reprises ;
 - télémétrie des transitions de mode ;
 - mesure de fairness par projet et tenant ;
 - gates empêchant de promouvoir une reprise sans artefact valide.
 
 ## 8. Vérification
 
-Le test ciblé est `backend/tests/test_garage_fabric.js`. Il vérifie la
-présence des modes, la préemption sûre, l'ordre de la file, l'expiration de
-lease et l'obligation de snapshot. Ces tests ne prétendent pas démontrer la
-préemption runtime tant que les adaptateurs persistants ne sont pas raccordés.
+Les tests ciblés `test_garage_fabric.js`, `test_garage_fabric_persistence.js`
+et `test_garage_queue_dispatcher.js` vérifient les modes, la file SQLite, les
+leases, le cycle freeze/thaw injecté et le dispatcher. Ils ne démontrent pas
+la qualité des artefacts produits par une mission relancée.

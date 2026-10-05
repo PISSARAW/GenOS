@@ -1,5 +1,7 @@
 'use strict';
 
+const crypto = require('crypto');
+
 const MODES = Object.freeze([
   'surface', 'ramp', 'stacker', 'puzzle', 'tower', 'carousel',
   'reciprocal_lift', 'shuttle', 'agv', 'pallet', 'cold_storage', 'collector'
@@ -77,15 +79,16 @@ function planAdmission(input = {}) {
   const active = activeWorkers(value.activeWorkers);
   const hasCapacity = value.available > 0;
   const candidates = preemptionCandidates(value.activeWorkers);
-  if (hasCapacity) return admissionResult(value, selected, 'admit', active, [], null);
+  if (hasCapacity) return admissionResult({ value, selected, decision: 'admit', active, preempt: [], reason: null });
   if (value.urgency >= 0.8 && value.preemptible && candidates.length) {
-    return admissionResult(value, selected, 'preempt', active, [candidates[0]], 'urgent_capacity_reclaim');
+    return admissionResult({ value, selected, decision: 'preempt', active, preempt: [candidates[0]], reason: 'urgent_capacity_reclaim' });
   }
-  if (value.queueable) return admissionResult(value, selected, 'queue', active, [], 'capacity_exhausted');
-  return admissionResult(value, selected, 'reject', active, [], 'capacity_exhausted_non_queueable');
+  if (value.queueable) return admissionResult({ value, selected, decision: 'queue', active, preempt: [], reason: 'capacity_exhausted' });
+  return admissionResult({ value, selected, decision: 'reject', active, preempt: [], reason: 'capacity_exhausted_non_queueable' });
 }
 
-function admissionResult(value, selected, decision, active, preempt, reason) {
+function admissionResult(input) {
+  const { value, selected, decision, active, preempt, reason } = input;
   return {
     decision,
     mode: selected.mode,
@@ -159,6 +162,63 @@ function buildSnapshotPlan(input = {}) {
   };
 }
 
+function requestId(request) {
+  return request.requestId || `garage-${Date.now()}-${crypto.randomUUID()}`;
+}
+
+function serializeRequest(request, id) {
+  return JSON.stringify({ ...request, requestId: id });
+}
+
+async function enqueuePersistent(db, request = {}) {
+  const normalized = normalize(request);
+  const id = requestId(request);
+  const selected = chooseMode(request);
+  await db.run(
+    `INSERT INTO garage_queue(request_id, orchestrator_id, worker_id, organization_id, project_id, mode, priority, request_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    id, request.orchestratorId, request.workerId || null, request.organizationId || null,
+    request.projectId || null, selected.mode, normalized.priority, serializeRequest(request, id)
+  );
+  return db.get('SELECT * FROM garage_queue WHERE request_id = ?', id);
+}
+
+async function claimNextPersistent(db, input = {}) {
+  const now = input.now || new Date().toISOString();
+  const row = await db.get(
+    `SELECT * FROM garage_queue WHERE orchestrator_id = ? AND status = 'queued'
+     ORDER BY priority DESC, created_at ASC, request_id ASC LIMIT 1`, input.orchestratorId
+  );
+  if (!row) return null;
+  const lease = createLease({ orchestratorId: row.orchestrator_id, workerId: row.worker_id || row.request_id, ttlMs: input.ttlMs, now: Date.parse(now) || Date.now() });
+  const result = await db.run(
+    `UPDATE garage_queue SET status = 'claimed', lease_id = ?, lease_expires_at = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE request_id = ? AND status = 'queued'`, lease.leaseId, new Date(lease.expiresAt).toISOString(), row.request_id
+  );
+  return result.changes ? { ...row, status: 'claimed', leaseId: lease.leaseId, leaseExpiresAt: lease.expiresAt } : null;
+}
+
+async function updatePersistent(db, input = {}) {
+  const status = input.status;
+  const allowed = new Set(['running', 'completed', 'cancelled', 'failed']);
+  if (!allowed.has(status)) throw new Error(`Unsupported garage queue status '${status}'.`);
+  const result = await db.run(
+    `UPDATE garage_queue SET status = ?, snapshot_id = COALESCE(?, snapshot_id), result_json = COALESCE(?, result_json), error_text = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE request_id = ? AND status IN ('claimed', 'running')`,
+    status, input.snapshotId || null, input.result ? JSON.stringify(input.result) : null, input.error || null, input.requestId
+  );
+  return result.changes === 1;
+}
+
+async function expirePersistent(db, input = {}) {
+  const cutoff = input.now || new Date().toISOString();
+  const result = await db.run(
+    `UPDATE garage_queue SET status = 'expired', error_text = 'Garage lease expired', updated_at = CURRENT_TIMESTAMP
+     WHERE status IN ('claimed', 'running') AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?`, cutoff
+  );
+  return result.changes || 0;
+}
+
 module.exports = {
   MODES,
   chooseMode,
@@ -167,5 +227,9 @@ module.exports = {
   leaseExpired,
   renewLease,
   createQueue,
-  buildSnapshotPlan
+  buildSnapshotPlan,
+  enqueuePersistent,
+  claimNextPersistent,
+  updatePersistent,
+  expirePersistent
 };

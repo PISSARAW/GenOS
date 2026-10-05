@@ -1,5 +1,6 @@
 const config = require('../config/orchestratorConfig');
 const garageFabric = require('./garageFabricService');
+const garagePreemption = require('./garagePreemptionService');
 const { registerWakeHandler, unregisterWakeHandler } = require('./signalPlaneSubscriber');
 
 const dynamicCapacities = new Map();
@@ -257,8 +258,18 @@ async function releaseSlot(db, { orchestratorId, workerId }) {
   );
   if (result.changes === 1) {
     armWakeHandler(workerId);
+    await drainQueued(db, orchestratorId);
   }
   return result.changes === 1;
+}
+
+async function drainQueued(db, orchestratorId) {
+  if (!orchestratorId) return null;
+  try {
+    return await require('./garageQueueDispatcher').drainOne({ db, orchestratorId });
+  } catch (_) {
+    return null;
+  }
 }
 
 /**
@@ -328,5 +339,7 @@ module.exports = {
   getDynamicCapacity,
   setDynamicCapacity,
   releaseDynamicCapacity,
-  garageFabric
+  garageFabric,
+  garagePreemption,
+  drainQueued
 };
