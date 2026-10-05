@@ -14,6 +14,17 @@ async function processRows() {
   return result.stdout.trim().split('\n').map(unixRow);
 }
 
+function processAlive(pid) {
+  const numericPid = Number(pid);
+  if (!Number.isInteger(numericPid) || numericPid <= 0) return false;
+  try {
+    process.kill(numericPid, 0);
+    return true;
+  } catch (error) {
+    return error.code !== 'ESRCH';
+  }
+}
+
 function windowsRow(row) {
   return { pid: Number(row.ProcessId), parent: Number(row.ParentProcessId), mb: Number(row.WorkingSetSize) / 1048576, command: row.CommandLine || '' };
 }
@@ -40,4 +51,4 @@ function ownsProcess(row, run, runnerPath) {
   return command.includes(runnerPath.replace(/\\/g, '/')) && command.split(/[\s"']+/).includes(run.id);
 }
 
-module.exports = { processRows, treeRows, ownsProcess };
+module.exports = { processRows, processAlive, treeRows, ownsProcess };

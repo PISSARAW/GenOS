@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const { processRows, treeRows, ownsProcess } = require('./processResources');
+const { processRows, processAlive, treeRows, ownsProcess } = require('./processResources');
 const { managedRoot, ensureIntegration } = require('./worktreeService');
 const { terminatePid } = require('../processTermination');
 const workerKinds = require('../agents/workerKindService');
@@ -133,9 +133,13 @@ async function launch(db, input) {
 }
 
 async function observeRun(run) {
-  const rows = await processRows();
-  const row = rows.find((entry) => entry.pid === run.pid);
-  return { alive: ownsProcess(row, run, RUNNER) };
+  try {
+    const rows = await processRows();
+    const row = rows.find((entry) => entry.pid === run.pid);
+    return { alive: ownsProcess(row, run, RUNNER), observable: true };
+  } catch (error) {
+    return { alive: processAlive(run.pid), observable: false, observationError: error.message };
+  }
 }
 
 async function stopRun(db, run) {
@@ -148,7 +152,12 @@ async function stopRun(db, run) {
 
 async function resources(db, project) {
   const executions = await db.all("SELECT * FROM ontogenesis_execution WHERE phase IN ('prepared','running','finished','verified')");
-  const rows = await processRows();
+  let rows;
+  try {
+    rows = await processRows();
+  } catch (_) {
+    return { ownedMb: 0, reservationsMb: executions.filter((run) => !processAlive(run.pid)).reduce((sum, run) => sum + run.reservation_mb, 0) };
+  }
   const roots = executions.filter((run) => ownsProcess(rows.find((row) => row.pid === run.pid), run, RUNNER)).map((run) => run.pid);
   const ownedMb = treeRows(rows, [process.pid, ...roots]).reduce((sum, row) => sum + row.mb, 0);
   const reservationsMb = executions.filter((run) => !roots.includes(run.pid)).reduce((sum, run) => sum + run.reservation_mb, 0);
