@@ -3,6 +3,19 @@
 const { randomUUID, createHash } = require('node:crypto');
 const { isDeepStrictEqual } = require('node:util');
 const { pack, unpack } = require('msgpackr');
+const visibilityLedger = require('./cognitivePersistentVisibilityLedger');
+
+async function ensureColumns(db) {
+  const columns = await db.all('PRAGMA table_info(cognitive_inference_receipts)');
+  const existing = new Set(columns.map((column) => column.name));
+  const additions = [
+    ['session_id', 'TEXT'], ['visibility_model', 'TEXT'], ['model_version', 'TEXT'],
+    ['context_revision', 'TEXT'], ['visibility_revision', 'INTEGER']
+  ];
+  for (const [name, type] of additions) {
+    if (!existing.has(name)) await db.exec(`ALTER TABLE cognitive_inference_receipts ADD COLUMN ${name} ${type}`);
+  }
+}
 
 async function ensureTable(db) {
   await db.exec(`CREATE TABLE IF NOT EXISTS cognitive_inference_receipts (
@@ -19,6 +32,8 @@ async function ensureTable(db) {
     completed_at DATETIME,
     UNIQUE (signal_id, agent_id, contract_version, prompt_digest)
   );`);
+  await ensureColumns(db);
+  await visibilityLedger.ensureSchema(db);
 }
 
 function keyOf(compiled) {
@@ -35,11 +50,22 @@ function auditOf(compiled) {
 async function reserve(db, compiled) {
   await ensureTable(db);
   const invocationId = randomUUID();
+  const sessionId = compiled.visibility.session || `agent:${compiled.contract.recipient}`;
+  const session = await visibilityLedger.openSession(db, { sessionId,
+    model: compiled.visibility.model, modelVersion: compiled.visibility.modelVersion,
+    contextRevision: compiled.visibility.contextRevision });
+  await visibilityLedger.materialize(db, { sessionId, objectId: compiled.visibility.promptDigest,
+    value: compiled.prompt, scope: 'prompt' });
+  compiled.visibility = { ...compiled.visibility, session: sessionId,
+    contextRevision: String(session.revision), visibilityRevision: session.revision };
   const audit = auditOf(compiled);
   await db.run(`INSERT OR IGNORE INTO cognitive_inference_receipts
     (invocation_id, signal_id, agent_id, contract_version, prompt_digest,
-     prompt_bytes, audit_blob, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-  [invocationId, ...keyOf(compiled), Buffer.from(compiled.prompt, 'utf8'), pack(audit)]);
+     prompt_bytes, audit_blob, session_id, visibility_model, model_version,
+     context_revision, visibility_revision, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+  [invocationId, ...keyOf(compiled), Buffer.from(compiled.prompt, 'utf8'), pack(audit), sessionId,
+    compiled.visibility.model || null, compiled.visibility.modelVersion || null,
+    compiled.visibility.contextRevision, session.revision]);
   const row = await db.get(`SELECT invocation_id, status, prompt_bytes, audit_blob, result_blob
     FROM cognitive_inference_receipts WHERE signal_id = ? AND agent_id = ?
     AND contract_version = ? AND prompt_digest = ?`, keyOf(compiled));

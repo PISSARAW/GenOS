@@ -101,10 +101,10 @@ compaction en amont.
 | Fraîcheur | Connaissance expirée exclue | Lectures du common ground filtrées |
 | Transport | Les octets internes ne sont pas du langage modèle | MessagePack existant hors de cet adaptateur |
 
-L'invariant de visibilité ne devient une garantie multi-session que lorsqu'un
-registre de session, une révision de contexte et des invalidations de compaction
-seront effectivement branchés. Le reçu actuel porte `session: null` et
-`contextRevision: null` pour éviter de suggérer cette garantie.
+Le registre persistant de visibilité porte désormais la session, la révision,
+les fragments matérialisés et les événements d'invalidation. Un reçu sans
+session explicite est rattaché à une session stable de l'agent ; une nouvelle
+révision est créée lors d'un changement de modèle, de version ou de contexte.
 
 ## 3. Analogie et frontières réelles
 
@@ -316,12 +316,12 @@ capacités réelles du modèle pour tous les points d'entrée.
 
 ### 6.4 Visibilité attestée
 
-Le reçu actuel comprend un destinataire, la source, un hash SHA-256 du prompt
-exact, le mode `materialized_in_this_invocation`, et le modèle rapporté par le
-routeur. Le rendu exact, le graphe d'obligations et les métadonnées du reçu sont persistés dans SQLite,
-avec les objets structurés encodés en MessagePack. Le reçu n'est pas signé
-ni lié à un registre de session. Il ne peut
-donc pas être utilisé pour déduire qu'un appel ultérieur verra encore ce contenu.
+Le reçu comprend un destinataire, la source, un hash SHA-256 du prompt exact,
+la session, la révision de visibilité et le modèle rapporté par le routeur. Le
+rendu exact, le graphe d'obligations, les fragments matérialisés et les
+événements d'invalidation sont persistés dans SQLite, avec les objets
+structurés encodés en MessagePack. La reprise après crash relit la session et
+ses fragments valides depuis SQLite.
 Une livraison répétée du même signal, ou une génération Trinity répétée pour
 la même mission, au même destinataire, pour la même version et le même hash de
 rendu, réutilise une réponse terminée. Une invocation en
@@ -330,12 +330,10 @@ Le hash des octets stockés et l'audit du graphe sont revérifiés lors de la
 réutilisation. Un budget différent pour un rendu Trinity identique échoue fermé :
 la clé SQLite historique ne distingue pas encore les digests de graphe.
 
-Le contrat cible étend le reçu avec la session, le backend et sa version,
-la révision du contexte, les fragments réellement matérialisés, leur portée,
-leur expiration et les événements d'invalidation. Un artefact seulement
-accessible par outil n'est pas « déjà lu ». Une compaction, un changement de
-modèle ou une reprise après crash invalide toute hypothèse de visibilité non
-reconfirmée.
+Un artefact seulement accessible par outil n'est pas « déjà lu » : seul un
+fragment enregistré par le ledger est visible. Une compaction, une expiration,
+un changement de modèle ou une reprise après crash invalide les fragments
+concernés et conserve l'événement d'invalidation.
 
 ### 6.5 Registre des omissions
 
@@ -438,8 +436,9 @@ réels. Le test du routeur utilise un stub pour vérifier la frontière d'appel.
    sur Signal Plane et Trinity. Les tests contrôlent la projection des négations,
    unités et provenances, puis le changement de digest si elles varient. Une
    conservation sémantique sur missions libres reste à établir.
-3. Ajouter un vrai registre de visibilité par invocation et session, avec
-   cold start, reset, compaction, changement de modèle, expiration et reprise.
+3. Livré localement : registre de visibilité persistant par session, avec cold
+   start, compaction, changement de modèle, expiration, invalidation et reprise
+   après crash ; les tests couvrent aussi son lien avec les reçus SQLite.
 4. Lier `CHECK` et `EMIT` aux vérificateurs et gates déjà autorisés ; rejeter
    les auto-déclarations de preuve et les effets répétés après redelivery.
 5. Définir des vecteurs binaires Node/Rust avant tout transport G-CIR canonique.
