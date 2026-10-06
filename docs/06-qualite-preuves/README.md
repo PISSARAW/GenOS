@@ -33,3 +33,5 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 
 - [../01-concepts/epistemologie-et-evidence.md](../01-concepts/epistemologie-et-evidence.md) — cadre épistémique.
 - [../README.md](../README.md) — hub général.
+
+- [campagne-agow-cloture.md](campagne-agow-cloture.md) — baselines simplifiées, ablation, médiation et trois holdouts locaux AGOW.
