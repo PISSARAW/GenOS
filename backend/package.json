@@ -92,7 +92,7 @@
   },
   "dependencies": {
     "@cedar-policy/cedar-wasm": "^4.13.0",
-    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/grpc-js": "^1.14.5",
     "@grpc/proto-loader": "^0.8.1",
     "@ladybugdb/core": "^0.20.4",
     "@lancedb/lancedb": "^0.39.0",
