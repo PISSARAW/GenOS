@@ -11,7 +11,7 @@ ces organisations ; elle n'est pas un neuvième mode.
 - [biome.md](biome.md) — orchestration par environnement et populations spécialisées.
 - [biocenose.md](biocenose.md) — orchestration communautaire (coopération, compétition, validation).
 - [holobionte.md](holobionte.md) — orchestration intégrée hôte-symbionte.
-- [syncytium.md](syncytium.md) — orchestration par état partagé et synchronisation continue.
+- [syncytium.md](syncytium.md) — modèle d'état partagé et runtime partiel à 13 variants ; campagne des 53 missions non attestée.
 - [protocole-missions-syncytium.md](protocole-missions-syncytium.md) — budgets, missions, workers, échanges, nosologie, télémétrie et preuves d’exécution.
 - [rhizome.md](rhizome.md) — orchestration décentralisée par ramification de capacités.
 - [metapopulation.md](metapopulation.md) — orchestration par populations semi-indépendantes.
