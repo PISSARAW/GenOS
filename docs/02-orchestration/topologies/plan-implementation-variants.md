@@ -35,7 +35,7 @@ variant dans le registre.
 
 | Topologie | Choix automatique et explicite | Effet runtime branché | Limites restantes |
 | --- | --- | --- | --- |
-| A-Team | Sélecteur et plan organisationnel existants | Graphe, communication et autorité de dispatch | Les formes multiteam restent soumises aux capacités disponibles |
+| A-Team | Sélecteur, politiques et évaluateurs isolés ; clôture canonique commune | Progression indépendante, preuves, critères globaux et accusés versionnés | Évaluateurs non tous invoqués au dispatch ; adaptateur multiteam absent du parcours générique ([référence](../../03-reference/runtime-a-team.md)). |
 | Biocénose | Recommandation par signaux de mission; explicite validé | Constitution et protocoles distincts; argumentation, fédération polycentrique, quarantaine, panel pondéré et historique persistant ont des effets runtime | Cinq parcours restent `PARTIAL`; voir la fiche pour leurs limites propres |
 | Holobionte | Douze identifiants et sélection par mission; préconditions vérifiées | Politique jointe à la composition host/symbiotes | Les modules mémoire, succession, outils et réseau n'appliquent pas tous encore leur politique à leurs opérations |
 | Syncytium | Auto-sélection et choix explicite | Schéma, session, cohérence, réplication et réparation | Human–AI reste conditionné aux capacités d'interface |

@@ -90,8 +90,9 @@ function successfulTerminal(snapshot) {
 
 async function missionEvidence(db, missionId) {
   await recover(db, missionId);
-  const workers = await db.all(`SELECT a.id FROM agents a JOIN mission_agents ma ON ma.agent_id = a.id
+  const members = await db.all(`SELECT a.* FROM agents a JOIN mission_agents ma ON ma.agent_id = a.id
     WHERE ma.mission_id = ? AND a.execution_mode = 'worker'`, missionId);
+  const workers = await require('./regenerationAttemptService').effectiveAgents(db, missionId, members);
   const results = [];
   for (const worker of workers) {
     const run = await db.get('SELECT id, status FROM strategy_execution_runs WHERE agent_id = ? ORDER BY rowid DESC LIMIT 1', worker.id);

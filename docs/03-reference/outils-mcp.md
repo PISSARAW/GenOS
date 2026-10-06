@@ -570,4 +570,8 @@ pas la disponibilité de ces backends dans le serveur. Voir les
 
 - [AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — outils MCP `genos_genome_compile|validate|inspect|cross|mutate|clone|decoy` et leur catalogue (`seedTools.js`, `mcpGenomeTools.js`).
 
+Les leases MCP déterminent les outils effectivement autorisés ; `execution.runnerLease` réserve l'exécution d'un TeamRun et ne remplace pas une lease d'outil. Prévisualisation et dispatch accepté ne fournissent aucune preuve d'intégration. Les rapports et les accusés sont évalués par le parcours canonique avant clôture.
 
+Les autorités d'une politique de variante ne modifient pas les ACL du backend. Les évaluations isolées restent distinctes d'une exécution promue. Voir [Référence du runtime A-Team](runtime-a-team.md).
+
+## A-Team : lease d’outil et bail de runner

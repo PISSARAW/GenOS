@@ -51,6 +51,7 @@ reproduction, et les 8 modes de composition (topologies).
 ## Modes de composition
 
 - [topologies/](topologies/README.md) — Trinity, A-Team, Biome, Biocénose, Holobionte, Syncytium, Rhizome, Métapopulation.
+- [Runtime A-Team](../03-reference/runtime-a-team.md) — parcours canonique, progression indépendante, preuves et reprise.
 
 ## Voir aussi
 

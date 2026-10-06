@@ -42,3 +42,7 @@ pas démontrer l'exécution d'un worker.
   car aucun worker n'a été exécuté à cette étape.
 - Activer tous les contrôles au dispatch générique : reporté tant que les
   contrats d'adaptation et de preuve ne sont pas présents.
+
+## Complément du 2026-10-06
+
+[ADR 0329](0329-cloture-verifiable-runs-a-team.md) ajoute la clôture canonique commune au dispatch explicite et au parcours autonome, avec preuves et accusés versionnés. Cette décision ne branche pas l'évaluateur isolé au dispatch et ne transforme pas les plans multiteam en sous-runs exécutés. La distinction entre succès d'évaluation et promotion d'un TeamRun reste applicable. Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).

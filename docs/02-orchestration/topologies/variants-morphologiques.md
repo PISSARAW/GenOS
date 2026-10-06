@@ -15,7 +15,7 @@ mais n'unifie pas les exécutions locales.
 
 | Topologie | Variants spécifiques au registre central | Source projetée | Maturité déclarée |
 | --- | ---: | --- | --- |
-| A-Team | 11 | `aTeam/variants/variantRegistry` | Implémentés |
+| A-Team | 11 | `aTeam/variants/variantRegistry` | Politiques et évaluateurs isolés implémentés ; conformité d’exécution globale partielle, sous-runs multiteam génériques non branchés ([contrat](../../03-reference/runtime-a-team.md)) |
 | Biocénose | 12 | `biocenose/variants/variantPolicyRouter` | Implémentés ou partiels selon la politique |
 | Holobionte | 12 | `holobionte/variants` | Partiels; douze politiques sélectionnables et projetées dans le contrat de composition |
 | Syncytium | 13 | `syncytium/variants/variantPolicyRegistry` | Implémentés |

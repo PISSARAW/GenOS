@@ -50,3 +50,9 @@ Les résultats datés, commandes exactes, versions/outils disponibles et limites
 ## Mise à jour
 
 À chaque changement de contrat : mettre à jour le code et la documentation de référence, cette ligne, son scénario nominal et son refus ; exécuter `git diff --check`, le contrôle qualité et les suites ciblées ; joindre le rapport avec leur contexte d’exécution. Les chemins restent à revérifier si les modules changent.
+
+## Contrat A-Team vérifié le 2026-10-06
+
+Le parcours canonique couvre identités stables, bail courant, délai persistant, progression indépendante, preuves de membre, critères globaux et accusés versionnés. `test_ateam_execution_e2e.js` utilise SQLite et des processus Node ; les 44 cas de variantes évaluent des contrats isolés. Ces preuves ne qualifient ni expertise générale, ni décomposition sémantique texte seule, ni exécution générique multiteam. Le statut global reste Partiel.
+
+Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).

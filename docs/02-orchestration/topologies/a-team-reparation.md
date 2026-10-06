@@ -72,3 +72,9 @@ y compris ceux lancés par le runner détaché. Une allocation absente laisse la
 de budget globale du dispatch s'appliquer. Les interfaces inter-domaines sont évaluées et
 les membres disposant de la capacité `boundary_spanning` sont proposés comme propriétaires
 de contrat ; la composition n'invente pas un worker boundary spanner.
+
+## Réparation et clôture de mission
+
+Le `COMPLETED` d'un reçu décrit l'action de réparation, pas la réussite du TeamRun. La reprise conserve les identités, invalide les contributions affectées et exige de nouveaux accusés si le digest du transfert change. Un accusé d'une ancienne version ne vaut pas acceptation de l'artefact réparé.
+
+Le délai `execution.deadlineAt` n'est pas réinitialisé par une reprise ordinaire. Le runner exige un bail courant ; les services de réparation gardent leurs préconditions et adaptateurs. Leur disponibilité ne prouve pas qu'une réparation est automatiquement exécutée par la clôture générique. Voir [Référence du runtime A-Team](../../03-reference/runtime-a-team.md).

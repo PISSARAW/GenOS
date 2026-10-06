@@ -5,6 +5,8 @@
 > métaphore ne constitue pas une garantie runtime tant qu'elle n'a pas de données
 > d'entrée définies, de règle de décision déterministe et de vérification associée.
 >
+> **Dernière revue :** 2026-10-06. [Référence du parcours implémenté](../../03-reference/runtime-a-team.md).
+>
 > **Portée :** composition, graphe de travail, dispatch, handoffs, preuves et intégration
 > des spécialistes A-Team. Les décisions normatives d'implémentation ci-dessous priment
 > sur les exemples et formules exploratoires des parties suivantes.
@@ -152,6 +154,8 @@ le code.
 
 La validation ciblée ci-dessus ne vaut pas validation de tout le monorepo ni exécution réelle de missions Codex. Les limites détaillées de la clôture sont consignées dans [ADR 0329](../../adr/0329-cloture-verifiable-runs-a-team.md).
 
+Les mesures de clôture sont distinctes des garanties normatives : RCA compte actuellement les workers `completed`, et VEC les capacités déclarées par les membres dont la contribution est promue. Elles n’attestent pas, à elles seules, les outils effectifs ni une expertise générale. Voir la [référence runtime](../../03-reference/runtime-a-team.md).
+
 ### Découpage cible dans le backend
 
 Ce tableau indique où implémenter les contrats ; la présence d'un fichier ne signifie pas
@@ -159,9 +163,9 @@ que le comportement correspondant est déjà complet.
 
 | Contrat | Point d'intégration principal | Résultat à vérifier |
 |---|---|---|
-| Runtime canonique, run et Work Graph | `backend/src/services/aTeam/aTeamRuntime.js`, `backend/src/services/aTeam/teamRunStore.js`, `backend/src/services/aTeam/workGraph/`, `backend/src/services/agentAutonomyPlanService.js` et `backend/src/services/aTeamDispatchService.js` | L'autoplanification et le dispatch explicite partagent la création idempotente du run et du DAG persistant. Le graphe `a_team_work_graph` est lié au run `a_team`, ses couches sont projetées sur les membres, les identifiants de workers sont conservés et les transitions de statut/phase sont vérifiées avec la révision attendue. Un bail CAS interdit deux stage runners concurrents ; après son expiration, la reprise saute les workers déjà présents et ne relance que les workers absents du premier étage, puis laisse le scheduler traiter les étages dépendants. Les workers échoués restent bloqués pour le lot de réparation. |
+| Runtime canonique, run et Work Graph | `backend/src/services/aTeam/aTeamRuntime.js`, `backend/src/services/aTeam/teamRunStore.js`, `backend/src/services/aTeam/workGraph/`, `backend/src/services/agentAutonomyPlanService.js` et `backend/src/services/aTeamDispatchService.js` | L'autoplanification et le dispatch explicite partagent la création idempotente du run et du DAG persistant. Le graphe `a_team_work_graph` est lié au run `a_team`, ses couches sont projetées sur les membres, les identifiants de workers sont conservés et les transitions de statut/phase sont vérifiées avec la révision attendue. Un bail CAS interdit deux runners actifs ; son token et son expiration sont contrôlés avant observation, lancement et clôture. La reprise conserve les workers existants et le délai absolu persisté ; l’exécuteur commun traite chaque dépendance sans imposer une barrière globale entre couches. Les workers échoués relèvent du parcours de réparation. |
 | Éligibilité, capacités et composition | `backend/src/services/aTeamService.js` | Mission mono-domaine refusée ; exigences, membres retenus et gaps explicités. |
-| Graphe, dépendances et exécution par étapes | `backend/src/services/aTeamStageScheduler.js` | Graphe validé avant dispatch ; consumers bloqués tant que leurs producteurs ne sont pas promus. |
+| Graphe, dépendances et exécution | `backend/src/services/aTeamStageScheduler.js` et `backend/src/services/aTeam/execution/` | Graphe validé avant dispatch ; consumers bloqués tant que leurs producteurs ne sont pas promus et leurs transferts disponibles. Accusés exacts requis pour la clôture. |
 | Contrat d'équipe et handoffs | `backend/src/services/aTeamCoordinationService.js` | Handoffs typés, interfaces et propriétaires cohérents avec le Work Graph. |
 | Promotion des preuves et intégration | `backend/src/services/workerEvidenceBarrier.js` et `backend/src/services/aTeamComparativeBarrier.js` | Aucune fusion sur la seule base d'un dispatch ou d'un statut `completed`. |
 | Compatibilité, ownership et blocages | `backend/src/services/aTeamIntegrationObserver.js` | Chaque violation rapporte le worker, le domaine, le contrat et la raison. |
@@ -219,7 +223,7 @@ où $\bigoplus$ est l'opérateur d'intégration sémantique (et non la simple co
 | **Substituabilité** | Chaque rôle a un remplaçant potentiel | Aucun spécialiste n'est substituable |
 | **Flux de contrôle** | Séquentiel avec boucles de rétroaction | DAG de dépendances |
 | **Objectif de cohérence** | Alignement sur la mission | Cohérence de l'artefact composite |
-| **Modèle de défaillance** | Un rôle peut échouer, les autres continuent | La défaillance d'un spécialiste bloque le DAG |
+| **Modèle de défaillance** | Un rôle peut échouer, les autres continuent | La défaillance bloque ses descendants ; les branches indépendantes continuent |
 | **Type de cas** | Décision sous contrainte | Construction multi-compétences |
 | **Métaphore biologique** | Système nerveux central | Organe multicellulaire |
 ### 2.2 Diagramme de distinction
@@ -1847,14 +1851,14 @@ TEAM DEBRIEF
 ```
 ### 12.3 Méta-Analyse : L'Impact du Debrief
 
-La méta-analyse sur les pratiques de debrief organisationnel montre une amélioration de **20 à 25 %** de la performance lors des missions suivantes quand le debrief est conduit systématiquement :
+Le modèle exploratoire ci-dessous suppose un gain de **20 à 25 %** pour illustrer le debrief. Ce facteur n’est ni calibré sur GenOS ni une mesure de performance du runtime :
 
 $$
 \text{performance}(n+1) = \text{performance}(n) \times (1 + \delta_{\text{debrief}})
 $$
 
 $$
-\delta_{\text{debrief}} \in [0.20, 0.25] \quad \text{(intervalle de confiance établi)}
+\delta_{\text{debrief}} \in [0.20, 0.25] \quad \text{(hypothèse illustrative non calibrée)}
 $$
 ### 12.4 Formule Cumulative de l'Apprentissage Organisationnel
 
@@ -1886,10 +1890,12 @@ Cette troisième partie de la documentation A-Team couvre :
 9. **Communications multi-vitesses** — fast path, slow path, broadcast, unicast, multicast avec cohérence
 10. **Modes de participation** — 6 modes avec transitions au fil des phases
 11. **Boundary Spanners** — agents dédiés aux interfaces inter-domaines, réduction du couplage
-12. **Prébrief et debrief** — protocoles obligatoires, +20-25% performance cumulative
+12. **Prébrief et debrief** — protocoles cibles ; debrief persisté par le parcours canonique, gain de performance non mesuré
 
 > **Partie suivante** : A-Team Part 4 — Patterns Émergents, Métriques, Anti-Patterns, et Études de Cas.
 # A-Team — Partie 4 : Cas d'usage, Anti-usages, Comparaisons, Architecture Ultime
+
+> Les scénarios, gains chiffrés, SLA et garanties métier de cette partie sont illustratifs. Ils ne décrivent pas des campagnes exécutées par GenOS. Voir la référence runtime et le [protocole de benchmark](../../06-benchmarks/benchmark-ateam.md).
 
 > **Partie 4 de 4** de la documentation A-Team. Pour les fondamentaux, les modèles mathématiques et les 11 variantes, voir `a-team.md`.
 
@@ -1917,7 +1923,7 @@ flowchart LR
     DA --> QA
     QA --> OPS["DevOps\nDeploy + Monitor"]
 ```
-**Résultat** : Chaque spécialiste travaille dans son domaine. La barrière d'intégration valide que le schéma API est compatible frontend↔backend, que le schéma de données respecte les contrats d'intégrité, et que les tests couvrent 100% des chemins critiques. Le temps total est réduit de 40-60% par rapport à une approche séquentielle.
+**Résultat illustratif (non mesuré)** : Chaque spécialiste travaille dans son domaine. La barrière d'intégration valide que le schéma API est compatible frontend↔backend, que le schéma de données respecte les contrats d'intégrité, et que les tests couvrent 100% des chemins critiques. Le temps total est réduit de 40-60% par rapport à une approche séquentielle.
 
 ---
 ### 1.2 Authentification complexe
@@ -1938,7 +1944,7 @@ $$
 | `MFA_POLICY` | Compliance | Auth Protocol | Score risk dynamique, 3 méthodes minimum |
 | `RGPD_CONSENT` | Compliance | UX Security | Consent granulaire, droit à l'oubli |
 
-**Résultat** : Le système d'authentification satisfait simultanément les contraintes cryptographiques, protocolaires, UX et légales. Aucun conflit n'est découvert en production car chaque contrat a été validé par la barrière d'intégration avant déploiement.
+**Résultat illustratif (non mesuré)** : Le système d'authentification satisfait simultanément les contraintes cryptographiques, protocolaires, UX et légales. Aucun conflit n'est découvert en production car chaque contrat a été validé par la barrière d'intégration avant déploiement.
 
 ---
 ### 1.3 Incident production
@@ -1966,7 +1972,7 @@ $$
 \end{cases}
 $$
 
-**Résultat** : L'incident est résolu en 47 minutes (MTTR). Le rollback est prêt en 35 minutes en parallèle du diagnostic final. La barrière d'intégration valide que le patch corrige la fuite sans régression fonctionnelle via tests de charge synthétiques.
+**Résultat illustratif (non mesuré)** : L'incident est résolu en 47 minutes (MTTR). Le rollback est prêt en 35 minutes en parallèle du diagnostic final. La barrière d'intégration valide que le patch corrige la fuite sans régression fonctionnelle via tests de charge synthétiques.
 
 ---
 ### 1.4 Migration majeure
@@ -1985,7 +1991,7 @@ $$
 \text{retrocompat}(A_{legacy}, A_{new}) = \forall e \in A_{legacy}.\text{endpoints} : \exists e' \in A_{new}.\text{endpoints} : \text{schema\_compatible}(e, e')
 $$
 
-**Résultat** : Migration complète en 3 semaines contre 6 mois estimés. La barrière d'intégration détecte et répare 3 incohérences de schéma de données avant qu'elles n'atteignent la production.
+**Résultat illustratif (non mesuré)** : Migration complète en 3 semaines contre 6 mois estimés. La barrière d'intégration détecte et répare 3 incohérences de schéma de données avant qu'elles n'atteignent la production.
 
 ---
 ### 1.5 Projet IA
@@ -2011,7 +2017,7 @@ $$
 \phi(t) = \phi(t_0) \cdot e^{-\lambda(t - t_0)}, \quad \lambda = 0.001 \text{ par défaut}
 $$
 
-**Résultat** : Le modèle ML améliore le CTR de 23% tout en respectant le RGPD. Les rejets précoces de la barrière ont évité 6 semaines de rework post-déploiement.
+**Résultat illustratif (non mesuré)** : Le modèle ML améliore le CTR de 23% tout en respectant le RGPD. Les rejets précoces de la barrière ont évité 6 semaines de rework post-déploiement.
 
 ---
 ### 1.6 Recherche scientifique appliquée
@@ -2030,7 +2036,7 @@ $$
 \text{power}(n, \alpha, \beta) = 1 - \beta \geq 0.8, \quad \alpha \leq 0.05, \quad n \geq n_{\min}(\text{effect size})
 $$
 
-**Résultat** : Le protocole est validé par le comité éthique en une semaine au lieu de trois. La barrière d'intégration garantit que l'analyse statistique respecte les contrats éthiques avant tout recrutement.
+**Résultat illustratif (non mesuré)** : Le protocole est validé par le comité éthique en une semaine au lieu de trois. La barrière d'intégration garantit que l'analyse statistique respecte les contrats éthiques avant tout recrutement.
 
 ---
 ### 1.7 Architecture complexe
@@ -2049,7 +2055,7 @@ $$
 \text{eventual\_consistency}(R_i, R_j) = \lim_{t \to \infty} \text{divergence}(R_i, R_j) = 0, \quad \text{Replication Lag} \leq 5\text{s}
 $$
 
-**Résultat** : L'architecture supporte 5 régions avec un RPO < 1s et un RTO < 30s. Chaque spécialiste valide ses contrats via la barrière avant l'intégration globale.
+**Résultat illustratif (non mesuré)** : L'architecture supporte 5 régions avec un RPO < 1s et un RTO < 30s. Chaque spécialiste valide ses contrats via la barrière avant l'intégration globale.
 
 ---
 ### 1.8 Application mobile
@@ -2068,7 +2074,7 @@ $$
 \text{offline\_sync}(C, S) = \forall o \in C.\text{operations} : \exists o' \in S.\text{operations} : \text{commutative}(o, o') \land \text{idempotent}(o)
 $$
 
-**Résultat** : L'application fonctionne offline avec une synchronisation transparente. La barrière d'intégration valide que les conflits de synchronisation sont résolus selon les CRDTs définis dans le contrat.
+**Résultat illustratif (non mesuré)** : L'application fonctionne offline avec une synchronisation transparente. La barrière d'intégration valide que les conflits de synchronisation sont résolus selon les CRDTs définis dans le contrat.
 
 ---
 ### 1.9 Création narrative
@@ -2087,7 +2093,7 @@ $$
 \text{coherence}(W, C, M) = \forall c \in C : \text{consistent}(c, W.\text{rules}) \land \forall m \in M : \text{playable}(m, W, C)
 $$
 
-**Résultat** : Le récit est cohérent dans toutes ses branches. La barrière détecte et répare 12 incohérences de personnage↔monde avant la publication.
+**Résultat illustratif (non mesuré)** : Le récit est cohérent dans toutes ses branches. La barrière détecte et répare 12 incohérences de personnage↔monde avant la publication.
 
 ---
 ### 1.10 Benchmark GenOS
@@ -2106,7 +2112,7 @@ $$
 \text{reproducibility}(B_1, B_2) = \frac{|\text{results}(B_1) \cap \text{results}(B_2)|}{|\text{results}(B_1) \cup \text{results}(B_2)|} \geq 0.95
 $$
 
-**Résultat** : Les benchmarks sont reproductibles à 95% près. La barrière valide que chaque métrique est mesurée selon le protocole défini.
+**Résultat illustratif (non mesuré)** : Les benchmarks sont reproductibles à 95% près. La barrière valide que chaque métrique est mesurée selon le protocole défini.
 
 ---
 ### 1.11 Optimisation mathématique industrialisée
@@ -2127,7 +2133,7 @@ $$
 
 où $\mathcal{F}$ est l'ensemble des solutions réalisables et $\epsilon$ la tolérance numérique.
 
-**Résultat** : La solution optimale réduit les coûts de 18% tout en respectant les contraintes de temps et de carbone. La barrière valide que chaque contrainte est satisfaite avant déploiement.
+**Résultat illustratif (non mesuré)** : La solution optimale réduit les coûts de 18% tout en respectant les contraintes de temps et de carbone. La barrière valide que chaque contrainte est satisfaite avant déploiement.
 
 ---
 ## 2. Quand NE PAS utiliser A-Team
@@ -2235,28 +2241,28 @@ $$
 \end{cases}
 $$
 ### 3.2 Arbre de décision rapide
+
 ```
 Mission donnée
     │
-    ├─── Plusieurs compétences différentes requises ?
-    │         │
-    │         NON ──→ Trinity / Mono-agent
-    │         │
-    │         OUI ───→ Les dépendances sont-elles connues ?
-    │                   │
-    │                   NON ──→ Syncytium (explorez d'abord)
-    │                   │
-    │                   OUI ───→ Au moins 3 spécialistes non-substituables ?
-    │                             │
-    │                             NON ──→ Trinity
-    │                             │
-    │                             OUI ───→ ✅ A-TEAM
+    ├── Comparer des options pour un même objectif ? → Trinity / topologie comparative
+    │
+    └── Construire un livrable avec plusieurs compétences complémentaires ?
+          │
+          ├── Un spécialiste disponible couvre tout → Solo
+          │
+          └── Au moins deux compétences exigent plusieurs spécialistes
+                │
+                ├── Dépendances inconnues ou cycliques → Clarifier le WorkGraph
+                │
+                └── WorkGraph explicite, acyclique et contrats vérifiables → A-Team
 ```
+
 ### 3.3 Les 5 tests complémentaires
 
 **Test 1 : Le critère des spécialistes**
 
-> *Pouvez-vous nommer au moins 3 spécialistes non-substituables dont les expertises ne se chevauchent pas ?*
+> *Pouvez-vous nommer au moins 2 compétences complémentaires qu’aucun spécialiste disponible ne couvre seul ?*
 
 Si non, A-Team n'est pas adapté. La spécialisation exige des domaines distincts.
 
@@ -2282,10 +2288,12 @@ Si la mission est purement exploratoire, A-Team exige une analyse préalable. Ut
 
 > *Un spécialiste peut-il être remplacé par un autre sans redesigner les interfaces ?*
 
-Si oui, vous avez des généralistes, pas une A-Team. La valeur d'A-Team réside dans la non-substituabilité.
+Un autre expert peut remplacer un worker à contrat constant. A-Team exige des contributions complémentaires ; elle n’exige pas que les personnes soient irremplaçables.
 
 ---
 ## 4. Multiteam System : équipes de teams
+
+> Cette section décrit l’organisation cible. Le dispatch générique persiste un plan multiteam, mais ne fournit pas l’adaptateur `executeTeam` du runner programme. Les preuves de clôture d’un run canonique ne démontrent pas l’exécution des sous-équipes ; voir la [référence runtime](../../03-reference/runtime-a-team.md).
 ### 4.1 Concept
 
 Quand une mission est trop grande pour une seule A-Team, le **Multiteam System (MTS)** coordonne plusieurs A-Teams via un *Program Orchestrator*.
@@ -2376,7 +2384,7 @@ $$
 | **CHATEAUT** | Équipes avec mémoire transactive | Knowledge location graph | Pas d'intégration continue, pas de barrière | Knowledge Location Graph |
 ### 5.2 Différenciation A-Team
 
-A-Team est la seule architecture qui combine simultanément :
+La conception cible A-Team cherche à réunir les propriétés suivantes. Cette liste n’établit ni leur implémentation complète ni une exclusivité face aux autres architectures :
 
 1. **Identités spécialisées persistantes** — pas d'agents interchangeables
 2. **Contrats typés vérifiables** — pas de promesses implicites

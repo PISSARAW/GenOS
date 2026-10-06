@@ -626,3 +626,8 @@ La migration `063-projection-outbox` crée `projection_events` (journal append-o
 
 Le rebuild graphe couvre agents, relations, lignée, synapses, graphe de connaissances et graphe territorial ; génomes, fossiles, plasmides, claims/evidence, findings daemon et Git DAG ne sont pas encore projetés. La portabilité inter-machine du faisceau (copie de `.genos/data`) n'a pas de test dédié.
 
+## Sessions canoniques A-Team
+
+`topology_sessions` conserve les états `a_team`, `a_team_work_graph` et `a_team_learning`. Le TeamRun référence le graphe, la formation et les identités stables, avec révision CAS. Son `execution` conserve le bail, `deadlineAt`, les couvertures, l'intégration, les résultats d'ordonnancement et le lien au debrief. Les arêtes conservent handoffs, versions, digests, disponibilités et acceptations.
+
+Une reprise ne doit pas réinitialiser l'échéance ni recréer des identités pour contourner un refus. `completed` dans les agents n'est pas `SUCCEEDED` dans le graphe ni `COMPLETED` dans le run. Voir [Référence du runtime A-Team](runtime-a-team.md).

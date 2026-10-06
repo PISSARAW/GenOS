@@ -63,6 +63,10 @@ async function members(db, missionId) {
 }
 
 async function setStatus(db, missionId, status) {
+  return withTransaction(db, () => applyStatus(db, missionId, status));
+}
+
+async function applyStatus(db, missionId, status) {
   const allowed = new Set(['active', 'dormant', 'completed', 'failed', 'cancelled']);
   if (!allowed.has(status)) throw new Error(`Invalid mission status '${status}'.`);
   const transitions = { active: ['dormant', 'completed', 'failed', 'cancelled'], dormant: ['active', 'failed', 'cancelled'], completed: [], failed: [], cancelled: [] };
@@ -72,6 +76,7 @@ async function setStatus(db, missionId, status) {
   if (!transitions[current.status]?.includes(status)) {
     throw Object.assign(new Error(`Invalid mission transition ${current.status} -> ${status}.`), { code: 'MISSION_INVALID_TRANSITION' });
   }
+  if (status === 'completed') await require('./homeostasisClosureService').assertClosure(db, missionId);
   const changed = await db.run('UPDATE missions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE mission_id = ? AND status = ?', status, missionId, current.status);
   if (changed.changes !== 1) throw Object.assign(new Error('Mission status changed concurrently.'), { code: 'MISSION_STATUS_CONFLICT' });
   return get(db, missionId);

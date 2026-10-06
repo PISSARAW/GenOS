@@ -101,3 +101,7 @@ La réussite technique de `MorphologyRuntime.execute` n'est plus enregistrée
 automatiquement comme outcome de mission dans le magasin d'expérience. La
 consolidation d'apprentissage relève des chemins séparés qui disposent d'un
 outcome vérifié et de sa preuve.
+
+## Portée du contrôleur A-Team et du backend
+
+Le tableau des contrôleurs décrit le chemin plugin Morphogenèse ; il ne constitue pas une preuve de parité avec le parcours Node. Le backend explicite et autonome dispose d'un exécuteur canonique avec identités persistées, progression indépendante, preuves, critères globaux et accusés versionnés. Les tests SQLite/processus Node de ce parcours ne qualifient pas automatiquement le contrôleur Rust ni les topologies imbriquées. Voir [Référence du runtime A-Team](runtime-a-team.md).

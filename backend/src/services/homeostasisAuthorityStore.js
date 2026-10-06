@@ -8,7 +8,7 @@ const { digest } = require('./biologicalIntegrity');
 const migrated = new WeakSet();
 
 async function ensure(db) {
-  if (migrated.has(db)) return;
+  if (migrated.has(db) && await db.get("SELECT name FROM sqlite_master WHERE name = 'homeostasis_contract_heads'")) return;
   await migrateHomeostasisAuthority(db);
   migrated.add(db);
 }

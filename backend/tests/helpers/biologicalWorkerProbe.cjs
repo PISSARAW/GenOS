@@ -12,7 +12,7 @@ async function main() {
       const { runProcedure } = require('../../src/services/agents/deterministicWorkerProcedures');
       const { reportFor } = require('../../src/services/agents/deterministicWorkerRuntime');
       const result = runProcedure(binding.genome.workerContract.mission.methodContract);
-      const report = reportFor('procedure_worker', result);
+      const report = reportFor('procedural_executor', result);
       process.stdout.write(JSON.stringify({ result, report }));
     } else {
       await biology.recover(db, 'worker-mission');
