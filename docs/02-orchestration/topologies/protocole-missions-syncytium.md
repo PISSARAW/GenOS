@@ -56,7 +56,7 @@ Le routeur de politique accepte un `variantId` explicite ; sinon il choisit selo
 | Real-Time Control | Contrôle/reflexes avec préconditions et réponse failsafe | Échéance et invariant respectés dans le modèle testé ; conflit de version réessayé ou arrêt sûr vérifié |
 | Human–AI | Consentement, présence, autorité, approbation et attribution | Action critique attend l’approbation requise ; retrait/refus appliqué ; annulation conserve auteur et audit |
 
-Les formulations détaillées des 52 missions initiales (13 variants × 4 niveaux) sont conservées dans le texte fourni par l’utilisateur. Pour un rapport de campagne, recopier chaque énoncé et attacher son oracle plutôt que ne garder que cette synthèse.
+Les formulations détaillées des 52 missions initiales (13 variants × 4 niveaux) et du cas transversal sont versionnées dans `backend/fixtures/syncytium/missionCatalog.json`. Le catalogue conserve les énoncés ; `requiresIndependentOracle` signale qu'aucun énoncé ne constitue à lui seul un oracle exécutable. Un rapport de campagne doit associer à chaque cas des opérations identifiées et des assertions indépendantes.
 
 ## 4. Budget, durée et répétitions
 
@@ -135,11 +135,17 @@ Le runner `biologicalBenchmarkRunnerService` accepte une enveloppe équivalente 
   "timeoutMs": 150000,
   "scenarioTimeoutMs": 480000,
   "expectedClaims": [{ "subject": "reservation", "predicate": "within_capacity", "value": true }],
+  "oracle": { "assertions": [
+    { "kind": "state", "path": ["shared", "sharedFields", "reservations", "r1", "status"], "operator": "equals", "value": "active" },
+    { "kind": "operation_rejected", "opId": "over-capacity-1", "code": "SYNCYTIUM_TRANSACTION_INVALID" }
+  ] },
   "workerAssignments": {}
 }
 ```
 
-Les valeurs du JSON ne sont qu’un exemple de forme. `budget` définit le plafond par worker ; `campaignBudget` doit couvrir le maximum demandé pour les deux topologies et toutes les répétitions. Les deux plafonds monétaires sont obligatoires avant l’envoi aux modèles.
+Les valeurs du JSON ne sont qu’un exemple de forme : les chemins, identifiants et codes de l'oracle doivent correspondre à un cas réel. `budget` définit le plafond par worker ; `campaignBudget` doit couvrir le maximum demandé pour les deux topologies et toutes les répétitions. Les deux plafonds monétaires sont obligatoires avant l’envoi aux modèles.
+
+Pour la matrice complète, `genos-biological-benchmark.cjs` accepte aussi un objet `{ "cases": [53 manifestes], "matrixBudget": { "tokens": ..., "costUsd": ... }, "maxRuntimeMs": ... }`. Chaque manifeste porte `caseId` et recopie exactement le `variantId` et la `mission` du catalogue. Le cas `syncytium-transversal` utilise `variantId: "transversal"` et la route Syncytium générique. Le contrôle préalable refuse les cas absents, dupliqués, sans assertions indépendantes ou dont les plafonds cumulés dépassent `matrixBudget` ; aucun worker n'est lancé avant ce contrôle. Le verdict matriciel reste faux si un cas n'est pas exécuté, si la comparaison est non vérifiée ou si une exécution Syncytium n'a pas passé son oracle.
 
 ```mermaid
 sequenceDiagram
@@ -178,6 +184,8 @@ Taxonomie opérationnelle à reporter dans le manifeste (classification recomman
 
 Le canal Syncytium vérifiable est d’abord le service d’état : une session partagée, opérations typées et identifiées, snapshots, transactions, changements de réplica/deltas lorsqu’ils sont activés, historique et services d’audit/réparation. Le nucleus d’exécution transmet `actorId` et `domainId` à chaque opération ; les portes de schéma, domaine, autorité, zone de cohérence et invariant s’appliquent selon l’API choisie.
 
+La passerelle MCP lie `actorId` à l'identité authentifiée de l'agent, contrôle l'appartenance des workers à la session et refuse les mutations Syncytium sans appelant. Une session spécialisée refuse `apply`, `branch` et `promote` génériques : les workers utilisent `operation: "variant"` et une action autorisée de leur variant. Les refus codés sont enregistrés avec la session, l'action, l'opération et l'appelant pour vérification par l'oracle.
+
 Les autres services GenOS exposent enveloppes de communication/signaux, routage selon relation, checkpoint, common ground et métriques de communication. Les utiliser seulement si le dispatch/worker les appelle et si le run en conserve le reçu. La documentation d’une enveloppe ou d’un service n’est pas la preuve que les membres Syncytium se sont échangé un message dans cette exécution. Éviter un broadcast redondant : envoyer les informations nécessaires à l’orchestrateur ou aux consommateurs ciblés, et mesurer les décisions, livraisons, accusés et rejets séparément.
 
 ## 9. Télémétrie et format de preuve
@@ -194,7 +202,9 @@ Enregistrer au minimum par run :
 - tokens/coût seulement si la source les rapporte ; sinon `null` ;
 - état de collecte télémétrique : événements attendus/reçus, `flush.flushed`, `pending`, pertes et erreurs.
 
-Le runner refuse les manifests sans claims d’oracle ni plafond agrégé `campaignBudget`. Une exécution n’est complète que si tous les workers sont terminés, la validation est complète et le rappel des claims vaut 1. Les claims et leur texte de preuve ne remplacent pas encore un validateur de reçus métier par scénario ; la complétude du benchmark ne certifie donc pas à elle seule chaque invariant détaillé des 52 énoncés. Le rapport expose certains compteurs mais retourne explicitement `null` pour des mesures que le runtime ne collecte pas (par ex. toutes les mises à jour distribuées ou la quantité d’opérations sûres sans coordination). Laisser ces valeurs nulles jusqu’à l’ajout d’un instrument mesurable.
+Le runner refuse les manifests sans claims d’oracle ni plafond agrégé `campaignBudget`. Une exécution Syncytium n’est complète que si tous les workers sont terminés, la validation est complète, le rappel des claims vaut 1 **et** l'oracle indépendant vérifie ses assertions sur l'état persistant, les opérations appliquées et les reçus de rejet. Un oracle absent échoue fermé. Le validateur générique permet des assertions d'état, de révision et d'opérations ; il faut encore écrire les assertions particulières de chacun des 53 cas avant de revendiquer leur réussite. Le rapport expose certains compteurs mais retourne explicitement `null` pour des mesures que le runtime ne collecte pas (par ex. toutes les mises à jour distribuées ou la quantité d’opérations sûres sans coordination). Laisser ces valeurs nulles jusqu’à l’ajout d’un instrument mesurable.
+
+Le rapport `observedBudget` lit les reçus de fin et les événements bruts du fournisseur pour chaque worker. Il exige une mesure explicite des tokens et du coût, compare les usages aux plafonds individuels, puis vérifie la somme contre `campaignBudget`. Si le fournisseur n'émet pas le coût, le verdict reste non vérifié même si le runtime a inscrit `0` comme valeur de repli. Le plafond agrégé n'est pas une preuve de facturation à lui seul.
 
 ## 10. Carte relationnelle persistée des agents
 
@@ -235,9 +245,9 @@ Après un correctif local du bail vide et de la propagation des capacités, un a
 
 ## 12. Suite pour valider les missions LLM de bout en bout
 
-Le bail vide est maintenant accepté comme un bail valide sans outils (deny-all), et les capacités de topologie sont propagées aux workers Syncytium ; les tests ciblés de ces contrats passent. Le dispatch autonome reste non validé : la télémétrie indique que l’environnement a bloqué la connexion WebSocket des runtimes. Le runtime s’arrête désormais dès la détection du refus permanent `os error 10013`; il faut exécuter le probe dans un environnement qui autorise ce point de terminaison avant d’élargir la campagne. Les dispatchs Syncytium incomplets remontent maintenant comme échec CLI et ne publient pas l’événement de complétion. Réussir d’abord le probe simple avec un résultat validé et les reçus de session attendus. Ensuite seulement, transformer les 52 énoncés en manifestes versionnés avec un oracle par cas ; choisir des affectations `WorkerKind` et un plafond de coût global ; isoler la base et le workspace ; vérifier que le dispatch attend bien la fin de tous les workers. Lancer d’abord un cas simple par variant, examiner les artefacts et la télémétrie, puis les niveaux supérieurs. Toute erreur de worker, timeout, preuve manquante ou divergence d’oracle vaut FAIL pour le cas. Comparer ensuite chaque cas avec le baseline sous mêmes budgets/affectations/répétitions. Publier un rapport PASS/FAIL par cas, les métriques nulles explicitement, les incidents nosologiques le cas échéant et les liens vers les preuves brutes.
+Le bail vide est maintenant accepté comme un bail valide sans outils (deny-all), et les capacités de topologie sont propagées aux workers Syncytium ; les tests ciblés de ces contrats passent. Le dispatch autonome reste non validé : la télémétrie indique que l’environnement a bloqué la connexion WebSocket des runtimes. Le runtime s’arrête désormais dès la détection du refus permanent `os error 10013`; il faut exécuter le probe dans un environnement qui autorise ce point de terminaison avant d’élargir la campagne. Les dispatchs Syncytium incomplets remontent maintenant comme échec CLI et ne publient pas l’événement de complétion. Réussir d’abord le probe simple avec un résultat validé et les reçus de session attendus. Ensuite seulement, transformer les 52 énoncés de variant et le cas transversal en manifestes versionnés avec un oracle par cas ; choisir des affectations `WorkerKind` et un plafond de coût global ; isoler la base et le workspace ; vérifier que le dispatch attend bien la fin de tous les workers. Lancer d’abord un cas simple par variant, examiner les artefacts et la télémétrie, puis les niveaux supérieurs. Toute erreur de worker, timeout, preuve manquante ou divergence d’oracle vaut FAIL pour le cas. Comparer ensuite chaque cas avec le baseline sous mêmes budgets/affectations/répétitions. Publier un rapport PASS/FAIL par cas, les métriques nulles explicitement, les incidents nosologiques le cas échéant et les liens vers les preuves brutes.
 
-La campagne n’est complète que lorsque les **52 lignes** ont un résultat terminal, un oracle évalué et une provenance de preuve. Une suite technique passant n’autorise pas à marquer les quatre niveaux d’un variant « oui » par extrapolation.
+La campagne n’est complète que lorsque les **53 lignes** (52 missions de variant et le cas transversal) ont un résultat terminal, un oracle évalué et une provenance de preuve. Une suite technique passant n’autorise pas à marquer les quatre niveaux d’un variant « oui » par extrapolation.
 
 ## Renforcement du runtime au 6 octobre 2026
 
@@ -308,5 +318,12 @@ Cargo test --workspace échoue pendant l'édition de liens faute d'espace disque
 (code Windows 112), avant validation complète. La reprise de npm test réussit intégralement (code de sortie 0), y compris les
 suites backend, autorité, AEIS, les 45 suites Syncytium et les sept suites Garage.
 La première tentative avait expiré sur la sonde de bisection workspace ; ce
-résultat est remplacé par la reprise réussie. Aucune campagne LLM de 52 missions ni preuve distribuée formelle n'est
+résultat est remplacé par la reprise réussie. Aucune campagne LLM des 53 missions ni preuve distribuée formelle n'est
 affirmée par ce relevé.
+### État d'implémentation au 2026-10-06
+
+Le dispatch lie les identités des workers à leur session Syncytium. Leur contrat autorise les actions de cette session, mais interdit la réorganisation globale et l'accès à une autre session. La matrice poursuit les autres cas lorsqu'un cas lève une erreur, conserve son code d'erreur et refuse un verdict global positif. Les coûts et tokens absents du reçu de fin restent non mesurés, même si un événement fournisseur brut existe ; ils ne sont plus convertis en zéro.
+
+Il manque encore les 53 manifestes exécutables, leurs plans d'opérations et leurs assertions propres à chaque énoncé. Le cas Human–AI exige un principal humain réellement authentifié et son canal d'approbation. Le cas transversal exige des preuves de reconstruction et de convergence par réplica, au-delà des assertions génériques d'état et de révision. La dernière tentative de dispatch LLM a échoué sur l'accès WebSocket ; aucune exécution complète des 53 missions n'est donc attestée. Les plafonds monétaires et les durées du présent protocole restent des paramètres de planification, pas des consommations observées.
+
+Le rapport de matrice distingue `missing` (non tenté, notamment après `maxRuntimeMs`) de `failed` (cas tenté dont le runner a levé une erreur). L'erreur d'un cas est conservée dans `reports` et ne bloque pas les suivants. `pass` exige les 53 cas exécutés, des comparaisons valides, tous les runs Syncytium complets et un usage agrégé en tokens et dollars effectivement mesuré sous `matrixBudget`. Le rapport de campagne individuelle distingue `executionValid` de `complete` : terminer les workers sous budget ne suffit pas si les claims ou l'oracle échouent.

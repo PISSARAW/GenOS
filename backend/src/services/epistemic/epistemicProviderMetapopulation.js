@@ -15,18 +15,14 @@ async function runProviderMetapopulation(antigen, profiles, options = {}) {
     await persistReviews(options, antigen, [{ provider: 'none', status: 'unavailable' }]);
     return result;
   }
-  const inputs = distinct.map((profile) => ({ ...profile, prompt: reviewPrompt(antigen),
-    timeoutMs: options.timeoutMs || 30000, maxTokens: options.maxTokens || 400 }));
-  const runner = options.runner || processRunner.runIsolatedPopulations;
-  const outputs = await runner(inputs).catch((error) => inputs.map((profile) => ({ provider: profile.provider, error: error.message })));
-  const reviews = outputs.map((output, index) => recordProviderOutput(populations[index], output, antigen));
+  const reviews = await collectProviderReviews(antigen, { distinct, populations }, options);
   await persistReviews(options, antigen, reviews);
   const successful = reviews.filter((review) => review.status === 'completed');
   const verdicts = new Set(successful.map((review) => review.verdict));
-  const complete = successful.length >= 2 && verdicts.size === 1;
+  const complete = successful.length === distinct.length && verdicts.size === 1;
   const verdict = complete ? successful[0].verdict : 'uncertain';
   return {
-    status: complete ? 'complete' : (successful.length >= 2 ? 'disputed' : 'incomplete'),
+    status: complete ? 'complete' : (verdicts.size > 1 ? 'disputed' : 'incomplete'),
     verdict,
     advisoryOnly: true,
     distinctProviders: new Set(successful.map((review) => review.provider)).size,
@@ -35,13 +31,34 @@ async function runProviderMetapopulation(antigen, profiles, options = {}) {
   };
 }
 
+async function collectProviderReviews(antigen, profiles, options) {
+  const { distinct, populations } = profiles;
+  const inputs = distinct.map((profile) => ({ ...profile, prompt: reviewPrompt(antigen),
+    timeoutMs: options.timeoutMs || 30000, maxTokens: options.maxTokens || 400 }));
+  const runner = options.runner || processRunner.runIsolatedPopulations;
+  const outputs = await runner(inputs).catch((error) => inputs.map((profile) => ({ provider: profile.provider, error: error.message })));
+  return distinct.map((profile, index) => reviewProviderOutput(profile, {
+    output: Array.isArray(outputs) ? outputs[index] : null, population: populations[index], antigen,
+  }));
+}
+
+function reviewProviderOutput(profile, input) {
+  const { output, population, antigen } = input;
+  if (output?.provider !== profile.provider || (output.model && output.model !== profile.model)) {
+    return { provider: profile.provider, model: profile.model, status: 'error', error: 'provider identity mismatch' };
+  }
+  return recordProviderOutput(population, output, antigen);
+}
+
 function distinctProfiles(profiles) {
   const seen = new Set();
   return (Array.isArray(profiles) ? profiles : []).filter((profile) => {
-    if (!profile || typeof profile.provider !== 'string' || typeof profile.model !== 'string' || seen.has(profile.provider)) return false;
-    seen.add(profile.provider);
+    if (!profile || typeof profile.provider !== 'string' || typeof profile.model !== 'string') return false;
+    const provider = profile.provider.trim().toLowerCase();
+    if (!provider || !profile.model.trim() || seen.has(provider)) return false;
+    seen.add(provider);
     return true;
-  }).slice(0, 3);
+  }).slice(0, 3).map((profile) => ({ ...profile, provider: profile.provider.trim().toLowerCase() }));
 }
 
 function reviewPrompt(antigen) {

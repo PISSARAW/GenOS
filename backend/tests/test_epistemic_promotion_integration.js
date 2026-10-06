@@ -27,11 +27,12 @@ const blocked = evaluatePromotionGate(contract, {});
 assert.equal(blocked.eligible, false);
 assert.ok(blocked.violations.some((item) => item.policy === 'epistemic_analysis_verification'));
 
-const verified = evaluatePromotionGate(contract, {
-  epistemicEvidenceVerified: true,
-  independentVerification: true
-});
-assert.equal(verified.eligible, true);
+const evidenceOnly = { epistemicEvidenceVerified: true, independentVerification: true };
+const assemblyMissing = evaluatePromotionGate(contract, evidenceOnly);
+assert.equal(assemblyMissing.eligible, false);
+assert.ok(assemblyMissing.violations.some((item) => item.policy === "require_epistemic_assurance"));
+const epistemicDecision = require('../src/services/epistemicDecisionService');
+assert.deepEqual(epistemicDecision.evaluatePromotionContext(contract, evidenceOnly), []);
 
 const record = buildMemoryRecord({
   agentId: 'worker-epistemic',
@@ -47,4 +48,4 @@ assert.match(memoryContent({
   options: { epistemicContext: contract.epistemic_context }
 }, { raw: [] }, false), /EPISTEMIC_ANALYSIS/);
 
-console.log('Epistemic contract, promotion gate and worker memory integration: PASS');
+console.log('Epistemic analysis verified; promotion still requires an assembly; worker memory integration: PASS');

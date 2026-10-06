@@ -18,14 +18,12 @@ function createOrchestratorId(prefix) {
   return `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
 }
 
-function selectMembers(members, available) {
+function selectMembers(members, available, waveSize) {
   if (!Array.isArray(members)) return [];
   const workers = members.filter((member) => member.executionMode !== 'orchestrator');
-  if (available < workers.length) {
-    throw Object.assign(
-      new Error(`Biological dispatch requires ${workers.length} free worker slots, but only ${available} available`),
-      { code: 'WORKER_GARAGE_FULL' }
-    );
+  const required = Math.min(workers.length, waveSize || workers.length);
+  if (available < required) {
+    throw Object.assign(new Error(`Biological dispatch requires ${required} free worker slots, but only ${available} available`), { code: 'WORKER_GARAGE_FULL' });
   }
   return workers;
 }
@@ -92,7 +90,7 @@ function launchCapabilities(context, member) {
 }
 
 async function launchWorker({ db, context, member, index, parent, suppliedWorkerId }) {
-  const workerId = suppliedWorkerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
+  const workerId = suppliedWorkerId || member.workerId || createOrchestratorId(`worker_${context.orchestratorId}_${index}`);
   const launchCaps = launchCapabilities(context, member);
   await persistWorkerIdentity({ db, context, member, parent, workerId });
   await spawnTopologyWorker({ db, context, member, parent, workerId, launchCaps });
@@ -348,9 +346,10 @@ function dispatchRhizomeMissionMembers({ db, context, members, parent }) {
 async function dispatchBiologicalMembers({ db, context, mode, parent, members }) {
   const garage = await workerGarage.state(db, context.orchestratorId);
   if (garage.available <= 0) throw Object.assign(new Error(`${mode} requires free worker slots, but worker garage is full`), { code: 'WORKER_GARAGE_FULL' });
-  const selected = selectMembers(members, garage.available);
+  const waves = mode === 'metapopulation' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1';
+  const selected = selectMembers(members, garage.available, waves ? 2 : members.length);
   if (mode === 'rhizome') return dispatchRhizomeMissionMembers({ db, context, members: selected, parent });
-  if (mode === 'metapopulation' || process.env.GENOS_TOPOLOGY_AWAIT_WORKERS === '1') {
+  if (waves) {
     const completed = [];
     for (let offset = 0; offset < selected.length; offset += 2) {
       const pair = selected.slice(offset, offset + 2);
@@ -381,14 +380,15 @@ async function composeBiologicalMode({ db, context, mode, mission }) {
   const { agent_count: agentCount, cluster_size: clusterSize, fanout, organization } = context.request;
   const workerAssignments = context.request.worker_assignments || context.request.workerAssignments;
   const available = mode === 'a_team' ? (await workerGarage.state(db, context.orchestratorId)).available : undefined;
-  if (mode === 'isolated_baseline') {
-    return require('../src/services/isolatedBaselineTopologyService').compose({ mission, options: { workerAssignments } });
-  }
   const variantId = context.request.variant_id || context.request.variantId || context.request.variant;
+  if (mode === 'isolated_baseline') {
+    return require('../src/services/isolatedBaselineTopologyService').compose({ mission, options: { workerAssignments, variantId } });
+  }
   return biologicalTopology.composeMode({
     db, orchestratorId: context.orchestratorId, mode, mission,
     options: { agentCount, clusterSize, fanout, organization, workerAssignments, variantId,
-      available, scope: context.request.scope, configuration: context.request.configuration }
+      available, scope: context.request.scope, configuration: context.request.configuration,
+      sessionOptions: context.request.sessionOptions }
   });
 }
 

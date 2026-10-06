@@ -2602,6 +2602,10 @@
           "convergence_policy": { "type": "object" },
           "variant_name": { "type": "string" },
           "pruning_plan": { "type": "object" },
+          "after_revision": {
+            "type": "integer",
+            "minimum": -1
+          },
           "operation": {
             "type": "string",
             "enum": [
@@ -2610,6 +2614,8 @@
               "schema",
               "domains",
               "history",
+              "events",
+              "variant",
               "explain",
               "branch",
               "promote",
@@ -2666,6 +2672,9 @@
           },
           "variant_input": {
             "type": "object"
+          },
+          "variant_action": {
+            "type": "string"
           },
           "evidence_refs": {
             "type": "array",

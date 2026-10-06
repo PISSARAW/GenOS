@@ -70,9 +70,15 @@ function recall(memory, pattern) {
   const sig = signatureFrom(pattern);
   const hits = memory.filter((entry) => entry.signature === sig);
   if (!hits.length) return null;
-  const best = hits.reduce((a, b) => (a.affinity >= b.affinity ? a : b));
-  if (best.affinity < SEUIL_SIGNATURE_FAIBLE) return null;
+  const best = hits.reduce((a, b) => (recallStrength(a) >= recallStrength(b) ? a : b));
+  if (recallStrength(best) < SEUIL_SIGNATURE_FAIBLE) return null;
   return best;
+}
+
+function recallStrength(entry) {
+  const outcomes = (entry.successes || 0) + (entry.failures || 0);
+  const negative = outcomes ? (entry.failures || 0) / outcomes : 0;
+  return Math.max(entry.affinity || 0, negative);
 }
 
 function tokensOf(text) {
@@ -108,7 +114,7 @@ function similarEntries(memory, pattern, threshold) {
   const reference = claimTextOf(pattern);
   if (!reference) return [];
   return memory.filter((entry) => {
-    if (entry.affinity < SEUIL_SIGNATURE_FAIBLE) return false;
+    if (recallStrength(entry) < SEUIL_SIGNATURE_FAIBLE) return false;
     return jaccardSimilarity(reference, claimTextOf(entry)) >= threshold;
   });
 }
@@ -118,7 +124,7 @@ function thresholdRecall(memory, pattern, opts = {}) {
   const sig = signatureFrom(pattern);
   const threshold = opts.threshold || SEUIL_RAPPEL_AUTOMATIQUE;
   const candidates = memory.filter((entry) => entry.signature === sig);
-  return candidates.filter((e) => e.affinity >= threshold);
+  return candidates.filter((e) => recallStrength(e) >= threshold);
 }
 
 function mergeRecallResults(exact, similar, threshold) {
@@ -129,20 +135,21 @@ function mergeRecallResults(exact, similar, threshold) {
     seen.add(entry.id);
     merged.push(entry);
   }
-  return merged.filter((e) => e.affinity >= threshold);
+  return merged.filter((e) => recallStrength(e) >= threshold);
 }
 
 function fuzzyRecall(memory, pattern, opts = {}) {
   const exact = thresholdRecall(memory, pattern, opts);
   const similar = similarEntries(memory, pattern, opts.similarity || 0.4);
-  return mergeRecallResults(exact, similar, opts.threshold || SEUIL_RAPPEL_AUTOMATIQUE);
+  return mergeRecallResults(exact, similar, opts.threshold || SEUIL_RAPPEL_AUTOMATIQUE)
+    .filter((entry) => !opts.domain || entry.domain === opts.domain);
 }
 
 function evictIfFull(memory) {
   while (memory.length >= MAX_MEMORY_ENTRIES) {
     let victim = 0;
     for (let i = 1; i < memory.length; i++) {
-      if (memory[i].affinity < memory[victim].affinity) victim = i;
+      if (recallStrength(memory[i]) < recallStrength(memory[victim])) victim = i;
     }
     memory.splice(victim, 1);
   }

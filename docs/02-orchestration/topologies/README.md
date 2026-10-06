@@ -16,7 +16,7 @@ ni modifier leur contrat de mission.
 - [biome.md](biome.md) — orchestration par environnement et populations spécialisées.
 - [biocenose.md](biocenose.md) — orchestration communautaire (coopération, compétition, validation).
 - [holobionte.md](holobionte.md) — orchestration intégrée hôte-symbionte.
-- [syncytium.md](syncytium.md) — orchestration par état partagé et synchronisation continue.
+- [syncytium.md](syncytium.md) — modèle d'état partagé et runtime partiel à 13 variants ; campagne des 53 missions non attestée.
 - [protocole-missions-syncytium.md](protocole-missions-syncytium.md) — budgets, missions, workers, échanges, nosologie, télémétrie et preuves d’exécution.
 - [rhizome.md](rhizome.md) — missions par capacités, croissance vérifiée et routage borné ; [contrat runtime](../../03-reference/runtime-rhizome.md).
 - [metapopulation.md](metapopulation.md) — populations semi-indépendantes, recolonisation et cycles régionaux persistants ; [contrat runtime](../../03-reference/runtime-metapopulation.md).

@@ -23,4 +23,7 @@ module.exports = (createMigrationRunner) => [
   createMigrationRunner('114-gvx-runtime', 'Fence resumable GVX cycles and reversible runtime operations', async (db) => {
     await require('./migrateGvxRuntime').migrateGvxRuntime(db);
   }),
+  createMigrationRunner('114-aeis-authority', 'Persist AEIS dissonance and deduplicated authority feedback', async (db) => {
+    await require('./migrateAeisAuthority').migrateAeisAuthority(db);
+  }),
 ];

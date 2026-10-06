@@ -386,10 +386,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0324](0324-biologie-execution-et-autorite-durable.md) | Biologie des exécutions et autorité durable | Voir le fichier | -- | -- |
 | [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté | 2026-10-06 | Régénération, cognition, plasticité |
 | [0326](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
-| [0327](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
+| [0327a](0327-aeis-preuves-et-autorite-persistante.md) | AEIS : preuves exécutables et autorité persistante | Voir le fichier | -- | -- |
+| [0327b](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
 | [0328](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
 | [0329](0329-cloture-verifiable-runs-a-team.md) | Clôture vérifiable des runs A-Team | Accepté | 2026-10-06 | A-Team, dispatch, preuve et reprise |
-| [0330a](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Accepté | 2026-10-06 | Metapopulation, persistance, migrations et preuves |
+| [0330a](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Voir le fichier | -- | -- |
 | [0330b](0330-holobionte-missions-contractuelles-verifiees.md) | Missions Holobionte contractuelles et vérifiées | Accepté | 2026-10-06 | Holobionte, exécution, immunité, ressources et persistance |
 | [0331](0331-syncytium-rejeu-causal-et-preuve-de-completion.md) | Syncytium : rejeu causal et preuve de complétion | Voir le fichier | -- | -- |
 | [0332](0332-rhizome-execution-verifiee-et-telemetrie-reelle.md) | Rhizome : exécution vérifiée et télémétrie réelle | Accepté | 2026-10-06 | Rhizome, routage, croissance, preuves et télémétrie |

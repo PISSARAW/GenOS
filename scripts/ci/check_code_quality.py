@@ -195,9 +195,10 @@ def _is_rust_self_param(part: str) -> bool:
     return re.match(r"^(?:&(?:'[\w]+)?\s*(?:mut\s*)?)?self(?:\s*:\s*.+)?$", part.strip()) is not None
 
 
-def check_file(path: Path, lines_only: bool = False) -> list[str]:
+def check_file(path: Path, lines_only: bool = False, source: str | None = None) -> list[str]:
     try:
-        source = path.read_text(encoding='utf-8')
+        if source is None:
+            source = path.read_text(encoding='utf-8')
         violations = []
         if len(source.splitlines()) > MAX_LINES:
             violations.append(f'LINES {len(source.splitlines())}>{MAX_LINES}')
@@ -257,7 +258,17 @@ def load_baseline() -> dict:
 def collect_violations(paths: list[Path], root: Path, lines_only: bool) -> dict:
     current = {}
     for path in sorted(paths):
-        violations = check_file(path, lines_only=lines_only)
+        if '--staged' in sys.argv:
+            relative = path.relative_to(root).as_posix()
+            try:
+                source = subprocess.run(['git', 'show', f':{relative}'], cwd=root,
+                                        check=True, capture_output=True, text=True,
+                                        encoding='utf-8').stdout
+                violations = check_file(path, lines_only=lines_only, source=source)
+            except (OSError, subprocess.CalledProcessError, UnicodeDecodeError) as error:
+                violations = [f'READ {error}']
+        else:
+            violations = check_file(path, lines_only=lines_only)
         if violations:
             key = str(path.relative_to(root)).replace('\\', '/')
             current[key] = violations

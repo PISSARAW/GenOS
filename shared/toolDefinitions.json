@@ -2615,6 +2615,7 @@
               "health",
               "morphogenesis",
               "events",
+              "variant",
               "add_node",
               "add_edge",
               "deposit",
@@ -2668,6 +2669,9 @@
           },
           "variant_input": {
             "type": "object"
+          },
+          "variant_action": {
+            "type": "string"
           },
           "evidence_refs": {
             "type": "array",

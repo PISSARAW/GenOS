@@ -26,6 +26,7 @@ async function requireOrchestrator(db, agentId, workspaceId = null) {
     throw authorityError('ORCHESTRATOR_REQUIRED', `Agent '${agentId}' is a worker and cannot orchestrate other agents.`);
   }
   if (workspaceId && agent.workspace_id !== workspaceId) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Orchestrator '${agentId}' is outside workspace '${workspaceId}'.`);
+  await require('./epistemic/epistemicAuthorityState').assertAuthority(db, agentId, { dispatch: true });
   await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
   return agent;
 }
@@ -75,6 +76,7 @@ async function authorizeMission(db, agentOrOptions, ...legacyArgs) {
   const { agentId, orchestratorAgentId, workspaceId } = options;
   const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode, role, metadata_json FROM agents WHERE id = ?', agentId);
   assertMissionAgent(agent, agentId, workspaceId);
+  await require('./epistemic/epistemicAuthorityState').assertAuthority(db, agentId, { dispatch: true });
   await require('./missionExecutionAuthority').assertAgentCurrent(db, agentId);
   if (agent.execution_mode === 'worker') {
     try {
