@@ -8,6 +8,8 @@
  */
 
 const crypto = require('crypto');
+const { withTransaction } = require('../db');
+const biologicalWorkers = require('./biologicalWorkerReceiptService');
 const strategyContracts = require('./strategyContractService');
 const events = require('./strategyExecutionEvents');
 const progress = require('./strategyExecutionProgress');
@@ -43,6 +45,10 @@ function compileExecutionPlan(contract, budgetInput) {
 }
 
 async function createExecutionRun(db, context) {
+  return withTransaction(db, () => createBoundExecutionRun(db, context));
+}
+
+async function createBoundExecutionRun(db, context) {
   const contractRecord = context.contractRecord || await strategyContracts.getLatestContract(db, context.agentId);
   if (!contractRecord) throw new Error(`No strategy contract for agent ${context.agentId}`);
   const plan = compileExecutionPlan(contractRecord.contract, context.budget);
@@ -61,6 +67,7 @@ async function createExecutionRun(db, context) {
       JSON.stringify(step.strategyIds), JSON.stringify(step.plannedBudget)
     );
   }
+  await require('./biologicalWorkerStore').bindRun(db, { ...context, id, contractRecord, budget: plan.budget });
   return events.getRun(db, id);
 }
 
@@ -87,15 +94,18 @@ async function sustainReverberation(db, agentId, event) {
 }
 
 async function recordExecutionEvent(db, agentId, event) {
-  const saved = await progress.recordExecutionEvent(db, agentId, event);
+  const saved = await biologicalWorkers.record(db, { agentId, event,
+    apply: () => progress.recordExecutionEvent(db, agentId, event) });
   if (!saved) return null;
+  if (saved.duplicate) return saved;
   const fallback = await fallbackAfterProgress(db, saved, agentId);
   if (['completed', 'failed', 'blocked', 'cancelled'].includes(saved.run.status)) {
     await calibrateSelfModel(db, saved.run.id);
     await sustainReverberation(db, agentId, event);
   }
   const survival = await observeSurvivalEvent({ db, agentId, event, run: saved.run });
-  return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival };
+  return { run: saved.run, halt: saved.halt, reason: saved.reason, fallback, survival,
+    duplicate: saved.duplicate === true, biologicalReceipt: saved.biologicalReceipt || null };
 }
 
 async function observeSurvivalEvent({ db, agentId, event, run }) {
@@ -176,6 +186,7 @@ async function approveRun(db, id, options) {
   }), id);
   await promotionGate.applyPostPromotion(db, promotion, settings);
   await promotionGate.finalizePromotion(db, promotion, settings);
+  await biologicalWorkers.finalize(db, id);
   await selfModel.calibrate(db, id);
   return events.getRun(db, id);
 }

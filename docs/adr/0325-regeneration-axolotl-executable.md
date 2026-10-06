@@ -1,10 +1,10 @@
 # ADR 0325 — Régénération Axolotl avec admission exécutable
 
-- **Statut** : Accepté.
-- **Date** : 2026-10-06.
-- **Domaine** : Régénération, cognition, plasticité.
+- **Statut** : Accepté
+- **Date** : 2026-10-06
+- **Domaine** : Régénération, cognition, plasticité
 - **Décideurs** : Mainteneurs GenOS.
-- **Lié à** : [Concept Axolotl](../01-concepts/biomimetisme/axolotl.md), ADR 0183.
+- **Lié à** : [Concept Axolotl](../01-concepts/biomimetisme/axolotl.md), [ADR 0183](0183-regeneration-axolotl-bornee.md), [Référence Axolotl](../03-reference/axolotl-regeneration.md).
 
 ## Contexte
 
@@ -73,8 +73,9 @@ aux anciennes sessions et à leur topologie.
 
 ## Vérification exécutable
 
-`node backend/tests/test_axolotl_suite.js` couvre huit suites : régénération
+`npm --prefix backend run test:axolotl` couvre huit suites : régénération
 partielle, apprentissage, sources cognitives, métamorphose, coût, sélection,
 runtime et reprise. Les tests utilisent SQLite et des workers réels, avec des
 contrats épinglés, des cas de concurrence, de preuves altérées et de budgets
 épuisés. Le test de dispatch possède sa propre base de contrôle temporaire.
+La suite Axolotl est également incluse dans la chaîne de tests par défaut du backend.

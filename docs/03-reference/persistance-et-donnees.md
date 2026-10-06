@@ -54,6 +54,19 @@ Le singleton et la promesse `dbInitialization` empêchent deux bootstraps simult
 
 ## 3. Schéma SQLite
 
+### État Axolotl versionné
+
+`axolotlStateStore.ensure()` crée les tables `axolotl_state` et `axolotl_evidence`
+de façon idempotente à leur utilisation. La première stocke des documents JSON
+par couple `(kind, id)` avec une version : topologies, sessions, plasticité,
+observations et messages. La seconde conserve les preuves des essais avec leurs
+empreintes. Les changements liés utilisent une transaction et une comparaison
+de version ; une adoption concurrente ou un rollback sur une génération dépassée
+est refusé. Propriété de l’orchestrateur et workspace courant sont contrôlés
+à l’accès aux sessions et à la topologie. Les anciennes maps adaptatives
+restent des archives et ne valent pas admission native. Voir la
+[référence Axolotl](axolotl-regeneration.md) pour les états et conditions de reprise.
+
 ### 3.1 Familles de données
 
 Le schéma est distribué entre `schema-tables-core.js` et `schema-tables-extensions.js`. Les familles principales sont :
@@ -68,6 +81,7 @@ Le schéma est distribué entre `schema-tables-core.js` et `schema-tables-extens
 | Gouvernance | `provider_configs`, `agent_model_routing_policies`, `platform_approvals` |
 | Mémoire des requêtes (ADR 0046) | `request_problems`, `request_results` |
 | Biologie opérationnelle | `cryptobiosis_snapshots`, plasmids, décisions génomiques et synapses |
+| Régénération Axolotl | `axolotl_state`, `axolotl_evidence` ; promotion L0 dans `learned_traits` |
 | Archives terminales | `fossils`, `fossil_strata` |
 
 Les colonnes JSON telles que `metadata_json`, `state_json`, `payload_json`, `config_json` et `result_json` servent à conserver des données extensibles sans multiplier les migrations pour chaque attribut périphérique. `cryptobiosis_snapshots` conserve les colonnes JSON historiques et possède aussi `state_blob`/`metadata_blob`, ajoutées par migration. `cryptobiosisSporeService.js` fournit un codec MessagePack indépendant en mémoire ; il ne réalise pas le cycle de persistance de ces colonnes. Les termes vitrification, tréhalose et germination sont des noms de modèle logiciel, pas des processus biologiques. Les clés et les filtres de scope restent relationnels lorsque l'isolation, les jointures ou les performances l'exigent.

@@ -1351,3 +1351,14 @@ Taux de Résolution Effectif Dynamique : 4 / 4 (100.0% Pass@1)
 | Intégrité du diff | **Réussi** | `git diff --check` sans sortie ni erreur.
 
 Ces résultats décrivent uniquement cette configuration locale, ces versions d’outils, les fixtures et les services effectivement lancés. Le vert des tests ne démontre ni comportement universel ni adéquation d’un fournisseur externe ; un échec interrompant une suite laisse les scénarios ultérieurs non vérifiés.
+
+## Contrat natif Axolotl
+
+`npm --prefix backend run test:axolotl` lance huit suites : régénération
+partielle, apprentissage, sources cognitives, métamorphose, coût, sélection
+stratégique, runtime et gates de reprise. Elles utilisent SQLite et des
+workers Node réels pour les contrats de routage/rappel, avec concurrence,
+preuves altérées, budgets, rollback, messages et composition. La suite est
+incluse dans les tests par défaut du backend. Sa réussite porte sur ce
+contrat natif et ne certifie pas une mission LLM arbitraire ni les autres
+suites du dépôt. Voir la [référence Axolotl](../03-reference/axolotl-regeneration.md).

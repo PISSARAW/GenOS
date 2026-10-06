@@ -7,6 +7,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [types-de-workers.md](types-de-workers.md) — catalogue des 19 types Rust et correspondance avec les profils Node.
 - [types-de-daemons.md](types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
 - [outils-mcp.md](outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
+- [axolotl-regeneration.md](axolotl-regeneration.md) — primitives de régénération, contrats natifs, états, budgets, preuves et erreurs.
 - [mcp-transport-config.md](mcp-transport-config.md) — transport MCP binaire, config profil, vérification.
 - [modeles-providers-routage.md](modeles-providers-routage.md) — providers, modèles, routage codex/hermes/local.
 - [mcp-solar-pro-hermes-nous-setup.md](mcp-solar-pro-hermes-nous-setup.md) — Solar Pro, MCP, Hermes, provider Nous : config, modèles, usage.

@@ -49,6 +49,19 @@ const HANDLERS = {
 
 La liste complète est dans [backend/src/services/strategyExecutionAdapter.js](../../backend/src/services/strategyExecutionAdapter.js).
 
+### Parcours Axolotl
+
+La stratégie `axolotl_regeneration` compose `assess_regeneration`,
+`plan_regeneration`, `prepare_cognitive_learning`, `execute_regeneration`,
+`validate_equivalence` et `promote_cognitive_candidate`. Les handlers partagent
+le `sessionId` puis la topologie admise dans le contexte du pipeline.
+Une assessment sans régénération renvoie explicitement `not_required` aux phases
+suivantes ; un échec conserve `success: false`. L’adoption dépend d’un contrat
+natif complet réussi et de la version source, puis la promotion cognitive
+contrôle les preuves et reste L0. L’inspection, le rollback, la métamorphose,
+les observations et la messagerie ont des primitives dédiées. Voir leur
+[contrat et leurs entrées](../03-reference/axolotl-regeneration.md).
+
 L’intérêt d’un tel modèle est qu’une stratégie ne dépend pas d’un script monolithique. Elle agit grâce à une composition de primitives et d’étapes, chaque étape étant vérifiable et réutilisable.
 
 ---

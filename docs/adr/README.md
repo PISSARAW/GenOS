@@ -210,7 +210,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0182a](0182-navigation-web-et-vision-foveale.md) | Navigation web et vision fovéale par session explicite | Proposé — intégration expérimentale. | 2026-09-30. | Backend, navigation, perception, preuves. |
 | [0182b](0182-planification-allostatique-mesuree.md) | Planification allostatique depuis les mesures runtime | Accepte | 2026-09-30 | Interoception, planification |
 | [0183a](0183-mesures-workspace-physique-computationnelle.md) | Mesures workspace et profils physiques par mission | Accepté — implémentation par lots. | -- | -- |
-| [0183b](0183-regeneration-axolotl-bornee.md) | Régénération Axolotl ciblée et fondée sur des preuves | Voir le fichier | -- | -- |
+| [0183b](0183-regeneration-axolotl-bornee.md) | Régénération Axolotl ciblée et fondée sur des preuves | Remplacé | 2026-09-30 | Backend, résilience, cognition |
 | [0184](0184-persistance-moteur-creativite.md) | Persistance du moteur de créativité | Accepté | 2026-09-30 | Créativité, runtime Rust, persistance |
 | [0185](0185-navigation-web-et-vision-foveale.md) | Navigation web et vision fovéale par session explicite | Accepté — intégration expérimentale. | 2026-09-30. | Backend, navigation, perception, preuves. |
 | [0186](0186-signaux-sensoriels-animaux-synthetiques.md) | Signaux sensoriels animaux typés comme synthétiques | Accepté | 2026-09-30 | Perception, capteurs, provenance |
@@ -384,7 +384,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0322](0322-interop-gcir-omega-rust-node.md) | Interopérabilité G-CIR Omega Rust/Node | Voir le fichier | -- | -- |
 | [0323](0323-nce-procedures-et-preuves-executables.md) | NCE : procédures exécutables et preuves liées au phénotype | Accepté | 2026-10-05 | NCE, procédures, phénotype et preuves |
 | [0324](0324-biologie-execution-et-autorite-durable.md) | Biologie des exécutions et autorité durable | Voir le fichier | -- | -- |
-| [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté. | 2026-10-06. | Régénération, cognition, plasticité. |
+| [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté | 2026-10-06 | Régénération, cognition, plasticité |
 | [0326](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
 | [0327](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
 | [0328](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |

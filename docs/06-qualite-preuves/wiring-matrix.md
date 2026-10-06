@@ -96,17 +96,21 @@ Cible : `preValidateTool` appelle le docking en premier (réflexe = rejet dur, `
 
 ## 7. Organisme : régénération / dormance / succession
 
+Le [contrat Axolotl](../03-reference/axolotl-regeneration.md) est implémenté pour
+le routage et le rappel natifs. Les statuts ci-dessous portent sur l’intégration
+commune des mécanismes de continuité de l’organisme.
+
 | Étape | Statut | Liaison |
 |---|---|---|
 | Sense | YES | `regenerationService.js:assessDamage/applyCellDeath` évalue les rôles perdus ; `survivalStateService.js:observe` persiste l'état et ses pressions |
-| Select | PARTIAL | `axolotlStrategyHandlers.js:planRegeneration` et `regenerationRuntimeService.js:planRegeneration` produisent des plans ; aucun déclencheur général depuis une panne d'agent |
-| Invoke | PARTIAL | `axolotlStrategyHandlers.js:executeRegeneration` exécute une régénération demandée ; `survivalStateService.js:suspend/wake` ferme le flux de dormance par snapshot et condition de réveil |
-| Affect decision | PARTIAL | `regenerationRuntimeService.js` exige reçu de restauration, validation de lignée et preuve avant remplacement/apoptose ; `symbiontSuccessionService.js` sélectionne résidents à garder/dormir/réveiller selon les capacités de phase |
-| Act | PARTIAL | `regenerationService.js:regenerateCell`, exécution de topologie axolotl et `symbiontSuccessionService.js:applySuccession/resumeDormantSymbiont` agissent, sans orchestration générale commune |
-| Observe | YES | cicatrices, signaux vitaux, reçus d'action et `survival_state_events` enregistrent les transitions et récupérations |
-| Learn | NO | — |
-| Persist | PARTIAL | dormance, snapshot gelé, conditions de réveil et reçus sont persistés ; état complet de l'organisme/régénération pas restauré par un même agrégat durable |
-| Reuse | PARTIAL | `wake` restaure le snapshot vérifié et la succession peut reprendre un symbionte dormant ; sélection de ces mécanismes par un contrôleur de mission reste absente |
+| Select | PARTIAL | `axolotlRecoveryPolicy.js` choisit une portée partielle/globale ou privilégie le checkpoint non structurel ; les sélecteurs respectent l’éligibilité et `plan_regeneration` fixe le contrat. Aucun déclencheur général depuis toute panne d’agent |
+| Invoke | PARTIAL | `axolotlStrategyHandlers.js` relie le pipeline au service durable et à la nursery native bornée ; `survivalStateService.js:suspend/wake` ferme le flux distinct de dormance par snapshot et condition de réveil |
+| Affect decision | PARTIAL | Axolotl exige un contrat natif réussi, une version source courante et un mode mutable avant adoption ; `regenerationRuntimeService.js` exige reçu de restauration, validation de lignée et preuve avant remplacement/apoptose ; succession soumise aux capacités de phase |
+| Act | PARTIAL | Axolotl adopte atomiquement un graphe global/partiel et du contenu cognitif éprouvés, avec rollback protégé ; `regenerateCell` et `applySuccession/resumeDormantSymbiont` conservent leurs flux distincts, sans orchestration générale commune |
+| Observe | YES | Axolotl conserve essais et observations natives, empreintes du contrat/graphe/code et coûts mesurés ; cicatrices, signaux vitaux, reçus d’action et `survival_state_events` enregistrent les autres récupérations |
+| Learn | PARTIAL | Axolotl essaie des candidats cognitifs couverts par les probes, refuse les régressions et promeut en L0 sous preuves ; le rollback révoque ces traits. Une boucle d’apprentissage commune à tout l’organisme reste absente |
+| Persist | PARTIAL | SQLite conserve sessions, topologies, plasticité, observations, preuves et messages Axolotl ; dormance/snapshots/conditions/reçus également durables. Aucun agrégat unique ne restaure l’ensemble de l’organisme |
+| Reuse | PARTIAL | Axolotl reprend une session interrompue après deadline et conserve l’identité logique des messages après remplacement ; `wake` et succession reprennent leurs états vérifiés. La sélection générale par un contrôleur de mission reste absente |
 
 ## 8. Daemons : reproduction causale + réparation déléguée
 

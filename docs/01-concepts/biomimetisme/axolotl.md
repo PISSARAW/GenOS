@@ -1,5 +1,9 @@
 # Axolotl — Régénération fonctionnelle et cognitive
 
+- **Statut** : Implémenté dans le runtime natif Axolotl.
+- **Portée** : contrats déterministes de rôles, routage et rappel cognitif du backend Node.
+- **Dernière revue** : 2026-10-06.
+
 ## Périmètre implémenté
 
 Axolotl reconstruit une topologie endommagée et son contenu cognitif sous un
@@ -137,9 +141,12 @@ qu’aucun producteur natif ne les mesure ; une valeur absente ne vaut pas zéro
 - La composition biologique Axolotl utilise les composants et rôles admis.
   Sans régénération admise, son statut reste `awaiting_regeneration`.
 
-La suite dédiée s’exécute avec `node backend/tests/test_axolotl_suite.js` et couvre
+La suite dédiée s’exécute avec `npm --prefix backend run test:axolotl`. Elle est
+également incluse dans la chaîne de tests par défaut du backend. Elle couvre
 la reprise SQLite, la concurrence, la reconstruction cognitive, les preuves
 altérées, le rollback, les budgets, la métamorphose, les messages persistants,
 la composition et la sélection de stratégie.
 
-Voir [ADR 0325](../../adr/0325-regeneration-axolotl-executable.md).
+Voir la [référence des primitives](../../03-reference/axolotl-regeneration.md),
+le [parcours de reprise](../../04-exploitation/resilience-et-reprise.md#régénération-axolotl)
+et l’[ADR 0325](../../adr/0325-regeneration-axolotl-executable.md).
