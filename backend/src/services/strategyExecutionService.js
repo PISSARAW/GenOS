@@ -177,6 +177,7 @@ async function approveRun(db, id, options) {
   const model = await selfModel.load(db, promotion.agentId, { mission: settings });
   selfModel.assertPromotionConstraints(model, gateContext);
   promotionGate.assertPromotionGate(promotion.contract, gateContext);
+  await require('./promotionVerifierNonceService').consume(db, { promotion, gateContext });
   const primitives = events.resolveStagePrimitives('conditional_promotion', promotion.contract.strategy_portfolio);
   const promotionResult = await promotionGate.runPromotionPipeline(promotion, primitives, aeisEvaluation);
   if (!promotionResult.success) throw new Error(`Execution run ${id} promotion failed: ${promotionResult.error || 'unknown error'}`);

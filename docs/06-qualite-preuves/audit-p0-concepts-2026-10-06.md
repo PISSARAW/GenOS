@@ -233,3 +233,39 @@ conservés et la validation Rust globale demeure ouverte.
 Le contrôle global observe désormais 297 violations, dont 153 nouvelles, sans
 modification de baseline. Les journaux et contre-exemples de cette reprise restent
 dans `p0-audit/continuation/phase-2`.
+
+## Troisième reprise P0 : consommer le lot avant la promotion réelle
+
+Le contre-exemple du parcours `approveRun` échoue avant correction : le contrôle
+placé devant le vrai pipeline ne trouve pas la table des nonces. Le reçu accepté
+par les gates n'était donc pas consommé durablement avant les premiers effets.
+
+La correction relit l'assemblée persistée et vérifie son sceau, son run propriétaire,
+son périmètre issu de SQLite et son acceptation. Chaque reçu indépendant doit être
+positif et lié à l'empreinte de son résultat. Tous les nonces sont ensuite consommés
+dans une transaction avant le pipeline. Un rejet annule les insertions du lot.
+La décision et ses limites figurent dans l'[ADR 0343](../adr/0343-consommation-des-recus-avant-promotion.md).
+
+Le test du parcours réel utilise deux répliques indépendantes de vérification
+exécutables et délègue au vrai pipeline. Il observe les nonces persistés avant
+ses effets ; un trigger SQLite refusant leur insertion empêche tout appel au
+pipeline et laisse le run en attente d'approbation. Les tests complémentaires
+refusent un autre run, un autre périmètre, un résultat étranger, des reçus signés
+négatifs et un nonce numérique. Ils vérifient le rollback d'un lot partiellement
+rejoué, une connexion SQLite en lecture seule et le rejeu concurrent sur deux
+connexions réelles : une seule consommation réussit. Les assemblées de ces tests
+complémentaires sont des fixtures signées, sans oracle de vérité scientifique.
+
+La suite complète `npm test` passe à la relance. Le premier essai échoue sur un
+renommage de snapshot temporaire (`EPERM`) avant les tests de reçus ; les deux
+journaux sont conservés. Le contrôle qualité final examine 5 260 fichiers sources :
+297 violations, dont 153 nouvelles, sans modification de baseline. Le workspace
+Rust n'est pas relancé après les échecs de lien PDB et la récupération de disque
+documentés dans la seconde reprise ; sa validation reste ouverte.
+
+La protection qualifiée concerne le rejeu du même lot et le refus avant les effets.
+La transaction ne couvre pas les effets externes du pipeline. Elle ne garantit ni
+une exécution exactement une fois après crash, ni la sérialisation d'approbations
+produisant deux lots frais. Un échec aval conserve les nonces consommés. Les
+holdouts, les comparaisons scientifiques et les autres consommateurs restent à
+qualifier. Les preuves de cette reprise sont dans `p0-audit/continuation/phase-3`.

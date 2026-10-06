@@ -81,7 +81,8 @@ async function run() {
     assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', run.id)).status, 'awaiting_approval', 'unsigned evidence must not finalize promotion');
     assert.equal(emittedEvents.some((event) => event.eventType === 'STRATEGY_PROMOTION_FINALIZED'), false);
 
-    const positive = await approveWithRealEvidence({ db, run, contractRecord, proofWorkspace });
+    const positive = await require('./helpers/promotionNonceAssertions').withNonceAssertion(db,
+      () => approveWithRealEvidence({ db, run, contractRecord, proofWorkspace }));
     const { approvedRun, realReport } = positive;
     assert.equal(approvedRun.status, 'completed', 'genuine signed independent AEIS receipts must allow approval');
     const metrics = JSON.parse((await db.get('SELECT metrics_json FROM strategy_execution_runs WHERE id = ?', run.id)).metrics_json);
@@ -107,6 +108,7 @@ async function run() {
     });
     assert.equal(repeated, false, 'a retried run cannot increase affinity twice');
     assertPositiveAssembly(persisted.evaluation);
+    await assertNonceWriteFailure({ db, contractRecord: { ...contractRecord, contract }, proofWorkspace });
     await assertRefutationFeedback({ db, contractRecord: { ...contractRecord, contract }, proofWorkspace });
 
     telemetry.off('telemetry', onTelemetry);
@@ -119,6 +121,17 @@ async function run() {
       if (fs.existsSync(`${dbPath}${suffix}`)) fs.unlinkSync(`${dbPath}${suffix}`);
     }
   }
+}
+
+async function assertNonceWriteFailure(spec) {
+  const { db, contractRecord } = spec;
+  const run = await strategyService.createExecutionRun(db, { agentId: 'agent-promo-test', contractRecord,
+    budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 } });
+  await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
+  await db.run("UPDATE strategy_execution_steps SET status = 'awaiting_approval' WHERE run_id = ? AND sequence = 7", run.id);
+  await require('./helpers/promotionNonceAssertions').withNonceWriteFailure(db,
+    () => approveWithRealEvidence({ ...spec, run }));
+  assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', run.id)).status, 'awaiting_approval');
 }
 
 async function assertRefutationFeedback(spec) {

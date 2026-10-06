@@ -23,6 +23,7 @@ const cases = [
   'test_aeis_production_adapters.js',
   'test_aeis_provider_persistence.js',
   'test_aeis_runtime_integrations.js',
+  'test_promotion_verifier_nonces.js',
   'test_approve_run_deferred_promotion.js',
   'test_aeis_provider_approve_run.js',
   'test_epistemic_immune_memory_persistence.js',
