@@ -146,7 +146,22 @@ const suites = {
   workers: [
     ['Rust and Node worker kind parity', 'test_worker_kind_registry.js'],
     ['worker kind matrix across eight topologies', 'test_topology_worker_kind_matrix.js'],
-    ['worker contract adequacy across roles and methods', 'test_topology_worker_adequacy.js']
+    ['worker contract adequacy across roles and methods', 'test_topology_worker_adequacy.js'],
+    ['native 19-kind execution and evidence', 'test_worker_native_matrix.js'],
+    ['native worker contract boundaries', 'test_worker_native_boundaries.js'],
+    ['native worker lifecycle and guard', 'test_worker_native_lifecycle.js'],
+    ['worker contract enforcement', 'test_worker_contract_enforcement.js'],
+    ['worker runtime limits', 'test_worker_runtime_limits.js'],
+    ['procedural and formal execution', 'test_deterministic_worker_runners.js'],
+    ['native verifier', 'test_deterministic_worker_verifier.js'],
+    ['native red worker', 'test_deterministic_worker_red.js'],
+    ['native experiment', 'test_deterministic_worker_experiment.js'],
+    ['native synthesis', 'test_deterministic_worker_synthesis.js'],
+    ['native monitor', 'test_deterministic_worker_monitor.js'],
+    ['native forensic', 'test_deterministic_worker_forensic.js'],
+    ['native scout', 'test_deterministic_worker_scout.js'],
+    ['native teaching', 'test_deterministic_worker_teaching.js'],
+    ['bounded sub-orchestration dispatch', 'test_sub_orchestrator_dispatch.js']
   ],
   epistemicScheduler: [
     ['active task fingerprints', 'test_epistemic_scheduler_active_registry.js'],

@@ -386,9 +386,11 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0323b](0323-reprise-atomique-natural-search.md) | Reprise atomique du Natural Search Control Plane | accepté | 2026-10-06 | contrôle de recherche, SQLite, preuves et reprise |
 | [0324](0324-biologie-execution-et-autorite-durable.md) | Biologie des exécutions et autorité durable | Voir le fichier | -- | -- |
 | [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté | 2026-10-06 | Régénération, cognition, plasticité |
-| [0326](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
+| [0326a](0326-audits-philosophiques-executables-et-preuves.md) | Audits philosophiques exécutables et preuves bornées | Voir le fichier | -- | -- |
+| [0326b](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
 | [0327a](0327-aeis-preuves-et-autorite-persistante.md) | AEIS : preuves exécutables et autorité persistante | Voir le fichier | -- | -- |
 | [0327b](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
+| [0327c](0327-trinity-comparaison-recherche-et-assemblage.md) | Comparaison commune, recherche et assemblage Trinity | Accepté | 2026-10-06 | Trinity, preuves, recherche expérimentale |
 | [0328](0328-cycle-standard-gvx-verifie-et-reprenable.md) | Cycle standard GVX vérifié et reprenable | Accepté | 2026-10-06 | GVX, exécution, preuves, reprise |
 | [0329](0329-cloture-verifiable-runs-a-team.md) | Clôture vérifiable des runs A-Team | Accepté | 2026-10-06 | A-Team, dispatch, preuve et reprise |
 | [0330a](0330-effets-durables-metapopulation.md) | Effets durables et reprise vérifiée de Metapopulation | Voir le fichier | -- | -- |
@@ -399,9 +401,12 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0333b](0333-boucle-shev-et-reconciliation-durable.md) | Boucle SHEV et réconciliation durable | Voir le fichier | -- | -- |
 | [0333c](0333-cloture-runtime-agow.md) | Clôture des contrats runtime AGOW | Accepté | 2026-10-06 | AGOW, budgets, persistance, preuve |
 | [0334a](0334-biome-boucle-ecologique-transactionnelle.md) | Biome : boucle écologique transactionnelle et exécution vérifiée | Accepté | 2026-10-06 | Biome, écologie, ressources, persistance et preuves |
+| [0334b](0334-cycle-morphogenetique-executable-et-isole.md) | Cycle morphogénétique exécutable et isolé | Voir le fichier | -- | -- |
 | [0334c](0334-ontogenese-pilotage-reprise-et-retention.md) | Ontogenèse : pilotage opérateur, reprise et rétention vérifiables | Accepté | 2026-10-06 | Orchestration résidente, contrôle, persistance, exploitation |
+| [0334d](0334-registre-executeurs-workers.md) | Registre des exécuteurs natifs des 19 workers | Accepté | 2026-10-06 | Workers, runtime, contrats, preuve |
 
-| [0336](0336-cycle-resident-et-verification-des-daemons.md) | Cycle résident et vérification des daemons | Accepté | 2026-10-06 | Daemons, territoires, persistance, réparation et preuves || [0335](0335-orchestrator-recus-proprietaires-et-cloture-prouvee.md) | Orchestrator : reçus propriétaires et clôture prouvée | Accepté | 2026-10-06 | Orchestration, persistance, preuve |
+| [0336](0336-cycle-resident-et-verification-des-daemons.md) | Cycle résident et vérification des daemons | Accepté | 2026-10-06 | Daemons, territoires, persistance, réparation et preuves |
+| [0335](0335-orchestrator-recus-proprietaires-et-cloture-prouvee.md) | Orchestrator : reçus propriétaires et clôture prouvée | Accepté | 2026-10-06 | Orchestration, persistance, preuve |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

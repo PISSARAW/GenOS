@@ -31,9 +31,14 @@ async function verifyDispatchSupervision() {
   const runtime = require('../src/services/agentRuntimeAdapter');
   const originalCreate = fleet.createAutonomousWorkers;
   const originalStart = runtime.startMission;
+  const originalStop = runtime.stopMission;
+  const state = require('../src/services/agentOrchestrationState');
+  const childMethod = { version: 1, methodId: 'scoped_procedure', parameters: { procedure: { version: 1, methodId: 'subset_sum', parameters: { values: [1], target: 1 } } } };
   let startRequest;
   fleet.createAutonomousWorkers = async (_db, _parent, options) => {
     assert.equal(options.plan.dispatchWorkers[0].workerKind, 'bounded_worker');
+    assert.deepEqual(options.plan.dispatchWorkers[0].methodContract, childMethod);
+    assert.deepEqual(options.mission.methodContract, childMethod);
     assert.equal(options.plan.tokenPolicy.total, 5000);
     return [{ agentId: 'child-1', role: 'bounded_worker', workerKind: 'bounded_worker', workspaceId: 'ws-1', executionBudget: { tokens: 5000 } }];
   };
@@ -50,16 +55,27 @@ async function verifyDispatchSupervision() {
     return { id: 'sub-1', role: 'sub_orchestrator', agent_type: 'GenOS', workspace_id: 'ws-1', cognitive_budget: 5000, execution_mode: 'worker', metadata_json: metadata() };
   } };
   try {
-    const result = await dispatchSubOrchestratorWorker(db, 'sub-1', { mission: 'Review a bounded change.' });
+    const result = await dispatchSubOrchestratorWorker(db, 'sub-1', { mission: 'Review a bounded change.', methodContract: childMethod, timeoutMs: 1234 });
     assert.equal(result.status, 'completed');
     assert.equal(result.childAgentId, 'child-1');
     assert.equal(result.supervision.success, true);
     assert.equal(result.supervision.evidenceReport.workerArtifact.type, 'dossier');
     assert.equal(startRequest.orchestratorAgentId, 'sub-1');
+    assert.deepEqual(startRequest.methodContract, childMethod);
+    assert.equal(startRequest.timeoutMs, 1234);
     assert.equal(startRequest.executionBudget.tokens, 5000);
+    let stopped;
+    runtime.startMission = async () => { state.cancelledStarts.add('sub-1'); return { success: true }; };
+    runtime.stopMission = async (id) => { stopped = id; };
+    const cancelled = await dispatchSubOrchestratorWorker(db, 'sub-1', { mission: 'Cancelled child', methodContract: childMethod });
+    assert.equal(cancelled.success, false);
+    assert.equal(cancelled.supervision.code, 'MISSION_CANCELLED');
+    assert.equal(stopped, 'child-1');
   } finally {
     fleet.createAutonomousWorkers = originalCreate;
     runtime.startMission = originalStart;
+    runtime.stopMission = originalStop;
+    state.cancelledStarts.delete('sub-1');
   }
 }
 

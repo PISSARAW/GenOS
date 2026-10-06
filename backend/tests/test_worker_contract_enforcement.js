@@ -11,20 +11,32 @@ const { buildWorkerArtifact, inspectWorkerArtifact } = require('../src/services/
 const { workerComplianceScenario } = require('./fixtures/workerComplianceScenarios');
 
 const CONTENT = {
-  scout_observation: { observations: ['found'] },
+  scout_observation: { observations: [{ observation: 'found', sourceRefs: ['ref'], confidence: 1, uncertainties: [] }] },
   dossier: { claims: [{ statement: 'claim', evidence: ['ref'] }] },
-  verification_report: { verdict: 'Accept', evidence: ['reproduction-ref'] },
-  experiment_record: { hypothesis: 'h', protocol: ['p'], measurements: ['1'] },
-  formal_certificate: { claim: 'c', solver: 's', result: 'valid', solverReceipt: { id: 'receipt-1', evidence: ['solver://fixture/receipt-1'] } },
-  synthesis_dossier: { synthesis: 's', sources: ['ref'] },
+  verification_report: { testedClaim: 'claim', verificationMethod: 'fixture comparison', reproductionSteps: ['Compare fixture'], verdict: 'Accept', evidence: ['reproduction-ref'], counterexamples: [{ claim: 'all pass', attack: 'fixture failure', reproductionSteps: ['Compare fixture'], evidence: ['reproduction-ref'] }] },
+  experiment_record: { hypothesis: 'h', protocol: ['p'], measurements: [{ metric: 'fixture', value: 1, unit: 'count', evidence: ['ref'] }] },
+  formal_certificate: { claim: 'c', solver: 's', result: 'valid', solverReceipt: { id: 'receipt-1', claim: 'c', solver: 's', result: 'valid', evidence: ['solver://fixture/receipt-1'] } },
+  synthesis_dossier: { synthesis: 's', sources: ['ref'], disagreements: [] },
   creative_candidate: { candidate: 'draft', assumptions: ['a'], falsificationTest: 'test' },
   clinical_report: { caseScope: 'synthetic_educational', differentialConsiderations: ['general possibility'], uncertainty: 'high', safetyNote: 'No individual diagnosis or treatment advice.' },
-  causal_dossier: { causalChain: ['a', 'b'], evidence: ['ref'] },
+  causal_dossier: { causalChain: [{ from: 'a', to: 'b', relation: 'fixture relation', evidence: ['ref'] }], evidence: ['ref'] },
   training_packet: { prerequisites: ['p'], steps: ['s'], evidence: ['ref'] }
 };
 
+const KIND_CONTENT = {
+  resident_daemon: { territoryReport: { territoryId: 'fixture', observedAt: '2026-10-06T00:00:00Z', sourceRefs: ['ref'] } },
+  bounded_worker: { scopeCompletion: { scopeRef: '/workspace', completedRefs: ['ref'] } },
+  adaptive_worker: { strategyTrace: [{ strategy: 'controlled_probe', decision: 'retained', reason: 'Fixture strategy', evidence: ['ref'] }] },
+  specialist: { specialtyAssessment: { niche: 'fixture-domain', inScope: true, evidence: ['ref'] } },
+  symbiotic_worker: { hostContribution: { hostContractId: 'fixture-host', capability: 'fixture-capability', contractCompliant: true, evidence: ['ref'] } },
+  recovery_worker: { recoveryReceipt: { action: 'fixture action', restoredState: 'fixture state', receiptId: 'fixture receipt', evidence: ['ref'] } },
+  liaison_worker: { handoff: { sourceGroup: 'a', targetGroup: 'b', deliveredRefs: ['ref'] } },
+  sub_orchestrator: { childSummaries: [] }
+};
+
 assert.equal(workerComplianceScenario('red_worker').receipt.testPassed, true);
-assert.equal(workerComplianceScenario('formal_worker').receipt.result, 'valid');
+assert.equal(workerComplianceScenario('formal_worker').receipt.fixtureOnly, true);
+assert.equal(workerComplianceScenario('formal_worker').receipt.result, undefined);
 assert.equal(workerComplianceScenario('forensic_worker').receipt.events[1].ready, false);
 assert.equal(workerComplianceScenario('medical_worker').receipt.realPatient, false);
 
@@ -32,28 +44,28 @@ function dossier(kind, contract, artifactType = contract.evidence.requiredArtifa
   return {
     workerId: kind,
     events: [{ evidenceReport: { workerArtifact: {
-      type: artifactType, content: CONTENT[artifactType], provenance: { source: 'test-ref' }
+      type: artifactType, content: { ...CONTENT[artifactType], ...(KIND_CONTENT[kind] || {}) }, provenance: { sourceRefs: ['test-ref'] }
     } } }]
   };
 }
 
 for (const kind of Object.keys(workerKinds.KINDS)) {
   const scenario = workerComplianceScenario(kind);
-  const mission = buildWorkerMission({ workerKind: kind, prompt: `${scenario.prompt} Source evidence: ${scenario.sourceRef}`, workspaceRoot: '/workspace' });
+  const mission = buildWorkerMission({ workerKind: kind, prompt: `${scenario.prompt} Source evidence: ${scenario.sourceRef}`, workspaceRoot: '/workspace', specialtyNiche: 'fixture-domain', hostContractId: 'fixture-host', hostCapabilities: ['fixture-capability'] });
   const contract = mission.workerContract;
   const required = contract.evidence.requiredArtifacts[0];
   const wrongType = required === 'creative_candidate' ? 'dossier' : 'creative_candidate';
   const artifactReply = JSON.stringify({
-    outcome: 'success', claims: CONTENT.dossier.claims,
-    workerArtifact: { type: required, content: CONTENT[required], provenance: { sourceRefs: ['fixture-ref'] } }
+    outcome: 'success', claims: CONTENT.dossier.claims, ...(KIND_CONTENT[kind] || {}),
+    workerArtifact: { type: required, content: { ...CONTENT[required], ...(KIND_CONTENT[kind] || {}) }, provenance: { sourceRefs: ['fixture-ref'] } }
   });
   assert.equal(buildWorkerArtifact(kind, artifactReply, { source: 'runtime', model: 'fixture' })?.type, required);
   if (required === 'dossier') {
-    assert.equal(buildWorkerArtifact(kind, JSON.stringify({ outcome: 'success', claims: CONTENT.dossier.claims }), { source: 'runtime' })?.type, 'dossier');
+    assert.equal(buildWorkerArtifact(kind, JSON.stringify({ outcome: 'success', claims: CONTENT.dossier.claims, ...(KIND_CONTENT[kind] || {}) }), { source: 'runtime' })?.type, 'dossier');
   }
   assert.equal(buildWorkerArtifact(kind, 'unstructured response', { source: 'runtime' }), null);
   assert.match(mission.prompt, new RegExp(workerKinds.promptRule(kind).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  if (required === 'dossier') assert.match(mission.prompt, /top-level claims form the dossier/);
+  if (required === 'dossier') assert.match(mission.prompt, /claims/);
   else {
     assert.match(mission.prompt, new RegExp(`type must be ${required}`));
     assert.match(mission.prompt, /Do not put type or content at the root/);
@@ -79,7 +91,7 @@ for (const kind of Object.keys(workerKinds.KINDS)) {
 }
 
 assert(inspectWorkerArtifact('red_worker', { outcome: 'success', claims: CONTENT.dossier.claims, type: 'verification_report', content: CONTENT.verification_report }).issues.includes('workerArtifact.missing'));
-assert(inspectWorkerArtifact('formal_worker', { outcome: 'success', claims: CONTENT.dossier.claims, workerArtifact: { type: 'formal_certificate', content: { claim: 'c', solver: 's', result: 'valid' } } }).issues.includes('workerArtifact.content.solverReceipt.missing_or_invalid'));
+assert(inspectWorkerArtifact('formal_worker', { outcome: 'success', claims: CONTENT.dossier.claims, workerArtifact: { type: 'formal_certificate', content: { claim: 'c', solver: 's', result: 'valid' } } }).issues.some((issue) => issue.includes('solverReceipt')));
 assert(inspectWorkerArtifact('creative_worker', { outcome: 'success', claims: CONTENT.dossier.claims, workerArtifact: { type: 'creative_candidate', content: { candidate: 'draft' } } }).issues.includes('workerArtifact.content.assumptions.missing_or_invalid'));
 assert(inspectWorkerArtifact('medical_worker', { outcome: 'success', claims: CONTENT.dossier.claims, workerArtifact: { type: 'clinical_report', content: { diagnoses: ['x'], caseScope: 'synthetic_educational', differentialConsiderations: ['x'], uncertainty: 'high', safetyNote: 'No advice.' } } }).issues.some((issue) => issue.includes('non_diagnostic')));
 

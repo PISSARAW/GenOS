@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "node server.js",
     "holobionte:mission": "node bin/genos-holobionte-mission.cjs",
-    "test": "node tests/test_backend.js && npm run test:authority && npm run test:aeis && npm run test:syncytium && npm run test:axolotl && npm run test:biome && npm run test:daemon",
+    "test": "node tests/test_backend.js && npm run test:authority && npm run test:aeis && npm run test:syncytium && npm run test:axolotl && npm run test:biome && npm run test:workers && npm run test:daemon",
     "test:syncytium": "node tests/run_syncytium_suite.js",
     "test:biome": "node tests/run_biome_suite.js",
     "test:axolotl": "node tests/test_axolotl_suite.js",
@@ -81,7 +81,8 @@
     "test:morphogenesis": "node tests/run_morphogenesis_suite.js",
     "daemon:resident": "node bin/genos-daemon.cjs",
     "test:daemon": "node tests/run_daemon_suite.cjs",
-    "test:orchestrator": "node tests/run_orchestrator_suite.cjs"
+    "test:orchestrator": "node tests/run_orchestrator_suite.cjs",
+    "test:workers": "node tests/run_validation_suite.js workers"
   },
   "dependencies": {
     "@cedar-policy/cedar-wasm": "^4.13.0",

@@ -98,7 +98,8 @@ function attachHostExecutionContext(mission) {
 async function resolveMissionContract(ctx) {
   const { executable, db, agentId, normalizedMission, dispatchedAgent } = ctx;
   const availability = runtimeAvailability(executable);
-  if (!availability.available) throw new Error(availability.reason);
+  const native = require('../agents/workerRuntimeLimitsService').isDeterministicWorkerMission(normalizedMission);
+  if (!native && !availability.available) throw new Error(availability.reason);
   const strategyContracts = require('../strategyContractService');
   let contractRecord = await strategyContracts.getLatestContract(db, agentId, dispatchedAgent.workspace_id);
   if (!contractRecord && normalizedMission.orchestratorAgentId) {
