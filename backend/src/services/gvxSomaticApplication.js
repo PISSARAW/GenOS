@@ -1,6 +1,6 @@
 'use strict';
 
-const { appendEvent, listEvents } = require('./gvxDevelopmentLedger');
+const { appendEvent, listAllEvents } = require('./gvxDevelopmentLedger');
 
 async function applySomaticCandidate(db, input) {
   validateAdapters(input);
@@ -10,19 +10,24 @@ async function applySomaticCandidate(db, input) {
   });
   validateApproval(approval);
   const prior = await findApplication(db, input);
-  if (prior) return prior;
+  if (prior) {
+    if (prior.parentHash !== input.parentHash || prior.candidateHash !== input.candidateHash) throw appError('GVX_APPLICATION_CONFLICT');
+    if ((await findRollback(db, input))?.payload.result.status === 'restored') throw appError('GVX_APPLICATION_ALREADY_ROLLED_BACK');
+    return prior;
+  }
   const runtimeReceipt = await input.runtime.apply(input.change);
-  validateRuntimeReceipt(runtimeReceipt, input.parentHash);
   try {
+    validateRuntimeReceipt(runtimeReceipt, input);
     return await appendEvent(db, {
+      id: `gvx-application:${input.applicationId}`,
       ...input.scope, entityId: input.entityId, type: 'application_recorded',
       parentHash: input.parentHash, candidateHash: input.candidateHash,
       payload: { kind: 'somatic_application', applicationId: input.applicationId,
         approvalId: approval.approvalId, runtimeReceipt }
     });
   } catch (error) {
-    await compensate(input.runtime, runtimeReceipt);
-    throw error;
+    const compensation = await compensate(input, runtimeReceipt);
+    throw Object.assign(error, { compensation });
   }
 }
 
@@ -31,7 +36,7 @@ async function rollbackSomaticApplication(db, input) {
   const application = await findApplication(db, input);
   if (!application) throw appError('GVX_APPLICATION_NOT_FOUND');
   const prior = await findRollback(db, input);
-  if (prior) return prior;
+  if (prior?.payload.result.status === 'restored') return prior;
   const approval = await input.authorization.authorize({
     action: 'gvx.somatic.rollback', candidateHash: input.candidateHash,
     parentHash: input.parentHash, scope: input.scope, entityId: input.entityId
@@ -47,7 +52,7 @@ async function rollbackSomaticApplication(db, input) {
 }
 
 async function findApplication(db, input) {
-  const events = await listEvents(db, eventScope(input));
+  const events = await listAllEvents(db, eventScope(input));
   const event = events.find((item) => item.type === 'application_recorded'
     && item.payload.kind === 'somatic_application'
     && item.payload.applicationId === input.applicationId);
@@ -55,8 +60,8 @@ async function findApplication(db, input) {
 }
 
 async function findRollback(db, input) {
-  const events = await listEvents(db, eventScope(input));
-  return events.find((item) => item.type === 'rollback_recorded'
+  const events = await listAllEvents(db, eventScope(input));
+  return events.reverse().find((item) => item.type === 'rollback_recorded'
     && item.payload.kind === 'somatic_rollback'
     && item.payload.applicationId === input.applicationId) || null;
 }
@@ -71,8 +76,15 @@ async function executeRollback(input, application) {
   }
 }
 
-async function compensate(runtime, receipt) {
-  try { await runtime.rollback(receipt.rollbackToken); } catch (_) { /* Original persistence error remains authoritative. */ }
+async function compensate(input, receipt) {
+  try {
+    const approval=await input.authorization.authorize({action:'gvx.somatic.rollback',scope:input.scope,
+      entityId:input.entityId,parentHash:input.parentHash,candidateHash:input.candidateHash});
+    validateApproval(approval);
+    const result=await input.runtime.rollback(receipt?.rollbackToken);
+    if(result?.restoredHash!==input.parentHash) throw appError('GVX_COMPENSATION_PARENT_MISMATCH');
+    return {status:'restored',restoredHash:result.restoredHash};
+  } catch(error) { return {status:'failed',errorCode:error.code||'GVX_COMPENSATION_FAILED'}; }
 }
 
 function validateAdapters(input) {
@@ -99,9 +111,9 @@ function validateApproval(approval) {
   }
 }
 
-function validateRuntimeReceipt(receipt, parentHash) {
-  if (!receipt || receipt.beforeHash !== parentHash
-      || !/^[a-f0-9]{64}$/.test(receipt.afterHash || '') || !receipt.rollbackToken) {
+function validateRuntimeReceipt(receipt, input) {
+  if (!receipt || receipt.beforeHash !== input.parentHash
+      || receipt.afterHash !== input.candidateHash || !receipt.rollbackToken) {
     throw appError('GVX_RUNTIME_RECEIPT_INVALID');
   }
 }

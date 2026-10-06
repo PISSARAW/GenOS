@@ -8,7 +8,7 @@ async function propose(options) {
   const prediction = await selfTwinPredictor({ target: goal.target, intervention: goal.intervention, context });
   if (!prediction?.predictionId || !Array.isArray(prediction.effects)) throw new Error('self-twin-impact-prediction-required');
   const candidate = {
-    ...goal.transformation, scope, entityId,
+    ...goal.transformation, eventId: options.operationId, scope, entityId,
     hypothesis: { ...goal.transformation.hypothesis,
       prediction: goal.transformation.hypothesis.prediction || JSON.stringify(prediction.effects),
       heldOutRefs: goal.transformation.hypothesis.heldOutRefs || [] },

@@ -37,24 +37,7 @@ const registry = require('./gvxVerifierRegistry').fromRemoteControlPlane([
 
 ## Dispatch du cycle depuis AGOW
 
-Un signal persistant qui recommande `create_hypothesis` ou `schedule_experiment` lance
-`runCycle` quand le backend configure aussi :
-
-- `GENOS_GVX_LIFECYCLE_ADAPTER_MODULE` : module Node statique de l'application ;
-- `GENOS_GVX_LIFECYCLE_ADAPTER_SHA256` : SHA-256 exact des octets du module.
-
-Le module expose `createAdapters({ db, signal })` et renvoie les fonctions
-`hypothesisPlanner`, `experimentInput`, `assessmentInput`, `developmentalReceiptInput`,
-`applicationInput`, `monitorInput` et `selfTwinPredictor`. Il s'exécute dans le processus
-backend de contrôle, pas dans le runtime du worker. `experimentInput` fournit l'isolation,
-le runner et le registre distant. L'assessment et chaque requirement de métrique doivent
-être couverts par des reçus signés. Si le module manque, si le hash ne correspond pas ou
-si un adapter échoue, le statut reste `deferred` et aucun crédit positif n'est accordé.
-Une retransmission d'un signal déjà enregistré ne rejoue pas le cycle automatiquement.
-
-Ces adapters restent à implémenter pour chaque application : les métriques métier, le
-retour arrière et la surveillance longitudinale ne peuvent pas être déduits d'un signal
-AGOW générique. Voir [ADR 0272](../adr/0272-execution-cycle-developpemental-gvx.md).
+Un signal persistant lance désormais le cycle standard avec un profil opérateur épinglé. Voir [profil d’exécution](../02-orchestration/profil-execution-gvx.md). Un module personnalisé reste possible avec GENOS_GVX_LIFECYCLE_ADAPTER_MODULE et GENOS_GVX_LIFECYCLE_ADAPTER_SHA256 ; ses contrôles sont épinglés. Une retransmission reprend le journal du cycle et ne double pas une application ou un crédit.
 
 Le vérificateur intégré `artifact-integrity-v1` confirme uniquement que le SHA-256 des
 octets correspond à la déclaration. Pour ajouter des vérifications métier, le processus
@@ -72,8 +55,7 @@ différents de `gvx-somatic-conservative-v1` (au moins trois échantillons, zér
 admise, maintien de `safety` et amélioration mesurable d'au moins une métrique). Cela
 vérifie la décision sur les mesures fournies; cela ne valide pas, à lui seul, la collecte
 ou la pertinence métier de ces mesures. Chaque métrique du profil exige aussi un reçu
-`gvx-somatic-metric:<nom>`. Ces vérificateurs doivent venir d'un module métier épinglé
-au control plane. Leur reçu doit lier le nom de métrique, le bras (`baseline` ou
+`gvx-somatic-metric:<nom>`. Le vérificateur intégré gvx-execution-metrics-v1 les produit pour les profils d’exécution opérateur épinglés, en recoupant les artefacts avec ses propres mesures exécutées et persistées. Les autres domaines peuvent utiliser un module métier épinglé. Leur reçu doit lier le nom de métrique, le bras (`baseline` ou
 `candidate`), la moyenne recalculée et le nombre d'échantillons aux octets vérifiés. Sans
 eux, l'assessment est rejeté et aucun crédit positif n'est signé.
 
@@ -98,3 +80,7 @@ calibration probabiliste. Une table absente, une fenêtre vide ou l'absence d'ob
 SelfTwin produit `unknown`; aucune valeur n'est imputée à zéro.
 
 Voir [ADR 0270](../adr/0270-control-plane-de-verification-gvx.md).
+
+## Crédit après maturation
+
+Le service fournit aussi gvx-longitudinal-assessment-v1, qui exige au moins trois assessments positifs signés sur des contextes distincts et liés à l’application. Le reçu de crédit est lié à l’agent, la voie, le contexte et aux valeurs mesurées. Une même paire de mesures ne peut créditer une nouvelle décision. Les endpoints authentifiés /v1/profile, /v1/evaluate et /v1/authorize complètent /v1/verify et /v1/development-receipt. Le mode de séparation UID/GID et ses refus sont décrits dans le profil d’exécution.

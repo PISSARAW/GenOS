@@ -67,7 +67,7 @@ function commandInvocation(command) {
  * Exécute une commande dans le répertoire de travail spécifié avec timeout.
  * Retourne un résultat d'exécution complet.
  */
-async function runIsolated({ command, cwd = process.cwd(), timeoutMs = DEFAULT_TIMEOUT_MS, env = {}, stdin = null }) {
+async function runIsolated({ command, cwd = process.cwd(), timeoutMs = DEFAULT_TIMEOUT_MS, env = {}, stdin = null, identity = {} }) {
   const startedAt = Date.now();
   const executionId = crypto.randomUUID();
   const cmdHash = `sha256:${crypto.createHash('sha256').update(command).digest('hex')}`;
@@ -100,7 +100,7 @@ async function runIsolated({ command, cwd = process.cwd(), timeoutMs = DEFAULT_T
       resolve({
         command,
         commandHash: cmdHash,
-        executionId, processId: child.pid || null,
+        executionId, processId: child.pid || null, executionIdentity: identity,
         exitCode: -1,
         stdout: '',
         stderr: error.message,

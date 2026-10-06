@@ -24,11 +24,6 @@ ne certifie que l'égalité entre les octets lus et le SHA-256 déclaré. Fourni
 un `artifactReader` qui lit le contenu autorisé; GVX recalcule le SHA-256 avant
 d'accepter ce reçu d'intégrité.
 
-Ce registre reste dans le processus Node du backend et ce dépôt ne fournit pas encore
-d'implémentation GVX métier enregistrée au démarrage. Il retire le callback du binding de
-requête et échoue fermé sans configuration, mais ne constitue pas une isolation contre
-un module arbitraire exécuté dans le même processus. La signature HMAC des reçus a la
-même limite; une frontière forte exige un service de vérification séparé qui détient
-la clé privée et exécute lui-même les vérificateurs.
+Le cycle standard peut utiliser le service externe Ed25519 et l’évaluateur de profils opérateur épinglés. Il fournit application et rollback AGOW, suivi indépendant et reprise. Les autres domaines gardent leurs adaptateurs métier explicites. Voir le [profil standard](profil-execution-gvx.md) et le [service externe](../05-securite-gouvernance/service-verificateur-gvx.md).
 
 Voir [ADR 0267](../adr/0267-branchement-runtime-adaptateurs-gvx.md).

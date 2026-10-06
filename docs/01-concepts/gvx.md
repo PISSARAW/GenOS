@@ -2,13 +2,17 @@
 
 - **Statut** : Partiel
 - **Portée** : propositions, expériences, preuves, interoception, plasticité somatique, transmission et intégration aux outcomes AGOW.
-- **Dernière revue** : 2026-10-02
+- **Dernière revue** : 2026-10-06
 
 > **Règle de lecture.** « Implémenté » signifie qu'un contrat existe dans le dépôt ; cela ne prouve ni son efficacité empirique ni la complétude du cycle développemental. « Partiel » désigne une capacité dont l'adaptateur, la validation indépendante ou l'intégration métier manque encore. Les analogies biologiques restent des modèles de conception.
 
+## Parcours standard exécutable
+
+Le [profil standard](../02-orchestration/profil-execution-gvx.md) fournit l’évaluation séparée, les mesures signées, l’application autorisée, le monitoring longitudinal puis le crédit et la reprise durable. Ses tests sont fonctionnels ; ils ne démontrent aucune supériorité empirique.
+
 ## 1. Définition du domaine
 
-GenOS Verified Evo-Devo (GVX) est la couche qui formule, expérimente, trace et soumet à contrôle des transformations de compétences ou de dispositions d'un agent. Elle relie les événements d'expérience aux candidats de changement, puis confronte ces candidats à des résultats vérifiables avant toute application ou transmission (**Partiel** — services présents dans `backend/src/services/gvx*.js`, mais le parcours complet et ses campagnes empiriques ne sont pas livrés ; voir [plan d'implémentation GVX](../06-qualite-preuves/plan-implementation-gvx.md)).
+GenOS Verified Evo-Devo (GVX) est la couche qui formule, expérimente, trace et soumet à contrôle des transformations de compétences ou de dispositions d'un agent. Elle relie les événements d'expérience aux candidats de changement, puis confronte ces candidats à des résultats vérifiables avant toute application ou transmission (**Partiel** — services présents dans `backend/src/services/gvx*.js`, avec un parcours standard complet pour les politiques AGOW ; les autres domaines et les campagnes empiriques restent explicitement bornés ; voir [plan d'implémentation GVX](../06-qualite-preuves/plan-implementation-gvx.md)).
 
 GVX sépare cinq opérations qui ne doivent pas être confondues :
 

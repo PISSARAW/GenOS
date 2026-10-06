@@ -40,6 +40,7 @@ function failedValidation(input) {
 function updatePathway(existing, input) {
   const now = Number(input.now) || Date.now();
   const current = existing || initialPathway(input.pathwayId, input.contextHash || 'global', now);
+  if (input.receiptId && (current.consumedReceiptIds || current.verifiedReceiptIds || []).includes(input.receiptId)) return current;
   const updated = { ...current, ...pathwayUpdate(current, input, now) };
   updated.status = statusFor(updated, now);
   return updated;
@@ -56,6 +57,7 @@ function pathwayUpdate(current, input, now) {
     supportCount: current.supportCount + (reward > 0 ? 1 : 0),
     failureCount: current.failureCount + (failure ? 1 : 0),
     verifiedReceiptIds: newReceiptIds(priorReceiptIds, input, reward),
+    consumedReceiptIds: consumedReceipts(current, input),
     evidenceRefs: [...new Set([...(current.evidenceRefs || []), ...(input.evidenceRefs || [])])].slice(-50),
     expiresAt: now + 7 * 24 * 60 * 60 * 1000 };
 }
@@ -68,6 +70,7 @@ function consolidate(existing, input) {
       || input.evidenceStatus !== 'verified') {
     return { consolidated: false, reason: 'insufficient_validated_support', pathway: existing || null };
   }
+  if (existing.status === 'consolidated') return { consolidated: true, replayed: true, pathway: existing };
   const plasticity = require('../../proceduralPlasticityService');
   const synapse = plasticity.applyLTP({ id: existing.pathwayId, weight: existing.slowWeight }, {
     success: 1, evidence: 1, safety: 1, causalEffect: 1, cost: 0, episodeCount: existing.supportCount
@@ -77,3 +80,8 @@ function consolidate(existing, input) {
 }
 
 module.exports = { updatePathway, consolidate, initialPathway, DEFAULT_TRACE_DECAY, CONSOLIDATION_SUPPORT };
+
+function consumedReceipts(current, input) {
+  const ids = current.consumedReceiptIds || current.verifiedReceiptIds || [];
+  return input.receiptId && input.evidenceStatus === 'verified' ? [...ids, input.receiptId] : ids;
+}

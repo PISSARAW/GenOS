@@ -16,7 +16,7 @@ async function recordAgowSignal(db, input) {
   const event = prior || await appendEvent(db, {
     id, ...input.scope, entityId: input.entityId, type: 'evidence_attached',
     payload: { kind: 'developmental_signal', signalId: input.signalId, sourceSystem: 'agow',
-      sourceEventId: input.sourceEventId, signalType: input.signalType,
+      sourceEventId: input.sourceEventId, signalType: input.signalType, agentId: input.agentId,
       observedAt: input.observedAt || new Date().toISOString(),
       epistemicStatus: 'reported', evidenceRefs: [...new Set(input.evidenceRefs)],
       context: safeContext(input.context) }
@@ -27,7 +27,7 @@ async function recordAgowSignal(db, input) {
       scope: input.scope, entityId: input.entityId, sourceEventId: input.sourceEventId,
       signalType: input.signalType, evidenceRefs: input.evidenceRefs, context: safeContext(input.context)
     });
-    if (!result.replayed && requiresDevelopmentCycle(result.developmentalAction)) {
+    if (requiresDevelopmentCycle(result.developmentalAction)) {
       result.developmentalCycle = await runDevelopmentCycle(db, input);
     }
   } catch (error) {
@@ -41,7 +41,7 @@ function requiresDevelopmentCycle(action) {
 }
 
 async function runDevelopmentCycle(db, input) {
-  const signal = { scope: input.scope, entityId: input.entityId, sourceEventId: input.sourceEventId,
+  const signal = { scope: input.scope, entityId: input.entityId, agentId: input.agentId, sourceEventId: input.sourceEventId,
     signalType: input.signalType, evidenceRefs: input.evidenceRefs, context: safeContext(input.context) };
   try { return await require('../gvxLifecycleAdapterProvider').runConfiguredCycle(db, signal); }
   catch (error) { return { status: 'deferred', reason: error.code || 'gvx-lifecycle-adapters-unavailable' }; }

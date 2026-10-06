@@ -11,11 +11,15 @@
 | 1 — Registre durable | Réalisé | Migration `097-gvx-development-ledger`, test `test_gvx_development_ledger.js` |
 | 2 — Interoception et viabilité | Réalisé | `gvxInteroception.js`, test `test_gvx_interoception.js` |
 | 3 — Transformations et curriculum | Partiel | `gvxTransformation.js`, graphe dérivé du registre et curriculum borné, auditable (`gvxCompetenceGraph.js`, `gvxCompetenceCurriculum.js`) ; étiquetage indépendant des compétences et intégration des sources d’outcomes vérifiés restent à faire |
-| 4 — Nurserie et preuve | Partiel | `gvxExperimentalNursery.js` relit l'artefact et recalcule son SHA-256 ; `gvxVerifierRegistry.js` ne prend plus de callback dans le binding et résout le code depuis le registre control-plane. Le vérificateur intégré contrôle uniquement l'intégrité des octets, aucune vérification métier GVX n'est enregistrée dans ce dépôt ; le registre et le signataire HMAC restent dans le processus backend, l'isolation système dépend de l'adaptateur hôte et les campagnes indépendantes restent à exécuter |
-| 5 — Adaptation somatique | Partiel | `gvxDevelopmentController.js` classe et accumule les signaux runtime, expose l'orchestration des organes GVX et appelle le bridge de crédit uniquement avec un reçu validé ; ses adapters de cycle complet ne sont pas configurés dans le runtime standard. Évaluation, application autorisée avec compensation, rollback et monitoring longitudinal avec IC à 95 % existent comme services ; les producteurs métier validés et l'étude longitudinale restent à réaliser |
+| 4 — Nurserie et preuve | Implémenté pour les profils standard AGOW | Évaluateur de confiance épinglé, service Ed25519 séparé, mesures exécutées et signées, attestations et contrôle des budgets ; pertinence métier et efficacité empirique non établies |
+| 5 — Adaptation somatique | Implémenté pour les profils standard AGOW | Adaptateurs fournis, application autorisée et atomique, rollback, monitoring indépendant puis crédit, journal et leases de reprise ; tests fonctionnels de succès, interruption, régression et falsification |
 | 6 — Transmission | Partiel | `gvxTransferLifecycle.js` vérifie l'intégrité cryptographique des artefacts via le registre de confiance ; promotion germinale, essai métier du receveur et intégration de la mémoire des fossiles restent à faire |
 | 7 — Méta-développement | Partiel | `gvxMetaPolicyGate.js`, test `test_gvx_meta_policy_gate.js` ; sélection des candidates et exécution d’essais longitudinaux restent à raccorder |
 | 8 — Évaluation | Partiel | `gvxBenchmarkProtocol.js`, calcul de puissance et protocole holdout présents ; une campagne AGOW synthétique locale est archivée, mais les baselines MBH/Lipson et les campagnes empiriques GVX holdout restent à exécuter avec données et manifestes qualifiés |
+
+## Cycle standard livré le 2026-10-06
+
+Le parcours borné des politiques AGOW est documenté dans le [profil d’exécution](../02-orchestration/profil-execution-gvx.md). La campagne empirique est différée conformément à la demande de privilégier l’implémentation ; les fixtures ne sont pas des résultats de modèle. Les autres domaines et les lots de transmission ou de méta-développement gardent leurs limites explicites.
 
 ## 1. Objectif et invariants
 

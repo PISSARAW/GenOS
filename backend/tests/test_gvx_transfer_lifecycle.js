@@ -15,7 +15,7 @@ function artifact(id) {
 }
 
 verifierControlPlane.registerVerifierImplementation({ id: 'artifact', requirements: ['transfer-trial', 'recipient-outcome', 'transfer-monitoring'],
-  verify: async () => ({ verified: true }) }]);
+  verify: async () => ({ verified: true }) });
 const verifierRegistry = fromTrustedRegistry(['artifact']);
 const artifactReader = async ({ artifactRef }) => Buffer.from(artifactRef);
 

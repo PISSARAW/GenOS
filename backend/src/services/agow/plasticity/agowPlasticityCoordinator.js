@@ -28,15 +28,15 @@ function trustedOutcome(input) {
 }
 
 async function persistOutcome(input, policy) {
-  const loaded = await persistence.load({ scope: SCOPE, agentId: input.agentId, db: input.db });
-  const pathways = { ...(loaded.state.pathways || {}) };
   const key = `${input.pathwayId}:${input.contextHash || 'global'}`;
-  const updated = eligibility.updatePathway(pathways[key], { ...input, contextHash: input.contextHash || 'global' });
-  const pathway = LEARNING_MODES.has(policy.plasticity) ? updated : preserveWeights(updated, pathways[key]);
-  pathways[key] = pathway;
-  await persistence.save({ scope: SCOPE, agentId: input.agentId, db: loaded.db,
-    state: { pathways }, version: Date.now() });
-  return { recorded: true, pathway, proposed: policy.plasticity === 'observe' ? updated : null,
+  let proposed;
+  const state = await persistence.update({ scope: SCOPE, agentId: input.agentId, db: input.db }, (current) => {
+    const pathways = { ...(current.pathways || {}) };
+    proposed = eligibility.updatePathway(pathways[key], { ...input, contextHash: input.contextHash || 'global' });
+    pathways[key] = LEARNING_MODES.has(policy.plasticity) ? proposed : preserveWeights(proposed, pathways[key]);
+    return { ...current, pathways };
+  });
+  return { recorded: true, pathway: state.pathways[key], proposed: policy.plasticity === 'observe' ? proposed : null,
     mode: policy.plasticity };
 }
 
@@ -55,14 +55,13 @@ async function consolidatePathway(options) {
   if (!['bounded', 'live'].includes(policy.plasticity)) {
     return { consolidated: false, reason: 'consolidation_policy_requires_bounded_mode' };
   }
-  const loaded = await persistence.load({ scope: SCOPE, agentId: options.agentId, db: options.db });
-  const pathways = { ...(loaded.state.pathways || {}) };
-  const pathway = pathways[options.key];
-  const result = eligibility.consolidate(pathway, { evidenceStatus: 'verified' });
-  if (!result.consolidated) return result;
-  pathways[options.key] = result.pathway;
-  await persistence.save({ scope: SCOPE, agentId: options.agentId, db: loaded.db,
-    state: { pathways }, version: Date.now() });
+  let result;
+  await persistence.update({ scope: SCOPE, agentId: options.agentId, db: options.db }, (current) => {
+    const pathways = { ...(current.pathways || {}) };
+    result = eligibility.consolidate(pathways[options.key], { evidenceStatus: 'verified' });
+    if (result.consolidated) pathways[options.key] = result.pathway;
+    return { ...current, pathways };
+  });
   return result;
 }
 

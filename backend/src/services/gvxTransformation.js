@@ -73,7 +73,8 @@ function normalizedCandidate(input) {
     maxSeconds: input.maxSeconds,
     risk: input.risk || 'unknown',
     verifierProfile: input.verifierProfile,
-    rollbackPlan: input.rollbackPlan
+    rollbackPlan: input.rollbackPlan,
+    change: input.change || null, candidateHash: input.candidateHash || null
   };
 }
 
@@ -90,6 +91,7 @@ async function proposeTransformation(db, input) {
   if (errors.length) throw Object.assign(new Error(errors.join(',')), { code: 'GVX_TRANSFORMATION_INVALID', errors });
   const candidate = normalizedCandidate(input);
   return appendEvent(db, {
+    id: input.eventId,
     organizationId: input.scope.organizationId,
     projectId: input.scope.projectId,
     entityId: input.entityId,

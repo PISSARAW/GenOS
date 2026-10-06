@@ -18,7 +18,7 @@ async function main() {
   const adapters = {
     authorization: { authorize: async () => ({ allowed: true, approvalId: 'approval-1' }) },
     runtime: {
-      apply: async () => { applied += 1; return { beforeHash: input.parentHash, afterHash: 'c'.repeat(64), rollbackToken: 'restore-1' }; },
+      apply: async () => { applied += 1; return { beforeHash: input.parentHash, afterHash: input.candidateHash, rollbackToken: 'restore-1' }; },
       rollback: async () => { rolledBack += 1; return { restoredHash: input.parentHash }; }
     }
   };

@@ -36,7 +36,7 @@ function designErrors(plan) {
 
 function duplicateErrors(arms) {
   const fields = [['armId', 'experiment-arm-ids-duplicate'], ['worldId', 'experiment-world-ids-duplicate'],
-    ['role', 'experiment-arm-roles-duplicate']];
+    ['role', 'experiment-arm-roles-duplicate'], ['isolationId', 'experiment-isolation-ids-duplicate']];
   return fields.filter(([field]) => new Set(arms.map((arm) => arm[field])).size !== arms.length)
     .map(([, error]) => error);
 }
@@ -88,6 +88,7 @@ async function recordExperimentPlan(db, input) {
   if (errors.length) throw Object.assign(new Error(errors.join(',')), { code: 'GVX_EXPERIMENT_INVALID', errors });
   const plan = preparePlan(input);
   return appendEvent(db, {
+    id: `gvx-experiment:${plan.experimentId}:started`, candidateHash: input.candidateHash,
     organizationId: input.scope.organizationId, projectId: input.scope.projectId,
     entityId: input.entityId, type: 'experiment_started', parentHash: input.snapshotHash,
     payload: { plan }
@@ -111,6 +112,9 @@ function assessOutcomes(plan, outcomes) {
 function assessWorld(world, outcome, requirements) {
   const identity = { armId: world.armId, role: world.role, worldId: world.worldId };
   if (!outcome || outcome.status !== 'completed') return { ...identity, status: 'inconclusive', reason: 'world-not-completed' };
+  if (outcome.metricsVerified === false && Object.keys(outcome.metrics || {}).length) {
+    return { ...identity, status: 'blocked', reason: 'metrics-unverified' };
+  }
   if (!Array.isArray(outcome.evidence) || !outcome.evidence.length) return { ...identity, status: 'blocked', reason: 'evidence-missing' };
   const refs = outcome.evidence.filter(validEvidence);
   const covered = new Set(refs.map((item) => item.requirement));
@@ -131,6 +135,7 @@ function buildFinishedPayload(plan, outcomes) {
 async function recordExperimentOutcomes(db, context) {
   const payload = buildFinishedPayload(context.plan, context.outcomes);
   return appendEvent(db, {
+    id: `gvx-experiment:${context.plan.experimentId}:finished`, candidateHash: context.candidateHash,
     organizationId: context.scope.organizationId, projectId: context.scope.projectId,
     entityId: context.entityId, type: 'experiment_finished', parentHash: context.plan.snapshotHash,
     payload
