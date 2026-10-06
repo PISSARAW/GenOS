@@ -48,12 +48,16 @@ const { runProviderMetapopulation } = require('./epistemicProviderMetapopulation
 const { verifyAcrossProviders } = require('./crossProviderVerificationService');
 const { runIsolatedPopulations } = require('./processIsolatedMetapopulationRunner');
 
+function shouldUseHostVeto(immune, enabled) {
+  return Boolean(immune?.blocked && !immune.regulatorInhibited && enabled);
+}
+
 function hostDecision(reports, opts = {}) {
   const specialistOutput = reports.specialistOutput || reports.specialist;
   const immuneReport = reports.immuneReport || reports.immune;
   const memoryReport = reports.memoryReport || reports.memory;
   const hostVeto = opts.hostVeto !== false;
-  const shouldVeto = Boolean(immuneReport && immuneReport.blocked && !immuneReport.regulatorInhibited && hostVeto);
+  const shouldVeto = immuneReport?.hardBlocked || shouldUseHostVeto(immuneReport, hostVeto);
   if (shouldVeto) {
     return {
       accepted: false,
@@ -194,6 +198,13 @@ function integrationBlockReason(context, integrations) {
     && (!integrations.isolatedPopulations?.length || integrations.isolatedPopulations.some((item) => item.status === 'error'));
   return isolationBlocked ? 'process-isolated verifier unavailable' : null;
 }
+function mandatoryReviewBlocked(immune, context) {
+  if (context.requireExecutableQuorum !== true) return false;
+  if (!hasIndependentQuorum(immune)) return true;
+  if (immune.verifierResults?.results.some((row) => row.status === 'refuted')) return true;
+  return Boolean(integrationBlockReason(context, immune));
+}
+
 async function immuneSymbiontReview(antigen, context = {}) {
   const pipeline = runAdaptivePipeline(antigen, context);
   const initialVerifiers = verifierAssignments(pipeline);
@@ -222,6 +233,7 @@ async function immuneSymbiontReview(antigen, context = {}) {
   return {
     blocked,
     blockReason,
+    hardBlocked: mandatoryReviewBlocked({ ...recruited.immune, ...integrations }, context),
     regulatorInhibited: regulator.inhibit,
     regulatorReason: regulator.reason,
     pipeline: recruited.immune.pipeline,
@@ -323,6 +335,7 @@ async function epistemicHolobionte(antigen, context = {}) {
   );
   const feedbackResult = await applyHomeostaticFeedback(antigen, immune, { ...context, previousVerificationRate });
   immune = feedbackResult.immune;
+  immune = { ...immune, ...reviewBlockState(immune, context, immune), hardBlocked: mandatoryReviewBlocked(immune, context) };
   const providerReview = await reviewProviders(antigen, context);
   const host = enforceProviderVeto(hostDecision(
     { specialist, immune, memory },

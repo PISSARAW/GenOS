@@ -5,6 +5,11 @@ const H = require('../src/services/epistemic/epistemicHolobionteService');
 const { regulatoryReview } = require('../src/services/epistemic/epistemicInflammationAndRegulation');
 const { signatureFrom, recordOutcome } = require('../src/services/epistemic/immuneMemoryService');
 
+const mandatoryVeto = require('../src/services/epistemic/epistemicHolobionteService').hostDecision({
+  immune: { blocked: true, hardBlocked: true, regulatorInhibited: true, blockReason: 'quorum unavailable' },
+}, { hostVeto: false });
+assert.equal(mandatoryVeto.accepted, false, 'mandatory quorum cannot be overridden by regulation or hostVeto=false');
+
 async function runTests() {
   // ---- hostDecision ----
 

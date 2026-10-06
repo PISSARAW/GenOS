@@ -311,7 +311,9 @@ async function run() {
       evidence: [{ kind: 'reproducible_artifact' }],
     }] }, { multiProviderEnabled: true, providerAllowlist: [] });
     assert.strictEqual(result.evaluation.eligible, false);
-    assert.strictEqual(result.assembly, null);
+    assert.equal(result.allAccepted, false);
+    assert.equal(result.anyBlocked, true);
+    assert.ok(result.assembly?.results.length, 'retain the signed refusal assembly for audit and confirmed counterproofs');
   });
 
   // 15. Sans assembly AEIS la promotion gate refuse
