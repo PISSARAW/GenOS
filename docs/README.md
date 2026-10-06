@@ -70,6 +70,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [indicateurs-fonctionnels.md](01-concepts/indicateurs-fonctionnels.md) — suivi des indicateurs fonctionnels : implémentation, statut, limites.
 - [plan-validation-indicateurs.md](06-qualite-preuves/plan-validation-indicateurs.md) — audit des indicateurs et programme de couverture fonctionnelle et de validation causale.
 - [suivi-validation-indicateurs.md](06-qualite-preuves/suivi-validation-indicateurs.md) — suivi d'exécution et résultats des contrôles.
+- [reprise-validation-conscience-2026-10-04.md](06-qualite-preuves/reprise-validation-conscience-2026-10-04.md) — inventaire vérifié au HEAD et protocole pilote GWT-3.
 - [matrice-preuves-indicateurs.md](06-qualite-preuves/matrice-preuves-indicateurs.md) — matrice finale des preuves, limites et commandes de reproduction.
 - [instinct.md](01-concepts/instinct.md) — circuits innés, Patrons d'Action Fixes, modulation hormonale.
 - [agent-dna-runtime.md](01-concepts/agent-dna-runtime.md) — format binaire AgentDNA et opérations.

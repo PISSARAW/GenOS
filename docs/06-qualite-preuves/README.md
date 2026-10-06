@@ -10,6 +10,7 @@ Validation du dépôt, évaluation de la qualité et résultats de benchmarks.
 
 - [plan-validation-indicateurs.md](plan-validation-indicateurs.md) — audit du programme de fermeture causale, référentiels 14/15 et plan de validation par étapes.
 - [suivi-validation-indicateurs.md](suivi-validation-indicateurs.md) — sous-points, résultats et obstacles rencontrés pendant l'exécution du plan.
+- [reprise-validation-conscience-2026-10-04.md](reprise-validation-conscience-2026-10-04.md) — reprise au HEAD, vérifications ciblées et protocole pilote GWT-3.
 
 - [evaluation-qualite.md](evaluation-qualite.md) — évaluation, qualité, tests générés et exécutés.
 - [tests-et-validation.md](tests-et-validation.md) — architecture de validation et suites de test.
