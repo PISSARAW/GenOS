@@ -78,7 +78,7 @@ Fondations conceptuelles, runtime, génome, mémoire et épistémologie.
 - [intelligence-de-nuee.md](01-concepts/intelligence-de-nuee.md) — phéromones, consensus, quorum, stigmergie.
 - [fossilisation.md](01-concepts/fossilisation.md) — archive stratigraphique terminale des lignées.
 - [philosophie-des-mathematiques.md](01-concepts/philosophie-des-mathematiques.md) — objets mathématiques, fondements, infini et preuve.
-- [adaptive-epistemic-immune-system.md](01-concepts/adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif (antigène, immunité innée/adaptative, sélection clonale, mémoire, inflammation, biocénose, métapopulation, stigmergie, holobionte, challenge).
+- [adaptive-epistemic-immune-system.md](01-concepts/adaptive-epistemic-immune-system.md) — système immunitaire épistémique adaptatif : mémoire et autorité persistantes, quorum exécutable, niches dynamiques, workers provider isolés et qualification de `approveRun()`.
 - [organes-vitaux-agents.md](01-concepts/organes-vitaux-agents.md) — systèmes 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux ; boucle morphogénétique unifiée.
 
 ### 2. Biomimétisme spécialisé
@@ -318,6 +318,7 @@ Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-f
 - [0296-revue-multi-fournisseur-aeis.md](adr/0296-revue-multi-fournisseur-aeis.md) — exige deux revues structurées distinctes quand le contrat active la vérification croisée.
 - [0297-budget-et-retroaction-aeis.md](adr/0297-budget-et-retroaction-aeis.md) — borne les vérifications et relie le feedback AEIS à la ré-arbitration de promotion.
 - [0298-cycle-de-vie-des-recus-aeis.md](adr/0298-cycle-de-vie-des-recus-aeis.md) — versionne les signatures et borne la rétention des assemblées AEIS.
+- [0327-aeis-preuves-et-autorite-persistante.md](adr/0327-aeis-preuves-et-autorite-persistante.md) — preuves exécutées, mémoire négative rappelable, dissonance persistée et révocation runtime.
 - [0299-liaison-des-assemblages-aeis-au-run.md](adr/0299-liaison-des-assemblages-aeis-au-run.md) — lie les assemblées signées au run et à la portée de mémoire.
 - [0299-capsule-prompt-utf8-direct.md](adr/0299-capsule-prompt-utf8-direct.md) — transport UTF-8 direct des prompts et lecture des anciennes capsules DNA.
 - [0300-checkpoint-communication-fin-mission.md](adr/0300-checkpoint-communication-fin-mission.md) — évaluation de la communication après une fin de mission autorisée.

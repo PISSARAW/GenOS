@@ -18,7 +18,8 @@ Le mécanisme reprend trois idées biologiques :
 
 ## Activation
 
-La gate est volontairement explicite afin de préserver les contrats historiques :
+Les nouveaux contrats générés activent `require_epistemic_assurance` par défaut.
+Les contrats historiques conservent leur politique enregistrée :
 
 ```json
 {
@@ -31,17 +32,25 @@ La gate est volontairement explicite afin de préserver les contrats historiques
 }
 ```
 
-Le secret `GENOS_EPISTEMIC_RECEIPT_SECRET` doit être injecté par l'opérateur. Il ne
-doit jamais être placé dans le contrat, le rapport d'agent ou le dépôt.
+La clé de signature doit être injectée par l'opérateur, via
+`GENOS_EPISTEMIC_RECEIPT_SECRET` avec le keyring versionné documenté dans la
+[fiche AEIS](../01-concepts/adaptive-epistemic-immune-system.md).
+Elle ne doit jamais être placée dans le contrat, le rapport d'agent ou le dépôt.
 
 Quand la politique est active, la gate exige un assemblage épistémique complet.
 Deux chemins d'alimentation existent :
 
-- `report.epistemicAssembly` porté par le rapport final ;
+- `executionContext.epistemicAssembly`, fourni à l'évaluateur de politique par
+  un appelant runtime de confiance ;
 - `aeisEvaluation.assembly` calculé par `evaluateReportWithAeis()` pendant
   `approveRun()` et injecté par `buildGateContext()` (`promotionGateContext.js`).
 
-L'absence des deux bloque la promotion avec la politique
+Une assemblée seulement déclarée dans `report.epistemicAssembly` est ignorée.
+Dans `approveRun()`, le runtime exécute les vérificateurs et conserve son veto,
+même si un contrat historique n'exige pas l'assemblage. Une assemblée refusée
+reste persistée pour l'audit et la mémoire, sans autoriser la promotion.
+
+L'absence d'assemblée dans le contexte de confiance bloque la promotion avec la politique
 `require_epistemic_assurance`.
 
 ## Contrat de l'assemblage
@@ -83,10 +92,10 @@ statut et cette indépendance. La signature HMAC-SHA256 couvre tous ces champs
 (`backend/src/services/epistemicVerifierReceiptService.js` : `signatureFor`,
 `issueReceipt`, `validateReceipt` en temps constant via `timingSafeEqual`).
 Conditionnalité : l'émission et la validation exigent `GENOS_EPISTEMIC_RECEIPT_SECRET`
-(`secretKey()` lève si absent, `validateReceipt` retourne `false`) — sans secret
+(`keyFor()` lève si absent, `validateReceipt` retourne `false`) — sans secret
 configuré, aucun reçu ne peut être signé ni validé.
 
-Le secret reste une clé partagée par le processus backend : le HMAC protège
+Les clés restent partagées par le processus backend : le HMAC protège
 l'intégrité des reçus après émission, mais ne constitue pas une frontière
 d'isolation entre modules du même processus.
 
@@ -129,7 +138,8 @@ preuve sur la validité de la conclusion.
 
 ## Migration et limites
 
-La politique est désactivée par défaut. Une mission existante peut migrer en
+Les nouveaux contrats activent la politique par défaut. Un contrat historique
+sans cette politique peut migrer en
 produisant d'abord ses résultats formels et ses reçus, puis en activant la gate dans
 une nouvelle version de son contrat. Une mission à enjeu mathématique, scientifique
 ou de sécurité devrait l'activer avant sa première exécution.
@@ -139,10 +149,45 @@ identique exige un témoin fourni par un vérificateur de domaine. De même, deu
 attestations identiques réduisent le risque de contrainte oubliée sans prouver que
 la spécification humaine initiale était exhaustive.
 
+## Garanties AEIS dans `approveRun()`
+
+- L'affirmation doit décrire exactement le prédicat de commande exécuté :
+  `<commande> outputs "<valeur>"` ou `<commande> exits with code 0`.
+- Le quorum comporte au moins deux vérificateurs exécutés indépendamment, dans
+  des workspaces distincts, avec reçus signés liés au résultat et à sa preuve.
+  La ré-arbitration conserve les descripteurs des lots précédents.
+- Les niches sont recrutées selon pression, preuves observées et budget. Le
+  rapport contient au maximum 32 claims traitées séquentiellement ; le budget
+  par claim doit permettre de 2 à 8 exécutions.
+- Si la politique multi-provider est active, tous les providers distincts
+  configurés doivent terminer et soutenir l'affirmation. Leurs avis structurés
+  sont complémentaires au quorum exécutable ; un transport réussi ne suffit pas.
+- Les revues provider s'exécutent dans des processus enfants bornés, avec
+  environnement réduit et SQLite en mémoire. Le heap Node limité à 128 Mio
+  ne constitue pas une limite de mémoire totale ni un conteneur.
+- Un timeout est inconclusif. Une contre-preuve exécutée et confirmée reste
+  opposable au Host et au régulateur.
+
+## Mémoire et autorité persistantes
+
+La mémoire est isolée par organisation/projet/workspace et bornée à 1 000 entrées
+par portée. Sa résolution relit l'assemblée signée. Elle rappelle aussi les
+échecs confirmés, même à affinité de succès nulle, et déduplique le rejeu du même
+identifiant de preuve. Une nouvelle exécution signée est une nouvelle observation.
+
+La dissonance d'autorité est dédupliquée séparément par run et prédicat canonique.
+Les seuils 5/15/30/50 correspondent à l'avertissement, à la restriction des
+lancements, à la quarantaine et à l'apoptose. Les contrôles runtime refusent aussi
+les descendants d'un agent révoqué. Cette révocation retire les droits ; elle
+ne tue pas les processus externes déjà lancés.
+
+Voir [ADR 0327](../adr/0327-aeis-preuves-et-autorite-persistante.md) et la
+[matrice de qualification AEIS](../01-concepts/adaptive-epistemic-immune-system.md#9-qualification-opérationnelle).
+
 ## Vérification locale
 
 ```powershell
-npm run test:aeis
+npm --prefix backend run test:aeis
 node backend/tests/test_formal_result_contract.js
 node backend/tests/test_epistemic_assurance.js
 npm test

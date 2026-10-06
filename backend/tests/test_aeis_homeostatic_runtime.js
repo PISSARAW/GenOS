@@ -11,7 +11,11 @@ async function main() {
     risk: { score: 0.9 }, epitopes: { evidence: { kind: 'reproducible_artifact', digest: 'sha256:homeostatic' } },
     verificationContract: { test: { command: 'echo ok', expectOutput: 'ok' } } };
   const immune = { pipeline: { decision: { assignedVerifiers: [{ verifier: 'proof', strategy: [] }] } },
-    verifierResults: { status: 'verified', results: [{ status: 'verified' }] } };
+    verifierResults: await executeVerifierWorkers(antigen, [{ type: 'proof' }]) };
+  assert.equal(rearbitration.verificationRate([{ status: 'verified' }]), 0, 'a declared status is not evidence');
+  const forged = structuredClone(immune.verifierResults.results[0]);
+  forged.receipt.signature = 'forged';
+  assert.equal(rearbitration.verificationRate([forged]), 0);
   const feedback = await rearbitration.applyHomeostaticFeedback(antigen, immune,
     { previousVerificationRate: 0, verifierBudget: { remaining: 0 } });
   assert.equal(feedback.feedback.evidenceDelta, 1);
