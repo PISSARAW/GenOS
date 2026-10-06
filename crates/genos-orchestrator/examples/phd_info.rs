@@ -1,73 +1,11 @@
 use genos_biology::spore::SporeType;
 use genos_cell::AgentCell;
+use genos_orchestrator::sat::dpll;
 use genos_orchestrator::{BiomimeticOrchestrator, BucketState, TokenBucketScheduler};
 
 // --- Doctorat informatique : SAT, compilation regex, machine virtuelle ------
 
-// 1. Solveur DPLL
-
-fn dpll(clauses: &[Vec<i32>], assign: &mut [i32]) -> bool {
-    let satisfies = |lit: i32, assign: &[i32]| -> Option<bool> {
-        let idx = lit.unsigned_abs() as usize;
-        let a = assign.get(idx).copied().unwrap_or(0);
-        if a == 0 {
-            None
-        } else {
-            Some((lit > 0) == (a > 0))
-        }
-    };
-    let mut unit: Option<i32> = None;
-    for clause in clauses {
-        let mut sat = false;
-        let mut unassigned = Vec::new();
-        for &lit in clause {
-            match satisfies(lit, assign) {
-                Some(true) => {
-                    sat = true;
-                    break;
-                }
-                Some(false) => {}
-                None => unassigned.push(lit),
-            }
-        }
-        if sat {
-            continue;
-        }
-        if unassigned.is_empty() {
-            return false; // conflit
-        }
-        if unassigned.len() == 1 {
-            unit = Some(unassigned[0]);
-        }
-    }
-    let all_sat = clauses.iter().all(|c| c.iter().any(|&l| satisfies(l, assign) == Some(true)));
-    if all_sat {
-        return true;
-    }
-    if let Some(lit) = unit {
-        let idx = lit.unsigned_abs() as usize;
-        let save = assign[idx];
-        assign[idx] = if lit > 0 { 1 } else { -1 };
-        if dpll(clauses, assign) {
-            return true;
-        }
-        assign[idx] = save;
-        return false;
-    }
-    // branchement sur la premiere variable non assignee
-    let var = match assign.iter().enumerate().skip(1).find(|(_, a)| **a == 0) {
-        Some((i, _)) => i,
-        None => return false,
-    };
-    for val in [1, -1] {
-        assign[var] = val;
-        if dpll(clauses, assign) {
-            return true;
-        }
-        assign[var] = 0;
-    }
-    false
-}
+// 1. Solveur DPLL (voir genos_orchestrator::sat)
 
 fn model_satisfies(clauses: &[Vec<i32>], assign: &[i32]) -> bool {
     clauses.iter().all(|c| {
@@ -161,42 +99,52 @@ impl Nfa {
     }
     fn compile(&mut self, re: &Re) -> (usize, usize) {
         match re {
-            Re::Empty => {
-                let (s, e) = (self.state(), self.state());
-                self.trans.push((s, None, e));
-                (s, e)
-            }
-            Re::Char(c) => {
-                let (s, e) = (self.state(), self.state());
-                self.trans.push((s, Some(*c), e));
-                (s, e)
-            }
-            Re::Concat(a, b) => {
-                let (sa, ea) = self.compile(a);
-                let (sb, eb) = self.compile(b);
-                self.trans.push((ea, None, sb));
-                (sa, eb)
-            }
-            Re::Union(a, b) => {
-                let (s, e) = (self.state(), self.state());
-                let (sa, ea) = self.compile(a);
-                let (sb, eb) = self.compile(b);
-                self.trans.push((s, None, sa));
-                self.trans.push((s, None, sb));
-                self.trans.push((ea, None, e));
-                self.trans.push((eb, None, e));
-                (s, e)
-            }
-            Re::Star(a) => {
-                let (s, e) = (self.state(), self.state());
-                let (sa, ea) = self.compile(a);
-                self.trans.push((s, None, sa));
-                self.trans.push((s, None, e));
-                self.trans.push((ea, None, sa));
-                self.trans.push((ea, None, e));
-                (s, e)
-            }
+            Re::Empty => self.compile_empty(),
+            Re::Char(c) => self.compile_char(*c),
+            Re::Concat(a, b) => self.compile_concat(a, b),
+            Re::Union(a, b) => self.compile_union(a, b),
+            Re::Star(a) => self.compile_star(a),
         }
+    }
+
+    fn compile_empty(&mut self) -> (usize, usize) {
+        let (s, e) = (self.state(), self.state());
+        self.trans.push((s, None, e));
+        (s, e)
+    }
+
+    fn compile_char(&mut self, c: char) -> (usize, usize) {
+        let (s, e) = (self.state(), self.state());
+        self.trans.push((s, Some(c), e));
+        (s, e)
+    }
+
+    fn compile_concat(&mut self, a: &Re, b: &Re) -> (usize, usize) {
+        let (sa, ea) = self.compile(a);
+        let (sb, eb) = self.compile(b);
+        self.trans.push((ea, None, sb));
+        (sa, eb)
+    }
+
+    fn compile_union(&mut self, a: &Re, b: &Re) -> (usize, usize) {
+        let (s, e) = (self.state(), self.state());
+        let (sa, ea) = self.compile(a);
+        let (sb, eb) = self.compile(b);
+        self.trans.push((s, None, sa));
+        self.trans.push((s, None, sb));
+        self.trans.push((ea, None, e));
+        self.trans.push((eb, None, e));
+        (s, e)
+    }
+
+    fn compile_star(&mut self, a: &Re) -> (usize, usize) {
+        let (s, e) = (self.state(), self.state());
+        let (sa, ea) = self.compile(a);
+        self.trans.push((s, None, sa));
+        self.trans.push((s, None, e));
+        self.trans.push((ea, None, sa));
+        self.trans.push((ea, None, e));
+        (s, e)
     }
     fn closure(&self, set: &[bool]) -> Vec<bool> {
         let mut out = set.to_vec();

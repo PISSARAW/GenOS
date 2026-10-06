@@ -3,6 +3,9 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+#[path = "hypermut.rs"]
+mod hypermute;
+
 const MAX_MEMORY_DETECTORS: usize = 256;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -91,26 +94,85 @@ impl ClonalSelection {
         fs::write(path, content)
     }
 
-    pub fn recognize(&mut self, antigen: &Antigen) -> bool {
+    fn check_detectors(&self, antigen: &Antigen) -> Option<&AntibodyDetector> {
         for detector in &self.detectors {
             if detector.matches(antigen) {
-                if antigen.danger_level > 0.5 {
-                    if !self.memory_pool.iter().any(|memory| memory.id == detector.id) {
-                        if self.memory_pool.len() >= MAX_MEMORY_DETECTORS {
-                            self.memory_pool.remove(0);
-                        }
-                        self.memory_pool.push(detector.clone());
-                    }
-                }
-                return true;
+                return Some(detector);
             }
         }
-        for memory in &self.memory_pool {
-            if memory.matches(antigen) {
-                return true;
+        None
+    }
+
+    fn check_memory(&self, antigen: &Antigen) -> bool {
+        self.memory_pool.iter().any(|memory| memory.matches(antigen))
+    }
+
+    fn maybe_memorize(&mut self, detector: &AntibodyDetector, antigen: &Antigen) {
+        if antigen.danger_level <= 0.5 {
+            return;
+        }
+        if self.memory_pool.iter().any(|memory| memory.id == detector.id) {
+            return;
+        }
+        if self.memory_pool.len() >= MAX_MEMORY_DETECTORS {
+            self.memory_pool.remove(0);
+        }
+        self.memory_pool.push(detector.clone());
+    }
+
+    pub fn recognize(&mut self, antigen: &Antigen) -> bool {
+        let hit = match self.check_detectors(antigen) {
+            Some(d) => Some(d.clone()),
+            None => None,
+        };
+        match hit {
+            Some(detector) => {
+                self.maybe_memorize(&detector, antigen);
+                true
+            }
+            None => self.check_memory(antigen),
+        }
+    }
+
+    fn base_paratopes(&self, antigen: &Antigen) -> Vec<String> {
+        if !self.detectors.is_empty() {
+            return self.detectors.iter().map(|d| d.paratope.clone()).collect();
+        }
+        if !self.memory_pool.is_empty() {
+            return self.memory_pool.iter().map(|m| m.paratope.clone()).collect();
+        }
+        vec![antigen.epitope.clone()]
+    }
+
+    fn integrate_top_clones(&mut self, clones: &[AntibodyDetector], clone_count: usize) {
+        for top_clone in clones.iter().take(clone_count.min(10)) {
+            if !self.detectors.iter().any(|d| d.paratope == top_clone.paratope) {
+                self.detectors.push(top_clone.clone());
             }
         }
-        false
+    }
+
+    fn should_memorize(antigen: &Antigen, best_affinity: f64) -> bool {
+        antigen.danger_level > 0.5 && best_affinity >= 0.2
+    }
+
+    fn push_memory_clone(&mut self, clone: &AntibodyDetector) {
+        if self.memory_pool.iter().any(|m| m.paratope == clone.paratope) {
+            return;
+        }
+        if self.memory_pool.len() >= MAX_MEMORY_DETECTORS {
+            self.memory_pool.remove(0);
+        }
+        self.memory_pool.push(clone.clone());
+    }
+
+    fn integrate_memory(&mut self, clones: &[AntibodyDetector], antigen: &Antigen, best_affinity: f64) {
+        if !Self::should_memorize(antigen, best_affinity) {
+            return;
+        }
+        if let Some(best) = clones.first() {
+            self.push_memory_clone(best);
+        }
     }
 
     /// Maturation d'affinité par expansion clonale et hypermutation somatique stochastique
@@ -120,80 +182,18 @@ impl ClonalSelection {
         clone_count: usize,
         mutation_rate: f64,
     ) -> ClonalExpansionResult {
-        let mutation_rate = mutation_rate.clamp(0.0, 1.0);
-        let clone_count = clone_count.clamp(1, 256);
-
-        // Récupérer les paratopes de départ depuis les détecteurs actuels, la mémoire ou l'antigène
-        let base_paratopes: Vec<String> = if !self.detectors.is_empty() {
-            self.detectors.iter().map(|d| d.paratope.clone()).collect()
-        } else if !self.memory_pool.is_empty() {
-            self.memory_pool.iter().map(|m| m.paratope.clone()).collect()
-        } else {
-            vec![antigen.epitope.clone()]
+        let params = hypermute::HypermutParams {
+            mutation_rate: mutation_rate.clamp(0.0, 1.0),
+            clone_count: clone_count.clamp(1, 256),
         };
-
-        use rand::RngExt;
-        let mut rng = rand::rng();
-        let charset = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
-        let mut clones: Vec<AntibodyDetector> = Vec::with_capacity(clone_count);
-
-        for i in 0..clone_count {
-            let seed_paratope = &base_paratopes[i % base_paratopes.len()];
-            let mut paratope_bytes = seed_paratope.as_bytes().to_vec();
-            if paratope_bytes.is_empty() {
-                paratope_bytes = b"GENOS".to_vec();
-            }
-
-            if mutation_rate > 0.0 {
-                for b in &mut paratope_bytes {
-                    if rng.random_bool(mutation_rate) {
-                        let rand_idx = rng.random_range(0..charset.len());
-                        *b = charset[rand_idx];
-                    }
-                }
-            }
-
-            let mutated_paratope = String::from_utf8_lossy(&paratope_bytes).to_string();
-            let mut detector = AntibodyDetector::new(
-                &format!("clone-hypermut-{}-{}", uuid::Uuid::new_v4().simple(), i),
-                &mutated_paratope,
-                0.5,
-            );
-            let aff = detector.compute_affinity(antigen);
-            detector.affinity_threshold = (aff * 0.8).clamp(0.2, 0.9);
-            clones.push(detector);
-        }
-
-        // Tri par affinité décroissante avec l'antigène
-        clones.sort_by(|a, b| {
-            let aff_b = b.compute_affinity(antigen);
-            let aff_a = a.compute_affinity(antigen);
-            aff_b.partial_cmp(&aff_a).unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        let best_affinity = clones.first().map(|d| d.compute_affinity(antigen)).unwrap_or(0.0);
-
-        // Intégrer les meilleurs clones matures dans le pool de détecteurs
-        for top_clone in clones.iter().take(clone_count.min(10)) {
-            if !self.detectors.iter().any(|d| d.paratope == top_clone.paratope) {
-                self.detectors.push(top_clone.clone());
-            }
-        }
-
-        // Si le niveau de danger est critique et qu'un clone mûr a une affinité significative, intégrer en mémoire
-        if antigen.danger_level > 0.5 && best_affinity >= 0.2 {
-            if let Some(best_clone) = clones.first() {
-                if !self.memory_pool.iter().any(|m| m.paratope == best_clone.paratope) {
-                    if self.memory_pool.len() >= MAX_MEMORY_DETECTORS {
-                        self.memory_pool.remove(0);
-                    }
-                    self.memory_pool.push(best_clone.clone());
-                }
-            }
-        }
-
+        let base = self.base_paratopes(antigen);
+        let mut clones = hypermute::generate_clones(&base, &params, antigen);
+        hypermute::sort_by_affinity(&mut clones, antigen);
+        let best_affinity = hypermute::best_affinity(&clones, antigen);
+        self.integrate_top_clones(&clones, params.clone_count);
+        self.integrate_memory(&clones, antigen, best_affinity);
         ClonalExpansionResult {
-            clones_generated: clone_count,
+            clones_generated: params.clone_count,
             matured_detectors: clones,
             best_affinity,
             memory_pool_size: self.memory_pool.len(),

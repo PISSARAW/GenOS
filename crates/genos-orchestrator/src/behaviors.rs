@@ -68,6 +68,46 @@ impl GenosEcosystem {
     }
 }
 
+fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| haystack.contains(needle))
+}
+
+fn classify_goal(lower: &str) -> Goal {
+    if contains_any(lower, &["répar", "repar", "bug", "compile"]) {
+        Goal::RepairModule
+    } else if contains_any(lower, &["soign", "guér", "guer", "récup", "recup"]) {
+        Goal::RecoverAgent
+    } else {
+        Goal::SecurePerimeter
+    }
+}
+
+fn push_budget_constraint(lower: &str, out: &mut Vec<String>) {
+    if lower.contains("budget") {
+        out.push("budget_serre".to_string());
+    }
+}
+
+fn push_urgence_constraint(lower: &str, out: &mut Vec<String>) {
+    if contains_any(lower, &["urgence", "critique"]) {
+        out.push("urgence".to_string());
+    }
+}
+
+fn push_autonomy_constraint(lower: &str, out: &mut Vec<String>) {
+    if lower.contains("sans") && lower.contains("humain") {
+        out.push("autonomie_totale".to_string());
+    }
+}
+
+fn collect_constraints(lower: &str) -> Vec<String> {
+    let mut constraints = Vec::new();
+    push_budget_constraint(lower, &mut constraints);
+    push_urgence_constraint(lower, &mut constraints);
+    push_autonomy_constraint(lower, &mut constraints);
+    constraints
+}
+
 impl GenosEcosystem {
     /// Interprète une mission en langage naturel -> but + contraintes.
     ///
@@ -76,34 +116,7 @@ impl GenosEcosystem {
     pub fn interpret_mission(&self, mission: &str) -> (Goal, Vec<String>) {
         let _ = self.communicate(&format!("Classe cette mission: {mission}"));
         let lower = mission.to_lowercase();
-        let goal = if lower.contains("répar")
-            || lower.contains("repar")
-            || lower.contains("bug")
-            || lower.contains("compile")
-        {
-            Goal::RepairModule
-        } else if lower.contains("soign")
-            || lower.contains("guér")
-            || lower.contains("guer")
-            || lower.contains("récup")
-            || lower.contains("recup")
-        {
-            Goal::RecoverAgent
-        } else {
-            Goal::SecurePerimeter
-        };
-
-        let mut constraints = Vec::new();
-        if lower.contains("budget") {
-            constraints.push("budget_serre".to_string());
-        }
-        if lower.contains("urgence") || lower.contains("critique") {
-            constraints.push("urgence".to_string());
-        }
-        if lower.contains("sans") && lower.contains("humain") {
-            constraints.push("autonomie_totale".to_string());
-        }
-        (goal, constraints)
+        (classify_goal(&lower), collect_constraints(&lower))
     }
 
     /// Interprète une mission textuelle puis l'exécute via `run`.

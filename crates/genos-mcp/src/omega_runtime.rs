@@ -7,6 +7,9 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 mod proofs;
 use proofs::verified;
 
+#[path = "omega_runtime/operations.rs"]
+mod operations;
+
 pub type Handler = Box<dyn Fn(OperationContext) -> Result<Value, String> + Send + Sync>;
 
 #[derive(Clone, Debug)]
@@ -51,6 +54,48 @@ pub struct OmegaRuntime {
     inferers: HashMap<String, Handler>,
     verifiers: HashMap<String, Handler>,
     emitters: HashMap<String, Handler>,
+}
+
+struct ExecArgs<'a> {
+    operation: &'a OmegaOperation,
+    input: &'a ExecutionInput,
+    values: &'a mut BTreeMap<String, Value>,
+    receipts: &'a mut BTreeMap<String, Value>,
+}
+
+struct ReadArgs<'a> {
+    operation: &'a OmegaOperation,
+    context: OperationContext,
+    input: &'a ExecutionInput,
+    values: &'a mut BTreeMap<String, Value>,
+    reference: &'a str,
+}
+
+struct InvokeArgs<'a> {
+    operation: &'a OmegaOperation,
+    context: OperationContext,
+    handlers: &'a HashMap<String, Handler>,
+    values: &'a mut BTreeMap<String, Value>,
+    reference: &'a str,
+    missing: &'a str,
+}
+
+struct CheckArgs<'a> {
+    operation: &'a OmegaOperation,
+    context: OperationContext,
+    handlers: &'a HashMap<String, Handler>,
+    values: &'a mut BTreeMap<String, Value>,
+    receipts: &'a mut BTreeMap<String, Value>,
+    reference: &'a str,
+}
+
+struct EmitArgs<'a> {
+    operation: &'a OmegaOperation,
+    context: OperationContext,
+    input: &'a ExecutionInput,
+    values: &'a mut BTreeMap<String, Value>,
+    receipts: &'a BTreeMap<String, Value>,
+    reference: &'a str,
 }
 
 impl OmegaRuntime {
@@ -119,7 +164,8 @@ impl OmegaRuntime {
                 return blocked_with(results, values, "dependency_execution_failed");
             };
             let operation = pending.remove(index);
-            let result = self.execute_operation(&operation, &input, &mut values, &mut receipts);
+            let args = ExecArgs { operation: &operation, input: &input, values: &mut values, receipts: &mut receipts };
+            let result = self.execute_operation(args);
             let entry = OperationResult {
                 id: operation.0.clone(),
                 kind: operation.1.clone(),
@@ -146,13 +192,8 @@ impl OmegaRuntime {
         }
     }
 
-    fn execute_operation(
-        &self,
-        operation: &OmegaOperation,
-        input: &ExecutionInput,
-        values: &mut BTreeMap<String, Value>,
-        receipts: &mut BTreeMap<String, Value>,
-    ) -> OperationResult {
+    fn execute_operation(&self, args: ExecArgs) -> OperationResult {
+        let ExecArgs { operation, input, values, receipts } = args;
         let context = OperationContext {
             operation: operation.clone(),
             input: operation_input(operation, values),
@@ -168,146 +209,48 @@ impl OmegaRuntime {
         }
         let reference = operation.2.clone().unwrap_or_default();
         match operation.1.as_str() {
-            "READ" => self.read(operation, context, input, values, &reference),
-            "SELECT" => self.invoke(
+            "READ" => self.read(ReadArgs { operation, context, input, values, reference: &reference }),
+            "SELECT" => self.invoke(InvokeArgs {
                 operation,
                 context,
-                &self.selectors,
+                handlers: &self.selectors,
                 values,
-                &reference,
-                "selector_missing",
-            ),
-            "CALL" => self.invoke(
+                reference: &reference,
+                missing: "selector_missing",
+            }),
+            "CALL" => self.invoke(InvokeArgs {
                 operation,
                 context,
-                &self.tools,
+                handlers: &self.tools,
                 values,
-                &reference,
-                "tool_missing",
-            ),
-            "INFER" => self.invoke(
+                reference: &reference,
+                missing: "tool_missing",
+            }),
+            "INFER" => self.invoke(InvokeArgs {
                 operation,
                 context,
-                &self.inferers,
+                handlers: &self.inferers,
                 values,
-                &reference,
-                "inferer_missing",
-            ),
-            "CHECK" => self.check(
+                reference: &reference,
+                missing: "inferer_missing",
+            }),
+            "CHECK" => self.check(CheckArgs {
                 operation,
                 context,
-                &self.verifiers,
+                handlers: &self.verifiers,
                 values,
                 receipts,
-                &reference,
-            ),
-            "EMIT" => self.emit(operation, context, input, values, receipts, &reference),
+                reference: &reference,
+            }),
+            "EMIT" => self.emit(EmitArgs {
+                operation,
+                context,
+                input,
+                values,
+                receipts,
+                reference: &reference,
+            }),
             _ => blocked_operation(operation, "operation_kind_invalid".into()),
-        }
-    }
-
-    fn read(
-        &self,
-        operation: &OmegaOperation,
-        context: OperationContext,
-        input: &ExecutionInput,
-        values: &mut BTreeMap<String, Value>,
-        reference: &str,
-    ) -> OperationResult {
-        let value = self
-            .readers
-            .get(reference)
-            .map(|handler| handler(context))
-            .unwrap_or_else(|| {
-                input
-                    .objects
-                    .get(reference)
-                    .cloned()
-                    .ok_or_else(|| "reader_missing".into())
-            });
-        match value {
-            Ok(value) => {
-                values.insert(operation.0.clone(), value);
-                ready(operation)
-            }
-            Err(reason) => blocked_operation(operation, reason),
-        }
-    }
-
-    fn invoke(
-        &self,
-        operation: &OmegaOperation,
-        context: OperationContext,
-        handlers: &HashMap<String, Handler>,
-        values: &mut BTreeMap<String, Value>,
-        reference: &str,
-        missing: &str,
-    ) -> OperationResult {
-        let Some(handler) = handlers.get(reference) else {
-            return blocked_operation(operation, missing.into());
-        };
-        match handler(context) {
-            Ok(value) => {
-                values.insert(operation.0.clone(), value);
-                ready(operation)
-            }
-            Err(reason) => blocked_operation(operation, reason),
-        }
-    }
-
-    fn check(
-        &self,
-        operation: &OmegaOperation,
-        context: OperationContext,
-        handlers: &HashMap<String, Handler>,
-        values: &mut BTreeMap<String, Value>,
-        receipts: &mut BTreeMap<String, Value>,
-        reference: &str,
-    ) -> OperationResult {
-        let Some(handler) = handlers.get(reference) else {
-            return blocked_operation(operation, "verifier_missing".into());
-        };
-        match handler(context) {
-            Ok(receipt) if verified(&receipt) => {
-                receipts.insert(operation.0.clone(), receipt);
-                values.insert(operation.0.clone(), operation_input(operation, values));
-                OperationResult {
-                    id: operation.0.clone(),
-                    kind: operation.1.clone(),
-                    status: "verified".into(),
-                    reason: None,
-                }
-            }
-            Ok(_) => blocked_operation(operation, "verification_failed".into()),
-            Err(reason) => blocked_operation(operation, reason),
-        }
-    }
-
-    fn emit(
-        &self,
-        operation: &OmegaOperation,
-        context: OperationContext,
-        input: &ExecutionInput,
-        values: &mut BTreeMap<String, Value>,
-        receipts: &BTreeMap<String, Value>,
-        reference: &str,
-    ) -> OperationResult {
-        if !input.allow_emit {
-            return blocked_operation(operation, "emit_not_authorized".into());
-        }
-        let Some((candidate, receipt)) = proofs::emission(operation, values, receipts) else {
-            return blocked_operation(operation, "emit_requires_verified_receipt".into());
-        };
-        let Some(handler) = self.emitters.get(reference) else {
-            return blocked_operation(operation, "emitter_missing".into());
-        };
-        let result = handler(OperationContext { receipt: Some(receipt), input: candidate, ..context });
-        match result {
-            Ok(value) => {
-                values.insert(operation.0.clone(), value);
-                emitted(operation)
-            }
-            Err(reason) => blocked_operation(operation, reason),
         }
     }
 }

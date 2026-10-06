@@ -89,53 +89,112 @@ impl Gene {
         }
     }
 
+    fn is_silenced(&self) -> bool {
+        match self.is_methylated {
+            true => true,
+            false => self.expression_volume <= 0.0,
+        }
+    }
+
+    fn is_constitutive_locked(&self) -> bool {
+        match self.chromatin_state {
+            ChromatinState::HeterochromatinConstitutive => true,
+            _ => false,
+        }
+    }
+
+    fn is_condensed(&self) -> bool {
+        match self.chromatin_state {
+            ChromatinState::HeterochromatinFacultative => true,
+            _ => self.developmentally_locked,
+        }
+    }
+
+    fn tf_matches_pioneer(tf: &str, pioneer_locus: &str, locus: &str) -> bool {
+        match tf == "PIONEER_FACTOR" {
+            true => true,
+            false => match tf == pioneer_locus {
+                true => true,
+                false => match tf.strip_prefix("PIONEER_") {
+                    None => false,
+                    Some(_) => tf.ends_with(locus),
+                },
+            },
+        }
+    }
+
+    fn pioneer_present(&self, active_tfs: &[String]) -> bool {
+        let pioneer_locus = format!("PIONEER_{}", self.locus);
+        for tf in active_tfs {
+            match Self::tf_matches_pioneer(tf, &pioneer_locus, &self.locus) {
+                true => return true,
+                false => {},
+            }
+        }
+        false
+    }
+
+    fn check_condensation(&self, ctx: &ExpressionContext) -> Result<(), String> {
+        match self.is_condensed() {
+            false => Ok(()),
+            true => match self.pioneer_present(ctx.active_tfs) {
+                true => Ok(()),
+                false => Err("OFF: Heterochromatin locked".to_string()),
+            },
+        }
+    }
+
+    fn check_repressor(&self, ctx: &ExpressionContext) -> Result<(), String> {
+        match &self.bound_repressor {
+            None => Ok(()),
+            Some(rep) => match ctx.active_tfs.contains(rep) {
+                true => Err("OFF: Repressor bound".to_string()),
+                false => Ok(()),
+            },
+        }
+    }
+
+    fn check_activator(&self, ctx: &ExpressionContext) -> Result<(), String> {
+        match &self.required_activator {
+            None => Ok(()),
+            Some(act) => match ctx.active_tfs.contains(act) {
+                true => Ok(()),
+                false => Err("OFF: Missing required activator".to_string()),
+            },
+        }
+    }
+
+    fn mature_transcript(&self, pre_mrna: RnaStrand, ctx: &ExpressionContext) -> RnaStrand {
+        match ctx.alternative_splicing {
+            Some(custom_exons) => Spliceosome::splice(&pre_mrna, custom_exons),
+            None => match self.default_exons.is_empty() {
+                true => pre_mrna,
+                false => Spliceosome::splice(&pre_mrna, &self.default_exons),
+            },
+        }
+    }
+
+    fn check_mirna(&self, ctx: &ExpressionContext) -> Result<(), String> {
+        match ctx.micro_rnas.contains(&self.locus) {
+            true => Err("DESTROYED: microRNA targeted decay".to_string()),
+            false => Ok(()),
+        }
+    }
+
     pub fn express(&self, ctx: ExpressionContext) -> Result<String, String> {
-        if self.is_methylated || self.expression_volume <= 0.0 {
+        if self.is_silenced() {
             return Err("OFF: Gene silenced".to_string());
         }
-
-        // L'hétérochromatine constitutive est irréversiblement verrouillée
-        if self.chromatin_state == ChromatinState::HeterochromatinConstitutive {
+        if self.is_constitutive_locked() {
             return Err("OFF: Heterochromatin locked".to_string());
         }
-
-        // L'hétérochromatine facultative peut être décondensée par des facteurs pionniers
-        let is_condensed = self.chromatin_state == ChromatinState::HeterochromatinFacultative
-            || self.developmentally_locked;
-        if is_condensed {
-            let pioneer_locus = format!("PIONEER_{}", self.locus);
-            let has_pioneer = ctx.active_tfs.iter().any(|tf| {
-                tf == "PIONEER_FACTOR"
-                    || tf == &pioneer_locus
-                    || (tf.starts_with("PIONEER_") && tf.ends_with(&self.locus))
-            });
-            if !has_pioneer {
-                return Err("OFF: Heterochromatin locked".to_string());
-            }
-        }
-        if let Some(rep) = &self.bound_repressor {
-            if ctx.active_tfs.contains(rep) {
-                return Err("OFF: Repressor bound".to_string());
-            }
-        }
-        if let Some(act) = &self.required_activator {
-            if !ctx.active_tfs.contains(act) {
-                return Err("OFF: Missing required activator".to_string());
-            }
-        }
+        self.check_condensation(&ctx)?;
+        self.check_repressor(&ctx)?;
+        self.check_activator(&ctx)?;
 
         let pre_mrna = RnaPolymerase::transcribe(&self.dna);
-        let mature_mrna = if let Some(custom_exons) = ctx.alternative_splicing {
-            Spliceosome::splice(&pre_mrna, custom_exons)
-        } else if !self.default_exons.is_empty() {
-            Spliceosome::splice(&pre_mrna, &self.default_exons)
-        } else {
-            pre_mrna
-        };
-
-        if ctx.micro_rnas.contains(&self.locus) {
-            return Err("DESTROYED: microRNA targeted decay".to_string());
-        }
+        let mature_mrna = self.mature_transcript(pre_mrna, &ctx);
+        self.check_mirna(&ctx)?;
 
         Ribosome::quality_control_nmd(&mature_mrna, false)?;
         let protein = Ribosome::translate(&mature_mrna);

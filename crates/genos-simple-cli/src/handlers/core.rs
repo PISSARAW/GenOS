@@ -104,117 +104,177 @@ fn handle_start() {
     release_start_lock();
 }
 
+fn parse_stop_pid(text: &str) -> u32 {
+    match text.trim().parse::<u32>() {
+        Ok(v) => v,
+        Err(error) => command_error(format!("PID invalide dans .genos_server.pid: {}", error)),
+    }
+}
+
+fn read_stop_pid() -> Option<u32> {
+    match std::fs::read_to_string(".genos_server.pid") {
+        Ok(pid_str) => Some(parse_stop_pid(&pid_str)),
+        Err(_) => None,
+    }
+}
+
+fn stale_stop(pid: u32, reason: String) -> ! {
+    let _ = std::fs::remove_file(".genos_server.pid");
+    command_error(reason);
+}
+
+fn ensure_stop_preconditions(pid: u32) {
+    match api_is_healthy() {
+        true => {},
+        false => stale_stop(pid, format!("le serveur est déjà arrêté; PID stale supprimé ({})", pid)),
+    }
+    match is_genos_server_process(pid) {
+        true => {},
+        false => stale_stop(pid, format!(
+            "refus d'arrêter le PID {}: il ne correspond pas à un serveur GenOS (PID possiblement réutilisé); fichier PID supprimé",
+            pid
+        )),
+    }
+}
+
+fn kill_pid(pid: u32) -> std::io::Result<std::process::ExitStatus> {
+    let result = kill_pid_impl(pid);
+    match result {
+        Ok(status) => Ok(status),
+        Err(e) => Err(e),
+    }
+}
+
+fn kill_pid_impl(pid: u32) -> std::io::Result<std::process::ExitStatus> {
+    let first_kill = kill_process(pid);
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    match api_is_healthy() {
+        true => force_kill(pid),
+        false => first_kill,
+    }
+}
+
+fn kill_process(pid: u32) -> std::io::Result<std::process::ExitStatus> {
+    #[cfg(windows)]
+    {
+        std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string()])
+            .status()
+    }
+    #[cfg(not(windows))]
+    {
+        std::process::Command::new("kill")
+            .arg(pid.to_string())
+            .status()
+    }
+}
+
+fn force_kill(pid: u32) -> std::io::Result<std::process::ExitStatus> {
+    #[cfg(windows)]
+    {
+        std::process::Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &pid.to_string()])
+            .status()
+    }
+    #[cfg(not(windows))]
+    {
+        std::process::Command::new("kill")
+            .arg("-9")
+            .arg(pid.to_string())
+            .status()
+    }
+}
+
+fn report_kill(status: std::io::Result<std::process::ExitStatus>, pid: u32, port: u16) {
+    match status {
+        Ok(s) => match s.success() {
+            true => println!("Serveur arrêté (PID: {}).", pid),
+            false => command_error(format!("impossible d'arrêter le serveur (code {})", s.code().unwrap_or(1))),
+        },
+        Err(error) => command_error(format!("impossible d'arrêter le serveur: {}", error)),
+    }
+    match api_is_healthy() {
+        true => command_error(format!("le port {} est encore ouvert après l'arrêt", port)),
+        false => {},
+    }
+    let _ = std::fs::remove_file(".genos_server.pid");
+}
+
+fn handle_stop() {
+    println!("Arrêt du serveur GenOS...");
+    let port = api_port();
+    let pid = match read_stop_pid() {
+        Some(v) => v,
+        None => {
+            println!("Aucun serveur GenOS en cours d'exécution (pid file introuvable).");
+            std::process::exit(1);
+        }
+    };
+    ensure_stop_preconditions(pid);
+    let status = kill_pid(pid);
+    report_kill(status, pid, port);
+}
+
+fn handle_status() {
+    println!("Vérification du statut du serveur GenOS...");
+    let port = api_port();
+    match std::fs::read_to_string(".genos_server.pid") {
+        Ok(pid_str) => report_status_online(pid_str.trim(), port),
+        Err(_) => {
+            println!("Statut: ARRÊTÉ");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn report_status_online(pid: &str, port: u16) {
+    println!("Le serveur semble être en cours d'exécution (PID: {}).", pid);
+    match api_is_healthy() {
+        true => println!("Statut: EN LIGNE (Port {} ouvert)", port),
+        false => {
+            println!("Statut: HORS LIGNE (Port {} inaccessible)", port);
+            let _ = std::fs::remove_file(".genos_server.pid");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn handle_run() {
+    println!("Lancement d'une tâche (création d'agent de test)...");
+    let status = std::process::Command::new(cargo_program())
+        .args(["run", "-q", "-p", "genos-cli", "--", "agent", "create", "--name", "task-worker", "--out", ".genos-task.json", "--force"])
+        .status();
+    match status {
+        Ok(s) => match s.success() {
+            true => println!("Tâche lancée et agent créé avec succès."),
+            false => command_error(format!("erreur lors du lancement de la tâche (code {})", s.code().unwrap_or(1))),
+        },
+        Err(error) => command_error(format!("impossible de lancer la tâche: {}", error)),
+    }
+}
+
+fn handle_list() {
+    println!("Liste des fossiles stockés...");
+    let mut cmd = std::process::Command::new(cargo_program());
+    cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
+    exit_on_command_failure(cmd.status());
+}
+
+fn handle_init() {
+    println!("Initialisation de GenOS...");
+    let mut cmd = std::process::Command::new(cargo_program());
+    cmd.args(["run", "-q", "-p", "genos-cli", "--", "init"]);
+    exit_on_command_failure(cmd.status());
+}
+
 pub fn handle_core(cmd: &CoreCommands, _yes: bool) {
     match cmd {
         CoreCommands::Start => handle_start(),
-        CoreCommands::Stop => {
-            println!("Arrêt du serveur GenOS...");
-            let port = api_port();
-            if let Ok(pid_str) = std::fs::read_to_string(".genos_server.pid") {
-                let pid = pid_str.trim().parse::<u32>().unwrap_or_else(|error| command_error(format!("PID invalide dans .genos_server.pid: {}", error)));
-                if !api_is_healthy() {
-                    let _ = std::fs::remove_file(".genos_server.pid");
-                    command_error(format!("le serveur est déjà arrêté; PID stale supprimé ({})", pid));
-                }
-                if !is_genos_server_process(pid) {
-                    let _ = std::fs::remove_file(".genos_server.pid");
-                    command_error(format!(
-                        "refus d'arrêter le PID {}: il ne correspond pas à un serveur GenOS (PID possiblement réutilisé); fichier PID supprimé",
-                        pid
-                    ));
-                }
-                if !api_is_healthy() {
-                    let _ = std::fs::remove_file(".genos_server.pid");
-                    command_error(format!("le serveur est déjà arrêté; PID stale supprimé ({})", pid));
-                }
-                // Verify the PID actually belongs to a GenOS server process before killing
-                if !is_genos_server_process(pid) {
-                    let _ = std::fs::remove_file(".genos_server.pid");
-                    command_error(format!(
-                        "refus d'arrêter le PID {}: il ne correspond pas à un serveur GenOS (PID possiblement réutilisé); fichier PID supprimé",
-                        pid
-                    ));
-                }
-                let status = {
-                    #[cfg(windows)]
-                    {
-                        // Try graceful shutdown first (Ctrl+C equivalent)
-                        let _ = std::process::Command::new("taskkill")
-                            .args(["/PID", &pid.to_string()])
-                            .status();
-                        // Wait a bit for graceful shutdown
-                        std::thread::sleep(std::time::Duration::from_secs(2));
-                        if api_is_healthy() {
-                            // Force kill if still alive
-                            std::process::Command::new("taskkill")
-                                .args(["/F", "/T", "/PID", &pid.to_string()])
-                                .status()
-                        } else {
-                            Ok(std::process::ExitStatus::default())
-                        }
-                    }
-                    #[cfg(not(windows))]
-                    {
-                        // Try graceful SIGTERM first
-                        std::process::Command::new("kill")
-                            .arg(pid.to_string())
-                            .status()
-                            .ok();
-                        std::thread::sleep(std::time::Duration::from_secs(2));
-                        if api_is_healthy() {
-                            std::process::Command::new("kill")
-                                .arg("-9")
-                                .arg(pid.to_string())
-                                .status()
-                        } else {
-                            Ok(std::process::ExitStatus::default())
-                        }
-                    }
-                };
-                match status {
-                    Ok(status) if status.success() => println!("Serveur arrêté (PID: {}).", pid),
-                    Ok(status) => command_error(format!("impossible d'arrêter le serveur (code {})", status.code().unwrap_or(1))),
-                    Err(error) => command_error(format!("impossible d'arrêter le serveur: {}", error)),
-                }
-                if api_is_healthy() { command_error(format!("le port {} est encore ouvert après l'arrêt", port)); }
-                let _ = std::fs::remove_file(".genos_server.pid");
-            } else {
-                println!("Aucun serveur GenOS en cours d'exécution (pid file introuvable).");
-                std::process::exit(1);
-            }
-        }
-        CoreCommands::Status => {
-            println!("Vérification du statut du serveur GenOS...");
-            let port = api_port();
-            if let Ok(pid_str) = std::fs::read_to_string(".genos_server.pid") {
-                println!("Le serveur semble être en cours d'exécution (PID: {}).", pid_str.trim());
-                if api_is_healthy() { println!("Statut: EN LIGNE (Port {} ouvert)", port); }
-                else { println!("Statut: HORS LIGNE (Port {} inaccessible)", port); let _ = std::fs::remove_file(".genos_server.pid"); std::process::exit(1); }
-            } else { println!("Statut: ARRÊTÉ"); std::process::exit(1); }
-        }
-        CoreCommands::Run => {
-            println!("Lancement d'une tâche (création d'agent de test)...");
-            let status = std::process::Command::new(cargo_program())
-                .args(["run", "-q", "-p", "genos-cli", "--", "agent", "create", "--name", "task-worker", "--out", ".genos-task.json", "--force"])
-                .status();
-            match status {
-                Ok(s) if s.success() => println!("Tâche lancée et agent créé avec succès."),
-                Ok(s) => command_error(format!("erreur lors du lancement de la tâche (code {})", s.code().unwrap_or(1))),
-                Err(error) => command_error(format!("impossible de lancer la tâche: {}", error)),
-            }
-        }
-        CoreCommands::List => {
-            println!("Liste des fossiles stockés...");
-            let mut cmd = std::process::Command::new(cargo_program());
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
-            exit_on_command_failure(cmd.status());
-        }
-        CoreCommands::Init => {
-            println!("Initialisation de GenOS...");
-            let mut cmd = std::process::Command::new(cargo_program());
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "init"]);
-            exit_on_command_failure(cmd.status());
-        }
+        CoreCommands::Stop => handle_stop(),
+        CoreCommands::Status => handle_status(),
+        CoreCommands::Run => handle_run(),
+        CoreCommands::List => handle_list(),
+        CoreCommands::Init => handle_init(),
     }
 }
 
