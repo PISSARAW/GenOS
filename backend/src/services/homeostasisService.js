@@ -3,14 +3,12 @@
 const crypto = require('crypto');
 const {
   buildHomeostasisContract, evaluateContract, homeostasisStatus,
-  serializeContract, deserializeContract, HOMEOSTASIS_SCHEMA
+  HOMEOSTASIS_SCHEMA
 } = require('./homeostasisContractService');
-const { migrateHomeostasisAuthority } = require('../db/migrations/migrateHomeostasisAuthority');
-const { newOrganism, expressPhenotype } = require('./missionOrganismService');
+const authority = require('./homeostasisAuthorityStore');
 const telemetry = require('./telemetryObserver');
 
 const HOMEOSTASIS_EVENT_PREFIX = 'HOMEOSTASIS';
-const migratedDatabases = new WeakSet();
 
 function homeostasisId(missionId) {
   return `homeostasis_${missionId || crypto.randomUUID()}`;
@@ -78,7 +76,8 @@ function contractInvariants(mission) {
   // The genome completion contract is the source of authority. The prompt
   // heuristics below are a development fallback only, never the contract.
   const contract = mission.completionContract;
-  if (contract && Array.isArray(contract.invariants) && contract.invariants.length > 0) {
+  if (contract) {
+    if (!Array.isArray(contract.invariants)) throw new Error('Completion contract requires an invariants array');
     return contract.invariants.map((invariant, index) => ({
       id: invariant.id || invariant.label || `completion_invariant_${index + 1}`,
       kind: invariant.kind,
@@ -92,9 +91,7 @@ function contractInvariants(mission) {
 
 function contractEvidence(mission) {
   const contract = mission.completionContract;
-  if (contract && Array.isArray(contract.requiredEvidence) && contract.requiredEvidence.length > 0) {
-    return contract.requiredEvidence.slice();
-  }
+  if (contract) return (contract.requiredEvidence || []).slice();
   return defaultEvidenceRequirements(mission);
 }
 
@@ -107,7 +104,9 @@ function buildMissionHomeostasis(mission) {
     requiredEvidence: contractEvidence(mission),
     minimumFunctionalCoverage: mission.homeostasisMinFunctionalCoverage
       ?? mission.completionContract?.minimumFunctionalCoverage
-      ?? 1
+      ?? 1,
+    policyVersion: mission.completionContract?.policyVersion,
+    classCoverage: mission.completionContract?.classCoverage
   });
   return contract;
 }
@@ -118,43 +117,6 @@ function attachHomeostasisToOrganism(organism, mission) {
     ...organism,
     homeostasis
   };
-}
-
-function contractHash(contract) {
-  const content = serializeContract(contract);
-  delete content.assembledAt;
-  return crypto.createHash('sha256').update(JSON.stringify(content)).digest('hex');
-}
-
-async function persistContractAuthority(db, mission, proposedContract) {
-  if (!migratedDatabases.has(db)) {
-    await migrateHomeostasisAuthority(db);
-    migratedDatabases.add(db);
-  }
-  const contract = serializeContract(proposedContract);
-  const hash = contractHash(proposedContract);
-  let row = await db.get(
-    'SELECT revision, contract_hash, contract_json FROM homeostasis_contract_revisions WHERE mission_id = ? AND contract_hash = ?',
-    [mission.id, hash]
-  );
-  if (!row) {
-    const latest = await db.get(
-      'SELECT MAX(revision) AS revision FROM homeostasis_contract_revisions WHERE mission_id = ?',
-      [mission.id]
-    );
-    const revision = Number(latest?.revision || 0) + 1;
-    await db.run(
-      `INSERT INTO homeostasis_contract_revisions
-       (id, mission_id, revision, contract_hash, contract_json)
-       VALUES (?, ?, ?, ?, ?)`,
-      [`${mission.id}:${revision}`, mission.id, revision, hash, JSON.stringify(contract)]
-    );
-    row = { revision, contract_hash: hash, contract_json: JSON.stringify(contract) };
-  }
-  const authority = deserializeContract(JSON.parse(row.contract_json));
-  authority.revision = row.revision;
-  authority.contractHash = row.contract_hash;
-  return authority;
 }
 
 function evidenceReferences(context) {
@@ -168,12 +130,16 @@ function evidenceReferences(context) {
 
 async function persistTransitionReceipt(db, input) {
   const receipt = {
-    schema: 'genos.homeostasis-transition-receipt/v1',
+    schema: 'genos.homeostasis-transition-receipt/v2',
     missionId: input.mission.id,
     contractId: input.contract.id,
     contractRevision: input.contract.revision,
     contractHash: input.contract.contractHash,
     policyVersion: input.contract.policyVersion,
+    thresholds: input.contract.classCoverage,
+    stateId: input.stateId,
+    from: input.previousStatus,
+    to: input.status,
     allowed: input.allowed,
     status: input.status,
     state: input.state,
@@ -195,15 +161,20 @@ async function persistTransitionReceipt(db, input) {
 
 function lastHomeostasisState(db, missionId) {
   return db.get(
-    `SELECT * FROM homeostasis_states WHERE mission_id = ? ORDER BY observed_at DESC LIMIT 1`,
+    `SELECT * FROM homeostasis_states WHERE mission_id = ? ORDER BY observed_at DESC, rowid DESC LIMIT 1`,
     missionId
   );
 }
 
 async function evaluateMissionHomeostasis(db, target) {
   const { organism, mission, context = {} } = target;
-  const proposedContract = organism.homeostasis || buildMissionHomeostasis(mission);
-  const contract = await persistContractAuthority(db, mission, proposedContract);
+  const contract = await authority.resolve(db, {
+    missionId: mission.id,
+    explicit: Boolean(mission.completionContract),
+    expectedRevision: mission.expectedHomeostasisRevision,
+    proposed: () => mission.completionContract ? buildMissionHomeostasis(mission)
+      : organism?.homeostasis || buildMissionHomeostasis(mission)
+  });
   const state = evaluateContract(contract, context);
   const status = homeostasisStatus(state);
   const previous = await lastHomeostasisState(db, mission.id);
@@ -230,7 +201,7 @@ async function evaluateMissionHomeostasis(db, target) {
       status
     });
   }
-  return { contract, state, status, changed };
+  return { contract, state, status, changed, stateId, previousStatus: previous?.status || 'unknown' };
 }
 
 
@@ -257,7 +228,7 @@ async function transitionMissionToComplete(db, target) {
   const { state, status } = evaluation;
   if (status !== 'homeostasis_satisfied') {
     const receipt = await persistTransitionReceipt(db, {
-      mission, context, contract: evaluation.contract, state, status, allowed: false
+      ...evaluation, mission, context, allowed: false
     });
     return {
       allowed: false,
@@ -270,7 +241,7 @@ async function transitionMissionToComplete(db, target) {
     };
   }
   const receipt = await persistTransitionReceipt(db, {
-    mission, context, contract: evaluation.contract, state, status, allowed: true
+    ...evaluation, mission, context, allowed: true
   });
   return { allowed: true, state, receipt };
 }

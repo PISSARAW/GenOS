@@ -56,19 +56,50 @@ async function validateAndAssimilate(migration, input) {
   if (!adapter) throw Object.assign(new Error(`No migration adapter is registered for ${migration.type}.`), { code: 'METAPOPULATION_ADAPTER_UNAVAILABLE' });
   const context = { migration, receiver: input.receiver, idempotencyKey: migration.migrationId };
   const validation = await adapter.validate(context);
-  if (!isValidReceiverDecision(validation)) {
+  if (validation?.decision === 'REQUEST_MORE_EVIDENCE') return deferMigration(migration, input, validation);
+  if (!isValidReceiverDecision(validation) || validation.decision === 'REJECT') {
     return migrationStore.resolveMigration(input.db, input.metapopulationId, {
       migrationId: migration.migrationId, status: 'REJECTED', validation: validation?.evidence || {},
       reason: validation?.reason || 'Receiver validation rejected the propagule.'
     });
   }
-  const receipt = await adapter.assimilate({ ...context, validation });
-  if (typeof receipt?.receiptId !== 'string' || !receipt.receiptId.trim() || !receipt?.provenance || typeof receipt.provenance !== 'object' || Array.isArray(receipt.provenance)) {
+  const adaptation = await adaptIfRequested(adapter, context, validation);
+  const receipt = await adapter.assimilate({ ...context, validation, adaptation });
+  if (!hasProvenanceReceipt(receipt)) {
     throw Object.assign(new Error('Assimilation must return a provenance-bearing receipt.'), { code: 'METAPOPULATION_ASSIMILATION_RECEIPT_REQUIRED' });
   }
   return migrationStore.resolveMigration(input.db, input.metapopulationId, {
-    migrationId: migration.migrationId, status: 'ACCEPTED', validation: validation.evidence, receipt
+    migrationId: migration.migrationId, status: 'ACCEPTED', validation: { ...validation.evidence, adaptation }, receipt
   });
+}
+
+async function adaptIfRequested(adapter, context, validation) {
+  if (validation.decision !== 'ADAPT_AND_ACCEPT') return null;
+  if (typeof adapter.adapt !== 'function') throw Object.assign(new Error('Receiver adaptation is unavailable.'),
+    { code: 'METAPOPULATION_ADAPTATION_UNAVAILABLE' });
+  const adaptation = await adapter.adapt({ ...context, validation });
+  if (!hasProvenanceReceipt(adaptation)) throw Object.assign(new Error('Adaptation requires a provenance receipt.'),
+    { code: 'METAPOPULATION_ADAPTATION_RECEIPT_REQUIRED' });
+  const recheck = await adapter.validate({ ...context, adaptation });
+  if (!isValidReceiverDecision(recheck) || recheck.decision === 'REJECT') throw Object.assign(new Error('Adapted payload failed local validation.'),
+    { code: 'METAPOPULATION_ADAPTATION_INVALID' });
+  return adaptation;
+}
+
+async function deferMigration(migration, input, validation) {
+  if (!isRecord(validation.evidence)) throw Object.assign(new Error('An evidence request needs local provenance.'),
+    { code: 'METAPOPULATION_RECEIVER_EVIDENCE_REQUIRED' });
+  const { withTransaction } = require('../../../db');
+  const store = require('../metapopulationStore');
+  await withTransaction(input.db, async () => {
+    await input.db.run('UPDATE metapopulation_migrations SET evidence_json = ? WHERE metapopulation_id = ? AND migration_id = ? AND status = ?',
+      JSON.stringify({ ...migration.evidence, receiverEvidenceRequest: validation }), input.metapopulationId,
+      migration.migrationId, 'QUARANTINED');
+    await store.appendEvent(input.db, input.metapopulationId, { type: 'MIGRATION_EVIDENCE_REQUESTED',
+      payload: { migrationId: migration.migrationId, reason: validation.reason }, actor: migration.targetDemeId,
+      provenance: validation.evidence, occurredAt: new Date().toISOString() });
+  });
+  return migrationStore.getMigration(input.db, input.metapopulationId, migration.migrationId);
 }
 
 function isValidReceiverDecision(decision) {

@@ -8,7 +8,7 @@ const { createRegistry } = require('../src/services/cognitiveEpistemicCheckServi
 const registry = createRegistry();
 registry.register('schema', { type: 'schema', schema: 'common-ground.schema.json' });
 registry.register('test', { type: 'test', test: { command: 'echo verified' } });
-registry.register('smt', { type: 'smt', command: 'echo smt-checked' });
+registry.register('smt', { type: 'smt', command: 'echo unsat' });
 registry.register('lean', { type: 'lean', source: 'theorem demo : 1 = 1 := by rfl', toolchainVersion: 'missing-lean' });
 
 const runtime = createRuntime();

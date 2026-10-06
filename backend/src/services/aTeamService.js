@@ -178,10 +178,7 @@ function buildMembers(selected) {
 }
 
 function technicalResult(selectedDomains, members, extra = {}) {
-  const required = extra.requiredCapabilities || requiredCapabilities(selectedDomains);
-  const detectedDomains = extra.detectedDomains || selectedDomains;
-  const staffed = new Set(members.map((member) => member.label || member.subSystem));
-  const overflowDomains = extra.overflowDomains || detectedDomains.filter((item) => !staffed.has(item.domain || item.capability));
+  const { required, detectedDomains, overflowDomains } = resultDomains(selectedDomains, members, extra);
   const capabilityCoverage = measureCapabilityCoverage({
     requirements: required,
     members,
@@ -202,6 +199,14 @@ function technicalResult(selectedDomains, members, extra = {}) {
     capabilityCoverage,
     members
   };
+}
+
+function resultDomains(selectedDomains, members, extra) {
+  const required = extra.requiredCapabilities || requiredCapabilities(selectedDomains);
+  const detectedDomains = extra.detectedDomains || selectedDomains;
+  const staffed = new Set(members.map((member) => member.label || member.subSystem));
+  const overflowDomains = extra.overflowDomains || detectedDomains.filter((item) => !staffed.has(item.domain || item.capability));
+  return { required, detectedDomains, overflowDomains };
 }
 
 function technicalAnalysis(domains, analysis) {

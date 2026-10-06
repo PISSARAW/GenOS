@@ -10,14 +10,16 @@ const sourceSinkRuntime = require('../migration/sourceSinkRuntimeService');
 
 function routableMigrationAction(context) {
   const { candidate, observed, input, reason } = context;
+  if (input.enableMigration === false) return null;
   const propagule = validPropagule(candidate, reason);
   if (!propagule) return null;
   const corridor = findAdmissibleCorridor(observed, propagule);
   if (!corridor) return null;
   const receiver = receiverFor(input, propagule.targetDemeId);
   if (!receiver) return null;
-  return { type: 'MIGRATE_PROPAGULE', corridorId: corridor.corridorId, propagule, receiver,
-    utility: evaluateMigrationValue({ ...propagule, criticalRescue: false }), triggerReasons: ['VARIANT_DIRECTED'] };
+  const { candidateAction } = require('../runtime/regionalMigrationLoopService');
+  return candidateAction(propagule, { receiver, reason, trigger: {},
+    sourceReserveRatio: observed.variantPolicy?.sourceReserveRatio }, observed);
 }
 
 function validPropagule(candidate, reason) {
@@ -189,7 +191,7 @@ async function antiSynchronyActions(observed, input, options) {
   return [
     ...firebreakRegulationActions(observed, input),
     ...diversityFloorActions(observed),
-    ...topologyRewireActions(observed, input, options),
+    ...await topologyRewireActions(observed, input, options),
     ...extinctionCoverageActions(observed)
   ];
 }
@@ -222,7 +224,7 @@ async function topologyRewireActions(observed, input, options) {
   });
   return sameCorridorPairs(observed.corridors, proposed)
     ? []
-    : [{ type: 'REWIRE_VARIANT_TOPOLOGY', corridors: observed.corridors }];
+    : [{ type: 'REWIRE_VARIANT_TOPOLOGY', corridors: proposed }];
 }
 
 function extinctionCoverageActions(observed) {
@@ -242,7 +244,8 @@ function coverageDecision(observed, deme) {
 }
 
 function uncoveredCapability(observed, deme, capability) {
-  return !observed.demes.some((other) => other.demeId !== deme.demeId && (other.capabilities || []).includes(capability));
+  return !observed.demes.some((other) => other.demeId !== deme.demeId && ['ACTIVE', 'STRESSED'].includes(other.status)
+    && (other.capabilities || []).includes(capability));
 }
 
 function sameCorridorPairs(current, proposed) {

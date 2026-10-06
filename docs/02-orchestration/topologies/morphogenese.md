@@ -2155,6 +2155,26 @@ La Morphogenèse GenOS est le système de contrôle vivant qui donne aux organis
 
 ## 45. État d'implémentation du runtime
 
+### Garage Fabric : circulation distincte de la morphologie
+
+La construction morphogénétique choisit les rôles, méthodes, dépendances et
+contrats. [Garage Fabric](garage-fabric.md) contrôle leur circulation dans le
+runtime commun des workers : douze politiques d'admission, file SQLite durable,
+baux clôturés, réservation locale/projet et préemption consentie. Il ne crée
+pas une neuvième topologie, ne change pas un `WorkerKind` et n'accorde pas de
+permissions MCP supplémentaires.
+
+Le démarrage commun adopte les workers sans demande Garage et lie la tentative
+au run exact ; cela ne transforme pas un graphe seulement composé en exécution.
+La fin requiert la preuve typée du run courant. Le cycle snapshot/freeze/thaw
+reprend des fichiers vérifiés dans une nouvelle capsule, avec le budget restant
+mesuré : ce n'est pas une restauration transparente du processus ni du contexte
+LLM. L'état détaillé et les contrôles sont dans la
+[référence Garage](garage-fabric.md) et le
+[runtime agentique](../../01-concepts/runtime-agentique.md).
+
+### Autres composants morphogénétiques
+
 Le dépôt contient des services Node pour le graphe morphologique, son
 validation et son typage, l'évaluation et les contraintes, les transitions,
 les baux, les reçus et l'observabilité. Des adaptateurs relient également
@@ -2247,6 +2267,8 @@ Métapopulation sur leurs runtimes réels persistés (SQLite natif, sinon
 repli `node:sqlite` explicite dans le reçu). Chaque feuille impose son
 contrat d'entrée (ballots Biocénose, `capability`+exécuteur+allocation
 Holobionte, mission Métapopulation) avec refus fermé sinon.
+
+Les missions Holobionte par capacité passent par `holobionteService.runHolobiontMission`, partagé avec la CLI. Elles exigent `executeCapability`, `verifyCapability` et une allocation ; un nouveau candidat exige aussi `trialCapabilityExecutor`. Le vérificateur indépendant lie sa preuve au résultat concret. Admission, quotas cumulés, veto immunitaire, contribution et mémoire atomiques, annulation et clôture suivent le [contrat Holobionte](../../03-reference/runtime-holobionte.md). Un reçu de feuille n’accorde aucune preuve supplémentaire à la sortie.
 
 Le runtime expose en outre `applyPatch` (pipeline
 validation→contrefactuel→adjudication→transaction→vérification→commit/rollback).

@@ -42,6 +42,10 @@ function resolveExecutor(options) {
   return typeof options.execute === 'function' ? options.execute : registeredExecutor;
 }
 
+function hasExecutor(options = {}) {
+  return typeof resolveExecutor(options) === 'function';
+}
+
 function validateOptions(options) {
   if (!options?.frame?.agentId || !options.frame.frameId || !options.db?.get || !options.db?.run) {
     throw new TypeError('AGOW shadow simulation requires a real frame and backend database.');
@@ -189,4 +193,4 @@ async function runTriggered(options) {
     snapshotHash: base.snapshotHash, limits: budget, simulations };
 }
 
-module.exports = { registerExecutor, runTriggered, validateOutcome, limits, RECEIPT_SCOPE };
+module.exports = { registerExecutor, hasExecutor, runTriggered, validateOutcome, limits, RECEIPT_SCOPE };

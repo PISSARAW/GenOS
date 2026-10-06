@@ -6,10 +6,14 @@ const { createSyncytiumCrdt } = require('./syncytiumCrdtService');
 const { createCytoplasm } = require('./syncytiumCytoplasmService');
 const topologyCapabilityService = require('./topologyCapabilityService');
 const persistence = require('./syncytiumPersistenceService');
+const { commitMutation } = require('./syncytium/history/sessionMutation');
+const ionicMutation = require('./syncytium/runtime/ionicMutation');
+const { assessConsistency } = require('./syncytium/consistency/consistencyAssessment');
 const schemaService = require('./syncytiumSchemaService');
 const nuclearDomains = require('./syncytium/domains/nuclearDomainService');
 const mutationAuthority = require('./syncytium/security/mutationAuthorityService');
 const operationClassifier = require('./syncytium/consistency/operationClassifier');
+const causalClock = require('./syncytium/causality/causalClockService');
 const consistencyZones = require('./syncytium/consistency/consistencyZoneService');
 const coordinationRouter = require('./syncytium/consistency/coordinationRouter');
 const invariantGate = require('./syncytium/invariants/invariantGate');
@@ -145,11 +149,15 @@ async function persist(db, session) {
 async function createSession(mission, options = {}) {
   const sessionId = `syncytium-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const organization = options.organization || DEFAULT_ORGANIZATION;
+  const schema = schemaService.compile(options.schema);
+  const variantPolicy = options.variantPolicy ? { ...options.variantPolicy,
+    consistencyZones: Object.fromEntries(Object.entries(schema?.fields || {}).map(([path, field]) => [path, field.consistencyZone])),
+    invariants: schema?.invariants || {} } : null;
   const session = {
     sessionId,
     mission: String(mission || ''),
     recommended: syncytiumService.analyzeMission(mission).recommended,
-    variantPolicy: options.variantPolicy || null,
+    variantPolicy,
     variantSelection: options.variantSelection || null,
     offlineAuthority: replicaRegistry.normalizeOfflineAuthority(options.offlineAuthority),
     members: syncytiumService.compose(mission),
@@ -161,14 +169,14 @@ async function createSession(mission, options = {}) {
     speculativeBranches: {},
     revision: 0,
     persisted: false,
-    schema: schemaService.compile(options.schema),
+    schema,
     capabilityContract: topologyCapabilityService.contractFor({ mode: 'syncytium', organization }),
     crdt: createSyncytiumCrdt(),
     cytoplasm: createCytoplasm(),
     fluxOps: []
   };
-  sessions.set(sessionId, session);
   await persist(options.db, session);
+  sessions.set(sessionId, session);
   return session;
 }
 
@@ -188,22 +196,6 @@ function isIonicFlux(op) {
   return Boolean(op && op.kind && typeof op.kind === 'object' && typeof op.kind.type === 'string' && op.kind.type.startsWith('flux_'));
 }
 
-function assessConsistency(session) {
-  const snapshot = session.crdt.getSnapshot();
-  const failed = snapshot.invariants.filter((invariant) => !invariant.passed);
-  const membranePotentialMv = session.cytoplasm.snapshotState().membranePotentialMv;
-  const physiology = membranePotentialMv < -85 || membranePotentialMv > 30 ? 'unstable' : 'normal';
-  return {
-    verdict: failed.length ? 'divergent' : 'consistent',
-    failedInvariants: failed.map((invariant) => invariant.name),
-    membranePotentialMv,
-    physiology,
-    step: snapshot.step,
-    totalOps: snapshot.totalOps,
-    textLength: snapshot.textContent.length
-  };
-}
-
 async function applyOperation(sessionId, op, options = {}) {
   const session = await getSession(sessionId, options.db);
   validateConsumerDomain(session, options.domainId);
@@ -220,7 +212,7 @@ async function applyOperation(sessionId, op, options = {}) {
 async function applyAdmittedOperation(context) {
   const { sessionId, session, op, options, admission, decision } = context;
   mutationAuthority.authorize(session.domains, session.schema, op);
-  if (op?.opId && (session.crdt.hasOpId(op.opId) || session.fluxOps.some((flux) => flux.opId === op.opId))) {
+  if (op?.opId && (session.crdt.assertDuplicateOperation(op) || ionicMutation.assertDuplicate(session, op))) {
     return operationResult(context, session.crdt.getSnapshot(), { duplicate: true });
   }
   if (op.fieldType === 'ESCROW_COUNTER' && op.kind?.action === 'allocate') {
@@ -229,25 +221,20 @@ async function applyAdmittedOperation(context) {
   consistencyZones.validateMutation(decision.zone, op, session.crdt.getSnapshot().sharedFields);
   const offline = offlineMutation.stage({ session, options, operation: op });
   if (offline) return persistOfflineOperation(context, offline);
-  if (isIonicFlux(op)) {
-    const flux = { opId: op.opId, ion: op.kind.type.slice('flux_'.length), deltaFlux: Number(op.kind.deltaFlux) || 0, agentId: op.agentId };
-    session.fluxOps.push(flux);
-    const result = { sessionId, ion: session.cytoplasm.propagateIonicFlux(flux.ion, flux.deltaFlux, flux.agentId), schema: session.schema, warnings: admission.warnings, consistency: assessConsistency(session), coordination: decision, deltaRecipients: [] };
-    session.pendingOperation = op;
-    await persist(options.db, session);
-    return result;
-  }
+  causalClock.assertAvailable(op, session.crdt.getCausalFrontier());
+  if (isIonicFlux(op)) return ionicMutation.apply({ ...context, persist, assessConsistency });
   semanticConflicts.assertNoBlockingConflicts({
     operation: op, history: session.crdt.getHistory(), schema: session.schema, domains: session.domains
   });
   const invariantReceipts = invariantGate.evaluateCandidate({ schema: session.schema, crdt: session.crdt, operation: op });
-  session.crdt.applyOp(op);
+  const candidate = session.crdt.fork();
+  candidate.applyOp(op);
   const result = {
     sessionId,
-    snapshot: projectedSnapshot(session, session.crdt.getSnapshot(), options.domainId),
+    snapshot: projectedSnapshot(session, candidate.getSnapshot(), options.domainId),
     schema: projectedSchema(session, options.domainId),
     warnings: admission.warnings,
-    consistency: assessConsistency(session),
+    consistency: assessConsistency({ ...session, crdt: candidate }),
     coordination: decision,
     invariants: invariantReceipts,
     deltaRecipients: deltaRouter.route({ operation: op, schema: session.schema, domains: session.domains }),
@@ -256,14 +243,14 @@ async function applyAdmittedOperation(context) {
       telemetry: options.syncTelemetry || {}, coordination: decision
     })
   };
-  session.pendingOperation = session.crdt.getHistory().at(-1);
-  await persist(options.db, session);
+  await commitMutation({ session, changes: { crdt: candidate, pendingOperation: candidate.getHistory().at(-1) },
+    persist: (value) => persist(options.db, value) });
   return result;
 }
 
 async function persistOfflineOperation(context, offline) {
   const { sessionId, session, options, op } = context;
-  if (offline.duplicate) return { sessionId, offline: true, duplicate: true, snapshot: offline.snapshot };
+  if (offline.duplicate) return { sessionId, offline: true, duplicate: true, snapshot: projectedSnapshot(session, offline.snapshot, options.domainId) };
   session.pendingReplicaEvent = {
     type: 'OFFLINE_OPERATION', replicaId: options.replicaId, opId: op.opId, policy: offline.policy
   };
@@ -276,7 +263,7 @@ async function persistOfflineOperation(context, offline) {
   }
   return {
     sessionId, offline: true, queued: offline.policy === 'QUEUE_UNTIL_CONNECTED',
-    policy: offline.policy, snapshot: offline.snapshot
+    policy: offline.policy, snapshot: projectedSnapshot(session, offline.snapshot, options.domainId)
   };
 }
 
@@ -352,6 +339,7 @@ async function publishReflexSignal(sessionId, signal, options = {}) {
 
 const createSnapshot = (sessionId, options = {}) => sessionHistory.createSnapshot(sessionId, options);
 const listSnapshots = (sessionId, options = {}) => sessionHistory.listSnapshots(sessionId, options);
+const inspectHistory = (sessionId, options = {}) => sessionHistory.inspectHistory(sessionId, options);
 const compactHistory = (sessionId, options = {}) => sessionHistory.compactHistory(sessionId, options);
 const joinReplica = (sessionId, replica, options = {}) => sessionHistory.joinReplica(sessionId, replica, options);
 const acknowledgeReplica = (sessionId, replicaId, request = {}) => sessionHistory.acknowledgeReplica(sessionId, replicaId, request);
@@ -382,11 +370,11 @@ const codeFacade = createSyncytiumCodeFacade({
 });
 
 async function closeSession(sessionId, options = {}) {
-  const existed = sessions.delete(sessionId);
   if (options.db) await persistence.removeSession(options.db, sessionId);
+  sessions.delete(sessionId);
   return true;
 }
 
-const exported = { createSession, applyOperation, applyTransaction, publishReflexSignal, snapshot, createSnapshot, listSnapshots, compactHistory, joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas, partitionReplica, reconcileReplica, explain, simulateWithout, simulateReplacing, localizeFaults, repairInvariant, chooseRepairCandidates, createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch, discardSpeculativeBranch, ...codeFacade, assessConsistency, closeSession, isIonicFlux, rehydrate };
+const exported = { createSession, applyOperation, applyTransaction, publishReflexSignal, snapshot, createSnapshot, listSnapshots, inspectHistory, compactHistory, joinReplica, acknowledgeReplica, leaveReplica, inspectReplicas, partitionReplica, reconcileReplica, explain, simulateWithout, simulateReplacing, localizeFaults, repairInvariant, chooseRepairCandidates, createSpeculativeBranch, applySpeculativeOperation, compareSpeculativeBranch, promoteSpeculativeBranch, discardSpeculativeBranch, ...codeFacade, assessConsistency, closeSession, isIonicFlux, rehydrate };
 Object.keys(exported).forEach((key) => { if (!exported[key]) delete exported[key]; });
 module.exports = exported;

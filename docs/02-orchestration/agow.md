@@ -2,7 +2,7 @@
 
 - **Statut** : circuit cognitif logiciel expérimental, exécuté par le backend Node
 - **Portée** : admission et sélection des candidats, ignition, frames, diffusion vers les organes, requêtes actives et instrumentation causale
-- **Revue** : 2026-10-01
+- **Revue** : 2026-10-06
 - **Autorité de référence** : [ADR 0006](../adr/0006-active-global-organism-workspace.md)
 - **Persistance et évaluation** : [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md)
 - **Provenance réel/simulé** : [ADR 0239](../adr/0239-agow-provenance-epistemique.md)
@@ -958,9 +958,9 @@ pas de SLO arbitraire.
 | Sujet | État vérifié dans le code | Travail nécessaire pour conclure davantage |
 | --- | --- | --- |
 | Récepteurs métier par défaut | Sept handlers enregistrés au premier broadcast. | Campagne couvrant les préconditions, l'idempotence et les effets sur sorties de tâche. |
-| Déclenchement des requêtes | Automatique après frame si une lacune passe les seuils. | Vérifier coûts, échéances, utilité et absence d'amplification sur des parcours réels. |
+| Déclenchement des requêtes | Automatique selon le mode disponible ; coûts réservés, échéance appliquée, cooldown atomique et bindings propres à l'agent. | Mesurer l'utilité sur des parcours métier et imposer l'annulation des effets externes dans les adaptateurs hôte. |
 | Organes runtime | Mission, ingress perception/worker, efférence, idle tick, receivers daemon/morphogenèse branchés à des points existants. | Audit exhaustif par producteur et exécution de bout en bout des parcours métier. |
-| Persistance | Scopes `adaptive_state` durables, isolés par agent. | Validation de charge multi-processus, contention, reprise et rétention sur la base configurée. |
+| Persistance | Scopes durables ; reçus de modes/requêtes et cooldowns atomiques. Deux connexions et deux processus SQLite vérifiés, avec réouverture et isolation des agents. | Essais de charge de tous les scopes et reprise de l'environnement métier. |
 | Intégrité des transferts | Nursery et cycle de transfert relisent les artefacts et recalculent leur SHA-256 via des bindings dont l'identité est dans `verifierTrustRegistry`. | L'hôte fournit le lecteur d'artefacts et le vérificateur de confiance; le hash établit l'intégrité des octets, pas la validité sémantique du résultat. |
 | Ablations | Une campagne exploratoire locale AGOW est archivée; elle compare workspace et broadcast sur un corpus synthétique. | Les callbacks doivent appliquer et instrumenter les interventions; reproduire sur des tâches métier et des corpus externes indépendants. |
 | Médiation | Comparaison `broadcast_delivered` / `broadcast_suppressed`. | Contrôler les variables confondantes et relier les changements à des résultats aval. |
@@ -970,15 +970,17 @@ pas de SLO arbitraire.
 | Voies directes | Registre, sélection Active Query, Signal Event Bus, suspension et décompilation. | Enregistrer les abonnés organes, produire des trajets d'apprentissage et tester en contexte métier. |
 | Procéduralisation | Store de trajectoire, compiler proposal-only et lien aux épisodes autobiographiques. | Alimenter les trajectoires depuis des outcomes runtime complets; acheminer les propositions au runtime procedural gate. |
 | Marchés distribués | Partition régionale, arbitrage local/global et topologie Morphogenesis activable; défaut `disabled`. | Benchmarker rappel/latence sur 10 à 1000 candidats et préserver le rappel utile. |
-| Campagnes empiriques | Protocoles CTM-compatible, différentiel, drift, regret, contamination et marché; une campagne locale synthétique est archivée. | Fournir corpus qualifiés et manifestes d'environnement, implémenter/exécuter les baselines MBH-like et Lipson-like, puis répliquer les campagnes holdout. |
+| Campagnes empiriques | Baselines MBH/Lipson simplifiées exécutables ; banc local avec noyaux T0/T3/Self-Twin, ablation, médiation et trois holdouts disjoints scellés. | Validation indépendante sur corpus métier et reproduction de modèles scientifiques publiés, si revendiquées. |
 | Autorité `live` | État `awaiting_causal_promotion`; pas de décision automatique. | Revue de preuves, gates de promotion et décision mainteneur séparée. |
 | Autorité Rust | Prototype distinct, non autoritaire et sans store partagé. | Concevoir puis valider explicitement une migration d'autorité. |
 | Robustesse des mesures | Mesures et réponses viennent des producteurs/adaptateurs. | Validation indépendante, calibration, incertitude et provenance. |
 
 Les expériences de la table ne sont pas marquées « terminées » par l'existence de
 leurs services ou tests unitaires. La campagne locale synthétique fournit des reçus
-descriptifs, mais aucun holdout métier qualifié ni baseline MBH/Lipson exécutée n'est
-disponible. Les conclusions générales restent donc non établies. Voir aussi
+descriptifs. Les baselines MBH/Lipson simplifiées sont exécutées dans le
+[banc de clôture](../06-qualite-preuves/campagne-agow-cloture.md), dont la portée
+est synthétique et locale. Aucun holdout métier qualifié n'est établi. Les
+conclusions générales restent donc non établies. Voir aussi
 [ADR 0007](../adr/0007-agow-runtime-persistence-et-evaluation.md).
 
 ---
@@ -1058,11 +1060,18 @@ et leur provenance signale alors la calibration locale.
 
 `cognitiveModeRuntimeService` est appelé par le cycle du workspace après l'ignition. Il
 enregistre la décision, puis route `ACT` vers la diffusion, `OBSERVE`/`VERIFY`/`RECALL` vers
-les requêtes AGOW, `SIMULATE` vers l'espace contrefactuel et les autres modes vers un
-exécuteur explicitement fourni par l'hôte. `ABSTAIN` ferme la route. Le rappel peut lancer
+les requêtes AGOW et `SIMULATE` vers l'espace contrefactuel. `CONSOLIDATE` et
+`REORGANIZE` disposent de defaults produisant des propositions durables sans
+promotion ou activation implicite ; l'hôte peut fournir ses exécuteurs. Les
+modes sans exécuteur ou interdits par policy sont retirés de la sélection.
+`ABSTAIN` ferme la route. Le rappel peut lancer
 une requête mémoire même sans lacune épistémique déclarée; les autres requêtes restent
 conditionnées par une lacune et les gates d'évidence/budget habituels. Chaque cycle retourne
 un reçu de mode; un résultat qui fournit `realizedLoss` met à jour son erreur prédictive.
+Une perte absente ou `null` ne calibre pas le mode. Les observations contradictoires
+d'un même reçu sont rejetées. Les callbacks se branchent par connexion/agent avec
+`configureRuntime` ; `observeCognitiveOutcome` reçoit une mesure explicite.
+Voir le [contrat runtime](../03-reference/runtime-agow.md).
 Les voies directes ne sont retenues qu'après les garde-fous décrits ci-dessous.
 Les valeurs initiales demeurent des priors heuristiques, pas une performance expérimentale.
 
@@ -1153,6 +1162,8 @@ fenêtres.
 Les tests et reçus vérifient les contrats et les conditions exécutées; ils ne fournissent
 aucune preuve générale d'amélioration. Une campagne AGOW locale sur corpus synthétiques
 est conservée sous `benchmarks/agow/results/`; elle ne remplace pas des holdouts métier ni
-les baselines MBH/Lipson des nouveaux protocoles. Les intervalles longitudinaux sont
+une reproduction des modèles publiés. Les baselines simplifiées et les trois
+réplications du [banc de clôture](../06-qualite-preuves/campagne-agow-cloture.md)
+ont une portée locale documentée. Les intervalles longitudinaux sont
 descriptifs et ne constituent pas une campagne de validation. Le mode `live` conserve les
 gates de promotion séparés.

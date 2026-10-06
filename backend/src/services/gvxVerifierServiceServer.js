@@ -26,6 +26,7 @@ function loadConfiguredImplementations() {
 function serviceConfig() {
   const token = String(process.env.GENOS_GVX_VERIFIER_TOKEN || '');
   const keyFile = process.env.GENOS_GVX_VERIFIER_PRIVATE_KEY_FILE;
+  require('./gvxExecutionIsolation').validateSigningKey(keyFile);
   const privateKeyPem = keyFile ? fs.readFileSync(path.resolve(keyFile), 'utf8')
     : String(process.env.GENOS_GVX_VERIFIER_PRIVATE_KEY || '');
   if (token.length < 32 || !privateKeyPem) throw serviceError('GVX_VERIFIER_SERVICE_CREDENTIALS_REQUIRED');
@@ -141,7 +142,7 @@ function evidenceBoundToProofs(refs, proofs) {
     && item.verifierId === assessment.verifierId);
 }
 
-function issueDevelopmentReceipt(body, config) {
+async function issueDevelopmentReceipt(body, config) {
   const input = parseRequest(body);
   if (input.kind !== 'development_receipt' || !validDevelopmentClaim(input.claim)) {
     throw serviceError('GVX_DEVELOPMENT_CLAIM_INVALID');
@@ -151,13 +152,16 @@ function issueDevelopmentReceipt(body, config) {
   const proofs = verifiedEvidenceReceipts(input.verificationReceipts, config.publicKey);
   const bound = evidenceBoundToProofs(refs, proofs);
   if (!bound || (claim.success && !assessmentProof(proofs))) throw serviceError('GVX_DEVELOPMENT_EVIDENCE_UNBOUND');
+  if (!require('./gvxReceiptClaimPolicy').claimMatches(claim, proofs, config.evaluator)) {
+    throw serviceError('GVX_DEVELOPMENT_CLAIM_NOT_MEASURED');
+  }
   const claimDigest = require('./developmentalBridge/developmentReceiptVerifier').receiptClaim(claim);
   const evidenceDigest = require('./epistemicAssuranceService').digest(claimDigest);
   const receipt = { schema: 'genos.gvx.development-receipt/v2', resultId: claim.receiptId,
     evidenceDigest, verifierDigest: config.keyId, status: 'verified', independent: true,
     checkedAt: new Date().toISOString(), nonce: crypto.randomUUID(), evidenceCount: refs.length };
-  const signature = crypto.sign(null, Buffer.from(JSON.stringify(receipt)), config.privateKey).toString('base64');
-  return { receipt, signature };
+  return require('./gvxReceiptIssuance').issue({ config, claim, proofs }, () => ({ receipt,
+    signature: crypto.sign(null, Buffer.from(JSON.stringify(receipt)), config.privateKey).toString('base64') }));
 }
 
 function send(response, status, value) {
@@ -168,23 +172,31 @@ function send(response, status, value) {
 
 async function handleRequest(request, response, config) {
   if (request.method === 'GET' && request.url === '/healthz') return send(response, 200, { status: 'ready' });
-  if (request.method !== 'POST' || !['/v1/verify', '/v1/development-receipt'].includes(request.url)) return send(response, 404, { error: 'not-found' });
+  const endpoints = ['/v1/verify', '/v1/development-receipt', '/v1/profile', '/v1/evaluate', '/v1/authorize'];
+  if (request.method !== 'POST' || !endpoints.includes(request.url)) return send(response, 404, { error: 'not-found' });
   if (!authorized(request, config.token)) return send(response, 401, { error: 'unauthorized' });
   try {
     const body = await readBody(request);
-    const result = request.url === '/v1/verify'
-      ? await verifyRequest(body, config) : issueDevelopmentReceipt(body, config);
+    const result = await dispatchRequest(config, request.url, body);
     return send(response, 200, result);
   }
   catch (error) { return send(response, 400, { error: error.code || 'verification-failed' }); }
 }
 
+async function dispatchRequest(config, endpoint, body) {
+  if (endpoint === '/v1/verify') return verifyRequest(body, config);
+  if (endpoint === '/v1/development-receipt') return issueDevelopmentReceipt(body, config);
+  return require('./gvxVerifierExecutionRoutes').handle(config, endpoint, parseRequest(body));
+}
+
 function startServer(options = {}) {
   loadConfiguredImplementations();
   const config = serviceConfig();
+  config.evaluator = require('./gvxExecutionEvaluator').createEvaluator(config);
+  require('./gvxExecutionEvaluator').registerEvaluator(config.evaluator);
   const host = options.host || process.env.GENOS_GVX_VERIFIER_HOST || '127.0.0.1';
-  const port = Number(options.port || process.env.GENOS_GVX_VERIFIER_PORT || 4011);
-  if (!Number.isInteger(port) || port < 1 || port > 65535) throw serviceError('GVX_VERIFIER_PORT_INVALID');
+  const port = Number(options.port ?? process.env.GENOS_GVX_VERIFIER_PORT ?? 4011);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) throw serviceError('GVX_VERIFIER_PORT_INVALID');
   const server = http.createServer((request, response) => { handleRequest(request, response, config); });
   server.listen(port, host);
   return server;

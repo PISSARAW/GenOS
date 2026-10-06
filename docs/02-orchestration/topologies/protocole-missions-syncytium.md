@@ -1,7 +1,7 @@
 # Protocole d’exécution et de preuve des missions Syncytium
 
 - **Statut** : protocole opératoire documenté à partir du runtime Node et de ses tests ciblés.
-- **Version du relevé** : 2026-10-04.
+- **Version du relevé** : 2026-10-06.
 - **Portée** : exécutions déterministes des 13 variants Syncytium, préparation d’une campagne avec travailleurs, collecte de preuves et limites de validation.
 - **À lire avec** : [Syncytium — modèle et garanties](syncytium.md), [topologies et capacités](../topologies-et-capacites.md).
 
@@ -238,3 +238,75 @@ Après un correctif local du bail vide et de la propagation des capacités, un a
 Le bail vide est maintenant accepté comme un bail valide sans outils (deny-all), et les capacités de topologie sont propagées aux workers Syncytium ; les tests ciblés de ces contrats passent. Le dispatch autonome reste non validé : la télémétrie indique que l’environnement a bloqué la connexion WebSocket des runtimes. Le runtime s’arrête désormais dès la détection du refus permanent `os error 10013`; il faut exécuter le probe dans un environnement qui autorise ce point de terminaison avant d’élargir la campagne. Les dispatchs Syncytium incomplets remontent maintenant comme échec CLI et ne publient pas l’événement de complétion. Réussir d’abord le probe simple avec un résultat validé et les reçus de session attendus. Ensuite seulement, transformer les 52 énoncés en manifestes versionnés avec un oracle par cas ; choisir des affectations `WorkerKind` et un plafond de coût global ; isoler la base et le workspace ; vérifier que le dispatch attend bien la fin de tous les workers. Lancer d’abord un cas simple par variant, examiner les artefacts et la télémétrie, puis les niveaux supérieurs. Toute erreur de worker, timeout, preuve manquante ou divergence d’oracle vaut FAIL pour le cas. Comparer ensuite chaque cas avec le baseline sous mêmes budgets/affectations/répétitions. Publier un rapport PASS/FAIL par cas, les métriques nulles explicitement, les incidents nosologiques le cas échéant et les liens vers les preuves brutes.
 
 La campagne n’est complète que lorsque les **52 lignes** ont un résultat terminal, un oracle évalué et une provenance de preuve. Une suite technique passant n’autorise pas à marquer les quatre niveaux d’un variant « oui » par extrapolation.
+
+## Renforcement du runtime au 6 octobre 2026
+
+Le dispatch biologique active les runtimes spécialisés par défaut. Fournir les
+préconditions propres au variant : notamment authorityMembers pour Hard,
+regions pour Hierarchical et les noyaux humains pour Human-AI. L'option explicite
+useVariantRuntime=false conserve une session de politique déclarative ; elle
+ne prouve pas l'exécution des opérations spécialisées.
+
+Le rejeu respecte désormais les dépendances causales malgré des horloges murales
+décalées. Les registres multivaleurs distinguent causalité et concurrence ; les
+suppressions de séquence survivent à une livraison précédant l'insertion. La
+compaction conserve les identités et l'horloge Lamport. Un retry incompatible,
+un dot réutilisé ou une dépendance absente produit un refus explicite.
+
+Les mutations CRDT et ioniques sont annulées en mémoire si SQLite refuse le
+commit. Les opérations hors ligne conservent leur contexte causal d'origine et
+leurs politiques de schéma. La promotion spéculative publie de nouveaux dots sur
+le principal, avec réévaluation des invariants et conservation du journal de
+branche. Les réparations de tick matérialisent l'état corrigé. Les snapshots
+historiques et journaux appliquent les projections de domaine ; leurs résultats
+ne permettent pas de modifier les preuves internes par alias mémoire.
+
+La clôture de mission exige deux contrôles distincts :
+
+- semanticValidation : couverture et statut des workers selon l'oracle de mission ;
+- stateValidation : reçu produit depuis la session autoritative, de portée
+  committed_shared_state. Il exige un état non vide, des invariants exécutés
+  satisfaits, un snapshot matérialisé à la version courante et aucune opération
+  hors ligne encore en attente.
+
+Ce reçu d'état ne certifie pas le contenu métier général. Une réponse malformée,
+un succès transport seul ou un snapshot périmé ne clôture pas la mission. Le
+lanceur des six niveaux retourne un code d'échec si un niveau reste partiel.
+
+Vérification reproductible :
+
+~~~powershell
+npm --prefix backend run test:syncytium
+node backend/tests/test_syncytium_completion.js
+node backend/tests/test_syncytium_mission_completion.js
+node backend/tests/test_biological_topology_dispatch.js
+node backend/tests/test_topology_mission_variant_routing.js
+~~~
+
+Le runner découvre tous les fichiers test_syncytium*.js et lance chacun dans
+un processus isolé. Son résultat global exige que tous réussissent. Les nouvelles
+régressions couvrent sept groupes causaux, persistance, partitions, réplication,
+réparation et identité, ainsi que les refus de preuve de complétion. Les fixtures
+de routage représentent 48 missions déterministes ; elles ne sont pas une
+campagne de travailleurs LLM. Les 52 missions LLM proposées ailleurs dans ce
+protocole restent à exécuter avec leurs oracles et leurs preuves.
+
+Décision : [ADR 331](../../adr/0331-syncytium-rejeu-causal-et-preuve-de-completion.md).
+
+### Relevé local des vérifications
+
+Le 6 octobre 2026, test:syncytium réussit **45 suites couvrant 13 variants**.
+Les tests d'intégration de dispatch biologique, de routage (48 fixtures),
+d'adaptation Holobionte et de persistance des sessions réussissent. Le contrôle
+différentiel applique le vérificateur Python du dépôt au périmètre Syncytium
+et à HEAD ; aucune nouvelle violation n'est constatée sur ce périmètre.
+
+Le gate global reste en échec : 4 896 fichiers, 324 violations dont 177 absentes
+de la baseline au moment du relevé. Ces compteurs concernent tout le workspace,
+qui contient des modifications concurrentes. La baseline n'a pas été modifiée.
+Cargo test --workspace échoue pendant l'édition de liens faute d'espace disque
+(code Windows 112), avant validation complète. La reprise de npm test réussit intégralement (code de sortie 0), y compris les
+suites backend, autorité, AEIS, les 45 suites Syncytium et les sept suites Garage.
+La première tentative avait expiré sur la sonde de bisection workspace ; ce
+résultat est remplacé par la reprise réussie. Aucune campagne LLM de 52 missions ni preuve distribuée formelle n'est
+affirmée par ce relevé.

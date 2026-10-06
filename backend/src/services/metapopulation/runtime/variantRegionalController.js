@@ -31,7 +31,7 @@ async function appendRuntimeVariantActions(context) {
 
 function actionScope(action) {
   return action.patchId || action.patch?.patchId || action.demeId || action.corridorId
-    || action.propaguleId || action.propagule?.propaguleId || action.cultureId || action.culture?.id || '';
+    || action.request?.demeId || action.propaguleId || action.propagule?.propaguleId || action.cultureId || action.culture?.id || '';
 }
 
 function planFirebreakFeatures(context) {
@@ -54,7 +54,12 @@ function planSearchFeatures(context) {
 }
 
 function appendRequests(plan, requests = [], type) {
-  for (const request of requests) plan.actions.push({ type, request });
+  for (const request of requests) {
+    const index = plan.actions.findIndex((action) => action.type === type && action.request?.demeId === request.demeId);
+    const action = { type, request };
+    if (index < 0) plan.actions.push(action);
+    else plan.actions[index] = action;
+  }
 }
 
 function planSourceSink(context) {
@@ -164,7 +169,7 @@ async function planPatchTrial(context) {
   const { plan, observed, input, options, deme } = context;
   const patch = observed.patches.find((item) => item.patchId === deme.patchId);
   if (!patch) return;
-  if (patch.status === 'OCCUPIED' && deme.status === 'COLLAPSED') {
+  if (patch.status === 'OCCUPIED' && patch.currentDemeId === deme.demeId && deme.status === 'COLLAPSED') {
     plan.actions.push({ type: 'VACATE_COLLAPSED_PATCH', patchId: patch.patchId });
     return;
   }

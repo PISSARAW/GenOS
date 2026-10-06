@@ -58,6 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -65,6 +66,9 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install backend deps
         run: npm ci --prefix backend
+      - name: Run Omega safety and persistence regressions
+        working-directory: backend
+        run: npm run test:omega
       - name: Run v0/v1 compatibility and fuzz campaign
         working-directory: backend
         run: npm run test:interop

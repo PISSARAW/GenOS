@@ -1,8 +1,8 @@
 # Runtime agentique GenOS
 
 - **Statut** : Partiel — superviseur Node.js opérationnel, mais sans rehydratation des processus au restart, sans annulation distante garantie, isolation worktree/copie (pas sandbox forte). Les sections biomimétiques (cryptophasie, conjoined, freemartin, superfétation) sont des démos/handlers mémoire, pas des garanties runtime.
-- **Portée** : `backend/src/services/agentRuntimeAdapter/index.js`, `agentProcessSupervisor.js`, `backend/bin/genos-agent-runtime.cjs`.
-- **Dernière revue** : 2026-09-26.
+- **Portée** : `backend/src/services/agentRuntimeAdapter/index.js`, `agentProcessSupervisor.js`, `backend/bin/genos-agent-runtime.cjs` ; admission des workers par Garage Fabric.
+- **Dernière revue** : 2026-10-06 pour le raccordement Garage Fabric ; statut général inchangé.
 
 ## Definition
 
@@ -61,6 +61,32 @@ Le protocole entre superviseur et runtime est volontairement cadre : une mission
 6. A la fermeture, le PID est efface, les derniers evenements sont draines, le statut terminal est calcule et le nettoyage du workspace est programme.
 
 L'etat court terme (`activeProcesses`, demarrages en cours, continuations et barrieres) est en memoire du processus Node. Il est utile durant une instance vivante, mais il ne survit pas a un redemarrage du control plane.
+
+### Admission et continuité des workers : Garage Fabric
+
+Le [bootstrap commun de mission](../../backend/src/services/agentRuntimeAdapter/missionExecution.js)
+adopte les démarrages de workers sans demande Garage, y compris les parcours
+CLI/gRPC qui empruntent ce bootstrap. Il vérifie le bail de la tentative avant
+l'exécution et lie la demande au run exact. La réservation de capacité locale
+et projet partage la transaction SQLite du claim ; une identité déjà réservée
+ne peut pas être réaffectée par un appel direct.
+
+Les tables `garage_queue`, `garage_events` et `garage_capsules` survivent au
+redémarrage du backend. La boucle réconcilie les baux et reprend les demandes
+admissibles, sans reconstituer les maps de processus ni relancer aveuglément
+une mission active. Un ACK de lancement ou un code de sortie nul ne suffit
+pas : le run courant et son événement terminal doivent porter un artefact
+valide selon le contrat typé. `awaiting_approval` n'est pas un succès.
+
+Une préemption exige `preemptible: true`, puis l'arrêt confirmé du runtime
+et un snapshot de fichiers durable lié au worker et à son parent. Le thaw
+restaure une nouvelle capsule isolée avec le budget restant mesuré ; il ne
+restaure ni RAM, ni socket, ni contexte interne du fournisseur LLM. Les erreurs
+de suspension conservent la réservation et appellent un contrôle opérateur.
+Le GC protège les fichiers en `freezing` ou `freeze_failed`, même sans délai.
+
+Voir [Garage Fabric](../02-orchestration/topologies/garage-fabric.md) pour les
+douze politiques, l'automate, les contrôles REST et les tests spécialisés.
 
 ## Démarrage, arrêt et annulation
 

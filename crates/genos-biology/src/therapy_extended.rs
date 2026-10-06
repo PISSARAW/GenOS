@@ -1,26 +1,73 @@
+use crate::nosology_catalog::{normalized, therapy_spec};
 use crate::pathology::Pathology;
 use crate::therapy::SystemicTherapy;
 use genos_cell::AgentCell;
 
-const LOWER: f64 = 0.0;
-const UPPER: f64 = 1.0;
-
 pub fn safety_block(therapy: &SystemicTherapy, cell: &AgentCell) -> Option<String> {
-    if matches!(therapy, SystemicTherapy::CoronaryReperfusionThrombolysis) {
-        let Some(bbb) = cell.clinical.markers.get("blood_brain_barrier_integrity") else {
-            return Some("intégrité de la BHE non renseignée".to_string());
-        };
-        if !bbb.is_finite() || !(0.0..=1.0).contains(bbb) || *bbb <= 0.5 {
-            return Some("intégrité de la BHE absente, invalide ou ≤ 0.5".to_string());
+    if !cell.is_alive() {
+        return Some("cellule apoptotique".into());
+    }
+    if invalid_parameters(therapy) {
+        return Some("paramètres invalides".into());
+    }
+    if invalid_inflammation(therapy, cell) {
+        return Some("indice inflammatoire invalide".into());
+    }
+    let spec = therapy_spec(therapy)?;
+    for guard in &spec.guards {
+        let value = cell.clinical.markers.get(&guard.marker);
+        if !value.is_some_and(|v| normalized(*v) && *v > guard.min) {
+            return Some(format!(
+                "garde {}: valeur valide > {} requise",
+                guard.marker, guard.min
+            ));
         }
     }
-    None
+    invalid_risk(spec, cell)
+}
+
+fn invalid_inflammation(therapy: &SystemicTherapy, cell: &AgentCell) -> bool {
+    matches!(
+        therapy,
+        SystemicTherapy::Tocilizumab
+            | SystemicTherapy::Corticosteroids(_)
+            | SystemicTherapy::ImmunosuppressiveWash
+            | SystemicTherapy::SelfToleranceRecalibration
+    ) && !normalized(cell.clinical.inflammatory_index)
+}
+
+fn invalid_parameters(therapy: &SystemicTherapy) -> bool {
+    match therapy {
+        SystemicTherapy::Corticosteroids(dose) => !dose.is_finite() || *dose < 0.0 || *dose > 1.0,
+        SystemicTherapy::Vaccine(signature)
+        | SystemicTherapy::QuarantineIsolation {
+            capsule_id: signature,
+        }
+        | SystemicTherapy::AntisepticPurge {
+            target_signature: signature,
+        }
+        | SystemicTherapy::AntidoteAdmin {
+            target_drug: signature,
+        } => signature.trim().is_empty(),
+        _ => false,
+    }
+}
+
+fn invalid_risk(spec: &crate::nosology_catalog::TherapySpec, cell: &AgentCell) -> Option<String> {
+    spec.side_effects
+        .iter()
+        .find(|effect| {
+            cell.clinical
+                .markers
+                .get(&effect.marker)
+                .is_some_and(|value| !normalized(*value))
+        })
+        .map(|effect| format!("marqueur de risque invalide: {}", effect.marker))
 }
 
 pub fn reduce_marker(marker: &mut f64, amount: f64) {
-    if marker.is_finite() && amount.is_finite() && (LOWER..=UPPER).contains(marker) && amount > 0.0
-    {
-        *marker = (*marker - amount.min(UPPER)).max(LOWER);
+    if normalized(*marker) && amount.is_finite() && amount > 0.0 {
+        *marker = (*marker - amount.min(1.0)).max(0.0);
     }
 }
 
@@ -28,44 +75,48 @@ pub fn apply_extended_therapy(
     therapy: &SystemicTherapy,
     cell: &mut AgentCell,
 ) -> Option<(Vec<String>, Vec<Pathology>)> {
-    let (marker, amount) = match therapy {
-        SystemicTherapy::InsulinSensitizerMetformin => ("insulin_resistance", 0.25),
-        SystemicTherapy::LevothyroxineHormoneReplacement => ("thyroid_signal_deficit", 0.25),
-        SystemicTherapy::ColchicineInhibition => ("purine_inflammation", 0.25),
-        SystemicTherapy::AllopurinolXanthineInhibitor => ("purine_production", 0.25),
-        SystemicTherapy::LysosomalUraturicPurge => ("purine_waste_load", 0.25),
-        SystemicTherapy::CoronaryReperfusionThrombolysis => ("vascular_occlusion", 0.25),
-        SystemicTherapy::VasodilatorFlowControl => ("vascular_resistance", 0.25),
-        SystemicTherapy::AntiAdhesionVasodilator => ("vascular_adhesion", 0.25),
-        SystemicTherapy::AntiNmdReadthrough => ("nmda_signal_deficit", 0.25),
-        SystemicTherapy::NeuroprotectiveAstrocyticFlush => ("astrocytic_waste_load", 0.25),
-        SystemicTherapy::BloodBrainBarrierSealant => ("blood_brain_barrier_deficit", 0.25),
-        SystemicTherapy::LevodopaSupplementation => ("dopamine_signal_deficit", 0.25),
-        SystemicTherapy::DeepBrainStimulation => ("neural_activity_instability", 0.25),
-        SystemicTherapy::Viscosupplementation => ("joint_friction", 0.25),
-        SystemicTherapy::SenolyticPurge => ("senescent_load", 0.25),
-        SystemicTherapy::AntiretroviralCombination => ("viral_replication_load", 0.25),
-        SystemicTherapy::AntimalarialACT => ("parasite_load", 0.25),
-        SystemicTherapy::ExonSkippingAntisense => ("exon_expression_deficit", 0.25),
-        SystemicTherapy::CFTRModulatorTriad => ("cftr_function_deficit", 0.25),
-        SystemicTherapy::CartCellInfusion => ("tumor_load", 0.25),
-        SystemicTherapy::KetamineRapidInfusion => ("synaptic_response_deficit", 0.25),
-        SystemicTherapy::MoodStabilizerLithium => ("affective_instability", 0.25),
-        SystemicTherapy::AntipsychoticAtypical => ("cognitive_signal_disorder", 0.25),
-        SystemicTherapy::FetalCarrierReactivation => ("fetal_carrier_silencing", 0.25),
-        SystemicTherapy::ChelationTherapy => ("metal_toxin_load", 0.25),
-        _ => return None,
-    };
-    let Some(value) = cell.clinical.markers.get_mut(marker) else {
-        return Some((Vec::new(), Vec::new()));
-    };
-    if !value.is_finite() || !(LOWER..=UPPER).contains(value) || *value <= LOWER {
-        return Some((Vec::new(), Vec::new()));
+    let spec = therapy_spec(therapy)?;
+    let mut applied = Vec::new();
+    for marker in &spec.targets {
+        if let Some(value) = cell.clinical.markers.get_mut(marker) {
+            let before = *value;
+            reduce_marker(value, spec.amount);
+            if before.is_finite() && *value < before {
+                applied.push(format!("{} réduit", marker));
+            }
+        }
     }
-    reduce_marker(value, amount);
-    let result = vec![format!("{} réduit", marker)];
-    cell.clinical
-        .clinical_log
-        .push(format!("Marqueur computationnel réduit: {}", marker));
-    Some((result, Vec::new()))
+    let effects = if applied.is_empty() {
+        Vec::new()
+    } else {
+        apply_risks(spec, cell)
+    };
+    Some((applied, effects))
+}
+
+fn apply_risks(
+    spec: &crate::nosology_catalog::TherapySpec,
+    cell: &mut AgentCell,
+) -> Vec<Pathology> {
+    let mut effects = Vec::new();
+    for risk in &spec.side_effects {
+        let Some(value) = cell.clinical.markers.get_mut(&risk.marker) else {
+            continue;
+        };
+        let before = *value;
+        *value = (*value + risk.amount).min(1.0);
+        if *value > before {
+            let effect = Pathology::TherapyAdverseEffect {
+                therapy: spec.id.clone(),
+                marker: risk.marker.clone(),
+                severity: *value,
+            };
+            cell.clinical
+                .clinical_log
+                .push(format!("Effet secondaire simulé: {}", risk.marker));
+            cell.clinical.diagnose(effect.clone());
+            effects.push(effect);
+        }
+    }
+    effects
 }

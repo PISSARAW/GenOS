@@ -7,7 +7,7 @@ function diamond() {
   return {
     nodes: [node('a', ['search']), node('b', ['translate']), node('c', ['translate']), node('d', ['answer'])],
     edges: [edge('ab', 'a', 'b'), edge('bd', 'b', 'd'), edge('ac', 'a', 'c'), edge('cd', 'c', 'd')],
-    activeNeeds: [{ needId: 'n', capability: 'answer', constraints: { risk: 1 } }]
+    activeNeeds: []
   };
 }
 
@@ -32,6 +32,12 @@ async function run() {
   assert.equal(applied.graphVersion, plan.graphVersion + 1);
   assert.deepEqual(applied.retiredEdgeIds.sort(), ['ab', 'ac', 'bd', 'cd']);
   assert.ok(session.edges.every((item) => item.status === 'RETIRED'));
+
+  const protectedSession = await rhizome.composeRhizome('Preserve required reachability after combined pruning.', diamond());
+  await rhizome.registerNeed(protectedSession.sessionId, { needId: 'required', capability: 'answer', constraints: { risk: 1 } });
+  const protectedPlan = await rhizome.inspectPruning(protectedSession.sessionId, { now: Date.now() + 1000 });
+  await assert.rejects(() => rhizome.applyPruningPlan(protectedSession.sessionId, protectedPlan, { now: Date.now() + 1000 }), { code: 'RHIZOME_PRUNING_CONNECTIVITY_REQUIRED' });
+  assert.ok(protectedSession.edges.every(item => item.status === 'ACTIVE'));
 }
 
 run().then(() => console.log('Rhizome transactional pruning: PASS')).catch((error) => {

@@ -25,11 +25,15 @@ function preserveCluster(cluster, isTrustedReceipt) {
 function verifiedMinorityEvidence(cluster, isTrustedReceipt) {
   const dissent = cluster.dissent || [];
   if (typeof isTrustedReceipt !== 'function') return [];
-  return dissent.filter((item) => item.critical === true && item.receipt
-    && isTrustedReceipt(item.receipt)).map((item) => ({
+  return dissent.filter((item) => item.critical === true && trusted(item.receipt, isTrustedReceipt)).map((item) => ({
     clusterId: cluster.clusterId, dissentId: item.dissentId,
     evidenceRef: item.receipt.evidenceRef, receiptId: item.receipt.receiptId
   }));
+}
+
+function trusted(receipt, validator) {
+  if (!receipt || receipt.status !== 'VERIFIED') return false;
+  try { return validator(receipt) === true; } catch (_) { return false; }
 }
 
 function clamp(value) {

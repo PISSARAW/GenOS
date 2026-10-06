@@ -8,6 +8,9 @@ async function offerMigration(db, input) {
   const propagule = validatePropagule(input.propagule);
   const { metapopulationId, corridorId } = input;
   const migrationId = await withTransaction(db, async () => {
+    const existing = await readMigrationRow(db, metapopulationId, propagule.propaguleId);
+    if (existing) return reuseMigration(existing, input);
+    await assertResidentPair(db, input);
     const corridor = await db.get('SELECT * FROM metapopulation_corridors WHERE metapopulation_id = ? AND corridor_id = ?', metapopulationId, corridorId);
     if (!corridor || !corridor.enabled || corridor.source_deme_id !== propagule.sourceDemeId || corridor.target_deme_id !== propagule.targetDemeId) {
       throw storeError('METAPOPULATION_CORRIDOR_UNAVAILABLE', 'The propagule does not match an enabled corridor.');
@@ -28,6 +31,28 @@ async function offerMigration(db, input) {
   });
   const row = await readMigrationRow(db, metapopulationId, migrationId);
   return toMigration(row);
+}
+
+function reuseMigration(row, input) {
+  const propagule = input.propagule;
+  const fieldsMatch = row.corridor_id === input.corridorId && row.propagule_type === propagule.type
+    && row.payload_ref === propagule.payloadRef && row.source_deme_id === propagule.sourceDemeId
+    && row.target_deme_id === propagule.targetDemeId;
+  const stored = parseJson(row.evidence_json);
+  const lineageMatch = JSON.stringify(stored.lineageRefs) === JSON.stringify(propagule.lineageRefs)
+    && JSON.stringify(stored.sourceEvidence) === JSON.stringify(propagule.sourceEvidence)
+    && JSON.stringify(parseJson(row.provenance_json)) === JSON.stringify(propagule.provenance)
+    && stored.migrationReason === propagule.migrationReason;
+  if (!fieldsMatch || !lineageMatch) throw storeError('METAPOPULATION_MIGRATION_ID_CONFLICT', 'Migration identity was reused for a different propagule.');
+  return row.migration_id;
+}
+
+async function assertResidentPair(db, input) {
+  const demes = await db.all('SELECT deme_id, status FROM metapopulation_demes WHERE metapopulation_id = ?', input.metapopulationId);
+  const ids = [input.propagule.sourceDemeId, input.propagule.targetDemeId];
+  const valid = ids.every((id) => demes.some((deme) => deme.deme_id === id
+    && ['ACTIVE', 'STRESSED', 'AT_RISK', 'ESTABLISHING'].includes(deme.status)));
+  if (!valid) throw storeError('METAPOPULATION_DEME_NOT_RESIDENT', 'Both migration endpoints must be live residents.');
 }
 
 async function getMigration(db, metapopulationId, migrationId) {

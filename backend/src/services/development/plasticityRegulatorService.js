@@ -1,75 +1,34 @@
 'use strict';
-
-/**
- * PlasticityRegulator (G12) : remplace l'Axolotl 2 états par 6 états
- * avec hystérésis, cooldown, budget de changement, réversibilité.
- * Façade compatible avec axolotlTopologyService.
- */
-
-const STATES = ['NEOTENIC', 'PLASTIC', 'DIFFERENTIATING', 'CONSOLIDATING', 'STABLE', 'EMERGENCY_PLASTIC'];
-const TRANSITIONS = Object.freeze({
-  NEOTENIC: ['PLASTIC', 'DIFFERENTIATING', 'EMERGENCY_PLASTIC'],
-  PLASTIC: ['NEOTENIC', 'DIFFERENTIATING', 'EMERGENCY_PLASTIC'],
-  DIFFERENTIATING: ['PLASTIC', 'CONSOLIDATING', 'EMERGENCY_PLASTIC'],
-  CONSOLIDATING: ['STABLE', 'PLASTIC', 'EMERGENCY_PLASTIC'],
-  STABLE: ['NEOTENIC', 'PLASTIC', 'EMERGENCY_PLASTIC'],
-  EMERGENCY_PLASTIC: ['PLASTIC', 'DIFFERENTIATING']
-});
-
-let store = new Map();
-const COOLDOWN_MS = 30000;
-let adaptivePersister = null;
-
-function setStateStore(nextStore) {
-  if (nextStore instanceof Map) store = nextStore;
-}
-
-function setAdaptivePersister(persister) {
-  adaptivePersister = persister;
-}
-
-function getPlasticity(id) {
+const store = require('../axolotlStateStore');
+const policy = require('../axolotlPlasticityPolicy');
+let database = null;
+let legacy = new Map();
+function setStateStore(next) { legacy = new Map(next); }
+function setAdaptivePersister(persister) { database = persister?.db || database; }
+async function getPlasticity(id, input = {}) {
   if (!id) return null;
-  return store.get(String(id)) || { id: String(id), state: 'NEOTENIC', changes: 0, budget: 10, lastChangeAt: null };
+  const db = input.db || database;
+  if (!db) return store.clone(legacy.get(String(id)) || policy.initial(String(id)));
+  await store.ensure(db);
+  return (await store.read(db, { kind: 'plasticity', id: String(id) })) || store.clone(legacy.get(String(id)) || policy.initial(String(id)));
 }
-
-async function requestChange(opts) {
-  const o = opts || {};
-  const prev = getPlasticity(o.id);
-  const rejection = rejectChange({ request: o, previous: prev });
-  if (rejection) return rejection;
-  const next = o.to;
-  const state = { ...prev, state: next, changes: prev.changes + 1, budget: prev.budget - 1, lastChangeAt: Date.now(), reason: String(o.reason).trim(), history: [...(prev.history || []), { from: prev.state, to: next, reason: String(o.reason).trim(), at: new Date().toISOString() }] };
-  store.set(String(o.id), state);
+async function requestChange(input = {}) {
+  const db = input.db || database;
+  if (!db) return { ok: false, reason: 'persistence_required' };
+  await store.ensure(db);
   try {
-    await adaptivePersister?.persistMap('axolotl_plasticity', 'states', store);
-    syncAxolotl(o.id, next);
-  } catch (error) {
-    store.set(String(o.id), prev);
-    return { ok: false, reason: 'persistence_failed', error: error.message };
-  }
-  return { ok: true, from: prev.state, to: next, state };
+    return await store.transaction(db, async (tx) => {
+      const owner = await store.assertOwner(tx, input.id);
+      const stored = await store.read(tx, { kind: 'plasticity', id: input.id });
+      if (stored?.workspaceId && stored.workspaceId !== owner.workspace_id) throw store.error('AXOLOTL_WORKSPACE_CHANGED');
+      const previous = policy.refreshBudget({ ...policy.initial(input.id), ...(stored || legacy.get(input.id)) });
+      const rejection = policy.reject(input, previous);
+      if (rejection) return { ok: false, reason: rejection };
+      await policy.verifyTransition(tx, input);
+      const next = { ...policy.nextState(previous, input), workspaceId: owner.workspace_id };
+      const saved = await store.write(tx, { kind: 'plasticity', id: input.id, expectedVersion: stored?.version || 0, value: next });
+      return { ok: true, from: previous.state, to: saved.state, state: saved };
+    });
+  } catch (failure) { return { ok: false, reason: failure.code || 'persistence_failed', error: failure.message }; }
 }
-
-function rejectChange({ request, previous }) {
-  if (!request.id || !STATES.includes(request.to) || !String(request.reason || '').trim()) return { ok: false, reason: 'valid_id_state_and_reason_required' };
-  if (!TRANSITIONS[previous.state]?.includes(request.to)) return { ok: false, reason: 'transition_not_allowed', from: previous.state, to: request.to };
-  if (previous.budget <= 0) return { ok: false, reason: 'change_budget_exhausted' };
-  if (cooldownActive(previous)) return { ok: false, reason: 'cooldown_active' };
-  return null;
-}
-
-function cooldownActive(prev) {
-  if (!prev.lastChangeAt) return false;
-  return Date.now() - prev.lastChangeAt < COOLDOWN_MS;
-}
-
-function syncAxolotl(id, next) {
-  try {
-    const axolotl = require('../axolotlTopologyService');
-    const stable = next === 'STABLE' || next === 'CONSOLIDATING';
-    axolotl.setTopologyMode(id, stable ? 'stabilisé' : 'plastique');
-  } catch (_) {}
-}
-
-module.exports = { getPlasticity, requestChange, setStateStore, setAdaptivePersister, STATES, TRANSITIONS };
+module.exports = { getPlasticity, requestChange, setStateStore, setAdaptivePersister, STATES: policy.STATES, TRANSITIONS: policy.TRANSITIONS };

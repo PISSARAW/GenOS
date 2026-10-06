@@ -21,12 +21,13 @@ function resolve(reference) {
 function validateGraph(graph) {
   const semantic = forDomain(graph?.domain);
   if (!semantic) return { valid: false, reason: 'omega_domain_unknown' };
-  const expected = new Set([semantic.selector, semantic.tool, semantic.infer, `epistemic/${graph.domain}`, semantic.effect]);
-  const references = (graph.operations || []).filter((operation) => operation.kind !== 'READ')
-    .map((operation) => operation.reference).filter(Boolean);
-  const unknown = references.filter((reference) => !expected.has(reference) && !reference.startsWith('@'));
+  const expected = { SELECT: semantic.selector, CALL: semantic.tool, INFER: semantic.infer,
+    CHECK: `epistemic/${graph.domain}`, EMIT: semantic.effect };
+  const unknown = (graph.operations || []).filter((operation) => operation.kind !== 'READ'
+    && operation.reference !== expected[operation.kind]).map((operation) => operation.reference);
   const check = (graph.operations || []).find((operation) => operation.kind === 'CHECK');
-  if (check?.verification && check.verification !== semantic.verification) {
+  if (check?.verification && check.verification !== semantic.verification
+    && check.verificationDescriptor?.type !== check.verification) {
     return { valid: false, reason: 'omega_verification_intent_mismatch' };
   }
   return unknown.length ? { valid: false, reason: 'omega_semantic_reference_unknown', unknown } : { valid: true, semantic };

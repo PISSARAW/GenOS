@@ -13,8 +13,8 @@ function snapshot(session) {
     rhizomeId: session.rhizomeId,
     missionId: session.missionId,
     graphVersion: session.graphVersion,
-    nodes: graph.nodes,
-    edges: graph.edges
+    nodes: structuredClone(graph.nodes),
+    edges: structuredClone(graph.edges)
   };
 }
 

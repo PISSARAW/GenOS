@@ -19,7 +19,7 @@ async function main() {
   try {
     await migrateGvxLedger(db);
     const runtime = {
-      apply: async () => ({ beforeHash: base.parentHash, afterHash: 'c'.repeat(64), rollbackToken: 'token' }),
+      apply: async () => ({ beforeHash: base.parentHash, afterHash: base.candidateHash, rollbackToken: 'token' }),
       rollback: async () => { rollbacks += 1; return { restoredHash: base.parentHash }; },
       observe: async () => ({
         window: { startedAt: '2026-10-01T00:00:00Z', endedAt: '2026-10-01T00:01:00Z' },

@@ -17,7 +17,8 @@ function signalsFromJudgment(value) {
   return {
     normativeDisagreement: status === 'HUMAN_REVIEW_REQUIRED'
       || aggregation.humanJudgmentRequired === true,
-    deterministicResolutionComplete: aggregation.outcome === 'EVIDENCE_SUPPORTED',
+    deterministicResolutionComplete: status === 'DECIDED' && judgment.promotionGate?.status === 'ALLOWED'
+      && aggregation.outcome === 'EVIDENCE_SUPPORTED',
     testableDisagreement: aggregation.outcome === 'ESCALATE_EXPERIMENT'
       || aggregation.experimentRequired === true,
     judgmentSettled: status === 'DECIDED'

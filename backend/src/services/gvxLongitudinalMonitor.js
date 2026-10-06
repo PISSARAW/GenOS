@@ -18,11 +18,13 @@ function summarize(results, windows, minimumStableWindows) {
   const positive = results.filter((item) => item.assessment.status === 'recommend_somatic_trial').length;
   const positiveWindowRate = scores.length ? scores.reduce((sum, value) => sum + value, 0) / scores.length : null;
   const variance = scores.length ? scores.reduce((sum, value) => sum + (value - positiveWindowRate) ** 2, 0) / scores.length : null;
-  const stable = regressions === 0 && positive >= minimumStableWindows;
+  const complete = results.every((item) => ['recommend_somatic_trial', 'no_measured_gain'].includes(item.assessment.status));
+  const stable = complete && regressions === 0 && positive >= minimumStableWindows;
+  const rollbackFailed = results.some((item) => item.rollback?.payload?.result?.status === 'failed');
   return { windows: windows.length, positiveWindowRate, positiveWindowRateVariance: variance,
     metricConfidenceIntervals: summarizeMetricDeltas(results, 0.95), confidenceLevel: 0.95,
     regressionRate: regressions / windows.length, environmentDiversity: new Set(windows.map((window) => window.contextHash)).size,
-    stable, maturity: stable ? 'mature_somatic_eligible' : regressions ? 'rollback_recorded' : 'monitoring' };
+    stable, maturity: rollbackFailed ? 'rollback_failed' : stable ? 'mature_somatic_eligible' : regressions ? 'rollback_recorded' : 'monitoring' };
 }
 
 function summarizeMetricDeltas(results, confidenceLevel) {
@@ -43,7 +45,7 @@ function criticalValue(sampleCount, confidenceLevel) {
   const table = tables[confidenceLevel];
   if (!table) throw new Error('unsupported-confidence-level');
   const df = sampleCount - 1;
-  return df <= table.length ? table[df - 1] : ({ 0.9: 1.645, 0.95: 1.96, 0.99: 2.576 }[confidenceLevel]);
+  return table[Math.min(df, table.length) - 1];
 }
 
 function interval(values, confidenceLevel) {

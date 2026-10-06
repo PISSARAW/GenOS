@@ -2,7 +2,7 @@
 
 ## Statut
 
-Accepté — implémentation par lots.
+Accepté — décision initiale, précisée par l'[ADR 0327](0327-mesures-et-calibration-physique.md).
 
 ## Date
 
@@ -15,6 +15,19 @@ Orchestrateur Rust, télémétrie workspace, apprentissage et persistance.
 ## Lié à
 
 `docs/01-concepts/physique-computationnelle.md`.
+
+## Suivi de livraison — 2026-10-06
+
+L'[ADR 0327](0327-mesures-et-calibration-physique.md) décrit le contrat livré :
+mesures sourcées du contexte, manifests et imports locaux, rapports de couverture,
+coûts ATP et durées observés, profils versionnés sauvegardés et rechargés
+automatiquement dans `.genos/physical-profiles/` via `SnapshotStore`.
+Les profils restent exportables dans `DirectorState` ; leur persistance automatique
+dispose de son propre répertoire confiné. Les seuils physiques de sécurité restent fixes.
+
+Le contexte et les alternatives ci-dessous retracent l'état initial du
+2026-09-30. Pour les API, limites et commandes actuelles, consulter la
+[fiche](../01-concepts/physique-computationnelle.md).
 
 ## Contexte
 

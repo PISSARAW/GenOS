@@ -5,11 +5,20 @@ const recoveryStore = require('./demeRecoveryStore');
 function assessExtinction(input = {}) {
   const workers = Array.isArray(input.workers) ? input.workers : [];
   const alive = workers.filter((worker) => worker?.status === 'ACTIVE' || worker?.status === 'ALIVE');
-  const unknown = workers.some((worker) => !worker?.status || worker.status === 'UNKNOWN');
-  const viable = (Array.isArray(input.localFunctions) ? input.localFunctions : []).some((item) => item?.viable === true);
-  const status = viable || alive.length ? 'NOT_EXTINCT' : unknown || workers.length === 0 ? 'UNKNOWN' : 'EXTINCT';
+  const unavailable = ['DEAD', 'CRASHED', 'FAILED', 'TERMINATED', 'UNAVAILABLE', 'STOPPED'];
+  const unknown = workers.some((worker) => !unavailable.includes(worker?.status));
+  const localFunctions = Array.isArray(input.localFunctions) ? input.localFunctions : [];
+  const viable = localFunctions.some((item) => item?.viable === true);
+  const unmeasured = !Array.isArray(input.localFunctions) || localFunctions.some((item) => typeof item?.viable !== 'boolean');
+  const status = extinctionStatus({ viable, active: alive.length,
+    uncertain: unknown || unmeasured || workers.length === 0 });
   return { status, activeWorkers: alive.length, viableFunctions: viable,
     evidenceRequired: status === 'UNKNOWN' ? ['worker_liveness', 'local_function_viability'] : [] };
+}
+
+function extinctionStatus(assessment) {
+  if (assessment.viable || assessment.active > 0) return 'NOT_EXTINCT';
+  return assessment.uncertain ? 'UNKNOWN' : 'EXTINCT';
 }
 
 async function reportDemeFailure(input = {}, options = {}) {

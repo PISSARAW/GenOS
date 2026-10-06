@@ -26,10 +26,11 @@ function makeEdge(edgeId, route, conductivity) {
   return { edgeId, ...route, relation: 'ROUTES_TO', status: 'ACTIVE', compatibility: 0.9, conductivity, reliability: 0.9, successRate: 0.9, evidenceQuality: 0.9, cost: 0, latency: 1, trailState: { positive: 0, negative: 0 } };
 }
 
-function receipt(route, need, outcome) {
+function receipt(route, need, checked) {
+  const { outcome, executionDigest } = checked;
   const value = {
     routeId: route.route.routeId, needId: need.needId, capability: need.capability,
-    nodeIds: route.route.nodeIds, edgeIds: route.route.edgeIds, outcome,
+    nodeIds: route.route.nodeIds, edgeIds: route.route.edgeIds, outcome, executionDigest,
     verification: { verificationId: `verify-${outcome}`, verifierId: 'independent', result: outcome, status: 'VERIFIED', evidenceRefs: [`evidence:${outcome}`] }
   };
   value.verification.signedReceipt = verifierReceipts.issueReceipt({
@@ -47,7 +48,7 @@ async function run() {
   const result = await runtime.tick({
     sessionId: session.sessionId, need, trustedVerifierDigests: ['trusted-recovery-verifier'],
     execute: async ({ route }) => ({ routeId: route.routeId }),
-    verify: async ({ route }) => receipt({ route }, need, attempts++ === 0 ? 'FAILURE' : 'SUCCESS')
+    verify: async ({ route, executionDigest }) => receipt({ route }, need, { executionDigest, outcome: attempts++ === 0 ? 'FAILURE' : 'SUCCESS' })
   });
   assert.equal(result.status, 'ROUTE_RECOVERED');
   assert.equal(attempts, 2);

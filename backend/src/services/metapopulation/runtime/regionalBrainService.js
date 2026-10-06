@@ -13,7 +13,7 @@ const migrationStore = require('../migration/migrationStore');
 const regionalMigrationLoop = require('./regionalMigrationLoopService');
 const { runRegionalRuntime } = require('./regionalRuntimeService');
 const variantController = require('./variantRegionalController');
-const classicPatchRuntime = require('./classicPatchRuntimeService');
+const lifecycleController = require('./regionalLifecycleController');
 
 function createRegionalBrain(options = {}) {
   return {
@@ -38,7 +38,8 @@ async function observeRegion(input, options) {
     corridorStore.listGraph(options.db, input.metapopulationId), readErrorVectors(options.db, input.metapopulationId, session.demes),
     migrationStore.countRescueAttemptsByDeme(options.db, input.metapopulationId)
   ]);
-  const demes = enrichDemes(session);
+  const residentLeases = await options.db.all('SELECT deme_id, daemon_id, expires_at, active FROM daemon_leases WHERE metapopulation_id = ? ORDER BY created_at', input.metapopulationId);
+  const demes = enrichDemes(session, residentLeases);
   const contribution = analyzeContribution(demes, corridors, input.contributionOptions || {});
   const synchrony = planAntiSynchrony({ demes, observations: errorVectors, threshold: input.synchronyThreshold });
   const utility = evaluateRegionalUtility({ demes, corridors, migrations: input.migrationCandidates || [] });
@@ -46,7 +47,7 @@ async function observeRegion(input, options) {
   return { metapopulationId: input.metapopulationId, revision: session.revision, status: session.status,
     variant: variantResolution.variant, variantPolicy: variantResolution.policy,
     variantSelection: variantResolution.selection,
-    demes, patches: session.patches, corridors, liveness, contribution, synchrony, utility, rescueAttempts };
+    demes, patches: session.patches, corridors, regionalMemory: session.regionalMemory, liveness, contribution, synchrony, utility, rescueAttempts };
 }
 
 function resolveSessionVariant(session) {
@@ -88,8 +89,7 @@ function planRegionalActions(diagnosis, observed, input = {}) {
 async function planRegionalRuntimeActions(context) {
   const { diagnosis, observed, input, options } = context;
   const plan = planRegionalActions(diagnosis, observed, input);
-  const classicResult = await classicPatchRuntime.runClassicPatchCycle(observed, { ...input, now: input.now }, options);
-  if (classicResult.cycled) plan.actions.push({ type: 'COLLAPSE_DETECTED_POPULATE_VACANCY', results: classicResult.results });
+  await lifecycleController.planLifecycleActions(context, plan);
   return variantController.planVariantActions({ ...context, plan });
 }
 
@@ -127,6 +127,8 @@ async function executeAction(action, context) {
   }
   if (action.type === 'REGULATE_CORRIDORS') return regulateCorridors(action, context);
   if (action.type === 'MIGRATE_PROPAGULE') return regionalMigrationLoop.executeMigrationAction(action, context);
+  const lifecycleResult = await lifecycleController.executeLifecycleAction(action, context);
+  if (lifecycleResult) return lifecycleResult;
   const variantResult = await variantController.executeVariantAction(action, context);
   if (variantResult) return variantResult;
   throw brainError('REGIONAL_ACTION_UNSUPPORTED', `Unsupported regional action: ${action.type}`);
@@ -163,7 +165,8 @@ async function verifyRegionalActions(context) {
   const variantValid = await variantController.verifyVariantActions(context);
   const topologyValid = await variantController.verifyTopologyActions(context);
   const firebreakValid = await variantController.verifyFirebreakActions(context);
-  return { valid: context.execution.completed === true && demesValid && corridorsValid && migrationsValid && variantValid && topologyValid && firebreakValid,
+  const lifecycleValid = await lifecycleController.verifyLifecycleActions(context);
+  return { valid: context.execution.completed === true && demesValid && corridorsValid && migrationsValid && variantValid && topologyValid && firebreakValid && lifecycleValid,
     diagnosis: context.diagnosis.status, actionCount: context.plan.actions.length,
     regionalRevisionBefore: context.observed.revision, regionalTopologyUnchanged: true };
 }
@@ -216,13 +219,17 @@ function canMarkAtRisk(demes, demeId) {
   return demes.some((deme) => deme.demeId === demeId && ['ACTIVE', 'STRESSED', 'ESTABLISHING'].includes(deme.status));
 }
 
-function enrichDemes(session) {
+function enrichDemes(session, residentLeases) {
   const patches = new Map(session.patches.map((patch) => [patch.patchId, patch]));
   const roles = session.regionalMemory?.sourceSinkRoles || {};
-  return session.demes.map((deme) => ({ ...deme, role: roles[deme.demeId]?.role || null,
+  const residents = new Map(residentLeases.map((lease) => [lease.deme_id, lease]));
+  return session.demes.map((deme) => ({ ...deme, ...session.regionalMemory?.demePolicies?.[deme.demeId], role: roles[deme.demeId]?.role || null,
+    isResident: liveResident(residents.get(deme.demeId)), daemonId: residents.get(deme.demeId)?.daemon_id || null,
     patchQuality: patches.get(deme.patchId)?.quality || 0,
     capabilities: capabilitiesOf(deme), localStrategies: deme.localStrategies }));
 }
+
+function liveResident(lease) { return Boolean(lease?.active && Date.parse(lease.expires_at) > Date.now()); }
 
 function capabilitiesOf(deme) {
   const members = Array.isArray(deme.members) ? deme.members : [];

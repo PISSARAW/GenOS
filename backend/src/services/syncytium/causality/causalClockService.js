@@ -22,4 +22,17 @@ function normalizeDot(dot, actorId, causalContext) {
   return { actorId, sequence: dot.sequence };
 }
 
-module.exports = { record };
+function available(operation, frontier) {
+  const context = contexts.normalize(operation.causalContext || {});
+  return Object.entries(context).every(([actor, sequence]) => (frontier[actor] || 0) >= sequence);
+}
+
+function assertAvailable(operation, frontier) {
+  if (!available(operation, frontier)) {
+    throw Object.assign(new Error('Operation requires a causal predecessor that has not been committed.'), {
+      code: 'SYNCYTIUM_CAUSAL_GAP'
+    });
+  }
+}
+
+module.exports = { record, available, assertAvailable };

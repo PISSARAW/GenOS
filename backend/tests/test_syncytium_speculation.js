@@ -18,9 +18,13 @@ async function main() {
   assert.equal(experiment.snapshot.sharedFields.proposal, 'candidate');
   const duplicate = await syncytium.applySpeculativeOperation(session.sessionId, {
     branchId: 'proposal-a',
-    operation: { opId: 'spec-change', actorId: 'researcher', kind: { type: 'set_field', key: 'proposal', value: 'other' } }
+    operation: { opId: 'spec-change', actorId: 'researcher', kind: { type: 'set_field', key: 'proposal', value: 'candidate' } }
   });
   assert.equal(duplicate.duplicate, true);
+  await assert.rejects(syncytium.applySpeculativeOperation(session.sessionId, {
+    branchId: 'proposal-a',
+    operation: { opId: 'spec-change', actorId: 'researcher', kind: { type: 'set_field', key: 'proposal', value: 'other' } }
+  }), error => error.code === 'SYNCYTIUM_OPERATION_ID_CONFLICT');
   assert.equal((await syncytium.snapshot(session.sessionId)).shared.sharedFields.proposal, 'baseline');
   assert.deepEqual((await syncytium.compareSpeculativeBranch(session.sessionId, { branchId: 'proposal-a' })).changedFields, ['proposal']);
 

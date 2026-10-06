@@ -28,12 +28,12 @@ async function upsertCorridor(db, metapopulationId, corridor) {
     (corridor_id, metapopulation_id, source_deme_id, target_deme_id, status, strength, protocol_json, occurred_at,
      enabled, capacity, migration_cost,
      compatibility, accepted_migrations, rejected_migrations, benefit_history_json, homogenization_risk, weight, created_at, updated_at)
-    VALUES (?, ?, ?, ?, 'ACTIVE', ?, '{}', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(metapopulation_id, source_deme_id, target_deme_id) DO UPDATE SET
-     enabled = excluded.enabled, capacity = excluded.capacity, migration_cost = excluded.migration_cost,
+     protocol_json = excluded.protocol_json, enabled = excluded.enabled, capacity = excluded.capacity, migration_cost = excluded.migration_cost,
      compatibility = excluded.compatibility, homogenization_risk = excluded.homogenization_risk,
      weight = excluded.weight, updated_at = excluded.updated_at`,
-  corridor.corridorId, metapopulationId, corridor.sourceDemeId, corridor.targetDemeId, corridor.weight, now, Number(corridor.enabled),
+  corridor.corridorId, metapopulationId, corridor.sourceDemeId, corridor.targetDemeId, corridor.weight, JSON.stringify({ isReserve: corridor.isReserve === true }), now, Number(corridor.enabled),
   corridor.capacity, corridor.migrationCost, corridor.compatibility, corridor.acceptedMigrations,
   corridor.rejectedMigrations, JSON.stringify(corridor.benefitHistory), corridor.homogenizationRisk, corridor.weight, now, now);
 }
@@ -55,7 +55,7 @@ async function listGraph(db, metapopulationId) {
   const rows = await db.all('SELECT * FROM metapopulation_corridors WHERE metapopulation_id = ? ORDER BY source_deme_id, target_deme_id', metapopulationId);
   return rows.map((row) => ({
     corridorId: row.corridor_id, sourceDemeId: row.source_deme_id, targetDemeId: row.target_deme_id,
-    direction: 'directed', enabled: Boolean(row.enabled), capacity: row.capacity, migrationCost: row.migration_cost,
+    direction: 'directed', isReserve: parseJson(row.protocol_json).isReserve === true, enabled: Boolean(row.enabled), capacity: row.capacity, migrationCost: row.migration_cost,
     compatibility: row.compatibility, acceptedMigrations: row.accepted_migrations,
     rejectedMigrations: row.rejected_migrations, benefitHistory: parseJson(row.benefit_history_json),
     homogenizationRisk: row.homogenization_risk, weight: row.weight, createdAt: row.created_at, updatedAt: row.updated_at

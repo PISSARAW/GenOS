@@ -1,0 +1,42 @@
+'use strict';
+const { authoritySchema } = require('./biologyDatabase');
+const { digest } = require('../../src/services/biologicalIntegrity');
+
+async function workerSchema(db) {
+  await authoritySchema(db);
+  await db.exec(`CREATE TABLE agents (id TEXT PRIMARY KEY, execution_mode TEXT, parent_agent_id TEXT,
+    organization_id TEXT, project_id TEXT, metadata_json TEXT, role TEXT, dna_json TEXT, workspace_id TEXT);
+    CREATE TABLE mission_agents (mission_id TEXT, agent_id TEXT);
+    CREATE TABLE strategy_contracts (id TEXT PRIMARY KEY, agent_id TEXT, version INTEGER, contract_json TEXT, contract_hash TEXT);
+    CREATE TABLE strategy_execution_runs (id TEXT PRIMARY KEY, agent_id TEXT, contract_id TEXT, contract_version INTEGER,
+      status TEXT, budget_json TEXT, metrics_json TEXT, guardrail_reason TEXT, started_at TEXT, completed_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE strategy_execution_steps (id TEXT PRIMARY KEY, run_id TEXT, sequence INTEGER, stage_key TEXT,
+      strategy_ids_json TEXT, planned_budget_json TEXT, actual_metrics_json TEXT, evidence_json TEXT,
+      status TEXT DEFAULT 'planned', started_at TEXT, completed_at TEXT);
+    INSERT INTO missions VALUES ('worker-mission', 'Compute subset sum with evidence', 'active');
+    INSERT INTO agents (id, execution_mode, organization_id, project_id) VALUES ('parent', 'orchestrator', 'org', 'project');`);
+}
+
+async function addWorker(db, input = {}) {
+  const agentId = input.agentId || 'worker';
+  const metadata = { workerContract: { mission: { methodContract: {
+    methodId: 'subset_sum', parameters: { values: [2, 3, 7], target: 5 }
+  } } } };
+  await db.run(`INSERT INTO agents (id, execution_mode, parent_agent_id, organization_id, project_id, metadata_json, role)
+    VALUES (?, 'worker', 'parent', 'org', 'project', ?, 'procedure_worker')`, agentId, JSON.stringify(metadata));
+  await db.run('INSERT INTO mission_agents VALUES (?, ?)', 'worker-mission', agentId);
+  const contract = { execution_pipeline: [], strategy_portfolio: [], promotion: input.promotion || {} };
+  const id = `contract-${agentId}`;
+  await db.run('INSERT INTO strategy_contracts VALUES (?, ?, 1, ?, ?)', id, agentId, JSON.stringify(contract), `sha256:${digest(contract)}`);
+  return { id, version: 1, contract };
+}
+
+function completion(runId, options = {}) {
+  return { id: options.id || `complete-${runId}`, eventType: options.eventType || 'AGENT_COMPLETED',
+    timestamp: new Date().toISOString(), payload: { executionRunId: runId,
+      evidenceReport: options.report || { outcome: 'success', claims: [{ statement: 'Checked result', evidence: ['test://result'] }] },
+      usage: options.usage || { total_tokens: 3, cost_usd: 0.01 } } };
+}
+
+module.exports = { workerSchema, addWorker, completion };

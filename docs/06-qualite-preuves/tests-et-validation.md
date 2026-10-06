@@ -115,6 +115,20 @@ pour le diagnostic, mais elle ne constitue pas une validation métier.
 
 ---
 
+### 3.2 Validation ciblée Metapopulation
+
+Depuis la racine, `npm --prefix backend run test:metapopulation` exécute dix suites.
+La qualification du 2026-10-06 au commit `5b18c834` a obtenu 10/10, avec exécution
+séparée des suites, relecture des empreintes et reprise d'une fixture corrigée.
+Elle couvre les 12 variants et 4 profils historiques, la persistance, les preuves
+invalides et les interruptions rescue/rollback. Les fixtures d'adaptateurs ne
+certifient ni les moteurs externes ni la réussite d'une mission réelle.
+
+Ces résultats ne remplacent pas les trois checks globaux du dépôt.
+Le benchmark `node backend/bin/metapopulation-benchmark.cjs 1` mesure des
+calculateurs sur des fixtures synthétiques. Le [contrat runtime](../03-reference/runtime-metapopulation.md)
+détaille le périmètre vérifié et ses limites.
+
 ## 4. Tests unitaires Rust
 
 Les tests Rust se trouvent dans les crates. Par exemple, [crates/genos-cli/src/tests/mod.rs](../../crates/genos-cli/src/tests/mod.rs) exerce directement les handlers sans passer par un shell :
@@ -136,6 +150,23 @@ assert!(tampered_result.is_err());
 Ce style est unitaire ou de composant local : fichiers temporaires, handlers Rust réels, pas de provider cloud ni de backend déployé.
 
 ---
+
+### 4.1 Nosologie : catalogue, effets et autorisation persistante
+
+Le [bilan du 2026-10-06](validation-nosologie.md) conserve les résultats observés : 97 tests de biologie, quatre tests d’autorisation persistante et deux tests CLI réussis, ainsi que les contrôles Node du catalogue et de l’autorisation. Il rapporte aussi les échecs globaux et le parcours HTTP → Rust non validé; ces résultats ne sont pas rejoués par la présente mise à jour documentaire.
+
+Commandes de reproduction depuis la racine :
+
+```text
+cargo test -p genos-biology --lib --tests --jobs 1
+cargo test --workspace --test nosology_authorization --offline --jobs 1
+cargo test --workspace --bin genos commands::biomimicry::therapy::tests --offline --jobs 1
+node backend/tests/test_nosology_catalog.js
+node backend/tests/test_clinical_authorization.js
+node scripts/docs/generate-nosology-catalog.mjs --check
+```
+
+Les features du workspace activent `api`, requise par le test de persistance. Les scénarios couvrent les 28 conditions et 48 contrats de marqueurs, les refus, l’absence de cible, les effets secondaires bornés, le reçu durable et le rejeu idempotent. Ils ne valident ni pathologies réelles ni réparations biologiques détaillées. Le [contrat runtime](../01-concepts/nosologie/catalogue-runtime.md) précise les mutations attestées.
 
 ## 5. Tests unitaires Node et qualité
 
@@ -1334,3 +1365,14 @@ Taux de Résolution Effectif Dynamique : 4 / 4 (100.0% Pass@1)
 | Intégrité du diff | **Réussi** | `git diff --check` sans sortie ni erreur.
 
 Ces résultats décrivent uniquement cette configuration locale, ces versions d’outils, les fixtures et les services effectivement lancés. Le vert des tests ne démontre ni comportement universel ni adéquation d’un fournisseur externe ; un échec interrompant une suite laisse les scénarios ultérieurs non vérifiés.
+
+## Contrat natif Axolotl
+
+`npm --prefix backend run test:axolotl` lance huit suites : régénération
+partielle, apprentissage, sources cognitives, métamorphose, coût, sélection
+stratégique, runtime et gates de reprise. Elles utilisent SQLite et des
+workers Node réels pour les contrats de routage/rappel, avec concurrence,
+preuves altérées, budgets, rollback, messages et composition. La suite est
+incluse dans les tests par défaut du backend. Sa réussite porte sur ce
+contrat natif et ne certifie pas une mission LLM arbitraire ni les autres
+suites du dépôt. Voir la [référence Axolotl](../03-reference/axolotl-regeneration.md).

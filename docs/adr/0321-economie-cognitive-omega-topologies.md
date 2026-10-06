@@ -26,3 +26,14 @@ Omega et peut être persisté comme observation empirique.
 3. Le ROI mesure une économie ; il ne remplace ni `CHECK`, ni AEIS, ni une preuve.
 4. Les métriques non observées ne sont pas inventées ; leur absence conserve une sélection prudente.
 5. Le routeur conserve les gates d'autorité, de budget et de vérification Omega.
+
+## Précision du 2026-10-06
+
+La transformation économique conserve les opérations et leurs dépendances,
+y compris `CHECK` et `EMIT` au niveau L0. Elle ne duplique pas un même `CHECK`
+pour simuler une vérification indépendante aux niveaux supérieurs. Le plan
+L0–L5 et le ROI orientent la politique du runtime ; ils ne prouvent pas une
+reconfiguration complète de l'organisation d'exécution des huit topologies.
+
+Cette frontière est testée par `test_cognitive_economy_controller.js` et définie
+dans l'[ADR 0323](0323-frontieres-preuve-execution-omega.md).

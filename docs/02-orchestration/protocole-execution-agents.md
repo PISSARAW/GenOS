@@ -3,7 +3,7 @@
 - **Statut** : référence opérationnelle avec niveaux de preuve explicités.
 - **Portée** : cycle d'une mission, budgets, topologies, workers, communication,
   relations, nosologie, observabilité et protocole d'évaluation.
-- **Dernière revue** : 2026-10-04.
+- **Dernière revue** : 2026-10-06 (section nosologie).
 
 Ce document décrit le runtime observé dans le dépôt. Les mentions « implémenté »
 indiquent un chemin de code identifié; elles ne prouvent pas que chaque mission
@@ -94,7 +94,7 @@ Le catalogue Morphogenèse compte les variants spécifiques suivants, hors
 | Holobionte | 12 | Contrats et plans sélectionnables; moteurs/adaptateurs manquants selon le mécanisme. |
 | Syncytium | 13 | Sessions persistées et opérations CRDT; cela ne garantit pas un appel dans chaque mission. |
 | Rhizome | 12 | Sessions et dépôt/routage directs; pas de routage multi-hop automatique établi. |
-| Métapopulation | 16 | 12 identifiants décrits + 4 alias historiques; mécanismes partiels. |
+| Métapopulation | 16 | 12 identifiants + 4 alias historiques ; effets persistés, revue receveur et reprise vérifiés, adaptateurs externes requis. Voir le [contrat runtime](../03-reference/runtime-metapopulation.md). |
 | Biome | 11 | Sessions, opérations et boucle de mission vérifiable; actions réelles soumises aux gates. |
 | Trinity | 12 | Adaptateurs dédiés; présence au catalogue ne prouve pas un cycle complet validé. |
 
@@ -167,21 +167,15 @@ mesure réelle de tokens ne sont pas raccordés partout. Voir [communication](co
 
 ## 8. Utilisation de la nosologie
 
-La nosologie regroupe des marqueurs cliniques simulés de l'état des agents. Le
-backend stocke un `ClinicalState` par agent (vitals, indice inflammatoire,
-charge pathogène, état de cycle, bien-être, etc.). L'assemblage du contexte
-d'expression peut charger ce résumé; les services de surveillance peuvent
-scanner l'état persistant, créer des détections/quarantaines et consigner des
-événements. La détection, le diagnostic, la thérapie et l'application effective
-sont des étapes distinctes; il n'existe pas de scan clinique automatique dans
-chaque chemin de mission.
+Le backend stocke un état clinique par agent dans ses tables Node. Les services de surveillance peuvent scanner cet état, créer des détections/quarantaines et consigner des événements. Ces diagnostics et types de traitement restent distincts du catalogue Rust; chaque chemin de mission ne réalise pas automatiquement un scan clinique.
 
-Dans le runtime Rust, certaines transformations systémiques déterministes sont
-appelables explicitement. La documentation nosologique indique qu'aucun
-chaînage universel diagnostic → thérapie n'est attesté; la commande biomimétique
-échoue fermé tant que son exécuteur persistant n'est pas branché. Ces marqueurs
-ne diagnostiquent pas une personne et les noms des thérapies ne sont pas des
-recommandations médicales. Référence : [vue d'ensemble nosologique](../01-concepts/nosologie/vue-ensemble.md).
+Le runtime Rust couvre 28 conditions dans neuf familles et 48 opérateurs de marqueurs. Le tick synchronise les diagnostics. Le rapport clinique propose des traitements compatibles avec les cibles et les gardes; leur application reste une opération explicite.
+
+Le parcours persistant est branché : `POST /api/rust/clinical-authorizations` émet une autorisation signée pour la cellule courante, puis `genos biomimicry therapy` restaure le journal, vérifie le type et la cible signés et appelle l’exécuteur Rust. Le reçu et la population sont persistés avant mise à jour mémoire; le rejeu identique n’applique aucune seconde mutation. Sans journal ou autorisation, la CLI renvoie `not_executed`.
+
+Une tentative autorisée renvoie `applied`, `no_target` ou `refused`. Seul un effet réel rend `treatment_administered` vrai. La signature, le transport et l’enregistrement d’un diagnostic ne suffisent pas à attester un traitement. Aucun outil MCP thérapeutique n’est créé par la présence des variantes Rust.
+
+Références : [catalogue nosologique](../01-concepts/nosologie/catalogue-runtime.md), [contrat API et CLI](../03-reference/api-et-contrats.md#autorisation-et-application-cliniques), [bilan des vérifications](../06-qualite-preuves/validation-nosologie.md). Les mécanismes détaillés des fiches restent proposés au-delà du contrat de marqueurs. Les scénarios ne valident aucune pathologie réelle.
 
 ## 9. Télémétrie, traces et audit
 

@@ -14,17 +14,18 @@ function reconcile(session, replica, input) {
   const accepted = applyIncoming({ session, candidate, operations: input.operations || [] });
   const frontier = candidate.getCausalFrontier();
   assertFrontierKnown(input.frontier || {}, frontier);
-  const remoteFrontier = stability.acknowledgeable({ crdt: candidate }, input.frontier || {});
-  const missingOperations = session.crdt.getHistory().filter((operation) => operation.dot.sequence > (remoteFrontier[operation.dot.actorId] || 0));
-  const snapshotRequired = isBelowCheckpoint(session.crdt, remoteFrontier);
+  const acknowledged = stability.acknowledgeable({ crdt: candidate }, input.frontier || {});
   const appliedFrontier = accepted.reduce((value, operation) => vectors.merge(value, operation.versionVector || {}), {});
+  const remoteFrontier = vectors.merge(acknowledged, appliedFrontier);
+  const missingOperations = candidate.getHistory().filter((operation) => operation.dot.sequence > (remoteFrontier[operation.dot.actorId] || 0));
+  const snapshotRequired = isBelowCheckpoint(session.crdt, remoteFrontier);
   return {
     candidate,
     accepted,
-    remoteFrontier: vectors.merge(remoteFrontier, appliedFrontier),
+    remoteFrontier,
     missingOperations: snapshotRequired ? [] : missingOperations,
     snapshotRequired,
-    snapshot: snapshotRequired ? session.crdt.getSnapshot() : null
+    snapshot: snapshotRequired ? candidate.getSnapshot() : null
   };
 }
 
@@ -37,8 +38,9 @@ function applyIncoming(context) {
     const operation = pending.splice(index, 1)[0];
     const admitted = schemaService.admitOperation(context.session.schema, operation).operation;
     validateIncoming(context, admitted);
+    if (context.candidate.assertDuplicateOperation(admitted)) continue;
     context.candidate.applyOp(admitted);
-    accepted.push(admitted);
+    accepted.push(context.candidate.getHistory().at(-1));
   }
   return accepted;
 }

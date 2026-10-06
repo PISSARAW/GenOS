@@ -255,7 +255,7 @@ async function createPolicySession(context) {
       syncytium, policyId: policy.id, mission, options: { ...configuration, ...sessionOptions }
     })
     : await syncytium.createSession(mission, sessionOptions);
-  return { ...session, variantPolicy, variantSelection: session.variantSelection };
+  return { ...session, variantPolicy: session.variantPolicy, variantSelection: session.variantSelection };
 }
 
 function policySelection(policy, fit, explicitVariant) {

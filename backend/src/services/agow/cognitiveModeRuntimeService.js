@@ -22,26 +22,41 @@ async function choose(options) {
   const experiences = receipts.filter((item) => Number.isFinite(item.predictionError))
     .slice(-200).map((item) => ({ mode: item.chosenMode, predictionError: item.predictionError,
       contextKey: item.contextKey }));
-  return policy.evaluate({ signals: signalsFor(options.frame, options.candidates), experiences });
+  const eligibleModes = await require('./cognitiveModeAvailabilityService').eligibleModes(options);
+  return policy.evaluate({ signals: signalsFor(options.frame, options.candidates),
+    modeCosts: options.modeCosts, experiences, eligibleModes });
 }
 
 async function execute(options) {
+  try { return await dispatch(options); }
+  catch (error) { return { route: options.decision.mode, executed: false,
+    reason: 'mode_executor_failed', message: error.message }; }
+}
+
+async function dispatch(options) {
   const { mode } = options.decision;
   if (mode === 'ABSTAIN') return { route: mode, executed: false, reason: 'abstention_gate' };
   if (mode === 'ACT') return finish(options, mode, await broadcast(options));
   if (mode === 'SIMULATE') return finish(options, mode, await options.runShadow());
   if (['OBSERVE', 'VERIFY', 'RECALL'].includes(mode)) return finish(options, mode, await options.runQuery(mode));
-  const handler = options.modeExecutors?.[mode];
+  const defaults = require('./cognitiveModeBuiltinExecutors');
+  const handler = options.modeExecutors?.[mode] || defaults[mode];
   if (typeof handler === 'function') return finish(options, mode,
     await handler({ frame: options.frame, candidates: options.candidates, db: options.db }));
   return { route: mode, executed: false, reason: 'mode_executor_unavailable' };
 }
 
 async function finish(options, mode, result) {
-  const receipt = Number.isFinite(Number(result?.realizedLoss))
+  const receipt = Number.isFinite(result?.realizedLoss)
     ? await experience.observeOutcome({ agentId: options.agentId, db: options.db,
       receiptId: options.receipt.receiptId, mode, realizedLoss: Number(result.realizedLoss) }) : null;
-  return { route: mode, result, outcomeReceipt: receipt };
+  return { route: mode, executed: didExecute(result), result, outcomeReceipt: receipt };
+}
+
+function didExecute(result) {
+  if (result == null || result.executed === false || result.planned === false || result.triggered === false) return false;
+  if (Array.isArray(result.result?.responses)) return result.result.responses.some((item) => item.executed);
+  return true;
 }
 
 async function broadcast(options) {

@@ -11,7 +11,7 @@ function verifyDevelopmentReceipt(input) {
 
 function receiptClaim(input) {
   return { organizationId: input.scope.organizationId, projectId: input.scope.projectId,
-    entityId: input.entityId, receiptId: input.receiptId, pathwayId: input.pathwayId,
+    entityId: input.entityId, agentId: input.agentId, receiptId: input.receiptId, pathwayId: input.pathwayId,
     contextHash: input.contextHash || 'global', success: input.success,
     predictionError: input.predictionError, reward: Number.isFinite(input.reward) ? input.reward : null,
     evidenceRefs: input.evidenceRefs.map((item) => `${item.artifactHash}\0${item.verifierId}`).sort() };
@@ -47,7 +47,7 @@ function trustedSignature(receipt) {
 function trustedRemoteSignature(receipt) {
   try {
     const crypto = require('node:crypto');
-    const pem = String(process.env.GENOS_GVX_VERIFIER_PUBLIC_KEY || '');
+    const pem = require('../gvxRemoteConfiguration').publicKey();
     if (!pem) return false;
     const publicKey = crypto.createPublicKey(pem);
     const keyId = `sha256:${crypto.createHash('sha256')

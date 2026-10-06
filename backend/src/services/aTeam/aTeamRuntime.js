@@ -34,7 +34,9 @@ function graphIdFor(teamRunId) {
 }
 
 function sameMission(existing, draft) {
-  return existing.missionId === draft.missionId && existing.goal === String(draft.goal || '').trim();
+  const identityMatches = existing.missionId === draft.missionId && existing.goal === String(draft.goal || '').trim();
+  const fingerprint = existing.execution?.formationFingerprint;
+  return identityMatches && (!fingerprint || fingerprint === draft.execution.formationFingerprint);
 }
 
 async function loadExisting(db, draft) {
@@ -56,20 +58,43 @@ function buildRunDraft(input) {
   if (!missionId || !key) throw Object.assign(new Error('A-Team run requires missionId and an idempotency key.'), { code: 'ATEAM_RUN_IDENTITY_REQUIRED' });
   const teamRunId = input.teamRunId || stableId('ateam', `${missionId}:${key}`);
   const graphId = input.workGraphId || graphIdFor(teamRunId);
-  return teamRunStore.teamRunRecord({ ...input, missionId, teamRunId, workGraphId: graphId });
+  const members = bindMembers(input.members, teamRunId);
+  return teamRunStore.teamRunRecord({ ...input, members, missionId, teamRunId, workGraphId: graphId });
+}
+
+function bindMembers(members, teamRunId) {
+  return (members || []).map((member, index) => bindMember(member, { teamRunId, index }));
+}
+
+function bindMember(member, identity) {
+  const memberId = member.memberId || stableId('member', identity.teamRunId + ':' + identity.index);
+  const workerId = member.workerId || stableId('worker', identity.teamRunId + ':' + memberId);
+  return { ...member, memberId, workerId, agentId: member.agentId || workerId };
 }
 
 async function createRun(input = {}) {
   const draft = buildRunDraft(input);
+  draft.execution = { ...draft.execution, formationFingerprint: formationFingerprint(draft) };
   const existing = await loadExisting(input.db, draft);
   if (existing) return existing;
   return persistNewRun(input, draft);
 }
 
+function formationFingerprint(draft) {
+  const { canonicalJson } = require('./variants/variantExecutionHelpers');
+  const fields = ['memberId', 'role', 'domain', 'capabilities', 'dependsOn', 'outputs', 'inputArtifacts',
+    'requiredArtifacts', 'acceptanceCriteria', 'inputSchema', 'outputSchema', 'executionBudgetTokens', 'ownedResponsibilities',
+    'agentId', 'workerId', 'authority', 'toolLease', 'participationMode', 'consults', 'consumes', 'provides'];
+  const members = draft.members.map((member) => Object.fromEntries(fields.map((field) => [field, member[field]])));
+  const definition = { goal: draft.goal, successCriteria: draft.successCriteria, requiredCapabilities: draft.requiredCapabilities, members, variant: draft.execution?.organizationPolicy?.variant || null };
+  return createHash('sha256').update(canonicalJson(definition)).digest('hex');
+}
+
 async function persistNewRun(input, draft) {
   const graphId = draft.workGraphId;
   const teamRunId = draft.teamRunId;
-  const graphDraft = graphCompiler.compileWorkGraph({ workGraphId: graphId, teamRunId, members: input.members || [] });
+  const graphMembers = (input.members || []).map((member, index) => ({ ...member, ...draft.members[index] }));
+  const graphDraft = graphCompiler.compileWorkGraph({ workGraphId: graphId, teamRunId, members: graphMembers });
   const graphResult = await persistGraph(input.db, graphDraft);
   draft.workGraphId = graphResult.graph.workGraphId;
   assignStages(draft.members, graphResult.graph);

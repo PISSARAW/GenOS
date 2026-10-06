@@ -42,7 +42,10 @@ function effectiveCommunitySize(members) {
       if (correlation !== null) correlations.push(correlation);
     }
   }
-  if (!correlations.length) return { observedSize: list.length, effectiveSize: null, measured: false, pairCount: 0 };
+  const expectedPairs = list.length * (list.length - 1) / 2;
+  if (correlations.length !== expectedPairs) return {
+    observedSize: list.length, effectiveSize: null, measured: false, pairCount: correlations.length, ...routeEvidence
+  };
   const meanCorrelation = Math.max(0, mean(correlations));
   const effectiveSize = list.length / (1 + (list.length - 1) * meanCorrelation);
   return {
@@ -62,7 +65,7 @@ function providerEvidence(members) {
   const providers = new Set(members.map((member) => member.actualProvider));
   const models = new Set(members.map((member) => `${member.actualProvider}/${member.actualModel || 'unknown'}`));
   return { providerProvenanceComplete: true, observedProviderCount: providers.size,
-    observedModelCount: models.size, providerIndependenceMeasured: providers.size > 1 };
+    observedModelCount: models.size, providerIndependenceMeasured: false };
 }
 
 function hasCompleteErrorVectors(members) {
@@ -70,7 +73,8 @@ function hasCompleteErrorVectors(members) {
   const scope = members[0].errorVectorScope;
   const vectorSize = members[0].errorVector?.length;
   return Boolean(scope && vectorSize > 1 && members.every((member) =>
-    member.errorVectorScope === scope && Array.isArray(member.errorVector) && member.errorVector.length === vectorSize));
+    member.errorVectorScope === scope && Array.isArray(member.errorVector) && member.errorVector.length === vectorSize
+      && member.errorVector.every(Number.isFinite)));
 }
 
 module.exports = { effectiveCommunitySize, errorCorrelation, providerEvidence };

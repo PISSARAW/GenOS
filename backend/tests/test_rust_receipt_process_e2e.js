@@ -104,7 +104,7 @@ async function verifyClinical(input) {
   await fs.writeFile(authFile,JSON.stringify(authorization));
   const treated = await rust({ ...input,mode:'therapy',authFile });
   const patient = treated.active_cells.find(cell => cell.cell_id === authorization.cell_id);
-  assert.equal(patient.cell_state.clinical.last_treatment_applied,'IntensiveCareFluids');
+  assert.equal(patient.cell_state.clinical.last_treatment_applied, null, 'missing perfusion marker cannot attest application');
   const before = await fs.readFile(input.journal,'utf8');
   const duplicate = await rust({ ...input,mode:'therapy',authFile });
   assert.equal(await fs.readFile(input.journal,'utf8'),before,'authorization replay cannot reapply therapy');

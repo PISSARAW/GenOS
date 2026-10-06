@@ -10,7 +10,8 @@ async function runRound(input) {
   const plan = planner.planRound({ round: input.session.round, constitution: input.constitution });
   if (plan.status !== 'PLANNED') return { ...plan, status: 'BLOCKED' };
   const result = await executor.execute({
-    plan, handlers: input.handlers || {}, context: input.context || {}, onStepComplete: input.onStepComplete
+    plan, handlers: input.handlers || {}, context: input.context || {}, onStepComplete: input.onStepComplete,
+    receipts: input.receipts
   });
   const finalStep = result.receipts[result.receipts.length - 1]?.result;
   const status = finalStep?.finalized === false ? 'IN_PROGRESS' : result.status;

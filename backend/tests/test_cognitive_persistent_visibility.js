@@ -17,7 +17,7 @@ async function sampleContract() {
 (async () => {
   const db = await open({ filename: ':memory:', driver: sqlite3.Database });
   await ledger.materialize(db, { sessionId: 's1', objectId: 'f1', value: { claim: 'x' }, scope: 'mission' });
-  assert.equal((await ledger.visible(db, { sessionId: 's1', objectId: 'f1' })).visible, true);
+  assert.equal((await ledger.visible(db, { sessionId: 's1', objectId: 'f1', scope: 'mission' })).visible, true);
   const recovered = await ledger.recover(db, 's1');
   assert.equal(recovered.fragments[0].object_id, 'f1');
   await ledger.openSession(db, { sessionId: 's1', model: 'model-a', modelVersion: '1' });

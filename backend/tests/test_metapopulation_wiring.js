@@ -54,7 +54,7 @@ const recoveryMembers = biologicalMode.compose('metapopulation',
   'Four populations optimize independently. Collapse one population, then recolonize it from multiple lineages.');
 assert.ok(recoveryMembers.every((member) => !member.workerKind));
 const methodAssigned = workerKinds.applyTopologyWorkerKinds('metapopulation', parserMembers, {
-  population_isolator: { methodContract: { version: 1, methodId: 'dynamic_programming' } },
+  population_isolator: { methodContract: { version: 1, methodId: 'subset_sum', parameters: { values: [2, 3, 4], target: 5 } } },
   quorum_sensor: { methodContract: { version: 1, methodId: 'evidence_sensing', requiredCapabilities: ['observe'] } },
   synaptic_adaptor: { methodContract: { version: 1, methodId: 'evolutionary_search' } },
   regeneration_steward: { methodContract: { version: 1, methodId: 'recolonization' } }

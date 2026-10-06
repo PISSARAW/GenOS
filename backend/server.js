@@ -202,6 +202,7 @@ function registerWorkerShutdown(server, grpcServer, db) {
     shuttingDown = true;
     console.log(`[GenOS Backend] Received ${signal}; draining requests.`);
     require('./src/services/survivalWakeSchedulerService').stop();
+    await require('./src/services/garageRuntimeService').stop(db);
     await jobWorker.stopJobWorker({ drain: true, timeoutMs: 30000 });
     signalPlaneSubscriber.stopSignalPlaneSubscriber();
     try { await plasticity.flushPendingWrites(); }
@@ -240,6 +241,7 @@ async function runWorkerProcess() {
     startAutobiographicalMemoryIfDesignated();
     startIdleTickSchedulerIfDesignated();
     await require('./src/services/workerGarageService').rearmIdleWorkers(db);
+    require('./src/services/garageRuntimeService').start({ db });
     signalPlaneSubscriber.startSignalPlaneSubscriber();
 
     server.listen(PORT, () => {

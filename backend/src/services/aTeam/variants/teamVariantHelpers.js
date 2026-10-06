@@ -46,19 +46,22 @@ function buildDivisions(members, roles, spanOfControl) {
     members: members.filter((member) => member.supervisorId === id && memberId(member) !== id).map(memberId)
   }));
   if (leaders.length > spanOfControl) throw Object.assign(new Error('Incident commander exceeds span of control.'), { code: 'ATEAM_ICS_SPAN_EXCEEDED' });
-  for (const member of members) {
-    const id = memberId(member);
-    const preassigned = assignments.some((division) => division.members.includes(id));
-    if (!id || id === roles.commander || leaders.some((leader) => leader.id === id) || preassigned) continue;
-    const assigned = assignments.find((division) => division.supervisor === member.supervisorId);
-    const fallback = assignments.find((division) => division.divisionId === 'operations');
-    (assigned || fallback).members.push(id);
-  }
+  members.forEach((member) => assignDivisionMember(member, { assignments, leaders, roles }));
   for (const division of assignments) {
     if (division.members.length > spanOfControl) throw Object.assign(new Error(`ICS supervisor ${division.supervisor} exceeds span of control.`), { code: 'ATEAM_ICS_SPAN_EXCEEDED' });
     division.spanOfControl = spanOfControl;
   }
   return assignments;
+}
+
+function assignDivisionMember(member, context) {
+  const { assignments, leaders, roles } = context;
+  const id = memberId(member);
+  const preassigned = assignments.some((division) => division.members.includes(id));
+  if (!id || id === roles.commander || leaders.some((leader) => leader.id === id) || preassigned) return;
+  const assigned = assignments.find((division) => division.supervisor === member.supervisorId);
+  const fallback = assignments.find((division) => division.divisionId === 'operations');
+  (assigned || fallback).members.push(id);
 }
 
 function normalizeStopCriteria(criteria) {

@@ -105,14 +105,8 @@ async function verifiedResult(result, input, context) {
   return refs;
 }
 
-async function evaluatePersistentVariant(db, input = {}) {
-  const session = await store.getSession(db, input.holobiontId);
-  if (!session) throw error('Holobiont session not found.', 'HOLOBIONT_SESSION_NOT_FOUND');
-  requireRevision(input, session);
-  const state = session.variantState || {};
-  if (!state.variantId) throw error('Select a variant before evaluating it.', 'HOLOBIONT_VARIANT_REQUIRED');
-  const execute = operationFor(state, input.operation);
-  const runtimeInput = input.runtimeInput || {};
+async function evaluateOperation(context) {
+  const { session, state, input, execute, runtimeInput } = context;
   let result;
   let cyclePayload = null;
   if (input.operation === 'runEcologicalCycle') {
@@ -141,7 +135,21 @@ async function evaluatePersistentVariant(db, input = {}) {
   } else {
     result = await execute({ ...runtimeInput, variantId: state.variantId });
   }
+  return { result, cyclePayload };
+}
+
+async function evaluatePersistentVariant(db, input = {}) {
+  input.signal?.throwIfAborted();
+  const session = await store.getSession(db, input.holobiontId);
+  if (!session) throw error('Holobiont session not found.', 'HOLOBIONT_SESSION_NOT_FOUND');
+  requireRevision(input, session);
+  const state = session.variantState || {};
+  if (!state.variantId) throw error('Select a variant before evaluating it.', 'HOLOBIONT_VARIANT_REQUIRED');
+  const execute = operationFor(state, input.operation);
+  const runtimeInput = input.runtimeInput || {};
+  const { result, cyclePayload } = await evaluateOperation({ session, state, input, execute, runtimeInput });
   const refs = await verifiedResult(result, input, { operation: input.operation });
+  input.signal?.throwIfAborted();
   const receipt = { evaluationId: randomUUID(), variantId: state.variantId, operation: input.operation,
     resultHash: `sha256:${createHash('sha256').update(JSON.stringify(result)).digest('hex')}`,
     evidenceRefs: refs, result, actorId: input.actorId || null, evaluatedAt: new Date().toISOString() };
@@ -154,6 +162,7 @@ async function evaluatePersistentVariant(db, input = {}) {
 }
 
 async function evaluateWorkflowStep(db, input) {
+  input.signal?.throwIfAborted();
   const execute = PROCEDURAL_OPERATIONS[input.operation];
   if (!execute) return evaluatePersistentVariant(db, input);
   const session = await store.getSession(db, input.holobiontId);

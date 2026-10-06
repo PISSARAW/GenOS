@@ -20,6 +20,7 @@ async function migrateGarageFabric(db) {
   CREATE INDEX IF NOT EXISTS idx_garage_queue_dispatch ON garage_queue(orchestrator_id, status, priority DESC, created_at ASC);
   CREATE INDEX IF NOT EXISTS idx_garage_queue_lease ON garage_queue(status, lease_expires_at);
   CREATE INDEX IF NOT EXISTS idx_garage_queue_scope ON garage_queue(organization_id, project_id);`);
+  await require('./migrateGarageRuntime').migrateGarageRuntime(db);
 }
 
 module.exports = { migrateGarageFabric };

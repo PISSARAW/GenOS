@@ -80,7 +80,7 @@ function build(input = {}) {
   const effects = Array.isArray(input.effects) ? input.effects : [];
   const operations = [...reads, selection,
     { id: callId, kind: 'CALL', reference: semantics.tool, dependsOn: [selection.id],
-      arguments: { domain, objectRefs: records.map((record) => record.reference), operation: input.operation || 'INFER' },
+      domainContext: { domain, objectRefs: records.map((record) => record.reference), operation: input.operation || 'INFER' },
       effectContract: { declared: effects, target: semantics.effect } },
     { id: inferId, kind: 'INFER', reference: `model/${domain}`, dependsOn: [callId], inputRef: callId,
       output: input.output || ['candidate'], proofBinding: proof.binding },

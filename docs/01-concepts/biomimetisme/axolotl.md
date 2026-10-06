@@ -1,168 +1,152 @@
-/**
- * Axolotl — Régénération fonctionnelle chez Ambystoma mexicanum.
- *
- * Ce document formalise l'intégration du concept axolotl dans GenOS comme
- * axe architectural explicite, distinct du recovery classique (checkpoint/restore
- * identique) et de la résilience générique.
- *
- * --- DOCUMENT DE CONCEPT — pas un ADR. Impact architectural = oui → ADR séparé si
- * adoption décidée. ---
- */
+# Axolotl — Régénération fonctionnelle et cognitive
 
-## 1. Pourquoi l'axolotl ?
+- **Statut** : Implémenté dans le runtime natif Axolotl.
+- **Portée** : contrats déterministes de rôles, routage et rappel cognitif du backend Node.
+- **Dernière revue** : 2026-10-06.
 
-L'axolotl (`Ambystoma mexicanum`) est un amphibien néoténique : il reste dans son
-état larvaire tout en grandissant, et régénère des structures complètes (membres,
-vertèbres, cerveau, cœur) non pas en restaurant l'identique mais en reconstruisant
-un équivalent fonctionnel avec des connexions neurales différentes.
+## Périmètre implémenté
 
-Deux propriétés font de lui un référent architectural pertinent pour GenOS :
+Axolotl reconstruit une topologie endommagée et son contenu cognitif sous un
+contrat fonctionnel fixé par l’orchestrateur. Les cinq pistes sont opérationnelles
+pour le runtime natif Axolotl :
 
-1. **Régénération fonctionnelle non-identique** — après amputation, l'axolotl ne
-   recopie pas la structure exacte ; il régénère un membre fonctionnellement
-   équivalent avec des détails variables. Transposé à GenOS : après une défaillance
-   structurelle grave, reconstruire une topologie différente mais fonctionnellement
-   équivalente, pas restaurer un état figé.
+| Piste | Exécution disponible | Condition d’admission |
+| --- | --- | --- |
+| Contenu cognitif | Reconstruction de clés explicites depuis les mémoires épisodiques du parent ou des candidats déclarés | Probes de rappel avec résultats attendus et provenance conservée |
+| Apprentissage pendant la régénération | Essais isolés successifs, refus des régressions, conservation des candidats rejetés | Contrat final complet réussi ; promotion idempotente au niveau L0 |
+| Métamorphose contrôlée | Six états durables, budget de transitions, temporisation et hystérésis | Observations natives récentes, distinctes et liées au graphe actif |
+| Coût de plasticité | Événements, durée réelle et changements du graphe ; comparaison stable/plastique | Au moins trois observations par mode, sous le même contrat |
+| Régénération partielle | Ciblage de composants ou de rôles, remplacement local et réparation du routage | Composants sains préservés, frontières orientées conservées, contrat réussi |
 
-2. **Plasticité permanente / néoténie** — l'axolotl refuse la métamorphose définitive
-   vers une forme adulte fermée. Il reste dans un état où la transformation est toujours
-   possible. Transposé à GenOS : le système peut fonctionner en mode "plastique" où la
-   reconfiguration structurelle est toujours disponible, vs. mode "stabilisé" où la
-   topologie est figée pour la stabilité.
+L’admission concerne les comportements couverts par le contrat. Elle ne certifie
+pas une mission LLM arbitraire ni la vérité générale d’une proposition cognitive.
+Une promotion au-delà de L0 exige les gates habituelles de GenOS.
 
-Ces deux propriétés sont complémentaires mais distinctes, et correspondent à deux
-axes d'intégration dans GenOS.
+## Contrat et parcours
 
----
+Le service `backend/src/services/axolotlRegenerationService.js` utilise la base
+SQLite du backend. Le parent doit être un agent en mode `orchestrator`, dans son
+workspace courant. Le plan exige une mission, une topologie valide et un contrat
+avec des rôles requis et des probes de routage ou de rappel.
 
-## 2. Axe 1 — Régénération fonctionnelle
+Exemple de contexte pour `plan_regeneration`, via `genos_execute_primitive` :
 
-**Problème qu'il résout :** le recovery classique (checkpoint + restore identique)
-échoue quand la défaillance est structurelle — quand la topologie elle-même est
-corrompue ou obsolète, restaurer l'identique reintroduce le même problème.
+```json
+{
+  "orchestratorId": "parent",
+  "mission": "Acheminer la requête et rappeler la règle sûre",
+  "currentTopology": {
+    "knowledge": { "rule": "incorrect" },
+    "components": [
+      { "id": "input", "role": "sensory_input" },
+      { "id": "processor", "role": "processing", "status": "failed" },
+      { "id": "memory", "role": "memory" }
+    ],
+    "connections": [
+      { "from": "input", "to": "processor", "type": "route" },
+      { "from": "processor", "to": "memory", "type": "route" }
+    ]
+  },
+  "scope": { "type": "components", "componentIds": ["processor"] },
+  "cognitiveScope": ["rule"],
+  "preferredPreservation": [{ "key": "rule", "content": "safe" }],
+  "functionalContract": {
+    "requiredRoles": ["sensory_input", "processing", "memory"],
+    "probes": [
+      { "id": "delivery", "kind": "route", "from": "input", "to": "memory", "payload": "request", "expected": "request" },
+      { "id": "recall", "kind": "recall", "key": "rule", "expected": "safe" }
+    ]
+  },
+  "executionBudget": { "events": 1000, "durationMs": 10000, "experiments": 32 }
+}
+```
 
-**Approche axolotl :** régénérer une topologie différente, fonctionnellement
-équivalente, adaptée au contexte post-défaillance.
+Vérifier le schéma de l’outil MCP pour placer ce contexte dans son enveloppe ;
+les leases et le confinement du client restent applicables.
 
-**Service :** `backend/src/services/axolotlRegenerationService.js`
+La stratégie `axolotl_regeneration` enchaîne `assess_regeneration`,
+`plan_regeneration`, `prepare_cognitive_learning`, `execute_regeneration`,
+`validate_equivalence` et `promote_cognitive_candidate`. Les primitives partagent
+le contexte de pipeline : le plan transmet son `sessionId`, puis l’exécution
+transmet la topologie admise. Un snapshot annoncé valide privilégie la restauration
+classique si la panne n’est pas structurelle. Une stratégie inéligible reste
+bloquée, y compris lorsqu’aucun autre candidat ne respecte le budget.
 
-**API principale :**
-- `assessRegenerationNeed({ orchestratorId, failureContext, lastSnapshot })` → évaluation du besoin
-- `planRegeneration({ mission, reason, currentTopology, preferredPreservation })` → plan de régénération
-- `executeRegeneration({ sessionId, db, context })` → exécution de la régénération
-- `listRegenerationSessions()` / `getRegenerationSession(id)` → statut
+## Régénération structurelle et reprise
 
-Après une validation fonctionnelle réussie, `executeRegeneration()` crée un
-agent enfant de rôle `regeneration_worker` et le démarre avec
-`agentRuntimeAdapter.startMission()`. L'appel doit fournir `db` et
-`context.orchestratorId` ; si l'orchestrateur parent est absent, la création du
-worker échoue explicitement. La session conserve l'identifiant du worker et la
-mission indépendante utilisée pour son exécution. Les sessions sont restaurées
-et sauvegardées via le persister adaptatif lorsqu'il est branché.
+Le ciblage accepte `global`, `components` ou `roles`. Une identité logique
+`originId` relie les générations successives ; les probes et messages peuvent
+ainsi conserver leurs destinations d’origine. Les rôles et métadonnées sont
+préservés. Les nouvelles routes passent par les composants remplacés ; les
+composants sains restent inchangés. Une panne hors du périmètre couvert peut
+faire rejeter le résultat.
 
-**Contraste avec recovery existant :**
-| Aspect | Recovery classique | Axolotl |
-|---|---|---|
-| Objectif | Restaurer l'état antérieur identique | Reconstruire un équivalent fonctionnel différent |
-| Mécanisme | Snapshot → restore | Analyse → plan → construction nouvelle topologie → validation fonctionnelle |
-| Quand utiliser | Défaillance mineure, snapshot valide disponible | Défaillance structurelle, snapshot inadapté, mode last-resort |
-| Sortie | État identique à avant | Topologie différente, mission remplie |
+Chaque session, preuve, observation, mode et topologie est stocké dans SQLite.
+Les versions sont comparées dans une transaction : deux exécutions concurrentes
+ne peuvent pas adopter deux résultats sur la même version source. Les statuts
+sont `planned`, `executing`, `completed`, `rejected`, `failed` et `rolled_back`.
+Une exécution interrompue devient reprenable après sa deadline. Une session
+`failed` exige `retry: true`. Une session rejetée exige un nouveau plan.
 
-**Non-couvert par cette implémentation :**
-- Régénération de contenu sémantique (le cerveau de l'axolotl régénère aussi ses connexions cognitives — hors scope pour l'instant)
-- Apprentissage pendant la régénération (l'axolotl "apprend" la nouvelle configuration — futur)
-- Régénération partielle ciblée (vs. régénération globale)
+`rollback_regeneration` restaure la topologie source et désactive les traits L0
+issus de la session. Il refuse d’écraser une génération adoptée ultérieurement.
+Les anciennes sessions conservées dans l’état adaptatif restent des archives ;
+sans propriétaire, contrat et preuve native, elles exigent un nouveau plan.
 
----
+## Cognition et nursery
 
-## 3. Axe 2 — Plasticité permanente / néoténie
+`cognitiveSourceRefs` accepte des couples `{ "memoryId": "…", "key": "…" }`.
+Seules les mémoires épisodiques non purgées du parent sont admissibles. Leur
+contenu et leur empreinte sont conservés. Les candidats doivent correspondre
+à une clé de `cognitiveScope` couverte par une probe de rappel.
 
-**Problème qu'il résout :** les systèmes logiciels tendent à se figer dans une topologie
-"adulte" stable, perdant la capacité à se réorganiser radicalement quand le contexte change.
-La néoténie axolotl = rester dans un état où la transformation est toujours possible.
+La nursery est un worker Node épinglé, avec des données JSON, une limite de
+mémoire et une deadline. Elle exécute le noyau de routage/rappel sur une copie du
+graphe. Elle ne reçoit ni code client exécutable, ni outils, ni credentials du
+parent. Chaque candidat doit améliorer sa probe sans dégrader les probes déjà
+réussies. L’adoption attend un dernier passage du contrat complet.
 
-**Approche axolotl :** offrir un mode d'exécution "plastique" où la topologie est
-délibérément non-figée, vs. un mode "stabilisé" où la topologie est figée pour la
-stabilité. L'orchestrateur choisit le mode en fonction du contexte.
+Les preuves contiennent les empreintes du contrat, du graphe, du code de nursery,
+la session et l’identifiant d’exécution. Une simple validation structurelle, un
+callback client ou le démarrage d’un worker ne suffit pas. Les essais refusés
+restent consultables ; les candidats retenus sont promus une seule fois en L0.
 
-**Implémentation :** extension de `biologicalTopologyService` (mode plastique vs stabilisé)
-+ stratégie `axolotl_regeneration` qui préfère la plasticité quand la défaillance est grave.
+## Métamorphose et coût
 
-**Modes :**
-- `plastique` — la topologie peut changer à tout moment, reconfiguration non limitée
-- `stabilisé` — la topologie est figée, les changements passent par les mécanismes classiques
+`request_metamorphosis` applique les transitions du régulateur : `NEOTENIC`,
+`PLASTIC`, `DIFFERENTIATING`, `CONSOLIDATING`, `STABLE`, `EMERGENCY_PLASTIC`.
+La consolidation exige deux observations positives récentes ; la stabilisation
+en exige trois sur le graphe actif. Réutiliser une preuve ne multiplie pas les
+observations. Le budget limite les transitions réussies, avec une fenêtre de
+renouvellement et un délai entre changements.
 
-**Transition délibérée :** le système peut décider de passer du mode plastique au mode
-stabilisé quand le contexte le justifie (ex. : le problème est résolu, on veut la stabilité).
-Inversement, il peut repasser en plastique si une nouvelle menace apparaît.
+`STABLE` et `CONSOLIDATING` bloquent les changements structurels, y compris le
+service d’organisation dynamique. Une observation native d’échec peut autoriser
+`EMERGENCY_PLASTIC` malgré la temporisation. `observe_axolotl` exécute le contrat
+actif et conserve sa preuve ; une déclaration du client ne remplace pas ce test.
 
-**Non-couvert :**
-- Transition automatique basée sur des critères objectifs (actuellement délibérée)
-- Métamorphose contrôlée vers une forme adulte délibérée (l'axolotl peut être forcé à métamorphoser par thioxyde de thioxène — analogie à explorer)
+`axolotl_cost_report` agrège les coûts réellement observés et compare les durées
+des probes sous les deux modes. La comparaison est descriptive : elle ne mesure
+pas le coût de toutes les missions. Les tokens et dollars restent absents tant
+qu’aucun producteur natif ne les mesure ; une valeur absente ne vaut pas zéro.
 
----
+## Runtime, inspection et vérification
 
-## 4. Axe 3 — État larval stratégique
+- `inspect_regeneration` expose la session et ses essais conservés.
+- `axolotl_route` vérifie le routage actif et dépose un message persistant.
+  `queued: true` signifie que le message est en attente.
+- `axolotl_inbox` consomme atomiquement les messages destinés au composant logique.
+  Une seconde lecture ne relivre pas le même message.
+- `axolotl_recall` lit une clé du contenu cognitif actif.
+- La composition biologique Axolotl utilise les composants et rôles admis.
+  Sans régénération admise, son statut reste `awaiting_regeneration`.
 
-**Problème qu'il résout :** comment décider si le système doit rester "immatur" (plastique,
-adaptable, capable de transformation radicale) ou "mûr" (stable, performant, figé).
+La suite dédiée s’exécute avec `npm --prefix backend run test:axolotl`. Elle est
+également incluse dans la chaîne de tests par défaut du backend. Elle couvre
+la reprise SQLite, la concurrence, la reconstruction cognitive, les preuves
+altérées, le rollback, les budgets, la métamorphose, les messages persistants,
+la composition et la sélection de stratégie.
 
-**Approche axolotl :** le système maintient une orientation stratégique explicite :
-allant de "état larvaire" (maximale plasticité, transformation toujours possible) à
-"état adulte" (stabilité, optimisation locale). Cette orientation est un paramètre
-stratégique, pas une propriété fixe du système.
-
-**Implémentation :** trait bonus dans le sélecteur de stratégie — quand le contexte
-justifie la plasticité (haute incertitude, problème structurel), les stratégies
-"regenerative" ou "adaptive" sont bonusées. Le système ne se fige pas prématurément.
-
-**Décisions de conception clés :**
-1. L'état larval n'est pas une propriété du système mais une orientation stratégique contextuelle.
-2. Le système peut osciller entre les deux états en fonction du contexte — c'est le comportement voulu.
-3. La transition vers "état adulte" n'est pas une métamorphose biologique mais une décision
-   organisationnelle explicite (ex. : freeze topologie après résolution d'un problème critique).
-
-**Non-couvert :**
-- Métriques pour décider automatiquement du mode (actuellement manuel/délibérée)
-- Coût de la plasticité permanente vs. stabilité (exploration future)
-
----
-
-## 5. Intégration dans l'architecture existante
-
-**Couches impactées :**
-- `backend/src/services/axolotlRegenerationService.js` — nouveau service (axe 1)
-- `backend/src/services/biologicalTopologyService.js` — extension mode plastique (axe 2)
-- `backend/src/strategies/families/knowledgeResilienceStrategies.js` — nouvelle stratégie (axe 1+2)
-- `backend/src/strategies/strategySelectorHelpers.js` — trait bonus axolotl (axe 3)
-- `backend/src/services/agentDnaStore.js` — champ `neotenic_mode` dans le genome (axe 2)
-- `backend/src/services/agentConscienceService.js` — potentiellement conscience de l'état larval (axe 3, futur)
-
-**Rapport avec les concepts existants :**
-- Recovery classique (checkpoint/restore) : complémentaire, pas concurrent — l'axolotl intervient quand la restauration identique est insuffisante
-- Cryptobiose (`cryptobiosis`) : la cryptobiose est "mise en sommeil et repli" ; l'axolotl est "reconstruction active avec nouvelle forme"
-- Apoptose : l'apoptose élimine les composants défaillants ; l'axolotl les remplace par des équivalents fonctionnels nouveaux
-- Biological topology : l'axolotl est géré séparément dans `biologicalTopologyService` (clé `axolotl`/`plastique`) avec `axolotlTopologyService` dédié, pas via `biologicalModeService.compose`.
-
----
-
-## 6. Limites et futures directions
-
-1. **Régénération cognitive** — l'axolotl régénère aussi ses connexions neuronales. GenOS
-   régénère actuellement seulement la topologie structurelle, pas le contenu cognitif.
-2. **Apprentissage pendant la régénération** — l'axolotl "apprend" la nouvelle configuration
-   par essai-erreur pendant la régénération. GenOS valide a posteriori, pas pendant.
-3. **Métamorphose contrôlée** — l'axolotl peut être forcé à métamorphoser. Analogue :
-   transition forcée vers une topologie stabilisée sous contraintes extérieures.
-4. **Coût énergétique de la plasticité** — rester en état larvaire coûte plus cher que
-   la stabilité. À quantifier dans GenOS (coût computationnel de la reconfiguration permanente).
-5. **Régénération partielle vs. globale** — l'axolotl régénère aussi bien un membre qu'un
-   organe. GenOS traite actuellement la régénération comme globale.
-
----
-
-## 7. Références
-
-- Ambystoma mexicanum — axolotl, amphibien néoténique modèle de régénération
-- Régénération du cerveau chez l'axolotl : reconstruction de connexions neurales fonctionnelles
-- Néoténie : rétention des caractères larvaires à l'âge adulte, plasticité développementale
+Voir la [référence des primitives](../../03-reference/axolotl-regeneration.md),
+le [parcours de reprise](../../04-exploitation/resilience-et-reprise.md#régénération-axolotl)
+et l’[ADR 0325](../../adr/0325-regeneration-axolotl-executable.md).

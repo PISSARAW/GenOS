@@ -55,9 +55,12 @@ function handoffForDossier({ producer, consumer, dossier }) {
 }
 
 function canBuildHandoff(report, producer, consumer) {
-  if (!reportIsUsable(report, consumer.requiredArtifacts || consumer.outputs || [])) return false;
+  if (!reportIsUsable(report, consumer.inputArtifacts || consumer.requiredArtifacts || [])) return false;
   const payload = report.output ?? report.result ?? report;
-  return !producer.outputSchema || validateArtifact(payload, producer.outputSchema).length === 0;
+  if (producer.outputSchema && validateArtifact(payload, producer.outputSchema).length) return false;
+  if (consumer.inputSchema && validateArtifact(payload, consumer.inputSchema).length) return false;
+  const evidence = require('./aTeam/execution/teamEvidenceService');
+  return evidence.validateMemberEvidence(producer, { events: [{ evidenceReport: report }] }).promoted;
 }
 
 function createHandoff(report, producer, consumer) {
@@ -86,7 +89,6 @@ function createHandoff(report, producer, consumer) {
 }
 
 function validateHandoff(handoff, consumer) {
-  if (consumer.inputSchema && validateArtifact(handoff, consumer.inputSchema).length) return null;
   return handoffService.validate(handoff).valid ? handoff : null;
 }
 
@@ -158,6 +160,7 @@ function missionWithHandoffs(prompt, handoffs) {
 }
 
 module.exports = {
+  telemetryDossier,
   reportIsUsable,
   usableEvidenceReferences,
   handoffForDossier,

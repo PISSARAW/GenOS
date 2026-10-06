@@ -44,24 +44,21 @@ function coverageFailures(aTeam, workers, dossiers) {
   const failures = [];
   const members = Array.isArray(aTeam.members) ? aTeam.members : [];
   const byDossier = new Map((dossiers || []).map((dossier) => [dossier.workerId, dossier]));
-  for (const member of members) {
-    const worker = workerForMember(member, workers);
-    if (!worker) {
-      failures.push({ code: 'ATEAM_DOMAIN_UNCOVERED', domain: member.label || member.subSystem || member.role, message: 'A-Team member has no launched worker.' });
-      continue;
-    }
-    const dossier = byDossier.get(worker.agentId);
-    const report = latestReport(dossier);
-    const required = member.requiredArtifacts || member.outputs || worker.requiredArtifacts || worker.outputs || [];
-    if (!reportIsUsable(report, required)) {
-      failures.push({ code: 'ATEAM_EVIDENCE_UNAVAILABLE', workerId: worker.agentId, message: `Worker '${worker.agentId}' has no successful evidence report satisfying its artifact contract.` });
-    }
-  }
+  failures.push(...members.map((member) => memberCoverageFailure(member, { workers, byDossier })).filter(Boolean));
   const ratio = aTeam.capabilityCoverage && Number(aTeam.capabilityCoverage.ratio);
   if (Number.isFinite(ratio) && ratio < 1) {
     failures.push({ code: 'ATEAM_CAPABILITY_COVERAGE_INCOMPLETE', message: 'Required A-Team capability coverage is incomplete.' });
   }
   return failures;
+}
+
+function memberCoverageFailure(member, context) {
+  const worker = workerForMember(member, context.workers);
+  if (!worker) return { code: 'ATEAM_DOMAIN_UNCOVERED', domain: member.label || member.subSystem || member.role, message: 'A-Team member has no launched worker.' };
+  const report = latestReport(context.byDossier.get(worker.agentId));
+  const required = member.requiredArtifacts?.length ? member.requiredArtifacts : (member.outputs || worker.outputs || []);
+  if (reportIsUsable(report, required)) return null;
+  return { code: 'ATEAM_EVIDENCE_UNAVAILABLE', workerId: worker.agentId, message: 'Worker has no successful evidence report satisfying its artifact contract.' };
 }
 
 function activationOrder(members) {
@@ -88,7 +85,9 @@ async function applyAteamIntegration(ctx) {
   if (!aTeam || aTeam.activated !== true) return null;
   const workers = ctx.workers || [];
   const dossiers = ctx.usable || workerEvidenceDossiers(ctx.agentId, workers);
+  const canonical = await refreshCanonicalEvidence(ctx, aTeam);
   const evidenceFailures = coverageFailures(aTeam, workers, dossiers);
+  if (canonical && !canonical.promoted) evidenceFailures.push({ code: "ATEAM_WORK_GRAPH_UNPROMOTED", message: "One or more canonical work nodes have not been promoted." });
   const integration = await continuousIntegration.runContinuousIntegration({
     db: ctx.db, aTeam, workers, dossiers, failures: evidenceFailures,
     findExperts: ctx.findAteamExperts, freshness: ctx.knowledgeFreshness
@@ -110,15 +109,32 @@ async function applyAteamIntegration(ctx) {
     integrationFailures: observation.integrationFailures,
     observerReport: observation.observerReport
   };
-  const blocking = failures[0] || observation.integrationFailures[0];
-  const detail = canMerge
-    ? 'A-Team integration accepted: required domains, evidence handoffs and integration constraints are satisfied.'
-    : `A-Team integration blocked (${blocking.code}): ${blocking.message}`;
-  emit(ctx.agentId, 'A_TEAM_INTEGRATION_ARBITRATED', 'VALIDATE_INTEGRATION', detail, aTeam.integration, canMerge ? 'info' : 'warning');
+  emitIntegration(ctx.agentId, aTeam.integration, observation);
   aTeam.metrics = buildAteamMetrics({ aTeam, workers, observation, canMerge });
   emit(ctx.agentId, 'A_TEAM_METRICS', 'OBSERVE', `A-Team fusion=${aTeam.metrics.fusionDecision}, violations=${aTeam.metrics.integrationConstraintViolations + failures.length}.`, aTeam.metrics, 'info');
   if (canMerge) await persistSuccessfulLearning({ ...ctx, aTeam, dossiers });
   return { canMerge, failures, integrationFailures: observation.integrationFailures, paretoFront: [], totalEvaluated: 0 };
+}
+
+function emitIntegration(agentId, integration, observation) {
+  const blocking = integration.failures[0] || observation.integrationFailures[0] || { code: 'ATEAM_UNRESOLVED_CONTRACT', message: 'A blocking handoff or interface contract remains unresolved.' };
+  const detail = integration.canMerge ? 'A-Team integration accepted: domains, evidence handoffs and constraints are satisfied.'
+    : 'A-Team integration blocked (' + blocking.code + '): ' + blocking.message;
+  emit(agentId, 'A_TEAM_INTEGRATION_ARBITRATED', 'VALIDATE_INTEGRATION', detail, integration, integration.canMerge ? 'info' : 'warning');
+}
+
+async function refreshCanonicalEvidence(ctx, aTeam) {
+  if (!ctx.db || !aTeam.teamRun?.teamRunId) return null;
+  const run = await teamRunStore.load(ctx.db, aTeam.teamRun.teamRunId);
+  if (!run) throw Object.assign(new Error('Canonical A-Team run is missing.'), { code: 'ATEAM_RUN_UNKNOWN' });
+  const scheduler = require('./aTeamStageScheduler');
+  const plan = scheduler.stagePlanFor({ orchestratorId: run.missionId, planId: run.teamRunId, members: run.members });
+  const { observeExecution } = require('./aTeam/execution/workGraphExecutionService');
+  const observed = await observeExecution({ db: ctx.db, run, plan });
+  aTeam.members = run.members;
+  aTeam.workGraph = observed.graph;
+  aTeam.capabilityCoverage = observed.coverage;
+  return observed;
 }
 
 async function persistSuccessfulLearning({ db, agentId, aTeam, dossiers }) {
@@ -131,7 +147,7 @@ async function persistSuccessfulLearning({ db, agentId, aTeam, dossiers }) {
         db, teamRunId: run.teamRunId, revision: run.revision,
         patch: { status: 'COMPLETED', phase: 'INTEGRATION' }
       });
-      aTeam.teamRun = completed;
+      aTeam.teamRun = await aTeamRuntime.transitionRun({ db, teamRunId: completed.teamRunId, revision: completed.revision, patch: { phase: 'DEBRIEF' } });
     }
     await persistDebrief({ db, agentId, aTeam, dossiers });
   } catch (error) {

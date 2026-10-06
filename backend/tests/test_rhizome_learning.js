@@ -8,7 +8,8 @@ const verifierReceipts = require('../src/services/epistemicVerifierReceiptServic
 function session() {
   return {
     graphVersion: 1,
-    nodes: [{ nodeId: 'target', capabilities: ['verify'] }],
+    nodes: [{ nodeId: 'source', capabilities: [], state: 'ACTIVE' },
+      { nodeId: 'middle', capabilities: [], state: 'ACTIVE' }, { nodeId: 'target', capabilities: ['verify'], state: 'ACTIVE' }],
     edges: [
       { edgeId: 'first', from: 'source', to: 'middle', status: 'ACTIVE', trailState: { positive: 0, negative: 0 } },
       { edgeId: 'second', from: 'middle', to: 'target', status: 'ACTIVE', trailState: { positive: 0, negative: 0 } }

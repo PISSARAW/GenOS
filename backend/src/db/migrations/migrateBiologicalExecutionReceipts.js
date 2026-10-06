@@ -33,6 +33,14 @@ async function migrateBiologicalExecutionReceipts(db) {
   );
   `);
   await addOriginColumns(db);
+  await db.exec(`CREATE TRIGGER IF NOT EXISTS biological_receipt_immutable_content
+    BEFORE UPDATE OF receipt_id, mission_id, receipt_schema, tick, operation, cost, cost_unit,
+      cell_id, genome_id, identity_status, payload_hash, receipt_json, receipt_origin,
+      origin_signature, origin_nonce ON biological_execution_receipts
+    BEGIN SELECT RAISE(ABORT, 'Immutable biological receipt'); END;
+    CREATE TRIGGER IF NOT EXISTS biological_receipt_no_delete
+      BEFORE DELETE ON biological_execution_receipts
+      BEGIN SELECT RAISE(ABORT, 'Immutable biological receipt'); END;`);
 }
 
 async function addOriginColumns(db) {

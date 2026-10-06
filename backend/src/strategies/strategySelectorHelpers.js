@@ -106,6 +106,7 @@ function profileProblem(problem = '', overrides = {}) {
   return {
     type,
     structuralFailure: overrides.structuralFailure === true,
+    regenerationNeeded: overrides.regenerationNeeded === true,
     complexity: firstDefined(overrides.complexity, computeComplexity(problem, highRisk)),
     uncertainty: firstDefined(overrides.uncertainty,
       firstDefined(UNCERTAINTY_DEFAULTS[type], 0.46)),

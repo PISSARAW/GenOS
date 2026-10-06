@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { appendEvent, getEvent, listEvents } = require('./gvxDevelopmentLedger');
+const { appendEvent, getEvent, listAllEvents } = require('./gvxDevelopmentLedger');
 const { recommendAction } = require('./developmentalBridge');
 
 function signalKey(input) {
@@ -23,7 +23,7 @@ function uniqueSources(events) {
 async function processSignal(db, input) {
   validateInput(input);
   const scope = { ...input.scope, entityId: input.entityId };
-  const events = await listEvents(db, scope);
+  const events = await listAllEvents(db, scope);
   const matches = matchingSignals(events, input);
   const sourceEventIds = uniqueSources(matches);
   const action = recommendAction(input.signalType, sourceEventIds.length);
@@ -47,81 +47,16 @@ async function runCycle(db, input) {
     return { status: 'accumulating_evidence', action, promotionAllowed: false };
   }
   validateCycleAdapters(input);
-  const goal = await input.hypothesisPlanner({ signal, action });
-  const proposal = await require('./gvxMutationProposer').propose({ db,
-    scope: signal.scope, entityId: signal.entityId, goal,
-    context: { signal, action }, selfTwinPredictor: input.selfTwinPredictor });
-  const experimentInput = await input.experimentInput({ signal, candidate: proposal.candidate });
-  const experiment = await require('./gvxExperimentalNursery').run({ db, ...experimentInput });
-  const assessmentInput = await input.assessmentInput({ signal, candidate: proposal.candidate, experiment });
-  const assessmentEvent = await require('./gvxSomaticAssessment').recordSomaticAssessment(db, assessmentInput);
-  const assessment = assessmentEvent.payload.assessment;
-  if (assessment.status !== 'recommend_somatic_trial') {
-    return { status: 'assessment_complete', action, proposal, experiment, assessment, promotionAllowed: false };
-  }
-  const assessmentVerification = await verifySomaticAssessment({ db, assessmentEvent,
-    verifierRegistry: experimentInput.verifierRegistry, verificationReceipts: experimentReceipts(experiment) });
-  if (!assessmentVerification.verified) {
-    return { status: 'assessment_verification_failed', action, proposal, experiment,
-      assessment, promotionAllowed: false };
-  }
-  const receiptInput = await input.developmentalReceiptInput({
-    signal, candidate: proposal.candidate, experiment, assessmentEvent
-  });
-  const verifierRemote = experimentInput.verifierRegistry?.remote;
-  if (verifierRemote) {
-    receiptInput.evidenceRefs = mergeEvidenceRefs(receiptInput.evidenceRefs,
-      [assessmentVerification.evidenceRef]);
-    const verificationReceipts = [...experimentReceipts(experiment), assessmentVerification.signedReceipt];
-    receiptInput.signedReceipt = await require('./gvxRemoteVerifierClient').issueDevelopmentReceipt({
-      ...verifierRemote, claim: receiptInput, verificationReceipts
-    });
-  }
-  const plasticityCredit = await require('./developmentalBridge/gvxToAgowReceiptAdapter')
-    .creditVerifiedReceipt(db, receiptInput);
-  const applicationInput = await input.applicationInput({ signal, candidate: proposal.candidate, assessmentEvent });
-  const application = await require('./gvxSomaticApplication').applySomaticCandidate(db, applicationInput);
-  const monitorInput = await input.monitorInput({ signal, candidate: proposal.candidate, application });
-  const monitoring = await require('./gvxLongitudinalMonitor').monitor(db, monitorInput);
-  return { status: monitoring.maturity, action, proposal, experiment, assessment,
-    plasticityCredit, application, monitoring, promotionAllowed: false };
-}
-
-async function verifySomaticAssessment(options) {
-  if (!options.verifierRegistry?.remote) throw Object.assign(new Error('GVX remote verifier is required for somatic credit.'), {
-    code: 'GVX_REMOTE_VERIFIER_REQUIRED'
-  });
-  const payload = options.assessmentEvent.payload;
-  const artifact = Buffer.from(JSON.stringify({ schema: 'genos.gvx.somatic-assessment/v1',
-    assessmentInput: payload.assessmentInput, assessment: payload.assessment }));
-  const artifactHash = require('./gvxVerifierRegistry').digest(artifact);
-  const evidenceRef = { artifactHash, verifierId: 'gvx-somatic-assessment-v1' };
-  const signedReceipt = await require('./gvxVerifierRegistry').verifyEvidence({
-    registry: options.verifierRegistry,
-    artifactReader: async () => artifact,
-    evidence: { artifactRef: `gvx-assessment:${options.assessmentEvent.id}`, ...evidenceRef,
-      supportingReceipts: options.verificationReceipts },
-    requirement: 'gvx-somatic-assessment'
-  });
-  return { verified: signedReceipt.verified === true, evidenceRef,
-    signedReceipt: signedReceipt.signedReceipt };
-}
-
-function experimentReceipts(experiment) {
-  return (experiment.outcomes || []).flatMap((outcome) => outcome.evidence || [])
-    .map((item) => item.signedReceipt).filter(Boolean);
-}
-
-function mergeEvidenceRefs(current, additions) {
-  const refs = [...(current || []), ...additions];
-  return [...new Map(refs.map((item) => [`${item.artifactHash}\0${item.verifierId}`, item])).values()];
+  return require('./gvxCycleJournal').runCycle({ db, input, signal, action },
+    require('./gvxCycleExecution').execute);
 }
 
 function validateCycleAdapters(input) {
   const required = ['hypothesisPlanner', 'experimentInput', 'assessmentInput',
     'developmentalReceiptInput', 'applicationInput', 'monitorInput'];
   if (required.some((key) => typeof input[key] !== 'function')
-      || typeof input.selfTwinPredictor !== 'function') {
+      || typeof input.selfTwinPredictor !== 'function'
+      || !/^[a-f0-9]{64}$/.test(input.controlFingerprint || '')) {
     throw Object.assign(new Error('GVX lifecycle control-plane adapters are required.'), {
       code: 'GVX_CONTROLLER_ADAPTERS_REQUIRED'
     });

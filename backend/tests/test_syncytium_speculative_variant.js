@@ -35,6 +35,9 @@ async function main() {
     passed: true, checks: [{ name: 'validation', passed: true }]
   } });
   assert.equal(promoted.newStatus, 'PROMOTED');
+  const { operations: promotedHistory } = await syncytium.inspectHistory(session.sessionId);
+  const dots = promotedHistory.map(item => JSON.stringify(item.dot));
+  assert.equal(new Set(dots).size, dots.length);
   const mainAfterPromotion = await syncytium.snapshot(session.sessionId);
   assert.equal(mainAfterPromotion.shared.sharedFields.branchSnapshots['candidate-branch-b1-op'].result, 'B1');
   assert.equal(mainAfterPromotion.shared.sharedFields.branchSnapshots['candidate-branch-b2-op'], undefined);

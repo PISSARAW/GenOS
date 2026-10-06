@@ -33,6 +33,18 @@ et non l'ancien terminal interactif `scripts/orchestrator_cli.mjs`.
 
 ## 2. Catalogue des outils
 
+### Primitives Axolotl via le dispatch générique
+
+`genos_execute_primitive` fournit le point d’entrée backend pour les primitives
+Axolotl : plan/exécution sous contrat, inspection/reprise, promotion L0,
+métamorphose, coûts, routage, inbox et rappel. Ce sont des noms de primitives,
+pas de nouveaux outils publics MCP. Utiliser le schéma réellement découvert
+pour leur enveloppe et conserver la lease et les autorisations du dispatch.
+Les [entrées et résultats Axolotl](axolotl-regeneration.md) distinguent admission
+fonctionnelle, mise en file de message et traitement métier. Le contrat natif
+est porté par le backend Node ; la présence du dispatch générique dans un autre
+catalogue ne démontre pas la parité de ce runtime Axolotl.
+
 GenOS possede plusieurs representations du catalogue, chacune ayant une responsabilite differente. La source canonique des schemas publics est `shared/toolDefinitions.json` (36 outils) ; `mcp/toolDefinitions.json` en est la copie embarquee de repli, utilisee uniquement quand le serveur JS tourne hors racine du depot (`mcp/catalog.js`). Les deux fichiers doivent rester synchronises :
 
 | Surface | Role | Exemples |
@@ -50,6 +62,24 @@ Les effectifs (strategies, primitives, outils declares) ne sont pas figes dans l
 - `cli` pour les outils commencant par `genos_` et supportes par le registre.
 
 Cette separation est intentionnelle : publier un schema aide un client a formuler l'appel, mais seul le registre runtime doit pouvoir autoriser un dispatch. De plus, la parite stricte des schemas est maintenue entre les implementations Rust (`public_tool_specs`) et JavaScript (par exemple `genos_replay` supportant indifferemment `snapshot` ou `snapshot_id` via `anyOf`, et `genos_worker_publish` avec `kind` obligatoire et `content` facultatif pour les signaux purs).
+
+---
+
+### 2.1 Sessions Rhizome
+
+`genos_topology_session` avec le `session_id` d’une session Rhizome expose les mutations explicites du service persistant. Les opérations de graphe et de preuve sont complétées par :
+
+| Opération | Arguments spécifiques | Effet ou résultat |
+| --- | --- | --- |
+| `mission_metrics` | `needs`, `convergence_policy`, `expected_graph_version` | Couverture et gate calculées sur des sorties vérifiées signées ; une mission vide ne vaut pas preuve. |
+| `maintain` | `now` facultatif | Décroissance des traces, conductivité, baux et inspection du pruning. |
+| `set_variant` | `variant_name` | Application de la politique de variante. |
+| `prune_apply` | `pruning_plan`, `now` facultatif | Suppression contrôlée, avec conservation des capacités requises accessibles. |
+| `admit_growth` | `growth_plan`, `expected_graph_version`, `node`, `edges`, `proof` | Admission vérifiée et débit atomique du budget ; un refus conserve l’état précédent. |
+
+La confiance vient de `GENOS_RHIZOME_TRUSTED_PROVIDER_IDS` et `GENOS_RHIZOME_TRUSTED_VERIFIER_DIGESTS`, listes séparées par des virgules dans l’environnement du serveur. Un argument client ne remplace ni cette autorité ni un reçu indépendant lié à la sortie. La lease doit autoriser `genos_topology_session` et la deny-list reste prioritaire.
+
+Cette surface n’instancie pas à elle seule les providers d’une mission. La boucle JavaScript et les six lifecycles concrets sont décrits dans le [contrat runtime Rhizome](runtime-rhizome.md), avec les commandes CLI séparant télémétrie réelle et simulation explicite.
 
 ---
 
@@ -515,6 +545,26 @@ flowchart TD
 3. **Niveau 3 : Désinhibition Sélective des Ganglions de la Base :**
    - Les effecteurs moteurs ne sont jamais tous débloqués simultanément. Le striatum recrute sélectivement l'un des 5 clusters d'affordance (`snapshot_persistence`, `orchestration_coordination`, `strategy_primitives`, `audit_inspection`, `diagnostics_remediation`).
    - Le modèle 7B reçoit seulement 1 à 3 schémas d'outils ultra-pertinents, éliminant la distraction d'attention et le risque de fausse affordance.
+
+## Exécution G-CIR Ω sur le serveur Rust
+
+Le point d'entrée JSON-RPC `omega/execute` du serveur Rust est distinct du
+catalogue `tools/call`. Il valide l'enveloppe et les références sémantiques,
+puis exécute le graphe Omega. Les associations `toolMap` passent par les
+contrôles habituels de chemins, d'arguments et de lease avant tout appel réel.
+
+Les champs de premier niveau `toolResults`, `inferenceResults`,
+`verificationReceipts` et `emissionResults` sont refusés avec
+`omega_untrusted_execution_results`. Un appelant ne peut pas fournir les
+résultats simulés du pilote de test pour fabriquer une exécution réussie.
+
+Le dispatch de production n'enregistre pas encore les backends `INFER`, `CHECK`
+et `EMIT` : un graphe qui les requiert est bloqué au premier handler absent.
+La matrice Node/Rust utilise un exécutable séparé
+`cargo run -p genos-mcp --example omega_execution_fixture` ; elle ne démontre
+pas la disponibilité de ces backends dans le serveur. Voir les
+[ADR 0322](../adr/0322-interop-gcir-omega-rust-node.md) et
+[0323](../adr/0323-frontieres-preuve-execution-omega.md).
 
 ## Voir aussi (AgentDNA)
 

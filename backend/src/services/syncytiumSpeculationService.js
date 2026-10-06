@@ -8,6 +8,7 @@ const zones = require('./syncytium/consistency/consistencyZoneService');
 const conflicts = require('./syncytium/conflicts/semanticConflictService');
 const invariantGate = require('./syncytium/invariants/invariantGate');
 const router = require('./syncytium/consistency/coordinationRouter');
+const causalClock = require('./syncytium/causality/causalClockService');
 
 function createSyncytiumSpeculationService(dependencies) {
   return {
@@ -78,7 +79,8 @@ async function applyBranch(sessionId, request, dependencies) {
     const previous = structuredClone(branch);
     const candidate = restoreBranch(branch);
     const admitted = schemaService.admitOperation(session.schema, operation).operation;
-    if (candidate.hasOpId(admitted.opId)) return { branchId, duplicate: true, snapshot: candidate.getSnapshot() };
+    if (candidate.assertDuplicateOperation(admitted)) return { branchId, duplicate: true, snapshot: candidate.getSnapshot() };
+    causalClock.assertAvailable(admitted, candidate.getCausalFrontier());
     assertOperationBudget(branch);
     validateBranchOperation(session, candidate, admitted);
     applyAdmittedToCandidate(candidate, branch, admitted);
@@ -164,13 +166,19 @@ function rollbackPromotion(session, branch, context) {
 function promoteOperations(session, candidate, operations) {
   const accepted = [];
   for (const operation of operations) {
-    if (candidate.hasOpId(operation.opId)) continue;
-    const admitted = schemaService.admitOperation(session.schema, operation).operation;
+    if (candidate.assertDuplicateOperation(operation)) continue;
+    const admitted = schemaService.admitOperation(session.schema, promotionOperation(operation)).operation;
     validateBranchOperation(session, candidate, admitted);
     candidate.applyOp(admitted);
-    accepted.push(admitted);
+    accepted.push(candidate.getHistory().at(-1));
   }
   return accepted;
+}
+
+function promotionOperation(operation) {
+  const published = structuredClone(operation);
+  for (const key of ['dot', 'causalContext', 'versionVector', 'lamport', 'timestampMs']) delete published[key];
+  return published;
 }
 
 function validateBranchOperation(session, candidate, operation) {

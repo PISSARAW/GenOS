@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+process.env.GENOS_EPISTEMIC_RECEIPT_SECRET = 'rhizome-benchmark-test-secret';
 const benchmark = require('../src/services/rhizome/analytics/benchmarkSuite');
 
 function run() {

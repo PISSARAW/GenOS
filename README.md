@@ -18,6 +18,7 @@ GenOS est un runtime pour agents autonomes où **une exécution réussie n'est p
 - 8 topologies câblées au runtime : Trinity, A-Team, Biocénose, Holobionte, Syncytium, Biome, Rhizome et Métapopulation. Leurs services et capacités diffèrent selon le mode.
 - Snapshots, forks contrefactuels, diffs, replay et gates de promotion fondées sur des preuves.
 - Runtime d'agents supervisés : processus, workspaces isolés, budgets, mémoire et rapports d'évidence.
+- [Physique computationnelle Rust](docs/01-concepts/physique-computationnelle.md) : mesures sourcées du workspace, coûts de planification et calibration persistante par mission ; indices de contrôle heuristiques.
 - Contrôles de sécurité : autorisations, isolation de workspace, VFS sandboxé et gates de promotion.
 
 Ce n'est pas un framework d'agents. C'est un runtime qui essaie de rendre l'agentic computation moins fertile pour les hallucinations de chaîne.
@@ -48,11 +49,11 @@ En gros : GenOS est conçu pour ce qui arrive quand l'agent se trompe, pas seule
 - **Trinity** — baseline comparative à trois mondes et douze variants à runners dédiés, avec gates de preuve ; les résultats incomplets escaladent (R3 pré-correctifs : 12/12 escalades, 0 merge ; qualification post-correctifs en attente).
 - **A-Team** — workers spécialisés par domaine, handoffs et arbitrage d'intégration.
 - **Biocénose** — consensus pondéré, quorum, métriques d'essaim et barrière d'évidence.
-- **Holobionte** — hôte avec veto immunitaire et workers symbiotes en inférence locale.
+- **Holobionte** — missions hôte-symbiotes contractuelles : admission, preuve indépendante, veto immunitaire, quotas, mémoire atomique et hôtes persistants. [Contrat et exemple](docs/03-reference/runtime-holobionte.md).
 - **Syncytium** — état partagé CRDT et vérification de cohérence des invariants.
 - **Biome** — allocation de ressources et algorithmes d'exploration inspirés du foraging.
-- **Rhizome** — sessions composées, routage par capacité entre membres et traces stigmergiques.
-- **Métapopulation** — quorum pondéré, plasticité des connexions et plan de récupération par lignage.
+- **Rhizome** — missions par capacités avec résultats signés, croissance et budgets atomiques, routage borné, reprise persistante et télémétrie du graphe réel. Voir le [contrat runtime](docs/03-reference/runtime-rhizome.md).
+- **Métapopulation** — runtime régional persistant : migrations revues par le receveur, extinction à preuves, recolonisation multi-lignage et reprise des cycles ; moteurs externes configurés par adaptateurs. Voir le [contrat runtime](docs/03-reference/runtime-metapopulation.md).
 
 Les capacités disponibles et les limites opérationnelles varient par topologie ; voir [Topologies et contrat de capacités](docs/02-orchestration/topologies-et-capacites.md).
 
@@ -67,9 +68,12 @@ Fonctionnalités implémentées :
 - **GenOS Studio** et backend Node.js : plan de contrôle, API REST, services gRPC et persistance SQLite WAL.
 - **CLI Rust** et serveur MCP stdio pour les opérations locales et les intégrations.
 - **Runtime agentique supervisé** : lance des runtimes configurés, collecte leurs événements, applique des budgets et conserve les résultats et preuves.
+- **[Garage Fabric](docs/02-orchestration/topologies/garage-fabric.md)** : douze politiques de circulation des workers, file SQLite durable, réservation transactionnelle, baux clôturés et préemption consentie avec snapshot vérifié. La reprise restaure les fichiers et le budget restant, pas la mémoire du processus ; ce service transversal n'est pas une neuvième topologie.
 - **Routage de modèles implémenté** : modèles distants via OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together et OpenRouter ; modèles locaux via Ollama, LM Studio et vLLM ; endpoints compatibles OpenAI configurables.
 - **Politiques de routage** configurables par agent, tenant ou environnement, avec ordre de fallback ; le mode parallèle est disponible avec une limite de coût explicite.
 - **Huit topologies d'orchestration** avec services de coordination et contrats de capacités. La présence d'un mode ne signifie pas que chaque capacité du profil est complète ou activée dans chaque installation.
+
+Le **cycle GVX standard AGOW** fournit mesures signées par un service séparé, application autorisée, suivi longitudinal, rollback, reprise et crédit idempotent pour des politiques déclaratives configurées. Voir le [profil d’exécution](docs/02-orchestration/profil-execution-gvx.md) et les [résultats fonctionnels](docs/06-qualite-preuves/validation-cycle-standard-gvx.md). Les autres lots GVX et la qualification empirique restent partiels.
 
 Les routes de modèles sont conditionnelles à votre environnement :
 
@@ -81,6 +85,12 @@ Les routes de modèles sont conditionnelles à votre environnement :
 Les primitives de perception web et de fovéation restent isolées et ne forment pas encore une boucle complète capture-observation-action-vérification. Certaines fonctions d'orchestration et d'évaluation restent expérimentales ; consultez les limites décrites dans la documentation avant de dépendre d'une capacité particulière.
 
 ---
+
+## Nosologie computationnelle
+
+Le runtime Rust couvre **28 conditions dans neuf familles et 48 opérateurs de marqueurs**. Les diagnostics et recommandations sont synchronisés; l’application passe par une autorisation signée et un reçu persistant avec statut `applied`, `no_target` ou `refused`. Le type et la cible de la CLI doivent correspondre à l’autorisation. Les noms médicaux désignent des abstractions logicielles.
+
+Voir le [catalogue](docs/01-concepts/nosologie/catalogue-runtime.md), le [contrat API et CLI](docs/03-reference/api-et-contrats.md#autorisation-et-application-cliniques) et le [bilan daté](docs/06-qualite-preuves/validation-nosologie.md). Les mécanismes biologiques détaillés restent des propositions au-delà des contrats exécutables; les contrôles globaux du dépôt et le parcours HTTP → Rust complet ne sont pas déclarés validés.
 
 ## Pourquoi "biomimétique" et pas juste "biologique" ?
 

@@ -8,11 +8,14 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [types-de-workers.md](types-de-workers.md) — catalogue des 19 types Rust et correspondance avec les profils Node.
 - [types-de-daemons.md](types-de-daemons.md) — catalogue des daemons : archétype, organelles, 10 phénotypes et schémas par type.
 - [outils-mcp.md](outils-mcp.md) — catalogue d'outils, leases, gating, permissions.
+- [axolotl-regeneration.md](axolotl-regeneration.md) — primitives de régénération, contrats natifs, états, budgets, preuves et erreurs.
 - [mcp-transport-config.md](mcp-transport-config.md) — transport MCP binaire, config profil, vérification.
 - [modeles-providers-routage.md](modeles-providers-routage.md) — providers, modèles, routage codex/hermes/local.
 - [mcp-solar-pro-hermes-nous-setup.md](mcp-solar-pro-hermes-nous-setup.md) — Solar Pro, MCP, Hermes, provider Nous : config, modèles, usage.
 - [persistance-et-donnees.md](persistance-et-donnees.md) — SQLite, tables, intégrité, stockage.
+- [runtime-metapopulation.md](runtime-metapopulation.md) — sessions, contrats d’adaptateurs, migrations et reprise régionale vérifiée.
 - [plugins-topologies-morphogenese.md](plugins-topologies-morphogenese.md) — câblage des 8 topologies au runtime morphologique : contrats, matrice, SQLite, fail-closed.
+- [runtime-rhizome.md](runtime-rhizome.md) — exécution vérifiée, providers concrets, croissance et télémétrie Rhizome.
 - [resultats-formels-messagepack.md](resultats-formels-messagepack.md) — contrat canonique, preuves, provenance et encodage binaire des résultats.
 - [scheduler-epistemique.md](scheduler-epistemique.md) — ordonnancement par empreinte, nouveauté, dépendances, preuve et budget.
 - [modeles-et-providers.md](modeles-et-providers.md) — providers, routing, coûts, local/remote.
@@ -23,6 +26,7 @@ stables (REST, gRPC, MCP, CLI) et le modèle de données.
 - [ecologie-et-systemes-vivants.md](ecologie-et-systemes-vivants.md) — bus zero-texte, primitives écologiques, HGT, stigmergie, électrocytes, organisations dynamiques.
 - [registre-philosophique.md](registre-philosophique.md) — concepts, relations, mappings, maturité et garde-fous.
 - [contrats-philosophiques-ontogenese.md](contrats-philosophiques-ontogenese.md) — compilation des 375 contrats dans le plan de mission et le runtime harness Ontogenèse.
+- [runtime-holobionte.md](runtime-holobionte.md) — missions contractuelles, preuves indépendantes, quotas et clôture Holobionte.
 - [notifications-et-alertes.md](notifications-et-alertes.md) — préférences et alertes tenant-scoped.
 - [qualite-code-et-complexite.md](qualite-code-et-complexite.md) — seuils, périmètre et audit strict de la qualité du code.
 - [ontogenese-contrats.md](ontogenese-contrats.md) — contrats stables V1 de l'Ontogenèse : tables, config, états, claims, sélecteur, intégrateur, CLI.
@@ -39,3 +43,5 @@ Les specs du format AgentDNA vivent hors de `docs/`, sous [`../../spec/`](../../
 
 - [../04-exploitation/README.md](../04-exploitation/README.md) — mise en œuvre opérationnelle.
 - [../README.md](../README.md) — hub général.
+
+- [runtime-agow.md](runtime-agow.md) — bindings hôte, modes, budgets, décompilation et reprise des reçus AGOW.

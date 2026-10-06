@@ -23,9 +23,10 @@ async function run() {
     await assert.rejects(() => biocenose.runBiocenoseRound({
       db, communityId: community.communityId, variant: 'delphi', handlers
     }), (error) => error.code === 'BIOCENOSE_VARIANT_CONSTITUTION_MISMATCH');
-    await assert.rejects(() => biocenose.runBiocenoseRound({ db, communityId: community.communityId, handlers: {} }),
+    const unconfigured = await biocenose.prepareCommunity({ db, orchestratorId: 'orchestrator', mission: 'Another community.' });
+    await assert.rejects(() => biocenose.runBiocenoseRound({ db, communityId: unconfigured.communityId, handlers: {} }),
       (error) => error.code === 'BIOCENOSE_RUNTIME_STEP_BLOCKED');
-    assert.equal((await store.listEvents(db, community.communityId)).filter((event) => event.type === 'DELIBERATION_STEP_BLOCKED').length, 1);
+    assert.equal((await store.listEvents(db, unconfigured.communityId)).filter((event) => event.type === 'DELIBERATION_STEP_BLOCKED').length, 1);
   } finally {
     await db.close();
   }

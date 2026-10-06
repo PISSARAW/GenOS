@@ -69,7 +69,7 @@ async function bindAxolotlTopology(persister) {
   try {
     const stored = await persister.restoreMap('axolotl_topology', 'modes');
     if (stored && stored.size) {
-      axolotlTopology.topologyModes = stored;
+      axolotlTopology.setStateStore(stored);
     }
     axolotlTopology.setAdaptivePersister(persister);
   } catch (_) {}
@@ -79,7 +79,7 @@ async function bindAxolotlRegeneration(persister) {
   try {
     const stored = await persister.restoreMap('axolotl_regeneration', 'sessions');
     if (stored && stored.size) {
-      axolotlRegeneration.regenerationSessions = stored;
+      axolotlRegeneration.setStateStore(stored);
     }
     axolotlRegeneration.setAdaptivePersister(persister);
   } catch (_) {}

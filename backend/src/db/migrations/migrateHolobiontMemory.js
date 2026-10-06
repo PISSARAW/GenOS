@@ -1,6 +1,7 @@
 'use strict';
 
 async function migrateHolobiontMemory(db) {
+  await require('./migrateMorphogenesisCapabilities').migrateMorphogenesisCapabilities(db);
   await db.exec(`
     CREATE TABLE IF NOT EXISTS holobiont_memories (
       memory_id TEXT NOT NULL,
@@ -41,6 +42,8 @@ async function migrateHolobiontMemory(db) {
       BEFORE DELETE ON holobiont_memories
       BEGIN SELECT RAISE(ABORT, 'holobiont_memories is append-only'); END;
   `);
+  const columns = await db.all('PRAGMA table_info(holobiont_memories)');
+  if (!columns.some((column) => column.name === 'reason')) await db.exec('ALTER TABLE holobiont_memories ADD COLUMN reason TEXT');
 }
 
 module.exports = { migrateHolobiontMemory };

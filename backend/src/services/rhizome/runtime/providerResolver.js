@@ -1,5 +1,7 @@
 'use strict';
 
+const bounded = require('./boundedOperationService');
+
 function matchesProvider(provider, ctx) {
   return ctx.trustedIds.has(provider.providerId) && Array.isArray(provider.growthActions)
     && provider.growthActions.includes(ctx.candidate.action) && Array.isArray(provider.capabilities)
@@ -8,14 +10,14 @@ function matchesProvider(provider, ctx) {
 
 function create(providers = [], trustedProviderIds = []) {
   const trusted = new Set(trustedProviderIds);
-  return async function resolve(input) {
+  const resolve = async function resolve(input) {
     const provider = [...providers]
       .filter((item) => matchesProvider(item, {
         candidate: input.candidate, need: input.need, trustedIds: trusted
       }))
       .sort((left, right) => left.providerId.localeCompare(right.providerId))[0];
     if (!provider) return null;
-    const result = await provider.instantiate(input);
+    const result = await bounded.run(provider.instantiate, providerContext(input));
     if (!validResult(result, input.need.capability)) return null;
     return {
       provider,
@@ -26,6 +28,13 @@ function create(providers = [], trustedProviderIds = []) {
       edges: result.edges || []
     };
   };
+  resolve.available = input => providers.some(item => matchesProvider(item, { candidate: input.candidate, need: input.need, trustedIds: trusted }));
+  return resolve;
+}
+
+function providerContext(input) {
+  return { candidate: structuredClone(input.candidate), need: structuredClone(input.need),
+    sessionId: input.sessionId, deadline: input.options?.deadline };
 }
 
 function validResult(result, capability) {

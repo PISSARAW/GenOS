@@ -2,7 +2,7 @@
 
 - **Statut** : Implémenté
 - **Portée** : câblage des 8 topologies au `MorphologyRuntime` via `installTopologyPlugins`
-- **Dernière revue** : 2026-10-03
+- **Dernière revue** : 2026-10-06 (Métapopulation)
 
 ---
 
@@ -24,8 +24,10 @@ délègue au registre, sinon refuse (`Topology not registered`). Code :
 | Syncytium | `SyncytiumController` (état partagé, convergence déterministe) | non | gate §5 |
 | Biocénose | `BiocenoseController` (jury, ballots explicites) | non | gate §5 |
 | Biome | `populationRuntimeService` (`create→spawn→advance`) sur écologie in-memory construite des workers/input | non | gate §5 |
-| Holobionte | `runCycle` réel (migrations, provisioning session+constitution+symbiont+contrat, planner, exécuteur, ledger, mémoire, health) | Base persistante du control plane GenOS | gate §5 |
-| Métapopulation | `runAutonomousRegionalRuntime` réel (session créée, adapters du `regionalBrain`, cycle `OBSERVE→…→VERIFY→RECORD`) | Base persistante du control plane GenOS | gate §5 |
+| Holobionte | `runHolobiontMission` partagé avec la CLI : hôte, contrat, admission, exécution, vérification indépendante, gate immunitaire, contribution/mémoire atomiques, santé et clôture | Base persistante du control plane GenOS | gate §5 et contrat Holobionte |
+| Métapopulation | `runAutonomousRegionalRuntime` réel : PLAN sans effet, VERIFY par relecture et RECORD atomique ; cycle vide `NO_ACTION` | SQLite du control plane ; état des cycles reprenable | gate §5 et suite Metapopulation |
+
+Le plugin Rhizome de cette matrice conserve un contrôleur in-process simplifié. Le [runtime Rhizome persistant](runtime-rhizome.md) possède un cycle distinct avec providers réels, preuves indépendantes et budgets atomiques ; ces garanties ne sont pas acquises par la seule feuille MorphologyRuntime.
 
 ## 3. Contrats d'entrée des feuilles
 
@@ -33,7 +35,7 @@ délègue au registre, sinon refuse (`Topology not registered`). Code :
 | --- | --- | --- |
 | Trinity, Rhizome, Syncytium, A-Team, Biome | rien (défauts `{}`) | s'exécute (résultat possiblement vide) |
 | Biocénose | `ballots[role] = { vote: approve/reject, confidence? }` | `Biocenose juror … requires an explicit ballot` |
-| Holobionte | `capability` + `executeCapability(fn)` + `allocation{policy,available}` | message d'exigence explicite |
+| Holobionte | `capability` ou `steps` + `executeCapability(fn)` + `verifyCapability(fn)` + `allocation{policy,available}` ; `trialCapabilityExecutor(fn)` pour un nouveau candidat | refus explicite avant exécution si un adaptateur ou une allocation manque |
 | Métapopulation | texte mission (`input.mission`, sinon `missionId` du graphe) | `metapopulation requires a mission text` |
 
 Un jury ne vote jamais sans ballot ; une capacité symbiotique ne s'exécute
@@ -41,6 +43,8 @@ jamais sans exécuteur fourni par la mission. L'input mission traverse les
 opérateurs jusqu'aux feuilles (pass-through quand le parent n'a pas produit
 de sortie) ; à l'intérieur de `SEQUENCE`/`NEST`, une feuille reçoit la
 sortie de l'étape/hôte précédent, pas l'input mission.
+
+Le [contrat Holobionte](runtime-holobionte.md) détaille les preuves liées aux résultats, les budgets cumulés, les refus et le cycle de vie. La composition seule reste `COMPOSED`.
 
 ## 4. Exigence SQLite
 
@@ -68,8 +72,10 @@ backend SQLite configuré pour le control plane et non d'une base de test
   qu'émettre une proposition; il n'applique pas le graphe ni ne crée de commit.
 - Les contrôleurs sont des modèles in-process simplifiés, pas les runtimes
   lourds (sessions distribuées, CRDT réseau, jury humain).
-- Le cycle Métapopulation sur région vide rend `VERIFIED` avec
-  `actionCount 0` : reçu honnête d'inactivité, pas preuve d'efficacité.
+- Le cycle Métapopulation sur région vide rend `NO_ACTION` avec
+  `actionCount: 0`. Les actions d’extinction, recolonisation, migration, recherche
+  ou évolution restent soumises à leurs preuves et adaptateurs ; voir le
+  [contrat runtime](runtime-metapopulation.md).
 - `MorphologyRuntime.changeVariant({ nodeId, graph, newVariant, execContext })`
   exige une transition enregistrée dans le `variantRegistry`, puis applique ses
   conditions et ses exigences de preuve avant le patch. Sans règle ou preuve,

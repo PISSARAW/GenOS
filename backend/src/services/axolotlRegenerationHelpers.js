@@ -1,243 +1,116 @@
-﻿'use strict';
+'use strict';
 
-/**
- * @file axolotlRegenerationHelpers.js
- * @description Fonctions internes pour axolotlRegenerationService.js
- *
- * Extraction de sous-fonctions pour respecter CC <= 10 par fonction.
- */
+const { hash, error, clone } = require('./axolotlStateStore');
 
-/**
- * Comparer la topologie actuelle avec les alternatives connues.
- */
-function compareTopologyAlternatives(currentTopology) {
-  if (!currentTopology) return [];
-  const currentKey = topologySignature(currentTopology);
-  const candidates = buildCandidateAlternatives(currentKey);
-  return filterBySuitability(candidates);
+function validateGraph(topology) {
+  const nodes = topology?.components;
+  const edges = topology?.connections;
+  validateShape(nodes, edges);
+  const ids = validateComponents(nodes);
+  if (edges.some((edge) => !ids.has(edge.from) || !ids.has(edge.to) || !validName(edge.type))) throw error('REGENERATION_CONNECTION_INVALID');
+  return topology;
 }
 
-/**
- * Construire la liste des alternatives candidates.
- */
-function buildCandidateAlternatives(currentKey) {
-  return [
-    makeAlternative(
-      'decentralized_rhizome',
-      'decentralized',
-      'Topologie décentralisée en réseau rhizomique',
-      'centralisé → rhizomique',
-      currentKey.includes('centralized') ? 'high' : 'medium'
-    ),
-    makeAlternative(
-      'modular_hierarchical',
-      'modular_hierarchical',
-      'Topologie hiérarchique modulaire avec frontières explicites',
-      'plate → hiérarchique modulaire',
-      'medium'
-    ),
-    makeAlternative(
-      'functional_layers',
-      'functional_layers',
-      'Organisation en couches fonctionnelles (sensory, processing, effector)',
-      'par rôle → par fonction',
-      'high'
-    )
-  ];
+
+function validateShape(nodes, edges) {
+  if (!Array.isArray(nodes) || !nodes.length || nodes.length > 256) throw error('REGENERATION_TOPOLOGY_INVALID');
+  if (!Array.isArray(edges) || edges.length > 4096) throw error('REGENERATION_TOPOLOGY_INVALID');
+}
+function validateComponents(nodes) {
+  const ids = new Set(nodes.map((node) => node.id));
+  if (ids.size !== nodes.length || nodes.some((node) => !validName(node.id) || !validName(node.role))) throw error('REGENERATION_COMPONENT_INVALID');
+  return ids;
+}
+function validName(value) { return typeof value === 'string' && /^[\w.-]{1,160}$/.test(value); }
+
+function normalizeScope(scope, topology) {
+  const requested = scope || { type: 'global' };
+  if (!['global', 'components', 'roles'].includes(requested.type)) throw error('REGENERATION_SCOPE_INVALID');
+  if (requested.type === 'global') return { type: 'global', componentIds: topology.components.map((node) => node.id) };
+  const field = requested.type === 'roles' ? 'role' : 'id';
+  const identifiers = requested.type === 'roles' ? requested.roles : requested.componentIds;
+  if (!Array.isArray(identifiers) || !identifiers.length || !identifiers.every((id) => topology.components.some((node) => node[field] === id))) throw error('REGENERATION_SCOPE_INVALID');
+  return { type: requested.type, componentIds: topology.components.filter((node) => identifiers.includes(node[field])).map((node) => node.id) };
 }
 
-/**
- * Créer une alternative candidate.
- */
-function makeAlternative({ id, signature, description, structuralDiff, suitability }) {
-  return { id, signature, description, structuralDifference: structuralDiff, suitability };
+function buildScopedTopology(session) {
+  const original = clone(session.currentTopology);
+  const affected = new Set(session.scope.componentIds);
+  const ids = new Map([...affected].map((id, index) => [id, `${session.id.slice(-12)}_${index}`]));
+  const components = original.components.map((node) => affected.has(node.id)
+    ? { ...node, id: ids.get(node.id), originId: node.originId || node.id, regeneratedFrom: node.id, status: 'active', generation: (node.generation || 0) + 1 }
+    : node);
+  const connections = original.connections.map((edge) => ({ ...edge, from: ids.get(edge.from) || edge.from, to: ids.get(edge.to) || edge.to }));
+  addRecoveryEdges({ components, connections, affectedIds: new Set(ids.values()) });
+  repairContractRoutes({ topology: { components, connections }, contract: session.functionalContract, bridgeId: ids.values().next().value });
+  return validateGraph({ ...original, structure: 'functional_regenerated', components, connections,
+    knowledge: original.knowledge || {}, regenerated: true, scope: clone(session.scope) });
 }
 
-/**
- * Filtrer par pertinence (éliminer les low).
- */
-function filterBySuitability(alternatives) {
-  return alternatives.filter(a => a.suitability !== 'low');
-}
-
-/**
- * Signature unique d'une topologie.
- */
-function topologySignature(topology) {
-  if (!topology) return 'unknown';
-  return joinFields(topology.structure, topology.mode, topology.organization);
-}
-
-/**
- * Joindre les champs non-nuls avec un séparateur.
- */
-function joinFields(...fields) {
-  const present = fields.filter(Boolean);
-  return present.length ? present.join('_') : 'empty';
-}
-
-/**
- * Sélectionner la structure cible pour la régénération.
- */
-function selectTargetStructure(currentTopology, alternatives) {
-  const currentSig = topologySignature(currentTopology);
-  const highSuitability = pickBySuitability(alternatives, 'high');
-  if (highSuitability.length) return highSuitability[0];
-  if (alternatives.length) return alternatives[0];
-  return fallbackTarget(currentSig);
-}
-
-/**
- * Extraire les alternatives à haute pertinence.
- */
-function pickBySuitability(alternatives, suitability) {
-  return alternatives.filter(a => a.suitability === suitability);
-}
-
-/**
- * Cible par défaut quand aucune alternative n'est disponible.
- */
-function fallbackTarget(currentSig) {
-  return {
-    id: 'functional_generic',
-    signature: 'functional_generic',
-    description: 'Topologie fonctionnelle générique post-régénération',
-    structuralDifference: currentSig !== 'unknown' ? 'anything → functional_generic' : 'none → functional_generic'
-  };
-}
-
-/**
- * Construire le chemin de régénération.
- */
-function buildRegenerationPath(currentTopology, target, preserved) {
-  const steps = [];
-  if (preserved && preserved.length) {
-    steps.push(makePreserveStep(preserved));
+function addRecoveryEdges({ components, connections, affectedIds }) {
+  const first = components.find((node) => affectedIds.has(node.id));
+  const last = components.filter((node) => affectedIds.has(node.id)).at(-1);
+  if (!connections.some((edge) => edge.from === last.id && edge.to === first.id && edge.type === 'feedback')) connections.push({ from: last.id, to: first.id, type: 'feedback' });
+  for (let index = 1; index < components.length; index++) {
+    const current = components[index];
+    const previous = components[index - 1];
+    if (affectedIds.has(current.id) && affectedIds.has(previous.id)) connections.push({ from: previous.id, to: current.id, type: 'recovery_route' });
   }
-  steps.push(makeBuildStep(target));
-  if (preserved && preserved.length) {
-    steps.push(makeReconnectStep());
+}
+
+function repairContractRoutes({ topology, contract, bridgeId }) {
+  for (const probe of contract.probes.filter((item) => item.kind === 'route')) {
+    const from = findComponent(topology, probe.from);
+    const to = findComponent(topology, probe.to);
+    if (!from || !to) continue;
+    if (reachable(topology, { from: from.id, to: to.id })) continue;
+    if (from.id !== bridgeId) topology.connections.push({ from: from.id, to: bridgeId, type: 'recovery_route' });
+    if (to.id !== bridgeId) topology.connections.push({ from: bridgeId, to: to.id, type: 'recovery_route' });
   }
-  steps.push(makeValidateStep());
-  return steps;
+}
+function findComponent(topology, id) {
+  return topology.components.find((node) => node.id === id || node.regeneratedFrom === id || node.originId === id);
 }
 
-function makePreserveStep(preserved) {
-  return { phase: 'preserve', action: 'Préserver état critique', items: preserved, order: 1 };
-}
-
-function makeBuildStep(target) {
-  return { phase: 'build', action: `Construire topologie ${target.signature}`, target: target.id, order: 2 };
-}
-
-function makeReconnectStep() {
-  return { phase: 'reconnect', action: 'Reconnecter composants conservés', order: 3 };
-}
-
-function makeValidateStep() {
-  return { phase: 'validate', action: 'Valider équivalence fonctionnelle', order: 4 };
-}
-
-/**
- * Construire la nouvelle topologie cible.
- */
-function buildTopologyComponents(targetStructure, preserved) {
-  const builders = {
-    decentralized_rhizome: buildDecentralizedRhizome,
-    functional_layers: buildFunctionalLayers,
-    modular_hierarchical: buildModularHierarchical,
-    functional_generic: buildFunctionalGeneric
-  };
-  const builder = builders[targetStructure.id] || builders.functional_generic;
-  return builder(targetStructure, preserved);
-}
-
-function buildDecentralizedRhizome(target, preserved) {
-  const hasGenome = preserved.some(p => p.kind === 'genome');
-  return {
-    components: [
-      { id: 'node_a', role: 'entry_point', preserved: false },
-      { id: 'node_b', role: 'coordination', preserved: hasGenome },
-      { id: 'node_c', role: 'execution', preserved: false },
-      { id: 'node_d', role: 'memory', preserved: hasGenome }
-    ],
-    connections: [
-      { from: 'node_a', to: 'node_b', type: 'route' },
-      { from: 'node_a', to: 'node_c', type: 'route' },
-      { from: 'node_b', to: 'node_d', type: 'route' },
-      { from: 'node_c', to: 'node_d', type: 'route' }
-    ]
-  };
-}
-
-function buildFunctionalLayers(target, preserved) {
-  return {
-    components: [
-      { id: 'layer_sensory', role: 'sensory_input', preserved: false },
-      { id: 'layer_processing', role: 'processing', preserved: preserved.length > 0 },
-      { id: 'layer_effective', role: 'effector', preserved: false }
-    ],
-    connections: [
-      { from: 'layer_sensory', to: 'layer_processing', type: 'feedforward' },
-      { from: 'layer_processing', to: 'layer_effective', type: 'feedforward' },
-      { from: 'layer_effective', to: 'layer_sensory', type: 'feedback' }
-    ]
-  };
-}
-
-function buildModularHierarchical(target, preserved) {
-  return buildDecentralizedRhizome(target, preserved);
-}
-
-function buildFunctionalGeneric(target, preserved) {
-  return {
-    components: [{ id: 'component_1', role: 'primary', preserved: preserved.length > 0 }],
-    connections: []
-  };
-}
-
-/**
- * Vérifier la connexité du réseau (BFS).
- */
-function checkConnectivity(topology) {
-  const comps = topology.components;
-  const conns = topology.connections || [];
-  if (!comps || comps.length === 0) return false;
-  const adjacency = buildAdjacency(comps, conns);
-  const visited = bfsVisit(adjacency, comps[0].id);
-  return visited.size === comps.length;
-}
-
-function buildAdjacency(comps, conns) {
-  const adjacency = new Map();
-  for (const c of comps) adjacency.set(c.id, new Set());
-  for (const conn of conns) {
-    const a = adjacency.get(conn.from);
-    const b = adjacency.get(conn.to);
-    if (a) a.add(conn.to);
-    if (b) b.add(conn.from);
-  }
-  return adjacency;
-}
-
-function bfsVisit(adjacency, startId) {
-  const visited = new Set();
-  const queue = [startId];
+function reachable(topology, route) {
+  const queue = [route.from];
+  const seen = new Set();
   while (queue.length) {
-    const current = queue.shift();
-    if (visited.has(current)) continue;
-    visited.add(current);
-    const neighbors = adjacency.get(current);
-    if (neighbors) for (const n of neighbors) if (!visited.has(n)) queue.push(n);
+    const id = queue.shift();
+    if (id === route.to) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    for (const edge of topology.connections.filter((item) => item.from === id)) queue.push(edge.to);
   }
-  return visited;
+  return false;
 }
 
-module.exports = {
-  compareTopologyAlternatives,
-  topologySignature,
-  selectTargetStructure,
-  buildRegenerationPath,
-  buildTopologyComponents,
-  checkConnectivity
-};
+function checkConnectivity(topology) {
+  try { validateGraph(topology); } catch (_) { return false; }
+  const undirected = { ...topology, connections: topology.connections.flatMap((edge) => [edge, { from: edge.to, to: edge.from }]) };
+  return topology.components.every((node) => reachable(undirected, { from: topology.components[0].id, to: node.id }));
+}
+
+function validateFunctionalEquivalence(topology, contract = {}) {
+  let valid = true;
+  try { validateGraph(topology); } catch (_) { valid = false; }
+  const checks = [
+    { name: 'graph_integrity', passed: valid },
+    { name: 'connected', passed: valid && checkConnectivity(topology) },
+    { name: 'roles', passed: (contract.requiredRoles || []).every((role) => topology?.components?.some((node) => node.role === role)) }
+  ];
+  return { passed: checks.every((check) => check.passed), checks, structuralOnly: true };
+}
+
+function topologySignature(topology) { return hash(topology); }
+function compareTopologyAlternatives(topology) {
+  validateGraph(topology);
+  return [{ id: 'functional_regenerated', signature: 'functional_regenerated', suitability: 'high', description: 'Remplacement des composants ciblés et nouvelles boucles de récupération.' }];
+}
+function selectTargetStructure(topology, alternatives) { return alternatives[0] || compareTopologyAlternatives(topology)[0]; }
+function buildRegenerationPath(topology, target, preserved) {
+  return ['preserve', 'build', 'experiment', 'validate', 'adopt'].map((phase, index) => ({ phase, order: index + 1, target: target.id, preserved }));
+}
+
+module.exports = { validateGraph, normalizeScope, buildScopedTopology, reachable, checkConnectivity, validateFunctionalEquivalence,
+  topologySignature, compareTopologyAlternatives, selectTargetStructure, buildRegenerationPath };

@@ -9,8 +9,14 @@ function evidenceDigest(node, proof) {
   const subject = [node.nodeId, [...node.capabilities].sort(), proof.candidateId, proof.capability,
     [...(proof.evidenceRefs || [])].sort(), proof.independent === true,
     context.classification || context.confidentiality || null,
-    context.trustDomain || null, context.boundaryProof || null];
+    context.trustDomain || null, context.boundaryProof || null,
+    providerIdentities(node), context.instanceId || null, proof.edgeContracts || []];
   return `sha256:${createHash('sha256').update(JSON.stringify(subject)).digest('hex')}`;
+}
+
+function providerIdentities(node) {
+  return (node.providers || []).map(provider => [provider.providerId, provider.kind, provider.reference || null])
+    .sort((left, right) => left[0].localeCompare(right[0]));
 }
 
 function admit(value, proof, policy = {}) {

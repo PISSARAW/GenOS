@@ -1,227 +1,273 @@
-# Physique computationnelle — l'inerte comme couche de réalité contraignante
+# Physique computationnelle — mesures du workspace et contrôle des décisions
 
-- **Statut** : Intégré — `tick()` dérive et conserve l'état physique, l'enrichit
-  des mesures disponibles du workspace, de Git, du contexte de décision, des
-  dépendances déclarées et d'un rapport LCOV optionnel, puis appelle
-  `decide_physical`. Les heuristiques restent bornées et leurs mesures ne sont
-  pas des preuves indépendantes. Un profil de friction appris par type de but
-  est conservé dans l'état sérialisable du directeur.
+- **Statut** : implémenté dans la boucle Rust `tick()` et `run()`.
+- **Dernière revue** : 2026-10-06.
+- **Portée** : acquisition bornée, contexte de décision, dépendances, couverture,
+  coûts observés, calibration persistante par type de mission et politique physique.
+- **ADR** : [0327](../adr/0327-mesures-et-calibration-physique.md).
 
-Les sorties qui reposent sur des proxys de nommage ou des constantes calibrées
-portent une maturité `heuristic`; elles peuvent guider le contrôle, mais ne sont
-pas des preuves physiques ou métier indépendantes.
-- **Portée** : `crates/genos-orchestrator/src/physics.rs`, exemple
-  `crates/genos-orchestrator/examples/mission_physics.rs`.
-- **Dernière revue** : 2026-09-25.
+## 1. Fonctionnement
 
-## 1. Définition du domaine
+`tick()` observe le monde, collecte ou réutilise les mesures du workspace,
+mesure son entrée de décision, calcule `PhysicalState`, explore les plans avec
+leurs coûts physiques, applique les régimes et l'inertie, puis exécute le plan.
+Les opérations exécutées consomment l'ATP du registre métabolique réel.
 
-Cette couche de contrôle emprunte à la physique un vocabulaire pour représenter
-des coûts, des limites, de l'inertie et des seuils. Le runtime calcule des
-indices à partir de `WorldState` et applique des règles de décision bornées;
-il ne simule pas un monde matériel, une conservation, une usure ni des lois
-physiques générales.
+`run()` ouvre un épisode et mesure les durées des actions et de la mission.
+La réussite utilisée pour la calibration vient de `observe().goal_reached()`
+après l'exécution. Une prédiction du plan ne constitue pas cette observation.
 
-## 2. Modèle de contrôle (indices sans unité)
+Les champs physiques sont des indices de contrôle bornés dans `[0,1]`.
+Leurs noms ne confèrent aucune unité thermodynamique. Les compteurs, octets,
+durées et arêtes sont des observations; leur normalisation reste une politique
+heuristique. Aucun résultat de cette couche ne remplace une preuve de promotion.
 
-`PhysicalState` (0..1 par champ) : `energy`, `entropy`, `friction`, `inertia`,
-`pressure`, `temperature`, `viscosity`, `elasticity`, `plasticity`,
-`rupture_risk`, `resonance`, `structural_gravity: {chemin -> poids}`.
+## 2. Contrat de mesure
 
-Dérivation exacte de `PhysicalState::derive` depuis `WorldState`. Les quantités
-sont des indices de contrôle bornés dans `[0,1]`, sans unité physique : `budget`
-est normalisé par la constante 120, les poids et seuils sont des paramètres du
-code, et les noms « énergie » ou « entropie » ne leur donnent pas le sens des
-grandeurs thermodynamiques. Avec `clamp01(x)=min(1,max(0,x))` :
+Chaque `Measurement<T>` porte une valeur optionnelle, une source, un horodatage,
+un état et un diagnostic optionnel.
 
-```text
-energy       = clamp01(budget / 120)
-entropy      = clamp01(.25*min(workers/max(required_workers,1),1)
-                       + .35*stress + .25*dissonance + .15*failure_rate)
-pressure     = clamp01(max(budget_pressure, threat))
-friction     = clamp01(.5*stress + .5*(1-energy))
-rupture_risk = clamp01(.5*threat + .3*entropy + .2*min(diseased/5,1))
-elasticity   = clamp01(1 - .5*rupture_risk - .3*entropy)
-temperature  = clamp01(.6*stress + .4*il6)
-viscosity    = clamp01(.5*(1-energy) + .5*entropy)
-resonance    = clamp01(.6*failure_rate + .4*I[traitor])
-target       = clamp01(.3 + .5*(1-clamp01(failure_rate)) - .3*pressure)
-inertia_t    = target                         (sans état antérieur)
-             = clamp01(.7*inertia_(t-1) + .3*target) (sinon)
-plasticity_t = clamp01(.3*rupture_risk)       (sans état antérieur)
-             = clamp01(.8*plasticity_(t-1) + .2*rupture_risk) (sinon)
-structural_gravity_t = copie de la valeur précédente (ou map vide)
-```
-
-Parmi ces champs, le contrôle de régime utilise `rupture_risk`, `energy` et
-`entropy`; le seuil anti-pivot utilise `inertia` et `pressure`; le score
-`utility_score` utilise `friction`, `rupture_risk` et `entropy`. Les champs
-`temperature`, `viscosity`, `elasticity`, `plasticity`, `resonance` et la carte
-`structural_gravity` sont dérivés ou conservés, mais ne modulent pas ces trois
-décisions dans le chemin documenté.
-
-Le profil d'action contient `mass`, `friction`, `blast_radius`, `reversibility`,
-`latency`, `entropy_delta` et `evidence_debt_delta`. La formule du score ci-dessous
-ne consomme qu'une partie de ce profil.
-
-Le score d'action réellement utilisé par `utility_score` est :
-
-```text
-utility = expected_gain
-        - profile.friction * (1 + phys.friction)
-        - profile.blast_radius * (1-profile.reversibility) * (1+phys.rupture_risk)
-        - profile.entropy_delta * (1+phys.entropy)
-```
-
-La masse, la latence et la variation de dette de preuve font partie du profil,
-mais n'entrent pas dans cette fonction de score. Elles ne doivent donc pas être
-présentées comme des coûts déjà pris en compte par cette formule.
-
-Seuil d'inertie anti-pivot (`inertia_threshold`) :
-
-```text
-seuil = clamp(0.05 + 0.2*inertia + 0.1*(succes_actuel - 0.5) - 0.1*pression, 0, 0.4)
-pivot autorisé ssi estimation(nouvelle_strategie) - estimation(strategie_actuelle) > seuil
-```
-
-Ces calculs sont des règles déterministes testables, pas des lois physiques ni
-des modèles prédictifs validés. Les coefficients n'ont pas été calibrés par une
-étude comparative; les tests établissent les cas codés, pas la qualité générale
-des décisions.
-
-## 3. Analogies biologiques et limites réelles
-
-Les champs empruntent des noms à des phénomènes physiques (inertie, friction,
-gravité, entropie, pression, température, cristallisation, viscosité, élasticité,
-plasticité, seuil de rupture, résonance, diffusion) traduits en indices de
-contrôle — voir le tableau §5. Ce ne sont **pas** des simulations
-physiques réelles (pas d'équations différentielles, pas de conservation
-d'énergie stricte) : ce sont des heuristiques bornées [0,1], sans calibration
-empirique annoncée, qui produisent un comportement de contrôle déterminé par les
-constantes du code, au même titre que les autres
-métaphores biologiques du dépôt (voir `docs/CONVENTIONS.md` §3 : ne jamais
-présenter une métaphore comme une fonctionnalité prouvée au-delà de ce qui est
-implémenté).
-
-## 4. Cas d'usage et objectifs métier
-
-- Empêcher l'orchestrateur de pivoter de stratégie à chaque signal faible
-  (inertie).
-- Faire payer chaque action en tokens/risque/entropie avant de la choisir
-  (friction).
-- Bloquer l'expansion (nouveaux workers, nouvelles branches) quand l'entropie
-  est trop haute, forcer une consolidation.
-- Exiger une preuve plus forte avant de modifier un fichier « cristal »
-  (schéma DB, contrat API, permissions) qu'un fichier « sédiment » (logs).
-- Basculer en revue humaine obligatoire quand le risque de rupture est trop
-  élevé, plutôt que de continuer à planifier normalement.
-
-## 5. Exemples concrets — phénomènes physiques -> primitives
-
-| Phénomène | Primitive GenOS | Fonction |
+| État | Sens | Utilisation |
 | --- | --- | --- |
-| Inertie | résistance au changement de stratégie | `inertia_threshold` |
-| Friction | coût de chaque action | `utility_score` |
-| Gravité | dépendances structurantes | `PhysicalState::record_gravity` / `gravity_of` |
-| Entropie | dérive vers le désordre | `PhysicalState::derive` (champ `entropy`) |
-| Pression | urgence / contrainte externe | `PhysicalState.pressure` |
-| Température | activité/excitation du système | `PhysicalState.temperature` |
-| Cristallisation | stabilisation en invariant | `Material::Crystal` |
-| Viscosité | lenteur de propagation | `PhysicalState.viscosity` |
-| Élasticité | absorber puis revenir (rollback) | `PhysicalState.elasticity` |
-| Plasticité | changement durable après contrainte | `PhysicalState.plasticity` |
-| Seuil de rupture | point de casse (kill/quarantine) | `PhysicalState.rupture_risk`, `Regime::HumanReview` |
-| Résonance | amplification de signaux répétés | `PhysicalState.resonance` |
-| Matériaux | classe de résistance au changement | `classify_material`, `Material::required_evidence` |
+| `Measured` | Observation valide dans le périmètre déclaré | Politique et calibration |
+| `Partial` | Limite atteinte ou résolution incomplète | Politique bornée; graphe exclu de la calibration |
+| `Missing` | Source absente ou inaccessible | Aucun zéro inventé |
+| `Invalid` | Contenu invalide | Valeur exclue |
+| `Stale` | Rapport périmé ou source plus récente | Valeur exclue |
 
-## 6. Schéma ou diagramme
+### Workspace
 
-```mermaid
-flowchart LR
-    P[Percepts / WorldState] --> D["PhysicalState::derive (memoire d'inertie)"]
-    D --> R["determine_regime : Normal/Conservation/Consolidation/Contention/HumanReview"]
-    R -->|HumanReview ou Consolidation| H[Halte : revue humaine / consolidation]
-    R -->|sinon| C["Director::decide (plan candidat)"]
-    C --> G["apply_inertia_gate : pivot autorise seulement si gain > seuil"]
-    G --> Dec[Decision finale]
+L'inventaire mesure le nombre de fichiers, leurs tailles et dates de modification.
+Il exclut les dossiers cachés et les sorties `target`, `node_modules`,
+`coverage`, `dist`, `build`. Il ne traverse pas les liens symboliques.
+
+Les limites par défaut sont 30 000 entrées, 32 niveaux, 500 ms par scan,
+2 Mo par fichier lu et 32 Mo de lectures pour les dépendances.
+Un scan interrompu reste explicitement partiel. Les documents lus sont confinés
+au workspace, y compris après résolution des liens.
+
+### Contexte
+
+Sans entrée supplémentaire, le runtime mesure les octets du JSON effectivement
+remis à la décision : `WorldState`, `Goal` et les caractéristiques du directeur.
+Cela couvre davantage que le seul vecteur de caractéristiques.
+
+L'appelant peut fournir le contexte réel du modèle et ses compteurs de tokens :
+
+```rust
+use genos_orchestrator::physical_measurements::{
+    ContextUsage, EvidenceDebt, WorkspacePhysicsConfig,
+};
+
+eco.physics.config = WorkspacePhysicsConfig::for_root(workspace);
+eco.physics.set_context_usage(
+    ContextUsage {
+        bytes: serialized_prompt.len(),
+        tokens: Some(provider_input_tokens),
+        capacity_tokens: Some(model_context_capacity),
+    },
+    "provider usage receipt",
+)?;
+eco.physics.set_evidence_debt(
+    EvidenceDebt { outstanding: 2, required: 5 },
+    "mission evidence obligations",
+)?;
+let report = eco.tick(&goal);
 ```
 
-## 7. Architecture technique
+Ces entrées valent pour la prochaine décision et doivent être renouvelées.
+Le runtime ne déduit pas de tokens à partir d'un ratio arbitraire d'octets.
+Les valeurs fournies restent des déclarations sourcées de l'appelant.
 
-- `crates/genos-orchestrator/src/physics.rs` : lois de dérivation, profils,
-  matériaux et décision gatée.
-- `crates/genos-orchestrator/src/physical_telemetry.rs` : échantillonnage best
-  effort du nombre de fichiers du workspace (hors `.git`, `target`,
-  `node_modules`), taille sérialisée du vecteur de contexte, dépendances directes
-  déclarées dans les manifests Cargo/npm reconnus, et fraction de lignes
-  couvertes de `coverage/lcov.info` si le rapport existe. Les fichiers Git
-  modifiés et branches locales sont également comptés. Le budget CI est
-  lu depuis `CI_BUDGET_REMAINING` / `CI_BUDGET_TOTAL` (ou leurs variantes
-  `GITHUB_RUN_ATTEMPT_REMAINING` / `GITHUB_RUN_ATTEMPT_TOTAL`). Les sources
-  absentes restent `None` et n'affectent pas l'état.
-  - `PhysicalState` + `derive` (dérivation pure depuis `WorldState`).
-  - `action_profile(Concept) -> ActionProfile` (registre de masses/frictions).
-  - `Material` + `classify_material(path)` (heuristique de nommage).
-  - `Regime` + `determine_regime(state, phys)` (transitions de phase).
-  - `inertia_threshold(phys, succes_actuel)`.
-  - `utility_score(&UtilityInputs)`.
-  - `Director::decide_physical(&DecisionContext)` : nouvelle méthode inhérente
-    (impl block ajouté depuis un autre fichier du même crate), qui applique le
-    régime puis le gating d'inertie **par-dessus** `Director::decide` existant
-    sans le modifier.
-  - `Director::estimate` est passé de privé à `pub(crate)` (seul changement
-    dans `director.rs`, à coût de lignes nul) pour être réutilisé par le
-    gating d'inertie.
-- Exemple bout-en-bout : `crates/genos-orchestrator/examples/mission_physics.rs`.
-- Re-exports publics dans `crates/genos-orchestrator/src/lib.rs`.
+### Dépendances et gravité
 
-## 8. Processus d'exécution ou de validation
+Les manifests Cargo TOML et npm JSON sont analysés dans tous les sous-projets
+inventoriés. Les dépendances directes, de développement, optionnelles et ciblées
+sont dédupliquées par manifest.
+
+Le graphe distinct des imports locaux utilise un AST Rust (`syn`) et une
+analyse des tokens des imports statiques JS/TS. Les commentaires et chaînes
+ordinaires ne deviennent pas des imports. Les cibles locales résolues donnent
+des arêtes fichier → fichier et une gravité proportionnelle aux imports entrants.
+
+Ce périmètre ne représente pas le graphe complet du compilateur : macros,
+imports JS construits dynamiquement, alias de bundler, modules Rust inline et
+résolution inter-crates ne sont pas intégralement résolus. Les imports locaux
+non résolus rendent la mesure partielle. Les références externes sont comptées
+séparément. Les fonctions de résolution ne sortent jamais de l'inventaire.
+
+### Couverture
+
+Les rapports `coverage/lcov.info`, `backend/coverage/lcov.info`,
+`coverage/coverage-final.json` et `backend/coverage/coverage-final.json`
+sont reconnus; la liste est configurable.
+
+LCOV déduplique les lignes et branches répétées. Istanbul déduplique les lignes
+de début des instructions et mesure les branches. Le rapport le plus récent
+valide est retenu. Une absence de rapport reste une absence de mesure.
+
+Un rapport vieux de plus de 24 h, ou plus ancien qu'une source qu'il couvre,
+est exclu. Une date anormalement future, un compteur invalide ou un chemin hors
+workspace n'est pas accepté comme preuve de couverture. La couverture ne
+prouve ni la qualité des assertions ni la couverture de tous les fichiers.
+
+### Git, CI et cache
+
+Git est interrogé en lecture seule avec délai et plafond de sortie : fichiers
+suivis modifiés et branches locales. Les renommages comptent une seule fois.
+Un dépôt Git absent ne produit pas un compteur nul.
+
+`CI_BUDGET_REMAINING` / `CI_BUDGET_TOTAL` peuvent limiter l'énergie disponible.
+Les variantes `GITHUB_RUN_ATTEMPT_REMAINING` / `GITHUB_RUN_ATTEMPT_TOTAL`
+restent reconnues. Les valeurs non finies ou incohérentes sont ignorées.
+
+Le workspace est mis en cache pendant 5 s; le contexte est renouvelé par décision.
+`eco.physics.invalidate_workspace()` force une nouvelle acquisition.
+Changer de racine réinitialise cache, mémoire physique et profils du workspace précédent.
+
+## 3. Politique physique
+
+`PhysicalState` contient énergie, entropie, friction, inertie, pression,
+température, viscosité, élasticité, plasticité, risque de rupture, résonance,
+gravité structurelle et dette de preuve.
+
+Les indices sont dérivés de `WorldState`, enrichis uniquement des mesures
+utilisables, puis bornés. La couverture faible ajoute un risque limité;
+le budget CI peut réduire l'énergie, sans l'augmenter.
+
+L'utilité inclut :
+
+- friction, rayon d'impact et irréversibilité;
+- variation d'entropie;
+- masse sous manque d'énergie et viscosité;
+- latence sous température et viscosité;
+- instabilité sous faible élasticité et forte gravité;
+- nouvelle dette de preuve et résonance.
+
+Les coûts physiques participent à chaque expansion d'une recherche bornée,
+puis au classement des plans. Les préconditions, échecs connus et budgets
+sont vérifiés sur l'état simulé de chaque étape.
+
+| Régime | Condition prioritaire | Effet |
+| --- | --- | --- |
+| Revue humaine | Risque > 0,80 | Arrêt |
+| Conservation | Énergie < 0,10 | Expansion interdite |
+| Consolidation | Entropie > 0,70 | Arrêt avant expansion |
+| Contention | Workers > 2 × workers requis | Expansion interdite |
+| Normal | Sinon | Recherche normale avec coûts physiques |
+
+L'inertie compare les scores physiques de la stratégie courante et de la nouvelle.
+La pression et la plasticité facilitent le pivot; l'inertie et la résonance
+augmentent son seuil. Un budget non fini bloque la décision.
+
+## 4. Calibration et persistance
+
+Chaque type de `Goal` possède un `MissionPhysicsProfile` versionné :
+`secure-perimeter`, `recover-agent`, `repair-module`, `explore`, `conserve`.
+
+Les observations accumulent moyenne et dispersion en ligne pour :
+
+- ATP consommé et durée de mission;
+- taille maximale du contexte observé pendant l'épisode;
+- nombre d'arêtes d'un graphe complètement mesuré dans le périmètre déclaré;
+- ATP et durée par concept effectivement exécuté.
+
+Après trois observations, moyenne + écart-type ajuste les références de budget
+(60–240 ATP), contexte (32 ko–2 Mo), dépendances (100–10 000 arêtes) et
+durée (10–60 000 ms). Les coûts et latences par concept modulent aussi le score.
+Le nombre de succès est conservé séparément : il ne fabrique pas une mesure de coût.
+
+Une mission sans action consommée ne calibre rien. Un `tick()` isolé produit
+un reçu de décision; l'apprentissage d'épisode intervient à la fin de `run()`.
+Les seuils de revue humaine, conservation et consolidation restent fixes.
+
+Les profils sont automatiquement sauvegardés dans
+`.genos/physical-profiles/` via `SnapshotStore`, puis rechargés lors de la
+première décision d'une nouvelle instance. Les snapshots sont append-only et
+séparés par mission. Les versions et valeurs sont validées; un snapshot corrompu
+est signalé et un ancien profil valide peut être repris.
+Les anciennes sérialisations `DirectorState` restent lisibles et n'inventent
+pas d'observations de calibration.
+
+Un stockage inaccessible laisse la politique fonctionner avec les constantes
+disponibles, tout en indiquant explicitement l'échec de persistance.
+
+## 5. Observabilité
+
+`eco.physics.last_report` et l'événement `PHYSICAL_DECISION` exposent les
+mesures sourcées, l'état physique, le régime, la stratégie, la justification,
+le nombre d'échantillons et les diagnostics.
+
+`PHYSICAL_CALIBRATION` indique les coûts observés, la réussite finale,
+le succès ou l'échec de la persistance. Ces événements ne constituent pas
+des attestations de sécurité ou de qualité métier.
+
+## 6. Matériaux et limites
+
+`classify_material` reste une heuristique de nommage.
+`classify_material_explicit` exige une déclaration cohérente pour les classes
+Crystal et Membrane. `Material::required_evidence` expose un niveau demandé,
+sans créer de preuve ou de revue à partir du nom du fichier.
+
+Le runtime planifie des concepts; cette couche ne constitue pas à elle seule
+une autorisation de modifier un fichier, une validation de migration ou un
+rollback. Les gates de sandbox, de preuve et de promotion conservent leur rôle.
+
+La calibration est descriptive et bornée. Elle mesure le runtime local; elle
+n'établit pas une supériorité empirique des décisions ni une simulation physique.
+
+## 7. Utilisation et diagnostic
+
+L'exemple mesure le workspace donné en argument et lance une mission Rust locale :
 
 ```bash
-cargo test -p genos-orchestrator physics
-cargo run -p genos-orchestrator --example mission_physics
-python scripts/ci/check_code_quality.py
+cargo run -p genos-orchestrator --example mission_physics -- /chemin/du/workspace
 ```
 
-Tests couvrant : régime de conservation sous budget bas, régime de revue
-humaine sous risque de rupture élevé, effet de l'inertie et de la pression sur
-le seuil de pivot, pénalisation d'une action lourde/risquée par
-`utility_score`, robustesse d'une action légère en crise, classification
-matérielle (cristal vs sédiment) et blocage de toute expansion en régime de
-consolidation.
+Il affiche ticks, résultat observé, actions, régime, stratégie, états des mesures
+et diagnostics de persistance. Il peut créer des snapshots locaux sous
+`.genos/physical-profiles/`. Deux ticks ne garantissent ni une action exécutée
+ni les trois épisodes nécessaires à l'ajustement des références.
 
-## 9. Comparaison avec le marché
+| Observation | Vérification |
+| --- | --- |
+| Couverture `Missing` | Produire un rapport reconnu ou configurer `coverage_paths` |
+| Couverture `Stale` | Régénérer le rapport après les sources couvertes et vérifier sa date |
+| Inventaire ou imports `Partial` | Consulter le diagnostic et les limites de scan/résolution |
+| Contexte sans tokens | Fournir un reçu modèle avec `set_context_usage` avant chaque décision |
+| Calibration inchangée | Vérifier les actions consommées et le nombre d'échantillons de la mission |
+| Profil non rechargé | Vérifier racine, droits, diagnostics, enveloppe et état des snapshots |
 
-Cette fiche ne formule pas de comparaison empirique avec d'autres orchestrateurs.
-Une telle comparaison nécessiterait des versions identifiées, des tâches communes,
-des budgets contrôlés et des mesures reproductibles.
+Le cache du workspace vaut 5 s. Après une mutation que la prochaine décision doit
+observer immédiatement, appeler `invalidate_workspace()`.
+Cette intégration Rust ne déduit pas les usages d'un modèle distant et ne
+documente pas un raccord automatique au superviseur Node.js.
 
-## 10. Limites, garde-fous, non-objectifs
+## 8. Architecture et validation
 
-- Les compteurs workspace/Git et le budget CI sont des proxys bornés qui
-  modulent friction, entropie, inertie et pression. Le contexte est mesuré en
-  octets sérialisés du vecteur remis au directeur, pas en tokens du modèle.
-  Les dépendances ne comptent que les déclarations des manifests Cargo et npm
-  reconnus, pas les arêtes d'un graphe d'imports. La couverture est calculée
-  depuis les lignes `DA` de `coverage/lcov.info`; elle ne prouve ni la qualité
-  des tests ni la fraîcheur du rapport. Les sources manquantes laissent leur
-  mesure absente ; l'état dérivé de `WorldState` reste actif.
-  `classify_material` est une heuristique de nommage, pas une analyse réelle
-  du graphe d'imports/dépendants/couverture de tests.
-- Les constantes (seuils de régime, poids de `derive`) restent des valeurs
-  fixes. Seul le multiplicateur de friction des fichiers est ajusté par type
-  de `Goal`, après trois missions exécutées, depuis le taux de succès observé.
-  Ce profil est sérialisé avec `DirectorState` et donc inclus dans les
-  snapshots du directeur; il n'est durable que si l'appelant sauvegarde cet
-  état via `save_director_state`. Le lissage et les bornes ne constituent pas
-  une calibration empirique.
-- Non-objectif : ceci n'est pas un moteur physique (pas de conservation
-  d'énergie stricte, pas d'intégration temporelle) — c'est un ensemble de
-  règles de contrôle bornées inspirées de phénomènes physiques.
+Les modules `physical_measurements`, `physical_workspace`,
+`physical_dependencies`, `physical_imports`, `physical_coverage`,
+`physical_git`, `physical_learning`, `physical_store`,
+`physical_runtime`, `physical_policy` et `physical_search` séparent acquisition,
+calibration, persistance et décision. `physical_telemetry` conserve les champs
+optionnels historiques et applique les mesures à l'état.
+
+```bash
+cargo test -p genos-orchestrator --test physical_measurement_contract --test physical_calibration_contract --test physical_policy_contract
+cargo test -p genos-orchestrator
+python scripts/ci/check_code_quality.py
+npm test
+cargo test --workspace
+```
+
+Les contrats de test couvrent les limites d'acquisition, imports et manifests,
+rapports valides/invalides/périmés, déduplication, calibration réelle,
+compatibilité, isolation des missions, rechargement, diagnostics et décision.
+Les trois suites dédiées totalisent 23 tests ; leur réussite ne signifie pas
+que les gates globaux du monorepo ou une mission métier sont validés.
 
 ## Voir aussi
 
-- [../CONVENTIONS.md](../CONVENTIONS.md) — canevas de documentation.
-- [runtime-agentique.md](runtime-agentique.md) — `WorldState`, `Director`, boucle de décision.
-- [epistemologie-et-evidence.md](epistemologie-et-evidence.md) — dette de preuve, seuils de promotion.
-- [../02-orchestration/README.md](../02-orchestration/README.md) — où cette couche s'exécute.
+- [runtime-agentique.md](runtime-agentique.md)
+- [epistemologie-et-evidence.md](epistemologie-et-evidence.md)
+- [../CONVENTIONS.md](../CONVENTIONS.md)

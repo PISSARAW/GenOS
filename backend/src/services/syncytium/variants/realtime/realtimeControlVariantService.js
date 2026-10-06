@@ -20,7 +20,9 @@ function createSession(mission, options = {}, syncytium) {
     schemaId: 'syncytium-realtime-control-v1', fields: {
       controls: { dataType: 'STATE_MACHINE', consistencyZone: 'SERIALIZABLE', allowedTransitions: options.allowedTransitions || [] },
       safety_outputs: { dataType: 'MAP', consistencyZone: 'SERIALIZABLE' },
-      wcet_evidence: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' }
+      wcet_evidence: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
+      watchdog_log: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' },
+      fail_safe_log: { dataType: 'ADD_WINS_SET', consistencyZone: 'APPEND_ONLY' }
     }
   }) });
 }
@@ -104,11 +106,7 @@ async function applyFailsafe(context) {
     try {
       const suffix = attempt === 0 ? '' : `:${attempt}`;
       const result = await syncytium.applyTransaction(sessionId, {
-        txId: `${request.failSafeTxId || randomUUID()}${suffix}`, operations: [{
-          opId: `${request.failSafeOpId || randomUUID()}${suffix}`, actorId: request.actorId,
-          kind: { type: 'typed_field', key: 'safety_outputs', action: 'set', entryKey: request.taskId,
-            value: { taskId: request.taskId, output: request.safeOutput, reason, triggeredAtMs: Date.now() } }
-        }], preconditions: [{ op: 'state_version', value: current.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
+        txId: `${request.failSafeTxId || randomUUID()}${suffix}`, operations: failsafeOperations(context, suffix), preconditions: [{ op: 'state_version', value: current.shared.totalOps }], commitPolicy: 'SERIALIZABLE'
       }, request.options || {});
       return { ...result, control: { status: 'STOP_AND_REPAIR', reason, elapsedMs: elapsedMs ?? null,
         failSafeOutput: request.safeOutput, retries: attempt } };
@@ -122,6 +120,23 @@ async function applyFailsafe(context) {
     }
   }
   throw Object.assign(new Error('Unable to persist the fail-safe output.'), { code: 'SYNCYTIUM_FAILSAFE_WRITE_FAILED' });
+}
+
+function failsafeOperations(context, suffix) {
+  const { request, reason, elapsedMs } = context;
+  const id = (request.failSafeOpId || randomUUID()) + suffix;
+  const record = { taskId: request.taskId, output: request.safeOutput, reason,
+    triggeredAtMs: Date.now(), actorId: request.actorId, elapsedMs: elapsedMs ?? null };
+  const operation = (opId, key, payload) => ({ opId, actorId: request.actorId,
+    kind: { type: 'typed_field', key, ...payload } });
+  const operations = [
+    operation(id, 'safety_outputs', { action: 'set', entryKey: request.taskId, value: record }),
+    operation(id + ':audit', 'fail_safe_log', { action: 'add', value: record })
+  ];
+  if (reason === 'WATCHDOG_TIMEOUT') operations.push(operation(id + ':watchdog', 'watchdog_log', {
+    action: 'add', value: { ...record, lastHeartbeatMs: request.lastHeartbeatMs, timeoutMs: request.timeoutMs }
+  }));
+  return operations;
 }
 
 async function checkWatchdog(sessionId, request = {}, syncytium) {

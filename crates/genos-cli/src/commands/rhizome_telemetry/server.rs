@@ -1,13 +1,13 @@
 use super::graph::RhizomeGraph;
 use axum::{
+    Router,
     extract::{
-        ws::{Message, WebSocket, WebSocketUpgrade},
         State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
     },
     http::header,
     response::{Html, IntoResponse, Json},
     routing::get,
-    Router,
 };
 use std::sync::Arc;
 

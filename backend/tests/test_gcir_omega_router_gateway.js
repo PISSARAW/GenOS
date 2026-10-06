@@ -35,7 +35,8 @@ routeRunner.runFallback = async (candidates, context) => ({
       cognitiveAllowEmit: true,
       cognitiveVerifierRegistry: { get: () => async () => ({ status: 'verified', valid: true }) }
     });
-    assert.equal(native.text, 'run native trinity graph');
+    assert.match(native.text, /run native trinity graph/);
+    assert.match(native.text, /prepared/);
     assert.deepEqual(native.cognitive.execution.operations.map((item) => item.kind),
       ['READ', 'READ', 'SELECT', 'CALL', 'INFER', 'CHECK', 'EMIT']);
     assert.equal(native.cognitive.execution.operations.find((item) => item.kind === 'CALL').status, 'ready');

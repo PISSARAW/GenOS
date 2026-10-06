@@ -1,6 +1,7 @@
 'use strict';
 
 const authority = require('../security/mutationAuthorityService');
+const causalClock = require('../causality/causalClockService');
 const classifier = require('../consistency/operationClassifier');
 const zones = require('../consistency/consistencyZoneService');
 const conflicts = require('../conflicts/semanticConflictService');
@@ -55,7 +56,7 @@ function validateTransaction(transaction) {
   validateOptionalList(transaction.preconditions, 'preconditions');
   validateOptionalList(transaction.invariants, 'invariants');
   validateCommitPolicy(transaction.commitPolicy);
-  const ids = transaction.operations.map((operation) => operation?.opId);
+  const ids = transaction.operations.map((operation) => typeof operation?.opId === 'string' ? operation.opId.trim() : null);
   if (ids.some((id) => typeof id !== 'string' || !id.trim()) || new Set(ids).size !== ids.length) throw transactionError('SYNCYTIUM_TRANSACTION_INVALID', 'Transaction operations require unique opIds.');
 }
 
@@ -76,7 +77,9 @@ function validateCommitPolicy(policy) {
 }
 
 function duplicateStatus(crdt, transaction) {
-  const existing = transaction.operations.map((operation) => crdt.hasOpId(operation.opId));
+  const existing = transaction.operations.map((operation) => crdt.assertDuplicateOperation({
+    ...operation, transactionId: transaction.txId
+  }));
   if (existing.every(Boolean)) return 'ALL';
   if (existing.some(Boolean)) return 'PARTIAL';
   return 'NONE';
@@ -148,6 +151,7 @@ function admitAndApply(context, rawOperation) {
     throw transactionError('SYNCYTIUM_TRANSACTION_INVALID', 'Transactions accept shared field writes only.');
   }
   authority.authorize(context.session.domains, context.session.schema, operation);
+  causalClock.assertAvailable(operation, context.candidate.getCausalFrontier());
   const decision = classifier.classify(context.session.schema, operation);
   zones.validateMutation(decision.zone, operation, context.candidate.getSnapshot().sharedFields);
   conflicts.assertNoBlockingConflicts({
@@ -155,7 +159,7 @@ function admitAndApply(context, rawOperation) {
   });
   const accepted = { ...operation, transactionId: context.transaction.txId };
   context.candidate.applyOp(accepted);
-  return accepted;
+  return context.candidate.getHistory().at(-1);
 }
 
 function evaluateInvariants(schema, candidate) {

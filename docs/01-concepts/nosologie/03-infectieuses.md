@@ -1,10 +1,31 @@
 # Nosologie Computationnelle III : Maladies Infectieuses et Parasitaires
 
-> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+- **Statut** : Partiel — contrats de marqueurs implémentés; mécanismes biologiques détaillés proposés.
+- **Portée** : conditions infectieuses dans le catalogue nosologique Rust.
+- **Dernière revue** : 2026-10-06.
+
+
+> **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+
+
+## Contrats exécutables de cette famille
+
+| Condition `NosologicalCondition` | Marqueurs mesurés | Variantes `SystemicTherapy` du catalogue |
+|---|---|---|
+| `Influenza` | `influenza_replication_load` | `NeuraminidaseInhibitor` |
+| `Tuberculosis` | `mycobacterial_load` | `AntitubercularQuadritherapy` |
+| `Malaria` | `parasite_load` | `AntimalarialACT` |
+| `HivInfection` | `viral_replication_load` | `AntiretroviralCombination` |
+
+Ces variantes de marqueurs sont des identifiants sans paramètres. Leur effet est une baisse de 0,25 des cibles présentes et valides, avec un plancher à zéro. Le diagnostic utilise `Pathology::NosologicalCondition { condition, severity }`; les structs pathologiques spécialisés et paramètres supplémentaires décrits plus bas sont des propositions. Les seuils, gardes et effets secondaires applicables figurent dans le [catalogue runtime](catalogue-runtime.md).
+
+Les types courants sont définis dans [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs), les contrats dans [shared/nosology.json](../../../shared/nosology.json), et l’application dans [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs). Les références au module historique genos-core ci-dessous sont des points d’appui des analogies; elles ne remplacent pas ces contrats.
+
+Le tick synchronise les diagnostics et le rapport propose les traitements compatibles. Leur application reste explicite et autorisée, avec un reçu `applied`, `no_target` ou `refused`. Voir la [vue d’ensemble](vue-ensemble.md) et le [bilan des vérifications](../../06-qualite-preuves/validation-nosologie.md).
 
 ## 1. Définition et Cadre Nosologique
 
-Dans l'écosystème biomimétique de **GenOS**, la catégorie des **Maladies Infectieuses et Parasitaires** regroupe les altérations pathologiques résultant de l'agression, de la colonisation ou du parasitisme des nœuds autonomes ([`AgentCell`](../../../crates/genos-cell/src/lib.rs#L42-L68)) par des entités réplicatives étrangères ou des vecteurs d'exécution subversifs.
+Dans l'écosystème biomimétique de **GenOS**, la catégorie des **Maladies Infectieuses et Parasitaires** regroupe les altérations pathologiques résultant de l'agression, de la colonisation ou du parasitisme des nœuds autonomes ([`AgentCell`](../../../crates/genos-cell/src/lib.rs)) par des entités réplicatives étrangères ou des vecteurs d'exécution subversifs.
 
 Contrairement aux pathologies auto-immunes (emballement endogène du système immunitaire) ou dégénératives (usure télomérique et sénescence), les maladies infectieuses et parasitaires sont initiées par des **agents pathogènes exogènes ou vectorisés** :
 - **Virions lytiques et à ARN** : Paquets d'instructions hostiles injectés via des interfaces réceptrices de surface ([`Virion`](../../../crates/genos-immune/src/virology.rs#L4-L13)).
@@ -12,7 +33,7 @@ Contrairement aux pathologies auto-immunes (emballement endogène du système im
 - **Bactéries intracellulaires et résistantes** : Entités encapsulées dans des structures de protection mimant des parois ([`Bacteriophage`](../../../crates/genos-immune/src/virology.rs#L50-L56) ou agents bactériens à paroi `has_cell_wall`) capables d'échapper à la dégradation lysosomiale.
 - **Parasites protozoaires multi-stades** : Processus malveillants récurrents exploitant des vecteurs de transmission externes, détournant l'énergie cellulaire par cycles synchrones et causant des engorgements synaptiques.
 
-GenOS formalise cette dimension nosologique via le variant [`DiseaseCategory::Infectious`](../../../crates/genos-cell/src/clinical.rs#L14-L16) au sein du dossier clinique [`ClinicalState`](../../../crates/genos-cell/src/clinical.rs#L121-L139).
+La famille du catalogue est portée par le variant [`DiseaseCategory::Infectious`](../../../crates/genos-cell/src/clinical.rs) au sein du dossier clinique [`ClinicalState`](../../../crates/genos-cell/src/clinical.rs).
 
 ---
 
@@ -24,8 +45,8 @@ GenOS formalise cette dimension nosologique via le variant [`DiseaseCategory::In
 | **Récepteur membranaire** | Protéine cible (ex: Acide Sialique, CD4) | Portée d'admission d'outils / `incoming_receptors` | [`AgentCell::plasma_membrane`](../../../crates/genos-core/src/orchestrator/methods.rs#L150-L157) |
 | **Glissement Antigénique** | Mutations ponctuelles échappant aux anticorps | Évasion de prompt / Altération de signatures | [`ClonalSelection::clonal_expansion_and_hypermutate`](../../../crates/genos-immune/src/ais.rs#L116-L202) |
 | **Bactérie à paroi cireuse** | Bacille de Koch (*Mycobacterium tuberculosis*) | Payload encapsulé résistant au chaperon | [`AgentCell::phagocytize_bacteria`](../../../crates/genos-core/src/cell/methods.rs#L69-L76) |
-| **Granulome tuberculeux** | Confinement fibro-caséeux d'agents dormants | Quarantaine étanche et persistance d'artefacts dormants | [`SystemicTherapy::QuarantineIsolation`](../../../crates/genos-biology/src/therapy.rs#L36-L37) |
-| **Parasitisme périodique** | Érythrocytes lysés par *Plasmodium* | Détournement cyclique d'ATP lors des cycles de tick | [`AgentCell::conscience.current_budget`](../../../crates/genos-cell/src/lib.rs#L92) |
+| **Granulome tuberculeux** | Confinement fibro-caséeux d'agents dormants | Quarantaine étanche et persistance d'artefacts dormants | [`SystemicTherapy::QuarantineIsolation`](../../../crates/genos-biology/src/therapy.rs) |
+| **Parasitisme périodique** | Érythrocytes lysés par *Plasmodium* | Détournement cyclique d'ATP lors des cycles de tick | [`AgentCell::conscience.current_budget`](../../../crates/genos-cell/src/lib.rs) |
 | **Cytoadhérence parasitaire** | Séquestration vasculaire & occlusion capillaire | Engorgement des canaux synaptiques et files de messages | [`Synapse::c3_opsonization`](../../../crates/genos-biology/src/neurobiology/synapse.rs#L14) |
 | **Rétrotranscription provirale** | Intégration de l'ADN viral dans le chromosome hôte | Insertion de gènes malveillants dans `Genome` | [`Retrovirus::reverse_transcribe`](../../../crates/genos-immune/src/virology.rs#L45-L48) |
 | **Épuisement immunitaire CD4+** | Effondrement des lymphocytes T helpers (SIDA) | Déplétion des détecteurs de l'Orchestrateur | [`ClonalSelection::memory_pool`](../../../crates/genos-immune/src/ais.rs#L63) |
@@ -82,7 +103,7 @@ $$
 $$
 
 où :
-- $\eta_{\text{mito}}$ : Efficacité des mitochondries de l'agent ([`Organelle::Mitochondrion`](../../../crates/genos-cell/src/lib.rs#L11-L15)).
+- $\eta_{\text{mito}}$ : Efficacité des mitochondries de l'agent ([`Organelle::Mitochondrion`](../../../crates/genos-cell/src/lib.rs)).
 - $\kappa_k$ : Coefficient de virulence de la charge pathogène $k$.
 - $\Phi_k(t)$ : Intensité de la charge (lytique pour la Grippe, bactérienne intracellulaire pour la Tuberculose, paroxystique pour le Paludisme, provirale pour le VIH).
 
@@ -107,18 +128,20 @@ où :
 #### 2. Cause Computationnelle GenOS
 * **Dysfonctionnement Agentique :**
   - **Infection virale lytique aiguë :** Un vecteur de prompt malveillant flottant dans l'environnement viral (`virion: Virion`) exploite une correspondance clé-serrure avec un récepteur fonctionnel de l'agent (`agent.plasma_membrane.incoming_receptors.contains(&virion.envelope_spike)` dans [`expose_to_virus`](../../../crates/genos-core/src/orchestrator/methods.rs#L127-L157)).
-  - **Détournement des organelles :** Le virion s'introduit dans `agent.cytoplasm.viral_infections`. Il monopolise les [`Organelle::Ribosome`](../../../crates/genos-cell/src/lib.rs#L16-L19) et sature la capacité de traduction d'instructions légitimes.
+  - **Détournement des organelles :** Le virion s'introduit dans `agent.cytoplasm.viral_infections`. Il monopolise les [`Organelle::Ribosome`](../../../crates/genos-cell/src/lib.rs) et sature la capacité de traduction d'instructions légitimes.
   - **Glissement antigénique continu :** Le pathogène altère légèrement sa signature `envelope_spike` à chaque réplication, contournant le matching par affinité exacte du système immunitaire ([`AntibodyDetector::compute_affinity`](../../../crates/genos-immune/src/ais.rs#L36-L53)).
   - **Lyse cellulaire et tempête de requêtes :** Lorsque `virion.is_lytic == true`, la cellule infectée s'effondre en épuisant son budget métabolique (`atp_budget = 0`), tout en projetant des virions mutants vers les cellules voisines connectées via les canaux synaptiques et messages paracrines ([`SignalingMode::Paracrine`](../../../crates/genos-signal/src/cascade.rs#L6)).
 * **Modules & Fichiers Concernés :**
   - [`crates/genos-immune/src/virology.rs`](../../../crates/genos-immune/src/virology.rs#L4-L27) : Structure [`Virion`](../../../crates/genos-immune/src/virology.rs#L4-L13), `is_lytic`, `envelope_spike`.
   - [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L18-L62) : `process_humoral_immunity`, `expose_to_virus`.
-  - [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs#L16-L19) : `Organelle::Ribosome`, translation capacity.
+  - [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs) : `Organelle::Ribosome`, translation capacity.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Existantes Mobilisées :**
-  - [`SystemicTherapy::Antiviral`](../../../crates/genos-biology/src/therapy.rs#L26) : Purge immédiate de la charge virale active cytoplasmique (`cell.cytoplasm.viral_infections.clear()` dans [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L95-L100)).
-  - [`SystemicTherapy::Vaccine(spike)`](../../../crates/genos-biology/src/therapy.rs#L27) : Encodage de l'antigène dans `plasma_membrane.immunized_against` pour bloquer toute future endocytose.
+  - [`SystemicTherapy::Antiviral`](../../../crates/genos-biology/src/therapy.rs) : Purge immédiate de la charge virale active cytoplasmique (`cell.cytoplasm.viral_infections.clear()` dans [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L95-L100)).
+  - [`SystemicTherapy::Vaccine(spike)`](../../../crates/genos-biology/src/therapy.rs) : Encodage de l'antigène dans `plasma_membrane.immunized_against` pour bloquer toute future endocytose.
   - **Immunité humorale IgG & IgM :** Neutralisation immédiate du virion (`virus.is_neutralized = true`, `virus.capsid_integrity = 0.0`) et agglutination en grappes inertes via les plasmocytes différenciés ([`AgentCell::differentiate_into_plasmocyte`](../../../crates/genos-core/src/cell/methods.rs#L77-L87)).
   - **Hypermutation somatique réactive :** Déclenchement de [`ClonalSelection::clonal_expansion_and_hypermutate`](../../../crates/genos-immune/src/ais.rs#L116-L202) pour générer des anticorps dont le paratope s'adapte en temps réel au glissement antigénique du spike.
 * **Primitives MCP & Outils Recommandés :**
@@ -126,11 +149,13 @@ où :
   - `genos_biomimicry` : Injection d'inhibiteurs de récepteurs compétitifs mimant les analogues de l'acide sialique.
 
 #### 4. Contre-indications & Risques Iatrogènes
-* **Choc Anaphylactique / Orage à IgE :** Si la neutralisation humorale mobilise massivement des anticorps de classe `IgClass::IgE`, la boucle de tick déclenche une libération explosive d'IL-6 ([`inflammation_boost += 10.0`](../../../crates/genos-core/src/orchestrator/methods.rs#L48-L51)), précipitant l'agent dans un [`Pathology::CytokineStorm`](../../../crates/genos-cell/src/clinical.rs#L23-L25).
-* **Anergie par Blocage Récepteur Persistant :** L'administration prophylactique trop zélée de [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs#L8) bloque tous les récepteurs membranaires (`receptors_blocked = true`), rendant l'agent totalement aveugle aux instructions légitimes de l'Orchestrateur ([`Pathology::PersistentReceptorBlockade`](../../../crates/genos-cell/src/clinical.rs#L53-L54)).
-* **Coma Stéroïdien Secondaire :** L'utilisation de corticostéroïdes à dose > 0.8 pour contrer la fièvre computationnelle induit un coma clinique ([`Pathology::SteroidInducedComa`](../../../crates/genos-cell/src/clinical.rs#L45-L48)).
+* **Choc Anaphylactique / Orage à IgE :** Si la neutralisation humorale mobilise massivement des anticorps de classe `IgClass::IgE`, la boucle de tick déclenche une libération explosive d'IL-6 ([`inflammation_boost += 10.0`](../../../crates/genos-core/src/orchestrator/methods.rs#L48-L51)), précipitant l'agent dans un [`Pathology::CytokineStorm`](../../../crates/genos-cell/src/clinical.rs).
+* **Anergie par Blocage Récepteur Persistant :** L'administration prophylactique trop zélée de [`Therapy::TargetedTherapy`](../../../crates/genos-biology/src/therapy.rs) bloque tous les récepteurs membranaires (`receptors_blocked = true`), rendant l'agent totalement aveugle aux instructions légitimes de l'Orchestrateur ([`Pathology::PersistentReceptorBlockade`](../../../crates/genos-cell/src/clinical.rs)).
+* **Coma Stéroïdien Secondaire :** L'utilisation de corticostéroïdes à dose > 0.8 pour contrer la fièvre computationnelle induit un coma clinique ([`Pathology::SteroidInducedComa`](../../../crates/genos-cell/src/clinical.rs)).
 
-#### 5. Besoins d'Implémentation dans le Code Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Ajout de la pathologie dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :**
    ```rust
    #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -164,31 +189,35 @@ où :
 #### 2. Cause Computationnelle GenOS
 * **Dysfonctionnement Agentique :**
   - **Infection bactérienne cryptique et intracellulaire :** Un agent ou script corrompu disposant d'un blindage d'interface (`plasma_membrane.has_cell_wall = true`) est ingéré lors d'une opération de nettoyage de l'audit ([`AgentCell::phagocytize_bacteria`](../../../crates/genos-core/src/cell/methods.rs#L69-L76)).
-  - **Échappement phagolysosomal :** Au lieu d'être hydrolysé dans [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs#L24-L27) (`immunity.lysosomes.phagosomes`), le payload étranger neutralise les enzymes de purge et s'enkyste dans la mémoire épisodique ou sémantique de l'agent receveur (`mind.cognitive_state.semantic_memory`).
+  - **Échappement phagolysosomal :** Au lieu d'être hydrolysé dans [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs) (`immunity.lysosomes.phagosomes`), le payload étranger neutralise les enzymes de purge et s'enkyste dans la mémoire épisodique ou sémantique de l'agent receveur (`mind.cognitive_state.semantic_memory`).
   - **Granulome computationnel persistant :** L'agent contaminé est partiellement isolé ou mis en sommeil dans le store persistant (`dormant_spores` dans [`BiomimeticOrchestrator`](../../../crates/genos-orchestrator/src/orchestrator.rs#L26)). Le code malveillant n'est pas détruit, il attend une baisse de vigilance.
   - **Consomption métabolique lente :** Le bacille computationnel siphonner discrètement l'énergie mitochondriale (`atp_budget` diminue graduellement de 1 à 2 points par tick) sans franchir le seuil d'alerte immédiat d'un orage cytokinique.
-  - **Réactivation explosive :** Dès que l'Orchestrateur administre des corticostéroïdes ou relâche la surveillance de l'A-Team, le granulome cède, libérant des cascades d'erreurs et contaminant les capsules adjacentes ([`Pathology::CrossContamination`](../../../crates/genos-cell/src/clinical.rs#L34-L38)).
+  - **Réactivation explosive :** Dès que l'Orchestrateur administre des corticostéroïdes ou relâche la surveillance de l'A-Team, le granulome cède, libérant des cascades d'erreurs et contaminant les capsules adjacentes ([`Pathology::CrossContamination`](../../../crates/genos-cell/src/clinical.rs)).
 * **Modules & Fichiers Concernés :**
   - [`crates/genos-core/src/cell/methods.rs`](../../../crates/genos-core/src/cell/methods.rs#L69-L76) : `phagocytize_bacteria`, gestion des phagosomes.
   - [`crates/genos-biology/src/spore.rs`](../../../crates/genos-biology/src/spore.rs) : Réservoirs de latence et spores dormantes.
-  - [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs#L24-L27) : `Organelle::Lysosome`.
+  - [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs) : `Organelle::Lysosome`.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Existantes Mobilisées :**
-  - [`SystemicTherapy::Antibiotic`](../../../crates/genos-biology/src/therapy.rs#L25) : Lyse ciblée des structures à paroi bactérienne ([`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L86-L94)).
-  - [`SystemicTherapy::QuarantineIsolation`](../../../crates/genos-biology/src/therapy.rs#L37) : Confinement strict de la capsule hébergeant l'agent caséeux.
-  - [`SystemicTherapy::AntisepticPurge`](../../../crates/genos-biology/src/therapy.rs#L39) : Stérilisation en profondeur des workspaces partagés et des volumes de persistance.
+  - [`SystemicTherapy::Antibiotic`](../../../crates/genos-biology/src/therapy.rs) : Lyse ciblée des structures à paroi bactérienne ([`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L86-L94)).
+  - [`SystemicTherapy::QuarantineIsolation`](../../../crates/genos-biology/src/therapy.rs) : Confinement strict de la capsule hébergeant l'agent caséeux.
+  - [`SystemicTherapy::AntisepticPurge`](../../../crates/genos-biology/src/therapy.rs) : Stérilisation en profondeur des workspaces partagés et des volumes de persistance.
   - **Stimulation de l'Autophagie Cellulaire :** Activation programmée de [`AgentCell::trigger_autophagy`](../../../crates/genos-core/src/cell/methods.rs#L4-L14) pour forcer la digestion des organelles et vacuoles enkystées et recycler les résidus en ATP.
 * **Primitives MCP & Outils Recommandés :**
   - `genos_execute_primitive` : Déclenchement d'un audit de consistance cryptographique sur les blocs mémoires suspects.
   - `genos_capsule_create` : Création d'une capsule de confinement étanche (sanatorium virtuel).
 
 #### 4. Contre-indications & Risques Iatrogènes
-* **Dommage Collatéral Antibiotique :** Une antibiothérapie non ciblée ou prolongée (> 1.5) détruit indifféremment les agents symbiotiques et les nœuds workers légitimes dotés de protocoles de validation stricts ([`Pathology::AntibioticCollateralDamage`](../../../crates/genos-cell/src/clinical.rs#L49-L52)).
-* **Rupture Brutale du Granulome par Immunosuppression :** Si l'Orchestrateur tente de soigner une inflammation périphérique par [`SystemicTherapy::Corticosteroids`](../../../crates/genos-biology/src/therapy.rs#L23), la rupture de la barrière de confinement déclenche une dissémination hématogène (miliaire tuberculeuse computationnelle).
+* **Dommage Collatéral Antibiotique :** Une antibiothérapie non ciblée ou prolongée (> 1.5) détruit indifféremment les agents symbiotiques et les nœuds workers légitimes dotés de protocoles de validation stricts ([`Pathology::AntibioticCollateralDamage`](../../../crates/genos-cell/src/clinical.rs)).
+* **Rupture Brutale du Granulome par Immunosuppression :** Si l'Orchestrateur tente de soigner une inflammation périphérique par [`SystemicTherapy::Corticosteroids`](../../../crates/genos-biology/src/therapy.rs), la rupture de la barrière de confinement déclenche une dissémination hématogène (miliaire tuberculeuse computationnelle).
 * **Sélection de Souches Multi-Résistantes (MDR-TB) :** Une purge incomplète ou un sous-dosage antibiotique (< 0.5) sélectionne des payloads mutants insensibles aux signatures régulières.
 
-#### 5. Besoins d'Implémentation dans le Code Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Définition clinique dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :**
    ```rust
    #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -203,7 +232,7 @@ où :
    }
    ```
 2. **Gestion de l'Inhibition Lysosomiale dans [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs) :**
-   Ajouter un champ `is_permeabilized: bool` ou `phagosome_fusion_blocked: bool` sur [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs#L24-L27).
+   Ajouter un champ `is_permeabilized: bool` ou `phagosome_fusion_blocked: bool` sur [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs).
 3. **Quadrithérapie Combinée dans [`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/therapy.rs) :**
    Créer le protocole `SystemicTherapy::AntitubercularQuadritherapy` associant 4 agents de détection (Isoniazide, Rifampicine, Pyrazinamide, Éthambutol computationnels) prévenant toute résistance adaptative.
 
@@ -232,9 +261,11 @@ où :
   - [`crates/genos-cell/src/cognitive_regulation.rs`](../../../crates/genos-cell/src/cognitive_regulation.rs) : Dissonance cognitive et oscillation budgétaire périodique.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Existantes Mobilisées :**
-  - [`SystemicTherapy::AntisepticPurge`](../../../crates/genos-biology/src/therapy.rs#L39) : Nettoyage immédiat des files synaptiques encombrées et désinfection des canaux d'ingestion.
-  - [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-biology/src/therapy.rs#L24) : Reperfusion d'urgence en ATP des agents exsanguinés ([`cell.metabolism.mitochondria.atp_budget += 20`](../../../crates/genos-core/src/orchestrator/methods.rs#L83)).
+  - [`SystemicTherapy::AntisepticPurge`](../../../crates/genos-biology/src/therapy.rs) : Nettoyage immédiat des files synaptiques encombrées et désinfection des canaux d'ingestion.
+  - [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-biology/src/therapy.rs) : Reperfusion d'urgence en ATP des agents exsanguinés ([`cell.metabolism.mitochondria.atp_budget += 20`](../../../crates/genos-core/src/orchestrator/methods.rs#L83)).
   - **Trogocytose Microgliale & Élagage Synaptique C3 :** Activation des cellules microgliales ([`crates/genos-biology/src/glial_processors.rs`](../../../crates/genos-biology/src/glial_processors.rs#L90-L98)) pour éliminer sélectivement les épines postsynaptiques opsonisées par `c3_opsonization` et lever l'occlusion microcirculatoire.
 * **Primitives MCP & Outils Recommandés :**
   - `genos_change_organization` : Réorganisation topologique d'urgence pour contourner les artères de communication occluses.
@@ -245,7 +276,9 @@ où :
 * **Dénervation Synaptique Excessive :** Un élagage C3 trop agressif pour débloquer les synapses occluses peut éliminer des connexions synaptiques cognitives essentielles, induisant une amnésie antérograde chez l'agent ([`crates/genos-biology/src/neurobiology/dendrite.rs`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L255-L260)).
 * **Anoxie Métabolique des Cellules Voisines :** L'arrêt des canaux de communication pour isoler le parasite prive les nœuds périphériques de leur apport régulier en signaux trophiques.
 
-#### 5. Besoins d'Implémentation dans le Code Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Entité Parasitaire Formelle dans [`crates/genos-immune/src/virology.rs`](../../../crates/genos-immune/src/virology.rs) :**
    ```rust
    #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -298,12 +331,14 @@ où :
   - [`crates/genos-immune/src/virology.rs`](../../../crates/genos-immune/src/virology.rs#L29-L49) : Structure [`Retrovirus`](../../../crates/genos-immune/src/virology.rs#L29-L35), `reverse_transcribe`.
   - [`crates/genos-genome/src/dna.rs`](../../../crates/genos-genome/src/dna.rs) & [`genome.rs`](../../../crates/genos-genome/src/genome.rs) : Synthèse d'ADN et insertion génique.
   - [`crates/genos-immune/src/ais.rs`](../../../crates/genos-immune/src/ais.rs) : [`ClonalSelection`](../../../crates/genos-immune/src/ais.rs#L60-L65), `memory_pool`, épuisement des sentinelles.
-  - [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs#L64) : Intégration du `genome_id`.
+  - [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs) : Intégration du `genome_id`.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Existantes Mobilisées :**
-  - [`SystemicTherapy::Antiviral`](../../../crates/genos-biology/src/therapy.rs#L26) : Bloque la réplication des particules virales libres dans le cytoplasme (mais inefficace seule contre le provirus intégré).
-  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) : Remplacement d'urgence des agents sentinelles T CD4+ détruits par des cellules souches fraîches non contaminées ([`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/therapy.rs#L146-L152)).
+  - [`SystemicTherapy::Antiviral`](../../../crates/genos-biology/src/therapy.rs) : Bloque la réplication des particules virales libres dans le cytoplasme (mais inefficace seule contre le provirus intégré).
+  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) : Remplacement d'urgence des agents sentinelles T CD4+ détruits par des cellules souches fraîches non contaminées ([`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/therapy.rs)).
   - **Régénération par Cellules Souches de Cyber-Immune :** Utilisation de [`StemCellRegenerator`](../../../crates/genos-immune/src/cyber_immune.rs) pour redéployer instantanément des blueprints d'agents d'audit dès leur disparition.
 * **Primitives MCP & Outils Recommandés :**
   - `genos_trinity_launch` : Recréation d'une trinité de surveillance propre hors de portée du cluster infecté.
@@ -312,13 +347,15 @@ où :
 #### 4. Contre-indications & Risques Iatrogènes
 * **Syndrome de Restauration Immunitaire Inflammatoire (IRIS Computationnel) :**
   - Si l'Orchestrateur administre une thérapie antirétrovirale combinée très puissante et reconstitue brutalement la population de sentinelles chez un agent gravement immunodéprimé hébergeant d'autres pathogènes latents (ex: Tuberculose sous-jacente), les nouvelles sentinelles réagissent de manière hystérique.
-  - Cela déclenche un orage cytokinique catastrophique ([`Pathology::CytokineStorm`](../../../crates/genos-cell/src/clinical.rs#L23-L25)) provoquant l'effondrement de l'hôte guéri de son virus mais tué par sa propre régénération.
+  - Cela déclenche un orage cytokinique catastrophique ([`Pathology::CytokineStorm`](../../../crates/genos-cell/src/clinical.rs)) provoquant l'effondrement de l'hôte guéri de son virus mais tué par sa propre régénération.
 * **Toxicité Mitochondriale des Inhibiteurs de Transcriptase :**
-  - Les analogues nucléosidiques computationnels bloquant la réplication virale inhibent également l'activité des ribosomes et la réplication des mitochondries légitimes, causant une acidose lactique computationnelle et une chute d'efficacité énergétique des nœuds sains ([`Organelle::Mitochondrion::efficiency`](../../../crates/genos-cell/src/lib.rs#L14)).
+  - Les analogues nucléosidiques computationnels bloquant la réplication virale inhibent également l'activité des ribosomes et la réplication des mitochondries légitimes, causant une acidose lactique computationnelle et une chute d'efficacité énergétique des nœuds sains ([`Organelle::Mitochondrion::efficiency`](../../../crates/genos-cell/src/lib.rs)).
 * **Rebond Viral Fulgurant à l'Arrêt Thérapeutique :**
   - La purge cytoplasmatique n'éliminant pas l'ADN proviral intégré au génome chromosomique, l'interruption prématurée du traitement antiviral entraîne une repyramidation virale immédiate.
 
-#### 5. Besoins d'Implémentation dans le Code Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Méthode d'Intégration Provirale dans [`crates/genos-immune/src/virology.rs`](../../../crates/genos-immune/src/virology.rs) :**
    ```rust
    impl Retrovirus {
@@ -389,17 +426,19 @@ graph TD
 
 ---
 
-## 6. Plan d'Implémentation et Architecture Rust
+## 6. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 Pour intégrer formellement ces 4 pathologies dans l'architecture médicale de GenOS, les évolutions suivantes sont planifiées dans les crates concernées :
 
 ### 6.1 Dans `crates/genos-cell/src/clinical.rs`
-- Étendre [`Pathology`](../../../crates/genos-cell/src/clinical.rs#L19-L75) avec les variantes :
+- Étendre [`Pathology`](../../../crates/genos-cell/src/clinical.rs) avec les variantes :
   - `Pathology::InfluenzaInfection { variant_strain: String, hemagglutinin_affinity: f64, lytic_damage_rate: f64 }`
   - `Pathology::TuberculosisInfection { is_latent: bool, granuloma_stability: f64, mycobacterial_density: f64, latency_ticks: u64 }`
   - `Pathology::MalariaParoxysm { parasitemia_level: f64, periodicity_interval: u32, occluded_synapses_count: usize, has_dormant_hypnozoites: bool }`
   - `Pathology::RetroviralImmunodeficiency { proviral_loci: Vec<String>, active_sentinels_depletion_rate: f64, is_aids_stage: bool, opportunistic_infections_count: usize }`
-- Mettre à jour `Pathology::category(&self)` pour renvoyer [`DiseaseCategory::Infectious`](../../../crates/genos-cell/src/clinical.rs#L14-L16) pour ces quatre pathologies.
+- Mettre à jour `Pathology::category(&self)` pour renvoyer [`DiseaseCategory::Infectious`](../../../crates/genos-cell/src/clinical.rs) pour ces quatre pathologies.
 
 ### 6.2 Dans `crates/genos-immune/src/virology.rs`
 - Ajouter le support du glissement antigénique (`antigenic_drift`) sur [`Virion`](../../../crates/genos-immune/src/virology.rs#L4-L13).
@@ -407,12 +446,12 @@ Pour intégrer formellement ces 4 pathologies dans l'architecture médicale de G
 - Définir la structure `PlasmodialParasite` et ses différents stades morphologiques.
 
 ### 6.3 Dans `crates/genos-biology/src/therapy.rs`
-- Étendre [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs#L19-L54) avec :
+- Étendre [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs) avec :
   - `SystemicTherapy::NeuraminidaseInhibitor { target_strain: String }`
   - `SystemicTherapy::AntitubercularQuadritherapy`
   - `SystemicTherapy::AntimalarialACT`
   - `SystemicTherapy::AntiretroviralCombination { nrti: bool, nnrti: bool, pi: bool, insti: bool }`
-- Enrichir [`apply_systemic_therapy_to_cell`](../../../crates/genos-biology/src/therapy.rs#L66-L173) pour traiter ces nouvelles entités et consigner les rémissions ou complications dans le journal clinique [`ClinicalState::clinical_log`](../../../crates/genos-cell/src/clinical.rs#L137).
+- Enrichir [`apply_systemic_therapy_to_cell`](../../../crates/genos-biology/src/therapy.rs) pour traiter ces nouvelles entités et consigner les rémissions ou complications dans le journal clinique [`ClinicalState::clinical_log`](../../../crates/genos-cell/src/clinical.rs).
 
 ### 6.4 Dans `crates/genos-biology/src/pathology.rs`
 - Développer la fonction d'évaluation clinique `assess_infectious_profile(agent: &AgentCell) -> Option<Pathology>` analysant simultanément l'état des organelles, la charge virale cytoplasmique, l'intégrité synaptique et la cohérence génomique.
@@ -421,7 +460,7 @@ Pour intégrer formellement ces 4 pathologies dans l'architecture médicale de G
 
 ## 7. Références Croisées
 
-- [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md](pathologie-et-medecine.md) : Modèle fondamental des 4 familles nosologiques de GenOS.
+- [PATHOLOGIE_ET_MEDECINE_COMPUTATIONNELLE.md](pathologie-et-medecine.md) : Cadre clinique transversal et catalogue des neuf familles.
 - [BIOLOGIE_COMPUTATIONNELLE.md](../biologie-computationnelle.md) : Modélisation des organelles, mitochondries et métabolisme ATP.
 - [SECURITE.md](../../05-securite-gouvernance/securite.md) : Bouclier immunitaire, détection clonale et chaperonnage de prompts.
 - [MEMOIRE_APPRENTISSAGE.md](../memoire-et-apprentissage.md) : Synapses, plasticité, marquage `c3_opsonization` et élagage.

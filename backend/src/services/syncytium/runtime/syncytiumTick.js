@@ -17,10 +17,11 @@ async function processEvent(context) {
   validateIntervals(event, context.options);
   const before = await syncytium.snapshot(sessionId, event?.options || {});
   const result = await stateController.receive(sessionId, event);
-  const after = await syncytium.snapshot(sessionId, event?.options || {});
-  const repair = await repairController.inspect(sessionId, event?.options || {});
-  const repairResult = event?.repairRequest && repair.required
-    ? await repairController.repair(sessionId, event.repairRequest) : null;
+  const observed = await syncytium.snapshot(sessionId, event?.options || {});
+  const assessment = await repairController.inspect(sessionId, event?.options || {});
+  const { after, repair, repairResult } = await repairIfRequested({
+    ...context, after: observed, repair: assessment
+  });
   const materialization = await materializeIfDue({
     sessionId, event, beforeVersion: before.shared.totalOps,
     afterVersion: after.shared.totalOps, materializationController, options: context.options
@@ -28,6 +29,18 @@ async function processEvent(context) {
   return {
     sessionId, result, snapshot: after, repair, repairResult, materialization,
     cycle: CYCLE_STAGES, eventDriven: true
+  };
+}
+
+async function repairIfRequested(context) {
+  const { sessionId, event, syncytium, repairController, after, repair } = context;
+  if (!event?.repairRequest || !repair.required) return { after, repair, repairResult: null };
+  const request = { ...event.repairRequest,
+    options: { ...(event.options || {}), ...(event.repairRequest.options || {}) } };
+  const repairResult = await repairController.repair(sessionId, request);
+  return {
+    after: await syncytium.snapshot(sessionId, event.options || {}),
+    repair: await repairController.inspect(sessionId, event.options || {}), repairResult
   };
 }
 

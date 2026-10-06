@@ -128,13 +128,13 @@ async function persistFor(options) {
 }
 
 function ensureRegistered() {
-  registry.register({ module: 'memory', handle: memoryReceiver });
-  registry.register({ module: 'world_model', handle: worldModelReceiver });
-  registry.register({ module: 'self_model', handle: selfReceiver });
-  registry.register({ module: 'interoception', handle: interoceptionReceiver });
-  registry.register({ module: 'metacognition', handle: metacognitionReceiver });
-  registry.register({ module: 'morphogenesis', handle: morphogenesisReceiver });
-  registry.register({ module: 'daemon', handle: daemonReceiver });
+  registry.register({ module: 'memory', handle: memoryReceiver, default: true });
+  registry.register({ module: 'world_model', handle: worldModelReceiver, default: true });
+  registry.register({ module: 'self_model', handle: selfReceiver, default: true });
+  registry.register({ module: 'interoception', handle: interoceptionReceiver, default: true });
+  registry.register({ module: 'metacognition', handle: metacognitionReceiver, default: true });
+  registry.register({ module: 'morphogenesis', handle: morphogenesisReceiver, default: true });
+  registry.register({ module: 'daemon', handle: daemonReceiver, default: true });
 }
 
 module.exports = { ensureRegistered };

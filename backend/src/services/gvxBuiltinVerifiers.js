@@ -17,6 +17,11 @@ function registerBuiltInVerifiers(registry) {
     description: 'Recomputes GVX somatic assessment rules over independently evidenced metrics.' });
   registry.registerVerifierImplementation({ id: SOMATIC_ID,
     requirements: [SOMATIC_REQUIREMENT], verify: verifySomaticAssessment });
+  const longitudinalId = 'gvx-longitudinal-assessment-v1';
+  trust.registerVerifier({ id: longitudinalId, type: 'benchmark',
+    digest: trust.computeVerifierDigest(longitudinalId, '1.0') });
+  registry.registerVerifierImplementation({ id: longitudinalId,
+    requirements: ['gvx-longitudinal-assessment'], verify: require('./gvxLongitudinalVerifier').verify });
 }
 
 function verifyArtifactIntegrity(input) {
@@ -52,7 +57,17 @@ function matchingMetricProof(proof, input) {
   return proof.requirement === `gvx-somatic-metric:${input.metric}`
     && decision?.metric === input.metric && decision.arm === input.arm
     && decision.mean === estimate?.mean && decision.samples === estimate?.samples
-    && input.refPairs.has(`${proof.artifactHash}\0${proof.verifierId}`);
+    && input.refPairs.has(`${proof.artifactHash}\0${proof.verifierId}`)
+    && metricBindingMatches(decision, input.assessmentInput);
+}
+
+function metricBindingMatches(decision, assessmentInput) {
+  const binding = assessmentInput.binding;
+  if (!binding || !require('./gvxContracts').sameScope(decision.scope, binding.scope)) return false;
+  if (binding.applicationId && !monitorBindingMatches(decision,binding)) return false;
+  return decision.parentHash === binding.parentHash && decision.candidateHash === binding.candidateHash
+    && decision.profileId === binding.profileId && decision.contextHash === binding.contextHash
+    && decision.suiteHash === assessmentInput.baseline.suiteHash;
 }
 
 function hasMetricArmProof(input) {
@@ -84,9 +99,14 @@ function verifySomaticAssessment(input) {
       === require('./epistemicAssuranceService').digest(artifact.assessment);
     return { verified: same && artifact.assessment.promotionAllowed === false,
       evidenceClass: 'gvx_somatic_assessment_semantics',
-      businessDecision: { assessmentStatus: artifact.assessment.status } };
+      businessDecision: { assessmentStatus: artifact.assessment.status, binding: artifact.assessmentInput.binding } };
   } catch (_) { return { verified: false, reason: 'somatic-assessment-rules-invalid' }; }
 }
 
 module.exports = { IMPLEMENTATION_ID, REQUIREMENT, SOMATIC_ID, SOMATIC_REQUIREMENT,
-  registerBuiltInVerifiers, verifyArtifactIntegrity, verifySomaticAssessment };
+  registerBuiltInVerifiers, verifyArtifactIntegrity, verifySomaticAssessment, conservativeSomaticProfile };
+
+function monitorBindingMatches(decision,binding) {
+  return decision.applicationId===binding.applicationId&&decision.observationId===binding.observationId
+    &&decision.isolationId===`${binding.applicationId}:${binding.observationId}:${decision.arm}`;
+}

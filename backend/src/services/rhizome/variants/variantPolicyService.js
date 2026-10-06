@@ -129,36 +129,23 @@ function list() {
   return Object.keys(PROFILES);
 }
 
+const FIT_RULES = [
+  ['private', 'PRIVACY_OR_TRUST_BOUNDARY', input => input.privateOnly === true || input.privacyRequired === true || input.trustDomainRestricted === true],
+  ['persistent', 'PERSISTENT_SCOPE_REQUIRED', input => input.persistentRequired === true || ['workspace', 'project', 'persistent'].includes(input.scope)],
+  ['ephemeral', 'EPHEMERAL_SCOPE_REQUIRED', input => input.ephemeralRequired === true || input.temporaryPatch === true],
+  ['cross_representation', 'CROSS_REPRESENTATION_BRIDGE_REQUIRED', input => input.bridgeRequired === true || Number(input.representationCount) > 1],
+  ['procedural', 'VERIFIED_PROCEDURE_REQUIRED', input => input.procedureRequired === true || input.workflowRequired === true],
+  ['small_world', 'SHORT_PATH_REQUIREMENT', input => input.lowLatencyRequired === true || Number(input.maxHops) > 0 && Number(input.maxHops) <= 3],
+  ['growth', 'NETWORK_EXPANSION_REQUIRED', input => input.networkGrowthRequired === true || input.newNodesExpected === true],
+  ['resilient', 'ROUTE_FAILURES', input => input.routeFailures > 0],
+  ['sparse', 'BUDGET_CONSTRAINT', input => input.budgetTight === true],
+  ['exploratory', 'CAPABILITY_UNCERTAINTY', input => input.unknownCapabilities > 0],
+  ['self_healing', 'AUTOMATIC_REPAIR_REQUIRED', input => input.autoRepairRequired === true]
+];
+
 function analyzeFit(input = {}) {
-  if (input.privateOnly === true || input.privacyRequired === true || input.trustDomainRestricted === true) {
-    return { variant: 'private', reason: 'PRIVACY_OR_TRUST_BOUNDARY' };
-  }
-  if (input.persistentRequired === true || ['workspace', 'project', 'persistent'].includes(input.scope)) {
-    return { variant: 'persistent', reason: 'PERSISTENT_SCOPE_REQUIRED' };
-  }
-  if (input.ephemeralRequired === true || input.temporaryPatch === true) {
-    return { variant: 'ephemeral', reason: 'EPHEMERAL_SCOPE_REQUIRED' };
-  }
-  if (input.bridgeRequired === true || Number(input.representationCount) > 1) {
-    return { variant: 'cross_representation', reason: 'CROSS_REPRESENTATION_BRIDGE_REQUIRED' };
-  }
-  if (input.procedureRequired === true || input.workflowRequired === true) {
-    return { variant: 'procedural', reason: 'VERIFIED_PROCEDURE_REQUIRED' };
-  }
-  if (input.lowLatencyRequired === true || (Number(input.maxHops) > 0 && Number(input.maxHops) <= 3)) {
-    return { variant: 'small_world', reason: 'SHORT_PATH_REQUIREMENT' };
-  }
-  if (input.networkGrowthRequired === true || input.newNodesExpected === true) {
-    return { variant: 'growth', reason: 'NETWORK_EXPANSION_REQUIRED' };
-  }
-  if (input.routeFailures > 0) return { variant: 'resilient', reason: 'ROUTE_FAILURES' };
-  if (input.budgetTight === true) return { variant: 'sparse', reason: 'BUDGET_CONSTRAINT' };
-  if (input.unknownCapabilities > 0) return { variant: 'exploratory', reason: 'CAPABILITY_UNCERTAINTY' };
-  if (input.autoRepairRequired === true) return { variant: 'self_healing', reason: 'AUTOMATIC_REPAIR_REQUIRED' };
-  if (input.privateOnly === true || input.privacyRequired === true || input.trustDomainRestricted === true) {
-    return { variant: 'private', reason: 'PRIVACY_OR_TRUST_BOUNDARY' };
-  }
-  return { variant: 'routing', reason: 'STABLE_ROUTING_NEED' };
+  const match = FIT_RULES.find(rule => rule[2](input));
+  return match ? { variant: match[0], reason: match[1] } : { variant: 'routing', reason: 'STABLE_ROUTING_NEED' };
 }
 
 function selectForMission(mission, context = {}) {

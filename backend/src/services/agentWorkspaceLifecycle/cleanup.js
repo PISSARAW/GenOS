@@ -6,6 +6,7 @@ const { runCommand, withGitRepoLock } = require('./git');
 const { bestEffort } = require('./support');
 const { CLEANUP_RETRY_DELAY_MS, RUNTIME_DIR_NAME, gcDelayMs } = require('./constants');
 const { ensureEpochMarker, readEpochMarker, isAgentRuntimeAlive } = require('./epoch');
+const { getDatabase } = require('../../db');
 
 const activeWorktrees = new Map();
 
@@ -186,13 +187,18 @@ async function cleanupWorkspace(workspaceRoot, agentId = null, options = {}) {
 function createReclaimer(agentId, tracked, retries) {
   return async () => {
     try {
+      const db = await getDatabase();
+      if (await require('../garageCapsuleRetention').retained(db, agentId)) {
+        tracked.scheduled = false;
+        setTimeout(() => scheduleWorkspaceCleanup(agentId, 0, retries), CLEANUP_RETRY_DELAY_MS).unref();
+        return { agentId, workspaceRoot: tracked.workspaceRoot, via: 'garage-capture-pending' };
+      }
       const via = await cleanupWorkspace(tracked.workspaceRoot, agentId, { expectedEpoch: tracked.epoch });
       if (via === 'epoch-mismatch' || via === 'worktree-remove-failed') {
         tracked.scheduled = false;
         return { agentId, workspaceRoot: tracked.workspaceRoot, via };
       }
       activeWorktrees.delete(agentId);
-      const db = await getDatabase();
       await ensureCleanupTable(db);
       await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
       return { agentId, workspaceRoot: tracked.workspaceRoot, via };

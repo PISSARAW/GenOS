@@ -38,11 +38,24 @@ async function appendEvent(db, event) {
   const errors = validateEvent(event);
   if (errors.length) throw Object.assign(new Error(errors.join(',')), { code: 'GVX_EVENT_INVALID', errors });
   const scope = { organizationId: event.organizationId, projectId: event.projectId, entityId: event.entityId };
-  const chain = await verifyLedgerChain(db, scope);
-  assertValidChain(chain);
-  const row = buildRow(event, chain.headHash);
-  await insertRow(db, row);
-  return getEvent(db, row.id, scope);
+  const identified = { ...event, id: event.id || randomUUID() };
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const prior = await getEvent(db, identified.id, scope);
+    if (prior) return validateDuplicate(prior, identified);
+    const chain = await verifyLedgerChain(db, scope);
+    assertValidChain(chain);
+    const row = buildRow(identified, chain.headHash);
+    if (await insertRow(db, row)) return getEvent(db, row.id, scope);
+  }
+  throw Object.assign(new Error('GVX ledger append contention.'), { code: 'GVX_LEDGER_RETRYABLE' });
+}
+
+function validateDuplicate(prior, event) {
+  const fields = ['type', 'parentHash', 'candidateHash'];
+  const same = fields.every((key) => (prior[key] || null) === (event[key] || null))
+    && JSON.stringify(prior.payload) === JSON.stringify(event.payload);
+  if (!same) throw Object.assign(new Error('GVX event identity conflict.'), { code: 'GVX_EVENT_CONFLICT' });
+  return prior;
 }
 
 function buildRow(event, previousEventHash) {
@@ -56,12 +69,17 @@ function buildRow(event, previousEventHash) {
 }
 
 async function insertRow(db, row) {
-  await db.run(`INSERT INTO gvx_development_events
+  const result = await db.run(`INSERT OR IGNORE INTO gvx_development_events
     (id, organization_id, project_id, entity_id, event_type, parent_hash, candidate_hash,
       payload_json, previous_event_hash, event_hash, control_plane_mac, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, row.id, row.organizationId, row.projectId,
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE COALESCE((SELECT event_hash FROM gvx_development_events
+      WHERE organization_id = ? AND project_id = ? AND entity_id = ? ORDER BY rowid DESC LIMIT 1), ?) = ?`,
+  row.id, row.organizationId, row.projectId,
   row.entityId, row.type, row.parentHash, row.candidateHash, row.payloadJson,
-  row.previousEventHash, row.eventHash, row.controlPlaneMac, row.createdAt);
+  row.previousEventHash, row.eventHash, row.controlPlaneMac, row.createdAt,
+  row.organizationId, row.projectId, row.entityId, integrity.GENESIS_HASH, row.previousEventHash);
+  return result.changes === 1;
 }
 
 async function getEvent(db, id, scope) {
@@ -71,9 +89,14 @@ async function getEvent(db, id, scope) {
 }
 
 async function listEvents(db, query) {
+  const events = await listAllEvents(db, query);
+  return events.slice(0, boundedLimit(query.limit));
+}
+
+async function listAllEvents(db, query) {
   const rows = await readScopeEvents(db, query);
   assertValidChain(integrity.verifyRows(rows, secretOptions()));
-  return rows.slice(0, boundedLimit(query.limit)).map(parsePayload);
+  return rows.map(parsePayload);
 }
 
 async function verifyLedgerChain(db, scope) {
@@ -112,5 +135,5 @@ function boundedLimit(limit) {
   return Math.min(2000, Math.max(1, parsed));
 }
 
-module.exports = { EVENT_TYPES, validateEvent, appendEvent, getEvent, listEvents,
+module.exports = { EVENT_TYPES, validateEvent, appendEvent, getEvent, listEvents, listAllEvents,
   verifyLedgerChain, boundedLimit };

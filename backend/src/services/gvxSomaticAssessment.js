@@ -76,6 +76,7 @@ function assessSomaticCandidate(input) {
 async function recordSomaticAssessment(db, input) {
   const assessment = assessSomaticCandidate(input);
   return appendEvent(db, {
+    id: input.eventId,
     organizationId: input.scope.organizationId,
     projectId: input.scope.projectId,
     entityId: input.entityId,
@@ -84,7 +85,7 @@ async function recordSomaticAssessment(db, input) {
     candidateHash: input.candidateHash,
     payload: { kind: 'somatic_assessment', assessment, profile: input.profile,
       assessmentInput: { baseline: input.baseline, candidate: input.candidate,
-        profile: input.profile, evidenceRefs: input.evidenceRefs } }
+        profile: input.profile, evidenceRefs: input.evidenceRefs, binding: input.binding } }
   });
 }
 

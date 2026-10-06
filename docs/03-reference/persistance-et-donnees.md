@@ -54,6 +54,19 @@ Le singleton et la promesse `dbInitialization` empêchent deux bootstraps simult
 
 ## 3. Schéma SQLite
 
+### État Axolotl versionné
+
+`axolotlStateStore.ensure()` crée les tables `axolotl_state` et `axolotl_evidence`
+de façon idempotente à leur utilisation. La première stocke des documents JSON
+par couple `(kind, id)` avec une version : topologies, sessions, plasticité,
+observations et messages. La seconde conserve les preuves des essais avec leurs
+empreintes. Les changements liés utilisent une transaction et une comparaison
+de version ; une adoption concurrente ou un rollback sur une génération dépassée
+est refusé. Propriété de l’orchestrateur et workspace courant sont contrôlés
+à l’accès aux sessions et à la topologie. Les anciennes maps adaptatives
+restent des archives et ne valent pas admission native. Voir la
+[référence Axolotl](axolotl-regeneration.md) pour les états et conditions de reprise.
+
 ### 3.1 Familles de données
 
 Le schéma est distribué entre `schema-tables-core.js` et `schema-tables-extensions.js`. Les familles principales sont :
@@ -68,6 +81,7 @@ Le schéma est distribué entre `schema-tables-core.js` et `schema-tables-extens
 | Gouvernance | `provider_configs`, `agent_model_routing_policies`, `platform_approvals` |
 | Mémoire des requêtes (ADR 0046) | `request_problems`, `request_results` |
 | Biologie opérationnelle | `cryptobiosis_snapshots`, plasmids, décisions génomiques et synapses |
+| Régénération Axolotl | `axolotl_state`, `axolotl_evidence` ; promotion L0 dans `learned_traits` |
 | Archives terminales | `fossils`, `fossil_strata` |
 
 Les colonnes JSON telles que `metadata_json`, `state_json`, `payload_json`, `config_json` et `result_json` servent à conserver des données extensibles sans multiplier les migrations pour chaque attribut périphérique. `cryptobiosis_snapshots` conserve les colonnes JSON historiques et possède aussi `state_blob`/`metadata_blob`, ajoutées par migration. `cryptobiosisSporeService.js` fournit un codec MessagePack indépendant en mémoire ; il ne réalise pas le cycle de persistance de ces colonnes. Les termes vitrification, tréhalose et germination sont des noms de modèle logiciel, pas des processus biologiques. Les clés et les filtres de scope restent relationnels lorsque l'isolation, les jointures ou les performances l'exigent.
@@ -351,6 +365,34 @@ Cette persistance garantit une reprise opérationnelle, mais pas une transaction
 
 Par exemple, [backend/proto/schema.proto](../../backend/proto/schema.proto) fournit un service de validation de schéma via `schema_name` et `data_json`; [spec/genome.schema.json](../../spec/genome.schema.json) impose `apiVersion`, `kind`, `metadata`, `identity`, `cognition`, `memory`, `models` et `tools` pour un génome. Les structures Rust correspondantes utilisent `Serialize` et `Deserialize` pour conserver un contrat de données lisible et versionnable.
 
+### 11.1.a Profils physiques du runtime Rust
+
+Le [magasin de profils physiques](../../crates/genos-orchestrator/src/physical_store.rs)
+réutilise `SnapshotStore` sous `<workspace>/.genos/physical-profiles/`.
+Ce stockage local du runtime Rust est distinct du faisceau SQLite du backend.
+
+| Champ | Contrat |
+| --- | --- |
+| Enveloppe | `genos.physical-profile/v2`, mission et profil validés |
+| Identité | `physics/<mission>` pour les cinq types stables de `Goal` |
+| Écriture | Nouveau snapshot à la fin d'un `run()` ayant exécuté une action |
+| Lecture | Automatique à la première décision pour une racine de workspace |
+| Reprise | Profil valide le plus récent ; snapshot invalide signalé puis ancien profil valide recherché |
+| Compatibilité | Les anciens exports `DirectorState` restent lisibles sans inventer d'échantillons |
+
+Le chargement refuse les liens symboliques, les fichiers non réguliers,
+les fichiers de plus de 2 Mo et les répertoires de plus de 10 000 entrées.
+Une erreur de stockage est exposée dans les diagnostics et
+`PHYSICAL_CALIBRATION` ; les constantes disponibles restent utilisables.
+Changer de racine réinitialise les profils en mémoire du workspace précédent.
+
+Ces snapshots sont des données locales générées à conserver lors d'une
+sauvegarde du workspace ; ils ne doivent pas être commités dans Git.
+Les observations de coût et les constantes bornées ne constituent pas une
+preuve de réussite métier. Voir la
+[fiche de physique](../01-concepts/physique-computationnelle.md) et
+l'[ADR 0327](../adr/0327-mesures-et-calibration-physique.md).
+
 ### 11.2 Règles de compatibilité
 
 Pour préserver la compatibilité :
@@ -550,7 +592,7 @@ Cette migration crée les colonnes `BLOB` manquantes via `ALTER TABLE ... ADD CO
 
 ### 16.1 Règle d'autorité
 
-SQLite est la seule vérité canonique. LadybugDB (graphe), DuckDB (analytique), LanceDB (vecteurs, candidat) et FTS5/`sqlite-vec` (recherche) sont des **projections reconstruisibles** : leur destruction ne fait perdre aucune donnée, `rebuild` les régénère depuis SQLite. Un transport réussi ne prouve jamais une décision valide : un événement inconnu est enregistré en échec (`UNSUPPORTED_EVENT`), jamais marqué projeté silencieusement.
+Dans le faisceau polyglotte du backend, SQLite est la vérité canonique. LadybugDB (graphe), DuckDB (analytique), LanceDB (vecteurs, candidat) et FTS5/`sqlite-vec` (recherche) sont des **projections reconstruisibles** : leur destruction ne fait perdre aucune donnée, `rebuild` les régénère depuis SQLite. Un transport réussi ne prouve jamais une décision valide : un événement inconnu est enregistré en échec (`UNSUPPORTED_EVENT`), jamais marqué projeté silencieusement.
 
 ### 16.2 Faisceau de données
 

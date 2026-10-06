@@ -1,13 +1,13 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const specValidator = require('./specValidator');
+const schemaCheck = require('./cognitiveOmegaSchemaCheck');
 const trust = require('./verifierTrustRegistry');
 const adapters = require('./epistemic/verifierAdapters');
 const { issueReceipt, validateReceipt } = require('./epistemicVerifierReceiptService');
 
 const TYPES = ['test', 'reproducer', 'schema', 'smt', 'lean', 'aeis', 'shev', 'receipt'];
-const INTENT_TYPES = Object.freeze({ test: 'test', reproducer: 'reproducer', aeis: 'aeis', receipt: 'receipt' });
+const INTENT_TYPES = Object.freeze(Object.fromEntries(TYPES.map((type) => [type, type])));
 
 function digest(value) {
   return `sha256:${crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex')}`;
@@ -43,8 +43,8 @@ async function checkTest(candidate, descriptor, context) {
 }
 
 function checkSchema(candidate, descriptor) {
-  const result = specValidator.validateSpec(descriptor.schema, candidate);
-  return statusResult(result.valid ? 'verified' : 'refuted', [{ step: 'schema:validate', result }], {
+  const result = schemaCheck.validate(candidate, descriptor);
+  return statusResult(result.unavailable ? 'inconclusive' : result.valid ? 'verified' : 'refuted', [{ step: 'schema:validate', result }], {
     counterexamples: result.errors || [], schema: result.schema });
 }
 
@@ -52,7 +52,10 @@ async function checkCommand(descriptor, runner) {
   if (!descriptor.command) return statusResult('inconclusive', [], { reason: 'verification_command_missing' });
   const result = await runner({ command: descriptor.command, cwd: descriptor.cwd,
     timeoutMs: descriptor.timeoutMs });
-  return statusResult(result.success ? 'verified' : 'refuted', [{ step: `${descriptor.type}:execute`, result }], {
+  const verdict = String(result.stdout || '').trim();
+  const status = result.success && verdict === 'unsat' ? 'verified'
+    : result.success && verdict === 'sat' ? 'refuted' : 'inconclusive';
+  return statusResult(status, [{ step: `${descriptor.type}:execute`, result }], {
     execution: result });
 }
 

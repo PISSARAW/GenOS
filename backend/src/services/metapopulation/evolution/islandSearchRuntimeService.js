@@ -93,6 +93,8 @@ function islandElitePropagule(state, target, targetDemeId) {
     lowerBound: state.lowerBound,
     upperBound: state.upperBound,
     counterexampleRefs: target.counterexampleRefs || [],
+    expectedReceiverGain: target.expectedReceiverGain, transferCost: target.transferCost,
+    assimilationRisk: target.assimilationRisk, homogenizationRisk: target.homogenizationRisk,
   };
 }
 

@@ -7,6 +7,8 @@ const ROLE_COLORS = {
 const typedCrdt = require('./syncytiumCrdtTypeRegistry');
 const causalClock = require('./syncytium/causality/causalClockService');
 const versionVectors = require('./syncytium/causality/versionVectorService');
+const { orderOperations: orderOps } = require('./syncytium/causality/causalReplayService');
+const operationIdentity = require('./syncytium/causality/operationIdentity');
 
 function roleColor(role) {
   return ROLE_COLORS[role] || '#06b6d4';
@@ -74,18 +76,6 @@ function updateCursor(state, op) {
   };
 }
 
-// Deterministic total order for replay: time first, then Lamport clock, then
-// stable identity tie-breakers. Without this, two replicas that receive the
-// same ops in a different order replay them differently and diverge.
-function orderOps(ops) {
-  return [...ops].sort((a, b) =>
-    (a.timestampMs - b.timestampMs) ||
-    (a.lamport - b.lamport) ||
-    String(a.agentId).localeCompare(String(b.agentId)) ||
-    String(a.opId).localeCompare(String(b.opId))
-  );
-}
-
 function updateInvariant(state, op) {
   if (op.kind?.type !== 'check_invariant') return;
   state.invariants[op.kind.name] = {
@@ -110,6 +100,7 @@ class SyncytiumCrdt {
     this.opLog = [];
     this.lamportClock = 0;
     this.appliedOpIds = new Set();
+    this.operationDigests = new Map();
     this.causalFrontier = {};
     this.checkpointState = emptyState();
     this.compactedOpCount = 0;
@@ -119,11 +110,14 @@ class SyncytiumCrdt {
   }
 
   applyOp(op) {
+    op = structuredClone(op);
+    const digest = operationIdentity.digest(op);
     const opId = typeof op.opId === 'string' ? op.opId.trim() : '';
-    if (opId && this.appliedOpIds.has(opId)) return this.getSnapshot();
+    if (opId && this.assertDuplicateOperation(op)) return this.getSnapshot();
     const previousLamport = this.lamportClock;
     const previousFrontier = this.causalFrontier;
     const causalOperation = causalClock.record(op, this.causalFrontier);
+    this.assertFreshDot(causalOperation);
     // Lamport receive rule: advance the local clock past any remote timestamp,
     // then stamp local events with max(local, remote) + 1. A remote op keeps
     // its own stamp.
@@ -138,15 +132,21 @@ class SyncytiumCrdt {
     }
     // `??` so an explicit 0 timestamp is honored instead of replaced.
     const timestampMs = op.timestampMs ?? Date.now();
-    const recordedOp = { ...causalOperation, ...(opId ? { opId } : {}), lamport, timestampMs };
+    const recordedOp = structuredClone({ ...causalOperation, ...(opId ? { opId } : {}), lamport, timestampMs });
     this.opLog.push(recordedOp);
     this.causalFrontier = versionVectors.merge(this.causalFrontier, recordedOp.versionVector);
-    if (opId) this.appliedOpIds.add(opId);
+    if (opId) {
+      this.appliedOpIds.add(opId);
+      this.operationDigests.set(opId, digest);
+    }
     try {
       return this.getSnapshot();
     } catch (error) {
       this.opLog.pop();
-      if (opId) this.appliedOpIds.delete(opId);
+      if (opId) {
+        this.appliedOpIds.delete(opId);
+        this.operationDigests.delete(opId);
+      }
       this.lamportClock = previousLamport;
       this.causalFrontier = previousFrontier;
       throw error;
@@ -155,6 +155,22 @@ class SyncytiumCrdt {
 
   hasOpId(opId) {
     return this.appliedOpIds.has(String(opId || '').trim());
+  }
+
+  assertFreshDot(operation) {
+    const { actorId, sequence } = operation.dot;
+    const reused = sequence <= (this.compactedFrontier[actorId] || 0)
+      || this.opLog.some((item) => item.dot.actorId === actorId && item.dot.sequence === sequence);
+    if (reused) throw Object.assign(new Error('An actor sequence cannot identify two operations.'), {
+      code: 'SYNCYTIUM_CAUSAL_DOT_REUSED'
+    });
+  }
+
+  assertDuplicateOperation(operation) {
+    const opId = String(operation.opId || '').trim();
+    if (!this.hasOpId(opId)) return false;
+    operationIdentity.assertSame(this.operationDigests.get(opId), operation);
+    return true;
   }
 
   getCausalFrontier() {
@@ -170,6 +186,8 @@ class SyncytiumCrdt {
   serialize() {
     return {
       checkpointState: cloneState(this.checkpointState),
+      lamportClock: this.lamportClock,
+      operationDigests: Object.fromEntries(this.operationDigests),
       compactedOpCount: this.compactedOpCount,
       compactedThroughTimestampMs: this.compactedThroughTimestampMs,
       compactedFrontier: { ...this.compactedFrontier },
@@ -186,7 +204,8 @@ class SyncytiumCrdt {
     this.compactedOpIds = new Set(serialized.compactedOpIds || []);
     this.opLog = [];
     this.appliedOpIds = new Set(this.compactedOpIds);
-    this.lamportClock = 0;
+    this.operationDigests = new Map(Object.entries(serialized.operationDigests || {}));
+    this.lamportClock = Number(serialized.lamportClock) || checkpointLamport(this.checkpointState);
     this.causalFrontier = { ...this.compactedFrontier };
     for (const operation of serialized.operations || []) this.applyOp(operation);
     return this.getSnapshot();
@@ -225,7 +244,7 @@ class SyncytiumCrdt {
     let replayed = 0;
 
     for (const op of orderOps(this.opLog)) {
-      if (targetMs !== null && op.timestampMs > targetMs) continue;
+      if (targetMs !== null && (op.timestampMs > targetMs || !causalClock.available(op, state.causalFrontier))) continue;
       if (maxOps !== null && replayed >= maxOps - this.compactedOpCount) break;
       applied += 1;
       replayed += 1;
@@ -266,8 +285,20 @@ class SyncytiumCrdt {
   }
 
   getHistory() {
-    return [...this.opLog];
+    return structuredClone(this.opLog);
   }
+}
+
+function checkpointLamport(state) {
+  const pending = [state];
+  let maximum = 0;
+  while (pending.length) {
+    const value = pending.pop();
+    if (!value || typeof value !== 'object') continue;
+    if (Number.isSafeInteger(value.lamport)) maximum = Math.max(maximum, value.lamport);
+    pending.push(...Object.values(value).filter((item) => item && typeof item === 'object'));
+  }
+  return maximum;
 }
 
 function operationIsStable(operation, frontier) {

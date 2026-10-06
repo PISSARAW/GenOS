@@ -48,18 +48,22 @@ async function backfillLegacyChain(db) {
 }
 
 function verifyMigratedChain(rows) {
-  const result = integrity.verifyRows(rows, { secret: process.env.GENOS_GVX_LEDGER_HMAC_SECRET || undefined });
-  if (!result.valid) throw chainMigrationError(result.reason);
+  for (const group of scopedRows(rows).values()) {
+    const result = integrity.verifyRows(group, { secret: process.env.GENOS_GVX_LEDGER_HMAC_SECRET || undefined });
+    if (!result.valid) throw chainMigrationError(result.reason);
+  }
 }
 
 async function writeLegacyHashes(db, rows) {
-  let previous = integrity.GENESIS_HASH;
+  const heads = new Map();
   for (const row of rows) {
+    const key = JSON.stringify([row.organizationId,row.projectId,row.entityId]);
+    const previous = heads.get(key) || integrity.GENESIS_HASH;
     const eventHash = integrity.hashEvent(previous, row);
     const mac = integrity.macEvent(eventHash);
     await db.run(`UPDATE gvx_development_events SET previous_event_hash = ?, event_hash = ?,
       control_plane_mac = ? WHERE rowid = ?`, previous, eventHash, mac, row.rowId);
-    previous = eventHash;
+    heads.set(key,eventHash);
   }
 }
 
@@ -79,3 +83,13 @@ function chainMigrationError(reason) {
 }
 
 module.exports = { migrateGvxLedger };
+
+function scopedRows(rows) {
+  const groups=new Map();
+  for(const row of rows){
+    const key=JSON.stringify([row.organizationId,row.projectId,row.entityId]);
+    const group=groups.get(key)||[];
+    group.push(row);groups.set(key,group);
+  }
+  return groups;
+}

@@ -126,7 +126,7 @@ impl Concept {
 }
 
 /// Buts de mission.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Goal {
     SecurePerimeter,
     RecoverAgent,
@@ -146,12 +146,13 @@ impl Goal {
             Self::RepairModule => "repair-module",
             Self::Explore => "explore",
             Self::Conserve => "conserve",
-        }.to_string()
+        }
+        .to_string()
     }
 }
 
 /// État du monde observable (extrait de l'écosystème ou simulé).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WorldState {
     pub budget: f64,
     pub threat: f64,

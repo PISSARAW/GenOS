@@ -2,13 +2,17 @@
 
 - **Statut** : Partiel
 - **Portée** : propositions, expériences, preuves, interoception, plasticité somatique, transmission et intégration aux outcomes AGOW.
-- **Dernière revue** : 2026-10-02
+- **Dernière revue** : 2026-10-06
 
 > **Règle de lecture.** « Implémenté » signifie qu'un contrat existe dans le dépôt ; cela ne prouve ni son efficacité empirique ni la complétude du cycle développemental. « Partiel » désigne une capacité dont l'adaptateur, la validation indépendante ou l'intégration métier manque encore. Les analogies biologiques restent des modèles de conception.
 
+## Parcours standard exécutable
+
+Le [profil standard AGOW](../02-orchestration/profil-execution-gvx.md) fournit l’évaluation séparée, les mesures signées, l’application autorisée, le monitoring longitudinal puis le crédit et la reprise durable. Le service charge un évaluateur fixe de confiance et des politiques déclaratives préapprouvées. La [validation du cycle standard](../06-qualite-preuves/validation-cycle-standard-gvx.md) rapporte 21 fichiers de tests passés au commit `ac3423cb` ; elle ne constitue pas une campagne empirique.
+
 ## 1. Définition du domaine
 
-GenOS Verified Evo-Devo (GVX) est la couche qui formule, expérimente, trace et soumet à contrôle des transformations de compétences ou de dispositions d'un agent. Elle relie les événements d'expérience aux candidats de changement, puis confronte ces candidats à des résultats vérifiables avant toute application ou transmission (**Partiel** — services présents dans `backend/src/services/gvx*.js`, mais le parcours complet et ses campagnes empiriques ne sont pas livrés ; voir [plan d'implémentation GVX](../06-qualite-preuves/plan-implementation-gvx.md)).
+GenOS Verified Evo-Devo (GVX) est la couche qui formule, expérimente, trace et soumet à contrôle des transformations de compétences ou de dispositions d'un agent. Elle relie les événements d'expérience aux candidats de changement, puis confronte ces candidats à des résultats vérifiables avant toute application ou transmission (**Partiel** — services présents dans `backend/src/services/gvx*.js`, avec un parcours standard complet pour les politiques AGOW ; les autres domaines et les campagnes empiriques restent explicitement bornés ; voir [plan d'implémentation GVX](../06-qualite-preuves/plan-implementation-gvx.md)).
 
 GVX sépare cinq opérations qui ne doivent pas être confondues :
 
@@ -46,7 +50,7 @@ Les niveaux de preuve restent distincts :
 | `empirically_supported` | claim de compétence soutenu par outcome vérifié et référence cohérente | afficher une compétence soutenue, sans en déduire une promotion générale |
 | `inconclusive` | couverture, échantillons ou exigences insuffisants | demander davantage d'observations/essais |
 
-Pour un reçu `r`, la revendication vérifiée lie au minimum l'organisation, le projet, l'entité, l'identifiant de reçu, la voie, le contexte, le succès, l'erreur de prédiction, la récompense et les hashes d'artefacts. La signature doit provenir d'un vérificateur enregistré et le reçu doit déclarer `status: verified` et `independent: true` (**Implémenté** — `developmentReceiptVerifier.js`). Un doublon de reçu ne produit pas de crédit supplémentaire.
+Pour un reçu `r`, la revendication vérifiée lie au minimum l'organisation, le projet, l'entité, l'agent, l'identifiant de reçu, la voie, le contexte, le succès, l'erreur de prédiction, la récompense et les hashes d'artefacts. La signature doit provenir d'un vérificateur enregistré et le reçu doit déclarer `status: verified` et `independent: true` (**Implémenté** — `developmentReceiptVerifier.js`). Un doublon de reçu ne produit pas de crédit supplémentaire. Sur le chemin standard, le service recoupe aussi l’application et la politique courante avec la base runtime en lecture seule ; il consomme durablement un claim par scope, profil et application. Modifier l’identifiant de reçu ou ajouter des preuves ne permet pas de recréditer cette application.
 
 Le compteur de consolidation est par voie et contexte. Trois reçus ne sont distincts que si leurs identifiants sont distincts et chacun a passé la validation indépendante ; rejouer un reçu déjà revendiqué est idempotent et ne fait pas progresser le seuil (**Implémenté** — `gvxToAgowReceiptAdapter.js`).
 
@@ -61,7 +65,7 @@ Les termes « somatique », « germinal », « compétence », « fitness » et 
 ## 4. Cas d'usage et objectifs
 
 - **Apprentissage ciblé** : agréger des erreurs de prédiction, échecs et tâches futures pour proposer des lacunes de compétence bornées (**Implémenté** — `gvxLearningGapDetector.js`). Une autorité externe doit permettre chaque but de fond ; le plan est limité à un coût et un pas par but et retourne `autonomousExecution: false`.
-- **Comparaison d'une transformation** : exécuter des bras depuis le même snapshot, avec contrôles et budget appariés, et exiger les requirements de preuve (**Implémenté** pour le protocole ; **Partiel** pour la garantie d'isolation physique, qui appartient à l'adaptateur hôte).
+- **Comparaison d'une transformation** : exécuter des bras avec parent, contrôles et budget appariés, et exiger les requirements de preuve (**Implémenté** pour les profils standard AGOW : processus et répertoires distincts matérialisés depuis le manifeste de sources épinglé ; les adaptateurs personnalisés portent leurs propres garanties d’isolation).
 - **Adaptation somatique** : évaluer un candidat contre une baseline, exiger une autorisation pour l'appliquer, vérifier le reçu runtime et permettre rollback (**Implémenté** au niveau du contrat d'adaptateur ; validation de robustesse métier encore partielle).
 - **Monitoring longitudinal** : observer une application sur plusieurs fenêtres et contextes ; enregistrer la régression et interrompre sur rejet (**Implémenté** par le moniteur ; preuves d'indépendance statistique et réplication externe restent à établir).
 - **Transmission contrôlée** : placer un artefact en quarantaine et faire avancer un cycle d'essai, revue, assimilation et monitoring uniquement avec preuves vérifiées (**Partiel** — lifecycle présent ; évaluation métier du receveur et consolidation intergénérationnelle restent à réaliser).
@@ -75,7 +79,7 @@ L'adaptateur AGOW exige un scope explicite, une entité, un identifiant source e
 
 Les trajectoires runtime transmettent le scope organisation/projet de la mission ; le résolveur le compare au workspace persistant de l'agent. Sans scope complet ou en cas de désaccord, la trajectoire reste enregistrée et aucune publication GVX n'est tentée (**Implémenté** — `agow/agowRuntimeIngressService.js`, `agow/proceduralization/cognitiveTrajectoryService.js`, `developmentalScopeResolver.js`).
 
-Après chaque signal, `gvxDevelopmentController` compte les événements source distincts de même type et voie, puis persiste une action proposée (`observe`, `create_hypothesis` ou `schedule_experiment`). Les signaux gardent le statut `reported`. `runCycle()` sait enchaîner proposition, nursery, évaluation, reçu de développement vérifié, crédit AGOW, application autorisée et monitoring. Il requiert des adapters de planification et de contrôle fournis par l'hôte ; le runtime standard ne les fournit pas encore (**Partiel** — classification et accumulation raccordées, cycle complet conditionnel).
+Après chaque signal, `gvxDevelopmentController` compte les événements source distincts de même type et voie, puis persiste une action proposée (`observe`, `create_hypothesis` ou `schedule_experiment`). Les signaux gardent le statut `reported`. Pour un profil AGOW configuré, `runCycle()` enchaîne proposition et prédiction, nursery, assessment vérifié, autorisation et application, monitoring indépendant, vérification longitudinale, puis reçu signé et crédit AGOW. `gvxStandardLifecycleAdapters` fournit les adaptateurs ; sans profil ou service configuré, le cycle échoue fermé. Le journal et les leases SQLite permettent de reprendre une retransmission sans doubler l’application ni le crédit. Les autres domaines requièrent leurs adaptateurs métier.
 
 ### 5.2 Trois reçus indépendants pour consolider
 
@@ -86,11 +90,11 @@ reçu C vérifié, succès → crédit 3, consolidation possible
 rejeu du reçu A        → aucun nouveau crédit (idempotence)
 ```
 
-Le regroupement exige la même `pathwayId` et le même `contextHash` (ou le contexte global explicite). Un reçu non indépendant, un digest différent, un vérificateur non fiable, une preuve sans hash valide ou un claim modifié échoue avant le crédit.
+Les trois fenêtres de monitoring d’une application produisent au plus un reçu de développement ; elles ne valent pas trois crédits de consolidation. Le regroupement exige la même `pathwayId` et le même `contextHash` (ou le contexte global explicite). Un reçu non indépendant, un digest différent, un vérificateur non fiable, une preuve sans hash valide ou un claim modifié échoue avant le crédit.
 
 ### 5.3 Interoception avec inconnues conservées
 
-Le pont lit le service machine canonique. Il mappe la pression mémoire, l'énergie en ratio de budget (`1 - energy`), la dérive modèle et l'intégrité lorsque ces mesures existent. Les anomalies de sécurité, l'erreur de calibration et la charge de coordination restent `unknown` tant qu'aucun capteur dédié ne les mesure (**Implémenté** — `developmentalBridge/interoceptionBridge.js`).
+Le pont lit le service machine canonique. Il mappe la pression mémoire, l'énergie en ratio de budget (`1 - energy`), la dérive modèle et l'intégrité lorsque ces mesures existent. `sampleCanonicalInteroception` ajoute les taux d’événements de sécurité et de coordination de la télémétrie de l’agent sur trente minutes, ainsi que la moyenne des valeurs `discrepancy.epsilon` des événements `self_twin_discrepancy` récents disponibles dans le ledger (au plus 100 valeurs). Les événements `self_twin_observation` du cycle standard ne sont pas consommés par ce filtre. Ces indicateurs opérationnels ne sont pas une calibration probabiliste ni une mesure de capacité système. Sans table, événements ou écarts exploitables, la dimension reste `unknown` (**Implémenté** — `developmentalBridge/interoceptionBridge.js`).
 
 Une mesure doit être numérique, dans `[0,1]`, accompagnée d'une source et d'une date valide. Une donnée absente devient `unknown`; une mesure invalide devient `invalid`; une mesure trop ancienne devient `stale`. Les règles de viabilité portant sur une valeur non `measured` renvoient `inconclusive`, jamais `viable` par défaut (**Implémenté** — `gvxInteroception.js`, âge par défaut cinq minutes).
 
@@ -104,7 +108,7 @@ flowchart TD
     B -->|Artefact candidat| E[Lecture et vérification indépendante]
     C --> F[Hypothèse / candidat]
     D --> G[Viabilité ou posture bornée]
-    E -->|Reçu signé valide| H[Crédit de plasticité idempotent]
+    E -->|Reçu signé valide| V[Preuve vérifiée pour son requirement]
     E -->|Échec / absence| I[Rejet ou inconclusif]
     F --> J[Protocole / nursery isolée]
     J --> K[Évaluation comparative]
@@ -112,12 +116,13 @@ flowchart TD
     L -->|Autorisé séparément| M[Application somatique réversible]
     L -->|Pas d'autorisation| N[Conserver comme candidat]
     M --> O[Monitoring longitudinal]
-    O -->|3 reçus distincts par voie/contexte| P[Consolidation soumise à politique]
+    O -->|Maturité et suivi vérifiés| H[Reçu de développement et crédit idempotent]
+    H -->|3 reçus distincts par voie/contexte| P[Consolidation soumise à politique]
     O -->|régression| Q[Rollback / arrêt]
     P --> R[Transfert en quarantaine]
 ```
 
-Le schéma montre des interfaces, pas un automate unique déjà livré. Les transitions sont portées par des services différents et plusieurs jonctions exigent encore un appelant/orchestrateur externe.
+Le chemin standard AGOW orchestre hypothèse, essai, application, suivi et crédit. Les prolongements vers le transfert et les autres domaines restent des interfaces à intégrer ; le statut de maturité ne les déclenche pas automatiquement.
 
 ## 7. Architecture technique
 
@@ -127,7 +132,9 @@ Le schéma montre des interfaces, pas un automate unique déjà livré. Les tran
 | Transformations | `gvxTransformation.js`, `gvxMutationProposer.js` — candidat versionné, parent, hypothèse, expériences sources, delta de compétences |
 | Graphe/curriculum | `gvxCompetenceGraph.js`, `gvxCompetenceCurriculum.js` — claims étayés par résultats et références de vérificateurs, prérequis, coût, autorité et étapes bornées |
 | Lacunes | `gvxLearningGapDetector.js` — signaux pondérés, confiance heuristique, propositions et autorité de tâche distincte |
-| Expériences | `gvxExperimentProtocol.js`, `gvxExperimentalNursery.js` — bras, snapshot, contrôles, budget, mondes, registre de vérificateurs et lecteur d'artefacts |
+| Expériences | `gvxExperimentProtocol.js`, `gvxExperimentalNursery.js` — bras, snapshot, contrôles, budget, mondes, registre de vérificateurs et lecteur d’artefacts |
+| Cycle standard | `gvxStandardLifecycleAdapters.js`, `gvxCycleExecution.js`, `gvxCycleJournal.js`, `gvxRuntimeLease.js` — profils AGOW, étapes durables, leases et reprise |
+| Mesures externes | `gvxExecutionProfiles.js`, `gvxExecutionEvaluator.js`, `gvxEvaluationWorld.js`, `gvxRuntimeStateVerification.js` — sources épinglées, processus distincts, mesures signées et état runtime recoupé |
 | Adaptation somatique | `gvxSomaticAssessment.js`, `gvxSomaticApplication.js`, `gvxSomaticMonitor.js`, `gvxLongitudinalMonitor.js` — critères, autorisation, reçu runtime, rollback et fenêtres longitudinales |
 | Transmission | `gvxTransferLifecycle.js`, `gvxVerifierRegistry.js` — gates, états de transfert, lecture/hash des artefacts et reçu par transition |
 | AGOW → GVX | `developmentalBridge/agowToGvxSignalAdapter.js` — observations `reported`, déduplication par événement et scope |
@@ -145,11 +152,11 @@ Le cycle cible et son état courant sont les suivants :
 1. **Capturer** un épisode ou un outcome avec provenance. Les signaux AGOW sont enregistrés comme `reported`; une trajectoire GVX exige un scope explicitement fourni par son appelant.
 2. **Construire une hypothèse** de transformation ou de lacune. Une proposition ne reçoit aucune autorité de mutation.
 3. **Planifier un essai** avec snapshot, bras distincts, stratégie, contrôles, budget positif et requirements de vérification.
-4. **Exécuter les bras** dans des mondes que l'adaptateur hôte identifie par leur isolation. Le protocole vérifie l'identité attendue ; l'isolation système elle-même n'est pas attestée par GVX.
+4. **Exécuter les bras** dans des processus et répertoires distincts sur le chemin standard, depuis les sources déclarées et vérifiées. Le mode Linux peut imposer un UID/GID distinct ; le mode par défaut est réservé au code fixe de confiance. Les adaptateurs personnalisés doivent assurer leur confinement.
 5. **Vérifier le contenu** : le service lit les octets de l'artefact, recalcule le SHA-256, sélectionne un vérificateur de confiance pour le requirement et ne conserve que son reçu vérifié.
 6. **Évaluer** le résultat. L'absence de coverage donne `blocked` ou `inconclusive`; les protocoles nursery, méta-politique et assessment somatique retournent explicitement `promotionAllowed: false`.
 7. **Appliquer éventuellement** après décision d'autorisation indépendante, avec hash parent, reçu runtime et token de rollback.
-8. **Surveiller et transmettre** sur fenêtres/contextes distincts. Une maturité estimée signifie éligibilité à une revue, pas promotion autonome.
+8. **Surveiller** sur fenêtres/contextes distincts. Sur le chemin standard, une régression déclenche le rollback ; un suivi mature et vérifié permet ensuite le reçu signé et le crédit idempotent. Le transfert et la promotion germinale gardent leurs gates séparées.
 
 Les tests de contrats présents dans `backend/tests/` couvrent le ledger, le pont développemental, l'interoception, les transformations, le curriculum, les protocoles expérimentaux, la nursery, le monitoring, le transfert, AgentGit et la méta-politique. Leur existence ne remplace ni campagne holdout, ni réplication indépendante, ni benchmark comparatif.
 
@@ -173,7 +180,7 @@ Contrairement à une boucle d'auto-optimisation qui ajuste un score interne, GVX
 - **Signal ≠ preuve** : les résultats rapportés par AGOW orientent l'analyse, mais ne créditent jamais la plasticité. Trois succès distincts signifient trois reçus vérifiés distincts, pas trois reprises du même événement.
 - **Inconnu ≠ sain** : un capteur absent reste inconnu ; fraîcheur et domaine `[0,1]` sont contrôlés ; une règle dépendant d'une dimension non mesurée ne passe pas.
 - **Scope explicite** : sans scope fourni par l'appelant, un signal de trajectoire n'est pas publié. Un scope fourni mais différent du workspace de l'agent est rejeté.
-- **L'isolation dépend de l'hôte** : la nursery vérifie les identifiants contractuels, mais le dépôt ne prouve pas qu'un adaptateur système a effectivement empêché tout accès croisé.
+- **Isolation bornée** : le profil standard sépare processus et répertoires et peut imposer un UID/GID distinct sous Linux. Le mode par défaut ne confine pas du code hostile ; une frontière forte exige les droits et le confinement OS de la plateforme. Le mode UID/GID échoue fermé sous Windows.
 - **L'autorité reste séparée** : aucun résultat expérimental ou statut de maturité ne vaut droit d'application, de transfert, de commit, de push ou de fusion.
 - **Rollback non absolu** : l'application exige une capacité runtime réversible ; une défaillance du rollback est tracée comme échec, pas présentée comme restauration réussie.
 - **Méta-développement sous garde** : `gvxMetaPolicyGate.js` protège explicitement autorité racine, sandbox, vérificateurs, évaluations cachées, signature du ledger, promotion, limites dures et politiques constitutionnelles.
@@ -182,6 +189,7 @@ Contrairement à une boucle d'auto-optimisation qui ajuste un score interne, GVX
 ## Voir aussi
 
 - [Plan d'implémentation GVX](../06-qualite-preuves/plan-implementation-gvx.md) — lots, critères de livraison et travaux restants.
+- [Validation du cycle standard](../06-qualite-preuves/validation-cycle-standard-gvx.md) — tests exécutés, périmètre et limites des preuves.
 - [Adaptateurs GVX runtime](../02-orchestration/adaptateurs-gvx-runtime.md), [nursery expérimentale](../02-orchestration/nursery-experimentale-gvx.md), [monitoring longitudinal](../02-orchestration/monitoring-longitudinal-gvx.md).
 - [Ontogenèse](ontogenese.md) — orchestrateur résident et missions bornées.
 - [Morphogenèse](../02-orchestration/topologies/morphogenese.md) — construction des organisations d'exécution.

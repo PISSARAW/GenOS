@@ -98,7 +98,7 @@ async function composeSyncytium({ db, orchestratorId, mission, options = {} }) {
   } : {});
   const session = await syncytiumCoordinationService.createPolicySession(mission, {
     variantId: options.variantId || options.variant,
-    configuration,
+    configuration: { useVariantRuntime: true, ...configuration },
     sessionOptions: {
       ...(options.sessionOptions || {}), db,
       nuclearDomains: options.sessionOptions?.nuclearDomains
@@ -116,6 +116,13 @@ function readSyncytiumSchema() {
 
 async function composeHolobionte({ db, orchestratorId, mission, options = {} }) {
   const composition = holobionteCoordinationService.composeHolobiont(mission, options);
+  if (db?.exec) {
+    const opened = await require('./holobionteService').openMissionHost(db, { ...options,
+      hostId: options.hostId || orchestratorId, missionId: options.missionId || mission });
+    composition.holobiontId = opened.session.holobiontId;
+    composition.hostSession = opened.session;
+    composition.runtimeStatus = 'AWAITING_ADMISSION';
+  }
   await applyOrganization({ db, orchestratorId, organization: composition.organization, reason: 'Holobionte mode activation' });
   return composition;
 }
@@ -140,15 +147,8 @@ async function composeBiome({ db, orchestratorId, mission, options = {} }) {
   return composition;
 }
 
-function composeAxolotl({ orchestratorId, mission }) {
-  const axolotlTopologyService = require('./axolotlTopologyService');
-  const mode = axolotlTopologyService.getTopologyMode(orchestratorId);
-  return {
-    mode: mode.mode,
-    plastique: mode.mode === 'plastique',
-    members: biologicalModeService.compose('axolotl', mission),
-    modeInfo: mode
-  };
+async function composeAxolotl(input) {
+  return require('./axolotlCompositionService').compose(input);
 }
 
 module.exports = { composeMode, normalizeMode };

@@ -102,20 +102,33 @@ async function compact(db, input = {}) {
 
 async function visible(db, input = {}) {
   await ensureSchema(db);
+  await expire(db, input.sessionId);
   const row = await db.get(`SELECT s.revision, f.* FROM cognitive_visibility_sessions s
     JOIN cognitive_visibility_fragments f ON f.session_id = s.session_id
     WHERE s.session_id = ? AND f.object_id = ? AND s.valid = 1 AND f.valid = 1
-      AND (f.expires_at IS NULL OR f.expires_at > CURRENT_TIMESTAMP)`, [input.sessionId, input.objectId]);
-  return row ? { visible: true, revision: row.revision, value: unpack(row.value_blob),
-    scope: row.scope } : { visible: false, revision: null, value: undefined };
+      AND f.scope IS ?`, [input.sessionId, input.objectId, input.scope ?? null]);
+  if (!row) return { visible: false, revision: null, value: undefined };
+  const value = unpack(row.value_blob);
+  if (digest(value) !== row.object_digest) throw new Error('visibility_object_digest_mismatch');
+  return { visible: true, revision: row.revision, value, scope: row.scope };
+}
+
+async function expire(db, sessionId) {
+  const rows = await db.all(`SELECT object_id FROM cognitive_visibility_fragments
+    WHERE session_id = ? AND valid = 1 AND expires_at IS NOT NULL
+    AND (julianday(expires_at) IS NULL OR julianday(expires_at) <= julianday('now'))`, sessionId);
+  if (rows.length) await invalidate(db, { sessionId,
+    objectIds: rows.map((row) => row.object_id), reason: 'expired' });
 }
 
 async function recover(db, sessionId) {
+  await ensureSchema(db);
+  await expire(db, sessionId);
   const session = await db.get('SELECT * FROM cognitive_visibility_sessions WHERE session_id = ?', sessionId);
   if (!session) return null;
   const fragments = await db.all(`SELECT object_id, object_digest, scope, revision, expires_at FROM
     cognitive_visibility_fragments WHERE session_id = ? AND valid = 1
-    AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP) ORDER BY object_id`, sessionId);
+    ORDER BY object_id`, sessionId);
   return { session, fragments };
 }
 

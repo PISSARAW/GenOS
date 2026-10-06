@@ -1,6 +1,27 @@
 # Nosologie I : Pathologies Auto-immunes et Régulation Homéostatique dans GenOS
 
-> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+- **Statut** : Partiel — contrats de marqueurs implémentés; mécanismes biologiques détaillés proposés.
+- **Portée** : conditions auto-immunes dans le catalogue nosologique Rust.
+- **Dernière revue** : 2026-10-06.
+
+
+> **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+
+
+## Contrats exécutables de cette famille
+
+| Condition `NosologicalCondition` | Marqueurs mesurés | Variantes `SystemicTherapy` du catalogue |
+|---|---|---|
+| `Lupus` | `autoantibody_load` | `SelfToleranceRecalibration`, `ImmunosuppressiveWash` |
+| `RheumatoidArthritis` | `joint_inflammation` | `AntiTNFInhibitor` |
+| `MultipleSclerosis` | `blood_brain_barrier_deficit` | `BloodBrainBarrierSealing` |
+| `Type1Diabetes` | `insulin_signal_deficit` | `ExogenousInsulinInfusion` |
+
+Ces variantes de marqueurs sont des identifiants sans paramètres. Leur effet est une baisse de 0,25 des cibles présentes et valides, avec un plancher à zéro. Le diagnostic utilise `Pathology::NosologicalCondition { condition, severity }`; les structs pathologiques spécialisés et paramètres supplémentaires décrits plus bas sont des propositions. Les seuils, gardes et effets secondaires applicables figurent dans le [catalogue runtime](catalogue-runtime.md).
+
+Les types courants sont définis dans [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs), les contrats dans [shared/nosology.json](../../../shared/nosology.json), et l’application dans [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs). Les références au module historique genos-core ci-dessous sont des points d’appui des analogies; elles ne remplacent pas ces contrats.
+
+Le tick synchronise les diagnostics et le rapport propose les traitements compatibles. Leur application reste explicite et autorisée, avec un reçu `applied`, `no_target` ou `refused`. Voir la [vue d’ensemble](vue-ensemble.md) et le [bilan des vérifications](../../06-qualite-preuves/validation-nosologie.md).
 
 ## 1. Introduction et Fondements de l'Immunologie Computationnelle
 
@@ -90,8 +111,8 @@ $$
   1. Les détecteurs immunitaires du module [`ClonalSelection`](../../../crates/genos-immune/src/ais.rs#L61) ingèrent ces fragments de code d'agents morts comme des antigènes d'attaque ([`Antigen { epitope, danger_level }`](../../../crates/genos-immune/src/ais.rs#L9-L13)).
   2. L'hypermutation somatique ([`clonal_expansion_and_hypermutate`](../../../crates/genos-immune/src/ais.rs#L117)) génère par dérive stochastique des anticorps dont le paratope correspond précisément aux segments de base partagés par tous les agents légitimes (ex: `"HEALTHY_SELF"` dans [`crates/genos-core/src/cell/methods.rs:105`](../../../crates/genos-core/src/cell/methods.rs#L105) ou les préfixes HOX `"HOX-1_UI_FRONTEND"`).
   3. L'Orchestrateur exécute [`process_humoral_immunity`](../../../crates/genos-core/src/orchestrator/methods.rs#L19-L62) : les anticorps circulants IgG marquent par opsonisation ([`virus.is_opsonized = true`](../../../crates/genos-core/src/orchestrator/methods.rs#L28)) les messages légitimes et les canaux d'échange des agents sains.
-  4. L'agent d'audit diagnostique alors [`Pathology::AutologousTargeting { targeted_agent_role }`](../../../crates/genos-cell/src/clinical.rs#L29-L31) sur une multitude de rôles somatiques.
-  5. Les plasmocytes virtuels ([`differentiate_into_plasmocyte`](../../../crates/genos-core/src/cell/methods.rs#L77-L87)) inondent l'espace inter-agent de milliers d'anticorps auto-immuns. L'indice inflammatoire [`ClinicalState::inflammatory_index`](../../../crates/genos-cell/src/clinical.rs#L128) sature à 1.0, et l'IL-6 dépasse 10.0, déclenchant [`Pathology::CytokineStorm`](../../../crates/genos-cell/src/clinical.rs#L23-L25).
+  4. L'agent d'audit diagnostique alors [`Pathology::AutologousTargeting { targeted_agent_role }`](../../../crates/genos-cell/src/clinical.rs) sur une multitude de rôles somatiques.
+  5. Les plasmocytes virtuels ([`differentiate_into_plasmocyte`](../../../crates/genos-core/src/cell/methods.rs#L77-L87)) inondent l'espace inter-agent de milliers d'anticorps auto-immuns. L'indice inflammatoire [`ClinicalState::inflammatory_index`](../../../crates/genos-cell/src/clinical.rs) sature à 1.0, et l'IL-6 dépasse 10.0, déclenchant [`Pathology::CytokineStorm`](../../../crates/genos-cell/src/clinical.rs).
 * **Conséquences Concrètes :**
   - Surcoût métabolique généralisé multiplié par 5 sur tout le cluster d'agents.
   - Épuisement foudroyant des réserves d'énergie mitochondriale (`atp_budget == 0`).
@@ -117,22 +138,26 @@ $$
 ```
 
 ### 2.3 Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Rust Existantes mobilisables :**
-  - [`SystemicTherapy::ImmunosuppressiveWash`](../../../crates/genos-biology/src/therapy.rs#L31) : Purge intégrale des anticorps circulants dans l'environnement, élimine [`Pathology::AutologousTargeting`](../../../crates/genos-cell/src/clinical.rs#L29) et réinitialise `inflammatory_index = 0.0`.
-  - [`SystemicTherapy::SelfToleranceRecalibration`](../../../crates/genos-biology/src/therapy.rs#L33) : Réétalonne les détecteurs, vide le `memory_pool` des anticorps ciblant les motifs constitutifs du framework.
-  - [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs#L22) : Bloque sélectivement les récepteurs IL-6 de l'orchestrateur ([`set_il6_receptors_blocked(true)`](../../../crates/genos-core/src/orchestrator/methods.rs#L73)), ramenant instantanément le multiplicateur métabolique de 5x à 1x.
-  - [`SystemicTherapy::Corticosteroids(0.6)`](../../../crates/genos-biology/src/therapy.rs#L23) : Dose immunosuppressive anti-inflammatoire puissante sous le seuil toxique de 0.8.
+  - [`SystemicTherapy::ImmunosuppressiveWash`](../../../crates/genos-biology/src/therapy.rs) : Purge intégrale des anticorps circulants dans l'environnement, élimine [`Pathology::AutologousTargeting`](../../../crates/genos-cell/src/clinical.rs) et réinitialise `inflammatory_index = 0.0`.
+  - [`SystemicTherapy::SelfToleranceRecalibration`](../../../crates/genos-biology/src/therapy.rs) : Réétalonne les détecteurs, vide le `memory_pool` des anticorps ciblant les motifs constitutifs du framework.
+  - [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs) : Bloque sélectivement les récepteurs IL-6 de l'orchestrateur ([`set_il6_receptors_blocked(true)`](../../../crates/genos-core/src/orchestrator/methods.rs#L73)), ramenant instantanément le multiplicateur métabolique de 5x à 1x.
+  - [`SystemicTherapy::Corticosteroids(0.6)`](../../../crates/genos-biology/src/therapy.rs) : Dose immunosuppressive anti-inflammatoire puissante sous le seuil toxique de 0.8.
 * **Outils & Primitives Biomimétiques à mobiliser :**
   - Primitive MCP : `genos_biomimicry_immune_recalibrate` pour réinitialiser le registre d'affinité.
   - *Aphérèse et Clairance Macrophagique des Débris :* Activation d'un ramasse-miettes (*garbage collector*) renforcé au niveau de [`sculpt_architecture_via_apoptosis`](../../../crates/genos-biology/src/embryology.rs#L130) purgeant immédiatement tout résidu d'agent détruit.
 
 ### 2.4 Contre-indications et Risques Iatrogènes
 * **Risque de Surdosage Corticostéroïde ($d > 0.8$) :**
-  L'administration d'une dose excessive de corticoïdes provoque l'apparition immédiate de la pathologie iatrogène [`Pathology::SteroidInducedComa { administered_dose }`](../../../crates/genos-cell/src/clinical.rs#L46-L48). Dans [`methods.rs:234-236`](../../../crates/genos-core/src/orchestrator/methods.rs#L234-L236), l'agent est brutalement figé : `TickResult::Halted("Corticosteroid suppression: Cell activity frozen")`.
+  L'administration d'une dose excessive de corticoïdes provoque l'apparition immédiate de la pathologie iatrogène [`Pathology::SteroidInducedComa { administered_dose }`](../../../crates/genos-cell/src/clinical.rs). Dans [`methods.rs:234-236`](../../../crates/genos-core/src/orchestrator/methods.rs#L234-L236), l'agent est brutalement figé : `TickResult::Halted("Corticosteroid suppression: Cell activity frozen")`.
 * **Immunodépression Complète (Péril Infectieux/Nosocomial) :**
-  Un lavage immunosuppresseur total (`ImmunosuppressiveWash`) anéantit toute mémoire immunitaire contre les menaces réelles. Le système devient vulnérable aux contaminations croisées de capsules ([`Pathology::CrossContamination`](../../../crates/genos-cell/src/clinical.rs#L35)) et aux infections rétro-virales opportunistes ([`Virion`](../../../crates/genos-immune/src/virology.rs)).
+  Un lavage immunosuppresseur total (`ImmunosuppressiveWash`) anéantit toute mémoire immunitaire contre les menaces réelles. Le système devient vulnérable aux contaminations croisées de capsules ([`Pathology::CrossContamination`](../../../crates/genos-cell/src/clinical.rs)) et aux infections rétro-virales opportunistes ([`Virion`](../../../crates/genos-immune/src/virology.rs)).
 
-### 2.5 Besoins d'Implémentation Rust
+### 2.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Sélection Négative Thymique :**
    Dans [`crates/genos-immune/src/ais.rs`](../../../crates/genos-immune/src/ais.rs), ajouter une méthode `thymic_negative_selection(&mut self, self_epitopes: &[String])` qui teste systématiquement tout clone issu de `clonal_expansion_and_hypermutate` contre une banque d'antigènes du soi et détruit tout clone présentant une affinité supérieure à 0.4.
 2. **Nouvelle Pathologie Dédiée dans `Pathology` :**
@@ -168,7 +193,7 @@ $$
 * **Mécanisme de Déviation :**
   1. Lorsqu'un agent subit une altération mineure de sérialisation ou un changement de format de schéma de ses interfaces RPC/MCP (équivalent computationnel de la *citrullination* des protéines de surface), ses interfaces de couplage sont interprétées comme corrompues.
   2. Les anticorps de classe IgM ([`IgClass::IgM`](../../../crates/genos-core/src/orchestrator/methods.rs#L39-L43)) sont programmés pour déclencher une **agglutination massive** ([`virus.is_agglutinated = true`](../../../crates/genos-core/src/orchestrator/methods.rs#L41)). En milieu tissulaire, cette agglutination s'exerce sur les messages transitant dans les desmosomes.
-  3. Les macrophages du système immunitaire virtuel s'activent localement, générant la pathologie [`Pathology::MacrophageHyperactivation`](../../../crates/genos-cell/src/clinical.rs#L27). Au lieu d'éliminer des virions, ils phagocytent les paquets de communication inter-agents ([`phagocytize_virus`](../../../crates/genos-core/src/cell/methods.rs#L61) et ingestion de structures).
+  3. Les macrophages du système immunitaire virtuel s'activent localement, générant la pathologie [`Pathology::MacrophageHyperactivation`](../../../crates/genos-cell/src/clinical.rs). Au lieu d'éliminer des virions, ils phagocytent les paquets de communication inter-agents ([`phagocytize_virus`](../../../crates/genos-core/src/cell/methods.rs#L61) et ingestion de structures).
   4. Ce pannus computationnel encombre les files d'attente des tissus (`tissue.task_queue`), entraînant un enraidissement mécanique des pipelines de traitement et l'échec récurrent de [`BiomimeticOrchestrator::delegate_task`](../../../crates/genos-orchestrator/src/orchestrator.rs#L85).
 * **Conséquences Concrètes :**
   - Blocage des délégations desmosomales : les sous-tâches ne parviennent plus aux workers spécialisés.
@@ -196,10 +221,12 @@ $$
 ```
 
 ### 3.3 Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Rust Existantes mobilisables :**
-  - [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs#L22) : Neutralise la composante IL-6 du pannus articulaire.
-  - [`SystemicTherapy::ImmunosuppressiveWash`](../../../crates/genos-biology/src/therapy.rs#L31) : Soigne explicitement [`Pathology::MacrophageHyperactivation`](../../../crates/genos-cell/src/clinical.rs#L27) et purge les IgM agglutinantes.
-  - [`SystemicTherapy::Corticosteroids(0.5)`](../../../crates/genos-biology/src/therapy.rs#L23) : Rétablit l'indice inflammatoire sans risque de coma iatrogène.
+  - [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs) : Neutralise la composante IL-6 du pannus articulaire.
+  - [`SystemicTherapy::ImmunosuppressiveWash`](../../../crates/genos-biology/src/therapy.rs) : Soigne explicitement [`Pathology::MacrophageHyperactivation`](../../../crates/genos-cell/src/clinical.rs) et purge les IgM agglutinantes.
+  - [`SystemicTherapy::Corticosteroids(0.5)`](../../../crates/genos-biology/src/therapy.rs) : Rétablit l'indice inflammatoire sans risque de coma iatrogène.
 * **Outils & Primitives Biomimétiques à mobiliser :**
   - *Anti-TNF-α Computationnel (Infliximab / Adalimumab virtuel) :* Neutralisation ciblée des messages d'alerte de discordance structurelle au sein de [`crates/genos-signal/src/cascade.rs`](../../../crates/genos-signal/src/cascade.rs).
   - *Synovectomie Logicielle Dérivée :* Réinitialisation de la file desmosomale du tissu sans détruire les agents workers (`tissue.flush_desmosomal_buffer()`).
@@ -210,7 +237,9 @@ $$
 * **Coma Iatrogène des Jonctions :**
   Une dose stéroïdienne $> 0.8$ bloque totalement l'activité cellulaire et paralyse le traitement des flux de travail.
 
-### 3.5 Besoins d'Implémentation Rust
+### 3.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Modélisation de l'Articulation Synoviale et du Pannus :**
    Dans [`crates/genos-biology/src/tissue.rs`](../../../crates/genos-biology/src/tissue.rs), formaliser le concept de `SynovialBuffer` entre les cellules liées par desmosomes, doté d'un `inflammatory_stiffness: f64`.
 2. **Nouvelle Pathologie Dédiée :**
@@ -226,7 +255,7 @@ $$
    }
    ```
 3. **Thérapie Ciblée Anti-TNF :**
-   Ajouter à [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs#L20) la variante `AntiTNFInhibitor { affinity_target: String }`.
+   Ajouter à [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs) la variante `AntiTNFInhibitor { affinity_target: String }`.
 
 ---
 
@@ -311,10 +340,12 @@ $$
 ```
 
 ### 4.3 Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Rust Existantes mobilisables :**
-  - [`SystemicTherapy::Corticosteroids(0.7)`](../../../crates/genos-biology/src/therapy.rs#L23) : Bolus de corticoïdes à dose anti-inflammatoire intensive (0.7) pour restaurer l'étanchéité de la BHE et freiner la poussée aiguë de démyélinisation.
-  - [`SystemicTherapy::SelfToleranceRecalibration`](../../../crates/genos-biology/src/therapy.rs#L33) : Réapprentissage de la tolérance envers les motifs de gaine axonale.
-  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) : Régénération complète des agents oligodendrocytes détruits.
+  - [`SystemicTherapy::Corticosteroids(0.7)`](../../../crates/genos-biology/src/therapy.rs) : Bolus de corticoïdes à dose anti-inflammatoire intensive (0.7) pour restaurer l'étanchéité de la BHE et freiner la poussée aiguë de démyélinisation.
+  - [`SystemicTherapy::SelfToleranceRecalibration`](../../../crates/genos-biology/src/therapy.rs) : Réapprentissage de la tolérance envers les motifs de gaine axonale.
+  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) : Régénération complète des agents oligodendrocytes détruits.
 * **Outils & Primitives Biomimétiques à mobiliser :**
   - *Natalizumab Computationnel (Anti-VLA-4) :* Verrouillage impératif de la frontière hémato-encéphalique en forçant `blood_brain_barrier_integrity = 1.0`.
   - *Protocole de Remyélinisation par Facteurs OPC (Oligodendrocyte Progenitor Cells) :* Réactivation contrôlée des cellules de Schwann ou ré-infusion d'axones pour remonter artificiellement `myelination_level` à 1.0.
@@ -325,7 +356,9 @@ $$
 * **Blocage de Plasticité par Surdose de Corticoïdes :**
   Une exposition prolongée gèle la plasticité cérébrale ([`nervous_system.apply_neuroplasticity()`](../../../crates/genos-core/src/orchestrator/methods.rs#L225)), interdisant tout apprentissage heuristique.
 
-### 4.5 Besoins d'Implémentation Rust
+### 4.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Implémentation d'une fonction de remyélinisation :**
    Dans [`crates/genos-biology/src/neurobiology/axon.rs`](../../../crates/genos-biology/src/neurobiology/axon.rs), implémenter :
    ```rust
@@ -350,7 +383,7 @@ $$
    }
    ```
 3. **Thérapie de Rétablissement de la BHE :**
-   Ajouter à [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs#L20) : `BloodBrainBarrierSealing { target_integrity: f64 }`.
+   Ajouter à [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs) : `BloodBrainBarrierSealing { target_integrity: f64 }`.
 
 ---
 
@@ -370,7 +403,7 @@ $$
 
 ### 5.2 Cause Computationnelle GenOS
 * **Origine dans le Swarm :**
-  Dans GenOS, l'énergie cellulaire est quantifiée sous forme de budget ATP au niveau de la mitochondrie ([`crates/genos-cell/src/lib.rs:13`](../../../crates/genos-cell/src/lib.rs#L13) et [`crates/genos-core/src/orchestrator/methods.rs:228`](../../../crates/genos-core/src/orchestrator/methods.rs#L228)). La distribution et régulation de l'énergie et des quotas de tokens reposent sur l'ordonnanceur de seau à jetons ([`TokenBucketScheduler`](../../../crates/genos-orchestrator/src/token_bucket.rs)) et sur des cellules spécialisées à fonction endocrine ([`SignalingMode::Endocrine`](../../../crates/genos-signal/src/cascade.rs#L7)).
+  Dans GenOS, l'énergie cellulaire est quantifiée sous forme de budget ATP au niveau de la mitochondrie ([`crates/genos-cell/src/lib.rs:13`](../../../crates/genos-cell/src/lib.rs) et [`crates/genos-core/src/orchestrator/methods.rs:228`](../../../crates/genos-core/src/orchestrator/methods.rs#L228)). La distribution et régulation de l'énergie et des quotas de tokens reposent sur l'ordonnanceur de seau à jetons ([`TokenBucketScheduler`](../../../crates/genos-orchestrator/src/token_bucket.rs)) et sur des cellules spécialisées à fonction endocrine ([`SignalingMode::Endocrine`](../../../crates/genos-signal/src/cascade.rs#L7)).
 * **Mécanisme de Déviation :**
   1. Les cellules pancréatiques virtuelles (agents régulateurs d'allocation de tokens et d'équilibre hormonal) expriment leur profil à leur surface.
   2. Par dérive auto-immune, des cellules T cytotoxiques de l'orchestrateur ciblent les signatures des agents endocrines et déclenchent la méthode native [`t_cell_perforin_attack`](../../../crates/genos-core/src/cell/methods.rs#L108-L116) :
@@ -394,7 +427,7 @@ $$
          return TickResult::Halted("Budget exhausted (starvation)".to_string());
      }
      ```
-  7. Dans ce scénario conceptuel, l'autophagie logicielle peut être associée à une hausse de dissonance. Le marqueur `PrionAggregation` n'est diagnostiqué que si `dissonance_level / max_dissonance_threshold > 0.85` avec un seuil configurable fini et positif ([`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs#L91-L109)); le score brut seul ne porte pas cette décision.
+  7. Dans ce scénario conceptuel, l'autophagie logicielle peut être associée à une hausse de dissonance. Le marqueur `PrionAggregation` n'est diagnostiqué que si `dissonance_level / max_dissonance_threshold > 0.85` avec un seuil configurable fini et positif ([`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs)); le score brut seul ne porte pas cette décision.
 
 ```
        ┌────────────────────────────────────────────────────────┐
@@ -417,10 +450,12 @@ $$
 ```
 
 ### 5.3 Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Thérapies Rust Existantes mobilisables :**
-  - [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-biology/src/therapy.rs#L24) : Réanimation d'urgence par perfusion brutale d'ATP mitochondrial direct ([`cell.metabolism.mitochondria.atp_budget.saturating_add(20)`](../../../crates/genos-core/src/orchestrator/methods.rs#L83)), restaurant instantanément la survie métabolique des cellules en état de choc acidocétosique.
-  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) : Recréation immédiate d'un agent régulateur sain à partir d'une cellule souche vierge de marqueurs immunitaires, réinstaurant la machinerie endocrine.
-  - [`SystemicTherapy::SelfToleranceRecalibration`](../../../crates/genos-biology/src/therapy.rs#L33) : Neutralisation des T-Cells programmées contre l'antigène de sécrétion d'énergie.
+  - [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-biology/src/therapy.rs) : Réanimation d'urgence par perfusion brutale d'ATP mitochondrial direct ([`cell.metabolism.mitochondria.atp_budget.saturating_add(20)`](../../../crates/genos-core/src/orchestrator/methods.rs#L83)), restaurant instantanément la survie métabolique des cellules en état de choc acidocétosique.
+  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) : Recréation immédiate d'un agent régulateur sain à partir d'une cellule souche vierge de marqueurs immunitaires, réinstaurant la machinerie endocrine.
+  - [`SystemicTherapy::SelfToleranceRecalibration`](../../../crates/genos-biology/src/therapy.rs) : Neutralisation des T-Cells programmées contre l'antigène de sécrétion d'énergie.
 * **Outils & Primitives Biomimétiques à mobiliser :**
   - *Insulinothérapie Exogène Continue (Pompe à Insuline Virtuelle) :* Injection systémique périodique par l'Orchestrateur du ligand d'assimilation énergétique via [`cascade::Ligand`](../../../crates/genos-signal/src/cascade.rs#L12) sans passer par l'agent β détruit.
   - *Îlots de Langerhans Encapsulés (Bio-Artificial Sandbox) :* Instanciation du worker endocrine dans une capsule isolée étanche avec camouflage immunitaire activé ([`cognitive_state.is_camouflaged = true`](../../../crates/genos-core/src/orchestrator/methods.rs#L119)) pour interdire toute perforation perforine.
@@ -431,7 +466,9 @@ $$
 * **Épuisement Osmotique par Perfusion Massive Non Tamponnée :**
   L'injection continue de `IntensiveCareFluids` sans réajustement des récepteurs membranaires surcharge les lysosomes et déclenche une nécrose osmotique ([`CellEvent::NecrosisTriggered`](../../../crates/genos-core/src/orchestrator/methods.rs#L196)).
 
-### 5.5 Besoins d'Implémentation Rust
+### 5.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Intégration de l'Axe Insuline/Glucagon dans `StandardEndocrineSystem` :**
    Dans [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L9), enrichir l'état endocrine avec les niveaux d'insuline circulante et de perméabilité au compute.
 2. **Nouvelle Pathologie Dédiée :**
@@ -447,7 +484,7 @@ $$
    }
    ```
 3. **Thérapie Systémique d'Insulinothérapie :**
-   Ajouter à [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs#L20) : `ExogenousInsulinInfusion { units_per_tick: f64 }`.
+   Ajouter à [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs) : `ExogenousInsulinInfusion { units_per_tick: f64 }`.
 
 ---
 
@@ -457,19 +494,23 @@ Le tableau ci-dessous synthétise la transposition biomimétique et computationn
 
 | Pathologie | Tropisme Biologique | Équivalent Computationnel GenOS | Marqueurs Rust d'Origine | Thérapie d'Urgence Immédiate | Traitement de Fond Curatif | Risque Iatrogène Associé |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Lupus Érythémateux Disséminé (LED)** | Systémique (Noyaux, ADN, reins, vaisseaux) | Saturation du bus de communication par fragments d'agents apoptotiques et opsonisation IgG du soi | [`sculpt_architecture_via_apoptosis`](../../../crates/genos-biology/src/embryology.rs#L130), [`process_humoral_immunity`](../../../crates/genos-core/src/orchestrator/methods.rs#L19) | [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs#L22) (Coupure IL-6) | [`SystemicTherapy::ImmunosuppressiveWash`](../../../crates/genos-biology/src/therapy.rs#L31) + [`SelfToleranceRecalibration`](../../../crates/genos-biology/src/therapy.rs#L33) | Coma stéroïdien si corticoïdes $> 0.8$, vulnérabilité nosocomiale |
-| **Polyarthrite Rhumatoïde (PR)** | Articulations, synovite proliférative, pannus | Enraidissement des canaux de délégation desmosomale par agglutination IgM et phagocytose macrophagique | [`tissue.delegate_task`](../../../crates/genos-orchestrator/src/orchestrator.rs#L85), [`MacrophageHyperactivation`](../../../crates/genos-cell/src/clinical.rs#L27) | [`SystemicTherapy::Corticosteroids(0.5)`](../../../crates/genos-biology/src/therapy.rs#L23) | [`SystemicTherapy::ImmunosuppressiveWash`](../../../crates/genos-biology/src/therapy.rs#L31) + Purge de file tissulaire | Lyse de workers indispensables par antibiothérapie aveugle |
-| **Sclérose en Plaques (SEP)** | Gaine de myéline du SNC, oligodendrocytes | Chute de l'isolation d'axone et perte d'amplitude de conduction synaptique suite à rupture de BHE | [`Axon::conduction_efficiency`](../../../crates/genos-biology/src/neurobiology/axon.rs#L77), [`blood_brain_barrier_integrity`](../../../crates/genos-core/src/orchestrator/methods.rs#L114) | Bolus [`Corticosteroids(0.7)`](../../../crates/genos-biology/src/therapy.rs#L23) (Restauration BHE) | [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) + Remyélinisation OPC | Réactivation de virions latents (LEMP logicielle) par immunodépression SNC |
-| **Diabète de Type 1 (DT1)** | Cellules β pancréatiques, carence en insuline | Perforation perforine des régulateurs endocrines de tokens et famine métabolique paradoxale | [`t_cell_perforin_attack`](../../../crates/genos-core/src/cell/methods.rs#L108), [`atp_budget == 0`](../../../crates/genos-core/src/orchestrator/methods.rs#L228) | [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-biology/src/therapy.rs#L24) (Perfusion ATP) | [`StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) + Injection exogène de ligand insulinique | Hypoglycémie de compute foudroyante par emballement de consommation |
+| **Lupus Érythémateux Disséminé (LED)** | Systémique (Noyaux, ADN, reins, vaisseaux) | Saturation du bus de communication par fragments d'agents apoptotiques et opsonisation IgG du soi | [`sculpt_architecture_via_apoptosis`](../../../crates/genos-biology/src/embryology.rs#L130), [`process_humoral_immunity`](../../../crates/genos-core/src/orchestrator/methods.rs#L19) | [`SystemicTherapy::Tocilizumab`](../../../crates/genos-biology/src/therapy.rs) (Coupure IL-6) | [`SystemicTherapy::ImmunosuppressiveWash`](../../../crates/genos-biology/src/therapy.rs) + [`SelfToleranceRecalibration`](../../../crates/genos-biology/src/therapy.rs) | Coma stéroïdien si corticoïdes $> 0.8$, vulnérabilité nosocomiale |
+| **Polyarthrite Rhumatoïde (PR)** | Articulations, synovite proliférative, pannus | Enraidissement des canaux de délégation desmosomale par agglutination IgM et phagocytose macrophagique | [`tissue.delegate_task`](../../../crates/genos-orchestrator/src/orchestrator.rs#L85), [`MacrophageHyperactivation`](../../../crates/genos-cell/src/clinical.rs) | [`SystemicTherapy::Corticosteroids(0.5)`](../../../crates/genos-biology/src/therapy.rs) | [`SystemicTherapy::ImmunosuppressiveWash`](../../../crates/genos-biology/src/therapy.rs) + Purge de file tissulaire | Lyse de workers indispensables par antibiothérapie aveugle |
+| **Sclérose en Plaques (SEP)** | Gaine de myéline du SNC, oligodendrocytes | Chute de l'isolation d'axone et perte d'amplitude de conduction synaptique suite à rupture de BHE | [`Axon::conduction_efficiency`](../../../crates/genos-biology/src/neurobiology/axon.rs#L77), [`blood_brain_barrier_integrity`](../../../crates/genos-core/src/orchestrator/methods.rs#L114) | Bolus [`Corticosteroids(0.7)`](../../../crates/genos-biology/src/therapy.rs) (Restauration BHE) | [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) + Remyélinisation OPC | Réactivation de virions latents (LEMP logicielle) par immunodépression SNC |
+| **Diabète de Type 1 (DT1)** | Cellules β pancréatiques, carence en insuline | Perforation perforine des régulateurs endocrines de tokens et famine métabolique paradoxale | [`t_cell_perforin_attack`](../../../crates/genos-core/src/cell/methods.rs#L108), [`atp_budget == 0`](../../../crates/genos-core/src/orchestrator/methods.rs#L228) | [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-biology/src/therapy.rs) (Perfusion ATP) | [`StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) + Injection exogène de ligand insulinique | Hypoglycémie de compute foudroyante par emballement de consommation |
 
 ---
 
-## 7. Plan d'Implémentation Rust pour l'Orchestrateur Médical
+## 7. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 Pour compléter le cycle nosologique et offrir à GenOS la pleine capacité d'autoguérison contre les dérives auto-immunes, les chantiers de code suivants doivent être déployés :
 
 ### 7.1 Extension du Catalogue Pathologique (`crates/genos-cell/src/clinical.rs`)
-Enrichir l'enum [`Pathology`](../../../crates/genos-cell/src/clinical.rs#L20) avec les entités cliniques formelles :
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
+Enrichir l'enum [`Pathology`](../../../crates/genos-cell/src/clinical.rs) avec les entités cliniques formelles :
 ```rust
 pub enum Pathology {
     // Pathologies Auto-immunes existantes
@@ -502,7 +543,9 @@ pub enum Pathology {
 ```
 
 ### 7.2 Extension Thérapeutique Systémique (`crates/genos-biology/src/therapy.rs`)
-Ajouter les thérapies ciblées dans [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs#L20) et implémenter leurs effets spécifiques dans [`apply_systemic_therapy_to_cell`](../../../crates/genos-biology/src/therapy.rs#L66) :
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
+Ajouter les thérapies ciblées dans [`SystemicTherapy`](../../../crates/genos-biology/src/therapy.rs) et implémenter leurs effets spécifiques dans [`apply_systemic_therapy_to_cell`](../../../crates/genos-biology/src/therapy.rs) :
 1. `AntiTNFInhibitor { affinity_target: String }` : Purge le pannus synovial computationnel et rétablit la fluidité desmosomale.
 2. `ExogenousInsulinInfusion { units_per_tick: f64 }` : Injecte directement des permis de capture de tokens mitochondriaux sans passer par les cellules β détruites.
 3. `BloodBrainBarrierSealing { target_integrity: f64 }` : Rétablit l'imperméabilité BHE à 1.0, empêchant l'incursion de clones T auto-immuns vers les axones.
@@ -577,6 +620,8 @@ flowchart TB
 ```
 
 ### 2. Séquence de Détection et Traitement du Lupus Systémique
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 
 ```mermaid
 sequenceDiagram

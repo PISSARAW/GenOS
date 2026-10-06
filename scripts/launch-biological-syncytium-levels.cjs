@@ -40,6 +40,7 @@ const LEVELS = [
 
 const ORCHESTRATOR_CLI = path.resolve(__dirname, '..', 'backend', 'bin', 'genos-orchestrate.cjs');
 const WORKSPACE_ROOT = path.resolve(__dirname, '..', 'workspace');
+const { classifyOutput } = require('./syncytium-launch-evidence.cjs');
 
 async function launchLevel(level) {
   const start = Date.now();
@@ -79,8 +80,9 @@ async function launchLevel(level) {
       } catch {
         output = { raw: stdout.slice(0, 500) };
       }
-      console.log(`[N${level.id}] terminé en ${elapsed}ms — status: ${output.biologicalMode?.status || 'inconnu'}`);
-      resolve({ level, status: 'completed', elapsed, output });
+      const status = classifyOutput(output);
+      console.log(`[N${level.id}] terminé en ${elapsed}ms — status: ${status}`);
+      resolve({ level, status, elapsed, output });
     });
 
     proc.on('error', (err) => {
@@ -98,11 +100,12 @@ async function main() {
   for (const level of LEVELS) {
     const result = await launchLevel(level);
     results.push(result);
-    if (result.status === 'error') {
+    if (result.status !== 'completed') {
       console.error(`\n⚠ N${level.id} a échoué — on continue malgré tout.`);
     }
   }
 
+  process.exitCode = results.every(result => result.status === 'completed') ? 0 : 1;
   console.log('\n=== Résumé ===');
   for (const r of results) {
     const m = r.output?.biologicalMode;

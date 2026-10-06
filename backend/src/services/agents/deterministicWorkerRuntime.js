@@ -103,7 +103,7 @@ async function runDeterministicWorker(db, mission, executionRun) {
     validateWorkerArtifact({ events: [{ evidenceReport }] }, mission);
     await updateAgent(mission.agentId, 'completed', 'Deterministic result certified');
     const completed = emit(mission.agentId, 'AGENT_COMPLETED', kind, 'Deterministic worker completed.', {
-      executionRunId: executionRun.id, evidenceReport, usage: { input_tokens: 0, output_tokens: 0, tokens: 0 }
+      executionRunId: executionRun.id, evidenceReport, usage: { input_tokens: 0, output_tokens: 0, tokens: 0, cost_usd: 0 }
     }, 'info', 'completed');
     await publish(db, mission, completed);
     return { started: true, executionRun, deterministic: true, result };

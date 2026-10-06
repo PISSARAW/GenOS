@@ -53,6 +53,11 @@ morphogénétique (aucun nouveau silo) :
    reprogrammation Yamanaka préservant identité/lignée/plafond d'autorité,
    régulateur de plasticité à 6 états avec hystérésis remplaçant l'Axolotl
    2 états, embryogenèse collective).
+
+   **Évolution du régulateur (2026-10-06)** : l’[ADR 0325](0325-regeneration-axolotl-executable.md)
+   apporte à la façade Axolotl la persistance SQLite, les observations natives et
+   le gel topologique. La limite mémoire du premier lot ci-dessous reste
+   historique pour ce régulateur ; elle ne décrit pas son contrat actuel.
 5. **Symbiontes procéduraux** : `proceduralSymbiont/` (le runtime procédural
    existant est référencé, pas réimplémenté ; résolveur avec autorité
    effective = procédure ∩ host ∩ lease ; compatibilité hôte/procédure

@@ -30,7 +30,7 @@ async function run() {
     mission, organism, context: { flags: { works: true }, evidence: ['test_run_1'] }
   });
   assert.strictEqual(success.allowed, true);
-  assert.strictEqual(success.receipt.schema, 'genos.homeostasis-transition-receipt/v1');
+  assert.strictEqual(success.receipt.schema, 'genos.homeostasis-transition-receipt/v2');
   assert.strictEqual(success.receipt.contractRevision, 1);
   assert.deepStrictEqual(success.receipt.evidenceReferences, ['test_run_1']);
 
@@ -44,6 +44,7 @@ async function run() {
   mission.completionContract.invariants[0] = {
     id: 'works_v2', kind: 'functional', verifier: { type: 'context.flag', flag: 'worksV2' }
   };
+  mission.expectedHomeostasisRevision = 1;
   const revised = await homeostasis.transitionMissionToComplete(db, {
     mission, organism, context: { flags: { worksV2: true } }
   });
@@ -59,14 +60,14 @@ async function run() {
   assert.strictEqual(contracts.length, 2, 'changed contracts receive a new immutable revision');
   assert.strictEqual(receipts.length, 3, 'every allowed and denied transition is durable');
   const policySnapshot = JSON.parse(contracts[1].contract_json);
-  assert.strictEqual(policySnapshot.policyVersion, 'genos.homeostasis-policy/v1');
+  assert.strictEqual(policySnapshot.policyVersion, 'genos.homeostasis-policy/v2');
   assert.strictEqual(policySnapshot.minimumFunctionalCoverage, 1);
   const computedHash = crypto.createHash('sha256').update(receipts[0].receipt_json).digest('hex');
   assert.strictEqual(computedHash, receipts[0].receipt_hash);
 
   assert.throws(() => policy.resolveHomeostasisPolicy({ minimumFunctionalCoverage: 1.1 }));
   assert.strictEqual(policy.resolveHomeostasisPolicy({ minimumFunctionalCoverage: 0.5 }).version,
-    'genos.homeostasis-policy/v1');
+    'genos.homeostasis-policy/v2');
   await closeDatabase();
   fs.unlinkSync(dbPath);
   console.log('homeostasis authority and transition receipt checks passed');

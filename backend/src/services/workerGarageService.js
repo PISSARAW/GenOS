@@ -1,4 +1,5 @@
 const config = require('../config/orchestratorConfig');
+const { withTransaction } = require('../db');
 const garageFabric = require('./garageFabricService');
 const garagePreemption = require('./garagePreemptionService');
 const { registerWakeHandler, unregisterWakeHandler } = require('./signalPlaneSubscriber');
@@ -128,6 +129,8 @@ async function findReusableWorker(db, orchestratorId, { mission, role } = {}) {
             language, isolation_mode as isolationMode, created_at as createdAt
      FROM agents
      WHERE parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle'
+       AND NOT EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = agents.id
+         AND q.status IN ('queued','claimed','running'))
        AND (workspace_id IS (SELECT workspace_id FROM agents WHERE id = ?) OR workspace_id IS NULL)
      ORDER BY updated_at DESC, created_at DESC, id`,
     orchestratorId, orchestratorId
@@ -142,7 +145,11 @@ async function findReusableWorker(db, orchestratorId, { mission, role } = {}) {
 }
 
 async function state(db, orchestratorId) {
-  const parent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', orchestratorId);
+  const parent = await db.get('SELECT status, is_apoptotic, metadata_json FROM agents WHERE id = ?', orchestratorId);
+  if (!dynamicCapacities.has(orchestratorId) && parent?.metadata_json) {
+    const persisted = JSON.parse(parent.metadata_json).garageCapacity;
+    if (Number.isFinite(persisted)) setDynamicCapacity(orchestratorId, persisted);
+  }
   const isParentDead = parent && (Boolean(parent.is_apoptotic) || ['apoptosis', 'terminated', 'completed', 'error', 'failed', 'unverified', 'quarantined'].includes(parent.status));
   if (isParentDead) {
     return {
@@ -159,7 +166,9 @@ async function state(db, orchestratorId) {
     `SELECT id, name, role, current_task as currentTask, status, created_at as createdAt
      FROM agents
      WHERE parent_agent_id = ? AND execution_mode = 'worker'
-       AND (status = 'running' OR (status = 'blocked' AND current_task = 'Stopping on operator request'))
+       AND (status = 'running' OR (status = 'blocked' AND current_task = 'Stopping on operator request')
+         OR EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = agents.id
+           AND (q.phase IN ('freezing','freeze_failed','cancelling') OR (q.status IN ('claimed','running') AND q.phase = 'ready'))))
      ORDER BY created_at, id`,
     orchestratorId
   );
@@ -189,7 +198,9 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
     const activeProject = await db.get(`SELECT COUNT(*) AS count
       FROM agents a JOIN workspaces w ON w.id = a.workspace_id
       WHERE a.execution_mode = 'worker'
-        AND (a.status = 'running' OR (a.status = 'blocked' AND a.current_task = 'Stopping on operator request'))
+        AND (a.status = 'running' OR (a.status = 'blocked' AND a.current_task = 'Stopping on operator request')
+          OR EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = a.id
+            AND (q.phase IN ('freezing','freeze_failed','cancelling') OR (q.status IN ('claimed','running') AND q.phase = 'ready'))))
         AND a.parent_agent_id IN (
           SELECT o.id FROM agents o
           WHERE o.execution_mode = 'orchestrator'
@@ -207,7 +218,14 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
   return { ...garage, slot: alreadyActive ? garage.activeWorkers.find((worker) => worker.id === workerId).slot : garage.occupied + 1 };
 }
 
-async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }) {
+async function reserveSlot(db, request) {
+  return withTransaction(db, async () => {
+    await require('./garageReservationGuard').assertReservation(db, request);
+    return reserveSlotInternal(db, request);
+  });
+}
+
+async function reserveSlotInternal(db, { orchestratorId, workerId, name, role, mission }) {
   const worker = await db.get('SELECT status FROM agents WHERE id = ?', workerId);
   if (!worker) {
     const error = new Error(`Worker '${workerId}' was not found.`);
@@ -224,17 +242,20 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
     error.code = 'WORKER_NOT_IDLE';
     throw error;
   }
-  unregisterWakeHandler(workerId);
   await requireAvailableSlot(db, orchestratorId, workerId);
   const limit = getDynamicCapacity(orchestratorId);
   const reservation = await db.run(
     `UPDATE agents SET name = ?, role = ?, current_task = ?, status = 'running', updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle' AND (
+    WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle'
+      AND NOT EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = agents.id
+        AND q.phase IN ('freezing','freeze_failed','frozen','thawing','cancelling')) AND (
        SELECT COUNT(*) FROM agents active
-       WHERE active.parent_agent_id = ? AND active.execution_mode = 'worker'
-         AND (active.status = 'running' OR (active.status = 'blocked' AND active.current_task = 'Stopping on operator request'))
+       WHERE active.parent_agent_id = ? AND active.execution_mode = 'worker' AND active.id != ?
+         AND (active.status = 'running' OR (active.status = 'blocked' AND active.current_task = 'Stopping on operator request')
+           OR EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = active.id
+             AND (q.phase IN ('freezing','freeze_failed','cancelling') OR (q.status IN ('claimed','running') AND q.phase = 'ready'))))
     ) < ?`,
-    name, role, mission, workerId, orchestratorId, orchestratorId, limit
+    name, role, mission, workerId, orchestratorId, orchestratorId, workerId, limit
   );
   if (!reservation.changes) {
     const error = new Error(`Worker garage is full (slots: ${limit}/${limit} used — wait or increase MAX_ACTIVE_WORKERS).`);
@@ -253,13 +274,16 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
 async function releaseSlot(db, { orchestratorId, workerId }) {
   const result = await db.run(
     `UPDATE agents SET status = 'idle', current_task = NULL, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'running'`,
+     WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'running'
+       AND NOT EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = agents.id
+         AND (q.status IN ('claimed','running') OR q.phase IN ('freezing','freeze_failed','frozen','thawing','cancelling')))`,
     workerId, orchestratorId
   );
   if (result.changes === 1) {
     armWakeHandler(workerId);
     await drainQueued(db, orchestratorId);
   }
+  unregisterWakeHandler(workerId);
   return result.changes === 1;
 }
 
@@ -267,7 +291,8 @@ async function drainQueued(db, orchestratorId) {
   if (!orchestratorId) return null;
   try {
     return await require('./garageQueueDispatcher').drainOne({ db, orchestratorId });
-  } catch (_) {
+  } catch (error) {
+    console.error('[GarageFabric] Queue drain failed:', error.message);
     return null;
   }
 }
@@ -281,7 +306,10 @@ async function enterIdleState(db, agentId, orchestratorId) {
   if (!db || !agentId) return false;
   const result = await db.run(
     `UPDATE agents SET status = 'idle', current_task = NULL, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ? AND status != 'idle' AND execution_mode = 'worker'`,
+     WHERE id = ? AND status IN ('running','blocked','completed','terminated','error','unverified') AND execution_mode = 'worker'
+       AND COALESCE(isolation_mode, '') != 'Quarantine'
+       AND NOT EXISTS (SELECT 1 FROM garage_queue q WHERE q.worker_id = agents.id
+         AND (q.status IN ('claimed','running') OR q.phase IN ('freezing','freeze_failed','frozen','thawing','cancelling')))`,
     agentId
   );
   if ((result?.changes || 0) === 1) {

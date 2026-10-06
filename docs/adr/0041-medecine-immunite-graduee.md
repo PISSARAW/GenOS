@@ -55,3 +55,9 @@ Négatives :
 - Tuer tout agent suspect (`apoptose immédiate`) : rejeté, auto-immunité garantie, perte d'evidence.
 - Confondre médecine et résilience : rejeté (ADR 0039) — la résilience dégrade gracieusement et continue la mission, la médecine diagnostique et répare.
 - Thérapie sans risque modélisé : rejeté, contredit `TherapyOutcome` et la table `THERAPIES` déjà iatrogènes.
+
+## Évolution documentée au 2026-10-06
+
+Le contexte ci-dessus conserve les constats de la décision initiale. L’[ADR 0326](0326-catalogue-nosologique-et-preuve-application.md) précise désormais le catalogue des 28 conditions et 48 opérateurs, les statuts d’application, les gardes et la persistance autorisée avant mise à jour mémoire. Les signatures paramétrées et mécanismes biologiques détaillés des fiches restent proposés au-delà du [catalogue courant](../01-concepts/nosologie/catalogue-runtime.md). Les états Node et Rust conservent des contrats distincts. Le [bilan daté](../06-qualite-preuves/validation-nosologie.md) sépare les vérifications ciblées réussies des limites globales et du parcours HTTP → Rust non validé.
+
+Le constat historique de stub pour therapy_extended.rs est dépassé : safety_block contrôle l’état cellulaire, les paramètres, les gardes et les risques; apply_extended_therapy applique les contrats bornés. Cela ne démontre pas la chaîne universelle de mission ni toutes les obligations contrefactuelles de la décision initiale.

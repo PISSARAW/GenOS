@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { appendEvent, getEvent, listEvents } = require('../gvxDevelopmentLedger');
+const { appendEvent, getEvent, listAllEvents } = require('../gvxDevelopmentLedger');
 const { verifyDevelopmentReceipt } = require('./developmentReceiptVerifier');
 const creditQueues = new WeakMap();
 
@@ -16,14 +16,16 @@ async function applyVerifiedCredit(options) {
   const { db, input, receipt, key } = options;
   const scope = ledgerScope(input);
   if (await getEvent(db, `gvx-credit-applied:${key}`, scope)) {
-    return { credited: false, reason: 'receipt-already-claimed' };
+    const supportCount = await recordAppliedCredit(options);
+    const consolidation = await finishConsolidation(options, supportCount);
+    return { credited: false, reason: 'receipt-already-claimed', supportCount, consolidation };
   }
   if (!await getEvent(db, `gvx-credit-claim:${key}`, scope)) await appendClaim({ db, input, receipt, key });
   try {
     const plasticity = await recordAgowCredit(input, receipt);
     if (plasticity?.recorded !== true) throw retryableError(plasticity?.reason || 'agow-credit-not-recorded');
     const supportCount = await recordAppliedCredit({ db, input, receipt, key });
-    const consolidation = await consolidateAfterSupport(input, receipt, supportCount);
+    const consolidation = await finishConsolidation(options, supportCount);
     return { credited: true, supportCount, plasticity, consolidation };
   } catch (error) {
     await recordFailure({ db, input, receipt, error });
@@ -33,10 +35,13 @@ async function applyVerifiedCredit(options) {
 
 async function serializePathwayCredit(db, input, run) {
   const queues = creditQueues.get(db) || new Map();
-  const identity = [input.agentId, input.scope.organizationId, input.scope.projectId,
-    input.entityId, input.pathwayId, input.contextHash || 'global'].join('\0');
+  const identity = input.agentId;
   const prior = queues.get(identity) || Promise.resolve();
-  const current = prior.catch(() => {}).then(run);
+  const current = prior.catch(() => {}).then(async () => {
+    const result = await require('../gvxRuntimeLease').withLease({ db, lane: 'gvx-credit:'+identity }, run);
+    if (result?.status === 'deferred') throw retryableError('credit-lease-busy');
+    return result;
+  });
   creditQueues.set(db, queues);
   queues.set(identity, current);
   try { return await current; }
@@ -72,7 +77,7 @@ async function recordAppliedCredit({ db, input, receipt, key }) {
         success: receipt.success }
     });
   }
-  const events = await listEvents(db, { ...input.scope, entityId: input.entityId });
+  const events = await listAllEvents(db, { ...input.scope, entityId: input.entityId });
   const credits = events.filter((event) => event.payload.kind === 'developmental_credit_applied'
     && event.payload.success === true
     && event.payload.pathwayId === receipt.pathwayId
@@ -130,3 +135,14 @@ function creditKey(input, receipt) {
 function ledgerScope(input) { return { ...input.scope, entityId: input.entityId }; }
 
 module.exports = { creditVerifiedReceipt };
+
+async function finishConsolidation(options, supportCount) {
+  const {db,input,receipt,key}=options;
+  const id='gvx-credit-consolidation:'+key;
+  const prior=await getEvent(db,id,ledgerScope(input));
+  if(prior) return prior.payload.result;
+  const result=await consolidateAfterSupport(input,receipt,supportCount);
+  if(result.consolidated) await appendEvent(db,{id,...input.scope,entityId:input.entityId,
+    type:'evidence_attached',payload:{kind:'developmental_credit_consolidation',receiptId:receipt.receiptId,result}});
+  return result;
+}

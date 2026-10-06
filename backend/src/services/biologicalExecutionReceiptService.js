@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { withTransaction } = require('../db');
 const { populationFromReceipt, persistPopulation } = require('./rustPopulationRegistry');
 const { migrateBiologicalExecutionReceipts } = require('../db/migrations/migrateBiologicalExecutionReceipts');
 
@@ -8,8 +9,24 @@ const RECEIPT_SCHEMA = 'genos.biological-execution-receipt/v1';
 
 async function ingestBiologicalReceipt(db, receipt, options = {}) {
   const normalized = validateReceipt(receipt);
-  if (options.backendMissionId) normalized.mission_id = options.backendMissionId;
+  delete normalized.rust_mission_id;
+  const population = populationFromReceipt(normalized);
+  assertPopulationOrigin(population, options.origin);
+  if (options.backendMissionId) {
+    normalized.rust_mission_id = normalized.mission_id;
+    normalized.mission_id = options.backendMissionId;
+  }
   await migrateBiologicalExecutionReceipts(db);
+  return withTransaction(db, () => persistReceipt(db, normalized, options));
+}
+
+function assertPopulationOrigin(population, origin) {
+  if (!population || origin?.signature) return;
+  if (origin?.origin === 'genos-rust-cli' && origin?.verifiedLocal === true) return;
+  throw receiptError('BIOLOGICAL_RECEIPT_POPULATION_ORIGIN_REQUIRED');
+}
+
+async function persistReceipt(db, normalized, options) {
   const encoded = stableJson(normalized);
   const payloadHash = crypto.createHash('sha256').update(encoded).digest('hex');
   const existing = await db.get('SELECT payload_hash FROM biological_execution_receipts WHERE receipt_id = ?', normalized.receipt_id);
@@ -21,7 +38,6 @@ async function ingestBiologicalReceipt(db, receipt, options = {}) {
   if (!await db.get('SELECT mission_id FROM missions WHERE mission_id = ?', normalized.mission_id)) {
     throw receiptError('BIOLOGICAL_RECEIPT_MISSION_NOT_FOUND');
   }
-  if (populationFromReceipt(normalized) && !origin?.signature) throw receiptError("BIOLOGICAL_RECEIPT_POPULATION_ORIGIN_REQUIRED");
   const homeostasis = await latestHomeostasis(db, normalized.mission_id);
   const inserted = await insertReceipt(db, { normalized, encoded, payloadHash, homeostasis, origin: options.origin });
   if (inserted.changes !== 1) {
@@ -93,7 +109,9 @@ async function persistExecutionReceipts({ db, missionId, mapping, receipts }) {
   const persisted = [];
   for (const receipt of receipts) {
     if (receipt.mission_id !== mapping.rust_mission_id) throw receiptError('BIOLOGICAL_TICK_RECEIPT_MISSION_MISMATCH');
-    persisted.push(await ingestBiologicalReceipt(db, receipt, { origin: 'genos-rust-cli', backendMissionId: missionId }));
+    persisted.push(await ingestBiologicalReceipt(db, receipt, {
+      origin: { origin: 'genos-rust-cli', verifiedLocal: true }, backendMissionId: missionId
+    }));
   }
   return persisted;
 }
@@ -114,7 +132,7 @@ async function ingestDivisionReceipt(db, receipt, backendMissionId) {
   if (!await db.get('SELECT mission_id FROM missions WHERE mission_id = ?', backendMissionId)) {
     throw receiptError('BIOLOGICAL_RECEIPT_MISSION_NOT_FOUND');
   }
-  const normalized = { ...receipt, mission_id: backendMissionId, operation: 'cell_division',
+  const normalized = { ...receipt, rust_mission_id: receipt.mission_id, mission_id: backendMissionId, operation: 'cell_division',
     cost: receipt.consumed_cost, cost_unit: receipt.cost_unit, cell_id: receipt.parent_cell_id,
     genome_id: receipt.parent_genome_id, tick: null };
   const encoded = stableJson(normalized);

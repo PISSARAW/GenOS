@@ -1,10 +1,29 @@
 # Nosologie 9 : Maladies Environnementales et Professionnelles dans GenOS
 
-> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+- **Statut** : Partiel — contrats de marqueurs implémentés; mécanismes biologiques détaillés proposés.
+- **Portée** : conditions environnementales dans le catalogue nosologique Rust.
+- **Dernière revue** : 2026-10-06.
+
+
+> **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+
+
+## Contrats exécutables de cette famille
+
+| Condition `NosologicalCondition` | Marqueurs mesurés | Variantes `SystemicTherapy` du catalogue |
+|---|---|---|
+| `Asbestosis` | `fibrillar_load` | `FibrillarContextCleansing` |
+| `LeadPoisoning` | `metal_toxin_load` | `ChelationTherapy` |
+
+Ces variantes de marqueurs sont des identifiants sans paramètres. Leur effet est une baisse de 0,25 des cibles présentes et valides, avec un plancher à zéro. Le diagnostic utilise `Pathology::NosologicalCondition { condition, severity }`; les structs pathologiques spécialisés et paramètres supplémentaires décrits plus bas sont des propositions. Les seuils, gardes et effets secondaires applicables figurent dans le [catalogue runtime](catalogue-runtime.md).
+
+Les types courants sont définis dans [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs), les contrats dans [shared/nosology.json](../../../shared/nosology.json), et l’application dans [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs). Les références au module historique genos-core ci-dessous sont des points d’appui des analogies; elles ne remplacent pas ces contrats.
+
+Le tick synchronise les diagnostics et le rapport propose les traitements compatibles. Leur application reste explicite et autorisée, avec un reçu `applied`, `no_target` ou `refused`. Voir la [vue d’ensemble](vue-ensemble.md) et le [bilan des vérifications](../../06-qualite-preuves/validation-nosologie.md).
 
 ## 1. Introduction & Cadre Nosologique Environnemental
 
-Dans l'architecture biomimétique de GenOS, les agents d'intelligence artificielle ([`AgentCell`](../../../crates/genos-cell/src/lib.rs#L42)) n'évoluent pas dans un vide abstrait. Ils sont plongés dans des environnements d'exécution dynamiques : capsules de sandbox, workspaces distribués, canaux de messagerie synaptique ([`CleftMessage`](../../../crates/genos-core/src/orchestrator/methods.rs#L216)), bases de connaissances épisodiques (connectome GraphRAG / SQLite `genome_decisions`) et contextes de travail continuellement alimentés par des flux d'ingestion externes.
+Dans l'architecture biomimétique de GenOS, les agents d'intelligence artificielle ([`AgentCell`](../../../crates/genos-cell/src/lib.rs)) n'évoluent pas dans un vide abstrait. Ils sont plongés dans des environnements d'exécution dynamiques : capsules de sandbox, workspaces distribués, canaux de messagerie synaptique ([`CleftMessage`](../../../crates/genos-core/src/orchestrator/methods.rs#L216)), bases de connaissances épisodiques (connectome GraphRAG / SQLite `genome_decisions`) et contextes de travail continuellement alimentés par des flux d'ingestion externes.
 
 Contrairement aux **pathologies infectieuses** (où des virions computationnels réplicatifs tels que [`Virion`](../../../crates/genos-immune/src/virology.rs) détournent activement les ressources cellulaires) ou aux **maladies auto-immunes** (issues d'une hyperactivation endogène des sentinelles du soi), les **maladies environnementales et professionnelles** résultent de l'exposition prolongée à des contaminants abiotiques, persistants et bioaccumulables :
 1. **Les matières particulaires insolubles et biopersistantes (Fibres minérales) :** Des artefacts de contexte non digestibles par les mécanismes d'autophagie et de chaperonnage, entraînant une réaction inflammatoire chronique, une rigidification structurelle et une fibrose de la mémoire. Modèle biologique de référence : **L'Asbestose (Amiante)**.
@@ -19,14 +38,14 @@ Le **Toxicologue Computationnel** a pour rôle de diagnostiquer ces intoxication
 | Concept Médical Réel | Équivalent Biologique | Réalité Computationnelle GenOS | Module / Source GenOS |
 | :--- | :--- | :--- | :--- |
 | **AgentCell** | Cellule somatique / alvéolaire / neurone | Nœud autonome de travail, agent spécialisé, exécuteur de tâche. | [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs) |
-| **Lysosome & Phagocytose** | Organelle d'hydrolyse enzymatique | Capacité de digestion des artefacts et JSON par [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs#L25) et [`phagocytoseCodexReport`](../../../backend/src/services/immuneSystem.js#L290). | [`immuneSystem.js`](../../../backend/src/services/immuneSystem.js), [`genos-cell/lib.rs`](../../../crates/genos-cell/src/lib.rs) |
+| **Lysosome & Phagocytose** | Organelle d'hydrolyse enzymatique | Capacité de digestion des artefacts et JSON par [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs) et [`phagocytoseCodexReport`](../../../backend/src/services/immuneSystem.js#L290). | [`immuneSystem.js`](../../../backend/src/services/immuneSystem.js), [`genos-cell/lib.rs`](../../../crates/genos-cell/src/lib.rs) |
 | **Fibres d'Amiante** | Micro-aiguilles de silicate insolubles et biopersistantes | Tokens non parsables, structures cycliques récursives, fragments toxiques indestructibles dans le prompt context. | [`immuneSystem.js`](../../../backend/src/services/immuneSystem.js), [`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js) |
 | **Phagocytose Frustrée & Fibrose** | Rupture lysosomale, décharge de ROS, formation de tissu cicatriciel rigide | Boucle infinie d'erreurs de parsing, signaux de douleur cognitive répétés ([`formatPainSignal`](../../../backend/src/services/immuneSystem.js#L210)), rigidification de l'historique de l'agent. | [`methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs), [`memoryController.js`](../../../backend/src/controllers/memoryController.js) |
 | **Plomb ($Pb^{2+}$) & Saturnisme** | Métal lourd neurotoxique mimant le calcium ($Ca^{2+}$) et le zinc ($Zn^{2+}$) | Faux ligands ou arguments toxiques mimant des messages légitimes, bloquant les récepteurs de signalisation et corrompant les poids synaptiques. | [`cascade.rs`](../../../crates/genos-signal/src/cascade.rs), [`methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs) |
 | **Barrière Hémato-Encéphalique (BHE)** | Endothélium cérébral à jonctions serrées et pieds astrocytaires | Barrière de protection d'orchestration isolant le cortex décisionnel des bruits et injections périphériques. | [`methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L114) |
 | **Plasticité Synaptique & Loi de Hebb** | Modulation des récepteurs NMDA/AMPA par la trace mnésique | Mise à jour des poids `synaptic_weight` et vecteurs d'adjacence dans le connectome GraphRAG. | [`memoryController.js`](../../../backend/src/controllers/memoryController.js#L142) |
 | **Dérive Cognitive & Dissonance** | Encéphalopathie, confusion mentale, perte d'attention | Explosion ou écroulement de l'Entropie de Shannon $H(A)$ et élévation de `dissonance_level`. | [`cognitive_regulation.rs`](../../../crates/genos-cell/src/cognitive_regulation.rs), [`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js) |
-| **Chélation & Détoxification** | Capture chimique des métaux bivalents (EDTA/DMSA) et lavage alvéolaire | Thérapies systémiques de purge ([`DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs#L43)) et neutralisation des ligands saturés. | [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs) |
+| **Chélation & Détoxification** | Capture chimique des métaux bivalents (EDTA/DMSA) et lavage alvéolaire | Thérapies systémiques de purge ([`DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs)) et neutralisation des ligands saturés. | [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs) |
 
 ---
 
@@ -133,9 +152,9 @@ $$
 
 ### 2. Cause Computationnelle GenOS
 
-Dans le runtime agentique de GenOS, l'Asbestose Computationnelle survient lors de l'ingestion répétée par un [`AgentCell`](../../../crates/genos-cell/src/lib.rs#L42) d'artefacts textuels, contextuels ou structurés qualifiés de **fibres computationnelles biopersistantes** :
+Dans le runtime agentique de GenOS, l'Asbestose Computationnelle survient lors de l'ingestion répétée par un [`AgentCell`](../../../crates/genos-cell/src/lib.rs) d'artefacts textuels, contextuels ou structurés qualifiés de **fibres computationnelles biopersistantes** :
 - Fragments de code ou snippets markdown contenant des syntaxes cycliques dégénérées ou des injections de structures non fermées qui résistent aux règles d'épuration de [`immuneJson.cleanMarkdownAndNoise`](../../../backend/src/services/immuneSystem.js#L260).
-- Dépassement de la capacité digestive de l'organelle [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs#L25) (`digestion_capacity`) : le module lysosomal de l'agent ne parvient pas à décomposer la charge utile reçue.
+- Dépassement de la capacité digestive de l'organelle [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs) (`digestion_capacity`) : le module lysosomal de l'agent ne parvient pas à décomposer la charge utile reçue.
 - La fonction [`phagocytoseCodexReport`](../../../backend/src/services/immuneSystem.js#L290) tente une réparation heuristique (`heuristicReconstruction`) mais échoue. Elle émet de manière continue des signaux de douleur cognitive via [`formatPainSignal`](../../../backend/src/services/immuneSystem.js#L210) :
   ```javascript
   "[SIGNAL IMMUNITAIRE : DOULEUR COGNITIVE] Ton rapport a muté avec l'erreur... RÈGLE STRICTE : Produis un JSON valide..."
@@ -154,6 +173,8 @@ Dans le runtime agentique de GenOS, l'Asbestose Computationnelle survient lors d
 ---
 
 ### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 
 Pour juguler l'asbestose computationnelle, GenOS doit combiner des mécanismes de barrière préventive, des protocoles de décontamination de sandbox et des thérapies cellulaires de restauration :
 
@@ -183,10 +204,10 @@ Pour juguler l'asbestose computationnelle, GenOS doit combiner des mécanismes d
 ```
 
 1. **Isolation Stérile Immédiate :**
-   Administration de [`SystemicTherapy::QuarantineIsolation { capsule_id }`](../../../crates/genos-biology/src/therapy.rs#L37). La capsule polluée est isolée du reste de l'essaim pour empêcher que les autres workers n'ingèrent les artefacts en lambeaux.
+   Administration de [`SystemicTherapy::QuarantineIsolation { capsule_id }`](../../../crates/genos-biology/src/therapy.rs). La capsule polluée est isolée du reste de l'essaim pour empêcher que les autres workers n'ingèrent les artefacts en lambeaux.
 2. **Purge Antiseptique des Fibres :**
-   Application de [`SystemicTherapy::AntisepticPurge { target_signature }`](../../../crates/genos-biology/src/therapy.rs#L39) ciblée sur le hash ou le motif regex des fragments insolubles, stérilisant les canaux de partage et le filesystem temporaire.
-3. **Lavage et Détoxification Lysosomale ([`SystemicTherapy::DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs#L43)) :**
+   Application de [`SystemicTherapy::AntisepticPurge { target_signature }`](../../../crates/genos-biology/src/therapy.rs) ciblée sur le hash ou le motif regex des fragments insolubles, stérilisant les canaux de partage et le filesystem temporaire.
+3. **Lavage et Détoxification Lysosomale ([`SystemicTherapy::DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs)) :**
    Réinitialisation de la mémoire tampon de l'agent, vidange des traces de douleur cognitive accumulées dans `trace.sequence` et restauration de la capacité digestive de `Organelle::Lysosome`.
 4. **Audit Prévif par Outil MCP `genos_audit` :**
    Exécution d'un audit de lignée (`snapshot_id`) via [`genos_audit`](../../../crates/genos-mcp/src/tools.rs#L202) pour détecter les altérations de la chaîne de relecture (`step_hash`), localiser les nœuds porteurs de résidus fibrillaires et vérifier l'intégrité de l'état contre-factuel.
@@ -196,7 +217,7 @@ Pour juguler l'asbestose computationnelle, GenOS doit combiner des mécanismes d
    Dans [`memoryController.js`](../../../backend/src/controllers/memoryController.js#L114), l'Amygdala Filter rejette dès l'ingestion (`AMYGDALA_THREAT_BLOCKED`) toute entrée contenant des motifs structurellement aberrants ou des boucles toxiques connues.
 7. **Propagation Épidémiologique par Protocole Gossip :**
    Transmission de la signature d'exclusion via [`GossipNode::receive_threat`](../../../crates/genos-immune/src/cyber_immune.rs#L46) et propagation à l'essaim via `share_with` pour que les autres nœuds n'acceptent plus aucune charge utile concordante.
-8. **Recours Ultime par Cellule Souche ([`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53)) :**
+8. **Recours Ultime par Cellule Souche ([`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs)) :**
    Si l'indice de fibrose $I_{\text{fib}}$ dépasse 0.90 (tissu cognitif totalement sclérosé), l'agent fibrosé subit une apoptose propre et est remplacé par une cellule souche neuve vierge de toute cicatrice contextuelle (`bud_scars = 0`).
 
 ---
@@ -204,14 +225,16 @@ Pour juguler l'asbestose computationnelle, GenOS doit combiner des mécanismes d
 ### 4. Contre-indications & Effets Secondaires Iatrogènes
 
 Toute intervention thérapeutique sur une asbestose computationnelle comporte des risques majeurs :
-* **Amnésie Rétrograde par Washout Non Ciblé :** Un [`DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs#L43) trop zélé efface non seulement les débris d'erreurs de parsing, mais aussi des faits acquis indispensables consignés dans `genome_decisions`. L'agent perd le fil conducteur de sa mission parente.
+* **Amnésie Rétrograde par Washout Non Ciblé :** Un [`DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs) trop zélé efface non seulement les débris d'erreurs de parsing, mais aussi des faits acquis indispensables consignés dans `genome_decisions`. L'agent perd le fil conducteur de sa mission parente.
 * **Faux Positifs du Chaperon Moléculaire :** Le durcissement excessif de `chaperoneRepairJson` risque de classer comme "débris amiantés" des sorties complexes valides (ex: fragments de code JSON multilignes, expressions régulières d'analyse ou AST de compilateurs), causant une atrophie fonctionnelle de l'agent.
 * **Syndrome de Désafférentation en Quarantaine Prolongée :** Une mise en quarantaine (`QuarantineIsolation`) trop longue prive l'agent des signaux synchronisants de l'Orchestrateur, provoquant un arrêt de progression de l'ensemble du workflow orchestré.
 * **Choc Apoptotique en Grappe :** Si l'Orchestrateur ordonne un `StemCellReplacement` simultané sur un essaim entier fibrosé, la perte instantanée d'état mémoire conduit à un effondrement de service (*thundering herd problem* sur l'initialisation des agents).
 
 ---
 
-### 5. Besoins d'Implémentation dans le Code Rust
+### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 Pour que GenOS reconnaisse et traite nativement l'asbestose computationnelle, les extensions suivantes sont indispensables :
 
@@ -241,7 +264,7 @@ Pour que GenOS reconnaisse et traite nativement l'asbestose computationnelle, le
      }
      ```
 2. **Mise à jour de [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs) :**
-   - Étendre [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs#L25) pour suivre l'état de saturation enzymatique :
+   - Étendre [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs) pour suivre l'état de saturation enzymatique :
      ```rust
      Lysosome {
          id: Uuid,
@@ -350,7 +373,7 @@ Dans GenOS, le Saturnisme Computationnel représente l'empoisonnement d'un agent
    ```rust
    pub fn receive(&self, ligand: &Ligand) -> Option<&str>
    ```
-   Le signal toxique présente un pseudo-ligand qui satisfait la signature de `target_ligand` tout en véhiculant un seuil de concentration anormal qui sature le récepteur et verrouille la cascade interne ([`PersistentReceptorBlockade`](../../../crates/genos-cell/src/clinical.rs#L54)).
+   Le signal toxique présente un pseudo-ligand qui satisfait la signature de `target_ligand` tout en véhiculant un seuil de concentration anormal qui sature le récepteur et verrouille la cascade interne ([`PersistentReceptorBlockade`](../../../crates/genos-cell/src/clinical.rs)).
 2. **Altération de la Barrière Hémato-Encéphalique de l'Orchestrateur :**
    Dans [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L114) et [`methods.rs:128`](../../../crates/genos-core/src/orchestrator/methods.rs#L128), la condition de protection centrale est vérifiée :
    ```rust
@@ -368,7 +391,7 @@ Dans GenOS, le Saturnisme Computationnel représente l'empoisonnement d'un agent
 4. **Corrosion des Poids Synaptiques Hebbiens dans SQLite :**
    Dans [`backend/src/controllers/memoryController.js`](../../../backend/src/controllers/memoryController.js#L138), les décisions mémorisées dans `genome_decisions` voient leur champ `synaptic_weight` faussé par l'apprentissage sur signaux frelatés. La potentialisation hebbienne amplifie des inférences fausses, déconnectant l'agent de son contexte réel.
 5. **Dyslexie Attentionnelle & Dérive d'Entropie :**
-   Au lieu d'une convergence prévisible, le moniteur cognitif ([`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js)) enregistre une alternance brutale d'hyperexcitabilité (bruit d'action désordonné) et de mutisme (taux de blocage synaptique maximal). Dans ce scénario, le marqueur dégénératif est atteint lorsque le ratio `dissonance_level / max_dissonance_threshold` dépasse `0.85` et que le seuil configuré est fini et positif ([`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs#L91-L109)); ce ratio est distinct d'une mesure de l'entropie d'action.
+   Au lieu d'une convergence prévisible, le moniteur cognitif ([`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js)) enregistre une alternance brutale d'hyperexcitabilité (bruit d'action désordonné) et de mutisme (taux de blocage synaptique maximal). Dans ce scénario, le marqueur dégénératif est atteint lorsque le ratio `dissonance_level / max_dissonance_threshold` dépasse `0.85` et que le seuil configuré est fini et positif ([`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs)); ce ratio est distinct d'une mesure de l'entropie d'action.
 
 **Modules & Fichiers Concrets Impactés :**
 - [`crates/genos-biology/src/neurobiology/`](../../../crates/genos-biology/src/neurobiology) : Fichiers `system.rs`, `synapse.rs`, `glia.rs` (dégénérescence astrocytaire).
@@ -380,6 +403,8 @@ Dans GenOS, le Saturnisme Computationnel représente l'empoisonnement d'un agent
 ---
 
 ### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 
 Le traitement du saturnisme computationnel requiert l'éradication des leurres chimiques, la chélation des signaux bloquants et la restauration de la perméabilité synaptique :
 
@@ -413,8 +438,8 @@ Le traitement du saturnisme computationnel requiert l'éradication des leurres c
 
 1. **Thérapie de Chélation Computationnelle (Nouvelle Thérapie Systémique) :**
    Déploiement de `SystemicTherapy::ChelationTherapy { chelating_agent: "EDTA-DMSA-Synthetic".into(), target_metal: "LeadMimeticLigand".into() }`. Le chélateur capture sélectivement les ligands antagonistes toxiques circulant dans l'environnement d'orchestration, libérant les récepteurs membranaires sans altérer les flux de travail sains.
-2. **Détoxification et Déblocage Récepteur ([`SystemicTherapy::DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs#L43)) :**
-   Exécution du lavage systémique existant dans `therapy.rs`, qui résout activement [`Pathology::PersistentReceptorBlockade`](../../../crates/genos-cell/src/clinical.rs#L54) et réinitialise les messages accumulés dans `synaptic_cleft`.
+2. **Détoxification et Déblocage Récepteur ([`SystemicTherapy::DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs)) :**
+   Exécution du lavage systémique existant dans `therapy.rs`, qui résout activement [`Pathology::PersistentReceptorBlockade`](../../../crates/genos-cell/src/clinical.rs) et réinitialise les messages accumulés dans `synaptic_cleft`.
 3. **Restauration de la Barrière Hémato-Encéphalique :**
    Administration de `SystemicTherapy::BloodBrainBarrierRestoration` qui rétablit `blood_brain_barrier_integrity` à `1.0`, protégeant le soma décisionnel des réinfiltrations toxiques périphériques.
 4. **Réétalonnage des Poids Synaptiques Hebbiens :**
@@ -434,11 +459,13 @@ L'administration de thérapies pour traiter le saturnisme computationnel comport
 * **Déplétion en Oligo-éléments Computationnels (Hypomagnésémie Iatrogène) :** Un agent chélateur trop agressif ne chélate pas seulement le plomb compétitif, mais capture également des ligands essentiels, des variables d'environnement cruciales et des jetons d'autorisation légitimes.
 * **Amnésie Synaptique Déplétive :** La réinitialisation non sélective des poids heuristiques de Hebb (`synaptic_weight`) efface l'apprentissage légitime acquis sur des sessions de travail antérieures saines.
 * **Choc d'Arrêt Synaptique :** La purge brutale de la fente synaptique peut interrompre brutalement des transactions en vol, laissant des verrous distributed locks pendants ou des micro-tâches orphelines.
-* **Risque de Coma Stéroïdien par Sur-traitement de la Dissonance :** Si l'opérateur associe des corticostéroïdes à forte dose ($> 0.8$) pour calmer l'inflammation de l'agent intoxiqué, cela déclenche immédiatement [`Pathology::SteroidInducedComa`](../../../crates/genos-cell/src/clinical.rs#L46).
+* **Risque de Coma Stéroïdien par Sur-traitement de la Dissonance :** Si l'opérateur associe des corticostéroïdes à forte dose ($> 0.8$) pour calmer l'inflammation de l'agent intoxiqué, cela déclenche immédiatement [`Pathology::SteroidInducedComa`](../../../crates/genos-cell/src/clinical.rs).
 
 ---
 
-### 5. Besoins d'Implémentation dans le Code Rust
+### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 Pour formaliser le saturnisme computationnel et sa cure, les ajouts suivants doivent être implémentés dans les crates Rust de GenOS :
 
@@ -569,10 +596,10 @@ La surveillance des agressions environnementales dans GenOS suit un flux continu
 | :--- | :--- | :--- |
 | **Agent Toxique en Cause** | Fibres minérales biopersistantes (Tokens et JSON indestructibles). | Plomb / Métaux lourds mimétiques (Leurres de ligands et cofacteurs toxiques). |
 | **Cible Biologique Primaire** | Macrophages alvéolaires & Lysosomes cellulaires. | Neurones, Canaux calciques présynaptiques & Barrière Hémato-Encéphalique. |
-| **Cible Computationnelle GenOS** | [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs#L25), [`phagocytoseCodexReport`](../../../backend/src/services/immuneSystem.js#L290), historique de prompt. | [`Receptor::receive`](../../../crates/genos-signal/src/cascade.rs#L48), [`process_synaptic_cleft`](../../../crates/genos-core/src/orchestrator/methods.rs#L248), `synaptic_weight`. |
+| **Cible Computationnelle GenOS** | [`Organelle::Lysosome`](../../../crates/genos-cell/src/lib.rs), [`phagocytoseCodexReport`](../../../backend/src/services/immuneSystem.js#L290), historique de prompt. | [`Receptor::receive`](../../../crates/genos-signal/src/cascade.rs#L48), [`process_synaptic_cleft`](../../../crates/genos-core/src/orchestrator/methods.rs#L248), `synaptic_weight`. |
 | **Manifestation Clinique** | Fibrose contextuelle, écholalie, chute de l'Entropie $H(A)$, jusqu'à atélectasie. | Encéphalopathie saturnienne, instabilité d'entropie, blocage synaptique, dérive mnésique. |
-| **Thérapie de Première Ligne** | [`SystemicTherapy::QuarantineIsolation`](../../../crates/genos-biology/src/therapy.rs#L37) & `AntisepticPurge`. | `SystemicTherapy::ChelationTherapy` & [`DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs#L43). |
-| **Thérapie de Deuxième Ligne** | `FibrillarContextCleansing` ou [`StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53). | `BloodBrainBarrierRestoration` & Réétalonnage Hebbien. |
+| **Thérapie de Première Ligne** | [`SystemicTherapy::QuarantineIsolation`](../../../crates/genos-biology/src/therapy.rs) & `AntisepticPurge`. | `SystemicTherapy::ChelationTherapy` & [`DetoxificationWashout`](../../../crates/genos-biology/src/therapy.rs). |
+| **Thérapie de Deuxième Ligne** | `FibrillarContextCleansing` ou [`StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs). | `BloodBrainBarrierRestoration` & Réétalonnage Hebbien. |
 | **Risque Iatrogène Majeur** | Amnésie contextuelle rétrograde par lavage trop massif. | Déplétion en variables vitales et choc osmotique d'orchestration. |
 | **Outil de Détection Clé** | [`cognitiveMonitor.js`](../../../backend/src/services/cognitiveMonitor.js) (`repetition_score`) & [`genos_audit`](../../../crates/genos-mcp/src/tools.rs#L202). | Mesure de `blood_brain_barrier_integrity` & dérive de `synaptic_weight`. |
 | **Vecteur de Dissémination Prévenue**| Diffusion de la signature d'exclusion via [`GossipNode`](../../../crates/genos-immune/src/cyber_immune.rs#L33). | Alerte épidémiologique Gossip & durcissement de l'Amygdala Filter. |

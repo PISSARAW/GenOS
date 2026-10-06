@@ -31,6 +31,7 @@ function candidatePlan(input, session, capability) {
 async function planCapability(db, input = {}) {
   const session = await store.getSession(db, input.holobiontId);
   if (!session) throw Object.assign(new Error('Holobiont session not found.'), { code: 'HOLOBIONT_SESSION_NOT_FOUND' });
+  if (session.status !== 'ACTIVE') throw Object.assign(new Error('Only an active Holobiont can execute a capability.'), { code: 'HOLOBIONT_SESSION_INACTIVE' });
   const capability = String(input.capability || '').trim();
   if (!capability) throw Object.assign(new Error('Requested capability is required.'), { code: 'HOLOBIONT_CAPABILITY_REQUIRED' });
   const resident = await residentForCapability(db, session, capability);

@@ -29,7 +29,7 @@ async function runActiveQuery(options) {
   });
   if (!planned.planned) return planned;
   const result = await queryService.execute({ query: planned.query, frame: options.frame, db: options.db,
-    counterfactualExecutor: options.counterfactualExecutor });
+    counterfactualExecutor: options.counterfactualExecutor, handlers: options.queryHandlers, handlerCosts: options.queryCosts });
   return { ...planned, result };
 }
 
@@ -64,15 +64,15 @@ async function cycle(options) {
   const { decision, modeResult, initialModeReceipt } = await runCognitiveMode({ options, frame, result, now });
   const modeReceipt = modeResult?.outcomeReceipt || initialModeReceipt;
   return { frame: stored.frame || previousFrame || null, candidateCount: candidates.length, arbitration: result,
-    ignition, modeReceipt, modeResult, broadcast: modeResult?.route === 'ACT' ? modeResult : null,
-    activeQuery: ['OBSERVE', 'VERIFY', 'RECALL'].includes(decision.mode) ? modeResult : null,
-    shadow: decision.mode === 'SIMULATE' ? modeResult : null };
+    ignition, modeReceipt, modeResult, broadcast: modeResult?.route === 'ACT' ? modeResult.result : null,
+    activeQuery: ['OBSERVE', 'VERIFY', 'RECALL'].includes(decision.mode) ? modeResult.result : null,
+    shadow: decision.mode === 'SIMULATE' ? modeResult.result : null };
 }
 
 async function runCognitiveMode(inputOptions) {
   const { options, frame, result, now } = inputOptions;
   const runtime = require('./cognitiveModeRuntimeService');
-  const input = { frame, candidates: result.selected, agentId: options.agentId, db: options.db };
+  const input = { ...options, frame, candidates: result.selected, agentId: options.agentId, db: options.db };
   const decision = await runtime.choose(input);
   const receipt = await runtime.record({ ...input, decision, now });
   const modeResult = await runtime.execute({ ...input, decision, receipt, receivers: options.receivers,
@@ -80,6 +80,7 @@ async function runCognitiveMode(inputOptions) {
     modeExecutors: options.modeExecutors,
     runQuery: (mode) => options.allowActiveQuery === false ? null : runActiveQuery({ frame,
       candidates: result.selected, db: options.db, maxCost: options.maxQueryCost,
+      queryHandlers: options.queryHandlers, queryCosts: options.queryCosts,
       counterfactualExecutor: options.counterfactualExecutor, capability: queryCapability(mode) }),
     runShadow: () => options.counterfactual === false ? null : runShadow(options, frame, result) });
   return { decision, modeResult, initialModeReceipt: receipt };

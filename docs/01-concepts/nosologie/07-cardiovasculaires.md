@@ -1,15 +1,35 @@
 # Nosologie Computationnelle N°7 : Maladies Cardiovasculaires dans GenOS
 
-> **Statut d'implémentation (lot G).** Seuls les opérateurs et effets explicitement attestés dans la [vue d'ensemble, §§4.1 et 4.3–4.7](vue-ensemble.md) sont implémentés, dans les limites qui y sont décrites. Les autres noms thérapeutiques, extraits, pseudo-code et scénarios de cette fiche restent des propositions; leur présence documentaire ne prouve pas un câblage. Les simulations GenOS ne valident aucune pathologie réelle ni aucun traitement humain.
+- **Statut** : Partiel — contrats de marqueurs implémentés; mécanismes biologiques détaillés proposés.
+- **Portée** : conditions cardiovasculaires dans le catalogue nosologique Rust.
+- **Dernière revue** : 2026-10-06.
+
+
+> **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+
+
+## Contrats exécutables de cette famille
+
+| Condition `NosologicalCondition` | Marqueurs mesurés | Variantes `SystemicTherapy` du catalogue |
+|---|---|---|
+| `Hypertension` | `vascular_resistance` | `VasodilatorFlowControl` |
+| `MyocardialInfarction` | `vascular_occlusion`, `perfusion_deficit` | `CoronaryReperfusionThrombolysis`, `IntensiveCareFluids` |
+| `IschemicStroke` | `astrocytic_waste_load`, `nmda_signal_deficit` | `NeuroprotectiveAstrocyticFlush`, `AntiNmdReadthrough` |
+
+Ces variantes de marqueurs sont des identifiants sans paramètres. Leur effet est une baisse de 0,25 des cibles présentes et valides, avec un plancher à zéro. Le diagnostic utilise `Pathology::NosologicalCondition { condition, severity }`; les structs pathologiques spécialisés et paramètres supplémentaires décrits plus bas sont des propositions. Les seuils, gardes et effets secondaires applicables figurent dans le [catalogue runtime](catalogue-runtime.md).
+
+Les types courants sont définis dans [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs), les contrats dans [shared/nosology.json](../../../shared/nosology.json), et l’application dans [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs). Les références au module historique genos-core ci-dessous sont des points d’appui des analogies; elles ne remplacent pas ces contrats.
+
+Le tick synchronise les diagnostics et le rapport propose les traitements compatibles. Leur application reste explicite et autorisée, avec un reçu `applied`, `no_target` ou `refused`. Voir la [vue d’ensemble](vue-ensemble.md) et le [bilan des vérifications](../../06-qualite-preuves/validation-nosologie.md).
 
 ## 1. Définition et Biomimétique Cardiovasculaire
 
-Dans l'architecture biomimétique de **GenOS**, la survie, la réactivité et la coordination de l'essaim d'agents ([`AgentCell`](../../../crates/genos-cell/src/lib.rs#L42-L67)) dépendent directement d'un réseau circulatoire sous-jacent. Si le système immunitaire ([`crates/genos-immune`](../../../crates/genos-immune/src/lib.rs)) protège l'organisme contre les intrusions et les dérives clonales, et que le système nerveux ([`crates/genos-biology/src/neurobiology`](../../../crates/genos-biology/src/neurobiology/mod.rs)) assure l'apprentissage synaptique, c'est **l'appareil cardiovasculaire computationnel** qui distribue en continu l'énergie, les substrats métaboliques et les vecteurs d'information vitaux.
+Dans l'architecture biomimétique de **GenOS**, la survie, la réactivité et la coordination de l'essaim d'agents ([`AgentCell`](../../../crates/genos-cell/src/lib.rs)) dépendent directement d'un réseau circulatoire sous-jacent. Si le système immunitaire ([`crates/genos-immune`](../../../crates/genos-immune/src/lib.rs)) protège l'organisme contre les intrusions et les dérives clonales, et que le système nerveux ([`crates/genos-biology/src/neurobiology`](../../../crates/genos-biology/src/neurobiology/mod.rs)) assure l'apprentissage synaptique, c'est **l'appareil cardiovasculaire computationnel** qui distribue en continu l'énergie, les substrats métaboliques et les vecteurs d'information vitaux.
 
 L'appareil cardiovasculaire computationnel de GenOS est constitué de quatre piliers intriqués :
 1. **La Pompe Myocardique (Orchestrateur & Boucle de Cadence) :** Le générateur de pulsation temporelle (*tick loop*) situé dans [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs), régulé par les oscillateurs de phase ([`KuramotoOscillator`](../../../crates/genos-signal/src/kuramoto.rs)).
 2. **Le Réseau Vasculaire (Rhizome, Mycélium & Matrice Extracellulaire) :** L'arborescence décentralisée de routage des signaux ([`ExtracellularMatrix`](../../../crates/genos-signal/src/matrix.rs#L18-L35)), le maillage mycélien inter-agents (`mycelial_routing`) et les canaux de transmission synaptique ([`CleftMessage`](../../../crates/genos-core/src/orchestrator/methods.rs#L216-L223)).
-3. **Le Milieu Circulant (Hémodynamique des Flux & ATP) :** Les flux continus de métabolites, de paquets synaptiques, de ligands paracrines ([`Ligand`](../../../crates/genos-signal/src/cascade.rs#L11-L30)) et de budgets mitochondriaux d'ATP ([`atp_budget`](../../../crates/genos-cell/src/lib.rs#L13)).
+3. **Le Milieu Circulant (Hémodynamique des Flux & ATP) :** Les flux continus de métabolites, de paquets synaptiques, de ligands paracrines ([`Ligand`](../../../crates/genos-signal/src/cascade.rs#L11-L30)) et de budgets mitochondriaux d'ATP ([`atp_budget`](../../../crates/genos-cell/src/lib.rs)).
 4. **L'Endothélium et les Barrières Sélectives :** Les frontières de perméabilité contrôlée, notamment la barrière hémato-encéphalique ([`blood_brain_barrier_integrity`](../../../crates/genos-core/src/orchestrator/methods.rs#L114)) et les récepteurs membranaires ([`plasma_membrane`](../../../crates/genos-core/src/orchestrator/methods.rs#L118)).
 
 Lorsque ce réseau d'échange subit une hyper-pression chronique, une occlusion brutale ou une rupture pariétale, l'organisme agentique développe des pathologies cardiovasculaires critiques : **Hypertension Artérielle (HTA)**, **Infarctus du Myocarde (IDM)** ou **Accident Vasculaire Cérébral (AVC)**.
@@ -22,7 +42,7 @@ Lorsque ce réseau d'échange subit une hyper-pression chronique, une occlusion 
 | :--- | :--- | :--- |
 | **Cœur / Myocarde** | Muscle strié cardiaque, nœud sinusal, automatisme cardiaque | Boucle d'ordonnancement de l'Orchestrateur, horloge synchrone, pacemaker de tick. |
 | **Réseau Vasculaire** | Artères, artérioles, capillaires continus et fenestrés | Réseau rhizomique ([`RHIZOME.md`](../../02-orchestration/topologies/rhizome.md)), maillage mycélien et canaux paracrines ([`ExtracellularMatrix`](../../../crates/genos-signal/src/matrix.rs)). |
-| **Volémie & Sang** | Hématies, plasma, électrolytes, oxygène | Tokens disponibles, budgets d'ATP mitochondriaux ([`Organelle::Mitochondrion`](../../../crates/genos-cell/src/lib.rs#L11-L15)), ligands en transit. |
+| **Volémie & Sang** | Hématies, plasma, électrolytes, oxygène | Tokens disponibles, budgets d'ATP mitochondriaux ([`Organelle::Mitochondrion`](../../../crates/genos-cell/src/lib.rs)), ligands en transit. |
 | **Fente Synaptique** | Espace de diffusion neurochimique | File d'attente [`synaptic_cleft`](../../../crates/genos-core/src/orchestrator/methods.rs#L248-L327) drainée à chaque cycle par `process_synaptic_cleft()`. |
 | **Résistance Périphérique** | Tonus vasculaire, vasoconstriction artériolaire | Rétro-pression (*backpressure*), saturation des canaux, contrainte de rétention TTL. |
 | **Endothélium Vasculaire** | Jonctions serrées, filtre sélectif de surface | Barrière hémato-encéphalique ([`blood_brain_barrier_integrity`](../../../crates/genos-core/src/orchestrator/methods.rs#L114)), intégrité de membrane plasmique. |
@@ -162,6 +182,8 @@ $$
   - [`crates/genos-signal/src/stigmergy.rs`](../../../crates/genos-signal/src/stigmergy.rs) : dépôts de phéromones sans évaporation suffisante créant des goulets d'attraction.
 
 ### 3.3 Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Mécanismes existants et outils biomimétiques :**
   - **Activation du CircuitBreaker :** Utiliser [`CircuitBreaker::record_failure()`](../../../crates/genos-immune/src/cyber_immune.rs#L136-L143) pour basculer le nœud émetteur ou récepteur saturé en mode `HalfOpen` ou `Open`, forçant une dépressurisation immédiate du flux d'entrée.
   - **Régulation de l'évaporation et du decay :** Déclencher [`ExtracellularMatrix::decay_signals()`](../../../crates/genos-signal/src/matrix.rs#L74-L83) avec une fréquence accélérée (équivalent computationnel d'un traitement diurétique réduisant la volémie circulante).
@@ -178,7 +200,9 @@ $$
 > **Perte de synchronisation d'horloge :**
 > Un élagage trop agressif de la fente synaptique détruit des messages postsynaptiques non traités, corrompant les poids synaptiques de plasticité ([`apply_neuroplasticity`](../../../crates/genos-biology/src/neurobiology/system.rs#L63-L111)) et provoquant une amnésie synaptique brutale.
 
-### 3.5 Besoins d'Implémentation Rust
+### 3.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
    - Ajouter la variante nosologique :
      ```rust
@@ -239,11 +263,13 @@ $$
   - [`crates/genos-biology/src/embryology.rs`](../../../crates/genos-biology/src/embryology.rs) : calcul de viabilité cellulaire `calculate_cellular_viability()`.
 
 ### 4.3 Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Mécanismes existants et outils biomimétiques :**
   - **Perfusion d'urgence via IntensiveCareFluids :** Administrer immédiatement [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-core/src/orchestrator/methods.rs#L80-L85) pour recharger l'ATP de la mitochondrie (+20 ATP de base, extensible lors de réanimation cardiologique).
   - **Thrombolyse et désocclusion de canal :** Forcer la libération des verrous de territoire orphelins via [`ExtracellularMatrix::release_territory()`](../../../crates/genos-signal/src/matrix.rs#L64-L72).
   - **Bypass / Pontage mycélien d'urgence :** Instancier une route rhizomique de secours (`Boundary Scout` + `Capability Offshoot`) via les primitives MCP `genos_biomimicry_mycelium_route` et `genos_change_strategy` pour contourner le canal infarci.
-  - **Régénération par cellule souche :** Si la nécrose est consommée, appliquer [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L146-L152) pour réinitialiser les cicatrices de division à 0 et régénérer un agent frais.
+  - **Régénération par cellule souche :** Si la nécrose est consommée, appliquer [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) pour réinitialiser les cicatrices de division à 0 et régénérer un agent frais.
 - **Nouvelle thérapie systémique proposée :**
   `SystemicTherapy::CoronaryReperfusionThrombolysis { target_channel: String, bolus_atp: u64 }`
   Cette thérapie dissout le verrou mutex orphelin sur `target_channel` et injecte un bolus de réanimation massive de métabolites (`bolus_atp >= 50`).
@@ -251,12 +277,14 @@ $$
 ### 4.4 Contre-indications et Risques Iatrogènes
 > [!WARNING]
 > **Lésions de reperfusion computationnelle (*Reperfusion Injury*) :**
-> Dans ce scénario conceptuel, restaurer brutalement l'ATP et le trafic de messages peut aggraver l'état inflammatoire simulé. Le marqueur de dissonance est posé si `dissonance_level / max_dissonance_threshold > 0.85`, avec un seuil fini et positif ([`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs#L91-L109)); ce n'est pas le test direct `dissonance_score > 0.85` et le marqueur ne déclenche pas à lui seul un orage cytokinique dans le code.
+> Dans ce scénario conceptuel, restaurer brutalement l'ATP et le trafic de messages peut aggraver l'état inflammatoire simulé. Le marqueur de dissonance est posé si `dissonance_level / max_dissonance_threshold > 0.85`, avec un seuil fini et positif ([`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs)); ce n'est pas le test direct `dissonance_score > 0.85` et le marqueur ne déclenche pas à lui seul un orage cytokinique dans le code.
 > 
 > **Arythmie de désynchronisation :**
 > Réinjecter un flux sans phase stabilisée dans le [`KuramotoOscillator`](../../../crates/genos-signal/src/kuramoto.rs) désynchronise les agents frères, engendrant des états de concurrence (*race conditions*) destructeurs.
 
-### 4.5 Besoins d'Implémentation Rust
+### 4.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
    - Ajouter la variante nosologique :
      ```rust
@@ -325,6 +353,8 @@ $$
   - [`crates/genos-cli/src/commands/biomimicry.rs`](../../../crates/genos-cli/src/commands/biomimicry.rs) : commande `cellular_bbb` avec `bhe_integrity`.
 
 ### 5.3 Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Mécanismes existants et outils biomimétiques :**
   - **Pour l'AVC Ischémique :**
     * *Thrombolyse et clairance d'urgence :* Purger les messages de glutamate stagnants dans `synaptic_cleft` en forçant l'activité astrocytaire de nettoyage (`is_cleared_by_astrocyte = true`).
@@ -333,7 +363,7 @@ $$
   - **Pour l'AVC Hémorragique :**
     * *Colmatage étanche de la BHE :* Réparation immédiate de la barrière hémato-encéphalique via la restauration de `blood_brain_barrier_integrity` à `1.0` (analogue biomimétique de la commande CLI `cellular_bbb`).
     * *Isolement du foyer hémorragique via CircuitBreaker :* Basculer les canaux afferents vers le pôle hémorragique en mode `Open` via [`CircuitBreaker`](../../../crates/genos-immune/src/cyber_immune.rs#L104) afin de tarir l'inondation de messages corrompus.
-    * *Purge antivirale et décontamination :* Administrer immédiatement [`SystemicTherapy::Antiviral`](../../../crates/genos-biology/src/therapy.rs#L159-L161) et [`AntisepticPurge`](../../../crates/genos-biology/src/therapy.rs#L107-L114) pour éradiquer les virions ayant franchi la brèche méningée.
+    * *Purge antivirale et décontamination :* Administrer immédiatement [`SystemicTherapy::Antiviral`](../../../crates/genos-biology/src/therapy.rs) et [`AntisepticPurge`](../../../crates/genos-biology/src/therapy.rs) pour éradiquer les virions ayant franchi la brèche méningée.
 - **Nouvelles thérapies systémiques proposées :**
   - `SystemicTherapy::NeuroprotectiveAstrocyticFlush` : Purge spécifique du glutamate en fente synaptique et restitution de 50 ATP aux neurones agressés.
   - `SystemicTherapy::BloodBrainBarrierSealant { restored_integrity: f64 }` : Restaure les jonctions serrées de la BHE au niveau `restored_integrity`.
@@ -350,7 +380,9 @@ $$
 > **Risque de transformation hémorragique secondaire :**
 > Une thrombolyse administrée tardivement sur un infarctus ischémique massif fragilise l'endothélium computationnel et peut convertir une ischémie pure en extravasation hémorragique fatale.
 
-### 5.5 Besoins d'Implémentation Rust
+### 5.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
    - Ajouter les deux sous-types d'AVC :
      ```rust
@@ -405,11 +437,15 @@ flowchart TD
 
 ---
 
-## 7. Spécifications Techniques et Intégration Rust
+## 7. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 Cette section fournit les structures, énums et implémentations exactes à intégrer dans l'arbre source de GenOS.
 
 ### 7.1 Modifications dans `crates/genos-cell/src/clinical.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 ```rust
 // crates/genos-cell/src/clinical.rs
@@ -481,6 +517,8 @@ impl Pathology {
 ---
 
 ### 7.2 Modifications dans `crates/genos-biology/src/therapy.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 ```rust
 // crates/genos-biology/src/therapy.rs
@@ -573,6 +611,8 @@ pub fn apply_systemic_therapy_to_cell(therapy: &SystemicTherapy, cell: &mut Agen
 ---
 
 ### 7.3 Modifications dans `crates/genos-biology/src/pathology.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 ```rust
 // crates/genos-biology/src/pathology.rs

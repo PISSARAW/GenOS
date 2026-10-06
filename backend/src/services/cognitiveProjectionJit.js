@@ -12,9 +12,9 @@ function portable(value) {
 function render(value, profile, requested) {
   const representation = chooseRepresentation(profile, requested);
   if (representation === 'json') return JSON.stringify(value);
-  if (representation === 'sexpr') return `(task ${value.operation} (input ${JSON.stringify(value.input)}))`;
-  if (representation === 'table') return `operation\tinput\n${value.operation}\t${JSON.stringify(value.input)}`;
-  if (representation === 'code') return `CALL ${value.operation} ${JSON.stringify(value.input)}`;
+  if (representation === 'sexpr') return `(task ${value.operation} (input ${JSON.stringify(value.input)}) (constraints ${JSON.stringify(value.constraints || {})}))`;
+  if (representation === 'table') return `operation\tinput\tconstraints\n${value.operation}\t${JSON.stringify(value.input)}\t${JSON.stringify(value.constraints || {})}`;
+  if (representation === 'code') return `CALL ${value.operation} ${JSON.stringify(value.input)} WITH ${JSON.stringify(value.constraints || {})}`;
   return portable(value);
 }
 

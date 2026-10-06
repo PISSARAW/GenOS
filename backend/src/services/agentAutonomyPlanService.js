@@ -240,7 +240,10 @@ async function persistATeamRun({ db, agentId, normalizedMission, autonomyPlan })
   if (!aTeam || aTeam.activated !== true) return;
   const runDraft = buildATeamRunDraft({ agentId, normalizedMission, autonomyPlan });
   const persisted = await aTeamRuntime.createRun({ db, ...runDraft, members: aTeam.members, status: 'READY', phase: 'PREBRIEF' });
-  applyWorkGraphStages(aTeam.members || [], persisted.graph);
+  aTeam.members = persisted.run.members.map((member, index) => ({ ...aTeam.members[index], ...member }));
+  autonomyPlan.workers = aTeam.members;
+  autonomyPlan.dispatchWorkers = aTeam.members;
+  applyWorkGraphStages(aTeam.members, persisted.graph);
   aTeam.teamRun = persisted.run;
   aTeam.workGraph = persisted.graph;
   emit(agentId, 'A_TEAM_RUN_CREATED', 'PERSIST_TEAM_RUN', `Persisted canonical A-Team run '${persisted.run.teamRunId}' with WorkGraph '${persisted.graph.workGraphId}'.`, {

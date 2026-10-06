@@ -107,8 +107,7 @@ async function submit(options) {
   if (!require('../candidateValidationService').validCandidate(candidate)) {
     return { accepted: false, reason: 'candidate_invalid' };
   }
-  return workspace.submitCandidate({ candidate, now: candidate.producedAt, db: options.db,
-    activeGoal: options.activeGoal, unresolvedQuestions: options.unresolvedQuestions, triggerCycle: options.triggerCycle });
+  return workspace.submitCandidate({ ...options, candidate, now: candidate.producedAt });
 }
 
 module.exports = { submit, build, epistemicOrigin, epistemicContext, ADAPTERS, ORIGIN_BY_MODULE };

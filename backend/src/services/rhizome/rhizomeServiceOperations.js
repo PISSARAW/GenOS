@@ -1,5 +1,9 @@
 'use strict';
 
+const missionMetrics = require('./analytics/missionMetricsService');
+const needs = require('./runtime/needRegistryService');
+const edgeTrails = require('./stigmergy/edgeTrailDecayService');
+
 function create(input) {
   return Object.assign({}, ...[
     trails(input), routing(input), graphOperations(input), policies(input),
@@ -28,11 +32,15 @@ function routing(input) {
 
 function graphOperations(input) {
   return {
+    registerNeed: (sessionId, need, options = {}) => input.mutateSession(sessionId, options, {
+      type: 'NEED_REGISTERED', payload: { needId: need.needId }, apply: session => needs.register(session, need)
+    }),
     graphSnapshot: async (sessionId, options = {}) => input.capabilityGraph.snapshot(await input.getSession(sessionId, options.db)),
     projectGraph: async (sessionId, options = {}) => {
       if (!options.db || !options.graphStore) throw Object.assign(new Error('Rhizome graph projection requires SQLite and a graph repository.'), { code: 'RHIZOME_PROJECTION_DEPENDENCIES_REQUIRED' });
       return input.graphProjector.project(options.db, options.graphStore, sessionId);
     },
+    missionMetrics: async (sessionId, options = {}) => missionMetrics.assess(await input.getSession(sessionId, options.db), options),
     graphHealth: async (sessionId, options = {}) => input.graphAnalytics.assess(await input.getSession(sessionId, options.db)),
     inspectPruning: async (sessionId, options = {}) => input.pruningService.inspect(await input.getSession(sessionId, options.db), options),
     applyPruningPlan: (sessionId, plan, options = {}) => input.mutateSession(sessionId, options, {
@@ -75,7 +83,7 @@ function routeLearning(input) {
     type: 'ROUTE_OUTCOME_RECORDED', payload: { resultId: receipt?.resultId || null, status: receipt?.status || null },
     apply: (session) => {
       const outcome = input.routeOutcomeService.applyOutcome({ session, receipt, ...options });
-      recordLineage(session, { ...outcome, edgeIds: receipt?.edgeIds || [], status: outcome.outcome });
+      if (!outcome.duplicate) recordLineage(session, { ...outcome, edgeIds: receipt?.edgeIds || [], status: outcome.outcome });
       return outcome;
     }
   }) };
@@ -156,6 +164,7 @@ function maintainTick(input) {
   const { session, options } = input;
   const leases = input.branchLeaseService.expire(session, options.now);
   const working = { ...session, nodes: [...session.nodes], edges: [...session.edges] };
+  const edgeEvaporation = edgeTrails.evaporate(working, options.now);
   const conductivity = input.conductivityService.step({ session: working, variantPolicy: session.variantPolicy });
   const pruningOptions = { ...options, ...(session.variantPolicy?.pruning || {}) };
   const pruning = input.pruningService.inspect(working, pruningOptions);
@@ -165,7 +174,7 @@ function maintainTick(input) {
   session.edges = working.edges;
   session.graphVersion = working.graphVersion;
   const evaporation = input.trailService.evaporate(session.matrix, options.now);
-  return { graphVersion: session.graphVersion, evaporation, conductivity, pruning: pruningResult, leases };
+  return { graphVersion: session.graphVersion, evaporation, edgeEvaporation, conductivity, pruning: pruningResult, leases };
 }
 
 function isRetirement(item) {

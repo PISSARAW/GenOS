@@ -19,8 +19,11 @@ const STREAM_CANDIDATE_FILES = [
   path.resolve(__dirname, '../../../.agents/telemetry_observer/telemetry_stream.json')
 ];
 const SENSITIVE_KEY = /(token|secret|password|passwd|api[-_]?key|authorization|cookie|credential)/i;
+const USAGE_COUNTER_KEYS = new Set(['tokens', 'input_tokens', 'output_tokens', 'total_tokens',
+  'prompt_tokens', 'completion_tokens', 'cached_input_tokens', 'cache_read_input_tokens']);
 
 function redactEntry([key, item]) {
+  if (USAGE_COUNTER_KEYS.has(key) && Number.isFinite(item) && item >= 0) return [key, item];
   if (SENSITIVE_KEY.test(key)) return [key, '[REDACTED]'];
   return [key, redactObservability(item)];
 }

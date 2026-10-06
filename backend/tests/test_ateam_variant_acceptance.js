@@ -1,19 +1,5 @@
 'use strict';
-
 const { createMockMembers } = require('./fixtures/ateamVariantTestHelpers');
-const categories = [
-  require('./ateamVariants/expertCommittee'),
-  require('./ateamVariants/pipeline'),
-  require('./ateamVariants/projectDag'),
-  require('./ateamVariants/crossFunctionalPod'),
-  require('./ateamVariants/boundarySpanner'),
-  require('./ateamVariants/matrixTeam'),
-  require('./ateamVariants/tigerTeam'),
-  require('./ateamVariants/incidentCommand'),
-  require('./ateamVariants/multiteam'),
-  require('./ateamVariants/adaptive'),
-  require('./ateamVariants/relayTeam'),
-];
 
 async function run() {
   console.log('Running 44 A-Team variant acceptance tests...\n');
@@ -31,15 +17,20 @@ async function run() {
     { id: 'api:security', from: 'api', to: 'security' }
   ]};
 
-  let passed = 0;
-  let failed = 0;
-  for (const category of categories) {
-    const result = await category(members, boundaries);
-    passed += result.passed;
-    failed += result.failed;
-  }
-  console.log('\n=== RESULTS: ' + passed + ' passed, ' + failed + ' failed ===');
-  if (failed > 0) process.exitCode = 1;
+  const context = { members, boundaries, passed: 0, failed: 0 };
+  await require('./ateamAcceptance/expert_committee')(context);
+  await require('./ateamAcceptance/pipeline')(context);
+  await require('./ateamAcceptance/project_dag')(context);
+  await require('./ateamAcceptance/cross_functional_pod')(context);
+  await require('./ateamAcceptance/boundary_spanner')(context);
+  await require('./ateamAcceptance/matrix_team')(context);
+  await require('./ateamAcceptance/tiger_team')(context);
+  await require('./ateamAcceptance/incident_command')(context);
+  await require('./ateamAcceptance/multiteam')(context);
+  await require('./ateamAcceptance/adaptive')(context);
+  await require('./ateamAcceptance/relay_team')(context);
+  console.log('A-Team variant acceptance: ' + context.passed + ' passed, ' + context.failed + ' failed.');
+  if (context.failed) process.exitCode = 1;
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; });

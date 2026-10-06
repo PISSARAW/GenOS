@@ -1,13 +1,13 @@
 use crate::learning::Learner;
 use crate::organization::{
-    Organization, Superorganism, by_name, select_organization, select_superorganism,
+    by_name, select_organization, select_superorganism, Organization, Superorganism,
 };
 use crate::planner::{ActionStats, Concept, Goal, WorldState};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Stratégies d'équipe, façon organisation biologique.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Strategy {
     Solo,
     ATeam,
@@ -104,7 +104,14 @@ impl Director {
         self.learner = state.learner;
         self.exploration_weight = state.exploration_weight;
         self.stress_cost_weight = state.stress_cost_weight;
-        self.mission_physics = state.mission_physics;
+        self.mission_physics = state
+            .mission_physics
+            .into_iter()
+            .filter(|(key, profile)| {
+                crate::physical_learning::valid_mission_key(key) && profile.valid()
+            })
+            .collect();
+        self.physical_memory = None;
     }
 
     /// Applique les gènes du candidat.
@@ -170,14 +177,25 @@ impl Director {
         }
         let mut scored = self.score_strategies(state, goal);
         if scored.is_empty() {
-            return Self::halt(Strategy::Solo, "aucun progres possible : moyens inutiles au but");
+            return Self::halt(
+                Strategy::Solo,
+                "aucun progres possible : moyens inutiles au but",
+            );
         }
         scored.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
         if scored[0].2 <= state.progress(goal) + 1e-9 {
-            return Self::halt(Strategy::Solo, "aucun progres possible : moyens inutiles au but");
+            return Self::halt(
+                Strategy::Solo,
+                "aucun progres possible : moyens inutiles au but",
+            );
         }
         let (strategy, steps) = self.select_best_strategy(&scored);
-        self.build_decision(BuildDecisionInput { strategy, steps, state, goal })
+        self.build_decision(BuildDecisionInput {
+            strategy,
+            steps,
+            state,
+            goal,
+        })
     }
 
     fn check_halt_conditions(&self, state: &WorldState, goal: &Goal) -> Option<Decision> {
@@ -200,7 +218,11 @@ impl Director {
             .collect()
     }
 
-    fn check_applicable_concepts(&self, state: &WorldState, applicable: &[Concept]) -> Option<Decision> {
+    fn check_applicable_concepts(
+        &self,
+        state: &WorldState,
+        applicable: &[Concept],
+    ) -> Option<Decision> {
         if applicable.is_empty() {
             let famine = Concept::all().into_iter().any(|c| state.applicable(c));
             return Some(Self::halt(
@@ -258,7 +280,11 @@ impl Director {
     }
 
     fn build_decision(&self, input: BuildDecisionInput<'_>) -> Decision {
-        let DecisionInput { organization, superorganism, rationale } = self.prepare_decision(PrepareDecisionInput {
+        let DecisionInput {
+            organization,
+            superorganism,
+            rationale,
+        } = self.prepare_decision(PrepareDecisionInput {
             strategy: input.strategy,
             steps: &input.steps,
             state: input.state,
@@ -282,7 +308,11 @@ impl Director {
                 "strategie {:?} retenue ({} etapes, cout {:.1})",
                 input.strategy,
                 input.steps.len(),
-                input.steps.iter().map(|step| step.concept.cost()).sum::<f64>()
+                input
+                    .steps
+                    .iter()
+                    .map(|step| step.concept.cost())
+                    .sum::<f64>()
             ),
         }
     }

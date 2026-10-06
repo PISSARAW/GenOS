@@ -57,6 +57,35 @@ Content-Type: application/json
 
 Le controller normalise aussi `tool_name`/`timeout_ms` au niveau de l'envelope, mais les arguments d'outils doivent suivre le schema MCP. Le resultat repond `200` lorsqu'il est reussi, `502` lorsqu'un transport MCP configure echoue, et `503` lorsqu'il n'est pas configure ou qu'un garde-fou le bloque.
 
+### Garage Fabric : admission durable et contrôle des workers
+
+Les [routes de déploiement](../../backend/src/routes/deployRoutes.js) exposent
+les contrôles Garage suivants sous `/api` :
+
+| Méthode | Route | Contrat |
+| --- | --- | --- |
+| GET | `/agents/:id/workers/garage` | Capacité et workers actifs |
+| GET | `/agents/:id/workers/garage/queue` | Demandes, phases, compteurs et politiques |
+| GET | `/agents/:id/workers/garage/events?after=N` | Journal de transitions séquencé |
+| POST | `/agents/:id/workers/:workerId/dispatch` | Admission durable, réponse 202 |
+| POST | `/agents/:id/workers/garage/queue/:requestId/:action` | `freeze`, `resume`, `cancel`, `renew` |
+
+Les lectures sont bornées par le tenant sélectionné. Les mutations exigent
+`workspace:write`, le lien parent/worker persisté et une autorité revérifiée.
+Le corps ne peut pas redéfinir l'identité, le rôle ou le scope du worker.
+`requestId` est idempotent pour un contenu identique ; un contenu différent
+produit `GARAGE_IDEMPOTENCY_CONFLICT`. La saturation met en file par défaut,
+sauf `queueIfFull: false`.
+
+La réponse 202 distingue `queued`, `started`, `status` et `requestId` ; elle
+ne certifie pas la fin. Celle-ci exige le run courant, l'événement terminal
+lié au même `executionRunId` et un artefact valide selon le contrat typé.
+Un bail périmé clôture les callbacks anciens ; `awaiting_approval` n'est pas
+un succès. Le contrôleur Garage retourne 404 pour une ressource inaccessible,
+409 pour ses erreurs métier et 503 si le circuit breaker bloque l'admission.
+Voir [Garage Fabric](../02-orchestration/topologies/garage-fabric.md#12-api-operateur)
+pour les paramètres, l'automate, la préemption consentie et les limites de reprise.
+
 ### Succes REST
 
 REST n'a pas une enveloppe de succes universelle. Les lectures repondent souvent directement l'objet ou la liste ; les commandes peuvent repondre `{ "success": true, ... }`, `{ "accepted": true, ... }` ou une ressource creee avec `201`. Le client doit donc interpreter simultanement le code HTTP et le schema specifique de l'endpoint, pas uniquement un champ `success`.
@@ -76,6 +105,58 @@ Les en-tetes `X-Request-Id` et `X-Trace-Id` sont attaches par l'application. Les
 ```
 
 `requestId`, `traceId` et `details` sont optionnels. Ne pas parser un message humain pour piloter un client : utiliser `error.code` et le statut HTTP.
+
+### Autorisation et application cliniques
+
+Le [catalogue nosologique](../01-concepts/nosologie/catalogue-runtime.md) définit 28 conditions, neuf familles et 48 contrats de marqueurs. Il ne remplace pas les permissions REST ni les leases MCP.
+
+`POST /api/rust/clinical-authorizations` exige l’authentification, la permission de route `security:manage` et le scope de la mission. Le service exige aussi `approved: true`, une identité d’approbateur et la permission `all`. La cellule doit appartenir à la dernière population Rust enregistrée dans `rust_cell_registry`, avec son génome et son empreinte.
+
+```http
+POST /api/rust/clinical-authorizations
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "missionId": "<mission-uuid>",
+  "cellId": "<cell-uuid>",
+  "therapy": "ChelationTherapy",
+  "approved": true
+}
+```
+
+Une réponse `201 { "authorization": ... }` atteste l’émission de l’autorisation. La thérapie reste à appliquer. L’autorisation HMAC-SHA256 lie `authorization_id`, `mission_id`, `cell_id`, `genome_id`, `genome_fingerprint`, `cell_state_digest`, `source_receipt_id`, `therapy_json`, `approver_id` et `expires_at_unix_ms`. Sa durée initiale est de 60 secondes. Le backend et l’exécuteur Rust utilisent `GENOS_THERAPY_AUTH_SECRET`; ce secret doit être configuré hors des documents et fichiers versionnés.
+
+| Forme de therapy | Exemple valide |
+|---|---|
+| Variante sans paramètres | `"ChelationTherapy"`, `"CFTRModulatorTriad"` |
+| Corticostéroïdes, dose finie dans [0,1] | `{"Corticosteroids":0.5}` |
+| Vaccin, chaîne non vide | `{"Vaccine":"spike-signature"}` |
+| Isolement, capsule non vide | `{"QuarantineIsolation":{"capsule_id":"capsule-1"}}` |
+| Purge ciblée, signature non vide | `{"AntisepticPurge":{"target_signature":"pathogen-1"}}` |
+| Antidote ciblé, nom non vide | `{"AntidoteAdmin":{"target_drug":"Corticosteroids"}}` |
+| Télomérase, entier non négatif représentable en u32 | `{"TelomeraseActivation":{"extended_ticks":5}}` |
+
+Les noms inconnus, champs supplémentaires et formes invalides sont rejetés avec `INVALID_THERAPY`. Les posologies et objets supplémentaires des anciennes fiches ne font pas partie de ce contrat.
+
+Après sauvegarde du seul objet `authorization` dans un fichier JSON du workspace, la CLI utilise les fichiers existants et confinés :
+
+```text
+genos biomimicry therapy --agent-id <cell-uuid> --therapy-type ChelationTherapy --journal <journal> --authorization-file <autorisation.json>
+```
+
+Le type et la cible doivent correspondre exactement à l’autorisation. Le journal restaure la population; le runtime vérifie signature, mission, génome, état et reçu source. Le reçu `genos.clinical-application/v1` et la population sont persistés avant mise à jour mémoire. Une nouvelle présentation identique retrouve le reçu, sans seconde application; un identifiant d’autorisation réutilisé avec un contenu différent est refusé.
+
+| Résultat | success et treatment_administered dans la CLI |
+|---|---|
+| applied : mutation effective | true |
+| no_target : aucune cible modifiable | false |
+| refused : garde ou état incompatible | false |
+| not_executed : journal ou autorisation absent | false |
+
+Les erreurs d’autorisation ou de contexte sont propagées avant mutation. `TherapyOutcome.marker_changes` donne les mesures avant/après et `last_treatment_applied` ne change qu’après un effet réel. Les anciens outcomes désérialisés sans statut portent `unspecified`, sans preuve d’application.
+
+Les états cliniques Node et Rust ont des contrats distincts. Aucun outil MCP thérapeutique n’est ajouté par ce catalogue. Voir les [sources du signataire](../../backend/src/services/medical/therapyAuthorizationService.js), la [validation des types](../../backend/src/services/medical/nosologyCatalogService.js), l’[exécuteur persistant](../../crates/genos-orchestrator/src/authorized_therapy.rs) et le [bilan daté](../06-qualite-preuves/validation-nosologie.md), dont le parcours HTTP → Rust complet reste non validé.
 
 ## Codes HTTP et erreurs
 
