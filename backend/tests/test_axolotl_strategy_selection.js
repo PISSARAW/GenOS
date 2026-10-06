@@ -1,14 +1,16 @@
 'use strict';
-
 const assert = require('node:assert/strict');
 const { selectStrategyPortfolio } = require('../src/strategies/strategySelector');
-const helpers = require('../src/strategies/strategySelectorHelpers');
-const { scoreStrategy } = require('../src/strategies/strategySelectorEligibility');
-const profile = selectStrategyPortfolio({
-  problem: 'incident de topologie', problemProfile: { type: 'incident' }, failureContext: { structural: true }
-}).profile;
-assert.equal(profile.structuralFailure, true);
-const candidate = { id: 'axolotl_regeneration', problemTypes: ['incident'], traits: ['regenerative'], costLevel: 1, latencyLevel: 1, riskLevel: 1, maturity: 'implemented' };
-const score = scoreStrategy(candidate, profile);
-const baseline = scoreStrategy({ ...candidate, traits: [] }, profile);
-assert.ok(score > baseline, 'Structural failure should increase the regenerative strategy score.');
+const policy = require('../src/services/axolotlRecoveryPolicy');
+const { topology } = require('./axolotlTestHarness');
+const partial = policy.assess({ failureContext: { structural: true, componentIds: ['damaged'] }, currentTopology: topology() });
+assert.equal(partial.mode, 'partial_regeneration');
+assert.equal(policy.assess({ failureContext: { structural: true, componentIds: ['unknown'] }, currentTopology: topology() }).mode, 'global_regeneration');
+const structural = selectStrategyPortfolio({ problem: 'implement routing', problemProfile: { type: 'implementation' }, failureContext: { structural: true } });
+assert.equal(structural.profile.structuralFailure, true);
+assert.equal(structural.primary.id, 'axolotl_regeneration');
+const classic = selectStrategyPortfolio({ problem: 'incident recovery', problemProfile: { risk: 'low' }, failureContext: { severity: 'high', structural: false }, lastSnapshot: { valid: true } });
+assert.equal(classic.requestedPrimary, 'checkpoint_regeneration');
+assert.notEqual(classic.primary.id, 'axolotl_regeneration');
+assert.throws(() => selectStrategyPortfolio({ problem: 'incident recovery', failureContext: { structural: true }, maxCostLevel: 0 }), { code: 'STRATEGY_NO_ELIGIBLE_CANDIDATE' });
+console.log('Axolotl structural selection, partial/global assessment, classic restore and cost constraints: passed');

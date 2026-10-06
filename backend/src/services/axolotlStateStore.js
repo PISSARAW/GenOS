@@ -6,7 +6,10 @@ const clone = (value) => structuredClone(value);
 const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const error = (code) => Object.assign(new Error(code), { code });
 
-function transaction(db, callback) { return require('../db').withTransaction(db, callback); }
+async function transaction(db, callback) {
+  await ensure(db);
+  return require('../db').withTransaction(db, callback);
+}
 
 async function ensure(db) {
   if (!db?.exec) throw error('AXOLOTL_DATABASE_REQUIRED');
@@ -51,8 +54,8 @@ async function list(db, kind) {
 
 async function putEvidence(db, evidence) {
   const id = `axolotl-proof:${hash(evidence)}`;
-  await db.run('INSERT OR IGNORE INTO axolotl_evidence(id,session_id,subject_hash,payload_json,created_at) VALUES (?,?,?,?,?)',
-    id, evidence.sessionId, evidence.subjectHash, JSON.stringify(evidence), new Date().toISOString());
+  await transaction(db, (tx) => tx.run('INSERT OR IGNORE INTO axolotl_evidence(id,session_id,subject_hash,payload_json,created_at) VALUES (?,?,?,?,?)',
+    id, evidence.sessionId, evidence.subjectHash, JSON.stringify(evidence), new Date().toISOString()));
   return id;
 }
 

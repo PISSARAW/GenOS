@@ -231,6 +231,7 @@ async function changeOrganization(db, options = {}) {
   const finalReason = String(reason || 'Runtime need changed.');
   const ctx = { orchestratorId, organization, version, profile, reason: finalReason, actor, prevOrg };
   await withTransactionDb(db, async (tx) => {
+    await require('./axolotlTopologyService').assertMutable({ db: tx, orchestratorId });
     await recordOrganizationTransition(tx, ctx);
     await flushBufferedMessages(tx, ctx);
   });
@@ -303,21 +304,9 @@ async function publish(db, options = {}) {
     orchestratorId, changedBy: orchestratorId
   });
   const proposal = signalRouter().proposedRoute(signalInfo.signalType, signalInfo.signalType === 'text' ? {} : unpackSignalPayload(signalInfo.signalBlob, signalInfo.signalType));
-  const changed = Boolean(proposal && proposal.organization !== state.organization);
-  if (changed) {
-    const governance = require('./governancePlaneService');
-    const ctx = governance.defineContext({ principal: orchestratorId, organization: state.organization, actionRisk: 'MEDIUM', reversibility: 'reversible', action: { name: 'change_organization', risk: 'MEDIUM', impact: 'medium', reversibility: 'reversible', blastRadius: 'collective' } });
-    const verdict = governance.gateMorphogenesis({ plan: { topologyChanges: 1, spawn: 0 }, context: ctx });
-    if (verdict.verdict === 'HUMAN_REVIEW' || verdict.verdict === 'DENY') {
-      throw new Error(`Governance denied organization change to ${proposal.organization}: ${verdict.reason || verdict.verdict}`);
-    }
-    await changeOrganization(db, {
-      orchestratorId,
-      organization: proposal.organization,
-      reason: `Signal ${signalInfo.signalType} selected organization ${proposal.organization} (governance: ${verdict.verdict}).`,
-      changedBy: orchestratorId
-    });
-  }
+  const changed = await require('./organizationMorphogenesisGate').applySignalOrganizationChange(db, {
+    orchestratorId, proposal, state, signalType: signalInfo.signalType
+  });
   return {
     id: result.lastID, organization: state.organization, version: state.version,
     ...route, kind: normalizedKind, signalType: signalInfo.signalType, routing: { ...routing, changed, organization: changed ? proposal.organization : state.organization }

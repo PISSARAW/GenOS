@@ -140,15 +140,8 @@ async function composeBiome({ db, orchestratorId, mission, options = {} }) {
   return composition;
 }
 
-function composeAxolotl({ orchestratorId, mission }) {
-  const axolotlTopologyService = require('./axolotlTopologyService');
-  const mode = axolotlTopologyService.getTopologyMode(orchestratorId);
-  return {
-    mode: mode.mode,
-    plastique: mode.mode === 'plastique',
-    members: biologicalModeService.compose('axolotl', mission),
-    modeInfo: mode
-  };
+async function composeAxolotl(input) {
+  return require('./axolotlCompositionService').compose(input);
 }
 
 module.exports = { composeMode, normalizeMode };

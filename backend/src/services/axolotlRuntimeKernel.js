@@ -4,7 +4,7 @@ const { reachable, validateFunctionalEquivalence } = require('./axolotlRegenerat
 const { error, hash } = require('./axolotlStateStore');
 
 function resolveComponent(topology, id) {
-  return topology.components.find((node) => node.id === id || node.regeneratedFrom === id);
+  return topology.components.find((node) => node.id === id || node.regeneratedFrom === id || node.originId === id);
 }
 
 function route(topology, input) {

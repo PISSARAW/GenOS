@@ -1,273 +1,97 @@
 'use strict';
+const service = require('../axolotlRegenerationService');
+const store = require('../axolotlStateStore');
+const topology = require('../axolotlTopologyService');
+const observations = require('../axolotlObservationService');
 
-/**
- * @file axolotlStrategyHandlers.js
- * @description Handlers pour les primitives de la stratégie axolotl_regeneration.
- *
- * Primitives déclarées dans knowledgeResilienceStrategies.js :
- *   assess_regeneration, plan_regeneration, execute_regeneration, validate_equivalence
- *
- * Ces handlers font le pont entre la stratégie (sélectionnée par l'orchestrateur)
- * et le service de régénération axolotl (axolotlRegenerationService.js).
- *
- * État : Map module-level, perdu au redémarrage (documenté).
- */
-
-const regenerationService = require('../axolotlRegenerationService');
-
-// ── Assess Regeneration ──────────────────────────────────────────────────────
-
-async function assessRegeneration(context = {}) {
-  const { failureContext, lastSnapshot, orchestratorId } = context;
-
-  if (!failureContext) {
-    return failNoContext();
-  }
-
-  const assessment = await regenerationService.assessRegenerationNeed({
-    failureContext,
-    lastSnapshot
-  });
-
-  if (!assessment) {
-    return makeAssessResult({
-      assessFn: assessNoAction,
-      orchestratorId,
-      context,
-      assessment
-    });
-  }
-  return makeAssessResult({
-    assessFn: assessment.needed ? assessPlanRegen : assessRestoreClassic,
-    orchestratorId,
-    context,
-    assessment
-  });
+async function normalized(context) {
+  const db = context.db || await require('../../db').getDatabase();
+  const orchestratorId = context.orchestratorId || context.orchestrator_id || context.agentId;
+  await store.ensure(db);
+  await store.assertOwner(db, orchestratorId);
+  return { ...context, db, orchestratorId };
 }
-
-function failNoContext() {
-  return { success: false, error: 'failureContext est requis pour assess_regeneration' };
-}
-
-function assessNoAction() {
-  return { needed: false, mode: 'no_action', reason: 'Aucun besoin de régénération détecté' };
-}
-
-function assessPlanRegen() {
-  return { needed: true, mode: 'plan_regeneration', reason: 'Défaillance structurelle' };
-}
-
-function assessRestoreClassic() {
-  return { needed: false, mode: 'restore_classic', reason: 'Snapshot valide disponible' };
-}
-
-function makeAssessResult({ assessFn, orchestratorId, context, assessment }) {
-  const r = assessFn();
-  return {
-    success: true,
-    need_regeneration: r.needed,
-    mode: r.mode,
-    reason: r.reason,
-    structural: (assessment || {}).structural || false,
-    orchestratorId: orchestratorId || context.orchestrator_id,
-    suggested_action: r.mode
+function safe(handler) {
+  return async (context = {}) => {
+    try { return await handler(context); }
+    catch (failure) { return { success: false, code: failure.code || 'AXOLOTL_OPERATION_FAILED', error: failure.message }; }
   };
 }
-
-// ── Plan Regeneration ───────────────────────────────────────────────────────
-
-async function planRegeneration(context = {}) {
-  const { mission, reason, currentTopology, preferredPreservation, orchestratorId, scope } = context;
-
-  if (!mission && !reason) {
-    return { success: false, error: 'mission ou reason est requis pour plan_regeneration' };
-  }
-
-  const plan = await regenerationService.planRegeneration({
-    mission: mission || 'Régénération axolotl',
-    reason: reason || 'Défaillance structurelle détectée',
-    currentTopology,
-    preferredPreservation,
-    scope
-  });
-
-  return {
-    success: true,
-    sessionId: plan.sessionId,
-    targetStructure: plan.targetStructure,
-    targetSignature: plan.targetStructure?.signature || 'unknown',
-    regenerationPath: plan.regenerationPath,
-    steps: plan.regenerationPath?.length || 0,
-    alternativesConsidered: plan.alternativesConsidered,
-    mode: 'plastique',
-    orchestratorId: orchestratorId || context.orchestrator_id,
-    note: plan.note
-  };
+function skipped(context) {
+  return context.regenerationAssessment?.needed === false ? { success: true, skipped: true, status: 'not_required' } : null;
 }
-
-// ── Execute Regeneration ────────────────────────────────────────────────────
-
-async function executeRegeneration(context = {}) {
-  const { sessionId, db, orchestratorId, evaluateCognitiveCandidate, observedCost, executionBudget, workspaceRoot } = context;
-
-  if (!sessionId) {
-    return { success: false, error: 'sessionId est requis pour execute_regeneration' };
-  }
-
-  const result = await regenerationService.executeRegeneration({
-    sessionId,
-    db,
-    context: {
-      orchestratorId: orchestratorId || context.orchestrator_id,
-      evaluateCognitiveCandidate,
-      observedCost,
-      executionBudget,
-      workspaceRoot
-    }
-  });
-
-  return {
-    success: result.success,
-    sessionId: result.sessionId,
-    newTopology: result.newTopology,
-    validation: result.validation,
-    preserved: result.preserved,
-    status: result.success ? 'completed' : 'degraded',
-    note: result.note,
-    orchestratorId: orchestratorId || context.orchestrator_id
-  };
+async function assess(context) {
+  if (!context.failureContext) throw store.error('STRATEGY_CONTEXT_INCOMPLETE');
+  const assessment = await service.assessRegenerationNeed(context) || { needed: false, mode: 'no_action' };
+  context.regenerationAssessment = assessment;
+  if (!context.scope && assessment.scope) context.scope = assessment.scope;
+  return { success: true, need_regeneration: assessment.needed, ...assessment };
 }
-
-async function prepareCognitiveLearning(context = {}) {
-  const { sessionId, candidates } = context;
-  if (!sessionId) return { success: false, error: 'sessionId est requis pour prepare_cognitive_learning' };
-  return regenerationService.prepareCognitiveLearning(sessionId, { candidates });
+async function plan(context) {
+  if (skipped(context)) return skipped(context);
+  const input = await normalized(context);
+  const result = await service.planRegeneration(input);
+  context.sessionId = result.sessionId;
+  return result;
 }
-
-async function promoteCognitiveCandidate(context = {}) {
-  return regenerationService.promoteCognitiveCandidate({
-    sessionId: context.sessionId,
-    candidateId: context.candidateId || context.candidate_id,
-    db: context.db,
-    sourceAgentId: context.orchestratorId || context.orchestrator_id,
-    evidenceVerifier: context.evidenceVerifier
-  });
+async function prepare(context) {
+  if (skipped(context)) return skipped(context);
+  const input = await normalized(context);
+  return service.prepareCognitiveLearning(input.sessionId, input);
 }
-
-// ── Validate Equivalence ────────────────────────────────────────────────────
-
-async function validateEquivalence(context = {}) {
-  const { topology, mission, orchestratorId } = context;
-
-  if (!topology) {
-    return { success: false, error: 'topology est requis pour validate_equivalence' };
-  }
-
-  const checks = [
-    checkCriticalComponents(topology.components),
-    checkNetworkConnectivity(topology.components, topology.connections),
-    checkFeedbackLoop(topology.connections)
-  ];
-
-  const passed = checks.every(c => c.passed);
-
-  return makeValidationResult({
-    passed,
-    checks,
-    mission,
-    orchestratorId,
-    context,
-    topology
-  });
+async function execute(context) {
+  if (skipped(context)) return skipped(context);
+  const input = await normalized(context);
+  const result = await service.executeRegeneration({ db: input.db, sessionId: input.sessionId, context: input });
+  if (result.success) context.topology = result.newTopology;
+  return result;
 }
-
-function checkCriticalComponents(components) {
-  const critical = components?.filter(c => c.role === 'coordination' || c.role === 'processing') || [];
-  return makeCheck({ name: 'composants_critiques', passed: critical.length > 0, count: critical.length });
+async function validate(context) {
+  if (skipped(context)) return skipped(context);
+  const input = await normalized(context);
+  if (!input.sessionId) throw store.error('AXOLOTL_FUNCTIONAL_EVIDENCE_REQUIRED');
+  const session = await service.getRegenerationSession(input.sessionId, input);
+  if (session.status !== 'completed') return { success: false, status: session.status, code: 'AXOLOTL_SESSION_NOT_COMPLETED' };
+  const proof = await store.evidence(input.db, session.evidenceRef);
+  const active = await store.activeTopology(input.db, input.orchestratorId);
+  const passed = proof.result.passed && proof.subjectHash === store.hash(active.topology);
+  return { success: passed, passed, sessionId: session.id, evidenceRef: session.evidenceRef, validation: proof.result };
 }
-
-function checkNetworkConnectivity(opts) {
-  const { components, connections } = opts;
-  if (!components || components.length === 0) return makeCheck({ name: 'connexité_réseau', passed: false, count: 0, detail: 'Aucun composant' });
-
-  const adj = buildAdjacency(components, connections);
-  const startId = components[0].id;
-
-  if (!adj.has(startId)) {
-    return makeCheck({
-      name: 'connexité_réseau',
-      passed: components.length === 1,
-      count: components.length,
-      detail: components.length === 1 ? 'Composant unique, connexité triviale' : 'Composant de départ isolé'
-    });
-  }
-
-  const visited = bfsVisit(adj, startId);
-  return makeCheck({
-    name: 'connexité_réseau',
-    passed: visited.size === components.length,
-    count: visited.size,
-    detail: components.length
-  });
+async function promote(context) {
+  if (skipped(context)) return skipped(context);
+  const input = await normalized(context);
+  const candidateId = input.candidateId || input.candidate_id;
+  if (candidateId) return service.promoteCognitiveCandidate({ ...input, candidateId });
+  const session = await service.getRegenerationSession(input.sessionId, input);
+  const candidates = session.learning.candidates.filter((item) => item.status === 'supported_candidate');
+  const promotions = [];
+  for (const candidate of candidates) promotions.push(await service.promoteCognitiveCandidate({ ...input, candidateId: candidate.id }));
+  return { success: true, promotions, status: promotions.length ? 'promoted' : 'not_requested' };
 }
-
-function buildAdjacency(components, connections) {
-  const a = new Map();
-  for (const c of components) a.set(c.id, new Set());
-  if (connections) {
-    for (const conn of connections) {
-      const x = a.get(conn.from);
-      const y = a.get(conn.to);
-      if (x) x.add(conn.to);
-      if (y) y.add(conn.from);
-    }
-  }
-  return a;
+async function mutateMode(context) {
+  const input = await normalized(context);
+  const result = await require('../development/plasticityRegulatorService').requestChange({ ...input, id: input.orchestratorId });
+  return { ...result, success: result.ok };
 }
-
-function bfsVisit(adjacency, startId) {
-  const visited = new Set();
-  const queue = [startId];
-  while (queue.length) {
-    const cur = queue.shift();
-    if (visited.has(cur)) continue;
-    visited.add(cur);
-    const n = adjacency.get(cur);
-    if (n) for (const nb of n) if (!visited.has(nb)) queue.push(nb);
-  }
-  return visited;
+async function activeOperation(context, operation) {
+  const input = await normalized(context);
+  const active = await store.activeTopology(input.db, input.orchestratorId);
+  if (!active) throw store.error('AXOLOTL_ACTIVE_TOPOLOGY_REQUIRED');
+  const kernel = require('../axolotlRuntimeKernel');
+  return { success: true, version: active.version, result: kernel[operation](active.topology, input) };
 }
-
-function checkFeedbackLoop(connections) {
-  const list = connections || [];
-  const hasFeedback = list.some(c => c.type === 'feedback');
-  return makeCheck('boucle_rétroaction', hasFeedback, list.length, hasFeedback ? 'Connexion feedback présente' : 'Aucune connexion feedback');
-}
-
-function makeCheck(opts) {
-  const { name, passed, count, detail } = opts;
-  return { name, passed, detail: detail || `${count} éléments` };
-}
-
-function makeValidationResult({ passed, checks, mission, orchestratorId, context, topology }) {
-  return {
-    success: true,
-    passed,
-    checks,
-    topology,
-    mission: mission || 'Validation équivalence fonctionnelle',
-    orchestratorId: orchestratorId || context.orchestrator_id,
-    note: passed
-      ? 'Topologie fonctionnellement équivalente à la mission'
-      : 'Topologie avec déficits fonctionnels — mode dégradé'
-  };
-}
-
 module.exports = {
-  assess_regeneration: assessRegeneration,
-  plan_regeneration: planRegeneration,
-  execute_regeneration: executeRegeneration,
-  prepare_cognitive_learning: prepareCognitiveLearning,
-  promote_cognitive_candidate: promoteCognitiveCandidate,
-  validate_equivalence: validateEquivalence
+  assess_regeneration: safe(assess), plan_regeneration: safe(plan), prepare_cognitive_learning: safe(prepare),
+  execute_regeneration: safe(execute), validate_equivalence: safe(validate), promote_cognitive_candidate: safe(promote),
+  inspect_regeneration: safe(async (context) => {
+    const input = await normalized(context);
+    return { success: true, session: await service.getRegenerationSession(input.sessionId, input) };
+  }),
+  rollback_regeneration: safe(async (context) => service.rollbackRegeneration(await normalized(context))),
+  request_metamorphosis: safe(mutateMode),
+  observe_axolotl: safe(async (context) => observations.observe(await normalized(context))),
+  axolotl_cost_report: safe(async (context) => observations.costReport(await normalized(context))),
+  axolotl_route: safe(async (context) => require('../axolotlMessageService').send(await normalized(context))),
+  axolotl_inbox: safe(async (context) => require('../axolotlMessageService').receive(await normalized(context))),
+  axolotl_recall: safe((context) => activeOperation(context, 'recall'))
 };

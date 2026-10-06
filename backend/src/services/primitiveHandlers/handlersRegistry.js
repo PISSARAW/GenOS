@@ -339,28 +339,7 @@ const HANDLERS = {
     const { defaultForaging } = require('../foragingScoutHarvesterService');
     return defaultForaging.harvestEvidence(ctx.tokenId || ctx.token_id, ctx.harvesterId || ctx.harvester_id);
   },
-  // Lot 12 — Axolotl Stratégie Régénération
-  assess_regeneration: async (ctx = {}) => {
-    const { assess_regeneration } = require('./axolotlStrategyHandlers');
-    return assess_regeneration(ctx);
-  },
-  plan_regeneration: async (ctx = {}) => {
-    const { plan_regeneration } = require('./axolotlStrategyHandlers');
-    return plan_regeneration(ctx);
-  },
-  execute_regeneration: async (ctx = {}) => {
-    const { execute_regeneration } = require('./axolotlStrategyHandlers');
-    return execute_regeneration(ctx);
-  },
-  validate_equivalence: async (ctx = {}) => {
-    const { validate_equivalence } = require('./axolotlStrategyHandlers');
-    return validate_equivalence(ctx);
-  },
-  prepare_cognitive_learning: async (ctx = {}) => {
-    const { prepare_cognitive_learning } = require('./axolotlStrategyHandlers');
-    return prepare_cognitive_learning(ctx);
-  },
-  promote_cognitive_candidate: async (ctx = {}) => require('./axolotlStrategyHandlers').promote_cognitive_candidate(ctx),
+  ...require('./axolotlStrategyHandlers'),
   // Lot 13 — Plasticité Structurelle (STDP + Lamarckien + Sommeil)
   causal_weighting: (ctx = {}) => require('./structuralPlasticity').causalWeighting(ctx),
   infer_traits: (ctx = {}) => require('./structuralPlasticity').inferTraits(ctx),

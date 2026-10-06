@@ -12,19 +12,11 @@ function setAdaptivePersister(persister) { database = persister?.db || database;
 function setStateStore(sessions) { legacySessions = new Map(sessions); }
 function resolveDb(db) { if (!db && !database) throw store.error('AXOLOTL_DATABASE_REQUIRED'); return db || database; }
 
-async function assessRegenerationNeed({ failureContext, lastSnapshot, currentTopology }) {
-  if (!failureContext) return null;
-  if (!failureContext.structural && lastSnapshot?.valid) return { needed: false, mode: 'restore_classic', reason: 'Snapshot valide disponible' };
-  if (!failureContext.structural && !['high', 'critical'].includes(failureContext.severity)) return null;
-  const damaged = failureContext.componentIds || [];
-  const targeted = damaged.length > 0 && damaged.every((id) => currentTopology?.components?.some((node) => node.id === id));
-  return { needed: true, structural: failureContext.structural === true,
-    mode: targeted ? 'partial_regeneration' : 'global_regeneration',
-    scope: targeted ? { type: 'components', componentIds: damaged } : { type: 'global' }, reason: 'Régénération fonctionnelle requise' };
-}
+async function assessRegenerationNeed(input) { return require('./axolotlRecoveryPolicy').assess(input); }
 
 async function planRegeneration(input) {
   const db = resolveDb(input.db);
+  if (typeof input.mission !== 'string' || !input.mission.trim()) throw store.error('AXOLOTL_MISSION_REQUIRED');
   await store.ensure(db);
   const owner = await store.assertOwner(db, input.orchestratorId);
   const currentTopology = helpers.validateGraph(store.clone(input.currentTopology));
@@ -41,6 +33,7 @@ async function planRegeneration(input) {
   const saved = await store.transaction(db, async (tx) => {
     let baseline = await store.read(tx, { kind: 'topology', id: owner.id });
     if (!baseline) baseline = await store.write(tx, { kind: 'topology', id: owner.id, value: { topology: currentTopology, functionalContract: contract, workspaceId: owner.workspace_id } });
+    if (baseline.workspaceId !== owner.workspace_id) throw store.error('AXOLOTL_WORKSPACE_CHANGED');
     if (store.hash(baseline.topology) !== store.hash(currentTopology)) throw store.error('AXOLOTL_BASELINE_MISMATCH');
     return store.write(tx, { kind: 'session', id: session.id, value: { ...session, baselineVersion: baseline.version } });
   });
@@ -94,6 +87,7 @@ async function finalize(db, execution) {
   return store.transaction(db, async (tx) => {
     const current = await ownedSession(tx, { sessionId: session.id, orchestratorId: session.orchestratorId });
     if (current.runId !== session.runId || current.status !== 'executing') throw store.error('AXOLOTL_EXECUTION_SUPERSEDED');
+    if (Date.now() > current.deadline) throw store.error('AXOLOTL_DURATION_BUDGET_EXHAUSTED');
     const evidenceRef = await store.putEvidence(tx, evidence);
     let adoptedVersion = null;
     if (result.passed) {
@@ -115,7 +109,8 @@ async function markFailed(db, session, failure) {
     const current = await store.read(tx, { kind: 'session', id: session.id });
     if (current.runId !== session.runId || current.status !== 'executing') return;
     await store.write(tx, { kind: 'session', id: current.id, expectedVersion: current.version,
-      value: { ...current, status: 'failed', error: { code: failure.code, message: failure.message } } });
+      value: { ...current, status: 'failed', cost: { ...current.experimentCost, durationMs: Date.now() - session.startedAt },
+        error: { code: failure.code, message: failure.message } } });
   });
 }
 
@@ -141,8 +136,8 @@ async function getRegenerationSession(sessionId, input = {}) {
 }
 async function listRegenerationSessions(input = {}) {
   const db = resolveDb(input.db);
-  await store.assertOwner(db, input.orchestratorId);
-  return (await store.list(db, 'session')).filter((item) => item.orchestratorId === input.orchestratorId);
+  const owner = await store.assertOwner(db, input.orchestratorId);
+  return (await store.list(db, 'session')).filter((item) => item.orchestratorId === input.orchestratorId && item.workspaceId === owner.workspace_id);
 }
 
 async function prepareCognitiveLearning(sessionId, input) {

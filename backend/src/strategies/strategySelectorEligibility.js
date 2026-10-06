@@ -10,6 +10,7 @@ function getStrategyHandlers() {
 }
 
 function compatibilityFailure(strategy, profile) {
+  if (strategy.id === 'axolotl_regeneration' && (profile.structuralFailure || profile.regenerationNeeded)) return null;
   if (strategy.problemTypes.includes('all') || strategy.problemTypes.includes(profile.type)) return null;
   return `not compatible with ${profile.type}`;
 }

@@ -38,10 +38,11 @@ function buildScopedTopology(session) {
   const affected = new Set(session.scope.componentIds);
   const ids = new Map([...affected].map((id, index) => [id, `${session.id.slice(-12)}_${index}`]));
   const components = original.components.map((node) => affected.has(node.id)
-    ? { ...node, id: ids.get(node.id), regeneratedFrom: node.id, generation: (node.generation || 0) + 1 }
+    ? { ...node, id: ids.get(node.id), originId: node.originId || node.id, regeneratedFrom: node.id, status: 'active', generation: (node.generation || 0) + 1 }
     : node);
   const connections = original.connections.map((edge) => ({ ...edge, from: ids.get(edge.from) || edge.from, to: ids.get(edge.to) || edge.to }));
   addRecoveryEdges({ components, connections, affectedIds: new Set(ids.values()) });
+  repairContractRoutes({ topology: { components, connections }, contract: session.functionalContract, bridgeId: ids.values().next().value });
   return validateGraph({ ...original, structure: 'functional_regenerated', components, connections,
     knowledge: original.knowledge || {}, regenerated: true, scope: clone(session.scope) });
 }
@@ -50,6 +51,25 @@ function addRecoveryEdges({ components, connections, affectedIds }) {
   const first = components.find((node) => affectedIds.has(node.id));
   const last = components.filter((node) => affectedIds.has(node.id)).at(-1);
   if (!connections.some((edge) => edge.from === last.id && edge.to === first.id && edge.type === 'feedback')) connections.push({ from: last.id, to: first.id, type: 'feedback' });
+  for (let index = 1; index < components.length; index++) {
+    const current = components[index];
+    const previous = components[index - 1];
+    if (affectedIds.has(current.id) && affectedIds.has(previous.id)) connections.push({ from: previous.id, to: current.id, type: 'recovery_route' });
+  }
+}
+
+function repairContractRoutes({ topology, contract, bridgeId }) {
+  for (const probe of contract.probes.filter((item) => item.kind === 'route')) {
+    const from = findComponent(topology, probe.from);
+    const to = findComponent(topology, probe.to);
+    if (!from || !to) continue;
+    if (reachable(topology, { from: from.id, to: to.id })) continue;
+    if (from.id !== bridgeId) topology.connections.push({ from: from.id, to: bridgeId, type: 'recovery_route' });
+    if (to.id !== bridgeId) topology.connections.push({ from: bridgeId, to: to.id, type: 'recovery_route' });
+  }
+}
+function findComponent(topology, id) {
+  return topology.components.find((node) => node.id === id || node.regeneratedFrom === id || node.originId === id);
 }
 
 function reachable(topology, route) {

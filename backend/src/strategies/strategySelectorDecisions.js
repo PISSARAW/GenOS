@@ -35,6 +35,7 @@ function resolveSelectionProfile(input, problem) {
   if (overrides.structuralFailure === undefined) {
     overrides.structuralFailure = failure.structural === true || failure.structuralFailure === true;
   }
+  overrides.regenerationNeeded = require('../services/axolotlRecoveryPolicy').assess({ ...input, failureContext: failure })?.needed === true;
   return profileProblem(problem, overrides);
 }
 
@@ -42,7 +43,7 @@ function selectStrategyPortfolio(input = {}) {
   const problem = resolveProblem(input);
   const profile = resolveSelectionProfile(input, problem);
   const options = resolveOptions(input);
-  const requestedPrimary = input.requestedPrimary || PREFERRED_PRIMARY[profile.type];
+  const requestedPrimary = input.requestedPrimary || require('../services/axolotlRecoveryPolicy').preferredPrimary(input) || PREFERRED_PRIMARY[profile.type];
   if (input.requestedPrimary && !getStrategy(input.requestedPrimary)) {
     throw Object.assign(new Error(`Unknown requested strategy '${input.requestedPrimary}'.`), { code: 'STRATEGY_REQUEST_UNKNOWN' });
   }
@@ -53,7 +54,8 @@ function selectStrategyPortfolio(input = {}) {
   const primary = resolvePrimary(portfolio, decisions, requestedPrimary);
   if (!primary) {
     const eligible = decisions.filter((d) => d.eligible);
-    const pool = eligible.length > 0 ? eligible : decisions;
+    if (!eligible.length) throw Object.assign(new Error('No strategy satisfies the execution constraints.'), { code: 'STRATEGY_NO_ELIGIBLE_CANDIDATE' });
+    const pool = eligible;
     const fallback = bestByScore(pool, decisions);
     if (!fallback) throw new Error('No strategy available');
     const fallbackObj = { requested: requestedPrimary, selected: fallback.strategy.id, reason: 'primary unavailable' };
