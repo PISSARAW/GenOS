@@ -378,6 +378,7 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0318](0318-contrats-implementation-concepts.md) | Contrats d’implémentation des concepts | Accepté | 2026-10-05 | Registre philosophique, épistémologie, expérimentation |
 | [0319](0319-raccord-contrats-philosophiques-ontogenese.md) | Raccord des contrats philosophiques au cycle Ontogenèse | Accepté | 2026-10-05 | Ontogenèse, registre philosophique, preuve |
 | [0326](0326-catalogue-nosologique-et-preuve-application.md) | Catalogue nosologique et preuve d'application | Accepté | 2026-10-06 | Nosologie, clinique computationnelle et preuves |
+| [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté. | 2026-10-06. | Régénération, cognition, plasticité. |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

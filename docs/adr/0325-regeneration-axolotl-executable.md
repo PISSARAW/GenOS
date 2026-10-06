@@ -1,4 +1,4 @@
-# ADR 0324 — Régénération Axolotl avec admission exécutable
+# ADR 0325 — Régénération Axolotl avec admission exécutable
 
 - **Statut** : Accepté.
 - **Date** : 2026-10-06.
@@ -47,3 +47,34 @@ pipeline existant.
 
 Conserver les callbacks clients et déduire le succès du lancement d'un worker
 a été rejeté : aucun de ces événements n'établit l'équivalence fonctionnelle.
+## Raccordement opérationnel
+
+Les primitives sont enregistrées dans le dispatch existant et partagent le
+contexte du pipeline de stratégie. La composition biologique utilise la
+topologie admise. Les messages sont persistants, adressés par identité logique
+et consommés atomiquement, y compris après un remplacement de composants.
+Une mise en file ne prouve pas leur traitement par un agent métier.
+
+La reconstruction cognitive est limitée aux clés du contrat et aux mémoires
+non purgées du parent. Les essais ne doivent pas régresser sur une probe déjà
+réussie. La promotion L0 contrôle les preuves de l’essai et de l’admission finale ;
+le rollback révoque ces traits et protège les générations ultérieures.
+
+La métamorphose requiert des observations natives distinctes, un budget et une
+temporisation. Son gel est contrôlé aussi dans le service d’organisation
+dynamique. Le coût porte sur les événements, la durée et les modifications
+observées ; les unités absentes ne sont pas remplacées par zéro. Une comparaison
+stable/plastique exige des échantillons sous un même contrat et reste descriptive.
+
+Le sélecteur privilégie Axolotl pour une panne structurelle. Il refuse de
+sélectionner artificiellement une stratégie inéligible lorsque toutes les
+contraintes échouent. Les changements du workspace parent invalident l’accès
+aux anciennes sessions et à leur topologie.
+
+## Vérification exécutable
+
+`node backend/tests/test_axolotl_suite.js` couvre huit suites : régénération
+partielle, apprentissage, sources cognitives, métamorphose, coût, sélection,
+runtime et reprise. Les tests utilisent SQLite et des workers réels, avec des
+contrats épinglés, des cas de concurrence, de preuves altérées et de budgets
+épuisés. Le test de dispatch possède sa propre base de contrôle temporaire.
