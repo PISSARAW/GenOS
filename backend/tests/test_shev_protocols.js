@@ -11,7 +11,7 @@ const { compilePending, approveInitiative } = require('../src/services/shev/init
 const { initiativeEnvelope, clampBudget } = require('../src/services/shev/initiativeAdmissionService');
 const { recordProjectEffect } = require('../src/services/shev/effectService');
 const { dueWatches, monitorProjectEffect, proposeRecovery,
-  approveRecovery, executeRecovery } = require('../src/services/shev/monitoringService');
+  approveRecovery, executeRecovery, reconcileRecovery } = require('../src/services/shev/monitoringService');
 
 const keyPair = generateKeyPairSync('ed25519');
 const projectId = 'shev-protocols';
@@ -118,6 +118,23 @@ async function testMonitoring(db, approved) {
   assert.equal(result.status, 'applied');
   await assert.rejects(executeRecovery(db, { monitoringId: monitoring.id,
     perform: async () => { throw new Error('must not replay'); } }), /not approved/);
+  await recordObservation(db, observation('regression-2', 'degradation', Date.now()));
+  const again = await monitorProjectEffect(db, { projectId, initiativeId: approved.id,
+    observationId: 'regression-2', verify: async () => ({ result: 'regressed',
+      verifierRef: 'independent-monitor', evidenceRefs: ['artifact:regression-2'] }) });
+  await proposeRecovery(db, { projectId, monitoringId: again.id, plan });
+  await approveRecovery(db, { projectId, monitoringId: again.id,
+    authorization: authorization({ operation: 'recovery-approval', subjectId: again.id,
+      expectedVersion: 2, details: plan }) });
+  const ambiguous = await executeRecovery(db, { monitoringId: again.id, perform: async () => ({ result: 'applied' }) });
+  assert.equal(ambiguous.reconciliationRequired, true);
+  const inspected = { result: 'applied', externalReceiptRef: 'external:inspected',
+    evidenceRefs: ['artifact:inspected'], spentUsd: 0.1, seconds: 1 };
+  const reconciled = await reconcileRecovery(db, { projectId, monitoringId: again.id, receipt: inspected,
+    authorization: authorization({ operation: 'recovery-reconciliation', subjectId: again.id,
+      expectedVersion: 2, details: inspected }),
+    verify: async () => ({ verified: true, verifierRef: 'independent-inspector', evidenceRefs: ['artifact:inspected'] }) });
+  assert.equal(reconciled.status, 'applied');
 }
 
 async function main() {

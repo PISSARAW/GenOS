@@ -285,6 +285,22 @@ sequenceDiagram
     Backend->>DB: Enregistrement dans le journal d'événements
     Backend->>WSClient: Diffusion WebSocket immédiate (Payload JSON)
     deactivate Backend
-    
+
     WSClient->>WSClient: Mise à jour dynamique de l'UI / Graphique
 ```
+
+## SHEV : responsabilité et surveillance persistantes
+
+Le tick Ontogenèse raccorde les capteurs signés, initiatives, effets post-intégration
+et surveillances. Les risques/opportunités, récupérations et expériences GVX
+requièrent une approbation signée avec budget. Les effets externes ambigus restent
+bloqués jusqu’à leur réconciliation ; le progrès de l’agent a un reçu distinct.
+
+- Opérateur : `npm --prefix backend run shev -- --help`.
+- Validation : `npm --prefix backend run test:shev` et `test:web-audits`.
+- [Modèle et garanties](../docs/02-orchestration/shev.md).
+- [Exploitation, signature et fournisseurs](../docs/03-reference/exploitation-shev.md).
+
+La CLI est une frontière d’administration locale. Aucun endpoint HTTP ni outil
+MCP SHEV supplémentaire n’est ajouté. Le fournisseur métier/GVX doit être installé
+par l’opérateur ; les fixtures de test ne certifient pas une campagne réelle.

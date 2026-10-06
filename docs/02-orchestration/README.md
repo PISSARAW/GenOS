@@ -9,7 +9,8 @@ reproduction, et les 8 modes de composition (topologies).
 - [g-cir.md](g-cir.md) — interface cognitive résiduelle, contrat du Signal Plane, visibilité, validation et limites.
 - [agow.md](agow.md) — circuit AGOW, autorité runtime, contrats, modes et maturité des intégrations.
 - [ontogenese-boucle.md](ontogenese-boucle.md) — boucle Observer → réévaluer : sélection tâches/topologies, autorisation, réveils, notifications.
-- [shev.md](shev.md) — responsabilité persistante, observations, initiatives et vérification des effets du projet.
+- [shev.md](shev.md) — responsabilité, capteurs signés, boucle surveillée, récupération et transfert vérifié.
+- [exploitation-shev.md](../03-reference/exploitation-shev.md) — commandes opérateur, signatures, fournisseurs et diagnostic de SHEV.
 - [corps-orchestrator.md](corps-orchestrator.md) — percepts typés, WorldState, actionneurs bornés, réflexes.
 - [noyau-controle-morphogenetique.md](noyau-controle-morphogenetique.md) — kernel Rust : état global, diagnostic causal, résolveurs, plan morphogénétique, incarnation, gouvernance.
 - [regulation-multi-boucles.md](regulation-multi-boucles.md) — signaux de contrôle, boucles rapides/lentes, arbitrage.

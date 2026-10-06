@@ -1,4 +1,7 @@
 module.exports = (createMigrationRunner) => [
+  createMigrationRunner('114-shev-runtime', 'Close the SHEV perception, monitoring and controlled recovery loop', async (db) => {
+    await require('./migrateShevRuntime').migrateShevRuntime(db);
+  }),
   createMigrationRunner('109-signal-receptors', 'Persist scoped deterministic signal receptors', async (db) => {
     await require('./migrateSignalReceptors').migrateSignalReceptors(db);
   }),

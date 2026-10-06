@@ -1,9 +1,10 @@
 # SHEV — Système d'homéorhèse étendue vérifiée
 
-- **Statut** : deux tranches opérationnelles ; qualification de terrain à mener
+- **Statut** : runtime raccordé aux six protocoles ; qualification de terrain à mener
 - **Portée** : responsabilité persistante, observations, initiatives, suivi des effets
-- **Dernière revue** : 2026-10-04
-- **Décision** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md)
+- **Dernière revue** : 2026-10-06
+- **Décisions** : [ADR 0295](../adr/0295-responsabilite-persistante-shev.md), [ADR 0297](../adr/0297-protocoles-de-responsabilite-shev.md), [ADR 0333](../adr/0333-boucle-shev-et-reconciliation-durable.md)
+- **Exploitation** : [guide opérateur](../03-reference/exploitation-shev.md)
 
 ## 1. Définition et frontière
 
@@ -63,11 +64,11 @@ ne peut compenser une violation de sécurité ou élargir une permission.
 | Responsabilité | Rattachée à une identité de projet Ontogenèse, persistée dans SQLite ; révision signée par l'autorité inscrite. | Une délégation héritée sans clé ne peut pas être révisée par cet appel. |
 | Mandat | Finalité, dimensions, critères immuables par version, permissions et stade signé. | Les préférences qualitatives restent liées à une grille externe. |
 | Observation | Source, date, validité, domaine, dimension, statut, résumé et références de preuve. | La source est rapportée, sans certification automatique. |
-| Adaptateurs | Contrôle de fraîcheur des données et contrat JSON applicatif, chacun avec relecture après tâche. | Deux sondes locales ne couvrent pas un système métier complet. |
-| Initiative | Proposition déterministe ; risque et opportunité exigent approbation signée et budget borné. | Les lacunes restent un signal GVX, sans mutation automatique. |
-| Reprise | Identifiants déterministes et reprise métier autorisée après régression surveillée. | Un effet externe interrompu exige une réconciliation manuelle. |
+| Adaptateurs | Capteurs signés de fraîcheur, contrat JSON et audit web, avec relecture automatique après intégration. | La sonde ne vérifie que son contrat explicite. |
+| Initiative | Proposition déterministe ; risque et opportunité exigent approbation signée, budget cumulé, arrêt et alternative. | Une abstention signée est possible ; les autres gates restent requis. |
+| Reprise | Exécution bornée et réconciliation signée d’un effet métier interrompu, puis nouvelle mesure. | Un résultat ambigu bloque tout rejeu avant inspection externe. |
 | Effet du projet | Observation postérieure et callback de vérification requis après une tâche `done`. | La qualité du vérificateur dépend de l'application. |
-| Développement | Signal `skill_gap` rapporté au journal GVX et proposition du contrôleur GVX. | Aucun cycle GVX n'est lancé automatiquement par SHEV. |
+| Développement | Signal GVX et job autorisé exécuté par le fournisseur opérateur ; reçu de transfert distinct. | Un fournisseur de domaine configuré est requis pour conduire l’expérience. |
 | Progrès de l'agent | Reçu de transfert GVX sur contextes tenus à l'écart, distinct de l'effet projet. | L'absence de fuite de l'entraînement dépend de la provenance GVX. |
 | Démonstrateur | Une tâche SHEV traverse l'exécution Ontogenèse, l'intégration Git, une lecture indépendante du fichier, une régression simulée et une seconde réparation. | Il s'agit d'un essai local contrôlé, pas d'une campagne longitudinale réelle. |
 
@@ -75,8 +76,10 @@ Le chemin principal se trouve dans
 `backend/src/services/shev/`. La migration `101-shev-project-loop` ajoute les
 tables `shev_responsibilities`, `shev_mandates`, `shev_observations`,
 `shev_initiatives` et `shev_effects`. La migration `102-shev-protocols`
-ajoute les autorisations, surveillances et reçus. Le tick de l'Ontogenèse appelle le
-compilateur sous son claim existant avant de choisir une tâche.
+ajoute les autorisations, surveillances et reçus. La migration `114-shev-runtime` ajoute les capteurs, jobs et protocoles
+longitudinaux préenregistrés. Le tick Ontogenèse appelle `tickProject`, puis le
+compilateur sous son claim existant avant de choisir une tâche. Les écritures
+historiques d’observations, effets, surveillance et progrès sont immuables.
 
 ## 4. Mandat et champ de développement
 
@@ -225,7 +228,7 @@ ne prouve pas que la dimension du projet s'est améliorée. La fonction
 
 1. une initiative effectivement `queued` ;
 2. sa tâche Ontogenèse en état `done` ;
-3. une observation postérieure `state` ou `degradation`, `observed`, sur la même dimension ;
+3. une observation postérieure `state` ou `degradation`, `observed`, sur la même dimension, le même domaine et la même source contractuelle ;
 4. un adaptateur `verify` qui examine l'avant, l'après et les critères du mandat ;
 5. un résultat `confirmed`, `regressed` ou `inconclusive`, avec identifiant de
    vérificateur et références de preuve.
@@ -254,8 +257,11 @@ L'identifiant du signal est stable ; un rejeu n'ajoute pas une seconde cause.
 
 Le signal a le statut `reported` et l'action GVX conserve
 `promotionAllowed: false`. Le contrôleur peut proposer de planifier une
-expérience. SHEV ne lance pas `runCycle`, ne crédite pas la plasticité et
-n'applique pas de mutation. Le reçu de transfert de la section 17 consomme
+expérience. Le pont de signal seul ne lance pas `runCycle`. Un job créé par
+`approveDevelopment`, avec signature, scope et budget, permet au tick d’appeler
+le fournisseur opérateur `performDevelopment` puis `verifyProgress`. Le
+fournisseur conduit le cycle GVX ; SHEV ne contourne ni ses gates de promotion
+ni ses règles de plasticité. Le reçu de transfert de la section 17 consomme
 des fenêtres GVX vérifiées ; la conduite d'expériences et l'application de
 mutations restent du ressort du cycle GVX et de ses gates.
 
@@ -277,9 +283,9 @@ dans le répertoire du projet, refuse les chemins traversants, les liens
 symboliques et les chemins sensibles de la politique d'intégration, puis
 compare sa date de modification à un seuil positif fourni par l'application.
 Il produit `degradation` si le fichier est trop ancien, `state` s'il est
-assez récent et `blind_spot` avec statut `unknown` s'il manque. Son identifiant
-dépend du projet, du chemin, du seuil et de l'état du fichier : des ticks
-répétés sur un état inchangé ne créent pas de nouvelle tâche. La référence
+assez récent et `blind_spot` avec statut `unknown` s'il manque. Son identifiant lie le projet, le chemin, le seuil et l’état du fichier.
+Le runtime ajoute l’identité du prélèvement pour conserver une nouvelle date ;
+un fingerprint de signal empêche des prélèvements inchangés de créer des tâches. La référence
 `file-metadata:sha256:…` lie les métadonnées observées ; elle n'est pas un
 hash du contenu ni un certificat de qualité du pipeline. La relecture après
 tâche est fournie par `verifyDataFreshness` ; les invariants métier du pipeline
@@ -345,7 +351,9 @@ instruction malveillante dans une source et interruption après effet externe.
 Les mesures pertinentes sont les problèmes manqués, initiatives inutiles,
 régressions, coûts complets, temps de récupération et interventions humaines.
 
-La tranche suivante met en oeuvre ces six prolongements, détaillés ci-dessous.
+Les six protocoles ci-dessous sont raccordés au runtime. Le test complet
+sur deux domaines utilise un worker injecté, des fichiers et intégrations Git
+réels, puis une interruption après effet et une réouverture de SQLite.
 La qualification sur des projets réels reste distincte de leur présence dans
 le runtime.
 
@@ -405,72 +413,127 @@ alternative métier explicite. Un rejeu du nonce échoue.
 La tâche n'entre dans le backlog qu'après cette approbation. Au dispatch,
 `initiativeEnvelope` refuse une approbation absente, expirée ou dont les
 tentatives sont épuisées. `clampBudget` borne les trois budgets transmis au
-worker à la valeur la plus stricte entre le projet et l'initiative. La
-condition d'arrêt et l'alternative sont conservées dans le reçu d'approbation.
+worker à la valeur la plus stricte entre le projet et l'initiative. Chaque tentative réserve son allocation complète ; les tentatives suivantes
+consomment le budget restant, sans remboursement supposé. L’échéance borne
+aussi la durée restante. Le contrôle est refait dans la transaction de dispatch ;
+l’arrêt et l’alternative sont transmis au harness et conservés dans l’approbation.
+`declineInitiative` inscrit une abstention signée et motivée.
 Les opérations externes doivent encore respecter leurs propres baux et
 contrôles d'annulation ; la borne du dispatch ne prétend pas annuler une
 action déjà exécutée hors de GenOS.
 
 ## 16. Surveillance et récupération métier
 
-Chaque effet projet inscrit par `recordProjectEffect` crée une surveillance
-persistante, par défaut quotidienne. `dueWatches` expose les contrôles dus.
-`monitorProjectEffect` exige une observation ultérieure comparable et un
-vérificateur avec preuve ; il ajoute un reçu immuable. Une régression place
-la surveillance en alerte. Une reprise ne se déclenche pas directement à
-partir du verdict : `proposeRecovery` fixe l'action métier, le budget,
-l'échéance, l'arrêt et l'alternative ; `approveRecovery` exige la signature
-de l'autorité ; `executeRecovery` remet le plan à un adaptateur externe.
+Chaque effet projet crée une surveillance persistante. L’appel direct utilise
+par défaut une journée ; le runtime utilise l’intervalle du capteur signé,
+compris entre une seconde et trente jours. Les surveillances actives dues sont
+relues par le tick. L’observation doit être actuelle, postérieure à l’effet et
+à toute mesure de surveillance précédente, de même domaine, dimension et source.
+Une mesure ancienne ne peut donc pas effacer une alerte récente.
 
-La reprise passe à `executing` avant l'appel externe. Un crash dans cet état
-demande une réconciliation humaine avec le système métier : le runtime ne
-réessaie pas aveuglément une opération à effets externes. Un reçu valide
-atteste une référence d'effet externe, des preuves et des coûts sous les
-limites approuvées. Une erreur, un dépassement ou un reçu incomplet produit
-`halted`. Le retour à la surveillance active après `applied` n'est pas une
-preuve que la qualité métier est rétablie : une nouvelle observation doit
-encore le démontrer.
+Une régression place la surveillance en `alert`. `proposeRecovery` exige ce
+constat et un plan explicite : `actionRef`, `budgetUsd`, `maxSeconds`,
+`deadlineAt`, `stopCondition`, `alternative`, éventuellement `maxAttempts`.
+`approveRecovery` consomme la signature de l’autorité du mandat courant.
+Le tick exécute seulement les plans approuvés avec un fournisseur opérateur.
 
-## 17. Transfert GVX et reçu propre à l'agent
+```mermaid
+stateDiagram-v2
+    [*] --> proposed: régression prouvée et plan
+    proposed --> approved: signature courante
+    approved --> executing: claim et token
+    executing --> applied: reçu borné
+    executing --> executing: résultat ambigu, inspection requise
+    executing --> applied: réconciliation signée et inspection externe
+    executing --> halted: inspection prouve non application
+    halted --> approved: nouvelle autorisation, tentatives restantes
+    applied --> [*]: nouvelle surveillance programmée
+```
 
-`recordAgentProgress` lit un événement GVX `transfer_recorded` dans sa portée
-organisation/projet/agent, avec vérification de la chaîne du journal. Le
-transfert doit avoir atteint `monitored` ou `consolidated`, disposer d'au
-moins deux fenêtres de surveillance vérifiées, et utiliser des contextes
-SHA-256 distincts du contexte source et des contextes d'essai connus. Un
-vérificateur fournit pour chaque contexte tenu à l'écart le score de base,
-le score candidat, le sens attendu, le statut de régression et une preuve.
-Le reçu SHEV mesure le nombre de cas, les améliorations, les régressions et
-le taux de réussite ; il conclut `confirmed`, `regressed` ou `inconclusive`.
+Le token d’exécution protège la finalisation. L’adaptateur reçoit une clé
+d’idempotence stable et un `AbortSignal`. Une pause, un arrêt, une révision ou
+l’échéance interrompt l’attente ; le fournisseur doit propager l’annulation à
+ses outils. Si l’effet externe peut déjà avoir eu lieu, le job reste
+`executing` et aucun rejeu automatique n’est autorisé.
 
-Ce reçu est stocké dans `shev_agent_progress`, séparément de `shev_effects`.
-Un effet projet confirmé ne devient donc jamais une compétence certifiée par
-copie de statut. Le caractère réellement inédit d'un contexte dépend de la
-provenance de l'ensemble d'entraînement et du vérificateur GVX ; des hashes
-distincts ne suffisent pas à prouver l'absence de fuite de données.
+`reconcileRecovery` exige une signature liée au reçu et une inspection externe
+par `verifyRecoveryReconciliation`. Le reçu `applied` réactive une mesure
+immédiatement due. Il ne prouve pas la récupération : une nouvelle observation
+et son vérificateur doivent confirmer l’état métier. Un reçu `not-applied`
+permet une nouvelle approbation dans la limite des tentatives du plan.
 
-## 18. Jugements qualitatifs et comparaison longitudinale
+## 17. Progrès de l’agent sur contextes réservés
 
-`calibrateEvaluator` exige au moins trois cas de référence avec scores et
-preuves, validés par un vérificateur distinct de l'évaluateur. L'erreur
-absolue moyenne et les références sont conservées. Chaque jugement porte
-une version de grille, un public, une justification et des preuves.
-`qualitativeDisagreement` rend les jugements individuels, le nombre
-d'évaluateurs calibrés et l'étendue de leurs notes. Moins de deux évaluateurs
-calibrés ou une étendue d'au moins deux points sur cinq laisse le résultat
-`disputed`. Le désaccord n'est ni moyenné ni effacé pour fabriquer un succès.
+Une initiative `learn` peut recevoir une approbation de développement signée,
+un scope organisation/projet/agent et un budget en dollars, secondes et échéance.
+Le tick exécute le job via le fournisseur opérateur. Un crash après l’expérience
+exige `reconcileDevelopment` ; le cycle ne repart pas aveuglément. En l’absence
+de fournisseur, l’approbation reste visible avec un blocage de configuration.
 
-`recordLongitudinalComparison` impose un protocole préenregistré avant les
-reçus traités, quatre fenêtres appariées au minimum, les reçus de surveillance
-SHEV correspondants et deux séries de référence validées par un vérificateur
-distinct avec leurs preuves. Il compare les
-régressions, le temps de récupération et le coût par unité d'exposition.
-Les facteurs de confusion déclarés restent dans le protocole et le résultat
-porte explicitement `causalClaim: false`. L'outil produit une comparaison
-traçable ; il ne remplace pas une campagne indépendante sur des projets
-réels, avec répartition, instrumentation et contrôle des différences de
-charge entre groupes.
+`recordAgentProgress` exige un événement GVX `transfer_recorded` dans le même
+scope, lié à l’observation de lacune. Le transfert contient un manifeste
+scellé (`trainingContextHashes`, `trainingManifestHash`), les cas d’essai et
+au moins deux fenêtres de surveillance aux contextes distincts, exclus de
+l’ensemble d’entraînement et des essais. Chaque fenêtre lie un artefact vérifié.
+Le vérificateur confirme le même hash du manifeste et compare baseline/candidat
+sur chacun des contextes réservés, avec direction de progrès, régression et preuve.
 
-La tranche se vérifie avec `npm --prefix backend run test:shev`. Les tests
-emploient des projets temporaires et des références synthétiques pour éprouver
-les portes du runtime ; ils ne démontrent pas un gain longitudinal réel.
+Le reçu conserve `confirmed`, `regressed` ou `inconclusive`, nombre de cas,
+progrès, régressions et références. `shev_agent_progress` est distinct de
+`shev_effects`, dont `agent_result` reste `not_tested`. Le bénéfice expérimental
+n’est pas automatiquement crédité comme bénéfice du projet. Un hash seul ne
+certifie pas l’absence de fuite : le fournisseur doit vérifier la provenance
+complète du manifeste et des artefacts.
+
+## 18. Jugements calibrés et comparaison longitudinale
+
+Une calibration nécessite au moins trois références distinctes, une grille
+versionnée et un vérificateur différent de l’évaluateur. Les scores vont de 0
+à 4 ; l’erreur absolue moyenne doit être au plus 0,75 pour participer au résumé.
+Chaque jugement conserve public, rationale et preuves. Un identifiant réutilisé
+avec un contenu différent est refusé. Tous les jugements restent immuables.
+
+Le quorum compte des identités d’évaluateurs distinctes. Deux notes du même
+évaluateur ne constituent pas deux voix. Un écart d’au moins deux points,
+moins de deux évaluateurs admissibles ou des publics mélangés indique un
+désaccord. L’appel peut filtrer un public ; il restitue toujours les jugements
+bruts. La calibration ne transforme pas une préférence esthétique en fait.
+
+La comparaison utilise un protocole **persisté et signé avant les mesures**
+(`registerProtocol`). Une date déclarée dans l’appel ne remplace pas ce
+préenregistrement : le cutoff SQLite exclut les mesures déjà présentes.
+La dimension et les conditions (modèle, outils, permissions, budget) sont liées
+au protocole. Les quatre bras sont SHEV, `generalist`, `scheduled-audit` et
+`genos-without-shev`. Leurs séries couvrent les mêmes périodes avec expositions,
+coûts et preuves comparables, inspectées par un vérificateur externe.
+
+Le reçu conserve le mode `accelerated` ou `field`, les facteurs confondants,
+les taux de régression par exposition, temps de récupération et coûts.
+`causalClaim` reste `false`. Des séries synthétiques en test valident le contrat,
+sans constituer une campagne de terrain ni prouver un gain causal de SHEV.
+
+## 19. Couverture et frontières de validation
+
+| Exigence | Chemin implémenté | Vérification reproductible |
+| --- | --- | --- |
+| Mandat/stade authentifiés sans abaissement | Ed25519, nonce, CAS de version, conservation des critères | `test_shev_protocols.js` |
+| Deux domaines distincts | Fraîcheur et contrat JSON, capteurs signés, relecture de la branche intégrée | `test_shev_domain_adapters.js`, `test_shev_closed_loop.js` |
+| Risque/opportunité approuvés | Budget cumulé, arrêt, échéance, alternative et abstention | `test_shev_protocols.js`, `test_shev_runtime_guards.js` |
+| Effet, surveillance, récupération | Jobs persistés, alerte, pause, crash, inspection signée et nouvelle mesure | `test_shev_closed_loop.js` |
+| Transfert GVX réservé | Job borné, manifeste d’entraînement, scope, reçu de progrès distinct | `test_shev_development_jobs.js`, `test_shev_progress_evaluation.js` |
+| Qualitatif et longitudinal | Quorum distinct, désaccords conservés, protocole signé et trois références | `test_shev_progress_evaluation.js` |
+
+```bash
+npm --prefix backend run test:shev
+npm --prefix backend run test:web-audits
+npm --prefix backend run test:ontogenesis
+python scripts/ci/check_code_quality.py
+npm test
+cargo test --workspace
+```
+
+Ces tests contrôlés vérifient les transitions et les refus. L’autonomie générale,
+la qualité d’un fournisseur métier réel, le transfert sur de nouveaux projets
+et une comparaison longitudinale de terrain nécessitent leurs propres artefacts.
+Les commandes, contrats de signature, configuration et diagnostic sont décrits
+dans le [guide opérateur](../03-reference/exploitation-shev.md).

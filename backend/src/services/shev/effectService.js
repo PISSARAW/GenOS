@@ -1,23 +1,11 @@
 'use strict';
 
-const { getResponsibility } = require('./responsibilityService');
+const { withTransaction } = require('../../db');
+const { comparable, assessment: validAssessment, requireActive } = require('./runtimeGuard');
 
 function validInput(input) {
   return input?.projectId && input.initiativeId && input.postObservationId
     && typeof input.verify === 'function';
-}
-
-function comparable(after, before) {
-  return after && after.dimension === before.dimension && ['state', 'degradation'].includes(after.kind)
-    && after.epistemic_status === 'observed'
-    && Date.parse(after.observed_at) > Date.parse(before.observed_at)
-    && (!after.valid_until || Date.parse(after.valid_until) > Date.now());
-}
-
-function validAssessment(assessment) {
-  return assessment && ['confirmed', 'regressed', 'inconclusive'].includes(assessment.result)
-    && typeof assessment.verifierRef === 'string' && Boolean(assessment.verifierRef.trim())
-    && Array.isArray(assessment.evidenceRefs) && assessment.evidenceRefs.length > 0;
 }
 
 async function effectContext(db, input) {
@@ -37,27 +25,31 @@ async function effectContext(db, input) {
 async function recordProjectEffect(db, input) {
   if (!validInput(input)) throw new TypeError('SHEV effect requires an external verifier.');
   monitoringIntervalOf(input);
-  const existing = await db.get('SELECT * FROM shev_effects WHERE initiative_id = ?', [input.initiativeId]);
+  const existing = await db.get(`SELECT e.* FROM shev_effects e JOIN shev_initiatives i ON i.id = e.initiative_id
+    WHERE e.initiative_id = ? AND i.project_id = ?`, [input.initiativeId, input.projectId]);
   if (existing) {
     if (existing.post_observation_id !== input.postObservationId) throw new Error('SHEV effect idempotency conflict.');
     await ensureWatch(db, input);
     return { ...existing, replayed: true };
   }
   const { row, before, after } = await effectContext(db, input);
-  const responsibility = await getResponsibility(db, input.projectId);
+  const responsibility = await requireActive(db, { projectId: input.projectId, expectedVersion: row.mandate_version });
   const dimension = responsibility.mandate.dimensions.find((item) => item.name === before.dimension);
   const assessment = await input.verify({ before, after, dimension });
   if (!validAssessment(assessment)) {
     throw new Error('SHEV effect verifier did not return a supported assessment.');
   }
-  await db.run(`INSERT OR IGNORE INTO shev_effects
-    (initiative_id, post_observation_id, project_result, agent_result, verifier_ref, evidence_json)
-    VALUES (?, ?, ?, 'not_tested', ?, ?)`, [input.initiativeId, input.postObservationId,
-    assessment.result, assessment.verifierRef, JSON.stringify(assessment.evidenceRefs)]);
-  const stored = await db.get('SELECT * FROM shev_effects WHERE initiative_id = ?', [input.initiativeId]);
-  if (stored.post_observation_id !== input.postObservationId) throw new Error('SHEV effect idempotency conflict.');
-  await ensureWatch(db, input);
-  return stored;
+  return withTransaction(db, async () => {
+    await requireActive(db, { projectId: input.projectId, expectedVersion: row.mandate_version });
+    await db.run(`INSERT OR IGNORE INTO shev_effects
+      (initiative_id, post_observation_id, project_result, agent_result, verifier_ref, evidence_json)
+      VALUES (?, ?, ?, 'not_tested', ?, ?)`, [input.initiativeId, input.postObservationId,
+      assessment.result, assessment.verifierRef, JSON.stringify(assessment.evidenceRefs)]);
+    const stored = await db.get('SELECT * FROM shev_effects WHERE initiative_id = ?', [input.initiativeId]);
+    if (stored.post_observation_id !== input.postObservationId) throw new Error('SHEV effect idempotency conflict.');
+    await ensureWatch(db, input);
+    return stored;
+  });
 }
 
 async function ensureWatch(db, input) {
@@ -69,7 +61,7 @@ async function ensureWatch(db, input) {
 
 function monitoringIntervalOf(input) {
   const intervalMs = input.monitoringIntervalMs ?? 86400000;
-  if (!Number.isSafeInteger(intervalMs) || intervalMs < 3600000 || intervalMs > 2592000000) {
+  if (!Number.isSafeInteger(intervalMs) || intervalMs < 1000 || intervalMs > 2592000000) {
     throw new TypeError('SHEV monitoring interval is invalid.');
   }
   return intervalMs;

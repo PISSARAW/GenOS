@@ -56,8 +56,8 @@ function validJudgmentEvidence(input) {
 
 function validJudgmentText(input) {
   return typeof input.id === 'string' && /^[A-Za-z0-9._:-]{1,128}$/.test(input.id)
-    && typeof input.audience === 'string' && input.audience.length <= 256
-    && typeof input.rationale === 'string' && input.rationale.length <= 2048;
+    && typeof input.audience === 'string' && input.audience.trim() && input.audience.length <= 256
+    && typeof input.rationale === 'string' && input.rationale.trim() && input.rationale.length <= 2048;
 }
 
 function validJudgment(input, calibration, observation) {
@@ -80,7 +80,10 @@ async function recordQualitativeJudgment(db, input) {
     input.calibrationId, input.evaluatorId, input.audience, input.score,
     input.rationale, JSON.stringify(input.evidenceRefs)]);
   const row = await db.get('SELECT * FROM shev_qualitative_judgments WHERE id = ?', [input.id]);
-  if (row.observation_id !== input.observationId || row.score !== input.score) {
+  if (row.project_id !== input.projectId || row.observation_id !== input.observationId
+    || row.calibration_id !== input.calibrationId || row.evaluator_id !== input.evaluatorId
+    || row.score !== input.score || row.audience !== input.audience || row.rationale !== input.rationale
+    || row.evidence_json !== JSON.stringify(input.evidenceRefs)) {
     throw new Error('SHEV qualitative judgment idempotency conflict.');
   }
   return row;
@@ -91,12 +94,14 @@ async function qualitativeDisagreement(db, input) {
     FROM shev_qualitative_judgments j JOIN shev_qualitative_calibrations c
       ON c.id = j.calibration_id WHERE j.project_id = ? AND j.observation_id = ?
     ORDER BY j.created_at, j.id`, [input.projectId, input.observationId]);
-  const calibrated = rows.filter((row) => row.mean_absolute_error <= 0.75
-    && row.rubric_version === input.rubricVersion);
-  const values = calibrated.map((row) => row.score);
+  const eligible = rows.filter((row) => row.mean_absolute_error <= 0.75
+    && row.rubric_version === input.rubricVersion && (!input.audience || row.audience === input.audience));
+  const calibrated = [...new Map(eligible.map(row => [row.evaluator_id, row])).values()];
+  const mixedAudiences = new Set(eligible.map(row => row.audience)).size > 1;
+  const values = eligible.map((row) => row.score);
   const spread = values.length ? Math.max(...values) - Math.min(...values) : null;
-  return { judgments: rows, calibratedCount: calibrated.length, spread,
-    disputed: calibrated.length < 2 || spread >= 2 };
+  return { judgments: rows, calibratedCount: calibrated.length, spread, mixedAudiences,
+    disputed: calibrated.length < 2 || spread >= 2 || mixedAudiences };
 }
 
 module.exports = { calibrateEvaluator, recordQualitativeJudgment, qualitativeDisagreement };

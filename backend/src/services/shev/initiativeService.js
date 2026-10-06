@@ -3,6 +3,7 @@
 const { randomUUID, createHash } = require('node:crypto');
 const { getResponsibility } = require('./responsibilityService');
 const { consumeAuthorization } = require('./authorityService');
+const { withTransaction } = require('../../db');
 
 const KIND_BY_OBSERVATION = {
   degradation: 'diagnose', blind_spot: 'instrument', risk: 'investigate',
@@ -35,6 +36,8 @@ async function pendingObservations(db, projectId) {
   return db.all(`SELECT o.* FROM shev_observations o LEFT JOIN shev_initiatives i
     ON i.project_id = o.project_id AND i.observation_id = o.id
     WHERE o.project_id = ? AND o.kind != 'state' AND i.id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM shev_runtime_jobs j WHERE j.project_id = o.project_id
+        AND j.observation_id = o.id AND j.actionable = 0)
     ORDER BY o.created_at, o.id LIMIT 20`, [projectId]);
 }
 
@@ -175,11 +178,10 @@ async function approveInitiative(db, input) {
     projectId: input.projectId, subjectId: input.initiativeId,
     expectedVersion: responsibility.mandateVersion,
     details: { budget, stopCondition: input.stopCondition, alternative: input.alternative } };
-  await db.exec('BEGIN IMMEDIATE');
-  try {
+  return withTransaction(db, async () => {
     await consumeAuthorization(db, authorization);
-    const current = await db.get('SELECT mandate_version FROM shev_responsibilities WHERE project_id = ?', [input.projectId]);
-    if (current.mandate_version !== responsibility.mandateVersion) throw new Error('SHEV mandate changed during approval.');
+    const current = await require('./runtimeGuard').requireActive(db, { projectId: input.projectId, action: true });
+    if (current.mandateVersion !== responsibility.mandateVersion) throw new Error('SHEV mandate changed during approval.');
     await db.run(`INSERT INTO shev_initiative_approvals
       (initiative_id, budget_json, stop_condition, alternative, authorization_nonce)
       VALUES (?, ?, ?, ?, ?)`, [input.initiativeId, JSON.stringify(budget),
@@ -188,12 +190,22 @@ async function approveInitiative(db, input) {
       WHERE project_id = ? AND id = ?`, [input.projectId, row.observation_id]);
     await queueInitiative(db, { id: row.id, projectId: input.projectId,
       observation, mandate: responsibility.mandate, decision: { kind: row.kind } });
-    await db.exec('COMMIT');
-  } catch (error) {
-    await db.exec('ROLLBACK');
-    throw error;
-  }
-  return db.get('SELECT * FROM shev_initiatives WHERE id = ?', [input.initiativeId]);
+    return db.get('SELECT * FROM shev_initiatives WHERE id = ?', [input.initiativeId]);
+  });
 }
 
-module.exports = { compilePending, decisionFor, approveInitiative };
+async function declineInitiative(db, input) {
+  if (typeof input?.reason !== 'string' || !input.reason.trim() || input.reason.length > 1024) throw new TypeError('SHEV abstention needs a reason.');
+  return withTransaction(db, async () => {
+    const responsibility = await getResponsibility(db, input.projectId);
+    const row = await db.get('SELECT * FROM shev_initiatives WHERE id = ? AND project_id = ?', [input.initiativeId, input.projectId]);
+    if (row?.status !== 'proposed' || row.mandate_version !== responsibility?.mandateVersion) throw new Error('SHEV initiative cannot be declined in this state.');
+    await consumeAuthorization(db, { ...input.authorization, operation: 'initiative-abstention',
+      projectId: input.projectId, subjectId: input.initiativeId, expectedVersion: responsibility.mandateVersion,
+      details: { reason: input.reason } });
+    await db.run("UPDATE shev_initiatives SET status = 'rejected', reason = ? WHERE id = ?", [input.reason, input.initiativeId]);
+    return db.get('SELECT * FROM shev_initiatives WHERE id = ?', [input.initiativeId]);
+  });
+}
+
+module.exports = { compilePending, decisionFor, approveInitiative, declineInitiative };

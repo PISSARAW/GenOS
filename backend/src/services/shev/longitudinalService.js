@@ -1,5 +1,7 @@
 'use strict';
 
+const { comparisonProtocol } = require('./longitudinalProtocolService');
+
 function validWindow(window) {
   return window && typeof window.period === 'string' && window.period.trim()
     && Number.isFinite(window.exposure) && window.exposure > 0
@@ -31,12 +33,12 @@ async function verifiedTreatment(db, input) {
   const ids = input.treated.map((item) => item.monitoringId);
   if (new Set(ids).size !== ids.length) throw new Error('SHEV comparison reuses a monitoring receipt.');
   for (const window of input.treated) {
-    const row = await db.get(`SELECT m.result, m.assessed_at, o.dimension FROM shev_monitoring m
+    const row = await db.get(`SELECT m.rowid AS sequence, m.result, m.assessed_at, o.dimension FROM shev_monitoring m
       JOIN shev_initiatives i ON i.id = m.initiative_id
       JOIN shev_observations o ON o.project_id = i.project_id AND o.id = i.observation_id
       WHERE m.id = ? AND i.project_id = ?`, [window.monitoringId, input.projectId]);
     if (!row || row.dimension !== input.dimension
-      || Date.parse(row.assessed_at) <= Date.parse(input.preRegistrationAt)
+      || row.sequence <= input.monitoringCutoff
       || window.regressions !== Number(row.result === 'regressed')) {
       throw new Error('SHEV treatment does not match monitored outcomes.');
     }
@@ -60,14 +62,16 @@ function validComparisonSeries(input) {
 }
 
 function validComparison(input) {
-  return input?.id && input.projectId && input.dimension && input.preRegistrationRef
-    && Number.isFinite(Date.parse(input.preRegistrationAt))
+  return input?.id && input.projectId && input.dimension && input.protocolId
     && Array.isArray(input.confounders) && typeof input.verifyReferences === 'function'
     && validComparisonSeries(input);
 }
 
 async function recordLongitudinalComparison(db, input) {
   if (!validComparison(input)) throw new TypeError('SHEV comparison needs preregistered matched longitudinal references.');
+  const registered = await comparisonProtocol(db, input);
+  input = { ...input, preRegistrationRef: registered.id, preRegistrationAt: registered.registered_at,
+    monitoringCutoff: registered.monitoring_cutoff, confounders: registered.protocol.confounders };
   await verifiedTreatment(db, input);
   const verification = await input.verifyReferences(input.references);
   if (verification?.verified !== true || !verification.verifierRef
@@ -76,7 +80,8 @@ async function recordLongitudinalComparison(db, input) {
   }
   const treated = summary(input.treated);
   const references = input.references.map((item) => ({ id: item.id, ...summary(item.series) }));
-  const result = { treated, references, contrasts: references.map((item) => ({ id: item.id,
+  const result = { treated, references, executionMode: registered.protocol.executionMode,
+    conditionsHash: registered.conditionsHash, contrasts: references.map((item) => ({ id: item.id,
     regressionRateDifference: treated.regressionsPerExposure - item.regressionsPerExposure,
     recoveryTimeDifference: treated.recoveryMinutesPerExposure - item.recoveryMinutesPerExposure,
     costDifference: treated.costUsdPerExposure - item.costUsdPerExposure })),

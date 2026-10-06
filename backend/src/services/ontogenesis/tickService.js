@@ -79,6 +79,8 @@ async function loadContext(db, input) {
 
 async function compileEmptyBacklog(db, project, tasks) {
   if (tasks.length > 0) return null;
+  const responsibility = await require('../shev/responsibilityService').getResponsibility(db, project.id);
+  if (responsibility?.status === 'active') return null;
   const compiled = compileMission(project);
   const created = [];
   for (const task of linkCompiledTasks(compiled.tasks)) {
@@ -234,6 +236,7 @@ async function tickOnce(db, input) {
     for (const questionId of expired) {
       await notify(db, { projectId: input.projectId, kind: 'decision_needed', payload: { reason: `question-expiree:${questionId}` } });
     }
+    await require('../shev/runtimeService').tickProject(db, { projectId: input.projectId, fence });
     await require('../shev/initiativeService').compilePending(db, input);
     const project = await getProject(db, input.projectId);
     const tasks = await listTasks(db, input.projectId);
@@ -254,7 +257,7 @@ async function tickOnce(db, input) {
     if (blocked) return blocked;
     ctx.fence = fence;
     await fence();
-    if (ctx.harness && ctx.project.state === 'EXECUTING') Object.assign(ctx, await observeExecution(db, ctx, ctx.harness));
+    await refreshExecutionContext(db, ctx);
     const wake = await reconcileWake(db, ctx);
     const decision = wake ? { event: wake, effects: [] } : stepLoop(snapshotOf(ctx));
     const outcome = await applyDecision(db, ctx, decision);
@@ -263,6 +266,10 @@ async function tickOnce(db, input) {
     clearInterval(heartbeat);
     await releaseClaim(db, { projectId: input.projectId, owner: input.owner, operationId: claim.operationId });
   }
+}
+
+async function refreshExecutionContext(db, ctx) {
+  if (ctx.harness && ctx.project.state === 'EXECUTING') Object.assign(ctx, await observeExecution(db, ctx, ctx.harness));
 }
 
 module.exports = { tickOnce };

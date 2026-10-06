@@ -7,6 +7,7 @@ const { resolveWorkspaceRoot, resolveContainedPathNoSymlinkSync,
 const { FORBIDDEN } = require('../../ontogenesis/integrationService');
 const { recordObservation } = require('../observationService');
 const { recordProjectEffect } = require('../effectService');
+const { observationRoot } = require('./observationRoot');
 
 function digest(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -36,8 +37,9 @@ function classify(file, nowMs, maxAgeMs) {
 
 function observationId(input, file, classification) {
   const identity = [input.projectId, input.relativePath, input.dimension,
-    input.maxAgeMs, file.exists ? file.modifiedAtMs : 'missing',
-    file.exists ? file.changedAtMs : 0, file.exists ? file.size : 0, classification.kind].join('\0');
+    input.maxAgeMs, input.target || 'project', file.exists ? file.modifiedAtMs : 'missing',
+    file.exists ? file.changedAtMs : 0, file.exists ? file.size : 0, classification.kind,
+    input.sampleRef || 'state'].join('\0');
   return `data_freshness_${digest(identity)}`;
 }
 
@@ -46,9 +48,9 @@ async function inspectDataFreshness(db, input) {
     || input.maxAgeMs <= 0) throw new TypeError('SHEV freshness check requires a positive threshold.');
   const relativePath = normalizeRelativePath(input.relativePath, 'data source');
   if (FORBIDDEN.some((pattern) => pattern.test(relativePath))) throw new Error('SHEV data source is forbidden.');
-  const project = await db.get('SELECT root_path FROM ontogenesis_projects WHERE id = ?', [input.projectId]);
+  const project = await db.get('SELECT * FROM ontogenesis_projects WHERE id = ?', [input.projectId]);
   if (!project) throw new Error('SHEV project does not exist.');
-  const root = resolveWorkspaceRoot(project.root_path);
+  const root = observationRoot(project, input.target);
   const path = resolveContainedPathNoSymlinkSync(root, relativePath, 'data source');
   const file = inspectFile(path);
   const nowMs = input.nowMs ?? Date.now();
@@ -56,10 +58,10 @@ async function inspectDataFreshness(db, input) {
   const id = observationId({ ...input, relativePath }, file, classification);
   const existing = await db.get('SELECT observed_at FROM shev_observations WHERE project_id = ? AND id = ?', [input.projectId, id]);
   if (existing) return { id, projectId: input.projectId, domain: 'data-pipeline',
-    dimension: input.dimension, source: `file:${relativePath}`, observedAt: existing.observed_at,
+    dimension: input.dimension, source: `file:${relativePath}:${input.maxAgeMs}:${input.target || 'project'}`, observedAt: existing.observed_at,
     replayed: true, ...classification };
   return recordObservation(db, { id, projectId: input.projectId, domain: 'data-pipeline',
-    dimension: input.dimension, source: `file:${relativePath}`,
+    dimension: input.dimension, source: `file:${relativePath}:${input.maxAgeMs}:${input.target || 'project'}`,
     observedAt: new Date(nowMs).toISOString(), ...classification });
 }
 
