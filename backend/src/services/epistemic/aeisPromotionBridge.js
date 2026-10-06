@@ -188,21 +188,34 @@ function extractSignedVerifications(holobionteResults) {
   return verifications;
 }
 
+function promotionExecutionLimits(antigens, context) {
+  let reason = null;
+  const executions = context.maxVerifierExecutions == null ? 4 : Number(context.maxVerifierExecutions);
+  if (!Array.isArray(antigens) || antigens.length > 32) reason = 'AEIS accepts at most 32 claims per report.';
+  if (!Number.isInteger(executions) || executions < 2) reason = 'AEIS requires a budget for two executable verifiers per claim.';
+  if (!reason) return { executions: Math.min(8, executions) };
+  return { refusal: { evaluation: { eligible: false, violations: [{ policy: 'aeis_execution_limits', message: reason }] },
+    assembly: null, holobionteResults: [], allAccepted: false, anyBlocked: true } };
+}
+
 async function evaluateAeisForPromotion(antigens, context = {}) {
+  const limits = promotionExecutionLimits(antigens, context);
+  if (limits.refusal) return limits.refusal;
   const { epistemicHolobionte } = require('./epistemicHolobionteService');
 
   for (const antigen of antigens) bindAntigenToFormalResult(antigen);
 
-  const holobionteResults = await Promise.all(
-    antigens.map(antigen => epistemicHolobionte(antigen, {
+  const holobionteResults = [];
+  for (const antigen of antigens) {
+    holobionteResults.push(await epistemicHolobionte(antigen, {
       ...context,
       requireExecutableQuorum: true,
-      verifierBudget: { remaining: Math.min(8, Math.max(2, Number(context.maxVerifierExecutions) || 4)) },
+      verifierBudget: { remaining: limits.executions },
       immuneMemory: context.immuneMemory || [],
       domain: context.domain,
       stakes: context.stakes,
-    }))
-  );
+    }));
+  }
 
   const assembly = buildAssuranceAssemblyFromHolobionte(antigens, holobionteResults, context);
   const evaluation = evaluateEpistemicAssurance(assembly);
@@ -326,7 +339,6 @@ async function evaluateReportWithAeis(report, context = {}) {
   const result = await evaluateAeisForPromotion(antigens, { ...context, providerProfiles, trustedVerifierDigests });
   if (context.multiProviderEnabled === true && result.holobionteResults.some((item) => !item.accepted)) {
     result.evaluation = { eligible: false, violations: [{ policy: 'multi_provider_review', message: 'Independent provider review is missing, disputed or refuting.' }] };
-    result.assembly = null;
   }
   if (context.db && result.assembly) result.persistedAssemblyId = await require('../aeisAssemblyStore').saveAssembly(context.db, result, context);
   return result;
