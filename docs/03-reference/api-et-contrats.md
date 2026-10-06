@@ -57,6 +57,35 @@ Content-Type: application/json
 
 Le controller normalise aussi `tool_name`/`timeout_ms` au niveau de l'envelope, mais les arguments d'outils doivent suivre le schema MCP. Le resultat repond `200` lorsqu'il est reussi, `502` lorsqu'un transport MCP configure echoue, et `503` lorsqu'il n'est pas configure ou qu'un garde-fou le bloque.
 
+### Garage Fabric : admission durable et contrôle des workers
+
+Les [routes de déploiement](../../backend/src/routes/deployRoutes.js) exposent
+les contrôles Garage suivants sous `/api` :
+
+| Méthode | Route | Contrat |
+| --- | --- | --- |
+| GET | `/agents/:id/workers/garage` | Capacité et workers actifs |
+| GET | `/agents/:id/workers/garage/queue` | Demandes, phases, compteurs et politiques |
+| GET | `/agents/:id/workers/garage/events?after=N` | Journal de transitions séquencé |
+| POST | `/agents/:id/workers/:workerId/dispatch` | Admission durable, réponse 202 |
+| POST | `/agents/:id/workers/garage/queue/:requestId/:action` | `freeze`, `resume`, `cancel`, `renew` |
+
+Les lectures sont bornées par le tenant sélectionné. Les mutations exigent
+`workspace:write`, le lien parent/worker persisté et une autorité revérifiée.
+Le corps ne peut pas redéfinir l'identité, le rôle ou le scope du worker.
+`requestId` est idempotent pour un contenu identique ; un contenu différent
+produit `GARAGE_IDEMPOTENCY_CONFLICT`. La saturation met en file par défaut,
+sauf `queueIfFull: false`.
+
+La réponse 202 distingue `queued`, `started`, `status` et `requestId` ; elle
+ne certifie pas la fin. Celle-ci exige le run courant, l'événement terminal
+lié au même `executionRunId` et un artefact valide selon le contrat typé.
+Un bail périmé clôture les callbacks anciens ; `awaiting_approval` n'est pas
+un succès. Le contrôleur Garage retourne 404 pour une ressource inaccessible,
+409 pour ses erreurs métier et 503 si le circuit breaker bloque l'admission.
+Voir [Garage Fabric](../02-orchestration/topologies/garage-fabric.md#12-api-operateur)
+pour les paramètres, l'automate, la préemption consentie et les limites de reprise.
+
 ### Succes REST
 
 REST n'a pas une enveloppe de succes universelle. Les lectures repondent souvent directement l'objet ou la liste ; les commandes peuvent repondre `{ "success": true, ... }`, `{ "accepted": true, ... }` ou une ressource creee avec `201`. Le client doit donc interpreter simultanement le code HTTP et le schema specifique de l'endpoint, pas uniquement un champ `success`.
@@ -451,5 +480,8 @@ sequenceDiagram
 
 - [AGENT_DNA_RUNTIME.md](../01-concepts/agent-dna-runtime.md) — surface REST `/api/genomes` (list/get/import), opérations `POST /api/genomes/:id/operations/:op`, innovations (`/api/genomes/innovations`) et politique de signature (`/api/genomes/policy`).
 
+Les statuts worker, graphe et TeamRun ont des portées distinctes. Le rapport doit fournir les évaluations et références requises ; le consumer accuse la version et le digest exacts reçus. Voir [Référence du runtime A-Team](runtime-a-team.md).
 
+L'acceptation du dispatch et la présence de `teamRunId`, `workGraphId` ou d'un PID de runner ne sont pas une réponse de réussite métier. La clôture canonique retourne `{ teamRunId, status, accepted, coverage, results }` à ses adaptateurs ; seul `accepted: true` avec `COMPLETED` décrit l'intégration acceptée. Ces champs décrivent le résultat du service interne, sans ajouter une route REST ou RPC.
 
+## Résultats A-Team : dispatch et clôture

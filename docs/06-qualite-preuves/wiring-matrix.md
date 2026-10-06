@@ -171,3 +171,9 @@ commune des mécanismes de continuité de l’organisme.
 ## Règle d'avancement
 
 Chaque passage `PARTIAL/NO → YES` exige : appel de production + test ciblé + reçu/preuve persistée. Succès de transport ≠ décision valide.
+
+## Câblage A-Team : lancement et preuve
+
+`agentAutonomyPlanService` persiste les identités avant le graphe ; `agentFleetWorkers` les conserve pour A-Team. `aTeamDispatchService` et `aTeamAutonomousExecutionService` rejoignent `execution/teamExecutionService`, puis les projections de graphe, reçus et gates. Le runner clôture aussi les équipes au premier étage. Les évaluateurs `variants/variantExecutionRuntime` et le runner programme multiteam sont distincts, sans adaptateur générique de sous-runs attesté par ces tests.
+
+Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).

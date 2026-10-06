@@ -153,6 +153,23 @@ La réponse contient une autorisation, pas une application. La CLI restaure le j
 
 Références : [API et CLI](../docs/03-reference/api-et-contrats.md#autorisation-et-application-cliniques), [doctrine clinique](../docs/01-concepts/nosologie/pathologie-et-medecine.md), [bilan des preuves](../docs/06-qualite-preuves/validation-nosologie.md).
 
+## Metapopulation regional runtime
+
+`metapopulationCoordinationService.js` exposes persistent sessions, patches,
+demes and directed corridors. `runAutonomousRegionalRuntime(input, { db, ... })`
+runs bounded OBSERVE/DIAGNOSE/PLAN/EXECUTE/VERIFY/RECORD cycles and resumes after
+the last verified cycle. An empty plan returns `NO_ACTION`.
+
+Receiver adapters control migration validation, adaptation, assimilation and
+rescue rollback. Rust evolution, solver search and colonization evaluation
+require explicit adapters. Resident capsules, leases, founder reserves and
+local memory are persisted; they do not start a background process by themselves.
+
+From the repository root, run `npm --prefix backend run test:metapopulation`
+for the ten dedicated suites. See the [runtime reference](../docs/03-reference/runtime-metapopulation.md)
+and [ADR 0330](../docs/adr/0330-effets-durables-metapopulation.md)
+for contracts, recovery semantics and validation limits.
+
 ## Directory Layout
 
 ```text
@@ -418,3 +435,9 @@ sequenceDiagram
     
     WSClient->>WSClient: Mise à jour dynamique de l'UI / Graphique
 ```
+
+## A-Team execution and evidence boundary
+
+Explicit dispatch and autonomous orchestration share `src/services/aTeam/execution/teamExecutionService.js`. Canonical workers are assigned before graph persistence. A runner lease and a persisted deadline protect resumption. Worker completion alone cannot complete the TeamRun: evidence, global criteria and exact versioned consumer receipts are required. The detached runner also monitors teams without deferred stages.
+
+The eleven variant evaluators remain separate from generic dispatch; multiteam planning does not launch verified sub-runs. Coverage measures mission contributions, not general expertise. See [the A-Team runtime contract](../docs/03-reference/runtime-a-team.md).

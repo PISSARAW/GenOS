@@ -4,6 +4,25 @@ const { openDatabase, authoritySchema } = require('./helpers/biologyDatabase');
 const { buildHomeostasisContract, serializeContract, deserializeContract, evaluateContract,
   homeostasisStatus } = require('../src/services/homeostasisContractService');
 const authority = require('../src/services/homeostasisAuthorityStore');
+const { withTransaction } = require('../src/db');
+
+async function rollbackInitialization(db) {
+  await assert.rejects(withTransaction(db, async () => {
+    await authority.active(db, 'mission');
+    throw new Error('Interrupted initialization');
+  }), /Interrupted/);
+  assert.equal(await authority.active(db, 'mission'), null, 'a rolled-back migration must be retried');
+  await db.run("INSERT INTO missions VALUES ('guard-test', 'guard', 'active')");
+  await db.run("UPDATE missions SET status = 'dormant' WHERE mission_id = 'guard-test'");
+  await assert.rejects(db.run("UPDATE missions SET status = 'completed' WHERE mission_id = 'guard-test'"), /receipt required/);
+  const workers = require('../src/services/biologicalWorkerStore');
+  await assert.rejects(withTransaction(db, async () => {
+    await workers.ensure(db);
+    throw new Error('Interrupted initialization');
+  }), /Interrupted/);
+  await workers.ensure(db);
+  assert.ok(await db.get("SELECT name FROM sqlite_master WHERE name = 'biological_worker_receipts'"));
+}
 
 function declared(flag) {
   return buildHomeostasisContract({ id: 'contract', missionId: 'mission', requiredEvidence: ['proof'],
@@ -54,7 +73,7 @@ function thresholds() {
 
 async function main() {
   const db = openDatabase();
-  try { await authoritySchema(db); await revisions(db); await declarations(db); thresholds(); }
+  try { await authoritySchema(db); await rollbackInitialization(db); await revisions(db); await declarations(db); thresholds(); }
   finally { await db.close(); }
   console.log('Durable authority, idempotency, immutable revisions and coverage policy passed.');
 }

@@ -156,6 +156,20 @@ Voir [Natural Search](../01-concepts/natural-search-control-plane.md),
 
 ---
 
+### 3.2 Validation ciblée Metapopulation
+
+Depuis la racine, `npm --prefix backend run test:metapopulation` exécute dix suites.
+La qualification du 2026-10-06 au commit `5b18c834` a obtenu 10/10, avec exécution
+séparée des suites, relecture des empreintes et reprise d'une fixture corrigée.
+Elle couvre les 12 variants et 4 profils historiques, la persistance, les preuves
+invalides et les interruptions rescue/rollback. Les fixtures d'adaptateurs ne
+certifient ni les moteurs externes ni la réussite d'une mission réelle.
+
+Ces résultats ne remplacent pas les trois checks globaux du dépôt.
+Le benchmark `node backend/bin/metapopulation-benchmark.cjs 1` mesure des
+calculateurs sur des fixtures synthétiques. Le [contrat runtime](../03-reference/runtime-metapopulation.md)
+détaille le périmètre vérifié et ses limites.
+
 ## 4. Tests unitaires Rust
 
 Les tests Rust se trouvent dans les crates. Par exemple, [crates/genos-cli/src/tests/mod.rs](../../crates/genos-cli/src/tests/mod.rs) exerce directement les handlers sans passer par un shell :
@@ -1403,3 +1417,16 @@ preuves altérées, budgets, rollback, messages et composition. La suite est
 incluse dans les tests par défaut du backend. Sa réussite porte sur ce
 contrat natif et ne certifie pas une mission LLM arbitraire ni les autres
 suites du dépôt. Voir la [référence Axolotl](../03-reference/axolotl-regeneration.md).
+
+## Validation ciblée A-Team : clôture et variantes
+
+Depuis la racine, exécuter séparément :
+
+```bash
+node backend/tests/test_ateam_runtime.js
+node backend/tests/test_ateam_dispatch_runtime.js
+node backend/tests/test_ateam_execution_e2e.js
+node backend/tests/test_ateam_variant_acceptance.js
+```
+
+Le test d'exécution couvre SQLite, processus Node, refus de preuves/schémas, critères globaux, progression indépendante, accusé périmé, bail obsolète et délai conservé à la reprise. Les 44 cas de variantes évaluent des contrats locaux, sans qualification de workers LLM ni de sous-runs multiteam génériques. Ces commandes ne remplacent pas `npm test`, `cargo test --workspace` et le gate de qualité. Voir [Référence du runtime A-Team](../03-reference/runtime-a-team.md).

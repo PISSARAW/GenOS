@@ -1,7 +1,7 @@
 # Plan d'implémentation des variants des huit topologies
 
 - **Statut** : Implémentation en cours; couverture initiale branchée sur les huit topologies
-- **Dernière revue** : 2026-10-04
+- **Dernière revue** : 2026-10-06 (Métapopulation)
 - **Décision d'architecture** : [ADR 0124](../../adr/0124-selection-automatique-des-variants.md)
 
 ## Objectif
@@ -35,12 +35,12 @@ variant dans le registre.
 
 | Topologie | Choix automatique et explicite | Effet runtime branché | Limites restantes |
 | --- | --- | --- | --- |
-| A-Team | Sélecteur et plan organisationnel existants | Graphe, communication et autorité de dispatch | Les formes multiteam restent soumises aux capacités disponibles |
+| A-Team | Sélecteur, politiques et évaluateurs isolés ; clôture canonique commune | Progression indépendante, preuves, critères globaux et accusés versionnés | Évaluateurs non tous invoqués au dispatch ; adaptateur multiteam absent du parcours générique ([référence](../../03-reference/runtime-a-team.md)). |
 | Biocénose | Recommandation par signaux de mission; explicite validé | Constitution et protocoles distincts; argumentation, fédération polycentrique, quarantaine, panel pondéré et historique persistant ont des effets runtime | Cinq parcours restent `PARTIAL`; voir la fiche pour leurs limites propres |
 | Holobionte | Douze identifiants et sélection par mission; préconditions vérifiées | Politique jointe à la composition host/symbiotes | Les modules mémoire, succession, outils et réseau n'appliquent pas tous encore leur politique à leurs opérations |
 | Syncytium | Auto-sélection et choix explicite | Schéma, session, cohérence, réplication et réparation | Human–AI reste conditionné aux capacités d'interface |
 | Rhizome | Douze choix disponibles et sélection par signaux | Routage, croissance, pruning et portée persistante | Les transitions de politique en cours de session restent à mesurer |
-| Métapopulation | Douze variants documentés et quatre alias historiques; sélection explicite/automatique persistée | Quorum, migration, diversité inter-îles, source-sink adaptatif; les rotations temporelles source/sink sont persistées comme événements, relues par l'observateur régional et vérifiées contre les transitions périmées; trials Classic Patch, patches éphémères, Anti-Synchrony, gates fédérés/culturels, adaptateurs de recherche et d'évolution | Rescue SLA observé mais secours soumis aux adaptateurs; l'évaluateur de colonie, le solveur et le moteur Rust doivent être fournis; pas encore de réserve persistante de fondateurs, QD/speciation, phylogénie culturelle complète, démons résidents ou rebouclage automatique de la cryptobiose |
+| Métapopulation | Douze variants et quatre alias historiques ; sélection persistée | PLAN sans effet ; recolonisation à preuve locale, migration avec les quatre décisions receveur, rescue reprenable, profils et résultats d’îlot durables, réserves de fondateurs, résidents sous bail, mémoire versionnée et reçus de politique vérifiés | Évaluateur de colonie, fitness locale, solveur, moteur Rust et adaptateurs receveurs explicites ; QD/spéciation et phylogénie sont des mécanismes bornés, sans qualification scientifique globale ni restauration cryptobiotique externe automatique |
 | Biome | Onze variants; explicite validé et sélection par mission | `advance_variant` persistant; allocation vectorielle/enchères, foraging-curiosité et archive, QD/CVT, succession à preuves, extinction/refuge/recolonisation, saisons inter-missions, génération POET bornée, coévolution adversariale abstraite, écologie des sources, scheduler compute, feedback multi-échelle | Le scheduler ne migre/exécute pas les fournisseurs; POET, attaques et fitness demandent des preuves externes; pas encore de daemon autonome ni benchmarks par variant |
 | Trinity | Douze presets auto-sélectionnés par signal ou sélectionnés explicitement; le preset retenu est conservé au dispatch, avec retour contrôlé à `controlled` si ses préconditions manquent | Les douze runners sont reliés au chemin mission/superviseur; revues, continuations, expériences enfants, grille factorielle et réplicas QD ont des barrières de fin dédiées | Campagne R3 pré-correctifs du 2026-10-03 : 12 missions `ESCALATE`, 0 merge, avec sorties montrant plusieurs runners non invoqués. Les branchements correctifs n'ont pas encore été qualifiés par une nouvelle campagne; voir `topologies/trinity.md` et ADR 0292 |
 
@@ -117,8 +117,11 @@ topologies avant de promouvoir leur maturité.
   réplication et réparation; traiter Human–AI selon ses exigences propres.
 - **Rhizome** : relier le profil choisi au routage, croissance, taille, confidentialité,
   ponts, persistance et réparation.
-- **Métapopulation** : implémenter patches/îles, migration, réseau de secours, souveraineté,
-  temporalité, évolution ou transfert culturel selon le variant.
+- **Métapopulation** : qualifier les adaptateurs externes et les missions réelles à
+  budget égal. Le runtime livré couvre patches/îlots, migration revue, rescue,
+  souveraineté, réserves, résidents et reprise ; dix suites dédiées couvrent les
+  douze variants et les quatre profils historiques. Voir
+  [la référence](../../03-reference/runtime-metapopulation.md) et ADR 0330.
 
 ### Vague 4 — Sélection automatique et choix opérateur
 

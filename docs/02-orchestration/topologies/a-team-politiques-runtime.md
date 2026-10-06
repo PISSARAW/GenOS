@@ -65,3 +65,9 @@ des jointures DAG. Ces fonctions vérifient les contrats lorsqu'elles sont appel
 les politiques de dispatch ne les invoquent pas toutes automatiquement. Les runners
 doivent persister les états transactionnels, fournir l'identité des acteurs et relier les
 événements d'audit aux barrières de preuve avant de présenter ces garanties comme actives.
+
+## Clôture canonique et preuve des variantes
+
+La clôture commune du dispatch explicite et du parcours autonome utilise `executeTeamRun`. Elle contrôle les preuves, critères globaux et accusés exacts. Le runner détaché est nécessaire même sans étage différé. Les dépendances sont traitées indépendamment, sous bail courant et délai absolu conservé à la reprise.
+
+Les 44 cas d'acceptation évaluent les contrats isolés des onze variantes. Leurs états `SUCCEEDED` ne sont pas ceux d'un TeamRun promu ; l'exécuteur commun ne déclenche pas automatiquement le runner multiteam. Le digest Relay de l'évaluateur et le reçu versionné du graphe canonique sont distincts. Voir [Référence du runtime A-Team](../../03-reference/runtime-a-team.md).

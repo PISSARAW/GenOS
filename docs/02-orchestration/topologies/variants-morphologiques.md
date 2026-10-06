@@ -2,7 +2,7 @@
 
 - **Statut** : Partiel
 - **Portée** : inventaire central des variants Morphogenèse provenant des registres locaux
-- **Dernière revue** : 2026-10-04
+- **Dernière revue** : 2026-10-06 (Métapopulation)
 
 Le registre Morphogenèse expose un catalogue commun de variants, tout en conservant les
 registres locaux comme sources de vérité pour leurs modes d'utilisation. Chaque variant est
@@ -15,12 +15,12 @@ mais n'unifie pas les exécutions locales.
 
 | Topologie | Variants spécifiques au registre central | Source projetée | Maturité déclarée |
 | --- | ---: | --- | --- |
-| A-Team | 11 | `aTeam/variants/variantRegistry` | Implémentés |
+| A-Team | 11 | `aTeam/variants/variantRegistry` | Politiques et évaluateurs isolés implémentés ; conformité d’exécution globale partielle, sous-runs multiteam génériques non branchés ([contrat](../../03-reference/runtime-a-team.md)) |
 | Biocénose | 12 | `biocenose/variants/variantPolicyRouter` | Implémentés ou partiels selon la politique |
 | Holobionte | 12 | `holobionte/variants` | Partiels; douze politiques sélectionnables et projetées dans le contrat de composition |
 | Syncytium | 13 | `syncytium/variants/variantPolicyRegistry` | Implémentés |
 | Rhizome | 12 | `rhizome/variants/variantPolicyService` | Implémentés |
-| Métapopulation | 16 (12 documentés + 4 alias historiques) | `metapopulation/policy/metapopulationPolicyService` | Partiels; sélection, quorum, migration et topologie des corridors |
+| Métapopulation | 16 (12 documentés + 4 alias historiques) | `metapopulation/policy/metapopulationPolicyService` | Effets régionaux et reprise couverts ; maturité centrale conservée, moteurs externes à qualifier |
 | Biome | 11 | `biome/variants/variantPolicyService` | Partiels; sélection et politiques reliées au runtime |
 | Trinity | 12 | `trinityVariantService` | Implémentés ou partiels selon la variante |
 
@@ -81,9 +81,12 @@ une copie défensive de l'entrée. Un variant inconnu renvoie `null`.
   modules spécialisés existent, mais ce contrat ne prouve pas que chaque adaptateur est
   invoqué et vérifié dans le cycle complet d'une mission; cette intégration reste à valider.
 - Métapopulation garde quatre noms historiques (`balanced`, `resilient`, `exploratory`,
-  `conservative`) en plus des douze identifiants de sa fiche; la sélection règle le quorum,
-  la migration, le scope persistant et le graphe de corridors, sans activer tous les mécanismes
-  propres aux variants tels que l'évolution ou la cryptobiose.
+  `conservative`) en plus des douze identifiants de sa fiche. Le contrôleur applique
+  les politiques avec reçus et relecture des effets : réserve de fondateurs,
+  résidents, états d'îlot, transferts fédérés/culturels et reprise rescue.
+  Les évaluateurs locaux, le solveur et le moteur Rust restent des adaptateurs
+  explicites. Les références de cryptobiose ne prouvent pas une restauration
+  externe automatique. Voir le [contrat runtime](../../03-reference/runtime-metapopulation.md).
 - Le catalogue ne normalise pas encore pour tous les variants le profil de problème, les
   modèles d'autorité, d'état, de communication et de preuve, ni les forces et modes d'échec.
 

@@ -6,6 +6,8 @@ const {
   HOMEOSTASIS_SCHEMA
 } = require('./homeostasisContractService');
 const authority = require('./homeostasisAuthorityStore');
+const executionEvidence = require('./homeostasisExecutionEvidence');
+const { withTransaction } = require('../db');
 const telemetry = require('./telemetryObserver');
 
 const HOMEOSTASIS_EVENT_PREFIX = 'HOMEOSTASIS';
@@ -144,6 +146,8 @@ async function persistTransitionReceipt(db, input) {
     status: input.status,
     state: input.state,
     evidenceReferences: evidenceReferences(input.context),
+    executionReceipts: input.state.executionEvidence.references,
+    executionEpoch: input.state.executionEvidence.epoch,
     createdAt: new Date().toISOString()
   };
   const serialized = JSON.stringify(receipt);
@@ -167,15 +171,24 @@ function lastHomeostasisState(db, missionId) {
 }
 
 async function evaluateMissionHomeostasis(db, target) {
-  const { organism, mission, context = {} } = target;
+  return withTransaction(db, () => evaluateDurableHomeostasis(db, target));
+}
+
+async function evaluateDurableHomeostasis(db, target) {
+  const { organism, context = {} } = target;
+  const mission = await executionEvidence.missionScope(db, target.mission);
+  const inherited = await inheritedAuthority(db, mission);
+  if (inherited) await authority.resolve(db, { missionId: mission.id, proposed: () => inherited });
   const contract = await authority.resolve(db, {
     missionId: mission.id,
     explicit: Boolean(mission.completionContract),
     expectedRevision: mission.expectedHomeostasisRevision,
     proposed: () => mission.completionContract ? buildMissionHomeostasis(mission)
-      : organism?.homeostasis || buildMissionHomeostasis(mission)
+      : inherited || scopedOrganismContract(organism, mission) || buildMissionHomeostasis(mission)
   });
-  const state = evaluateContract(contract, context);
+  const execution = await executionEvidence.collect(db, mission.id);
+  const evaluatedContext = executionEvidence.contextWithEvidence(context, execution);
+  const state = executionEvidence.bindState(evaluateContract(contract, evaluatedContext), execution);
   const status = homeostasisStatus(state);
   const previous = await lastHomeostasisState(db, mission.id);
   const changed = !previous || previous.status !== status;
@@ -201,7 +214,7 @@ async function evaluateMissionHomeostasis(db, target) {
       status
     });
   }
-  return { contract, state, status, changed, stateId, previousStatus: previous?.status || 'unknown' };
+  return { contract, state, status, changed, stateId, mission, previousStatus: previous?.status || 'unknown' };
 }
 
 
@@ -222,9 +235,27 @@ async function reconcileHomeostasis(db, target) {
   return { organism, state, status, changed };
 }
 
+async function inheritedAuthority(db, mission) {
+  if (!mission.legacyAuthorityMissionId || await authority.active(db, mission.id)) return null;
+  const legacy = await authority.active(db, mission.legacyAuthorityMissionId);
+  if (!legacy) return null;
+  return { ...legacy, id: homeostasisId(mission.id), missionId: mission.id,
+    originAuthority: { missionId: mission.legacyAuthorityMissionId, revision: legacy.revision, contractHash: legacy.contractHash } };
+}
+
+function scopedOrganismContract(organism, mission) {
+  if (!organism?.homeostasis) return null;
+  return { ...organism.homeostasis, missionId: mission.id, id: homeostasisId(mission.id) };
+}
+
 async function transitionMissionToComplete(db, target) {
-  const { organism, mission, context = {} } = target;
-  const evaluation = await evaluateMissionHomeostasis(db, { organism, mission, context });
+  return withTransaction(db, () => persistCompletionAttempt(db, target));
+}
+
+async function persistCompletionAttempt(db, target) {
+  const { context = {} } = target;
+  const evaluation = await evaluateMissionHomeostasis(db, target);
+  const { mission } = evaluation;
   const { state, status } = evaluation;
   if (status !== 'homeostasis_satisfied') {
     const receipt = await persistTransitionReceipt(db, {

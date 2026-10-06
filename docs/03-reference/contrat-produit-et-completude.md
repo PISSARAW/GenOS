@@ -1,7 +1,7 @@
 # Contrat produit et définition de « terminé »
 
 - **Statut du document** : référence de périmètre
-- **Revue** : 2026-10-04
+- **Revue** : 2026-10-06 (Métapopulation)
 - **Source d'inventaire** : dépôt courant ; les statuts ci-dessous évaluent la preuve disponible, pas l'ambition des noms de services.
 
 Ce document est le registre produit de GenOS. Une capacité n'est annoncée comme
@@ -48,13 +48,13 @@ exécutées pour cette revue.
 | Élément | Statut | Interface publique | Acceptation spécifique | Dépendances | Preuve de fonctionnement |
 | --- | --- | --- | --- | --- | --- |
 | Trinity | partiel | `dispatch_trinity` ; `merge_trinity` | les 12 runners sont câblés au dispatch/superviseur ; qualifier sorties variant, reçus, gates et promotion par une campagne post-correctifs | workers, routes de modèles, superviseur, dossiers de preuve et barrière comparative | R3 pré-correctifs : 12 missions, 36 agents, 12 `ESCALATE`, 0 merge, plusieurs runners non invoqués. Les corrections relient les runners mais la voie corrigée n'a pas encore de preuve E2E nominale ; critères détaillés dans [la fiche Trinity](../02-orchestration/topologies/trinity.md) et [ADR 0292](../adr/0292-execution-des-variants-trinity.md) |
-| A-Team | partiel | `composeMode(mode: a_team)` ; `analyzeMission(mission, { workGraph, capabilityRequirements, availableSpecialists })` | lorsqu'un WorkGraph validé ou des exigences explicites sont fournis, dériver les compétences, relier les handoffs et affecter uniquement les spécialistes disponibles ; les appels texte seul gardent une détection lexicale de compatibilité et ne constituent pas une extraction WorkGraph | coordination A-Team, exigences structurées, registre de spécialistes, workers | `workGraphRequirements`, `teamFormationOptimizer`, tests de graphe et d'affectation ; décomposition sémantique de mission et scénario E2E à publier |
+| A-Team | partiel | `composeMode(mode: a_team)` ; `analyzeMission(mission, { workGraph, capabilityRequirements, availableSpecialists })` ; dispatch explicite et adaptateur autonome via `executeTeamRun` | exigences structurées et spécialistes disponibles ; identités et DAG persistants ; progression indépendante ; preuves, critères globaux et accusés exacts avant `COMPLETED` | leases, workers, dossiers, observateur et sessions | `test_ateam_execution_e2e.js` : SQLite/processus Node ; 44 cas isolés. Analyse texte seule lexicale, expertise générale et sous-runs multiteam génériques non qualifiés ([référence](runtime-a-team.md)). |
 | Biome | expérimental | `composeMode(mode: biome)` | allocation bornée et observation reproductible, sans prétendre à une écologie réelle | foraging, métriques, budget | `biomeCoordinationService`, `foragingScoutHarvesterService`; tests de service, scénario E2E à publier |
 | Biocénose | partiel | `composeMode(mode: biocenose)` | quorum/consensus traçable, abstention et données contradictoires visibles | arène, Brier, quorum, preuves | `biocenoseService`, `arenaTaskEvaluation`; intégration consensus à publier |
 | Holobionte | expérimental | `composeMode(mode: holobionte)` | hôte garde autorité, inférence locale et veto testables ; aucun droit implicite | runtime symbiote local, immunité, mémoire | `holobionteCoordinationService`, `symbioteRuntimeService`; tests de veto à publier |
 | Syncytium | partiel | `composeMode(mode: syncytium)` | convergence CRDT et rejet d'invariant démontrés sous concurrence | session CRDT, cytoplasme, sandbox | `syncytiumCoordinationService`, `syncytiumCrdtService`; intégration multi-écriture à publier |
 | Rhizome | expérimental | `composeMode(mode: rhizome)` et croissance par provider adapter | la voie de croissance résout un provider, instancie une capacité, la fait vérifier et admettre avant de l'ajouter au routage ; le graphe ne croît que si un provider admissible et les preuves requises sont fournis | registre de providers, vérificateur, admission, bus, signaux | `growthExecutor`, `providerAdapterRegistry`, tests unitaires de cycle ; E2E de croissance et routage à publier |
-| Métapopulation | expérimental | `composeMode(mode: metapopulation)` | quorum et régénération bornés, lignage/mémoire traçables | quorum, plasticité, récupération | `metapopulationCoordinationService`; test d'intégration régénération à publier |
+| Métapopulation | expérimental ; runtime régional implémenté | `composeMode(mode: metapopulation)`, `runAutonomousRegionalRuntime` | PLAN sans effet, preuves locales, migrations revues, recolonisation et reprise persistée | SQLite, adaptateurs receveurs, évaluateurs locaux, Rust/solveur selon le variant | 10/10 suites dédiées au commit `5b18c834` ; [contrat et limites](runtime-metapopulation.md), [ADR 0330](../adr/0330-effets-durables-metapopulation.md) ; qualification externe et globale distincte |
 
 Les **19 organisations dynamiques** sont proposées par `dynamicOrganizationService`
 (`changeOrganization`, `runStep`). Le statut partiel est commun à ce registre :

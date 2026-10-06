@@ -117,6 +117,7 @@ function buildHomeostasisContract(input = {}) {
     minimumFunctionalCoverage: policy.minimumFunctionalCoverage,
     policyVersion: policy.version,
     classCoverage: policy.classCoverage,
+    originAuthority: input.originAuthority || null,
     assembledAt: input.assembledAt || new Date().toISOString()
   };
 }
@@ -139,6 +140,7 @@ function serializeContract(contract) {
     minimumFunctionalCoverage: contract.minimumFunctionalCoverage,
     policyVersion: contract.policyVersion,
     ...(contract.policyVersion === 'genos.homeostasis-policy/v2' ? { classCoverage: contract.classCoverage } : {}),
+    ...(contract.originAuthority ? { originAuthority: contract.originAuthority } : {}),
     assembledAt: contract.assembledAt
   };
 }
@@ -152,6 +154,7 @@ function deserializeContract(payload = {}) {
     minimumFunctionalCoverage: payload.minimumFunctionalCoverage,
     policyVersion: payload.policyVersion,
     classCoverage: payload.classCoverage,
+    originAuthority: payload.originAuthority,
     assembledAt: payload.assembledAt
   });
 }
@@ -236,7 +239,7 @@ function evaluateClassCoverage(contract, results) {
     const satisfied = required.filter(item => item.satisfied).length;
     const ratio = required.length ? satisfied / required.length : 1;
     const threshold = contract.policyVersion === 'genos.homeostasis-policy/v1'
-      ? 1 : contract.classCoverage[kind];
+      ? 1 : (contract.classCoverage?.[kind] ?? 1);
     return [kind, { required: required.length, satisfied, ratio, threshold, met: ratio >= threshold }];
   }));
 }

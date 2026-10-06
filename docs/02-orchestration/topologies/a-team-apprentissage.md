@@ -12,10 +12,15 @@ si leur référence figure dans les preuves du debrief et si l'adaptateur
 `evidenceIsUsable` confirme cette preuve. Les résultats individuels des membres suivent
 la même règle de provenance.
 
-À la barrière d'intégration, une A-Team avec tous ses artefacts et handoffs vérifiés passe
-à `COMPLETED` puis enregistre son debrief. Les références proviennent des rapports de
-preuve des workers. Un échec d'écriture génère un événement d'avertissement et ne change
-pas la décision de promotion des preuves.
+Le parcours canonique finalise le run à `COMPLETED`, `FAILED` ou `BLOCKED`, passe par
+`INTEGRATION` puis `DEBRIEF` et appelle `persistTeamDebrief` en succès comme en refus.
+Il renseigne `objectiveMet`, `completionRate`, `handoffAcceptanceRate` et les références
+des contributions promues. Un arrêt avant finalisation ne garantit pas de debrief.
+
+L'exécuteur canonique propage une erreur d'écriture du debrief ; la barrière comparative
+historique possède un chemin d'avertissement. Aucun de ces résultats ne transforme une
+preuve rejetée en promotion. Critères globaux et accusés exacts conditionnent la réussite ;
+un worker `completed` ne suffit pas. Voir la [référence runtime](../../03-reference/runtime-a-team.md).
 
 ## Utilisation pour les missions futures
 

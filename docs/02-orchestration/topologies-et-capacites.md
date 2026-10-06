@@ -33,11 +33,11 @@ capacités requises + un profil (preuve, mémoire, budget, communication, moteur
 | Topologie | Câblé dans le runtime | Contrat seulement / proposé |
 | --- | --- | --- |
 | **Trinity** | `dispatch_trinity` crée les mondes et `trinity-supervisor.cjs` attend leurs terminaisons, exécute les revues requises et applique les gates des douze variants. `merge_trinity` conserve la barrière comparative et les contrôles de promotion. | Les runners sont branchés depuis les corrections post-R3 ; les rapports R3 pré-correctifs ont produit 12 escalades et aucun merge, avec plusieurs runners non invoqués. Aucun run post-correctifs n'a encore qualifié la voie complète. Une assignation de modèle, une cellule ou un nom d'adapter ne remplace pas la provenance effective et les reçus de preuve. Voir [le contrat Trinity](topologies/trinity.md) et [ADR 0292](../adr/0292-execution-des-variants-trinity.md). |
-| **A-Team** | Parcours dédié via `agentAutonomyPlanService`, `aTeamDispatchService` et `aTeamCoordinationService` : domaines, handoffs et intégration. | Le contrat de capacités reste descriptif ; l'arbitrage Pareto n'est effectif que là où l'évaluateur A-Team l'appelle. |
+| **A-Team** | Dispatch explicite et autoplanification partagent le run canonique et `executeTeamRun` : progression indépendante, preuves, critères globaux et accusés versionnés. | Conformité globale partielle. RCA/VEC de clôture mesurent achèvement et contributions, pas une garantie générale d’outils ou d’expertise. Évaluateurs de variantes distincts ; sous-runs multiteam génériques non branchés ([référence](../03-reference/runtime-a-team.md)). |
 | **Biocénose** | `genos_biological_mode` → `biologicalTopologyService` → `biocenoseService.prepareCommunity`; évaluation communautaire et préparation d'organisation. | Les capacités du profil qui n'apparaissent pas dans ce chemin ne sont pas activées automatiquement. |
 | **Syncytium** | `genos_biological_mode` crée une session persistée ; `genos_topology_session` expose snapshot et opérations CRDT, puis évaluation de cohérence. | Le contrat ne signifie pas que chaque mission utilise ce mode ou que toute mutation passe par un opérateur humain. |
 | **Holobionte** | Le service commun `runHolobiontMission`, la CLI et Morphogenesis exécutent les capacités après admission, avec preuve indépendante, gate immunitaire, quotas, contribution/mémoire atomiques et clôture. Les sanctions de santé bornées sont intégrées au runtime. | La composition historique reste `COMPOSED`. Les adaptateurs fournissent l’isolation physique et les mesures ; aucun gain biologique ou longitudinal n’est certifié. Voir le [contrat](../03-reference/runtime-holobionte.md). |
-| **Métapopulation** | `genos_biological_mode` compose les membres ; quorum, pondération et régénération sont exposés par le service. | Ces calculs restent des appels explicites, pas une boucle autonome déclenchée par la composition. |
+| **Métapopulation** | `genos_biological_mode` compose les rôles ; `runAutonomousRegionalRuntime` applique les politiques, migrations, extinction et recolonisation avec relecture des preuves SQLite. | La composition ne démarre pas la boucle. Les appels sont bornés et exigent les adaptateurs externes requis ; voir le [contrat runtime](../03-reference/runtime-metapopulation.md). |
 | **Rhizome** | Sessions persistées, routage multi-sauts borné, exécution et vérification indépendantes des sorties, croissance admise avec débit atomique, métriques de complétion et télémétrie du graphe réel. Les mutations ont une révision et un audit ; MCP expose les opérations explicites du service. | Le cycle de mission requiert des providers et vérificateurs réels enregistrés par l’hôte. La composition seule ne les lance pas. Les modèles biologiques illustratifs ne sont pas certifiés par le runtime. Voir le [contrat](../03-reference/runtime-rhizome.md). |
 | **Biome** | `genos_biological_mode` crée et persiste la session ; `genos_topology_session` expose snapshot, allocation, foraging et santé, dont les résultats sont déposés dans la matrice biofilm. `biomeMissionLoop.runBiomeMission` enchaîne observe → propose → constrain → act → verify avec reçus, budget et autorisation explicite avant effet réel (`backend/tests/test_biome_mission_loop.js`, démo `examples/biome-mission-demo/run-demo.mjs`). | La navigation et la réallocation restent déclenchées par la mission, pas par une boucle autonome ; le mode simulé (`simulated: true`) ne produit aucun effet réel. |
 
@@ -86,6 +86,22 @@ biologiques produisent les membres typés dans leur résultat ou leur session;
 leur composition seule ne lance pas nécessairement les workers. Voir
 [Types de workers](../03-reference/types-de-workers.md#141-types-de-workers-vs-rôles-de-mission)
 et [ADR 0123](../adr/0123-separer-profil-worker-et-contrat-de-methode.md).
+
+### 3.2 Garage Fabric : circulation transversale
+
+La morphogenèse choisit les rôles, méthodes, topologies et contrats. Le
+[Garage Fabric](topologies/garage-fabric.md) ordonne ensuite les exécutions :
+admission, attente durable, priorités, dépendances vérifiées, préemption
+consentie et reprise depuis une capsule de fichiers. Ses douze politiques
+ne sont ni douze topologies supplémentaires, ni des capacités d'outils.
+
+La file SQLite, les baux clôturés et les réservations transactionnelles
+protègent les plafonds locaux et projet. Chaque départ revérifie l'autorité,
+le contrat du worker et le circuit breaker. Aucun mode Garage n'accorde de
+lease MCP, ne modifie un `WorkerKind` ou ne remplace une barrière d'évidence.
+La fin exige la preuve typée du run courant ; la persistance de la file
+n'implique pas une restauration transparente des processus. Voir aussi le
+[runtime agentique](../01-concepts/runtime-agentique.md).
 
 ### Plan exécuté pour Rhizome et Biome
 
