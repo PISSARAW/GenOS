@@ -384,6 +384,9 @@ de gouvernance de GenOS impose un ADR pour toute modification d'architecture
 | [0322](0322-interop-gcir-omega-rust-node.md) | Interopérabilité G-CIR Omega Rust/Node | Voir le fichier | -- | -- |
 | [0323](0323-biscuit-delegation-workers.md) | Jetons Biscuit pour la délégation bornée | Accepté | 2026-10-06 | autorisation, sous-orchestration, délégation |
 | [0324](0324-capsules-secretstream-transport.md) | Capsules transportables par flux authentifié | Accepté | 2026-10-06 | continuité, cryptographie, restauration |
+| [0325](0325-regeneration-axolotl-executable.md) | Régénération Axolotl avec admission exécutable | Accepté. | 2026-10-06. | Régénération, cognition, plasticité. |
+| [0327](0327-mesures-et-calibration-physique.md) | Mesures et calibration persistante de la physique computationnelle | Voir le fichier | -- | -- |
+| [0328](0328-laboratoire-qualite-diversite.md) | Laboratoire qualité-diversité et évolution bornée | Accepté | 2026-10-06 | morphogenèse, GVX, évaluation expérimentale |
 
 > **Identifiants numériques partagés** : certains numéros sont portés par
 > plusieurs fichiers, en plus de `003x` (format historique gelé). Les

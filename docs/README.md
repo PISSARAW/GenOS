@@ -206,6 +206,7 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [tests-et-validation.md](06-qualite-preuves/tests-et-validation.md) — validation du dépôt et suites de test.
 - [tests-des-contrats-recents.md](06-qualite-preuves/tests-des-contrats-recents.md) — validation des contrats récemment documentés.
 - [benchmark-ateam.md](06-benchmarks/benchmark-ateam.md) — protocole apparié A-Team, ablations et limites des résultats.
+- [qualite-diversite-organisations.md](06-benchmarks/qualite-diversite-organisations.md) — archive Pyribs et tâche Shinka bornée.
 - [benchmark-longitudinal-holobionte.md](06-benchmarks/benchmark-longitudinal-holobionte.md) — protocole apparié Holobionte à douze bras, sans campagne réelle exécutée.
 - [protocole-execution-holobionte.md](06-benchmarks/protocole-execution-holobionte.md) — budgets, temps, topologies, workers, nosologie, échanges, graphe relationnel et télémétrie.
 - [matrice-coherence-code-docs.md](06-qualite-preuves/matrice-coherence-code-docs.md) — registre de cohérence code↔documentation.
@@ -271,6 +272,7 @@ Décision NCE : [ADR 0294 — contrats de preuve des chemins runtime](adr/0294-f
 - [0311-autorisation-cedar-agents.md](adr/0311-autorisation-cedar-agents.md) — politique Cedar pour les missions et le contrôle des agents, sans permission implicite par relation.
 - [0323-biscuit-delegation-workers.md](adr/0323-biscuit-delegation-workers.md) — jetons de délégation bornée des sous-orchestrateurs.
 - [0324-capsules-secretstream-transport.md](adr/0324-capsules-secretstream-transport.md) — flux authentifié pour capsules transportables.
+- [0328-laboratoire-qualite-diversite.md](adr/0328-laboratoire-qualite-diversite.md) — protocole de laboratoire qualité-diversité et évolution bornée.
 - [0037-ecosysteme-agentique-11-15.md](adr/0037-ecosysteme-agentique-11-15.md) — écosystème agentique : environnement/niches, substrat cognitif natif-first, physiologie collective, plan de gouvernance, interoception collective.
 - [0038-boucle-controle-cognitif-morphogenese.md](adr/0038-boucle-controle-cognitif-morphogenese.md) — boucle de contrôle cognitif de la morphogenèse.
 - [0039-systemes-vitaux-agents-6-10.md](adr/0039-systemes-vitaux-agents-6-10.md) — systèmes vitaux 6-10 : sensorium, métabolisme, résilience, développement, symbiontes procéduraux.
