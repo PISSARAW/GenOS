@@ -116,7 +116,7 @@ function usageTokenCounts(usage) {
 }
 
 function usageContextTokens(source, usage, counts) {
-  return Number(source.tokens || usage.total_tokens || (counts.inputTokens + counts.outputTokens) || 0);
+  return Number(source.tokens ?? usage.total_tokens ?? usage.tokens ?? (counts.inputTokens + counts.outputTokens));
 }
 
 function usageCostUsd(source, usage) {
