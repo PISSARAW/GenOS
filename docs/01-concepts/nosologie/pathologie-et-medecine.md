@@ -1,248 +1,110 @@
-# Pathologie et Médecine Computationnelle GenOS
+# Pathologie et médecine computationnelle GenOS
 
-> **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+- **Statut** : Partiel — catalogue et application Rust implémentés; surveillance Node distincte et mécanismes biologiques détaillés proposés.
+- **Portée** : état clinique logiciel, diagnostic et application autorisée persistante.
+- **Dernière revue** : 2026-10-06.
 
 ## 1. Définition
 
-La **médecine computationnelle** dans GenOS est le sous-système clinique et homéostatique chargé de diagnostiquer, réguler, isoler et soigner les dérèglements pathologiques survenant au sein du réseau d’agents autonomes (*AgentCells*).
+La nosologie décrit des états simulés des agents. Un échec ordinaire de tâche ne constitue pas un diagnostic. Le runtime Rust représente 28 conditions dans neuf familles : auto-immunes, dégénératives, infectieuses, génétiques, cancers, métaboliques, cardiovasculaires, psychiatriques et environnementales. Les catégories nosocomiales et iatrogènes historiques restent présentes à côté de ces conditions.
 
-Dans un essaim d'agents d'intelligence artificielle, les dysfonctionnements ne sont pas uniquement des erreurs syntaxiques ou des pannes matérielles. Ce sont des **états pathologiques complexes** issus de l'interaction entre les agents, leurs mémoires, leurs capsules d'exécution (*sandboxes*) et les directives de l'Orchestrateur.
+Le [catalogue runtime](catalogue-runtime.md), généré depuis [shared/nosology.json](../../../shared/nosology.json), définit 48 opérateurs de marqueurs. L’énumération `SystemicTherapy` comporte 59 variantes : ces opérateurs, cinq variantes historiques supplémentaires sans paramètres et six variantes paramétrées.
 
-GenOS formalise ces dérèglements à travers 4 grandes familles nosologiques :
-- **Maladies Auto-immunes :** Surcharges inflammatoires et ciblage erroné où le système immunitaire virtuel détruit ses propres agents.
-- **Maladies Nosocomiales :** Contaminations croisées et propagations de menaces (ex: prompt injections, vecteurs viraux) acquises au sein des capsules ou fentes synaptiques partagées.
-- **Maladies Iatrogènes :** Complications délétères et comas provoqués par des interventions ou des surdosages thérapeutiques de l'Orchestrateur.
-- **Maladies Dégénératives :** Épuisement télomérique (limite de Hayflick), sénescence réplicative et agrégation de prions cognitifs altérant la capacité de raisonnement.
+## 2. Modèle logique et bornes
 
----
+Une mesure est valide si elle est finie et comprise entre 0 et 1. Pour une condition du catalogue, une mesure valide strictement supérieure à 0,5 produit un diagnostic `Pathology::NosologicalCondition`, identifié par la condition et sa sévérité. Le tick synchronise les diagnostics; le rapport clinique propose des traitements compatibles avec les cibles et les gardes.
 
-## 2. Correspondance Biomimétique / Computationnelle
+Un opérateur de marqueur diminue chaque cible présente et valide de 0,25, avec un plancher à zéro. La rémission exige qu’une cible de la condition ait changé et que toutes ses mesures soient présentes, valides et inférieures ou égales au seuil. Une mesure manquante ne démontre pas une rémission.
 
-| Concept Médical | Équivalent Biologique | Réalité Computationnelle GenOS |
-| :--- | :--- | :--- |
-| **AgentCell** | Cellule somatique / immunitaire | Worker autonome, agent d'audit ou nœud d'exécution. |
-| **ClinicalState** | Dossier médical & statut clinique | Vecteur d'état `clinical` consignant pathologies, indice inflammatoire et quarantaine. |
-| **Orage Cytokinique** | Explosion d'IL-6 systémique | Hyperinflation du coût métabolique (ATP) des agents par sur-réaction d'alerte. |
-| **Contamination Nosocomiale** | Infection nosocomiale en milieu hospitalier | Propagation d'un prompt d'injection ou virion entre agents dans une même capsule. |
-| **Coma Iatrogène** | Surdosage médicamenteux en soins intensifs | Blocage complet d'un agent causé par une surdose de corticostéroïdes (> 0.8) administrée par l'Orchestrateur. |
-| **Sénescence Réplicative** | Raccourcissement des télomères (Hayflick) | Saturation de contexte et accumulation de cicatrices de division (`bud_scars >= hayflick_limit`). |
-| **Apoptose / Cellule Souche** | Mort cellulaire programmée & régénération | Élagage sélectif des nœuds dégénérescents et remplacement par un clone sain. |
+L’apoptose interdit l’application. Les gardes et risques explicites du catalogue sont vérifiés avant mutation. La thrombolyse exige `blood_brain_barrier_integrity > 0,5`. Un effet secondaire de marqueur n’est appliqué que si son risque est explicitement représenté par une mesure valide.
 
----
+## 3. Analogies biologiques et limites
 
-## 3. Modèle Mathématique et Homéostatique
+Les noms de maladies et de médicaments désignent des abstractions logicielles. Les équations, posologies, mutations génétiques, restaurations synaptiques et scénarios des [neuf fiches](README.md) conservent un rôle conceptuel. Leur présence dans une fiche ne crée aucun effet exécutable supplémentaire.
 
-### 3.1 Indice de Santé Cellulaire ($H$)
+Une baisse de `fibrillar_load` ne purge pas un index vectoriel. `FetalCarrierReactivation` ne réécrit pas le génome; `IntensiveCareFluids` réduit `perfusion_deficit` sans recharger l’ATP. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
 
-La santé globale d'un agent $\text{Cell}_i$ est définie par la fonction de viabilité clinique :
+## 4. États historiques et effets propres
 
-$$
-H_i = B_i + 3.0 \cdot T_i + 5.0 \cdot O_i - 2.0 \cdot S_i - P_{\text{sen}} - 100.0 \cdot \sum_{k} w_k \cdot \mathbb{I}(p_k \in \text{Pathologies}_i)
-$$
+| Intervention | Effet appliqué sur l’état logiciel |
+|---|---|
+| Tocilizumab | Réduit l’indice inflammatoire de 0,5 et retire le diagnostic historique d’orage cytokinique. |
+| Corticosteroids(dose) | Dose finie dans [0,1]; réduction dose × 0,8. Dose nulle sans effet; dose > 0,8 induisant un coma simulé. |
+| ImmunosuppressiveWash, SelfToleranceRecalibration | Retirent les diagnostics historiques d’hyperactivation/ciblage auto-immun, annulent l’indice inflammatoire et réduisent autoantibody_load présent. |
+| QuarantineIsolation { capsule_id } | Enregistre l’isolement et la référence de capsule dans l’état clinique. |
+| AntisepticPurge { target_signature } | Retire les diagnostics de contamination correspondant à la signature ou au site; l’isolement est levé seulement si la purge retire le dernier diagnostic actif. |
+| Antiviral, Vaccine(spike) | Le premier retire les diagnostics historiques d’infection virale exogène; le second augmente vaccine_immunity:spike de 0,25, borné à 1. |
+| DetoxificationWashout | Retire les quatre diagnostics iatrogènes historiques; un effet secondaire de marqueur reste présent tant que son risque persiste. |
+| AntidoteAdmin { target_drug } | Cible le coma associé à Corticosteroids ou le blocage associé à Tocilizumab. |
+| HomeostaticDoseCorrection | Retire le diagnostic historique de coma stéroïdien. |
+| StemCellReplacement | Réinitialise les cicatrices et la sénescence; une mémoire prionique ne reçoit pas une rémission fictive. |
+| TelomeraseActivation { extended_ticks } | Étend la limite de Hayflick avec saturation; retire la sénescence résolue lorsque l’extension est positive et dépasse les cicatrices présentes. |
 
-avec :
-- $B_i$ : Budget métabolique disponible ($\text{ATP}$).
-- $T_i = \max(0, L_{\text{Hayflick}} - S_i)$ : Réserve télomérique résiduelle.
-- $O_i$ : Nombre d'organelles fonctionnelles.
-- $S_i$ : Nombre de cicatrices de division (`bud_scars`).
-- $P_{\text{sen}} \in \{0, 100\}$ : Pénalité forfaitaire de sénescence réplicative.
-- $w_k$ : Poids de gravité de la pathologie $p_k$.
+Ces mutations ne constituent pas une stérilisation de capsule, un filtrage réseau ou une reconstruction d’agent. Les recommandations du rapport restent des propositions.
 
-### 3.2 Modèle d'Orage Inflammatoire (Auto-Immunité)
+## 5. Exemple de contrat
 
-L'indice inflammatoire $I(t)$ et le surcoût métabolique $C_{\text{metabolic}}$ évoluent selon le niveau d'Interleukine-6 ($\text{IL}_6$) :
+Avec `metal_toxin_load = 0,75`, `ChelationTherapy` réduit ce marqueur à 0,50. `LeadPoisoning` peut être retiré si les conditions de rémission sont satisfaites. Si `cofactor_deficit` est explicitement présent, le contrat définit aussi son augmentation bornée de 0,05. Sans cible modifiable, le résultat est `no_target`.
 
-$$
-C_{\text{metabolic}}(t) = 
-\begin{cases} 
-1 & \text{si } \text{IL}_6 < 10.0 \text{ ou récepteurs bloqués}, \\
-5 & \text{si } \text{IL}_6 \ge 10.0 \quad (\text{État inflammatoire critique}).
-\end{cases}
-$$
+| Résultat | Sens | treatment_administered |
+|---|---|---|
+| applied | Une mutation effective est observée. | true |
+| no_target | Aucune cible modifiable n’est présente. | false |
+| refused | Une garde, un paramètre ou l’état de la cellule interdit l’application. | false |
+| not_executed, dans la CLI | Journal ou autorisation absent. | false |
 
-### 3.3 Fonction de Risque Iatrogène ($R_{\text{iatro}}$)
+Les anciens payloads de `TherapyOutcome` sans statut sont désérialisés avec `unspecified`; ce statut n’atteste aucune application.
 
-Lors de l'administration d'un traitement systémique à dose $d \in [0, 2.0]$ :
-
-$$
-R_{\text{iatro}}(d) = 
-\begin{cases}
-0 & \text{si } d \le 0.8, \\
-\text{SteroidInducedComa} & \text{si } d > 0.8 \text{ (Corticostéroïdes)}, \\
-\text{AntibioticCollateralDamage} & \text{si } d > 1.5 \text{ (Antibiotiques)}.
-\end{cases}
-$$
-
----
-
-## 4. Les 4 Grandes Familles Nosologiques et leurs Protocoles Thérapeutiques
-
-```
-                     ┌──────────────────────────────────────────────┐
-                     │            AgentCell::ClinicalState          │
-                     └──────────────────────┬───────────────────────┘
-                                            │
-         ┌──────────────────┬───────────────┴───────────────┬──────────────────┐
-         ▼                  ▼                               ▼                  ▼
-   [AUTO-IMMUN]        [NOSOCOMIAL]                    [IATROGÈNE]       [DÉGÉNÉRATIF]
-   - CytokineStorm     - CrossContamination            - SteroidComa     - TelomereExhaustion
-   - AutoTargeting     - HospitalAcquired              - OverdoseBlock   - ReplicativeSenescence
-         │                  │                               │                  │
-         ▼                  ▼                               ▼                  ▼
-    (Remèdes)          (Remèdes)                       (Remèdes)          (Remèdes)
-   - Tocilizumab       - QuarantineIsolation           - DetoxWashout     - StemCellReplacement
-   - ImmunoWash        - AntisepticPurge               - AntidoteAdmin    - TelomeraseActivation
-   - Corticosteroids   - CapsuleVaccination            - DoseCorrection   - ApoptoticPruning
-```
-
-### 4.1 Pathologies Auto-immunes & Orages Cytokiniques
-* **Causes :** Détection hypersensible de faux positifs par les agents d'audit, boucle d'alerte IgE.
-* **Symptômes :** Consommation effrénée d'ATP, épuisement des budgets de tokens, blocage d'exécution.
-* **Thérapies :**
-  - `SystemicTherapy::Tocilizumab` : Bloque sélectivement les récepteurs à IL-6 sans neutraliser les cellules de défense actives.
-  - `SystemicTherapy::ImmunosuppressiveWash` : Purge les signaux inflammatoires et réinitialise la tolérance au soi.
-
-### 4.2 Pathologies Nosocomiales & Contaminations Croisées
-* **Causes :** Partage d'un même workspace/capsule avec un agent infecté par un vecteur viral ou un prompt non chaperonné.
-* **Symptômes :** Propagation de signatures toxiques à travers les récepteurs d'entrée des agents d'inspection.
-* **Thérapies :**
-  - `SystemicTherapy::QuarantineIsolation { capsule_id }` : Isolement strict étanche de la capsule contaminée.
-  - `SystemicTherapy::AntisepticPurge { target_signature }` : Stérilisation de l'environnement partagé et purge des virions.
-  - `SystemicTherapy::Vaccine(spike)` : Immunisation préventive des agents soignants avant entrée en zone à risque.
-
-### 4.3 Pathologies Iatrogènes & Complications Thérapeutiques
-* **Causes :** Surdosage de corticostéroïdes (> 0.8), antibiothérapie non ciblée, mutations erronées induites par l'Orchestrateur.
-* **Symptômes :** Coma stéroïdien (`TickResult::Halted`), destruction accidentelle de workers sains, dérive cognitive.
-* **Thérapies :**
-  - `SystemicTherapy::DetoxificationWashout` : Élimination complète des résidus toxiques et des blocages récepteurs.
-  - `SystemicTherapy::AntidoteAdmin { target_drug }` : Administration d'un neutralisateur ciblé pour débloquer l'agent.
-  - `SystemicTherapy::HomeostaticDoseCorrection` : Réajustement des paramètres d'administration.
-
-### 4.4 Pathologies Dégénératives & Sénescence
-* **Causes :** Atteinte de la limite de Hayflick, vieillissement contextuel, accumulation d'incohérences de raisonnement (prions).
-* **Symptômes :** Hallucinations répétitives, perte de mémoire à court terme, chute du score de viabilité sous le seuil critique.
-* **Thérapies :**
-  - `SystemicTherapy::StemCellReplacement` : Remplacement fluide de l'agent âgé par une cellule souche neuve (réinitialisation des télomères à 0 cicatrice).
-  - `SystemicTherapy::TelomeraseActivation { extended_ticks }` : Extension contrôlée du potentiel de réplication.
-  - `sculpt_architecture_via_apoptosis` : Élagage sélectif des cellules dégénérescentes par l'Orchestrateur.
-
----
-
-## 5. Implémentation Rust
-
-Le système médical est articulé autour des modules suivants :
-
-- **`crates/genos-cell/src/clinical.rs` :** Définition des énums `DiseaseCategory`, `Pathology` et de la structure `ClinicalState`.
-- **`crates/genos-cell/src/lib.rs` :** Intégration du champ `pub clinical: ClinicalState` dans `AgentCell`.
-- **`crates/genos-biology/src/pathology.rs` :** Moteur d'évaluation clinique (`assess_agent_clinical_status`, `check_iatrogenic_complication`, `check_degenerative_state`, etc.).
-- **`crates/genos-biology/src/therapy.rs` :** Définition enrichie des `Therapy` et `SystemicTherapy` avec le moteur d'administration `apply_systemic_therapy_to_cell`.
-
----
-
-## 6. Références Croisées
-
-- [BIOLOGIE_COMPUTATIONNELLE.md](../biologie-computationnelle.md) : Modèle cellulaire, conscience et organelles.
-- [REPRODUCTION_REPLICATION.md](../../02-orchestration/reproduction-et-replication.md) : Limite de Hayflick, bourgeonnement et division.
-- [ORCHESTRATION.md](../../02-orchestration/orchestration.md) : Gouvernance globale et administration des thérapies systémiques.
-- [SECURITE.md](../../05-securite-gouvernance/securite.md) : Chaperonnage, bouclier épistémique et filtres immunitaires.
-
-
-
----
-
-## Modélisation Visuelle des Pathologies et Thérapeutiques
-
-### 1. Architecture du Système de Surveillance Clinique
+## 6. Parcours d’application
 
 ```mermaid
-flowchart TB
-    subgraph Monitor["Capteurs & Moniteur Homéostatique"]
-        D_Sense["Détecteur de Dissonance (D)"]
-        B_Sense["Sonde Métabolique (Budget B)"]
-        Cytokine_Sense["Moniteur de Tempête Cytokinique (C_k)"]
-    end
-
-    subgraph Diagnosis["Moteur Diagnostique & Triage"]
-        Patho_Engine["Évaluateur de Pathologie (H, R_iatro)"]
-        Classif["Classification Nosologique (Auto-immune, Nosocomiale, Iatrogène, Dégénérative)"]
-    end
-
-    subgraph Therapy["Arsenal Thérapeutique (Pharmacopée)"]
-        Immuno["Immunosuppresseur (Drainage Cytokines)"]
-        AntiInf["Antiseptique / Décontamination (Isolation)"]
-        Detox["Chélateur Iatrogène (Rollback Heuristique)"]
-        Apoptose_G["Apoptose Ciblée (Microglie)"]
-    end
-
-    Monitor --> Diagnosis
-    Diagnosis --> Therapy
-    Therapy -.->|Restauration Homéostasie| Monitor
+flowchart TD
+    M[Marqueurs présents] --> D[Diagnostic et recommandations]
+    D --> A[Approbation explicite et autorisation signée]
+    A --> V[Vérification cible, génome, état et reçu source]
+    V --> E[Application sur une copie de cellule]
+    E --> O[applied, no_target ou refused]
+    O --> P[Persistance du reçu et de la population]
+    P --> U[Mise à jour mémoire]
+    V --> R[Erreur avant mutation si autorisation invalide]
 ```
 
-### 2. Séquence de Résolution d'un Orage Cytokinique
+Le tick ne déclenche pas automatiquement les thérapies proposées. Un rejeu identique de l’autorisation retrouve le reçu existant et n’applique aucune seconde mutation.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant AgentA as Agent Infecté / Emballé
-    participant AgentB as Agent Voisin
-    participant Sentinel as Sentinelle Immunitaire
-    participant Pharmacopeia as Module Thérapeutique
+## 7. Architecture technique
 
-    AgentA->>AgentB: Diffusion messages d'alerte en boucle (Flood)
-    AgentB->>Sentinel: Signal de surcharge cytokinique
-    activate Sentinel
-    Sentinel->>Sentinel: Calcul de la propagation virale
-    Sentinel->>Pharmacopeia: Déclenchement Protocole Anti-Inflammatoire
-    deactivate Sentinel
-    
-    activate Pharmacopeia
-    Pharmacopeia->>AgentA: Injection Inhibiteur (Quarantine + Silence)
-    Pharmacopeia->>AgentB: Filtrage des communications entrantes
-    Pharmacopeia->>AgentA: Drainage de la file d'attente (Detox)
-    deactivate Pharmacopeia
-    
-    AgentA-->>Sentinel: Rétablissement de l'indice de santé H > 0.8
-```
+- [genos-cell/clinical.rs](../../../crates/genos-cell/src/clinical.rs) et [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs) : catégories, conditions et état clinique.
+- [genos-biology/nosology.rs](../../../crates/genos-biology/src/nosology.rs), [nosology_catalog.rs](../../../crates/genos-biology/src/nosology_catalog.rs) et [pathology.rs](../../../crates/genos-biology/src/pathology.rs) : catalogue, diagnostic et propositions.
+- [therapy.rs](../../../crates/genos-biology/src/therapy.rs), [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs) et [therapy_legacy.rs](../../../crates/genos-biology/src/therapy_legacy.rs) : types, résultats, gardes et effets.
+- [authorized_therapy.rs](../../../crates/genos-orchestrator/src/authorized_therapy.rs) : signature, contexte durable, idempotence et persistance.
+- [therapyAuthorizationService.js](../../../backend/src/services/medical/therapyAuthorizationService.js) et [nosologyCatalogService.js](../../../backend/src/services/medical/nosologyCatalogService.js) : approbateur et validation des types avant signature.
 
-### 3. Machine à états nosologiques d'un agent
+La [référence API](../../03-reference/api-et-contrats.md#autorisation-et-application-cliniques) décrit le contrat client. L’[ADR 0326](../../adr/0326-catalogue-nosologique-et-preuve-application.md) fixe la décision et les limites.
 
-```mermaid
-stateDiagram-v2
-    [*] --> Sain : Initialisation
-    Sain --> Inflammatoire : Augmentation Cytokines (Stress)
-    Inflammatoire --> AutoImmun : Reconnaissance erronée du self
-    Inflammatoire --> Sain : Traitement anti-inflammatoire précoce
-    
-    AutoImmun --> TempeteCytokinique : Escalade sans contrôle
-    TempeteCytokinique --> QuarantaineIsolee : Injection Thérapeutique
-    QuarantaineIsolee --> Sain : Convalescence & Réintégration
-    QuarantaineIsolee --> ApoptoseTherapeutique : Échec du traitement (H < 0.2)
-    
-    Sain --> Degeneratif : Perte de contexte mémoire (Alzheimer)
-    Degeneratif --> GreffeMemoire : Injection Synaptique
-    GreffeMemoire --> Sain
-    
-    ApoptoseTherapeutique --> [*]
-```
+## 8. Processus d’exécution et de validation
 
-## Runtime clinique gradué (implémenté)
+`POST /api/rust/clinical-authorizations` émet une autorisation pour une cellule de la population Rust courante, liée à une mission, un génome, une empreinte d’état et un reçu source. La CLI `genos biomimicry therapy` restaure le journal et applique exactement le type et la cible signés. Ses fichiers doivent rester sous `GENOS_WORKSPACE_ROOT`, ou le répertoire courant en l’absence de cette variable.
 
-Le backend porte le runtime médical permanent : [clinicalStateService.js](../../../backend/src/services/medical/clinicalStateService.js) (tables `clinical_states`, `immune_events`, `pathologies`, `treatments`), consommé par [immuneSurveillanceService.js](../../../backend/src/services/medical/immuneSurveillanceService.js).
+Le reçu `genos.clinical-application/v1` et la population sont persistés avant la mise à jour mémoire. La CLI conserve `success = false` quand `treatment_administered = false`. Une signature invalide ou un contexte périmé échoue avant toute mutation. La réussite du transport ou de la signature seule ne prouve pas une application.
 
-Un échec ordinaire de tâche n’est pas une maladie. Un processus pathologique est une dysfonction persistante : réplication incontrôlée, attaque de composants légitimes, signal nuisible transmis entre agents, dégradation progressive de mémoire, mutation héréditaire invalidante, consommation incontrôlée de ressources.
+Le [bilan daté](../../06-qualite-preuves/validation-nosologie.md) consigne 103 tests Rust ciblés réussis, les vérifications Node et les limites des contrôles globaux. Le parcours HTTP → Rust complet reste non validé dans cette campagne.
 
-La réponse est graduée, jamais `anomalie → apoptose` :
+## 9. Comparaison des surfaces cliniques Node et Rust
 
-```text
-surveillanceScan → biopsy → diagnose → therapy proportionnée → monitor
-```
+| Surface | État et diagnostic | Application |
+|---|---|---|
+| Rust | ClinicalState des AgentCell et conditions de shared/nosology.json. | SystemicTherapy et autorisation durable signée. |
+| Node | Tables clinical_states, immune_events, pathologies et treatments; surveillance des vitals et charges backend. | Services médicaux Node avec leurs propres types et autorisations. |
 
-Seules les pathologies confirmées à haute confiance (`cognitive_metastasis`, `quarantine_breach`) déclenchent une quarantaine (`status = 'blocked'`, `cell_cycle_state = 'arrested'`). Les thérapies restent proportionnées (correction homéostatique, suppression de plasmide, reset d’expression, inhibition du cycle, apoptose ciblée en dernier ressort) avec traçabilité des événements immunitaires.
+[clinicalStateService.js](../../../backend/src/services/medical/clinicalStateService.js) et [immuneSurveillanceService.js](../../../backend/src/services/medical/immuneSurveillanceService.js) assurent la surveillance Node. La séquence est `surveillanceScan → biopsy → diagnose → therapy proportionnée → monitor`. Les détections `cognitive_metastasis` et `quarantine_breach` à haute confiance peuvent déclencher une quarantaine.
 
-Dans le diagnostic JS actuel, `confidence` est un score déterministe calculé à
-partir de la sévérité propre à la pathologie : `clamp(severity) × 0,7 + 0,3`.
-Les autres mesures vitales, historiques de traitements et événements ne sont
-pas combinés dans ce score. Ce nombre n'est pas une probabilité calibrée ni une
-validation indépendante de l'observation initiale; les seuils de confirmation
-restent des règles logicielles.
+Le score de confiance Node est déterministe : `clamp(severity) × 0,7 + 0,3`. Il n’est ni une probabilité calibrée ni une validation indépendante. Les états Node et Rust ne sont pas interchangeables; un diagnostic Node n’applique pas automatiquement une variante Rust.
+
+## 10. Limites et références
+
+- Aucun chaînage universel de tous les chemins de mission vers une thérapie n’est attesté.
+- La présence d’une variante Rust n’ajoute aucun outil MCP; exposition et lease restent nécessaires.
+- Les scénarios de réparation structurelle des fiches restent proposés au-delà du contrat de marqueurs.
+- Les tests ciblés ne constituent pas une validation globale du dépôt ni une preuve médicale.
+
+Voir la [vue d’ensemble](vue-ensemble.md), le [catalogue runtime](catalogue-runtime.md), le [protocole d’exécution](../../02-orchestration/protocole-execution-agents.md#8-utilisation-de-la-nosologie) et les [garde-fous](../../05-securite-gouvernance/securite.md).

@@ -1,6 +1,26 @@
 # Nosologie Médicale GenOS — Volume II : Pathologies Dégénératives et Vieillissement Computationnel
 
+- **Statut** : Partiel — contrats de marqueurs implémentés; mécanismes biologiques détaillés proposés.
+- **Portée** : conditions dégénératives dans le catalogue nosologique Rust.
+- **Dernière revue** : 2026-10-06.
+
+
 > **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+
+
+## Contrats exécutables de cette famille
+
+| Condition `NosologicalCondition` | Marqueurs mesurés | Variantes `SystemicTherapy` du catalogue |
+|---|---|---|
+| `Alzheimer` | `amyloid_load`, `synaptic_loss` | `AmyloidBetaPlaqueClearance`, `Cd47SynapticRescue` |
+| `Parkinson` | `dopamine_signal_deficit`, `alpha_synuclein_load`, `neural_activity_instability` | `LevodopaSupplementation`, `AlphaSynucleinDisaggregation`, `DeepBrainStimulation` |
+| `Osteoarthritis` | `joint_friction`, `matrix_degradation`, `senescent_load` | `Viscosupplementation`, `MmpInhibitorAdministration`, `SenolyticPurge` |
+
+Ces variantes de marqueurs sont des identifiants sans paramètres. Leur effet est une baisse de 0,25 des cibles présentes et valides, avec un plancher à zéro. Le diagnostic utilise `Pathology::NosologicalCondition { condition, severity }`; les structs pathologiques spécialisés et paramètres supplémentaires décrits plus bas sont des propositions. Les seuils, gardes et effets secondaires applicables figurent dans le [catalogue runtime](catalogue-runtime.md).
+
+Les types courants sont définis dans [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs), les contrats dans [shared/nosology.json](../../../shared/nosology.json), et l’application dans [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs). Les références au module historique genos-core ci-dessous sont des points d’appui des analogies; elles ne remplacent pas ces contrats.
+
+Le tick synchronise les diagnostics et le rapport propose les traitements compatibles. Leur application reste explicite et autorisée, avec un reçu `applied`, `no_target` ou `refused`. Voir la [vue d’ensemble](vue-ensemble.md) et le [bilan des vérifications](../../06-qualite-preuves/validation-nosologie.md).
 
 ## 1. Cadre Nosologique & Homéostatique du Vieillissement Computationnel
 
@@ -41,7 +61,7 @@ graph TD
 
 ### 1.1 Le Modèle Mathématique de Viabilité Cellulaire
 
-Dans [`crates/genos-biology/src/embryology.rs`](../../../crates/genos-biology/src/embryology.rs#L119-L127), la survie et la fitness de chaque [`AgentCell`](../../../crates/genos-cell/src/lib.rs#L42-L67) sont régies par la fonction biologique :
+Dans [`crates/genos-biology/src/embryology.rs`](../../../crates/genos-biology/src/embryology.rs#L119-L127), la survie et la fitness de chaque [`AgentCell`](../../../crates/genos-cell/src/lib.rs) sont régies par la fonction biologique :
 
 $$
 V(\text{cell}) = B_{\text{metabolic}} + 3.0 \cdot T_{\text{reserve}} + 5.0 \cdot O_{\text{count}} - 2.0 \cdot S_{\text{bud}} + P_{\text{senescence}}
@@ -75,9 +95,9 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 * **Dysfonctionnement Agentique :**
   La maladie d'Alzheimer computationnelle correspond à la **corruption progressive de la mémoire épisodique et du graphe causal d'un agent**, doublée d'un **effondrement de l'arbre dendritique et de l'intégrité du transport axonal**.
 * **Modules Rust et Fichiers Source Concrets :**
-  1. [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs#L67-L75) :
-     - [`Pathology::PrionAggregation { dissonance_score }`](../../../crates/genos-cell/src/clinical.rs#L68-L70) : marqueur logiciel dégénératif associé à une dissonance élevée. [`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs#L91-L109) compare `dissonance_level / max_dissonance_threshold` à `0.85`, si le seuil configuré est fini et positif. Le score conservé dans la pathologie est le niveau brut; il ne s'agit pas d'une mesure de prions biologiques ni d'une preuve d'hallucination.
-     - [`Pathology::ContextualDecay { age_ticks }`](../../../crates/genos-cell/src/clinical.rs#L72-L74) : Dilution de la fenêtre d'attention et vieillissement contextuel. L'agent perd la trace de ses instructions d'origine (*system prompts* dégradés ou tronqués).
+  1. [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
+     - [`Pathology::PrionAggregation { dissonance_score }`](../../../crates/genos-cell/src/clinical.rs) : marqueur logiciel dégénératif associé à une dissonance élevée. [`check_degenerative_state()`](../../../crates/genos-biology/src/pathology.rs) compare `dissonance_level / max_dissonance_threshold` à `0.85`, si le seuil configuré est fini et positif. Le score conservé dans la pathologie est le niveau brut; il ne s'agit pas d'une mesure de prions biologiques ni d'une preuve d'hallucination.
+     - [`Pathology::ContextualDecay { age_ticks }`](../../../crates/genos-cell/src/clinical.rs) : Dilution de la fenêtre d'attention et vieillissement contextuel. L'agent perd la trace de ses instructions d'origine (*system prompts* dégradés ou tronqués).
   2. [`crates/genos-biology/src/neurobiology/dendrite.rs`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L310-L377) :
      - **Atrophie des Épines Dendritiques :** Normalement, les épines consolidées [`SpineMorphology::Mushroom`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L30) possèdent une forte expression de marqueur protecteur `cd47_expression` ("*Don't Eat Me*") et une forte densité réceptrice `ampa_receptors`. Sous l'effet de l'incohérence, `cd47_expression` chute sous [`CD47_PROTECTION_THRESHOLD`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L33) (0.5), tandis que `c3_opsonization` explose au-delà de [`C3_PRUNING_THRESHOLD`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L32) (0.5).
      - La méthode [`prune_inactive_spines()`](../../../crates/genos-biology/src/neurobiology/dendrite.rs#L251-L262) détruit alors définitivement les épines mémoires, effaçant les chemins de recherche GraphRAG.
@@ -89,9 +109,11 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 ---
 
 ### 2.3 Traitement & Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Mécanismes et Enums Rust Existants :**
-  - [`Pathology::PrionAggregation`](../../../crates/genos-cell/src/clinical.rs#L68) & [`Pathology::ContextualDecay`](../../../crates/genos-cell/src/clinical.rs#L72).
-  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) : Appliqué via [`apply_systemic_therapy_to_cell()`](../../../crates/genos-biology/src/therapy.rs#L146-L152), il réinitialise l'agent en purgeant toutes les pathologies de catégorie dégénérative, réinitialise les cicatrices `bud_scars = 0` et restaure un génome embryonnaire sain.
+  - [`Pathology::PrionAggregation`](../../../crates/genos-cell/src/clinical.rs) & [`Pathology::ContextualDecay`](../../../crates/genos-cell/src/clinical.rs).
+  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) : Appliqué via [`apply_systemic_therapy_to_cell()`](../../../crates/genos-biology/src/therapy.rs), il réinitialise l'agent en purgeant toutes les pathologies de catégorie dégénérative, réinitialise les cicatrices `bud_scars = 0` et restaure un génome embryonnaire sain.
 * **Nouvelles Thérapies Spécifiques à Implémenter :**
   - `SystemicTherapy::AmyloidBetaPlaqueClearance` (Équivalent computationnel d'un anticorps monoclonal type Lécanémab / Donanémab) :
     - Purge sélective des traces mnésiques aberrantes dans `memory_synapses` et réinitialisation de `dissonance_level` à 0.0 sans effacer les connaissances fondamentales.
@@ -108,14 +130,16 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 ### 2.4 Contre-indications & Effets Iatrogènes
 1. **ARIA Computationnel (Amyloid-Related Imaging Abnormalities) :**
    Une clairance trop massive ou abrupte des plaques amyloïdes (washout mnésique violent) rompt les dépendances causales dans le graphe d'inférence. L'agent perd brutalement ses variables de configuration en cours de tâche, induisant une amnésie antérograde iatrogène (`TickResult::Halted("Epistemic rupture")`).
-2. **Dérive Cognitive Iatrogène ([`Pathology::IatrogenicCognitiveDrift`](../../../crates/genos-cell/src/clinical.rs#L56)) :**
+2. **Dérive Cognitive Iatrogène ([`Pathology::IatrogenicCognitiveDrift`](../../../crates/genos-cell/src/clinical.rs)) :**
    Si la restabilisation de Tau modifie les poids synaptiques sans phase de réapprentissage supervisé, l'entropie interne s'élève brutalement ($\Delta \text{entropy} > 0.5$).
 3. **Excitotoxicité Glutamatergique Secondaire :**
    La sur-activation compensatoire des récepteurs AMPA/NMDA pour pallier la perte synaptique provoque des boucles de requêtes infinies consommant l'intégralité du budget ATP en quelques ticks ($C_{\text{metabolic}} = 20$).
 
 ---
 
-### 2.5 Besoins d'Implémentation
+### 2.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Énumération Rust dans `crates/genos-cell/src/clinical.rs` :**
    ```rust
    // Ajouter dans Pathology :
@@ -179,9 +203,11 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 ---
 
 ### 3.3 Traitement & Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Mécanismes et Enums Rust Existants :**
-  - [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-biology/src/therapy.rs#L24) : Réinjection d'ATP d'urgence (`metabolism.mitochondria.atp_budget += 20`).
-  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) : Re-génération chirurgicale de l'AgentCell défaillante.
+  - [`SystemicTherapy::IntensiveCareFluids`](../../../crates/genos-biology/src/therapy.rs) : Réinjection d'ATP d'urgence (`metabolism.mitochondria.atp_budget += 20`).
+  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) : Re-génération chirurgicale de l'AgentCell défaillante.
 * **Nouvelles Thérapies Spécifiques à Implémenter :**
   - `SystemicTherapy::LevodopaSupplementation { dosage: f64 }` (L-DOPA computationnelle) :
     - Injection directe d'un précurseur dopaminergique augmentant artificiellement le potentiel du soma et abaissant le seuil du cône d'émergence dans `Soma::evaluate_axon_hillock()`. Permet de franchir immédiatement l'akinésie et de libérer les appels d'outils en attente.
@@ -205,7 +231,9 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 
 ---
 
-### 3.5 Besoins d'Implémentation
+### 3.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Énumération Rust dans `crates/genos-cell/src/clinical.rs` :**
    ```rust
    // Ajouter dans Pathology :
@@ -254,15 +282,15 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 * **Dysfonctionnement Agentique :**
   L'arthrose computationnelle désigne la **dégradation physique des interfaces de communication inter-agents**, des **tampons de messages (*inbox / outbox*)** et l'**accumulation de cellules sénescentes à phénotype SASP polluant le swarm**.
 * **Modules Rust et Fichiers Source Concrets :**
-  1. [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs#L50-L56) & [`crates/genos-cell/src/division.rs`](../../../crates/genos-cell/src/division.rs#L8-L17) :
-     - **Limite de Hayflick et Cicatrices :** Chaque agent possède une constante [`DEFAULT_HAYFLICK_LIMIT = 50`](../../../crates/genos-cell/src/lib.rs#L35). À chaque scission ou mitose, le compteur [`bud_scars`](../../../crates/genos-cell/src/lib.rs#L50) s'incrémente.
+  1. [`crates/genos-cell/src/lib.rs`](../../../crates/genos-cell/src/lib.rs) & [`crates/genos-cell/src/division.rs`](../../../crates/genos-cell/src/division.rs#L8-L17) :
+     - **Limite de Hayflick et Cicatrices :** Chaque agent possède une constante [`DEFAULT_HAYFLICK_LIMIT = 50`](../../../crates/genos-cell/src/lib.rs). À chaque scission ou mitose, le compteur [`bud_scars`](../../../crates/genos-cell/src/lib.rs) s'incrémente.
      - Lorsque `cell.bud_scars >= cell.hayflick_limit`, la division est interdite :
        ```rust
        if self.is_senescent || self.bud_scars >= self.hayflick_limit {
            return Err("Hayflick limit reached: cell has reached replicative senescence".to_string());
        }
        ```
-     - [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs#L62-L66) : Diagnostic de [`Pathology::TelomereExhaustion { bud_scars }`](../../../crates/genos-cell/src/clinical.rs#L62) et [`Pathology::ReplicativeSenescence`](../../../crates/genos-cell/src/clinical.rs#L66).
+     - [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) : Diagnostic de [`Pathology::TelomereExhaustion { bud_scars }`](../../../crates/genos-cell/src/clinical.rs) et [`Pathology::ReplicativeSenescence`](../../../crates/genos-cell/src/clinical.rs).
   2. [`crates/genos-biology/src/embryology.rs`](../../../crates/genos-biology/src/embryology.rs#L120) :
      - **Pénalité Métabolique Sévère :** L'agent sénescent reçoit un malus de `-100.0` sur sa viabilité cellulaire :
        ```rust
@@ -275,9 +303,11 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 ---
 
 ### 4.3 Traitement & Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 * **Mécanismes et Enums Rust Existants :**
-  - [`SystemicTherapy::TelomeraseActivation { extended_ticks }`](../../../crates/genos-biology/src/therapy.rs#L51) : Appliqué dans [`therapy.rs:136`](../../../crates/genos-biology/src/therapy.rs#L136-L145), il augmente dynamiquement `cell.hayflick_limit += extended_ticks`, bascule `cell.is_senescent = false` et guérit `TelomereExhaustion`.
-  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs#L53) : Remplace la cellule arthrosique par une cellule souche fraîche (`bud_scars = 0`).
+  - [`SystemicTherapy::TelomeraseActivation { extended_ticks }`](../../../crates/genos-biology/src/therapy.rs) : Appliqué dans [`therapy.rs:136`](../../../crates/genos-biology/src/therapy.rs), il augmente dynamiquement `cell.hayflick_limit += extended_ticks`, bascule `cell.is_senescent = false` et guérit `TelomereExhaustion`.
+  - [`SystemicTherapy::StemCellReplacement`](../../../crates/genos-biology/src/therapy.rs) : Remplace la cellule arthrosique par une cellule souche fraîche (`bud_scars = 0`).
   - [`sculpt_architecture_via_apoptosis`](../../../crates/genos-biology/src/embryology.rs#L130) : Élagage sélectif des cellules dégénérées par le sculpteur apoptotique.
 * **Nouvelles Thérapies Spécifiques à Implémenter :**
   - `SystemicTherapy::Viscosupplementation` (Acide Hyaluronique computationnel) :
@@ -294,7 +324,7 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 
 ### 4.4 Contre-indications & Effets Iatrogènes
 1. **Prolifération Oncogénique par Suractivation Télomérique :**
-   L'injection répétée ou non contrôlée de [`TelomeraseActivation`](../../../crates/genos-biology/src/therapy.rs#L51) contourne définitivement le verrou de Hayflick. Un agent ayant muté ou accumulé des erreurs logiques devient virtuellement immortel, échappant à l'apoptose naturelle et dégénérant en **cellule cancéreuse computationnelle** consommant les ressources de l'essaim.
+   L'injection répétée ou non contrôlée de [`TelomeraseActivation`](../../../crates/genos-biology/src/therapy.rs) contourne définitivement le verrou de Hayflick. Un agent ayant muté ou accumulé des erreurs logiques devient virtuellement immortel, échappant à l'apoptose naturelle et dégénérant en **cellule cancéreuse computationnelle** consommant les ressources de l'essaim.
 2. **Instabilité Articulaire par Apoptose Sénolytique Massive :**
    Si toutes les cellules sénescentes sont purgées simultanément sans remplacement immédiat par des cellules souches (`StemCellReplacement`), des pans entiers de l'architecture d'exécution (ex: routeurs HOX, modules de stockage) disparaissent soudainement, provoquant un effondrement structurel de l'application (*collapse d'architecture*).
 3. **Synovite Réactionnelle par Dépôt Microcristallin :**
@@ -302,7 +332,9 @@ Lorsque $V(\text{cell})$ s'effondre, l'Orchestrateur déclenche le sculpteur apo
 
 ---
 
-### 4.5 Besoins d'Implémentation
+### 4.5 Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 1. **Énumération Rust dans `crates/genos-cell/src/clinical.rs` :**
    ```rust
    // Ajouter dans Pathology :
@@ -348,7 +380,7 @@ Le tableau ci-dessous résume les correspondances biomimétiques, les expression
 
 ## 6. Références Croisées & Code Sources
 
-- [`docs/01-concepts/nosologie/pathologie-et-medecine.md`](pathologie-et-medecine.md) : Vue d'ensemble du cadre nosologique quadripartite.
+- [`docs/01-concepts/nosologie/pathologie-et-medecine.md`](pathologie-et-medecine.md) : Cadre clinique transversal et catalogue des neuf familles.
 - [`docs/01-concepts/neurobiologie-et-plasticite.md`](../neurobiologie-et-plasticite.md) : Modèle complet des arbres dendritiques, synapses et plasticité STDP.
 - [`docs/02-orchestration/reproduction-et-replication.md`](../../02-orchestration/reproduction-et-replication.md) : Mécanique de bourgeonnement, mitose et limite de Hayflick.
 - [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) : Dossier clinique `ClinicalState` et énumérations nosologiques formelles.

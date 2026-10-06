@@ -85,6 +85,12 @@ Les primitives de perception web et de fovéation restent isolées et ne forment
 
 ---
 
+## Nosologie computationnelle
+
+Le runtime Rust couvre **28 conditions dans neuf familles et 48 opérateurs de marqueurs**. Les diagnostics et recommandations sont synchronisés; l’application passe par une autorisation signée et un reçu persistant avec statut `applied`, `no_target` ou `refused`. Le type et la cible de la CLI doivent correspondre à l’autorisation. Les noms médicaux désignent des abstractions logicielles.
+
+Voir le [catalogue](docs/01-concepts/nosologie/catalogue-runtime.md), le [contrat API et CLI](docs/03-reference/api-et-contrats.md#autorisation-et-application-cliniques) et le [bilan daté](docs/06-qualite-preuves/validation-nosologie.md). Les mécanismes biologiques détaillés restent des propositions au-delà des contrats exécutables; les contrôles globaux du dépôt et le parcours HTTP → Rust complet ne sont pas déclarés validés.
+
 ## Pourquoi "biomimétique" et pas juste "biologique" ?
 
 Parce que les mots comptent pour ce qu'ils modélisent, pas pour ce qu'ils vendent. GenOS utilise des notions biologiques comme **structuration fonctionnelle** :

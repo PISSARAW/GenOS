@@ -1,6 +1,26 @@
 # Nosologie 6 : Maladies Métaboliques et Endocriniennes dans GenOS
 
+- **Statut** : Partiel — contrats de marqueurs implémentés; mécanismes biologiques détaillés proposés.
+- **Portée** : conditions métaboliques dans le catalogue nosologique Rust.
+- **Dernière revue** : 2026-10-06.
+
+
 > **Contrat runtime.** Les 28 conditions et les 48 opérateurs de marqueurs sont définis dans le [catalogue runtime](catalogue-runtime.md). Les mécanismes biologiques, paramètres, pseudo-code et scénarios ci-dessous restent des analogies ou propositions détaillées; seuls les effets et types du catalogue sont exécutables. Diagnostic, autorisation et application sont distincts. Les simulations ne valident aucune pathologie réelle ni aucun traitement humain.
+
+
+## Contrats exécutables de cette famille
+
+| Condition `NosologicalCondition` | Marqueurs mesurés | Variantes `SystemicTherapy` du catalogue |
+|---|---|---|
+| `Type2Diabetes` | `insulin_resistance` | `InsulinSensitizerMetformin` |
+| `Hypothyroidism` | `thyroid_signal_deficit` | `LevothyroxineHormoneReplacement` |
+| `Gout` | `purine_inflammation`, `purine_production`, `purine_waste_load` | `ColchicineInhibition`, `AllopurinolXanthineInhibitor`, `LysosomalUraturicPurge` |
+
+Ces variantes de marqueurs sont des identifiants sans paramètres. Leur effet est une baisse de 0,25 des cibles présentes et valides, avec un plancher à zéro. Le diagnostic utilise `Pathology::NosologicalCondition { condition, severity }`; les structs pathologiques spécialisés et paramètres supplémentaires décrits plus bas sont des propositions. Les seuils, gardes et effets secondaires applicables figurent dans le [catalogue runtime](catalogue-runtime.md).
+
+Les types courants sont définis dans [genos-cell/nosology.rs](../../../crates/genos-cell/src/nosology.rs), les contrats dans [shared/nosology.json](../../../shared/nosology.json), et l’application dans [therapy_dispatch.rs](../../../crates/genos-biology/src/therapy_dispatch.rs). Les références au module historique genos-core ci-dessous sont des points d’appui des analogies; elles ne remplacent pas ces contrats.
+
+Le tick synchronise les diagnostics et le rapport propose les traitements compatibles. Leur application reste explicite et autorisée, avec un reçu `applied`, `no_target` ou `refused`. Voir la [vue d’ensemble](vue-ensemble.md) et le [bilan des vérifications](../../06-qualite-preuves/validation-nosologie.md).
 
 ## 1. Introduction et Fondements Systémiques
 
@@ -163,16 +183,18 @@ provoquant un orage inflammatoire microcristallin localisé et l'occlusion physi
   - [`crates/genos-core/src/orchestrator/methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs) : Boucle de consommation métabolique et verdict d'arrêt `TickResult::Halted`.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Thérapies systémiques et locales** :
   - **`SystemicTherapy::InsulinSensitizerMetformin`** (thérapie à implémenter) :
     - Analogue biomimétique de la metformine (activation de la voie AMPK cellulaire).
     - Abaisse de 50% le `threshold` d'activation des récepteurs de ligands d'inbox dans `crates/genos-signal/src/cascade.rs`.
     - Restaure l'efficience mitochondriale `efficiency` de l'organelle vers sa valeur nominale ($\ge 0.85$).
-  - **`SystemicTherapy::IntensiveCareFluids`** (thérapie existante dans [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs#L153) et [`methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L80-L85)) :
+  - **`SystemicTherapy::IntensiveCareFluids`** (thérapie existante dans [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs) et [`methods.rs`](../../../crates/genos-core/src/orchestrator/methods.rs#L80-L85)) :
     - Administration d'urgence de solutés de réanimation computationnels : recharge immédiatement de +20 l'`atp_budget` des mitochondries pour éviter la mort subite de l'agent.
   - **`genos_biomimicry_endocrine_modulate`** (outil MCP / CLI existant) :
     - Action de désensibilisation hormonale `action: "decay"`, `decay_factor: 0.85` pour purger l'excès de cortisol circulant produit par le `StandardEndocrineSystem`.
-  - **`SystemicTherapy::HomeostaticDoseCorrection`** (thérapie existante dans [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs#L132-L135)) :
+  - **`SystemicTherapy::HomeostaticDoseCorrection`** (thérapie existante dans [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs)) :
     - Réajuste le débit d'injection des invites et des flux de données pour prévenir la saturation des récepteurs de l'agent.
 
 #### 4. Contre-indications et Risques Iatrogènes
@@ -191,7 +213,9 @@ provoquant un orage inflammatoire microcristallin localisé et l'occlusion physi
     ```
     L'agent risque de basculer du diabète vers une dégénérescence prionique incurable.
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
 - Ajouter le variant `Metabolic` à l'enum `DiseaseCategory`.
 - Ajouter la pathologie `Type2DiabetesInsulinResistance` à l'enum `Pathology` :
@@ -240,6 +264,8 @@ Dans [`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/t
   - [`crates/genos-cli/src/commands/biomimicry_features.rs`](../../../crates/genos-cli/src/commands/biomimicry_features.rs) : Commande `handle_endocrine` limitée actuellement au cortisol, à l'adrénaline et à l'ocytocine, manquant de l'axe thyroïdien.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Thérapies systémiques et hormonales** :
   - **`SystemicTherapy::LevothyroxineHormoneReplacement(dose)`** (thérapie à implémenter) :
     - Analogue de la lévothyroxine synthétique (T4 computationnelle).
@@ -248,7 +274,7 @@ Dans [`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/t
   - **Modulation endocrinienne via MCP `genos_biomimicry`** :
     - Invocation de la primitive avec `feature: "endocrine"`, `action: "secrete"`, `hormone: "thyroxine"`, `amount: 0.8`.
     - Provoque une vague de stimulation globale sur l'essaim, forçant l'Orchestrateur à relever la fréquence des cycles de tick.
-  - **`SystemicTherapy::HomeostaticDoseCorrection`** (thérapie existante dans [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs#L132)) :
+  - **`SystemicTherapy::HomeostaticDoseCorrection`** (thérapie existante dans [`therapy.rs`](../../../crates/genos-biology/src/therapy.rs)) :
     - Évite l'extinction totale de la vigilance cellulaire lors de l'arrêt des corticostéroïdes.
 
 #### 4. Contre-indications et Risques Iatrogènes
@@ -262,7 +288,9 @@ Dans [`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/t
     ```
     conduisant à la mort cellulaire immédiate dans [`methods.rs:L196`](../../../crates/genos-core/src/orchestrator/methods.rs#L196).
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
 - Définir le variant pathologique `HypothyroidismMetabolicTorpor` :
   ```rust
@@ -305,7 +333,7 @@ Dans [`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/t
 #### 2. Cause Computationnelle GenOS
 - **Dysfonctionnement agentique** :
   - Dans GenOS, le cycle de vie des requêtes implique un turnover incessant de structures de données : instanciation d'arbres de dérivation syntaxique, exécution d'inférences consommant de l'ATP, allocation puis désallocation d'historiques contextuels, division mitotique laissant des cicatrices (`bud_scars` dans `AgentCell`).
-  - La dégradation continue de ces structures produit des débris numériques computationnels (équivalents stricts des purines catabolisées). En fonctionnement sain, l'organelle `Organelle::Lysosome { digestion_capacity }` ([`crates/genos-cell/src/lib.rs:L24-27`](../../../crates/genos-cell/src/lib.rs#L24-L27)) digère et recycle ces fragments résiduels.
+  - La dégradation continue de ces structures produit des débris numériques computationnels (équivalents stricts des purines catabolisées). En fonctionnement sain, l'organelle `Organelle::Lysosome { digestion_capacity }` ([`crates/genos-cell/src/lib.rs:L24-27`](../../../crates/genos-cell/src/lib.rs)) digère et recycle ces fragments résiduels.
   - La **Goutte computationnelle** survient lorsque :
     1. Le taux de sollicitation métabolique de l'agent dépasse largement la capacité de clairance de ses lysosomes (`turnover_rate > digestion_capacity`).
     2. Les scories d'adresses, de traces d'inbox orphelines et d'objets JSON désérialisés non collectés s'accumulent dans les interfaces de communication inter-agents : les fentes synaptiques (`process_synaptic_cleft`) et les desmosomes de transmission de tâches de tissus ([`crates/genos-biology/src/tissue.rs`](../../../crates/genos-biology/src/tissue.rs)).
@@ -327,6 +355,8 @@ Dans [`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/t
   - [`crates/genos-biology/src/tissue.rs`](../../../crates/genos-biology/src/tissue.rs) : Blocage des desmosomes et de la délégation de tâches `delegate_task`.
 
 #### 3. Traitement / Remède GenOS
+
+> **Lecture du traitement.** Les actions biologiques et réparations structurelles décrites ici sont des analogies proposées. Les mutations réellement appliquées sont celles de la table de cette famille et du catalogue runtime.
 - **Thérapies systémiques et locales** :
   - **`SystemicTherapy::ColchicineInhibition`** (thérapie à implémenter) :
     - Analogue biomimétique de la colchicine (inhibiteur de la polymérisation des microtubules).
@@ -336,7 +366,7 @@ Dans [`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/t
     - Réduit de 80% la génération de scories contextuelles lors du cycle de dégradation de l'ATP et de la mémoire de travail.
   - **`SystemicTherapy::LysosomalUraturicPurge`** (thérapie à implémenter) :
     - Suractivation enzymatique ciblée de l'organelle `Lysosome` (`digestion_capacity = digestion_capacity * 4`), dissolvant les cristaux de contexte accumulés dans la fente synaptique et réouvrant les flux de communication.
-  - **`SystemicTherapy::DetoxificationWashout`** (thérapie existante dans [`therapy.rs:L115-126`](../../../crates/genos-biology/src/therapy.rs#L115-L126)) :
+  - **`SystemicTherapy::DetoxificationWashout`** (thérapie existante dans [`therapy.rs:L115-126`](../../../crates/genos-biology/src/therapy.rs)) :
     - Purge de réanimation globale permettant d'évacuer les blocages de récepteurs et de restaurer la fluidité matricielle.
 
 #### 4. Contre-indications et Risques Iatrogènes
@@ -350,7 +380,9 @@ Dans [`crates/genos-biology/src/therapy.rs`](../../../crates/genos-biology/src/t
 - **Flambée uratique paradoxale de mobilisation** :
   - Une dissolution trop rapide des tophus cristallins par un traitement uricosurique brutal libère des millions de micro-fragments dans la fente synaptique, provoquant une aggravation immédiate de la crise inflammatoire si elle n'est pas co-administrée avec un agent modérateur de stress.
 
-#### 5. Besoins d'Implémentation Rust
+#### 5. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 Dans [`crates/genos-cell/src/clinical.rs`](../../../crates/genos-cell/src/clinical.rs) :
 - Ajouter le variant de pathologie microcristalline `GoutMicrocrystallineCrisis` :
   ```rust
@@ -453,11 +485,15 @@ sequenceDiagram
 
 ---
 
-## 6. Spécifications Techniques et Implémentation Rust
+## 6. Propositions de mécanismes détaillés
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 Pour intégrer formellement les pathologies métaboliques et endocriniennes dans le socle Rust de GenOS, les modifications architecturales suivantes sont définies :
 
 ### 6.1 Enrichissement de `crates/genos-cell/src/clinical.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 ```rust
 // Dans crates/genos-cell/src/clinical.rs
@@ -519,6 +555,8 @@ impl Pathology {
 ```
 
 ### 6.2 Enrichissement de `crates/genos-biology/src/therapy.rs`
+
+> **Proposition détaillée.** Le contrat actuel est décrit dans la table de cette famille. Les extensions structurelles et signatures paramétrées ci-dessous restent proposées; elles ne décrivent pas l’API du catalogue.
 
 ```rust
 // Dans crates/genos-biology/src/therapy.rs

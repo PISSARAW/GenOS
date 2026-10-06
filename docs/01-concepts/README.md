@@ -36,7 +36,7 @@ La distinction entre **implémenté**, **partiel** et **cadre conceptuel** y est
 ## Familles spécialisées
 
 - [biomimetisme/](biomimetisme/README.md) — foraging web, spécialisations cellulaires, super-sens animaux, primitives de controle animal.
-- [nosologie/](nosologie/README.md) — pathologies du runtime, vue d'ensemble et 9 familles.
+- [nosologie/](nosologie/README.md) — 28 conditions simulées, neuf familles, 48 opérateurs de marqueurs et application signée persistante.
 - [natural-creative-ecology.md](natural-creative-ecology.md) — créativité émergente multi-échelle : imagination, exploration, plasticité, évolution, culture.
 - [signal-plane-zero-text.md](signal-plane-zero-text.md) — transport zero-text inter-agents : récepteurs, coalescing, EventBus, plasticité.
 - [natural-search-control-plane.md](natural-search-control-plane.md) — plan de contrôle de recherche naturelle : pression, progrès causal, ledger d'hypothèses, contrôleur.

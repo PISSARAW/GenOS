@@ -1,5 +1,7 @@
 # 06 — Qualité et preuves
 
+- [validation-nosologie.md](validation-nosologie.md) — résultats ciblés du 2026-10-06 et limites des vérifications globales.
+
 - [audit-affirmations-operationnelles.md](audit-affirmations-operationnelles.md) — vérification des contrats publiés, chemins, comportements et limites de couverture.
 - [plan-implementation-gvx.md](plan-implementation-gvx.md) — lots GVX, état d'implémentation et preuves empiriques restantes.
 - [validation-cycle-standard-gvx.md](validation-cycle-standard-gvx.md) — résultats fonctionnels du cycle AGOW, reprise, rollback et limites de qualification.

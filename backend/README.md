@@ -116,6 +116,16 @@ Cinq systèmes qui font passer GenOS d'agents sophistiqués à un écosystème g
 
 ---
 
+### 8. Nosologie et autorisations cliniques
+
+Le catalogue canonique [shared/nosology.json](../shared/nosology.json) définit 28 conditions et 48 opérateurs de marqueurs dans neuf familles. [nosologyCatalogService.js](src/services/medical/nosologyCatalogService.js) valide les variantes sans paramètres et les six formes paramétrées avant signature.
+
+`POST /api/rust/clinical-authorizations` vérifie le scope de la mission et la cellule de la population Rust courante. La route exige `security:manage`; le signataire exige également une approbation explicite et la permission `all`. L’autorisation liée au génome, à l’état et au reçu source expire initialement après 60 secondes et utilise `GENOS_THERAPY_AUTH_SECRET`.
+
+La réponse contient une autorisation, pas une application. La CLI restaure le journal et l’exécuteur Rust persiste le reçu et la population avant mise à jour mémoire. Les résultats `no_target` et `refused` gardent `treatment_administered = false`. Les tables et thérapies médicales Node conservent leur contrat propre.
+
+Références : [API et CLI](../docs/03-reference/api-et-contrats.md#autorisation-et-application-cliniques), [doctrine clinique](../docs/01-concepts/nosologie/pathologie-et-medecine.md), [bilan des preuves](../docs/06-qualite-preuves/validation-nosologie.md).
+
 ## Directory Layout
 
 ```text
@@ -260,13 +270,63 @@ La suite conserve les commandes, durées et codes de sortie dans un artefact ign
 
 ---
 
+## Vérification du noyau G-CIR Ω
+
+Depuis la racine du dépôt :
+
+```bash
+npm --prefix backend run test:omega
+npm --prefix backend run test:interop
+cargo test -p genos-mcp
+```
+
+`test:omega` regroupe les treize scripts couvrant le routeur, la MMU, la visibilité
+persistante, les preuves, les procédures et les projections. `test:interop`
+nécessite Cargo : les fixtures comparent les six opérations Node/Rust sur huit
+domaines et quatre refus, sans certifier les backends métier de production.
+Le job CI `omega-interop` exécute les deux suites Node, avec Rust installé.
+
+Voir [G-CIR](../docs/02-orchestration/g-cir.md) et
+l'[ADR 0323](../docs/adr/0323-frontieres-preuve-execution-omega.md) pour les
+invariants et les capacités encore manquantes. Ces tests ciblés ne remplacent
+pas les gates globaux du dépôt.
+
 ## Verification Test Suite
+
+### Garage Fabric : ordonnanceur durable des workers
+
+Le [Garage Fabric](../docs/02-orchestration/topologies/garage-fabric.md) raccorde
+douze politiques à l'admission et au bootstrap commun des missions worker.
+Les tables `garage_queue`, `garage_events` et `garage_capsules` persistent les
+demandes, transitions et états de suspension. Claim et réservation locale/projet
+partagent une transaction SQLite ; le bail UUID clôture les callbacks anciens.
+Un ACK ne prouve pas la fin : le run courant doit fournir son événement terminal
+et un artefact conforme au contrat typé.
+
+Les routes sous `/api/agents/:id/workers/garage` exposent capacité, `queue`
+et `events?after=N`. `POST /api/agents/:id/workers/:workerId/dispatch` admet la
+mission durable ; `POST /api/agents/:id/workers/garage/queue/:requestId/:action`
+contrôle `freeze`, `resume`, `cancel`, `renew`. Le tenant sélectionné borne
+les lectures ; les mutations exigent `workspace:write` et une autorité parent
+revérifiée. Une réponse 202 signifie admission, pas résultat validé.
+
+La préemption est consentie et attend un arrêt confirmé avant snapshot vérifié.
+Le GC retient la source pendant `freezing`/`freeze_failed` ; le payload est stocké
+hors de la capsule jetable. Le thaw restaure les fichiers dans une nouvelle
+capsule avec le budget restant mesuré. La file survit au restart, pas la RAM,
+les sockets ni le contexte du fournisseur LLM. Les états incertains restent
+réservés plutôt que libérés sans preuve.
+
+### Commandes de validation
 
 The test suite validates database integrity, vector search, biological primitives, and orchestration safety:
 
 ```bash
-# Run the complete backend verification suite (53 assertions)
+# Run the backend verification suite from backend/
 npm test
+
+# Run the seven Garage Fabric suites from backend/
+node tests/run_validation_suite.js garage
 
 # Run specialized safety & coherence tests
 node tests/test_runtime_budget_and_influence.js
@@ -274,6 +334,11 @@ node tests/test_human_approval_promotion_gate.js
 node tests/test_intermediate_state_persistence.js
 node tests/test_worker_failure_recovery.js
 ```
+
+Depuis la racine du dépôt, `npm run test:garage` lance le profil Garage et
+`npm test` inclut ce profil après les tests backend. Le `npm test` du seul
+backend ne remplace pas la validation Garage dédiée, ni le quality gate
+Python ou `cargo test --workspace`.
 
 
 

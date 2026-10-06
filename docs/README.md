@@ -210,6 +210,8 @@ Index : [06-qualite-preuves/README.md](06-qualite-preuves/README.md) · [07-posi
 - [validation-cycle-standard-gvx.md](06-qualite-preuves/validation-cycle-standard-gvx.md) — tests exécutés au commit `ac3423cb` et limites de leur portée.
 
 - [evaluation-qualite.md](06-qualite-preuves/evaluation-qualite.md) — évaluation, qualité, tests générés et exécutés.
+
+- [validation-nosologie.md](06-qualite-preuves/validation-nosologie.md) — résultats ciblés du 2026-10-06 et limites des vérifications globales.
 - [tests-et-validation.md](06-qualite-preuves/tests-et-validation.md) — validation du dépôt et suites de test.
 - [tests-des-contrats-recents.md](06-qualite-preuves/tests-des-contrats-recents.md) — validation des contrats récemment documentés.
 - [benchmark-ateam.md](06-benchmarks/benchmark-ateam.md) — protocole apparié A-Team, ablations et limites des résultats.
